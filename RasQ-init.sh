@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # usage (in RPi terminal):
-# wget https://github.com/JanLahmann/RasQberry-Two/raw/master/RasQ-init.sh
+# wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh
 # . ./RasQ-init.sh
 # also use the previous command to update the RasQberry tooling
 #
@@ -15,7 +15,7 @@ echo "Before running this script, pls setup the SD card using the"
 echo "Raspberry Pi Imager (with 'Raspberry Pi OS 64-bit with Desktop')," 
 echo "then login to the RPi via ssh and run the following commands:"
 echo;
-echo "wget https://github.com/JanLahmann/RasQberry-Two/raw/master/RasQ-init.sh"
+echo "wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh"
 echo ". ./RasQ-init.sh"
 echo "Also use the previous command to update the RasQberry tooling."
 echo;
@@ -23,8 +23,8 @@ echo "The script be run with parameters . ./RasQ-init.sh branch gituser devoptio
 echo "The -branch parameter is used to specify the branch you want to use"
 echo "The -gituser parameter is used to specify the github user to use for the rasqberry repository"
 echo "The -devoption parameter is used to install the development version of the rasqberry repository (production=0, dev=1)"
-echo "default values are: branch=master gituser=JanLahmann devoption=0"
-echo "example: . ./RasQ-init.sh master JanLahmann 1"
+echo "default values are: branch=main gituser=JanLahmann devoption=0"
+echo "example: . ./RasQ-init.sh main JanLahmann 1"
 echo;
 echo "See https://rasqberry.org for an in-depth description" 
 echo "of RasQberry, which combines Raspberry Pi and Qiskit,"
@@ -32,7 +32,7 @@ echo "IBM's open source Quantum Computing software framework."
 echo;
 
 # to use a differnt branch run e.g.   . ./RasQ-init.sh JRL-dev5
-BRANCH=${1:-master}
+BRANCH=${1:-main}
 GITUSER=${2:-JanLahmann}
 DEVOPTION=${3:-0}
 REPO="RasQberry-Two"
