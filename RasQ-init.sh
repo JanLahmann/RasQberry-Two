@@ -43,7 +43,7 @@ echo "using Branch " $BRANCH "and from github-user " $GITUSER "with DevOption " 
 cd ~/
 
 # cloning the RasQberry-Two github repo
-echo "cloning " $REPO
+echo; echo "cloning " $REPO
 
 if [ $DEVOPTION -eq 1 ]; then
     echo "using development mode"
@@ -54,15 +54,15 @@ else
 fi
 
 # replacing raspi-config with the modified version
-echo "replacing raspi-config with the modified version"
+echo; echo "replacing raspi-config with the modified version"
 wget https://raw.githubusercontent.com/JanLahmann/RasQberry-raspi-config/bookworm/raspi-config
 sudo cp /usr/bin/raspi-config /usr/bin/raspi-config.orig 
 sudo cp raspi-config /usr/bin
 
 # copy all binaries from the GH repo to ~/.local/bin
-echo "copy all binaries from the GH repo to ~/.local/bin"
+echo; echo "copy all binaries from the GH repo to ~/.local/bin"
 [ ! -d ~/.local/bin ] && mkdir ~/.local/bin
 [ -d $REPO/bin ] && cp -r $REPO/bin/* ~/.local/bin
 
-echo "RasQ-init.sh finished"
+echo; echo "RasQ-init.sh finished"
 echo "You may now start    sudo raspi-config"
