@@ -55,7 +55,7 @@ fi
 
 # replacing raspi-config with the modified version
 echo; echo "replacing raspi-config with the modified version"
-wget https://raw.githubusercontent.com/JanLahmann/RasQberry-raspi-config/bookworm/raspi-config
+wget https://raw.githubusercontent.com/JanLahmann/RasQberry-raspi-config/bookworm/raspi-config -O raspi-config
 sudo cp /usr/bin/raspi-config /usr/bin/raspi-config.orig 
 sudo cp raspi-config /usr/bin
 

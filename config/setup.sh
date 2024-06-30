@@ -9,6 +9,8 @@
 do_rq_initial_config() {
   ( echo; echo '##### added for rasqberry #####';
   echo 'export PATH=/home/pi/.local/bin:/home/pi/RasQberry/demos/bin:$PATH';
+  # fix locale
+  echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
   ) >> /home/pi/.bashrc && . /home/pi/.bashrc
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
