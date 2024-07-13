@@ -5,7 +5,7 @@
 ### Initial
 
 # Load environment variables
-. /home/$SUDO_USER/$REPO/env-config.sh
+. /home/$SUDO_USER/$REPO/config/env-config.sh
 
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
@@ -17,9 +17,9 @@ update_environment_file () {
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" $HOME/$REPO/$ENV
+    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$REPO/$ENV
     # reload environment file
-    . $HOME/$REPO/env-config.sh
+    . /home/$SUDO_USER/$REPO/env-config.sh
   fi
 }
 
@@ -35,10 +35,10 @@ do_menu_update_environment_file() {
 # Sets LOCALE, changes splash screen
 do_rqb_initial_config() {
   ( echo; echo '##### added for rasqberry #####';
-  echo 'export PATH=/home/pi/.local/bin:/home/pi/RasQberry/demos/bin:$PATH';
+  echo 'export PATH=/home/$SUDO_USER/.local/bin:/home/$SUDO_USER/$REPO/demos/bin:$PATH';
   # fix locale
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
-  ) >> /home/pi/.bashrc && . /home/pi/.bashrc
+  ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
   fi
