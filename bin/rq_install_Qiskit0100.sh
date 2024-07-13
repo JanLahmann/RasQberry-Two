@@ -4,7 +4,7 @@
 #
 
 # Load environment variables
-. $HOME/env-config.sh
+. $HOME/config/env-config.sh
 
 echo "env"
 env
