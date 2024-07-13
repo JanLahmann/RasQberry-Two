@@ -4,9 +4,36 @@
 
 ### Initial
 
+# Load environment variables
+. $HOME/$REPO/env-config.sh
+
+# Function to update values stored in the rasqberry_environment.env file
+update_environment_file () {
+  #check whether string is empty
+  if [ -z "$2" ]||[ -z "$1" ]; then
+    # whiptail message box to show error
+    if [ "$INTERACTIVE" = true ]; then
+      [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
+    fi
+  else
+    # update environment file
+    sed -i "s/^$1=.*/$1=$2/gm" $HOME/$REPO/$ENV
+    # reload environment file
+    . $HOME/$REPO/env-config.sh
+  fi
+}
+
+# Function to update values stored in the $ENV file
+# $1 = variable name, $2 = value
+do_menu_update_environment_file() {
+  new_value=$(whiptail --inputbox "$1" "$WT_HEIGHT" "$WT_WIDTH" --title "Type in the new value" 3>&1 1>&2 2>&3)
+  update_environment_file "$1" "$new_value"
+}
+
+
 # Initial setup for RasQberry
 # Sets LOCALE, changes splash screen
-do_rq_initial_config() {
+do_rqb_initial_config() {
   ( echo; echo '##### added for rasqberry #####';
   echo 'export PATH=/home/pi/.local/bin:/home/pi/RasQberry/demos/bin:$PATH';
   # fix locale

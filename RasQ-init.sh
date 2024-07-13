@@ -1,7 +1,11 @@
 #!/bin/bash
 #
+
+# export project / repo name
+export REPO="RasQberry-Two"
+
 # usage (in RPi terminal):
-# wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh
+# wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh -O RasQ-init.sh
 # . ./RasQ-init.sh
 # also use the previous command to update the RasQberry tooling
 #
@@ -35,10 +39,9 @@ echo;
 BRANCH=${1:-main}
 GITUSER=${2:-JanLahmann}
 DEVOPTION=${3:-0}
-REPO="RasQberry-Two"
 echo "using Branch " $BRANCH "and from github-user " $GITUSER "with DevOption " $DEVOPTION
 
-# to reset local changes run.  cd ~/RasQberry; git reset --hard HEAD
+# to reset local changes run:  cd ~/RasQberry; git reset --hard HEAD
 
 cd ~/
 
@@ -65,4 +68,4 @@ echo; echo "copy all binaries from the GH repo to ~/.local/bin"
 [ -d $REPO/bin ] && cp -r $REPO/bin/* ~/.local/bin
 
 echo; echo "RasQ-init.sh finished"
-echo "You may now start    sudo raspi-config"
+echo "You may now run    sudo raspi-config"
