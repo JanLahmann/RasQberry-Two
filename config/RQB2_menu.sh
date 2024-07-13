@@ -60,11 +60,12 @@ do_rqb_initial_config() {
 # Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
 # Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
 do_rqb_install_qiskit() {
-    sudo -u $SUDO_USER -H -- sh -c '/home/'$SUDO_USER'/.local/bin/rq_install_Qiskit'$1'.sh'
-    if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
-      [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
-    fi
-  }
+  sudo -u $SUDO_USER -H -- sh -c '/home/'$SUDO_USER'/.local/bin/rq_install_Qiskit'$1'.sh'
+  if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
+    [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
+  fi
+}
+
 
 do_rqb_qiskit_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Install Qiskit" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
@@ -86,8 +87,25 @@ do_rqb_qiskit_menu() {
 }
 
 
+do_rqb_one_click_install() {
+  update_environment_file "INTERACTIVE" "false"
+  
+  do_rqb_system_update
+  do_rqb_initial_config
+  do_rqb_install_qiskit 0101
+  do_vnc
+  
+  update_environment_file "INTERACTIVE" "true"
+  if [ "$INTERACTIVE" = true ]; then
+    [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Please exit and reboot" 20 60 1
+  fi
+  ASK_TO_REBOOT=1
+}
+
+
 do_rasqberry_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+    "OCI One-Click Install" "Run standard RQB2 setup automatically" \
     "SU System Update " "Update the system and create swapfile" \
     "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
     "IQ Qiskit Install" "Install latest version of Qiskit" \
@@ -97,6 +115,7 @@ do_rasqberry_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
+      OCI\ *) do_rqb_one_click_install ;;
       SU\ *) do_rqb_system_update ;;
       IC\ *) do_rqb_initial_config ;;
       IQ\ *) do_rqb_qiskit_menu ;;
