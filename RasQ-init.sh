@@ -20,7 +20,7 @@ echo "Before running this script, pls setup the SD card using the"
 echo "Raspberry Pi Imager (with 'Raspberry Pi OS 64-bit with Desktop')," 
 echo "then login to the RPi via ssh and run the following commands:"
 echo;
-echo "wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh"
+echo "wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh -O RasQ-init.sh"
 echo ". ./RasQ-init.sh"
 echo "Also use the previous command to update the RasQberry tooling."
 echo;

@@ -60,7 +60,6 @@ do_rqb_initial_config() {
 # Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
 # Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
 do_rqb_install_qiskit() {
-    echo; echo "Install Qiskit $1"; echo;
     sudo -u $SUDO_USER -H -- sh -c '/home/'$SUDO_USER'/.local/bin/rq_install_Qiskit'$1'.sh'
     if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
