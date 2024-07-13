@@ -40,6 +40,7 @@ do_rqb_initial_config() {
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
   ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
   # create venv for Qiskit
+  sudo -u $SUDO_USER -H -- sh -c 'env'
   sudo -u $SUDO_USER -H -- sh -c 'python3 -m venv $HOME/$REPO/venv/$STD_VENV'
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
