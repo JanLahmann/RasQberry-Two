@@ -19,7 +19,7 @@ update_environment_file () {
     # update environment file
     sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$REPO/$ENV
     # reload environment file
-    . /home/$SUDO_USER/$REPO/env-config.sh
+    . /home/$SUDO_USER/$REPO/config/env-config.sh
   fi
 }
 
@@ -32,13 +32,15 @@ do_menu_update_environment_file() {
 
 
 # Initial setup for RasQberry
-# Sets LOCALE, changes splash screen
+# Sets PATH, LOCALE, create python venv
 do_rqb_initial_config() {
   ( echo; echo '##### added for rasqberry #####';
   echo 'export PATH=/home/$SUDO_USER/.local/bin:/home/$SUDO_USER/$REPO/demos/bin:$PATH';
   # fix locale
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
   ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
+  # create venv for Qiskit
+  sudo -u $SUDO_USER -H -- sh -c 'python3 -m venv /home/$SUDO_USER/$REPO/venv/$STD_VENV'
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
   fi
