@@ -41,7 +41,7 @@ GITUSER=${2:-JanLahmann}
 DEVOPTION=${3:-0}
 echo "using Branch " $BRANCH "and from github-user " $GITUSER "with DevOption " $DEVOPTION
 
-# to reset local changes run:  cd ~/RasQberry; git reset --hard HEAD
+# to reset local changes run:  cd ~/RasQberry-Two; git reset --hard HEAD; cd
 
 cd ~/
 
@@ -61,6 +61,10 @@ echo; echo "replacing raspi-config with the modified version"
 wget https://raw.githubusercontent.com/JanLahmann/RasQberry-raspi-config/bookworm/raspi-config -O raspi-config
 sudo cp /usr/bin/raspi-config /usr/bin/raspi-config.orig 
 sudo cp raspi-config /usr/bin
+
+# mv RasQberry config file to $HOME
+echo; echo "mv RasQberry config file to $HOME"
+mv -r $REPO/config/env-config.sh $HOME
 
 # copy all binaries from the GH repo to ~/.local/bin
 echo; echo "copy all binaries from the GH repo to ~/.local/bin"
