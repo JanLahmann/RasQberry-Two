@@ -2,6 +2,8 @@
 # used in our bash scripts and python
 
 # System Variables, do not change if you don't know what you are doing
+REPO=RasQberry-Two
+
 OS_VERSION=none
 
 INTERACTIVE=true
