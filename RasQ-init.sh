@@ -64,7 +64,7 @@ sudo cp raspi-config /usr/bin
 
 # mv RasQberry config file to $HOME
 echo; echo "mv RasQberry config file to $HOME"
-mv -r $REPO/config/env-config.sh $HOME
+mv $REPO/config/env-config.sh $HOME
 
 # copy all binaries from the GH repo to ~/.local/bin
 echo; echo "copy all binaries from the GH repo to ~/.local/bin"
