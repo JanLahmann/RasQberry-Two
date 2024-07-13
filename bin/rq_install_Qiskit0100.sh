@@ -4,7 +4,7 @@
 #
 
 # Load environment variables
-$HOME/.local/bin/env-config.sh
+. $HOME/.local/bin/env-config.sh
 
 
 export STARTDATE=`date`
