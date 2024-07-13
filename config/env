@@ -2,7 +2,8 @@
 # used in our bash scripts and python
 
 # System Variables, do not change if you don't know what you are doing
-REPO=RasQberry-Two
+REPO=RasQberry-Two # Attention: variable is defined in multiple files
+RQB2_CONFDIR=RQB2-config # Attention: variable is defined in multiple files
 
 OS_VERSION=none
 

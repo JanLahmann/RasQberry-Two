@@ -2,7 +2,8 @@
 #
 
 # export project / repo name
-export REPO="RasQberry-Two"
+export REPO=RasQberry-Two # Attention: variable is defined in multiple files
+export RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
 
 # usage (in RPi terminal):
 # wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh -O RasQ-init.sh
@@ -62,16 +63,17 @@ wget https://raw.githubusercontent.com/JanLahmann/RasQberry-raspi-config/bookwor
 sudo cp /usr/bin/raspi-config /usr/bin/raspi-config.orig 
 sudo cp raspi-config /usr/bin
 
-# mv RasQberry config file to $HOME
-echo; echo "mv RasQberry config file to $HOME"
-mkdir -p $HOME/config/
-mv $REPO/config/env-config.sh $REPO/config/env $HOME/config/
-
 
 # copy all binaries from the GH repo to ~/.local/bin
 echo; echo "copy all binaries from the GH repo to ~/.local/bin"
 [ ! -d ~/.local/bin ] && mkdir ~/.local/bin
 [ -d $REPO/bin ] && cp -r $REPO/bin/* ~/.local/bin
+
+# copy all config files from the GH repo to ~/$RQB2_CONFDIR
+echo; echo "copy all config files from the GH repo to ~/$RQB2_CONFDIR"
+[ ! -d ~/.local/config ] && mkdir ~/$RQB2_CONFDIR
+[ -d $REPO/config ] && cp -r $REPO/config/* ~/$RQB2_CONFDIR
+ln -s ~/$RQB2_CONFDIR/env-config.sh ~/.local/bin # make env-config.sh avaialable at a default location
 
 echo; echo "RasQ-init.sh finished"
 echo "You may now run    sudo raspi-config"

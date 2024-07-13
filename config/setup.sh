@@ -5,7 +5,7 @@
 ### Initial
 
 # Load environment variables
-. /home/$SUDO_USER/config/env-config.sh
+. /home/$SUDO_USER/.local/bin/env-config.sh
 
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {

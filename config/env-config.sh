@@ -1,14 +1,9 @@
 #!/bin/sh
 # shellcheck disable=SC2046
-if [ -e /home/$SUDO_USER/config/env ] ; then
-  echo "/home/$SUDO_USER/config/env found"
-  export $(grep -v "^#" "/home/$SUDO_USER/config/env" | xargs -d "\n")
-else
-  echo "/home/$SUDO_USER/config/env not found"
-fi
-if [ -e /home/$USER/config/env ] ; then
-  echo "/home/$USER/config/env found"
-  export $(grep -v "^#" "/home/$USER/config/env" | xargs -d "\n")
-else
-  echo "/home/$USER/config/env not found"
+RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
+if [ -e /home/$SUDO_USER/$RQB2_CONFDIR/env ] ; then
+  export $(grep -v "^#" "/home/$SUDO_USER/$RQB2_CONFDIR/env" | xargs -d "\n")
+elif [ -e /home/$USER/$RQB2_CONFDIR/env ] ; then
+    export $(grep -v "^#" "/home/$USER/$RQB2_CONFDIR/env" | xargs -d "\n")
+else  echo "env file not found"
 fi
