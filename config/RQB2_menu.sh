@@ -93,7 +93,7 @@ do_rqb_one_click_install() {
   do_rqb_system_update
   do_rqb_initial_config
   do_rqb_install_qiskit 0101
-  do_vnc 1
+  do_vnc 0
   
   update_environment_file "INTERACTIVE" "true"
   if [ "$INTERACTIVE" = true ]; then
