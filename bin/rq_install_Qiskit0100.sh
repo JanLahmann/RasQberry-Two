@@ -17,7 +17,7 @@ echo
 export STARTDATE=`date`
 echo; echo; echo "Install Qiskit 1.0"; echo;
 
-$HOME/$REPO/venv/$STD_VENV/activate
+$HOME/$REPO/venv/$STD_VENV/bin/activate
 pip install --prefer-binary  'qiskit[all]==1.0.*'
 
 
