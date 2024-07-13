@@ -39,4 +39,10 @@ which in the most cases is
 ```python
 . /home/pi/RasQberry-Two/venv/RQB2/bin/activate
 ```
-
+Then, qiskit should be usable:
+```python
+(RQB2) pi@raspberrypi:~ $ pip list | grep qiskit
+qiskit                 1.1.1
+qiskit-qasm3-import    0.5.0
+```
+Please let us know in case additional modules are needed.
