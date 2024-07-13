@@ -4,7 +4,15 @@
 #
 
 # Load environment variables
-. $SHOME/$REPO/config/env-config.sh
+. $HOME/$REPO/config/env-config.sh
+
+echo "env"
+env
+echo
+echo "HOME " $HOME
+echo "REPO " $REPO
+echo "VENV " $STD_VENV
+echo 
 
 export STARTDATE=`date`
 echo; echo; echo "Install Qiskit 1.0"; echo;
