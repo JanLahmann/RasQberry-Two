@@ -5,7 +5,7 @@
 ### Initial
 
 # Load environment variables
-. /home/$SUDO_USER/$REPO/config/env-config.sh
+. /home/$SUDO_USER/env-config.sh
 
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
@@ -50,7 +50,7 @@ do_rqb_initial_config() {
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
   ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
   # create venv for Qiskit
-  sudo -u $SUDO_USER -H -Eqq -- sh -c 'python3 -m venv /home/'$SUDO_USER'/'$REPO'/venv/'$STD_VENV
+  sudo -u $SUDO_USER -H -E -- sh -c 'python3 -m venv /home/'$SUDO_USER'/'$REPO'/venv/'$STD_VENV
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
   fi

@@ -4,7 +4,7 @@
 #
 
 # Load environment variables
-. $HOME/$REPO/config/env-config.sh
+. $HOME/env-config.sh
 
 echo "env"
 env
