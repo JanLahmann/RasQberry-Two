@@ -17,9 +17,9 @@ update_environment_file () {
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$REPO/$ENV
+    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$RQB2_CONFDIR/env
     # reload environment file
-    . /home/$SUDO_USER/$REPO/config/env-config.sh
+    . /home/$SUDO_USER/.local/bin/env-config.sh
   fi
 }
 

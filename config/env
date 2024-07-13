@@ -5,7 +5,7 @@
 # Attention: variable is defined in multiple files
 REPO=RasQberry-Two 
 # Attention: variable is defined in multiple files
-RQB2_CONFDIR=RQB2-config
+RQB2_CONFDIR=.local/config
 
 OS_VERSION=none
 

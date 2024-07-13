@@ -69,10 +69,10 @@ echo; echo "copy all binaries from the GH repo to ~/.local/bin"
 [ ! -d ~/.local/bin ] && mkdir ~/.local/bin
 [ -d $REPO/bin ] && cp -r $REPO/bin/* ~/.local/bin
 
-# copy all config files from the GH repo to ~/$RQB2_CONFDIR
-echo; echo "copy all config files from the GH repo to ~/$RQB2_CONFDIR"
+# move all config files from the GH repo to ~/$RQB2_CONFDIR
+echo; echo "move all config files from the GH repo to ~/$RQB2_CONFDIR"
 [ ! -d ~/.local/config ] && mkdir ~/$RQB2_CONFDIR
-[ -d $REPO/config ] && cp -r $REPO/config/* ~/$RQB2_CONFDIR
+[ -d $REPO/config ] && mv -r $REPO/config/* ~/$RQB2_CONFDIR
 ln -sf ~/$RQB2_CONFDIR/env-config.sh ~/.local/bin # make env-config.sh avaialable at a default location
 
 echo; echo "RasQ-init.sh finished"
