@@ -40,7 +40,7 @@ do_rqb_initial_config() {
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
   ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
   # create venv for Qiskit
-  sudo -u $SUDO_USER -H -- sh -c 'python3 -m venv /home/$SUDO_USER/$REPO/venv/$STD_VENV'
+  sudo -u $SUDO_USER -H -- sh -c 'python3 -m venv $HOME/$REPO/venv/$STD_VENV'
   if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
   fi
@@ -57,7 +57,7 @@ do_rqb_system_update() {
 
 do_rasqberry_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv & Packages, etc)" \
+    "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
     "SU System Update " "Update the system and create swapfile" \
     "IQ Qiskit Install" "Install latest version of Qiskit" \
     3>&1 1>&2 2>&3)
