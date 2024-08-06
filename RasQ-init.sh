@@ -66,12 +66,12 @@ sudo cp raspi-config /usr/bin
 
 # copy all binaries from the GH repo to ~/.local/bin
 echo; echo "copy all binaries from the GH repo to ~/.local/bin"
-[ ! -d ~/.local/bin ] && mkdir ~/.local/bin
+[ ! -d ~/.local/bin ] && mkdir -p ~/.local/bin
 [ -d $REPO/bin ] && cp -r $REPO/bin/* ~/.local/bin
 
 # move all config files from the GH repo to ~/$RQB2_CONFDIR
 echo; echo "move all config files from the GH repo to ~/$RQB2_CONFDIR"
-[ ! -d ~/.local/config ] && mkdir ~/$RQB2_CONFDIR
+[ ! -d ~/$RQB2_CONFDIR ] && mkdir -p ~/$RQB2_CONFDIR
 [ -d $REPO/config ] && mv --update $REPO/config/* ~/$RQB2_CONFDIR # be careful: can overwrite modified config file
 ln -sf ~/$RQB2_CONFDIR/env-config.sh ~/.local/bin # make env-config.sh avaialable at a default location
 
