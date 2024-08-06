@@ -1,0 +1,141 @@
+@use '@carbon/type';
+@use '@carbon/grid';
+
+@mixin gradient-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+
+    &__gradient {
+        position: absolute;
+        z-index: 1;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to right, rgb(255, 255, 255) 40%, transparent 100%);
+    }
+
+    &__image {
+        position: absolute;
+        z-index: 0;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.lead-space {
+    width: 100%;
+    position: relative;
+    padding-top: 4rem;
+
+    @include grid.breakpoint-up(lg) {
+        &--tall {
+            padding-bottom: 4rem;
+            height: 70vh;
+            padding-top: 8rem;
+            padding-top: 10rem;
+        }
+
+        &--super {
+            padding-bottom: 6rem;
+            height: 100vh;
+        }
+    }
+
+    &__content {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-start;
+
+        &--short {
+            height: 20vh;
+            justify-content: center;
+        }
+
+        &__title {
+            @include type.type-style('fluid-display-01', true);
+
+            @include grid.breakpoint-down(lg) {
+                margin-bottom: 2rem;
+            }
+        }
+
+        &__bottom {
+            @include type.type-style('heading-04');
+
+            @include grid.breakpoint-up(lg) {
+                @include type.type-style('heading-06');
+            }
+
+            &__cta {
+                margin-top: 2rem;
+                display: flex;
+                gap: 1rem;
+            }
+        }
+    }
+
+    &__bg {
+        max-inline-size: 100%;
+
+        @include grid.breakpoint-up(lg) {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+
+            &__gradient {
+                position: absolute;
+                z-index: 1;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(to right, rgb(255, 255, 255) 40%, transparent 100%);
+            }
+
+            &__image {
+                position: absolute;
+                z-index: 0;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+        }
+
+
+        @include grid.breakpoint-down(lg) {
+            margin-top: 2rem;
+        }
+    }
+
+    &--tall,
+    &--super & {
+        &__bg {
+            @include grid.breakpoint-up(lg) {
+                @include gradient-bg()
+            }
+        }
+    }
+
+
+    &--short & {
+        &__bg {
+            @include gradient-bg();
+            margin-top: 0rem;
+        }
+    }
+}

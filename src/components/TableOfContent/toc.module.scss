@@ -1,0 +1,39 @@
+@use '@carbon/themes';
+@use '@carbon/grid';
+@use '@carbon/type';
+@use '@carbon/layout';
+@use '@carbon/colors';
+
+.toc {
+    position: sticky;
+    top: 4rem;
+    width: 100%;
+
+    &__list {
+        @include grid.breakpoint-down(lg) {
+            display: none;
+        }
+
+        margin: 0;
+
+        &__item {
+            cursor: pointer;
+            line-height: 1.25rem;
+            margin: 0;
+            padding: 1rem;
+            border-left: 0.25rem solid themes.$border-subtle-01;
+
+            &--active {
+                border-left: 0.25rem solid themes.$border-interactive;
+            }
+        }
+    }
+
+    &__dropdown {
+        margin-bottom: 2rem;
+
+        @include grid.breakpoint-up(lg) {
+            display: none;
+        }
+    }
+}

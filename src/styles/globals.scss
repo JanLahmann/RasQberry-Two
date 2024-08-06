@@ -1,0 +1,77 @@
+@use '@carbon/react' with ($css--default-type: true,
+  $css--reset: true,
+  $use-flexbox-grid: true);
+
+@use '@carbon/type';
+@use '@carbon/themes';
+
+body {
+  margin: 0;
+  color: themes.$text-primary;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+h1 {
+  @include type.type-style('fluid-display-01', true);
+  color: themes.$text-primary;
+}
+
+h2 {
+  @include type.type-style('heading-06');
+  color: themes.$text-primary;
+
+  &:not(:first-child) {
+    margin: 3rem 0 2rem;
+  }
+}
+
+h3 {
+  @include type.type-style('heading-05');
+  color: themes.$text-primary;
+
+  &:not(:first-child) {
+    margin: 1.5rem 0;
+  }
+}
+
+h4 {
+  @include type.type-style('heading-04');
+  color: themes.$text-primary;
+}
+
+h5 {
+  @include type.type-style('heading-03');
+  color: themes.$text-primary;
+}
+
+h6 {
+  @include type.type-style('heading-02');
+  color: themes.$text-primary;
+}
+
+p:not(:first-child) {
+  margin: 1rem 0;
+}
+
+hr {
+  margin: 2rem 0;
+}
+
+code {
+  border-radius: 4px;
+}
+
+.cds--side-nav__overlay,
+.cds--side-nav--ux {
+  inset-block-start: 0rem;
+}
+
+.youtube-iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  margin: 1rem 0;
+}

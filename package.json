@@ -1,0 +1,48 @@
+{
+  "name": "rasqberry-two",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@carbon/ibmdotcom-styles": "^2.11.0",
+    "@carbon/icons-react": "^11.45.0",
+    "@carbon/react": "^1.62.1",
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/language": "^6.10.2",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.28.6",
+    "@lezer/highlight": "^1.2.0",
+    "@mdx-js/loader": "^3.0.1",
+    "@mdx-js/react": "^3.0.1",
+    "@next/mdx": "^14.2.5",
+    "@types/mdx": "^2.0.13",
+    "clsx": "^2.1.1",
+    "lit-element": "^4.0.6",
+    "lit-html": "^3.1.4",
+    "next": "14.2.5",
+    "next-mdx-remote": "^5.0.0",
+    "react": "^18",
+    "react-children-utilities": "^2.10.0",
+    "react-dom": "^18",
+    "react-syntax-highlighter": "^15.5.0",
+    "remark-directive": "^3.0.0",
+    "remark-gfm": "^1.0.0",
+    "remark-mdx-frontmatter": "^5.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
+    "typescript": "^5"
+  }
+}

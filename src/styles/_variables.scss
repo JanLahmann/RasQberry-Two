@@ -1,0 +1,8 @@
+@use '@carbon/colors';
+
+$app-header-height: 47px; //header + 1px border
+$page-navigation-height-desktop: 4rem;
+$page-navigation-height-mobile: 3rem;
+$text-gradient-blue: colors.$blue-60;
+$text-gradient-purple: #9b5cff; // non-Carbon color
+$border-radius: 4px;

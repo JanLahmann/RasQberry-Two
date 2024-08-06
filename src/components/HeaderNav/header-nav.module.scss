@@ -1,0 +1,21 @@
+.header-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: #fff;
+    border-block-start: 1px solid var(--cds-border-subtle);
+    border-block-end: 1px solid var(--cds-border-subtle);
+
+    & :global(.cds--header) {
+        border-block-end: none;
+        position: sticky !important;
+    }
+
+    & :global(.cds--header__nav) {
+        padding-inline-start: 0;
+    }
+
+    & :global(.cds--header__name) {
+        padding: 0 1rem 0 0;
+    }
+}
