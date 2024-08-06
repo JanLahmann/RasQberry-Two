@@ -5,7 +5,7 @@
 ## Quick Installation of RasQberry
 Quick setup instructions:<br/>
 Initialize an SD card with Raspberry Pi Imager, using the recommended "bookworm, 64-bit". (development was conducted with the default "pi" user, but other users should be possible as well).
-Please assure that git is installed If not here is the command ```python apt-get install git```
+Please also assure that git is installed. If not here is the command ```python apt-get install git```
 
 Open the terminal/ssh window on your Raspberry Pi. 
 
