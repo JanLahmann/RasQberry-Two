@@ -8,7 +8,7 @@ It is built using NextJS and deployed using GitHub Actions.
 
 ### Prerequisites
 
-- NodeJS 20
+- NodeJS 20 ([how to install](https://nodejs.org/en/download/package-manager))
 
 ### Install dependencies
 
