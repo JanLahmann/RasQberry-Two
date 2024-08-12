@@ -4,6 +4,32 @@ This is the GitHub Pages project for the RasQberry Two documentation page.
 
 It is built using NextJS and deployed using GitHub Actions.
 
+## How to start developing
+
+### Prerequisites
+
+- NodeJS 20
+
+### Install dependencies
+
+```
+npm install
+```
+
+### Run the website in development mode
+
+```
+npm run dev
+```
+
+
+### Build and run in production mode
+
+```
+npm run build
+npx serve@latest out
+```
+
 ## How add content
 
 The project is set up to build the pages from the [`content`](https://github.com/paaragon/rasqberry-two-dev/tree/main/content) folder. It will create the same route hierarchy contained in the folder.
