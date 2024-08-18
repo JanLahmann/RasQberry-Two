@@ -1,3 +1,5 @@
+[![Deploy Next.js site to Pages](https://github.com/JanLahmann/RasQberry-Two/actions/workflows/nextjs.yml/badge.svg)](https://github.com/JanLahmann/RasQberry-Two/actions/workflows/nextjs.yml)
+
 # RasQberry Two Github pages
 
 This is the GitHub Pages project for the RasQberry Two documentation page.
