@@ -8,6 +8,7 @@ leadspace:
       label: View On GitHub
       url: https://github.com/JanLahmann/RasQberry-Two
       icon: logo-github
+      target: _blank
   bg:
     image:
       src: https://picsum.photos/id/1076/1056/480

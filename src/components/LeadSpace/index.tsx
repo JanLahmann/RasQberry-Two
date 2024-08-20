@@ -5,24 +5,23 @@ import Image from 'next/image';
 
 import styles from './lead-space.module.scss'
 import clsx from "clsx";
-import { Button, Column, Grid } from "@/components/carbon-wrapper";
+import { Button, Column, Grid, Link } from "@/components/carbon-wrapper";
 import { icons } from "@/components/icons";
+
+interface CTA {
+    label: string
+    url: string
+    icon?: string
+    target?: '_blank'
+}
 
 export interface Props {
     title?: string
     size?: 'short' | 'tall' | 'super'
     copy?: string
     cta?: {
-        primary: {
-            label: string
-            url: string
-            icon?: string
-        },
-        secondary?: {
-            label: string
-            url: string
-            icon?: string
-        },
+        primary: CTA,
+        secondary?: CTA
     }
     bg?: {
         gradient: boolean,
@@ -47,8 +46,12 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall' }: Props) {
                 <Column sm={4} md={6} lg={8}>
                     {copy}
                     {cta && (<div className={styles['lead-space__content__bottom__cta']}>
-                        <Button renderIcon={primaryIcon} iconDescription={cta.primary.label} href={cta.primary.url}>{cta.primary.label}</Button>
-                        {cta.secondary && <Button renderIcon={secondaryIcon} iconDescription={cta.secondary.label} href={cta.secondary.url}>{cta.secondary.label}</Button>}
+                        <Link href={cta.primary.url} target={cta.primary.target || '_self'}>
+                            <Button renderIcon={primaryIcon}>
+                                {cta.primary.label}
+                            </Button>
+                        </Link>
+                        {cta.secondary && <Link renderIcon={secondaryIcon} href={cta.secondary.url} target={cta.primary.target || '_self'}>{cta.secondary.label}</Link>}
                     </div>
                     )}
                 </Column>

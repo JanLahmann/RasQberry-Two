@@ -4,6 +4,7 @@ import {
   Column,
   Grid,
   Button,
+  Link,
   Dropdown,
   Header,
   SkipToContent,
@@ -31,5 +32,6 @@ export {
   HeaderMenuButton,
   HeaderMenuItem,
   HeaderMenu,
-  HeaderSideNavItems
+  HeaderSideNavItems,
+  Link
 };
