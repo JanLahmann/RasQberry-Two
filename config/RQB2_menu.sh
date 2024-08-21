@@ -3,6 +3,28 @@
 ############# CONFIGURATION METHODS #############
 
 ### Initial
+# Added By Rishi as part of rasQberry-two project 
+### Initial
+export RQB2_CONFDIR=.local/config
+[ ! -d /home/$SUDO_USER/.local/bin ] && sudo  mkdir -p /home/$SUDO_USER/.local/bin
+[ ! -d /home/$SUDO_USER/$RQB2_CONFDIR ] && sudo  mkdir -p /home/$SUDO_USER/$RQB2_CONFDIR
+sudo chmod -R 755 /home/$SUDO_USER/.local/bin
+sudo chmod -R 755 /home/$SUDO_USER/$RQB2_CONFDIR
+sudo cp /usr/bin/rq*.sh /home/$SUDO_USER/.local/bin
+sudo cp /usr/config/* /home/$SUDO_USER/$RQB2_CONFDIR
+#ln -sf ~/$RQB2_CONFDIR/env-config.sh ~/.local/bin
+
+SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
+TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
+# Check if the symbolic link already exists
+if [ ! -L "$TARGET_LINK" ]; 
+then 
+    # If the link doesn't exist, create it
+    sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
+    echo "Symbolic link created: $TARGET_LINK -> $SOURCE_FILE"
+else
+    echo "Symbolic link already exists: $TARGET_LINK"
+fi
 
 # Load environment variables
 . /home/$SUDO_USER/.local/bin/env-config.sh
