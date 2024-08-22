@@ -17,7 +17,7 @@ sudo cp /usr/config/* /home/$SUDO_USER/$RQB2_CONFDIR
 SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
 TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
 # Check if the symbolic link already exists
-if [ ! -L "$TARGET_LINK" ]; 
+if [ -L "$TARGET_LINK" ]; 
 then 
     # If the link exist remove it
     sudo rm $TARGET_LINK
