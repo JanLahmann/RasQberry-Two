@@ -19,13 +19,14 @@ TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
 # Check if the symbolic link already exists
 if [ ! -L "$TARGET_LINK" ]; 
 then 
-    # If the link doesn't exist, create it
-    sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
-    echo "Symbolic link created: $TARGET_LINK -> $SOURCE_FILE"
+    # If the link exist remove it
+    sudo rm $TARGET_LINK
+    echo "Symbolic link Removed"
 else
-    echo "Symbolic link already exists: $TARGET_LINK"
+    echo "Symbolic link doesn't exists"
 fi
-
+# Create symbolic link 
+sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 # Load environment variables
 . /home/$SUDO_USER/.local/bin/env-config.sh
 
