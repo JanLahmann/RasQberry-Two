@@ -4,7 +4,7 @@
 #
 
 #If no parameter passed
-if [ "$PIGEN" == "true" ]; then
+if [ "${PIGEN}" == "true" ]; then
   # if images building parameter passed 
   .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
 else
