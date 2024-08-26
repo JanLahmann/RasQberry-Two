@@ -4,13 +4,13 @@
 #
 
 #If no parameter passed
-if [ -z "$1" ]; then
+if [ "$PIGEN" == "true" ]; then
+  # if images building parameter passed 
+  .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
+else
    # Load environment variables
   . $HOME/.local/bin/env-config.sh
   . $HOME/$REPO/venv/$STD_VENV/bin/activate
-else
-  # if images building parameter passed 
-  .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
 fi
 
 export STARTDATE=`date`
