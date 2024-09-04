@@ -45,7 +45,7 @@ else
     else    
         echo "qiskit is installed"
     fi
-    echo "source $USER_HOME/$REPO/venv/$STD_VENV/bin/activate" >> $USER_HOME/.bashrc
+    echo "source \$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" >> $USER_HOME/.bashrc
     
 fi
 
