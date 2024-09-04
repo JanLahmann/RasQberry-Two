@@ -25,11 +25,11 @@ else
     mkdir -p "$USER_HOME/.local/bin"
     mkdir -p "$USER_HOME/.local/config"
 
-    # Copy the rb*.sh scripts to the user's .local/bin directory
-    cp /usr/bin/rb*.sh "$USER_HOME/.local/bin/"
+    # Copy the rq*.sh scripts to the user's .local/bin directory
+    cp /usr/bin/rq*.sh "$USER_HOME/.local/bin/"
 
     # Copy the config files to the user's .local/config directory
-    cp /usr/bin/config* "$USER_HOME/.local/config/"
+    cp /usr/bin/config/* "$USER_HOME/.local/config/"
     # Virtual environment does not exist, create the necessary directory structure
     mkdir -p "$USER_HOME/$REPO/venv/$STD_VENV"
     
