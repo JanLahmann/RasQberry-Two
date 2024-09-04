@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the global variables
-USER_HOME=$HOME
+USER_HOME="$HOME"
 REPO=RasQberry-Two 
 STD_VENV=RQB2
 
@@ -45,7 +45,7 @@ else
     else    
         echo "qiskit is installed"
     fi
-    echo "source \$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" >> $USER_HOME/.bashrc
+    echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $USER_HOME/.bashrc
     
 fi
 
