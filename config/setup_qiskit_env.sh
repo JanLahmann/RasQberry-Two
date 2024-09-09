@@ -6,7 +6,6 @@ export REPO=RasQberry-Two
 export STD_VENV=RQB2
 echo $HOME
 qiskit_install_status="false"
-# removing the virtual env
 if [ -d $HOME/$REPO/venv/$STD_VENV]
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
   if ! pip list | grep -q qiskit; then
