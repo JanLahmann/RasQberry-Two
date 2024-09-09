@@ -20,4 +20,3 @@ else
   cp -r /usr/venv/$REPO/venv//usr/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
-exit 0
