@@ -7,7 +7,7 @@ echo $HOME
 if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   echo "Virtual Env Exists"
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
-  if ! pip list | grep -q qiskit; then
+  if ! pip show qiskit > /dev/null 2>&1; then
     deactivate
     rm -fR $HOME/$REPO/venv/$STD_VENV
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
