@@ -7,31 +7,11 @@ export STD_VENV=RQB2
 
 echo $HOME
 
-# Full path to the virtual environment's activate script
-export VENV_ACTIVATE=$HOME/$REPO/venv/$STD_VENV/bin/activate
-
-# Check if the virtual environment exists
-if [ -f "$VENV_ACTIVATE" ]; then
-   echo "Virtual Env exit"
-   source $HOME/$REPO/venv/$STD_VENV/bin/activate
-else
-    echo "Virtual Env does not exit"
-    # Ensure the .local/bin and .local/config directories exist
-    mkdir -p $HOME/.local/bin
-    mkdir -p $HOME/.local/config
-
-    # Copy the rb*.sh scripts to the user's .local/bin directory
-     #echo `sudo ls -lrt /usr/config/`
-     cp  /usr/bin/rq*.sh $HOME/.local/bin/
-
-    # Copy the config files to the user's .local/config directory
-     cp /usr/config/* $HOME/.local/config/
-    # Virtual environment does not exist, create the necessary directory structure
-    # Copy the entire venv directory from /usr/bin to the target location
-    source /usr/venv/bin/activate
-    virtualenv-clone /usr/venv $HOME/$REPO/venv/$STD_VENV
-    deactivate
-    echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $HOME/.bashrc
-    # Activate the new virtual environment
-    source $HOME/$REPO/venv/$STD_VENV/bin/activate
+# removing the virtual env
+if [ -d $HOME/$REPO/venv/$STD_VENV]
+  source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
+python3 -m venv $HOME/$REPO/venv/$STD_VENV
+cp -r /usr/venv/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $HOME/.bashrc
+source $HOME/.bashrc
