@@ -17,6 +17,6 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
 else
   echo "Virtual Env don't Exists. Creating New One ..."
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
-  cp -r /usr/venv/$REPO/venv//usr/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+  cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
