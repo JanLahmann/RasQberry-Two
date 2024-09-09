@@ -28,7 +28,10 @@ else
      cp /usr/config/* $HOME/.local/config/
     # Virtual environment does not exist, create the necessary directory structure
     # Copy the entire venv directory from /usr/bin to the target location
+    source /usr/venv/bin/activate
     virtualenv-clone /usr/venv $HOME/$REPO/venv/$STD_VENV
+    deactivate
+    echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $HOME/.bashrc
     # Activate the new virtual environment
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
