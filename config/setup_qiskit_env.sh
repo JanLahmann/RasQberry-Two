@@ -1,22 +1,23 @@
-  GNU nano 7.2                                                                                        /usr/config/setup_qiskit_env.sh *                                                                                               
 #!/bin/bash
-
 # Define the global variables
 export REPO=RasQberry-Two 
 export STD_VENV=RQB2
 echo $HOME
-qiskit_install_status="false"
-if [ -d $HOME/$REPO/venv/$STD_VENV]
+
+if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+  echo "Virtual Env Exists"
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
   if ! pip list | grep -q qiskit; then
     deactivate
-    cp -r /usr/venv/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-    echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $HOME/.bashrc
-    source $HOME/.bashrc
+    rm -fR $HOME/$REPO/venv/$STD_VENV
+    python3 -m venv $HOME/$REPO/venv/$STD_VENV
+    cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+    source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
+  echo "Virtual Env don't Exists. Creating New One ..."
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
-  cp -r /usr/venv/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-  echo "source \$HOME/$REPO/venv/$STD_VENV/bin/activate" >> $HOME/.bashrc
-  source $HOME/.bashrc
+  cp -r /usr/venv/$REPO/venv//usr/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+  source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
+exit 0
