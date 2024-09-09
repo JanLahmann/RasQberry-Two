@@ -6,21 +6,20 @@ export STD_VENV=RQB2
 
 if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   echo "Virtual Env Exists"
+  FOLDER_PATH="$HOME/$REPO"
+  # Get the current logged-in user
+  CURRENT_USER=$(whoami)
+  # Check if the folder is owned by root
+  if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+    # Change the ownership to the logged-in user
+    sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
+    echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+  else
+    echo "$FOLDER_PATH is not owned by root."
+  fi
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
-
   if ! pip show qiskit > /dev/null 2>&1; then
     deactivate
-    FOLDER_PATH="$HOME/$REPO"
-    # Get the current logged-in user
-    CURRENT_USER=$(whoami)
-    # Check if the folder is owned by root
-    if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
-     # Change the ownership to the logged-in user
-      sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
-      echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
-    else
-      echo "$FOLDER_PATH is not owned by root."
-    fi
     rm -fR $HOME/$REPO
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
     cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
