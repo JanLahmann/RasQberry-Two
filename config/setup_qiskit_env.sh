@@ -13,9 +13,7 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
     # Change the ownership to the logged-in user
     sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
-    echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
-  else
-    echo "$FOLDER_PATH is not owned by root."
+    # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
   fi
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
   if ! pip show qiskit > /dev/null 2>&1; then
