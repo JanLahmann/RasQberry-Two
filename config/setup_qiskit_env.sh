@@ -5,7 +5,7 @@ export STD_VENV=RQB2
 #echo $HOME
 
 if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
-  echo "Virtual Env Exists"
+  # echo "Virtual Env Exists"
   FOLDER_PATH="$HOME/$REPO"
   # Get the current logged-in user
   CURRENT_USER=$(whoami)
@@ -24,7 +24,7 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
-  echo "Virtual Env don't Exists. Creating New One ..."
+  echo "Virtual Environment don't Exists. Creating New One ..."
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
   cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
