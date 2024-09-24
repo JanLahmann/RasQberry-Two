@@ -26,7 +26,7 @@ else
     mkdir -p "$USER_HOME/.local/config"
 
     # Copy the rb*.sh scripts to the user's .local/bin directory
-    cp /usr/bin/rb*.sh "$USER_HOME/.local/bin/"
+    cp /usr/bin/rq*.* "$USER_HOME/.local/bin/"
 
     # Copy the config files to the user's .local/config directory
     cp /usr/bin/config* "$USER_HOME/.local/config/"
