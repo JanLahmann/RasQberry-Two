@@ -1,8 +1,4 @@
 #!/bin/sh
-
-############# CONFIGURATION METHODS #############
-
-### Initial
 # ******Added By Rishi as part of rasQberry-two project*******
 SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
 TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
@@ -20,6 +16,8 @@ fi
 sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 # Load environment variables
 . /home/$SUDO_USER/.local/bin/env-config.sh
+
+
 
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
@@ -54,6 +52,35 @@ do_rqb_system_update() {
   apt -y full-upgrade
 }
 
+#set up for demo 
+setup_quantum_demo_essential() {
+    update_environment_file "INTERACTIVE" "false"
+    apt update
+    apt pygobject3 gtk+3 python-sense-emu python3-sense-emu sense-emu-tools
+    pip install pygobject qiskit-ibm-runtime sense-emu
+    python $HOME/.local/bin/rq_set_qiskit_ibm_token.py
+}
+
+#Running quantum-raspberry-tie demo
+do_rasp_tie_install() {
+    source $HOME/$REPO/venv/$STD_VENV/bin/activate
+    setup_quantum_demo_essential
+    mkdir -p $HOME/$REPO/demos
+    export CLONE_DIR_DEMO1="$HOME/$REPO/demos"
+    git clone ${GIT_REPO_DEMO1} ${CLONE_DIR_DEMO1}
+    if [ ! -f "$HOME/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+        return 1
+    fi
+
+    sudo -u $SUDO_USER -H -- sh -c "cd $HOME/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py"
+
+    if [ -f "$HOME/$REPO/demos/quantum-raspberry-tie/svg/pixels.svg" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie demo completed. SVG file created at /home/$SUDO_USER/$REPO/demos/svg/pixels.svg" 20 60 1
+    else
+        whiptail --msgbox "Quantum Raspberry Tie demo completed, but no SVG file was created." 20 60 1
+    fi
+}
 
 # Initial setup for RasQberry
 # Sets PATH, LOCALE, create python venv
@@ -117,12 +144,30 @@ do_rqb_one_click_install() {
 }
 
 
+
+do_quantum_demo_menu() {
+  FUN = $(whiptail - -title "Raspberry Pi Quantum Demo (raspi-config)" - -menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" - -cancel - button Back - -ok - button Select \
+  "1 Demo:" "quantum-raspberry-tie" \
+   3 >& 1 1 >& 2 2 >& 3)
+  RET = $?
+  # shellcheck disable=SC1009
+  if [ $RET - eq 1 ]; then
+    return 0
+  elif [ $RET - eq 0 ]; then
+    case "$FUN" in  
+     1\ * ) do_rasp_tie_install ;;
+    *) whiptail - -msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail - -msgbox "There was an error running option $FUN" 20 60 1 
+  fi
+ }
+
 do_rasqberry_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "OCI One-Click Install" "Run standard RQB2 setup automatically" \
     "SU System Update " "Update the system and create swapfile" \
     "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
     "IQ Qiskit Install" "Install latest version of Qiskit" \
+    "QD Quantum Demos"  "Install Quantum Demos"\
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -133,6 +178,7 @@ do_rasqberry_menu() {
       SU\ *) do_rqb_system_update ;;
       IC\ *) do_rqb_initial_config ;;
       IQ\ *) do_rqb_qiskit_menu ;;
+      QD\ *) do_quantum_demo_menu;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
