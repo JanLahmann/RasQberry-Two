@@ -21,12 +21,16 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
     rm -fR $HOME/$REPO
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
     cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+    cp /usr/bin/rq*.* $HOME/.local/bin
+    cp /usr/config $HOME/.local/config
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
   echo "Virtual Environment don't Exists. Creating New One ..."
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
   cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+  cp /usr/bin/rq*.* $HOME/.local/bin
+  cp /usr/config $HOME/.local/config
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
 
