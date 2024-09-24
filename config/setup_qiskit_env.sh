@@ -1,52 +1,32 @@
 #!/bin/bash
-
 # Define the global variables
-USER_HOME=$HOME
-REPO=RasQberry-Two 
-STD_VENV=RQB2
+export REPO=RasQberry-Two 
+export STD_VENV=RQB2
+#echo $HOME
 
-# Full path to the virtual environment's activate script
-VENV_ACTIVATE="$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-
-# Check if the virtual environment exists
-if [ -f "$VENV_ACTIVATE" ]; then
-    # Virtual environment exists, activate it
-    source "$VENV_ACTIVATE"
-    
-    # Check if Qiskit is installed
-    if ! pip list | grep -q qiskit; then
-        # Install Qiskit if not installed
-        .  $USER_HOME/.local/bin/rq_install_Qiskit_latest.sh
-    else    
-        echo "qiskit is installed"
-    fi
+if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+  # echo "Virtual Env Exists"
+  FOLDER_PATH="$HOME/$REPO"
+  # Get the current logged-in user
+  CURRENT_USER=$(whoami)
+  # Check if the folder is owned by root
+  if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+    # Change the ownership to the logged-in user
+    sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
+    # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+  fi
+  source $HOME/$REPO/venv/$STD_VENV/bin/activate
+  if ! pip show qiskit > /dev/null 2>&1; then
+    deactivate
+    rm -fR $HOME/$REPO
+    python3 -m venv $HOME/$REPO/venv/$STD_VENV
+    cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+    source $HOME/$REPO/venv/$STD_VENV/bin/activate
+  fi
 else
-    # Ensure the .local/bin and .local/config directories exist
-    mkdir -p "$USER_HOME/.local/bin"
-    mkdir -p "$USER_HOME/.local/config"
-
-    # Copy the rb*.sh scripts to the user's .local/bin directory
-    cp /usr/bin/rq*.* "$USER_HOME/.local/bin/"
-
-    # Copy the config files to the user's .local/config directory
-    cp /usr/bin/config* "$USER_HOME/.local/config/"
-    # Virtual environment does not exist, create the necessary directory structure
-    mkdir -p "$USER_HOME/$REPO/venv/$STD_VENV"
-    
-    # Copy the entire venv directory from /usr/bin to the target location
-    cp -r /usr/bin/venv "$USER_HOME/$REPO/venv/$STD_VENV"
-    
-    # Activate the new virtual environment
-    source "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-    
-    if ! pip list | grep -q qiskit; then
-        # Install Qiskit if not installed
-        .  $USER_HOME/.local/bin/rq_install_Qiskit_latest.sh
-    else    
-        echo "qiskit is installed"
-    fi
-    echo "source $USER_HOME/$REPO/venv/$STD_VENV/bin/activate" >> $USER_HOME/.bashrc
-    
+  echo "Virtual Environment don't Exists. Creating New One ..."
+  python3 -m venv $HOME/$REPO/venv/$STD_VENV
+  cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+  source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
-
 
