@@ -71,16 +71,24 @@ do_rasp_tie_install() {
         export CLONE_DIR_DEMO1="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
         git clone ${GIT_REPO_DEMO1} ${CLONE_DIR_DEMO1}
     fi
-
+    FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
+    # Get the current logged-in user
+    CURRENT_USER=$(whoami)
+    # Check if the folder is owned by root
+    if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+      # Change the ownership to the logged-in user
+      sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
+     # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+    fi
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
 
-    sudo -u $SUDO_USER -H -- sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py"
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py"
 
-    if [ -f "$HOME/$REPO/demos/quantum-raspberry-tie/svg/pixels.svg" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie demo completed. SVG file created at /home/$SUDO_USER/$REPO/demos/svg/pixels.svg" 20 60 1
+    if [ -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie demo completed. SVG file created at /home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" 20 60 1
     else
         whiptail --msgbox "Quantum Raspberry Tie demo completed, but no SVG file was created." 20 60 1
     fi
