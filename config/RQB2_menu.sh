@@ -85,7 +85,7 @@ do_rasp_tie_install() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py"
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py -b:least"
 
     if [ -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" ]; then
         whiptail --msgbox "Quantum Raspberry Tie demo completed. SVG file created at /home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" 20 60 1
