@@ -6,7 +6,7 @@
 REPO=RasQberry-Two 
 # Attention: variable is defined in multiple files
 RQB2_CONFDIR=.local/config
-
+GIT_REPO_DEMO1=https://github.com/KPRoche/quantum-raspberry-tie.git
 OS_VERSION=none
 
 INTERACTIVE=true
