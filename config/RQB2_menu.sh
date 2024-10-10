@@ -60,7 +60,7 @@ setup_quantum_demo_essential() {
     apt update && apt full-upgrade
     apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat
     pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer
-    if ! [ "$FUN" == "b:aer" ]; then
+    if [ "$FUN" != "b:aer" ]; then
         python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
     else
         echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
@@ -81,7 +81,7 @@ do_rasp_tie_install() {
     # Get the current logged-in user
     CURRENT_USER=$(whoami)
     # Check if the folder is owned by root
-    if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
       # Change the ownership to the logged-in user
       sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
      # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
