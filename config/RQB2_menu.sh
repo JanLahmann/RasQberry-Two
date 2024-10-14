@@ -54,17 +54,23 @@ do_rqb_system_update() {
 
 #set up for demo 
 setup_quantum_demo_essential() {
+    FUN=$1
     update_environment_file "INTERACTIVE" "false"
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    apt update
-    apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools
+    apt update && apt full-upgrade
+    apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat
     pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer
-    python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
+    if [ "$FUN" != "b:aer" ]; then
+        python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
+    else
+        echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
+    fi
 }
 
 #Running quantum-raspberry-tie demo
 do_rasp_tie_install() {
-    setup_quantum_demo_essential
+    RUN_OPTION=$1 
+    setup_quantum_demo_essential $RUN_OPTION
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
         mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
@@ -75,7 +81,7 @@ do_rasp_tie_install() {
     # Get the current logged-in user
     CURRENT_USER=$(whoami)
     # Check if the folder is owned by root
-    if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
       # Change the ownership to the logged-in user
       sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
      # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
@@ -85,13 +91,8 @@ do_rasp_tie_install() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py -b:least"
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py $RUN_OPTION || exit 1"
 
-    if [ -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie demo completed. SVG file created at /home/$SUDO_USER/$REPO/demos/quantum-raspberry-ti/svg/pixels.svg" 20 60 1
-    else
-        whiptail --msgbox "Quantum Raspberry Tie demo completed, but no SVG file was created." 20 60 1
-    fi
 }
 
 # Initial setup for RasQberry
@@ -155,6 +156,43 @@ do_rqb_one_click_install() {
   ASK_TO_REBOOT=1
 }
 
+do_select_qrt_option() {
+    FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+    "b:aer" "Spins up a local Aer simulator" \
+    "b:aer_noise" "Spins up a local Aer simulator with a noise model" \
+    "b:least" "Code will run on the least busy *real* backend for your account" \
+    "b:custom" "Enter a custom backend or option" \
+   3>&1 1>&2 2>&3)
+
+    # Check the user's selection
+    case "$FUN" in
+        "b:aer" ) do_rasp_tie_install $FUN
+            
+            ;;
+        "b:aer_noise") do_rasp_tie_install $FUN
+            ;;
+        "b:least")
+            do_rasp_tie_install $FUN
+            ;;
+        "b:custom")
+            # Ask the user for custom input
+            CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
+            
+            # Check if the user provided input or canceled
+            exitstatus=$?
+            if [ $exitstatus = 0 ]; then
+                do_rasp_tie_install $CUSTOM_OPTION
+            else
+                echo "You chose to cancel. Demo will launch with Local Simulator"
+                do_rasp_tie_install "b:aer"
+            fi
+            ;;
+        *)
+            do_rasp_tie_install "b:aer"
+            ;;
+    esac
+}
+
 
 
 do_quantum_demo_menu() {
@@ -166,7 +204,7 @@ do_quantum_demo_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      QRT\ *) do_rasp_tie_install ;;
+      QRT\ *) do_select_qrt_option ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi

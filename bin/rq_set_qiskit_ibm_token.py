@@ -24,7 +24,7 @@ def get_token():
     # Check if a token is saved
     saved_token = get_token_from_service()
     # If there's a saved token, ask the user if they want to use it
-    print("saved_token",saved_token)
+    #print("saved_token",saved_token)
     if saved_token:
         use_saved = input("Do you want to use the saved token? (y/n): ").lower()
         if use_saved == 'y':
