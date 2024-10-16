@@ -52,15 +52,15 @@ do_rqb_system_update() {
   apt -y full-upgrade
 }
 
-#set up for demo 
+#set up for demo adding sense-hat
 setup_quantum_demo_essential() {
     FUN=$1
     update_environment_file "INTERACTIVE" "false"
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     apt update && apt full-upgrade
     apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat
-    pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer
-    if ! [ "$FUN" == "b:aer" ]; then
+    pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat
+    if  [ "$FUN" != "b:aer" ]; then
         python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
     else
         echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
@@ -81,7 +81,7 @@ do_rasp_tie_install() {
     # Get the current logged-in user
     CURRENT_USER=$(whoami)
     # Check if the folder is owned by root
-    if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
+    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
       # Change the ownership to the logged-in user
       sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
      # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
@@ -91,7 +91,7 @@ do_rasp_tie_install() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py $RUN_OPTION || exit 1"
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py -$RUN_OPTION || exit 1"
 
 }
 
@@ -163,7 +163,6 @@ do_select_qrt_option() {
     "b:least" "Code will run on the least busy *real* backend for your account" \
     "b:custom" "Enter a custom backend or option" \
    3>&1 1>&2 2>&3)
-
     # Check the user's selection
     case "$FUN" in
         "b:aer" ) do_rasp_tie_install $FUN
@@ -184,11 +183,11 @@ do_select_qrt_option() {
                 do_rasp_tie_install $CUSTOM_OPTION
             else
                 echo "You chose to cancel. Demo will launch with Local Simulator"
-                do_rasp_tie_install "b:aer"
+                break
             fi
             ;;
         *)
-            do_rasp_tie_install "b:aer"
+            break
             ;;
     esac
 }
