@@ -82,7 +82,6 @@ do_rasp_tie_install() {
     CURRENT_USER=$(whoami)
     # Check if the folder is owned by root
     if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
-    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
       # Change the ownership to the logged-in user
       sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
      # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
