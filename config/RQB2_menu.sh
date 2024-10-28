@@ -165,10 +165,10 @@ do_select_qrt_option() {
    3>&1 1>&2 2>&3)
     # Check the user's selection
     case "$FUN" in
-        "b:aer" ) do_rasp_tie_install $FUN
+        "b:aer" ) do_rasp_tie_install $FUN -local
             
             ;;
-        "b:aer_noise") do_rasp_tie_install $FUN
+        "b:aer_noise") do_rasp_tie_install $FUN -local
             ;;
         "b:least")
             do_rasp_tie_install $FUN
