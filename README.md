@@ -41,7 +41,7 @@ which in the most cases is
 ```
 Then, qiskit should be usable:
 ```python
-(RQB2) raswberry@raspberrypi:~ $ pip list | grep qiskit
+(RQB2) rasqberry@raspberrypi:~ $ pip list | grep qiskit
 qiskit                 1.1.1
 qiskit-qasm3-import    0.5.0
 ```
