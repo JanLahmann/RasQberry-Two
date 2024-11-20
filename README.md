@@ -4,7 +4,7 @@
 
 ## Quick Installation of RasQberry
 Quick setup instructions:<br/>
-Initialize an SD card with Raspberry Pi Imager, using the recommended "bookworm, 64-bit". (development was conducted with the default "pi" user, but other users should be possible as well)
+Initialize an SD card with Raspberry Pi Imager, using the recommended "bookworm, 64-bit". (development was conducted with the default "rasqberry" user, but other users should be possible as well)
 
 Open the terminal/ssh window on your Raspberry Pi. 
 
@@ -37,11 +37,11 @@ To work with Qiskit, enter the default python venv
 ```
 which in the most cases is
 ```python
-. /home/pi/RasQberry-Two/venv/RQB2/bin/activate
+. /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
 ```
 Then, qiskit should be usable:
 ```python
-(RQB2) pi@raspberrypi:~ $ pip list | grep qiskit
+(RQB2) raswberry@raspberrypi:~ $ pip list | grep qiskit
 qiskit                 1.1.1
 qiskit-qasm3-import    0.5.0
 ```
