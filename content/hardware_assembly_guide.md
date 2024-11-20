@@ -61,7 +61,7 @@ After the two halves have been glued and brought together, it is recommended to 
 
 Once 24 hours have elapsed, remove the clamps and verify that the halves are securely attached. If needed, more glue can be added at this point and the drying process repeated. When you are confident in the strength of the components, it’s time to move on to putting them together and adding the Raspberry Pi!
 
-### Integrating the Raspberry Pi
+### Setting up the Raspberry Pi
 
 In this section, we will be attaching the Raspberry Pi to the back part of the Wall and completing all of the wiring for the LED array.
 
