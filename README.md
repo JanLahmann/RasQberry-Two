@@ -1,48 +1,47 @@
 # RasQberry
-## The RasQberry Two project: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer
+## The RasQberry project: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or: Building a Functional Model of a Quantum Computer at Home
 
+*Note:* If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
 ## Quick Installation of RasQberry
+
 Quick setup instructions:<br/>
-Initialize an SD card with Raspberry Pi Imager, using the recommended "bookworm, 64-bit". (development was conducted with the default "pi" user, but other users should be possible as well)
+Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit". 
 
-Open the terminal/ssh window on your Raspberry Pi. 
+Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-pi-gen/releases](https://github.com/JanLahmann/RasQberry-pi-gen/releases)
 
-Download and execute the bootstrap script RasQ-init.sh, which will add the RasQberry sub-menu to raspi-config.
+Alternatively, this image can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
+
 ```python
-wget https://github.com/JanLahmann/RasQberry-Two/raw/main/RasQ-init.sh -O RasQ-init.sh
-. ./RasQ-init.sh
+/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 ```
 
-This will modify the raspi-config Configuration Tool and add a RasQberry menu at the top. You can now start raspi-config as usual:
+or on Windows
 ```python
-sudo raspi-config
+"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
-Then select "0 RasQberry" to enter the RasQberry sub-menu.
-"SU System Update" is optional, but recommended.
-Run "IC Initial Config" for an initial configuration and to create the main python venv for RasQberry.
-Now run " IQ Qiskit Install" and install your preferred Qiskit version (1.0 or 1.1). The installation will take about 2 min on a Raspberry Pi 4.
 
-### File structure:
-* RasQ-init.sh: bootstrap-script, which will add the RasQberry sub-menu to raspi-config
-* RQB2_menu.sh: menu and sub-menu that integrate into raspi-config
-* env-config.sh: script to set environment variables, as defined in env
-* env: environment variables, being imported by env-config.sh
-* rq_install_Qiskit*: install procedure for different Qiskit versions
+This image includes Qiskit 1.x and several Quantum computing Demos.
+
+Further instructions will be released, soon.
+
 
 ### working with Qiskit
-To work with Qiskit, enter the default python venv 
-```python
-. $HOME/$REPO/venv/$STD_VENV/bin/activate
-```
-which in the most cases is
+
+Qiskit is available in the default venv called RQB2. In case this venv is not activated, you can activate with
+
 ```python
 . /home/pi/RasQberry-Two/venv/RQB2/bin/activate
 ```
-Then, qiskit should be usable:
+
+and list the available Qiskit modules:
+
 ```python
 (RQB2) pi@raspberrypi:~ $ pip list | grep qiskit
 qiskit                 1.1.1
 qiskit-qasm3-import    0.5.0
 ```
-Please let us know in case additional modules are needed.
+
+## Building the RasQberry 3D model of IBM Quantum System Two
+
+STL files for a 3D model of IBM Quantum System Two will be available soon at [GitHub: JanLahmann/RasQberry-Two-3Dmodel](https://github.com/JanLahmann/RasQberry-Two-3Dmodel)
