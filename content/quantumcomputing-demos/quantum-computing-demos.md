@@ -15,7 +15,7 @@ Developed by Kevin Roche [GitHub: KPRoche/quantum-raspberry-tie](https://github.
 A simple demo that helps to to understand the Bloch Sphere.
 
 Developed by James Weaver [GitHub: JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch)
-![Bloch Sphere](BlochSphere.png)
+![Bloch Sphere](../Artwork/BlochSphere.png)
 
 
 ## GHZ with multiple Qubits
