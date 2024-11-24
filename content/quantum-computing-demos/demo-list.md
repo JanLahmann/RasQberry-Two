@@ -8,7 +8,7 @@ Your Raspberry Pi running code on the IBM Quantum platform processors or simulat
 
 Developed by Kevin Roche [GitHub: KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)
 ![Raspberry Tie](https://github.com/KPRoche/quantum-raspberry-tie/raw/main/New%20Logo%20Screen.png)
-
+ 
 
 ## Bloch Sphere
 
