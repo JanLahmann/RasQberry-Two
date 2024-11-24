@@ -15,6 +15,8 @@ leadspace:
       alt: lead space background image
 ---
 
+Note: If you are looking for the functional model of IBM Quantum System ONE, please go to ([https://rasqberry.one](https://rasqberry.one)). This is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit platform, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
+
 ## Quick Installation of RasQberry
 
 Quick setup instructions:<br/>

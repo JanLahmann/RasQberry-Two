@@ -1,5 +1,7 @@
 [![Deploy Next.js site to Pages](https://github.com/JanLahmann/RasQberry-Two/actions/workflows/nextjs.yml/badge.svg)](https://github.com/JanLahmann/RasQberry-Two/actions/workflows/nextjs.yml)
 
+Note: If you are looking for the functional model of IBM Quantum System ONE, please go to ([https://rasqberry.one](https://rasqberry.one)). This is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit platform, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
+
 # RasQberry Two Github pages
 
 This is the GitHub Pages project for the RasQberry Two documentation page.
