@@ -12,6 +12,14 @@ Developed by Kevin Roche [GitHub: KPRoche/quantum-raspberry-tie](https://github.
 
 ## Bloch Sphere
 
+A simple demo that helps to to understand the Bloch Sphere.
+
+Developed by James Weaver [GitHub: JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch)
+
+<img src='Artwork/BlochSphere.png' width='150' alt='display while waiting for results' style='float:right;'><br/>
+
+
+
 ## GHZ
 
 ## Quantum Paradoxes
