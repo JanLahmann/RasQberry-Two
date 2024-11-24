@@ -1,4 +1,4 @@
-# Quantum Computing Demos available in RasQberry
+# Quantum Computing Demos in RasQberry
 
 This page lists several Quantum Computing demos that will be made available on RasQberry
 
