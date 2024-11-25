@@ -87,7 +87,7 @@
   },
   "os_list": [
     {
-      "name": "RasQberry Two (64-bit) new",
+      "name": "RasQberry Two (64-bit)",
       "description": "RasQberry Image to explore Quantum Computing and Qiskit",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "url": "https://github.com/JanLahmann/RasQberry-pi-gen/releases/download/v0.1-alpha-01/image_2024-11-25-rasqberry-bookworm--full.img.xz",
