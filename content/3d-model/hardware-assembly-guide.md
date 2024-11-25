@@ -187,7 +187,7 @@ The LEDs can be very bright! It is recommended to wear eye protection when worki
 
 Now it’s time to test the LEDs! Run the Python script in your terminal:
 
-`python3 neopixel_spi_IBMtestFunc.py.`
+```python3 neopixel_spi_IBMtestFunc.py.```
 
 If everything is wired up correctly, you should see the IBM logo appear on the LED array in the correct orientation. Verify that your result looks similar to this:
 
