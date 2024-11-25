@@ -38,8 +38,8 @@ After cleaning the models, it’s now time to put them together! To ensure that 
 
 <p align='center'><em>Figure 2: Gorilla super glue used to glue the halves together.</em></p>
 
-> ❕ **Warning**:
-> Super Glue can very easily stick to skin and cause painful injuries. Please use caution when using super glue and never touch the glue while it is drying. Only use a small amount of glue, a little drop goes a long way.
+**! Warning:**
+Super Glue can very easily stick to skin and cause painful injuries. Please use caution when using super glue and never touch the glue while it is drying. Only use a small amount of glue, a little drop goes a long way.
 
 Before gluing the halves together, it is recommended to lightly sand down the upper and lower “lip” of each half. This sanding process will create a smoother surface while also enabling the super glue to form a stronger attachment between the two parts. Once sanded down, apply a small amount of super glue to both the upper and lower lips of the two halves and hold them firmly together.
 
@@ -182,8 +182,8 @@ After ensuring that all four panels are in line, take the two panels on the righ
 
 <p align='center'><em>Figure 22: Flipping the last two LED panels underneath.</em></p>
 
-> ❕ **Warning**:
-> The LEDs can be very bright! It is recommended to wear eye protection when working with the LED panels.
+**! Warning:**
+The LEDs can be very bright! It is recommended to wear eye protection when working with the LED panels.
 
 Now it’s time to test the LEDs! Run the Python script in your terminal:
 
