@@ -97,6 +97,16 @@
         "pi4-64bit"
       ]
     },{
+      "name": "RasQberry Two (64-bit) new",
+      "description": "RasQberry Image to explore Quantum Computing and Qiskit",
+      "url": "https://github.com/JanLahmann/RasQberry-pi-gen/releases/download/v0.1-alpha-01/image_2024-11-25-rasqberry-bookworm--full.img.xz",
+      "release_date": "2024-10-29",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ]
+    },{
       "name": "Raspberry Pi OS (64-bit)",
       "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
       "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
