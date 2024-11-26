@@ -6,7 +6,7 @@ This page lists several Quantum Computing demos that will be made available on R
 
 Your Raspberry Pi running code on the IBM Quantum platform processors or simulators via Python 3 -- with results displayed courtesy of the 8x8 LED array on a SenseHat (or SenseHat emulator)!
 
-For more details, you can check out its [./raspberry-tie.md](README file here), or fisit its github repository.
+For more details, you can check out its [./raspberry-tie.md](README file here), or visit its github repository.
 
 Developed by Kevin Roche [GitHub: KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)
 ![Raspberry Tie](https://github.com/KPRoche/quantum-raspberry-tie/raw/main/New%20Logo%20Screen.png)
