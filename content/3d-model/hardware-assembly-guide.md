@@ -75,9 +75,26 @@ After you have finished flashing the OS image to the micro-SD card, you can inse
 
 Once the OS has been installed, you will need to enable SPI for the LED array to work. To do so, run:
 
-`sudo raspi-config`
+```sudo raspi-config```
 
-In the menu that shows up, navigate to `3. Interface Options` using the arrow keys and press enter. Then, navigate to `I4 SPI` the same way and press enter again. The dialog will ask you `Do you want to enable SPI?`. Hover over the option that says Yes and press enter. Now you’re all set to use SPI!
+You will be met with this screen:
+
+![2024-11-26-100131_1920x1080_scrot](https://github.com/user-attachments/assets/c37c7c70-c813-4063-b8f0-b46a341b2393)
+
+In the menu that shows up, navigate to `3. Interface Options` using the arrow keys and press enter. 
+
+![2024-11-26-100142_1920x1080_scrot](https://github.com/user-attachments/assets/61bbc1aa-d9fd-4155-90fc-28b9f83ff4ef)
+
+Then, navigate to `I4 SPI` the same way and press enter again. 
+
+![2024-11-26-100148_1920x1080_scrot](https://github.com/user-attachments/assets/14bc1ef9-edf9-4810-80d2-94cd98834a3d)
+
+
+The dialog will ask you to enable the SPI interface. Hover over the option that says Yes and press enter. 
+
+![2024-11-26-100151_1920x1080_scrot](https://github.com/user-attachments/assets/1a14c470-3d28-450b-9802-a20c1775a74d)
+
+Now you’re all set to use SPI!
 
 ### Mounting the fan
 
