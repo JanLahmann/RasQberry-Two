@@ -3,8 +3,8 @@
 # to control the 48x24 LED Matrix
 
 # install neopixel in venv
-python3 -m venv /home/pi/RasQberry-Two/venv/RQB2
-source /home/pi/RasQberry-Two/venv/RQB2/bin/activate
+python3 -m venv /home/rasqberry/RasQberry-Two/venv/RQB2
+source /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
 pip3 install adafruit-circuitpython-neopixel-spi
 
-# Test via: /home/pi/RasQberry-Two/venv/RQB2/bin/python /examples/neopixel_spi_IBMtestFunc.py
+# Test via: /home/rasqberry/RasQberry-Two/venv/RQB2/bin/python /examples/neopixel_spi_IBMtestFunc.py
