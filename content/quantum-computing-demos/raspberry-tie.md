@@ -76,7 +76,7 @@ Note that this is a 5-qubit result displayed on the 12 qubit display, so 7 of th
 
 #### 16-qubit display
 The 16 qubit display arrangement corresponds to one of the early experimental 16-qubit processors
-<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style='float:left;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style='float:left;'>
 <img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style='float:right;'><br/>
 
 #### SVG alternate display
