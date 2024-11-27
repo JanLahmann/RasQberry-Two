@@ -1,5 +1,5 @@
 # quantum-raspberry-tie
-<img src='qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style='float:right;' /><br/> 
+<img src='qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style="float: right; margin-right: 10px;"  /><br/> 
 Your Raspberry Pi running code on the IBM Quantum platform processors or simulators via Python 3 -- with results displayed courtesy of the 8x8 LED array on a SenseHat (or SenseHat emulator)!
 
 ## November 2024 updates
@@ -64,20 +64,20 @@ The default 5-qubit display formats output in a manner corresponding to the conn
 
 This variation of the 5-qubit display is based on the lower-noise tee connectivity of later small processors
 
-<img src='qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style='float:right;' /><br/> 
+<img src='qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style="float: right; margin-right: 10px;"  /><br/> 
 
 #### 12-qubit displays
 **Hex**
 
 Even though it looks like a diamond rather than a hexagon, this display is topologically equivalent to the 12-qubit "heavy hex" arrangement that is the building block for many modern IBM quantum processors, with a qubit at each vertex of a hexagon and another at the center of each side. 
 
-<img src='qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style='float:right;' />
+<img src='qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style="float: right; margin-right: 10px;"  />
 Note that this is a 5-qubit result displayed on the 12 qubit display, so 7 of the pixel blocks are purple indicating unmeasured status
 
 #### 16-qubit display
 The 16 qubit display arrangement corresponds to one of the early experimental 16-qubit processors
-<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style='float:left;' />
-<img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style='float:right;' /><br/>
+<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style="float: left; margin-right: 10px;"  />
+<img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style="float: right; margin-right: 10px;"  /><br/>
 
 #### SVG alternate display
 As it starts, the program will create a **svg** subdirectory if one does not exist, and write (or rewrite) into it first a file named **qubits.html** and then cyclicly update another named **pixels.html** every time the main code executes the "showqubits" function.
