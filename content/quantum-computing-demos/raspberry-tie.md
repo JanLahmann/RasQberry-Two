@@ -76,15 +76,15 @@ Note that this is a 5-qubit result displayed on the 12 qubit display, so 7 of th
 
 #### 16-qubit display
 The 16 qubit display arrangement corresponds to one of the early experimental 16-qubit processors
-<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style='float:left;'>
-<img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style='float:right;'><br/>
+<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style='float:left;' />
+<img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style='float:right;' /><br/>
 
 #### SVG alternate display
 As it starts, the program will create a **svg** subdirectory if one does not exist, and write (or rewrite) into it first a file named **qubits.html** and then cyclicly update another named **pixels.html** every time the main code executes the "showqubits" function.
 * _qubits.html_ is an html wrapper set to refresh every 2 seconds when opened in a browser. It will repeatedly load _pixels.html_
 * _pixels.html_ contains an svg rendering of the 8x8 pixel array, and a caption below it showing the qubit pattern being represented
 
-<img src='qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display'> <img src='qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display' /> <img src='qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display' />
+<img src='qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display' /> <img src='qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display' /> <img src='qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display' />
 
 Once the program is looping, if there is no physical LED array, you can watch the results of the program iteration by just opening _./svg/qubits.html_ in a browser window and leave it open; there can be a few seconds time lag between the result is returned and when the svg image updates.
 
