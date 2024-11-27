@@ -1,5 +1,5 @@
 # quantum-raspberry-tie
-<img src='qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style='float:right;'><br/> 
+<img src='qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style='float:right;' /><br/> 
 Your Raspberry Pi running code on the IBM Quantum platform processors or simulators via Python 3 -- with results displayed courtesy of the 8x8 LED array on a SenseHat (or SenseHat emulator)!
 
 ## November 2024 updates
@@ -56,22 +56,22 @@ An svg vector rendering of the array is also created and written to a folder tha
 **Bowtie** 
 
 The default 5-qubit display formats output in a manner corresponding to the connectivity of the early IBM 5-qubit "bowtie" quantum processor.
-<br/><img src='qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style='float:left;'>
-<img src='qrtimages/RaspberryTieOutput.png' width='200' alt='Output displayed on the SenseHat' style='float:right;'><br/> 
+<br/><img src='qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style='float:left;' />
+<img src='qrtimages/RaspberryTieOutput.png' width='200' alt='Output displayed on the SenseHat' style='float:right;' /><br/> 
 (It's called a bowtie because of the arrangement of the 5 qubits, and the particular ways they can interconnect via entanglement. Each of those rectangles touched by a squiggly line in the image on the left holds a qubit.)
 
 **Tee** 
 
 This variation of the 5-qubit display is based on the lower-noise tee connectivity of later small processors
 
-<img src='qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style='float:right;'><br/> 
+<img src='qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style='float:right;' /><br/> 
 
 #### 12-qubit displays
 **Hex**
 
 Even though it looks like a diamond rather than a hexagon, this display is topologically equivalent to the 12-qubit "heavy hex" arrangement that is the building block for many modern IBM quantum processors, with a qubit at each vertex of a hexagon and another at the center of each side. 
 
-<img src='qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style='float:right;'>
+<img src='qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style='float:right;' />
 Note that this is a 5-qubit result displayed on the 12 qubit display, so 7 of the pixel blocks are purple indicating unmeasured status
 
 #### 16-qubit display
