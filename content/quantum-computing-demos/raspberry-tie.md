@@ -102,7 +102,7 @@ While the quantum circuit _may_ be sent to a real backend processor on the IBM Q
 #### Cloud Processors ####
 _These modes requires an active internet connection to the IBM Quantum platform_
 
-You may send the circuit to an actual IBM Quantum Platform processor backend by specifying **-b:<processor>** where <processor> is the name of a processor your account may use. 
+You may send the circuit to an actual IBM Quantum Platform processor backend by specifying **-b:&lt;backend&gt;** where &lt;backend&gt; is the name of a processor your account may use. 
 
 The special case **-b:least** will automatically select the non-simulator backend with the shortest queue available to your account.
 Note that "shortest queue" does not equal quick return of your job result, especialy on Open (free) accounts. It may take an hour or more for your job to actually run. **Specifying a backend other than the simulator will disable the looping component of this program and send the job only a single time to IBM Quantum.**
