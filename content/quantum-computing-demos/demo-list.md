@@ -32,7 +32,7 @@ Wiktor Mazin and a team have created fractals with some quantum input: [Fractal 
 
 ## Quantum Paradoxes
 
-Maria Violaris has published a YouTube series about [Quantum Paradoxes](https://www.mariaviolaris.com/quantum-paradoxes/), such as Schödingers Cat, Quantum Zeno Effect, Time Loops, Teleportation, Wigners Friend and others. Implementations of these paradoxes will be available on RasQberry.
+Maria Violaris has published a Blog and YouTube series about [Quantum Paradoxes](https://www.mariaviolaris.com/quantum-paradoxes/), such as Schödingers Cat, Quantum Zeno Effect, Time Loops, Teleportation, Wigners Friend and others. Implementations of these paradoxes will be available on RasQberry.
 
 ## Fun with Quantum
 
