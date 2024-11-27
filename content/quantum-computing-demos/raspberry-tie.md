@@ -56,7 +56,7 @@ An svg vector rendering of the array is also created and written to a folder tha
 **Bowtie** 
 
 The default 5-qubit display formats output in a manner corresponding to the connectivity of the early IBM 5-qubit "bowtie" quantum processor.
-<br/><img src='qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style='float:left;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<br/><img src='qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style='float:left;'>
 <img src='qrtimages/RaspberryTieOutput.png' width='200' alt='Output displayed on the SenseHat' style='float:right;'><br/> 
 (It's called a bowtie because of the arrangement of the 5 qubits, and the particular ways they can interconnect via entanglement. Each of those rectangles touched by a squiggly line in the image on the left holds a qubit.)
 
