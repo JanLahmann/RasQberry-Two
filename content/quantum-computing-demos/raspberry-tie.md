@@ -84,7 +84,7 @@ As it starts, the program will create a **svg** subdirectory if one does not exi
 * _qubits.html_ is an html wrapper set to refresh every 2 seconds when opened in a browser. It will repeatedly load _pixels.html_
 * _pixels.html_ contains an svg rendering of the 8x8 pixel array, and a caption below it showing the qubit pattern being represented
 
-<img src='qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display'> <img src='qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display'/> <img src='qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display'/>
+<img src='qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display'> <img src='qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display' /> <img src='qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display' />
 
 Once the program is looping, if there is no physical LED array, you can watch the results of the program iteration by just opening _./svg/qubits.html_ in a browser window and leave it open; there can be a few seconds time lag between the result is returned and when the svg image updates.
 
