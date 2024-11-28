@@ -247,7 +247,9 @@ The floor is the simplest component of the RasQberry Two model, it serves as a p
 
 The following 3D Files are used in this section:
 - RASQ2M7.5Floor-all.stl
-  OR 
+  
+  OR
+  
 - R2M7.6Floor-Tile1.stl
 - R2M7.6Floor-Tile2.stl
 - R2M7.6Floor-Tile3.stl
@@ -256,11 +258,6 @@ The following 3D Files are used in this section:
 - R2M7.6Floor-Tile6.stl
 
 The floor comes in 6 different pieces, each piece is marked with a number that can be found on the reverse side. The pieces need to be arranged in the following configuration:
-5   6
-3   4
-1   2
-
-When assembled in the right order, it should look like this: 
 
 ![Screenshot 2024-11-28 at 10 51 24](https://github.com/user-attachments/assets/dbd30a22-870e-4f48-8d59-e477a6b30c14)
 
