@@ -239,3 +239,41 @@ You can run`python3 neopixel_spi_IBMtestFunc.py` again to help you line up the c
 <p align='center'><em>Figure 28: Testing out panel alignment using the IBM test function.</em></p>
 
 Congratulations! You have successfully wired up the LED panels with the Raspberry Pi!
+
+
+## Assembly of the Floor
+
+The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. 
+
+The following 3D Files are used in this section:
+- RASQ2M7.5Floor-all.stl
+  OR 
+- R2M7.6Floor-Tile1.stl
+- R2M7.6Floor-Tile2.stl
+- R2M7.6Floor-Tile3.stl
+- R2M7.6Floor-Tile4.stl
+- R2M7.6Floor-Tile5.stl
+- R2M7.6Floor-Tile6.stl
+
+The floor comes in 6 different pieces, each piece is marked with a number that can be found on the reverse side. The pieces need to be arranged in the following configuration:
+5   6
+3   4
+1   2
+
+When assembled in the right order, it should look like this: 
+
+![Screenshot 2024-11-28 at 10 51 24](https://github.com/user-attachments/assets/dbd30a22-870e-4f48-8d59-e477a6b30c14)
+
+<p align='center'><em>Figure 1: The correct order of the floor tiles.</em></p>
+
+Notice that tiles 5 and 6 at the top of the image contain the hexagonal cutouts for the Wall to be attached.
+
+Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, place a metal rod through each hole of one tile and combine that tile with another floor tile to secure them together. 
+
+![image (8)](https://github.com/user-attachments/assets/bf74a167-03ea-458d-bbc7-168a0be6f521)
+
+<p align='center'><em>Figure 2: How to attach floor tiles together.</em></p>
+
+
+## Assembly of the Cryostat
+
