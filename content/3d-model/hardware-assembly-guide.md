@@ -31,7 +31,7 @@ The following 3D Files are used in this section:
 
 ### Gluing all the pieces together
 
-Depending on whether you printed the components for the wall yourself, and the size of your 3D printer, you might have needed to print the various parts of the Wall in two parts or even more. If you printed all of the components in one part, you can skip this step and move on to the section titled Integrating the Raspberry Pi. For this guide, each major component of The Wall was split in two for easier printing. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
+Depending on whether you printed the components for the wall yourself, and the size of your 3D printer, you might have needed to print the various parts of the Wall in two parts or even more. If you printed all of the components in one part, you can skip this step and move on to the section titled `Setting up the Raspberry Pi`. For this guide, each major component of The Wall was split in two for easier printing. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
 
 ![Figure 2](https://github.com/user-attachments/assets/e087c6cb-26de-49fa-8885-8734fb51734f)
 
@@ -46,7 +46,7 @@ After cleaning the models, it’s now time to put them together! To ensure that 
 **! Warning:**
 Super Glue can very easily stick to skin and cause painful injuries. Please use caution when using super glue and never touch the glue while it is drying. Only use a small amount of glue, a little drop goes a long way.
 
-Before gluing the halves together, it is recommended to lightly sand down the upper and lower “lip” of each half. This sanding process will create a smoother surface while also enabling the super glue to form a stronger attachment between the two parts. Once sanded down, apply a small amount of super glue to both the upper and lower lips of the two halves and hold them firmly together.
+Before gluing the halves together, it is recommended to lightly sand down the upper and lower “lip” of each half. This sanding process will create a smoother surface while also enabling the super glue to form a stronger bond between the two parts. Once sanded down, apply a small amount of super glue to both the upper and lower lips of the two halves and hold them firmly together.
 
 ![Figure 4](https://github.com/user-attachments/assets/20268b4e-1757-4394-b061-5d926eb197d0)
 
