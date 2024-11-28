@@ -243,7 +243,7 @@ Congratulations! You have successfully wired up the LED panels with the Raspberr
 
 ## Assembly of the Floor
 
-The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. 
+The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. This section will walk you through how to connect the floor tiles together.
 
 The following 3D Files are used in this section:
 - RASQ2M7.5Floor-all.stl
