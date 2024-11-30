@@ -48,3 +48,9 @@ Maria Violaris has published a Blog and YouTube series about [Quantum Paradoxes]
 To get your favorite type of beverage implies creating a quantum circuit whose measurement result is the appropriate representing binary number.
 
 ![Qoffee Maker](https://qoffee-maker.org/Bilder/Event%20Image.jpeg)
+
+## Quantum Lights Out
+
+[Quantum Lights Out](https://github.com/Luka-D/Quantum-Lights-Out), developed by Luka Dojcinovic, is an implementation of the [Lights Out](https://en.wikipedia.org/wiki/Lights_Out_(game)) puzzle game that is solved using a quantum algorithm and then displays every step of the solution process on the RasQberry Two's LED panel. 
+
+[Github: Luka-D/Quantum-Lights-Out](https://github.com/Luka-D/Quantum-Lights-Out)
