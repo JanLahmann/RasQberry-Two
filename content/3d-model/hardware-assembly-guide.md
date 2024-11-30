@@ -265,11 +265,16 @@ The floor comes in 6 different pieces, each piece is marked with a number that c
 
 Notice that tiles 5 and 6 at the top of the image contain the hexagonal cutouts for the Wall to be attached.
 
-Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, place a metal rod through each hole of one tile and combine that tile with another floor tile to secure them together. 
+Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Reapeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles. 
 
 ![image (8)](https://github.com/user-attachments/assets/bf74a167-03ea-458d-bbc7-168a0be6f521)
 
-<p align='center'><em>Figure 2: How to attach floor tiles together.</em></p>
+<p align='center'><em>Figure 2: How to attach floor tiles together. The yellow arrows show where the bolts should be inserted and tightened. </em></p>
+
+Once all the bolts have been tightened, place the floor on a flat surface for a while to let it flatten out. The finished result should look liek this:
+
+
+You have now successfully assembled the floor! 
 
 
 ## Assembly of the Cryostat
