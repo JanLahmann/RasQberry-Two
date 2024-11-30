@@ -240,6 +240,45 @@ You can run`python3 neopixel_spi_IBMtestFunc.py` again to help you line up the c
 
 Congratulations! You have successfully wired up the LED panels with the Raspberry Pi!
 
+### Cutting the welding shield
+
+The Wall uses the plastic sheet from a welding shield as a stand-in for the dark glass panels on the real world server wall. This sheet serves to obscure any LEDs that are off, as well as to dim the brightness of any LEDs that are on. 
+
+For this section, we will be using a pair of scissors and the welding shield itself, which looks like this:
+
+![Figure 29](https://github.com/user-attachments/assets/232f403c-82f8-482b-86c1-c6370bace5c3)
+
+<p align='center'><em>Figure 29: The welding shield.</em></p>
+
+**! Warning:**
+Scissors and scalpels are sharp and can cause injuries if you are not careful. Please use caution when cutting the welding shield during this section.
+
+On the welding shield, you will want to mark out a rectangle in the center that is 240mm wide by 90mm tall. The rectangle dimensions can be marked by using a bright colored tape or by using a scalpel and straightedge ruler to etch a shallow line that can be followed while cutting. It is recommended to add a few more millimeters to the width and the height while measuring, incase adjustments need to be made later on. Begin your measurements after the oval cutouts found on the bottom of the welding shield, so that your rectangle will not contain any holes.
+
+![Figure 30](https://github.com/user-attachments/assets/5229df01-719b-4706-9782-552af6dc391e)
+
+<p align='center'><em>Figure 30: Using tape, a straightedge ruler and a scalpel to mark out the lines to be cut.</em></p>
+
+Once you have marked out the dimenensions of the rectangle, use a pair of scissors to cut along the lines you have marked. The welding shield should be fairly easy to cut, use a little bit of force but go slow to ensure you are following the lines. Once you have cut out the rectangle, it should look like this:
+
+![Figure 31](https://github.com/user-attachments/assets/9a1a99fc-f5e1-46e4-b662-473cc18b7880)
+
+<p align='center'><em>Figure 31: The welding shield cut into a rectangle 240mm x 90mm.</em></p>
+
+Now it's time to slot the shield panel into the wall. The shield panel slides into the same gap you placed the LEDs panels into. We have found it is easiest to first remove all of the LED panels and then attempt to slide the shield panel into that gap. If the panel has difficulty sliding in, then it is probably too wide and needs to be trimmed a little on the side. The panel should slide relatively easily into the gap, if you encounter any resistance then you should trim the panel a little more. If you observe that the panel is causing the bottom of the wall to warp a little, then that also means that the panel is too wide and needs to be trimmed a little on the side. After you have made any necessary alterations and have ensured that the panel slides in with no resistance, you can return the LED panels back to the gap as well, making sure to preserve the orientation that was described in the `Wiring up the LEDs` section. When it's all finished, it should look like this:
+
+![Figure 32](https://github.com/user-attachments/assets/a0006b80-c4e3-422e-b827-9197d348ba1a)
+
+<p align='center'><em>Figure 32: The welding shield placed in front of the LEDs.</em></p>
+
+Try placing the Wall Lid on top of the Wall Base to ensure that the panel fits properly. If you notice that the Lid is not seating properly, then you might need to trim a little bit of the top of the panel to get it to sit properly. Your end result should look like this:
+
+![Figure 33](https://github.com/user-attachments/assets/161c447d-d9f7-418a-bcfe-65b2e46672c4)
+
+<p align='center'><em>Figure 33: Placing the Lid on top of the Wall and ensuring it fits properly.</em></p>
+
+Now you have successfully placed the welding shield onto the Wall! 
+
 
 ## Assembly of the Floor
 
