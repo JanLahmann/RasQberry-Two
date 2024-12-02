@@ -8,6 +8,8 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { youtubeMd } from '@/utils/remarkPlugins/youtubeMd';
 import Children from 'react-children-utilities'
 import { Code } from '@/components/Code';
+import { Table } from "@/components/Markdown/Table";
+import { Ol } from "@/components/Markdown/Ol";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -22,6 +24,7 @@ export function compileMdPage(content: string) {
       h2: ({ children }) => <H2>{children}</H2>,
       pre: ({ children }) => <CodeBlock code={Children.onlyText(children)} />,
       code: ({ children }) => <Code code={Children.onlyText(children)} />,
+      ol: ({ children }) => <Ol>{children}</Ol>,
       ul: ({ children }) => <Ul>{children}</Ul>,
       li: ({ children }) => <Li>{children}</Li>,
       customDirective: ({ children }) => <p>{children}</p>,
