@@ -11,7 +11,7 @@ leadspace:
       target: _blank
   bg:
     image:
-      src: https://picsum.photos/id/1076/1056/480
+      src: /Artwork/RQB2-Website.png
       alt: lead space background image
 ---
 
