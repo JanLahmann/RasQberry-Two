@@ -296,9 +296,11 @@ The following 3D Files are used in this section:
 - R2M7.6Floor-Tile5.stl
 - R2M7.6Floor-Tile6.stl
 
+**NOTE:** If you have printed all of the tiles as one piece (RASQ2M7.5Floor-all.stl), you can skip the remainder of this section.
+
 The floor comes in 6 different pieces, each piece is marked with a number that can be found on the reverse side. The pieces need to be arranged in the following configuration:
 
-![Screenshot 2024-11-28 at 10 51 24](https://github.com/user-attachments/assets/dbd30a22-870e-4f48-8d59-e477a6b30c14)
+![Figure 1](https://github.com/user-attachments/assets/dbd30a22-870e-4f48-8d59-e477a6b30c14)
 
 <p align='center'><em>Figure 1: The correct order of the floor tiles.</em></p>
 
@@ -306,12 +308,15 @@ Notice that tiles 5 and 6 at the top of the image contain the hexagonal cutouts 
 
 Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Reapeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles. 
 
-![image (8)](https://github.com/user-attachments/assets/bf74a167-03ea-458d-bbc7-168a0be6f521)
+![Figure 2](https://github.com/user-attachments/assets/bf74a167-03ea-458d-bbc7-168a0be6f521)
 
 <p align='center'><em>Figure 2: How to attach floor tiles together. The yellow arrows show where the bolts should be inserted and tightened. </em></p>
 
-Once all the bolts have been tightened, place the floor on a flat surface for a while to let it flatten out. The finished result should look liek this:
+Once all the bolts have been tightened, place the floor on a flat surface for a while to let it flatten out. The finished result should look like this:
 
+![Figure 3](https://github.com/user-attachments/assets/020b9851-a3bf-46ca-bebb-8489f7d10eab)
+
+<p align='center'><em>Figure 3: Top view of all the floor tiles assembled. </em></p>
 
 You have now successfully assembled the floor! 
 
