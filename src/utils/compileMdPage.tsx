@@ -2,12 +2,14 @@ import { FrontMatter } from "@/components/PageLayout";
 import { compileMDX } from "next-mdx-remote/rsc";
 import { H2 } from "@/components/Markdown/H2";
 import remarkDirective from "remark-directive";
+import remarkGfm from "remark-gfm";
 import { Ul } from "@/components/Markdown/Ul";
 import { Li } from "@/components/Markdown/Li";
 import { CodeBlock } from "@/components/CodeBlock";
 import { youtubeMd } from '@/utils/remarkPlugins/youtubeMd';
 import Children from 'react-children-utilities'
 import { Code } from '@/components/Code';
+import { Table } from "@/components/Markdown/Table";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -15,7 +17,7 @@ export function compileMdPage(content: string) {
     options: {
       parseFrontmatter: true,
       mdxOptions: {
-        remarkPlugins: [remarkDirective, youtubeMd],
+        remarkPlugins: [remarkDirective, remarkGfm, youtubeMd],
       },
     },
     components: {
@@ -25,6 +27,7 @@ export function compileMdPage(content: string) {
       ul: ({ children }) => <Ul>{children}</Ul>,
       li: ({ children }) => <Li>{children}</Li>,
       customDirective: ({ children }) => <p>{children}</p>,
+      table: ({ children }) => <Table>{children}</Table>
     },
   });
 }
