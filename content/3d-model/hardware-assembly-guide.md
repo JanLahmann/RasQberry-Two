@@ -312,11 +312,15 @@ Each floor tile has two holes on each side where it connects to another floor ti
 
 <p align='center'><em>Figure 2: How to attach floor tiles together. The yellow arrows show where the bolts should be inserted and tightened. </em></p>
 
+![Figure 3](https://github.com/user-attachments/assets/4f036a19-facd-4a39-95c7-44d702ae0169)
+
+<p align='center'><em>Figure 3: All the bolts and nuts tightened under the floor. </em></p>
+
 Once all the bolts have been tightened, place the floor on a flat surface for a while to let it flatten out. The finished result should look like this:
 
-![Figure 3](https://github.com/user-attachments/assets/541a8dda-9a78-4dbf-8ccd-5ddbff1e6061)
+![Figure 4](https://github.com/user-attachments/assets/541a8dda-9a78-4dbf-8ccd-5ddbff1e6061)
 
-<p align='center'><em>Figure 3: Top view of all the floor tiles assembled. </em></p>
+<p align='center'><em>Figure 4: Top view of all the floor tiles assembled. </em></p>
 
 You have now successfully assembled the floor! 
 
