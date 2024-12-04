@@ -314,7 +314,7 @@ Each floor tile has two holes on each side where it connects to another floor ti
 
 Once all the bolts have been tightened, place the floor on a flat surface for a while to let it flatten out. The finished result should look like this:
 
-![Figure 3](https://github.com/user-attachments/assets/020b9851-a3bf-46ca-bebb-8489f7d10eab)
+![Figure 3](https://github.com/user-attachments/assets/541a8dda-9a78-4dbf-8ccd-5ddbff1e6061)
 
 <p align='center'><em>Figure 3: Top view of all the floor tiles assembled. </em></p>
 
