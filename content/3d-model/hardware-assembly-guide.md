@@ -78,7 +78,9 @@ After you have finished flashing the OS image to the micro-SD card, you can inse
 
 <p align='center'><em>Figure 8: Mounting location for the Micro SD card.</em></p>
 
-Once the OS has been installed, you will need to enable SPI for the LED array to work. To do so, run:
+Once the OS has been installed, plug in the USB-C Power Supply into the Pi and connect a micro HDMI cable from the Pi to your monitor. If the OS installation was successful, you should be met with a login screen on your monitor. The standard username is `rasqberry` and the password is listed in the installation instructions above. Login with these credentials and you should see a desktop interface. 
+
+Next, we will enable SPI for the LED array to work. To do so, open a terminal window by pressing the `CTRL + ALT + T` keys at the same time. When the window appears, run the following command:
 
 ```sudo raspi-config```
 
