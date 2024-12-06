@@ -1,3 +1,9 @@
+---
+tableOfContent:
+  minLevel: 2
+  maxLevel: 3
+---
+
 # Bill of Materials
 
 The **Required Components** section provides a handy list of every component needed for the basic model as well as any optional additions.

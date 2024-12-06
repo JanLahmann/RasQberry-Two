@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import { join } from 'path'
 import { PageLayout } from "@/components/PageLayout";
-import { extractH2FromMd } from '@/utils/extractH2FromMd';
+import { extractHeadersFromMd } from '@/utils/extractHeadersFromMd';
 import { getPagesFilesPaths } from '@/utils/getPagesFilesPath';
 import { getNavItems } from "@/utils/getNavItems";
 import { compileMdPage } from "@/utils/compileMdPage";
@@ -28,7 +28,7 @@ export default async function Page({ params }: Props) {
     const navItems = await getNavItems(paths)
 
     const { content, frontmatter } = await compileMdPage(fileContent)
-    const tocItems = extractH2FromMd(fileContent)
+    const tocItems = extractHeadersFromMd(fileContent, frontmatter.tableOfContent?.minLevel, frontmatter.tableOfContent?.maxLevel)
 
     return <PageLayout
         frontmatter={{ ...frontmatter }}
