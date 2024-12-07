@@ -231,7 +231,7 @@ do_rasqberry_menu() {
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-# Function for graceful error handling
+# Function for graceful error handlings
 handle_error() {
     echo "Error: $1"
     echo "Exiting with error."
