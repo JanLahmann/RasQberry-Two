@@ -83,7 +83,7 @@ do_rasp_tie_install() {
     # Check if the folder is owned by root
     if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
       # Change the ownership to the logged-in user
-      sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH"
+      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
      # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
     fi
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
@@ -165,8 +165,7 @@ do_select_qrt_option() {
    3>&1 1>&2 2>&3)
     # Check the user's selection
     case "$FUN" in
-        "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
-            
+        "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."            
             ;;
         "b:aer_noise") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
             ;;
