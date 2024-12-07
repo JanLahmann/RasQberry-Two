@@ -165,13 +165,12 @@ do_select_qrt_option() {
    3>&1 1>&2 2>&3)
     # Check the user's selection
     case "$FUN" in
-        "b:aer" ) do_rasp_tie_install "$FUN -local"
-            
+        "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."            
             ;;
-        "b:aer_noise") do_rasp_tie_install "$FUN -local"
+        "b:aer_noise") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
             ;;
         "b:least")
-            do_rasp_tie_install $FUN
+            do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
             ;;
         "b:custom")
             # Ask the user for custom input
@@ -180,7 +179,7 @@ do_select_qrt_option() {
             # Check if the user provided input or canceled
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                do_rasp_tie_install $CUSTOM_OPTION
+                do_rasp_tie_install $CUSTOM_OPTION || handle_error "Rasqberry Tie Demo Installation Failed ."
             else
                 echo "You chose to cancel. Demo will launch with Local Simulator"
                 break
@@ -230,4 +229,10 @@ do_rasqberry_menu() {
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
+}
+# Function for graceful error handlings
+handle_error() {
+    echo "Error: $1"
+    echo "Exiting with error."
+    exit 1
 }
