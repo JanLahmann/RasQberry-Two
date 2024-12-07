@@ -1,7 +1,6 @@
 ---
 tableOfContent:
   minLevel: 2
-  maxLevel: 3
 ---
 
 # Bill of Materials
