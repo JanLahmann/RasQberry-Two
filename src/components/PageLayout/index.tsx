@@ -9,6 +9,7 @@ import { HeaderNav, NavItem } from "@/components/HeaderNav";
 export interface FrontMatter {
     leadspace?: LeadSpaceProps,
     tableOfContent?: {
+        disabled?: boolean
         minLevel?: number
         maxLevel?: number
     }

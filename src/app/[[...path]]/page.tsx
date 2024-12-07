@@ -28,7 +28,8 @@ export default async function Page({ params }: Props) {
     const navItems = await getNavItems(paths)
 
     const { content, frontmatter } = await compileMdPage(fileContent)
-    const tocItems = extractHeadersFromMd(fileContent, frontmatter.tableOfContent?.minLevel, frontmatter.tableOfContent?.maxLevel)
+    const showToc = frontmatter.tableOfContent && frontmatter.tableOfContent.disabled !== true
+    const tocItems = showToc ? extractHeadersFromMd(fileContent, frontmatter.tableOfContent?.minLevel, frontmatter.tableOfContent?.maxLevel) : []
 
     return <PageLayout
         frontmatter={{ ...frontmatter }}
