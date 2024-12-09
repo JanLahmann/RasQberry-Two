@@ -11,8 +11,6 @@ interface Props {
 export function Table({ children }: Props) {
     const id = toKebabCase(children?.toString() || '')
 
-    console.log(children)
-
     return <div className={styles["table-md"]}>
         <table className={styles["table-md__table"]}>{children}</table>
     </div>

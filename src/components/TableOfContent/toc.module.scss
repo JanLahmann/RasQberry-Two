@@ -26,6 +26,40 @@
             &--active {
                 border-left: 0.25rem solid themes.$border-interactive;
             }
+
+            &--1 {
+                font-weight: bold;
+                font-size: 1.5rem;
+                padding-left: 1rem;
+            }
+
+            &--2 {
+                font-weight: bold;
+                padding-left: 1rem;
+            }
+
+            &--3 {
+                padding: 0.5rem;
+                padding-left: 1.75rem;
+            }
+
+            &--4 {
+                padding: 0.3rem;
+                padding-left: 2.25rem;
+                color: themes.$text-helper;
+            }
+
+            &--5 {
+                padding: 0.3rem;
+                padding-left: 2.75rem;
+                color: themes.$text-helper;
+            }
+
+            &--6 {
+                padding: 0.3rem;
+                padding-left: 3.25rem;
+                color: themes.$text-helper;
+            }
         }
     }
 

@@ -7,7 +7,12 @@ import { TableOfContent, Props as TableOfContentProps } from "@/components/Table
 import { HeaderNav, NavItem } from "@/components/HeaderNav";
 
 export interface FrontMatter {
-    leadspace?: LeadSpaceProps
+    leadspace?: LeadSpaceProps,
+    tableOfContent?: {
+        disabled?: boolean
+        minLevel?: number
+        maxLevel?: number
+    }
 }
 
 interface Props {

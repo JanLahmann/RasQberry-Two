@@ -7,7 +7,7 @@ import clsx from 'clsx'
 import { Dropdown } from '@carbon/react'
 
 export interface Props {
-    items: string[]
+    items: { title: string, level: number }[]
 }
 
 export function TableOfContent({ items }: Props) {
@@ -15,7 +15,6 @@ export function TableOfContent({ items }: Props) {
     const [titles, setTitles] = useState<Element[]>([])
 
     function scrollTo(id: string) {
-        setActiveId(id)
         document.getElementById(id)?.scrollIntoView({
             behavior: 'smooth'
         });
@@ -33,19 +32,17 @@ export function TableOfContent({ items }: Props) {
     }
 
     const handleScroll = useCallback(() => {
-        let found = false
         for (const title of titles) {
             if (isElementInViewport(title)) {
                 setActiveId(title.id)
-                found = true
-                break
+                return
             }
         }
     }, [titles]);
 
     useEffect(() => {
         if (!titles || titles.length === 0) {
-            const titlesFound = document.querySelectorAll('.main-content h2')
+            const titlesFound = document.querySelectorAll('.main-content h1, .main-content h2, .main-content h3, .main-content h4, .main-content h5, .main-content h6')
             setTitles(Array.from(titlesFound))
         }
         window.addEventListener('scroll', handleScroll, { passive: true });
@@ -64,20 +61,20 @@ export function TableOfContent({ items }: Props) {
     return <div className={styles['toc']}>
         <ul className={styles['toc__list']}>
             {items.map(item => {
-                const id = toKebabCase(item)
-                return <li key={id} onClick={() => scrollTo(id)} className={clsx(styles['toc__list__item'], {
+                const id = toKebabCase(`${item.level}-${item.title}`)
+                return <li key={id} onClick={() => scrollTo(id)} className={clsx(styles['toc__list__item'], styles[`toc__list__item--${item.level}`], {
                     [styles['toc__list__item--active']]: activeId === id
-                })}>{item}</li>
+                })}>{item.title}</li>
             })}
         </ul>
         <Dropdown
             className={styles['toc__dropdown']}
             id="toc-dropdown"
             size="lg"
-            onChange={(change: { selectedItem: string }) => navigateToTitle(toKebabCase(change.selectedItem))}
+            onChange={(change: { selectedItem: { title: string; level: number; } }) => navigateToTitle(toKebabCase(change.selectedItem.title))}
             hideLabel={true}
             label="Jump to section"
-            items={items}
+            items={items.filter(item => item.level === 2)}
         />
     </div>
 }

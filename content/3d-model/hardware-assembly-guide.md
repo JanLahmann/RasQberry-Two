@@ -96,7 +96,6 @@ Before we begin this guide, it is important that we cover the three main parts o
 
 <p align='center'><em>Figure 1: The three main parts of the wall.</em></p>
 
-
 The following 3D Files are used in this section:
 
 - R2M7.0Wall-Back-Dual
@@ -213,7 +212,7 @@ The LEDs can be very bright! It is recommended to wear eye protection when worki
 
 Now it’s time to test the LEDs! Run the Python script in your terminal:
 
-```python3 neopixel_spi_IBMtestFunc.py.```
+`python3 neopixel_spi_IBMtestFunc.py.`
 
 If everything is wired up correctly, you should see the IBM logo appear on the LED array in the correct orientation. Verify that your result looks similar to this:
 
@@ -246,7 +245,7 @@ Congratulations! You have successfully wired up the LED panels with the Raspberr
 
 ### Cutting the welding shield
 
-The Wall uses the plastic sheet from a welding shield as a stand-in for the dark glass panels on the real world server wall. This sheet serves to obscure any LEDs that are off, as well as to dim the brightness of any LEDs that are on. 
+The Wall uses the plastic sheet from a welding shield as a stand-in for the dark glass panels on the real world server wall. This sheet serves to obscure any LEDs that are off, as well as to dim the brightness of any LEDs that are on.
 
 For this section, we will be using a pair of scissors and the welding shield itself, which looks like this:
 
@@ -281,18 +280,18 @@ Try placing the Wall Lid on top of the Wall Base to ensure that the panel fits p
 
 <p align='center'><em>Figure 26: Placing the Lid on top of the Wall and ensuring it fits properly.</em></p>
 
-Now you have successfully placed the welding shield onto the Wall! 
-
+Now you have successfully placed the welding shield onto the Wall!
 
 ## Assembly of the Floor
 
 The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. This section will walk you through how to connect the floor tiles together.
 
 The following 3D Files are used in this section:
+
 - RASQ2M7.5Floor-all.stl
-  
+
   OR
-  
+
 - R2M7.6Floor-Tile1.stl
 - R2M7.6Floor-Tile2.stl
 - R2M7.6Floor-Tile3.stl
@@ -310,7 +309,7 @@ The floor comes in 6 different pieces, each piece is marked with a number that c
 
 Notice that tiles 5 and 6 at the top of the image contain the hexagonal cutouts for the Wall to be attached.
 
-Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Reapeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles. 
+Each floor tile has two holes on each side where it connects to another floor tile. To connect the floor tiles together, line up two floor panels together so that the holes are in alignment. Insert an M3 Bolt (or #4 bolt in the US) through the hole and thread the nut onto the bolt until tightened. Reapeat the process to connect all of the panels together, making sure to preserve the correct order of panels as shown in the above image. We have found that holding the nut with a pair of pliers and using an allen key to tighten the bolt helps make the process easier, given the small space available beneath the floor tiles.
 
 ![Figure 2](https://github.com/user-attachments/assets/bf74a167-03ea-458d-bbc7-168a0be6f521)
 
@@ -328,6 +327,4 @@ Once all the bolts have been tightened, place the floor on a flat surface for a 
 
 You have now successfully assembled the floor! 
 
-
 ## Assembly of the Cryostat
-

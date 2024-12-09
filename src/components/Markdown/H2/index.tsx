@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function H2({ children }: Props) {
-    const id = toKebabCase(children?.toString() || '')
+    const id = toKebabCase(`2-${children?.toString() || ''}`)
 
     return <>
         <h2 id={id} className={styles['h2']}>{children}</h2>
