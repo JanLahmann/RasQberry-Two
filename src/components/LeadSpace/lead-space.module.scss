@@ -38,7 +38,7 @@
     @include grid.breakpoint-up(lg) {
         &--tall {
             padding-bottom: 4rem;
-            height: 60vh;
+            min-height: 60vh;
             padding-top: 8rem;
             padding-top: 8rem;
         }

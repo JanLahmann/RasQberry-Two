@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import Image from "next/image"
 import styles from './img.module.scss'
 
 interface Props {
@@ -8,8 +8,12 @@ interface Props {
 }
 
 export function Img({ src, alt, title }: Props) {
+    if (!src) {
+        return <></>
+    }
+
     return <>
-        <img className={styles['img']} src={src} alt={alt} title={title} />
+        <Image className={styles['img']} src={src} alt={alt || ""} title={title} width={1200} height={800} />
         {title && <em className={styles['img__caption']}>{title}</em>}
     </>
 }
