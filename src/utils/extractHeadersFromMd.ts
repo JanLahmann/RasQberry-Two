@@ -1,6 +1,6 @@
 export function extractHeadersFromMd(
   md: string,
-  minLevel: number = 2,
+  minLevel: number = 1,
   maxLevel: number = 6
 ): { title: string; level: number }[] {
   const regex = /^(#{1,6}) (.*)$/gm;

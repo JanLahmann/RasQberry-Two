@@ -1,0 +1,14 @@
+@use "@carbon/themes";
+
+.img {
+    max-width: 100%;
+
+    &__caption {
+        font-style: italic;
+        color: themes.$text-helper;
+        text-align: center;
+        margin-top: 0 !important;
+        width: 100%;
+        display: block;
+    }
+}

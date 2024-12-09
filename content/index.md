@@ -22,7 +22,7 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 ## Quick Installation of RasQberry
 
 Quick setup instructions:<br/>
-Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit". 
+Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit".
 
 Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-pi-gen/releases](https://github.com/JanLahmann/RasQberry-pi-gen/releases)
 
@@ -33,6 +33,7 @@ Alternatively, this image can be accessed with the Raspberry Pi Imager using a c
 ```
 
 or on Windows
+
 ```python
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
@@ -40,7 +41,6 @@ or on Windows
 This image includes Qiskit 1.x and several Quantum computing Demos.
 
 Further instructions will be released, soon.
-
 
 ### Working with Qiskit
 
