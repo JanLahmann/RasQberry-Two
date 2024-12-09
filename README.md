@@ -9,6 +9,11 @@ satisfying "clunk" connection to the main cryostat structure.
 
 Credit for the bulk of the 3D design work goes to @ericJenney, with significant input from @andysc and @saschaShefenaker, with ideas and testing input from a whole army of other enthusiastic contributors at IBM.
 
+<image>
 
+There are quite a lot of pieces, but they're easy to print, without the need for supports, and the process is well-documented.
 
+<image>
+
+We hope you have as much fun building a model of the IBM Quantum System Two as we have had designing it! We very much welcome your feedback and suggestions for improvement.
 
