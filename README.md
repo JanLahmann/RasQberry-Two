@@ -15,5 +15,6 @@ There are quite a lot of pieces, but they're easy to print, without the need for
 
 ![Exploded parts view of RasQberry 2 model](artwork/RasQberry2exploded.png "Exploded view of RasQerry 2")
 
-We hope you have as much fun building a model of the IBM Quantum System Two as we have had designing it! We very much welcome your feedback and suggestions for improvement.
+We hope you have as much fun building a model of the IBM Quantum System Two as we have had designing it!   
+We very much welcome your feedback and suggestions for improvement.
 
