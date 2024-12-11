@@ -15,7 +15,7 @@ import {
   HeaderMenuItem,
   HeaderMenuButton,
   HeaderMenu,
-  HeaderSideNavItems
+  HeaderSideNavItems,
 } from "@carbon/react";
 
 export {
@@ -33,5 +33,5 @@ export {
   HeaderMenuItem,
   HeaderMenu,
   HeaderSideNavItems,
-  Link
+  Link,
 };

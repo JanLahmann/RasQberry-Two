@@ -1,0 +1,26 @@
+@use "@carbon/themes";
+
+.img {
+    width: 100%;
+    height: auto;
+    display: block;
+
+    &__caption {
+        font-style: italic;
+        color: themes.$text-helper;
+        text-align: center;
+        margin-top: 0.5rem !important;
+        width: 100%;
+        display: block;
+    }
+}
+
+@keyframes loading-gradient {
+    0% {
+        background-position: 0% 0;
+    }
+
+    100% {
+        background-position: 100% 0;
+    }
+}

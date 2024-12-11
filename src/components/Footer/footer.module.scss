@@ -1,0 +1,8 @@
+@use "@carbon/themes";
+
+.footer {
+    margin-top: 2rem;
+    background-color: themes.$background-inverse;
+    padding: 2rem;
+    color: themes.$text-on-color;
+}
