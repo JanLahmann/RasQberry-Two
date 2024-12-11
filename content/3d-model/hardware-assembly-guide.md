@@ -28,7 +28,9 @@ Next, we will enable SPI for the LED array to work. To do so, open a terminal wi
 
 You will be met with this screen:
 
-![2024-11-26-100131_1920x1080_scrot](https://github.com/user-attachments/assets/c37c7c70-c813-4063-b8f0-b46a341b2393)
+```
+image here
+```
 
 In the menu that shows up, navigate to `3. Interface Options` using the arrow keys and press enter.
 
