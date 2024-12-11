@@ -1,6 +1,6 @@
 # Bill of Materials
 
-This document contains all the information you need to purchase every component needed to assemble the RasQberry Two Platform. When fully assembled, you'll have a fully functional and detailed model like this one!
+This document contains all the information you need to purchase everything needed to assemble the RasQberry Two Platform. When fully assembled, you will have a fully functional and detailed model like this one!
 
 ![Assembled Model](../Artwork/RasQberry2model.png)
 
