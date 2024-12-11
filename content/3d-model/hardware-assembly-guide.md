@@ -83,11 +83,11 @@ Before we begin this guide, it is important that we cover the three main parts o
 
 The following 3D Files are used in this section:
 
-- R2M7.0Wall-Back-Dual
+- R2_Wall-Back
 
-- R2M7.6Wall-Test-Base
+- R2_Wall-Base
 
-- R2M7.6Wall-Test-Lid (1)
+- R2_Wall-Lid (1)
 
 ### Gluing all the pieces together
 
@@ -221,24 +221,26 @@ Try placing the Wall Lid on top of the Wall Base to ensure that the panel fits p
 
 Now you have successfully placed the welding shield onto the Wall!
 
+Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall.  It is helpful to do this last so that the wall can stand on its own in the mean time.  These should fit snuggly.  If not, a dab of glue will hold them in place until they are used to connect the wall to the floor. 
+
 ## Assembly of the Floor
 
 The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. This section will walk you through how to connect the floor tiles together.
 
 The following 3D Files are used in this section:
 
-- RASQ2M7.5Floor-all.stl
+- R_2Floor-all.stl
 
   OR
 
-- R2M7.6Floor-Tile1.stl
-- R2M7.6Floor-Tile2.stl
-- R2M7.6Floor-Tile3.stl
-- R2M7.6Floor-Tile4.stl
-- R2M7.6Floor-Tile5.stl
-- R2M7.6Floor-Tile6.stl
+- R2_Floor-Tile1.stl
+- R2_Floor-Tile2.stl
+- R2_Floor-Tile3.stl
+- R2_Floor-Tile4.stl
+- R2_Floor-Tile5.stl
+- R2_Floor-Tile6s.stl
 
-**NOTE:** If you have printed all of the tiles as one piece (RASQ2M7.5Floor-all.stl), you can skip the remainder of this section.
+**NOTE:** If you have printed all of the tiles as one piece (R2_Floor-all.stl), you can skip the remainder of this section.
 
 The floor comes in 6 different pieces, each piece is marked with a number that can be found on the reverse side. The pieces need to be arranged in the following configuration:
 
@@ -258,4 +260,50 @@ Once all the bolts have been tightened, place the floor on a flat surface for a 
 
 You have now successfully assembled the floor!
 
+### Attach the Wall to the Floor 
+
+Place the wall with the two protruding hex bolts into the hexagonal holes at the back of the floor.    Fit the Hex Nut to the bolts from the underside of the floor and tighten reasonably firmly, but only “finger tight”. They’re quite strong, but don’t over-tighten them.
+
 ## Assembly of the Cryostat
+
+The Cryostat comes with 2 RTE servers attached for each of the Chandeliers which would hold a processor.  The core of the cryostat (R2_NarrowYCryoConjoined) is connected to the floor with a Hex bolt as used in the Wall which has special 'arms' attached to conceal wires should you want to put anything electronic in any of the servers.  The Hex bolt, affectionately named the octopus (R2_OctopusAlignment) is made with the hex part slightly raised beyond the floor of the cryostat to ensure that the Cryostat is correctly aligned, and cannot move when twisted.  You should first push the hex bolt all the way through the larger cryostat piece, then through the floor.  Fit the Hex Nut (from the Wall directory) through the underside of the floor and tighten reasonably firmly, but only “finger tight”. Again, don’t over-tighten them.
+
+The main Lid (R2_CryoLid-Simple) and Chandeliers (R2_ChandelierSingle) should be glued together.  Print 3 Chandeliers, hex base down, and glue them to your “Cap”.  You can print whatever color you want but we recommend the Silk Gold.  They have a hollow core in case you want to do anything creative with LEDs or other wiring.  
+
+Each of the 9 RTE Servers (6 attached, and 3 stand-alone) requires a 'lid'.  They are all the same, R2_NarrowServerSingleLid.  They just sit in place, in case you want to fit something inside the servers, but can be glued if desired. 
+
+The Door (R2_NewDoor) should be printed upright, so that the layer lines align, but may require a brim for stable printing.  It and the server's door frame each require very small magnets for it to close securely... see the notes below on best practices for installing those.
+
+The outside of the main Cryostat and RTE Server model and the Inside of the 3 stand alone single RTE Servers (R2_NarrowServerSingle) connect with Magnets, alowing one to demonstrate the configurability of the system.  Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach.  Do the same with the individual RTE Servers. 
+
+**Note: Tips for fitting magnets** 
+
+Magnets have a life of their own, and can be very frustrating. Here are some tips the team has used to get them to go (and stay) where you want them.
+
+Big magnets (15x2mm) sit in indents in the walls of the conjoined double RTEs and the separate single RTEs. 
+
+The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way round (all the same in the conjoined RTEs of the Cryostat, and all the same in the single RTEs, such that the RTEs attach to the Cryostat). 
+
+A good tip is to put a dot with a permanent marker (“Sharpie”) on the back of a magnet before you remove it from the stack. That way, the side with the dot on it is always the same polarity.
+
+Use a dab of rubber solution glue (“Copydex” in the UK), applied with something like the blunt end of a pencil in the indent. 
+
+It’s easiest to fit the “lower” magnet first, then the “upper” one.
+
+Use a spare magnet on the outside of the piece, and use that to steer the magnet on the inside into the patch of glue in the indent. Leave the magnet on the outside until the glue is dry (e.g. half an hour).
+
+Small magnets (3x2mm) are very frustrating.
+
+They are used to hold the door onto the Cryostat, and the lid onto the Wall.
+
+The magnets usually come in a stack, all pointing the same way. It’s important to install the magnets the same way round (all the same in the Cryostat door frame, all the same in the wall base,  all the same in the door, and all the same in the Wall lid, such that the door attaches to the Cryostat and the Wall lid attaches to the Wall base). 
+
+A good tip is to put a dot with a permanent marker (“Sharpie”) on the back of a magnet before you remove it from the stack. That way, the side with the dot on it is always the same polarity.
+
+It is helpful to make a “handle” using 3 magnets wrapped up in Scotch tape / Sellotape (to keep them together and to make it easy to wipe any glue off). Use this to pick up a magnet and push it into one of the indents. Note that you will have to reverse the handle and use the other end to insert half of the magnets, so they have the correct polarities to attach to their other halves.
+
+Use a dab of rubber solution glue (“Copydex” in the UK), applied with something like a cocktail stick in the indent, and then push the magnet in using the handle. 
+
+Attach another magnet to the back of the plastic wall to keep the magnet in place while the glue dries (about half an hour). Leave plenty of time for the glue to dry before assembling magnetic joints, so the magnets don’t pull out.
+
+Roll any excess glue off with your finger when it’s dried.
