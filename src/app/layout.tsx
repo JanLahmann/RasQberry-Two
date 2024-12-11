@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
 
 import "@/styles/globals.scss";
+import { Footer } from "@/components/Footer";
 
 const plex = IBM_Plex_Sans({ weight: ['100', '200', '300', '400', '500', '600', '700'], subsets: ["latin"] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={plex.className}>
         {children}
+        <Footer />
       </body>
     </html>
   );
