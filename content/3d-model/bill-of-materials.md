@@ -2,7 +2,7 @@
 
 This document contains all the information you need to purchase everything needed to assemble the RasQberry Two Platform. When fully assembled, you will have a functional and detailed model like this one!
 
-![Assembled Model](../Artwork/RasQberry2model.png)
+<p align='center'><img src='../Artwork/RasQberry2model.png' width="88%" height="88%"/></p>
 
 The **Required Components** section provides a handy list of every component needed for the basic model as well as any optional additions.
 
@@ -42,13 +42,11 @@ The following core components are necessary to create the base functioning model
 
 #### Raspberry Pi:
 
-- Raspberry Pi 5 4GB or Raspberry Pi 4B 4GB
+- Raspberry Pi 5 2GB or Raspberry Pi 4B 4GB
 
-  - <em>The Pi 5 is recommended for this project, however a Pi 4B can be used as well, with a decrease in performance.</em>
+  - <em>2 GB of RAM for the Pi 5 is sufficient for day to day tasks and most of the quantum demos. If a demo runs poorly with 2GB of RAM, it will be noted in the demo's info.</em>
 
-  - <em>A minimum of 4GB of RAM is recommended for the best experience. The 2GB model of the Pi 5 can be used, however with some decrease in the performance of certain demos.</em>
-
-  - <em>Alternatives to some components will be needed if the Pi 4B is used (power supply, cooling fan etc.). The cooling configuration with a Pi 4B has not been tested, due to the lack of a standard cooler for the Pi 4B. If using a Pi 4B, a PWM fan of some kind mounted above the CPU is recommended.</em>
+  - <em>The Pi 5 is recommended for this project, however a Pi 4B can be used as well. Alternatives to some components will be needed if the Pi 4B is used (power supply, cooling fan etc.). The cooling configuration with a Pi 4B has not been tested, due to the lack of a standard cooler for the Pi 4B. If using a Pi 4B, a PWM fan of some kind mounted above the CPU is recommended. Additionally, the wiring to the LED array is different for the Pi 4.</em>
 
   - **The hardware assembly guide will assume that a Raspberry Pi 5 is used.**
 
@@ -80,6 +78,15 @@ The following core components are necessary to create the base functioning model
 - PLA Filament
 
 > **Note**: Multiple colors of PLA are needed to achieve the desired look. The specific colors and total amounts of PLA have been listed in the BOM below.
+> <br/>
+
+#### Miscellaneous:
+
+- Magnets
+
+- Nuts and Bolts
+
+- Screws
 
 ### Optional (Nice to Have) Components:
 

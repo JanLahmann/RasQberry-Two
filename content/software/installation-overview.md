@@ -82,11 +82,10 @@ We recommend to not change any settings in “Edit Settings” in the Raspberry 
 
    ![alt text](../installation-images/image-9.png)
 
-8. In the `General` tab, select `Set locale settings` (e.g. for Germany time zone: Europe / Berlin and Keyboard layout: de). User configuration here is optional. The standard user info is:
-   <br />
+8. In the `General` tab, select `Set locale settings` (e.g. for Germany time zone: Europe / Berlin and Keyboard layout: de). User configuration here is optional. The standard user info is:\
    <br />Username: `rasqberry`
    <br />Password: `Qiskit1!`
-
+   <br />
    **! NOTE:** There is no need to specify a username/password in the configuration settings. Doing so might lead to a gray screen when attempting to connect via VNC.
 
    ![alt text](../installation-images/image-10.png)
