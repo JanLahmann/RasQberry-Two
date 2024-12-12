@@ -50,62 +50,65 @@ We recommend to not change any settings in “Edit Settings” in the Raspberry 
 
 3. Open the Raspberry Pi Imager with the following command in a terminal window. Depending on your OS the command will differ:
 
-Mac OS
+   Mac OS
 
-```
-/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://rasqberry.org/RQB-images.json
-```
+   ```
+   /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://rasqberry.org/RQB-images.json
+   ```
 
-Windows
+   Windows
 
-```
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://rasqberry.org/RQB-images.json
-```
+   ```
+   "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://rasqberry.org/RQB-images.json
+   ```
 
-<br/>
+   <br/>
 
 4. Click the `Choose OS` button. Select the operating system `RasQberry Two (64-bit)`
 
-![alt text](../installation-images/image-5.png)
+   ![alt text](../installation-images/image-5.png)
 
-![alt text](../installation-images/image-6.png)
+   ![alt text](../installation-images/image-6.png)
 
-![alt text](../installation-images/image-7.png)
+   ![alt text](../installation-images/image-7.png)
 
 5. Click `Choose Storage` and select the SD Card you inserted in step 2 (e.g. Apple SDCX Reader Media xxx GB).
 
-![alt text](../installation-images/image-8.png)
+   ![alt text](../installation-images/image-8.png)
 
 6. Click `Next`.
 
 7. Select `Edit Settings`.
 
-![alt text](../installation-images/image-9.png)
+   ![alt text](../installation-images/image-9.png)
 
-8. In the `General` tab, select `Set locale settings` (e.g. for Germany time zone: Europe / Berlin and Keyboard layout: de). User configuration here is optional. The standard username is `rasqberry` and the password is `Qiskit1!`.
+8. In the `General` tab, select `Set locale settings` (e.g. for Germany time zone: Europe / Berlin and Keyboard layout: de). User configuration here is optional. The standard user info is:
+   <br />
+   <br />Username: `rasqberry`
+   <br />Password: `Qiskit1!`
 
-**! NOTE:** There is no need to specify a username/password in the configuration settings. Doing so might lead to a gray screen when attempting to connect via VNC.
+   **! NOTE:** There is no need to specify a username/password in the configuration settings. Doing so might lead to a gray screen when attempting to connect via VNC.
 
-![alt text](../installation-images/image-10.png)
+   ![alt text](../installation-images/image-10.png)
 
 9. No further selections are needed in the `Services` tab.
 
-![alt text](../installation-images/image-11.png)
+   ![alt text](../installation-images/image-11.png)
 
 10. **Optional**: Select the checkboxes as you can see in the picture below.
 
-![alt text](../installation-images/image-12.png)
+    ![alt text](../installation-images/image-12.png)
 
-11: Click `Yes` to apply OS customization settings.
+11. Click `Yes` to apply OS customization settings.
 
-![alt text](../installation-images/image-13.png)
+    ![alt text](../installation-images/image-13.png)
 
 12. Click `Yes` to erase all existing data from the SD card and copy the above selected Rasqberry image to the SD card.
 
-![alt text](../installation-images/image-14.png)
+    ![alt text](../installation-images/image-14.png)
 
 13. The writing process for the RasQberry Pi image will begin and will be completed after verification of the writing process.
 
-![alt text](../installation-images/image-15.png)
+    ![alt text](../installation-images/image-15.png)
 
 14. Take the SD Card out of the SD Card reader and put it into your Raspberry Pi 5. Connect power and the RasQberry Pi will boot.
