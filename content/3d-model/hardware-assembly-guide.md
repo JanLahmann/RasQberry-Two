@@ -223,6 +223,54 @@ Now you have successfully placed the welding shield onto the Wall!
 
 Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall. It is helpful to do this last so that the wall can stand on its own in the mean time. These should fit snuggly. If not, a dab of glue will hold them in place until they are used to connect the wall to the floor.
 
+### Attaching the Pi to the Wall
+
+Now that the Pi has been wired up and the LED Array has been tested, it's time to secure the Pi to the back of the Wall.
+
+Before moving on, attach the right-angle USC-C adapter to the USB-C port on the Pi. This will enable you to plug in the power cable while the Pi is inside the Wall. If you have a right angle adapter or cable for the Micro HDMI port as well, attach it to one of the Pi's display outputs. The display connection is optional, depending on whether you prefer to connect over VNC or use a wired display connection.
+
+Locate the four screw posts on the Wall Back, they should look like this:
+
+![Figure 27](../assembly-images/DSC_0192_3.JPG "Figure 27: The four screw posts on the Wall Back.")
+
+Position the Pi over the four screw posts, lining up the the holes on the Pi's circuit board with the holes in the posts. Ensure that the orientation of the Pi is correct, with the GPIO wires on the top side of the plate, opposite the circular cutouts on the bottom.
+
+Insert the four Tapping Screws from the BOM into each of the corner holes of the Pi. The screw posts do not have any threading when printed, so you must make your own by carefully turning the screw using a square bit screwdriver. As you turn it, apply light preassure until you feel that the screw has bitten into the plastic. If you are using machine screws with a flat end, you might want to try using a pointed screw first to make the thread, and then switch back to the machine screws to secure the Pi.
+
+![Figure 28](../assembly-images/DSC_0199.JPG "Figure 28: Using a screwdriver to secure the Pi to the Wall. Take note of the proper orientation, as well as the USB-C adapter on the bottom.")
+
+Ensure that you are not overtightening the screws. Use the screwdriver until the screw sits flush with the board, or you determine that the screw has gone in enough to provide a secure fit. The Pi is not very heavy, so it is better to err on the side of caution and only tighten to the point that you are satisfied with the connection.
+
+If you find that the screws are a little too long, you can add small plastic washers to add more space. The washers might need to be trimmed a little to fit alongside certain parts of the Pi's circuit board. You can see in the image above an example of plastic washers being used, with some trimmed a little to fit.
+
+Once all the screws have been tightened, the Wall Back should look like this:
+
+![Figure 29](../assembly-images/DSC_0207.JPG "Figure 29: The Pi attached to the Wall Back.")
+
+With the Pi fastened to the Wall, it's time to move onto the final step; putting it all together!
+
+### Assembling the Wall
+
+With all of the Wall components secured and tested, we can now fully assemble the Wall.
+
+The Wall Back attaches to the Wall Base using three hooks on each side of the Back plate. These hooks attach to three corresponding cutouts on each side of the Wall Base. The cutouts look like this:
+
+![Figure 30](../assembly-images/DSC_0212.JPG "Figure 30: Cutouts on the Wall Back.")
+
+To attach the Back and Base plates together, slightly angle the Back plate so that the three hooks come in above each connection point on the Base plate. Push the two parts together until the Back sits flush with the Base. As you push the two parts together, keep an eye on all of the wires from the Pi and LED panels. You want to gently move them into the space inside the Wall. Be careful not to bend any of the wires at a sharp angle so as to not damage them. Pay close attention to the wire connections with the GPIO on the Pi. There should be enough room for the wires to slightly curve away from the GPIO, leaving the female connectors securly attached to the GPIO pins.
+
+![Figure 31](../assembly-images/DSC_0215.JPG "Figure 31: Inserting the Back plate into the Base plate at a slight angle.")
+
+Then, gently push down on the Back plate until the gap between the Back plate and the floor of the Base is closed. Once finished, the Wall should look like this:
+
+![Figure 32](../assembly-images/DSC_0231_2.JPG "Figure 32: View of the Wall from behind, with the Back plate and Base plate attached together.")
+
+Finally, place the Wall Top piece on top of the rest of the Wall. There are two small holes on either corner of the Wall next to the where the LED panels are. Line up the two connectors from the Wall Top piece with those two holes for a secure fit. As you are lowering the Top piece, take care to gently arrange all of the wires inside of the Wall. When the Top is securly attached, your Wall will look like this:
+
+![Figure 33](../assembly-images/DSC_0237.JPG "Figure 33: View of the Wall fully assembled.")
+
+Congratulations! You have successfully wired the Raspberry Pi to the LEDs and assembled the Wall together!
+
 ## Assembly of the Floor
 
 The floor is the simplest component of the RasQberry Two model, it serves as a platform onto which the Wall and the Cryostat can be secured to. This section will walk you through how to connect the floor tiles together.
