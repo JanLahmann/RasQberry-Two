@@ -265,7 +265,7 @@ Then, gently push down on the Back plate until the gap between the Back plate an
 
 ![Figure 32](../assembly-images/DSC_0231_2.JPG "Figure 32: View of the Wall from behind, with the Back plate and Base plate attached together.")
 
-Finally, place the Wall Top piece on top of the rest of the Wall. There are two small holes on either corner of the Wall next to the where the LED panels are. Line up the two connectors from the Wall Top piece with those two holes for a secure fit. As you are lowering the Top piece, take care to gently arrange all of the wires inside of the Wall. When the Top is securly attached, your Wall will look like this:
+Finally, place the Wall Lid piece on top of the rest of the Wall. There are two small holes on either corner of the Wall next to the where the LED panels are. Line up the two connectors from the Wall Lid with those two holes for a secure fit. As you are lowering the Lid piece, take care to gently arrange all of the wires inside of the Wall. When the Lid is securly attached, your Wall will look like this:
 
 ![Figure 33](../assembly-images/DSC_0237.JPG "Figure 33: View of the Wall fully assembled.")
 
