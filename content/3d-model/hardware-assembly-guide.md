@@ -182,7 +182,7 @@ Finally, take the bottom two LED panels and slot them into the space in the wall
 ![Figure 18](https://github.com/user-attachments/assets/1af1229f-2ba4-4bc6-b376-208a8c02cda2 "Figure 18: Placing the bottom row of LED panels.")
 
 While making sure to preserve the LED orientation, slot the other two panels on top. You can rest the top row of the LEDs onto the black board of the bottom LEDs.
-You can run`python3 neopixel_spi_IBMtestFunc.py` again to help you line up the columns together. Once you’re all done, it should look like this:
+You can run `python3 neopixel_spi_IBMtestFunc.py` again to help you line up the columns together. Once you’re all done, it should look like this:
 
 ![Figure 19](https://github.com/user-attachments/assets/c05e3ad0-7da5-49c6-9602-053927934f64 "Figure 19: Both rows of LED panels lined up.")
 
@@ -223,7 +223,7 @@ Now you have successfully placed the welding shield onto the Wall!
 
 Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall. It is helpful to do this last so that the wall can stand on its own in the mean time. These should fit snuggly. If not, a dab of glue will hold them in place until they are used to connect the wall to the floor.
 
-### Attaching the Pi to the Wall
+### Attach the Pi to the Wall
 
 Now that the Pi has been wired up and the LED Array has been tested, it's time to secure the Pi to the back of the Wall.
 
