@@ -182,7 +182,7 @@ Finally, take the bottom two LED panels and slot them into the space in the wall
 ![Figure 18](https://github.com/user-attachments/assets/1af1229f-2ba4-4bc6-b376-208a8c02cda2 "Figure 18: Placing the bottom row of LED panels.")
 
 While making sure to preserve the LED orientation, slot the other two panels on top. You can rest the top row of the LEDs onto the black board of the bottom LEDs.
-You can run`python3 neopixel_spi_IBMtestFunc.py` again to help you line up the columns together. Once you’re all done, it should look like this:
+You can run `python3 neopixel_spi_IBMtestFunc.py` again to help you line up the columns together. Once you’re all done, it should look like this:
 
 ![Figure 19](https://github.com/user-attachments/assets/c05e3ad0-7da5-49c6-9602-053927934f64 "Figure 19: Both rows of LED panels lined up.")
 
@@ -203,13 +203,13 @@ For this section, we will be using a pair of scissors and the welding shield its
 **! Warning:**
 Scissors and scalpels are sharp and can cause injuries if you are not careful. Please use caution when cutting the welding shield during this section.
 
-On the welding shield, you will want to mark out a rectangle in the center that is 240mm wide by 90mm tall. The rectangle dimensions can be marked by using a bright colored tape or by using a scalpel and straightedge ruler to etch a shallow line that can be followed while cutting. It is recommended to add a few more millimeters to the width and the height while measuring, incase adjustments need to be made later on. Begin your measurements after the oval cutouts found on the bottom of the welding shield, so that your rectangle will not contain any holes.
+On the welding shield, you will want to mark out a rectangle in the center that is 240mm wide by 83mm tall. The rectangle dimensions can be marked by using a bright colored tape or by using a scalpel and straightedge ruler to etch a shallow line that can be followed while cutting. It is recommended to add a few more millimeters to the width and the height while measuring, incase adjustments need to be made later on. Begin your measurements after the oval cutouts found on the bottom of the welding shield, so that your rectangle will not contain any holes.
 
 ![Figure 23](https://github.com/user-attachments/assets/5229df01-719b-4706-9782-552af6dc391e "Figure 23: Using tape, a straightedge ruler and a scalpel to mark out the lines to be cut.")
 
 Once you have marked out the dimenensions of the rectangle, use a pair of scissors to cut along the lines you have marked. The welding shield should be fairly easy to cut, use a little bit of force but go slow to ensure you are following the lines. Once you have cut out the rectangle, it should look like this:
 
-![Figure 24](https://github.com/user-attachments/assets/9a1a99fc-f5e1-46e4-b662-473cc18b7880 "Figure 24: The welding shield cut into a rectangle 240mm x 90mm.")
+![Figure 24](https://github.com/user-attachments/assets/9a1a99fc-f5e1-46e4-b662-473cc18b7880 "Figure 24: The welding shield cut into a rectangle 240mm x 83mm.")
 
 Now it's time to slot the shield panel into the wall. The shield panel slides into the same gap you placed the LEDs panels into. We have found it is easiest to first remove all of the LED panels and then attempt to slide the shield panel into that gap. If the panel has difficulty sliding in, then it is probably too wide and needs to be trimmed a little on the side. The panel should slide relatively easily into the gap, if you encounter any resistance then you should trim the panel a little more. If you observe that the panel is causing the bottom of the wall to warp a little, then that also means that the panel is too wide and needs to be trimmed a little on the side. After you have made any necessary alterations and have ensured that the panel slides in with no resistance, you can return the LED panels back to the gap as well, making sure to preserve the orientation that was described in the `Wiring up the LEDs` section. When it's all finished, it should look like this:
 
@@ -223,7 +223,7 @@ Now you have successfully placed the welding shield onto the Wall!
 
 Place the Hex Bolts or 'screws' (R2_Screw) into the corresponding hexagonal holes at the bottom of the wall. It is helpful to do this last so that the wall can stand on its own in the mean time. These should fit snuggly. If not, a dab of glue will hold them in place until they are used to connect the wall to the floor.
 
-### Attaching the Pi to the Wall
+### Attach the Pi to the Wall
 
 Now that the Pi has been wired up and the LED Array has been tested, it's time to secure the Pi to the back of the Wall.
 
