@@ -210,10 +210,10 @@ do_quantum_demo_menu() {
 
 do_rasqberry_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "OCI One-Click Install" "Run standard RQB2 setup automatically" \
-    "SU System Update " "Update the system and create swapfile" \
-    "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
-    "IQ Qiskit Install" "Install latest version of Qiskit" \
+#    "OCI One-Click Install" "Run standard RQB2 setup automatically" \
+#    "SU System Update " "Update the system and create swapfile" \
+#    "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
+#    "IQ Qiskit Install" "Install latest version of Qiskit" \
     "QD Quantum Demos"  "Install Quantum Demos"\
     3>&1 1>&2 2>&3)
   RET=$?
@@ -221,10 +221,10 @@ do_rasqberry_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
- #     OCI\ *) do_rqb_one_click_install ;;
- #     SU\ *) do_rqb_system_update ;;
- #     IC\ *) do_rqb_initial_config ;;
- #     IQ\ *) do_rqb_qiskit_menu ;;
+      OCI\ *) do_rqb_one_click_install ;;
+      SU\ *) do_rqb_system_update ;;
+      IC\ *) do_rqb_initial_config ;;
+      IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
