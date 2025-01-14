@@ -221,10 +221,10 @@ do_rasqberry_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      OCI\ *) do_rqb_one_click_install ;;
-      SU\ *) do_rqb_system_update ;;
-      IC\ *) do_rqb_initial_config ;;
-      IQ\ *) do_rqb_qiskit_menu ;;
+ #     OCI\ *) do_rqb_one_click_install ;;
+ #     SU\ *) do_rqb_system_update ;;
+ #     IC\ *) do_rqb_initial_config ;;
+ #     IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
