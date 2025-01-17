@@ -156,6 +156,55 @@ do_rqb_one_click_install() {
   ASK_TO_REBOOT=1
 }
 
+#Enable LEDs
+do_led_install() {
+  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+  pip install adafruit-circuitpython-neopixel-spi
+}
+
+#Turn off all LEDs
+do_led_install() {
+  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+  python3 turn_off_LEDs.py
+}
+
+#Simple LEDs demo
+do_led_install() {
+  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+  python3 neopixel_spi_simpletest.py
+}
+
+#IBM LED demo
+do_led_install() {
+  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+  python3 neopixel_spi_IBMtestFunc.py
+}
+
+
+do_select_led_option() {
+    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+    "LI" "Enable LEDs" \
+    "OFF" "Turn off all LEDs" \
+    "simple" "simple LED demo" \
+    "IBM" "Display IBM on LEDs" \
+   3>&1 1>&2 2>&3)
+    # Check the user's selection
+    case "$FUN" in
+        "LI" ) do_led_install || handle_error "LED Installation Failed ."            
+            ;;
+        "OFF" ) do_led_off || handle_error "Turning off all LEDs Failed ."            
+            ;;
+        "simple") do_led_simple || handle_error "Simple LED demo Failed ."
+            ;;
+        "IBM") do_led_ibm || handle_error "LED IBM Failed ."
+            ;;
+        *)
+            break
+            ;;
+    esac
+}
+
+
 do_select_qrt_option() {
     FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
     "b:aer" "Spins up a local Aer simulator" \
@@ -195,13 +244,15 @@ do_select_qrt_option() {
 
 do_quantum_demo_menu() {
   FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-    "QRT Demo" "quantum-raspberry-tie" \
+        "LED" "test LEDs" \
+        "QRT Demo" "quantum-raspberry-tie" \
    3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
+      LED\ *) do_select_led_option ;;
       QRT\ *) do_select_qrt_option ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
