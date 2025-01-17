@@ -163,26 +163,26 @@ do_led_install() {
 }
 
 #Turn off all LEDs
-do_led_install() {
+do_led_off() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
   python3 turn_off_LEDs.py
 }
 
 #Simple LEDs demo
-do_led_install() {
+do_led_simple() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
   python3 neopixel_spi_simpletest.py
 }
 
 #IBM LED demo
-do_led_install() {
+do_led_ibm() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
   python3 neopixel_spi_IBMtestFunc.py
 }
 
 
 do_select_led_option() {
-    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "LED options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
     "LI" "Enable LEDs" \
     "OFF" "Turn off all LEDs" \
     "simple" "simple LED demo" \
@@ -252,7 +252,7 @@ do_quantum_demo_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      LED\ *) do_select_led_option ;;
+      LED) do_select_led_option ;;
       QRT\ *) do_select_qrt_option ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
