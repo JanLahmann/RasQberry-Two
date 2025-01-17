@@ -205,6 +205,78 @@ do_select_led_option() {
 }
 
 
+#Install Quantum-Lights-Out demo
+do_qlo_install() {
+    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        mkdir -p /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out
+        export CLONE_DIR_DEMO_QLO="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out"
+        git clone ${GIT_REPO_DEMO_QLO} ${CLONE_DIR_DEMO_QLO}
+    fi
+    FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
+    # Get the current logged-in user
+    CURRENT_USER=$(whoami)
+    # Check if the folder is owned by root
+    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
+      # Change the ownership to the logged-in user
+      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
+     # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+    fi
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+        return 1
+    fi
+}
+
+do_qlo_run() {
+    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        do_qlo_install
+    fi
+    
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+        return 1
+    fi
+
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/ && python3 lights_out.py || exit 1"
+}
+
+do_qloc_run() {
+    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        do_qlo_install
+    fi
+    
+    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+        return 1
+    fi
+
+    sh -c "cd /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/ && python3 lights_out.py --console || exit 1"
+}
+
+
+do_select_qlo_option() {
+    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "Quantum-Lights-Out" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+    "QLOI" "Install Quantum Lights Out demo" \
+    "QLO" "Run Quantum Lights Out demo" \
+    "QLOC" "Run Quantum Lights Out demo - with concole output" \
+   3>&1 1>&2 2>&3)
+    # Check the user's selection
+    case "$FUN" in
+        "QLOI" ) do_qlo_install || handle_error "QLO Demo Installation Failed ."            
+            ;;
+        "QLO" ) do_qlo_run || handle_error "QLO Demo Failed ."            
+            ;;
+        "QLOC" ) do_qloc_run || handle_error "QLO Demo with console Failed ."            
+            ;;
+        *)
+            break
+            ;;
+    esac
+}
+
 do_select_qrt_option() {
     FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
     "b:aer" "Spins up a local Aer simulator" \
@@ -245,6 +317,7 @@ do_select_qrt_option() {
 do_quantum_demo_menu() {
   FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
         "LED" "test LEDs" \
+        "QLO Demo" "Quantum-Lights-Out Demo" \
         "QRT Demo" "quantum-raspberry-tie" \
    3>&1 1>&2 2>&3)
   RET=$?
@@ -253,6 +326,7 @@ do_quantum_demo_menu() {
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
       LED) do_select_led_option ;;
+      QLO\ *) do_select_qlo_option ;;
       QRT\ *) do_select_qrt_option ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
