@@ -165,19 +165,19 @@ do_led_install() {
 #Turn off all LEDs
 do_led_off() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 turn_off_LEDs.py
+  python3 /home/$SUDO_USER/.local/bin/turn_off_LEDs.py
 }
 
 #Simple LEDs demo
 do_led_simple() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 neopixel_spi_simpletest.py
+  python3 /home/$SUDO_USER/.local/bin/neopixel_spi_simpletest.py
 }
 
 #IBM LED demo
 do_led_ibm() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 neopixel_spi_IBMtestFunc.py
+  python3 /home/$SUDO_USER/.local/bin/neopixel_spi_IBMtestFunc.py
 }
 
 
