@@ -75,7 +75,7 @@ do_rasp_tie_install() {
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
         mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
         export CLONE_DIR_DEMO1="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
-        git clone ${GIT_REPO_DEMO1} ${CLONE_DIR_DEMO1}
+        git clone ${GIT_REPO_DEMO_QRT} ${CLONE_DIR_DEMO1}
     fi
     FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
     # Get the current logged-in user
