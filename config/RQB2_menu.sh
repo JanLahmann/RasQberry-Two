@@ -70,7 +70,6 @@ setup_quantum_demo_essential() {
 #Running quantum-raspberry-tie demo
 do_rasp_tie_install() {
     RUN_OPTION=$1 
-    setup_quantum_demo_essential $RUN_OPTION
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
         mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
@@ -319,6 +318,7 @@ do_quantum_demo_menu() {
         "LED" "test LEDs" \
         "QLO Demo" "Quantum-Lights-Out Demo" \
         "QRT Demo" "quantum-raspberry-tie" \
+        "SQE" "Setup-Quantum-Demo-Essentials"\
    3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -328,6 +328,7 @@ do_quantum_demo_menu() {
       LED) do_select_led_option ;;
       QLO\ *) do_select_qlo_option ;;
       QRT\ *) do_select_qrt_option ;;
+      SQE\ *) setup_quantum_demo_essential ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
