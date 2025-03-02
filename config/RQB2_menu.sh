@@ -20,28 +20,6 @@ sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 
 
 # Function to update values stored in the rasqberry_environment.env file
-update_rasq_environment_file() {
-  FIELD_NAME=$1
-  UPDATED_VALUE=$2
-  # Check if both arguments are provided
-  if [ -z "$FIELD_NAME" ] || [ -z "$UPDATED_VALUE" ]; then
-    # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ]; then
-      [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
-    fi
-    return 1
-  fi
-  # Update the environment file
-  sed -i "s/^$FIELD_NAME=.*/$FIELD_NAME=$UPDATED_VALUE/gm" /home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env
-  # Reload the environment file
-  . /home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env
-    # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ]; then
-      [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Success" --msgbox "Updated $FIELD_NAME to $UPDATED_VALUE in rasqberry_environment.env" 8 78
-    fi
-}
-
-# Function to update values stored in the env-config.sh file
 update_environment_file () {
   #check whether string is empty
   if [ -z "$2" ]||[ -z "$1" ]; then
@@ -61,7 +39,7 @@ update_environment_file () {
 # $1 = variable name, $2 = value
 do_menu_update_environment_file() {
   new_value=$(whiptail --inputbox "$1" "$WT_HEIGHT" "$WT_WIDTH" --title "Type in the new value" 3>&1 1>&2 2>&3)
-  update_rasq_environment_file "$1" "$new_value"
+  update_environment_file "$1" "$new_value"
 }
 
 
@@ -354,28 +332,7 @@ do_quantum_demo_menu() {
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
-}
-
-do_update_rasq_environment_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Environment File (raspi-config)" --menu "Update Environment File" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "LED" "test LEDs" \
-        "QLO Demo" "Quantum-Lights-Out Installation Update" \
-        "QRT Demo" "quantum-raspberry-tie Installation Update" \
-        "SQE" "Setup-Quantum-Demo-Essentials Installation Update"\
-   3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      LED) do_menu_update_environment_file "test_LEDs_installed" ;;
-      QLO\ *) do_menu_update_environment_file "Quantum_Lights_Out_insalled"  ;;
-      QRT\ *) do_menu_update_environment_file "quantum_raspberry_tie_insalled"  ;;
-      SQE\ *) do_menu_update_environment_file "Quantum_Demo_Essentials_installed"  ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-  fi
-}
+ }
 
 do_rasqberry_menu() {
 #    "OCI One-Click Install" "Run standard RQB2 setup automatically" \
@@ -384,7 +341,6 @@ do_rasqberry_menu() {
 #    "IQ Qiskit Install" "Install latest version of Qiskit" \
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "QD Quantum Demos"  "Install Quantum Demos"\
-    "UEF Update Environment File" "Update the environment file" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -396,7 +352,6 @@ do_rasqberry_menu() {
       IC\ *) do_rqb_initial_config ;;
       IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
-      UEF\ *) do_update_rasq_environment_menu ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
