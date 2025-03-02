@@ -29,7 +29,7 @@ update_environment_file () {
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$RQB2_CONFDIR/env
+    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env
     # reload environment file
     . /home/$SUDO_USER/.local/bin/env-config.sh
   fi
@@ -311,7 +311,26 @@ do_select_qrt_option() {
     esac
 }
 
-
+do_update_rasq_environment_menu() {
+  FUN=$(whiptail --title "Raspberry Pi Environment File (raspi-config)" --menu "Update Environment File" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+        "LED" "test LEDs" \
+        "QLO Demo" "Quantum-Lights-Out Installation Update" \
+        "QRT Demo" "quantum-raspberry-tie Installation Update" \
+        "SQE" "Setup-Quantum-Demo-Essentials Installation Update"\
+   3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      LED) do_menu_update_environment_file "TEST_LED_INSTALLED" ;;
+      QLO\ *) do_menu_update_environment_file "QUANTUM_LIGHTS_OUT_INSTALLED"  ;;
+      QRT\ *) do_menu_update_environment_file "QUANTUM_RASPBERRY_TIE_INSTALLED"  ;;
+      SQE\ *) do_menu_update_environment_file "QUANTUM_DEMO_ESSENTIALS_INSTALLED"  ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+}
 
 do_quantum_demo_menu() {
   FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
@@ -341,6 +360,7 @@ do_rasqberry_menu() {
 #    "IQ Qiskit Install" "Install latest version of Qiskit" \
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "QD Quantum Demos"  "Install Quantum Demos"\
+    "UEF Update Environment File" "Update the environment file" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -352,6 +372,7 @@ do_rasqberry_menu() {
       IC\ *) do_rqb_initial_config ;;
       IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
+      UEF\ *) do_update_rasq_environment_menu ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
