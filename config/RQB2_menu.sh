@@ -30,7 +30,7 @@ do_select_environment_variable() {
   ENV_VARS=$(grep -vE '^\s*#|^\s*$' "$ENV_FILE" | awk -F= '{print $1 " " $2}')
 
   # Create a menu with the environment variables
-  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" 20 60 10 $(echo "$ENV_VARS" | awk '{print $1 " " $2}') 3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" $(echo "$ENV_VARS" | awk '{print $1 " " $2}') 3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
     return 0
