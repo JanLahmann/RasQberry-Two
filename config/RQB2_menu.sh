@@ -324,8 +324,8 @@ do_update_rasq_environment_menu() {
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
       LED) do_menu_update_environment_file "TEST_LED_INSTALLED" ;;
-      QLO) do_menu_update_environment_file "QUANTUM_LIGHTS_OUT_INSTALLED"  ;;
-      QRT) do_menu_update_environment_file "QUANTUM_RASPBERRY_TIE_INSTALLED"  ;;
+      QLO\ *) do_menu_update_environment_file "QUANTUM_LIGHTS_OUT_INSTALLED"  ;;
+      QRT\ *) do_menu_update_environment_file "QUANTUM_RASPBERRY_TIE_INSTALLED"  ;;
       SQE) do_menu_update_environment_file "QUANTUM_DEMO_ESSENTIALS_INSTALLED"  ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -345,8 +345,8 @@ do_quantum_demo_menu() {
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
       LED) do_select_led_option ;;
-      QLO) do_select_qlo_option ;;
-      QRT) do_select_qrt_option ;;
+      QLO\ *) do_select_qlo_option ;;
+      QRT\ *) do_select_qrt_option ;;
       SQE) do_setup_quantum_demo_essential ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
