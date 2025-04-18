@@ -63,6 +63,23 @@ do_menu_update_environment_file() {
   update_environment_file "$1" "$new_value"
 }
 
+# Function to check the value of a variable in the environment file
+check_environment_variable() {
+    ENV_FILE="/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env"
+    VARIABLE_NAME="$1"
+
+    # Check if the environment file exists
+    if [ ! -f "$ENV_FILE" ]; then
+        whiptail --msgbox "Environment file not found. Please ensure it exists." 20 60 1
+        return 1
+    fi
+
+    # Retrieve the value of the variable
+    VALUE=$(grep -E "^$VARIABLE_NAME=" "$ENV_FILE" | cut -d'=' -f2)
+
+    # Return the value
+    echo "$VALUE"
+}
 
 # Update RasQberry and create swapfile
 do_rqb_system_update() {
@@ -75,6 +92,19 @@ do_rqb_system_update() {
 
 #set up for demo adding sense-hat
 do_setup_quantum_demo_essential() {
+    VARIABLE_NAME="QUANTUM_DEMO_ESSENTIALS_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Demo Essentials is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_DEMO_ESSENTIALS_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     FUN=$1
     update_environment_file "INTERACTIVE" "false"
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
@@ -90,6 +120,19 @@ do_setup_quantum_demo_essential() {
 
 #Running quantum-raspberry-tie demo
 do_rasp_tie_install() {
+    VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_RASPBERRY_TIE_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     RUN_OPTION=$1 
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
@@ -178,6 +221,19 @@ do_rqb_one_click_install() {
 
 #Enable LEDs
 do_led_install() {
+    VARIABLE_NAME="TEST_LED_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "LED Test demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of TEST_LED_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
   pip install adafruit-circuitpython-neopixel-spi
 }
@@ -227,6 +283,19 @@ do_select_led_option() {
 
 #Install Quantum-Lights-Out demo
 do_qlo_install() {
+    VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Lights Out demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_LIGHTS_OUT_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         mkdir -p /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out
