@@ -1,0 +1,42 @@
+*** raspi-config.orig.txt	Wed Apr 23 21:41:09 2025
+--- raspi-config.rqb2.txt	Wed Apr 23 21:36:31 2025
+***************
+*** 3,8 ****
+--- 3,19 ----
+  #
+  # See LICENSE file for copyright and license details
+  
++ # modification for RasQberry
++ # Load environmend and methods
++ RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
++ RQB2_menu=/home/$SUDO_USER/$RQB2_CONFDIR/RQB2_menu.sh
++ if [ -e $RQB2_menu ] ; then
++   . $RQB2_menu
++ else
++   echo "ERROR: $RQB2_menu does not exist !"
++ fi  
++ 
++ 
+  INTERACTIVE=True
+  ASK_TO_REBOOT=0
+  BLACKLIST=/etc/modprobe.d/raspi-blacklist.conf
+***************
+*** 3607,3612 ****
+--- 3618,3624 ----
+          FMEMSIZE="$(expr $MEMSIZE / 1024)GB"
+        fi
+        FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --backtitle "$(cat /proc/device-tree/model), ${FMEMSIZE}" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
++         "0 RasQberry" "Configure RasQberry-Two" \
+          "1 System Options" "Configure system settings" \
+          "2 Display Options" "Configure display settings" \
+          "3 Interface Options" "Configure connections to peripherals" \
+***************
+*** 3632,3637 ****
+--- 3644,3650 ----
+        do_finish
+      elif [ $RET -eq 0 ]; then
+        case "$FUN" in
++         0\ *) do_rasqberry_menu ;;
+          1\ *) do_system_menu ;;
+          2\ *) do_display_menu ;;
+          3\ *) do_interface_menu ;;

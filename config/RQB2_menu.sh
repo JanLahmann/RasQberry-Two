@@ -17,6 +17,27 @@ sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 # Load environment variables
 . /home/$SUDO_USER/.local/bin/env-config.sh
 
+# Function to update values stored in the rasqberry_environment.env file
+do_select_environment_variable() {
+  ENV_FILE="/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env"
+
+  if [ ! -f "$ENV_FILE" ]; then
+    whiptail --title "Error" --msgbox "Environment file not found!" 8 50
+    return 1
+  fi
+
+  # Read and format environment file, excluding comments and empty lines
+  ENV_VARS=$(grep -vE '^\s*#|^\s*$' "$ENV_FILE" | awk -F= '{print $1 " " $2}')
+
+  # Create a menu with the environment variables
+  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" $(echo "$ENV_VARS" | awk '{print $1 " " $2}') 3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    do_menu_update_environment_file "$FUN"
+  fi
+}
 
 
 # Function to update values stored in the rasqberry_environment.env file
@@ -42,6 +63,23 @@ do_menu_update_environment_file() {
   update_environment_file "$1" "$new_value"
 }
 
+# Function to check the value of a variable in the environment file
+check_environment_variable() {
+    ENV_FILE="/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env"
+    VARIABLE_NAME="$1"
+
+    # Check if the environment file exists
+    if [ ! -f "$ENV_FILE" ]; then
+        whiptail --msgbox "Environment file not found. Please ensure it exists." 20 60 1
+        return 1
+    fi
+
+    # Retrieve the value of the variable
+    VALUE=$(grep -E "^$VARIABLE_NAME=" "$ENV_FILE" | cut -d'=' -f2)
+
+    # Return the value
+    echo "$VALUE"
+}
 
 # Update RasQberry and create swapfile
 do_rqb_system_update() {
@@ -54,6 +92,19 @@ do_rqb_system_update() {
 
 #set up for demo adding sense-hat
 do_setup_quantum_demo_essential() {
+    VARIABLE_NAME="QUANTUM_DEMO_ESSENTIALS_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Demo Essentials is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_DEMO_ESSENTIALS_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     FUN=$1
     update_environment_file "INTERACTIVE" "false"
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
@@ -69,6 +120,19 @@ do_setup_quantum_demo_essential() {
 
 #Running quantum-raspberry-tie demo
 do_rasp_tie_install() {
+    VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Raspberry Tie demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_RASPBERRY_TIE_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     RUN_OPTION=$1 
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
@@ -157,6 +221,19 @@ do_rqb_one_click_install() {
 
 #Enable LEDs
 do_led_install() {
+    VARIABLE_NAME="TEST_LED_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "LED Test demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of TEST_LED_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
   pip install adafruit-circuitpython-neopixel-spi
 }
@@ -206,6 +283,19 @@ do_select_led_option() {
 
 #Install Quantum-Lights-Out demo
 do_qlo_install() {
+    VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
+
+    # Check if the demo is already installed
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" = "true" ]; then
+        whiptail --msgbox "Quantum Lights Out demo is already installed." 20 60 1
+        return 0
+    fi
+
+    # Update the value of QUANTUM_LIGHTS_OUT_INSTALLED to true
+    update_environment_file "$VARIABLE_NAME" "true"
+
+    # Proceed with the installation
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         mkdir -p /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out
@@ -311,26 +401,6 @@ do_select_qrt_option() {
     esac
 }
 
-do_update_rasq_environment_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Environment File (raspi-config)" --menu "Update Environment File" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "LED" "test LEDs" \
-        "QLO Demo" "Quantum-Lights-Out Installation Update" \
-        "QRT Demo" "quantum-raspberry-tie Installation Update" \
-        "SQE" "Setup-Quantum-Demo-Essentials Installation Update"\
-   3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      LED) do_menu_update_environment_file "TEST_LED_INSTALLED" ;;
-      QLO\ *) do_menu_update_environment_file "QUANTUM_LIGHTS_OUT_INSTALLED"  ;;
-      QRT\ *) do_menu_update_environment_file "QUANTUM_RASPBERRY_TIE_INSTALLED"  ;;
-      SQE\ *) do_menu_update_environment_file "QUANTUM_DEMO_ESSENTIALS_INSTALLED"  ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-  fi
-}
 
 do_quantum_demo_menu() {
   FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
@@ -347,7 +417,7 @@ do_quantum_demo_menu() {
       LED) do_select_led_option ;;
       QLO\ *) do_select_qlo_option ;;
       QRT\ *) do_select_qrt_option ;;
-      SQE\ *) do_setup_quantum_demo_essential ;;
+      SQE) do_setup_quantum_demo_essential ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -372,7 +442,7 @@ do_rasqberry_menu() {
       IC\ *) do_rqb_initial_config ;;
       IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
-      UEF\ *) do_update_rasq_environment_menu ;;
+      UEF\ *) do_select_environment_variable ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
