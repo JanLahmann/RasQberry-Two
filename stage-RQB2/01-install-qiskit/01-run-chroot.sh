@@ -10,17 +10,14 @@ echo "PIGEN " $PIGEN
 # import environemnt & configuration
 echo "ls ."
 ls -la . || true
-echo "ls .."
-ls -la .. || true
-echo "ls ../.."
-ls -la ../.. || true
 echo "ls /tmp"
 ls -la /tmp || true
 
-if [ -f ../../config ]; then
+
+if [ -f /tmp/config ]; then
 	# shellcheck disable=SC1091
 	source config
-    echo "../../config found"
+    echo "/tmp/config found"
 fi
 echo "GIT_BRANCH " $GIT_BRANCH
 echo "GIT_REPO " $GIT_REPO
