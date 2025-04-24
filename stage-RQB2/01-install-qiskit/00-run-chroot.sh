@@ -81,6 +81,11 @@ CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
   ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -
 echo "crontab -l"
 crontab -l || true
+bash -c 'CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
+  crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
+  ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
+echo "crontab -l"
+crontab -l || true
 
 # Clean up the temporary clone directory if needed
 # Install Qiskit using pip
