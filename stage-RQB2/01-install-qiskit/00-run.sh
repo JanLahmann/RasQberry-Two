@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-# used to copy config to ${ROOTFS_DIR}
+# used to copy config to ${ROOTFS_DIR}/tmp
 
 
 echo "${ROOTFS_DIR} " ${ROOTFS_DIR}
