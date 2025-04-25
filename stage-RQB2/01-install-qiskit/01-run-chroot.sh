@@ -16,7 +16,7 @@ ls -la /tmp || true
 
 if [ -f /tmp/config ]; then
 	# shellcheck disable=SC1091
-	source config
+	source /tmp/config
     echo "/tmp/config found"
 fi
 echo "GIT_BRANCH " $GIT_BRANCH
