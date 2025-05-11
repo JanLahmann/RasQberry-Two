@@ -19,14 +19,29 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 
 **Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
-## Quick Installation of RasQberry
+### Using the Developer Image
+
+Currently, additional functionality (menu, config & code improvements; additional quantum computing demos; etc) is being added to the [alpha releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+
+**Quick instructions for using the alpha releases:**
+
+1. Download the .xz file in a release (e.g. "image_2025-04-25-rasqberry-two-full.img.xz") to your laptop
+1. Write the image to SD card  with the Pi Imager without any customisations.
+1. Insert the SD card to your Raspberry Pi (Pi 5 is our standard version; Pi will also be supported in the future), and boot the raspberry.
+1. Login via ssh. user "rasqberry", PW: "Qiskit1!".
+2. vnc might not work out of the box. Enable vnc through raspi-config (interface options, VNC, yes), or simply run `sudo raspi-config nonint do_vnc 0`
+1. after login, run `sudo raspi-config` and explore the first menu item which let's you access the current version of our demos. Need to have LEDs connected for most of them.
+1. Please report issues in github https://github.com/JanLahmann/RasQberry-Two/issues
+
+
+### Quick Installation of RasQberry using the Raspberry Pi Imager
 
 Quick setup instructions:<br/>
 Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit".
 
-Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-pi-gen/releases](https://github.com/JanLahmann/RasQberry-pi-gen/releases)
+Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-Two/releases](https://github.com/JanLahmann/RasQberry-Two/releases)
 
-Alternatively, this image can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
+Alternatively, some of the images can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
 
 ```python
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
