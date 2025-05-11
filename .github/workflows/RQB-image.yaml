@@ -139,6 +139,11 @@ jobs:
       - name: checkout repo
         uses: actions/checkout@v4
 
+      - name: ls workspace
+        run: |
+          echo "ls ${{ github.workspace }}"
+        run: ls -la ${{ github.workspace }}
+
       - name: Start build with raspiconfig
         uses: usimd/pi-gen-action@v1
         id: pi-gen-build
