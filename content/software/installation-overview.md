@@ -1,5 +1,7 @@
 # RasQberry Installation Overview
 
+> #### **Please Note:** The software image is currently undergoing many updates. As such, the instructions listed here may be slightly out of date. The Installation Overview will be updated shortly.
+
 Below you can find the list of steps that are needed to write the RasQberry Two image to
 an SD card and use it in your Rasberry Pi version 4 or 5.
 
