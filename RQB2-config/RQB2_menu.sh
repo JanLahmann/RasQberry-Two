@@ -305,9 +305,9 @@ do_select_led_option() {
             break
         fi
         case "$FUN" in
-            "OFF" ) do_led_off || handle_error "Turning off all LEDs Failed." ;;
-            "simple" ) run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py || handle_error "Simple LED demo Failed." ;;
-            "IBM" ) run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py || handle_error "LED IBM Failed." ;;
+            "OFF" ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            "simple" ) run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; } ;;
+            "IBM" ) run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py || { handle_error "LED IBM demo failed."; continue; } ;;
             *)
                 break
                 ;;
@@ -364,8 +364,8 @@ do_select_qlo_option() {
             break
         fi
         case "$FUN" in
-            "QLO"  ) run_qlo_demo      || handle_error "QLO Demo Failed." ;;
-            "QLOC" ) run_qlo_demo console    || handle_error "QLO Console Demo Failed." ;;
+            "QLO"  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
+            "QLOC" ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
             *)
                 break
                 ;;
@@ -386,14 +386,14 @@ do_select_qrt_option() {
             break
         fi
         case "$FUN" in
-            "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
-            "b:aer_noise") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
-            "b:least") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
+            "b:aer" ) do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:aer_noise") do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:least") do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
             "b:custom")
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
                 if [ $exitstatus = 0 ]; then
-                    do_rasp_tie_install $CUSTOM_OPTION || handle_error "Rasqberry Tie Demo Installation Failed."
+                    do_rasp_tie_install $CUSTOM_OPTION || { handle_error "Rasqberry Tie installation failed."; continue; }
                 else
                     echo "You chose to cancel. Demo will launch with Local Simulator"
                     break
@@ -446,9 +446,9 @@ do_rasqberry_menu() {
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   done
 }
-# Function for graceful error handlings
+# Function for graceful error handling in menus
 handle_error() {
-    echo "Error: $1"
-    echo "Exiting with error."
-    exit 1
+    local MSG="$1"
+    whiptail --title "Error" --msgbox "$MSG" 8 60
+    return 1
 }
