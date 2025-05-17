@@ -17,3 +17,24 @@ The bill-of-material mentions a "welding shield" than can be used in front of th
 
 ### Polarisation of the Magnets 
 
+## Iterative Development of RQB2_menu.sh
+
+The complete GitHub actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and realted files), the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
+
+```
+export GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git" # modify to match your development repo
+export GIT_BRANCH="JRL-dev02"  # modify to match your development branch
+export CLONE_DIR="/tmp/RasQberry-Two"
+export FIRST_USER_NAME="rasqberry"
+export RQB2_CONFDIR=".local/config"
+
+git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}  
+
+cp ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
+cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
+
+sudo cp ${CLONE_DIR}/RQB2-bin/* /usr/bin
+sudo cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
+
+rm -rf ${CLONE_DIR}
+```
