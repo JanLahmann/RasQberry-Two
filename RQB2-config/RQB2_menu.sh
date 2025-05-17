@@ -263,20 +263,26 @@ do_led_off() {
   python3 /home/$SUDO_USER/.local/bin/turn_off_LEDs.py
 }
 
+# Generic runner for LED demos
+run_led_demo() {
+  DEMO_TITLE="$1"; shift
+  SCRIPT_NAME="$1"; shift
+  # Activate Python environment
+  . "/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
+  # Run demo in background and allow clean stop
+  run_demo_bg "$DEMO_TITLE" "/home/$SUDO_USER/.local/bin" python3 "$SCRIPT_NAME"
+  # Ensure LEDs are off afterwards
+  do_led_off
+}
+
 #Simple LEDs demo
 do_led_simple() {
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo_bg "Simple LED Demo" "/home/$SUDO_USER/.local/bin" python3 neopixel_spi_simpletest.py
-    # Turn off LEDs when demo ends
-    do_led_off
+  run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py
 }
 
 #IBM LED demo
 do_led_ibm() {
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo_bg "IBM LED Demo" "/home/$SUDO_USER/.local/bin" python3 neopixel_spi_IBMtestFunc.py
-    # Turn off LEDs when demo ends
-    do_led_off
+  run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py
 }
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
