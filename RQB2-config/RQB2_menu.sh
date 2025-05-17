@@ -3,6 +3,21 @@ set -eu
 IFS='\
 	'
 
+# -----------------------------------------------------------------------------
+# RasQberry-Two: RQB2_menu.sh
+# Table of Contents:
+# 1. Environment & Bootstrap
+# 2. Helpers
+# 3. Menu Functions
+#    a) Environment Variable Menu
+#    b) Qiskit Install Menu
+#    c) LED Demo Menu
+#    d) Quantum Lights Out Menu
+#    e) Quantum Raspberry-Tie Menu
+#    f) Main Menu
+# 4. Error Handling
+# -----------------------------------------------------------------------------
+
 # load RasQberry environment and constants
 . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
 
@@ -12,6 +27,11 @@ DEMO_ROOT="$REPO_DIR/demos"
 BIN_DIR="$USER_HOME/.local/bin"
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
+#
+# -----------------------------------------------------------------------------
+# 1. Environment & Bootstrap
+# -----------------------------------------------------------------------------
+#
 # Bootstrap: ensure env-config.sh is linked into $BIN_DIR for scripts
 bootstrap_env_config() {
     SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
@@ -27,12 +47,145 @@ bootstrap_env_config() {
 # Run bootstrap to set up env-config link
 bootstrap_env_config
 
+# -----------------------------------------------------------------------------
+# 2. Helpers
+# -----------------------------------------------------------------------------
+
 # POSIX-compatible generic whiptail menu helper
 show_menu() {
     title="$1"; shift
     prompt="$1"; shift
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
+
+# Generic installer for demos: name, git URL, marker file
+install_demo() {
+    NAME="$1"       # e.g. Quantum-Lights-Out or quantum-raspberry-tie
+    GIT_URL="$2"    # e.g. $GIT_REPO_DEMO_QLO or $GIT_REPO_DEMO_QRT
+    MARKER="$3"     # script or file that must exist in the clone
+
+    DEST="$DEMO_ROOT/$NAME"
+    if [ ! -f "$DEST/$MARKER" ]; then
+        mkdir -p "$DEST"
+        git clone --depth 1 "$GIT_URL" "$DEST"
+        # ensure correct ownership
+        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
+            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+        fi
+    fi
+}
+
+# Install Quantum-Lights-Out demo if needed
+do_qlo_install() {
+    VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" != "true" ]; then
+        install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
+        update_environment_file "$VARIABLE_NAME" "true"
+        whiptail --title "Quantum Lights Out" --msgbox "Demo installed successfully." 8 60
+    else
+        whiptail --title "Quantum Lights Out" --msgbox "Demo already installed." 8 60
+    fi
+}
+
+# Install Quantum-Raspberry-Tie demo if needed
+do_rasp_tie_install() {
+    VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" != "true" ]; then
+        install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
+        update_environment_file "$VARIABLE_NAME" "true"
+        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo installed successfully." 8 60
+    else
+        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo already installed." 8 60
+    fi
+}
+
+# Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
+run_demo() {
+  # Mode selection: default is pty; allow "bg" as first arg
+  MODE="pty"
+  if [ "$1" = bg ]; then MODE="bg"; shift; fi
+  DEMO_TITLE="$1"; shift
+  DEMO_DIR="$1"; shift
+  # Build the command string from all remaining args (preserving spaces)
+  CMD="$1"
+  shift
+  for arg in "$@"; do
+      CMD="$CMD $arg"
+  done
+  # Ensure commands run inside the Python virtual environment
+  if [ -f "$VENV_ACTIVATE" ]; then
+    CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
+  fi
+  # Save current terminal settings
+  OLD_STTY=$(stty -g)
+  # Reset terminal state before launching
+  stty sane
+  # Launch the demo in its own session so we can kill the full process group
+  if [ "$MODE" = "pty" ]; then
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+  else
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
+  fi
+  DEMO_PID=$!
+  # Ask user when to stop
+  whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
+  # Restore terminal state before killing demo
+  stty sane
+  # Terminate the entire demo process group
+  kill -TERM -"$DEMO_PID" 2>/dev/null || true
+  wait "$DEMO_PID" 2>/dev/null || true
+  # Restore original terminal settings
+  stty "$OLD_STTY"
+  # Final reset to clear any residual state
+  reset
+}
+
+# Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
+run_qlo_demo() {
+    MODE="${1:-}"  # empty for GUI, "console" for console mode
+    # Activate virtual environment
+    . "$VENV_ACTIVATE"
+    DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
+    DEMO_SCRIPT="$DEMO_DIR/lights_out.py"
+    # Ensure installed
+    if [ ! -f "$DEMO_SCRIPT" ]; then
+        do_qlo_install
+    fi
+    if [ ! -f "$DEMO_SCRIPT" ]; then
+        whiptail --msgbox "Lights Out script missing. Aborting." 20 60 1
+        return 1
+    fi
+    # Launch appropriate mode
+    if [ "$MODE" = "console" ]; then
+        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+    else
+        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+    fi
+    # Turn off LEDs when demo ends
+    do_led_off
+}
+
+# Run quantum-raspberry-tie demo (ensures install first)
+run_rasp_tie_demo() {
+    # Ensure installation
+    do_rasp_tie_install
+    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
+    RUN_OPTION=$1
+    if  [ "$RUN_OPTION" != "b:aer" ]; then
+      python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
+    else
+      echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
+    fi
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
+    # Turn off LEDs when demo ends
+    do_led_off
+}
+
+# -----------------------------------------------------------------------------
+# 3a) Environment Variable Menu
+# -----------------------------------------------------------------------------
 
 # Function to update values stored in the rasqberry_environment.env file
 do_select_environment_variable() {
@@ -48,14 +201,14 @@ do_select_environment_variable() {
   # Create a menu with the environment variables
   FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" $(echo "$ENV_VARS" | awk '{print $1 " " $2}') 3>&1 1>&2 2>&3)
   RET=$?
-  if [ $RET -eq 1 ]; then
+  if [ "$RET" -eq 1 ]; then
     return 0
   fi
   # Prompt for the new value and update the environment file
-  new_value=$(whiptail --inputbox "Enter new value for $FUN" "$WT_HEIGHT" "$WT_WIDTH" 3>&1 1>&2 2>&3)
+  new_value=$(whiptail --inputbox "Enter new value for ${FUN}" "$WT_HEIGHT" "$WT_WIDTH" 3>&1 1>&2 2>&3)
   RET=$?
-  if [ $RET -eq 0 ]; then
-    update_environment_file "$FUN" "$new_value"
+  if [ "$RET" -eq 0 ]; then
+    update_environment_file "${FUN}" "$new_value"
   fi
 }
 
@@ -93,108 +246,6 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
-# Generic installer for demos: name, git URL, marker file
-install_demo() {
-    NAME="$1"       # e.g. Quantum-Lights-Out or quantum-raspberry-tie
-    GIT_URL="$2"    # e.g. $GIT_REPO_DEMO_QLO or $GIT_REPO_DEMO_QRT
-    MARKER="$3"     # script or file that must exist in the clone
-
-    DEST="$DEMO_ROOT/$NAME"
-    if [ ! -f "$DEST/$MARKER" ]; then
-        mkdir -p "$DEST"
-        git clone --depth 1 "$GIT_URL" "$DEST"
-        # ensure correct ownership
-        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
-        fi
-    fi
-}
-
-# Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
-run_demo() {
-  # Mode selection: default is pty; allow "bg" as first arg
-  MODE="pty"
-  if [ "$1" = bg ]; then MODE="bg"; shift; fi
-  DEMO_TITLE="$1"; shift
-  DEMO_DIR="$1"; shift
-  # Build the command string from all remaining args (preserving spaces)
-  CMD="$1"
-  shift
-  for arg in "$@"; do
-      CMD="$CMD $arg"
-  done
-  # Ensure commands run inside the Python virtual environment
-  if [ -f "$VENV_ACTIVATE" ]; then
-    CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
-  fi
-  # Save current terminal settings
-  OLD_STTY=$(stty -g)
-  # Reset terminal state before launching
-  stty sane
-  # Launch the demo in its own session so we can kill the full process group
-  if [ "$MODE" = "pty" ]; then
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
-  else
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
-  fi
-  DEMO_PID=$!
-  # Ask user when to stop
-  whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
-  # Restore terminal state before killing demo
-  stty sane
-  # Terminate the entire demo process group
-  kill -TERM -"$DEMO_PID" 2>/dev/null || true
-  wait "$DEMO_PID" 2>/dev/null || true
-  # Restore original terminal settings
-  stty "$OLD_STTY"
-  # Final reset to clear any residual state
-  reset
-}
-
-# Install Quantum-Raspberry-Tie demo if needed
-do_rasp_tie_install() {
-    VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" != "true" ]; then
-        install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
-        update_environment_file "$VARIABLE_NAME" "true"
-        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo installed successfully." 8 60
-    else
-        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo already installed." 8 60
-    fi
-}
-
-# Run quantum-raspberry-tie demo (ensures install first)
-run_rasp_tie_demo() {
-    # Ensure installation
-    do_rasp_tie_install
-    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
-    RUN_OPTION=$1
-    if  [ "$RUN_OPTION" != "b:aer" ]; then
-      python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
-    else
-      echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
-    fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
-    # Turn off LEDs when demo ends
-    do_led_off
-}
-
-# Initial setup for RasQberry
-# Sets PATH, LOCALE, create python venv
-do_rqb_initial_config() {
-  ( echo; echo '##### added for rasqberry #####';
-  echo "export PATH=\"$BIN_DIR:$DEMO_ROOT/bin:\$PATH\"";
-  # fix locale
-  echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
-  ) >> "$USER_HOME/.bashrc" && . "$USER_HOME/.bashrc"
-  # create venv for Qiskit
-  sudo -u $SUDO_USER -H -E -- sh -c 'python3 -m venv /home/'$SUDO_USER'/'$REPO'/venv/'$STD_VENV
-  if [ "$INTERACTIVE" = true ]; then
-      [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "initial config completed" 20 60 1
-  fi
-}
-
 # install any version of qiskit. $1 parameter is the version (e.g. 0.37 = 037), set $2=silent for one-time silent (no whiptail popup) install
 # Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
 # Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
@@ -204,6 +255,10 @@ do_rqb_install_qiskit() {
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
 }
+
+# -----------------------------------------------------------------------------
+# 3b) Qiskit Install Menu
+# -----------------------------------------------------------------------------
 
 do_rqb_qiskit_menu() {
     while true; do
@@ -226,32 +281,9 @@ do_led_off() {
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
 
-# Removed run_led_demo function as per instructions
-
-# Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
-run_qlo_demo() {
-    MODE="${1:-}"  # empty for GUI, "console" for console mode
-    # Activate virtual environment
-    . "$VENV_ACTIVATE"
-    DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
-    DEMO_SCRIPT="$DEMO_DIR/lights_out.py"
-    # Ensure installed
-    if [ ! -f "$DEMO_SCRIPT" ]; then
-        do_qlo_install
-    fi
-    if [ ! -f "$DEMO_SCRIPT" ]; then
-        whiptail --msgbox "Lights Out script missing. Aborting." 20 60 1
-        return 1
-    fi
-    # Launch appropriate mode
-    if [ "$MODE" = "console" ]; then
-        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
-    else
-        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
-    fi
-    # Turn off LEDs when demo ends
-    do_led_off
-}
+# -----------------------------------------------------------------------------
+# 3c) LED Demo Menu
+# -----------------------------------------------------------------------------
 
 do_select_led_option() {
     while true; do
@@ -260,11 +292,11 @@ do_select_led_option() {
            simple "Simple LED Demo" \
            IBM "IBM LED Demo") || break
         case "$FUN" in
-            "OFF" ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
-            "simple" )
+            OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            simple )
                 run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 ;;
-            "IBM" )
+            IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
                 ;;
             *) break ;;
@@ -272,18 +304,9 @@ do_select_led_option() {
     done
 }
 
-# Install Quantum-Lights-Out demo if needed
-do_qlo_install() {
-    VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" != "true" ]; then
-        install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
-        update_environment_file "$VARIABLE_NAME" "true"
-        whiptail --title "Quantum Lights Out" --msgbox "Demo installed successfully." 8 60
-    else
-        whiptail --title "Quantum Lights Out" --msgbox "Demo already installed." 8 60
-    fi
-}
+# -----------------------------------------------------------------------------
+# 3d) Quantum Lights Out Menu
+# -----------------------------------------------------------------------------
 
 do_select_qlo_option() {
     while true; do
@@ -291,12 +314,16 @@ do_select_qlo_option() {
            QLO  "Run Demo" \
            QLOC "Run Demo (console)") || break
         case "$FUN" in
-            "QLO"  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
-            "QLOC" ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
+            QLO  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
+            QLOC ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
             *) break ;;
         esac
     done
 }
+
+# -----------------------------------------------------------------------------
+# 3e) Quantum Raspberry-Tie Menu
+# -----------------------------------------------------------------------------
 
 do_select_qrt_option() {
     while true; do
@@ -306,13 +333,13 @@ do_select_qrt_option() {
            b:least     "Least busy real backend" \
            b:custom    "Custom backend or option") || break
         case "$FUN" in
-            "b:aer" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            "b:aer_noise" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            "b:least" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            "b:custom")
+            b:aer ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
+            b:aer_noise ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
+            b:least ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
+            b:custom)
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
-                if [ $exitstatus = 0 ]; then
+                if [ "$exitstatus" = 0 ]; then
                     run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
                 else
                     echo "You chose to cancel. Demo will launch with Local Simulator"
@@ -324,6 +351,10 @@ do_select_qrt_option() {
     done
 }
 
+# -----------------------------------------------------------------------------
+# 3f) Main Quantum Demo Menu
+# -----------------------------------------------------------------------------
+
 do_quantum_demo_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
@@ -334,10 +365,14 @@ do_quantum_demo_menu() {
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
-      *)    handle_error "Programmer error: unrecognized Quantum Demo option $FUN."; continue ;;
+      *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
   done
 }
+
+# -----------------------------------------------------------------------------
+# 3g) Main Raspi Config Menu
+# -----------------------------------------------------------------------------
 
 do_rasqberry_menu() {
   while true; do
@@ -347,10 +382,14 @@ do_rasqberry_menu() {
     case "$FUN" in
       QD)  do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       UEF) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      *)   handle_error "Programmer error: unrecognized main menu option $FUN."; continue ;;
+      *)   handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
 }
+
+# -----------------------------------------------------------------------------
+# 4. Error Handling
+# -----------------------------------------------------------------------------
 
 # Function for graceful error handling in menus
 handle_error() {
