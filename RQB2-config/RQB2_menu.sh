@@ -129,24 +129,27 @@ do_setup_quantum_demo_essential() {
 do_rasp_tie_install() {
     VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
 
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" != "true" ]; then
-        # Update the value of QUANTUM_RASPBERRY_TIE_INSTALLED to true
-        update_environment_file "$VARIABLE_NAME" "true"
+    DEMO_DIR="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
+    DEMO_SCRIPT="$DEMO_DIR/QuantumRaspberryTie.qk1.py"
 
-        # Proceed with the installation
+    # Check if demo needs installation or if script is missing
+    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+    if [ "$INSTALLED" != "true" ] || [ ! -f "$DEMO_SCRIPT" ]; then
+        # Mark as installed
+        update_environment_file "$VARIABLE_NAME" "true"
+        # Clone or re-clone the demo
         . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-        if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
-            mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
-            export CLONE_DIR_DEMO1="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
-            git clone ${GIT_REPO_DEMO_QRT} ${CLONE_DIR_DEMO1}
-        fi
+        mkdir -p "$DEMO_DIR"
+        export CLONE_DIR_DEMO1="$DEMO_DIR"
+        git clone --depth 1 ${GIT_REPO_DEMO_QRT} "$CLONE_DIR_DEMO1"
+        # Ensure correct ownership
         FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
         if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
             sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
         fi
-        if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
-            whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+        # Verify script present
+        if [ ! -f "$DEMO_SCRIPT" ]; then
+            whiptail --msgbox "Demo script missing after install. Aborting." 20 60 1
             return 1
         fi
     else
