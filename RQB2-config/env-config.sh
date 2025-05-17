@@ -1,11 +1,26 @@
-#!/bin/sh
-# shellcheck disable=SC2046
-# This codeset loads the environment variables from the env file
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
-RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
-if [ -e /home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env ] ; then
-  export $(grep -v "^#" "/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env" | xargs -d "\n")
-elif [ -e /home/$USER/$RQB2_CONFDIR/rasqberry_environment.env ] ; then
-    export $(grep -v "^#" "/home/$USER/$RQB2_CONFDIR/rasqberry_environment.env" | xargs -d "\n")
-else  echo "env file not found"
+# Determine non-root user home directory
+if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
+  USER_HOME="$(eval echo ~${SUDO_USER})"
+else
+  USER_HOME="${HOME}"
+fi
+
+# Default configuration directory
+RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
+
+# Path to environment file
+CONFIG_FILE="${USER_HOME}/${RQB2_CONFDIR}/rasqberry_environment.env"
+
+# Load environment variables from env file
+if [ -f "${CONFIG_FILE}" ]; then
+  set -a
+  source "${CONFIG_FILE}"
+  set +a
+else
+  echo >&2 "ERROR: Missing config file at ${CONFIG_FILE}"
+  exit 1
 fi
