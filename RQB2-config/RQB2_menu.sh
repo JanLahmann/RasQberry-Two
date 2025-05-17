@@ -85,10 +85,15 @@ check_environment_variable() {
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior
 run_demo() {
-  local DEMO_TITLE="$1"; shift
-  local DEMO_DIR="$1"; shift
+  DEMO_TITLE="$1"; shift
+  DEMO_DIR="$1"; shift
   # Combine the command and args into a single string
-  local CMD="$*"
+  CMD="$*"
+  # Ensure commands run inside the Python virtual environment
+  VENV_ACTIVATE="/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
+  if [ -f "$VENV_ACTIVATE" ]; then
+    CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
+  fi
   # Save current terminal settings
   local OLD_STTY
   OLD_STTY=$(stty -g)
