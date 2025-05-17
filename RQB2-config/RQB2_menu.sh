@@ -1,5 +1,7 @@
 #!/bin/sh
-
+set -eu
+IFS='\
+	'
 
 # load RasQberry environment and constants
 . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
@@ -10,22 +12,20 @@ DEMO_ROOT="$REPO_DIR/demos"
 BIN_DIR="$USER_HOME/.local/bin"
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
+# Bootstrap: ensure env-config.sh is linked into $BIN_DIR for scripts
+bootstrap_env_config() {
+    SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
+    TARGET_LINK="$BIN_DIR/env-config.sh"
+    # Remove existing symlink if present
+    if [ -L "$TARGET_LINK" ]; then
+        rm -f "$TARGET_LINK"
+    fi
+    # Create symbolic link
+    ln -sf "$SOURCE_FILE" "$TARGET_LINK"
+} || die "Failed to set up configuration link"
 
-# ******Added By Rishi as part of rasQberry-two project*******
-SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
-TARGET_LINK="$BIN_DIR/env-config.sh"
-# Check if the symbolic link already exists
-if [ -L "$TARGET_LINK" ];
-then
-    # If the link exist remove it
-    sudo rm $TARGET_LINK
-    echo "Symbolic link Removed"
-else
-    echo "Symbolic link doesn't exists"
-fi
-# ***********end changes************
-# Create symbolic link
-sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
+# Run bootstrap to set up env-config link
+bootstrap_env_config
 
 
 # Function to update values stored in the rasqberry_environment.env file
