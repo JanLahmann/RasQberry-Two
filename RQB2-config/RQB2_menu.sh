@@ -87,14 +87,17 @@ check_environment_variable() {
 run_demo() {
   local DEMO_TITLE="$1"; shift
   local DEMO_DIR="$1"; shift
-  # Launch the demo in its directory, ignoring SIGINT so only this script handles it
-  ( trap '' SIGINT; cd "$DEMO_DIR" && exec "$@" ) &
+  # Clear any leftover curses state and stty, then launch the demo
+  ( trap '' SIGINT; stty sane; clear; cd "$DEMO_DIR" && exec "$@" ) &
   local DEMO_PID=$!
   # Prompt user to stop the demo
   whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
-  # Terminate the demo process
+  # After dialog, restore terminal state, clear screen, then stop the demo
+  clear; stty sane
   kill "$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
+  # Final clear to ensure prompt is clean
+  clear
 }
 
 #set up for demo adding sense-hat
