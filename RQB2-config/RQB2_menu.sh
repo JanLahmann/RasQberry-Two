@@ -24,7 +24,6 @@ bootstrap_env_config() {
     ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 } || die "Failed to set up configuration link"
 
-
 # Run bootstrap to set up env-config link
 bootstrap_env_config
 
@@ -34,7 +33,6 @@ show_menu() {
     prompt="$1"; shift
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
-
 
 # Function to update values stored in the rasqberry_environment.env file
 do_select_environment_variable() {
@@ -56,7 +54,6 @@ do_select_environment_variable() {
     do_menu_update_environment_file "$FUN"
   fi
 }
-
 
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
@@ -97,7 +94,6 @@ check_environment_variable() {
     # Return the value
     echo "$VALUE"
 }
-
 
 # Generic installer for demos: name, git URL, marker file
 install_demo() {
@@ -250,7 +246,6 @@ do_rqb_install_qiskit() {
   fi
 }
 
-
 do_rqb_qiskit_menu() {
     while true; do
         FUN=$(show_menu "Qiskit Install" "Choose version to install" \
@@ -265,7 +260,6 @@ do_rqb_qiskit_menu() {
         esac
     done
 }
-
 
 #Turn off all LEDs
 do_led_off() {
@@ -284,7 +278,6 @@ run_led_demo() {
   # Ensure LEDs are off afterwards
   do_led_off
 }
-
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
@@ -311,7 +304,6 @@ run_qlo_demo() {
     do_led_off
 }
 
-
 do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
@@ -329,7 +321,6 @@ do_select_led_option() {
     done
 }
 
-
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
@@ -342,7 +333,6 @@ do_qlo_install() {
         whiptail --title "Quantum Lights Out" --msgbox "Demo already installed." 8 60
     fi
 }
-
 
 do_select_qlo_option() {
     while true; do
@@ -387,7 +377,6 @@ do_select_qrt_option() {
     done
 }
 
-
 do_quantum_demo_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
@@ -415,7 +404,6 @@ do_rasqberry_menu() {
     esac
   done
 }
-
 
 # Function for graceful error handling in menus
 handle_error() {
