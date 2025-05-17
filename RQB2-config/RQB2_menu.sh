@@ -83,11 +83,12 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
-# Helper: run a demo and stop it via a dialog instead of Ctrl-C
+# Helper: run a demo in a directory and stop it via a dialog instead of Ctrl-C
 run_demo() {
   local DEMO_TITLE="$1"; shift
-  # Launch the demo, ignoring SIGINT so only this script handles it
-  ( trap '' SIGINT; exec "$@" ) &
+  local DEMO_DIR="$1"; shift
+  # Launch the demo in its directory, ignoring SIGINT so only this script handles it
+  ( trap '' SIGINT; cd "$DEMO_DIR" && exec "$@" ) &
   local DEMO_PID=$!
   # Prompt user to stop the demo
   whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
@@ -160,8 +161,7 @@ do_rasp_tie_install() {
         return 1
     fi
 
-    # Launch the Quantum Raspberry-Tie demo with controlled start/stop
-    run_demo "Quantum Raspberry-Tie Demo" python3 "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
+    run_demo "Quantum Raspberry-Tie Demo" "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
 
 }
 
@@ -239,13 +239,13 @@ do_led_off() {
 #Simple LEDs demo
 do_led_simple() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo "Simple LED Demo" python3 "/home/$SUDO_USER/.local/bin/neopixel_spi_simpletest.py"
+    run_demo "Simple LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_simpletest.py"
 }
 
 #IBM LED demo
 do_led_ibm() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo "IBM LED Demo" python3 "/home/$SUDO_USER/.local/bin/neopixel_spi_IBMtestFunc.py"
+    run_demo "IBM LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_IBMtestFunc.py"
 }
 
 
@@ -321,7 +321,7 @@ do_qlo_run() {
         return 1
     fi
 
-    run_demo "Quantum Lights Out Demo" python3 "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py"
+    run_demo "Quantum Lights Out Demo" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py"
 }
 
 do_qloc_run() {
@@ -335,7 +335,7 @@ do_qloc_run() {
         return 1
     fi
 
-    run_demo "Quantum Lights Out Demo (console)" python3 "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" --console
+    run_demo "Quantum Lights Out Demo (console)" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py" --console
 }
 
 
