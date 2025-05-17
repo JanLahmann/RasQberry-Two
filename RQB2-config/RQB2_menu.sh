@@ -196,9 +196,8 @@ do_setup_quantum_demo_essential() {
     #fi
 }
 
-#Running quantum-raspberry-tie demo
+# Install Quantum-Raspberry-Tie demo if needed
 do_rasp_tie_install() {
-    # Ensure Quantum Raspberry-Tie demo is installed
     VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
     INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
     if [ "$INSTALLED" != "true" ]; then
@@ -208,6 +207,12 @@ do_rasp_tie_install() {
     else
         whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo already installed." 8 60
     fi
+}
+
+# Run quantum-raspberry-tie demo (ensures install first)
+run_rasp_tie_demo() {
+    # Ensure installation
+    do_rasp_tie_install
     DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
     RUN_OPTION=$1
     if  [ "$RUN_OPTION" != "b:aer" ]; then
@@ -362,14 +367,14 @@ do_select_qrt_option() {
            b:least     "Least busy real backend" \
            b:custom    "Custom backend or option") || break
         case "$FUN" in
-            "b:aer" ) do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
-            "b:aer_noise") do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
-            "b:least") do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:aer" ) run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:aer_noise") run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:least") run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
             "b:custom")
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
                 if [ $exitstatus = 0 ]; then
-                    do_rasp_tie_install $CUSTOM_OPTION || { handle_error "Rasqberry Tie installation failed."; continue; }
+                    run_rasp_tie_demo $CUSTOM_OPTION || { handle_error "Rasqberry Tie installation failed."; continue; }
                 else
                     echo "You chose to cancel. Demo will launch with Local Simulator"
                     break
