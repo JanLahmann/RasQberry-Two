@@ -1,6 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
-IFS=$'\n\t'
+#!/bin/sh
+set -eu
 
 # Determine non-root user home directory
 if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
