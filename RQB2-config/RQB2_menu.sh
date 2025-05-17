@@ -141,18 +141,9 @@ run_demo() {
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
-    # Activate virtual environment
-    . "$VENV_ACTIVATE"
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
-    DEMO_SCRIPT="$DEMO_DIR/lights_out.py"
     # Ensure installed
-    if [ ! -f "$DEMO_SCRIPT" ]; then
-        do_qlo_install
-    fi
-    if [ ! -f "$DEMO_SCRIPT" ]; then
-        whiptail --msgbox "Lights Out script missing. Aborting." 20 60 1
-        return 1
-    fi
+    do_qlo_install
     # Launch appropriate mode
     if [ "$MODE" = "console" ]; then
         run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
@@ -242,6 +233,11 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
+
+# -----------------------------------------------------------------------------
+# 3b) Qiskit Install Menu
+# -----------------------------------------------------------------------------
+
 # install any version of qiskit. $1 parameter is the version (e.g. 0.37 = 037), set $2=silent for one-time silent (no whiptail popup) install
 # Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
 # Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
@@ -251,10 +247,6 @@ do_rqb_install_qiskit() {
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
 }
-
-# -----------------------------------------------------------------------------
-# 3b) Qiskit Install Menu
-# -----------------------------------------------------------------------------
 
 do_rqb_qiskit_menu() {
     while true; do
@@ -271,15 +263,16 @@ do_rqb_qiskit_menu() {
     done
 }
 
+
+# -----------------------------------------------------------------------------
+# 3c) LED Demo Menu
+# -----------------------------------------------------------------------------
+
 #Turn off all LEDs
 do_led_off() {
   . "$VENV_ACTIVATE"
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
-
-# -----------------------------------------------------------------------------
-# 3c) LED Demo Menu
-# -----------------------------------------------------------------------------
 
 do_select_led_option() {
     while true; do
