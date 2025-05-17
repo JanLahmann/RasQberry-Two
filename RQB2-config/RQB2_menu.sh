@@ -87,7 +87,7 @@ check_environment_variable() {
 run_demo() {
   local DEMO_TITLE="$1"; shift
   # Launch the demo, ignoring SIGINT so only this script handles it
-  ( trap '' SIGINT; "$@" ) &
+  ( trap '' SIGINT; exec "$@" ) &
   local DEMO_PID=$!
   # Prompt user to stop the demo
   whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
@@ -160,7 +160,8 @@ do_rasp_tie_install() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie && python3 QuantumRaspberryTie.qk1.py -$RUN_OPTION || exit 1"
+    # Launch the Quantum Raspberry-Tie demo with controlled start/stop
+    run_demo "Quantum Raspberry-Tie Demo" python3 "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
 
 }
 
