@@ -408,10 +408,10 @@ do_quantum_demo_menu() {
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie") || break
     case "$FUN" in
-      LED)    do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
-      QLO\ *) do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
-      QRT\ *) do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
-      *)      handle_error "Programmer error: unrecognized Quantum Demo option $FUN."; continue ;;
+      LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
+      QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
+      QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
+      *)    handle_error "Programmer error: unrecognized Quantum Demo option $FUN."; continue ;;
     esac
   done
 }
@@ -422,9 +422,9 @@ do_rasqberry_menu() {
        QD  "Quantum Demos" \
        UEF "Update Env File") || break
     case "$FUN" in
-      QD\ *) do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
-      UEF\ *) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      *)      handle_error "Programmer error: unrecognized main menu option $FUN."; continue ;;
+      QD)  do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      *)   handle_error "Programmer error: unrecognized main menu option $FUN."; continue ;;
     esac
   done
 }
