@@ -83,21 +83,25 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
-# Helper: run a demo in a directory and stop it via a dialog instead of Ctrl-C
+# Helper: run a demo in its directory and ensure terminal resets correctly
 run_demo() {
   local DEMO_TITLE="$1"; shift
   local DEMO_DIR="$1"; shift
-  # Clear any leftover curses state and stty, then launch the demo
-  ( trap '' SIGINT; stty sane; clear; cd "$DEMO_DIR" && exec "$@" ) &
+  # Save current terminal settings
+  local OLD_STTY
+  OLD_STTY=$(stty -g)
+  # Launch demo with clean terminal state
+  ( trap '' SIGINT; stty sane; reset; cd "$DEMO_DIR" && exec "$@" ) &
   local DEMO_PID=$!
   # Prompt user to stop the demo
   whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
-  # After dialog, restore terminal state, clear screen, then stop the demo
-  clear; stty sane
+  # Restore terminal to sane state before killing demo
+  reset; stty sane
   kill "$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
-  # Final clear to ensure prompt is clean
-  clear
+  # Restore original terminal settings and clear
+  stty "$OLD_STTY"
+  reset
 }
 
 #set up for demo adding sense-hat
