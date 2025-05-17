@@ -313,7 +313,7 @@ run_qlo_demo() {
 
 do_select_led_option() {
     while true; do
-        FUN=$(show_menu "Raspberry Pi LED (raspi-config)" "LED options" \
+        FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo") || break
@@ -355,7 +355,7 @@ do_qlo_install() {
 
 do_select_qlo_option() {
     while true; do
-        FUN=$(show_menu "Quantum-Lights-Out Demo" "Options" \
+        FUN=$(show_menu "RasQberry: Quantum Lights Out" "Options" \
            QLO  "Run Demo" \
            QLOC "Run Demo (console)") || break
         case "$FUN" in
@@ -370,7 +370,7 @@ do_select_qlo_option() {
 
 do_select_qrt_option() {
     while true; do
-        FUN=$(show_menu "Quantum Raspberry-Tie Options" "Backend options" \
+        FUN=$(show_menu "RasQberry: Quantum Raspberry-Tie" "Backend options" \
            b:aer       "Local Aer simulator" \
            b:aer_noise "Aer with noise model" \
            b:least     "Least busy real backend" \
@@ -399,7 +399,7 @@ do_select_qrt_option() {
 
 do_quantum_demo_menu() {
   while true; do
-    FUN=$(show_menu "Quantum Demos" "Select demo category" \
+    FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie") || break
@@ -414,7 +414,7 @@ do_quantum_demo_menu() {
 
 do_rasqberry_menu() {
   while true; do
-    FUN=$(show_menu "Raspi Config" "System Options" \
+    FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD  "Quantum Demos" \
        UEF "Update Env File") || break
     case "$FUN" in
