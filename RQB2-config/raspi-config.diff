@@ -9,7 +9,7 @@
 + # modification for RasQberry
 + # Load environmend and methods
 + RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
-+ RQB2_menu=/home/$SUDO_USER/$RQB2_CONFDIR/RQB2_menu.sh
++ RQB2_menu=$RQB2_CONFDIR/RQB2_menu.sh
 + if [ -e $RQB2_menu ] ; then
 +   . $RQB2_menu
 + else
