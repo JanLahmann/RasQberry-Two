@@ -15,5 +15,5 @@ The "standalone model" does not use the floor at all. The intention is to use mu
 
 The bill-of-material mentions a "welding shield" than can be used in front of the LEDs. Instead, you can 3D print it - with the right material. Many black filaments will not work as they absorb too much light, but a screen printed with 0.6 mm Prusament PLA Galaxy Grey does just fine. STL file is here, and removes the need for a separate order of a welding shield and cutting it.
 
-### Polarisation of the Magnets
+### Polarisation of the Magnets 
 
