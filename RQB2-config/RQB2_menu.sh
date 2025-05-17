@@ -94,15 +94,15 @@ run_demo() {
   OLD_STTY=$(stty -g)
   # Reset terminal state before launching
   stty sane
-  # Run the demo inside a pty via script, so curses and line-breaks behave
-  ( trap '' SIGINT; cd "$DEMO_DIR" && exec script -qfc "$CMD" /dev/null ) &
+  # Launch the demo in its own session so we can kill the full process group
+  ( trap '' SIGINT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
   local DEMO_PID=$!
   # Ask user when to stop
   whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
   # Restore terminal state before killing demo
   stty sane
-  # Terminate the demo process
-  kill "$DEMO_PID" 2>/dev/null || true
+  # Terminate the entire demo process group
+  kill -TERM -- -"$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
   # Restore original terminal settings
   stty "$OLD_STTY"
@@ -346,14 +346,6 @@ do_qlo_install() {
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
-}
-
-do_qlo_run() {
-  run_qlo_demo
-}
-
-do_qloc_run() {
-  run_qlo_demo console
 }
 
 
