@@ -52,7 +52,7 @@ jobs:
       # -------------------------------------------------------------------------
       - name: "Rasqberry: Add version file"
         id: update-version
-        if: steps.current-version.outputs.version != github.event.inputs.version
+        if: ${{ steps.current-version.outputs.version != github.event.inputs.version }}
         shell: bash
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
