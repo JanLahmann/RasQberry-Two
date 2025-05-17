@@ -137,17 +137,25 @@ jobs:
           config: ./cliff-release.toml
           args: ${{ steps.latest_tag.outputs.TAG_NAME }}..HEAD
 
-      - name: Create empty release
-        id: create-release
+      - name: Create Release (main branch)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2.2.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "${{ github.ref == 'refs/heads/main' ? format('rasqberry-%s', needs.rasqberry-push-version-number.outputs.version_num) : format('rasqberry-v%s', needs.rasqberry-push-version-number.outputs.version_num) }}"
-          tag_name: "${{ github.ref == 'refs/heads/main' ? needs.rasqberry-push-version-number.outputs.version_num : format('v%s', needs.rasqberry-push-version-number.outputs.version_num) }}"
+          name: "rasqberry-${{ needs.rasqberry-push-version-number.outputs.version_num }}"
+          tag_name: "${{ needs.rasqberry-push-version-number.outputs.version_num }}"
           body: ${{ steps.changelog.outputs.content }}
           make_latest: true
-      - run: |
-          echo "${{ steps.create-release.outputs.upload_url }}"
+
+      - name: Create Release (other branches)
+        if: github.ref != 'refs/heads/main'
+        uses: softprops/action-gh-release@v2.2.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "rasqberry-v${{ needs.rasqberry-push-version-number.outputs.version_num }}"
+          tag_name: "v${{ needs.rasqberry-push-version-number.outputs.version_num }}"
+          body: ${{ steps.changelog.outputs.content }}
+          make_latest: true
 
   build:
     name: Build Image
