@@ -24,8 +24,16 @@ bootstrap_env_config() {
     ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 } || die "Failed to set up configuration link"
 
+
 # Run bootstrap to set up env-config link
 bootstrap_env_config
+
+# POSIX-compatible generic whiptail menu helper
+show_menu() {
+    title="$1"; shift
+    prompt="$1"; shift
+    whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
+}
 
 
 # Function to update values stored in the rasqberry_environment.env file
@@ -305,15 +313,10 @@ run_qlo_demo() {
 
 do_select_led_option() {
     while true; do
-        FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "LED options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "OFF" "Turn off all LEDs" \
-        "simple" "simple LED demo" \
-        "IBM" "Display IBM on LEDs" \
-        3>&1 1>&2 2>&3)
-        RET=$?
-        if [ $RET -ne 0 ]; then
-            break
-        fi
+        FUN=$(show_menu "Raspberry Pi LED (raspi-config)" "LED options" \
+           OFF "Turn off all LEDs" \
+           simple "Simple LED Demo" \
+           IBM "IBM LED Demo") || break
         case "$FUN" in
             "OFF" ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             "simple" ) run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; } ;;
@@ -352,14 +355,9 @@ do_qlo_install() {
 
 do_select_qlo_option() {
     while true; do
-        FUN=$(whiptail --title "Quantum-Lights-Out Demo" --menu "Options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "QLO" "Run Demo" \
-        "QLOC" "Run Demo (console)" \
-        3>&1 1>&2 2>&3)
-        RET=$?
-        if [ $RET -ne 0 ]; then
-            break
-        fi
+        FUN=$(show_menu "Quantum-Lights-Out Demo" "Options" \
+           QLO  "Run Demo" \
+           QLOC "Run Demo (console)") || break
         case "$FUN" in
             "QLO"  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
             "QLOC" ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
@@ -372,16 +370,11 @@ do_select_qlo_option() {
 
 do_select_qrt_option() {
     while true; do
-        FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "b:aer" "Spins up a local Aer simulator" \
-        "b:aer_noise" "Spins up a local Aer simulator with a noise model" \
-        "b:least" "Code will run on the least busy *real* backend for your account" \
-        "b:custom" "Enter a custom backend or option" \
-        3>&1 1>&2 2>&3)
-        RET=$?
-        if [ $RET -ne 0 ]; then
-            break
-        fi
+        FUN=$(show_menu "Quantum Raspberry-Tie Options" "Backend options" \
+           b:aer       "Local Aer simulator" \
+           b:aer_noise "Aer with noise model" \
+           b:least     "Least busy real backend" \
+           b:custom    "Custom backend or option") || break
         case "$FUN" in
             "b:aer" ) do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
             "b:aer_noise") do_rasp_tie_install $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
@@ -406,15 +399,10 @@ do_select_qrt_option() {
 
 do_quantum_demo_menu() {
   while true; do
-    FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-          "LED" "test LEDs" \
-          "QLO Demo" "Quantum-Lights-Out Demo" \
-          "QRT Demo" "quantum-raspberry-tie" \
-     3>&1 1>&2 2>&3)
-    RET=$?
-    if [ $RET -ne 0 ]; then
-      break
-    fi
+    FUN=$(show_menu "Quantum Demos" "Select demo category" \
+       LED  "Test LEDs" \
+       QLO  "Quantum-Lights-Out Demo" \
+       QRT  "Quantum Raspberry-Tie") || break
     case "$FUN" in
       LED)    do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO\ *) do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
@@ -426,14 +414,9 @@ do_quantum_demo_menu() {
 
 do_rasqberry_menu() {
   while true; do
-    FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-      "QD Quantum Demos"  "Install Quantum Demos"\
-      "UEF Update Environment File" "Update the environment file" \
-      3>&1 1>&2 2>&3)
-    RET=$?
-    if [ $RET -ne 0 ]; then
-      break
-    fi
+    FUN=$(show_menu "Raspi Config" "System Options" \
+       QD  "Quantum Demos" \
+       UEF "Update Env File") || break
     case "$FUN" in
       QD\ *) do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       UEF\ *) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
