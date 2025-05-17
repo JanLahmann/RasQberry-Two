@@ -90,18 +90,21 @@ run_demo() {
   # Save current terminal settings
   local OLD_STTY
   OLD_STTY=$(stty -g)
-  # Launch demo with clean terminal state
-  ( trap '' SIGINT; stty sane; reset; cd "$DEMO_DIR" && exec "$@" ) &
+  # Launch demo in background, ignoring SIGINT in the demo process
+  ( trap '' SIGINT; cd "$DEMO_DIR" && exec "$@" ) &
   local DEMO_PID=$!
-  # Prompt user to stop the demo
-  whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
-  # Restore terminal to sane state before killing demo
-  reset; stty sane
+  # Restore terminal settings before showing dialog
+  stty sane
+  # Use a yes/no dialog to control stopping
+  whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
+  # After user response, ensure terminal sane
+  stty sane
+  # Kill the demo process
   kill "$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
-  # Restore original terminal settings and clear
+  # Restore original terminal settings and clear screen
   stty "$OLD_STTY"
-  reset
+  clear
 }
 
 #set up for demo adding sense-hat
