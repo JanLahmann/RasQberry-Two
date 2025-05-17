@@ -75,30 +75,33 @@ install_demo() {
     fi
 }
 
-# Install Quantum-Lights-Out demo if needed
-do_qlo_install() {
-    VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
+
+# Generic installer with notification: name, git url, marker file, env var, display title
+install_demo() {
+    NAME="$1"        # demo directory name
+    GIT_URL="$2"     # repo URL variable
+    MARKER="$3"      # marker file
+    ENV_VAR="$4"     # environment variable name
+    TITLE="$5"       # display title in dialogs
+
+    INSTALLED=$(check_environment_variable "$ENV_VAR")
     if [ "$INSTALLED" != "true" ]; then
-        install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
-        update_environment_file "$VARIABLE_NAME" "true"
-        whiptail --title "Quantum Lights Out" --msgbox "Demo installed successfully." 8 60
+        install_demo "$NAME" "$GIT_URL" "$MARKER"
+        update_environment_file "$ENV_VAR" "true"
+        whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     else
-        whiptail --title "Quantum Lights Out" --msgbox "Demo already installed." 8 60
+        whiptail --title "$TITLE" --msgbox "Demo already installed." 8 60
     fi
 }
 
-# Install Quantum-Raspberry-Tie demo if needed
+# Install Quantum-Lights-Out demo if needed
+do_qlo_install() {
+    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" "Quantum Lights Out"
+}
+
+# Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
-    VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" != "true" ]; then
-        install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
-        update_environment_file "$VARIABLE_NAME" "true"
-        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo installed successfully." 8 60
-    else
-        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo already installed." 8 60
-    fi
+    install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" "Quantum Raspberry-Tie"
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
