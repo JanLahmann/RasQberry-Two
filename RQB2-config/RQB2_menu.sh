@@ -112,8 +112,11 @@ install_demo() {
     fi
 }
 
-# Helper: run a demo in its directory using a pty for correct TTY behavior
+# Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
+  # Mode selection: default is pty; allow "bg" as first arg
+  MODE="pty"
+  if [ "$1" = bg ]; then MODE="bg"; shift; fi
   DEMO_TITLE="$1"; shift
   DEMO_DIR="$1"; shift
   # Build the command string from all remaining args (preserving spaces)
@@ -131,7 +134,11 @@ run_demo() {
   # Reset terminal state before launching
   stty sane
   # Launch the demo in its own session so we can kill the full process group
-  ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+  if [ "$MODE" = "pty" ]; then
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+  else
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
+  fi
   DEMO_PID=$!
   # Ask user when to stop
   whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
@@ -146,23 +153,6 @@ run_demo() {
   reset
 }
 
-# Helper: run a non-interactive demo in the background without a pty
-run_demo_bg() {
-    DEMO_TITLE="$1"; shift
-    DEMO_DIR="$1"; shift
-    CMD="$*"
-    OLD_STTY=$(stty -g)
-    stty sane
-    # Launch demo in its own session so we can kill the full process group
-    ( trap '' INT; cd "$DEMO_DIR" && exec setsid $CMD ) &
-    DEMO_PID=$!
-    whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
-    stty sane
-    kill -TERM -"$DEMO_PID" 2>/dev/null || true
-    wait "$DEMO_PID" 2>/dev/null || true
-    stty "$OLD_STTY"
-    reset
-}
 
 #set up for demo adding sense-hat
 do_setup_quantum_demo_essential() {
@@ -267,17 +257,7 @@ do_led_off() {
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
 
-# Generic runner for LED demos
-run_led_demo() {
-  DEMO_TITLE="$1"; shift
-  SCRIPT_NAME="$1"; shift
-  # Activate Python environment
-  . "$VENV_ACTIVATE"
-  # Run demo in background and allow clean stop
-  run_demo_bg "$DEMO_TITLE" "$BIN_DIR" python3 "$SCRIPT_NAME"
-  # Ensure LEDs are off afterwards
-  do_led_off
-}
+# Removed run_led_demo function as per instructions
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
@@ -312,11 +292,13 @@ do_select_led_option() {
            IBM "IBM LED Demo") || break
         case "$FUN" in
             "OFF" ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
-            "simple" ) run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; } ;;
-            "IBM" ) run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py || { handle_error "LED IBM demo failed."; continue; } ;;
-            *)
-                break
+            "simple" )
+                run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 ;;
+            "IBM" )
+                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
+                ;;
+            *) break ;;
         esac
     done
 }
@@ -342,9 +324,7 @@ do_select_qlo_option() {
         case "$FUN" in
             "QLO"  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
             "QLOC" ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
-            *)
-                break
-                ;;
+            *) break ;;
         esac
     done
 }
@@ -357,22 +337,20 @@ do_select_qrt_option() {
            b:least     "Least busy real backend" \
            b:custom    "Custom backend or option") || break
         case "$FUN" in
-            "b:aer" ) run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
-            "b:aer_noise") run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
-            "b:least") run_rasp_tie_demo $FUN || { handle_error "Rasqberry Tie installation failed."; continue; } ;;
+            "b:aer" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
+            "b:aer_noise" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
+            "b:least" ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
             "b:custom")
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
                 if [ $exitstatus = 0 ]; then
-                    run_rasp_tie_demo $CUSTOM_OPTION || { handle_error "Rasqberry Tie installation failed."; continue; }
+                    run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
                 else
                     echo "You chose to cancel. Demo will launch with Local Simulator"
                     break
                 fi
                 ;;
-            *)
-                break
-                ;;
+            *) break ;;
         esac
     done
 }
