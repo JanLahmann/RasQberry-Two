@@ -2,9 +2,6 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# load RasQberry environment and constants
-. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
-
 
 # installation of Qiskit (latest version)
 #
@@ -15,7 +12,7 @@ if [ "${PIGEN}" == "true" ]; then
   .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
 else
    # Load environment variables
-#  . $HOME/.local/bin/env-config.sh
+  . $HOME/.local/bin/env-config.sh
   . $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
 
