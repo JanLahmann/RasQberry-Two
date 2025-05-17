@@ -261,11 +261,13 @@ do_led_ibm() {
     do_led_off
 }
 
-# Generic runner for Quantum-Lights-Out demo
+# Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
-    local MODE="$1"  # empty for GUI, "console" for console mode
+    MODE="$1"  # empty for GUI, "console" for console mode
+    # Activate virtual environment
     . "/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
-    DEMO_SCRIPT="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py"
+    DEMO_DIR="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out"
+    DEMO_SCRIPT="$DEMO_DIR/lights_out.py"
     # Ensure installed
     if [ ! -f "$DEMO_SCRIPT" ]; then
         do_qlo_install
@@ -274,14 +276,12 @@ run_qlo_demo() {
         whiptail --msgbox "Lights Out script missing. Aborting." 20 60 1
         return 1
     fi
-    # Build title and args
-    local TITLE="Quantum Lights Out Demo"
-    local ARGS=(lights_out.py)
+    # Launch appropriate mode
     if [ "$MODE" = "console" ]; then
-        TITLE+=" (console)"
-        ARGS+=(--console)
+        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+    else
+        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
     fi
-    run_demo "$TITLE" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "${ARGS[@]}"
     # Turn off LEDs when demo ends
     do_led_off
 }
