@@ -102,9 +102,10 @@ run_demo() {
   # Kill the demo process
   kill "$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
-  # Restore original terminal settings and clear screen
+  # Restore original terminal settings
   stty "$OLD_STTY"
-  clear
+  # Fully reset terminal to clear any curses state and fix newline behavior
+  reset
 }
 
 #set up for demo adding sense-hat
