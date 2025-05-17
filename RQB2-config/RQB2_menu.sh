@@ -210,21 +210,6 @@ do_rqb_qiskit_menu() {
 }
 
 
-do_rqb_one_click_install() {
-  update_environment_file "INTERACTIVE" "false"
-  
-  do_rqb_system_update
-  do_rqb_initial_config
-  do_rqb_install_qiskit 0101
-  do_vnc 0
-  
-  update_environment_file "INTERACTIVE" "true"
-  if [ "$INTERACTIVE" = true ]; then
-    [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Please exit and reboot" 20 60 1
-  fi
-  ASK_TO_REBOOT=1
-}
-
 #Enable LEDs
 do_led_install() {
     VARIABLE_NAME="TEST_LED_INSTALLED"
@@ -264,26 +249,27 @@ do_led_ibm() {
 
 
 do_select_led_option() {
-    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "LED options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-    "LI" "Enable LEDs" \
-    "OFF" "Turn off all LEDs" \
-    "simple" "simple LED demo" \
-    "IBM" "Display IBM on LEDs" \
-   3>&1 1>&2 2>&3)
-    # Check the user's selection
-    case "$FUN" in
-        "LI" ) do_led_install || handle_error "LED Installation Failed ."            
-            ;;
-        "OFF" ) do_led_off || handle_error "Turning off all LEDs Failed ."            
-            ;;
-        "simple") do_led_simple || handle_error "Simple LED demo Failed ."
-            ;;
-        "IBM") do_led_ibm || handle_error "LED IBM Failed ."
-            ;;
-        *)
+    while true; do
+        FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "LED options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+        "LI" "Enable LEDs" \
+        "OFF" "Turn off all LEDs" \
+        "simple" "simple LED demo" \
+        "IBM" "Display IBM on LEDs" \
+        3>&1 1>&2 2>&3)
+        RET=$?
+        if [ $RET -ne 0 ]; then
             break
-            ;;
-    esac
+        fi
+        case "$FUN" in
+            "LI" ) do_led_install || handle_error "LED Installation Failed." ;;
+            "OFF" ) do_led_off || handle_error "Turning off all LEDs Failed." ;;
+            "simple" ) do_led_simple || handle_error "Simple LED demo Failed." ;;
+            "IBM" ) do_led_ibm || handle_error "LED IBM Failed." ;;
+            *)
+                break
+                ;;
+        esac
+    done
 }
 
 
@@ -353,72 +339,73 @@ do_qloc_run() {
 
 
 do_select_qlo_option() {
-    FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "Quantum-Lights-Out" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-    "QLOI" "Install Quantum Lights Out demo" \
-    "QLO" "Run Quantum Lights Out demo" \
-    "QLOC" "Run Quantum Lights Out demo - with concole output" \
-   3>&1 1>&2 2>&3)
-    # Check the user's selection
-    case "$FUN" in
-        "QLOI" ) do_qlo_install || handle_error "QLO Demo Installation Failed ."            
-            ;;
-        "QLO" ) do_qlo_run || handle_error "QLO Demo Failed ."            
-            ;;
-        "QLOC" ) do_qloc_run || handle_error "QLO Demo with console Failed ."            
-            ;;
-        *)
+    while true; do
+        FUN=$(whiptail --title "Quantum-Lights-Out Demo" --menu "Options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+        "QLOI" "Install Demo" \
+        "QLO" "Run Demo" \
+        "QLOC" "Run Demo (console)" \
+        3>&1 1>&2 2>&3)
+        RET=$?
+        if [ $RET -ne 0 ]; then
             break
-            ;;
-    esac
+        fi
+        case "$FUN" in
+            "QLOI" ) do_qlo_install || handle_error "QLO Demo Installation Failed." ;;
+            "QLO"  ) do_qlo_run      || handle_error "QLO Demo Failed." ;;
+            "QLOC" ) do_qloc_run    || handle_error "QLO Console Demo Failed." ;;
+            *)
+                break
+                ;;
+        esac
+    done
 }
 
 do_select_qrt_option() {
-    FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-    "b:aer" "Spins up a local Aer simulator" \
-    "b:aer_noise" "Spins up a local Aer simulator with a noise model" \
-    "b:least" "Code will run on the least busy *real* backend for your account" \
-    "b:custom" "Enter a custom backend or option" \
-   3>&1 1>&2 2>&3)
-    # Check the user's selection
-    case "$FUN" in
-        "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."            
-            ;;
-        "b:aer_noise") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
-            ;;
-        "b:least")
-            do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed ."
-            ;;
-        "b:custom")
-            # Ask the user for custom input
-            CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
-            
-            # Check if the user provided input or canceled
-            exitstatus=$?
-            if [ $exitstatus = 0 ]; then
-                do_rasp_tie_install $CUSTOM_OPTION || handle_error "Rasqberry Tie Demo Installation Failed ."
-            else
-                echo "You chose to cancel. Demo will launch with Local Simulator"
-                break
-            fi
-            ;;
-        *)
+    while true; do
+        FUN=$(whiptail --title "Raspberry Pi Quantum-Raspberry-Tie Option Select  (raspi-config)" --menu "Backend options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+        "b:aer" "Spins up a local Aer simulator" \
+        "b:aer_noise" "Spins up a local Aer simulator with a noise model" \
+        "b:least" "Code will run on the least busy *real* backend for your account" \
+        "b:custom" "Enter a custom backend or option" \
+        3>&1 1>&2 2>&3)
+        RET=$?
+        if [ $RET -ne 0 ]; then
             break
-            ;;
-    esac
+        fi
+        case "$FUN" in
+            "b:aer" ) do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
+            "b:aer_noise") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
+            "b:least") do_rasp_tie_install $FUN || handle_error "Rasqberry Tie Demo Installation Failed." ;;
+            "b:custom")
+                CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
+                exitstatus=$?
+                if [ $exitstatus = 0 ]; then
+                    do_rasp_tie_install $CUSTOM_OPTION || handle_error "Rasqberry Tie Demo Installation Failed."
+                else
+                    echo "You chose to cancel. Demo will launch with Local Simulator"
+                    break
+                fi
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
 }
 
 
 do_quantum_demo_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "LED" "test LEDs" \
-        "QLO Demo" "Quantum-Lights-Out Demo" \
-        "QRT Demo" "quantum-raspberry-tie" \
-        "SQE" "Setup-Quantum-Demo-Essentials"\
-   3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
+  while true; do
+    FUN=$(whiptail --title "Raspberry Pi Quantum Demo (raspi-config)" --menu "Install Quantum Demo" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
+          "LED" "test LEDs" \
+          "QLO Demo" "Quantum-Lights-Out Demo" \
+          "QRT Demo" "quantum-raspberry-tie" \
+          "SQE" "Setup-Quantum-Demo-Essentials"\
+     3>&1 1>&2 2>&3)
+    RET=$?
+    if [ $RET -ne 0 ]; then
+      break
+    fi
     case "$FUN" in
       LED) do_select_led_option ;;
       QLO\ *) do_select_qlo_option ;;
@@ -426,24 +413,25 @@ do_quantum_demo_menu() {
       SQE) do_setup_quantum_demo_essential ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-  fi
- }
+  done
+}
 
 do_rasqberry_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "QD Quantum Demos"  "Install Quantum Demos"\
-    "UEF Update Environment File" "Update the environment file" \
-    3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
+  while true; do
+    FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+      "QD Quantum Demos"  "Install Quantum Demos"\
+      "UEF Update Environment File" "Update the environment file" \
+      3>&1 1>&2 2>&3)
+    RET=$?
+    if [ $RET -ne 0 ]; then
+      break
+    fi
     case "$FUN" in
       QD\ *) do_quantum_demo_menu;;
       UEF\ *) do_select_environment_variable ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-  fi
+  done
 }
 # Function for graceful error handlings
 handle_error() {
