@@ -251,22 +251,18 @@ do_rqb_install_qiskit() {
 
 
 do_rqb_qiskit_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Install Qiskit" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-    "Qnew Qiskit"      "Install Qiskit (latest version)" \
-    "Q0101 Qiskit 1.1" "Install Qiskit v1.1" \
-    "Q0100 Qiskit 1.0     " "Install Qiskit v1.0" \
-    3>&1 1>&2 2>&3)
-  RET=$?
-  if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      Q0101\ *) do_rqb_install_qiskit 0101 ;;
-      Q0100\ *) do_rqb_install_qiskit 0100 ;;
-      Qnew\ *) do_rqb_install_qiskit _latest ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-  fi
+    while true; do
+        FUN=$(show_menu "Qiskit Install" "Choose version to install" \
+           Qnew  "Install Qiskit (latest)" \
+           Q0101 "Install Qiskit v1.1" \
+           Q0100 "Install Qiskit v1.0") || break
+        case "$FUN" in
+            Q0101) do_rqb_install_qiskit 0101 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
+            Q0100) do_rqb_install_qiskit 0100 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
+            Qnew)  do_rqb_install_qiskit _latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
+            *)      break ;;
+        esac
+    done
 }
 
 
