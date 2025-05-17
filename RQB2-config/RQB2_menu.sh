@@ -200,7 +200,6 @@ do_rasp_tie_install() {
         # Mark as installed
         update_environment_file "$VARIABLE_NAME" "true"
         # Clone or re-clone the demo
-        . "$VENV_ACTIVATE"
         install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
     else
         whiptail --msgbox "Quantum Raspberry Tie demo is already installed. Launching demo now." 20 60 1
@@ -211,7 +210,7 @@ do_rasp_tie_install() {
     else
       echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
     fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_ROOT/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -445,6 +444,8 @@ do_rasqberry_menu() {
     esac
   done
 }
+
+
 # Function for graceful error handling in menus
 handle_error() {
     local MSG="$1"

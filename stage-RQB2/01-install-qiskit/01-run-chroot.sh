@@ -22,7 +22,7 @@ echo "STD_VENV " $STD_VENV
 echo "RQB2_CONFDIR " $RQB2_CONFDIR
 echo "PIGEN " $PIGEN
 # export these variables (also done in build.sh)
-export GIT_BRANCH=${GIT_BRANCH:-30-sw-platform-JRL-unified}
+export GIT_BRANCH=${GIT_BRANCH:-JRL-dev02}
 export GIT_REPO=${GIT_REPO:-https://github.com/JanLahmann/RasQberry-Two.git}
 export REPO=${REPO:-RasQberry-Two}
 export STD_VENV=${STD_VENV:-RQB2}
