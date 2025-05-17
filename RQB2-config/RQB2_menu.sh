@@ -147,8 +147,8 @@ do_setup_quantum_demo_essential() {
     update_environment_file "INTERACTIVE" "false"
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     apt update && apt full-upgrade
-    apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat
-    pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat
+    #apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat #moved to pi-gen stage-RQB2
+    #pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat #moved to qiskit install script
     if  [ "$FUN" != "b:aer" ]; then
         python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
     else
@@ -238,25 +238,6 @@ do_rqb_qiskit_menu() {
 }
 
 
-#Enable LEDs
-do_led_install() {
-    VARIABLE_NAME="TEST_LED_INSTALLED"
-
-    # Check if the demo is already installed
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" = "true" ]; then
-        whiptail --msgbox "LED Test demo is already installed." 20 60 1
-        return 0
-    fi
-
-    # Update the value of TEST_LED_INSTALLED to true
-    update_environment_file "$VARIABLE_NAME" "true"
-
-    # Proceed with the installation
-  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  pip install adafruit-circuitpython-neopixel-spi
-}
-
 #Turn off all LEDs
 do_led_off() {
   . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
@@ -275,15 +256,6 @@ run_led_demo() {
   do_led_off
 }
 
-#Simple LEDs demo
-do_led_simple() {
-  run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py
-}
-
-#IBM LED demo
-do_led_ibm() {
-  run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py
-}
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
@@ -314,7 +286,6 @@ run_qlo_demo() {
 do_select_led_option() {
     while true; do
         FUN=$(whiptail --title "Raspberry Pi LED (raspi-config)" --menu "LED options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "LI" "Enable LEDs" \
         "OFF" "Turn off all LEDs" \
         "simple" "simple LED demo" \
         "IBM" "Display IBM on LEDs" \
@@ -324,10 +295,9 @@ do_select_led_option() {
             break
         fi
         case "$FUN" in
-            "LI" ) do_led_install || handle_error "LED Installation Failed." ;;
             "OFF" ) do_led_off || handle_error "Turning off all LEDs Failed." ;;
-            "simple" ) do_led_simple || handle_error "Simple LED demo Failed." ;;
-            "IBM" ) do_led_ibm || handle_error "LED IBM Failed." ;;
+            "simple" ) run_led_demo "Simple LED Demo" neopixel_spi_simpletest.py || handle_error "Simple LED demo Failed." ;;
+            "IBM" ) run_led_demo "IBM LED Demo" neopixel_spi_IBMtestFunc.py || handle_error "LED IBM Failed." ;;
             *)
                 break
                 ;;
@@ -376,7 +346,6 @@ do_qlo_install() {
 do_select_qlo_option() {
     while true; do
         FUN=$(whiptail --title "Quantum-Lights-Out Demo" --menu "Options" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" --cancel-button Back --ok-button Select \
-        "QLOI" "Install Demo" \
         "QLO" "Run Demo" \
         "QLOC" "Run Demo (console)" \
         3>&1 1>&2 2>&3)
@@ -385,7 +354,6 @@ do_select_qlo_option() {
             break
         fi
         case "$FUN" in
-            "QLOI" ) do_qlo_install || handle_error "QLO Demo Installation Failed." ;;
             "QLO"  ) run_qlo_demo      || handle_error "QLO Demo Failed." ;;
             "QLOC" ) run_qlo_demo console    || handle_error "QLO Console Demo Failed." ;;
             *)
