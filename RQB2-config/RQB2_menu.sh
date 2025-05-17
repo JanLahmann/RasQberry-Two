@@ -154,11 +154,11 @@ do_setup_quantum_demo_essential() {
     apt update && apt full-upgrade
     #apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat #moved to pi-gen stage-RQB2
     #pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat #moved to qiskit install script
-    if  [ "$FUN" != "b:aer" ]; then
-        python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
-    else
-        echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
-    fi
+    #if  [ "$FUN" != "b:aer" ]; then
+    #    python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
+    #else
+    #    echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
+    #fi
 }
 
 #Running quantum-raspberry-tie demo
@@ -192,6 +192,11 @@ do_rasp_tie_install() {
         whiptail --msgbox "Quantum Raspberry Tie demo is already installed. Launching demo now." 20 60 1
     fi
     RUN_OPTION=$1
+    if  [ "$RUN_OPTION" != "b:aer" ]; then
+      python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
+    else
+      echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
+    fi
     run_demo "Quantum Raspberry-Tie Demo" "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
     # Turn off LEDs when demo ends
     do_led_off
@@ -408,7 +413,7 @@ do_quantum_demo_menu() {
           "LED" "test LEDs" \
           "QLO Demo" "Quantum-Lights-Out Demo" \
           "QRT Demo" "quantum-raspberry-tie" \
-          "SQE" "Setup-Quantum-Demo-Essentials"\
+#          "SQE" "Setup-Quantum-Demo-Essentials"\
      3>&1 1>&2 2>&3)
     RET=$?
     if [ $RET -ne 0 ]; then
@@ -418,7 +423,7 @@ do_quantum_demo_menu() {
       LED) do_select_led_option ;;
       QLO\ *) do_select_qlo_option ;;
       QRT\ *) do_select_qrt_option ;;
-      SQE) do_setup_quantum_demo_essential ;;
+#      SQE) do_setup_quantum_demo_essential ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   done
