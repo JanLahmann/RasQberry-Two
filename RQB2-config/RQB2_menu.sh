@@ -1,4 +1,5 @@
 #!/bin/sh
+
 # ******Added By Rishi as part of rasQberry-two project*******
 SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
 TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
@@ -14,6 +15,7 @@ fi
 # ***********end changes************
 # Create symbolic link 
 sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
+
 # Load environment variables
 . /home/$SUDO_USER/.local/bin/env-config.sh
 
@@ -81,13 +83,17 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
-# Update RasQberry and create swapfile
-do_rqb_system_update() {
-  sed -i 's/CONF_SWAPSIZE=100/CONF_SWAPSIZE=1024/' /etc/dphys-swapfile
-  /etc/init.d/dphys-swapfile stop
-  /etc/init.d/dphys-swapfile start
-  apt update
-  apt -y full-upgrade
+# Helper: run a demo and stop it via a dialog instead of Ctrl-C
+run_demo() {
+  local DEMO_TITLE="$1"; shift
+  # Launch the demo, ignoring SIGINT so only this script handles it
+  ( trap '' SIGINT; "$@" ) &
+  local DEMO_PID=$!
+  # Prompt user to stop the demo
+  whiptail --title "$DEMO_TITLE" --msgbox "Demo is running. Click OK to stop." 8 60
+  # Terminate the demo process
+  kill "$DEMO_PID" 2>/dev/null || true
+  wait "$DEMO_PID" 2>/dev/null || true
 }
 
 #set up for demo adding sense-hat
@@ -246,14 +252,14 @@ do_led_off() {
 
 #Simple LEDs demo
 do_led_simple() {
-  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 /home/$SUDO_USER/.local/bin/neopixel_spi_simpletest.py
+    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    run_demo "Simple LED Demo" python3 "/home/$SUDO_USER/.local/bin/neopixel_spi_simpletest.py"
 }
 
 #IBM LED demo
 do_led_ibm() {
-  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 /home/$SUDO_USER/.local/bin/neopixel_spi_IBMtestFunc.py
+    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    run_demo "IBM LED Demo" python3 "/home/$SUDO_USER/.local/bin/neopixel_spi_IBMtestFunc.py"
 }
 
 
@@ -328,7 +334,7 @@ do_qlo_run() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/ && python3 lights_out.py || exit 1"
+    run_demo "Quantum Lights Out Demo" python3 "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py"
 }
 
 do_qloc_run() {
@@ -342,7 +348,7 @@ do_qloc_run() {
         return 1
     fi
 
-    sh -c "cd /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/ && python3 lights_out.py --console || exit 1"
+    run_demo "Quantum Lights Out Demo (console)" python3 "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" --console
 }
 
 
@@ -424,10 +430,6 @@ do_quantum_demo_menu() {
  }
 
 do_rasqberry_menu() {
-#    "OCI One-Click Install" "Run standard RQB2 setup automatically" \
-#    "SU System Update " "Update the system and create swapfile" \
-#    "IC Initial Config" "Basic configurations (PATH, LOCALE, Python venv, etc)" \
-#    "IQ Qiskit Install" "Install latest version of Qiskit" \
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "QD Quantum Demos"  "Install Quantum Demos"\
     "UEF Update Environment File" "Update the environment file" \
@@ -437,10 +439,6 @@ do_rasqberry_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      OCI\ *) do_rqb_one_click_install ;;
-      SU\ *) do_rqb_system_update ;;
-      IC\ *) do_rqb_initial_config ;;
-      IQ\ *) do_rqb_qiskit_menu ;;
       QD\ *) do_quantum_demo_menu;;
       UEF\ *) do_select_environment_variable ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
