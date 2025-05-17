@@ -129,37 +129,30 @@ do_setup_quantum_demo_essential() {
 do_rasp_tie_install() {
     VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
 
-    # Check if the demo is already installed
     INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" = "true" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie demo is already installed." 20 60 1
-        return 0
-    fi
+    if [ "$INSTALLED" != "true" ]; then
+        # Update the value of QUANTUM_RASPBERRY_TIE_INSTALLED to true
+        update_environment_file "$VARIABLE_NAME" "true"
 
-    # Update the value of QUANTUM_RASPBERRY_TIE_INSTALLED to true
-    update_environment_file "$VARIABLE_NAME" "true"
-
-    # Proceed with the installation
-    RUN_OPTION=$1 
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
-        mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
-        export CLONE_DIR_DEMO1="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
-        git clone ${GIT_REPO_DEMO_QRT} ${CLONE_DIR_DEMO1}
+        # Proceed with the installation
+        . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+        if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
+            mkdir -p /home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie
+            export CLONE_DIR_DEMO1="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
+            git clone ${GIT_REPO_DEMO_QRT} ${CLONE_DIR_DEMO1}
+        fi
+        FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
+        if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
+            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
+        fi
+        if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
+            whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
+            return 1
+        fi
+    else
+        whiptail --msgbox "Quantum Raspberry Tie demo is already installed. Launching demo now." 20 60 1
     fi
-    FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
-    # Get the current logged-in user
-    CURRENT_USER=$(whoami)
-    # Check if the folder is owned by root
-    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
-      # Change the ownership to the logged-in user
-      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
-     # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
-    fi
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie/QuantumRaspberryTie.qk1.py" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
-        return 1
-    fi
+    RUN_OPTION=$1
     run_demo "Quantum Raspberry-Tie Demo" "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
     # Turn off LEDs when demo ends
     do_led_off
