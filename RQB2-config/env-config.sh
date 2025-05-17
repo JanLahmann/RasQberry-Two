@@ -17,7 +17,7 @@ ENV_FILE="${USER_HOME}/${RQB2_CONFDIR}/rasqberry_environment.env"
 # Load environment variables from env file
 if [ -f "${ENV_FILE}" ]; then
   set -a
-  source "${ENV_FILE}"
+  . "${ENV_FILE}"
   set +a
 else
   echo >&2 "ERROR: Missing config file at ${ENV_FILE}"
