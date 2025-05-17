@@ -110,6 +110,24 @@ run_demo() {
   reset
 }
 
+# Helper: run a non-interactive demo in the background without a pty
+run_demo_bg() {
+    DEMO_TITLE="$1"; shift
+    DEMO_DIR="$1"; shift
+    CMD="$*"
+    OLD_STTY=$(stty -g)
+    stty sane
+    # Launch demo in its own session so we can kill the full process group
+    ( trap '' INT; cd "$DEMO_DIR" && exec setsid $CMD ) &
+    DEMO_PID=$!
+    whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
+    stty sane
+    kill -TERM -- -"$DEMO_PID" 2>/dev/null || true
+    wait "$DEMO_PID" 2>/dev/null || true
+    stty "$OLD_STTY"
+    reset
+}
+
 #set up for demo adding sense-hat
 do_setup_quantum_demo_essential() {
     VARIABLE_NAME="QUANTUM_DEMO_ESSENTIALS_INSTALLED"
@@ -248,7 +266,7 @@ do_led_off() {
 #Simple LEDs demo
 do_led_simple() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo "Simple LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_simpletest.py"
+    run_demo_bg "Simple LED Demo" "/home/$SUDO_USER/.local/bin" python3 neopixel_spi_simpletest.py
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -256,7 +274,7 @@ do_led_simple() {
 #IBM LED demo
 do_led_ibm() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    run_demo "IBM LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_IBMtestFunc.py"
+    run_demo_bg "IBM LED Demo" "/home/$SUDO_USER/.local/bin" python3 neopixel_spi_IBMtestFunc.py
     # Turn off LEDs when demo ends
     do_led_off
 }
