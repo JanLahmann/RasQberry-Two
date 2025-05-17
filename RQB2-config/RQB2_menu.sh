@@ -160,9 +160,9 @@ do_rasp_tie_install() {
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
-
     run_demo "Quantum Raspberry-Tie Demo" "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
-
+    # Turn off LEDs when demo ends
+    do_led_off
 }
 
 # Initial setup for RasQberry
@@ -240,12 +240,16 @@ do_led_off() {
 do_led_simple() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     run_demo "Simple LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_simpletest.py"
+    # Turn off LEDs when demo ends
+    do_led_off
 }
 
 #IBM LED demo
 do_led_ibm() {
     . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
     run_demo "IBM LED Demo" "/home/$SUDO_USER/.local/bin" python3 "neopixel_spi_IBMtestFunc.py"
+    # Turn off LEDs when demo ends
+    do_led_off
 }
 
 
@@ -315,13 +319,13 @@ do_qlo_run() {
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         do_qlo_install
     fi
-    
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
-
     run_demo "Quantum Lights Out Demo" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py"
+    # Turn off LEDs when demo ends
+    do_led_off
 }
 
 do_qloc_run() {
@@ -329,13 +333,13 @@ do_qloc_run() {
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         do_qlo_install
     fi
-    
     if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
-
     run_demo "Quantum Lights Out Demo (console)" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py" --console
+    # Turn off LEDs when demo ends
+    do_led_off
 }
 
 
