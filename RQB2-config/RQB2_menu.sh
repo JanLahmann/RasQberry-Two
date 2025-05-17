@@ -92,6 +92,24 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
+
+# Generic installer for demos: name, git URL, marker file
+install_demo() {
+    NAME="$1"       # e.g. Quantum-Lights-Out or quantum-raspberry-tie
+    GIT_URL="$2"    # e.g. $GIT_REPO_DEMO_QLO or $GIT_REPO_DEMO_QRT
+    MARKER="$3"     # script or file that must exist in the clone
+
+    DEST="$DEMO_ROOT/$NAME"
+    if [ ! -f "$DEST/$MARKER" ]; then
+        mkdir -p "$DEST"
+        git clone --depth 1 "$GIT_URL" "$DEST"
+        # ensure correct ownership
+        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
+            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+        fi
+    fi
+}
+
 # Helper: run a demo in its directory using a pty for correct TTY behavior
 run_demo() {
   DEMO_TITLE="$1"; shift
@@ -183,18 +201,7 @@ do_rasp_tie_install() {
         update_environment_file "$VARIABLE_NAME" "true"
         # Clone or re-clone the demo
         . "$VENV_ACTIVATE"
-        mkdir -p "$DEMO_DIR"
-        export CLONE_DIR_DEMO1="$DEMO_DIR"
-        git clone --depth 1 ${GIT_REPO_DEMO_QRT} "$CLONE_DIR_DEMO1"
-        # Ensure correct ownership
-        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
-        fi
-        # Verify script present
-        if [ ! -f "$DEMO_SCRIPT" ]; then
-            whiptail --msgbox "Demo script missing after install. Aborting." 20 60 1
-            return 1
-        fi
+        install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
     else
         whiptail --msgbox "Quantum Raspberry Tie demo is already installed. Launching demo now." 20 60 1
     fi
@@ -339,19 +346,7 @@ do_qlo_install() {
 
     # Proceed with the installation
     . "$VENV_ACTIVATE"
-    if [ ! -f "$DEMO_ROOT/Quantum-Lights-Out/lights_out.py" ]; then
-        mkdir -p "$DEMO_ROOT/Quantum-Lights-Out"
-        export CLONE_DIR_DEMO_QLO="$DEMO_ROOT/Quantum-Lights-Out"
-        git clone ${GIT_REPO_DEMO_QLO} ${CLONE_DIR_DEMO_QLO}
-    fi
-    # Get the current logged-in user
-    CURRENT_USER=$(whoami)
-    # Check if the folder is owned by root
-    if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-      # Change the ownership to the logged-in user
-      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
-     # echo "Ownership of $DEMO_ROOT changed to $CURRENT_USER."
-    fi
+    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
     if [ ! -f "$DEMO_ROOT/Quantum-Lights-Out/lights_out.py" ]; then
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
