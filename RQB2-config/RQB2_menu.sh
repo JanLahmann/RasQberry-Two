@@ -279,7 +279,7 @@ run_led_demo() {
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
-    MODE="$1"  # empty for GUI, "console" for console mode
+    MODE="${1:-}"  # empty for GUI, "console" for console mode
     # Activate virtual environment
     . "$VENV_ACTIVATE"
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
