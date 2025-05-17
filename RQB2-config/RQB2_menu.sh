@@ -120,8 +120,12 @@ install_demo() {
 run_demo() {
   DEMO_TITLE="$1"; shift
   DEMO_DIR="$1"; shift
-  # Combine the command and args into a single string
-  CMD="$*"
+  # Build the command string from all remaining args (preserving spaces)
+  CMD="$1"
+  shift
+  for arg in "$@"; do
+      CMD="$CMD $arg"
+  done
   # Ensure commands run inside the Python virtual environment
   if [ -f "$VENV_ACTIVATE" ]; then
     CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
