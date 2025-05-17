@@ -83,28 +83,30 @@ check_environment_variable() {
     echo "$VALUE"
 }
 
-# Helper: run a demo in its directory and ensure terminal resets correctly
+# Helper: run a demo in its directory using a pty for correct TTY behavior
 run_demo() {
   local DEMO_TITLE="$1"; shift
   local DEMO_DIR="$1"; shift
+  # Combine the command and args into a single string
+  local CMD="$*"
   # Save current terminal settings
   local OLD_STTY
   OLD_STTY=$(stty -g)
-  # Launch demo in background, ignoring SIGINT in the demo process
-  ( trap '' SIGINT; cd "$DEMO_DIR" && exec "$@" ) &
+  # Reset terminal state before launching
+  stty sane
+  # Run the demo inside a pty via script, so curses and line-breaks behave
+  ( trap '' SIGINT; cd "$DEMO_DIR" && exec script -qfc "$CMD" /dev/null ) &
   local DEMO_PID=$!
-  # Restore terminal settings before showing dialog
-  stty sane
-  # Use a yes/no dialog to control stopping
+  # Ask user when to stop
   whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
-  # After user response, ensure terminal sane
+  # Restore terminal state before killing demo
   stty sane
-  # Kill the demo process
+  # Terminate the demo process
   kill "$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
   # Restore original terminal settings
   stty "$OLD_STTY"
-  # Fully reset terminal to clear any curses state and fix newline behavior
+  # Final reset to clear any residual state
   reset
 }
 
