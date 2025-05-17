@@ -58,35 +58,23 @@ show_menu() {
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
 
-# Generic installer for demos: name, git URL, marker file
+# Generic installer for demos: name, git URL, marker file, env var, dialog title
 install_demo() {
-    NAME="$1"       # e.g. Quantum-Lights-Out or quantum-raspberry-tie
-    GIT_URL="$2"    # e.g. $GIT_REPO_DEMO_QLO or $GIT_REPO_DEMO_QRT
-    MARKER="$3"     # script or file that must exist in the clone
+    NAME="$1"       # demo directory name
+    GIT_URL="$2"    # corresponding repo URL variable
+    MARKER="$3"     # script or file that must exist
+    ENV_VAR="$4"    # environment variable name to set
+    TITLE="$5"      # title for dialog messages
 
     DEST="$DEMO_ROOT/$NAME"
+    # Clone if marker missing
     if [ ! -f "$DEST/$MARKER" ]; then
         mkdir -p "$DEST"
         git clone --depth 1 "$GIT_URL" "$DEST"
-        # ensure correct ownership
+        # fix ownership if needed
         if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
             sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
         fi
-    fi
-}
-
-
-# Generic installer with notification: name, git url, marker file, env var, display title
-install_demo() {
-    NAME="$1"        # demo directory name
-    GIT_URL="$2"     # repo URL variable
-    MARKER="$3"      # marker file
-    ENV_VAR="$4"     # environment variable name
-    TITLE="$5"       # display title in dialogs
-
-    INSTALLED=$(check_environment_variable "$ENV_VAR")
-    if [ "$INSTALLED" != "true" ]; then
-        install_demo "$NAME" "$GIT_URL" "$MARKER"
         update_environment_file "$ENV_VAR" "true"
         whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     else
@@ -94,14 +82,19 @@ install_demo() {
     fi
 }
 
+
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
-    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" "Quantum Lights Out"
+    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
+                 "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" \
+                 "Quantum Lights Out"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
-    install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" "Quantum Raspberry-Tie"
+    install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
+                 "QuantumRaspberryTie.qk1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "Quantum Raspberry-Tie"
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
