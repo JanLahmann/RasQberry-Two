@@ -198,21 +198,17 @@ do_setup_quantum_demo_essential() {
 
 #Running quantum-raspberry-tie demo
 do_rasp_tie_install() {
+    # Ensure Quantum Raspberry-Tie demo is installed
     VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
-
-    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
-    DEMO_SCRIPT="$DEMO_DIR/QuantumRaspberryTie.qk1.py"
-
-    # Check if demo needs installation or if script is missing
     INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" != "true" ] || [ ! -f "$DEMO_SCRIPT" ]; then
-        # Mark as installed
-        update_environment_file "$VARIABLE_NAME" "true"
-        # Clone or re-clone the demo
+    if [ "$INSTALLED" != "true" ]; then
         install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" "QuantumRaspberryTie.qk1.py"
+        update_environment_file "$VARIABLE_NAME" "true"
+        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo installed successfully." 8 60
     else
-        whiptail --msgbox "Quantum Raspberry Tie demo is already installed. Launching demo now." 20 60 1
+        whiptail --title "Quantum Raspberry-Tie" --msgbox "Demo already installed." 8 60
     fi
+    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
     RUN_OPTION=$1
     if  [ "$RUN_OPTION" != "b:aer" ]; then
       python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
@@ -329,26 +325,16 @@ do_select_led_option() {
 }
 
 
-#Install Quantum-Lights-Out demo
+# Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     VARIABLE_NAME="QUANTUM_LIGHTS_OUT_INSTALLED"
-
-    # Check if the demo is already installed
     INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" = "true" ]; then
-        whiptail --msgbox "Quantum Lights Out demo is already installed." 20 60 1
-        return 0
-    fi
-
-    # Update the value of QUANTUM_LIGHTS_OUT_INSTALLED to true
-    update_environment_file "$VARIABLE_NAME" "true"
-
-    # Proceed with the installation
-    . "$VENV_ACTIVATE"
-    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
-    if [ ! -f "$DEMO_ROOT/Quantum-Lights-Out/lights_out.py" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
-        return 1
+    if [ "$INSTALLED" != "true" ]; then
+        install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" "lights_out.py"
+        update_environment_file "$VARIABLE_NAME" "true"
+        whiptail --title "Quantum Lights Out" --msgbox "Demo installed successfully." 8 60
+    else
+        whiptail --title "Quantum Lights Out" --msgbox "Demo already installed." 8 60
     fi
 }
 
