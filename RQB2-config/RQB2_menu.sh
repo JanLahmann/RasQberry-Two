@@ -82,7 +82,6 @@ install_demo() {
     fi
 }
 
-
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
@@ -125,17 +124,34 @@ run_demo() {
       ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
   fi
   DEMO_PID=$!
+  LAST_DEMO_PGID="$DEMO_PID"
   # Ask user when to stop
   whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
+  RESPONSE=$?
   # Restore terminal state before killing demo
   stty sane
-  # Terminate the entire demo process group
-  kill -TERM -"$DEMO_PID" 2>/dev/null || true
-  wait "$DEMO_PID" 2>/dev/null || true
+  # Terminate the entire demo process group only if user chose Yes
+  if [ "$RESPONSE" -eq 0 ]; then
+      kill -TERM -"$DEMO_PID" 2>/dev/null || true
+      wait "$DEMO_PID" 2>/dev/null || true
+  fi
   # Restore original terminal settings
   stty "$OLD_STTY"
   # Final reset to clear any residual state
   reset
+}
+
+# Stop the last background demo (if any)
+stop_last_demo() {
+    if [ -n "${LAST_DEMO_PGID:-}" ]; then
+        kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null || true
+        wait "$LAST_DEMO_PGID" 2>/dev/null || true
+        do_led_off
+        unset LAST_DEMO_PGID
+        whiptail --title "Demo Stopped" --msgbox "Last demo has been terminated." 8 60
+    else
+        whiptail --title "No Demo" --msgbox "No demo is currently running." 8 60
+    fi
 }
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
@@ -284,9 +300,11 @@ do_select_led_option() {
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             simple )
                 run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
+                do_led_off
                 ;;
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
+                do_led_off
                 ;;
             *) break ;;
         esac
@@ -349,11 +367,13 @@ do_quantum_demo_menu() {
     FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
-       QRT  "Quantum Raspberry-Tie") || break
+       QRT  "Quantum Raspberry-Tie" \
+       STOP "Stop last running demo") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
+      STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
   done
