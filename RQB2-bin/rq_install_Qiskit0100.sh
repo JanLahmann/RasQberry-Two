@@ -1,10 +1,13 @@
-#!/bin/bash
-#
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+# load RasQberry environment and constants
+. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+
+
 # installation of Qiskit 1.0
 #
-
-# Load environment variables
-. $HOME/.local/bin/env-config.sh
 
 
 export STARTDATE=`date`

@@ -1,4 +1,10 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+# load RasQberry environment and constants
+. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+
 
 # ******Added By Rishi as part of rasQberry-two project*******
 SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
@@ -16,8 +22,6 @@ fi
 # Create symbolic link 
 sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 
-# Load environment variables
-. /home/$SUDO_USER/.local/bin/env-config.sh
 
 # Function to update values stored in the rasqberry_environment.env file
 do_select_environment_variable() {

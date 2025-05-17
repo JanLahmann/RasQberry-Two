@@ -1,8 +1,10 @@
-#!/bin/bash
-# Define the global variables
-export REPO=RasQberry-Two 
-export STD_VENV=RQB2
-#echo $HOME
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+# load RasQberry environment and constants
+. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+
 
 if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   # echo "Virtual Env Exists"
