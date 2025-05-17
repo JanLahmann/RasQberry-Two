@@ -102,7 +102,7 @@ run_demo() {
   # Restore terminal state before killing demo
   stty sane
   # Terminate the entire demo process group
-  kill -TERM -- -"$DEMO_PID" 2>/dev/null || true
+  kill -TERM -"$DEMO_PID" 2>/dev/null || true
   wait "$DEMO_PID" 2>/dev/null || true
   # Restore original terminal settings
   stty "$OLD_STTY"
