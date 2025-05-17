@@ -142,8 +142,8 @@ jobs:
         uses: softprops/action-gh-release@v2.2.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: ${{ github.ref == 'refs/heads/main' ? format('rasqberry-%s', needs.rasqberry-push-version-number.outputs.version_num) : format('rasqberry-v%s', needs.rasqberry-push-version-number.outputs.version_num) }}
-          tag_name: ${{ github.ref == 'refs/heads/main' ? needs.rasqberry-push-version-number.outputs.version_num : format('v%s', needs.rasqberry-push-version-number.outputs.version_num) }}
+          name: "${{ github.ref == 'refs/heads/main' ? format('rasqberry-%s', needs.rasqberry-push-version-number.outputs.version_num) : format('rasqberry-v%s', needs.rasqberry-push-version-number.outputs.version_num) }}"
+          tag_name: "${{ github.ref == 'refs/heads/main' ? needs.rasqberry-push-version-number.outputs.version_num : format('v%s', needs.rasqberry-push-version-number.outputs.version_num) }}"
           body: ${{ steps.changelog.outputs.content }}
           make_latest: true
       - run: |
