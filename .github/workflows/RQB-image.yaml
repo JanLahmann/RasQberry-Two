@@ -54,21 +54,24 @@ jobs:
         id: update-version
         if: ${{ steps.current-version.outputs.version != github.event.inputs.version }}
         shell: bash
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
+          CREATE_DATE: ${{ steps.create-date.outputs.date }}
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           # On 'main' branch, a semantic version must be provided
           if [ "$BRANCH_NAME" = "main" ]; then
-            if [ -z "${{ github.event.inputs.version }}" ]; then
+            if [ -z "$VERSION_INPUT" ]; then
               echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
               exit 1
             fi
-            VERSION_NUMBER=${{ github.event.inputs.version }}
+            VERSION_NUMBER="$VERSION_INPUT"
           else
-            if [ -n "${{ github.event.inputs.version }}" ]; then
-              VERSION_NUMBER=${{ github.event.inputs.version }}
+            if [ -n "$VERSION_INPUT" ]; then
+              VERSION_NUMBER="$VERSION_INPUT"
             else
               # Use branch name and timestamp for non-main branches
-              VERSION_NUMBER="${BRANCH_NAME}-${{ steps.create-date.outputs.date }}"
+              VERSION_NUMBER="${BRANCH_NAME}-${CREATE_DATE}"
             fi
           fi
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
