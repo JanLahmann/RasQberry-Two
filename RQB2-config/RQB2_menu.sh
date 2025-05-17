@@ -122,7 +122,7 @@ run_demo_bg() {
     DEMO_PID=$!
     whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
     stty sane
-    kill -TERM -- -"$DEMO_PID" 2>/dev/null || true
+    kill -TERM -"$DEMO_PID" 2>/dev/null || true
     wait "$DEMO_PID" 2>/dev/null || true
     stty "$OLD_STTY"
     reset
