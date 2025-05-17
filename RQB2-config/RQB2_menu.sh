@@ -1,6 +1,4 @@
-#!/usr/bin/env bash
-set -euo pipefail
-IFS=$'\n\t'
+#!/bin/sh
 
 
 # load RasQberry environment and constants
@@ -121,13 +119,12 @@ run_demo() {
     CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
   fi
   # Save current terminal settings
-  local OLD_STTY
   OLD_STTY=$(stty -g)
   # Reset terminal state before launching
   stty sane
   # Launch the demo in its own session so we can kill the full process group
   ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
-  local DEMO_PID=$!
+  DEMO_PID=$!
   # Ask user when to stop
   whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
   # Restore terminal state before killing demo
