@@ -2,16 +2,23 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+
 # load RasQberry environment and constants
 . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
 
+# Constants and reusable paths
+REPO_DIR="$USER_HOME/$REPO"
+DEMO_ROOT="$REPO_DIR/demos"
+BIN_DIR="$USER_HOME/.local/bin"
+VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
+
 
 # ******Added By Rishi as part of rasQberry-two project*******
-SOURCE_FILE=/home/$SUDO_USER/"$RQB2_CONFDIR/env-config.sh"
-TARGET_LINK=/home/$SUDO_USER/.local/bin/env-config.sh
+SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
+TARGET_LINK="$BIN_DIR/env-config.sh"
 # Check if the symbolic link already exists
-if [ -L "$TARGET_LINK" ]; 
-then 
+if [ -L "$TARGET_LINK" ];
+then
     # If the link exist remove it
     sudo rm $TARGET_LINK
     echo "Symbolic link Removed"
@@ -19,13 +26,12 @@ else
     echo "Symbolic link doesn't exists"
 fi
 # ***********end changes************
-# Create symbolic link 
+# Create symbolic link
 sudo ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 
 
 # Function to update values stored in the rasqberry_environment.env file
 do_select_environment_variable() {
-  ENV_FILE="/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env"
 
   if [ ! -f "$ENV_FILE" ]; then
     whiptail --title "Error" --msgbox "Environment file not found!" 8 50
@@ -56,9 +62,9 @@ update_environment_file () {
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" /home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env
+    sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
     # reload environment file
-    . /home/$SUDO_USER/.local/bin/env-config.sh
+    . "$BIN_DIR/env-config.sh"
   fi
 }
 
@@ -71,7 +77,6 @@ do_menu_update_environment_file() {
 
 # Function to check the value of a variable in the environment file
 check_environment_variable() {
-    ENV_FILE="/home/$SUDO_USER/$RQB2_CONFDIR/rasqberry_environment.env"
     VARIABLE_NAME="$1"
 
     # Check if the environment file exists
@@ -94,7 +99,6 @@ run_demo() {
   # Combine the command and args into a single string
   CMD="$*"
   # Ensure commands run inside the Python virtual environment
-  VENV_ACTIVATE="/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
   if [ -f "$VENV_ACTIVATE" ]; then
     CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
   fi
@@ -154,7 +158,7 @@ do_setup_quantum_demo_essential() {
     # Proceed with the installation
     FUN=$1
     update_environment_file "INTERACTIVE" "false"
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+    . "$VENV_ACTIVATE"
     apt update && apt full-upgrade
     #apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat #moved to pi-gen stage-RQB2
     #pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat #moved to qiskit install script
@@ -169,7 +173,7 @@ do_setup_quantum_demo_essential() {
 do_rasp_tie_install() {
     VARIABLE_NAME="QUANTUM_RASPBERRY_TIE_INSTALLED"
 
-    DEMO_DIR="/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie"
+    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
     DEMO_SCRIPT="$DEMO_DIR/QuantumRaspberryTie.qk1.py"
 
     # Check if demo needs installation or if script is missing
@@ -178,14 +182,13 @@ do_rasp_tie_install() {
         # Mark as installed
         update_environment_file "$VARIABLE_NAME" "true"
         # Clone or re-clone the demo
-        . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
+        . "$VENV_ACTIVATE"
         mkdir -p "$DEMO_DIR"
         export CLONE_DIR_DEMO1="$DEMO_DIR"
         git clone --depth 1 ${GIT_REPO_DEMO_QRT} "$CLONE_DIR_DEMO1"
         # Ensure correct ownership
-        FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
-        if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
-            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
+        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
+            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
         fi
         # Verify script present
         if [ ! -f "$DEMO_SCRIPT" ]; then
@@ -197,11 +200,11 @@ do_rasp_tie_install() {
     fi
     RUN_OPTION=$1
     if  [ "$RUN_OPTION" != "b:aer" ]; then
-      python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
+      python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
     else
       echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
     fi
-    run_demo "Quantum Raspberry-Tie Demo" "/home/$SUDO_USER/$REPO/demos/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_ROOT/quantum-raspberry-tie" python3 "QuantumRaspberryTie.qk1.py" "-$RUN_OPTION"
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -210,10 +213,10 @@ do_rasp_tie_install() {
 # Sets PATH, LOCALE, create python venv
 do_rqb_initial_config() {
   ( echo; echo '##### added for rasqberry #####';
-  echo 'export PATH=/home/'$SUDO_USER'/.local/bin:/home/'$SUDO_USER'/'$REPO'/demos/bin:$PATH';
+  echo "export PATH=\"$BIN_DIR:$DEMO_ROOT/bin:\$PATH\"";
   # fix locale
   echo "LANG=en_GB.UTF-8\nLC_CTYPE=en_GB.UTF-8\nLC_MESSAGES=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8" > /etc/default/locale
-  ) >> /home/$SUDO_USER/.bashrc && . /home/$SUDO_USER/.bashrc
+  ) >> "$USER_HOME/.bashrc" && . "$USER_HOME/.bashrc"
   # create venv for Qiskit
   sudo -u $SUDO_USER -H -E -- sh -c 'python3 -m venv /home/'$SUDO_USER'/'$REPO'/venv/'$STD_VENV
   if [ "$INTERACTIVE" = true ]; then
@@ -225,7 +228,7 @@ do_rqb_initial_config() {
 # Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
 # Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
 do_rqb_install_qiskit() {
-  sudo -u $SUDO_USER -H -- sh -c '/home/'$SUDO_USER'/.local/bin/rq_install_Qiskit'$1'.sh'
+  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_Qiskit$1.sh"
   if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
@@ -254,8 +257,8 @@ do_rqb_qiskit_menu() {
 
 #Turn off all LEDs
 do_led_off() {
-  . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-  python3 /home/$SUDO_USER/.local/bin/turn_off_LEDs.py
+  . "$VENV_ACTIVATE"
+  python3 "$BIN_DIR/turn_off_LEDs.py"
 }
 
 # Generic runner for LED demos
@@ -263,9 +266,9 @@ run_led_demo() {
   DEMO_TITLE="$1"; shift
   SCRIPT_NAME="$1"; shift
   # Activate Python environment
-  . "/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
+  . "$VENV_ACTIVATE"
   # Run demo in background and allow clean stop
-  run_demo_bg "$DEMO_TITLE" "/home/$SUDO_USER/.local/bin" python3 "$SCRIPT_NAME"
+  run_demo_bg "$DEMO_TITLE" "$BIN_DIR" python3 "$SCRIPT_NAME"
   # Ensure LEDs are off afterwards
   do_led_off
 }
@@ -275,8 +278,8 @@ run_led_demo() {
 run_qlo_demo() {
     MODE="$1"  # empty for GUI, "console" for console mode
     # Activate virtual environment
-    . "/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
-    DEMO_DIR="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out"
+    . "$VENV_ACTIVATE"
+    DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
     DEMO_SCRIPT="$DEMO_DIR/lights_out.py"
     # Ensure installed
     if [ ! -f "$DEMO_SCRIPT" ]; then
@@ -335,22 +338,21 @@ do_qlo_install() {
     update_environment_file "$VARIABLE_NAME" "true"
 
     # Proceed with the installation
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
-        mkdir -p /home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out
-        export CLONE_DIR_DEMO_QLO="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out"
+    . "$VENV_ACTIVATE"
+    if [ ! -f "$DEMO_ROOT/Quantum-Lights-Out/lights_out.py" ]; then
+        mkdir -p "$DEMO_ROOT/Quantum-Lights-Out"
+        export CLONE_DIR_DEMO_QLO="$DEMO_ROOT/Quantum-Lights-Out"
         git clone ${GIT_REPO_DEMO_QLO} ${CLONE_DIR_DEMO_QLO}
     fi
-    FOLDER_PATH="/home/$SUDO_USER/$REPO/demos"
     # Get the current logged-in user
     CURRENT_USER=$(whoami)
     # Check if the folder is owned by root
-    if [ "$(stat -c '%U' "$FOLDER_PATH")" = "root" ]; then
+    if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
       # Change the ownership to the logged-in user
-      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$FOLDER_PATH"
-     # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+      sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+     # echo "Ownership of $DEMO_ROOT changed to $CURRENT_USER."
     fi
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
+    if [ ! -f "$DEMO_ROOT/Quantum-Lights-Out/lights_out.py" ]; then
         whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
         return 1
     fi
