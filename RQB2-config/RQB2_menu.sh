@@ -50,8 +50,12 @@ do_select_environment_variable() {
   RET=$?
   if [ $RET -eq 1 ]; then
     return 0
-  elif [ $RET -eq 0 ]; then
-    do_menu_update_environment_file "$FUN"
+  fi
+  # Prompt for the new value and update the environment file
+  new_value=$(whiptail --inputbox "Enter new value for $FUN" "$WT_HEIGHT" "$WT_WIDTH" 3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 0 ]; then
+    update_environment_file "$FUN" "$new_value"
   fi
 }
 
@@ -71,12 +75,6 @@ update_environment_file () {
   fi
 }
 
-# Function to update values stored in the $ENV file
-# $1 = variable name, $2 = value
-do_menu_update_environment_file() {
-  new_value=$(whiptail --inputbox "$1" "$WT_HEIGHT" "$WT_WIDTH" --title "Type in the new value" 3>&1 1>&2 2>&3)
-  update_environment_file "$1" "$new_value"
-}
 
 # Function to check the value of a variable in the environment file
 check_environment_variable() {
@@ -151,35 +149,6 @@ run_demo() {
   stty "$OLD_STTY"
   # Final reset to clear any residual state
   reset
-}
-
-
-#set up for demo adding sense-hat
-do_setup_quantum_demo_essential() {
-    VARIABLE_NAME="QUANTUM_DEMO_ESSENTIALS_INSTALLED"
-
-    # Check if the demo is already installed
-    INSTALLED=$(check_environment_variable "$VARIABLE_NAME")
-    if [ "$INSTALLED" = "true" ]; then
-        whiptail --msgbox "Quantum Demo Essentials is already installed." 20 60 1
-        return 0
-    fi
-
-    # Update the value of QUANTUM_DEMO_ESSENTIALS_INSTALLED to true
-    update_environment_file "$VARIABLE_NAME" "true"
-
-    # Proceed with the installation
-    FUN=$1
-    update_environment_file "INTERACTIVE" "false"
-    . "$VENV_ACTIVATE"
-    apt update && apt full-upgrade
-    #apt install -y python3-gi gir1.2-gtk-3.0 libcairo2-dev libgirepository1.0-dev python3-numpy python3-pil python3-pkg-resources python3-sense-emu sense-emu-tools sense-hat #moved to pi-gen stage-RQB2
-    #pip install pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat #moved to qiskit install script
-    #if  [ "$FUN" != "b:aer" ]; then
-    #    python3 /home/$SUDO_USER/.local/bin/rq_set_qiskit_ibm_token.py
-    #else
-    #    echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
-    #fi
 }
 
 # Install Quantum-Raspberry-Tie demo if needed
