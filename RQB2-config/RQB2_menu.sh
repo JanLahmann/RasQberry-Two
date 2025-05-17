@@ -261,6 +261,31 @@ do_led_ibm() {
     do_led_off
 }
 
+# Generic runner for Quantum-Lights-Out demo
+run_qlo_demo() {
+    local MODE="$1"  # empty for GUI, "console" for console mode
+    . "/home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate"
+    DEMO_SCRIPT="/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py"
+    # Ensure installed
+    if [ ! -f "$DEMO_SCRIPT" ]; then
+        do_qlo_install
+    fi
+    if [ ! -f "$DEMO_SCRIPT" ]; then
+        whiptail --msgbox "Lights Out script missing. Aborting." 20 60 1
+        return 1
+    fi
+    # Build title and args
+    local TITLE="Quantum Lights Out Demo"
+    local ARGS=(lights_out.py)
+    if [ "$MODE" = "console" ]; then
+        TITLE+=" (console)"
+        ARGS+=(--console)
+    fi
+    run_demo "$TITLE" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "${ARGS[@]}"
+    # Turn off LEDs when demo ends
+    do_led_off
+}
+
 
 do_select_led_option() {
     while true; do
@@ -324,31 +349,11 @@ do_qlo_install() {
 }
 
 do_qlo_run() {
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
-        do_qlo_install
-    fi
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
-        return 1
-    fi
-    run_demo "Quantum Lights Out Demo" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py"
-    # Turn off LEDs when demo ends
-    do_led_off
+  run_qlo_demo
 }
 
 do_qloc_run() {
-    . /home/$SUDO_USER/$REPO/venv/$STD_VENV/bin/activate
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
-        do_qlo_install
-    fi
-    if [ ! -f "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out/lights_out.py" ]; then
-        whiptail --msgbox "Quantum Raspberry Tie script not found. Please ensure it's installed in the demos directory." 20 60 1
-        return 1
-    fi
-    run_demo "Quantum Lights Out Demo (console)" "/home/$SUDO_USER/$REPO/demos/Quantum-Lights-Out" python3 "lights_out.py" --console
-    # Turn off LEDs when demo ends
-    do_led_off
+  run_qlo_demo console
 }
 
 
@@ -365,8 +370,8 @@ do_select_qlo_option() {
         fi
         case "$FUN" in
             "QLOI" ) do_qlo_install || handle_error "QLO Demo Installation Failed." ;;
-            "QLO"  ) do_qlo_run      || handle_error "QLO Demo Failed." ;;
-            "QLOC" ) do_qloc_run    || handle_error "QLO Console Demo Failed." ;;
+            "QLO"  ) run_qlo_demo      || handle_error "QLO Demo Failed." ;;
+            "QLOC" ) run_qlo_demo console    || handle_error "QLO Console Demo Failed." ;;
             *)
                 break
                 ;;
