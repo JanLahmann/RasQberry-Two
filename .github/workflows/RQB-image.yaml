@@ -4,7 +4,7 @@ on:
    workflow_dispatch: {}
    push:
      branches:
-       - 30-sw-platform-JRL-unified
+       - 30-sw-platform
 
 
 jobs:
