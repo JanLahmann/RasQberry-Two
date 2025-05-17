@@ -36,31 +36,48 @@ jobs:
         id: current-version
         shell: bash
         run: |
-          version=$(cat ./src/version)
+          version=$(cat ./VERSION)
           echo "version=${version}" >> $GITHUB_OUTPUT
 
       - run: |
           echo "${{ steps.current-version.outputs.version }}"
 
+      # -------------------------------------------------------------------------
+      # Versioning Scheme:
+      # - If run on the 'main' branch, a semantic version MUST be provided via workflow input.
+      # - If run on other branches without a provided version, an auto-generated version is created as:
+      #     <branch-name>-<YYYY-MM-DD-HHMMSS>
+      # - If a version is provided (on any branch), it is used directly.
+      # The chosen version is written to `src/version` and used for tagging/releases.
+      # -------------------------------------------------------------------------
       - name: "Rasqberry: Add version file"
         id: update-version
         if: steps.current-version.outputs.version != github.event.inputs.version
         shell: bash
         run: |
-          if [ -z ${{ github.event.inputs.version }} ]; then
-            VERSION_NUMBER=alpha-${{ steps.create-date.outputs.date }}
-            echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
-            echo $VERSION_NUMBER > ./src/version
-          else
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          # On 'main' branch, a semantic version must be provided
+          if [ "$BRANCH_NAME" = "main" ]; then
+            if [ -z "${{ github.event.inputs.version }}" ]; then
+              echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
+              exit 1
+            fi
             VERSION_NUMBER=${{ github.event.inputs.version }}
-            echo "version_num=$VERSION_NUMBERn }}" >> $GITHUB_OUTPUT
-            echo $VERSION_NUMBER > ./src/version
+          else
+            if [ -n "${{ github.event.inputs.version }}" ]; then
+              VERSION_NUMBER=${{ github.event.inputs.version }}
+            else
+              # Use branch name and timestamp for non-main branches
+              VERSION_NUMBER="${BRANCH_NAME}-${{ steps.create-date.outputs.date }}"
+            fi
           fi
+          echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "$VERSION_NUMBER" > ./VERSION
 
       - name: "Rasqberry: git add & commit & tag & push"
         uses: EndBug/add-and-commit@v9
         with:
-          add: "./src/version"
+          add: "./VERSION"
           default_author: github_actions
           message: "Bump version to v${{ steps.update-version.outputs.version_num }}"
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -122,8 +139,8 @@ jobs:
         uses: softprops/action-gh-release@v2.2.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "rasqberry-v${{ needs.rasqberry-push-version-number.outputs.version_num }}"
-          tag_name: v${{ needs.rasqberry-push-version-number.outputs.version_num }}
+          name: ${{ github.ref == 'refs/heads/main' ? format('rasqberry-%s', needs.rasqberry-push-version-number.outputs.version_num) : format('rasqberry-v%s', needs.rasqberry-push-version-number.outputs.version_num) }}
+          tag_name: ${{ github.ref == 'refs/heads/main' ? needs.rasqberry-push-version-number.outputs.version_num : format('v%s', needs.rasqberry-push-version-number.outputs.version_num) }}
           body: ${{ steps.changelog.outputs.content }}
           make_latest: true
       - run: |
