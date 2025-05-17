@@ -413,19 +413,17 @@ do_quantum_demo_menu() {
           "LED" "test LEDs" \
           "QLO Demo" "Quantum-Lights-Out Demo" \
           "QRT Demo" "quantum-raspberry-tie" \
-#          "SQE" "Setup-Quantum-Demo-Essentials"\
      3>&1 1>&2 2>&3)
     RET=$?
     if [ $RET -ne 0 ]; then
       break
     fi
     case "$FUN" in
-      LED) do_select_led_option ;;
-      QLO\ *) do_select_qlo_option ;;
-      QRT\ *) do_select_qrt_option ;;
-#      SQE) do_setup_quantum_demo_essential ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+      LED)    do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
+      QLO\ *) do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
+      QRT\ *) do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
+      *)      handle_error "Programmer error: unrecognized Quantum Demo option $FUN."; continue ;;
+    esac
   done
 }
 
@@ -440,10 +438,10 @@ do_rasqberry_menu() {
       break
     fi
     case "$FUN" in
-      QD\ *) do_quantum_demo_menu;;
-      UEF\ *) do_select_environment_variable ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+      QD\ *) do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF\ *) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      *)      handle_error "Programmer error: unrecognized main menu option $FUN."; continue ;;
+    esac
   done
 }
 # Function for graceful error handling in menus
