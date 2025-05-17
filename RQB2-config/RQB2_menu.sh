@@ -95,7 +95,7 @@ run_demo() {
   # Reset terminal state before launching
   stty sane
   # Launch the demo in its own session so we can kill the full process group
-  ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+  ( trap '' SIGINT; cd "$DEMO_DIR" && exec script -qfc "$CMD" /dev/null ) &
   local DEMO_PID=$!
   # Ask user when to stop
   whiptail --title "$DEMO_TITLE" --yesno "Demo is running. Select Yes to stop." 8 60
