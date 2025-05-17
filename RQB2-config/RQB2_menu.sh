@@ -77,8 +77,6 @@ install_demo() {
         fi
         update_environment_file "$ENV_VAR" "true"
         whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
-    else
-        whiptail --title "$TITLE" --msgbox "Demo already installed." 8 60
     fi
 }
 
@@ -177,9 +175,8 @@ run_rasp_tie_demo() {
     DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
     RUN_OPTION=$1
     if  [ "$RUN_OPTION" != "b:aer" ]; then
+      echo "For this option, we need a IBM Quantum Token"
       python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
-    else
-      echo "Skipping  IBM Qiskit Credential Setting as its local simulator"
     fi
     run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
     # Turn off LEDs when demo ends
@@ -368,7 +365,7 @@ do_quantum_demo_menu() {
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
-       STOP "Stop last running demo") || break
+       STOP "Stop last running demo and clear LEDs") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
