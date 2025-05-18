@@ -96,7 +96,7 @@ jobs:
             || { echo "⛔ Invalid semantic version: $VERSION_INPUT" >&2; exit 1; }
         
       - name: "Rasqberry: git add & commit & push"
-        uses: EndBug/add-and-commit@v9
+        uses: EndBug/add-and-commit@v10
         with:
           add: "./VERSION"
           default_author: github_actions
@@ -221,7 +221,7 @@ jobs:
           find . -type f -printf "%s\t%f\n"
 
       - name: Upload Release Asset to Target Repository
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ env.asset_path }}
