@@ -4,9 +4,9 @@ permissions:
   checks: write        # for status checks
   id-token: write      # for OIDC (cosign)
   packages: write      # for releases/assets
-concurrency:
+#concurrency:
   #group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false # set true to cancel existing workflow runs when new run is triggered
+  #cancel-in-progress: false # set true to cancel existing workflow runs when new run is triggered
 
 on:
   workflow_dispatch: {}
