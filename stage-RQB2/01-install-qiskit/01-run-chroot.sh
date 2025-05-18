@@ -1,49 +1,57 @@
 #!/bin/bash -e
 
-echo "GIT_BRANCH " $GIT_BRANCH
-echo "GIT_REPO " $GIT_REPO
-echo "REPO " $REPO
-echo "STD_VENV " $STD_VENV
-echo "RQB2_CONFDIR " $RQB2_CONFDIR
-echo "PIGEN " $PIGEN
+echo "Starting qiskit Installation"
 
-# import environemnt & configuration
-if [ -f /tmp/config ]; then
-	# shellcheck disable=SC1091
-	source /tmp/config
-  echo "/tmp/config found"
-  cat /tmp/config
-# needs fixing
-fi
+
+# Set config variables
+
+export REPO=RasQberry-Two # need to adjust if using a different Repo name!
+export GIT_USER=JanLahmann # need to adjust if using a different GitHub user!
+export GIT_BRANCH=JRL-dev02 # need to adjust if using a different Branch!
+
+export REPO=${REPO:-RasQberry-Two} 
+export GIT_USER=${GIT_USER:-JanLahmann} 
+export GIT_BRANCH=${GIT_BRANCH:-main} 
+export GIT_REPO=${GIT_REPO:-https://github.com/${GIT_USER}/${REPO}.git} 
+export CLONE_DIR="/tmp/${REPO}"
+echo "REPO " $REPO
+echo "GIT_USER " $GIT_USER
 echo "GIT_BRANCH " $GIT_BRANCH
 echo "GIT_REPO " $GIT_REPO
-echo "REPO " $REPO
-echo "STD_VENV " $STD_VENV
-echo "RQB2_CONFDIR " $RQB2_CONFDIR
-echo "PIGEN " $PIGEN
-# export these variables (also done in build.sh)
-export GIT_BRANCH=${GIT_BRANCH:-JRL-dev02}
-export GIT_REPO=${GIT_REPO:-https://github.com/JanLahmann/RasQberry-Two.git}
-export REPO=${REPO:-RasQberry-Two}
+echo "CLONE_DIR " $CLONE_DIR
+
 export STD_VENV=${STD_VENV:-RQB2}
 export RQB2_CONFDIR=${RQB2_CONFDIR:-.local/config}
 export PIGEN=${PIGEN:-true}
-echo "GIT_BRANCH " $GIT_BRANCH
-echo "GIT_REPO " $GIT_REPO
-echo "REPO " $REPO
 echo "STD_VENV " $STD_VENV
 echo "RQB2_CONFDIR " $RQB2_CONFDIR
 echo "PIGEN " $PIGEN
 
 # Clone the Git repository
-echo "Starting qiskit Installation"
-export CLONE_DIR="/tmp/${REPO}"
-
 if [ ! -d "${CLONE_DIR}" ]; then
     git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
 fi
-
 chmod 755 ${CLONE_DIR}
+
+# import environemnt & configuration
+#if [ -f ${CLONE_DIR}/config ]; then
+#	# shellcheck disable=SC1091
+#  echo "${CLONE_DIR}/config found"
+#  cat ${CLONE_DIR}/config || true
+#  echo "end cat ${CLONE_DIR}/config"
+#  source ${CLONE_DIR}/config || true
+#  echo ""
+# needs verification
+#fi
+echo "REPO " $REPO
+echo "GIT_USER " $GIT_USER
+echo "GIT_BRANCH " $GIT_BRANCH
+echo "GIT_REPO " $GIT_REPO
+echo "CLONE_DIR " $CLONE_DIR
+echo "STD_VENV " $STD_VENV
+echo "RQB2_CONFDIR " $RQB2_CONFDIR
+echo "PIGEN " $PIGEN
+
 
 echo "FIRST_USER_NAME    : ${FIRST_USER_NAME}"
 [ ! -d /home/${FIRST_USER_NAME}/.local/bin ] && mkdir -p /home/${FIRST_USER_NAME}/.local/bin
