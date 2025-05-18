@@ -76,7 +76,7 @@ install_demo() {
             sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
         fi
         update_environment_file "$ENV_VAR" "true"
-        whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+#        whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     fi
 }
 
