@@ -1,10 +1,21 @@
 name: Rasqberry Pi Image Release
+permissions:
+  contents: read       # for checkout
+  checks: write        # for status checks
+  id-token: write      # for OIDC (cosign)
+  packages: write      # for releases/assets
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
-   workflow_dispatch: {}
-   push:
-     branches:
-       - JRL-dev02
+  workflow_dispatch: {}
+  push:
+    branches:
+      - JRL-dev02
+      - beta
+    tags:
+      - 'v*'
 
 
 jobs:
@@ -77,6 +88,13 @@ jobs:
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "$VERSION_NUMBER" > ./VERSION
 
+      - name: "Validate semantic version"
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          echo "$VERSION_INPUT" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+            || { echo "⛔ Invalid semantic version: $VERSION_INPUT" >&2; exit 1; }
+        
       - name: "Rasqberry: git add & commit & push"
         uses: EndBug/add-and-commit@v9
         with:

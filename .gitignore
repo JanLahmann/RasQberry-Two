@@ -161,7 +161,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
-RQB2-config/RQB2_menu.sh
+
+# Explicitly include the root-level VERSION file
+!/VERSION
