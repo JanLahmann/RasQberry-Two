@@ -10,16 +10,18 @@ from time import sleep
 from rpi_ws281x import PixelStrip, Color
 import argparse
 
+# Parse LED configuration with safe defaults
 from dotenv import dotenv_values
-config = dotenv_values("/home/pi/RasQberry/rasqberry_environment.env")
+config = dotenv_values("/usr/config/rasqberry_environment.env")  # fixme, making path dynamic
 
-LED_COUNT_init = int(config["LED_COUNT"])
-LED_PIN = int(config["LED_PIN"])
-LED_FREQ_HZ = int(config["LED_FREQ_HZ"])  # LED signal frequency in hertz (usually 800khz)
-LED_DMA = int(config["LED_DMA"])          # DMA channel to use for generating signal (try 10)
-LED_BRIGHTNESS = int(config["LED_BRIGHTNESS"])  # Set to 0 for darkest and 255 for brightest
-LED_INVERT = bool(config["LED_INVERT"]=="true" or config["LED_INVERT"]=="True")    # True to invert the signal (when using NPN transistor level shift)
-LED_CHANNEL = int(config["LED_CHANNEL"])       # set to '1' for GPIOs 13, 19, 41, 45 or 53
+# Parse LED configuration with safe defaults
+LED_COUNT_init = int(config.get("LED_COUNT", 0))
+LED_PIN        = int(config.get("LED_PIN", 0))
+LED_FREQ_HZ    = int(config.get("LED_FREQ_HZ", 0))  # LED signal frequency in hertz (usually 800khz)
+LED_DMA        = int(config.get("LED_DMA", 0))      # DMA channel to use for generating signal (try 10)
+LED_BRIGHTNESS = int(config.get("LED_BRIGHTNESS", 0))  # Set to 0 for darkest and 255 for brightest
+LED_INVERT     = config.get("LED_INVERT", "false").lower() == "true"  # True to invert signal
+LED_CHANNEL    = int(config.get("LED_CHANNEL", 0))   # set to '1' for GPIOs 13,19, etc.
 #LED_BRIGHTNESS = 100  # Set to 0 for darkest and 255 for brightest
 
 #print("LED_COUNT_init ", LED_COUNT_init, "LED_PIN ", LED_PIN, "LED_FREQ_HZ ", LED_FREQ_HZ, "LED_DMA ", LED_DMA, "LED_BRIGHTNESS ", LED_BRIGHTNESS, "LED_INVERT ", LED_INVERT, "LED_CHANNEL ", LED_CHANNEL, "LED_BRIGHTNESS ", LED_BRIGHTNESS)
