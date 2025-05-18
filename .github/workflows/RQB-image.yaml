@@ -231,6 +231,8 @@ jobs:
 
       - name: Upload Release Asset to Target Repository
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
