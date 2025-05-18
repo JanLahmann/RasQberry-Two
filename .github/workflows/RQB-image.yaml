@@ -77,15 +77,15 @@ jobs:
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "$VERSION_NUMBER" > ./VERSION
 
-      - name: "Rasqberry: git add & commit & tag & push"
+      - name: "Rasqberry: git add & commit & push"
         uses: EndBug/add-and-commit@v9
         with:
           add: "./VERSION"
           default_author: github_actions
-          message: "Bump version to v${{ steps.update-version.outputs.version_num }}"
+          message: "Bump version to ${{ steps.update-version.outputs.version_num }}"
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: "v${{ steps.update-version.outputs.version_num }} --force"
-          tag_push: "--force"
+          # Tag only on 'main' branch with a 'v' prefix; otherwise tag without prefix
+          tag: ${{ github.ref == 'refs/heads/main' && format('v{0} --force', steps.update-version.outputs.version_num) || format('{0} --force', steps.update-version.outputs.version_num) }}
           push: true
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
