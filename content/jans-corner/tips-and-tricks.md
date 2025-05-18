@@ -17,9 +17,17 @@ The bill-of-material mentions a "welding shield" than can be used in front of th
 
 ### Polarisation of the Magnets 
 
-## Iterative Development of RQB2_menu.sh
+## SW Developer Infos
 
-The complete GitHub actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and realted files), the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
+### Forking the repo 
+
+If you fork the repo, two files need to be updated to reflect the new user and branch names:
+1. The trigger in the "on:" section in the workflow file .github/workflows/RQB-image.yaml (around line 15) 
+1. The variables GIT_USER and GIT_BRANCH (and unlikely also REPO) in the pi-gen stage definition stage-RQB2/01-install-qiskit/01-run-chroot.sh might need to be updated with your GitHub user and branch names.
+
+### Iterative Development of RQB2_menu.sh
+
+The complete GitHub actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and related files) at run-time, the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
 
 ```
 export GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git" # modify to match your development repo
@@ -38,3 +46,5 @@ sudo cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
 rm -rf ${CLONE_DIR}
 ```
+
+
