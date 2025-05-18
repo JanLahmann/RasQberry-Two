@@ -1,6 +1,6 @@
 name: Rasqberry Pi Image Release
 permissions:
-  contents: read       # for checkout
+  contents: write      # allow commit/push of VERSION
   checks: write        # for status checks
   id-token: write      # for OIDC (cosign)
   packages: write      # for releases/assets
