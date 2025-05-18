@@ -14,7 +14,11 @@ LED_PIN = int(config.get("LED_PIN", 0))
 
 # Import Qiskit 2.x classes
 from qiskit import QuantumCircuit
-from qiskit.providers.aer import AerSimulator
+# AerSimulator may be provided by the qiskit-aer package or in qiskit.providers.aer
+try:
+    from qiskit.providers.aer import AerSimulator
+except ModuleNotFoundError:
+    from qiskit_aer import AerSimulator
 
 # set the backend
 backend = AerSimulator()
