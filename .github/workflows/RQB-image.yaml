@@ -12,7 +12,7 @@ on:
   workflow_dispatch: {}
   push:
     branches:
-      - JRL-dev02
+      - JRL-dev*
       - beta
     tags:
       - 'v*'
@@ -225,6 +225,15 @@ jobs:
           # Find all files in the directory and print their size and name
           find . -type f -printf "%s\t%f\n"
 
+  publish:
+    name: Upload Release Asset
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
       - name: Upload Release Asset to Target Repository
         uses: actions/upload-release-asset@v1
         with:
