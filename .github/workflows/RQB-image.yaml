@@ -6,7 +6,7 @@ permissions:
   packages: write      # for releases/assets
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false # set true to cancel existing workflow runs when new run is triggered
 
 on:
   workflow_dispatch: {}
@@ -233,7 +233,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        
+
       - name: Upload Release Asset to Target Repository
         uses: actions/upload-release-asset@v1
         with:
