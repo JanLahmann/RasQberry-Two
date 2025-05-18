@@ -135,6 +135,7 @@ run_demo() {
   fi
   # Restore original terminal settings
   stty "$OLD_STTY"
+  stty intr ^C
   # Final reset to clear any residual state
   reset
 }
