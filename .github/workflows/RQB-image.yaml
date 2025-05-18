@@ -219,29 +219,21 @@ jobs:
         run: |
           mkdir -p deploy
           # Copy the image to the deploy folder
-          cp -r ${{ steps.pi-gen-build.outputs.image-path }} deploy/
+          cp "${{ steps.pi-gen-build.outputs.image-path }}" deploy/
           # Find the file dynamically in the 'deploy' directory
           FILE_PATH=$(find deploy -type f -name "*.img.xz" | head -n 1)
-          FILE_NAME=$(basename "${{steps.pi-gen-build.outputs.image-path}}")
+          FILE_NAME=$(basename "$FILE_PATH")
           echo "asset_path=$FILE_PATH" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
           cd deploy
           # Find all files in the directory and print their size and name
           find . -type f -printf "%s\t%f\n"
 
-  publish:
-    name: Upload Release Asset
-    needs: [release, build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
       - name: Upload Release Asset to Target Repository
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ needs.build.outputs.asset_path }}
-          asset_name: ${{ needs.build.outputs.asset_name }}
+          asset_path: ${{ steps.set-asset.outputs.asset_path }}
+          asset_name: ${{ steps.set-asset.outputs.asset_name }}
           asset_content_type: application/x-xz
+
