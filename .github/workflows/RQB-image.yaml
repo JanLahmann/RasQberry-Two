@@ -227,7 +227,7 @@ jobs:
 
   publish:
     name: Upload Release Asset
-    needs: [build]
+    needs: [release, build]
     runs-on: ubuntu-latest
 
     steps:

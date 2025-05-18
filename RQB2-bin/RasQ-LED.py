@@ -7,7 +7,7 @@ import subprocess, time, math
 from dotenv import dotenv_values
 
 # Load environment variables
-config = dotenv_values("/usr/config/rasqberry_environment.env")  # consider making path dynamic
+config = dotenv_values("/usr/config/rasqberry_environment.env")  # fixme, making path dynamic
 n_qbit = int(config.get("N_QUBIT", 0))
 LED_COUNT = int(config.get("LED_COUNT", 0))
 LED_PIN = int(config.get("LED_PIN", 0))
@@ -78,7 +78,7 @@ def circ_execute():
 # bin(statevector.tolist().index(1.+0.j))[2:]
 
 def call_display_on_strip(measurement):
-  subprocess.call(["sudo","python3","/home/pi/RasQberry/demos/bin/RasQ-LED-display.py", measurement])
+  subprocess.call(["sudo","python3","/usr/bin/RasQ-LED-display.py", measurement]) # fixme, hardcoded path
 
 # n is the size of the entangled blocks
 def run_circ(n):
