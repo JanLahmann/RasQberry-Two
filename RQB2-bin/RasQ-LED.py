@@ -6,41 +6,31 @@
 import subprocess, time, math
 from dotenv import dotenv_values
 
-config = dotenv_values("/home/pi/RasQberry/rasqberry_environment.env")
-n_qbit = int(config["N_QUBIT"])
-LED_COUNT = int(config["LED_COUNT"])
-LED_PIN = int(config["LED_PIN"])
+# Load environment variables
+config = dotenv_values("/usr/config/rasqberry_environment.env")  # consider making path dynamic
+n_qbit = int(config.get("N_QUBIT", 0))
+LED_COUNT = int(config.get("LED_COUNT", 0))
+LED_PIN = int(config.get("LED_PIN", 0))
 
-#Import Qiskit classes
-from qiskit import IBMQ, execute
-from qiskit import Aer 
-from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
+# Import Qiskit 2.x classes
+from qiskit import QuantumCircuit
+from qiskit.providers.aer import AerSimulator
 
 # set the backend
-backend = Aer.get_backend('qasm_simulator')
+backend = AerSimulator()
                 
 #Set number of shots
 shots = 1
 
 def init_circuit():
-  # Create a Quantum Register with n qubits
-  global qr
-  qr = QuantumRegister(n_qbit)
-  # Create a Classical Register with n bits
-  global cr
-  cr = ClassicalRegister(n_qbit)
-  # Create a Quantum Circuit acting on the qr and cr register
-  global circuit
-  circuit = QuantumCircuit(qr, cr)
-  global counts
-  counts = {}
-  global measurement
-  measurement = ""
-
+    global circuit, measurement
+    # Create a QuantumCircuit with n_qbit qubits and classical bits
+    circuit = QuantumCircuit(n_qbit, n_qbit)
+    measurement = ""
 
 def set_up_circuit(factor):
     global circuit
-    circuit = QuantumCircuit(qr, cr)
+    circuit = QuantumCircuit(n_qbit, n_qbit)
 
     if factor == 0:
       factor = n_qbit
@@ -50,12 +40,12 @@ def set_up_circuit(factor):
 
     for i in range(0, n_qbit):
         if (i % factor) == 0:
-            circuit.h(qr[i])
+            circuit.h(i)
             relevant_qbit = i
         else:
-            circuit.cx(qr[relevant_qbit], qr[i])
+            circuit.cx(relevant_qbit, i)
 
-    circuit.measure(qr, cr)
+    circuit.measure(range(n_qbit), range(n_qbit))
 
 def get_factors(number):
     factor_list = []
@@ -69,13 +59,13 @@ def get_factors(number):
     return factor_list
 
 def circ_execute():
-  # execute the circuit
-  job = execute(circuit, backend, shots=shots)
-  result = job.result()
-  counts = result.get_counts(circuit)
-  global measurement
-  measurement = list(counts.items())[0][0]
-  print("measurement: ", measurement)
+    # execute the circuit on the AerSimulator
+    job = backend.run(circuit, shots=shots)
+    result = job.result()
+    counts = result.get_counts()
+    global measurement
+    measurement = list(counts.items())[0][0]
+    print("measurement:", measurement)
 
 # alternative with statevector_simulator
 # simulator = Aer.get_backend('statevector_simulator')
@@ -136,4 +126,3 @@ def loop(duration):
 loop(2)
 
 #action()
-
