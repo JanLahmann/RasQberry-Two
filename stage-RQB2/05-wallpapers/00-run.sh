@@ -27,7 +27,7 @@ CONF_FILES=($NOOP_CONF $HDMI_CONF)
 
 # Ensure CONF_DIR is present.
 if ! [ -e $CONF_DIR ]; then
-    sudo -u \#$FIRST_UID mkdir -p $CONF_DIR
+    sudo -u "#${FIRST_UID}" mkdir -p "$CONF_DIR"
 fi
 
 # Ensure source and destination directories exist.
@@ -62,11 +62,11 @@ echo "Generating config files."
 for configfile in "${CONF_FILES[@]}"; do
   if [ -e $CONF_DIR/$configfile ]; then
     echo "$CONF_DIR/$configfile already exists. Attempting to update wallpaper selection."
-    sudo -u \#$FIRST_UID sed $CONF_DIR/$configfile -i -e "/^wallpaper=/{h;s/=.*/=${WP_DIR//\//\\/}\/${WALLPAPER}/};\${x;/^$/{s//wallpaper=${WP_DIR//\//\\/}\/${WALLPAPER}/;H};x}" 
+    sudo -u "#${FIRST_UID}" sed $CONF_DIR/$configfile -i -e "/^wallpaper=/{h;s/=.*/=${WP_DIR//\//\\/}\/${WALLPAPER}/};\${x;/^$/{s//wallpaper=${WP_DIR//\//\\/}\/${WALLPAPER}/;H};x}" 
     echo "File $configfile updated."
   else
-    sudo -u \#$FIRST_UID touch $CONF_DIR/$configfile
-    sudo -u \#$FIRST_UID cat <<EOF >> $CONF_DIR/$configfile
+    sudo -u "#${FIRST_UID}" touch $CONF_DIR/$configfile
+    sudo -u "#${FIRST_UID}" cat <<EOF >> $CONF_DIR/$configfile
 [*]
 wallpaper_mode=fit
 wallpaper=$WP_DIR/$WALLPAPER
