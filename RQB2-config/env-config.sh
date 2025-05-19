@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+#set -eu # this causes terminal misbehaviour, as this file is sourced in bashrc
 
 # Determine non-root user home directory
 if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
