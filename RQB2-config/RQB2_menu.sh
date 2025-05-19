@@ -98,11 +98,12 @@ do_rasp_tie_install() {
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
   MODE="pty"
-  #if [ "$1" = bg ]; then MODE="bg"; shift; fi
+  if [ "$1" = bg ]; then MODE="bg"; shift; fi
   DEMO_TITLE="$1"; shift
   DEMO_DIR="$1"; shift
   # Build the command string from all remaining args (preserving spaces)
-  CMD="$1"; shift
+  CMD="$1"
+  shift
   for arg in "$@"; do
       CMD="$CMD $arg"
   done
@@ -110,39 +111,33 @@ run_demo() {
   if [ -f "$VENV_ACTIVATE" ]; then
     CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
   fi
+  # Save current terminal settings
+  OLD_STTY=$(stty -g)
+  # Reset terminal state before launching
+  stty sane
   # Launch the demo in its own session so we can kill the full process group
   if [ "$MODE" = "pty" ]; then
-      # Launch demo inside a fresh login shell via script, isolating terminal
-      ( trap '' INT; cd "$DEMO_DIR" && \
-        exec setsid script -qfc "bash -lc '$CMD'" /dev/null ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
   else
-      # Launch in background shell session
-      ( trap '' INT; cd "$DEMO_DIR" && \
-        exec setsid bash -lc '$CMD' ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
   # Ask user when to stop
   whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
   RESPONSE=$?
+  # Restore terminal state before killing demo
+  stty sane
   # Terminate the entire demo process group only if user chose Yes
   if [ "$RESPONSE" -eq 0 ]; then
       kill -TERM -"$DEMO_PID" 2>/dev/null || true
       wait "$DEMO_PID" 2>/dev/null || true
   fi
-}
-
-# Stop the last background demo (if any)
-stop_last_demo() {
-    if [ -n "${LAST_DEMO_PGID:-}" ]; then
-        kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null || true
-        wait "$LAST_DEMO_PGID" 2>/dev/null || true
-        do_led_off
-        unset LAST_DEMO_PGID
-        whiptail --title "Demo Stopped" --msgbox "Last demo has been terminated." 8 60
-    else
-        whiptail --title "No Demo" --msgbox "No demo is currently running." 8 60
-    fi
+  # Restore original terminal settings
+  stty "$OLD_STTY"
+  stty intr ^C
+  # Final reset to clear any residual state
+  reset
 }
 
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
