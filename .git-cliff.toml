@@ -1,0 +1,25 @@
+[git]
+  tag_sort = "semver"    # sort tags by SemVer
+
+[parser]
+  merges = "exclude"     # ignore merge commits
+  tag_match = "^v?\\d+\\.\\d+\\.\\d+"
+
+[output]
+  file = ""              # leave empty to emit to stdout
+  format = "markdown"    # ensure valid GitHub-flavored Markdown
+
+[group."🚀 Features"]
+  commit = "feat"
+
+[group."🐛 Bug Fixes"]
+  commit = "fix"
+
+[group."📝 Documentation"]
+  commit = "docs"
+
+[group."⚙️ Maintenance"]
+  commit = "chore"
+
+[release]
+  include = ["body"]     # include commit bodies
