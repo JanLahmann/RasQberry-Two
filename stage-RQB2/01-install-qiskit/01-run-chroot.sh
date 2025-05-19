@@ -7,7 +7,7 @@ echo "Starting qiskit Installation"
 
 export REPO=RasQberry-Two # need to adjust if using a different Repo name!
 export GIT_USER=JanLahmann # need to adjust if using a different GitHub user!
-export GIT_BRANCH=JRL-dev02 # need to adjust if using a different Branch!
+export GIT_BRANCH=beta # need to adjust if using a different Branch!
 
 export REPO=${REPO:-RasQberry-Two} 
 export GIT_USER=${GIT_USER:-JanLahmann} 
