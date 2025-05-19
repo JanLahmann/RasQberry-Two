@@ -98,7 +98,7 @@ do_rasp_tie_install() {
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
   MODE="pty"
-  if [ "$1" = bg ]; then MODE="bg"; shift; fi
+  #if [ "$1" = bg ]; then MODE="bg"; shift; fi
   DEMO_TITLE="$1"; shift
   DEMO_DIR="$1"; shift
   # Build the command string from all remaining args (preserving spaces)
