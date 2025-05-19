@@ -1,77 +1,47 @@
-#!/bin/bash -e
+#!/bin/sh -e
+#
+# pi-gen stage to install a custom wallpaper and set it as default
+#
 
-# skip this File for workflow testing
-#exit 0
+# variables provided by pi-gen
+# ROOTFS_DIR — root of the target filesystem
+# FIRST_USER_NAME — usually “pi”
+# (you could also detect a non-root account via getent)
 
-# TODO: Improve error checking. 
-#       Handle a CONF_DIR that is present but has incorrect ownership/permissions
-#       Use the higher resolution image for HDMI.
+WALLPAPER_SRC="$(dirname "$0")/files/RasQberry 2 Wallpaper 4K.png"
+WALLPAPER_NAME="RasQberry 2 Wallpaper 4K.png"
 
-# Define variables for the wallpaper image fine name, source and destination.
-# Both WP_DIR and RQPI_DIR must exist, and RQPI_DIR must contain our wallpaper files.
-CONF_DIR=$ROOTFS_DIR/home/$FIRST_USER_NAME/.config/pcmanfm/LXDE-pi
-RQPI_DIR=$ROOTFS_DIR/home/$FIRST_USER_NAME/.local/config/Artwork/Logo-Wallpaper
-WP_DIR=/usr/share/rpd-wallpaper
-WALLPAPER='RasQberry 2 Wallpaper FHD.png'
+# where Pi OS stores its collection of wallpapers
+SYS_WP_DIR="$ROOTFS_DIR/usr/share/rpd-wallpaper"
 
-# Ugly hack #1 for build environments where the username for uid 1000 is not $FIRST_USER_NAME.
-FIRST_UID=1000
+# PCManFM global config directory
+PCMAN_CONF_DIR="$ROOTFS_DIR/etc/xdg/pcmanfm/LXDE-pi"
 
-# Config file for HDMI-attached screen.
-HDMI_CONF=desktop-items-HDMI-A-1.conf
+echo "=> Installing custom wallpaper to $SYS_WP_DIR"
+install -v -m 644 "$WALLPAPER_SRC" \
+  "$SYS_WP_DIR/$WALLPAPER_NAME"
 
-# Config file for headless operation
-NOOP_CONF=desktop-items-NOOP-1.conf
+echo "=> Ensuring PCManFM global config dir exists"
+mkdir -p "$PCMAN_CONF_DIR"
 
-CONF_FILES=($NOOP_CONF $HDMI_CONF)
-
-# Ensure CONF_DIR is present.
-if ! [ -e $CONF_DIR ]; then
-    sudo -u "#${FIRST_UID}" mkdir -p "$CONF_DIR"
-fi
-
-# Ensure source and destination directories exist.
-
-if ! [[ -e $RQPI_DIR && -e $ROOTFS_DIR/$WP_DIR ]]; then
-    echo "The environment is not properly set up. The source and/or target directory is missing. Exiting."
-    exit 1    
-fi
-
-# Check that the wallpaper file is present.
-if ! [ -e $RQPI_DIR/"$WALLPAPER" ]; then
-    echo "The chosen wallpaper $WALLPAPER is not present in $RQPI_DIR. Exiting."
-    exit 1
-fi
-
-# Copy the background image to the image's WP_DIR.
-if ! [ -e $ROOTFS_DIR/$WP_DIR/"$WALLPAPER" ]; then
-    sudo cp $RQPI_DIR/"$WALLPAPER" $ROOTFS_DIR/$WP_DIR
-
-    # Ugly hack #2. Fix incorrect permissions on the asset
-    sudo chmod 644 $ROOTFS_DIR/$WP_DIR/"$WALLPAPER"
-fi
- 
-# Ensure CONF_DIR is writable
-if ! [ -w "$CONF_DIR" ]; then 
-    echo "Configuration file destination is not writable. Cannot continue." 
-	exit 1
-fi
-
-echo "Generating config files."
-
-for configfile in "${CONF_FILES[@]}"; do
-  if [ -e $CONF_DIR/$configfile ]; then
-    echo "$CONF_DIR/$configfile already exists. Attempting to update wallpaper selection."
-    sudo -u "#${FIRST_UID}" sed $CONF_DIR/$configfile -i -e "/^wallpaper=/{h;s/=.*/=${WP_DIR//\//\\/}\/${WALLPAPER}/};\${x;/^$/{s//wallpaper=${WP_DIR//\//\\/}\/${WALLPAPER}/;H};x}" 
-    echo "File $configfile updated."
+# for primary console (usually desktop-items-0) and HDMI (desktop-items-1)
+for CONF in desktop-items-0.conf desktop-items-1.conf; do
+  TARGET="$PCMAN_CONF_DIR/$CONF"
+  if [ -f "$TARGET" ]; then
+    echo " * Updating existing $CONF"
+    sed -i \
+      "s|^wallpaper=.*|wallpaper=/usr/share/rpd-wallpaper/$WALLPAPER_NAME|" \
+      "$TARGET"
   else
-    sudo -u "#${FIRST_UID}" touch $CONF_DIR/$configfile
-    sudo -u "#${FIRST_UID}" cat <<EOF >> $CONF_DIR/$configfile
+    echo " * Creating new $CONF"
+    cat <<EOF > "$TARGET"
 [*]
 wallpaper_mode=fit
-wallpaper=$WP_DIR/$WALLPAPER
+wallpaper=/usr/share/rpd-wallpaper/$WALLPAPER_NAME
 EOF
-
-    echo "File $configfile updated."
   fi
+  # make sure it's owned by root
+  chown 0:0 "$TARGET"
 done
+
+echo "=> Wallpaper stage complete"
