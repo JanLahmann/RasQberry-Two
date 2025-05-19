@@ -149,10 +149,10 @@ jobs:
           echo "${{ steps.branch-details.outputs.branch_name }}"
 
       - name: Generate a changelog
-        uses: orhun/git-cliff-action@v1
         id: changelog
+        uses: orhun/git-cliff-action@v1
         with:
-          config: ./cliff-release.toml
+          config: ./.git-cliff.toml
           args: ${{ steps.latest_tag.outputs.TAG_NAME }}..HEAD
 
       - name: Create Release
