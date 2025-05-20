@@ -229,21 +229,12 @@ jobs:
           # Find all files in the directory and print their size and name
           find . -type f -printf "%s\t%f\n"
 
-      - name: Clean upload URL
-        id: clean-upload-url
-        shell: bash
-        run: |
-          RAW_URL="${{ needs.release.outputs.upload_url }}"
-          # Remove the template suffix
-          CLEAN_URL="${RAW_URL%\{\?name,label\}}"
-          echo "CLEAN_UPLOAD_URL=$CLEAN_URL" >> $GITHUB_ENV
-
       - name: Upload Release Asset to Target Repository
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ env.CLEAN_UPLOAD_URL }}
+          upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
           asset_name: ${{ steps.set-asset.outputs.asset_name }}
           asset_content_type: application/x-xz
