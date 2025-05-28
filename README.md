@@ -12,6 +12,8 @@ Welcome to the **RasQberry Two** GitHub Pages repository! This project documents
 
 If you're looking for the functional model of IBM Quantum System ONE, visit [rasqberry.one](https://rasqberry.one).
 
+To get started with the project, have a look at the description and documentation at [rasqberry.org](https://rasqberry.org) or dive into the source code in this repo.
+
 ---
 
 ## 🚀 Project Overview

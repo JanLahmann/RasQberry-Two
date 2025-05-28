@@ -88,11 +88,11 @@
   "os_list": [
     {
       "name": "RasQberry Two (64-bit)",
-      "description": "RasQberry Image to explore Quantum Computing and Qiskit",
+      "description": "RasQberry Image (alpha) to explore Quantum Computing and Qiskit",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-pi-gen/releases/download/v0.1-alpha-01/image_2025-01-14-rasqberry-bookworm--full.img.xz",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-05-20-064831/image_2025-05-20-rasqberry-full.img.xz",
       "image_download_size": 1750000000,
-      "release_date": "2025-01-14",
+      "release_date": "2025-05-18",
       "init_format": "systemd",
       "devices": [
         "pi5-64bit",
