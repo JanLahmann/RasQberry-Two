@@ -183,7 +183,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: stage4-base.tar.gz
-          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64
+          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
       - name: Install pi-gen dependencies
         run: |
@@ -208,6 +208,7 @@ jobs:
             bc \
             gpg \
             pigz \
+            lz4 \
             arch-test
 
       - name: Clone pi-gen
@@ -264,7 +265,7 @@ jobs:
               sudo cp -al work/*/stage4/rootfs work/.cache-stage4/
             fi
 
-            sudo tar -czf ../stage4-base.tar.gz \
+            sudo tar -cf - \
               --exclude='work/*/stage*/rootfs/var/cache/apt/archives/*.deb' \
               --exclude='work/*/stage*/rootfs/tmp/*' \
               --exclude='work/*/stage*/rootfs/var/log/*' \
@@ -278,7 +279,7 @@ jobs:
               --exclude='work/*/stage*/rootfs/var/cache/debconf/*' \
               --exclude='work/*/stage*/rootfs/boot/*.old' \
               --exclude='work/*/stage*/rootfs/var/cache/pip/*' \
-              work
+              work | lz4 -1 > ../stage4-base.tar.lz4
           fi
           
           # Clean up to prepare for custom stage
@@ -289,7 +290,7 @@ jobs:
         run: |
           cd pi-gen
           echo "Restoring cached build..."
-          sudo tar -xzf ../stage4-base.tar.gz
+          lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
           
           # After extracting cache, restore the rootfs if it was saved
           if [ -d "work/.cache-stage4/rootfs" ]; then
