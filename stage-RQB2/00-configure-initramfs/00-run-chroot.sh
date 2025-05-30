@@ -2,17 +2,45 @@
 # stage-RQB2/00-configure-initramfs/00-run-chroot.sh
 # Configure initramfs based on SKIP_INITRAMFS variable from pi-gen-config
 
-echo "Checking SKIP_INITRAMFS configuration..."
+echo "=== 00-run-chroot.sh: Starting initramfs configuration ==="
+echo "Current directory: $(pwd)"
+echo "Hostname: $(hostname)"
+echo "User: $(whoami)"
+
+# Check environment
+echo "=== Environment check ==="
+echo "SKIP_INITRAMFS from environment: ${SKIP_INITRAMFS:-not set}"
+env | grep -i "skip\|initramfs" || echo "No SKIP/INITRAMFS variables in chroot environment"
+
+# Check /tmp directory
+echo "=== Checking /tmp directory ==="
+echo "/tmp exists: $([ -d "/tmp" ] && echo "yes" || echo "no")"
+echo "Contents of /tmp:"
+ls -la /tmp/ 2>/dev/null || echo "Cannot list /tmp"
+echo "Looking for skip_initramfs.flag:"
+find /tmp -name "*skip*" -o -name "*initramfs*" 2>/dev/null || echo "No matching files found"
 
 # Read the flag file created by 00-run.sh
-if [ -f "/tmp/skip_initramfs.flag" ]; then
-    SKIP_INITRAMFS=$(cat /tmp/skip_initramfs.flag)
-    rm -f /tmp/skip_initramfs.flag
+FLAG_FILE="/tmp/skip_initramfs.flag"
+echo "=== Reading flag file: ${FLAG_FILE} ==="
+
+if [ -f "${FLAG_FILE}" ]; then
+    echo "Flag file exists!"
+    echo "Flag file permissions: $(ls -la "${FLAG_FILE}")"
+    echo "Flag file contents:"
+    cat "${FLAG_FILE}"
+    SKIP_INITRAMFS=$(cat "${FLAG_FILE}")
+    rm -f "${FLAG_FILE}"
     echo "SKIP_INITRAMFS read from flag file: ${SKIP_INITRAMFS}"
 else
+    echo "WARNING: Flag file not found at ${FLAG_FILE}"
+    echo "Checking alternative locations:"
+    find / -name "skip_initramfs.flag" 2>/dev/null | head -10 || echo "No flag file found anywhere"
     SKIP_INITRAMFS="0"
-    echo "SKIP_INITRAMFS flag file not found, defaulting to: ${SKIP_INITRAMFS}"
+    echo "SKIP_INITRAMFS defaulting to: ${SKIP_INITRAMFS}"
 fi
+
+echo "=== Proceeding with SKIP_INITRAMFS=${SKIP_INITRAMFS} ==="
 
 # Check if we should skip initramfs
 if [ "${SKIP_INITRAMFS}" = "1" ]; then
@@ -24,6 +52,7 @@ if [ "${SKIP_INITRAMFS}" = "1" ]; then
 # Disable initramfs generation - configured by RasQberry build
 INITRD=No
 EOF
+    echo "Created /etc/default/raspberrypi-kernel with INITRD=No"
 
     # Method 2: Create kernel postinst hook for extra safety
     mkdir -p /etc/kernel/postinst.d
@@ -44,6 +73,7 @@ if [ "$INITRD" = "No" ]; then
 fi
 EOF
     chmod +x /etc/kernel/postinst.d/00-skip-initramfs
+    echo "Created kernel postinst hook"
 
     # Method 3: Configure raspi-firmware for newer systems
     if [ -d /boot/firmware ] || [ -f /usr/lib/raspi-firmware/update ]; then
@@ -52,10 +82,12 @@ EOF
 # Don't copy initramfs files to boot partition
 INITRAMFS=no
 EOF
+        echo "Created /etc/default/raspi-firmware with INITRAMFS=no"
     fi
 
     # Method 4: Divert update-initramfs for packages that call it directly
     if command -v update-initramfs >/dev/null 2>&1; then
+        echo "Diverting update-initramfs..."
         dpkg-divert --add --rename --divert /usr/sbin/update-initramfs.real /usr/sbin/update-initramfs
         cat > /usr/sbin/update-initramfs <<'EOF'
 #!/bin/sh
@@ -63,10 +95,12 @@ echo "Skipping update-initramfs (disabled by RasQberry SKIP_INITRAMFS=1)"
 exit 0
 EOF
         chmod +x /usr/sbin/update-initramfs
+        echo "update-initramfs diverted"
     fi
 
     # Method 5: Also divert mkinitramfs
     if command -v mkinitramfs >/dev/null 2>&1; then
+        echo "Diverting mkinitramfs..."
         dpkg-divert --add --rename --divert /usr/sbin/mkinitramfs.real /usr/sbin/mkinitramfs
         cat > /usr/sbin/mkinitramfs <<'EOF'
 #!/bin/sh
@@ -74,9 +108,11 @@ echo "Skipping mkinitramfs (disabled by RasQberry SKIP_INITRAMFS=1)"
 exit 0
 EOF
         chmod +x /usr/sbin/mkinitramfs
+        echo "mkinitramfs diverted"
     fi
 
     # Method 6: Remove any initramfs files that might already exist
+    echo "Removing existing initramfs files..."
     rm -f /boot/initrd* /boot/initramfs* 2>/dev/null || true
 
     echo "Standard Raspberry Pi initramfs disable method applied successfully"
@@ -100,3 +136,5 @@ else
         dpkg-divert --remove --rename /usr/sbin/mkinitramfs
     fi
 fi
+
+echo "=== 00-run-chroot.sh: Completed ==="
