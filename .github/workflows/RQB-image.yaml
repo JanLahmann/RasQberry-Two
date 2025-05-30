@@ -356,6 +356,9 @@ jobs:
           echo "Restoring cached build..."
           lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
           
+          # Remove the cache file after extraction to save space
+          rm -f ../stage4-base.tar.lz4
+          
           # Verify the extraction worked
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
           echo "Found work directory: $WORK_DIR"
