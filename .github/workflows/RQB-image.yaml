@@ -504,6 +504,12 @@ jobs:
           # Install pixz for parallel compression
           sudo apt-get install -y pixz
           
+          # Read compression level from config
+          COMPRESSION_LEVEL_PIXZ=$(grep "^COMPRESSION_LEVEL_PIXZ=" config | cut -d'=' -f2)
+          COMPRESSION_LEVEL_PIXZ=${COMPRESSION_LEVEL_PIXZ:-6}  # Default to 6 if not set
+          
+          echo "Using compression level: $COMPRESSION_LEVEL_PIXZ"
+          
           # Find the uncompressed image
           IMAGE=$(find deploy -name "*.img" -type f | head -1)
           
@@ -511,9 +517,9 @@ jobs:
             echo "Found image: $IMAGE"
             echo "Original size: $(du -h "$IMAGE" | cut -f1)"
             
-            # Use pixz for fast parallel compression
-            # -3 is faster than -8 but still gives good compression
-            time pixz -3 -p $(nproc) "$IMAGE"
+            # Use pixz with the configured compression level
+            echo "Compressing with pixz -${COMPRESSION_LEVEL_PIXZ} using $(nproc) threads..."
+            time pixz -${COMPRESSION_LEVEL_PIXZ} -p $(nproc) "$IMAGE"
             
             echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
             
