@@ -511,7 +511,7 @@ jobs:
             echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
             
             # Remove uncompressed image to save space
-            [ -f "$IMAGE" ] && sudo rm "$IMAGE"
+            [ -f "$IMAGE" ] && sudo rm "$IMAGE" || true
           else
             echo "No uncompressed image found - checking for already compressed"
             ls -la deploy/
