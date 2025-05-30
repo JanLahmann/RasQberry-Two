@@ -407,37 +407,24 @@ jobs:
               # Create the build.log file that pi-gen expects
               sudo touch "$WORK_DIR_ABS/build.log"
               
-              # Ensure stage4 has proper markers
-              if [ ! -f "$WORK_DIR_ABS/stage4/.build_done" ]; then
-                echo "Creating stage4 build marker..."
-                sudo touch "$WORK_DIR_ABS/stage4/.build_done"
-              fi
+              # Ensure all previous stages have proper markers
+              for stage in stage0 stage1 stage2 stage3 stage4; do
+                if [ ! -f "$WORK_DIR_ABS/$stage/.build_done" ]; then
+                  echo "Creating $stage build marker..."
+                  sudo mkdir -p "$WORK_DIR_ABS/$stage"
+                  sudo touch "$WORK_DIR_ABS/$stage/.build_done"
+                fi
+              done
               
-              # For CONTINUE builds, pi-gen uses .config file in work directory
-              # Create a .config file in the work directory using sudo
-              sudo bash -c "cat > '$WORK_DIR_ABS/.config'" <<'EOF'
-          ARCH=arm64
-          IMG_NAME=rasqberry
-          RELEASE=bookworm
-          DEPLOY_COMPRESSION=xz
-          COMPRESSION_LEVEL=8
-          LOCALE_DEFAULT=en_GB.UTF-8
-          TARGET_HOSTNAME=rasqberry
-          KEYBOARD_KEYMAP=gb
-          KEYBOARD_LAYOUT="English (UK)"
-          TIMEZONE_DEFAULT=Europe/London
-          FIRST_USER_NAME=rasqberry
-          FIRST_USER_PASS="Qiskit1!"
-          ENABLE_SSH=1
-          DISABLE_FIRST_BOOT_USER_RENAME=1
-          PUBKEY_ONLY_SSH=0
-          WPA_COUNTRY=GB
-          STAGE_LIST="./stage-RQB2"
-          EOF
+              # Create SKIP files for stages we don't want to rebuild
+              for stage in stage0 stage1 stage2 stage3 stage4; do
+                sudo touch "$WORK_DIR_ABS/$stage/SKIP"
+              done
               
-              # Set CONTINUE and point to existing work directory
+              # Set up the main config for continuation
               echo "CONTINUE=1" >> config
               echo "WORK_DIR=$WORK_DIR_ABS" >> config
+              echo 'STAGE_LIST="stage0 stage1 stage2 stage3 stage4 ./stage-RQB2"' >> config
               
             else
               echo "ERROR: No work directory found!"
