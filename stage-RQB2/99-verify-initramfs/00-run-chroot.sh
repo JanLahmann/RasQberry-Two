@@ -3,7 +3,16 @@
 # Verify initramfs configuration based on SKIP_INITRAMFS variable
 
 echo "=== Verifying initramfs configuration ==="
-echo "SKIP_INITRAMFS=${SKIP_INITRAMFS:-not set}"
+
+# Read the flag file created by 00-run.sh
+if [ -f "/tmp/skip_initramfs_verify.flag" ]; then
+    SKIP_INITRAMFS=$(cat /tmp/skip_initramfs_verify.flag)
+    rm -f /tmp/skip_initramfs_verify.flag
+else
+    SKIP_INITRAMFS="0"
+fi
+
+echo "SKIP_INITRAMFS=${SKIP_INITRAMFS}"
 
 if [ "${SKIP_INITRAMFS}" = "1" ]; then
     echo "SKIP_INITRAMFS=1 set, verifying initramfs is disabled..."
@@ -73,7 +82,7 @@ if [ "${SKIP_INITRAMFS}" = "1" ]; then
     echo "Boot partition size: $(du -sh /boot 2>/dev/null | cut -f1 || echo 'unknown')"
     
 else
-    echo "SKIP_INITRAMFS not set to 1, checking normal initramfs generation..."
+    echo "SKIP_INITRAMFS not set to 1 (value: '${SKIP_INITRAMFS}'), checking normal initramfs generation..."
     
     # When not skipping, we expect initramfs files to exist (eventually)
     INITRAMFS_COUNT=$(find /boot -name "initrd*" -o -name "initramfs*" 2>/dev/null | wc -l || echo 0)

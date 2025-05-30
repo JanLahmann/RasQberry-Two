@@ -4,7 +4,17 @@
 
 echo "Checking SKIP_INITRAMFS configuration..."
 
-# Check if we should skip initramfs (using the pi-gen variable)
+# Read the flag file created by 00-run.sh
+if [ -f "/tmp/skip_initramfs.flag" ]; then
+    SKIP_INITRAMFS=$(cat /tmp/skip_initramfs.flag)
+    rm -f /tmp/skip_initramfs.flag
+    echo "SKIP_INITRAMFS read from flag file: ${SKIP_INITRAMFS}"
+else
+    SKIP_INITRAMFS="0"
+    echo "SKIP_INITRAMFS flag file not found, defaulting to: ${SKIP_INITRAMFS}"
+fi
+
+# Check if we should skip initramfs
 if [ "${SKIP_INITRAMFS}" = "1" ]; then
     echo "SKIP_INITRAMFS=1 detected, applying standard Raspberry Pi disable method..."
     
@@ -72,7 +82,7 @@ EOF
     echo "Standard Raspberry Pi initramfs disable method applied successfully"
     
 else
-    echo "SKIP_INITRAMFS not set to 1, initramfs will be generated normally"
+    echo "SKIP_INITRAMFS not set to 1 (value: '${SKIP_INITRAMFS}'), initramfs will be generated normally"
     
     # Ensure the default behavior is enabled
     if [ -f /etc/default/raspberrypi-kernel ]; then
