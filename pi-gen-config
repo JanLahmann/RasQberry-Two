@@ -24,6 +24,8 @@ SKIP_INITRAMFS=1
 RQB_REPO=RasQberry-Two
 # GitHub username
 RQB_GIT_USER=JanLahmann
+# Construct the Git URL from user and repo
+RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 # Branch to clone (main, beta, dev, etc.)
 RQB_GIT_BRANCH=dev-JRL-cld-cache
 # Standard virtual environment name

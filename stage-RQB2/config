@@ -3,15 +3,13 @@
 # Export RasQberry configuration variables to chroot environment
 
 # Export initramfs configuration
-export SKIP_INITRAMFS="${SKIP_INITRAMFS:-0}"
+export SKIP_INITRAMFS="${SKIP_INITRAMFS}"
 
 # Export RasQberry build configuration
-export RQB_REPO="${RQB_REPO:-RasQberry-Two}"
-export RQB_GIT_USER="${RQB_GIT_USER:-JanLahmann}"
-export RQB_GIT_BRANCH="${RQB_GIT_BRANCH:-main}"
-export RQB_STD_VENV="${RQB_STD_VENV:-RQB2}"
-export RQB_CONFDIR="${RQB_CONFDIR:-.local/config}"
-export RQB_PIGEN="${RQB_PIGEN:-true}"
-
-# Construct the Git URL from user and repo
-export RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
+export RQB_REPO="${RQB_REPO}"
+export RQB_GIT_USER="${RQB_GIT_USER}"
+export RQB_GIT_BRANCH="${RQB_GIT_BRANCH}"
+export RQB_GIT_REPO="${RQB_GIT_REPO}"
+export RQB_STD_VENV="${RQB_STD_VENV}"
+export RQB_CONFDIR="${RQB_CONFDIR}"
+export RQB_PIGEN="${RQB_PIGEN}"
