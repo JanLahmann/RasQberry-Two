@@ -13,7 +13,7 @@ if [ -f "/tmp/stage-config.sh" ]; then
     GIT_BRANCH="${RQB_GIT_BRANCH}"
     GIT_REPO="${RQB_GIT_REPO}"
     STD_VENV="${RQB_STD_VENV}"
-    RQB2_CONFDIR="${RQB2_CONFDIR}"
+    RQB2_CONFDIR="${RQB_CONFDIR}"
     PIGEN="${RQB_PIGEN}"
     
     echo "Configuration loaded successfully"
