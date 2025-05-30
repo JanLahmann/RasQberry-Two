@@ -264,8 +264,7 @@ jobs:
           cat > config <<EOF
           IMG_NAME=rasqberry
           RELEASE=bookworm
-          DEPLOY_COMPRESSION=xz
-          COMPRESSION_LEVEL=8
+          DEPLOY_COMPRESSION=none
           LOCALE_DEFAULT=en_GB.UTF-8
           TARGET_HOSTNAME=rasqberry
           KEYBOARD_KEYMAP=gb
@@ -476,6 +475,29 @@ jobs:
           
           # Build custom stage
           sudo ./build.sh
+
+      - name: Compress image with parallel xz
+        run: |
+          cd pi-gen
+          
+          # Install pixz for parallel compression
+          sudo apt-get install -y pixz
+          
+          # Find the image
+          IMAGE=$(find deploy -name "*.img" -type f | head -n 1)
+          
+          if [ -n "$IMAGE" ]; then
+            echo "Compressing $IMAGE with pixz..."
+            echo "Original size: $(du -h "$IMAGE" | cut -f1)"
+            
+            # Use pixz with level 6 compression
+            pixz -8 -p $(nproc) "$IMAGE"
+            
+            echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
+            
+            # Remove uncompressed image to save space
+            rm "$IMAGE"
+          fi
 
       - name: Set dynamic asset path and name
         id: set-asset
