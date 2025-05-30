@@ -392,6 +392,22 @@ jobs:
           # Clean up any temporary cache directory if it exists
           sudo rm -rf work/.cache-stage4 || true
 
+      - name: Setup swap space for build
+        run: |
+          # Create 4GB swap file to prevent memory issues
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          
+          # Configure apt for low memory
+          echo 'APT::Cache-Start "20000000";' | sudo tee /etc/apt/apt.conf.d/00-cache-limit
+          echo 'APT::Cache-Limit "40000000";' | sudo tee -a /etc/apt/apt.conf.d/00-cache-limit
+          
+          # Show memory status
+          echo "=== Memory with swap ==="
+          free -h
+        
       - name: Build custom stage
         run: |
           cd pi-gen
