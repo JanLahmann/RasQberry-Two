@@ -312,7 +312,8 @@ jobs:
           fi
           
           # Clean up to prepare for custom stage
-          sudo rm -rf pi-gen/work/*/stage-RQB2 || true
+          cd pi-gen  # Go back to pi-gen directory
+          sudo rm -rf work/*/stage-RQB2 || true
 
       - name: Save cache
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-matched-key == ''
@@ -445,7 +446,7 @@ jobs:
           # Log cache usage
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
             echo "Build completed with caching enabled"
-            if [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
+            if [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
               echo "Cache was used - only custom stage was rebuilt"
             else
               echo "Cache miss - full build was performed"
