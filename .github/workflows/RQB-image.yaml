@@ -255,17 +255,42 @@ jobs:
           # Run build
           sudo ./build.sh
           
-          # Save the work directory state for cache (only if caching is enabled)
+          # Save the work directory state for cache
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
             echo "Saving work directory for cache..."
+            # First, ensure stage4 rootfs exists and copy it for the next stage
+            if [ -d "work/*/stage4/rootfs" ]; then
+              sudo mkdir -p work/.cache-stage4
+              sudo cp -al work/*/stage4/rootfs work/.cache-stage4/
+            fi
+
             sudo tar -czf ../stage4-base.tar.gz \
               --exclude='work/*/stage*/rootfs/var/cache/apt/archives/*.deb' \
               --exclude='work/*/stage*/rootfs/tmp/*' \
+              --exclude='work/*/stage*/rootfs/var/log/*' \
               work
           fi
           
           # Clean up to prepare for custom stage
           sudo rm -rf work/*/stage-RQB2 || true
+
+      - name: Restore cached build
+        if: steps.cache-restore.outputs.cache-hit == 'true'
+        run: |
+          cd pi-gen
+          echo "Restoring cached build..."
+          sudo tar -xzf ../stage4-base.tar.gz
+          
+          # After extracting cache, restore the rootfs if it was saved
+          if [ -d "work/.cache-stage4/rootfs" ]; then
+            # Find the work directory with timestamp
+            WORK_DIR=$(ls -d work/????-??-??-* 2>/dev/null | head -1)
+            if [ -n "$WORK_DIR" ]; then
+              echo "Restoring stage4 rootfs to $WORK_DIR/stage4/"
+              sudo mkdir -p "$WORK_DIR/stage4/"
+              sudo mv work/.cache-stage4/rootfs "$WORK_DIR/stage4/"
+            fi
+          fi
 
       - name: Build custom stage
         run: |
