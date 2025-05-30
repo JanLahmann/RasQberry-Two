@@ -275,7 +275,7 @@ jobs:
           sudo rm -rf work/*/stage-RQB2 || true
 
       - name: Restore cached build
-        if: steps.cache-restore.outputs.cache-hit == 'true'
+        if: steps.cache-stage4.outputs.cache-hit == 'true'  # Fixed: was steps.cache-restore
         run: |
           cd pi-gen
           echo "Restoring cached build..."
@@ -299,37 +299,6 @@ jobs:
           # Check if we should use cache and if cache was hit
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
             echo "Using cached base stages..."
-            
-            # Extract the cached work directory
-            sudo tar -xzf ../stage4-base.tar.gz
-            
-            # Set up for continuation
-            echo "CONTINUE=1" >> config
-            echo 'STAGE_LIST="./stage-RQB2"' >> config
-          else
-            echo "Continuing from fresh base build..."
-            echo "CONTINUE=1" >> config
-            echo 'STAGE_LIST="./stage-RQB2"' >> config
-          fi
-          
-          # Build custom stage
-          sudo ./build.sh
-          
-      - name: Build custom stage
-        run: |
-          cd pi-gen
-          
-          # Check if we should use cache and if cache was hit
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
-            echo "Using cached base image (dev branch optimization)..."
-            
-            # Create work directory structure
-            mkdir -p work/rasqberry/export-image
-            
-            # Copy cached base image
-            cp ../stage4-base.img work/rasqberry/export-image/
-            
-            # Set up for continuation
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           else
