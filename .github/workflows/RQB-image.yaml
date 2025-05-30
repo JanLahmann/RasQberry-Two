@@ -392,23 +392,6 @@ jobs:
           # Clean up any temporary cache directory if it exists
           sudo rm -rf work/.cache-stage4 || true
 
-      - name: Debug cache structure
-        if: steps.cache-stage4.outputs.cache-matched-key != ''
-        run: |
-          cd pi-gen
-          echo "=== Work directory structure ==="
-          find work -type d -name "stage*" | head -20
-          echo "=== Looking for rootfs ==="
-          find work -type d -name "rootfs" | head -5
-          echo "=== Looking for .build_done markers ==="
-          find work -name ".build_done" | head -10
-          echo "=== Work directory listing ==="
-          ls -la work/
-          if [ -d "work/.cache-stage4" ]; then
-            echo "=== Cache stage4 directory exists ==="
-            ls -la work/.cache-stage4/
-          fi
-
       - name: Build custom stage
         run: |
           cd pi-gen
@@ -512,7 +495,7 @@ jobs:
             echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
             
             # Remove uncompressed image to save space
-            sudo rm "$IMAGE"
+            [ -f "$IMAGE" ] && sudo rm "$IMAGE"
           else
             echo "No uncompressed image found - checking for already compressed"
             ls -la deploy/
