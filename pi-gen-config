@@ -18,3 +18,17 @@ PUBKEY_ONLY_SSH=0
 WPA_COUNTRY=GB
 # Disable initramfs for faster builds
 SKIP_INITRAMFS=1
+
+# RasQberry-specific build configuration
+# Repository name
+RQB_REPO=RasQberry-Two
+# GitHub username
+RQB_GIT_USER=JanLahmann
+# Branch to clone (main, beta, dev, etc.)
+RQB_GIT_BRANCH=dev-JRL-cld-cache
+# Standard virtual environment name
+RQB_STD_VENV=RQB2
+# Configuration directory (relative to user home)
+RQB_CONFDIR=.local/config
+# Flag indicating build is from pi-gen
+RQB_PIGEN=true
