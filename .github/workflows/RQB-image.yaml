@@ -192,22 +192,27 @@ jobs:
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
       - name: Cache apt packages
+        id: cache-apt
         uses: actions/cache@v3
         with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: apt-packages-${{ runner.os }}-${{ hashFiles('.github/workflows/RQB-image.yaml') }}
-          restore-keys: |
-            apt-packages-${{ runner.os }}-
+          path: ~/apt-cache
+          key: apt-packages-${{ runner.os }}-${{ hashFiles('.github/workflows/RQB-image.yaml') }}-v2
 
       - name: Install pi-gen dependencies
         run: |
-          # Configure apt to keep downloaded packages
-          sudo rm -f /etc/apt/apt.conf.d/docker-clean
-          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/keep-cache
+          # Create our cache directory
+          mkdir -p ~/apt-cache
           
+          # If cache was restored, copy packages to apt's directory
+          if [ "${{ steps.cache-apt.outputs.cache-hit }}" == "true" ]; then
+            echo "Restoring apt packages from cache..."
+            sudo cp -n ~/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          fi
+          
+          # Update package lists
           sudo apt-get update
+          
+          # Install packages (will use local cache if available)
           sudo apt-get install -y \
             coreutils \
             quilt \
@@ -230,6 +235,12 @@ jobs:
             pigz \
             lz4 \
             arch-test
+          
+          # Save any new packages to our cache directory
+          if [ "${{ steps.cache-apt.outputs.cache-hit }}" != "true" ]; then
+            echo "Saving apt packages to cache..."
+            cp /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
+          fi
 
       - name: Clone pi-gen
         run: |
