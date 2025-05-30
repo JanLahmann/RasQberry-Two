@@ -286,10 +286,25 @@ jobs:
               --exclude='work/*/stage*/rootfs/boot/*.old' \
               --exclude='work/*/stage*/rootfs/var/cache/pip/*' \
               work | lz4 -1 > ../stage4-base.tar.lz4
+            
+            # Move back to workspace root to verify the file
+            cd ..
+            if [ -f "stage4-base.tar.lz4" ]; then
+              echo "✓ Cache file created successfully at workspace root"
+              echo "Cache size: $(du -h stage4-base.tar.lz4 | cut -f1)"
+              echo "Cache location: $(pwd)/stage4-base.tar.lz4"
+              ls -la stage4-base.tar.lz4
+            else
+              echo "ERROR: Cache file not found at expected location!"
+              echo "Current directory: $(pwd)"
+              echo "Looking for stage4-base.tar.lz4:"
+              find . -name "stage4-base.tar.lz4" -type f 2>/dev/null || echo "File not found anywhere"
+              exit 1
+            fi
           fi
           
           # Clean up to prepare for custom stage
-          sudo rm -rf work/*/stage-RQB2 || true
+          sudo rm -rf pi-gen/work/*/stage-RQB2 || true
 
       - name: Save cache
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-hit != 'true'
