@@ -2,7 +2,7 @@ IMG_NAME=rasqberry
 RELEASE=bookworm
 # Don't compress during pi-gen build, but use explicit pixz
 DEPLOY_COMPRESSION=none
-COMPRESSION_LEVEL_PIXZ=6
+COMPRESSION_LEVEL_PIXZ=4
 #DEPLOY_COMPRESSION=xz
 #COMPRESSION_LEVEL=8
 LOCALE_DEFAULT=en_GB.UTF-8
