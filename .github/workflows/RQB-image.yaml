@@ -414,8 +414,8 @@ jobs:
               fi
               
               # For CONTINUE builds, pi-gen uses .config file in work directory
-              # Create a .config file in the work directory
-              cat > "$WORK_DIR_ABS/.config" <<'EOF'
+              # Create a .config file in the work directory using sudo
+              sudo bash -c "cat > '$WORK_DIR_ABS/.config'" <<'EOF'
           ARCH=arm64
           IMG_NAME=rasqberry
           RELEASE=bookworm
@@ -434,7 +434,6 @@ jobs:
           WPA_COUNTRY=GB
           STAGE_LIST="./stage-RQB2"
           EOF
-              sudo chown root:root "$WORK_DIR_ABS/.config"
               
               # Set CONTINUE and point to existing work directory
               echo "CONTINUE=1" >> config
