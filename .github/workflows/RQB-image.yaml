@@ -168,17 +168,26 @@ jobs:
           sudo rm -rf /usr/local/share/chromium
           sudo rm -rf /usr/local/lib/node_modules
           
+          echo "=== After rm ==="
+          df -h
+
           # Clean package manager caches
           sudo apt-get clean
           sudo apt-get autoremove -y
           sudo apt-get autoclean
+
+          echo "=== After apt-get clean ==="
+          df -h
           
           # Clean docker
           sudo docker system prune --all --force --volumes || true
+
+          echo "=== After docker ==="
+          df -h
           
-          # Remove swap
-          sudo swapoff -a
-          sudo rm -f /swapfile
+          # Remove swap # do not remove swap
+          #sudo swapoff -a
+          #sudo rm -f /swapfile
           
           echo "=== After cleanup ==="
           df -h
