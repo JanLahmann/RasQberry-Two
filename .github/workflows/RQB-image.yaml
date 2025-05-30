@@ -177,12 +177,12 @@ jobs:
           CACHE_DATE=$(date +"%Y-%m")
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
-      - name: Cache stage4 base image (dev branches only)
+      - name: Cache stage4 work directory (dev branches only)
         id: cache-stage4
         if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache@v3
         with:
-          path: stage4-base.img
+          path: stage4-base.tar.gz
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64
 
       - name: Install pi-gen dependencies
@@ -266,14 +266,6 @@ jobs:
           
           # Clean up to prepare for custom stage
           sudo rm -rf work/*/stage-RQB2 || true
-
-      - name: Cache stage4 base image (dev branches only)
-        id: cache-stage4
-        if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache@v3
-        with:
-          path: stage4-base.tar.gz
-          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64
 
       - name: Build custom stage
         run: |
