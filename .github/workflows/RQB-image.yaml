@@ -229,7 +229,7 @@ jobs:
         run: |
           cd pi-gen
           echo "Building base stages 0-4..."
-          echo "STAGE_LIST=stage0 stage1 stage2 stage3 stage4" >> config
+          echo 'STAGE_LIST="stage0 stage1 stage2 stage3 stage4"' >> config
           
           # Skip stage5 (not needed)
           touch ./stage5/SKIP
@@ -262,11 +262,11 @@ jobs:
             
             # Set up for continuation
             echo "CONTINUE=1" >> config
-            echo "STAGE_LIST=./stage-RQB2" >> config
+            echo 'STAGE_LIST="./stage-RQB2"' >> config
           else
             echo "Continuing from fresh base build..."
             echo "CONTINUE=1" >> config
-            echo "STAGE_LIST=./stage-RQB2" >> config
+            echo 'STAGE_LIST="./stage-RQB2"' >> config
           fi
           
           # Build custom stage
