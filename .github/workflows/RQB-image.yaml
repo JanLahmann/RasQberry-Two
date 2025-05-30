@@ -1,22 +1,29 @@
 name: Rasqberry Pi Image Release
+
 permissions:
-  contents: write      # allow commit/push of VERSION
-  checks: write        # for status checks
-  id-token: write      # for OIDC (cosign)
-  packages: write      # for releases/assets
-#concurrency:
-  #group: ${{ github.workflow }}-${{ github.ref }}
-  #cancel-in-progress: false # set true to cancel existing workflow runs when new run is triggered
+  contents: write
+  checks: write
+  id-token: write
+  packages: write
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (required for main branch)'
+        required: false
+        type: string
+      refresh_cache:
+        description: 'Force cache refresh (dev branches only)'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
-      - JRL-dev*
-      - beta
-    tags:
-      - 'v*'
+      - dev*
 
+env:
+  CACHE_VERSION: v1
 
 jobs:
   rasqberry-push-version-number:
@@ -35,13 +42,10 @@ jobs:
 
       - name: Create Date
         id: create-date
-        if: always()
         shell: bash
         run: |
           NOW="$(date +"%Y-%m-%d-%H%M%S")"
           echo "date=${NOW}" >> $GITHUB_OUTPUT
-      - run: |
-          echo "${{ steps.create-date.outputs.date }}"
 
       - name: "Rasqberry: Get current version"
         id: current-version
@@ -50,17 +54,6 @@ jobs:
           version=$(cat ./VERSION)
           echo "version=${version}" >> $GITHUB_OUTPUT
 
-      - run: |
-          echo "${{ steps.current-version.outputs.version }}"
-
-      # -------------------------------------------------------------------------
-      # Versioning Scheme:
-      # - If run on the 'main' branch, a semantic version MUST be provided via workflow input.
-      # - If run on other branches without a provided version, an auto-generated version is created as:
-      #     <branch-name>-<YYYY-MM-DD-HHMMSS>
-      # - If a version is provided (on any branch), it is used directly.
-      # The chosen version is written to `src/version` and used for tagging/releases.
-      # -------------------------------------------------------------------------
       - name: "Rasqberry: Add version file"
         id: update-version
         if: ${{ steps.current-version.outputs.version != github.event.inputs.version }}
@@ -70,7 +63,6 @@ jobs:
           CREATE_DATE: ${{ steps.create-date.outputs.date }}
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          # On 'main' branch, a semantic version must be provided
           if [ "$BRANCH_NAME" = "main" ]; then
             if [ -z "$VERSION_INPUT" ]; then
               echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
@@ -81,7 +73,6 @@ jobs:
             if [ -n "$VERSION_INPUT" ]; then
               VERSION_NUMBER="$VERSION_INPUT"
             else
-              # Use branch name and timestamp for non-main branches
               VERSION_NUMBER="${BRANCH_NAME}-${CREATE_DATE}"
             fi
           fi
@@ -102,20 +93,15 @@ jobs:
           default_author: github_actions
           message: "Bump version to ${{ steps.update-version.outputs.version_num }}"
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Tag only on 'main' branch with a 'v' prefix; otherwise tag without prefix
           tag: ${{ github.ref == 'refs/heads/main' && format('v{0} --force', steps.update-version.outputs.version_num) || format('{0} --force', steps.update-version.outputs.version_num) }}
           push: true
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Install the cosign tool except on PR
-      # https://github.com/sigstore/cosign-installer
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
         with:
           cosign-release: 'v2.2.4'
-      - name: Check install!
-        run: cosign version
 
   release:
     name: Create Release
@@ -123,7 +109,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       id: ${{ steps.create-release.outputs.id }}
-#      date: ${{ steps.base-name.outputs.date }}
       upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - name: Checkout
@@ -136,17 +121,6 @@ jobs:
         shell: bash
         run: |
           echo "TAG_NAME=$(git describe --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_OUTPUT
-
-      - run: |
-          echo "${{ steps.latest_tag.outputs.TAG_NAME }}"      
-
-      - name: Print branch details
-        id: branch-details
-        shell: bash
-        run: |
-          echo "branch_name=$(git branch --show-current)" >> $GITHUB_OUTPUT
-      - run: |
-          echo "${{ steps.branch-details.outputs.branch_name }}"
 
       - name: Generate a changelog
         uses: orhun/git-cliff-action@v1
@@ -172,64 +146,172 @@ jobs:
     outputs:
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
-
     steps:
- 
-      - name: checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Start build with raspiconfig
-        uses: usimd/pi-gen-action@v1
-        id: pi-gen-build
+      - name: Determine if caching should be used
+        id: cache-decision
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          FORCE_REFRESH="${{ github.event.inputs.refresh_cache }}"
+          
+          if [[ "$BRANCH_NAME" == dev* ]]; then
+            if [ "$FORCE_REFRESH" == "true" ]; then
+              echo "use_cache=false" >> $GITHUB_OUTPUT
+              echo "Cache refresh forced by workflow input"
+            else
+              echo "use_cache=true" >> $GITHUB_OUTPUT
+              echo "Cache enabled for development branch: $BRANCH_NAME"
+            fi
+          else
+            echo "use_cache=false" >> $GITHUB_OUTPUT
+            echo "Cache disabled for branch: $BRANCH_NAME"
+          fi
+
+      - name: Generate cache date
+        id: cache-date
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        run: |
+          # Use year-month for cache key to refresh monthly
+          CACHE_DATE=$(date +"%Y-%m")
+          echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Cache stage4 base image (dev branches only)
+        id: cache-stage4
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        uses: actions/cache@v3
         with:
-          apt-proxy: ''
-          compression: xz
-          compression-level: 8
-          disable-first-boot-user-rename: 1
-          docker-opts: ''
-          enable-noobs: false
-          enable-ssh: 1
-          export-last-stage-only: true
-          extra-host-dependencies: ''
-          extra-host-modules: ''
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          hostname: rasqberry
-          image-name: 'rasqberry'
-          increase-runner-disk-size: true
-          keyboard-keymap: gb
-          keyboard-layout: English (UK)
-          locale: en_GB.UTF-8
-          username: rasqberry
-          password: 'Qiskit1!'
-          pi-gen-dir: pi-gen
-          pi-gen-release: RasQberry Two Release
-          pi-gen-repository: RPi-Distro/pi-gen
-          pi-gen-version: arm64
-          pubkey-only-ssh: 0
-          release: bookworm
-          stage-list: stage0 stage1 stage2 stage3 stage4 ./stage-RQB2
-          timezone: Europe/London
-          verbose-output: true
-          wpa-country: 'GB'
-          wpa-essid: ''
-          wpa-password: ''
+          path: stage4-base.img
+          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64
+
+      - name: Install pi-gen dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            coreutils quilt parted qemu-user-static \
+            debootstrap zerofree zip dosfstools \
+            libarchive-tools libcap2-bin grep rsync \
+            xz-utils file git curl bc qemu-utils \
+            kpartx gpg pigz
+
+      - name: Clone pi-gen
+        run: |
+          git clone --depth 1 https://github.com/RPi-Distro/pi-gen
+          cd pi-gen
+          git checkout arm64
+
+      - name: Copy custom stage
+        run: cp -r stage-RQB2 pi-gen/
+
+      - name: Configure build
+        run: |
+          cd pi-gen
+          cat > config <<EOF
+          IMG_NAME=rasqberry
+          RELEASE=bookworm
+          DEPLOY_COMPRESSION=xz
+          COMPRESSION_LEVEL=8
+          LOCALE_DEFAULT=en_GB.UTF-8
+          TARGET_HOSTNAME=rasqberry
+          KEYBOARD_KEYMAP=gb
+          KEYBOARD_LAYOUT=English (UK)
+          TIMEZONE_DEFAULT=Europe/London
+          FIRST_USER_NAME=rasqberry
+          FIRST_USER_PASS=Qiskit1!
+          ENABLE_SSH=1
+          DISABLE_FIRST_BOOT_USER_RENAME=1
+          PUBKEY_ONLY_SSH=0
+          WPA_COUNTRY=GB
+          EOF
+
+      - name: Build base stages (if not cached or cache disabled)
+        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-hit != 'true'
+        run: |
+          cd pi-gen
+          echo "Building base stages 0-4..."
+          echo "STAGE_LIST=stage0 stage1 stage2 stage3 stage4" >> config
+          
+          # Skip stage5 (not needed)
+          touch ./stage5/SKIP
+          
+          # Run build
+          sudo ./build.sh
+          
+          # Save stage4 image for cache (only if caching is enabled)
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
+            sudo cp work/*/export-image/*.img ../stage4-base.img || \
+            sudo cp deploy/*.img ../stage4-base.img
+          fi
+          
+          # Clean up to prepare for custom stage
+          sudo rm -rf work/*/stage-RQB2 || true
+
+      - name: Build custom stage
+        run: |
+          cd pi-gen
+          
+          # Check if we should use cache and if cache was hit
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
+            echo "Using cached base image (dev branch optimization)..."
+            
+            # Create work directory structure
+            mkdir -p work/rasqberry/export-image
+            
+            # Copy cached base image
+            cp ../stage4-base.img work/rasqberry/export-image/
+            
+            # Set up for continuation
+            echo "CONTINUE=1" >> config
+            echo "STAGE_LIST=./stage-RQB2" >> config
+          else
+            echo "Continuing from fresh base build..."
+            echo "CONTINUE=1" >> config
+            echo "STAGE_LIST=./stage-RQB2" >> config
+          fi
+          
+          # Build custom stage
+          sudo ./build.sh
 
       - name: Set dynamic asset path and name
         id: set-asset
         run: |
-          mkdir -p deploy
-          # Copy the image to the deploy folder
-          cp "${{ steps.pi-gen-build.outputs.image-path }}" deploy/
-          # Find the file dynamically in the 'deploy' directory
-          FILE_PATH=$(find deploy -type f -name "*.img.xz" | head -n 1)
-          FILE_NAME=$(basename "$FILE_PATH")
-          echo "asset_path=$FILE_PATH" >> $GITHUB_OUTPUT
+          cd pi-gen
+          mkdir -p ../deploy
+          
+          # Find the final image
+          FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
+          
+          if [ -z "$FINAL_IMAGE" ]; then
+            echo "Error: No image found in deploy directory"
+            exit 1
+          fi
+          
+          # Copy to deploy folder
+          cp "$FINAL_IMAGE" ../deploy/
+          
+          # Set outputs
+          FILE_NAME=$(basename "$FINAL_IMAGE")
+          echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
-          cd deploy
-          # Find all files in the directory and print their size and name
-          find . -type f -printf "%s\t%f\n"
+          
+          # Show file info
+          echo "Built image: $FILE_NAME"
+          echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"
+          
+          # Log cache usage
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
+            echo "Build completed with caching enabled"
+            if [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
+              echo "Cache was used - only custom stage was rebuilt"
+            else
+              echo "Cache miss - full build was performed"
+            fi
+          else
+            echo "Build completed without caching (production build)"
+          fi
 
-      - name: Upload Release Asset to Target Repository
+      - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -238,4 +320,3 @@ jobs:
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
           asset_name: ${{ steps.set-asset.outputs.asset_name }}
           asset_content_type: application/x-xz
-
