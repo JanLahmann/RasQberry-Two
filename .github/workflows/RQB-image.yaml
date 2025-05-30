@@ -265,10 +265,18 @@ jobs:
           # Save the work directory state for cache
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
             echo "Saving work directory for cache..."
-            # First, ensure stage4 rootfs exists and copy it for the next stage
-            if [ -d "work/*/stage4/rootfs" ]; then
+            
+            # Find the actual work directory (could be timestamped or just 'rasqberry')
+            WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+            echo "Found work directory: $WORK_DIR"
+            
+            # Ensure stage4 rootfs exists and copy it for the next stage
+            if [ -d "$WORK_DIR/stage4/rootfs" ]; then
               sudo mkdir -p work/.cache-stage4
-              sudo cp -al work/*/stage4/rootfs work/.cache-stage4/
+              sudo cp -al $WORK_DIR/stage4/rootfs work/.cache-stage4/
+              echo "Copied stage4 rootfs to cache directory"
+            else
+              echo "WARNING: stage4 rootfs not found at $WORK_DIR/stage4/rootfs"
             fi
 
             sudo tar -cf - \
@@ -320,15 +328,18 @@ jobs:
           echo "Restoring cached build..."
           lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
           
+          # Find the work directory (could be 'rasqberry' or timestamped)
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+          echo "Found work directory: $WORK_DIR"
+          
           # After extracting cache, restore the rootfs if it was saved
           if [ -d "work/.cache-stage4/rootfs" ]; then
-            # Find the work directory with timestamp
-            WORK_DIR=$(ls -d work/????-??-??-* 2>/dev/null | head -1)
-            if [ -n "$WORK_DIR" ]; then
-              echo "Restoring stage4 rootfs to $WORK_DIR/stage4/"
-              sudo mkdir -p "$WORK_DIR/stage4/"
-              sudo mv work/.cache-stage4/rootfs "$WORK_DIR/stage4/"
-            fi
+            echo "Restoring stage4 rootfs from cache..."
+            sudo mkdir -p "$WORK_DIR/stage4/"
+            sudo mv work/.cache-stage4/rootfs "$WORK_DIR/stage4/"
+            echo "Rootfs restored successfully"
+          else
+            echo "WARNING: No cached rootfs found in work/.cache-stage4/"
           fi
 
       - name: Debug cache structure
@@ -355,6 +366,45 @@ jobs:
           # Check if we should use cache and if cache was hit
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
             echo "Using cached base stages..."
+            
+            # Find the work directory
+            WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+            
+            if [ -n "$WORK_DIR" ]; then
+              echo "Found work directory: $WORK_DIR"
+              
+              # Check if stage4 rootfs exists
+              if [ ! -d "$WORK_DIR/stage4/rootfs" ]; then
+                echo "ERROR: stage4/rootfs missing from cache!"
+                echo "This cache is incomplete. Please use workflow_dispatch with 'refresh_cache' to rebuild."
+                exit 1
+              fi
+              
+              # Get just the directory name
+              WORK_NAME=$(basename "$WORK_DIR")
+              
+              # CRITICAL: Set the PREV_ROOTFS_DIR environment variable for pi-gen
+              export PREV_ROOTFS_DIR="$(pwd)/$WORK_DIR/stage4/rootfs"
+              echo "Set PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR"
+              
+              # Also set these for pi-gen
+              export ROOTFS_DIR="$(pwd)/$WORK_DIR/stage-RQB2/rootfs"
+              export BASE_DIR="$(pwd)"
+              
+              # Tell pi-gen to continue from this work directory
+              echo "WORK_DIR=work/$WORK_NAME" >> config
+              echo "PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR" >> config
+              
+              # Ensure stage4 has proper markers
+              if [ ! -f "$WORK_DIR/stage4/.build_done" ]; then
+                echo "Creating stage4 build marker..."
+                sudo touch "$WORK_DIR/stage4/.build_done"
+              fi
+            else
+              echo "ERROR: No work directory found!"
+              exit 1
+            fi
+            
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           else
@@ -364,7 +414,7 @@ jobs:
           fi
           
           # Build custom stage
-          sudo ./build.sh
+          sudo -E ./build.sh  # Use -E to preserve environment variables
 
       - name: Set dynamic asset path and name
         id: set-asset
