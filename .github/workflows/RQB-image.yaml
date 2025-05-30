@@ -329,19 +329,24 @@ jobs:
           echo "Restoring cached build..."
           lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
           
-          # Find the work directory (could be 'rasqberry' or timestamped)
+          # Verify the extraction worked
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
           echo "Found work directory: $WORK_DIR"
           
-          # After extracting cache, restore the rootfs if it was saved
-          if [ -d "work/.cache-stage4/rootfs" ]; then
-            echo "Restoring stage4 rootfs from cache..."
-            sudo mkdir -p "$WORK_DIR/stage4/"
-            sudo mv work/.cache-stage4/rootfs "$WORK_DIR/stage4/"
-            echo "Rootfs restored successfully"
+          if [ -d "$WORK_DIR/stage4/rootfs" ]; then
+            ROOTFS_SIZE=$(sudo du -s "$WORK_DIR/stage4/rootfs" | cut -f1)
+            echo "Restored rootfs size: $ROOTFS_SIZE KB"
+            if [ "$ROOTFS_SIZE" -lt 1000 ]; then
+              echo "ERROR: Rootfs appears incomplete (only $ROOTFS_SIZE KB)"
+              exit 1
+            fi
           else
-            echo "WARNING: No cached rootfs found in work/.cache-stage4/"
+            echo "ERROR: No rootfs found in restored cache!"
+            exit 1
           fi
+          
+          # Clean up any temporary cache directory if it exists
+          sudo rm -rf work/.cache-stage4 || true
 
       - name: Debug cache structure
         if: steps.cache-stage4.outputs.cache-matched-key != ''
