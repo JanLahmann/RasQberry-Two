@@ -504,6 +504,9 @@ jobs:
           # Install pixz for parallel compression
           sudo apt-get install -y pixz
           
+          # Change ownership of deploy directory to current user
+          sudo chown -R $USER:$USER deploy/
+          
           # Find the image
           IMAGE=$(find deploy -name "*.img" -type f | head -n 1)
           
@@ -511,8 +514,8 @@ jobs:
             echo "Compressing $IMAGE with pixz..."
             echo "Original size: $(du -h "$IMAGE" | cut -f1)"
             
-            # Use pixz with level 6 compression
-            pixz -8 -p $(nproc) "$IMAGE"
+            # Now pixz can run without sudo
+            pixz -6 -p $(nproc) "$IMAGE"
             
             echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
             
