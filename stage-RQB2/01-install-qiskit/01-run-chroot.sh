@@ -1,4 +1,4 @@
-bash#!/bin/bash -e
+#!/bin/bash -e
 
 echo "Starting qiskit Installation"
 
