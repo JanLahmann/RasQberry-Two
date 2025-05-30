@@ -214,10 +214,10 @@ jobs:
           LOCALE_DEFAULT=en_GB.UTF-8
           TARGET_HOSTNAME=rasqberry
           KEYBOARD_KEYMAP=gb
-          KEYBOARD_LAYOUT=English (UK)
+          KEYBOARD_LAYOUT="English (UK)"
           TIMEZONE_DEFAULT=Europe/London
           FIRST_USER_NAME=rasqberry
-          FIRST_USER_PASS=Qiskit1!
+          FIRST_USER_PASS="Qiskit1!"
           ENABLE_SSH=1
           DISABLE_FIRST_BOOT_USER_RENAME=1
           PUBKEY_ONLY_SSH=0
