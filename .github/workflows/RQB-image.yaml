@@ -191,8 +191,22 @@ jobs:
           path: stage4-base.tar.lz4
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
+      - name: Cache apt packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: apt-packages-${{ runner.os }}-${{ hashFiles('.github/workflows/RQB-image.yaml') }}
+          restore-keys: |
+            apt-packages-${{ runner.os }}-
+
       - name: Install pi-gen dependencies
         run: |
+          # Configure apt to keep downloaded packages
+          sudo rm -f /etc/apt/apt.conf.d/docker-clean
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/keep-cache
+          
           sudo apt-get update
           sudo apt-get install -y \
             coreutils \
