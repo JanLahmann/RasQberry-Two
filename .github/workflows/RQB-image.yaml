@@ -189,9 +189,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            coreutils \
             quilt \
             parted \
-            realpath \
             qemu-user-static \
             debootstrap \
             zerofree \
