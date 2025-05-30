@@ -1,6 +1,10 @@
-# Pass RasQberry configuration variables to chroot
+#!/bin/bash -e
+# stage-RQB2/01-install-qiskit/00-run.sh
 
-# Write configuration to files that chroot can read
+# Source the stage config to get RQB variables
+. "${SCRIPT_DIR}/config"
+
+# Now write configuration to files that chroot can read
 mkdir -p "${ROOTFS_DIR}/tmp/rqb-config"
 echo "${RQB_REPO}" > "${ROOTFS_DIR}/tmp/rqb-config/repo"
 echo "${RQB_GIT_USER}" > "${ROOTFS_DIR}/tmp/rqb-config/git_user"
