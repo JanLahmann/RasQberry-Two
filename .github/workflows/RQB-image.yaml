@@ -205,16 +205,22 @@ jobs:
           # Create our cache directory
           mkdir -p ~/apt-cache
           
+          # Configure apt to keep downloaded packages
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/01cache
+          
           # If cache was restored, copy packages to apt's directory
-          if [ "${{ steps.cache-apt.outputs.cache-hit }}" == "true" ]; then
+          if [ "${{ steps.cache-apt.outputs.cache-hit }}" == "true" ] && [ -n "$(ls -A ~/apt-cache/*.deb 2>/dev/null)" ]; then
             echo "Restoring apt packages from cache..."
+            echo "Found $(ls ~/apt-cache/*.deb | wc -l) packages in cache"
             sudo cp -n ~/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          else
+            echo "No cache found or cache is empty"
           fi
           
           # Update package lists
           sudo apt-get update
           
-          # Install packages (will use local cache if available)
+          # Install packages
           sudo apt-get install -y \
             coreutils \
             quilt \
@@ -238,11 +244,11 @@ jobs:
             lz4 \
             arch-test
           
-          # Save any new packages to our cache directory
-          if [ "${{ steps.cache-apt.outputs.cache-hit }}" != "true" ]; then
-            echo "Saving apt packages to cache..."
-            cp /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
-          fi
+          # Save packages to our cache directory
+          echo "Copying packages to cache directory..."
+          cp -v /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
+          echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
+          echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
 
       - name: Clone pi-gen
         run: |
