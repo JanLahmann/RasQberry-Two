@@ -386,31 +386,45 @@ jobs:
                 exit 1
               fi
               
-              # Get just the directory name
+              # Get the absolute path to the work directory
               WORK_NAME=$(basename "$WORK_DIR")
+              WORK_DIR_ABS="$(pwd)/work/$WORK_NAME"
               
-              # CRITICAL: Export environment variables for pi-gen
-              export PREV_ROOTFS_DIR="$(pwd)/$WORK_DIR/stage4/rootfs"
-              export PREV_WORK_DIR="$(pwd)/$WORK_DIR"
-              export BASE_DIR="$(pwd)"
-              export WORK_DIR="work/$WORK_NAME"
-              
-              echo "Environment variables set:"
-              echo "  PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR"
-              echo "  PREV_WORK_DIR=$PREV_WORK_DIR"
-              echo "  WORK_DIR=$WORK_DIR"
-              echo "  BASE_DIR=$BASE_DIR"
-              
-              # Start with clean config for cached build
-              echo "WORK_DIR=$WORK_DIR" >> config
-              echo "CONTINUE=1" >> config
-              echo 'STAGE_LIST="./stage-RQB2"' >> config
+              # Create the build.log file that pi-gen expects
+              sudo touch "$WORK_DIR_ABS/build.log"
               
               # Ensure stage4 has proper markers
-              if [ ! -f "work/$WORK_NAME/stage4/.build_done" ]; then
+              if [ ! -f "$WORK_DIR_ABS/stage4/.build_done" ]; then
                 echo "Creating stage4 build marker..."
-                sudo touch "work/$WORK_NAME/stage4/.build_done"
+                sudo touch "$WORK_DIR_ABS/stage4/.build_done"
               fi
+              
+              # For CONTINUE builds, pi-gen uses .config file in work directory
+              # Create a .config file in the work directory
+              sudo tee "$WORK_DIR_ABS/.config" > /dev/null <<EOF
+              ARCH=arm64
+              IMG_NAME=rasqberry
+              RELEASE=bookworm
+              DEPLOY_COMPRESSION=xz
+              COMPRESSION_LEVEL=8
+              LOCALE_DEFAULT=en_GB.UTF-8
+              TARGET_HOSTNAME=rasqberry
+              KEYBOARD_KEYMAP=gb
+              KEYBOARD_LAYOUT="English (UK)"
+              TIMEZONE_DEFAULT=Europe/London
+              FIRST_USER_NAME=rasqberry
+              FIRST_USER_PASS="Qiskit1!"
+              ENABLE_SSH=1
+              DISABLE_FIRST_BOOT_USER_RENAME=1
+              PUBKEY_ONLY_SSH=0
+              WPA_COUNTRY=GB
+              STAGE_LIST="./stage-RQB2"
+              EOF
+              
+              # Set CONTINUE and point to existing work directory
+              echo "CONTINUE=1" >> config
+              echo "WORK_DIR=$WORK_DIR_ABS" >> config
+              
             else
               echo "ERROR: No work directory found!"
               exit 1
@@ -432,8 +446,8 @@ jobs:
           cat config
           echo "========================"
           
-          # Build custom stage with environment preserved
-          sudo -E ./build.sh
+          # Build custom stage
+          sudo ./build.sh
 
       - name: Set dynamic asset path and name
         id: set-asset
