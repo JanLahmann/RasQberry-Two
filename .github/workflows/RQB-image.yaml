@@ -197,9 +197,8 @@ jobs:
 
       - name: Clone pi-gen
         run: |
-          git clone --depth 1 https://github.com/RPi-Distro/pi-gen
+          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
-          git checkout arm64
 
       - name: Copy custom stage
         run: cp -r stage-RQB2 pi-gen/
