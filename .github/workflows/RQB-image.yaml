@@ -196,7 +196,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/apt-cache
-          key: apt-packages-${{ runner.os }}-${{ hashFiles('.github/workflows/RQB-image.yaml') }}-v2
+          key: apt-packages-${{ runner.os }}-pigen-deps-v1
+          restore-keys: |
+            apt-packages-${{ runner.os }}-pigen-deps-
 
       - name: Install pi-gen dependencies
         run: |
@@ -418,24 +420,29 @@ jobs:
               # Create the build.log file that pi-gen expects
               sudo touch "$WORK_DIR_ABS/build.log"
               
-              # Ensure all previous stages have proper markers
-              for stage in stage0 stage1 stage2 stage3 stage4; do
-                if [ ! -f "$WORK_DIR_ABS/$stage/.build_done" ]; then
-                  echo "Creating $stage build marker..."
-                  sudo mkdir -p "$WORK_DIR_ABS/$stage"
-                  sudo touch "$WORK_DIR_ABS/$stage/.build_done"
-                fi
-              done
+              # Ensure stage4 has build marker (only the last stage we built)
+              if [ ! -f "$WORK_DIR_ABS/stage4/.build_done" ]; then
+                echo "Creating stage4 build marker..."
+                sudo mkdir -p "$WORK_DIR_ABS/stage4"
+                sudo touch "$WORK_DIR_ABS/stage4/.build_done"
+              fi
               
-              # Create SKIP files for stages we don't want to rebuild
-              for stage in stage0 stage1 stage2 stage3 stage4; do
-                sudo touch "$WORK_DIR_ABS/$stage/SKIP"
-              done
-              
-              # Set up the main config for continuation
+              # IMPORTANT: Only include stage-RQB2 in STAGE_LIST for cached builds
               echo "CONTINUE=1" >> config
               echo "WORK_DIR=$WORK_DIR_ABS" >> config
-              echo 'STAGE_LIST="stage0 stage1 stage2 stage3 stage4 ./stage-RQB2"' >> config
+              echo 'STAGE_LIST="./stage-RQB2"' >> config
+              
+              # Ensure the rootfs has updated package lists
+              echo "Ensuring package sources in cached rootfs..."
+              if [ -f "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list" ]; then
+                echo "sources.list exists"
+                sudo cat "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list"
+              else
+                echo "WARNING: sources.list missing in rootfs!"
+              fi
+              
+              # Update package lists in the rootfs
+              sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Failed to update package lists in chroot"
               
             else
               echo "ERROR: No work directory found!"
@@ -458,22 +465,6 @@ jobs:
           cat config
           echo "========================"
           
-          # Ensure the chroot has proper package sources
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
-            echo "Ensuring package sources in cached rootfs..."
-            
-            # Check if sources.list exists
-            if [ -f "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list" ]; then
-              echo "sources.list exists"
-              sudo cat "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list"
-            else
-              echo "WARNING: sources.list missing in rootfs!"
-            fi
-            
-            # Update package lists in the rootfs
-            sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Failed to update package lists in chroot"
-          fi
-
           # Build custom stage
           sudo ./build.sh
 
