@@ -15,5 +15,4 @@ ENABLE_SSH=1
 DISABLE_FIRST_BOOT_USER_RENAME=1
 PUBKEY_ONLY_SSH=0
 WPA_COUNTRY=GB
-# Disable initramfs for faster builds
-SKIP_INITRAMFS=1
+DISABLE_INITRAMFS=1 # Disable initramfs for faster builds
