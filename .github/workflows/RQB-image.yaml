@@ -182,7 +182,7 @@ jobs:
           
           echo "=== After cleanup ==="
           df -h
-          
+
       - name: List available caches
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
@@ -294,22 +294,7 @@ jobs:
       - name: Configure build
         run: |
           cd pi-gen
-          cat > config <<EOF
-          IMG_NAME=rasqberry
-          RELEASE=bookworm
-          DEPLOY_COMPRESSION=none
-          LOCALE_DEFAULT=en_GB.UTF-8
-          TARGET_HOSTNAME=rasqberry
-          KEYBOARD_KEYMAP=gb
-          KEYBOARD_LAYOUT="English (UK)"
-          TIMEZONE_DEFAULT=Europe/London
-          FIRST_USER_NAME=rasqberry
-          FIRST_USER_PASS="Qiskit1!"
-          ENABLE_SSH=1
-          DISABLE_FIRST_BOOT_USER_RENAME=1
-          PUBKEY_ONLY_SSH=0
-          WPA_COUNTRY=GB
-          EOF
+          cp ../pi-gen-config config
 
       - name: Build base stages (if not cached or cache disabled)
         if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-matched-key == ''
