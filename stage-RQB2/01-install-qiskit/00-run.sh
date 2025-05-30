@@ -1,41 +1,11 @@
-#!/bin/bash -e
+# Pass RasQberry configuration variables to chroot
 
-# used to copy config to ${ROOTFS_DIR}/tmp
-
-# might be fully obsolete !?
-
-
-echo "ROOTFS_DIR " ${ROOTFS_DIR}
-echo "CLONE_DIR " ${CLONE_DIR}
-
-# import environemnt & configuration
-echo "ls ."
-ls -la . || true
-echo "ls /"
-ls -la / || true
-
-echo "begin cat /config"
-cat /config || true
-echo "end cat /config"
-echo ""
-
-echo "ls ROOTFS_DIR"
-ls -la ${ROOTFS_DIR} || true
-echo "ls ROOTFS_DIR/tmp"
-ls -la ${ROOTFS_DIR}/tmp || true
-echo "ls CLONE_DIR"
-ls -la ${CLONE_DIR} || true
-echo "ls CLONE_DIR/tmp"
-ls -la ${CLONE_DIR}/tmp || true
-
-echo "GIT_BRANCH " $GIT_BRANCH
-echo "GIT_REPO " $GIT_REPO
-echo "REPO " $REPO
-echo "STD_VENV " $STD_VENV
-echo "RQB2_CONFDIR " $RQB2_CONFDIR
-echo "PIGEN " $PIGEN
-
-cp ${CLONE_DIR}/config ${ROOTFS_DIR}/tmp || true
-
-echo "ls ${ROOTFS_DIR}/tmp"
-ls -la ${ROOTFS_DIR}/tmp || true
+# Write configuration to files that chroot can read
+mkdir -p "${ROOTFS_DIR}/tmp/rqb-config"
+echo "${RQB_REPO}" > "${ROOTFS_DIR}/tmp/rqb-config/repo"
+echo "${RQB_GIT_USER}" > "${ROOTFS_DIR}/tmp/rqb-config/git_user"
+echo "${RQB_GIT_BRANCH}" > "${ROOTFS_DIR}/tmp/rqb-config/git_branch"
+echo "${RQB_GIT_REPO}" > "${ROOTFS_DIR}/tmp/rqb-config/git_repo"
+echo "${RQB_STD_VENV}" > "${ROOTFS_DIR}/tmp/rqb-config/std_venv"
+echo "${RQB_CONFDIR}" > "${ROOTFS_DIR}/tmp/rqb-config/confdir"
+echo "${RQB_PIGEN}" > "${ROOTFS_DIR}/tmp/rqb-config/pigen"

@@ -2,16 +2,22 @@
 
 echo "Starting qiskit Installation"
 
-# Use configuration variables from pi-gen-config (exported via stage-RQB2/config)
-# These can be overridden in pi-gen-config for different builds
-export REPO="${RQB_REPO:-RasQberry-Two}"
-export GIT_USER="${RQB_GIT_USER:-JanLahmann}"
-export GIT_BRANCH="${RQB_GIT_BRANCH:-main}"
-export GIT_REPO="${RQB_GIT_REPO:-https://github.com/${GIT_USER}/${REPO}.git}"
+# Read configuration from files if they exist
+if [ -d "/tmp/rqb-config" ]; then
+    [ -f "/tmp/rqb-config/repo" ] && REPO=$(cat /tmp/rqb-config/repo)
+    [ -f "/tmp/rqb-config/git_user" ] && GIT_USER=$(cat /tmp/rqb-config/git_user)
+    [ -f "/tmp/rqb-config/git_branch" ] && GIT_BRANCH=$(cat /tmp/rqb-config/git_branch)
+    [ -f "/tmp/rqb-config/git_repo" ] && GIT_REPO=$(cat /tmp/rqb-config/git_repo)
+    [ -f "/tmp/rqb-config/std_venv" ] && STD_VENV=$(cat /tmp/rqb-config/std_venv)
+    [ -f "/tmp/rqb-config/confdir" ] && RQB2_CONFDIR=$(cat /tmp/rqb-config/confdir)
+    [ -f "/tmp/rqb-config/pigen" ] && PIGEN=$(cat /tmp/rqb-config/pigen)
+    rm -rf /tmp/rqb-config
+else
+    echo "config files not found"
+fi
+
 export CLONE_DIR="/tmp/${REPO}"
-export STD_VENV="${RQB_STD_VENV:-RQB2}"
-export RQB2_CONFDIR="${RQB_CONFDIR:-.local/config}"
-export PIGEN="${RQB_PIGEN:-true}"
+
 
 # Display configuration for logging
 echo "Configuration:"
@@ -30,6 +36,28 @@ if [ ! -d "${CLONE_DIR}" ]; then
     git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
 fi
 chmod 755 ${CLONE_DIR}
+
+# DEBUG: Check what was actually cloned
+echo "=== Checking cloned repository structure ==="
+echo "Contents of ${CLONE_DIR}:"
+ls -la ${CLONE_DIR} || echo "Failed to list ${CLONE_DIR}"
+echo ""
+echo "Looking for RQB2-bin:"
+find ${CLONE_DIR} -name "RQB2-bin" -type d || echo "RQB2-bin directory not found!"
+echo ""
+echo "Git branch info:"
+cd ${CLONE_DIR} && git branch && git log --oneline -n 5
+cd /
+
+# Check if expected directories exist
+if [ ! -d "${CLONE_DIR}/RQB2-bin" ]; then
+    echo "ERROR: RQB2-bin directory not found in cloned repository!"
+    echo "This might mean:"
+    echo "1. Wrong branch was cloned (expected: beta, got: ${GIT_BRANCH})"
+    echo "2. The ${GIT_BRANCH} branch doesn't have the RQB2-bin directory"
+    echo "3. The repository structure has changed"
+    exit 1
+fi
 
 # Create necessary directories
 [ ! -d /home/${FIRST_USER_NAME}/.local/bin ] && mkdir -p /home/${FIRST_USER_NAME}/.local/bin
