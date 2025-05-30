@@ -246,21 +246,58 @@ jobs:
           echo "Building base stages 0-4..."
           echo 'STAGE_LIST="stage0 stage1 stage2 stage3 stage4"' >> config
           
+          # Skip Export for stages 0-4
+          touch ./stage0/SKIP_IMAGES ./stage1/SKIP_IMAGES ./stage2/SKIP_IMAGES ./stage3/SKIP_IMAGES ./stage4/SKIP_IMAGES
+          
           # Skip stage5 (not needed)
           touch ./stage5/SKIP
           
           # Run build
           sudo ./build.sh
           
-          # Save stage4 image for cache (only if caching is enabled)
+          # Save the work directory state for cache (only if caching is enabled)
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
-            sudo cp work/*/export-image/*.img ../stage4-base.img || \
-            sudo cp deploy/*.img ../stage4-base.img
+            echo "Saving work directory for cache..."
+            sudo tar -czf ../stage4-base.tar.gz \
+              --exclude='work/*/stage*/rootfs/var/cache/apt/archives/*.deb' \
+              --exclude='work/*/stage*/rootfs/tmp/*' \
+              work
           fi
           
           # Clean up to prepare for custom stage
           sudo rm -rf work/*/stage-RQB2 || true
 
+      - name: Cache stage4 base image (dev branches only)
+        id: cache-stage4
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        uses: actions/cache@v3
+        with:
+          path: stage4-base.tar.gz
+          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64
+
+      - name: Build custom stage
+        run: |
+          cd pi-gen
+          
+          # Check if we should use cache and if cache was hit
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
+            echo "Using cached base stages..."
+            
+            # Extract the cached work directory
+            sudo tar -xzf ../stage4-base.tar.gz
+            
+            # Set up for continuation
+            echo "CONTINUE=1" >> config
+            echo 'STAGE_LIST="./stage-RQB2"' >> config
+          else
+            echo "Continuing from fresh base build..."
+            echo "CONTINUE=1" >> config
+            echo 'STAGE_LIST="./stage-RQB2"' >> config
+          fi
+          
+          # Build custom stage
+          sudo ./build.sh
+          
       - name: Build custom stage
         run: |
           cd pi-gen
