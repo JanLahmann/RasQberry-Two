@@ -365,7 +365,7 @@ jobs:
           cd pi-gen
           
           # Check if we should use cache and if cache was hit
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != '' ]; then
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
             echo "Using cached base stages..."
             
             # Find the work directory
@@ -396,8 +396,10 @@ jobs:
               echo "  WORK_DIR=$WORK_DIR"
               echo "  BASE_DIR=$BASE_DIR"
               
-              # Only add valid pi-gen config options
+              # Start with clean config for cached build
               echo "WORK_DIR=$WORK_DIR" >> config
+              echo "CONTINUE=1" >> config
+              echo 'STAGE_LIST="./stage-RQB2"' >> config
               
               # Ensure stage4 has proper markers
               if [ ! -f "work/$WORK_NAME/stage4/.build_done" ]; then
@@ -408,11 +410,14 @@ jobs:
               echo "ERROR: No work directory found!"
               exit 1
             fi
-            
-            echo "CONTINUE=1" >> config
-            echo 'STAGE_LIST="./stage-RQB2"' >> config
           else
             echo "Continuing from fresh base build..."
+            
+            # For fresh build continuation, we need to modify the existing config
+            # Remove the old STAGE_LIST that includes stages 0-4
+            sed -i '/^STAGE_LIST=/d' config
+            
+            # Add the custom stage configuration
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           fi
