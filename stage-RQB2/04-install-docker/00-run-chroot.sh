@@ -2,19 +2,45 @@
 
 echo "Starting Docker Installation"
 
-sudo apt-get update
-sudo apt-get install ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
+# Clean apt cache before starting
+apt-get clean
+rm -rf /var/lib/apt/lists/*
 
-# Add the repository to Apt sources:
+# Update with memory-efficient options
+apt-get update -o Acquire::GzipIndexes=false
+
+# Install prerequisites
+apt-get install -y --no-install-recommends ca-certificates curl
+
+# Create keyrings directory
+install -m 0755 -d /etc/apt/keyrings
+
+# Download Docker GPG key
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker repository
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# Clean cache again before Docker update
+apt-get clean
 
-echo "Ending Docker Installation"
+# Update with reduced memory usage
+apt-get update -o Acquire::GzipIndexes=false -o Acquire::CompressionTypes::Order::=gz
+
+# Install Docker with minimal dependencies
+apt-get install -y --no-install-recommends \
+  docker-ce-cli \
+  containerd.io
+
+# Optionally install full Docker later if needed
+# apt-get install -y docker-ce docker-buildx-plugin docker-compose-plugin
+
+# Clean up
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+
+echo "Docker Installation Complete"
