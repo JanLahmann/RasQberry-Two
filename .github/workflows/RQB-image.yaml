@@ -394,15 +394,16 @@ jobs:
 
       - name: Setup swap space for build
         run: |
-          # Create 4GB swap file to prevent memory issues
-          sudo fallocate -l 4G /swapfile
+          # Create 10GB swap file to prevent memory issues
+          sudo swapoff -a
+          sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
           
           # Configure apt for low memory
           #echo 'APT::Cache-Start "20000000";' | sudo tee /etc/apt/apt.conf.d/00-cache-limit
-          #echo 'APT::Cache-Limit "40000000";' | sudo tee -a /etc/apt/apt.conf.d/00-cache-limit
+          #echo 'APT::Cache-Limit "50000000";' | sudo tee -a /etc/apt/apt.conf.d/00-cache-limit
           
           # Show memory status
           echo "=== Memory with swap ==="
