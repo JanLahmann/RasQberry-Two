@@ -247,7 +247,7 @@ jobs:
           EOF
 
       - name: Build base stages (if not cached or cache disabled)
-        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-hit != 'true'
+        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-matched-key == ''
         run: |
           cd pi-gen
           echo "Building base stages 0-4..."
@@ -307,14 +307,14 @@ jobs:
           sudo rm -rf pi-gen/work/*/stage-RQB2 || true
 
       - name: Save cache
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-hit != 'true'
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-matched-key == ''
         uses: actions/cache/save@v3
         with:
           path: stage4-base.tar.lz4
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
       - name: Restore cached build
-        if: steps.cache-stage4.outputs.cache-hit == 'true'  # Fixed: was steps.cache-restore
+        if: steps.cache-stage4.outputs.cache-matched-key != ''
         run: |
           cd pi-gen
           echo "Restoring cached build..."
@@ -332,7 +332,7 @@ jobs:
           fi
 
       - name: Debug cache structure
-        if: steps.cache-stage4.outputs.cache-hit == 'true'
+        if: steps.cache-stage4.outputs.cache-matched-key != ''
         run: |
           cd pi-gen
           echo "=== Work directory structure ==="
@@ -353,7 +353,7 @@ jobs:
           cd pi-gen
           
           # Check if we should use cache and if cache was hit
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-hit }}" == "true" ]; then
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
             echo "Using cached base stages..."
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
