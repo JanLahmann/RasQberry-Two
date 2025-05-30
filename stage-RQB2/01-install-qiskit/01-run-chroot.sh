@@ -1,19 +1,25 @@
-#!/bin/bash -e
+bash#!/bin/bash -e
 
 echo "Starting qiskit Installation"
 
-# Read configuration from files if they exist
-if [ -d "/tmp/rqb-config" ]; then
-    [ -f "/tmp/rqb-config/repo" ] && REPO=$(cat /tmp/rqb-config/repo)
-    [ -f "/tmp/rqb-config/git_user" ] && GIT_USER=$(cat /tmp/rqb-config/git_user)
-    [ -f "/tmp/rqb-config/git_branch" ] && GIT_BRANCH=$(cat /tmp/rqb-config/git_branch)
-    [ -f "/tmp/rqb-config/git_repo" ] && GIT_REPO=$(cat /tmp/rqb-config/git_repo)
-    [ -f "/tmp/rqb-config/std_venv" ] && STD_VENV=$(cat /tmp/rqb-config/std_venv)
-    [ -f "/tmp/rqb-config/confdir" ] && RQB2_CONFDIR=$(cat /tmp/rqb-config/confdir)
-    [ -f "/tmp/rqb-config/pigen" ] && PIGEN=$(cat /tmp/rqb-config/pigen)
-    rm -rf /tmp/rqb-config
+# Source the configuration file
+if [ -f "/tmp/stage-config.sh" ]; then
+    . /tmp/stage-config.sh
+    rm -f /tmp/stage-config.sh
+    
+    # Map the RQB_ prefixed variables to local names
+    REPO="${RQB_REPO}"
+    GIT_USER="${RQB_GIT_USER}"
+    GIT_BRANCH="${RQB_GIT_BRANCH}"
+    GIT_REPO="${RQB_GIT_REPO}"
+    STD_VENV="${RQB_STD_VENV}"
+    RQB2_CONFDIR="${RQB2_CONFDIR}"
+    PIGEN="${RQB_PIGEN}"
+    
+    echo "Configuration loaded successfully"
 else
-    echo "config files not found"
+    echo "ERROR: config file not found"
+    exit 1
 fi
 
 export CLONE_DIR="/tmp/${REPO}"
