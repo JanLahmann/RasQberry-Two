@@ -365,7 +365,7 @@ jobs:
           cd pi-gen
           
           # Check if we should use cache and if cache was hit
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != '' ]; then
             echo "Using cached base stages..."
             
             # Find the work directory
@@ -384,22 +384,25 @@ jobs:
               # Get just the directory name
               WORK_NAME=$(basename "$WORK_DIR")
               
-              # CRITICAL: Set the PREV_ROOTFS_DIR environment variable for pi-gen
+              # CRITICAL: Export environment variables for pi-gen
               export PREV_ROOTFS_DIR="$(pwd)/$WORK_DIR/stage4/rootfs"
-              echo "Set PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR"
-              
-              # Also set these for pi-gen
-              export ROOTFS_DIR="$(pwd)/$WORK_DIR/stage-RQB2/rootfs"
+              export PREV_WORK_DIR="$(pwd)/$WORK_DIR"
               export BASE_DIR="$(pwd)"
+              export WORK_DIR="work/$WORK_NAME"
               
-              # Tell pi-gen to continue from this work directory
-              echo "WORK_DIR=work/$WORK_NAME" >> config
-              echo "PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR" >> config
+              echo "Environment variables set:"
+              echo "  PREV_ROOTFS_DIR=$PREV_ROOTFS_DIR"
+              echo "  PREV_WORK_DIR=$PREV_WORK_DIR"
+              echo "  WORK_DIR=$WORK_DIR"
+              echo "  BASE_DIR=$BASE_DIR"
+              
+              # Only add valid pi-gen config options
+              echo "WORK_DIR=$WORK_DIR" >> config
               
               # Ensure stage4 has proper markers
-              if [ ! -f "$WORK_DIR/stage4/.build_done" ]; then
+              if [ ! -f "work/$WORK_NAME/stage4/.build_done" ]; then
                 echo "Creating stage4 build marker..."
-                sudo touch "$WORK_DIR/stage4/.build_done"
+                sudo touch "work/$WORK_NAME/stage4/.build_done"
               fi
             else
               echo "ERROR: No work directory found!"
@@ -414,8 +417,13 @@ jobs:
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           fi
           
-          # Build custom stage
-          sudo -E ./build.sh  # Use -E to preserve environment variables
+          # Debug: Show final config
+          echo "=== Final config file ==="
+          cat config
+          echo "========================"
+          
+          # Build custom stage with environment preserved
+          sudo -E ./build.sh
 
       - name: Set dynamic asset path and name
         id: set-asset
