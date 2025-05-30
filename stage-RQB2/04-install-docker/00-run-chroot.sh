@@ -8,9 +8,9 @@ rm -rf /var/lib/apt/lists/*
 
 # Configure apt for low memory usage
 cat > /etc/apt/apt.conf.d/99-low-memory <<EOF
-APT::Cache-Start "10000000";
-APT::Cache-Grow "1000000";
-APT::Cache-Limit "20000000";
+APT::Cache-Start "50000000";
+APT::Cache-Grow "2000000";
+APT::Cache-Limit "100000000";
 Acquire::http::Pipeline-Depth "0";
 Acquire::http::No-Cache "true";
 Acquire::BrokenProxy "true";
