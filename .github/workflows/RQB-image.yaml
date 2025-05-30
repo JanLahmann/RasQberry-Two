@@ -504,23 +504,24 @@ jobs:
           # Install pixz for parallel compression
           sudo apt-get install -y pixz
           
-          # Change ownership of deploy directory to current user
-          sudo chown -R $USER:$USER deploy/
-          
-          # Find the image
-          IMAGE=$(find deploy -name "*.img" -type f | head -n 1)
+          # Find the uncompressed image
+          IMAGE=$(find deploy -name "*.img" -type f | head -1)
           
           if [ -n "$IMAGE" ]; then
-            echo "Compressing $IMAGE with pixz..."
+            echo "Found image: $IMAGE"
             echo "Original size: $(du -h "$IMAGE" | cut -f1)"
             
-            # Now pixz can run without sudo
-            pixz -6 -p $(nproc) "$IMAGE"
+            # Use pixz for fast parallel compression
+            # -3 is faster than -8 but still gives good compression
+            time pixz -3 -p $(nproc) "$IMAGE"
             
             echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
             
             # Remove uncompressed image to save space
             rm "$IMAGE"
+          else
+            echo "No uncompressed image found - checking for already compressed"
+            ls -la deploy/
           fi
 
       - name: Set dynamic asset path and name
