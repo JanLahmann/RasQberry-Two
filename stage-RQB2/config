@@ -1,0 +1,3 @@
+#!/bin/bash
+# stage-RQB2/config
+export SKIP_INITRAMFS="${SKIP_INITRAMFS:-0}"
