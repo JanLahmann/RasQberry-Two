@@ -155,7 +155,7 @@ jobs:
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
           echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
           # This won't list caches directly, but will show what key we're looking for
-          
+
       - name: Determine if caching should be used
         id: cache-decision
         run: |
@@ -183,12 +183,12 @@ jobs:
           CACHE_DATE=$(date +"%Y-%m")
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
-      - name: Cache stage4 work directory (dev branches only)
+      - name: Restore cache (dev branches only)
         id: cache-stage4
         if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v3
         with:
-          path: stage4-base.tar.gz
+          path: stage4-base.tar.lz4
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
       - name: Install pi-gen dependencies
@@ -290,6 +290,13 @@ jobs:
           
           # Clean up to prepare for custom stage
           sudo rm -rf work/*/stage-RQB2 || true
+
+      - name: Save cache
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: stage4-base.tar.lz4
+          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
       - name: Restore cached build
         if: steps.cache-stage4.outputs.cache-hit == 'true'  # Fixed: was steps.cache-restore
