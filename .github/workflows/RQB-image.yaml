@@ -150,6 +150,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: List available caches
+        run: |
+          echo "Current branch: ${GITHUB_REF#refs/heads/}"
+          echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
+          # This won't list caches directly, but will show what key we're looking for
+          
       - name: Determine if caching should be used
         id: cache-decision
         run: |
@@ -301,6 +307,23 @@ jobs:
               sudo mkdir -p "$WORK_DIR/stage4/"
               sudo mv work/.cache-stage4/rootfs "$WORK_DIR/stage4/"
             fi
+          fi
+
+      - name: Debug cache structure
+        if: steps.cache-stage4.outputs.cache-hit == 'true'
+        run: |
+          cd pi-gen
+          echo "=== Work directory structure ==="
+          find work -type d -name "stage*" | head -20
+          echo "=== Looking for rootfs ==="
+          find work -type d -name "rootfs" | head -5
+          echo "=== Looking for .build_done markers ==="
+          find work -name ".build_done" | head -10
+          echo "=== Work directory listing ==="
+          ls -la work/
+          if [ -d "work/.cache-stage4" ]; then
+            echo "=== Cache stage4 directory exists ==="
+            ls -la work/.cache-stage4/
           fi
 
       - name: Build custom stage
