@@ -164,3 +164,4 @@ cython_debug/
 
 # Explicitly include the root-level VERSION file
 !/VERSION
+.vscode/settings.json
