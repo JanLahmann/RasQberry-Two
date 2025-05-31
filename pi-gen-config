@@ -21,11 +21,11 @@ SKIP_INITRAMFS=1
 
 # RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH will be overwritten in the GH actions workflow with current repo/user/branch
 # Repository name
-RQB_REPO=RasQberry-Two
+RQB_REPO=will-be-set-in-gh-workflow
 # GitHub username
-RQB_GIT_USER=JanLahmann
+RQB_GIT_USER=will-be-set-in-gh-workflow
 # Branch to clone (main, beta, dev, etc.)
-RQB_GIT_BRANCH=dev-JRL-cld-cache
+RQB_GIT_BRANCH=will-be-set-in-gh-workflow
 
 # Construct the Git URL from user and repo
 RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
