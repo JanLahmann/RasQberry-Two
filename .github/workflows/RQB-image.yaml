@@ -171,6 +171,37 @@ jobs:
           echo "=== After cleanup ==="
           df -h
 
+      - name: Maximize available memory
+        run: |
+          echo "=== Initial memory status ==="
+          free -h
+          
+          # Stop unnecessary services to free memory
+          echo "Stopping unnecessary services..."
+          sudo systemctl stop mysql || true
+          sudo systemctl stop postgresql || true
+          sudo systemctl stop apache2 || true
+          sudo systemctl stop snapd || true
+          sudo systemctl stop google-chrome || true
+          sudo systemctl stop firefox || true
+          sudo systemctl stop dotnet || true
+          
+          # Remove existing swap
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+          
+          # Create larger swap file (10GB)
+          echo "Creating 10GB swap file..."
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          
+          echo "=== Final memory status ==="
+          free -h
+          echo "=== Swap status ==="
+          sudo swapon --show
+
       - name: List available caches
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
@@ -278,6 +309,22 @@ jobs:
 
       - name: Copy custom stage
         run: cp -r stage-RQB2 pi-gen/
+
+      - name: Update pi-gen-config with current Git info
+        run: |
+          # Extract Git information
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          
+          # Update pi-gen-config directly
+          sed -i "s/^RQB_REPO=.*/RQB_REPO=${REPO_NAME}/" pi-gen-config
+          sed -i "s/^RQB_GIT_USER=.*/RQB_GIT_USER=${REPO_OWNER}/" pi-gen-config
+          sed -i "s/^RQB_GIT_BRANCH=.*/RQB_GIT_BRANCH=${BRANCH_NAME}/" pi-gen-config
+          
+          # Show changes
+          echo "=== Updated values in pi-gen-config ==="
+          grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
       - name: Configure build
         run: |
@@ -392,23 +439,12 @@ jobs:
           # Clean up any temporary cache directory if it exists
           sudo rm -rf work/.cache-stage4 || true
 
-      - name: Setup swap space for build
+      - name: show swap and memory status before build
         run: |
-          # Create 10GB swap file to prevent memory issues
-          sudo swapoff -a
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          
-          # Configure apt for low memory
-          #echo 'APT::Cache-Start "20000000";' | sudo tee /etc/apt/apt.conf.d/00-cache-limit
-          #echo 'APT::Cache-Limit "50000000";' | sudo tee -a /etc/apt/apt.conf.d/00-cache-limit
-          
-          # Show memory status
-          echo "=== Memory with swap ==="
+          echo "=== Current memory status ==="
           free -h
-        
+          swapon --show
+
       - name: Build custom stage
         run: |
           cd pi-gen
@@ -484,39 +520,6 @@ jobs:
           
           # Build custom stage
           sudo ./build.sh
-
-      - name: Compress image with parallel xz
-        run: |
-          cd pi-gen
-          
-          # Install pixz for parallel compression
-          sudo apt-get install -y pixz
-          
-          # Read compression level from config
-          COMPRESSION_LEVEL_PIXZ=$(grep "^COMPRESSION_LEVEL_PIXZ=" config | cut -d'=' -f2)
-          COMPRESSION_LEVEL_PIXZ=${COMPRESSION_LEVEL_PIXZ:-6}  # Default to 6 if not set
-          
-          echo "Using compression level: $COMPRESSION_LEVEL_PIXZ"
-          
-          # Find the uncompressed image
-          IMAGE=$(find deploy -name "*.img" -type f | head -1)
-          
-          if [ -n "$IMAGE" ]; then
-            echo "Found image: $IMAGE"
-            echo "Original size: $(du -h "$IMAGE" | cut -f1)"
-            
-            # Use pixz with the configured compression level
-            echo "Compressing with pixz -${COMPRESSION_LEVEL_PIXZ} using $(nproc) threads..."
-            time sudo pixz -${COMPRESSION_LEVEL_PIXZ} -p $(nproc) "$IMAGE"
-            
-            echo "Compressed size: $(du -h "${IMAGE}.xz" | cut -f1)"
-            
-            # Remove uncompressed image to save space
-            [ -f "$IMAGE" ] && sudo rm "$IMAGE" || true
-          else
-            echo "No uncompressed image found - checking for already compressed"
-            ls -la deploy/
-          fi
 
       - name: Set dynamic asset path and name
         id: set-asset

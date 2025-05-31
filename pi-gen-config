@@ -1,8 +1,5 @@
 IMG_NAME=rasqberry
 RELEASE=bookworm
-# Don't compress during pi-gen build, but use explicit pixz
-#DEPLOY_COMPRESSION=none
-#COMPRESSION_LEVEL_PIXZ=3
 DEPLOY_COMPRESSION=xz
 COMPRESSION_LEVEL=3
 LOCALE_DEFAULT=en_GB.UTF-8
@@ -21,14 +18,17 @@ WPA_COUNTRY=GB
 SKIP_INITRAMFS=1
 
 # RasQberry-specific build configuration
+
+# RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH will be overwritten in the GH actions workflow with current repo/user/branch
 # Repository name
 RQB_REPO=RasQberry-Two
 # GitHub username
 RQB_GIT_USER=JanLahmann
-# Construct the Git URL from user and repo
-RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 # Branch to clone (main, beta, dev, etc.)
 RQB_GIT_BRANCH=dev-JRL-cld-cache
+
+# Construct the Git URL from user and repo
+RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 # Standard virtual environment name
 RQB_STD_VENV=RQB2
 # Configuration directory (relative to user home)
