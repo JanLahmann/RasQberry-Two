@@ -3,9 +3,9 @@
 echo "Starting qiskit Installation"
 
 # Source the configuration file
-if [ -f "/tmp/stage-config.sh" ]; then
-    . /tmp/stage-config.sh
-    rm -f /tmp/stage-config.sh
+if [ -f "/tmp/stage-config" ]; then
+    . /tmp/stage-config
+    rm -f /tmp/stage-config
     
     # Map the RQB_ prefixed variables to local names
     REPO="${RQB_REPO}"

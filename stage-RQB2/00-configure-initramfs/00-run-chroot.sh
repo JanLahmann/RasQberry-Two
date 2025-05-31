@@ -5,9 +5,9 @@
 echo "Checking SKIP_INITRAMFS configuration..."
 
 # Source the configuration file (same approach as qiskit stage)
-if [ -f "/tmp/stage-config.sh" ]; then
-    . /tmp/stage-config.sh
-    rm -f /tmp/stage-config.sh
+if [ -f "/tmp/stage-config" ]; then
+    . /tmp/stage-config
+    rm -f /tmp/stage-config
     echo "Configuration loaded, SKIP_INITRAMFS=${SKIP_INITRAMFS}"
 else
     echo "WARNING: stage config file not found, defaulting SKIP_INITRAMFS to 0"
