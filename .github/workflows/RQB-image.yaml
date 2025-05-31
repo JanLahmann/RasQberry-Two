@@ -1,12 +1,35 @@
+# ============================================================================
+# RasQberry Pi Image Build Workflow
+# ============================================================================
+# Purpose: Automates the building of custom Raspberry Pi OS images for the 
+#          RasQberry quantum computing education platform.
+#
+# Key Features:
+# - Automated versioning with semantic versioning support
+# - Intelligent caching system for faster development builds
+# - Automatic GitHub releases with built images
+# - Memory and disk optimization for GitHub Actions runners
+# - Support for both development and production builds
+#
+# Trigger Conditions:
+# - Manual workflow dispatch (with optional version override)
+# - Automatic on push to dev* branches
+# ============================================================================
+
 name: Rasqberry Pi Image Release
 
+# GitHub permissions required for this workflow
 permissions:
-  contents: write
-  checks: write
-  id-token: write
-  packages: write
+  contents: write      # Create releases and push tags
+  checks: write        # Update check status
+  id-token: write      # Sign artifacts with cosign
+  packages: write      # Push to GitHub container registry
 
+# ============================================================================
+# WORKFLOW TRIGGERS
+# ============================================================================
 on:
+  # Manual trigger with input parameters
   workflow_dispatch:
     inputs:
       version:
@@ -18,28 +41,44 @@ on:
         required: false
         type: boolean
         default: false
+  
+  # Automatic trigger for development branches
   push:
     branches:
-      - dev*
+      - dev*    # Matches: dev, dev-feature, development, etc.
 
+# ============================================================================
+# GLOBAL ENVIRONMENT VARIABLES
+# ============================================================================
 env:
+  # Cache versioning - increment this to invalidate all caches
   CACHE_VERSION: v1
 
+# ============================================================================
+# JOB 1: Version Management
+# ============================================================================
+# This job handles semantic versioning and creates git tags
+# For main branch: Requires semantic version (e.g., 1.2.3)
+# For dev branches: Auto-generates version with timestamp
 jobs:
   rasqberry-push-version-number:
     name: "Rasqberry: Push version number"
     runs-on: ubuntu-latest
     outputs:
+      # Version outputs for use in subsequent jobs
       version: ${{ steps.current-version.outputs.version }}
       version_num: ${{ steps.update-version.outputs.version_num }}
+    
     steps:
+      # Clone the repository with push permissions
       - name: "Rasqberry: Clone Repository"
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
+          persist-credentials: true  # Needed for pushing tags
 
+      # Generate timestamp for dev branch versions
       - name: Create Date
         id: create-date
         shell: bash
@@ -47,6 +86,7 @@ jobs:
           NOW="$(date +"%Y-%m-%d-%H%M%S")"
           echo "date=${NOW}" >> $GITHUB_OUTPUT
 
+      # Read the current version from VERSION file
       - name: "Rasqberry: Get current version"
         id: current-version
         shell: bash
@@ -54,6 +94,10 @@ jobs:
           version=$(cat ./VERSION)
           echo "version=${version}" >> $GITHUB_OUTPUT
 
+      # Update version file with new version number
+      # Logic:
+      # - Main branch: Must provide semantic version via input
+      # - Dev branches: Use input if provided, else branch-timestamp
       - name: "Rasqberry: Add version file"
         id: update-version
         if: ${{ steps.current-version.outputs.version != github.event.inputs.version }}
@@ -63,6 +107,8 @@ jobs:
           CREATE_DATE: ${{ steps.create-date.outputs.date }}
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          
+          # Main branch requires explicit semantic version
           if [ "$BRANCH_NAME" = "main" ]; then
             if [ -z "$VERSION_INPUT" ]; then
               echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
@@ -70,15 +116,18 @@ jobs:
             fi
             VERSION_NUMBER="$VERSION_INPUT"
           else
+            # Dev branches: Use input or generate from branch name + timestamp
             if [ -n "$VERSION_INPUT" ]; then
               VERSION_NUMBER="$VERSION_INPUT"
             else
               VERSION_NUMBER="${BRANCH_NAME}-${CREATE_DATE}"
             fi
           fi
+          
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "$VERSION_NUMBER" > ./VERSION
 
+      # Validate semantic version format for main branch releases
       - name: "Validate semantic version"
         if: github.ref == 'refs/heads/main'
         shell: bash
@@ -86,6 +135,8 @@ jobs:
           echo "$VERSION_INPUT" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
             || { echo "⛔ Invalid semantic version: $VERSION_INPUT" >&2; exit 1; }
         
+      # Commit version change and create/update git tag
+      # Tags: v1.2.3 for main, branch-timestamp for dev
       - name: "Rasqberry: git add & commit & push"
         uses: EndBug/add-and-commit@v9
         with:
@@ -93,42 +144,57 @@ jobs:
           default_author: github_actions
           message: "Bump version to ${{ steps.update-version.outputs.version_num }}"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Force push tags to allow re-running builds with same version
           tag: ${{ github.ref == 'refs/heads/main' && format('v{0} --force', steps.update-version.outputs.version_num) || format('{0} --force', steps.update-version.outputs.version_num) }}
           push: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Install cosign for artifact signing (future enhancement)
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
         with:
           cosign-release: 'v2.2.4'
 
+  # ============================================================================
+  # JOB 2: Create GitHub Release
+  # ============================================================================
+  # Creates a GitHub release with changelog for the new version
   release:
     name: Create Release
     needs: rasqberry-push-version-number
     runs-on: ubuntu-latest
     outputs:
+      # Release outputs for asset upload
       id: ${{ steps.create-release.outputs.id }}
       upload_url: ${{ steps.create-release.outputs.upload_url }}
+    
     steps:
+      # Checkout with full history for changelog generation
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history needed for git-cliff
 
+      # Get the most recent tag for changelog generation
       - name: Get latest tag
         id: latest_tag
         shell: bash
         run: |
           echo "TAG_NAME=$(git describe --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_OUTPUT
 
+      # Generate changelog from commits since last tag
       - name: Generate a changelog
         uses: orhun/git-cliff-action@v1
         id: changelog
         with:
-          config: ./cliff-release.toml
+          config: ./cliff-release.toml  # Changelog format configuration
           args: ${{ steps.latest_tag.outputs.TAG_NAME }}..HEAD
 
+      # Create GitHub release with generated changelog
+      # Release naming:
+      # - Main: "rasqberry-v1.2.3"
+      # - Dev: "rasqberry-dev-2024-01-01-123456"
       - name: Create Release
         id: create-release
         uses: softprops/action-gh-release@v2.2.1
@@ -137,46 +203,62 @@ jobs:
           name: ${{ github.ref == 'refs/heads/main' && format('rasqberry-v{0}', needs.rasqberry-push-version-number.outputs.version_num) || format('rasqberry-{0}', needs.rasqberry-push-version-number.outputs.version_num) }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
           body: ${{ steps.changelog.outputs.content }}
-          make_latest: true
+          make_latest: true  # Mark as latest release
 
+  # ============================================================================
+  # JOB 3: Build Raspberry Pi Image
+  # ============================================================================
+  # This job builds the actual Raspberry Pi OS image using pi-gen
+  # Includes sophisticated caching for development builds
   build:
     name: Build Image
     needs: [release]
     runs-on: ubuntu-latest
     outputs:
+      # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ========================================================================
+      # DISK SPACE OPTIMIZATION
+      # ========================================================================
+      # GitHub Actions runners have limited disk space (~14GB free)
+      # Pi-gen needs significant space for building images
       - name: Free up disk space
         run: |
           echo "=== Before cleanup ==="
           df -h
           
-          # Remove unnecessary tools and files
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/share/boost
-          # sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/hostedtoolcache
-          sudo rm -rf /usr/local/graalvm
-          sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf /usr/local/share/powershell
-          # sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/lib/node_modules
+          # Remove large pre-installed tools we don't need
+          # Each line frees several GB of space
+          sudo rm -rf /usr/share/dotnet          # .NET SDK
+          sudo rm -rf /opt/ghc                   # Haskell compiler
+          sudo rm -rf /usr/local/share/boost     # Boost C++ libraries
+          sudo rm -rf /usr/local/lib/android     # Android SDK
+          sudo rm -rf /opt/hostedtoolcache       # Various cached tools
+          sudo rm -rf /usr/local/graalvm         # GraalVM JDK
+          sudo rm -rf /usr/local/.ghcup          # Haskell toolchain
+          sudo rm -rf /usr/local/share/powershell # PowerShell
+          sudo rm -rf /usr/local/lib/node_modules # Node.js global modules
           
           echo "=== After cleanup ==="
           df -h
 
+      # ========================================================================
+      # MEMORY OPTIMIZATION
+      # ========================================================================
+      # Pi-gen is memory intensive, especially during compression
+      # Create large swap file to prevent OOM errors
       - name: Maximize available memory
         run: |
           echo "=== Initial memory status ==="
           free -h
           
-          # Stop unnecessary services to free memory
+          # Stop unnecessary services to free RAM
           echo "Stopping unnecessary services..."
           sudo systemctl stop mysql || true
           sudo systemctl stop postgresql || true
@@ -202,12 +284,20 @@ jobs:
           echo "=== Swap status ==="
           sudo swapon --show
 
+      # ========================================================================
+      # CACHE CONFIGURATION
+      # ========================================================================
+      # Display what cache key we're looking for (debugging aid)
       - name: List available caches
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
           echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
-          # This won't list caches directly, but will show what key we're looking for
+          # Note: Can't actually list caches, but shows the key format
 
+      # Determine if this build should use caching
+      # Rules:
+      # - Only dev* branches use cache (production builds always fresh)
+      # - Manual refresh_cache input forces fresh build
       - name: Determine if caching should be used
         id: cache-decision
         run: |
@@ -227,6 +317,8 @@ jobs:
             echo "Cache disabled for branch: $BRANCH_NAME"
           fi
 
+      # Generate cache key with monthly rotation
+      # This ensures caches are refreshed monthly for security updates
       - name: Generate cache date
         id: cache-date
         if: steps.cache-decision.outputs.use_cache == 'true'
@@ -235,6 +327,11 @@ jobs:
           CACHE_DATE=$(date +"%Y-%m")
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
+      # ========================================================================
+      # CACHE RESTORATION
+      # ========================================================================
+      # Try to restore cached base image (stages 0-4) for dev builds
+      # Cache contains compressed base Raspberry Pi OS layers
       - name: Restore cache (dev branches only)
         id: cache-stage4
         if: steps.cache-decision.outputs.use_cache == 'true'
@@ -243,6 +340,7 @@ jobs:
           path: stage4-base.tar.lz4
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
+      # Cache frequently downloaded apt packages
       - name: Cache apt packages
         id: cache-apt
         uses: actions/cache@v3
@@ -252,15 +350,20 @@ jobs:
           restore-keys: |
             apt-packages-${{ runner.os }}-pigen-deps-
           
+      # ========================================================================
+      # PI-GEN DEPENDENCIES
+      # ========================================================================
+      # Install required packages for running pi-gen
+      # Uses apt package caching to speed up repeated builds
       - name: Install pi-gen dependencies
         run: |
-          # Create our cache directory
+          # Create cache directory for apt packages
           mkdir -p ~/apt-cache
           
           # Configure apt to keep downloaded packages
           echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/01cache
           
-          # If cache was restored, copy packages to apt's directory
+          # Restore cached packages if available
           if [ "${{ steps.cache-apt.outputs.cache-hit }}" == "true" ] && [ -n "$(ls -A ~/apt-cache/*.deb 2>/dev/null)" ]; then
             echo "Restoring apt packages from cache..."
             echo "Found $(ls ~/apt-cache/*.deb | wc -l) packages in cache"
@@ -272,90 +375,112 @@ jobs:
           # Update package lists
           sudo apt-get update
           
-          # Install packages
+          # Install pi-gen dependencies
+          # These are required for cross-compilation and image building
           sudo apt-get install -y \
             coreutils \
-            quilt \
-            parted \
-            qemu-user-static \
-            debootstrap \
-            zerofree \
+            quilt \              # Patch management
+            parted \             # Partition management
+            qemu-user-static \   # ARM emulation
+            debootstrap \        # Debian bootstrap
+            zerofree \           # Zero free blocks
             zip \
-            dosfstools \
-            libarchive-tools \
-            libcap2-bin \
+            dosfstools \         # FAT filesystem tools
+            libarchive-tools \   # Archive manipulation
+            libcap2-bin \        # Capabilities management
             grep \
             rsync \
-            xz-utils \
+            xz-utils \           # XZ compression
             file \
             git \
             curl \
-            bc \
-            gpg \
-            pigz \
-            lz4 \
-            arch-test
+            bc \                 # Calculator
+            gpg \                # GPG signing
+            pigz \               # Parallel gzip
+            lz4 \                # LZ4 compression
+            arch-test            # Architecture testing
           
-          # Save packages to our cache directory
+          # Save downloaded packages to cache
           echo "Copying packages to cache directory..."
           cp -v /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
           echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
           echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
 
+      # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
         run: |
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
+      # Copy our custom RasQberry stage into pi-gen
       - name: Copy custom stage
         run: cp -r stage-RQB2 pi-gen/
 
+      # ========================================================================
+      # DYNAMIC CONFIGURATION
+      # ========================================================================
+      # Update build configuration with current Git context
+      # This ensures the image builds from the correct repository/branch
       - name: Update pi-gen-config with current Git info
         run: |
-          # Extract Git information
+          # Extract Git information from GitHub context
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
           BRANCH_NAME="${GITHUB_REF_NAME}"
           
-          # Update pi-gen-config directly
+          # Update pi-gen-config with current values
+          # These will be used during image build to clone correct code
           sed -i "s/^RQB_REPO=.*/RQB_REPO=${REPO_NAME}/" pi-gen-config
           sed -i "s/^RQB_GIT_USER=.*/RQB_GIT_USER=${REPO_OWNER}/" pi-gen-config
           sed -i "s/^RQB_GIT_BRANCH=.*/RQB_GIT_BRANCH=${BRANCH_NAME}/" pi-gen-config
           
-          # Show changes
+          # Show changes for verification
           echo "=== Updated values in pi-gen-config ==="
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
+      # Configure pi-gen with our custom settings
       - name: Configure build
         run: |
           cd pi-gen
           cp ../pi-gen-config config
 
+      # ========================================================================
+      # BASE STAGE BUILD (Conditional)
+      # ========================================================================
+      # Build stages 0-4 only if:
+      # 1. Cache is disabled, OR
+      # 2. Cache miss (no existing cache found)
       - name: Build base stages (if not cached or cache disabled)
         if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-matched-key == ''
         run: |
           cd pi-gen
           echo "Building base stages 0-4..."
+          
+          # Configure to build only base stages
           echo 'STAGE_LIST="stage0 stage1 stage2 stage3 stage4"' >> config
           
-          # Skip Export for stages 0-4
-          touch ./stage0/SKIP_IMAGES ./stage1/SKIP_IMAGES ./stage2/SKIP_IMAGES ./stage3/SKIP_IMAGES ./stage4/SKIP_IMAGES
+          # Skip image export for intermediate stages (saves time)
+          touch ./stage0/SKIP_IMAGES ./stage1/SKIP_IMAGES ./stage2/SKIP_IMAGES
+          touch ./stage3/SKIP_IMAGES ./stage4/SKIP_IMAGES
           
-          # Skip stage5 (not needed)
+          # Skip stage5 (desktop software - not needed)
           touch ./stage5/SKIP
           
-          # Run build
+          # Run the build
           sudo ./build.sh
           
-          # Save the work directory state for cache
+          # ====================================================================
+          # CACHE PREPARATION
+          # ====================================================================
+          # If caching is enabled, prepare the cache file
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
             echo "Saving work directory for cache..."
             
-            # Find the actual work directory (could be timestamped or just 'rasqberry')
+            # Find the work directory (named with timestamp or 'rasqberry')
             WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
             echo "Found work directory: $WORK_DIR"
             
-            # Ensure stage4 rootfs exists and copy it for the next stage
+            # Ensure stage4 rootfs exists and prepare for caching
             if [ -d "$WORK_DIR/stage4/rootfs" ]; then
               sudo mkdir -p work/.cache-stage4
               sudo cp -al $WORK_DIR/stage4/rootfs work/.cache-stage4/
@@ -364,6 +489,8 @@ jobs:
               echo "WARNING: stage4 rootfs not found at $WORK_DIR/stage4/rootfs"
             fi
 
+            # Create compressed cache file
+            # Exclude unnecessary files to reduce cache size
             sudo tar -cf - \
               --exclude='work/*/stage*/rootfs/var/cache/apt/archives/*.deb' \
               --exclude='work/*/stage*/rootfs/tmp/*' \
@@ -380,7 +507,7 @@ jobs:
               --exclude='work/*/stage*/rootfs/var/cache/pip/*' \
               work | lz4 -1 > ../stage4-base.tar.lz4
             
-            # Move back to workspace root to verify the file
+            # Verify cache file creation
             cd ..
             if [ -f "stage4-base.tar.lz4" ]; then
               echo "✓ Cache file created successfully at workspace root"
@@ -397,9 +524,10 @@ jobs:
           fi
           
           # Clean up to prepare for custom stage
-          cd pi-gen  # Go back to pi-gen directory
+          cd pi-gen
           sudo rm -rf work/*/stage-RQB2 || true
 
+      # Save the cache for future builds
       - name: Save cache
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-matched-key == ''
         uses: actions/cache/save@v3
@@ -407,20 +535,27 @@ jobs:
           path: stage4-base.tar.lz4
           key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
 
+      # ========================================================================
+      # CACHE RESTORATION (from file)
+      # ========================================================================
+      # Extract and restore cached base image if it was hit
       - name: Restore cached build
         if: steps.cache-stage4.outputs.cache-matched-key != ''
         run: |
           cd pi-gen
           echo "Restoring cached build..."
+          
+          # Extract compressed cache
           lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
           
-          # Remove the cache file after extraction to save space
+          # Remove cache file to save space
           rm -f ../stage4-base.tar.lz4
           
-          # Verify the extraction worked
+          # Verify extraction was successful
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
           echo "Found work directory: $WORK_DIR"
           
+          # Sanity check: ensure rootfs has reasonable size
           if [ -d "$WORK_DIR/stage4/rootfs" ]; then
             ROOTFS_SIZE=$(sudo du -s "$WORK_DIR/stage4/rootfs" | cut -f1)
             echo "Restored rootfs size: $ROOTFS_SIZE KB"
@@ -433,59 +568,61 @@ jobs:
             exit 1
           fi
 
-          # Clean up any temporary cache directory if it exists
-          sudo rm -rf work/.cache-stage4 || true
-          
-          # Clean up any temporary cache directory if it exists
+          # Clean up any temporary directories
           sudo rm -rf work/.cache-stage4 || true
 
+      # Show system resources before main build
       - name: show swap and memory status before build
         run: |
           echo "=== Current memory status ==="
           free -h
           swapon --show
 
+      # ========================================================================
+      # CUSTOM STAGE BUILD
+      # ========================================================================
+      # Build the RasQberry-specific stage on top of base image
       - name: Build custom stage
         run: |
           cd pi-gen
           
-          # Check if we should use cache and if cache was hit
+          # Different build approach depending on cache usage
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
             echo "Using cached base stages..."
             
-            # Find the work directory
+            # Find the restored work directory
             WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
             
             if [ -n "$WORK_DIR" ]; then
               echo "Found work directory: $WORK_DIR"
               
-              # Check if stage4 rootfs exists
+              # Verify stage4 rootfs exists
               if [ ! -d "$WORK_DIR/stage4/rootfs" ]; then
                 echo "ERROR: stage4/rootfs missing from cache!"
                 echo "This cache is incomplete. Please use workflow_dispatch with 'refresh_cache' to rebuild."
                 exit 1
               fi
               
-              # Get the absolute path to the work directory
+              # Set up for continuation build
               WORK_NAME=$(basename "$WORK_DIR")
               WORK_DIR_ABS="$(pwd)/work/$WORK_NAME"
               
-              # Create the build.log file that pi-gen expects
+              # Create required build marker files
               sudo touch "$WORK_DIR_ABS/build.log"
               
-              # Ensure stage4 has build marker (only the last stage we built)
+              # Mark stage4 as complete (required for CONTINUE mode)
               if [ ! -f "$WORK_DIR_ABS/stage4/.build_done" ]; then
                 echo "Creating stage4 build marker..."
                 sudo mkdir -p "$WORK_DIR_ABS/stage4"
                 sudo touch "$WORK_DIR_ABS/stage4/.build_done"
               fi
               
-              # IMPORTANT: Only include stage-RQB2 in STAGE_LIST for cached builds
+              # Configure for continuation build
               echo "CONTINUE=1" >> config
               echo "WORK_DIR=$WORK_DIR_ABS" >> config
-              echo 'STAGE_LIST="./stage-RQB2"' >> config
+              echo 'STAGE_LIST="./stage-RQB2"' >> config  # Only build custom stage
               
-              # Ensure the rootfs has updated package lists
+              # Ensure package lists are current in cached rootfs
               echo "Ensuring package sources in cached rootfs..."
               if [ -f "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list" ]; then
                 echo "sources.list exists"
@@ -504,30 +641,33 @@ jobs:
           else
             echo "Continuing from fresh base build..."
             
-            # For fresh build continuation, we need to modify the existing config
-            # Remove the old STAGE_LIST that includes stages 0-4
-            sed -i '/^STAGE_LIST=/d' config
+            # For fresh builds, modify existing config
+            sed -i '/^STAGE_LIST=/d' config  # Remove old STAGE_LIST
             
-            # Add the custom stage configuration
+            # Add continuation config
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           fi
           
-          # Debug: Show final config
+          # Show final configuration for debugging
           echo "=== Final config file ==="
           cat config
           echo "========================"
           
-          # Build custom stage
+          # Build the custom RasQberry stage
           sudo ./build.sh
 
+      # ========================================================================
+      # IMAGE FINALIZATION
+      # ========================================================================
+      # Find the built image and prepare it for upload
       - name: Set dynamic asset path and name
         id: set-asset
         run: |
           cd pi-gen
           mkdir -p ../deploy
           
-          # Find the final image
+          # Find the compressed image file
           FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
           
           if [ -z "$FINAL_IMAGE" ]; then
@@ -535,19 +675,19 @@ jobs:
             exit 1
           fi
           
-          # Copy to deploy folder
+          # Copy to deploy folder at workspace root
           cp "$FINAL_IMAGE" ../deploy/
           
-          # Set outputs
+          # Set outputs for upload step
           FILE_NAME=$(basename "$FINAL_IMAGE")
           echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
           
-          # Show file info
+          # Display build information
           echo "Built image: $FILE_NAME"
           echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"
           
-          # Log cache usage
+          # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
             echo "Build completed with caching enabled"
             if [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
@@ -559,6 +699,10 @@ jobs:
             echo "Build completed without caching (production build)"
           fi
 
+      # ========================================================================
+      # RELEASE ASSET UPLOAD
+      # ========================================================================
+      # Upload the built image to the GitHub release
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -567,4 +711,4 @@ jobs:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
           asset_name: ${{ steps.set-asset.outputs.asset_name }}
-          asset_content_type: application/x-xz
+          asset_content_type: application/x-xz  # XZ compressed disk image
