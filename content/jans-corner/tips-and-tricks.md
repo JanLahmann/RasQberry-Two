@@ -49,3 +49,53 @@ sudo cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
 rm -rf ${CLONE_DIR}
 ```
+
+## Build System
+
+### Automated Image Building
+
+The RasQberry-Two project uses GitHub Actions to automatically build custom Raspberry Pi OS images. 
+
+#### Build Triggers
+- **Automatic builds**: Push to any `dev*` branch
+- **Manual builds**: Use the "Actions" tab → "Rasqberry Pi Image Release" → "Run workflow"
+
+#### Build Types
+- **Development builds** (`dev*` branches): Use caching for faster iteration (~21 min)
+- **Beta builds** (`beta` branch): Full clean build (~65 min)
+- **Production builds** (`main` branch): Full clean build (~65 min)
+
+#### Caching System
+Development builds use a sophisticated caching mechanism:
+- Base OS layers (stages 0-4) are cached monthly
+- Only the RasQberry-specific stage is rebuilt
+- Force refresh: Use `refresh_cache` option in manual workflow
+
+#### Version Management
+- **Main branch**: Requires semantic versioning (e.g., `1.2.3`)
+- **Beta branch**: (tbd)
+- **Dev branches**: Auto-generated as `branch-YYYY-MM-DD-HHMMSS`
+
+## GitHub Actions Workflows
+
+.github/workflows/RQB-image.yaml - RasQberry Image Build Workflow
+
+### Quick Start
+
+#### Manual Build (Recommended for testing)
+1. Go to Actions tab
+2. Select "Rasqberry Pi Image Release"
+3. Click "Run workflow"
+4. For dev branches:
+   - Leave version blank (auto-generated)
+   - Check "Force cache refresh" if needed
+5. For main and beta branch:
+   - Enter semantic version (e.g., "1.2.3")
+
+### Build Performance
+
+| Build Type | Cache | Typical Duration | When to Use |
+|------------|-------|------------------|-------------|
+| Dev (cached) | ✓ | ~21 minutes | Regular development |
+| Dev (fresh) | ✗ | ~65 minutes | Monthly or forced refresh |
+| Production | ✗ | ~65 minutes | Official releases |
