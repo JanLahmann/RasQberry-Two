@@ -2,25 +2,8 @@
 # stage-RQB2/config
 # Export RasQberry configuration variables to chroot environment
 
-echo "=== stage-RQB2/config: Starting configuration export ==="
-echo "Current SKIP_INITRAMFS value: ${SKIP_INITRAMFS:-not set}"
-
-# Show all environment variables to debug what's available
-echo "=== All environment variables ==="
-env | sort | grep -E "(SKIP|INITRAMFS|RQB_|FIRST_USER|ROOTFS|BASE_DIR|STAGE)" || echo "No relevant variables found"
-
-# Force export if variable exists in parent environment
-if [ -n "${SKIP_INITRAMFS+x}" ]; then
-    echo "SKIP_INITRAMFS is defined in parent environment as: '${SKIP_INITRAMFS}'"
-else
-    echo "WARNING: SKIP_INITRAMFS is not defined in parent environment"
-    # Set a default value if you want to force it
-    # SKIP_INITRAMFS=1
-fi
-
 # Export initramfs configuration
 export SKIP_INITRAMFS="${SKIP_INITRAMFS}"
-echo "Exported SKIP_INITRAMFS=${SKIP_INITRAMFS}"
 
 # Export RasQberry build configuration
 export RQB_REPO="${RQB_REPO}"
@@ -30,14 +13,3 @@ export RQB_GIT_REPO="${RQB_GIT_REPO}"
 export RQB_STD_VENV="${RQB_STD_VENV}"
 export RQB_CONFDIR="${RQB_CONFDIR}"
 export RQB_PIGEN="${RQB_PIGEN}"
-
-echo "=== Exported RasQberry variables ==="
-echo "RQB_REPO=${RQB_REPO}"
-echo "RQB_GIT_USER=${RQB_GIT_USER}"
-echo "RQB_GIT_BRANCH=${RQB_GIT_BRANCH}"
-echo "RQB_GIT_REPO=${RQB_GIT_REPO}"
-echo "RQB_STD_VENV=${RQB_STD_VENV}"
-echo "RQB_CONFDIR=${RQB_CONFDIR}"
-echo "RQB_PIGEN=${RQB_PIGEN}"
-
-echo "=== stage-RQB2/config: Completed ==="
