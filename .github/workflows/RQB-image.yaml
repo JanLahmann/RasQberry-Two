@@ -16,6 +16,54 @@
 # - Automatic on push to dev* branches
 # ============================================================================
 
+# ============================================================================
+# BUILD ARCHITECTURE OVERVIEW
+# ============================================================================
+# 
+# ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+# │ Version Manager │────▶│ Release Creator │────▶│  Image Builder  │
+# └─────────────────┘     └─────────────────┘     └─────────────────┘
+#         │                        │                        │
+#         ▼                        ▼                        ▼
+#   Update VERSION          Create GitHub          Build Pi Image
+#   Create Git Tag          Release with           - Use cache (dev)
+#   Push Changes            Changelog              - Fresh (main)
+#                                                   - Upload Asset
+#
+# CACHING STRATEGY (Dev Builds Only):
+# 
+# First Build:          Subsequent Builds:       Monthly/Forced:
+# ┌──────────┐         ┌──────────┐            ┌──────────┐
+# │ Stage 0  │         │ Stage 0  │            │ Stage 0  │
+# │ Stage 1  │ Build   │ Stage 1  │ From       │ Stage 1  │ Rebuild
+# │ Stage 2  │ All     │ Stage 2  │ Cache      │ Stage 2  │ All
+# │ Stage 3  │   ↓     │ Stage 3  │  (Skip)    │ Stage 3  │   ↓
+# │ Stage 4  │ Save    │ Stage 4  │   │        │ Stage 4  │ Save
+# ├──────────┤ Cache   ├──────────┤   ▼        ├──────────┤ Cache
+# │ RasQberry│   ↓     │ RasQberry│ Build      │ RasQberry│   ↓
+# └──────────┘         └──────────┘ Only       └──────────┘
+# ============================================================================
+
+
+# ============================================================================
+# ENVIRONMENT VARIABLES REFERENCE
+# ============================================================================
+#
+# Custom Variables (from pi-gen-config):
+#   - CACHE_VERSION: Increment to invalidate all caches
+#   - RQB_*: RasQberry-specific build configuration
+#     - RQB_REPO: Repository name (set dynamically)
+#     - RQB_GIT_USER: GitHub username (set dynamically)
+#     - RQB_GIT_BRANCH: Branch to build from (set dynamically)
+#     - RQB_STD_VENV: Standard virtual environment name
+#     - RQB_CONFDIR: Configuration directory path
+#
+# Pi-gen Variables (from pi-gen-config):
+#   - FIRST_USER_NAME: Default user (rasqberry)
+#   - IMG_NAME: Output image name prefix
+#   - SKIP_INITRAMFS: Speed optimization flag
+# ============================================================================
+
 name: Rasqberry Pi Image Release
 
 # GitHub permissions required for this workflow
@@ -379,26 +427,26 @@ jobs:
           # These are required for cross-compilation and image building
           sudo apt-get install -y \
             coreutils \
-            quilt \              # Patch management
-            parted \             # Partition management
-            qemu-user-static \   # ARM emulation
-            debootstrap \        # Debian bootstrap
-            zerofree \           # Zero free blocks
+            quilt \
+            parted \
+            qemu-user-static \
+            debootstrap \
+            zerofree \
             zip \
-            dosfstools \         # FAT filesystem tools
-            libarchive-tools \   # Archive manipulation
-            libcap2-bin \        # Capabilities management
+            dosfstools \
+            libarchive-tools \
+            libcap2-bin \
             grep \
             rsync \
-            xz-utils \           # XZ compression
+            xz-utils \
             file \
             git \
             curl \
-            bc \                 # Calculator
-            gpg \                # GPG signing
-            pigz \               # Parallel gzip
-            lz4 \                # LZ4 compression
-            arch-test            # Architecture testing
+            bc \
+            gpg \
+            pigz \
+            lz4 \
+            arch-test
           
           # Save downloaded packages to cache
           echo "Copying packages to cache directory..."
