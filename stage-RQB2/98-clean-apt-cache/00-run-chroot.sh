@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 echo "=== Cleaning APT cache and settings before export ==="
+echo "Package cache size before cleaning: $(du -sh /var/cache/apt/archives 2>/dev/null | cut -f1 || echo '0')"
 
 # 1. Remove the keep-downloaded-packages setting if it exists
 if [ -f /etc/apt/apt.conf.d/01cache ]; then
