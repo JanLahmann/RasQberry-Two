@@ -69,6 +69,11 @@
 
 name: Rasqberry Pi Image Release
 
+# Concurrency control: Only one workflow per branch, cancel previous runs
+concurrency:
+  group: rasqberry-build-${{ github.ref }}
+  cancel-in-progress: true
+
 # GitHub permissions required for this workflow
 permissions:
   contents: write      # Create releases and push tags
