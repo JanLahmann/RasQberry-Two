@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.1
+Name=Grokking the Bloch Sphere
+Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education
+Icon=applications-science
+Type=Application
+Categories=Education;Science;Development;
+Exec=chromium-browser https://javafxpert.github.io/grok-bloch/
+Terminal=false
+StartupNotify=true
+MimeType=text/html;
+Keywords=quantum;bloch;sphere;visualization;education;qubit;

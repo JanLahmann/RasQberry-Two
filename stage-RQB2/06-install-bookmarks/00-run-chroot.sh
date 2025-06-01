@@ -24,13 +24,17 @@ echo "Installing desktop bookmarks for user: ${FIRST_USER_NAME}"
 # Create icon directory
 mkdir -p /usr/share/icons/rasqberry
 
-# Copy IBM Quantum icon
-if [ -f "${CLONE_DIR}/desktop-icons/ibm-quantum.png" ]; then
-    cp "${CLONE_DIR}/desktop-icons/ibm-quantum.png" /usr/share/icons/rasqberry/
-    chmod 644 /usr/share/icons/rasqberry/ibm-quantum.png
-    echo "IBM Quantum icon installed"
+# Copy all icons from desktop-icons directory
+if [ -d "${CLONE_DIR}/desktop-icons" ]; then
+    for icon_file in "${CLONE_DIR}/desktop-icons"/*.png; do
+        if [ -f "$icon_file" ]; then
+            cp "$icon_file" /usr/share/icons/rasqberry/
+            chmod 644 "/usr/share/icons/rasqberry/$(basename "$icon_file")"
+            echo "Installed icon: $(basename "$icon_file")"
+        fi
+    done
 else
-    echo "WARNING: IBM Quantum icon not found at ${CLONE_DIR}/desktop-icons/ibm-quantum.png"
+    echo "WARNING: Desktop icons directory not found"
 fi
 
 # Install desktop files to system applications menu
@@ -53,8 +57,8 @@ fi
 mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
-for desktop_file in /usr/share/applications/composer.desktop; do
-    if [ -f "$desktop_file" ]; then
+for desktop_file in /usr/share/applications/*.desktop; do
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 644 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -66,8 +70,8 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     USER_DESKTOP="/home/${FIRST_USER_NAME}/Desktop"
     mkdir -p "$USER_DESKTOP"
     
-    for desktop_file in /usr/share/applications/composer.desktop; do
-        if [ -f "$desktop_file" ]; then
+    for desktop_file in /usr/share/applications/*.desktop; do
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 644 "$USER_DESKTOP/$(basename "$desktop_file")"
