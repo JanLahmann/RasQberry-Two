@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.1
+Name=Quantum Fractals
+Comment=Create animated fractal art using quantum computing circuits and Julia sets
+Icon=applications-graphics
+Type=Application
+Categories=Education;Science;Graphics;Development;
+Exec=/home/rasqberry/.local/bin/fractals.sh
+Terminal=true
+StartupNotify=true
+Keywords=quantum;fractals;julia;art;visualization;qiskit;

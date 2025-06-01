@@ -192,6 +192,12 @@ run_grok_bloch_demo() {
     "$BIN_DIR/rq_grok_bloch.sh"
 }
 
+# Run quantum fractals demo
+run_fractals_demo() {
+    # Launch the fractals demo using the dedicated launcher script
+    "$BIN_DIR/fractals.sh"
+}
+
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
@@ -375,12 +381,14 @@ do_quantum_demo_menu() {
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
        GRB  "Grok Bloch Sphere" \
+       FRC  "Quantum Fractals" \
        STOP "Stop last running demo and clear LEDs") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
       GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
+      FRC)  run_fractals_demo       || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
       STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
