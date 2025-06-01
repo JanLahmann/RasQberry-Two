@@ -348,7 +348,8 @@ jobs:
 
       # Determine if this build should use caching
       # Rules:
-      # - Only dev* branches use cache (production builds always fresh)
+      # - Only main and beta branches disable cache (production builds always fresh)
+      # - All other branches use cache for faster development
       # - Manual refresh_cache input forces fresh build
       - name: Determine if caching should be used
         id: cache-decision
@@ -356,7 +357,10 @@ jobs:
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           FORCE_REFRESH="${{ github.event.inputs.refresh_cache }}"
           
-          if [[ "$BRANCH_NAME" == dev* ]]; then
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
+            echo "use_cache=false" >> $GITHUB_OUTPUT
+            echo "Cache disabled for production branch: $BRANCH_NAME"
+          else
             if [ "$FORCE_REFRESH" == "true" ]; then
               echo "use_cache=false" >> $GITHUB_OUTPUT
               echo "Cache refresh forced by workflow input"
@@ -364,9 +368,6 @@ jobs:
               echo "use_cache=true" >> $GITHUB_OUTPUT
               echo "Cache enabled for development branch: $BRANCH_NAME"
             fi
-          else
-            echo "use_cache=false" >> $GITHUB_OUTPUT
-            echo "Cache disabled for branch: $BRANCH_NAME"
           fi
 
       # Generate cache key with monthly rotation
