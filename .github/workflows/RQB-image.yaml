@@ -570,8 +570,27 @@ jobs:
           fi
           
           # Clean up to prepare for custom stage
-          cd pi-gen
-          sudo rm -rf work/*/stage-RQB2 || true
+          echo "=== Cleanup Debug Information ==="
+          echo "Current working directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo "Looking for pi-gen directory..."
+          if [ -d "pi-gen" ]; then
+            echo "Found pi-gen directory, entering it"
+            cd pi-gen
+            echo "Now in pi-gen directory: $(pwd)"
+            echo "Contents of pi-gen:"
+            ls -la
+            echo "Cleaning up work/*/stage-RQB2..."
+            sudo rm -rf work/*/stage-RQB2 || true
+            cd ..
+            echo "Returned to: $(pwd)"
+          else
+            echo "ERROR: pi-gen directory not found for cleanup"
+            echo "Available directories:"
+            find . -maxdepth 2 -type d -name "*pi*" || echo "No pi-related directories found"
+          fi
+          echo "=== End Cleanup Debug ==="
 
       # Save the cache for future builds
       - name: Save cache
