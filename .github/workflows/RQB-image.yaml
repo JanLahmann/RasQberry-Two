@@ -468,25 +468,46 @@ jobs:
       # ========================================================================
       # DYNAMIC CONFIGURATION
       # ========================================================================
-      # Update build configuration with current Git context
-      # This ensures the image builds from the correct repository/branch
-      - name: Update pi-gen-config with current Git info
+      # Update build configuration with branch-specific settings and Git context
+      # This ensures the image builds with correct quality and repository settings
+      - name: Update pi-gen-config with branch-specific settings
         run: |
-          # Extract Git information from GitHub context
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
           BRANCH_NAME="${GITHUB_REF_NAME}"
           
-          # Update pi-gen-config with current values
-          # These will be used during image build to clone correct code
-          # Use | as delimiter to avoid conflicts with branch names containing /
-          echo "Updating pi-gen-config with: REPO=${REPO_NAME}, USER=${REPO_OWNER}, BRANCH=${BRANCH_NAME}"
-          sed -i "s|^RQB_REPO=.*|RQB_REPO=${REPO_NAME}|" pi-gen-config || { echo "Failed to update RQB_REPO"; exit 1; }
-          sed -i "s|^RQB_GIT_USER=.*|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config || { echo "Failed to update RQB_GIT_USER"; exit 1; }
-          sed -i "s|^RQB_GIT_BRANCH=.*|RQB_GIT_BRANCH=${BRANCH_NAME}|" pi-gen-config || { echo "Failed to update RQB_GIT_BRANCH"; exit 1; }
+          # Branch-specific quality settings override using config file values
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
+            echo "Applying production build settings for: $BRANCH_NAME"
+            
+            # Read production values from config file
+            SKIP_INITRAMFS_PROD=$(grep "^SKIP_INITRAMFS_PROD=" pi-gen-config | cut -d'=' -f2)
+            COMPRESSION_LEVEL_PROD=$(grep "^COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
+            
+            # Apply production values
+            sed -i "s/^SKIP_INITRAMFS=.*/SKIP_INITRAMFS=${SKIP_INITRAMFS_PROD}/" pi-gen-config
+            sed -i "s/^COMPRESSION_LEVEL=.*/COMPRESSION_LEVEL=${COMPRESSION_LEVEL_PROD}/" pi-gen-config
+          else
+            echo "Using development build settings for: $BRANCH_NAME"
+            # Keep existing dev values from config file
+          fi
           
-          # Show changes for verification
-          echo "=== Updated values in pi-gen-config ==="
+          # Conditional Git variable update (only if placeholder present)
+          if grep -q "will-be-set-in-gh-workflow" pi-gen-config; then
+            echo "Updating Git variables (placeholder values detected)"
+            REPO_NAME="${GITHUB_REPOSITORY#*/}"
+            REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+            
+            sed -i "s|RQB_REPO=will-be-set-in-gh-workflow|RQB_REPO=${REPO_NAME}|" pi-gen-config
+            sed -i "s|RQB_GIT_USER=will-be-set-in-gh-workflow|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config  
+            sed -i "s|RQB_GIT_BRANCH=will-be-set-in-gh-workflow|RQB_GIT_BRANCH=${BRANCH_NAME}|" pi-gen-config
+          else
+            echo "Git variables manually set, preserving existing values"
+          fi
+          
+          # Show final configuration for verification
+          echo "=== Final pi-gen-config settings ==="
+          echo "Build Quality:"
+          grep -E "^(SKIP_INITRAMFS|COMPRESSION_LEVEL)=" pi-gen-config
+          echo "Git Configuration:"
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
       # Configure pi-gen with our custom settings

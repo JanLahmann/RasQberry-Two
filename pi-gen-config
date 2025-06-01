@@ -1,7 +1,10 @@
 IMG_NAME=rasqberry
 RELEASE=bookworm
 DEPLOY_COMPRESSION=xz
+# Development: Fast compression for iteration
 COMPRESSION_LEVEL=3
+# Production: Maximum compression for releases
+COMPRESSION_LEVEL_PROD=9
 LOCALE_DEFAULT=en_GB.UTF-8
 TARGET_HOSTNAME=rasqberry
 KEYBOARD_KEYMAP=gb
@@ -14,8 +17,11 @@ DISABLE_FIRST_BOOT_USER_RENAME=1
 PUBKEY_ONLY_SSH=0
 WPA_COUNTRY=GB
 
-# Disable initramfs for faster builds
+# Build quality settings
+# Development: Fast builds for iteration
 SKIP_INITRAMFS=1
+# Production: High quality for releases
+SKIP_INITRAMFS_PROD=0
 
 # RasQberry-specific build configuration
 
