@@ -5,8 +5,8 @@ Comment=Interactive 3D visualization and exploration of the Bloch sphere for qua
 Icon=applications-science
 Type=Application
 Categories=Education;Science;Development;
-Exec=/usr/bin/rq_grok_bloch.sh
-Terminal=false
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_grok_bloch.sh'
+Terminal=true
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;

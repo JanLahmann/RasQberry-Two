@@ -4,8 +4,25 @@
 # Starts local HTTP server and opens the demo in browser
 #
 
+# Ensure HOME is set (for desktop launchers)
+if [ -z "$HOME" ]; then
+    HOME="/home/$(whoami)"
+fi
+
 # Load environment variables
-. $HOME/.local/bin/env-config.sh
+if [ -f "$HOME/.local/bin/env-config.sh" ]; then
+    . "$HOME/.local/bin/env-config.sh"
+else
+    echo "Error: Environment config not found at $HOME/.local/bin/env-config.sh"
+    exit 1
+fi
+
+# Verify REPO variable is set
+if [ -z "$REPO" ]; then
+    echo "Error: REPO variable not set after loading environment"
+    echo "Environment loading may have failed"
+    exit 1
+fi
 
 DEMO_DIR="$HOME/$REPO/demos/grok-bloch"
 PORT=8080
@@ -14,6 +31,10 @@ PORT=8080
 if [ ! -f "$DEMO_DIR/index.html" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
+    echo "Debug info:"
+    echo "  HOME: $HOME"
+    echo "  REPO: $REPO"
+    echo "  Expected path: $DEMO_DIR"
     exit 1
 fi
 
