@@ -76,11 +76,11 @@ chmod -R 755 ${CLONE_DIR}/RQB2-bin
 chmod -R 755 ${CLONE_DIR}/RQB2-config
 
 # Copy files to user directories
-cp ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
+cp -r ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
 cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
 
 # Copy files to system directories
-cp ${CLONE_DIR}/RQB2-bin/* /usr/bin
+cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
 # Set permissions on target directories
