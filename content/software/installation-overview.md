@@ -104,7 +104,7 @@ We recommend to not change any settings in “Edit Settings” in the Raspberry 
 
     ![alt text](../installation-images/image-13.png)
 
-12. Click `Yes` to erase all existing data from the SD card and copy the above selected Rasqberry image to the SD card.
+12. Click `Yes` to erase all existing data from the SD card and copy the above selected RasQberry image to the SD card.
 
     ![alt text](../installation-images/image-14.png)
 

@@ -62,13 +62,13 @@ Further instructions will be released, soon.
 Qiskit is available in the default venv called RQB2. In case this venv is not activated, you can activate with
 
 ```python
-. /home/pi/RasQberry-Two/venv/RQB2/bin/activate
+. /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
 ```
 
 and list the available Qiskit modules:
 
 ```python
-(RQB2) pi@raspberrypi:~ $ pip list | grep qiskit
+(RQB2) rasqberry@raspberrypi:~ $ pip list | grep qiskit
 qiskit                 1.1.1
 qiskit-qasm3-import    0.5.0
 ```

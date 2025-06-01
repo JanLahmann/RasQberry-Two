@@ -58,7 +58,7 @@ The RasQberry-Two project uses GitHub Actions to automatically build custom Rasp
 
 #### Build Triggers
 - **Automatic builds**: Push to any `dev*` branch
-- **Manual builds**: Use the "Actions" tab → "Rasqberry Pi Image Release" → "Run workflow"
+- **Manual builds**: Use the "Actions" tab → "RasQberry Pi Image Release" → "Run workflow"
 
 #### Build Types
 - **Development builds** (`dev*` branches): Use caching for faster iteration (~21 min)
@@ -84,7 +84,7 @@ Development builds use a sophisticated caching mechanism:
 
 #### Manual Build (Recommended for testing)
 1. Go to Actions tab
-2. Select "Rasqberry Pi Image Release"
+2. Select "RasQberry Pi Image Release"
 3. Click "Run workflow"
 4. For dev branches:
    - Leave version blank (auto-generated)
