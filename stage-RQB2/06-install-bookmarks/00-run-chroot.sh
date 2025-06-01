@@ -9,6 +9,9 @@ if [ -f "/tmp/stage-config" ]; then
     
     # Map the RQB_ prefixed variables to local names
     REPO="${RQB_REPO}"
+    GIT_USER="${RQB_GIT_USER}"
+    GIT_BRANCH="${RQB_GIT_BRANCH}"
+    GIT_REPO="${RQB_GIT_REPO}"
     # Use FIRST_USER_NAME from pi-gen config, with fallback to rasqberry
     FIRST_USER_NAME="${FIRST_USER_NAME:-rasqberry}"
     
@@ -19,6 +22,14 @@ else
 fi
 
 export CLONE_DIR="/tmp/${REPO}"
+
+# Clone the Git repository for bookmark installation
+if [ ! -d "${CLONE_DIR}" ]; then
+    echo "Cloning repository ${GIT_REPO} (branch: ${GIT_BRANCH}) to ${CLONE_DIR}"
+    git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
+else
+    echo "Repository already exists at ${CLONE_DIR}"
+fi
 
 echo "Installing desktop bookmarks for user: ${FIRST_USER_NAME}"
 
@@ -82,6 +93,12 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     
     # Ensure desktop directory ownership
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
+fi
+
+# Clean up cloned repository to save space
+if [ -d "${CLONE_DIR}" ]; then
+    echo "Cleaning up cloned repository..."
+    rm -rf "${CLONE_DIR}"
 fi
 
 echo "Desktop bookmarks installation completed"
