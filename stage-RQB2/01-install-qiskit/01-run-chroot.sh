@@ -119,13 +119,13 @@ source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_14/bin/activate || { echo "
 . /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_v14.sh || { echo "Failed to install Qiskit v1.4"; exit 1; }
 deactivate
 
-# Install Qiskit 0.44
-echo "=== Installing Qiskit 0.44 ==="
-mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 || { echo "Failed to create v0.44 venv directory"; exit 1; }
-python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 --system-site-packages || { echo "Failed to create v0.44 venv"; exit 1; }
-source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044/bin/activate || { echo "Failed to activate v0.44 venv"; exit 1; }
-. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_v044.sh || { echo "Failed to install Qiskit v0.44"; exit 1; }
-deactivate
+# Install Qiskit 0.44 (TEMPORARILY DISABLED to reduce image size)
+# echo "=== Installing Qiskit 0.44 ==="
+# mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 || { echo "Failed to create v0.44 venv directory"; exit 1; }
+# python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 --system-site-packages || { echo "Failed to create v0.44 venv"; exit 1; }
+# source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044/bin/activate || { echo "Failed to activate v0.44 venv"; exit 1; }
+# . /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_v044.sh || { echo "Failed to install Qiskit v0.44"; exit 1; }
+# deactivate
 
 echo "=== All Qiskit environments installed ==="
 ls -la /home/${FIRST_USER_NAME}/$REPO/venv/

@@ -1,7 +1,7 @@
 IMG_NAME=rasqberry
 RELEASE=bookworm
 DEPLOY_COMPRESSION=xz
-COMPRESSION_LEVEL=3
+COMPRESSION_LEVEL=9
 LOCALE_DEFAULT=en_GB.UTF-8
 TARGET_HOSTNAME=rasqberry
 KEYBOARD_KEYMAP=gb
@@ -33,7 +33,7 @@ RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 RQB_STD_VENV=RQB2
 # Multi-version virtual environments
 RQB_STD_VENV_14=RQB2-v14
-RQB_STD_VENV_044=RQB2-v044
+# RQB_STD_VENV_044=RQB2-v044  # Temporarily disabled to reduce image size
 # Configuration directory (relative to user home)
 RQB_CONFDIR=.local/config
 # Flag indicating build is from pi-gen
