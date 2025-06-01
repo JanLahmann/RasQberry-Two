@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.1
+Name=IBM Quantum Composer
+Comment=Design and simulate quantum circuits in your web browser
+Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Type=Application
+Categories=Education;Science;Development;
+Exec=chromium-browser https://quantum.ibm.com/composer/
+Terminal=false
+StartupNotify=true
+MimeType=text/html;
+Keywords=quantum;qiskit;composer;circuit;IBM;
