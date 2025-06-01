@@ -9,7 +9,8 @@ if [ -f "/tmp/stage-config" ]; then
     
     # Map the RQB_ prefixed variables to local names
     REPO="${RQB_REPO}"
-    FIRST_USER_NAME="${RQB_FIRST_USER_NAME:-rasqberry}"
+    # Use FIRST_USER_NAME from pi-gen config, with fallback to rasqberry
+    FIRST_USER_NAME="${FIRST_USER_NAME:-rasqberry}"
     
     echo "Configuration loaded successfully"
 else
