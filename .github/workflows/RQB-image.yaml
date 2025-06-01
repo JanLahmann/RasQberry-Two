@@ -32,16 +32,16 @@
 #
 # CACHING STRATEGY (Dev Builds Only):
 # 
-# First Build:          Subsequent Builds:       Monthly/Forced:
+# First Build:          Subsequent Builds:       Cache Refresh:
 # ┌──────────┐         ┌──────────┐            ┌──────────┐
 # │ Stage 0  │         │ Stage 0  │            │ Stage 0  │
 # │ Stage 1  │ Build   │ Stage 1  │ From       │ Stage 1  │ Rebuild
 # │ Stage 2  │ All     │ Stage 2  │ Cache      │ Stage 2  │ All
-# │ Stage 3  │   ↓     │ Stage 3  │  (Skip)    │ Stage 3  │   ↓
+# │ Stage 3  │   ↓     │ Stage 3  │ (Shared)   │ Stage 3  │   ↓
 # │ Stage 4  │ Save    │ Stage 4  │   │        │ Stage 4  │ Save
 # ├──────────┤ Cache   ├──────────┤   ▼        ├──────────┤ Cache
 # │ RasQberry│   ↓     │ RasQberry│ Build      │ RasQberry│   ↓
-# └──────────┘         └──────────┘ Only       └──────────┘
+# └──────────┘         └──────────┘ Fresh      └──────────┘
 # ============================================================================
 
 
@@ -336,11 +336,12 @@ jobs:
       # CACHE CONFIGURATION
       # ========================================================================
       # Display what cache key we're looking for (debugging aid)
-      - name: List available caches
+      - name: Cache configuration info
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
-          # Note: Can't actually list caches, but shows the key format
+          echo "Base stages cache key: base-stages-${{ env.CACHE_VERSION }}"
+          echo "Cache strategy: Base stages (0-4) shared across all dev branches"
+          echo "Custom stage-RQB2: Always builds fresh for branch-specific changes"
 
       # Determine if this build should use caching
       # Rules:
@@ -376,17 +377,21 @@ jobs:
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
       # ========================================================================
-      # CACHE RESTORATION
+      # CACHE RESTORATION - Base Stages Only
       # ========================================================================
-      # Try to restore cached base image (stages 0-4) for dev builds
-      # Cache contains compressed base Raspberry Pi OS layers
-      - name: Restore cache (dev branches only)
-        id: cache-stage4
+      # Cache only the base stages (0-4) which are shared across all dev branches
+      # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
+      - name: Cache Base Stages (0-4)
+        id: cache-base-stages
         if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache/restore@v3
+        uses: actions/cache@v4
         with:
-          path: stage4-base.tar.lz4
-          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
+          path: |
+            pi-gen/work/
+            !pi-gen/work/*/stage-RQB2/
+          key: base-stages-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            base-stages-${{ env.CACHE_VERSION }}-
 
       # Cache frequently downloaded apt packages
       - name: Cache apt packages
@@ -493,11 +498,10 @@ jobs:
       # ========================================================================
       # BASE STAGE BUILD (Conditional)
       # ========================================================================
-      # Build stages 0-4 only if:
-      # 1. Cache is disabled, OR
-      # 2. Cache miss (no existing cache found)
+      # Build stages 0-4 only if cache miss or caching disabled
+      # This creates the base Raspberry Pi OS that all branches share
       - name: Build base stages (if not cached or cache disabled)
-        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-stage4.outputs.cache-matched-key == ''
+        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-base-stages.outputs.cache-hit != 'true'
         run: |
           cd pi-gen
           echo "Building base stages 0-4..."
@@ -515,107 +519,11 @@ jobs:
           # Run the build
           sudo ./build.sh
           
-          # ====================================================================
-          # CACHE PREPARATION
-          # ====================================================================
-          # If caching is enabled, prepare the cache file
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
-            echo "Saving work directory for cache..."
-            
-            # Find the work directory (named with timestamp or 'rasqberry')
-            WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-            echo "Found work directory: $WORK_DIR"
-            
-            # Ensure stage4 rootfs exists and prepare for caching
-            if [ -d "$WORK_DIR/stage4/rootfs" ]; then
-              sudo mkdir -p work/.cache-stage4
-              sudo cp -al $WORK_DIR/stage4/rootfs work/.cache-stage4/
-              echo "Copied stage4 rootfs to cache directory"
-            else
-              echo "WARNING: stage4 rootfs not found at $WORK_DIR/stage4/rootfs"
-            fi
-
-            # Create compressed cache file
-            # Exclude unnecessary files to reduce cache size
-            sudo tar -cf - \
-              --exclude='work/*/stage*/rootfs/var/cache/apt/archives/*.deb' \
-              --exclude='work/*/stage*/rootfs/tmp/*' \
-              --exclude='work/*/stage*/rootfs/var/log/*' \
-              --exclude='work/*/stage*/rootfs/var/cache/apt/*.bin' \
-              --exclude='work/*/stage*/rootfs/var/lib/apt/lists/*' \
-              --exclude='work/*/stage*/rootfs/home/*/.cache/*' \
-              --exclude='work/*/stage*/rootfs/**/__pycache__' \
-              --exclude='work/*/stage*/rootfs/**/*.pyc' \
-              --exclude='work/*/stage*/rootfs/**/*.pyo' \
-              --exclude='work/*/stage*/rootfs/usr/src/*' \
-              --exclude='work/*/stage*/rootfs/var/cache/debconf/*' \
-              --exclude='work/*/stage*/rootfs/boot/*.old' \
-              --exclude='work/*/stage*/rootfs/var/cache/pip/*' \
-              work | lz4 -1 > ../stage4-base.tar.lz4
-            
-            # Verify cache file creation
-            cd ..
-            if [ -f "stage4-base.tar.lz4" ]; then
-              echo "✓ Cache file created successfully at workspace root"
-              echo "Cache size: $(du -h stage4-base.tar.lz4 | cut -f1)"
-              echo "Cache location: $(pwd)/stage4-base.tar.lz4"
-              ls -la stage4-base.tar.lz4
-            else
-              echo "ERROR: Cache file not found at expected location!"
-              echo "Current directory: $(pwd)"
-              echo "Looking for stage4-base.tar.lz4:"
-              find . -name "stage4-base.tar.lz4" -type f 2>/dev/null || echo "File not found anywhere"
-              exit 1
-            fi
-          fi
-          
-          # Clean up to prepare for custom stage
-          cd pi-gen
+          # Clean up any custom stage remnants to prepare for fresh custom build
           sudo rm -rf work/*/stage-RQB2 || true
+          
+          echo "Base stages 0-4 build completed"
 
-      # Save the cache for future builds
-      - name: Save cache
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-stage4.outputs.cache-matched-key == ''
-        uses: actions/cache/save@v3
-        with:
-          path: stage4-base.tar.lz4
-          key: stage4-${{ env.CACHE_VERSION }}-${{ steps.cache-date.outputs.cache_date }}-bookworm-arm64-lz4
-
-      # ========================================================================
-      # CACHE RESTORATION (from file)
-      # ========================================================================
-      # Extract and restore cached base image if it was hit
-      - name: Restore cached build
-        if: steps.cache-stage4.outputs.cache-matched-key != ''
-        run: |
-          cd pi-gen
-          echo "Restoring cached build..."
-          
-          # Extract compressed cache
-          lz4 -dc ../stage4-base.tar.lz4 | sudo tar -xf -
-          
-          # Remove cache file to save space
-          rm -f ../stage4-base.tar.lz4
-          
-          # Verify extraction was successful
-          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-          echo "Found work directory: $WORK_DIR"
-          
-          # Sanity check: ensure rootfs has reasonable size
-          if [ -d "$WORK_DIR/stage4/rootfs" ]; then
-            ROOTFS_SIZE=$(sudo du -s "$WORK_DIR/stage4/rootfs" | cut -f1)
-            echo "Restored rootfs size: $ROOTFS_SIZE KB"
-            if [ "$ROOTFS_SIZE" -lt 1000 ]; then
-              echo "ERROR: Rootfs appears incomplete (only $ROOTFS_SIZE KB)"
-              exit 1
-            fi
-          else
-            echo "ERROR: No rootfs found in restored cache!"
-            exit 1
-          fi
-
-          # Clean up any temporary directories
-          sudo rm -rf work/.cache-stage4 || true
 
       # Show system resources before main build
       - name: show swap and memory status before build
@@ -636,20 +544,20 @@ jobs:
         run: |
           cd pi-gen
           
-          # Different build approach depending on cache usage
-          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
+          # Check if we have cached base stages
+          if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ] && [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
             echo "Using cached base stages..."
             
-            # Find the restored work directory
+            # Find the cached work directory
             WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
             
             if [ -n "$WORK_DIR" ]; then
-              echo "Found work directory: $WORK_DIR"
+              echo "Found cached work directory: $WORK_DIR"
               
-              # Verify stage4 rootfs exists
+              # Verify stage4 rootfs exists in cache
               if [ ! -d "$WORK_DIR/stage4/rootfs" ]; then
                 echo "ERROR: stage4/rootfs missing from cache!"
-                echo "This cache is incomplete. Please use workflow_dispatch with 'refresh_cache' to rebuild."
+                echo "Cache appears incomplete. Use 'refresh_cache' option to rebuild."
                 exit 1
               fi
               
@@ -657,44 +565,27 @@ jobs:
               WORK_NAME=$(basename "$WORK_DIR")
               WORK_DIR_ABS="$(pwd)/work/$WORK_NAME"
               
-              # Create required build marker files
-              sudo touch "$WORK_DIR_ABS/build.log"
-              
-              # Mark stage4 as complete (required for CONTINUE mode)
-              if [ ! -f "$WORK_DIR_ABS/stage4/.build_done" ]; then
-                echo "Creating stage4 build marker..."
-                sudo mkdir -p "$WORK_DIR_ABS/stage4"
-                sudo touch "$WORK_DIR_ABS/stage4/.build_done"
-              fi
-              
-              # Configure for continuation build
+              # Configure for continuation build from cached base
               echo "CONTINUE=1" >> config
               echo "WORK_DIR=$WORK_DIR_ABS" >> config
-              echo 'STAGE_LIST="./stage-RQB2"' >> config  # Only build custom stage
+              echo 'STAGE_LIST="./stage-RQB2"' >> config
               
-              # Ensure package lists are current in cached rootfs
-              echo "Ensuring package sources in cached rootfs..."
-              if [ -f "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list" ]; then
-                echo "sources.list exists"
-                sudo cat "$WORK_DIR_ABS/stage4/rootfs/etc/apt/sources.list"
-              else
-                echo "WARNING: sources.list missing in rootfs!"
-              fi
+              # Ensure stage4 is marked as complete for continuation
+              sudo mkdir -p "$WORK_DIR_ABS/stage4"
+              sudo touch "$WORK_DIR_ABS/stage4/.build_done"
               
-              # Update package lists in the rootfs
-              sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Failed to update package lists in chroot"
+              # Update package lists in cached rootfs (may be stale)
+              echo "Refreshing package lists in cached rootfs..."
+              sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Warning: Failed to update package lists"
               
             else
-              echo "ERROR: No work directory found!"
+              echo "ERROR: No work directory found in cache!"
               exit 1
             fi
           else
-            echo "Continuing from fresh base build..."
+            echo "Building custom stage on fresh base..."
             
-            # For fresh builds, modify existing config
-            sed -i '/^STAGE_LIST=/d' config  # Remove old STAGE_LIST
-            
-            # Add continuation config
+            # For fresh builds or no cache, continue from base build
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
           fi
@@ -746,11 +637,11 @@ jobs:
           
           # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
-            echo "Build completed with caching enabled"
-            if [ "${{ steps.cache-stage4.outputs.cache-matched-key }}" != "" ]; then
-              echo "Cache was used - only custom stage was rebuilt"
+            echo "Build completed with base stage caching enabled"
+            if [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
+              echo "Base stages cache hit - only custom stage-RQB2 was rebuilt"
             else
-              echo "Cache miss - full build was performed"
+              echo "Base stages cache miss - full build was performed"
             fi
           else
             echo "Build completed without caching (production build)"
