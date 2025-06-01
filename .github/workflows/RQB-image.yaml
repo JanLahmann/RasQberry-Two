@@ -40,8 +40,11 @@
 # │ Stage 3  │   ↓     │ Stage 3  │ (Shared)   │ Stage 3  │   ↓
 # │ Stage 4  │ Save    │ Stage 4  │   │        │ Stage 4  │ Save
 # ├──────────┤ Cache   ├──────────┤   ▼        ├──────────┤ Cache
-# │ RasQberry│   ↓     │ RasQberry│ Build      │ RasQberry│   ↓
+# │ RasQberry│ Immediate│RasQberry│ Build     │ RasQberry│ Immediate
 # └──────────┘         └──────────┘ Fresh      └──────────┘
+#
+# Key Feature: Base stages cache is saved IMMEDIATELY after completion,
+# ensuring work is preserved even if custom RasQberry stage fails.
 # ============================================================================
 
 
@@ -381,10 +384,10 @@ jobs:
       # ========================================================================
       # Cache only the base stages (0-4) which are shared across all dev branches
       # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
-      - name: Cache Base Stages (0-4)
+      - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
         if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             pi-gen/work/
@@ -524,6 +527,19 @@ jobs:
           
           echo "Base stages 0-4 build completed"
 
+      # ========================================================================
+      # IMMEDIATE CACHE SAVE - Base Stages
+      # ========================================================================
+      # Save the cache immediately after base stages complete to prevent loss
+      # if custom stage fails. Only save if we built the base stages.
+      - name: Save Base Stages Cache (Immediate)
+        if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-base-stages.outputs.cache-hit != 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pi-gen/work/
+            !pi-gen/work/*/stage-RQB2/
+          key: base-stages-${{ env.CACHE_VERSION }}
 
       # Show system resources before main build
       - name: show swap and memory status before build
