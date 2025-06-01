@@ -478,9 +478,10 @@ jobs:
           
           # Update pi-gen-config with current values
           # These will be used during image build to clone correct code
-          sed -i "s/^RQB_REPO=.*/RQB_REPO=${REPO_NAME}/" pi-gen-config
-          sed -i "s/^RQB_GIT_USER=.*/RQB_GIT_USER=${REPO_OWNER}/" pi-gen-config
-          sed -i "s/^RQB_GIT_BRANCH=.*/RQB_GIT_BRANCH=${BRANCH_NAME}/" pi-gen-config
+          # Use | as delimiter to avoid conflicts with branch names containing /
+          sed -i "s|^RQB_REPO=.*|RQB_REPO=${REPO_NAME}|" pi-gen-config
+          sed -i "s|^RQB_GIT_USER=.*|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config
+          sed -i "s|^RQB_GIT_BRANCH=.*|RQB_GIT_BRANCH=${BRANCH_NAME}|" pi-gen-config
           
           # Show changes for verification
           echo "=== Updated values in pi-gen-config ==="
