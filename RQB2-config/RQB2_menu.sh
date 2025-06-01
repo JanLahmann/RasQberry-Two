@@ -70,13 +70,19 @@ install_demo() {
     # Clone if marker missing
     if [ ! -f "$DEST/$MARKER" ]; then
         mkdir -p "$DEST"
-        git clone --depth 1 "$GIT_URL" "$DEST"
-        # fix ownership if needed
-        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+        if git clone --depth 1 "$GIT_URL" "$DEST"; then
+            # fix ownership if needed
+            if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
+                sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+            fi
+            update_environment_file "$ENV_VAR" "true"
+            [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+        else
+            # Clean up empty directory and show error
+            rm -rf "$DEST"
+            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+            return 1
         fi
-        update_environment_file "$ENV_VAR" "true"
-#        whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     fi
 }
 
