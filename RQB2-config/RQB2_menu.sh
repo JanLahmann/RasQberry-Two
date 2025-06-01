@@ -107,6 +107,30 @@ do_grok_bloch_install() {
                  "Grok Bloch Sphere"
 }
 
+# Helper: get the correct virtual environment for a demo
+get_demo_venv() {
+    local DEMO_NAME="$1"
+    local VENV_VAR="${DEMO_NAME}_VENV"
+    local DEMO_VENV
+    local VENV_PATH
+    
+    # Get the demo-specific venv or use default
+    eval "DEMO_VENV=\${${VENV_VAR}:-$DEFAULT_QISKIT_VENV}"
+    VENV_PATH="$USER_HOME/$REPO/venv/$DEMO_VENV/bin/activate"
+    
+    # Validate that the virtual environment exists
+    if [ ! -f "$VENV_PATH" ]; then
+        echo "Warning: Virtual environment $DEMO_VENV not found, falling back to default" >&2
+        VENV_PATH="$USER_HOME/$REPO/venv/$DEFAULT_QISKIT_VENV/bin/activate"
+        if [ ! -f "$VENV_PATH" ]; then
+            echo "Error: Default virtual environment $DEFAULT_QISKIT_VENV not found!" >&2
+            return 1
+        fi
+    fi
+    
+    echo "$VENV_PATH"
+}
+
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
@@ -114,6 +138,7 @@ run_demo() {
   if [ "$1" = bg ]; then MODE="bg"; shift; fi
   DEMO_TITLE="$1"; shift
   DEMO_DIR="$1"; shift
+  VENV_PATH="$1"; shift  # Accept venv path as parameter
   # Build the command string from all remaining args (preserving spaces)
   CMD="$1"
   shift
@@ -121,8 +146,8 @@ run_demo() {
       CMD="$CMD $arg"
   done
   # Ensure commands run inside the Python virtual environment
-  if [ -f "$VENV_ACTIVATE" ]; then
-    CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
+  if [ -f "$VENV_PATH" ]; then
+    CMD=". \"$VENV_PATH\" && exec $CMD"
   fi
   # Save current terminal settings
   OLD_STTY=$(stty -g)
@@ -159,11 +184,13 @@ run_qlo_demo() {
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
     # Ensure installed
     do_qlo_install
+    # Set correct virtual environment for this demo
+    VENV_PATH=$(get_demo_venv "QUANTUM_LIGHTS_OUT")
     # Launch appropriate mode
     if [ "$MODE" = "console" ]; then
-        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" "$VENV_PATH" python3 lights_out.py --console
     else
-        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" "$VENV_PATH" python3 lights_out.py
     fi
     # Turn off LEDs when demo ends
     do_led_off
@@ -174,12 +201,16 @@ run_rasp_tie_demo() {
     # Ensure installation
     do_rasp_tie_install
     DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
+    # Set correct virtual environment for this demo
+    VENV_PATH=$(get_demo_venv "QUANTUM_RASPBERRY_TIE")
     RUN_OPTION=$1
     if  [ "$RUN_OPTION" != "b:aer" ]; then
       echo "For this option, we need a IBM Quantum Token"
+      # Use the correct virtual environment for token setting
+      . "$VENV_PATH"
       python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
     fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" "$VENV_PATH" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -188,6 +219,8 @@ run_rasp_tie_demo() {
 run_grok_bloch_demo() {
     # Ensure installation
     do_grok_bloch_install
+    # Set correct virtual environment for this demo
+    VENV_ACTIVATE=$(get_demo_venv "GROK_BLOCH")
     # Launch the demo using the dedicated launcher script
     "$BIN_DIR/rq_grok_bloch.sh"
 }
@@ -292,6 +325,8 @@ do_rqb_qiskit_menu() {
 
 #Turn off all LEDs
 do_led_off() {
+  # Use default virtual environment for LED operations
+  VENV_ACTIVATE="$REPO_DIR/venv/$DEFAULT_QISKIT_VENV/bin/activate"
   . "$VENV_ACTIVATE"
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
@@ -305,11 +340,13 @@ do_select_led_option() {
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             simple )
-                run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
+                DEFAULT_VENV_PATH="$REPO_DIR/venv/$DEFAULT_QISKIT_VENV/bin/activate"
+                run_demo bg "Simple LED Demo" "$BIN_DIR" "$DEFAULT_VENV_PATH" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 do_led_off
                 ;;
             IBM )
-                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
+                DEFAULT_VENV_PATH="$REPO_DIR/venv/$DEFAULT_QISKIT_VENV/bin/activate"
+                run_demo bg "IBM LED Demo" "$BIN_DIR" "$DEFAULT_VENV_PATH" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
                 ;;
             *) break ;;

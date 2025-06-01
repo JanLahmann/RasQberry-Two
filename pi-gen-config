@@ -31,6 +31,9 @@ RQB_GIT_BRANCH=will-be-set-in-gh-workflow
 RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 # Standard virtual environment name
 RQB_STD_VENV=RQB2
+# Multi-version virtual environments
+RQB_STD_VENV_14=RQB2-v14
+RQB_STD_VENV_044=RQB2-v044
 # Configuration directory (relative to user home)
 RQB_CONFDIR=.local/config
 # Flag indicating build is from pi-gen

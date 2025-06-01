@@ -13,6 +13,8 @@ if [ -f "/tmp/stage-config" ]; then
     GIT_BRANCH="${RQB_GIT_BRANCH}"
     GIT_REPO="${RQB_GIT_REPO}"
     STD_VENV="${RQB_STD_VENV}"
+    STD_VENV_14="${RQB_STD_VENV_14}"
+    STD_VENV_044="${RQB_STD_VENV_044}"
     RQB2_CONFDIR="${RQB_CONFDIR}"
     PIGEN="${RQB_PIGEN}"
     
@@ -33,6 +35,8 @@ echo "  GIT_BRANCH: $GIT_BRANCH"
 echo "  GIT_REPO: $GIT_REPO"
 echo "  CLONE_DIR: $CLONE_DIR"
 echo "  STD_VENV: $STD_VENV"
+echo "  STD_VENV_14: $STD_VENV_14"
+echo "  STD_VENV_044: $STD_VENV_044"
 echo "  RQB2_CONFDIR: $RQB2_CONFDIR"
 echo "  PIGEN: $PIGEN"
 echo "  FIRST_USER_NAME: ${FIRST_USER_NAME}"
@@ -93,17 +97,38 @@ bash -c 'CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
   crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
   ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
 
-# Install Qiskit using pip
-echo "Installing qiskit for ${FIRST_USER_NAME} user"
-mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
+# Install multiple Qiskit virtual environments
+echo "Installing multiple Qiskit versions for ${FIRST_USER_NAME} user"
 
-# Create virtual environment
-python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
-source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate
+# Create base venv directory
+mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv
 
-# Install Qiskit
-. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_latest.sh
+# Install Qiskit 2.x (default/latest)
+echo "=== Installing Qiskit 2.x (default) ==="
+mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV || { echo "Failed to create venv directory"; exit 1; }
+python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages || { echo "Failed to create default venv"; exit 1; }
+source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate || { echo "Failed to activate default venv"; exit 1; }
+. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_latest.sh || { echo "Failed to install Qiskit latest"; exit 1; }
 deactivate
+
+# Install Qiskit 1.4
+echo "=== Installing Qiskit 1.4 ==="
+mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_14 || { echo "Failed to create v1.4 venv directory"; exit 1; }
+python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_14 --system-site-packages || { echo "Failed to create v1.4 venv"; exit 1; }
+source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_14/bin/activate || { echo "Failed to activate v1.4 venv"; exit 1; }
+. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_v14.sh || { echo "Failed to install Qiskit v1.4"; exit 1; }
+deactivate
+
+# Install Qiskit 0.44
+echo "=== Installing Qiskit 0.44 ==="
+mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 || { echo "Failed to create v0.44 venv directory"; exit 1; }
+python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044 --system-site-packages || { echo "Failed to create v0.44 venv"; exit 1; }
+source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV_044/bin/activate || { echo "Failed to activate v0.44 venv"; exit 1; }
+. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_v044.sh || { echo "Failed to install Qiskit v0.44"; exit 1; }
+deactivate
+
+echo "=== All Qiskit environments installed ==="
+ls -la /home/${FIRST_USER_NAME}/$REPO/venv/
 
 # Copy venv to system location for new users
 cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
