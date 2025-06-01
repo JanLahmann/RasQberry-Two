@@ -69,9 +69,13 @@ and list the available Qiskit modules:
 
 ```python
 (RQB2) rasqberry@raspberrypi:~ $ pip list | grep qiskit
-qiskit                 1.1.1
-qiskit-qasm3-import    0.5.0
+qiskit                 2.0.1
+qiskit-aer             0.15.1
+qiskit-ibm-runtime     0.30.0
+qiskit-qasm3-import    0.5.1
 ```
+
+> **Note**: This package list is an example as of June 2025. The specific Qiskit packages and versions may change in future RasQberry releases as Qiskit continues to evolve. Use `pip list | grep qiskit` in your environment to see the current installed packages.
 
 ## Building the RasQberry 3D model of IBM Quantum System Two
 
