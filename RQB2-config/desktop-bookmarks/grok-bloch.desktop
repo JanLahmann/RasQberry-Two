@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.1
 Name=Grokking the Bloch Sphere
-Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education
+Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (local version)
 Icon=applications-science
 Type=Application
 Categories=Education;Science;Development;
-Exec=chromium-browser https://javafxpert.github.io/grok-bloch/
+Exec=/home/rasqberry/.local/bin/rq_grok_bloch.sh
 Terminal=false
 StartupNotify=true
 MimeType=text/html;

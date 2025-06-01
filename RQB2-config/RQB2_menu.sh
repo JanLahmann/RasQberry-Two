@@ -100,6 +100,13 @@ do_rasp_tie_install() {
                  "Quantum Raspberry-Tie"
 }
 
+# Install Grok Bloch demo if needed
+do_grok_bloch_install() {
+    install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
+                 "index.html" "GROK_BLOCH_INSTALLED" \
+                 "Grok Bloch Sphere"
+}
+
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
@@ -175,6 +182,14 @@ run_rasp_tie_demo() {
     run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
     # Turn off LEDs when demo ends
     do_led_off
+}
+
+# Run grok-bloch demo (ensures install first)
+run_grok_bloch_demo() {
+    # Ensure installation
+    do_grok_bloch_install
+    # Launch the demo using the dedicated launcher script
+    "$BIN_DIR/rq_grok_bloch.sh"
 }
 
 # -----------------------------------------------------------------------------
@@ -359,11 +374,13 @@ do_quantum_demo_menu() {
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
+       GRB  "Grok Bloch Sphere" \
        STOP "Stop last running demo and clear LEDs") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
+      GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
       STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac

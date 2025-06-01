@@ -14,8 +14,11 @@ This directory contains icons used for desktop bookmarks and shortcuts.
 
 ## System Icons Used
 
-### Grokking the Bloch Sphere bookmark
+### Grokking the Bloch Sphere bookmarks
 - **Icon:** `applications-science` (system icon)
-- **Usage:** Desktop bookmark for Grokking the Bloch Sphere visualization tool
+- **Usage:** Desktop bookmarks for Grokking the Bloch Sphere visualization tool
+- **Versions:** 
+  - `grok-bloch.desktop` - Local version (runs offline from cloned repository)
+  - `grok-bloch-web.desktop` - Web version (opens https://javafxpert.github.io/grok-bloch/)
 - **License:** System icon, no additional licensing required
-- **Notes:** Uses standard desktop environment science/education icon. Reliable and consistent across different desktop themes.
+- **Notes:** Uses standard desktop environment science/education icon. Local version provides offline access while web version ensures latest updates.
