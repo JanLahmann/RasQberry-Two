@@ -475,7 +475,7 @@ jobs:
           echo "Extracting cached base stages..."
           if [ -f "base-stages-cache.tar.gz" ]; then
             cd pi-gen
-            sudo tar -xzf ../base-stages-cache.tar.gz --strip-components=1
+            sudo tar -xzf ../base-stages-cache.tar.gz
             echo "Cache extracted successfully"
             
             # Verify extraction
@@ -484,6 +484,8 @@ jobs:
               ls -la work/
             else
               echo "❌ Work directory not found after extraction!"
+              echo "Available directories:"
+              ls -la
               exit 1
             fi
             
