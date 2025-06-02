@@ -396,32 +396,6 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Extract cached base stages if cache was hit
-      - name: Extract cached base stages
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
-        run: |
-          echo "Extracting cached base stages..."
-          if [ -f "base-stages-cache.tar.gz" ]; then
-            cd pi-gen
-            sudo tar -xzf ../base-stages-cache.tar.gz --strip-components=1
-            echo "Cache extracted successfully"
-            
-            # Verify extraction
-            if [ -d "work" ]; then
-              echo "✓ Work directory restored from cache"
-              ls -la work/
-            else
-              echo "❌ Work directory not found after extraction!"
-              exit 1
-            fi
-            
-            # Clean up cache file to save space
-            rm -f ../base-stages-cache.tar.gz
-          else
-            echo "❌ Cache file not found!"
-            exit 1
-          fi
-
       # Cache frequently downloaded apt packages
       - name: Cache apt packages
         id: cache-apt
@@ -493,6 +467,32 @@ jobs:
         run: |
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
+
+      # Extract cached base stages if cache was hit (after pi-gen exists)
+      - name: Extract cached base stages
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
+        run: |
+          echo "Extracting cached base stages..."
+          if [ -f "base-stages-cache.tar.gz" ]; then
+            cd pi-gen
+            sudo tar -xzf ../base-stages-cache.tar.gz --strip-components=1
+            echo "Cache extracted successfully"
+            
+            # Verify extraction
+            if [ -d "work" ]; then
+              echo "✓ Work directory restored from cache"
+              ls -la work/
+            else
+              echo "❌ Work directory not found after extraction!"
+              exit 1
+            fi
+            
+            # Clean up cache file to save space
+            rm -f ../base-stages-cache.tar.gz
+          else
+            echo "❌ Cache file not found!"
+            exit 1
+          fi
 
       # ========================================================================
       # DYNAMIC CONFIGURATION
