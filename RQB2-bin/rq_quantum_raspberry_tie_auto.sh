@@ -55,7 +55,7 @@ install_quantum_raspberry_tie() {
 }
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/quantum_raspberry_tie.py" ]; then
+if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ]; then
     echo "Quantum Raspberry Tie demo not found. Installing..."
     if ! install_quantum_raspberry_tie; then
         echo "Installation failed. Please try running from the RasQberry menu."
@@ -69,4 +69,4 @@ if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
 fi
 
 # Launch the demo
-cd "$DEMO_DIR" && python3 quantum_raspberry_tie.py
+cd "$DEMO_DIR" && python3 QuantumRaspberryTie.qk1.py

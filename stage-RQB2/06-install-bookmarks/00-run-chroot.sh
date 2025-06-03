@@ -117,19 +117,65 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
-            # Mark desktop file as trusted by adding metadata
-            gio set "$USER_DESKTOP/$(basename "$desktop_file")" metadata::trusted true 2>/dev/null || true
+            # Mark desktop file as trusted by adding metadata (run as user)
+            su - "${FIRST_USER_NAME}" -c "gio set '$USER_DESKTOP/$(basename \"$desktop_file\")' metadata::trusted true" 2>/dev/null || true
             echo "Added to ${FIRST_USER_NAME} desktop: $(basename "$desktop_file")"
         fi
     done
     
     # Ensure desktop directory ownership
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
+    
+    # Configure PCManFM to trust desktop files automatically
+    USER_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/pcmanfm/LXDE-pi"
+    mkdir -p "$USER_CONFIG_DIR"
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config"
+    
+    # Create or update desktop-items-0.conf to trust desktop files
+    cat > "$USER_CONFIG_DIR/desktop-items-0.conf" << 'EOF'
+[*]
+wallpaper_mode=crop
+wallpaper_common=1
+wallpaper=/usr/share/rpd-wallpaper/clouds.jpg
+desktop_bg=#d6d3de
+desktop_fg=#000000
+desktop_shadow=#000000
+desktop_font=PibotoLt 12
+show_wm_menu=0
+sort=mtime;ascending;
+show_documents=0
+show_trash=1
+show_mounts=0
+[composer.desktop]
+trusted=true
+[grok-bloch.desktop]
+trusted=true
+[grok-bloch-web.desktop]
+trusted=true
+[quantum-fractals.desktop]
+trusted=true
+[quantum-lights-out.desktop]
+trusted=true
+[quantum-raspberry-tie.desktop]
+trusted=true
+[led-ibm-demo.desktop]
+trusted=true
+EOF
+    
+    chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
 fi
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
 update-desktop-database /usr/share/applications || echo "Warning: Failed to update desktop database"
+
+# Update icon cache for custom icons
+echo "Updating icon cache..."
+gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
+
+# Update menu cache for LXDE
+echo "Updating menu cache..."
+lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
 
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then

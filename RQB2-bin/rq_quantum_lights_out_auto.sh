@@ -37,6 +37,15 @@ install_quantum_lights_out() {
     
     # Clone the repository
     if git clone --depth 1 "$GIT_REPO_DEMO_QLO" "$DEMO_DIR"; then
+        # Verify the main file exists
+        if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
+            echo "Error: lights_out.py not found in cloned repository"
+            echo "Directory contents:"
+            ls -la "$DEMO_DIR"
+            rm -rf "$DEMO_DIR"
+            return 1
+        fi
+        
         # Update environment to mark as installed
         sed -i 's/QUANTUM_LIGHTS_OUT_INSTALLED=false/QUANTUM_LIGHTS_OUT_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
         
@@ -55,7 +64,7 @@ install_quantum_lights_out() {
 }
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/main.py" ]; then
+if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
     echo "Quantum Lights Out demo not found. Installing..."
     if ! install_quantum_lights_out; then
         echo "Installation failed. Please try running from the RasQberry menu."
@@ -69,4 +78,17 @@ if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
 fi
 
 # Launch the demo
-cd "$DEMO_DIR" && python3 main.py
+echo "Launching demo from: $DEMO_DIR"
+if [ ! -d "$DEMO_DIR" ]; then
+    echo "Error: Demo directory does not exist: $DEMO_DIR"
+    exit 1
+fi
+
+if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
+    echo "Error: lights_out.py not found in $DEMO_DIR"
+    echo "Directory contents:"
+    ls -la "$DEMO_DIR"
+    exit 1
+fi
+
+cd "$DEMO_DIR" && python3 lights_out.py

@@ -16,13 +16,25 @@ fi
 
 # Set default paths if not configured
 REPO="${REPO:-RasQberry-Two}"
-BIN_DIR="$HOME/$REPO/RQB2-bin"
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 
-# Check if script exists
-LED_SCRIPT="$BIN_DIR/neopixel_spi_IBMtestFunc.py"
-if [ ! -f "$LED_SCRIPT" ]; then
-    echo "Error: LED demo script not found at $LED_SCRIPT"
-    echo "Expected location: $LED_SCRIPT"
+# Check multiple possible locations for the script
+LED_SCRIPT=""
+for location in "$BIN_DIR/neopixel_spi_IBMtestFunc.py" \
+                "/usr/bin/neopixel_spi_IBMtestFunc.py" \
+                "$HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"; do
+    if [ -f "$location" ]; then
+        LED_SCRIPT="$location"
+        break
+    fi
+done
+
+if [ -z "$LED_SCRIPT" ]; then
+    echo "Error: LED demo script not found"
+    echo "Searched locations:"
+    echo "  - $BIN_DIR/neopixel_spi_IBMtestFunc.py"
+    echo "  - /usr/bin/neopixel_spi_IBMtestFunc.py"
+    echo "  - $HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
     echo "Press Enter to exit..."
     read
     exit 1
@@ -33,9 +45,8 @@ echo "Script location: $LED_SCRIPT"
 echo "Press Ctrl+C to stop the demo"
 echo
 
-# Change to script directory and run
-cd "$BIN_DIR"
-python3 neopixel_spi_IBMtestFunc.py
+# Run the script directly
+python3 "$LED_SCRIPT"
 
 echo
 echo "Demo completed. Press Enter to exit..."
