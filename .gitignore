@@ -166,3 +166,6 @@ cython_debug/
 !/VERSION
 .vscode/settings.json
 CLAUDE.local.md
+
+# Local configuration directory
+.local/

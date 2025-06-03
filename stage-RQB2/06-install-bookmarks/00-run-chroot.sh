@@ -52,6 +52,20 @@ fi
 # Install desktop files to system applications menu
 mkdir -p /usr/share/applications
 
+# Install custom category definition
+mkdir -p /usr/share/desktop-directories
+if [ -d "${CLONE_DIR}/RQB2-config/desktop-categories" ]; then
+    for category_file in "${CLONE_DIR}/RQB2-config/desktop-categories"/*.directory; do
+        if [ -f "$category_file" ]; then
+            cp "$category_file" /usr/share/desktop-directories/
+            chmod 644 "/usr/share/desktop-directories/$(basename "$category_file")"
+            echo "Installed category: $(basename "$category_file")"
+        fi
+    done
+else
+    echo "WARNING: Desktop categories directory not found"
+fi
+
 # Copy desktop bookmark files
 if [ -d "${CLONE_DIR}/RQB2-config/desktop-bookmarks" ]; then
     for desktop_file in "${CLONE_DIR}/RQB2-config/desktop-bookmarks"/*.desktop; do
@@ -94,6 +108,10 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     # Ensure desktop directory ownership
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
 fi
+
+# Update desktop database to recognize custom categories
+echo "Updating desktop database..."
+update-desktop-database /usr/share/applications || echo "Warning: Failed to update desktop database"
 
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then
