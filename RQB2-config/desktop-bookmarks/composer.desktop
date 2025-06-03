@@ -10,3 +10,4 @@ Terminal=false
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;qiskit;composer;circuit;IBM;
+X-GNOME-TextColor=#000000

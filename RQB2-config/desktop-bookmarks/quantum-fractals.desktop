@@ -9,3 +9,4 @@ Exec=/home/rasqberry/.local/bin/fractals.sh
 Terminal=true
 StartupNotify=true
 Keywords=quantum;fractals;julia;art;visualization;qiskit;
+X-GNOME-TextColor=#000000

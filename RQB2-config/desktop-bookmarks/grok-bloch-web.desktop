@@ -10,3 +10,4 @@ Terminal=false
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;web;online;
+X-GNOME-TextColor=#000000

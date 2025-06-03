@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.1
+Name=LED IBM Demo
+Comment=Demonstrate LED strip control with IBM-themed patterns and colors
+Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Type=Application
+Categories=Education;Science;Development;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"; cd "$HOME/$REPO/RQB2-bin" && python3 neopixel_spi_IBMtestFunc.py'
+Terminal=true
+StartupNotify=true
+Keywords=LED;IBM;demo;neopixel;hardware;rasqberry;
+X-GNOME-TextColor=#000000
