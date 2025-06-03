@@ -161,7 +161,7 @@ def call_display_on_strip(measurement_result):
     try:
         # Note: No sudo needed for SPI-based driver
         result = subprocess.run([
-            "python3", display_script, measurement_result
+            sys.executable, display_script, measurement_result
         ], capture_output=True, text=True, timeout=30)
         
         if result.returncode != 0:
@@ -182,7 +182,7 @@ def clear_leds():
     if display_script:
         try:
             subprocess.run([
-                "python3", display_script, "0", "-c"
+                sys.executable, display_script, "0", "-c"
             ], capture_output=True, timeout=10)
         except:
             pass

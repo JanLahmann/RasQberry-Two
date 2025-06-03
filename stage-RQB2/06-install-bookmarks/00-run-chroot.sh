@@ -134,12 +134,12 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     # Create or update desktop-items-0.conf to trust desktop files
     cat > "$USER_CONFIG_DIR/desktop-items-0.conf" << 'EOF'
 [*]
-wallpaper_mode=crop
+wallpaper_mode=fit
 wallpaper_common=1
-wallpaper=/usr/share/rpd-wallpaper/clouds.jpg
-desktop_bg=#d6d3de
+wallpaper=/usr/share/rpd-wallpaper/RasQberry 2 Wallpaper 4K.png
+desktop_bg=#FFFFFF
 desktop_fg=#000000
-desktop_shadow=#000000
+desktop_shadow=#FFFFFF
 desktop_font=PibotoLt 12
 show_wm_menu=0
 sort=mtime;ascending;
@@ -147,18 +147,32 @@ show_documents=0
 show_trash=1
 show_mounts=0
 [composer.desktop]
+x=10
+y=10
 trusted=true
 [grok-bloch.desktop]
+x=120
+y=10
 trusted=true
 [grok-bloch-web.desktop]
+x=230
+y=10
 trusted=true
 [quantum-fractals.desktop]
+x=340
+y=10
 trusted=true
 [quantum-lights-out.desktop]
+x=10
+y=120
 trusted=true
 [quantum-raspberry-tie.desktop]
+x=120
+y=120
 trusted=true
 [led-ibm-demo.desktop]
+x=230
+y=120
 trusted=true
 EOF
     
@@ -182,5 +196,23 @@ if [ -d "${CLONE_DIR}" ]; then
     echo "Cleaning up cloned repository..."
     rm -rf "${CLONE_DIR}"
 fi
+
+# Create autostart entry for desktop trust script
+AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
+
+cat > "$AUTOSTART_DIR/rasqberry-trust-desktop.desktop" << EOF
+[Desktop Entry]
+Type=Application
+Name=RasQberry Trust Desktop Files
+Exec=/usr/bin/rq_trust_desktop_files.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Comment=Trust RasQberry desktop files on first login
+EOF
+
+chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR/rasqberry-trust-desktop.desktop"
 
 echo "Desktop bookmarks installation completed"

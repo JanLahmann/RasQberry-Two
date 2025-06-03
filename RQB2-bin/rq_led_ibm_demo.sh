@@ -45,7 +45,22 @@ echo "Script location: $LED_SCRIPT"
 echo "Press Ctrl+C to stop the demo"
 echo
 
-# Run the script directly
+# Activate virtual environment if available
+VENV_PATHS=(
+    "$HOME/$REPO/venv/$STD_VENV"
+    "$HOME/.local/venv/$STD_VENV"
+    "$HOME/venv/$STD_VENV"
+)
+
+for venv_path in "${VENV_PATHS[@]}"; do
+    if [ -f "$venv_path/bin/activate" ]; then
+        echo "Activating virtual environment: $venv_path"
+        . "$venv_path/bin/activate"
+        break
+    fi
+done
+
+# Run the script
 python3 "$LED_SCRIPT"
 
 echo
