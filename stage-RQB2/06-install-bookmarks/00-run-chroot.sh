@@ -57,7 +57,7 @@ if [ -d "${CLONE_DIR}/RQB2-config/desktop-bookmarks" ]; then
     for desktop_file in "${CLONE_DIR}/RQB2-config/desktop-bookmarks"/*.desktop; do
         if [ -f "$desktop_file" ]; then
             cp "$desktop_file" /usr/share/applications/
-            chmod 644 "/usr/share/applications/$(basename "$desktop_file")"
+            chmod 755 "/usr/share/applications/$(basename "$desktop_file")"
             echo "Installed: $(basename "$desktop_file")"
         fi
     done
@@ -72,7 +72,7 @@ mkdir -p /etc/skel/Desktop
 for desktop_file in /usr/share/applications/*.desktop; do
     if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
-        chmod 644 "/etc/skel/Desktop/$(basename "$desktop_file")"
+        chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
     fi
 done
@@ -86,7 +86,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
         if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
-            chmod 644 "$USER_DESKTOP/$(basename "$desktop_file")"
+            chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
             echo "Added to ${FIRST_USER_NAME} desktop: $(basename "$desktop_file")"
         fi
     done

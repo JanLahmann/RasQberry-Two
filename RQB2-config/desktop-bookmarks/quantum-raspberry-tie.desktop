@@ -4,9 +4,11 @@ Name=Quantum Raspberry Tie
 Comment=Interactive quantum computing demonstration with LED visualization and musical accompaniment
 Icon=applications-multimedia
 Type=Application
-Categories=Education;Science;AudioVideo;
+Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"; cd "$HOME/$REPO/quantum-raspberry-tie" && python3 quantum_raspberry_tie.py'
 Terminal=false
 StartupNotify=true
 Keywords=quantum;raspberry;tie;music;LED;visualization;qiskit;
 X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false

@@ -4,10 +4,12 @@ Name=Grokking the Bloch Sphere
 Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (local version)
 Icon=applications-science
 Type=Application
-Categories=Education;Science;Development;
+Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_grok_bloch.sh'
-Terminal=true
+Terminal=false
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;
 X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false

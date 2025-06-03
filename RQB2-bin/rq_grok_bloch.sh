@@ -53,32 +53,81 @@ echo "URL: http://localhost:$PORT"
 # Change to demo directory
 cd "$DEMO_DIR"
 
-# Start HTTP server in background
-python3 -m http.server $PORT &
+# Create a custom HTTP server handler to suppress favicon errors
+cat > /tmp/grok_server.py << 'EOF'
+import http.server
+import socketserver
+import sys
+import os
+
+class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Suppress favicon.ico 404 errors
+        if 'favicon.ico' in str(args):
+            return
+        # Suppress other 404 errors
+        if '404' in str(args):
+            return
+        super().log_message(format, *args)
+
+port = int(sys.argv[1])
+with socketserver.TCPServer(("", port), QuietHTTPRequestHandler) as httpd:
+    httpd.serve_forever()
+EOF
+
+# Start HTTP server in background with error suppression
+python3 /tmp/grok_server.py $PORT >/dev/null 2>&1 &
 SERVER_PID=$!
 
 # Wait a moment for server to start
 sleep 2
 
 echo "Opening in browser..."
-# Try to open in browser
+
+# Function to cleanup server and temp files
+cleanup() {
+    echo "Cleaning up..."
+    kill $SERVER_PID 2>/dev/null
+    rm -f /tmp/grok_server.py
+    exit 0
+}
+
+# Set up cleanup trap
+trap cleanup INT TERM EXIT
+
+# Try to open in browser and get browser PID
+BROWSER_PID=""
 if command -v chromium-browser >/dev/null 2>&1; then
-    chromium-browser "http://localhost:$PORT" &
+    chromium-browser "http://localhost:$PORT" >/dev/null 2>&1 &
+    BROWSER_PID=$!
 elif command -v firefox >/dev/null 2>&1; then
-    firefox "http://localhost:$PORT" &
+    firefox "http://localhost:$PORT" >/dev/null 2>&1 &
+    BROWSER_PID=$!
 elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "http://localhost:$PORT" &
+    xdg-open "http://localhost:$PORT" >/dev/null 2>&1 &
 else
     echo "Please open http://localhost:$PORT in your web browser"
 fi
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
-echo "Press Ctrl+C to stop the server and close the demo"
+echo "The demo will automatically close when you close the browser window."
+echo "Or press Ctrl+C to stop manually."
 echo ""
 
-# Wait for user to stop
-trap "echo 'Stopping server...'; kill $SERVER_PID 2>/dev/null; exit 0" INT
-
-# Keep script running
-wait $SERVER_PID
+# Monitor browser process if we have a PID
+if [ -n "$BROWSER_PID" ]; then
+    # Wait for either server or browser to exit
+    while kill -0 $SERVER_PID 2>/dev/null && kill -0 $BROWSER_PID 2>/dev/null; do
+        sleep 1
+    done
+    
+    # If browser closed, clean up
+    if ! kill -0 $BROWSER_PID 2>/dev/null; then
+        echo "Browser closed. Stopping demo..."
+        cleanup
+    fi
+else
+    # No browser PID, just wait for server
+    wait $SERVER_PID
+fi

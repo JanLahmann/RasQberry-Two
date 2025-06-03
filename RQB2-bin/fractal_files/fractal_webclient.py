@@ -37,13 +37,22 @@ class WebClient:
     def get_linux_chromedriver(self) -> bool:
         """As per default, the script tries to open a locally based chromedriver from
         the linux environment, as this script is supposed to be run on the RasQberry"""
-        try:
-            self.service = Service('/usr/lib/chromium-browser/chromedriver')
-            self.driver = webdriver.Chrome(service=self.service, options=self.options)
-            return True
-        except WebDriverException:
-            self.exceptions.append(traceback.format_exc())
-            return False
+        # Try common system paths for chromedriver
+        chromedriver_paths = [
+            '/usr/bin/chromedriver',  # Raspberry Pi OS location
+            '/usr/lib/chromium-browser/chromedriver',  # Ubuntu location
+            'chromedriver'  # If in PATH
+        ]
+        
+        for path in chromedriver_paths:
+            try:
+                self.service = Service(path)
+                self.driver = webdriver.Chrome(service=self.service, options=self.options)
+                return True
+            except WebDriverException:
+                self.exceptions.append(f"Failed with path {path}: {traceback.format_exc()}")
+                continue
+        return False
 
     def get_other_chromedriver(self) -> bool:
         """In case the Linux path chromedriver does not work, this method will attempt

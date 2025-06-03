@@ -4,9 +4,11 @@ Name=Quantum Lights Out
 Comment=A quantum version of the classic Lights Out puzzle game using quantum circuits
 Icon=applications-games
 Type=Application
-Categories=Education;Science;Game;
+Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"; cd "$HOME/$REPO/Quantum-Lights-Out" && python3 main.py'
 Terminal=false
 StartupNotify=true
 Keywords=quantum;game;puzzle;lights;qiskit;circuit;
 X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false
