@@ -57,6 +57,12 @@ class WebClient:
     def get_other_chromedriver(self) -> bool:
         """In case the Linux path chromedriver does not work, this method will attempt
         to open a chromedriver by running the ChromeDriverManager. No local driver needed"""
+        # Skip ChromeDriverManager on ARM platforms as it downloads wrong architecture
+        import platform
+        if platform.machine() in ['aarch64', 'arm64']:
+            self.exceptions.append("Skipping ChromeDriverManager on ARM64 - use system chromedriver instead")
+            return False
+            
         try:
             from webdriver_manager.chrome import ChromeDriverManager
             self.service = Service(ChromeDriverManager().install())

@@ -23,6 +23,8 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
+# Set BIN_DIR if not already set by env-config.sh
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 DEMO_DIR="$HOME/$REPO/demos/grok-bloch"
 
 # Function to install demo (based on menu system)

@@ -29,6 +29,12 @@ DEMO_DIR="$HOME/$REPO/Quantum-Lights-Out"
 install_quantum_lights_out() {
     echo "Installing Quantum Lights Out demo..."
     
+    # Remove existing incomplete directory if it exists
+    if [ -d "$DEMO_DIR" ]; then
+        echo "Removing existing incomplete installation..."
+        rm -rf "$DEMO_DIR"
+    fi
+    
     # Clone the repository
     if git clone --depth 1 "$GIT_REPO_DEMO_QLO" "$DEMO_DIR"; then
         # Update environment to mark as installed

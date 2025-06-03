@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+# Note: removed set -eu to prevent raspi-config crashes from unset variables
 IFS='\
 	'
 
@@ -18,8 +18,18 @@ IFS='\
 # 4. Error Handling
 # -----------------------------------------------------------------------------
 
-# load RasQberry environment and constants
-. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+# load RasQberry environment and constants with error handling
+ENV_CONFIG_FILE="/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+if [ -f "$ENV_CONFIG_FILE" ]; then
+    . "$ENV_CONFIG_FILE"
+else
+    echo "Warning: RasQberry environment config not found at $ENV_CONFIG_FILE"
+    # Set minimal defaults to prevent crashes
+    USER_HOME="${USER_HOME:-/home/${SUDO_USER:-$USER}}"
+    REPO="${REPO:-RasQberry-Two}"
+    STD_VENV="${STD_VENV:-RQB2}"
+    RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
+fi
 
 # Constants and reusable paths
 REPO_DIR="$USER_HOME/$REPO"

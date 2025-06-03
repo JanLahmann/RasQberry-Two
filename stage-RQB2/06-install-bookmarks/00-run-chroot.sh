@@ -52,6 +52,20 @@ fi
 # Install desktop files to system applications menu
 mkdir -p /usr/share/applications
 
+# Install launcher scripts to /usr/bin
+mkdir -p /usr/bin
+if [ -d "${CLONE_DIR}/RQB2-bin" ]; then
+    for launcher_script in "${CLONE_DIR}/RQB2-bin"/*.sh; do
+        if [ -f "$launcher_script" ] && [[ "$(basename "$launcher_script")" =~ ^rq_.*\.sh$ ]]; then
+            cp "$launcher_script" /usr/bin/
+            chmod 755 "/usr/bin/$(basename "$launcher_script")"
+            echo "Installed launcher: $(basename "$launcher_script")"
+        fi
+    done
+else
+    echo "WARNING: RQB2-bin directory not found"
+fi
+
 # Install custom category definition
 mkdir -p /usr/share/desktop-directories
 if [ -d "${CLONE_DIR}/RQB2-config/desktop-categories" ]; then
@@ -87,6 +101,8 @@ for desktop_file in /usr/share/applications/*.desktop; do
     if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
+        # Mark desktop file as trusted by adding metadata
+        gio set "/etc/skel/Desktop/$(basename "$desktop_file")" metadata::trusted true 2>/dev/null || true
         echo "Added to new user template: $(basename "$desktop_file")"
     fi
 done
@@ -101,6 +117,8 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
+            # Mark desktop file as trusted by adding metadata
+            gio set "$USER_DESKTOP/$(basename "$desktop_file")" metadata::trusted true 2>/dev/null || true
             echo "Added to ${FIRST_USER_NAME} desktop: $(basename "$desktop_file")"
         fi
     done

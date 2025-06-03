@@ -30,14 +30,41 @@ for CONF in desktop-items-0.conf desktop-items-1.conf; do
   if [ -f "$TARGET" ]; then
     echo " * Updating existing $CONF"
     sed -i \
-      "s|^wallpaper=.*|wallpaper=/usr/share/rpd-wallpaper/$WALLPAPER_NAME|" \
+      -e "s|^wallpaper=.*|wallpaper=/usr/share/rpd-wallpaper/$WALLPAPER_NAME|" \
+      -e "s|^desktop_fg=.*|desktop_fg=#000000|" \
+      -e "s|^desktop_bg=.*|desktop_bg=#FFFFFF|" \
+      -e "s|^desktop_shadow=.*|desktop_shadow=#FFFFFF|" \
+      -e "s|^shadow_x=.*|shadow_x=1|" \
+      -e "s|^shadow_y=.*|shadow_y=1|" \
       "$TARGET"
+    
+    # Add the desktop text settings if they don't exist
+    if ! grep -q "^desktop_fg=" "$TARGET"; then
+      echo "desktop_fg=#000000" >> "$TARGET"
+    fi
+    if ! grep -q "^desktop_bg=" "$TARGET"; then
+      echo "desktop_bg=#FFFFFF" >> "$TARGET"
+    fi
+    if ! grep -q "^desktop_shadow=" "$TARGET"; then
+      echo "desktop_shadow=#FFFFFF" >> "$TARGET"
+    fi
+    if ! grep -q "^shadow_x=" "$TARGET"; then
+      echo "shadow_x=1" >> "$TARGET"
+    fi
+    if ! grep -q "^shadow_y=" "$TARGET"; then
+      echo "shadow_y=1" >> "$TARGET"
+    fi
   else
     echo " * Creating new $CONF"
     cat <<EOF > "$TARGET"
 [*]
 wallpaper_mode=fit
 wallpaper=/usr/share/rpd-wallpaper/$WALLPAPER_NAME
+desktop_fg=#000000
+desktop_bg=#FFFFFF
+desktop_shadow=#FFFFFF
+shadow_x=1
+shadow_y=1
 EOF
   fi
   # make sure it's owned by root

@@ -9,3 +9,5 @@ python3-pkg-resources
 python3-sense-emu
 sense-emu-tools
 sense-hat
+chromium-browser
+chromium-chromedriver

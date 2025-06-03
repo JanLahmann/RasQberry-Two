@@ -21,5 +21,6 @@ if [ -f "${ENV_FILE}" ]; then
   set +a
 else
   echo >&2 "ERROR: Missing config file at ${ENV_FILE}"
-  exit 1
+  # Return non-zero instead of exit when sourced to prevent killing parent shell
+  return 1 2>/dev/null || exit 1
 fi

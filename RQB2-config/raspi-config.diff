@@ -7,11 +7,11 @@
   # See LICENSE file for copyright and license details
   
 + # modification for RasQberry
-+ # Load environmend and methods
++ # Load environment and methods
 + RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
-+ RQB2_menu=$RQB2_CONFDIR/RQB2_menu.sh
-+ if [ -e $RQB2_menu ] ; then
-+   . $RQB2_menu
++ RQB2_menu="/home/${SUDO_USER:-$USER}/$RQB2_CONFDIR/RQB2_menu.sh"
++ if [ -e "$RQB2_menu" ] ; then
++   . "$RQB2_menu"
 + else
 +   echo "ERROR: $RQB2_menu does not exist !"
 + fi  

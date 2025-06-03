@@ -5,10 +5,10 @@ Comment=A quantum version of the classic Lights Out puzzle game using quantum ci
 Icon=applications-games
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_lights_out_auto.sh'
-Terminal=false
+Exec=/usr/bin/rq_quantum_lights_out_auto.sh
+Terminal=true
 StartupNotify=true
 Keywords=quantum;game;puzzle;lights;qiskit;circuit;
 X-GNOME-TextColor=#000000
-TryExec=bash
+TryExec=/usr/bin/rq_quantum_lights_out_auto.sh
 NoDisplay=false
