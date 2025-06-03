@@ -5,7 +5,7 @@ Comment=Interactive quantum computing demonstration with LED visualization and m
 Icon=applications-multimedia
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; . "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"; cd "$HOME/$REPO/quantum-raspberry-tie" && python3 quantum_raspberry_tie.py'
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_raspberry_tie_auto.sh'
 Terminal=false
 StartupNotify=true
 Keywords=quantum;raspberry;tie;music;LED;visualization;qiskit;
