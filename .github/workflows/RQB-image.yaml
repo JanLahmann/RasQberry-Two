@@ -101,9 +101,9 @@ on:
         default: false
   
   # Automatic trigger for development branches
-  #push:
-  #  branches:
-  #    - dev*    # Matches: dev, dev-feature, development, etc.
+  push:
+    branches:
+      - dev*    # Matches: dev, dev-feature, development, etc.
 
 # ============================================================================
 # GLOBAL ENVIRONMENT VARIABLES
