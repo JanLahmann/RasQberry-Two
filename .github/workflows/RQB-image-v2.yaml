@@ -99,8 +99,8 @@ on:
         required: false
         type: boolean
         default: false
-      update_json:
-        description: 'Upload generated JSON to gh-pages (JSON always created locally)'
+      publish_json:
+        description: 'Publish generated JSON to gh-pages (JSON always created locally)'
         required: false
         type: boolean
         default: false
@@ -863,9 +863,16 @@ jobs:
           
       - name: Generate RQB-images.json
         run: |
-          # Create base JSON structure for this branch
-          echo "Generating RQB-images.json for current branch..."
-          cat > RQB-images.json << 'EOF'
+          # Try to fetch existing JSON from gh-pages as base
+          echo "Fetching existing RQB-images.json from gh-pages..."
+          
+          # Attempt to download existing JSON from gh-pages
+          if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-images.json" -o existing.json; then
+            echo "✓ Found existing JSON on gh-pages, using as base"
+            cp existing.json RQB-images.json
+          else
+            echo "ℹ No existing JSON found on gh-pages, creating fresh base"
+            cat > RQB-images.json << 'EOF'
           {
             "imager": {
               "latest_version": "1.8.5",
@@ -874,6 +881,7 @@ jobs:
             "os_list": []
           }
           EOF
+          fi
           
           # Generate the new entry
           VERSION_TYPE="${{ steps.version-type.outputs.type }}"
@@ -897,6 +905,7 @@ jobs:
           python3 << 'PYTHON_SCRIPT'
           import json
           import sys
+          from datetime import datetime
           
           # Load existing JSON
           with open('RQB-images.json', 'r') as f:
@@ -906,15 +915,53 @@ jobs:
           with open('new_entry.json', 'r') as f:
               new_entry = json.load(f)
           
-          # Remove any existing entry of the same type
           version_type = "${{ steps.version-type.outputs.type }}"
-          data['os_list'] = [entry for entry in data['os_list'] 
-                           if not (version_type == "main" and "RasQberry Two (64-bit)" in entry['name']) and
-                              not (version_type == "beta" and "Beta" in entry['name']) and  
-                              not (version_type == "dev" and "Dev" in entry['name'])]
+          print(f"Processing {version_type} version entry...")
           
-          # Add new entry at the beginning
-          data['os_list'].insert(0, new_entry)
+          # Define mapping of version types to name patterns
+          type_patterns = {
+              "main": "RasQberry Two (64-bit)",
+              "beta": "RasQberry Two Beta (64-bit)", 
+              "dev": "RasQberry Two Dev (64-bit)"
+          }
+          
+          # Remove existing entry of the same type (keep only latest per type)
+          initial_count = len(data['os_list'])
+          data['os_list'] = [entry for entry in data['os_list'] 
+                           if entry['name'] != type_patterns.get(version_type, new_entry['name'])]
+          removed_count = initial_count - len(data['os_list'])
+          
+          if removed_count > 0:
+              print(f"Removed {removed_count} existing {version_type} entry(ies)")
+          
+          # Find the right position to insert the new entry
+          # Order: main (if exists), beta (if exists), dev (if exists), then others
+          insert_position = 0
+          priority_order = ["main", "beta", "dev"]
+          current_type_priority = priority_order.index(version_type) if version_type in priority_order else 999
+          
+          for i, entry in enumerate(data['os_list']):
+              # Determine the type of this existing entry
+              entry_type = None
+              for type_name, pattern in type_patterns.items():
+                  if entry['name'] == pattern:
+                      entry_type = type_name
+                      break
+              
+              if entry_type and entry_type in priority_order:
+                  entry_priority = priority_order.index(entry_type)
+                  if current_type_priority < entry_priority:
+                      insert_position = i
+                      break
+              else:
+                  # Non-RasQberry entry, insert before it
+                  insert_position = i
+                  break
+              insert_position = i + 1
+          
+          # Insert the new entry at the calculated position
+          data['os_list'].insert(insert_position, new_entry)
+          print(f"Inserted new {version_type} entry at position {insert_position}")
           
           # Add official Raspberry Pi OS and Custom option if not present
           has_raspios = any("Raspberry Pi OS" in entry['name'] for entry in data['os_list'])
@@ -965,7 +1012,7 @@ jobs:
           echo "Generated RQB-images.json in current branch"
           
       - name: Upload JSON to gh-pages
-        if: ${{ github.event.inputs.update_json == 'true' }}
+        if: ${{ github.event.inputs.publish_json == 'true' }}
         run: |
           echo "Uploading RQB-images.json to gh-pages..."
           
