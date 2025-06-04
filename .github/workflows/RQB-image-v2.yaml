@@ -100,7 +100,7 @@ on:
         type: boolean
         default: false
       update_json:
-        description: 'Update RQB-images.json file for Raspberry Pi Imager'
+        description: 'Upload generated JSON to gh-pages (JSON always created locally)'
         required: false
         type: boolean
         default: false
@@ -807,25 +807,19 @@ jobs:
           asset_content_type: application/x-xz  # XZ compressed disk image
 
   # ============================================================================
-  # JOB 4: Update RQB-images.json
+  # JOB 4: Generate and Upload RQB-images.json
   # ============================================================================
-  # Updates the Raspberry Pi Imager JSON file with the new release
+  # Always generates the JSON file, optionally uploads to gh-pages
   update-json:
-    name: Update RQB-images.json
+    name: Generate RQB-images.json
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.update_json != 'false' }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages
-          git checkout gh-pages
           
       - name: Calculate image metadata
         id: metadata
@@ -867,12 +861,11 @@ jobs:
             echo "description=RasQberry development build with cutting-edge features (unstable)" >> $GITHUB_OUTPUT
           fi
           
-      - name: Update RQB-images.json
+      - name: Generate RQB-images.json
         run: |
-          # Read the existing JSON or create base structure
-          if [ ! -f "RQB-images.json" ]; then
-            echo "Creating new RQB-images.json file"
-            cat > RQB-images.json << 'EOF'
+          # Create base JSON structure for this branch
+          echo "Generating RQB-images.json for current branch..."
+          cat > RQB-images.json << 'EOF'
           {
             "imager": {
               "latest_version": "1.8.5",
@@ -881,7 +874,6 @@ jobs:
             "os_list": []
           }
           EOF
-          fi
           
           # Generate the new entry
           VERSION_TYPE="${{ steps.version-type.outputs.type }}"
@@ -961,16 +953,35 @@ jobs:
           # Clean up temporary file
           rm -f new_entry.json
           
-      - name: Commit and push changes
+      - name: Commit JSON to current branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          if git diff --quiet RQB-images.json; then
-            echo "No changes to RQB-images.json"
-          else
+          # Always commit the JSON file to current branch
+          git add RQB-images.json
+          git commit -m "Generate RQB-images.json for ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+          git push origin ${{ github.ref_name }}
+          echo "Generated RQB-images.json in current branch"
+          
+      - name: Upload JSON to gh-pages
+        if: ${{ github.event.inputs.update_json == 'true' }}
+        run: |
+          echo "Uploading RQB-images.json to gh-pages..."
+          
+          # Fetch and checkout gh-pages
+          git fetch origin gh-pages || echo "No gh-pages branch found"
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git checkout gh-pages
+            
+            # Copy the generated JSON file
+            git checkout ${{ github.ref_name }} -- RQB-images.json
+            
+            # Commit and push to gh-pages
             git add RQB-images.json
-            git commit -m "Update RQB-images.json with ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+            git commit -m "Update RQB-images.json from ${{ github.ref_name }} with ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
             git push origin gh-pages
-            echo "Updated RQB-images.json successfully"
+            echo "Successfully uploaded RQB-images.json to gh-pages"
+          else
+            echo "No gh-pages branch exists, skipping upload"
           fi
