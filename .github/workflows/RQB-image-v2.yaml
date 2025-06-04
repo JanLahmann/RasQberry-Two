@@ -103,7 +103,7 @@ on:
         description: 'Update RQB-images.json file for Raspberry Pi Imager'
         required: false
         type: boolean
-        default: true
+        default: false
   
   # Automatic trigger for development branches
   #push:
