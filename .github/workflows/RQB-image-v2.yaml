@@ -756,12 +756,18 @@ jobs:
         run: |
           cd pi-gen
           
-          # Find the uncompressed image file in deploy directory
-          IMG_FILE=$(find deploy -name "*rasqberry*.img" -type f | head -n 1)
-          if [ -z "$IMG_FILE" ]; then
-            echo "Error: No uncompressed .img file found"
+          # Find the compressed image file first
+          XZ_FILE_DEPLOY=$(find deploy -name "*rasqberry*.img.xz" -type f | head -n 1)
+          if [ -z "$XZ_FILE_DEPLOY" ]; then
+            echo "Error: No compressed .img.xz file found in deploy directory"
             exit 1
           fi
+          
+          # Extract temporarily to calculate uncompressed metadata
+          echo "Extracting compressed image temporarily for metadata calculation..."
+          TEMP_IMG_FILE="${XZ_FILE_DEPLOY%.xz}"
+          xz -d -k "$XZ_FILE_DEPLOY"
+          IMG_FILE="$TEMP_IMG_FILE"
           
           # Find the compressed image file  
           XZ_FILE="../${{ steps.set-asset.outputs.asset_path }}"
@@ -791,6 +797,10 @@ jobs:
           echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
           echo "  Uncompressed SHA256: $EXTRACT_SHA256"
           echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
+          
+          # Clean up temporary extracted file
+          echo "Cleaning up temporary extracted image..."
+          rm -f "$IMG_FILE"
 
       # ========================================================================
       # RELEASE ASSET UPLOAD
