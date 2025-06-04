@@ -34,11 +34,6 @@
         "pi5-64bit",
         "pi4-64bit"
       ]
-    },
-    {
-      "name": "Use custom image",
-      "description": "Select a custom .img from your computer",
-      "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
     }
   ]
 }

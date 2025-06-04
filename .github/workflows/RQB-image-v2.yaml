@@ -756,8 +756,8 @@ jobs:
         run: |
           cd pi-gen
           
-          # Find the uncompressed image file
-          IMG_FILE=$(find work -name "*.img" -type f | head -n 1)
+          # Find the uncompressed image file in deploy directory
+          IMG_FILE=$(find deploy -name "*rasqberry*.img" -type f | head -n 1)
           if [ -z "$IMG_FILE" ]; then
             echo "Error: No uncompressed .img file found"
             exit 1
