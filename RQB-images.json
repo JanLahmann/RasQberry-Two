@@ -1,0 +1,44 @@
+{
+  "imager": {
+    "latest_version": "1.8.5",
+    "url": "https://www.raspberrypi.com/software/"
+  },
+  "os_list": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-JRL-features02-2025-06-04-100852/image_2025-06-04-rasqberry.img.xz",
+      "extract_size": 309164,
+      "extract_sha256": "dca6999e3af8e266dba114aebd681168fda2b1239bbd7b154702ca2a06bdd298",
+      "image_download_size": 2004754792,
+      "release_date": "2025-06-04",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org"
+    },
+    {
+      "name": "Raspberry Pi OS (64-bit)",
+      "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
+      "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+      "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-10-28/2024-10-22-raspios-bookworm-arm64.img.xz",
+      "extract_size": 6102712320,
+      "extract_sha256": "88093218a66cf20e8669963902a949c4c23b73309c2fc3331d09fa6ee2134417",
+      "image_download_size": 1238664180,
+      "release_date": "2024-10-22",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ]
+    },
+    {
+      "name": "Use custom image",
+      "description": "Select a custom .img from your computer",
+      "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
+    }
+  ]
+}
