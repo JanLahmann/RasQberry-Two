@@ -1005,6 +1005,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          # Pull latest changes to avoid conflicts
+          git pull origin ${{ github.ref_name }} || echo "No remote changes to pull"
+          
           # Always commit the JSON file to current branch
           git add RQB-images.json
           git commit -m "Generate RQB-images.json for ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
