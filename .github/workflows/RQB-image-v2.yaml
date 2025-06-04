@@ -281,6 +281,10 @@ jobs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
+      # Image metadata for JSON generation
+      extract_size: ${{ steps.image-metadata.outputs.extract_size }}
+      extract_sha256: ${{ steps.image-metadata.outputs.extract_sha256 }}
+      compressed_size: ${{ steps.image-metadata.outputs.compressed_size }}
     
     steps:
       - name: Checkout repository
@@ -746,6 +750,48 @@ jobs:
             echo "Build completed without caching (production build)"
           fi
 
+      # Calculate image metadata for JSON generation
+      - name: Calculate image metadata
+        id: image-metadata
+        run: |
+          cd pi-gen
+          
+          # Find the uncompressed image file
+          IMG_FILE=$(find work -name "*.img" -type f | head -n 1)
+          if [ -z "$IMG_FILE" ]; then
+            echo "Error: No uncompressed .img file found"
+            exit 1
+          fi
+          
+          # Find the compressed image file  
+          XZ_FILE="../${{ steps.set-asset.outputs.asset_path }}"
+          if [ ! -f "$XZ_FILE" ]; then
+            echo "Error: Compressed image file not found at $XZ_FILE"
+            exit 1
+          fi
+          
+          echo "Calculating metadata for:"
+          echo "  Uncompressed: $IMG_FILE"
+          echo "  Compressed: $XZ_FILE"
+          
+          # Calculate uncompressed image metadata
+          EXTRACT_SIZE=$(stat -c%s "$IMG_FILE")
+          EXTRACT_SHA256=$(sha256sum "$IMG_FILE" | cut -d' ' -f1)
+          
+          # Calculate compressed image size
+          COMPRESSED_SIZE=$(stat -c%s "$XZ_FILE")
+          
+          # Output metadata for JSON job
+          echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
+          echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
+          
+          # Display calculated values
+          echo "Image metadata calculated:"
+          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
+          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
+          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
+
       # ========================================================================
       # RELEASE ASSET UPLOAD
       # ========================================================================
@@ -788,13 +834,16 @@ jobs:
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
           
-          # For now, we'll use placeholder values for size and hash
-          # In a real implementation, we'd need to download and analyze the file
-          COMPRESSED_SIZE=1750000000  # ~1.75GB placeholder
+          # Use calculated values from build job
+          COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
+          EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
+          EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
           echo "download_url=${DOWNLOAD_URL}" >> $GITHUB_OUTPUT
           echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
           echo "release_date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
           echo "version_num=${{ needs.rasqberry-push-version-number.outputs.version_num }}" >> $GITHUB_OUTPUT
           
@@ -842,6 +891,8 @@ jobs:
             "description": "${{ steps.version-type.outputs.description }}",
             "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
             "url": "${{ steps.metadata.outputs.download_url }}",
+            "extract_size": ${{ steps.metadata.outputs.extract_size }},
+            "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
             "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
             "release_date": "${{ steps.metadata.outputs.release_date }}",
             "init_format": "systemd",
