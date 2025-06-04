@@ -93,45 +93,100 @@ else
     echo "WARNING: Desktop bookmarks directory not found"
 fi
 
-# Install to new user template (so new users get desktop shortcuts)
+# Create shell script launchers in /etc/skel for new users
+echo "Creating desktop launchers for new users..."
 mkdir -p /etc/skel/Desktop
 
-# Copy desktop files to skel for new users
-for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo)\.desktop$ ]]; then
-        cp "$desktop_file" /etc/skel/Desktop/
-        chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
-        # Mark desktop file as trusted by adding metadata
-        gio set "/etc/skel/Desktop/$(basename "$desktop_file")" metadata::trusted true 2>/dev/null || true
-        echo "Added to new user template: $(basename "$desktop_file")"
-    fi
+# Create launchers in skel
+for launcher in "IBM Quantum Composer:composer" \
+                "Grok Bloch Sphere:grok-bloch" \
+                "Grok Bloch Web:grok-bloch-web" \
+                "Quantum Fractals:quantum-fractals" \
+                "Quantum Lights Out:quantum-lights-out" \
+                "Quantum Raspberry Tie:quantum-raspberry-tie" \
+                "LED IBM Demo:led-ibm-demo" \
+                "Clear All LEDs:clear-leds"; do
+    IFS=':' read -r name desktop <<< "$launcher"
+    cat > "/etc/skel/Desktop/$name" << EOF
+#!/bin/bash
+gtk-launch $desktop.desktop
+EOF
+    chmod +x "/etc/skel/Desktop/$name"
 done
 
-# Install to current user desktop
+# Install to current user desktop using shell script launchers
 if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     USER_DESKTOP="/home/${FIRST_USER_NAME}/Desktop"
     mkdir -p "$USER_DESKTOP"
     
-    for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo)\.desktop$ ]]; then
-            cp "$desktop_file" "$USER_DESKTOP/"
-            chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
-            chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
-            # Mark desktop file as trusted by adding metadata (run as user)
-            su - "${FIRST_USER_NAME}" -c "gio set '$USER_DESKTOP/$(basename \"$desktop_file\")' metadata::trusted true" 2>/dev/null || true
-            echo "Added to ${FIRST_USER_NAME} desktop: $(basename "$desktop_file")"
-        fi
-    done
+    # Create shell script launchers instead of copying desktop files
+    echo "Creating desktop launchers..."
     
-    # Ensure desktop directory ownership
-    chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
+    # IBM Quantum Composer
+    cat > "$USER_DESKTOP/IBM Quantum Composer" << 'EOF'
+#!/bin/bash
+gtk-launch composer.desktop
+EOF
+    chmod +x "$USER_DESKTOP/IBM Quantum Composer"
     
-    # Configure PCManFM to trust desktop files automatically
+    # Grok Bloch local
+    cat > "$USER_DESKTOP/Grok Bloch Sphere" << 'EOF'
+#!/bin/bash
+gtk-launch grok-bloch.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Grok Bloch Sphere"
+    
+    # Grok Bloch web
+    cat > "$USER_DESKTOP/Grok Bloch Web" << 'EOF'
+#!/bin/bash
+gtk-launch grok-bloch-web.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Grok Bloch Web"
+    
+    # Quantum Fractals
+    cat > "$USER_DESKTOP/Quantum Fractals" << 'EOF'
+#!/bin/bash
+gtk-launch quantum-fractals.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Quantum Fractals"
+    
+    # Quantum Lights Out
+    cat > "$USER_DESKTOP/Quantum Lights Out" << 'EOF'
+#!/bin/bash
+gtk-launch quantum-lights-out.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Quantum Lights Out"
+    
+    # Quantum Raspberry Tie
+    cat > "$USER_DESKTOP/Quantum Raspberry Tie" << 'EOF'
+#!/bin/bash
+gtk-launch quantum-raspberry-tie.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Quantum Raspberry Tie"
+    
+    # LED IBM Demo
+    cat > "$USER_DESKTOP/LED IBM Demo" << 'EOF'
+#!/bin/bash
+gtk-launch led-ibm-demo.desktop
+EOF
+    chmod +x "$USER_DESKTOP/LED IBM Demo"
+    
+    # Clear All LEDs
+    cat > "$USER_DESKTOP/Clear All LEDs" << 'EOF'
+#!/bin/bash
+gtk-launch clear-leds.desktop
+EOF
+    chmod +x "$USER_DESKTOP/Clear All LEDs"
+    
+    # Set ownership for all launchers
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
+    
+    # Configure PCManFM for wallpaper and desktop appearance
     USER_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/pcmanfm/LXDE-pi"
     mkdir -p "$USER_CONFIG_DIR"
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config"
     
-    # Create or update desktop-items-0.conf to trust desktop files
+    # Create desktop configuration (wallpaper and appearance only)
     cat > "$USER_CONFIG_DIR/desktop-items-0.conf" << 'EOF'
 [*]
 wallpaper_mode=fit
@@ -146,38 +201,28 @@ sort=mtime;ascending;
 show_documents=0
 show_trash=1
 show_mounts=0
-[composer.desktop]
-x=10
-y=10
-trusted=true
-[grok-bloch.desktop]
-x=120
-y=10
-trusted=true
-[grok-bloch-web.desktop]
-x=230
-y=10
-trusted=true
-[quantum-fractals.desktop]
-x=340
-y=10
-trusted=true
-[quantum-lights-out.desktop]
-x=10
-y=120
-trusted=true
-[quantum-raspberry-tie.desktop]
-x=120
-y=120
-trusted=true
-[led-ibm-demo.desktop]
-x=230
-y=120
-trusted=true
 EOF
     
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
 fi
+
+# Create custom menu configuration for LXDE to recognize RasQberry category
+echo "Creating LXDE menu configuration for RasQberry category..."
+mkdir -p /etc/xdg/menus/applications-merged
+cat > /etc/xdg/menus/applications-merged/rasqberry.menu << 'EOF'
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>RasQberry</Name>
+    <Directory>rasqberry.directory</Directory>
+    <Include>
+      <Category>RasQberry</Category>
+    </Include>
+  </Menu>
+</Menu>
+EOF
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
@@ -196,23 +241,5 @@ if [ -d "${CLONE_DIR}" ]; then
     echo "Cleaning up cloned repository..."
     rm -rf "${CLONE_DIR}"
 fi
-
-# Create autostart entry for desktop trust script
-AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
-chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
-
-cat > "$AUTOSTART_DIR/rasqberry-trust-desktop.desktop" << EOF
-[Desktop Entry]
-Type=Application
-Name=RasQberry Trust Desktop Files
-Exec=/usr/bin/rq_trust_desktop_files.sh
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-Comment=Trust RasQberry desktop files on first login
-EOF
-
-chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR/rasqberry-trust-desktop.desktop"
 
 echo "Desktop bookmarks installation completed"

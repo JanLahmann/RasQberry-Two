@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Clear All LEDs
+Comment=Turn off all NeoPixel LEDs
+Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_clear_leds.sh
+Terminal=true
+StartupNotify=true
+Keywords=LED;clear;off;neopixel;hardware;rasqberry;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_clear_leds.sh
+NoDisplay=false

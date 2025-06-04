@@ -68,5 +68,24 @@ if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
     . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
+# Function to clean up on exit
+cleanup() {
+    echo
+    echo "Stopping Quantum Raspberry Tie demo..."
+    # Kill any remaining python processes running the demo
+    pkill -f "QuantumRaspberryTie.qk1.py" 2>/dev/null || true
+    echo "Demo stopped."
+}
+
+# Set up trap to clean up on exit
+trap cleanup EXIT INT TERM
+
 # Launch the demo
+echo "Starting Quantum Raspberry Tie Demo..."
+echo "========================================="
+echo "To stop the demo: Press Ctrl+C in this terminal"
+echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
+echo "========================================="
+echo
+
 cd "$DEMO_DIR" && python3 QuantumRaspberryTie.qk1.py
