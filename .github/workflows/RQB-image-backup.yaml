@@ -64,7 +64,7 @@
 #   - SKIP_INITRAMFS: Speed optimization flag
 # ============================================================================
 
-name: Rasqberry Pi Image Release
+name: Rasqberry Pi Image Release backup
 
 # Concurrency control: Only one workflow per branch, cancel previous runs
 concurrency:
