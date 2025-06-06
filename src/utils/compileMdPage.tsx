@@ -17,6 +17,7 @@ import { H4 } from "@/components/Markdown/H4";
 import { H5 } from "@/components/Markdown/H5";
 import { H6 } from "@/components/Markdown/H6";
 import { Img } from "@/components/Markdown/Img";
+import { Blockquote } from "@/components/Markdown/Blockquote";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -41,7 +42,8 @@ export function compileMdPage(content: string) {
       li: ({ children }) => <Li>{children}</Li>,
       customDirective: ({ children }) => <p>{children}</p>,
       table: ({ children }) => <Table>{children}</Table>,
-      img: ({ src, alt, title }) => <Img src={src} alt={alt} title={title} />
+      img: ({ src, alt, title }) => <Img src={src} alt={alt} title={title} />,
+      blockquote: ({ children }) => <Blockquote>{children}</Blockquote>
     },
   });
 }

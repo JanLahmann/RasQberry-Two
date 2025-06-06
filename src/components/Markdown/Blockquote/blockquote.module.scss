@@ -1,0 +1,8 @@
+@use "@carbon/themes";
+
+.blockquote {
+    color: #161616;
+    border-left: 4px solid themes.$background-brand;
+    padding-left: 1rem;
+    margin: 2rem 0;
+}
