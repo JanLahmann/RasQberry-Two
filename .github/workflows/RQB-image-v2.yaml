@@ -766,7 +766,7 @@ jobs:
           # Extract temporarily to calculate uncompressed metadata
           echo "Extracting compressed image temporarily for metadata calculation..."
           TEMP_IMG_FILE="${XZ_FILE_DEPLOY%.xz}"
-          xz -d -k "$XZ_FILE_DEPLOY"
+          sudo xz -d -k "$XZ_FILE_DEPLOY"
           IMG_FILE="$TEMP_IMG_FILE"
           
           # Find the compressed image file  
