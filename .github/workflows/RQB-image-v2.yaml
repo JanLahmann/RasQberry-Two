@@ -281,10 +281,10 @@ jobs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
-      # Image metadata for JSON generation
-      extract_size: ${{ steps.image-metadata.outputs.extract_size }}
-      extract_sha256: ${{ steps.image-metadata.outputs.extract_sha256 }}
-      compressed_size: ${{ steps.image-metadata.outputs.compressed_size }}
+      # Image metadata for JSON generation (calculated during build)
+      extract_size: ${{ steps.calculate-metadata.outputs.extract_size }}
+      extract_sha256: ${{ steps.calculate-metadata.outputs.extract_sha256 }}
+      compressed_size: ${{ steps.set-asset.outputs.compressed_size }}
     
     steps:
       - name: Checkout repository
@@ -702,6 +702,46 @@ jobs:
           sudo ./build.sh
 
       # ========================================================================
+      # METADATA CALCULATION - BEFORE COMPRESSION
+      # ========================================================================
+      # Calculate metadata while uncompressed image exists
+      - name: Calculate image metadata before compression
+        id: calculate-metadata
+        run: |
+          cd pi-gen
+          
+          # Find the uncompressed image file
+          IMG_FILE=$(find deploy -name "*.img" -type f | head -n 1)
+          
+          if [ -z "$IMG_FILE" ]; then
+            echo "Error: No uncompressed .img file found in deploy directory"
+            echo "Checking if image is already compressed..."
+            if ls deploy/*.img.xz 1> /dev/null 2>&1; then
+              echo "Image appears to be already compressed. This may indicate pi-gen configuration issue."
+            fi
+            exit 1
+          fi
+          
+          echo "Found uncompressed image: $IMG_FILE"
+          echo "Calculating metadata before compression..."
+          
+          # Calculate uncompressed image metadata
+          EXTRACT_SIZE=$(stat -c%s "$IMG_FILE")
+          EXTRACT_SHA256=$(sha256sum "$IMG_FILE" | cut -d' ' -f1)
+          
+          # Output metadata for later use
+          echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
+          
+          # Display calculated values
+          echo "Uncompressed image metadata:"
+          echo "  Size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
+          echo "  SHA256: $EXTRACT_SHA256"
+          
+          # Now pi-gen will compress the image automatically based on DEPLOY_COMPRESSION=xz
+          echo "Metadata calculation complete. Image will now be compressed by pi-gen..."
+
+      # ========================================================================
       # IMAGE FINALIZATION
       # ========================================================================
       # Find the built image and prepare it for upload
@@ -729,14 +769,18 @@ jobs:
           # Copy to deploy folder at workspace root
           cp "$FINAL_IMAGE" ../deploy/
           
+          # Calculate compressed size
+          COMPRESSED_SIZE=$(stat -c%s "../deploy/$(basename "$FINAL_IMAGE")")
+          
           # Set outputs for upload step
           FILE_NAME=$(basename "$FINAL_IMAGE")
           echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
+          echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
           
           # Display build information
           echo "Built image: $FILE_NAME"
-          echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"
+          echo "Compressed size: $(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE)"
           
           # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
@@ -750,57 +794,6 @@ jobs:
             echo "Build completed without caching (production build)"
           fi
 
-      # Calculate image metadata for JSON generation
-      - name: Calculate image metadata
-        id: image-metadata
-        run: |
-          cd pi-gen
-          
-          # Find the compressed image file first
-          XZ_FILE_DEPLOY=$(find deploy -name "*rasqberry*.img.xz" -type f | head -n 1)
-          if [ -z "$XZ_FILE_DEPLOY" ]; then
-            echo "Error: No compressed .img.xz file found in deploy directory"
-            exit 1
-          fi
-          
-          # Extract temporarily to calculate uncompressed metadata
-          echo "Extracting compressed image temporarily for metadata calculation..."
-          TEMP_IMG_FILE="${XZ_FILE_DEPLOY%.xz}"
-          xz -d -k "$XZ_FILE_DEPLOY"
-          IMG_FILE="$TEMP_IMG_FILE"
-          
-          # Find the compressed image file  
-          XZ_FILE="../${{ steps.set-asset.outputs.asset_path }}"
-          if [ ! -f "$XZ_FILE" ]; then
-            echo "Error: Compressed image file not found at $XZ_FILE"
-            exit 1
-          fi
-          
-          echo "Calculating metadata for:"
-          echo "  Uncompressed: $IMG_FILE"
-          echo "  Compressed: $XZ_FILE"
-          
-          # Calculate uncompressed image metadata
-          EXTRACT_SIZE=$(stat -c%s "$IMG_FILE")
-          EXTRACT_SHA256=$(sha256sum "$IMG_FILE" | cut -d' ' -f1)
-          
-          # Calculate compressed image size
-          COMPRESSED_SIZE=$(stat -c%s "$XZ_FILE")
-          
-          # Output metadata for JSON job
-          echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
-          echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
-          echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
-          
-          # Display calculated values
-          echo "Image metadata calculated:"
-          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
-          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
-          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
-          
-          # Clean up temporary extracted file
-          echo "Cleaning up temporary extracted image..."
-          rm -f "$IMG_FILE"
 
       # ========================================================================
       # RELEASE ASSET UPLOAD
@@ -831,14 +824,14 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Calculate image metadata
+      - name: Prepare image metadata
         id: metadata
         run: |
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
           
-          # Use calculated values from build job
+          # Use pre-calculated values from build job
           COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
           EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
           EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
