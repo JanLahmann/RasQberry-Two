@@ -37,58 +37,61 @@ DEMO_ROOT="$REPO_DIR/demos"
 BIN_DIR="$USER_HOME/.local/bin"
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
-#
 # -----------------------------------------------------------------------------
 # 1. Environment & Bootstrap
 # -----------------------------------------------------------------------------
-#
-# Bootstrap: ensure env-config.sh is linked into $BIN_DIR for scripts
 bootstrap_env_config() {
     SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
     TARGET_LINK="$BIN_DIR/env-config.sh"
-    # Remove existing symlink if present
     if [ -L "$TARGET_LINK" ]; then
         rm -f "$TARGET_LINK"
     fi
-    # Create symbolic link
     ln -sf "$SOURCE_FILE" "$TARGET_LINK"
 } || die "Failed to set up configuration link"
 
-# Run bootstrap to set up env-config link
 bootstrap_env_config
 
 # -----------------------------------------------------------------------------
 # 2. Helpers
 # -----------------------------------------------------------------------------
 
-# POSIX-compatible generic whiptail menu helper
 show_menu() {
     title="$1"; shift
     prompt="$1"; shift
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
 
-# Generic installer for demos: name, git URL, marker file, env var, dialog title
 install_demo() {
-    NAME="$1"       # demo directory name
-    GIT_URL="$2"    # corresponding repo URL variable
-    MARKER="$3"     # script or file that must exist
-    ENV_VAR="$4"    # environment variable name to set
-    TITLE="$5"      # title for dialog messages
+    NAME="$1"
+    GIT_URL="$2"
+    MARKER="$3"
+    ENV_VAR="$4"
+    TITLE="$5"
+    FORCE="$6"
 
     DEST="$DEMO_ROOT/$NAME"
-    # Clone if marker missing
+
+    if [ "$FORCE" = "--force" ] && [ -d "$DEST" ]; then
+        echo "[INFO] Forcing reinstallation of $NAME..."
+        rm -rf "$DEST"
+    fi
+
+    if [ -d "$DEST/.git" ]; then
+        echo "[INFO] Pulling latest changes for $NAME..."
+        cd "$DEST" && git pull --rebase
+        update_environment_file "$ENV_VAR" "true"
+        return 0
+    fi
+
     if [ ! -f "$DEST/$MARKER" ]; then
         mkdir -p "$DEST"
         if git clone --depth 1 "$GIT_URL" "$DEST"; then
-            # fix ownership if needed
             if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
                 sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
             fi
             update_environment_file "$ENV_VAR" "true"
             [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
         else
-            # Clean up empty directory and show error
             rm -rf "$DEST"
             whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
             return 1
@@ -116,6 +119,36 @@ do_grok_bloch_install() {
                  "index.html" "GROK_BLOCH_INSTALLED" \
                  "Grok Bloch Sphere"
 }
+
+# Helper: Install Dice Game if needed
+install_dice_game() {
+    install_demo "schrodinger-dice" "$GIT_REPO_DEMO_DICE" \
+                 "dice_game_main.py" "SCHRODINGER_DICE_INSTALLED" \
+                 "Schrodinger's Dice"
+}
+
+# Helper: Install Entanglement Game if needed
+install_entg_game() {
+    install_demo "entanglement-game" "$GIT_REPO_ENTANG" \
+                 "entanglement_game_main.py" "ENTANGLEMENT_GAME_INSTALLED" \
+                 "Entanglement Game"
+}
+
+# Helper: Install Zeno Game if needed
+install_zeno_game() {
+    install_demo "zeno-game" "$GIT_REPO_ZENO" \
+                 "zeno_gui.py" "ZENO_GAME_INSTALLED" \
+                 "Zeno Game"
+}
+
+# Helper: Install phg Game if needed
+install_phg() {
+    install_demo "phg-game" "$GIT_REPO_PHG" \
+                 "phg_main.py" "PHG_INSTALLED" \
+                 "Period Hunter Game"
+}
+
+
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
@@ -207,6 +240,146 @@ run_fractals_demo() {
     # Launch the fractals demo using the dedicated launcher script
     "$BIN_DIR/fractals.sh"
 }
+
+# Run Dice Game (ensures install first)
+run_dice_game_demo() {
+    install_dice_game
+    DEMO_DIR="$DEMO_ROOT/schrodinger-dice"
+    # Run and capture output
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 dice_game_main.py )
+
+    # # Show the result in a message box
+    # whiptail --title "Schrodinger's Dice Game - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "===== Schrodinger's Dice Game - Result ====="
+    echo "$DEMO_OUTPUT"
+
+    do_led_off
+}
+
+# Dice Game Menu (if you'd like extra options later)
+do_select_dice_option() {
+    while true; do
+        FUN=$(show_menu "RasQberry: Schrodinger's Dice" "Choose a mode" \
+           RUN "Play Dice Game") || break
+        case "$FUN" in
+            RUN) run_dice_game_demo || { handle_error "Dice Game failed."; continue; } ;;
+            *) break ;;
+        esac
+    done
+}
+
+run_entg_game_demo() {
+    install_entg_game
+    DEMO_DIR="$DEMO_ROOT/entanglement-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 entanglement_game_main.py )
+    
+    # Show the result in a message box
+    # whiptail --title "Entanglement Game - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "$DEMO_OUTPUT"
+    do_led_off
+}
+
+do_select_entg_option() {
+    while true; do
+        FUN=$(show_menu "RasQberry: Quantum Entanglement" "Choose a mode" \
+           RUN "Play Entanglement Game") || break
+        case "$FUN" in
+            RUN) run_entg_game_demo || { handle_error "Entanglement Game failed."; continue; } ;;
+            *) break ;;
+        esac
+    done
+}
+
+run_zeno_game_demo() {
+    install_zeno_game
+    DEMO_DIR="$DEMO_ROOT/zeno-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 zeno_gui.py )
+    
+    # Show the result in a message box
+    #whiptail --title "Zeno Game - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "$DEMO_OUTPUT"
+    do_led_off
+}
+
+run_phg_demo() {
+    install_phg
+    DEMO_DIR="$DEMO_ROOT/phg-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 phg_main.py )
+    
+    # Show the result in a message box
+    # whiptail --title "Period Hunter Game - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "$DEMO_OUTPUT"
+    do_led_off
+}
+
+# Helper: Install phg Game if needed
+install_qff() {
+    install_demo "QFF-game" "$GIT_REPO_QFF" \
+                 "qff_main.py" "QFF_INSTALLED" \
+                 "Quantum Factor Finder"
+}
+
+run_qff_demo() {
+    install_qff
+    DEMO_DIR="$DEMO_ROOT/QFF-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 qff_main.py )
+    
+    # Show the result in a message box
+    # whiptail --title "Quantum Factor Finder - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "$DEMO_OUTPUT"
+    do_led_off
+}
+
+# Helper: Install phg Game if needed
+install_tg() {
+    install_demo "TG-game" "$GIT_REPO_TG" \
+                 "teleportation.py" "TG_INSTALLED=true" \
+                 "Teleportation Game"
+}
+
+run_tg_demo() {
+    install_tg
+    DEMO_DIR="$DEMO_ROOT/TG-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 teleportation.py )
+    
+    # Show the result in a message box
+    #whiptail --title "Teleportation - Result" --msgbox "$DEMO_OUTPUT" 12 60
+    echo "$DEMO_OUTPUT"
+    do_led_off
+}
+
+
+# Helper: Install phg Game if needed
+install_dw() {
+    install_demo "DW-game" "$GIT_REPO_DW" \
+                 "dice_game_main.py" "DW_INSTALLED=true" \
+                 "Dice Game with Watson"
+}
+
+run_dw_demo() {
+    install_dw
+    DEMO_DIR="$DEMO_ROOT/DW-game"
+    
+    # Run and capture output just like the Dice game
+    DEMO_OUTPUT=$( . "$VENV_ACTIVATE"; cd "$DEMO_DIR"; python3 dice_game_main.py )
+    
+    echo "===== Dice Game with Watson - Result ====="
+    echo "$DEMO_OUTPUT"
+    
+    do_led_off
+}
+
+
 
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
@@ -392,6 +565,13 @@ do_quantum_demo_menu() {
        QRT  "Quantum Raspberry-Tie" \
        GRB  "Grok Bloch Sphere" \
        FRC  "Quantum Fractals" \
+       DICE "Schrodinger's Dice Game" \
+       ENTG "Quantum Entanglement Game" \
+       ZENO "Zeno Measurement Game" \
+       PHG  "Period Hunter Game" \
+       QFF  "Quantum Factor Finder" \
+       TG   "Teleportation Game" \
+       DW   "Dice with Watson" \
        STOP "Stop last running demo and clear LEDs") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
@@ -399,6 +579,13 @@ do_quantum_demo_menu() {
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
       GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
       FRC)  run_fractals_demo       || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      DICE) do_select_dice_option   || { handle_error "Failed to open Dice Game options."; continue; } ;;
+      ENTG) run_entg_game_demo      || { handle_error "Failed to run Entanglement Game."; continue; } ;;
+      ZENO) run_zeno_game_demo      || { handle_error "Failed to run Zeno Game."; continue; } ;;
+      PHG)  run_phg_demo            || { handle_error "Failed to run PHG Game."; continue; } ;;
+      QFF)  run_qff_demo            || { handle_error "Failed to run QFF Game."; continue; } ;;
+      TG)   run_tg_demo             || { handle_error "Failed to run QFF Game."; continue; } ;;
+      DW)   run_dw_demo             || { handle_error "Failed to run DW Game."; continue; } ;;
       STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
