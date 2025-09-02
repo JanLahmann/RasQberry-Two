@@ -1,7 +1,8 @@
 ---
 leadspace:
+  variant: light
   title: RasQberry Two
-  copy: "The RasQberry project: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or: Building a Functional Model of a Quantum Computer at Home"
+  copy: "<span class=\"text-gradient\">The RasQberry project</span>: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or: Building a Functional Model of a <span class=\"text-gradient\">Quantum Computer at Home</span>"
   size: tall
   cta:
     primary:
