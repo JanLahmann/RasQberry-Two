@@ -48,6 +48,4 @@ To get your favorite type of beverage implies creating a quantum circuit whose m
 
 [Quantum Lights Out](https://github.com/Luka-D/Quantum-Lights-Out), developed by Luka Dojcinovic, is an implementation of the [Lights Out](<https://en.wikipedia.org/wiki/Lights_Out_(game)>) puzzle game that is solved using a quantum algorithm and then displays every step of the solution process on the RasQberry Two's LED panel.
 
-[Github: Luka-D/Quantum-Lights-Out](https://github.com/Luka-D/Quantum-Lights-Out)
-
 ![LightsOutGIF](https://github.com/user-attachments/assets/23778cc3-99d3-4872-9463-fcd3b8f09b4f)
