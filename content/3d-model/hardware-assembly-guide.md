@@ -95,7 +95,7 @@ The following 3D Files are used in this section:
 
 ### Gluing all the pieces together
 
-Depending on whether you printed the components for the wall yourself, and the size of your 3D printer, you might have needed to print the various parts of the Wall in two parts or even more. If you printed all of the components in one part, you can skip this step and move on to the section titled `Setting up the Raspberry Pi`. For this guide, each major component of The Wall was split in two for easier printing. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
+Depending on whether you printed the components for the wall yourself, and the size of your 3D printer, you might have needed to print the various parts of the Wall in two parts or even more. If you printed all of the components in one part, you can skip this step and move on to the section titled `Wiring up the LED Arrays`. For this guide, each major component of The Wall was split in two for easier printing. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
 
 ![Figure 2](../assembly-images/wall_assembly_2.JPG "Figure 2: Each sub-assembly of the Wall printed.")
 
