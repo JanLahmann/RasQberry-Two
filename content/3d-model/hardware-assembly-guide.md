@@ -316,19 +316,53 @@ You have now successfully assembled the floor!
 
 ### Attach the Wall to the Floor
 
-Place the wall with the two protruding hex bolts into the hexagonal holes at the back of the floor. Fit the Hex Nut to the bolts from the underside of the floor and tighten reasonably firmly, but only “finger tight”. They’re quite strong, but don’t over-tighten them.
+Place the wall with the two protruding hex bolts into the hexagonal holes at the back of the floor.
+
+![Figure 5](../assembly-images/attach_wall_1.JPG "Figure 5: Holes for the wall in the floor.")
+
+Fit the hex nuts to the bolts from the underside of the floor and tighten reasonably firmly, but only “finger tight”. They’re quite strong, but don’t over-tighten them.
+
+![Figure 6](../assembly-images/attach_wall_2.JPG "Figure 6: The bolts of the wall, as seen from the underside of the floor.")
+
+![Figure 7](../assembly-images/attach_wall_3.JPG "Figure 7: The hex nuts tightened to the bolts of the wall.")
 
 ## Assembly of the Cryostat
 
-The Cryostat comes with 2 RTE servers attached for each of the Chandeliers which would hold a processor. The core of the cryostat (R2_NarrowYCryoConjoined) is connected to the floor with a Hex bolt as used in the Wall which has special 'arms' attached to conceal wires should you want to put anything electronic in any of the servers. The Hex bolt, affectionately named the octopus (R2_OctopusAlignment) is made with the hex part slightly raised beyond the floor of the cryostat to ensure that the Cryostat is correctly aligned, and cannot move when twisted. You should first push the hex bolt all the way through the larger cryostat piece, then through the floor. Fit the Hex Nut (from the Wall directory) through the underside of the floor and tighten reasonably firmly, but only “finger tight”. Again, don’t over-tighten them.
+The Cryostat comes with 2 RTE servers attached for each of the Chandeliers which would hold a processor. The core of the cryostat (**R2_NarrowYCryoConjoined**) is connected to the floor with a hex bolt as used in the Wall which has special 'arms' attached to conceal wires should you want to put anything electronic in any of the servers. The hex bolt, affectionately named the octopus (**R2_OctopusAlignment**) is made with the hex part slightly raised beyond the floor of the cryostat to ensure that the Cryostat is correctly aligned, and cannot move when twisted. You should first push the hex bolt all the way through the larger cryostat piece, then through the floor.
 
-The main Lid (R2_CryoLid-Simple) and Chandeliers (R2_ChandelierSingle) should be glued together. Print 3 Chandeliers, hex base down, and glue them to your “Cap”. You can print whatever color you want but we recommend the Silk Gold. They have a hollow core in case you want to do anything creative with LEDs or other wiring.
+![Figure 1](../assembly-images/cryostat_assembly_1.JPG "Figure 1: The octopus placed in the cryostat, as seen from above.")
 
-Each of the 9 RTE Servers (6 attached, and 3 stand-alone) requires a 'lid'. They are all the same, R2_NarrowServerSingleLid. They just sit in place, in case you want to fit something inside the servers, but can be glued if desired.
+![Figure 2](../assembly-images/cryostat_assembly_2.JPG "Figure 2: The protruding hex bolt of the octopus.")
 
-The Door (R2_NewDoor) should be printed upright, so that the layer lines align, but may require a brim for stable printing. It and the server's door frame each require very small magnets for it to close securely... see the notes below on best practices for installing those.
+Fit the hex nut (from the Wall directory) through the underside of the floor and tighten reasonably firmly, but only “finger tight”. Again, don’t over-tighten them.
 
-The outside of the main Cryostat and RTE Server model and the Inside of the 3 stand alone single RTE Servers (R2_NarrowServerSingle) connect with Magnets, alowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach. Do the same with the individual RTE Servers.
+![Figure 3](../assembly-images/cryostat_assembly_3.JPG "Figure 3: The hex nut tightened to the ocotpus.")
+
+The main Lid (**R2_CryoLid-Simple**) and Chandeliers (**R2_ChandelierSingle**) should be glued together. Print 3 Chandeliers, hex base down, and glue them to your “Cap”. You can print whatever color you want but we recommend the Silk Gold. They have a hollow core in case you want to do anything creative with LEDs or other wiring.
+
+![Figure 4](../assembly-images/cryostat_assembly_4.JPG "Figure 4: The three chandeliers and the cap laid out.")
+
+![Figure 5](../assembly-images/cryostat_assembly_5.JPG "Figure 5: The chandeliers glued to the cap.")
+
+Each of the 9 RTE Servers (6 attached, and 3 stand-alone) requires a 'lid'. They are all the same file(**R2_NarrowServerSingleLid**). They just sit in place, in case you want to fit something inside the servers, but can be glued if desired.
+
+![Figure 6](../assembly-images/cryostat_assembly_6.JPG "Figure 6: Two examples of the RTE Servers.")
+
+The Door (**R2_NewDoor**) should be printed upright, so that the layer lines align, but may require a brim for stable printing. It and the server's door frame each require very small magnets for it to close securely... see the notes below on best practices for installing those.
+
+**NOTE:** In the picture below, notice that the bottom magnet has been glued in while the top magnet has not been glued in yet.
+
+![Figure 7](../assembly-images/cryostat_assembly_7.JPG "Figure 7: The door to the cryostat. Notice that the bottom magnet is inserted while the top magnet has not been glued in yet.")
+
+The outside of the main Cryostat and RTE Server model and the inside of the 3 stand alone single RTE Servers (**R2_NarrowServerSingle**) connect with Magnets, alowing one to demonstrate the configurability of the system. Fit 2 large (15x2mm) magnets into the indents or pockets on the outer edge of each of the 3 RTE “arms”. Make sure they are all the same way round, so the RTEs will attach. Do the same with the individual RTE Servers.
+
+![Figure 8](../assembly-images/cryostat_assembly_8.JPG "Figure 8: The two large magnets glued inside the RTE server.")
+
+![Figure 9](../assembly-images/cryostat_assembly_9.JPG "Figure 9: The two large magnets glued inside the RTE arms of the cryostat. Notice that the magnets are marked with a marker to indicate polarity direction.")
+
+![Figure 10](../assembly-images/cryostat_assembly_10.JPG "Figure 10: The cryostat cap, with chandeliers, inserted into the cryostat.")
+
+![Figure 11](../assembly-images/cryostat_assembly_11.JPG "Figure 11: The fully assembled cryostat model.")
 
 **Note: Tips for fitting magnets**
 
@@ -361,3 +395,13 @@ Use a dab of rubber solution glue (“Copydex” in the UK), applied with someth
 Attach another magnet to the back of the plastic wall to keep the magnet in place while the glue dries (about half an hour). Leave plenty of time for the glue to dry before assembling magnetic joints, so the magnets don’t pull out.
 
 Roll any excess glue off with your finger when it’s dried.
+
+## Assembly Complete
+
+If you've reached this point in the assembly guide, congratulations! You have successfully assembled the RasQberry Two model! 🎉
+
+Be sure to check out the [Quantum Computing Demos](/quantum-computing-demos/demo-list) section of the website to learn about some quantum demos you can run on your completed model.
+
+![Figure 1](../assembly-images/complete_assembly_1.JPG "Figure 1: The fully assembled RasQberry Two model.")
+
+![Figure 2](../assembly-images/complete_assembly_2.JPG "Figure 2: Ditto.")
