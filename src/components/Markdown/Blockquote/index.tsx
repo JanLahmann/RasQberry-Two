@@ -1,6 +1,5 @@
 'use client'
 
-import { toKebabCase } from "@/utils/toKebabCase";
 import { ReactNode } from "react";
 import styles from './blockquote.module.scss'
 

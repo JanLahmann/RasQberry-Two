@@ -17,6 +17,7 @@ interface CTA {
 
 export interface Props {
     title?: string
+    variant: 'light' | 'dark'
     size?: 'short' | 'tall' | 'super'
     copy?: string
     cta?: {
@@ -33,18 +34,18 @@ export interface Props {
 }
 
 
-export function LeadSpace({ title, copy, cta, bg, size = 'tall' }: Props) {
+export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'light' }: Props) {
     const primaryIcon = icons[cta?.primary.icon || "arrow-right"]
     const secondaryIcon = icons[cta?.secondary?.icon || "arrow-right"]
 
     return <div className={clsx(styles['lead-space'], styles[`lead-space--${size}`])}>
-        <Grid className={clsx(styles['lead-space__content'], styles[`lead-space__content--${size}`])}>
+        <Grid className={clsx(styles['lead-space__content'], styles[`lead-space__content--${size}`], styles[`lead-space__content--${variant}`])}>
             <Column sm="100%">
-                {title && <h1 className={styles['lead-space__content__title']}>{title}</h1>}
+                {title && <h1 className={clsx(styles['lead-space__content__title'], styles[`lead-space__content__title--${variant}`])} dangerouslySetInnerHTML={{ __html: title }}></h1>}
             </Column>
             <Grid className={styles['lead-space__content__bottom']}>
                 <Column sm={4} md={6} lg={8}>
-                    {copy}
+                    {copy && <div dangerouslySetInnerHTML={{ __html: copy }}></div>}
                     {cta && (<div className={styles['lead-space__content__bottom__cta']}>
                         <Link href={cta.primary.url} target={cta.primary.target || '_self'}>
                             <Button renderIcon={primaryIcon}>
@@ -59,7 +60,7 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall' }: Props) {
         </Grid>
         {bg && <Grid className={styles['lead-space__bg']} condensed>
             <Column sm="100%">
-                {bg.gradient !== false && <div className={styles['lead-space__bg__gradient']} />}
+                {bg.gradient !== false && <div className={clsx(styles['lead-space__bg__gradient'], styles[`lead-space__bg__gradient--${variant}`])} />}
                 <Image width={1280} height={1280} className={styles['lead-space__bg__image']} src={bg.image.src} alt={bg.image.alt} />
             </Column>
         </Grid>}

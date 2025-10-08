@@ -4,6 +4,7 @@
 
 @use '@carbon/type';
 @use '@carbon/themes';
+@use 'variables' as *;
 
 body {
   margin: 0;
@@ -74,4 +75,12 @@ code {
   width: 100%;
   aspect-ratio: 16/9;
   margin: 1rem 0;
+}
+
+.text-gradient {
+  background: linear-gradient(45deg, $text-gradient-blue, $text-gradient-purple);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }

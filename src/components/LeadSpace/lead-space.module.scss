@@ -1,5 +1,6 @@
 @use '@carbon/type';
 @use '@carbon/grid';
+@use "@carbon/themes";
 
 @mixin gradient-bg {
     position: absolute;
@@ -16,7 +17,14 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(to right, rgb(255, 255, 255) 40%, transparent 100%);
+
+        &--light {
+            background: linear-gradient(to right, rgb(255, 255, 255) 40%, transparent 100%);
+        }
+
+        &--dark {
+            background: linear-gradient(to right, rgb(0, 0, 0) 40%, transparent 100%);
+        }
     }
 
     &__image {
@@ -60,6 +68,14 @@
         align-items: flex-start;
         margin-bottom: 4rem;
 
+        &--light {
+            color: themes.$text-primary;
+        }
+
+        &--dark {
+            color: themes.$text-inverse;
+        }
+
         &--short {
             height: 20vh;
             justify-content: center;
@@ -71,6 +87,14 @@
 
             @include grid.breakpoint-down(lg) {
                 margin-bottom: 2rem;
+            }
+
+            &--light {
+                color: themes.$text-primary;
+            }
+
+            &--dark {
+                color: themes.$text-inverse;
             }
         }
 
@@ -93,32 +117,7 @@
         max-inline-size: 100%;
 
         @include grid.breakpoint-up(lg) {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-
-            &__gradient {
-                position: absolute;
-                z-index: 1;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(to right, rgb(255, 255, 255) 40%, transparent 100%);
-            }
-
-            &__image {
-                position: absolute;
-                z-index: 0;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
+            @include gradient-bg();
         }
 
 
