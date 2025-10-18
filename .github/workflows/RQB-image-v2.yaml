@@ -562,14 +562,26 @@ jobs:
           	for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
           		echo "Importing key: \$key"
           		# Try multiple keyservers
-          		gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "\$key" 2>/dev/null || \\
-          		gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "\$key" 2>/dev/null || \\
-          		gpg --keyserver hkp://keys.openpgp.org --recv-keys "\$key" 2>/dev/null || \\
-          		echo "Warning: Failed to import key \$key from all keyservers"
+          		if gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "\$key" 2>&1 || \\
+          		   gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "\$key" 2>&1 || \\
+          		   gpg --keyserver hkp://keys.openpgp.org --recv-keys "\$key" 2>&1; then
+          			echo "  ✓ Key \$key imported to gpg"
 
-          		# Export to apt's trusted keyring directory (modern method)
-          		gpg --export "\$key" 2>/dev/null > /etc/apt/trusted.gpg.d/debian-\$key.gpg || true
+          			# Export to apt's trusted keyring directory
+          			if gpg --export "\$key" > /etc/apt/trusted.gpg.d/debian-\$key.gpg 2>&1; then
+          				echo "  ✓ Key \$key exported to /etc/apt/trusted.gpg.d/"
+          				ls -lh /etc/apt/trusted.gpg.d/debian-\$key.gpg
+          			else
+          				echo "  ✗ Failed to export key \$key"
+          			fi
+          		else
+          			echo "  ✗ Failed to import key \$key from all keyservers"
+          		fi
           	done
+
+          	# Verify exported keys
+          	echo "Keys in /etc/apt/trusted.gpg.d/:"
+          	ls -lh /etc/apt/trusted.gpg.d/ || true
 
           	# Remove temporary authentication bypass
           	rm -f /etc/apt/apt.conf.d/99-allow-unauthenticated
