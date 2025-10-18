@@ -282,11 +282,17 @@ do_select_environment_variable() {
     return 1
   fi
 
-  # Read and format environment file, excluding comments and empty lines
-  ENV_VARS=$(grep -vE '^\s*#|^\s*$' "$ENV_FILE" | awk -F= '{print $1 " " $2}')
+  # Build menu items as an array from environment file
+  MENU_ITEMS=()
+  while IFS='=' read -r key value; do
+    # Skip comments and empty lines
+    [[ "$key" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "$key" ]] && continue
+    MENU_ITEMS+=("$key" "$value")
+  done < "$ENV_FILE"
 
   # Create a menu with the environment variables
-  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" $ENV_VARS 3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "${MENU_ITEMS[@]}" 3>&1 1>&2 2>&3)
   RET=$?
   if [ "$RET" -eq 1 ]; then
     return 0
