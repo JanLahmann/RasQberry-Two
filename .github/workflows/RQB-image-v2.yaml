@@ -615,6 +615,12 @@ jobs:
           	echo "Running apt-get update with imported keys..."
           	apt-get update
           	apt-get dist-upgrade -y
+
+          	# Kill any background daemons spawned by gnupg/dirmngr to prevent unmount issues
+          	echo "Cleaning up background processes..."
+          	pkill -9 dirmngr || true
+          	pkill -9 gpg-agent || true
+          	echo "✓ Cleanup complete"
           EOF
           NEWSCRIPT
 
