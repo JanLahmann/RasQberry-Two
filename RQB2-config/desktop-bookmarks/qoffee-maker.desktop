@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Qoffee-Maker
+Comment=Quantum-controlled coffee maker using Home Connect API and Docker
+Icon=applications-science
+Type=Application
+Categories=RasQberry;
+Exec=/home/rasqberry/.local/bin/qoffee-maker.sh
+Terminal=true
+StartupNotify=true
+Keywords=quantum;coffee;home-connect;iot;docker;jupyter;
+X-GNOME-TextColor=#000000
+TryExec=/home/rasqberry/.local/bin/qoffee-maker.sh
+NoDisplay=false

@@ -208,6 +208,37 @@ run_fractals_demo() {
     "$BIN_DIR/fractals.sh"
 }
 
+# Run Qoffee-Maker demo
+run_qoffee_demo() {
+    # Check if setup has been run (Docker installed)
+    if ! command -v docker &> /dev/null; then
+        whiptail --title "Setup Required" --msgbox \
+            "Qoffee-Maker requires Docker, which is not installed.\n\nSetup will now run to install Docker and configure Qoffee-Maker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
+            12 70
+        "$BIN_DIR/qoffee-setup.sh" || return 1
+    fi
+
+    # Launch the Qoffee-Maker demo
+    "$BIN_DIR/qoffee-maker.sh"
+}
+
+# Stop Qoffee-Maker containers
+stop_qoffee_containers() {
+    if ! command -v docker &> /dev/null; then
+        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
+        return 0
+    fi
+
+    # Check if any qoffee containers are running
+    if docker ps -q --filter name=qoffee 2>/dev/null | grep -q .; then
+        echo "Stopping Qoffee-Maker containers..."
+        docker stop $(docker ps -q --filter name=qoffee) 2>/dev/null || true
+        whiptail --title "Qoffee-Maker Stopped" --msgbox "All Qoffee-Maker containers have been stopped." 8 60
+    else
+        whiptail --title "No Containers" --msgbox "No running Qoffee-Maker containers found." 8 60
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
@@ -392,14 +423,18 @@ do_quantum_demo_menu() {
        QRT  "Quantum Raspberry-Tie" \
        GRB  "Grok Bloch Sphere" \
        FRC  "Quantum Fractals" \
-       STOP "Stop last running demo and clear LEDs") || break
+       QOF  "Qoffee-Maker (Docker)" \
+       STOP "Stop last running demo and clear LEDs" \
+       QSTP "Stop Qoffee-Maker containers") || break
     case "$FUN" in
       LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
       GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
       FRC)  run_fractals_demo       || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      QOF)  run_qoffee_demo         || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
+      QSTP) stop_qoffee_containers  || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
   done
