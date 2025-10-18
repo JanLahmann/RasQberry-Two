@@ -679,6 +679,57 @@ jobs:
             echo "✓ Removed rpi-resize service from stage2/01-run.sh"
           fi
 
+      # Optimize initramfs generation for dev builds
+      - name: Apply early initramfs optimization
+        run: |
+          # Check if SKIP_INITRAMFS=1 in config
+          SKIP_INITRAMFS=$(grep "^SKIP_INITRAMFS=" pi-gen-config | cut -d'=' -f2)
+
+          if [ "$SKIP_INITRAMFS" = "1" ]; then
+            echo "=== Applying initramfs optimization (SKIP_INITRAMFS=1) ==="
+
+            # Create early-stage hook to disable initramfs before any packages are installed
+            mkdir -p pi-gen/stage0/00-disable-initramfs
+
+            cat > pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh <<'EOF'
+          #!/bin/bash -e
+          # Disable initramfs generation early to speed up package installations
+
+          echo "Disabling initramfs generation for faster builds..."
+
+          # Divert update-initramfs to a no-op script
+          if command -v update-initramfs >/dev/null 2>&1; then
+            dpkg-divert --add --rename --divert /usr/sbin/update-initramfs.real /usr/sbin/update-initramfs
+            cat > /usr/sbin/update-initramfs <<'INNER_EOF'
+          #!/bin/sh
+          echo "Skipping update-initramfs (SKIP_INITRAMFS=1)"
+          exit 0
+          INNER_EOF
+            chmod +x /usr/sbin/update-initramfs
+            echo "✓ update-initramfs diverted"
+          fi
+
+          # Divert mkinitramfs as well
+          if command -v mkinitramfs >/dev/null 2>&1; then
+            dpkg-divert --add --rename --divert /usr/sbin/mkinitramfs.real /usr/sbin/mkinitramfs
+            cat > /usr/sbin/mkinitramfs <<'INNER_EOF'
+          #!/bin/sh
+          echo "Skipping mkinitramfs (SKIP_INITRAMFS=1)"
+          exit 0
+          INNER_EOF
+            chmod +x /usr/sbin/mkinitramfs
+            echo "✓ mkinitramfs diverted"
+          fi
+
+          echo "Initramfs generation disabled successfully"
+          EOF
+
+            chmod +x pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh
+            echo "✓ Created early initramfs disable hook in stage0"
+          else
+            echo "SKIP_INITRAMFS not set to 1, initramfs will be generated normally"
+          fi
+
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
