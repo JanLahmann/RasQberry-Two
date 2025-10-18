@@ -30,10 +30,8 @@ pixels = create_neopixel_strip(
     pi_model=config['pi_model']
 )
 
-print(f"Simple LED Demo - RasQberry")
-print(f"Hardware: {config['pi_model']} with {NUM_PIXELS} LEDs")
-print(f"Pixel order: {pixel_order_str}")
-print()
+# Hardware info no longer printed to avoid terminal pollution in whiptail menus
+# (info still available via environment variables if needed)
 
 while True:
     for color in COLORS:

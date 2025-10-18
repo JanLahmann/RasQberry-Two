@@ -23,7 +23,7 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
-DEMO_DIR="$HOME/$REPO/quantum-raspberry-tie"
+DEMO_DIR="$HOME/$REPO/demos/quantum-raspberry-tie"
 
 # Function to install demo
 install_quantum_raspberry_tie() {
