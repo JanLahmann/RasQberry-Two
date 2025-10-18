@@ -1,79 +1,135 @@
 #!/usr/bin/env python3
-# 
-# based on NeoPixel library strandtest example by Tony DiCola (tony@tonydicola.com)
 #
-
-# test with    sudo python3 RasQ-LED-display.py  001010100100100 
-# blank the strip with     sudo python3 RasQ-LED-display.py  0 -c
+# RasQ-LED Display - Quantum Measurement Visualization on LED Strip
+# Based on NeoPixel library strandtest example by Tony DiCola (tony@tonydicola.com)
+# Updated for Pi4/Pi5 compatibility using SPI driver
+#
+# Usage:
+#   python3 RasQ-LED-display.py 001010100100100
+#   python3 RasQ-LED-display.py 0 -c    # Clear the strip
 
 from time import sleep
-from rpi_ws281x import PixelStrip, Color
+import board
+import neopixel_spi as neopixel
 import argparse
+from rq_led_utils import get_led_config, create_neopixel_strip
 
-# Parse LED configuration with safe defaults
-from dotenv import dotenv_values
-config = dotenv_values("/usr/config/rasqberry_environment.env")  # fixme, making path dynamic
+# Load configuration from system-wide environment
+config = get_led_config()
+NUM_PIXELS = config['led_count']
+pixel_order_str = config['pixel_order']
+pixel_order = getattr(neopixel, pixel_order_str)
 
-# Parse LED configuration with safe defaults
-LED_COUNT_init = int(config.get("LED_COUNT", 0))
-LED_PIN        = int(config.get("LED_PIN", 0))
-LED_FREQ_HZ    = int(config.get("LED_FREQ_HZ", 0))  # LED signal frequency in hertz (usually 800khz)
-LED_DMA        = int(config.get("LED_DMA", 0))      # DMA channel to use for generating signal (try 10)
-LED_BRIGHTNESS = int(config.get("LED_BRIGHTNESS", 0))  # Set to 0 for darkest and 255 for brightest
-LED_INVERT     = config.get("LED_INVERT", "false").lower() == "true"  # True to invert signal
-LED_CHANNEL    = int(config.get("LED_CHANNEL", 0))   # set to '1' for GPIOs 13,19, etc.
-#LED_BRIGHTNESS = 100  # Set to 0 for darkest and 255 for brightest
+# Color definitions - using neopixel_spi format (24-bit RGB)
+G = 0x00FF00  # Green
+R = 0xFF0000  # Red
+B = 0x0000FF  # Blue
+K = 0x000000  # Black (off)
 
-#print("LED_COUNT_init ", LED_COUNT_init, "LED_PIN ", LED_PIN, "LED_FREQ_HZ ", LED_FREQ_HZ, "LED_DMA ", LED_DMA, "LED_BRIGHTNESS ", LED_BRIGHTNESS, "LED_INVERT ", LED_INVERT, "LED_CHANNEL ", LED_CHANNEL, "LED_BRIGHTNESS ", LED_BRIGHTNESS)
-G = Color(0, 255, 0) # green
-R = Color(255, 0, 0) # red
-B = Color(0, 0, 255) # blue
-K = Color(0, 0, 0) # black
-to_color = {'1':B, '0':R} # translate qubit state to color
-wait_ms = 7 # delay in display cycle
+# Qubit state to color mapping
+to_color = {'1': B, '0': R}  # 1=Blue, 0=Red
+wait_ms = 7  # delay in display cycle
 
-def display_on_strip(strip):
-  #print("measurement ", measurement)
-  color_strip = [to_color.get(n, n) for n in list(measurement)]
-  #print("color_strip: ", color_strip)
-  for i in range(strip.numPixels()):
-      #strip.setPixelColor(i, R)
-      strip.setPixelColor(i, color_strip[i])
-      strip.show()
-      sleep(wait_ms / 1000.0)
+def display_on_strip(pixels, measurement):
+    """Display quantum measurement result on LED strip"""
+    print(f"Displaying measurement: {measurement}")
 
-def colorWipe(strip, color=K, wait_ms=wait_ms):
-    """Wipe color across display a pixel at a time."""
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, color)
-        strip.show()
+    # Convert measurement string to colors
+    measurement_list = list(measurement)
+
+    # Clear all pixels first
+    pixels.fill(K)
+
+    # Set colors for measurement bits (up to available pixels)
+    for i, bit in enumerate(measurement_list):
+        if i >= NUM_PIXELS:
+            print(f"Warning: Measurement has {len(measurement_list)} bits, but only {NUM_PIXELS} LEDs available")
+            break
+
+        color = to_color.get(bit, K)  # Get color or black for invalid bits
+        pixels[i] = color
+        pixels.show()
         sleep(wait_ms / 1000.0)
 
-# Main program logic follows:
+def color_wipe(pixels, color=K, wait_ms=wait_ms):
+    """Wipe color across display a pixel at a time"""
+    for i in range(NUM_PIXELS):
+        pixels[i] = color
+        pixels.show()
+        sleep(wait_ms / 1000.0)
+
+def clear_strip(pixels):
+    """Clear all LEDs immediately"""
+    pixels.fill(K)
+    pixels.show()
+    print("All LEDs cleared")
+
+# Main program logic
 if __name__ == '__main__':
     # Process arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("measurement")
-    parser.add_argument('-c', '--clear', action='store_true', help='clear the display on exit')
+    parser = argparse.ArgumentParser(
+        description="Display quantum measurement results on LED strip",
+        epilog="Examples:\n"
+               "  python3 RasQ-LED-display.py 001010100100100\n"
+               "  python3 RasQ-LED-display.py 0 -c",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("measurement", help="Binary string representing qubit states (0=Red, 1=Blue)")
+    parser.add_argument('-c', '--clear', action='store_true', help='Clear the display and exit')
     args = parser.parse_args()
 
-    if args.clear:
-        strip = PixelStrip(LED_COUNT_init, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-        strip.begin()
-        colorWipe(strip, K, 10)
-        exit(0)
-
-    measurement=args.measurement
-    LED_COUNT = len(measurement)
-
-    # Create NeoPixel object with appropriate configuration.
-    strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
-    # Intialize the library (must be called once before other functions).
-    strip.begin()
+    # Create NeoPixel object using rq_led_utils
+    try:
+        spi = board.SPI()
+        pixels = create_neopixel_strip(
+            spi,
+            NUM_PIXELS,
+            pixel_order,
+            brightness=config['brightness'] / 255.0,
+            pi_model=config['pi_model']
+        )
+        print(f"Initialized {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order)")
+    except Exception as e:
+        print(f"Error initializing LED strip: {e}")
+        print("Make sure SPI is enabled: sudo raspi-config -> Interface Options -> SPI -> Enable")
+        exit(1)
 
     try:
-        display_on_strip(strip)
-    except KeyboardInterrupt:
         if args.clear:
-            colorWipe(strip, K, 10)
+            # Clear mode - turn off all LEDs
+            color_wipe(pixels, K, 10)
+            exit(0)
 
+        # Validate measurement string
+        measurement = args.measurement
+        if not all(bit in '01' for bit in measurement):
+            print("Error: Measurement must contain only '0' and '1' characters")
+            exit(1)
+
+        if len(measurement) > NUM_PIXELS:
+            print(f"Warning: Measurement has {len(measurement)} bits, truncating to {NUM_PIXELS}")
+            measurement = measurement[:NUM_PIXELS]
+
+        # Display the measurement
+        display_on_strip(pixels, measurement)
+
+        print(f"Displayed {len(measurement)} qubits. Press Ctrl+C to clear and exit.")
+
+        # Keep the display on until interrupted
+        try:
+            while True:
+                sleep(1)
+        except KeyboardInterrupt:
+            print("\nClearing LEDs and exiting...")
+            clear_strip(pixels)
+
+    except KeyboardInterrupt:
+        print("\nClearing LEDs and exiting...")
+        clear_strip(pixels)
+    except Exception as e:
+        print(f"Error: {e}")
+        try:
+            clear_strip(pixels)
+        except:
+            pass
+        exit(1)

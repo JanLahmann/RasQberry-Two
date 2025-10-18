@@ -84,12 +84,23 @@ cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
 # Set permissions on target directories
-chmod 755 /home/${FIRST_USER_NAME}/.local/bin 
+chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
+# Set permissions on system-wide files
+chmod 644 /usr/config/rasqberry_environment.env  # World-readable configuration
+chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
+chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
+
 # Apply RQB2 patch to /usr/bin/raspi-config at boot time
-# Adding patch script to root-crontab 
+# Adding patch script to root-crontab
 bash -c 'CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
+  crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
+  ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
+
+# Add hardware detection script to root-crontab (runs at every boot)
+# This ensures PI_MODEL is always current, even if SD card is moved between Pi models
+bash -c 'CRON="@reboot /usr/bin/rq_detect_hardware.sh"; \
   crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
   ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
 
