@@ -254,10 +254,36 @@ sleep 3
 
 # Configure GNOME Keyring with blank password to avoid Chromium password prompts
 echo "$(date): Configuring GNOME Keyring..." >> "$LOG_FILE"
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
-    # Create default keyring with blank password
+if command -v python3 >/dev/null 2>&1; then
+    # Create default keyring directory if it doesn't exist
+    mkdir -p "$HOME/.local/share/keyrings" 2>> "$LOG_FILE"
+
+    # Create 'Default' keyring with blank password using Python
     # This prevents the "Enter password to unlock keyring" dialog in Chromium
-    echo -n "" | gnome-keyring-daemon --unlock 2>> "$LOG_FILE" || true
+    python3 - 2>> "$LOG_FILE" << 'PYEOF' || true
+import os
+keyring_dir = os.path.expanduser("~/.local/share/keyrings")
+default_keyring = os.path.join(keyring_dir, "Default.keyring")
+
+# Only create if it doesn't exist
+if not os.path.exists(default_keyring):
+    try:
+        # Create a minimal keyring file with no password
+        keyring_content = """[keyring]
+display-name=Default
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-timeout=0
+"""
+        os.makedirs(keyring_dir, exist_ok=True)
+        with open(default_keyring, 'w') as f:
+            f.write(keyring_content)
+        os.chmod(default_keyring, 0o600)
+        print(f"Created default keyring at {default_keyring}")
+    except Exception as e:
+        print(f"Failed to create keyring: {e}")
+PYEOF
     echo "$(date): GNOME Keyring configured" >> "$LOG_FILE"
 fi
 
