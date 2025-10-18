@@ -513,31 +513,25 @@ jobs:
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
-      # Add Debian archive keyring to pi-gen files and install it
-      - name: Add and install Debian keyring in stage0
+      # Fix Debian keyring in stage0 by updating the package before apt configuration
+      - name: Update Debian archive keyring in stage0
         run: |
-          echo "=== Step 1: Verify Debian keyring on host ==="
-          ls -lh /usr/share/keyrings/debian-* || echo "No debian keyrings found"
+          echo "=== Creating stage0 script to update debian-archive-keyring package ==="
 
-          echo ""
-          echo "=== Step 2: Copy Debian keyring to pi-gen files ==="
-          if [ -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
-            cp -v /usr/share/keyrings/debian-archive-keyring.gpg \
-               pi-gen/stage0/00-configure-apt/files/
-            echo "✓ Copied debian-archive-keyring.gpg"
-          else
-            echo "❌ debian-archive-keyring.gpg not found!"
-            ls -la /usr/share/keyrings/
-            exit 1
-          fi
-
-          ls -lh pi-gen/stage0/00-configure-apt/files/debian-archive-keyring.gpg
-
-          echo ""
-          echo "=== Step 3: Replace 00-run.sh with Debian keyring support ==="
           cat > pi-gen/stage0/00-configure-apt/00-run.sh << 'NEWSCRIPT'
           #!/bin/bash -e
 
+          # CRITICAL FIX: Update debian-archive-keyring package BEFORE changing apt sources
+          # This ensures we have the latest Debian signing keys in the chroot
+          echo "Updating debian-archive-keyring package in chroot..."
+          on_chroot <<- \KEYRING_UPDATE
+          	# Install/update the keyring package with current repositories (from debootstrap)
+          	apt-get update
+          	apt-get install -y --reinstall debian-archive-keyring
+          	echo "✓ debian-archive-keyring package updated"
+          KEYRING_UPDATE
+
+          # Now configure apt sources with the updated keyring in place
           true > "${ROOTFS_DIR}/etc/apt/sources.list"
           install -m 644 files/debian.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
           install -m 644 files/raspi.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
@@ -558,14 +552,13 @@ jobs:
           	rm -f "${ROOTFS_DIR}/etc/apt/sources.list.d/00-temp.list"
           fi
 
-          # Install archive keyrings - BOTH Raspberry Pi and Debian
-          echo "Installing archive keyrings into ${ROOTFS_DIR}/usr/share/keyrings/"
+          # Install Raspberry Pi keyring
           install -m 644 files/raspberrypi-archive-keyring.pgp "${ROOTFS_DIR}/usr/share/keyrings/"
-          install -m 644 files/debian-archive-keyring.gpg "${ROOTFS_DIR}/usr/share/keyrings/"
 
-          echo "Verifying keyrings were installed:"
-          ls -lh "${ROOTFS_DIR}/usr/share/keyrings/"
+          echo "Verifying keyrings are in place:"
+          ls -lh "${ROOTFS_DIR}/usr/share/keyrings/" | grep -E "(debian|raspberry)" || true
 
+          # Now run apt-get update with both keyrings in place
           on_chroot <<- \EOF
           	ARCH="$(dpkg --print-architecture)"
           	if [ "$ARCH" = "armhf" ]; then
@@ -579,7 +572,7 @@ jobs:
           NEWSCRIPT
 
           chmod +x pi-gen/stage0/00-configure-apt/00-run.sh
-          echo "✓ Created new 00-run.sh with Debian keyring installation"
+          echo "✓ Created 00-run.sh with debian-archive-keyring package update"
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
