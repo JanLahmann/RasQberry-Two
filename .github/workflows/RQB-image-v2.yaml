@@ -659,9 +659,14 @@ jobs:
             sed -i '/rpi-swap/d' pi-gen/stage2/01-sys-tweaks/00-packages
             sed -i '/rpi-loop-utils/d' pi-gen/stage2/01-sys-tweaks/00-packages
             sed -i '/rpi-usb-gadget/d' pi-gen/stage2/01-sys-tweaks/00-packages
-            echo "✓ Removed Trixie-only packages from stage2"
-            echo "Modified packages list:"
-            cat pi-gen/stage2/01-sys-tweaks/00-packages
+            echo "✓ Removed Trixie-only packages from stage2/00-packages"
+          fi
+
+          # Remove rpi-resize service enable (service doesn't exist in Bookworm)
+          # This service is part of Trixie-only packages
+          if [ -f "pi-gen/stage2/01-sys-tweaks/01-run.sh" ]; then
+            sed -i '/systemctl enable rpi-resize/d' pi-gen/stage2/01-sys-tweaks/01-run.sh
+            echo "✓ Removed rpi-resize service from stage2/01-run.sh"
           fi
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
