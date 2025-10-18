@@ -301,42 +301,78 @@ jobs:
             df / | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
           }
 
-          # Function to measure and remove directory
-          remove_dir() {
-            local dir=$1
-            local name=$2
-            if [ -d "$dir" ]; then
-              echo "Removing $name..."
-              local before=$(get_available_gb)
-              local start=$(date +%s)
-              sudo rm -rf "$dir"
-              local end=$(date +%s)
-              local after=$(get_available_gb)
-              local freed=$(echo "scale=1; $after - $before" | bc)
-              echo "  ✓ Removed in $((end - start))s - freed ${freed}GB"
-            else
-              echo "  ✗ $name not found"
-            fi
-          }
-
-          # Remove directories with timing
-          remove_dir "/opt/hostedtoolcache" "tool-cache"
-          remove_dir "/usr/local/lib/android" "android"
-          remove_dir "/usr/share/dotnet" "dotnet"
-          remove_dir "/opt/ghc" "haskell"
-          remove_dir "/usr/local/.ghcup" "ghcup"
-          remove_dir "/usr/local/share/boost" "boost"
-
-          # Large packages (apt-get based)
-          echo "Removing large packages..."
+          # Parallel cleanup - all operations run simultaneously
+          echo "Starting parallel disk cleanup..."
           before=$(get_available_gb)
           start=$(date +%s)
-          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
-          sudo apt-get autoremove -y 2>/dev/null || true
+
+          # Launch all directory removals in parallel
+          (
+            if [ -d "/opt/hostedtoolcache" ]; then
+              echo "Removing tool-cache..."
+              sudo rm -rf "/opt/hostedtoolcache"
+              echo "  ✓ tool-cache removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/lib/android" ]; then
+              echo "Removing android..."
+              sudo rm -rf "/usr/local/lib/android"
+              echo "  ✓ android removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/share/dotnet" ]; then
+              echo "Removing dotnet..."
+              sudo rm -rf "/usr/share/dotnet"
+              echo "  ✓ dotnet removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/opt/ghc" ]; then
+              echo "Removing haskell..."
+              sudo rm -rf "/opt/ghc"
+              echo "  ✓ haskell removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/.ghcup" ]; then
+              echo "Removing ghcup..."
+              sudo rm -rf "/usr/local/.ghcup"
+              echo "  ✓ ghcup removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/share/boost" ]; then
+              echo "Removing boost..."
+              sudo rm -rf "/usr/local/share/boost"
+              echo "  ✓ boost removed"
+            fi
+          ) &
+
+          # Run apt-get cleanup in parallel too
+          (
+            echo "Removing large packages..."
+            sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
+            sudo apt-get autoremove -y 2>/dev/null || true
+            echo "  ✓ apt-get cleanup completed"
+          ) &
+
+          # Wait for all parallel operations to complete
+          wait
+
+          # Measure final state
           end=$(date +%s)
           after=$(get_available_gb)
           freed=$(echo "scale=1; $after - $before" | bc)
-          echo "  ✓ apt-get cleanup in $((end - start))s - freed ${freed}GB"
+          echo ""
+          echo "=== Parallel cleanup results ==="
+          echo "  ✓ All cleanup completed in $((end - start))s - freed ${freed}GB"
 
           echo ""
           echo "=== Final disk space ==="
