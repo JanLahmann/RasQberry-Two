@@ -513,38 +513,55 @@ jobs:
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
-      # Create stage0 prerun script to inject Debian keys into chroot
-      - name: Create stage0 prerun script for GPG keys
+      # Add Debian archive keyring to pi-gen files
+      - name: Add Debian keyring to pi-gen stage0 files
         run: |
-          cat > pi-gen/stage0/prerun.sh << 'EOF'
-          #!/bin/bash -e
+          echo "Copying Debian archive keyring to pi-gen/stage0/00-configure-apt/files/"
 
-          # This script runs after debootstrap creates the base system
-          # but before stage0 scripts run. It copies Debian GPG keys into the chroot.
-
-          if [ -d "${ROOTFS_DIR}" ]; then
-            echo "Injecting Debian archive keys into chroot at ${ROOTFS_DIR}"
-
-            # Copy the debian-archive-keyring from host into chroot
-            if [ -d "/usr/share/keyrings" ]; then
-              mkdir -p "${ROOTFS_DIR}/usr/share/keyrings"
-              cp -v /usr/share/keyrings/debian-archive-* "${ROOTFS_DIR}/usr/share/keyrings/" 2>/dev/null || true
-            fi
-
-            # Copy any trusted GPG keys from host
-            if [ -d "/etc/apt/trusted.gpg.d" ]; then
-              mkdir -p "${ROOTFS_DIR}/etc/apt/trusted.gpg.d"
-              cp -v /etc/apt/trusted.gpg.d/debian-*.gpg "${ROOTFS_DIR}/etc/apt/trusted.gpg.d/" 2>/dev/null || true
-            fi
-
-            echo "GPG keys copied into chroot successfully"
+          # Copy the debian-archive-keyring.gpg to pi-gen files directory
+          # This will be installed alongside raspberrypi-archive-keyring.gpg
+          if [ -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
+            cp /usr/share/keyrings/debian-archive-keyring.gpg \
+               pi-gen/stage0/00-configure-apt/files/
+            echo "✓ Copied debian-archive-keyring.gpg"
           else
-            echo "ROOTFS_DIR not found, skipping key injection"
+            echo "⚠ Warning: debian-archive-keyring.gpg not found, checking alternatives..."
+            # Try to find and copy any Debian keyring files
+            find /usr/share/keyrings/ -name "debian-*" -exec cp {} pi-gen/stage0/00-configure-apt/files/ \;
           fi
-          EOF
 
-          chmod +x pi-gen/stage0/prerun.sh
-          echo "Created stage0/prerun.sh to inject GPG keys into chroot"
+          # Verify the file was copied
+          if [ -f "pi-gen/stage0/00-configure-apt/files/debian-archive-keyring.gpg" ]; then
+            echo "✓ Debian keyring ready for installation"
+            ls -lh pi-gen/stage0/00-configure-apt/files/debian-archive-keyring.gpg
+          else
+            echo "❌ Failed to copy Debian keyring"
+            exit 1
+          fi
+
+      # Modify stage0 apt config to install Debian keyring
+      - name: Patch stage0 to install Debian keyring
+        run: |
+          cat > /tmp/patch.txt << 'PATCH'
+          --- a/stage0/00-configure-apt/00-run.sh
+          +++ b/stage0/00-configure-apt/00-run.sh
+          @@ -18,6 +18,7 @@
+           fi
+
+           install -m 644 files/raspberrypi-archive-keyring.pgp "${ROOTFS_DIR}/usr/share/keyrings/"
+          +install -m 644 files/debian-archive-keyring.gpg "${ROOTFS_DIR}/usr/share/keyrings/" || true
+           on_chroot <<- \EOF
+           	ARCH="$(dpkg --print-architecture)"
+           	if [ "$ARCH" = "armhf" ]; then
+          PATCH
+
+          # Apply the modification directly
+          cd pi-gen/stage0/00-configure-apt
+          sed -i '/install -m 644 files\/raspberrypi-archive-keyring.pgp/a install -m 644 files/debian-archive-keyring.gpg "${ROOTFS_DIR}/usr/share/keyrings/" || echo "Warning: Could not install debian-archive-keyring.gpg"' 00-run.sh
+
+          echo "✓ Patched stage0/00-configure-apt/00-run.sh to install Debian keyring"
+          echo "Modified script:"
+          cat 00-run.sh
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
