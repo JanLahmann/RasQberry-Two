@@ -9,7 +9,7 @@ echo "=== Quantum-Mixer Demo ==="
 echo
 
 # Load environment variables
-. "$HOME/.local/bin/env-config.sh"
+. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
 
 # Determine user and paths
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
