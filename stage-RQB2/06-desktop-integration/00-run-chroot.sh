@@ -191,8 +191,14 @@ x=230
 y=230
 trusted=true
 EOF
-    
+
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
+
+    # Also copy to /etc/skel so new users get the trusted desktop icons
+    SKEL_CONFIG_DIR="/etc/skel/.config/pcmanfm/LXDE-pi"
+    mkdir -p "$SKEL_CONFIG_DIR"
+    cp "$USER_CONFIG_DIR/desktop-items-0.conf" "$SKEL_CONFIG_DIR/desktop-items-0.conf"
+    echo "Desktop configuration copied to /etc/skel for new users"
 fi
 
 # Create custom menu configuration for LXDE to recognize RasQberry category
