@@ -508,6 +508,39 @@ jobs:
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
+      # Create stage0 prerun script to inject Debian keys into chroot
+      - name: Create stage0 prerun script for GPG keys
+        run: |
+          cat > pi-gen/stage0/prerun.sh << 'EOF'
+          #!/bin/bash -e
+
+          # This script runs after debootstrap creates the base system
+          # but before stage0 scripts run. It copies Debian GPG keys into the chroot.
+
+          if [ -d "${ROOTFS_DIR}" ]; then
+            echo "Injecting Debian archive keys into chroot at ${ROOTFS_DIR}"
+
+            # Copy the debian-archive-keyring from host into chroot
+            if [ -d "/usr/share/keyrings" ]; then
+              mkdir -p "${ROOTFS_DIR}/usr/share/keyrings"
+              cp -v /usr/share/keyrings/debian-archive-* "${ROOTFS_DIR}/usr/share/keyrings/" 2>/dev/null || true
+            fi
+
+            # Copy any trusted GPG keys from host
+            if [ -d "/etc/apt/trusted.gpg.d" ]; then
+              mkdir -p "${ROOTFS_DIR}/etc/apt/trusted.gpg.d"
+              cp -v /etc/apt/trusted.gpg.d/debian-*.gpg "${ROOTFS_DIR}/etc/apt/trusted.gpg.d/" 2>/dev/null || true
+            fi
+
+            echo "GPG keys copied into chroot successfully"
+          else
+            echo "ROOTFS_DIR not found, skipping key injection"
+          fi
+          EOF
+
+          chmod +x pi-gen/stage0/prerun.sh
+          echo "Created stage0/prerun.sh to inject GPG keys into chroot"
+
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
