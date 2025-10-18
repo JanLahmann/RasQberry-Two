@@ -235,17 +235,28 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     cat > "/usr/local/bin/trust-rasqberry-desktop-files.sh" << 'EOF'
 #!/bin/bash
 # Trust all RasQberry desktop files on first login
+# Also configure GNOME Keyring to avoid password prompts
 # This runs once and then removes itself
 
 DESKTOP_DIR="$HOME/Desktop"
 LOG_FILE="$HOME/.rasqberry-desktop-trust.log"
 
-echo "$(date): Trusting RasQberry desktop files..." >> "$LOG_FILE"
+echo "$(date): Running RasQberry first-login setup..." >> "$LOG_FILE"
 
 # Wait for desktop environment to be ready
 sleep 3
 
+# Configure GNOME Keyring with blank password to avoid Chromium password prompts
+echo "$(date): Configuring GNOME Keyring..." >> "$LOG_FILE"
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    # Create default keyring with blank password
+    # This prevents the "Enter password to unlock keyring" dialog in Chromium
+    echo -n "" | gnome-keyring-daemon --unlock 2>> "$LOG_FILE" || true
+    echo "$(date): GNOME Keyring configured" >> "$LOG_FILE"
+fi
+
 # Trust all RasQberry desktop files
+echo "$(date): Trusting desktop files..." >> "$LOG_FILE"
 for desktop_file in "$DESKTOP_DIR"/*.desktop; do
     if [ -f "$desktop_file" ]; then
         # Set trusted metadata using gio
@@ -255,7 +266,7 @@ for desktop_file in "$DESKTOP_DIR"/*.desktop; do
     fi
 done
 
-echo "$(date): Desktop file trusting completed" >> "$LOG_FILE"
+echo "$(date): First-login setup completed" >> "$LOG_FILE"
 
 # Remove autostart entry so this doesn't run again
 rm -f "$HOME/.config/autostart/trust-rasqberry-desktop.desktop"
