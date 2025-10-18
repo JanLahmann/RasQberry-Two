@@ -541,7 +541,7 @@ jobs:
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
         run: |
-          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
+          git clone --depth 1 --branch bookworm-arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
       # Fix Debian keyring by importing current signing keys directly
@@ -657,27 +657,6 @@ jobs:
 
           chmod +x pi-gen/stage0/00-configure-apt/00-run.sh
           echo "✓ Created 00-run.sh with direct key import"
-
-      # Fix stage2 packages for Bookworm compatibility
-      - name: Remove Trixie-only packages from stage2
-        run: |
-          echo "=== Patching stage2 for Bookworm compatibility ==="
-
-          # Remove rpi-swap, rpi-loop-utils, rpi-usb-gadget (Trixie-only packages)
-          # These packages don't exist in Bookworm repositories
-          if [ -f "pi-gen/stage2/01-sys-tweaks/00-packages" ]; then
-            sed -i '/rpi-swap/d' pi-gen/stage2/01-sys-tweaks/00-packages
-            sed -i '/rpi-loop-utils/d' pi-gen/stage2/01-sys-tweaks/00-packages
-            sed -i '/rpi-usb-gadget/d' pi-gen/stage2/01-sys-tweaks/00-packages
-            echo "✓ Removed Trixie-only packages from stage2/00-packages"
-          fi
-
-          # Remove rpi-resize service enable (service doesn't exist in Bookworm)
-          # This service is part of Trixie-only packages
-          if [ -f "pi-gen/stage2/01-sys-tweaks/01-run.sh" ]; then
-            sed -i '/systemctl enable rpi-resize/d' pi-gen/stage2/01-sys-tweaks/01-run.sh
-            echo "✓ Removed rpi-resize service from stage2/01-run.sh"
-          fi
 
       # Optimize initramfs generation for dev builds
       - name: Apply early initramfs optimization
