@@ -620,6 +620,22 @@ jobs:
           chmod +x pi-gen/stage0/00-configure-apt/00-run.sh
           echo "✓ Created 00-run.sh with direct key import"
 
+      # Fix stage2 packages for Bookworm compatibility
+      - name: Remove Trixie-only packages from stage2
+        run: |
+          echo "=== Patching stage2 for Bookworm compatibility ==="
+
+          # Remove rpi-swap, rpi-loop-utils, rpi-usb-gadget (Trixie-only packages)
+          # These packages don't exist in Bookworm repositories
+          if [ -f "pi-gen/stage2/01-sys-tweaks/00-packages" ]; then
+            sed -i '/rpi-swap/d' pi-gen/stage2/01-sys-tweaks/00-packages
+            sed -i '/rpi-loop-utils/d' pi-gen/stage2/01-sys-tweaks/00-packages
+            sed -i '/rpi-usb-gadget/d' pi-gen/stage2/01-sys-tweaks/00-packages
+            echo "✓ Removed Trixie-only packages from stage2"
+            echo "Modified packages list:"
+            cat pi-gen/stage2/01-sys-tweaks/00-packages
+          fi
+
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
