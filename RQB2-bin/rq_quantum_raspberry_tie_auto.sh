@@ -4,16 +4,20 @@
 # Automatically installs demo if missing, then launches it
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
+# Determine user and paths
+if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
+    USER_NAME="${SUDO_USER}"
+    USER_HOME="/home/${SUDO_USER}"
+else
+    USER_NAME="$(whoami)"
+    USER_HOME="${HOME}"
 fi
 
 # Load environment variables
-if [ -f "$HOME/.local/config/env-config.sh" ]; then
-    . "$HOME/.local/config/env-config.sh"
+if [ -f "$USER_HOME/.local/config/env-config.sh" ]; then
+    . "$USER_HOME/.local/config/env-config.sh"
 else
-    echo "Error: Environment config not found at $HOME/.local/config/env-config.sh"
+    echo "Error: Environment config not found at $USER_HOME/.local/config/env-config.sh"
     exit 1
 fi
 
@@ -23,7 +27,7 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
-DEMO_DIR="$HOME/$REPO/demos/quantum-raspberry-tie"
+DEMO_DIR="$USER_HOME/$REPO/demos/quantum-raspberry-tie"
 
 # Function to install demo
 install_quantum_raspberry_tie() {
@@ -38,11 +42,11 @@ install_quantum_raspberry_tie() {
     # Clone the repository
     if git clone --depth 1 "$GIT_REPO_DEMO_QRT" "$DEMO_DIR"; then
         # Update environment to mark as installed
-        sed -i 's/QUANTUM_RASPBERRY_TIE_INSTALLED=false/QUANTUM_RASPBERRY_TIE_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
-        
+        sed -i 's/QUANTUM_RASPBERRY_TIE_INSTALLED=false/QUANTUM_RASPBERRY_TIE_INSTALLED=true/' "$USER_HOME/.local/config/rasqberry_environment.env"
+
         # Reload environment
-        . "$HOME/.local/config/env-config.sh"
-        
+        . "$USER_HOME/.local/config/env-config.sh"
+
         echo "Quantum Raspberry Tie demo installed successfully"
         return 0
     else
@@ -55,7 +59,7 @@ install_quantum_raspberry_tie() {
 }
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ]; then
+if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
     echo "Quantum Raspberry Tie demo not found. Installing..."
     if ! install_quantum_raspberry_tie; then
         echo "Installation failed. Please try running from the RasQberry menu."
@@ -64,8 +68,8 @@ if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ]; then
 fi
 
 # Activate virtual environment if available
-if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
+    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
 # Function to clean up on exit
@@ -73,7 +77,7 @@ cleanup() {
     echo
     echo "Stopping Quantum Raspberry Tie demo..."
     # Kill any remaining python processes running the demo
-    pkill -f "QuantumRaspberryTie.qk1.py" 2>/dev/null || true
+    pkill -f "QuantumRaspberryTie.v7_1.py" 2>/dev/null || true
     echo "Demo stopped."
 }
 
@@ -88,4 +92,4 @@ echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
 echo "========================================="
 echo
 
-cd "$DEMO_DIR" && python3 QuantumRaspberryTie.qk1.py
+cd "$DEMO_DIR" && python3 QuantumRaspberryTie.v7_1.py
