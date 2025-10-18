@@ -571,27 +571,36 @@ jobs:
           		fi
           	done
 
-          	# Export all keys to the location debian.sources expects
-          	echo "Exporting all keys to /usr/share/keyrings/debian-archive-keyring.gpg..."
-          	if gpg --export 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8 > /usr/share/keyrings/debian-archive-keyring.gpg 2>&1; then
-          		echo "  ✓ All keys exported to /usr/share/keyrings/debian-archive-keyring.gpg"
-          		ls -lh /usr/share/keyrings/debian-archive-keyring.gpg
-          	else
-          		echo "  ✗ Failed to export combined keyring"
-          	fi
+          	# Export keys to system-wide trusted directory (more reliable)
+          	echo "Exporting keys to /etc/apt/trusted.gpg.d/..."
+          	for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
+          		gpg --export "\$key" > /etc/apt/trusted.gpg.d/debian-\$key.gpg
+          		echo "  ✓ Exported key \$key"
+          	done
+
+          	# Also export all keys together to debian-archive-keyring.gpg
+          	echo "Also exporting to /usr/share/keyrings/debian-archive-keyring.gpg..."
+          	gpg --export 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8 > /usr/share/keyrings/debian-archive-keyring.gpg
+          	echo "  ✓ Exported to /usr/share/keyrings/debian-archive-keyring.gpg"
+
+          	# Remove Signed-By restriction from debian.sources to allow system-wide keys
+          	echo "Removing Signed-By restriction from debian.sources..."
+          	sed -i '/^Signed-By:/d' /etc/apt/sources.list.d/debian.sources
+          	echo "  ✓ debian.sources now uses system-wide trusted keys"
 
           	# Remove temporary authentication bypass
           	rm -f /etc/apt/apt.conf.d/99-allow-unauthenticated
 
-          	echo "✓ Debian signing keys imported to debian-archive-keyring.gpg"
+          	echo "✓ Debian signing keys configured"
           KEYRING_IMPORT
 
-          echo "Verifying keyrings in chroot:"
-          ls -lh "${ROOTFS_DIR}/usr/share/keyrings/" | grep -E "(debian|raspberry)" || true
-          echo ""
-          echo "Contents of debian-archive-keyring.gpg:"
+          echo "Verifying configuration in chroot:"
           on_chroot << EOF
-          	gpg --list-packets /usr/share/keyrings/debian-archive-keyring.gpg | grep -E "keyid|public key" | head -20 || true
+          	echo "debian.sources Signed-By directive (should be removed):"
+          	grep -i "signed-by" /etc/apt/sources.list.d/debian.sources || echo "  ✓ Signed-By removed, will use system-wide trusted keys"
+          	echo ""
+          	echo "Keys in /etc/apt/trusted.gpg.d/:"
+          	ls -lh /etc/apt/trusted.gpg.d/debian-*.gpg
           EOF
 
           # Now run apt-get update with imported keys
