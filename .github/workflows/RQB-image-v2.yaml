@@ -115,7 +115,7 @@ on:
 # ============================================================================
 env:
   # Cache versioning - increment this to invalidate all caches
-  CACHE_VERSION: v1
+  CACHE_VERSION: v2
 
 # ============================================================================
 # JOB 1: Version Management
@@ -326,17 +326,6 @@ jobs:
           remove_dir "/opt/ghc" "haskell"
           remove_dir "/usr/local/.ghcup" "ghcup"
           remove_dir "/usr/local/share/boost" "boost"
-
-          # Large packages (apt-get based - potentially slow)
-          echo "Removing large packages..."
-          before=$(get_available_gb)
-          start=$(date +%s)
-          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
-          sudo apt-get autoremove -y 2>/dev/null || true
-          end=$(date +%s)
-          after=$(get_available_gb)
-          freed=$(echo "scale=1; $after - $before" | bc)
-          echo "  ✓ apt-get cleanup in $((end - start))s - freed ${freed}GB"
 
           echo ""
           echo "=== Final disk space ==="
