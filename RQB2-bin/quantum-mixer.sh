@@ -8,9 +8,6 @@ echo
 echo "=== Quantum-Mixer Demo ==="
 echo
 
-# Load environment variables
-. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
-
 # Determine user and paths
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
     USER_NAME="${SUDO_USER}"
@@ -19,6 +16,9 @@ else
     USER_NAME="$(whoami)"
     USER_HOME="${HOME}"
 fi
+
+# Load environment variables
+. "$USER_HOME/.local/config/env-config.sh"
 
 DOCKER_IMAGE="${QUANTUM_MIXER_DOCKER_IMAGE:-quay.io/janlahmann/quantum-mixer:v1.0}"
 CONTAINER_NAME="quantum-mixer"
