@@ -513,25 +513,15 @@ jobs:
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
 
-      # Fix Debian keyring in stage0 by updating the package before apt configuration
-      - name: Update Debian archive keyring in stage0
+      # Fix Debian keyring by importing current signing keys directly
+      - name: Fix Debian archive keyring in stage0
         run: |
-          echo "=== Creating stage0 script to update debian-archive-keyring package ==="
+          echo "=== Creating stage0 script to import current Debian signing keys ==="
 
           cat > pi-gen/stage0/00-configure-apt/00-run.sh << 'NEWSCRIPT'
           #!/bin/bash -e
 
-          # CRITICAL FIX: Update debian-archive-keyring package BEFORE changing apt sources
-          # This ensures we have the latest Debian signing keys in the chroot
-          echo "Updating debian-archive-keyring package in chroot..."
-          on_chroot <<- \KEYRING_UPDATE
-          	# Install/update the keyring package with current repositories (from debootstrap)
-          	apt-get update
-          	apt-get install -y --reinstall debian-archive-keyring
-          	echo "✓ debian-archive-keyring package updated"
-          KEYRING_UPDATE
-
-          # Now configure apt sources with the updated keyring in place
+          # Configure apt sources first
           true > "${ROOTFS_DIR}/etc/apt/sources.list"
           install -m 644 files/debian.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
           install -m 644 files/raspi.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
@@ -555,10 +545,34 @@ jobs:
           # Install Raspberry Pi keyring
           install -m 644 files/raspberrypi-archive-keyring.pgp "${ROOTFS_DIR}/usr/share/keyrings/"
 
-          echo "Verifying keyrings are in place:"
+          # CRITICAL FIX: Import current Debian signing keys directly
+          # The debian-archive-keyring package in debootstrap repositories is outdated
+          # Import the specific keys that are currently used by Debian bookworm
+          echo "Importing current Debian signing keys into chroot..."
+          on_chroot <<- \KEYRING_IMPORT
+          	# Install gnupg if not present
+          	apt-get update
+          	apt-get install -y gnupg
+
+          	# Import the missing Debian signing keys from keyserver
+          	# These are the current Debian Bookworm signing keys as of October 2025
+          	for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
+          		echo "Importing key: \$key"
+          		gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "\$key" 2>/dev/null || \
+          		gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "\$key" 2>/dev/null || \
+          		echo "Warning: Failed to import key \$key"
+
+          		# Export to apt's trusted keyring
+          		gpg --export "\$key" 2>/dev/null | apt-key add - 2>/dev/null || true
+          	done
+
+          	echo "✓ Debian signing keys imported"
+          KEYRING_IMPORT
+
+          echo "Verifying keyrings:"
           ls -lh "${ROOTFS_DIR}/usr/share/keyrings/" | grep -E "(debian|raspberry)" || true
 
-          # Now run apt-get update with both keyrings in place
+          # Now run apt-get update with imported keys
           on_chroot <<- \EOF
           	ARCH="$(dpkg --print-architecture)"
           	if [ "$ARCH" = "armhf" ]; then
@@ -566,13 +580,15 @@ jobs:
           	elif [ "$ARCH" = "arm64" ]; then
           		dpkg --add-architecture armhf
           	fi
+
+          	echo "Running apt-get update with imported keys..."
           	apt-get update
           	apt-get dist-upgrade -y
           EOF
           NEWSCRIPT
 
           chmod +x pi-gen/stage0/00-configure-apt/00-run.sh
-          echo "✓ Created 00-run.sh with debian-archive-keyring package update"
+          echo "✓ Created 00-run.sh with direct key import"
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
