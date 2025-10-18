@@ -296,17 +296,24 @@ jobs:
           echo "=== Initial disk space ==="
           df -h /
 
+          # Get available space in GB
+          get_available_gb() {
+            df / | awk 'NR==2 {print $4}' | numfmt --from=iec --to-unit=G
+          }
+
           # Function to measure and remove directory
           remove_dir() {
             local dir=$1
             local name=$2
             if [ -d "$dir" ]; then
-              local size=$(du -sh "$dir" 2>/dev/null | cut -f1)
-              echo "Removing $name ($size)..."
+              echo "Removing $name..."
+              local before=$(get_available_gb)
               local start=$(date +%s)
               sudo rm -rf "$dir"
               local end=$(date +%s)
-              echo "  ✓ Removed in $((end - start))s"
+              local after=$(get_available_gb)
+              local freed=$(echo "$after - $before" | bc)
+              echo "  ✓ Removed in $((end - start))s - freed ${freed}G"
             else
               echo "  ✗ $name not found"
             fi
@@ -321,12 +328,15 @@ jobs:
           remove_dir "/usr/local/share/boost" "boost"
 
           # Large packages (apt-get based - potentially slow)
-          echo "Testing large-packages removal..."
+          echo "Removing large packages..."
+          before=$(get_available_gb)
           start=$(date +%s)
           sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
           sudo apt-get autoremove -y 2>/dev/null || true
           end=$(date +%s)
-          echo "  ✓ apt-get cleanup in $((end - start))s"
+          after=$(get_available_gb)
+          freed=$(echo "$after - $before" | bc)
+          echo "  ✓ apt-get cleanup in $((end - start))s - freed ${freed}G"
 
           echo ""
           echo "=== Final disk space ==="
