@@ -13,13 +13,20 @@ fi
 
 # Add init_resize.sh to cmdline.txt for first boot expansion
 if [ -f "${ROOTFS_DIR}/boot/firmware/cmdline.txt" ]; then
-    # Check if init= is already present
-    if ! grep -q "init=" "${ROOTFS_DIR}/boot/firmware/cmdline.txt"; then
+    # Check if init_resize.sh is already configured
+    if grep -q "init=/usr/lib/raspi-config/init_resize.sh" "${ROOTFS_DIR}/boot/firmware/cmdline.txt"; then
+        echo "init_resize.sh already present in cmdline.txt"
+    else
+        # Remove any existing init= parameter first
+        if grep -q "init=" "${ROOTFS_DIR}/boot/firmware/cmdline.txt"; then
+            echo "Removing existing init= parameter from cmdline.txt"
+            sed -i 's/init=[^ ]* //g' "${ROOTFS_DIR}/boot/firmware/cmdline.txt"
+        fi
+
+        # Add init_resize.sh to the beginning of cmdline.txt
         echo "Adding init_resize.sh to cmdline.txt for first boot expansion"
         sed -i '1s/^/init=\/usr\/lib\/raspi-config\/init_resize.sh /' "${ROOTFS_DIR}/boot/firmware/cmdline.txt"
         echo "First boot expansion trigger added successfully"
-    else
-        echo "init= parameter already present in cmdline.txt"
     fi
 else
     echo "ERROR: cmdline.txt not found at expected location"
