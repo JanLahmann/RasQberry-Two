@@ -4,22 +4,26 @@
 # Visualizes quantum circuits with entanglement patterns on LEDs
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
+# Determine user and paths
+if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
+    USER_NAME="${SUDO_USER}"
+    USER_HOME="/home/${SUDO_USER}"
+else
+    USER_NAME="$(whoami)"
+    USER_HOME="${HOME}"
 fi
 
 # Load environment variables
-if [ -f "$HOME/.local/config/env-config.sh" ]; then
-    . "$HOME/.local/config/env-config.sh"
+if [ -f "$USER_HOME/.local/config/env-config.sh" ]; then
+    . "$USER_HOME/.local/config/env-config.sh"
 else
-    echo "Error: Environment config not found at $HOME/.local/config/env-config.sh"
+    echo "Error: Environment config not found at $USER_HOME/.local/config/env-config.sh"
     exit 1
 fi
 
 # Activate virtual environment if available
-if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
+    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
 # Launch RasQ-LED demo
