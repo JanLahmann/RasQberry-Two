@@ -296,9 +296,9 @@ jobs:
           echo "=== Initial disk space ==="
           df -h /
 
-          # Get available space in GB
+          # Get available space in GB with decimal precision
           get_available_gb() {
-            df / | awk 'NR==2 {print $4}' | numfmt --from=iec --to-unit=G
+            df / | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
           }
 
           # Function to measure and remove directory
@@ -312,8 +312,8 @@ jobs:
               sudo rm -rf "$dir"
               local end=$(date +%s)
               local after=$(get_available_gb)
-              local freed=$(echo "$after - $before" | bc)
-              echo "  ✓ Removed in $((end - start))s - freed ${freed}G"
+              local freed=$(echo "scale=1; $after - $before" | bc)
+              echo "  ✓ Removed in $((end - start))s - freed ${freed}GB"
             else
               echo "  ✗ $name not found"
             fi
@@ -335,8 +335,8 @@ jobs:
           sudo apt-get autoremove -y 2>/dev/null || true
           end=$(date +%s)
           after=$(get_available_gb)
-          freed=$(echo "$after - $before" | bc)
-          echo "  ✓ apt-get cleanup in $((end - start))s - freed ${freed}G"
+          freed=$(echo "scale=1; $after - $before" | bc)
+          echo "  ✓ apt-get cleanup in $((end - start))s - freed ${freed}GB"
 
           echo ""
           echo "=== Final disk space ==="
