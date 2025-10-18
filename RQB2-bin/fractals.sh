@@ -6,9 +6,6 @@
 
 echo; echo; echo "Quantum Fractals Demo"
 
-# Load environment variables
-. $HOME/.local/config/env-config.sh
-
 # Check for GUI/Desktop environment
 if [ -z "$DISPLAY" ]; then
     echo ""
@@ -37,6 +34,9 @@ else
     USER_NAME="$(whoami)"
     USER_HOME="${HOME}"
 fi
+
+# Load environment variables
+. "$USER_HOME/.local/config/env-config.sh"
 
 DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 
