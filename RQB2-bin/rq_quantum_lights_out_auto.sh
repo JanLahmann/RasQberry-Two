@@ -91,4 +91,4 @@ if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
     exit 1
 fi
 
-cd "$DEMO_DIR" && python3 lights_out.py
+cd "$DEMO_DIR" && python3 -W ignore::DeprecationWarning lights_out.py
