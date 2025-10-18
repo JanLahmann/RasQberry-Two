@@ -9,7 +9,7 @@ echo "=== Qoffee-Maker Demo ==="
 echo
 
 # Load environment variables
-. "$HOME/.local/bin/env-config.sh"
+. "$HOME/.local/config/env-config.sh"
 
 # Determine user and paths
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
