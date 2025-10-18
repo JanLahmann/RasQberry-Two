@@ -566,31 +566,33 @@ jobs:
           		   gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "\$key" 2>&1 || \\
           		   gpg --keyserver hkp://keys.openpgp.org --recv-keys "\$key" 2>&1; then
           			echo "  ✓ Key \$key imported to gpg"
-
-          			# Export to apt's trusted keyring directory
-          			if gpg --export "\$key" > /etc/apt/trusted.gpg.d/debian-\$key.gpg 2>&1; then
-          				echo "  ✓ Key \$key exported to /etc/apt/trusted.gpg.d/"
-          				ls -lh /etc/apt/trusted.gpg.d/debian-\$key.gpg
-          			else
-          				echo "  ✗ Failed to export key \$key"
-          			fi
           		else
           			echo "  ✗ Failed to import key \$key from all keyservers"
           		fi
           	done
 
-          	# Verify exported keys
-          	echo "Keys in /etc/apt/trusted.gpg.d/:"
-          	ls -lh /etc/apt/trusted.gpg.d/ || true
+          	# Export all keys to the location debian.sources expects
+          	echo "Exporting all keys to /usr/share/keyrings/debian-archive-keyring.gpg..."
+          	if gpg --export 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8 > /usr/share/keyrings/debian-archive-keyring.gpg 2>&1; then
+          		echo "  ✓ All keys exported to /usr/share/keyrings/debian-archive-keyring.gpg"
+          		ls -lh /usr/share/keyrings/debian-archive-keyring.gpg
+          	else
+          		echo "  ✗ Failed to export combined keyring"
+          	fi
 
           	# Remove temporary authentication bypass
           	rm -f /etc/apt/apt.conf.d/99-allow-unauthenticated
 
-          	echo "✓ Debian signing keys imported, signature verification re-enabled"
+          	echo "✓ Debian signing keys imported to debian-archive-keyring.gpg"
           KEYRING_IMPORT
 
-          echo "Verifying keyrings:"
+          echo "Verifying keyrings in chroot:"
           ls -lh "${ROOTFS_DIR}/usr/share/keyrings/" | grep -E "(debian|raspberry)" || true
+          echo ""
+          echo "Contents of debian-archive-keyring.gpg:"
+          on_chroot << EOF
+          	gpg --list-packets /usr/share/keyrings/debian-archive-keyring.gpg | grep -E "keyid|public key" | head -20 || true
+          EOF
 
           # Now run apt-get update with imported keys
           on_chroot <<- \EOF
