@@ -477,6 +477,31 @@ jobs:
           echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
           echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
 
+      # ========================================================================
+      # DEBIAN KEYRING FIX
+      # ========================================================================
+      # Update Debian archive keyring on the runner to prevent GPG verification errors
+      # This ensures the latest Debian signing keys are available for debootstrap
+      - name: Update Debian archive keyring
+        run: |
+          echo "Updating Debian archive keyring on GitHub Actions runner..."
+
+          # Update package lists
+          sudo apt-get update
+
+          # Install/update the debian-archive-keyring package
+          sudo apt-get install -y --reinstall debian-archive-keyring
+
+          # Import missing Debian Bookworm signing keys as fallback
+          # Using gpg instead of deprecated apt-key
+          for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
+            echo "Importing key: $key"
+            sudo gpg --keyserver keyserver.ubuntu.com --recv-keys "$key" || true
+            sudo gpg --export "$key" | sudo tee /etc/apt/trusted.gpg.d/debian-${key}.gpg > /dev/null || true
+          done
+
+          echo "Debian keyring update completed"
+
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
         run: |
