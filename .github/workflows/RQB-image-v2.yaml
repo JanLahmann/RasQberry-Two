@@ -292,17 +292,45 @@ jobs:
       # GitHub Actions runners have limited disk space (~14GB free)
       # Pi-gen needs significant space for building images
       - name: Free up disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # This action is optimized and faster than manual rm -rf
-          # Remove large packages we don't need for pi-gen
-          tool-cache: true      # ~11 GB
-          android: true         # ~11 GB
-          dotnet: true          # ~2 GB
-          haskell: true         # ~5 GB
-          large-packages: true  # ~4 GB
-          docker-images: false  # Keep Docker images (may be needed)
-          swap-storage: false   # We create our own swap later
+        run: |
+          echo "=== Initial disk space ==="
+          df -h /
+
+          # Function to measure and remove directory
+          remove_dir() {
+            local dir=$1
+            local name=$2
+            if [ -d "$dir" ]; then
+              local size=$(du -sh "$dir" 2>/dev/null | cut -f1)
+              echo "Removing $name ($size)..."
+              local start=$(date +%s)
+              sudo rm -rf "$dir"
+              local end=$(date +%s)
+              echo "  ✓ Removed in $((end - start))s"
+            else
+              echo "  ✗ $name not found"
+            fi
+          }
+
+          # Remove directories with timing
+          remove_dir "/opt/hostedtoolcache" "tool-cache"
+          remove_dir "/usr/local/lib/android" "android"
+          remove_dir "/usr/share/dotnet" "dotnet"
+          remove_dir "/opt/ghc" "haskell"
+          remove_dir "/usr/local/.ghcup" "ghcup"
+          remove_dir "/usr/local/share/boost" "boost"
+
+          # Large packages (apt-get based - potentially slow)
+          echo "Testing large-packages removal..."
+          start=$(date +%s)
+          sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
+          sudo apt-get autoremove -y 2>/dev/null || true
+          end=$(date +%s)
+          echo "  ✓ apt-get cleanup in $((end - start))s"
+
+          echo ""
+          echo "=== Final disk space ==="
+          df -h /
 
       # ========================================================================
       # MEMORY OPTIMIZATION
