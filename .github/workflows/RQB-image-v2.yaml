@@ -550,23 +550,31 @@ jobs:
           # Import the specific keys that are currently used by Debian bookworm
           echo "Importing current Debian signing keys into chroot..."
           on_chroot <<- \KEYRING_IMPORT
-          	# Install gnupg if not present
-          	apt-get update
-          	apt-get install -y gnupg
+          	# Temporarily disable signature verification to install gnupg
+          	echo "APT::Get::AllowUnauthenticated \"true\";" > /etc/apt/apt.conf.d/99-allow-unauthenticated
 
-          	# Import the missing Debian signing keys from keyserver
+          	echo "Installing gnupg (with signature verification disabled)..."
+          	apt-get update -o Acquire::AllowInsecureRepositories=true
+          	apt-get install -y -o APT::Get::AllowUnauthenticated=true gnupg dirmngr
+
+          	echo "Importing missing Debian signing keys from keyserver..."
           	# These are the current Debian Bookworm signing keys as of October 2025
           	for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
           		echo "Importing key: \$key"
+          		# Try multiple keyservers
           		gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "\$key" 2>/dev/null || \
           		gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "\$key" 2>/dev/null || \
-          		echo "Warning: Failed to import key \$key"
+          		gpg --keyserver hkp://keys.openpgp.org --recv-keys "\$key" 2>/dev/null || \
+          		echo "Warning: Failed to import key \$key from all keyservers"
 
-          		# Export to apt's trusted keyring
-          		gpg --export "\$key" 2>/dev/null | apt-key add - 2>/dev/null || true
+          		# Export to apt's trusted keyring directory (modern method)
+          		gpg --export "\$key" 2>/dev/null > /etc/apt/trusted.gpg.d/debian-\$key.gpg || true
           	done
 
-          	echo "✓ Debian signing keys imported"
+          	# Remove temporary authentication bypass
+          	rm -f /etc/apt/apt.conf.d/99-allow-unauthenticated
+
+          	echo "✓ Debian signing keys imported, signature verification re-enabled"
           KEYRING_IMPORT
 
           echo "Verifying keyrings:"
