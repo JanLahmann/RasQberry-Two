@@ -239,6 +239,37 @@ stop_qoffee_containers() {
     fi
 }
 
+# Run Quantum-Mixer demo
+run_quantum_mixer_demo() {
+    # Check if setup has been run (Docker installed)
+    if ! command -v docker &> /dev/null; then
+        whiptail --title "Setup Required" --msgbox \
+            "Quantum-Mixer requires Docker, which is not installed.\n\nSetup will now run to install Docker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
+            12 70
+        "$BIN_DIR/qoffee-setup.sh" || return 1
+    fi
+
+    # Launch the Quantum-Mixer demo
+    "$BIN_DIR/quantum-mixer.sh"
+}
+
+# Stop Quantum-Mixer containers
+stop_quantum_mixer_containers() {
+    if ! command -v docker &> /dev/null; then
+        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
+        return 0
+    fi
+
+    # Check if any quantum-mixer containers are running
+    if docker ps -q --filter name=quantum-mixer 2>/dev/null | grep -q .; then
+        echo "Stopping Quantum-Mixer containers..."
+        docker stop $(docker ps -q --filter name=quantum-mixer) 2>/dev/null || true
+        whiptail --title "Quantum-Mixer Stopped" --msgbox "All Quantum-Mixer containers have been stopped." 8 60
+    else
+        whiptail --title "No Containers" --msgbox "No running Quantum-Mixer containers found." 8 60
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
@@ -424,17 +455,21 @@ do_quantum_demo_menu() {
        GRB  "Grok Bloch Sphere" \
        FRC  "Quantum Fractals" \
        QOF  "Qoffee-Maker (Docker)" \
+       QMX  "Quantum-Mixer (Web)" \
        STOP "Stop last running demo and clear LEDs" \
-       QSTP "Stop Qoffee-Maker containers") || break
+       QSTP "Stop Qoffee-Maker containers" \
+       QMXS "Stop Quantum-Mixer containers") || break
     case "$FUN" in
-      LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
-      QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
-      QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
-      FRC)  run_fractals_demo       || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      QOF)  run_qoffee_demo         || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
-      STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
-      QSTP) stop_qoffee_containers  || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
+      LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
+      QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
+      QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
+      GRB)  run_grok_bloch_demo        || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
+      FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
+      QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
+      QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
+      QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
   done

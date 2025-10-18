@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Quantum-Mixer
+Comment=Quantum beverage mixer - Qocktails, Qoffee, and Ice demos
+Icon=applications-science
+Type=Application
+Categories=RasQberry;
+Exec=/home/rasqberry/.local/bin/quantum-mixer.sh
+Terminal=true
+StartupNotify=true
+Keywords=quantum;cocktail;coffee;mixer;web;angular;docker;
+X-GNOME-TextColor=#000000
+TryExec=/home/rasqberry/.local/bin/quantum-mixer.sh
+NoDisplay=false
