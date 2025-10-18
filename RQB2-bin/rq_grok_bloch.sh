@@ -24,6 +24,26 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
+# Check for GUI/Desktop environment
+if [ -z "$DISPLAY" ]; then
+    echo ""
+    echo "=========================================="
+    echo "ERROR: Graphical Desktop Required"
+    echo "=========================================="
+    echo ""
+    echo "This demo requires a graphical desktop environment (GUI)."
+    echo "It cannot run from a terminal-only session."
+    echo ""
+    echo "To run this demo:"
+    echo "  1. Connect via VNC or use the desktop environment"
+    echo "  2. Open a terminal in the desktop"
+    echo "  3. Run this demo from there"
+    echo ""
+    echo "Or use the desktop launcher icon instead."
+    echo ""
+    exit 1
+fi
+
 DEMO_DIR="$HOME/$REPO/demos/grok-bloch"
 PORT=8080
 
