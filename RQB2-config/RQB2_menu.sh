@@ -379,7 +379,8 @@ do_select_led_option() {
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            simple "Simple LED Demo" \
-           IBM "IBM LED Demo") || break
+           IBM "IBM LED Demo" \
+           RasQ "RasQ-LED Quantum Circuit Demo") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             simple )
@@ -388,6 +389,10 @@ do_select_led_option() {
                 ;;
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
+                do_led_off
+                ;;
+            RasQ )
+                run_demo bg "RasQ-LED Demo" "$BIN_DIR" rq_rasq_led.sh || { handle_error "RasQ-LED demo failed."; continue; }
                 do_led_off
                 ;;
             *) break ;;

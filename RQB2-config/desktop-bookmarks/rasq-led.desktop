@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=RasQ-LED Demo
+Comment=Quantum circuit demo with entanglement patterns on LEDs
+Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_rasq_led.sh
+Terminal=true
+StartupNotify=true
+Keywords=quantum;LED;circuit;entanglement;qiskit;rasqberry;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_rasq_led.sh
+NoDisplay=false
