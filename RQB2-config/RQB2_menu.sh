@@ -270,6 +270,12 @@ stop_quantum_mixer_containers() {
     fi
 }
 
+# Run continuous demo loop for conference showcases
+run_demo_loop() {
+    # Launch the demo loop script
+    "$BIN_DIR/rq_demo_loop.sh"
+}
+
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
@@ -467,6 +473,7 @@ do_quantum_demo_menu() {
        FRC  "Quantum Fractals" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
+       LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
        QMXS "Stop Quantum-Mixer containers") || break
@@ -478,6 +485,7 @@ do_quantum_demo_menu() {
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
       QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
       QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
