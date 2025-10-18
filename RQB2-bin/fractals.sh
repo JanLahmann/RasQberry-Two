@@ -7,7 +7,7 @@
 echo; echo; echo "Quantum Fractals Demo"
 
 # Load environment variables
-. $HOME/.local/bin/env-config.sh
+. $HOME/.local/config/env-config.sh
 
 # Check for GUI/Desktop environment
 if [ -z "$DISPLAY" ]; then
