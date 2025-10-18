@@ -221,6 +221,60 @@ gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update 
 echo "Updating menu cache..."
 lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
 
+# Create first-login script to mark desktop files as trusted
+# This runs when the user first logs in and has a proper desktop session with dbus
+if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
+    AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
+
+    # Create the trust-desktop-files script
+    cat > "/usr/local/bin/trust-rasqberry-desktop-files.sh" << 'EOF'
+#!/bin/bash
+# Trust all RasQberry desktop files on first login
+# This runs once and then removes itself
+
+DESKTOP_DIR="$HOME/Desktop"
+LOG_FILE="$HOME/.rasqberry-desktop-trust.log"
+
+echo "$(date): Trusting RasQberry desktop files..." >> "$LOG_FILE"
+
+# Wait for desktop environment to be ready
+sleep 3
+
+# Trust all RasQberry desktop files
+for desktop_file in "$DESKTOP_DIR"/*.desktop; do
+    if [ -f "$desktop_file" ]; then
+        # Set trusted metadata using gio
+        gio set "$desktop_file" metadata::trusted true 2>> "$LOG_FILE" && \
+            echo "$(date): Trusted $(basename "$desktop_file")" >> "$LOG_FILE" || \
+            echo "$(date): Failed to trust $(basename "$desktop_file")" >> "$LOG_FILE"
+    fi
+done
+
+echo "$(date): Desktop file trusting completed" >> "$LOG_FILE"
+
+# Remove autostart entry so this doesn't run again
+rm -f "$HOME/.config/autostart/trust-rasqberry-desktop.desktop"
+EOF
+
+    chmod 755 "/usr/local/bin/trust-rasqberry-desktop-files.sh"
+
+    # Create autostart .desktop file
+    cat > "$AUTOSTART_DIR/trust-rasqberry-desktop.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Trust RasQberry Desktop Files
+Comment=Mark RasQberry desktop shortcuts as trusted (runs once on first login)
+Exec=/usr/local/bin/trust-rasqberry-desktop-files.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
+    echo "Created first-login desktop trust script"
+fi
+
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then
     echo "Cleaning up cloned repository..."
