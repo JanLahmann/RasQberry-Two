@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-echo "Installing RasQberry modular firstboot framework"
+echo "Installing RasQberry modular firstboot service"
 
 # Create directories
 mkdir -p /usr/local/lib/rasqberry-firstboot.d
@@ -67,6 +67,38 @@ EOF
 
 chmod +x /usr/local/bin/rasqberry-firstboot.sh
 
+# Create filesystem expansion task
+cat > /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh << 'EOF'
+#!/bin/bash
+# RasQberry Firstboot Task: Expand Root Filesystem
+# Expands the root filesystem to fill the SD card/device
+
+echo "Expanding root filesystem..."
+
+# Check if expansion is needed
+ROOT_PART=$(findmnt / -o source -n)
+ROOT_DEV=$(lsblk -no pkname "$ROOT_PART")
+PART_END=$(parted /dev/$ROOT_DEV -ms unit s p | grep "^${ROOT_PART##*/}:" | cut -d: -f3 | sed 's/s$//')
+DEV_SIZE=$(cat /sys/block/$ROOT_DEV/size)
+
+if [ "$PART_END" -ge "$((DEV_SIZE - 1))" ]; then
+    echo "Root filesystem already at maximum size"
+    exit 0
+fi
+
+# Run raspi-config expansion
+if raspi-config nonint do_expand_rootfs; then
+    echo "Filesystem expansion configured successfully"
+    # Request reboot (exit code 99)
+    exit 99
+else
+    echo "ERROR: Failed to configure filesystem expansion"
+    exit 1
+fi
+EOF
+
+chmod +x /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh
+
 # Create systemd service
 cat > /etc/systemd/system/rasqberry-firstboot.service << 'EOF'
 [Unit]
@@ -89,7 +121,6 @@ EOF
 # Enable the service
 systemctl enable rasqberry-firstboot.service
 
-echo "RasQberry modular firstboot framework installed and enabled"
-echo "Task runner: /usr/local/bin/rasqberry-firstboot.sh"
-echo "Tasks directory: /usr/local/lib/rasqberry-firstboot.d/"
-echo "Markers directory: /var/lib/rasqberry-firstboot/"
+echo "RasQberry modular firstboot service installed and enabled"
+echo "Tasks will run from: /usr/local/lib/rasqberry-firstboot.d/"
+echo "Completion markers stored in: /var/lib/rasqberry-firstboot/"
