@@ -29,40 +29,12 @@ fi
 
 DEMO_DIR="$USER_HOME/$REPO/demos/quantum-raspberry-tie"
 
-# Function to install demo
-install_quantum_raspberry_tie() {
-    echo "Installing Quantum Raspberry Tie demo..."
-    
-    # Remove existing incomplete directory if it exists
-    if [ -d "$DEMO_DIR" ]; then
-        echo "Removing existing incomplete installation..."
-        rm -rf "$DEMO_DIR"
-    fi
-    
-    # Clone the repository
-    if git clone --depth 1 "$GIT_REPO_DEMO_QRT" "$DEMO_DIR"; then
-        # Update environment to mark as installed
-        sed -i 's/QUANTUM_RASPBERRY_TIE_INSTALLED=false/QUANTUM_RASPBERRY_TIE_INSTALLED=true/' "$USER_HOME/.local/config/rasqberry_environment.env"
-
-        # Reload environment
-        . "$USER_HOME/.local/config/env-config.sh"
-
-        echo "Quantum Raspberry Tie demo installed successfully"
-        return 0
-    else
-        # Clean up on failure
-        rm -rf "$DEMO_DIR"
-        echo "Failed to install Quantum Raspberry Tie demo"
-        echo "Please check your internet connection and try again"
-        return 1
-    fi
-}
-
-# Check if demo is installed
-if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
+# Check if demo is installed, auto-install if missing
+# (check for both old and new versions of the main file)
+if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ] && [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
     echo "Quantum Raspberry Tie demo not found. Installing..."
-    if ! install_quantum_raspberry_tie; then
-        echo "Installation failed. Please try running from the RasQberry menu."
+    if ! sudo raspi-config nonint do_rasp_tie_install; then
+        echo "Installation failed."
         exit 1
     fi
 fi
