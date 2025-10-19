@@ -890,7 +890,8 @@ jobs:
           if [ -d "work/pip-cache-export/pip" ]; then
             echo "Found exported pip cache from build stage"
             mkdir -p ~/.cache/pip
-            cp -r work/pip-cache-export/pip/* ~/.cache/pip/ || true
+            sudo cp -r work/pip-cache-export/pip/* ~/.cache/pip/ || true
+            sudo chown -R $(whoami):$(whoami) ~/.cache/pip
 
             CACHE_SIZE=$(du -sh ~/.cache/pip 2>/dev/null | cut -f1 || echo '0')
             echo "✓ Pip cache extracted successfully"
