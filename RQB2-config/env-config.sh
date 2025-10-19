@@ -24,3 +24,7 @@ else
   # Return non-zero instead of exit when sourced to prevent killing parent shell
   return 1 2>/dev/null || exit 1
 fi
+
+# Set BIN_DIR to user's local bin directory
+BIN_DIR="${USER_HOME}/.local/bin"
+export BIN_DIR

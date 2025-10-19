@@ -55,5 +55,3 @@ done
 python3 "$CLEAR_SCRIPT"
 
 echo "All LEDs cleared."
-echo "Press Enter to exit..."
-read
