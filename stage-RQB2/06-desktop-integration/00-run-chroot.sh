@@ -306,6 +306,32 @@ for desktop_file in "$DESKTOP_DIR"/*.desktop; do
     fi
 done
 
+# Also update PCManFM config to mark desktop files as trusted
+echo "$(date): Updating PCManFM configuration..." >> "$LOG_FILE"
+PCMANFM_CONFIG="$HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
+if [ -f "$PCMANFM_CONFIG" ]; then
+    # Add trusted=true to each desktop file entry in PCManFM config
+    # This prevents the "Execute File" dialog from appearing
+    for desktop_file in "$DESKTOP_DIR"/*.desktop; do
+        if [ -f "$desktop_file" ]; then
+            BASENAME=$(basename "$desktop_file")
+            # Check if entry exists in config
+            if grep -q "^\[$BASENAME\]" "$PCMANFM_CONFIG"; then
+                # Check if trusted=true already exists for this entry
+                if ! sed -n "/^\[$BASENAME\]/,/^\[/p" "$PCMANFM_CONFIG" | grep -q "^trusted="; then
+                    # Add trusted=true after the desktop file section header
+                    sed -i "/^\[$BASENAME\]/a trusted=true" "$PCMANFM_CONFIG" 2>> "$LOG_FILE" && \
+                        echo "$(date): Added trusted=true for $BASENAME in PCManFM config" >> "$LOG_FILE" || \
+                        echo "$(date): Failed to add trusted=true for $BASENAME" >> "$LOG_FILE"
+                fi
+            fi
+        fi
+    done
+    echo "$(date): PCManFM configuration updated" >> "$LOG_FILE"
+else
+    echo "$(date): PCManFM config not found at $PCMANFM_CONFIG" >> "$LOG_FILE"
+fi
+
 echo "$(date): First-login setup completed" >> "$LOG_FILE"
 
 # Remove autostart entry so this doesn't run again
