@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=LED-Painter
+Comment=Paint images on a GUI canvas and display them on the LED array in real-time
+Icon=applications-graphics
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_led_painter_auto.sh
+Terminal=false
+StartupNotify=true
+Keywords=LED;painter;graphics;draw;canvas;neopixel;art;display;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_led_painter_auto.sh
+NoDisplay=false

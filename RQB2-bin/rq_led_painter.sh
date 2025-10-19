@@ -1,0 +1,158 @@
+#!/bin/bash
+# RasQberry: Launch LED-Painter Demo
+# Allows users to paint images on a GUI and display them on the LED array
+
+# Source environment configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HOME/.local/config/env-config.sh" ]; then
+    . "$HOME/.local/config/env-config.sh"
+else
+    echo "Error: Environment configuration not found"
+    exit 1
+fi
+
+DEMO_NAME="LED-Painter"
+DEMO_DIR="$HOME/$REPO/demos/led-painter"
+GIT_URL="${GIT_REPO_DEMO_LED_PAINTER:-https://github.com/Luka-D/RasQberry-Two-LED-Painter.git}"
+
+# Function to check and install demo if needed
+check_and_install_demo() {
+    # Check if demo is already installed
+    if [ -d "$DEMO_DIR" ] && [ -f "$DEMO_DIR/LED_painter.py" ]; then
+        return 0
+    fi
+
+    # Demo not installed - show confirmation dialog
+    if command -v whiptail &> /dev/null; then
+        whiptail --title "$DEMO_NAME Not Installed" \
+                 --yesno "$DEMO_NAME is not installed yet.\n\nThis will download ~5MB from GitHub and install ~500MB of dependencies (PySide6).\n\nRequires internet connection.\n\nInstall now?" \
+                 14 65 3>&1 1>&2 2>&3
+
+        if [ $? -ne 0 ]; then
+            echo "Installation cancelled by user."
+            exit 0
+        fi
+    else
+        # Fallback if whiptail not available
+        echo "$DEMO_NAME is not installed."
+        echo "This requires downloading from GitHub and installing dependencies."
+        read -p "Install now? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installation cancelled."
+            exit 0
+        fi
+    fi
+
+    # Install demo
+    echo "Installing $DEMO_NAME..."
+
+    # Create demos directory if it doesn't exist
+    mkdir -p "$(dirname "$DEMO_DIR")"
+
+    # Clone repository
+    if ! git clone --depth 1 "$GIT_URL" "$DEMO_DIR"; then
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Installation Failed" \
+                     --msgbox "Failed to download $DEMO_NAME.\n\nPlease check:\n- Internet connection\n- GitHub access\n\nError: git clone failed" \
+                     12 60
+        else
+            echo "Error: Failed to clone $DEMO_NAME repository."
+            echo "Please check your internet connection and try again."
+        fi
+        exit 1
+    fi
+
+    # Install system dependencies
+    echo "Installing system dependencies..."
+    if ! dpkg -l | grep -q libxcb-cursor-dev; then
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Installing Dependencies" \
+                     --msgbox "Installing system package: libxcb-cursor-dev\n\nThis requires sudo privileges." \
+                     10 60
+        fi
+
+        if ! sudo apt-get install -y libxcb-cursor-dev; then
+            if command -v whiptail &> /dev/null; then
+                whiptail --title "Installation Failed" \
+                         --msgbox "Failed to install system dependencies.\n\nPlease run manually:\nsudo apt-get install libxcb-cursor-dev" \
+                         10 60
+            fi
+            exit 1
+        fi
+    fi
+
+    # Install Python dependencies
+    echo "Installing Python dependencies (this may take several minutes)..."
+
+    # Activate virtual environment if it exists
+    if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+        source "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+    fi
+
+    if command -v whiptail &> /dev/null; then
+        (
+            cd "$DEMO_DIR"
+            pip3 install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
+        ) | whiptail --title "Installing Python Dependencies" \
+                      --gauge "Installing PySide6 and dependencies...\nThis may take 5-10 minutes." \
+                      10 70 0
+    else
+        (
+            cd "$DEMO_DIR"
+            pip3 install -r requirements.txt
+        )
+    fi
+
+    if [ $? -eq 0 ]; then
+        # Update environment flag
+        if [ -f "$HOME/.local/config/rasqberry_environment.env" ]; then
+            sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
+        fi
+
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Installation Complete" \
+                     --msgbox "$DEMO_NAME has been installed successfully!\n\nLaunching now..." \
+                     10 50
+        else
+            echo "$DEMO_NAME installed successfully!"
+        fi
+        return 0
+    else
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Installation Failed" \
+                     --msgbox "Failed to install Python dependencies.\n\nCheck log: /tmp/led-painter-install.log" \
+                     10 60
+        fi
+        exit 1
+    fi
+}
+
+# Check and install if needed
+check_and_install_demo
+
+# Activate virtual environment
+if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+    source "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+fi
+
+# Launch LED-Painter
+echo "Starting $DEMO_NAME..."
+cd "$DEMO_DIR"
+
+# Check if display is available
+if [ -z "$DISPLAY" ]; then
+    if command -v whiptail &> /dev/null; then
+        whiptail --title "Display Required" \
+                 --msgbox "$DEMO_NAME requires a graphical display.\n\nPlease run from desktop environment or enable X11 forwarding." \
+                 10 60
+    else
+        echo "Error: DISPLAY not set. $DEMO_NAME requires a graphical environment."
+    fi
+    exit 1
+fi
+
+# Run the LED-Painter
+python3 LED_painter.py
+
+exit 0
