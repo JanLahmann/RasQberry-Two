@@ -19,6 +19,11 @@ fi
 export STARTDATE=`date`
 echo; echo; echo "Install Qiskit (latest version)"; echo;
 
+# Configure pip to use cache directory for faster subsequent builds
+export PIP_CACHE_DIR=/root/.cache/pip
+mkdir -p "$PIP_CACHE_DIR"
+echo "Using pip cache directory: $PIP_CACHE_DIR"
+
 pip install 'qiskit[all]'
 pip install qiskit_ibm_runtime qiskit_aer
 pip install adafruit-circuitpython-neopixel-spi rpi_ws281x pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat celluloid selenium webdriver-manager
