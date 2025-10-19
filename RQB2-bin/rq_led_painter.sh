@@ -91,12 +91,16 @@ check_and_install_demo() {
     fi
 
     if command -v whiptail &> /dev/null; then
+        # Show info box (no progress bar since pip doesn't provide progress)
+        whiptail --title "Installing Python Dependencies" \
+                 --infobox "Installing PySide6 and dependencies...\n\nThis may take 5-10 minutes.\nPlease wait..." \
+                 8 60
+
+        # Install in background, log output
         (
             cd "$DEMO_DIR"
             pip3 install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
-        ) | whiptail --title "Installing Python Dependencies" \
-                      --gauge "Installing PySide6 and dependencies...\nThis may take 5-10 minutes." \
-                      10 70 0
+        )
     else
         (
             cd "$DEMO_DIR"
