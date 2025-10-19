@@ -314,7 +314,7 @@ do_select_environment_variable() {
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
   #check whether string is empty
-  if [ -z "$2" ]||[ -z "$1" ]; then
+  if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
     if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
