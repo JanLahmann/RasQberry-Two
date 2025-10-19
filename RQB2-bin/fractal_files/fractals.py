@@ -22,7 +22,8 @@ import numpy as np
 from selenium.common.exceptions import WebDriverException, NoSuchWindowException
 from selenium.webdriver.common.by import By
 from celluloid import Camera
-from numpy import complex_, complex64, ndarray, ushort, bool_
+from numpy import complex128 as complex_, complex64, ndarray, ushort
+# NumPy 2.0 compatibility: complex_ → complex128, bool_ → bool
 from PIL import Image
 
 # Importing standard Qiskit libraries
