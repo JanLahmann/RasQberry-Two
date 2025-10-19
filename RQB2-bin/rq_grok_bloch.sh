@@ -10,10 +10,10 @@ if [ -z "$HOME" ]; then
 fi
 
 # Load environment variables
-if [ -f "$HOME/.local/bin/env-config.sh" ]; then
-    . "$HOME/.local/bin/env-config.sh"
+if [ -f "$HOME/.local/config/env-config.sh" ]; then
+    . "$HOME/.local/config/env-config.sh"
 else
-    echo "Error: Environment config not found at $HOME/.local/bin/env-config.sh"
+    echo "Error: Environment config not found at $HOME/.local/config/env-config.sh"
     exit 1
 fi
 
@@ -118,7 +118,7 @@ trap cleanup INT TERM EXIT
 # Try to open in browser and get browser PID
 BROWSER_PID=""
 if command -v chromium-browser >/dev/null 2>&1; then
-    chromium-browser "http://localhost:$PORT" >/dev/null 2>&1 &
+    chromium-browser --password-store=basic "http://localhost:$PORT" >/dev/null 2>&1 &
     BROWSER_PID=$!
 elif command -v firefox >/dev/null 2>&1; then
     firefox "http://localhost:$PORT" >/dev/null 2>&1 &

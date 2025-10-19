@@ -59,4 +59,16 @@ fi
 # Change to demo directory and run
 cd "$DEMO_DIR" || exit 1
 python3 fractals.py
+EXIT_CODE=$?
+
 cd "$USER_HOME" || exit
+
+# Show completion message
+echo
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Fractals demo completed successfully."
+else
+    echo "Fractals demo exited with errors (code: $EXIT_CODE)"
+fi
+echo
+read -p "Press Enter to close this window..."

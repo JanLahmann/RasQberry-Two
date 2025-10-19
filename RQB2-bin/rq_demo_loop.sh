@@ -38,7 +38,9 @@ cleanup() {
 # Set up trap to handle Ctrl+C
 trap cleanup SIGINT SIGTERM
 
-echo "=== RasQberry Continuous Demo Loop ==="
+echo "=============================================="
+echo "  RasQberry Continuous Demo Loop"
+echo "=============================================="
 echo ""
 echo "Demo timings:"
 echo "  - IBM Logo: ${IBM_LOGO_TIME}s"
@@ -46,7 +48,9 @@ echo "  - Quantum Lights Out: ${LIGHTS_OUT_TIME}s"
 echo "  - RasQberry Tie: ${RASQBERRY_TIE_TIME}s"
 echo "  - RasQ-LED: ${RASQ_LED_TIME}s"
 echo ""
-echo "Press Ctrl+C to stop"
+echo "=============================================="
+echo "  ** Press Ctrl+C to STOP the loop **"
+echo "=============================================="
 echo ""
 
 LOOP_COUNT=0

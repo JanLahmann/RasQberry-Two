@@ -129,9 +129,9 @@ if command -v chromium-browser &> /dev/null; then
     echo "Opening browser..."
     # Run browser as user if we're root
     if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
-        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser '$MIXER_URL' &"
+        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser --password-store=basic '$MIXER_URL' &"
     else
-        chromium-browser "$MIXER_URL" &
+        chromium-browser --password-store=basic "$MIXER_URL" &
     fi
 elif command -v firefox &> /dev/null; then
     echo "Opening browser..."

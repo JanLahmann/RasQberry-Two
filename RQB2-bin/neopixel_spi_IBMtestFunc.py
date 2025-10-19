@@ -191,10 +191,29 @@ def doibm(toggle):
 
 # Main loop - simple toggle between solid colors and rainbow
 # Hardware info not printed to avoid terminal pollution in whiptail menus
-while True:
-    doibm(0)  # Solid colors: I=green, B=red, M=blue
-    pixels.show()
-    time.sleep(DELAY)
-    doibm(1)  # Rainbow gradient based on rows
-    pixels.show()
-    time.sleep(DELAY)
+import sys
+import select
+
+print("Press Enter to stop...")
+print()
+
+try:
+    while True:
+        doibm(0)  # Solid colors: I=green, B=red, M=blue
+        pixels.show()
+        time.sleep(DELAY)
+        doibm(1)  # Rainbow gradient based on rows
+        pixels.show()
+        time.sleep(DELAY)
+
+        # Check for Enter key press (non-blocking)
+        if select.select([sys.stdin], [], [], 0)[0]:
+            sys.stdin.readline()
+            print("\nStopping demo...")
+            break
+except KeyboardInterrupt:
+    print("\nStopping demo...")
+
+# Turn off all LEDs
+pixels.fill(0)
+pixels.show()

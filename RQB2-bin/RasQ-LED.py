@@ -14,7 +14,7 @@ from dotenv import dotenv_values
 
 # Load environment variables from system-wide configuration
 config = dotenv_values("/usr/config/rasqberry_environment.env")
-n_qbit = int(config.get("N_QUBIT", 127))
+n_qbit = int(config.get("N_QUBIT", 156))  # Default to 156 qubits if not configured
 LED_COUNT = int(config.get("LED_COUNT", 192))
 LED_PIN = int(config.get("LED_PIN", 21))
 
@@ -238,6 +238,8 @@ def demo_loop(duration=2):
     Args:
         duration: Number of complete cycles through all patterns
     """
+    import select
+
     print()
     print("RasQ-LED Quantum Entanglement Visualization")
     print("=" * 50)
@@ -249,6 +251,8 @@ def demo_loop(duration=2):
     print("The entanglement group size varies from 1 (no entanglement)")
     print("up to all qubits (complete entanglement).")
     print()
+    print("Press Enter to stop the demo (or Ctrl+C)")
+    print()
 
     try:
         for cycle in range(duration):
@@ -256,6 +260,13 @@ def demo_loop(duration=2):
             factors = get_factors(n_qbit)
 
             for factor in factors:
+                # Check for Enter key press
+                if select.select([sys.stdin], [], [], 0)[0]:
+                    sys.stdin.readline()
+                    print("\nDemo stopped by user")
+                    clear_leds()
+                    return
+
                 print(f"Entanglement block size: {factor}")
                 if run_circuit(factor):
                     time.sleep(3)

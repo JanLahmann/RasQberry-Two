@@ -42,7 +42,6 @@ fi
 
 echo "Starting LED IBM Demo..."
 echo "Script location: $LED_SCRIPT"
-echo "Press Ctrl+C to stop the demo"
 echo
 
 # Activate virtual environment if available
@@ -63,6 +62,6 @@ done
 # Run the script
 python3 "$LED_SCRIPT"
 
+# Script handles its own exit prompt now
 echo
-echo "Demo completed. Press Enter to exit..."
-read
+read -p "Press Enter to close this window..."

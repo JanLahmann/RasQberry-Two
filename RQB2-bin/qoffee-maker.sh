@@ -163,9 +163,9 @@ if command -v chromium-browser &> /dev/null; then
     echo "Opening browser..."
     # Run browser as user if we're root
     if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
-        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser '$JUPYTER_URL' &"
+        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser --password-store=basic '$JUPYTER_URL' &"
     else
-        chromium-browser "$JUPYTER_URL" &
+        chromium-browser --password-store=basic "$JUPYTER_URL" &
     fi
 elif command -v firefox &> /dev/null; then
     echo "Opening browser..."

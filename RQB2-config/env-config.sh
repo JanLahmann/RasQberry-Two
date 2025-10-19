@@ -1,18 +1,15 @@
 #!/bin/sh
 #set -eu # this causes terminal misbehaviour, as this file is sourced in bashrc
 
-# Determine non-root user home directory
+# Determine non-root user home directory (for BIN_DIR calculation)
 if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
   USER_HOME="$(eval echo ~${SUDO_USER})"
 else
   USER_HOME="${HOME}"
 fi
 
-# Default configuration directory
-RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
-
-# Path to environment file
-ENV_FILE="${USER_HOME}/${RQB2_CONFDIR}/rasqberry_environment.env"
+# Path to global system-wide environment file
+ENV_FILE="/usr/config/rasqberry_environment.env"
 
 # Load environment variables from env file
 if [ -f "${ENV_FILE}" ]; then
