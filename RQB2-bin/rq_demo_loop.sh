@@ -59,26 +59,26 @@ while true; do
 
     # Demo 1: IBM Logo
     echo "[1/4] IBM Logo animation (${IBM_LOGO_TIME}s)..."
-    timeout ${IBM_LOGO_TIME} "$BIN_DIR/rq_led_ibm_demo.sh" 2>/dev/null || true
+    timeout ${IBM_LOGO_TIME} "$BIN_DIR/rq_led_ibm_demo.sh" || true
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     # Demo 2: Quantum Lights Out
     echo "[2/4] Quantum Lights Out demo (${LIGHTS_OUT_TIME}s)..."
-    timeout ${LIGHTS_OUT_TIME} "$BIN_DIR/rq_quantum_lights_out_auto.sh" 2>/dev/null || true
+    timeout ${LIGHTS_OUT_TIME} "$BIN_DIR/rq_quantum_lights_out_auto.sh" || true
     pkill -f "QuantumLightsOut" 2>/dev/null || true
     python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     # Demo 3: RasQberry Tie
     echo "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)..."
-    timeout ${RASQBERRY_TIE_TIME} "$BIN_DIR/rq_quantum_raspberry_tie_auto.sh" 2>/dev/null || true
+    timeout ${RASQBERRY_TIE_TIME} "$BIN_DIR/rq_quantum_raspberry_tie_auto.sh" || true
     pkill -f "QuantumRaspberryTie" 2>/dev/null || true
     python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     # Demo 4: RasQ-LED
     echo "[4/4] RasQ-LED quantum circuit demo (${RASQ_LED_TIME}s)..."
-    timeout ${RASQ_LED_TIME} "$BIN_DIR/rq_rasq_led.sh" 2>/dev/null || true
+    timeout ${RASQ_LED_TIME} "$BIN_DIR/rq_rasq_led.sh" || true
     pkill -f "RasQ-LED" 2>/dev/null || true
     python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
     sleep ${PAUSE_BETWEEN_DEMOS}

@@ -61,12 +61,21 @@ fi
 # Remove stopped container if exists
 docker rm $CONTAINER_NAME 2>/dev/null || true
 
+# Detect platform architecture
+ARCH=$(uname -m)
+PLATFORM_FLAG=""
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    echo "Detected ARM64 platform - using platform emulation"
+    echo "Note: AMD64 container will run slower on ARM64 via emulation"
+    PLATFORM_FLAG="--platform linux/amd64"
+fi
+
 # Pull latest image from Quay.io
 echo
 echo "Pulling Quantum-Mixer Docker image from Quay.io..."
 echo "Image: $DOCKER_IMAGE"
 echo "Size: ~505 MB (first download may take a few minutes)"
-if ! docker pull $DOCKER_IMAGE; then
+if ! docker pull $PLATFORM_FLAG $DOCKER_IMAGE; then
     echo
     echo "Error: Failed to pull Docker image from Quay.io."
     echo "Please check your internet connection and try again."
@@ -80,6 +89,7 @@ if ! docker run -d \
     --name $CONTAINER_NAME \
     --rm \
     -p ${PORT}:8080 \
+    $PLATFORM_FLAG \
     $DOCKER_IMAGE; then
     echo
     echo "Error: Failed to start Docker container."
