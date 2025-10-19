@@ -115,7 +115,7 @@ on:
 # ============================================================================
 env:
   # Cache versioning - increment this to invalidate all caches
-  CACHE_VERSION: v2
+  CACHE_VERSION: v3
 
   # Compression method for base stages cache: pigz (default) or zstd
   # - pigz: Parallel gzip, widely compatible, good compression
