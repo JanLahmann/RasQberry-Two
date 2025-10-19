@@ -113,9 +113,9 @@ install_demo() {
     # Clone demo repository
     mkdir -p "$DEST"
     if git clone --depth 1 "$GIT_URL" "$DEST"; then
-        # fix ownership if needed
-        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+        # Fix ownership if cloned as root (when run from raspi-config)
+        if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+            chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
         fi
         update_environment_file "$ENV_VAR" "true"
         [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
@@ -137,7 +137,7 @@ do_qlo_install() {
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "QuantumRaspberryTie.qk1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
                  "Quantum Raspberry-Tie"
 }
 
@@ -220,7 +220,7 @@ run_rasp_tie_demo() {
       echo "For this option, we need a IBM Quantum Token"
       python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
     fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.v7_1.py" "-${RUN_OPTION}"
     # Turn off LEDs when demo ends
     do_led_off
 }
