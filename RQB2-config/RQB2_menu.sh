@@ -208,6 +208,12 @@ run_fractals_demo() {
     "$BIN_DIR/fractals.sh"
 }
 
+# Run LED-Painter demo
+run_led_painter_demo() {
+    # Launch the LED-Painter demo using the dedicated launcher script
+    "$BIN_DIR/rq_led_painter.sh"
+}
+
 # Run Qoffee-Maker demo
 run_qoffee_demo() {
     # Check if setup has been run (Docker installed)
@@ -288,17 +294,18 @@ do_select_environment_variable() {
     return 1
   fi
 
-  # Build menu items as an array from environment file
-  MENU_ITEMS=()
+  # Build menu items as positional parameters from environment file (POSIX-compliant)
+  set --
   while IFS='=' read -r key value; do
     # Skip comments and empty lines
-    [[ "$key" =~ ^[[:space:]]*# ]] && continue
-    [[ -z "$key" ]] && continue
-    MENU_ITEMS+=("$key" "$value")
+    case "$key" in
+      ''|'#'*|' #'*|'	#'*) continue ;;
+    esac
+    set -- "$@" "$key" "$value"
   done < "$ENV_FILE"
 
   # Create a menu with the environment variables
-  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "${MENU_ITEMS[@]}" 3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3)
   RET=$?
   if [ "$RET" -eq 1 ]; then
     return 0
@@ -471,6 +478,7 @@ do_quantum_demo_menu() {
        QRT  "Quantum Raspberry-Tie" \
        GRB  "Grok Bloch Sphere" \
        FRC  "Quantum Fractals" \
+       LDP  "LED-Painter (Paint on LEDs)" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
        LOOP "Continuous Demo Loop (Conference)" \
@@ -483,6 +491,7 @@ do_quantum_demo_menu() {
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
       GRB)  run_grok_bloch_demo        || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
