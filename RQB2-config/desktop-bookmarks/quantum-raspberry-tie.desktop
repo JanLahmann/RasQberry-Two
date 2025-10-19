@@ -6,7 +6,7 @@ Icon=applications-multimedia
 Type=Application
 Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_raspberry_tie_auto.sh'
-Terminal=false
+Terminal=true
 StartupNotify=true
 Keywords=quantum;raspberry;tie;music;LED;visualization;qiskit;
 X-GNOME-TextColor=#000000
