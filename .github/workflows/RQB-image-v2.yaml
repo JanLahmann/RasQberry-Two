@@ -117,6 +117,11 @@ env:
   # Cache versioning - increment this to invalidate all caches
   CACHE_VERSION: v2
 
+  # Compression method for base stages cache: pigz (default) or zstd
+  # - pigz: Parallel gzip, widely compatible, good compression
+  # - zstd: Faster decompression, similar compression ratio
+  CACHE_COMPRESSION: pigz
+
 # ============================================================================
 # JOB 1: Version Management
 # ============================================================================
@@ -478,9 +483,10 @@ jobs:
         if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache/restore@v4
         with:
-          path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}
+          path: base-stages-cache.tar.${{ env.CACHE_COMPRESSION == 'zstd' && 'zst' || 'gz' }}
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}
           restore-keys: |
+            base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}-
             base-stages-${{ env.CACHE_VERSION }}-
 
       # Cache frequently downloaded apt packages
@@ -492,7 +498,22 @@ jobs:
           key: apt-packages-${{ runner.os }}-pigen-deps-v1
           restore-keys: |
             apt-packages-${{ runner.os }}-pigen-deps-
-          
+
+      # ========================================================================
+      # PIP PACKAGE CACHING (Performance Optimization)
+      # ========================================================================
+      # Cache pip packages to speed up Qiskit installation (~5-7 minute savings)
+      # The cache includes wheels for qiskit, numpy, scipy, and all dependencies
+      - name: Cache pip packages for Qiskit
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-qiskit-${{ env.CACHE_VERSION }}-${{ hashFiles('stage-RQB2/**/rq_install_Qiskit*.sh') }}
+          restore-keys: |
+            pip-qiskit-${{ env.CACHE_VERSION }}-
+            pip-qiskit-
+
       # ========================================================================
       # PI-GEN DEPENDENCIES
       # ========================================================================
@@ -540,6 +561,7 @@ jobs:
             bc \
             gpg \
             pigz \
+            zstd \
             lz4 \
             arch-test
           
@@ -611,26 +633,33 @@ jobs:
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
         run: |
           echo "Extracting cached base stages..."
-          if [ -f "base-stages-cache.tar.gz" ]; then
-            cd pi-gen
-            sudo tar -xzf ../base-stages-cache.tar.gz
-            echo "Cache extracted successfully"
-            
-            # Verify extraction
-            if [ -d "work" ]; then
-              echo "✓ Work directory restored from cache"
-              ls -la work/
-            else
-              echo "❌ Work directory not found after extraction!"
-              echo "Available directories:"
-              ls -la
-              exit 1
-            fi
-            
-            # Clean up cache file to save space
+          cd pi-gen
+
+          # Decompress based on cache compression method
+          if [ "${{ env.CACHE_COMPRESSION }}" = "zstd" ] && [ -f "../base-stages-cache.tar.zst" ]; then
+            echo "Using zstd for parallel decompression..."
+            zstd -d -c ../base-stages-cache.tar.zst | sudo tar -xf -
+            echo "Cache extracted successfully (zstd, $(nproc) threads)"
+            rm -f ../base-stages-cache.tar.zst
+          elif [ -f "../base-stages-cache.tar.gz" ]; then
+            echo "Using pigz for parallel decompression..."
+            pigz -d -c ../base-stages-cache.tar.gz | sudo tar -xf -
+            echo "Cache extracted successfully (pigz, $(nproc) CPU cores)"
             rm -f ../base-stages-cache.tar.gz
           else
-            echo "❌ Cache file not found!"
+            echo "Error: No cache file found!"
+            ls -la ../ | grep base-stages
+            exit 1
+          fi
+
+          # Verify extraction
+          if [ -d "work" ]; then
+            echo "✓ Work directory restored from cache"
+            ls -la work/
+          else
+            echo "❌ Work directory not found after extraction!"
+            echo "Available directories:"
+            ls -la
             exit 1
           fi
 
@@ -725,22 +754,27 @@ jobs:
         run: |
           echo "Creating tarball of base stages work directory..."
           cd pi-gen
-          
-          # Create tarball with fast compression, excluding stage-RQB2 directories
-          sudo tar -czf ../base-stages-cache.tar.gz \
-            --exclude="work/*/stage-RQB2" \
-            work/
-          
-          echo "Tarball created successfully"
-          ls -lh ../base-stages-cache.tar.gz
+
+          # Choose compression method based on CACHE_COMPRESSION env var
+          if [ "${{ env.CACHE_COMPRESSION }}" = "zstd" ]; then
+            echo "Using zstd compression (faster decompression)..."
+            sudo tar -cf - --exclude="work/*/stage-RQB2" work/ | zstd -T0 > ../base-stages-cache.tar.zst
+            ls -lh ../base-stages-cache.tar.zst
+            echo "Compression: zstd with $(nproc) threads"
+          else
+            echo "Using pigz compression (parallel gzip)..."
+            sudo tar -cf - --exclude="work/*/stage-RQB2" work/ | pigz -p $(nproc) > ../base-stages-cache.tar.gz
+            ls -lh ../base-stages-cache.tar.gz
+            echo "Compression: pigz with $(nproc) CPU cores"
+          fi
           
       # Cache the tarball (separate step for cleaner error handling)
       - name: Cache Base Stages Tarball
         if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-base-stages.outputs.cache-hit != 'true')
         uses: actions/cache/save@v4
         with:
-          path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}
+          path: base-stages-cache.tar.${{ env.CACHE_COMPRESSION == 'zstd' && 'zst' || 'gz' }}
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}
 
       # Show system resources before main build
       - name: show swap and memory status before build
@@ -755,6 +789,36 @@ jobs:
       # Copy our custom RasQberry stage into pi-gen (after base stages are built)
       - name: Copy custom stage
         run: cp -r stage-RQB2 pi-gen/
+
+      # Inject pip cache into build environment for faster Qiskit installation
+      - name: Mount pip cache for chroot environment
+        if: steps.cache-pip.outputs.cache-hit == 'true'
+        run: |
+          echo "Injecting pip cache into build environment..."
+
+          # Find the work directory (either from cache or fresh build)
+          cd pi-gen
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+
+          if [ -n "$WORK_DIR" ]; then
+            ROOTFS="${WORK_DIR}/stage4/rootfs"
+
+            if [ -d "$ROOTFS" ]; then
+              # Create .cache/pip directory in chroot
+              sudo mkdir -p "$ROOTFS/root/.cache/pip"
+
+              # Copy cached pip packages into chroot
+              # This makes them available during Qiskit installation
+              sudo cp -r ~/.cache/pip/* "$ROOTFS/root/.cache/pip/" || echo "No pip cache to inject yet"
+
+              echo "✓ Pip cache injected into build environment"
+              echo "Cache size: $(du -sh ~/.cache/pip 2>/dev/null | cut -f1 || echo '0')"
+            else
+              echo "Warning: rootfs not found, pip cache injection skipped"
+            fi
+          else
+            echo "Warning: work directory not found, pip cache injection skipped"
+          fi
 
       # Build the RasQberry-specific stage on top of base image
       - name: Build custom stage
@@ -814,6 +878,37 @@ jobs:
           
           # Build the custom RasQberry stage
           sudo ./build.sh
+
+      # Extract pip cache from chroot for future builds
+      - name: Extract pip cache from build environment
+        if: always()  # Always extract, even if build fails
+        run: |
+          echo "Extracting pip cache from build environment..."
+          cd pi-gen
+
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+
+          if [ -n "$WORK_DIR" ]; then
+            ROOTFS="${WORK_DIR}/stage-RQB2/rootfs"
+
+            # Try stage-RQB2 first (latest), fallback to stage4
+            if [ ! -d "$ROOTFS" ]; then
+              ROOTFS="${WORK_DIR}/stage4/rootfs"
+            fi
+
+            if [ -d "$ROOTFS/root/.cache/pip" ]; then
+              # Copy pip cache from chroot to host
+              mkdir -p ~/.cache/pip
+              sudo cp -r "$ROOTFS/root/.cache/pip"/* ~/.cache/pip/ || true
+
+              echo "✓ Pip cache extracted from build environment"
+              echo "Cache size: $(du -sh ~/.cache/pip 2>/dev/null | cut -f1 || echo '0')"
+            else
+              echo "Warning: No pip cache found in rootfs"
+            fi
+          else
+            echo "Warning: work directory not found"
+          fi
 
       # ========================================================================
       # IMAGE FINALIZATION
