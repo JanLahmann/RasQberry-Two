@@ -886,28 +886,28 @@ jobs:
           echo "Extracting pip cache from build environment..."
           cd pi-gen
 
-          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+          # Check for exported pip cache from stage-RQB2/02-extract-pip-cache
+          if [ -d "work/pip-cache-export/pip" ]; then
+            echo "Found exported pip cache from build stage"
+            mkdir -p ~/.cache/pip
+            cp -r work/pip-cache-export/pip/* ~/.cache/pip/ || true
 
-          if [ -n "$WORK_DIR" ]; then
-            ROOTFS="${WORK_DIR}/stage-RQB2/rootfs"
-
-            # Try stage-RQB2 first (latest), fallback to stage4
-            if [ ! -d "$ROOTFS" ]; then
-              ROOTFS="${WORK_DIR}/stage4/rootfs"
-            fi
-
-            if [ -d "$ROOTFS/root/.cache/pip" ]; then
-              # Copy pip cache from chroot to host
-              mkdir -p ~/.cache/pip
-              sudo cp -r "$ROOTFS/root/.cache/pip"/* ~/.cache/pip/ || true
-
-              echo "✓ Pip cache extracted from build environment"
-              echo "Cache size: $(du -sh ~/.cache/pip 2>/dev/null | cut -f1 || echo '0')"
-            else
-              echo "Warning: No pip cache found in rootfs"
-            fi
+            CACHE_SIZE=$(du -sh ~/.cache/pip 2>/dev/null | cut -f1 || echo '0')
+            echo "✓ Pip cache extracted successfully"
+            echo "✓ Cache size: ${CACHE_SIZE}"
+            echo "✓ Cache files: $(find ~/.cache/pip -type f | wc -l) files"
           else
-            echo "Warning: work directory not found"
+            echo "Warning: No exported pip cache found at work/pip-cache-export/pip"
+            echo "This is expected for older builds or if Qiskit installation failed"
+
+            # Fallback: try to extract from rootfs (may not exist if already cleaned up)
+            WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+            if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip" ]; then
+              echo "Attempting fallback extraction from rootfs..."
+              mkdir -p ~/.cache/pip
+              sudo cp -r "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip"/* ~/.cache/pip/ || true
+              echo "✓ Pip cache extracted from rootfs (fallback)"
+            fi
           fi
 
       # ========================================================================
