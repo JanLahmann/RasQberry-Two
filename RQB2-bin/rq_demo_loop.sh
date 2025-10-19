@@ -4,8 +4,15 @@
 # Runs multiple demos in sequence for conference showcases
 #
 
+# Determine user home directory (handle sudo case)
+if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
+    USER_HOME="/home/${SUDO_USER}"
+else
+    USER_HOME="${HOME}"
+fi
+
 # Load environment variables for configurable timings
-. "$HOME/.local/config/env-config.sh" 2>/dev/null || true
+. "$USER_HOME/.local/config/env-config.sh" 2>/dev/null || true
 
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"

@@ -8,10 +8,7 @@ echo
 echo "=== Qoffee-Maker Demo ==="
 echo
 
-# Load environment variables
-. "$HOME/.local/config/env-config.sh"
-
-# Determine user and paths
+# Determine user and paths FIRST (before loading config)
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
     USER_NAME="${SUDO_USER}"
     USER_HOME="/home/${SUDO_USER}"
@@ -19,6 +16,9 @@ else
     USER_NAME="$(whoami)"
     USER_HOME="${HOME}"
 fi
+
+# Load environment variables from user's home directory
+. "$USER_HOME/.local/config/env-config.sh"
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
 ENV_FILE="$DEMO_DIR/.env"
@@ -158,13 +158,22 @@ echo
 echo "  Access via browser: $JUPYTER_URL"
 echo
 
-# Try to open browser
+# Try to open browser (as user, not root)
 if command -v chromium-browser &> /dev/null; then
     echo "Opening browser..."
-    chromium-browser "$JUPYTER_URL" &
+    # Run browser as user if we're root
+    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
+        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser '$JUPYTER_URL' &"
+    else
+        chromium-browser "$JUPYTER_URL" &
+    fi
 elif command -v firefox &> /dev/null; then
     echo "Opening browser..."
-    firefox "$JUPYTER_URL" &
+    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
+        su - "$USER_NAME" -c "DISPLAY=:0 firefox '$JUPYTER_URL' &"
+    else
+        firefox "$JUPYTER_URL" &
+    fi
 else
     echo "No browser found. Please open the URL manually."
 fi

@@ -114,13 +114,22 @@ echo "  • Qoffee - Quantum coffee maker (requires Home Connect)"
 echo "  • Ice - Quantum ice dispenser"
 echo
 
-# Try to open browser
+# Try to open browser (as user, not root)
 if command -v chromium-browser &> /dev/null; then
     echo "Opening browser..."
-    chromium-browser "$MIXER_URL" &
+    # Run browser as user if we're root
+    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
+        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser '$MIXER_URL' &"
+    else
+        chromium-browser "$MIXER_URL" &
+    fi
 elif command -v firefox &> /dev/null; then
     echo "Opening browser..."
-    firefox "$MIXER_URL" &
+    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
+        su - "$USER_NAME" -c "DISPLAY=:0 firefox '$MIXER_URL' &"
+    else
+        firefox "$MIXER_URL" &
+    fi
 else
     echo "No browser found. Please open the URL manually."
 fi

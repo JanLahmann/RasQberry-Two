@@ -8,10 +8,7 @@ echo
 echo "=== Qoffee-Maker Setup ==="
 echo
 
-# Load environment variables
-. "$HOME/.local/config/env-config.sh"
-
-# Determine user and paths
+# Determine user and paths FIRST (before loading config)
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
     USER_NAME="${SUDO_USER}"
     USER_HOME="/home/${SUDO_USER}"
@@ -19,6 +16,9 @@ else
     USER_NAME="$(whoami)"
     USER_HOME="${HOME}"
 fi
+
+# Load environment variables from user's home directory
+. "$USER_HOME/.local/config/env-config.sh"
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
 
