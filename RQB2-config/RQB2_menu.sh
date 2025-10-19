@@ -68,31 +68,62 @@ show_menu() {
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
 
-# Generic installer for demos: name, git URL, marker file, env var, dialog title
+# Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
 install_demo() {
     NAME="$1"       # demo directory name
     GIT_URL="$2"    # corresponding repo URL variable
     MARKER="$3"     # script or file that must exist
     ENV_VAR="$4"    # environment variable name to set
     TITLE="$5"      # title for dialog messages
+    SIZE="$6"       # optional: download size (e.g., "5MB")
 
     DEST="$DEMO_ROOT/$NAME"
-    # Clone if marker missing
-    if [ ! -f "$DEST/$MARKER" ]; then
-        mkdir -p "$DEST"
-        if git clone --depth 1 "$GIT_URL" "$DEST"; then
-            # fix ownership if needed
-            if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-                sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
-            fi
-            update_environment_file "$ENV_VAR" "true"
-            [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
-        else
-            # Clean up empty directory and show error
-            rm -rf "$DEST"
-            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+
+    # Check if already installed
+    if [ -f "$DEST/$MARKER" ]; then
+        return 0  # Already installed
+    fi
+
+    # Show confirmation dialog before downloading
+    if command -v whiptail > /dev/null 2>&1; then
+        SIZE_MSG=""
+        if [ -n "$SIZE" ]; then
+            SIZE_MSG="\n\nDownload size: ~$SIZE"
+        fi
+
+        whiptail --title "$TITLE Not Installed" \
+                 --yesno "$TITLE is not installed yet.$SIZE_MSG\n\nRequires internet connection.\n\nInstall now?" \
+                 12 65 3>&1 1>&2 2>&3
+
+        if [ $? -ne 0 ]; then
+            # User cancelled installation
             return 1
         fi
+    else
+        # Fallback if whiptail not available
+        echo "$TITLE is not installed."
+        echo "This requires downloading from GitHub."
+        read -p "Install now? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            return 1
+        fi
+    fi
+
+    # Clone demo repository
+    mkdir -p "$DEST"
+    if git clone --depth 1 "$GIT_URL" "$DEST"; then
+        # fix ownership if needed
+        if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
+            sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
+        fi
+        update_environment_file "$ENV_VAR" "true"
+        [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+    else
+        # Clean up empty directory and show error
+        rm -rf "$DEST"
+        whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+        return 1
     fi
 }
 
@@ -217,7 +248,7 @@ run_led_painter_demo() {
 # Run Qoffee-Maker demo
 run_qoffee_demo() {
     # Check if setup has been run (Docker installed)
-    if ! command -v docker &> /dev/null; then
+    if ! command -v docker > /dev/null 2>&1; then
         whiptail --title "Setup Required" --msgbox \
             "Qoffee-Maker requires Docker, which is not installed.\n\nSetup will now run to install Docker and configure Qoffee-Maker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
             12 70
@@ -230,7 +261,7 @@ run_qoffee_demo() {
 
 # Stop Qoffee-Maker containers
 stop_qoffee_containers() {
-    if ! command -v docker &> /dev/null; then
+    if ! command -v docker > /dev/null 2>&1; then
         whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
         return 0
     fi
@@ -248,7 +279,7 @@ stop_qoffee_containers() {
 # Run Quantum-Mixer demo
 run_quantum_mixer_demo() {
     # Check if setup has been run (Docker installed)
-    if ! command -v docker &> /dev/null; then
+    if ! command -v docker > /dev/null 2>&1; then
         whiptail --title "Setup Required" --msgbox \
             "Quantum-Mixer requires Docker, which is not installed.\n\nSetup will now run to install Docker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
             12 70
@@ -261,7 +292,7 @@ run_quantum_mixer_demo() {
 
 # Stop Quantum-Mixer containers
 stop_quantum_mixer_containers() {
-    if ! command -v docker &> /dev/null; then
+    if ! command -v docker > /dev/null 2>&1; then
         whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
         return 0
     fi
