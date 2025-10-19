@@ -50,7 +50,8 @@
 # ============================================================================
 #
 # Custom Variables (from pi-gen-config):
-#   - CACHE_VERSION: Increment to invalidate all caches
+#   - BASE_STAGES_VERSION: Increment to rebuild base Debian stages (expensive)
+#   - PIP_CACHE_VERSION: Increment to invalidate pip package cache
 #   - RQB_*: RasQberry-specific build configuration
 #     - RQB_REPO: Repository name (set dynamically)
 #     - RQB_GIT_USER: GitHub username (set dynamically)
@@ -114,8 +115,9 @@ on:
 # GLOBAL ENVIRONMENT VARIABLES
 # ============================================================================
 env:
-  # Cache versioning - increment this to invalidate all caches
-  CACHE_VERSION: v3
+  # Cache versioning - increment to invalidate specific caches
+  BASE_STAGES_VERSION: v2  # Increment to rebuild base Debian stages (expensive)
+  PIP_CACHE_VERSION: v3    # Increment to invalidate pip package cache
 
   # Compression method for base stages cache: pigz (default) or zstd
   # - pigz: Parallel gzip, widely compatible, good compression
@@ -426,7 +428,8 @@ jobs:
       - name: List available caches
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
+          echo "Base stages cache key: base-stages-${{ env.BASE_STAGES_VERSION }}-${{ env.CACHE_COMPRESSION }}"
+          echo "Pip cache key prefix: pip-qiskit-${{ env.PIP_CACHE_VERSION }}-"
           # Note: Can't actually list caches, but shows the key format
 
       # Determine if this build should use caching
@@ -484,10 +487,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: base-stages-cache.tar.${{ env.CACHE_COMPRESSION == 'zstd' && 'zst' || 'gz' }}
-          key: base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}
+          key: base-stages-${{ env.BASE_STAGES_VERSION }}-${{ env.CACHE_COMPRESSION }}
           restore-keys: |
-            base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}-
-            base-stages-${{ env.CACHE_VERSION }}-
+            base-stages-${{ env.BASE_STAGES_VERSION }}-${{ env.CACHE_COMPRESSION }}-
+            base-stages-${{ env.BASE_STAGES_VERSION }}-
 
       # Cache frequently downloaded apt packages
       - name: Cache apt packages
@@ -509,9 +512,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-qiskit-${{ env.CACHE_VERSION }}-${{ hashFiles('stage-RQB2/**/rq_install_Qiskit*.sh') }}
+          key: pip-qiskit-${{ env.PIP_CACHE_VERSION }}-${{ hashFiles('stage-RQB2/**/rq_install_Qiskit*.sh') }}
           restore-keys: |
-            pip-qiskit-${{ env.CACHE_VERSION }}-
+            pip-qiskit-${{ env.PIP_CACHE_VERSION }}-
             pip-qiskit-
 
       # ========================================================================
@@ -774,7 +777,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: base-stages-cache.tar.${{ env.CACHE_COMPRESSION == 'zstd' && 'zst' || 'gz' }}
-          key: base-stages-${{ env.CACHE_VERSION }}-${{ env.CACHE_COMPRESSION }}
+          key: base-stages-${{ env.BASE_STAGES_VERSION }}-${{ env.CACHE_COMPRESSION }}
 
       # Show system resources before main build
       - name: show swap and memory status before build
