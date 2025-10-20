@@ -17,8 +17,10 @@ config = dotenv_values("/usr/config/rasqberry_environment.env")
 n_qbit = int(config.get("N_QUBIT", 156))  # Default to 156 qubits if not configured
 LED_COUNT = int(config.get("LED_COUNT", 192))
 LED_PIN = int(config.get("LED_PIN", 21))
+display_timeout = int(config.get("RASQ_LED_DISPLAY_TIMEOUT", 3))  # Timeout for display script
 
 print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_PIN}")
+print(f"Display timeout: {display_timeout}s")
 
 # Import Qiskit 2.x classes
 try:
@@ -137,9 +139,10 @@ def call_display_on_strip(measurement_result):
 
     try:
         # Note: No sudo needed for SPI-based driver
+        # Use configurable timeout (default 3s via RASQ_LED_DISPLAY_TIMEOUT)
         result = subprocess.run([
             sys.executable, display_script, measurement_result
-        ], capture_output=True, text=True, timeout=30)
+        ], capture_output=True, text=True, timeout=display_timeout)
 
         if result.returncode != 0:
             print(f"Display script error: {result.stderr}")
@@ -160,7 +163,7 @@ def clear_leds():
         try:
             subprocess.run([
                 sys.executable, display_script, "0", "-c"
-            ], capture_output=True, timeout=10)
+            ], capture_output=True, timeout=display_timeout)
         except:
             pass
 
