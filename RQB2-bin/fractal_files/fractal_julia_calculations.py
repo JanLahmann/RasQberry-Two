@@ -7,7 +7,7 @@ from typing import Optional
 
 # Externally installed libraries
 import numpy as np
-from numpy import ndarray, complex64, complex_, int_, bool_, ushort
+from numpy import ndarray, complex64, ushort
 
 
 class JuliaSet:
