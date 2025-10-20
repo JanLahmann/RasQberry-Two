@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-echo "Starting qiskit Installation"
+echo "Deploying RasQberry files and configuration"
 
 # Source the configuration file
 if [ -f "/tmp/stage-config" ]; then
@@ -94,40 +94,6 @@ chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment
 chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
 chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
 
-# Apply RQB2 patch to /usr/bin/raspi-config at boot time
-# Adding patch script to root-crontab
-bash -c 'CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
-  crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
-  ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
-
-# Add hardware detection script to root-crontab (runs at every boot)
-# This ensures PI_MODEL is always current, even if SD card is moved between Pi models
-bash -c 'CRON="@reboot /usr/bin/rq_detect_hardware.sh"; \
-  crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
-  ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
-
-# Install Qiskit using pip
-echo "Installing qiskit for ${FIRST_USER_NAME} user"
-mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
-
-# Create virtual environment
-python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
-source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate
-
-# Install Qiskit
-. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_latest.sh
-deactivate
-
-# Copy venv to system location for new users
-cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
-
-# Add setup script to bashrc
-export LINE=". /usr/config/setup_qiskit_env.sh"
-echo "$LINE" >> /etc/skel/.bashrc
-echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
-
-echo "Qiskit installation completed for ${FIRST_USER_NAME}"
-
 # Fix ownership of all user directories created as root
 # This ensures demos can be installed later without permission issues
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.local
@@ -136,4 +102,4 @@ chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/${REPO}
 # Clean up
 rm -rf $CLONE_DIR
 
-echo "End qiskit Installation"
+echo "RasQberry file deployment completed"
