@@ -6,13 +6,14 @@ IFS=$'\n\t'
 # installation of Qiskit (latest version)
 #
 
-#If no parameter passed
-if [ "${PIGEN}" == "true" ]; then
-  # if images building parameter passed 
+# Check if running in pi-gen build environment
+# Use parameter expansion to provide default if PIGEN is unset
+if [ "${PIGEN:-false}" == "true" ]; then
+  # Running in pi-gen: use build-time paths
   .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
 else
-   # Load environment variables
-  . $HOME//usr/config/rasqberry_env-config.sh
+  # Running on live system: load environment variables
+  . /usr/config/rasqberry_env-config.sh
   . $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
 

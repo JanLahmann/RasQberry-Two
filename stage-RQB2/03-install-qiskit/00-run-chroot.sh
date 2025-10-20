@@ -10,6 +10,7 @@ if [ -f "/tmp/stage-config" ]; then
     # Map the RQB_ prefixed variables to local names
     REPO="${RQB_REPO}"
     STD_VENV="${RQB_STD_VENV}"
+    PIGEN="${RQB_PIGEN}"
 
     echo "Configuration loaded successfully"
 else
@@ -21,7 +22,11 @@ fi
 echo "Configuration:"
 echo "  REPO: $REPO"
 echo "  STD_VENV: $STD_VENV"
+echo "  PIGEN: $PIGEN"
 echo "  FIRST_USER_NAME: ${FIRST_USER_NAME}"
+
+# Export variables needed by installation script
+export REPO STD_VENV PIGEN FIRST_USER_NAME
 
 # Install Qiskit using pip
 echo "Installing qiskit for ${FIRST_USER_NAME} user"
