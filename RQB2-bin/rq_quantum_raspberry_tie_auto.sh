@@ -64,4 +64,19 @@ echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
 echo "========================================="
 echo
 
-cd "$DEMO_DIR" && python3 QuantumRaspberryTie.v7_1.py
+cd "$DEMO_DIR" || exit 1
+
+# Run the demo and capture exit status
+python3 QuantumRaspberryTie.v7_1.py
+EXIT_CODE=$?
+
+# Show exit status
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Demo finished successfully."
+else
+    echo "Demo exited with code: $EXIT_CODE"
+fi
+echo ""
+echo "Press Enter to close this window..."
+read

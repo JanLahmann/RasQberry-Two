@@ -54,4 +54,25 @@ if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
     exit 1
 fi
 
-cd "$DEMO_DIR" && python3 -W ignore::DeprecationWarning lights_out.py
+cd "$DEMO_DIR" || exit 1
+
+echo ""
+echo "Quantum Lights Out Demo"
+echo "======================="
+echo "Press Ctrl+C or 'q' in the game to exit"
+echo ""
+
+# Run the demo and capture exit status
+python3 -W ignore::DeprecationWarning lights_out.py
+EXIT_CODE=$?
+
+# Show friendly exit message
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Demo finished successfully."
+else
+    echo "Demo exited with code: $EXIT_CODE"
+fi
+echo ""
+echo "Press Enter to close this window..."
+read
