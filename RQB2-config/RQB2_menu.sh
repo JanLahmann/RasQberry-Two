@@ -19,7 +19,7 @@ IFS='\
 # -----------------------------------------------------------------------------
 
 # load RasQberry environment and constants with error handling
-ENV_CONFIG_FILE="/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+ENV_CONFIG_FILE="/usr/config/rasqberry_env-config.sh"
 if [ -f "$ENV_CONFIG_FILE" ]; then
     . "$ENV_CONFIG_FILE"
 else
@@ -42,10 +42,10 @@ VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 # 1. Environment & Bootstrap
 # -----------------------------------------------------------------------------
 #
-# Bootstrap: ensure env-config.sh is linked into $BIN_DIR for scripts
+# Bootstrap: ensure rasqberry_env-config.sh is linked into $BIN_DIR for scripts (for backward compatibility)
 bootstrap_env_config() {
-    SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
-    TARGET_LINK="$BIN_DIR/env-config.sh"
+    SOURCE_FILE="/usr/config/rasqberry_env-config.sh"
+    TARGET_LINK="$BIN_DIR/rasqberry_env-config.sh"
     # Remove existing symlink if present
     if [ -L "$TARGET_LINK" ]; then
         rm -f "$TARGET_LINK"
@@ -361,7 +361,7 @@ update_environment_file () {
     # update environment file
     sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
     # reload environment file
-    . "$BIN_DIR/env-config.sh"
+    . /usr/config/rasqberry_env-config.sh
   fi
 }
 

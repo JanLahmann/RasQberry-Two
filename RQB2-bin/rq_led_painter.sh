@@ -4,8 +4,8 @@
 
 # Source environment configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$HOME/.local/config/env-config.sh" ]; then
-    . "$HOME/.local/config/env-config.sh"
+if [ -f "$HOME//usr/config/rasqberry_env-config.sh" ]; then
+    . "$HOME//usr/config/rasqberry_env-config.sh"
 else
     echo "Error: Environment configuration not found"
     exit 1

@@ -36,7 +36,7 @@ else
 fi
 
 # Load environment variables
-. "$USER_HOME/.local/config/env-config.sh"
+. "$USER_HOME//usr/config/rasqberry_env-config.sh"
 
 DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 

@@ -68,6 +68,7 @@ fi
 # Create necessary directories
 [ ! -d /home/${FIRST_USER_NAME}/.local/bin ] && mkdir -p /home/${FIRST_USER_NAME}/.local/bin
 [ ! -d /home/${FIRST_USER_NAME}/${RQB2_CONFDIR} ] && mkdir -p /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
+[ ! -d /home/${FIRST_USER_NAME}/${REPO}/demos ] && mkdir -p /home/${FIRST_USER_NAME}/${REPO}/demos
 [ ! -d /usr/config ] && mkdir -p /usr/config
 [ ! -d /usr/venv ] && mkdir -p /usr/venv
 
@@ -88,7 +89,8 @@ chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
 # Set permissions on system-wide files
-chmod 644 /usr/config/rasqberry_environment.env  # World-readable configuration
+chmod 644 /usr/config/rasqberry_environment.env   # World-readable configuration
+chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment loader
 chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
 chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
 
@@ -125,6 +127,11 @@ echo "$LINE" >> /etc/skel/.bashrc
 echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
 
 echo "Qiskit installation completed for ${FIRST_USER_NAME}"
+
+# Fix ownership of all user directories created as root
+# This ensures demos can be installed later without permission issues
+chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.local
+chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/${REPO}
 
 # Clean up
 rm -rf $CLONE_DIR

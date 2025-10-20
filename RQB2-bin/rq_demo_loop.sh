@@ -12,7 +12,7 @@ else
 fi
 
 # Load environment variables for configurable timings
-. "$USER_HOME/.local/config/env-config.sh" 2>/dev/null || true
+. /usr/config/rasqberry_env-config.sh 2>/dev/null || true
 
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"

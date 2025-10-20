@@ -17,10 +17,28 @@ else
     USER_HOME="${HOME}"
 fi
 
-# Load environment variables from user's home directory
-. "$USER_HOME/.local/config/env-config.sh"
+# Load environment variables from global system configuration
+. /usr/config/rasqberry_env-config.sh
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
+
+# Function to update environment file (standalone version)
+update_environment_file() {
+    VAR_NAME="$1"
+    VAR_VALUE="$2"
+    ENV_FILE="/usr/config/rasqberry_environment.env"
+
+    if [ -z "$VAR_NAME" ] || [ -z "$VAR_VALUE" ]; then
+        echo "Warning: Cannot update environment file - missing variable name or value"
+        return 1
+    fi
+
+    # Update environment file
+    sudo sed -i "s/^$VAR_NAME=.*/$VAR_NAME=$VAR_VALUE/g" "$ENV_FILE"
+
+    # Reload environment
+    . /usr/config/rasqberry_env-config.sh
+}
 
 # Check if Docker is already installed
 if command -v docker &> /dev/null; then
@@ -138,18 +156,20 @@ if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf 2>/dev/null; then
 fi
 
 # Clone Qoffee-Maker repository if needed
-if [ ! -d "$DEMO_DIR" ]; then
+# Check for marker file (qoffee.ipynb) to verify successful installation
+if [ ! -f "$DEMO_DIR/qoffee.ipynb" ]; then
     echo
     echo "Cloning Qoffee-Maker repository..."
-    mkdir -p "$USER_HOME/$REPO/demos"
 
-    if git clone --depth 1 https://github.com/JanLahmann/Qoffee-Maker.git "$DEMO_DIR"; then
+    if git clone --depth 1 "$GIT_REPO_DEMO_QOFFEE" "$DEMO_DIR"; then
         # Fix ownership if cloned as root
         if [ "$(stat -c '%U' "$DEMO_DIR" 2>/dev/null || stat -f '%Su' "$DEMO_DIR")" = "root" ]; then
             sudo chown -R "$USER_NAME":"$USER_NAME" "$DEMO_DIR"
         fi
         echo "✓ Qoffee-Maker repository cloned"
     else
+        # Clean up incomplete directory and show error
+        rm -rf "$DEMO_DIR"
         whiptail --title "Clone Error" --msgbox \
             "Failed to clone Qoffee-Maker repository.\n\nPlease check your internet connection." \
             10 60

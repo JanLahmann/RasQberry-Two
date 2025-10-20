@@ -18,7 +18,7 @@ else
 fi
 
 # Load environment variables from user's home directory
-. "$USER_HOME/.local/config/env-config.sh"
+. "$USER_HOME//usr/config/rasqberry_env-config.sh"
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
 ENV_FILE="$DEMO_DIR/.env"
