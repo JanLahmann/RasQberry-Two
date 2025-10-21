@@ -6,12 +6,10 @@
 
 # Set up environment
 export HOME="${HOME:-/home/rasqberry}"
-RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
 
-# Try to load environment config
-ENV_CONFIG="$HOME/$RQB2_CONFDIR/env-config.sh"
-if [ -f "$ENV_CONFIG" ]; then
-    . "$ENV_CONFIG"
+# Try to load environment config from centralized location
+if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
+    . "/usr/config/rasqberry_env-config.sh"
 fi
 
 # Set default paths if not configured
