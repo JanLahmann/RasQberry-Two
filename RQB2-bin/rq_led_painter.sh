@@ -116,14 +116,15 @@ check_and_install_demo() {
                  8 60
 
         # Install using venv's pip directly, log output
+        # Use --no-user to install into venv, not user site-packages
         (
             cd "$DEMO_DIR"
-            "$VENV_PIP" install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
+            "$VENV_PIP" install --no-user -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
         )
     else
         (
             cd "$DEMO_DIR"
-            "$VENV_PIP" install -r requirements.txt
+            "$VENV_PIP" install --no-user -r requirements.txt
         )
     fi
 
