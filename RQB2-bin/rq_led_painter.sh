@@ -141,7 +141,7 @@ check_and_install_demo() {
         # Update environment flag (check both user and system config locations)
         for env_file in "/usr/config/rasqberry_environment.env" "$USER_HOME/.local/config/rasqberry_environment.env"; do
             if [ -f "$env_file" ]; then
-                sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$env_file"
+                sudo sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$env_file"
             fi
         done
 
