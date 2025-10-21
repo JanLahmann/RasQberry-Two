@@ -117,18 +117,22 @@ check_and_install_demo() {
 
         # Install using venv's pip directly, log output
         # Use --no-user to install into venv, not user site-packages
+        # Use pipefail to catch pip errors even when piping to tee
         (
+            set -o pipefail
             cd "$DEMO_DIR"
             "$VENV_PIP" install --no-user -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
         )
+        PIP_EXIT=$?
     else
         (
             cd "$DEMO_DIR"
             "$VENV_PIP" install --no-user -r requirements.txt
         )
+        PIP_EXIT=$?
     fi
 
-    if [ $? -eq 0 ]; then
+    if [ $PIP_EXIT -eq 0 ]; then
         # Update environment flag
         if [ -f "$HOME/.local/config/rasqberry_environment.env" ]; then
             sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
