@@ -44,12 +44,28 @@ if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
     . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
+# Variable to track the Python process
+PYTHON_PID=""
+
 # Function to clean up on exit
 cleanup() {
     echo
     echo "Stopping Quantum Raspberry Tie demo..."
-    # Kill any remaining python processes running the demo
+
+    # Kill the Python process if it's still running
+    if [ -n "$PYTHON_PID" ] && kill -0 "$PYTHON_PID" 2>/dev/null; then
+        kill "$PYTHON_PID" 2>/dev/null || true
+        sleep 0.5
+
+        # Force kill if still running
+        if kill -0 "$PYTHON_PID" 2>/dev/null; then
+            kill -9 "$PYTHON_PID" 2>/dev/null || true
+        fi
+    fi
+
+    # Also kill any remaining python processes running the demo
     pkill -f "QuantumRaspberryTie.v7_1.py" 2>/dev/null || true
+
     echo "Demo stopped."
 }
 
@@ -59,16 +75,47 @@ trap cleanup EXIT INT TERM
 # Launch the demo
 echo "Starting Quantum Raspberry Tie Demo..."
 echo "========================================="
-echo "To stop the demo: Press Ctrl+C in this terminal"
-echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
-echo "========================================="
-echo
 
 cd "$DEMO_DIR" || exit 1
 
-# Run the demo and capture exit status
-python3 QuantumRaspberryTie.v7_1.py
-EXIT_CODE=$?
+# Run the demo in background
+python3 QuantumRaspberryTie.v7_1.py &
+PYTHON_PID=$!
+
+echo "Demo is running (PID: $PYTHON_PID)"
+echo ""
+echo "To stop the demo:"
+echo "  - Press 'q' and Enter"
+echo "  - Or just press Enter"
+echo "  - Or press Ctrl+C"
+echo ""
+echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
+echo "========================================="
+echo ""
+
+# Wait for user input to quit
+while kill -0 "$PYTHON_PID" 2>/dev/null; do
+    read -t 1 -n 1 key 2>/dev/null
+    if [ $? -eq 0 ]; then
+        # User pressed a key
+        if [ "$key" = "q" ] || [ "$key" = "" ]; then
+            echo ""
+            echo "Stop requested by user..."
+            break
+        fi
+    fi
+done
+
+# Check if process is still running
+if kill -0 "$PYTHON_PID" 2>/dev/null; then
+    # Process still running, user wants to quit
+    echo "Stopping demo..."
+    EXIT_CODE=0
+else
+    # Process already exited
+    wait "$PYTHON_PID"
+    EXIT_CODE=$?
+fi
 
 # Show exit status
 echo ""
