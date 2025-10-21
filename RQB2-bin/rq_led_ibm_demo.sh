@@ -4,23 +4,20 @@
 # Simple wrapper to run the IBM-themed LED demonstration
 #
 
-# Set up environment
-export HOME="${HOME:-/home/rasqberry}"
-
-# Try to load environment config from centralized location
+# Load environment config from centralized location
 if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
     . "/usr/config/rasqberry_env-config.sh"
 fi
 
 # Set default paths if not configured
 REPO="${REPO:-RasQberry-Two}"
-BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+BIN_DIR="${BIN_DIR:-$USER_HOME/.local/bin}"
 
 # Check multiple possible locations for the script
 LED_SCRIPT=""
 for location in "$BIN_DIR/neopixel_spi_IBMtestFunc.py" \
                 "/usr/bin/neopixel_spi_IBMtestFunc.py" \
-                "$HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"; do
+                "$USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"; do
     if [ -f "$location" ]; then
         LED_SCRIPT="$location"
         break
@@ -32,7 +29,7 @@ if [ -z "$LED_SCRIPT" ]; then
     echo "Searched locations:"
     echo "  - $BIN_DIR/neopixel_spi_IBMtestFunc.py"
     echo "  - /usr/bin/neopixel_spi_IBMtestFunc.py"
-    echo "  - $HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
+    echo "  - $USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
     echo "Press Enter to exit..."
     read
     exit 1
@@ -44,9 +41,9 @@ echo
 
 # Activate virtual environment if available
 VENV_PATHS=(
-    "$HOME/$REPO/venv/$STD_VENV"
-    "$HOME/.local/venv/$STD_VENV"
-    "$HOME/venv/$STD_VENV"
+    "$USER_HOME/$REPO/venv/$STD_VENV"
+    "$USER_HOME/.local/venv/$STD_VENV"
+    "$USER_HOME/venv/$STD_VENV"
 )
 
 for venv_path in "${VENV_PATHS[@]}"; do

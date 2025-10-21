@@ -4,11 +4,6 @@
 # Launches the Quantum Lights Out demo
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
-fi
-
 # Load environment variables
 if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
     . "/usr/config/rasqberry_env-config.sh"
@@ -24,7 +19,7 @@ if [ -z "$REPO" ]; then
 fi
 
 # Use canonical path (same as menu)
-DEMO_DIR="$HOME/$REPO/demos/Quantum-Lights-Out"
+DEMO_DIR="$USER_HOME/$REPO/demos/Quantum-Lights-Out"
 
 # Check if demo is installed, auto-install if missing
 if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
@@ -36,8 +31,8 @@ if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
 fi
 
 # Activate virtual environment if available
-if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
+    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
 # Launch the demo

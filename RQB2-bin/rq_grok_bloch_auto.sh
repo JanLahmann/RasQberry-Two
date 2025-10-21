@@ -4,11 +4,6 @@
 # Automatically installs demo if missing, then launches it
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
-fi
-
 # Load environment variables
 if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
     . "/usr/config/rasqberry_env-config.sh"
@@ -24,8 +19,8 @@ if [ -z "$REPO" ]; then
 fi
 
 # Set BIN_DIR if not already set by env-config.sh
-BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
-DEMO_DIR="$HOME/$REPO/demos/grok-bloch"
+BIN_DIR="${BIN_DIR:-$USER_HOME/.local/bin}"
+DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
 
 # Check if demo is installed, auto-install if missing
 if [ ! -f "$DEMO_DIR/index.html" ]; then
