@@ -6,8 +6,8 @@
 export HOME=${HOME:-/home/rasqberry}
 
 # Source environment configuration
-if [ -f "$HOME//usr/config/rasqberry_env-config.sh" ]; then
-    . "$HOME//usr/config/rasqberry_env-config.sh"
+if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
+    . "/usr/config/rasqberry_env-config.sh"
 else
     # Fallback defaults
     REPO="RasQberry-Two"
