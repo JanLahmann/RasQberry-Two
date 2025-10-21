@@ -14,10 +14,10 @@ else
 fi
 
 # Load environment variables
-if [ -f "$USER_HOME//usr/config/rasqberry_env-config.sh" ]; then
-    . "$USER_HOME//usr/config/rasqberry_env-config.sh"
+if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
+    . "/usr/config/rasqberry_env-config.sh"
 else
-    echo "Error: Environment config not found at $USER_HOME//usr/config/rasqberry_env-config.sh"
+    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
     exit 1
 fi
 
