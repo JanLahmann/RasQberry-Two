@@ -17,9 +17,15 @@ GIT_URL="${GIT_REPO_DEMO_LED_PAINTER:-https://github.com/Luka-D/RasQberry-Two-LE
 
 # Function to check and install demo if needed
 check_and_install_demo() {
-    # Check if demo is already installed
+    # Check if demo is already installed with all dependencies
     if [ -d "$DEMO_DIR" ] && [ -f "$DEMO_DIR/LED_painter.py" ]; then
-        return 0
+        # Verify PySide6 is actually installed in the venv
+        if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/python3" ]; then
+            if "$HOME/$REPO/venv/$STD_VENV/bin/python3" -c "import PySide6" 2>/dev/null; then
+                return 0
+            fi
+            echo "Demo directory exists but dependencies are missing. Reinstalling..."
+        fi
     fi
 
     # Demo not installed - show confirmation dialog
@@ -115,28 +121,29 @@ check_and_install_demo() {
                  --infobox "Installing PySide6 and dependencies...\n\nThis may take 5-10 minutes.\nPlease wait..." \
                  8 60
 
-        # Install using venv's pip directly, log output
-        # Use --no-user to install into venv, not user site-packages
+        # Install using venv's pip with sudo (venv is owned by root from build)
         # Use pipefail to catch pip errors even when piping to tee
         (
             set -o pipefail
             cd "$DEMO_DIR"
-            "$VENV_PIP" install --no-user -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
+            sudo "$VENV_PIP" install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
         )
         PIP_EXIT=$?
     else
         (
             cd "$DEMO_DIR"
-            "$VENV_PIP" install --no-user -r requirements.txt
+            sudo "$VENV_PIP" install -r requirements.txt
         )
         PIP_EXIT=$?
     fi
 
     if [ $PIP_EXIT -eq 0 ]; then
-        # Update environment flag
-        if [ -f "$HOME/.local/config/rasqberry_environment.env" ]; then
-            sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
-        fi
+        # Update environment flag (check both user and system config locations)
+        for env_file in "/usr/config/rasqberry_environment.env" "$HOME/.local/config/rasqberry_environment.env"; do
+            if [ -f "$env_file" ]; then
+                sed -i 's/LED_PAINTER_INSTALLED=false/LED_PAINTER_INSTALLED=true/' "$env_file"
+            fi
+        done
 
         if command -v whiptail &> /dev/null; then
             whiptail --title "Installation Complete" \
@@ -180,7 +187,7 @@ if [ -z "$DISPLAY" ]; then
     exit 1
 fi
 
-# Run the LED-Painter
-python3 LED_painter.py
+# Run the LED-Painter using venv python
+"$HOME/$REPO/venv/$STD_VENV/bin/python3" LED_painter.py
 
 exit 0
