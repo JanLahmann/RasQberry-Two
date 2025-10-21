@@ -99,39 +99,53 @@ EOF
 
 chmod +x /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh
 
-# Create first-login VNC enablement script
-cat > /etc/profile.d/rasqberry-firstlogin-vnc.sh << 'EOF'
+# Create VNC enablement script for first desktop login
+cat > /usr/local/bin/rasqberry-enable-vnc.sh << 'EOF'
 #!/bin/bash
-# RasQberry First Login: Enable VNC Server
-# Runs once on first user login to enable VNC
+# RasQberry First Desktop Login: Enable VNC Server
+# Runs once on first desktop login after X server is available
 
 VNC_MARKER="/var/lib/rasqberry-firstboot/vnc-enabled.done"
 
 # Only run if not already done
 if [ ! -f "$VNC_MARKER" ]; then
-    echo "RasQberry: Enabling VNC on first login..."
+    # Wait a bit for system to fully initialize
+    sleep 3
 
-    # Enable VNC using raspi-config
+    # Enable VNC using raspi-config (requires root)
     if sudo raspi-config nonint do_vnc 0 2>/dev/null; then
-        echo "VNC enabled successfully"
-
-        # Ensure VNC service is enabled
+        # Ensure VNC service is enabled and started
         sudo systemctl enable vncserver-x11-serviced.service 2>/dev/null || true
-        sudo systemctl start vncserver-x11-serviced.service 2>/dev/null || true
-    else
-        echo "Note: VNC could not be enabled automatically"
+        sudo systemctl restart vncserver-x11-serviced.service 2>/dev/null || true
+
+        # Mark as done
+        sudo mkdir -p "$(dirname "$VNC_MARKER")"
+        sudo touch "$VNC_MARKER"
+
+        # Remove autostart file so it doesn't run again
+        sudo rm -f /etc/xdg/autostart/rasqberry-enable-vnc.desktop
+
+        # Show notification if notify-send is available
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send "RasQberry" "VNC Server enabled successfully" -i network-server
+        fi
     fi
-
-    # Mark as done
-    sudo mkdir -p "$(dirname "$VNC_MARKER")"
-    sudo touch "$VNC_MARKER"
-
-    # Remove this script so it doesn't run again
-    sudo rm -f /etc/profile.d/rasqberry-firstlogin-vnc.sh
 fi
 EOF
 
-chmod +x /etc/profile.d/rasqberry-firstlogin-vnc.sh
+chmod +x /usr/local/bin/rasqberry-enable-vnc.sh
+
+# Create autostart desktop entry to run on first graphical login
+cat > /etc/xdg/autostart/rasqberry-enable-vnc.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=RasQberry VNC Enablement
+Comment=Enable VNC Server on first boot
+Exec=/usr/local/bin/rasqberry-enable-vnc.sh
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
 
 # Create systemd service
 cat > /etc/systemd/system/rasqberry-firstboot.service << 'EOF'
@@ -158,5 +172,5 @@ systemctl enable rasqberry-firstboot.service
 echo "RasQberry modular firstboot service installed and enabled"
 echo "Tasks will run from: /usr/local/lib/rasqberry-firstboot.d/"
 echo "  - 01-expand-filesystem.sh: Expand root filesystem to fill SD card"
-echo "VNC will be enabled on first user login via /etc/profile.d/rasqberry-firstlogin-vnc.sh"
+echo "VNC will be enabled on first desktop login via /etc/xdg/autostart/"
 echo "Completion markers stored in: /var/lib/rasqberry-firstboot/"
