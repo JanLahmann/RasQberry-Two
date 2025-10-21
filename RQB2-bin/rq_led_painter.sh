@@ -85,10 +85,29 @@ check_and_install_demo() {
     # Install Python dependencies
     echo "Installing Python dependencies (this may take several minutes)..."
 
-    # Activate virtual environment if it exists
-    if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
-        source "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+    # Verify virtual environment exists and variables are set
+    if [ -z "$REPO" ] || [ -z "$STD_VENV" ]; then
+        echo "Error: Environment variables not properly loaded (REPO=$REPO, STD_VENV=$STD_VENV)"
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Configuration Error" \
+                     --msgbox "Environment configuration not properly loaded.\n\nPlease check /usr/config/rasqberry_env-config.sh" \
+                     10 60
+        fi
+        exit 1
     fi
+
+    if [ ! -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+        echo "Error: Virtual environment not found at $HOME/$REPO/venv/$STD_VENV"
+        if command -v whiptail &> /dev/null; then
+            whiptail --title "Virtual Environment Missing" \
+                     --msgbox "Virtual environment not found.\n\nExpected: $HOME/$REPO/venv/$STD_VENV" \
+                     10 60
+        fi
+        exit 1
+    fi
+
+    # Use venv's pip directly (no need to activate in subshell)
+    VENV_PIP="$HOME/$REPO/venv/$STD_VENV/bin/pip3"
 
     if command -v whiptail &> /dev/null; then
         # Show info box (no progress bar since pip doesn't provide progress)
@@ -96,15 +115,15 @@ check_and_install_demo() {
                  --infobox "Installing PySide6 and dependencies...\n\nThis may take 5-10 minutes.\nPlease wait..." \
                  8 60
 
-        # Install in background, log output
+        # Install using venv's pip directly, log output
         (
             cd "$DEMO_DIR"
-            pip3 install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
+            "$VENV_PIP" install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
         )
     else
         (
             cd "$DEMO_DIR"
-            pip3 install -r requirements.txt
+            "$VENV_PIP" install -r requirements.txt
         )
     fi
 
