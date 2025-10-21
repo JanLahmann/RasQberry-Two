@@ -71,7 +71,7 @@ z_arr = np.array(x_arr + 1j * y_arr, dtype=complex64)
 div_arr = np.zeros(z_arr.shape, dtype=np.uint8)
 
 # Create Array to keep track on which points have not converged
-con_arr = np.full(z_arr.shape, True, dtype=bool_)
+con_arr = np.full(z_arr.shape, True, dtype=bool)
 
 # Dictionary to keep track of time pr. loop
 timer = {"QuantumCircuit": 0.0, "Julia_calculations": 0.0, "Animation": 0.0, "Image": 0.0, "Bloch_data": 0.0}
