@@ -22,7 +22,7 @@ echo; echo; echo "Install Qiskit (latest version)"; echo;
 
 pip install 'qiskit[all]'
 pip install qiskit_ibm_runtime qiskit_aer
-pip install adafruit-circuitpython-neopixel-spi rpi_ws281x pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat celluloid selenium webdriver-manager matplotlib numpy pillow
+pip install adafruit-blinka adafruit-circuitpython-neopixel-spi rpi_ws281x pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat celluloid selenium webdriver-manager matplotlib numpy pillow
 
 
 pip3 list | grep qiskit
