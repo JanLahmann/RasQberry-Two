@@ -265,6 +265,11 @@ def demo_loop(duration=2):
     print("Press Enter to stop the demo (or Ctrl+C)")
     print()
 
+    # Clear any pending input from stdin before starting
+    # (prevents accidental immediate exit when run from menu systems)
+    import termios
+    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+
     try:
         for cycle in range(duration):
             print(f"\n--- Demo Cycle {cycle + 1}/{duration} ---")
