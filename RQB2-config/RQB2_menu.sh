@@ -249,8 +249,13 @@ run_grok_bloch_web_demo() {
         "Opening the online version of Grok Bloch Sphere in your browser.\n\nURL: https://javafxpert.github.io/grok-bloch/\n\nPress OK to continue." \
         12 70
 
-    # Launch browser with web version
-    chromium-browser --password-store=basic https://javafxpert.github.io/grok-bloch/ >/dev/null 2>&1 &
+    # Launch browser with web version (as user if running as root)
+    GROK_URL="https://javafxpert.github.io/grok-bloch/"
+    if [ "$(whoami)" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
+    else
+        chromium-browser --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
+    fi
 }
 
 # Run quantum fractals demo
