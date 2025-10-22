@@ -1,31 +1,24 @@
 #!/bin/bash
-#
-# RasQberry: RasQ-LED Quantum Circuit Demo Launcher
-# Visualizes quantum circuits with entanglement patterns on LEDs
-#
+set -euo pipefail
 
-# Determine user and paths
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
-fi
+################################################################################
+# rq_rasq_led.sh - RasQberry RasQ-LED Quantum Circuit Demo Launcher
+#
+# Description:
+#   Visualizes quantum circuits with entanglement patterns on LEDs
+#   Simple launcher for the RasQ-LED Python script
+################################################################################
 
-# Load environment variables
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-else
-    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
-    exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars USER_HOME REPO STD_VENV BIN_DIR
 
 # Activate virtual environment if available
-if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-fi
+activate_venv || warn "Virtual environment not available, continuing anyway..."
 
 # Launch RasQ-LED demo
-echo "Starting RasQ-LED Quantum Circuit Demo..."
+info "Starting RasQ-LED Quantum Circuit Demo..."
 exec python3 "$BIN_DIR/RasQ-LED.py"

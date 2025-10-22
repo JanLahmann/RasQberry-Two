@@ -1,37 +1,23 @@
 #!/bin/bash
+set -euo pipefail
+
+################################################################################
+# rq_grok_bloch.sh - RasQberry Grok Bloch Sphere Demo Launcher
 #
-# RasQberry: Launch Grok Bloch Sphere Demo
-# Starts local HTTP server and opens the demo in browser
-#
+# Description:
+#   Starts local HTTP server and opens the Bloch sphere demo in browser
+#   Interactive visualization of quantum states
+################################################################################
 
-set -euo pipefail  # Exit on error, undefined vars, pipe failures
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
-# Determine user and paths (handle sudo/root context)
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
-fi
-
-# Load environment variables
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-else
-    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
-    exit 1
-fi
-
-# Verify REPO variable is set
-if [ -z "$REPO" ]; then
-    echo "Error: REPO variable not set after loading environment"
-    echo "Environment loading may have failed"
-    exit 1
-fi
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars USER_HOME REPO
 
 # Check for GUI/Desktop environment
-if [ -z "$DISPLAY" ]; then
+if ! check_display; then
     echo ""
     echo "=========================================="
     echo "ERROR: Graphical Desktop Required"
@@ -47,7 +33,7 @@ if [ -z "$DISPLAY" ]; then
     echo ""
     echo "Or use the desktop launcher icon instead."
     echo ""
-    exit 1
+    die "No display available"
 fi
 
 DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
@@ -57,28 +43,27 @@ PORT=8080
 if [ ! -f "$DEMO_DIR/index.html" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
-    echo "Debug info:"
-    echo "  USER_NAME: $USER_NAME"
-    echo "  USER_HOME: $USER_HOME"
-    echo "  REPO: $REPO"
-    echo "  Expected path: $DEMO_DIR"
-    exit 1
+    debug "USER_NAME: $SUDO_USER_NAME"
+    debug "USER_HOME: $USER_HOME"
+    debug "REPO: $REPO"
+    debug "Expected path: $DEMO_DIR"
+    die "Grok Bloch demo not installed"
 fi
 
-echo "Starting Grok Bloch Sphere Demo..."
-echo "Demo directory: $DEMO_DIR"
-echo "Local server port: $PORT"
+info "Starting Grok Bloch Sphere Demo..."
+debug "Demo directory: $DEMO_DIR"
+debug "Local server port: $PORT"
 
 # Find available port
 while netstat -tuln | grep -q ":$PORT "; do
     PORT=$((PORT + 1))
 done
 
-echo "Using port: $PORT"
-echo "URL: http://localhost:$PORT"
+info "Using port: $PORT"
+info "URL: http://localhost:$PORT"
 
 # Change to demo directory
-cd "$DEMO_DIR"
+cd "$DEMO_DIR" || die "Failed to change to demo directory"
 
 # Create a custom HTTP server handler to suppress favicon errors
 cat > /tmp/grok_server.py << 'EOF'
@@ -109,55 +94,41 @@ SERVER_PID=$!
 # Wait a moment for server to start
 sleep 2
 
-echo "Opening in browser..."
+info "Opening in browser..."
 
-# Function to cleanup server and temp files
+################################################################################
+# cleanup - Stop server and remove temp files
+################################################################################
 cleanup() {
-    echo "Cleaning up..."
-    kill $SERVER_PID 2>/dev/null
+    info "Cleaning up..."
+    kill $SERVER_PID 2>/dev/null || true
     rm -f /tmp/grok_server.py
     exit 0
 }
 
 # Set up cleanup trap
-trap cleanup INT TERM EXIT
+setup_cleanup_trap cleanup
 
-# Try to open in browser and get browser PID
+# Try to open in browser
 BROWSER_PID=""
 BROWSER_URL="http://localhost:$PORT"
 
-# Determine how to launch browser (as user if running as root)
-if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ] && [ "$USER_NAME" != "root" ]; then
-    # Running as root, launch browser as user
-    if command -v chromium-browser >/dev/null 2>&1; then
-        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$BROWSER_URL' >/dev/null 2>&1 &"
-    elif command -v firefox >/dev/null 2>&1; then
-        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} firefox '$BROWSER_URL' >/dev/null 2>&1 &"
-    elif command -v xdg-open >/dev/null 2>&1; then
-        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} xdg-open '$BROWSER_URL' >/dev/null 2>&1 &"
-    else
-        echo "Please open $BROWSER_URL in your web browser"
-    fi
-    # When using su, we can't track browser PID reliably, so don't auto-close
-    BROWSER_PID=""
+# Launch browser as user
+if command -v chromium-browser >/dev/null 2>&1; then
+    run_as_user chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
+    BROWSER_PID=$! 2>/dev/null || true
+elif command -v firefox >/dev/null 2>&1; then
+    run_as_user firefox "$BROWSER_URL" >/dev/null 2>&1 &
+    BROWSER_PID=$! 2>/dev/null || true
+elif command -v xdg-open >/dev/null 2>&1; then
+    run_as_user xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
 else
-    # Running as regular user, launch normally
-    if command -v chromium-browser >/dev/null 2>&1; then
-        chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
-        BROWSER_PID=$!
-    elif command -v firefox >/dev/null 2>&1; then
-        firefox "$BROWSER_URL" >/dev/null 2>&1 &
-        BROWSER_PID=$!
-    elif command -v xdg-open >/dev/null 2>&1; then
-        xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
-    else
-        echo "Please open $BROWSER_URL in your web browser"
-    fi
+    info "Please open $BROWSER_URL in your web browser"
 fi
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
-if [ -n "$BROWSER_PID" ]; then
+if [ -n "${BROWSER_PID:-}" ]; then
     echo "The demo will automatically close when you close the browser window."
 else
     echo "Press Ctrl+C or close this window to stop the demo."
@@ -166,7 +137,7 @@ echo "Or press Ctrl+C to stop manually."
 echo ""
 
 # Monitor browser process if we have a PID
-if [ -n "$BROWSER_PID" ]; then
+if [ -n "${BROWSER_PID:-}" ] && kill -0 $BROWSER_PID 2>/dev/null; then
     # Wait for either server or browser to exit
     while kill -0 $SERVER_PID 2>/dev/null && kill -0 $BROWSER_PID 2>/dev/null; do
         sleep 1
@@ -174,7 +145,7 @@ if [ -n "$BROWSER_PID" ]; then
 
     # If browser closed, clean up
     if ! kill -0 $BROWSER_PID 2>/dev/null; then
-        echo "Browser closed. Stopping demo..."
+        info "Browser closed. Stopping demo..."
         cleanup
     fi
 else
