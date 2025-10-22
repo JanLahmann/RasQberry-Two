@@ -17,8 +17,14 @@ class WebClient:
         # Disable "Chrome is being controlled by automated test software" message
         self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
-        # Disable “What’s new” tab for profiles instantiated by ChromeDriver
+        # Disable "What's new" tab for profiles instantiated by ChromeDriver
         self.options.add_argument("--disable-features=ChromeWhatsNewUI")
+
+        # Use a unique user data directory to avoid conflicts with other Chrome instances
+        import tempfile
+        import os
+        self.temp_dir = tempfile.mkdtemp(prefix="fractals_chrome_")
+        self.options.add_argument(f"--user-data-dir={self.temp_dir}")
 
         # Change other important default settings
         if default_image_url:
@@ -101,3 +107,11 @@ class WebClient:
             self.driver.quit()
         except AttributeError:
             pass
+
+        # Clean up temporary user data directory
+        try:
+            import shutil
+            if hasattr(self, 'temp_dir') and self.temp_dir:
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+        except Exception:
+            pass  # Silently ignore cleanup errors
