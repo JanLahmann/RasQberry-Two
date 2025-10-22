@@ -4,6 +4,8 @@
 # Simple wrapper to run the IBM-themed LED demonstration
 #
 
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
 # Load environment config from centralized location
 if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
     . "/usr/config/rasqberry_env-config.sh"

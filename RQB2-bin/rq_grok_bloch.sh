@@ -4,6 +4,8 @@
 # Starts local HTTP server and opens the demo in browser
 #
 
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
 # Determine user and paths (handle sudo/root context)
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
     USER_NAME="${SUDO_USER}"

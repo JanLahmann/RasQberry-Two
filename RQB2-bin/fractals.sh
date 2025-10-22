@@ -4,6 +4,8 @@
 # Creates animated fractal visualizations using quantum circuits
 #
 
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
 echo; echo; echo "Quantum Fractals Demo"
 
 # Check for GUI/Desktop environment
