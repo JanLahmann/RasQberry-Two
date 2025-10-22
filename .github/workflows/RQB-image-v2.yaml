@@ -99,23 +99,23 @@ on:
         required: false
         type: boolean
         default: false
-      update_json:
-        description: 'Update RQB-images.json file for Raspberry Pi Imager'
+      publish_json:
+        description: 'Publish generated JSON to gh-pages (JSON always created locally)'
         required: false
         type: boolean
         default: false
   
   # Automatic trigger for development branches
-  #push:
-  #  branches:
-  #    - dev*    # Matches: dev, dev-feature, development, etc.
+  push:
+    branches:
+      - dev*    # Matches: dev, dev-feature, development, etc.
 
 # ============================================================================
 # GLOBAL ENVIRONMENT VARIABLES
 # ============================================================================
 env:
   # Cache versioning - increment this to invalidate all caches
-  CACHE_VERSION: v1
+  CACHE_VERSION: v2
 
 # ============================================================================
 # JOB 1: Version Management
@@ -293,23 +293,90 @@ jobs:
       # Pi-gen needs significant space for building images
       - name: Free up disk space
         run: |
-          echo "=== Before cleanup ==="
-          df -h
-          
-          # Remove large pre-installed tools we don't need
-          # Each line frees several GB of space
-          sudo rm -rf /usr/share/dotnet          # .NET SDK
-          sudo rm -rf /opt/ghc                   # Haskell compiler
-          sudo rm -rf /usr/local/share/boost     # Boost C++ libraries
-          sudo rm -rf /usr/local/lib/android     # Android SDK
-          sudo rm -rf /opt/hostedtoolcache       # Various cached tools
-          sudo rm -rf /usr/local/graalvm         # GraalVM JDK
-          sudo rm -rf /usr/local/.ghcup          # Haskell toolchain
-          sudo rm -rf /usr/local/share/powershell # PowerShell
-          sudo rm -rf /usr/local/lib/node_modules # Node.js global modules
-          
-          echo "=== After cleanup ==="
-          df -h
+          echo "=== Initial disk space ==="
+          df -h /
+
+          # Get available space in GB with decimal precision
+          get_available_gb() {
+            df / | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
+          }
+
+          # Parallel cleanup - all operations run simultaneously
+          echo "Starting parallel disk cleanup..."
+          before=$(get_available_gb)
+          start=$(date +%s)
+
+          # Launch all directory removals in parallel
+          (
+            if [ -d "/opt/hostedtoolcache" ]; then
+              echo "Removing tool-cache..."
+              sudo rm -rf "/opt/hostedtoolcache"
+              echo "  ✓ tool-cache removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/lib/android" ]; then
+              echo "Removing android..."
+              sudo rm -rf "/usr/local/lib/android"
+              echo "  ✓ android removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/share/dotnet" ]; then
+              echo "Removing dotnet..."
+              sudo rm -rf "/usr/share/dotnet"
+              echo "  ✓ dotnet removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/opt/ghc" ]; then
+              echo "Removing haskell..."
+              sudo rm -rf "/opt/ghc"
+              echo "  ✓ haskell removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/.ghcup" ]; then
+              echo "Removing ghcup..."
+              sudo rm -rf "/usr/local/.ghcup"
+              echo "  ✓ ghcup removed"
+            fi
+          ) &
+
+          (
+            if [ -d "/usr/local/share/boost" ]; then
+              echo "Removing boost..."
+              sudo rm -rf "/usr/local/share/boost"
+              echo "  ✓ boost removed"
+            fi
+          ) &
+
+          # Run apt-get cleanup in parallel too
+          (
+            echo "Removing large packages..."
+            sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
+            sudo apt-get autoremove -y 2>/dev/null || true
+            echo "  ✓ apt-get cleanup completed"
+          ) &
+
+          # Wait for all parallel operations to complete
+          wait
+
+          # Measure final state
+          end=$(date +%s)
+          after=$(get_available_gb)
+          freed=$(echo "scale=1; $after - $before" | bc)
+          echo ""
+          echo "=== Parallel cleanup results ==="
+          echo "  ✓ All cleanup completed in $((end - start))s - freed ${freed}GB"
+
+          echo ""
+          echo "=== Final disk space ==="
+          df -h /
 
       # ========================================================================
       # MEMORY OPTIMIZATION
@@ -485,8 +552,59 @@ jobs:
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
         run: |
-          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
+          git clone --depth 1 --branch bookworm-arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
+
+      # Optimize initramfs generation for dev builds
+      - name: Apply early initramfs optimization
+        run: |
+          # Check if SKIP_INITRAMFS=1 in config
+          SKIP_INITRAMFS=$(grep "^SKIP_INITRAMFS=" pi-gen-config | cut -d'=' -f2)
+
+          if [ "$SKIP_INITRAMFS" = "1" ]; then
+            echo "=== Applying initramfs optimization (SKIP_INITRAMFS=1) ==="
+
+            # Create early-stage hook to disable initramfs before any packages are installed
+            mkdir -p pi-gen/stage0/00-disable-initramfs
+
+            cat > pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh <<'EOF'
+          #!/bin/bash -e
+          # Disable initramfs generation early to speed up package installations
+
+          echo "Disabling initramfs generation for faster builds..."
+
+          # Divert update-initramfs to a no-op script
+          if command -v update-initramfs >/dev/null 2>&1; then
+            dpkg-divert --add --rename --divert /usr/sbin/update-initramfs.real /usr/sbin/update-initramfs
+            cat > /usr/sbin/update-initramfs <<'INNER_EOF'
+          #!/bin/sh
+          echo "Skipping update-initramfs (SKIP_INITRAMFS=1)"
+          exit 0
+          INNER_EOF
+            chmod +x /usr/sbin/update-initramfs
+            echo "✓ update-initramfs diverted"
+          fi
+
+          # Divert mkinitramfs as well
+          if command -v mkinitramfs >/dev/null 2>&1; then
+            dpkg-divert --add --rename --divert /usr/sbin/mkinitramfs.real /usr/sbin/mkinitramfs
+            cat > /usr/sbin/mkinitramfs <<'INNER_EOF'
+          #!/bin/sh
+          echo "Skipping mkinitramfs (SKIP_INITRAMFS=1)"
+          exit 0
+          INNER_EOF
+            chmod +x /usr/sbin/mkinitramfs
+            echo "✓ mkinitramfs diverted"
+          fi
+
+          echo "Initramfs generation disabled successfully"
+          EOF
+
+            chmod +x pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh
+            echo "✓ Created early initramfs disable hook in stage0"
+          else
+            echo "SKIP_INITRAMFS not set to 1, initramfs will be generated normally"
+          fi
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
@@ -761,14 +879,13 @@ jobs:
           asset_content_type: application/x-xz  # XZ compressed disk image
 
   # ============================================================================
-  # JOB 4: Update RQB-images.json
+  # JOB 4: Generate and Upload RQB-images.json
   # ============================================================================
-  # Updates the Raspberry Pi Imager JSON file with the new release
+  # Always generates the JSON file, optionally uploads to gh-pages
   update-json:
-    name: Update RQB-images.json
+    name: Generate RQB-images.json
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.update_json != 'false' }}
     
     steps:
       - name: Checkout repository
@@ -776,27 +893,53 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages
-          git checkout gh-pages
-          
-      - name: Calculate image metadata
+      - name: Download and calculate image metadata
         id: metadata
         run: |
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
           
-          # For now, we'll use placeholder values for size and hash
-          # In a real implementation, we'd need to download and analyze the file
-          COMPRESSED_SIZE=1750000000  # ~1.75GB placeholder
+          echo "Downloading image to calculate metadata: $ASSET_NAME"
+          
+          # Download the compressed image from the release
+          curl -L -o "$ASSET_NAME" "$DOWNLOAD_URL"
+          
+          if [ ! -f "$ASSET_NAME" ]; then
+            echo "Error: Failed to download image file"
+            exit 1
+          fi
+          
+          echo "Calculating metadata using streaming decompression..."
+          
+          # Get uncompressed size from xz metadata (no extraction needed)
+          EXTRACT_SIZE=$(xz --list --robot "$ASSET_NAME" | tail -n 1 | awk '{print $5}')
+          
+          # Calculate SHA256 using streaming decompression (no disk write)
+          echo "Streaming decompression to calculate SHA256 (this may take a few minutes)..."
+          EXTRACT_SHA256=$(xz -d -c "$ASSET_NAME" | sha256sum | cut -d' ' -f1)
+          
+          # Calculate compressed image size
+          COMPRESSED_SIZE=$(stat -c%s "$ASSET_NAME")
+          
+          # Clean up downloaded file to save space
+          rm -f "$ASSET_NAME"
+          
           RELEASE_DATE=$(date +"%Y-%m-%d")
           
+          # Output all metadata
           echo "download_url=${DOWNLOAD_URL}" >> $GITHUB_OUTPUT
           echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
+          echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
           echo "release_date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
           echo "version_num=${{ needs.rasqberry-push-version-number.outputs.version_num }}" >> $GITHUB_OUTPUT
+          
+          # Display calculated values
+          echo "Image metadata calculated:"
+          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
+          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
+          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
           
       - name: Determine version type
         id: version-type
@@ -818,11 +961,17 @@ jobs:
             echo "description=RasQberry development build with cutting-edge features (unstable)" >> $GITHUB_OUTPUT
           fi
           
-      - name: Update RQB-images.json
+      - name: Generate RQB-images.json
         run: |
-          # Read the existing JSON or create base structure
-          if [ ! -f "RQB-images.json" ]; then
-            echo "Creating new RQB-images.json file"
+          # Try to fetch existing JSON from gh-pages as base
+          echo "Fetching existing RQB-images.json from gh-pages..."
+          
+          # Attempt to download existing JSON from gh-pages
+          if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-images.json" -o existing.json; then
+            echo "✓ Found existing JSON on gh-pages, using as base"
+            cp existing.json RQB-images.json
+          else
+            echo "ℹ No existing JSON found on gh-pages, creating fresh base"
             cat > RQB-images.json << 'EOF'
           {
             "imager": {
@@ -842,6 +991,8 @@ jobs:
             "description": "${{ steps.version-type.outputs.description }}",
             "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
             "url": "${{ steps.metadata.outputs.download_url }}",
+            "extract_size": ${{ steps.metadata.outputs.extract_size }},
+            "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
             "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
             "release_date": "${{ steps.metadata.outputs.release_date }}",
             "init_format": "systemd",
@@ -854,6 +1005,7 @@ jobs:
           python3 << 'PYTHON_SCRIPT'
           import json
           import sys
+          from datetime import datetime
           
           # Load existing JSON
           with open('RQB-images.json', 'r') as f:
@@ -863,15 +1015,53 @@ jobs:
           with open('new_entry.json', 'r') as f:
               new_entry = json.load(f)
           
-          # Remove any existing entry of the same type
           version_type = "${{ steps.version-type.outputs.type }}"
-          data['os_list'] = [entry for entry in data['os_list'] 
-                           if not (version_type == "main" and "RasQberry Two (64-bit)" in entry['name']) and
-                              not (version_type == "beta" and "Beta" in entry['name']) and  
-                              not (version_type == "dev" and "Dev" in entry['name'])]
+          print(f"Processing {version_type} version entry...")
           
-          # Add new entry at the beginning
-          data['os_list'].insert(0, new_entry)
+          # Define mapping of version types to name patterns
+          type_patterns = {
+              "main": "RasQberry Two (64-bit)",
+              "beta": "RasQberry Two Beta (64-bit)", 
+              "dev": "RasQberry Two Dev (64-bit)"
+          }
+          
+          # Remove existing entry of the same type (keep only latest per type)
+          initial_count = len(data['os_list'])
+          data['os_list'] = [entry for entry in data['os_list'] 
+                           if entry['name'] != type_patterns.get(version_type, new_entry['name'])]
+          removed_count = initial_count - len(data['os_list'])
+          
+          if removed_count > 0:
+              print(f"Removed {removed_count} existing {version_type} entry(ies)")
+          
+          # Find the right position to insert the new entry
+          # Order: main (if exists), beta (if exists), dev (if exists), then others
+          insert_position = 0
+          priority_order = ["main", "beta", "dev"]
+          current_type_priority = priority_order.index(version_type) if version_type in priority_order else 999
+          
+          for i, entry in enumerate(data['os_list']):
+              # Determine the type of this existing entry
+              entry_type = None
+              for type_name, pattern in type_patterns.items():
+                  if entry['name'] == pattern:
+                      entry_type = type_name
+                      break
+              
+              if entry_type and entry_type in priority_order:
+                  entry_priority = priority_order.index(entry_type)
+                  if current_type_priority < entry_priority:
+                      insert_position = i
+                      break
+              else:
+                  # Non-RasQberry entry, insert before it
+                  insert_position = i
+                  break
+              insert_position = i + 1
+          
+          # Insert the new entry at the calculated position
+          data['os_list'].insert(insert_position, new_entry)
+          print(f"Inserted new {version_type} entry at position {insert_position}")
           
           # Add official Raspberry Pi OS and Custom option if not present
           has_raspios = any("Raspberry Pi OS" in entry['name'] for entry in data['os_list'])
@@ -910,16 +1100,39 @@ jobs:
           # Clean up temporary file
           rm -f new_entry.json
           
-      - name: Commit and push changes
+      - name: Commit JSON to current branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          if git diff --quiet RQB-images.json; then
-            echo "No changes to RQB-images.json"
-          else
+          # Pull latest changes to avoid conflicts
+          git pull origin ${{ github.ref_name }} || echo "No remote changes to pull"
+          
+          # Always commit the JSON file to current branch
+          git add RQB-images.json
+          git commit -m "Generate RQB-images.json for ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+          git push origin ${{ github.ref_name }}
+          echo "Generated RQB-images.json in current branch"
+          
+      - name: Upload JSON to gh-pages
+        if: ${{ github.event.inputs.publish_json == 'true' }}
+        run: |
+          echo "Uploading RQB-images.json to gh-pages..."
+          
+          # Fetch and checkout gh-pages
+          git fetch origin gh-pages || echo "No gh-pages branch found"
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git checkout gh-pages
+            
+            # Copy the generated JSON file
+            git checkout ${{ github.ref_name }} -- RQB-images.json
+            
+            # Commit and push to gh-pages
             git add RQB-images.json
-            git commit -m "Update RQB-images.json with ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+            git commit -m "Update RQB-images.json from ${{ github.ref_name }} with ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
             git push origin gh-pages
-            echo "Updated RQB-images.json successfully"
+            echo "Successfully uploaded RQB-images.json to gh-pages"
+          else
+            echo "No gh-pages branch exists, skipping upload"
           fi
+

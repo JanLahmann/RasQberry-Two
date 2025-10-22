@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-echo "Starting qiskit Installation"
+echo "Deploying RasQberry files and configuration"
 
 # Source the configuration file
 if [ -f "/tmp/stage-config" ]; then
@@ -68,6 +68,7 @@ fi
 # Create necessary directories
 [ ! -d /home/${FIRST_USER_NAME}/.local/bin ] && mkdir -p /home/${FIRST_USER_NAME}/.local/bin
 [ ! -d /home/${FIRST_USER_NAME}/${RQB2_CONFDIR} ] && mkdir -p /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
+[ ! -d /home/${FIRST_USER_NAME}/${REPO}/demos ] && mkdir -p /home/${FIRST_USER_NAME}/${REPO}/demos
 [ ! -d /usr/config ] && mkdir -p /usr/config
 [ ! -d /usr/venv ] && mkdir -p /usr/venv
 
@@ -84,38 +85,21 @@ cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
 # Set permissions on target directories
-chmod 755 /home/${FIRST_USER_NAME}/.local/bin 
+chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
-# Apply RQB2 patch to /usr/bin/raspi-config at boot time
-# Adding patch script to root-crontab 
-bash -c 'CRON="@reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh"; \
-  crontab -l 2>/dev/null | grep -Fqx "$CRON" || \
-  ( crontab -l 2>/dev/null; printf "%s\n" "$CRON" ) | crontab -'
+# Set permissions on system-wide files
+chmod 644 /usr/config/rasqberry_environment.env   # World-readable configuration
+chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment loader
+chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
+chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
 
-# Install Qiskit using pip
-echo "Installing qiskit for ${FIRST_USER_NAME} user"
-mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
-
-# Create virtual environment
-python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
-source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate
-
-# Install Qiskit
-. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_latest.sh
-deactivate
-
-# Copy venv to system location for new users
-cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
-
-# Add setup script to bashrc
-export LINE=". /usr/config/setup_qiskit_env.sh"
-echo "$LINE" >> /etc/skel/.bashrc
-echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
-
-echo "Qiskit installation completed for ${FIRST_USER_NAME}"
+# Fix ownership of all user directories created as root
+# This ensures demos can be installed later without permission issues
+chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.local
+chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/${REPO}
 
 # Clean up
 rm -rf $CLONE_DIR
 
-echo "End qiskit Installation"
+echo "RasQberry file deployment completed"

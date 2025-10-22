@@ -7,7 +7,7 @@ from typing import Optional
 
 # Externally installed libraries
 import numpy as np
-from numpy import ndarray, complex64, complex_, int_, bool_, ushort
+from numpy import ndarray, complex64, ushort
 
 
 class JuliaSet:
@@ -17,7 +17,7 @@ class JuliaSet:
         self.escape_value:int = escape_value
 
         # Arrays for when the points converge, diverge and z-values based on the frame resolution
-        self.converge: ndarray[bool_, bool_] = con
+        self.converge: ndarray[bool, bool] = con
         self.diverge: ndarray[ushort, ushort] = div
         self.z: ndarray[complex64, complex64] = z
 

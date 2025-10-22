@@ -1,38 +1,57 @@
 #!/bin/bash
 
-# load RasQberry environment and constants
-. "/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+# load RasQberry environment and constants from global location
+. /usr/config/rasqberry_env-config.sh
 
+# Get the current logged-in user
+CURRENT_USER=$(whoami)
 
-if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
-  # echo "Virtual Env Exists"
-  FOLDER_PATH="$HOME/$REPO"
-  # Get the current logged-in user
-  CURRENT_USER=$(whoami)
-  # Check if the folder is owned by root
-  if [ $(stat -c '%U' "$FOLDER_PATH") == "root" ]; then
-    # Change the ownership to the logged-in user
-    sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$FOLDER_PATH" "$HOME"/.*
-    # echo "Ownership of $FOLDER_PATH changed to $CURRENT_USER."
+# Fix ownership FIRST if $REPO directory is accidentally owned by root
+# This can happen if demos were installed as root
+if [ -d "$HOME/$REPO" ]; then
+  FOLDER_OWNER=$(stat -c '%U' "$HOME/$REPO" 2>/dev/null || echo "$CURRENT_USER")
+  if [ "$FOLDER_OWNER" == "root" ]; then
+    echo "Fixing ownership of $HOME/$REPO (was owned by root)..."
+    sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$HOME/$REPO"
   fi
+fi
 
-
+# Now check if virtual environment exists
+if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
+  # Virtual environment exists, activate it
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
+
+  # Verify Qiskit is installed
   if ! pip show qiskit > /dev/null 2>&1; then
+    # Qiskit missing - recreate venv from template
+    echo "Qiskit not found in venv, recreating from template..."
     deactivate
-    rm -fR $HOME/$REPO
+
+    # Only delete venv subdirectory, NOT the entire $REPO (demos might be there!)
+    rm -fR $HOME/$REPO/venv
+
+    # Recreate venv from system template
+    mkdir -p $HOME/$REPO/venv
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
-    cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-    sudo cp -r  /usr/bin/rq*.* $HOME/.local/bin
-    sudo cp -r  /usr/config $HOME/.local/config
+    cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+
+    # Copy RQB2-bin scripts to user's local bin (if not already there)
+    mkdir -p $HOME/.local/bin
+    cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
+
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
-  echo "Virtual Environment don't Exists. Creating New One ..."
+  # Virtual environment doesn't exist - create new one from template
+  echo "Virtual Environment doesn't exist. Creating new one from template..."
+
+  mkdir -p $HOME/$REPO/venv
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
-  cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/*  $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-  sudo cp -r /usr/bin/rq*.* $HOME/.local/bin
-  sudo cp -r /usr/config $HOME/.local/config
+  cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
+
+  # Copy RQB2-bin scripts to user's local bin
+  mkdir -p $HOME/.local/bin
+  cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
+
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
-

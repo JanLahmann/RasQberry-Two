@@ -6,7 +6,7 @@ Icon=applications-science
 Type=Application
 Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_grok_bloch_auto.sh'
-Terminal=false
+Terminal=true
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;

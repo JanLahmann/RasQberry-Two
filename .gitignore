@@ -169,3 +169,6 @@ CLAUDE.local.md
 
 # Local configuration directory
 .local/
+
+# Claude AI workspace
+.claude/

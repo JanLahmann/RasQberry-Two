@@ -5,7 +5,7 @@ Comment=Interactive 3D visualization and exploration of the Bloch sphere for qua
 Icon=applications-science
 Type=Application
 Categories=RasQberry;
-Exec=chromium-browser https://javafxpert.github.io/grok-bloch/
+Exec=chromium-browser --password-store=basic https://javafxpert.github.io/grok-bloch/
 Terminal=false
 StartupNotify=true
 MimeType=text/html;

@@ -98,11 +98,9 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo|clear-leds)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
-        # Mark desktop file as trusted by adding metadata
-        gio set "/etc/skel/Desktop/$(basename "$desktop_file")" metadata::trusted true 2>/dev/null || true
         echo "Added to new user template: $(basename "$desktop_file")"
     fi
 done
@@ -113,12 +111,10 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|led-ibm-demo|clear-leds)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
-            # Mark desktop file as trusted by adding metadata (run as user)
-            su - "${FIRST_USER_NAME}" -c "gio set '$USER_DESKTOP/$(basename \"$desktop_file\")' metadata::trusted true" 2>/dev/null || true
             echo "Added to ${FIRST_USER_NAME} desktop: $(basename "$desktop_file")"
         fi
     done
@@ -144,7 +140,7 @@ desktop_font=PibotoLt 12
 show_wm_menu=0
 sort=mtime;ascending;
 show_documents=0
-show_trash=1
+show_trash=0
 show_mounts=0
 [composer.desktop]
 x=10
@@ -170,6 +166,14 @@ trusted=true
 x=120
 y=120
 trusted=true
+[qoffee-maker.desktop]
+x=10
+y=230
+trusted=true
+[quantum-mixer.desktop]
+x=120
+y=230
+trusted=true
 [led-ibm-demo.desktop]
 x=230
 y=120
@@ -178,9 +182,71 @@ trusted=true
 x=340
 y=120
 trusted=true
+[rasq-led.desktop]
+x=230
+y=230
+trusted=true
+[led-painter.desktop]
+x=10
+y=340
+trusted=true
+[demo-loop.desktop]
+x=340
+y=230
+trusted=true
 EOF
-    
+
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
+
+    # Also copy to /etc/skel so new users get the trusted desktop icons
+    SKEL_CONFIG_DIR="/etc/skel/.config/pcmanfm/LXDE-pi"
+    mkdir -p "$SKEL_CONFIG_DIR"
+    cp "$USER_CONFIG_DIR/desktop-items-0.conf" "$SKEL_CONFIG_DIR/desktop-items-0.conf"
+    echo "Desktop configuration copied to /etc/skel for new users"
+
+    # Configure libfm to skip executable file dialog (Bookworm security feature)
+    # Setting quick_exec=1 prevents "Execute File" dialog for .desktop files
+    LIBFM_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/libfm"
+    mkdir -p "$LIBFM_CONFIG_DIR"
+    cat > "$LIBFM_CONFIG_DIR/libfm.conf" << 'EOF'
+[config]
+single_click=0
+use_trash=1
+confirm_del=1
+terminal=x-terminal-emulator %s
+thumbnail_local=1
+thumbnail_max=2048
+cutdown_menus=1
+real_expanders=1
+quick_exec=1
+
+[ui]
+big_icon_size=48
+small_icon_size=24
+thumbnail_size=80
+pane_icon_size=24
+show_thumbnail=1
+
+[places]
+places_home=1
+places_desktop=0
+places_root=1
+places_computer=0
+places_trash=0
+places_applications=0
+places_network=0
+places_unmounted=1
+places_volmounts=1
+EOF
+
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$LIBFM_CONFIG_DIR"
+    echo "libfm configuration created with quick_exec=1"
+
+    # Also create libfm config for new users in /etc/skel
+    SKEL_LIBFM_DIR="/etc/skel/.config/libfm"
+    mkdir -p "$SKEL_LIBFM_DIR"
+    cp "$LIBFM_CONFIG_DIR/libfm.conf" "$SKEL_LIBFM_DIR/libfm.conf"
+    echo "libfm configuration copied to /etc/skel for new users"
 fi
 
 # Create custom menu configuration for LXDE to recognize RasQberry category
@@ -212,6 +278,110 @@ gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update 
 # Update menu cache for LXDE
 echo "Updating menu cache..."
 lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
+
+# Create first-login script to configure libfm and GNOME Keyring
+# This runs when the user first logs in and has a proper desktop session
+if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
+    AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
+    mkdir -p "$AUTOSTART_DIR"
+
+    # Create the first-login setup script
+    cat > "/usr/local/bin/trust-rasqberry-desktop-files.sh" << 'EOF'
+#!/bin/bash
+# Configure RasQberry desktop on first login
+# - Configure GNOME Keyring to avoid password prompts
+# - Verify libfm quick_exec setting
+# This runs once and then removes itself
+
+LOG_FILE="$HOME/.rasqberry-desktop-trust.log"
+
+echo "$(date): Running RasQberry first-login setup..." >> "$LOG_FILE"
+
+# Wait for desktop environment to be ready
+sleep 3
+
+# Configure GNOME Keyring with blank password to avoid Chromium password prompts
+echo "$(date): Configuring GNOME Keyring..." >> "$LOG_FILE"
+if command -v python3 >/dev/null 2>&1; then
+    # Create default keyring directory if it doesn't exist
+    mkdir -p "$HOME/.local/share/keyrings" 2>> "$LOG_FILE"
+
+    # Create 'Default' keyring with blank password using Python
+    # This prevents the "Enter password to unlock keyring" dialog in Chromium
+    python3 - 2>> "$LOG_FILE" << 'PYEOF' || true
+import os
+keyring_dir = os.path.expanduser("~/.local/share/keyrings")
+default_keyring = os.path.join(keyring_dir, "Default.keyring")
+
+# Only create if it doesn't exist
+if not os.path.exists(default_keyring):
+    try:
+        # Create a minimal keyring file with no password
+        keyring_content = """[keyring]
+display-name=Default
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-timeout=0
+"""
+        os.makedirs(keyring_dir, exist_ok=True)
+        with open(default_keyring, 'w') as f:
+            f.write(keyring_content)
+        os.chmod(default_keyring, 0o600)
+        print(f"Created default keyring at {default_keyring}")
+    except Exception as e:
+        print(f"Failed to create keyring: {e}")
+PYEOF
+    echo "$(date): GNOME Keyring configured" >> "$LOG_FILE"
+fi
+
+# Configure libfm to skip executable file dialog (Bookworm security feature)
+echo "$(date): Configuring libfm quick_exec..." >> "$LOG_FILE"
+LIBFM_CONFIG="$HOME/.config/libfm/libfm.conf"
+if [ -f "$LIBFM_CONFIG" ]; then
+    # Check if quick_exec is already set to 1
+    if ! grep -q "^quick_exec=1" "$LIBFM_CONFIG"; then
+        # Try to update existing quick_exec line
+        if grep -q "^quick_exec=" "$LIBFM_CONFIG"; then
+            sed -i 's/^quick_exec=.*/quick_exec=1/' "$LIBFM_CONFIG" 2>> "$LOG_FILE" && \
+                echo "$(date): Updated quick_exec=1 in libfm.conf" >> "$LOG_FILE" || \
+                echo "$(date): Failed to update quick_exec in libfm.conf" >> "$LOG_FILE"
+        else
+            # Add quick_exec=1 to [config] section
+            sed -i '/^\[config\]/a quick_exec=1' "$LIBFM_CONFIG" 2>> "$LOG_FILE" && \
+                echo "$(date): Added quick_exec=1 to libfm.conf" >> "$LOG_FILE" || \
+                echo "$(date): Failed to add quick_exec to libfm.conf" >> "$LOG_FILE"
+        fi
+    else
+        echo "$(date): quick_exec=1 already set in libfm.conf" >> "$LOG_FILE"
+    fi
+else
+    echo "$(date): libfm config not found at $LIBFM_CONFIG" >> "$LOG_FILE"
+fi
+
+echo "$(date): First-login setup completed" >> "$LOG_FILE"
+
+# Remove autostart entry so this doesn't run again
+rm -f "$HOME/.config/autostart/trust-rasqberry-desktop.desktop"
+EOF
+
+    chmod 755 "/usr/local/bin/trust-rasqberry-desktop-files.sh"
+
+    # Create autostart .desktop file
+    cat > "$AUTOSTART_DIR/trust-rasqberry-desktop.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=RasQberry First Login Setup
+Comment=Configure desktop settings on first login (runs once)
+Exec=/usr/local/bin/trust-rasqberry-desktop-files.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
+    echo "Created first-login desktop configuration script"
+fi
 
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then

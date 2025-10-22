@@ -19,7 +19,7 @@ IFS='\
 # -----------------------------------------------------------------------------
 
 # load RasQberry environment and constants with error handling
-ENV_CONFIG_FILE="/home/${SUDO_USER:-$USER}/${RQB2_CONFDIR:-.local/config}/env-config.sh"
+ENV_CONFIG_FILE="/usr/config/rasqberry_env-config.sh"
 if [ -f "$ENV_CONFIG_FILE" ]; then
     . "$ENV_CONFIG_FILE"
 else
@@ -42,10 +42,10 @@ VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 # 1. Environment & Bootstrap
 # -----------------------------------------------------------------------------
 #
-# Bootstrap: ensure env-config.sh is linked into $BIN_DIR for scripts
+# Bootstrap: ensure rasqberry_env-config.sh is linked into $BIN_DIR for scripts (for backward compatibility)
 bootstrap_env_config() {
-    SOURCE_FILE="$USER_HOME/$RQB2_CONFDIR/env-config.sh"
-    TARGET_LINK="$BIN_DIR/env-config.sh"
+    SOURCE_FILE="/usr/config/rasqberry_env-config.sh"
+    TARGET_LINK="$BIN_DIR/rasqberry_env-config.sh"
     # Remove existing symlink if present
     if [ -L "$TARGET_LINK" ]; then
         rm -f "$TARGET_LINK"
@@ -68,31 +68,62 @@ show_menu() {
     whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
 }
 
-# Generic installer for demos: name, git URL, marker file, env var, dialog title
+# Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
 install_demo() {
     NAME="$1"       # demo directory name
     GIT_URL="$2"    # corresponding repo URL variable
     MARKER="$3"     # script or file that must exist
     ENV_VAR="$4"    # environment variable name to set
     TITLE="$5"      # title for dialog messages
+    SIZE="$6"       # optional: download size (e.g., "5MB")
 
     DEST="$DEMO_ROOT/$NAME"
-    # Clone if marker missing
-    if [ ! -f "$DEST/$MARKER" ]; then
-        mkdir -p "$DEST"
-        if git clone --depth 1 "$GIT_URL" "$DEST"; then
-            # fix ownership if needed
-            if [ "$(stat -c '%U' "$DEMO_ROOT")" = "root" ]; then
-                sudo chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_ROOT"
-            fi
-            update_environment_file "$ENV_VAR" "true"
-            [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
-        else
-            # Clean up empty directory and show error
-            rm -rf "$DEST"
-            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+
+    # Check if already installed
+    if [ -f "$DEST/$MARKER" ]; then
+        return 0  # Already installed
+    fi
+
+    # Show confirmation dialog before downloading
+    if command -v whiptail > /dev/null 2>&1; then
+        SIZE_MSG=""
+        if [ -n "$SIZE" ]; then
+            SIZE_MSG="\n\nDownload size: ~$SIZE"
+        fi
+
+        whiptail --title "$TITLE Not Installed" \
+                 --yesno "$TITLE is not installed yet.$SIZE_MSG\n\nRequires internet connection.\n\nInstall now?" \
+                 12 65 3>&1 1>&2 2>&3
+
+        if [ $? -ne 0 ]; then
+            # User cancelled installation
             return 1
         fi
+    else
+        # Fallback if whiptail not available
+        echo "$TITLE is not installed."
+        echo "This requires downloading from GitHub."
+        read -p "Install now? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            return 1
+        fi
+    fi
+
+    # Clone demo repository
+    mkdir -p "$DEST"
+    if git clone --depth 1 "$GIT_URL" "$DEST"; then
+        # Fix ownership if cloned as root (when run from raspi-config)
+        if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+            chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
+        fi
+        update_environment_file "$ENV_VAR" "true"
+        [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+    else
+        # Clean up empty directory and show error
+        rm -rf "$DEST"
+        whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+        return 1
     fi
 }
 
@@ -106,7 +137,7 @@ do_qlo_install() {
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "QuantumRaspberryTie.qk1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
                  "Quantum Raspberry-Tie"
 }
 
@@ -189,23 +220,130 @@ run_rasp_tie_demo() {
       echo "For this option, we need a IBM Quantum Token"
       python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
     fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.qk1.py" "-${RUN_OPTION}"
+    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.v7_1.py" "-${RUN_OPTION}"
     # Turn off LEDs when demo ends
     do_led_off
 }
 
-# Run grok-bloch demo (ensures install first)
+# Run grok-bloch demo local version (ensures install first)
 run_grok_bloch_demo() {
     # Ensure installation
-    do_grok_bloch_install
+    do_grok_bloch_install || return 1
+
     # Launch the demo using the dedicated launcher script
+    # (Script will check for DISPLAY and show appropriate error if needed)
     "$BIN_DIR/rq_grok_bloch.sh"
+}
+
+# Run grok-bloch web version (no installation needed)
+run_grok_bloch_web_demo() {
+    # Check if chromium-browser is available
+    if ! command -v chromium-browser >/dev/null 2>&1; then
+        whiptail --title "Browser Not Found" --msgbox \
+            "Chromium browser is not installed.\n\nThe web version requires a web browser." \
+            10 60
+        return 1
+    fi
+
+    whiptail --title "Grok Bloch Sphere (Web)" --msgbox \
+        "Opening the online version of Grok Bloch Sphere in your browser.\n\nURL: https://javafxpert.github.io/grok-bloch/\n\nPress OK to continue." \
+        12 70
+
+    # Launch browser with web version (as user if running as root)
+    GROK_URL="https://javafxpert.github.io/grok-bloch/"
+    if [ "$(whoami)" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
+    else
+        chromium-browser --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
+    fi
 }
 
 # Run quantum fractals demo
 run_fractals_demo() {
     # Launch the fractals demo using the dedicated launcher script
     "$BIN_DIR/fractals.sh"
+}
+
+# Run LED-Painter demo
+run_led_painter_demo() {
+    # Launch the LED-Painter demo using the dedicated launcher script
+    "$BIN_DIR/rq_led_painter.sh"
+}
+
+# Run RasQ-LED demo
+run_rasq_led_demo() {
+    # Launch the RasQ-LED quantum circuit demo directly
+    run_demo "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
+    # Turn off LEDs when demo ends
+    do_led_off
+}
+
+# Run Qoffee-Maker demo
+run_qoffee_demo() {
+    # Check if setup has been run (Docker installed)
+    if ! command -v docker > /dev/null 2>&1; then
+        whiptail --title "Setup Required" --msgbox \
+            "Qoffee-Maker requires Docker, which is not installed.\n\nSetup will now run to install Docker and configure Qoffee-Maker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
+            12 70
+        "$BIN_DIR/qoffee-setup.sh" || return 1
+    fi
+
+    # Launch the Qoffee-Maker demo
+    "$BIN_DIR/qoffee-maker.sh"
+}
+
+# Stop Qoffee-Maker containers
+stop_qoffee_containers() {
+    if ! command -v docker > /dev/null 2>&1; then
+        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
+        return 0
+    fi
+
+    # Check if any qoffee containers are running
+    if docker ps -q --filter name=qoffee 2>/dev/null | grep -q .; then
+        echo "Stopping Qoffee-Maker containers..."
+        docker stop $(docker ps -q --filter name=qoffee) 2>/dev/null || true
+        whiptail --title "Qoffee-Maker Stopped" --msgbox "All Qoffee-Maker containers have been stopped." 8 60
+    else
+        whiptail --title "No Containers" --msgbox "No running Qoffee-Maker containers found." 8 60
+    fi
+}
+
+# Run Quantum-Mixer demo
+run_quantum_mixer_demo() {
+    # Check if setup has been run (Docker installed)
+    if ! command -v docker > /dev/null 2>&1; then
+        whiptail --title "Setup Required" --msgbox \
+            "Quantum-Mixer requires Docker, which is not installed.\n\nSetup will now run to install Docker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
+            12 70
+        "$BIN_DIR/qoffee-setup.sh" || return 1
+    fi
+
+    # Launch the Quantum-Mixer demo
+    "$BIN_DIR/quantum-mixer.sh"
+}
+
+# Stop Quantum-Mixer containers
+stop_quantum_mixer_containers() {
+    if ! command -v docker > /dev/null 2>&1; then
+        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
+        return 0
+    fi
+
+    # Check if any quantum-mixer containers are running
+    if docker ps -q --filter name=quantum-mixer 2>/dev/null | grep -q .; then
+        echo "Stopping Quantum-Mixer containers..."
+        docker stop $(docker ps -q --filter name=quantum-mixer) 2>/dev/null || true
+        whiptail --title "Quantum-Mixer Stopped" --msgbox "All Quantum-Mixer containers have been stopped." 8 60
+    else
+        whiptail --title "No Containers" --msgbox "No running Quantum-Mixer containers found." 8 60
+    fi
+}
+
+# Run continuous demo loop for conference showcases
+run_demo_loop() {
+    # Launch the demo loop script
+    "$BIN_DIR/rq_demo_loop.sh"
 }
 
 # -----------------------------------------------------------------------------
@@ -220,11 +358,18 @@ do_select_environment_variable() {
     return 1
   fi
 
-  # Read and format environment file, excluding comments and empty lines
-  ENV_VARS=$(grep -vE '^\s*#|^\s*$' "$ENV_FILE" | awk -F= '{print $1 " " $2}')
+  # Build menu items as positional parameters from environment file (POSIX-compliant)
+  set --
+  while IFS='=' read -r key value; do
+    # Skip comments and empty lines
+    case "$key" in
+      ''|'#'*|' #'*|'	#'*) continue ;;
+    esac
+    set -- "$@" "$key" "$value"
+  done < "$ENV_FILE"
 
   # Create a menu with the environment variables
-  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" $(echo "$ENV_VARS" | awk '{print $1 " " $2}') 3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3)
   RET=$?
   if [ "$RET" -eq 1 ]; then
     return 0
@@ -240,7 +385,7 @@ do_select_environment_variable() {
 # Function to update values stored in the rasqberry_environment.env file
 update_environment_file () {
   #check whether string is empty
-  if [ -z "$2" ]||[ -z "$1" ]; then
+  if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
     if [ "$INTERACTIVE" = true ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
@@ -249,7 +394,7 @@ update_environment_file () {
     # update environment file
     sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
     # reload environment file
-    . "$BIN_DIR/env-config.sh"
+    . /usr/config/rasqberry_env-config.sh
   fi
 }
 
@@ -390,16 +535,32 @@ do_quantum_demo_menu() {
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
-       GRB  "Grok Bloch Sphere" \
+       GRB  "Grok Bloch Sphere (Local)" \
+       GRBW "Grok Bloch Sphere (Web)" \
        FRC  "Quantum Fractals" \
-       STOP "Stop last running demo and clear LEDs") || break
+       RQL  "RasQ-LED (Quantum Circuit)" \
+       LDP  "LED-Painter (Paint on LEDs)" \
+       QOF  "Qoffee-Maker (Docker)" \
+       QMX  "Quantum-Mixer (Web)" \
+       LOOP "Continuous Demo Loop (Conference)" \
+       STOP "Stop last running demo and clear LEDs" \
+       QSTP "Stop Qoffee-Maker containers" \
+       QMXS "Stop Quantum-Mixer containers") || break
     case "$FUN" in
-      LED)  do_select_led_option    || { handle_error "Failed to open LED options."; continue; } ;;
-      QLO)  do_select_qlo_option    || { handle_error "Failed to open QLO options."; continue; } ;;
-      QRT)  do_select_qrt_option    || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo     || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
-      FRC)  run_fractals_demo       || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      STOP) stop_last_demo          || { handle_error "Failed to stop demo."; continue; } ;;
+      LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
+      QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
+      QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
+      GRB)  run_grok_bloch_demo        || continue ;;
+      GRBW) run_grok_bloch_web_demo    || continue ;;
+      FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
+      LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
+      QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
+      QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
+      STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
+      QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
+      QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
       *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
     esac
   done

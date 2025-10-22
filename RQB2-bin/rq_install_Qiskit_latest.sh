@@ -6,13 +6,14 @@ IFS=$'\n\t'
 # installation of Qiskit (latest version)
 #
 
-#If no parameter passed
-if [ "${PIGEN}" == "true" ]; then
-  # if images building parameter passed 
+# Check if running in pi-gen build environment
+# Use parameter expansion to provide default if PIGEN is unset
+if [ "${PIGEN:-false}" == "true" ]; then
+  # Running in pi-gen: use build-time paths
   .  /home/"${FIRST_USER_NAME}"/$REPO/venv/$STD_VENV/bin/activate
 else
-   # Load environment variables
-  . $HOME/.local/bin/env-config.sh
+  # Running on live system: load environment variables
+  . /usr/config/rasqberry_env-config.sh
   . $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
 
@@ -21,7 +22,7 @@ echo; echo; echo "Install Qiskit (latest version)"; echo;
 
 pip install 'qiskit[all]'
 pip install qiskit_ibm_runtime qiskit_aer
-pip install adafruit-circuitpython-neopixel-spi rpi_ws281x pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat celluloid selenium webdriver-manager
+pip install adafruit-blinka adafruit-circuitpython-neopixel-spi rpi_ws281x pygobject qiskit-ibm-runtime sense-emu qiskit_aer sense-hat celluloid selenium webdriver-manager matplotlib numpy pillow
 
 
 pip3 list | grep qiskit

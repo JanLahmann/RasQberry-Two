@@ -4,16 +4,20 @@
 # Automatically installs demo if missing, then launches it
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
+# Determine user and paths
+if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
+    USER_NAME="${SUDO_USER}"
+    USER_HOME="/home/${SUDO_USER}"
+else
+    USER_NAME="$(whoami)"
+    USER_HOME="${HOME}"
 fi
 
 # Load environment variables
-if [ -f "$HOME/.local/config/env-config.sh" ]; then
-    . "$HOME/.local/config/env-config.sh"
+if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
+    . "/usr/config/rasqberry_env-config.sh"
 else
-    echo "Error: Environment config not found at $HOME/.local/config/env-config.sh"
+    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
     exit 1
 fi
 
@@ -23,57 +27,45 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
-DEMO_DIR="$HOME/$REPO/quantum-raspberry-tie"
+DEMO_DIR="$USER_HOME/$REPO/demos/quantum-raspberry-tie"
 
-# Function to install demo
-install_quantum_raspberry_tie() {
-    echo "Installing Quantum Raspberry Tie demo..."
-    
-    # Remove existing incomplete directory if it exists
-    if [ -d "$DEMO_DIR" ]; then
-        echo "Removing existing incomplete installation..."
-        rm -rf "$DEMO_DIR"
-    fi
-    
-    # Clone the repository
-    if git clone --depth 1 "$GIT_REPO_DEMO_QRT" "$DEMO_DIR"; then
-        # Update environment to mark as installed
-        sed -i 's/QUANTUM_RASPBERRY_TIE_INSTALLED=false/QUANTUM_RASPBERRY_TIE_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
-        
-        # Reload environment
-        . "$HOME/.local/config/env-config.sh"
-        
-        echo "Quantum Raspberry Tie demo installed successfully"
-        return 0
-    else
-        # Clean up on failure
-        rm -rf "$DEMO_DIR"
-        echo "Failed to install Quantum Raspberry Tie demo"
-        echo "Please check your internet connection and try again"
-        return 1
-    fi
-}
-
-# Check if demo is installed
-if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ]; then
+# Check if demo is installed, auto-install if missing
+# (check for both old and new versions of the main file)
+if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ] && [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
     echo "Quantum Raspberry Tie demo not found. Installing..."
-    if ! install_quantum_raspberry_tie; then
-        echo "Installation failed. Please try running from the RasQberry menu."
+    if ! sudo raspi-config nonint do_rasp_tie_install; then
+        echo "Installation failed."
         exit 1
     fi
 fi
 
 # Activate virtual environment if available
-if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
+    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
+
+# Variable to track the Python process
+PYTHON_PID=""
 
 # Function to clean up on exit
 cleanup() {
     echo
     echo "Stopping Quantum Raspberry Tie demo..."
-    # Kill any remaining python processes running the demo
-    pkill -f "QuantumRaspberryTie.qk1.py" 2>/dev/null || true
+
+    # Kill the Python process if it's still running
+    if [ -n "$PYTHON_PID" ] && kill -0 "$PYTHON_PID" 2>/dev/null; then
+        kill "$PYTHON_PID" 2>/dev/null || true
+        sleep 0.5
+
+        # Force kill if still running
+        if kill -0 "$PYTHON_PID" 2>/dev/null; then
+            kill -9 "$PYTHON_PID" 2>/dev/null || true
+        fi
+    fi
+
+    # Also kill any remaining python processes running the demo
+    pkill -f "QuantumRaspberryTie.v7_1.py" 2>/dev/null || true
+
     echo "Demo stopped."
 }
 
@@ -83,9 +75,55 @@ trap cleanup EXIT INT TERM
 # Launch the demo
 echo "Starting Quantum Raspberry Tie Demo..."
 echo "========================================="
-echo "To stop the demo: Press Ctrl+C in this terminal"
+
+cd "$DEMO_DIR" || exit 1
+
+# Run the demo in background
+python3 QuantumRaspberryTie.v7_1.py &
+PYTHON_PID=$!
+
+echo "Demo is running (PID: $PYTHON_PID)"
+echo ""
+echo "To stop the demo:"
+echo "  - Press 'q' and Enter"
+echo "  - Or just press Enter"
+echo "  - Or press Ctrl+C"
+echo ""
 echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
 echo "========================================="
-echo
+echo ""
 
-cd "$DEMO_DIR" && python3 QuantumRaspberryTie.qk1.py
+# Wait for user input to quit
+while kill -0 "$PYTHON_PID" 2>/dev/null; do
+    read -t 1 -n 1 key 2>/dev/null
+    if [ $? -eq 0 ]; then
+        # User pressed a key
+        if [ "$key" = "q" ] || [ "$key" = "" ]; then
+            echo ""
+            echo "Stop requested by user..."
+            break
+        fi
+    fi
+done
+
+# Check if process is still running
+if kill -0 "$PYTHON_PID" 2>/dev/null; then
+    # Process still running, user wants to quit
+    echo "Stopping demo..."
+    EXIT_CODE=0
+else
+    # Process already exited
+    wait "$PYTHON_PID"
+    EXIT_CODE=$?
+fi
+
+# Show exit status
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Demo finished successfully."
+else
+    echo "Demo exited with code: $EXIT_CODE"
+fi
+echo ""
+echo "Press Enter to close this window..."
+read

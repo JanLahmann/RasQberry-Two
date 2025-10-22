@@ -1,19 +1,14 @@
 #!/bin/bash
 #
-# RasQberry: Auto-installing Quantum Lights Out Demo Launcher
-# Automatically installs demo if missing, then launches it
+# RasQberry: Quantum Lights Out Demo Launcher
+# Launches the Quantum Lights Out demo
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
-fi
-
 # Load environment variables
-if [ -f "$HOME/.local/config/env-config.sh" ]; then
-    . "$HOME/.local/config/env-config.sh"
+if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
+    . "/usr/config/rasqberry_env-config.sh"
 else
-    echo "Error: Environment config not found at $HOME/.local/config/env-config.sh"
+    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
     exit 1
 fi
 
@@ -23,58 +18,21 @@ if [ -z "$REPO" ]; then
     exit 1
 fi
 
-DEMO_DIR="$HOME/$REPO/Quantum-Lights-Out"
+# Use canonical path (same as menu)
+DEMO_DIR="$USER_HOME/$REPO/demos/Quantum-Lights-Out"
 
-# Function to install demo
-install_quantum_lights_out() {
-    echo "Installing Quantum Lights Out demo..."
-    
-    # Remove existing incomplete directory if it exists
-    if [ -d "$DEMO_DIR" ]; then
-        echo "Removing existing incomplete installation..."
-        rm -rf "$DEMO_DIR"
-    fi
-    
-    # Clone the repository
-    if git clone --depth 1 "$GIT_REPO_DEMO_QLO" "$DEMO_DIR"; then
-        # Verify the main file exists
-        if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
-            echo "Error: lights_out.py not found in cloned repository"
-            echo "Directory contents:"
-            ls -la "$DEMO_DIR"
-            rm -rf "$DEMO_DIR"
-            return 1
-        fi
-        
-        # Update environment to mark as installed
-        sed -i 's/QUANTUM_LIGHTS_OUT_INSTALLED=false/QUANTUM_LIGHTS_OUT_INSTALLED=true/' "$HOME/.local/config/rasqberry_environment.env"
-        
-        # Reload environment
-        . "$HOME/.local/config/env-config.sh"
-        
-        echo "Quantum Lights Out demo installed successfully"
-        return 0
-    else
-        # Clean up on failure
-        rm -rf "$DEMO_DIR"
-        echo "Failed to install Quantum Lights Out demo"
-        echo "Please check your internet connection and try again"
-        return 1
-    fi
-}
-
-# Check if demo is installed
+# Check if demo is installed, auto-install if missing
 if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
     echo "Quantum Lights Out demo not found. Installing..."
-    if ! install_quantum_lights_out; then
-        echo "Installation failed. Please try running from the RasQberry menu."
+    if ! sudo raspi-config nonint do_qlo_install; then
+        echo "Installation failed."
         exit 1
     fi
 fi
 
 # Activate virtual environment if available
-if [ -f "$HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$HOME/$REPO/venv/$STD_VENV/bin/activate"
+if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
+    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
 fi
 
 # Launch the demo
@@ -91,4 +49,25 @@ if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
     exit 1
 fi
 
-cd "$DEMO_DIR" && python3 lights_out.py
+cd "$DEMO_DIR" || exit 1
+
+echo ""
+echo "Quantum Lights Out Demo"
+echo "======================="
+echo "Press Ctrl+C or 'q' in the game to exit"
+echo ""
+
+# Run the demo and capture exit status
+python3 -W ignore::DeprecationWarning lights_out.py
+EXIT_CODE=$?
+
+# Show friendly exit message
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Demo finished successfully."
+else
+    echo "Demo exited with code: $EXIT_CODE"
+fi
+echo ""
+echo "Press Enter to close this window..."
+read

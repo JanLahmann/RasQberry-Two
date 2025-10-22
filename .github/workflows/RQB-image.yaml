@@ -101,9 +101,9 @@ on:
         default: false
   
   # Automatic trigger for development branches
-  push:
-    branches:
-      - dev*    # Matches: dev, dev-feature, development, etc.
+  #push:
+  #  branches:
+  #    - dev*    # Matches: dev, dev-feature, development, etc.
 
 # ============================================================================
 # GLOBAL ENVIRONMENT VARIABLES
@@ -477,11 +477,104 @@ jobs:
           echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
           echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
 
+      # ========================================================================
+      # DEBIAN KEYRING FIX
+      # ========================================================================
+      # Update Debian archive keyring on the runner to prevent GPG verification errors
+      # This ensures the latest Debian signing keys are available for debootstrap
+      - name: Update Debian archive keyring
+        run: |
+          echo "Updating Debian archive keyring on GitHub Actions runner..."
+
+          # Update package lists
+          sudo apt-get update
+
+          # Install/update the debian-archive-keyring package
+          sudo apt-get install -y --reinstall debian-archive-keyring
+
+          # Import missing Debian Bookworm signing keys as fallback
+          # Using gpg instead of deprecated apt-key
+          for key in 6ED0E7B82643E131 78DBA3BC47EF2265 F8D2585B8783D481 54404762BBB6E853 BDE6D2B9216EC7A8; do
+            echo "Importing key: $key"
+            sudo gpg --keyserver keyserver.ubuntu.com --recv-keys "$key" || true
+            sudo gpg --export "$key" | sudo tee /etc/apt/trusted.gpg.d/debian-${key}.gpg > /dev/null || true
+          done
+
+          echo "Debian keyring update completed"
+
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
         run: |
           git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
+
+      # Add Debian archive keyring to pi-gen files and install it
+      - name: Add and install Debian keyring in stage0
+        run: |
+          echo "=== Step 1: Verify Debian keyring on host ==="
+          ls -lh /usr/share/keyrings/debian-* || echo "No debian keyrings found"
+
+          echo ""
+          echo "=== Step 2: Copy Debian keyring to pi-gen files ==="
+          if [ -f "/usr/share/keyrings/debian-archive-keyring.gpg" ]; then
+            cp -v /usr/share/keyrings/debian-archive-keyring.gpg \
+               pi-gen/stage0/00-configure-apt/files/
+            echo "✓ Copied debian-archive-keyring.gpg"
+          else
+            echo "❌ debian-archive-keyring.gpg not found!"
+            ls -la /usr/share/keyrings/
+            exit 1
+          fi
+
+          ls -lh pi-gen/stage0/00-configure-apt/files/debian-archive-keyring.gpg
+
+          echo ""
+          echo "=== Step 3: Replace 00-run.sh with Debian keyring support ==="
+          cat > pi-gen/stage0/00-configure-apt/00-run.sh << 'NEWSCRIPT'
+          #!/bin/bash -e
+
+          true > "${ROOTFS_DIR}/etc/apt/sources.list"
+          install -m 644 files/debian.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
+          install -m 644 files/raspi.sources "${ROOTFS_DIR}/etc/apt/sources.list.d/"
+          sed -i "s/RELEASE/${RELEASE}/g" "${ROOTFS_DIR}/etc/apt/sources.list.d/debian.sources"
+          sed -i "s/RELEASE/${RELEASE}/g" "${ROOTFS_DIR}/etc/apt/sources.list.d/raspi.sources"
+
+          if [ -n "$APT_PROXY" ]; then
+          	install -m 644 files/51cache "${ROOTFS_DIR}/etc/apt/apt.conf.d/51cache"
+          	sed "${ROOTFS_DIR}/etc/apt/apt.conf.d/51cache" -i -e "s|APT_PROXY|${APT_PROXY}|"
+          else
+          	rm -f "${ROOTFS_DIR}/etc/apt/apt.conf.d/51cache"
+          fi
+
+          if [ -n "$TEMP_REPO" ]; then
+          	install -m 644 /dev/null "${ROOTFS_DIR}/etc/apt/sources.list.d/00-temp.list"
+          	echo "$TEMP_REPO" | sed "s/RELEASE/$RELEASE/g" > "${ROOTFS_DIR}/etc/apt/sources.list.d/00-temp.list"
+          else
+          	rm -f "${ROOTFS_DIR}/etc/apt/sources.list.d/00-temp.list"
+          fi
+
+          # Install archive keyrings - BOTH Raspberry Pi and Debian
+          echo "Installing archive keyrings into ${ROOTFS_DIR}/usr/share/keyrings/"
+          install -m 644 files/raspberrypi-archive-keyring.pgp "${ROOTFS_DIR}/usr/share/keyrings/"
+          install -m 644 files/debian-archive-keyring.gpg "${ROOTFS_DIR}/usr/share/keyrings/"
+
+          echo "Verifying keyrings were installed:"
+          ls -lh "${ROOTFS_DIR}/usr/share/keyrings/"
+
+          on_chroot <<- \EOF
+          	ARCH="$(dpkg --print-architecture)"
+          	if [ "$ARCH" = "armhf" ]; then
+          		dpkg --add-architecture arm64
+          	elif [ "$ARCH" = "arm64" ]; then
+          		dpkg --add-architecture armhf
+          	fi
+          	apt-get update
+          	apt-get dist-upgrade -y
+          EOF
+          NEWSCRIPT
+
+          chmod +x pi-gen/stage0/00-configure-apt/00-run.sh
+          echo "✓ Created new 00-run.sh with Debian keyring installation"
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages

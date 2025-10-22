@@ -1,61 +1,115 @@
-# https://raspberrypi.stackexchange.com/questions/85109/run-rpi-ws281x-without-sudo
-# https://github.com/joosteto/ws2812-spi
+#!/usr/bin/env python3
+#
+# RasQ-LED Quantum Circuit Demo
+# Creates quantum circuits with different entanglement patterns and visualizes on LEDs
+#
+# Usage: python3 RasQ-LED.py
 
-# start with python3 RasQ-LED.py 
-
-import subprocess, time, math
+import subprocess
+import time
+import math
+import os
+import sys
 from dotenv import dotenv_values
 
-# Load environment variables
-config = dotenv_values("/usr/config/rasqberry_environment.env")  # fixme, making path dynamic
-n_qbit = int(config.get("N_QUBIT", 0))
-LED_COUNT = int(config.get("LED_COUNT", 0))
-LED_PIN = int(config.get("LED_PIN", 0))
+# Load environment variables from system-wide configuration
+config = dotenv_values("/usr/config/rasqberry_environment.env")
+n_qbit = int(config.get("N_QUBIT", 156))  # Default to 156 qubits if not configured
+LED_COUNT = int(config.get("LED_COUNT", 192))
+LED_PIN = int(config.get("LED_PIN", 21))
+display_timeout = int(config.get("RASQ_LED_DISPLAY_TIMEOUT", 3))  # Timeout for display script
+
+print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_PIN}")
+print(f"Display timeout: {display_timeout}s")
 
 # Import Qiskit 2.x classes
-from qiskit import QuantumCircuit
-# AerSimulator may be provided by the qiskit-aer package or in qiskit.providers.aer
 try:
-    from qiskit.providers.aer import AerSimulator
-except ModuleNotFoundError:
-    from qiskit_aer import AerSimulator
+    from qiskit import QuantumCircuit
+    # AerSimulator may be provided by the qiskit-aer package or in qiskit.providers.aer
+    try:
+        from qiskit.providers.aer import AerSimulator
+    except ModuleNotFoundError:
+        from qiskit_aer import AerSimulator
+    print("Qiskit imported successfully")
+except ImportError as e:
+    print(f"Error importing Qiskit: {e}")
+    print("Make sure Qiskit is installed in the current environment")
+    sys.exit(1)
 
-# set the backend
+# Set the backend
 backend = AerSimulator()
-                
-#Set number of shots
+
+# Set number of shots
 shots = 1
 
+# Global variables
+circuit = None
+measurement = ""
+
+def find_display_script():
+    """Find the RasQ-LED-display script in common locations"""
+    script_locations = [
+        # Same directory as this script
+        os.path.join(os.path.dirname(__file__), "RasQ-LED-display.py"),
+        # System paths
+        "/usr/bin/RasQ-LED-display.py",
+        # Legacy paths
+        "/home/pi/RasQberry/demos/bin/RasQ-LED-display.py"
+    ]
+
+    for script_path in script_locations:
+        if os.path.exists(script_path):
+            print(f"Found display script: {script_path}")
+            return script_path
+
+    print("Error: Could not find RasQ-LED-display script")
+    print("Searched locations:")
+    for path in script_locations:
+        print(f"  {path}")
+    return None
+
 def init_circuit():
+    """Initialize quantum circuit and measurement variables"""
     global circuit, measurement
-    # Create a QuantumCircuit with n_qbit qubits and classical bits
     circuit = QuantumCircuit(n_qbit, n_qbit)
     measurement = ""
 
 def set_up_circuit(factor):
+    """Set up quantum circuit with specified entanglement pattern
+
+    Args:
+        factor: Size of entanglement groups
+                1 = no entanglement
+                n_qbit = complete entanglement
+                other = block entanglement
+    """
     global circuit
     circuit = QuantumCircuit(n_qbit, n_qbit)
 
     if factor == 0:
-      factor = n_qbit
+        factor = n_qbit
 
-    # relevant qubits are the first qubits in each subgroup
+    # Relevant qubits are the first qubits in each subgroup
     relevant_qbit = 0
 
     for i in range(0, n_qbit):
         if (i % factor) == 0:
+            # Apply Hadamard to first qubit of each group
             circuit.h(i)
             relevant_qbit = i
         else:
+            # Entangle with the first qubit of the group
             circuit.cx(relevant_qbit, i)
 
+    # Measure all qubits
     circuit.measure(range(n_qbit), range(n_qbit))
 
 def get_factors(number):
+    """Get all factors of a number for entanglement group sizes"""
     factor_list = []
 
-    # search for factors, including factor 1 and n_qbit itself
-    for i in range(1, math.ceil(number / 2) + 1):  
+    # Search for factors, including factor 1 and n_qbit itself
+    for i in range(1, math.ceil(number / 2) + 1):
         if number % i == 0:
             factor_list.append(i)
 
@@ -63,70 +117,201 @@ def get_factors(number):
     return factor_list
 
 def circ_execute():
-    # execute the circuit on the AerSimulator
-    job = backend.run(circuit, shots=shots)
-    result = job.result()
-    counts = result.get_counts()
+    """Execute the quantum circuit and get measurement result"""
     global measurement
-    measurement = list(counts.items())[0][0]
-    print("measurement:", measurement)
+    try:
+        # Execute the circuit on the AerSimulator
+        job = backend.run(circuit, shots=shots)
+        result = job.result()
+        counts = result.get_counts()
+        measurement = list(counts.items())[0][0]
+        print(f"Quantum measurement: {measurement}")
+        return True
+    except Exception as e:
+        print(f"Error executing quantum circuit: {e}")
+        return False
 
-# alternative with statevector_simulator
-# simulator = Aer.get_backend('statevector_simulator')
-# result = execute(circuit, simulator).result()
-# statevector = result.get_statevector(circuit)
-# bin(statevector.tolist().index(1.+0.j))[2:]
+def call_display_on_strip(measurement_result):
+    """Call the LED display script to show the measurement result"""
+    display_script = find_display_script()
+    if not display_script:
+        return False
 
-def call_display_on_strip(measurement):
-  subprocess.call(["sudo","python3","/usr/bin/RasQ-LED-display.py", measurement]) # fixme, hardcoded path
+    try:
+        # Note: No sudo needed for SPI-based driver
+        # Use configurable timeout (default 3s via RASQ_LED_DISPLAY_TIMEOUT)
+        result = subprocess.run([
+            sys.executable, display_script, measurement_result
+        ], capture_output=True, text=True, timeout=display_timeout)
 
-# n is the size of the entangled blocks
-def run_circ(n):
-  init_circuit()
-  if n == 1:
-    print("build circuit without entanglement")
-    set_up_circuit(1) 
-  elif n == 0 or n == n_qbit:
-    print("build circuit with complete entanglement")
-    set_up_circuit(n_qbit)
-  else:
-    print("build circuit with entangled blocks of size " + str(n))
-    set_up_circuit(n)
-  circ_execute()
-  call_display_on_strip(measurement)
+        # Show output for debugging
+        if result.stdout:
+            print(result.stdout)
 
-def action():
+        if result.returncode != 0:
+            print(f"Display script error (exit code {result.returncode}):")
+            if result.stderr:
+                print(result.stderr)
+            else:
+                print("(No error message provided)")
+            return False
+
+        return True
+    except subprocess.TimeoutExpired:
+        print("Display script timed out")
+        return False
+    except Exception as e:
+        print(f"Error calling display script: {e}")
+        return False
+
+def clear_leds():
+    """Clear all LEDs"""
+    display_script = find_display_script()
+    if display_script:
+        try:
+            subprocess.run([
+                sys.executable, display_script, "0", "-c"
+            ], capture_output=True, timeout=display_timeout)
+        except:
+            pass
+
+def run_circuit(entanglement_size):
+    """Run a quantum circuit with specified entanglement and display result
+
+    Args:
+        entanglement_size: Size of entangled blocks
+                          1 = no entanglement
+                          0 or n_qbit = complete entanglement
+                          other = block entanglement of that size
+    """
+    init_circuit()
+
+    if entanglement_size == 1:
+        print("Building circuit without entanglement")
+        set_up_circuit(1)
+    elif entanglement_size == 0 or entanglement_size == n_qbit:
+        print("Building circuit with complete entanglement")
+        set_up_circuit(n_qbit)
+    else:
+        print(f"Building circuit with entangled blocks of size {entanglement_size}")
+        set_up_circuit(entanglement_size)
+
+    if circ_execute():
+        call_display_on_strip(measurement)
+        return True
+    return False
+
+def interactive_mode():
+    """Interactive mode for manual circuit selection"""
+    menu = """
+RasQ-LED Quantum Entanglement Demo
+==================================
+Select circuit type:
+1) No entanglement (independent qubits)
+2) Complete entanglement (all qubits entangled)
+3) All factor-based entanglement patterns (demo sequence)
+q) Quit and clear LEDs
+
+Your choice: """
+
     while True:
-        #print(menu)
-        player_action = input("select circuit to execute (1/2/3/q) ")
-        if player_action == '1':
-          run_circ(1) 
-        elif player_action == '2':
-          run_circ(n_qbit)
-        elif player_action == "3":
+        try:
+            player_action = input(menu).strip().lower()
+
+            if player_action == '1':
+                run_circuit(1)
+            elif player_action == '2':
+                run_circuit(n_qbit)
+            elif player_action == "3":
+                factors = get_factors(n_qbit)
+                print(f"Running sequence with entanglement factors: {factors}")
+                for factor in factors:
+                    print(f"\n--- Entanglement block size: {factor} ---")
+                    run_circuit(factor)
+                    time.sleep(3)
+            elif player_action == 'q':
+                clear_leds()
+                print("Goodbye!")
+                break
+            else:
+                print("Please type '1', '2', '3' or 'q'")
+
+        except KeyboardInterrupt:
+            print("\nClearing LEDs and exiting...")
+            clear_leds()
+            break
+        except Exception as e:
+            print(f"Error: {e}")
+
+def demo_loop(duration=2):
+    """Run automated demo showing all entanglement patterns
+
+    Args:
+        duration: Number of complete cycles through all patterns
+    """
+    import select
+
+    print()
+    print("RasQ-LED Quantum Entanglement Visualization")
+    print("=" * 50)
+    print("This demo creates groups of entangled qubits and displays the measurement")
+    print("results using LED colors (Red=0, Blue=1).")
+    print()
+    print("A Hadamard gate is applied to the first qubit of each group,")
+    print("then CNOT gates create entanglement within each group.")
+    print("The entanglement group size varies from 1 (no entanglement)")
+    print("up to all qubits (complete entanglement).")
+    print()
+    print("Press Enter to stop the demo (or Ctrl+C)")
+    print()
+
+    # Clear any pending input from stdin before starting
+    # (prevents accidental immediate exit when run from menu systems)
+    import termios
+    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+
+    try:
+        for cycle in range(duration):
+            print(f"\n--- Demo Cycle {cycle + 1}/{duration} ---")
             factors = get_factors(n_qbit)
-            for factor in factors: 
-              run_circ(factor)
-              time.sleep(3)
-        elif player_action == 'q':
-          subprocess.call(["sudo","python3","/home/pi/RasQberry/demos/bin/RasQ-LED-display.py", "0", "-c"])
-          quit()
-        else:
-            print("Please type \'1\', \'2\', \'3\' or \'q\'")
 
-def loop(duration):
-  print()
-  print("RasQ-LED creates groups of entangled Qubits and displays the measurment result using colors of the LEDs.")
-  print("A H(adamard) gate is applied to the first Qubit of each group; then CNOT gates to create entanglement of the whole group.")
-  print("The size of the groups starts with 1, then in steps up to all Qubits.")
-  print()
-  for i in range(duration):
-    factors = get_factors(n_qbit)
-    for factor in factors: 
-      run_circ(factor)
-      time.sleep(3)
-  subprocess.call(["sudo","python3","/home/pi/RasQberry/demos/bin/RasQ-LED-display.py", "0", "-c"])
-  
-loop(2)
+            for factor in factors:
+                # Check for Enter key press
+                if select.select([sys.stdin], [], [], 0)[0]:
+                    sys.stdin.readline()
+                    print("\nDemo stopped by user")
+                    clear_leds()
+                    return
 
-#action()
+                print(f"Entanglement block size: {factor}")
+                if run_circuit(factor):
+                    time.sleep(3)
+                else:
+                    print("Skipping due to error")
+
+        print("\nDemo complete!")
+
+    except KeyboardInterrupt:
+        print("\nDemo interrupted by user")
+    finally:
+        clear_leds()
+
+def main():
+    """Main entry point"""
+    print("RasQ-LED Quantum Entanglement Demo")
+    print("=" * 60)
+
+    # Check if display script is available
+    if not find_display_script():
+        print("Cannot continue without display script")
+        sys.exit(1)
+
+    # Run in demo mode by default
+    # Uncomment the next line to run interactive mode instead
+    demo_loop(2)
+
+    # For interactive mode, uncomment this line and comment the demo_loop line above:
+    # interactive_mode()
+
+if __name__ == '__main__':
+    main()

@@ -6,8 +6,25 @@
 
 echo; echo; echo "Quantum Fractals Demo"
 
-# Load environment variables
-. $HOME/.local/bin/env-config.sh
+# Check for GUI/Desktop environment
+if [ -z "$DISPLAY" ]; then
+    echo ""
+    echo "=========================================="
+    echo "ERROR: Graphical Desktop Required"
+    echo "=========================================="
+    echo ""
+    echo "This demo requires a graphical desktop environment (GUI)."
+    echo "It cannot run from a terminal-only session."
+    echo ""
+    echo "To run this demo:"
+    echo "  1. Connect via VNC or use the desktop environment"
+    echo "  2. Open a terminal in the desktop"
+    echo "  3. Run this demo from there"
+    echo ""
+    echo "Or use the desktop launcher icon instead."
+    echo ""
+    exit 1
+fi
 
 # Determine user and paths
 if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
@@ -17,6 +34,9 @@ else
     USER_NAME="$(whoami)"
     USER_HOME="${HOME}"
 fi
+
+# Load environment variables
+. "/usr/config/rasqberry_env-config.sh"
 
 DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 
@@ -39,4 +59,16 @@ fi
 # Change to demo directory and run
 cd "$DEMO_DIR" || exit 1
 python3 fractals.py
+EXIT_CODE=$?
+
 cd "$USER_HOME" || exit
+
+# Show completion message
+echo
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Fractals demo completed successfully."
+else
+    echo "Fractals demo exited with errors (code: $EXIT_CODE)"
+fi
+echo
+read -p "Press Enter to close this window..."
