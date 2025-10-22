@@ -30,21 +30,33 @@ PORT="${QOFFEE_PORT:-8887}"
 if [ ! -d "$DEMO_DIR" ]; then
     echo "Error: Qoffee-Maker not installed."
     echo "Running setup script..."
-    exec "$BIN_DIR/qoffee-setup.sh"
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "Setup failed or was cancelled."
+        exit 1
+    fi
+    echo "Setup complete. Continuing with demo launch..."
 fi
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "Error: Docker is not installed."
     echo "Running setup script..."
-    exec "$BIN_DIR/qoffee-setup.sh"
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "Setup failed or was cancelled."
+        exit 1
+    fi
+    echo "Setup complete. Continuing with demo launch..."
 fi
 
 # Check if user is in docker group
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
     echo "Error: User '$USER_NAME' is not in the docker group."
     echo "Running setup script to configure permissions..."
-    exec "$BIN_DIR/qoffee-setup.sh"
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "Setup failed or was cancelled."
+        exit 1
+    fi
+    echo "Setup complete. Continuing with demo launch..."
 fi
 
 # Check if docker group is active in current session
@@ -64,7 +76,13 @@ fi
 if [ ! -f "$ENV_FILE" ]; then
     echo "Error: Configuration file not found."
     echo "Running setup script to create configuration..."
-    exec "$BIN_DIR/qoffee-setup.sh"
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "Setup failed or was cancelled."
+        exit 1
+    fi
+    echo "Setup complete. Continuing with demo launch..."
+    # Reload environment after setup
+    . "/usr/config/rasqberry_env-config.sh"
 fi
 
 # Check if .env has been configured (not using default values)
