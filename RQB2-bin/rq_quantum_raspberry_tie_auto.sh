@@ -4,45 +4,19 @@
 # Automatically installs demo if missing, then launches it
 #
 
-# Determine user and paths
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
-fi
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-# Load environment variables
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-else
-    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
-    exit 1
-fi
+# Load common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
-# Verify REPO variable is set
-if [ -z "$REPO" ]; then
-    echo "Error: REPO variable not set after loading environment"
-    exit 1
-fi
+# Load and verify environment
+load_rqb2_env
+verify_env_vars REPO USER_HOME STD_VENV
 
-DEMO_DIR="$USER_HOME/$REPO/demos/quantum-raspberry-tie"
-
-# Check if demo is installed, auto-install if missing
-# (check for both old and new versions of the main file)
-if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ] && [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
-    echo "Quantum Raspberry Tie demo not found. Installing..."
-    if ! sudo raspi-config nonint do_rasp_tie_install; then
-        echo "Installation failed."
-        exit 1
-    fi
-fi
-
-# Activate virtual environment if available
-if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-fi
+# Demo configuration
+DEMO_NAME="quantum-raspberry-tie"
+DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
 
 # Variable to track the Python process
 PYTHON_PID=""
@@ -50,7 +24,7 @@ PYTHON_PID=""
 # Function to clean up on exit
 cleanup() {
     echo
-    echo "Stopping Quantum Raspberry Tie demo..."
+    info "Stopping Quantum Raspberry Tie demo..."
 
     # Kill the Python process if it's still running
     if [ -n "$PYTHON_PID" ] && kill -0 "$PYTHON_PID" 2>/dev/null; then
@@ -63,20 +37,30 @@ cleanup() {
         fi
     fi
 
-    # Also kill any remaining python processes running the demo
-    pkill -f "QuantumRaspberryTie.v7_1.py" 2>/dev/null || true
+    # Use common cleanup for remaining processes and LEDs
+    default_demo_cleanup "QuantumRaspberryTie.v7_1.py"
 
     echo "Demo stopped."
 }
 
 # Set up trap to clean up on exit
-trap cleanup EXIT INT TERM
+setup_cleanup_trap cleanup
+
+# Check if demo is installed, auto-install if missing
+# (check for both old and new versions of the main file)
+if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ] && [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
+    info "Quantum Raspberry Tie demo not found. Installing..."
+    install_demo_raspiconfig do_rasp_tie_install || die "Installation failed"
+fi
+
+# Activate virtual environment
+activate_venv || warn "Virtual environment not available"
 
 # Launch the demo
 echo "Starting Quantum Raspberry Tie Demo..."
 echo "========================================="
 
-cd "$DEMO_DIR" || exit 1
+cd "$DEMO_DIR" || die "Cannot change to demo directory"
 
 # Run the demo in background
 python3 QuantumRaspberryTie.v7_1.py &

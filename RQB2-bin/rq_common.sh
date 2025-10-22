@@ -449,6 +449,22 @@ setup_cleanup_trap() {
     debug "Cleanup trap registered: $cleanup_func"
 }
 
+# Default demo cleanup (can be called from custom cleanup functions)
+# Usage: default_demo_cleanup "DemoProcessName"
+default_demo_cleanup() {
+    local process_pattern="${1:-}"
+
+    debug "Running default demo cleanup..."
+
+    # Kill demo processes if pattern provided
+    if [ -n "$process_pattern" ]; then
+        cleanup_demo_processes "$process_pattern"
+    fi
+
+    # Clear LEDs
+    clear_leds
+}
+
 # ============================================================================
 # 9. PATH & DIRECTORY HELPERS
 # ============================================================================
