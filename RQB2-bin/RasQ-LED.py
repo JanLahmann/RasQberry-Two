@@ -144,8 +144,16 @@ def call_display_on_strip(measurement_result):
             sys.executable, display_script, measurement_result
         ], capture_output=True, text=True, timeout=display_timeout)
 
+        # Show output for debugging
+        if result.stdout:
+            print(result.stdout)
+
         if result.returncode != 0:
-            print(f"Display script error: {result.stderr}")
+            print(f"Display script error (exit code {result.returncode}):")
+            if result.stderr:
+                print(result.stderr)
+            else:
+                print("(No error message provided)")
             return False
 
         return True
