@@ -245,6 +245,14 @@ run_led_painter_demo() {
     "$BIN_DIR/rq_led_painter.sh"
 }
 
+# Run RasQ-LED demo
+run_rasq_led_demo() {
+    # Launch the RasQ-LED quantum circuit demo directly
+    run_demo "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
+    # Turn off LEDs when demo ends
+    do_led_off
+}
+
 # Run Qoffee-Maker demo
 run_qoffee_demo() {
     # Check if setup has been run (Docker installed)
@@ -429,8 +437,7 @@ do_select_led_option() {
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            simple "Simple LED Demo" \
-           IBM "IBM LED Demo" \
-           RasQ "RasQ-LED Quantum Circuit Demo") || break
+           IBM "IBM LED Demo") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             simple )
@@ -439,10 +446,6 @@ do_select_led_option() {
                 ;;
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
-                do_led_off
-                ;;
-            RasQ )
-                run_demo bg "RasQ-LED Demo" "$BIN_DIR" rq_rasq_led.sh || { handle_error "RasQ-LED demo failed."; continue; }
                 do_led_off
                 ;;
             *) break ;;
@@ -509,6 +512,7 @@ do_quantum_demo_menu() {
        QRT  "Quantum Raspberry-Tie" \
        GRB  "Grok Bloch Sphere" \
        FRC  "Quantum Fractals" \
+       RQL  "RasQ-LED (Quantum Circuit)" \
        LDP  "LED-Painter (Paint on LEDs)" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
@@ -522,6 +526,7 @@ do_quantum_demo_menu() {
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
       GRB)  run_grok_bloch_demo        || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
       LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
