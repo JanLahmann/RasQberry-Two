@@ -1,15 +1,21 @@
 #!/bin/bash
-#
-# RasQberry-Two: Quantum Fractals Demo
-# Creates animated fractal visualizations using quantum circuits
-#
+set -euo pipefail
 
-set -euo pipefail  # Exit on error, undefined vars, pipe failures
+################################################################################
+# fractals.sh - RasQberry Quantum Fractals Demo
+#
+# Description:
+#   Creates animated fractal visualizations using quantum circuits
+#   Requires graphical desktop environment (GUI)
+################################################################################
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
 echo; echo; echo "Quantum Fractals Demo"
 
 # Check for GUI/Desktop environment
-if [ -z "$DISPLAY" ]; then
+if ! check_display; then
     echo ""
     echo "=========================================="
     echo "ERROR: Graphical Desktop Required"
@@ -25,52 +31,38 @@ if [ -z "$DISPLAY" ]; then
     echo ""
     echo "Or use the desktop launcher icon instead."
     echo ""
-    exit 1
+    die "No display available"
 fi
 
-# Determine user and paths
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
-fi
-
-# Load environment variables
-. "/usr/config/rasqberry_env-config.sh"
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars USER_HOME REPO STD_VENV
 
 DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 
-echo "Starting Quantum Fractals Demo..."
-echo "User: $USER_NAME"
-echo "Demo directory: $DEMO_DIR"
+info "Starting Quantum Fractals Demo..."
+debug "User: $SUDO_USER_NAME"
+debug "Demo directory: $DEMO_DIR"
 
 # Check if demo files exist
-if [ ! -f "$DEMO_DIR/fractals.py" ]; then
-    echo "Error: Fractals demo not found at $DEMO_DIR"
-    echo "Please ensure the demo is properly installed."
-    exit 1
-fi
+[ -f "$DEMO_DIR/fractals.py" ] || die "Fractals demo not found at $DEMO_DIR. Please ensure the demo is properly installed."
 
-# Ensure virtual environment is activated
-if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-fi
+# Activate virtual environment
+activate_venv || warn "Virtual environment not available, continuing anyway..."
 
 # Change to demo directory and run
-cd "$DEMO_DIR" || exit 1
+cd "$DEMO_DIR" || die "Failed to change to demo directory"
 python3 fractals.py
 EXIT_CODE=$?
 
-cd "$USER_HOME" || exit
+cd "$USER_HOME" || warn "Failed to return to home directory"
 
 # Show completion message
 echo
 if [ $EXIT_CODE -eq 0 ]; then
-    echo "Fractals demo completed successfully."
+    info "Fractals demo completed successfully"
 else
-    echo "Fractals demo exited with errors (code: $EXIT_CODE)"
+    warn "Fractals demo exited with errors (code: $EXIT_CODE)"
 fi
 echo
 read -p "Press Enter to close this window..."
