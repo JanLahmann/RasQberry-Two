@@ -1,24 +1,25 @@
 #!/bin/bash
+set -euo pipefail
+
+################################################################################
+# qoffee-maker.sh - RasQberry Qoffee-Maker Demo Launcher
 #
-# RasQberry-Two: Qoffee-Maker Demo Launcher
-# Runs Qoffee-Maker in Docker container with Jupyter interface
-#
+# Description:
+#   Runs Qoffee-Maker in Docker container with Jupyter interface
+#   Handles Docker setup, permissions, and API configuration
+#   Automatically opens browser to Jupyter notebook interface
+################################################################################
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
 echo
 echo "=== Qoffee-Maker Demo ==="
 echo
 
-# Determine user and paths FIRST (before loading config)
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
-fi
-
-# Load environment variables from user's home directory
-. "/usr/config/rasqberry_env-config.sh"
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars REPO USER_HOME BIN_DIR
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
 ENV_FILE="$DEMO_DIR/.env"
@@ -26,46 +27,41 @@ DOCKER_IMAGE="ghcr.io/janlahmann/qoffee-maker"
 CONTAINER_NAME="qoffee"
 PORT="${QOFFEE_PORT:-8887}"
 
-# Check if demo directory exists
-if [ ! -d "$DEMO_DIR" ]; then
-    echo "Error: Qoffee-Maker not installed."
+################################################################################
+# run_qoffee_setup - Run setup script if needed
+################################################################################
+run_qoffee_setup() {
+    local reason="$1"
+    info "$reason"
     echo "Running setup script..."
     if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "Setup failed or was cancelled."
-        exit 1
+        die "Setup failed or was cancelled"
     fi
-    echo "Setup complete. Continuing with demo launch..."
-fi
+    info "Setup complete. Continuing with demo launch..."
+}
+
+################################################################################
+# Prerequisites checks
+################################################################################
+
+# Check if demo directory exists
+[ -d "$DEMO_DIR" ] || run_qoffee_setup "Error: Qoffee-Maker not installed."
 
 # Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    echo "Error: Docker is not installed."
-    echo "Running setup script..."
-    if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "Setup failed or was cancelled."
-        exit 1
-    fi
-    echo "Setup complete. Continuing with demo launch..."
-fi
+command -v docker &> /dev/null || run_qoffee_setup "Error: Docker is not installed."
 
 # Check if user is in docker group
-if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    echo "Error: User '$USER_NAME' is not in the docker group."
-    echo "Running setup script to configure permissions..."
-    if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "Setup failed or was cancelled."
-        exit 1
-    fi
-    echo "Setup complete. Continuing with demo launch..."
+if ! groups "$SUDO_USER_NAME" | grep -q docker && [ "$SUDO_USER_NAME" != "root" ]; then
+    run_qoffee_setup "Error: User '$SUDO_USER_NAME' is not in the docker group."
 fi
 
 # Check if docker group is active in current session
 # This handles the case where user was added to docker group but hasn't logged out/in.
 # We use 'sg' to activate the group immediately without requiring logout.
 if ! groups | grep -q docker && [ "$(whoami)" != "root" ]; then
-    echo "Docker group not active in current session."
-    echo "Activating Docker group permissions..."
-    if [ -z "$DOCKER_GROUP_ACTIVATED" ]; then
+    info "Docker group not active in current session"
+    info "Activating Docker group permissions..."
+    if [ -z "${DOCKER_GROUP_ACTIVATED:-}" ]; then
         export DOCKER_GROUP_ACTIVATED=1
         # Re-exec this script with docker group active
         exec sg docker -c "$0 $*"
@@ -74,21 +70,19 @@ fi
 
 # Check for .env configuration
 if [ ! -f "$ENV_FILE" ]; then
-    echo "Error: Configuration file not found."
-    echo "Running setup script to create configuration..."
-    if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "Setup failed or was cancelled."
-        exit 1
-    fi
-    echo "Setup complete. Continuing with demo launch..."
+    run_qoffee_setup "Error: Configuration file not found."
     # Reload environment after setup
-    . "/usr/config/rasqberry_env-config.sh"
+    load_rqb2_env
 fi
+
+################################################################################
+# Configuration validation
+################################################################################
 
 # Check if .env has been configured (not using default values)
 if grep -q "your_client_id_here\|your_ibmq_api_key_here" "$ENV_FILE" 2>/dev/null; then
     echo
-    echo "⚠  Warning: Configuration file contains default placeholder values."
+    warn "Configuration file contains default placeholder values"
     echo
     echo "Please configure your API credentials in:"
     echo "  $ENV_FILE"
@@ -100,21 +94,24 @@ if grep -q "your_client_id_here\|your_ibmq_api_key_here" "$ENV_FILE" 2>/dev/null
     echo "     → https://quantum-computing.ibm.com/account"
     echo
 
-    if whiptail --title "Configuration Required" --yesno \
-        "The Qoffee-Maker configuration file needs to be updated\nwith your API credentials.\n\nWould you like to edit it now?" \
-        12 65; then
+    if show_yesno "Configuration Required" \
+        "The Qoffee-Maker configuration file needs to be updated\nwith your API credentials.\n\nWould you like to edit it now?"; then
         ${EDITOR:-nano} "$ENV_FILE"
         echo
-        echo "Configuration saved. Starting Qoffee-Maker..."
+        info "Configuration saved. Starting Qoffee-Maker..."
     else
-        echo "Continuing with default configuration (may not work)..."
+        warn "Continuing with default configuration (may not work)..."
     fi
 fi
 
+################################################################################
+# Docker container management
+################################################################################
+
 # Stop any existing qoffee containers
-echo "Checking for existing containers..."
+info "Checking for existing containers..."
 if docker ps -q --filter name=$CONTAINER_NAME 2>/dev/null | grep -q .; then
-    echo "Stopping existing Qoffee-Maker container..."
+    info "Stopping existing Qoffee-Maker container..."
     docker stop $CONTAINER_NAME 2>/dev/null || true
 fi
 
@@ -123,24 +120,20 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 
 # Pull latest image
 echo
-echo "Pulling latest Qoffee-Maker Docker image..."
-echo "This may take a few minutes on first run (~2GB download)..."
+info "Pulling latest Qoffee-Maker Docker image..."
+info "This may take a few minutes on first run (~2GB download)..."
 if ! docker pull $DOCKER_IMAGE; then
     echo
-    echo "Error: Failed to pull Docker image."
-    echo "Please check your internet connection and try again."
-    exit 1
+    die "Failed to pull Docker image. Please check your internet connection"
 fi
 
 # Get Jupyter token from .env
 JUPYTER_TOKEN=$(grep "^JUPYTER_TOKEN=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' | tr -d "'")
-if [ -z "$JUPYTER_TOKEN" ]; then
-    JUPYTER_TOKEN="super-secret-token"
-fi
+[ -z "$JUPYTER_TOKEN" ] && JUPYTER_TOKEN="super-secret-token"
 
 # Start container
 echo
-echo "Starting Qoffee-Maker container..."
+info "Starting Qoffee-Maker container..."
 if ! docker run -d \
     --name $CONTAINER_NAME \
     --rm \
@@ -149,13 +142,11 @@ if ! docker run -d \
     --env-file "$ENV_FILE" \
     $DOCKER_IMAGE; then
     echo
-    echo "Error: Failed to start Docker container."
-    echo "Check the logs with: docker logs $CONTAINER_NAME"
-    exit 1
+    die "Failed to start Docker container. Check logs with: docker logs $CONTAINER_NAME"
 fi
 
 # Wait for container to start
-echo "Waiting for Jupyter to start..."
+info "Waiting for Jupyter to start..."
 sleep 5
 
 # Verify container is running
@@ -164,8 +155,12 @@ if ! docker ps --filter name=$CONTAINER_NAME --filter status=running | grep -q $
     echo "Error: Container failed to start properly."
     echo "Logs:"
     docker logs $CONTAINER_NAME 2>&1 | tail -20
-    exit 1
+    die "Container failed to start"
 fi
+
+################################################################################
+# Browser launch
+################################################################################
 
 # Build URL
 JUPYTER_URL="http://127.0.0.1:${PORT}/?token=${JUPYTER_TOKEN}"
@@ -178,23 +173,18 @@ echo
 
 # Try to open browser (as user, not root)
 if command -v chromium-browser &> /dev/null; then
-    echo "Opening browser..."
-    # Run browser as user if we're root
-    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
-        su - "$USER_NAME" -c "DISPLAY=:0 chromium-browser --password-store=basic '$JUPYTER_URL' &"
-    else
-        chromium-browser --password-store=basic "$JUPYTER_URL" &
-    fi
+    info "Opening browser..."
+    run_as_user chromium-browser --password-store=basic "$JUPYTER_URL" &
 elif command -v firefox &> /dev/null; then
-    echo "Opening browser..."
-    if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ]; then
-        su - "$USER_NAME" -c "DISPLAY=:0 firefox '$JUPYTER_URL' &"
-    else
-        firefox "$JUPYTER_URL" &
-    fi
+    info "Opening browser..."
+    run_as_user firefox "$JUPYTER_URL" &
 else
-    echo "No browser found. Please open the URL manually."
+    info "No browser found. Please open the URL manually."
 fi
+
+################################################################################
+# Interactive wait and cleanup
+################################################################################
 
 echo
 echo "============================================"
@@ -212,8 +202,8 @@ read -r
 
 # Cleanup
 echo
-echo "Stopping Qoffee-Maker container..."
+info "Stopping Qoffee-Maker container..."
 docker stop $CONTAINER_NAME
 
-echo "Container stopped."
+info "Container stopped"
 echo
