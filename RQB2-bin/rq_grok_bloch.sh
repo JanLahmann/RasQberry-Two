@@ -122,21 +122,44 @@ trap cleanup INT TERM EXIT
 
 # Try to open in browser and get browser PID
 BROWSER_PID=""
-if command -v chromium-browser >/dev/null 2>&1; then
-    chromium-browser --password-store=basic "http://localhost:$PORT" >/dev/null 2>&1 &
-    BROWSER_PID=$!
-elif command -v firefox >/dev/null 2>&1; then
-    firefox "http://localhost:$PORT" >/dev/null 2>&1 &
-    BROWSER_PID=$!
-elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "http://localhost:$PORT" >/dev/null 2>&1 &
+BROWSER_URL="http://localhost:$PORT"
+
+# Determine how to launch browser (as user if running as root)
+if [ "$(whoami)" = "root" ] && [ -n "$USER_NAME" ] && [ "$USER_NAME" != "root" ]; then
+    # Running as root, launch browser as user
+    if command -v chromium-browser >/dev/null 2>&1; then
+        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$BROWSER_URL' >/dev/null 2>&1 &"
+    elif command -v firefox >/dev/null 2>&1; then
+        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} firefox '$BROWSER_URL' >/dev/null 2>&1 &"
+    elif command -v xdg-open >/dev/null 2>&1; then
+        su - "$USER_NAME" -c "DISPLAY=${DISPLAY:-:0} xdg-open '$BROWSER_URL' >/dev/null 2>&1 &"
+    else
+        echo "Please open $BROWSER_URL in your web browser"
+    fi
+    # When using su, we can't track browser PID reliably, so don't auto-close
+    BROWSER_PID=""
 else
-    echo "Please open http://localhost:$PORT in your web browser"
+    # Running as regular user, launch normally
+    if command -v chromium-browser >/dev/null 2>&1; then
+        chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
+        BROWSER_PID=$!
+    elif command -v firefox >/dev/null 2>&1; then
+        firefox "$BROWSER_URL" >/dev/null 2>&1 &
+        BROWSER_PID=$!
+    elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
+    else
+        echo "Please open $BROWSER_URL in your web browser"
+    fi
 fi
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
-echo "The demo will automatically close when you close the browser window."
+if [ -n "$BROWSER_PID" ]; then
+    echo "The demo will automatically close when you close the browser window."
+else
+    echo "Press Ctrl+C or close this window to stop the demo."
+fi
 echo "Or press Ctrl+C to stop manually."
 echo ""
 
@@ -146,13 +169,13 @@ if [ -n "$BROWSER_PID" ]; then
     while kill -0 $SERVER_PID 2>/dev/null && kill -0 $BROWSER_PID 2>/dev/null; do
         sleep 1
     done
-    
+
     # If browser closed, clean up
     if ! kill -0 $BROWSER_PID 2>/dev/null; then
         echo "Browser closed. Stopping demo..."
         cleanup
     fi
 else
-    # No browser PID, just wait for server
+    # No browser PID tracking, just wait for server or Ctrl+C
     wait $SERVER_PID
 fi
