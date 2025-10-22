@@ -4,9 +4,13 @@
 # Starts local HTTP server and opens the demo in browser
 #
 
-# Ensure HOME is set (for desktop launchers)
-if [ -z "$HOME" ]; then
-    HOME="/home/$(whoami)"
+# Determine user and paths (handle sudo/root context)
+if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
+    USER_NAME="${SUDO_USER}"
+    USER_HOME="/home/${SUDO_USER}"
+else
+    USER_NAME="$(whoami)"
+    USER_HOME="${HOME}"
 fi
 
 # Load environment variables
@@ -44,7 +48,7 @@ if [ -z "$DISPLAY" ]; then
     exit 1
 fi
 
-DEMO_DIR="$HOME/$REPO/demos/grok-bloch"
+DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
 PORT=8080
 
 # Check if demo is installed
@@ -52,7 +56,8 @@ if [ ! -f "$DEMO_DIR/index.html" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
     echo "Debug info:"
-    echo "  HOME: $HOME"
+    echo "  USER_NAME: $USER_NAME"
+    echo "  USER_HOME: $USER_HOME"
     echo "  REPO: $REPO"
     echo "  Expected path: $DEMO_DIR"
     exit 1

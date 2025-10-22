@@ -225,12 +225,32 @@ run_rasp_tie_demo() {
     do_led_off
 }
 
-# Run grok-bloch demo (ensures install first)
+# Run grok-bloch demo local version (ensures install first)
 run_grok_bloch_demo() {
     # Ensure installation
-    do_grok_bloch_install
+    do_grok_bloch_install || return 1
+
     # Launch the demo using the dedicated launcher script
+    # (Script will check for DISPLAY and show appropriate error if needed)
     "$BIN_DIR/rq_grok_bloch.sh"
+}
+
+# Run grok-bloch web version (no installation needed)
+run_grok_bloch_web_demo() {
+    # Check if chromium-browser is available
+    if ! command -v chromium-browser >/dev/null 2>&1; then
+        whiptail --title "Browser Not Found" --msgbox \
+            "Chromium browser is not installed.\n\nThe web version requires a web browser." \
+            10 60
+        return 1
+    fi
+
+    whiptail --title "Grok Bloch Sphere (Web)" --msgbox \
+        "Opening the online version of Grok Bloch Sphere in your browser.\n\nURL: https://javafxpert.github.io/grok-bloch/\n\nPress OK to continue." \
+        12 70
+
+    # Launch browser with web version
+    chromium-browser --password-store=basic https://javafxpert.github.io/grok-bloch/ >/dev/null 2>&1 &
 }
 
 # Run quantum fractals demo
@@ -510,7 +530,8 @@ do_quantum_demo_menu() {
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
-       GRB  "Grok Bloch Sphere" \
+       GRB  "Grok Bloch Sphere (Local)" \
+       GRBW "Grok Bloch Sphere (Web)" \
        FRC  "Quantum Fractals" \
        RQL  "RasQ-LED (Quantum Circuit)" \
        LDP  "LED-Painter (Paint on LEDs)" \
@@ -524,7 +545,8 @@ do_quantum_demo_menu() {
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo        || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
+      GRB)  run_grok_bloch_demo        || continue ;;
+      GRBW) run_grok_bloch_web_demo    || continue ;;
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
       RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
       LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
