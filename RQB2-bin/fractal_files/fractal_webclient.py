@@ -23,7 +23,26 @@ class WebClient:
         # Use a unique user data directory to avoid conflicts with other Chrome instances
         import tempfile
         import os
+        import pwd
+        import stat
+
         self.temp_dir = tempfile.mkdtemp(prefix="fractals_chrome_")
+
+        # If running as root, make directory accessible to actual user
+        # (needed when run through sudo raspi-config)
+        if os.geteuid() == 0:
+            sudo_user = os.environ.get('SUDO_USER')
+            if sudo_user and sudo_user != 'root':
+                try:
+                    pw_record = pwd.getpwnam(sudo_user)
+                    uid = pw_record.pw_uid
+                    gid = pw_record.pw_gid
+                    os.chown(self.temp_dir, uid, gid)
+                    # Make directory readable/writable by user
+                    os.chmod(self.temp_dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH | stat.S_IXOTH)
+                except Exception:
+                    pass  # If chown fails, continue anyway
+
         self.options.add_argument(f"--user-data-dir={self.temp_dir}")
 
         # Change other important default settings
