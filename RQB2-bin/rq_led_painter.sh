@@ -122,13 +122,15 @@ check_and_install_demo() {
                  8 60
 
         # Install using venv's pip with sudo (venv is owned by root from build)
-        # Use pipefail to catch pip errors even when piping to tee
+        # Create log file with proper permissions first
+        LOG_FILE="/tmp/led-painter-install-$$.log"
+        touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/dev/null"
+
         (
-            set -o pipefail
             cd "$DEMO_DIR"
-            sudo "$VENV_PIP" install -r requirements.txt 2>&1 | tee /tmp/led-painter-install.log
+            sudo "$VENV_PIP" install -r requirements.txt 2>&1 | tee "$LOG_FILE"
         )
-        PIP_EXIT=$?
+        PIP_EXIT=${PIPESTATUS[0]}  # Get exit code of pip, not tee
     else
         (
             cd "$DEMO_DIR"
@@ -155,8 +157,12 @@ check_and_install_demo() {
         return 0
     else
         if command -v whiptail &> /dev/null; then
+            LOG_MSG="Failed to install Python dependencies."
+            if [ -f "$LOG_FILE" ] && [ "$LOG_FILE" != "/dev/null" ]; then
+                LOG_MSG="$LOG_MSG\n\nCheck log: $LOG_FILE"
+            fi
             whiptail --title "Installation Failed" \
-                     --msgbox "Failed to install Python dependencies.\n\nCheck log: /tmp/led-painter-install.log" \
+                     --msgbox "$LOG_MSG" \
                      10 60
         fi
         exit 1
