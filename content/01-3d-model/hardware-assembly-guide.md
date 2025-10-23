@@ -400,7 +400,7 @@ Roll any excess glue off with your finger when it’s dried.
 
 If you've reached this point in the assembly guide, congratulations! You have successfully assembled the RasQberry Two model! 🎉
 
-Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/00-demo-list) section of the website to learn about some quantum demos you can run on your completed model.
+Be sure to check out the [Quantum Computing Demos](/03-quantum-computing-demos/01-demo-list) section of the website to learn about some quantum demos you can run on your completed model.
 
 ![Figure 1](/assembly-images/complete_assembly_1.JPG "Figure 1: The fully assembled RasQberry Two model.")
 
