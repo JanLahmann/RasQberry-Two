@@ -28,7 +28,11 @@ This demo by Jan-R. Lahmann creates several blocks with multi-Qubit GHZ states a
 
 ## Fractals
 
-Wiktor Mazin and a team have created fractals with some quantum input: [Fractal animations with quantum computing on a Raspberry Pi](https://medium.com/qiskit/fractal-animations-with-quantum-computing-on-a-raspberry-pi-8834ef43d423)
+Create stunning animated fractal art using quantum computing to generate Julia set parameters. Visualize quantum states through beautiful mathematical fractals.
+
+**[Read Full Documentation →](fractals.md)**
+
+Developed by Wiktor Mazin and team - [Medium: Fractal Animations with Quantum Computing](https://medium.com/qiskit/fractal-animations-with-quantum-computing-on-a-raspberry-pi-8834ef43d423)
 
 ![Fractals](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*tfgetHYmxrkKr6zrWAPHiQ.png)
 
