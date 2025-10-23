@@ -20,7 +20,7 @@ An interactive visualization tool for understanding single-qubit quantum states 
 
 Developed by James Weaver [GitHub: JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch)
 
-![Bloch Sphere](../Artwork/BlochSphere.png)
+![Bloch Sphere](/Artwork/BlochSphere.png)
 
 ## GHZ with multiple Qubits
 

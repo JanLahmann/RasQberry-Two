@@ -205,11 +205,8 @@ Developed by **Max Simon** and **Jan-R. Lahmann**
 
 A related demo with cocktail/mocktail selection instead of coffee. Uses the same quantum principles with different beverage options and Docker-based deployment.
 
-See: [Quantum Mixer](quantum-mixer.md)
-
 ## Related Demos
 
-- [Quantum Mixer](quantum-mixer.md) - Cocktail version of the same concept
 - [Bloch Sphere](bloch-sphere.md) - Understand single-qubit gates
 - [Raspberry Tie](raspberry-tie.md) - Circuit results on LED display
 - [Fun with Quantum notebooks](http://fun-with-quantum.org) - More quantum games

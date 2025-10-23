@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "validate": "node scripts/validate-content.js",
+    "validate:external": "node scripts/validate-content.js --check-external"
   },
   "dependencies": {
     "@carbon/ibmdotcom-styles": "^2.11.0",
