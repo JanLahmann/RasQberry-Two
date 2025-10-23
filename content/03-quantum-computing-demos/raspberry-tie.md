@@ -1,6 +1,6 @@
 # quantum-raspberry-tie
 
-<img src='qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style={{ float: 'right', marginRight: '10px' }} /><br/>
+<img src='/qrtimages/New Logo Screen.png' width='150' alt='display while waiting for results' style={{ float: 'right', marginRight: '10px' }} /><br/>
 Your Raspberry Pi running code on the IBM Quantum platform processors or simulators via Python 3 -- with results displayed courtesy of the 8x8 LED array on a SenseHat (or SenseHat emulator)!
 
 ## November 2024 updates
@@ -57,15 +57,15 @@ An svg vector rendering of the array is also created and written to a folder tha
 **Bowtie**
 
 The default 5-qubit display formats output in a manner corresponding to the connectivity of the early IBM 5-qubit "bowtie" quantum processor.
-<br/><img src='qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style={{ float: 'left', marginRight: '10px' }} />
-<img src='qrtimages/RaspberryTieOutput.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
+<br/><img src='/qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' style={{ float: 'left', marginRight: '10px' }} />
+<img src='/qrtimages/RaspberryTieOutput.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
 (It's called a bowtie because of the arrangement of the 5 qubits, and the particular ways they can interconnect via entanglement. Each of those rectangles touched by a squiggly line in the image on the left holds a qubit.)
 
 **Tee**
 
 This variation of the 5-qubit display is based on the lower-noise tee connectivity of later small processors
 
-<img src='qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
+<img src='/qrtimages/5-qubit tee.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
 
 #### 12-qubit displays
 
@@ -73,14 +73,14 @@ This variation of the 5-qubit display is based on the lower-noise tee connectivi
 
 Even though it looks like a diamond rather than a hexagon, this display is topologically equivalent to the 12-qubit "heavy hex" arrangement that is the building block for many modern IBM quantum processors, with a qubit at each vertex of a hexagon and another at the center of each side.
 
-<img src='qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} />
+<img src='/qrtimages/12-qubit display.png' width='200' alt='Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} />
 Note that this is a 5-qubit result displayed on the 12 qubit display, so 7 of the pixel blocks are purple indicating unmeasured status
 
 #### 16-qubit display
 
 The 16 qubit display arrangement corresponds to one of the early experimental 16-qubit processors
-<br /><img src='qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style={{ float: 'left', marginRight: '10px' }} />
-<img src='qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
+<br /><img src='/qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' style={{ float: 'left', marginRight: '10px' }} />
+<img src='/qrtimages/16-bitRpi-result.JPG' width='200' alt='16 qubit Output displayed on the SenseHat' style={{ float: 'right', marginRight: '10px' }} /><br/>
 
 #### SVG alternate display
 
@@ -89,7 +89,7 @@ As it starts, the program will create a **svg** subdirectory if one does not exi
 - _qubits.html_ is an html wrapper set to refresh every 2 seconds when opened in a browser. It will repeatedly load _pixels.html_
 - _pixels.html_ contains an svg rendering of the 8x8 pixel array, and a caption below it showing the qubit pattern being represented
 
-<img src='qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display' /> <img src='qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display' /> <img src='qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display' />
+<img src='/qrtimages/SVG%20display%20tee.png' width ='200' alt='SVG rendering of tee display' /> <img src='/qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG rendering of 12 qubits on 12 qubit (hex) display' /> <img src='/qrtimages/svg%20display%205%20on%20hex12.png' width='200' alt='SVG rendering of 5 qubits on 12 qubit (hex) display' />
 
 Once the program is looping, if there is no physical LED array, you can watch the results of the program iteration by just opening _./svg/qubits.html_ in a browser window and leave it open; there can be a few seconds time lag between the result is returned and when the svg image updates.
 
