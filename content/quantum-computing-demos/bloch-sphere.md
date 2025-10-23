@@ -168,4 +168,4 @@ lsof -ti:5000 | xargs kill -9
 - [Quantum Lights Out](quantum-lights-out.md) - Quantum puzzle solving
 - [Qoffee Maker](qoffee-maker.md) - Quantum coffee selection
 - [Fractals](fractals.md) - Quantum-generated fractals
-- [Demo List](demo-list.md) - All available demos
+- [Demo List](00-demo-list.md) - All available demos
