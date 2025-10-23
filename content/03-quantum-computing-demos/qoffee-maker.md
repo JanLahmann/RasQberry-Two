@@ -210,4 +210,4 @@ A related demo with cocktail/mocktail selection instead of coffee. Uses the same
 - [Bloch Sphere](bloch-sphere.md) - Understand single-qubit gates
 - [Raspberry Tie](raspberry-tie.md) - Circuit results on LED display
 - [Fun with Quantum notebooks](http://fun-with-quantum.org) - More quantum games
-- [Demo List](00-demo-list.md) - All available demos
+- [Demo List](01-demo-list.md) - All available demos

@@ -167,4 +167,4 @@ lsof -ti:5000 | xargs kill -9
 - [Raspberry Tie](raspberry-tie.md) - Run quantum circuits with LED visualization
 - [Quantum Lights Out](quantum-lights-out.md) - Quantum puzzle solving
 - [Qoffee Maker](qoffee-maker.md) - Quantum coffee selection
-- [Demo List](00-demo-list.md) - All available demos
+- [Demo List](01-demo-list.md) - All available demos

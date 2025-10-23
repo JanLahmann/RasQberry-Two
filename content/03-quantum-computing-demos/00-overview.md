@@ -110,7 +110,7 @@ Each demo teaches different quantum concepts:
 
 ## All Demos
 
-For a complete list with descriptions and screenshots, see the [Demo List](00-demo-list.md).
+For a complete list with descriptions and screenshots, see the [Demo List](01-demo-list.md).
 
 ## Resources
 

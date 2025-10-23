@@ -191,4 +191,4 @@ Try creating these fractal series:
 - [Raspberry Tie](raspberry-tie.md) - Another quantum visualization approach
 - [Qoffee Maker](qoffee-maker.md) - Quantum circuit design
 - [Quantum Lights Out](quantum-lights-out.md) - Quantum puzzle solving
-- [Demo List](00-demo-list.md) - All available demos
+- [Demo List](01-demo-list.md) - All available demos
