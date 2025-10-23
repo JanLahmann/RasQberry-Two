@@ -1,0 +1,139 @@
+name: Code Quality Validation
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+      - 'dev*'
+  pull_request:
+    branches:
+      - main
+      - beta
+      - 'dev*'
+
+jobs:
+  validate:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run Basic Validation
+        id: basic
+        run: |
+          chmod +x tests/test_basic_validation.sh
+          ./tests/test_basic_validation.sh
+        continue-on-error: false
+
+      - name: Run Advanced Pattern Detection
+        id: advanced
+        run: |
+          chmod +x tests/test_common_library_usage.sh
+          ./tests/test_common_library_usage.sh
+        continue-on-error: false
+
+      - name: Run ShellCheck (Advisory)
+        id: shellcheck
+        run: |
+          echo "=== ShellCheck Analysis (Advisory) ==="
+          echo ""
+          echo "Running ShellCheck on all shell scripts..."
+          echo ""
+
+          SCRIPT_COUNT=0
+          ISSUE_COUNT=0
+          SCRIPTS_WITH_ISSUES=()
+
+          for script in RQB2-bin/*.sh RQB2-config/*.sh; do
+            [ -f "$script" ] || continue
+            SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
+
+            script_name=$(basename "$script")
+
+            # Run shellcheck and capture output
+            if output=$(shellcheck -x "$script" 2>&1); then
+              echo "  ✓ $script_name"
+            else
+              echo "  ⚠️  $script_name has ShellCheck suggestions"
+              ISSUE_COUNT=$((ISSUE_COUNT + 1))
+              SCRIPTS_WITH_ISSUES+=("$script_name")
+
+              # Show the issues (indented)
+              echo "$output" | sed 's/^/    /'
+              echo ""
+            fi
+          done
+
+          echo ""
+          echo "=== ShellCheck Summary ==="
+          echo "  Scripts checked: $SCRIPT_COUNT"
+          echo "  Scripts with suggestions: $ISSUE_COUNT"
+
+          if [ $ISSUE_COUNT -gt 0 ]; then
+            echo ""
+            echo "  Note: ShellCheck findings are advisory and do not fail the build."
+            echo "  Review suggestions for potential improvements."
+          fi
+
+          # Always succeed (advisory only)
+          exit 0
+        continue-on-error: true
+
+      - name: Generate Summary Report
+        if: always()
+        run: |
+          echo "# Code Quality Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.basic.outcome }}" == "success" ] && [ "${{ steps.advanced.outcome }}" == "success" ]; then
+            echo "✅ **All validation checks passed**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Validation checks failed**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Basic Validation | ${{ steps.basic.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Advanced Pattern Detection | ${{ steps.advanced.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ShellCheck Analysis | ${{ steps.shellcheck.outcome == 'success' && '✅ Completed' || '⚠️ See logs' }} (Advisory) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.basic.outcome }}" != "success" ] || [ "${{ steps.advanced.outcome }}" != "success" ]; then
+            echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the logs above and fix the validation errors before merging." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Quick Fixes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Syntax errors**: Run \`bash -n <script>\` locally to check" >> $GITHUB_STEP_SUMMARY
+            echo "- **Safety flags**: Add \`set -euo pipefail\` at the top of scripts" >> $GITHUB_STEP_SUMMARY
+            echo "- **USER_HOME violations**: Remove USER_HOME redefinitions, use \`load_rqb2_env\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Missing patterns**: Ensure scripts use \`rq_common.sh\` functions" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🎉 Great Work!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All code quality checks passed. The codebase maintains high standards." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if validation failed
+        if: steps.basic.outcome != 'success' || steps.advanced.outcome != 'success'
+        run: |
+          echo "❌ Code quality validation failed"
+          echo "Please review the errors above and fix them before merging"
+          exit 1
