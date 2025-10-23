@@ -1,3 +1,42 @@
 .page-layout__main {
     margin-top: 4rem;
 }
+
+.page-layout__footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.page-layout__edit-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #0f62fe;
+    font-size: 0.875rem;
+    font-weight: 400;
+    border-radius: 4px;
+    transition: all 0.15s ease-in-out;
+
+    &:hover {
+        background-color: #e5f6ff;
+        text-decoration: none;
+    }
+
+    &:focus {
+        outline: 2px solid #0f62fe;
+        outline-offset: 2px;
+    }
+
+    svg {
+        flex-shrink: 0;
+    }
+
+    span {
+        white-space: nowrap;
+    }
+}

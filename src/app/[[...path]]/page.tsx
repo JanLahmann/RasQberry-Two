@@ -35,6 +35,7 @@ export default async function Page({ params }: Props) {
         frontmatter={{ ...frontmatter }}
         navItems={navItems}
         tableofcontent={{ items: tocItems }}
+        pagePath={path}
     >
         {content}
     </PageLayout>
