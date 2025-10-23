@@ -7,7 +7,24 @@ export async function getNavItems(paths: { path: string[] }[]): Promise<NavItem[
         addPathsToNavItems(navItems, path)
     }
 
+    // Sort nav items alphabetically (which respects numeric prefixes like 01-, 02-, etc.)
+    sortNavItems(navItems)
+
     return navItems
+}
+
+function sortNavItems(navItems: NavItem[]) {
+    navItems.sort((a, b) => {
+        const urlA = a.url || ''
+        const urlB = b.url || ''
+        return urlA.localeCompare(urlB)
+    })
+    // Recursively sort children
+    navItems.forEach(item => {
+        if (item.children && item.children.length > 0) {
+            sortNavItems(item.children)
+        }
+    })
 }
 
 function addPathsToNavItems(navItems: NavItem[], paths: { path: string[] }, level: number = 0) {
