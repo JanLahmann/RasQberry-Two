@@ -16,6 +16,38 @@ img {
   height: auto;
 }
 
+// Media grid for homepage
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+}
+
+.media-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.media-image,
+.media-video {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.media-caption {
+  text-align: center;
+  font-style: italic;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.centered-media {
+  margin: 2rem 0;
+  text-align: center;
+}
+
 h1 {
   @include type.type-style('fluid-display-01', true);
   color: themes.$text-primary;

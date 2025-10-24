@@ -24,17 +24,17 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 
 ## See It In Action
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin: 2rem 0;">
-  <div>
-    <img src="/Artwork/RasQberry2model.png" alt="RasQberry Two 3D Model" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
-    <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">3D-printed model inspired by IBM Quantum System Two</p>
+<div className="media-grid">
+  <div className="media-item">
+    <img src="/Artwork/RasQberry2model.png" alt="RasQberry Two 3D Model" className="media-image" />
+    <p className="media-caption">3D-printed model inspired by IBM Quantum System Two</p>
   </div>
-  <div>
-    <video controls style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" poster="/Artwork/RasQberry2model.png">
+  <div className="media-item">
+    <video controls className="media-video" poster="/Artwork/RasQberry2model.png">
       <source src="/videos/RasQberry-beta-2026-06-04.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
-    <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Demo video showing RasQberry Two beta with quantum computing demos</p>
+    <p className="media-caption">Demo video showing RasQberry Two beta with quantum computing demos</p>
   </div>
 </div>
 
@@ -123,9 +123,9 @@ qiskit-qasm3-import    0.5.1
 
 STL files for the 3D-printed model are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model). The model consists of several printed parts that assemble together to create the complete RasQberry Two enclosure.
 
-<div style="margin: 2rem 0; text-align: center;">
-  <img src="/Artwork/RasQberry2exploded.png" alt="RasQberry Two Exploded View" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
-  <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Exploded view showing all 3D-printed components</p>
+<div className="centered-media">
+  <img src="/Artwork/RasQberry2exploded.png" alt="RasQberry Two Exploded View" className="media-image" />
+  <p className="media-caption">Exploded view showing all 3D-printed components</p>
 </div>
 
 For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/hardware-assembly-guide).
