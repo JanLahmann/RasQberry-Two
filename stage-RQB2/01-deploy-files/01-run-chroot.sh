@@ -88,6 +88,10 @@ cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
+# Set permissions on system-wide directories (must be world-accessible)
+chmod 755 /usr/config   # World-readable/executable so users can access config files
+chmod 755 /usr/venv     # World-readable/executable so users can copy venv templates
+
 # Set permissions on system-wide files
 chmod 644 /usr/config/rasqberry_environment.env   # World-readable configuration
 chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment loader
