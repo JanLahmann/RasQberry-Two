@@ -62,8 +62,9 @@ echo "========================================="
 
 cd "$DEMO_DIR" || die "Cannot change to demo directory"
 
-# Run the demo in background
-python3 QuantumRaspberryTie.v7_1.py &
+# Run the demo in background with default backend (local Aer simulator)
+# The script requires a backend argument, use -b:aer for local simulation
+python3 QuantumRaspberryTie.v7_1.py -b:aer &
 PYTHON_PID=$!
 
 echo "Demo is running (PID: $PYTHON_PID)"
