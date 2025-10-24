@@ -275,6 +275,24 @@ update-desktop-database /usr/share/applications || echo "Warning: Failed to upda
 echo "Updating icon cache..."
 gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
 
+# Replace the main panel menu icon with RasQberry logo
+echo "Configuring main panel menu icon..."
+PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+if [ -f "$PANEL_CONFIG" ]; then
+    # Backup original panel config
+    cp "$PANEL_CONFIG" "${PANEL_CONFIG}.orig"
+
+    # Replace the menu icon in the panel configuration
+    # Look for the menu plugin section and change its icon
+    # The default uses "raspberrypi-logo" or similar
+    sed -i 's|icon=raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+    sed -i 's|icon=/usr/share/pixmaps/raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+
+    echo "Panel menu icon updated to RasQberry logo"
+else
+    echo "Warning: Panel config not found at $PANEL_CONFIG"
+fi
+
 # Update menu cache for LXDE
 echo "Updating menu cache..."
 lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
