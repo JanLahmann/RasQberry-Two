@@ -12,7 +12,7 @@ You can contact any of us with questions, concerns or suggestions for changes to
 
 ### Where to find the 3D files
 
-This assembly guide assumes that you have already printed out the 3D files for the Wall, Floor, Cryostat and the RTEs. If you haven't already downloaded and printed the STL files, they can be found [here](https://github.com/JanLahmann/RasQberry-Two-3Dmodel/tree/main/3D%20Model).
+This assembly guide assumes that you have already printed out the 3D files for the Wall, Floor, Cryostat and the RTEs. If you haven't already downloaded and printed the STL files, they can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model).
 
 ## Setting up the Raspberry Pi
 

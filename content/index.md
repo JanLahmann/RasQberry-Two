@@ -80,4 +80,4 @@ qiskit-qasm3-import    0.5.1
 
 ## Building the RasQberry 3D model of IBM Quantum System Two
 
-STL files for a 3D model of IBM Quantum System Two will be available soon at [GitHub: JanLahmann/RasQberry-Two-3Dmodel](https://github.com/JanLahmann/RasQberry-Two-3Dmodel)
+STL files for a 3D model of IBM Quantum System Two are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
