@@ -58,7 +58,17 @@ Alternatively, run Pi Imager manually in a terminal:
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 ```
 
-**On Windows**, run in a command prompt:
+**On Windows**, you can install a convenient Desktop shortcut (one-line command):
+
+Open PowerShell as Administrator and run:
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
+```
+
+This creates a "Pi Imager for RasQberry" shortcut on your Desktop with the RasQberry icon. You can then pin it to Start Menu or Taskbar.
+
+Alternatively, run Pi Imager manually in a command prompt:
 
 ```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
