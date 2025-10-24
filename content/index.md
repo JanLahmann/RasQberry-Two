@@ -42,15 +42,25 @@ Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image ba
 
 Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-Two/releases](https://github.com/JanLahmann/RasQberry-Two/releases)
 
-Alternatively, some of the images can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
+Alternatively, some of the images can be accessed with the Raspberry Pi Imager using a custom repository.
 
-```python
+**On macOS**, you can install a convenient Desktop launcher (one-line command):
+
+```bash
+curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
+```
+
+This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon that opens Pi Imager with RasQberry images pre-loaded. You can then move it to Applications or your Dock.
+
+Alternatively, run Pi Imager manually in a terminal:
+
+```bash
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 ```
 
-or on Windows
+**On Windows**, run in a command prompt:
 
-```python
+```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
 
