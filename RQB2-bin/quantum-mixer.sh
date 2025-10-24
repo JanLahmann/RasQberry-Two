@@ -45,8 +45,9 @@ run_qoffee_setup() {
 command -v docker &> /dev/null || run_qoffee_setup "Error: Docker is not installed."
 
 # Check if user is in docker group
-if ! groups "$SUDO_USER_NAME" | grep -q docker && [ "$SUDO_USER_NAME" != "root" ]; then
-    run_qoffee_setup "Error: User '$SUDO_USER_NAME' is not in the docker group."
+USER_NAME=$(get_user_name)
+if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
+    run_qoffee_setup "Error: User '$USER_NAME' is not in the docker group."
 fi
 
 # Check if docker group is active in current session

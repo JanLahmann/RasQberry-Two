@@ -81,7 +81,8 @@ if [ "$DOCKER_INSTALLED" = false ]; then
 
     # Add user to docker group
     info "[3/4] Configuring Docker permissions..."
-    usermod -aG docker "$SUDO_USER_NAME"
+    USER_NAME=$(get_user_name)
+    usermod -aG docker "$USER_NAME"
 
     # Enable Docker service
     info "[4/4] Enabling Docker service..."
@@ -110,10 +111,11 @@ fi
 ################################################################################
 
 # Check if user is in docker group (according to /etc/group)
-if ! groups "$SUDO_USER_NAME" | grep -q docker; then
-    warn "User '$SUDO_USER_NAME' is not in the docker group"
+USER_NAME=$(get_user_name)
+if ! groups "$USER_NAME" | grep -q docker; then
+    warn "User '$USER_NAME' is not in the docker group"
     info "Adding user to docker group..."
-    usermod -aG docker "$SUDO_USER_NAME"
+    usermod -aG docker "$USER_NAME"
 
     # Re-exec with docker group active
     info "Activating Docker group permissions..."
@@ -208,7 +210,8 @@ ENVEOF
     fi
 
     # Fix ownership to user (not root)
-    fix_ownership "$ENV_FILE" "$SUDO_USER_NAME"
+    USER_NAME=$(get_user_name)
+    fix_ownership "$ENV_FILE" "$USER_NAME"
 
     info "Configuration file created: $ENV_FILE"
     echo

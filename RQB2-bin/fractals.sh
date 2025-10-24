@@ -41,7 +41,7 @@ verify_env_vars USER_HOME REPO STD_VENV
 DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 
 info "Starting Quantum Fractals Demo..."
-debug "User: $SUDO_USER_NAME"
+debug "User: $(get_user_name)"
 debug "Demo directory: $DEMO_DIR"
 
 # Check if demo files exist

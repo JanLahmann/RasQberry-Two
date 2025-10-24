@@ -43,7 +43,7 @@ PORT=8080
 if [ ! -f "$DEMO_DIR/index.html" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
-    debug "USER_NAME: $SUDO_USER_NAME"
+    debug "USER_NAME: $(get_user_name)"
     debug "USER_HOME: $USER_HOME"
     debug "REPO: $REPO"
     debug "Expected path: $DEMO_DIR"
