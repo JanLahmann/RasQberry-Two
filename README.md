@@ -8,7 +8,7 @@
 Quick setup instructions:<br/>
 Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit". 
 
-Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-pi-gen/releases](https://github.com/JanLahmann/RasQberry-pi-gen/releases)
+The latest RasQberry images can be found at [https://github.com/JanLahmann/RasQberry-Two/releases](https://github.com/JanLahmann/RasQberry-Two/releases)
 
 Alternatively, this image can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
 
@@ -44,4 +44,4 @@ qiskit-qasm3-import    0.5.0
 
 ## Building the RasQberry 3D model of IBM Quantum System Two
 
-STL files for a 3D model of IBM Quantum System Two will be available soon at [GitHub: JanLahmann/RasQberry-Two-3Dmodel](https://github.com/JanLahmann/RasQberry-Two-3Dmodel)
+STL files for a 3D model of IBM Quantum System Two are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
