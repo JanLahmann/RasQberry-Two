@@ -216,3 +216,7 @@ Developed by **Kevin Roche**
 - [Quantum Lights Out](quantum-lights-out.md) - Another LED-based demo
 - [Qoffee Maker](qoffee-maker.md) - Quantum circuit design
 - [Demo List](01-demo-list.md) - All available demos
+
+---
+
+*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*

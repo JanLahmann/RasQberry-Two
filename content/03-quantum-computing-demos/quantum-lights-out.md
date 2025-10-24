@@ -163,3 +163,7 @@ Default is typically 5x5, but can be customized in the code for different LED pa
 - [Bloch Sphere](bloch-sphere.md) - Single-qubit gate visualization
 - [Qoffee Maker](qoffee-maker.md) - Quantum coffee selection
 - [Demo List](01-demo-list.md) - All available demos
+
+---
+
+*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*

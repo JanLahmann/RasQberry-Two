@@ -211,3 +211,7 @@ A related demo with cocktail/mocktail selection instead of coffee. Uses the same
 - [Raspberry Tie](raspberry-tie.md) - Circuit results on LED display
 - [Fun with Quantum notebooks](http://fun-with-quantum.org) - More quantum games
 - [Demo List](01-demo-list.md) - All available demos
+
+---
+
+*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*

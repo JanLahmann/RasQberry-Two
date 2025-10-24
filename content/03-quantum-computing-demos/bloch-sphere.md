@@ -168,3 +168,7 @@ lsof -ti:5000 | xargs kill -9
 - [Quantum Lights Out](quantum-lights-out.md) - Quantum puzzle solving
 - [Qoffee Maker](qoffee-maker.md) - Quantum coffee selection
 - [Demo List](01-demo-list.md) - All available demos
+
+---
+
+*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*
