@@ -22,29 +22,34 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 
 **Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
-### Using the Developer Image
+## See It In Action
 
-Currently, additional functionality (menu, config & code improvements; additional quantum computing demos; etc) is being added to the [alpha releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin: 2rem 0;">
+  <div>
+    <img src="/Artwork/RasQberry2model.png" alt="RasQberry Two 3D Model" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+    <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">3D-printed model inspired by IBM Quantum System Two</p>
+  </div>
+  <div>
+    <video controls style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" poster="/Artwork/RasQberry2model.png">
+      <source src="/videos/RasQberry-beta-2026-06-04.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+    <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Demo video showing RasQberry Two beta with quantum computing demos</p>
+  </div>
+</div>
 
-**Quick instructions for using the alpha releases:**
 
-1. Download the .xz file in a release (e.g. "image_2025-04-25-rasqberry-two-full.img.xz") to your laptop
-1. Write the image to SD card  with the Pi Imager without any customisations.
-1. Insert the SD card to your Raspberry Pi (Pi 5 is our standard version; Pi will also be supported in the future), and boot the raspberry.
-1. Login via ssh. user "rasqberry", PW: "Qiskit1!".
-2. vnc might not work out of the box. Enable vnc through raspi-config (interface options, VNC, yes), or simply run `sudo raspi-config nonint do_vnc 0`
-1. after login, run `sudo raspi-config` and explore the first menu item which let's you access the current version of our demos. Need to have LEDs connected for most of them.
-1. Please report issues in github https://github.com/JanLahmann/RasQberry-Two/issues
+## Quick Installation
 
+Get started with RasQberry Two in three easy steps:
 
-### Quick Installation of RasQberry using the Raspberry Pi Imager
+1. **Download** a RasQberry image from [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases) (beta phase)
+2. **Write** the image to an SD card using Raspberry Pi Imager (no customizations needed)
+3. **Boot** your Raspberry Pi 5 and explore quantum computing demos
 
-Quick setup instructions:<br/>
-Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit".
+### Simplified Installation with Custom Pi Imager
 
-Currently (during the beta phase), the image can be found at [https://github.com/JanLahmann/RasQberry-Two/releases](https://github.com/JanLahmann/RasQberry-Two/releases)
-
-Alternatively, some of the images can be accessed with the Raspberry Pi Imager using a custom repository.
+For an even easier experience, use our pre-configured Pi Imager launcher that automatically loads RasQberry images:
 
 **On macOS**, you can install a convenient Desktop launcher (one-line command):
 
@@ -54,7 +59,7 @@ curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
 
 This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon that opens Pi Imager with RasQberry images pre-loaded. You can then move it to Applications or your Dock.
 
-Alternatively, run Pi Imager manually in a terminal:
+Alternatively, run Pi Imager with a custom repository manually in a terminal:
 
 ```bash
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
@@ -76,21 +81,35 @@ Alternatively, run Pi Imager manually in a command prompt:
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
 
-This image includes Qiskit 1.x and several Quantum computing Demos.
+### First Boot Setup
 
-Further instructions will be released, soon.
+Once your RasQberry Two is running:
 
-### Working with Qiskit
+1. **Connect** via SSH or VNC (both work out of the box)
+   - Username: `rasqberry`
+   - Password: `Qiskit1!`
 
-Qiskit is available in the default venv called RQB2. In case this venv is not activated, you can activate with
+2. **Explore Demos** through the menu system:
+   - Run `sudo raspi-config` and select the first menu item
+   - Or use desktop icons to launch demos directly
+   - Note: Most demos require LED strips connected to GPIO pin 21
 
-```python
-. /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
+3. **Report Issues** at [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues)
+
+> **Beta Note**: Additional features, demos, and improvements are continuously being added to [beta releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+
+
+## Working with Qiskit
+
+Qiskit comes pre-installed in the default virtual environment (RQB2).
+
+**Activate the environment:**
+```bash
+source /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
 ```
 
-and list the available Qiskit modules:
-
-```python
+**Check installed packages:**
+```bash
 (RQB2) rasqberry@raspberrypi:~ $ pip list | grep qiskit
 qiskit                 2.0.1
 qiskit-aer             0.15.1
@@ -98,8 +117,15 @@ qiskit-ibm-runtime     0.30.0
 qiskit-qasm3-import    0.5.1
 ```
 
-> **Note**: This package list is an example as of June 2025. The specific Qiskit packages and versions may change in future RasQberry releases as Qiskit continues to evolve. Use `pip list | grep qiskit` in your environment to see the current installed packages.
+> **Note**: Package versions shown are examples. Use `pip list | grep qiskit` to see your current installation.
 
-## Building the RasQberry 3D model of IBM Quantum System Two
+## Building the RasQberry 3D Model
 
-STL files for a 3D model of IBM Quantum System Two are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
+STL files for the 3D-printed model are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model). The model consists of several printed parts that assemble together to create the complete RasQberry Two enclosure.
+
+<div style="margin: 2rem 0; text-align: center;">
+  <img src="/Artwork/RasQberry2exploded.png" alt="RasQberry Two Exploded View" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+  <p style="text-align: center; font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Exploded view showing all 3D-printed components</p>
+</div>
+
+For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/hardware-assembly-guide).
