@@ -123,9 +123,15 @@ update_env_var() {
         # Variable exists - update it
         sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
         sudo mv "$temp_file" "$RQ_ENV_FILE" || die "Failed to update $var_name"
+        # Restore proper permissions (world-readable, root-owned)
+        sudo chmod 644 "$RQ_ENV_FILE"
+        sudo chown root:root "$RQ_ENV_FILE"
     else
         # Variable doesn't exist - append it
         echo "${var_name}=${var_value}" | sudo tee -a "$RQ_ENV_FILE" > /dev/null || die "Failed to add $var_name"
+        # Ensure proper permissions after append
+        sudo chmod 644 "$RQ_ENV_FILE"
+        sudo chown root:root "$RQ_ENV_FILE"
     fi
 
     # Reload environment
