@@ -522,7 +522,8 @@ run_as_user() {
 
     if [ "$(whoami)" = "root" ] && [ "$user_name" != "root" ]; then
         debug "Running as user: $user_name"
-        sudo -u "$user_name" -H -- "$@"
+        # Preserve DISPLAY environment variable for GUI applications
+        sudo -u "$user_name" -H DISPLAY="${DISPLAY:-:0}" -- "$@"
     else
         "$@"
     fi
