@@ -1,35 +1,43 @@
 # Custom image filename without "image_" prefix
-# Format: YYYY-MM-DD-rasqberry-{branch}.img (branch name only for non-main branches)
+# Naming strategy:
+#   Main:  rasqberry-v{version}.img           (e.g., rasqberry-v1.2.3.img)
+#   Beta:  rasqberry-beta-YYYY-MM-DD.img      (e.g., rasqberry-beta-2025-10-25.img)
+#   Dev:   rasqberry-{branch}-YYYY-MM-DD-HHMMSS.img (e.g., rasqberry-dev-review01-2025-10-25-080748.img)
+#
 # Uses VERSION file created by GitHub workflow (format: branch-YYYY-MM-DD-HHMMSS or vX.Y.Z)
 
 if [ -f /etc/rasqberry-version ]; then
     VERSION=$(cat /etc/rasqberry-version)
     echo "RasQberry VERSION: $VERSION"
 
-    # Parse VERSION to extract date and branch
-    # Format examples:
-    #   dev-review01-2025-10-25-080748  -> date: 2025-10-25, branch: dev-review01
-    #   beta-2025-10-25-080748          -> date: 2025-10-25, branch: beta
-    #   v1.2.3                           -> date: today, branch: main (no branch name in filename)
-
     if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-        # Semantic version (main branch)
-        BUILD_DATE=$(date +"%Y-%m-%d")
-        export IMG_FILENAME="${BUILD_DATE}-rasqberry"
-    elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
-        # Branch-timestamp format
+        # Semantic version (main branch) - use version number only
+        # Example: v1.2.3 -> rasqberry-v1.2.3.img
+        export IMG_FILENAME="rasqberry-${VERSION}"
+
+    elif [[ "$VERSION" =~ ^beta-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
+        # Beta branch - use date only (no time)
+        # Example: beta-2025-10-25-080748 -> rasqberry-beta-2025-10-25.img
+        BUILD_DATE="${BASH_REMATCH[1]}"
+        export IMG_FILENAME="rasqberry-beta-${BUILD_DATE}"
+
+    elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{6})$ ]]; then
+        # Dev branch - use full date and time
+        # Example: dev-review01-2025-10-25-080748 -> rasqberry-dev-review01-2025-10-25-080748.img
         BRANCH_NAME="${BASH_REMATCH[1]}"
         BUILD_DATE="${BASH_REMATCH[2]}"
-        export IMG_FILENAME="${BUILD_DATE}-rasqberry-${BRANCH_NAME}"
+        BUILD_TIME="${BASH_REMATCH[3]}"
+        export IMG_FILENAME="rasqberry-${BRANCH_NAME}-${BUILD_DATE}-${BUILD_TIME}"
+
     else
-        # Fallback
+        # Fallback for unexpected format
         BUILD_DATE=$(date +"%Y-%m-%d")
-        export IMG_FILENAME="${BUILD_DATE}-rasqberry"
+        export IMG_FILENAME="rasqberry-${BUILD_DATE}"
     fi
 else
-    # No version file - use defaults
+    # No version file - use fallback with current date
     BUILD_DATE=$(date +"%Y-%m-%d")
-    export IMG_FILENAME="${BUILD_DATE}-rasqberry"
+    export IMG_FILENAME="rasqberry-${BUILD_DATE}"
 fi
 
 echo "Custom image filename: ${IMG_FILENAME}.img"

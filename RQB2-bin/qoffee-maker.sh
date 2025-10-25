@@ -69,6 +69,27 @@ if ! groups | grep -q docker && [ "$(whoami)" != "root" ]; then
     fi
 fi
 
+# Verify Docker actually works (after group activation)
+if ! docker ps &>/dev/null; then
+    echo
+    echo "ERROR: Cannot access Docker"
+    echo
+    echo "Docker is installed but you don't have permission to use it."
+    echo "This usually means:"
+    echo "  1. You need to be added to the 'docker' group"
+    echo "  2. You need to log out and log back in for group changes to take effect"
+    echo
+    echo "To fix this:"
+    echo "  1. Run the Qoffee-Maker setup from raspi-config menu (as root)"
+    echo "  2. OR manually run: sudo usermod -aG docker $USER_NAME"
+    echo "  3. Then log out and log back in"
+    echo
+    echo "For now, you can run with sudo:"
+    echo "  sudo $0"
+    echo
+    die "Docker permission denied"
+fi
+
 # Check for .env configuration
 if [ ! -f "$ENV_FILE" ]; then
     run_qoffee_setup "Error: Configuration file not found."
