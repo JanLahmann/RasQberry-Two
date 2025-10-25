@@ -83,15 +83,15 @@ while read -t 0; do read -t 0.1 -n 1000; done 2>/dev/null
 
 # Wait for user input to quit
 while kill -0 "$PYTHON_PID" 2>/dev/null; do
-    read -t 1 -n 1 key 2>/dev/null
-    if [ $? -eq 0 ]; then
-        # User pressed a key
-        if [ "$key" = "q" ] || [ "$key" = "" ]; then
+    if read -t 1 -n 1 key 2>/dev/null; then
+        # User pressed a key (read succeeded, exit code 0)
+        if [ "$key" = "q" ] || [ -z "$key" ]; then
             echo ""
             echo "Stop requested by user..."
             break
         fi
     fi
+    # If read timed out (exit code > 0), just continue the loop
 done
 
 # Check if process is still running
