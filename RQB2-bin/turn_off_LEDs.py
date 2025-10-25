@@ -5,12 +5,12 @@
 
 import board
 import neopixel_spi as neopixel
-from rq_led_utils import get_led_config, create_neopixel_strip
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_clear
 
 
 def turn_off_LEDs():
     """
-    A simple function that iterates through every LED and turns it off.
+    A simple function that turns off all LEDs using chunked writes.
 
     Args:
         None
@@ -36,12 +36,8 @@ def turn_off_LEDs():
             pi_model=config['pi_model']
         )
 
-        # Turn off all pixels
-        for index in range(NUM_PIXELS):
-            # Setting pixel to 0 value will turn it off
-            pixels[index] = 0x000000
-
-        pixels.show()
+        # Turn off all pixels using chunked writes
+        chunked_clear(pixels)
         print(f"Turned off {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order)")
 
     except Exception as e:

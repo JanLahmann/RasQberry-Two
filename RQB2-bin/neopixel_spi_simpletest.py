@@ -6,7 +6,7 @@
 import time
 import board
 import neopixel_spi as neopixel
-from rq_led_utils import get_led_config, create_neopixel_strip
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 
 # Load configuration from environment
 config = get_led_config()
@@ -112,7 +112,7 @@ while True:
         pixels[134] = color
         pixels[135] = color
 
-        pixels.show()
+        chunked_show(pixels)
         time.sleep(16 * DELAY)
 
         # Animated sweep effect
@@ -125,6 +125,6 @@ while True:
                 pixels[i + 2] = color
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
-            pixels.show()
+            chunked_show(pixels)
             time.sleep(DELAY)
             pixels.fill(0)

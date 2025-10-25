@@ -12,7 +12,7 @@ from time import sleep
 import board
 import neopixel_spi as neopixel
 import argparse
-from rq_led_utils import get_led_config, create_neopixel_strip
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 
 # Load configuration from system-wide environment
 config = get_led_config()
@@ -48,20 +48,20 @@ def display_on_strip(pixels, measurement):
 
         color = to_color.get(bit, K)  # Get color or black for invalid bits
         pixels[i] = color
-        pixels.show()
+        chunked_show(pixels)
         sleep(wait_ms / 1000.0)
 
 def color_wipe(pixels, color=K, wait_ms=wait_ms):
     """Wipe color across display a pixel at a time"""
     for i in range(NUM_PIXELS):
         pixels[i] = color
-        pixels.show()
+        chunked_show(pixels)
         sleep(wait_ms / 1000.0)
 
 def clear_strip(pixels):
     """Clear all LEDs immediately"""
     pixels.fill(K)
-    pixels.show()
+    chunked_show(pixels)
     print("All LEDs cleared")
 
 # Main program logic

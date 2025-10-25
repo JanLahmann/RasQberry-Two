@@ -5,7 +5,7 @@
 import time
 import board
 import neopixel_spi as neopixel
-from rq_led_utils import get_led_config, create_neopixel_strip
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 
 # Load configuration from environment file
 config = get_led_config()
@@ -200,10 +200,10 @@ print()
 try:
     while True:
         doibm(0)  # Solid colors: I=green, B=red, M=blue
-        pixels.show()
+        chunked_show(pixels)
         time.sleep(DELAY)
         doibm(1)  # Rainbow gradient based on rows
-        pixels.show()
+        chunked_show(pixels)
         time.sleep(DELAY)
 
         # Check for Enter key press (non-blocking)
@@ -216,4 +216,4 @@ except KeyboardInterrupt:
 
 # Turn off all LEDs
 pixels.fill(0)
-pixels.show()
+chunked_show(pixels)
