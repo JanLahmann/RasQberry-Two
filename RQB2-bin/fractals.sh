@@ -38,14 +38,21 @@ fi
 load_rqb2_env
 verify_env_vars USER_HOME REPO STD_VENV
 
-DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
+# Check for fractals in system directory (preferred) or user directory (legacy)
+if [ -d "/usr/bin/fractal_files" ]; then
+    DEMO_DIR="/usr/bin/fractal_files"
+elif [ -d "$USER_HOME/.local/bin/fractal_files" ]; then
+    DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
+else
+    die "Fractals demo not found. Expected locations:\n  - /usr/bin/fractal_files\n  - $USER_HOME/.local/bin/fractal_files"
+fi
 
 info "Starting Quantum Fractals Demo..."
 debug "User: $(get_user_name)"
 debug "Demo directory: $DEMO_DIR"
 
-# Check if demo files exist
-[ -f "$DEMO_DIR/fractals.py" ] || die "Fractals demo not found at $DEMO_DIR. Please ensure the demo is properly installed."
+# Verify the fractals.py file exists
+[ -f "$DEMO_DIR/fractals.py" ] || die "fractals.py not found in $DEMO_DIR"
 
 # Activate virtual environment
 activate_venv || warn "Virtual environment not available, continuing anyway..."
