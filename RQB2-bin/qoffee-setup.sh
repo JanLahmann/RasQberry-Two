@@ -211,7 +211,7 @@ ENVEOF
 
     # Fix ownership to user (not root)
     USER_NAME=$(get_user_name)
-    fix_ownership "$ENV_FILE" "$USER_NAME"
+    sudo chown "$USER_NAME":"$USER_NAME" "$ENV_FILE"
 
     info "Configuration file created: $ENV_FILE"
     echo
