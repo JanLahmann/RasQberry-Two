@@ -28,11 +28,8 @@ VENV_PYTHON="$VENV_PATH/bin/python3"
 # Find LED script
 LED_SCRIPT=$(find_led_script "turn_off_LEDs.py") || die "LED control script not found"
 
-# Run LED clearing script with venv python (SPI access requires root)
-if [ "$EUID" -eq 0 ]; then
-    "$VENV_PYTHON" "$LED_SCRIPT"
-else
-    sudo "$VENV_PYTHON" "$LED_SCRIPT"
-fi
+# Run LED clearing script with venv python
+# Note: SPI access doesn't require root - user is in 'spi' group via raspi-config
+"$VENV_PYTHON" "$LED_SCRIPT"
 
 info "All LEDs cleared"
