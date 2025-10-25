@@ -18,18 +18,14 @@ verify_env_vars USER_HOME REPO STD_VENV BIN_DIR
 
 info "Clearing all LEDs..."
 
-# Find virtual environment (required for neopixel_spi and LED utilities)
-VENV_PATH=$(find_venv "$STD_VENV") || die "Virtual environment '$STD_VENV' not found"
-VENV_PYTHON="$VENV_PATH/bin/python3"
-
-# Verify venv python exists
-[ -x "$VENV_PYTHON" ] || die "Virtual environment python not found: $VENV_PYTHON"
+# Activate virtual environment (required for neopixel_spi and LED utilities)
+activate_venv || die "Virtual environment not available"
 
 # Find LED script
 LED_SCRIPT=$(find_led_script "turn_off_LEDs.py") || die "LED control script not found"
 
-# Run LED clearing script with venv python
+# Run LED clearing script
 # Note: SPI access doesn't require root - user is in 'spi' group via raspi-config
-"$VENV_PYTHON" "$LED_SCRIPT"
+python3 "$LED_SCRIPT"
 
 info "All LEDs cleared"
