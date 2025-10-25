@@ -62,8 +62,8 @@ echo "========================================="
 
 cd "$DEMO_DIR" || die "Cannot change to demo directory"
 
-# Run the demo in background
-python3 QuantumRaspberryTie.v7_1.py &
+# Run the demo in background (redirect stdin to prevent input conflicts)
+python3 QuantumRaspberryTie.v7_1.py </dev/null &
 PYTHON_PID=$!
 
 echo "Demo is running (PID: $PYTHON_PID)"
