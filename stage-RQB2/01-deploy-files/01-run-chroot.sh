@@ -84,6 +84,13 @@ cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
+# Copy VERSION file to system directory for identification
+if [ -f ${CLONE_DIR}/VERSION ]; then
+  cp ${CLONE_DIR}/VERSION /etc/rasqberry-version
+  chmod 644 /etc/rasqberry-version
+  echo "Installed RasQberry version: $(cat /etc/rasqberry-version)"
+fi
+
 # Set permissions on target directories
 chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}

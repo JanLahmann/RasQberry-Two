@@ -570,15 +570,28 @@ do_quantum_demo_menu() {
 # 3g) Main Raspi Config Menu
 # -----------------------------------------------------------------------------
 
+do_show_system_info() {
+  local version="Unknown"
+  if [ -f /etc/rasqberry-version ]; then
+    version=$(cat /etc/rasqberry-version)
+  fi
+
+  whiptail --title "RasQberry System Information" --msgbox \
+    "RasQberry Version: $version\n\nThis version identifier corresponds to the GitHub Actions workflow run that built this image." \
+    10 70
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD  "Quantum Demos" \
-       UEF "Update Env File") || break
+       UEF "Update Env File" \
+       INFO "System Info") || break
     case "$FUN" in
-      QD)  do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
-      UEF) do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      *)   handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
+      QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      INFO) do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      *)    handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
 }
