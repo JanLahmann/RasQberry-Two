@@ -78,6 +78,10 @@ echo "Note: Closing only the SenseHAT window will NOT stop the demo!"
 echo "========================================="
 echo ""
 
+# Clear any buffered input from stdin before starting the wait loop
+# This prevents accidental immediate exit when launched from desktop icons
+while read -t 0; do read -t 0.1 -n 1000; done 2>/dev/null
+
 # Wait for user input to quit
 while kill -0 "$PYTHON_PID" 2>/dev/null; do
     read -t 1 -n 1 key 2>/dev/null
