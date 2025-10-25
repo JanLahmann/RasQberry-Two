@@ -14,6 +14,8 @@ from io import BytesIO
 import traceback
 import timeit
 import sys
+import tempfile
+import os
 
 # Externally installed libraries
 import matplotlib.pyplot as plt
@@ -79,8 +81,9 @@ acc_timer = timer
 # |
 # | Pathing, default folder and generated files, webclient
 # └───────────────────────────────────────────────────────────────────────────────────────────────────────
-# Set default path values
-temp_image_folder = Path(Path.cwd(), "img")
+# Set default path values - use temp directory to avoid permission issues
+# Use /tmp for images instead of cwd (which might be /usr/bin and read-only)
+temp_image_folder = Path(tempfile.gettempdir(), "rasqberry-fractals-img")
 browser_file_path = f"file://{temp_image_folder}"
 default_image_url = f"{browser_file_path}/2cn2.png"
 

@@ -664,18 +664,28 @@ jobs:
             echo "Updating Git variables (placeholder values detected)"
             REPO_NAME="${GITHUB_REPOSITORY#*/}"
             REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
-            
+
             sed -i "s|RQB_REPO=will-be-set-in-gh-workflow|RQB_REPO=${REPO_NAME}|" pi-gen-config
-            sed -i "s|RQB_GIT_USER=will-be-set-in-gh-workflow|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config  
+            sed -i "s|RQB_GIT_USER=will-be-set-in-gh-workflow|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config
             sed -i "s|RQB_GIT_BRANCH=will-be-set-in-gh-workflow|RQB_GIT_BRANCH=${BRANCH_NAME}|" pi-gen-config
           else
             echo "Git variables manually set, preserving existing values"
           fi
-          
+
+          # Update IMG_SUFFIX to include branch name (except for main branch)
+          # This affects the final filename: image_YYYY-MM-DD-{IMG_NAME}{IMG_SUFFIX}.img
+          if [[ "$BRANCH_NAME" != "main" ]]; then
+            echo "Adding branch name suffix to image filename: -${BRANCH_NAME}"
+            echo "IMG_SUFFIX=-${BRANCH_NAME}" >> pi-gen-config
+          fi
+
           # Show final configuration for verification
           echo "=== Final pi-gen-config settings ==="
           echo "Build Quality:"
           grep -E "^(SKIP_INITRAMFS|COMPRESSION_LEVEL)=" pi-gen-config
+          echo "Image Name:"
+          grep "^IMG_NAME=" pi-gen-config
+          grep "^IMG_SUFFIX=" pi-gen-config || echo "IMG_SUFFIX not set (main branch)"
           echo "Git Configuration:"
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
