@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect x="0" y="0" width="256" height="256" rx="20" fill="#14141E"/>
+  
+  <!-- Quantum wave circles -->
+  <circle cx="128" cy="128" r="100" stroke="#64B4FF" stroke-width="2" fill="none" opacity="0.3"/>
+  <circle cx="128" cy="128" r="120" stroke="#64B4FF" stroke-width="1.5" fill="none" opacity="0.2"/>
+  
+  <!-- Entanglement lines (bowtie pattern) -->
+  <g stroke="#64C8FF" stroke-width="3" opacity="0.5">
+    <line x1="64" y1="64" x2="128" y2="128"/>
+    <line x1="192" y1="64" x2="128" y2="128"/>
+    <line x1="64" y1="192" x2="128" y2="128"/>
+    <line x1="192" y1="192" x2="128" y2="128"/>
+  </g>
+  
+  <!-- Qubit circles -->
+  <!-- Top left qubit |0⟩ -->
+  <g>
+    <circle cx="64" cy="64" r="25" fill="#6496FF" opacity="0.3"/>
+    <circle cx="64" cy="64" r="20" fill="#6496FF"/>
+    <circle cx="59" cy="59" r="7" fill="#FFFFFF" opacity="0.6"/>
+  </g>
+  
+  <!-- Top right qubit |1⟩ -->
+  <g>
+    <circle cx="192" cy="64" r="25" fill="#FF6496" opacity="0.3"/>
+    <circle cx="192" cy="64" r="20" fill="#FF6496"/>
+    <circle cx="187" cy="59" r="7" fill="#FFFFFF" opacity="0.6"/>
+  </g>
+  
+  <!-- Center qubit |0⟩ -->
+  <g>
+    <circle cx="128" cy="128" r="25" fill="#6496FF" opacity="0.3"/>
+    <circle cx="128" cy="128" r="20" fill="#6496FF"/>
+    <circle cx="123" cy="123" r="7" fill="#FFFFFF" opacity="0.6"/>
+  </g>
+  
+  <!-- Bottom left qubit |0⟩ -->
+  <g>
+    <circle cx="64" cy="192" r="25" fill="#6496FF" opacity="0.3"/>
+    <circle cx="64" cy="192" r="20" fill="#6496FF"/>
+    <circle cx="59" cy="187" r="7" fill="#FFFFFF" opacity="0.6"/>
+  </g>
+  
+  <!-- Bottom right qubit |1⟩ -->
+  <g>
+    <circle cx="192" cy="192" r="25" fill="#FF6496" opacity="0.3"/>
+    <circle cx="192" cy="192" r="20" fill="#FF6496"/>
+    <circle cx="187" cy="187" r="7" fill="#FFFFFF" opacity="0.6"/>
+  </g>
+  
+  <!-- Raspberry Pi berry accent -->
+  <g transform="translate(210, 210)">
+    <circle cx="-5" cy="-5" r="4" fill="#DC143C" opacity="0.8"/>
+    <circle cx="5" cy="-5" r="4" fill="#DC143C" opacity="0.8"/>
+    <circle cx="-5" cy="5" r="4" fill="#DC143C" opacity="0.8"/>
+    <circle cx="5" cy="5" r="4" fill="#DC143C" opacity="0.8"/>
+    <circle cx="0" cy="0" r="3" fill="#DC143C"/>
+  </g>
+  
+  <!-- Q letter overlay -->
+  <text x="128" y="140" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#FFFFFF" opacity="0.2" text-anchor="middle">Q</text>
+</svg>
