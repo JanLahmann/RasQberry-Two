@@ -275,24 +275,27 @@ update-desktop-database /usr/share/applications || echo "Warning: Failed to upda
 echo "Updating icon cache..."
 gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
 
+# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
+echo "Configuring main panel menu icon..."
+PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+if [ -f "$PANEL_CONFIG" ]; then
+    # Backup original panel config
+    cp "$PANEL_CONFIG" "${PANEL_CONFIG}.orig"
+
+    # Replace the menu icon in the panel configuration
+    # Look for the menu plugin section and change its icon
+    # The default uses "raspberrypi-logo" or similar
+    sed -i 's|icon=raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+    sed -i 's|icon=/usr/share/pixmaps/raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+
+    echo "Panel menu icon updated to RasQberry logo"
+else
+    echo "Warning: Panel config not found at $PANEL_CONFIG"
+fi
+
 # Update menu cache for LXDE
 echo "Updating menu cache..."
 lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
-
-# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
-echo "Customizing LXPanel main menu icon..."
-if [ -f "/usr/share/icons/rasqberry/rasqberry-menu-icon.png" ]; then
-    # The main menu button uses the system icon at /usr/share/pixmaps/raspberrypi.png
-    # Back up the original and replace with our RasQberry logo
-    if [ -f "/usr/share/pixmaps/raspberrypi.png" ]; then
-        cp /usr/share/pixmaps/raspberrypi.png /usr/share/pixmaps/raspberrypi.png.orig
-        echo "Backed up original Raspberry Pi menu icon"
-    fi
-    cp /usr/share/icons/rasqberry/rasqberry-menu-icon.png /usr/share/pixmaps/raspberrypi.png
-    echo "Replaced main menu icon with RasQberry logo"
-else
-    echo "WARNING: RasQberry menu icon not found at /usr/share/icons/rasqberry/rasqberry-menu-icon.png"
-fi
 
 # Create first-login script to configure libfm and GNOME Keyring
 # This runs when the user first logs in and has a proper desktop session
