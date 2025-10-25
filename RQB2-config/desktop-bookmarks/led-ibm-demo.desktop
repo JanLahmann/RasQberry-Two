@@ -2,7 +2,7 @@
 Version=1.1
 Name=LED IBM Demo
 Comment=Demonstrate LED strip control with IBM-themed patterns and colors
-Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Icon=/usr/share/icons/rasqberry/sensehat-icon.png
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_led_ibm_demo.sh
