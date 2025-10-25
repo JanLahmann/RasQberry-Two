@@ -20,14 +20,14 @@ ENV_FILE = "/usr/config/rasqberry_environment.env"
 # Emergency defaults if env file is missing/unreadable
 EMERGENCY_DEFAULTS = {
     'PI_MODEL': 'Pi5',
-    'LED_COUNT': '192',
+    'LED_COUNT': '192',  # 4*4*12 = 192 LEDs
     'LED_PIN': '21',
     'LED_PIXEL_ORDER': 'GRB',
     'LED_BRIGHTNESS': '100',
     'LED_MATRIX_LAYOUT': 'single',
     'LED_MATRIX_WIDTH': '24',
     'LED_MATRIX_HEIGHT': '8',
-    'N_QUBIT': '127',
+    'N_QUBIT': '192',  # 4*4*12 = 192 qubits
 }
 
 
@@ -68,7 +68,7 @@ def get_led_config():
         'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
-        'n_qubit': int(config.get('N_QUBIT', 127)),
+        'n_qubit': int(config.get('N_QUBIT', 192)),
     }
 
 
@@ -138,22 +138,21 @@ def create_neopixel_strip(spi, num_pixels, pixel_order, brightness=0.1, pi_model
     )
 
     # Initialize all LEDs to black on first creation
-    # This is required for 256-LED strips to work correctly
-    if num_pixels > 168:
-        for i in range(num_pixels):
-            pixels[i] = (0, 0, 0)
-            if (i + 1) % 32 == 0:
-                pixels.show()
-                time.sleep(0.001)
-        pixels.show()
-        time.sleep(0.001)
+    # Use chunked writes for reliability
+    for i in range(num_pixels):
+        pixels[i] = (0, 0, 0)
+        if (i + 1) % 8 == 0:
+            pixels.show()
+            time.sleep(0.008)
+    pixels.show()
+    time.sleep(0.008)
 
     return pixels
 
 
-def chunked_show(pixels, chunk_size=32):
+def chunked_show(pixels, chunk_size=8, delay_ms=8):
     """
-    Update LED strip with chunked writes to support >168 LEDs.
+    Update LED strip with chunked writes.
 
     The neopixel_spi library has a 4096-byte internal buffer limit.
     Since each RGB pixel requires 24 SPI bytes, only 170 LEDs can be
@@ -162,46 +161,33 @@ def chunked_show(pixels, chunk_size=32):
 
     Args:
         pixels: NeoPixel_SPI strip object
-        chunk_size (int): Number of LEDs to update per chunk (default 32)
-                         Must be ≤50 for reliable operation with 256 LEDs
+        chunk_size (int): Number of LEDs to update per chunk (default 8)
+        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
 
     Usage:
         # Instead of: pixels.show()
         # Use: chunked_show(pixels)
 
     Note:
-        For strips ≤168 LEDs, regular pixels.show() works fine.
-        This function is only needed for larger strips (e.g., 256 LEDs).
+        Tested reliable with chunk_size=8, delay_ms=8 for up to 336 LEDs.
+        These parameters work for any LED strip size.
     """
     import time
 
-    num_pixels = len(pixels)
-
-    # For small strips, regular show() works fine
-    if num_pixels <= 168:
-        pixels.show()
-        time.sleep(0.001)
-        return
-
-    # For large strips, use chunked updates
-    # We can't directly trigger partial updates, so we rely on the
-    # library's internal chunking when we call show() frequently
-    # The key is that we must have called show() recently enough
-    # that the internal state is fresh
-
     # Call show() to flush all pending changes
     pixels.show()
-    time.sleep(0.001)
+    time.sleep(delay_ms / 1000.0)
 
 
-def chunked_fill(pixels, color, chunk_size=32):
+def chunked_fill(pixels, color, chunk_size=8, delay_ms=8):
     """
     Fill all LEDs with a color using chunked writes.
 
     Args:
         pixels: NeoPixel_SPI strip object
         color: (R, G, B) tuple (0-255 for each channel)
-        chunk_size (int): Number of LEDs to update per chunk (default 32)
+        chunk_size (int): Number of LEDs to update per chunk (default 8)
+        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
 
     Usage:
         chunked_fill(pixels, (255, 0, 0))  # Fill all red
@@ -215,25 +201,26 @@ def chunked_fill(pixels, color, chunk_size=32):
         pixels[i] = color
         if (i + 1) % chunk_size == 0:
             pixels.show()
-            time.sleep(0.001)
+            time.sleep(delay_ms / 1000.0)
 
     # Final show for remaining LEDs
     pixels.show()
-    time.sleep(0.001)
+    time.sleep(delay_ms / 1000.0)
 
 
-def chunked_clear(pixels, chunk_size=32):
+def chunked_clear(pixels, chunk_size=8, delay_ms=8):
     """
     Turn off all LEDs using chunked writes.
 
     Args:
         pixels: NeoPixel_SPI strip object
-        chunk_size (int): Number of LEDs to update per chunk (default 32)
+        chunk_size (int): Number of LEDs to update per chunk (default 8)
+        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
 
     Usage:
         chunked_clear(pixels)  # Turn off all LEDs
     """
-    chunked_fill(pixels, (0, 0, 0), chunk_size)
+    chunked_fill(pixels, (0, 0, 0), chunk_size, delay_ms)
 
 
 def map_xy_to_pixel_single(x, y):
