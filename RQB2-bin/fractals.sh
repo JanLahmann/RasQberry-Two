@@ -59,7 +59,10 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 
 # Change to demo directory and run
 cd "$DEMO_DIR" || die "Failed to change to demo directory"
-python3 fractals.py
+
+# Run as actual user (not root) to avoid Chrome/display permission issues
+# When launched from raspi-config, this ensures Chrome can access the user's display
+run_as_user python3 fractals.py
 EXIT_CODE=$?
 
 cd "$USER_HOME" || warn "Failed to return to home directory"
