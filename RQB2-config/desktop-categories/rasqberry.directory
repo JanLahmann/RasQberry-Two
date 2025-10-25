@@ -5,4 +5,4 @@ Name=RasQberry
 Name[en]=RasQberry
 Comment=Quantum computing education demos and tools
 Comment[en]=Quantum computing education demos and tools
-Icon=applications-science
+Icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png
