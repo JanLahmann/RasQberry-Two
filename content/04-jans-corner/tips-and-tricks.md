@@ -30,25 +30,40 @@ If you fork the repository, you’ll need to update two files to reflect your Gi
 
 ### Iterative Development of RQB2_menu.sh
 
-The complete GitHub actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and related files) at run-time, the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
+> **Note**: This is an experimental approach and has not been fully tested. Use with caution.
+
+The complete GitHub Actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and related files) at run-time, the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
 
 ```bash
-export GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git" # modify to match your development repo
-export GIT_BRANCH="JRL-dev02"  # modify to match your development branch
+# CUSTOMIZE: Set your development repository and branch
+export GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git"  # Change to your fork if needed
+export GIT_BRANCH="dev-JRL-features02"  # Change to your development branch
+
+# System configuration (usually no need to change)
 export CLONE_DIR="/tmp/RasQberry-Two"
 export FIRST_USER_NAME="rasqberry"
-export RQB2_CONFDIR=".local/config"
 
-git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}  
+# Clone your development branch
+git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
 
+# Copy scripts to user's local bin directory (used when running as normal user)
 cp ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
-cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
 
+# Copy to system directories (used when running as root, e.g., from raspi-config)
 sudo cp ${CLONE_DIR}/RQB2-bin/* /usr/bin
 sudo cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
+# Clean up
 rm -rf ${CLONE_DIR}
+
+# Reload environment to pick up any changes
+. /usr/config/rasqberry_env-config.sh
 ```
+
+**Architecture Notes:**
+- Configuration files (environment): Global only (`/usr/config/`)
+- Script files: Both user-local (`~/.local/bin/`) and system (`/usr/bin/`) directories
+- Scripts use `/usr/config/rasqberry_env-config.sh` for environment loading
 
 ## Build System
 
