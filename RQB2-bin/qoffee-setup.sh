@@ -82,11 +82,11 @@ if [ "$DOCKER_INSTALLED" = false ]; then
     # Add user to docker group
     info "[3/4] Configuring Docker permissions..."
     USER_NAME=$(get_user_name)
-    usermod -aG docker "$USER_NAME"
+    sudo usermod -aG docker "$USER_NAME"
 
     # Enable Docker service
     info "[4/4] Enabling Docker service..."
-    systemctl enable docker
+    sudo systemctl enable docker
 
     # Clean up
     rm -f /tmp/get-docker.sh
@@ -115,7 +115,7 @@ USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker; then
     warn "User '$USER_NAME' is not in the docker group"
     info "Adding user to docker group..."
-    usermod -aG docker "$USER_NAME"
+    sudo usermod -aG docker "$USER_NAME"
 
     # Re-exec with docker group active
     info "Activating Docker group permissions..."
@@ -144,9 +144,9 @@ fi
 # Configure Docker networking (required for Qoffee-Maker)
 info "Configuring Docker networking..."
 if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf 2>/dev/null; then
-    sed -i "s/.*net.ipv4.ip_forward=.*/net.ipv4.ip_forward=1/g" /etc/sysctl.conf 2>/dev/null || \
-        echo "net.ipv4.ip_forward=1" | tee -a /etc/sysctl.conf > /dev/null
-    sysctl -w net.ipv4.ip_forward=1 > /dev/null
+    sudo sed -i "s/.*net.ipv4.ip_forward=.*/net.ipv4.ip_forward=1/g" /etc/sysctl.conf 2>/dev/null || \
+        echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf > /dev/null
+    sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
     info "Docker networking configured"
 fi
 
