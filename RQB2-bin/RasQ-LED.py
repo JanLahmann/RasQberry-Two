@@ -267,8 +267,12 @@ def demo_loop(duration=2):
 
     # Clear any pending input from stdin before starting
     # (prevents accidental immediate exit when run from menu systems)
-    import termios
-    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    try:
+        import termios
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except (termios.error, OSError):
+        # stdin is not a TTY (e.g., redirected or piped), skip flush
+        pass
 
     try:
         for cycle in range(duration):
