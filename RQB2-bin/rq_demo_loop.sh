@@ -82,6 +82,10 @@ run_demo_with_controls() {
     timeout "$demo_time" bash -c "$demo_cmd" &
     DEMO_PID=$!
 
+    # Clear any buffered input from stdin before monitoring
+    # This prevents accidental immediate skip when launched from desktop icons
+    while read -t 0; do read -t 0.1 -n 1000; done 2>/dev/null
+
     # Monitor for user input while demo runs
     local elapsed=0
     while kill -0 $DEMO_PID 2>/dev/null; do
