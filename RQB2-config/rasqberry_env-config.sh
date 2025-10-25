@@ -1,7 +1,7 @@
 #!/bin/sh
 #set -eu # this causes terminal misbehaviour, as this file is sourced in bashrc
 
-# Determine non-root user home directory (for BIN_DIR calculation)
+# Determine non-root user home directory
 if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
   USER_HOME="$(eval echo ~${SUDO_USER})"
 else
@@ -22,6 +22,6 @@ else
   return 1 2>/dev/null || exit 1
 fi
 
-# Set BIN_DIR to user's local bin directory
-BIN_DIR="${USER_HOME}/.local/bin"
+# Set BIN_DIR to system-wide bin directory (all RasQberry scripts are in /usr/bin)
+BIN_DIR="/usr/bin"
 export BIN_DIR

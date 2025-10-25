@@ -66,18 +66,16 @@ if [ ! -d "${CLONE_DIR}/RQB2-bin" ]; then
 fi
 
 # Create necessary directories
-[ ! -d /home/${FIRST_USER_NAME}/.local/bin ] && mkdir -p /home/${FIRST_USER_NAME}/.local/bin
 [ ! -d /home/${FIRST_USER_NAME}/${RQB2_CONFDIR} ] && mkdir -p /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 [ ! -d /home/${FIRST_USER_NAME}/${REPO}/demos ] && mkdir -p /home/${FIRST_USER_NAME}/${REPO}/demos
 [ ! -d /usr/config ] && mkdir -p /usr/config
 [ ! -d /usr/venv ] && mkdir -p /usr/venv
 
 # Set permissions
-chmod -R 755 ${CLONE_DIR}/RQB2-bin 
+chmod -R 755 ${CLONE_DIR}/RQB2-bin
 chmod -R 755 ${CLONE_DIR}/RQB2-config
 
-# Copy files to user directories
-cp -r ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
+# Copy configuration files to user directory
 cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
 
 # Copy files to system directories
@@ -92,7 +90,6 @@ if [ -f ${CLONE_DIR}/VERSION ]; then
 fi
 
 # Set permissions on target directories
-chmod 755 /home/${FIRST_USER_NAME}/.local/bin
 chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
 # Set permissions on system-wide directories (must be world-accessible)

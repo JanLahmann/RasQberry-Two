@@ -34,7 +34,7 @@ fi
 # Constants and reusable paths
 REPO_DIR="$USER_HOME/$REPO"
 DEMO_ROOT="$REPO_DIR/demos"
-BIN_DIR="$USER_HOME/.local/bin"
+BIN_DIR="/usr/bin"  # System-wide bin directory (accessible to both root and normal users)
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
 #
@@ -42,20 +42,7 @@ VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 # 1. Environment & Bootstrap
 # -----------------------------------------------------------------------------
 #
-# Bootstrap: ensure rasqberry_env-config.sh is linked into $BIN_DIR for scripts (for backward compatibility)
-bootstrap_env_config() {
-    SOURCE_FILE="/usr/config/rasqberry_env-config.sh"
-    TARGET_LINK="$BIN_DIR/rasqberry_env-config.sh"
-    # Remove existing symlink if present
-    if [ -L "$TARGET_LINK" ]; then
-        rm -f "$TARGET_LINK"
-    fi
-    # Create symbolic link
-    ln -sf "$SOURCE_FILE" "$TARGET_LINK"
-} || die "Failed to set up configuration link"
-
-# Run bootstrap to set up env-config link
-bootstrap_env_config
+# Note: No longer need to create symlinks - all scripts are in /usr/bin
 
 # -----------------------------------------------------------------------------
 # 2. Helpers

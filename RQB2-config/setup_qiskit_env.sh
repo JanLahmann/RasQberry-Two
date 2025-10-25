@@ -35,10 +35,6 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
     cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
 
-    # Copy RQB2-bin scripts to user's local bin (if not already there)
-    mkdir -p $HOME/.local/bin
-    cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
-
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
@@ -48,10 +44,6 @@ else
   mkdir -p $HOME/$REPO/venv
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
   cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-
-  # Copy RQB2-bin scripts to user's local bin
-  mkdir -p $HOME/.local/bin
-  cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
 
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi
