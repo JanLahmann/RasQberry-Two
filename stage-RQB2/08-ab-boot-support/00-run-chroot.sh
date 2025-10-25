@@ -1,9 +1,55 @@
 #!/bin/bash -e
 
-echo "=> Enabling RasQberry A/B Boot Support Services"
+echo "=> Installing and Enabling RasQberry A/B Boot Support"
 
-# Files have already been copied by 00-run.sh
-# This script only enables the systemd services
+# Source the configuration file
+if [ -f "/tmp/stage-config" ]; then
+    . /tmp/stage-config
+
+    # Map the RQB_ prefixed variables to local names
+    REPO="${RQB_REPO}"
+    GIT_USER="${RQB_GIT_USER}"
+    GIT_BRANCH="${RQB_GIT_BRANCH}"
+    GIT_REPO="${RQB_GIT_REPO}"
+
+    echo "Configuration loaded successfully"
+else
+    echo "WARNING: stage config file not found, using defaults"
+    REPO="RasQberry-Two"
+    GIT_BRANCH="main"
+    GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git"
+fi
+
+export CLONE_DIR="/tmp/${REPO}"
+
+# Clone the repository if not already cloned
+if [ ! -d "${CLONE_DIR}" ]; then
+    echo "Cloning repository ${GIT_REPO} (branch: ${GIT_BRANCH}) to ${CLONE_DIR}"
+    git clone --depth 1 --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
+else
+    echo "Repository already exists at ${CLONE_DIR}"
+fi
+
+# Verify required files exist
+if [ ! -f "${CLONE_DIR}/RQB2-bin/rq_health_check.py" ]; then
+    echo "ERROR: Required A/B boot files not found in ${CLONE_DIR}/RQB2-bin"
+    exit 1
+fi
+
+# Copy scripts to /usr/local/bin
+echo "=> Installing A/B boot scripts to /usr/local/bin"
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_health_check.py" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_slot_manager.sh" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
+
+# Copy systemd service files
+echo "=> Installing systemd service files"
+cd "$(dirname "$0")"  # Change to the script's directory
+install -v -m 644 files/systemd/rasqberry-health-check.service /etc/systemd/system/
+install -v -m 644 files/systemd/rasqberry-update-poller.timer /etc/systemd/system/
+install -v -m 644 files/systemd/rasqberry-update-poller.service /etc/systemd/system/
 
 # Enable health check (runs once on boot)
 echo "=> Enabling rasqberry-health-check.service"
@@ -13,7 +59,7 @@ systemctl enable rasqberry-health-check.service
 echo "=> Enabling rasqberry-update-poller.timer"
 systemctl enable rasqberry-update-poller.timer
 
-echo "=> RasQberry A/B Boot Support enabled"
+echo "=> RasQberry A/B Boot Support installed and enabled"
 echo ""
 echo "NOTE: A/B boot requires manual partition setup:"
 echo "  1. Boot the Pi"
