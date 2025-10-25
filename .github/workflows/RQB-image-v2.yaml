@@ -700,8 +700,18 @@ jobs:
             IMG_FILENAME="rasqberry-$(date +%Y-%m-%d)"
           fi
 
+          # Debug: Show current directory and file status
+          echo "DEBUG: Current directory: $(pwd)"
+          echo "DEBUG: pi-gen-config exists: $(test -f pi-gen-config && echo 'YES' || echo 'NO')"
+          echo "DEBUG: pi-gen-config size before append: $(wc -l < pi-gen-config 2>/dev/null || echo 'FILE NOT FOUND')"
+
           echo "IMG_FILENAME=${IMG_FILENAME}" >> pi-gen-config
           echo "Configured image filename: ${IMG_FILENAME}.img"
+
+          # Debug: Verify the append worked
+          echo "DEBUG: pi-gen-config size after append: $(wc -l < pi-gen-config)"
+          echo "DEBUG: Last 3 lines of pi-gen-config:"
+          tail -3 pi-gen-config
 
           # Show final configuration for verification
           echo "=== Final pi-gen-config settings ==="
