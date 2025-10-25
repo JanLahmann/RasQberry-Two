@@ -279,6 +279,21 @@ gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update 
 echo "Updating menu cache..."
 lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
 
+# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
+echo "Customizing LXPanel main menu icon..."
+if [ -f "/usr/share/icons/rasqberry/rasqberry-menu-icon.png" ]; then
+    # The main menu button uses the system icon at /usr/share/pixmaps/raspberrypi.png
+    # Back up the original and replace with our RasQberry logo
+    if [ -f "/usr/share/pixmaps/raspberrypi.png" ]; then
+        cp /usr/share/pixmaps/raspberrypi.png /usr/share/pixmaps/raspberrypi.png.orig
+        echo "Backed up original Raspberry Pi menu icon"
+    fi
+    cp /usr/share/icons/rasqberry/rasqberry-menu-icon.png /usr/share/pixmaps/raspberrypi.png
+    echo "Replaced main menu icon with RasQberry logo"
+else
+    echo "WARNING: RasQberry menu icon not found at /usr/share/icons/rasqberry/rasqberry-menu-icon.png"
+fi
+
 # Create first-login script to configure libfm and GNOME Keyring
 # This runs when the user first logs in and has a proper desktop session
 if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
