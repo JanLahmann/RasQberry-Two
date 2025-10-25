@@ -54,15 +54,20 @@ debug "Demo directory: $DEMO_DIR"
 # Verify the fractals.py file exists
 [ -f "$DEMO_DIR/fractals.py" ] || die "fractals.py not found in $DEMO_DIR"
 
-# Activate virtual environment
-activate_venv || warn "Virtual environment not available, continuing anyway..."
+# Find virtual environment python (required for matplotlib, qiskit, etc.)
+VENV_PATH=$(find_venv "$STD_VENV") || die "Virtual environment '$STD_VENV' not found"
+VENV_PYTHON="$VENV_PATH/bin/python3"
+
+# Verify venv python exists
+[ -x "$VENV_PYTHON" ] || die "Virtual environment python not found: $VENV_PYTHON"
 
 # Change to demo directory and run
 cd "$DEMO_DIR" || die "Failed to change to demo directory"
 
 # Run as actual user (not root) to avoid Chrome/display permission issues
 # When launched from raspi-config, this ensures Chrome can access the user's display
-run_as_user python3 fractals.py
+# Use full path to venv python so it has access to matplotlib, qiskit, etc.
+run_as_user "$VENV_PYTHON" fractals.py
 EXIT_CODE=$?
 
 cd "$USER_HOME" || warn "Failed to return to home directory"
