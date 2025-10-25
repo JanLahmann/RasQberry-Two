@@ -156,8 +156,8 @@ if ! docker pull $DOCKER_IMAGE; then
     die "Failed to pull Docker image. Please check your internet connection"
 fi
 
-# Get Jupyter token from .env
-JUPYTER_TOKEN=$(grep "^JUPYTER_TOKEN=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' | tr -d "'")
+# Get Jupyter token from .env (with fallback if not present)
+JUPYTER_TOKEN=$(grep "^JUPYTER_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
 [ -z "$JUPYTER_TOKEN" ] && JUPYTER_TOKEN="super-secret-token"
 
 # Start container
