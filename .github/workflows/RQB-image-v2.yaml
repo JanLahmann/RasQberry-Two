@@ -841,23 +841,26 @@ jobs:
           fi
           cd pi-gen
           mkdir -p ../deploy
-          
+
           # Find the compressed image file
+          # Note: Filename is already customized by stage-RQB2/EXPORT_IMAGE
+          # Format: rasqberry-v{version}.img.xz (main), rasqberry-beta-{date}.img.xz (beta),
+          #         rasqberry-{branch}-{date}-{time}.img.xz (dev)
           FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
-          
+
           if [ -z "$FINAL_IMAGE" ]; then
             echo "Error: No image found in deploy directory"
             exit 1
           fi
-          
+
           # Copy to deploy folder at workspace root
           cp "$FINAL_IMAGE" ../deploy/
-          
+
           # Set outputs for upload step
           FILE_NAME=$(basename "$FINAL_IMAGE")
           echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
-          
+
           # Display build information
           echo "Built image: $FILE_NAME"
           echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"
