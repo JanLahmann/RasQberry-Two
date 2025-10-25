@@ -125,8 +125,12 @@ check_and_install_demo() {
 # Check and install if needed
 check_and_install_demo
 
-# Activate virtual environment
-activate_venv || warn "Could not activate virtual environment, continuing anyway..."
+# Find virtual environment python (required for PySide6, qiskit, etc.)
+VENV_PATH=$(find_venv "$STD_VENV") || die "Virtual environment '$STD_VENV' not found"
+VENV_PYTHON="$VENV_PATH/bin/python3"
+
+# Verify venv python exists
+[ -x "$VENV_PYTHON" ] || die "Virtual environment python not found: $VENV_PYTHON"
 
 # Launch LED-Painter
 info "Starting $DEMO_NAME..."
@@ -138,7 +142,9 @@ if ! check_display; then
     die "DISPLAY not set. $DEMO_NAME requires a graphical environment"
 fi
 
-# Run the LED-Painter using venv python
-"$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" LED_painter.py
+# Run as actual user (not root) to avoid GUI/display permission issues
+# When launched from raspi-config, this ensures Qt/PySide6 can access the user's display
+# Use full path to venv python so it has access to PySide6, qiskit, etc.
+run_as_user "$VENV_PYTHON" LED_painter.py
 
 exit 0
