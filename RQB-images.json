@@ -8,10 +8,10 @@
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-review01-2025-10-25-112716/image_2025-10-25-rasqberry.img.xz",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-review01-2025-10-25-131259/image_2025-10-25-rasqberry.img.xz",
       "extract_size": 8757706752,
-      "extract_sha256": "d12f01bf905e5f17e4086e2920d001128d473a11290f12fbec0d28933a22d87b",
-      "image_download_size": 2042247160,
+      "extract_sha256": "0d457b2a596bd4dfadb6ee7d0166fc40663671985fb0eebcac63d4ba0349f8e8",
+      "image_download_size": 2045838120,
       "release_date": "2025-10-25",
       "init_format": "systemd",
       "devices": [
