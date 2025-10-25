@@ -1,52 +1,31 @@
 #!/bin/bash
+set -euo pipefail
+
+################################################################################
+# rq_clear_leds.sh - RasQberry Clear All LEDs
 #
-# RasQberry: Clear All LEDs
-# Turns off all NeoPixel LEDs
-#
+# Description:
+#   Turns off all NeoPixel LEDs
+#   Simple utility script for LED management
+################################################################################
 
-# Load environment config from centralized location
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
-# Set default paths if not configured
-BIN_DIR="${BIN_DIR:-$USER_HOME/.local/bin}"
+# Load environment
+load_rqb2_env
+verify_env_vars USER_HOME REPO STD_VENV BIN_DIR
 
-# Check multiple possible locations for the script
-CLEAR_SCRIPT=""
-for location in "$BIN_DIR/turn_off_LEDs.py" \
-                "/usr/bin/turn_off_LEDs.py" \
-                "$USER_HOME/.local/bin/turn_off_LEDs.py"; do
-    if [ -f "$location" ]; then
-        CLEAR_SCRIPT="$location"
-        break
-    fi
-done
+info "Clearing all LEDs..."
 
-if [ -z "$CLEAR_SCRIPT" ]; then
-    echo "Error: LED clear script not found"
-    echo "Press Enter to exit..."
-    read
-    exit 1
-fi
+# Activate virtual environment (required for neopixel_spi and LED utilities)
+activate_venv || die "Virtual environment not available"
 
-echo "Clearing all LEDs..."
+# Find LED script
+LED_SCRIPT=$(find_led_script "turn_off_LEDs.py") || die "LED control script not found"
 
-# Activate virtual environment if available
-VENV_PATHS=(
-    "$USER_HOME/$REPO/venv/$STD_VENV"
-    "$USER_HOME/.local/venv/$STD_VENV"
-    "$USER_HOME/venv/$STD_VENV"
-)
+# Run LED clearing script
+# Note: SPI access doesn't require root - user is in 'spi' group via raspi-config
+python3 "$LED_SCRIPT"
 
-for venv_path in "${VENV_PATHS[@]}"; do
-    if [ -f "$venv_path/bin/activate" ]; then
-        . "$venv_path/bin/activate"
-        break
-    fi
-done
-
-# Run the clear script
-python3 "$CLEAR_SCRIPT"
-
-echo "All LEDs cleared."
+info "All LEDs cleared"

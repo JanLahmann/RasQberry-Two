@@ -172,3 +172,6 @@ CLAUDE.local.md
 
 # Claude AI workspace
 .claude/
+
+# Local planning and improvement documents
+IMPROVEMENT_PLAN.md

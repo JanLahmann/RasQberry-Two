@@ -664,18 +664,61 @@ jobs:
             echo "Updating Git variables (placeholder values detected)"
             REPO_NAME="${GITHUB_REPOSITORY#*/}"
             REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
-            
+
             sed -i "s|RQB_REPO=will-be-set-in-gh-workflow|RQB_REPO=${REPO_NAME}|" pi-gen-config
-            sed -i "s|RQB_GIT_USER=will-be-set-in-gh-workflow|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config  
+            sed -i "s|RQB_GIT_USER=will-be-set-in-gh-workflow|RQB_GIT_USER=${REPO_OWNER}|" pi-gen-config
             sed -i "s|RQB_GIT_BRANCH=will-be-set-in-gh-workflow|RQB_GIT_BRANCH=${BRANCH_NAME}|" pi-gen-config
           else
             echo "Git variables manually set, preserving existing values"
           fi
-          
+
+          # Set custom IMG_FILENAME based on VERSION file
+          # This overrides pi-gen's default naming (IMG_DATE-IMG_NAME)
+          # Naming convention:
+          #   Main: rasqberry-v{version} (e.g., rasqberry-v1.2.3)
+          #   Beta: rasqberry-beta-{date} (e.g., rasqberry-beta-2025-10-25)
+          #   Dev: rasqberry-{branch}-{date}-{time} (e.g., rasqberry-dev-review01-2025-10-25-112716)
+
+          VERSION=$(cat VERSION)
+          echo "VERSION file content: $VERSION"
+
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            # Semantic version (main branch)
+            IMG_FILENAME="rasqberry-${VERSION}"
+          elif [[ "$VERSION" =~ ^beta-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
+            # Beta branch - date only (no time)
+            BUILD_DATE="${BASH_REMATCH[1]}"
+            IMG_FILENAME="rasqberry-beta-${BUILD_DATE}"
+          elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{6})$ ]]; then
+            # Dev branch - full timestamp
+            BRANCH_NAME_FROM_VERSION="${BASH_REMATCH[1]}"
+            BUILD_DATE="${BASH_REMATCH[2]}"
+            BUILD_TIME="${BASH_REMATCH[3]}"
+            IMG_FILENAME="rasqberry-${BRANCH_NAME_FROM_VERSION}-${BUILD_DATE}-${BUILD_TIME}"
+          else
+            # Fallback
+            IMG_FILENAME="rasqberry-$(date +%Y-%m-%d)"
+          fi
+
+          # Debug: Show current directory and file status
+          echo "DEBUG: Current directory: $(pwd)"
+          echo "DEBUG: pi-gen-config exists: $(test -f pi-gen-config && echo 'YES' || echo 'NO')"
+          echo "DEBUG: pi-gen-config size before append: $(wc -l < pi-gen-config 2>/dev/null || echo 'FILE NOT FOUND')"
+
+          echo "IMG_FILENAME=${IMG_FILENAME}" >> pi-gen-config
+          echo "Configured image filename: ${IMG_FILENAME}.img"
+
+          # Debug: Verify the append worked
+          echo "DEBUG: pi-gen-config size after append: $(wc -l < pi-gen-config)"
+          echo "DEBUG: Last 3 lines of pi-gen-config:"
+          tail -3 pi-gen-config
+
           # Show final configuration for verification
           echo "=== Final pi-gen-config settings ==="
           echo "Build Quality:"
           grep -E "^(SKIP_INITRAMFS|COMPRESSION_LEVEL)=" pi-gen-config
+          echo "Image Filename:"
+          grep "^IMG_FILENAME=" pi-gen-config
           echo "Git Configuration:"
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
@@ -831,23 +874,26 @@ jobs:
           fi
           cd pi-gen
           mkdir -p ../deploy
-          
+
           # Find the compressed image file
+          # Note: Filename is already customized by stage-RQB2/EXPORT_IMAGE
+          # Format: rasqberry-v{version}.img.xz (main), rasqberry-beta-{date}.img.xz (beta),
+          #         rasqberry-{branch}-{date}-{time}.img.xz (dev)
           FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
-          
+
           if [ -z "$FINAL_IMAGE" ]; then
             echo "Error: No image found in deploy directory"
             exit 1
           fi
-          
+
           # Copy to deploy folder at workspace root
           cp "$FINAL_IMAGE" ../deploy/
-          
+
           # Set outputs for upload step
           FILE_NAME=$(basename "$FINAL_IMAGE")
           echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
           echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
-          
+
           # Display build information
           echo "Built image: $FILE_NAME"
           echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"

@@ -14,7 +14,7 @@
 # The script updates only the PI_MODEL line in the environment file,
 # preserving all other configuration values.
 
-set -e  # Exit on error
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # Environment file location (system-wide)
 ENV_FILE="/usr/config/rasqberry_environment.env"

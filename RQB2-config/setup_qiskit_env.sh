@@ -1,7 +1,15 @@
 #!/bin/bash
 
 # load RasQberry environment and constants from global location
-. /usr/config/rasqberry_env-config.sh
+if ! . /usr/config/rasqberry_env-config.sh; then
+    echo "ERROR: Failed to load RasQberry environment configuration"
+    echo "Please check permissions on /usr/config/rasqberry_env-config.sh"
+    echo "File should be readable by all users (chmod 644)"
+    echo ""
+    echo "To fix: sudo chmod 644 /usr/config/rasqberry_environment.env"
+    echo "        sudo chmod 755 /usr/config/rasqberry_env-config.sh"
+    return 1 2>/dev/null || exit 1
+fi
 
 # Get the current logged-in user
 CURRENT_USER=$(whoami)
@@ -35,10 +43,6 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
     python3 -m venv $HOME/$REPO/venv/$STD_VENV
     cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
 
-    # Copy RQB2-bin scripts to user's local bin (if not already there)
-    mkdir -p $HOME/.local/bin
-    cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
-
     source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
@@ -48,10 +52,6 @@ else
   mkdir -p $HOME/$REPO/venv
   python3 -m venv $HOME/$REPO/venv/$STD_VENV
   cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-
-  # Copy RQB2-bin scripts to user's local bin
-  mkdir -p $HOME/.local/bin
-  cp /usr/bin/rq*.* $HOME/.local/bin/ 2>/dev/null || true
 
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi

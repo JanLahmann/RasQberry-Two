@@ -36,8 +36,8 @@ mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
 source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate
 
-# Install Qiskit
-. /home/"${FIRST_USER_NAME}"/.local/bin/rq_install_Qiskit_latest.sh
+# Install Qiskit (scripts are now in /usr/bin)
+. /usr/bin/rq_install_Qiskit_latest.sh
 deactivate
 
 # Copy venv to system location for new users

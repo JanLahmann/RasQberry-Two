@@ -1,18 +1,21 @@
 #!/bin/bash
-#
-# RasQberry-Two: Continuous Demo Loop
-# Runs multiple demos in sequence for conference showcases
-#
+set -euo pipefail
 
-# Determine user home directory (handle sudo case)
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_HOME="/home/${SUDO_USER}"
-else
-    USER_HOME="${HOME}"
-fi
+################################################################################
+# rq_demo_loop.sh - RasQberry Continuous Demo Loop
+#
+# Description:
+#   Runs multiple demos in sequence for conference showcases
+#   Provides interactive controls for skipping/exiting demos
+#   Configurable timings via environment variables
+################################################################################
 
-# Load environment variables for configurable timings
-. /usr/config/rasqberry_env-config.sh 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars BIN_DIR
 
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"
@@ -21,22 +24,26 @@ RASQBERRY_TIE_TIME="${DEMO_LOOP_RASQBERRY_TIE_TIME:-60}"
 RASQ_LED_TIME="${DEMO_LOOP_RASQ_LED_TIME:-60}"
 PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
 
-# Cleanup function
+################################################################################
+# cleanup - Stop all demos and turn off LEDs
+################################################################################
 cleanup() {
     echo ""
-    echo "Stopping demo loop..."
+    info "Stopping demo loop..."
     # Kill any running demo processes
-    pkill -f "QuantumLightsOut" 2>/dev/null || true
-    pkill -f "QuantumRaspberryTie" 2>/dev/null || true
-    pkill -f "RasQ-LED" 2>/dev/null || true
+    cleanup_demo_processes "QuantumLightsOut|QuantumRaspberryTie|RasQ-LED"
     # Turn off all LEDs
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
-    echo "Demo loop stopped."
+    clear_leds
+    info "Demo loop stopped"
     exit 0
 }
 
 # Set up trap to handle Ctrl+C
-trap cleanup SIGINT SIGTERM
+setup_cleanup_trap cleanup
+
+################################################################################
+# Display header and instructions
+################################################################################
 
 echo "=============================================="
 echo "  RasQberry Continuous Demo Loop"
@@ -56,7 +63,14 @@ echo "    Press Ctrl+C       - Emergency stop"
 echo "=============================================="
 echo ""
 
-# Function to run a demo with interactive skip/exit option
+################################################################################
+# run_demo_with_controls - Run a demo with interactive skip/exit option
+#
+# Arguments:
+#   $1 - Demo name (for display)
+#   $2 - Demo command to run
+#   $3 - Demo timeout (seconds)
+################################################################################
 run_demo_with_controls() {
     local demo_name="$1"
     local demo_cmd="$2"
@@ -67,6 +81,10 @@ run_demo_with_controls() {
     # Run demo in background with timeout
     timeout "$demo_time" bash -c "$demo_cmd" &
     DEMO_PID=$!
+
+    # Clear any buffered input from stdin before monitoring
+    # This prevents accidental immediate skip when launched from desktop icons
+    while read -t 0; do read -t 0.1 -n 1000; done 2>/dev/null
 
     # Monitor for user input while demo runs
     local elapsed=0
@@ -98,6 +116,10 @@ run_demo_with_controls() {
     return 0
 }
 
+################################################################################
+# Main demo loop
+################################################################################
+
 LOOP_COUNT=0
 
 while true; do
@@ -118,8 +140,8 @@ while true; do
         "[2/4] Quantum Lights Out demo (${LIGHTS_OUT_TIME}s)" \
         "$BIN_DIR/rq_quantum_lights_out_auto.sh" \
         "${LIGHTS_OUT_TIME}"
-    pkill -f "QuantumLightsOut" 2>/dev/null || true
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
+    cleanup_demo_processes "QuantumLightsOut"
+    clear_leds
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     # Demo 3: RasQberry Tie
@@ -127,8 +149,8 @@ while true; do
         "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
         "$BIN_DIR/rq_quantum_raspberry_tie_auto.sh" \
         "${RASQBERRY_TIE_TIME}"
-    pkill -f "QuantumRaspberryTie" 2>/dev/null || true
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
+    cleanup_demo_processes "QuantumRaspberryTie"
+    clear_leds
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     # Demo 4: RasQ-LED
@@ -136,8 +158,8 @@ while true; do
         "[4/4] RasQ-LED quantum circuit demo (${RASQ_LED_TIME}s)" \
         "$BIN_DIR/rq_rasq_led.sh" \
         "${RASQ_LED_TIME}"
-    pkill -f "RasQ-LED" 2>/dev/null || true
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>/dev/null || true
+    cleanup_demo_processes "RasQ-LED"
+    clear_leds
     sleep ${PAUSE_BETWEEN_DEMOS}
 
     echo "Loop #${LOOP_COUNT} complete. Starting next loop..."

@@ -1,17 +1,20 @@
 #!/bin/bash
-#
-# RasQberry LED IBM Demo Launcher
-# Simple wrapper to run the IBM-themed LED demonstration
-#
+set -euo pipefail
 
-# Load environment config from centralized location
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-fi
+################################################################################
+# rq_led_ibm_demo.sh - RasQberry LED IBM Demo Launcher
+#
+# Description:
+#   Simple wrapper to run the IBM-themed LED demonstration
+#   Displays IBM logo and animations on LED strip
+################################################################################
 
-# Set default paths if not configured
-REPO="${REPO:-RasQberry-Two}"
-BIN_DIR="${BIN_DIR:-$USER_HOME/.local/bin}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars USER_HOME REPO BIN_DIR STD_VENV
 
 # Check multiple possible locations for the script
 LED_SCRIPT=""
@@ -24,35 +27,14 @@ for location in "$BIN_DIR/neopixel_spi_IBMtestFunc.py" \
     fi
 done
 
-if [ -z "$LED_SCRIPT" ]; then
-    echo "Error: LED demo script not found"
-    echo "Searched locations:"
-    echo "  - $BIN_DIR/neopixel_spi_IBMtestFunc.py"
-    echo "  - /usr/bin/neopixel_spi_IBMtestFunc.py"
-    echo "  - $USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
-    echo "Press Enter to exit..."
-    read
-    exit 1
-fi
+[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/neopixel_spi_IBMtestFunc.py\n  - /usr/bin/neopixel_spi_IBMtestFunc.py\n  - $USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
 
-echo "Starting LED IBM Demo..."
-echo "Script location: $LED_SCRIPT"
+info "Starting LED IBM Demo..."
+debug "Script location: $LED_SCRIPT"
 echo
 
 # Activate virtual environment if available
-VENV_PATHS=(
-    "$USER_HOME/$REPO/venv/$STD_VENV"
-    "$USER_HOME/.local/venv/$STD_VENV"
-    "$USER_HOME/venv/$STD_VENV"
-)
-
-for venv_path in "${VENV_PATHS[@]}"; do
-    if [ -f "$venv_path/bin/activate" ]; then
-        echo "Activating virtual environment: $venv_path"
-        . "$venv_path/bin/activate"
-        break
-    fi
-done
+activate_venv || warn "Virtual environment not available, continuing anyway..."
 
 # Run the script
 python3 "$LED_SCRIPT"

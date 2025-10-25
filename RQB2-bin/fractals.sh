@@ -1,13 +1,21 @@
 #!/bin/bash
+set -euo pipefail
+
+################################################################################
+# fractals.sh - RasQberry Quantum Fractals Demo
 #
-# RasQberry-Two: Quantum Fractals Demo
-# Creates animated fractal visualizations using quantum circuits
-#
+# Description:
+#   Creates animated fractal visualizations using quantum circuits
+#   Requires graphical desktop environment (GUI)
+################################################################################
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
 echo; echo; echo "Quantum Fractals Demo"
 
 # Check for GUI/Desktop environment
-if [ -z "$DISPLAY" ]; then
+if ! check_display; then
     echo ""
     echo "=========================================="
     echo "ERROR: Graphical Desktop Required"
@@ -23,52 +31,53 @@ if [ -z "$DISPLAY" ]; then
     echo ""
     echo "Or use the desktop launcher icon instead."
     echo ""
-    exit 1
+    die "No display available"
 fi
 
-# Determine user and paths
-if [ -n "${SUDO_USER}" ] && [ "${SUDO_USER}" != "root" ]; then
-    USER_NAME="${SUDO_USER}"
-    USER_HOME="/home/${SUDO_USER}"
+# Load environment and verify required variables
+load_rqb2_env
+verify_env_vars USER_HOME REPO STD_VENV
+
+# Check for fractals in system directory (preferred) or user directory (legacy)
+if [ -d "/usr/bin/fractal_files" ]; then
+    DEMO_DIR="/usr/bin/fractal_files"
+elif [ -d "$USER_HOME/.local/bin/fractal_files" ]; then
+    DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
 else
-    USER_NAME="$(whoami)"
-    USER_HOME="${HOME}"
+    die "Fractals demo not found. Expected locations:\n  - /usr/bin/fractal_files\n  - $USER_HOME/.local/bin/fractal_files"
 fi
 
-# Load environment variables
-. "/usr/config/rasqberry_env-config.sh"
+info "Starting Quantum Fractals Demo..."
+debug "User: $(get_user_name)"
+debug "Demo directory: $DEMO_DIR"
 
-DEMO_DIR="$USER_HOME/.local/bin/fractal_files"
+# Verify the fractals.py file exists
+[ -f "$DEMO_DIR/fractals.py" ] || die "fractals.py not found in $DEMO_DIR"
 
-echo "Starting Quantum Fractals Demo..."
-echo "User: $USER_NAME"
-echo "Demo directory: $DEMO_DIR"
+# Find virtual environment python (required for matplotlib, qiskit, etc.)
+VENV_PATH=$(find_venv "$STD_VENV") || die "Virtual environment '$STD_VENV' not found"
+VENV_PYTHON="$VENV_PATH/bin/python3"
 
-# Check if demo files exist
-if [ ! -f "$DEMO_DIR/fractals.py" ]; then
-    echo "Error: Fractals demo not found at $DEMO_DIR"
-    echo "Please ensure the demo is properly installed."
-    exit 1
-fi
-
-# Ensure virtual environment is activated
-if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-fi
+# Verify venv python exists
+[ -x "$VENV_PYTHON" ] || die "Virtual environment python not found: $VENV_PYTHON"
 
 # Change to demo directory and run
-cd "$DEMO_DIR" || exit 1
-python3 fractals.py
+cd "$DEMO_DIR" || die "Failed to change to demo directory"
+
+# Run as actual user (not root) to avoid Chrome/display permission issues
+# When launched from raspi-config, this ensures Chrome can access the user's display
+# Use full path to venv python so it has access to matplotlib, qiskit, etc.
+run_as_user "$VENV_PYTHON" fractals.py
 EXIT_CODE=$?
 
-cd "$USER_HOME" || exit
+cd "$USER_HOME" || warn "Failed to return to home directory"
 
 # Show completion message
 echo
 if [ $EXIT_CODE -eq 0 ]; then
-    echo "Fractals demo completed successfully."
+    info "Fractals demo completed successfully"
 else
-    echo "Fractals demo exited with errors (code: $EXIT_CODE)"
+    warn "Fractals demo exited with errors (code: $EXIT_CODE)"
 fi
 echo
 read -p "Press Enter to close this window..."

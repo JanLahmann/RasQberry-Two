@@ -2,7 +2,7 @@
 Version=1.1
 Name=Clear All LEDs
 Comment=Turn off all NeoPixel LEDs
-Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Icon=system-shutdown
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_clear_leds.sh

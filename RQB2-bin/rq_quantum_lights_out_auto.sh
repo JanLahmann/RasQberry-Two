@@ -4,52 +4,38 @@
 # Launches the Quantum Lights Out demo
 #
 
-# Load environment variables
-if [ -f "/usr/config/rasqberry_env-config.sh" ]; then
-    . "/usr/config/rasqberry_env-config.sh"
-else
-    echo "Error: Environment config not found at /usr/config/rasqberry_env-config.sh"
-    exit 1
-fi
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-# Verify REPO variable is set
-if [ -z "$REPO" ]; then
-    echo "Error: REPO variable not set after loading environment"
-    exit 1
-fi
+# Load common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
 
-# Use canonical path (same as menu)
-DEMO_DIR="$USER_HOME/$REPO/demos/Quantum-Lights-Out"
+# Load and verify environment
+load_rqb2_env
+verify_env_vars REPO USER_HOME STD_VENV
+
+# Demo configuration
+DEMO_NAME="Quantum-Lights-Out"
+DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
 
 # Check if demo is installed, auto-install if missing
 if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
-    echo "Quantum Lights Out demo not found. Installing..."
-    if ! sudo raspi-config nonint do_qlo_install; then
-        echo "Installation failed."
-        exit 1
-    fi
+    info "Quantum Lights Out demo not found. Installing..."
+    install_demo_raspiconfig do_qlo_install || die "Installation failed"
 fi
 
-# Activate virtual environment if available
-if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate" ]; then
-    . "$USER_HOME/$REPO/venv/$STD_VENV/bin/activate"
-fi
+# Activate virtual environment
+activate_venv || warn "Virtual environment not available"
 
 # Launch the demo
-echo "Launching demo from: $DEMO_DIR"
-if [ ! -d "$DEMO_DIR" ]; then
-    echo "Error: Demo directory does not exist: $DEMO_DIR"
-    exit 1
-fi
+info "Launching demo from: $DEMO_DIR"
+ensure_demo_dir "$DEMO_NAME" >/dev/null || die "Demo directory not found"
 
 if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
-    echo "Error: lights_out.py not found in $DEMO_DIR"
-    echo "Directory contents:"
-    ls -la "$DEMO_DIR"
-    exit 1
+    die "lights_out.py not found in $DEMO_DIR"
 fi
 
-cd "$DEMO_DIR" || exit 1
+cd "$DEMO_DIR" || die "Cannot change to demo directory"
 
 echo ""
 echo "Quantum Lights Out Demo"
