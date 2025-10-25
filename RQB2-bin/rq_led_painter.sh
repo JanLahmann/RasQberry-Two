@@ -69,7 +69,7 @@ check_and_install_demo() {
     if ! dpkg -l | grep -q libxcb-cursor-dev; then
         show_msgbox "Installing Dependencies" "Installing system package: libxcb-cursor-dev\n\nThis requires sudo privileges."
 
-        if ! apt-get install -y libxcb-cursor-dev; then
+        if ! sudo apt-get install -y libxcb-cursor-dev; then
             show_msgbox "Installation Failed" "Failed to install system dependencies.\n\nPlease run manually:\nsudo apt-get install libxcb-cursor-dev"
             die "Failed to install libxcb-cursor-dev"
         fi
