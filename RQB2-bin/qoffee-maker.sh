@@ -116,13 +116,20 @@ if grep -q "your_client_id_here\|your_ibmq_api_key_here" "$ENV_FILE" 2>/dev/null
     echo "     → https://quantum-computing.ibm.com/account"
     echo
 
-    if show_yesno "Configuration Required" \
-        "The Qoffee-Maker configuration file needs to be updated\nwith your API credentials.\n\nWould you like to edit it now?"; then
-        ${EDITOR:-nano} "$ENV_FILE"
-        echo
-        info "Configuration saved. Starting Qoffee-Maker..."
+    # Only offer to edit if we have a TTY (interactive session)
+    if [ -t 0 ]; then
+        if show_yesno "Configuration Required" \
+            "The Qoffee-Maker configuration file needs to be updated\nwith your API credentials.\n\nWould you like to edit it now?"; then
+            ${EDITOR:-nano} "$ENV_FILE"
+            echo
+            info "Configuration saved. Starting Qoffee-Maker..."
+        else
+            warn "Continuing with default configuration (may not work)..."
+        fi
     else
+        # No TTY - skip interactive prompt, just continue
         warn "Continuing with default configuration (may not work)..."
+        warn "Edit $ENV_FILE to add your API credentials"
     fi
 fi
 
@@ -219,13 +226,22 @@ echo
 echo "Or use the RasQberry menu:"
 echo "  Advanced → Stop Qoffee-Maker"
 echo
-echo "Press Enter to stop the container now..."
-read -r
 
-# Cleanup
-echo
-info "Stopping Qoffee-Maker container..."
-docker stop $CONTAINER_NAME
+# Only wait for input if we have a TTY (interactive session)
+if [ -t 0 ]; then
+    echo "Press Enter to stop the container now..."
+    read -r
 
-info "Container stopped"
-echo
+    # Cleanup
+    echo
+    info "Stopping Qoffee-Maker container..."
+    docker stop $CONTAINER_NAME
+
+    info "Container stopped"
+    echo
+else
+    # No TTY - launched from desktop icon, keep container running
+    info "Container will keep running in the background"
+    info "Use 'docker stop $CONTAINER_NAME' to stop it when done"
+    echo
+fi
