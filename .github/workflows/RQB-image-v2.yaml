@@ -672,20 +672,43 @@ jobs:
             echo "Git variables manually set, preserving existing values"
           fi
 
-          # Update IMG_SUFFIX to include branch name (except for main branch)
-          # This affects the final filename: image_YYYY-MM-DD-{IMG_NAME}{IMG_SUFFIX}.img
-          if [[ "$BRANCH_NAME" != "main" ]]; then
-            echo "Adding branch name suffix to image filename: -${BRANCH_NAME}"
-            echo "IMG_SUFFIX=-${BRANCH_NAME}" >> pi-gen-config
+          # Set custom IMG_FILENAME based on VERSION file
+          # This overrides pi-gen's default naming (IMG_DATE-IMG_NAME)
+          # Naming convention:
+          #   Main: rasqberry-v{version} (e.g., rasqberry-v1.2.3)
+          #   Beta: rasqberry-beta-{date} (e.g., rasqberry-beta-2025-10-25)
+          #   Dev: rasqberry-{branch}-{date}-{time} (e.g., rasqberry-dev-review01-2025-10-25-112716)
+
+          VERSION=$(cat VERSION)
+          echo "VERSION file content: $VERSION"
+
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            # Semantic version (main branch)
+            IMG_FILENAME="rasqberry-${VERSION}"
+          elif [[ "$VERSION" =~ ^beta-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
+            # Beta branch - date only (no time)
+            BUILD_DATE="${BASH_REMATCH[1]}"
+            IMG_FILENAME="rasqberry-beta-${BUILD_DATE}"
+          elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{6})$ ]]; then
+            # Dev branch - full timestamp
+            BRANCH_NAME_FROM_VERSION="${BASH_REMATCH[1]}"
+            BUILD_DATE="${BASH_REMATCH[2]}"
+            BUILD_TIME="${BASH_REMATCH[3]}"
+            IMG_FILENAME="rasqberry-${BRANCH_NAME_FROM_VERSION}-${BUILD_DATE}-${BUILD_TIME}"
+          else
+            # Fallback
+            IMG_FILENAME="rasqberry-$(date +%Y-%m-%d)"
           fi
+
+          echo "IMG_FILENAME=${IMG_FILENAME}" >> pi-gen-config
+          echo "Configured image filename: ${IMG_FILENAME}.img"
 
           # Show final configuration for verification
           echo "=== Final pi-gen-config settings ==="
           echo "Build Quality:"
           grep -E "^(SKIP_INITRAMFS|COMPRESSION_LEVEL)=" pi-gen-config
-          echo "Image Name:"
-          grep "^IMG_NAME=" pi-gen-config
-          grep "^IMG_SUFFIX=" pi-gen-config || echo "IMG_SUFFIX not set (main branch)"
+          echo "Image Filename:"
+          grep "^IMG_FILENAME=" pi-gen-config
           echo "Git Configuration:"
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
 
