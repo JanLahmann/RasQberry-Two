@@ -44,12 +44,7 @@ install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
 
-# Copy systemd service files
-echo "=> Installing systemd service files"
-cd "$(dirname "$0")"  # Change to the script's directory
-install -v -m 644 files/systemd/rasqberry-health-check.service /etc/systemd/system/
-install -v -m 644 files/systemd/rasqberry-update-poller.timer /etc/systemd/system/
-install -v -m 644 files/systemd/rasqberry-update-poller.service /etc/systemd/system/
+# Note: systemd service files are already installed by 00-run.sh
 
 # Enable health check (runs once on boot)
 echo "=> Enabling rasqberry-health-check.service"
