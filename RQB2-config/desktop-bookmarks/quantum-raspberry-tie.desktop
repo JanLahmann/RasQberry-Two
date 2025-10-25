@@ -2,7 +2,7 @@
 Version=1.1
 Name=Quantum Raspberry Tie
 Comment=Interactive quantum computing demonstration with LED visualization and musical accompaniment
-Icon=applications-multimedia
+Icon=/usr/share/icons/rasqberry/sensehat-icon.png
 Type=Application
 Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_raspberry_tie_auto.sh'

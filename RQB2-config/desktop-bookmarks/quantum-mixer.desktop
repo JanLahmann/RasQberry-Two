@@ -2,7 +2,7 @@
 Version=1.1
 Name=Quantum-Mixer
 Comment=Quantum beverage mixer - Qocktails, Qoffee, and Ice demos
-Icon=applications-science
+Icon=/usr/share/icons/rasqberry/QoffeeMug_vector-s.png
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/quantum-mixer.sh

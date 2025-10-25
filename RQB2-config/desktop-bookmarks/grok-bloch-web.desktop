@@ -2,7 +2,7 @@
 Version=1.1
 Name=Grokking the Bloch Sphere (Web)
 Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (online version)
-Icon=applications-science
+Icon=/usr/share/icons/rasqberry/orbit-pi.png
 Type=Application
 Categories=RasQberry;
 Exec=chromium-browser --password-store=basic https://javafxpert.github.io/grok-bloch/

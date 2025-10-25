@@ -36,9 +36,9 @@ echo "Installing desktop bookmarks for user: ${FIRST_USER_NAME}"
 # Create icon directory
 mkdir -p /usr/share/icons/rasqberry
 
-# Copy all icons from desktop-icons directory
+# Copy all icons from desktop-icons directory (PNG and SVG)
 if [ -d "${CLONE_DIR}/desktop-icons" ]; then
-    for icon_file in "${CLONE_DIR}/desktop-icons"/*.png; do
+    for icon_file in "${CLONE_DIR}/desktop-icons"/*.png "${CLONE_DIR}/desktop-icons"/*.svg; do
         if [ -f "$icon_file" ]; then
             cp "$icon_file" /usr/share/icons/rasqberry/
             chmod 644 "/usr/share/icons/rasqberry/$(basename "$icon_file")"
