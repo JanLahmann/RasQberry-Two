@@ -89,7 +89,7 @@ if __name__ == '__main__':
             spi,
             NUM_PIXELS,
             pixel_order,
-            brightness=config['brightness'] / 255.0,
+            brightness=config['led_default_brightness'],
             pi_model=config['pi_model']
         )
         print(f"Initialized {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order)")
