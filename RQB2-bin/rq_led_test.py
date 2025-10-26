@@ -172,6 +172,206 @@ def run_manual_test(num_leds, chunk_size, delay_ms, brightness, pixel_order):
         chunked_fill(pixels, (0, 0, 0), chunk_size=chunk_size, delay_ms=delay_ms)
 
 
+def run_continuous_fill_test(num_leds, chunk_size, delay_ms, brightness, pixel_order, cycles=None):
+    """
+    Run continuous chunked_fill test with color cycling
+
+    Args:
+        num_leds: Number of LEDs
+        chunk_size: LEDs per chunk for updates
+        delay_ms: Delay between chunks in milliseconds
+        brightness: Brightness level (0.0-1.0)
+        pixel_order: Pixel color order (RGB, GRB, etc.)
+        cycles: Number of color cycles (None = infinite loop)
+    """
+    print_header()
+    print("Continuous Chunked Fill Test")
+    print(f"Testing repeated chunked_fill calls with color cycling")
+    print()
+    print(f"Configuration:")
+    print(f"  LEDs: {num_leds}")
+    print(f"  Chunk size: {chunk_size} LEDs")
+    print(f"  Delay: {delay_ms}ms between chunks")
+    print(f"  Brightness: {int(brightness * 100)}%")
+    print(f"  Pixel order: {pixel_order}")
+    print(f"  Cycles: {'Infinite (Ctrl+C to stop)' if cycles is None else cycles}")
+    print()
+
+    # Load hardware config
+    config = get_led_config()
+    pixel_order_const = getattr(neopixel, pixel_order)
+
+    # Create LED strip
+    spi = board.SPI()
+    pixels = create_neopixel_strip(
+        spi,
+        num_leds,
+        pixel_order_const,
+        brightness=brightness,
+        pi_model=config['pi_model']
+    )
+
+    # Define color sequence
+    colors = [
+        ((int(255 * brightness), 0, 0), "Red"),
+        ((0, int(255 * brightness), 0), "Green"),
+        ((0, 0, int(255 * brightness)), "Blue"),
+        ((int(255 * brightness), int(255 * brightness), 0), "Yellow"),
+        ((int(255 * brightness), 0, int(255 * brightness)), "Magenta"),
+        ((0, int(255 * brightness), int(255 * brightness)), "Cyan"),
+        ((int(255 * brightness), int(128 * brightness), 0), "Orange"),
+        ((int(128 * brightness), 0, int(255 * brightness)), "Purple"),
+        ((int(255 * brightness), int(255 * brightness), int(255 * brightness)), "White"),
+    ]
+
+    print("Starting color cycle test...")
+    print("Watch the LEDs fill with chunked writes")
+    print("Press Ctrl+C to stop")
+    print()
+
+    try:
+        cycle = 0
+        while cycles is None or cycle < cycles:
+            for color, name in colors:
+                cycle += 1
+                if cycles is not None and cycle > cycles:
+                    break
+
+                print(f"Cycle {cycle}: {name:<10} ", end="", flush=True)
+
+                # Fill with color using chunked writes
+                start_time = time.time()
+                chunked_fill(pixels, color, chunk_size=chunk_size, delay_ms=delay_ms)
+                fill_time = time.time() - start_time
+
+                print(f"[filled in {fill_time:.3f}s]")
+
+                # Hold color briefly
+                time.sleep(0.5)
+
+                # Clear with chunked writes
+                chunked_fill(pixels, (0, 0, 0), chunk_size=chunk_size, delay_ms=delay_ms)
+                time.sleep(0.5)  # Wait between iterations
+
+        print()
+        print("✓ Test completed successfully!")
+        print()
+
+    except KeyboardInterrupt:
+        print()
+        print()
+        print("[Test stopped by user]")
+        print()
+
+    finally:
+        # Ensure LEDs are cleared on exit
+        chunked_fill(pixels, (0, 0, 0), chunk_size=chunk_size, delay_ms=delay_ms)
+
+
+def run_continuous_show_test(num_leds, chunk_size, delay_ms, brightness, pixel_order, cycles=None):
+    """
+    Run continuous chunked_show test with color cycling
+
+    Args:
+        num_leds: Number of LEDs
+        chunk_size: LEDs per chunk for updates
+        delay_ms: Delay between chunks in milliseconds
+        brightness: Brightness level (0.0-1.0)
+        pixel_order: Pixel color order (RGB, GRB, etc.)
+        cycles: Number of color cycles (None = infinite loop)
+    """
+    print_header()
+    print("Continuous Chunked Show Test")
+    print(f"Testing repeated chunked_show calls with color cycling")
+    print(f"Sets all pixels manually then calls chunked_show()")
+    print()
+    print(f"Configuration:")
+    print(f"  LEDs: {num_leds}")
+    print(f"  Chunk size: {chunk_size} LEDs")
+    print(f"  Delay: {delay_ms}ms between chunks")
+    print(f"  Brightness: {int(brightness * 100)}%")
+    print(f"  Pixel order: {pixel_order}")
+    print(f"  Cycles: {'Infinite (Ctrl+C to stop)' if cycles is None else cycles}")
+    print()
+
+    # Load hardware config
+    config = get_led_config()
+    pixel_order_const = getattr(neopixel, pixel_order)
+
+    # Create LED strip
+    spi = board.SPI()
+    pixels = create_neopixel_strip(
+        spi,
+        num_leds,
+        pixel_order_const,
+        brightness=brightness,
+        pi_model=config['pi_model']
+    )
+
+    # Define color sequence
+    colors = [
+        ((int(255 * brightness), 0, 0), "Red"),
+        ((0, int(255 * brightness), 0), "Green"),
+        ((0, 0, int(255 * brightness)), "Blue"),
+        ((int(255 * brightness), int(255 * brightness), 0), "Yellow"),
+        ((int(255 * brightness), 0, int(255 * brightness)), "Magenta"),
+        ((0, int(255 * brightness), int(255 * brightness)), "Cyan"),
+        ((int(255 * brightness), int(128 * brightness), 0), "Orange"),
+        ((int(128 * brightness), 0, int(255 * brightness)), "Purple"),
+        ((int(255 * brightness), int(255 * brightness), int(255 * brightness)), "White"),
+    ]
+
+    print("Starting color cycle test...")
+    print("Watch the LEDs update with chunked_show")
+    print("Press Ctrl+C to stop")
+    print()
+
+    try:
+        cycle = 0
+        while cycles is None or cycle < cycles:
+            for color, name in colors:
+                cycle += 1
+                if cycles is not None and cycle > cycles:
+                    break
+
+                print(f"Cycle {cycle}: {name:<10} ", end="", flush=True)
+
+                # Set all pixels to color manually
+                start_time = time.time()
+                for i in range(num_leds):
+                    pixels[i] = color
+                # Then call chunked_show to display
+                chunked_show(pixels, chunk_size=chunk_size, delay_ms=delay_ms)
+                fill_time = time.time() - start_time
+
+                print(f"[displayed in {fill_time:.3f}s]")
+
+                # Hold color briefly
+                time.sleep(0.5)
+
+                # Clear all pixels manually
+                for i in range(num_leds):
+                    pixels[i] = (0, 0, 0)
+                chunked_show(pixels, chunk_size=chunk_size, delay_ms=delay_ms)
+                time.sleep(0.5)  # Wait between iterations
+
+        print()
+        print("✓ Test completed successfully!")
+        print()
+
+    except KeyboardInterrupt:
+        print()
+        print()
+        print("[Test stopped by user]")
+        print()
+
+    finally:
+        # Ensure LEDs are cleared on exit
+        for i in range(num_leds):
+            pixels[i] = (0, 0, 0)
+        chunked_show(pixels, chunk_size=chunk_size, delay_ms=delay_ms)
+
+
 def run_automated_scan(num_leds, pixel_order, brightness=0.1):
     """
     Run automated parameter scan to find optimal settings
@@ -297,17 +497,31 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run with defaults (192 LEDs, chunk_size=8, delay=8ms)
+  # Run default tests (block + full strip)
   %(prog)s
 
-  # Test with custom parameters
-  %(prog)s --leds 256 --chunk-size 16 --delay 4
+  # Continuous chunked_fill color cycling (infinite loop)
+  %(prog)s --continuous
+
+  # Continuous chunked_show color cycling (infinite loop)
+  %(prog)s --continuous-show
+
+  # Continuous tests with specific chunk size and delay
+  %(prog)s --continuous --chunk-size 16 --delay 4
+  %(prog)s --continuous-show --chunk-size 16 --delay 4
+
+  # Run 20 color cycles then stop
+  %(prog)s --continuous --cycles 20
+  %(prog)s --continuous-show --cycles 20
+
+  # Very slow chunking for visualization (1 LED at a time)
+  %(prog)s --continuous-show --chunk-size 1 --delay 50
 
   # Automated parameter scan
   %(prog)s --scan
 
   # Test with lower brightness
-  %(prog)s --brightness 0.01
+  %(prog)s --brightness 0.05
 """
     )
 
@@ -332,12 +546,36 @@ Examples:
                         help=f'Pixel order (default: {default_pixel_order})')
     parser.add_argument('--scan', action='store_true',
                         help='Run automated parameter scan')
+    parser.add_argument('--continuous', action='store_true',
+                        help='Run continuous chunked_fill color cycling test')
+    parser.add_argument('--continuous-show', action='store_true',
+                        help='Run continuous chunked_show color cycling test')
+    parser.add_argument('--cycles', type=int, default=None,
+                        help='Number of color cycles for continuous test (default: infinite)')
 
     args = parser.parse_args()
 
     try:
         if args.scan:
             run_automated_scan(args.leds, args.pixel_order, args.brightness)
+        elif args.continuous:
+            run_continuous_fill_test(
+                args.leds,
+                args.chunk_size,
+                args.delay,
+                args.brightness,
+                args.pixel_order,
+                args.cycles
+            )
+        elif args.continuous_show:
+            run_continuous_show_test(
+                args.leds,
+                args.chunk_size,
+                args.delay,
+                args.brightness,
+                args.pixel_order,
+                args.cycles
+            )
         else:
             success = run_manual_test(
                 args.leds,

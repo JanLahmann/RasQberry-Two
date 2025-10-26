@@ -157,9 +157,9 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
     """
     Update LED strip with chunked writes using incremental update pattern.
 
-    Saves the current pixel state, then applies it incrementally in chunks,
-    calling show() after each chunk. This is the same pattern as chunked_fill()
-    but works with arbitrary pixel patterns instead of a single color.
+    Saves the current pixel state, clears the strip, then applies pixels
+    incrementally in chunks, calling show() after each chunk. This mimics
+    chunked_fill() but works with arbitrary pixel patterns.
 
     Args:
         pixels: NeoPixel_SPI strip object
@@ -175,8 +175,9 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
         chunked_show(pixels)
 
     Note:
-        For >168 LEDs, this applies pixel changes incrementally with show()
-        called every chunk_size pixels, avoiding buffer overflow.
+        For >168 LEDs, this saves pixel values, clears the strip, then
+        incrementally re-applies them with show() called every chunk_size
+        pixels to avoid buffer overflow.
     """
     import time
 
@@ -188,10 +189,17 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
         time.sleep(delay_ms / 1000.0)
         return
 
-    # For large strips, apply changes incrementally
-    # This pattern mimics chunked_fill(): update chunk_size pixels, show(), repeat
+    # For large strips, use incremental update pattern
+    # Save current pixel values
+    saved_pixels = [(pixels[i][0], pixels[i][1], pixels[i][2]) for i in range(num_pixels)]
+
+    # Clear all pixels first
     for i in range(num_pixels):
-        # Pixel is already set by caller, just trigger show() at chunk boundaries
+        pixels[i] = (0, 0, 0)
+
+    # Now incrementally apply saved values (like chunked_fill does)
+    for i in range(num_pixels):
+        pixels[i] = saved_pixels[i]
         if (i + 1) % chunk_size == 0:
             pixels.show()
             time.sleep(delay_ms / 1000.0)
