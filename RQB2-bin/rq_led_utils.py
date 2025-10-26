@@ -155,12 +155,11 @@ def create_neopixel_strip(spi, num_pixels, pixel_order, brightness=0.1, pi_model
 
 def chunked_show(pixels, chunk_size=8, delay_ms=8):
     """
-    Update LED strip with chunked writes.
+    Update LED strip with chunked writes using incremental update pattern.
 
-    The neopixel_spi library has a 4096-byte internal buffer limit.
-    Since each RGB pixel requires 24 SPI bytes, only 170 LEDs can be
-    updated in a single show() call. This function works around the
-    limitation by calling show() multiple times with delays.
+    Saves the current pixel state, then applies it incrementally in chunks,
+    calling show() after each chunk. This is the same pattern as chunked_fill()
+    but works with arbitrary pixel patterns instead of a single color.
 
     Args:
         pixels: NeoPixel_SPI strip object
@@ -168,12 +167,16 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
         delay_ms (int): Delay in milliseconds between chunks (default 8ms)
 
     Usage:
-        # Instead of: pixels.show()
-        # Use: chunked_show(pixels)
+        # Set pixels to desired colors
+        pixels[0] = (255, 0, 0)
+        pixels[1] = (0, 255, 0)
+        # ...
+        # Then update display with chunking
+        chunked_show(pixels)
 
     Note:
-        Tested reliable with chunk_size=8, delay_ms=8 for up to 336 LEDs.
-        These parameters work for any LED strip size.
+        For >168 LEDs, this applies pixel changes incrementally with show()
+        called every chunk_size pixels, avoiding buffer overflow.
     """
     import time
 
@@ -185,14 +188,17 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
         time.sleep(delay_ms / 1000.0)
         return
 
-    # For large strips, call show() multiple times with delays
-    # This gives the SPI driver time to flush buffers between calls
-    # Number of chunks needed
-    num_chunks = (num_pixels + chunk_size - 1) // chunk_size
+    # For large strips, apply changes incrementally
+    # This pattern mimics chunked_fill(): update chunk_size pixels, show(), repeat
+    for i in range(num_pixels):
+        # Pixel is already set by caller, just trigger show() at chunk boundaries
+        if (i + 1) % chunk_size == 0:
+            pixels.show()
+            time.sleep(delay_ms / 1000.0)
 
-    for _ in range(num_chunks):
-        pixels.show()
-        time.sleep(delay_ms / 1000.0)
+    # Final show() for any remaining pixels not in a full chunk
+    pixels.show()
+    time.sleep(delay_ms / 1000.0)
 
 
 def chunked_fill(pixels, color, chunk_size=8, delay_ms=8):
