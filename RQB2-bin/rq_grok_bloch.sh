@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars USER_HOME REPO
+verify_env_vars USER_HOME REPO MARKER_GROK_BLOCH
 
 # Check for GUI/Desktop environment
 if ! check_display; then
@@ -40,7 +40,7 @@ DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
 PORT=8080
 
 # Check if demo is installed
-if [ ! -f "$DEMO_DIR/index.html" ]; then
+if [ ! -f "$DEMO_DIR/$MARKER_GROK_BLOCH" ]; then
     echo "Error: Grok Bloch demo not found at $DEMO_DIR"
     echo "Please install the demo first through the RasQberry menu."
     debug "USER_NAME: $(get_user_name)"

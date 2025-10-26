@@ -12,14 +12,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load and verify environment
 load_rqb2_env
-verify_env_vars REPO USER_HOME BIN_DIR
+verify_env_vars REPO USER_HOME BIN_DIR MARKER_GROK_BLOCH
 
 # Demo configuration
 DEMO_NAME="grok-bloch"
 DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
 
 # Check if demo is installed, auto-install if missing
-if [ ! -f "$DEMO_DIR/index.html" ]; then
+if [ ! -f "$DEMO_DIR/$MARKER_GROK_BLOCH" ]; then
     info "Grok Bloch demo not found. Installing..."
     install_demo_raspiconfig do_grok_bloch_install || die "Installation failed"
 fi

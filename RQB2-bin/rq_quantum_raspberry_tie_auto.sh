@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load and verify environment
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV
+verify_env_vars REPO USER_HOME STD_VENV MARKER_QRT
 
 # Demo configuration
 DEMO_NAME="quantum-raspberry-tie"
@@ -47,8 +47,7 @@ cleanup() {
 setup_cleanup_trap cleanup
 
 # Check if demo is installed, auto-install if missing
-# (check for both old and new versions of the main file)
-if [ ! -f "$DEMO_DIR/QuantumRaspberryTie.qk1.py" ] && [ ! -f "$DEMO_DIR/QuantumRaspberryTie.v7_1.py" ]; then
+if [ ! -f "$DEMO_DIR/$MARKER_QRT" ]; then
     info "Quantum Raspberry Tie demo not found. Installing..."
     install_demo_raspiconfig do_rasp_tie_install || die "Installation failed"
 fi

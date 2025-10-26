@@ -155,28 +155,28 @@ install_demo() {
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
-                 "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" \
+                 "$MARKER_QLO" "QUANTUM_LIGHTS_OUT_INSTALLED" \
                  "Quantum Lights Out" "$PATCH_FILE_QLO"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "$MARKER_QRT" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
                  "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
     install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
-                 "index.html" "GROK_BLOCH_INSTALLED" \
+                 "$MARKER_GROK_BLOCH" "GROK_BLOCH_INSTALLED" \
                  "Grok Bloch Sphere" ""
 }
 
 # Install LED-Painter demo if needed
 do_led_painter_install() {
     install_demo "led-painter" "$GIT_REPO_DEMO_LED_PAINTER" \
-                 "LED_painter.py" "LED_PAINTER_INSTALLED" \
+                 "$MARKER_LED_PAINTER" "LED_PAINTER_INSTALLED" \
                  "LED-Painter" "$PATCH_FILE_LED_PAINTER" "pip"
 }
 
