@@ -69,6 +69,9 @@ def get_led_config():
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
         'n_qubit': int(config.get('N_QUBIT', 192)),
+        'led_chunk_size': int(config.get('LED_CHUNK_SIZE', 8)),
+        'led_chunk_delay_ms': int(config.get('LED_CHUNK_DELAY_MS', 8)),
+        'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.1)),
     }
 
 
