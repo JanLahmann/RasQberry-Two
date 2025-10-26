@@ -39,6 +39,7 @@ def display_on_strip(pixels, measurement):
 
     # Clear all pixels first
     pixels.fill(K)
+    chunked_show(pixels)
 
     # Set colors for measurement bits (up to available pixels)
     for i, bit in enumerate(measurement_list):
@@ -48,8 +49,9 @@ def display_on_strip(pixels, measurement):
 
         color = to_color.get(bit, K)  # Get color or black for invalid bits
         pixels[i] = color
-        chunked_show(pixels)
-        sleep(wait_ms / 1000.0)
+
+    # Show all LEDs at once after setting colors
+    chunked_show(pixels)
 
 def color_wipe(pixels, color=K, wait_ms=wait_ms):
     """Wipe color across display a pixel at a time"""
@@ -87,7 +89,7 @@ if __name__ == '__main__':
             spi,
             NUM_PIXELS,
             pixel_order,
-            brightness=config['brightness'] / 255.0,
+            brightness=config['led_default_brightness'],
             pi_model=config['pi_model']
         )
         print(f"Initialized {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order)")

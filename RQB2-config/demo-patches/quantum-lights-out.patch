@@ -1,0 +1,41 @@
+diff --git a/lights_out.py b/lights_out.py
+index original..rasqberry 100644
+--- a/lights_out.py
++++ b/lights_out.py
+@@ -1,5 +1,10 @@
+ # Standard library imports
+ import numpy as np
++import sys
++import os
++
++# Add /usr/bin to Python path for RasQberry utilities
++sys.path.insert(0, '/usr/bin')
+ import math
+ import time
+ from random import choice
+@@ -16,6 +21,9 @@ import neopixel_spi as neopixel
+
+ # Local imports
+ from turn_off_LEDs import turn_off_LEDs
++
++# RasQberry utilities for chunked LED writes (supports 192+ LEDs)
++from rq_led_utils import chunked_show, get_led_config
+
+ # Constants
+ # Array containing the initial lights out grid values
+@@ -284,7 +292,13 @@ def visualize_grid(grid, selected_square, args):
+         else:
+             for coord in LED_array_index_list:
+                 pixels[coord] = OFF_COLOR
+-    pixels.show()
++
++    # Use chunked writes to support 192+ LEDs
++    # (neopixel_spi buffer limit is 168 LEDs without chunking)
++    # Read chunk parameters from RasQberry environment
++    config = get_led_config()
++    chunk_size = config.get('led_chunk_size', 8)
++    chunk_delay = config.get('led_chunk_delay_ms', 8)
++    chunked_show(pixels, chunk_size=chunk_size, delay_ms=chunk_delay)
+
+
+ def visualize_solution(grid, solution, args):

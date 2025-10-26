@@ -57,12 +57,13 @@ show_menu() {
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
 install_demo() {
-    NAME="$1"       # demo directory name
-    GIT_URL="$2"    # corresponding repo URL variable
-    MARKER="$3"     # script or file that must exist
-    ENV_VAR="$4"    # environment variable name to set
-    TITLE="$5"      # title for dialog messages
-    SIZE="$6"       # optional: download size (e.g., "5MB")
+    NAME="$1"           # demo directory name
+    GIT_URL="$2"        # corresponding repo URL variable
+    MARKER="$3"         # script or file that must exist
+    ENV_VAR="$4"        # environment variable name to set
+    TITLE="$5"          # title for dialog messages
+    PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
+    INSTALL_REQS="$7"   # optional: "pip" to install requirements.txt
 
     DEST="$DEMO_ROOT/$NAME"
 
@@ -73,14 +74,9 @@ install_demo() {
 
     # Show confirmation dialog before downloading
     if command -v whiptail > /dev/null 2>&1; then
-        SIZE_MSG=""
-        if [ -n "$SIZE" ]; then
-            SIZE_MSG="\n\nDownload size: ~$SIZE"
-        fi
-
         whiptail --title "$TITLE Not Installed" \
-                 --yesno "$TITLE is not installed yet.$SIZE_MSG\n\nRequires internet connection.\n\nInstall now?" \
-                 12 65 3>&1 1>&2 2>&3
+                 --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
+                 10 65 3>&1 1>&2 2>&3
 
         if [ $? -ne 0 ]; then
             # User cancelled installation
@@ -104,6 +100,48 @@ install_demo() {
         if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
             chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
         fi
+
+        # Apply RasQberry customization patch if specified
+        if [ -n "$PATCH_FILE" ] && [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
+            echo "Applying RasQberry customizations..."
+            cd "$DEST" || return 1
+            if patch -p1 < "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" > /dev/null 2>&1; then
+                echo "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
+            else
+                echo "Warning: Could not apply customization patch (demo may not work with 192+ LEDs)"
+            fi
+            cd - > /dev/null || true
+        fi
+
+        # Install Python dependencies if requested
+        if [ "$INSTALL_REQS" = "pip" ] && [ -f "$DEST/requirements.txt" ]; then
+            echo "Installing Python dependencies..."
+
+            # Verify virtual environment exists
+            if [ ! -d "$REPO_DIR/venv/$STD_VENV" ]; then
+                whiptail --title "Error" --msgbox "Virtual environment not found at $REPO_DIR/venv/$STD_VENV" 8 70
+                rm -rf "$DEST"
+                return 1
+            fi
+
+            # Use venv's pip directly
+            VENV_PIP="$REPO_DIR/venv/$STD_VENV/bin/pip3"
+
+            # Show progress message
+            if command -v whiptail > /dev/null 2>&1; then
+                whiptail --title "Installing Dependencies" --infobox "Installing Python packages from requirements.txt...\n\nThis may take a few minutes.\nPlease wait..." 10 60
+            fi
+
+            # Install using venv's pip with sudo (venv is owned by root from build)
+            cd "$DEST" || return 1
+            if sudo "$VENV_PIP" install -r requirements.txt > /dev/null 2>&1; then
+                echo "✓ Python dependencies installed successfully"
+            else
+                whiptail --title "Warning" --msgbox "Failed to install some Python dependencies.\n\nDemo may not work correctly." 10 60
+            fi
+            cd - > /dev/null || true
+        fi
+
         update_environment_file "$ENV_VAR" "true"
         [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     else
@@ -117,22 +155,29 @@ install_demo() {
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
-                 "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" \
-                 "Quantum Lights Out"
+                 "$MARKER_QLO" "QUANTUM_LIGHTS_OUT_INSTALLED" \
+                 "Quantum Lights Out" "$PATCH_FILE_QLO"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
-                 "Quantum Raspberry-Tie"
+                 "$MARKER_QRT" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
     install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
-                 "index.html" "GROK_BLOCH_INSTALLED" \
-                 "Grok Bloch Sphere"
+                 "$MARKER_GROK_BLOCH" "GROK_BLOCH_INSTALLED" \
+                 "Grok Bloch Sphere" ""
+}
+
+# Install LED-Painter demo if needed
+do_led_painter_install() {
+    install_demo "led-painter" "$GIT_REPO_DEMO_LED_PAINTER" \
+                 "$MARKER_LED_PAINTER" "LED_PAINTER_INSTALLED" \
+                 "LED-Painter" "$PATCH_FILE_LED_PAINTER" "pip"
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
@@ -448,10 +493,15 @@ do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            test )
+                run_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
+                do_led_off
+                ;;
             simple )
                 run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 do_led_off
