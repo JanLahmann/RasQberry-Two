@@ -7,7 +7,7 @@ set -euo pipefail
 # Description:
 #   Installs and launches the LED Painter demonstration
 #   Allows users to paint images on a GUI and display them on the LED array
-#   Handles dependency installation (system packages and Python packages)
+#   Uses standardized installation approach with chunked LED write support
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,26 +15,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV
+verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER PATCH_FILE_LED_PAINTER
 
 DEMO_NAME="LED-Painter"
 DEMO_DIR="$USER_HOME/$REPO/demos/led-painter"
-GIT_URL="${GIT_REPO_DEMO_LED_PAINTER:-https://github.com/Luka-D/RasQberry-Two-LED-Painter.git}"
+MARKER="LED_painter.py"
 
 ################################################################################
 # check_and_install_demo - Install LED Painter with all dependencies
 #
-# This function handles the complete installation process:
-# 1. Checks if already installed with PySide6 dependency
-# 2. Prompts user for installation
-# 3. Clones the git repository
-# 4. Installs system dependencies (libxcb-cursor-dev)
-# 5. Installs Python dependencies (PySide6, etc.)
-# 6. Updates environment flags
+# Uses inline version of install_demo() pattern for standalone launcher context
 ################################################################################
 check_and_install_demo() {
-    # Check if demo is already installed with all dependencies
-    if [ -d "$DEMO_DIR" ] && [ -f "$DEMO_DIR/LED_painter.py" ]; then
+    # Check if already installed
+    if [ -f "$DEMO_DIR/$MARKER" ]; then
         # Verify PySide6 is actually installed in the venv
         if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" ]; then
             if "$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" -c "import PySide6" 2>/dev/null; then
@@ -47,7 +41,7 @@ check_and_install_demo() {
 
     # Demo not installed - ask user for confirmation
     if ! show_yesno "$DEMO_NAME Not Installed" \
-        "$DEMO_NAME is not installed yet.\n\nThis will download ~5MB from GitHub and install ~500MB of dependencies (PySide6).\n\nRequires internet connection.\n\nInstall now?"; then
+        "$DEMO_NAME is not installed yet.\n\nThis will download from GitHub and install dependencies (PySide6).\n\nRequires internet connection.\n\nInstall now?"; then
         info "Installation cancelled by user"
         exit 0
     fi
@@ -59,20 +53,26 @@ check_and_install_demo() {
     mkdir -p "$(dirname "$DEMO_DIR")"
 
     # Clone repository
-    if ! clone_demo "$GIT_URL" "$DEMO_DIR"; then
+    if ! git clone --depth 1 "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR" 2>&1 | tee /tmp/led-painter-clone.log; then
         show_msgbox "Installation Failed" "Failed to download $DEMO_NAME.\n\nPlease check:\n- Internet connection\n- GitHub access\n\nError: git clone failed"
         die "Failed to clone $DEMO_NAME repository"
     fi
 
-    # Install system dependencies
-    info "Installing system dependencies..."
-    if ! dpkg -l | grep -q libxcb-cursor-dev; then
-        show_msgbox "Installing Dependencies" "Installing system package: libxcb-cursor-dev\n\nThis requires sudo privileges."
+    # Fix ownership if cloned as root
+    if [ "$(stat -c '%U' "$DEMO_DIR" 2>/dev/null || stat -f '%Su' "$DEMO_DIR")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_DIR" 2>/dev/null || true
+    fi
 
-        if ! sudo apt-get install -y libxcb-cursor-dev; then
-            show_msgbox "Installation Failed" "Failed to install system dependencies.\n\nPlease run manually:\nsudo apt-get install libxcb-cursor-dev"
-            die "Failed to install libxcb-cursor-dev"
+    # Apply RasQberry customization patch
+    if [ -n "$PATCH_FILE_LED_PAINTER" ] && [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
+        info "Applying RasQberry customizations..."
+        cd "$DEMO_DIR" || die "Failed to cd to demo directory"
+        if patch -p1 < "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" > /dev/null 2>&1; then
+            info "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
+        else
+            warn "Could not apply customization patch (demo may not work with 192+ LEDs)"
         fi
+        cd - > /dev/null || true
     fi
 
     # Install Python dependencies
@@ -84,36 +84,38 @@ check_and_install_demo() {
         die "Virtual environment not found at $USER_HOME/$REPO/venv/$STD_VENV"
     fi
 
-    # Use venv's pip directly (no need to activate in subshell)
+    # Use venv's pip directly
     VENV_PIP="$USER_HOME/$REPO/venv/$STD_VENV/bin/pip3"
 
-    # Show info box (no progress bar since pip doesn't provide progress)
+    # Show info message
     show_infobox "Installing Python Dependencies" "Installing PySide6 and dependencies...\n\nThis may take 5-10 minutes.\nPlease wait..."
 
-    # Install using venv's pip with sudo (venv is owned by root from build)
-    # Create log file with proper permissions first
-    LOG_FILE="/tmp/led-painter-install-$$.log"
-    touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/dev/null"
-
+    # Install using venv's pip
+    # (venv is owned by root from build, so use sudo if we're root or have sudo privileges)
+    cd "$DEMO_DIR" || die "Failed to cd to demo directory"
+    local pip_cmd="$VENV_PIP install -r requirements.txt"
     local pip_exit=0
-    (
-        cd "$DEMO_DIR"
-        sudo "$VENV_PIP" install -r requirements.txt 2>&1 | tee "$LOG_FILE"
-    ) || pip_exit=$?
+
+    if [ "$(id -u)" -eq 0 ]; then
+        # Already root, run directly
+        $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+    elif sudo -n true 2>/dev/null; then
+        # Have sudo privileges
+        sudo $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+    else
+        # No sudo, try without
+        $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+    fi
+    cd - > /dev/null || true
 
     if [ $pip_exit -eq 0 ]; then
         # Update environment flag
         update_env_var "LED_PAINTER_INSTALLED" "true"
-
         show_msgbox "Installation Complete" "$DEMO_NAME has been installed successfully!\n\nLaunching now..."
         info "$DEMO_NAME installed successfully!"
         return 0
     else
-        local log_msg="Failed to install Python dependencies."
-        if [ -f "$LOG_FILE" ] && [ "$LOG_FILE" != "/dev/null" ]; then
-            log_msg="$log_msg\n\nCheck log: $LOG_FILE"
-        fi
-        show_msgbox "Installation Failed" "$log_msg"
+        show_msgbox "Installation Failed" "Failed to install Python dependencies.\n\nCheck log: /tmp/led-painter-install.log"
         die "Failed to install Python dependencies"
     fi
 }

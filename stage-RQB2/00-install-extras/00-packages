@@ -12,3 +12,4 @@ sense-emu-tools
 sense-hat
 chromium-browser
 chromium-chromedriver
+libxcb-cursor-dev

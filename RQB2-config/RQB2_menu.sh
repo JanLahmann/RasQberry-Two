@@ -57,12 +57,13 @@ show_menu() {
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
 install_demo() {
-    NAME="$1"       # demo directory name
-    GIT_URL="$2"    # corresponding repo URL variable
-    MARKER="$3"     # script or file that must exist
-    ENV_VAR="$4"    # environment variable name to set
-    TITLE="$5"      # title for dialog messages
-    PATCH_FILE="$6" # optional: patch file name for RasQberry customizations
+    NAME="$1"           # demo directory name
+    GIT_URL="$2"        # corresponding repo URL variable
+    MARKER="$3"         # script or file that must exist
+    ENV_VAR="$4"        # environment variable name to set
+    TITLE="$5"          # title for dialog messages
+    PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
+    INSTALL_REQS="$7"   # optional: "pip" to install requirements.txt
 
     DEST="$DEMO_ROOT/$NAME"
 
@@ -112,6 +113,35 @@ install_demo() {
             cd - > /dev/null || true
         fi
 
+        # Install Python dependencies if requested
+        if [ "$INSTALL_REQS" = "pip" ] && [ -f "$DEST/requirements.txt" ]; then
+            echo "Installing Python dependencies..."
+
+            # Verify virtual environment exists
+            if [ ! -d "$REPO_DIR/venv/$STD_VENV" ]; then
+                whiptail --title "Error" --msgbox "Virtual environment not found at $REPO_DIR/venv/$STD_VENV" 8 70
+                rm -rf "$DEST"
+                return 1
+            fi
+
+            # Use venv's pip directly
+            VENV_PIP="$REPO_DIR/venv/$STD_VENV/bin/pip3"
+
+            # Show progress message
+            if command -v whiptail > /dev/null 2>&1; then
+                whiptail --title "Installing Dependencies" --infobox "Installing Python packages from requirements.txt...\n\nThis may take a few minutes.\nPlease wait..." 10 60
+            fi
+
+            # Install using venv's pip with sudo (venv is owned by root from build)
+            cd "$DEST" || return 1
+            if sudo "$VENV_PIP" install -r requirements.txt > /dev/null 2>&1; then
+                echo "✓ Python dependencies installed successfully"
+            else
+                whiptail --title "Warning" --msgbox "Failed to install some Python dependencies.\n\nDemo may not work correctly." 10 60
+            fi
+            cd - > /dev/null || true
+        fi
+
         update_environment_file "$ENV_VAR" "true"
         [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     else
@@ -141,6 +171,13 @@ do_grok_bloch_install() {
     install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
                  "index.html" "GROK_BLOCH_INSTALLED" \
                  "Grok Bloch Sphere" ""
+}
+
+# Install LED-Painter demo if needed
+do_led_painter_install() {
+    install_demo "led-painter" "$GIT_REPO_DEMO_LED_PAINTER" \
+                 "LED_painter.py" "LED_PAINTER_INSTALLED" \
+                 "LED-Painter" "$PATCH_FILE_LED_PAINTER" "pip"
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
