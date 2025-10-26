@@ -62,7 +62,7 @@ install_demo() {
     MARKER="$3"     # script or file that must exist
     ENV_VAR="$4"    # environment variable name to set
     TITLE="$5"      # title for dialog messages
-    SIZE="$6"       # optional: download size (e.g., "5MB")
+    PATCH_FILE="$6" # optional: patch file name for RasQberry customizations
 
     DEST="$DEMO_ROOT/$NAME"
 
@@ -73,14 +73,9 @@ install_demo() {
 
     # Show confirmation dialog before downloading
     if command -v whiptail > /dev/null 2>&1; then
-        SIZE_MSG=""
-        if [ -n "$SIZE" ]; then
-            SIZE_MSG="\n\nDownload size: ~$SIZE"
-        fi
-
         whiptail --title "$TITLE Not Installed" \
-                 --yesno "$TITLE is not installed yet.$SIZE_MSG\n\nRequires internet connection.\n\nInstall now?" \
-                 12 65 3>&1 1>&2 2>&3
+                 --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
+                 10 65 3>&1 1>&2 2>&3
 
         if [ $? -ne 0 ]; then
             # User cancelled installation
@@ -104,6 +99,19 @@ install_demo() {
         if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
             chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
         fi
+
+        # Apply RasQberry customization patch if specified
+        if [ -n "$PATCH_FILE" ] && [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
+            echo "Applying RasQberry customizations..."
+            cd "$DEST" || return 1
+            if patch -p1 < "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" > /dev/null 2>&1; then
+                echo "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
+            else
+                echo "Warning: Could not apply customization patch (demo may not work with 192+ LEDs)"
+            fi
+            cd - > /dev/null || true
+        fi
+
         update_environment_file "$ENV_VAR" "true"
         [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
     else
@@ -118,21 +126,21 @@ install_demo() {
 do_qlo_install() {
     install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
                  "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" \
-                 "Quantum Lights Out"
+                 "Quantum Lights Out" "$PATCH_FILE_QLO"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
                  "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
-                 "Quantum Raspberry-Tie"
+                 "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
     install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
                  "index.html" "GROK_BLOCH_INSTALLED" \
-                 "Grok Bloch Sphere"
+                 "Grok Bloch Sphere" ""
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
