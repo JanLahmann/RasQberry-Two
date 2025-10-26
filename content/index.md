@@ -129,3 +129,17 @@ STL files for the 3D-printed model are available in the [3D-model branch](https:
 </div>
 
 For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/hardware-assembly-guide).
+
+## Contributing
+
+RasQberry is an open-source educational project, and we welcome contributions from the community!
+
+**Ways to Contribute:**
+- 🎮 Create new quantum computing demos
+- 📚 Improve documentation
+- 🐛 Report bugs or fix issues
+- 💡 Share your ideas and projects
+
+Whether you're a quantum computing enthusiast, educator, developer, or student, there's a way for you to contribute and help make quantum computing more accessible.
+
+**Get Started:** Visit our [Contributing Guide](05-contributing/) to learn how you can be part of the RasQberry community!
