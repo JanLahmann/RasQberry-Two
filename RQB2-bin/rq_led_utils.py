@@ -160,7 +160,7 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
     The neopixel_spi library has a 4096-byte internal buffer limit.
     Since each RGB pixel requires 24 SPI bytes, only 170 LEDs can be
     updated in a single show() call. This function works around the
-    limitation by updating LEDs in chunks.
+    limitation by calling show() multiple times with delays.
 
     Args:
         pixels: NeoPixel_SPI strip object
@@ -177,9 +177,22 @@ def chunked_show(pixels, chunk_size=8, delay_ms=8):
     """
     import time
 
-    # Call show() to flush all pending changes
-    pixels.show()
-    time.sleep(delay_ms / 1000.0)
+    num_pixels = len(pixels)
+
+    # For small strips (≤168 LEDs), single show() is safe
+    if num_pixels <= 168:
+        pixels.show()
+        time.sleep(delay_ms / 1000.0)
+        return
+
+    # For large strips, call show() multiple times with delays
+    # This gives the SPI driver time to flush buffers between calls
+    # Number of chunks needed
+    num_chunks = (num_pixels + chunk_size - 1) // chunk_size
+
+    for _ in range(num_chunks):
+        pixels.show()
+        time.sleep(delay_ms / 1000.0)
 
 
 def chunked_fill(pixels, color, chunk_size=8, delay_ms=8):
