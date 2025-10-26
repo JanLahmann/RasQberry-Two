@@ -76,6 +76,8 @@ if __name__ == '__main__':
     )
     parser.add_argument("measurement", help="Binary string representing qubit states (0=Red, 1=Blue)")
     parser.add_argument('-c', '--clear', action='store_true', help='Clear the display and exit')
+    parser.add_argument('-t', '--timeout', type=float, default=None,
+                        help='Auto-clear after N seconds (default: wait indefinitely)')
     args = parser.parse_args()
 
     # Create NeoPixel object using rq_led_utils
@@ -113,15 +115,20 @@ if __name__ == '__main__':
         # Display the measurement
         display_on_strip(pixels, measurement)
 
-        print(f"Displayed {len(measurement)} qubits. Press Ctrl+C to clear and exit.")
-
-        # Keep the display on until interrupted
-        try:
-            while True:
-                sleep(1)
-        except KeyboardInterrupt:
-            print("\nClearing LEDs and exiting...")
+        # Handle timeout or wait for interrupt
+        if args.timeout is not None:
+            print(f"Displayed {len(measurement)} qubits. Auto-clearing in {args.timeout}s...")
+            sleep(args.timeout)
             clear_strip(pixels)
+        else:
+            print(f"Displayed {len(measurement)} qubits. Press Ctrl+C to clear and exit.")
+            # Keep the display on until interrupted
+            try:
+                while True:
+                    sleep(1)
+            except KeyboardInterrupt:
+                print("\nClearing LEDs and exiting...")
+                clear_strip(pixels)
 
     except KeyboardInterrupt:
         print("\nClearing LEDs and exiting...")
