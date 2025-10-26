@@ -88,11 +88,11 @@ def get_neopixel_params(pi_model):
     Note:
         Pi4 requires bit0=0b10000000 to fix timing issues (GitHub issue #25).
         Pi5 uses library default (0b11000000, not explicitly set).
-        bpp=4 allocates larger internal buffer for 256+ LED strips.
+        bpp=3 for RGB/GRB LEDs (3 color channels: red, green, blue).
     """
     params = {
         'auto_write': False,
-        'bpp': 4,  # Bytes per pixel - ensures internal buffer for 256 LEDs
+        'bpp': 3,  # Bytes per pixel - 3 for RGB/GRB LEDs
     }
 
     if pi_model == 'Pi4':
