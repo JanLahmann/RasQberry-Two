@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=LED Test
+Comment=Test and diagnose LED strip configuration with automated parameter scanning
+Icon=/usr/share/icons/rasqberry/sensehat-icon.png
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_led_test.sh
+Terminal=true
+StartupNotify=true
+Keywords=LED;test;diagnostic;neopixel;hardware;rasqberry;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_led_test.sh
+NoDisplay=false
