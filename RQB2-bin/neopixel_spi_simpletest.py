@@ -13,6 +13,8 @@ config = get_led_config()
 NUM_PIXELS = config['led_count']
 pixel_order_str = config['pixel_order']
 pixel_order = getattr(neopixel, pixel_order_str)
+CHUNK_SIZE = config['led_chunk_size']
+CHUNK_DELAY = config['led_chunk_delay_ms']
 
 # Color definitions
 COLORS = (0xFF0000, 0x00FF00, 0x0000FF)  # Red, Green, Blue
@@ -125,6 +127,9 @@ while True:
                 pixels[i + 2] = color
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
-            chunked_show(pixels)
+            # Only refresh display every CHUNK_SIZE pixels to reduce flickering
+            # Still show last frame to ensure complete display
+            if i % CHUNK_SIZE == 0 or i == NUM_PIXELS - 1:
+                chunked_show(pixels)
             time.sleep(DELAY)
             pixels.fill(0)
