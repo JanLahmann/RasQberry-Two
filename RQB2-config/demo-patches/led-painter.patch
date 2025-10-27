@@ -2,39 +2,100 @@ diff --git a/requirements.txt b/requirements.txt
 index original..patched 100644
 --- a/requirements.txt
 +++ b/requirements.txt
-@@ -1,7 +1,8 @@
+@@ -1,7 +1,11 @@
  PySide6==6.2.0
 -adafruit-circuitpython-neopixel-spi==1.0.0
 +# adafruit-circuitpython-neopixel-spi==1.0.0  # Replaced with PWM/PIO drivers
 +adafruit-circuitpython-neopixel>=6.3.0
-
++# Pi 5 specific driver (automatically selected when needed)
++Adafruit-Blinka-Raspberry-Pi5-Neopixel; platform_machine == "aarch64"
+ 
  # For the Adafruit Circuit Python Library.
  # Not sure if these are actually needed, but I'm including them
  # For now to avoid any compatibility issues.
-
+ 
++
+diff --git a/turn_off_LEDs.py b/turn_off_LEDs.py
+index original..patched 100644
+--- a/turn_off_LEDs.py
++++ b/turn_off_LEDs.py
+@@ -1,7 +1,6 @@
+ # Third Party Imports for LED array
+ import board
+-import neopixel_spi as neopixel
+-
++import neopixel
+ 
+ def turn_off_LEDs():
+     """
+@@ -15,15 +14,12 @@ def turn_off_LEDs():
+     NUM_PIXELS = 192
+     PIXEL_ORDER = neopixel.RGB
+ 
+     try:
+-        spi = board.SPI()
+-
+-        pixels = neopixel.NeoPixel_SPI(
+-            spi, NUM_PIXELS, pixel_order=PIXEL_ORDER, auto_write=False
+-        )
++        # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++        pixels = neopixel.NeoPixel(board.D18, NUM_PIXELS, pixel_order=PIXEL_ORDER, auto_write=False)
+ 
+         for index in range(NUM_PIXELS):
+             # Setting pixel to 0 value will turn it off
+             pixels[index] = 0x000000
+ 
+         pixels.show()
+ 
+@@ -31,6 +27,7 @@ def turn_off_LEDs():
+     except Exception as e:
+         print("Error turning off LEDs: ", e)
+ 
++
+ def main():
+     print("Turning off all LEDs...")
+     turn_off_LEDs()
+@@ -39,3 +36,4 @@ def main():
+ 
+ if __name__ == "__main__":
+     main()
++
 diff --git a/display_to_LEDs_from_file.py b/display_to_LEDs_from_file.py
 index original..patched 100644
 --- a/display_to_LEDs_from_file.py
 +++ b/display_to_LEDs_from_file.py
-@@ -1,11 +1,15 @@
-+import sys
-+sys.path.insert(0, "/usr/bin")
-+
- # Standard
- import json
- import argparse
- import atexit
+@@ -5,7 +5,7 @@ import atexit
  
  # Third Party Imports for LED array
--import board
+ import board
 -import neopixel_spi as neopixel
-+# import board
-+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 +import neopixel
  
  # Local
  from turn_off_LEDs import turn_off_LEDs
-@@ -35,14 +39,12 @@ def display_to_LEDs_from_file(args):
+@@ -15,6 +15,21 @@ from LED_array_indices import LED_array_indices
+ NUM_PIXELS = 192
+ PIXEL_ORDER = neopixel.GRB
+ 
++def chunked_show(pixels, chunk_size=64):
++    """
++    Show pixels in chunks to avoid PIO DMA timeouts on Pi 5.
++    """
++    try:
++        pixels.show()
++    except Exception as e:
++        # If show() fails, try chunked approach
++        print(f"Warning: pixels.show() failed ({e}), using chunked display")
++        for i in range(0, len(pixels), chunk_size):
++            end = min(i + chunk_size, len(pixels))
++            pixels[i:end] = pixels[i:end]
++        pixels.show()
++
++
+ 
+ def display_to_LEDs(array_data, args):
+     """
+@@ -35,14 +50,19 @@ def display_to_LEDs(array_data, args):
      brightness = args.brightness
  
      # Neopixel initialization
@@ -46,16 +107,23 @@ index original..patched 100644
 -        pixel_order=PIXEL_ORDER,
 -        brightness=brightness,
 -        auto_write=False,
-+    # Neopixel initialization (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
-+    config = get_led_config()
-+    pixels = create_neopixel_strip(
-+        config["led_count"],
-+        config["pixel_order"],
-+        brightness=brightness
++    # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++    pixels = neopixel.NeoPixel(
++        board.D18,
++        NUM_PIXELS,
++        pixel_order=PIXEL_ORDER,
++        brightness=brightness,
++        auto_write=False
++    )
++
++    # Initialize all pixels to black first (prevents ghosting from previous patterns)
++    for i in range(NUM_PIXELS):
++        pixels[i] = (0, 0, 0)
++    pixels.show()
      )
  
      # Display to LED array
-@@ -56,7 +58,7 @@ def display_to_LEDs_from_file(args):
+@@ -56,7 +76,7 @@ def display_to_LEDs(array_data, args):
          # Set the appropriate pixel to the RGB value
          pixels[LED_array_index] = (red, green, blue)
  
