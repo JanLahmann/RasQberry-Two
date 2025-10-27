@@ -120,9 +120,7 @@ while True:
                 pixels[i + 2] = color
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
-            # Show every 8 pixels to reduce flickering (no chunking needed with PWM/PIO)
-            # Still show last frame to ensure complete display
-            if i % 8 == 0 or i == NUM_PIXELS - 1:
-                chunked_show(pixels)
+            # PWM/PIO drivers can update every pixel without flickering!
+            chunked_show(pixels)
             time.sleep(DELAY)
             pixels.fill((0, 0, 0))
