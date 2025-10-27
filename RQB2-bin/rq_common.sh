@@ -605,14 +605,38 @@ Install now?"
     fi
 }
 
-# Install demo using raspi-config nonint function
+# Install demo by calling RQB2_menu.sh function directly
 # Usage: install_demo_raspiconfig do_qlo_install || die "Install failed"
+# Note: This sources RQB2_menu.sh and calls the install function directly,
+#       which is more reliable than raspi-config nonint (which doesn't work
+#       well with whiptail-based interactive functions)
 install_demo_raspiconfig() {
     local install_func="$1"
 
-    if ! sudo raspi-config nonint "$install_func"; then
+    # Source RQB2_menu.sh to get access to install_demo functions
+    local menu_script="/usr/config/RQB2_menu.sh"
+    if [ ! -f "$menu_script" ]; then
+        warn "RQB2_menu.sh not found at $menu_script"
         return 1
     fi
+
+    # Enable auto-install mode (skip whiptail prompts for standalone launchers)
+    export RQ_AUTO_INSTALL=1
+
+    # Source the menu script (which in turn sources env-config.sh)
+    # This gives us access to install_demo() and all do_*_install() functions
+    if ! source "$menu_script"; then
+        warn "Failed to source $menu_script"
+        return 1
+    fi
+
+    # Call the install function directly
+    if ! "$install_func"; then
+        warn "Failed to run $install_func"
+        return 1
+    fi
+
+    return 0
 }
 
 # ============================================================================

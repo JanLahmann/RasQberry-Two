@@ -39,22 +39,16 @@ check_and_install_demo() {
         fi
     fi
 
-    # Demo not installed - ask user for confirmation
-    if ! show_yesno "$DEMO_NAME Not Installed" \
-        "$DEMO_NAME is not installed yet.\n\nThis will download from GitHub and install dependencies (PySide6).\n\nRequires internet connection.\n\nInstall now?"; then
-        info "Installation cancelled by user"
-        exit 0
-    fi
-
-    # Install demo
+    # Demo not installed - auto-install without prompting
+    # Desktop icons and automated launchers don't have interactive terminals
     info "Installing $DEMO_NAME..."
 
     # Create demos directory if it doesn't exist
     mkdir -p "$(dirname "$DEMO_DIR")"
 
     # Clone repository
-    if ! git clone --depth 1 "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR" 2>&1 | tee /tmp/led-painter-clone.log; then
-        show_msgbox "Installation Failed" "Failed to download $DEMO_NAME.\n\nPlease check:\n- Internet connection\n- GitHub access\n\nError: git clone failed"
+    info "Cloning $DEMO_NAME repository..."
+    if ! git clone --depth 1 "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR" 2>&1; then
         die "Failed to clone $DEMO_NAME repository"
     fi
 
@@ -64,10 +58,20 @@ check_and_install_demo() {
     fi
 
     # Apply RasQberry customization patch
-    if [ -n "$PATCH_FILE_LED_PAINTER" ] && [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
+    # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
+    PATCH_PATH=""
+    if [ -n "$PATCH_FILE_LED_PAINTER" ]; then
+        if [ -f "/usr/config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
+            PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE_LED_PAINTER"
+        elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
+            PATCH_PATH="$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER"
+        fi
+    fi
+
+    if [ -n "$PATCH_PATH" ]; then
         info "Applying RasQberry customizations..."
         cd "$DEMO_DIR" || die "Failed to cd to demo directory"
-        if patch -p1 < "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" > /dev/null 2>&1; then
+        if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
             info "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
         else
             warn "Could not apply customization patch (demo may not work with 192+ LEDs)"
@@ -80,42 +84,35 @@ check_and_install_demo() {
 
     # Verify virtual environment exists
     if [ ! -d "$USER_HOME/$REPO/venv/$STD_VENV" ]; then
-        show_msgbox "Virtual Environment Missing" "Virtual environment not found.\n\nExpected: $USER_HOME/$REPO/venv/$STD_VENV"
         die "Virtual environment not found at $USER_HOME/$REPO/venv/$STD_VENV"
     fi
 
     # Use venv's pip directly
     VENV_PIP="$USER_HOME/$REPO/venv/$STD_VENV/bin/pip3"
 
-    # Show info message
-    show_infobox "Installing Python Dependencies" "Installing PySide6 and dependencies...\n\nThis may take 5-10 minutes.\nPlease wait..."
-
     # Install using venv's pip
     # (venv is owned by root from build, so use sudo if we're root or have sudo privileges)
     cd "$DEMO_DIR" || die "Failed to cd to demo directory"
-    local pip_cmd="$VENV_PIP install -r requirements.txt"
     local pip_exit=0
 
     if [ "$(id -u)" -eq 0 ]; then
         # Already root, run directly
-        $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+        $VENV_PIP install -r requirements.txt || pip_exit=$?
     elif sudo -n true 2>/dev/null; then
         # Have sudo privileges
-        sudo $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+        sudo $VENV_PIP install -r requirements.txt || pip_exit=$?
     else
         # No sudo, try without
-        $pip_cmd > /tmp/led-painter-install.log 2>&1 || pip_exit=$?
+        $VENV_PIP install -r requirements.txt || pip_exit=$?
     fi
     cd - > /dev/null || true
 
     if [ $pip_exit -eq 0 ]; then
         # Update environment flag
         update_env_var "LED_PAINTER_INSTALLED" "true"
-        show_msgbox "Installation Complete" "$DEMO_NAME has been installed successfully!\n\nLaunching now..."
         info "$DEMO_NAME installed successfully!"
         return 0
     else
-        show_msgbox "Installation Failed" "Failed to install Python dependencies.\n\nCheck log: /tmp/led-painter-install.log"
         die "Failed to install Python dependencies"
     fi
 }
@@ -140,7 +137,6 @@ cd "$DEMO_DIR" || die "Failed to change to demo directory"
 
 # Check if display is available
 if ! check_display; then
-    show_msgbox "Display Required" "$DEMO_NAME requires a graphical display.\n\nPlease run from desktop environment or enable X11 forwarding."
     die "DISPLAY not set. $DEMO_NAME requires a graphical environment"
 fi
 
