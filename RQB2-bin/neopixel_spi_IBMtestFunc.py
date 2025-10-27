@@ -1,35 +1,24 @@
 # SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
 # SPDX-License-Identifier: MIT
-# Modified for RasQberry: Pi4/Pi5 compatible IBM LED demo with original layout
+# Modified for RasQberry: Pi4/Pi5 compatible IBM LED demo with PWM/PIO drivers
 
 import time
-import board
-import neopixel_spi as neopixel
 from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 
 # Load configuration from environment file
 config = get_led_config()
 
-# Color definitions
-color_blue = 0x0000FF
-color_red = 0xFF0000
-color_green = 0x00FF00
+# Color definitions - using (R, G, B) tuple format
+color_blue = (0, 0, 255)
+color_red = (255, 0, 0)
+color_green = (0, 255, 0)
 DELAY = 5
 
-# Initialize SPI
-spi = board.SPI()
-
-# Get pixel order from config and convert to neopixel constant
-pixel_order_str = config['pixel_order']
-pixel_order = getattr(neopixel, pixel_order_str)
-
-# Create LED strip with correct parameters for Pi4/Pi5
+# Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
 pixels = create_neopixel_strip(
-    spi,
     config['led_count'],
-    pixel_order,
-    brightness=0.1,
-    pi_model=config['pi_model']
+    config['pixel_order'],
+    brightness=config['led_default_brightness']
 )
 
 def plotcalc(y, x, color, pixels, rainbow):
@@ -57,21 +46,21 @@ def plotcalc(y, x, color, pixels, rainbow):
 
     if rainbow:
         if (y == 7):
-            color = 0xfb80bf #pink
+            color = (251, 128, 191) # pink
         if (y == 6):
-            color = 0xfa0100 #red
+            color = (250, 1, 0)     # red
         if (y == 5):
-            color = 0xf9831f #orange
+            color = (249, 131, 31)  # orange
         if (y == 4):
-            color = 0xf8df08 #yellow
+            color = (248, 223, 8)   # yellow
         if (y == 3):
-            color = 0x02a204 #green
+            color = (2, 162, 4)     # green
         if (y == 2):
-            color = 0x00c4ad #turquoise
+            color = (0, 196, 173)   # turquoise
         if (y == 1):
-            color = 0x0041b7 #blue
+            color = (0, 65, 183)    # blue
         if (y == 0):
-            color = 0x83209e #purple
+            color = (131, 32, 158)  # purple
 
     pixels[i] = color
 
@@ -215,5 +204,5 @@ except KeyboardInterrupt:
     print("\nStopping demo...")
 
 # Turn off all LEDs
-pixels.fill(0)
+pixels.fill((0, 0, 0))
 chunked_show(pixels)

@@ -4,11 +4,13 @@ RasQberry LED Utilities Module
 
 Provides shared functionality for LED control across RasQberry demos:
 - Configuration loading from environment file
-- Hardware detection and NeoPixel initialization
+- Hardware detection and NeoPixel initialization (PWM/PIO based)
 - Coordinate mapping for LED matrix layouts
 
-This module abstracts hardware differences (Pi4 vs Pi5) and layout variations
-(single 8x24 vs quad 4x12 panels) to provide a consistent interface.
+This module uses adafruit-circuitpython-neopixel which auto-detects hardware:
+- Pi 4: Uses PWM/DMA (rpi_ws281x backend)
+- Pi 5: Uses PIO (RP1 chip)
+Both approaches support 192+ LEDs without buffer limits or chunking.
 """
 
 import os
@@ -21,7 +23,7 @@ ENV_FILE = "/usr/config/rasqberry_environment.env"
 EMERGENCY_DEFAULTS = {
     'PI_MODEL': 'Pi5',
     'LED_COUNT': '192',  # 4*4*12 = 192 LEDs
-    'LED_PIN': '21',
+    'LED_GPIO_PIN': '18',  # GPIO18 for PWM (Pi4) and PIO (Pi5)
     'LED_PIXEL_ORDER': 'GRB',
     'LED_BRIGHTNESS': '100',
     'LED_MATRIX_LAYOUT': 'single',
@@ -62,195 +64,143 @@ def get_led_config():
     return {
         'pi_model': config.get('PI_MODEL', 'Pi5'),
         'led_count': int(config.get('LED_COUNT', 192)),
-        'led_pin': int(config.get('LED_PIN', 21)),
+        'led_gpio_pin': int(config.get('LED_GPIO_PIN', 18)),
         'pixel_order': config.get('LED_PIXEL_ORDER', 'GRB'),
         'brightness': int(config.get('LED_BRIGHTNESS', 100)),
         'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
         'n_qubit': int(config.get('N_QUBIT', 192)),
-        'led_chunk_size': int(config.get('LED_CHUNK_SIZE', 8)),
-        'led_chunk_delay_ms': int(config.get('LED_CHUNK_DELAY_MS', 8)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.1)),
     }
 
 
-def get_neopixel_params(pi_model):
+def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
-    Get NeoPixel initialization parameters based on Pi model.
+    Factory function to create NeoPixel strip using PWM (Pi4) or PIO (Pi5).
+
+    Uses adafruit-circuitpython-neopixel which auto-detects the platform:
+    - Pi 4: Uses rpi_ws281x (PWM/DMA backend) - requires root
+    - Pi 5: Uses PIO hardware - requires /dev/pio0
+
+    No SPI, no buffer limits, no chunking needed!
 
     Args:
-        pi_model (str): 'Pi4' or 'Pi5'
-
-    Returns:
-        dict: Parameters to pass to NeoPixel_SPI constructor
-
-    Note:
-        Pi4 requires bit0=0b10000000 to fix timing issues (GitHub issue #25).
-        Pi5 uses library default (0b11000000, not explicitly set).
-        bpp=3 for RGB/GRB LEDs (3 color channels: red, green, blue).
-    """
-    params = {
-        'auto_write': False,
-        'bpp': 3,  # Bytes per pixel - 3 for RGB/GRB LEDs
-    }
-
-    if pi_model == 'Pi4':
-        params['bit0'] = 0b10000000  # Fix for Pi4 SPI timing
-    # Pi5 uses library default - don't specify bit0
-
-    return params
-
-
-def create_neopixel_strip(spi, num_pixels, pixel_order, brightness=0.1, pi_model=None):
-    """
-    Factory function to create NeoPixel_SPI strip with correct parameters.
-
-    Args:
-        spi: SPI interface from board.SPI()
         num_pixels (int): Number of LEDs in strip
-        pixel_order: Pixel order constant (e.g., neopixel.GRB)
+        pixel_order: Pixel order constant (e.g., neopixel.GRB) or string ('GRB')
         brightness (float): LED brightness 0.0-1.0
-        pi_model (str, optional): 'Pi4' or 'Pi5'. If None, reads from config.
+        gpio_pin (int, optional): GPIO pin number. If None, reads from config (default 18).
 
     Returns:
-        NeoPixel_SPI: Configured LED strip object
+        neopixel.NeoPixel: Configured LED strip object
 
     Note:
-        For strips >168 LEDs, use chunked_show() instead of pixels.show()
-        to work around neopixel_spi 4096-byte buffer limitation.
+        Requires sudo/root for GPIO access.
+        For Pi 5, requires firmware with /dev/pio0 support.
     """
-    import neopixel_spi as neopixel
-    import time
+    import board
+    import neopixel
 
-    # Get Pi model if not provided
-    if pi_model is None:
+    # Get GPIO pin from config if not provided
+    if gpio_pin is None:
         config = get_led_config()
-        pi_model = config['pi_model']
+        gpio_pin = config['led_gpio_pin']
 
-    # Get model-specific parameters
-    params = get_neopixel_params(pi_model)
+    # Convert GPIO pin number to board constant
+    # GPIO18 = board.D18
+    gpio_board_pin = getattr(board, f'D{gpio_pin}')
 
-    # Create strip
-    pixels = neopixel.NeoPixel_SPI(
-        spi,
+    # Convert pixel_order string to neopixel constant if needed
+    if isinstance(pixel_order, str):
+        pixel_order = getattr(neopixel, pixel_order)
+
+    # Create NeoPixel object
+    # Library auto-detects Pi4 (PWM) vs Pi5 (PIO)
+    pixels = neopixel.NeoPixel(
+        gpio_board_pin,
         num_pixels,
         brightness=brightness,
-        pixel_order=pixel_order,
-        **params
+        auto_write=False,
+        pixel_order=pixel_order
     )
 
-    # Initialize all LEDs to black on first creation
-    # Use chunked writes for reliability
-    for i in range(num_pixels):
-        pixels[i] = (0, 0, 0)
-        if (i + 1) % 8 == 0:
-            pixels.show()
-            time.sleep(0.008)
+    # Initialize all LEDs to black
+    pixels.fill((0, 0, 0))
     pixels.show()
-    time.sleep(0.008)
 
     return pixels
 
 
-def chunked_show(pixels, chunk_size=8, delay_ms=8):
+def chunked_show(pixels, chunk_size=None, delay_ms=None):
     """
-    Update LED strip with chunked writes using incremental update pattern.
+    Display pixels on LED strip.
 
-    Saves the current pixel state, clears the strip, then applies pixels
-    incrementally in chunks, calling show() after each chunk. This mimics
-    chunked_fill() but works with arbitrary pixel patterns.
+    With PWM/PIO drivers, no chunking is needed - this is a simple wrapper
+    that just calls pixels.show() for backward compatibility with existing code.
 
     Args:
-        pixels: NeoPixel_SPI strip object
-        chunk_size (int): Number of LEDs to update per chunk (default 8)
-        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
+        pixels: NeoPixel strip object
+        chunk_size: Ignored (kept for API compatibility)
+        delay_ms: Ignored (kept for API compatibility)
 
     Usage:
         # Set pixels to desired colors
         pixels[0] = (255, 0, 0)
         pixels[1] = (0, 255, 0)
         # ...
-        # Then update display with chunking
+        # Then update display
         chunked_show(pixels)
 
     Note:
-        For >168 LEDs, this saves pixel values, clears the strip, then
-        incrementally re-applies them with show() called every chunk_size
-        pixels to avoid buffer overflow.
+        No chunking needed with PWM/PIO drivers - supports 1000+ LEDs.
     """
-    import time
-
-    num_pixels = len(pixels)
-
-    # For small strips (≤168 LEDs), single show() is safe
-    if num_pixels <= 168:
-        pixels.show()
-        time.sleep(delay_ms / 1000.0)
-        return
-
-    # For large strips, use incremental update pattern
-    # Save current pixel values
-    saved_pixels = [(pixels[i][0], pixels[i][1], pixels[i][2]) for i in range(num_pixels)]
-
-    # Clear all pixels first
-    for i in range(num_pixels):
-        pixels[i] = (0, 0, 0)
-
-    # Now incrementally apply saved values (like chunked_fill does)
-    for i in range(num_pixels):
-        pixels[i] = saved_pixels[i]
-        if (i + 1) % chunk_size == 0:
-            pixels.show()
-            time.sleep(delay_ms / 1000.0)
-
-    # Final show() for any remaining pixels not in a full chunk
     pixels.show()
-    time.sleep(delay_ms / 1000.0)
 
 
-def chunked_fill(pixels, color, chunk_size=8, delay_ms=8):
+def chunked_fill(pixels, color, chunk_size=None, delay_ms=None):
     """
-    Fill all LEDs with a color using chunked writes.
+    Fill all LEDs with a color.
+
+    With PWM/PIO drivers, no chunking is needed - this is a simple wrapper
+    for backward compatibility with existing code.
 
     Args:
-        pixels: NeoPixel_SPI strip object
+        pixels: NeoPixel strip object
         color: (R, G, B) tuple (0-255 for each channel)
-        chunk_size (int): Number of LEDs to update per chunk (default 8)
-        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
+        chunk_size: Ignored (kept for API compatibility)
+        delay_ms: Ignored (kept for API compatibility)
 
     Usage:
         chunked_fill(pixels, (255, 0, 0))  # Fill all red
         chunked_fill(pixels, (0, 0, 0))    # Turn all off
+
+    Note:
+        No chunking needed with PWM/PIO drivers - supports 1000+ LEDs.
     """
-    import time
-
-    num_pixels = len(pixels)
-
-    for i in range(num_pixels):
-        pixels[i] = color
-        if (i + 1) % chunk_size == 0:
-            pixels.show()
-            time.sleep(delay_ms / 1000.0)
-
-    # Final show for remaining LEDs
+    pixels.fill(color)
     pixels.show()
-    time.sleep(delay_ms / 1000.0)
 
 
-def chunked_clear(pixels, chunk_size=8, delay_ms=8):
+def chunked_clear(pixels, chunk_size=None, delay_ms=None):
     """
-    Turn off all LEDs using chunked writes.
+    Turn off all LEDs.
+
+    With PWM/PIO drivers, no chunking is needed - this is a simple wrapper
+    for backward compatibility with existing code.
 
     Args:
-        pixels: NeoPixel_SPI strip object
-        chunk_size (int): Number of LEDs to update per chunk (default 8)
-        delay_ms (int): Delay in milliseconds between chunks (default 8ms)
+        pixels: NeoPixel strip object
+        chunk_size: Ignored (kept for API compatibility)
+        delay_ms: Ignored (kept for API compatibility)
 
     Usage:
         chunked_clear(pixels)  # Turn off all LEDs
+
+    Note:
+        No chunking needed with PWM/PIO drivers - supports 1000+ LEDs.
     """
-    chunked_fill(pixels, (0, 0, 0), chunk_size, delay_ms)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def map_xy_to_pixel_single(x, y):
@@ -364,6 +314,7 @@ if __name__ == "__main__":
     config = get_led_config()
     print(f"   Pi Model: {config['pi_model']}")
     print(f"   LED Count: {config['led_count']}")
+    print(f"   LED GPIO Pin: {config['led_gpio_pin']}")
     print(f"   Pixel Order: {config['pixel_order']}")
     print(f"   Layout: {config['layout']}")
 
