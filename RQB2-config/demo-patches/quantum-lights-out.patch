@@ -2,45 +2,94 @@ diff --git a/lights_out.py b/lights_out.py
 index original..rasqberry 100644
 --- a/lights_out.py
 +++ b/lights_out.py
-@@ -1,5 +1,10 @@
+@@ -1,4 +1,6 @@
  # Standard library imports
- import numpy as np
 +import sys
-+import os
-+
-+# Add /usr/bin to Python path for RasQberry utilities
-+sys.path.insert(0, '/usr/bin')
++sys.path.insert(0, "/usr/bin")
+ import numpy as np
  import math
  import time
- from random import choice
-@@ -13,11 +18,11 @@ from PySide6.QtGui import QPainter, QColor
- from PySide6.QtCore import Qt, QTimer
+@@ -12,12 +14,19 @@ from qiskit.providers.basic_provider import BasicSimulator
+ from qiskit_aer import AerSimulator
 
- # Hardware library imports
+ # Imports for LED array
 -import board
 -import neopixel_spi as neopixel
 +# RasQberry: Use PWM/PIO driver for Pi 4 and Pi 5 compatibility
 +from rq_led_utils import get_led_config, create_neopixel_strip
++import neopixel
 
  # Local imports
  from turn_off_LEDs import turn_off_LEDs
-+import neopixel  # For color order constants
 
++
++# RasQberry: Helper function to convert hex colors to RGB tuples
++def hex_to_rgb(hex_color):
++    """Convert 0xRRGGBB hex color to (R, G, B) tuple for neopixel"""
++    return ((hex_color >> 16) & 0xFF, (hex_color >> 8) & 0xFF, hex_color & 0xFF)
++
  # Constants
  # Array containing the initial lights out grid values
-@@ -310,11 +315,11 @@ def main(args):
-     A grid of lights (some on, some off) and a GUI where the user can interact with the application.
+ lights = [
+@@ -277,17 +286,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
+         LED_array_index_list = LED_array_indices[index]
+         if selected != None and index == selected:
+             for coord in LED_array_index_list:
+-                pixels[coord] = SELECTED_COLOR
++                pixels[coord] = hex_to_rgb(SELECTED_COLOR)
+         elif square == 1:
+             for coord in LED_array_index_list:
+-                pixels[coord] = ON_COLOR
++                pixels[coord] = hex_to_rgb(ON_COLOR)
+         else:
+             for coord in LED_array_index_list:
+-                pixels[coord] = OFF_COLOR
++                pixels[coord] = hex_to_rgb(OFF_COLOR)
+     pixels.show()
+
+
+-def visualize_solution(grid, solution, args):
++def visualize_solution(grid, solution, args, pixels):
      """
-     # Setup
+     This function receives the lights-out grid and
+     the solution to the grid that was generated from the quantum circuit.
+@@ -310,16 +319,7 @@ def visualize_solution(grid, solution, args):
+     delay = args.delay
+     brightness = args.brightness
+
+-    # Neopixel initialization
 -    spi = board.SPI()
 -
 -    pixels = neopixel.NeoPixel_SPI(
--        spi, 192, brightness=args.brightness, pixel_order=neopixel.GRB, auto_write=False
+-        spi,
+-        NUM_PIXELS,
+-        pixel_order=PIXEL_ORDER,
+-        brightness=brightness,
+-        auto_write=False,
 -    )
-+    # RasQberry: Use PWM/PIO driver (auto-detects Pi 4 or Pi 5)
++    # Neopixel object passed as parameter (reused from main)
+
+     # The square root of the length of the grid will be used to find the left and right columns later
+     root = int(math.sqrt(len(grid)))
+@@ -428,6 +428,12 @@ def parse_arguments():
+ def main(**kwargs):
+     args = parse_arguments()
+
++    # Initialize NeoPixel strip once for reuse (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
 +    config = get_led_config()
 +    pixels = create_neopixel_strip(
-+        config['led_count'], config['pixel_order'], brightness=args.brightness
++        config["led_count"], config["pixel_order"], brightness=args.brightness
 +    )
++
+     # Turn off LEDs whenever the program is closed
+     atexit.register(turn_off_LEDs)
 
-     grid = INITIAL_LIGHTS_OUT_GRID
+@@ -441,7 +447,7 @@ def main(**kwargs):
+             quantum_solution = compute_quantum_solution(lights_grid)
+             print("Quantum solution found!")
+             print("Visualizing solution...")
+-            visualize_solution(lights_grid, quantum_solution, args)
++            visualize_solution(lights_grid, quantum_solution, args, pixels)
+             print("\n")
+     except Exception as e:
+         print("An error occured: ", e)
