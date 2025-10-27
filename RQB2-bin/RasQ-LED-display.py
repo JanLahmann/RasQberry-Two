@@ -27,8 +27,15 @@ K = (0, 0, 0)      # Black (off)
 to_color = {'1': B, '0': R}  # 1=Blue, 0=Red
 wait_ms = 7  # delay in display cycle
 
-def display_on_strip(pixels, measurement):
-    """Display quantum measurement result on LED strip"""
+def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
+    """Display quantum measurement result on LED strip with optional sequential animation
+
+    Args:
+        pixels: NeoPixel strip object
+        measurement: Binary string of quantum measurement
+        animate: If True, display LEDs sequentially; if False, show all at once
+        animation_duration: Total time in seconds for sequential animation
+    """
     print(f"Displaying measurement: {measurement}")
 
     # Convert measurement string to colors
@@ -38,17 +45,31 @@ def display_on_strip(pixels, measurement):
     pixels.fill(K)
     chunked_show(pixels)
 
-    # Set colors for measurement bits (up to available pixels)
-    for i, bit in enumerate(measurement_list):
-        if i >= NUM_PIXELS:
-            print(f"Warning: Measurement has {len(measurement_list)} bits, but only {NUM_PIXELS} LEDs available")
-            break
+    if animate and len(measurement_list) > 0:
+        # Sequential animation - display each LED one at a time
+        delay_per_led = animation_duration / len(measurement_list)
 
-        color = to_color.get(bit, K)  # Get color or black for invalid bits
-        pixels[i] = color
+        for i, bit in enumerate(measurement_list):
+            if i >= NUM_PIXELS:
+                print(f"Warning: Measurement has {len(measurement_list)} bits, but only {NUM_PIXELS} LEDs available")
+                break
 
-    # Show all LEDs at once after setting colors
-    chunked_show(pixels)
+            color = to_color.get(bit, K)  # Get color or black for invalid bits
+            pixels[i] = color
+            chunked_show(pixels)
+            sleep(delay_per_led)
+    else:
+        # Instant display - set all LEDs at once
+        for i, bit in enumerate(measurement_list):
+            if i >= NUM_PIXELS:
+                print(f"Warning: Measurement has {len(measurement_list)} bits, but only {NUM_PIXELS} LEDs available")
+                break
+
+            color = to_color.get(bit, K)  # Get color or black for invalid bits
+            pixels[i] = color
+
+        # Show all LEDs at once after setting colors
+        chunked_show(pixels)
 
 def color_wipe(pixels, color=K, wait_ms=wait_ms):
     """Wipe color across display a pixel at a time"""

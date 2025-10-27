@@ -1,0 +1,175 @@
+diff --git a/led_pixels_shared.py b/led_pixels_shared.py
+new file mode 100644
+index 0000000..rasqberry
+--- /dev/null
++++ b/led_pixels_shared.py
+@@ -0,0 +1,31 @@
++# Shared pixels instance for LED Painter
++# This keeps the pixels object alive and prevents GPIO conflicts
++
++import sys
++sys.path.insert(0, "/usr/bin")
++from rq_led_utils import get_led_config, create_neopixel_strip
++import neopixel
++
++# Global shared pixels object
++_pixels_instance = None
++
++def get_pixels(brightness=1.0):
++    """Get or create the shared pixels instance"""
++    global _pixels_instance
++
++    NUM_PIXELS = 192
++    PIXEL_ORDER = neopixel.GRB
++
++    if _pixels_instance is None:
++        config = get_led_config()
++        _pixels_instance = create_neopixel_strip(
++            NUM_PIXELS,
++            PIXEL_ORDER,
++            brightness=brightness
++        )
++    else:
++        # Update brightness if changed
++        _pixels_instance.brightness = brightness
++
++    return _pixels_instance
++
+diff --git a/led_painter_clear.py b/led_painter_clear.py
+new file mode 100644
+index 0000000..rasqberry
+--- /dev/null
++++ b/led_painter_clear.py
+@@ -0,0 +1,30 @@
++# Third Party Imports for LED array
++from led_pixels_shared import get_pixels
++
++
++def clear_leds():
++    """
++    Clear all LEDs using LED Painter's shared pixels instance.
++
++    Args:
++        None
++
++    Returns:
++        None
++    """
++    try:
++        pixels = get_pixels(brightness=0.2)
++
++        # Clear all LEDs at once
++        pixels.fill((0, 0, 0))
++        pixels.show()
++
++    except Exception as e:
++        print("Error turning off LEDs: ", e)
++
++
++def main():
++    print("Turning off all LEDs...")
++    clear_leds()
++    print("Done!")
++
+diff --git a/display_to_LEDs_from_file.py b/display_to_LEDs_from_file.py
+index original..rasqberry 100644
+--- a/display_to_LEDs_from_file.py
++++ b/display_to_LEDs_from_file.py
+@@ -3,11 +3,13 @@ import json
+ import argparse
+ import atexit
+
+-# Third Party Imports for LED array
+-import board
+-import neopixel_spi as neopixel
+-
+ # Local
++# Import local clear function FIRST (before sys.path modifications)
++from led_painter_clear import clear_leds
++from LED_array_indices import LED_array_indices
++
++# Third Party Imports for LED array
++from led_pixels_shared import get_pixels
+ from turn_off_LEDs import turn_off_LEDs
+ from LED_array_indices import LED_array_indices
+
+@@ -34,18 +36,11 @@ def display_to_LEDs(array_data, args):
+     # Set all command line args
+     console = args.console
+     brightness = args.brightness
+
+-    # Neopixel initialization
+-    spi = board.SPI()
+-
+-    pixels = neopixel.NeoPixel_SPI(
+-        spi,
+-        NUM_PIXELS,
+-        pixel_order=PIXEL_ORDER,
+-        brightness=brightness,
+-        auto_write=False,
+-    )
++    # Get shared pixels instance (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++    pixels = get_pixels(brightness=brightness)
+
+     # Display to LED array
+     for index, color in array_data.items():
+@@ -63,7 +58,7 @@ def display_to_LEDs(array_data, args):
+
+ def main(**kwargs):
+     args = parse_arguments()
+     # Turn off LEDs whenever the program is closed
+-    atexit.register(turn_off_LEDs)
++    atexit.register(clear_leds)
+
+     # Loading from file
+     if args.file:
+@@ -90,4 +85,3 @@ def main(**kwargs):
+
+ if __name__ == "__main__":
+     main()
+-
+diff --git a/LED_painter.py b/LED_painter.py
+index original..rasqberry 100644
+--- a/LED_painter.py
++++ b/LED_painter.py
+@@ -19,7 +19,11 @@ from argparse import Namespace
+
+ # Local
+ from display_to_LEDs_from_file import display_to_LEDs
+-from turn_off_LEDs import turn_off_LEDs
++from led_painter_clear import clear_leds
++# Import system-wide turn_off_LEDs for final cleanup on exit
++import sys
++sys.path.insert(0, "/usr/bin")
++from turn_off_LEDs import turn_off_LEDs
+
+
+ # window class
+@@ -27,6 +31,10 @@ class Window(QMainWindow):
+     def __init__(self):
+         super().__init__()
+
++        # Keep pixels instance alive as class member
++        from led_pixels_shared import get_pixels
++        self.led_pixels = get_pixels(brightness=1.0)
++
+         self.setWindowTitle("RasQberry Two LED Painter")
+         self.setGeometry(0, 0, 1024, 256)
+
+@@ -197,7 +205,7 @@ class Window(QMainWindow):
+         self.update()
+
+     def clearImage(self):
+-        turn_off_LEDs()
++        clear_leds()
+         self.image.fill(QColor(0, 0, 0))
+         self.update()
+
+@@ -225,7 +233,7 @@ class Window(QMainWindow):
+                 index_counter += 1
+
+         # Clear LEDs before displaying new image, helps reduce issues
+-        turn_off_LEDs()
++        clear_leds()
+
+         display_to_LEDs(pixel_dict, Namespace(brightness=1.0, console=False))

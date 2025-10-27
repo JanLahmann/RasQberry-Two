@@ -233,7 +233,7 @@ Your choice: """
                 for factor in factors:
                     print(f"\n--- Entanglement block size: {factor} ---")
                     run_circuit(factor)
-                    time.sleep(3)
+                    time.sleep(1)
             elif player_action == 'q':
                 clear_leds()
                 print("Goodbye!")
@@ -294,7 +294,7 @@ def demo_loop(duration=2):
 
                 print(f"Entanglement block size: {factor}")
                 if run_circuit(factor):
-                    time.sleep(3)
+                    time.sleep(0.5)
                 else:
                     print("Skipping due to error")
 
