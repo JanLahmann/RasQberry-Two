@@ -876,9 +876,6 @@ jobs:
           mkdir -p ../deploy
 
           # Find the compressed image file
-          # Note: Filename is already customized by stage-RQB2/EXPORT_IMAGE
-          # Format: rasqberry-v{version}.img.xz (main), rasqberry-beta-{date}.img.xz (beta),
-          #         rasqberry-{branch}-{date}-{time}.img.xz (dev)
           FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
 
           if [ -z "$FINAL_IMAGE" ]; then
@@ -886,17 +883,43 @@ jobs:
             exit 1
           fi
 
-          # Copy to deploy folder at workspace root
-          cp "$FINAL_IMAGE" ../deploy/
+          echo "Pi-gen created: $(basename "$FINAL_IMAGE")"
+
+          # Determine correct filename from VERSION file
+          VERSION=$(cat ../VERSION)
+          echo "VERSION file content: $VERSION"
+
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            # Semantic version (main branch)
+            CORRECT_FILENAME="rasqberry-${VERSION}.img.xz"
+          elif [[ "$VERSION" =~ ^beta-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
+            # Beta branch - date only (no time)
+            BUILD_DATE="${BASH_REMATCH[1]}"
+            CORRECT_FILENAME="rasqberry-beta-${BUILD_DATE}.img.xz"
+          elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{6})$ ]]; then
+            # Dev branch - full timestamp
+            BRANCH_NAME_FROM_VERSION="${BASH_REMATCH[1]}"
+            BUILD_DATE="${BASH_REMATCH[2]}"
+            BUILD_TIME="${BASH_REMATCH[3]}"
+            CORRECT_FILENAME="rasqberry-${BRANCH_NAME_FROM_VERSION}-${BUILD_DATE}-${BUILD_TIME}.img.xz"
+          else
+            # Fallback - use whatever pi-gen created
+            CORRECT_FILENAME=$(basename "$FINAL_IMAGE")
+            echo "Warning: VERSION format not recognized, using pi-gen filename"
+          fi
+
+          echo "Correct filename: $CORRECT_FILENAME"
+
+          # Copy to deploy folder with correct filename
+          cp "$FINAL_IMAGE" "../deploy/$CORRECT_FILENAME"
 
           # Set outputs for upload step
-          FILE_NAME=$(basename "$FINAL_IMAGE")
-          echo "asset_path=deploy/$FILE_NAME" >> $GITHUB_OUTPUT
-          echo "asset_name=$FILE_NAME" >> $GITHUB_OUTPUT
+          echo "asset_path=deploy/$CORRECT_FILENAME" >> $GITHUB_OUTPUT
+          echo "asset_name=$CORRECT_FILENAME" >> $GITHUB_OUTPUT
 
           # Display build information
-          echo "Built image: $FILE_NAME"
-          echo "Size: $(du -h ../deploy/$FILE_NAME | cut -f1)"
+          echo "Built image: $CORRECT_FILENAME"
+          echo "Size: $(du -h ../deploy/$CORRECT_FILENAME | cut -f1)"
           
           # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
