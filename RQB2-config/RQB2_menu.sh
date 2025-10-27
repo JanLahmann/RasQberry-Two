@@ -493,11 +493,16 @@ do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           quicktest "Quick LED Test (6 colors)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            quicktest )
+                run_demo "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
+                do_led_off
+                ;;
             test )
                 run_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
                 do_led_off
