@@ -144,9 +144,15 @@ if ! check_display; then
     die "DISPLAY not set. $DEMO_NAME requires a graphical environment"
 fi
 
-# Run as actual user (not root) to avoid GUI/display permission issues
-# When launched from raspi-config, this ensures Qt/PySide6 can access the user's display
-# Use full path to venv python so it has access to PySide6, qiskit, etc.
-run_as_user "$VENV_PYTHON" LED_painter.py
+# Run with sudo (required for PWM/PIO LED control on GPIO)
+# Preserve DISPLAY for Qt/PySide6 GUI
+# Note: PWM/PIO drivers require root access, unlike old SPI driver
+if [ "$(id -u)" -eq 0 ]; then
+    # Already root
+    DISPLAY="${DISPLAY:-:0}" "$VENV_PYTHON" LED_painter.py
+else
+    # Need sudo for GPIO access
+    sudo DISPLAY="${DISPLAY:-:0}" "$VENV_PYTHON" LED_painter.py
+fi
 
 exit 0
