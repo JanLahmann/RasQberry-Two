@@ -132,3 +132,18 @@ index original..patched 100644
  
      if console:
          print("LED Array Data:")
++
++diff --git a/LED_painter.py b/LED_painter.py
++index original..patched 100644
++--- a/LED_painter.py
+++++ b/LED_painter.py
++@@ -224,7 +224,8 @@ class Window(QMainWindow):
++                 index_counter += 1
++
++         # Clear LEDs before displaying new image, helps reduce issues
++-        turn_off_LEDs()
+++        # turn_off_LEDs()  # Disabled: causes GPIO conflict with display_to_LEDs()
+++        # display_to_LEDs() now initializes all pixels to black, making this redundant
++
++         display_to_LEDs(pixel_dict, Namespace(brightness=1.0, console=False))
++
