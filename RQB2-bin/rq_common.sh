@@ -535,6 +535,17 @@ run_as_user() {
     fi
 }
 
+# Ensure script is running as root (re-exec with sudo if needed)
+# Usage: ensure_root "$@"
+# Call this early in scripts that require root access (LED control, GPIO, etc.)
+ensure_root() {
+    if [ "$(id -u)" != "0" ]; then
+        info "LED/GPIO operations require root access"
+        info "Re-executing with sudo..."
+        exec sudo -E "$0" "$@"
+    fi
+}
+
 # ============================================================================
 # 11. BROWSER LAUNCHING
 # ============================================================================
