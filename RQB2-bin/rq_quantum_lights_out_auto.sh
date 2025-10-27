@@ -10,6 +10,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
+# Ensure running as root (PWM/PIO LED drivers require GPIO access)
+ensure_root "$@"
+
 # Load and verify environment
 load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV MARKER_QLO
