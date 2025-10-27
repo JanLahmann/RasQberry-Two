@@ -1,3 +1,17 @@
+diff --git a/requirements.txt b/requirements.txt
+index original..patched 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,7 +1,8 @@
+ PySide6==6.2.0
+-adafruit-circuitpython-neopixel-spi==1.0.0
++# adafruit-circuitpython-neopixel-spi==1.0.0  # Replaced with PWM/PIO drivers
++adafruit-circuitpython-neopixel>=6.3.0
+
+ # For the Adafruit Circuit Python Library.
+ # Not sure if these are actually needed, but I'm including them
+ # For now to avoid any compatibility issues.
+
 diff --git a/display_to_LEDs_from_file.py b/display_to_LEDs_from_file.py
 index original..patched 100644
 --- a/display_to_LEDs_from_file.py
