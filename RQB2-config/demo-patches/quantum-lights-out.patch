@@ -1,0 +1,46 @@
+diff --git a/lights_out.py b/lights_out.py
+index original..rasqberry 100644
+--- a/lights_out.py
++++ b/lights_out.py
+@@ -1,5 +1,10 @@
+ # Standard library imports
+ import numpy as np
++import sys
++import os
++
++# Add /usr/bin to Python path for RasQberry utilities
++sys.path.insert(0, '/usr/bin')
+ import math
+ import time
+ from random import choice
+@@ -13,11 +18,11 @@ from PySide6.QtGui import QPainter, QColor
+ from PySide6.QtCore import Qt, QTimer
+
+ # Hardware library imports
+-import board
+-import neopixel_spi as neopixel
++# RasQberry: Use PWM/PIO driver for Pi 4 and Pi 5 compatibility
++from rq_led_utils import get_led_config, create_neopixel_strip
+
+ # Local imports
+ from turn_off_LEDs import turn_off_LEDs
++import neopixel  # For color order constants
+
+ # Constants
+ # Array containing the initial lights out grid values
+@@ -310,11 +315,11 @@ def main(args):
+     A grid of lights (some on, some off) and a GUI where the user can interact with the application.
+     """
+     # Setup
+-    spi = board.SPI()
+-
+-    pixels = neopixel.NeoPixel_SPI(
+-        spi, 192, brightness=args.brightness, pixel_order=neopixel.GRB, auto_write=False
+-    )
++    # RasQberry: Use PWM/PIO driver (auto-detects Pi 4 or Pi 5)
++    config = get_led_config()
++    pixels = create_neopixel_strip(
++        config['led_count'], config['pixel_order'], brightness=args.brightness
++    )
+
+     grid = INITIAL_LIGHTS_OUT_GRID
