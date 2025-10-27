@@ -111,7 +111,7 @@ while True:
         time.sleep(16 * DELAY)
 
         # Animated sweep effect
-        pixels.fill(0)
+        pixels.fill((0, 0, 0))
         for i in range(NUM_PIXELS):
             pixels[i] = color
             if (i + 1) < NUM_PIXELS:
@@ -120,9 +120,9 @@ while True:
                 pixels[i + 2] = color
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
-            # Only refresh display every CHUNK_SIZE pixels to reduce flickering
+            # Show every 8 pixels to reduce flickering (no chunking needed with PWM/PIO)
             # Still show last frame to ensure complete display
-            if i % CHUNK_SIZE == 0 or i == NUM_PIXELS - 1:
+            if i % 8 == 0 or i == NUM_PIXELS - 1:
                 chunked_show(pixels)
             time.sleep(DELAY)
-            pixels.fill(0)
+            pixels.fill((0, 0, 0))
