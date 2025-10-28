@@ -120,7 +120,6 @@ index original..patched 100644
 +    for i in range(NUM_PIXELS):
 +        pixels[i] = (0, 0, 0)
 +    pixels.show()
-     )
  
      # Display to LED array
 @@ -56,7 +76,7 @@ def display_to_LEDs(array_data, args):
