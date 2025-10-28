@@ -2,28 +2,23 @@ diff --git a/lights_out.py b/lights_out.py
 index original..rasqberry 100644
 --- a/lights_out.py
 +++ b/lights_out.py
-@@ -1,4 +1,6 @@
+@@ -1,4 +1,5 @@
  # Standard library imports
-+import sys
-+sys.path.insert(0, "/usr/bin")
++import os
  import numpy as np
  import math
  import time
-@@ -12,12 +14,19 @@ from qiskit.providers.basic_provider import BasicSimulator
- from qiskit_aer import AerSimulator
-
+@@ -13,11 +14,16 @@ from qiskit_aer import AerSimulator
+ 
  # Imports for LED array
--import board
+ import board
 -import neopixel_spi as neopixel
-+# RasQberry: Use PWM/PIO driver for Pi 4 and Pi 5 compatibility
-+from rq_led_utils import get_led_config, create_neopixel_strip
 +import neopixel
-
+ 
  # Local imports
  from turn_off_LEDs import turn_off_LEDs
-
-+
-+# RasQberry: Helper function to convert hex colors to RGB tuples
+ 
++# Helper function to convert hex colors to RGB tuples
 +def hex_to_rgb(hex_color):
 +    """Convert 0xRRGGBB hex color to (R, G, B) tuple for neopixel"""
 +    return ((hex_color >> 16) & 0xFF, (hex_color >> 8) & 0xFF, hex_color & 0xFF)
@@ -31,7 +26,7 @@ index original..rasqberry 100644
  # Constants
  # Array containing the initial lights out grid values
  lights = [
-@@ -277,17 +286,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
+@@ -277,17 +283,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
          LED_array_index_list = LED_array_indices[index]
          if selected != None and index == selected:
              for coord in LED_array_index_list:
@@ -46,17 +41,17 @@ index original..rasqberry 100644
 -                pixels[coord] = OFF_COLOR
 +                pixels[coord] = hex_to_rgb(OFF_COLOR)
      pixels.show()
-
-
+ 
+ 
 -def visualize_solution(grid, solution, args):
 +def visualize_solution(grid, solution, args, pixels):
      """
      This function receives the lights-out grid and
      the solution to the grid that was generated from the quantum circuit.
-@@ -310,16 +319,7 @@ def visualize_solution(grid, solution, args):
+@@ -310,16 +316,7 @@ def visualize_solution(grid, solution, args):
      delay = args.delay
      brightness = args.brightness
-
+ 
 -    # Neopixel initialization
 -    spi = board.SPI()
 -
@@ -68,23 +63,37 @@ index original..rasqberry 100644
 -        auto_write=False,
 -    )
 +    # Neopixel object passed as parameter (reused from main)
-
+ 
      # The square root of the length of the grid will be used to find the left and right columns later
      root = int(math.sqrt(len(grid)))
-@@ -428,6 +428,12 @@ def parse_arguments():
+@@ -428,6 +425,26 @@ def parse_arguments():
  def main(**kwargs):
      args = parse_arguments()
-
+ 
++    # Load LED configuration from environment file
++    env_file = "/usr/config/rasqberry_environment.env"
++    config = {}
++    if os.path.exists(env_file):
++        with open(env_file) as f:
++            for line in f:
++                line = line.strip()
++                if line and not line.startswith("#") and "=" in line:
++                    key, value = line.split("=", 1)
++                    config[key] = value
++    
 +    # Initialize NeoPixel strip once for reuse (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
-+    config = get_led_config()
-+    pixels = create_neopixel_strip(
-+        config["led_count"], config["pixel_order"], brightness=args.brightness
-+    )
++    num_pixels = int(config.get("LED_COUNT", 192))
++    pixel_order_str = config.get("LED_PIXEL_ORDER", "GRB")
++    pixel_order = getattr(neopixel, pixel_order_str, neopixel.GRB)
++    gpio_pin = int(config.get("LED_GPIO_PIN", 18))
++    gpio_board_pin = getattr(board, f"D{gpio_pin}")
++    pixels = neopixel.NeoPixel(gpio_board_pin, num_pixels, pixel_order=pixel_order,
++                               brightness=args.brightness, auto_write=False)
 +
      # Turn off LEDs whenever the program is closed
      atexit.register(turn_off_LEDs)
-
-@@ -441,7 +447,7 @@ def main(**kwargs):
+ 
+@@ -441,7 +458,7 @@ def main(**kwargs):
              quantum_solution = compute_quantum_solution(lights_grid)
              print("Quantum solution found!")
              print("Visualizing solution...")
@@ -93,3 +102,50 @@ index original..rasqberry 100644
              print("\n")
      except Exception as e:
          print("An error occured: ", e)
+
+diff --git a/turn_off_LEDs.py b/turn_off_LEDs.py
+index original..rasqberry 100644
+--- a/turn_off_LEDs.py
++++ b/turn_off_LEDs.py
+@@ -1,7 +1,7 @@
+ # Imports for LED array
+ import board
+-import neopixel_spi as neopixel
+-
++import neopixel
++import os
+ 
+ def turn_off_LEDs():
+     """
+@@ -13,15 +13,21 @@ def turn_off_LEDs():
+     Returns:
+         None
+     """
+-    NUM_PIXELS = 192
+-    PIXEL_ORDER = neopixel.GRB
+-
+     try:
+-        spi = board.SPI()
+-
+-        pixels = neopixel.NeoPixel_SPI(
+-            spi, NUM_PIXELS, pixel_order=PIXEL_ORDER, auto_write=False
+-        )
++        # Load LED configuration from environment file
++        env_file = "/usr/config/rasqberry_environment.env"
++        config = {}
++        if os.path.exists(env_file):
++            with open(env_file) as f:
++                for line in f:
++                    line = line.strip()
++                    if line and not line.startswith("#") and "=" in line:
++                        key, value = line.split("=", 1)
++                        config[key] = value
++        
++        num_pixels = int(config.get("LED_COUNT", 192))
++        gpio_pin = int(config.get("LED_GPIO_PIN", 18))
++        pixels = neopixel.NeoPixel(getattr(board, f"D{gpio_pin}"), num_pixels, auto_write=False)
+ 
+-        for index in range(NUM_PIXELS):
++        for index in range(num_pixels):
+             # Setting pixel to 0 value will turn it off
+             pixels[index] = 0x000000
