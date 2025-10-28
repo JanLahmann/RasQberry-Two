@@ -523,7 +523,8 @@ do_select_led_option() {
            quicktest "Quick LED Test (6 colors)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
-           IBM "IBM LED Demo") || break
+           IBM "IBM LED Demo" \
+           layout "Configure Matrix Layout") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             quicktest )
@@ -541,6 +542,9 @@ do_select_led_option() {
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
+                ;;
+            layout )
+                do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
                 ;;
             *) break ;;
         esac
@@ -650,12 +654,49 @@ do_show_system_info() {
     10 70
 }
 
+# LED Matrix Layout Configuration
+do_select_led_layout() {
+  # Get current layout setting
+  CURRENT_LAYOUT=$(check_environment_variable "LED_MATRIX_LAYOUT")
+
+  # Show current setting in menu
+  if [ "$CURRENT_LAYOUT" = "quad" ]; then
+    CURRENT_DESC="Current: 4× 4×12 panels (quad layout)"
+  else
+    CURRENT_DESC="Current: Single 8×24 panel (serpentine)"
+  fi
+
+  FUN=$(show_menu "LED Matrix Layout Configuration" "$CURRENT_DESC\n\nSelect your LED matrix layout:\nBoth layouts use 192 LEDs (8 rows × 24 columns)" \
+     single "Single 8×24 serpentine panel" \
+     quad   "4× 4×12 panels (2×2 grid)") || return 0
+
+  case "$FUN" in
+    single)
+      update_environment_file "LED_MATRIX_LAYOUT" "single"
+      update_environment_file "LED_MATRIX_Y_FLIP" "true"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\nSingle 8×24 serpentine panel\n- Total: 192 LEDs (8 rows × 24 columns)\n- Wiring: Serpentine (zigzag) pattern\n- Y-axis: Flipped (upside down)\n\nRestart demos for changes to take effect." \
+        13 60
+      ;;
+    quad)
+      update_environment_file "LED_MATRIX_LAYOUT" "quad"
+      update_environment_file "LED_MATRIX_Y_FLIP" "false"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\n4× 4×12 panels (quad layout)\n- Total: 192 LEDs (8 rows × 24 columns)\n- Each panel: 4×12 LEDs\n- Arrangement: 2×2 grid\n- Wiring: TL→TR→BR→BL\n\nRestart demos for changes to take effect." \
+        14 60
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD  "Quantum Demos" \
-       UEF "Update Env File" \
-       INFO "System Info") || break
+       QD     "Quantum Demos" \
+       UEF    "Update Env File" \
+       INFO   "System Info") || break
     case "$FUN" in
       QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
