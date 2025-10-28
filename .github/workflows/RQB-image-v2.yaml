@@ -131,6 +131,7 @@ jobs:
       # Version outputs for use in subsequent jobs
       version: ${{ steps.current-version.outputs.version }}
       version_num: ${{ steps.update-version.outputs.version_num }}
+      commit_sha: ${{ steps.get-sha.outputs.commit_sha }}
     
     steps:
       # Clone the repository with push permissions
@@ -201,6 +202,7 @@ jobs:
       # Commit version change and create/update git tag
       # Tags: v1.2.3 for main, branch-timestamp for dev
       - name: "Rasqberry: git add & commit & push"
+        id: version-commit
         uses: EndBug/add-and-commit@v9
         with:
           add: "./VERSION"
@@ -212,6 +214,12 @@ jobs:
           push: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Output the new commit SHA for downstream jobs to checkout
+      - name: "Get commit SHA"
+        id: get-sha
+        run: |
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       # Install cosign for artifact signing (future enhancement)
       - name: Install cosign
@@ -231,12 +239,14 @@ jobs:
       # Release outputs for asset upload
       id: ${{ steps.create-release.outputs.id }}
       upload_url: ${{ steps.create-release.outputs.upload_url }}
-    
+
     steps:
       # Checkout with full history for changelog generation
+      # Use the commit with updated VERSION file from Job 1
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
           fetch-depth: 0  # Full history needed for git-cliff
 
       # Get the most recent tag for changelog generation
@@ -275,16 +285,19 @@ jobs:
   # Includes sophisticated caching for development builds
   build:
     name: Build Image
-    needs: [release]
+    needs: [rasqberry-push-version-number, release]
     runs-on: ubuntu-latest
     outputs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
-    
+
     steps:
+      # Checkout the commit with updated VERSION file from Job 1
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
 
       # ========================================================================
       # DISK SPACE OPTIMIZATION
