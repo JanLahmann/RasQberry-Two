@@ -36,6 +36,10 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
     </video>
     <p className="media-caption">Demo video showing RasQberry Two beta with quantum computing demos</p>
   </div>
+  <div className="media-item">
+    <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" />
+    <p className="media-caption">Screenshots of quantum computing demos</p>
+  </div>
 </div>
 
 
