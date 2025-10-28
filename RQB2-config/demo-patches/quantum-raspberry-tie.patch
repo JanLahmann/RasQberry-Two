@@ -2,27 +2,51 @@ diff --git a/QuantumRaspberryTie.v7_1.py b/QuantumRaspberryTie.v7_1.py
 index original..patched 100644
 --- a/QuantumRaspberryTie.v7_1.py
 +++ b/QuantumRaspberryTie.v7_1.py
-@@ -1080,8 +1080,8 @@ if UseNeo and IsRPi :
+@@ -1080,8 +1080,9 @@ if UseNeo and IsRPi :
      print("importing neopixel library...")
      try:
          import board
 -        import neopixel_spi as neopixel
 +        import neopixel
++        import os
      except Exception as e:
          print("Error importing neopixel library: ", e)
          UseNeo = False
      try:
-@@ -1096,14 +1096,12 @@ if UseNeo and IsRPi :
-         BRIGHTNESS = 0.10
- 
++        # Load LED configuration from environment file
++        env_file = "/usr/config/rasqberry_environment.env"
++        config = {}
++        if os.path.exists(env_file):
++            with open(env_file) as f:
++                for line in f:
++                    line = line.strip()
++                    if line and not line.startswith("#") and "=" in line:
++                        key, value = line.split("=", 1)
++                        config[key] = value
++        
+         # Neopixel constants
+-        if NeoTiled: 
+-            NUM_PIXELS = 192
+-            PIXEL_ORDER = neopixel.RGB
+-        else: 
+-            NUM_PIXELS = 256
+-            PIXEL_ORDER = neopixel.GRB
+-        BRIGHTNESS = 0.10
++        NUM_PIXELS = int(config.get("LED_COUNT", 192 if NeoTiled else 256))
++        pixel_order_str = config.get("LED_PIXEL_ORDER", "RGB" if NeoTiled else "GRB")
++        PIXEL_ORDER = getattr(neopixel, pixel_order_str, neopixel.GRB)
++        BRIGHTNESS = float(config.get("LED_DEFAULT_BRIGHTNESS", 0.10))
+
          # Neopixel initialization
 -        spi = board.SPI()
 -
 -        neopixel_array = neopixel.NeoPixel_SPI(
 -            spi,
 +        # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++        gpio_pin = int(config.get("LED_GPIO_PIN", 18))
++        gpio_board_pin = getattr(board, f"D{gpio_pin}")
 +        neopixel_array = neopixel.NeoPixel(
-+            board.D18,
++            gpio_board_pin,
              NUM_PIXELS,
              pixel_order=PIXEL_ORDER,
              brightness=BRIGHTNESS,
@@ -33,3 +57,5 @@ index original..patched 100644
 +        # Initialize all pixels to black
 +        neopixel_array.fill((0, 0, 0))
 +        neopixel_array.show()
+     except Exception as e:
+         print("Error initilizating Neopixel board: ", e)
