@@ -33,6 +33,7 @@ def plotcalc(y, x, color, pixels, rainbow):
         rainbow: If True, override color with rainbow gradient based on y
 
     Note: Uses map_xy_to_pixel() which reads LED_MATRIX_LAYOUT from environment.
+          Y-flip is handled in rq_led_utils based on LED_MATRIX_Y_FLIP config.
     """
     # Get pixel index from layout-aware mapping function
     i = map_xy_to_pixel(x, y)

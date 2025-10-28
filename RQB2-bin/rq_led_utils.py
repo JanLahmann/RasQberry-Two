@@ -70,6 +70,7 @@ def get_led_config():
         'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
+        'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.1)),
     }
@@ -205,31 +206,41 @@ def chunked_clear(pixels, chunk_size=None, delay_ms=None):
 
 def map_xy_to_pixel_single(x, y):
     """
-    Map (x, y) coordinates to LED pixel index for single 8x24 serpentine layout.
+    Map (x, y) coordinates to LED pixel index for single serpentine layout.
 
     Layout: Column-major with alternating direction
-    - Even columns (0, 2, 4...): go down (y: 0→7)
-    - Odd columns (1, 3, 5...): go up (y: 7→0)
+    - Even columns (0, 2, 4...): go down (y: 0→height-1)
+    - Odd columns (1, 3, 5...): go up (y: height-1→0)
 
     Args:
-        x (int): Column index (0-23, left to right)
-        y (int): Row index (0-7, top to bottom)
+        x (int): Column index (0 to width-1, left to right)
+        y (int): Row index (0 to height-1, top to bottom)
 
     Returns:
-        int: Pixel index (0-191), or None if out of bounds
+        int: Pixel index, or None if out of bounds
 
     Note:
-        Extracted from neopixel_spi_IBMtestFunc_8x24.py with bounds checking added.
+        Reads LED_MATRIX_WIDTH and LED_MATRIX_HEIGHT from environment.
+        Respects LED_MATRIX_Y_FLIP configuration for physically upside-down matrices.
     """
+    # Get matrix dimensions from config
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+
     # Bounds checking
-    if x < 0 or x >= 24 or y < 0 or y >= 8:
-        print(f"Warning: Coordinate ({x}, {y}) out of bounds for single layout")
+    if x < 0 or x >= width or y < 0 or y >= height:
+        print(f"Warning: Coordinate ({x}, {y}) out of bounds for single layout ({width}x{height})")
         return None
 
-    if x % 2 == 0:  # Even columns go down (0→7)
-        return x * 8 + y
-    else:  # Odd columns go up (7→0)
-        return x * 8 + (7 - y)
+    # Apply Y-flip if configured (for physically upside-down matrices)
+    if config.get('y_flip', False):
+        y = height - 1 - y
+
+    if x % 2 == 0:  # Even columns go down (0→height-1)
+        return x * height + y
+    else:  # Odd columns go up (height-1→0)
+        return x * height + (height - 1 - y)
 
 
 def map_xy_to_pixel_quad(x, y):
