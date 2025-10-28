@@ -11,7 +11,7 @@ Credit for the bulk of the 3D design work goes to [Eric Jenney](https://github.c
 
 ![Assembled model of Quantum System Two](artwork/RasQberry2model.png "RasQberry 2 model")
 
-There are quite a lot of pieces, but they're easy to print, without the need for supports, and the process is [well-documented](https://rasqberry.org/3d-model/hardware-assembly-guide).
+There are quite a lot of pieces, but they're easy to print, without the need for supports, and the process is [well-documented](https://rasqberry.org/01-3d-model/hardware-assembly-guide).
 
 ![Exploded parts view of RasQberry 2 model](artwork/RasQberry2exploded.png "Exploded view of RasQerry 2")
 
