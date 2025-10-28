@@ -25,7 +25,7 @@ EMERGENCY_DEFAULTS = {
     'LED_COUNT': '192',  # 4*4*12 = 192 LEDs
     'LED_GPIO_PIN': '18',  # GPIO18 for PWM (Pi4) and PIO (Pi5)
     'LED_PIXEL_ORDER': 'GRB',
-    'LED_BRIGHTNESS': '100',
+    'LED_DEFAULT_BRIGHTNESS': '0.4',
     'LED_MATRIX_LAYOUT': 'single',
     'LED_MATRIX_WIDTH': '24',
     'LED_MATRIX_HEIGHT': '8',
@@ -66,13 +66,12 @@ def get_led_config():
         'led_count': int(config.get('LED_COUNT', 192)),
         'led_gpio_pin': int(config.get('LED_GPIO_PIN', 18)),
         'pixel_order': config.get('LED_PIXEL_ORDER', 'GRB'),
-        'brightness': int(config.get('LED_BRIGHTNESS', 100)),
         'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
         'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
         'n_qubit': int(config.get('N_QUBIT', 192)),
-        'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.1)),
+        'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
     }
 
 
