@@ -3,7 +3,7 @@
 # Modified for RasQberry: Pi4/Pi5 compatible IBM LED demo with PWM/PIO drivers
 
 import time
-from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show, map_xy_to_pixel
 
 # Load configuration from environment file
 config = get_led_config()
@@ -23,7 +23,7 @@ pixels = create_neopixel_strip(
 
 def plotcalc(y, x, color, pixels, rainbow):
     """
-    Calculate pixel index for 192-LED strip in specific serpentine layout.
+    Calculate pixel index using environment-configured layout (single or quad).
 
     Args:
         y: Row index (0-7)
@@ -32,17 +32,14 @@ def plotcalc(y, x, color, pixels, rainbow):
         pixels: NeoPixel strip object
         rainbow: If True, override color with rainbow gradient based on y
 
-    Note: This uses the original (y, x) coordinate system and layout calculation.
+    Note: Uses map_xy_to_pixel() which reads LED_MATRIX_LAYOUT from environment.
     """
-    # top row
-    x1 = x * 4 + (0 if x % 2 == 0 else 3)
-    y1 = (7 - y if x % 2 == 0 else y - 7)
+    # Get pixel index from layout-aware mapping function
+    i = map_xy_to_pixel(x, y)
 
-    # bottom row
-    x2 = 96 + (23 - x) * 4 + (0 if x % 2 == 0 else 3)
-    y2 = (3 - y if x % 2 == 0 else y - 3)
-
-    i = x2 + y2 if y < 4 else x1 + y1
+    if i is None:
+        # Out of bounds, skip
+        return
 
     if rainbow:
         if (y == 7):
