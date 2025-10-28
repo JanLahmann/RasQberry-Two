@@ -146,7 +146,7 @@ jobs:
         id: create-date
         shell: bash
         run: |
-          NOW="$(date +"%Y-%m-%d-%H%M%S")"
+          NOW="$(TZ=Europe/Berlin date +"%Y-%m-%d-%H%M%S")"
           echo "date=${NOW}" >> $GITHUB_OUTPUT
 
       # Read the current version from VERSION file
