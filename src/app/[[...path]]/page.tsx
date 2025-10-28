@@ -22,7 +22,17 @@ export async function generateStaticParams() {
 
 export default async function Page({ params }: Props) {
     const path = params.path || ['index']
-    const fileContent = await fs.readFile(join(CONTENT_PATH, `${path.join('/')}.md`), 'utf8');
+
+    // Try to read the file, checking for both direct .md files and index.md in directories
+    let filePath = join(CONTENT_PATH, `${path.join('/')}.md`)
+    try {
+        await fs.access(filePath)
+    } catch {
+        // If direct file doesn't exist, try index.md in that directory
+        filePath = join(CONTENT_PATH, path.join('/'), 'index.md')
+    }
+
+    const fileContent = await fs.readFile(filePath, 'utf8');
 
     const paths = await getPagesFilesPaths(CONTENT_PATH)
     const navItems = await getNavItems(paths)
