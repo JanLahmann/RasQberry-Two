@@ -121,7 +121,8 @@ update_env_var() {
 
     if grep -q "^${var_name}=" "$RQ_ENV_FILE"; then
         # Variable exists - update it
-        sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
+        # Use sudo to read protected file, write to temp file, then move
+        sudo sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
         sudo mv "$temp_file" "$RQ_ENV_FILE" || die "Failed to update $var_name"
         # Restore proper permissions (world-readable, root-owned)
         sudo chmod 644 "$RQ_ENV_FILE"
