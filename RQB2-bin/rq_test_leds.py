@@ -13,6 +13,18 @@ import sys
 from rq_led_utils import get_led_config, create_neopixel_strip
 import time
 
+def safe_input(prompt="", wait_seconds=3):
+    """
+    Safely handle input() when stdin may not be available (e.g., from raspi-config).
+    Falls back to time.sleep() if stdin is not a TTY.
+    """
+    if sys.stdin.isatty():
+        print(prompt)
+        input()
+    else:
+        print(f"{prompt} [auto-continuing in {wait_seconds}s...]")
+        time.sleep(wait_seconds)
+
 def wheel(pos):
     """Generate rainbow colors across 0-255 positions."""
     if pos < 85:
@@ -69,22 +81,19 @@ def main():
         print("[1/6] Filling all LEDs with RED...")
         pixels.fill((255, 0, 0))
         pixels.show()  # Single show() for all LEDs - no chunking needed!
-        print("      ▶ Press Enter when you see RED LEDs")
-        input()
+        safe_input("      ▶ Press Enter when you see RED LEDs")
 
         # Test 2: All Green
         print("[2/6] Filling all LEDs with GREEN...")
         pixels.fill((0, 255, 0))
         pixels.show()
-        print("      ▶ Press Enter when you see GREEN LEDs")
-        input()
+        safe_input("      ▶ Press Enter when you see GREEN LEDs")
 
         # Test 3: All Blue
         print("[3/6] Filling all LEDs with BLUE...")
         pixels.fill((0, 0, 255))
         pixels.show()
-        print("      ▶ Press Enter when you see BLUE LEDs")
-        input()
+        safe_input("      ▶ Press Enter when you see BLUE LEDs")
 
         # Test 4: Individual pixels - Alternating Red/Blue
         print(f"[4/6] Alternating RED/BLUE pattern ({NUM_PIXELS} individual pixels)...")
@@ -94,8 +103,7 @@ def main():
             else:
                 pixels[i] = (0, 0, 255)  # Blue
         pixels.show()  # Single show() sets all LEDs individually!
-        print("      ▶ Press Enter when you see ALTERNATING RED/BLUE pattern")
-        input()
+        safe_input("      ▶ Press Enter when you see ALTERNATING RED/BLUE pattern")
 
         # Test 5: Rainbow gradient
         print(f"[5/6] Rainbow gradient across all {NUM_PIXELS} LEDs...")
@@ -104,8 +112,7 @@ def main():
             r, g, b = wheel(pixel_index)
             pixels[i] = (int(r * BRIGHTNESS), int(g * BRIGHTNESS), int(b * BRIGHTNESS))
         pixels.show()  # Single show() for complex pattern!
-        print("      ▶ Press Enter when you see RAINBOW GRADIENT")
-        input()
+        safe_input("      ▶ Press Enter when you see RAINBOW GRADIENT")
 
         # Test 6: Clear
         print("[6/6] Clearing all LEDs...")
