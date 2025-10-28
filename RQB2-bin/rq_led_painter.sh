@@ -79,6 +79,23 @@ check_and_install_demo() {
         cd - > /dev/null || true
     fi
 
+    # Apply GPIO busy fix (persistent NeoPixel object)
+    GPIO_FIX_SCRIPT=""
+    if [ -f "/usr/config/demo-patches/led-painter-fix-gpio-busy.py" ]; then
+        GPIO_FIX_SCRIPT="/usr/config/demo-patches/led-painter-fix-gpio-busy.py"
+    elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-fix-gpio-busy.py" ]; then
+        GPIO_FIX_SCRIPT="$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-fix-gpio-busy.py"
+    fi
+
+    if [ -n "$GPIO_FIX_SCRIPT" ] && [ -f "$DEMO_DIR/display_to_LEDs_from_file.py" ]; then
+        info "Applying GPIO busy fix..."
+        if python3 "$GPIO_FIX_SCRIPT" "$DEMO_DIR/display_to_LEDs_from_file.py" > /dev/null 2>&1; then
+            info "✓ Applied GPIO busy fix (persistent NeoPixel object)"
+        else
+            warn "Could not apply GPIO busy fix (multiple displays may fail)"
+        fi
+    fi
+
     # Install Python dependencies
     info "Installing Python dependencies (this may take several minutes)..."
 
