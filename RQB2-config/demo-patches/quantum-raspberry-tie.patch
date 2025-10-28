@@ -2,25 +2,17 @@ diff --git a/QuantumRaspberryTie.v7_1.py b/QuantumRaspberryTie.v7_1.py
 index original..patched 100644
 --- a/QuantumRaspberryTie.v7_1.py
 +++ b/QuantumRaspberryTie.v7_1.py
-@@ -1,3 +1,6 @@
-+import sys
-+sys.path.insert(0, "/usr/bin")
-+
- #----------------------------------------------------------------------
- #     QuantumRaspberryTie.qk2
- #       by KPRoche (Kevin P. Roche) (c) 2017,2018,2019,2020,2021,2022,2024,2025
-@@ -1080,8 +1083,9 @@ if UseNeo and IsRPi :
+@@ -1080,8 +1080,8 @@ if UseNeo and IsRPi :
      print("importing neopixel library...")
      try:
--        import board
+         import board
 -        import neopixel_spi as neopixel
-+        # import board
-+        from rq_led_utils import get_led_config, create_neopixel_strip
 +        import neopixel
      except Exception as e:
          print("Error importing neopixel library: ", e)
          UseNeo = False
-@@ -1096,14 +1100,12 @@ if UseNeo and IsRPi :
+     try:
+@@ -1096,14 +1096,12 @@ if UseNeo and IsRPi :
          BRIGHTNESS = 0.10
  
          # Neopixel initialization
@@ -28,16 +20,16 @@ index original..patched 100644
 -
 -        neopixel_array = neopixel.NeoPixel_SPI(
 -            spi,
--            NUM_PIXELS,
--            pixel_order=PIXEL_ORDER,
--            brightness=BRIGHTNESS,
--            auto_write=False,
-+        # Neopixel initialization (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
-+        config = get_led_config()
-+        neopixel_array = create_neopixel_strip(
-+            config["led_count"],
-+            config["pixel_order"],
-+            brightness=BRIGHTNESS
++        # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++        neopixel_array = neopixel.NeoPixel(
++            board.D18,
+             NUM_PIXELS,
+             pixel_order=PIXEL_ORDER,
+             brightness=BRIGHTNESS,
+             auto_write=False,
          )
-         #neopixel_array.clear()
-         #neopixel_array.show()
+-        #neopixel_array.clear()
+-        #neopixel_array.show()
++        # Initialize all pixels to black
++        neopixel_array.fill((0, 0, 0))
++        neopixel_array.show()
