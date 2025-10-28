@@ -205,7 +205,7 @@ run_demo() {
   if [ "$MODE" = "pty" ]; then
       ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
   else
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
@@ -498,6 +498,10 @@ do_select_led_option() {
            IBM "IBM LED Demo") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            quicktest )
+                run_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
+                do_led_off
+                ;;
             test )
                 run_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
                 do_led_off
