@@ -121,7 +121,8 @@ update_env_var() {
 
     if grep -q "^${var_name}=" "$RQ_ENV_FILE"; then
         # Variable exists - update it
-        sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
+        # Use sudo to read protected file, write to temp file, then move
+        sudo sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
         sudo mv "$temp_file" "$RQ_ENV_FILE" || die "Failed to update $var_name"
         # Restore proper permissions (world-readable, root-owned)
         sudo chmod 644 "$RQ_ENV_FILE"
@@ -535,6 +536,17 @@ run_as_user() {
     fi
 }
 
+# Ensure script is running as root (re-exec with sudo if needed)
+# Usage: ensure_root "$@"
+# Call this early in scripts that require root access (LED control, GPIO, etc.)
+ensure_root() {
+    if [ "$(id -u)" != "0" ]; then
+        info "LED/GPIO operations require root access"
+        info "Re-executing with sudo..."
+        exec sudo -E "$0" "$@"
+    fi
+}
+
 # ============================================================================
 # 11. BROWSER LAUNCHING
 # ============================================================================
@@ -594,14 +606,38 @@ Install now?"
     fi
 }
 
-# Install demo using raspi-config nonint function
+# Install demo by calling RQB2_menu.sh function directly
 # Usage: install_demo_raspiconfig do_qlo_install || die "Install failed"
+# Note: This sources RQB2_menu.sh and calls the install function directly,
+#       which is more reliable than raspi-config nonint (which doesn't work
+#       well with whiptail-based interactive functions)
 install_demo_raspiconfig() {
     local install_func="$1"
 
-    if ! sudo raspi-config nonint "$install_func"; then
+    # Source RQB2_menu.sh to get access to install_demo functions
+    local menu_script="/usr/config/RQB2_menu.sh"
+    if [ ! -f "$menu_script" ]; then
+        warn "RQB2_menu.sh not found at $menu_script"
         return 1
     fi
+
+    # Enable auto-install mode (skip whiptail prompts for standalone launchers)
+    export RQ_AUTO_INSTALL=1
+
+    # Source the menu script (which in turn sources env-config.sh)
+    # This gives us access to install_demo() and all do_*_install() functions
+    if ! source "$menu_script"; then
+        warn "Failed to source $menu_script"
+        return 1
+    fi
+
+    # Call the install function directly
+    if ! "$install_func"; then
+        warn "Failed to run $install_func"
+        return 1
+    fi
+
+    return 0
 }
 
 # ============================================================================

@@ -63,7 +63,7 @@ install_demo() {
     ENV_VAR="$4"        # environment variable name to set
     TITLE="$5"          # title for dialog messages
     PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
-    INSTALL_REQS="$7"   # optional: "pip" to install requirements.txt
+    INSTALL_REQS="${7:-}"   # optional: "pip" to install requirements.txt (default empty)
 
     DEST="$DEMO_ROOT/$NAME"
 
@@ -72,25 +72,30 @@ install_demo() {
         return 0  # Already installed
     fi
 
-    # Show confirmation dialog before downloading
-    if command -v whiptail > /dev/null 2>&1; then
-        whiptail --title "$TITLE Not Installed" \
-                 --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
-                 10 65 3>&1 1>&2 2>&3
+    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if command -v whiptail > /dev/null 2>&1; then
+            whiptail --title "$TITLE Not Installed" \
+                     --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
+                     10 65 3>&1 1>&2 2>&3
 
-        if [ $? -ne 0 ]; then
-            # User cancelled installation
-            return 1
+            if [ $? -ne 0 ]; then
+                # User cancelled installation
+                return 1
+            fi
+        else
+            # Fallback if whiptail not available
+            echo "$TITLE is not installed."
+            echo "This requires downloading from GitHub."
+            read -p "Install now? (y/n) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                return 1
+            fi
         fi
     else
-        # Fallback if whiptail not available
-        echo "$TITLE is not installed."
-        echo "This requires downloading from GitHub."
-        read -p "Install now? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            return 1
-        fi
+        # Auto-install mode - proceed without prompting
+        echo "Auto-installing $TITLE..."
     fi
 
     # Clone demo repository
@@ -102,13 +107,23 @@ install_demo() {
         fi
 
         # Apply RasQberry customization patch if specified
-        if [ -n "$PATCH_FILE" ] && [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
+        # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
+        PATCH_PATH=""
+        if [ -n "$PATCH_FILE" ]; then
+            if [ -f "/usr/config/demo-patches/$PATCH_FILE" ]; then
+                PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE"
+            elif [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
+                PATCH_PATH="$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE"
+            fi
+        fi
+
+        if [ -n "$PATCH_PATH" ]; then
             echo "Applying RasQberry customizations..."
             cd "$DEST" || return 1
-            if patch -p1 < "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" > /dev/null 2>&1; then
-                echo "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
+            if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
+                echo "✓ Applied RasQberry customizations (PWM/PIO LED driver support)"
             else
-                echo "Warning: Could not apply customization patch (demo may not work with 192+ LEDs)"
+                echo "Warning: Could not apply customization patch (demo may not work correctly)"
             fi
             cd - > /dev/null || true
         fi
@@ -143,11 +158,23 @@ install_demo() {
         fi
 
         update_environment_file "$ENV_VAR" "true"
-        [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+
+        # Show success message (unless in auto-install mode)
+        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+            whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+        else
+            echo "✓ $TITLE installed successfully"
+        fi
     else
         # Clean up empty directory and show error
         rm -rf "$DEST"
-        whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+
+        # Show error message (unless in auto-install mode)
+        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+        else
+            echo "ERROR: Failed to download $TITLE demo"
+        fi
         return 1
     fi
 }
@@ -493,9 +520,11 @@ do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           quicktest "Quick LED Test (6 colors)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
-           IBM "IBM LED Demo") || break
+           IBM "IBM LED Demo" \
+           layout "Configure Matrix Layout") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             quicktest )
@@ -513,6 +542,9 @@ do_select_led_option() {
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
+                ;;
+            layout )
+                do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
                 ;;
             *) break ;;
         esac
@@ -622,12 +654,49 @@ do_show_system_info() {
     10 70
 }
 
+# LED Matrix Layout Configuration
+do_select_led_layout() {
+  # Get current layout setting
+  CURRENT_LAYOUT=$(check_environment_variable "LED_MATRIX_LAYOUT")
+
+  # Show current setting in menu
+  if [ "$CURRENT_LAYOUT" = "quad" ]; then
+    CURRENT_DESC="Current: 4× 4×12 panels (quad layout)"
+  else
+    CURRENT_DESC="Current: Single 8×24 panel (serpentine)"
+  fi
+
+  FUN=$(show_menu "LED Matrix Layout Configuration" "$CURRENT_DESC\n\nSelect your LED matrix layout:\nBoth layouts use 192 LEDs (8 rows × 24 columns)" \
+     single "Single 8×24 serpentine panel" \
+     quad   "4× 4×12 panels (2×2 grid)") || return 0
+
+  case "$FUN" in
+    single)
+      update_environment_file "LED_MATRIX_LAYOUT" "single"
+      update_environment_file "LED_MATRIX_Y_FLIP" "true"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\nSingle 8×24 serpentine panel\n- Total: 192 LEDs (8 rows × 24 columns)\n- Wiring: Serpentine (zigzag) pattern\n- Y-axis: Flipped (upside down)\n\nRestart demos for changes to take effect." \
+        13 60
+      ;;
+    quad)
+      update_environment_file "LED_MATRIX_LAYOUT" "quad"
+      update_environment_file "LED_MATRIX_Y_FLIP" "false"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\n4× 4×12 panels (quad layout)\n- Total: 192 LEDs (8 rows × 24 columns)\n- Each panel: 4×12 LEDs\n- Arrangement: 2×2 grid\n- Wiring: TL→TR→BR→BL\n\nRestart demos for changes to take effect." \
+        14 60
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD  "Quantum Demos" \
-       UEF "Update Env File" \
-       INFO "System Info") || break
+       QD     "Quantum Demos" \
+       UEF    "Update Env File" \
+       INFO   "System Info") || break
     case "$FUN" in
       QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;

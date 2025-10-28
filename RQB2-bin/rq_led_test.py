@@ -2,6 +2,7 @@
 """
 RasQberry LED Test Utility
 Comprehensive LED strip testing with manual and automated scan modes
+Uses PWM/PIO drivers (auto-detects Pi 4 vs Pi 5)
 """
 
 import time
@@ -11,8 +12,6 @@ import argparse
 # Add /usr/bin to path to import rq_led_utils
 sys.path.insert(0, '/usr/bin')
 
-import board
-import neopixel_spi as neopixel
 from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show, chunked_fill
 
 
@@ -131,28 +130,27 @@ def full_strip_test(pixels, num_leds, chunk_size, delay_ms, brightness, cycles=5
 def run_manual_test(num_leds, chunk_size, delay_ms, brightness, pixel_order):
     """Run manual test with specified parameters"""
     print_header()
+
+    # Load hardware config
+    config = get_led_config()
+
     print(f"Configuration:")
+    print(f"  Platform: {config['pi_model']}")
     print(f"  LEDs: {num_leds}")
-    print(f"  Chunk size: {chunk_size}")
-    print(f"  Delay: {delay_ms}ms")
+    print(f"  GPIO: {config['led_gpio_pin']}")
+    print(f"  Chunk size: {chunk_size} (legacy, no chunking needed)")
+    print(f"  Delay: {delay_ms}ms (legacy, no delay needed)")
     print(f"  Brightness: {int(brightness * 100)}%")
     print(f"  Pixel order: {pixel_order}")
     print()
     print("Press Ctrl+C to skip a test or stop")
     print()
 
-    # Load hardware config
-    config = get_led_config()
-    pixel_order_const = getattr(neopixel, pixel_order)
-
-    # Create LED strip
-    spi = board.SPI()
+    # Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
     pixels = create_neopixel_strip(
-        spi,
         num_leds,
-        pixel_order_const,
-        brightness=brightness,
-        pi_model=config['pi_model']
+        pixel_order,
+        brightness=brightness
     )
 
     try:
@@ -199,16 +197,12 @@ def run_continuous_fill_test(num_leds, chunk_size, delay_ms, brightness, pixel_o
 
     # Load hardware config
     config = get_led_config()
-    pixel_order_const = getattr(neopixel, pixel_order)
 
-    # Create LED strip
-    spi = board.SPI()
+    # Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
     pixels = create_neopixel_strip(
-        spi,
         num_leds,
-        pixel_order_const,
-        brightness=brightness,
-        pi_model=config['pi_model']
+        pixel_order,
+        brightness=brightness
     )
 
     # Define color sequence
@@ -296,16 +290,12 @@ def run_continuous_show_test(num_leds, chunk_size, delay_ms, brightness, pixel_o
 
     # Load hardware config
     config = get_led_config()
-    pixel_order_const = getattr(neopixel, pixel_order)
 
-    # Create LED strip
-    spi = board.SPI()
+    # Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
     pixels = create_neopixel_strip(
-        spi,
         num_leds,
-        pixel_order_const,
-        brightness=brightness,
-        pi_model=config['pi_model']
+        pixel_order,
+        brightness=brightness
     )
 
     # Define color sequence
@@ -396,16 +386,12 @@ def run_automated_scan(num_leds, pixel_order, brightness=0.1):
 
     # Load hardware config
     config = get_led_config()
-    pixel_order_const = getattr(neopixel, pixel_order)
 
-    # Create LED strip
-    spi = board.SPI()
+    # Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
     pixels = create_neopixel_strip(
-        spi,
         num_leds,
-        pixel_order_const,
-        brightness=brightness,
-        pi_model=config['pi_model']
+        pixel_order,
+        brightness=brightness
     )
 
     # Parameter space to scan
