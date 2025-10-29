@@ -2,7 +2,7 @@
 leadspace:
   variant: light
   title: RasQberry Two
-  copy: "<span class=\"text-gradient\">The RasQberry project</span>: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or:  <span class=\"text-gradient\">Building a Functional Model of a Quantum Computer at Home</span>"
+  copy: "Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or:  <span class=\"text-gradient\">Building a Functional Model of a Quantum Computer at Home</span>"
   size: tall
   cta:
     primary:
@@ -38,7 +38,7 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
   </div>
   <div className="media-item">
     <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" />
-    <p className="media-caption">Screenshots of quantum computing demos</p>
+    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualization, quantum games, circuit composer, and fractal animations</p>
   </div>
 </div>
 
