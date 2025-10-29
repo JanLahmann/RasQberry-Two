@@ -1,4 +1,8 @@
 IMG_NAME=rasqberry
+# Note: IMG_FILENAME will be set dynamically by the GitHub Actions workflow
+# based on the VERSION file (for versioned builds) or defaults to IMG_NAME
+# Format: rasqberry-v{version} (main), rasqberry-beta-{date} (beta),
+#         rasqberry-{branch}-{date}-{time} (dev branches)
 RELEASE=bookworm
 DEPLOY_COMPRESSION=xz
 # Development: Fast compression for iteration

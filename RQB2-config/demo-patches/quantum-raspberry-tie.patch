@@ -1,0 +1,183 @@
+diff --git a/QuantumRaspberryTie.v7_1.py b/QuantumRaspberryTie.v7_1.py
+index f8cf37f..ef707c9 100644
+--- a/QuantumRaspberryTie.v7_1.py
++++ b/QuantumRaspberryTie.v7_1.py
+@@ -108,6 +108,10 @@
+ print("importing libraries...")
+ print("       ....sys")
+ import sys                             # used to check for passed filename
++# RasQberry LED utilities for layout-aware mapping
++import sys
++sys.path.insert(0, '/usr/bin')
++from rq_led_utils import get_led_config, map_xy_to_pixel
+ print("       ....os")
+ import os                              # used to find script directory
+ print("       ....platform")
+@@ -325,16 +329,59 @@ qubits = pixels
+ # scale lets us do a simple color rotation of hues and convert it to RGB in pixels
+ 
+ # LED array indices to map to pixel list
+-RQ2_array_indices = {
+-    0: 32, 1: 39, 2: 40, 3: 47, 4: 48, 5: 55, 6: 56, 7: 63,
+-    8: 33, 9: 38, 10: 41, 11: 46, 12: 49, 13: 54, 14: 57, 15: 62,
+-    16: 34, 17: 37, 18: 42, 19: 45, 20: 50, 21: 53, 22: 58, 23: 61,
+-    24: 35, 25: 36, 26: 43, 27: 44, 28: 51, 29: 52, 30: 59, 31: 60,
+-    32: 156, 33: 155, 34: 148, 35: 147, 36: 140, 37: 139, 38: 132, 39: 131,
+-    40: 157, 41: 154, 42: 149, 43: 146, 44: 141, 45: 138, 46: 133, 47: 130,
+-    48: 158, 49: 153, 50: 150, 51: 145, 52: 142, 53: 137, 54: 134, 55: 129,
+-    56: 159, 57: 152, 58: 151, 59: 144, 60: 143, 61: 136, 62: 135, 63: 128,
+-}
++def generate_rq2_array_indices():
++    """
++    Generate RQ2_array_indices dynamically based on LED matrix layout.
++    Maps 8x8 SenseHat display to LED matrix pixels.
++
++    Returns:
++        dict: Mapping from display index (0-63) to LED pixel index
++    """
++    # Load LED configuration
++    led_config = get_led_config()
++    width = led_config['matrix_width']
++    height = led_config['matrix_height']
++
++    # Calculate starting position to center 8x8 display on matrix
++    start_x = (width - 8) // 2
++    start_y = (height - 8) // 2
++
++    # Generate indices for 8x8 display
++    indices = {}
++    for display_idx in range(64):
++        row = display_idx // 8
++        col = display_idx % 8
++
++        # Map display position to LED matrix position
++        led_x = start_x + col
++        led_y = start_y + row
++
++        # Get pixel index using layout-aware mapping
++        pixel_idx = map_xy_to_pixel(led_x, led_y)
++        if pixel_idx is not None:
++            indices[display_idx] = pixel_idx
++        else:
++            # Fallback if out of bounds
++            indices[display_idx] = 0
++
++    return indices
++
++# Generate RQ2_array_indices dynamically at runtime
++try:
++    RQ2_array_indices = generate_rq2_array_indices()
++except Exception as e:
++    print(f"Warning: Could not generate layout-aware indices: {e}")
++    # Fallback to original hardcoded quad layout
++    RQ2_array_indices = {
++        0: 32, 1: 39, 2: 40, 3: 47, 4: 48, 5: 55, 6: 56, 7: 63,
++        8: 33, 9: 38, 10: 41, 11: 46, 12: 49, 13: 54, 14: 57, 15: 62,
++        16: 34, 17: 37, 18: 42, 19: 45, 20: 50, 21: 53, 22: 58, 23: 61,
++        24: 35, 25: 36, 26: 43, 27: 44, 28: 51, 29: 52, 30: 59, 31: 60,
++        32: 156, 33: 155, 34: 148, 35: 147, 36: 140, 37: 139, 38: 132, 39: 131,
++        40: 157, 41: 154, 42: 149, 43: 146, 44: 141, 45: 138, 46: 133, 47: 130,
++        48: 158, 49: 153, 50: 150, 51: 145, 52: 142, 53: 137, 54: 134, 55: 129,
++        56: 159, 57: 152, 58: 151, 59: 144, 60: 143, 61: 136, 62: 135, 63: 128,
++    }
+ 
+ # LED array indices for 8x32 single array
+ LED8x32_indices = {
+@@ -464,13 +511,19 @@ def resetrainbow(show=False):
+        if not NoHat: hat.set_pixels(pixels)
+        if DualDisplay and not NoHat: hat2.set_pixels(pixels)
+ 
+-def display_to_LEDs(pixel_list, LED_array_indices):
++def display_to_LEDs(pixel_list, LED_array_indices, clear_first=False):
++    # Optional: clear entire matrix before updating
++    if clear_first:
++        neopixel_array.fill((0, 0, 0))
++    
+     for index, pixel in enumerate(pixel_list):
+         # Get RGB data from pixel list
+         red, green, blue = pixel[0], pixel[1], pixel[2]
+ 
+         # Get the corresponding index position on the LED array
+         LED_index = LED_array_indices[index]
++        if not isinstance(LED_index, int):
++            LED_index = int(LED_index)
+ 
+         # Set the appropriate pixel to the RGB value
+         neopixel_array[LED_index] = (red, green, blue)
+@@ -612,7 +665,7 @@ def blinky(time=20,experimentID=''):
+           if not NoHat: hat.set_pixels(QKLogo)
+           if DualDisplay and not NoHat: hat2.set_pixels(QKLogo)
+           if UseNeo: 
+-            display_to_LEDs(QKLogo, LED_array_indices)
++            display_to_LEDs(QKLogo, LED_array_indices, clear_first=True)
+             if DualNEO and not NeoTiled: display_to_LEDs(pixels, matrix_map2)
+       sleep(0.002)
+       count+=1
+@@ -1081,32 +1134,43 @@ if UseNeo and IsRPi :
+     print("importing neopixel library...")
+     try:
+         import board
+-        import neopixel_spi as neopixel
++        import neopixel
+     except Exception as e:
+         print("Error importing neopixel library: ", e)
+         UseNeo = False
+     try:
+-        # Neopixel constants
+-        if NeoTiled: 
+-            NUM_PIXELS = 192
+-            PIXEL_ORDER = neopixel.RGB
+-        else: 
+-            NUM_PIXELS = 256
+-            PIXEL_ORDER = neopixel.GRB
+-        BRIGHTNESS = 0.10
++        # Load LED configuration from environment file
++        import os
++        env_file = "/usr/config/rasqberry_environment.env"
++        config = {}
++        if os.path.exists(env_file):
++            with open(env_file) as f:
++                for line in f:
++                    line = line.strip()
++                    if line and not line.startswith("#") and "=" in line:
++                        key, value = line.split("=", 1)
++                        config[key] = value
++
++        # Neopixel constants from environment or defaults
++        NUM_PIXELS = int(config.get("LED_COUNT", 192 if NeoTiled else 256))
++        pixel_order_str = config.get("LED_PIXEL_ORDER", "RGB" if NeoTiled else "GRB")
++        PIXEL_ORDER = getattr(neopixel, pixel_order_str, neopixel.GRB)
++        BRIGHTNESS = float(config.get("LED_DEFAULT_BRIGHTNESS", 0.10))
+ 
+         # Neopixel initialization
+-        spi = board.SPI()
+-
+-        neopixel_array = neopixel.NeoPixel_SPI(
+-            spi,
++        # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++        gpio_pin = int(config.get("LED_GPIO_PIN", 18))
++        gpio_board_pin = getattr(board, f"D{gpio_pin}")
++        neopixel_array = neopixel.NeoPixel(
++            gpio_board_pin,
+             NUM_PIXELS,
+             pixel_order=PIXEL_ORDER,
+             brightness=BRIGHTNESS,
+             auto_write=False,
+         )
+-        #neopixel_array.clear()
+-        #neopixel_array.show()
++        # Initialize all pixels to black
++        neopixel_array.fill((0, 0, 0))
++        neopixel_array.show()
+     except Exception as e:
+         print("Error initilizating Neopixel board: ", e)
+ 
+@@ -1157,7 +1221,7 @@ if not NoHat and not SenseHatEMU: orient()
+ display=ibm_qx16    
+ if not NoHat: hat.set_pixels(Arrow)
+ if UseNeo: 
+-    display_to_LEDs(Arrow, LED_array_indices)
++    display_to_LEDs(Arrow, LED_array_indices, clear_first=True)
+     if DualNEO: display_to_LEDs(Arrow, matrix_map2)
+ 
+ if DualDisplay and not NoHat: hat2.set_pixels(Arrow)

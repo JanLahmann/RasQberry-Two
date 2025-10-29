@@ -16,10 +16,12 @@ from dotenv import dotenv_values
 config = dotenv_values("/usr/config/rasqberry_environment.env")
 n_qbit = int(config.get("N_QUBIT", 156))  # Default to 156 qubits if not configured
 LED_COUNT = int(config.get("LED_COUNT", 192))
-LED_PIN = int(config.get("LED_PIN", 21))
+LED_GPIO_PIN = int(config.get("LED_GPIO_PIN", 18))  # GPIO pin for PWM/PIO
 display_timeout = int(config.get("RASQ_LED_DISPLAY_TIMEOUT", 3))  # Timeout for display script
+led_chunk_size = int(config.get("LED_CHUNK_SIZE", 8))  # LEDs per chunk (legacy)
+led_chunk_delay_ms = float(config.get("LED_CHUNK_DELAY_MS", 8))  # Delay per chunk in ms (legacy)
 
-print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_PIN}")
+print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_GPIO_PIN}")
 print(f"Display timeout: {display_timeout}s")
 
 # Import Qiskit 2.x classes
@@ -138,11 +140,14 @@ def call_display_on_strip(measurement_result):
         return False
 
     try:
-        # Note: No sudo needed for SPI-based driver
+        # Note: PWM/PIO driver requires sudo for GPIO access
+        # Display script will handle sudo internally if needed
         # Use configurable timeout (default 3s via RASQ_LED_DISPLAY_TIMEOUT)
+        subprocess_timeout = display_timeout + 2  # Add 2s buffer
         result = subprocess.run([
-            sys.executable, display_script, measurement_result
-        ], capture_output=True, text=True, timeout=display_timeout)
+            sys.executable, display_script, measurement_result,
+            '-t', str(display_timeout)
+        ], capture_output=True, text=True, timeout=subprocess_timeout)
 
         # Show output for debugging
         if result.stdout:
@@ -228,7 +233,7 @@ Your choice: """
                 for factor in factors:
                     print(f"\n--- Entanglement block size: {factor} ---")
                     run_circuit(factor)
-                    time.sleep(3)
+                    time.sleep(1)
             elif player_action == 'q':
                 clear_leds()
                 print("Goodbye!")
@@ -267,8 +272,12 @@ def demo_loop(duration=2):
 
     # Clear any pending input from stdin before starting
     # (prevents accidental immediate exit when run from menu systems)
-    import termios
-    termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    try:
+        import termios
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except (termios.error, OSError):
+        # stdin is not a TTY (e.g., redirected or piped), skip flush
+        pass
 
     try:
         for cycle in range(duration):
@@ -285,7 +294,7 @@ def demo_loop(duration=2):
 
                 print(f"Entanglement block size: {factor}")
                 if run_circuit(factor):
-                    time.sleep(3)
+                    time.sleep(0.5)
                 else:
                     print("Skipping due to error")
 

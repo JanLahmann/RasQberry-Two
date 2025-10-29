@@ -2,7 +2,7 @@
 Version=1.1
 Name=Grokking the Bloch Sphere
 Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (local version)
-Icon=applications-science
+Icon=/usr/share/icons/rasqberry/orbit-pi.png
 Type=Application
 Categories=RasQberry;
 Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_grok_bloch_auto.sh'

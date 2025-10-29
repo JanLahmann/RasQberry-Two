@@ -1,33 +1,28 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
 # SPDX-License-Identifier: MIT
-# Modified for RasQberry: Hardware-aware LED demo using configuration
+# Modified for RasQberry: Hardware-aware LED demo using PWM/PIO configuration
 
 import time
-import board
-import neopixel_spi as neopixel
-from rq_led_utils import get_led_config, create_neopixel_strip
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
 
 # Load configuration from environment
 config = get_led_config()
 NUM_PIXELS = config['led_count']
 pixel_order_str = config['pixel_order']
-pixel_order = getattr(neopixel, pixel_order_str)
 
-# Color definitions
-COLORS = (0xFF0000, 0x00FF00, 0x0000FF)  # Red, Green, Blue
+# Color definitions - using (R, G, B) tuple format
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+COLORS = (RED, GREEN, BLUE)
 DELAY = 0.0250
 
-# Initialize SPI
-spi = board.SPI()
-
-# Create LED strip with correct parameters for Pi4/Pi5
+# Create LED strip (auto-detects Pi4 PWM or Pi5 PIO)
 pixels = create_neopixel_strip(
-    spi,
     NUM_PIXELS,
-    pixel_order,
-    brightness=0.1,
-    pi_model=config['pi_model']
+    pixel_order_str,
+    brightness=config['led_default_brightness']
 )
 
 # Hardware info no longer printed to avoid terminal pollution in whiptail menus
@@ -112,11 +107,11 @@ while True:
         pixels[134] = color
         pixels[135] = color
 
-        pixels.show()
+        chunked_show(pixels)
         time.sleep(16 * DELAY)
 
         # Animated sweep effect
-        pixels.fill(0)
+        pixels.fill((0, 0, 0))
         for i in range(NUM_PIXELS):
             pixels[i] = color
             if (i + 1) < NUM_PIXELS:
@@ -125,6 +120,7 @@ while True:
                 pixels[i + 2] = color
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
-            pixels.show()
+            # PWM/PIO drivers can update every pixel without flickering!
+            chunked_show(pixels)
             time.sleep(DELAY)
-            pixels.fill(0)
+            pixels.fill((0, 0, 0))

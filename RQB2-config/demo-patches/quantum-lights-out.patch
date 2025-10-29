@@ -1,0 +1,228 @@
+diff --git a/lights_out.py b/lights_out.py
+index 90f9fe8..2d214de 100644
+--- a/lights_out.py
++++ b/lights_out.py
+@@ -1,4 +1,5 @@
+ # Standard library imports
++import sys
+ import numpy as np
+ import math
+ import time
+@@ -13,11 +14,49 @@ from qiskit_aer import AerSimulator
+ 
+ # Imports for LED array
+ import board
+-import neopixel_spi as neopixel
++import neopixel
+ 
+ # Local imports
+ from turn_off_LEDs import turn_off_LEDs
+ 
++# Import RasQberry LED utilities (available at /usr/bin/rq_led_utils.py)
++sys.path.insert(0, '/usr/bin')
++from rq_led_utils import get_led_config, create_neopixel_strip, map_xy_to_pixel
++
++# Helper function to convert hex colors to RGB tuples
++def hex_to_rgb(hex_color):
++    """Convert 0xRRGGBB hex color to (R, G, B) tuple for neopixel"""
++    return ((hex_color >> 16) & 0xFF, (hex_color >> 8) & 0xFF, hex_color & 0xFF)
++
++# Function to generate LED array indices based on layout
++def generate_led_indices():
++    """
++    Generate LED_array_indices dynamically based on LED matrix layout.
++    Maps 3x3 Lights Out grid to LED matrix pixels.
++    Returns dict mapping grid index (0-8) to list of LED pixel indices.
++    """
++    config = get_led_config()
++    width = config['matrix_width']
++    height = config['matrix_height']
++    # Center 6x6 LED block (3x3 grid, each square is 2x2 LEDs)
++    start_x = (width - 6) // 2
++    start_y = (height - 6) // 2
++    indices = {}
++    for grid_idx in range(9):
++        grid_row = grid_idx // 3
++        grid_col = grid_idx % 3
++        led_x = start_x + grid_col * 2
++        led_y = start_y + grid_row * 2
++        pixels = []
++        for dy in range(2):
++            for dx in range(2):
++                pixel_idx = map_xy_to_pixel(led_x + dx, led_y + dy)
++                if pixel_idx is not None:
++                    pixels.append(pixel_idx)
++        indices[grid_idx] = pixels
++    return indices
++
++
+ # Constants
+ # Array containing the initial lights out grid values
+ lights = [
+@@ -43,21 +82,7 @@ lights = [
+ 
+ 
+ # Dictionary that corelates the grid index to an index on the LED array (Centered in the LED array)
+-LED_array_indices = {
+-    0: [38, 41, 37, 42],
+-    1: [46, 49, 45, 50],
+-    2: [54, 53, 57, 58],
+-    3: [36, 43, 155, 148],
+-    4: [44, 51, 147, 140],
+-    5: [52, 59, 139, 132],
+-    6: [154, 149, 153, 150],
+-    7: [146, 141, 145, 142],
+-    8: [138, 133, 137, 134],
+-}
+-
+ # Neopixel constants
+-NUM_PIXELS = 192
+-PIXEL_ORDER = neopixel.GRB
+ 
+ # Colors for Neopixel are in the form RGB
+ OFF_COLOR = 0x111111  # Grey
+@@ -258,7 +283,7 @@ def visualize_lights_out_grid_to_console(grid, selected=None):
+     print("\n")
+ 
+ 
+-def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
++def visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices, selected=None):
+     """
+     This function shows the lights-out grid on the LED arrray.
+ 
+@@ -277,17 +302,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
+         LED_array_index_list = LED_array_indices[index]
+         if selected != None and index == selected:
+             for coord in LED_array_index_list:
+-                pixels[coord] = SELECTED_COLOR
++                pixels[coord] = hex_to_rgb(SELECTED_COLOR)
+         elif square == 1:
+             for coord in LED_array_index_list:
+-                pixels[coord] = ON_COLOR
++                pixels[coord] = hex_to_rgb(ON_COLOR)
+         else:
+             for coord in LED_array_index_list:
+-                pixels[coord] = OFF_COLOR
++                pixels[coord] = hex_to_rgb(OFF_COLOR)
+     pixels.show()
+ 
+ 
+-def visualize_solution(grid, solution, args):
++def visualize_solution(grid, solution, args, pixels, LED_array_indices):
+     """
+     This function receives the lights-out grid and
+     the solution to the grid that was generated from the quantum circuit.
+@@ -310,16 +335,7 @@ def visualize_solution(grid, solution, args):
+     delay = args.delay
+     brightness = args.brightness
+ 
+-    # Neopixel initialization
+-    spi = board.SPI()
+-
+-    pixels = neopixel.NeoPixel_SPI(
+-        spi,
+-        NUM_PIXELS,
+-        pixel_order=PIXEL_ORDER,
+-        brightness=brightness,
+-        auto_write=False,
+-    )
++    # Neopixel object passed as parameter (reused from main)
+ 
+     # The square root of the length of the grid will be used to find the left and right columns later
+     root = int(math.sqrt(len(grid)))
+@@ -341,7 +357,7 @@ def visualize_solution(grid, solution, args):
+     if console:
+         visualize_lights_out_grid_to_console(grid)
+ 
+-    visualize_lights_out_grid_to_LED(grid, pixels)
++    visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices)
+     time.sleep(delay)
+ 
+     for index, step in enumerate(solution):
+@@ -350,7 +366,7 @@ def visualize_solution(grid, solution, args):
+             if console:
+                 visualize_lights_out_grid_to_console(grid, index)
+ 
+-            visualize_lights_out_grid_to_LED(grid, pixels, index)
++            visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices, index)
+             time.sleep(delay)
+ 
+             # Flip the square itself
+@@ -392,7 +408,7 @@ def visualize_solution(grid, solution, args):
+             if console:
+                 visualize_lights_out_grid_to_console(grid)
+ 
+-            visualize_lights_out_grid_to_LED(grid, pixels)
++            visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices)
+ 
+             # Sleep so that the display doesn't change too fast
+             time.sleep(delay)
+@@ -428,6 +444,12 @@ def parse_arguments():
+ def main(**kwargs):
+     args = parse_arguments()
+ 
++    # Load LED configuration and generate layout-aware indices
++    config = get_led_config()
++    LED_array_indices = generate_led_indices()
++    # Initialize NeoPixel strip (PWM/PIO driver auto-detects Pi 4 vs Pi 5)
++    pixels = create_neopixel_strip(config["led_count"], config["pixel_order"], brightness=args.brightness)
++
+     # Turn off LEDs whenever the program is closed
+     atexit.register(turn_off_LEDs)
+ 
+@@ -441,10 +463,10 @@ def main(**kwargs):
+             quantum_solution = compute_quantum_solution(lights_grid)
+             print("Quantum solution found!")
+             print("Visualizing solution...")
+-            visualize_solution(lights_grid, quantum_solution, args)
++            visualize_solution(lights_grid, quantum_solution, args, pixels, LED_array_indices)
+             print("\n")
+     except Exception as e:
+-        print("An error occured: ", e)
++        import traceback; print("An error occured: ", e); traceback.print_exc()
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/turn_off_LEDs.py b/turn_off_LEDs.py
+index 70bb763..3c18209 100644
+--- a/turn_off_LEDs.py
++++ b/turn_off_LEDs.py
+@@ -1,6 +1,11 @@
+ # Imports for LED array
++import sys
+ import board
+-import neopixel_spi as neopixel
++import neopixel
++
++# Import RasQberry LED utilities
++sys.path.insert(0, '/usr/bin')
++from rq_led_utils import get_led_config
+ 
+ 
+ def turn_off_LEDs():
+@@ -13,17 +18,15 @@ def turn_off_LEDs():
+     Returns:
+         None
+     """
+-    NUM_PIXELS = 192
+-    PIXEL_ORDER = neopixel.GRB
+-
+     try:
+-        spi = board.SPI()
+-
+-        pixels = neopixel.NeoPixel_SPI(
+-            spi, NUM_PIXELS, pixel_order=PIXEL_ORDER, auto_write=False
+-        )
+-
+-        for index in range(NUM_PIXELS):
++        # Load LED configuration from environment
++        config = get_led_config()
++        gpio_pin = config['led_gpio_pin']
++        num_pixels = config['led_count']
++        gpio_board_pin = getattr(board, f'D{gpio_pin}')
++        pixels = neopixel.NeoPixel(gpio_board_pin, num_pixels, auto_write=False)
++
++        for index in range(num_pixels):
+             # Setting pixel to 0 value will turn it off
+             pixels[index] = 0x000000
+ 

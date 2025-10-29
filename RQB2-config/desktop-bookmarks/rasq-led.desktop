@@ -2,7 +2,7 @@
 Version=1.1
 Name=RasQ-LED Demo
 Comment=Quantum circuit demo with entanglement patterns on LEDs
-Icon=/usr/share/icons/rasqberry/ibm-quantum.png
+Icon=/usr/share/icons/rasqberry/quantum-pi.png
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_rasq_led.sh

@@ -13,6 +13,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
+# Ensure running as root (PWM/PIO LED drivers require GPIO access)
+ensure_root "$@"
+
 # Load environment and verify required variables
 load_rqb2_env
 verify_env_vars BIN_DIR

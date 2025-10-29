@@ -36,9 +36,9 @@ echo "Installing desktop bookmarks for user: ${FIRST_USER_NAME}"
 # Create icon directory
 mkdir -p /usr/share/icons/rasqberry
 
-# Copy all icons from desktop-icons directory
+# Copy all icons from desktop-icons directory (PNG and SVG)
 if [ -d "${CLONE_DIR}/desktop-icons" ]; then
-    for icon_file in "${CLONE_DIR}/desktop-icons"/*.png; do
+    for icon_file in "${CLONE_DIR}/desktop-icons"/*.png "${CLONE_DIR}/desktop-icons"/*.svg; do
         if [ -f "$icon_file" ]; then
             cp "$icon_file" /usr/share/icons/rasqberry/
             chmod 644 "/usr/share/icons/rasqberry/$(basename "$icon_file")"
@@ -274,6 +274,24 @@ update-desktop-database /usr/share/applications || echo "Warning: Failed to upda
 # Update icon cache for custom icons
 echo "Updating icon cache..."
 gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
+
+# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
+echo "Configuring main panel menu icon..."
+PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+if [ -f "$PANEL_CONFIG" ]; then
+    # Backup original panel config
+    cp "$PANEL_CONFIG" "${PANEL_CONFIG}.orig"
+
+    # Replace the menu icon in the panel configuration
+    # Look for the menu plugin section and change its icon
+    # The default uses "raspberrypi-logo" or similar
+    sed -i 's|icon=raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+    sed -i 's|icon=/usr/share/pixmaps/raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
+
+    echo "Panel menu icon updated to RasQberry logo"
+else
+    echo "Warning: Panel config not found at $PANEL_CONFIG"
+fi
 
 # Update menu cache for LXDE
 echo "Updating menu cache..."

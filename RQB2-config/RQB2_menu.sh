@@ -57,12 +57,13 @@ show_menu() {
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
 install_demo() {
-    NAME="$1"       # demo directory name
-    GIT_URL="$2"    # corresponding repo URL variable
-    MARKER="$3"     # script or file that must exist
-    ENV_VAR="$4"    # environment variable name to set
-    TITLE="$5"      # title for dialog messages
-    SIZE="$6"       # optional: download size (e.g., "5MB")
+    NAME="$1"           # demo directory name
+    GIT_URL="$2"        # corresponding repo URL variable
+    MARKER="$3"         # script or file that must exist
+    ENV_VAR="$4"        # environment variable name to set
+    TITLE="$5"          # title for dialog messages
+    PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
+    INSTALL_REQS="${7:-}"   # optional: "pip" to install requirements.txt (default empty)
 
     DEST="$DEMO_ROOT/$NAME"
 
@@ -71,30 +72,30 @@ install_demo() {
         return 0  # Already installed
     fi
 
-    # Show confirmation dialog before downloading
-    if command -v whiptail > /dev/null 2>&1; then
-        SIZE_MSG=""
-        if [ -n "$SIZE" ]; then
-            SIZE_MSG="\n\nDownload size: ~$SIZE"
-        fi
+    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if command -v whiptail > /dev/null 2>&1; then
+            whiptail --title "$TITLE Not Installed" \
+                     --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
+                     10 65 3>&1 1>&2 2>&3
 
-        whiptail --title "$TITLE Not Installed" \
-                 --yesno "$TITLE is not installed yet.$SIZE_MSG\n\nRequires internet connection.\n\nInstall now?" \
-                 12 65 3>&1 1>&2 2>&3
-
-        if [ $? -ne 0 ]; then
-            # User cancelled installation
-            return 1
+            if [ $? -ne 0 ]; then
+                # User cancelled installation
+                return 1
+            fi
+        else
+            # Fallback if whiptail not available
+            echo "$TITLE is not installed."
+            echo "This requires downloading from GitHub."
+            read -p "Install now? (y/n) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                return 1
+            fi
         fi
     else
-        # Fallback if whiptail not available
-        echo "$TITLE is not installed."
-        echo "This requires downloading from GitHub."
-        read -p "Install now? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            return 1
-        fi
+        # Auto-install mode - proceed without prompting
+        echo "Auto-installing $TITLE..."
     fi
 
     # Clone demo repository
@@ -104,12 +105,76 @@ install_demo() {
         if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
             chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
         fi
+
+        # Apply RasQberry customization patch if specified
+        # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
+        PATCH_PATH=""
+        if [ -n "$PATCH_FILE" ]; then
+            if [ -f "/usr/config/demo-patches/$PATCH_FILE" ]; then
+                PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE"
+            elif [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
+                PATCH_PATH="$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE"
+            fi
+        fi
+
+        if [ -n "$PATCH_PATH" ]; then
+            echo "Applying RasQberry customizations..."
+            cd "$DEST" || return 1
+            if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
+                echo "✓ Applied RasQberry customizations (PWM/PIO LED driver support)"
+            else
+                echo "Warning: Could not apply customization patch (demo may not work correctly)"
+            fi
+            cd - > /dev/null || true
+        fi
+
+        # Install Python dependencies if requested
+        if [ "$INSTALL_REQS" = "pip" ] && [ -f "$DEST/requirements.txt" ]; then
+            echo "Installing Python dependencies..."
+
+            # Verify virtual environment exists
+            if [ ! -d "$REPO_DIR/venv/$STD_VENV" ]; then
+                whiptail --title "Error" --msgbox "Virtual environment not found at $REPO_DIR/venv/$STD_VENV" 8 70
+                rm -rf "$DEST"
+                return 1
+            fi
+
+            # Use venv's pip directly
+            VENV_PIP="$REPO_DIR/venv/$STD_VENV/bin/pip3"
+
+            # Show progress message
+            if command -v whiptail > /dev/null 2>&1; then
+                whiptail --title "Installing Dependencies" --infobox "Installing Python packages from requirements.txt...\n\nThis may take a few minutes.\nPlease wait..." 10 60
+            fi
+
+            # Install using venv's pip with sudo (venv is owned by root from build)
+            cd "$DEST" || return 1
+            if sudo "$VENV_PIP" install -r requirements.txt > /dev/null 2>&1; then
+                echo "✓ Python dependencies installed successfully"
+            else
+                whiptail --title "Warning" --msgbox "Failed to install some Python dependencies.\n\nDemo may not work correctly." 10 60
+            fi
+            cd - > /dev/null || true
+        fi
+
         update_environment_file "$ENV_VAR" "true"
-        [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+
+        # Show success message (unless in auto-install mode)
+        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+            whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
+        else
+            echo "✓ $TITLE installed successfully"
+        fi
     else
         # Clean up empty directory and show error
         rm -rf "$DEST"
-        whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+
+        # Show error message (unless in auto-install mode)
+        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+        else
+            echo "ERROR: Failed to download $TITLE demo"
+        fi
         return 1
     fi
 }
@@ -117,22 +182,29 @@ install_demo() {
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
     install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
-                 "lights_out.py" "QUANTUM_LIGHTS_OUT_INSTALLED" \
-                 "Quantum Lights Out"
+                 "$MARKER_QLO" "QUANTUM_LIGHTS_OUT_INSTALLED" \
+                 "Quantum Lights Out" "$PATCH_FILE_QLO"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
     install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "QuantumRaspberryTie.v7_1.py" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
-                 "Quantum Raspberry-Tie"
+                 "$MARKER_QRT" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
+                 "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
     install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
-                 "index.html" "GROK_BLOCH_INSTALLED" \
-                 "Grok Bloch Sphere"
+                 "$MARKER_GROK_BLOCH" "GROK_BLOCH_INSTALLED" \
+                 "Grok Bloch Sphere" ""
+}
+
+# Install LED-Painter demo if needed
+do_led_painter_install() {
+    install_demo "led-painter" "$GIT_REPO_DEMO_LED_PAINTER" \
+                 "$MARKER_LED_PAINTER" "LED_PAINTER_INSTALLED" \
+                 "LED-Painter" "$PATCH_FILE_LED_PAINTER" "pip"
 }
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
@@ -160,7 +232,7 @@ run_demo() {
   if [ "$MODE" = "pty" ]; then
       ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
   else
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
@@ -448,10 +520,21 @@ do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           quicktest "Quick LED Test (6 colors)" \
+           test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
-           IBM "IBM LED Demo") || break
+           IBM "IBM LED Demo" \
+           layout "Configure Matrix Layout") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            quicktest )
+                run_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
+                do_led_off
+                ;;
+            test )
+                run_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
+                do_led_off
+                ;;
             simple )
                 run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 do_led_off
@@ -459,6 +542,9 @@ do_select_led_option() {
             IBM )
                 run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
+                ;;
+            layout )
+                do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
                 ;;
             *) break ;;
         esac
@@ -568,12 +654,49 @@ do_show_system_info() {
     10 70
 }
 
+# LED Matrix Layout Configuration
+do_select_led_layout() {
+  # Get current layout setting
+  CURRENT_LAYOUT=$(check_environment_variable "LED_MATRIX_LAYOUT")
+
+  # Show current setting in menu
+  if [ "$CURRENT_LAYOUT" = "quad" ]; then
+    CURRENT_DESC="Current: 4× 4×12 panels (quad layout)"
+  else
+    CURRENT_DESC="Current: Single 8×24 panel (serpentine)"
+  fi
+
+  FUN=$(show_menu "LED Matrix Layout Configuration" "$CURRENT_DESC\n\nSelect your LED matrix layout:\nBoth layouts use 192 LEDs (8 rows × 24 columns)" \
+     single "Single 8×24 serpentine panel" \
+     quad   "4× 4×12 panels (2×2 grid)") || return 0
+
+  case "$FUN" in
+    single)
+      update_environment_file "LED_MATRIX_LAYOUT" "single"
+      update_environment_file "LED_MATRIX_Y_FLIP" "true"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\nSingle 8×24 serpentine panel\n- Total: 192 LEDs (8 rows × 24 columns)\n- Wiring: Serpentine (zigzag) pattern\n- Y-axis: Flipped (upside down)\n\nRestart demos for changes to take effect." \
+        13 60
+      ;;
+    quad)
+      update_environment_file "LED_MATRIX_LAYOUT" "quad"
+      update_environment_file "LED_MATRIX_Y_FLIP" "false"
+      whiptail --title "LED Layout Updated" --msgbox \
+        "LED matrix layout set to:\n\n4× 4×12 panels (quad layout)\n- Total: 192 LEDs (8 rows × 24 columns)\n- Each panel: 4×12 LEDs\n- Arrangement: 2×2 grid\n- Wiring: TL→TR→BR→BL\n\nRestart demos for changes to take effect." \
+        14 60
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD  "Quantum Demos" \
-       UEF "Update Env File" \
-       INFO "System Info") || break
+       QD     "Quantum Demos" \
+       UEF    "Update Env File" \
+       INFO   "System Info") || break
     case "$FUN" in
       QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;

@@ -10,16 +10,19 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
+# Ensure running as root (PWM/PIO LED drivers require GPIO access)
+ensure_root "$@"
+
 # Load and verify environment
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV
+verify_env_vars REPO USER_HOME STD_VENV MARKER_QLO
 
 # Demo configuration
 DEMO_NAME="Quantum-Lights-Out"
 DEMO_DIR=$(get_demo_dir "$DEMO_NAME")
 
 # Check if demo is installed, auto-install if missing
-if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
+if [ ! -f "$DEMO_DIR/$MARKER_QLO" ]; then
     info "Quantum Lights Out demo not found. Installing..."
     install_demo_raspiconfig do_qlo_install || die "Installation failed"
 fi
@@ -31,8 +34,8 @@ activate_venv || warn "Virtual environment not available"
 info "Launching demo from: $DEMO_DIR"
 ensure_demo_dir "$DEMO_NAME" >/dev/null || die "Demo directory not found"
 
-if [ ! -f "$DEMO_DIR/lights_out.py" ]; then
-    die "lights_out.py not found in $DEMO_DIR"
+if [ ! -f "$DEMO_DIR/$MARKER_QLO" ]; then
+    die "$MARKER_QLO not found in $DEMO_DIR"
 fi
 
 cd "$DEMO_DIR" || die "Cannot change to demo directory"

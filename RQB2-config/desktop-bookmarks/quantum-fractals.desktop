@@ -2,7 +2,7 @@
 Version=1.1
 Name=Quantum Fractals
 Comment=Create animated fractal art using quantum computing circuits and Julia sets
-Icon=applications-graphics
+Icon=/usr/share/icons/rasqberry/quantum_raspberry_tie_icon.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/fractals.sh

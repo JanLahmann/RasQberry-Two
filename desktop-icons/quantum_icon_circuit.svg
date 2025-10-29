@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Grid pattern for circuit board background -->
+    <pattern id="gridPattern" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <rect width="16" height="16" fill="#0F0F19"/>
+      <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#1E2235" stroke-width="0.5"/>
+    </pattern>
+    
+    <!-- Glow effect filter -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Circuit wire glow -->
+    <filter id="wireGlow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect x="10" y="10" width="236" height="236" rx="25" fill="#0F0F19"/>
+  
+  <!-- Grid pattern overlay -->
+  <rect x="10" y="10" width="236" height="236" rx="25" fill="url(#gridPattern)" opacity="0.7"/>
+  
+  <!-- Quantum circuit wires (3 qubits) -->
+  <g id="circuit-wires" stroke="#64FFC8" stroke-width="3" fill="none" filter="url(#wireGlow)">
+    <line x1="30" y1="64" x2="226" y2="64"/>
+    <line x1="30" y1="128" x2="226" y2="128"/>
+    <line x1="30" y1="192" x2="226" y2="192"/>
+  </g>
+  
+  <!-- Wire labels (q0, q1, q2) -->
+  <g id="wire-labels" font-family="monospace" font-size="10" fill="#64FFC8" opacity="0.7">
+    <text x="20" y="68">q₀</text>
+    <text x="20" y="132">q₁</text>
+    <text x="20" y="196">q₂</text>
+  </g>
+  
+  <!-- CNOT Gate 1 (control on q0, target on q1) -->
+  <g id="cnot-gate-1" transform="translate(80, 0)">
+    <!-- Vertical connection line -->
+    <line x1="0" y1="64" x2="0" y2="128" stroke="#9696FF" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Control dot on q0 -->
+    <circle cx="0" cy="64" r="8" fill="#6496FF" filter="url(#glow)"/>
+    <circle cx="0" cy="64" r="5" fill="#A0C4FF"/>
+    
+    <!-- Target X on q1 -->
+    <circle cx="0" cy="128" r="12" fill="none" stroke="#FF6496" stroke-width="3"/>
+    <line x1="-8" y1="128" x2="8" y2="128" stroke="#FF6496" stroke-width="3"/>
+    <line x1="0" y1="120" x2="0" y2="136" stroke="#FF6496" stroke-width="3"/>
+  </g>
+  
+  <!-- Hadamard Gate on q0 -->
+  <g id="h-gate" transform="translate(120, 64)">
+    <rect x="-12" y="-12" width="24" height="24" fill="#00BCD4" rx="2"/>
+    <text x="0" y="4" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">H</text>
+  </g>
+  
+  <!-- CNOT Gate 2 (control on q1, target on q2) -->
+  <g id="cnot-gate-2" transform="translate(160, 0)">
+    <!-- Vertical connection line -->
+    <line x1="0" y1="128" x2="0" y2="192" stroke="#9696FF" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Control dot on q1 -->
+    <circle cx="0" cy="128" r="8" fill="#6496FF" filter="url(#glow)"/>
+    <circle cx="0" cy="128" r="5" fill="#A0C4FF"/>
+    
+    <!-- Target X on q2 -->
+    <circle cx="0" cy="192" r="12" fill="none" stroke="#FF6496" stroke-width="3"/>
+    <line x1="-8" y1="192" x2="8" y2="192" stroke="#FF6496" stroke-width="3"/>
+    <line x1="0" y1="184" x2="0" y2="200" stroke="#FF6496" stroke-width="3"/>
+  </g>
+  
+  <!-- Bloch Sphere visualization -->
+  <g id="bloch-sphere" transform="translate(200, 56)">
+    <!-- Outer sphere circle -->
+    <circle cx="0" cy="0" r="20" fill="none" stroke="#64C8FF" stroke-width="2" opacity="0.8"/>
+    
+    <!-- Equator ellipse -->
+    <ellipse cx="0" cy="0" rx="20" ry="5" fill="none" stroke="#64C8FF" stroke-width="1" opacity="0.5"/>
+    
+    <!-- Z-axis -->
+    <line x1="0" y1="-20" x2="0" y2="20" stroke="#64C8FF" stroke-width="1" opacity="0.5"/>
+    
+    <!-- X-axis -->
+    <line x1="-20" y1="0" x2="20" y2="0" stroke="#64C8FF" stroke-width="1" opacity="0.3"/>
+    
+    <!-- State vector arrow -->
+    <line x1="0" y1="0" x2="10" y2="-15" stroke="#FFD700" stroke-width="2" marker-end="url(#arrowhead)"/>
+    
+    <!-- Bloch sphere label -->
+    <text x="0" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#64C8FF" opacity="0.7">|ψ⟩</text>
+  </g>
+  
+  <!-- Arrow marker for Bloch sphere -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#FFD700"/>
+    </marker>
+  </defs>
+  
+  <!-- Measurement gates at the end -->
+  <g id="measurements">
+    <!-- Measurement on q0 -->
+    <g transform="translate(210, 64)">
+      <rect x="-10" y="-10" width="20" height="20" fill="#FF6496" rx="2"/>
+      <path d="M -6 2 Q 0 -4 6 2" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="0" y1="2" x2="4" y2="-2" stroke="white" stroke-width="2"/>
+    </g>
+    
+    <!-- Measurement on q1 -->
+    <g transform="translate(210, 128)">
+      <rect x="-10" y="-10" width="20" height="20" fill="#FF6496" rx="2"/>
+      <path d="M -6 2 Q 0 -4 6 2" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="0" y1="2" x2="4" y2="-2" stroke="white" stroke-width="2"/>
+    </g>
+    
+    <!-- Measurement on q2 -->
+    <g transform="translate(210, 192)">
+      <rect x="-10" y="-10" width="20" height="20" fill="#FF6496" rx="2"/>
+      <path d="M -6 2 Q 0 -4 6 2" fill="none" stroke="white" stroke-width="2"/>
+      <line x1="0" y1="2" x2="4" y2="-2" stroke="white" stroke-width="2"/>
+    </g>
+  </g>
+  
+  <!-- Circuit board connection dots -->
+  <g id="connection-dots" fill="#3A4560" opacity="0.5">
+    <circle cx="40" cy="64" r="2"/>
+    <circle cx="40" cy="128" r="2"/>
+    <circle cx="40" cy="192" r="2"/>
+    <circle cx="100" cy="192" r="2"/>
+    <circle cx="140" cy="64" r="2"/>
+    <circle cx="180" cy="128" r="2"/>
+  </g>
+  
+  <!-- Title/Label -->
+  <text x="128" y="235" text-anchor="middle" font-family="monospace" font-size="10" fill="#64FFC8" opacity="0.5">QUANTUM.CIRCUIT</text>
+  
+  <!-- Decorative corner elements -->
+  <g id="corner-decorations" stroke="#64C8FF" stroke-width="1" fill="none" opacity="0.3">
+    <!-- Top left -->
+    <path d="M 20 30 L 20 20 L 30 20"/>
+    <!-- Top right -->
+    <path d="M 226 20 L 236 20 L 236 30"/>
+    <!-- Bottom left -->
+    <path d="M 20 226 L 20 236 L 30 236"/>
+    <!-- Bottom right -->
+    <path d="M 226 236 L 236 236 L 236 226"/>
+  </g>
+  
+  <!-- Quantum state notation in corner -->
+  <text x="32" y="32" font-family="monospace" font-size="8" fill="#FFD700" opacity="0.6">|00⟩+|11⟩</text>
+</svg>

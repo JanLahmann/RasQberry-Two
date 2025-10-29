@@ -99,48 +99,25 @@ EOF
 
 chmod +x /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh
 
-# Create VNC enablement script for first desktop login
+# Create VNC enablement script that runs on every desktop login
+# Using raspi-config which is idempotent (safe to run multiple times)
 cat > /usr/local/bin/rasqberry-enable-vnc.sh << 'EOF'
 #!/bin/bash
-# RasQberry First Desktop Login: Enable VNC Server
-# Runs once on first desktop login after X server is available
+# RasQberry Desktop Login: Ensure VNC Server is Enabled
+# Runs on every login - raspi-config do_vnc is idempotent
 
-VNC_MARKER="/var/lib/rasqberry-firstboot/vnc-enabled.done"
-
-# Only run if not already done
-if [ ! -f "$VNC_MARKER" ]; then
-    # Wait a bit for system to fully initialize
-    sleep 3
-
-    # Enable VNC using raspi-config (requires root)
-    if sudo raspi-config nonint do_vnc 0 2>/dev/null; then
-        # Ensure VNC service is enabled and started
-        sudo systemctl enable vncserver-x11-serviced.service 2>/dev/null || true
-        sudo systemctl restart vncserver-x11-serviced.service 2>/dev/null || true
-
-        # Mark as done
-        sudo mkdir -p "$(dirname "$VNC_MARKER")"
-        sudo touch "$VNC_MARKER"
-
-        # Remove autostart file so it doesn't run again
-        sudo rm -f /etc/xdg/autostart/rasqberry-enable-vnc.desktop
-
-        # Show notification if notify-send is available
-        if command -v notify-send >/dev/null 2>&1; then
-            notify-send "RasQberry" "VNC Server enabled successfully" -i network-server
-        fi
-    fi
-fi
+# Enable VNC using raspi-config (idempotent, safe to run every login)
+sudo raspi-config nonint do_vnc 0 2>/dev/null
 EOF
 
 chmod +x /usr/local/bin/rasqberry-enable-vnc.sh
 
-# Create autostart desktop entry to run on first graphical login
+# Create autostart desktop entry that runs on every graphical login
 cat > /etc/xdg/autostart/rasqberry-enable-vnc.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=RasQberry VNC Enablement
-Comment=Enable VNC Server on first boot
+Comment=Ensure VNC Server is enabled on each desktop login
 Exec=/usr/local/bin/rasqberry-enable-vnc.sh
 Terminal=false
 NoDisplay=true

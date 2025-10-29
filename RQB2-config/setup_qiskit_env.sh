@@ -1,7 +1,15 @@
 #!/bin/bash
 
 # load RasQberry environment and constants from global location
-. /usr/config/rasqberry_env-config.sh
+if ! . /usr/config/rasqberry_env-config.sh; then
+    echo "ERROR: Failed to load RasQberry environment configuration"
+    echo "Please check permissions on /usr/config/rasqberry_env-config.sh"
+    echo "File should be readable by all users (chmod 644)"
+    echo ""
+    echo "To fix: sudo chmod 644 /usr/config/rasqberry_environment.env"
+    echo "        sudo chmod 755 /usr/config/rasqberry_env-config.sh"
+    return 1 2>/dev/null || exit 1
+fi
 
 # Get the current logged-in user
 CURRENT_USER=$(whoami)
