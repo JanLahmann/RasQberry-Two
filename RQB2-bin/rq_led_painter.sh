@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER PATCH_FILE_LED_PAINTER
+verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER
 
 DEMO_NAME="LED-Painter"
 DEMO_DIR="$USER_HOME/$REPO/demos/led-painter"
@@ -57,43 +57,25 @@ check_and_install_demo() {
         chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_DIR" 2>/dev/null || true
     fi
 
-    # Apply RasQberry customization patch
-    # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
-    PATCH_PATH=""
-    if [ -n "$PATCH_FILE_LED_PAINTER" ]; then
-        if [ -f "/usr/config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
-            PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE_LED_PAINTER"
-        elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER" ]; then
-            PATCH_PATH="$USER_HOME/$REPO/RQB2-config/demo-patches/$PATCH_FILE_LED_PAINTER"
-        fi
+    # Convert LED-Painter from SPI to PWM/PIO drivers with persistent NeoPixel object
+    # This replaces the old patch + GPIO fix approach with a comprehensive conversion script
+    CONVERT_SCRIPT=""
+    if [ -f "/usr/config/demo-patches/led-painter-convert-to-pwm.py" ]; then
+        CONVERT_SCRIPT="/usr/config/demo-patches/led-painter-convert-to-pwm.py"
+    elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-convert-to-pwm.py" ]; then
+        CONVERT_SCRIPT="$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-convert-to-pwm.py"
     fi
 
-    if [ -n "$PATCH_PATH" ]; then
-        info "Applying RasQberry customizations..."
-        cd "$DEMO_DIR" || die "Failed to cd to demo directory"
-        if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
-            info "✓ Applied RasQberry customizations (chunked LED writes for 192+ LEDs)"
+    if [ -n "$CONVERT_SCRIPT" ]; then
+        info "Converting to PWM/PIO drivers..."
+        if python3 "$CONVERT_SCRIPT" "$DEMO_DIR" > /dev/null 2>&1; then
+            info "✓ Converted to PWM/PIO drivers (Pi 4/Pi 5 compatible)"
+            info "✓ Applied persistent NeoPixel object (prevents GPIO busy errors)"
         else
-            warn "Could not apply customization patch (demo may not work with 192+ LEDs)"
+            warn "Could not convert to PWM/PIO drivers (demo may not work)"
         fi
-        cd - > /dev/null || true
-    fi
-
-    # Apply GPIO busy fix (persistent NeoPixel object)
-    GPIO_FIX_SCRIPT=""
-    if [ -f "/usr/config/demo-patches/led-painter-fix-gpio-busy.py" ]; then
-        GPIO_FIX_SCRIPT="/usr/config/demo-patches/led-painter-fix-gpio-busy.py"
-    elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-fix-gpio-busy.py" ]; then
-        GPIO_FIX_SCRIPT="$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-fix-gpio-busy.py"
-    fi
-
-    if [ -n "$GPIO_FIX_SCRIPT" ] && [ -f "$DEMO_DIR/display_to_LEDs_from_file.py" ]; then
-        info "Applying GPIO busy fix..."
-        if python3 "$GPIO_FIX_SCRIPT" "$DEMO_DIR/display_to_LEDs_from_file.py" > /dev/null 2>&1; then
-            info "✓ Applied GPIO busy fix (persistent NeoPixel object)"
-        else
-            warn "Could not apply GPIO busy fix (multiple displays may fail)"
-        fi
+    else
+        warn "Conversion script not found (demo may use incompatible SPI drivers)"
     fi
 
     # Install Python dependencies

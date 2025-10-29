@@ -200,12 +200,8 @@ do_grok_bloch_install() {
                  "Grok Bloch Sphere" ""
 }
 
-# Install LED-Painter demo if needed
-do_led_painter_install() {
-    install_demo "led-painter" "$GIT_REPO_DEMO_LED_PAINTER" \
-                 "$MARKER_LED_PAINTER" "LED_PAINTER_INSTALLED" \
-                 "LED-Painter" "$PATCH_FILE_LED_PAINTER" "pip"
-}
+# LED-Painter installation is handled by rq_led_painter.sh
+# (uses conversion script instead of patch file)
 
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {

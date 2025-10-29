@@ -5,8 +5,8 @@
   },
   "os_list": [
     {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "name": "RasQberry Two Beta (64-bit)",
+      "description": "RasQberry beta release with latest features (may be unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-remote01-2025-10-29-063002/rasqberry-dev-remote01-2025-10-29-063002.img.xz",
       "extract_size": 8774483968,
