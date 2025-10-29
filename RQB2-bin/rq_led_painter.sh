@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER PATCH_FILE_LED_PAINTER
+verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER
 
 DEMO_NAME="LED-Painter"
 DEMO_DIR="$USER_HOME/$REPO/demos/led-painter"
