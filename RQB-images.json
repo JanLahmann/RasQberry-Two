@@ -8,10 +8,10 @@
       "name": "RasQberry Two Beta (64-bit)",
       "description": "RasQberry beta release with latest features (may be unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-104206/rasqberry-beta-2025-10-29.img.xz",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz",
       "extract_size": 8791261184,
-      "extract_sha256": "ad25b320183388db9e0a272f485ce78ba07978009cdf410fee3f4721243a55a6",
-      "image_download_size": 1833458840,
+      "extract_sha256": "1bc3fd3d22752b581e824191b87673bb2f4209d219717d68b0267f16093e26d6",
+      "image_download_size": 1836523436,
       "release_date": "2025-10-29",
       "init_format": "systemd",
       "devices": [
