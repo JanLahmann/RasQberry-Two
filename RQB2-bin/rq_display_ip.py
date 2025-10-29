@@ -44,6 +44,9 @@ def get_ip_addresses():
     for iface in netifaces.interfaces():
         if iface == 'lo':  # Skip loopback
             continue
+        # Skip docker and other virtual interfaces
+        if iface.startswith(('docker', 'br-', 'veth')):
+            continue
         if iface in priority_interfaces:
             continue
         other_interfaces.append(iface)
@@ -113,11 +116,27 @@ def main():
             brightness=args.brightness
         )
 
+        # Calculate minimum duration needed for full scroll
+        # Each character is ~6 columns (5 + 1 space), matrix is 24 columns wide
+        # Need time for: text_width + matrix_width positions
+        # At 0.08s per step, typical IP needs ~15s for one full scroll
+        text_chars = len(text)
+        text_columns = text_chars * 6  # Approximate column count
+        matrix_width = config['matrix_width']
+        scroll_positions = text_columns + matrix_width
+        min_duration = scroll_positions * args.speed
+
+        # Use at least the minimum duration, or user-specified duration (whichever is longer)
+        # Add 50% extra to ensure text scrolls through at least 1.5 times
+        actual_duration = max(args.duration, min_duration * 1.5)
+
+        print(f"Scroll duration: {actual_duration:.1f}s (ensures complete scroll)")
+
         # Display scrolling IP using common utility function
         display_scrolling_text(
             pixels,
             text,
-            duration_seconds=args.duration,
+            duration_seconds=int(actual_duration),
             scroll_speed=args.speed
         )
 
