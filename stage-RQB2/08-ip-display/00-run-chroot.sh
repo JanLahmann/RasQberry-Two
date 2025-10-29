@@ -26,8 +26,8 @@ Type=oneshot
 User=root
 # Wait a bit after network is up to allow DHCP to complete
 ExecStartPre=/bin/sleep 5
-# Display IP address on LEDs for 30 seconds
-ExecStart=/home/rasqberry/RasQberry-Two/venv/RQB2/bin/python3 /usr/bin/rq_display_ip.py --duration 30 --speed 0.08 --brightness 0.3
+# Display IP address on LEDs (60 seconds per IP, auto-calculated)
+ExecStart=/home/rasqberry/RasQberry-Two/venv/RQB2/bin/python3 /usr/bin/rq_display_ip.py --duration 60 --speed 0.08 --brightness 0.3
 # Service runs once at boot
 RemainAfterExit=no
 StandardOutput=journal

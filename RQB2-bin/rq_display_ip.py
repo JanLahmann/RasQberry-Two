@@ -116,21 +116,15 @@ def main():
             brightness=args.brightness
         )
 
-        # Calculate minimum duration needed for full scroll
-        # Each character is ~6 columns (5 + 1 space), matrix is 24 columns wide
-        # Need time for: text_width + matrix_width positions
-        # At 0.08s per step, typical IP needs ~15s for one full scroll
-        text_chars = len(text)
-        text_columns = text_chars * 6  # Approximate column count
-        matrix_width = config['matrix_width']
-        scroll_positions = text_columns + matrix_width
-        min_duration = scroll_positions * args.speed
+        # Use 60 seconds per IP address to ensure plenty of time for viewing
+        # Count number of IPs being displayed
+        num_ips = len(addresses) if addresses else 1  # At least 1 for "NO IP" message
+        calculated_duration = num_ips * 60
 
-        # Use at least the minimum duration, or user-specified duration (whichever is longer)
-        # Add 50% extra to ensure text scrolls through at least 1.5 times
-        actual_duration = max(args.duration, min_duration * 1.5)
+        # Use the calculated duration or user-specified, whichever is longer
+        actual_duration = max(args.duration, calculated_duration)
 
-        print(f"Scroll duration: {actual_duration:.1f}s (ensures complete scroll)")
+        print(f"Scroll duration: {actual_duration}s ({num_ips} IP(s) x 60s each)")
 
         # Display scrolling IP using common utility function
         display_scrolling_text(
