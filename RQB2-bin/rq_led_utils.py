@@ -314,6 +314,147 @@ def map_xy_to_pixel(x, y, layout=None):
         return map_xy_to_pixel_single(x, y)
 
 
+def create_text_bitmap(text):
+    """
+    Create a simple 5x7 font bitmap for scrolling text.
+    Returns list of columns (each column is 7-bit value).
+
+    Each character is 5 pixels wide, 7 pixels tall.
+    Designed for LED matrix text display.
+
+    Args:
+        text (str): Text to convert to bitmap
+
+    Returns:
+        list: List of column values (0x00-0x7F), 5 columns per character + 1 space
+
+    Example:
+        columns = create_text_bitmap("HELLO")
+        # Returns list of column values for displaying "HELLO"
+    """
+    # Simple 5x7 font (uppercase letters, numbers, punctuation)
+    # Each character is represented as 5 columns, each column is 7 bits (0x00-0x7F)
+    FONT = {
+        '0': [0x3E, 0x51, 0x49, 0x45, 0x3E],
+        '1': [0x00, 0x42, 0x7F, 0x40, 0x00],
+        '2': [0x62, 0x51, 0x49, 0x49, 0x46],
+        '3': [0x22, 0x49, 0x49, 0x49, 0x36],
+        '4': [0x18, 0x14, 0x12, 0x7F, 0x10],
+        '5': [0x27, 0x45, 0x45, 0x45, 0x39],
+        '6': [0x3C, 0x4A, 0x49, 0x49, 0x30],
+        '7': [0x01, 0x71, 0x09, 0x05, 0x03],
+        '8': [0x36, 0x49, 0x49, 0x49, 0x36],
+        '9': [0x06, 0x49, 0x49, 0x29, 0x1E],
+        '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+        ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+        '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
+        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+        'A': [0x7E, 0x09, 0x09, 0x09, 0x7E],
+        'B': [0x7F, 0x49, 0x49, 0x49, 0x36],
+        'C': [0x3E, 0x41, 0x41, 0x41, 0x22],
+        'D': [0x7F, 0x41, 0x41, 0x41, 0x3E],
+        'E': [0x7F, 0x49, 0x49, 0x49, 0x41],
+        'F': [0x7F, 0x09, 0x09, 0x09, 0x01],
+        'H': [0x7F, 0x08, 0x08, 0x08, 0x7F],
+        'I': [0x00, 0x41, 0x7F, 0x41, 0x00],
+        'L': [0x7F, 0x40, 0x40, 0x40, 0x40],
+        'N': [0x7F, 0x02, 0x04, 0x08, 0x7F],
+        'O': [0x3E, 0x41, 0x41, 0x41, 0x3E],
+        'P': [0x7F, 0x09, 0x09, 0x09, 0x06],
+        'S': [0x26, 0x49, 0x49, 0x49, 0x32],
+        'T': [0x01, 0x01, 0x7F, 0x01, 0x01],
+        'U': [0x3F, 0x40, 0x40, 0x40, 0x3F],
+        'W': [0x7F, 0x20, 0x10, 0x20, 0x7F],
+    }
+
+    columns = []
+
+    for char in text.upper():
+        if char in FONT:
+            # Add character columns
+            for col in FONT[char]:
+                columns.append(col)
+            # Add 1 pixel space between characters
+            columns.append(0x00)
+        else:
+            # Unknown character - show space
+            for _ in range(5):
+                columns.append(0x00)
+
+    return columns
+
+
+def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, color=(0, 100, 255)):
+    """
+    Display scrolling text on LED matrix for specified duration.
+
+    Uses configured LED matrix layout to display text scrolling horizontally.
+    Automatically adapts to single or quad panel layouts.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display
+        duration_seconds (int): How long to display (seconds)
+        scroll_speed (float): Delay between scroll steps (seconds)
+        color (tuple): RGB color tuple (0-255 per channel), default bright blue
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_scrolling_text(pixels, "Hello World!", duration_seconds=20)
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate number of scroll positions needed
+    total_columns = len(text_columns) + width  # Text + blank screen at end
+
+    start_time = time.time()
+    position = 0
+
+    while time.time() - start_time < duration_seconds:
+        # Clear all pixels
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        # Display current scroll position
+        for x in range(width):
+            text_col_idx = position + x
+
+            if 0 <= text_col_idx < len(text_columns):
+                col_data = text_columns[text_col_idx]
+
+                # Display this column on the LED matrix
+                for y in range(min(height, 7)):  # Font is 7 pixels tall
+                    if col_data & (1 << y):
+                        # Convert x,y to LED index using common mapping function
+                        led_index = map_xy_to_pixel(x, y, layout)
+                        if led_index is not None:
+                            pixels[led_index] = color
+
+        pixels.show()
+
+        # Advance scroll position
+        position += 1
+        if position >= total_columns:
+            position = 0  # Loop
+
+        time.sleep(scroll_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
 # Module self-test
 if __name__ == "__main__":
     print("RasQberry LED Utilities Module Test")
