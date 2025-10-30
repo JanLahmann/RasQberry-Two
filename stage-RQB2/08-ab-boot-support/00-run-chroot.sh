@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-echo "=> Installing and Enabling RasQberry A/B Boot Support"
+echo "=> Installing RasQberry A/B Boot Support (Health Check Only)"
 
 # Source the configuration file
 if [ -f "/tmp/stage-config" ]; then
@@ -36,41 +36,37 @@ if [ ! -f "${CLONE_DIR}/RQB2-bin/rq_health_check.py" ]; then
     exit 1
 fi
 
-# Copy scripts to /usr/local/bin
+# Copy A/B boot scripts to /usr/local/bin
 echo "=> Installing A/B boot scripts to /usr/local/bin"
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_health_check.py" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_slot_manager.sh" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/setup-ab-boot.sh" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/reboot-to-slot-b.sh" /usr/local/bin/
 
 # Note: systemd service files are already installed by 00-run.sh
 
-# Install firstboot task for A/B partition expansion
-echo "=> Installing A/B partition expansion firstboot task"
-install -v -m 755 "${CLONE_DIR}/stage-RQB2/08-ab-boot-support/files/firstboot-tasks/01-expand-ab-partitions.sh" \
-  "/usr/local/lib/rasqberry-firstboot.d/01-expand-ab-partitions.sh"
-
-# Enable health check (runs once on boot)
+# Enable health check (runs once on boot to validate tryboot)
 echo "=> Enabling rasqberry-health-check.service"
 systemctl enable rasqberry-health-check.service
 
-# Enable update poller timer (runs every 30 seconds)
-echo "=> Enabling rasqberry-update-poller.timer"
-systemctl enable rasqberry-update-poller.timer
-
-echo "=> RasQberry A/B Boot Support installed and enabled"
+echo "=> RasQberry A/B Boot Support installed"
 echo ""
-echo "NOTE: A/B boot requires manual partition setup:"
-echo "  1. Boot the Pi"
-echo "  2. Run: sudo /home/rasqberry/RasQberry-Two/tools/setup-ab-boot.sh"
+echo "A/B boot health check is enabled and will run on every boot."
+echo "This allows the tryboot mechanism to validate new images."
 echo ""
-echo "After partition setup, the system will:"
-echo "  - Run health checks on every boot"
-echo "  - Poll GitHub every 30 seconds for new dev* releases"
-echo "  - Automatically download and install updates to Slot B"
-echo "  - Reboot into new images and validate them"
-echo "  - Rollback automatically to Slot A if validation fails"
+echo "To set up A/B boot partitioning (optional for testing):"
+echo "  1. Disable filesystem expansion before first boot:"
+echo "     sudo touch /path/to/sdcard/var/lib/rasqberry-firstboot/01-expand-filesystem.sh.done"
+echo "  2. Boot the Pi normally"
+echo "  3. Run: sudo setup-ab-boot.sh"
 echo ""
-echo "Slot A: STABLE (protected, manual updates only)"
-echo "Slot B: TESTING (auto-updated from dev* releases)"
+echo "After A/B setup, you can manually test new images in Slot B:"
+echo "  1. Download image to Slot B:"
+echo "     wget <image-url> && sudo bash -c 'xz -dc image.img.xz | dd of=/dev/mmcblk0p3 bs=4M'"
+echo "  2. Reboot to Slot B: sudo reboot-to-slot-b"
+echo "  3. Health check validates (60 seconds)"
+echo "  4. If successful: Slot B becomes default"
+echo "     If failed: System rolls back to Slot A"
+echo ""
+echo "Note: Update polling is NOT included - updates are manual only"

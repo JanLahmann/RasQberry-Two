@@ -104,11 +104,6 @@ on:
         required: false
         type: boolean
         default: false
-      create_ab_boot_image:
-        description: 'Also create A/B boot variant (for automated testing)'
-        required: false
-        type: boolean
-        default: false
   
   # Automatic trigger for development branches
   push:
@@ -952,39 +947,6 @@ jobs:
           fi
 
       # ========================================================================
-      # A/B BOOT IMAGE CREATION (CONDITIONAL)
-      # ========================================================================
-      # Create A/B boot variant if requested via workflow input
-      - name: Create A/B Boot Variant
-        id: create-ab-image
-        if: ${{ github.event.inputs.create_ab_boot_image == 'true' }}
-        run: |
-          echo "Creating A/B boot variant..."
-
-          # Get the standard image path
-          STANDARD_IMAGE="${{ steps.set-asset.outputs.asset_path }}"
-          STANDARD_NAME="${{ steps.set-asset.outputs.asset_name }}"
-
-          # Generate A/B variant name (insert -ab before .img.xz)
-          AB_NAME="${STANDARD_NAME%.img.xz}-ab.img.xz"
-          AB_PATH="deploy/${AB_NAME}"
-
-          echo "Standard image: $STANDARD_IMAGE"
-          echo "A/B variant: $AB_PATH"
-
-          # Run conversion script
-          chmod +x stage-RQB2/08-ab-boot-support/convert-to-ab-boot.sh
-          sudo ./stage-RQB2/08-ab-boot-support/convert-to-ab-boot.sh "$STANDARD_IMAGE" "$AB_PATH"
-
-          # Set outputs for upload
-          echo "ab_asset_path=${AB_PATH}" >> $GITHUB_OUTPUT
-          echo "ab_asset_name=${AB_NAME}" >> $GITHUB_OUTPUT
-
-          echo "A/B boot variant created successfully"
-          echo "Standard image: $(du -h $STANDARD_IMAGE | cut -f1)"
-          echo "A/B variant: $(du -h $AB_PATH | cut -f1)"
-
-      # ========================================================================
       # RELEASE ASSET UPLOAD
       # ========================================================================
       # Upload the built image to the GitHub release
@@ -996,18 +958,6 @@ jobs:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
           asset_name: ${{ steps.set-asset.outputs.asset_name }}
-          asset_content_type: application/x-xz  # XZ compressed disk image
-
-      # Upload A/B boot variant if it was created
-      - name: Upload A/B Boot Variant
-        if: ${{ github.event.inputs.create_ab_boot_image == 'true' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ steps.create-ab-image.outputs.ab_asset_path }}
-          asset_name: ${{ steps.create-ab-image.outputs.ab_asset_name }}
           asset_content_type: application/x-xz  # XZ compressed disk image
 
   # ============================================================================
