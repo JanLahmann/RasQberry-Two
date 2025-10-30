@@ -53,10 +53,14 @@ cleanup() {
     echo "Cleaning up..."
     sync
     sleep 1
-    sudo umount "${MOUNT_POINT}/boot/firmware" 2>/dev/null || true
-    sudo umount "${MOUNT_POINT}" 2>/dev/null || true
-    sudo losetup -d "$LOOP_DEV" 2>/dev/null || true
-    rm -rf "$MOUNT_POINT" 2>/dev/null || true
+    if [ -n "${MOUNT_POINT:-}" ]; then
+        sudo umount "${MOUNT_POINT}/boot/firmware" 2>/dev/null || true
+        sudo umount "${MOUNT_POINT}" 2>/dev/null || true
+        rm -rf "$MOUNT_POINT" 2>/dev/null || true
+    fi
+    if [ -n "${LOOP_DEV:-}" ]; then
+        sudo losetup -d "$LOOP_DEV" 2>/dev/null || true
+    fi
     rm -f "$TEMP_IMG" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -66,7 +70,7 @@ sleep 2
 sudo partprobe "$LOOP_DEV"
 sleep 1
 
-# Get total device size and calculate slot sizes
+# Get total device size
 DEVICE_SIZE_BYTES=$(sudo blockdev --getsize64 "$LOOP_DEV")
 DEVICE_SIZE_SECTORS=$((DEVICE_SIZE_BYTES / 512))
 echo "Device size: $((DEVICE_SIZE_BYTES / 1024 / 1024))MB ($DEVICE_SIZE_SECTORS sectors)"
@@ -74,43 +78,29 @@ echo "Device size: $((DEVICE_SIZE_BYTES / 1024 / 1024))MB ($DEVICE_SIZE_SECTORS 
 # Get partition 1 (boot) size
 P1_START=$(sudo parted "$LOOP_DEV" unit s print | grep "^ 1" | awk '{print $2}' | sed 's/s//')
 P1_END=$(sudo parted "$LOOP_DEV" unit s print | grep "^ 1" | awk '{print $3}' | sed 's/s//')
-P1_SIZE_SECTORS=$((P1_END - P1_START + 1))
-echo "Boot partition size: $((P1_SIZE_SECTORS * 512 / 1024 / 1024))MB"
+P1_SIZE_MB=$((((P1_END - P1_START + 1) * 512) / 1024 / 1024))
+echo "Boot partition size: ${P1_SIZE_MB}MB"
 
-# Calculate available space for slots (device - boot - alignment overhead)
-ALIGNMENT_OVERHEAD_SECTORS=8192  # ~4MB for alignment
-AVAILABLE_SECTORS=$((DEVICE_SIZE_SECTORS - P1_END - ALIGNMENT_OVERHEAD_SECTORS))
-AVAILABLE_MB=$((AVAILABLE_SECTORS * 512 / 1024 / 1024))
-
-echo "Available space for slots: ${AVAILABLE_MB}MB"
-
-# Each slot gets approximately half the available space
-SLOT_SIZE_MB=$((AVAILABLE_MB / 2))
-SLOT_A_SIZE_SECTORS=$((SLOT_SIZE_MB * 1024 * 1024 / 512))
-SLOT_B_SIZE_SECTORS=$((SLOT_SIZE_MB * 1024 * 1024 / 512))
-
-echo "Calculated slot sizes:"
-echo "  Slot A (p2): ${SLOT_SIZE_MB}MB ($SLOT_A_SIZE_SECTORS sectors)"
-echo "  Slot B (p3): ${SLOT_SIZE_MB}MB ($SLOT_B_SIZE_SECTORS sectors)"
-
-# Get current partition info
+# Get current partition 2 (Slot A) size - KEEP IT AT CURRENT SIZE (don't shrink)
 P2_START=$(sudo parted "$LOOP_DEV" unit s print | grep "^ 2" | awk '{print $2}' | sed 's/s//')
-echo "Partition 2 starts at sector: $P2_START"
+P2_END=$(sudo parted "$LOOP_DEV" unit s print | grep "^ 2" | awk '{print $3}' | sed 's/s//')
+P2_SIZE_SECTORS=$((P2_END - P2_START + 1))
+P2_SIZE_MB=$((P2_SIZE_SECTORS * 512 / 1024 / 1024))
 
-# Shrink filesystem first
-echo "Shrinking filesystem to ${SLOT_SIZE_MB}MB..."
-sudo e2fsck -f -y "${LOOP_DEV}p2"
-sudo resize2fs "${LOOP_DEV}p2" ${SLOT_SIZE_MB}M
+echo "Current Slot A (p2): ${P2_SIZE_MB}MB ($P2_SIZE_SECTORS sectors)"
+echo "Keeping Slot A at current size (no shrinking - contains ~7GB data)"
 
-# Resize partition 2
-P2_NEW_END=$((P2_START + SLOT_A_SIZE_SECTORS - 1))
-echo "Resizing partition 2 to end at sector $P2_NEW_END..."
-sudo parted "$LOOP_DEV" resizepart 2 ${P2_NEW_END}s
+# Create Slot B at minimum size (4GB) - will be expanded on first boot
+SLOT_B_SIZE_MB=4096  # 4GB minimum
+SLOT_B_SIZE_SECTORS=$((SLOT_B_SIZE_MB * 1024 * 1024 / 512))
 
-# Create partition 3
-P3_START=$((P2_NEW_END + 2048))
+echo "Creating Slot B at minimum size: ${SLOT_B_SIZE_MB}MB ($SLOT_B_SIZE_SECTORS sectors)"
+echo "(Slot B will be expanded to match Slot A size on first boot)"
+
+# Create partition 3 (Slot B) starting after Slot A
+P3_START=$((P2_END + 2048))
 P3_END=$((P3_START + SLOT_B_SIZE_SECTORS - 1))
-echo "Creating partition 3: sectors $P3_START to $P3_END..."
+echo "Creating partition 3 (Slot B): sectors $P3_START to $P3_END..."
 sudo parted "$LOOP_DEV" mkpart primary ext4 ${P3_START}s ${P3_END}s
 
 # Reload partition table

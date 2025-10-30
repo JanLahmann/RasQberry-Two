@@ -46,6 +46,11 @@ install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
 
 # Note: systemd service files are already installed by 00-run.sh
 
+# Install firstboot task for A/B partition expansion
+echo "=> Installing A/B partition expansion firstboot task"
+install -v -m 755 "${CLONE_DIR}/stage-RQB2/08-ab-boot-support/files/firstboot-tasks/01-expand-ab-partitions.sh" \
+  "/usr/local/lib/rasqberry-firstboot.d/01-expand-ab-partitions.sh"
+
 # Enable health check (runs once on boot)
 echo "=> Enabling rasqberry-health-check.service"
 systemctl enable rasqberry-health-check.service
