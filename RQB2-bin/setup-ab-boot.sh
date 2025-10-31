@@ -6,7 +6,12 @@
 #
 # Prerequisites:
 # - Standard RasQberry image burned to large SD card (64GB+ recommended)
-# - Filesystem expansion disabled on first boot (create marker file)
+# - Filesystem expansion disabled on first boot using ONE of these methods:
+#   Method 1 (Easy - from Mac/Windows): Create empty file "skip-expansion"
+#            on the bootfs partition before first boot
+#   Method 2 (Linux): Create marker file at
+#            /var/lib/rasqberry-firstboot/01-expand-filesystem.sh.done
+#            on rootfs partition before first boot
 # - System booted and running from Slot A
 #
 # What this script does:

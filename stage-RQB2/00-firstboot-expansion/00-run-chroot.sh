@@ -75,6 +75,14 @@ cat > /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh << 'EOF'
 
 echo "Expanding root filesystem..."
 
+# Check for skip marker in bootfs (accessible from Mac/Windows)
+# This allows users to disable expansion by creating a file on the boot partition
+if [ -f /boot/firmware/skip-expansion ]; then
+    echo "Expansion disabled: /boot/firmware/skip-expansion marker found"
+    echo "This is typically used for A/B boot setup"
+    exit 0
+fi
+
 # Check if expansion is needed
 ROOT_PART=$(findmnt / -o source -n)
 ROOT_DEV=$(lsblk -no pkname "$ROOT_PART")
