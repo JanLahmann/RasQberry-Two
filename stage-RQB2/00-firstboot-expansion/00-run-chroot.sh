@@ -136,7 +136,8 @@ EOF
 cat > /etc/systemd/system/rasqberry-firstboot.service << 'EOF'
 [Unit]
 Description=RasQberry First Boot Tasks
-After=systemd-remount-fs.service
+After=systemd-remount-fs.service boot-firmware.mount
+Requires=boot-firmware.mount
 Before=rc-local.service systemd-user-sessions.service
 DefaultDependencies=no
 
