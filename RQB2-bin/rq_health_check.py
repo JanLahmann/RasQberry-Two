@@ -148,6 +148,38 @@ def check_qiskit_installed(venv_path: str) -> Tuple[bool, str]:
         return False, f"pip list error: {e}"
 
 
+def detect_ab_layout() -> Tuple[bool, str]:
+    """
+    Detect if system is using A/B boot and which version.
+
+    Returns:
+        Tuple of (is_ab_boot, layout_version)
+        layout_version can be: 'none', 'v1-broken', 'v2'
+    """
+    try:
+        # Check for bootfs-common (v2 AB layout)
+        result = subprocess.run(
+            ['lsblk', '-no', 'label', '/dev/mmcblk0p1'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode == 0 and 'bootfs-cmn' in result.stdout:
+            return True, 'v2'
+
+        # Check for old v1 layout (tryboot.txt exists but no bootfs-common)
+        tryboot_file = Path('/boot/firmware/tryboot.txt')
+        if tryboot_file.exists():
+            return True, 'v1-broken'
+
+        return False, 'none'
+
+    except Exception as e:
+        logger.warning(f"Could not detect A/B layout: {e}")
+        return False, 'none'
+
+
 def confirm_boot_slot() -> bool:
     """
     Confirm the current boot slot to prevent rollback.
@@ -157,12 +189,24 @@ def confirm_boot_slot() -> bool:
     Returns:
         bool: Success
     """
+    # Detect A/B boot layout
+    is_ab, layout = detect_ab_layout()
+
+    if not is_ab:
+        logger.info("Standard (non-AB) boot system detected")
+        return True  # Not an error, just not using A/B boot
+
+    logger.info(f"A/B boot system detected: {layout}")
+
+    if layout == 'v1-broken':
+        logger.warning("⚠ Using deprecated v1 A/B boot layout (known to be broken)")
+        logger.warning("⚠ Consider upgrading to v2 AB image")
+
     slot_manager = Path('/usr/local/bin/rq_slot_manager.sh')
 
     if not slot_manager.exists():
         logger.warning("Slot manager not found, cannot confirm slot")
-        logger.warning("This is expected if not using A/B boot")
-        return True  # Don't fail health check if A/B boot not configured
+        return True  # Don't fail health check
 
     try:
         result = subprocess.run(
@@ -174,6 +218,11 @@ def confirm_boot_slot() -> bool:
 
         if result.returncode == 0:
             logger.info("✓ Boot slot confirmed")
+            # Log the confirmation details from stdout
+            if result.stdout:
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        logger.info(f"  {line}")
             return True
         else:
             logger.error(f"✗ Failed to confirm boot slot: {result.stderr}")
