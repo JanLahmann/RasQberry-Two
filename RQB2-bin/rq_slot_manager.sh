@@ -19,11 +19,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
 # Boot configuration files
+# NOTE: For AB images, bootfs-common (p1) is mounted at /boot/firmware-common
+# and contains autoboot.txt. The current slot's bootfs (p2 or p3) is at /boot/firmware
 BOOT_DIR="/boot/firmware"
-AUTOBOOT_TXT="${BOOT_DIR}/autoboot.txt"
-TRYBOOT_TXT="${BOOT_DIR}/tryboot.txt"
-CURRENT_SLOT_FILE="${BOOT_DIR}/current-slot"
-SLOT_CONFIRMED_FILE="${BOOT_DIR}/slot-confirmed"
+BOOT_COMMON_DIR="/boot/firmware-common"
+AUTOBOOT_TXT="${BOOT_COMMON_DIR}/autoboot.txt"
+CURRENT_SLOT_FILE="${BOOT_COMMON_DIR}/current-slot"
+SLOT_CONFIRMED_FILE="${BOOT_COMMON_DIR}/slot-confirmed"
+
+# Old paths for backwards compatibility (non-AB images)
+AUTOBOOT_TXT_FALLBACK="${BOOT_DIR}/autoboot.txt"
+CURRENT_SLOT_FILE_FALLBACK="${BOOT_DIR}/current-slot"
+SLOT_CONFIRMED_FILE_FALLBACK="${BOOT_DIR}/slot-confirmed"
 
 # ============================================================================
 # Helper Functions
@@ -41,18 +48,26 @@ check_root() {
 
 get_current_slot() {
     # Get the currently booted slot (A or B)
+    # For v2 AB layout: p5=Slot A, p6=Slot B (root partitions)
+    # Boot partition (p2 or p3) also indicates slot
 
-    # Check if running in tryboot mode
-    if [ -f "${TRYBOOT_TXT}" ]; then
-        # In tryboot mode, check which partition we're on
-        local root_part
-        root_part=$(findmnt / -o source -n)
+    # Check if running in AB boot mode (look for bootfs-common)
+    local root_part
+    root_part=$(findmnt / -o source -n)
+    local root_dev
+    root_dev=$(lsblk -no pkname "$root_part")
 
+    # Check for bootfs-common partition (indicates v2 AB image)
+    local bootfs_common_label
+    bootfs_common_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
+
+    if [ "$bootfs_common_label" = "bootfs-cmn" ]; then
+        # V2 AB image - determine slot from root partition
         case "${root_part}" in
-            *p2|*2)
+            *p5|*5)
                 echo "A"
                 ;;
-            *p3|*3)
+            *p6|*6)
                 echo "B"
                 ;;
             *)
@@ -60,13 +75,15 @@ get_current_slot() {
                 # Fall back to current-slot file
                 if [ -f "${CURRENT_SLOT_FILE}" ]; then
                     cat "${CURRENT_SLOT_FILE}"
+                elif [ -f "${CURRENT_SLOT_FILE_FALLBACK}" ]; then
+                    cat "${CURRENT_SLOT_FILE_FALLBACK}"
                 else
                     echo "UNKNOWN"
                 fi
                 ;;
         esac
     else
-        # Not in A/B boot mode
+        # Not in A/B boot mode (standard single-partition image)
         echo "SINGLE"
     fi
 }
@@ -99,17 +116,55 @@ get_root_partition() {
 }
 
 get_slot_partition() {
-    # Get partition device for a given slot
+    # Get ROOT partition device for a given slot
+    # V2 layout: p5=Slot A rootfs, p6=Slot B rootfs
     local slot="$1"
     local root_dev
     root_dev=$(lsblk -no pkname "$(get_root_partition)")
 
     case "${slot}" in
         A)
-            echo "/dev/${root_dev}p2"  # Assuming p2 is slot A
+            # Handle both mmcblk0p5 and sd5 style naming
+            if [ -b "/dev/${root_dev}p5" ]; then
+                echo "/dev/${root_dev}p5"
+            else
+                echo "/dev/${root_dev}5"
+            fi
             ;;
         B)
-            echo "/dev/${root_dev}p3"  # Assuming p3 is slot B
+            if [ -b "/dev/${root_dev}p6" ]; then
+                echo "/dev/${root_dev}p6"
+            else
+                echo "/dev/${root_dev}6"
+            fi
+            ;;
+        *)
+            echo "UNKNOWN"
+            ;;
+    esac
+}
+
+get_boot_partition() {
+    # Get BOOT partition device for a given slot
+    # V2 layout: p2=Slot A bootfs, p3=Slot B bootfs
+    local slot="$1"
+    local root_dev
+    root_dev=$(lsblk -no pkname "$(get_root_partition)")
+
+    case "${slot}" in
+        A)
+            if [ -b "/dev/${root_dev}p2" ]; then
+                echo "/dev/${root_dev}p2"
+            else
+                echo "/dev/${root_dev}2"
+            fi
+            ;;
+        B)
+            if [ -b "/dev/${root_dev}p3" ]; then
+                echo "/dev/${root_dev}p3"
+            else
+                echo "/dev/${root_dev}3"
+            fi
             ;;
         *)
             echo "UNKNOWN"
