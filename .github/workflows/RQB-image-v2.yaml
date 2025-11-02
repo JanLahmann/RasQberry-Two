@@ -961,7 +961,96 @@ jobs:
           asset_content_type: application/x-xz  # XZ compressed disk image
 
   # ============================================================================
-  # JOB 4: Generate and Upload RQB-images.json
+  # JOB 4: Build A/B Boot Image Variant
+  # ============================================================================
+  # Converts the standard image to A/B boot layout for testing
+  build-ab-image:
+    name: Build A/B Boot Image
+    needs: [rasqberry-push-version-number, release, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
+
+      - name: Free up disk space
+        run: |
+          echo "=== Initial disk space ==="
+          df -h /
+
+          # Quick cleanup for image conversion (less aggressive than full build)
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet &
+          wait
+
+          echo "=== Final disk space ==="
+          df -h /
+
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y parted kpartx xz-utils dosfstools e2fsprogs rsync
+
+      - name: Download and convert to A/B boot layout
+        id: convert-ab
+        run: |
+          # Get the asset details from the build job
+          ASSET_NAME="${{ needs.build.outputs.asset_name }}"
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
+
+          echo "Downloading standard image: $ASSET_NAME"
+          curl -L -o "$ASSET_NAME" "$DOWNLOAD_URL"
+
+          # Decompress
+          echo "Decompressing image..."
+          xz -d "$ASSET_NAME"
+
+          # Get the .img filename
+          INPUT_IMG="${ASSET_NAME%.xz}"
+          OUTPUT_IMG="${INPUT_IMG%.img}-ab.img"
+
+          echo "Converting $INPUT_IMG to A/B layout: $OUTPUT_IMG"
+
+          # Run the conversion script
+          sudo ./stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v2.sh \
+            "$INPUT_IMG" \
+            "$OUTPUT_IMG"
+
+          # Verify the conversion succeeded
+          if [ ! -f "$OUTPUT_IMG" ]; then
+            echo "Error: AB conversion failed - output file not created"
+            exit 1
+          fi
+
+          # Show partition layout
+          echo "=== AB Image Partition Layout ==="
+          sudo parted "$OUTPUT_IMG" print
+
+          # Compress AB image
+          echo "Compressing AB image..."
+          xz -9 -T0 "$OUTPUT_IMG"
+
+          AB_IMG_XZ="${OUTPUT_IMG}.xz"
+
+          echo "AB image compressed: $AB_IMG_XZ"
+          echo "Size: $(du -h $AB_IMG_XZ | cut -f1)"
+
+          # Output for next step
+          echo "ab_image=$AB_IMG_XZ" >> $GITHUB_OUTPUT
+
+      - name: Upload AB image to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ${{ steps.convert-ab.outputs.ab_image }}
+          asset_name: ${{ steps.convert-ab.outputs.ab_image }}
+          asset_content_type: application/x-xz
+
+  # ============================================================================
+  # JOB 5: Generate and Upload RQB-images.json
   # ============================================================================
   # Always generates the JSON file, optionally uploads to gh-pages
   update-json:
