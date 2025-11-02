@@ -104,6 +104,10 @@ on:
         required: false
         type: boolean
         default: false
+      build_ab_image:
+        description: 'Build A/B boot image variant (dev branches: default true, main/beta: default false)'
+        required: false
+        type: boolean
   
   # Automatic trigger for development branches
   push:
@@ -964,10 +968,15 @@ jobs:
   # JOB 4: Build A/B Boot Image Variant
   # ============================================================================
   # Converts the standard image to A/B boot layout for testing
+  # By default: enabled for dev branches, disabled for main/beta
   build-ab-image:
     name: Build A/B Boot Image
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
+    # Conditional execution based on branch and input
+    if: |
+      (startsWith(github.ref, 'refs/heads/dev') && github.event.inputs.build_ab_image != 'false') ||
+      (github.event.inputs.build_ab_image == 'true')
 
     steps:
       - name: Checkout repository
