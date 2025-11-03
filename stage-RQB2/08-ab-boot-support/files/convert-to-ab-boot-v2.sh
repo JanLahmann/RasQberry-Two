@@ -62,7 +62,8 @@ echo ""
 
 # Create output image file
 echo "Step 1: Creating output image file (${TOTAL_SIZE_MB}MB)..."
-dd if=/dev/zero of="$OUTPUT_IMG" bs=1M count="$TOTAL_SIZE_MB" status=progress
+dd if=/dev/zero of="$OUTPUT_IMG" bs=1M count="$TOTAL_SIZE_MB" status=none
+echo "Created ${TOTAL_SIZE_MB}MB image file"
 echo ""
 
 # Partition the output image with MBR + extended partition
@@ -175,7 +176,8 @@ echo ""
 
 # Copy rootfs from input to p5 (rootfs-a)
 echo "Step 11: Copying rootfs to p5 (rootfs-a)... (this will take several minutes)"
-rsync -aAX --info=progress2 "${MOUNT_DIR}/input-root/" "${MOUNT_DIR}/rootfs-a/"
+rsync -aAX "${MOUNT_DIR}/input-root/" "${MOUNT_DIR}/rootfs-a/"
+echo "Rootfs copy complete"
 echo ""
 
 # Update /etc/fstab on p5 (rootfs-a)
