@@ -1038,7 +1038,16 @@ jobs:
 
           # Compress AB image
           echo "Compressing AB image..."
-          xz -9 -T0 "$OUTPUT_IMG"
+          # Ignore exit code 2 (file permissions warning after successful compression)
+          xz -9 -T0 "$OUTPUT_IMG" || {
+            xz_exit=$?
+            if [ $xz_exit -eq 2 ] && [ -f "${OUTPUT_IMG}.xz" ]; then
+              echo "Warning: xz reported permission error but compression succeeded"
+            else
+              echo "Error: xz compression failed with exit code $xz_exit"
+              exit $xz_exit
+            fi
+          }
 
           AB_IMG_XZ="${OUTPUT_IMG}.xz"
 
