@@ -1043,9 +1043,21 @@ jobs:
 
           # Compress AB image
           echo "Compressing AB image..."
-          # Use --no-adjust to prevent xz from trying to preserve file ownership
-          # (which would fail in GitHub Actions containerized environment)
-          xz -9 -T0 --no-adjust "$OUTPUT_IMG"
+          # xz will try to preserve file group ownership and fail with exit code 2
+          # in GitHub Actions, but the compression succeeds. Check if .xz exists.
+          set +e
+          xz -9 -T0 "$OUTPUT_IMG"
+          xz_exit=$?
+          set -e
+
+          if [ $xz_exit -ne 0 ]; then
+            if [ $xz_exit -eq 2 ] && [ -f "${OUTPUT_IMG}.xz" ]; then
+              echo "Warning: xz reported exit code 2 (file permission warning) but compression succeeded"
+            else
+              echo "Error: xz compression failed with exit code $xz_exit"
+              exit $xz_exit
+            fi
+          fi
 
           AB_IMG_XZ="${OUTPUT_IMG}.xz"
 
