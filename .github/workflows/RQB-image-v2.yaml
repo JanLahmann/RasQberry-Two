@@ -1032,22 +1032,20 @@ jobs:
             exit 1
           fi
 
+          # Delete input image to save disk space before compression
+          echo "Removing input image to free disk space..."
+          rm -f "$INPUT_IMG"
+          echo "Freed: $(du -h . | tail -1)"
+
           # Show partition layout
           echo "=== AB Image Partition Layout ==="
           sudo parted "$OUTPUT_IMG" print
 
           # Compress AB image
           echo "Compressing AB image..."
-          # Ignore exit code 2 (file permissions warning after successful compression)
-          xz -9 -T0 "$OUTPUT_IMG" || {
-            xz_exit=$?
-            if [ $xz_exit -eq 2 ] && [ -f "${OUTPUT_IMG}.xz" ]; then
-              echo "Warning: xz reported permission error but compression succeeded"
-            else
-              echo "Error: xz compression failed with exit code $xz_exit"
-              exit $xz_exit
-            fi
-          }
+          # Use --no-adjust to prevent xz from trying to preserve file ownership
+          # (which would fail in GitHub Actions containerized environment)
+          xz -9 -T0 --no-adjust "$OUTPUT_IMG"
 
           AB_IMG_XZ="${OUTPUT_IMG}.xz"
 
