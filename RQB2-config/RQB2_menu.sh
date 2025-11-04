@@ -512,10 +512,106 @@ do_led_off() {
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
 
+# -----------------------------------------------------------------------------
+# 3c) LED Display Menu (Text & Logo Display)
+# -----------------------------------------------------------------------------
+
+do_led_custom_text() {
+    run_demo "LED Text Display" "$BIN_DIR" bash rq_led_display_text.sh
+}
+
+do_led_choose_logo() {
+    run_demo "LED Logo Display" "$BIN_DIR" bash rq_led_display_logo.sh
+}
+
+do_led_demo_scroll_welcome() {
+    run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_scroll_welcome.py
+    do_led_off
+}
+
+do_led_demo_status() {
+    run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_status.py
+    do_led_off
+}
+
+do_led_demo_alert() {
+    run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_alert.py
+    do_led_off
+}
+
+do_led_demo_rainbow_scroll() {
+    run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_rainbow_scroll.py
+    do_led_off
+}
+
+do_led_demo_rainbow_static() {
+    run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_rainbow_static.py
+    do_led_off
+}
+
+do_led_demo_gradient() {
+    run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_gradient.py
+    do_led_off
+}
+
+do_led_demo_ibm_logo() {
+    run_demo bg "IBM Logo" "$BIN_DIR" python3 demo_led_ibm_logo.py
+    do_led_off
+}
+
+do_led_demo_rasqberry_logo() {
+    run_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
+    do_led_off
+}
+
+do_led_demo_logo_slideshow() {
+    run_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
+    do_led_off
+}
+
+do_led_display_menu() {
+    while true; do
+        FUN=$(show_menu "RasQberry: LED Text & Logo Display" "Display Options" \
+           TEXT    "Display Custom Text" \
+           LOGO    "Display Logo from Library" \
+           "---1"  "--- Text Demos ---" \
+           SWEL    "Demo: Scrolling Welcome" \
+           STAT    "Demo: Status Messages" \
+           ALRT    "Demo: Alert Flash" \
+           "---2"  "--- Color Effect Demos ---" \
+           RSCR    "Demo: Rainbow Scroll" \
+           RSTA    "Demo: Rainbow Color Cycle" \
+           GRAD    "Demo: Color Gradient" \
+           "---3"  "--- Logo Demos ---" \
+           IBML    "Demo: IBM Logo" \
+           RQBL    "Demo: RasQberry Logo" \
+           SLID    "Demo: Logo Slideshow" \
+           "---4"  "---" \
+           CLEAR   "Clear LEDs") || break
+        case "$FUN" in
+            TEXT  ) do_led_custom_text           || { handle_error "Text display failed."; continue; } ;;
+            LOGO  ) do_led_choose_logo           || { handle_error "Logo display failed."; continue; } ;;
+            SWEL  ) do_led_demo_scroll_welcome   || { handle_error "Demo failed."; continue; } ;;
+            STAT  ) do_led_demo_status           || { handle_error "Demo failed."; continue; } ;;
+            ALRT  ) do_led_demo_alert            || { handle_error "Demo failed."; continue; } ;;
+            RSCR  ) do_led_demo_rainbow_scroll   || { handle_error "Demo failed."; continue; } ;;
+            RSTA  ) do_led_demo_rainbow_static   || { handle_error "Demo failed."; continue; } ;;
+            GRAD  ) do_led_demo_gradient         || { handle_error "Demo failed."; continue; } ;;
+            IBML  ) do_led_demo_ibm_logo         || { handle_error "Demo failed."; continue; } ;;
+            RQBL  ) do_led_demo_rasqberry_logo   || { handle_error "Demo failed."; continue; } ;;
+            SLID  ) do_led_demo_logo_slideshow   || { handle_error "Demo failed."; continue; } ;;
+            CLEAR ) do_led_off                   || { handle_error "Failed to clear LEDs."; continue; } ;;
+            "---1"|"---2"|"---3"|"---4" ) continue ;;  # Ignore separator items
+            *) break ;;
+        esac
+    done
+}
+
 do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           DISP "Text & Logo Display" \
            quicktest "Quick LED Test (6 colors)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
@@ -523,6 +619,7 @@ do_select_led_option() {
            layout "Configure Matrix Layout") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
             quicktest )
                 run_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
                 do_led_off
