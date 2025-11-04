@@ -627,10 +627,19 @@ def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(2
 
 def wheel(pos):
     """
-    Generate rainbow colors across 0-255 positions.
+    Generate rainbow colors using HSV-to-RGB color wheel algorithm.
 
-    Helper function for rainbow effects. Returns RGB color tuple
-    that smoothly transitions through the color spectrum.
+    Maps position (0-255) to smooth RGB color transitions through the spectrum.
+    This creates a perceptually uniform rainbow effect suitable for LED displays.
+
+    Algorithm divides the 256-position wheel into three equal segments:
+    - Segment 1 (0-84):   Red → Green (R decreases, G increases, B=0)
+    - Segment 2 (85-169): Green → Blue (G decreases, B increases, R=0)
+    - Segment 3 (170-255): Blue → Red (B decreases, R increases, G=0)
+
+    Each transition uses linear interpolation (factor of 3 for smooth steps):
+    - pos * 3: Increases color component from 0 to 255
+    - 255 - pos * 3: Decreases color component from 255 to 0
 
     Args:
         pos (int): Position in color wheel (0-255)
@@ -638,15 +647,25 @@ def wheel(pos):
     Returns:
         tuple: RGB color tuple (0-255 per channel)
 
-    Example:
-        color = wheel(128)  # Returns color at halfway point in spectrum
+    Examples:
+        wheel(0)    # Returns (0, 255, 0)     - Pure red start
+        wheel(85)   # Returns (255, 0, 0)     - Pure green
+        wheel(170)  # Returns (0, 0, 255)     - Pure blue
+        wheel(128)  # Returns (127, 0, 128)   - Purple (between green/blue)
+
+    Note:
+        This is a simplified HSV color wheel with fixed saturation and value.
+        Full HSV: Hue=(pos*360/256), Saturation=100%, Value=100%
     """
     if pos < 85:
+        # Red → Green transition (first third of spectrum)
         return (pos * 3, 255 - pos * 3, 0)
     elif pos < 170:
+        # Green → Blue transition (middle third of spectrum)
         pos -= 85
         return (255 - pos * 3, 0, pos * 3)
     else:
+        # Blue → Red transition (final third of spectrum)
         pos -= 170
         return (0, pos * 3, 255 - pos * 3)
 

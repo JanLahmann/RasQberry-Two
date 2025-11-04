@@ -20,14 +20,17 @@ def main():
     print("RasQberry LED IBM Logo Demo")
     print("=" * 50)
 
+    # Get repository name from environment or use default
+    repo_name = os.environ.get('REPO', 'RasQberry-Two')
+
     # Get logo path
-    config_dir = os.path.expanduser("~/RasQberry-Two/RQB2-config")
+    config_dir = os.path.expanduser(f"~/{repo_name}/RQB2-config")
     logo_path = os.path.join(config_dir, "LED-Logos", "ibm-logo-24x8.png")
 
     # Check if logo exists
     if not os.path.exists(logo_path):
         print(f"ERROR: Logo file not found: {logo_path}")
-        print("Please run: python3 RQB2-config/LED-Logos/create_logos.py")
+        print(f"Please run: python3 ~/{repo_name}/RQB2-config/LED-Logos/create_logos.py")
         sys.exit(1)
 
     print(f"Logo: {logo_path}")

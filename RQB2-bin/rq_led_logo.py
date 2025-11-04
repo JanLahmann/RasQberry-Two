@@ -13,8 +13,28 @@ Key features:
 """
 
 import os
+import sys
 import time
-from PIL import Image
+
+# Check for PIL/Pillow availability
+try:
+    from PIL import Image
+except ImportError:
+    print("=" * 70)
+    print("ERROR: PIL/Pillow is not installed")
+    print("=" * 70)
+    print()
+    print("The LED logo display feature requires the Pillow library.")
+    print()
+    print("To install Pillow, run:")
+    print("  pip install Pillow")
+    print()
+    print("Or if using a virtual environment:")
+    print("  source ~/RasQberry-Two/venv/RQB2/bin/activate")
+    print("  pip install Pillow")
+    print()
+    print("=" * 70)
+    sys.exit(1)
 
 # Import LED utilities
 from rq_led_utils import (
@@ -66,7 +86,14 @@ def load_image_as_led_array(image_path, target_width=None, target_height=None):
 
     # Resize to target dimensions
     # Use LANCZOS for high-quality downscaling
-    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+    # Support both new (Pillow >= 9.1.0) and old API
+    try:
+        resample = Image.Resampling.LANCZOS
+    except AttributeError:
+        # Fallback for Pillow < 9.1.0
+        resample = Image.LANCZOS
+
+    img = img.resize((target_width, target_height), resample)
 
     # Convert to 2D array of RGB tuples
     led_array = []
