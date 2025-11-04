@@ -525,32 +525,32 @@ do_led_choose_logo() {
 }
 
 do_led_demo_scroll_welcome() {
-    run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_scroll_welcome.py
+    run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_text_scroll_welcome.py
     do_led_off
 }
 
 do_led_demo_status() {
-    run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_status.py
+    run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_text_status.py
     do_led_off
 }
 
 do_led_demo_alert() {
-    run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_alert.py
+    run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_text_alert.py
     do_led_off
 }
 
 do_led_demo_rainbow_scroll() {
-    run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_rainbow_scroll.py
+    run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_text_rainbow_scroll.py
     do_led_off
 }
 
 do_led_demo_rainbow_static() {
-    run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_rainbow_static.py
+    run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
     do_led_off
 }
 
 do_led_demo_gradient() {
-    run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_gradient.py
+    run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
     do_led_off
 }
 
