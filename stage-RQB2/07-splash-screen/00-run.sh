@@ -12,9 +12,9 @@ THEME_NAME="rasqberry"
 PLYMOUTH_DIR="${ROOTFS_DIR}/usr/share/plymouth/themes/${THEME_NAME}"
 mkdir -p "${PLYMOUTH_DIR}"
 
-# Copy logo from artwork directory
+# Copy logo from stage files
 echo "=> Copying RasQberry Cube logo for splash screen"
-install -v -m 644 "${STAGE_DIR}/../../RQB2-config/Artwork/Logo-Wallpaper/RasQberry Cube Logo 1000x1000.png" \
+install -v -m 644 "${STAGE_DIR}/files/images/RasQberry Cube Logo 1000x1000.png" \
   "${PLYMOUTH_DIR}/rasqberry-logo.png"
 
 # Copy theme configuration files
