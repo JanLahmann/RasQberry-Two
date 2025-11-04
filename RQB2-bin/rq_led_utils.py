@@ -335,6 +335,7 @@ def create_text_bitmap(text):
     # Simple 5x7 font (uppercase letters, numbers, punctuation)
     # Each character is represented as 5 columns, each column is 7 bits (0x00-0x7F)
     FONT = {
+        # Numbers
         '0': [0x3E, 0x51, 0x49, 0x45, 0x3E],
         '1': [0x00, 0x42, 0x7F, 0x40, 0x00],
         '2': [0x62, 0x51, 0x49, 0x49, 0x46],
@@ -345,26 +346,58 @@ def create_text_bitmap(text):
         '7': [0x01, 0x71, 0x09, 0x05, 0x03],
         '8': [0x36, 0x49, 0x49, 0x49, 0x36],
         '9': [0x06, 0x49, 0x49, 0x29, 0x1E],
-        '.': [0x00, 0x60, 0x60, 0x00, 0x00],
-        ':': [0x00, 0x36, 0x36, 0x00, 0x00],
-        '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
-        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+
+        # Uppercase letters (complete A-Z)
         'A': [0x7E, 0x09, 0x09, 0x09, 0x7E],
         'B': [0x7F, 0x49, 0x49, 0x49, 0x36],
         'C': [0x3E, 0x41, 0x41, 0x41, 0x22],
         'D': [0x7F, 0x41, 0x41, 0x41, 0x3E],
         'E': [0x7F, 0x49, 0x49, 0x49, 0x41],
         'F': [0x7F, 0x09, 0x09, 0x09, 0x01],
+        'G': [0x3E, 0x41, 0x49, 0x49, 0x7A],  # NEW
         'H': [0x7F, 0x08, 0x08, 0x08, 0x7F],
         'I': [0x00, 0x41, 0x7F, 0x41, 0x00],
+        'J': [0x20, 0x40, 0x41, 0x3F, 0x01],  # NEW
+        'K': [0x7F, 0x08, 0x14, 0x22, 0x41],  # NEW
         'L': [0x7F, 0x40, 0x40, 0x40, 0x40],
+        'M': [0x7F, 0x02, 0x0C, 0x02, 0x7F],  # NEW
         'N': [0x7F, 0x02, 0x04, 0x08, 0x7F],
         'O': [0x3E, 0x41, 0x41, 0x41, 0x3E],
         'P': [0x7F, 0x09, 0x09, 0x09, 0x06],
+        'Q': [0x3E, 0x41, 0x51, 0x21, 0x5E],  # NEW
+        'R': [0x7F, 0x09, 0x19, 0x29, 0x46],  # NEW
         'S': [0x26, 0x49, 0x49, 0x49, 0x32],
         'T': [0x01, 0x01, 0x7F, 0x01, 0x01],
         'U': [0x3F, 0x40, 0x40, 0x40, 0x3F],
+        'V': [0x1F, 0x20, 0x40, 0x20, 0x1F],  # NEW
         'W': [0x7F, 0x20, 0x10, 0x20, 0x7F],
+        'X': [0x63, 0x14, 0x08, 0x14, 0x63],  # NEW
+        'Y': [0x07, 0x08, 0x70, 0x08, 0x07],  # NEW
+        'Z': [0x61, 0x51, 0x49, 0x45, 0x43],  # NEW
+
+        # Punctuation and symbols
+        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+        '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+        ',': [0x00, 0xA0, 0x60, 0x00, 0x00],  # NEW
+        ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+        ';': [0x00, 0x56, 0x36, 0x00, 0x00],  # NEW
+        '!': [0x00, 0x00, 0x5F, 0x00, 0x00],  # NEW
+        '?': [0x02, 0x01, 0x51, 0x09, 0x06],  # NEW
+        '-': [0x08, 0x08, 0x08, 0x08, 0x08],  # NEW
+        '+': [0x08, 0x08, 0x3E, 0x08, 0x08],  # NEW
+        '=': [0x14, 0x14, 0x14, 0x14, 0x14],  # NEW
+        '/': [0x60, 0x10, 0x08, 0x04, 0x03],  # NEW
+        '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
+        '#': [0x14, 0x7F, 0x14, 0x7F, 0x14],  # NEW
+        '@': [0x3E, 0x41, 0x5D, 0x55, 0x1E],  # NEW
+        '(': [0x00, 0x1C, 0x22, 0x41, 0x00],  # NEW
+        ')': [0x00, 0x41, 0x22, 0x1C, 0x00],  # NEW
+        '[': [0x00, 0x7F, 0x41, 0x41, 0x00],  # NEW
+        ']': [0x00, 0x41, 0x41, 0x7F, 0x00],  # NEW
+        '<': [0x08, 0x14, 0x22, 0x41, 0x00],  # NEW
+        '>': [0x00, 0x41, 0x22, 0x14, 0x08],  # NEW
+        '%': [0x46, 0x26, 0x10, 0x68, 0x64],  # NEW
+        '&': [0x36, 0x49, 0x55, 0x22, 0x50],  # NEW
     }
 
     columns = []
@@ -450,6 +483,143 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
             position = 0  # Loop
 
         time.sleep(scroll_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255), center=True):
+    """
+    Display static (non-scrolling) text on LED matrix.
+
+    Text is displayed centered or left-aligned and held for the specified duration.
+    Useful for status messages, boot sequences, or short notifications.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        color (tuple): RGB color tuple (0-255 per channel), default white
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_static_text(pixels, "BOOT", duration_seconds=2, color=(255, 255, 0))
+        display_static_text(pixels, "READY", duration_seconds=3, color=(0, 255, 0))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Clear all pixels
+    for i in range(config['led_count']):
+        pixels[i] = (0, 0, 0)
+
+    # Display text
+    for col_idx, col_data in enumerate(text_columns):
+        x = start_x + col_idx
+        if x >= width:
+            break  # Text too long for display
+
+        # Display this column on the LED matrix
+        for y in range(min(height, 7)):  # Font is 7 pixels tall
+            if col_data & (1 << y):
+                led_index = map_xy_to_pixel(x, y, layout)
+                if led_index is not None:
+                    pixels[led_index] = color
+
+    pixels.show()
+
+    # Hold for duration
+    time.sleep(duration_seconds)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(255, 0, 0), center=True):
+    """
+    Display flashing (blinking) text on LED matrix.
+
+    Text blinks on and off for the specified number of times.
+    Useful for alerts, errors, or attention-getting messages.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        flash_count (int): Number of times to flash on/off
+        flash_speed (float): Time for each on/off cycle (seconds)
+        color (tuple): RGB color tuple (0-255 per channel), default red
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_flashing_text(pixels, "ERROR", flash_count=5, color=(255, 0, 0))
+        display_flashing_text(pixels, "ALERT", flash_count=3, color=(255, 128, 0))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Flash loop
+    for _ in range(flash_count):
+        # Turn ON - display text
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        for col_idx, col_data in enumerate(text_columns):
+            x = start_x + col_idx
+            if x >= width:
+                break
+
+            for y in range(min(height, 7)):
+                if col_data & (1 << y):
+                    led_index = map_xy_to_pixel(x, y, layout)
+                    if led_index is not None:
+                        pixels[led_index] = color
+
+        pixels.show()
+        time.sleep(flash_speed / 2)
+
+        # Turn OFF - clear display
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+        pixels.show()
+        time.sleep(flash_speed / 2)
 
     # Clear LEDs when done
     chunked_clear(pixels)
