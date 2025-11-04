@@ -6,9 +6,8 @@ echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 echo "=> Installing matchbox-keyboard"
 apt-get install -y matchbox-keyboard
 
-# Install Florence as alternative (more feature-rich)
-echo "=> Installing Florence virtual keyboard"
-apt-get install -y florence at-spi2-core
+# Note: Florence was removed from Debian Bookworm repositories
+# matchbox-keyboard is the recommended virtual keyboard for Raspberry Pi OS
 
 # Install desktop icon for virtual keyboard
 echo "=> Installing virtual keyboard desktop icon"
@@ -24,12 +23,10 @@ if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
 fi
 
 echo ""
-echo "Virtual keyboards installed:"
-echo "  - matchbox-keyboard (lightweight, default)"
-echo "  - florence (feature-rich alternative)"
+echo "Virtual keyboard installed:"
+echo "  - matchbox-keyboard (lightweight, touchscreen-optimized)"
 echo ""
 echo "To use:"
 echo "  - Click the 'Virtual Keyboard' icon on desktop"
 echo "  - Or run 'matchbox-keyboard' from terminal"
-echo "  - Or run 'florence' for more features"
-echo "  - Desktop icons also available in Accessories menu"
+echo "  - Desktop icon also available in Accessories menu"
