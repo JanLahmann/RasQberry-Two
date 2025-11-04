@@ -1,0 +1,16 @@
+[Unit]
+Description=RasQberry Boot Configuration Loader
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+DefaultDependencies=no
+After=local-fs.target
+Before=basic.target sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rasqberry-load-boot-config.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target
