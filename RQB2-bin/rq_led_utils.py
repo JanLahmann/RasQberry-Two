@@ -625,6 +625,261 @@ def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(2
     chunked_clear(pixels)
 
 
+def wheel(pos):
+    """
+    Generate rainbow colors across 0-255 positions.
+
+    Helper function for rainbow effects. Returns RGB color tuple
+    that smoothly transitions through the color spectrum.
+
+    Args:
+        pos (int): Position in color wheel (0-255)
+
+    Returns:
+        tuple: RGB color tuple (0-255 per channel)
+
+    Example:
+        color = wheel(128)  # Returns color at halfway point in spectrum
+    """
+    if pos < 85:
+        return (pos * 3, 255 - pos * 3, 0)
+    elif pos < 170:
+        pos -= 85
+        return (255 - pos * 3, 0, pos * 3)
+    else:
+        pos -= 170
+        return (0, pos * 3, 255 - pos * 3)
+
+
+def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_speed=0.1):
+    """
+    Display scrolling text with rainbow color gradient.
+
+    Each character cycles through the color spectrum, creating a
+    smooth rainbow gradient effect across the text.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display
+        duration_seconds (int): How long to display (seconds)
+        scroll_speed (float): Delay between scroll steps (seconds)
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_scrolling_text_rainbow(pixels, "RAINBOW TEXT!", duration_seconds=20)
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate number of scroll positions needed
+    total_columns = len(text_columns) + width
+
+    start_time = time.time()
+    position = 0
+    color_offset = 0
+
+    while time.time() - start_time < duration_seconds:
+        # Clear all pixels
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        # Display current scroll position
+        for x in range(width):
+            text_col_idx = position + x
+
+            if 0 <= text_col_idx < len(text_columns):
+                col_data = text_columns[text_col_idx]
+
+                # Calculate rainbow color based on column position
+                color_pos = (text_col_idx * 8 + color_offset) % 256
+                color = wheel(color_pos)
+
+                # Display this column on the LED matrix
+                for y in range(min(height, 7)):
+                    if col_data & (1 << y):
+                        led_index = map_xy_to_pixel(x, y, layout)
+                        if led_index is not None:
+                            pixels[led_index] = color
+
+        pixels.show()
+
+        # Advance scroll position and color offset
+        position += 1
+        if position >= total_columns:
+            position = 0
+
+        color_offset = (color_offset + 2) % 256  # Cycle colors
+
+        time.sleep(scroll_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, cycle_speed=0.05):
+    """
+    Display static text with color cycling rainbow effect.
+
+    Text remains stationary while colors cycle through the rainbow spectrum,
+    creating a dynamic color-changing effect.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        center (bool): If True, center text horizontally. If False, left-align.
+        cycle_speed (float): Speed of color cycling (seconds per step)
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_static_text_rainbow(pixels, "COOL", duration_seconds=10)
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    start_time = time.time()
+    color_offset = 0
+
+    while time.time() - start_time < duration_seconds:
+        # Clear all pixels
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        # Display text with cycling rainbow colors
+        for col_idx, col_data in enumerate(text_columns):
+            x = start_x + col_idx
+            if x >= width:
+                break
+
+            # Calculate rainbow color based on column position
+            color_pos = (col_idx * 8 + color_offset) % 256
+            color = wheel(color_pos)
+
+            # Display this column on the LED matrix
+            for y in range(min(height, 7)):
+                if col_data & (1 << y):
+                    led_index = map_xy_to_pixel(x, y, layout)
+                    if led_index is not None:
+                        pixels[led_index] = color
+
+        pixels.show()
+
+        # Cycle colors
+        color_offset = (color_offset + 4) % 256
+        time.sleep(cycle_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), color2=(0, 0, 255), center=True):
+    """
+    Display static text with a color gradient between two colors.
+
+    Text displays with a smooth color transition from color1 to color2
+    across the width of the text.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        color1 (tuple): Starting color RGB tuple (0-255 per channel)
+        color2 (tuple): Ending color RGB tuple (0-255 per channel)
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        # Red to blue gradient
+        display_text_gradient(pixels, "GRAD", duration_seconds=5,
+                            color1=(255, 0, 0), color2=(0, 0, 255))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Clear all pixels
+    for i in range(config['led_count']):
+        pixels[i] = (0, 0, 0)
+
+    # Display text with gradient
+    for col_idx, col_data in enumerate(text_columns):
+        x = start_x + col_idx
+        if x >= width:
+            break
+
+        # Calculate gradient color based on position
+        if text_width > 1:
+            ratio = col_idx / (text_width - 1)
+        else:
+            ratio = 0.5
+
+        r = int(color1[0] * (1 - ratio) + color2[0] * ratio)
+        g = int(color1[1] * (1 - ratio) + color2[1] * ratio)
+        b = int(color1[2] * (1 - ratio) + color2[2] * ratio)
+        color = (r, g, b)
+
+        # Display this column on the LED matrix
+        for y in range(min(height, 7)):
+            if col_data & (1 << y):
+                led_index = map_xy_to_pixel(x, y, layout)
+                if led_index is not None:
+                    pixels[led_index] = color
+
+    pixels.show()
+
+    # Hold for duration
+    time.sleep(duration_seconds)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
 # Module self-test
 if __name__ == "__main__":
     print("RasQberry LED Utilities Module Test")
