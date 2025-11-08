@@ -8,7 +8,7 @@
 # Output: AB-ready .img file (6 partitions with extended partition)
 #
 # Partition Layout Created:
-#   p1: bootfs-common    512MB   primary   FAT32   (autoboot.txt only)
+#   p1: bootfs-common    512MB   primary   FAT32   (autoboot.txt, config.txt, bootcode.bin)
 #   p2: bootfs-a         512MB   primary   FAT32   (boot files from input)
 #   p3: bootfs-b         512MB   primary   FAT32   (copy of p2)
 #   p4: extended         (rest)  extended  -
@@ -152,8 +152,10 @@ echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""
 
-# Create autoboot.txt on p1 (bootfs-common)
-echo "Step 10: Creating autoboot.txt on p1 (bootfs-common)..."
+# Create autoboot.txt and config.txt on p1 (bootfs-common)
+echo "Step 10: Creating boot files on p1 (bootfs-common)..."
+
+# Create autoboot.txt
 cat > "${MOUNT_DIR}/bootfs-common/autoboot.txt" << 'EOF'
 # RasQberry A/B Boot Configuration
 # This file controls which boot partition the firmware uses
@@ -170,8 +172,18 @@ boot_partition=2
 boot_partition=3
 EOF
 
+# Create empty config.txt (required by firmware for autoboot to work)
+touch "${MOUNT_DIR}/bootfs-common/config.txt"
+
+# Copy bootcode.bin for older Pi models (if it exists in source)
+if [ -f "${MOUNT_DIR}/input-boot/bootcode.bin" ]; then
+    cp "${MOUNT_DIR}/input-boot/bootcode.bin" "${MOUNT_DIR}/bootfs-common/"
+    echo "Copied bootcode.bin for older Pi models"
+fi
+
 echo "Created autoboot.txt:"
 cat "${MOUNT_DIR}/bootfs-common/autoboot.txt"
+echo "Created empty config.txt"
 echo ""
 
 # Copy rootfs from input to p5 (rootfs-a)
@@ -225,7 +237,7 @@ echo ""
 echo "AB-ready image created: $OUTPUT_IMG"
 echo ""
 echo "Partition layout:"
-echo "  p1: bootfs-common (512MB, FAT32) - autoboot.txt only"
+echo "  p1: bootfs-common (512MB, FAT32) - autoboot.txt, config.txt, bootcode.bin"
 echo "  p2: bootfs-a (512MB, FAT32) - boot files for Slot A"
 echo "  p3: bootfs-b (512MB, FAT32) - boot files for Slot B"
 echo "  p4: extended partition"
