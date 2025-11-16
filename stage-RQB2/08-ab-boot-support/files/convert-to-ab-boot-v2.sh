@@ -138,50 +138,33 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
-# Set deterministic PARTUUIDs (survive dd/flashing to SD card)
-echo "Step 8: Setting deterministic partition UUIDs..."
+# Use filesystem labels for boot (survive dd/flash perfectly)
+echo "Step 8: Configuring boot to use filesystem labels..."
 
-# Use fixed PARTUUIDs that will be preserved when image is written to SD card
-# These are deterministic and won't change after dd/Etcher flashing
-# Format: Use last 2 digits to indicate partition number for easy identification
-BOOTFS_COMMON_UUID="2b1c93a7-01"  # p1
-BOOTFS_A_UUID="2b1c93a7-02"        # p2
-BOOTFS_B_UUID="2b1c93a7-03"        # p3
-ROOTFS_A_UUID="2b1c93a7-05"        # p5
-ROOTFS_B_UUID="2b1c93a7-06"        # p6
+# Filesystem labels are stored in the filesystem metadata, not the partition table
+# This means they survive dd/flash operations perfectly (unlike PARTUUIDs which change)
+# Labels were already set during mkfs in Step 4:
+#   bootfs-cmn (p1), bootfs-a (p2), bootfs-b (p3), rootfs_a (p5), rootfs_b (p6)
 
-# Set PARTUUIDs on all partitions (MBR partition table uses 32-bit IDs)
-# sfdisk --part-uuid preserves these UUIDs when image is dd'd to SD card
-echo "Setting partition UUIDs with sfdisk..."
-sfdisk --part-uuid "${OUTPUT_LOOP}" 1 "${BOOTFS_COMMON_UUID}" || { echo "Failed to set UUID for p1"; exit 1; }
-sfdisk --part-uuid "${OUTPUT_LOOP}" 2 "${BOOTFS_A_UUID}" || { echo "Failed to set UUID for p2"; exit 1; }
-sfdisk --part-uuid "${OUTPUT_LOOP}" 3 "${BOOTFS_B_UUID}" || { echo "Failed to set UUID for p3"; exit 1; }
-sfdisk --part-uuid "${OUTPUT_LOOP}" 5 "${ROOTFS_A_UUID}" || { echo "Failed to set UUID for p5"; exit 1; }
-sfdisk --part-uuid "${OUTPUT_LOOP}" 6 "${ROOTFS_B_UUID}" || { echo "Failed to set UUID for p6"; exit 1; }
-
-# Trigger kernel to re-read partition table with new UUIDs
-partprobe "${OUTPUT_LOOP}"
-udevadm settle --timeout=10
-
-echo "Partition UUIDs (deterministic, survive dd/flash):"
-echo "  bootfs-common (p1): ${BOOTFS_COMMON_UUID}"
-echo "  bootfs-a (p2):      ${BOOTFS_A_UUID}"
-echo "  bootfs-b (p3):      ${BOOTFS_B_UUID}"
-echo "  rootfs-a (p5):      ${ROOTFS_A_UUID}"
-echo "  rootfs-b (p6):      ${ROOTFS_B_UUID}"
+echo "Using filesystem labels for boot (survive dd/flash):"
+echo "  p1: bootfs-cmn (bootfs-common)"
+echo "  p2: bootfs-a   (bootfs Slot A)"
+echo "  p3: bootfs-b   (bootfs Slot B)"
+echo "  p5: rootfs_a   (rootfs Slot A)"
+echo "  p6: rootfs_b   (rootfs Slot B)"
 echo ""
 
-# Update cmdline.txt on p2 to use PARTUUID for rootfs-a (p5)
-echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (PARTUUID)..."
-# Replace any /dev/* root device with PARTUUID
-sed -i "s|root=[^ ]*|root=PARTUUID=${ROOTFS_A_UUID}|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+# Update cmdline.txt on p2 to use LABEL for rootfs-a (p5)
+echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (LABEL)..."
+# Replace any root= parameter with LABEL=rootfs_a
+sed -i "s|root=[^ ]*|root=LABEL=rootfs_a|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-a/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo ""
 
-# Update cmdline.txt on p3 to use PARTUUID for rootfs-b (p6)
-echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (PARTUUID)..."
-sed -i "s|root=[^ ]*|root=PARTUUID=${ROOTFS_B_UUID}|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+# Update cmdline.txt on p3 to use LABEL for rootfs-b (p6)
+echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (LABEL)..."
+sed -i "s|root=[^ ]*|root=LABEL=rootfs_b|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""
@@ -226,13 +209,13 @@ rsync -aAX "${MOUNT_DIR}/input-root/" "${MOUNT_DIR}/rootfs-a/"
 echo "Rootfs copy complete"
 echo ""
 
-# Update /etc/fstab on p5 (rootfs-a) with PARTUUIDs
-echo "Step 13: Updating /etc/fstab on rootfs-a with PARTUUIDs..."
-cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << EOF
-proc                          /proc                 proc    defaults          0       0
-PARTUUID=${BOOTFS_COMMON_UUID}  /boot/firmware-common vfat    defaults          0       2
-PARTUUID=${BOOTFS_A_UUID}       /boot/firmware        vfat    defaults          0       2
-PARTUUID=${ROOTFS_A_UUID}       /                     ext4    defaults,noatime  0       1
+# Update /etc/fstab on p5 (rootfs-a) with LABELs
+echo "Step 13: Updating /etc/fstab on rootfs-a with LABELs..."
+cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << 'EOF'
+proc            /proc                 proc    defaults          0       0
+LABEL=bootfs-cmn  /boot/firmware-common vfat    defaults          0       2
+LABEL=bootfs-a    /boot/firmware        vfat    defaults          0       2
+LABEL=rootfs_a    /                     ext4    defaults,noatime  0       1
 EOF
 
 # Create mount point for bootfs-common
