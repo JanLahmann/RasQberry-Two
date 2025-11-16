@@ -138,22 +138,39 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
-# Update cmdline.txt on p2 to point to p5
-echo "Step 8: Updating cmdline.txt on p2 for rootfs-a (p5)..."
-sed -i 's|root=/dev/mmcblk0p2|root=/dev/mmcblk0p5|g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+# Get PARTUUIDs for all partitions (portable across boot media: SD, USB, NVMe)
+echo "Step 8: Querying partition UUIDs..."
+BOOTFS_COMMON_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p1")
+BOOTFS_A_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p2")
+BOOTFS_B_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p3")
+ROOTFS_A_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p5")
+ROOTFS_B_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p6")
+
+echo "Partition UUIDs:"
+echo "  bootfs-common (p1): ${BOOTFS_COMMON_UUID}"
+echo "  bootfs-a (p2):      ${BOOTFS_A_UUID}"
+echo "  bootfs-b (p3):      ${BOOTFS_B_UUID}"
+echo "  rootfs-a (p5):      ${ROOTFS_A_UUID}"
+echo "  rootfs-b (p6):      ${ROOTFS_B_UUID}"
+echo ""
+
+# Update cmdline.txt on p2 to use PARTUUID for rootfs-a (p5)
+echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (PARTUUID)..."
+# Replace any /dev/* root device with PARTUUID
+sed -i "s|root=[^ ]*|root=PARTUUID=${ROOTFS_A_UUID}|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-a/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo ""
 
-# Update cmdline.txt on p3 to point to p6
-echo "Step 9: Updating cmdline.txt on p3 for rootfs-b (p6)..."
-sed -i 's|root=/dev/mmcblk0p2|root=/dev/mmcblk0p6|g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+# Update cmdline.txt on p3 to use PARTUUID for rootfs-b (p6)
+echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (PARTUUID)..."
+sed -i "s|root=[^ ]*|root=PARTUUID=${ROOTFS_B_UUID}|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""
 
 # Create autoboot.txt and config.txt on p1 (bootfs-common)
-echo "Step 10: Creating boot files on p1 (bootfs-common)..."
+echo "Step 11: Creating boot files on p1 (bootfs-common)..."
 
 # Create autoboot.txt
 cat > "${MOUNT_DIR}/bootfs-common/autoboot.txt" << 'EOF'
@@ -187,18 +204,18 @@ echo "Created empty config.txt"
 echo ""
 
 # Copy rootfs from input to p5 (rootfs-a)
-echo "Step 11: Copying rootfs to p5 (rootfs-a)... (this will take several minutes)"
+echo "Step 12: Copying rootfs to p5 (rootfs-a)... (this will take several minutes)"
 rsync -aAX "${MOUNT_DIR}/input-root/" "${MOUNT_DIR}/rootfs-a/"
 echo "Rootfs copy complete"
 echo ""
 
-# Update /etc/fstab on p5 (rootfs-a)
-echo "Step 12: Updating /etc/fstab on rootfs-a..."
-cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << 'EOF'
-proc                  /proc                 proc    defaults          0       0
-/dev/mmcblk0p1        /boot/firmware-common vfat    defaults          0       2
-/dev/mmcblk0p2        /boot/firmware        vfat    defaults          0       2
-/dev/mmcblk0p5        /                     ext4    defaults,noatime  0       1
+# Update /etc/fstab on p5 (rootfs-a) with PARTUUIDs
+echo "Step 13: Updating /etc/fstab on rootfs-a with PARTUUIDs..."
+cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << EOF
+proc                          /proc                 proc    defaults          0       0
+PARTUUID=${BOOTFS_COMMON_UUID}  /boot/firmware-common vfat    defaults          0       2
+PARTUUID=${BOOTFS_A_UUID}       /boot/firmware        vfat    defaults          0       2
+PARTUUID=${ROOTFS_A_UUID}       /                     ext4    defaults,noatime  0       1
 EOF
 
 # Create mount point for bootfs-common
@@ -211,7 +228,7 @@ echo ""
 # p6 (rootfs-b) stays empty - it's a placeholder that will be expanded and populated at firstboot
 
 # Unmount all
-echo "Step 13: Unmounting partitions..."
+echo "Step 14: Unmounting partitions..."
 umount "${MOUNT_DIR}/bootfs-common"
 umount "${MOUNT_DIR}/bootfs-a"
 umount "${MOUNT_DIR}/bootfs-b"
@@ -225,13 +242,13 @@ rmdir "${MOUNT_DIR}"
 echo ""
 
 # Detach loop devices
-echo "Step 14: Detaching loop devices..."
+echo "Step 15: Detaching loop devices..."
 losetup -d "$OUTPUT_LOOP"
 losetup -d "$INPUT_LOOP"
 echo ""
 
 # Verify output
-echo "Step 15: Verifying output image..."
+echo "Step 16: Verifying output image..."
 OUTPUT_SIZE=$(du -h "$OUTPUT_IMG" | cut -f1)
 echo "Output image size: $OUTPUT_SIZE"
 echo ""
