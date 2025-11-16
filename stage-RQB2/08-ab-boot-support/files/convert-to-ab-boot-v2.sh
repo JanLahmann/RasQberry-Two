@@ -109,8 +109,20 @@ echo "Step 4: Formatting partitions..."
 mkfs.vfat -F 32 -n "bootfs-cmn" "${OUTPUT_LOOP}p1"
 mkfs.vfat -F 32 -n "bootfs-a" "${OUTPUT_LOOP}p2"
 mkfs.vfat -F 32 -n "bootfs-b" "${OUTPUT_LOOP}p3"
-mkfs.ext4 -F -L "rootfs_a" "${OUTPUT_LOOP}p5"
-mkfs.ext4 -F -L "rootfs_b" "${OUTPUT_LOOP}p6"
+mkfs.ext4 -F -L rootfs_a "${OUTPUT_LOOP}p5"
+mkfs.ext4 -F -L rootfs_b "${OUTPUT_LOOP}p6"
+echo ""
+
+# Verify ext4 labels were set correctly
+echo "Verifying ext4 filesystem labels..."
+LABEL_P5=$(e2label "${OUTPUT_LOOP}p5" 2>/dev/null || echo "FAILED")
+LABEL_P6=$(e2label "${OUTPUT_LOOP}p6" 2>/dev/null || echo "FAILED")
+echo "  p5 label: ${LABEL_P5}"
+echo "  p6 label: ${LABEL_P6}"
+if [ "$LABEL_P5" != "rootfs_a" ] || [ "$LABEL_P6" != "rootfs_b" ]; then
+    echo "ERROR: Filesystem labels not set correctly!"
+    exit 1
+fi
 echo ""
 
 # Mount partitions
