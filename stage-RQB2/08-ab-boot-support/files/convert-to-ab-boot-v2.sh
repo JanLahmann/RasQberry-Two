@@ -138,41 +138,32 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
-# Get PARTUUIDs for all partitions (portable across boot media: SD, USB, NVMe)
-echo "Step 8: Querying partition UUIDs..."
+# Set deterministic PARTUUIDs (survive dd/flashing to SD card)
+echo "Step 8: Setting deterministic partition UUIDs..."
 
-# Wait for udev to settle after losetup -fP (prevents race condition)
-echo "Waiting for udev to settle..."
+# Use fixed PARTUUIDs that will be preserved when image is written to SD card
+# These are deterministic and won't change after dd/Etcher flashing
+# Format: Use last 2 digits to indicate partition number for easy identification
+BOOTFS_COMMON_UUID="2b1c93a7-01"  # p1
+BOOTFS_A_UUID="2b1c93a7-02"        # p2
+BOOTFS_B_UUID="2b1c93a7-03"        # p3
+ROOTFS_A_UUID="2b1c93a7-05"        # p5
+ROOTFS_B_UUID="2b1c93a7-06"        # p6
+
+# Set PARTUUIDs on all partitions (MBR partition table uses 32-bit IDs)
+# sfdisk --part-uuid preserves these UUIDs when image is dd'd to SD card
+echo "Setting partition UUIDs with sfdisk..."
+sfdisk --part-uuid "${OUTPUT_LOOP}" 1 "${BOOTFS_COMMON_UUID}" || { echo "Failed to set UUID for p1"; exit 1; }
+sfdisk --part-uuid "${OUTPUT_LOOP}" 2 "${BOOTFS_A_UUID}" || { echo "Failed to set UUID for p2"; exit 1; }
+sfdisk --part-uuid "${OUTPUT_LOOP}" 3 "${BOOTFS_B_UUID}" || { echo "Failed to set UUID for p3"; exit 1; }
+sfdisk --part-uuid "${OUTPUT_LOOP}" 5 "${ROOTFS_A_UUID}" || { echo "Failed to set UUID for p5"; exit 1; }
+sfdisk --part-uuid "${OUTPUT_LOOP}" 6 "${ROOTFS_B_UUID}" || { echo "Failed to set UUID for p6"; exit 1; }
+
+# Trigger kernel to re-read partition table with new UUIDs
+partprobe "${OUTPUT_LOOP}"
 udevadm settle --timeout=10
 
-# Query PARTUUIDs with retry logic (handle race conditions in CI environments)
-get_partuuid() {
-    local partition="$1"
-    local max_retries=10
-    local retry=0
-    local uuid=""
-
-    while [ $retry -lt $max_retries ]; do
-        uuid=$(blkid -s PARTUUID -o value "$partition" 2>/dev/null)
-        if [ -n "$uuid" ]; then
-            echo "$uuid"
-            return 0
-        fi
-        retry=$((retry + 1))
-        sleep 0.5
-    done
-
-    echo "ERROR: Failed to get PARTUUID for $partition after $max_retries attempts" >&2
-    return 1
-}
-
-BOOTFS_COMMON_UUID=$(get_partuuid "${OUTPUT_LOOP}p1") || exit 1
-BOOTFS_A_UUID=$(get_partuuid "${OUTPUT_LOOP}p2") || exit 1
-BOOTFS_B_UUID=$(get_partuuid "${OUTPUT_LOOP}p3") || exit 1
-ROOTFS_A_UUID=$(get_partuuid "${OUTPUT_LOOP}p5") || exit 1
-ROOTFS_B_UUID=$(get_partuuid "${OUTPUT_LOOP}p6") || exit 1
-
-echo "Partition UUIDs:"
+echo "Partition UUIDs (deterministic, survive dd/flash):"
 echo "  bootfs-common (p1): ${BOOTFS_COMMON_UUID}"
 echo "  bootfs-a (p2):      ${BOOTFS_A_UUID}"
 echo "  bootfs-b (p3):      ${BOOTFS_B_UUID}"
