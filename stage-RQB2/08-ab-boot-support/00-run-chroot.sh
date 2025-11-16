@@ -43,6 +43,8 @@ install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_slot_manager.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/setup-ab-boot.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/reboot-to-slot-b.sh" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
+install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
 
 # Note: systemd service files are already installed by 00-run.sh
 

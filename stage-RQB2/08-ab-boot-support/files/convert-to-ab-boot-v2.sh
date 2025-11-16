@@ -195,10 +195,14 @@ echo ""
 # Update /etc/fstab on p5 (rootfs-a)
 echo "Step 12: Updating /etc/fstab on rootfs-a..."
 cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << 'EOF'
-proc            /proc           proc    defaults          0       0
-/dev/mmcblk0p2  /boot/firmware  vfat    defaults          0       2
-/dev/mmcblk0p5  /               ext4    defaults,noatime  0       1
+proc                  /proc                 proc    defaults          0       0
+/dev/mmcblk0p1        /boot/firmware-common vfat    defaults          0       2
+/dev/mmcblk0p2        /boot/firmware        vfat    defaults          0       2
+/dev/mmcblk0p5        /                     ext4    defaults,noatime  0       1
 EOF
+
+# Create mount point for bootfs-common
+mkdir -p "${MOUNT_DIR}/rootfs-a/boot/firmware-common"
 
 echo "Updated fstab:"
 cat "${MOUNT_DIR}/rootfs-a/etc/fstab"

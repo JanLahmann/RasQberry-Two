@@ -27,6 +27,10 @@ AUTOBOOT_TXT="${BOOT_COMMON_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE="${BOOT_COMMON_DIR}/current-slot"
 SLOT_CONFIRMED_FILE="${BOOT_COMMON_DIR}/slot-confirmed"
 
+# tryboot.txt is optional - only needed for per-slot boot configurations
+# With tryboot_a_b=1 in autoboot.txt, we use autoboot.txt for AB detection
+TRYBOOT_TXT="${BOOT_DIR}/tryboot.txt"
+
 # Old paths for backwards compatibility (non-AB images)
 AUTOBOOT_TXT_FALLBACK="${BOOT_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE_FALLBACK="${BOOT_DIR}/current-slot"
@@ -181,9 +185,9 @@ cmd_status() {
     info "=== RasQberry A/B Boot Status ==="
     echo ""
 
-    # Check if A/B boot is configured
-    if [ ! -f "${TRYBOOT_TXT}" ]; then
-        warn "A/B boot not configured (tryboot.txt not found)"
+    # Check if A/B boot is configured (look for autoboot.txt in bootfs-common)
+    if [ ! -f "${AUTOBOOT_TXT}" ] && [ ! -f "${AUTOBOOT_TXT_FALLBACK}" ]; then
+        warn "A/B boot not configured (autoboot.txt not found)"
         info "This system is running in single-partition mode"
         return 0
     fi
