@@ -140,11 +140,37 @@ echo ""
 
 # Get PARTUUIDs for all partitions (portable across boot media: SD, USB, NVMe)
 echo "Step 8: Querying partition UUIDs..."
-BOOTFS_COMMON_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p1")
-BOOTFS_A_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p2")
-BOOTFS_B_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p3")
-ROOTFS_A_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p5")
-ROOTFS_B_UUID=$(blkid -s PARTUUID -o value "${OUTPUT_LOOP}p6")
+
+# Wait for udev to settle after losetup -fP (prevents race condition)
+echo "Waiting for udev to settle..."
+udevadm settle --timeout=10
+
+# Query PARTUUIDs with retry logic (handle race conditions in CI environments)
+get_partuuid() {
+    local partition="$1"
+    local max_retries=10
+    local retry=0
+    local uuid=""
+
+    while [ $retry -lt $max_retries ]; do
+        uuid=$(blkid -s PARTUUID -o value "$partition" 2>/dev/null)
+        if [ -n "$uuid" ]; then
+            echo "$uuid"
+            return 0
+        fi
+        retry=$((retry + 1))
+        sleep 0.5
+    done
+
+    echo "ERROR: Failed to get PARTUUID for $partition after $max_retries attempts" >&2
+    return 1
+}
+
+BOOTFS_COMMON_UUID=$(get_partuuid "${OUTPUT_LOOP}p1") || exit 1
+BOOTFS_A_UUID=$(get_partuuid "${OUTPUT_LOOP}p2") || exit 1
+BOOTFS_B_UUID=$(get_partuuid "${OUTPUT_LOOP}p3") || exit 1
+ROOTFS_A_UUID=$(get_partuuid "${OUTPUT_LOOP}p5") || exit 1
+ROOTFS_B_UUID=$(get_partuuid "${OUTPUT_LOOP}p6") || exit 1
 
 echo "Partition UUIDs:"
 echo "  bootfs-common (p1): ${BOOTFS_COMMON_UUID}"
