@@ -84,14 +84,16 @@ install_demo() {
                 return 1
             fi
         else
-            # Fallback if whiptail not available
+            # Fallback if whiptail not available (POSIX-compliant for dash)
             echo "$TITLE is not installed."
             echo "This requires downloading from GitHub."
-            read -p "Install now? (y/n) " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                return 1
-            fi
+            printf "Install now? (y/n) "
+            read REPLY
+            # POSIX case pattern matching (works in dash, unlike [[ =~ ]])
+            case "$REPLY" in
+                [Yy]|[Yy][Ee][Ss]) ;;  # Continue with installation
+                *) return 1 ;;          # User declined
+            esac
         fi
     else
         # Auto-install mode - proceed without prompting
