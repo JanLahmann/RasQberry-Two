@@ -150,33 +150,32 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
-# Use filesystem labels for boot (survive dd/flash perfectly)
-echo "Step 8: Configuring boot to use filesystem labels..."
+# Use device paths for boot (survive dd/flash and work with standard initramfs)
+echo "Step 8: Configuring boot to use device paths..."
 
-# Filesystem labels are stored in the filesystem metadata, not the partition table
-# This means they survive dd/flash operations perfectly (unlike PARTUUIDs which change)
-# Labels were already set during mkfs in Step 4:
-#   bootfs-cmn (p1), bootfs-a (p2), bootfs-b (p3), rootfs_a (p5), rootfs_b (p6)
+# Device paths (/dev/mmcblk0pX) are stable across dd/flash operations because they
+# are based on partition table structure, not disk signatures or UUIDs.
+# The standard Raspberry Pi initramfs supports device paths but may not support LABELs.
 
-echo "Using filesystem labels for boot (survive dd/flash):"
-echo "  p1: bootfs-cmn (bootfs-common)"
-echo "  p2: bootfs-a   (bootfs Slot A)"
-echo "  p3: bootfs-b   (bootfs Slot B)"
-echo "  p5: rootfs_a   (rootfs Slot A)"
-echo "  p6: rootfs_b   (rootfs Slot B)"
+echo "Using device paths for boot (survive dd/flash):"
+echo "  p1: /dev/mmcblk0p1 (bootfs-common)"
+echo "  p2: /dev/mmcblk0p2 (bootfs Slot A)"
+echo "  p3: /dev/mmcblk0p3 (bootfs Slot B)"
+echo "  p5: /dev/mmcblk0p5 (rootfs Slot A)"
+echo "  p6: /dev/mmcblk0p6 (rootfs Slot B)"
 echo ""
 
-# Update cmdline.txt on p2 to use LABEL for rootfs-a (p5)
-echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (LABEL)..."
-# Replace any root= parameter with LABEL=rootfs_a
-sed -i "s|root=[^ ]*|root=LABEL=rootfs_a|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+# Update cmdline.txt on p2 to use device path for rootfs-a (p5)
+echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (/dev/mmcblk0p5)..."
+# Replace any root= parameter with /dev/mmcblk0p5
+sed -i "s|root=[^ ]*|root=/dev/mmcblk0p5|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-a/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo ""
 
-# Update cmdline.txt on p3 to use LABEL for rootfs-b (p6)
-echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (LABEL)..."
-sed -i "s|root=[^ ]*|root=LABEL=rootfs_b|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+# Update cmdline.txt on p3 to use device path for rootfs-b (p6)
+echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (/dev/mmcblk0p6)..."
+sed -i "s|root=[^ ]*|root=/dev/mmcblk0p6|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""
@@ -221,13 +220,13 @@ rsync -aAX "${MOUNT_DIR}/input-root/" "${MOUNT_DIR}/rootfs-a/"
 echo "Rootfs copy complete"
 echo ""
 
-# Update /etc/fstab on p5 (rootfs-a) with LABELs
-echo "Step 13: Updating /etc/fstab on rootfs-a with LABELs..."
+# Update /etc/fstab on p5 (rootfs-a) with device paths
+echo "Step 13: Updating /etc/fstab on rootfs-a with device paths..."
 cat > "${MOUNT_DIR}/rootfs-a/etc/fstab" << 'EOF'
-proc            /proc                 proc    defaults          0       0
-LABEL=bootfs-cmn  /boot/firmware-common vfat    defaults          0       2
-LABEL=bootfs-a    /boot/firmware        vfat    defaults          0       2
-LABEL=rootfs_a    /                     ext4    defaults,noatime  0       1
+proc               /proc                 proc    defaults          0       0
+/dev/mmcblk0p1     /boot/firmware-common vfat    defaults          0       2
+/dev/mmcblk0p2     /boot/firmware        vfat    defaults          0       2
+/dev/mmcblk0p5     /                     ext4    defaults,noatime  0       1
 EOF
 
 # Create mount point for bootfs-common

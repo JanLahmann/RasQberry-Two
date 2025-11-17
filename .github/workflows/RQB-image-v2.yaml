@@ -1041,6 +1041,35 @@ jobs:
           echo "=== AB Image Partition Layout ==="
           sudo parted "$OUTPUT_IMG" print
 
+          # Verify cmdline.txt and fstab configuration
+          echo ""
+          echo "=== Verifying AB Boot Configuration ==="
+          echo "Mounting AB image partitions for verification..."
+          AB_LOOP=$(sudo losetup -fP --show "$OUTPUT_IMG")
+          echo "Loop device: $AB_LOOP"
+
+          # Mount bootfs-a to check cmdline.txt
+          TEMP_MOUNT=$(mktemp -d)
+          sudo mount "${AB_LOOP}p2" "$TEMP_MOUNT"
+          echo ""
+          echo "cmdline.txt (bootfs-a):"
+          cat "$TEMP_MOUNT/cmdline.txt"
+          sudo umount "$TEMP_MOUNT"
+
+          # Mount rootfs-a to check fstab
+          sudo mount "${AB_LOOP}p5" "$TEMP_MOUNT"
+          echo ""
+          echo "/etc/fstab (rootfs-a):"
+          cat "$TEMP_MOUNT/etc/fstab"
+          sudo umount "$TEMP_MOUNT"
+
+          # Cleanup
+          rmdir "$TEMP_MOUNT"
+          sudo losetup -d "$AB_LOOP"
+          echo ""
+          echo "=== Configuration Verification Complete ==="
+          echo ""
+
           # Compress AB image
           echo "Compressing AB image..."
           # xz will try to preserve file group ownership and fail with exit code 2
