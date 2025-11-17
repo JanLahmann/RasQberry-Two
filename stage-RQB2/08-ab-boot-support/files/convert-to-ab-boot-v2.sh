@@ -243,72 +243,30 @@ echo ""
 
 # p6 (rootfs-b) stays empty - it's a placeholder that will be expanded and populated at firstboot
 
-# Regenerate initramfs with MMC drivers for AB boot
-echo "Step 14: Regenerating initramfs for AB boot (enables MMC drivers)..."
-echo ""
-echo "AB boot requires initramfs to:"
-echo "  - Load MMC/SD card drivers (sdhci, mmc_block)"
-echo "  - Create /dev/disk/by-partuuid/ symlinks"
-echo "  - Mount root filesystem from 6-partition layout"
-echo ""
-
-# Check if initramfs was disabled in the base image
-if [ -f "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel" ]; then
-    if grep -q "^INITRD=No" "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel"; then
-        echo "Base image has initramfs disabled (INITRD=No)"
-        echo "Enabling initramfs for AB boot..."
-        sed -i 's/^INITRD=No/INITRD=Yes/' "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel"
-    fi
+# Verify initramfs exists in base image (required for AB boot)
+echo "Step 14: Verifying initramfs is present..."
+INITRD_FILE=$(ls "${MOUNT_DIR}/input-boot"/initrd.img-* 2>/dev/null | head -1)
+if [ -z "$INITRD_FILE" ]; then
+    echo "ERROR: No initramfs found in base image boot partition!"
+    echo "AB boot requires initramfs with mmc_block module."
+    echo "Ensure base image is built with SKIP_INITRAMFS=0"
+    exit 1
 fi
 
-# Remove any update-initramfs diversions that block generation
-if [ -L "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs" ]; then
-    echo "Removing update-initramfs diversion..."
-    rm -f "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs"
-    if [ -f "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs.real" ]; then
-        mv "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs.real" \
-           "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs"
-    fi
+INITRD_NAME=$(basename "$INITRD_FILE")
+echo "Found initramfs: $INITRD_NAME"
+
+# Verify initramfs was already copied to bootfs-a and bootfs-b (copied in Step 6/7)
+if [ ! -f "${MOUNT_DIR}/bootfs-a/$INITRD_NAME" ]; then
+    echo "ERROR: Initramfs not found in bootfs-a after rsync"
+    exit 1
+fi
+if [ ! -f "${MOUNT_DIR}/bootfs-b/$INITRD_NAME" ]; then
+    echo "ERROR: Initramfs not found in bootfs-b after rsync"
+    exit 1
 fi
 
-# Regenerate initramfs in chroot
-echo "Generating initramfs in chroot environment..."
-mount --bind /dev "${MOUNT_DIR}/rootfs-a/dev"
-mount --bind /proc "${MOUNT_DIR}/rootfs-a/proc"
-mount --bind /sys "${MOUNT_DIR}/rootfs-a/sys"
-
-# Find kernel version
-KERNEL_VERSION=$(chroot "${MOUNT_DIR}/rootfs-a" ls /lib/modules/ | head -1)
-echo "Kernel version: $KERNEL_VERSION"
-
-# Generate initramfs
-chroot "${MOUNT_DIR}/rootfs-a" update-initramfs -c -k "$KERNEL_VERSION"
-
-# Copy initramfs to boot partitions
-echo "Copying initramfs to boot partitions..."
-cp "${MOUNT_DIR}/rootfs-a/boot/initrd.img-${KERNEL_VERSION}" "${MOUNT_DIR}/bootfs-a/"
-cp "${MOUNT_DIR}/rootfs-a/boot/initrd.img-${KERNEL_VERSION}" "${MOUNT_DIR}/bootfs-b/"
-
-# Update config.txt to load initramfs
-echo "Updating config.txt to load initramfs..."
-cat >> "${MOUNT_DIR}/bootfs-a/config.txt" << EOF
-
-# RasQberry AB Boot: Load initramfs for MMC driver support
-initramfs initrd.img-${KERNEL_VERSION}
-EOF
-
-cat >> "${MOUNT_DIR}/bootfs-b/config.txt" << EOF
-
-# RasQberry AB Boot: Load initramfs for MMC driver support
-initramfs initrd.img-${KERNEL_VERSION}
-EOF
-
-# Unmount chroot filesystems
-umount "${MOUNT_DIR}/rootfs-a/dev"
-umount "${MOUNT_DIR}/rootfs-a/proc"
-umount "${MOUNT_DIR}/rootfs-a/sys"
-
-echo "Initramfs regeneration complete"
+echo "Initramfs verified in both boot partitions"
 echo ""
 
 # Unmount all
