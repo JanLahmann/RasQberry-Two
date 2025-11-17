@@ -203,6 +203,10 @@ EOF
 # Create empty config.txt (required by firmware for autoboot to work)
 touch "${MOUNT_DIR}/bootfs-common/config.txt"
 
+# Create skip-expansion marker to prevent firstboot expansion on AB images
+# AB images already have correctly-sized p5/p6 partitions that expand at runtime
+touch "${MOUNT_DIR}/bootfs-common/skip-expansion"
+
 # Copy bootcode.bin for older Pi models (if it exists in source)
 if [ -f "${MOUNT_DIR}/input-boot/bootcode.bin" ]; then
     cp "${MOUNT_DIR}/input-boot/bootcode.bin" "${MOUNT_DIR}/bootfs-common/"
@@ -212,6 +216,7 @@ fi
 echo "Created autoboot.txt:"
 cat "${MOUNT_DIR}/bootfs-common/autoboot.txt"
 echo "Created empty config.txt"
+echo "Created skip-expansion marker (prevents filesystem expansion on AB images)"
 echo ""
 
 # Copy rootfs from input to p5 (rootfs-a)
