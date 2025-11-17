@@ -245,28 +245,50 @@ echo ""
 
 # Verify initramfs exists in base image (required for AB boot)
 echo "Step 14: Verifying initramfs is present..."
-INITRD_FILE=$(ls "${MOUNT_DIR}/input-boot"/initrd.img-* 2>/dev/null | head -1)
-if [ -z "$INITRD_FILE" ]; then
+
+# Pi-gen may name initramfs files as either:
+# - initrd.img-<kernel-version> (Debian standard)
+# - initramfs8 or initramfs_2712 (Pi-gen renamed)
+INITRD_FILES=$(ls "${MOUNT_DIR}/input-boot"/initrd.img-* "${MOUNT_DIR}/input-boot"/initramfs* 2>/dev/null || true)
+
+if [ -z "$INITRD_FILES" ]; then
     echo "ERROR: No initramfs found in base image boot partition!"
     echo "AB boot requires initramfs with mmc_block module."
     echo "Ensure base image is built with SKIP_INITRAMFS=0"
+    echo ""
+    echo "Contents of boot partition:"
+    ls -la "${MOUNT_DIR}/input-boot/" || true
     exit 1
 fi
 
-INITRD_NAME=$(basename "$INITRD_FILE")
-echo "Found initramfs: $INITRD_NAME"
+echo "Found initramfs files in base image:"
+for INITRD_FILE in $INITRD_FILES; do
+    INITRD_NAME=$(basename "$INITRD_FILE")
+    echo "  - $INITRD_NAME"
+done
+echo ""
 
-# Verify initramfs was already copied to bootfs-a and bootfs-b (copied in Step 6/7)
-if [ ! -f "${MOUNT_DIR}/bootfs-a/$INITRD_NAME" ]; then
-    echo "ERROR: Initramfs not found in bootfs-a after rsync"
+# Verify at least one initramfs was copied to bootfs-a and bootfs-b (copied in Step 6/7)
+BOOTFS_A_INITRD=$(ls "${MOUNT_DIR}/bootfs-a"/initrd.img-* "${MOUNT_DIR}/bootfs-a"/initramfs* 2>/dev/null | head -1 || true)
+BOOTFS_B_INITRD=$(ls "${MOUNT_DIR}/bootfs-b"/initrd.img-* "${MOUNT_DIR}/bootfs-b"/initramfs* 2>/dev/null | head -1 || true)
+
+if [ -z "$BOOTFS_A_INITRD" ]; then
+    echo "ERROR: No initramfs found in bootfs-a after rsync"
+    echo "Contents of bootfs-a:"
+    ls -la "${MOUNT_DIR}/bootfs-a/" || true
     exit 1
 fi
-if [ ! -f "${MOUNT_DIR}/bootfs-b/$INITRD_NAME" ]; then
-    echo "ERROR: Initramfs not found in bootfs-b after rsync"
+
+if [ -z "$BOOTFS_B_INITRD" ]; then
+    echo "ERROR: No initramfs found in bootfs-b after rsync"
+    echo "Contents of bootfs-b:"
+    ls -la "${MOUNT_DIR}/bootfs-b/" || true
     exit 1
 fi
 
-echo "Initramfs verified in both boot partitions"
+echo "Initramfs verified in both boot partitions:"
+echo "  bootfs-a: $(basename "$BOOTFS_A_INITRD")"
+echo "  bootfs-b: $(basename "$BOOTFS_B_INITRD")"
 echo ""
 
 # Unmount all
