@@ -573,29 +573,32 @@ jobs:
           cd pi-gen
 
       # Optimize initramfs generation for dev builds
-      - name: Apply early initramfs optimization
+      - name: Apply deferred initramfs optimization
         run: |
-          # Check if SKIP_INITRAMFS=1 in config
-          SKIP_INITRAMFS=$(grep "^SKIP_INITRAMFS=" pi-gen-config | cut -d'=' -f2)
+          # Always defer initramfs generation until the end of the build
+          # This saves ~12 minutes by avoiding 6 redundant generations
+          # SKIP_INITRAMFS=0: Generate once at end (fast)
+          # SKIP_INITRAMFS=1: Never generate (even faster)
 
-          if [ "$SKIP_INITRAMFS" = "1" ]; then
-            echo "=== Applying initramfs optimization (SKIP_INITRAMFS=1) ==="
+          echo "=== Applying deferred initramfs optimization ==="
+          echo "Initramfs will be deferred during package installations"
 
-            # Create early-stage hook to disable initramfs before any packages are installed
-            mkdir -p pi-gen/stage0/00-disable-initramfs
+          # Create early-stage hook to disable initramfs before any packages are installed
+          mkdir -p pi-gen/stage0/00-disable-initramfs
 
-            cat > pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh <<'EOF'
+          cat > pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh <<'EOF'
           #!/bin/bash -e
-          # Disable initramfs generation early to speed up package installations
+          # Defer initramfs generation to speed up package installations
+          # The real initramfs will be generated at the end (if SKIP_INITRAMFS=0)
 
-          echo "Disabling initramfs generation for faster builds..."
+          echo "Deferring initramfs generation for faster builds..."
 
           # Divert update-initramfs to a no-op script
           if command -v update-initramfs >/dev/null 2>&1; then
             dpkg-divert --add --rename --divert /usr/sbin/update-initramfs.real /usr/sbin/update-initramfs
             cat > /usr/sbin/update-initramfs <<'INNER_EOF'
           #!/bin/sh
-          echo "Skipping update-initramfs (SKIP_INITRAMFS=1)"
+          echo "Deferring update-initramfs (will generate at end of build)"
           exit 0
           INNER_EOF
             chmod +x /usr/sbin/update-initramfs
@@ -607,21 +610,18 @@ jobs:
             dpkg-divert --add --rename --divert /usr/sbin/mkinitramfs.real /usr/sbin/mkinitramfs
             cat > /usr/sbin/mkinitramfs <<'INNER_EOF'
           #!/bin/sh
-          echo "Skipping mkinitramfs (SKIP_INITRAMFS=1)"
+          echo "Deferring mkinitramfs (will generate at end of build)"
           exit 0
           INNER_EOF
             chmod +x /usr/sbin/mkinitramfs
             echo "✓ mkinitramfs diverted"
           fi
 
-          echo "Initramfs generation disabled successfully"
+          echo "Initramfs generation deferred successfully"
           EOF
 
-            chmod +x pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh
-            echo "✓ Created early initramfs disable hook in stage0"
-          else
-            echo "SKIP_INITRAMFS not set to 1, initramfs will be generated normally"
-          fi
+          chmod +x pi-gen/stage0/00-disable-initramfs/00-run-chroot.sh
+          echo "✓ Created deferred initramfs hook in stage0"
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
