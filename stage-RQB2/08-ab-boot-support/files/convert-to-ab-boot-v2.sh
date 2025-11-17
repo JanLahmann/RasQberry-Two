@@ -243,8 +243,76 @@ echo ""
 
 # p6 (rootfs-b) stays empty - it's a placeholder that will be expanded and populated at firstboot
 
+# Regenerate initramfs with MMC drivers for AB boot
+echo "Step 14: Regenerating initramfs for AB boot (enables MMC drivers)..."
+echo ""
+echo "AB boot requires initramfs to:"
+echo "  - Load MMC/SD card drivers (sdhci, mmc_block)"
+echo "  - Create /dev/disk/by-partuuid/ symlinks"
+echo "  - Mount root filesystem from 6-partition layout"
+echo ""
+
+# Check if initramfs was disabled in the base image
+if [ -f "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel" ]; then
+    if grep -q "^INITRD=No" "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel"; then
+        echo "Base image has initramfs disabled (INITRD=No)"
+        echo "Enabling initramfs for AB boot..."
+        sed -i 's/^INITRD=No/INITRD=Yes/' "${MOUNT_DIR}/rootfs-a/etc/default/raspberrypi-kernel"
+    fi
+fi
+
+# Remove any update-initramfs diversions that block generation
+if [ -L "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs" ]; then
+    echo "Removing update-initramfs diversion..."
+    rm -f "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs"
+    if [ -f "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs.real" ]; then
+        mv "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs.real" \
+           "${MOUNT_DIR}/rootfs-a/usr/sbin/update-initramfs"
+    fi
+fi
+
+# Regenerate initramfs in chroot
+echo "Generating initramfs in chroot environment..."
+mount --bind /dev "${MOUNT_DIR}/rootfs-a/dev"
+mount --bind /proc "${MOUNT_DIR}/rootfs-a/proc"
+mount --bind /sys "${MOUNT_DIR}/rootfs-a/sys"
+
+# Find kernel version
+KERNEL_VERSION=$(chroot "${MOUNT_DIR}/rootfs-a" ls /lib/modules/ | head -1)
+echo "Kernel version: $KERNEL_VERSION"
+
+# Generate initramfs
+chroot "${MOUNT_DIR}/rootfs-a" update-initramfs -c -k "$KERNEL_VERSION"
+
+# Copy initramfs to boot partitions
+echo "Copying initramfs to boot partitions..."
+cp "${MOUNT_DIR}/rootfs-a/boot/initrd.img-${KERNEL_VERSION}" "${MOUNT_DIR}/bootfs-a/"
+cp "${MOUNT_DIR}/rootfs-a/boot/initrd.img-${KERNEL_VERSION}" "${MOUNT_DIR}/bootfs-b/"
+
+# Update config.txt to load initramfs
+echo "Updating config.txt to load initramfs..."
+cat >> "${MOUNT_DIR}/bootfs-a/config.txt" << EOF
+
+# RasQberry AB Boot: Load initramfs for MMC driver support
+initramfs initrd.img-${KERNEL_VERSION}
+EOF
+
+cat >> "${MOUNT_DIR}/bootfs-b/config.txt" << EOF
+
+# RasQberry AB Boot: Load initramfs for MMC driver support
+initramfs initrd.img-${KERNEL_VERSION}
+EOF
+
+# Unmount chroot filesystems
+umount "${MOUNT_DIR}/rootfs-a/dev"
+umount "${MOUNT_DIR}/rootfs-a/proc"
+umount "${MOUNT_DIR}/rootfs-a/sys"
+
+echo "Initramfs regeneration complete"
+echo ""
+
 # Unmount all
-echo "Step 14: Unmounting partitions..."
+echo "Step 15: Unmounting partitions..."
 umount "${MOUNT_DIR}/bootfs-common"
 umount "${MOUNT_DIR}/bootfs-a"
 umount "${MOUNT_DIR}/bootfs-b"
@@ -258,13 +326,13 @@ rmdir "${MOUNT_DIR}"
 echo ""
 
 # Detach loop devices
-echo "Step 15: Detaching loop devices..."
+echo "Step 16: Detaching loop devices..."
 losetup -d "$OUTPUT_LOOP"
 losetup -d "$INPUT_LOOP"
 echo ""
 
 # Verify output
-echo "Step 16: Verifying output image..."
+echo "Step 17: Verifying output image..."
 OUTPUT_SIZE=$(du -h "$OUTPUT_IMG" | cut -f1)
 echo "Output image size: $OUTPUT_SIZE"
 echo ""
@@ -275,11 +343,17 @@ echo "AB-ready image created: $OUTPUT_IMG"
 echo ""
 echo "Partition layout:"
 echo "  p1: bootfs-common (512MB, FAT32) - autoboot.txt, config.txt, bootcode.bin"
-echo "  p2: bootfs-a (512MB, FAT32) - boot files for Slot A"
-echo "  p3: bootfs-b (512MB, FAT32) - boot files for Slot B"
+echo "  p2: bootfs-a (512MB, FAT32) - boot files + initramfs for Slot A"
+echo "  p3: bootfs-b (512MB, FAT32) - boot files + initramfs for Slot B"
 echo "  p4: extended partition"
 echo "    p5: rootfs-a (~8GB, ext4) - full RasQberry system"
 echo "    p6: rootfs-b (16MB, ext4) - placeholder, will expand at firstboot"
+echo ""
+echo "AB Boot features enabled:"
+echo "  ✓ Initramfs with MMC drivers for early device detection"
+echo "  ✓ Device path boot (root=/dev/mmcblk0p5)"
+echo "  ✓ Automatic partition expansion on first boot"
+echo "  ✓ A/B slot switching via tryboot mechanism"
 echo ""
 echo "Next steps:"
 echo "  1. Compress with highest compression: xz -9 -T0 $OUTPUT_IMG"
