@@ -974,9 +974,11 @@ jobs:
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
     # Conditional execution based on branch and input
+    # For push events: Run on dev branches (inputs don't exist)
+    # For workflow_dispatch: Honor the build_ab_image input
     if: |
-      (startsWith(github.ref, 'refs/heads/dev') && github.event.inputs.build_ab_image != 'false') ||
-      (github.event.inputs.build_ab_image == 'true')
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_ab_image == 'true')
 
     steps:
       - name: Checkout repository
