@@ -186,6 +186,10 @@ echo ""
 echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (/dev/mmcblk0p5)..."
 # Replace any root= parameter with /dev/mmcblk0p5
 sed -i "s|root=[^ ]*|root=/dev/mmcblk0p5|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+# Add mmc_block.use_blk_mq=y if not already present (required for AB boot with initramfs)
+if ! grep -q "mmc_block.use_blk_mq" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
+    sed -i 's/$/ mmc_block.use_blk_mq=y/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+fi
 # Enable serial console debugging: swap console order to make serial primary
 # Remove quiet, splash, plymouth.ignore-serial-consoles for verbose output
 sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
@@ -197,6 +201,10 @@ echo ""
 # Update cmdline.txt on p3 to use device path for rootfs-b (p6)
 echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (/dev/mmcblk0p6)..."
 sed -i "s|root=[^ ]*|root=/dev/mmcblk0p6|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+# Add mmc_block.use_blk_mq=y if not already present (required for AB boot with initramfs)
+if ! grep -q "mmc_block.use_blk_mq" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
+    sed -i 's/$/ mmc_block.use_blk_mq=y/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+fi
 # Enable serial console debugging: swap console order to make serial primary
 sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
