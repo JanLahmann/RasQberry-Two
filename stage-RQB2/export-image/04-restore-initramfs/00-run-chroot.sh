@@ -48,16 +48,25 @@ fi
 echo ""
 echo "Configuring initramfs to include MMC block device drivers..."
 
-# Ensure MMC block device modules are included in initramfs
-# This is critical for AB boot which uses non-standard partition layouts
-mkdir -p /etc/initramfs-tools/modules.d
-cat > /etc/initramfs-tools/modules.d/mmc-block <<'EOF'
-# MMC block device driver - required for /dev/mmcblk* devices
-# Without this, initramfs can detect MMC controllers but cannot create block devices
-mmc_block
+# Ensure ALL required MMC drivers are included in initramfs
+# This is critical for AB boot which needs to detect SD card partitions in initramfs
+#
+# Using /etc/initramfs-tools/modules (not modules.d) - this is the standard Debian way
+# Each module on a separate line
+cat >> /etc/initramfs-tools/modules <<'EOF'
+
+# RasQberry: MMC/SD Card drivers for AB boot
+# Required for initramfs to detect /dev/mmcblk* devices
 mmc_core
+mmc_block
+sdhci
+sdhci_brcmstb
 EOF
 
-echo "✓ Added mmc_block and mmc_core to initramfs modules"
+echo "✓ Added MMC drivers to /etc/initramfs-tools/modules:"
+echo "  - mmc_core: Core MMC subsystem"
+echo "  - mmc_block: Block device interface (/dev/mmcblk*)"
+echo "  - sdhci: SD Host Controller Interface"
+echo "  - sdhci_brcmstb: Raspberry Pi SD host controller driver"
 echo ""
 echo "Initramfs tools restored. Pi-gen's finalise stage will now generate initramfs."

@@ -100,14 +100,6 @@ else
         dpkg-divert --remove --rename /usr/sbin/mkinitramfs
     fi
 
-    # Install initramfs hook to ensure MMC drivers are included
-    echo "Installing initramfs hook for MMC drivers..."
-    mkdir -p /etc/initramfs-tools/hooks
-    if [ -f /files/mmc-drivers ]; then
-        cp /files/mmc-drivers /etc/initramfs-tools/hooks/
-        chmod +x /etc/initramfs-tools/hooks/mmc-drivers
-        echo "MMC drivers hook installed at /etc/initramfs-tools/hooks/mmc-drivers"
-    else
-        echo "WARNING: MMC drivers hook file not found at /files/mmc-drivers"
-    fi
+    # NOTE: MMC driver configuration is now handled in export-image/04-restore-initramfs
+    # This ensures the drivers are added just before the final initramfs generation
 fi
