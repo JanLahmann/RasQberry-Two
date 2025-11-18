@@ -83,13 +83,13 @@ EOF
     
 else
     echo "SKIP_INITRAMFS not set to 1 (value: '${SKIP_INITRAMFS}'), initramfs will be generated normally"
-    
+
     # Ensure the default behavior is enabled
     if [ -f /etc/default/raspberrypi-kernel ]; then
         # Remove any INITRD=No line to allow normal generation
         sed -i '/^INITRD=No/d' /etc/default/raspberrypi-kernel 2>/dev/null || true
     fi
-    
+
     # Check if diversions exist and remove them
     if dpkg-divert --list | grep -q update-initramfs; then
         echo "Removing update-initramfs diversion to allow normal operation"
@@ -98,5 +98,16 @@ else
     if dpkg-divert --list | grep -q mkinitramfs; then
         echo "Removing mkinitramfs diversion to allow normal operation"
         dpkg-divert --remove --rename /usr/sbin/mkinitramfs
+    fi
+
+    # Install initramfs hook to ensure MMC drivers are included
+    echo "Installing initramfs hook for MMC drivers..."
+    mkdir -p /etc/initramfs-tools/hooks
+    if [ -f /files/mmc-drivers ]; then
+        cp /files/mmc-drivers /etc/initramfs-tools/hooks/
+        chmod +x /etc/initramfs-tools/hooks/mmc-drivers
+        echo "MMC drivers hook installed at /etc/initramfs-tools/hooks/mmc-drivers"
+    else
+        echo "WARNING: MMC drivers hook file not found at /files/mmc-drivers"
     fi
 fi
