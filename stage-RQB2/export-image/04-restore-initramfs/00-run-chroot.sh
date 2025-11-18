@@ -46,4 +46,18 @@ else
 fi
 
 echo ""
+echo "Configuring initramfs to include MMC block device drivers..."
+
+# Ensure MMC block device modules are included in initramfs
+# This is critical for AB boot which uses non-standard partition layouts
+mkdir -p /etc/initramfs-tools/modules.d
+cat > /etc/initramfs-tools/modules.d/mmc-block <<'EOF'
+# MMC block device driver - required for /dev/mmcblk* devices
+# Without this, initramfs can detect MMC controllers but cannot create block devices
+mmc_block
+mmc_core
+EOF
+
+echo "✓ Added mmc_block and mmc_core to initramfs modules"
+echo ""
 echo "Initramfs tools restored. Pi-gen's finalise stage will now generate initramfs."

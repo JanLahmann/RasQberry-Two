@@ -150,6 +150,23 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
+# Enable UART for serial console debugging on both boot partitions
+echo "Step 7a: Enabling serial console (UART) on both boot partitions..."
+for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
+    if [ -f "${BOOTFS}/config.txt" ]; then
+        # Add enable_uart=1 if not already present
+        if ! grep -q "^enable_uart=1" "${BOOTFS}/config.txt"; then
+            echo "" >> "${BOOTFS}/config.txt"
+            echo "# Enable UART for serial console (GPIO 14/15)" >> "${BOOTFS}/config.txt"
+            echo "enable_uart=1" >> "${BOOTFS}/config.txt"
+            echo "  Added enable_uart=1 to $(basename ${BOOTFS})/config.txt"
+        else
+            echo "  enable_uart already set in $(basename ${BOOTFS})/config.txt"
+        fi
+    fi
+done
+echo ""
+
 # Use device paths for boot (survive dd/flash and work with standard initramfs)
 echo "Step 8: Configuring boot to use device paths..."
 
@@ -169,6 +186,10 @@ echo ""
 echo "Step 9: Updating cmdline.txt on p2 for rootfs-a (/dev/mmcblk0p5)..."
 # Replace any root= parameter with /dev/mmcblk0p5
 sed -i "s|root=[^ ]*|root=/dev/mmcblk0p5|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+# Enable serial console debugging: swap console order to make serial primary
+# Remove quiet, splash, plymouth.ignore-serial-consoles for verbose output
+sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-a/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo ""
@@ -176,6 +197,9 @@ echo ""
 # Update cmdline.txt on p3 to use device path for rootfs-b (p6)
 echo "Step 10: Updating cmdline.txt on p3 for rootfs-b (/dev/mmcblk0p6)..."
 sed -i "s|root=[^ ]*|root=/dev/mmcblk0p6|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+# Enable serial console debugging: swap console order to make serial primary
+sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""
