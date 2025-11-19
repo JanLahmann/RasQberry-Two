@@ -22,10 +22,10 @@ PUBKEY_ONLY_SSH=0
 WPA_COUNTRY=GB
 
 # Build quality settings
-# Development: Enable initramfs for AB boot compatibility
-SKIP_INITRAMFS=0
-# Production: High quality for releases
-SKIP_INITRAMFS_PROD=0
+# Development: Disable initramfs (AB boot uses direct kernel mount per official pattern)
+SKIP_INITRAMFS=1
+# Production: Disable initramfs (AB boot uses direct kernel mount per official pattern)
+SKIP_INITRAMFS_PROD=1
 
 # RasQberry-specific build configuration
 
