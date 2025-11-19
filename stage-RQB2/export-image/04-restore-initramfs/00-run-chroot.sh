@@ -46,27 +46,25 @@ else
 fi
 
 echo ""
-echo "Configuring initramfs to include MMC block device drivers..."
+echo "Configuring initramfs for MMC device detection..."
 
-# Ensure ALL required MMC drivers are included in initramfs
-# This is critical for AB boot which needs to detect SD card partitions in initramfs
+# The MMC drivers (mmc_core, mmc_block, sdhci, sdhci-brcmstb) are built into
+# the Raspberry Pi kernel, not loadable modules. They initialize automatically
+# but AFTER initramfs starts looking for the root device.
 #
-# Using /etc/initramfs-tools/modules (not modules.d) - this is the standard Debian way
-# Each module on a separate line
-cat >> /etc/initramfs-tools/modules <<'EOF'
+# Solution: Add a local-block script to wait for MMC device to appear
 
-# RasQberry: MMC/SD Card drivers for AB boot
-# Required for initramfs to detect /dev/mmcblk* devices
-mmc_core
-mmc_block
-sdhci
-sdhci_brcmstb
-EOF
+echo "Installing MMC wait script for initramfs..."
+mkdir -p /etc/initramfs-tools/scripts/local-block
 
-echo "✓ Added MMC drivers to /etc/initramfs-tools/modules:"
-echo "  - mmc_core: Core MMC subsystem"
-echo "  - mmc_block: Block device interface (/dev/mmcblk*)"
-echo "  - sdhci: SD Host Controller Interface"
-echo "  - sdhci_brcmstb: Raspberry Pi SD host controller driver"
+if [ -f /files/wait-for-mmc ]; then
+    cp /files/wait-for-mmc /etc/initramfs-tools/scripts/local-block/
+    chmod +x /etc/initramfs-tools/scripts/local-block/wait-for-mmc
+    echo "✓ Installed wait-for-mmc script in local-block phase"
+    echo "  This script waits for /dev/mmcblk0 to appear before mounting root"
+else
+    echo "WARNING: wait-for-mmc script not found at /files/wait-for-mmc"
+fi
+
 echo ""
 echo "Initramfs tools restored. Pi-gen's finalise stage will now generate initramfs."

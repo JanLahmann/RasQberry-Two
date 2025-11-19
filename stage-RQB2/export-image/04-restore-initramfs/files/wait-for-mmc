@@ -1,0 +1,54 @@
+#!/bin/sh
+# Initramfs script to wait for MMC device initialization
+# Required for Raspberry Pi AB boot where SD card appears late in boot
+
+PREREQ=""
+
+prereqs()
+{
+    echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+# This script runs in initramfs local-block phase
+# It waits for the SD card to be detected before attempting root mount
+
+. /scripts/functions
+
+log_begin_msg "Waiting for MMC/SD card to initialize"
+
+# Wait up to 30 seconds for /dev/mmcblk0 to appear
+TIMEOUT=30
+COUNT=0
+
+while [ $COUNT -lt $TIMEOUT ]; do
+    if [ -b /dev/mmcblk0 ]; then
+        log_success_msg "MMC device detected: /dev/mmcblk0"
+
+        # Give partitions time to appear
+        sleep 1
+
+        # Check if partitions exist
+        if ls /dev/mmcblk0p* >/dev/null 2>&1; then
+            log_success_msg "MMC partitions ready"
+            exit 0
+        fi
+    fi
+
+    COUNT=$((COUNT + 1))
+    sleep 1
+done
+
+# Timeout reached
+log_failure_msg "Timeout waiting for MMC device after ${TIMEOUT} seconds"
+log_failure_msg "Available block devices:"
+ls -l /dev/sd* /dev/mmcblk* /dev/nvme* 2>/dev/null || log_failure_msg "  (none found)"
+
+# Don't panic - let the system continue and fail gracefully
+exit 0
