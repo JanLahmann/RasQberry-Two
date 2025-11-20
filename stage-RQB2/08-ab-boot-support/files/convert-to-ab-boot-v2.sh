@@ -167,6 +167,31 @@ for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
 done
 echo ""
 
+# Remove initramfs lines from config.txt (Method 7: belt-and-suspenders)
+# This ensures bootloader doesn't try to load initramfs even if files exist
+# AB boot uses direct kernel mount with rootwait, no initramfs needed
+echo "Step 7b: Removing initramfs configuration from boot partitions..."
+for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
+    if [ -f "${BOOTFS}/config.txt" ]; then
+        # Remove any initramfs loading lines
+        if grep -q "^initramfs " "${BOOTFS}/config.txt"; then
+            sed -i '/^initramfs /d' "${BOOTFS}/config.txt"
+            echo "  Removed 'initramfs' line from $(basename ${BOOTFS})/config.txt"
+        fi
+        # Remove auto_initramfs setting
+        if grep -q "^auto_initramfs=" "${BOOTFS}/config.txt"; then
+            sed -i '/^auto_initramfs=/d' "${BOOTFS}/config.txt"
+            echo "  Removed 'auto_initramfs' line from $(basename ${BOOTFS})/config.txt"
+        fi
+    fi
+done
+# Also remove any initramfs files that might have been copied
+for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
+    rm -f "${BOOTFS}"/initrd* "${BOOTFS}"/initramfs* 2>/dev/null || true
+done
+echo "  Initramfs configuration removed - using direct kernel boot with rootwait"
+echo ""
+
 # Use device paths for boot (survive dd/flash and work with standard initramfs)
 echo "Step 8: Configuring boot to use device paths..."
 
@@ -275,52 +300,35 @@ echo ""
 
 # p6 (rootfs-b) stays empty - it's a placeholder that will be expanded and populated at firstboot
 
-# Verify initramfs exists in base image (required for AB boot)
-echo "Step 14: Verifying initramfs is present..."
+# Verify initramfs has been removed (we're using direct kernel boot)
+echo "Step 14: Verifying initramfs configuration..."
 
-# Pi-gen may name initramfs files as either:
-# - initrd.img-<kernel-version> (Debian standard)
-# - initramfs8 or initramfs_2712 (Pi-gen renamed)
-INITRD_FILES=$(ls "${MOUNT_DIR}/input-boot"/initrd.img-* "${MOUNT_DIR}/input-boot"/initramfs* 2>/dev/null || true)
-
-if [ -z "$INITRD_FILES" ]; then
-    echo "ERROR: No initramfs found in base image boot partition!"
-    echo "AB boot requires initramfs with mmc_block module."
-    echo "Ensure base image is built with SKIP_INITRAMFS=0"
-    echo ""
-    echo "Contents of boot partition:"
-    ls -la "${MOUNT_DIR}/input-boot/" || true
-    exit 1
-fi
-
-echo "Found initramfs files in base image:"
-for INITRD_FILE in $INITRD_FILES; do
-    INITRD_NAME=$(basename "$INITRD_FILE")
-    echo "  - $INITRD_NAME"
-done
-echo ""
-
-# Verify at least one initramfs was copied to bootfs-a and bootfs-b (copied in Step 6/7)
+# Check that initramfs files were removed in Step 7b
 BOOTFS_A_INITRD=$(ls "${MOUNT_DIR}/bootfs-a"/initrd.img-* "${MOUNT_DIR}/bootfs-a"/initramfs* 2>/dev/null | head -1 || true)
 BOOTFS_B_INITRD=$(ls "${MOUNT_DIR}/bootfs-b"/initrd.img-* "${MOUNT_DIR}/bootfs-b"/initramfs* 2>/dev/null | head -1 || true)
 
-if [ -z "$BOOTFS_A_INITRD" ]; then
-    echo "ERROR: No initramfs found in bootfs-a after rsync"
-    echo "Contents of bootfs-a:"
-    ls -la "${MOUNT_DIR}/bootfs-a/" || true
-    exit 1
+if [ -n "$BOOTFS_A_INITRD" ] || [ -n "$BOOTFS_B_INITRD" ]; then
+    echo "WARNING: Initramfs files still present after removal attempt"
+    echo "  bootfs-a: ${BOOTFS_A_INITRD:-none}"
+    echo "  bootfs-b: ${BOOTFS_B_INITRD:-none}"
+    echo "Removing remaining initramfs files..."
+    rm -f "${MOUNT_DIR}/bootfs-a"/initrd* "${MOUNT_DIR}/bootfs-a"/initramfs* 2>/dev/null || true
+    rm -f "${MOUNT_DIR}/bootfs-b"/initrd* "${MOUNT_DIR}/bootfs-b"/initramfs* 2>/dev/null || true
 fi
 
-if [ -z "$BOOTFS_B_INITRD" ]; then
-    echo "ERROR: No initramfs found in bootfs-b after rsync"
-    echo "Contents of bootfs-b:"
-    ls -la "${MOUNT_DIR}/bootfs-b/" || true
-    exit 1
-fi
+# Verify config.txt doesn't have initramfs lines
+for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
+    if grep -q "^initramfs " "${BOOTFS}/config.txt" 2>/dev/null; then
+        echo "ERROR: ${BOOTFS}/config.txt still contains initramfs line!"
+        grep "^initramfs " "${BOOTFS}/config.txt"
+        exit 1
+    fi
+done
 
-echo "Initramfs verified in both boot partitions:"
-echo "  bootfs-a: $(basename "$BOOTFS_A_INITRD")"
-echo "  bootfs-b: $(basename "$BOOTFS_B_INITRD")"
+echo "✓ Initramfs configuration verified:"
+echo "  - No initramfs files in boot partitions"
+echo "  - No initramfs lines in config.txt"
+echo "  - Using direct kernel boot with rootwait"
 echo ""
 
 # Unmount all
@@ -355,14 +363,14 @@ echo "AB-ready image created: $OUTPUT_IMG"
 echo ""
 echo "Partition layout:"
 echo "  p1: bootfs-common (512MB, FAT32) - autoboot.txt, config.txt, bootcode.bin"
-echo "  p2: bootfs-a (512MB, FAT32) - boot files + initramfs for Slot A"
-echo "  p3: bootfs-b (512MB, FAT32) - boot files + initramfs for Slot B"
+echo "  p2: bootfs-a (512MB, FAT32) - boot files for Slot A"
+echo "  p3: bootfs-b (512MB, FAT32) - boot files for Slot B"
 echo "  p4: extended partition"
 echo "    p5: rootfs-a (~8GB, ext4) - full RasQberry system"
 echo "    p6: rootfs-b (16MB, ext4) - placeholder, will expand at firstboot"
 echo ""
 echo "AB Boot features enabled:"
-echo "  ✓ Initramfs with MMC drivers for early device detection"
+echo "  ✓ Direct kernel boot with rootwait (no initramfs)"
 echo "  ✓ Device path boot (root=/dev/mmcblk0p5)"
 echo "  ✓ Automatic partition expansion on first boot"
 echo "  ✓ A/B slot switching via tryboot mechanism"
