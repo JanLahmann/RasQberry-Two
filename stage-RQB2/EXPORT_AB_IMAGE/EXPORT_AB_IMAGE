@@ -1,0 +1,2 @@
+# Marker file for pi-gen export stage
+# This stage creates an A/B boot image instead of the standard 2-partition image

@@ -1023,8 +1023,8 @@ jobs:
 
           echo "Converting $INPUT_IMG to A/B layout: $OUTPUT_IMG"
 
-          # Run the conversion script
-          sudo ./stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v2.sh \
+          # Run the v3 conversion script (deterministic UUIDs, 16GB system partitions)
+          sudo ./stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh \
             "$INPUT_IMG" \
             "$OUTPUT_IMG"
 
@@ -1065,16 +1065,14 @@ jobs:
           cat "$TEMP_MOUNT/etc/fstab"
           sudo umount "$TEMP_MOUNT"
 
-          # Mount bootfs-common to check skip-expansion marker
+          # Mount config partition to check autoboot.txt
           sudo mount "${AB_LOOP}p1" "$TEMP_MOUNT"
           echo ""
-          echo "Boot markers (bootfs-common):"
-          ls -la "$TEMP_MOUNT" | grep -E "autoboot.txt|config.txt|skip-expansion" || echo "  (marker files not found)"
-          if [ -f "$TEMP_MOUNT/skip-expansion" ]; then
-            echo "  ✓ skip-expansion marker present (filesystem expansion will be skipped)"
-          else
-            echo "  ✗ WARNING: skip-expansion marker missing!"
-          fi
+          echo "Config partition (p1):"
+          ls -la "$TEMP_MOUNT" | grep -E "autoboot.txt|config.txt" || echo "  (marker files not found)"
+          echo ""
+          echo "autoboot.txt:"
+          cat "$TEMP_MOUNT/autoboot.txt"
           sudo umount "$TEMP_MOUNT"
 
           # Cleanup
