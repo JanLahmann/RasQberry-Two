@@ -5,14 +5,14 @@
   },
   "os_list": [
     {
-      "name": "RasQberry Two Beta (64-bit)",
-      "description": "RasQberry beta release with latest features (may be unstable)",
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-11-17-113443/rasqberry-beta-2025-11-17.img.xz",
-      "extract_size": 8791261184,
-      "extract_sha256": "fcb65d4ae3e9d6e9f76cbeada5d6aa952b2df3f8c996f8af6660db99beb21e1d",
-      "image_download_size": 1828492628,
-      "release_date": "2025-11-17",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ABboot10-2025-11-21-084807/rasqberry-dev-ABboot10-2025-11-21-084807.img.xz",
+      "extract_size": 8766095360,
+      "extract_sha256": "411469f640adca0501f6336793668b9e3736a9fa1d863ac3e8288abcda0232b2",
+      "image_download_size": 2049541596,
+      "release_date": "2025-11-21",
       "init_format": "systemd",
       "devices": [
         "pi5-64bit",
