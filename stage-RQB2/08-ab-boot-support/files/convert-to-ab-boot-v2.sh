@@ -31,6 +31,12 @@ fi
 INPUT_IMG="$1"
 OUTPUT_IMG="$2"
 
+# Console configuration from environment (default: production settings)
+CONSOLE_TYPE="${CONSOLE_TYPE:-hdmi}"
+BOOT_VERBOSITY="${BOOT_VERBOSITY:-splash}"
+
+echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
+
 # Verify input exists
 if [ ! -f "$INPUT_IMG" ]; then
     echo "ERROR: Input image not found: $INPUT_IMG"
@@ -150,18 +156,28 @@ echo "Step 7: Copying boot files to p3 (bootfs-b)..."
 rsync -aAX "${MOUNT_DIR}/bootfs-a/" "${MOUNT_DIR}/bootfs-b/"
 echo ""
 
-# Enable UART for serial console debugging on both boot partitions
-echo "Step 7a: Enabling serial console (UART) on both boot partitions..."
+# Configure UART based on CONSOLE_TYPE
+echo "Step 7a: Configuring UART on both boot partitions..."
 for BOOTFS in "${MOUNT_DIR}/bootfs-a" "${MOUNT_DIR}/bootfs-b"; do
     if [ -f "${BOOTFS}/config.txt" ]; then
-        # Add enable_uart=1 if not already present
-        if ! grep -q "^enable_uart=1" "${BOOTFS}/config.txt"; then
-            echo "" >> "${BOOTFS}/config.txt"
-            echo "# Enable UART for serial console (GPIO 14/15)" >> "${BOOTFS}/config.txt"
-            echo "enable_uart=1" >> "${BOOTFS}/config.txt"
-            echo "  Added enable_uart=1 to $(basename ${BOOTFS})/config.txt"
+        if [ "$CONSOLE_TYPE" = "serial" ]; then
+            # Enable UART for serial console
+            if ! grep -q "^enable_uart=1" "${BOOTFS}/config.txt"; then
+                echo "" >> "${BOOTFS}/config.txt"
+                echo "# Enable UART for serial console (GPIO 14/15)" >> "${BOOTFS}/config.txt"
+                echo "enable_uart=1" >> "${BOOTFS}/config.txt"
+                echo "  Added enable_uart=1 to $(basename ${BOOTFS})/config.txt"
+            else
+                echo "  enable_uart already set in $(basename ${BOOTFS})/config.txt"
+            fi
         else
-            echo "  enable_uart already set in $(basename ${BOOTFS})/config.txt"
+            # HDMI mode: remove UART setting if present
+            if grep -q "^enable_uart=" "${BOOTFS}/config.txt"; then
+                sed -i '/^enable_uart=/d' "${BOOTFS}/config.txt"
+                echo "  Removed enable_uart from $(basename ${BOOTFS})/config.txt (HDMI mode)"
+            else
+                echo "  UART not configured in $(basename ${BOOTFS})/config.txt (HDMI mode)"
+            fi
         fi
     fi
 done
@@ -215,10 +231,42 @@ sed -i "s|root=[^ ]*|root=/dev/mmcblk0p5|g" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 if ! grep -q "mmc_block.use_blk_mq" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
     sed -i 's/$/ mmc_block.use_blk_mq=y/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 fi
-# Enable serial console debugging: swap console order to make serial primary
-# Remove quiet, splash, plymouth.ignore-serial-consoles for verbose output
-sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
-sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+
+# Configure console based on CONSOLE_TYPE
+if [ "$CONSOLE_TYPE" = "serial" ]; then
+    # Serial mode: ensure serial console is present and primary (last in list)
+    if ! grep -q "console=serial0" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
+        sed -i 's/console=tty1/console=tty1 console=serial0,115200/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    fi
+    # Ensure serial is last (primary)
+    sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    echo "  Serial console configured as primary"
+else
+    # HDMI mode: remove serial console if present
+    sed -i 's/ *console=serial0,[0-9]*//g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    echo "  HDMI console configured as primary"
+fi
+
+# Configure boot verbosity based on BOOT_VERBOSITY
+if [ "$BOOT_VERBOSITY" = "verbose" ]; then
+    # Verbose mode: remove quiet, splash, plymouth settings
+    sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    sed -i 's/ quiet$//; s/ splash$//; s/ plymouth.ignore-serial-consoles$//' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    echo "  Verbose boot enabled"
+else
+    # Splash mode: ensure quiet/splash/plymouth are present
+    if ! grep -q " quiet" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
+        sed -i 's/$/ quiet/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    fi
+    if ! grep -q " splash" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
+        sed -i 's/$/ splash/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    fi
+    if ! grep -q "plymouth.ignore-serial-consoles" "${MOUNT_DIR}/bootfs-a/cmdline.txt"; then
+        sed -i 's/$/ plymouth.ignore-serial-consoles/' "${MOUNT_DIR}/bootfs-a/cmdline.txt"
+    fi
+    echo "  Splash boot enabled"
+fi
+
 echo "Updated: ${MOUNT_DIR}/bootfs-a/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-a/cmdline.txt"
 echo ""
@@ -230,9 +278,42 @@ sed -i "s|root=[^ ]*|root=/dev/mmcblk0p6|g" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 if ! grep -q "mmc_block.use_blk_mq" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
     sed -i 's/$/ mmc_block.use_blk_mq=y/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 fi
-# Enable serial console debugging: swap console order to make serial primary
-sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
-sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+
+# Configure console based on CONSOLE_TYPE
+if [ "$CONSOLE_TYPE" = "serial" ]; then
+    # Serial mode: ensure serial console is present and primary (last in list)
+    if ! grep -q "console=serial0" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
+        sed -i 's/console=tty1/console=tty1 console=serial0,115200/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    fi
+    # Ensure serial is last (primary)
+    sed -i 's/console=serial0,115200 console=tty1/console=tty1 console=serial0,115200/g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    echo "  Serial console configured as primary"
+else
+    # HDMI mode: remove serial console if present
+    sed -i 's/ *console=serial0,[0-9]*//g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    echo "  HDMI console configured as primary"
+fi
+
+# Configure boot verbosity based on BOOT_VERBOSITY
+if [ "$BOOT_VERBOSITY" = "verbose" ]; then
+    # Verbose mode: remove quiet, splash, plymouth settings
+    sed -i 's/ quiet / /g; s/ splash / /g; s/ plymouth.ignore-serial-consoles / /g' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    sed -i 's/ quiet$//; s/ splash$//; s/ plymouth.ignore-serial-consoles$//' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    echo "  Verbose boot enabled"
+else
+    # Splash mode: ensure quiet/splash/plymouth are present
+    if ! grep -q " quiet" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
+        sed -i 's/$/ quiet/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    fi
+    if ! grep -q " splash" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
+        sed -i 's/$/ splash/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    fi
+    if ! grep -q "plymouth.ignore-serial-consoles" "${MOUNT_DIR}/bootfs-b/cmdline.txt"; then
+        sed -i 's/$/ plymouth.ignore-serial-consoles/' "${MOUNT_DIR}/bootfs-b/cmdline.txt"
+    fi
+    echo "  Splash boot enabled"
+fi
+
 echo "Updated: ${MOUNT_DIR}/bootfs-b/cmdline.txt"
 grep "root=" "${MOUNT_DIR}/bootfs-b/cmdline.txt"
 echo ""

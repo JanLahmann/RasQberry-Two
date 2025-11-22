@@ -45,3 +45,9 @@ RQB_STD_VENV=RQB2
 RQB_CONFDIR=.local/config
 # Flag indicating build is from pi-gen
 RQB_PIGEN=true
+
+# Console configuration (will be overwritten by GH actions workflow)
+# Console output type: 'hdmi' (default) or 'serial'
+CONSOLE_TYPE=hdmi
+# Boot verbosity: 'splash' (default) or 'verbose'
+BOOT_VERBOSITY=splash

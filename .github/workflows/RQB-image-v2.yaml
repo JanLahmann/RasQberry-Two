@@ -108,7 +108,23 @@ on:
         description: 'Build A/B boot image variant (dev branches: default true, main/beta: default false)'
         required: false
         type: boolean
-  
+      console_type:
+        description: 'Console output type (serial or hdmi)'
+        required: false
+        default: 'hdmi'
+        type: choice
+        options:
+          - hdmi
+          - serial
+      boot_verbosity:
+        description: 'Boot output verbosity (verbose or splash)'
+        required: false
+        default: 'splash'
+        type: choice
+        options:
+          - verbose
+          - splash
+
   # Automatic trigger for development branches
   push:
     branches:
@@ -280,7 +296,10 @@ jobs:
           name: ${{ github.ref == 'refs/heads/main' && format('rasqberry-v{0}', needs.rasqberry-push-version-number.outputs.version_num) || format('rasqberry-{0}', needs.rasqberry-push-version-number.outputs.version_num) }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
           body: ${{ steps.changelog.outputs.content }}
-          make_latest: true  # Mark as latest release
+          # Dev and beta are pre-releases, main is stable
+          prerelease: ${{ github.ref != 'refs/heads/main' }}
+          # Only main and beta are marked as latest
+          make_latest: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta' }}
 
   # ============================================================================
   # JOB 3: Build Raspberry Pi Image
@@ -689,6 +708,13 @@ jobs:
             echo "Git variables manually set, preserving existing values"
           fi
 
+          # Update console configuration from workflow inputs
+          CONSOLE_TYPE="${{ inputs.console_type || 'hdmi' }}"
+          BOOT_VERBOSITY="${{ inputs.boot_verbosity || 'splash' }}"
+          sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
+          sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
+          echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
+
           # Set custom IMG_FILENAME based on VERSION file
           # This overrides pi-gen's default naming (IMG_DATE-IMG_NAME)
           # Naming convention:
@@ -738,6 +764,8 @@ jobs:
           grep "^IMG_FILENAME=" pi-gen-config
           echo "Git Configuration:"
           grep -E "^RQB_(REPO|GIT_USER|GIT_BRANCH)=" pi-gen-config
+          echo "Console Configuration:"
+          grep -E "^(CONSOLE_TYPE|BOOT_VERBOSITY)=" pi-gen-config
 
       # Configure pi-gen with our custom settings
       - name: Configure build
@@ -1005,6 +1033,9 @@ jobs:
 
       - name: Download and convert to A/B boot layout
         id: convert-ab
+        env:
+          CONSOLE_TYPE: ${{ inputs.console_type || 'hdmi' }}
+          BOOT_VERBOSITY: ${{ inputs.boot_verbosity || 'splash' }}
         run: |
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
@@ -1022,9 +1053,12 @@ jobs:
           OUTPUT_IMG="${INPUT_IMG%.img}-ab.img"
 
           echo "Converting $INPUT_IMG to A/B layout: $OUTPUT_IMG"
+          echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
           # Run the v3 conversion script (deterministic UUIDs, 16GB system partitions)
-          sudo ./stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh \
+          # Pass environment variables explicitly to sudo
+          sudo CONSOLE_TYPE="${CONSOLE_TYPE}" BOOT_VERBOSITY="${BOOT_VERBOSITY}" \
+            ./stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh \
             "$INPUT_IMG" \
             "$OUTPUT_IMG"
 

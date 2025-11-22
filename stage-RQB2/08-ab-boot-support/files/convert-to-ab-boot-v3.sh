@@ -38,6 +38,12 @@ fi
 INPUT_IMG="$1"
 OUTPUT_IMG="$2"
 
+# Console configuration from environment (default: production settings)
+CONSOLE_TYPE="${CONSOLE_TYPE:-hdmi}"
+BOOT_VERBOSITY="${BOOT_VERBOSITY:-splash}"
+
+echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
+
 # Verify input exists
 if [ ! -f "$INPUT_IMG" ]; then
     echo "ERROR: Input image not found: $INPUT_IMG"
@@ -231,20 +237,66 @@ echo ""
 # ============================================================================
 echo "Step 9: Updating cmdline.txt..."
 
+# Build console configuration based on CONSOLE_TYPE
+if [ "$CONSOLE_TYPE" = "serial" ]; then
+    # Serial mode: serial0 last = serial primary
+    CONSOLE_CONFIG="console=tty1 console=serial0,115200"
+    echo "  Console: serial (primary)"
+else
+    # HDMI mode: tty1 last = HDMI primary
+    CONSOLE_CONFIG="console=serial0,115200 console=tty1"
+    echo "  Console: hdmi (primary)"
+fi
+
+# Build boot options based on BOOT_VERBOSITY
+if [ "$BOOT_VERBOSITY" = "verbose" ]; then
+    BOOT_OPTIONS=""
+    echo "  Verbosity: verbose"
+else
+    BOOT_OPTIONS=" quiet splash plymouth.ignore-serial-consoles"
+    echo "  Verbosity: splash"
+fi
+
 # cmdline.txt for slot A
 cat > "${MOUNT_DIR}/boot-a/cmdline.txt" << EOF
-console=serial0,115200 console=tty1 root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait
+${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}
 EOF
 
 # cmdline.txt for slot B
 cat > "${MOUNT_DIR}/boot-b/cmdline.txt" << EOF
-console=serial0,115200 console=tty1 root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait
+${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}
 EOF
 
 echo "boot-a cmdline.txt:"
 cat "${MOUNT_DIR}/boot-a/cmdline.txt"
 echo "boot-b cmdline.txt:"
 cat "${MOUNT_DIR}/boot-b/cmdline.txt"
+echo ""
+
+# ============================================================================
+# Step 9a: Configure UART in config.txt
+# ============================================================================
+echo "Step 9a: Configuring UART..."
+
+for BOOT_PART in "${MOUNT_DIR}/boot-a" "${MOUNT_DIR}/boot-b"; do
+    if [ -f "${BOOT_PART}/config.txt" ]; then
+        if [ "$CONSOLE_TYPE" = "serial" ]; then
+            # Enable UART for serial console
+            if ! grep -q "^enable_uart=1" "${BOOT_PART}/config.txt"; then
+                echo "" >> "${BOOT_PART}/config.txt"
+                echo "# Enable UART for serial console (GPIO 14/15)" >> "${BOOT_PART}/config.txt"
+                echo "enable_uart=1" >> "${BOOT_PART}/config.txt"
+                echo "  Added enable_uart=1 to $(basename ${BOOT_PART})/config.txt"
+            fi
+        else
+            # HDMI mode: remove UART setting if present
+            if grep -q "^enable_uart=" "${BOOT_PART}/config.txt"; then
+                sed -i '/^enable_uart=/d' "${BOOT_PART}/config.txt"
+                echo "  Removed enable_uart from $(basename ${BOOT_PART})/config.txt"
+            fi
+        fi
+    fi
+done
 echo ""
 
 # ============================================================================
