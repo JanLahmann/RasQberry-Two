@@ -36,13 +36,14 @@ if [ -f "$CMDLINE_TXT" ]; then
         # Read current cmdline
         CURRENT_CMDLINE=$(cat "$CMDLINE_TXT")
 
-        # Add serial console before the existing console=tty1
-        # Format: console=serial0,115200 console=tty1
-        NEW_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed 's/console=tty1/console=serial0,115200 console=tty1/')
+        # Add serial console AFTER tty1 so it becomes primary output
+        # Format: console=tty1 console=serial0,115200
+        # The LAST console gets all kernel messages
+        NEW_CMDLINE=$(echo "$CURRENT_CMDLINE" | sed 's/console=tty1/console=tty1 console=serial0,115200/')
 
-        # If no console=tty1 found, just prepend
+        # If no console=tty1 found, just append
         if [ "$NEW_CMDLINE" = "$CURRENT_CMDLINE" ]; then
-            NEW_CMDLINE="console=serial0,115200 $CURRENT_CMDLINE"
+            NEW_CMDLINE="$CURRENT_CMDLINE console=serial0,115200"
         fi
 
         echo "$NEW_CMDLINE" > "$CMDLINE_TXT"
