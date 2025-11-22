@@ -9,9 +9,17 @@ apt-get install -y matchbox-keyboard
 # Note: Florence was removed from Debian Bookworm repositories
 # matchbox-keyboard is the recommended virtual keyboard for Raspberry Pi OS
 
+# Install toggle script
+echo "=> Installing keyboard toggle script"
+STAGE_DIR="$(dirname "$0")"
+if [ -f "${STAGE_DIR}/files/toggle-keyboard.sh" ]; then
+    cp "${STAGE_DIR}/files/toggle-keyboard.sh" /usr/local/bin/
+    chmod +x /usr/local/bin/toggle-keyboard.sh
+    echo "Toggle script installed: /usr/local/bin/toggle-keyboard.sh"
+fi
+
 # Install desktop icon for virtual keyboard
 echo "=> Installing virtual keyboard desktop icon"
-STAGE_DIR="$(dirname "$0")"
 DESKTOP_DIR="/home/${FIRST_USER_NAME}/Desktop"
 
 if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
@@ -27,6 +35,5 @@ echo "Virtual keyboard installed:"
 echo "  - matchbox-keyboard (lightweight, touchscreen-optimized)"
 echo ""
 echo "To use:"
-echo "  - Click the 'Virtual Keyboard' icon on desktop"
-echo "  - Or run 'matchbox-keyboard' from terminal"
-echo "  - Desktop icon also available in Accessories menu"
+echo "  - Click 'Toggle Keyboard' icon on desktop to show/hide"
+echo "  - Or run 'toggle-keyboard.sh' from terminal"

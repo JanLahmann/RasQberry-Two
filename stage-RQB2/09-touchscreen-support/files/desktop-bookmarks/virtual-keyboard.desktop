@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Virtual Keyboard
-Comment=On-screen keyboard for touchscreens
-Exec=matchbox-keyboard
+Name=Toggle Keyboard
+Comment=Show/hide on-screen keyboard for touchscreens
+Exec=/usr/local/bin/toggle-keyboard.sh
 Icon=input-keyboard
 Terminal=false
 Type=Application
