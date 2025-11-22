@@ -237,6 +237,26 @@ echo ""
 # ============================================================================
 echo "Step 9: Updating cmdline.txt..."
 
+# Read original cmdline.txt and preserve parameters
+ORIG_CMDLINE=$(cat "${MOUNT_DIR}/boot-a/cmdline.txt")
+echo "  Original cmdline: $ORIG_CMDLINE"
+
+# Remove parameters we'll be updating
+PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed \
+    -e 's/console=[^ ]*//g' \
+    -e 's/root=[^ ]*//g' \
+    -e 's/rootfstype=[^ ]*//g' \
+    -e 's/fsck\.repair=[^ ]*//g' \
+    -e 's/rootwait//g' \
+    -e 's/quiet//g' \
+    -e 's/splash//g' \
+    -e 's/plymouth\.ignore-serial-consoles//g' \
+    -e 's/  */ /g' \
+    -e 's/^ *//' \
+    -e 's/ *$//')
+
+echo "  Preserved params: $PRESERVED_PARAMS"
+
 # Build console configuration based on CONSOLE_TYPE
 if [ "$CONSOLE_TYPE" = "serial" ]; then
     # Serial mode: serial0 last = serial primary
@@ -258,14 +278,20 @@ else
 fi
 
 # cmdline.txt for slot A
-cat > "${MOUNT_DIR}/boot-a/cmdline.txt" << EOF
-${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}
-EOF
+if [ -n "$PRESERVED_PARAMS" ]; then
+    CMDLINE_A="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
+else
+    CMDLINE_A="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
+fi
+echo "$CMDLINE_A" > "${MOUNT_DIR}/boot-a/cmdline.txt"
 
 # cmdline.txt for slot B
-cat > "${MOUNT_DIR}/boot-b/cmdline.txt" << EOF
-${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}
-EOF
+if [ -n "$PRESERVED_PARAMS" ]; then
+    CMDLINE_B="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
+else
+    CMDLINE_B="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
+fi
+echo "$CMDLINE_B" > "${MOUNT_DIR}/boot-b/cmdline.txt"
 
 echo "boot-a cmdline.txt:"
 cat "${MOUNT_DIR}/boot-a/cmdline.txt"
