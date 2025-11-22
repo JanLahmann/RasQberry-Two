@@ -1,0 +1,4 @@
+#:schema https://raw.githubusercontent.com/silitics/rugix/refs/tags/v0.8.0/schemas/rugix-bakery-layer.schema.json
+
+url = "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz"
+name = "RasQberry Base Image"

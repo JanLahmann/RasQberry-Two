@@ -1,0 +1,7 @@
+#:schema https://raw.githubusercontent.com/silitics/rugix/refs/tags/v0.8.0/schemas/rugix-bakery-layer.schema.json
+
+parent = "test-base"
+
+recipes = [
+    "core/rpi-raspios-setup",
+]

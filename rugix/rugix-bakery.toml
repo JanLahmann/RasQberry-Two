@@ -1,0 +1,11 @@
+#:schema https://raw.githubusercontent.com/silitics/rugix/refs/tags/v0.8.0/schemas/rugix-bakery-project.schema.json
+
+[systems.test-pi5]
+layer = "test"
+architecture = "arm64"
+target = "rpi-tryboot"
+
+[systems.rasqberry-pi5]
+layer = "rasqberry"
+architecture = "arm64"
+target = "rpi-tryboot"

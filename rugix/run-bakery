@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+DOCKER="${DOCKER:-docker}"
+RUGIX_VERSION="${RUGIX_VERSION:-v0.8}"
+RUGIX_BAKERY_IMAGE="ghcr.io/silitics/rugix-bakery:$RUGIX_VERSION"
+
+PROJECT_DIR=$(pwd)
+
+# Get full image ID for nested container operations
+BAKERY_IMAGE_ID=$($DOCKER image inspect "$RUGIX_BAKERY_IMAGE" --format '{{.Id}}' 2>/dev/null || echo "$RUGIX_BAKERY_IMAGE")
+
+DOCKER_FLAGS="--rm --privileged"
+DOCKER_FLAGS="$DOCKER_FLAGS -e RUGIX_BAKERY_IMAGE=$BAKERY_IMAGE_ID"
+DOCKER_FLAGS="$DOCKER_FLAGS -e RUGIX_HOST_PROJECT_DIR=$PROJECT_DIR"
+DOCKER_FLAGS="$DOCKER_FLAGS -v $PROJECT_DIR:/project"
+DOCKER_FLAGS="$DOCKER_FLAGS -v rugix-build-cache:/run/rugix/bakery/cache"
+DOCKER_FLAGS="$DOCKER_FLAGS -v /dev:/dev"
+
+if [ -t 0 ] && [ -t 1 ]; then
+    DOCKER_FLAGS="$DOCKER_FLAGS -it"
+fi
+
+$DOCKER run $DOCKER_FLAGS "$RUGIX_BAKERY_IMAGE" "$@"
