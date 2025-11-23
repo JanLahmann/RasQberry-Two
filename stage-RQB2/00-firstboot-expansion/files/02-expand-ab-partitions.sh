@@ -25,11 +25,11 @@ DEVICE="/dev/${ROOT_DEV}"
 echo "Root partition: $ROOT_PART"
 echo "Root device: $DEVICE"
 
-# Check if this is an AB image by looking for p1 with label bootfs-cmn
+# Check if this is an AB image by looking for p1 with label "config"
 BOOTFS_COMMON=$(lsblk -no label "${DEVICE}p1" 2>/dev/null || lsblk -no label "${DEVICE}1" 2>/dev/null || echo "")
 
-if [ "$BOOTFS_COMMON" != "bootfs-cmn" ]; then
-    echo "Not an A/B boot image (bootfs-common not found)"
+if [ "$BOOTFS_COMMON" != "config" ]; then
+    echo "Not an A/B boot image (config partition not found)"
     echo "Skipping A/B partition expansion"
     exit 0
 fi

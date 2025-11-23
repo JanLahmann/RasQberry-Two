@@ -19,10 +19,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
 # Boot configuration files
-# NOTE: For AB images, bootfs-common (p1) is mounted at /boot/firmware-common
+# NOTE: For AB images, config partition (p1) is mounted at /boot/config
 # and contains autoboot.txt. The current slot's bootfs (p2 or p3) is at /boot/firmware
 BOOT_DIR="/boot/firmware"
-BOOT_COMMON_DIR="/boot/firmware-common"
+BOOT_COMMON_DIR="/boot/config"
 AUTOBOOT_TXT="${BOOT_COMMON_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE="${BOOT_COMMON_DIR}/current-slot"
 SLOT_CONFIRMED_FILE="${BOOT_COMMON_DIR}/slot-confirmed"
