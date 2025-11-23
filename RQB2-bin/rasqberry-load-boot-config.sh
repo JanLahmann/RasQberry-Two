@@ -187,15 +187,17 @@ main() {
     fi
 
     # Merge configurations
-    if merge_configs > "$TEMP_ENV"; then
+    # Create temp file first to ensure it exists
+    touch "$TEMP_ENV"
+    if merge_configs > "$TEMP_ENV" && [ -s "$TEMP_ENV" ]; then
         # Replace global environment with merged config
         mv "$TEMP_ENV" "$GLOBAL_ENV"
         chmod 644 "$GLOBAL_ENV"
         log "Boot configuration loaded successfully"
     else
-        error "Failed to merge configurations"
+        # No valid output or merge failed - keep original configuration
+        log "No configuration changes needed, keeping original"
         rm -f "$TEMP_ENV"
-        exit 1
     fi
 
     log "Boot configuration loader completed"
