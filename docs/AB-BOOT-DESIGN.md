@@ -170,9 +170,9 @@ stage-RQB2/
 │       │   ├── fstab-a
 │       │   └── fstab-b
 │       └── systemd/              # Existing services
-└── 00-firstboot-expansion/
+└── 00-firstboot-setup/
     └── files/
-        └── 02-expand-ab-partitions.sh  # Modified: only expand p7
+        └── 01-expand-filesystem.sh  # Standard image expansion only
 ```
 
 ## Comparison with Current Approach

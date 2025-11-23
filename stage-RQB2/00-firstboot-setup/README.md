@@ -1,4 +1,4 @@
-# Stage: 00-firstboot-expansion
+# Stage: 00-firstboot-setup
 
 ## Purpose
 
