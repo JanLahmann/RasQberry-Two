@@ -241,7 +241,8 @@ echo "Step 9: Updating cmdline.txt..."
 ORIG_CMDLINE=$(cat "${MOUNT_DIR}/boot-a/cmdline.txt")
 echo "  Original cmdline: $ORIG_CMDLINE"
 
-# Remove parameters we'll be updating
+# Remove parameters we'll be updating or that are incompatible with AB boot
+# Note: init= is removed because standard firstboot script is incompatible with AB layout
 PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed \
     -e 's/console=[^ ]*//g' \
     -e 's/root=[^ ]*//g' \
@@ -251,6 +252,7 @@ PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed \
     -e 's/quiet//g' \
     -e 's/splash//g' \
     -e 's/plymouth\.ignore-serial-consoles//g' \
+    -e 's/init=[^ ]*//g' \
     -e 's/  */ /g' \
     -e 's/^ *//' \
     -e 's/ *$//')
@@ -277,19 +279,19 @@ else
     echo "  Verbosity: splash"
 fi
 
-# cmdline.txt for slot A
+# cmdline.txt for slot A (use device paths for reliability)
 if [ -n "$PRESERVED_PARAMS" ]; then
-    CMDLINE_A="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
+    CMDLINE_A="${CONSOLE_CONFIG} root=/dev/mmcblk0p5 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
 else
-    CMDLINE_A="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-05 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
+    CMDLINE_A="${CONSOLE_CONFIG} root=/dev/mmcblk0p5 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
 fi
 echo "$CMDLINE_A" > "${MOUNT_DIR}/boot-a/cmdline.txt"
 
 # cmdline.txt for slot B
 if [ -n "$PRESERVED_PARAMS" ]; then
-    CMDLINE_B="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
+    CMDLINE_B="${CONSOLE_CONFIG} root=/dev/mmcblk0p6 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS} ${PRESERVED_PARAMS}"
 else
-    CMDLINE_B="${CONSOLE_CONFIG} root=PARTUUID=${DISK_ID}-06 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
+    CMDLINE_B="${CONSOLE_CONFIG} root=/dev/mmcblk0p6 rootfstype=ext4 fsck.repair=yes rootwait${BOOT_OPTIONS}"
 fi
 echo "$CMDLINE_B" > "${MOUNT_DIR}/boot-b/cmdline.txt"
 
@@ -358,13 +360,13 @@ echo "Step 12: Updating fstab..."
 mkdir -p "${MOUNT_DIR}/system-a/boot/config"
 mkdir -p "${MOUNT_DIR}/system-a/data"
 
-# fstab for slot A
+# fstab for slot A (use device paths for reliability)
 cat > "${MOUNT_DIR}/system-a/etc/fstab" << EOF
 proc                        /proc           proc    defaults          0   0
-PARTUUID=${DISK_ID}-01      /boot/config    vfat    defaults          0   2
-PARTUUID=${DISK_ID}-02      /boot/firmware  vfat    defaults          0   2
-PARTUUID=${DISK_ID}-05      /               ext4    defaults,noatime  0   1
-PARTUUID=${DISK_ID}-07      /data           ext4    defaults,noatime  0   2
+/dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
+/dev/mmcblk0p2              /boot/firmware  vfat    defaults          0   2
+/dev/mmcblk0p5              /               ext4    defaults,noatime  0   1
+/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
 EOF
 
 echo "system-a fstab:"
@@ -378,13 +380,13 @@ echo "Step 13: Preparing system-b..."
 
 mkdir -p "${MOUNT_DIR}/system-b"/{boot/config,boot/firmware,data,etc}
 
-# fstab for slot B
+# fstab for slot B (use device paths for reliability)
 cat > "${MOUNT_DIR}/system-b/etc/fstab" << EOF
 proc                        /proc           proc    defaults          0   0
-PARTUUID=${DISK_ID}-01      /boot/config    vfat    defaults          0   2
-PARTUUID=${DISK_ID}-03      /boot/firmware  vfat    defaults          0   2
-PARTUUID=${DISK_ID}-06      /               ext4    defaults,noatime  0   1
-PARTUUID=${DISK_ID}-07      /data           ext4    defaults,noatime  0   2
+/dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
+/dev/mmcblk0p3              /boot/firmware  vfat    defaults          0   2
+/dev/mmcblk0p6              /               ext4    defaults,noatime  0   1
+/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
 EOF
 
 echo "system-b prepared"
