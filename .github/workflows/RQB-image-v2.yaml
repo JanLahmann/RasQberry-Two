@@ -223,6 +223,8 @@ jobs:
       - name: "Validate semantic version"
         if: github.ref == 'refs/heads/main'
         shell: bash
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version }}
         run: |
           echo "$VERSION_INPUT" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
             || { echo "⛔ Invalid semantic version: $VERSION_INPUT" >&2; exit 1; }
