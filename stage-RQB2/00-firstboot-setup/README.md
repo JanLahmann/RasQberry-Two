@@ -189,8 +189,6 @@ VNC enablement runs on **every desktop login**, not just first boot:
 ## Related Stages
 
 - Works with [08-ab-boot-support](../08-ab-boot-support/README.md) for A/B boot setup
-- Referenced by [99-enable-expansion](../99-enable-expansion/README.md) verification
-- VNC enablement complements [07-enable-vnc](../07-enable-vnc/README.md) (skipped stage)
 
 ## Adding Custom Firstboot Tasks
 

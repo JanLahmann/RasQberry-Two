@@ -1,2 +1,0 @@
-# VNC enablement moved to firstboot task (02-enable-vnc.sh)
-# This ensures VNC is enabled after filesystem expansion and in the actual runtime environment
