@@ -104,10 +104,16 @@ on:
         required: false
         type: boolean
         default: false
-      build_ab_image:
-        description: 'Build A/B boot image variant (dev branches: default true, main/beta: default false)'
+      build_scope:
+        description: 'Build scope (default: dev=full, main/beta=standard-image)'
         required: false
-        type: boolean
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - cache-only
+          - standard-image
+          - full
       console_type:
         description: 'Console output type (serial or hdmi)'
         required: false
@@ -152,6 +158,8 @@ jobs:
       version: ${{ steps.current-version.outputs.version }}
       version_num: ${{ steps.update-version.outputs.version_num }}
       commit_sha: ${{ steps.get-sha.outputs.commit_sha }}
+      # Build scope (computed from input or branch defaults)
+      build_scope: ${{ steps.compute-scope.outputs.build_scope }}
     
     steps:
       # Clone the repository with push permissions
@@ -241,6 +249,31 @@ jobs:
         run: |
           echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
+      # Compute effective build scope from input or branch defaults
+      - name: "Compute build scope"
+        id: compute-scope
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          INPUT_SCOPE="${{ github.event.inputs.build_scope }}"
+
+          # Determine effective scope
+          if [ "$INPUT_SCOPE" == "default" ] || [ -z "$INPUT_SCOPE" ]; then
+            # Apply branch-based defaults
+            if [[ "$BRANCH_NAME" == dev* ]]; then
+              SCOPE="full"
+              echo "Using default scope for dev branch: full"
+            else
+              SCOPE="standard-image"
+              echo "Using default scope for $BRANCH_NAME branch: standard-image"
+            fi
+          else
+            SCOPE="$INPUT_SCOPE"
+            echo "Using specified scope: $SCOPE"
+          fi
+
+          echo "build_scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Effective build scope: $SCOPE"
+
       # Install cosign for artifact signing (future enhancement)
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
@@ -251,10 +284,13 @@ jobs:
   # JOB 2: Create GitHub Release
   # ============================================================================
   # Creates a GitHub release with changelog for the new version
+  # Skipped for cache-only builds (no release needed)
   release:
     name: Create Release
     needs: rasqberry-push-version-number
     runs-on: ubuntu-latest
+    # Skip release creation for cache-only builds
+    if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
     outputs:
       # Release outputs for asset upload
       id: ${{ steps.create-release.outputs.id }}
@@ -306,9 +342,12 @@ jobs:
   # ============================================================================
   # This job builds the actual Raspberry Pi OS image using pi-gen
   # Includes sophisticated caching for development builds
+  # For cache-only builds: builds and caches base stages only, no image output
   build:
     name: Build Image
     needs: [rasqberry-push-version-number, release]
+    # For cache-only, release is skipped but we still need version info
+    if: always() && needs.rasqberry-push-version-number.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       # Output paths for the built image
@@ -841,11 +880,15 @@ jobs:
       # CUSTOM STAGE BUILD
       # ========================================================================
       # Copy our custom RasQberry stage into pi-gen (after base stages are built)
+      # Skipped for cache-only builds
       - name: Copy custom stage
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: cp -r stage-RQB2 pi-gen/
 
       # Build the RasQberry-specific stage on top of base image
+      # Skipped for cache-only builds
       - name: Build custom stage
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           cd pi-gen
           
@@ -907,8 +950,10 @@ jobs:
       # IMAGE FINALIZATION
       # ========================================================================
       # Find the built image and prepare it for upload
+      # Skipped for cache-only builds
       - name: Set dynamic asset path and name
         id: set-asset
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           # Ensure we're in the right directory
           if [ ! -d "pi-gen" ]; then
@@ -982,7 +1027,9 @@ jobs:
       # RELEASE ASSET UPLOAD
       # ========================================================================
       # Upload the built image to the GitHub release
+      # Skipped for cache-only builds
       - name: Upload Release Asset
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -996,17 +1043,13 @@ jobs:
   # JOB 4: Build A/B Boot Image Variant
   # ============================================================================
   # Converts the standard image to A/B boot layout for testing
-  # By default: enabled for dev branches, disabled for main/beta
+  # Only runs when build_scope is 'full'
   build-ab-image:
     name: Build A/B Boot Image
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
-    # Conditional execution based on branch and input
-    # For push events: Run on dev branches (inputs don't exist)
-    # For workflow_dispatch: Honor the build_ab_image input
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_ab_image == 'true')
+    # Only build AB image when scope is 'full'
+    if: needs.rasqberry-push-version-number.outputs.build_scope == 'full'
 
     steps:
       - name: Checkout repository
@@ -1161,10 +1204,13 @@ jobs:
   # JOB 5: Generate and Upload RQB-images.json
   # ============================================================================
   # Always generates the JSON file, optionally uploads to gh-pages
+  # Skipped for cache-only builds (no release to document)
   update-json:
     name: Generate RQB-images.json
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
+    # Skip for cache-only builds
+    if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
     
     steps:
       - name: Checkout repository
