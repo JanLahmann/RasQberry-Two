@@ -298,8 +298,8 @@ jobs:
           body: ${{ steps.changelog.outputs.content }}
           # Dev and beta are pre-releases, main is stable
           prerelease: ${{ github.ref != 'refs/heads/main' }}
-          # Only main and beta are marked as latest
-          make_latest: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta' }}
+          # Only main is marked as GitHub's official "latest"
+          make_latest: ${{ github.ref == 'refs/heads/main' }}
 
   # ============================================================================
   # JOB 3: Build Raspberry Pi Image
