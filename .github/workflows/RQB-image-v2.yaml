@@ -1037,6 +1037,11 @@ jobs:
           CONSOLE_TYPE: ${{ inputs.console_type || 'hdmi' }}
           BOOT_VERBOSITY: ${{ inputs.boot_verbosity || 'splash' }}
         run: |
+          # Read AB compression level from config
+          AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL=" pi-gen-config | cut -d'=' -f2)
+          AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
+          echo "AB compression level: $AB_COMPRESSION_LEVEL"
+
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
@@ -1117,11 +1122,11 @@ jobs:
           echo ""
 
           # Compress AB image
-          echo "Compressing AB image..."
+          echo "Compressing AB image with level $AB_COMPRESSION_LEVEL..."
           # xz will try to preserve file group ownership and fail with exit code 2
           # in GitHub Actions, but the compression succeeds. Check if .xz exists.
           set +e
-          xz -9 -T0 "$OUTPUT_IMG"
+          xz -${AB_COMPRESSION_LEVEL} -T0 "$OUTPUT_IMG"
           xz_exit=$?
           set -e
 
