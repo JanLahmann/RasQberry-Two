@@ -34,10 +34,10 @@ mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 
 # Create virtual environment
 python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
-source /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/activate
 
-# Install Qiskit (scripts are now in /usr/bin)
-. /usr/bin/rq_install_Qiskit_latest.sh
+# Install Qiskit using consolidated script (scripts are now in /usr/bin)
+# The script handles venv activation based on PIGEN environment variable
+. /usr/bin/rq_install_qiskit.sh latest
 deactivate
 
 # Copy venv to system location for new users
