@@ -5,7 +5,6 @@
 # Purpose: Convert a standard RasQberry image to 7-partition A/B layout
 #
 # Key improvements over v2:
-#   - Deterministic disk ID and filesystem UUIDs
 #   - Small initial image (~12GB) for fast download
 #   - Partitions expand via raspi-config on 64GB+ SD cards
 #
@@ -78,20 +77,10 @@ SYSTEM_A_SIZE_MB=10240   # 10GB for initial RasQberry system
 SYSTEM_B_SIZE_MB=16      # 16MB placeholder (expands via raspi-config)
 DATA_SIZE_MB=16          # 16MB placeholder (expands via raspi-config)
 
-# Deterministic disk ID for PARTUUID base
-# PARTUUIDs will be: deadbeef-01, deadbeef-02, etc.
-DISK_ID="deadbeef"
-
-# Deterministic filesystem UUIDs
-UUID_SYSTEM_A="deadbeef-0000-0000-0000-000000000005"
-UUID_SYSTEM_B="deadbeef-0000-0000-0000-000000000006"
-UUID_DATA="deadbeef-0000-0000-0000-000000000007"
-
 # Calculate total image size
 TOTAL_SIZE_MB=$((CONFIG_SIZE_MB + BOOT_A_SIZE_MB + BOOT_B_SIZE_MB + SYSTEM_A_SIZE_MB + SYSTEM_B_SIZE_MB + DATA_SIZE_MB + 16))
 
 echo "Target image size: ${TOTAL_SIZE_MB}MB (~$((TOTAL_SIZE_MB / 1024))GB)"
-echo "Disk ID: 0x${DISK_ID}"
 echo ""
 
 # ============================================================================
@@ -103,15 +92,12 @@ echo "Created ${TOTAL_SIZE_MB}MB image file"
 echo ""
 
 # ============================================================================
-# Step 2: Create partition table with deterministic disk ID
+# Step 2: Create partition table
 # ============================================================================
-echo "Step 2: Creating partition layout with disk ID 0x${DISK_ID}..."
+echo "Step 2: Creating partition layout..."
 
 # Create MBR partition table
 parted -s "$OUTPUT_IMG" mklabel msdos
-
-# Set the disk ID for deterministic PARTUUIDs
-echo "label-id: 0x${DISK_ID}" | sfdisk --no-reread "$OUTPUT_IMG" 2>/dev/null || true
 
 # Create partitions
 # p1: config (primary)
@@ -167,18 +153,18 @@ sleep 2
 echo ""
 
 # ============================================================================
-# Step 4: Format partitions with deterministic UUIDs
+# Step 4: Format partitions
 # ============================================================================
-echo "Step 4: Formatting partitions with deterministic UUIDs..."
+echo "Step 4: Formatting partitions..."
 
 mkfs.vfat -F 32 -n "config" "${OUTPUT_LOOP}p1"
 mkfs.vfat -F 32 -n "boot-a" "${OUTPUT_LOOP}p2"
 mkfs.vfat -F 32 -n "boot-b" "${OUTPUT_LOOP}p3"
-mkfs.ext4 -F -L "system-a" -U "${UUID_SYSTEM_A}" "${OUTPUT_LOOP}p5"
-mkfs.ext4 -F -L "system-b" -U "${UUID_SYSTEM_B}" "${OUTPUT_LOOP}p6"
-mkfs.ext4 -F -L "data" -U "${UUID_DATA}" "${OUTPUT_LOOP}p7"
+mkfs.ext4 -F -L "system-a" "${OUTPUT_LOOP}p5"
+mkfs.ext4 -F -L "system-b" "${OUTPUT_LOOP}p6"
+mkfs.ext4 -F -L "data" "${OUTPUT_LOOP}p7"
 
-echo "Filesystems created with deterministic UUIDs"
+echo "Filesystems created"
 echo ""
 
 # ============================================================================
@@ -237,7 +223,7 @@ cat "${MOUNT_DIR}/config/autoboot.txt"
 echo ""
 
 # ============================================================================
-# Step 9: Update cmdline.txt with deterministic PARTUUIDs
+# Step 9: Update cmdline.txt
 # ============================================================================
 echo "Step 9: Updating cmdline.txt..."
 
@@ -344,7 +330,7 @@ for BOOT_PART in "${MOUNT_DIR}/boot-a" "${MOUNT_DIR}/boot-b"; do
     rm -f "${BOOT_PART}"/initrd* "${BOOT_PART}"/initramfs* 2>/dev/null || true
 done
 
-echo "Initramfs disabled (using direct kernel boot with PARTUUID)"
+echo "Initramfs disabled (using direct kernel boot)"
 echo ""
 
 # ============================================================================
@@ -439,17 +425,8 @@ echo "  p1: config      (${CONFIG_SIZE_MB}MB)   - autoboot.txt, config.txt"
 echo "  p2: boot-a      (${BOOT_A_SIZE_MB}MB)   - boot files for Slot A"
 echo "  p3: boot-b      (${BOOT_B_SIZE_MB}MB)   - boot files for Slot B"
 echo "  p5: system-a    (${SYSTEM_A_SIZE_MB}MB) - rootfs Slot A"
-echo "  p6: system-b    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (empty)"
-echo "  p7: data        (${DATA_SIZE_MB}MB)     - user data (expands on firstboot)"
-echo ""
-echo "Disk ID: 0x${DISK_ID}"
-echo "PARTUUIDs:"
-echo "  config:   ${DISK_ID}-01"
-echo "  boot-a:   ${DISK_ID}-02"
-echo "  boot-b:   ${DISK_ID}-03"
-echo "  system-a: ${DISK_ID}-05"
-echo "  system-b: ${DISK_ID}-06"
-echo "  data:     ${DISK_ID}-07"
+echo "  p6: system-b    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (placeholder)"
+echo "  p7: data        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
 echo ""
 echo "Next steps:"
 echo "  1. Compress: xz -9 -T0 $OUTPUT_IMG"
