@@ -749,6 +749,139 @@ do_show_system_info() {
     10 70
 }
 
+# -----------------------------------------------------------------------------
+# A/B Boot Partition Expansion
+# -----------------------------------------------------------------------------
+
+# Expand A/B partitions for 64GB+ SD cards
+do_expand_ab_partitions() {
+    # Check if this is an AB boot image
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -q "config"; then
+        whiptail --title "Not AB Boot Image" --msgbox \
+            "This system is not running an A/B boot image.\n\nPartition expansion is only available for AB boot layouts." \
+            10 60
+        return 1
+    fi
+
+    # Get SD card size in bytes
+    SD_SIZE_BYTES=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
+    SD_SIZE_GB=$((SD_SIZE_BYTES / 1024 / 1024 / 1024))
+
+    # Check minimum size (63GB = ~64GB marketed card)
+    if [ "$SD_SIZE_GB" -lt 63 ]; then
+        whiptail --title "SD Card Too Small" --msgbox \
+            "SD card size: ${SD_SIZE_GB}GB\n\nPartition expansion requires a 64GB or larger SD card.\n\nYour current 10GB system partition is sufficient for basic use." \
+            12 60
+        return 1
+    fi
+
+    # Check if already expanded (system-b > 1GB indicates expansion)
+    SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    SYSTEM_B_SIZE_GB=$((SYSTEM_B_SIZE / 1024 / 1024 / 1024))
+    if [ "$SYSTEM_B_SIZE_GB" -gt 1 ]; then
+        whiptail --title "Already Expanded" --msgbox \
+            "Partitions appear to already be expanded.\n\nSystem-B size: ${SYSTEM_B_SIZE_GB}GB" \
+            10 60
+        return 0
+    fi
+
+    # Calculate partition sizes
+    # Fixed partitions: config (512MB) + boot-a (512MB) + boot-b (512MB) = 1536MB
+    FIXED_MB=1536
+    SD_SIZE_MB=$((SD_SIZE_BYTES / 1024 / 1024))
+    AVAILABLE_MB=$((SD_SIZE_MB - FIXED_MB))
+
+    # Calculate: data=10%, system-a=45%, system-b=45%
+    DATA_MB=$((AVAILABLE_MB * 10 / 100))
+    SYSTEM_MB=$(((AVAILABLE_MB - DATA_MB) / 2))
+
+    DATA_GB=$((DATA_MB / 1024))
+    SYSTEM_GB=$((SYSTEM_MB / 1024))
+
+    # Show confirmation dialog
+    if ! whiptail --title "Expand A/B Partitions" --yesno \
+        "SD Card Size: ${SD_SIZE_GB}GB\n\nProposed partition sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nThis will:\n- Expand system-a from 10GB to ${SYSTEM_GB}GB\n- Expand system-b from 16MB to ${SYSTEM_GB}GB\n- Expand data from 16MB to ${DATA_GB}GB\n\nThis operation cannot be undone.\n\nProceed with expansion?" \
+        20 60; then
+        return 0
+    fi
+
+    # Show progress
+    whiptail --title "Expanding Partitions" --infobox \
+        "Expanding partitions...\n\nThis may take a few minutes.\nDo not power off the system." \
+        10 50
+
+    # Get current partition boundaries
+    # p5 = system-a, p6 = system-b, p7 = data
+    SYSTEM_A_START=$(parted -s /dev/mmcblk0 unit MiB print | grep "^ 5" | awk '{print $2}' | tr -d 'MiB')
+
+    # Calculate new boundaries
+    SYSTEM_A_END=$((SYSTEM_A_START + SYSTEM_MB))
+    SYSTEM_B_START=$((SYSTEM_A_END + 1))
+    SYSTEM_B_END=$((SYSTEM_B_START + SYSTEM_MB))
+    DATA_START=$((SYSTEM_B_END + 1))
+
+    # Resize partitions using parted
+    # First, delete and recreate p7 (data), then p6 (system-b), then resize p5 (system-a)
+    {
+        # Resize system-a (p5)
+        parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB
+
+        # Delete and recreate system-b (p6) and data (p7)
+        parted -s /dev/mmcblk0 rm 7
+        parted -s /dev/mmcblk0 rm 6
+        parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB
+        parted -s /dev/mmcblk0 mkpart logical ext4 ${DATA_START}MiB 100%
+
+        # Resize filesystems
+        e2fsck -f -y /dev/mmcblk0p5 2>/dev/null || true
+        resize2fs /dev/mmcblk0p5
+
+        # Format new system-b and data partitions
+        mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6
+        mkfs.ext4 -F -L "data" /dev/mmcblk0p7
+
+        # Recreate system-b structure
+        TEMP_MOUNT=$(mktemp -d)
+        mount /dev/mmcblk0p6 "$TEMP_MOUNT"
+        mkdir -p "$TEMP_MOUNT"/{boot/config,boot/firmware,data,etc}
+
+        # Create fstab for slot B
+        cat > "$TEMP_MOUNT/etc/fstab" << EOF
+proc                        /proc           proc    defaults          0   0
+/dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
+/dev/mmcblk0p3              /boot/firmware  vfat    defaults          0   2
+/dev/mmcblk0p6              /               ext4    defaults,noatime  0   1
+/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
+EOF
+        umount "$TEMP_MOUNT"
+        rmdir "$TEMP_MOUNT"
+
+        # Reinitialize data partition
+        TEMP_MOUNT=$(mktemp -d)
+        mount /dev/mmcblk0p7 "$TEMP_MOUNT"
+        mkdir -p "$TEMP_MOUNT"/{home,var/log}
+        umount "$TEMP_MOUNT"
+        rmdir "$TEMP_MOUNT"
+    } 2>&1 | while read line; do
+        echo "$line" >> /var/log/rasqberry-expand.log
+    done
+
+    # Verify expansion
+    NEW_SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    NEW_SYSTEM_B_GB=$((NEW_SYSTEM_B_SIZE / 1024 / 1024 / 1024))
+
+    if [ "$NEW_SYSTEM_B_GB" -gt 1 ]; then
+        whiptail --title "Expansion Complete" --msgbox \
+            "Partitions expanded successfully!\n\nNew sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nYour A/B boot system is now fully configured." \
+            14 60
+    else
+        whiptail --title "Expansion Failed" --msgbox \
+            "Partition expansion may have failed.\n\nPlease check /var/log/rasqberry-expand.log for details." \
+            10 60
+        return 1
+    fi
+}
+
 # LED Matrix Layout Configuration
 do_select_led_layout() {
   # Get current layout setting
@@ -791,12 +924,14 @@ do_rasqberry_menu() {
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD     "Quantum Demos" \
        UEF    "Update Env File" \
+       EXPAND "Expand A/B Partitions (64GB+ SD)" \
        INFO   "System Info") || break
     case "$FUN" in
-      QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
-      UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      INFO) do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
-      *)    handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
+      QD)     do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF)    do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      EXPAND) do_expand_ab_partitions        || continue ;;
+      INFO)   do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      *)      handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
 }

@@ -6,21 +6,25 @@
 #
 # Key improvements over v2:
 #   - Deterministic disk ID and filesystem UUIDs
-#   - 16GB system partitions (fixed size, no expansion)
-#   - Separate data partition that expands on firstboot
-#   - Proper PARTUUID-based boot configuration
+#   - Small initial image (~12GB) for fast download
+#   - Partitions expand via raspi-config on 64GB+ SD cards
 #
 # Input: Standard RasQberry .img file (uncompressed, 2 partitions)
 # Output: AB-ready .img file (7 partitions with extended partition)
 #
 # Partition Layout Created:
-#   p1: config        256MB   FAT32   (autoboot.txt, config.txt)
-#   p2: boot-a        256MB   FAT32   (boot files for Slot A)
-#   p3: boot-b        256MB   FAT32   (boot files for Slot B)
+#   p1: config        512MB   FAT32   (autoboot.txt, config.txt)
+#   p2: boot-a        512MB   FAT32   (boot files for Slot A)
+#   p3: boot-b        512MB   FAT32   (boot files for Slot B)
 #   p4: extended      (rest)
-#     p5: system-a    16GB    ext4    (rootfs Slot A)
-#     p6: system-b    16GB    ext4    (rootfs Slot B, empty)
-#     p7: data        64MB    ext4    (user data, expands on firstboot)
+#     p5: system-a    10GB    ext4    (rootfs Slot A)
+#     p6: system-b    16MB    ext4    (rootfs Slot B, placeholder)
+#     p7: data        16MB    ext4    (user data, placeholder)
+#
+# Expansion (via raspi-config, requires 64GB+ SD card):
+#   data:     10% of available space
+#   system-a: 45% of available space
+#   system-b: 45% of available space
 #
 # Usage: ./convert-to-ab-boot-v3.sh <input.img> <output.img>
 # ============================================================================
@@ -67,12 +71,12 @@ echo ""
 # ============================================================================
 
 # Partition sizes in MB
-CONFIG_SIZE_MB=256
-BOOT_A_SIZE_MB=256
-BOOT_B_SIZE_MB=256
-SYSTEM_A_SIZE_MB=16384   # 16GB for full RasQberry system
-SYSTEM_B_SIZE_MB=16384   # 16GB for slot B
-DATA_SIZE_MB=64          # Expands on firstboot
+CONFIG_SIZE_MB=512
+BOOT_A_SIZE_MB=512
+BOOT_B_SIZE_MB=512
+SYSTEM_A_SIZE_MB=10240   # 10GB for initial RasQberry system
+SYSTEM_B_SIZE_MB=16      # 16MB placeholder (expands via raspi-config)
+DATA_SIZE_MB=16          # 16MB placeholder (expands via raspi-config)
 
 # Deterministic disk ID for PARTUUID base
 # PARTUUIDs will be: deadbeef-01, deadbeef-02, etc.
@@ -449,6 +453,7 @@ echo "  data:     ${DISK_ID}-07"
 echo ""
 echo "Next steps:"
 echo "  1. Compress: xz -9 -T0 $OUTPUT_IMG"
-echo "  2. Flash to SD card"
-echo "  3. Boot - system partitions are ready, data partition expands automatically"
+echo "  2. Flash to SD card (64GB+ recommended)"
+echo "  3. Boot and use raspi-config to expand partitions"
+echo "     (Expansion available on 64GB+ SD cards)"
 echo ""
