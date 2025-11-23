@@ -12,10 +12,10 @@ BOOT_CONFIG="/boot/firmware/rasqberry_boot.env"
 GLOBAL_ENV="/usr/config/rasqberry_environment.env"
 TEMP_ENV="/tmp/rasqberry_env_merged.tmp"
 
-# Logging function
+# Logging function (outputs to stderr to avoid pollution of redirected stdout)
 log() {
     echo "[rasqberry-boot-config] $*" | systemd-cat -t rasqberry-boot-config -p info
-    echo "[rasqberry-boot-config] $*"
+    echo "[rasqberry-boot-config] $*" >&2
 }
 
 error() {
