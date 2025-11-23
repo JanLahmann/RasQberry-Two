@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Install the RasQberry modular firstboot service that runs critical initialization tasks on the first boot, including filesystem expansion, A/B partition setup, and VNC enablement.
+Install the RasQberry modular firstboot service that runs critical initialization tasks on the first boot, including filesystem expansion and VNC enablement.
+
+**Note:** A/B partition expansion is handled manually via raspi-config (RasQberry menu → Expand A/B Partitions) to allow user confirmation and control over partition sizing on 64GB+ SD cards.
 
 ## What This Stage Does
 
@@ -35,40 +37,10 @@ Automatically expands the root filesystem to fill the entire SD card on first bo
 
 **Skip Mechanism:**
 - Create `/boot/firmware/skip-expansion` file to disable
-- Useful for A/B boot setups with fixed partition sizes
+- Useful for custom partition setups
 - File can be created from Mac/Windows on boot partition
 
-#### 3. A/B Partition Expansion Task
-
-**Task** (`/usr/local/lib/rasqberry-firstboot.d/02-expand-ab-partitions.sh`):
-
-Expands A/B boot partitions to fill available SD card space (only on A/B images).
-
-**Operations:**
-1. Detects A/B layout by checking for `bootfs-cmn` label on p1
-2. Verifies boot from Slot A (p5 - rootfs-a)
-3. Calculates target sizes (splits remaining space equally)
-4. Expands p4 (extended partition) to fill device
-5. Expands p5 (rootfs-a) to half of available space
-6. Expands p6 (rootfs-b) to fill remaining space
-7. Resizes ext4 filesystems on both partitions
-
-**Safety Checks:**
-- Only runs on A/B images (detects `bootfs-cmn` label)
-- Requires boot from Slot A (p5)
-- Skips if already expanded (p5 > 20GB indicates expansion occurred)
-- Requires at least 32GB SD card for A/B setup
-- Leaves 1GB margin for alignment
-
-**Partition Layout After Expansion:**
-- p1: bootfs-common (~512MB, unchanged)
-- p2: bootfs-a (~512MB, unchanged)
-- p3: bootfs-b (~512MB, unchanged)
-- p4: extended partition (fills device)
-- p5: rootfs-a (half of remaining space, ~active slot)
-- p6: rootfs-b (half of remaining space, ~update slot)
-
-#### 4. VNC Enablement
+#### 3. VNC Enablement
 
 **Desktop Login Script** (`/usr/local/bin/rasqberry-enable-vnc.sh`):
 - Runs on every desktop login (not just first boot)
@@ -80,7 +52,7 @@ Expands A/B boot partitions to fill available SD card space (only on A/B images)
 - Ensures VNC is always enabled even if disabled manually
 - Non-intrusive (runs silently in background)
 
-#### 5. Systemd Service
+#### 4. Systemd Service
 
 **Service File** (`/etc/systemd/system/rasqberry-firstboot.service`):
 - Type: oneshot
@@ -94,7 +66,6 @@ Expands A/B boot partitions to fill available SD card space (only on A/B images)
 ```
 /usr/local/bin/rasqberry-firstboot.sh                      # Main runner
 /usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh   # Expansion task
-/usr/local/lib/rasqberry-firstboot.d/02-expand-ab-partitions.sh # A/B expansion
 /usr/local/bin/rasqberry-enable-vnc.sh                      # VNC enablement
 /etc/xdg/autostart/rasqberry-enable-vnc.desktop             # VNC autostart
 /etc/systemd/system/rasqberry-firstboot.service             # Systemd service
@@ -130,20 +101,13 @@ Firstboot tasks can use special exit codes:
    - Requests reboot (exit 99)
 4. **Runner triggers reboot**
 
-### Second Boot (Standard Image)
+### Second Boot
 
 1. **Runner checks Task 01**: Already complete (marker exists), skips
-2. **Runner checks Task 02-expand-ab-partitions**: Not A/B image, exits 0
-3. **No more tasks**, firstboot complete
+2. **No more tasks**, firstboot complete
 
-### Second Boot (A/B Image)
-
-1. **Runner checks Task 01**: Already complete, skips
-2. **Runner executes Task 02-expand-ab-partitions**:
-   - Detects A/B layout
-   - Expands p5 and p6 to fill SD card
-   - Marks complete
-3. **Firstboot complete**, A/B system ready
+**Note:** For A/B images, partition expansion is handled manually via raspi-config
+(RasQberry menu → Expand A/B Partitions) on 64GB+ SD cards.
 
 ### First Desktop Login
 
@@ -156,7 +120,6 @@ Firstboot tasks can use special exit codes:
 - **Modular Design**: Easy to add new firstboot tasks
 - **Self-Tracking**: Completed tasks never re-run
 - **Reboot Support**: Tasks can request reboot when needed
-- **Conditional Execution**: A/B expansion only runs on A/B images
 - **User-Controllable**: Skip expansion with boot partition marker
 - **Robust**: Service logs to journal for troubleshooting
 
@@ -164,9 +127,9 @@ Firstboot tasks can use special exit codes:
 
 ### Standard vs A/B Images
 
-- **Standard Image**: Only Task 01 runs (filesystem expansion)
-- **A/B Image**: Both tasks run (standard expansion, then A/B expansion)
-- Detection is automatic (checks partition labels)
+- **Standard Image**: Task 01 runs (filesystem expansion to fill SD card)
+- **A/B Image**: Task 01 skipped (A/B images have fixed initial partition sizes)
+  - Manual expansion available via raspi-config for 64GB+ SD cards
 
 ### Skip Expansion
 
@@ -203,11 +166,10 @@ VNC enablement runs on **every desktop login**, not just first boot:
 - **Logs**: `journalctl -u rasqberry-firstboot.service`
 - **Marker**: Check if `/boot/firmware/skip-expansion` exists
 
-**Issue**: A/B partitions not expanded
-- **Cause**: Not booted from Slot A, or not detected as A/B image
-- **Check**: `lsblk -o name,label` should show `bootfs-cmn` on p1
-- **Verify**: `findmnt / -o source` should show p5 (Slot A)
-- **Logs**: Check firstboot service logs for Task 02 output
+**Issue**: A/B partitions too small
+- **Cause**: A/B images start with minimal partition sizes (~12GB total)
+- **Solution**: Use raspi-config (RasQberry menu → Expand A/B Partitions)
+- **Requirement**: 64GB or larger SD card for expansion
 
 **Issue**: VNC not enabled after first login
 - **Cause**: Autostart script failed or VNC service issue
