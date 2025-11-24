@@ -1009,7 +1009,7 @@ pick_stream() {
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        3>&1 1>&2 2>&3 < /dev/tty > /dev/tty
+        3>&1 1>&2 2>&3 </dev/tty 2>/dev/tty
 }
 
 # Pick release from stream
@@ -1024,12 +1024,12 @@ pick_release() {
 
     # Fetch releases from GitHub
     whiptail --title "Fetching Releases" --infobox \
-        "Fetching releases from GitHub...\n\nPlease wait." 8 50 < /dev/tty > /dev/tty
+        "Fetching releases from GitHub...\n\nPlease wait." 8 50 </dev/tty 2>/dev/tty
 
     releases_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases" 2>/dev/null)
 
     if [ -z "$releases_json" ] || echo "$releases_json" | grep -q '"message"'; then
-        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 < /dev/tty > /dev/tty
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 </dev/tty 2>/dev/tty
         return 1
     fi
 
@@ -1044,7 +1044,7 @@ pick_release() {
     ' 2>/dev/null)
 
     if [ -z "$menu_items" ]; then
-        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50 < /dev/tty > /dev/tty
+        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50 </dev/tty 2>/dev/tty
         return 1
     fi
 
@@ -1052,7 +1052,7 @@ pick_release() {
     # shellcheck disable=SC2086
     selected=$(echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
         "Choose a release from the '$stream' stream:" \
-        20 70 10 3>&1 1>&2 2>&3 < /dev/tty > /dev/tty)
+        20 70 10 3>&1 1>&2 2>&3 </dev/tty 2>/dev/tty)
 
     if [ -z "$selected" ]; then
         return 1
@@ -1073,12 +1073,12 @@ pick_image() {
 
     # Fetch release assets
     whiptail --title "Fetching Images" --infobox \
-        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60 < /dev/tty > /dev/tty
+        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60 </dev/tty 2>/dev/tty
 
     assets_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases/tags/$release_tag" 2>/dev/null)
 
     if [ -z "$assets_json" ] || echo "$assets_json" | grep -q '"message"'; then
-        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 < /dev/tty > /dev/tty
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 </dev/tty 2>/dev/tty
         return 1
     fi
 
@@ -1090,7 +1090,7 @@ pick_image() {
     ' 2>/dev/null)
 
     if [ -z "$menu_items" ]; then
-        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50 < /dev/tty > /dev/tty
+        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50 </dev/tty 2>/dev/tty
         return 1
     fi
 
@@ -1106,7 +1106,7 @@ pick_image() {
         # shellcheck disable=SC2086
         selected=$(echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 3>&1 1>&2 2>&3 < /dev/tty > /dev/tty)
+            16 80 5 3>&1 1>&2 2>&3 </dev/tty 2>/dev/tty)
     fi
 
     if [ -z "$selected" ]; then
