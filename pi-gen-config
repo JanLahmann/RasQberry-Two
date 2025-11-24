@@ -5,8 +5,8 @@ IMG_NAME=rasqberry
 #         rasqberry-{branch}-{date}-{time} (dev branches)
 RELEASE=bookworm
 DEPLOY_COMPRESSION=xz
-# Development: Fast compression for quick iteration
-COMPRESSION_LEVEL=3
+# Development: Maximum compression to minimize size (same as production)
+COMPRESSION_LEVEL=9
 # Production: Maximum compression for releases
 COMPRESSION_LEVEL_PROD=9
 # AB image compression level (dev and prod)
