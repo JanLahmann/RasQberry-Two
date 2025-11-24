@@ -810,39 +810,83 @@ do_expand_ab_partitions() {
         "Expanding partitions...\n\nThis may take a few minutes.\nDo not power off the system." \
         10 50
 
+    # Initialize log file
+    echo "=== AB Partition Expansion $(date) ===" > /var/log/rasqberry-expand.log
+
+    # Step 1: Unmount partitions that will be modified
+    echo "Step 1: Unmounting partitions..." >> /var/log/rasqberry-expand.log
+    umount /dev/mmcblk0p7 2>/dev/null || true
+    umount /dev/mmcblk0p6 2>/dev/null || true
+    # Also unmount any automounted locations
+    umount /media/*/system-b 2>/dev/null || true
+    umount /media/*/data 2>/dev/null || true
+
     # Get current partition boundaries
     # p5 = system-a, p6 = system-b, p7 = data
     SYSTEM_A_START=$(parted -s /dev/mmcblk0 unit MiB print | grep "^ 5" | awk '{print $2}' | tr -d 'MiB')
 
     # Calculate new boundaries
     SYSTEM_A_END=$((SYSTEM_A_START + SYSTEM_MB))
-    SYSTEM_B_START=$((SYSTEM_A_END + 1))
+    SYSTEM_B_START=$((SYSTEM_A_END + 2))  # 2 MiB gap for alignment
     SYSTEM_B_END=$((SYSTEM_B_START + SYSTEM_MB))
-    DATA_START=$((SYSTEM_B_END + 1))
+    DATA_START=$((SYSTEM_B_END + 2))  # 2 MiB gap for alignment
 
-    # Resize partitions using parted
-    # First, delete and recreate p7 (data), then p6 (system-b), then resize p5 (system-a)
-    {
-        # Resize system-a (p5)
-        parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB
+    echo "Calculated boundaries:" >> /var/log/rasqberry-expand.log
+    echo "  SYSTEM_A: ${SYSTEM_A_START} - ${SYSTEM_A_END} MiB" >> /var/log/rasqberry-expand.log
+    echo "  SYSTEM_B: ${SYSTEM_B_START} - ${SYSTEM_B_END} MiB" >> /var/log/rasqberry-expand.log
+    echo "  DATA: ${DATA_START} - 100%" >> /var/log/rasqberry-expand.log
 
-        # Delete and recreate system-b (p6) and data (p7)
-        parted -s /dev/mmcblk0 rm 7
-        parted -s /dev/mmcblk0 rm 6
-        parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB
-        parted -s /dev/mmcblk0 mkpart logical ext4 ${DATA_START}MiB 100%
+    # Step 2: Delete p7 and p6 first (must be done before resizing p5)
+    echo "Step 2: Deleting old partitions..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 rm 7 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Warning: Failed to delete partition 7" >> /var/log/rasqberry-expand.log
+    fi
+    if ! parted -s /dev/mmcblk0 rm 6 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Warning: Failed to delete partition 6" >> /var/log/rasqberry-expand.log
+    fi
 
-        # Resize filesystems
-        e2fsck -f -y /dev/mmcblk0p5 2>/dev/null || true
-        resize2fs /dev/mmcblk0p5
+    # Step 3: Expand extended partition (p4) to fill disk
+    echo "Step 3: Expanding extended partition..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 resizepart 4 100% >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to expand extended partition" >> /var/log/rasqberry-expand.log
+    fi
 
-        # Format new system-b and data partitions
-        mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6
-        mkfs.ext4 -F -L "data" /dev/mmcblk0p7
+    # Step 4: Resize system-a (p5)
+    echo "Step 4: Resizing system-a partition..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to resize partition 5" >> /var/log/rasqberry-expand.log
+    fi
 
-        # Recreate system-b structure
-        TEMP_MOUNT=$(mktemp -d)
-        mount /dev/mmcblk0p6 "$TEMP_MOUNT"
+    # Step 5: Create new system-b and data partitions
+    echo "Step 5: Creating new partitions..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to create system-b partition" >> /var/log/rasqberry-expand.log
+    fi
+    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${DATA_START}MiB 100% >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to create data partition" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Wait for kernel to recognize new partitions
+    partprobe /dev/mmcblk0
+    sleep 2
+
+    # Step 6: Resize system-a filesystem
+    echo "Step 6: Resizing system-a filesystem..." >> /var/log/rasqberry-expand.log
+    resize2fs /dev/mmcblk0p5 >> /var/log/rasqberry-expand.log 2>&1 || true
+
+    # Step 7: Format new partitions
+    echo "Step 7: Formatting new partitions..." >> /var/log/rasqberry-expand.log
+    if ! mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to format system-b" >> /var/log/rasqberry-expand.log
+    fi
+    if ! mkfs.ext4 -F -L "data" /dev/mmcblk0p7 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to format data" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Step 8: Set up system-b structure
+    echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
+    TEMP_MOUNT=$(mktemp -d)
+    if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
         mkdir -p "$TEMP_MOUNT"/{boot/config,boot/firmware,data,etc}
 
         # Create fstab for slot B
@@ -854,17 +898,22 @@ proc                        /proc           proc    defaults          0   0
 /dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
 EOF
         umount "$TEMP_MOUNT"
-        rmdir "$TEMP_MOUNT"
+    fi
+    rmdir "$TEMP_MOUNT" 2>/dev/null || true
 
-        # Reinitialize data partition
-        TEMP_MOUNT=$(mktemp -d)
-        mount /dev/mmcblk0p7 "$TEMP_MOUNT"
+    # Step 9: Set up data partition structure
+    echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
+    TEMP_MOUNT=$(mktemp -d)
+    if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
         mkdir -p "$TEMP_MOUNT"/{home,var/log}
         umount "$TEMP_MOUNT"
-        rmdir "$TEMP_MOUNT"
-    } 2>&1 | while read line; do
-        echo "$line" >> /var/log/rasqberry-expand.log
-    done
+    fi
+    rmdir "$TEMP_MOUNT" 2>/dev/null || true
+
+    # Remount /data for current session
+    mount /dev/mmcblk0p7 /data 2>/dev/null || true
+
+    echo "=== Expansion complete ===" >> /var/log/rasqberry-expand.log
 
     # Verify expansion
     NEW_SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
