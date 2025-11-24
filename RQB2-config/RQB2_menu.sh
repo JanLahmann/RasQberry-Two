@@ -1003,13 +1003,14 @@ pick_stream() {
     # Ensure TERM is set for whiptail
     [ -z "$TERM" ] && export TERM=linux
 
+    # Use explicit /dev/tty for input to ensure terminal access
     whiptail --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        3>&1 1>&2 2>&3
+        3>&1 1>&2 2>&3 < /dev/tty
 }
 
 # Pick release from stream
@@ -1052,7 +1053,7 @@ pick_release() {
     # shellcheck disable=SC2086
     selected=$(echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
         "Choose a release from the '$stream' stream:" \
-        20 70 10 3>&1 1>&2 2>&3)
+        20 70 10 3>&1 1>&2 2>&3 < /dev/tty)
 
     if [ -z "$selected" ]; then
         return 1
@@ -1106,7 +1107,7 @@ pick_image() {
         # shellcheck disable=SC2086
         selected=$(echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 3>&1 1>&2 2>&3)
+            16 80 5 3>&1 1>&2 2>&3 < /dev/tty)
     fi
 
     if [ -z "$selected" ]; then
