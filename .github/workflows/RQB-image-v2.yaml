@@ -957,6 +957,14 @@ jobs:
                 echo "Pip cache restored: $(du -sh $WORK_DIR_ABS/stage4/rootfs/root/.cache/pip | cut -f1)"
               fi
 
+              # Set up apt cache in rootfs if available (for Docker and other packages in custom stages)
+              if [ -d "$HOME/apt-cache" ] && [ -n "$(ls -A $HOME/apt-cache/*.deb 2>/dev/null)" ]; then
+                echo "Restoring apt cache to rootfs..."
+                sudo mkdir -p "$WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives"
+                sudo cp -n $HOME/apt-cache/*.deb "$WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives/" 2>/dev/null || true
+                echo "Apt cache restored: $(ls $WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives/*.deb 2>/dev/null | wc -l) packages"
+              fi
+
             else
               echo "ERROR: No work directory found in cache!"
               exit 1
@@ -988,6 +996,21 @@ jobs:
             mkdir -p ~/pip-cache
             sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
             echo "Pip cache saved: $(du -sh ~/pip-cache | cut -f1)"
+          fi
+
+      # Save apt cache from rootfs for future builds (Docker and other packages)
+      - name: Save apt cache from rootfs
+        if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        run: |
+          cd pi-gen
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/var/cache/apt/archives" ]; then
+            echo "Saving apt cache from rootfs..."
+            mkdir -p ~/apt-cache
+            # Copy new .deb files to apt-cache (skip existing to avoid re-copying)
+            sudo cp -n "$WORK_DIR/stage4/rootfs/var/cache/apt/archives"/*.deb ~/apt-cache/ 2>/dev/null || true
+            echo "Apt cache now contains: $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
+            echo "Apt cache size: $(du -sh ~/apt-cache | cut -f1)"
           fi
 
       # ========================================================================
