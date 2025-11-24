@@ -560,10 +560,10 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Cache frequently downloaded apt packages
-      - name: Cache apt packages
+      # Restore apt packages cache (using separate restore/save to avoid branch duplication)
+      - name: Restore apt packages cache
         id: cache-apt
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v4
         with:
           path: ~/apt-cache
           key: apt-packages-${{ runner.os }}-pigen-deps-v1
@@ -638,6 +638,14 @@ jobs:
           cp -v /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
           echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
           echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
+
+      # Save apt packages cache (only if not restored from cache)
+      - name: Save apt packages cache
+        if: steps.cache-apt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-cache
+          key: apt-packages-${{ runner.os }}-pigen-deps-v1
 
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
