@@ -40,6 +40,12 @@ python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-pack
 . /usr/bin/rq_install_qiskit.sh latest
 deactivate
 
+# Clean pip cache to reduce image size
+echo "Cleaning pip cache..."
+pip cache purge 2>/dev/null || true
+rm -rf /root/.cache/pip 2>/dev/null || true
+rm -rf /home/${FIRST_USER_NAME}/.cache/pip 2>/dev/null || true
+
 # Copy venv to system location for new users
 cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
 
