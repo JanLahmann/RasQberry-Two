@@ -1003,22 +1003,24 @@ pick_stream() {
     # Ensure TERM is set for whiptail
     [ -z "$TERM" ] && export TERM=linux
 
-    # Use temp file to avoid fd swapping issues in nested menu context
+    # Use temp file with --output-fd to separate selection from display
     local tmpfile=$(mktemp)
 
-    # Open /dev/tty for whiptail interaction, save result to tmpfile
-    exec 3</dev/tty 4>/dev/tty
+    # Open tmpfile for writing as fd 3
+    exec 3>"$tmpfile"
 
-    whiptail --title "Select Release Stream" --menu \
+    # Use --output-fd 3 to write selection to tmpfile
+    # Use /dev/tty for display (stderr) and input (stdin)
+    whiptail --output-fd 3 --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        2>"$tmpfile" <&3 >&4
+        </dev/tty 2>/dev/tty
 
     local exit_code=$?
-    exec 3<&- 4>&-
+    exec 3>&-
 
     if [ $exit_code -eq 0 ]; then
         cat "$tmpfile"
@@ -1067,17 +1069,17 @@ pick_release() {
     fi
 
     # Convert to whiptail menu format (tag date tag date ...)
-    # Use temp file to avoid fd swapping issues
+    # Use --output-fd to separate selection from display
     local tmpfile=$(mktemp)
-    exec 3</dev/tty 4>/dev/tty
+    exec 3>"$tmpfile"
 
     # shellcheck disable=SC2086
-    echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
+    echo "$menu_items" | xargs whiptail --output-fd 3 --title "Select Release" --menu \
         "Choose a release from the '$stream' stream:" \
-        20 70 10 2>"$tmpfile" <&3 >&4
+        20 70 10 </dev/tty 2>/dev/tty
 
     local exit_code=$?
-    exec 3<&- 4>&-
+    exec 3>&-
 
     if [ $exit_code -eq 0 ]; then
         selected=$(cat "$tmpfile")
@@ -1133,17 +1135,17 @@ pick_image() {
         echo "$selected"
         return 0
     else
-        # Multiple images, show selection menu using temp file
+        # Multiple images, show selection menu using --output-fd
         local tmpfile=$(mktemp)
-        exec 3</dev/tty 4>/dev/tty
+        exec 3>"$tmpfile"
 
         # shellcheck disable=SC2086
-        echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
+        echo "$menu_items" | xargs whiptail --output-fd 3 --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 2>"$tmpfile" <&3 >&4
+            16 80 5 </dev/tty 2>/dev/tty
 
         local exit_code=$?
-        exec 3<&- 4>&-
+        exec 3>&-
 
         if [ $exit_code -eq 0 ]; then
             selected=$(cat "$tmpfile")
