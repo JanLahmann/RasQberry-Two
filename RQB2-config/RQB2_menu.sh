@@ -887,7 +887,11 @@ do_expand_ab_partitions() {
     echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
-        mkdir -p "$TEMP_MOUNT"/{boot/config,boot/firmware,data,etc}
+        # Create directory structure (no brace expansion - POSIX sh compatible)
+        mkdir -p "$TEMP_MOUNT/boot/config"
+        mkdir -p "$TEMP_MOUNT/boot/firmware"
+        mkdir -p "$TEMP_MOUNT/data"
+        mkdir -p "$TEMP_MOUNT/etc"
 
         # Create fstab for slot B
         cat > "$TEMP_MOUNT/etc/fstab" << EOF
@@ -905,7 +909,9 @@ EOF
     echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
-        mkdir -p "$TEMP_MOUNT"/{home,var/log}
+        # Create directory structure (no brace expansion - POSIX sh compatible)
+        mkdir -p "$TEMP_MOUNT/home"
+        mkdir -p "$TEMP_MOUNT/var/log"
         umount "$TEMP_MOUNT"
     fi
     rmdir "$TEMP_MOUNT" 2>/dev/null || true
