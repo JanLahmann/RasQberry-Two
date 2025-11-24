@@ -1011,6 +1011,8 @@ do_slot_manager_menu() {
             CONFIRM  "Confirm current slot (prevent rollback)" \
             SWITCH_A "Switch to Slot A on next reboot" \
             SWITCH_B "Switch to Slot B on next reboot" \
+            UPDATE   "Update Slot B with new image" \
+            ROLLBACK "Force rollback to other slot" \
             PROMOTE  "Promote Slot B to Slot A") || break
 
         case "$FUN" in
@@ -1038,6 +1040,44 @@ do_slot_manager_menu() {
                     local switch_output
                     switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to B 2>&1)
                     whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            UPDATE)
+                local image_url
+                image_url=$(whiptail --title "Update Slot B" --inputbox \
+                    "Enter the full URL of the image to download:\n\n(e.g., https://github.com/.../image.img.xz)" \
+                    12 70 3>&1 1>&2 2>&3) || continue
+
+                if [ -z "$image_url" ]; then
+                    whiptail --title "Error" --msgbox "No URL provided." 8 40
+                    continue
+                fi
+
+                local release_tag
+                release_tag=$(whiptail --title "Update Slot B" --inputbox \
+                    "Enter the release tag/version identifier:\n\n(e.g., dev-features03-2025-11-24)" \
+                    10 60 3>&1 1>&2 2>&3) || continue
+
+                if [ -z "$release_tag" ]; then
+                    whiptail --title "Error" --msgbox "No release tag provided." 8 40
+                    continue
+                fi
+
+                if whiptail --title "Confirm Update" --yesno \
+                    "This will download and install a new image to Slot B.\n\nURL: $image_url\nTag: $release_tag\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
+
+                    whiptail --title "Updating Slot B" --infobox \
+                        "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
+
+                    /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+                fi
+                ;;
+            ROLLBACK)
+                if whiptail --title "Force Rollback" --yesno \
+                    "This will force a rollback to the other slot.\n\nUse this if the current slot is having problems.\n\nContinue?" 12 60; then
+                    local rollback_output
+                    rollback_output=$(/usr/local/bin/rq_slot_manager.sh rollback 2>&1)
+                    whiptail --title "Rollback" --msgbox "$rollback_output\n\nReboot required for changes to take effect." 14 60
                 fi
                 ;;
             PROMOTE)
