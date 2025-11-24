@@ -989,6 +989,137 @@ do_ab_boot_menu() {
     done
 }
 
+# GitHub Release Picker Helper Functions
+# Fetch releases from GitHub and select image via menus
+
+# Pick stream (dev/beta/stable)
+pick_stream() {
+    whiptail --title "Select Release Stream" --menu \
+        "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
+        16 60 3 \
+        "dev"    "Development builds" \
+        "beta"   "Beta releases" \
+        "stable" "Stable releases" \
+        3>&1 1>&2 2>&3
+}
+
+# Pick release from stream
+pick_release() {
+    local stream="$1"
+    local releases_json
+    local menu_items
+    local selected
+
+    # Fetch releases from GitHub
+    whiptail --title "Fetching Releases" --infobox \
+        "Fetching releases from GitHub...\n\nPlease wait." 8 50
+
+    releases_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases" 2>/dev/null)
+
+    if [ -z "$releases_json" ] || echo "$releases_json" | grep -q '"message"'; then
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60
+        return 1
+    fi
+
+    # Filter releases by stream prefix and build menu items
+    # Format: tag_name + created_at for display
+    menu_items=$(echo "$releases_json" | jq -r --arg stream "$stream" '
+        [.[] | select(.tag_name | startswith($stream + "-"))] |
+        sort_by(.created_at) | reverse |
+        .[0:10] |
+        .[] |
+        "\(.tag_name)\n\(.created_at | split("T")[0])"
+    ' 2>/dev/null)
+
+    if [ -z "$menu_items" ]; then
+        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50
+        return 1
+    fi
+
+    # Convert to whiptail menu format (tag date tag date ...)
+    # shellcheck disable=SC2086
+    selected=$(echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
+        "Choose a release from the '$stream' stream:" \
+        20 70 10 3>&1 1>&2 2>&3)
+
+    if [ -z "$selected" ]; then
+        return 1
+    fi
+
+    echo "$selected"
+}
+
+# Pick image from release assets
+pick_image() {
+    local release_tag="$1"
+    local assets_json
+    local menu_items
+    local selected
+
+    # Fetch release assets
+    whiptail --title "Fetching Images" --infobox \
+        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60
+
+    assets_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases/tags/$release_tag" 2>/dev/null)
+
+    if [ -z "$assets_json" ] || echo "$assets_json" | grep -q '"message"'; then
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60
+        return 1
+    fi
+
+    # Filter for .img.xz files and build menu items
+    menu_items=$(echo "$assets_json" | jq -r '
+        .assets[] |
+        select(.name | endswith(".img.xz")) |
+        "\(.browser_download_url)\n\(.name) (\(.size / 1024 / 1024 | floor)MB)"
+    ' 2>/dev/null)
+
+    if [ -z "$menu_items" ]; then
+        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50
+        return 1
+    fi
+
+    # Count number of images
+    local image_count
+    image_count=$(echo "$menu_items" | grep -c "^https")
+
+    if [ "$image_count" -eq 1 ]; then
+        # Only one image, return it directly
+        selected=$(echo "$menu_items" | head -1)
+    else
+        # Multiple images, show selection menu
+        # shellcheck disable=SC2086
+        selected=$(echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
+            "Multiple images available.\nChoose the image type:" \
+            16 80 5 3>&1 1>&2 2>&3)
+    fi
+
+    if [ -z "$selected" ]; then
+        return 1
+    fi
+
+    echo "$selected"
+}
+
+# Main release picker function - returns "url|tag" or empty on cancel
+do_pick_release_image() {
+    local stream
+    local release_tag
+    local image_url
+
+    # Step 1: Pick stream
+    stream=$(pick_stream) || return 1
+
+    # Step 2: Pick release from stream
+    release_tag=$(pick_release "$stream") || return 1
+
+    # Step 3: Pick image from release
+    image_url=$(pick_image "$release_tag") || return 1
+
+    # Return url|tag format
+    echo "${image_url}|${release_tag}"
+}
+
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
     # Check if this is an AB boot image
@@ -1043,28 +1174,27 @@ do_slot_manager_menu() {
                 fi
                 ;;
             UPDATE)
+                # Use release picker to select image from GitHub
+                local picker_result
+                picker_result=$(do_pick_release_image) || continue
+
+                # Parse result (url|tag format)
                 local image_url
-                image_url=$(whiptail --title "Update Slot B" --inputbox \
-                    "Enter the full URL of the image to download:\n\n(e.g., https://github.com/.../image.img.xz)" \
-                    12 70 3>&1 1>&2 2>&3) || continue
-
-                if [ -z "$image_url" ]; then
-                    whiptail --title "Error" --msgbox "No URL provided." 8 40
-                    continue
-                fi
-
                 local release_tag
-                release_tag=$(whiptail --title "Update Slot B" --inputbox \
-                    "Enter the release tag/version identifier:\n\n(e.g., dev-features03-2025-11-24)" \
-                    10 60 3>&1 1>&2 2>&3) || continue
+                image_url=$(echo "$picker_result" | cut -d'|' -f1)
+                release_tag=$(echo "$picker_result" | cut -d'|' -f2)
 
-                if [ -z "$release_tag" ]; then
-                    whiptail --title "Error" --msgbox "No release tag provided." 8 40
+                if [ -z "$image_url" ] || [ -z "$release_tag" ]; then
+                    whiptail --title "Error" --msgbox "Failed to get image selection." 8 50
                     continue
                 fi
+
+                # Extract just the filename for display
+                local image_name
+                image_name=$(basename "$image_url")
 
                 if whiptail --title "Confirm Update" --yesno \
-                    "This will download and install a new image to Slot B.\n\nURL: $image_url\nTag: $release_tag\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
+                    "This will download and install:\n\nRelease: $release_tag\nImage: $image_name\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
 
                     whiptail --title "Updating Slot B" --infobox \
                         "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
