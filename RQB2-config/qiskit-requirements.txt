@@ -1,0 +1,56 @@
+# RasQberry Qiskit Requirements
+# This file defines the default Qiskit packages installed in the RasQberry image
+# Used by: rq_install_qiskit.sh and GitHub Actions pip cache
+#
+# Note: qiskit[all] is installed separately with version constraint by the script
+# Related issues: #32, #127, #149
+
+# =============================================================================
+# Core Qiskit extension packages
+# =============================================================================
+qiskit-ibm-runtime
+qiskit-aer
+
+# =============================================================================
+# Application modules
+# =============================================================================
+qiskit-optimization
+qiskit-machine-learning
+qiskit-nature
+qiskit-finance
+qiskit-experiments
+
+# =============================================================================
+# Jupyter and visualization
+# =============================================================================
+jupyterlab
+notebook
+ipywidgets
+plotly
+
+# =============================================================================
+# Scientific computing
+# =============================================================================
+matplotlib
+numpy
+scipy
+pandas
+sympy
+seaborn
+pillow
+
+# =============================================================================
+# Hardware integration (RasQberry-specific)
+# =============================================================================
+adafruit-blinka
+adafruit-circuitpython-neopixel
+pygobject
+sense-hat
+sense-emu
+
+# =============================================================================
+# Automation and testing
+# =============================================================================
+selenium
+webdriver-manager
+celluloid

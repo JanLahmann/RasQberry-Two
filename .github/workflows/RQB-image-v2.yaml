@@ -569,6 +569,19 @@ jobs:
           key: apt-packages-${{ runner.os }}-pigen-deps-v1
           restore-keys: |
             apt-packages-${{ runner.os }}-pigen-deps-
+
+      # Cache pip packages for Qiskit installation
+      # Keyed on requirements hash + monthly rotation to pick up new Qiskit releases
+      - name: Cache pip packages
+        id: cache-pip
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/pip-cache
+          key: pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+          restore-keys: |
+            pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-
+            pip-qiskit-arm64-
           
       # ========================================================================
       # PI-GEN DEPENDENCIES
@@ -927,14 +940,22 @@ jobs:
               # Update package lists in cached rootfs (may be stale)
               echo "Refreshing package lists in cached rootfs..."
               sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Warning: Failed to update package lists"
-              
+
+              # Set up pip cache in rootfs if available
+              if [ -d "$HOME/pip-cache" ] && [ -n "$(ls -A $HOME/pip-cache 2>/dev/null)" ]; then
+                echo "Restoring pip cache to rootfs..."
+                sudo mkdir -p "$WORK_DIR_ABS/stage4/rootfs/root/.cache/pip"
+                sudo cp -r $HOME/pip-cache/* "$WORK_DIR_ABS/stage4/rootfs/root/.cache/pip/" 2>/dev/null || true
+                echo "Pip cache restored: $(du -sh $WORK_DIR_ABS/stage4/rootfs/root/.cache/pip | cut -f1)"
+              fi
+
             else
               echo "ERROR: No work directory found in cache!"
               exit 1
             fi
           else
             echo "Building custom stage on fresh base..."
-            
+
             # For fresh builds or no cache, continue from base build
             echo "CONTINUE=1" >> config
             echo 'STAGE_LIST="./stage-RQB2"' >> config
@@ -947,6 +968,19 @@ jobs:
           
           # Build the custom RasQberry stage
           sudo ./build.sh
+
+      # Save pip cache from rootfs for future builds
+      - name: Save pip cache from rootfs
+        if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        run: |
+          cd pi-gen
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/root/.cache/pip" ]; then
+            echo "Saving pip cache from rootfs..."
+            mkdir -p ~/pip-cache
+            sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
+            echo "Pip cache saved: $(du -sh ~/pip-cache | cut -f1)"
+          fi
 
       # ========================================================================
       # IMAGE FINALIZATION

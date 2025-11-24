@@ -478,11 +478,11 @@ check_environment_variable() {
 # 3b) Qiskit Install Menu
 # -----------------------------------------------------------------------------
 
-# install any version of qiskit. $1 parameter is the version (e.g. 0.37 = 037), set $2=silent for one-time silent (no whiptail popup) install
-# Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
-# Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
+# Install any version of Qiskit using consolidated script
+# $1 = version (latest, 1.0, 1.1)
+# $2 = silent (optional, suppresses whiptail popup)
 do_rqb_install_qiskit() {
-  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_Qiskit$1.sh"
+  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
   if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
@@ -492,12 +492,12 @@ do_rqb_qiskit_menu() {
     while true; do
         FUN=$(show_menu "Qiskit Install" "Choose version to install" \
            Qnew  "Install Qiskit (latest)" \
-           Q0101 "Install Qiskit v1.1" \
-           Q0100 "Install Qiskit v1.0") || break
+           Q11   "Install Qiskit v1.1" \
+           Q10   "Install Qiskit v1.0") || break
         case "$FUN" in
-            Q0101) do_rqb_install_qiskit 0101 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
-            Q0100) do_rqb_install_qiskit 0100 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
-            Qnew)  do_rqb_install_qiskit _latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
+            Q11)   do_rqb_install_qiskit 1.1 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
+            Q10)   do_rqb_install_qiskit 1.0 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
+            Qnew)  do_rqb_install_qiskit latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
             *)      break ;;
         esac
     done
