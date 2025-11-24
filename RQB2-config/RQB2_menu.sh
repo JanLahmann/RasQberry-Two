@@ -1122,6 +1122,14 @@ do_pick_release_image() {
     local release_tag
     local image_url
 
+    # Check if we have access to /dev/tty for interactive dialogs
+    if [ ! -c /dev/tty ] || ! : 2>/dev/tty; then
+        whiptail --title "Terminal Required" --msgbox \
+            "Interactive menu requires a controlling terminal.\n\nPlease run raspi-config from:\n  - Direct console (keyboard + monitor)\n  - SSH with proper TTY allocation\n  - VNC terminal (not X terminal)" \
+            12 60
+        return 1
+    fi
+
     # Step 1: Pick stream
     stream=$(pick_stream) || return 1
 
