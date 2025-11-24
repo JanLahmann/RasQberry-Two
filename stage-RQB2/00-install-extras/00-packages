@@ -13,3 +13,6 @@ sense-hat
 chromium-browser
 chromium-chromedriver
 libxcb-cursor-dev
+# utilities for A/B boot release picker
+jq
+curl
