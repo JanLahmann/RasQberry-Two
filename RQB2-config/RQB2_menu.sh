@@ -968,19 +968,108 @@ do_select_led_layout() {
   esac
 }
 
+# A/B Boot Administration Menu
+do_ab_boot_menu() {
+    while true; do
+        # Check if this is an AB boot image
+        local is_ab_image="No"
+        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qE "^(config|bootfs-cmn)$"; then
+            is_ab_image="Yes"
+        fi
+
+        FUN=$(show_menu "RasQberry: A/B Boot Administration" "A/B Image: ${is_ab_image}" \
+            EXPAND "Expand A/B Partitions (64GB+ SD)" \
+            SLOTS  "Slot Manager (switch, confirm, promote)") || break
+
+        case "$FUN" in
+            EXPAND) do_expand_ab_partitions || continue ;;
+            SLOTS)  do_slot_manager_menu    || continue ;;
+            *)      continue ;;
+        esac
+    done
+}
+
+# A/B Boot Slot Manager Menu
+do_slot_manager_menu() {
+    # Check if this is an AB boot image
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qE "^(config|bootfs-cmn)$"; then
+        whiptail --title "Not AB Boot Image" --msgbox \
+            "This system is not running an A/B boot image.\n\nSlot management is only available for AB boot layouts." \
+            10 60
+        return 1
+    fi
+
+    while true; do
+        # Get current status for menu display
+        local current_slot
+        current_slot=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
+        local slot_status
+        slot_status=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
+
+        FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
+            STATUS   "Show detailed slot status" \
+            CONFIRM  "Confirm current slot (prevent rollback)" \
+            SWITCH_A "Switch to Slot A on next reboot" \
+            SWITCH_B "Switch to Slot B on next reboot" \
+            PROMOTE  "Promote Slot B to Slot A") || break
+
+        case "$FUN" in
+            STATUS)
+                local status_output
+                status_output=$(/usr/local/bin/rq_slot_manager.sh status 2>&1)
+                whiptail --title "A/B Boot Status" --msgbox "$status_output" 20 70
+                ;;
+            CONFIRM)
+                local confirm_output
+                confirm_output=$(/usr/local/bin/rq_slot_manager.sh confirm 2>&1)
+                whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
+                ;;
+            SWITCH_A)
+                if whiptail --title "Switch to Slot A" --yesno \
+                    "This will configure the system to boot from Slot A on next reboot.\n\nContinue?" 10 60; then
+                    local switch_output
+                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to A 2>&1)
+                    whiptail --title "Switch to Slot A" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            SWITCH_B)
+                if whiptail --title "Switch to Slot B" --yesno \
+                    "This will configure the system to boot from Slot B on next reboot.\n\nNote: Slot B must have a valid system image installed.\n\nContinue?" 12 60; then
+                    local switch_output
+                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to B 2>&1)
+                    whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            PROMOTE)
+                if whiptail --title "Promote Slot B" --yesno \
+                    "This will promote Slot B to become the new Slot A.\n\nThis copies the tested Slot B system to Slot A.\n\nWARNING: This will overwrite Slot A!\n\nContinue?" 14 60; then
+                    whiptail --title "Promoting Slot B" --infobox \
+                        "Promoting Slot B to Slot A...\n\nThis may take several minutes." 8 50
+                    local promote_output
+                    promote_output=$(/usr/local/bin/rq_slot_manager.sh promote 2>&1)
+                    whiptail --title "Promote Result" --msgbox "$promote_output" 16 70
+                fi
+                ;;
+            *)
+                continue
+                ;;
+        esac
+    done
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD     "Quantum Demos" \
-       UEF    "Update Env File" \
-       EXPAND "Expand A/B Partitions (64GB+ SD)" \
-       INFO   "System Info") || break
+       QD      "Quantum Demos" \
+       UEF     "Update Env File" \
+       AB_BOOT "A/B Boot Administration" \
+       INFO    "System Info") || break
     case "$FUN" in
-      QD)     do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
-      UEF)    do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      EXPAND) do_expand_ab_partitions        || continue ;;
-      INFO)   do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
-      *)      handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
+      QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      AB_BOOT) do_ab_boot_menu                || continue ;;
+      INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      *)       handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
 }
