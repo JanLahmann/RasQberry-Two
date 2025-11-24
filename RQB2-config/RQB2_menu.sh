@@ -1003,14 +1003,31 @@ pick_stream() {
     # Ensure TERM is set for whiptail
     [ -z "$TERM" ] && export TERM=linux
 
-    # Use explicit /dev/tty for input to ensure terminal access
+    # Use temp file to avoid fd swapping issues in nested menu context
+    local tmpfile=$(mktemp)
+
+    # Open /dev/tty for whiptail interaction, save result to tmpfile
+    exec 3</dev/tty 4>/dev/tty
+
     whiptail --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        3>&1 1>&2 2>&3 < /dev/tty
+        2>"$tmpfile" <&3 >&4
+
+    local exit_code=$?
+    exec 3<&- 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        cat "$tmpfile"
+        rm -f "$tmpfile"
+        return 0
+    else
+        rm -f "$tmpfile"
+        return 1
+    fi
 }
 
 # Pick release from stream
@@ -1050,16 +1067,27 @@ pick_release() {
     fi
 
     # Convert to whiptail menu format (tag date tag date ...)
-    # shellcheck disable=SC2086
-    selected=$(echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
-        "Choose a release from the '$stream' stream:" \
-        20 70 10 3>&1 1>&2 2>&3 < /dev/tty)
+    # Use temp file to avoid fd swapping issues
+    local tmpfile=$(mktemp)
+    exec 3</dev/tty 4>/dev/tty
 
-    if [ -z "$selected" ]; then
+    # shellcheck disable=SC2086
+    echo "$menu_items" | xargs whiptail --title "Select Release" --menu \
+        "Choose a release from the '$stream' stream:" \
+        20 70 10 2>"$tmpfile" <&3 >&4
+
+    local exit_code=$?
+    exec 3<&- 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        selected=$(cat "$tmpfile")
+        rm -f "$tmpfile"
+        echo "$selected"
+        return 0
+    else
+        rm -f "$tmpfile"
         return 1
     fi
-
-    echo "$selected"
 }
 
 # Pick image from release assets
@@ -1102,19 +1130,31 @@ pick_image() {
     if [ "$image_count" -eq 1 ]; then
         # Only one image, return it directly
         selected=$(echo "$menu_items" | head -1)
+        echo "$selected"
+        return 0
     else
-        # Multiple images, show selection menu
+        # Multiple images, show selection menu using temp file
+        local tmpfile=$(mktemp)
+        exec 3</dev/tty 4>/dev/tty
+
         # shellcheck disable=SC2086
-        selected=$(echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
+        echo "$menu_items" | xargs whiptail --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 3>&1 1>&2 2>&3 < /dev/tty)
-    fi
+            16 80 5 2>"$tmpfile" <&3 >&4
 
-    if [ -z "$selected" ]; then
-        return 1
-    fi
+        local exit_code=$?
+        exec 3<&- 4>&-
 
-    echo "$selected"
+        if [ $exit_code -eq 0 ]; then
+            selected=$(cat "$tmpfile")
+            rm -f "$tmpfile"
+            echo "$selected"
+            return 0
+        else
+            rm -f "$tmpfile"
+            return 1
+        fi
+    fi
 }
 
 # Main release picker function - returns "url|tag" or empty on cancel
