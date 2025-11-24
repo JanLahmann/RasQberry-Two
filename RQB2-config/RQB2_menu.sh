@@ -28,7 +28,6 @@ else
     USER_HOME="${USER_HOME:-/home/${SUDO_USER:-$USER}}"
     REPO="${REPO:-RasQberry-Two}"
     STD_VENV="${STD_VENV:-RQB2}"
-    RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
 fi
 
 # Constants and reusable paths

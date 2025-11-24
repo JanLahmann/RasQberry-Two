@@ -13,7 +13,6 @@ if [ -f "/tmp/stage-config" ]; then
     GIT_BRANCH="${RQB_GIT_BRANCH}"
     GIT_REPO="${RQB_GIT_REPO}"
     STD_VENV="${RQB_STD_VENV}"
-    RQB2_CONFDIR="${RQB_CONFDIR}"
     PIGEN="${RQB_PIGEN}"
     
     echo "Configuration loaded successfully"
@@ -33,7 +32,6 @@ echo "  GIT_BRANCH: $GIT_BRANCH"
 echo "  GIT_REPO: $GIT_REPO"
 echo "  CLONE_DIR: $CLONE_DIR"
 echo "  STD_VENV: $STD_VENV"
-echo "  RQB2_CONFDIR: $RQB2_CONFDIR"
 echo "  PIGEN: $PIGEN"
 echo "  FIRST_USER_NAME: ${FIRST_USER_NAME}"
 
@@ -66,7 +64,6 @@ if [ ! -d "${CLONE_DIR}/RQB2-bin" ]; then
 fi
 
 # Create necessary directories
-[ ! -d /home/${FIRST_USER_NAME}/${RQB2_CONFDIR} ] && mkdir -p /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 [ ! -d /home/${FIRST_USER_NAME}/${REPO}/demos ] && mkdir -p /home/${FIRST_USER_NAME}/${REPO}/demos
 [ ! -d /usr/config ] && mkdir -p /usr/config
 [ ! -d /usr/venv ] && mkdir -p /usr/venv
@@ -75,10 +72,7 @@ fi
 chmod -R 755 ${CLONE_DIR}/RQB2-bin
 chmod -R 755 ${CLONE_DIR}/RQB2-config
 
-# Copy configuration files to user directory
-cp -r ${CLONE_DIR}/RQB2-config/* /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}/
-
-# Copy files to system directories
+# Copy files to system directories (global, not user-specific)
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
@@ -88,9 +82,6 @@ if [ -f ${CLONE_DIR}/VERSION ]; then
   chmod 644 /etc/rasqberry-version
   echo "Installed RasQberry version: $(cat /etc/rasqberry-version)"
 fi
-
-# Set permissions on target directories
-chmod 755 /home/${FIRST_USER_NAME}/${RQB2_CONFDIR}
 
 # Set permissions on system-wide directories (must be world-accessible)
 chmod 755 /usr/config   # World-readable/executable so users can access config files
