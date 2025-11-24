@@ -62,7 +62,30 @@ get_target_slot() {
 }
 
 get_slot_partition() {
-    # Get the partition device for a slot
+    # Get the system partition device for a slot
+    # v3 AB layout: p5=system-a, p6=system-b
+    local slot="$1"
+    local root_part
+    root_part=$(findmnt / -o source -n)
+    local root_dev
+    root_dev=$(lsblk -no pkname "$root_part")
+
+    case "$slot" in
+        A)
+            echo "/dev/${root_dev}p5"
+            ;;
+        B)
+            echo "/dev/${root_dev}p6"
+            ;;
+        *)
+            die "Invalid slot: $slot"
+            ;;
+    esac
+}
+
+get_boot_partition() {
+    # Get the boot partition device for a slot
+    # v3 AB layout: p2=boot-a, p3=boot-b
     local slot="$1"
     local root_part
     root_part=$(findmnt / -o source -n)
@@ -126,22 +149,166 @@ verify_image() {
 }
 
 write_image_to_slot() {
-    # Write the image to the inactive slot partition
+    # Extract and write image to target slot (both boot and system partitions)
     local image_file="$1"
-    local target_partition="$2"
+    local system_partition="$2"
+    local boot_partition="$3"
+    local target_slot="$4"
 
-    log_message "Writing image to partition: $target_partition"
+    log_message "Installing image to Slot $target_slot"
+    log_message "  System partition: $system_partition"
+    log_message "  Boot partition: $boot_partition"
+
+    # Create work directory
+    local work_dir="${DOWNLOAD_DIR}/extract-$$"
+    mkdir -p "$work_dir"
+
+    # Decompress image
+    log_message "Decompressing image..."
+    local raw_image="${work_dir}/image.img"
+    if ! xz -dc "$image_file" > "$raw_image" 2>&1; then
+        rm -rf "$work_dir"
+        die "Failed to decompress image"
+    fi
+    log_message "Decompression complete"
+
+    # Set up loop device for the image
+    log_message "Setting up loop device..."
+    local loop_dev
+    loop_dev=$(losetup -f --show -P "$raw_image") || {
+        rm -rf "$work_dir"
+        die "Failed to set up loop device"
+    }
+    log_message "Loop device: $loop_dev"
+
+    # Wait for partitions to appear
+    sleep 2
+    partprobe "$loop_dev" 2>/dev/null || true
+    sleep 1
+
+    # Identify image partitions
+    local img_boot="${loop_dev}p1"
+    local img_root="${loop_dev}p2"
+
+    if [ ! -b "$img_boot" ] || [ ! -b "$img_root" ]; then
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Could not find image partitions (expected ${loop_dev}p1 and ${loop_dev}p2)"
+    fi
+
+    # Mount image boot partition and copy to target boot partition
+    log_message "Copying boot files to $boot_partition..."
+    local img_boot_mount="${work_dir}/img_boot"
+    local tgt_boot_mount="${work_dir}/tgt_boot"
+    mkdir -p "$img_boot_mount" "$tgt_boot_mount"
+
+    mount -o ro "$img_boot" "$img_boot_mount" || {
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Failed to mount image boot partition"
+    }
+
+    # Format and mount target boot partition
+    mkfs.vfat -F 32 -n "boot-${target_slot,,}" "$boot_partition" >> "$LOG_FILE" 2>&1 || {
+        umount "$img_boot_mount"
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Failed to format boot partition"
+    }
+
+    mount "$boot_partition" "$tgt_boot_mount" || {
+        umount "$img_boot_mount"
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Failed to mount target boot partition"
+    }
+
+    # Copy all boot files
+    cp -a "$img_boot_mount"/* "$tgt_boot_mount"/ 2>&1 | tee -a "$LOG_FILE" || {
+        umount "$tgt_boot_mount"
+        umount "$img_boot_mount"
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Failed to copy boot files"
+    }
+
+    # Update cmdline.txt for the target slot
+    log_message "Updating cmdline.txt for Slot $target_slot..."
+    if [ -f "$tgt_boot_mount/cmdline.txt" ]; then
+        # Clean up cmdline.txt:
+        # - Replace root partition reference
+        # - Remove firstboot init (not needed for slot updates)
+        # - Remove quiet/splash for better debugging
+        # - Remove leading whitespace
+        sed -i "s|root=[^ ]*|root=${system_partition}|g" "$tgt_boot_mount/cmdline.txt"
+        sed -i 's| init=[^ ]*||g' "$tgt_boot_mount/cmdline.txt"
+        sed -i 's| splash||g' "$tgt_boot_mount/cmdline.txt"
+        sed -i 's| plymouth.ignore-serial-consoles||g' "$tgt_boot_mount/cmdline.txt"
+        sed -i 's| quiet||g' "$tgt_boot_mount/cmdline.txt"
+        sed -i 's|^ *||g' "$tgt_boot_mount/cmdline.txt"
+        log_message "cmdline.txt updated: root=${system_partition}"
+        log_message "Removed: init, splash, plymouth, quiet"
+    fi
+
+    # Unmount boot partitions
+    sync
+    umount "$tgt_boot_mount"
+    umount "$img_boot_mount"
+    log_message "Boot files copied successfully"
+
+    # Write rootfs to system partition
+    log_message "Writing rootfs to $system_partition..."
     log_message "This may take 10-20 minutes..."
 
-    # Decompress and write in one command (saves disk space)
-    # dd with status=progress for feedback
-    if xz -dc "$image_file" | dd of="$target_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
-        log_message "Image written successfully"
-        sync  # Ensure all data is written
-        log_message "Sync complete"
+    if dd if="$img_root" of="$system_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
+        log_message "Rootfs written successfully"
     else
-        die "Failed to write image to partition"
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Failed to write rootfs to partition"
     fi
+
+    # Release loop device (no longer needed)
+    losetup -d "$loop_dev"
+
+    # Resize filesystem to fill partition
+    log_message "Resizing filesystem..."
+    e2fsck -f -y "$system_partition" >> "$LOG_FILE" 2>&1 || true
+    resize2fs "$system_partition" >> "$LOG_FILE" 2>&1 || warn "Could not resize filesystem"
+
+    # Mount and update fstab
+    log_message "Updating fstab for Slot $target_slot..."
+    local tgt_root_mount="${work_dir}/tgt_root"
+    mkdir -p "$tgt_root_mount"
+
+    mount "$system_partition" "$tgt_root_mount" || {
+        rm -rf "$work_dir"
+        die "Failed to mount target root partition"
+    }
+
+    # Update fstab for v3 AB layout
+    if [ -f "$tgt_root_mount/etc/fstab" ]; then
+        local root_part
+        root_part=$(findmnt / -o source -n)
+        local root_dev
+        root_dev=$(lsblk -no pkname "$root_part")
+
+        cat > "$tgt_root_mount/etc/fstab" << EOF
+proc                        /proc           proc    defaults          0   0
+/dev/${root_dev}p1          /boot/config    vfat    defaults          0   2
+${boot_partition}           /boot/firmware  vfat    defaults          0   2
+${system_partition}         /               ext4    defaults,noatime  0   1
+/dev/${root_dev}p7          /data           ext4    defaults,noatime  0   2
+EOF
+        log_message "fstab updated for Slot $target_slot"
+    fi
+
+    # Unmount and cleanup
+    sync
+    umount "$tgt_root_mount"
+    rm -rf "$work_dir"
+
+    log_message "Image installation complete"
 }
 
 cleanup_download() {
@@ -172,8 +339,7 @@ configure_tryboot() {
 reboot_system() {
     # Reboot the system to activate the new slot
     log_message "Rebooting system to activate new slot..."
-    log_message "System will boot into new slot and run health checks"
-    log_message "If health checks fail, system will automatically rollback"
+    log_message "System will boot into Slot ${TARGET_SLOT}"
 
     sync
 
@@ -285,14 +451,20 @@ EOF
     # Create download directory
     mkdir -p "$DOWNLOAD_DIR"
 
-    # Determine target slot partition
-    local target_partition
-    target_partition=$(get_slot_partition "$TARGET_SLOT")
-    log_message "Target partition: $target_partition"
+    # Determine target slot partitions
+    local system_partition
+    local boot_partition
+    system_partition=$(get_slot_partition "$TARGET_SLOT")
+    boot_partition=$(get_boot_partition "$TARGET_SLOT")
+    log_message "Target system partition: $system_partition"
+    log_message "Target boot partition: $boot_partition"
 
-    # Check if partition exists
-    if [ ! -b "$target_partition" ]; then
-        die "Target partition does not exist: $target_partition"
+    # Check if partitions exist
+    if [ ! -b "$system_partition" ]; then
+        die "Target system partition does not exist: $system_partition"
+    fi
+    if [ ! -b "$boot_partition" ]; then
+        die "Target boot partition does not exist: $boot_partition"
     fi
 
     # Download image
@@ -308,8 +480,8 @@ EOF
     # Verify download
     verify_image "$image_file"
 
-    # Write image to target slot
-    write_image_to_slot "$image_file" "$target_partition"
+    # Write image to target slot (both boot and system partitions)
+    write_image_to_slot "$image_file" "$system_partition" "$boot_partition" "$TARGET_SLOT"
 
     # Cleanup
     cleanup_download "$image_file"

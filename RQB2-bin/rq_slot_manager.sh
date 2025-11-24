@@ -302,21 +302,33 @@ cmd_switch_to() {
 
     info "Configuring boot to Slot ${target_slot}..."
 
-    # Set tryboot for the target slot
-    mkdir -p "${BOOT_DIR}"
+    # Ensure boot config directory exists
+    mkdir -p "${BOOT_COMMON_DIR}"
 
-    # Update autoboot.txt to enable tryboot
-    echo "tryboot_a_b=1" > "${AUTOBOOT_TXT}"
+    # Determine boot partition for target slot
+    # v3 layout: p2=boot-a (Slot A), p3=boot-b (Slot B)
+    local boot_partition
+    if [ "$target_slot" = "A" ]; then
+        boot_partition=2
+    else
+        boot_partition=3
+    fi
+
+    # Write autoboot.txt with boot_partition
+    # Note: tryboot_a_b is not supported on Pi 5 bootloader, use direct boot_partition instead
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+boot_partition=${boot_partition}
+EOF
 
     # Clear confirmation (will test new slot)
     rm -f "${SLOT_CONFIRMED_FILE}"
 
     # Mark which slot we're trying to boot
-    echo "${target_slot}" > "${BOOT_DIR}/target-slot"
+    echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
 
-    info "Next boot will try Slot ${target_slot}"
-    warn "If Slot ${target_slot} fails health check, system will rollback"
-    info "Reboot now to switch: sudo reboot"
+    info "Slot ${target_slot} configured (boot_partition=${boot_partition})"
+    info "Reboot to switch: sudo reboot"
 }
 
 cmd_rollback() {
