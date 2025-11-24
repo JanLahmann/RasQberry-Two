@@ -1000,6 +1000,9 @@ do_ab_boot_menu() {
 
 # Pick stream (dev/beta/stable)
 pick_stream() {
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
     whiptail --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
@@ -1015,6 +1018,9 @@ pick_release() {
     local releases_json
     local menu_items
     local selected
+
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
 
     # Fetch releases from GitHub
     whiptail --title "Fetching Releases" --infobox \
@@ -1061,6 +1067,9 @@ pick_image() {
     local assets_json
     local menu_items
     local selected
+
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
 
     # Fetch release assets
     whiptail --title "Fetching Images" --infobox \
