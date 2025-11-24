@@ -36,7 +36,8 @@ commit_parsers = [
     { body = ".*", group = "Other" },
 ]
 filter_commits = false
-tag_pattern = "v[0-9].*"
+# Match all tag patterns: v1.0.0, dev-*, beta-*, stable-*
+tag_pattern = ".*"
 skip_tags = ""
 ignore_tags = ""
 topo_order = false
