@@ -1010,14 +1010,14 @@ pick_stream() {
     exec 4>"$tmpfile"
 
     # Use --output-fd 4 to write selection to tmpfile
-    # Use /dev/tty for input (stdin) only, let stderr go to normal terminal
+    # Redirect UI (stdout/stderr) to the tty; only the selection goes to fd 4
     whiptail --output-fd 4 --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        </dev/tty
+        1>/dev/tty 2>/dev/tty </dev/tty
 
     local exit_code=$?
     exec 4>&-
@@ -1035,6 +1035,8 @@ pick_stream() {
 # Pick release from stream
 pick_release() {
     local stream="$1"
+    local github_user_param="$2"
+    local github_repo_param="$3"
     local releases_json
     local menu_items
     local selected
@@ -1042,41 +1044,69 @@ pick_release() {
     # Ensure TERM is set for whiptail
     [ -z "$TERM" ] && export TERM=linux
 
+    # Use provided parameters or fall back to environment variables
+    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
+    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
+    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
+
     # Fetch releases from GitHub
     whiptail --title "Fetching Releases" --infobox \
-        "Fetching releases from GitHub...\n\nPlease wait." 8 50
+        "Fetching releases from GitHub...\n\nPlease wait." 8 50 \
+        1>/dev/tty 2>/dev/tty </dev/tty
 
-    releases_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases" 2>/dev/null)
+    # Download directly to temp file to avoid command substitution issues
+    local releases_file=$(mktemp)
+    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases" -o "$releases_file" 2>/dev/null; then
+        rm -f "$releases_file"
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
 
-    if [ -z "$releases_json" ] || echo "$releases_json" | grep -q '"message"'; then
-        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60
+    # Check if download was successful and has content
+    if [ ! -s "$releases_file" ] || grep -q '"message"' "$releases_file"; then
+        rm -f "$releases_file"
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
         return 1
     fi
 
     # Filter releases by stream prefix and build menu items
     # Format: tag_name + created_at for display
-    menu_items=$(echo "$releases_json" | jq -r --arg stream "$stream" '
+    menu_items=$(jq -r --arg stream "$stream" '
         [.[] | select(.tag_name | startswith($stream + "-"))] |
         sort_by(.created_at) | reverse |
         .[0:10] |
         .[] |
         "\(.tag_name)\n\(.created_at | split("T")[0])"
-    ' 2>/dev/null)
+    ' < "$releases_file" 2>/dev/null)
+
+    # Clean up temp file
+    rm -f "$releases_file"
 
     if [ -z "$menu_items" ]; then
-        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50
+        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50 \
+            1>/dev/tty 2>/dev/tty </dev/tty
         return 1
     fi
 
     # Convert to whiptail menu format (tag date tag date ...)
-    # Use --output-fd to separate selection from display
+    # Build args safely without xargs to preserve spaces and provide TTY
     local tmpfile=$(mktemp)
     exec 4>"$tmpfile"
 
-    # shellcheck disable=SC2086
-    echo "$menu_items" | xargs whiptail --output-fd 4 --title "Select Release" --menu \
+    # Build argument list from menu_items (one arg per line)
+    set --
+    while IFS= read -r line; do
+        set -- "$@" "$line"
+    done <<EOF
+$menu_items
+EOF
+
+    # Use --output-fd to separate selection from display
+    whiptail --output-fd 4 --title "Select Release" --menu \
         "Choose a release from the '$stream' stream:" \
-        20 70 10 </dev/tty
+        20 70 10 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
 
     local exit_code=$?
     exec 4>&-
@@ -1095,6 +1125,8 @@ pick_release() {
 # Pick image from release assets
 pick_image() {
     local release_tag="$1"
+    local github_user_param="$2"
+    local github_repo_param="$3"
     local assets_json
     local menu_items
     local selected
@@ -1102,55 +1134,108 @@ pick_image() {
     # Ensure TERM is set for whiptail
     [ -z "$TERM" ] && export TERM=linux
 
+    # Use provided parameters or fall back to environment variables
+    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
+    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
+    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
+
     # Fetch release assets
     whiptail --title "Fetching Images" --infobox \
-        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60
+        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60 \
+        1>/dev/tty 2>/dev/tty </dev/tty
 
-    assets_json=$(curl -s "https://api.github.com/repos/JanLahmann/RasQberry-Two/releases/tags/$release_tag" 2>/dev/null)
+    # Download directly to temp file to avoid command substitution issues
+    local assets_file=$(mktemp)
+    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases/tags/$release_tag" -o "$assets_file" 2>/dev/null; then
+        rm -f "$assets_file"
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
 
-    if [ -z "$assets_json" ] || echo "$assets_json" | grep -q '"message"'; then
-        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60
+    # Check if download was successful and has content
+    if [ ! -s "$assets_file" ] || grep -q '"message"' "$assets_file"; then
+        rm -f "$assets_file"
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
         return 1
     fi
 
     # Filter for .img.xz files and build menu items
-    menu_items=$(echo "$assets_json" | jq -r '
+    # Create a mapping of short tags to filenames for display
+    # Format: filename|tag|description (one per line)
+    # AB boot images end with -ab.img.xz (display shows: xxx-ab)
+    local image_map
+    image_map=$(jq -r '
         .assets[] |
         select(.name | endswith(".img.xz")) |
-        "\(.browser_download_url)\n\(.name) (\(.size / 1024 / 1024 | floor)MB)"
-    ' 2>/dev/null)
+        if (.name | test("-ab\\.img\\.xz$")) then
+            "\(.name)|[AB]|\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
+        else
+            "\(.name)| |\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
+        end
+    ' < "$assets_file" 2>/dev/null)
+
+    # Build menu_items in whiptail format (tag description pairs)
+    menu_items=$(echo "$image_map" | awk -F'|' '{print $2 "\n" $3}')
+
+    # Clean up temp file
+    rm -f "$assets_file"
 
     if [ -z "$menu_items" ]; then
-        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50
+        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50 \
+            1>/dev/tty 2>/dev/tty </dev/tty
         return 1
     fi
 
-    # Count number of images
+    # Count number of images (count tags)
     local image_count
-    image_count=$(echo "$menu_items" | grep -c "^https")
+    image_count=$(echo "$image_map" | wc -l)
 
     if [ "$image_count" -eq 1 ]; then
-        # Only one image, return it directly
-        selected=$(echo "$menu_items" | head -1)
-        echo "$selected"
+        # Only one image, return URL directly
+        local filename
+        filename=$(echo "$image_map" | cut -d'|' -f1)
+        # Reconstruct URL from filename
+        echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
         return 0
     else
         # Multiple images, show selection menu using --output-fd
+        # Build args safely without xargs to preserve spaces and provide TTY
         local tmpfile=$(mktemp)
         exec 4>"$tmpfile"
 
-        # shellcheck disable=SC2086
-        echo "$menu_items" | xargs whiptail --output-fd 4 --title "Select Image" --menu \
+        # Build argument list from menu_items (one arg per line)
+        set --
+        while IFS= read -r line; do
+            set -- "$@" "$line"
+        done <<EOF
+$menu_items
+EOF
+
+        # Use --output-fd to separate selection from display
+        whiptail --output-fd 4 --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 </dev/tty
+            16 80 5 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
 
         local exit_code=$?
         exec 4>&-
 
         if [ $exit_code -eq 0 ]; then
-            selected=$(cat "$tmpfile")
+            local selected_tag
+            selected_tag=$(cat "$tmpfile")
             rm -f "$tmpfile"
-            echo "$selected"
+
+            # Look up filename from tag in image_map
+            local filename
+            filename=$(echo "$image_map" | awk -F'|' -v tag="$selected_tag" '$2 == tag {print $1; exit}')
+
+            if [ -z "$filename" ]; then
+                return 1
+            fi
+
+            # Reconstruct URL from filename
+            echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
             return 0
         else
             rm -f "$tmpfile"
@@ -1159,20 +1244,90 @@ pick_image() {
     fi
 }
 
+# Ask user for GitHub repository source (default or custom)
+# Returns: "default" or "user/repo" format
+pick_repo_source() {
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
+    local tmpfile=$(mktemp)
+    exec 4>"$tmpfile"
+
+    # Show default repo from environment
+    local default_repo="${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}"
+
+    whiptail --output-fd 4 --title "Select Repository" --menu \
+        "Choose the GitHub repository to fetch releases from:\n\nDefault: $default_repo" \
+        16 70 2 \
+        "default" "Use default repository ($default_repo)" \
+        "custom"  "Enter custom GitHub repository" \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    local exit_code=$?
+    exec 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        local choice=$(cat "$tmpfile")
+        rm -f "$tmpfile"
+
+        if [ "$choice" = "custom" ]; then
+            # Prompt for custom GitHub repository in user/repo format
+            local custom_repo
+            custom_repo=$(whiptail --inputbox "Enter GitHub repository in format:\nusername/repository\n\nExample: JanLahmann/RasQberry-Two" 12 60 "$default_repo" 3>&1 1>&2 2>&3)
+
+            if [ $? -eq 0 ] && [ -n "$custom_repo" ]; then
+                # Validate format (should contain exactly one /)
+                if echo "$custom_repo" | grep -q '^[^/]\+/[^/]\+$'; then
+                    echo "$custom_repo"
+                    return 0
+                else
+                    whiptail --title "Invalid Format" --msgbox "Invalid repository format.\n\nPlease use: username/repository" 10 50 \
+                        1>/dev/tty 2>/dev/tty </dev/tty
+                    return 1
+                fi
+            else
+                return 1
+            fi
+        else
+            echo "default"
+            return 0
+        fi
+    else
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
 # Main release picker function - returns "url|tag" or empty on cancel
 do_pick_release_image() {
     local stream
     local release_tag
     local image_url
+    local github_user
+    local github_repo
+
+    # Step 0: Ask for repository source (default or custom)
+    local repo_choice
+    repo_choice=$(pick_repo_source) || return 1
+
+    if [ "$repo_choice" = "default" ]; then
+        # Use environment variables
+        github_user="${RQB_GIT_USER:-JanLahmann}"
+        github_repo="${REPO:-RasQberry-Two}"
+    else
+        # Parse custom repo (format: user/repo)
+        github_user=$(echo "$repo_choice" | cut -d'/' -f1)
+        github_repo=$(echo "$repo_choice" | cut -d'/' -f2)
+    fi
 
     # Step 1: Pick stream
     stream=$(pick_stream) || return 1
 
-    # Step 2: Pick release from stream
-    release_tag=$(pick_release "$stream") || return 1
+    # Step 2: Pick release from stream (pass repo info)
+    release_tag=$(pick_release "$stream" "$github_user" "$github_repo") || return 1
 
-    # Step 3: Pick image from release
-    image_url=$(pick_image "$release_tag") || return 1
+    # Step 3: Pick image from release (pass repo info)
+    image_url=$(pick_image "$release_tag" "$github_user" "$github_repo") || return 1
 
     # Return url|tag format
     echo "${image_url}|${release_tag}"
