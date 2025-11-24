@@ -1010,14 +1010,14 @@ pick_stream() {
     exec 4>"$tmpfile"
 
     # Use --output-fd 4 to write selection to tmpfile
-    # Use /dev/tty for display (stderr) and input (stdin)
+    # Use /dev/tty for input (stdin) only, let stderr go to normal terminal
     whiptail --output-fd 4 --title "Select Release Stream" --menu \
         "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
         16 60 3 \
         "dev"    "Development builds" \
         "beta"   "Beta releases" \
         "stable" "Stable releases" \
-        </dev/tty 2>/dev/tty
+        </dev/tty
 
     local exit_code=$?
     exec 4>&-
@@ -1076,7 +1076,7 @@ pick_release() {
     # shellcheck disable=SC2086
     echo "$menu_items" | xargs whiptail --output-fd 4 --title "Select Release" --menu \
         "Choose a release from the '$stream' stream:" \
-        20 70 10 </dev/tty 2>/dev/tty
+        20 70 10 </dev/tty
 
     local exit_code=$?
     exec 4>&-
@@ -1142,7 +1142,7 @@ pick_image() {
         # shellcheck disable=SC2086
         echo "$menu_items" | xargs whiptail --output-fd 4 --title "Select Image" --menu \
             "Multiple images available.\nChoose the image type:" \
-            16 80 5 </dev/tty 2>/dev/tty
+            16 80 5 </dev/tty
 
         local exit_code=$?
         exec 4>&-
