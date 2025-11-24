@@ -186,14 +186,39 @@ write_image_to_slot() {
     partprobe "$loop_dev" 2>/dev/null || true
     sleep 1
 
-    # Identify image partitions
-    local img_boot="${loop_dev}p1"
-    local img_root="${loop_dev}p2"
+    # Detect image type by checking partition labels
+    local p1_label
+    p1_label=$(lsblk -no LABEL "${loop_dev}p1" 2>/dev/null || echo "")
+
+    # Identify source partitions based on image type
+    local img_boot
+    local img_root
+
+    case "$p1_label" in
+        config)
+            # AB image: p1=config, p2=boot-a, p5=system-a
+            log_message "AB image detected (p1 label: config)"
+            log_message "Using Slot A partitions as source (boot-a, system-a)"
+            img_boot="${loop_dev}p2"
+            img_root="${loop_dev}p5"
+            ;;
+        bootfs)
+            # Standard image: p1=bootfs, p2=rootfs
+            log_message "Standard image detected (p1 label: bootfs)"
+            img_boot="${loop_dev}p1"
+            img_root="${loop_dev}p2"
+            ;;
+        *)
+            losetup -d "$loop_dev"
+            rm -rf "$work_dir"
+            die "Unknown image type: p1 label '$p1_label' (expected 'config' or 'bootfs')"
+            ;;
+    esac
 
     if [ ! -b "$img_boot" ] || [ ! -b "$img_root" ]; then
         losetup -d "$loop_dev"
         rm -rf "$work_dir"
-        die "Could not find image partitions (expected ${loop_dev}p1 and ${loop_dev}p2)"
+        die "Could not find image partitions (boot: $img_boot, root: $img_root)"
     fi
 
     # Mount image boot partition and copy to target boot partition
