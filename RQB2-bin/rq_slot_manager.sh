@@ -61,12 +61,13 @@ get_current_slot() {
     local root_dev
     root_dev=$(lsblk -no pkname "$root_part")
 
-    # Check for bootfs-common partition (indicates v2 AB image)
+    # Check for common boot partition (indicates AB image)
+    # v2 layout: bootfs-cmn, v3 layout: config
     local bootfs_common_label
     bootfs_common_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
 
-    if [ "$bootfs_common_label" = "bootfs-cmn" ]; then
-        # V2 AB image - determine slot from root partition
+    if [ "$bootfs_common_label" = "bootfs-cmn" ] || [ "$bootfs_common_label" = "config" ]; then
+        # AB image (v2 or v3) - determine slot from root partition
         case "${root_part}" in
             *p5|*5)
                 echo "A"
