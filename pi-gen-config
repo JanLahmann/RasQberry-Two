@@ -9,8 +9,10 @@ DEPLOY_COMPRESSION=xz
 COMPRESSION_LEVEL=3
 # Production: Maximum compression for releases
 COMPRESSION_LEVEL_PROD=9
-# AB image compression level (dev and prod)
-AB_COMPRESSION_LEVEL=6
+# AB image compression level
+AB_COMPRESSION_LEVEL=3
+# Production AB compression level
+AB_COMPRESSION_LEVEL_PROD=9
 LOCALE_DEFAULT=en_GB.UTF-8
 TARGET_HOSTNAME=rasqberry
 KEYBOARD_KEYMAP=gb

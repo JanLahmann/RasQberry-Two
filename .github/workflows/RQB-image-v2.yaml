@@ -1083,9 +1083,17 @@ jobs:
           BOOT_VERBOSITY: ${{ inputs.boot_verbosity || 'splash' }}
         run: |
           # Read AB compression level from config
-          AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL=" pi-gen-config | cut -d'=' -f2)
-          AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
-          echo "AB compression level: $AB_COMPRESSION_LEVEL"
+          # Use production level for main/beta branches, dev level for others
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          if [[ "$BRANCH_NAME" == "main" ]] || [[ "$BRANCH_NAME" == "beta" ]]; then
+            AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
+            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
+            echo "Using production AB compression level: $AB_COMPRESSION_LEVEL"
+          else
+            AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL=" pi-gen-config | cut -d'=' -f2)
+            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-3}"
+            echo "Using dev AB compression level: $AB_COMPRESSION_LEVEL"
+          fi
 
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
