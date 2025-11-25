@@ -1030,10 +1030,10 @@ jobs:
         run: |
           cd pi-gen
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip" ]; then
-            echo "Saving pip cache from rootfs..."
+          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/root/.cache/pip" ]; then
+            echo "Saving pip cache from rootfs (stage4)..."
             mkdir -p ~/pip-cache
-            sudo cp -r "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
+            sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
             CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
             CACHE_FILES=$(ls ~/pip-cache 2>/dev/null | wc -l || echo "0")
             echo "Pip cache saved: $CACHE_SIZE ($CACHE_FILES files)"
