@@ -47,13 +47,23 @@ RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 RQB_STD_VENV=RQB2
 # Flag indicating build is from pi-gen
 RQB_PIGEN=true
-# Preserve pip cache for GitHub Actions caching (set by workflow, default: false)
+# Preserve pip cache for GitHub Actions caching (overwritten by workflow input)
 # When true, pip cache is not purged during build, allowing workflow to save it
 # Trade-off: Faster builds vs larger image size (~500MB)
-RQB_PRESERVE_PIP_CACHE=false
+RQB_PRESERVE_PIP_CACHE=will-be-set-in-gh-workflow
 
-# Console configuration (will be overwritten by GH actions workflow)
-# Console output type: 'hdmi' (default) or 'serial'
-CONSOLE_TYPE=hdmi
-# Boot verbosity: 'splash' (default) or 'verbose'
-BOOT_VERBOSITY=splash
+# Console configuration (overwritten by workflow based on branch-specific defaults below)
+# These are placeholders - actual values set by workflow from CONSOLE_TYPE_PROD/DEV
+CONSOLE_TYPE=will-be-set-in-gh-workflow
+BOOT_VERBOSITY=will-be-set-in-gh-workflow
+
+# Branch-specific console defaults (used by workflow to determine CONSOLE_TYPE/BOOT_VERBOSITY)
+# Production branches (main/beta): HDMI console with splash screen for end users
+CONSOLE_TYPE_PROD=hdmi
+BOOT_VERBOSITY_PROD=splash
+# Development branches: Serial console with verbose output for debugging
+CONSOLE_TYPE_DEV=serial
+BOOT_VERBOSITY_DEV=verbose
+
+# Pip cache preservation default (used by workflow when no input provided)
+PRESERVE_PIP_CACHE_DEFAULT=false

@@ -10,6 +10,7 @@
 # - Automatic GitHub releases with built images
 # - Memory and disk optimization for GitHub Actions runners
 # - Support for both development and production builds
+# - A/B boot images for over-the-air updates
 #
 # Trigger Conditions:
 # - Manual workflow dispatch (with optional version override)
@@ -48,20 +49,34 @@
 # ============================================================================
 # ENVIRONMENT VARIABLES REFERENCE
 # ============================================================================
+# Build configuration is split between workflow (CACHE_VERSION) and pi-gen-config.
+# The workflow reads from pi-gen-config and applies branch-specific logic.
 #
-# Custom Variables (from pi-gen-config):
-#   - CACHE_VERSION: Increment to invalidate all caches
-#   - RQB_*: RasQberry-specific build configuration
-#     - RQB_REPO: Repository name (set dynamically)
-#     - RQB_GIT_USER: GitHub username (set dynamically)
-#     - RQB_GIT_BRANCH: Branch to build from (set dynamically)
-#     - RQB_STD_VENV: Standard virtual environment name
-#     - RQB_CONFDIR: Configuration directory path
+# Workflow Variables (env section below):
+#    - CACHE_VERSION: GitHub Actions cache versioning
 #
-# Pi-gen Variables (from pi-gen-config):
-#   - FIRST_USER_NAME: Default user (rasqberry)
-#   - IMG_NAME: Output image name prefix
-#   - SKIP_INITRAMFS: Speed optimization flag
+# Pi-gen-config Variables (centralized configuration file):
+#
+# 1. Build Quality Settings:
+#    - COMPRESSION_LEVEL / COMPRESSION_LEVEL_PROD: Image compression (3 dev, 9 prod)
+#    - AB_COMPRESSION_LEVEL / AB_COMPRESSION_LEVEL_PROD: AB image compression
+#    - SKIP_INITRAMFS / SKIP_INITRAMFS_PROD: Initramfs generation control
+#
+# 2. Console Configuration (read by workflow):
+#    - CONSOLE_TYPE / CONSOLE_TYPE_PROD / CONSOLE_TYPE_DEV: Console output (hdmi/serial)
+#    - BOOT_VERBOSITY / BOOT_VERBOSITY_PROD / BOOT_VERBOSITY_DEV: Boot output (splash/verbose)
+#
+# 3. RasQberry Configuration:
+#    - RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH: Repository settings (set by workflow)
+#    - RQB_STD_VENV, RQB_PIGEN: Virtual environment settings
+#    - RQB_PRESERVE_PIP_CACHE: Pip cache control (set by workflow from input)
+#    - PRESERVE_PIP_CACHE_DEFAULT: Default pip cache setting (read by workflow)
+#
+# 4. User & System Settings:
+#    - FIRST_USER_NAME, IMG_NAME: User and image naming
+#    - RELEASE, LOCALE_DEFAULT, TIMEZONE_DEFAULT: System configuration
+#
+# Data Flow: pi-gen-config → workflow reads/applies logic → pi-gen build
 # ============================================================================
 
 name: Rasqberry Pi Image Release v2
@@ -503,8 +518,8 @@ jobs:
       - name: List available caches
         run: |
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          echo "Cache key pattern: stage4-${{ env.CACHE_VERSION }}-$(date +"%Y-%m")-bookworm-arm64"
-          # Note: Can't actually list caches, but shows the key format
+          echo "Cache key pattern: stage4-v2-$(date +"%Y-%m")-bookworm-arm64"
+          # Note: Cache version defined in pi-gen-config (CACHE_VERSION)
 
       # Determine if this build should use caching
       # Rules:
@@ -776,14 +791,26 @@ jobs:
           fi
 
           # Update console configuration from workflow inputs
-          CONSOLE_TYPE="${{ inputs.console_type || 'hdmi' }}"
-          BOOT_VERBOSITY="${{ inputs.boot_verbosity || 'splash' }}"
+          # Read branch-specific defaults from pi-gen-config
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
+            CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
+            BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
+          else
+            CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
+            BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
+          fi
+          CONSOLE_TYPE="${{ inputs.console_type }}"
+          BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
+          CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
+          BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
           sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
           # Update pip cache preservation from workflow input
-          PRESERVE_PIP_CACHE="${{ inputs.preserve_pip_cache || 'false' }}"
+          PRESERVE_DEFAULT=$(grep "^PRESERVE_PIP_CACHE_DEFAULT=" pi-gen-config | cut -d'=' -f2)
+          PRESERVE_PIP_CACHE="${{ inputs.preserve_pip_cache }}"
+          PRESERVE_PIP_CACHE="${PRESERVE_PIP_CACHE:-$PRESERVE_DEFAULT}"
           sed -i "s|^RQB_PRESERVE_PIP_CACHE=.*|RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}|" pi-gen-config
           echo "Pip cache preservation: RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}"
 
@@ -1159,22 +1186,26 @@ jobs:
 
       - name: Download and convert to A/B boot layout
         id: convert-ab
-        env:
-          CONSOLE_TYPE: ${{ inputs.console_type || 'hdmi' }}
-          BOOT_VERBOSITY: ${{ inputs.boot_verbosity || 'splash' }}
         run: |
-          # Read AB compression level from config
-          # Use production level for main/beta branches, dev level for others
+          # Read branch-specific defaults from pi-gen-config
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           if [[ "$BRANCH_NAME" == "main" ]] || [[ "$BRANCH_NAME" == "beta" ]]; then
+            CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
+            BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
             AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
             AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
             echo "Using production AB compression level: $AB_COMPRESSION_LEVEL"
           else
+            CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
+            BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
             AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL=" pi-gen-config | cut -d'=' -f2)
             AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-3}"
             echo "Using dev AB compression level: $AB_COMPRESSION_LEVEL"
           fi
+          CONSOLE_TYPE="${{ inputs.console_type }}"
+          BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
+          CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
+          BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
 
           # Get the asset details from the build job
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
