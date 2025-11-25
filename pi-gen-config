@@ -47,6 +47,10 @@ RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 RQB_STD_VENV=RQB2
 # Flag indicating build is from pi-gen
 RQB_PIGEN=true
+# Preserve pip cache for GitHub Actions caching (set by workflow, default: false)
+# When true, pip cache is not purged during build, allowing workflow to save it
+# Trade-off: Faster builds vs larger image size (~500MB)
+RQB_PRESERVE_PIP_CACHE=false
 
 # Console configuration (will be overwritten by GH actions workflow)
 # Console output type: 'hdmi' (default) or 'serial'

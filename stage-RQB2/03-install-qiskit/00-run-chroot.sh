@@ -11,6 +11,7 @@ if [ -f "/tmp/stage-config" ]; then
     REPO="${RQB_REPO}"
     STD_VENV="${RQB_STD_VENV}"
     PIGEN="${RQB_PIGEN}"
+    PRESERVE_PIP_CACHE="${RQB_PRESERVE_PIP_CACHE:-false}"
 
     echo "Configuration loaded successfully"
 else
@@ -23,6 +24,7 @@ echo "Configuration:"
 echo "  REPO: $REPO"
 echo "  STD_VENV: $STD_VENV"
 echo "  PIGEN: $PIGEN"
+echo "  PRESERVE_PIP_CACHE: $PRESERVE_PIP_CACHE"
 echo "  FIRST_USER_NAME: ${FIRST_USER_NAME}"
 
 # Export variables needed by installation script
@@ -40,11 +42,17 @@ python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-pack
 . /usr/bin/rq_install_qiskit.sh latest
 deactivate
 
-# Clean pip cache to reduce image size
-echo "Cleaning pip cache..."
-pip cache purge 2>/dev/null || true
-rm -rf /root/.cache/pip 2>/dev/null || true
-rm -rf /home/${FIRST_USER_NAME}/.cache/pip 2>/dev/null || true
+# Clean pip cache to reduce image size (unless preserving for GitHub Actions cache)
+if [ "$PRESERVE_PIP_CACHE" = "true" ]; then
+    echo "Preserving pip cache for GitHub Actions caching (increases image size)"
+    echo "Pip cache location: /root/.cache/pip"
+    echo "Pip cache size: $(du -sh /root/.cache/pip 2>/dev/null | cut -f1 || echo 'N/A')"
+else
+    echo "Cleaning pip cache to reduce image size..."
+    pip cache purge 2>/dev/null || true
+    rm -rf /root/.cache/pip 2>/dev/null || true
+    rm -rf /home/${FIRST_USER_NAME}/.cache/pip 2>/dev/null || true
+fi
 
 # Copy venv to system location for new users
 cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv

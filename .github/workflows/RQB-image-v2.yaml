@@ -130,6 +130,11 @@ on:
         options:
           - verbose
           - splash
+      preserve_pip_cache:
+        description: 'Preserve pip cache for GitHub Actions caching (increases image size by ~500MB)'
+        required: false
+        type: boolean
+        default: false
 
   # Automatic trigger for development branches
   push:
@@ -777,6 +782,11 @@ jobs:
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
+          # Update pip cache preservation from workflow input
+          PRESERVE_PIP_CACHE="${{ inputs.preserve_pip_cache || 'false' }}"
+          sed -i "s|^RQB_PRESERVE_PIP_CACHE=.*|RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}|" pi-gen-config
+          echo "Pip cache preservation: RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}"
+
           # Set custom IMG_FILENAME based on VERSION file
           # This overrides pi-gen's default naming (IMG_DATE-IMG_NAME)
           # Naming convention:
@@ -986,6 +996,8 @@ jobs:
           sudo ./build.sh
 
       # Save pip cache from rootfs for future builds
+      # Note: Only works if preserve_pip_cache input was set to true
+      # Otherwise, the cache is purged during qiskit installation to reduce image size
       - name: Save pip cache from rootfs
         if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
@@ -995,7 +1007,11 @@ jobs:
             echo "Saving pip cache from rootfs..."
             mkdir -p ~/pip-cache
             sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
-            echo "Pip cache saved: $(du -sh ~/pip-cache | cut -f1)"
+            CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
+            CACHE_FILES=$(ls ~/pip-cache 2>/dev/null | wc -l || echo "0")
+            echo "Pip cache saved: $CACHE_SIZE ($CACHE_FILES files)"
+          else
+            echo "No pip cache to save (cache was purged or preserve_pip_cache not enabled)"
           fi
 
       # Save apt cache from rootfs for future builds (Docker and other packages)
