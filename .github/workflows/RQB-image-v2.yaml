@@ -327,12 +327,12 @@ jobs:
           ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
           fetch-depth: 0  # Full history needed for git-cliff
 
-      # Get the most recent tag for changelog generation
-      - name: Get latest tag
+      # Get the previous tag (skip the tag we just created) for changelog generation
+      - name: Get previous tag
         id: latest_tag
         shell: bash
         run: |
-          echo "TAG_NAME=$(git describe --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=$(git describe --tags $(git rev-list --tags --skip=1 --max-count=1))" >> $GITHUB_OUTPUT
 
       # Generate changelog from commits since last tag
       - name: Generate a changelog
