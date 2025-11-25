@@ -1003,10 +1003,10 @@ jobs:
         run: |
           cd pi-gen
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/root/.cache/pip" ]; then
+          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip" ]; then
             echo "Saving pip cache from rootfs..."
             mkdir -p ~/pip-cache
-            sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
+            sudo cp -r "$WORK_DIR/stage-RQB2/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
             CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
             CACHE_FILES=$(ls ~/pip-cache 2>/dev/null | wc -l || echo "0")
             echo "Pip cache saved: $CACHE_SIZE ($CACHE_FILES files)"
@@ -1020,11 +1020,11 @@ jobs:
         run: |
           cd pi-gen
           WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/var/cache/apt/archives" ]; then
+          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage-RQB2/rootfs/var/cache/apt/archives" ]; then
             echo "Saving apt cache from rootfs..."
             mkdir -p ~/apt-cache
             # Copy new .deb files to apt-cache (skip existing to avoid re-copying)
-            sudo cp -n "$WORK_DIR/stage4/rootfs/var/cache/apt/archives"/*.deb ~/apt-cache/ 2>/dev/null || true
+            sudo cp -n "$WORK_DIR/stage-RQB2/rootfs/var/cache/apt/archives"/*.deb ~/apt-cache/ 2>/dev/null || true
             echo "Apt cache now contains: $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
             echo "Apt cache size: $(du -sh ~/apt-cache | cut -f1)"
           fi
