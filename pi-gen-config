@@ -1,3 +1,14 @@
+# ============================================================================
+# RasQberry Pi Image Build Configuration
+# ============================================================================
+# Standard pi-gen configuration file for building Raspberry Pi OS images.
+#
+# Non-standard extension: Some variables are read and modified by the GitHub
+# Actions workflow for branch-specific builds (console type, pip cache, etc.)
+# Variables marked with "will-be-set-in-gh-workflow" are placeholders that
+# the workflow overwrites. See workflow documentation for details.
+# ============================================================================
+
 IMG_NAME=rasqberry
 # Note: IMG_FILENAME will be set dynamically by the GitHub Actions workflow
 # based on the VERSION file (for versioned builds) or defaults to IMG_NAME
