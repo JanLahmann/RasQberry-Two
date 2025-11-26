@@ -79,22 +79,26 @@ Critical library for NeoPixel LED control:
 
 This stage installs packages system-wide intentionally:
 - **System packages**: Available to all users and virtual environments
-- **Virtual environment**: Created in stage 03-install-qiskit with `--system-site-packages`
+- **Virtual environment**: Created in stage 03-install-qiskit as isolated venv
 - **Rationale**: Base hardware libraries (rpi_ws281x, pyserial) benefit from system installation
 
 ### APT vs pip Package Strategy
 
-To avoid duplicate package warnings, Python packages are split:
+To avoid "Can't uninstall" warnings during pip installs, the venv is created
+**without** `--system-site-packages`. GTK bindings are symlinked into the venv:
 
-**APT-only packages (cannot be pip-installed or need system integration):**
-- `python3-gi` - GTK bindings with system typelibs
-- `sense-emu-tools` - Desktop menu shortcuts (pulls in python3-sense-emu)
+**APT-only packages (symlinked into venv):**
+- `python3-gi` - GTK bindings with system typelibs (symlinked)
+- `python3-gi-cairo` - Cairo bindings (symlinked)
+
+**APT packages for desktop integration (run outside venv):**
+- `sense-emu-tools` - Desktop menu shortcuts (uses system Python)
 
 **pip-only packages (in qiskit-requirements.txt):**
 - `numpy`, `pillow`, `python-dotenv` - Scientific/utility packages
-- `sense-hat`, `sense-emu` - Hardware libraries
+- `sense-hat`, `sense-emu`, `pygobject` - Hardware libraries
 
-This avoids "Can't uninstall" warnings during venv pip installs.
+This eliminates all "Can't uninstall" warnings during venv pip installs.
 
 ## Execution Context
 
