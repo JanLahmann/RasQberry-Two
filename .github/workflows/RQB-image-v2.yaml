@@ -575,16 +575,6 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Restore apt packages cache (using separate restore/save to avoid branch duplication)
-      - name: Restore apt packages cache
-        id: cache-apt
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/apt-cache
-          key: apt-packages-${{ runner.os }}-pigen-deps-v1
-          restore-keys: |
-            apt-packages-${{ runner.os }}-pigen-deps-
-
       # Cache pip packages for Qiskit installation
       # Keyed on requirements hash + monthly rotation to pick up new Qiskit releases
       - name: Cache pip packages
@@ -602,27 +592,10 @@ jobs:
       # PI-GEN DEPENDENCIES
       # ========================================================================
       # Install required packages for running pi-gen
-      # Uses apt package caching to speed up repeated builds
       - name: Install pi-gen dependencies
         run: |
-          # Create cache directory for apt packages
-          mkdir -p ~/apt-cache
-          
-          # Configure apt to keep downloaded packages
-          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/01cache
-          
-          # Restore cached packages if available
-          if [ "${{ steps.cache-apt.outputs.cache-hit }}" == "true" ] && [ -n "$(ls -A ~/apt-cache/*.deb 2>/dev/null)" ]; then
-            echo "Restoring apt packages from cache..."
-            echo "Found $(ls ~/apt-cache/*.deb | wc -l) packages in cache"
-            sudo cp -n ~/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
-          else
-            echo "No cache found or cache is empty"
-          fi
-          
-          # Update package lists
           sudo apt-get update
-          
+
           # Install pi-gen dependencies
           # These are required for cross-compilation and image building
           sudo apt-get install -y \
@@ -647,20 +620,6 @@ jobs:
             pigz \
             lz4 \
             arch-test
-          
-          # Save downloaded packages to cache
-          echo "Copying packages to cache directory..."
-          cp -v /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
-          echo "Cache now contains $(ls ~/apt-cache/*.deb 2>/dev/null | wc -l) packages"
-          echo "Cache size: $(du -sh ~/apt-cache | cut -f1)"
-
-      # Save apt packages cache (only if not restored from cache)
-      - name: Save apt packages cache
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/apt-cache
-          key: apt-packages-${{ runner.os }}-pigen-deps-v1
 
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
@@ -976,14 +935,6 @@ jobs:
 
               # Note: Pip cache is now managed by stage-RQB2 scripts (00-run.sh, 01-run.sh, 02-run.sh)
               # Stage scripts handle: restore cache → qiskit install → save cache → clean from image
-
-              # Set up apt cache in rootfs if available (for Docker and other packages in custom stages)
-              if [ -d "$HOME/apt-cache" ] && [ -n "$(ls -A $HOME/apt-cache/*.deb 2>/dev/null)" ]; then
-                echo "Restoring apt cache to rootfs..."
-                sudo mkdir -p "$WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives"
-                sudo cp -n $HOME/apt-cache/*.deb "$WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives/" 2>/dev/null || true
-                echo "Apt cache restored: $(ls $WORK_DIR_ABS/stage4/rootfs/var/cache/apt/archives/*.deb 2>/dev/null | wc -l) packages"
-              fi
 
             else
               echo "ERROR: No work directory found in cache!"
