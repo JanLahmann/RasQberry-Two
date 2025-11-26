@@ -47,6 +47,7 @@ adafruit-circuitpython-neopixel
 pygobject
 sense-hat
 sense-emu
+python-dotenv
 
 # =============================================================================
 # Automation and testing
