@@ -328,11 +328,22 @@ jobs:
           fetch-depth: 0  # Full history needed for git-cliff
 
       # Get the previous tag (skip the tag we just created) for changelog generation
+      # Filter by branch name to avoid picking tags from other branches
       - name: Get previous tag
         id: latest_tag
         shell: bash
         run: |
-          echo "TAG_NAME=$(git describe --tags $(git rev-list --tags --skip=1 --max-count=1))" >> $GITHUB_OUTPUT
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          # For main branch, look for v* tags; for dev branches, look for branch-* tags
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            PREV_TAG=$(git tag --sort=-creatordate | grep '^v' | sed -n '2p')
+          else
+            PREV_TAG=$(git tag --sort=-creatordate | grep "^${BRANCH_NAME}-" | sed -n '2p')
+          fi
+
+          echo "TAG_NAME=${PREV_TAG}" >> $GITHUB_OUTPUT
+          echo "Found previous tag: ${PREV_TAG}"
 
       # Generate changelog from commits since last tag
       - name: Generate a changelog
