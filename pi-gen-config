@@ -9,66 +9,83 @@
 # the workflow overwrites. See workflow documentation for details.
 # ============================================================================
 
+# ============================================================================
+# Standard pi-gen Configuration
+# ============================================================================
+# These variables are read directly by the pi-gen build system.
+
+# Image naming
 IMG_NAME=rasqberry
 # Note: IMG_FILENAME will be set dynamically by the GitHub Actions workflow
 # based on the VERSION file (for versioned builds) or defaults to IMG_NAME
 # Format: rasqberry-v{version} (main), rasqberry-beta-{date} (beta),
 #         rasqberry-{branch}-{date}-{time} (dev branches)
+
+# Base system
 RELEASE=bookworm
 DEPLOY_COMPRESSION=xz
-# Development: Fast compression for quick iteration
-COMPRESSION_LEVEL=3
-# Production: Maximum compression for releases
-COMPRESSION_LEVEL_PROD=9
-# AB image compression level
-AB_COMPRESSION_LEVEL=3
-# Production AB compression level
-AB_COMPRESSION_LEVEL_PROD=9
+
+# Locale and regional settings
 LOCALE_DEFAULT=en_GB.UTF-8
 TARGET_HOSTNAME=rasqberry
 KEYBOARD_KEYMAP=gb
 KEYBOARD_LAYOUT="English (UK)"
 TIMEZONE_DEFAULT=Europe/London
+WPA_COUNTRY=GB
+
+# Default user configuration
 FIRST_USER_NAME=rasqberry
 FIRST_USER_PASS="Qiskit1!"
 ENABLE_SSH=1
 DISABLE_FIRST_BOOT_USER_RENAME=1
 PUBKEY_ONLY_SSH=0
-WPA_COUNTRY=GB
 
 # Build quality settings
-# Development: Disable initramfs (AB boot uses direct kernel mount per official pattern)
+# Note: AB boot uses direct kernel mount per official Raspberry Pi pattern
 SKIP_INITRAMFS=1
-# Production: Disable initramfs (AB boot uses direct kernel mount per official pattern)
-SKIP_INITRAMFS_PROD=1
 
-# RasQberry-specific build configuration
+# ============================================================================
+# RasQberry Configuration
+# ============================================================================
+# Custom variables for RasQberry-specific functionality.
 
-# RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH will be overwritten in the GH actions workflow with current repo/user/branch
-# Repository name
-RQB_REPO=will-be-set-in-gh-workflow
-# GitHub username
-RQB_GIT_USER=will-be-set-in-gh-workflow
-# Branch to clone (main, beta, dev, etc.)
-RQB_GIT_BRANCH=will-be-set-in-gh-workflow
-
-# Construct the Git URL from user and repo
-RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 # Standard virtual environment name
 RQB_STD_VENV=RQB2
 # Flag indicating build is from pi-gen
 RQB_PIGEN=true
-# Preserve pip cache for GitHub Actions caching (overwritten by workflow input)
+
+# ============================================================================
+# Workflow-Managed Variables
+# ============================================================================
+# These are placeholders that the GitHub Actions workflow overwrites during
+# the build process. Values marked "will-be-set-in-gh-workflow" are replaced
+# based on the current build context (branch, user input, etc.).
+
+# Repository configuration (set from workflow context)
+RQB_REPO=will-be-set-in-gh-workflow
+RQB_GIT_USER=will-be-set-in-gh-workflow
+RQB_GIT_BRANCH=will-be-set-in-gh-workflow
+# Construct the Git URL from user and repo
+RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
+
+# Pip cache preservation (set from workflow input)
 # When true, pip cache is not purged during build, allowing workflow to save it
 # Trade-off: Faster builds vs larger image size (~500MB)
 RQB_PRESERVE_PIP_CACHE=will-be-set-in-gh-workflow
 
-# Console configuration (overwritten by workflow based on branch-specific defaults below)
-# These are placeholders - actual values set by workflow from CONSOLE_TYPE_PROD/DEV
+# Console configuration (set by workflow based on branch)
+# These are placeholders - actual values set by workflow from *_PROD/*_DEV defaults below
 CONSOLE_TYPE=will-be-set-in-gh-workflow
 BOOT_VERBOSITY=will-be-set-in-gh-workflow
 
-# Branch-specific console defaults (used by workflow to determine CONSOLE_TYPE/BOOT_VERBOSITY)
+# ============================================================================
+# Branch-Specific Defaults
+# ============================================================================
+# These values are read by the workflow to determine what values to use for
+# the workflow-managed variables above. The workflow selects between *_PROD
+# and *_DEV variants based on the branch (main/beta use PROD, others use DEV).
+
+# Console defaults
 # Production branches (main/beta): HDMI console with splash screen for end users
 CONSOLE_TYPE_PROD=hdmi
 BOOT_VERBOSITY_PROD=splash
@@ -76,5 +93,14 @@ BOOT_VERBOSITY_PROD=splash
 CONSOLE_TYPE_DEV=serial
 BOOT_VERBOSITY_DEV=verbose
 
-# Pip cache preservation default (used by workflow when no input provided)
+# Compression defaults
+# Development: Fast compression for quick iteration
+COMPRESSION_LEVEL=3
+AB_COMPRESSION_LEVEL=3
+# Production: Maximum compression for releases
+COMPRESSION_LEVEL_PROD=9
+AB_COMPRESSION_LEVEL_PROD=9
+
+# Pip cache preservation default
+# Used by workflow when no input provided
 PRESERVE_PIP_CACHE_DEFAULT=false
