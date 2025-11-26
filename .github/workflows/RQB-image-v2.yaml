@@ -965,10 +965,11 @@ jobs:
           echo "========================"
 
           # Prepare pip cache for build (copy to sudo-accessible location)
+          # Note: We're in pi-gen/, scripts save to ../pip-cache-host (repo root)
           echo "=== Preparing pip cache for build ==="
           if [ -d ~/pip-cache ] && [ -n "$(ls -A ~/pip-cache 2>/dev/null)" ]; then
-            cp -r ~/pip-cache ./pip-cache-host
-            echo "Copied pip cache to build directory: $(du -sh ./pip-cache-host | cut -f1)"
+            cp -r ~/pip-cache ../pip-cache-host
+            echo "Copied pip cache to build directory: $(du -sh ../pip-cache-host | cut -f1)"
           else
             echo "No pip cache available (first build or cache miss)"
           fi
@@ -977,10 +978,11 @@ jobs:
           sudo ./build.sh
 
           # Copy updated pip cache back to GitHub Actions location
+          # Scripts save to ../pip-cache-host (repo root, not pi-gen/)
           echo "=== Saving updated pip cache ==="
-          if [ -d ./pip-cache-host ] && [ -n "$(ls -A ./pip-cache-host 2>/dev/null)" ]; then
+          if [ -d ../pip-cache-host ] && [ -n "$(ls -A ../pip-cache-host 2>/dev/null)" ]; then
             rm -rf ~/pip-cache
-            cp -r ./pip-cache-host ~/pip-cache
+            cp -r ../pip-cache-host ~/pip-cache
             CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
             CACHE_FILES=$(find ~/pip-cache -type f 2>/dev/null | wc -l || echo "0")
             echo "Updated pip cache: $CACHE_SIZE ($CACHE_FILES files)"
@@ -990,12 +992,12 @@ jobs:
           fi
 
       # Note: Pip cache is managed by workflow + stage scripts:
-      #   Workflow: Copies ~/pip-cache to ./pip-cache-host (before build)
-      #   00-run.sh: Restores cache from ./pip-cache-host to rootfs
+      #   Workflow: Copies ~/pip-cache to ../pip-cache-host (before build, repo root)
+      #   00-run.sh: Restores cache from ../../pip-cache-host to rootfs
       #   00-run-chroot.sh: Installs qiskit (uses cache)
-      #   01-run.sh: Saves updated cache from rootfs to ./pip-cache-host
+      #   01-run.sh: Saves updated cache from rootfs to ../../pip-cache-host
       #   02-run.sh: Cleans cache from rootfs (reduces image size)
-      #   Workflow: Copies ./pip-cache-host back to ~/pip-cache (after build)
+      #   Workflow: Copies ../pip-cache-host back to ~/pip-cache (after build)
       # actions/cache@v4 persists ~/pip-cache to GitHub Actions cache
 
       # ========================================================================
