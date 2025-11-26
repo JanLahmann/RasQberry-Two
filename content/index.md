@@ -47,9 +47,21 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 
 Get started with RasQberry Two in three easy steps:
 
-1. **Download** a RasQberry image from [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases) (beta phase)
+1. **Download** a RasQberry image from [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases)
 2. **Write** the image to an SD card using Raspberry Pi Imager (no customizations needed)
 3. **Boot** your Raspberry Pi 5 and explore quantum computing demos
+
+### Stable Download URLs
+
+Use these URLs to always get the latest release for each stream:
+
+| Stream | URL | Description |
+|--------|-----|-------------|
+| **Stable** | [/latest/stable](/latest/stable) | Production-ready releases |
+| **Beta** | [/latest/beta](/latest/beta) | Pre-release with latest features |
+| **Dev** | [/latest/dev](/latest/dev) | Development builds (unstable) |
+
+For automation, use the [RQB-releases.json](/RQB-releases.json) API endpoint which contains metadata for all streams.
 
 ### Simplified Installation with Custom Pi Imager
 

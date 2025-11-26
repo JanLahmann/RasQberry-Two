@@ -1,16 +1,53 @@
 # RasQberry Installation Overview
 
-> #### **Please Note:** The software image is currently undergoing many updates. As such, the instructions listed here may be slightly out of date. The Installation Overview will be updated shortly.
-
 Below you can find the list of steps that are needed to write the RasQberry Two image to
-an SD card and use it in your Rasberry Pi version 4 or 5.
+an SD card and use it in your Raspberry Pi version 4 or 5.
 
-The future available releases of the RasQberry-Two will be stored in the release section
-from the Github repository “JanLahmann/RasQberry-pi-gen”
-(https://github.com/JanLahmann/RasQberry-pi-gen/tags). An image from this release
-section wil also be used in the custom repository configuration of the Pi-imager. You can
-find the decription of the pi-imager start with a custom repository incl. rasQberry-two
-the section below.
+## Download Options
+
+### Stable Download URLs
+
+Use these URLs to always get the latest release for each stream:
+
+| Stream | URL | Description |
+|--------|-----|-------------|
+| **Stable** | [rasqberry.org/latest/stable](https://rasqberry.org/latest/stable) | Production-ready releases |
+| **Beta** | [rasqberry.org/latest/beta](https://rasqberry.org/latest/beta) | Pre-release with latest features |
+| **Dev** | [rasqberry.org/latest/dev](https://rasqberry.org/latest/dev) | Development builds (unstable) |
+
+These URLs automatically redirect to the latest image for each release stream.
+
+### GitHub Releases
+
+All releases are also available on [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+
+### API Endpoint
+
+For automation and programmatic access, use the [RQB-releases.json](https://rasqberry.org/RQB-releases.json) endpoint which contains metadata for all streams including download URLs, file sizes, and checksums.
+
+## Using Pi Imager with RasQberry Repository
+
+### Simplified Installation with Desktop Launcher
+
+For the easiest experience, install a pre-configured Pi Imager launcher that automatically loads RasQberry images.
+
+**On macOS** (one-line command):
+
+```bash
+curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
+```
+
+This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon.
+
+**On Windows** (PowerShell as Administrator):
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
+```
+
+This creates a "Pi Imager for RasQberry" shortcut on your Desktop.
+
+### About the RasQberry Image
 
 The RasQberry image contains a desktop environment that was adjusted for the
 rasqberry-two. Several demos can be found via the desktop menu to start right away with
