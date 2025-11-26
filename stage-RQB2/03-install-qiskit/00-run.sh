@@ -9,9 +9,13 @@ cat ${ROOTFS_DIR}/tmp/stage-config
 echo ""
 echo "=== Restoring pip cache to rootfs ==="
 
-# Check if host has pip cache from previous build
-PIP_CACHE_HOST="$HOME/pip-cache"
+# Pip cache location (accessible to sudo context)
+# Workflow copies GitHub Actions cache here before build
+# Located at pi-gen/pip-cache-host (relative to stage-RQB2/03-install-qiskit)
+PIP_CACHE_HOST="${SCRIPT_DIR}/../../../pip-cache-host"
 PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
+
+echo "Using pip cache directory: $PIP_CACHE_HOST"
 
 if [ -d "$PIP_CACHE_HOST" ] && [ -n "$(ls -A $PIP_CACHE_HOST 2>/dev/null)" ]; then
     echo "Found pip cache on host: $(du -sh $PIP_CACHE_HOST | cut -f1)"
