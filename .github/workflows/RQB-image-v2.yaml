@@ -114,11 +114,6 @@ on:
         required: false
         type: boolean
         default: false
-      publish_json:
-        description: 'Publish generated JSON to gh-pages (JSON always created locally)'
-        required: false
-        type: boolean
-        default: false
       build_scope:
         description: 'Build scope (default: dev=full, main/beta=standard-image)'
         required: false
@@ -1332,166 +1327,143 @@ jobs:
           echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
           echo "  Uncompressed SHA256: $EXTRACT_SHA256"
           
-      - name: Determine version type
+      - name: Determine version type and stream
         id: version-type
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           VERSION_NUM="${{ steps.metadata.outputs.version_num }}"
-          
+
           if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "type=main" >> $GITHUB_OUTPUT
+            echo "stream=stable" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry stable release for exploring Quantum Computing and Qiskit" >> $GITHUB_OUTPUT
+            echo "tag=v${VERSION_NUM}" >> $GITHUB_OUTPUT
+            echo "release_name=rasqberry-v${VERSION_NUM}" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "beta" ]]; then
             echo "type=beta" >> $GITHUB_OUTPUT
+            echo "stream=beta" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two Beta (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry beta release with latest features (may be unstable)" >> $GITHUB_OUTPUT
+            echo "tag=${VERSION_NUM}" >> $GITHUB_OUTPUT
+            echo "release_name=rasqberry-${VERSION_NUM}" >> $GITHUB_OUTPUT
           else
             echo "type=dev" >> $GITHUB_OUTPUT
+            echo "stream=dev" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two Dev (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry development build with cutting-edge features (unstable)" >> $GITHUB_OUTPUT
+            echo "tag=${VERSION_NUM}" >> $GITHUB_OUTPUT
+            echo "release_name=rasqberry-${VERSION_NUM}" >> $GITHUB_OUTPUT
           fi
           
       - name: Generate RQB-images.json
         run: |
-          # Try to fetch existing JSON from gh-pages as base
-          echo "Fetching existing RQB-images.json from gh-pages..."
-          
-          # Attempt to download existing JSON from gh-pages
-          if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-images.json" -o existing.json; then
-            echo "✓ Found existing JSON on gh-pages, using as base"
-            cp existing.json RQB-images.json
-          else
-            echo "ℹ No existing JSON found on gh-pages, creating fresh base"
-            cat > RQB-images.json << 'EOF'
+          # Generate single-entry RQB-images.json for THIS branch only
+          # Consolidation into multi-stream file happens in separate workflow
+
+          VERSION_TYPE="${{ steps.version-type.outputs.type }}"
+          echo "Generating single-entry RQB-images.json for ${VERSION_TYPE} stream..."
+
+          cat > RQB-images.json << EOF
           {
             "imager": {
               "latest_version": "1.8.5",
               "url": "https://www.raspberrypi.com/software/"
             },
-            "os_list": []
+            "os_list": [
+              {
+                "name": "${{ steps.version-type.outputs.name }}",
+                "description": "${{ steps.version-type.outputs.description }}",
+                "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                "url": "${{ steps.metadata.outputs.download_url }}",
+                "extract_size": ${{ steps.metadata.outputs.extract_size }},
+                "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
+                "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
+                "release_date": "${{ steps.metadata.outputs.release_date }}",
+                "init_format": "systemd",
+                "devices": ["pi5-64bit", "pi4-64bit"],
+                "website": "https://rasqberry.org"
+              }
+            ]
+          }
+          EOF
+
+          echo "Generated RQB-images.json with single ${VERSION_TYPE} entry:"
+          cat RQB-images.json
+
+      - name: Generate RQB-releases.json
+        run: |
+          # RQB-releases.json tracks the latest release per stream (stable/beta/dev)
+          # This enables stable URLs for the latest release from each stream
+
+          STREAM="${{ steps.version-type.outputs.stream }}"
+          TAG="${{ steps.version-type.outputs.tag }}"
+          RELEASE_NAME="${{ steps.version-type.outputs.release_name }}"
+
+          echo "Generating RQB-releases.json for stream: $STREAM"
+
+          # Try to fetch existing RQB-releases.json from gh-pages
+          if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-releases.json" -o existing-releases.json; then
+            echo "✓ Found existing RQB-releases.json on gh-pages, using as base"
+            cp existing-releases.json RQB-releases.json
+          else
+            echo "ℹ No existing RQB-releases.json found, creating fresh file"
+            cat > RQB-releases.json << 'EOF'
+          {
+            "generated": "",
+            "streams": {}
           }
           EOF
           fi
-          
-          # Generate the new entry
-          VERSION_TYPE="${{ steps.version-type.outputs.type }}"
-          cat > new_entry.json << EOF
-          {
-            "name": "${{ steps.version-type.outputs.name }}",
-            "description": "${{ steps.version-type.outputs.description }}",
-            "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-            "url": "${{ steps.metadata.outputs.download_url }}",
-            "extract_size": ${{ steps.metadata.outputs.extract_size }},
-            "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
-            "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
-            "release_date": "${{ steps.metadata.outputs.release_date }}",
-            "init_format": "systemd",
-            "devices": ["pi5-64bit", "pi4-64bit"],
-            "website": "https://rasqberry.org"
-          }
-          EOF
-          
+
           # Use Python to update the JSON (handles JSON parsing properly)
           python3 << 'PYTHON_SCRIPT'
           import json
-          import sys
-          from datetime import datetime
-          
+          from datetime import datetime, timezone
+
           # Load existing JSON
-          with open('RQB-images.json', 'r') as f:
+          with open('RQB-releases.json', 'r') as f:
               data = json.load(f)
-          
-          # Load new entry
-          with open('new_entry.json', 'r') as f:
-              new_entry = json.load(f)
-          
-          version_type = "${{ steps.version-type.outputs.type }}"
-          print(f"Processing {version_type} version entry...")
-          
-          # Define mapping of version types to name patterns
-          type_patterns = {
-              "main": "RasQberry Two (64-bit)",
-              "beta": "RasQberry Two Beta (64-bit)", 
-              "dev": "RasQberry Two Dev (64-bit)"
+
+          stream = "${{ steps.version-type.outputs.stream }}"
+
+          # Create the stream entry with all metadata
+          stream_entry = {
+              "tag": "${{ steps.version-type.outputs.tag }}",
+              "name": "${{ steps.version-type.outputs.release_name }}",
+              "image_url": "${{ steps.metadata.outputs.download_url }}",
+              "release_url": "https://github.com/${{ github.repository }}/releases/tag/${{ steps.version-type.outputs.tag }}",
+              "release_date": "${{ steps.metadata.outputs.release_date }}",
+              "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
+              "extract_size": ${{ steps.metadata.outputs.extract_size }},
+              "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}"
           }
-          
-          # Remove existing entry of the same type (keep only latest per type)
-          initial_count = len(data['os_list'])
-          data['os_list'] = [entry for entry in data['os_list'] 
-                           if entry['name'] != type_patterns.get(version_type, new_entry['name'])]
-          removed_count = initial_count - len(data['os_list'])
-          
-          if removed_count > 0:
-              print(f"Removed {removed_count} existing {version_type} entry(ies)")
-          
-          # Find the right position to insert the new entry
-          # Order: main (if exists), beta (if exists), dev (if exists), then others
-          insert_position = 0
-          priority_order = ["main", "beta", "dev"]
-          current_type_priority = priority_order.index(version_type) if version_type in priority_order else 999
-          
-          for i, entry in enumerate(data['os_list']):
-              # Determine the type of this existing entry
-              entry_type = None
-              for type_name, pattern in type_patterns.items():
-                  if entry['name'] == pattern:
-                      entry_type = type_name
-                      break
-              
-              if entry_type and entry_type in priority_order:
-                  entry_priority = priority_order.index(entry_type)
-                  if current_type_priority < entry_priority:
-                      insert_position = i
-                      break
-              else:
-                  # Non-RasQberry entry, insert before it
-                  insert_position = i
-                  break
-              insert_position = i + 1
-          
-          # Insert the new entry at the calculated position
-          data['os_list'].insert(insert_position, new_entry)
-          print(f"Inserted new {version_type} entry at position {insert_position}")
-          
-          # Add official Raspberry Pi OS and Custom option if not present
-          has_raspios = any("Raspberry Pi OS" in entry['name'] for entry in data['os_list'])
-          has_custom = any("Custom" in entry.get('name', '') for entry in data['os_list'])
-          
-          if not has_raspios:
-              raspios_entry = {
-                  "name": "Raspberry Pi OS (64-bit)",
-                  "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
-                  "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
-                  "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-10-28/2024-10-22-raspios-bookworm-arm64.img.xz",
-                  "extract_size": 6102712320,
-                  "extract_sha256": "88093218a66cf20e8669963902a949c4c23b73309c2fc3331d09fa6ee2134417",
-                  "image_download_size": 1238664180,
-                  "release_date": "2024-10-22",
-                  "init_format": "systemd",
-                  "devices": ["pi5-64bit", "pi4-64bit"]
-              }
-              data['os_list'].append(raspios_entry)
-          
-          if not has_custom:
-              custom_entry = {
-                  "name": "Use custom image",
-                  "description": "Select a custom .img from your computer",
-                  "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
-              }
-              data['os_list'].append(custom_entry)
-          
-          # Write updated JSON
-          with open('RQB-images.json', 'w') as f:
+
+          # Update timestamp and stream
+          data['generated'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+          if 'streams' not in data:
+              data['streams'] = {}
+
+          data['streams'][stream] = stream_entry
+
+          print(f"Updated '{stream}' stream:")
+          print(f"  Tag: {stream_entry['tag']}")
+          print(f"  Image URL: {stream_entry['image_url']}")
+
+          # Write updated JSON with pretty formatting
+          with open('RQB-releases.json', 'w') as f:
               json.dump(data, f, indent=2)
-          
-          print(f"Updated RQB-images.json with {version_type} version")
+
+          print(f"\nRQB-releases.json now contains {len(data['streams'])} stream(s): {', '.join(data['streams'].keys())}")
           PYTHON_SCRIPT
-          
-          # Clean up temporary file
-          rm -f new_entry.json
-          
-      - name: Commit JSON to current branch
+
+          echo ""
+          echo "=== Generated RQB-releases.json ==="
+          cat RQB-releases.json
+          echo ""
+
+      - name: Commit JSON files to current branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -1499,38 +1471,60 @@ jobs:
           # Pull latest changes to avoid conflicts
           git pull origin ${{ github.ref_name }} || echo "No remote changes to pull"
 
-          # Always commit the JSON file to current branch
-          git add RQB-images.json
-          git commit -m "Generate RQB-images.json for ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+          # Commit both JSON files to current branch
+          git add RQB-images.json RQB-releases.json
+          git commit -m "Generate RQB-images.json and RQB-releases.json for ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
           git push origin ${{ github.ref_name }}
-          echo "Generated RQB-images.json in current branch"
+          echo "Generated RQB-images.json and RQB-releases.json in current branch"
 
-      - name: Upload RQB-images.json to release
+      - name: Upload JSON files to release
         uses: softprops/action-gh-release@v2.2.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
-          files: RQB-images.json
+          files: |
+            RQB-images.json
+            RQB-releases.json
 
-      - name: Upload JSON to gh-pages
-        if: ${{ github.event.inputs.publish_json == 'true' }}
+      # RQB-releases.json is ALWAYS pushed to gh-pages (required for cross-branch consolidation)
+      # RQB-images.json is only pushed when publish_json is true (Pi Imager compatibility)
+      - name: Upload RQB-releases.json to gh-pages (always)
         run: |
-          echo "Uploading RQB-images.json to gh-pages..."
-          
-          # Fetch and checkout gh-pages
+          echo "Uploading RQB-releases.json to gh-pages (required for stream consolidation)..."
+
+          # Fetch gh-pages branch
           git fetch origin gh-pages || echo "No gh-pages branch found"
           if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            # Save the generated file before switching branches
+            cp RQB-releases.json /tmp/RQB-releases.json
+
             git checkout gh-pages
-            
-            # Copy the generated JSON file
-            git checkout ${{ github.ref_name }} -- RQB-images.json
-            
+
+            # Copy the generated RQB-releases.json
+            cp /tmp/RQB-releases.json RQB-releases.json
+
             # Commit and push to gh-pages
-            git add RQB-images.json
-            git commit -m "Update RQB-images.json from ${{ github.ref_name }} with ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}"
+            git add RQB-releases.json
+            git commit -m "Update RQB-releases.json with ${{ steps.version-type.outputs.stream }} stream from ${{ steps.version-type.outputs.type }} release ${{ steps.metadata.outputs.version_num }}" || echo "No changes to commit"
             git push origin gh-pages
-            echo "Successfully uploaded RQB-images.json to gh-pages"
+            echo "✓ RQB-releases.json uploaded to gh-pages"
+
+            # Switch back to original branch for subsequent steps
+            git checkout ${{ github.ref_name }}
           else
-            echo "No gh-pages branch exists, skipping upload"
+            echo "⚠ No gh-pages branch exists - RQB-releases.json consolidation requires gh-pages branch"
+            echo "  Create gh-pages branch or run with publish_json=true on first build"
           fi
+
+      # Trigger consolidation workflow to merge all branches into gh-pages
+      - name: Trigger JSON consolidation workflow
+        run: |
+          echo "Triggering consolidation workflow to update gh-pages..."
+          gh workflow run consolidate-json.yaml \
+            --ref gh-pages \
+            -f trigger_source="${{ github.ref_name }}" \
+            -f trigger_type="${{ steps.version-type.outputs.type }}"
+          echo "✓ Consolidation workflow triggered"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

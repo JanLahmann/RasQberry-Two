@@ -1,0 +1,281 @@
+# ============================================================================
+# RQB-images.json Consolidation Workflow
+# ============================================================================
+# Purpose: Consolidates RQB-images.json from multiple branches into a single
+#          file on gh-pages for use by Raspberry Pi Imager.
+#
+# Architecture:
+#   Each branch (main, beta, dev*) maintains its own single-entry RQB-images.json.
+#   This workflow fetches from all branches, merges entries, and commits to gh-pages.
+#
+# Trigger:
+#   - Automatically triggered after image builds complete
+#   - Can also be triggered manually for debugging
+# ============================================================================
+
+name: Consolidate RQB-images.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_source:
+        description: 'Branch that triggered this workflow'
+        required: false
+        type: string
+        default: 'manual'
+      trigger_type:
+        description: 'Type of release that triggered (main/beta/dev)'
+        required: false
+        type: string
+        default: 'unknown'
+
+permissions:
+  contents: write
+
+jobs:
+  consolidate:
+    name: Consolidate JSON from all branches
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Fetch RQB-images.json from all branches
+        id: fetch
+        run: |
+          echo "=== Consolidating RQB-images.json from all branches ==="
+          echo "Triggered by: ${{ github.event.inputs.trigger_source }} (${{ github.event.inputs.trigger_type }})"
+          echo ""
+
+          mkdir -p /tmp/branch-json
+
+          # Function to fetch JSON from a branch
+          fetch_branch_json() {
+            local branch="$1"
+            local output="/tmp/branch-json/${branch}.json"
+
+            echo "Fetching from branch: $branch"
+            if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/${branch}/RQB-images.json" -o "$output"; then
+              echo "  ✓ Found RQB-images.json in $branch"
+              return 0
+            else
+              echo "  ⚠ No RQB-images.json in $branch (or branch doesn't exist)"
+              return 1
+            fi
+          }
+
+          # Fetch from main branches
+          fetch_branch_json "main" || true
+          fetch_branch_json "beta" || true
+
+          # Fetch from dev branches - find the most recent active dev branch
+          # First, try to get a list of dev branches
+          echo ""
+          echo "Looking for dev branches..."
+
+          # Get list of remote branches starting with 'dev'
+          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev*' | sed 's|.*refs/heads/||' | head -5)
+
+          if [ -n "$DEV_BRANCHES" ]; then
+            echo "Found dev branches: $DEV_BRANCHES"
+            for branch in $DEV_BRANCHES; do
+              fetch_branch_json "$branch" && break  # Use first successful one
+            done
+          else
+            echo "  ⚠ No dev branches found"
+          fi
+
+          echo ""
+          echo "=== Fetched JSON files ==="
+          ls -la /tmp/branch-json/ || echo "No files fetched"
+
+      - name: Fetch official Raspberry Pi OS metadata
+        id: raspios
+        run: |
+          echo "Fetching official Raspberry Pi OS metadata..."
+
+          # Fetch from official Raspberry Pi Imager JSON
+          # This is the same source Pi Imager uses
+          curl -s -f "https://downloads.raspberrypi.com/os_list_imagingutility_v3.json" -o /tmp/rpi-official.json
+
+          if [ -f /tmp/rpi-official.json ]; then
+            echo "✓ Fetched official Raspberry Pi OS list"
+          else
+            echo "⚠ Failed to fetch official list, will use fallback"
+          fi
+
+      - name: Merge JSON files
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          import urllib.request
+          from pathlib import Path
+
+          print("=== Merging RQB-images.json files ===")
+
+          # Base structure
+          consolidated = {
+              "imager": {
+                  "latest_version": "1.8.5",
+                  "url": "https://www.raspberrypi.com/software/"
+              },
+              "os_list": []
+          }
+
+          # Priority order for entries
+          type_patterns = {
+              "RasQberry Two (64-bit)": 0,           # main/stable
+              "RasQberry Two Beta (64-bit)": 1,      # beta
+              "RasQberry Two Dev (64-bit)": 2,       # dev
+          }
+
+          entries = []
+          json_dir = Path("/tmp/branch-json")
+
+          # Load entries from each branch's JSON
+          for json_file in json_dir.glob("*.json"):
+              branch_name = json_file.stem
+              print(f"\nProcessing: {branch_name}")
+
+              try:
+                  with open(json_file, 'r') as f:
+                      data = json.load(f)
+
+                  for entry in data.get('os_list', []):
+                      name = entry.get('name', '')
+                      # Only include RasQberry entries
+                      if 'RasQberry' in name:
+                          priority = type_patterns.get(name, 99)
+                          entries.append((priority, entry))
+                          print(f"  Added: {name} (priority: {priority})")
+
+              except Exception as e:
+                  print(f"  Error loading {json_file}: {e}")
+
+          # Sort by priority and add to consolidated list
+          entries.sort(key=lambda x: x[0])
+          consolidated['os_list'] = [entry for _, entry in entries]
+
+          print(f"\n=== Consolidated {len(consolidated['os_list'])} RasQberry entries ===")
+
+          # Fetch official Raspberry Pi OS entry from their JSON
+          raspios_entry = None
+          try:
+              with open('/tmp/rpi-official.json', 'r') as f:
+                  rpi_data = json.load(f)
+
+              # Navigate the structure to find Raspberry Pi OS (64-bit)
+              # The official JSON has nested structure with os_list containing subitems
+              def find_raspios_64bit(items):
+                  for item in items:
+                      name = item.get('name', '')
+                      # Look for the recommended 64-bit desktop version
+                      if 'Raspberry Pi OS' in name and '64-bit' in name and 'Lite' not in name and 'Full' not in name:
+                          # Check if it has direct download info or subitems
+                          if 'url' in item:
+                              return item
+                          if 'subitems' in item:
+                              # Look in subitems for the main desktop version
+                              for sub in item['subitems']:
+                                  sub_name = sub.get('name', '')
+                                  if 'Desktop' in sub_name or ('64-bit' in sub_name and 'Lite' not in sub_name):
+                                      if 'url' in sub:
+                                          return sub
+                      # Recurse into subitems
+                      if 'subitems' in item:
+                          result = find_raspios_64bit(item['subitems'])
+                          if result:
+                              return result
+                  return None
+
+              raspios_entry = find_raspios_64bit(rpi_data.get('os_list', []))
+
+              if raspios_entry:
+                  # Clean up the entry to match our schema
+                  clean_entry = {
+                      "name": raspios_entry.get('name', 'Raspberry Pi OS (64-bit)'),
+                      "description": raspios_entry.get('description', 'Official Raspberry Pi OS'),
+                      "icon": raspios_entry.get('icon', 'https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png'),
+                      "url": raspios_entry.get('url'),
+                      "extract_size": raspios_entry.get('extract_size'),
+                      "extract_sha256": raspios_entry.get('extract_sha256'),
+                      "image_download_size": raspios_entry.get('image_download_size'),
+                      "release_date": raspios_entry.get('release_date'),
+                      "init_format": raspios_entry.get('init_format', 'systemd'),
+                      "devices": raspios_entry.get('devices', ['pi5-64bit', 'pi4-64bit'])
+                  }
+                  # Remove None values
+                  clean_entry = {k: v for k, v in clean_entry.items() if v is not None}
+                  consolidated['os_list'].append(clean_entry)
+                  print(f"\n✓ Added official Raspberry Pi OS entry: {clean_entry.get('name')}")
+                  print(f"  Release date: {clean_entry.get('release_date')}")
+              else:
+                  print("\n⚠ Could not find Raspberry Pi OS (64-bit) in official JSON")
+                  raise Exception("Fallback needed")
+
+          except Exception as e:
+              print(f"\n⚠ Error fetching official Raspberry Pi OS: {e}")
+              print("  Using fallback entry (may be outdated)")
+              # Fallback to a known working entry
+              consolidated['os_list'].append({
+                  "name": "Raspberry Pi OS (64-bit)",
+                  "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
+                  "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                  "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-10-28/2024-10-22-raspios-bookworm-arm64.img.xz",
+                  "extract_size": 6102712320,
+                  "extract_sha256": "88093218a66cf20e8669963902a949c4c23b73309c2fc3331d09fa6ee2134417",
+                  "image_download_size": 1238664180,
+                  "release_date": "2024-10-22",
+                  "init_format": "systemd",
+                  "devices": ["pi5-64bit", "pi4-64bit"]
+              })
+
+          # Always add the custom image option
+          consolidated['os_list'].append({
+              "name": "Use custom image",
+              "description": "Select a custom .img from your computer",
+              "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
+          })
+
+          # Write consolidated JSON
+          with open('RQB-images.json', 'w') as f:
+              json.dump(consolidated, f, indent=2)
+
+          print("\n=== Final RQB-images.json ===")
+          print(json.dumps(consolidated, indent=2))
+          PYTHON_SCRIPT
+
+      - name: Commit consolidated JSON to gh-pages
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add RQB-images.json
+
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to RQB-images.json"
+          else
+            git commit -m "Consolidate RQB-images.json from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
+            git push origin gh-pages
+            echo "✓ Consolidated RQB-images.json committed to gh-pages"
+          fi
+
+      - name: Summary
+        run: |
+          echo "=== Consolidation Complete ==="
+          echo ""
+          echo "RQB-images.json on gh-pages now contains entries from:"
+          echo "  - main (stable)"
+          echo "  - beta"
+          echo "  - dev branches"
+          echo ""
+          echo "Access the consolidated file at:"
+          echo "  https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-images.json"
+          echo ""
+          echo "Or configure Pi Imager with:"
+          echo "  https://janlahmann.github.io/RasQberry-Two/RQB-images.json"
