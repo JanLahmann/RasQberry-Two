@@ -145,11 +145,6 @@ on:
         options:
           - verbose
           - splash
-      preserve_pip_cache:
-        description: 'Preserve pip cache for GitHub Actions caching (increases image size by ~500MB)'
-        required: false
-        type: boolean
-        default: false
 
   # Automatic trigger for development branches
   push:
@@ -807,13 +802,6 @@ jobs:
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
-          # Update pip cache preservation from workflow input
-          PRESERVE_DEFAULT=$(grep "^PRESERVE_PIP_CACHE_DEFAULT=" pi-gen-config | cut -d'=' -f2)
-          PRESERVE_PIP_CACHE="${{ inputs.preserve_pip_cache }}"
-          PRESERVE_PIP_CACHE="${PRESERVE_PIP_CACHE:-$PRESERVE_DEFAULT}"
-          sed -i "s|^RQB_PRESERVE_PIP_CACHE=.*|RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}|" pi-gen-config
-          echo "Pip cache preservation: RQB_PRESERVE_PIP_CACHE=${PRESERVE_PIP_CACHE}"
-
           # Set custom IMG_FILENAME based on VERSION file
           # This overrides pi-gen's default naming (IMG_DATE-IMG_NAME)
           # Naming convention:
@@ -986,13 +974,8 @@ jobs:
               echo "Refreshing package lists in cached rootfs..."
               sudo chroot "$WORK_DIR_ABS/stage4/rootfs" apt-get update || echo "Warning: Failed to update package lists"
 
-              # Set up pip cache in rootfs if available
-              if [ -d "$HOME/pip-cache" ] && [ -n "$(ls -A $HOME/pip-cache 2>/dev/null)" ]; then
-                echo "Restoring pip cache to rootfs..."
-                sudo mkdir -p "$WORK_DIR_ABS/stage4/rootfs/root/.cache/pip"
-                sudo cp -r $HOME/pip-cache/* "$WORK_DIR_ABS/stage4/rootfs/root/.cache/pip/" 2>/dev/null || true
-                echo "Pip cache restored: $(du -sh $WORK_DIR_ABS/stage4/rootfs/root/.cache/pip | cut -f1)"
-              fi
+              # Note: Pip cache is now managed by stage-RQB2 scripts (00-run.sh, 01-run.sh, 02-run.sh)
+              # Stage scripts handle: restore cache → qiskit install → save cache → clean from image
 
               # Set up apt cache in rootfs if available (for Docker and other packages in custom stages)
               if [ -d "$HOME/apt-cache" ] && [ -n "$(ls -A $HOME/apt-cache/*.deb 2>/dev/null)" ]; then
@@ -1022,24 +1005,12 @@ jobs:
           # Build the custom RasQberry stage
           sudo ./build.sh
 
-      # Save pip cache from rootfs for future builds
-      # Note: Only works if preserve_pip_cache input was set to true
-      # Otherwise, the cache is purged during qiskit installation to reduce image size
-      - name: Save pip cache from rootfs
-        if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
-        run: |
-          cd pi-gen
-          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
-          if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR/stage4/rootfs/root/.cache/pip" ]; then
-            echo "Saving pip cache from rootfs (stage4)..."
-            mkdir -p ~/pip-cache
-            sudo cp -r "$WORK_DIR/stage4/rootfs/root/.cache/pip"/* ~/pip-cache/ 2>/dev/null || true
-            CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
-            CACHE_FILES=$(ls ~/pip-cache 2>/dev/null | wc -l || echo "0")
-            echo "Pip cache saved: $CACHE_SIZE ($CACHE_FILES files)"
-          else
-            echo "No pip cache to save (cache was purged or preserve_pip_cache not enabled)"
-          fi
+      # Note: Pip cache is now managed entirely by stage-RQB2/03-install-qiskit scripts:
+      #   00-run.sh: Restores cache from ~/pip-cache to rootfs
+      #   00-run-chroot.sh: Installs qiskit (uses cache)
+      #   01-run.sh: Saves updated cache from rootfs to ~/pip-cache
+      #   02-run.sh: Cleans cache from rootfs (reduces image size)
+      # The ~/pip-cache directory is then saved to GitHub Actions cache below
 
       # Save apt cache from rootfs for future builds (Docker and other packages)
       - name: Save apt cache from rootfs
