@@ -34,8 +34,22 @@ export REPO STD_VENV PIGEN FIRST_USER_NAME
 echo "Installing qiskit for ${FIRST_USER_NAME} user"
 mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 
-# Create virtual environment
-python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-packages
+# Create virtual environment (isolated, without --system-site-packages)
+# This avoids "Can't uninstall" warnings from pip when system packages conflict
+python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
+
+# Symlink GTK/Cairo bindings into venv (can't be pip-installed, need system versions)
+VENV_SITE="/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/lib/python3.11/site-packages"
+echo "Symlinking GTK bindings into venv..."
+ln -sf /usr/lib/python3/dist-packages/gi "$VENV_SITE/"
+ln -sf /usr/lib/python3/dist-packages/cairo "$VENV_SITE/"
+# Include egg-info for proper package detection
+for egg in /usr/lib/python3/dist-packages/PyGObject-*.egg-info; do
+    [ -e "$egg" ] && ln -sf "$egg" "$VENV_SITE/"
+done
+for egg in /usr/lib/python3/dist-packages/pycairo-*.egg-info; do
+    [ -e "$egg" ] && ln -sf "$egg" "$VENV_SITE/"
+done
 
 # Install Qiskit using consolidated script (scripts are now in /usr/bin)
 # The script handles venv activation based on PIGEN environment variable
