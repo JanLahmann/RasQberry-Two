@@ -11,8 +11,8 @@ echo "=== Restoring pip cache to rootfs ==="
 
 # Pip cache location (accessible to sudo context)
 # Workflow copies GitHub Actions cache here before build
-# Located at pi-gen/pip-cache-host (relative to stage-RQB2/03-install-qiskit)
-PIP_CACHE_HOST="${SCRIPT_DIR}/../../../pip-cache-host"
+# Located at pi-gen/pip-cache-host (2 levels up from stage-RQB2/03-install-qiskit)
+PIP_CACHE_HOST="${SCRIPT_DIR}/../../pip-cache-host"
 PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
 
 echo "Using pip cache directory: $PIP_CACHE_HOST"

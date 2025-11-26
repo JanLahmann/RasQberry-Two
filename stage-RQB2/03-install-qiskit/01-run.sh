@@ -5,7 +5,7 @@ echo "=== Saving updated pip cache from rootfs ==="
 # Use same cache location as 00-run.sh
 # Workflow will copy this back to GitHub Actions cache after build
 PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
-PIP_CACHE_HOST="${SCRIPT_DIR}/../../../pip-cache-host"
+PIP_CACHE_HOST="${SCRIPT_DIR}/../../pip-cache-host"
 
 echo "Saving to: $PIP_CACHE_HOST"
 
