@@ -43,9 +43,6 @@ This stage installs essential packages in two categories:
 **HTTP and Web:**
 - `requests` - HTTP library for Python
 
-**Scientific Computing:**
-- `numpy` - Numerical computing library
-
 ## Files Modified
 
 - System package database (apt)
@@ -82,8 +79,22 @@ Critical library for NeoPixel LED control:
 
 This stage installs packages system-wide intentionally:
 - **System packages**: Available to all users and virtual environments
-- **Virtual environment**: Created in stage 03-install-qiskit for Qiskit
-- **Rationale**: Base hardware libraries benefit from system installation
+- **Virtual environment**: Created in stage 03-install-qiskit with `--system-site-packages`
+- **Rationale**: Base hardware libraries (rpi_ws281x, pyserial) benefit from system installation
+
+### APT vs pip Package Strategy
+
+To avoid duplicate package warnings, Python packages are split:
+
+**APT-only packages (cannot be pip-installed or need system integration):**
+- `python3-gi` - GTK bindings with system typelibs
+- `sense-emu-tools` - Desktop menu shortcuts (pulls in python3-sense-emu)
+
+**pip-only packages (in qiskit-requirements.txt):**
+- `numpy`, `pillow`, `python-dotenv` - Scientific/utility packages
+- `sense-hat`, `sense-emu` - Hardware libraries
+
+This avoids "Can't uninstall" warnings during venv pip installs.
 
 ## Execution Context
 
