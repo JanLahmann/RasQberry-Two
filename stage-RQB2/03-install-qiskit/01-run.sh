@@ -21,7 +21,11 @@ if [ -d "$PIP_CACHE_ROOTFS" ] && [ -n "$(ls -A $PIP_CACHE_ROOTFS 2>/dev/null)" ]
     
     # Copy updated cache from rootfs to host
     cp -r "$PIP_CACHE_ROOTFS"/* "$PIP_CACHE_HOST/" 2>/dev/null || true
-    
+
+    # Make cache readable by non-root users (script runs as root via sudo,
+    # but workflow needs to copy these files back as regular user)
+    chmod -R a+rX "$PIP_CACHE_HOST"
+
     CACHE_SIZE=$(du -sh "$PIP_CACHE_HOST" 2>/dev/null | cut -f1 || echo "0")
     CACHE_FILES=$(find "$PIP_CACHE_HOST" -type f 2>/dev/null | wc -l || echo "0")
     
