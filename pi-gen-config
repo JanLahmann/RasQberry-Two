@@ -23,6 +23,8 @@ IMG_NAME=rasqberry
 
 # Base system
 RELEASE=bookworm
+# Compression format: xz (slow, small) or zstd (fast, slightly larger)
+# Workflow overrides this based on branch (dev=zstd, prod=xz)
 DEPLOY_COMPRESSION=xz
 
 # Locale and regional settings
@@ -94,10 +96,12 @@ CONSOLE_TYPE_DEV=serial
 BOOT_VERBOSITY_DEV=verbose
 
 # Compression defaults
-# Development: Fast compression for quick iteration
-COMPRESSION_LEVEL=3
-AB_COMPRESSION_LEVEL=3
-# Production: Maximum compression for releases
+# Development: Use zstd for fast compression (5-10x faster than xz)
+COMPRESSION_FORMAT_DEV=zstd
+COMPRESSION_LEVEL_DEV=6
+AB_COMPRESSION_LEVEL_DEV=6
+# Production: Use xz for maximum compression
+COMPRESSION_FORMAT_PROD=xz
 COMPRESSION_LEVEL_PROD=9
 AB_COMPRESSION_LEVEL_PROD=9
 

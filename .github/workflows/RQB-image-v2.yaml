@@ -655,6 +655,7 @@ jobs:
             grep \
             rsync \
             xz-utils \
+            zstd \
             file \
             git \
             curl \
@@ -775,17 +776,24 @@ jobs:
           # Branch-specific quality settings override using config file values
           if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
             echo "Applying production build settings for: $BRANCH_NAME"
-            
+
             # Read production values from config file
             SKIP_INITRAMFS_PROD=$(grep "^SKIP_INITRAMFS_PROD=" pi-gen-config | cut -d'=' -f2)
             COMPRESSION_LEVEL_PROD=$(grep "^COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
-            
+            COMPRESSION_FORMAT_PROD=$(grep "^COMPRESSION_FORMAT_PROD=" pi-gen-config | cut -d'=' -f2)
+            COMPRESSION_FORMAT_PROD="${COMPRESSION_FORMAT_PROD:-xz}"
+
             # Apply production values
             sed -i "s/^SKIP_INITRAMFS=.*/SKIP_INITRAMFS=${SKIP_INITRAMFS_PROD}/" pi-gen-config
-            sed -i "s/^COMPRESSION_LEVEL=.*/COMPRESSION_LEVEL=${COMPRESSION_LEVEL_PROD}/" pi-gen-config
+            sed -i "s/^DEPLOY_COMPRESSION=.*/DEPLOY_COMPRESSION=${COMPRESSION_FORMAT_PROD}/" pi-gen-config
+            echo "COMPRESSION_FORMAT=${COMPRESSION_FORMAT_PROD}" >> "$GITHUB_ENV"
           else
             echo "Using development build settings for: $BRANCH_NAME"
-            # Keep existing dev values from config file
+            # Read dev compression format
+            COMPRESSION_FORMAT_DEV=$(grep "^COMPRESSION_FORMAT_DEV=" pi-gen-config | cut -d'=' -f2)
+            COMPRESSION_FORMAT_DEV="${COMPRESSION_FORMAT_DEV:-zstd}"
+            sed -i "s/^DEPLOY_COMPRESSION=.*/DEPLOY_COMPRESSION=${COMPRESSION_FORMAT_DEV}/" pi-gen-config
+            echo "COMPRESSION_FORMAT=${COMPRESSION_FORMAT_DEV}" >> "$GITHUB_ENV"
           fi
           
           # Conditional Git variable update (only if placeholder present)
@@ -869,7 +877,7 @@ jobs:
           # Show final configuration for verification
           echo "=== Final pi-gen-config settings ==="
           echo "Build Quality:"
-          grep -E "^(SKIP_INITRAMFS|COMPRESSION_LEVEL)=" pi-gen-config
+          grep -E "^(SKIP_INITRAMFS|DEPLOY_COMPRESSION)=" pi-gen-config
           echo "Image Filename:"
           grep "^IMG_FILENAME=" pi-gen-config
           echo "Git Configuration:"
@@ -1086,15 +1094,26 @@ jobs:
           cd pi-gen
           mkdir -p ../deploy
 
-          # Find the compressed image file
-          FINAL_IMAGE=$(find deploy -name "*.img.xz" -type f | head -n 1)
+          # Find the compressed image file (supports both xz and zstd)
+          FINAL_IMAGE=$(find deploy -name "*.img.xz" -o -name "*.img.zst" -type f | head -n 1)
 
           if [ -z "$FINAL_IMAGE" ]; then
             echo "Error: No image found in deploy directory"
+            ls -la deploy/ || echo "deploy directory does not exist"
             exit 1
           fi
 
           echo "Pi-gen created: $(basename "$FINAL_IMAGE")"
+
+          # Determine compression extension from the file
+          if [[ "$FINAL_IMAGE" == *.zst ]]; then
+            COMPRESS_EXT="zst"
+            CONTENT_TYPE="application/zstd"
+          else
+            COMPRESS_EXT="xz"
+            CONTENT_TYPE="application/x-xz"
+          fi
+          echo "Compression: $COMPRESS_EXT"
 
           # Determine correct filename from VERSION file
           VERSION=$(cat ../VERSION)
@@ -1102,22 +1121,25 @@ jobs:
 
           if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
             # Semantic version (main branch)
-            CORRECT_FILENAME="rasqberry-${VERSION}.img.xz"
+            CORRECT_FILENAME="rasqberry-${VERSION}.img.${COMPRESS_EXT}"
           elif [[ "$VERSION" =~ ^beta-([0-9]{4}-[0-9]{2}-[0-9]{2})-[0-9]{6}$ ]]; then
             # Beta branch - date only (no time)
             BUILD_DATE="${BASH_REMATCH[1]}"
-            CORRECT_FILENAME="rasqberry-beta-${BUILD_DATE}.img.xz"
+            CORRECT_FILENAME="rasqberry-beta-${BUILD_DATE}.img.${COMPRESS_EXT}"
           elif [[ "$VERSION" =~ ^(.+)-([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{6})$ ]]; then
             # Dev branch - full timestamp
             BRANCH_NAME_FROM_VERSION="${BASH_REMATCH[1]}"
             BUILD_DATE="${BASH_REMATCH[2]}"
             BUILD_TIME="${BASH_REMATCH[3]}"
-            CORRECT_FILENAME="rasqberry-${BRANCH_NAME_FROM_VERSION}-${BUILD_DATE}-${BUILD_TIME}.img.xz"
+            CORRECT_FILENAME="rasqberry-${BRANCH_NAME_FROM_VERSION}-${BUILD_DATE}-${BUILD_TIME}.img.${COMPRESS_EXT}"
           else
             # Fallback - use whatever pi-gen created
             CORRECT_FILENAME=$(basename "$FINAL_IMAGE")
             echo "Warning: VERSION format not recognized, using pi-gen filename"
           fi
+
+          # Export content type for upload step
+          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
 
           echo "Correct filename: $CORRECT_FILENAME"
 
@@ -1158,7 +1180,7 @@ jobs:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.set-asset.outputs.asset_path }}
           asset_name: ${{ steps.set-asset.outputs.asset_name }}
-          asset_content_type: application/x-xz  # XZ compressed disk image
+          asset_content_type: ${{ steps.set-asset.outputs.content_type }}
 
   # ============================================================================
   # JOB 4: Build A/B Boot Image Variant
@@ -1193,7 +1215,7 @@ jobs:
       - name: Install required tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y parted kpartx xz-utils dosfstools e2fsprogs rsync
+          sudo apt-get install -y parted kpartx xz-utils zstd dosfstools e2fsprogs rsync
 
       - name: Download and convert to A/B boot layout
         id: convert-ab
@@ -1204,14 +1226,18 @@ jobs:
             CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
             BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
             AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
-            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
-            echo "Using production AB compression level: $AB_COMPRESSION_LEVEL"
+            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-9}"
+            AB_COMPRESSION_FORMAT=$(grep "^COMPRESSION_FORMAT_PROD=" pi-gen-config | cut -d'=' -f2)
+            AB_COMPRESSION_FORMAT="${AB_COMPRESSION_FORMAT:-xz}"
+            echo "Using production AB compression: ${AB_COMPRESSION_FORMAT} level ${AB_COMPRESSION_LEVEL}"
           else
             CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
             BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
-            AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL=" pi-gen-config | cut -d'=' -f2)
-            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-3}"
-            echo "Using dev AB compression level: $AB_COMPRESSION_LEVEL"
+            AB_COMPRESSION_LEVEL=$(grep "^AB_COMPRESSION_LEVEL_DEV=" pi-gen-config | cut -d'=' -f2)
+            AB_COMPRESSION_LEVEL="${AB_COMPRESSION_LEVEL:-6}"
+            AB_COMPRESSION_FORMAT=$(grep "^COMPRESSION_FORMAT_DEV=" pi-gen-config | cut -d'=' -f2)
+            AB_COMPRESSION_FORMAT="${AB_COMPRESSION_FORMAT:-zstd}"
+            echo "Using dev AB compression: ${AB_COMPRESSION_FORMAT} level ${AB_COMPRESSION_LEVEL}"
           fi
           CONSOLE_TYPE="${{ inputs.console_type }}"
           BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
@@ -1225,12 +1251,15 @@ jobs:
           echo "Downloading standard image: $ASSET_NAME"
           curl -L -o "$ASSET_NAME" "$DOWNLOAD_URL"
 
-          # Decompress
+          # Decompress (handle both xz and zstd)
           echo "Decompressing image..."
-          xz -d "$ASSET_NAME"
-
-          # Get the .img filename
-          INPUT_IMG="${ASSET_NAME%.xz}"
+          if [[ "$ASSET_NAME" == *.zst ]]; then
+            zstd -d "$ASSET_NAME"
+            INPUT_IMG="${ASSET_NAME%.zst}"
+          else
+            xz -d "$ASSET_NAME"
+            INPUT_IMG="${ASSET_NAME%.xz}"
+          fi
           OUTPUT_IMG="${INPUT_IMG%.img}-ab.img"
 
           echo "Converting $INPUT_IMG to A/B layout: $OUTPUT_IMG"
@@ -1298,30 +1327,40 @@ jobs:
           echo ""
 
           # Compress AB image
-          echo "Compressing AB image with level $AB_COMPRESSION_LEVEL..."
-          # xz will try to preserve file group ownership and fail with exit code 2
-          # in GitHub Actions, but the compression succeeds. Check if .xz exists.
-          set +e
-          xz -${AB_COMPRESSION_LEVEL} -T0 "$OUTPUT_IMG"
-          xz_exit=$?
-          set -e
+          echo "Compressing AB image with ${AB_COMPRESSION_FORMAT} level $AB_COMPRESSION_LEVEL..."
 
-          if [ $xz_exit -ne 0 ]; then
-            if [ $xz_exit -eq 2 ] && [ -f "${OUTPUT_IMG}.xz" ]; then
-              echo "Warning: xz reported exit code 2 (file permission warning) but compression succeeded"
-            else
-              echo "Error: xz compression failed with exit code $xz_exit"
-              exit $xz_exit
+          if [[ "$AB_COMPRESSION_FORMAT" == "zstd" ]]; then
+            # zstd compression (fast, good ratio)
+            zstd -${AB_COMPRESSION_LEVEL} -T0 --rm "$OUTPUT_IMG"
+            AB_IMG_COMPRESSED="${OUTPUT_IMG}.zst"
+            CONTENT_TYPE="application/zstd"
+          else
+            # xz compression (slow, best ratio)
+            # xz will try to preserve file group ownership and fail with exit code 2
+            # in GitHub Actions, but the compression succeeds. Check if .xz exists.
+            set +e
+            xz -${AB_COMPRESSION_LEVEL} -T0 "$OUTPUT_IMG"
+            xz_exit=$?
+            set -e
+
+            if [ $xz_exit -ne 0 ]; then
+              if [ $xz_exit -eq 2 ] && [ -f "${OUTPUT_IMG}.xz" ]; then
+                echo "Warning: xz reported exit code 2 (file permission warning) but compression succeeded"
+              else
+                echo "Error: xz compression failed with exit code $xz_exit"
+                exit $xz_exit
+              fi
             fi
+            AB_IMG_COMPRESSED="${OUTPUT_IMG}.xz"
+            CONTENT_TYPE="application/x-xz"
           fi
 
-          AB_IMG_XZ="${OUTPUT_IMG}.xz"
-
-          echo "AB image compressed: $AB_IMG_XZ"
-          echo "Size: $(du -h $AB_IMG_XZ | cut -f1)"
+          echo "AB image compressed: $AB_IMG_COMPRESSED"
+          echo "Size: $(du -h $AB_IMG_COMPRESSED | cut -f1)"
 
           # Output for next step
-          echo "ab_image=$AB_IMG_XZ" >> $GITHUB_OUTPUT
+          echo "ab_image=$AB_IMG_COMPRESSED" >> $GITHUB_OUTPUT
+          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
 
       - name: Upload AB image to release
         uses: actions/upload-release-asset@v1
@@ -1331,7 +1370,7 @@ jobs:
           upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ${{ steps.convert-ab.outputs.ab_image }}
           asset_name: ${{ steps.convert-ab.outputs.ab_image }}
-          asset_content_type: application/x-xz
+          asset_content_type: ${{ steps.convert-ab.outputs.content_type }}
 
   # ============================================================================
   # JOB 5: Generate and Upload RQB-images.json
