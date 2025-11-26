@@ -68,11 +68,6 @@ RQB_GIT_BRANCH=will-be-set-in-gh-workflow
 # Construct the Git URL from user and repo
 RQB_GIT_REPO="https://github.com/${RQB_GIT_USER}/${RQB_REPO}.git"
 
-# Pip cache preservation (set from workflow input)
-# When true, pip cache is not purged during build, allowing workflow to save it
-# Trade-off: Faster builds vs larger image size (~500MB)
-RQB_PRESERVE_PIP_CACHE=will-be-set-in-gh-workflow
-
 # Console configuration (set by workflow based on branch)
 # These are placeholders - actual values set by workflow from *_PROD/*_DEV defaults below
 CONSOLE_TYPE=will-be-set-in-gh-workflow
@@ -100,7 +95,3 @@ AB_COMPRESSION_LEVEL=3
 # Production: Maximum compression for releases
 COMPRESSION_LEVEL_PROD=9
 AB_COMPRESSION_LEVEL_PROD=9
-
-# Pip cache preservation default
-# Used by workflow when no input provided
-PRESERVE_PIP_CACHE_DEFAULT=false

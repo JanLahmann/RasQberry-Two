@@ -42,17 +42,11 @@ python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV --system-site-pack
 . /usr/bin/rq_install_qiskit.sh latest
 deactivate
 
-# Clean pip cache to reduce image size (unless preserving for GitHub Actions cache)
-if [ "$PRESERVE_PIP_CACHE" = "true" ]; then
-    echo "Preserving pip cache for GitHub Actions caching (increases image size)"
-    echo "Pip cache location: /root/.cache/pip"
-    echo "Pip cache size: $(du -sh /root/.cache/pip 2>/dev/null | cut -f1 || echo 'N/A')"
-else
-    echo "Cleaning pip cache to reduce image size..."
-    pip cache purge 2>/dev/null || true
-    rm -rf /root/.cache/pip 2>/dev/null || true
-    rm -rf /home/${FIRST_USER_NAME}/.cache/pip 2>/dev/null || true
-fi
+# Pip cache will be saved by 01-run.sh and cleaned by 02-run.sh
+# No action needed here - cache remains in place for now
+echo "Pip cache will be managed by post-install scripts"
+echo "Pip cache location: /root/.cache/pip"
+echo "Pip cache size: $(du -sh /root/.cache/pip 2>/dev/null | cut -f1 || echo 'N/A')"
 
 # Copy venv to system location for new users
 cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
