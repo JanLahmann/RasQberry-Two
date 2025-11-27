@@ -17,12 +17,19 @@
 name: Compression Benchmark
 
 on:
+  # Temporary: trigger on push to test the workflow
+  push:
+    branches:
+      - dev-features03-compression
+    paths:
+      - '.github/workflows/compression-benchmark.yaml'
+
   workflow_dispatch:
     inputs:
       test_levels:
         description: 'Compression levels to test'
         required: false
-        default: 'standard'
+        default: 'quick'
         type: choice
         options:
           - 'quick'      # Low levels only (fast benchmark)
