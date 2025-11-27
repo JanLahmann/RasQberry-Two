@@ -1151,8 +1151,21 @@ jobs:
           echo "Standard image: $STANDARD_IMG"
           echo "A/B image: $AB_IMG"
 
-          # Copy raw image to deploy with correct name
-          cp "$RAW_IMAGE" "$STANDARD_IMG"
+          # Show initial disk space
+          echo ""
+          echo "=== Disk Space Before Processing ==="
+          df -h /
+
+          # MOVE raw image to deploy with correct name (saves 8GB vs copy)
+          mv "$RAW_IMAGE" "$STANDARD_IMG"
+          echo "Moved raw image to: $STANDARD_IMG"
+
+          # Clean up pi-gen directories to free space for A/B conversion
+          rm -rf pi-gen/deploy pi-gen/work
+          echo "Cleaned up pi-gen/deploy and pi-gen/work"
+          echo ""
+          echo "=== Disk Space After Cleanup ==="
+          df -h /
 
           # ================================================================
           # CREATE A/B BOOT VARIANT (only for full builds)
