@@ -23,6 +23,8 @@ IMG_NAME=rasqberry
 
 # Base system
 RELEASE=bookworm
+# Compression format: xz (slow, small) or zstd (fast, slightly larger)
+# Workflow overrides this based on branch (dev=zstd, prod=xz)
 DEPLOY_COMPRESSION=xz
 
 # Locale and regional settings
@@ -88,10 +90,15 @@ BOOT_VERBOSITY_PROD=splash
 CONSOLE_TYPE_DEV=serial
 BOOT_VERBOSITY_DEV=verbose
 
-# Compression defaults
-# Development: Fast compression for quick iteration
-COMPRESSION_LEVEL=3
-AB_COMPRESSION_LEVEL=3
-# Production: Maximum compression for releases
+# Compression defaults (all builds use xz for Pi Imager compatibility)
+# Development: xz level 1 (fast, ~5x faster than xz-9)
+# Workflow auto-escalates to level 6 if image exceeds 2GB
+COMPRESSION_FORMAT_DEV=xz
+COMPRESSION_LEVEL_DEV=1
+COMPRESSION_LEVEL_DEV_FALLBACK=6
+AB_COMPRESSION_LEVEL_DEV=1
+AB_COMPRESSION_LEVEL_DEV_FALLBACK=6
+# Production: xz level 9 (maximum compression)
+COMPRESSION_FORMAT_PROD=xz
 COMPRESSION_LEVEL_PROD=9
 AB_COMPRESSION_LEVEL_PROD=9
