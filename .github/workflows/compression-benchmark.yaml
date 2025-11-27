@@ -1,0 +1,419 @@
+# ============================================================================
+# Compression Benchmark Workflow
+# ============================================================================
+# Purpose: Compare compression algorithms and levels for RasQberry Pi images
+# to find the optimal balance between compression ratio and speed.
+#
+# Uses REAL cached base stages from pi-gen builds for accurate benchmarking.
+# This ensures compression tests reflect actual Pi OS filesystem characteristics.
+#
+# Tests the following compression tools:
+# - xz (LZMA2): Best compression ratio, slowest
+# - zstd (Zstandard): Good balance of speed and ratio
+# - lz4: Fastest, lowest compression
+# - pigz (parallel gzip): Moderate compression, good speed
+# ============================================================================
+
+name: Compression Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_levels:
+        description: 'Compression levels to test'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - 'quick'      # Low levels only (fast benchmark)
+          - 'standard'   # Key levels (1,3,6,9,etc)
+          - 'thorough'   # All levels (comprehensive)
+
+permissions:
+  contents: read
+
+env:
+  # Must match CACHE_VERSION in main workflow
+  CACHE_VERSION: v2
+
+jobs:
+  benchmark:
+    name: Run Compression Benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          echo "=== Initial disk space ==="
+          df -h /
+
+          # Parallel cleanup
+          echo "Starting parallel disk cleanup..."
+          (sudo rm -rf /opt/hostedtoolcache) &
+          (sudo rm -rf /usr/local/lib/android) &
+          (sudo rm -rf /usr/share/dotnet) &
+          (sudo rm -rf /opt/ghc /usr/local/.ghcup) &
+          (sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true) &
+          wait
+
+          echo "=== Final disk space ==="
+          df -h /
+
+      - name: Maximize available memory
+        run: |
+          echo "=== Initial memory ==="
+          free -h
+
+          # Stop unnecessary services
+          sudo systemctl stop mysql postgresql snapd || true
+
+          # Create swap for memory-intensive compression
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
+          echo "=== Final memory ==="
+          free -h
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xz-utils zstd lz4 pigz \
+            qemu-user-static debootstrap \
+            parted dosfstools e2fsprogs \
+            time bc
+
+      # ========================================================================
+      # RESTORE CACHED BASE STAGES
+      # ========================================================================
+      - name: Restore Base Stages Cache
+        id: cache-base-stages
+        uses: actions/cache/restore@v4
+        with:
+          path: base-stages-cache.tar.gz
+          key: base-stages-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            base-stages-${{ env.CACHE_VERSION }}-
+
+      - name: Clone pi-gen
+        run: |
+          git clone --depth 1 --branch bookworm-arm64 https://github.com/RPi-Distro/pi-gen
+
+      - name: Extract cached base stages
+        if: steps.cache-base-stages.outputs.cache-hit == 'true'
+        run: |
+          echo "Extracting cached base stages..."
+          cd pi-gen
+          sudo tar -xzf ../base-stages-cache.tar.gz
+
+          if [ -d "work" ]; then
+            echo "✓ Cache extracted successfully"
+            WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+            echo "Work directory: $WORK_DIR"
+
+            if [ -d "$WORK_DIR/stage4/rootfs" ]; then
+              echo "✓ stage4/rootfs found"
+              echo "Rootfs size: $(sudo du -sh $WORK_DIR/stage4/rootfs | cut -f1)"
+              echo ""
+              echo "Top-level directories:"
+              sudo ls -la "$WORK_DIR/stage4/rootfs/"
+            else
+              echo "❌ stage4/rootfs not found!"
+              exit 1
+            fi
+          else
+            echo "❌ Work directory not found!"
+            exit 1
+          fi
+
+          # Clean up cache file
+          rm -f ../base-stages-cache.tar.gz
+
+      - name: Create test image from real rootfs
+        id: create-image
+        run: |
+          if [ "${{ steps.cache-base-stages.outputs.cache-hit }}" != "true" ]; then
+            echo "❌ No cache available!"
+            echo "   Run a full build first to populate the base stages cache."
+            exit 1
+          fi
+
+          cd pi-gen
+          WORK_DIR=$(find work -maxdepth 1 -type d ! -name work | head -1)
+          ROOTFS="$WORK_DIR/stage4/rootfs"
+
+          echo "=== Creating test image from real stage4 rootfs ==="
+
+          # Calculate rootfs size with some headroom
+          ROOTFS_SIZE=$(sudo du -sm "$ROOTFS" | cut -f1)
+          IMG_SIZE_MB=$((ROOTFS_SIZE + 512))  # Add 512MB headroom
+
+          echo "Rootfs size: ${ROOTFS_SIZE}MB"
+          echo "Image size: ${IMG_SIZE_MB}MB"
+
+          TEST_IMG="../test-image.img"
+
+          # Create and format image
+          echo "Creating ${IMG_SIZE_MB}MB image file..."
+          dd if=/dev/zero of="$TEST_IMG" bs=1M count=$IMG_SIZE_MB status=progress
+
+          # Create ext4 filesystem
+          mkfs.ext4 -q "$TEST_IMG"
+
+          # Mount and copy rootfs content
+          mkdir -p ../mnt
+          sudo mount -o loop "$TEST_IMG" ../mnt
+
+          echo "Copying rootfs content (this may take a few minutes)..."
+          sudo rsync -aHAX --info=progress2 "$ROOTFS/" ../mnt/
+
+          sync
+          sudo umount ../mnt
+          rmdir ../mnt
+
+          # Get final size
+          ACTUAL_SIZE=$(stat -c%s "$TEST_IMG")
+          ACTUAL_SIZE_MB=$((ACTUAL_SIZE / 1024 / 1024))
+
+          echo ""
+          echo "=== Test Image Created ==="
+          echo "File: $TEST_IMG"
+          echo "Size: ${ACTUAL_SIZE_MB}MB (${ACTUAL_SIZE} bytes)"
+
+          # Show filesystem content summary
+          mkdir -p ../mnt
+          sudo mount -o loop,ro "$TEST_IMG" ../mnt
+          echo ""
+          echo "Content breakdown:"
+          sudo du -sh ../mnt/usr ../mnt/var ../mnt/lib ../mnt/opt 2>/dev/null || true
+          sudo umount ../mnt
+          rmdir ../mnt
+
+          echo "test_img=test-image.img" >> $GITHUB_OUTPUT
+          echo "original_size=$ACTUAL_SIZE" >> $GITHUB_OUTPUT
+          echo "original_size_mb=$ACTUAL_SIZE_MB" >> $GITHUB_OUTPUT
+
+      - name: Clean up pi-gen to save space
+        run: |
+          # Remove pi-gen work directory to free space for compression tests
+          sudo rm -rf pi-gen
+          df -h /
+
+      - name: Determine compression levels to test
+        id: levels
+        run: |
+          MODE="${{ inputs.test_levels }}"
+          MODE="${MODE:-standard}"
+
+          case "$MODE" in
+            quick)
+              echo "xz_levels=1 6" >> $GITHUB_OUTPUT
+              echo "zstd_levels=1 6 12" >> $GITHUB_OUTPUT
+              echo "lz4_levels=1 9" >> $GITHUB_OUTPUT
+              echo "pigz_levels=1 6" >> $GITHUB_OUTPUT
+              ;;
+            standard)
+              echo "xz_levels=1 3 6 9" >> $GITHUB_OUTPUT
+              echo "zstd_levels=1 3 6 9 12 15 19" >> $GITHUB_OUTPUT
+              echo "lz4_levels=1 3 9 12" >> $GITHUB_OUTPUT
+              echo "pigz_levels=1 3 6 9" >> $GITHUB_OUTPUT
+              ;;
+            thorough)
+              echo "xz_levels=0 1 2 3 4 5 6 7 8 9" >> $GITHUB_OUTPUT
+              echo "zstd_levels=1 3 5 7 9 11 13 15 17 19 22" >> $GITHUB_OUTPUT
+              echo "lz4_levels=1 3 5 7 9 12" >> $GITHUB_OUTPUT
+              echo "pigz_levels=1 2 3 4 5 6 7 8 9" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Run compression benchmarks
+        id: benchmark
+        run: |
+          TEST_IMG="${{ steps.create-image.outputs.test_img }}"
+          ORIG_SIZE="${{ steps.create-image.outputs.original_size }}"
+          ORIG_SIZE_MB="${{ steps.create-image.outputs.original_size_mb }}"
+
+          echo "====================================================================="
+          echo "COMPRESSION BENCHMARK"
+          echo "====================================================================="
+          echo "Data source: Real pi-gen stage4 rootfs (cached)"
+          echo "Original image size: ${ORIG_SIZE_MB}MB"
+          echo "CPUs available: $(nproc)"
+          echo ""
+
+          # Create results file
+          RESULTS="benchmark-results.csv"
+          echo "tool,level,compressed_size_mb,ratio,compress_time_sec,decompress_time_sec,compress_speed_mbs,decompress_speed_mbs,threads" > "$RESULTS"
+
+          THREADS=$(nproc)
+
+          # Function to run benchmark
+          run_benchmark() {
+            local TOOL="$1"
+            local LEVEL="$2"
+            local COMPRESS_CMD="$3"
+            local DECOMPRESS_CMD="$4"
+            local OUTPUT_FILE="$5"
+            local USED_THREADS="$6"
+
+            echo -n "  Level ${LEVEL}: "
+
+            # Compress
+            local START=$(date +%s.%N)
+            eval "$COMPRESS_CMD" 2>/dev/null
+            local END=$(date +%s.%N)
+            local COMPRESS_TIME=$(echo "$END - $START" | bc)
+
+            if [ ! -f "$OUTPUT_FILE" ]; then
+              echo "FAILED (compression)"
+              return 1
+            fi
+
+            local COMP_SIZE=$(stat -c%s "$OUTPUT_FILE")
+            local COMP_SIZE_MB=$(echo "scale=1; $COMP_SIZE / 1024 / 1024" | bc)
+            local RATIO=$(echo "scale=2; $ORIG_SIZE / $COMP_SIZE" | bc)
+            local COMP_SPEED=$(echo "scale=1; $ORIG_SIZE_MB / $COMPRESS_TIME" | bc)
+
+            # Decompress
+            local START=$(date +%s.%N)
+            eval "$DECOMPRESS_CMD" > /dev/null 2>&1
+            local END=$(date +%s.%N)
+            local DECOMPRESS_TIME=$(echo "$END - $START" | bc)
+            local DECOMP_SPEED=$(echo "scale=1; $ORIG_SIZE_MB / $DECOMPRESS_TIME" | bc)
+
+            printf "%sMB (%sx) compress: %.1fs (%s MB/s) decompress: %.1fs (%s MB/s)\n" \
+              "$COMP_SIZE_MB" "$RATIO" "$COMPRESS_TIME" "$COMP_SPEED" "$DECOMPRESS_TIME" "$DECOMP_SPEED"
+
+            # Save to CSV
+            echo "${TOOL},${LEVEL},${COMP_SIZE_MB},${RATIO},${COMPRESS_TIME},${DECOMPRESS_TIME},${COMP_SPEED},${DECOMP_SPEED},${USED_THREADS}" >> "$RESULTS"
+
+            # Clean up
+            rm -f "$OUTPUT_FILE"
+          }
+
+          echo ""
+          echo "=== XZ (LZMA2) - Best compression ratio ==="
+          for LEVEL in ${{ steps.levels.outputs.xz_levels }}; do
+            # xz modifies in place, so copy first
+            cp "$TEST_IMG" "${TEST_IMG}.tmp"
+            run_benchmark "xz" "$LEVEL" \
+              "xz -${LEVEL} -T${THREADS} ${TEST_IMG}.tmp" \
+              "xz -d -c ${TEST_IMG}.tmp.xz" \
+              "${TEST_IMG}.tmp.xz" "$THREADS"
+          done
+
+          echo ""
+          echo "=== ZSTD (Zstandard) - Good balance ==="
+          for LEVEL in ${{ steps.levels.outputs.zstd_levels }}; do
+            run_benchmark "zstd" "$LEVEL" \
+              "zstd -${LEVEL} -T${THREADS} ${TEST_IMG} -o ${TEST_IMG}.tmp.zst --rm" \
+              "zstd -d -c ${TEST_IMG}.tmp.zst" \
+              "${TEST_IMG}.tmp.zst" "$THREADS"
+          done
+
+          echo ""
+          echo "=== LZ4 - Fastest compression ==="
+          for LEVEL in ${{ steps.levels.outputs.lz4_levels }}; do
+            run_benchmark "lz4" "$LEVEL" \
+              "lz4 -${LEVEL} ${TEST_IMG} ${TEST_IMG}.tmp.lz4" \
+              "lz4 -d -c ${TEST_IMG}.tmp.lz4" \
+              "${TEST_IMG}.tmp.lz4" "1"
+          done
+
+          echo ""
+          echo "=== PIGZ (Parallel Gzip) - Compatible, fast ==="
+          for LEVEL in ${{ steps.levels.outputs.pigz_levels }}; do
+            run_benchmark "pigz" "$LEVEL" \
+              "pigz -${LEVEL} -p ${THREADS} -k -c ${TEST_IMG} > ${TEST_IMG}.tmp.gz" \
+              "pigz -d -c ${TEST_IMG}.tmp.gz" \
+              "${TEST_IMG}.tmp.gz" "$THREADS"
+          done
+
+          echo ""
+          echo "====================================================================="
+          echo "BENCHMARK COMPLETE"
+          echo "====================================================================="
+
+      - name: Generate summary report
+        run: |
+          ORIG_SIZE_MB="${{ steps.create-image.outputs.original_size_mb }}"
+
+          echo "# 🗜️ Compression Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Data Source:** Real pi-gen stage4 rootfs (cached)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Original Size:** ${ORIG_SIZE_MB}MB | **CPUs:** $(nproc)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 📊 Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Level | Size (MB) | Ratio | Compress | Decompress | Speed (MB/s) |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|-----------|-------|----------|------------|--------------|" >> $GITHUB_STEP_SUMMARY
+
+          tail -n +2 benchmark-results.csv | while IFS=, read -r tool level size ratio ctime dtime cspeed dspeed threads; do
+            printf "| %s | %s | %s | %sx | %.1fs | %.1fs | %.0f |\n" \
+              "$tool" "$level" "$size" "$ratio" "$ctime" "$dtime" "$cspeed" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏆 Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Best Compression Ratio (smallest download)" >> $GITHUB_STEP_SUMMARY
+          sort -t, -k4 -rn benchmark-results.csv | head -4 | tail -3 | while IFS=, read -r tool level size ratio ctime dtime cspeed dspeed threads; do
+            echo "- **${tool} -${level}**: ${size}MB (${ratio}x) in ${ctime}s" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Fastest Compression (shortest build time)" >> $GITHUB_STEP_SUMMARY
+          sort -t, -k5 -n benchmark-results.csv | head -4 | tail -3 | while IFS=, read -r tool level size ratio ctime dtime cspeed dspeed threads; do
+            echo "- **${tool} -${level}**: ${ctime}s (${cspeed}MB/s) → ${size}MB" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Best Efficiency Score (ratio × speed)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Higher score = better balance of compression and speed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          tail -n +2 benchmark-results.csv | while IFS=, read -r tool level size ratio ctime dtime cspeed dspeed threads; do
+            # Score weights ratio more than speed for overall efficiency
+            score=$(echo "scale=1; ($ratio * $ratio) * $cspeed / 10" | bc)
+            echo "${score},${tool},${level},${ratio},${cspeed},${size}"
+          done | sort -t, -k1 -rn | head -5 | while IFS=, read -r score tool level ratio speed size; do
+            echo "- **${tool} -${level}**: score=${score} (${ratio}x @ ${speed}MB/s → ${size}MB)" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 💡 Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Type | Recommended | Rationale |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|-------------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Production** (main/beta) | xz -9 or zstd -19 | Minimize download size for end users |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Development** (frequent builds) | zstd -3 or lz4 -9 | Minimize build time, acceptable size |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Balanced** | zstd -9 | Good ratio without excessive time |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Time Savings Estimate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Calculate potential savings
+          XZ9_TIME=$(grep "^xz,9," benchmark-results.csv | cut -d, -f5 || echo "N/A")
+          ZSTD3_TIME=$(grep "^zstd,3," benchmark-results.csv | cut -d, -f5 || echo "N/A")
+
+          if [ "$XZ9_TIME" != "N/A" ] && [ "$ZSTD3_TIME" != "N/A" ]; then
+            SAVINGS=$(echo "scale=1; $XZ9_TIME - $ZSTD3_TIME" | bc)
+            echo "Switching from xz -9 to zstd -3 for dev builds saves ~${SAVINGS}s per image" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: compression-benchmark-results
+          path: benchmark-results.csv
