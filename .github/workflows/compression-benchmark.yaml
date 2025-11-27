@@ -320,7 +320,7 @@ jobs:
           echo "=== ZSTD (Zstandard) - Good balance ==="
           for LEVEL in ${{ steps.levels.outputs.zstd_levels }}; do
             run_benchmark "zstd" "$LEVEL" \
-              "zstd -${LEVEL} -T${THREADS} ${TEST_IMG} -o ${TEST_IMG}.tmp.zst --rm" \
+              "zstd -${LEVEL} -T${THREADS} ${TEST_IMG} -o ${TEST_IMG}.tmp.zst" \
               "zstd -d -c ${TEST_IMG}.tmp.zst" \
               "${TEST_IMG}.tmp.zst" "$THREADS"
           done
