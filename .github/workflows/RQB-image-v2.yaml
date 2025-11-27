@@ -58,8 +58,8 @@
 # Pi-gen-config Variables (centralized configuration file):
 #
 # 1. Build Quality Settings:
-#    - COMPRESSION_LEVEL / COMPRESSION_LEVEL_PROD: Image compression (3 dev, 9 prod)
-#    - AB_COMPRESSION_LEVEL / AB_COMPRESSION_LEVEL_PROD: AB image compression
+#    - COMPRESSION_LEVEL_DEV / COMPRESSION_LEVEL_PROD: Image compression (1 dev, 9 prod)
+#    - COMPRESSION_LEVEL_DEV_FALLBACK: Higher level if dev image exceeds 2GB (6)
 #    - SKIP_INITRAMFS / SKIP_INITRAMFS_PROD: Initramfs generation control
 #
 # 2. Console Configuration (read by workflow):
@@ -790,13 +790,16 @@ jobs:
             echo "COMPRESSION_LEVEL=${COMPRESSION_LEVEL_PROD}" >> "$GITHUB_ENV"
           else
             echo "Using development build settings for: $BRANCH_NAME"
-            # Read dev compression format and level
+            # Read dev compression format, level, and fallback level
             COMPRESSION_FORMAT_DEV=$(grep "^COMPRESSION_FORMAT_DEV=" pi-gen-config | cut -d'=' -f2)
-            COMPRESSION_FORMAT_DEV="${COMPRESSION_FORMAT_DEV:-zstd}"
+            COMPRESSION_FORMAT_DEV="${COMPRESSION_FORMAT_DEV:-xz}"
             COMPRESSION_LEVEL_DEV=$(grep "^COMPRESSION_LEVEL_DEV=" pi-gen-config | cut -d'=' -f2)
-            COMPRESSION_LEVEL_DEV="${COMPRESSION_LEVEL_DEV:-6}"
+            COMPRESSION_LEVEL_DEV="${COMPRESSION_LEVEL_DEV:-1}"
+            COMPRESSION_LEVEL_DEV_FALLBACK=$(grep "^COMPRESSION_LEVEL_DEV_FALLBACK=" pi-gen-config | cut -d'=' -f2)
+            COMPRESSION_LEVEL_DEV_FALLBACK="${COMPRESSION_LEVEL_DEV_FALLBACK:-6}"
             echo "COMPRESSION_FORMAT=${COMPRESSION_FORMAT_DEV}" >> "$GITHUB_ENV"
             echo "COMPRESSION_LEVEL=${COMPRESSION_LEVEL_DEV}" >> "$GITHUB_ENV"
+            echo "COMPRESSION_LEVEL_FALLBACK=${COMPRESSION_LEVEL_DEV_FALLBACK}" >> "$GITHUB_ENV"
           fi
 
           # Disable pi-gen compression - we'll compress both images (standard + A/B) ourselves
@@ -1113,17 +1116,14 @@ jobs:
           echo "Pi-gen created: $(basename "$RAW_IMAGE")"
           echo "Size: $(du -h "$RAW_IMAGE" | cut -f1)"
 
-          # Determine compression settings from environment
-          COMPRESS_FORMAT="${COMPRESSION_FORMAT:-zstd}"
-          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-6}"
-          echo "Compression: ${COMPRESS_FORMAT} level ${COMPRESS_LEVEL}"
-
-          if [[ "$COMPRESS_FORMAT" == "zstd" ]]; then
-            COMPRESS_EXT="zst"
-            CONTENT_TYPE="application/zstd"
-          else
-            COMPRESS_EXT="xz"
-            CONTENT_TYPE="application/x-xz"
+          # Determine compression settings from environment (all builds use xz)
+          COMPRESS_LEVEL="${COMPRESSION_LEVEL:-1}"
+          COMPRESS_LEVEL_FALLBACK="${COMPRESSION_LEVEL_FALLBACK:-}"
+          COMPRESS_EXT="xz"
+          CONTENT_TYPE="application/x-xz"
+          echo "Compression: xz level ${COMPRESS_LEVEL}"
+          if [ -n "$COMPRESS_LEVEL_FALLBACK" ]; then
+            echo "Fallback level: ${COMPRESS_LEVEL_FALLBACK} (if image exceeds 2GB)"
           fi
 
           # Determine correct base filename from VERSION file
@@ -1244,30 +1244,59 @@ jobs:
           fi
 
           # ================================================================
-          # COMPRESS IMAGES
+          # COMPRESS IMAGES (xz for all builds)
           # ================================================================
           echo ""
-          echo "=== Compressing Images ==="
+          echo "=== Compressing Images with xz -${COMPRESS_LEVEL} ==="
 
-          if [[ "$COMPRESS_FORMAT" == "zstd" ]]; then
-            # zstd: Fast compression, run in parallel
-            echo "Compressing with zstd -${COMPRESS_LEVEL} (parallel)..."
-            zstd -${COMPRESS_LEVEL} -T0 --rm "$STANDARD_IMG" &
-            PID_STD=$!
-            if [ -f "$AB_IMG" ]; then
-              zstd -${COMPRESS_LEVEL} -T0 --rm "$AB_IMG" &
-              PID_AB=$!
-              wait $PID_STD $PID_AB
+          # Define 2GB limit in bytes (2 * 1024 * 1024 * 1024)
+          MAX_SIZE_BYTES=2147483648
+
+          # Function to compress with fallback if exceeds 2GB
+          compress_with_fallback() {
+            local IMG="$1"
+            local LEVEL="$2"
+            local FALLBACK="$3"
+            local COMPRESSED="${IMG}.xz"
+
+            echo "Compressing $(basename "$IMG") with xz -${LEVEL}..."
+            xz -${LEVEL} -T0 -k "$IMG"  # -k keeps original for potential recompression
+
+            # Check size
+            local SIZE=$(stat -c%s "$COMPRESSED")
+            local SIZE_MB=$((SIZE / 1024 / 1024))
+            echo "  Compressed size: ${SIZE_MB} MB"
+
+            if [ "$SIZE" -gt "$MAX_SIZE_BYTES" ] && [ -n "$FALLBACK" ]; then
+              echo "  ⚠️ Image exceeds 2GB limit (${SIZE_MB} MB)"
+              echo "  Recompressing with xz -${FALLBACK}..."
+              rm -f "$COMPRESSED"
+              xz -${FALLBACK} -T0 -k "$IMG"
+              SIZE=$(stat -c%s "$COMPRESSED")
+              SIZE_MB=$((SIZE / 1024 / 1024))
+              echo "  New size: ${SIZE_MB} MB"
+
+              if [ "$SIZE" -gt "$MAX_SIZE_BYTES" ]; then
+                echo "  ⚠️ WARNING: Image still exceeds 2GB after fallback compression!"
+              else
+                echo "  ✓ Image now under 2GB limit"
+              fi
+            elif [ "$SIZE" -gt "$MAX_SIZE_BYTES" ]; then
+              echo "  ⚠️ WARNING: Image exceeds 2GB limit (no fallback configured)"
             else
-              wait $PID_STD
+              echo "  ✓ Image under 2GB limit"
             fi
-          else
-            # xz: Slow but best compression
-            echo "Compressing with xz -${COMPRESS_LEVEL}..."
-            xz -${COMPRESS_LEVEL} -T0 "$STANDARD_IMG" || true
-            if [ -f "$AB_IMG" ]; then
-              xz -${COMPRESS_LEVEL} -T0 "$AB_IMG" || true
-            fi
+
+            # Remove original uncompressed image
+            rm -f "$IMG"
+          }
+
+          # Compress standard image
+          compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+
+          # Compress A/B image if it exists
+          if [ -f "$AB_IMG" ]; then
+            compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
           fi
 
           # Set outputs

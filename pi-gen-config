@@ -95,12 +95,15 @@ BOOT_VERBOSITY_PROD=splash
 CONSOLE_TYPE_DEV=serial
 BOOT_VERBOSITY_DEV=verbose
 
-# Compression defaults
-# Development: Use zstd for fast compression (5-10x faster than xz)
-COMPRESSION_FORMAT_DEV=zstd
-COMPRESSION_LEVEL_DEV=6
-AB_COMPRESSION_LEVEL_DEV=6
-# Production: Use xz for maximum compression
+# Compression defaults (all builds use xz for Pi Imager compatibility)
+# Development: xz level 1 (fast, ~5x faster than xz-9)
+# Workflow auto-escalates to level 6 if image exceeds 2GB
+COMPRESSION_FORMAT_DEV=xz
+COMPRESSION_LEVEL_DEV=1
+COMPRESSION_LEVEL_DEV_FALLBACK=6
+AB_COMPRESSION_LEVEL_DEV=1
+AB_COMPRESSION_LEVEL_DEV_FALLBACK=6
+# Production: xz level 9 (maximum compression)
 COMPRESSION_FORMAT_PROD=xz
 COMPRESSION_LEVEL_PROD=9
 AB_COMPRESSION_LEVEL_PROD=9
