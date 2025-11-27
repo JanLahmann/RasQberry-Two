@@ -1252,6 +1252,18 @@ jobs:
           # Define 2GB limit in bytes (2 * 1024 * 1024 * 1024)
           MAX_SIZE_BYTES=2147483648
 
+          # Helper to run xz and handle exit code 2 (permission warning)
+          # xz returns 2 when compression succeeds but it can't set file group
+          run_xz() {
+            local XZ_EXIT
+            xz "$@" || XZ_EXIT=$?
+            if [ "${XZ_EXIT:-0}" -eq 2 ]; then
+              echo "  (ignoring xz exit code 2 - permission warning)"
+              return 0
+            fi
+            return ${XZ_EXIT:-0}
+          }
+
           # Function to compress with fallback if exceeds 2GB
           compress_with_fallback() {
             local IMG="$1"
@@ -1260,7 +1272,7 @@ jobs:
             local COMPRESSED="${IMG}.xz"
 
             echo "Compressing $(basename "$IMG") with xz -${LEVEL}..."
-            xz -${LEVEL} -T0 -k "$IMG"  # -k keeps original for potential recompression
+            run_xz -${LEVEL} -T0 -k "$IMG"  # -k keeps original for potential recompression
 
             # Check size
             local SIZE=$(stat -c%s "$COMPRESSED")
@@ -1271,7 +1283,7 @@ jobs:
               echo "  ⚠️ Image exceeds 2GB limit (${SIZE_MB} MB)"
               echo "  Recompressing with xz -${FALLBACK}..."
               rm -f "$COMPRESSED"
-              xz -${FALLBACK} -T0 -k "$IMG"
+              run_xz -${FALLBACK} -T0 -k "$IMG"
               SIZE=$(stat -c%s "$COMPRESSED")
               SIZE_MB=$((SIZE / 1024 / 1024))
               echo "  New size: ${SIZE_MB} MB"
