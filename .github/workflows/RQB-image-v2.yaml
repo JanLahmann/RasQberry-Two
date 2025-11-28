@@ -350,7 +350,7 @@ jobs:
       # - Dev: "rasqberry-dev-2024-01-01-123456"
       - name: Create Release
         id: create-release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ github.ref == 'refs/heads/main' && format('rasqberry-v{0}', needs.rasqberry-push-version-number.outputs.version_num) || format('rasqberry-{0}', needs.rasqberry-push-version-number.outputs.version_num) }}
@@ -377,6 +377,10 @@ jobs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
+      # Pre-computed metadata (saves ~2min by avoiding re-download in JSON job)
+      extract_sha256: ${{ steps.set-asset.outputs.extract_sha256 }}
+      extract_size: ${{ steps.set-asset.outputs.extract_size }}
+      compressed_size: ${{ steps.set-asset.outputs.compressed_size }}
 
     steps:
       # Checkout the commit with updated VERSION file from Job 1
@@ -1173,8 +1177,20 @@ jobs:
           fi
 
           # ================================================================
-          # COMPRESS IMAGES (xz for all builds)
+          # CALCULATE METADATA AND COMPRESS IMAGES
           # ================================================================
+          # Calculate SHA256 of uncompressed image BEFORE compression
+          # This saves ~2 minutes by avoiding re-download in JSON job
+          echo ""
+          echo "=== Calculating image metadata before compression ==="
+
+          # Calculate uncompressed size and SHA256 for standard image
+          echo "Calculating SHA256 of $(basename "$STANDARD_IMG")..."
+          EXTRACT_SIZE=$(stat -c%s "$STANDARD_IMG")
+          EXTRACT_SHA256=$(sha256sum "$STANDARD_IMG" | cut -d' ' -f1)
+          echo "  Uncompressed size: $((EXTRACT_SIZE / 1024 / 1024)) MB"
+          echo "  SHA256: $EXTRACT_SHA256"
+
           echo ""
           echo "=== Compressing Images with xz -${COMPRESS_LEVEL} ==="
 
@@ -1251,10 +1267,18 @@ jobs:
             echo "A/B: $AB_COMPRESSED ($(du -h "$AB_COMPRESSED" | cut -f1))"
           fi
 
+          # Get compressed size
+          COMPRESSED_SIZE=$(stat -c%s "$STANDARD_COMPRESSED")
+
           # Export outputs
           echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
           echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
           echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
+
+          # Export pre-computed metadata (saves ~2min in JSON job)
+          echo "extract_sha256=$EXTRACT_SHA256" >> $GITHUB_OUTPUT
+          echo "extract_size=$EXTRACT_SIZE" >> $GITHUB_OUTPUT
+          echo "compressed_size=$COMPRESSED_SIZE" >> $GITHUB_OUTPUT
 
           if [ -f "$AB_COMPRESSED" ]; then
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
@@ -1318,40 +1342,26 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Download and calculate image metadata
+      - name: Get image metadata from build job
         id: metadata
         run: |
-          # Get the asset details from the build job
+          # Use pre-computed metadata from build job (saves ~2 minutes)
+          # Previously this step downloaded 1.9GB and streamed decompression
+
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
-          
-          echo "Downloading image to calculate metadata: $ASSET_NAME"
-          
-          # Download the compressed image from the release
-          curl -L -o "$ASSET_NAME" "$DOWNLOAD_URL"
-          
-          if [ ! -f "$ASSET_NAME" ]; then
-            echo "Error: Failed to download image file"
-            exit 1
-          fi
-          
-          echo "Calculating metadata using streaming decompression..."
-          
-          # Get uncompressed size from xz metadata (no extraction needed)
-          EXTRACT_SIZE=$(xz --list --robot "$ASSET_NAME" | tail -n 1 | awk '{print $5}')
-          
-          # Calculate SHA256 using streaming decompression (no disk write)
-          echo "Streaming decompression to calculate SHA256 (this may take a few minutes)..."
-          EXTRACT_SHA256=$(xz -d -c "$ASSET_NAME" | sha256sum | cut -d' ' -f1)
-          
-          # Calculate compressed image size
-          COMPRESSED_SIZE=$(stat -c%s "$ASSET_NAME")
-          
-          # Clean up downloaded file to save space
-          rm -f "$ASSET_NAME"
-          
+
+          # Get pre-computed values from build job
+          EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
+          EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
+          COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
-          
+
+          echo "Using pre-computed metadata from build job (no download needed):"
+          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
+          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
+          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
+
           # Output all metadata
           echo "download_url=${DOWNLOAD_URL}" >> $GITHUB_OUTPUT
           echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
@@ -1359,12 +1369,6 @@ jobs:
           echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
           echo "release_date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
           echo "version_num=${{ needs.rasqberry-push-version-number.outputs.version_num }}" >> $GITHUB_OUTPUT
-          
-          # Display calculated values
-          echo "Image metadata calculated:"
-          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
-          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
-          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
           
       - name: Determine version type and stream
         id: version-type
@@ -1517,7 +1521,7 @@ jobs:
           echo "Generated RQB-images.json and RQB-releases.json in current branch"
 
       - name: Upload JSON files to release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
