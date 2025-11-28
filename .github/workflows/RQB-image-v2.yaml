@@ -635,21 +635,38 @@ jobs:
           ARCH=$(uname -m)
           echo "Runner architecture: $ARCH"
 
-          # Base pi-gen dependencies (required for all runners)
-          PACKAGES="coreutils quilt parted debootstrap zerofree zip dosfstools"
-          PACKAGES="$PACKAGES libarchive-tools libcap2-bin grep rsync xz-utils"
-          PACKAGES="$PACKAGES zstd file git curl bc gpg pigz lz4 arch-test"
+          # Install pi-gen dependencies
+          # Note: qemu-user-static is required even on ARM64 because pi-gen's
+          # build.sh checks for it as a dependency (though it won't be used on ARM64)
+          sudo apt-get install -y \
+            coreutils \
+            quilt \
+            parted \
+            qemu-user-static \
+            debootstrap \
+            zerofree \
+            zip \
+            dosfstools \
+            libarchive-tools \
+            libcap2-bin \
+            grep \
+            rsync \
+            xz-utils \
+            zstd \
+            file \
+            git \
+            curl \
+            bc \
+            gpg \
+            pigz \
+            lz4 \
+            arch-test
 
-          # Add QEMU only on x86_64 runners (needed for ARM emulation)
-          if [ "$ARCH" = "x86_64" ]; then
-            echo "x86_64 runner detected - adding qemu-user-static for ARM emulation"
-            PACKAGES="$PACKAGES qemu-user-static"
+          if [ "$ARCH" = "aarch64" ]; then
+            echo "ARM64 runner detected - qemu-user-static installed for pi-gen check but won't be used"
           else
-            echo "ARM64 runner detected - native execution, no QEMU needed"
+            echo "x86_64 runner detected - qemu-user-static will be used for ARM emulation"
           fi
-
-          # Install all packages
-          sudo apt-get install -y $PACKAGES
 
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
