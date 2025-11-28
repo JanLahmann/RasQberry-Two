@@ -90,11 +90,12 @@ if [ "$CACHE_HIT" = false ] && [ "${PIGEN:-false}" == "true" ]; then
     echo "Downloading wheels to cache (first build)..."
 
     # Download all wheels including dependencies
+    # Use --no-cache-dir to force pip to write files to dest (cached files aren't copied)
     if [ -f "$REQUIREMENTS_FILE" ]; then
-        pip download --dest="$WHEEL_DIR" --prefer-binary \
+        pip download --no-cache-dir --dest="$WHEEL_DIR" --prefer-binary \
             "$QISKIT_SPEC" -r "$REQUIREMENTS_FILE" || true
     else
-        pip download --dest="$WHEEL_DIR" --prefer-binary \
+        pip download --no-cache-dir --dest="$WHEEL_DIR" --prefer-binary \
             "$QISKIT_SPEC" qiskit-ibm-runtime qiskit-aer || true
     fi
 
