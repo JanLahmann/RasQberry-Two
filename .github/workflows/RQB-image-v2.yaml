@@ -599,10 +599,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/wheel-cache
+          # No restore-keys: require exact match to prevent stale cache on requirements change
           key: wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
-          restore-keys: |
-            wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-
-            wheels-arm64-
 
       # Cache pip HTTP responses as fallback for packages not in wheel cache
       # Helps when new packages are added or wheel cache is partial
@@ -612,10 +610,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/pip-cache
+          # No restore-keys: require exact match to prevent stale cache on requirements change
           key: pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
-          restore-keys: |
-            pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-
-            pip-qiskit-arm64-
           
       # ========================================================================
       # PI-GEN DEPENDENCIES
