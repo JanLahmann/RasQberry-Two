@@ -165,7 +165,8 @@ def detect_ab_layout() -> Tuple[bool, str]:
             timeout=5
         )
 
-        if result.returncode == 0 and 'bootfs-cmn' in result.stdout:
+        # Case-insensitive check for bootfs-cmn label
+        if result.returncode == 0 and 'bootfs-cmn' in result.stdout.lower():
             return True, 'v2'
 
         # Check for old v1 layout (tryboot.txt exists but no bootfs-common)

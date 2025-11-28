@@ -66,7 +66,10 @@ get_current_slot() {
     local bootfs_common_label
     bootfs_common_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
 
-    if [ "$bootfs_common_label" = "bootfs-cmn" ] || [ "$bootfs_common_label" = "config" ]; then
+    # Check for AB image - handle both old lowercase and new uppercase labels
+    local label_upper
+    label_upper=$(echo "$bootfs_common_label" | tr '[:lower:]' '[:upper:]')
+    if [ "$label_upper" = "BOOTFS-CMN" ] || [ "$label_upper" = "CONFIG" ]; then
         # AB image (v2 or v3) - determine slot from root partition
         case "${root_part}" in
             *p5|*5)

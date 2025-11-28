@@ -157,9 +157,9 @@ echo ""
 # ============================================================================
 echo "Step 4: Formatting partitions..."
 
-mkfs.vfat -F 32 -n "config" "${OUTPUT_LOOP}p1"
-mkfs.vfat -F 32 -n "boot-a" "${OUTPUT_LOOP}p2"
-mkfs.vfat -F 32 -n "boot-b" "${OUTPUT_LOOP}p3"
+mkfs.vfat -F 32 -n "CONFIG" "${OUTPUT_LOOP}p1"
+mkfs.vfat -F 32 -n "BOOT-A" "${OUTPUT_LOOP}p2"
+mkfs.vfat -F 32 -n "BOOT-B" "${OUTPUT_LOOP}p3"
 mkfs.ext4 -F -L "system-a" "${OUTPUT_LOOP}p5"
 mkfs.ext4 -F -L "system-b" "${OUTPUT_LOOP}p6"
 mkfs.ext4 -F -L "data" "${OUTPUT_LOOP}p7"

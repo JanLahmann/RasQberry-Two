@@ -194,24 +194,28 @@ write_image_to_slot() {
     local img_boot
     local img_root
 
-    case "$p1_label" in
-        config)
+    # Normalize label to uppercase for comparison (FAT labels are case-insensitive)
+    local p1_label_upper
+    p1_label_upper=$(echo "$p1_label" | tr '[:lower:]' '[:upper:]')
+
+    case "$p1_label_upper" in
+        CONFIG)
             # AB image: p1=config, p2=boot-a, p5=system-a
-            log_message "AB image detected (p1 label: config)"
+            log_message "AB image detected (p1 label: $p1_label)"
             log_message "Using Slot A partitions as source (boot-a, system-a)"
             img_boot="${loop_dev}p2"
             img_root="${loop_dev}p5"
             ;;
-        bootfs)
+        BOOTFS)
             # Standard image: p1=bootfs, p2=rootfs
-            log_message "Standard image detected (p1 label: bootfs)"
+            log_message "Standard image detected (p1 label: $p1_label)"
             img_boot="${loop_dev}p1"
             img_root="${loop_dev}p2"
             ;;
         *)
             losetup -d "$loop_dev"
             rm -rf "$work_dir"
-            die "Unknown image type: p1 label '$p1_label' (expected 'config' or 'bootfs')"
+            die "Unknown image type: p1 label '$p1_label' (expected 'CONFIG' or 'BOOTFS')"
             ;;
     esac
 

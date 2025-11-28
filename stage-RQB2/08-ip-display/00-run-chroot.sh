@@ -7,7 +7,8 @@
 VENV_PATH="/home/rasqberry/RasQberry-Two/venv/RQB2"
 if [ -d "$VENV_PATH" ]; then
     echo "Installing netifaces in virtual environment..."
-    "$VENV_PATH/bin/pip3" install netifaces
+    # Use --use-pep517 to avoid legacy setup.py install deprecation warning
+    "$VENV_PATH/bin/pip3" install --use-pep517 netifaces
 else
     echo "WARNING: Virtual environment not found at $VENV_PATH"
     echo "netifaces will need to be installed manually"

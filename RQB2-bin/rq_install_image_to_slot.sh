@@ -81,8 +81,11 @@ check_ab_system() {
     local bootfs_common_label
     bootfs_common_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
 
-    if [ "$bootfs_common_label" != "bootfs-cmn" ]; then
-        die "This system does not have A/B boot configured (bootfs-common not found)"
+    # Normalize to uppercase for case-insensitive comparison
+    local label_upper
+    label_upper=$(echo "$bootfs_common_label" | tr '[:lower:]' '[:upper:]')
+    if [ "$label_upper" != "BOOTFS-CMN" ]; then
+        die "This system does not have A/B boot configured (bootfs-common not found, got: $bootfs_common_label)"
     fi
 }
 
