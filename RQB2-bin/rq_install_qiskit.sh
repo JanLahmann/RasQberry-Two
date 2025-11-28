@@ -61,6 +61,12 @@ case "$VERSION" in
         ;;
 esac
 
+# Pre-install packages that need --use-pep517 (legacy setup.py)
+# These are dependencies of hardware packages (adafruit-blinka, etc.)
+# Installing them first with --use-pep517 avoids deprecation warnings
+echo "Pre-installing hardware dependencies with PEP 517..."
+pip install --use-pep517 --prefer-binary sysv_ipc RPi.GPIO rpi_ws281x || true
+
 # Install everything in one pip call for proper version resolution
 # This ensures qiskit version constraint is respected by all packages
 echo "Installing $QISKIT_SPEC and additional packages..."
