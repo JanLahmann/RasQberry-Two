@@ -141,6 +141,14 @@ on:
         options:
           - verbose
           - splash
+      runner_type:
+        description: 'Runner architecture (arm64=native, x64=QEMU emulation)'
+        required: false
+        default: 'x64'
+        type: choice
+        options:
+          - x64
+          - arm64
 
   # Automatic trigger for development branches
   push:
@@ -372,7 +380,9 @@ jobs:
     needs: [rasqberry-push-version-number, release]
     # For cache-only, release is skipped but we still need version info
     if: always() && needs.rasqberry-push-version-number.result == 'success'
-    runs-on: ubuntu-latest
+    # Runner selection: arm64=native (no QEMU), x64=emulated (default for push triggers)
+    # ARM64 native runners are free for public repos since Jan 2025
+    runs-on: ${{ github.event.inputs.runner_type == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     outputs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
@@ -621,31 +631,25 @@ jobs:
         run: |
           sudo apt-get update
 
-          # Install pi-gen dependencies
-          # These are required for cross-compilation and image building
-          sudo apt-get install -y \
-            coreutils \
-            quilt \
-            parted \
-            qemu-user-static \
-            debootstrap \
-            zerofree \
-            zip \
-            dosfstools \
-            libarchive-tools \
-            libcap2-bin \
-            grep \
-            rsync \
-            xz-utils \
-            zstd \
-            file \
-            git \
-            curl \
-            bc \
-            gpg \
-            pigz \
-            lz4 \
-            arch-test
+          # Detect architecture
+          ARCH=$(uname -m)
+          echo "Runner architecture: $ARCH"
+
+          # Base pi-gen dependencies (required for all runners)
+          PACKAGES="coreutils quilt parted debootstrap zerofree zip dosfstools"
+          PACKAGES="$PACKAGES libarchive-tools libcap2-bin grep rsync xz-utils"
+          PACKAGES="$PACKAGES zstd file git curl bc gpg pigz lz4 arch-test"
+
+          # Add QEMU only on x86_64 runners (needed for ARM emulation)
+          if [ "$ARCH" = "x86_64" ]; then
+            echo "x86_64 runner detected - adding qemu-user-static for ARM emulation"
+            PACKAGES="$PACKAGES qemu-user-static"
+          else
+            echo "ARM64 runner detected - native execution, no QEMU needed"
+          fi
+
+          # Install all packages
+          sudo apt-get install -y $PACKAGES
 
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
