@@ -45,6 +45,7 @@ pillow
 adafruit-blinka
 adafruit-circuitpython-neopixel
 # Note: pygobject is provided via system package symlink (see 03-install-qiskit/00-run-chroot.sh)
+netifaces  # For IP display service (08-ip-display)
 sense-hat
 sense-emu
 python-dotenv
