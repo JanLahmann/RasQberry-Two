@@ -12,13 +12,13 @@
 # Output: AB-ready .img file (7 partitions with extended partition)
 #
 # Partition Layout Created:
-#   p1: config        512MB   FAT32   (autoboot.txt, config.txt)
-#   p2: boot-a        512MB   FAT32   (boot files for Slot A)
-#   p3: boot-b        512MB   FAT32   (boot files for Slot B)
+#   p1: CONFIG        512MB   FAT32   (autoboot.txt, config.txt)
+#   p2: BOOT-A        512MB   FAT32   (boot files for Slot A)
+#   p3: BOOT-B        512MB   FAT32   (boot files for Slot B)
 #   p4: extended      (rest)
-#     p5: system-a    10GB    ext4    (rootfs Slot A)
-#     p6: system-b    16MB    ext4    (rootfs Slot B, placeholder)
-#     p7: data        16MB    ext4    (user data, placeholder)
+#     p5: SYSTEM-A    10GB    ext4    (rootfs Slot A)
+#     p6: SYSTEM-B    16MB    ext4    (rootfs Slot B, placeholder)
+#     p7: DATA        16MB    ext4    (user data, placeholder)
 #
 # Expansion (via raspi-config, requires 64GB+ SD card):
 #   data:     10% of available space
@@ -160,9 +160,9 @@ echo "Step 4: Formatting partitions..."
 mkfs.vfat -F 32 -n "CONFIG" "${OUTPUT_LOOP}p1"
 mkfs.vfat -F 32 -n "BOOT-A" "${OUTPUT_LOOP}p2"
 mkfs.vfat -F 32 -n "BOOT-B" "${OUTPUT_LOOP}p3"
-mkfs.ext4 -F -L "system-a" "${OUTPUT_LOOP}p5"
-mkfs.ext4 -F -L "system-b" "${OUTPUT_LOOP}p6"
-mkfs.ext4 -F -L "data" "${OUTPUT_LOOP}p7"
+mkfs.ext4 -F -L "SYSTEM-A" "${OUTPUT_LOOP}p5"
+mkfs.ext4 -F -L "SYSTEM-B" "${OUTPUT_LOOP}p6"
+mkfs.ext4 -F -L "DATA" "${OUTPUT_LOOP}p7"
 
 echo "Filesystems created"
 echo ""
@@ -421,12 +421,12 @@ echo "AB-ready image created: $OUTPUT_IMG"
 echo "Size: $(du -h "$OUTPUT_IMG" | cut -f1)"
 echo ""
 echo "Partition layout:"
-echo "  p1: config      (${CONFIG_SIZE_MB}MB)   - autoboot.txt, config.txt"
-echo "  p2: boot-a      (${BOOT_A_SIZE_MB}MB)   - boot files for Slot A"
-echo "  p3: boot-b      (${BOOT_B_SIZE_MB}MB)   - boot files for Slot B"
-echo "  p5: system-a    (${SYSTEM_A_SIZE_MB}MB) - rootfs Slot A"
-echo "  p6: system-b    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (placeholder)"
-echo "  p7: data        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
+echo "  p1: CONFIG      (${CONFIG_SIZE_MB}MB)   - autoboot.txt, config.txt"
+echo "  p2: BOOT-A      (${BOOT_A_SIZE_MB}MB)   - boot files for Slot A"
+echo "  p3: BOOT-B      (${BOOT_B_SIZE_MB}MB)   - boot files for Slot B"
+echo "  p5: SYSTEM-A    (${SYSTEM_A_SIZE_MB}MB) - rootfs Slot A"
+echo "  p6: SYSTEM-B    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (placeholder)"
+echo "  p7: DATA        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
 echo ""
 echo "Next steps:"
 echo "  1. Compress: xz -9 -T0 $OUTPUT_IMG"

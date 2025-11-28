@@ -52,25 +52,24 @@ check_root() {
 
 get_current_slot() {
     # Get the currently booted slot (A or B)
-    # For v2 AB layout: p5=Slot A, p6=Slot B (root partitions)
+    # AB layout: p5=Slot A, p6=Slot B (root partitions)
     # Boot partition (p2 or p3) also indicates slot
 
-    # Check if running in AB boot mode (look for bootfs-common)
+    # Check if running in AB boot mode (look for CONFIG partition)
     local root_part
     root_part=$(findmnt / -o source -n)
     local root_dev
     root_dev=$(lsblk -no pkname "$root_part")
 
-    # Check for common boot partition (indicates AB image)
-    # v2 layout: bootfs-cmn, v3 layout: config
-    local bootfs_common_label
-    bootfs_common_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
+    # Check for config partition (indicates AB image)
+    local config_label
+    config_label=$(lsblk -no label "/dev/${root_dev}p1" 2>/dev/null || lsblk -no label "/dev/${root_dev}1" 2>/dev/null || echo "")
 
-    # Check for AB image - handle both old lowercase and new uppercase labels
+    # Check for AB image (CONFIG partition label, case-insensitive)
     local label_upper
-    label_upper=$(echo "$bootfs_common_label" | tr '[:lower:]' '[:upper:]')
-    if [ "$label_upper" = "BOOTFS-CMN" ] || [ "$label_upper" = "CONFIG" ]; then
-        # AB image (v2 or v3) - determine slot from root partition
+    label_upper=$(echo "$config_label" | tr '[:lower:]' '[:upper:]')
+    if [ "$label_upper" = "CONFIG" ]; then
+        # AB image - determine slot from root partition
         case "${root_part}" in
             *p5|*5)
                 echo "A"

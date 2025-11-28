@@ -41,7 +41,6 @@ echo "=> Installing A/B boot scripts to /usr/local/bin"
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_health_check.py" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_slot_manager.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/setup-ab-boot.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/reboot-to-slot-b.sh" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
@@ -57,18 +56,10 @@ echo ""
 echo "A/B boot health check is enabled and will run on every boot."
 echo "This allows the tryboot mechanism to validate new images."
 echo ""
-echo "To set up A/B boot partitioning (optional for testing):"
-echo "  1. Disable filesystem expansion before first boot:"
-echo "     sudo touch /path/to/sdcard/var/lib/rasqberry-firstboot/01-expand-filesystem.sh.done"
-echo "  2. Boot the Pi normally"
-echo "  3. Run: sudo setup-ab-boot.sh"
+echo "For A/B boot images, you can manage slots with:"
+echo "  sudo rq_slot_manager.sh status     - Show current slot status"
+echo "  sudo rq_slot_manager.sh switch-to B - Switch to Slot B on next reboot"
+echo "  sudo rq_slot_manager.sh confirm    - Confirm current slot (prevent rollback)"
 echo ""
-echo "After A/B setup, you can manually test new images in Slot B:"
-echo "  1. Download image to Slot B:"
-echo "     wget <image-url> && sudo bash -c 'xz -dc image.img.xz | dd of=/dev/mmcblk0p3 bs=4M'"
-echo "  2. Reboot to Slot B: sudo reboot-to-slot-b"
-echo "  3. Health check validates (60 seconds)"
-echo "  4. If successful: Slot B becomes default"
-echo "     If failed: System rolls back to Slot A"
-echo ""
-echo "Note: Update polling is NOT included - updates are manual only"
+echo "Note: A/B boot layout is created during image build (convert-to-ab-boot-v3.sh)"
+echo "      Update polling is NOT included - updates are manual only"
