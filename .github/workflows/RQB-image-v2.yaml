@@ -92,6 +92,7 @@ permissions:
   checks: write        # Update check status
   id-token: write      # Sign artifacts with cosign
   packages: write      # Push to GitHub container registry
+  actions: write       # Trigger consolidation workflow
 
 # ============================================================================
 # WORKFLOW TRIGGERS
