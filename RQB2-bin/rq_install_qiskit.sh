@@ -115,12 +115,23 @@ pip install --use-pep517 --prefer-binary --find-links="$WHEEL_DIR" \
 
 # Install everything from wheel cache (or download if not cached)
 echo "Installing $QISKIT_SPEC and additional packages..."
+
+# Use --no-index when cache hit to skip network entirely (instant install)
+# This is only used for dev builds; main/beta don't use wheel cache
+if [ "$CACHE_HIT" = true ]; then
+    echo "Using cached wheels only (--no-index for fast install)..."
+    PIP_INDEX_OPTS="--no-index"
+else
+    echo "No wheel cache - will download from PyPI..."
+    PIP_INDEX_OPTS=""
+fi
+
 if [ -f "$REQUIREMENTS_FILE" ]; then
-    pip install --prefer-binary --find-links="$WHEEL_DIR" \
+    pip install $PIP_INDEX_OPTS --prefer-binary --find-links="$WHEEL_DIR" \
         "$QISKIT_SPEC" -r "$REQUIREMENTS_FILE"
 else
     echo "WARNING: Requirements file not found: $REQUIREMENTS_FILE"
-    pip install --prefer-binary --find-links="$WHEEL_DIR" \
+    pip install $PIP_INDEX_OPTS --prefer-binary --find-links="$WHEEL_DIR" \
         "$QISKIT_SPEC" qiskit-ibm-runtime qiskit-aer
 fi
 

@@ -561,15 +561,18 @@ jobs:
             fi
           fi
 
-      # Generate cache key with monthly rotation
-      # This ensures caches are refreshed monthly for security updates
+      # Generate cache keys with time-based rotation
+      # Monthly for pip cache, weekly for wheel cache (faster refresh for dev)
       - name: Generate cache date
         id: cache-date
         if: steps.cache-decision.outputs.use_cache == 'true'
         run: |
-          # Use year-month for cache key to refresh monthly
+          # Use year-month for pip cache (monthly refresh)
           CACHE_DATE=$(date +"%Y-%m")
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
+          # Use year-week for wheel cache (weekly refresh)
+          CACHE_WEEK=$(date +"%Y-W%V")
+          echo "cache_week=${CACHE_WEEK}" >> $GITHUB_OUTPUT
 
       # ========================================================================
       # CACHE RESTORATION - Base Stages Only
@@ -586,17 +589,19 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Cache ARM64 wheel files for Qiskit installation
-      # Stores actual .whl files for instant installation (no download needed)
-      # Keyed on requirements hash - cache rebuilds when requirements change
+      # Cache ARM64 wheel files for Qiskit installation (dev branches only)
+      # Stores actual .whl files for instant installation (no network queries)
+      # Weekly TTL ensures packages are refreshed regularly for security updates
+      # Note: main/beta branches skip this cache (use_cache=false) to always get latest
       - name: Cache ARM64 wheels
         id: cache-wheels
         if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache@v4
         with:
           path: ~/wheel-cache
-          key: wheels-arm64-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+          key: wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
           restore-keys: |
+            wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-
             wheels-arm64-
 
       # Cache pip HTTP responses as fallback for packages not in wheel cache
