@@ -586,9 +586,22 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Cache pip packages for Qiskit installation
-      # Keyed on requirements hash + monthly rotation to pick up new Qiskit releases
-      - name: Cache pip packages
+      # Cache ARM64 wheel files for Qiskit installation
+      # Stores actual .whl files for instant installation (no download needed)
+      # Keyed on requirements hash - cache rebuilds when requirements change
+      - name: Cache ARM64 wheels
+        id: cache-wheels
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/wheel-cache
+          key: wheels-arm64-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+          restore-keys: |
+            wheels-arm64-
+
+      # Cache pip HTTP responses as fallback for packages not in wheel cache
+      # Helps when new packages are added or wheel cache is partial
+      - name: Cache pip packages (fallback)
         id: cache-pip
         if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache@v4
@@ -983,8 +996,19 @@ jobs:
           cat config
           echo "========================"
 
-          # Prepare pip cache for build (copy to sudo-accessible location)
-          # Note: We're in pi-gen/, scripts save to ../pip-cache-host (repo root)
+          # Prepare wheel cache for build (copy to sudo-accessible location)
+          # Wheels provide instant installation without downloads
+          echo "=== Preparing wheel cache for build ==="
+          if [ -d ~/wheel-cache ] && [ -n "$(ls -A ~/wheel-cache 2>/dev/null)" ]; then
+            cp -r ~/wheel-cache ../wheel-cache-host
+            WHEEL_COUNT=$(find ../wheel-cache-host -name "*.whl" 2>/dev/null | wc -l || echo "0")
+            echo "Copied wheel cache to build directory: $(du -sh ../wheel-cache-host | cut -f1) ($WHEEL_COUNT wheels)"
+          else
+            echo "No wheel cache available (first build or cache miss)"
+            mkdir -p ../wheel-cache-host
+          fi
+
+          # Prepare pip cache for build (fallback for packages not in wheel cache)
           echo "=== Preparing pip cache for build ==="
           if [ -d ~/pip-cache ] && [ -n "$(ls -A ~/pip-cache 2>/dev/null)" ]; then
             cp -r ~/pip-cache ../pip-cache-host
@@ -996,8 +1020,19 @@ jobs:
           # Build the custom RasQberry stage
           sudo ./build.sh
 
+          # Copy updated wheel cache back to GitHub Actions location
+          echo "=== Saving updated wheel cache ==="
+          if [ -d ../wheel-cache-host ] && [ -n "$(ls -A ../wheel-cache-host 2>/dev/null)" ]; then
+            rm -rf ~/wheel-cache
+            cp -r ../wheel-cache-host ~/wheel-cache
+            WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
+            CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
+            echo "Updated wheel cache: $CACHE_SIZE ($WHEEL_COUNT wheels)"
+          else
+            echo "No wheel cache to save"
+          fi
+
           # Copy updated pip cache back to GitHub Actions location
-          # Scripts save to ../pip-cache-host (repo root, not pi-gen/)
           echo "=== Saving updated pip cache ==="
           if [ -d ../pip-cache-host ] && [ -n "$(ls -A ../pip-cache-host 2>/dev/null)" ]; then
             rm -rf ~/pip-cache
@@ -1005,19 +1040,18 @@ jobs:
             CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
             CACHE_FILES=$(find ~/pip-cache -type f 2>/dev/null | wc -l || echo "0")
             echo "Updated pip cache: $CACHE_SIZE ($CACHE_FILES files)"
-            echo "Cache will be saved by actions/cache@v4 post-job"
           else
             echo "No pip cache to save"
           fi
 
-      # Note: Pip cache is managed by workflow + stage scripts:
-      #   Workflow: Copies ~/pip-cache to ../pip-cache-host (before build, repo root)
-      #   00-run.sh: Restores cache from ../../pip-cache-host to rootfs
-      #   00-run-chroot.sh: Installs qiskit (uses cache)
-      #   01-run.sh: Saves updated cache from rootfs to ../../pip-cache-host
-      #   02-run.sh: Cleans cache from rootfs (reduces image size)
-      #   Workflow: Copies ../pip-cache-host back to ~/pip-cache (after build)
-      # actions/cache@v4 persists ~/pip-cache to GitHub Actions cache
+      # Note: Caches are managed by workflow + stage scripts:
+      #   Workflow: Copies ~/wheel-cache and ~/pip-cache to host dirs (before build)
+      #   00-run.sh: Restores wheel cache to /tmp/wheels in rootfs
+      #   00-run-chroot.sh: Installs qiskit using --find-links=/tmp/wheels
+      #   01-run.sh: Saves new wheels back to host, saves pip cache
+      #   02-run.sh: Cleans caches from rootfs (reduces image size)
+      #   Workflow: Copies host caches back to ~/ (after build)
+      # actions/cache@v4 persists both caches to GitHub Actions cache
 
       # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
