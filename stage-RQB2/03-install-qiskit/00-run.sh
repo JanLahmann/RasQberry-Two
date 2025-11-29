@@ -32,28 +32,3 @@ else
     echo "Wheels will be built during installation"
     install -m 755 -d "$WHEEL_CACHE_ROOTFS"
 fi
-
-# =============================================================================
-# PIP CACHE SETUP (fallback)
-# =============================================================================
-# Pip HTTP cache helps when packages are not in wheel cache
-
-echo ""
-echo "=== Restoring pip cache to rootfs ==="
-
-PIP_CACHE_HOST="${SCRIPT_DIR}/../../pip-cache-host"
-PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
-
-if [ -d "$PIP_CACHE_HOST" ] && [ -n "$(ls -A $PIP_CACHE_HOST 2>/dev/null)" ]; then
-    echo "Found pip cache on host: $(du -sh $PIP_CACHE_HOST | cut -f1)"
-    echo "Restoring to rootfs..."
-
-    install -m 755 -d "$PIP_CACHE_ROOTFS"
-    cp -r "$PIP_CACHE_HOST"/* "$PIP_CACHE_ROOTFS/" 2>/dev/null || true
-
-    chown -R root:root "$PIP_CACHE_ROOTFS"
-
-    echo "Pip cache restored: $(du -sh $PIP_CACHE_ROOTFS | cut -f1)"
-else
-    echo "No pip cache available (first build or cache miss)"
-fi

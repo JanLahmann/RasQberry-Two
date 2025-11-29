@@ -572,15 +572,11 @@ jobs:
             echo "Cache enabled for development branch: $BRANCH_NAME"
           fi
 
-      # Generate cache keys with time-based rotation
-      # Monthly for pip cache, weekly for wheel cache (faster refresh for dev)
+      # Generate cache keys with time-based rotation (weekly for wheel cache)
       - name: Generate cache date
         id: cache-date
         if: steps.cache-decision.outputs.use_cache == 'true'
         run: |
-          # Use year-month for pip cache (monthly refresh)
-          CACHE_DATE=$(date +"%Y-%m")
-          echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
           # Use year-week for wheel cache (weekly refresh)
           CACHE_WEEK=$(date +"%Y-W%V")
           echo "cache_week=${CACHE_WEEK}" >> $GITHUB_OUTPUT
@@ -613,17 +609,6 @@ jobs:
           # No restore-keys: require exact match to prevent stale cache on requirements change
           key: wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
 
-      # Cache pip HTTP responses as fallback for packages not in wheel cache
-      # Helps when new packages are added or wheel cache is partial
-      - name: Cache pip packages (fallback)
-        id: cache-pip
-        if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/pip-cache
-          # No restore-keys: require exact match to prevent stale cache on requirements change
-          key: pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
-          
       # ========================================================================
       # PI-GEN DEPENDENCIES
       # ========================================================================
@@ -1043,15 +1028,6 @@ jobs:
             mkdir -p ../wheel-cache-host
           fi
 
-          # Prepare pip cache for build (fallback for packages not in wheel cache)
-          echo "=== Preparing pip cache for build ==="
-          if [ -d ~/pip-cache ] && [ -n "$(ls -A ~/pip-cache 2>/dev/null)" ]; then
-            cp -r ~/pip-cache ../pip-cache-host
-            echo "Copied pip cache to build directory: $(du -sh ../pip-cache-host | cut -f1)"
-          else
-            echo "No pip cache available (first build or cache miss)"
-          fi
-
           # Build the custom RasQberry stage
           sudo ./build.sh
 
@@ -1067,26 +1043,14 @@ jobs:
             echo "No wheel cache to save"
           fi
 
-          # Copy updated pip cache back to GitHub Actions location
-          echo "=== Saving updated pip cache ==="
-          if [ -d ../pip-cache-host ] && [ -n "$(ls -A ../pip-cache-host 2>/dev/null)" ]; then
-            rm -rf ~/pip-cache
-            cp -r ../pip-cache-host ~/pip-cache
-            CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
-            CACHE_FILES=$(find ~/pip-cache -type f 2>/dev/null | wc -l || echo "0")
-            echo "Updated pip cache: $CACHE_SIZE ($CACHE_FILES files)"
-          else
-            echo "No pip cache to save"
-          fi
-
       # Note: Caches are managed by workflow + stage scripts:
-      #   Workflow: Copies ~/wheel-cache and ~/pip-cache to host dirs (before build)
+      #   Workflow: Copies ~/wheel-cache to host dir (before build)
       #   00-run.sh: Restores wheel cache to /tmp/wheels in rootfs
       #   00-run-chroot.sh: Installs qiskit using --find-links=/tmp/wheels
-      #   01-run.sh: Saves new wheels back to host, saves pip cache
+      #   01-run.sh: Saves new wheels back to host
       #   02-run.sh: Cleans caches from rootfs (reduces image size)
-      #   Workflow: Copies host caches back to ~/ (after build)
-      # actions/cache@v4 persists both caches to GitHub Actions cache
+      #   Workflow: Copies host cache back to ~/ (after build)
+      # actions/cache@v4 persists wheel cache to GitHub Actions cache
 
       # ========================================================================
       # CACHE-ONLY: DOWNLOAD WHEELS (no pi-gen build needed)

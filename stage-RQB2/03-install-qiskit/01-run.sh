@@ -31,31 +31,3 @@ if [ -d "$WHEEL_CACHE_ROOTFS" ] && [ -n "$(ls -A $WHEEL_CACHE_ROOTFS/*.whl 2>/de
 else
     echo "No wheels found in rootfs to save"
 fi
-
-# =============================================================================
-# SAVE PIP CACHE (fallback)
-# =============================================================================
-
-echo ""
-echo "=== Saving pip cache from rootfs ==="
-
-PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
-PIP_CACHE_HOST="${SCRIPT_DIR}/../../pip-cache-host"
-
-if [ -d "$PIP_CACHE_ROOTFS" ] && [ -n "$(ls -A $PIP_CACHE_ROOTFS 2>/dev/null)" ]; then
-    echo "Found pip cache in rootfs: $(du -sh $PIP_CACHE_ROOTFS | cut -f1)"
-    echo "Saving to host..."
-
-    rm -rf "$PIP_CACHE_HOST"
-    mkdir -p "$PIP_CACHE_HOST"
-    cp -r "$PIP_CACHE_ROOTFS"/* "$PIP_CACHE_HOST/" 2>/dev/null || true
-
-    chmod -R a+rX "$PIP_CACHE_HOST"
-
-    CACHE_SIZE=$(du -sh "$PIP_CACHE_HOST" 2>/dev/null | cut -f1 || echo "0")
-    CACHE_FILES=$(find "$PIP_CACHE_HOST" -type f 2>/dev/null | wc -l || echo "0")
-
-    echo "Pip cache saved: $CACHE_SIZE ($CACHE_FILES files)"
-else
-    echo "No pip cache found in rootfs"
-fi
