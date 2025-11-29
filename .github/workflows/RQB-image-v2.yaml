@@ -114,13 +114,14 @@ on:
         type: boolean
         default: false
       build_scope:
-        description: 'Build scope (cache-only: base stages + ARM64 wheels, no image)'
+        description: 'Build scope (ab-only: A/B image only, full: both images)'
         required: false
         default: 'default'
         type: choice
         options:
           - default
           - cache-only
+          - ab-only
           - standard-image
           - full
       console_type:
@@ -281,11 +282,11 @@ jobs:
           if [ "$INPUT_SCOPE" == "default" ] || [ -z "$INPUT_SCOPE" ]; then
             # Apply branch-based defaults
             if [[ "$BRANCH_NAME" == dev* ]]; then
-              SCOPE="full"
-              echo "Using default scope for dev branch: full"
+              SCOPE="ab-only"
+              echo "Using default scope for dev branch: ab-only (A/B image only)"
             else
-              SCOPE="standard-image"
-              echo "Using default scope for $BRANCH_NAME branch: standard-image"
+              SCOPE="full"
+              echo "Using default scope for $BRANCH_NAME branch: full (both images)"
             fi
           else
             SCOPE="$INPUT_SCOPE"
@@ -1246,9 +1247,10 @@ jobs:
           df -h /
 
           # ================================================================
-          # CREATE A/B BOOT VARIANT (only for full builds)
+          # CREATE A/B BOOT VARIANT (for ab-only and full builds)
           # ================================================================
-          if [[ "${{ needs.rasqberry-push-version-number.outputs.build_scope }}" == "full" ]]; then
+          BUILD_SCOPE="${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          if [[ "$BUILD_SCOPE" == "full" ]] || [[ "$BUILD_SCOPE" == "ab-only" ]]; then
             echo ""
             echo "=== Creating A/B Boot Variant ==="
 
@@ -1382,38 +1384,52 @@ jobs:
             rm -f "$IMG"
           }
 
-          # Compress standard image
-          compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-
-          # Compress A/B image if it exists
-          if [ -f "$AB_IMG" ]; then
-            compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-          fi
-
-          # Set outputs
+          # Set output filenames
           STANDARD_COMPRESSED="deploy/${BASE_FILENAME}.img.${COMPRESS_EXT}"
           AB_COMPRESSED="deploy/${BASE_FILENAME}-ab.img.${COMPRESS_EXT}"
 
+          # Compress images based on build scope
+          # ab-only: Only compress AB image (delete standard to save space/time)
+          # full: Compress both images
+          # standard-image: Compress only standard image
+          if [[ "$BUILD_SCOPE" == "ab-only" ]]; then
+            echo "Build scope: ab-only - compressing A/B image only"
+            # Delete standard image (not needed for ab-only)
+            rm -f "$STANDARD_IMG"
+            # Compress A/B image
+            compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+          else
+            # Compress standard image (for full and standard-image scopes)
+            compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+            # Compress A/B image if it exists (for full scope)
+            if [ -f "$AB_IMG" ]; then
+              compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+            fi
+          fi
+
           echo ""
           echo "=== Compression Complete ==="
-          echo "Standard: $STANDARD_COMPRESSED ($(du -h "$STANDARD_COMPRESSED" | cut -f1))"
+          if [ -f "$STANDARD_COMPRESSED" ]; then
+            echo "Standard: $STANDARD_COMPRESSED ($(du -h "$STANDARD_COMPRESSED" | cut -f1))"
+          fi
           if [ -f "$AB_COMPRESSED" ]; then
             echo "A/B: $AB_COMPRESSED ($(du -h "$AB_COMPRESSED" | cut -f1))"
           fi
 
-          # Get compressed size
-          COMPRESSED_SIZE=$(stat -c%s "$STANDARD_COMPRESSED")
+          # Export outputs for standard image (if exists)
+          if [ -f "$STANDARD_COMPRESSED" ]; then
+            COMPRESSED_SIZE=$(stat -c%s "$STANDARD_COMPRESSED")
+            echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
+            echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
+            echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
+            echo "compressed_size=$COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+          fi
 
-          # Export outputs
-          echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
-          echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
-          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
-
-          # Export pre-computed metadata (saves ~2min in JSON job)
+          # Export pre-computed metadata (used by JSON job)
           echo "extract_sha256=$EXTRACT_SHA256" >> $GITHUB_OUTPUT
           echo "extract_size=$EXTRACT_SIZE" >> $GITHUB_OUTPUT
-          echo "compressed_size=$COMPRESSED_SIZE" >> $GITHUB_OUTPUT
 
+          # Export A/B image outputs (if exists)
           if [ -f "$AB_COMPRESSED" ]; then
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
             echo "ab_asset_name=$(basename $AB_COMPRESSED)" >> $GITHUB_OUTPUT
@@ -1435,9 +1451,12 @@ jobs:
       # ========================================================================
       # RELEASE ASSET UPLOADS
       # ========================================================================
-      # Upload both standard and A/B images to the GitHub release
+      # Upload images to the GitHub release based on build scope
+      # ab-only: Only A/B image
+      # full: Both standard and A/B images
+      # standard-image: Only standard image
       - name: Upload Standard Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only' && needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1448,7 +1467,7 @@ jobs:
           asset_content_type: ${{ steps.set-asset.outputs.content_type }}
 
       - name: Upload A/B Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope == 'full' && steps.set-asset.outputs.ab_asset_path != ''
+        if: (needs.rasqberry-push-version-number.outputs.build_scope == 'full' || needs.rasqberry-push-version-number.outputs.build_scope == 'ab-only') && steps.set-asset.outputs.ab_asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
