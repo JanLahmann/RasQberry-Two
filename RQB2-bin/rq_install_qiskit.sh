@@ -92,9 +92,12 @@ if [ "$CACHE_HIT" = false ] && [ "${PIGEN:-false}" == "true" ]; then
     # Download all wheels including dependencies
     # --no-cache-dir: force pip to write files to dest (cached files aren't copied)
     # --only-binary :all:: skip source packages that need building (e.g., pygobject)
+    # Filter out packages without ARM64 wheels (netifaces) - they'll be built from source during install
     if [ -f "$REQUIREMENTS_FILE" ]; then
+        grep -v '^netifaces' "$REQUIREMENTS_FILE" > /tmp/requirements-wheels.txt
         pip download --no-cache-dir --dest="$WHEEL_DIR" --only-binary :all: \
-            "$QISKIT_SPEC" -r "$REQUIREMENTS_FILE" || true
+            "$QISKIT_SPEC" -r /tmp/requirements-wheels.txt || true
+        rm -f /tmp/requirements-wheels.txt
     else
         pip download --no-cache-dir --dest="$WHEEL_DIR" --only-binary :all: \
             "$QISKIT_SPEC" qiskit-ibm-runtime qiskit-aer || true

@@ -1137,6 +1137,9 @@ jobs:
           # Create wheel cache directory
           mkdir -p ~/wheel-cache
 
+          # Filter out packages without ARM64 wheels (netifaces) - built from source during install
+          grep -v '^netifaces' RQB2-config/qiskit-requirements.txt > /tmp/requirements-wheels.txt
+
           # Download wheels for ARM64 (linux_aarch64)
           # Uses --only-binary to skip packages that need compilation
           pip download \
@@ -1146,8 +1149,10 @@ jobs:
             --implementation cp \
             --abi cp311 \
             --only-binary :all: \
-            -r RQB2-config/qiskit-requirements.txt \
+            -r /tmp/requirements-wheels.txt \
             "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+
+          rm -f /tmp/requirements-wheels.txt
 
           # Count and report
           WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
