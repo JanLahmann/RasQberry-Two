@@ -1101,35 +1101,63 @@ jobs:
         if: needs.rasqberry-push-version-number.outputs.build_scope == 'cache-only'
         run: |
           echo "=== Downloading ARM64 wheels for cache ==="
+          ARCH=$(uname -m)
+          echo "Runner architecture: $ARCH"
 
           # Create wheel cache directory
           mkdir -p ~/wheel-cache
 
-          # Filter out packages without ARM64 wheels (netifaces) - built from source during install
+          # Filter out packages that need compilation (no ARM64 wheels)
           grep -v '^netifaces' RQB2-config/qiskit-requirements.txt > /tmp/requirements-wheels.txt
 
-          # Download wheels for ARM64 (linux_aarch64)
-          # Uses --only-binary to skip packages that need compilation
-          pip download \
-            --dest ~/wheel-cache \
-            --platform linux_aarch64 \
-            --python-version 3.11 \
-            --implementation cp \
-            --abi cp311 \
-            --only-binary :all: \
-            -r /tmp/requirements-wheels.txt \
-            "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+          if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+            # ARM64 runner: use native pip download (resolves ARM64 wheels correctly)
+            echo "Using native ARM64 pip download..."
+            pip download \
+              --dest ~/wheel-cache \
+              --only-binary :all: \
+              -r /tmp/requirements-wheels.txt \
+              "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+          else
+            # x64 runner: use cross-platform download with individual packages
+            # to avoid single package failure aborting entire download
+            echo "Using cross-platform download for ARM64 wheels..."
+
+            download_pkg() {
+              pip download \
+                --dest ~/wheel-cache \
+                --platform linux_aarch64 \
+                --python-version 3.11 \
+                --implementation cp \
+                --abi cp311 \
+                --only-binary :all: \
+                --no-deps \
+                "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no ARM64 wheel)"
+            }
+
+            # Download each package individually
+            while IFS= read -r pkg || [ -n "$pkg" ]; do
+              [[ "$pkg" =~ ^# ]] && continue
+              [[ -z "$pkg" ]] && continue
+              download_pkg "$pkg"
+            done < /tmp/requirements-wheels.txt
+
+            download_pkg "qiskit"
+            download_pkg "qiskit-aer"
+          fi
 
           rm -f /tmp/requirements-wheels.txt
 
           # Count and report
           WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
           CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
+          echo ""
           echo "Downloaded $WHEEL_COUNT wheels ($CACHE_SIZE)"
 
           # List wheels for verification
-          echo "=== Downloaded wheels ==="
-          ls -la ~/wheel-cache/*.whl 2>/dev/null | head -20 || echo "No wheels found"
+          echo ""
+          echo "=== Downloaded wheels (first 30) ==="
+          ls ~/wheel-cache/*.whl 2>/dev/null | head -30 | xargs -I {} basename {} || echo "No wheels found"
 
       # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
