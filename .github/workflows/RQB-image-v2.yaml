@@ -69,8 +69,6 @@
 # 3. RasQberry Configuration:
 #    - RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH: Repository settings (set by workflow)
 #    - RQB_STD_VENV, RQB_PIGEN: Virtual environment settings
-#    - RQB_PRESERVE_PIP_CACHE: Pip cache control (set by workflow from input)
-#    - PRESERVE_PIP_CACHE_DEFAULT: Default pip cache setting (read by workflow)
 #
 # 4. User & System Settings:
 #    - FIRST_USER_NAME, IMG_NAME: User and image naming
@@ -404,17 +402,37 @@ jobs:
       # Brief configuration summary at start of build
       - name: Build configuration
         run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+
+          # Determine stream type
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "beta" ]]; then
+            STREAM="prod"
+            CONSOLE=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
+            VERBOSITY=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
+            COMPRESS=$(grep "^COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
+          else
+            STREAM="dev"
+            CONSOLE=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
+            VERBOSITY=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
+            COMPRESS=$(grep "^COMPRESSION_LEVEL_DEV=" pi-gen-config | cut -d'=' -f2)
+          fi
+
           echo "========================================"
           echo "BUILD CONFIGURATION"
           echo "========================================"
-          echo "Branch: ${GITHUB_REF#refs/heads/}"
+          echo "Branch: $BRANCH"
           echo "Commit: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}"
           echo "Version: ${{ needs.rasqberry-push-version-number.outputs.version_num }}"
           echo ""
           echo "Runner: ${{ runner.os }} / ${{ runner.arch }}"
           echo "Trigger: ${{ github.event_name }}"
-          echo ""
           echo "Build scope: ${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          echo ""
+          echo "Stream: $STREAM"
+          echo "Console: $CONSOLE"
+          echo "Boot verbosity: $VERBOSITY"
+          echo "Compression: xz -$COMPRESS"
+          echo "Cache version: ${{ env.CACHE_VERSION }}"
           echo "========================================"
           echo ""
 
