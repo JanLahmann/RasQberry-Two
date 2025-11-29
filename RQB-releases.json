@@ -1,15 +1,15 @@
 {
-  "generated": "2025-11-29T10:26:30Z",
+  "generated": "2025-11-29T12:00:25Z",
   "streams": {
     "dev": {
-      "tag": "dev-features03-arm64runner-2025-11-29-110836",
-      "name": "rasqberry-dev-features03-arm64runner-2025-11-29-110836",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-arm64runner-2025-11-29-110836/rasqberry-dev-features03-arm64runner-2025-11-29-110836.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features03-arm64runner-2025-11-29-110836",
+      "tag": "dev-features03-arm64runner-2025-11-29-124443",
+      "name": "rasqberry-dev-features03-arm64runner-2025-11-29-124443",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-arm64runner-2025-11-29-124443/",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features03-arm64runner-2025-11-29-124443",
       "release_date": "2025-11-29",
-      "image_download_size": 1986362656,
+      "image_download_size": 2024424516,
       "extract_size": 8908701696,
-      "extract_sha256": "cebfcd49e4a5ae17dbd09849084fbd3d047808b2046152174e562d00f3458ec5"
+      "extract_sha256": "74e5e7d0276cdf046e320b60f05b63c2f077b950f3c6269ef5b4ec7cfa711f55"
     }
   }
 }
