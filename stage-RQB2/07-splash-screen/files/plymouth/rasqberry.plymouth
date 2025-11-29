@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=RasQberry
+Description=RasQberry Quantum Computing Education Platform Boot Splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rasqberry
+ScriptFile=/usr/share/plymouth/themes/rasqberry/rasqberry.script

@@ -1,0 +1,56 @@
+# RasQberry Plymouth Splash Screen Script
+# Simple centered logo display with fade-in effect
+
+# Set background color (dark blue/black for quantum theme)
+Window.SetBackgroundTopColor(0.0, 0.05, 0.15);
+Window.SetBackgroundBottomColor(0.0, 0.02, 0.10);
+
+# Load RasQberry logo
+logo.image = Image("rasqberry-logo.png");
+logo.sprite = Sprite(logo.image);
+
+# Center the logo
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+
+# Fade in effect
+logo.opacity = 0;
+logo.sprite.SetOpacity(logo.opacity);
+
+# Animation function for fade-in
+fun refresh_callback() {
+    if (logo.opacity < 1) {
+        logo.opacity += 0.02;
+        logo.sprite.SetOpacity(logo.opacity);
+    }
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Progress bar (optional, below logo)
+progress_box.image = Image.Text("", 1, 1, 1);
+progress_box.sprite = Sprite(progress_box.image);
+progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
+progress_box.sprite.SetY(Window.GetHeight() * 0.75);
+
+fun progress_callback(duration, progress) {
+    if (progress >= 0 && progress <= 1) {
+        progress_text = Math.Int(progress * 100) + "%";
+        progress_box.image = Image.Text(progress_text, 1, 1, 1);
+        progress_box.sprite.SetImage(progress_box.image);
+        progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
+    }
+}
+
+Plymouth.SetBootProgressFunction(progress_callback);
+
+# Message display (for boot messages)
+message_sprite = Sprite();
+message_sprite.SetPosition(10, 10, 10000);
+
+fun message_callback(text) {
+    message_image = Image.Text(text, 0.8, 0.8, 0.8);
+    message_sprite.SetImage(message_image);
+}
+
+Plymouth.SetMessageFunction(message_callback);

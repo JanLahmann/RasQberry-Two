@@ -83,13 +83,13 @@ EOF
     
 else
     echo "SKIP_INITRAMFS not set to 1 (value: '${SKIP_INITRAMFS}'), initramfs will be generated normally"
-    
+
     # Ensure the default behavior is enabled
     if [ -f /etc/default/raspberrypi-kernel ]; then
         # Remove any INITRD=No line to allow normal generation
         sed -i '/^INITRD=No/d' /etc/default/raspberrypi-kernel 2>/dev/null || true
     fi
-    
+
     # Check if diversions exist and remove them
     if dpkg-divert --list | grep -q update-initramfs; then
         echo "Removing update-initramfs diversion to allow normal operation"
@@ -99,4 +99,7 @@ else
         echo "Removing mkinitramfs diversion to allow normal operation"
         dpkg-divert --remove --rename /usr/sbin/mkinitramfs
     fi
+
+    # NOTE: MMC driver configuration is now handled in export-image/04-restore-initramfs
+    # This ensures the drivers are added just before the final initramfs generation
 fi

@@ -3,13 +3,12 @@ python3-gi
 gir1.2-gtk-3.0
 libcairo2-dev
 libgirepository1.0-dev
-python3-numpy
-python3-pil
 python3-pkg-resources
-python3-dotenv
-python3-sense-emu
+# sense-emu-tools provides desktop menu shortcuts and pulls in python3-sense-emu
 sense-emu-tools
-sense-hat
 chromium-browser
 chromium-chromedriver
 libxcb-cursor-dev
+# utilities for A/B boot release picker
+jq
+curl

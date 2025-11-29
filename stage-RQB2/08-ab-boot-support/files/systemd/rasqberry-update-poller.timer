@@ -1,0 +1,15 @@
+[Unit]
+Description=RasQberry A/B Boot Update Poller Timer
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+Requires=rasqberry-update-poller.service
+
+[Timer]
+# Run every 30 seconds
+OnBootSec=60s
+OnUnitActiveSec=30s
+
+# Allow the service to run even if previous run hasn't finished
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

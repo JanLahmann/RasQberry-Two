@@ -28,7 +28,6 @@ else
     USER_HOME="${USER_HOME:-/home/${SUDO_USER:-$USER}}"
     REPO="${REPO:-RasQberry-Two}"
     STD_VENV="${STD_VENV:-RQB2}"
-    RQB2_CONFDIR="${RQB2_CONFDIR:-.local/config}"
 fi
 
 # Constants and reusable paths
@@ -84,14 +83,16 @@ install_demo() {
                 return 1
             fi
         else
-            # Fallback if whiptail not available
+            # Fallback if whiptail not available (POSIX-compliant for dash)
             echo "$TITLE is not installed."
             echo "This requires downloading from GitHub."
-            read -p "Install now? (y/n) " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                return 1
-            fi
+            printf "Install now? (y/n) "
+            read REPLY
+            # POSIX case pattern matching (works in dash, unlike [[ =~ ]])
+            case "$REPLY" in
+                [Yy]|[Yy][Ee][Ss]) ;;  # Continue with installation
+                *) return 1 ;;          # User declined
+            esac
         fi
     else
         # Auto-install mode - proceed without prompting
@@ -476,11 +477,11 @@ check_environment_variable() {
 # 3b) Qiskit Install Menu
 # -----------------------------------------------------------------------------
 
-# install any version of qiskit. $1 parameter is the version (e.g. 0.37 = 037), set $2=silent for one-time silent (no whiptail popup) install
-# Attention: Only works for specific Qiskit versions with predefined scripts which should be names as "rq_install_qiskitXXX.sh"
-# Install latest version of Qiskit via "rq_install_qiskit_latest.sh"
+# Install any version of Qiskit using consolidated script
+# $1 = version (latest, 1.0, 1.1)
+# $2 = silent (optional, suppresses whiptail popup)
 do_rqb_install_qiskit() {
-  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_Qiskit$1.sh"
+  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
   if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
@@ -490,12 +491,12 @@ do_rqb_qiskit_menu() {
     while true; do
         FUN=$(show_menu "Qiskit Install" "Choose version to install" \
            Qnew  "Install Qiskit (latest)" \
-           Q0101 "Install Qiskit v1.1" \
-           Q0100 "Install Qiskit v1.0") || break
+           Q11   "Install Qiskit v1.1" \
+           Q10   "Install Qiskit v1.0") || break
         case "$FUN" in
-            Q0101) do_rqb_install_qiskit 0101 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
-            Q0100) do_rqb_install_qiskit 0100 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
-            Qnew)  do_rqb_install_qiskit _latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
+            Q11)   do_rqb_install_qiskit 1.1 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
+            Q10)   do_rqb_install_qiskit 1.0 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
+            Qnew)  do_rqb_install_qiskit latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
             *)      break ;;
         esac
     done
@@ -512,10 +513,106 @@ do_led_off() {
   python3 "$BIN_DIR/turn_off_LEDs.py"
 }
 
+# -----------------------------------------------------------------------------
+# 3c) LED Display Menu (Text & Logo Display)
+# -----------------------------------------------------------------------------
+
+do_led_custom_text() {
+    run_demo "LED Text Display" "$BIN_DIR" bash rq_led_display_text.sh
+}
+
+do_led_choose_logo() {
+    run_demo "LED Logo Display" "$BIN_DIR" bash rq_led_display_logo.sh
+}
+
+do_led_demo_scroll_welcome() {
+    run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_text_scroll_welcome.py
+    do_led_off
+}
+
+do_led_demo_status() {
+    run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_text_status.py
+    do_led_off
+}
+
+do_led_demo_alert() {
+    run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_text_alert.py
+    do_led_off
+}
+
+do_led_demo_rainbow_scroll() {
+    run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_text_rainbow_scroll.py
+    do_led_off
+}
+
+do_led_demo_rainbow_static() {
+    run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
+    do_led_off
+}
+
+do_led_demo_gradient() {
+    run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
+    do_led_off
+}
+
+do_led_demo_ibm_logo() {
+    run_demo bg "IBM Logo" "$BIN_DIR" python3 demo_led_ibm_logo.py
+    do_led_off
+}
+
+do_led_demo_rasqberry_logo() {
+    run_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
+    do_led_off
+}
+
+do_led_demo_logo_slideshow() {
+    run_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
+    do_led_off
+}
+
+do_led_display_menu() {
+    while true; do
+        FUN=$(show_menu "RasQberry: LED Text & Logo Display" "Display Options" \
+           TEXT    "Display Custom Text" \
+           LOGO    "Display Logo from Library" \
+           "---1"  "--- Text Demos ---" \
+           SWEL    "Demo: Scrolling Welcome" \
+           STAT    "Demo: Status Messages" \
+           ALRT    "Demo: Alert Flash" \
+           "---2"  "--- Color Effect Demos ---" \
+           RSCR    "Demo: Rainbow Scroll" \
+           RSTA    "Demo: Rainbow Color Cycle" \
+           GRAD    "Demo: Color Gradient" \
+           "---3"  "--- Logo Demos ---" \
+           IBML    "Demo: IBM Logo" \
+           RQBL    "Demo: RasQberry Logo" \
+           SLID    "Demo: Logo Slideshow" \
+           "---4"  "---" \
+           CLEAR   "Clear LEDs") || break
+        case "$FUN" in
+            TEXT  ) do_led_custom_text           || { handle_error "Text display failed."; continue; } ;;
+            LOGO  ) do_led_choose_logo           || { handle_error "Logo display failed."; continue; } ;;
+            SWEL  ) do_led_demo_scroll_welcome   || { handle_error "Demo failed."; continue; } ;;
+            STAT  ) do_led_demo_status           || { handle_error "Demo failed."; continue; } ;;
+            ALRT  ) do_led_demo_alert            || { handle_error "Demo failed."; continue; } ;;
+            RSCR  ) do_led_demo_rainbow_scroll   || { handle_error "Demo failed."; continue; } ;;
+            RSTA  ) do_led_demo_rainbow_static   || { handle_error "Demo failed."; continue; } ;;
+            GRAD  ) do_led_demo_gradient         || { handle_error "Demo failed."; continue; } ;;
+            IBML  ) do_led_demo_ibm_logo         || { handle_error "Demo failed."; continue; } ;;
+            RQBL  ) do_led_demo_rasqberry_logo   || { handle_error "Demo failed."; continue; } ;;
+            SLID  ) do_led_demo_logo_slideshow   || { handle_error "Demo failed."; continue; } ;;
+            CLEAR ) do_led_off                   || { handle_error "Failed to clear LEDs."; continue; } ;;
+            "---1"|"---2"|"---3"|"---4" ) continue ;;  # Ignore separator items
+            *) break ;;
+        esac
+    done
+}
+
 do_select_led_option() {
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           DISP "Text & Logo Display" \
            quicktest "Quick LED Test (6 colors)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
@@ -523,6 +620,7 @@ do_select_led_option() {
            layout "Configure Matrix Layout") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
             quicktest )
                 run_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
                 do_led_off
@@ -650,6 +748,194 @@ do_show_system_info() {
     10 70
 }
 
+# -----------------------------------------------------------------------------
+# A/B Boot Partition Expansion
+# -----------------------------------------------------------------------------
+
+# Expand A/B partitions for 64GB+ SD cards
+do_expand_ab_partitions() {
+    # Check if this is an AB boot image
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -q "config"; then
+        whiptail --title "Not AB Boot Image" --msgbox \
+            "This system is not running an A/B boot image.\n\nPartition expansion is only available for AB boot layouts." \
+            10 60
+        return 1
+    fi
+
+    # Get SD card size in bytes
+    SD_SIZE_BYTES=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
+    SD_SIZE_GB=$((SD_SIZE_BYTES / 1024 / 1024 / 1024))
+
+    # Check minimum size (63GB = ~64GB marketed card)
+    if [ "$SD_SIZE_GB" -lt 63 ]; then
+        whiptail --title "SD Card Too Small" --msgbox \
+            "SD card size: ${SD_SIZE_GB}GB\n\nPartition expansion requires a 64GB or larger SD card.\n\nYour current 10GB system partition is sufficient for basic use." \
+            12 60
+        return 1
+    fi
+
+    # Check if already expanded (system-b > 1GB indicates expansion)
+    SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    SYSTEM_B_SIZE_GB=$((SYSTEM_B_SIZE / 1024 / 1024 / 1024))
+    if [ "$SYSTEM_B_SIZE_GB" -gt 1 ]; then
+        whiptail --title "Already Expanded" --msgbox \
+            "Partitions appear to already be expanded.\n\nSystem-B size: ${SYSTEM_B_SIZE_GB}GB" \
+            10 60
+        return 0
+    fi
+
+    # Calculate partition sizes
+    # Fixed partitions: config (512MB) + boot-a (512MB) + boot-b (512MB) = 1536MB
+    FIXED_MB=1536
+    SD_SIZE_MB=$((SD_SIZE_BYTES / 1024 / 1024))
+    AVAILABLE_MB=$((SD_SIZE_MB - FIXED_MB))
+
+    # Calculate: data=10%, system-a=45%, system-b=45%
+    DATA_MB=$((AVAILABLE_MB * 10 / 100))
+    SYSTEM_MB=$(((AVAILABLE_MB - DATA_MB) / 2))
+
+    DATA_GB=$((DATA_MB / 1024))
+    SYSTEM_GB=$((SYSTEM_MB / 1024))
+
+    # Show confirmation dialog
+    if ! whiptail --title "Expand A/B Partitions" --yesno \
+        "SD Card Size: ${SD_SIZE_GB}GB\n\nProposed partition sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nThis will:\n- Expand system-a from 10GB to ${SYSTEM_GB}GB\n- Expand system-b from 16MB to ${SYSTEM_GB}GB\n- Expand data from 16MB to ${DATA_GB}GB\n\nThis operation cannot be undone.\n\nProceed with expansion?" \
+        20 60; then
+        return 0
+    fi
+
+    # Show progress
+    whiptail --title "Expanding Partitions" --infobox \
+        "Expanding partitions...\n\nThis may take a few minutes.\nDo not power off the system." \
+        10 50
+
+    # Initialize log file
+    echo "=== AB Partition Expansion $(date) ===" > /var/log/rasqberry-expand.log
+
+    # Step 1: Unmount partitions that will be modified
+    echo "Step 1: Unmounting partitions..." >> /var/log/rasqberry-expand.log
+    umount /dev/mmcblk0p7 2>/dev/null || true
+    umount /dev/mmcblk0p6 2>/dev/null || true
+    # Also unmount any automounted locations
+    umount /media/*/system-b 2>/dev/null || true
+    umount /media/*/data 2>/dev/null || true
+
+    # Get current partition boundaries
+    # p5 = system-a, p6 = system-b, p7 = data
+    SYSTEM_A_START=$(parted -s /dev/mmcblk0 unit MiB print | grep "^ 5" | awk '{print $2}' | tr -d 'MiB')
+
+    # Calculate new boundaries
+    SYSTEM_A_END=$((SYSTEM_A_START + SYSTEM_MB))
+    SYSTEM_B_START=$((SYSTEM_A_END + 2))  # 2 MiB gap for alignment
+    SYSTEM_B_END=$((SYSTEM_B_START + SYSTEM_MB))
+    DATA_START=$((SYSTEM_B_END + 2))  # 2 MiB gap for alignment
+
+    echo "Calculated boundaries:" >> /var/log/rasqberry-expand.log
+    echo "  SYSTEM_A: ${SYSTEM_A_START} - ${SYSTEM_A_END} MiB" >> /var/log/rasqberry-expand.log
+    echo "  SYSTEM_B: ${SYSTEM_B_START} - ${SYSTEM_B_END} MiB" >> /var/log/rasqberry-expand.log
+    echo "  DATA: ${DATA_START} - 100%" >> /var/log/rasqberry-expand.log
+
+    # Step 2: Delete p7 and p6 first (must be done before resizing p5)
+    echo "Step 2: Deleting old partitions..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 rm 7 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Warning: Failed to delete partition 7" >> /var/log/rasqberry-expand.log
+    fi
+    if ! parted -s /dev/mmcblk0 rm 6 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Warning: Failed to delete partition 6" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Step 3: Expand extended partition (p4) to fill disk
+    echo "Step 3: Expanding extended partition..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 resizepart 4 100% >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to expand extended partition" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Step 4: Resize system-a (p5)
+    echo "Step 4: Resizing system-a partition..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to resize partition 5" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Step 5: Create new system-b and data partitions
+    echo "Step 5: Creating new partitions..." >> /var/log/rasqberry-expand.log
+    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to create system-b partition" >> /var/log/rasqberry-expand.log
+    fi
+    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${DATA_START}MiB 100% >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to create data partition" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Wait for kernel to recognize new partitions
+    partprobe /dev/mmcblk0
+    sleep 2
+
+    # Step 6: Resize system-a filesystem
+    echo "Step 6: Resizing system-a filesystem..." >> /var/log/rasqberry-expand.log
+    resize2fs /dev/mmcblk0p5 >> /var/log/rasqberry-expand.log 2>&1 || true
+
+    # Step 7: Format new partitions
+    echo "Step 7: Formatting new partitions..." >> /var/log/rasqberry-expand.log
+    if ! mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to format system-b" >> /var/log/rasqberry-expand.log
+    fi
+    if ! mkfs.ext4 -F -L "data" /dev/mmcblk0p7 >> /var/log/rasqberry-expand.log 2>&1; then
+        echo "Error: Failed to format data" >> /var/log/rasqberry-expand.log
+    fi
+
+    # Step 8: Set up system-b structure
+    echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
+    TEMP_MOUNT=$(mktemp -d)
+    if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
+        # Create directory structure (no brace expansion - POSIX sh compatible)
+        mkdir -p "$TEMP_MOUNT/boot/config"
+        mkdir -p "$TEMP_MOUNT/boot/firmware"
+        mkdir -p "$TEMP_MOUNT/data"
+        mkdir -p "$TEMP_MOUNT/etc"
+
+        # Create fstab for slot B
+        cat > "$TEMP_MOUNT/etc/fstab" << EOF
+proc                        /proc           proc    defaults          0   0
+/dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
+/dev/mmcblk0p3              /boot/firmware  vfat    defaults          0   2
+/dev/mmcblk0p6              /               ext4    defaults,noatime  0   1
+/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
+EOF
+        umount "$TEMP_MOUNT"
+    fi
+    rmdir "$TEMP_MOUNT" 2>/dev/null || true
+
+    # Step 9: Set up data partition structure
+    echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
+    TEMP_MOUNT=$(mktemp -d)
+    if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
+        # Create directory structure (no brace expansion - POSIX sh compatible)
+        mkdir -p "$TEMP_MOUNT/home"
+        mkdir -p "$TEMP_MOUNT/var/log"
+        umount "$TEMP_MOUNT"
+    fi
+    rmdir "$TEMP_MOUNT" 2>/dev/null || true
+
+    # Remount /data for current session
+    mount /dev/mmcblk0p7 /data 2>/dev/null || true
+
+    echo "=== Expansion complete ===" >> /var/log/rasqberry-expand.log
+
+    # Verify expansion
+    NEW_SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    NEW_SYSTEM_B_GB=$((NEW_SYSTEM_B_SIZE / 1024 / 1024 / 1024))
+
+    if [ "$NEW_SYSTEM_B_GB" -gt 1 ]; then
+        whiptail --title "Expansion Complete" --msgbox \
+            "Partitions expanded successfully!\n\nNew sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nYour A/B boot system is now fully configured." \
+            14 60
+    else
+        whiptail --title "Expansion Failed" --msgbox \
+            "Partition expansion may have failed.\n\nPlease check /var/log/rasqberry-expand.log for details." \
+            10 60
+        return 1
+    fi
+}
+
 # LED Matrix Layout Configuration
 do_select_led_layout() {
   # Get current layout setting
@@ -687,17 +973,485 @@ do_select_led_layout() {
   esac
 }
 
+# A/B Boot Administration Menu
+do_ab_boot_menu() {
+    while true; do
+        # Check if this is an AB boot image
+        local is_ab_image="No"
+        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+            is_ab_image="Yes"
+        fi
+
+        FUN=$(show_menu "RasQberry: A/B Boot Administration" "A/B Image: ${is_ab_image}" \
+            EXPAND "Expand A/B Partitions (64GB+ SD)" \
+            SLOTS  "Slot Manager (switch, confirm, promote)") || break
+
+        case "$FUN" in
+            EXPAND) do_expand_ab_partitions || continue ;;
+            SLOTS)  do_slot_manager_menu    || continue ;;
+            *)      continue ;;
+        esac
+    done
+}
+
+# GitHub Release Picker Helper Functions
+# Fetch releases from GitHub and select image via menus
+
+# Pick stream (dev/beta/stable)
+pick_stream() {
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
+    # Use temp file with --output-fd to separate selection from display
+    local tmpfile=$(mktemp)
+
+    # Open tmpfile for writing as fd 4 (avoid conflict with parent menu's fd 3)
+    exec 4>"$tmpfile"
+
+    # Use --output-fd 4 to write selection to tmpfile
+    # Redirect UI (stdout/stderr) to the tty; only the selection goes to fd 4
+    whiptail --output-fd 4 --title "Select Release Stream" --menu \
+        "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
+        16 60 3 \
+        "dev"    "Development builds" \
+        "beta"   "Beta releases" \
+        "stable" "Stable releases" \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    local exit_code=$?
+    exec 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        cat "$tmpfile"
+        rm -f "$tmpfile"
+        return 0
+    else
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
+# Pick release from stream
+pick_release() {
+    local stream="$1"
+    local github_user_param="$2"
+    local github_repo_param="$3"
+    local releases_json
+    local menu_items
+    local selected
+
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
+    # Use provided parameters or fall back to environment variables
+    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
+    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
+    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
+
+    # Fetch releases from GitHub
+    whiptail --title "Fetching Releases" --infobox \
+        "Fetching releases from GitHub...\n\nPlease wait." 8 50 \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    # Download directly to temp file to avoid command substitution issues
+    local releases_file=$(mktemp)
+    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases" -o "$releases_file" 2>/dev/null; then
+        rm -f "$releases_file"
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Check if download was successful and has content
+    if [ ! -s "$releases_file" ] || grep -q '"message"' "$releases_file"; then
+        rm -f "$releases_file"
+        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Filter releases by stream prefix and build menu items
+    # Format: tag_name + created_at for display
+    menu_items=$(jq -r --arg stream "$stream" '
+        [.[] | select(.tag_name | startswith($stream + "-"))] |
+        sort_by(.created_at) | reverse |
+        .[0:10] |
+        .[] |
+        "\(.tag_name)\n\(.created_at | split("T")[0])"
+    ' < "$releases_file" 2>/dev/null)
+
+    # Clean up temp file
+    rm -f "$releases_file"
+
+    if [ -z "$menu_items" ]; then
+        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Convert to whiptail menu format (tag date tag date ...)
+    # Build args safely without xargs to preserve spaces and provide TTY
+    local tmpfile=$(mktemp)
+    exec 4>"$tmpfile"
+
+    # Build argument list from menu_items (one arg per line)
+    set --
+    while IFS= read -r line; do
+        set -- "$@" "$line"
+    done <<EOF
+$menu_items
+EOF
+
+    # Use --output-fd to separate selection from display
+    whiptail --output-fd 4 --title "Select Release" --menu \
+        "Choose a release from the '$stream' stream:" \
+        20 70 10 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
+
+    local exit_code=$?
+    exec 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        selected=$(cat "$tmpfile")
+        rm -f "$tmpfile"
+        echo "$selected"
+        return 0
+    else
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
+# Pick image from release assets
+pick_image() {
+    local release_tag="$1"
+    local github_user_param="$2"
+    local github_repo_param="$3"
+    local assets_json
+    local menu_items
+    local selected
+
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
+    # Use provided parameters or fall back to environment variables
+    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
+    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
+    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
+
+    # Fetch release assets
+    whiptail --title "Fetching Images" --infobox \
+        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60 \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    # Download directly to temp file to avoid command substitution issues
+    local assets_file=$(mktemp)
+    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases/tags/$release_tag" -o "$assets_file" 2>/dev/null; then
+        rm -f "$assets_file"
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Check if download was successful and has content
+    if [ ! -s "$assets_file" ] || grep -q '"message"' "$assets_file"; then
+        rm -f "$assets_file"
+        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Filter for .img.xz files and build menu items
+    # Create a mapping of short tags to filenames for display
+    # Format: filename|tag|description (one per line)
+    # AB boot images end with -ab.img.xz (display shows: xxx-ab)
+    local image_map
+    image_map=$(jq -r '
+        .assets[] |
+        select(.name | endswith(".img.xz")) |
+        if (.name | test("-ab\\.img\\.xz$")) then
+            "\(.name)|[AB]|\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
+        else
+            "\(.name)| |\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
+        end
+    ' < "$assets_file" 2>/dev/null)
+
+    # Build menu_items in whiptail format (tag description pairs)
+    menu_items=$(echo "$image_map" | awk -F'|' '{print $2 "\n" $3}')
+
+    # Clean up temp file
+    rm -f "$assets_file"
+
+    if [ -z "$menu_items" ]; then
+        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50 \
+            1>/dev/tty 2>/dev/tty </dev/tty
+        return 1
+    fi
+
+    # Count number of images (count tags)
+    local image_count
+    image_count=$(echo "$image_map" | wc -l)
+
+    if [ "$image_count" -eq 1 ]; then
+        # Only one image, return URL directly
+        local filename
+        filename=$(echo "$image_map" | cut -d'|' -f1)
+        # Reconstruct URL from filename
+        echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
+        return 0
+    else
+        # Multiple images, show selection menu using --output-fd
+        # Build args safely without xargs to preserve spaces and provide TTY
+        local tmpfile=$(mktemp)
+        exec 4>"$tmpfile"
+
+        # Build argument list from menu_items (one arg per line)
+        set --
+        while IFS= read -r line; do
+            set -- "$@" "$line"
+        done <<EOF
+$menu_items
+EOF
+
+        # Use --output-fd to separate selection from display
+        whiptail --output-fd 4 --title "Select Image" --menu \
+            "Multiple images available.\nChoose the image type:" \
+            16 80 5 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
+
+        local exit_code=$?
+        exec 4>&-
+
+        if [ $exit_code -eq 0 ]; then
+            local selected_tag
+            selected_tag=$(cat "$tmpfile")
+            rm -f "$tmpfile"
+
+            # Look up filename from tag in image_map
+            local filename
+            filename=$(echo "$image_map" | awk -F'|' -v tag="$selected_tag" '$2 == tag {print $1; exit}')
+
+            if [ -z "$filename" ]; then
+                return 1
+            fi
+
+            # Reconstruct URL from filename
+            echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
+            return 0
+        else
+            rm -f "$tmpfile"
+            return 1
+        fi
+    fi
+}
+
+# Ask user for GitHub repository source (default or custom)
+# Returns: "default" or "user/repo" format
+pick_repo_source() {
+    # Ensure TERM is set for whiptail
+    [ -z "$TERM" ] && export TERM=linux
+
+    local tmpfile=$(mktemp)
+    exec 4>"$tmpfile"
+
+    # Show default repo from environment
+    local default_repo="${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}"
+
+    whiptail --output-fd 4 --title "Select Repository" --menu \
+        "Choose the GitHub repository to fetch releases from:\n\nDefault: $default_repo" \
+        16 70 2 \
+        "default" "Use default repository ($default_repo)" \
+        "custom"  "Enter custom GitHub repository" \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    local exit_code=$?
+    exec 4>&-
+
+    if [ $exit_code -eq 0 ]; then
+        local choice=$(cat "$tmpfile")
+        rm -f "$tmpfile"
+
+        if [ "$choice" = "custom" ]; then
+            # Prompt for custom GitHub repository in user/repo format
+            local custom_repo
+            custom_repo=$(whiptail --inputbox "Enter GitHub repository in format:\nusername/repository\n\nExample: JanLahmann/RasQberry-Two" 12 60 "$default_repo" 3>&1 1>&2 2>&3)
+
+            if [ $? -eq 0 ] && [ -n "$custom_repo" ]; then
+                # Validate format (should contain exactly one /)
+                if echo "$custom_repo" | grep -q '^[^/]\+/[^/]\+$'; then
+                    echo "$custom_repo"
+                    return 0
+                else
+                    whiptail --title "Invalid Format" --msgbox "Invalid repository format.\n\nPlease use: username/repository" 10 50 \
+                        1>/dev/tty 2>/dev/tty </dev/tty
+                    return 1
+                fi
+            else
+                return 1
+            fi
+        else
+            echo "default"
+            return 0
+        fi
+    else
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
+# Main release picker function - returns "url|tag" or empty on cancel
+do_pick_release_image() {
+    local stream
+    local release_tag
+    local image_url
+    local github_user
+    local github_repo
+
+    # Step 0: Ask for repository source (default or custom)
+    local repo_choice
+    repo_choice=$(pick_repo_source) || return 1
+
+    if [ "$repo_choice" = "default" ]; then
+        # Use environment variables
+        github_user="${RQB_GIT_USER:-JanLahmann}"
+        github_repo="${REPO:-RasQberry-Two}"
+    else
+        # Parse custom repo (format: user/repo)
+        github_user=$(echo "$repo_choice" | cut -d'/' -f1)
+        github_repo=$(echo "$repo_choice" | cut -d'/' -f2)
+    fi
+
+    # Step 1: Pick stream
+    stream=$(pick_stream) || return 1
+
+    # Step 2: Pick release from stream (pass repo info)
+    release_tag=$(pick_release "$stream" "$github_user" "$github_repo") || return 1
+
+    # Step 3: Pick image from release (pass repo info)
+    image_url=$(pick_image "$release_tag" "$github_user" "$github_repo") || return 1
+
+    # Return url|tag format
+    echo "${image_url}|${release_tag}"
+}
+
+# A/B Boot Slot Manager Menu
+do_slot_manager_menu() {
+    # Check if this is an AB boot image
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+        whiptail --title "Not AB Boot Image" --msgbox \
+            "This system is not running an A/B boot image.\n\nSlot management is only available for AB boot layouts." \
+            10 60
+        return 1
+    fi
+
+    while true; do
+        # Get current status for menu display
+        local current_slot
+        current_slot=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
+        local slot_status
+        slot_status=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
+
+        FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
+            STATUS   "Show detailed slot status" \
+            CONFIRM  "Confirm current slot (prevent rollback)" \
+            SWITCH_A "Switch to Slot A on next reboot" \
+            SWITCH_B "Switch to Slot B on next reboot" \
+            UPDATE   "Update Slot B with new image" \
+            ROLLBACK "Force rollback to other slot" \
+            PROMOTE  "Promote Slot B to Slot A") || break
+
+        case "$FUN" in
+            STATUS)
+                local status_output
+                status_output=$(/usr/local/bin/rq_slot_manager.sh status 2>&1)
+                whiptail --title "A/B Boot Status" --msgbox "$status_output" 20 70
+                ;;
+            CONFIRM)
+                local confirm_output
+                confirm_output=$(/usr/local/bin/rq_slot_manager.sh confirm 2>&1)
+                whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
+                ;;
+            SWITCH_A)
+                if whiptail --title "Switch to Slot A" --yesno \
+                    "This will configure the system to boot from Slot A on next reboot.\n\nContinue?" 10 60; then
+                    local switch_output
+                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to A 2>&1)
+                    whiptail --title "Switch to Slot A" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            SWITCH_B)
+                if whiptail --title "Switch to Slot B" --yesno \
+                    "This will configure the system to boot from Slot B on next reboot.\n\nNote: Slot B must have a valid system image installed.\n\nContinue?" 12 60; then
+                    local switch_output
+                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to B 2>&1)
+                    whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            UPDATE)
+                # Use release picker to select image from GitHub
+                local picker_result
+                picker_result=$(do_pick_release_image) || continue
+
+                # Parse result (url|tag format)
+                local image_url
+                local release_tag
+                image_url=$(echo "$picker_result" | cut -d'|' -f1)
+                release_tag=$(echo "$picker_result" | cut -d'|' -f2)
+
+                if [ -z "$image_url" ] || [ -z "$release_tag" ]; then
+                    whiptail --title "Error" --msgbox "Failed to get image selection." 8 50
+                    continue
+                fi
+
+                # Extract just the filename for display
+                local image_name
+                image_name=$(basename "$image_url")
+
+                if whiptail --title "Confirm Update" --yesno \
+                    "This will download and install:\n\nRelease: $release_tag\nImage: $image_name\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
+
+                    whiptail --title "Updating Slot B" --infobox \
+                        "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
+
+                    /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+                fi
+                ;;
+            ROLLBACK)
+                if whiptail --title "Force Rollback" --yesno \
+                    "This will force a rollback to the other slot.\n\nUse this if the current slot is having problems.\n\nContinue?" 12 60; then
+                    local rollback_output
+                    rollback_output=$(/usr/local/bin/rq_slot_manager.sh rollback 2>&1)
+                    whiptail --title "Rollback" --msgbox "$rollback_output\n\nReboot required for changes to take effect." 14 60
+                fi
+                ;;
+            PROMOTE)
+                if whiptail --title "Promote Slot B" --yesno \
+                    "This will promote Slot B to become the new Slot A.\n\nThis copies the tested Slot B system to Slot A.\n\nWARNING: This will overwrite Slot A!\n\nContinue?" 14 60; then
+                    whiptail --title "Promoting Slot B" --infobox \
+                        "Promoting Slot B to Slot A...\n\nThis may take several minutes." 8 50
+                    local promote_output
+                    promote_output=$(/usr/local/bin/rq_slot_manager.sh promote 2>&1)
+                    whiptail --title "Promote Result" --msgbox "$promote_output" 16 70
+                fi
+                ;;
+            *)
+                continue
+                ;;
+        esac
+    done
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD     "Quantum Demos" \
-       UEF    "Update Env File" \
-       INFO   "System Info") || break
+       QD      "Quantum Demos" \
+       UEF     "Update Env File" \
+       AB_BOOT "A/B Boot Administration" \
+       INFO    "System Info") || break
     case "$FUN" in
-      QD)   do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
-      UEF)  do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
-      INFO) do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
-      *)    handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
+      QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      AB_BOOT) do_ab_boot_menu                || continue ;;
+      INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      *)       handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
 }

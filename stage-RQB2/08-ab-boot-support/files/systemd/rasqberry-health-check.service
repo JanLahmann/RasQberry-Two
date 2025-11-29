@@ -1,0 +1,20 @@
+[Unit]
+Description=RasQberry A/B Boot Health Check
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+After=network-online.target
+Wants=network-online.target
+Before=rasqberry-update-poller.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rq_health_check.py
+TimeoutSec=600
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+# Run as root (needs to confirm boot slot)
+User=root
+
+[Install]
+WantedBy=multi-user.target

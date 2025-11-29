@@ -335,6 +335,7 @@ def create_text_bitmap(text):
     # Simple 5x7 font (uppercase letters, numbers, punctuation)
     # Each character is represented as 5 columns, each column is 7 bits (0x00-0x7F)
     FONT = {
+        # Numbers
         '0': [0x3E, 0x51, 0x49, 0x45, 0x3E],
         '1': [0x00, 0x42, 0x7F, 0x40, 0x00],
         '2': [0x62, 0x51, 0x49, 0x49, 0x46],
@@ -345,26 +346,58 @@ def create_text_bitmap(text):
         '7': [0x01, 0x71, 0x09, 0x05, 0x03],
         '8': [0x36, 0x49, 0x49, 0x49, 0x36],
         '9': [0x06, 0x49, 0x49, 0x29, 0x1E],
-        '.': [0x00, 0x60, 0x60, 0x00, 0x00],
-        ':': [0x00, 0x36, 0x36, 0x00, 0x00],
-        '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
-        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+
+        # Uppercase letters (complete A-Z)
         'A': [0x7E, 0x09, 0x09, 0x09, 0x7E],
         'B': [0x7F, 0x49, 0x49, 0x49, 0x36],
         'C': [0x3E, 0x41, 0x41, 0x41, 0x22],
         'D': [0x7F, 0x41, 0x41, 0x41, 0x3E],
         'E': [0x7F, 0x49, 0x49, 0x49, 0x41],
         'F': [0x7F, 0x09, 0x09, 0x09, 0x01],
+        'G': [0x3E, 0x41, 0x49, 0x49, 0x7A],  # NEW
         'H': [0x7F, 0x08, 0x08, 0x08, 0x7F],
         'I': [0x00, 0x41, 0x7F, 0x41, 0x00],
+        'J': [0x20, 0x40, 0x41, 0x3F, 0x01],  # NEW
+        'K': [0x7F, 0x08, 0x14, 0x22, 0x41],  # NEW
         'L': [0x7F, 0x40, 0x40, 0x40, 0x40],
+        'M': [0x7F, 0x02, 0x0C, 0x02, 0x7F],  # NEW
         'N': [0x7F, 0x02, 0x04, 0x08, 0x7F],
         'O': [0x3E, 0x41, 0x41, 0x41, 0x3E],
         'P': [0x7F, 0x09, 0x09, 0x09, 0x06],
+        'Q': [0x3E, 0x41, 0x51, 0x21, 0x5E],  # NEW
+        'R': [0x7F, 0x09, 0x19, 0x29, 0x46],  # NEW
         'S': [0x26, 0x49, 0x49, 0x49, 0x32],
         'T': [0x01, 0x01, 0x7F, 0x01, 0x01],
         'U': [0x3F, 0x40, 0x40, 0x40, 0x3F],
+        'V': [0x1F, 0x20, 0x40, 0x20, 0x1F],  # NEW
         'W': [0x7F, 0x20, 0x10, 0x20, 0x7F],
+        'X': [0x63, 0x14, 0x08, 0x14, 0x63],  # NEW
+        'Y': [0x07, 0x08, 0x70, 0x08, 0x07],  # NEW
+        'Z': [0x61, 0x51, 0x49, 0x45, 0x43],  # NEW
+
+        # Punctuation and symbols
+        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+        '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+        ',': [0x00, 0xA0, 0x60, 0x00, 0x00],  # NEW
+        ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+        ';': [0x00, 0x56, 0x36, 0x00, 0x00],  # NEW
+        '!': [0x00, 0x00, 0x5F, 0x00, 0x00],  # NEW
+        '?': [0x02, 0x01, 0x51, 0x09, 0x06],  # NEW
+        '-': [0x08, 0x08, 0x08, 0x08, 0x08],  # NEW
+        '+': [0x08, 0x08, 0x3E, 0x08, 0x08],  # NEW
+        '=': [0x14, 0x14, 0x14, 0x14, 0x14],  # NEW
+        '/': [0x60, 0x10, 0x08, 0x04, 0x03],  # NEW
+        '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
+        '#': [0x14, 0x7F, 0x14, 0x7F, 0x14],  # NEW
+        '@': [0x3E, 0x41, 0x5D, 0x55, 0x1E],  # NEW
+        '(': [0x00, 0x1C, 0x22, 0x41, 0x00],  # NEW
+        ')': [0x00, 0x41, 0x22, 0x1C, 0x00],  # NEW
+        '[': [0x00, 0x7F, 0x41, 0x41, 0x00],  # NEW
+        ']': [0x00, 0x41, 0x41, 0x7F, 0x00],  # NEW
+        '<': [0x08, 0x14, 0x22, 0x41, 0x00],  # NEW
+        '>': [0x00, 0x41, 0x22, 0x14, 0x08],  # NEW
+        '%': [0x46, 0x26, 0x10, 0x68, 0x64],  # NEW
+        '&': [0x36, 0x49, 0x55, 0x22, 0x50],  # NEW
     }
 
     columns = []
@@ -450,6 +483,417 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
             position = 0  # Loop
 
         time.sleep(scroll_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255), center=True):
+    """
+    Display static (non-scrolling) text on LED matrix.
+
+    Text is displayed centered or left-aligned and held for the specified duration.
+    Useful for status messages, boot sequences, or short notifications.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        color (tuple): RGB color tuple (0-255 per channel), default white
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_static_text(pixels, "BOOT", duration_seconds=2, color=(255, 255, 0))
+        display_static_text(pixels, "READY", duration_seconds=3, color=(0, 255, 0))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Clear all pixels
+    for i in range(config['led_count']):
+        pixels[i] = (0, 0, 0)
+
+    # Display text
+    for col_idx, col_data in enumerate(text_columns):
+        x = start_x + col_idx
+        if x >= width:
+            break  # Text too long for display
+
+        # Display this column on the LED matrix
+        for y in range(min(height, 7)):  # Font is 7 pixels tall
+            if col_data & (1 << y):
+                led_index = map_xy_to_pixel(x, y, layout)
+                if led_index is not None:
+                    pixels[led_index] = color
+
+    pixels.show()
+
+    # Hold for duration
+    time.sleep(duration_seconds)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(255, 0, 0), center=True):
+    """
+    Display flashing (blinking) text on LED matrix.
+
+    Text blinks on and off for the specified number of times.
+    Useful for alerts, errors, or attention-getting messages.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        flash_count (int): Number of times to flash on/off
+        flash_speed (float): Time for each on/off cycle (seconds)
+        color (tuple): RGB color tuple (0-255 per channel), default red
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_flashing_text(pixels, "ERROR", flash_count=5, color=(255, 0, 0))
+        display_flashing_text(pixels, "ALERT", flash_count=3, color=(255, 128, 0))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Flash loop
+    for _ in range(flash_count):
+        # Turn ON - display text
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        for col_idx, col_data in enumerate(text_columns):
+            x = start_x + col_idx
+            if x >= width:
+                break
+
+            for y in range(min(height, 7)):
+                if col_data & (1 << y):
+                    led_index = map_xy_to_pixel(x, y, layout)
+                    if led_index is not None:
+                        pixels[led_index] = color
+
+        pixels.show()
+        time.sleep(flash_speed / 2)
+
+        # Turn OFF - clear display
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+        pixels.show()
+        time.sleep(flash_speed / 2)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def wheel(pos):
+    """
+    Generate rainbow colors using HSV-to-RGB color wheel algorithm.
+
+    Maps position (0-255) to smooth RGB color transitions through the spectrum.
+    This creates a perceptually uniform rainbow effect suitable for LED displays.
+
+    Algorithm divides the 256-position wheel into three equal segments:
+    - Segment 1 (0-84):   Red → Green (R decreases, G increases, B=0)
+    - Segment 2 (85-169): Green → Blue (G decreases, B increases, R=0)
+    - Segment 3 (170-255): Blue → Red (B decreases, R increases, G=0)
+
+    Each transition uses linear interpolation (factor of 3 for smooth steps):
+    - pos * 3: Increases color component from 0 to 255
+    - 255 - pos * 3: Decreases color component from 255 to 0
+
+    Args:
+        pos (int): Position in color wheel (0-255)
+
+    Returns:
+        tuple: RGB color tuple (0-255 per channel)
+
+    Examples:
+        wheel(0)    # Returns (0, 255, 0)     - Pure red start
+        wheel(85)   # Returns (255, 0, 0)     - Pure green
+        wheel(170)  # Returns (0, 0, 255)     - Pure blue
+        wheel(128)  # Returns (127, 0, 128)   - Purple (between green/blue)
+
+    Note:
+        This is a simplified HSV color wheel with fixed saturation and value.
+        Full HSV: Hue=(pos*360/256), Saturation=100%, Value=100%
+    """
+    if pos < 85:
+        # Red → Green transition (first third of spectrum)
+        return (pos * 3, 255 - pos * 3, 0)
+    elif pos < 170:
+        # Green → Blue transition (middle third of spectrum)
+        pos -= 85
+        return (255 - pos * 3, 0, pos * 3)
+    else:
+        # Blue → Red transition (final third of spectrum)
+        pos -= 170
+        return (0, pos * 3, 255 - pos * 3)
+
+
+def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_speed=0.1):
+    """
+    Display scrolling text with rainbow color gradient.
+
+    Each character cycles through the color spectrum, creating a
+    smooth rainbow gradient effect across the text.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display
+        duration_seconds (int): How long to display (seconds)
+        scroll_speed (float): Delay between scroll steps (seconds)
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_scrolling_text_rainbow(pixels, "RAINBOW TEXT!", duration_seconds=20)
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate number of scroll positions needed
+    total_columns = len(text_columns) + width
+
+    start_time = time.time()
+    position = 0
+    color_offset = 0
+
+    while time.time() - start_time < duration_seconds:
+        # Clear all pixels
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        # Display current scroll position
+        for x in range(width):
+            text_col_idx = position + x
+
+            if 0 <= text_col_idx < len(text_columns):
+                col_data = text_columns[text_col_idx]
+
+                # Calculate rainbow color based on column position
+                color_pos = (text_col_idx * 8 + color_offset) % 256
+                color = wheel(color_pos)
+
+                # Display this column on the LED matrix
+                for y in range(min(height, 7)):
+                    if col_data & (1 << y):
+                        led_index = map_xy_to_pixel(x, y, layout)
+                        if led_index is not None:
+                            pixels[led_index] = color
+
+        pixels.show()
+
+        # Advance scroll position and color offset
+        position += 1
+        if position >= total_columns:
+            position = 0
+
+        color_offset = (color_offset + 2) % 256  # Cycle colors
+
+        time.sleep(scroll_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, cycle_speed=0.05):
+    """
+    Display static text with color cycling rainbow effect.
+
+    Text remains stationary while colors cycle through the rainbow spectrum,
+    creating a dynamic color-changing effect.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        center (bool): If True, center text horizontally. If False, left-align.
+        cycle_speed (float): Speed of color cycling (seconds per step)
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        display_static_text_rainbow(pixels, "COOL", duration_seconds=10)
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    start_time = time.time()
+    color_offset = 0
+
+    while time.time() - start_time < duration_seconds:
+        # Clear all pixels
+        for i in range(config['led_count']):
+            pixels[i] = (0, 0, 0)
+
+        # Display text with cycling rainbow colors
+        for col_idx, col_data in enumerate(text_columns):
+            x = start_x + col_idx
+            if x >= width:
+                break
+
+            # Calculate rainbow color based on column position
+            color_pos = (col_idx * 8 + color_offset) % 256
+            color = wheel(color_pos)
+
+            # Display this column on the LED matrix
+            for y in range(min(height, 7)):
+                if col_data & (1 << y):
+                    led_index = map_xy_to_pixel(x, y, layout)
+                    if led_index is not None:
+                        pixels[led_index] = color
+
+        pixels.show()
+
+        # Cycle colors
+        color_offset = (color_offset + 4) % 256
+        time.sleep(cycle_speed)
+
+    # Clear LEDs when done
+    chunked_clear(pixels)
+
+
+def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), color2=(0, 0, 255), center=True):
+    """
+    Display static text with a color gradient between two colors.
+
+    Text displays with a smooth color transition from color1 to color2
+    across the width of the text.
+
+    Args:
+        pixels: NeoPixel object
+        text (str): Text string to display (max ~4 chars for 24-wide matrix)
+        duration_seconds (float): How long to display (seconds)
+        color1 (tuple): Starting color RGB tuple (0-255 per channel)
+        color2 (tuple): Ending color RGB tuple (0-255 per channel)
+        center (bool): If True, center text horizontally. If False, left-align.
+
+    Example:
+        pixels = create_neopixel_strip(192, 'GRB', 0.3)
+        # Red to blue gradient
+        display_text_gradient(pixels, "GRAD", duration_seconds=5,
+                            color1=(255, 0, 0), color2=(0, 0, 255))
+    """
+    import time
+
+    # Get configuration
+    config = get_led_config()
+    width = config['matrix_width']
+    height = config['matrix_height']
+    layout = config['layout']
+
+    # Create text bitmap
+    text_columns = create_text_bitmap(text)
+
+    if not text_columns:
+        return
+
+    # Calculate starting x position
+    text_width = len(text_columns)
+    if center and text_width < width:
+        start_x = (width - text_width) // 2
+    else:
+        start_x = 0
+
+    # Clear all pixels
+    for i in range(config['led_count']):
+        pixels[i] = (0, 0, 0)
+
+    # Display text with gradient
+    for col_idx, col_data in enumerate(text_columns):
+        x = start_x + col_idx
+        if x >= width:
+            break
+
+        # Calculate gradient color based on position
+        if text_width > 1:
+            ratio = col_idx / (text_width - 1)
+        else:
+            ratio = 0.5
+
+        r = int(color1[0] * (1 - ratio) + color2[0] * ratio)
+        g = int(color1[1] * (1 - ratio) + color2[1] * ratio)
+        b = int(color1[2] * (1 - ratio) + color2[2] * ratio)
+        color = (r, g, b)
+
+        # Display this column on the LED matrix
+        for y in range(min(height, 7)):
+            if col_data & (1 << y):
+                led_index = map_xy_to_pixel(x, y, layout)
+                if led_index is not None:
+                    pixels[led_index] = color
+
+    pixels.show()
+
+    # Hold for duration
+    time.sleep(duration_seconds)
 
     # Clear LEDs when done
     chunked_clear(pixels)

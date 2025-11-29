@@ -1,0 +1,21 @@
+[Unit]
+Description=RasQberry A/B Boot Update Poller
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+After=network-online.target rasqberry-health-check.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rq_update_poller.py
+TimeoutSec=120
+StandardOutput=journal
+StandardError=journal
+
+# Run as root (needs to write to partitions)
+User=root
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
