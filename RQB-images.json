@@ -5,29 +5,13 @@
   },
   "os_list": [
     {
-      "name": "RasQberry Two Beta (64-bit)",
-      "description": "RasQberry beta release with latest features (may be unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-11-22-155838/rasqberry-beta-2025-11-22.img.xz",
-      "extract_size": 8791261184,
-      "extract_sha256": "2736e1352f7ef49b1bcb6b3d34edec557d6da390629814db438b3408a7a64991",
-      "image_download_size": 1839815856,
-      "release_date": "2025-11-22",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org"
-    },
-    {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-220609/",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-233405/",
       "extract_size": 8908701696,
-      "extract_sha256": "d3eb827fd3b115e0057933d804aba087d3724cd516c11be2a3d87a1bbf586c79",
-      "image_download_size": 2025245252,
+      "extract_sha256": "65d74b658c720b1278197ddbfdea2b31b6126f7cb5f3de5a64eb3a932d6eb39f",
+      "image_download_size": 2025001668,
       "release_date": "2025-11-29",
       "init_format": "systemd",
       "devices": [
@@ -45,6 +29,22 @@
       "extract_sha256": "b9240812b30002a566cd42bbe9f6f0a54332372ef93dd72037c1bded3b0049eb",
       "image_download_size": 2048345032,
       "release_date": "2025-10-22",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org"
+    },
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-220609/",
+      "extract_size": 8908701696,
+      "extract_sha256": "d3eb827fd3b115e0057933d804aba087d3724cd516c11be2a3d87a1bbf586c79",
+      "image_download_size": 2025245252,
+      "release_date": "2025-11-29",
       "init_format": "systemd",
       "devices": [
         "pi5-64bit",
