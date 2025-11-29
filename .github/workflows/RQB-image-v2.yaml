@@ -110,7 +110,6 @@ on:
         type: choice
         options:
           - default
-          - cache-only
           - ab-only
           - standard-image
           - full
@@ -212,12 +211,8 @@ jobs:
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
 
-          # Cache-only builds don't require a version (no release created)
-          if [ "$BUILD_SCOPE_INPUT" = "cache-only" ]; then
-            VERSION_NUMBER="cache-only-${CREATE_DATE}"
-            echo "Cache-only build: using generated version $VERSION_NUMBER"
           # Main branch requires explicit semantic version for releases
-          elif [ "$BRANCH_NAME" = "main" ]; then
+          if [ "$BRANCH_NAME" = "main" ]; then
             if [ -z "$VERSION_INPUT" ]; then
               echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
               exit 1
@@ -235,9 +230,9 @@ jobs:
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "$VERSION_NUMBER" > ./VERSION
 
-      # Validate semantic version format for main branch releases (skip for cache-only)
+      # Validate semantic version format for main branch releases
       - name: "Validate semantic version"
-        if: github.ref == 'refs/heads/main' && github.event.inputs.build_scope != 'cache-only'
+        if: github.ref == 'refs/heads/main'
         shell: bash
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
@@ -302,13 +297,10 @@ jobs:
   # JOB 2: Create GitHub Release
   # ============================================================================
   # Creates a GitHub release with changelog for the new version
-  # Skipped for cache-only builds (no release needed)
   release:
     name: Create Release
     needs: rasqberry-push-version-number
     runs-on: ubuntu-latest
-    # Skip release creation for cache-only builds
-    if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
     outputs:
       # Release outputs for asset upload
       id: ${{ steps.create-release.outputs.id }}
@@ -371,11 +363,9 @@ jobs:
   # ============================================================================
   # This job builds the actual Raspberry Pi OS image using pi-gen
   # Includes sophisticated caching for development builds
-  # For cache-only builds: builds base stages + downloads ARM64 wheels, no image output
   build:
     name: Build Image
     needs: [rasqberry-push-version-number, release]
-    # For cache-only, release is skipped but we still need version info
     if: always() && needs.rasqberry-push-version-number.result == 'success'
     # Runner selection: arm64=native (default), x64=emulated (QEMU)
     # ARM64 native runners are free for public repos since Jan 2025
@@ -440,7 +430,6 @@ jobs:
       # ARM64: ~46GB free (fewer pre-installed tools)
       # x86:   ~14GB free (many pre-installed tools)
       - name: Free up disk space
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           ARCH=$(uname -m)
           echo "=== Initial disk space (arch: $ARCH) ==="
@@ -553,19 +542,14 @@ jobs:
 
       # Determine if this build should use caching
       # Rules:
-      # - cache-only scope: Always use cache (rebuilding it)
       # - Main/beta branches: Cache disabled (production builds always fresh)
       # - Dev branches: Cache enabled for faster development
       - name: Determine if caching should be used
         id: cache-decision
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          BUILD_SCOPE="${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
 
-          if [[ "$BUILD_SCOPE" == "cache-only" ]]; then
-            echo "use_cache=true" >> $GITHUB_OUTPUT
-            echo "Cache enabled for cache-only build scope"
-          elif [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
             echo "use_cache=false" >> $GITHUB_OUTPUT
             echo "Cache disabled for production branch: $BRANCH_NAME"
           else
@@ -573,14 +557,14 @@ jobs:
             echo "Cache enabled for development branch: $BRANCH_NAME"
           fi
 
-      # Generate cache keys with time-based rotation (weekly for wheel cache)
+      # Generate cache keys with time-based rotation (daily for wheel cache)
       - name: Generate cache date
         id: cache-date
         if: steps.cache-decision.outputs.use_cache == 'true'
         run: |
-          # Use year-week for wheel cache (weekly refresh)
-          CACHE_WEEK=$(date +"%Y-W%V")
-          echo "cache_week=${CACHE_WEEK}" >> $GITHUB_OUTPUT
+          # Use year-month-day for wheel cache (daily refresh)
+          CACHE_DATE=$(date +"%Y-%m-%d")
+          echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
       # ========================================================================
       # CACHE RESTORATION - Base Stages Only
@@ -589,7 +573,7 @@ jobs:
       # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
       - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
-        if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache/restore@v4
         with:
           path: base-stages-cache.tar.gz
@@ -599,7 +583,7 @@ jobs:
 
       # Cache ARM64 wheel files for Qiskit installation (dev branches only)
       # Stores actual .whl files for instant installation (no network queries)
-      # Weekly TTL ensures packages are refreshed regularly for security updates
+      # Daily TTL ensures packages are refreshed regularly for security updates
       # Note: main/beta branches skip this cache (use_cache=false) to always get latest
       - name: Cache ARM64 wheels
         id: cache-wheels
@@ -608,7 +592,7 @@ jobs:
         with:
           path: ~/wheel-cache
           # No restore-keys: require exact match to prevent stale cache on requirements change
-          key: wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+          key: wheels-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
 
       # ========================================================================
       # PI-GEN DEPENDENCIES
@@ -714,7 +698,7 @@ jobs:
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
         run: |
           echo "Extracting cached base stages..."
           if [ -f "base-stages-cache.tar.gz" ]; then
@@ -951,15 +935,11 @@ jobs:
       # CUSTOM STAGE BUILD
       # ========================================================================
       # Copy our custom RasQberry stage into pi-gen (after base stages are built)
-      # Skipped for cache-only builds
       - name: Copy custom stage
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: cp -r stage-RQB2 pi-gen/
 
       # Build the RasQberry-specific stage on top of base image
-      # Skipped for cache-only builds
       - name: Build custom stage
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           cd pi-gen
           
@@ -976,7 +956,7 @@ jobs:
               # Verify stage4 rootfs exists in cache
               if [ ! -d "$WORK_DIR/stage4/rootfs" ]; then
                 echo "ERROR: stage4/rootfs missing from cache!"
-                echo "Cache appears incomplete. Use 'build_scope: cache-only' to rebuild."
+                echo "Cache appears incomplete. Clear the cache and rebuild."
                 exit 1
               fi
               
@@ -1054,124 +1034,12 @@ jobs:
       # actions/cache@v4 persists wheel cache to GitHub Actions cache
 
       # ========================================================================
-      # CACHE-ONLY: DOWNLOAD WHEELS (no pi-gen build needed)
-      # ========================================================================
-      # For cache-only builds, download ARM64 wheels directly without running pi-gen
-      # This populates the wheel cache for cross-branch sharing
-      - name: Download ARM64 wheels for cache
-        if: needs.rasqberry-push-version-number.outputs.build_scope == 'cache-only'
-        run: |
-          echo "=== Downloading ARM64 wheels for cache ==="
-          ARCH=$(uname -m)
-          echo "Runner architecture: $ARCH"
-
-          # Read target Python version from pi-gen-config (default 3.11 for bookworm)
-          TARGET_PY=$(grep "^TARGET_PYTHON_VERSION=" pi-gen-config | cut -d'=' -f2)
-          TARGET_PY="${TARGET_PY:-3.11}"
-          TARGET_ABI="cp${TARGET_PY//./}"
-          echo "Target Python: $TARGET_PY (ABI: $TARGET_ABI)"
-
-          # Create wheel cache directory
-          mkdir -p ~/wheel-cache
-
-          # Download packages individually to handle conflicts gracefully
-          # pip download fails entirely if ANY package has dependency conflicts
-          # By downloading one-by-one with --no-deps, we get all available wheels
-          # Always specify target Python version to ensure compatibility with Raspberry Pi OS
-
-          if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            echo "Using native ARM64 pip download (targeting Python $TARGET_PY)..."
-            download_pkg() {
-              pip download \
-                --dest ~/wheel-cache \
-                --python-version "$TARGET_PY" \
-                --implementation cp \
-                --abi "$TARGET_ABI" \
-                --only-binary :all: \
-                --no-deps \
-                "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no wheel or conflict)"
-            }
-          else
-            echo "Using cross-platform download for ARM64 wheels (targeting Python $TARGET_PY)..."
-            download_pkg() {
-              pip download \
-                --dest ~/wheel-cache \
-                --platform linux_aarch64 \
-                --python-version "$TARGET_PY" \
-                --implementation cp \
-                --abi "$TARGET_ABI" \
-                --only-binary :all: \
-                --no-deps \
-                "$1" 2>/dev/null && echo "  ✗ $1 (no ARM64 wheel)"
-            }
-          fi
-
-          # Core qiskit packages
-          echo ""
-          echo "=== Core Qiskit packages ==="
-          download_pkg "qiskit"
-          download_pkg "qiskit-aer"
-          download_pkg "qiskit-ibm-runtime"
-
-          # Packages from requirements file
-          echo ""
-          echo "=== Requirements file packages ==="
-          while IFS= read -r pkg || [ -n "$pkg" ]; do
-            # Skip comments, empty lines, netifaces (needs compilation)
-            [[ "$pkg" =~ ^# ]] && continue
-            [[ -z "$pkg" ]] && continue
-            [[ "$pkg" == "netifaces" ]] && continue
-            download_pkg "$pkg"
-          done < RQB2-config/qiskit-requirements.txt
-
-          # Download dependencies for the packages we got
-          # Uses same Python version targeting as individual downloads
-          echo ""
-          echo "=== Resolving dependencies (Python $TARGET_PY) ==="
-          for whl in ~/wheel-cache/*.whl; do
-            [ -f "$whl" ] || continue
-            pkg_name=$(basename "$whl" | sed 's/-[0-9].*//' | tr '_' '-')
-            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-              pip download \
-                --dest ~/wheel-cache \
-                --python-version "$TARGET_PY" \
-                --implementation cp \
-                --abi "$TARGET_ABI" \
-                --only-binary :all: \
-                "$pkg_name" 2>/dev/null || true
-            else
-              pip download \
-                --dest ~/wheel-cache \
-                --platform linux_aarch64 \
-                --python-version "$TARGET_PY" \
-                --implementation cp \
-                --abi "$TARGET_ABI" \
-                --only-binary :all: \
-                "$pkg_name" 2>/dev/null || true
-            fi
-          done
-
-          # Count and report
-          WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
-          CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
-          echo ""
-          echo "=== Summary ==="
-          echo "Downloaded $WHEEL_COUNT wheels ($CACHE_SIZE)"
-
-          # List wheels for verification
-          echo ""
-          echo "=== Downloaded wheels (first 30) ==="
-          ls ~/wheel-cache/*.whl 2>/dev/null | head -30 | xargs -I {} basename {} || echo "No wheels found"
-
-      # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
       # ========================================================================
       # Find uncompressed image, create A/B variant, compress both, upload both
       # This avoids the download/decompress cycle of a separate A/B job
-      # Skipped for cache-only builds
       - name: Create A/B variant and compress images
         id: set-asset
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           # Ensure we're in the right directory
           if [ ! -d "pi-gen" ]; then
@@ -1464,7 +1332,7 @@ jobs:
       # full: Both standard and A/B images
       # standard-image: Only standard image
       - name: Upload Standard Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only' && needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1527,16 +1395,8 @@ jobs:
             echo "TIP: Wheel cache miss detected"
             echo "========================================"
             echo ""
-            echo "To speed up future builds, populate the ARM64 wheel cache on main:"
-            echo ""
-            echo "  1. Go to Actions > Rasqberry Pi Image Release v2"
-            echo "  2. Click 'Run workflow'"
-            echo "  3. Select branch: main"
-            echo "  4. Set options:"
-            echo "     - build_scope: cache-only"
-            echo "  5. Run workflow"
-            echo ""
-            echo "This will populate caches that feature branches can reuse."
+            echo "First build on this branch will populate the wheel cache."
+            echo "Subsequent builds on dev branches will reuse the cache."
             echo ""
           fi
 
@@ -1544,13 +1404,10 @@ jobs:
   # JOB 4: Generate and Upload RQB-images.json
   # ============================================================================
   # Always generates the JSON file, optionally uploads to gh-pages
-  # Skipped for cache-only builds (no release to document)
   update-json:
     name: Generate RQB-images.json
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
-    # Skip for cache-only builds
-    if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
     
     steps:
       - name: Checkout repository
