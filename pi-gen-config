@@ -23,6 +23,9 @@ IMG_NAME=rasqberry
 
 # Base system
 RELEASE=bookworm
+# Python version on target system (Raspberry Pi OS bookworm uses 3.11)
+# Used by workflow to download compatible wheels for cache
+TARGET_PYTHON_VERSION=3.11
 # Compression format: xz (slow, small) or zstd (fast, slightly larger)
 # Workflow overrides this based on branch (dev=zstd, prod=xz)
 DEPLOY_COMPRESSION=xz
