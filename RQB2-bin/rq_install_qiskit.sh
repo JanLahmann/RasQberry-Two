@@ -129,14 +129,21 @@ else
     PIP_INDEX_OPTS=""
 fi
 
+# Filter out packages without wheels (netifaces) - they need PyPI access
 if [ -f "$REQUIREMENTS_FILE" ]; then
+    grep -v '^netifaces' "$REQUIREMENTS_FILE" > /tmp/requirements-install.txt
     pip install $PIP_INDEX_OPTS --prefer-binary --find-links="$WHEEL_DIR" \
-        "$QISKIT_SPEC" -r "$REQUIREMENTS_FILE"
+        "$QISKIT_SPEC" -r /tmp/requirements-install.txt
+    rm -f /tmp/requirements-install.txt
 else
     echo "WARNING: Requirements file not found: $REQUIREMENTS_FILE"
     pip install $PIP_INDEX_OPTS --prefer-binary --find-links="$WHEEL_DIR" \
         "$QISKIT_SPEC" qiskit-ibm-runtime qiskit-aer
 fi
+
+# Install source-only packages separately (need PyPI access)
+echo "Installing source-only packages (netifaces)..."
+pip install --use-pep517 netifaces || true
 
 # =============================================================================
 # Verification
