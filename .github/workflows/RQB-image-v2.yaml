@@ -113,6 +113,7 @@ on:
           - ab-only
           - standard-image
           - full
+          - no-release
       console_type:
         description: 'Console output (default: dev=serial, main/beta=hdmi)'
         required: false
@@ -231,8 +232,9 @@ jobs:
           echo "$VERSION_NUMBER" > ./VERSION
 
       # Validate semantic version format for main branch releases
+      # Skip for no-release builds (no version validation needed)
       - name: "Validate semantic version"
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event.inputs.build_scope != 'no-release'
         shell: bash
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
@@ -242,8 +244,10 @@ jobs:
         
       # Commit version change and create/update git tag
       # Tags: v1.2.3 for main, branch-timestamp for dev
+      # Skip for no-release builds (no version bump needed)
       - name: "Rasqberry: git add & commit & push"
         id: version-commit
+        if: github.event.inputs.build_scope != 'no-release'
         uses: EndBug/add-and-commit@v9
         with:
           add: "./VERSION"
@@ -297,10 +301,12 @@ jobs:
   # JOB 2: Create GitHub Release
   # ============================================================================
   # Creates a GitHub release with changelog for the new version
+  # Skip for no-release builds (build runs without creating release)
   release:
     name: Create Release
     needs: rasqberry-push-version-number
     runs-on: ubuntu-latest
+    if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release'
     outputs:
       # Release outputs for asset upload
       id: ${{ steps.create-release.outputs.id }}
@@ -1331,8 +1337,9 @@ jobs:
       # ab-only: Only A/B image
       # full: Both standard and A/B images
       # standard-image: Only standard image
+      # no-release: Skip uploads (no release created)
       - name: Upload Standard Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release' && needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1343,7 +1350,7 @@ jobs:
           asset_content_type: ${{ steps.set-asset.outputs.content_type }}
 
       - name: Upload A/B Image
-        if: (needs.rasqberry-push-version-number.outputs.build_scope == 'full' || needs.rasqberry-push-version-number.outputs.build_scope == 'ab-only') && steps.set-asset.outputs.ab_asset_path != ''
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release' && (needs.rasqberry-push-version-number.outputs.build_scope == 'full' || needs.rasqberry-push-version-number.outputs.build_scope == 'ab-only') && steps.set-asset.outputs.ab_asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1404,10 +1411,12 @@ jobs:
   # JOB 4: Generate and Upload RQB-images.json
   # ============================================================================
   # Always generates the JSON file, optionally uploads to gh-pages
+  # Skip for no-release builds (no release to document)
   update-json:
     name: Generate RQB-images.json
     needs: [rasqberry-push-version-number, release, build]
     runs-on: ubuntu-latest
+    if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release'
     
     steps:
       - name: Checkout repository
