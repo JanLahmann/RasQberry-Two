@@ -1421,7 +1421,6 @@ jobs:
             COMPRESSED_SIZE=$(stat -c%s "$STANDARD_COMPRESSED")
             echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
             echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
-            echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
             echo "compressed_size=$COMPRESSED_SIZE" >> $GITHUB_OUTPUT
           fi
 
@@ -1434,6 +1433,10 @@ jobs:
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
             echo "ab_asset_name=$(basename $AB_COMPRESSED)" >> $GITHUB_OUTPUT
           fi
+
+          # Always set content_type (needed by both upload steps)
+          # For ab-only builds, this is the only place it gets set
+          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
 
           # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
