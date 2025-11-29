@@ -457,10 +457,6 @@ jobs:
           case "$ARCH" in
             aarch64|arm64)
               echo "ARM64: Optimized cleanup..."
-              # Show largest directories for diagnostics (helps identify new cleanup targets)
-              echo "Top 15 largest directories:"
-              sudo du -h --max-depth=2 /usr /opt 2>/dev/null | sort -rh | head -15 || true
-
               # Directories confirmed to exist on ARM64 runners:
               sudo rm -rf /opt/hostedtoolcache &   # ~500MB tool cache
               sudo rm -rf /usr/share/dotnet &      # ~2GB .NET SDK
