@@ -1104,34 +1104,44 @@ jobs:
           ARCH=$(uname -m)
           echo "Runner architecture: $ARCH"
 
+          # Read target Python version from pi-gen-config (default 3.11 for bookworm)
+          TARGET_PY=$(grep "^TARGET_PYTHON_VERSION=" pi-gen-config | cut -d'=' -f2)
+          TARGET_PY="${TARGET_PY:-3.11}"
+          TARGET_ABI="cp${TARGET_PY//./}"
+          echo "Target Python: $TARGET_PY (ABI: $TARGET_ABI)"
+
           # Create wheel cache directory
           mkdir -p ~/wheel-cache
 
           # Download packages individually to handle conflicts gracefully
           # pip download fails entirely if ANY package has dependency conflicts
           # By downloading one-by-one with --no-deps, we get all available wheels
+          # Always specify target Python version to ensure compatibility with Raspberry Pi OS
 
           if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            echo "Using native ARM64 pip download (individual packages)..."
+            echo "Using native ARM64 pip download (targeting Python $TARGET_PY)..."
             download_pkg() {
               pip download \
                 --dest ~/wheel-cache \
+                --python-version "$TARGET_PY" \
+                --implementation cp \
+                --abi "$TARGET_ABI" \
                 --only-binary :all: \
                 --no-deps \
                 "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no wheel or conflict)"
             }
           else
-            echo "Using cross-platform download for ARM64 wheels..."
+            echo "Using cross-platform download for ARM64 wheels (targeting Python $TARGET_PY)..."
             download_pkg() {
               pip download \
                 --dest ~/wheel-cache \
                 --platform linux_aarch64 \
-                --python-version 3.11 \
+                --python-version "$TARGET_PY" \
                 --implementation cp \
-                --abi cp311 \
+                --abi "$TARGET_ABI" \
                 --only-binary :all: \
                 --no-deps \
-                "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no ARM64 wheel)"
+                "$1" 2>/dev/null && echo "  ✗ $1 (no ARM64 wheel)"
             }
           fi
 
@@ -1154,15 +1164,30 @@ jobs:
           done < RQB2-config/qiskit-requirements.txt
 
           # Download dependencies for the packages we got
+          # Uses same Python version targeting as individual downloads
           echo ""
-          echo "=== Resolving dependencies ==="
+          echo "=== Resolving dependencies (Python $TARGET_PY) ==="
           for whl in ~/wheel-cache/*.whl; do
             [ -f "$whl" ] || continue
             pkg_name=$(basename "$whl" | sed 's/-[0-9].*//' | tr '_' '-')
-            pip download \
-              --dest ~/wheel-cache \
-              --only-binary :all: \
-              "$pkg_name" 2>/dev/null || true
+            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+              pip download \
+                --dest ~/wheel-cache \
+                --python-version "$TARGET_PY" \
+                --implementation cp \
+                --abi "$TARGET_ABI" \
+                --only-binary :all: \
+                "$pkg_name" 2>/dev/null || true
+            else
+              pip download \
+                --dest ~/wheel-cache \
+                --platform linux_aarch64 \
+                --python-version "$TARGET_PY" \
+                --implementation cp \
+                --abi "$TARGET_ABI" \
+                --only-binary :all: \
+                "$pkg_name" 2>/dev/null || true
+            fi
           done
 
           # Count and report

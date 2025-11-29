@@ -4,6 +4,9 @@ IMG_NAME=rasqberry
 # Format: rasqberry-v{version} (main), rasqberry-beta-{date} (beta),
 #         rasqberry-{branch}-{date}-{time} (dev branches)
 RELEASE=bookworm
+# Python version on target system (Raspberry Pi OS bookworm uses 3.11)
+# Used by workflow to download compatible wheels for cache
+TARGET_PYTHON_VERSION=3.11
 DEPLOY_COMPRESSION=xz
 # Development: Fast compression for quick iteration
 COMPRESSION_LEVEL=3
