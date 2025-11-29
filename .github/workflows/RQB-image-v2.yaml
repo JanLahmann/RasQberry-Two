@@ -1430,8 +1430,14 @@ jobs:
 
           # Export A/B image outputs (if exists)
           if [ -f "$AB_COMPRESSED" ]; then
+            AB_COMPRESSED_SIZE=$(stat -c%s "$AB_COMPRESSED")
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
             echo "ab_asset_name=$(basename $AB_COMPRESSED)" >> $GITHUB_OUTPUT
+            echo "ab_compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+            # For ab-only builds, use AB image size as primary compressed_size
+            if [[ "$BUILD_SCOPE" == "ab-only" ]]; then
+              echo "compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+            fi
           fi
 
           # Always set content_type (needed by both upload steps)
