@@ -440,93 +440,71 @@ jobs:
       # ========================================================================
       # DISK SPACE OPTIMIZATION
       # ========================================================================
-      # GitHub Actions runners have limited disk space (~14GB free)
-      # Pi-gen needs significant space for building images
+      # GitHub Actions runners have limited disk space
+      # ARM64: ~46GB free (fewer pre-installed tools)
+      # x86:   ~14GB free (many pre-installed tools)
       - name: Free up disk space
         run: |
-          echo "=== Initial disk space ==="
+          ARCH=$(uname -m)
+          echo "=== Initial disk space (arch: $ARCH) ==="
           df -h /
 
-          # Get available space in GB with decimal precision
           get_available_gb() {
             df / | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
           }
 
-          # Parallel cleanup - all operations run simultaneously
-          echo "Starting parallel disk cleanup..."
           before=$(get_available_gb)
           start=$(date +%s)
 
-          # Launch all directory removals in parallel
-          (
-            if [ -d "/opt/hostedtoolcache" ]; then
-              echo "Removing tool-cache..."
-              sudo rm -rf "/opt/hostedtoolcache"
-              echo "  ✓ tool-cache removed"
-            fi
-          ) &
+          # Architecture-specific cleanup
+          # ARM64 runners have fewer pre-installed tools, so we skip non-existent items
+          case "$ARCH" in
+            aarch64|arm64)
+              echo "ARM64: Optimized cleanup..."
+              # Show largest directories for diagnostics (helps identify new cleanup targets)
+              echo "Top 15 largest directories:"
+              sudo du -h --max-depth=2 /usr /opt 2>/dev/null | sort -rh | head -15 || true
 
-          (
-            if [ -d "/usr/local/lib/android" ]; then
-              echo "Removing android..."
-              sudo rm -rf "/usr/local/lib/android"
-              echo "  ✓ android removed"
-            fi
-          ) &
+              # Directories confirmed to exist on ARM64 runners:
+              sudo rm -rf /opt/hostedtoolcache &   # ~500MB tool cache
+              sudo rm -rf /usr/share/dotnet &      # ~2GB .NET SDK
+              sudo rm -rf /usr/share/swift &       # ~1.5GB Swift toolchain
+              sudo rm -rf /usr/local/julia* &      # ~500MB Julia
+              sudo rm -rf /usr/share/miniconda &   # ~400MB Miniconda
+              sudo rm -rf /usr/local/aws-cli &     # ~200MB AWS CLI
+              sudo rm -rf /imagegeneration &       # Runner provisioning artifacts
+              sudo rm -rf /opt/pipx &              # pipx installations
+              # Skip: android, ghc, ghcup, boost (not installed on ARM64)
+              # Skip: apt-get remove (packages not installed, wastes 14s)
+              ;;
+            *)
+              echo "x86: Full cleanup..."
+              # All these exist on x86 runners:
+              sudo rm -rf /opt/hostedtoolcache &
+              sudo rm -rf /usr/local/lib/android &
+              sudo rm -rf /usr/share/dotnet &
+              sudo rm -rf /opt/ghc &
+              sudo rm -rf /usr/local/.ghcup &
+              sudo rm -rf /usr/local/share/boost &
+              sudo rm -rf /usr/share/swift &
+              sudo rm -rf /usr/local/julia* &
+              sudo rm -rf /usr/share/miniconda &
+              sudo rm -rf /imagegeneration &
+              # apt-get remove (useful on x86, many packages installed)
+              (
+                sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
+                sudo apt-get autoremove -y 2>/dev/null || true
+              ) &
+              ;;
+          esac
 
-          (
-            if [ -d "/usr/share/dotnet" ]; then
-              echo "Removing dotnet..."
-              sudo rm -rf "/usr/share/dotnet"
-              echo "  ✓ dotnet removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/opt/ghc" ]; then
-              echo "Removing haskell..."
-              sudo rm -rf "/opt/ghc"
-              echo "  ✓ haskell removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/usr/local/.ghcup" ]; then
-              echo "Removing ghcup..."
-              sudo rm -rf "/usr/local/.ghcup"
-              echo "  ✓ ghcup removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/usr/local/share/boost" ]; then
-              echo "Removing boost..."
-              sudo rm -rf "/usr/local/share/boost"
-              echo "  ✓ boost removed"
-            fi
-          ) &
-
-          # Run apt-get cleanup in parallel too
-          (
-            echo "Removing large packages..."
-            sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
-            sudo apt-get autoremove -y 2>/dev/null || true
-            echo "  ✓ apt-get cleanup completed"
-          ) &
-
-          # Wait for all parallel operations to complete
           wait
 
-          # Measure final state
           end=$(date +%s)
           after=$(get_available_gb)
           freed=$(echo "scale=1; $after - $before" | bc)
           echo ""
-          echo "=== Parallel cleanup results ==="
-          echo "  ✓ All cleanup completed in $((end - start))s - freed ${freed}GB"
-
-          echo ""
-          echo "=== Final disk space ==="
+          echo "=== Cleanup complete: ${freed}GB freed in $((end - start))s ==="
           df -h /
 
       # ========================================================================
@@ -536,24 +514,29 @@ jobs:
       # Create large swap file to prevent OOM errors
       - name: Maximize available memory
         run: |
-          echo "=== Initial memory status ==="
+          ARCH=$(uname -m)
+          echo "=== Initial memory status (arch: $ARCH) ==="
           free -h
-          
+
           # Stop unnecessary services to free RAM
+          # ARM64 has fewer services installed, so we only stop what exists
           echo "Stopping unnecessary services..."
-          sudo systemctl stop mysql || true
-          sudo systemctl stop postgresql || true
-          sudo systemctl stop apache2 || true
-          sudo systemctl stop snapd || true
-          sudo systemctl stop google-chrome || true
-          sudo systemctl stop firefox || true
-          sudo systemctl stop dotnet || true
-          
-          # Remove existing swap
+          case "$ARCH" in
+            aarch64|arm64)
+              # Only these services exist on ARM64 runners:
+              sudo systemctl stop mysql snapd 2>/dev/null || true
+              # Skip: postgresql, apache2, google-chrome, firefox, dotnet (not installed)
+              ;;
+            *)
+              # x86 has more services installed:
+              sudo systemctl stop mysql postgresql apache2 snapd google-chrome firefox dotnet 2>/dev/null || true
+              ;;
+          esac
+
+          # Remove existing swap and create larger one
           sudo swapoff -a || true
           sudo rm -f /swapfile || true
-          
-          # Create larger swap file (10GB)
+
           echo "Creating 10GB swap file..."
           sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
