@@ -116,6 +116,11 @@ echo "Pre-installing hardware dependencies with PEP 517..."
 pip install --use-pep517 --prefer-binary --find-links="$WHEEL_DIR" \
     sysv_ipc RPi.GPIO rpi_ws281x || true
 
+# Pre-install source-only packages that are dependencies of cached packages
+# These need PyPI access and must be installed before --no-index install
+echo "Pre-installing source-only dependencies..."
+pip install --prefer-binary docplex netifaces || true
+
 # Install everything from wheel cache (or download if not cached)
 echo "Installing $QISKIT_SPEC and additional packages..."
 
@@ -141,9 +146,7 @@ else
         "$QISKIT_SPEC" qiskit-ibm-runtime qiskit-aer
 fi
 
-# Install source-only packages separately (need PyPI access)
-echo "Installing source-only packages (netifaces)..."
-pip install --use-pep517 netifaces || true
+# Note: source-only packages (docplex, netifaces) are pre-installed above
 
 # =============================================================================
 # Verification
