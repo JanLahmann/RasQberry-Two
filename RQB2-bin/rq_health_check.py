@@ -150,14 +150,14 @@ def check_qiskit_installed(venv_path: str) -> Tuple[bool, str]:
 
 def detect_ab_layout() -> Tuple[bool, str]:
     """
-    Detect if system is using A/B boot and which version.
+    Detect if system is using A/B boot.
 
     Returns:
         Tuple of (is_ab_boot, layout_version)
-        layout_version can be: 'none', 'v1-broken', 'v2'
+        layout_version: 'ab' if A/B boot detected, 'none' otherwise
     """
     try:
-        # Check for bootfs-common (v2 AB layout)
+        # Check for CONFIG partition (A/B boot layout)
         result = subprocess.run(
             ['lsblk', '-no', 'label', '/dev/mmcblk0p1'],
             capture_output=True,
@@ -165,13 +165,9 @@ def detect_ab_layout() -> Tuple[bool, str]:
             timeout=5
         )
 
-        if result.returncode == 0 and 'bootfs-cmn' in result.stdout:
-            return True, 'v2'
-
-        # Check for old v1 layout (tryboot.txt exists but no bootfs-common)
-        tryboot_file = Path('/boot/firmware/tryboot.txt')
-        if tryboot_file.exists():
-            return True, 'v1-broken'
+        # Case-insensitive check for CONFIG label
+        if result.returncode == 0 and 'config' in result.stdout.lower():
+            return True, 'ab'
 
         return False, 'none'
 
@@ -196,11 +192,7 @@ def confirm_boot_slot() -> bool:
         logger.info("Standard (non-AB) boot system detected")
         return True  # Not an error, just not using A/B boot
 
-    logger.info(f"A/B boot system detected: {layout}")
-
-    if layout == 'v1-broken':
-        logger.warning("⚠ Using deprecated v1 A/B boot layout (known to be broken)")
-        logger.warning("⚠ Consider upgrading to v2 AB image")
+    logger.info("A/B boot system detected")
 
     slot_manager = Path('/usr/local/bin/rq_slot_manager.sh')
 

@@ -978,7 +978,7 @@ do_ab_boot_menu() {
     while true; do
         # Check if this is an AB boot image
         local is_ab_image="No"
-        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qE "^(config|bootfs-cmn)$"; then
+        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
             is_ab_image="Yes"
         fi
 
@@ -1335,7 +1335,7 @@ do_pick_release_image() {
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
     # Check if this is an AB boot image
-    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qE "^(config|bootfs-cmn)$"; then
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
         whiptail --title "Not AB Boot Image" --msgbox \
             "This system is not running an A/B boot image.\n\nSlot management is only available for AB boot layouts." \
             10 60

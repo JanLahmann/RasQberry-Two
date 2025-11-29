@@ -11,7 +11,6 @@ if [ -f "/tmp/stage-config" ]; then
     REPO="${RQB_REPO}"
     STD_VENV="${RQB_STD_VENV}"
     PIGEN="${RQB_PIGEN}"
-    PRESERVE_PIP_CACHE="${RQB_PRESERVE_PIP_CACHE:-false}"
 
     echo "Configuration loaded successfully"
 else
@@ -24,7 +23,6 @@ echo "Configuration:"
 echo "  REPO: $REPO"
 echo "  STD_VENV: $STD_VENV"
 echo "  PIGEN: $PIGEN"
-echo "  PRESERVE_PIP_CACHE: $PRESERVE_PIP_CACHE"
 echo "  FIRST_USER_NAME: ${FIRST_USER_NAME}"
 
 # Export variables needed by installation script

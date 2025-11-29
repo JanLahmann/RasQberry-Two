@@ -69,8 +69,6 @@
 # 3. RasQberry Configuration:
 #    - RQB_REPO, RQB_GIT_USER, RQB_GIT_BRANCH: Repository settings (set by workflow)
 #    - RQB_STD_VENV, RQB_PIGEN: Virtual environment settings
-#    - RQB_PRESERVE_PIP_CACHE: Pip cache control (set by workflow from input)
-#    - PRESERVE_PIP_CACHE_DEFAULT: Default pip cache setting (read by workflow)
 #
 # 4. User & System Settings:
 #    - FIRST_USER_NAME, IMG_NAME: User and image naming
@@ -116,31 +114,42 @@ on:
         type: boolean
         default: false
       build_scope:
-        description: 'Build scope (default: dev=full, main/beta=standard-image)'
+        description: 'Build scope (ab-only: A/B image only, full: both images)'
         required: false
         default: 'default'
         type: choice
         options:
           - default
           - cache-only
+          - ab-only
           - standard-image
           - full
       console_type:
-        description: 'Console output type (serial or hdmi)'
+        description: 'Console output (default: dev=serial, beta/main=hdmi)'
         required: false
-        default: 'hdmi'
+        default: 'default'
         type: choice
         options:
+          - default
           - hdmi
           - serial
       boot_verbosity:
-        description: 'Boot output verbosity (verbose or splash)'
+        description: 'Boot verbosity (default: dev=verbose, beta/main=splash)'
         required: false
-        default: 'splash'
+        default: 'default'
         type: choice
         options:
+          - default
           - verbose
           - splash
+      runner_type:
+        description: 'Runner architecture (arm64=native/fast, x64=QEMU/slow)'
+        required: false
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - x64
 
   # Automatic trigger for development branches
   push:
@@ -273,11 +282,11 @@ jobs:
           if [ "$INPUT_SCOPE" == "default" ] || [ -z "$INPUT_SCOPE" ]; then
             # Apply branch-based defaults
             if [[ "$BRANCH_NAME" == dev* ]]; then
-              SCOPE="full"
-              echo "Using default scope for dev branch: full"
+              SCOPE="ab-only"
+              echo "Using default scope for dev branch: ab-only (A/B image only)"
             else
-              SCOPE="standard-image"
-              echo "Using default scope for $BRANCH_NAME branch: standard-image"
+              SCOPE="full"
+              echo "Using default scope for $BRANCH_NAME branch: full (both images)"
             fi
           else
             SCOPE="$INPUT_SCOPE"
@@ -350,7 +359,7 @@ jobs:
       # - Dev: "rasqberry-dev-2024-01-01-123456"
       - name: Create Release
         id: create-release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ github.ref == 'refs/heads/main' && format('rasqberry-v{0}', needs.rasqberry-push-version-number.outputs.version_num) || format('rasqberry-{0}', needs.rasqberry-push-version-number.outputs.version_num) }}
@@ -366,17 +375,23 @@ jobs:
   # ============================================================================
   # This job builds the actual Raspberry Pi OS image using pi-gen
   # Includes sophisticated caching for development builds
-  # For cache-only builds: builds and caches base stages only, no image output
+  # For cache-only builds: builds base stages + downloads ARM64 wheels, no image output
   build:
     name: Build Image
     needs: [rasqberry-push-version-number, release]
     # For cache-only, release is skipped but we still need version info
     if: always() && needs.rasqberry-push-version-number.result == 'success'
-    runs-on: ubuntu-latest
+    # Runner selection: arm64=native (default), x64=emulated (QEMU)
+    # ARM64 native runners are free for public repos since Jan 2025
+    runs-on: ${{ github.event.inputs.runner_type == 'x64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     outputs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
       asset_name: ${{ steps.set-asset.outputs.asset_name }}
+      # Pre-computed metadata (saves ~2min by avoiding re-download in JSON job)
+      extract_sha256: ${{ steps.set-asset.outputs.extract_sha256 }}
+      extract_size: ${{ steps.set-asset.outputs.extract_size }}
+      compressed_size: ${{ steps.set-asset.outputs.compressed_size }}
 
     steps:
       # Checkout the commit with updated VERSION file from Job 1
@@ -385,96 +400,111 @@ jobs:
         with:
           ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
 
+      # Brief configuration summary at start of build
+      - name: Build configuration
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+
+          # Determine stream type
+          if [[ "$BRANCH" == "main" || "$BRANCH" == "beta" ]]; then
+            STREAM="prod"
+            CONSOLE=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
+            VERBOSITY=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
+            COMPRESS=$(grep "^COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
+          else
+            STREAM="dev"
+            CONSOLE=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
+            VERBOSITY=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
+            COMPRESS=$(grep "^COMPRESSION_LEVEL_DEV=" pi-gen-config | cut -d'=' -f2)
+          fi
+
+          echo "========================================"
+          echo "BUILD CONFIGURATION"
+          echo "========================================"
+          echo "Branch: $BRANCH"
+          echo "Commit: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}"
+          echo "Version: ${{ needs.rasqberry-push-version-number.outputs.version_num }}"
+          echo ""
+          echo "Runner: ${{ runner.os }} / ${{ runner.arch }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Build scope: ${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          echo ""
+          echo "Stream: $STREAM"
+          echo "Console: $CONSOLE"
+          echo "Boot verbosity: $VERBOSITY"
+          echo "Compression: xz -$COMPRESS"
+          echo "Cache version: ${{ env.CACHE_VERSION }}"
+          echo "========================================"
+          echo ""
+
       # ========================================================================
       # DISK SPACE OPTIMIZATION
       # ========================================================================
-      # GitHub Actions runners have limited disk space (~14GB free)
-      # Pi-gen needs significant space for building images
+      # GitHub Actions runners have limited disk space
+      # ARM64: ~46GB free (fewer pre-installed tools)
+      # x86:   ~14GB free (many pre-installed tools)
       - name: Free up disk space
         run: |
-          echo "=== Initial disk space ==="
+          ARCH=$(uname -m)
+          echo "=== Initial disk space (arch: $ARCH) ==="
           df -h /
 
-          # Get available space in GB with decimal precision
           get_available_gb() {
             df / | awk 'NR==2 {printf "%.1f", $4/1024/1024}'
           }
 
-          # Parallel cleanup - all operations run simultaneously
-          echo "Starting parallel disk cleanup..."
           before=$(get_available_gb)
           start=$(date +%s)
 
-          # Launch all directory removals in parallel
-          (
-            if [ -d "/opt/hostedtoolcache" ]; then
-              echo "Removing tool-cache..."
-              sudo rm -rf "/opt/hostedtoolcache"
-              echo "  ✓ tool-cache removed"
-            fi
-          ) &
+          # Architecture-specific cleanup
+          # ARM64 runners have fewer pre-installed tools, so we skip non-existent items
+          case "$ARCH" in
+            aarch64|arm64)
+              echo "ARM64: Optimized cleanup..."
+              # Show largest directories for diagnostics (helps identify new cleanup targets)
+              echo "Top 15 largest directories:"
+              sudo du -h --max-depth=2 /usr /opt 2>/dev/null | sort -rh | head -15 || true
 
-          (
-            if [ -d "/usr/local/lib/android" ]; then
-              echo "Removing android..."
-              sudo rm -rf "/usr/local/lib/android"
-              echo "  ✓ android removed"
-            fi
-          ) &
+              # Directories confirmed to exist on ARM64 runners:
+              sudo rm -rf /opt/hostedtoolcache &   # ~500MB tool cache
+              sudo rm -rf /usr/share/dotnet &      # ~2GB .NET SDK
+              sudo rm -rf /usr/share/swift &       # ~1.5GB Swift toolchain
+              sudo rm -rf /usr/local/julia* &      # ~500MB Julia
+              sudo rm -rf /usr/share/miniconda &   # ~400MB Miniconda
+              sudo rm -rf /usr/local/aws-cli &     # ~200MB AWS CLI
+              sudo rm -rf /imagegeneration &       # Runner provisioning artifacts
+              sudo rm -rf /opt/pipx &              # pipx installations
+              # Skip: android, ghc, ghcup, boost (not installed on ARM64)
+              # Skip: apt-get remove (packages not installed, wastes 14s)
+              ;;
+            *)
+              echo "x86: Full cleanup..."
+              # All these exist on x86 runners:
+              sudo rm -rf /opt/hostedtoolcache &
+              sudo rm -rf /usr/local/lib/android &
+              sudo rm -rf /usr/share/dotnet &
+              sudo rm -rf /opt/ghc &
+              sudo rm -rf /usr/local/.ghcup &
+              sudo rm -rf /usr/local/share/boost &
+              sudo rm -rf /usr/share/swift &
+              sudo rm -rf /usr/local/julia* &
+              sudo rm -rf /usr/share/miniconda &
+              sudo rm -rf /imagegeneration &
+              # apt-get remove (useful on x86, many packages installed)
+              (
+                sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
+                sudo apt-get autoremove -y 2>/dev/null || true
+              ) &
+              ;;
+          esac
 
-          (
-            if [ -d "/usr/share/dotnet" ]; then
-              echo "Removing dotnet..."
-              sudo rm -rf "/usr/share/dotnet"
-              echo "  ✓ dotnet removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/opt/ghc" ]; then
-              echo "Removing haskell..."
-              sudo rm -rf "/opt/ghc"
-              echo "  ✓ haskell removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/usr/local/.ghcup" ]; then
-              echo "Removing ghcup..."
-              sudo rm -rf "/usr/local/.ghcup"
-              echo "  ✓ ghcup removed"
-            fi
-          ) &
-
-          (
-            if [ -d "/usr/local/share/boost" ]; then
-              echo "Removing boost..."
-              sudo rm -rf "/usr/local/share/boost"
-              echo "  ✓ boost removed"
-            fi
-          ) &
-
-          # Run apt-get cleanup in parallel too
-          (
-            echo "Removing large packages..."
-            sudo apt-get remove -y '^aspnetcore-.*' '^dotnet-.*' 'php.*' '^mongodb-.*' '^mysql-.*' azure-cli google-chrome-stable firefox powershell mono-devel 2>/dev/null || true
-            sudo apt-get autoremove -y 2>/dev/null || true
-            echo "  ✓ apt-get cleanup completed"
-          ) &
-
-          # Wait for all parallel operations to complete
           wait
 
-          # Measure final state
           end=$(date +%s)
           after=$(get_available_gb)
           freed=$(echo "scale=1; $after - $before" | bc)
           echo ""
-          echo "=== Parallel cleanup results ==="
-          echo "  ✓ All cleanup completed in $((end - start))s - freed ${freed}GB"
-
-          echo ""
-          echo "=== Final disk space ==="
+          echo "=== Cleanup complete: ${freed}GB freed in $((end - start))s ==="
           df -h /
 
       # ========================================================================
@@ -484,24 +514,29 @@ jobs:
       # Create large swap file to prevent OOM errors
       - name: Maximize available memory
         run: |
-          echo "=== Initial memory status ==="
+          ARCH=$(uname -m)
+          echo "=== Initial memory status (arch: $ARCH) ==="
           free -h
-          
+
           # Stop unnecessary services to free RAM
+          # ARM64 has fewer services installed, so we only stop what exists
           echo "Stopping unnecessary services..."
-          sudo systemctl stop mysql || true
-          sudo systemctl stop postgresql || true
-          sudo systemctl stop apache2 || true
-          sudo systemctl stop snapd || true
-          sudo systemctl stop google-chrome || true
-          sudo systemctl stop firefox || true
-          sudo systemctl stop dotnet || true
-          
-          # Remove existing swap
+          case "$ARCH" in
+            aarch64|arm64)
+              # Only these services exist on ARM64 runners:
+              sudo systemctl stop mysql snapd 2>/dev/null || true
+              # Skip: postgresql, apache2, google-chrome, firefox, dotnet (not installed)
+              ;;
+            *)
+              # x86 has more services installed:
+              sudo systemctl stop mysql postgresql apache2 snapd google-chrome firefox dotnet 2>/dev/null || true
+              ;;
+          esac
+
+          # Remove existing swap and create larger one
           sudo swapoff -a || true
           sudo rm -f /swapfile || true
-          
-          # Create larger swap file (10GB)
+
           echo "Creating 10GB swap file..."
           sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
@@ -557,15 +592,18 @@ jobs:
             fi
           fi
 
-      # Generate cache key with monthly rotation
-      # This ensures caches are refreshed monthly for security updates
+      # Generate cache keys with time-based rotation
+      # Monthly for pip cache, weekly for wheel cache (faster refresh for dev)
       - name: Generate cache date
         id: cache-date
         if: steps.cache-decision.outputs.use_cache == 'true'
         run: |
-          # Use year-month for cache key to refresh monthly
+          # Use year-month for pip cache (monthly refresh)
           CACHE_DATE=$(date +"%Y-%m")
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
+          # Use year-week for wheel cache (weekly refresh)
+          CACHE_WEEK=$(date +"%Y-W%V")
+          echo "cache_week=${CACHE_WEEK}" >> $GITHUB_OUTPUT
 
       # ========================================================================
       # CACHE RESTORATION - Base Stages Only
@@ -582,18 +620,29 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Cache pip packages for Qiskit installation
-      # Keyed on requirements hash + monthly rotation to pick up new Qiskit releases
-      - name: Cache pip packages
+      # Cache ARM64 wheel files for Qiskit installation (dev branches only)
+      # Stores actual .whl files for instant installation (no network queries)
+      # Weekly TTL ensures packages are refreshed regularly for security updates
+      # Note: main/beta branches skip this cache (use_cache=false) to always get latest
+      - name: Cache ARM64 wheels
+        id: cache-wheels
+        if: steps.cache-decision.outputs.use_cache == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/wheel-cache
+          # No restore-keys: require exact match to prevent stale cache on requirements change
+          key: wheels-arm64-${{ steps.cache-date.outputs.cache_week }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+
+      # Cache pip HTTP responses as fallback for packages not in wheel cache
+      # Helps when new packages are added or wheel cache is partial
+      - name: Cache pip packages (fallback)
         id: cache-pip
         if: steps.cache-decision.outputs.use_cache == 'true'
         uses: actions/cache@v4
         with:
           path: ~/pip-cache
+          # No restore-keys: require exact match to prevent stale cache on requirements change
           key: pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
-          restore-keys: |
-            pip-qiskit-arm64-${{ steps.cache-date.outputs.cache_date }}-
-            pip-qiskit-arm64-
           
       # ========================================================================
       # PI-GEN DEPENDENCIES
@@ -603,8 +652,13 @@ jobs:
         run: |
           sudo apt-get update
 
+          # Detect architecture
+          ARCH=$(uname -m)
+          echo "Runner architecture: $ARCH"
+
           # Install pi-gen dependencies
-          # These are required for cross-compilation and image building
+          # Note: qemu-user-static is required even on ARM64 because pi-gen's
+          # build.sh checks for it as a dependency (though it won't be used on ARM64)
           sudo apt-get install -y \
             coreutils \
             quilt \
@@ -628,6 +682,12 @@ jobs:
             pigz \
             lz4 \
             arch-test
+
+          if [ "$ARCH" = "aarch64" ]; then
+            echo "ARM64 runner detected - qemu-user-static installed for pi-gen check but won't be used"
+          else
+            echo "x86_64 runner detected - qemu-user-static will be used for ARM emulation"
+          fi
 
       # Clone official Raspberry Pi image generator
       - name: Clone pi-gen
@@ -779,10 +839,22 @@ jobs:
             CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
             BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
           fi
-          CONSOLE_TYPE="${{ inputs.console_type }}"
-          BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
-          CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
-          BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
+
+          # Apply 'default' input: use branch-based defaults
+          # For dev: serial/verbose, For beta/main: hdmi/splash
+          CONSOLE_INPUT="${{ inputs.console_type }}"
+          BOOT_INPUT="${{ inputs.boot_verbosity }}"
+          if [ "$CONSOLE_INPUT" == "default" ] || [ -z "$CONSOLE_INPUT" ]; then
+            CONSOLE_TYPE="$CONSOLE_DEFAULT"
+          else
+            CONSOLE_TYPE="$CONSOLE_INPUT"
+          fi
+          if [ "$BOOT_INPUT" == "default" ] || [ -z "$BOOT_INPUT" ]; then
+            BOOT_VERBOSITY="$BOOT_DEFAULT"
+          else
+            BOOT_VERBOSITY="$BOOT_INPUT"
+          fi
+
           sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
@@ -979,8 +1051,19 @@ jobs:
           cat config
           echo "========================"
 
-          # Prepare pip cache for build (copy to sudo-accessible location)
-          # Note: We're in pi-gen/, scripts save to ../pip-cache-host (repo root)
+          # Prepare wheel cache for build (copy to sudo-accessible location)
+          # Wheels provide instant installation without downloads
+          echo "=== Preparing wheel cache for build ==="
+          if [ -d ~/wheel-cache ] && [ -n "$(ls -A ~/wheel-cache 2>/dev/null)" ]; then
+            cp -r ~/wheel-cache ../wheel-cache-host
+            WHEEL_COUNT=$(find ../wheel-cache-host -name "*.whl" 2>/dev/null | wc -l || echo "0")
+            echo "Copied wheel cache to build directory: $(du -sh ../wheel-cache-host | cut -f1) ($WHEEL_COUNT wheels)"
+          else
+            echo "No wheel cache available (first build or cache miss)"
+            mkdir -p ../wheel-cache-host
+          fi
+
+          # Prepare pip cache for build (fallback for packages not in wheel cache)
           echo "=== Preparing pip cache for build ==="
           if [ -d ~/pip-cache ] && [ -n "$(ls -A ~/pip-cache 2>/dev/null)" ]; then
             cp -r ~/pip-cache ../pip-cache-host
@@ -992,8 +1075,19 @@ jobs:
           # Build the custom RasQberry stage
           sudo ./build.sh
 
+          # Copy updated wheel cache back to GitHub Actions location
+          echo "=== Saving updated wheel cache ==="
+          if [ -d ../wheel-cache-host ] && [ -n "$(ls -A ../wheel-cache-host 2>/dev/null)" ]; then
+            rm -rf ~/wheel-cache
+            cp -r ../wheel-cache-host ~/wheel-cache
+            WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
+            CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
+            echo "Updated wheel cache: $CACHE_SIZE ($WHEEL_COUNT wheels)"
+          else
+            echo "No wheel cache to save"
+          fi
+
           # Copy updated pip cache back to GitHub Actions location
-          # Scripts save to ../pip-cache-host (repo root, not pi-gen/)
           echo "=== Saving updated pip cache ==="
           if [ -d ../pip-cache-host ] && [ -n "$(ls -A ../pip-cache-host 2>/dev/null)" ]; then
             rm -rf ~/pip-cache
@@ -1001,19 +1095,57 @@ jobs:
             CACHE_SIZE=$(du -sh ~/pip-cache 2>/dev/null | cut -f1 || echo "0")
             CACHE_FILES=$(find ~/pip-cache -type f 2>/dev/null | wc -l || echo "0")
             echo "Updated pip cache: $CACHE_SIZE ($CACHE_FILES files)"
-            echo "Cache will be saved by actions/cache@v4 post-job"
           else
             echo "No pip cache to save"
           fi
 
-      # Note: Pip cache is managed by workflow + stage scripts:
-      #   Workflow: Copies ~/pip-cache to ../pip-cache-host (before build, repo root)
-      #   00-run.sh: Restores cache from ../../pip-cache-host to rootfs
-      #   00-run-chroot.sh: Installs qiskit (uses cache)
-      #   01-run.sh: Saves updated cache from rootfs to ../../pip-cache-host
-      #   02-run.sh: Cleans cache from rootfs (reduces image size)
-      #   Workflow: Copies ../pip-cache-host back to ~/pip-cache (after build)
-      # actions/cache@v4 persists ~/pip-cache to GitHub Actions cache
+      # Note: Caches are managed by workflow + stage scripts:
+      #   Workflow: Copies ~/wheel-cache and ~/pip-cache to host dirs (before build)
+      #   00-run.sh: Restores wheel cache to /tmp/wheels in rootfs
+      #   00-run-chroot.sh: Installs qiskit using --find-links=/tmp/wheels
+      #   01-run.sh: Saves new wheels back to host, saves pip cache
+      #   02-run.sh: Cleans caches from rootfs (reduces image size)
+      #   Workflow: Copies host caches back to ~/ (after build)
+      # actions/cache@v4 persists both caches to GitHub Actions cache
+
+      # ========================================================================
+      # CACHE-ONLY: DOWNLOAD WHEELS (no pi-gen build needed)
+      # ========================================================================
+      # For cache-only builds, download ARM64 wheels directly without running pi-gen
+      # This populates the wheel cache for cross-branch sharing
+      - name: Download ARM64 wheels for cache
+        if: needs.rasqberry-push-version-number.outputs.build_scope == 'cache-only'
+        run: |
+          echo "=== Downloading ARM64 wheels for cache ==="
+
+          # Create wheel cache directory
+          mkdir -p ~/wheel-cache
+
+          # Filter out packages without ARM64 wheels (netifaces) - built from source during install
+          grep -v '^netifaces' RQB2-config/qiskit-requirements.txt > /tmp/requirements-wheels.txt
+
+          # Download wheels for ARM64 (linux_aarch64)
+          # Uses --only-binary to skip packages that need compilation
+          pip download \
+            --dest ~/wheel-cache \
+            --platform linux_aarch64 \
+            --python-version 3.11 \
+            --implementation cp \
+            --abi cp311 \
+            --only-binary :all: \
+            -r /tmp/requirements-wheels.txt \
+            "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+
+          rm -f /tmp/requirements-wheels.txt
+
+          # Count and report
+          WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
+          CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
+          echo "Downloaded $WHEEL_COUNT wheels ($CACHE_SIZE)"
+
+          # List wheels for verification
+          echo "=== Downloaded wheels ==="
+          ls -la ~/wheel-cache/*.whl 2>/dev/null | head -20 || echo "No wheels found"
 
       # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
@@ -1098,25 +1230,16 @@ jobs:
           df -h /
 
           # ================================================================
-          # CREATE A/B BOOT VARIANT (only for full builds)
+          # CREATE A/B BOOT VARIANT (for ab-only and full builds)
           # ================================================================
-          if [[ "${{ needs.rasqberry-push-version-number.outputs.build_scope }}" == "full" ]]; then
+          BUILD_SCOPE="${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          if [[ "$BUILD_SCOPE" == "full" ]] || [[ "$BUILD_SCOPE" == "ab-only" ]]; then
             echo ""
             echo "=== Creating A/B Boot Variant ==="
 
-            # Read console configuration
-            BRANCH_NAME="${GITHUB_REF_NAME}"
-            if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
-              CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
-              BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
-            else
-              CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
-              BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
-            fi
-            CONSOLE_TYPE="${{ inputs.console_type }}"
-            BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
-            CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
-            BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
+            # Read console configuration from pi-gen-config (already set in earlier step)
+            CONSOLE_TYPE=$(grep "^CONSOLE_TYPE=" pi-gen-config | cut -d'=' -f2)
+            BOOT_VERBOSITY=$(grep "^BOOT_VERBOSITY=" pi-gen-config | cut -d'=' -f2)
 
             echo "Console: ${CONSOLE_TYPE}, Boot: ${BOOT_VERBOSITY}"
 
@@ -1173,8 +1296,20 @@ jobs:
           fi
 
           # ================================================================
-          # COMPRESS IMAGES (xz for all builds)
+          # CALCULATE METADATA AND COMPRESS IMAGES
           # ================================================================
+          # Calculate SHA256 of uncompressed image BEFORE compression
+          # This saves ~2 minutes by avoiding re-download in JSON job
+          echo ""
+          echo "=== Calculating image metadata before compression ==="
+
+          # Calculate uncompressed size and SHA256 for standard image
+          echo "Calculating SHA256 of $(basename "$STANDARD_IMG")..."
+          EXTRACT_SIZE=$(stat -c%s "$STANDARD_IMG")
+          EXTRACT_SHA256=$(sha256sum "$STANDARD_IMG" | cut -d' ' -f1)
+          echo "  Uncompressed size: $((EXTRACT_SIZE / 1024 / 1024)) MB"
+          echo "  SHA256: $EXTRACT_SHA256"
+
           echo ""
           echo "=== Compressing Images with xz -${COMPRESS_LEVEL} ==="
 
@@ -1232,34 +1367,65 @@ jobs:
             rm -f "$IMG"
           }
 
-          # Compress standard image
-          compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-
-          # Compress A/B image if it exists
-          if [ -f "$AB_IMG" ]; then
-            compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
-          fi
-
-          # Set outputs
+          # Set output filenames
           STANDARD_COMPRESSED="deploy/${BASE_FILENAME}.img.${COMPRESS_EXT}"
           AB_COMPRESSED="deploy/${BASE_FILENAME}-ab.img.${COMPRESS_EXT}"
 
+          # Compress images based on build scope
+          # ab-only: Only compress AB image (delete standard to save space/time)
+          # full: Compress both images
+          # standard-image: Compress only standard image
+          if [[ "$BUILD_SCOPE" == "ab-only" ]]; then
+            echo "Build scope: ab-only - compressing A/B image only"
+            # Delete standard image (not needed for ab-only)
+            rm -f "$STANDARD_IMG"
+            # Compress A/B image
+            compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+          else
+            # Compress standard image (for full and standard-image scopes)
+            compress_with_fallback "$STANDARD_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+            # Compress A/B image if it exists (for full scope)
+            if [ -f "$AB_IMG" ]; then
+              compress_with_fallback "$AB_IMG" "$COMPRESS_LEVEL" "$COMPRESS_LEVEL_FALLBACK"
+            fi
+          fi
+
           echo ""
           echo "=== Compression Complete ==="
-          echo "Standard: $STANDARD_COMPRESSED ($(du -h "$STANDARD_COMPRESSED" | cut -f1))"
+          if [ -f "$STANDARD_COMPRESSED" ]; then
+            echo "Standard: $STANDARD_COMPRESSED ($(du -h "$STANDARD_COMPRESSED" | cut -f1))"
+          fi
           if [ -f "$AB_COMPRESSED" ]; then
             echo "A/B: $AB_COMPRESSED ($(du -h "$AB_COMPRESSED" | cut -f1))"
           fi
 
-          # Export outputs
-          echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
-          echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
-          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
+          # Export outputs for standard image (if exists)
+          if [ -f "$STANDARD_COMPRESSED" ]; then
+            COMPRESSED_SIZE=$(stat -c%s "$STANDARD_COMPRESSED")
+            echo "asset_path=$STANDARD_COMPRESSED" >> $GITHUB_OUTPUT
+            echo "asset_name=$(basename $STANDARD_COMPRESSED)" >> $GITHUB_OUTPUT
+            echo "compressed_size=$COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+          fi
 
+          # Export pre-computed metadata (used by JSON job)
+          echo "extract_sha256=$EXTRACT_SHA256" >> $GITHUB_OUTPUT
+          echo "extract_size=$EXTRACT_SIZE" >> $GITHUB_OUTPUT
+
+          # Export A/B image outputs (if exists)
           if [ -f "$AB_COMPRESSED" ]; then
+            AB_COMPRESSED_SIZE=$(stat -c%s "$AB_COMPRESSED")
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
             echo "ab_asset_name=$(basename $AB_COMPRESSED)" >> $GITHUB_OUTPUT
+            echo "ab_compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+            # For ab-only builds, use AB image size as primary compressed_size
+            if [[ "$BUILD_SCOPE" == "ab-only" ]]; then
+              echo "compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+            fi
           fi
+
+          # Always set content_type (needed by both upload steps)
+          # For ab-only builds, this is the only place it gets set
+          echo "content_type=$CONTENT_TYPE" >> $GITHUB_OUTPUT
 
           # Log cache usage summary
           if [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
@@ -1277,9 +1443,12 @@ jobs:
       # ========================================================================
       # RELEASE ASSET UPLOADS
       # ========================================================================
-      # Upload both standard and A/B images to the GitHub release
+      # Upload images to the GitHub release based on build scope
+      # ab-only: Only A/B image
+      # full: Both standard and A/B images
+      # standard-image: Only standard image
       - name: Upload Standard Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only' && needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1290,7 +1459,7 @@ jobs:
           asset_content_type: ${{ steps.set-asset.outputs.content_type }}
 
       - name: Upload A/B Image
-        if: needs.rasqberry-push-version-number.outputs.build_scope == 'full' && steps.set-asset.outputs.ab_asset_path != ''
+        if: (needs.rasqberry-push-version-number.outputs.build_scope == 'full' || needs.rasqberry-push-version-number.outputs.build_scope == 'ab-only') && steps.set-asset.outputs.ab_asset_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -1299,6 +1468,70 @@ jobs:
           asset_path: ${{ steps.set-asset.outputs.ab_asset_path }}
           asset_name: ${{ steps.set-asset.outputs.ab_asset_name }}
           asset_content_type: ${{ steps.set-asset.outputs.content_type }}
+
+      # ========================================================================
+      # BUILD SUMMARY
+      # ========================================================================
+      - name: Build summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "BUILD SUMMARY"
+          echo "========================================"
+          echo ""
+          echo "Build scope: ${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          echo "Runner: ${{ runner.os }} / ${{ runner.arch }}"
+          echo ""
+
+          # Check cache status
+          echo "=== Cache Status ==="
+
+          # Base stages cache
+          if [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
+            echo "Base stages cache: HIT"
+          else
+            echo "Base stages cache: MISS (built fresh)"
+          fi
+
+          # Wheel cache
+          if [ "${{ steps.cache-wheels.outputs.cache-hit }}" == "true" ]; then
+            echo "Wheel cache: HIT"
+            WHEEL_CACHE_HIT=true
+          else
+            echo "Wheel cache: MISS (downloaded during build)"
+            WHEEL_CACHE_HIT=false
+          fi
+
+          # Pip cache
+          if [ "${{ steps.cache-pip.outputs.cache-hit }}" == "true" ]; then
+            echo "Pip cache: HIT"
+          else
+            echo "Pip cache: MISS"
+          fi
+
+          echo ""
+
+          # Provide guidance if wheel cache missed
+          if [ "$WHEEL_CACHE_HIT" != "true" ] && [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
+            echo "========================================"
+            echo "TIP: Wheel cache miss detected"
+            echo "========================================"
+            echo ""
+            echo "To speed up future builds, populate the ARM64 wheel cache on main:"
+            echo ""
+            echo "  1. Go to Actions > Rasqberry Pi Image Release v2"
+            echo "  2. Click 'Run workflow'"
+            echo "  3. Select branch: main"
+            echo "  4. Set options:"
+            echo "     - build_cache: true"
+            echo "     - build_scope: cache-only"
+            echo "     - runner_type: arm64"
+            echo "  5. Run workflow"
+            echo ""
+            echo "This will populate caches that feature branches can reuse."
+            echo ""
+          fi
 
   # ============================================================================
   # JOB 4: Generate and Upload RQB-images.json
@@ -1318,40 +1551,26 @@ jobs:
         with:
           fetch-depth: 0
           
-      - name: Download and calculate image metadata
+      - name: Get image metadata from build job
         id: metadata
         run: |
-          # Get the asset details from the build job
+          # Use pre-computed metadata from build job (saves ~2 minutes)
+          # Previously this step downloaded 1.9GB and streamed decompression
+
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
-          
-          echo "Downloading image to calculate metadata: $ASSET_NAME"
-          
-          # Download the compressed image from the release
-          curl -L -o "$ASSET_NAME" "$DOWNLOAD_URL"
-          
-          if [ ! -f "$ASSET_NAME" ]; then
-            echo "Error: Failed to download image file"
-            exit 1
-          fi
-          
-          echo "Calculating metadata using streaming decompression..."
-          
-          # Get uncompressed size from xz metadata (no extraction needed)
-          EXTRACT_SIZE=$(xz --list --robot "$ASSET_NAME" | tail -n 1 | awk '{print $5}')
-          
-          # Calculate SHA256 using streaming decompression (no disk write)
-          echo "Streaming decompression to calculate SHA256 (this may take a few minutes)..."
-          EXTRACT_SHA256=$(xz -d -c "$ASSET_NAME" | sha256sum | cut -d' ' -f1)
-          
-          # Calculate compressed image size
-          COMPRESSED_SIZE=$(stat -c%s "$ASSET_NAME")
-          
-          # Clean up downloaded file to save space
-          rm -f "$ASSET_NAME"
-          
+
+          # Get pre-computed values from build job
+          EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
+          EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
+          COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
           RELEASE_DATE=$(date +"%Y-%m-%d")
-          
+
+          echo "Using pre-computed metadata from build job (no download needed):"
+          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
+          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
+          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
+
           # Output all metadata
           echo "download_url=${DOWNLOAD_URL}" >> $GITHUB_OUTPUT
           echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
@@ -1359,12 +1578,6 @@ jobs:
           echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
           echo "release_date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
           echo "version_num=${{ needs.rasqberry-push-version-number.outputs.version_num }}" >> $GITHUB_OUTPUT
-          
-          # Display calculated values
-          echo "Image metadata calculated:"
-          echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
-          echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
-          echo "  Uncompressed SHA256: $EXTRACT_SHA256"
           
       - name: Determine version type and stream
         id: version-type
@@ -1517,7 +1730,7 @@ jobs:
           echo "Generated RQB-images.json and RQB-releases.json in current branch"
 
       - name: Upload JSON files to release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
