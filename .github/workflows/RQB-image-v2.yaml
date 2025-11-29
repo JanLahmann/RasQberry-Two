@@ -440,6 +440,7 @@ jobs:
       # ARM64: ~46GB free (fewer pre-installed tools)
       # x86:   ~14GB free (many pre-installed tools)
       - name: Free up disk space
+        if: needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           ARCH=$(uname -m)
           echo "=== Initial disk space (arch: $ARCH) ==="
@@ -588,7 +589,7 @@ jobs:
       # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
       - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
-        if: steps.cache-decision.outputs.use_cache == 'true'
+        if: steps.cache-decision.outputs.use_cache == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         uses: actions/cache/restore@v4
         with:
           path: base-stages-cache.tar.gz
@@ -713,7 +714,7 @@ jobs:
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
       - name: Extract cached base stages
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true' && needs.rasqberry-push-version-number.outputs.build_scope != 'cache-only'
         run: |
           echo "Extracting cached base stages..."
           if [ -f "base-stages-cache.tar.gz" ]; then
@@ -1516,13 +1517,6 @@ jobs:
           else
             echo "Wheel cache: MISS (downloaded during build)"
             WHEEL_CACHE_HIT=false
-          fi
-
-          # Pip cache
-          if [ "${{ steps.cache-pip.outputs.cache-hit }}" == "true" ]; then
-            echo "Pip cache: HIT"
-          else
-            echo "Pip cache: MISS"
           fi
 
           echo ""
