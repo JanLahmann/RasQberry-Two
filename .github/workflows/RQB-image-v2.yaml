@@ -208,11 +208,16 @@ jobs:
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
           CREATE_DATE: ${{ steps.create-date.outputs.date }}
+          BUILD_SCOPE_INPUT: ${{ github.event.inputs.build_scope }}
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          
-          # Main branch requires explicit semantic version
-          if [ "$BRANCH_NAME" = "main" ]; then
+
+          # Cache-only builds don't require a version (no release created)
+          if [ "$BUILD_SCOPE_INPUT" = "cache-only" ]; then
+            VERSION_NUMBER="cache-only-${CREATE_DATE}"
+            echo "Cache-only build: using generated version $VERSION_NUMBER"
+          # Main branch requires explicit semantic version for releases
+          elif [ "$BRANCH_NAME" = "main" ]; then
             if [ -z "$VERSION_INPUT" ]; then
               echo "Error: On 'main' branch you must supply a semantic version via workflow inputs." >&2
               exit 1
@@ -226,13 +231,13 @@ jobs:
               VERSION_NUMBER="${BRANCH_NAME}-${CREATE_DATE}"
             fi
           fi
-          
+
           echo "version_num=$VERSION_NUMBER" >> $GITHUB_OUTPUT
           echo "$VERSION_NUMBER" > ./VERSION
 
-      # Validate semantic version format for main branch releases
+      # Validate semantic version format for main branch releases (skip for cache-only)
       - name: "Validate semantic version"
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event.inputs.build_scope != 'cache-only'
         shell: bash
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
