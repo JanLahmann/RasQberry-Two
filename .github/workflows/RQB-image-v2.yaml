@@ -103,18 +103,8 @@ on:
         description: 'Version number (required for main branch)'
         required: false
         type: string
-      refresh_cache:
-        description: 'Force cache refresh (dev branches only)'
-        required: false
-        type: boolean
-        default: false
-      build_cache:
-        description: 'Enable caching for main branch (to seed cross-branch cache)'
-        required: false
-        type: boolean
-        default: false
       build_scope:
-        description: 'Build scope (ab-only: A/B image only, full: both images)'
+        description: 'What to build (default: dev=ab-only, main/beta=full)'
         required: false
         default: 'default'
         type: choice
@@ -125,7 +115,7 @@ on:
           - standard-image
           - full
       console_type:
-        description: 'Console output (default: dev=serial, beta/main=hdmi)'
+        description: 'Console output (default: dev=serial, main/beta=hdmi)'
         required: false
         default: 'default'
         type: choice
@@ -134,7 +124,7 @@ on:
           - hdmi
           - serial
       boot_verbosity:
-        description: 'Boot verbosity (default: dev=verbose, beta/main=splash)'
+        description: 'Boot verbosity (default: dev=verbose, main/beta=splash)'
         required: false
         default: 'default'
         type: choice
@@ -143,11 +133,12 @@ on:
           - verbose
           - splash
       runner_type:
-        description: 'Runner architecture (arm64=native/fast, x64=QEMU/slow)'
+        description: 'Runner architecture (default=arm64 native, x64=QEMU emulated)'
         required: false
-        default: 'arm64'
+        default: 'default'
         type: choice
         options:
+          - default
           - arm64
           - x64
 
@@ -560,36 +551,24 @@ jobs:
 
       # Determine if this build should use caching
       # Rules:
-      # - Main branch: Cache disabled by default, enabled with build_cache input
-      # - Beta branch: Cache always disabled (production builds always fresh)
+      # - cache-only scope: Always use cache (rebuilding it)
+      # - Main/beta branches: Cache disabled (production builds always fresh)
       # - Dev branches: Cache enabled for faster development
-      # - Manual refresh_cache input forces fresh build
       - name: Determine if caching should be used
         id: cache-decision
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          FORCE_REFRESH="${{ github.event.inputs.refresh_cache }}"
-          BUILD_CACHE="${{ github.event.inputs.build_cache }}"
-          
-          if [[ "$BRANCH_NAME" == "main" ]]; then
-            if [ "$BUILD_CACHE" == "true" ]; then
-              echo "use_cache=true" >> $GITHUB_OUTPUT
-              echo "Cache enabled for main branch (manual override - will seed cross-branch cache)"
-            else
-              echo "use_cache=false" >> $GITHUB_OUTPUT
-              echo "Cache disabled for main branch (production build - use build_cache input to enable)"
-            fi
-          elif [[ "$BRANCH_NAME" == "beta" ]]; then
+          BUILD_SCOPE="${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+
+          if [[ "$BUILD_SCOPE" == "cache-only" ]]; then
+            echo "use_cache=true" >> $GITHUB_OUTPUT
+            echo "Cache enabled for cache-only build scope"
+          elif [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
             echo "use_cache=false" >> $GITHUB_OUTPUT
             echo "Cache disabled for production branch: $BRANCH_NAME"
           else
-            if [ "$FORCE_REFRESH" == "true" ]; then
-              echo "use_cache=false" >> $GITHUB_OUTPUT
-              echo "Cache refresh forced by workflow input"
-            else
-              echo "use_cache=true" >> $GITHUB_OUTPUT
-              echo "Cache enabled for development branch: $BRANCH_NAME"
-            fi
+            echo "use_cache=true" >> $GITHUB_OUTPUT
+            echo "Cache enabled for development branch: $BRANCH_NAME"
           fi
 
       # Generate cache keys with time-based rotation
@@ -1010,7 +989,7 @@ jobs:
               # Verify stage4 rootfs exists in cache
               if [ ! -d "$WORK_DIR/stage4/rootfs" ]; then
                 echo "ERROR: stage4/rootfs missing from cache!"
-                echo "Cache appears incomplete. Use 'refresh_cache' option to rebuild."
+                echo "Cache appears incomplete. Use 'build_scope: cache-only' to rebuild."
                 exit 1
               fi
               
@@ -1524,9 +1503,7 @@ jobs:
             echo "  2. Click 'Run workflow'"
             echo "  3. Select branch: main"
             echo "  4. Set options:"
-            echo "     - build_cache: true"
             echo "     - build_scope: cache-only"
-            echo "     - runner_type: arm64"
             echo "  5. Run workflow"
             echo ""
             echo "This will populate caches that feature branches can reuse."
