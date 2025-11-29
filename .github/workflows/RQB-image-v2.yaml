@@ -126,29 +126,31 @@ on:
           - standard-image
           - full
       console_type:
-        description: 'Console output type (serial or hdmi)'
+        description: 'Console output (default: dev=serial, beta/main=hdmi)'
         required: false
-        default: 'hdmi'
+        default: 'default'
         type: choice
         options:
+          - default
           - hdmi
           - serial
       boot_verbosity:
-        description: 'Boot output verbosity (verbose or splash)'
+        description: 'Boot verbosity (default: dev=verbose, beta/main=splash)'
         required: false
-        default: 'splash'
+        default: 'default'
         type: choice
         options:
+          - default
           - verbose
           - splash
       runner_type:
-        description: 'Runner architecture (arm64=native, x64=QEMU emulation)'
+        description: 'Runner architecture (arm64=native/fast, x64=QEMU/slow)'
         required: false
-        default: 'x64'
+        default: 'arm64'
         type: choice
         options:
-          - x64
           - arm64
+          - x64
 
   # Automatic trigger for development branches
   push:
@@ -818,10 +820,22 @@ jobs:
             CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
             BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
           fi
-          CONSOLE_TYPE="${{ inputs.console_type }}"
-          BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
-          CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
-          BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
+
+          # Apply 'default' input: use branch-based defaults
+          # For dev: serial/verbose, For beta/main: hdmi/splash
+          CONSOLE_INPUT="${{ inputs.console_type }}"
+          BOOT_INPUT="${{ inputs.boot_verbosity }}"
+          if [ "$CONSOLE_INPUT" == "default" ] || [ -z "$CONSOLE_INPUT" ]; then
+            CONSOLE_TYPE="$CONSOLE_DEFAULT"
+          else
+            CONSOLE_TYPE="$CONSOLE_INPUT"
+          fi
+          if [ "$BOOT_INPUT" == "default" ] || [ -z "$BOOT_INPUT" ]; then
+            BOOT_VERBOSITY="$BOOT_DEFAULT"
+          else
+            BOOT_VERBOSITY="$BOOT_INPUT"
+          fi
+
           sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
@@ -1164,19 +1178,9 @@ jobs:
             echo ""
             echo "=== Creating A/B Boot Variant ==="
 
-            # Read console configuration
-            BRANCH_NAME="${GITHUB_REF_NAME}"
-            if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
-              CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_PROD=" pi-gen-config | cut -d'=' -f2)
-              BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_PROD=" pi-gen-config | cut -d'=' -f2)
-            else
-              CONSOLE_DEFAULT=$(grep "^CONSOLE_TYPE_DEV=" pi-gen-config | cut -d'=' -f2)
-              BOOT_DEFAULT=$(grep "^BOOT_VERBOSITY_DEV=" pi-gen-config | cut -d'=' -f2)
-            fi
-            CONSOLE_TYPE="${{ inputs.console_type }}"
-            BOOT_VERBOSITY="${{ inputs.boot_verbosity }}"
-            CONSOLE_TYPE="${CONSOLE_TYPE:-$CONSOLE_DEFAULT}"
-            BOOT_VERBOSITY="${BOOT_VERBOSITY:-$BOOT_DEFAULT}"
+            # Read console configuration from pi-gen-config (already set in earlier step)
+            CONSOLE_TYPE=$(grep "^CONSOLE_TYPE=" pi-gen-config | cut -d'=' -f2)
+            BOOT_VERBOSITY=$(grep "^BOOT_VERBOSITY=" pi-gen-config | cut -d'=' -f2)
 
             echo "Console: ${CONSOLE_TYPE}, Boot: ${BOOT_VERBOSITY}"
 
