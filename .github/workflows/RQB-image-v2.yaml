@@ -116,7 +116,7 @@ on:
         type: boolean
         default: false
       build_scope:
-        description: 'Build scope (default: dev=full, main/beta=standard-image)'
+        description: 'Build scope (cache-only: base stages + ARM64 wheels, no image)'
         required: false
         default: 'default'
         type: choice
@@ -376,15 +376,15 @@ jobs:
   # ============================================================================
   # This job builds the actual Raspberry Pi OS image using pi-gen
   # Includes sophisticated caching for development builds
-  # For cache-only builds: builds and caches base stages only, no image output
+  # For cache-only builds: builds base stages + downloads ARM64 wheels, no image output
   build:
     name: Build Image
     needs: [rasqberry-push-version-number, release]
     # For cache-only, release is skipped but we still need version info
     if: always() && needs.rasqberry-push-version-number.result == 'success'
-    # Runner selection: arm64=native (no QEMU), x64=emulated (default for push triggers)
+    # Runner selection: arm64=native (default), x64=emulated (QEMU)
     # ARM64 native runners are free for public repos since Jan 2025
-    runs-on: ${{ github.event.inputs.runner_type == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ${{ github.event.inputs.runner_type == 'x64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     outputs:
       # Output paths for the built image
       asset_path: ${{ steps.set-asset.outputs.asset_path }}
@@ -400,6 +400,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
+
+      # Brief configuration summary at start of build
+      - name: Build configuration
+        run: |
+          echo "========================================"
+          echo "BUILD CONFIGURATION"
+          echo "========================================"
+          echo "Branch: ${GITHUB_REF#refs/heads/}"
+          echo "Commit: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}"
+          echo "Version: ${{ needs.rasqberry-push-version-number.outputs.version_num }}"
+          echo ""
+          echo "Runner: ${{ runner.os }} / ${{ runner.arch }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo ""
+          echo "Build scope: ${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          echo "========================================"
+          echo ""
 
       # ========================================================================
       # DISK SPACE OPTIMIZATION
@@ -1090,6 +1107,40 @@ jobs:
       # actions/cache@v4 persists both caches to GitHub Actions cache
 
       # ========================================================================
+      # CACHE-ONLY: DOWNLOAD WHEELS (no pi-gen build needed)
+      # ========================================================================
+      # For cache-only builds, download ARM64 wheels directly without running pi-gen
+      # This populates the wheel cache for cross-branch sharing
+      - name: Download ARM64 wheels for cache
+        if: needs.rasqberry-push-version-number.outputs.build_scope == 'cache-only'
+        run: |
+          echo "=== Downloading ARM64 wheels for cache ==="
+
+          # Create wheel cache directory
+          mkdir -p ~/wheel-cache
+
+          # Download wheels for ARM64 (linux_aarch64)
+          # Uses --only-binary to skip packages that need compilation
+          pip download \
+            --dest ~/wheel-cache \
+            --platform linux_aarch64 \
+            --python-version 3.11 \
+            --implementation cp \
+            --abi cp311 \
+            --only-binary :all: \
+            -r RQB2-config/qiskit-requirements.txt \
+            "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+
+          # Count and report
+          WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
+          CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
+          echo "Downloaded $WHEEL_COUNT wheels ($CACHE_SIZE)"
+
+          # List wheels for verification
+          echo "=== Downloaded wheels ==="
+          ls -la ~/wheel-cache/*.whl 2>/dev/null | head -20 || echo "No wheels found"
+
+      # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
       # ========================================================================
       # Find uncompressed image, create A/B variant, compress both, upload both
@@ -1383,6 +1434,70 @@ jobs:
           asset_path: ${{ steps.set-asset.outputs.ab_asset_path }}
           asset_name: ${{ steps.set-asset.outputs.ab_asset_name }}
           asset_content_type: ${{ steps.set-asset.outputs.content_type }}
+
+      # ========================================================================
+      # BUILD SUMMARY
+      # ========================================================================
+      - name: Build summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "BUILD SUMMARY"
+          echo "========================================"
+          echo ""
+          echo "Build scope: ${{ needs.rasqberry-push-version-number.outputs.build_scope }}"
+          echo "Runner: ${{ runner.os }} / ${{ runner.arch }}"
+          echo ""
+
+          # Check cache status
+          echo "=== Cache Status ==="
+
+          # Base stages cache
+          if [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
+            echo "Base stages cache: HIT"
+          else
+            echo "Base stages cache: MISS (built fresh)"
+          fi
+
+          # Wheel cache
+          if [ "${{ steps.cache-wheels.outputs.cache-hit }}" == "true" ]; then
+            echo "Wheel cache: HIT"
+            WHEEL_CACHE_HIT=true
+          else
+            echo "Wheel cache: MISS (downloaded during build)"
+            WHEEL_CACHE_HIT=false
+          fi
+
+          # Pip cache
+          if [ "${{ steps.cache-pip.outputs.cache-hit }}" == "true" ]; then
+            echo "Pip cache: HIT"
+          else
+            echo "Pip cache: MISS"
+          fi
+
+          echo ""
+
+          # Provide guidance if wheel cache missed
+          if [ "$WHEEL_CACHE_HIT" != "true" ] && [ "${{ steps.cache-decision.outputs.use_cache }}" == "true" ]; then
+            echo "========================================"
+            echo "TIP: Wheel cache miss detected"
+            echo "========================================"
+            echo ""
+            echo "To speed up future builds, populate the ARM64 wheel cache on main:"
+            echo ""
+            echo "  1. Go to Actions > Rasqberry Pi Image Release v2"
+            echo "  2. Click 'Run workflow'"
+            echo "  3. Select branch: main"
+            echo "  4. Set options:"
+            echo "     - build_cache: true"
+            echo "     - build_scope: cache-only"
+            echo "     - runner_type: arm64"
+            echo "  5. Run workflow"
+            echo ""
+            echo "This will populate caches that feature branches can reuse."
+            echo ""
+          fi
 
   # ============================================================================
   # JOB 4: Generate and Upload RQB-images.json
