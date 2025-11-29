@@ -28,10 +28,10 @@
 #         ▼                        ▼                        ▼
 #   Update VERSION          Create GitHub          Build Pi Image
 #   Create Git Tag          Release with           - Use cache (dev)
-#   Push Changes            Changelog              - Fresh (main)
+#   Push Changes            Changelog              - Delete+refresh (main)
 #                                                   - Upload Asset
 #
-# CACHING STRATEGY (Dev Builds Only):
+# CACHING STRATEGY:
 # 
 # First Build:          Subsequent Builds:       Monthly/Forced:
 # ┌──────────┐         ┌──────────┐            ┌──────────┐
@@ -546,20 +546,24 @@ jobs:
           echo "Cache key pattern: stage4-v2-$(date +"%Y-%m")-bookworm-arm64"
           # Note: Cache version defined in pi-gen-config (CACHE_VERSION)
 
-      # Determine if this build should use caching
+      # Determine caching strategy for this build
       # Rules:
-      # - Main/beta branches: Cache disabled (production builds always fresh)
-      # - Dev branches: Cache enabled for faster development
-      - name: Determine if caching should be used
+      # - Main/beta branches: Delete existing caches, build fresh, then save new caches
+      # - Dev branches: Restore and save caches (incremental builds)
+      - name: Determine caching strategy
         id: cache-decision
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
 
           if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
-            echo "use_cache=false" >> $GITHUB_OUTPUT
-            echo "Cache disabled for production branch: $BRANCH_NAME"
+            echo "use_cache=true" >> $GITHUB_OUTPUT
+            echo "delete_cache=true" >> $GITHUB_OUTPUT
+            echo "Cache enabled with deletion for production branch: $BRANCH_NAME"
+            echo "  - Will delete existing caches for this branch"
+            echo "  - Will build fresh and populate new caches"
           else
             echo "use_cache=true" >> $GITHUB_OUTPUT
+            echo "delete_cache=false" >> $GITHUB_OUTPUT
             echo "Cache enabled for development branch: $BRANCH_NAME"
           fi
 
@@ -573,10 +577,53 @@ jobs:
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
       # ========================================================================
+      # CACHE DELETION (main/beta only)
+      # ========================================================================
+      # Delete existing caches for this branch before building fresh
+      # This ensures main/beta always get latest packages while populating cache
+      # for dev branches to use. Each branch only deletes its own caches.
+      - name: Delete branch caches (main/beta only)
+        if: steps.cache-decision.outputs.delete_cache == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          REPO="${{ github.repository }}"
+
+          echo "=== Deleting caches for branch: $BRANCH_NAME ==="
+
+          # List and delete wheel caches for this branch
+          echo "Deleting wheel caches..."
+          WHEEL_CACHES=$(gh api "repos/${REPO}/actions/caches?ref=refs/heads/${BRANCH_NAME}&key=wheels-arm64" --jq '.actions_caches[].id' 2>/dev/null || echo "")
+          if [ -n "$WHEEL_CACHES" ]; then
+            echo "$WHEEL_CACHES" | while read cache_id; do
+              echo "  Deleting wheel cache ID: $cache_id"
+              gh api -X DELETE "repos/${REPO}/actions/caches/${cache_id}" || true
+            done
+          else
+            echo "  No wheel caches found for branch $BRANCH_NAME"
+          fi
+
+          # List and delete base-stages caches for this branch
+          echo "Deleting base-stages caches..."
+          BASE_CACHES=$(gh api "repos/${REPO}/actions/caches?ref=refs/heads/${BRANCH_NAME}&key=base-stages" --jq '.actions_caches[].id' 2>/dev/null || echo "")
+          if [ -n "$BASE_CACHES" ]; then
+            echo "$BASE_CACHES" | while read cache_id; do
+              echo "  Deleting base-stages cache ID: $cache_id"
+              gh api -X DELETE "repos/${REPO}/actions/caches/${cache_id}" || true
+            done
+          else
+            echo "  No base-stages caches found for branch $BRANCH_NAME"
+          fi
+
+          echo "Cache deletion complete"
+
+      # ========================================================================
       # CACHE RESTORATION - Base Stages Only
       # ========================================================================
       # Cache only the base stages (0-4) which are shared across all dev branches
       # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
+      # For main/beta: caches were just deleted, so restore will miss → fresh build
       - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
         if: steps.cache-decision.outputs.use_cache == 'true'
@@ -587,10 +634,10 @@ jobs:
           restore-keys: |
             base-stages-${{ env.CACHE_VERSION }}-
 
-      # Cache ARM64 wheel files for Qiskit installation (dev branches only)
+      # Cache ARM64 wheel files for Qiskit installation
       # Stores actual .whl files for instant installation (no network queries)
       # Daily TTL ensures packages are refreshed regularly for security updates
-      # Note: main/beta branches skip this cache (use_cache=false) to always get latest
+      # Note: main/beta delete caches first, build fresh, then save new caches
       - name: Cache ARM64 wheels
         id: cache-wheels
         if: steps.cache-decision.outputs.use_cache == 'true'
