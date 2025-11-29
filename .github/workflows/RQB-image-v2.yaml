@@ -1103,22 +1103,21 @@ jobs:
           # Create wheel cache directory
           mkdir -p ~/wheel-cache
 
-          # Filter out packages that need compilation (no ARM64 wheels)
-          grep -v '^netifaces' RQB2-config/qiskit-requirements.txt > /tmp/requirements-wheels.txt
+          # Download packages individually to handle conflicts gracefully
+          # pip download fails entirely if ANY package has dependency conflicts
+          # By downloading one-by-one with --no-deps, we get all available wheels
 
           if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            # ARM64 runner: use native pip download (resolves ARM64 wheels correctly)
-            echo "Using native ARM64 pip download..."
-            pip download \
-              --dest ~/wheel-cache \
-              --only-binary :all: \
-              -r /tmp/requirements-wheels.txt \
-              "qiskit[all]" || echo "Warning: Some packages may not have ARM64 wheels"
+            echo "Using native ARM64 pip download (individual packages)..."
+            download_pkg() {
+              pip download \
+                --dest ~/wheel-cache \
+                --only-binary :all: \
+                --no-deps \
+                "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no wheel or conflict)"
+            }
           else
-            # x64 runner: use cross-platform download with individual packages
-            # to avoid single package failure aborting entire download
             echo "Using cross-platform download for ARM64 wheels..."
-
             download_pkg() {
               pip download \
                 --dest ~/wheel-cache \
@@ -1130,24 +1129,43 @@ jobs:
                 --no-deps \
                 "$1" 2>/dev/null && echo "  ✓ $1" || echo "  ✗ $1 (no ARM64 wheel)"
             }
-
-            # Download each package individually
-            while IFS= read -r pkg || [ -n "$pkg" ]; do
-              [[ "$pkg" =~ ^# ]] && continue
-              [[ -z "$pkg" ]] && continue
-              download_pkg "$pkg"
-            done < /tmp/requirements-wheels.txt
-
-            download_pkg "qiskit"
-            download_pkg "qiskit-aer"
           fi
 
-          rm -f /tmp/requirements-wheels.txt
+          # Core qiskit packages
+          echo ""
+          echo "=== Core Qiskit packages ==="
+          download_pkg "qiskit"
+          download_pkg "qiskit-aer"
+          download_pkg "qiskit-ibm-runtime"
+
+          # Packages from requirements file
+          echo ""
+          echo "=== Requirements file packages ==="
+          while IFS= read -r pkg || [ -n "$pkg" ]; do
+            # Skip comments, empty lines, netifaces (needs compilation)
+            [[ "$pkg" =~ ^# ]] && continue
+            [[ -z "$pkg" ]] && continue
+            [[ "$pkg" == "netifaces" ]] && continue
+            download_pkg "$pkg"
+          done < RQB2-config/qiskit-requirements.txt
+
+          # Download dependencies for the packages we got
+          echo ""
+          echo "=== Resolving dependencies ==="
+          for whl in ~/wheel-cache/*.whl; do
+            [ -f "$whl" ] || continue
+            pkg_name=$(basename "$whl" | sed 's/-[0-9].*//' | tr '_' '-')
+            pip download \
+              --dest ~/wheel-cache \
+              --only-binary :all: \
+              "$pkg_name" 2>/dev/null || true
+          done
 
           # Count and report
           WHEEL_COUNT=$(find ~/wheel-cache -name "*.whl" 2>/dev/null | wc -l || echo "0")
           CACHE_SIZE=$(du -sh ~/wheel-cache 2>/dev/null | cut -f1 || echo "0")
           echo ""
+          echo "=== Summary ==="
           echo "Downloaded $WHEEL_COUNT wheels ($CACHE_SIZE)"
 
           # List wheels for verification
