@@ -1096,7 +1096,7 @@ do_update_from_branch() {
     fi
 }
 
-# A/B Boot Administration Menu
+# Software & Full Image Updates Menu
 do_ab_boot_menu() {
     while true; do
         # Check if this is an AB boot image
@@ -1105,7 +1105,7 @@ do_ab_boot_menu() {
             is_ab_image="Yes"
         fi
 
-        FUN=$(show_menu "RasQberry: A/B Boot Administration" "A/B Image: ${is_ab_image}" \
+        FUN=$(show_menu "RasQberry: Software & Full Image Updates" "A/B Image: ${is_ab_image}" \
             EXPAND "Expand A/B Partitions (64GB+ SD)" \
             SLOTS  "Slot Manager (switch, confirm, promote)" \
             BRANCH "Update from GitHub Branch") || break
@@ -1569,7 +1569,7 @@ do_rasqberry_menu() {
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD      "Quantum Demos" \
        UEF     "Update Env File" \
-       AB_BOOT "A/B Boot Administration" \
+       AB_BOOT "Software & Full Image Updates" \
        INFO    "System Info") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
