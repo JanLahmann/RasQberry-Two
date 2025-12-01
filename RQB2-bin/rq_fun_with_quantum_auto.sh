@@ -24,5 +24,5 @@ if [ ! -f "$DEMO_DIR/$MARKER_FWQ" ]; then
     install_demo_raspiconfig do_fwq_install || die "Installation failed"
 fi
 
-# Launch the demo using the existing launcher
-exec "$BIN_DIR/rq_fun_with_quantum.sh"
+# Launch the demo using the existing launcher (pass through any arguments)
+exec "$BIN_DIR/rq_fun_with_quantum.sh" "$@"

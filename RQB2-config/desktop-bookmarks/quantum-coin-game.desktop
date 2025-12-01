@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.1
+Name=Quantum Coin Game
+Comment=Interactive demonstration of quantum superposition and interference using a coin flip game
+Icon=/usr/share/icons/rasqberry/Coin-Zahl-Kante.png
+Type=Application
+Categories=RasQberry;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh Quantum-Coin-Game.ipynb'
+Terminal=true
+StartupNotify=true
+MimeType=text/html;
+Keywords=quantum;coin;game;superposition;interference;jupyter;notebook;
+X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false
