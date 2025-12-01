@@ -14,6 +14,7 @@ qiskit-aer
 # =============================================================================
 # Application modules
 # =============================================================================
+qiskit-algorithms
 qiskit-optimization
 qiskit-machine-learning
 qiskit-nature
@@ -24,9 +25,12 @@ qiskit-experiments
 # Jupyter and visualization
 # =============================================================================
 jupyterlab
-notebook
+notebook<7  # Classic notebook required for RISE slideshow extension
+rise  # RISE slideshow extension for Fun-with-Quantum notebooks
 ipywidgets
 plotly
+tabulate
+pylatexenc
 
 # =============================================================================
 # Scientific computing

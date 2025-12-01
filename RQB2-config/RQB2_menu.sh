@@ -201,6 +201,13 @@ do_grok_bloch_install() {
                  "Grok Bloch Sphere" ""
 }
 
+# Install Fun-with-Quantum notebooks if needed
+do_fwq_install() {
+    install_demo "fun-with-quantum" "$GIT_REPO_DEMO_FWQ" \
+                 "$MARKER_FWQ" "FUN_WITH_QUANTUM_INSTALLED" \
+                 "Fun with Quantum" ""
+}
+
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
