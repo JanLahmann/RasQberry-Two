@@ -1,5 +1,6 @@
 # prereq packages for demos
 python3-gi
+graphviz
 gir1.2-gtk-3.0
 libcairo2-dev
 libgirepository1.0-dev
