@@ -95,6 +95,8 @@ chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executabl
 
 # Fix ownership of all user directories created as root
 # This ensures demos can be installed later without permission issues
+# IMPORTANT: Must also fix the home directory itself, not just subdirectories
+chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.local
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/${REPO}
 

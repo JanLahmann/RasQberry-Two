@@ -68,4 +68,8 @@ export LINE=". /usr/config/setup_qiskit_env.sh"
 echo "$LINE" >> /etc/skel/.bashrc
 echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
 
+# Fix ownership of venv and bashrc created/modified as root
+chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/$REPO
+chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.bashrc
+
 echo "Qiskit installation completed for ${FIRST_USER_NAME}"

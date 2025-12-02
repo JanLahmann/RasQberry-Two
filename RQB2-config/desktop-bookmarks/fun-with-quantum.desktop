@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.1
+Name=Fun with Quantum
+Comment=Interactive Jupyter notebooks for learning quantum computing through games (Quantum Coin Game, GHZ Game, Grover's Algorithm)
+Icon=/usr/share/icons/rasqberry/Coin-115-0-0-Kante.png
+Type=Application
+Categories=RasQberry;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh Readme.ipynb'
+Terminal=true
+StartupNotify=true
+MimeType=text/html;
+Keywords=quantum;jupyter;notebook;games;education;qiskit;rise;coin;grover;
+X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false
