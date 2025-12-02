@@ -47,7 +47,7 @@ pillow
 # =============================================================================
 # Hardware integration (RasQberry-specific)
 # =============================================================================
-adafruit-blinka
+adafruit-blinka>=8.0.0  # Pi 5 support requires 8.x+ (includes PIO neopixel driver)
 adafruit-circuitpython-neopixel
 # Note: pygobject is provided via system package symlink (see 03-install-qiskit/00-run-chroot.sh)
 netifaces  # For IP display service (08-ip-display)
