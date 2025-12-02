@@ -61,3 +61,8 @@ python-dotenv
 selenium
 webdriver-manager
 celluloid
+
+# =============================================================================
+# Utilities (required by Fun-with-Quantum notebooks)
+# =============================================================================
+wget  # For downloading files in notebooks

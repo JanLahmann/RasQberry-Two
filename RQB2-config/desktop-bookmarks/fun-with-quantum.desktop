@@ -5,7 +5,7 @@ Comment=Interactive Jupyter notebooks for learning quantum computing through gam
 Icon=/usr/share/icons/rasqberry/Coin-115-0-0-Kante.png
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh'
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh Readme.ipynb'
 Terminal=true
 StartupNotify=true
 MimeType=text/html;
