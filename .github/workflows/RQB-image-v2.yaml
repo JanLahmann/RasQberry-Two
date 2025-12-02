@@ -273,8 +273,8 @@ jobs:
           if [ "$INPUT_SCOPE" == "default" ] || [ -z "$INPUT_SCOPE" ]; then
             # Apply branch-based defaults
             if [[ "$BRANCH_NAME" == dev* ]]; then
-              SCOPE="ab-only"
-              echo "Using default scope for dev branch: ab-only (A/B image only)"
+              SCOPE="full"
+              echo "Using default scope for dev branch: full (both images)"
             else
               SCOPE="full"
               echo "Using default scope for $BRANCH_NAME branch: full (both images)"
