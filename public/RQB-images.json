@@ -1,121 +1,132 @@
 {
   "imager": {
     "latest_version": "1.8.5",
-    "url": "https://www.raspberrypi.com/software/",
-    "devices": [
-      {
-        "name": "No filtering",
-        "tags": [],
-        "default": false,
-        "description": "Show every possible image",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi 5",
-        "tags": [
-          "pi5-64bit",
-          "pi5-32bit"
-        ],
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_5.png",
-        "description": "The latest Raspberry Pi, Raspberry Pi 5",
-        "matching_type": "exclusive"
-      },
-      {
-        "name": "Raspberry Pi 4",
-        "tags": [
-          "pi4-64bit",
-          "pi4-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_4.png",
-        "description": "Models B, 400, and Compute Modules 4, 4S",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi Zero 2 W",
-        "tags": [
-          "pi3-64bit",
-          "pi3-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_Zero_2_W.png",
-        "description": "The Raspberry Pi Zero 2 W",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi 3",
-        "tags": [
-          "pi3-64bit",
-          "pi3-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_3.png",
-        "description": "Models B, A+, B+, and Compute Module 3, 3+",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi 2",
-        "tags": [
-          "pi2-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_2.png",
-        "description": "Model B",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi Zero",
-        "tags": [
-          "pi1-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_Zero.png",
-        "description": "Models Zero, Zero W, Zero WH",
-        "matching_type": "inclusive"
-      },
-      {
-        "name": "Raspberry Pi 1",
-        "tags": [
-          "pi1-32bit"
-        ],
-        "default": false,
-        "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_1B+.png",
-        "description": "Models A, B, A+, B+, and Compute Module 1",
-        "matching_type": "inclusive"
-      }
-    ]
+    "url": "https://www.raspberrypi.com/software/"
   },
   "os_list": [
     {
-      "name": "RasQberry Two Beta (64-bit)",
-      "description": "RasQberry beta release with latest features (may be unstable)",
+      "name": "RasQberry Development Images",
+      "description": "Development builds with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz",
-      "extract_size": 8791261184,
-      "extract_sha256": "1bc3fd3d22752b581e824191b87673bb2f4209d219717d68b0267f16093e26d6",
-      "image_download_size": 1836523436,
-      "release_date": "2025-10-29",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org"
-    },{
+      "subitems": [
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-paradox-2025-12-02-231604/",
+          "extract_size": 8908701696,
+          "extract_sha256": "f8271f307f4311dd4f11232c19a4c64650638d17ebf564c5ed03a27b3ee7cf23",
+          "image_download_size": 2030062724,
+          "release_date": "2025-12-02",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-02-221427/rasqberry-dev-features05-2025-12-02-221427.img.xz",
+          "extract_size": 8891924480,
+          "extract_sha256": "8d3ef7db8dc2957b110b96e6f79c34c96d969df98a6c57067dd21078920d7515",
+          "image_download_size": 1996324944,
+          "release_date": "2025-12-02",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fwq-2025-12-02-111834/",
+          "extract_size": 8891924480,
+          "extract_sha256": "5040f78d56df012fcf08c4fbad37fb88c2e081564ab479c82c6e1d5957af6434",
+          "image_download_size": 2032851228,
+          "release_date": "2025-12-02",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-233405/",
+          "extract_size": 8908701696,
+          "extract_sha256": "65d74b658c720b1278197ddbfdea2b31b6126f7cb5f3de5a64eb3a932d6eb39f",
+          "image_download_size": 2025001668,
+          "release_date": "2025-11-29",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-220609/",
+          "extract_size": 8908701696,
+          "extract_sha256": "d3eb827fd3b115e0057933d804aba087d3724cd516c11be2a3d87a1bbf586c79",
+          "image_download_size": 2025245252,
+          "release_date": "2025-11-29",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev (64-bit)",
+          "description": "RasQberry development build with cutting-edge features (unstable)",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-JRL-features02-2025-10-22-204347/image_2025-10-22-rasqberry.img.xz",
+          "extract_size": 8740929536,
+          "extract_sha256": "b9240812b30002a566cd42bbe9f6f0a54332372ef93dd72037c1bded3b0049eb",
+          "image_download_size": 2048345032,
+          "release_date": "2025-10-22",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        }
+      ]
+    },
+    {
       "name": "Raspberry Pi OS (64-bit)",
-      "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
+      "description": "A port of Debian Trixie with the Raspberry Pi Desktop (Recommended)",
       "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
-      "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-10-28/2024-10-22-raspios-bookworm-arm64.img.xz",
-      "extract_size": 6102712320,
-      "extract_sha256": "88093218a66cf20e8669963902a949c4c23b73309c2fc3331d09fa6ee2134417",
-      "image_download_size": 1238664180,
-      "release_date": "2024-10-22",
-      "init_format": "systemd",
+      "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-11-24/2025-11-24-raspios-trixie-arm64.img.xz",
+      "extract_size": 6459228160,
+      "extract_sha256": "b70e9f5f5953b5f6e2e58fc6b80ef3d8e351ea1d65906fd0259c6867046a58f8",
+      "image_download_size": 1337044588,
+      "release_date": "2025-11-24",
+      "init_format": "cloudinit-rpi",
       "devices": [
         "pi5-64bit",
         "pi4-64bit",
         "pi3-64bit"
       ]
+    },
+    {
+      "name": "Use custom image",
+      "description": "Select a custom .img from your computer",
+      "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
     }
   ]
 }
