@@ -42,12 +42,19 @@ QISKIT_IMPORT_FIXES = [
     ("from qiskit.providers.aer import QasmSimulator", "from qiskit_aer import AerSimulator"),
     ("from qiskit.providers.aer import Aer", "from qiskit_aer import Aer, AerSimulator"),
     ("from qiskit import Aer", "from qiskit_aer import Aer, AerSimulator"),
+    # IBMQ was removed in Qiskit 2.x - use fake backend with noise model
+    ("from qiskit import IBMQ, execute", "from qiskit_ibm_runtime.fake_provider import FakeManilaV2  # IBMQ removed in Qiskit 2.x"),
+    ("from qiskit import IBMQ", "from qiskit_ibm_runtime.fake_provider import FakeManilaV2  # IBMQ removed in Qiskit 2.x"),
 ]
 
 QISKIT_CODE_FIXES = [
     ("QasmSimulator()", "AerSimulator()"),
     ("simulator = QasmSimulator", "simulator = AerSimulator"),
     ("backend = QasmSimulator", "backend = AerSimulator"),
+    # Replace IBMQ cloud connection with fake noisy backend
+    ("IBMQ.load_account()", "pass  # IBMQ.load_account() - using fake backend"),
+    ("provider = IBMQ.get_provider", "backend = FakeManilaV2()  # Noisy simulator: provider = IBMQ.get_provider"),
+    ("provider.get_backend", "backend  # Noisy simulator: provider.get_backend"),
 ]
 
 
