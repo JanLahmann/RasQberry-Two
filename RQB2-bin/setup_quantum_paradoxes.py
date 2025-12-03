@@ -19,19 +19,20 @@ from typing import Dict, List, Optional, Tuple
 # ============================================================================
 
 WEBSITE_URL = "https://www.mariaviolaris.com/quantum-paradoxes/"
-YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLOFEBzvs-VvpOCmJ9BonUhf7NYB4d1p0e"
+YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLOFEBzvs-VvoQP-EVyd5Di3UrPPc2YKIc"
 
 # Paradox metadata: filename -> (title, blog_url, video_url)
+# video_url should be the YouTube video ID (e.g., "sBtAe8BsOhA" for https://youtu.be/sBtAe8BsOhA)
 PARADOXES = {
     "schrodingers-cat.ipynb": (
         "Schrödinger's Cat",
-        "https://shorturl.at/sAWZ2",
-        None
+        "https://medium.com/qiskit/schr%C3%B6dingers-cat-meets-qiskit-why-do-we-never-see-cats-that-are-both-dead-and-alive-6e9adf7a09e0",
+        "sBtAe8BsOhA"
     ),
     "quantum-zeno-effect.ipynb": (
         "Quantum Zeno Effect",
         "https://medium.com/qiskit/the-quantum-zeno-effect-from-motionless-arrows-to-entangled-freezers-e93beb7d52ae",
-        None
+        "vfUn8cR-eXw"
     ),
     # Add more paradoxes here as needed
 }
@@ -129,9 +130,9 @@ def fix_qiskit_imports(notebook: Dict) -> Tuple[Dict, int]:
 def create_header_cell(
     paradox_title: str,
     blog_url: Optional[str] = None,
-    video_url: Optional[str] = None
+    video_id: Optional[str] = None
 ) -> Dict:
-    """Create a header cell with navigation links."""
+    """Create a header cell with navigation links and embedded video."""
     lines = [
         f"# {paradox_title}\n",
         "\n",
@@ -142,18 +143,22 @@ def create_header_cell(
     links = []
     links.append("[← Back to Welcome](WELCOME.ipynb)")
 
-    if video_url:
-        links.append(f"[Watch Video]({video_url})")
-    else:
-        links.append(f"[YouTube Playlist]({YOUTUBE_PLAYLIST})")
-
     if blog_url:
         links.append(f"[Read Blog]({blog_url})")
 
     links.append(f"[Website]({WEBSITE_URL})")
+    links.append(f"[All Videos]({YOUTUBE_PLAYLIST})")
 
     lines.append(" | ".join(links) + "\n")
     lines.append("\n")
+
+    # Embed YouTube video if available
+    if video_id:
+        lines.append(f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{video_id}" ')
+        lines.append('frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; ')
+        lines.append('gyroscope; picture-in-picture" allowfullscreen></iframe>\n')
+        lines.append("\n")
+
     lines.append("---\n")
 
     return create_markdown_cell(lines)
@@ -213,9 +218,9 @@ def create_welcome_notebook(paradoxes: Dict[str, Tuple[str, str, Optional[str]]]
         "|---------|----------|-------|------|\n"
     )
 
-    for filename, (title, blog_url, video_url) in sorted(paradoxes.items()):
+    for filename, (title, blog_url, video_id) in sorted(paradoxes.items()):
         notebook_link = f"[Open]({filename})"
-        video_link = f"[Watch]({video_url})" if video_url else f"[Playlist]({YOUTUBE_PLAYLIST})"
+        video_link = f"[Watch](https://youtu.be/{video_id})" if video_id else f"[Playlist]({YOUTUBE_PLAYLIST})"
         blog_link = f"[Read]({blog_url})" if blog_url else "—"
         table_lines += f"| **{title}** | {notebook_link} | {video_link} | {blog_link} |\n"
 
