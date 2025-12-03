@@ -5,6 +5,20 @@
   },
   "os_list": [
     {
+      "name": "RasQberry Two Beta (64-bit)",
+      "description": "Beta release with new features for testing",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz",
+      "image_download_size": 1836523436,
+      "release_date": "2025-10-29",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org"
+    },
+    {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -29,22 +43,6 @@
       "extract_sha256": "b9240812b30002a566cd42bbe9f6f0a54332372ef93dd72037c1bded3b0049eb",
       "image_download_size": 2048345032,
       "release_date": "2025-10-22",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features03-2025-11-29-220609/",
-      "extract_size": 8908701696,
-      "extract_sha256": "d3eb827fd3b115e0057933d804aba087d3724cd516c11be2a3d87a1bbf586c79",
-      "image_download_size": 2025245252,
-      "release_date": "2025-11-29",
       "init_format": "systemd",
       "devices": [
         "pi5-64bit",
