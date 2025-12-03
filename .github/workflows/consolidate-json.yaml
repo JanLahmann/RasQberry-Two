@@ -169,11 +169,19 @@ jobs:
                           beta_std.append((entry.get('release_date', ''), branch_name, entry_clean))
                           print(f"  → Top-level Beta: {entry_clean['name']}")
                       elif branch_name == 'main':
-                          # Main branch → top-level stable entry
-                          entry_clean['name'] = "RasQberry Two (64-bit)"
-                          entry_clean['description'] = "Stable release for Raspberry Pi 4/5"
-                          main_std.append((entry.get('release_date', ''), branch_name, entry_clean))
-                          print(f"  → Top-level Main: {entry_clean['name']}")
+                          # Main branch: only stable if name doesn't contain "Dev"
+                          if 'Dev' in name:
+                              # Main has dev image - put in dev folder
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                              entry_clean['description'] = f"Development build from {branch_name}"
+                              dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              print(f"  → Dev folder (main has dev): {entry_clean['name']}")
+                          else:
+                              # Main has stable release
+                              entry_clean['name'] = "RasQberry Two (64-bit)"
+                              entry_clean['description'] = "Stable release for Raspberry Pi 4/5 (Recommended)"
+                              main_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              print(f"  → Top-level Main: {entry_clean['name']}")
                       else:
                           # Unknown branch pattern - treat as dev
                           entry_clean['name'] = f"RasQberry Two ({branch_name})"
