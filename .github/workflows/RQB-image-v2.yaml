@@ -378,6 +378,11 @@ jobs:
       extract_sha256: ${{ steps.set-asset.outputs.extract_sha256 }}
       extract_size: ${{ steps.set-asset.outputs.extract_size }}
       compressed_size: ${{ steps.set-asset.outputs.compressed_size }}
+      # A/B image metadata
+      ab_asset_name: ${{ steps.set-asset.outputs.ab_asset_name }}
+      ab_extract_sha256: ${{ steps.set-asset.outputs.ab_extract_sha256 }}
+      ab_extract_size: ${{ steps.set-asset.outputs.ab_extract_size }}
+      ab_compressed_size: ${{ steps.set-asset.outputs.ab_compressed_size }}
 
     steps:
       # Checkout the commit with updated VERSION file from Job 1
@@ -1194,6 +1199,16 @@ jobs:
           echo "  Uncompressed size: $((EXTRACT_SIZE / 1024 / 1024)) MB"
           echo "  SHA256: $EXTRACT_SHA256"
 
+          # Calculate uncompressed size and SHA256 for A/B image (if exists)
+          if [ -f "$AB_IMG" ]; then
+            echo ""
+            echo "Calculating SHA256 of $(basename "$AB_IMG")..."
+            AB_EXTRACT_SIZE=$(stat -c%s "$AB_IMG")
+            AB_EXTRACT_SHA256=$(sha256sum "$AB_IMG" | cut -d' ' -f1)
+            echo "  Uncompressed size: $((AB_EXTRACT_SIZE / 1024 / 1024)) MB"
+            echo "  SHA256: $AB_EXTRACT_SHA256"
+          fi
+
           echo ""
           echo "=== Compressing Images with xz -${COMPRESS_LEVEL} ==="
 
@@ -1301,6 +1316,8 @@ jobs:
             echo "ab_asset_path=$AB_COMPRESSED" >> $GITHUB_OUTPUT
             echo "ab_asset_name=$(basename $AB_COMPRESSED)" >> $GITHUB_OUTPUT
             echo "ab_compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
+            echo "ab_extract_sha256=$AB_EXTRACT_SHA256" >> $GITHUB_OUTPUT
+            echo "ab_extract_size=$AB_EXTRACT_SIZE" >> $GITHUB_OUTPUT
             # For ab-only builds, use AB image size as primary compressed_size
             if [[ "$BUILD_SCOPE" == "ab-only" ]]; then
               echo "compressed_size=$AB_COMPRESSED_SIZE" >> $GITHUB_OUTPUT
@@ -1422,7 +1439,8 @@ jobs:
           # Previously this step downloaded 1.9GB and streamed decompression
 
           ASSET_NAME="${{ needs.build.outputs.asset_name }}"
-          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}/${ASSET_NAME}"
+          TAG="${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}"
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ASSET_NAME}"
 
           # Get pre-computed values from build job
           EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
@@ -1435,13 +1453,27 @@ jobs:
           echo "  Uncompressed size: $EXTRACT_SIZE bytes ($(numfmt --to=iec-i --suffix=B $EXTRACT_SIZE))"
           echo "  Uncompressed SHA256: $EXTRACT_SHA256"
 
-          # Output all metadata
+          # Output standard image metadata
           echo "download_url=${DOWNLOAD_URL}" >> $GITHUB_OUTPUT
           echo "compressed_size=${COMPRESSED_SIZE}" >> $GITHUB_OUTPUT
           echo "extract_size=${EXTRACT_SIZE}" >> $GITHUB_OUTPUT
           echo "extract_sha256=${EXTRACT_SHA256}" >> $GITHUB_OUTPUT
           echo "release_date=${RELEASE_DATE}" >> $GITHUB_OUTPUT
           echo "version_num=${{ needs.rasqberry-push-version-number.outputs.version_num }}" >> $GITHUB_OUTPUT
+
+          # Output A/B image metadata (if available)
+          AB_ASSET_NAME="${{ needs.build.outputs.ab_asset_name }}"
+          if [ -n "$AB_ASSET_NAME" ]; then
+            AB_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${AB_ASSET_NAME}"
+            echo "ab_download_url=${AB_DOWNLOAD_URL}" >> $GITHUB_OUTPUT
+            echo "ab_compressed_size=${{ needs.build.outputs.ab_compressed_size }}" >> $GITHUB_OUTPUT
+            echo "ab_extract_size=${{ needs.build.outputs.ab_extract_size }}" >> $GITHUB_OUTPUT
+            echo "ab_extract_sha256=${{ needs.build.outputs.ab_extract_sha256 }}" >> $GITHUB_OUTPUT
+            echo ""
+            echo "A/B image metadata:"
+            echo "  Download URL: $AB_DOWNLOAD_URL"
+            echo "  Compressed size: ${{ needs.build.outputs.ab_compressed_size }} bytes"
+          fi
           
       - name: Determine version type and stream
         id: version-type
@@ -1454,6 +1486,8 @@ jobs:
             echo "stream=stable" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry stable release for exploring Quantum Computing and Qiskit" >> $GITHUB_OUTPUT
+            echo "ab_name=RasQberry Two A/B (64-bit)" >> $GITHUB_OUTPUT
+            echo "ab_description=RasQberry stable release with A/B boot support" >> $GITHUB_OUTPUT
             echo "tag=v${VERSION_NUM}" >> $GITHUB_OUTPUT
             echo "release_name=rasqberry-v${VERSION_NUM}" >> $GITHUB_OUTPUT
           elif [[ "$BRANCH_NAME" == "beta" ]]; then
@@ -1461,6 +1495,8 @@ jobs:
             echo "stream=beta" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two Beta (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry beta release with latest features (may be unstable)" >> $GITHUB_OUTPUT
+            echo "ab_name=RasQberry Two Beta A/B (64-bit)" >> $GITHUB_OUTPUT
+            echo "ab_description=RasQberry beta release with A/B boot support" >> $GITHUB_OUTPUT
             echo "tag=${VERSION_NUM}" >> $GITHUB_OUTPUT
             echo "release_name=rasqberry-${VERSION_NUM}" >> $GITHUB_OUTPUT
           else
@@ -1468,43 +1504,88 @@ jobs:
             echo "stream=dev" >> $GITHUB_OUTPUT
             echo "name=RasQberry Two Dev (64-bit)" >> $GITHUB_OUTPUT
             echo "description=RasQberry development build with cutting-edge features (unstable)" >> $GITHUB_OUTPUT
+            echo "ab_name=RasQberry Two Dev A/B (64-bit)" >> $GITHUB_OUTPUT
+            echo "ab_description=RasQberry development build with A/B boot support" >> $GITHUB_OUTPUT
             echo "tag=${VERSION_NUM}" >> $GITHUB_OUTPUT
             echo "release_name=rasqberry-${VERSION_NUM}" >> $GITHUB_OUTPUT
           fi
           
       - name: Generate RQB-images.json
         run: |
-          # Generate single-entry RQB-images.json for THIS branch only
-          # Consolidation into multi-stream file happens in separate workflow
+          # Generate RQB-images.json with available image entries (std and/or A/B)
+          # Build scope determines which images exist:
+          #   - standard-image: only standard
+          #   - ab-only: only A/B
+          #   - full: both standard and A/B
+          # Consolidation into hierarchical file happens in separate workflow
 
           VERSION_TYPE="${{ steps.version-type.outputs.type }}"
-          echo "Generating single-entry RQB-images.json for ${VERSION_TYPE} stream..."
+          echo "Generating RQB-images.json for ${VERSION_TYPE} stream..."
 
-          cat > RQB-images.json << EOF
-          {
-            "imager": {
-              "latest_version": "1.8.5",
-              "url": "https://www.raspberrypi.com/software/"
-            },
-            "os_list": [
-              {
-                "name": "${{ steps.version-type.outputs.name }}",
-                "description": "${{ steps.version-type.outputs.description }}",
-                "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                "url": "${{ steps.metadata.outputs.download_url }}",
-                "extract_size": ${{ steps.metadata.outputs.extract_size }},
-                "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
-                "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
-                "release_date": "${{ steps.metadata.outputs.release_date }}",
-                "init_format": "systemd",
-                "devices": ["pi5-64bit", "pi4-64bit"],
-                "website": "https://rasqberry.org"
+          python3 << 'PYTHON_SCRIPT'
+          import json
+
+          os_list = []
+
+          # Standard image entry (if available)
+          std_url = "${{ steps.metadata.outputs.download_url }}"
+          if std_url:
+              std_entry = {
+                  "name": "${{ steps.version-type.outputs.name }}",
+                  "description": "${{ steps.version-type.outputs.description }}",
+                  "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                  "url": std_url,
+                  "extract_size": ${{ steps.metadata.outputs.extract_size || 0 }},
+                  "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
+                  "image_download_size": ${{ steps.metadata.outputs.compressed_size || 0 }},
+                  "release_date": "${{ steps.metadata.outputs.release_date }}",
+                  "init_format": "systemd",
+                  "devices": ["pi5-64bit", "pi4-64bit"],
+                  "website": "https://rasqberry.org",
+                  "image_type": "standard"
               }
-            ]
-          }
-          EOF
+              os_list.append(std_entry)
+              print(f"Added standard entry: {std_entry['name']}")
 
-          echo "Generated RQB-images.json with single ${VERSION_TYPE} entry:"
+          # A/B image entry (if available)
+          ab_url = "${{ steps.metadata.outputs.ab_download_url }}"
+          if ab_url:
+              ab_entry = {
+                  "name": "${{ steps.version-type.outputs.ab_name }}",
+                  "description": "${{ steps.version-type.outputs.ab_description }}",
+                  "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                  "url": ab_url,
+                  "extract_size": ${{ steps.metadata.outputs.ab_extract_size || 0 }},
+                  "extract_sha256": "${{ steps.metadata.outputs.ab_extract_sha256 }}",
+                  "image_download_size": ${{ steps.metadata.outputs.ab_compressed_size || 0 }},
+                  "release_date": "${{ steps.metadata.outputs.release_date }}",
+                  "init_format": "systemd",
+                  "devices": ["pi5-64bit", "pi4-64bit"],
+                  "website": "https://rasqberry.org",
+                  "image_type": "ab"
+              }
+              os_list.append(ab_entry)
+              print(f"Added A/B entry: {ab_entry['name']}")
+
+          if not os_list:
+              print("Warning: No images available for JSON generation")
+
+          data = {
+              "imager": {
+                  "latest_version": "1.8.5",
+                  "url": "https://www.raspberrypi.com/software/"
+              },
+              "os_list": os_list
+          }
+
+          with open('RQB-images.json', 'w') as f:
+              json.dump(data, f, indent=2)
+
+          print(f"Generated RQB-images.json with {len(os_list)} entries")
+          PYTHON_SCRIPT
+
+          echo ""
+          echo "=== Generated RQB-images.json ==="
           cat RQB-images.json
 
       - name: Generate RQB-releases.json
