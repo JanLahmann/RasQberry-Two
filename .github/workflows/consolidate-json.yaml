@@ -315,12 +315,7 @@ jobs:
                   "devices": ["pi5-64bit", "pi4-64bit"]
               })
 
-          # Always add the custom image option
-          consolidated['os_list'].append({
-              "name": "Use custom image",
-              "description": "Select a custom .img from your computer",
-              "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
-          })
+          # Note: Pi Imager has built-in "Use custom" option, no need to add our own
 
           # Write consolidated JSON to public folder (where website serves from)
           with open('public/RQB-images.json', 'w') as f:
