@@ -151,19 +151,34 @@ jobs:
                       # Remove internal image_type field before adding to output
                       entry_clean = {k: v for k, v in entry.items() if k != 'image_type'}
 
-                      # Classify by name pattern and image type
+                      # Classify by BRANCH NAME (not image name) for proper categorization
+                      # Dev images: add branch identifier to distinguish them
                       if image_type == 'ab' or 'A/B' in name:
                           ab_images.append((entry.get('release_date', ''), branch_name, entry_clean))
                           print(f"  → A/B folder: {name}")
-                      elif 'Dev' in name:
+                      elif branch_name.startswith('dev'):
+                          # Add branch name to make dev images distinguishable
+                          entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                          entry_clean['description'] = f"Development build from {branch_name}"
                           dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
-                          print(f"  → Dev folder: {name}")
-                      elif 'Beta' in name:
+                          print(f"  → Dev folder: {entry_clean['name']}")
+                      elif branch_name == 'beta':
+                          # Beta branch → top-level beta entry
+                          entry_clean['name'] = "RasQberry Two Beta (64-bit)"
+                          entry_clean['description'] = "Beta release with new features for testing"
                           beta_std.append((entry.get('release_date', ''), branch_name, entry_clean))
-                          print(f"  → Top-level Beta: {name}")
-                      else:
+                          print(f"  → Top-level Beta: {entry_clean['name']}")
+                      elif branch_name == 'main':
+                          # Main branch → top-level stable entry
+                          entry_clean['name'] = "RasQberry Two (64-bit)"
+                          entry_clean['description'] = "Stable release for Raspberry Pi 4/5"
                           main_std.append((entry.get('release_date', ''), branch_name, entry_clean))
-                          print(f"  → Top-level Main: {name}")
+                          print(f"  → Top-level Main: {entry_clean['name']}")
+                      else:
+                          # Unknown branch pattern - treat as dev
+                          entry_clean['name'] = f"RasQberry Two ({branch_name})"
+                          dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          print(f"  → Dev folder (unknown): {entry_clean['name']}")
 
               except Exception as e:
                   print(f"  Error loading {json_file}: {e}")
