@@ -1616,6 +1616,8 @@ jobs:
           # Use Python to update the JSON (handles JSON parsing properly)
           python3 << 'PYTHON_SCRIPT'
           import json
+          import re
+          import urllib.request
           from datetime import datetime, timezone
 
           # Load existing JSON
@@ -1623,18 +1625,53 @@ jobs:
               data = json.load(f)
 
           stream = "${{ steps.version-type.outputs.stream }}"
+          tag = "${{ steps.version-type.outputs.tag }}"
+          repo = "${{ github.repository }}"
+
+          # Fetch release body from GitHub API to extract highlights
+          highlights = []
+          try:
+              url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+              req = urllib.request.Request(url, headers={
+                  "Accept": "application/vnd.github.v3+json",
+                  "User-Agent": "RasQberry-Workflow"
+              })
+              with urllib.request.urlopen(req, timeout=10) as response:
+                  release_data = json.loads(response.read().decode())
+                  body = release_data.get('body', '')
+
+                  # Extract bullet points from release body (lines starting with - or *)
+                  # Take first 5 meaningful highlights
+                  for line in body.split('\n'):
+                      line = line.strip()
+                      if line.startswith(('- ', '* ', '• ')):
+                          # Clean up the bullet point
+                          highlight = re.sub(r'^[-*•]\s*', '', line).strip()
+                          # Skip links-only lines, empty lines, or very short items
+                          if highlight and len(highlight) > 10 and not highlight.startswith('http'):
+                              highlights.append(highlight)
+                              if len(highlights) >= 5:
+                                  break
+
+              print(f"Extracted {len(highlights)} highlights from release notes")
+          except Exception as e:
+              print(f"Could not fetch release highlights: {e}")
 
           # Create the stream entry with all metadata
           stream_entry = {
-              "tag": "${{ steps.version-type.outputs.tag }}",
+              "tag": tag,
               "name": "${{ steps.version-type.outputs.release_name }}",
               "image_url": "${{ steps.metadata.outputs.download_url }}",
-              "release_url": "https://github.com/${{ github.repository }}/releases/tag/${{ steps.version-type.outputs.tag }}",
+              "release_url": f"https://github.com/{repo}/releases/tag/{tag}",
               "release_date": "${{ steps.metadata.outputs.release_date }}",
               "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
               "extract_size": ${{ steps.metadata.outputs.extract_size }},
               "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}"
           }
+
+          # Add highlights if we found any
+          if highlights:
+              stream_entry["highlights"] = highlights
 
           # Update timestamp and stream
           data['generated'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -1647,6 +1684,10 @@ jobs:
           print(f"Updated '{stream}' stream:")
           print(f"  Tag: {stream_entry['tag']}")
           print(f"  Image URL: {stream_entry['image_url']}")
+          if highlights:
+              print(f"  Highlights: {len(highlights)} items")
+              for h in highlights:
+                  print(f"    - {h[:60]}{'...' if len(h) > 60 else ''}")
 
           # Write updated JSON with pretty formatting
           with open('RQB-releases.json', 'w') as f:
