@@ -1,19 +1,26 @@
 # ============================================================================
-# RQB-images.json Consolidation Workflow
+# RQB JSON Consolidation Workflow
 # ============================================================================
-# Purpose: Consolidates RQB-images.json from multiple branches into a single
-#          hierarchical file on gh-pages for use by Raspberry Pi Imager.
+# Purpose: Consolidates JSON files from multiple branches into gh-pages:
+#          1. RQB-images.json - Hierarchical structure for Raspberry Pi Imager
+#          2. RQB-releases.json - Stream-based structure for website /latest/ page
 #
 # Architecture:
 #   Each branch (main, beta, dev*) maintains its own RQB-images.json with both
 #   standard and A/B image entries (marked with "image_type" field).
 #
-#   This workflow fetches from all branches and builds a hierarchical structure:
+#   This workflow fetches from all branches and builds:
+#
+#   RQB-images.json (Pi Imager):
 #   - Top-level: Main stable (std), Beta (std)
 #   - "RasQberry Development Images" folder: All dev std images
 #   - "RasQberry A/B Boot Images" folder: All A/B images (main, beta, dev)
 #   - Raspberry Pi OS (64-bit)
-#   - Use custom image
+#
+#   RQB-releases.json (Website):
+#   - streams.stable: Latest main release (or placeholder if none)
+#   - streams.beta: Latest beta release (or placeholder if none)
+#   - streams.dev: Latest dev release from newest dev branch
 #
 # Trigger:
 #   - Automatically triggered after image builds complete
@@ -22,7 +29,7 @@
 #   - Can also be triggered manually for debugging
 # ============================================================================
 
-name: Consolidate RQB-images.json
+name: Consolidate RQB JSON files
 
 on:
   # Scheduled: Run every 8 hours (0:00, 8:00, 16:00 UTC) to detect stale/deleted releases
@@ -425,26 +432,99 @@ jobs:
           print("\n=== Final RQB-images.json ===")
           print(json.dumps(consolidated, indent=2))
 
+          # ================================================================
+          # Generate RQB-releases.json for website /latest/ redirects
+          # ================================================================
+          from datetime import datetime, timezone
+
+          def build_stream_entry(entries, stream_type):
+              """Build a stream entry from the first (newest) entry in the list."""
+              if not entries:
+                  # No release available - return placeholder
+                  messages = {
+                      'stable': 'No stable release yet. Please use beta or dev.',
+                      'beta': 'No beta release yet. Please use dev.',
+                      'dev': 'No development release available.'
+                  }
+                  return {
+                      'tag': None,
+                      'name': None,
+                      'message': messages.get(stream_type, 'No release available.'),
+                      'release_url': 'https://github.com/${{ github.repository }}/releases'
+                  }
+
+              # Get the newest entry (already sorted by date)
+              _, branch_name, entry = entries[0]
+
+              # Extract tag from release_url or url
+              tag = None
+              release_url = entry.get('release_url', '')
+              if '/releases/tag/' in release_url:
+                  tag = release_url.split('/releases/tag/')[-1]
+              elif '/releases/download/' in entry.get('url', ''):
+                  # Extract from download URL: .../releases/download/TAG/filename
+                  parts = entry.get('url', '').split('/releases/download/')
+                  if len(parts) > 1:
+                      tag = parts[1].split('/')[0]
+
+              # Build the stream entry
+              stream_entry = {
+                  'tag': tag,
+                  'name': entry.get('url', '').split('/')[-1].replace('.img.xz', '') if entry.get('url') else None,
+                  'image_url': entry.get('url'),
+                  'release_url': release_url or f"https://github.com/${{ github.repository }}/releases/tag/{tag}" if tag else f"https://github.com/${{ github.repository }}/releases",
+                  'release_date': entry.get('release_date'),
+                  'image_download_size': entry.get('image_download_size'),
+              }
+
+              # Add optional fields if present
+              if entry.get('extract_size'):
+                  stream_entry['extract_size'] = entry.get('extract_size')
+              if entry.get('extract_sha256'):
+                  stream_entry['extract_sha256'] = entry.get('extract_sha256')
+
+              # Add highlights placeholder (can be enhanced later)
+              stream_entry['highlights'] = ['extract highlights from GitHub release body']
+
+              return stream_entry
+
+          # Build RQB-releases.json
+          releases_json = {
+              'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+              'streams': {
+                  'stable': build_stream_entry(main_std, 'stable'),
+                  'beta': build_stream_entry(beta_std, 'beta'),
+                  'dev': build_stream_entry(dev_std, 'dev'),
+              }
+          }
+
+          # Write RQB-releases.json
+          with open('public/RQB-releases.json', 'w') as f:
+              json.dump(releases_json, f, indent=2)
+
+          print("\n=== Final RQB-releases.json ===")
+          print(json.dumps(releases_json, indent=2))
+
           # Write skipped entries to a separate file for reference
           if skipped_entries:
               with open('/tmp/skipped-releases.json', 'w') as f:
                   json.dump(skipped_entries, f, indent=2)
           PYTHON_SCRIPT
 
-      - name: Commit consolidated JSON to gh-pages
+      - name: Commit consolidated JSON files to gh-pages
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add public/RQB-images.json
+          git add public/RQB-images.json public/RQB-releases.json
 
           # Check if there are changes
           if git diff --staged --quiet; then
-            echo "No changes to public/RQB-images.json"
+            echo "No changes to JSON files"
           else
-            git commit -m "Consolidate RQB-images.json from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
+            git commit -m "Consolidate RQB JSON files from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
             git push origin gh-pages
-            echo "✓ Consolidated RQB-images.json committed to gh-pages"
+            echo "✓ RQB-images.json and RQB-releases.json committed to gh-pages"
           fi
 
       - name: Summary
@@ -453,22 +533,26 @@ jobs:
           echo ""
           echo "Trigger: ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "  (Scheduled daily validation run)"
+            echo "  (Scheduled 8-hour validation run)"
           elif [ "${{ github.event_name }}" = "release" ]; then
             echo "  (Release deletion detected)"
           fi
           echo ""
           echo "Validation: ${{ github.event.inputs.skip_validation == 'true' && 'SKIPPED' || 'ENABLED' }}"
           echo ""
-          echo "RQB-images.json on gh-pages now has hierarchical structure:"
+          echo "Generated files on gh-pages:"
           echo ""
-          echo "First Page (top-level):"
-          echo "  ├── RasQberry Two (64-bit)         - Main stable"
-          echo "  ├── RasQberry Two Beta (64-bit)    - Beta release"
-          echo "  ├── 📁 RasQberry Development Images  - Dev builds folder"
-          echo "  ├── 📁 RasQberry A/B Boot Images     - A/B images folder"
-          echo "  ├── Raspberry Pi OS (64-bit)       - Official Pi OS"
-          echo "  └── Use custom image"
+          echo "1. RQB-images.json (Pi Imager - hierarchical structure):"
+          echo "   ├── RasQberry Two (64-bit)         - Main stable"
+          echo "   ├── RasQberry Two Beta (64-bit)    - Beta release"
+          echo "   ├── 📁 RasQberry Development Images  - Dev builds folder"
+          echo "   ├── 📁 RasQberry A/B Boot Images     - A/B images folder"
+          echo "   └── Raspberry Pi OS (64-bit)       - Official Pi OS"
+          echo ""
+          echo "2. RQB-releases.json (Website /latest/ - stream structure):"
+          echo "   ├── streams.stable  - Latest main branch release"
+          echo "   ├── streams.beta    - Latest beta branch release"
+          echo "   └── streams.dev     - Latest dev branch release"
           echo ""
           # Report skipped entries if any
           if [ -f /tmp/skipped-releases.json ]; then
@@ -477,8 +561,7 @@ jobs:
             echo ""
           fi
           echo ""
-          echo "Access the consolidated file at:"
-          echo "  https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/public/RQB-images.json"
-          echo ""
-          echo "Or configure Pi Imager with:"
-          echo "  https://janlahmann.github.io/RasQberry-Two/RQB-images.json"
+          echo "Access URLs:"
+          echo "  Pi Imager:  https://rasqberry.org/RQB-images.json"
+          echo "  Website:    https://rasqberry.org/RQB-releases.json"
+          echo "  Downloads:  https://rasqberry.org/latest/"
