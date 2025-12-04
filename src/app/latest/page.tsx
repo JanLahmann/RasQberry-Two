@@ -10,6 +10,7 @@ interface StreamData {
   release_date?: string;
   image_download_size?: number;
   message?: string;
+  highlights?: string[];
 }
 
 interface ReleasesData {
@@ -130,10 +131,17 @@ export default function LatestPage() {
 
                 {hasRelease ? (
                   <>
-                    <p style={{ fontSize: '0.875rem', color: '#666', margin: '0 0 1rem 0' }}>
+                    <p style={{ fontSize: '0.875rem', color: '#666', margin: '0 0 0.5rem 0' }}>
                       Released: {data.release_date}
                       {data.image_download_size && ' • ' + formatSize(data.image_download_size)}
                     </p>
+                    {data.highlights && data.highlights.length > 0 && (
+                      <ul style={{ fontSize: '0.875rem', color: '#444', margin: '0 0 1rem 0', paddingLeft: '1.25rem' }}>
+                        {data.highlights.slice(0, 3).map((h, i) => (
+                          <li key={i} style={{ marginBottom: '0.25rem' }}>{h}</li>
+                        ))}
+                      </ul>
+                    )}
                     <a href={'/latest/' + stream} style={buttonStyle}>Download</a>
                     <a href={data.release_url} style={{ ...buttonStyle, backgroundColor: '#393939' }}>
                       Release Notes
