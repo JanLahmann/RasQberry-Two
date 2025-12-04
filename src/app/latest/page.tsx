@@ -156,7 +156,7 @@ export default function LatestPage() {
             <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
               You can also install RasQberry Two directly using Raspberry Pi Imager with our custom repository.
             </p>
-            <a href="/#pi-imager" style={buttonStyle}>View Instructions</a>
+            <a href="/#3-simplified-installation-with-custom-pi-imager" style={buttonStyle}>View Instructions</a>
           </div>
         </>
       )}
