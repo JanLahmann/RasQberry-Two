@@ -17,12 +17,22 @@
 #
 # Trigger:
 #   - Automatically triggered after image builds complete
+#   - Scheduled daily to detect deleted releases
+#   - On release deletion events
 #   - Can also be triggered manually for debugging
 # ============================================================================
 
 name: Consolidate RQB-images.json
 
 on:
+  # Scheduled: Run daily at 6 AM UTC to detect stale/deleted releases
+  schedule:
+    - cron: '0 6 * * *'
+
+  # Trigger on release deletion
+  release:
+    types: [deleted]
+
   workflow_dispatch:
     inputs:
       trigger_source:
@@ -35,6 +45,11 @@ on:
         required: false
         type: string
         default: 'unknown'
+      skip_validation:
+        description: 'Skip URL validation (faster but may include stale releases)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -115,19 +130,72 @@ jobs:
           fi
 
       - name: Merge JSON files
+        env:
+          SKIP_VALIDATION: ${{ github.event.inputs.skip_validation || 'false' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 << 'PYTHON_SCRIPT'
           import json
           import urllib.request
+          import os
+          import re
           from pathlib import Path
 
           print("=== Merging RQB-images.json files into hierarchical structure ===")
+
+          # URL Validation function
+          def validate_release_url(url):
+              """Check if a GitHub release URL is still accessible."""
+              if not url:
+                  return False, "No URL provided"
+
+              # Skip validation if requested
+              if os.environ.get('SKIP_VALIDATION', 'false').lower() == 'true':
+                  return True, "Validation skipped"
+
+              try:
+                  # For GitHub release URLs, use the API to check if the release exists
+                  # URL format: https://github.com/OWNER/REPO/releases/download/TAG/filename
+                  github_pattern = r'https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/'
+                  match = re.match(github_pattern, url)
+
+                  if match:
+                      owner, repo, tag = match.groups()
+                      api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
+
+                      req = urllib.request.Request(api_url)
+                      token = os.environ.get('GITHUB_TOKEN')
+                      if token:
+                          req.add_header('Authorization', f'token {token}')
+                      req.add_header('Accept', 'application/vnd.github.v3+json')
+
+                      with urllib.request.urlopen(req, timeout=10) as response:
+                          if response.status == 200:
+                              return True, "Release exists"
+                  else:
+                      # For non-GitHub URLs, do a HEAD request
+                      req = urllib.request.Request(url, method='HEAD')
+                      with urllib.request.urlopen(req, timeout=10) as response:
+                          if response.status in [200, 302, 307]:
+                              return True, "URL accessible"
+
+                  return False, "URL not accessible"
+
+              except urllib.error.HTTPError as e:
+                  if e.code == 404:
+                      return False, f"Release not found (404)"
+                  return False, f"HTTP error: {e.code}"
+              except Exception as e:
+                  # On error, assume URL is valid to avoid false negatives
+                  print(f"  ⚠ Validation error for {url}: {e}")
+                  return True, f"Validation error (assuming valid): {e}"
 
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
           dev_std = []       # Dev standard images (folder)
           ab_images = []     # All A/B images (folder)
+          skipped_entries = []  # Track skipped entries for reporting
 
           json_dir = Path("/tmp/branch-json")
 
@@ -143,9 +211,24 @@ jobs:
                   for entry in data.get('os_list', []):
                       name = entry.get('name', '')
                       image_type = entry.get('image_type', 'standard')
+                      url = entry.get('url', '')
 
                       # Only include RasQberry entries
                       if 'RasQberry' not in name:
+                          continue
+
+                      # Validate that the release URL still exists
+                      is_valid, validation_msg = validate_release_url(url)
+                      if not is_valid:
+                          print(f"  ✗ SKIPPED (release deleted): {name}")
+                          print(f"    URL: {url}")
+                          print(f"    Reason: {validation_msg}")
+                          skipped_entries.append({
+                              'branch': branch_name,
+                              'name': name,
+                              'url': url,
+                              'reason': validation_msg
+                          })
                           continue
 
                       # Remove internal image_type field before adding to output
@@ -320,12 +403,32 @@ jobs:
 
           # Note: Pi Imager has built-in "Use custom" option, no need to add our own
 
+          # Report skipped entries (deleted releases)
+          if skipped_entries:
+              print("\n" + "="*60)
+              print("⚠ SKIPPED ENTRIES (releases no longer exist):")
+              print("="*60)
+              for entry in skipped_entries:
+                  print(f"\n  Branch: {entry['branch']}")
+                  print(f"  Name:   {entry['name']}")
+                  print(f"  URL:    {entry['url']}")
+                  print(f"  Reason: {entry['reason']}")
+              print("\n" + "="*60)
+              print(f"Total skipped: {len(skipped_entries)} entries")
+              print("These branches have stale RQB-images.json files that should be updated.")
+              print("="*60)
+
           # Write consolidated JSON to public folder (where website serves from)
           with open('public/RQB-images.json', 'w') as f:
               json.dump(consolidated, f, indent=2)
 
           print("\n=== Final RQB-images.json ===")
           print(json.dumps(consolidated, indent=2))
+
+          # Write skipped entries to a separate file for reference
+          if skipped_entries:
+              with open('/tmp/skipped-releases.json', 'w') as f:
+                  json.dump(skipped_entries, f, indent=2)
           PYTHON_SCRIPT
 
       - name: Commit consolidated JSON to gh-pages
@@ -348,6 +451,15 @@ jobs:
         run: |
           echo "=== Consolidation Complete ==="
           echo ""
+          echo "Trigger: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "  (Scheduled daily validation run)"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            echo "  (Release deletion detected)"
+          fi
+          echo ""
+          echo "Validation: ${{ github.event.inputs.skip_validation == 'true' && 'SKIPPED' || 'ENABLED' }}"
+          echo ""
           echo "RQB-images.json on gh-pages now has hierarchical structure:"
           echo ""
           echo "First Page (top-level):"
@@ -357,6 +469,13 @@ jobs:
           echo "  ├── 📁 RasQberry A/B Boot Images     - A/B images folder"
           echo "  ├── Raspberry Pi OS (64-bit)       - Official Pi OS"
           echo "  └── Use custom image"
+          echo ""
+          # Report skipped entries if any
+          if [ -f /tmp/skipped-releases.json ]; then
+            echo "⚠ WARNING: Some releases were skipped (deleted from GitHub):"
+            cat /tmp/skipped-releases.json
+            echo ""
+          fi
           echo ""
           echo "Access the consolidated file at:"
           echo "  https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/public/RQB-images.json"
