@@ -2,11 +2,18 @@
 # RQB-images.json Consolidation Workflow
 # ============================================================================
 # Purpose: Consolidates RQB-images.json from multiple branches into a single
-#          file on gh-pages for use by Raspberry Pi Imager.
+#          hierarchical file on gh-pages for use by Raspberry Pi Imager.
 #
 # Architecture:
-#   Each branch (main, beta, dev*) maintains its own single-entry RQB-images.json.
-#   This workflow fetches from all branches, merges entries, and commits to gh-pages.
+#   Each branch (main, beta, dev*) maintains its own RQB-images.json with both
+#   standard and A/B image entries (marked with "image_type" field).
+#
+#   This workflow fetches from all branches and builds a hierarchical structure:
+#   - Top-level: Main stable (std), Beta (std)
+#   - "RasQberry Development Images" folder: All dev std images
+#   - "RasQberry A/B Boot Images" folder: All A/B images (main, beta, dev)
+#   - Raspberry Pi OS (64-bit)
+#   - Use custom image
 #
 # Trigger:
 #   - Automatically triggered after image builds complete
@@ -72,18 +79,17 @@ jobs:
           fetch_branch_json "main" || true
           fetch_branch_json "beta" || true
 
-          # Fetch from dev branches - find the most recent active dev branch
-          # First, try to get a list of dev branches
+          # Fetch from all dev branches for consolidation
           echo ""
           echo "Looking for dev branches..."
 
           # Get list of remote branches starting with 'dev'
-          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev*' | sed 's|.*refs/heads/||' | head -5)
+          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev*' | sed 's|.*refs/heads/||' | head -10)
 
           if [ -n "$DEV_BRANCHES" ]; then
             echo "Found dev branches: $DEV_BRANCHES"
             for branch in $DEV_BRANCHES; do
-              fetch_branch_json "$branch" && break  # Use first successful one
+              fetch_branch_json "$branch" || true  # Continue on failure, fetch all available
             done
           else
             echo "  ⚠ No dev branches found"
@@ -115,28 +121,17 @@ jobs:
           import urllib.request
           from pathlib import Path
 
-          print("=== Merging RQB-images.json files ===")
+          print("=== Merging RQB-images.json files into hierarchical structure ===")
 
-          # Base structure
-          consolidated = {
-              "imager": {
-                  "latest_version": "1.8.5",
-                  "url": "https://www.raspberrypi.com/software/"
-              },
-              "os_list": []
-          }
+          # Collect entries by category
+          main_std = []      # Main stable standard images (top-level)
+          beta_std = []      # Beta standard images (top-level)
+          dev_std = []       # Dev standard images (folder)
+          ab_images = []     # All A/B images (folder)
 
-          # Priority order for entries
-          type_patterns = {
-              "RasQberry Two (64-bit)": 0,           # main/stable
-              "RasQberry Two Beta (64-bit)": 1,      # beta
-              "RasQberry Two Dev (64-bit)": 2,       # dev
-          }
-
-          entries = []
           json_dir = Path("/tmp/branch-json")
 
-          # Load entries from each branch's JSON
+          # Load and classify entries from each branch's JSON
           for json_file in json_dir.glob("*.json"):
               branch_name = json_file.stem
               print(f"\nProcessing: {branch_name}")
@@ -147,20 +142,106 @@ jobs:
 
                   for entry in data.get('os_list', []):
                       name = entry.get('name', '')
+                      image_type = entry.get('image_type', 'standard')
+
                       # Only include RasQberry entries
-                      if 'RasQberry' in name:
-                          priority = type_patterns.get(name, 99)
-                          entries.append((priority, entry))
-                          print(f"  Added: {name} (priority: {priority})")
+                      if 'RasQberry' not in name:
+                          continue
+
+                      # Remove internal image_type field before adding to output
+                      entry_clean = {k: v for k, v in entry.items() if k != 'image_type'}
+
+                      # Classify by BRANCH NAME (not image name) for proper categorization
+                      # Dev images: add branch identifier to distinguish them
+                      if image_type == 'ab' or 'A/B' in name:
+                          ab_images.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          print(f"  → A/B folder: {name}")
+                      elif branch_name.startswith('dev'):
+                          # Add branch name to make dev images distinguishable
+                          entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                          entry_clean['description'] = f"Development build from {branch_name}"
+                          dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          print(f"  → Dev folder: {entry_clean['name']}")
+                      elif branch_name == 'beta':
+                          # Beta branch → top-level beta entry
+                          entry_clean['name'] = "RasQberry Two Beta (64-bit)"
+                          entry_clean['description'] = "Beta release with new features for testing"
+                          beta_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          print(f"  → Top-level Beta: {entry_clean['name']}")
+                      elif branch_name == 'main':
+                          # Main branch: only stable if name doesn't contain "Dev"
+                          if 'Dev' in name:
+                              # Main has dev image - put in dev folder
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                              entry_clean['description'] = f"Development build from {branch_name}"
+                              dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              print(f"  → Dev folder (main has dev): {entry_clean['name']}")
+                          else:
+                              # Main has stable release
+                              entry_clean['name'] = "RasQberry Two (64-bit)"
+                              entry_clean['description'] = "Stable release for Raspberry Pi 4/5 (Recommended)"
+                              main_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              print(f"  → Top-level Main: {entry_clean['name']}")
+                      else:
+                          # Unknown branch pattern - treat as dev
+                          entry_clean['name'] = f"RasQberry Two ({branch_name})"
+                          dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          print(f"  → Dev folder (unknown): {entry_clean['name']}")
 
               except Exception as e:
                   print(f"  Error loading {json_file}: {e}")
 
-          # Sort by priority and add to consolidated list
-          entries.sort(key=lambda x: x[0])
-          consolidated['os_list'] = [entry for _, entry in entries]
+          # Sort each category by release_date (newest first)
+          main_std.sort(key=lambda x: x[0], reverse=True)
+          beta_std.sort(key=lambda x: x[0], reverse=True)
+          dev_std.sort(key=lambda x: x[0], reverse=True)
+          ab_images.sort(key=lambda x: x[0], reverse=True)
 
-          print(f"\n=== Consolidated {len(consolidated['os_list'])} RasQberry entries ===")
+          # Build hierarchical os_list
+          os_list = []
+
+          # 1. Add main stable images (top-level) - only latest
+          if main_std:
+              os_list.append(main_std[0][2])
+              print(f"\n✓ Added main stable: {main_std[0][2].get('name')}")
+
+          # 2. Add beta images (top-level) - only latest
+          if beta_std:
+              os_list.append(beta_std[0][2])
+              print(f"✓ Added beta: {beta_std[0][2].get('name')}")
+
+          # 3. Add Development Images folder (if any dev images exist)
+          if dev_std:
+              dev_folder = {
+                  "name": "RasQberry Development Images",
+                  "description": "Development builds with cutting-edge features (unstable)",
+                  "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                  "subitems": [entry for _, _, entry in dev_std]
+              }
+              os_list.append(dev_folder)
+              print(f"✓ Added Development folder with {len(dev_std)} images")
+
+          # 4. Add A/B Test Images folder (if any AB images exist)
+          if ab_images:
+              ab_folder = {
+                  "name": "RasQberry A/B Boot Images",
+                  "description": "Images with A/B partition support for safer updates",
+                  "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                  "subitems": [entry for _, _, entry in ab_images]
+              }
+              os_list.append(ab_folder)
+              print(f"✓ Added A/B folder with {len(ab_images)} images")
+
+          # Build final consolidated structure
+          consolidated = {
+              "imager": {
+                  "latest_version": "1.8.5",
+                  "url": "https://www.raspberrypi.com/software/"
+              },
+              "os_list": os_list
+          }
+
+          print(f"\n=== Built hierarchical structure with {len(os_list)} top-level entries ===")
 
           # Fetch official Raspberry Pi OS entry from their JSON
           raspios_entry = None
@@ -234,15 +315,10 @@ jobs:
                   "devices": ["pi5-64bit", "pi4-64bit"]
               })
 
-          # Always add the custom image option
-          consolidated['os_list'].append({
-              "name": "Use custom image",
-              "description": "Select a custom .img from your computer",
-              "icon": "https://downloads.raspberrypi.com/imager/icons/folder.png"
-          })
+          # Note: Pi Imager has built-in "Use custom" option, no need to add our own
 
-          # Write consolidated JSON
-          with open('RQB-images.json', 'w') as f:
+          # Write consolidated JSON to public folder (where website serves from)
+          with open('public/RQB-images.json', 'w') as f:
               json.dump(consolidated, f, indent=2)
 
           print("\n=== Final RQB-images.json ===")
@@ -254,11 +330,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add RQB-images.json
+          git add public/RQB-images.json
 
           # Check if there are changes
           if git diff --staged --quiet; then
-            echo "No changes to RQB-images.json"
+            echo "No changes to public/RQB-images.json"
           else
             git commit -m "Consolidate RQB-images.json from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
             git push origin gh-pages
@@ -269,13 +345,18 @@ jobs:
         run: |
           echo "=== Consolidation Complete ==="
           echo ""
-          echo "RQB-images.json on gh-pages now contains entries from:"
-          echo "  - main (stable)"
-          echo "  - beta"
-          echo "  - dev branches"
+          echo "RQB-images.json on gh-pages now has hierarchical structure:"
+          echo ""
+          echo "First Page (top-level):"
+          echo "  ├── RasQberry Two (64-bit)         - Main stable"
+          echo "  ├── RasQberry Two Beta (64-bit)    - Beta release"
+          echo "  ├── 📁 RasQberry Development Images  - Dev builds folder"
+          echo "  ├── 📁 RasQberry A/B Boot Images     - A/B images folder"
+          echo "  ├── Raspberry Pi OS (64-bit)       - Official Pi OS"
+          echo "  └── Use custom image"
           echo ""
           echo "Access the consolidated file at:"
-          echo "  https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/RQB-images.json"
+          echo "  https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/public/RQB-images.json"
           echo ""
           echo "Or configure Pi Imager with:"
           echo "  https://janlahmann.github.io/RasQberry-Two/RQB-images.json"
