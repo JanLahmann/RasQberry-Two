@@ -57,6 +57,7 @@ Use these URLs to always get the latest release for each stream:
 
 | Stream | URL | Description |
 |--------|-----|-------------|
+| **All Streams** | [/latest/](/latest/) | Overview page with all release streams |
 | **Stable** | [/latest/stable](/latest/stable) | Production-ready releases |
 | **Beta** | [/latest/beta](/latest/beta) | Pre-release with latest features |
 | **Dev** | [/latest/dev](/latest/dev) | Development builds (unstable) |
