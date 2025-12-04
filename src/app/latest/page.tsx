@@ -20,6 +20,26 @@ interface ReleasesData {
   };
 }
 
+interface DevBranch {
+  name: string;
+  branch: string;
+  url: string;
+  release_date?: string;
+  image_download_size?: number;
+}
+
+interface ImagesData {
+  os_list: Array<{
+    name: string;
+    subitems?: Array<{
+      name: string;
+      url?: string;
+      release_date?: string;
+      image_download_size?: number;
+    }>;
+  }>;
+}
+
 const streamInfo = {
   stable: {
     title: 'Stable',
@@ -31,11 +51,6 @@ const streamInfo = {
     subtitle: 'Testing',
     description: 'New features for testing before stable release',
   },
-  dev: {
-    title: 'Development',
-    subtitle: 'Unstable',
-    description: 'Latest development build with cutting-edge features',
-  },
 };
 
 function formatSize(bytes: number): string {
@@ -43,22 +58,54 @@ function formatSize(bytes: number): string {
   return gb.toFixed(1) + ' GB';
 }
 
+function extractBranchName(name: string): string {
+  // Extract branch name from "RasQberry Two Dev (branch-name)"
+  const match = name.match(/\(([^)]+)\)/);
+  return match ? match[1] : name;
+}
+
 export default function LatestPage() {
   const [releases, setReleases] = useState<ReleasesData | null>(null);
+  const [devBranches, setDevBranches] = useState<DevBranch[]>([]);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    async function fetchReleases() {
+    async function fetchData() {
       try {
-        const response = await fetch('/RQB-releases.json');
-        if (!response.ok) throw new Error('Failed to fetch releases');
-        const data = await response.json();
-        setReleases(data);
+        // Fetch both releases and images data
+        const [releasesRes, imagesRes] = await Promise.all([
+          fetch('/RQB-releases.json'),
+          fetch('/RQB-images.json'),
+        ]);
+
+        if (!releasesRes.ok) throw new Error('Failed to fetch releases');
+        const releasesData = await releasesRes.json();
+        setReleases(releasesData);
+
+        // Extract dev branches from images data
+        if (imagesRes.ok) {
+          const imagesData: ImagesData = await imagesRes.json();
+          const devFolder = imagesData.os_list.find(
+            (item) => item.name === 'RasQberry Development Images'
+          );
+          if (devFolder?.subitems) {
+            const branches: DevBranch[] = devFolder.subitems
+              .filter((item) => item.url)
+              .map((item) => ({
+                name: item.name,
+                branch: extractBranchName(item.name),
+                url: item.url!,
+                release_date: item.release_date,
+                image_download_size: item.image_download_size,
+              }));
+            setDevBranches(branches);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       }
     }
-    fetchReleases();
+    fetchData();
   }, []);
 
   const cardStyle: React.CSSProperties = {
@@ -77,6 +124,13 @@ export default function LatestPage() {
     textDecoration: 'none',
     borderRadius: '4px',
     marginRight: '0.5rem',
+    marginBottom: '0.5rem',
+  };
+
+  const smallButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    padding: '0.375rem 0.75rem',
+    fontSize: '0.875rem',
   };
 
   const disabledButtonStyle: React.CSSProperties = {
@@ -105,7 +159,8 @@ export default function LatestPage() {
 
       {releases && (
         <>
-          {(['stable', 'beta', 'dev'] as const).map((stream) => {
+          {/* Stable and Beta cards */}
+          {(['stable', 'beta'] as const).map((stream) => {
             const data = releases.streams[stream];
             const info = streamInfo[stream];
             const hasRelease = data?.image_url && data?.tag;
@@ -119,7 +174,7 @@ export default function LatestPage() {
                       <span style={{
                         fontSize: '0.875rem',
                         fontWeight: 'normal',
-                        color: stream === 'stable' ? '#198038' : stream === 'beta' ? '#f1c21b' : '#666',
+                        color: stream === 'stable' ? '#198038' : '#f1c21b',
                         marginLeft: '0.5rem',
                       }}>
                         ({info.subtitle})
@@ -158,6 +213,52 @@ export default function LatestPage() {
               </div>
             );
           })}
+
+          {/* Development card with all branches */}
+          <div style={cardStyle}>
+            <h2 style={{ margin: '0 0 0.25rem 0' }}>
+              Development
+              <span style={{
+                fontSize: '0.875rem',
+                fontWeight: 'normal',
+                color: '#666',
+                marginLeft: '0.5rem',
+              }}>
+                (Unstable)
+              </span>
+            </h2>
+            <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
+              Latest development builds with cutting-edge features. Choose a branch:
+            </p>
+
+            {devBranches.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {devBranches.map((branch) => (
+                  <div key={branch.branch} style={{
+                    padding: '0.75rem',
+                    backgroundColor: '#f4f4f4',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}>
+                    <div>
+                      <strong style={{ fontSize: '0.9375rem' }}>{branch.branch}</strong>
+                      <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
+                        {branch.release_date}
+                        {branch.image_download_size && ' • ' + formatSize(branch.image_download_size)}
+                      </span>
+                    </div>
+                    <a href={branch.url} style={smallButtonStyle}>Download</a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.875rem', color: '#666' }}>Loading development branches...</p>
+            )}
+          </div>
 
           <div style={{ ...cardStyle, backgroundColor: '#f4f4f4', marginTop: '2rem' }}>
             <h3 style={{ margin: '0 0 0.5rem 0' }}>Using Raspberry Pi Imager</h3>
