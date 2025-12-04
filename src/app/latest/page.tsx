@@ -317,7 +317,7 @@ export default function LatestPage() {
                     gap: '0.5rem',
                   }}>
                     <div>
-                      <strong style={{ fontSize: '0.9375rem' }}>{image.name.replace('RasQberry Two ', '')}</strong>
+                      <strong style={{ fontSize: '0.9375rem' }}>{extractBranchName(image.name)}</strong>
                       <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
                         {image.release_date}
                         {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
