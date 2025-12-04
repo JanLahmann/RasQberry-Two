@@ -148,7 +148,9 @@ export default function LatestPage() {
     }}>
       <h1 style={{ marginBottom: '0.5rem' }}>RasQberry Two Downloads</h1>
       <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Choose a release stream to download the RasQberry Two image.
+        Choose a release stream to download the RasQberry Two image, or use a{' '}
+        <a href="/#3-simplified-installation-with-custom-pi-imager">customized Raspberry Pi Imager</a> for
+        simplified installation.
       </p>
 
       {error && (
@@ -260,13 +262,6 @@ export default function LatestPage() {
             )}
           </div>
 
-          <div style={{ ...cardStyle, backgroundColor: '#f4f4f4', marginTop: '2rem' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0' }}>Using Raspberry Pi Imager</h3>
-            <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
-              You can also install RasQberry Two directly using Raspberry Pi Imager with our custom repository.
-            </p>
-            <a href="/#3-simplified-installation-with-custom-pi-imager" style={buttonStyle}>View Instructions</a>
-          </div>
         </>
       )}
 
