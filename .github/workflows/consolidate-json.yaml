@@ -154,8 +154,11 @@ jobs:
                       # Classify by BRANCH NAME (not image name) for proper categorization
                       # Dev images: add branch identifier to distinguish them
                       if image_type == 'ab' or 'A/B' in name:
+                          # Add branch name to make A/B images distinguishable
+                          entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
+                          entry_clean['description'] = f"A/B boot image from {branch_name}"
                           ab_images.append((entry.get('release_date', ''), branch_name, entry_clean))
-                          print(f"  → A/B folder: {name}")
+                          print(f"  → A/B folder: {entry_clean['name']}")
                       elif branch_name.startswith('dev'):
                           # Add branch name to make dev images distinguishable
                           entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
