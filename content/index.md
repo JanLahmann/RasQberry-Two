@@ -43,62 +43,47 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 </div>
 
 
-## Quick Installation
+## Getting Started
 
-Get started with RasQberry Two in three easy steps:
+### Option 1: Custom Pi Imager Launcher (Recommended)
 
-1. **Download** a RasQberry image from [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases)
-2. **Write** the image to an SD card using Raspberry Pi Imager (no customizations needed)
-3. **Boot** your Raspberry Pi 5 and explore quantum computing demos
+The easiest way to get RasQberry is with our pre-configured Pi Imager launcher:
 
-### Download Page
-
-Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, development, and A/B boot images.
-
-<details>
-<summary>Direct download URLs for automation</summary>
-
-For scripts and automation, these URLs redirect directly to the latest image:
-- `/latest/stable` - Production-ready releases
-- `/latest/beta` - Pre-release with latest features
-- `/latest/dev` - Development builds (unstable)
-
-API endpoint: [RQB-releases.json](/RQB-releases.json)
-</details>
-
-### Simplified Installation with Custom Pi Imager
-
-For an even easier experience, use our pre-configured Pi Imager launcher that automatically loads RasQberry images:
-
-**On macOS**, you can install a convenient Desktop launcher (one-line command):
-
+**macOS** (one-line command):
 ```bash
 curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
 ```
 
-This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon that opens Pi Imager with RasQberry images pre-loaded. You can then move it to Applications or your Dock.
-
-Alternatively, run Pi Imager with a custom repository manually in a terminal:
-
-```bash
-/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
-```
-
-**On Windows**, you can install a convenient Desktop shortcut (one-line command):
-
-Open PowerShell as Administrator and run:
-
+**Windows** (PowerShell as Administrator):
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
 ```
 
-This creates a "Pi Imager for RasQberry" shortcut on your Desktop with the RasQberry icon. You can then pin it to Start Menu or Taskbar.
+This creates a "Pi Imager for RasQberry" launcher on your Desktop that opens Pi Imager with all RasQberry images pre-loaded. Select an image, write to SD card, and boot your Pi!
 
-Alternatively, run Pi Imager manually in a command prompt:
+### Option 2: Download Page
 
+Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, development, and A/B boot images.
+
+After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
+
+<details>
+<summary>More options: Run Pi Imager manually or automation URLs</summary>
+
+**Run Pi Imager with our RasQberry custom repo:**
+
+macOS:
+```bash
+/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
+```
+
+Windows:
 ```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
+
+**Automation URLs:** `/latest/stable`, `/latest/beta`, `/latest/dev` redirect to the latest images. API: [RQB-releases.json](/RQB-releases.json)
+</details>
 
 ### First Boot Setup
 
