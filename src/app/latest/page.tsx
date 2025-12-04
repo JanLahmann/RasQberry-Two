@@ -28,6 +28,13 @@ interface DevBranch {
   image_download_size?: number;
 }
 
+interface ABImage {
+  name: string;
+  url: string;
+  release_date?: string;
+  image_download_size?: number;
+}
+
 interface ImagesData {
   os_list: Array<{
     name: string;
@@ -67,6 +74,7 @@ function extractBranchName(name: string): string {
 export default function LatestPage() {
   const [releases, setReleases] = useState<ReleasesData | null>(null);
   const [devBranches, setDevBranches] = useState<DevBranch[]>([]);
+  const [abImages, setAbImages] = useState<ABImage[]>([]);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -99,6 +107,22 @@ export default function LatestPage() {
                 image_download_size: item.image_download_size,
               }));
             setDevBranches(branches);
+          }
+
+          // Extract A/B images
+          const abFolder = imagesData.os_list.find(
+            (item) => item.name === 'RasQberry A/B Boot Images'
+          );
+          if (abFolder?.subitems) {
+            const images: ABImage[] = abFolder.subitems
+              .filter((item) => item.url)
+              .map((item) => ({
+                name: item.name,
+                url: item.url!,
+                release_date: item.release_date,
+                image_download_size: item.image_download_size,
+              }));
+            setAbImages(images);
           }
         }
       } catch (err) {
@@ -261,6 +285,50 @@ export default function LatestPage() {
               <p style={{ fontSize: '0.875rem', color: '#666' }}>Loading development branches...</p>
             )}
           </div>
+
+          {/* A/B Boot Images card */}
+          {abImages.length > 0 && (
+            <div style={cardStyle}>
+              <h2 style={{ margin: '0 0 0.25rem 0' }}>
+                A/B Boot Images
+                <span style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 'normal',
+                  color: '#8a3ffc',
+                  marginLeft: '0.5rem',
+                }}>
+                  (Experimental)
+                </span>
+              </h2>
+              <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
+                Images with A/B partition support for safer over-the-air updates.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {abImages.map((image: ABImage, index: number) => (
+                  <div key={index} style={{
+                    padding: '0.75rem',
+                    backgroundColor: '#f4f4f4',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}>
+                    <div>
+                      <strong style={{ fontSize: '0.9375rem' }}>{image.name.replace('RasQberry Two ', '')}</strong>
+                      <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
+                        {image.release_date}
+                        {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
+                      </span>
+                    </div>
+                    <a href={image.url} style={smallButtonStyle}>Download</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </>
       )}
