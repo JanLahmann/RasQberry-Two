@@ -1,19 +1,6 @@
 {
-  "generated": "2025-12-04T12:53:03Z",
+  "generated": "2025-12-04T21:44:02Z",
   "streams": {
-    "dev": {
-      "tag": "dev-features05-2025-12-04-133038",
-      "name": "rasqberry-dev-features05-2025-12-04-133038",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-04-133038/rasqberry-dev-features05-2025-12-04-133038.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-04-133038",
-      "release_date": "2025-12-04",
-      "image_download_size": 1987080232,
-      "extract_size": 8841592832,
-      "extract_sha256": "1587b68ad379a7a1bf22568c7298b080b5f336223cd54c459da2155eeddfdd96",
-      "highlights": [
-        "extract highlights from GitHub release body"
-      ]
-    },
     "stable": {
       "tag": null,
       "name": null,
@@ -26,7 +13,23 @@
       "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz",
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2025-10-29-155618",
       "release_date": "2025-10-29",
-      "image_download_size": 1836523436
+      "image_download_size": 1836523436,
+      "highlights": [
+        "extract highlights from GitHub release body"
+      ]
+    },
+    "dev": {
+      "tag": "dev-features05-2025-12-04-133038",
+      "name": "rasqberry-dev-features05-2025-12-04-133038",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-04-133038/rasqberry-dev-features05-2025-12-04-133038.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-04-133038",
+      "release_date": "2025-12-04",
+      "image_download_size": 1987080232,
+      "extract_size": 8841592832,
+      "extract_sha256": "1587b68ad379a7a1bf22568c7298b080b5f336223cd54c459da2155eeddfdd96",
+      "highlights": [
+        "extract highlights from GitHub release body"
+      ]
     }
   }
 }
