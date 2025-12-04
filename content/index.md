@@ -51,18 +51,20 @@ Get started with RasQberry Two in three easy steps:
 2. **Write** the image to an SD card using Raspberry Pi Imager (no customizations needed)
 3. **Boot** your Raspberry Pi 5 and explore quantum computing demos
 
-### Stable Download URLs
+### Download Page
 
-Use these URLs to always get the latest release for each stream:
+Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, development, and A/B boot images.
 
-| Stream | URL | Description |
-|--------|-----|-------------|
-| **All Streams** | [/latest/](/latest/) | Overview page with all release streams |
-| **Stable** | [/latest/stable](/latest/stable) | Production-ready releases |
-| **Beta** | [/latest/beta](/latest/beta) | Pre-release with latest features |
-| **Dev** | [/latest/dev](/latest/dev) | Development builds (unstable) |
+<details>
+<summary>Direct download URLs for automation</summary>
 
-For automation, use the [RQB-releases.json](/RQB-releases.json) API endpoint which contains metadata for all streams.
+For scripts and automation, these URLs redirect directly to the latest image:
+- `/latest/stable` - Production-ready releases
+- `/latest/beta` - Pre-release with latest features
+- `/latest/dev` - Development builds (unstable)
+
+API endpoint: [RQB-releases.json](/RQB-releases.json)
+</details>
 
 ### Simplified Installation with Custom Pi Imager
 
