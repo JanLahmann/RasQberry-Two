@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 
 interface StreamData {
-  tag: string;
-  name: string;
-  image_url: string;
+  tag: string | null;
+  name: string | null;
+  image_url?: string;
   release_url: string;
-  release_date: string;
-  image_download_size: number;
-  extract_size: number;
-  extract_sha256: string;
+  release_date?: string;
+  image_download_size?: number;
+  extract_size?: number;
+  extract_sha256?: string;
+  message?: string;
 }
 
 interface ReleasesData {
@@ -25,8 +26,10 @@ interface RedirectClientProps {
 }
 
 export default function RedirectClient({ stream }: RedirectClientProps) {
-  const [status, setStatus] = useState<'loading' | 'redirecting' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'redirecting' | 'unavailable' | 'error'>('loading');
   const [error, setError] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
+  const [releaseUrl, setReleaseUrl] = useState<string>('');
 
   useEffect(() => {
     async function redirect() {
@@ -44,6 +47,16 @@ export default function RedirectClient({ stream }: RedirectClientProps) {
         }
 
         const streamData = data.streams[stream];
+
+        // Check if stream has an image URL (i.e., has an actual release)
+        if (!streamData.image_url || !streamData.tag) {
+          // No release available for this stream
+          setStatus('unavailable');
+          setMessage(streamData.message || `No ${stream} release available yet.`);
+          setReleaseUrl(streamData.release_url || 'https://github.com/JanLahmann/RasQberry-Two/releases');
+          return;
+        }
+
         setStatus('redirecting');
 
         // Redirect to the image URL
@@ -81,6 +94,21 @@ export default function RedirectClient({ stream }: RedirectClientProps) {
           <p style={{ fontSize: '0.875rem', color: '#666' }}>
             If the download doesn&apos;t start automatically,{' '}
             <a href={`/RQB-releases.json`}>check the releases JSON</a>
+          </p>
+        </>
+      )}
+
+      {status === 'unavailable' && (
+        <>
+          <h1>RasQberry Two - {stream}</h1>
+          <p style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>{message}</p>
+          <p>
+            <a href="/latest/beta" style={{ marginRight: '1rem' }}>Download Beta</a>
+            <a href="/latest/dev">Download Dev</a>
+          </p>
+          <p style={{ marginTop: '2rem', fontSize: '0.875rem', color: '#666' }}>
+            <a href="/">Back to home</a> |{' '}
+            <a href={releaseUrl}>View all releases</a>
           </p>
         </>
       )}
