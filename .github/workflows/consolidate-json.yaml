@@ -17,7 +17,7 @@
 #
 # Trigger:
 #   - Automatically triggered after image builds complete
-#   - Scheduled daily to detect deleted releases
+#   - Scheduled every 8 hours to detect deleted releases
 #   - On release deletion events
 #   - Can also be triggered manually for debugging
 # ============================================================================
@@ -25,9 +25,9 @@
 name: Consolidate RQB-images.json
 
 on:
-  # Scheduled: Run daily at 6 AM UTC to detect stale/deleted releases
+  # Scheduled: Run every 8 hours (0:00, 8:00, 16:00 UTC) to detect stale/deleted releases
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 */8 * * *'
 
   # Trigger on release deletion
   release:
