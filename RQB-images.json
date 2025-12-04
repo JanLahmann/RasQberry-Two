@@ -35,30 +35,14 @@
       "website": "https://rasqberry.org"
     },
     {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-JRL-features02-2025-10-22-204347/image_2025-10-22-rasqberry.img.xz",
-      "extract_size": 8740929536,
-      "extract_sha256": "b9240812b30002a566cd42bbe9f6f0a54332372ef93dd72037c1bded3b0049eb",
-      "image_download_size": 2048345032,
-      "release_date": "2025-10-22",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org"
-    },
-    {
       "name": "Raspberry Pi OS (64-bit)",
       "description": "A port of Debian Trixie with the Raspberry Pi Desktop (Recommended)",
       "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
-      "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-11-24/2025-11-24-raspios-trixie-arm64.img.xz",
-      "extract_size": 6459228160,
-      "extract_sha256": "b70e9f5f5953b5f6e2e58fc6b80ef3d8e351ea1d65906fd0259c6867046a58f8",
-      "image_download_size": 1337044588,
-      "release_date": "2025-11-24",
+      "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-12-04/2025-12-04-raspios-trixie-arm64.img.xz",
+      "extract_size": 6450839552,
+      "extract_sha256": "19b108fe07cff2b5cd7df0f76b6d7325e43fb2a1d5418d10f6bd56642e0e8579",
+      "image_download_size": 1327702860,
+      "release_date": "2025-12-04",
       "init_format": "cloudinit-rpi",
       "devices": [
         "pi5-64bit",
