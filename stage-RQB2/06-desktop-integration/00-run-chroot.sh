@@ -275,6 +275,32 @@ cat > /etc/xdg/menus/applications-merged/rasqberry.menu << 'EOF'
 </Menu>
 EOF
 
+# Install touch mode configuration files
+echo "Installing touch mode configuration..."
+mkdir -p /usr/config/touch-mode
+if [ -d "${CLONE_DIR}/RQB2-config/touch-mode" ]; then
+    for touch_file in "${CLONE_DIR}/RQB2-config/touch-mode"/*; do
+        if [ -f "$touch_file" ]; then
+            cp "$touch_file" /usr/config/touch-mode/
+            chmod 644 "/usr/config/touch-mode/$(basename "$touch_file")"
+            echo "Installed touch mode file: $(basename "$touch_file")"
+        fi
+    done
+else
+    echo "WARNING: Touch mode config directory not found"
+fi
+
+# Create state directory for touch mode
+mkdir -p /var/lib/rasqberry
+echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
+chmod 644 /var/lib/rasqberry/touch-mode.conf
+echo "Created touch mode state directory"
+
+# Install on-screen keyboard package for touch mode
+echo "Installing on-screen keyboard (onboard)..."
+apt-get update -qq
+apt-get install -y -qq onboard || echo "Warning: Failed to install onboard package"
+
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
 update-desktop-database /usr/share/applications || echo "Warning: Failed to update desktop database"

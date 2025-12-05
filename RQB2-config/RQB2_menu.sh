@@ -1564,15 +1564,66 @@ do_slot_manager_menu() {
     done
 }
 
+# -----------------------------------------------------------------------------
+# Touch Mode Menu
+# -----------------------------------------------------------------------------
+
+do_touch_mode_menu() {
+    # Get current status
+    local current_status
+    current_status=$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null || echo "disabled")
+
+    while true; do
+        FUN=$(show_menu "RasQberry: Touch Mode" "Current: $current_status" \
+           ENABLE  "Enable Touch Mode" \
+           DISABLE "Disable Touch Mode" \
+           STATUS  "Show Current Settings") || break
+
+        case "$FUN" in
+            ENABLE)
+                "$BIN_DIR/rq_touch_mode.sh" enable
+                current_status="enabled"
+                offer_desktop_restart
+                ;;
+            DISABLE)
+                "$BIN_DIR/rq_touch_mode.sh" disable
+                current_status="disabled"
+                offer_desktop_restart
+                ;;
+            STATUS)
+                local status_output
+                status_output=$("$BIN_DIR/rq_touch_mode.sh" status 2>&1)
+                whiptail --title "Touch Mode Status" --msgbox "$status_output" 20 70
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# Offer to restart the desktop session
+offer_desktop_restart() {
+    if whiptail --title "Restart Desktop?" --yesno \
+        "Touch mode settings have been changed.\n\nRestart desktop session now for all changes to take effect?\n\n(You can also logout/login manually later)" \
+        12 60; then
+        whiptail --title "Restarting..." --infobox "Restarting desktop session..." 6 40
+        sleep 2
+        systemctl restart lightdm 2>/dev/null || true
+    fi
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD      "Quantum Demos" \
+       TOUCH   "Touch Mode Settings" \
        UEF     "Update Env File" \
        AB_BOOT "Software & Full Image Updates" \
        INFO    "System Info") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      TOUCH)   do_touch_mode_menu             || continue ;;
       UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
