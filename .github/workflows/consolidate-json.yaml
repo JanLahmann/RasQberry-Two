@@ -525,9 +525,21 @@ jobs:
             echo "changes=false" >> $GITHUB_OUTPUT
           else
             git commit -m "Consolidate RQB JSON files from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
-            git push origin gh-pages
-            echo "✓ RQB-images.json and RQB-releases.json committed to gh-pages"
-            echo "changes=true" >> $GITHUB_OUTPUT
+
+            # Retry push with pull --rebase to handle race conditions
+            # (multiple workflows triggered by concurrent releases)
+            for i in 1 2 3; do
+              if git push origin gh-pages; then
+                echo "✓ RQB-images.json and RQB-releases.json committed to gh-pages"
+                echo "changes=true" >> $GITHUB_OUTPUT
+                exit 0
+              else
+                echo "Push failed (attempt $i), pulling and retrying..."
+                git pull --rebase origin gh-pages
+              fi
+            done
+            echo "Failed to push after 3 attempts"
+            exit 1
           fi
 
       - name: Trigger Next.js deployment
