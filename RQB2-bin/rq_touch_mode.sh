@@ -28,7 +28,8 @@ get_user_home() {
 
 USER_HOME=$(get_user_home)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
-ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard.desktop"
+ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard-autostart.desktop"
+SQUEEKBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/squeekboard.desktop"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
 
 # LXDE panel config paths - user takes precedence over system
@@ -74,14 +75,11 @@ enable_touch_mode() {
     # Ensure state directory exists
     sudo mkdir -p "$(dirname "$STATE_FILE")"
 
-    # 1. Enable on-screen keyboard autostart
-    if [ -f "$ONBOARD_AUTOSTART_SRC" ]; then
-        mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
-        cp "$ONBOARD_AUTOSTART_SRC" "$ONBOARD_AUTOSTART_DST"
-        info "On-screen keyboard autostart enabled"
-    else
-        warn "Onboard autostart file not found at $ONBOARD_AUTOSTART_SRC"
-    fi
+    # 1. Enable on-screen keyboard autostart (remove any Hidden=true overrides)
+    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
+    # Remove override files so system autostart can run
+    rm -f "$ONBOARD_AUTOSTART_DST" "$SQUEEKBOARD_AUTOSTART_DST"
+    info "On-screen keyboard autostart enabled (removed overrides)"
 
     # 2. Apply GTK touch CSS
     if [ -f "$GTK_CSS_SRC" ]; then
@@ -156,11 +154,22 @@ EOF
 disable_touch_mode() {
     info "Disabling touch mode..."
 
-    # 1. Remove on-screen keyboard autostart
-    if [ -f "$ONBOARD_AUTOSTART_DST" ]; then
-        rm -f "$ONBOARD_AUTOSTART_DST"
-        info "On-screen keyboard autostart removed"
-    fi
+    # 1. Disable on-screen keyboards (both onboard and squeekboard)
+    # Create user autostart files with Hidden=true to override system-wide autostart
+    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
+    cat > "$ONBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=Onboard
+Hidden=true
+DESKTOP_EOF
+    cat > "$SQUEEKBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=Squeekboard
+Hidden=true
+DESKTOP_EOF
+    info "On-screen keyboards disabled (onboard + squeekboard)"
 
     # 2. Remove GTK touch CSS
     if [ -f "$GTK_CSS_DST" ]; then
@@ -246,11 +255,20 @@ show_status() {
     # Show individual settings
     echo "Current Settings:"
 
-    # On-screen keyboard
-    if [ -f "$ONBOARD_AUTOSTART_DST" ]; then
+    # On-screen keyboards (check both onboard and squeekboard)
+    local kbd_disabled=0
+    if [ -f "$ONBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$ONBOARD_AUTOSTART_DST" 2>/dev/null; then
+        kbd_disabled=$((kbd_disabled + 1))
+    fi
+    if [ -f "$SQUEEKBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$SQUEEKBOARD_AUTOSTART_DST" 2>/dev/null; then
+        kbd_disabled=$((kbd_disabled + 1))
+    fi
+    if [ "$kbd_disabled" -eq 2 ]; then
+        echo -e "  On-screen keyboard: ${YELLOW}autostart disabled${NC}"
+    elif [ "$kbd_disabled" -eq 0 ]; then
         echo -e "  On-screen keyboard: ${GREEN}autostart enabled${NC}"
     else
-        echo -e "  On-screen keyboard: ${YELLOW}autostart disabled${NC}"
+        echo -e "  On-screen keyboard: ${YELLOW}partially disabled${NC}"
     fi
 
     # GTK CSS
