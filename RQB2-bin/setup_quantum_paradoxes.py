@@ -12,6 +12,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import quote
 
 
 # ============================================================================
@@ -22,8 +23,8 @@ WEBSITE_URL = "https://www.mariaviolaris.com/quantum-paradoxes/"
 YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLOFEBzvs-VvoQP-EVyd5Di3UrPPc2YKIc"
 TRAILER_VIDEO_ID = "Pz829XZIxXg"
 
-# Paradox metadata: filename -> (title, blog_url, video_url)
-# video_url should be the YouTube video ID (e.g., "sBtAe8BsOhA" for https://youtu.be/sBtAe8BsOhA)
+# Paradox metadata: filename -> (title, blog_url, video_id)
+# video_id should be the YouTube video ID (e.g., "sBtAe8BsOhA" for https://youtu.be/sBtAe8BsOhA)
 PARADOXES = {
     "schrodingers-cat.ipynb": (
         "Schrödinger's Cat",
@@ -35,14 +36,89 @@ PARADOXES = {
         "https://medium.com/qiskit/the-quantum-zeno-effect-from-motionless-arrows-to-entangled-freezers-e93beb7d52ae",
         "vfUn8cR-eXw"
     ),
-    # Add more paradoxes here as needed
+    "A quantum lie detector for Hardy's paradox.ipynb": (
+        "Hardy's Paradox",
+        "https://medium.com/qiskit/how-to-build-a-quantum-lie-detector-with-quantum-computers-464d6456c5ec",
+        "kLdvDDHLvOA"
+    ),
+    "double-slit.ipynb": (
+        "Double-Slit Experiment",
+        None,  # Coming soon
+        "CI41yWg38Oo"
+    ),
+    "EPR-paradox.ipynb": (
+        "EPR Paradox",
+        None,  # Coming soon
+        "eoPX4WJlOM8"
+    ),
+    "many-worlds.ipynb": (
+        "Many-Worlds",
+        None,  # Coming soon
+        "-YEmRhogaSQ"
+    ),
+    "Pigeonhole_paradox-notebook.ipynb": (
+        "Pigeonhole Paradox",
+        "https://medium.com/qiskit/how-to-count-pigeons-using-a-quantum-computer-without-breaking-math-32404fd2abc4",
+        None  # Video ID not in notebook
+    ),
+    "quantum-eraser.ipynb": (
+        "Quantum Eraser",
+        None,  # Coming soon
+        "Bb0hAo9Kp3w"
+    ),
+    "quantum-maxwells-demon.ipynb": (
+        "Maxwell's Demon",
+        "https://medium.com/qiskit/quantum-maxwells-demon-trick-or-treat-2a3052d94f53",
+        "YX5VxYvDfxM"
+    ),
+    "quantum-minesweeper-code.ipynb": (
+        "Quantum Bomb Tester",
+        "https://medium.com/qiskit/building-quantum-bomb-testers-and-other-thought-experiments-with-quantum-computers-c160060fdde4",
+        "fus1nJ6JaTk"
+    ),
+    "teleportation.ipynb": (
+        "Quantum Teleportation",
+        None,  # Coming soon
+        "KsvNsY4cVvE"
+    ),
+    "time-loops.ipynb": (
+        "Time Loops",
+        "https://medium.com/qiskit/a-christmas-closed-timelike-curve-could-the-story-of-scrooge-actually-happen-in-a-quantum-universe-cb22cdf8c9a7",
+        "jcC1Ck45Ykw"
+    ),
+    "wigner-friend-friend-friend.ipynb": (
+        "Frauchiger-Renner",
+        None,  # Coming soon
+        "kM1EwKBWXPs"
+    ),
+    "wigners-friend.ipynb": (
+        "Wigner's Friend",
+        "https://www.ibm.com/quantum/blog/wigners-friend-qiskit",
+        "TMBK88Mpg5U"
+    ),
 }
 
 # Qiskit 2.x compatibility fixes
 QISKIT_IMPORT_FIXES = [
-    ("from qiskit.providers.aer import QasmSimulator", "from qiskit_aer import AerSimulator"),
-    ("from qiskit.providers.aer import Aer", "from qiskit_aer import Aer, AerSimulator"),
-    ("from qiskit import Aer", "from qiskit_aer import Aer, AerSimulator"),
+    # qiskit.providers.aer moved to qiskit_aer
+    ("from qiskit.providers.aer import QasmSimulator", "from qiskit_aer import AerSimulator; from qiskit import transpile"),
+    ("from qiskit.providers.aer import AerSimulator", "from qiskit_aer import AerSimulator; from qiskit import transpile"),
+    ("from qiskit.providers.aer import Aer", "from qiskit_aer import Aer, AerSimulator; from qiskit import transpile"),
+    ("from qiskit import Aer", "from qiskit_aer import Aer, AerSimulator; from qiskit import transpile"),
+    ("from qiskit_aer import AerSimulator", "from qiskit_aer import AerSimulator; from qiskit import transpile"),
+    # qiskit.providers.aer.noise moved to qiskit_aer.noise
+    ("from qiskit.providers.aer.noise import NoiseModel", "from qiskit_aer.noise import NoiseModel"),
+    ("from qiskit.providers.aer.noise import depolarizing_error", "from qiskit_aer.noise import depolarizing_error"),
+    # qiskit.tools.visualization moved to qiskit.visualization
+    ("from qiskit.tools.visualization import plot_histogram", "from qiskit.visualization import plot_histogram"),
+    # c_if chaining removed in Qiskit 2.x - need gate classes for append
+    ("from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit",
+     "from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, transpile\nfrom qiskit.circuit.library import XGate, ZGate  # For c_if compatibility"),
+    ("from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister",
+     "from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile\nfrom qiskit.circuit.library import XGate, ZGate  # For c_if compatibility"),
+    # qiskit.test.mock moved to qiskit_ibm_runtime.fake_provider
+    ("from qiskit.test.mock import FakeParis", "from qiskit_ibm_runtime.fake_provider import FakeParisV2 as FakeParis"),
+    ("from qiskit.test.mock import FakeVigo", "from qiskit_ibm_runtime.fake_provider import FakeVigoV2 as FakeVigo"),
     # IBMQ was removed in Qiskit 2.x - use fake backend with noise model + execute shim
     ("from qiskit import IBMQ, execute", "from qiskit_ibm_runtime.fake_provider import FakeManilaV2; from qiskit import transpile\ndef execute(circuit, backend, shots=1024): return backend.run(transpile(circuit, backend), shots=shots)  # Qiskit 2.x shim"),
     ("from qiskit import IBMQ", "from qiskit_ibm_runtime.fake_provider import FakeManilaV2; from qiskit import transpile  # IBMQ removed in Qiskit 2.x"),
@@ -58,7 +134,43 @@ QISKIT_CODE_FIXES = [
     ("IBMQ.load_account()", "pass  # IBMQ.load_account() - using fake backend"),
     ("provider = IBMQ.get_provider", "backend = FakeManilaV2()  # Noisy simulator: provider = IBMQ.get_provider"),
     ("provider.get_backend", "backend  # Noisy simulator: provider.get_backend"),
+    # cnot() renamed to cx() in Qiskit 2.x
+    (".cnot(", ".cx("),
+    # c_if completely removed in Qiskit 2.x - use if_test context manager instead
+    # Teleportation notebook specific fixes - convert to if_test
+    ("qc.x(bob_q[0]).c_if(alice_c2, 1)", "with qc.if_test((alice_c2, 1)):\n    qc.x(bob_q[0])"),
+    ("qc.z(bob_q[0]).c_if(alice_c1, 1)", "with qc.if_test((alice_c1, 1)):\n    qc.z(bob_q[0])"),
+    ("qc.append(XGate().to_mutable().c_if(alice_c2, 1), [bob_q[0]])", "with qc.if_test((alice_c2, 1)):\n    qc.x(bob_q[0])"),
+    ("qc.append(ZGate().to_mutable().c_if(alice_c1, 1), [bob_q[0]])", "with qc.if_test((alice_c1, 1)):\n    qc.z(bob_q[0])"),
+    ("qc.append(XGate().c_if(alice_c2, 1), [bob_q[0]])", "with qc.if_test((alice_c2, 1)):\n    qc.x(bob_q[0])"),
+    ("qc.append(ZGate().c_if(alice_c1, 1), [bob_q[0]])", "with qc.if_test((alice_c1, 1)):\n    qc.z(bob_q[0])"),
+    # EPR-paradox notebook specific fixes - convert to if_test
+    ("qc.x(qr_Check_qubit).c_if(cr_Alice_outcome, 1)", "with qc.if_test((cr_Alice_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    ("qc.x(qr_Check_qubit).c_if(cr_Bob_outcome, 1)", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    ("qc.append(XGate().to_mutable().c_if(cr_Alice_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Alice_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    ("qc.append(XGate().to_mutable().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    ("qc.append(XGate().c_if(cr_Alice_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Alice_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    ("qc.append(XGate().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
+    # Qiskit 2.x requires transpile before run on noisy simulator
+    ("sim_noise.run(engine)", "sim_noise.run(transpile(engine, sim_noise))"),
+    ("sim_noise.run(reset_circ)", "sim_noise.run(transpile(reset_circ, sim_noise))"),
+    # AerSimulator.from_backend() restricts basis gates - use plain AerSimulator with noise_model
+    ("sim_noise = AerSimulator.from_backend(device_backend, noise_model = noise_model)",
+     "sim_noise = AerSimulator(noise_model=noise_model)  # Use plain simulator with noise"),
 ]
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def youtube_thumbnail(video_id: str, size: str = "default") -> str:
+    """Get YouTube thumbnail URL for a video.
+
+    Sizes: default (120x90), mqdefault (320x180), hqdefault (480x360),
+           sddefault (640x480), maxresdefault (1280x720), 0.jpg (480x360)
+    """
+    return f"https://img.youtube.com/vi/{video_id}/{size}.jpg"
 
 
 # ============================================================================
@@ -205,6 +317,37 @@ def create_header_cell(
     return create_markdown_cell(lines)
 
 
+def has_header_cell(notebook: Dict) -> bool:
+    """Check if notebook already has a header cell added by this script."""
+    cells = notebook.get('cells', [])
+    for cell in cells[:3]:  # Check first 3 cells
+        if cell.get('cell_type') == 'markdown':
+            source = cell.get('source', [])
+            if isinstance(source, list):
+                source = ''.join(source)
+            if '← Back to Welcome' in source:
+                return True
+    return False
+
+
+def remove_header_cells(notebook: Dict) -> Dict:
+    """Remove any existing header cells added by this script."""
+    cells = notebook.get('cells', [])
+    # Remove cells from the beginning that contain our header marker
+    while cells:
+        cell = cells[0]
+        if cell.get('cell_type') == 'markdown':
+            source = cell.get('source', [])
+            if isinstance(source, list):
+                source = ''.join(source)
+            if '← Back to Welcome' in source:
+                cells.pop(0)
+                continue
+        break
+    notebook['cells'] = cells
+    return notebook
+
+
 def add_header_to_notebook(
     notebook: Dict,
     paradox_title: str,
@@ -212,6 +355,8 @@ def add_header_to_notebook(
     video_url: Optional[str] = None
 ) -> Dict:
     """Add a header cell to the beginning of a notebook."""
+    # Remove any existing headers first
+    notebook = remove_header_cells(notebook)
     header_cell = create_header_cell(paradox_title, blog_url, video_url)
     cells = notebook.get('cells', [])
     cells.insert(0, header_cell)
@@ -253,19 +398,25 @@ def create_welcome_notebook(paradoxes: Dict[str, Tuple[str, str, Optional[str]]]
     )
     cells.append(video_section)
 
-    # Table of paradoxes
+    # Table of paradoxes with thumbnails
     table_lines = (
         "## Quantum Paradoxes\n"
         "\n"
-        "| Paradox | Notebook | Video | Blog |\n"
-        "|---------|----------|-------|------|\n"
+        "| | Paradox | Notebook | Blog |\n"
+        "|:---:|---------|----------|------|\n"
     )
 
     for filename, (title, blog_url, video_id) in sorted(paradoxes.items()):
-        notebook_link = f"[Open]({filename})"
-        video_link = f"[Watch](https://youtu.be/{video_id})" if video_id else f"[Playlist]({YOUTUBE_PLAYLIST})"
+        # Small thumbnail (default.jpg is 120x90)
+        if video_id:
+            thumbnail = f"[![]({youtube_thumbnail(video_id, 'default')})](https://youtu.be/{video_id})"
+        else:
+            thumbnail = f"[![]({youtube_thumbnail(TRAILER_VIDEO_ID, 'default')})]({YOUTUBE_PLAYLIST})"
+        # URL-encode filename to handle spaces and special characters
+        encoded_filename = quote(filename)
+        notebook_link = f"[Open]({encoded_filename})"
         blog_link = f"[Read]({blog_url})" if blog_url else "—"
-        table_lines += f"| **{title}** | {notebook_link} | {video_link} | {blog_link} |\n"
+        table_lines += f"| {thumbnail} | **{title}** | {notebook_link} | {blog_link} |\n"
 
     table_lines += "\n---\n"
     cells.append(create_markdown_cell(table_lines))
