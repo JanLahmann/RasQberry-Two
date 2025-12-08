@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple
 
 WEBSITE_URL = "https://www.mariaviolaris.com/quantum-paradoxes/"
 YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLOFEBzvs-VvoQP-EVyd5Di3UrPPc2YKIc"
+TRAILER_VIDEO_ID = "Pz829XZIxXg"
 
 # Paradox metadata: filename -> (title, blog_url, video_url)
 # video_url should be the YouTube video ID (e.g., "sBtAe8BsOhA" for https://youtu.be/sBtAe8BsOhA)
@@ -88,6 +89,37 @@ def create_markdown_cell(source: str) -> Dict:
         "metadata": {},
         "source": source
     }
+
+
+def create_code_cell(source: str, hidden: bool = False, outputs: List = None) -> Dict:
+    """Create a Jupyter code cell."""
+    if isinstance(source, str):
+        source = source.split('\n')
+        source = [line + '\n' for line in source[:-1]] + [source[-1]]
+
+    cell = {
+        "cell_type": "code",
+        "execution_count": 1 if outputs else None,
+        "metadata": {},
+        "outputs": outputs or [],
+        "source": source
+    }
+    if hidden:
+        cell["metadata"]["jupyter"] = {"source_hidden": True}
+    return cell
+
+
+def create_youtube_output(video_id: str, width: int = 560, height: int = 315) -> List:
+    """Create pre-rendered YouTube video output."""
+    return [{
+        "data": {
+            "text/html": f'<iframe width="{width}" height="{height}" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>',
+            "text/plain": f"<IPython.lib.display.YouTubeVideo at 0x0>"
+        },
+        "execution_count": 1,
+        "metadata": {},
+        "output_type": "execute_result"
+    }]
 
 
 # ============================================================================
@@ -207,17 +239,19 @@ def create_welcome_notebook(paradoxes: Dict[str, Tuple[str, str, Optional[str]]]
     )
     cells.append(title_cell)
 
-    # YouTube playlist badge
-    playlist_cell = create_markdown_cell(
+    # Video Series with embedded trailer
+    video_section = create_markdown_cell(
         "## Video Series\n"
         "\n"
-        f"[![YouTube Playlist](https://img.shields.io/badge/YouTube-Playlist-red?style=for-the-badge&logo=youtube)]({YOUTUBE_PLAYLIST})\n"
+        f"[![Quantum Paradoxes Trailer](https://img.youtube.com/vi/{TRAILER_VIDEO_ID}/0.jpg)](https://www.youtube.com/watch?v={TRAILER_VIDEO_ID})\n"
         "\n"
-        "Watch the complete video series explaining these quantum paradoxes!\n"
+        "*Click thumbnail to watch the trailer*\n"
+        "\n"
+        f"[![YouTube Playlist](https://img.shields.io/badge/YouTube-Full_Playlist-red?style=for-the-badge&logo=youtube)]({YOUTUBE_PLAYLIST})\n"
         "\n"
         "---\n"
     )
-    cells.append(playlist_cell)
+    cells.append(video_section)
 
     # Table of paradoxes
     table_lines = (
