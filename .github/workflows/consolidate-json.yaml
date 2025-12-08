@@ -156,6 +156,14 @@ jobs:
               if not url:
                   return False, "No URL provided"
 
+              # Check for malformed URLs (missing filename)
+              if url.endswith('/'):
+                  return False, "URL is malformed (missing filename)"
+
+              # Check that URL points to an actual image file
+              if not url.endswith('.img.xz') and not url.endswith('.img.gz') and not url.endswith('.img'):
+                  return False, f"URL does not point to an image file: {url.split('/')[-1]}"
+
               # Skip validation if requested
               if os.environ.get('SKIP_VALIDATION', 'false').lower() == 'true':
                   return True, "Validation skipped"
