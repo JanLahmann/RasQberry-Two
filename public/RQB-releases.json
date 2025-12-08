@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T17:56:05Z",
+  "generated": "2025-12-08T17:56:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,8 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "510b82ad1c236b3a08329f99189a3bf1daac52b19f2cc83f07ccb6c3bf28122f",
       "highlights": [
-        "add actions:write permission for workflow dispatch",
-        "add no-release scope and cache refresh strategy"
+        "extract highlights from GitHub release body"
       ]
     }
   }
