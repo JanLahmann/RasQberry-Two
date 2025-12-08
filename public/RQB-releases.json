@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T22:47:58Z",
+  "generated": "2025-12-08T22:48:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "0cb4ee225210f0ecc2ae33b230ad8db45bba36b58907deadf9657bfd5b1b84c8",
       "highlights": [
-        "include full timestamp in dev/AB image names for Pi Imager"
+        "extract highlights from GitHub release body"
       ]
     }
   }
