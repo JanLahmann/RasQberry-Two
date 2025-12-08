@@ -31,10 +31,20 @@ GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
 ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard-autostart.desktop"
 SQUEEKBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/squeekboard.desktop"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
+PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
+LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
 
-# LXDE panel config paths - user takes precedence over system
+# Wayfire panel config (Wayland - used on newer Raspberry Pi OS)
+WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+
+# LXDE panel config paths (X11 - fallback for older setups)
 USER_PANEL_CONFIG="$USER_HOME/.config/lxpanel/LXDE-pi/panels/panel"
 SYSTEM_PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+
+# Detect which panel system is in use
+is_wayland() {
+    [ -f "$WF_PANEL_CONFIG" ] || pgrep -x wayfire >/dev/null 2>&1
+}
 
 # Find active panel config (user config takes precedence)
 get_panel_config() {
@@ -90,26 +100,38 @@ enable_touch_mode() {
         warn "GTK touch CSS not found at $GTK_CSS_SRC"
     fi
 
-    # 3. Update LXDE panel (height=48, iconsize=32)
-    # Re-check panel config in case it was created during this session
-    PANEL_CONFIG=$(get_panel_config)
-    if [ -n "$PANEL_CONFIG" ]; then
-        # If using system config, copy to user config first for modifications
-        if [ "$PANEL_CONFIG" = "$SYSTEM_PANEL_CONFIG" ]; then
-            mkdir -p "$(dirname "$USER_PANEL_CONFIG")"
-            cp "$SYSTEM_PANEL_CONFIG" "$USER_PANEL_CONFIG"
-            PANEL_CONFIG="$USER_PANEL_CONFIG"
-            info "Copied system panel config to user config"
+    # 3. Update panel (Wayland: wf-panel-pi, X11: lxpanel)
+    if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
+        # Wayland: wf-panel-pi
+        if [ ! -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
+            cp "$WF_PANEL_CONFIG" "${WF_PANEL_CONFIG}.touch-backup"
         fi
-        # Backup original if not already backed up
-        if [ ! -f "${PANEL_CONFIG}.touch-backup" ]; then
-            cp "$PANEL_CONFIG" "${PANEL_CONFIG}.touch-backup"
+        # Update icon_size in [panel] section (wf-panel-pi uses icon_size not iconsize)
+        if grep -q "icon_size=" "$WF_PANEL_CONFIG"; then
+            sed -i 's/icon_size=.*/icon_size=64/' "$WF_PANEL_CONFIG"
+        else
+            sed -i '/^\[panel\]/a icon_size=64' "$WF_PANEL_CONFIG"
         fi
-        sed -i 's/height=.*/height=48/' "$PANEL_CONFIG"
-        sed -i 's/iconsize=.*/iconsize=32/' "$PANEL_CONFIG"
-        info "LXDE panel updated (height=48, iconsize=32)"
+        info "Wayfire panel updated (icon_size=64)"
     else
-        info "LXDE panel config not found (will apply on next desktop login)"
+        # X11: lxpanel
+        PANEL_CONFIG=$(get_panel_config)
+        if [ -n "$PANEL_CONFIG" ]; then
+            if [ "$PANEL_CONFIG" = "$SYSTEM_PANEL_CONFIG" ]; then
+                mkdir -p "$(dirname "$USER_PANEL_CONFIG")"
+                cp "$SYSTEM_PANEL_CONFIG" "$USER_PANEL_CONFIG"
+                PANEL_CONFIG="$USER_PANEL_CONFIG"
+                info "Copied system panel config to user config"
+            fi
+            if [ ! -f "${PANEL_CONFIG}.touch-backup" ]; then
+                cp "$PANEL_CONFIG" "${PANEL_CONFIG}.touch-backup"
+            fi
+            sed -i 's/height=.*/height=64/' "$PANEL_CONFIG"
+            sed -i 's/iconsize=.*/iconsize=48/' "$PANEL_CONFIG"
+            info "LXDE panel updated (height=64, iconsize=48)"
+        else
+            info "Panel config not found (will apply on next desktop login)"
+        fi
     fi
 
     # 4. Set Chromium touch flags
@@ -123,7 +145,45 @@ enable_touch_mode() {
         info "Double-click time set to 500ms"
     fi
 
-    # 6. Update state file
+    # 6. Increase desktop icon size and adjust grid spacing (all pcmanfm desktop configs)
+    if [ -d "$PCMANFM_CONFIG_DIR" ]; then
+        for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
+            [ -f "$conf" ] || continue
+            # Backup original if not already backed up
+            if [ ! -f "${conf}.touch-backup" ]; then
+                cp "$conf" "${conf}.touch-backup"
+            fi
+            # Add or update big_icon_size setting in [*] section
+            if grep -q "big_icon_size=" "$conf"; then
+                sed -i 's/big_icon_size=.*/big_icon_size=72/' "$conf"
+            else
+                sed -i '/^\[\*\]$/a big_icon_size=72' "$conf"
+            fi
+            # Scale grid spacing from 110px to 140px (for larger icons)
+            # Map: 10→10, 120→150, 230→290, 340→430, 450→570
+            sed -i 's/^x=120$/x=150/' "$conf"
+            sed -i 's/^x=230$/x=290/' "$conf"
+            sed -i 's/^x=340$/x=430/' "$conf"
+            sed -i 's/^x=450$/x=570/' "$conf"
+            sed -i 's/^y=120$/y=150/' "$conf"
+            sed -i 's/^y=230$/y=290/' "$conf"
+            sed -i 's/^y=340$/y=430/' "$conf"
+            sed -i 's/^y=450$/y=570/' "$conf"
+        done
+        info "Desktop icons enlarged (72px) with wider grid spacing"
+    fi
+
+    # 7. Increase terminal font size
+    if [ -f "$LXTERMINAL_CONFIG" ]; then
+        if [ ! -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
+            cp "$LXTERMINAL_CONFIG" "${LXTERMINAL_CONFIG}.touch-backup"
+        fi
+        # Change font size from default (10) to larger (16)
+        sed -i 's/fontname=Monospace [0-9]*/fontname=Monospace 16/' "$LXTERMINAL_CONFIG"
+        info "Terminal font size increased (16pt)"
+    fi
+
+    # 8. Update state file
     sudo tee "$STATE_FILE" > /dev/null << EOF
 TOUCH_MODE=enabled
 ENABLED_AT=$(date -Iseconds)
@@ -135,6 +195,8 @@ EOF
         chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/gtk-3.0" 2>/dev/null || true
         chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/autostart" 2>/dev/null || true
         chown -R "$SUDO_USER:$SUDO_USER" "$CHROMIUM_FLAGS_DIR" 2>/dev/null || true
+        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/pcmanfm" 2>/dev/null || true
+        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/lxterminal" 2>/dev/null || true
     fi
 
     echo ""
@@ -143,7 +205,9 @@ EOF
     echo "Settings applied:"
     echo "  - On-screen keyboard: autostart enabled"
     echo "  - GTK buttons/scrollbars: enlarged (48px min)"
-    echo "  - LXDE panel: height=48px, icons=32px"
+    echo "  - Panel icons: 64px"
+    echo "  - Desktop icons: 72px"
+    echo "  - Terminal font: 16pt"
     echo "  - Chromium: touch events enabled"
     echo "  - Double-click time: 500ms"
     echo ""
@@ -177,19 +241,29 @@ DESKTOP_EOF
         info "GTK touch CSS removed"
     fi
 
-    # 3. Restore LXDE panel defaults (height=36, iconsize=24)
-    # Re-check panel config (use user config if available)
-    PANEL_CONFIG=$(get_panel_config)
-    if [ -n "$PANEL_CONFIG" ]; then
-        if [ -f "${USER_PANEL_CONFIG}.touch-backup" ]; then
-            # Restore from user backup
-            cp "${USER_PANEL_CONFIG}.touch-backup" "$USER_PANEL_CONFIG"
-            info "LXDE panel restored from backup"
-        elif [ -f "$USER_PANEL_CONFIG" ]; then
-            # Just update the values in user config
-            sed -i 's/height=.*/height=36/' "$USER_PANEL_CONFIG"
-            sed -i 's/iconsize=.*/iconsize=24/' "$USER_PANEL_CONFIG"
-            info "LXDE panel restored (height=36, iconsize=24)"
+    # 3. Restore panel defaults (Wayland: wf-panel-pi, X11: lxpanel)
+    if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
+        # Wayland: wf-panel-pi
+        if [ -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
+            cp "${WF_PANEL_CONFIG}.touch-backup" "$WF_PANEL_CONFIG"
+            info "Wayfire panel restored from backup"
+        elif [ -f "$WF_PANEL_CONFIG" ]; then
+            # Restore to default icon_size (typically 24 or 32)
+            sed -i 's/icon_size=.*/icon_size=24/' "$WF_PANEL_CONFIG"
+            info "Wayfire panel restored (icon_size=24)"
+        fi
+    else
+        # X11: lxpanel
+        PANEL_CONFIG=$(get_panel_config)
+        if [ -n "$PANEL_CONFIG" ]; then
+            if [ -f "${USER_PANEL_CONFIG}.touch-backup" ]; then
+                cp "${USER_PANEL_CONFIG}.touch-backup" "$USER_PANEL_CONFIG"
+                info "LXDE panel restored from backup"
+            elif [ -f "$USER_PANEL_CONFIG" ]; then
+                sed -i 's/height=.*/height=36/' "$USER_PANEL_CONFIG"
+                sed -i 's/iconsize=.*/iconsize=24/' "$USER_PANEL_CONFIG"
+                info "LXDE panel restored (height=36, iconsize=24)"
+            fi
         fi
     fi
 
@@ -203,7 +277,31 @@ DESKTOP_EOF
         info "Double-click time restored to 400ms"
     fi
 
-    # 6. Update state file
+    # 6. Restore desktop icon size (all pcmanfm configs)
+    if [ -d "$PCMANFM_CONFIG_DIR" ]; then
+        for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
+            [ -f "$conf" ] || continue
+            if [ -f "${conf}.touch-backup" ]; then
+                cp "${conf}.touch-backup" "$conf"
+            else
+                # Remove the big_icon_size line (restore to default)
+                sed -i '/^big_icon_size=/d' "$conf"
+            fi
+        done
+        info "Desktop icons restored to default"
+    fi
+
+    # 7. Restore terminal font size
+    if [ -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
+        cp "${LXTERMINAL_CONFIG}.touch-backup" "$LXTERMINAL_CONFIG"
+        info "Terminal font size restored"
+    elif [ -f "$LXTERMINAL_CONFIG" ]; then
+        # Restore to default (Monospace 10)
+        sed -i 's/fontname=Monospace [0-9]*/fontname=Monospace 10/' "$LXTERMINAL_CONFIG"
+        info "Terminal font size restored (10pt)"
+    fi
+
+    # 8. Update state file
     sudo tee "$STATE_FILE" > /dev/null << EOF
 TOUCH_MODE=disabled
 DISABLED_AT=$(date -Iseconds)
@@ -216,7 +314,9 @@ EOF
     echo "Settings restored to defaults:"
     echo "  - On-screen keyboard: autostart disabled"
     echo "  - GTK buttons/scrollbars: system default"
-    echo "  - LXDE panel: height=36px, icons=24px"
+    echo "  - Panel icons: default size"
+    echo "  - Desktop icons: default size"
+    echo "  - Terminal font: 10pt"
     echo "  - Chromium: touch events default"
     echo "  - Double-click time: 400ms"
     echo ""
@@ -319,9 +419,10 @@ show_usage() {
     echo "  status --quiet  Show just 'enabled' or 'disabled'"
     echo ""
     echo "Touch mode adjusts the following settings:"
-    echo "  - On-screen keyboard (onboard) autostart"
+    echo "  - On-screen keyboard (onboard/squeekboard) autostart"
     echo "  - GTK3 button and scrollbar sizes"
     echo "  - LXDE panel height and icon size"
+    echo "  - Desktop icon size"
     echo "  - Chromium touch event handling"
     echo "  - Double-click timing"
 }
