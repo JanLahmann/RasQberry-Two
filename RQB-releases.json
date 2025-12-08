@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T16:46:03Z",
+  "generated": "2025-12-08T17:56:05Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,20 +19,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-08-172138",
-      "name": "rasqberry-dev-features05-2025-12-08-172138",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-08-172138/rasqberry-dev-features05-2025-12-08-172138.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-08-172138",
+      "tag": "dev-features05-2025-12-08-183439",
+      "name": "rasqberry-dev-features05-2025-12-08-183439",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-08-183439/rasqberry-dev-features05-2025-12-08-183439.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-08-183439",
       "release_date": "2025-12-08",
-      "image_download_size": 1990059932,
+      "image_download_size": 1988512692,
       "extract_size": 8841592832,
-      "extract_sha256": "816ca5f48039fddb153418254fbf139c61cefc53b1878b969e86f1cee7c28031",
+      "extract_sha256": "510b82ad1c236b3a08329f99189a3bf1daac52b19f2cc83f07ccb6c3bf28122f",
       "highlights": [
-        "retry push with rebase to handle race conditions",
-        "trigger Next.js deployment after JSON commit",
-        "add branch names to A/B images",
-        "write RQB-releases.json to public/ folder on gh-pages",
-        "remove duplicate 'Use custom image' - Pi Imager has built-in"
+        "add actions:write permission for workflow dispatch",
+        "add no-release scope and cache refresh strategy"
       ]
     }
   }
