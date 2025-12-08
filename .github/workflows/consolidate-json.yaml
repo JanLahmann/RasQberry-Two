@@ -212,6 +212,16 @@ jobs:
           ab_images = []     # All A/B images (folder)
           skipped_entries = []  # Track skipped entries for reporting
 
+          # Helper to extract timestamp from URL filename
+          # URL format: .../rasqberry-branch-YYYY-MM-DD-HHMMSS.img.xz
+          def extract_timestamp(url):
+              if not url:
+                  return None
+              filename = url.split('/')[-1].replace('.img.xz', '').replace('-ab', '')
+              # Match YYYY-MM-DD-HHMMSS at end of filename
+              match = re.search(r'(\d{4}-\d{2}-\d{2}-\d{6})$', filename)
+              return match.group(1) if match else None
+
           json_dir = Path("/tmp/branch-json")
 
           # Load and classify entries from each branch's JSON
@@ -250,16 +260,24 @@ jobs:
                       entry_clean = {k: v for k, v in entry.items() if k != 'image_type'}
 
                       # Classify by BRANCH NAME (not image name) for proper categorization
-                      # Dev images: add branch identifier to distinguish them
+                      # Dev and AB images: include branch name AND full timestamp for Pi Imager
                       if image_type == 'ab' or 'A/B' in name:
-                          # Add branch name to make A/B images distinguishable
-                          entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
+                          # A/B images: include branch name + timestamp
+                          timestamp = extract_timestamp(entry.get('url', ''))
+                          if timestamp:
+                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name} {timestamp})"
+                          else:
+                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
                           entry_clean['description'] = f"A/B boot image from {branch_name}"
                           ab_images.append((entry.get('release_date', ''), branch_name, entry_clean))
                           print(f"  → A/B folder: {entry_clean['name']}")
                       elif branch_name.startswith('dev'):
-                          # Add branch name to make dev images distinguishable
-                          entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                          # Dev images: include branch name + timestamp
+                          timestamp = extract_timestamp(entry.get('url', ''))
+                          if timestamp:
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name} {timestamp})"
+                          else:
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
                           entry_clean['description'] = f"Development build from {branch_name}"
                           dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
                           print(f"  → Dev folder: {entry_clean['name']}")
