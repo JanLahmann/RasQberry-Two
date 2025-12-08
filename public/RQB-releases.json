@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T16:46:25Z",
+  "generated": "2025-12-08T17:19:37Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,14 +19,14 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-paradox-2025-12-08-140242",
-      "name": "",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-paradox-2025-12-08-140242/",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-paradox-2025-12-08-140242",
+      "tag": "dev-features05-2025-12-08-172138",
+      "name": "rasqberry-dev-features05-2025-12-08-172138",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-08-172138/rasqberry-dev-features05-2025-12-08-172138.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-08-172138",
       "release_date": "2025-12-08",
-      "image_download_size": 2020577816,
-      "extract_size": 8849981440,
-      "extract_sha256": "3c70ce9c4a5bad7d974a48190e61fb92cc48fa77b4a0575c4716b146955da0c9",
+      "image_download_size": 1990059932,
+      "extract_size": 8841592832,
+      "extract_sha256": "816ca5f48039fddb153418254fbf139c61cefc53b1878b969e86f1cee7c28031",
       "highlights": [
         "extract highlights from GitHub release body"
       ]
