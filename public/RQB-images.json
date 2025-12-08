@@ -24,22 +24,6 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-features05)",
-          "description": "Development build from dev-features05",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-08-183439/rasqberry-dev-features05-2025-12-08-183439.img.xz",
-          "extract_size": 8841592832,
-          "extract_sha256": "510b82ad1c236b3a08329f99189a3bf1daac52b19f2cc83f07ccb6c3bf28122f",
-          "image_download_size": 1988512692,
-          "release_date": "2025-12-08",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
           "name": "RasQberry Two Dev (dev-features05-touch)",
           "description": "Development build from dev-features05-touch",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -62,22 +46,6 @@
       "description": "Images with A/B partition support for safer updates",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
-        {
-          "name": "RasQberry Two A/B (dev-features05)",
-          "description": "A/B boot image from dev-features05",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-08-183439/rasqberry-dev-features05-2025-12-08-183439-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "45c2956a36c17b52a2b63124a936c892e83f884c1eaf72c9c9d39c0c961a4645",
-          "image_download_size": 2026961144,
-          "release_date": "2025-12-08",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
         {
           "name": "RasQberry Two A/B (dev-features05-touch)",
           "description": "A/B boot image from dev-features05-touch",
