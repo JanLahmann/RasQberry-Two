@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T18:20:04Z",
+  "generated": "2025-12-08T22:24:49Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-touch-2025-12-05-093358",
-      "name": "rasqberry-dev-features05-touch-2025-12-05-093358",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-touch-2025-12-05-093358/rasqberry-dev-features05-touch-2025-12-05-093358.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-touch-2025-12-05-093358",
-      "release_date": "2025-12-05",
-      "image_download_size": 1995313164,
+      "tag": "dev-features05-touch-2025-12-08-230333",
+      "name": "rasqberry-dev-features05-touch-2025-12-08-230333",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-touch-2025-12-08-230333/rasqberry-dev-features05-touch-2025-12-08-230333.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-touch-2025-12-08-230333",
+      "release_date": "2025-12-08",
+      "image_download_size": 1995290404,
       "extract_size": 8866758656,
-      "extract_sha256": "3ed5f32b4321fce8d124ba36289c7a15c5a2cf5b16db12d16dee4f21f4ba4445",
+      "extract_sha256": "7258887f8078f0bb81353eb122351f2fd64f450b0421612944a5f60a1d6261c3",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "add Wayland support, terminal font, and desktop icon grid",
+        "properly disable on-screen keyboards",
+        "add desktop icon and improve LXDE panel handling",
+        "skip entries with malformed URLs or missing image files",
+        "retry push with rebase to handle race conditions"
       ]
     }
   }
