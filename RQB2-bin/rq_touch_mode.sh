@@ -29,8 +29,24 @@ get_user_home() {
 USER_HOME=$(get_user_home)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
 ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard.desktop"
-PANEL_CONFIG="$USER_HOME/.config/lxpanel/LXDE-pi/panels/panel"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
+
+# LXDE panel config paths - user takes precedence over system
+USER_PANEL_CONFIG="$USER_HOME/.config/lxpanel/LXDE-pi/panels/panel"
+SYSTEM_PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+
+# Find active panel config (user config takes precedence)
+get_panel_config() {
+    if [ -f "$USER_PANEL_CONFIG" ]; then
+        echo "$USER_PANEL_CONFIG"
+    elif [ -f "$SYSTEM_PANEL_CONFIG" ]; then
+        echo "$SYSTEM_PANEL_CONFIG"
+    else
+        echo ""
+    fi
+}
+
+PANEL_CONFIG=$(get_panel_config)
 
 # Colors for output
 RED='\033[0;31m'
@@ -77,7 +93,16 @@ enable_touch_mode() {
     fi
 
     # 3. Update LXDE panel (height=48, iconsize=32)
-    if [ -f "$PANEL_CONFIG" ]; then
+    # Re-check panel config in case it was created during this session
+    PANEL_CONFIG=$(get_panel_config)
+    if [ -n "$PANEL_CONFIG" ]; then
+        # If using system config, copy to user config first for modifications
+        if [ "$PANEL_CONFIG" = "$SYSTEM_PANEL_CONFIG" ]; then
+            mkdir -p "$(dirname "$USER_PANEL_CONFIG")"
+            cp "$SYSTEM_PANEL_CONFIG" "$USER_PANEL_CONFIG"
+            PANEL_CONFIG="$USER_PANEL_CONFIG"
+            info "Copied system panel config to user config"
+        fi
         # Backup original if not already backed up
         if [ ! -f "${PANEL_CONFIG}.touch-backup" ]; then
             cp "$PANEL_CONFIG" "${PANEL_CONFIG}.touch-backup"
@@ -86,7 +111,7 @@ enable_touch_mode() {
         sed -i 's/iconsize=.*/iconsize=32/' "$PANEL_CONFIG"
         info "LXDE panel updated (height=48, iconsize=32)"
     else
-        warn "LXDE panel config not found at $PANEL_CONFIG"
+        info "LXDE panel config not found (will apply on next desktop login)"
     fi
 
     # 4. Set Chromium touch flags
@@ -144,15 +169,17 @@ disable_touch_mode() {
     fi
 
     # 3. Restore LXDE panel defaults (height=36, iconsize=24)
-    if [ -f "$PANEL_CONFIG" ]; then
-        if [ -f "${PANEL_CONFIG}.touch-backup" ]; then
-            # Restore from backup
-            cp "${PANEL_CONFIG}.touch-backup" "$PANEL_CONFIG"
+    # Re-check panel config (use user config if available)
+    PANEL_CONFIG=$(get_panel_config)
+    if [ -n "$PANEL_CONFIG" ]; then
+        if [ -f "${USER_PANEL_CONFIG}.touch-backup" ]; then
+            # Restore from user backup
+            cp "${USER_PANEL_CONFIG}.touch-backup" "$USER_PANEL_CONFIG"
             info "LXDE panel restored from backup"
-        else
-            # Just update the values
-            sed -i 's/height=.*/height=36/' "$PANEL_CONFIG"
-            sed -i 's/iconsize=.*/iconsize=24/' "$PANEL_CONFIG"
+        elif [ -f "$USER_PANEL_CONFIG" ]; then
+            # Just update the values in user config
+            sed -i 's/height=.*/height=36/' "$USER_PANEL_CONFIG"
+            sed -i 's/iconsize=.*/iconsize=24/' "$USER_PANEL_CONFIG"
             info "LXDE panel restored (height=36, iconsize=24)"
         fi
     fi
@@ -234,12 +261,14 @@ show_status() {
     fi
 
     # LXDE panel
-    if [ -f "$PANEL_CONFIG" ]; then
-        height=$(grep "height=" "$PANEL_CONFIG" 2>/dev/null | head -1 | cut -d= -f2)
-        iconsize=$(grep "iconsize=" "$PANEL_CONFIG" 2>/dev/null | head -1 | cut -d= -f2)
+    local status_panel_config
+    status_panel_config=$(get_panel_config)
+    if [ -n "$status_panel_config" ]; then
+        height=$(grep "height=" "$status_panel_config" 2>/dev/null | head -1 | cut -d= -f2)
+        iconsize=$(grep "iconsize=" "$status_panel_config" 2>/dev/null | head -1 | cut -d= -f2)
         echo "  LXDE panel: height=${height:-?}, iconsize=${iconsize:-?}"
     else
-        echo "  LXDE panel: config not found"
+        echo "  LXDE panel: config not created yet"
     fi
 
     # Chromium flags
