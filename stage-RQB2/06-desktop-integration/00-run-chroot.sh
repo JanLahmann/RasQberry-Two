@@ -98,7 +98,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -111,7 +111,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -201,6 +201,10 @@ trusted=true
 [demo-loop.desktop]
 x=340
 y=230
+trusted=true
+[quantum-paradoxes.desktop]
+x=120
+y=340
 trusted=true
 EOF
 

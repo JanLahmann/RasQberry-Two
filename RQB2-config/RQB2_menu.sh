@@ -208,6 +208,30 @@ do_fwq_install() {
                  "Fun with Quantum" ""
 }
 
+# Install Quantum Paradoxes demo if needed
+do_quantum_paradoxes_install() {
+    install_demo "quantum-paradoxes" "$GIT_REPO_DEMO_PARADOXES" \
+                 "$MARKER_PARADOXES" "QUANTUM_PARADOXES_INSTALLED" \
+                 "Quantum Paradoxes" ""
+
+    # Run post-install setup (creates WELCOME.ipynb, fixes Qiskit imports)
+    PARADOX_DIR="$DEMO_ROOT/quantum-paradoxes"
+    if [ -f "$PARADOX_DIR/schrodingers-cat.ipynb" ]; then
+        echo "Running Quantum Paradoxes setup..."
+        . "$VENV_ACTIVATE"
+        python3 "$BIN_DIR/setup_quantum_paradoxes.py" --path "$PARADOX_DIR"
+    fi
+}
+
+# Run Quantum Paradoxes demo
+run_quantum_paradoxes_demo() {
+    # Ensure installation
+    do_quantum_paradoxes_install || return 1
+
+    # Launch the demo using the dedicated launcher script
+    "$BIN_DIR/rq_quantum_paradoxes.sh"
+}
+
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
@@ -714,6 +738,7 @@ do_quantum_demo_menu() {
        FRC  "Quantum Fractals" \
        RQL  "RasQ-LED (Quantum Circuit)" \
        LDP  "LED-Painter (Paint on LEDs)" \
+       QPX  "Quantum Paradoxes (Notebooks)" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
        LOOP "Continuous Demo Loop (Conference)" \
@@ -729,6 +754,7 @@ do_quantum_demo_menu() {
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
       RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
       LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
+      QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
