@@ -19,6 +19,52 @@
       "website": "https://rasqberry.org"
     },
     {
+      "name": "RasQberry Development Images",
+      "description": "Development builds with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "subitems": [
+        {
+          "name": "RasQberry Two Dev (dev-features05 2025-12-09-114930)",
+          "description": "Development build from dev-features05",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930.img.xz",
+          "extract_size": 8866758656,
+          "extract_sha256": "5f30d899d298c5e3485f17add6797d8999c3c0d11087fa976a575229df6215fe",
+          "image_download_size": 1994692932,
+          "release_date": "2025-12-09",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        }
+      ]
+    },
+    {
+      "name": "RasQberry A/B Boot Images",
+      "description": "Images with A/B partition support for safer updates",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "subitems": [
+        {
+          "name": "RasQberry Two A/B (dev-features05 2025-12-09-114930)",
+          "description": "A/B boot image from dev-features05",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "d516941852c285cdf7d5d0aa3306f09591752277bb593b418e2c29695ffb92de",
+          "image_download_size": 2033387868,
+          "release_date": "2025-12-09",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        }
+      ]
+    },
+    {
       "name": "Raspberry Pi OS (64-bit)",
       "description": "A port of Debian Trixie with the Raspberry Pi Desktop (Recommended)",
       "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
