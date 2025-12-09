@@ -420,6 +420,14 @@ else
     echo "$(date): libfm config not found at $LIBFM_CONFIG" >> "$LOG_FILE"
 fi
 
+# Restart PCManFM desktop to pick up trusted icon and libfm settings
+# Without this, desktop icons won't respond to clicks until reboot
+echo "$(date): Restarting PCManFM desktop to apply settings..." >> "$LOG_FILE"
+pcmanfm --desktop-off 2>> "$LOG_FILE" || true
+sleep 1
+pcmanfm --desktop 2>> "$LOG_FILE" &
+echo "$(date): PCManFM desktop restarted" >> "$LOG_FILE"
+
 echo "$(date): First-login setup completed" >> "$LOG_FILE"
 
 # Remove autostart entry so this doesn't run again
