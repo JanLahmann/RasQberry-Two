@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-09T13:01:56Z",
+  "generated": "2025-12-09T15:31:41Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-09-114930",
-      "name": "rasqberry-dev-features05-2025-12-09-114930",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-09-114930",
+      "tag": "dev-features05-2025-12-09-160753",
+      "name": "rasqberry-dev-features05-2025-12-09-160753",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-09-160753",
       "release_date": "2025-12-09",
-      "image_download_size": 1994692932,
+      "image_download_size": 1994629528,
       "extract_size": 8866758656,
-      "extract_sha256": "5f30d899d298c5e3485f17add6797d8999c3c0d11087fa976a575229df6215fe",
+      "extract_sha256": "18a4398f70f28ca4227341f5682e8fcc118bb771c29373872b67556d487903fd",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "modify libfm.conf for icon size instead of desktop-items.conf",
+        "restart PCManFM to apply trusted icon settings on first login"
       ]
     }
   }
