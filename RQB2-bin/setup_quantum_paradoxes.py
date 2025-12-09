@@ -429,15 +429,35 @@ def create_welcome_notebook(paradoxes: Dict[str, Tuple[str, str, Optional[str]]]
         "2. Run the cells sequentially (Shift + Enter)\n"
         "3. Experiment with the quantum circuits!\n"
         "\n"
-        "### Qiskit 2.x Compatibility\n"
-        "\n"
-        "These notebooks have been updated for Qiskit 2.x:\n"
-        "- `QasmSimulator` replaced with `AerSimulator`\n"
-        "- Imports updated to use `qiskit_aer` package\n"
-        "\n"
         "---\n"
     )
     cells.append(getting_started)
+
+    # Qiskit compatibility section
+    qiskit_compat = create_markdown_cell(
+        "## Qiskit 2.x Compatibility\n"
+        "\n"
+        "These notebooks were originally written for Qiskit 0.x and have been "
+        "automatically updated for Qiskit 2.x compatibility. Key changes:\n"
+        "\n"
+        "| Original (Qiskit 0.x) | Updated (Qiskit 2.x) |\n"
+        "|----------------------|---------------------|\n"
+        "| `from qiskit.providers.aer import QasmSimulator` | `from qiskit_aer import AerSimulator` |\n"
+        "| `qiskit.execute(circuit, backend)` | `backend.run(transpile(circuit, backend))` |\n"
+        "| `circuit.x(qubit).c_if(creg, 1)` | `with circuit.if_test((creg, 1)): circuit.x(qubit)` |\n"
+        "| `circuit.cnot(q1, q2)` | `circuit.cx(q1, q2)` |\n"
+        "| `from qiskit import IBMQ` | Removed (use `qiskit_ibm_runtime`) |\n"
+        "| `from qiskit.test.mock import FakeVigo` | `from qiskit_ibm_runtime.fake_provider import FakeVigoV2` |\n"
+        "\n"
+        "**Note:** Some notebooks may still show deprecation warnings. "
+        "These don't affect functionality.\n"
+        "\n"
+        "For migration details, see the [Qiskit 1.0](https://docs.quantum.ibm.com/api/migration-guides/qiskit-1.0-features) "
+        "and [Qiskit 2.0](https://docs.quantum.ibm.com/api/migration-guides/qiskit-2.0) migration guides.\n"
+        "\n"
+        "---\n"
+    )
+    cells.append(qiskit_compat)
 
     # Footer
     footer = create_markdown_cell(
