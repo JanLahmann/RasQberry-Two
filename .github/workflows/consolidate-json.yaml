@@ -545,6 +545,7 @@ jobs:
 
       - name: Trigger Next.js deployment
         if: steps.commit.outputs.changes == 'true'
+        continue-on-error: true  # Don't fail workflow if token lacks dispatch permission (e.g., release events from deleted branches)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
