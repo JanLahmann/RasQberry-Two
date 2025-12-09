@@ -54,6 +54,7 @@ ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard-autostart.desktop"
 SQUEEKBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/squeekboard.desktop"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
 PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
+LIBFM_CONFIG="$USER_HOME/.config/libfm/libfm.conf"
 LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
 
 # Wayfire panel config (Wayland - used on newer Raspberry Pi OS)
@@ -167,7 +168,25 @@ enable_touch_mode() {
         info "Double-click time set to ${TOUCH_DOUBLE_CLICK_MS}ms"
     fi
 
-    # 6. Increase desktop icon size and adjust grid spacing (all pcmanfm desktop configs)
+    # 6. Increase desktop icon size (in libfm.conf) and adjust grid spacing (in pcmanfm configs)
+    # big_icon_size is read from libfm.conf [ui] section, NOT desktop-items*.conf
+    if [ -f "$LIBFM_CONFIG" ]; then
+        if [ ! -f "${LIBFM_CONFIG}.touch-backup" ]; then
+            cp "$LIBFM_CONFIG" "${LIBFM_CONFIG}.touch-backup"
+        fi
+        # Update big_icon_size in [ui] section
+        if grep -q "^big_icon_size=" "$LIBFM_CONFIG"; then
+            sed -i "s/^big_icon_size=.*/big_icon_size=$TOUCH_DESKTOP_ICON_SIZE/" "$LIBFM_CONFIG"
+        else
+            # Add to [ui] section if it exists, otherwise append
+            if grep -q "^\[ui\]" "$LIBFM_CONFIG"; then
+                sed -i "/^\[ui\]/a big_icon_size=$TOUCH_DESKTOP_ICON_SIZE" "$LIBFM_CONFIG"
+            fi
+        fi
+        info "Desktop icon size set to ${TOUCH_DESKTOP_ICON_SIZE}px (libfm.conf)"
+    fi
+
+    # Adjust grid spacing in pcmanfm desktop-items configs
     if [ -d "$PCMANFM_CONFIG_DIR" ]; then
         # Calculate scaled grid positions based on TOUCH_DESKTOP_GRID_SPACING
         # Default grid is 110px, touch grid from env (default 140px)
@@ -183,12 +202,6 @@ enable_touch_mode() {
             if [ ! -f "${conf}.touch-backup" ]; then
                 cp "$conf" "${conf}.touch-backup"
             fi
-            # Add or update big_icon_size setting in [*] section
-            if grep -q "big_icon_size=" "$conf"; then
-                sed -i "s/big_icon_size=.*/big_icon_size=$TOUCH_DESKTOP_ICON_SIZE/" "$conf"
-            else
-                sed -i "/^\[\*\]\$/a big_icon_size=$TOUCH_DESKTOP_ICON_SIZE" "$conf"
-            fi
             # Scale grid spacing based on configured touch grid spacing
             sed -i "s/^x=120\$/x=$g1/" "$conf"
             sed -i "s/^x=230\$/x=$g2/" "$conf"
@@ -199,7 +212,7 @@ enable_touch_mode() {
             sed -i "s/^y=340\$/y=$g3/" "$conf"
             sed -i "s/^y=450\$/y=$g4/" "$conf"
         done
-        info "Desktop icons enlarged (${TOUCH_DESKTOP_ICON_SIZE}px) with ${TOUCH_DESKTOP_GRID_SPACING}px grid spacing"
+        info "Desktop grid spacing set to ${TOUCH_DESKTOP_GRID_SPACING}px"
     fi
 
     # 7. Increase terminal font size
@@ -305,18 +318,24 @@ DESKTOP_EOF
         info "Double-click time restored to ${DEFAULT_DOUBLE_CLICK_MS}ms"
     fi
 
-    # 6. Restore desktop icon size (all pcmanfm configs)
+    # 6. Restore desktop icon size (in libfm.conf) and grid spacing (in pcmanfm configs)
+    if [ -f "${LIBFM_CONFIG}.touch-backup" ]; then
+        cp "${LIBFM_CONFIG}.touch-backup" "$LIBFM_CONFIG"
+        info "Desktop icon size restored (libfm.conf)"
+    elif [ -f "$LIBFM_CONFIG" ]; then
+        # Restore default big_icon_size=48
+        sed -i "s/^big_icon_size=.*/big_icon_size=48/" "$LIBFM_CONFIG"
+        info "Desktop icon size restored to 48px"
+    fi
+
     if [ -d "$PCMANFM_CONFIG_DIR" ]; then
         for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
             [ -f "$conf" ] || continue
             if [ -f "${conf}.touch-backup" ]; then
                 cp "${conf}.touch-backup" "$conf"
-            else
-                # Remove the big_icon_size line (restore to default)
-                sed -i '/^big_icon_size=/d' "$conf"
             fi
         done
-        info "Desktop icons restored to default"
+        info "Desktop grid spacing restored to default"
     fi
 
     # 7. Restore terminal font size
