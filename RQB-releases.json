@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-08T22:47:58Z",
+  "generated": "2025-12-09T09:48:32Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-touch-2025-12-08-232710",
-      "name": "rasqberry-dev-features05-touch-2025-12-08-232710",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-touch-2025-12-08-232710/rasqberry-dev-features05-touch-2025-12-08-232710.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-touch-2025-12-08-232710",
-      "release_date": "2025-12-08",
-      "image_download_size": 1994446440,
+      "tag": "dev-features05-touch-2025-12-09-102435",
+      "name": "rasqberry-dev-features05-touch-2025-12-09-102435",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-touch-2025-12-09-102435/rasqberry-dev-features05-touch-2025-12-09-102435.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-touch-2025-12-09-102435",
+      "release_date": "2025-12-09",
+      "image_download_size": 1994625436,
       "extract_size": 8866758656,
-      "extract_sha256": "0cb4ee225210f0ecc2ae33b230ad8db45bba36b58907deadf9657bfd5b1b84c8",
+      "extract_sha256": "37e88ff22b3a034a87af1840250961eddabd33460879e86d5f7210487d6b41d5",
       "highlights": [
-        "include full timestamp in dev/AB image names for Pi Imager"
+        "make parameters configurable via environment file (#183)"
       ]
     }
   }
