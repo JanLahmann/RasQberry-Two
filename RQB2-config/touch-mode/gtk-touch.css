@@ -1,0 +1,57 @@
+/* RasQberry Touch Mode - Material Design touch targets (48px minimum) */
+
+/* Buttons: 48px minimum touch target */
+button {
+    min-height: 48px;
+    min-width: 48px;
+}
+
+/* Scrollbars: wider for finger touch */
+scrollbar {
+    min-width: 20px;
+}
+
+scrollbar slider {
+    min-width: 16px;
+    min-height: 48px;
+}
+
+/* Menu items: taller for touch */
+menuitem {
+    min-height: 44px;
+    padding: 8px 16px;
+}
+
+/* Checkboxes and radio buttons: larger */
+check, radio {
+    min-width: 24px;
+    min-height: 24px;
+}
+
+/* Entry fields: taller */
+entry {
+    min-height: 40px;
+}
+
+/* Combo boxes: taller */
+combobox button {
+    min-height: 44px;
+}
+
+/* Spin buttons: larger */
+spinbutton button {
+    min-width: 36px;
+    min-height: 36px;
+}
+
+/* Notebook tabs: larger touch targets */
+notebook tab {
+    min-height: 40px;
+    padding: 8px 16px;
+}
+
+/* Toolbar buttons: larger */
+toolbar button {
+    min-width: 44px;
+    min-height: 44px;
+}

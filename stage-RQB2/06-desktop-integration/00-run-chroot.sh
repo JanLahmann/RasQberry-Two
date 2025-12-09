@@ -98,7 +98,11 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
+
     if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes)\.desktop$ ]]; then
+
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|touch-mode)\.desktop$ ]]; then
+
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -111,7 +115,11 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
+
         if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes)\.desktop$ ]]; then
+
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|touch-mode)\.desktop$ ]]; then
+
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -202,9 +210,14 @@ trusted=true
 x=340
 y=230
 trusted=true
+
 [quantum-paradoxes.desktop]
-x=120
+x=340
 y=340
+trusted=true
+[touch-mode.desktop]
+x=120
+y=450
 trusted=true
 EOF
 
@@ -278,6 +291,32 @@ cat > /etc/xdg/menus/applications-merged/rasqberry.menu << 'EOF'
   </Menu>
 </Menu>
 EOF
+
+# Install touch mode configuration files
+echo "Installing touch mode configuration..."
+mkdir -p /usr/config/touch-mode
+if [ -d "${CLONE_DIR}/RQB2-config/touch-mode" ]; then
+    for touch_file in "${CLONE_DIR}/RQB2-config/touch-mode"/*; do
+        if [ -f "$touch_file" ]; then
+            cp "$touch_file" /usr/config/touch-mode/
+            chmod 644 "/usr/config/touch-mode/$(basename "$touch_file")"
+            echo "Installed touch mode file: $(basename "$touch_file")"
+        fi
+    done
+else
+    echo "WARNING: Touch mode config directory not found"
+fi
+
+# Create state directory for touch mode
+mkdir -p /var/lib/rasqberry
+echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
+chmod 644 /var/lib/rasqberry/touch-mode.conf
+echo "Created touch mode state directory"
+
+# Install on-screen keyboard package for touch mode
+echo "Installing on-screen keyboard (onboard)..."
+apt-get update -qq
+apt-get install -y -qq onboard || echo "Warning: Failed to install onboard package"
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
