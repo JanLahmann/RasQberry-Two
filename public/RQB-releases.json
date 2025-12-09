@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-09T09:48:32Z",
+  "generated": "2025-12-09T09:48:53Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "37e88ff22b3a034a87af1840250961eddabd33460879e86d5f7210487d6b41d5",
       "highlights": [
-        "make parameters configurable via environment file (#183)"
+        "extract highlights from GitHub release body"
       ]
     }
   }
