@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-09T15:31:41Z",
+  "generated": "2025-12-09T15:32:03Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,8 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "18a4398f70f28ca4227341f5682e8fcc118bb771c29373872b67556d487903fd",
       "highlights": [
-        "modify libfm.conf for icon size instead of desktop-items.conf",
-        "restart PCManFM to apply trusted icon settings on first login"
+        "extract highlights from GitHub release body"
       ]
     }
   }

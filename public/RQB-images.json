@@ -24,13 +24,13 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-features05 2025-12-09-114930)",
+          "name": "RasQberry Two Dev (dev-features05)",
           "description": "Development build from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753.img.xz",
           "extract_size": 8866758656,
-          "extract_sha256": "5f30d899d298c5e3485f17add6797d8999c3c0d11087fa976a575229df6215fe",
-          "image_download_size": 1994692932,
+          "extract_sha256": "18a4398f70f28ca4227341f5682e8fcc118bb771c29373872b67556d487903fd",
+          "image_download_size": 1994629528,
           "release_date": "2025-12-09",
           "init_format": "systemd",
           "devices": [
@@ -47,13 +47,13 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-features05 2025-12-09-114930)",
+          "name": "RasQberry Two A/B (dev-features05)",
           "description": "A/B boot image from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "d516941852c285cdf7d5d0aa3306f09591752277bb593b418e2c29695ffb92de",
-          "image_download_size": 2033387868,
+          "extract_sha256": "ef49984b47542c5035e23941b75dcd126145deb259f31d1aaa6ee88394441194",
+          "image_download_size": 2032755028,
           "release_date": "2025-12-09",
           "init_format": "systemd",
           "devices": [
