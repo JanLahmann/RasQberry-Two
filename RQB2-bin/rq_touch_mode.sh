@@ -16,6 +16,28 @@ set -euo pipefail
 STATE_FILE="/var/lib/rasqberry/touch-mode.conf"
 GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
 ONBOARD_AUTOSTART_SRC="/usr/config/touch-mode/onboard-autostart.desktop"
+ENV_FILE="/etc/rasqberry/rasqberry_environment.env"
+
+# Source environment file for configurable touch mode settings
+if [ -f "$ENV_FILE" ]; then
+    # shellcheck source=/dev/null
+    source "$ENV_FILE"
+fi
+
+# Touch mode settings (from env file or defaults)
+TOUCH_PANEL_HEIGHT="${TOUCH_PANEL_HEIGHT:-64}"
+TOUCH_PANEL_ICON_SIZE="${TOUCH_PANEL_ICON_SIZE:-48}"
+TOUCH_DESKTOP_ICON_SIZE="${TOUCH_DESKTOP_ICON_SIZE:-72}"
+TOUCH_DESKTOP_GRID_SPACING="${TOUCH_DESKTOP_GRID_SPACING:-140}"
+TOUCH_TERMINAL_FONT_SIZE="${TOUCH_TERMINAL_FONT_SIZE:-16}"
+TOUCH_DOUBLE_CLICK_MS="${TOUCH_DOUBLE_CLICK_MS:-500}"
+
+# Default (non-touch) settings - fixed values
+DEFAULT_PANEL_HEIGHT=36
+DEFAULT_PANEL_ICON_SIZE=24
+DEFAULT_TERMINAL_FONT_SIZE=10
+DEFAULT_DOUBLE_CLICK_MS=400
+DEFAULT_GRID_SPACING=110
 
 # User-specific paths (resolved at runtime)
 get_user_home() {
@@ -108,11 +130,11 @@ enable_touch_mode() {
         fi
         # Update icon_size in [panel] section (wf-panel-pi uses icon_size not iconsize)
         if grep -q "icon_size=" "$WF_PANEL_CONFIG"; then
-            sed -i 's/icon_size=.*/icon_size=64/' "$WF_PANEL_CONFIG"
+            sed -i "s/icon_size=.*/icon_size=$TOUCH_PANEL_ICON_SIZE/" "$WF_PANEL_CONFIG"
         else
-            sed -i '/^\[panel\]/a icon_size=64' "$WF_PANEL_CONFIG"
+            sed -i "/^\[panel\]/a icon_size=$TOUCH_PANEL_ICON_SIZE" "$WF_PANEL_CONFIG"
         fi
-        info "Wayfire panel updated (icon_size=64)"
+        info "Wayfire panel updated (icon_size=$TOUCH_PANEL_ICON_SIZE)"
     else
         # X11: lxpanel
         PANEL_CONFIG=$(get_panel_config)
@@ -126,9 +148,9 @@ enable_touch_mode() {
             if [ ! -f "${PANEL_CONFIG}.touch-backup" ]; then
                 cp "$PANEL_CONFIG" "${PANEL_CONFIG}.touch-backup"
             fi
-            sed -i 's/height=.*/height=64/' "$PANEL_CONFIG"
-            sed -i 's/iconsize=.*/iconsize=48/' "$PANEL_CONFIG"
-            info "LXDE panel updated (height=64, iconsize=48)"
+            sed -i "s/height=.*/height=$TOUCH_PANEL_HEIGHT/" "$PANEL_CONFIG"
+            sed -i "s/iconsize=.*/iconsize=$TOUCH_PANEL_ICON_SIZE/" "$PANEL_CONFIG"
+            info "LXDE panel updated (height=$TOUCH_PANEL_HEIGHT, iconsize=$TOUCH_PANEL_ICON_SIZE)"
         else
             info "Panel config not found (will apply on next desktop login)"
         fi
@@ -141,12 +163,20 @@ enable_touch_mode() {
 
     # 5. Adjust double-click timing (if xfconf available)
     if command -v xfconf-query >/dev/null 2>&1; then
-        xfconf-query -c xsettings -p /Net/DoubleClickTime -s 500 2>/dev/null || true
-        info "Double-click time set to 500ms"
+        xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$TOUCH_DOUBLE_CLICK_MS" 2>/dev/null || true
+        info "Double-click time set to ${TOUCH_DOUBLE_CLICK_MS}ms"
     fi
 
     # 6. Increase desktop icon size and adjust grid spacing (all pcmanfm desktop configs)
     if [ -d "$PCMANFM_CONFIG_DIR" ]; then
+        # Calculate scaled grid positions based on TOUCH_DESKTOP_GRID_SPACING
+        # Default grid is 110px, touch grid from env (default 140px)
+        # Formula: new_pos = 10 + ((old_pos - 10) * TOUCH_GRID / DEFAULT_GRID)
+        local g1=$(( 10 + ((120 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
+        local g2=$(( 10 + ((230 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
+        local g3=$(( 10 + ((340 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
+        local g4=$(( 10 + ((450 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
+
         for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
             [ -f "$conf" ] || continue
             # Backup original if not already backed up
@@ -155,22 +185,21 @@ enable_touch_mode() {
             fi
             # Add or update big_icon_size setting in [*] section
             if grep -q "big_icon_size=" "$conf"; then
-                sed -i 's/big_icon_size=.*/big_icon_size=72/' "$conf"
+                sed -i "s/big_icon_size=.*/big_icon_size=$TOUCH_DESKTOP_ICON_SIZE/" "$conf"
             else
-                sed -i '/^\[\*\]$/a big_icon_size=72' "$conf"
+                sed -i "/^\[\*\]\$/a big_icon_size=$TOUCH_DESKTOP_ICON_SIZE" "$conf"
             fi
-            # Scale grid spacing from 110px to 140px (for larger icons)
-            # Map: 10→10, 120→150, 230→290, 340→430, 450→570
-            sed -i 's/^x=120$/x=150/' "$conf"
-            sed -i 's/^x=230$/x=290/' "$conf"
-            sed -i 's/^x=340$/x=430/' "$conf"
-            sed -i 's/^x=450$/x=570/' "$conf"
-            sed -i 's/^y=120$/y=150/' "$conf"
-            sed -i 's/^y=230$/y=290/' "$conf"
-            sed -i 's/^y=340$/y=430/' "$conf"
-            sed -i 's/^y=450$/y=570/' "$conf"
+            # Scale grid spacing based on configured touch grid spacing
+            sed -i "s/^x=120\$/x=$g1/" "$conf"
+            sed -i "s/^x=230\$/x=$g2/" "$conf"
+            sed -i "s/^x=340\$/x=$g3/" "$conf"
+            sed -i "s/^x=450\$/x=$g4/" "$conf"
+            sed -i "s/^y=120\$/y=$g1/" "$conf"
+            sed -i "s/^y=230\$/y=$g2/" "$conf"
+            sed -i "s/^y=340\$/y=$g3/" "$conf"
+            sed -i "s/^y=450\$/y=$g4/" "$conf"
         done
-        info "Desktop icons enlarged (72px) with wider grid spacing"
+        info "Desktop icons enlarged (${TOUCH_DESKTOP_ICON_SIZE}px) with ${TOUCH_DESKTOP_GRID_SPACING}px grid spacing"
     fi
 
     # 7. Increase terminal font size
@@ -178,9 +207,9 @@ enable_touch_mode() {
         if [ ! -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
             cp "$LXTERMINAL_CONFIG" "${LXTERMINAL_CONFIG}.touch-backup"
         fi
-        # Change font size from default (10) to larger (16)
-        sed -i 's/fontname=Monospace [0-9]*/fontname=Monospace 16/' "$LXTERMINAL_CONFIG"
-        info "Terminal font size increased (16pt)"
+        # Change font size from default to configured touch size
+        sed -i "s/fontname=Monospace [0-9]*/fontname=Monospace $TOUCH_TERMINAL_FONT_SIZE/" "$LXTERMINAL_CONFIG"
+        info "Terminal font size increased (${TOUCH_TERMINAL_FONT_SIZE}pt)"
     fi
 
     # 8. Update state file
@@ -205,11 +234,11 @@ EOF
     echo "Settings applied:"
     echo "  - On-screen keyboard: autostart enabled"
     echo "  - GTK buttons/scrollbars: enlarged (48px min)"
-    echo "  - Panel icons: 64px"
-    echo "  - Desktop icons: 72px"
-    echo "  - Terminal font: 16pt"
+    echo "  - Panel: height=${TOUCH_PANEL_HEIGHT}px, icons=${TOUCH_PANEL_ICON_SIZE}px"
+    echo "  - Desktop icons: ${TOUCH_DESKTOP_ICON_SIZE}px (grid: ${TOUCH_DESKTOP_GRID_SPACING}px)"
+    echo "  - Terminal font: ${TOUCH_TERMINAL_FONT_SIZE}pt"
     echo "  - Chromium: touch events enabled"
-    echo "  - Double-click time: 500ms"
+    echo "  - Double-click time: ${TOUCH_DOUBLE_CLICK_MS}ms"
     echo ""
     warn "Restart desktop session (logout/login) for all changes to take effect"
 }
@@ -248,9 +277,8 @@ DESKTOP_EOF
             cp "${WF_PANEL_CONFIG}.touch-backup" "$WF_PANEL_CONFIG"
             info "Wayfire panel restored from backup"
         elif [ -f "$WF_PANEL_CONFIG" ]; then
-            # Restore to default icon_size (typically 24 or 32)
-            sed -i 's/icon_size=.*/icon_size=24/' "$WF_PANEL_CONFIG"
-            info "Wayfire panel restored (icon_size=24)"
+            sed -i "s/icon_size=.*/icon_size=$DEFAULT_PANEL_ICON_SIZE/" "$WF_PANEL_CONFIG"
+            info "Wayfire panel restored (icon_size=$DEFAULT_PANEL_ICON_SIZE)"
         fi
     else
         # X11: lxpanel
@@ -260,9 +288,9 @@ DESKTOP_EOF
                 cp "${USER_PANEL_CONFIG}.touch-backup" "$USER_PANEL_CONFIG"
                 info "LXDE panel restored from backup"
             elif [ -f "$USER_PANEL_CONFIG" ]; then
-                sed -i 's/height=.*/height=36/' "$USER_PANEL_CONFIG"
-                sed -i 's/iconsize=.*/iconsize=24/' "$USER_PANEL_CONFIG"
-                info "LXDE panel restored (height=36, iconsize=24)"
+                sed -i "s/height=.*/height=$DEFAULT_PANEL_HEIGHT/" "$USER_PANEL_CONFIG"
+                sed -i "s/iconsize=.*/iconsize=$DEFAULT_PANEL_ICON_SIZE/" "$USER_PANEL_CONFIG"
+                info "LXDE panel restored (height=$DEFAULT_PANEL_HEIGHT, iconsize=$DEFAULT_PANEL_ICON_SIZE)"
             fi
         fi
     fi
@@ -273,8 +301,8 @@ DESKTOP_EOF
 
     # 5. Restore double-click timing
     if command -v xfconf-query >/dev/null 2>&1; then
-        xfconf-query -c xsettings -p /Net/DoubleClickTime -s 400 2>/dev/null || true
-        info "Double-click time restored to 400ms"
+        xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$DEFAULT_DOUBLE_CLICK_MS" 2>/dev/null || true
+        info "Double-click time restored to ${DEFAULT_DOUBLE_CLICK_MS}ms"
     fi
 
     # 6. Restore desktop icon size (all pcmanfm configs)
@@ -296,9 +324,8 @@ DESKTOP_EOF
         cp "${LXTERMINAL_CONFIG}.touch-backup" "$LXTERMINAL_CONFIG"
         info "Terminal font size restored"
     elif [ -f "$LXTERMINAL_CONFIG" ]; then
-        # Restore to default (Monospace 10)
-        sed -i 's/fontname=Monospace [0-9]*/fontname=Monospace 10/' "$LXTERMINAL_CONFIG"
-        info "Terminal font size restored (10pt)"
+        sed -i "s/fontname=Monospace [0-9]*/fontname=Monospace $DEFAULT_TERMINAL_FONT_SIZE/" "$LXTERMINAL_CONFIG"
+        info "Terminal font size restored (${DEFAULT_TERMINAL_FONT_SIZE}pt)"
     fi
 
     # 8. Update state file
@@ -314,11 +341,11 @@ EOF
     echo "Settings restored to defaults:"
     echo "  - On-screen keyboard: autostart disabled"
     echo "  - GTK buttons/scrollbars: system default"
-    echo "  - Panel icons: default size"
+    echo "  - Panel: height=${DEFAULT_PANEL_HEIGHT}px, icons=${DEFAULT_PANEL_ICON_SIZE}px"
     echo "  - Desktop icons: default size"
-    echo "  - Terminal font: 10pt"
+    echo "  - Terminal font: ${DEFAULT_TERMINAL_FONT_SIZE}pt"
     echo "  - Chromium: touch events default"
-    echo "  - Double-click time: 400ms"
+    echo "  - Double-click time: ${DEFAULT_DOUBLE_CLICK_MS}ms"
     echo ""
     warn "Restart desktop session (logout/login) for all changes to take effect"
 }
@@ -421,10 +448,15 @@ show_usage() {
     echo "Touch mode adjusts the following settings:"
     echo "  - On-screen keyboard (onboard/squeekboard) autostart"
     echo "  - GTK3 button and scrollbar sizes"
-    echo "  - LXDE panel height and icon size"
-    echo "  - Desktop icon size"
+    echo "  - Panel height and icon size"
+    echo "  - Desktop icon size and grid spacing"
+    echo "  - Terminal font size"
     echo "  - Chromium touch event handling"
     echo "  - Double-click timing"
+    echo ""
+    echo "Settings are configurable via /etc/rasqberry/rasqberry_environment.env:"
+    echo "  TOUCH_PANEL_HEIGHT, TOUCH_PANEL_ICON_SIZE, TOUCH_DESKTOP_ICON_SIZE,"
+    echo "  TOUCH_DESKTOP_GRID_SPACING, TOUCH_TERMINAL_FONT_SIZE, TOUCH_DOUBLE_CLICK_MS"
 }
 
 # Main
