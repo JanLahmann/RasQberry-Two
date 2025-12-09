@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-09T11:13:51Z",
+  "generated": "2025-12-09T11:14:12Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,17 +19,10 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-09-114930",
-      "name": "rasqberry-dev-features05-2025-12-09-114930",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-114930/rasqberry-dev-features05-2025-12-09-114930.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-09-114930",
-      "release_date": "2025-12-09",
-      "image_download_size": 1994692932,
-      "extract_size": 8866758656,
-      "extract_sha256": "5f30d899d298c5e3485f17add6797d8999c3c0d11087fa976a575229df6215fe",
-      "highlights": [
-        "resolve bash syntax error in desktop-integration script"
-      ]
+      "tag": null,
+      "name": null,
+      "message": "No development release available.",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     }
   }
 }
