@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-10T09:39:47Z",
+  "generated": "2025-12-10T14:15:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,17 +19,14 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-09-160753",
-      "name": "rasqberry-dev-features05-2025-12-09-160753",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-09-160753",
-      "release_date": "2025-12-09",
-      "image_download_size": 1994629528,
+      "tag": "dev-features05-SAP-2025-12-10-145500",
+      "name": "rasqberry-dev-features05-SAP-2025-12-10-145500",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-SAP-2025-12-10-145500/rasqberry-dev-features05-SAP-2025-12-10-145500.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-SAP-2025-12-10-145500",
+      "release_date": "2025-12-10",
+      "image_download_size": 1995922848,
       "extract_size": 8866758656,
-      "extract_sha256": "18a4398f70f28ca4227341f5682e8fcc118bb771c29373872b67556d487903fd",
-      "highlights": [
-        "extract highlights from GitHub release body"
-      ]
+      "extract_sha256": "72ea7292b29576e7c6a6275e0c68f21d1f0effee949fdb595dd6bba97fbfc0e3"
     }
   }
 }
