@@ -24,7 +24,7 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-features05-SAP)",
+          "name": "RasQberry Two Dev (dev-features05-SAP 2025-12-10-145500)",
           "description": "Development build from dev-features05-SAP",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-SAP-2025-12-10-145500/rasqberry-dev-features05-SAP-2025-12-10-145500.img.xz",
@@ -40,7 +40,7 @@
           "website": "https://rasqberry.org"
         },
         {
-          "name": "RasQberry Two Dev (dev-features05)",
+          "name": "RasQberry Two Dev (dev-features05 2025-12-09-160753)",
           "description": "Development build from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753.img.xz",
@@ -63,7 +63,7 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-features05-SAP)",
+          "name": "RasQberry Two A/B (dev-features05-SAP 2025-12-10-145500)",
           "description": "A/B boot image from dev-features05-SAP",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-SAP-2025-12-10-145500/rasqberry-dev-features05-SAP-2025-12-10-145500-ab.img.xz",
@@ -79,7 +79,7 @@
           "website": "https://rasqberry.org"
         },
         {
-          "name": "RasQberry Two A/B (dev-features05)",
+          "name": "RasQberry Two A/B (dev-features05 2025-12-09-160753)",
           "description": "A/B boot image from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-09-160753/rasqberry-dev-features05-2025-12-09-160753-ab.img.xz",
