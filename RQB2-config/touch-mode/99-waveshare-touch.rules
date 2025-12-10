@@ -1,0 +1,11 @@
+# Waveshare touchscreen calibration rules for RasQberry
+# These rules apply libinput calibration matrices for rotated displays
+
+# Waveshare 079 (7.9" 400x1280) - 90 degree rotation
+ACTION=="add|change", KERNEL=="event*", ATTRS{idVendor}=="0712", ATTRS{idProduct}=="000a", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+
+# Waveshare 7inch HDMI LCD (C) - common model
+ACTION=="add|change", KERNEL=="event*", ATTRS{idVendor}=="0eef", ATTRS{idProduct}=="0005", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+
+# Generic Waveshare USB touch (fallback)
+ACTION=="add|change", KERNEL=="event*", ATTRS{idVendor}=="0712", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"

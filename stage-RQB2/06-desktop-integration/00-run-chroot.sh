@@ -305,6 +305,16 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
+# Install Waveshare display udev rules for touch calibration
+echo "Installing Waveshare touch calibration udev rules..."
+if [ -f "/usr/config/touch-mode/99-waveshare-touch.rules" ]; then
+    cp /usr/config/touch-mode/99-waveshare-touch.rules /etc/udev/rules.d/
+    chmod 644 /etc/udev/rules.d/99-waveshare-touch.rules
+    echo "Installed Waveshare udev rules"
+else
+    echo "Warning: Waveshare udev rules not found"
+fi
+
 # Install on-screen keyboard package for touch mode
 echo "Installing on-screen keyboard (onboard)..."
 apt-get update -qq
@@ -448,8 +458,40 @@ NoDisplay=true
 X-GNOME-Autostart-enabled=true
 EOF
 
+    # Install Waveshare display auto-setup autostart
+    if [ -f "/usr/config/touch-mode/waveshare-autostart.desktop" ]; then
+        cp /usr/config/touch-mode/waveshare-autostart.desktop "$AUTOSTART_DIR/"
+        chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR/waveshare-autostart.desktop"
+        echo "Installed Waveshare display autostart"
+    fi
+
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
     echo "Created first-login desktop configuration script"
+
+    # Setup kanshi config directory with Waveshare profile
+    KANSHI_DIR="/home/${FIRST_USER_NAME}/.config/kanshi"
+    mkdir -p "$KANSHI_DIR"
+    if [ -f "/usr/config/touch-mode/kanshi-waveshare.conf" ]; then
+        cp /usr/config/touch-mode/kanshi-waveshare.conf "$KANSHI_DIR/config"
+        chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$KANSHI_DIR"
+        echo "Installed Waveshare kanshi config"
+    fi
+fi
+
+# Install Waveshare autostart to /etc/skel for new users
+SKEL_AUTOSTART_DIR="/etc/skel/.config/autostart"
+mkdir -p "$SKEL_AUTOSTART_DIR"
+if [ -f "/usr/config/touch-mode/waveshare-autostart.desktop" ]; then
+    cp /usr/config/touch-mode/waveshare-autostart.desktop "$SKEL_AUTOSTART_DIR/"
+    echo "Installed Waveshare autostart to /etc/skel"
+fi
+
+# Install kanshi config to /etc/skel for new users
+SKEL_KANSHI_DIR="/etc/skel/.config/kanshi"
+mkdir -p "$SKEL_KANSHI_DIR"
+if [ -f "/usr/config/touch-mode/kanshi-waveshare.conf" ]; then
+    cp /usr/config/touch-mode/kanshi-waveshare.conf "$SKEL_KANSHI_DIR/config"
+    echo "Installed kanshi config to /etc/skel"
 fi
 
 # Clean up cloned repository to save space

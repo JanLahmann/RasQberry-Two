@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Waveshare Display Setup
+Comment=Auto-configure Waveshare display rotation and touch
+Exec=/usr/bin/rq_waveshare_setup.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
