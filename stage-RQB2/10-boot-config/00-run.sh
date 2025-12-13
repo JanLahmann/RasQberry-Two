@@ -13,6 +13,10 @@ echo "=== Installing RasQberry boot configuration file ==="
 install -v -m 644 "${STAGE_DIR}/files/rasqberry_boot.env" \
   "${ROOTFS_DIR}/boot/firmware/rasqberry_boot.env"
 
+# Copy browser bookmarks template to boot partition
+install -v -m 644 "${STAGE_DIR}/files/rasqberry_bookmarks.txt" \
+  "${ROOTFS_DIR}/boot/firmware/rasqberry_bookmarks.txt"
+
 # Install systemd service file
 # This runs outside chroot where we have access to the stage files/ directory
 echo "=> Installing systemd service"

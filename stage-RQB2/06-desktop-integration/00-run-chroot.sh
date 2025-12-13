@@ -452,6 +452,42 @@ EOF
     echo "Created first-login desktop configuration script"
 fi
 
+# Install browser bookmarks import script
+echo "Installing browser bookmarks import script..."
+if [ -f "${CLONE_DIR}/RQB2-bin/rasqberry-import-bookmarks.sh" ]; then
+    cp "${CLONE_DIR}/RQB2-bin/rasqberry-import-bookmarks.sh" /usr/local/bin/
+    chmod 755 /usr/local/bin/rasqberry-import-bookmarks.sh
+    echo "Installed: rasqberry-import-bookmarks.sh"
+
+    # Create autostart entry for bookmark import (runs on each login until complete)
+    if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
+        AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
+        mkdir -p "$AUTOSTART_DIR"
+
+        cat > "$AUTOSTART_DIR/rasqberry-import-bookmarks.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=RasQberry Browser Bookmarks Import
+Comment=Import browser bookmarks from bootfs on first login
+Exec=/usr/local/bin/rasqberry-import-bookmarks.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+
+        chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
+        echo "Created bookmark import autostart entry"
+
+        # Also add to /etc/skel for new users
+        SKEL_AUTOSTART="/etc/skel/.config/autostart"
+        mkdir -p "$SKEL_AUTOSTART"
+        cp "$AUTOSTART_DIR/rasqberry-import-bookmarks.desktop" "$SKEL_AUTOSTART/"
+        echo "Added bookmark import autostart to /etc/skel"
+    fi
+else
+    echo "WARNING: rasqberry-import-bookmarks.sh not found in repository"
+fi
+
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then
     echo "Cleaning up cloned repository..."

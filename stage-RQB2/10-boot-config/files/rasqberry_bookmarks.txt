@@ -1,0 +1,30 @@
+# ============================================================================
+# RasQberry Browser Bookmarks
+# ============================================================================
+# This file allows you to pre-configure Chromium browser bookmarks.
+#
+# HOW TO USE:
+# 1. Edit this file to add your bookmarks (see format below)
+# 2. Save changes
+# 3. Bookmarks will be imported on first desktop login
+#
+# FORMAT:
+#   Name | URL
+#
+# Lines starting with # are comments and will be ignored.
+# Empty lines are also ignored.
+#
+# ============================================================================
+
+# Quantum Computing Resources
+IBM Quantum | https://quantum.ibm.com
+Qiskit Documentation | https://docs.quantum.ibm.com
+Qiskit Textbook | https://learning.quantum.ibm.com
+
+# RasQberry Resources
+RasQberry GitHub | https://github.com/JanLahmann/RasQberry-Two
+
+# ============================================================================
+# Add your custom bookmarks below this line
+# ============================================================================
+
