@@ -148,9 +148,24 @@ Example:
 
 | File | Description |
 |------|-------------|
-| `decompile-apk.sh` | Automated decompilation script |
-| `analyze_ble_protocol.py` | Python BLE protocol analyzer |
+| `decompile-apk.sh` | Automated decompilation script (Linux) |
+| `analyze_ble_protocol.py` | Python BLE protocol analyzer (for decompiled source) |
+| `download_and_analyze.py` | **NEW**: All-in-one download + analyze script |
+| `BARSYS_PROTOCOL_FINDINGS.md` | Comprehensive protocol research findings |
 | `README.md` | This file |
+
+## Quickest Method (Python only)
+
+```bash
+# Just run this - it handles everything
+python3 download_and_analyze.py
+```
+
+This script will:
+1. Attempt to download the APK
+2. Extract and analyze the contents
+3. Search for BLE UUIDs and commands
+4. Generate a detailed report
 
 ## Alternative: Live BLE Sniffing
 
