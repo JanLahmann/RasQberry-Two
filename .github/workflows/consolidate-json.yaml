@@ -72,21 +72,25 @@ jobs:
           fetch_branch_json "main" || true
           fetch_branch_json "beta" || true
 
-          # Fetch from dev branches - find the most recent active dev branch
-          # First, try to get a list of dev branches
+          # Fetch from main dev-features branches only (dev-featuresXX pattern)
+          # Excludes sub-branches like dev-features03-norelease, dev-features03-SAP, etc.
           echo ""
-          echo "Looking for dev branches..."
+          echo "Looking for dev-features branches..."
 
-          # Get list of remote branches starting with 'dev'
-          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev*' | sed 's|.*refs/heads/||' | head -5)
+          # Get list of dev-features branches matching pattern dev-featuresXX (exactly 2 digits, no suffix)
+          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev-features*' \
+            | sed 's|.*refs/heads/||' \
+            | grep -E '^dev-features[0-9]{2}$' \
+            | sort -V -r \
+            | head -5)
 
           if [ -n "$DEV_BRANCHES" ]; then
-            echo "Found dev branches: $DEV_BRANCHES"
+            echo "Found dev-features branches: $DEV_BRANCHES"
             for branch in $DEV_BRANCHES; do
-              fetch_branch_json "$branch" && break  # Use first successful one
+              fetch_branch_json "$branch" && break  # Use first successful one (highest version)
             done
           else
-            echo "  ⚠ No dev branches found"
+            echo "  ⚠ No dev-features branches found"
           fi
 
           echo ""
