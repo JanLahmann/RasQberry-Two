@@ -40,7 +40,16 @@ export default function RootLayout({
                 a.src = d;
                 m.parentNode.insertBefore(a, m)
               })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
-              sender('a1da5edc354454')
+              sender('a1da5edc354454');
+
+              // Re-render form when details element opens (fixes Safari sizing issue)
+              document.addEventListener('toggle', function(e) {
+                if (e.target.tagName === 'DETAILS' && e.target.open) {
+                  if (typeof senderForms !== 'undefined') {
+                    setTimeout(function() { senderForms.render(); }, 100);
+                  }
+                }
+              }, true);
             `,
           }}
         />
