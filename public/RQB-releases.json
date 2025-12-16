@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-16T17:54:35Z",
+  "generated": "2025-12-16T17:54:51Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "86f08f986be228f6190635c6221c58fff719ee340fff4cc109cee022a6679a64",
       "highlights": [
-        "filter dev branches to only dev-featuresXX pattern"
+        "extract highlights from GitHub release body"
       ]
     }
   }
