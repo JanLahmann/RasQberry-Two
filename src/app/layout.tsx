@@ -25,19 +25,6 @@ export default function RootLayout({
         {children}
         <Footer />
         <Script
-          id="sender-net-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.addEventListener("onSenderFormsLoaded", function() {
-                if (typeof senderForms !== 'undefined') {
-                  senderForms.render();
-                }
-              });
-            `,
-          }}
-        />
-        <Script
           id="sender-net"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
@@ -52,7 +39,7 @@ export default function RootLayout({
                 a.async = 1;
                 a.src = d;
                 m.parentNode.insertBefore(a, m)
-              })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js?explicit=true', 'sender');
+              })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
               sender('a1da5edc354454')
             `,
           }}

@@ -129,8 +129,9 @@ code {
 
   // Override Sender.net form styles to match Carbon theme
   .sender-form-field {
-    max-width: 400px;
+    max-width: 600px;
     width: 100%;
+    min-width: 300px;
 
     // Style form inputs
     input[type="email"],
