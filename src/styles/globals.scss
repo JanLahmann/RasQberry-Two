@@ -120,14 +120,17 @@ code {
 // Newsletter subscription section
 .newsletter-section {
   margin: 2rem 0;
-  padding: 2rem;
+  padding: 1.5rem;
   background: linear-gradient(135deg, themes.$layer-01 0%, themes.$layer-02 100%);
   border-radius: 8px;
   border-left: 4px solid $text-gradient-blue;
+  display: flex;
+  justify-content: center;
 
   // Override Sender.net form styles to match Carbon theme
   .sender-form-field {
-    max-width: 500px;
+    max-width: 400px;
+    width: 100%;
 
     // Style form inputs
     input[type="email"],
