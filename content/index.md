@@ -150,8 +150,11 @@ Whether you're a quantum computing enthusiast, educator, developer, or student, 
 
 ## Stay Updated
 
-Subscribe for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
+<details>
+<summary>Subscribe for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.</summary>
 
 <div className="newsletter-section">
   <div className="sender-form-field" data-sender-form-id="aKrR6x"></div>
 </div>
+
+</details>
