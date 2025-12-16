@@ -152,7 +152,7 @@ Whether you're a quantum computing enthusiast, educator, developer, or student, 
 
 Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
 
-You can also subscribe to our newsletter for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
+You can also subscribe to our **newsletter** for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
 
 <details>
 <summary>Click here to open the subscription form</summary>
