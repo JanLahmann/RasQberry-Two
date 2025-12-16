@@ -147,3 +147,11 @@ RasQberry is an open-source educational project, and we welcome contributions fr
 Whether you're a quantum computing enthusiast, educator, developer, or student, there's a way for you to contribute and help make quantum computing more accessible.
 
 **Get Started:** Visit our [Contributing Guide](05-contributing/) to learn how you can be part of the RasQberry community!
+
+## Stay Updated
+
+Subscribe to the RasQberry newsletter for updates on new releases, quantum computing demos, and community news.
+
+<div className="newsletter-section">
+  <div className="sender-form-field" data-sender-form-id="aKrR6x"></div>
+</div>

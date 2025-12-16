@@ -116,3 +116,72 @@ code {
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
+
+// Newsletter subscription section
+.newsletter-section {
+  margin: 2rem 0;
+  padding: 2rem;
+  background: linear-gradient(135deg, themes.$layer-01 0%, themes.$layer-02 100%);
+  border-radius: 8px;
+  border-left: 4px solid $text-gradient-blue;
+
+  // Override Sender.net form styles to match Carbon theme
+  .sender-form-field {
+    max-width: 500px;
+
+    // Style form inputs
+    input[type="email"],
+    input[type="text"] {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      font-size: 1rem;
+      font-family: inherit;
+      background-color: themes.$field-01;
+      border: none;
+      border-bottom: 1px solid themes.$border-strong-01;
+      color: themes.$text-primary;
+      outline: none;
+      transition: border-color 0.15s ease;
+
+      &:focus {
+        border-bottom-color: $text-gradient-blue;
+      }
+
+      &::placeholder {
+        color: themes.$text-placeholder;
+      }
+    }
+
+    // Style submit button
+    button,
+    input[type="submit"] {
+      margin-top: 1rem;
+      padding: 0.875rem 2rem;
+      font-size: 1rem;
+      font-family: inherit;
+      font-weight: 500;
+      background: linear-gradient(45deg, $text-gradient-blue, $text-gradient-purple);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+
+      &:hover {
+        opacity: 0.9;
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    // Style labels
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      color: themes.$text-secondary;
+    }
+  }
+}
