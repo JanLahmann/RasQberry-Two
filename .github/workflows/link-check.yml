@@ -1,25 +1,16 @@
-# Workflow to check for broken links in documentation
+# Workflow to check for broken external links in markdown source files
 # See: https://github.com/JanLahmann/RasQberry-Two/issues/191
 #
-name: Check Links
+# Note: Internal links are checked by the post-deployment job in nextjs.yml
+# This workflow focuses on external links and runs on schedule to catch
+# external sites that go down over time.
+#
+name: Check External Links
 
 on:
   # Run weekly on Sunday at midnight UTC
   schedule:
     - cron: '0 0 * * 0'
-
-  # Run on pushes to main branches when content changes
-  push:
-    branches: [main, gh-pages]
-    paths:
-      - 'content/**'
-      - '*.md'
-
-  # Run on PRs that modify content
-  pull_request:
-    paths:
-      - 'content/**'
-      - '*.md'
 
   # Allow manual triggering
   workflow_dispatch:
@@ -35,25 +26,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Link Checker
+      - name: Check External Links
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          # Check markdown files in content and root
+          # Check only external links (skip relative/internal links)
           args: >-
-            --base https://rasqberry.org
             --verbose
             --no-progress
             --accept 200,204,301,302,403,429
             --exclude 'localhost'
             --exclude '127\.0\.0\.1'
             --exclude 'example\.com'
+            --exclude '^\.\.?/'
+            --exclude '^[a-zA-Z0-9_-]+$'
+            --exclude '^[a-zA-Z0-9_/-]+$'
             --timeout 30
             --max-retries 3
             --retry-wait-time 5
             './content/**/*.md'
             './*.md'
-          # Don't fail the build on broken links
           fail: false
           format: markdown
           output: ./lychee-report.md
@@ -62,7 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: link-check-report
+          name: external-link-check-report
           path: ./lychee-report.md
           retention-days: 30
 
@@ -70,7 +62,7 @@ jobs:
         if: steps.lychee.outputs.exit_code != 0
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "Broken links detected in documentation"
+          title: "Broken links detected on rasqberry.org"
           content-filepath: ./lychee-report.md
           labels: |
             documentation
