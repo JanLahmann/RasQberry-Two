@@ -460,6 +460,66 @@ if [ -d "${CLONE_DIR}" ]; then
     rm -rf "${CLONE_DIR}"
 fi
 
+# =============================================================================
+# Chromium Configuration for RasQberry Homepage (Issue #189)
+# =============================================================================
+echo "Configuring Chromium browser settings..."
+
+# Create Chromium managed policy for homepage and settings
+mkdir -p /etc/chromium/policies/managed
+cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
+{
+  "HomepageLocation": "https://rasqberry.org",
+  "HomepageIsNewTabPage": false,
+  "NewTabPageLocation": "https://rasqberry.org",
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["https://rasqberry.org"],
+  "PasswordManagerEnabled": false,
+  "ShowHomeButton": true
+}
+EOF
+chmod 644 /etc/chromium/policies/managed/rasqberry.json
+echo "Created Chromium policy for RasQberry homepage"
+
+# Modify Chromium desktop launcher to bypass GNOME Keyring
+# This prevents the "Enter password to unlock keyring" dialog
+CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
+if [ -f "$CHROMIUM_DESKTOP" ]; then
+    # Add --password-store=basic and --disable-features=Keyring to Exec line
+    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring |' "$CHROMIUM_DESKTOP"
+    echo "Modified Chromium desktop launcher with keyring bypass flags"
+fi
+
+# =============================================================================
+# Disable GNOME Keyring secrets component to prevent password dialogs
+# =============================================================================
+echo "Disabling GNOME Keyring secrets component..."
+
+# Disable XDG autostart for gnome-keyring-secrets
+if [ -f "/etc/xdg/autostart/gnome-keyring-secrets.desktop" ]; then
+    mv /etc/xdg/autostart/gnome-keyring-secrets.desktop /etc/xdg/autostart/gnome-keyring-secrets.desktop.disabled
+    echo "Disabled gnome-keyring-secrets autostart"
+fi
+
+# Disable D-Bus activation for gnome-keyring (these auto-start keyring when apps request secrets)
+for dbus_service in \
+    "/usr/share/dbus-1/services/org.freedesktop.secrets.service" \
+    "/usr/share/dbus-1/services/org.gnome.keyring.service" \
+    "/usr/share/dbus-1/services/org.freedesktop.impl.portal.Secret.service"; do
+    if [ -f "$dbus_service" ]; then
+        mv "$dbus_service" "${dbus_service}.disabled"
+        echo "Disabled D-Bus service: $(basename "$dbus_service")"
+    fi
+done
+
+# Mask gnome-keyring systemd user service (for all users via skel)
+mkdir -p /etc/skel/.config/systemd/user
+ln -sf /dev/null /etc/skel/.config/systemd/user/gnome-keyring-daemon.socket
+ln -sf /dev/null /etc/skel/.config/systemd/user/gnome-keyring-daemon.service
+echo "Masked gnome-keyring systemd services in /etc/skel"
+
+echo "Chromium and keyring configuration completed"
+
 # Clean up any PCManFM 'default' profile configs that might have been created during build
 # These can override the correct LXDE-pi profile configs and cause wallpaper/icon issues
 # (PCManFM on Wayland creates output-specific configs like desktop-items-HDMI-A-2.conf)
