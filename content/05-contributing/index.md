@@ -69,7 +69,7 @@ Inspire others by sharing:
 ### For Demo Developers
 
 **Quick Start:**
-1. Review the [full contribution guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md)
+1. Review the [full contribution guide](https://rasqberry.org/05-contributing/)
 2. Use our template to create your demo launcher
 3. Test on RasQberry hardware
 4. Submit a pull request
@@ -163,7 +163,7 @@ Create a GitHub repository with:
 - Create pull request
 - Respond to feedback
 
-**For detailed step-by-step instructions, see our [comprehensive contribution guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md).**
+**For detailed step-by-step instructions, see our [comprehensive contribution guide](https://rasqberry.org/05-contributing/).**
 
 ## Examples of Great Contributions
 
@@ -191,7 +191,7 @@ These demos show how quantum concepts can be made tangible and fun!
 ### Documentation
 
 **Getting Started:**
-- [Full Contribution Guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md) - Detailed step-by-step instructions
+- [Full Contribution Guide](https://rasqberry.org/05-contributing/) - Detailed step-by-step instructions
 - [Project README](https://github.com/JanLahmann/RasQberry-Two) - Project overview
 - [Demo Documentation](../03-quantum-computing-demos/00-overview) - Existing demos
 
@@ -234,7 +234,7 @@ We value all contributions! Contributors are recognized through:
 ### Questions?
 
 **Before asking:**
-- Check the [contribution guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md)
+- Check the [contribution guide](https://rasqberry.org/05-contributing/)
 - Review [existing issues](https://github.com/JanLahmann/RasQberry-Two/issues)
 - Look at [demo examples](../03-quantum-computing-demos/00-overview)
 
@@ -255,7 +255,7 @@ We value all contributions! Contributors are recognized through:
 
 | Resource | Link |
 |----------|------|
-| **Contribution Guide** | [CONTRIBUTING.md](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md) |
+| **Contribution Guide** | [CONTRIBUTING.md](https://rasqberry.org/05-contributing/) |
 | **GitHub Repository** | [RasQberry-Two](https://github.com/JanLahmann/RasQberry-Two) |
 | **Report Issues** | [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues) |
 | **Existing Demos** | [Demo List](../03-quantum-computing-demos/01-demo-list) |
@@ -265,7 +265,7 @@ We value all contributions! Contributors are recognized through:
 
 Ready to contribute? Here's what to do next:
 
-1. **Read** the [full contribution guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md)
+1. **Read** the [full contribution guide](https://rasqberry.org/05-contributing/)
 2. **Explore** existing [quantum demos](../03-quantum-computing-demos/00-overview) for inspiration
 3. **Start** with something small (docs, bug fix, or simple demo)
 4. **Share** your work via pull request
@@ -277,7 +277,7 @@ Every contribution, no matter how small, makes RasQberry better and helps spread
 
 **Your contributions help shape the future of quantum computing education.**
 
-Ready to start? Visit our [detailed contribution guide](https://github.com/JanLahmann/RasQberry-Two/blob/main/CONTRIBUTING.md) and join the quantum revolution!
+Ready to start? Visit our [detailed contribution guide](https://rasqberry.org/05-contributing/) and join the quantum revolution!
 
 ---
 

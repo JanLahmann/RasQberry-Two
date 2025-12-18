@@ -27,7 +27,7 @@ IBM, IBM Quantum, Qiskit, and IBM Quantum System Two are trademarks of Internati
 
 ### License
 
-RasQberry Two is open-source software licensed under the [Apache License 2.0](LICENSE).
+RasQberry Two is open-source software licensed under the [Apache License 2.0](https://github.com/JanLahmann/RasQberry-Two/blob/main/LICENSE).
 
 ---
 

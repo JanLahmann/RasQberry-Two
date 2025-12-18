@@ -212,10 +212,10 @@ Developed by **Kevin Roche**
 
 ## Related Demos
 
-- [Bloch Sphere](bloch-sphere.md) - Understand single-qubit states
-- [Quantum Lights Out](quantum-lights-out.md) - Another LED-based demo
-- [Qoffee Maker](qoffee-maker.md) - Quantum circuit design
-- [Demo List](01-demo-list.md) - All available demos
+- [Bloch Sphere](bloch-sphere) - Understand single-qubit states
+- [Quantum Lights Out](quantum-lights-out) - Another LED-based demo
+- [Qoffee Maker](qoffee-maker) - Quantum circuit design
+- [Demo List](01-demo-list) - All available demos
 
 ---
 

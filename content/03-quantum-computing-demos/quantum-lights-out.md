@@ -159,10 +159,10 @@ Default is typically 5x5, but can be customized in the code for different LED pa
 
 ## Related Demos
 
-- [Raspberry Tie](raspberry-tie.md) - Quantum circuits with LED visualization
-- [Bloch Sphere](bloch-sphere.md) - Single-qubit gate visualization
-- [Qoffee Maker](qoffee-maker.md) - Quantum coffee selection
-- [Demo List](01-demo-list.md) - All available demos
+- [Raspberry Tie](raspberry-tie) - Quantum circuits with LED visualization
+- [Bloch Sphere](bloch-sphere) - Single-qubit gate visualization
+- [Qoffee Maker](qoffee-maker) - Quantum coffee selection
+- [Demo List](01-demo-list) - All available demos
 
 ---
 

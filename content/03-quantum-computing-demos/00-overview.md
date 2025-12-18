@@ -10,21 +10,21 @@ These demos are designed to make quantum computing accessible and engaging. Each
 
 ### 🎨 Visualization & Art
 
-**[Bloch Sphere](bloch-sphere.md)** - Interactive single-qubit state visualization
+**[Bloch Sphere](bloch-sphere)** - Interactive single-qubit state visualization
 Perfect for beginners. See how quantum gates transform qubit states in real-time on the Bloch sphere.
 
-**[Fractals](fractals.md)** - Quantum-generated fractal art
+**[Fractals](fractals)** - Quantum-generated fractal art
 Create beautiful animated Julia set fractals using quantum-derived parameters. Art meets quantum mechanics!
 
-**[Raspberry Tie](raspberry-tie.md)** - LED display of quantum circuit results
+**[Raspberry Tie](raspberry-tie)** - LED display of quantum circuit results
 Run quantum circuits on IBM Quantum and visualize results on the LED array. Your quantum computer with lights!
 
 ### 🎮 Games & Puzzles
 
-**[Quantum Lights Out](quantum-lights-out.md)** - Quantum puzzle solver
+**[Quantum Lights Out](quantum-lights-out)** - Quantum puzzle solver
 Watch a quantum algorithm solve the classic Lights Out puzzle step-by-step on your LED panel.
 
-**[Qoffee Maker](qoffee-maker.md)** - Quantum beverage selection
+**[Qoffee Maker](qoffee-maker)** - Quantum beverage selection
 Design quantum circuits to select your favorite beverage. Fun introduction to quantum measurement!
 
 **[Fun with Quantum](http://fun-with-quantum.org)** - Serious games collection
@@ -93,16 +93,16 @@ Each demo teaches different quantum concepts:
 ## Quick Demo Recommendations
 
 **New to Quantum Computing?**
-1. Start with [Bloch Sphere](bloch-sphere.md) - understand single qubits
-2. Try [Qoffee Maker](qoffee-maker.md) - learn about measurement
+1. Start with [Bloch Sphere](bloch-sphere) - understand single qubits
+2. Try [Qoffee Maker](qoffee-maker) - learn about measurement
 3. Explore [Fun with Quantum games](http://fun-with-quantum.org)
 
 **Have LEDs Connected?**
-1. [Raspberry Tie](raspberry-tie.md) - see your quantum circuits in lights
-2. [Quantum Lights Out](quantum-lights-out.md) - quantum puzzle solving
+1. [Raspberry Tie](raspberry-tie) - see your quantum circuits in lights
+2. [Quantum Lights Out](quantum-lights-out) - quantum puzzle solving
 
 **Want to Create Art?**
-1. [Fractals](fractals.md) - generate stunning quantum fractals
+1. [Fractals](fractals) - generate stunning quantum fractals
 
 **Ready for Advanced Topics?**
 1. GHZ Demo - explore multi-qubit entanglement
@@ -110,7 +110,7 @@ Each demo teaches different quantum concepts:
 
 ## All Demos
 
-For a complete list with descriptions and screenshots, see the [Demo List](01-demo-list.md).
+For a complete list with descriptions and screenshots, see the [Demo List](01-demo-list).
 
 ## Resources
 
