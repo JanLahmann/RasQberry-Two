@@ -13,9 +13,6 @@ max_retries = 3
 # Wait time between retries in seconds
 retry_wait_time = 5
 
-# Skip email addresses
-exclude_mail = true
-
 # Accept these status codes as valid
 accept = [200, 204, 301, 302, 403, 429]
 
