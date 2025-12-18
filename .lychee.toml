@@ -1,0 +1,49 @@
+# Lychee link checker configuration
+# See: https://lychee.cli.rs/
+
+# Maximum number of concurrent requests
+max_concurrency = 4
+
+# Timeout for each request in seconds
+timeout = 30
+
+# Number of retries for failed requests
+max_retries = 3
+
+# Wait time between retries in seconds
+retry_wait_time = 5
+
+# Skip email addresses
+exclude_mail = true
+
+# Accept these status codes as valid
+accept = [200, 204, 301, 302, 403, 429]
+
+# Exclude these patterns from checking
+exclude = [
+    # Localhost and local IPs
+    "localhost",
+    "127\\.0\\.0\\.1",
+    "0\\.0\\.0\\.0",
+
+    # Example domains
+    "example\\.com",
+
+    # Placeholder URLs
+    "your-.*\\.com",
+
+    # Rate-limited or auth-required services (add as needed)
+    # "api\\.github\\.com",
+]
+
+# File patterns to include
+include = [
+    "content/**/*.md",
+    "*.md",
+]
+
+# Skip these file patterns
+exclude_path = [
+    "node_modules",
+    ".git",
+]
