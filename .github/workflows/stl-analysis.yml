@@ -103,8 +103,8 @@ jobs:
               body: summary
             });
 
-      - name: Commit Repairs (on push)
-        if: steps.mode.outputs.mode == 'repair-and-commit' && github.event_name == 'push'
+      - name: Commit Repairs
+        if: steps.mode.outputs.mode == 'repair-and-commit'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
