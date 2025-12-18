@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-18T08:31:11Z",
+  "generated": "2025-12-18T22:34:00Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-18-091027",
-      "name": "rasqberry-dev-features05-2025-12-18-091027",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-091027/rasqberry-dev-features05-2025-12-18-091027.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-18-091027",
+      "tag": "dev-features05-2025-12-18-231301",
+      "name": "rasqberry-dev-features05-2025-12-18-231301",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-231301/rasqberry-dev-features05-2025-12-18-231301.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-18-231301",
       "release_date": "2025-12-18",
-      "image_download_size": 1994261428,
+      "image_download_size": 1996136460,
       "extract_size": 8866758656,
-      "extract_sha256": "5cbe0bbaae391ffab496ad10d547ed41eb9573c5c020a0f6f5349bc323a34647",
+      "extract_sha256": "b675f667b91d23bf35b3a6f50acb53ea9fc2a5a2be9d09e18707cf89cd6b83f7",
       "highlights": [
-        "prevent PCManFM config conflicts on first boot (Wayland)"
+        "set Chromium homepage to rasqberry.org and disable keyring dialogs"
       ]
     }
   }
