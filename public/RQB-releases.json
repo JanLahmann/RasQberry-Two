@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-18T08:31:11Z",
+  "generated": "2025-12-18T08:31:31Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "5cbe0bbaae391ffab496ad10d547ed41eb9573c5c020a0f6f5349bc323a34647",
       "highlights": [
-        "prevent PCManFM config conflicts on first boot (Wayland)"
+        "extract highlights from GitHub release body"
       ]
     }
   }
