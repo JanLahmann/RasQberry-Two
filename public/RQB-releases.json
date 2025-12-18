@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-18T22:34:00Z",
+  "generated": "2025-12-18T22:34:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8866758656,
       "extract_sha256": "b675f667b91d23bf35b3a6f50acb53ea9fc2a5a2be9d09e18707cf89cd6b83f7",
       "highlights": [
-        "set Chromium homepage to rasqberry.org and disable keyring dialogs"
+        "extract highlights from GitHub release body"
       ]
     }
   }
