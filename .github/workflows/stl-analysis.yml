@@ -57,7 +57,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install trimesh numpy
+          pip install trimesh numpy networkx scipy
 
       - name: Determine repair mode
         id: mode
