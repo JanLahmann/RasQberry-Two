@@ -342,8 +342,10 @@ lxpanelctl reload || echo "Warning: Failed to reload lxpanel"
 
 # Create first-login script to configure libfm and GNOME Keyring
 # This runs when the user first logs in and has a proper desktop session
+# Note: We put the autostart in /etc/skel so it gets copied on first boot,
+# not in user's home during build (which could run prematurely in chroot)
 if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
-    AUTOSTART_DIR="/home/${FIRST_USER_NAME}/.config/autostart"
+    AUTOSTART_DIR="/etc/skel/.config/autostart"
     mkdir -p "$AUTOSTART_DIR"
 
     # Create the first-login setup script
@@ -448,14 +450,22 @@ NoDisplay=true
 X-GNOME-Autostart-enabled=true
 EOF
 
-    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$AUTOSTART_DIR"
-    echo "Created first-login desktop configuration script"
+    # Note: Don't chown - /etc/skel is owned by root, copied to user on first boot
+    echo "Created first-login desktop configuration script in /etc/skel"
 fi
 
 # Clean up cloned repository to save space
 if [ -d "${CLONE_DIR}" ]; then
     echo "Cleaning up cloned repository..."
     rm -rf "${CLONE_DIR}"
+fi
+
+# Clean up any PCManFM 'default' profile configs that might have been created during build
+# These can override the correct LXDE-pi profile configs and cause wallpaper/icon issues
+# (PCManFM on Wayland creates output-specific configs like desktop-items-HDMI-A-2.conf)
+if [ -n "${FIRST_USER_NAME}" ] && [ -d "/home/${FIRST_USER_NAME}/.config/pcmanfm/default" ]; then
+    echo "Cleaning up PCManFM default profile configs created during build..."
+    rm -rf "/home/${FIRST_USER_NAME}/.config/pcmanfm/default"
 fi
 
 echo "Desktop bookmarks installation completed"
