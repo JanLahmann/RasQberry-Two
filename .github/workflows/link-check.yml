@@ -41,6 +41,7 @@ jobs:
         with:
           # Check markdown files in content and root
           args: >-
+            --base https://rasqberry.org
             --verbose
             --no-progress
             --accept 200,204,301,302,403,429
