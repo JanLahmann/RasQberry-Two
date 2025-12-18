@@ -44,7 +44,6 @@ jobs:
             --verbose
             --no-progress
             --accept 200,204,301,302,403,429
-            --exclude-mail
             --exclude 'localhost'
             --exclude '127\.0\.0\.1'
             --exclude 'example\.com'
