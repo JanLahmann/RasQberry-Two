@@ -24,7 +24,7 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-features05)",
+          "name": "RasQberry Two Dev (dev-features05 2025-12-18-091027)",
           "description": "Development build from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-091027/rasqberry-dev-features05-2025-12-18-091027.img.xz",
@@ -47,7 +47,7 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-features05)",
+          "name": "RasQberry Two A/B (dev-features05 2025-12-18-091027)",
           "description": "A/B boot image from dev-features05",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-091027/rasqberry-dev-features05-2025-12-18-091027-ab.img.xz",
