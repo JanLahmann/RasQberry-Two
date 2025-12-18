@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-18T08:04:37Z",
+  "generated": "2025-12-18T08:31:11Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-16-183046",
-      "name": "rasqberry-dev-features05-2025-12-16-183046",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-16-183046/rasqberry-dev-features05-2025-12-16-183046.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-16-183046",
-      "release_date": "2025-12-16",
-      "image_download_size": 1995451324,
+      "tag": "dev-features05-2025-12-18-091027",
+      "name": "rasqberry-dev-features05-2025-12-18-091027",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-091027/rasqberry-dev-features05-2025-12-18-091027.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-18-091027",
+      "release_date": "2025-12-18",
+      "image_download_size": 1994261428,
       "extract_size": 8866758656,
-      "extract_sha256": "86f08f986be228f6190635c6221c58fff719ee340fff4cc109cee022a6679a64",
+      "extract_sha256": "5cbe0bbaae391ffab496ad10d547ed41eb9573c5c020a0f6f5349bc323a34647",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "prevent PCManFM config conflicts on first boot (Wayland)"
       ]
     }
   }
