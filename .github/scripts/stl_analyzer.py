@@ -8,12 +8,16 @@ Analyzes STL files for common mesh issues:
 - Non-watertight meshes
 - Holes in mesh surface
 
-Uses trimesh library for analysis and repair.
+Uses MeshLab for thorough repair and trimesh for analysis.
 """
 
 import argparse
 import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +25,9 @@ from typing import Optional
 
 import numpy as np
 import trimesh
+
+# Path to MeshLab repair script
+MESHLAB_SCRIPT = Path(__file__).parent / "meshlab_repair.mlx"
 
 
 @dataclass
@@ -145,56 +152,134 @@ def analyze_mesh(file_path: Path) -> MeshStats:
     return stats
 
 
-def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path, bool]:
+def repair_with_meshlab(input_path: Path, output_path: Path) -> bool:
     """
-    Attempt to repair a mesh and save to new file.
+    Repair mesh using MeshLab server.
 
-    Returns tuple of (output_path, success).
+    Returns True if successful.
+    """
+    if not MESHLAB_SCRIPT.exists():
+        print(f"  MeshLab script not found: {MESHLAB_SCRIPT}", file=sys.stderr)
+        return False
+
+    # Check if meshlabserver is available
+    meshlab_cmd = shutil.which("meshlabserver") or shutil.which("meshlab.meshlabserver")
+    if not meshlab_cmd:
+        # Try xvfb-run for headless environments
+        xvfb = shutil.which("xvfb-run")
+        meshlab_cmd = shutil.which("meshlabserver")
+        if xvfb and meshlab_cmd:
+            cmd = [
+                xvfb,
+                "-a",
+                meshlab_cmd,
+                "-i", str(input_path),
+                "-o", str(output_path),
+                "-s", str(MESHLAB_SCRIPT),
+            ]
+        else:
+            print("  MeshLab not found in PATH", file=sys.stderr)
+            return False
+    else:
+        # Try with xvfb-run if available (for headless CI)
+        xvfb = shutil.which("xvfb-run")
+        if xvfb:
+            cmd = [
+                xvfb,
+                "-a",
+                meshlab_cmd,
+                "-i", str(input_path),
+                "-o", str(output_path),
+                "-s", str(MESHLAB_SCRIPT),
+            ]
+        else:
+            cmd = [
+                meshlab_cmd,
+                "-i", str(input_path),
+                "-o", str(output_path),
+                "-s", str(MESHLAB_SCRIPT),
+            ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minute timeout per file
+        )
+        if result.returncode != 0:
+            print(f"  MeshLab error: {result.stderr[:200]}", file=sys.stderr)
+            return False
+        return output_path.exists()
+    except subprocess.TimeoutExpired:
+        print(f"  MeshLab timeout on {input_path.name}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"  MeshLab exception: {e}", file=sys.stderr)
+        return False
+
+
+def repair_with_trimesh(input_path: Path, output_path: Path) -> bool:
+    """
+    Repair mesh using trimesh (fallback).
+
+    Returns True if successful.
     """
     try:
-        mesh = trimesh.load_mesh(str(file_path))
+        mesh = trimesh.load_mesh(str(input_path))
 
         if isinstance(mesh, trimesh.Scene):
             if len(mesh.geometry) == 0:
-                return file_path, False
+                return False
             mesh = trimesh.util.concatenate(list(mesh.geometry.values()))
 
         if mesh.is_empty:
-            return file_path, False
+            return False
 
         # Apply repairs in order
-        # 1. Fill holes first
         trimesh.repair.fill_holes(mesh)
-
-        # 2. Fix winding consistency
         trimesh.repair.fix_winding(mesh)
-
-        # 3. Fix inverted normals (with multibody support)
         trimesh.repair.fix_inversion(mesh, multibody=True)
-
-        # 4. Fix normals direction
         trimesh.repair.fix_normals(mesh, multibody=True)
-
-        # 5. Process to clean up
         mesh = mesh.process(validate=True)
 
-        # Generate output path
-        stem = file_path.stem
-        # Remove existing repair suffixes to avoid stacking
-        for suffix in ["_repaired", "_fixed"]:
-            if stem.endswith(suffix):
-                stem = stem[: -len(suffix)]
-
-        output_path = file_path.parent / f"{stem}{output_suffix}{file_path.suffix}"
-
-        # Export repaired mesh
         mesh.export(str(output_path))
-
-        return output_path, True
+        return True
 
     except Exception as e:
-        print(f"Error repairing {file_path}: {e}", file=sys.stderr)
-        return file_path, False
+        print(f"  Trimesh error: {e}", file=sys.stderr)
+        return False
+
+
+def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path, bool]:
+    """
+    Attempt to repair a mesh using MeshLab first, then trimesh as fallback.
+
+    Returns tuple of (output_path, success).
+    """
+    # Generate output path
+    stem = file_path.stem
+    # Remove existing repair suffixes to avoid stacking
+    for suffix in ["_repaired", "_fixed"]:
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+
+    output_path = file_path.parent / f"{stem}{output_suffix}{file_path.suffix}"
+
+    # Try MeshLab first (more thorough repair)
+    print(f"  Trying MeshLab repair...")
+    if repair_with_meshlab(file_path, output_path):
+        print(f"  MeshLab repair successful")
+        return output_path, True
+
+    # Fall back to trimesh
+    print(f"  Falling back to trimesh repair...")
+    if repair_with_trimesh(file_path, output_path):
+        print(f"  Trimesh repair successful")
+        return output_path, True
+
+    print(f"  All repair methods failed", file=sys.stderr)
+    return file_path, False
 
 
 def find_stl_files(target_path: Path) -> list[Path]:
