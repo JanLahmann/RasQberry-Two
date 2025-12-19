@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-18T22:34:00Z",
+  "generated": "2025-12-19T07:18:47Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-18-231301",
-      "name": "rasqberry-dev-features05-2025-12-18-231301",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-18-231301/rasqberry-dev-features05-2025-12-18-231301.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-18-231301",
-      "release_date": "2025-12-18",
-      "image_download_size": 1996136460,
-      "extract_size": 8866758656,
-      "extract_sha256": "b675f667b91d23bf35b3a6f50acb53ea9fc2a5a2be9d09e18707cf89cd6b83f7",
+      "tag": "dev-features05-2025-12-19-075734",
+      "name": "rasqberry-dev-features05-2025-12-19-075734",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-075734/rasqberry-dev-features05-2025-12-19-075734.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-19-075734",
+      "release_date": "2025-12-19",
+      "image_download_size": 1996140748,
+      "extract_size": 8875147264,
+      "extract_sha256": "b1d23d69428b97515ae1847b58d6bfe41765b3a4d9289ac564b696993afa0a0e",
       "highlights": [
-        "set Chromium homepage to rasqberry.org and disable keyring dialogs"
+        "set Chromium default window size to 1167x985"
       ]
     }
   }
