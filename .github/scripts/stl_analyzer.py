@@ -162,8 +162,14 @@ def repair_with_pymeshlab(input_path: Path, output_path: Path) -> bool:
         return False
 
     try:
+        # Check plugins are loaded
+        if pymeshlab.number_plugins() == 0:
+            print("  PyMeshLab plugins not loaded", file=sys.stderr)
+            return False
+
         ms = pymeshlab.MeshSet()
-        ms.load_new_mesh(str(input_path))
+        # Load with binary format hint for STL
+        ms.load_new_mesh(str(input_path.absolute()))
 
         # Apply repair filters in order
         # 1. Remove duplicate vertices
