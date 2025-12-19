@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-19T07:18:47Z",
+  "generated": "2025-12-19T07:19:06Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8875147264,
       "extract_sha256": "b1d23d69428b97515ae1847b58d6bfe41765b3a4d9289ac564b696993afa0a0e",
       "highlights": [
-        "set Chromium default window size to 1167x985"
+        "extract highlights from GitHub release body"
       ]
     }
   }
