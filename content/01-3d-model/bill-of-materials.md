@@ -2,7 +2,7 @@
 
 This document contains all the information you need to purchase everything needed to assemble the RasQberry Two Platform. When fully assembled, you will have a functional and detailed model like this one!
 
-<p align='center'><img src='../Artwork/RasQberry2model.png' width="88%" height="88%"/></p>
+<p align='center'><img src='/Artwork/RasQberry2model.png' width="88%" height="88%"/></p>
 
 The **Required Components** section provides a handy list of every component needed for the basic model as well as any optional additions.
 
