@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-19T07:18:47Z",
+  "generated": "2025-12-19T09:26:57Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-19-075734",
-      "name": "rasqberry-dev-features05-2025-12-19-075734",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-075734/rasqberry-dev-features05-2025-12-19-075734.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-19-075734",
-      "release_date": "2025-12-19",
-      "image_download_size": 1996140748,
+      "tag": "dev-features05-2025-12-19-100018",
+      "name": "rasqberry-dev-features05-2025-12-19-100018",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-100018/rasqberry-dev-features05-2025-12-19-100018.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-19-100018",
+      "release_date": "2025-12-19 09:26",
+      "image_download_size": 1996284464,
       "extract_size": 8875147264,
-      "extract_sha256": "b1d23d69428b97515ae1847b58d6bfe41765b3a4d9289ac564b696993afa0a0e",
+      "extract_sha256": "5772fc610871ac38706ee49333084234c74c58b1fbead3c3f96daf57f0640a5a",
       "highlights": [
-        "set Chromium default window size to 1167x985"
+        "include time in release_date for dev images"
       ]
     }
   }
