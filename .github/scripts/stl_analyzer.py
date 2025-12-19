@@ -352,11 +352,19 @@ def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path
 
 
 def find_stl_files(target_path: Path) -> list[Path]:
-    """Find all STL files in target path."""
+    """Find all STL files in target path, excluding already repaired files."""
     if target_path.is_file():
-        return [target_path] if target_path.suffix.lower() == ".stl" else []
+        if target_path.suffix.lower() != ".stl":
+            return []
+        # Skip already repaired files
+        if target_path.stem.endswith("_repaired"):
+            return []
+        return [target_path]
 
     stl_files = list(target_path.rglob("*.stl")) + list(target_path.rglob("*.STL"))
+
+    # Exclude already repaired files to avoid re-analyzing/re-repairing them
+    stl_files = [f for f in stl_files if not f.stem.endswith("_repaired")]
 
     return sorted(set(stl_files))
 
