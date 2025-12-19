@@ -14,6 +14,8 @@ You can contact any of us with questions, concerns or suggestions for changes to
 
 This assembly guide assumes that you have already printed out the 3D files for the Wall, Floor, Cryostat and the RTEs. If you haven't already downloaded and printed the STL files, they can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model).
 
+**Tip:** Use the `*_repaired.stl` versions for best slicer compatibility.
+
 ## Setting up the Raspberry Pi
 
 In this section, we will be going through the initial setup process of the Raspberry Pi.
