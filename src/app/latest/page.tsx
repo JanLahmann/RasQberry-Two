@@ -71,6 +71,24 @@ function extractBranchName(name: string): string {
   return match ? match[1] : name;
 }
 
+function extractTimeFromUrl(url: string): string | null {
+  // Extract timestamp from URL like "dev-features05-2025-12-19-075734"
+  // Returns formatted time like "07:57" or null if not found
+  const match = url.match(/\d{4}-\d{2}-\d{2}-(\d{2})(\d{2})\d{2}/);
+  if (match) {
+    return `${match[1]}:${match[2]}`;
+  }
+  return null;
+}
+
+function formatDevDate(releaseDate: string | undefined, url: string): string {
+  const time = extractTimeFromUrl(url);
+  if (releaseDate && time) {
+    return `${releaseDate} ${time}`;
+  }
+  return releaseDate || '';
+}
+
 export default function LatestPage() {
   const [releases, setReleases] = useState<ReleasesData | null>(null);
   const [devBranches, setDevBranches] = useState<DevBranch[]>([]);
@@ -273,7 +291,7 @@ export default function LatestPage() {
                     <div>
                       <strong style={{ fontSize: '0.9375rem' }}>{branch.branch}</strong>
                       <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                        {branch.release_date}
+                        {formatDevDate(branch.release_date, branch.url)}
                         {branch.image_download_size && ' • ' + formatSize(branch.image_download_size)}
                       </span>
                     </div>
@@ -319,7 +337,7 @@ export default function LatestPage() {
                     <div>
                       <strong style={{ fontSize: '0.9375rem' }}>{extractBranchName(image.name)}</strong>
                       <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                        {image.release_date}
+                        {formatDevDate(image.release_date, image.url)}
                         {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
                       </span>
                     </div>
