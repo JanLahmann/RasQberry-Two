@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import subprocess
 import numpy as np
 import trimesh
 
@@ -27,6 +28,22 @@ try:
     PYMESHLAB_AVAILABLE = True
 except ImportError:
     PYMESHLAB_AVAILABLE = False
+
+
+def check_slic3r_available() -> bool:
+    """Check if slic3r CLI is available."""
+    try:
+        result = subprocess.run(
+            ["slic3r", "--help"],
+            capture_output=True,
+            timeout=10
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+SLIC3R_AVAILABLE = check_slic3r_available()
 
 
 @dataclass
@@ -223,6 +240,39 @@ def repair_with_pymeshlab(input_path: Path, output_path: Path) -> bool:
         return False
 
 
+def repair_with_slic3r(input_path: Path, output_path: Path) -> bool:
+    """
+    Repair mesh using Slic3r CLI.
+
+    Returns True if successful.
+    """
+    if not SLIC3R_AVAILABLE:
+        print("  Slic3r not available", file=sys.stderr)
+        return False
+
+    try:
+        result = subprocess.run(
+            ["slic3r", "--repair", str(input_path), "-o", str(output_path)],
+            capture_output=True,
+            timeout=300,  # 5 minute timeout for large files
+            text=True
+        )
+
+        if result.returncode == 0 and output_path.exists():
+            print(f"  Slic3r repair successful")
+            return True
+        else:
+            print(f"  Slic3r error: {result.stderr}", file=sys.stderr)
+            return False
+
+    except subprocess.TimeoutExpired:
+        print("  Slic3r timeout", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"  Slic3r error: {e}", file=sys.stderr)
+        return False
+
+
 def repair_with_trimesh(input_path: Path, output_path: Path) -> bool:
     """
     Repair mesh using trimesh (fallback).
@@ -270,10 +320,14 @@ def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path
 
     output_path = file_path.parent / f"{stem}{output_suffix}{file_path.suffix}"
 
-    # Try PyMeshLab first (more thorough repair)
+    # Try Slic3r first (testing)
+    print(f"  Trying Slic3r repair...")
+    if repair_with_slic3r(file_path, output_path):
+        return output_path, True
+
+    # Try PyMeshLab second
     print(f"  Trying PyMeshLab repair...")
     if repair_with_pymeshlab(file_path, output_path):
-        print(f"  PyMeshLab repair successful")
         return output_path, True
 
     # Fall back to trimesh

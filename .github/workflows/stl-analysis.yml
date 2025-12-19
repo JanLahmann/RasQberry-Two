@@ -55,10 +55,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install system dependencies for PyMeshLab
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopengl0 libglx0 libglu1-mesa
+          sudo apt-get install -y libopengl0 libglx0 libglu1-mesa slic3r
 
       - name: Install Python dependencies
         run: |
@@ -122,9 +122,9 @@ jobs:
           else
             git commit -m "fix: Auto-repair STL mesh issues
 
-          Repairs performed by MeshLab and trimesh:
+          Repairs performed by PyMeshLab, Slic3r, and trimesh:
           - Removed duplicate vertices/faces
-          - Closed holes (up to 30 edges)
+          - Closed holes
           - Repaired non-manifold edges/vertices
           - Re-oriented faces and normals
           - Fixed winding consistency
