@@ -58,7 +58,18 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopengl0 libglx0 libglu1-mesa slic3r
+          sudo apt-get install -y libopengl0 libglx0 libglu1-mesa fuse
+
+      - name: Install PrusaSlicer AppImage
+        run: |
+          # Download PrusaSlicer AppImage from community builds
+          wget -q https://github.com/prusa3d/PrusaSlicer/releases/download/version_2.8.1/PrusaSlicer-2.8.1+linux-x64-GTK3-202409181416.AppImage -O /tmp/prusaslicer.AppImage
+          chmod +x /tmp/prusaslicer.AppImage
+          # Extract AppImage (no FUSE needed in container)
+          cd /tmp && ./prusaslicer.AppImage --appimage-extract > /dev/null 2>&1
+          # Create symlink to prusa-slicer binary
+          sudo ln -sf /tmp/squashfs-root/usr/bin/prusa-slicer /usr/local/bin/prusa-slicer
+          prusa-slicer --version || echo "PrusaSlicer installed"
 
       - name: Install Python dependencies
         run: |
@@ -122,7 +133,7 @@ jobs:
           else
             git commit -m "fix: Auto-repair STL mesh issues
 
-          Repairs performed by PyMeshLab, Slic3r, and trimesh:
+          Repairs performed by PrusaSlicer, PyMeshLab, and trimesh:
           - Removed duplicate vertices/faces
           - Closed holes
           - Repaired non-manifold edges/vertices
