@@ -176,7 +176,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'stl-health-check'
+              labels: 'gh-actions-health'
             });
 
             const existingIssue = issues.data.find(i => i.title === title);
@@ -197,7 +197,7 @@ jobs:
                 repo: context.repo.repo,
                 title: title,
                 body: `## Weekly Health Check - ${new Date().toISOString().split('T')[0]}\n\n${summary}\n\n---\n_This issue is automatically created by the STL Analysis workflow._`,
-                labels: ['stl-health-check', 'automated']
+                labels: ['gh-actions-health', 'automated']
               });
               console.log('Created new health check issue');
             }
