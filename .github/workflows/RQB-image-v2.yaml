@@ -1502,14 +1502,7 @@ jobs:
           EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
           EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
           COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
-
-          # Include time for dev branches, date only for main/beta releases
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
-            RELEASE_DATE=$(date +"%Y-%m-%d")
-          else
-            RELEASE_DATE=$(date +"%Y-%m-%d %H:%M")
-          fi
+          RELEASE_DATE=$(date +"%Y-%m-%d")
 
           echo "Using pre-computed metadata from build job (no download needed):"
           echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
