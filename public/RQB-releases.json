@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-19T16:04:10Z",
+  "generated": "2025-12-19T20:50:43Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,17 +19,14 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-19-100018",
-      "name": "rasqberry-dev-features05-2025-12-19-100018",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-100018/rasqberry-dev-features05-2025-12-19-100018.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-19-100018",
-      "release_date": "2025-12-19 09:26",
-      "image_download_size": 1996284464,
+      "tag": "dev-features05-fix-2025-12-19-212956",
+      "name": "rasqberry-dev-features05-fix-2025-12-19-212956",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-19-212956/rasqberry-dev-features05-fix-2025-12-19-212956.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-2025-12-19-212956",
+      "release_date": "2025-12-19 21:29",
+      "image_download_size": 1997053128,
       "extract_size": 8875147264,
-      "extract_sha256": "5772fc610871ac38706ee49333084234c74c58b1fbead3c3f96daf57f0640a5a",
-      "highlights": [
-        "extract highlights from GitHub release body"
-      ]
+      "extract_sha256": "81f156e9946200382e57a0a80cfdf4cd9c0cd1ba6e4721a29f9db2463b4944df"
     }
   }
 }
