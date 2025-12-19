@@ -55,14 +55,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install MeshLab
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y meshlab xvfb
-
       - name: Install Python dependencies
         run: |
-          pip install trimesh numpy networkx scipy
+          pip install trimesh numpy networkx scipy pymeshlab
 
       - name: Determine repair mode
         id: mode

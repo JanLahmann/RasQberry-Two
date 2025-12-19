@@ -8,16 +8,12 @@ Analyzes STL files for common mesh issues:
 - Non-watertight meshes
 - Holes in mesh surface
 
-Uses MeshLab for thorough repair and trimesh for analysis.
+Uses PyMeshLab for thorough repair and trimesh for analysis.
 """
 
 import argparse
 import json
-import os
-import shutil
-import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
@@ -26,8 +22,11 @@ from typing import Optional
 import numpy as np
 import trimesh
 
-# Path to MeshLab repair script
-MESHLAB_SCRIPT = Path(__file__).parent / "meshlab_repair.mlx"
+try:
+    import pymeshlab
+    PYMESHLAB_AVAILABLE = True
+except ImportError:
+    PYMESHLAB_AVAILABLE = False
 
 
 @dataclass
@@ -152,70 +151,69 @@ def analyze_mesh(file_path: Path) -> MeshStats:
     return stats
 
 
-def repair_with_meshlab(input_path: Path, output_path: Path) -> bool:
+def repair_with_pymeshlab(input_path: Path, output_path: Path) -> bool:
     """
-    Repair mesh using MeshLab server.
+    Repair mesh using PyMeshLab.
 
     Returns True if successful.
     """
-    if not MESHLAB_SCRIPT.exists():
-        print(f"  MeshLab script not found: {MESHLAB_SCRIPT}", file=sys.stderr)
+    if not PYMESHLAB_AVAILABLE:
+        print("  PyMeshLab not available", file=sys.stderr)
         return False
-
-    # Check if meshlabserver is available
-    meshlab_cmd = shutil.which("meshlabserver") or shutil.which("meshlab.meshlabserver")
-    if not meshlab_cmd:
-        # Try xvfb-run for headless environments
-        xvfb = shutil.which("xvfb-run")
-        meshlab_cmd = shutil.which("meshlabserver")
-        if xvfb and meshlab_cmd:
-            cmd = [
-                xvfb,
-                "-a",
-                meshlab_cmd,
-                "-i", str(input_path),
-                "-o", str(output_path),
-                "-s", str(MESHLAB_SCRIPT),
-            ]
-        else:
-            print("  MeshLab not found in PATH", file=sys.stderr)
-            return False
-    else:
-        # Try with xvfb-run if available (for headless CI)
-        xvfb = shutil.which("xvfb-run")
-        if xvfb:
-            cmd = [
-                xvfb,
-                "-a",
-                meshlab_cmd,
-                "-i", str(input_path),
-                "-o", str(output_path),
-                "-s", str(MESHLAB_SCRIPT),
-            ]
-        else:
-            cmd = [
-                meshlab_cmd,
-                "-i", str(input_path),
-                "-o", str(output_path),
-                "-s", str(MESHLAB_SCRIPT),
-            ]
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minute timeout per file
-        )
-        if result.returncode != 0:
-            print(f"  MeshLab error: {result.stderr[:200]}", file=sys.stderr)
-            return False
+        ms = pymeshlab.MeshSet()
+        ms.load_new_mesh(str(input_path))
+
+        # Apply repair filters in order
+        # 1. Remove duplicate vertices
+        ms.meshing_remove_duplicate_vertices()
+
+        # 2. Remove duplicate faces
+        ms.meshing_remove_duplicate_faces()
+
+        # 3. Remove zero area faces
+        ms.meshing_remove_null_faces()
+
+        # 4. Remove unreferenced vertices
+        ms.meshing_remove_unreferenced_vertices()
+
+        # 5. Repair non-manifold edges by splitting
+        try:
+            ms.meshing_repair_non_manifold_edges()
+        except Exception:
+            pass  # Filter may not exist in all versions
+
+        # 6. Repair non-manifold vertices by splitting
+        try:
+            ms.meshing_repair_non_manifold_vertices()
+        except Exception:
+            pass
+
+        # 7. Close holes (max 30 edges)
+        try:
+            ms.meshing_close_holes(maxholesize=30)
+        except Exception:
+            pass
+
+        # 8. Re-orient all faces coherently
+        try:
+            ms.meshing_re_orient_faces_coherentely()
+        except Exception:
+            pass
+
+        # 9. Recompute normals
+        try:
+            ms.compute_normal_for_point_clouds()
+        except Exception:
+            pass
+
+        # Save repaired mesh
+        ms.save_current_mesh(str(output_path))
         return output_path.exists()
-    except subprocess.TimeoutExpired:
-        print(f"  MeshLab timeout on {input_path.name}", file=sys.stderr)
-        return False
+
     except Exception as e:
-        print(f"  MeshLab exception: {e}", file=sys.stderr)
+        print(f"  PyMeshLab error: {e}", file=sys.stderr)
         return False
 
 
@@ -266,10 +264,10 @@ def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path
 
     output_path = file_path.parent / f"{stem}{output_suffix}{file_path.suffix}"
 
-    # Try MeshLab first (more thorough repair)
-    print(f"  Trying MeshLab repair...")
-    if repair_with_meshlab(file_path, output_path):
-        print(f"  MeshLab repair successful")
+    # Try PyMeshLab first (more thorough repair)
+    print(f"  Trying PyMeshLab repair...")
+    if repair_with_pymeshlab(file_path, output_path):
+        print(f"  PyMeshLab repair successful")
         return output_path, True
 
     # Fall back to trimesh
