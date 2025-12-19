@@ -485,9 +485,9 @@ echo "Created Chromium policy for RasQberry homepage"
 # This prevents the "Enter password to unlock keyring" dialog
 CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
 if [ -f "$CHROMIUM_DESKTOP" ]; then
-    # Add --password-store=basic and --disable-features=Keyring to Exec line
-    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring |' "$CHROMIUM_DESKTOP"
-    echo "Modified Chromium desktop launcher with keyring bypass flags"
+    # Add --password-store=basic, --disable-features=Keyring, and --window-size for wider default window
+    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1167,985 |' "$CHROMIUM_DESKTOP"
+    echo "Modified Chromium desktop launcher with keyring bypass and window size flags"
 fi
 
 # =============================================================================
