@@ -66,9 +66,14 @@ function formatSize(bytes: number): string {
 }
 
 function extractBranchName(name: string): string {
-  // Extract branch name from "RasQberry Two Dev (branch-name)"
+  // Extract branch name from "RasQberry Two Dev (branch-name-2025-12-19-100018)"
+  // and strip the date-timestamp suffix
   const match = name.match(/\(([^)]+)\)/);
-  return match ? match[1] : name;
+  if (match) {
+    // Remove date-timestamp suffix (e.g., -2025-12-19-100018)
+    return match[1].replace(/-\d{4}-\d{2}-\d{2}-\d{6}$/, '');
+  }
+  return name;
 }
 
 function extractTimeFromUrl(url: string): string | null {
