@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-19T09:26:57Z",
+  "generated": "2025-12-19T09:27:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8875147264,
       "extract_sha256": "5772fc610871ac38706ee49333084234c74c58b1fbead3c3f96daf57f0640a5a",
       "highlights": [
-        "include time in release_date for dev images"
+        "extract highlights from GitHub release body"
       ]
     }
   }
