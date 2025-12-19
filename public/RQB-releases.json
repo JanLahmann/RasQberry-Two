@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-19T20:52:00Z",
+  "generated": "2025-12-19T20:52:22Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8875147264,
       "extract_sha256": "6a46573e67f9e1247b74567404397d94ea8c3a43d8f18cfddb5c630bb20129c0",
       "highlights": [
-        "disable on-screen keyboard by default, enable only in touch mode"
+        "extract highlights from GitHub release body"
       ]
     }
   }
