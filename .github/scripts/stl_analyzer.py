@@ -215,9 +215,9 @@ def repair_with_pymeshlab(input_path: Path, output_path: Path) -> bool:
         except Exception:
             pass
 
-        # 7. Close holes (max 30 edges)
+        # 7. Close holes (max 100 edges for better repair)
         try:
-            ms.meshing_close_holes(maxholesize=30)
+            ms.meshing_close_holes(maxholesize=100)
         except Exception:
             pass
 
@@ -333,10 +333,22 @@ def repair_mesh(file_path: Path, output_suffix: str = "_repaired") -> tuple[Path
 
     # Try PrusaSlicer first (best repair quality)
     print(f"  Trying PrusaSlicer repair...")
-    if repair_with_prusaslicer(file_path, output_path):
+    prusaslicer_success = repair_with_prusaslicer(file_path, output_path)
+
+    if prusaslicer_success:
+        # Chain with PyMeshLab for additional cleanup (close remaining holes)
+        print(f"  Chaining PyMeshLab for additional repair...")
+        temp_path = output_path.parent / f"{output_path.stem}_temp{output_path.suffix}"
+        output_path.rename(temp_path)
+        if repair_with_pymeshlab(temp_path, output_path):
+            temp_path.unlink()  # Remove temp file
+            print(f"  Chained repair successful")
+        else:
+            # PyMeshLab failed, restore PrusaSlicer result
+            temp_path.rename(output_path)
         return output_path, True
 
-    # Try PyMeshLab second
+    # Try PyMeshLab alone if PrusaSlicer unavailable
     print(f"  Trying PyMeshLab repair...")
     if repair_with_pymeshlab(file_path, output_path):
         return output_path, True
