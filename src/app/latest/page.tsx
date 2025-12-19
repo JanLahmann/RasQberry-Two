@@ -83,10 +83,12 @@ function extractTimeFromUrl(url: string): string | null {
 
 function formatDevDate(releaseDate: string | undefined, url: string): string {
   const time = extractTimeFromUrl(url);
-  if (releaseDate && time) {
-    return `${releaseDate} ${time}`;
+  // Use only the date portion (first 10 chars) in case release_date contains time
+  const dateOnly = releaseDate?.substring(0, 10) || '';
+  if (dateOnly && time) {
+    return `${dateOnly} ${time}`;
   }
-  return releaseDate || '';
+  return dateOnly;
 }
 
 export default function LatestPage() {
