@@ -33,8 +33,9 @@ except ImportError:
 def check_prusaslicer_available() -> bool:
     """Check if PrusaSlicer CLI is available."""
     try:
+        # prusa-slicer --version returns non-zero, so just check if binary exists
         result = subprocess.run(
-            ["prusa-slicer", "--version"],
+            ["which", "prusa-slicer"],
             capture_output=True,
             timeout=10
         )
@@ -43,6 +44,7 @@ def check_prusaslicer_available() -> bool:
         return False
 
 
+# Note: This check runs at import time - will be False if prusa-slicer not yet installed
 PRUSASLICER_AVAILABLE = check_prusaslicer_available()
 
 
