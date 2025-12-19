@@ -244,6 +244,8 @@ def repair_with_slic3r(input_path: Path, output_path: Path) -> bool:
     """
     Repair mesh using Slic3r CLI.
 
+    Slic3r's --repair outputs the repaired STL to stdout.
+
     Returns True if successful.
     """
     if not SLIC3R_AVAILABLE:
@@ -251,18 +253,22 @@ def repair_with_slic3r(input_path: Path, output_path: Path) -> bool:
         return False
 
     try:
+        # Slic3r --repair outputs to stdout in binary STL format
         result = subprocess.run(
-            ["slic3r", "--repair", str(input_path), "-o", str(output_path)],
+            ["slic3r", "--repair", str(input_path)],
             capture_output=True,
             timeout=300,  # 5 minute timeout for large files
-            text=True
         )
 
-        if result.returncode == 0 and output_path.exists():
+        if result.returncode == 0 and result.stdout:
+            # Write stdout (binary STL data) to output file
+            with open(output_path, "wb") as f:
+                f.write(result.stdout)
             print(f"  Slic3r repair successful")
             return True
         else:
-            print(f"  Slic3r error: {result.stderr}", file=sys.stderr)
+            stderr_text = result.stderr.decode("utf-8", errors="ignore").strip()
+            print(f"  Slic3r error: {stderr_text}", file=sys.stderr)
             return False
 
     except subprocess.TimeoutExpired:
