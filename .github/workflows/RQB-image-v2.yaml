@@ -1502,7 +1502,20 @@ jobs:
           EXTRACT_SHA256="${{ needs.build.outputs.extract_sha256 }}"
           EXTRACT_SIZE="${{ needs.build.outputs.extract_size }}"
           COMPRESSED_SIZE="${{ needs.build.outputs.compressed_size }}"
-          RELEASE_DATE=$(date +"%Y-%m-%d")
+
+          # Extract release date from tag timestamp for dev branches, date-only for main/beta
+          # Tag format for dev: dev-features05-2025-12-19-100018 → 2025-12-19 10:00
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
+            RELEASE_DATE=$(date +"%Y-%m-%d")
+          else
+            # Extract date and time from tag (e.g., dev-features05-2025-12-19-100018)
+            if [[ "$TAG" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]{2})([0-9]{2})[0-9]{2}$ ]]; then
+              RELEASE_DATE="${BASH_REMATCH[1]} ${BASH_REMATCH[2]}:${BASH_REMATCH[3]}"
+            else
+              RELEASE_DATE=$(date +"%Y-%m-%d")
+            fi
+          fi
 
           echo "Using pre-computed metadata from build job (no download needed):"
           echo "  Compressed size: $COMPRESSED_SIZE bytes ($(numfmt --to=iec-i --suffix=B $COMPRESSED_SIZE))"
