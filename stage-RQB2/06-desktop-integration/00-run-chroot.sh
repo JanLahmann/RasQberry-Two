@@ -305,6 +305,25 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
+# Disable on-screen keyboards by default (only enabled when touch mode is activated)
+# Create user autostart overrides with Hidden=true to prevent system autostart
+SKEL_AUTOSTART="/etc/skel/.config/autostart"
+mkdir -p "$SKEL_AUTOSTART"
+cat > "$SKEL_AUTOSTART/onboard-autostart.desktop" << 'KEYBOARD_EOF'
+[Desktop Entry]
+Type=Application
+Name=Onboard
+Hidden=true
+KEYBOARD_EOF
+
+cat > "$SKEL_AUTOSTART/squeekboard.desktop" << 'KEYBOARD_EOF'
+[Desktop Entry]
+Type=Application
+Name=Squeekboard
+Hidden=true
+KEYBOARD_EOF
+echo "On-screen keyboards disabled by default (enable via touch mode)"
+
 # Install on-screen keyboard package for touch mode
 echo "Installing on-screen keyboard (onboard)..."
 apt-get update -qq
