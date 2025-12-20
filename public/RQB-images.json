@@ -19,6 +19,98 @@
       "website": "https://rasqberry.org"
     },
     {
+      "name": "RasQberry Development Images",
+      "description": "Development builds with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "subitems": [
+        {
+          "name": "RasQberry Two Dev (dev-features05 2025-12-19-100018)",
+          "description": "Development build from dev-features05",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-100018/rasqberry-dev-features05-2025-12-19-100018.img.xz",
+          "extract_size": 8875147264,
+          "extract_sha256": "5772fc610871ac38706ee49333084234c74c58b1fbead3c3f96daf57f0640a5a",
+          "image_download_size": 1996284464,
+          "release_date": "2025-12-19 09:26",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "Other Development Builds",
+          "description": "Development builds from feature sub-branches",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "subitems": [
+            {
+              "name": "RasQberry Two Dev (dev-features05-fix 2025-12-20-091655)",
+              "description": "Development build from dev-features05-fix",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-091655/rasqberry-dev-features05-fix-2025-12-20-091655.img.xz",
+              "extract_size": 8841592832,
+              "extract_sha256": "fcc622a7a72473aad91a16f7eb043d4c26c8dd005a97089d11622604ae066fbd",
+              "image_download_size": 1989957872,
+              "release_date": "2025-12-20 09:16",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RasQberry A/B Boot Images",
+      "description": "Images with A/B partition support for safer updates",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "subitems": [
+        {
+          "name": "RasQberry Two A/B (dev-features05 2025-12-19-100018)",
+          "description": "A/B boot image from dev-features05",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-19-100018/rasqberry-dev-features05-2025-12-19-100018-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "e31aa50618aa393b8d2af83a3e243cd8a17cf19ec9fa8d2069ae5926cf31cf32",
+          "image_download_size": 2034726456,
+          "release_date": "2025-12-19 09:26",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "Other A/B Builds",
+          "description": "A/B boot images from feature sub-branches",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "subitems": [
+            {
+              "name": "RasQberry Two A/B (dev-features05-fix 2025-12-20-091655)",
+              "description": "A/B boot image from dev-features05-fix",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-091655/rasqberry-dev-features05-fix-2025-12-20-091655-ab.img.xz",
+              "extract_size": 12398362624,
+              "extract_sha256": "82bd96bc4c9bcce9784a11a728aa5005f623a42d74e1bdb51986cf096cb355a0",
+              "image_download_size": 2030503592,
+              "release_date": "2025-12-20 09:16",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Raspberry Pi OS (64-bit)",
       "description": "A port of Debian Trixie with the Raspberry Pi Desktop (Recommended)",
       "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
