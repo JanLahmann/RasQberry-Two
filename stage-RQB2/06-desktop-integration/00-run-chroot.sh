@@ -322,6 +322,16 @@ Type=Application
 Name=Squeekboard
 Hidden=true
 KEYBOARD_EOF
+
+# Also copy to first user (skel only applies to users created AFTER build)
+if [ -n "${FIRST_USER_NAME}" ] && [ -d "/home/${FIRST_USER_NAME}" ]; then
+    USER_AUTOSTART="/home/${FIRST_USER_NAME}/.config/autostart"
+    mkdir -p "$USER_AUTOSTART"
+    cp "$SKEL_AUTOSTART/onboard-autostart.desktop" "$USER_AUTOSTART/"
+    cp "$SKEL_AUTOSTART/squeekboard.desktop" "$USER_AUTOSTART/"
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config/autostart"
+    echo "Copied keyboard overrides to ${FIRST_USER_NAME}'s home"
+fi
 echo "On-screen keyboards disabled by default (enable via touch mode)"
 
 # Install on-screen keyboard package for touch mode
