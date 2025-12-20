@@ -142,8 +142,14 @@ jobs:
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
-          dev_std = []       # Dev standard images (folder)
-          ab_images = []     # All A/B images (folder)
+          dev_main = []      # Main dev branches (dev-featuresXX) - direct in folder
+          dev_sub = []       # Sub-branches (dev-featuresXX-*) - nested sub-folder
+          ab_main = []       # Main dev A/B images - direct in folder
+          ab_sub = []        # Sub-branch A/B images - nested sub-folder
+
+          # Helper to check if branch is a main dev branch (dev-featuresXX pattern only)
+          def is_main_dev_branch(branch):
+              return bool(re.match(r'^dev-features\d{2}$', branch))
 
           # Helper to extract timestamp from URL filename
           # URL format: .../rasqberry-branch-YYYY-MM-DD-HHMMSS.img.xz
@@ -216,8 +222,13 @@ jobs:
                           else:
                               entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
                           entry_clean['description'] = f"A/B boot image from {branch_name}"
-                          ab_images.append((published, branch_name, entry_clean))
-                          print(f"  → A/B folder: {entry_clean['name']}")
+                          # Separate main dev branches from sub-branches
+                          if is_main_dev_branch(branch_name):
+                              ab_main.append((published, branch_name, entry_clean))
+                              print(f"  → A/B folder (main): {entry_clean['name']}")
+                          else:
+                              ab_sub.append((published, branch_name, entry_clean))
+                              print(f"  → A/B sub-folder: {entry_clean['name']}")
                       elif branch_name.startswith('dev'):
                           # Dev images: include branch name + timestamp
                           timestamp = extract_timestamp(entry.get('url', ''))
@@ -226,8 +237,13 @@ jobs:
                           else:
                               entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
                           entry_clean['description'] = f"Development build from {branch_name}"
-                          dev_std.append((published, branch_name, entry_clean))
-                          print(f"  → Dev folder: {entry_clean['name']}")
+                          # Separate main dev branches from sub-branches
+                          if is_main_dev_branch(branch_name):
+                              dev_main.append((published, branch_name, entry_clean))
+                              print(f"  → Dev folder (main): {entry_clean['name']}")
+                          else:
+                              dev_sub.append((published, branch_name, entry_clean))
+                              print(f"  → Dev sub-folder: {entry_clean['name']}")
                       elif branch_name == 'beta':
                           # Beta branch → top-level beta entry
                           entry_clean['name'] = "RasQberry Two Beta (64-bit)"
@@ -260,8 +276,10 @@ jobs:
           # Sort each category by release_date (newest first)
           main_std.sort(key=lambda x: x[0], reverse=True)
           beta_std.sort(key=lambda x: x[0], reverse=True)
-          dev_std.sort(key=lambda x: x[0], reverse=True)
-          ab_images.sort(key=lambda x: x[0], reverse=True)
+          dev_main.sort(key=lambda x: x[0], reverse=True)
+          dev_sub.sort(key=lambda x: x[0], reverse=True)
+          ab_main.sort(key=lambda x: x[0], reverse=True)
+          ab_sub.sort(key=lambda x: x[0], reverse=True)
 
           # Build hierarchical os_list
           os_list = []
@@ -277,26 +295,46 @@ jobs:
               print(f"✓ Added beta: {beta_std[0][2].get('name')}")
 
           # 3. Add Development Images folder (if any dev images exist)
-          if dev_std:
+          if dev_main or dev_sub:
+              dev_subitems = [entry for _, _, entry in dev_main]
+              # Add sub-branches in nested folder if any exist
+              if dev_sub:
+                  sub_folder = {
+                      "name": "Other Development Builds",
+                      "description": "Development builds from feature sub-branches",
+                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                      "subitems": [entry for _, _, entry in dev_sub]
+                  }
+                  dev_subitems.append(sub_folder)
               dev_folder = {
                   "name": "RasQberry Development Images",
                   "description": "Development builds with cutting-edge features (unstable)",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": [entry for _, _, entry in dev_std]
+                  "subitems": dev_subitems
               }
               os_list.append(dev_folder)
-              print(f"✓ Added Development folder with {len(dev_std)} images")
+              print(f"✓ Added Development folder with {len(dev_main)} main + {len(dev_sub)} sub-branch images")
 
           # 4. Add A/B Test Images folder (if any AB images exist)
-          if ab_images:
+          if ab_main or ab_sub:
+              ab_subitems = [entry for _, _, entry in ab_main]
+              # Add sub-branches in nested folder if any exist
+              if ab_sub:
+                  sub_folder = {
+                      "name": "Other A/B Builds",
+                      "description": "A/B boot images from feature sub-branches",
+                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                      "subitems": [entry for _, _, entry in ab_sub]
+                  }
+                  ab_subitems.append(sub_folder)
               ab_folder = {
                   "name": "RasQberry A/B Boot Images",
                   "description": "Images with A/B partition support for safer updates",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": [entry for _, _, entry in ab_images]
+                  "subitems": ab_subitems
               }
               os_list.append(ab_folder)
-              print(f"✓ Added A/B folder with {len(ab_images)} images")
+              print(f"✓ Added A/B folder with {len(ab_main)} main + {len(ab_sub)} sub-branch images")
 
           # Build final consolidated structure
           consolidated = {
@@ -446,12 +484,15 @@ jobs:
               return stream_entry
 
           # Build RQB-releases.json
+          # Combine dev_main and dev_sub for the dev stream (newest overall)
+          all_dev = dev_main + dev_sub
+          all_dev.sort(key=lambda x: x[0], reverse=True)
           releases_json = {
               'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
               'streams': {
                   'stable': build_stream_entry(main_std, 'stable'),
                   'beta': build_stream_entry(beta_std, 'beta'),
-                  'dev': build_stream_entry(dev_std, 'dev'),
+                  'dev': build_stream_entry(all_dev, 'dev'),
               }
           }
 
