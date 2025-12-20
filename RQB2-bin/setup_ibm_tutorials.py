@@ -61,11 +61,22 @@ def create_notebook(cells: List[Dict]) -> Dict:
 
 
 def create_markdown_cell(source: str) -> Dict:
-    """Create a markdown cell."""
+    """Create a markdown cell.
+
+    Jupyter notebook format expects source as either:
+    - A single string with \\n characters
+    - An array of strings where each line ends with \\n (except last)
+    """
+    # Split into lines and add \n back to each line except the last
+    lines = source.split('\n')
+    source_lines = [line + '\n' for line in lines[:-1]]
+    if lines[-1]:  # Add last line without trailing newline
+        source_lines.append(lines[-1])
+
     return {
         "cell_type": "markdown",
         "metadata": {},
-        "source": source.split('\n') if '\n' in source else [source]
+        "source": source_lines
     }
 
 
@@ -183,8 +194,13 @@ To run a tutorial, click on the link below or use the file browser on the left.
 # COURSES GENERATION
 # ============================================================================
 
-def find_courses(base_path: Path) -> List[Tuple[str, Path, List[Tuple[str, Path]]]]:
-    """Find all courses and their notebooks."""
+def find_courses(base_path: Path) -> List[Tuple[str, Path, Dict[str, List[Tuple[str, Path]]]]]:
+    """Find all courses and their notebooks, preserving section structure.
+
+    Returns list of (course_title, course_dir, sections_dict) where sections_dict
+    maps section names to lists of (notebook_title, notebook_path) tuples.
+    For courses without sections, notebooks are grouped under "Lessons".
+    """
     courses_dir = base_path / "learning" / "courses"
 
     if not courses_dir.exists():
@@ -198,20 +214,50 @@ def find_courses(base_path: Path) -> List[Tuple[str, Path, List[Tuple[str, Path]
 
         course_title = slugify_to_title(course_dir.name)
 
-        # Find all notebooks in the course (including subdirectories)
-        notebooks = []
-        for notebook_path in sorted(course_dir.rglob("*.ipynb")):
-            title = extract_notebook_title(notebook_path)
-            notebooks.append((title, notebook_path))
+        # Find all sections (subdirectories) in the course
+        sections = {}
 
-        if notebooks:  # Only include courses with notebooks
-            courses.append((course_title, course_dir, notebooks))
+        # First, check for notebooks directly in the course directory (no sections)
+        direct_notebooks = []
+        for notebook_path in sorted(course_dir.glob("*.ipynb")):
+            if '.ipynb_checkpoints' in str(notebook_path):
+                continue
+            title = extract_notebook_title(notebook_path)
+            direct_notebooks.append((title, notebook_path))
+
+        if direct_notebooks:
+            # Course has notebooks directly in folder (no section structure)
+            sections["Lessons"] = direct_notebooks
+        else:
+            # Course has section subdirectories
+            for section_dir in sorted(course_dir.iterdir()):
+                if not section_dir.is_dir():
+                    continue
+                # Skip checkpoint directories
+                if section_dir.name.startswith('.'):
+                    continue
+
+                section_title = slugify_to_title(section_dir.name)
+                notebooks = []
+
+                for notebook_path in sorted(section_dir.glob("*.ipynb")):
+                    # Skip checkpoint files
+                    if '.ipynb_checkpoints' in str(notebook_path):
+                        continue
+                    title = extract_notebook_title(notebook_path)
+                    notebooks.append((title, notebook_path))
+
+                if notebooks:
+                    sections[section_title] = notebooks
+
+        if sections:  # Only include courses with content
+            courses.append((course_title, course_dir, sections))
 
     return courses
 
 
 def generate_courses_welcome(base_path: Path) -> bool:
-    """Generate WELCOME-courses.ipynb with links to all courses."""
+    """Generate WELCOME-courses.ipynb with links to all courses, preserving section structure."""
     courses = find_courses(base_path)
 
     if not courses:
@@ -219,32 +265,41 @@ def generate_courses_welcome(base_path: Path) -> bool:
         return False
 
     # Count total notebooks
-    total_notebooks = sum(len(notebooks) for _, _, notebooks in courses)
+    total_notebooks = sum(
+        sum(len(notebooks) for notebooks in sections.values())
+        for _, _, sections in courses
+    )
+    total_sections = sum(len(sections) for _, _, sections in courses)
 
     # Build markdown content
     header = ATTRIBUTION_HEADER.format(title="IBM Quantum Courses")
 
     intro = f"""These courses are from the official [IBM Quantum Learning](https://learning.quantum.ibm.com/) platform.
 
-**{len(courses)} courses available** with **{total_notebooks} notebooks** covering quantum information, algorithms, machine learning, and more.
+**{len(courses)} courses available** with **{total_sections} sections** and **{total_notebooks} notebooks** covering quantum information, algorithms, machine learning, and more.
 
 Each course contains multiple lessons organized in a structured learning path.
 
 """
 
-    # Build course list with their notebooks
+    # Build course list with sections and notebooks
     course_content = "## Available Courses\n\n"
 
-    for course_title, course_dir, notebooks in courses:
-        rel_course_path = course_dir.relative_to(base_path / "learning" / "courses")
+    for course_title, course_dir, sections in courses:
+        notebook_count = sum(len(notebooks) for notebooks in sections.values())
         course_content += f"### {course_title}\n\n"
-        course_content += f"*{len(notebooks)} notebooks*\n\n"
+        course_content += f"*{len(sections)} sections, {notebook_count} notebooks*\n\n"
 
-        for title, notebook_path in notebooks:
-            rel_path = notebook_path.relative_to(base_path / "learning" / "courses")
-            course_content += f"- [{title}](learning/courses/{rel_path})\n"
+        for section_title, notebooks in sections.items():
+            course_content += f"#### {section_title}\n\n"
 
-        course_content += "\n"
+            for title, notebook_path in notebooks:
+                rel_path = notebook_path.relative_to(base_path / "learning" / "courses")
+                course_content += f"- [{title}](learning/courses/{rel_path})\n"
+
+            course_content += "\n"
+
+        course_content += "---\n\n"
 
     # Create notebook
     cells = [
@@ -257,7 +312,7 @@ Each course contains multiple lessons organized in a structured learning path.
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(notebook, f, indent=2, ensure_ascii=False)
 
-    print(f"Created {output_path} with {len(courses)} courses ({total_notebooks} notebooks)")
+    print(f"Created {output_path} with {len(courses)} courses ({total_sections} sections, {total_notebooks} notebooks)")
     return True
 
 
