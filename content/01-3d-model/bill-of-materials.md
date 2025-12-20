@@ -89,7 +89,7 @@ The following core components are necessary to create the base functioning model
 
 ### 3D Model Files:
 
-The 3D Model STL files for the RasQberry Two Platform can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model). The RasQberry Two's Model is divided into the following sections: The Wall, The Floor, The Cryostat and the RTEs. The filament colors and the amount needed for each section of the model can be found in the table below, in the row labeled: **3D Printer Filament**.
+The 3D Model STL files for the RasQberry Two Platform can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model). The RasQberry Two's Model is divided into the following sections: The Wall, The Floor, The Cryostat and the RTEs. The filament colors and the amount needed for each section of the model can be found in the table below, in the row labeled: **3D Printer Filament**.
 
 ### Optional (Nice to Have) Components:
 
