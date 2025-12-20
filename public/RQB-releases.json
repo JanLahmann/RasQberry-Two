@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-20T15:05:14Z",
+  "generated": "2025-12-20T16:04:01Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -26,7 +26,10 @@
       "release_date": "2025-12-20 15:39",
       "image_download_size": 1990332828,
       "extract_size": 8841592832,
-      "extract_sha256": "702e433cec6d36df2cdb119ed373c994a9612d9b7dac0552900045b6f2c510f3"
+      "extract_sha256": "702e433cec6d36df2cdb119ed373c994a9612d9b7dac0552900045b6f2c510f3",
+      "highlights": [
+        "extract highlights from GitHub release body"
+      ]
     }
   }
 }

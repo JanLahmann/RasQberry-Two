@@ -1,8 +1,88 @@
 {
-  "generated": "2025-12-20T13:15:32Z",
+  "generated": "2025-12-20T16:04:01Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 14,
+  "count": 18,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-20-153914/rasqberry-dev-features05-fix-tutorials-2025-12-20-153914.img.xz",
+      "extract_size": 8841592832,
+      "extract_sha256": "702e433cec6d36df2cdb119ed373c994a9612d9b7dac0552900045b6f2c510f3",
+      "image_download_size": 1990332828,
+      "release_date": "2025-12-20 15:39",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-features05-fix-tutorials-2025-12-20-153914",
+      "_branch": "dev-features05-fix-tutorials",
+      "_published": "2025-12-20T14:39:51Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-20-153914/rasqberry-dev-features05-fix-tutorials-2025-12-20-153914-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "8e71549a8aa4254987ee2e733371d926ef83d81402b09ba00eb82f418f709b82",
+      "image_download_size": 2029980360,
+      "release_date": "2025-12-20 15:39",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-features05-fix-tutorials-2025-12-20-153914",
+      "_branch": "dev-features05-fix-tutorials",
+      "_published": "2025-12-20T14:39:51Z"
+    },
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-145238/rasqberry-dev-features05-fix-2025-12-20-145238.img.xz",
+      "extract_size": 8841592832,
+      "extract_sha256": "651267d5cfd835384e831efe3c7c0c17d40f24e4515a27ac48499a2c51cb090c",
+      "image_download_size": 1991898840,
+      "release_date": "2025-12-20 14:52",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-features05-fix-2025-12-20-145238",
+      "_branch": "dev-features05-fix",
+      "_published": "2025-12-20T13:53:12Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-145238/rasqberry-dev-features05-fix-2025-12-20-145238-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "45836865e1c83cccaca723c0bb7b89a4c204205ed636c87a0db381f10b019bd9",
+      "image_download_size": 2029017400,
+      "release_date": "2025-12-20 14:52",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-features05-fix-2025-12-20-145238",
+      "_branch": "dev-features05-fix",
+      "_published": "2025-12-20T13:53:12Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
