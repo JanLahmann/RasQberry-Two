@@ -116,6 +116,7 @@ export default function LatestPage() {
   const [devBranches, setDevBranches] = useState<DevBranch[]>([]);
   const [abImages, setAbImages] = useState<ABImage[]>([]);
   const [otherDevImages, setOtherDevImages] = useState<AllRelease[]>([]);
+  const [otherABImages, setOtherABImages] = useState<AllRelease[]>([]);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -180,6 +181,15 @@ export default function LatestPage() {
           // Sort by published date (newest first)
           subBranchImages.sort((a, b) => b._published.localeCompare(a._published));
           setOtherDevImages(subBranchImages);
+
+          // Filter A/B images from sub-branches
+          const subBranchABImages = allData.releases.filter((r) => {
+            const isSubBranch = r._branch.match(/^dev-features\d{2}-.+$/);
+            const isAB = r.image_type === 'ab';
+            return isSubBranch && isAB;
+          });
+          subBranchABImages.sort((a, b) => b._published.localeCompare(a._published));
+          setOtherABImages(subBranchABImages);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -421,6 +431,44 @@ export default function LatestPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Other A/B builds (sub-branches) */}
+              {otherABImages.length > 0 && (
+                <details style={{ marginTop: '1rem' }}>
+                  <summary style={{
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    color: '#666',
+                    padding: '0.5rem 0',
+                  }}>
+                    Other A/B builds ({otherABImages.length} images from sub-branches)
+                  </summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    {otherABImages.map((image: AllRelease) => (
+                      <div key={image._release_tag} style={{
+                        padding: '0.5rem 0.75rem',
+                        backgroundColor: '#fafafa',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem',
+                        fontSize: '0.875rem',
+                      }}>
+                        <div>
+                          <strong>{image._branch}</strong>
+                          <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
+                            {formatDevDate(image.release_date, image.url)}
+                            {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
+                          </span>
+                        </div>
+                        <a href={image.url} style={smallButtonStyle}>Download</a>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           )}
 
