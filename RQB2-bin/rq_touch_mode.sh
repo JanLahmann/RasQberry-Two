@@ -92,6 +92,18 @@ info() { echo -e "${GREEN}INFO:${NC} $1"; }
 warn() { echo -e "${YELLOW}WARN:${NC} $1"; }
 error() { echo -e "${RED}ERROR:${NC} $1"; }
 
+# Logout user to apply changes (works on Wayland/labwc)
+do_logout() {
+    warn "Logging out in 3 seconds to apply changes..."
+    sleep 3
+    # Try labwc exit first (Wayland), fall back to loginctl
+    if pgrep -x labwc >/dev/null 2>&1; then
+        pkill -SIGTERM labwc
+    else
+        loginctl terminate-user "${SUDO_USER:-$USER}" 2>/dev/null || pkill -u "${SUDO_USER:-$USER}"
+    fi
+}
+
 # Get current touch mode state
 get_state() {
     if [ -f "$STATE_FILE" ]; then
@@ -253,7 +265,9 @@ EOF
     echo "  - Chromium: touch events enabled"
     echo "  - Double-click time: ${TOUCH_DOUBLE_CLICK_MS}ms"
     echo ""
-    warn "Restart desktop session (logout/login) for all changes to take effect"
+
+    # Auto-logout to apply changes
+    do_logout
 }
 
 # Disable touch mode
@@ -366,7 +380,9 @@ EOF
     echo "  - Chromium: touch events default"
     echo "  - Double-click time: ${DEFAULT_DOUBLE_CLICK_MS}ms"
     echo ""
-    warn "Restart desktop session (logout/login) for all changes to take effect"
+
+    # Auto-logout to apply changes
+    do_logout
 }
 
 # Toggle touch mode
