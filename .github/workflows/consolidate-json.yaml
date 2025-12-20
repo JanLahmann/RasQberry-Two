@@ -48,6 +48,11 @@ on:
         required: false
         type: string
         default: 'manual'
+      trigger_type:
+        description: 'Type of release that triggered (main/beta/dev)'
+        required: false
+        type: string
+        default: 'unknown'
 
 permissions:
   contents: write
