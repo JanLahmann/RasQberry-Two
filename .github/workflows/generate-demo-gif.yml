@@ -1,6 +1,6 @@
 # Workflow to regenerate animated GIF from demo screenshots
 #
-# Triggers when PNG files are added/modified in public/demo-screenshots/
+# Triggers when PNG files are added/modified in public/demo-screenshots/source/
 # Uses the create_animated_gif.py script to generate the GIF
 #
 name: Generate Demo GIF
@@ -9,7 +9,7 @@ on:
   push:
     branches: ["gh-pages"]
     paths:
-      - 'public/demo-screenshots/*.png'
+      - 'public/demo-screenshots/source/*.png'
 
   # Allow manual trigger
   workflow_dispatch:
@@ -36,14 +36,14 @@ jobs:
       - name: Generate animated GIF (1000ms - normal speed)
         run: |
           python scripts/create_animated_gif.py \
-            public/demo-screenshots \
+            public/demo-screenshots/source \
             public/demo-screenshots/rasqberry-demo-1000ms.gif \
             1000
 
       - name: Generate animated GIF (4000ms - slow motion)
         run: |
           python scripts/create_animated_gif.py \
-            public/demo-screenshots \
+            public/demo-screenshots/source \
             public/demo-screenshots/rasqberry-demo-4000ms.gif \
             4000
 
