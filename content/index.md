@@ -44,6 +44,11 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
   </div>
 </div>
 
+## Stay Updated
+
+Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
+
+Subscribe to our [newsletter](/newsletter) for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
 
 ## Getting Started
 
@@ -150,17 +155,3 @@ Whether you're a quantum computing enthusiast, educator, developer, or student, 
 
 **Get Started:** Visit our [Contributing Guide](05-contributing/) to learn how you can be part of the RasQberry community!
 
-## Stay Updated
-
-Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
-
-You can also subscribe to our **newsletter** for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
-
-<details>
-<summary>Click here to open the subscription form</summary>
-
-<div className="newsletter-section">
-  <div className="sender-form-field" data-sender-form-id="aKrR6x"></div>
-</div>
-
-</details>
