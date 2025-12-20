@@ -89,7 +89,12 @@ Windows:
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
 
-**Automation URLs:** `/latest/stable`, `/latest/beta`, `/latest/dev` redirect to the latest images. API: [RQB-releases.json](/RQB-releases.json)
+**Automation URLs:** `/latest/stable`, `/latest/beta`, `/latest/dev` redirect to the latest images.
+
+**API Endpoints:**
+- [RQB-images.json](/RQB-images.json) - Pi Imager format with latest stable/beta/dev images
+- [RQB-images-all.json](/RQB-images-all.json) - All image versions from all branches (for development/testing)
+- [RQB-releases.json](/RQB-releases.json) - Release metadata with download URLs by stream
 </details>
 
 ### First Boot Setup
