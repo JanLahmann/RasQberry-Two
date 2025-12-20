@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-20T14:14:29Z",
+  "generated": "2025-12-20T15:05:14Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,17 +19,14 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-2025-12-20-145238",
-      "name": "rasqberry-dev-features05-fix-2025-12-20-145238",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-145238/rasqberry-dev-features05-fix-2025-12-20-145238.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-2025-12-20-145238",
-      "release_date": "2025-12-20 14:52",
-      "image_download_size": 1991898840,
+      "tag": "dev-features05-fix-tutorials-2025-12-20-153914",
+      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-20-153914",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-20-153914/rasqberry-dev-features05-fix-tutorials-2025-12-20-153914.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-20-153914",
+      "release_date": "2025-12-20 15:39",
+      "image_download_size": 1990332828,
       "extract_size": 8841592832,
-      "extract_sha256": "651267d5cfd835384e831efe3c7c0c17d40f24e4515a27ac48499a2c51cb090c",
-      "highlights": [
-        "add keyboard toggle icon for squeekboard (#211)"
-      ]
+      "extract_sha256": "702e433cec6d36df2cdb119ed373c994a9612d9b7dac0552900045b6f2c510f3"
     }
   }
 }
