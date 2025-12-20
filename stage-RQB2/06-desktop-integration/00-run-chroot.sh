@@ -305,17 +305,10 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
-# Disable on-screen keyboards by default (only enabled when touch mode is activated)
-# Create user autostart overrides with Hidden=true to prevent system autostart
+# Disable squeekboard by default (only enabled when touch mode is activated)
+# Create user autostart override with Hidden=true to prevent system autostart
 SKEL_AUTOSTART="/etc/skel/.config/autostart"
 mkdir -p "$SKEL_AUTOSTART"
-cat > "$SKEL_AUTOSTART/onboard-autostart.desktop" << 'KEYBOARD_EOF'
-[Desktop Entry]
-Type=Application
-Name=Onboard
-Hidden=true
-KEYBOARD_EOF
-
 cat > "$SKEL_AUTOSTART/squeekboard.desktop" << 'KEYBOARD_EOF'
 [Desktop Entry]
 Type=Application
@@ -327,17 +320,11 @@ KEYBOARD_EOF
 if [ -n "${FIRST_USER_NAME}" ] && [ -d "/home/${FIRST_USER_NAME}" ]; then
     USER_AUTOSTART="/home/${FIRST_USER_NAME}/.config/autostart"
     mkdir -p "$USER_AUTOSTART"
-    cp "$SKEL_AUTOSTART/onboard-autostart.desktop" "$USER_AUTOSTART/"
     cp "$SKEL_AUTOSTART/squeekboard.desktop" "$USER_AUTOSTART/"
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config/autostart"
-    echo "Copied keyboard overrides to ${FIRST_USER_NAME}'s home"
+    echo "Copied squeekboard override to ${FIRST_USER_NAME}'s home"
 fi
-echo "On-screen keyboards disabled by default (enable via touch mode)"
-
-# Install on-screen keyboard package for touch mode
-echo "Installing on-screen keyboard (onboard)..."
-apt-get update -qq
-apt-get install -y -qq onboard || echo "Warning: Failed to install onboard package"
+echo "Squeekboard disabled by default (enable via touch mode)"
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."

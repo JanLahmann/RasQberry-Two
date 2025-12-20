@@ -15,7 +15,6 @@ set -euo pipefail
 # Configuration paths
 STATE_FILE="/var/lib/rasqberry/touch-mode.conf"
 GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
-ONBOARD_AUTOSTART_SRC="/usr/config/touch-mode/onboard-autostart.desktop"
 ENV_FILE="/etc/rasqberry/rasqberry_environment.env"
 
 # Source environment file for configurable touch mode settings
@@ -50,7 +49,6 @@ get_user_home() {
 
 USER_HOME=$(get_user_home)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
-ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard-autostart.desktop"
 SQUEEKBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/squeekboard.desktop"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
 PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
@@ -120,11 +118,10 @@ enable_touch_mode() {
     # Ensure state directory exists
     sudo mkdir -p "$(dirname "$STATE_FILE")"
 
-    # 1. Enable on-screen keyboard autostart (remove any Hidden=true overrides)
-    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
-    # Remove override files so system autostart can run
-    rm -f "$ONBOARD_AUTOSTART_DST" "$SQUEEKBOARD_AUTOSTART_DST"
-    info "On-screen keyboard autostart enabled (removed overrides)"
+    # 1. Enable squeekboard autostart (remove Hidden=true override)
+    mkdir -p "$(dirname "$SQUEEKBOARD_AUTOSTART_DST")"
+    rm -f "$SQUEEKBOARD_AUTOSTART_DST"
+    info "Squeekboard autostart enabled (removed override)"
 
     # 2. Apply GTK touch CSS
     if [ -f "$GTK_CSS_SRC" ]; then
@@ -257,7 +254,7 @@ EOF
     info "Touch mode ENABLED"
     echo ""
     echo "Settings applied:"
-    echo "  - On-screen keyboard: autostart enabled"
+    echo "  - Squeekboard: autostart enabled"
     echo "  - GTK buttons/scrollbars: enlarged (48px min)"
     echo "  - Panel: height=${TOUCH_PANEL_HEIGHT}px, icons=${TOUCH_PANEL_ICON_SIZE}px"
     echo "  - Desktop icons: ${TOUCH_DESKTOP_ICON_SIZE}px (grid: ${TOUCH_DESKTOP_GRID_SPACING}px)"
@@ -274,22 +271,16 @@ EOF
 disable_touch_mode() {
     info "Disabling touch mode..."
 
-    # 1. Disable on-screen keyboards (both onboard and squeekboard)
-    # Create user autostart files with Hidden=true to override system-wide autostart
-    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
-    cat > "$ONBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
-[Desktop Entry]
-Type=Application
-Name=Onboard
-Hidden=true
-DESKTOP_EOF
+    # 1. Disable squeekboard
+    # Create user autostart file with Hidden=true to override system-wide autostart
+    mkdir -p "$(dirname "$SQUEEKBOARD_AUTOSTART_DST")"
     cat > "$SQUEEKBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
 [Desktop Entry]
 Type=Application
 Name=Squeekboard
 Hidden=true
 DESKTOP_EOF
-    info "On-screen keyboards disabled (onboard + squeekboard)"
+    info "Squeekboard disabled"
 
     # 2. Remove GTK touch CSS
     if [ -f "$GTK_CSS_DST" ]; then
@@ -372,7 +363,7 @@ EOF
     info "Touch mode DISABLED"
     echo ""
     echo "Settings restored to defaults:"
-    echo "  - On-screen keyboard: autostart disabled"
+    echo "  - Squeekboard: autostart disabled"
     echo "  - GTK buttons/scrollbars: system default"
     echo "  - Panel: height=${DEFAULT_PANEL_HEIGHT}px, icons=${DEFAULT_PANEL_ICON_SIZE}px"
     echo "  - Desktop icons: default size"
@@ -417,20 +408,11 @@ show_status() {
     # Show individual settings
     echo "Current Settings:"
 
-    # On-screen keyboards (check both onboard and squeekboard)
-    local kbd_disabled=0
-    if [ -f "$ONBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$ONBOARD_AUTOSTART_DST" 2>/dev/null; then
-        kbd_disabled=$((kbd_disabled + 1))
-    fi
+    # Squeekboard status
     if [ -f "$SQUEEKBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$SQUEEKBOARD_AUTOSTART_DST" 2>/dev/null; then
-        kbd_disabled=$((kbd_disabled + 1))
-    fi
-    if [ "$kbd_disabled" -eq 2 ]; then
-        echo -e "  On-screen keyboard: ${YELLOW}autostart disabled${NC}"
-    elif [ "$kbd_disabled" -eq 0 ]; then
-        echo -e "  On-screen keyboard: ${GREEN}autostart enabled${NC}"
+        echo -e "  Squeekboard: ${YELLOW}autostart disabled${NC}"
     else
-        echo -e "  On-screen keyboard: ${YELLOW}partially disabled${NC}"
+        echo -e "  Squeekboard: ${GREEN}autostart enabled${NC}"
     fi
 
     # GTK CSS
@@ -481,7 +463,7 @@ show_usage() {
     echo "  status --quiet  Show just 'enabled' or 'disabled'"
     echo ""
     echo "Touch mode adjusts the following settings:"
-    echo "  - On-screen keyboard (onboard/squeekboard) autostart"
+    echo "  - Squeekboard on-screen keyboard autostart"
     echo "  - GTK3 button and scrollbar sizes"
     echo "  - Panel height and icon size"
     echo "  - Desktop icon size and grid spacing"
