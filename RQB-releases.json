@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-20T08:41:25Z",
+  "generated": "2025-12-20T14:14:29Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,18 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-2025-12-20-091655",
-      "name": "rasqberry-dev-features05-fix-2025-12-20-091655",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-091655/rasqberry-dev-features05-fix-2025-12-20-091655.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-2025-12-20-091655",
-      "release_date": "2025-12-20 09:16",
-      "image_download_size": 1989957872,
+      "tag": "dev-features05-fix-2025-12-20-145238",
+      "name": "rasqberry-dev-features05-fix-2025-12-20-145238",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-2025-12-20-145238/rasqberry-dev-features05-fix-2025-12-20-145238.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-2025-12-20-145238",
+      "release_date": "2025-12-20 14:52",
+      "image_download_size": 1991898840,
       "extract_size": 8841592832,
-      "extract_sha256": "fcc622a7a72473aad91a16f7eb043d4c26c8dd005a97089d11622604ae066fbd",
+      "extract_sha256": "651267d5cfd835384e831efe3c7c0c17d40f24e4515a27ac48499a2c51cb090c",
       "highlights": [
-        "copy keyboard overrides to first user (skel only works for new users)",
-        "auto-logout after touch mode change to apply settings",
-        "use squeekboard only for on-screen keyboard"
+        "add keyboard toggle icon for squeekboard (#211)"
       ]
     }
   }
