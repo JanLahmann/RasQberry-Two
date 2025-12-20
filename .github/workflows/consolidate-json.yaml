@@ -13,9 +13,16 @@
 #
 #   RQB-images.json (Pi Imager):
 #   - Top-level: Main stable (std), Beta (std)
-#   - "RasQberry Development Images" folder: All dev std images
-#   - "RasQberry A/B Boot Images" folder: All A/B images (main, beta, dev)
+#   - "RasQberry Development Images" folder:
+#       - Main dev branches (dev-featuresXX)
+#       - "Other Development Builds" sub-folder (sub-branches like dev-features05-fix)
+#   - "RasQberry A/B Boot Images" folder:
+#       - Main A/B images
+#       - "Other A/B Builds" sub-folder (sub-branches)
 #   - Raspberry Pi OS (64-bit)
+#
+#   Sub-branch images (e.g., dev-features05-fix, dev-features05-SAP) are loaded
+#   from RQB-images-all.json to match the /latest website display.
 #
 #   RQB-releases.json (Website):
 #   - streams.stable: Latest main release (or placeholder if none)
@@ -206,9 +213,12 @@ jobs:
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
-          dev_std = []       # Dev standard images (folder)
-          ab_images = []     # All A/B images (folder)
+          dev_std = []       # Dev standard images (main branches)
+          dev_sub = []       # Dev standard images (sub-branches, nested folder)
+          ab_images = []     # A/B images (main branches)
+          ab_sub = []        # A/B images (sub-branches, nested folder)
           skipped_entries = []  # Track skipped entries for reporting
+          processed_urls = set()  # Track already processed URLs to avoid duplicates
 
           json_dir = Path("/tmp/branch-json")
 
@@ -246,6 +256,9 @@ jobs:
 
                       # Remove internal image_type field before adding to output
                       entry_clean = {k: v for k, v in entry.items() if k != 'image_type'}
+
+                      # Track URL to avoid duplicates when adding sub-branch images later
+                      processed_urls.add(url)
 
                       # Classify by BRANCH NAME (not image name) for proper categorization
                       # Dev images: add branch identifier to distinguish them
@@ -290,11 +303,91 @@ jobs:
               except Exception as e:
                   print(f"  Error loading {json_file}: {e}")
 
+          # ================================================================
+          # Load sub-branch images from RQB-images-all.json
+          # These are images from branches like dev-features05-fix, dev-features05-SAP
+          # that are not in the main dev-featuresXX branches
+          # ================================================================
+          print("\n=== Loading sub-branch images from RQB-images-all.json ===")
+          try:
+              all_images_path = Path("public/RQB-images-all.json")
+              if all_images_path.exists():
+                  with open(all_images_path, 'r') as f:
+                      all_data = json.load(f)
+
+                  sub_branch_count = 0
+                  for entry in all_data.get('releases', []):
+                      url = entry.get('url', '')
+                      branch = entry.get('_branch', '')
+                      image_type = entry.get('image_type', 'standard')
+
+                      # Skip if already processed from main branches
+                      if url in processed_urls:
+                          continue
+
+                      # Skip if not a sub-branch (main branches already handled)
+                      # Sub-branches have format: dev-featuresXX-something
+                      if not re.match(r'^dev-features\d{2}-.+$', branch):
+                          continue
+
+                      # Validate URL still exists
+                      is_valid, validation_msg = validate_release_url(url)
+                      if not is_valid:
+                          print(f"  ✗ SKIPPED (release deleted): {branch}")
+                          skipped_entries.append({
+                              'branch': branch,
+                              'name': entry.get('name', ''),
+                              'url': url,
+                              'reason': validation_msg
+                          })
+                          continue
+
+                      # Build clean entry
+                      entry_clean = {
+                          'name': f"RasQberry Two {'A/B' if image_type == 'ab' else 'Dev'} ({branch})",
+                          'description': f"{'A/B boot' if image_type == 'ab' else 'Development'} build from {branch}",
+                          'icon': entry.get('icon', 'https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png'),
+                          'url': url,
+                          'image_download_size': entry.get('image_download_size'),
+                          'release_date': entry.get('release_date'),
+                          'init_format': entry.get('init_format', 'systemd'),
+                          'devices': entry.get('devices', ['pi5-64bit', 'pi4-64bit']),
+                          'website': entry.get('website', 'https://rasqberry.org')
+                      }
+                      # Add optional fields
+                      if entry.get('extract_size'):
+                          entry_clean['extract_size'] = entry.get('extract_size')
+                      if entry.get('extract_sha256'):
+                          entry_clean['extract_sha256'] = entry.get('extract_sha256')
+
+                      # Remove None values
+                      entry_clean = {k: v for k, v in entry_clean.items() if v is not None}
+
+                      # Add to sub-branch category (nested folders)
+                      if image_type == 'ab':
+                          ab_sub.append((entry.get('release_date', ''), branch, entry_clean))
+                          print(f"  → A/B sub-folder: {entry_clean['name']}")
+                      else:
+                          dev_sub.append((entry.get('release_date', ''), branch, entry_clean))
+                          print(f"  → Dev sub-folder: {entry_clean['name']}")
+
+                      processed_urls.add(url)
+                      sub_branch_count += 1
+
+                  print(f"\n✓ Added {sub_branch_count} sub-branch images from RQB-images-all.json")
+              else:
+                  print("  ⚠ RQB-images-all.json not found, skipping sub-branch images")
+
+          except Exception as e:
+              print(f"  Error loading RQB-images-all.json: {e}")
+
           # Sort each category by release_date (newest first)
           main_std.sort(key=lambda x: x[0], reverse=True)
           beta_std.sort(key=lambda x: x[0], reverse=True)
           dev_std.sort(key=lambda x: x[0], reverse=True)
+          dev_sub.sort(key=lambda x: x[0], reverse=True)
           ab_images.sort(key=lambda x: x[0], reverse=True)
+          ab_sub.sort(key=lambda x: x[0], reverse=True)
 
           # Build hierarchical os_list
           os_list = []
@@ -310,26 +403,50 @@ jobs:
               print(f"✓ Added beta: {beta_std[0][2].get('name')}")
 
           # 3. Add Development Images folder (if any dev images exist)
-          if dev_std:
+          if dev_std or dev_sub:
+              dev_subitems = [entry for _, _, entry in dev_std]
+
+              # Add sub-branch folder if there are sub-branch images
+              if dev_sub:
+                  sub_folder = {
+                      "name": "Other Development Builds",
+                      "description": "Development builds from feature sub-branches",
+                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                      "subitems": [entry for _, _, entry in dev_sub]
+                  }
+                  dev_subitems.append(sub_folder)
+
               dev_folder = {
                   "name": "RasQberry Development Images",
                   "description": "Development builds with cutting-edge features (unstable)",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": [entry for _, _, entry in dev_std]
+                  "subitems": dev_subitems
               }
               os_list.append(dev_folder)
-              print(f"✓ Added Development folder with {len(dev_std)} images")
+              print(f"✓ Added Development folder with {len(dev_std)} main + {len(dev_sub)} sub-branch images")
 
           # 4. Add A/B Test Images folder (if any AB images exist)
-          if ab_images:
+          if ab_images or ab_sub:
+              ab_subitems = [entry for _, _, entry in ab_images]
+
+              # Add sub-branch folder if there are sub-branch A/B images
+              if ab_sub:
+                  sub_folder = {
+                      "name": "Other A/B Builds",
+                      "description": "A/B boot images from feature sub-branches",
+                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+                      "subitems": [entry for _, _, entry in ab_sub]
+                  }
+                  ab_subitems.append(sub_folder)
+
               ab_folder = {
                   "name": "RasQberry A/B Boot Images",
                   "description": "Images with A/B partition support for safer updates",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": [entry for _, _, entry in ab_images]
+                  "subitems": ab_subitems
               }
               os_list.append(ab_folder)
-              print(f"✓ Added A/B folder with {len(ab_images)} images")
+              print(f"✓ Added A/B folder with {len(ab_images)} main + {len(ab_sub)} sub-branch images")
 
           # Build final consolidated structure
           consolidated = {
@@ -576,8 +693,8 @@ jobs:
           echo "1. RQB-images.json (Pi Imager - hierarchical structure):"
           echo "   ├── RasQberry Two (64-bit)         - Main stable"
           echo "   ├── RasQberry Two Beta (64-bit)    - Beta release"
-          echo "   ├── 📁 RasQberry Development Images  - Dev builds folder"
-          echo "   ├── 📁 RasQberry A/B Boot Images     - A/B images folder"
+          echo "   ├── 📁 RasQberry Development Images  - Dev builds (main + sub-branches)"
+          echo "   ├── 📁 RasQberry A/B Boot Images     - A/B images (main + sub-branches)"
           echo "   └── Raspberry Pi OS (64-bit)       - Official Pi OS"
           echo ""
           echo "2. RQB-releases.json (Website /latest/ - stream structure):"
