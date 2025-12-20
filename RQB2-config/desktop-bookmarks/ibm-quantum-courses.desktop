@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.1
+Name=IBM Quantum Courses
+Comment=Structured IBM Quantum learning paths for quantum computing (CC BY-SA 4.0)
+Icon=/usr/share/icons/rasqberry/orbit-pi.png
+Type=Application
+Categories=RasQberry;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_ibm_courses_auto.sh'
+Terminal=true
+StartupNotify=true
+MimeType=text/x-python;
+Keywords=quantum;ibm;qiskit;course;learning;education;jupyter;
+X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false

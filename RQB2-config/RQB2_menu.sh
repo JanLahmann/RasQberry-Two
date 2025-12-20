@@ -232,6 +232,114 @@ run_quantum_paradoxes_demo() {
     "$BIN_DIR/rq_quantum_paradoxes.sh"
 }
 
+# Clone IBM Quantum Learning content (shared by tutorials and courses)
+# Content licensed under CC BY-SA 4.0 by IBM/Qiskit
+# Source: https://github.com/Qiskit/documentation
+clone_ibm_learning_content() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -d "$DEST/.git" ]; then
+        return 0  # Already cloned
+    fi
+
+    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if command -v whiptail > /dev/null 2>&1; then
+            whiptail --title "IBM Quantum Learning Content" \
+                     --yesno "IBM Quantum Tutorials & Courses are not installed yet.\n\nThis will download content from:\nhttps://github.com/Qiskit/documentation\n\nContent is licensed under CC BY-SA 4.0.\nRequires internet connection.\n\nInstall now?" \
+                     14 70 3>&1 1>&2 2>&3
+
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
+        fi
+    else
+        echo "Auto-installing IBM Quantum Learning content..."
+    fi
+
+    echo "Cloning IBM Quantum Learning content (sparse checkout)..."
+    echo "This may take a few minutes..."
+
+    # Sparse clone - only tutorials and courses directories
+    mkdir -p "$DEST"
+    cd "$DEST"
+    git init
+    git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
+    git sparse-checkout init --cone
+    git sparse-checkout set docs/tutorials learning/courses LICENSE LICENSE-DOCS
+    git pull --depth=1 origin main
+    cd - > /dev/null
+
+    # Fix ownership if needed
+    if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
+    fi
+
+    echo "IBM Quantum Learning content downloaded successfully."
+}
+
+# Install IBM Quantum Tutorials
+do_ibm_tutorials_install() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -f "$DEST/$MARKER_IBM_TUTORIALS" ]; then
+        return 0
+    fi
+
+    # Clone content if needed
+    clone_ibm_learning_content || return 1
+
+    # Generate WELCOME-tutorials.ipynb
+    echo "Generating tutorials welcome notebook..."
+    . "$VENV_ACTIVATE"
+    python3 "$BIN_DIR/setup_ibm_tutorials.py" --tutorials --path "$DEST"
+
+    update_environment_file "IBM_TUTORIALS_INSTALLED" "true"
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+        whiptail --title "IBM Quantum Tutorials" --msgbox "Tutorials installed successfully." 8 60
+    else
+        echo "IBM Quantum Tutorials installed successfully."
+    fi
+}
+
+# Install IBM Quantum Courses
+do_ibm_courses_install() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -f "$DEST/$MARKER_IBM_COURSES" ]; then
+        return 0
+    fi
+
+    # Clone content if needed
+    clone_ibm_learning_content || return 1
+
+    # Generate WELCOME-courses.ipynb
+    echo "Generating courses welcome notebook..."
+    . "$VENV_ACTIVATE"
+    python3 "$BIN_DIR/setup_ibm_tutorials.py" --courses --path "$DEST"
+
+    update_environment_file "IBM_COURSES_INSTALLED" "true"
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+        whiptail --title "IBM Quantum Courses" --msgbox "Courses installed successfully." 8 60
+    else
+        echo "IBM Quantum Courses installed successfully."
+    fi
+}
+
+# Run IBM Quantum Tutorials demo
+run_ibm_tutorials_demo() {
+    do_ibm_tutorials_install || return 1
+    "$BIN_DIR/rq_ibm_tutorials.sh"
+}
+
+# Run IBM Quantum Courses demo
+run_ibm_courses_demo() {
+    do_ibm_courses_install || return 1
+    "$BIN_DIR/rq_ibm_courses.sh"
+}
+
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
@@ -739,6 +847,8 @@ do_quantum_demo_menu() {
        RQL  "RasQ-LED (Quantum Circuit)" \
        LDP  "LED-Painter (Paint on LEDs)" \
        QPX  "Quantum Paradoxes (Notebooks)" \
+       IBMT "IBM Quantum Tutorials" \
+       IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
        LOOP "Continuous Demo Loop (Conference)" \
@@ -755,6 +865,8 @@ do_quantum_demo_menu() {
       RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
       LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
       QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
+      IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
+      IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
