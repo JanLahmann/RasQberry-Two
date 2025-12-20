@@ -2,12 +2,8 @@
 
 echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 
-# Install matchbox-keyboard (lightweight virtual keyboard for touchscreens)
-echo "=> Installing matchbox-keyboard"
-apt-get install -y matchbox-keyboard
-
-# Note: Florence was removed from Debian Bookworm repositories
-# matchbox-keyboard is the recommended virtual keyboard for Raspberry Pi OS
+# Squeekboard is the native Wayland on-screen keyboard (pre-installed on RPi OS)
+# No need to install additional packages - just configure the toggle
 
 # Install toggle script
 echo "=> Installing keyboard toggle script"
@@ -30,9 +26,16 @@ if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
     echo "Desktop icon installed: ${DESKTOP_DIR}/virtual-keyboard.desktop"
 fi
 
+# Also install to system applications for panel access
+if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
+    cp "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" /usr/share/applications/
+    chmod 644 /usr/share/applications/virtual-keyboard.desktop
+    echo "Added to applications menu: /usr/share/applications/virtual-keyboard.desktop"
+fi
+
 echo ""
-echo "Virtual keyboard installed:"
-echo "  - matchbox-keyboard (lightweight, touchscreen-optimized)"
+echo "Virtual keyboard toggle installed:"
+echo "  - Uses squeekboard (native Wayland keyboard)"
 echo ""
 echo "To use:"
 echo "  - Click 'Toggle Keyboard' icon on desktop to show/hide"

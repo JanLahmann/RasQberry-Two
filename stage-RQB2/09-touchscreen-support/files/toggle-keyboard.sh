@@ -1,7 +1,7 @@
 #!/bin/bash
-# Toggle matchbox-keyboard on/off
-if pgrep -x matchbox-keyboard > /dev/null; then
-    killall matchbox-keyboard
+# Toggle squeekboard on-screen keyboard on/off
+if pgrep -x squeekboard > /dev/null; then
+    pkill squeekboard
 else
-    matchbox-keyboard &
+    squeekboard &
 fi
