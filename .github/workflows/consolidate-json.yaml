@@ -139,11 +139,14 @@ jobs:
 
           print("=== Merging RQB-images.json files into hierarchical structure ===")
 
-          # Collect entries by category
+          # Collect entries by category (for latest-only RQB-images.json)
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
           dev_std = []       # Dev standard images (folder)
           ab_images = []     # All A/B images (folder)
+
+          # Collect ALL releases for RQB-images-all.json (issue #202)
+          all_releases = []  # All releases from all branches
 
           # Helper to extract timestamp from URL filename
           # URL format: .../rasqberry-branch-YYYY-MM-DD-HHMMSS.img.xz
@@ -184,6 +187,35 @@ jobs:
           print(f"\n=== Latest release per branch ===")
           for branch, (published, tag, _) in sorted(branch_releases.items()):
               print(f"  {branch}: {tag}")
+
+          # Collect ALL releases for RQB-images-all.json (not just latest per branch)
+          print(f"\n=== Collecting ALL releases for development JSON ===")
+          for json_file in sorted(json_dir.glob("*.json"), reverse=True):
+              try:
+                  with open(json_file, 'r') as f:
+                      data = json.load(f)
+
+                  tag = data.get('_release_tag', json_file.stem)
+                  branch = data.get('_branch', '')
+                  published = data.get('_published', '')
+
+                  for entry in data.get('os_list', []):
+                      name = entry.get('name', '')
+                      if 'RasQberry' not in name:
+                          continue
+
+                      # Create entry with release metadata
+                      entry_with_meta = {k: v for k, v in entry.items()
+                                         if k not in ('_release_tag', '_branch', '_published')}
+                      entry_with_meta['_release_tag'] = tag
+                      entry_with_meta['_branch'] = branch
+                      entry_with_meta['_published'] = published
+                      all_releases.append(entry_with_meta)
+
+              except Exception as e:
+                  print(f"  Error reading {json_file}: {e}")
+
+          print(f"  Collected {len(all_releases)} total release entries")
 
           # Second pass: process only the latest release per branch
           for branch_name, (published, tag, json_file) in branch_releases.items():
@@ -390,10 +422,25 @@ jobs:
           print(json.dumps(consolidated, indent=2))
 
           # ================================================================
-          # Generate RQB-releases.json for website /latest/ redirects
+          # Generate RQB-images-all.json with ALL releases (issue #202)
           # ================================================================
           from datetime import datetime, timezone
 
+          all_images_json = {
+              "generated": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+              "description": "All RasQberry image versions for development and testing",
+              "count": len(all_releases),
+              "releases": all_releases
+          }
+
+          with open('public/RQB-images-all.json', 'w') as f:
+              json.dump(all_images_json, f, indent=2)
+
+          print(f"\n=== RQB-images-all.json: {len(all_releases)} entries ===")
+
+          # ================================================================
+          # Generate RQB-releases.json for website /latest/ redirects
+          # ================================================================
           def build_stream_entry(entries, stream_type):
               """Build a stream entry from the first (newest) entry in the list."""
               if not entries:
@@ -469,14 +516,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add public/RQB-images.json public/RQB-releases.json
+          git add public/RQB-images.json public/RQB-releases.json public/RQB-images-all.json
 
           # Check if there are changes
           if git diff --staged --quiet; then
             echo "No changes to JSON files"
             echo "changes=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "Consolidate RQB JSON files from all branches (triggered by ${{ github.event.inputs.trigger_source }})"
+            git commit -m "Consolidate RQB JSON files from release assets (triggered by ${{ github.event.inputs.trigger_source || github.event_name }})"
 
             # Retry push with pull --rebase to handle race conditions
             # (multiple workflows triggered by concurrent releases)
@@ -530,7 +577,11 @@ jobs:
           echo "   ├── streams.beta    - Latest beta branch release"
           echo "   └── streams.dev     - Latest dev branch release"
           echo ""
+          echo "3. RQB-images-all.json (Development - all versions):"
+          echo "   └── All historical releases for testing/debugging"
+          echo ""
           echo "Access URLs:"
-          echo "  Pi Imager:  https://rasqberry.org/RQB-images.json"
-          echo "  Website:    https://rasqberry.org/RQB-releases.json"
-          echo "  Downloads:  https://rasqberry.org/latest/"
+          echo "  Pi Imager:   https://rasqberry.org/RQB-images.json"
+          echo "  Website:     https://rasqberry.org/RQB-releases.json"
+          echo "  All Images:  https://rasqberry.org/RQB-images-all.json"
+          echo "  Downloads:   https://rasqberry.org/latest/"
