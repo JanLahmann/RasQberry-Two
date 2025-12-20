@@ -158,6 +158,11 @@ jobs:
               match = re.search(r'(\d{4}-\d{2}-\d{2}(?:-\d{6})?)$', filename)
               return match.group(1) if match else None
 
+          # Helper to check if branch is a main dev branch (dev-featuresXX only, no suffix)
+          # dev-features05 → True, dev-features05-fix → False, dev-features05-SAP → False
+          def is_main_dev_branch(branch):
+              return bool(re.match(r'^dev-features\d{2}$', branch))
+
           json_dir = Path("/tmp/release-json")
 
           # First pass: group releases by branch and keep only the latest per branch
@@ -239,27 +244,34 @@ jobs:
                                      if k not in ('image_type', '_release_tag', '_branch', '_published')}
 
                       # Classify by BRANCH NAME for proper categorization
-                      # Dev and AB images: include branch name AND full timestamp for Pi Imager
+                      # Only include main dev branches (dev-featuresXX) in Pi Imager/website JSON
+                      # Sub-branches like dev-features05-fix go only in RQB-images-all.json
                       if image_type == 'ab' or 'A/B' in name:
-                          # A/B images: include branch name + timestamp
-                          timestamp = extract_timestamp(entry.get('url', ''))
-                          if timestamp:
-                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name} {timestamp})"
+                          # A/B images: only from main, beta, or main dev branches
+                          if branch_name in ('main', 'beta') or is_main_dev_branch(branch_name):
+                              timestamp = extract_timestamp(entry.get('url', ''))
+                              if timestamp:
+                                  entry_clean['name'] = f"RasQberry Two A/B ({branch_name} {timestamp})"
+                              else:
+                                  entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
+                              entry_clean['description'] = f"A/B boot image from {branch_name}"
+                              ab_images.append((published, branch_name, entry_clean))
+                              print(f"  → A/B folder: {entry_clean['name']}")
                           else:
-                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
-                          entry_clean['description'] = f"A/B boot image from {branch_name}"
-                          ab_images.append((published, branch_name, entry_clean))
-                          print(f"  → A/B folder: {entry_clean['name']}")
+                              print(f"  → Skipped (sub-branch, in -all only): A/B from {branch_name}")
                       elif branch_name.startswith('dev'):
-                          # Dev images: include branch name + timestamp
-                          timestamp = extract_timestamp(entry.get('url', ''))
-                          if timestamp:
-                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name} {timestamp})"
+                          # Dev images: only from main dev branches (dev-featuresXX)
+                          if is_main_dev_branch(branch_name):
+                              timestamp = extract_timestamp(entry.get('url', ''))
+                              if timestamp:
+                                  entry_clean['name'] = f"RasQberry Two Dev ({branch_name} {timestamp})"
+                              else:
+                                  entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                              entry_clean['description'] = f"Development build from {branch_name}"
+                              dev_std.append((published, branch_name, entry_clean))
+                              print(f"  → Dev folder: {entry_clean['name']}")
                           else:
-                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
-                          entry_clean['description'] = f"Development build from {branch_name}"
-                          dev_std.append((published, branch_name, entry_clean))
-                          print(f"  → Dev folder: {entry_clean['name']}")
+                              print(f"  → Skipped (sub-branch, in -all only): {branch_name}")
                       elif branch_name == 'beta':
                           # Beta branch → top-level beta entry
                           entry_clean['name'] = "RasQberry Two Beta (64-bit)"
