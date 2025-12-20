@@ -2,7 +2,6 @@
 leadspace:
   variant: light
   title: Newsletter
-  copy: "Stay informed about RasQberry Two updates, new quantum computing demos, and community news."
   size: short
 ---
 
