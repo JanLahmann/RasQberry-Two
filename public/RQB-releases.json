@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-20T16:15:23Z",
+  "generated": "2025-12-20T16:15:45Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "cf9e60599f81b67504db2a521e256f49303712b278fb169f0187681e5b3af341",
       "highlights": [
-        "sync RQB-image-v2.yaml from main"
+        "extract highlights from GitHub release body"
       ]
     }
   }
