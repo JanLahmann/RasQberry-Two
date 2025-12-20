@@ -76,10 +76,18 @@ permissions:
   actions: write
 
 jobs:
+  # Dummy job for push events - just succeeds to avoid "failure" status
+  workflow-updated:
+    name: Workflow file updated
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Acknowledge workflow update
+        run: echo "Workflow file updated. Consolidation runs on schedule, release events, or manual dispatch."
+
   consolidate:
     name: Consolidate JSON from all branches
     runs-on: ubuntu-latest
-    # Skip on push events (workflow file changes) - only run on schedule/dispatch/release
     if: github.event_name != 'push'
 
     steps:
