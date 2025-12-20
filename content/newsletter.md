@@ -1,9 +1,7 @@
 ---
-leadspace:
-  variant: light
-  title: Newsletter
-  size: short
 ---
+
+# Newsletter
 
 Subscribe to receive occasional updates about RasQberry Two. We send not more than one email per month.
 
