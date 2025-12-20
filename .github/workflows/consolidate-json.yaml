@@ -1,28 +1,21 @@
 # ============================================================================
 # RQB JSON Consolidation Workflow
 # ============================================================================
-# Purpose: Consolidates JSON files from multiple branches into gh-pages:
+# Purpose: Consolidates JSON files from release assets into gh-pages:
 #          1. RQB-images.json - Hierarchical structure for Raspberry Pi Imager
 #          2. RQB-releases.json - Stream-based structure for website /latest/ page
 #
 # Architecture:
-#   Each branch (main, beta, dev*) maintains its own RQB-images.json with both
-#   standard and A/B image entries (marked with "image_type" field).
+#   Each release contains RQB-images.json as an asset with both standard and
+#   A/B image entries (marked with "image_type" field).
 #
-#   This workflow fetches from all branches and builds:
+#   This workflow fetches from release assets and builds:
 #
 #   RQB-images.json (Pi Imager):
 #   - Top-level: Main stable (std), Beta (std)
-#   - "RasQberry Development Images" folder:
-#       - Main dev branches (dev-featuresXX)
-#       - "Other Development Builds" sub-folder (sub-branches like dev-features05-fix)
-#   - "RasQberry A/B Boot Images" folder:
-#       - Main A/B images
-#       - "Other A/B Builds" sub-folder (sub-branches)
+#   - "RasQberry Development Images" folder: All dev std images
+#   - "RasQberry A/B Boot Images" folder: All A/B images (main, beta, dev)
 #   - Raspberry Pi OS (64-bit)
-#
-#   Sub-branch images (e.g., dev-features05-fix, dev-features05-SAP) are loaded
-#   from RQB-images-all.json to match the /latest website display.
 #
 #   RQB-releases.json (Website):
 #   - streams.stable: Latest main release (or placeholder if none)
@@ -47,48 +40,22 @@ on:
   release:
     types: [deleted]
 
-  # Push trigger (workflow file changes) - job will skip but prevents "failure" status
-  push:
-    branches: [gh-pages]
-    paths:
-      - '.github/workflows/consolidate-json.yaml'
-
   workflow_dispatch:
     inputs:
       trigger_source:
-        description: 'Branch that triggered this workflow'
+        description: 'Source that triggered this workflow'
         required: false
         type: string
         default: 'manual'
-      trigger_type:
-        description: 'Type of release that triggered (main/beta/dev)'
-        required: false
-        type: string
-        default: 'unknown'
-      skip_validation:
-        description: 'Skip URL validation (faster but may include stale releases)'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
   actions: write
 
 jobs:
-  # Dummy job for push events - just succeeds to avoid "failure" status
-  workflow-updated:
-    name: Workflow file updated
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    steps:
-      - name: Acknowledge workflow update
-        run: echo "Workflow file updated. Consolidation runs on schedule, release events, or manual dispatch."
-
   consolidate:
-    name: Consolidate JSON from all branches
+    name: Consolidate JSON from release assets
     runs-on: ubuntu-latest
-    if: github.event_name != 'push'
 
     steps:
       - name: Checkout gh-pages
@@ -97,58 +64,55 @@ jobs:
           ref: gh-pages
           fetch-depth: 0
 
-      - name: Fetch RQB-images.json from all branches
+      - name: Fetch RQB-images.json from release assets
         id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== Consolidating RQB-images.json from all branches ==="
-          echo "Triggered by: ${{ github.event.inputs.trigger_source }} (${{ github.event.inputs.trigger_type }})"
+          echo "=== Consolidating RQB-images.json from release assets ==="
+          echo "Triggered by: ${{ github.event.inputs.trigger_source || github.event_name }}"
           echo ""
 
-          mkdir -p /tmp/branch-json
+          mkdir -p /tmp/release-json
 
-          # Function to fetch JSON from a branch
-          fetch_branch_json() {
-            local branch="$1"
-            local output="/tmp/branch-json/${branch}.json"
+          # Get all releases that have RQB-images.json as an asset
+          echo "Querying GitHub Releases API..."
 
-            echo "Fetching from branch: $branch"
-            if curl -s -f "https://raw.githubusercontent.com/${{ github.repository }}/${branch}/RQB-images.json" -o "$output"; then
-              echo "  ✓ Found RQB-images.json in $branch"
-              return 0
+          gh api repos/${{ github.repository }}/releases --paginate \
+            --jq '.[] | select(.assets[].name == "RQB-images.json") | {tag: .tag_name, published: .published_at, asset_url: (.assets[] | select(.name == "RQB-images.json") | .browser_download_url)}' \
+            > /tmp/releases-with-json.jsonl
+
+          echo ""
+          echo "Found releases with RQB-images.json:"
+          cat /tmp/releases-with-json.jsonl | jq -r '.tag' || echo "None found"
+          echo ""
+
+          # Download RQB-images.json from each release
+          while IFS= read -r line; do
+            tag=$(echo "$line" | jq -r '.tag')
+            asset_url=$(echo "$line" | jq -r '.asset_url')
+            published=$(echo "$line" | jq -r '.published')
+
+            # Extract branch name from tag (remove trailing -YYYY-MM-DD-HHMMSS)
+            branch=$(echo "$tag" | sed -E 's/-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$//')
+
+            output="/tmp/release-json/${tag}.json"
+
+            echo "Downloading: $tag (branch: $branch)"
+            if curl -sL -f "$asset_url" -o "$output"; then
+              # Add metadata to the JSON for processing
+              jq --arg tag "$tag" --arg branch "$branch" --arg published "$published" \
+                '. + {_release_tag: $tag, _branch: $branch, _published: $published}' \
+                "$output" > "${output}.tmp" && mv "${output}.tmp" "$output"
+              echo "  ✓ Downloaded RQB-images.json from $tag"
             else
-              echo "  ⚠ No RQB-images.json in $branch (or branch doesn't exist)"
-              return 1
+              echo "  ⚠ Failed to download from $tag"
             fi
-          }
-
-          # Fetch from main branches
-          fetch_branch_json "main" || true
-          fetch_branch_json "beta" || true
-
-          # Fetch from main dev-features branches only (dev-featuresXX pattern)
-          # Excludes sub-branches like dev-features03-norelease, dev-features03-SAP, etc.
-          echo ""
-          echo "Looking for dev-features branches..."
-
-          # Get list of dev-features branches matching pattern dev-featuresXX (exactly 2 digits, no suffix)
-          DEV_BRANCHES=$(git ls-remote --heads origin 'refs/heads/dev-features*' \
-            | sed 's|.*refs/heads/||' \
-            | grep -E '^dev-features[0-9]{2}$' \
-            | sort -V -r \
-            | head -5)
-
-          if [ -n "$DEV_BRANCHES" ]; then
-            echo "Found dev-features branches: $DEV_BRANCHES"
-            for branch in $DEV_BRANCHES; do
-              fetch_branch_json "$branch" || true  # Continue on failure, fetch all available
-            done
-          else
-            echo "  ⚠ No dev-features branches found"
-          fi
+          done < /tmp/releases-with-json.jsonl
 
           echo ""
-          echo "=== Fetched JSON files ==="
-          ls -la /tmp/branch-json/ || echo "No files fetched"
+          echo "=== Downloaded release JSON files ==="
+          ls -la /tmp/release-json/ || echo "No files fetched"
 
       - name: Fetch official Raspberry Pi OS metadata
         id: raspios
@@ -166,82 +130,64 @@ jobs:
           fi
 
       - name: Merge JSON files
-        env:
-          SKIP_VALIDATION: ${{ github.event.inputs.skip_validation || 'false' }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 << 'PYTHON_SCRIPT'
           import json
-          import urllib.request
           import os
           import re
           from pathlib import Path
 
           print("=== Merging RQB-images.json files into hierarchical structure ===")
 
-          # URL Validation function
-          def validate_release_url(url):
-              """Check if a GitHub release URL is still accessible."""
-              if not url:
-                  return False, "No URL provided"
-
-              # Skip validation if requested
-              if os.environ.get('SKIP_VALIDATION', 'false').lower() == 'true':
-                  return True, "Validation skipped"
-
-              try:
-                  # For GitHub release URLs, use the API to check if the release exists
-                  # URL format: https://github.com/OWNER/REPO/releases/download/TAG/filename
-                  github_pattern = r'https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/'
-                  match = re.match(github_pattern, url)
-
-                  if match:
-                      owner, repo, tag = match.groups()
-                      api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
-
-                      req = urllib.request.Request(api_url)
-                      token = os.environ.get('GITHUB_TOKEN')
-                      if token:
-                          req.add_header('Authorization', f'token {token}')
-                      req.add_header('Accept', 'application/vnd.github.v3+json')
-
-                      with urllib.request.urlopen(req, timeout=10) as response:
-                          if response.status == 200:
-                              return True, "Release exists"
-                  else:
-                      # For non-GitHub URLs, do a HEAD request
-                      req = urllib.request.Request(url, method='HEAD')
-                      with urllib.request.urlopen(req, timeout=10) as response:
-                          if response.status in [200, 302, 307]:
-                              return True, "URL accessible"
-
-                  return False, "URL not accessible"
-
-              except urllib.error.HTTPError as e:
-                  if e.code == 404:
-                      return False, f"Release not found (404)"
-                  return False, f"HTTP error: {e.code}"
-              except Exception as e:
-                  # On error, assume URL is valid to avoid false negatives
-                  print(f"  ⚠ Validation error for {url}: {e}")
-                  return True, f"Validation error (assuming valid): {e}"
-
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
-          dev_std = []       # Dev standard images (main branches)
-          dev_sub = []       # Dev standard images (sub-branches, nested folder)
-          ab_images = []     # A/B images (main branches)
-          ab_sub = []        # A/B images (sub-branches, nested folder)
-          skipped_entries = []  # Track skipped entries for reporting
-          processed_urls = set()  # Track already processed URLs to avoid duplicates
+          dev_std = []       # Dev standard images (folder)
+          ab_images = []     # All A/B images (folder)
 
-          json_dir = Path("/tmp/branch-json")
+          # Helper to extract timestamp from URL filename
+          # URL format: .../rasqberry-branch-YYYY-MM-DD-HHMMSS.img.xz
+          def extract_timestamp(url):
+              if not url:
+                  return None
+              filename = url.split('/')[-1].replace('.img.xz', '').replace('-ab', '')
+              # Match YYYY-MM-DD-HHMMSS or YYYY-MM-DD at end of filename
+              match = re.search(r'(\d{4}-\d{2}-\d{2}(?:-\d{6})?)$', filename)
+              return match.group(1) if match else None
 
-          # Load and classify entries from each branch's JSON
+          json_dir = Path("/tmp/release-json")
+
+          # First pass: group releases by branch and keep only the latest per branch
+          branch_releases = {}  # branch -> (published_date, tag, json_file)
+
           for json_file in json_dir.glob("*.json"):
-              branch_name = json_file.stem
-              print(f"\nProcessing: {branch_name}")
+              try:
+                  with open(json_file, 'r') as f:
+                      data = json.load(f)
+
+                  branch = data.get('_branch', '')
+                  published = data.get('_published', '')
+                  tag = data.get('_release_tag', json_file.stem)
+
+                  if not branch:
+                      print(f"  ⚠ Skipping {json_file.name}: no branch metadata")
+                      continue
+
+                  # Keep only the latest release per branch
+                  if branch not in branch_releases or published > branch_releases[branch][0]:
+                      branch_releases[branch] = (published, tag, json_file)
+                      print(f"Found: {tag} (branch: {branch}, published: {published})")
+
+              except Exception as e:
+                  print(f"  Error reading {json_file}: {e}")
+
+          print(f"\n=== Latest release per branch ===")
+          for branch, (published, tag, _) in sorted(branch_releases.items()):
+              print(f"  {branch}: {tag}")
+
+          # Second pass: process only the latest release per branch
+          for branch_name, (published, tag, json_file) in branch_releases.items():
+              print(f"\nProcessing: {tag} (branch: {branch_name})")
 
               try:
                   with open(json_file, 'r') as f:
@@ -256,45 +202,37 @@ jobs:
                       if 'RasQberry' not in name:
                           continue
 
-                      # Validate that the release URL still exists
-                      is_valid, validation_msg = validate_release_url(url)
-                      if not is_valid:
-                          print(f"  ✗ SKIPPED (release deleted): {name}")
-                          print(f"    URL: {url}")
-                          print(f"    Reason: {validation_msg}")
-                          skipped_entries.append({
-                              'branch': branch_name,
-                              'name': name,
-                              'url': url,
-                              'reason': validation_msg
-                          })
-                          continue
+                      # Remove internal fields before adding to output
+                      entry_clean = {k: v for k, v in entry.items()
+                                     if k not in ('image_type', '_release_tag', '_branch', '_published')}
 
-                      # Remove internal image_type field before adding to output
-                      entry_clean = {k: v for k, v in entry.items() if k != 'image_type'}
-
-                      # Track URL to avoid duplicates when adding sub-branch images later
-                      processed_urls.add(url)
-
-                      # Classify by BRANCH NAME (not image name) for proper categorization
-                      # Dev images: add branch identifier to distinguish them
+                      # Classify by BRANCH NAME for proper categorization
+                      # Dev and AB images: include branch name AND full timestamp for Pi Imager
                       if image_type == 'ab' or 'A/B' in name:
-                          # Add branch name to make A/B images distinguishable
-                          entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
+                          # A/B images: include branch name + timestamp
+                          timestamp = extract_timestamp(entry.get('url', ''))
+                          if timestamp:
+                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name} {timestamp})"
+                          else:
+                              entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
                           entry_clean['description'] = f"A/B boot image from {branch_name}"
-                          ab_images.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          ab_images.append((published, branch_name, entry_clean))
                           print(f"  → A/B folder: {entry_clean['name']}")
                       elif branch_name.startswith('dev'):
-                          # Add branch name to make dev images distinguishable
-                          entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
+                          # Dev images: include branch name + timestamp
+                          timestamp = extract_timestamp(entry.get('url', ''))
+                          if timestamp:
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name} {timestamp})"
+                          else:
+                              entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
                           entry_clean['description'] = f"Development build from {branch_name}"
-                          dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          dev_std.append((published, branch_name, entry_clean))
                           print(f"  → Dev folder: {entry_clean['name']}")
                       elif branch_name == 'beta':
                           # Beta branch → top-level beta entry
                           entry_clean['name'] = "RasQberry Two Beta (64-bit)"
                           entry_clean['description'] = "Beta release with new features for testing"
-                          beta_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          beta_std.append((published, branch_name, entry_clean))
                           print(f"  → Top-level Beta: {entry_clean['name']}")
                       elif branch_name == 'main':
                           # Main branch: only stable if name doesn't contain "Dev"
@@ -302,108 +240,28 @@ jobs:
                               # Main has dev image - put in dev folder
                               entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
                               entry_clean['description'] = f"Development build from {branch_name}"
-                              dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              dev_std.append((published, branch_name, entry_clean))
                               print(f"  → Dev folder (main has dev): {entry_clean['name']}")
                           else:
                               # Main has stable release
                               entry_clean['name'] = "RasQberry Two (64-bit)"
                               entry_clean['description'] = "Stable release for Raspberry Pi 4/5 (Recommended)"
-                              main_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                              main_std.append((published, branch_name, entry_clean))
                               print(f"  → Top-level Main: {entry_clean['name']}")
                       else:
                           # Unknown branch pattern - treat as dev
                           entry_clean['name'] = f"RasQberry Two ({branch_name})"
-                          dev_std.append((entry.get('release_date', ''), branch_name, entry_clean))
+                          dev_std.append((published, branch_name, entry_clean))
                           print(f"  → Dev folder (unknown): {entry_clean['name']}")
 
               except Exception as e:
                   print(f"  Error loading {json_file}: {e}")
 
-          # ================================================================
-          # Load sub-branch images from RQB-images-all.json
-          # These are images from branches like dev-features05-fix, dev-features05-SAP
-          # that are not in the main dev-featuresXX branches
-          # ================================================================
-          print("\n=== Loading sub-branch images from RQB-images-all.json ===")
-          try:
-              all_images_path = Path("public/RQB-images-all.json")
-              if all_images_path.exists():
-                  with open(all_images_path, 'r') as f:
-                      all_data = json.load(f)
-
-                  sub_branch_count = 0
-                  for entry in all_data.get('releases', []):
-                      url = entry.get('url', '')
-                      branch = entry.get('_branch', '')
-                      image_type = entry.get('image_type', 'standard')
-
-                      # Skip if already processed from main branches
-                      if url in processed_urls:
-                          continue
-
-                      # Skip if not a sub-branch (main branches already handled)
-                      # Sub-branches have format: dev-featuresXX-something
-                      if not re.match(r'^dev-features\d{2}-.+$', branch):
-                          continue
-
-                      # Validate URL still exists
-                      is_valid, validation_msg = validate_release_url(url)
-                      if not is_valid:
-                          print(f"  ✗ SKIPPED (release deleted): {branch}")
-                          skipped_entries.append({
-                              'branch': branch,
-                              'name': entry.get('name', ''),
-                              'url': url,
-                              'reason': validation_msg
-                          })
-                          continue
-
-                      # Build clean entry
-                      entry_clean = {
-                          'name': f"RasQberry Two {'A/B' if image_type == 'ab' else 'Dev'} ({branch})",
-                          'description': f"{'A/B boot' if image_type == 'ab' else 'Development'} build from {branch}",
-                          'icon': entry.get('icon', 'https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png'),
-                          'url': url,
-                          'image_download_size': entry.get('image_download_size'),
-                          'release_date': entry.get('release_date'),
-                          'init_format': entry.get('init_format', 'systemd'),
-                          'devices': entry.get('devices', ['pi5-64bit', 'pi4-64bit']),
-                          'website': entry.get('website', 'https://rasqberry.org')
-                      }
-                      # Add optional fields
-                      if entry.get('extract_size'):
-                          entry_clean['extract_size'] = entry.get('extract_size')
-                      if entry.get('extract_sha256'):
-                          entry_clean['extract_sha256'] = entry.get('extract_sha256')
-
-                      # Remove None values
-                      entry_clean = {k: v for k, v in entry_clean.items() if v is not None}
-
-                      # Add to sub-branch category (nested folders)
-                      if image_type == 'ab':
-                          ab_sub.append((entry.get('release_date', ''), branch, entry_clean))
-                          print(f"  → A/B sub-folder: {entry_clean['name']}")
-                      else:
-                          dev_sub.append((entry.get('release_date', ''), branch, entry_clean))
-                          print(f"  → Dev sub-folder: {entry_clean['name']}")
-
-                      processed_urls.add(url)
-                      sub_branch_count += 1
-
-                  print(f"\n✓ Added {sub_branch_count} sub-branch images from RQB-images-all.json")
-              else:
-                  print("  ⚠ RQB-images-all.json not found, skipping sub-branch images")
-
-          except Exception as e:
-              print(f"  Error loading RQB-images-all.json: {e}")
-
           # Sort each category by release_date (newest first)
           main_std.sort(key=lambda x: x[0], reverse=True)
           beta_std.sort(key=lambda x: x[0], reverse=True)
           dev_std.sort(key=lambda x: x[0], reverse=True)
-          dev_sub.sort(key=lambda x: x[0], reverse=True)
           ab_images.sort(key=lambda x: x[0], reverse=True)
-          ab_sub.sort(key=lambda x: x[0], reverse=True)
 
           # Build hierarchical os_list
           os_list = []
@@ -419,50 +277,26 @@ jobs:
               print(f"✓ Added beta: {beta_std[0][2].get('name')}")
 
           # 3. Add Development Images folder (if any dev images exist)
-          if dev_std or dev_sub:
-              dev_subitems = [entry for _, _, entry in dev_std]
-
-              # Add sub-branch folder if there are sub-branch images
-              if dev_sub:
-                  sub_folder = {
-                      "name": "Other Development Builds",
-                      "description": "Development builds from feature sub-branches",
-                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                      "subitems": [entry for _, _, entry in dev_sub]
-                  }
-                  dev_subitems.append(sub_folder)
-
+          if dev_std:
               dev_folder = {
                   "name": "RasQberry Development Images",
                   "description": "Development builds with cutting-edge features (unstable)",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": dev_subitems
+                  "subitems": [entry for _, _, entry in dev_std]
               }
               os_list.append(dev_folder)
-              print(f"✓ Added Development folder with {len(dev_std)} main + {len(dev_sub)} sub-branch images")
+              print(f"✓ Added Development folder with {len(dev_std)} images")
 
           # 4. Add A/B Test Images folder (if any AB images exist)
-          if ab_images or ab_sub:
-              ab_subitems = [entry for _, _, entry in ab_images]
-
-              # Add sub-branch folder if there are sub-branch A/B images
-              if ab_sub:
-                  sub_folder = {
-                      "name": "Other A/B Builds",
-                      "description": "A/B boot images from feature sub-branches",
-                      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                      "subitems": [entry for _, _, entry in ab_sub]
-                  }
-                  ab_subitems.append(sub_folder)
-
+          if ab_images:
               ab_folder = {
                   "name": "RasQberry A/B Boot Images",
                   "description": "Images with A/B partition support for safer updates",
                   "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-                  "subitems": ab_subitems
+                  "subitems": [entry for _, _, entry in ab_images]
               }
               os_list.append(ab_folder)
-              print(f"✓ Added A/B folder with {len(ab_images)} main + {len(ab_sub)} sub-branch images")
+              print(f"✓ Added A/B folder with {len(ab_images)} images")
 
           # Build final consolidated structure
           consolidated = {
@@ -476,7 +310,6 @@ jobs:
           print(f"\n=== Built hierarchical structure with {len(os_list)} top-level entries ===")
 
           # Fetch official Raspberry Pi OS entry from their JSON
-          raspios_entry = None
           try:
               with open('/tmp/rpi-official.json', 'r') as f:
                   rpi_data = json.load(f)
@@ -548,21 +381,6 @@ jobs:
               })
 
           # Note: Pi Imager has built-in "Use custom" option, no need to add our own
-
-          # Report skipped entries (deleted releases)
-          if skipped_entries:
-              print("\n" + "="*60)
-              print("⚠ SKIPPED ENTRIES (releases no longer exist):")
-              print("="*60)
-              for entry in skipped_entries:
-                  print(f"\n  Branch: {entry['branch']}")
-                  print(f"  Name:   {entry['name']}")
-                  print(f"  URL:    {entry['url']}")
-                  print(f"  Reason: {entry['reason']}")
-              print("\n" + "="*60)
-              print(f"Total skipped: {len(skipped_entries)} entries")
-              print("These branches have stale RQB-images.json files that should be updated.")
-              print("="*60)
 
           # Write consolidated JSON to public folder (where website serves from)
           with open('public/RQB-images.json', 'w') as f:
@@ -643,11 +461,6 @@ jobs:
 
           print("\n=== Final RQB-releases.json ===")
           print(json.dumps(releases_json, indent=2))
-
-          # Write skipped entries to a separate file for reference
-          if skipped_entries:
-              with open('/tmp/skipped-releases.json', 'w') as f:
-                  json.dump(skipped_entries, f, indent=2)
           PYTHON_SCRIPT
 
       - name: Commit consolidated JSON files to gh-pages
@@ -683,7 +496,6 @@ jobs:
 
       - name: Trigger Next.js deployment
         if: steps.commit.outputs.changes == 'true'
-        continue-on-error: true  # Don't fail workflow if token lacks dispatch permission (e.g., release events from deleted branches)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -697,33 +509,26 @@ jobs:
           echo ""
           echo "Trigger: ${{ github.event_name }}"
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "  (Scheduled 8-hour validation run)"
+            echo "  (Scheduled 8-hour run to detect new/deleted releases)"
           elif [ "${{ github.event_name }}" = "release" ]; then
-            echo "  (Release deletion detected)"
+            echo "  (Release event detected)"
           fi
           echo ""
-          echo "Validation: ${{ github.event.inputs.skip_validation == 'true' && 'SKIPPED' || 'ENABLED' }}"
+          echo "Source: GitHub Release Assets (RQB-images.json)"
           echo ""
           echo "Generated files on gh-pages:"
           echo ""
           echo "1. RQB-images.json (Pi Imager - hierarchical structure):"
           echo "   ├── RasQberry Two (64-bit)         - Main stable"
           echo "   ├── RasQberry Two Beta (64-bit)    - Beta release"
-          echo "   ├── 📁 RasQberry Development Images  - Dev builds (main + sub-branches)"
-          echo "   ├── 📁 RasQberry A/B Boot Images     - A/B images (main + sub-branches)"
+          echo "   ├── RasQberry Development Images   - Dev builds folder"
+          echo "   ├── RasQberry A/B Boot Images      - A/B images folder"
           echo "   └── Raspberry Pi OS (64-bit)       - Official Pi OS"
           echo ""
           echo "2. RQB-releases.json (Website /latest/ - stream structure):"
           echo "   ├── streams.stable  - Latest main branch release"
           echo "   ├── streams.beta    - Latest beta branch release"
           echo "   └── streams.dev     - Latest dev branch release"
-          echo ""
-          # Report skipped entries if any
-          if [ -f /tmp/skipped-releases.json ]; then
-            echo "⚠ WARNING: Some releases were skipped (deleted from GitHub):"
-            cat /tmp/skipped-releases.json
-            echo ""
-          fi
           echo ""
           echo "Access URLs:"
           echo "  Pi Imager:  https://rasqberry.org/RQB-images.json"
