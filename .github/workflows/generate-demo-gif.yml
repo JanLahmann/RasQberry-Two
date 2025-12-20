@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   generate-gif:
@@ -63,3 +64,9 @@ jobs:
           git add public/demo-screenshots/*.gif
           git commit -m "chore: regenerate demo screenshots GIFs"
           git push
+
+      - name: Trigger deploy workflow
+        if: steps.check_changes.outputs.changed == 'true'
+        run: gh workflow run nextjs.yml --ref gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
