@@ -1,0 +1,65 @@
+# Workflow to regenerate animated GIF from demo screenshots
+#
+# Triggers when PNG files are added/modified in public/demo-screenshots/
+# Uses the create_animated_gif.py script to generate the GIF
+#
+name: Generate Demo GIF
+
+on:
+  push:
+    branches: ["gh-pages"]
+    paths:
+      - 'public/demo-screenshots/*.png'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-gif:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Generate animated GIF (1000ms - normal speed)
+        run: |
+          python scripts/create_animated_gif.py \
+            public/demo-screenshots \
+            public/demo-screenshots/rasqberry-demo-1000ms.gif \
+            1000
+
+      - name: Generate animated GIF (4000ms - slow motion)
+        run: |
+          python scripts/create_animated_gif.py \
+            public/demo-screenshots \
+            public/demo-screenshots/rasqberry-demo-4000ms.gif \
+            4000
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet public/demo-screenshots/*.gif 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated GIFs
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/demo-screenshots/*.gif
+          git commit -m "chore: regenerate demo screenshots GIFs"
+          git push
