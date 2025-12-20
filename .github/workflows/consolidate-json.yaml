@@ -47,6 +47,12 @@ on:
   release:
     types: [deleted]
 
+  # Push trigger (workflow file changes) - job will skip but prevents "failure" status
+  push:
+    branches: [gh-pages]
+    paths:
+      - '.github/workflows/consolidate-json.yaml'
+
   workflow_dispatch:
     inputs:
       trigger_source:
@@ -73,6 +79,8 @@ jobs:
   consolidate:
     name: Consolidate JSON from all branches
     runs-on: ubuntu-latest
+    # Skip on push events (workflow file changes) - only run on schedule/dispatch/release
+    if: github.event_name != 'push'
 
     steps:
       - name: Checkout gh-pages
