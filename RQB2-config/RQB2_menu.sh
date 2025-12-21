@@ -266,7 +266,7 @@ clone_ibm_learning_content() {
     git init
     git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
     git sparse-checkout init --cone
-    git sparse-checkout set docs/tutorials learning/courses LICENSE LICENSE-DOCS
+    git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS
     git pull --depth=1 origin main
     cd - > /dev/null
 
