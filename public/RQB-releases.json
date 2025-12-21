@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-21T13:05:30Z",
+  "generated": "2025-12-21T13:05:54Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,9 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "480ed303b814e844dda8277f5088e0b564b1694573a4c88747f4ddeeb9e0dd6f",
       "highlights": [
-        "add IBM Quantum Tutorials and Courses desktop shortcuts",
-        "enhance IBM Quantum tutorials and courses WELCOME notebooks",
-        "sync RQB-image-v2.yaml from main"
+        "extract highlights from GitHub release body"
       ]
     }
   }
