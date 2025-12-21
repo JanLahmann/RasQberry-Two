@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-20T15:05:14Z",
+  "generated": "2025-12-21T13:05:30Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,14 +19,19 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-tutorials-2025-12-20-153914",
-      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-20-153914",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-20-153914/rasqberry-dev-features05-fix-tutorials-2025-12-20-153914.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-20-153914",
-      "release_date": "2025-12-20 15:39",
-      "image_download_size": 1990332828,
+      "tag": "dev-features05-fix-tutorials-2025-12-21-134331",
+      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-21-134331",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-21-134331/rasqberry-dev-features05-fix-tutorials-2025-12-21-134331.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-21-134331",
+      "release_date": "2025-12-21 13:43",
+      "image_download_size": 1988794832,
       "extract_size": 8841592832,
-      "extract_sha256": "702e433cec6d36df2cdb119ed373c994a9612d9b7dac0552900045b6f2c510f3"
+      "extract_sha256": "480ed303b814e844dda8277f5088e0b564b1694573a4c88747f4ddeeb9e0dd6f",
+      "highlights": [
+        "add IBM Quantum Tutorials and Courses desktop shortcuts",
+        "enhance IBM Quantum tutorials and courses WELCOME notebooks",
+        "sync RQB-image-v2.yaml from main"
+      ]
     }
   }
 }
