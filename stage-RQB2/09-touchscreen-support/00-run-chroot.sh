@@ -1,4 +1,8 @@
 #!/bin/bash -e
+#
+# Install touchscreen support (runs in CHROOT)
+# Files are already installed by 00-run.sh
+#
 
 echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 
@@ -6,32 +10,24 @@ echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 # wvkbd provides a docked keyboard that works natively with Wayland/labwc
 apt-get install -y wvkbd
 
-# Install toggle script
-echo "=> Installing keyboard toggle script"
-STAGE_DIR="$(dirname "$0")"
-if [ -f "${STAGE_DIR}/files/toggle-keyboard.sh" ]; then
-    cp "${STAGE_DIR}/files/toggle-keyboard.sh" /usr/local/bin/
-    chmod +x /usr/local/bin/toggle-keyboard.sh
-    echo "Toggle script installed: /usr/local/bin/toggle-keyboard.sh"
+# Disable squeekboard autostart (default RPi OS keyboard) - we use wvkbd instead
+# Move the autostart file to prevent squeekboard from starting
+echo "=> Disabling squeekboard autostart (using wvkbd instead)"
+if [ -f /etc/xdg/autostart/squeekboard.desktop ]; then
+    mv /etc/xdg/autostart/squeekboard.desktop /etc/xdg/autostart/squeekboard.desktop.disabled
+    echo "Squeekboard autostart disabled (file renamed)"
 fi
 
-# Install desktop icon for virtual keyboard
+# Copy desktop icon to user desktop
 echo "=> Installing virtual keyboard desktop icon"
 DESKTOP_DIR="/home/${FIRST_USER_NAME}/Desktop"
 
-if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
+if [ -f "/usr/share/applications/virtual-keyboard.desktop" ]; then
     mkdir -p "${DESKTOP_DIR}"
-    cp "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" "${DESKTOP_DIR}/"
+    cp "/usr/share/applications/virtual-keyboard.desktop" "${DESKTOP_DIR}/"
     chmod +x "${DESKTOP_DIR}/virtual-keyboard.desktop"
     chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} "${DESKTOP_DIR}"
     echo "Desktop icon installed: ${DESKTOP_DIR}/virtual-keyboard.desktop"
-fi
-
-# Also install to system applications for panel access
-if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
-    cp "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" /usr/share/applications/
-    chmod 644 /usr/share/applications/virtual-keyboard.desktop
-    echo "Added to applications menu: /usr/share/applications/virtual-keyboard.desktop"
 fi
 
 # Add keyboard toggle icon to panel (wf-panel-pi for Wayland)
