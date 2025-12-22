@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T17:45:21Z",
+  "generated": "2025-12-22T17:45:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,11 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "9c6a21ec80dc42c6a42ee4fe6959844247b5a54012f913da70e515ed58589f8d",
       "highlights": [
-        "update touch mode icon to input-touchpad-symbolic",
-        "update Quantum-Lights-Out patch to use singleton",
-        "use singleton NeoPixel to prevent Pi 5 GPIO conflicts",
-        "improve keyboard, Chrome positioning, and sense_emu permissions",
-        "adjust Chromium window position to (480, 45)"
+        "extract highlights from GitHub release body"
       ]
     }
   }
