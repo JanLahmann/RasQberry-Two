@@ -45,14 +45,14 @@
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "subitems": [
             {
-              "name": "RasQberry Two Dev (dev-features05-fix-tutorials 2025-12-22-113203)",
+              "name": "RasQberry Two Dev (dev-features05-fix-tutorials 2025-12-22-145750)",
               "description": "Development build from dev-features05-fix-tutorials",
               "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-113203/rasqberry-dev-features05-fix-tutorials-2025-12-22-113203.img.xz",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-145750/rasqberry-dev-features05-fix-tutorials-2025-12-22-145750.img.xz",
               "extract_size": 8841592832,
-              "extract_sha256": "5accfe551ddf1cb352179f5fa90c6d3d590fcff9917cf9baf9dbe352c9df1f98",
-              "image_download_size": 1990640296,
-              "release_date": "2025-12-22 11:32",
+              "extract_sha256": "613fa72b9278d8b28322ed7f6a95db62cf81a4c959cef57d5774b4fe2c8d02cb",
+              "image_download_size": 1988660484,
+              "release_date": "2025-12-22 14:57",
               "init_format": "systemd",
               "devices": [
                 "pi5-64bit",
@@ -107,14 +107,14 @@
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "subitems": [
             {
-              "name": "RasQberry Two A/B (dev-features05-fix-tutorials 2025-12-22-113203)",
+              "name": "RasQberry Two A/B (dev-features05-fix-tutorials 2025-12-22-145750)",
               "description": "A/B boot image from dev-features05-fix-tutorials",
               "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-113203/rasqberry-dev-features05-fix-tutorials-2025-12-22-113203-ab.img.xz",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-145750/rasqberry-dev-features05-fix-tutorials-2025-12-22-145750-ab.img.xz",
               "extract_size": 12398362624,
-              "extract_sha256": "d12a6a4cc12083489f755de0225037ce18058ff70d646e2fc617104911b008a9",
-              "image_download_size": 2029149388,
-              "release_date": "2025-12-22 11:32",
+              "extract_sha256": "e64a98f353571adc8c5ac4fa423617ce3afa4b83d1e8f6411621a94e4e6956ad",
+              "image_download_size": 2030963260,
+              "release_date": "2025-12-22 14:57",
               "init_format": "systemd",
               "devices": [
                 "pi5-64bit",

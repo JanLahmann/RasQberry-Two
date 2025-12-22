@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T14:21:27Z",
+  "generated": "2025-12-22T14:21:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "613fa72b9278d8b28322ed7f6a95db62cf81a4c959cef57d5774b4fe2c8d02cb",
       "highlights": [
-        "autostart Chromium browser on login"
+        "extract highlights from GitHub release body"
       ]
     }
   }
