@@ -75,16 +75,18 @@ def get_led_config():
         'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
+        'led_virtual': config.get('LED_VIRTUAL', 'false').lower() == 'true',
     }
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
-    Factory function to create NeoPixel strip using PWM (Pi4) or PIO (Pi5).
+    Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
 
     Uses adafruit-circuitpython-neopixel which auto-detects the platform:
     - Pi 4: Uses rpi_ws281x (PWM/DMA backend) - requires root
     - Pi 5: Uses PIO hardware - requires /dev/pio0
+    - Virtual: Uses VirtualNeoPixel when LED_VIRTUAL=true (no hardware needed)
 
     No SPI, no buffer limits, no chunking needed!
 
@@ -95,18 +97,30 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         gpio_pin (int, optional): GPIO pin number. If None, reads from config (default 18).
 
     Returns:
-        neopixel.NeoPixel: Configured LED strip object
+        neopixel.NeoPixel or VirtualNeoPixel: Configured LED strip object
 
     Note:
-        Requires sudo/root for GPIO access.
+        Requires sudo/root for GPIO access (unless using virtual mode).
         For Pi 5, requires firmware with /dev/pio0 support.
     """
+    # Check for virtual mode first (before importing hardware-specific modules)
+    config = get_led_config()
+    if config.get('led_virtual', False):
+        from rq_led_virtual import VirtualNeoPixel
+        print("LED_VIRTUAL=true: Using virtual LED display")
+        return VirtualNeoPixel(
+            None,  # No GPIO pin needed
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+
     import board
     import neopixel
 
-    # Get GPIO pin from config if not provided
+    # Get GPIO pin from config if not provided (reuse config from virtual mode check)
     if gpio_pin is None:
-        config = get_led_config()
         gpio_pin = config['led_gpio_pin']
 
     # Convert GPIO pin number to board constant
