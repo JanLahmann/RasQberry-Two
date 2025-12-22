@@ -45,6 +45,22 @@
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "subitems": [
             {
+              "name": "RasQberry Two Dev (dev-features05-virtualled 2025-12-22-221940)",
+              "description": "Development build from dev-features05-virtualled",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-22-221940/rasqberry-dev-features05-virtualled-2025-12-22-221940.img.xz",
+              "extract_size": 8841592832,
+              "extract_sha256": "344c4ba5f5377e8cc4e2b0d2c3da5cdd86a75915afae2c5115c7a7540144402b",
+              "image_download_size": 1990443096,
+              "release_date": "2025-12-22 22:19",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            },
+            {
               "name": "RasQberry Two Dev (dev-features05-fix-tutorials 2025-12-22-215219)",
               "description": "Development build from dev-features05-fix-tutorials",
               "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -106,6 +122,22 @@
           "description": "A/B boot images from feature sub-branches",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "subitems": [
+            {
+              "name": "RasQberry Two A/B (dev-features05-virtualled 2025-12-22-221940)",
+              "description": "A/B boot image from dev-features05-virtualled",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-22-221940/rasqberry-dev-features05-virtualled-2025-12-22-221940-ab.img.xz",
+              "extract_size": 12398362624,
+              "extract_sha256": "a899e3f66227a77bb539f508a83d5b6de1bd27f7e70fb6beead0c5448a674699",
+              "image_download_size": 2030544248,
+              "release_date": "2025-12-22 22:19",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            },
             {
               "name": "RasQberry Two A/B (dev-features05-fix-tutorials 2025-12-22-215219)",
               "description": "A/B boot image from dev-features05-fix-tutorials",
