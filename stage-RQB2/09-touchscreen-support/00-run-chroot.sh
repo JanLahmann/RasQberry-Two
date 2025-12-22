@@ -18,19 +18,8 @@ if [ -f /etc/xdg/autostart/squeekboard.desktop ]; then
     echo "Squeekboard autostart disabled (file renamed)"
 fi
 
-# Copy desktop icon to user desktop
-echo "=> Installing virtual keyboard desktop icon"
-DESKTOP_DIR="/home/${FIRST_USER_NAME}/Desktop"
-
-if [ -f "/usr/share/applications/virtual-keyboard.desktop" ]; then
-    mkdir -p "${DESKTOP_DIR}"
-    cp "/usr/share/applications/virtual-keyboard.desktop" "${DESKTOP_DIR}/"
-    chmod +x "${DESKTOP_DIR}/virtual-keyboard.desktop"
-    chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} "${DESKTOP_DIR}"
-    echo "Desktop icon installed: ${DESKTOP_DIR}/virtual-keyboard.desktop"
-fi
-
 # Add keyboard toggle icon to panel (wf-panel-pi for Wayland)
+# Note: No desktop icon needed since it's in the panel
 echo "=> Adding keyboard toggle to panel"
 add_keyboard_to_panel() {
     local panel_config="$1"
@@ -50,19 +39,36 @@ add_keyboard_to_panel() {
     fi
 }
 
-# Add to skel for new users
-SKEL_PANEL_CONFIG="/etc/skel/.config/wf-panel-pi.ini"
-if [ -f "$SKEL_PANEL_CONFIG" ]; then
+# Add to skel for new users (create if missing)
+SKEL_PANEL_DIR="/etc/skel/.config"
+SKEL_PANEL_CONFIG="${SKEL_PANEL_DIR}/wf-panel-pi.ini"
+mkdir -p "$SKEL_PANEL_DIR"
+if [ ! -f "$SKEL_PANEL_CONFIG" ]; then
+    # Create default panel config with keyboard launcher
+    cat > "$SKEL_PANEL_CONFIG" << 'EOF'
+[panel]
+launcher_000001=lxde-x-www-browser.desktop
+launcher_000002=pcmanfm.desktop
+launcher_000003=lxterminal.desktop
+launcher_000004=virtual-keyboard.desktop
+EOF
+    echo "Created panel config with keyboard: $SKEL_PANEL_CONFIG"
+else
     add_keyboard_to_panel "$SKEL_PANEL_CONFIG"
 fi
 
-# Add to first user's panel config
+# Add to first user's panel config (create if missing)
 if [ -n "${FIRST_USER_NAME}" ]; then
-    USER_PANEL_CONFIG="/home/${FIRST_USER_NAME}/.config/wf-panel-pi.ini"
-    if [ -f "$USER_PANEL_CONFIG" ]; then
+    USER_PANEL_DIR="/home/${FIRST_USER_NAME}/.config"
+    USER_PANEL_CONFIG="${USER_PANEL_DIR}/wf-panel-pi.ini"
+    mkdir -p "$USER_PANEL_DIR"
+    if [ ! -f "$USER_PANEL_CONFIG" ]; then
+        cp "$SKEL_PANEL_CONFIG" "$USER_PANEL_CONFIG"
+        echo "Created user panel config: $USER_PANEL_CONFIG"
+    else
         add_keyboard_to_panel "$USER_PANEL_CONFIG"
-        chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_PANEL_CONFIG"
     fi
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_PANEL_DIR"
 fi
 
 echo ""

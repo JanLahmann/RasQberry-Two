@@ -541,6 +541,37 @@ EOF
 echo "Chromium will start automatically on login"
 
 # =============================================================================
+# Configure labwc window positioning for Chromium
+# =============================================================================
+echo "Configuring labwc window rules for Chromium..."
+
+# Create labwc config directory in skel for new users
+SKEL_LABWC_DIR="/etc/skel/.config/labwc"
+mkdir -p "$SKEL_LABWC_DIR"
+
+# Create rc.xml with Chromium window positioning rule
+cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
+<?xml version="1.0"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <windowRules>
+    <windowRule identifier="chromium">
+      <action name="MoveTo" x="480" y="45"/>
+    </windowRule>
+  </windowRules>
+</openbox_config>
+EOF
+echo "Created labwc window rules: ${SKEL_LABWC_DIR}/rc.xml"
+
+# Also create for first user if exists
+if [ -n "${FIRST_USER_NAME}" ]; then
+    USER_LABWC_DIR="/home/${FIRST_USER_NAME}/.config/labwc"
+    mkdir -p "$USER_LABWC_DIR"
+    cp "${SKEL_LABWC_DIR}/rc.xml" "${USER_LABWC_DIR}/rc.xml"
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_LABWC_DIR"
+    echo "Created user labwc config: ${USER_LABWC_DIR}/rc.xml"
+fi
+
+# =============================================================================
 # Disable GNOME Keyring secrets component to prevent password dialogs
 # =============================================================================
 echo "Disabling GNOME Keyring secrets component..."
