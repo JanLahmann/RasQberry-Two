@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T09:32:27Z",
+  "generated": "2025-12-22T10:54:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-tutorials-2025-12-22-101017",
-      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-22-101017",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-101017/rasqberry-dev-features05-fix-tutorials-2025-12-22-101017.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-22-101017",
-      "release_date": "2025-12-22 10:10",
-      "image_download_size": 1990046956,
+      "tag": "dev-features05-fix-tutorials-2025-12-22-113203",
+      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-22-113203",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-113203/rasqberry-dev-features05-fix-tutorials-2025-12-22-113203.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-22-113203",
+      "release_date": "2025-12-22 11:32",
+      "image_download_size": 1990640296,
       "extract_size": 8841592832,
-      "extract_sha256": "a12de339953be3d734be2a0c1045deac56e0000ee0e4fae00922430fc93251a3",
+      "extract_sha256": "5accfe551ddf1cb352179f5fa90c6d3d590fcff9917cf9baf9dbe352c9df1f98",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "split stage 09 into host and chroot scripts",
+        "update clear-leds icon and simplify demo-loop name"
       ]
     }
   }
