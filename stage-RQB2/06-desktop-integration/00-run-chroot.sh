@@ -533,7 +533,7 @@ cat > /etc/xdg/autostart/rasqberry-browser.desktop << 'EOF'
 Type=Application
 Name=RasQberry Browser
 Comment=Open Chromium browser on login
-Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring https://rasqberry.org
+Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
