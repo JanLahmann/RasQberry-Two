@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T08:05:29Z",
+  "generated": "2025-12-22T09:32:03Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-tutorials-2025-12-21-134331",
-      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-21-134331",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-21-134331/rasqberry-dev-features05-fix-tutorials-2025-12-21-134331.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-21-134331",
-      "release_date": "2025-12-21 13:43",
-      "image_download_size": 1988794832,
+      "tag": "dev-features05-fix-tutorials-2025-12-22-101017",
+      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-22-101017",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-101017/rasqberry-dev-features05-fix-tutorials-2025-12-22-101017.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-22-101017",
+      "release_date": "2025-12-22 10:10",
+      "image_download_size": 1990046956,
       "extract_size": 8841592832,
-      "extract_sha256": "480ed303b814e844dda8277f5088e0b564b1694573a4c88747f4ddeeb9e0dd6f",
+      "extract_sha256": "a12de339953be3d734be2a0c1045deac56e0000ee0e4fae00922430fc93251a3",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "replace onboard with wvkbd for Wayland-native virtual keyboard"
       ]
     }
   }
