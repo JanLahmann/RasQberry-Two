@@ -450,14 +450,14 @@ if os.path.exists(prefs_file):
 else:
     prefs = {}
 prefs.setdefault('browser', {})['window_placement'] = {
-    'left': 450, 'top': 56, 'right': 1520, 'bottom': 1061,
+    'left': 480, 'top': 45, 'right': 1550, 'bottom': 1050,
     'maximized': False,
     'work_area_left': 0, 'work_area_top': 36,
     'work_area_right': 1920, 'work_area_bottom': 1080
 }
 with open(prefs_file, 'w') as f:
     json.dump(prefs, f)
-print("Configured Chromium window position (centered 1070x1005)")
+print("Configured Chromium window position (1070x1005 at 480,45)")
 CHROMEPY
 echo "$(date): Chromium window configured" >> "$LOG_FILE"
 
