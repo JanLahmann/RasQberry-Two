@@ -8,6 +8,6 @@ Categories=Settings;RasQberry;
 Exec=lxterminal -e "bash -c '/usr/bin/rq_touch_mode.sh toggle; echo; echo Press Enter to close...; read'"
 Terminal=false
 StartupNotify=true
-Keywords=touch;touchscreen;accessibility;onboard;keyboard;
+Keywords=touch;touchscreen;accessibility;keyboard;
 X-GNOME-TextColor=#000000
 NoDisplay=false

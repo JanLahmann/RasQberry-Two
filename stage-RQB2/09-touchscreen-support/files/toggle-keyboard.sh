@@ -1,7 +1,11 @@
 #!/bin/bash
-# Toggle squeekboard on-screen keyboard on/off
-if pgrep -x squeekboard > /dev/null; then
-    pkill squeekboard
+# Toggle wvkbd virtual keyboard on/off
+# wvkbd is a Wayland-native on-screen keyboard
+
+if pgrep -x wvkbd-mobintl > /dev/null; then
+    # Running - send toggle signal to hide/show
+    pkill -SIGRTMIN wvkbd-mobintl
 else
-    squeekboard &
+    # Not running - start it
+    wvkbd-mobintl -H 200 &
 fi

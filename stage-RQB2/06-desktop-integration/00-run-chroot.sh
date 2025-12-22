@@ -158,65 +158,64 @@ trusted=true
 x=340
 y=10
 trusted=true
-[quantum-lights-out.desktop]
-x=10
-y=120
-trusted=true
-[quantum-raspberry-tie.desktop]
-x=120
-y=120
-trusted=true
-[qoffee-maker.desktop]
-x=10
-y=230
-trusted=true
-[quantum-mixer.desktop]
-x=120
-y=230
-trusted=true
 [led-ibm-demo.desktop]
-x=230
+x=10
 y=120
 trusted=true
-[clear-leds.desktop]
-x=340
+[quantum-lights-out.desktop]
+x=120
 y=120
 trusted=true
 [rasq-led.desktop]
 x=230
-y=230
+y=120
+trusted=true
+[quantum-raspberry-tie.desktop]
+x=340
+y=120
 trusted=true
 [led-painter.desktop]
 x=10
-y=340
-trusted=true
-[fun-with-quantum.desktop]
-x=120
-y=340
-trusted=true
-[quantum-coin-game.desktop]
-x=230
-y=340
+y=230
 trusted=true
 [demo-loop.desktop]
+x=120
+y=230
+trusted=true
+[clear-leds.desktop]
+x=230
+y=230
+trusted=true
+[touch-mode.desktop]
 x=340
 y=230
 trusted=true
-
-[quantum-paradoxes.desktop]
-x=340
+[qoffee-maker.desktop]
+x=10
 y=340
 trusted=true
-[touch-mode.desktop]
+[quantum-mixer.desktop]
+x=120
+y=340
+trusted=true
+[quantum-paradoxes.desktop]
+x=230
+y=340
+trusted=true
+[fun-with-quantum.desktop]
+x=10
+y=450
+trusted=true
+[quantum-coin-game.desktop]
 x=120
 y=450
 trusted=true
 [ibm-quantum-tutorials.desktop]
-x=10
+x=230
 y=450
 trusted=true
 [ibm-quantum-courses.desktop]
-x=230
+x=340
 y=450
 trusted=true
 EOF
@@ -313,26 +312,8 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
-# Disable squeekboard by default (only enabled when touch mode is activated)
-# Create user autostart override with Hidden=true to prevent system autostart
-SKEL_AUTOSTART="/etc/skel/.config/autostart"
-mkdir -p "$SKEL_AUTOSTART"
-cat > "$SKEL_AUTOSTART/squeekboard.desktop" << 'KEYBOARD_EOF'
-[Desktop Entry]
-Type=Application
-Name=Squeekboard
-Hidden=true
-KEYBOARD_EOF
-
-# Also copy to first user (skel only applies to users created AFTER build)
-if [ -n "${FIRST_USER_NAME}" ] && [ -d "/home/${FIRST_USER_NAME}" ]; then
-    USER_AUTOSTART="/home/${FIRST_USER_NAME}/.config/autostart"
-    mkdir -p "$USER_AUTOSTART"
-    cp "$SKEL_AUTOSTART/squeekboard.desktop" "$USER_AUTOSTART/"
-    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config/autostart"
-    echo "Copied squeekboard override to ${FIRST_USER_NAME}'s home"
-fi
-echo "Squeekboard disabled by default (enable via touch mode)"
+# Note: Virtual keyboard (wvkbd) is installed separately in stage 09-touchscreen-support
+# and toggled manually via panel icon - no autostart needed
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
@@ -454,6 +435,32 @@ sleep 1
 pcmanfm --desktop 2>> "$LOG_FILE" &
 echo "$(date): PCManFM desktop restarted" >> "$LOG_FILE"
 
+# Configure Chromium window size and position (centered on 1920x1080)
+# --window-size flag doesn't work on Wayland, so we set via preferences
+echo "$(date): Configuring Chromium window position..." >> "$LOG_FILE"
+CHROMIUM_PREFS_DIR="$HOME/.config/chromium/Default"
+CHROMIUM_PREFS="$CHROMIUM_PREFS_DIR/Preferences"
+mkdir -p "$CHROMIUM_PREFS_DIR" 2>> "$LOG_FILE"
+python3 - "$CHROMIUM_PREFS" 2>> "$LOG_FILE" << 'CHROMEPY' || true
+import sys, json, os
+prefs_file = sys.argv[1]
+if os.path.exists(prefs_file):
+    with open(prefs_file, 'r') as f:
+        prefs = json.load(f)
+else:
+    prefs = {}
+prefs.setdefault('browser', {})['window_placement'] = {
+    'left': 410, 'top': 56, 'right': 1510, 'bottom': 1061,
+    'maximized': False,
+    'work_area_left': 0, 'work_area_top': 36,
+    'work_area_right': 1920, 'work_area_bottom': 1080
+}
+with open(prefs_file, 'w') as f:
+    json.dump(prefs, f)
+print("Configured Chromium window position (centered 1100x1005)")
+CHROMEPY
+echo "$(date): Chromium window configured" >> "$LOG_FILE"
+
 echo "$(date): First-login setup completed" >> "$LOG_FILE"
 
 # Remove autostart entry so this doesn't run again
@@ -499,7 +506,9 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "RestoreOnStartup": 4,
   "RestoreOnStartupURLs": ["https://rasqberry.org"],
   "PasswordManagerEnabled": false,
-  "ShowHomeButton": true
+  "ShowHomeButton": true,
+  "PromotionalTabsEnabled": false,
+  "WelcomePagesEnabled": false
 }
 EOF
 chmod 644 /etc/chromium/policies/managed/rasqberry.json
