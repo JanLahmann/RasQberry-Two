@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T21:13:20Z",
+  "generated": "2025-12-22T21:13:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "a3e8282f1d7be45f572c657c67f6d46291a3cae2e80dc4bb552d3e0b0d891290",
       "highlights": [
-        "improve Docker setup, keyboard toggle, and Jupyter ports"
+        "extract highlights from GitHub release body"
       ]
     }
   }
