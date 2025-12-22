@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-22T16:04:22Z",
+  "generated": "2025-12-22T17:45:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-fix-tutorials-2025-12-22-145750",
-      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-22-145750",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-145750/rasqberry-dev-features05-fix-tutorials-2025-12-22-145750.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-22-145750",
-      "release_date": "2025-12-22 14:57",
-      "image_download_size": 1988660484,
+      "tag": "dev-features05-fix-tutorials-2025-12-22-182322",
+      "name": "rasqberry-dev-features05-fix-tutorials-2025-12-22-182322",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-fix-tutorials-2025-12-22-182322/rasqberry-dev-features05-fix-tutorials-2025-12-22-182322.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-fix-tutorials-2025-12-22-182322",
+      "release_date": "2025-12-22 18:23",
+      "image_download_size": 1990394312,
       "extract_size": 8841592832,
-      "extract_sha256": "613fa72b9278d8b28322ed7f6a95db62cf81a4c959cef57d5774b4fe2c8d02cb",
+      "extract_sha256": "9c6a21ec80dc42c6a42ee4fe6959844247b5a54012f913da70e515ed58589f8d",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "update touch mode icon to input-touchpad-symbolic",
+        "update Quantum-Lights-Out patch to use singleton",
+        "use singleton NeoPixel to prevent Pi 5 GPIO conflicts",
+        "improve keyboard, Chrome positioning, and sense_emu permissions",
+        "adjust Chromium window position to (480, 45)"
       ]
     }
   }
