@@ -19,6 +19,9 @@ from dotenv import dotenv_values
 # System-wide environment file location
 ENV_FILE = "/usr/config/rasqberry_environment.env"
 
+# Global singleton NeoPixel object - prevents GPIO conflicts on Pi 5
+_pixels_singleton = None
+
 # Emergency defaults if env file is missing/unreadable
 EMERGENCY_DEFAULTS = {
     'PI_MODEL': 'Pi5',
@@ -129,6 +132,65 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     pixels.show()
 
     return pixels
+
+
+def get_pixels(brightness=None):
+    """
+    Get or create the singleton NeoPixel object.
+
+    This function returns a shared NeoPixel instance to prevent GPIO conflicts
+    that occur when multiple NeoPixel objects access the same pin on Pi 5.
+    Use this instead of create_neopixel_strip() when you need to share the
+    LED strip across multiple modules (e.g., LED Painter's display and clear functions).
+
+    Args:
+        brightness (float, optional): LED brightness 0.0-1.0. If None, uses config default.
+
+    Returns:
+        neopixel.NeoPixel: Shared LED strip object
+
+    Example:
+        pixels = get_pixels()
+        pixels[0] = (255, 0, 0)
+        pixels.show()
+    """
+    global _pixels_singleton
+
+    config = get_led_config()
+
+    if brightness is None:
+        brightness = config['led_default_brightness']
+
+    if _pixels_singleton is None:
+        _pixels_singleton = create_neopixel_strip(
+            config['led_count'],
+            config['pixel_order'],
+            brightness=brightness,
+            gpio_pin=config['led_gpio_pin']
+        )
+    else:
+        # Update brightness if specified
+        _pixels_singleton.brightness = brightness
+
+    return _pixels_singleton
+
+
+def clear_all_leds():
+    """
+    Turn off all LEDs using the singleton NeoPixel object.
+
+    This function uses the shared NeoPixel instance to prevent GPIO conflicts.
+    Safe to call from multiple modules (e.g., LED Painter's clear and atexit).
+
+    Example:
+        clear_all_leds()  # Turn off all LEDs
+    """
+    try:
+        pixels = get_pixels()
+        pixels.fill((0, 0, 0))
+        pixels.show()
+    except Exception as e:
+        print(f"Error clearing LEDs: {e}")
 
 
 def chunked_show(pixels, chunk_size=None, delay_ms=None):
