@@ -450,14 +450,14 @@ if os.path.exists(prefs_file):
 else:
     prefs = {}
 prefs.setdefault('browser', {})['window_placement'] = {
-    'left': 410, 'top': 56, 'right': 1510, 'bottom': 1061,
+    'left': 450, 'top': 56, 'right': 1520, 'bottom': 1061,
     'maximized': False,
     'work_area_left': 0, 'work_area_top': 36,
     'work_area_right': 1920, 'work_area_bottom': 1080
 }
 with open(prefs_file, 'w') as f:
     json.dump(prefs, f)
-print("Configured Chromium window position (centered 1100x1005)")
+print("Configured Chromium window position (centered 1070x1005)")
 CHROMEPY
 echo "$(date): Chromium window configured" >> "$LOG_FILE"
 
@@ -520,7 +520,7 @@ CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
 if [ -f "$CHROMIUM_DESKTOP" ]; then
     # Add flags and default URL for rasqberry.org homepage
     # Note: URL at end ensures it opens on launch; policy handles Home button
-    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1100,1005 https://rasqberry.org |' "$CHROMIUM_DESKTOP"
+    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org |' "$CHROMIUM_DESKTOP"
     echo "Modified Chromium desktop launcher with keyring bypass, window size, and homepage URL"
 fi
 
