@@ -270,6 +270,12 @@ clone_ibm_learning_content() {
     git pull --depth=1 origin main
     cd - > /dev/null
 
+    # Copy credentials setup notebook
+    if [ -f "/usr/config/00-Save-Credentials.ipynb" ]; then
+        cp "/usr/config/00-Save-Credentials.ipynb" "$DEST/"
+        echo "Added credentials setup notebook."
+    fi
+
     # Fix ownership if needed
     if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
         chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"

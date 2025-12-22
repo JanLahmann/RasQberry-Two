@@ -387,6 +387,17 @@ def generate_tutorials_welcome_structured(base_path: Path, sections: List[Dict],
 
 To run a tutorial, click on the link below or use the file browser on the left.
 
+## Before you begin
+
+To run tutorials that access IBM Quantum systems, you need to create and save your credentials for the IBM Quantum platform first.
+
+- Register & login to the IBM Quantum Platform: [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
+- Create a Quantum Instance (the Open Plan is free): [quantum.cloud.ibm.com/instances](https://quantum.cloud.ibm.com/instances)
+- Go to the dashboard [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) and
+  1. Get your instance CRN
+  2. Create an API key using the link on the dashboard
+- Save your credentials (CRN and API key) using the [00-Save-Credentials.ipynb](00-Save-Credentials.ipynb) notebook
+
 """
 
     # Build structured content
@@ -886,6 +897,17 @@ def generate_courses_welcome(base_path: Path) -> bool:
 **{total_courses} courses available** with **{total_notebooks} notebooks** covering quantum information, algorithms, machine learning, and more.
 
 Each course contains multiple lessons organized in a structured learning path.
+
+## Before you begin
+
+To run course notebooks that access IBM Quantum systems, you need to create and save your credentials for the IBM Quantum platform first.
+
+- Register & login to the IBM Quantum Platform: [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
+- Create a Quantum Instance (the Open Plan is free): [quantum.cloud.ibm.com/instances](https://quantum.cloud.ibm.com/instances)
+- Go to the dashboard [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) and
+  1. Get your instance CRN
+  2. Create an API key using the link on the dashboard
+- Save your credentials (CRN and API key) using the [00-Save-Credentials.ipynb](00-Save-Credentials.ipynb) notebook
 
 """
 
