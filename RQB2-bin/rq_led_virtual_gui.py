@@ -21,11 +21,27 @@ import mmap
 import os
 import sys
 
-# Configuration
+# Try to load configuration from environment file
+ENV_FILE = "/usr/config/rasqberry_environment.env"
+try:
+    from dotenv import dotenv_values
+    _config = dotenv_values(ENV_FILE) if os.path.exists(ENV_FILE) else {}
+except ImportError:
+    _config = {}
+
+# Configuration from environment or defaults
 MMAP_FILE = "/tmp/rasqberry_virtual_led.mmap"
-MATRIX_WIDTH = 24
-MATRIX_HEIGHT = 8
+MATRIX_WIDTH = int(_config.get('LED_MATRIX_WIDTH', 24))
+MATRIX_HEIGHT = int(_config.get('LED_MATRIX_HEIGHT', 8))
+MATRIX_LAYOUT = _config.get('LED_MATRIX_LAYOUT', 'single')  # 'single' or 'quad'
 NUM_PIXELS = MATRIX_WIDTH * MATRIX_HEIGHT  # 192
+
+# Quad panel configuration (4 panels of 4x12 arranged 2x2)
+PANEL_WIDTH = 12
+PANEL_HEIGHT = 4
+PANELS_X = 2
+PANELS_Y = 2
+PANEL_GAP = 8  # Visual gap between panels in quad mode
 
 # GUI settings
 LED_SIZE = 20       # Diameter of each LED circle in pixels
@@ -34,6 +50,7 @@ PADDING = 10        # Padding around the matrix
 REFRESH_MS = 50     # GUI refresh rate (20 FPS)
 BG_COLOR = "#1a1a1a"  # Dark background
 LED_OFF_COLOR = "#2a2a2a"  # Very dim gray for "off" LEDs
+PANEL_SEP_COLOR = "#444444"  # Panel separator color
 
 # Memory layout (must match rq_led_virtual.py)
 MMAP_HEADER_SIZE = 1
@@ -43,14 +60,19 @@ MMAP_TOTAL_SIZE = MMAP_HEADER_SIZE + MMAP_PIXEL_SIZE
 
 class VirtualLEDMatrix:
     """
-    Tkinter GUI displaying a virtual 24x8 LED matrix.
+    Tkinter GUI displaying a virtual LED matrix.
+
+    Supports two layouts:
+    - 'single': 24x8 serpentine (column-major)
+    - 'quad': 4 panels of 4x12, arranged 2x2
 
     Reads pixel data from memory-mapped file and displays as colored circles.
     """
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("RasQberry Virtual LED Matrix")
+        layout_desc = f"{MATRIX_WIDTH}x{MATRIX_HEIGHT} ({MATRIX_LAYOUT})"
+        self.root.title(f"RasQberry Virtual LED Matrix - {layout_desc}")
         self.root.configure(bg=BG_COLOR)
 
         # Dynamic sizing variables
@@ -138,6 +160,16 @@ class VirtualLEDMatrix:
 
     def map_xy_to_pixel(self, x, y):
         """
+        Map (x, y) coordinates to pixel index based on configured layout.
+
+        Dispatches to single or quad mapping based on MATRIX_LAYOUT config.
+        """
+        if MATRIX_LAYOUT == 'quad':
+            return self.map_xy_to_pixel_quad(x, y)
+        return self.map_xy_to_pixel_single(x, y)
+
+    def map_xy_to_pixel_single(self, x, y):
+        """
         Map (x, y) coordinates to pixel index using column-major serpentine layout.
 
         Matches the 'single' layout in rq_led_utils.py:
@@ -150,6 +182,34 @@ class VirtualLEDMatrix:
         else:
             # Odd columns go up (height-1→0)
             return x * MATRIX_HEIGHT + (MATRIX_HEIGHT - 1 - y)
+
+    def map_xy_to_pixel_quad(self, x, y):
+        """
+        Map (x, y) coordinates to pixel index for quad panel layout.
+
+        4 panels of 4x12 each, arranged 2x2:
+        - Panel 0: top-left (x=0-11, y=0-3)
+        - Panel 1: top-right (x=12-23, y=0-3)
+        - Panel 2: bottom-left (x=0-11, y=4-7)
+        - Panel 3: bottom-right (x=12-23, y=4-7)
+        """
+        # Determine which panel (0-3)
+        panel_x = x // PANEL_WIDTH
+        panel_y = y // PANEL_HEIGHT
+        panel_idx = panel_y * PANELS_X + panel_x
+
+        # Local coordinates within panel
+        local_x = x % PANEL_WIDTH
+        local_y = y % PANEL_HEIGHT
+
+        # Each panel has PANEL_WIDTH * PANEL_HEIGHT LEDs
+        panel_offset = panel_idx * PANEL_WIDTH * PANEL_HEIGHT
+
+        # Column-major serpentine within panel
+        if local_x % 2 == 0:
+            return panel_offset + local_x * PANEL_HEIGHT + local_y
+        else:
+            return panel_offset + local_x * PANEL_HEIGHT + (PANEL_HEIGHT - 1 - local_y)
 
     def on_resize(self, event):
         """Handle window resize - scale LEDs to fit."""
@@ -252,6 +312,9 @@ def main():
     """Main entry point."""
     print("RasQberry Virtual LED Matrix Display")
     print(f"Matrix size: {MATRIX_WIDTH}x{MATRIX_HEIGHT} ({NUM_PIXELS} LEDs)")
+    print(f"Layout: {MATRIX_LAYOUT}")
+    if MATRIX_LAYOUT == 'quad':
+        print(f"  Panels: {PANELS_X}x{PANELS_Y} of {PANEL_WIDTH}x{PANEL_HEIGHT} each")
     print(f"Shared memory: {MMAP_FILE}")
     print()
     print("Run LED demos with LED_VIRTUAL=true to see output here.")
