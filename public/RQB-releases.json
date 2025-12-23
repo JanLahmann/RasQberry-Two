@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-23T09:48:49Z",
+  "generated": "2025-12-23T09:49:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,10 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "80bc50c95c85a598f76955ff7bcab3f1a2a07d5c15980d5b2405ab050038c9d1",
       "highlights": [
-        "add test script for all LED demos with virtual display",
-        "add configurable matrix layout support to virtual GUI",
-        "add dual display mode for virtual + real LEDs",
-        "add scalable GUI window for virtual LED display"
+        "extract highlights from GitHub release body"
       ]
     }
   }
