@@ -53,11 +53,21 @@ class VirtualLEDMatrix:
         self.root.title("RasQberry Virtual LED Matrix")
         self.root.configure(bg=BG_COLOR)
 
-        # Calculate canvas size
+        # Dynamic sizing variables
+        self.led_size = LED_SIZE      # Current LED diameter
+        self.led_gap = LED_GAP        # Current gap between LEDs
+        self.min_led_size = 8         # Minimum LED size
+        self.last_width = 0           # Track last resize
+        self.last_height = 0
+
+        # Calculate initial canvas size
         canvas_width = PADDING * 2 + MATRIX_WIDTH * (LED_SIZE + LED_GAP) - LED_GAP
         canvas_height = PADDING * 2 + MATRIX_HEIGHT * (LED_SIZE + LED_GAP) - LED_GAP
 
-        # Create canvas
+        # Set minimum window size
+        self.root.minsize(300, 150)
+
+        # Create canvas (expandable)
         self.canvas = tk.Canvas(
             self.root,
             width=canvas_width,
@@ -65,16 +75,19 @@ class VirtualLEDMatrix:
             bg=BG_COLOR,
             highlightthickness=0
         )
-        self.canvas.pack(padx=5, pady=5)
+        self.canvas.pack(padx=5, pady=5, fill=tk.BOTH, expand=True)
+
+        # Bind resize event
+        self.canvas.bind('<Configure>', self.on_resize)
 
         # Create LED circles
         self.leds = []
         for y in range(MATRIX_HEIGHT):
             row = []
             for x in range(MATRIX_WIDTH):
-                x_pos = PADDING + x * (LED_SIZE + LED_GAP) + LED_SIZE // 2
-                y_pos = PADDING + y * (LED_SIZE + LED_GAP) + LED_SIZE // 2
-                radius = LED_SIZE // 2
+                x_pos = PADDING + x * (self.led_size + self.led_gap) + self.led_size // 2
+                y_pos = PADDING + y * (self.led_size + self.led_gap) + self.led_size // 2
+                radius = self.led_size // 2
 
                 led = self.canvas.create_oval(
                     x_pos - radius, y_pos - radius,
@@ -137,6 +150,43 @@ class VirtualLEDMatrix:
         else:
             # Odd columns go up (height-1→0)
             return x * MATRIX_HEIGHT + (MATRIX_HEIGHT - 1 - y)
+
+    def on_resize(self, event):
+        """Handle window resize - scale LEDs to fit."""
+        # Skip if size unchanged (avoid unnecessary redraws)
+        if event.width == self.last_width and event.height == self.last_height:
+            return
+        self.last_width = event.width
+        self.last_height = event.height
+
+        # Calculate new LED size to fit window
+        available_width = event.width - 2 * PADDING
+        available_height = event.height - 2 * PADDING
+
+        # Calculate LED size that fits both dimensions
+        led_width = (available_width + self.led_gap) / MATRIX_WIDTH - self.led_gap
+        led_height = (available_height + self.led_gap) / MATRIX_HEIGHT - self.led_gap
+        self.led_size = max(self.min_led_size, min(led_width, led_height))
+
+        # Recalculate gap proportionally
+        self.led_gap = max(1, self.led_size * 0.15)
+
+        # Reposition all LED circles
+        self.redraw_leds()
+
+    def redraw_leds(self):
+        """Reposition and resize all LED circles."""
+        for y in range(MATRIX_HEIGHT):
+            for x in range(MATRIX_WIDTH):
+                x_pos = PADDING + x * (self.led_size + self.led_gap) + self.led_size / 2
+                y_pos = PADDING + y * (self.led_size + self.led_gap) + self.led_size / 2
+                radius = self.led_size / 2
+
+                self.canvas.coords(
+                    self.leds[y][x],
+                    x_pos - radius, y_pos - radius,
+                    x_pos + radius, y_pos + radius
+                )
 
     def update_display(self):
         """Read from mmap and update canvas LED colors."""
