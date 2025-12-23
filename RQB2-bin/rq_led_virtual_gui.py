@@ -85,14 +85,14 @@ class VirtualLEDMatrix:
                 row.append(led)
             self.leds.append(row)
 
+        # Status label (must be created before _init_mmap)
+        self.status_var = tk.StringVar()
+        self.status_var.set("Waiting for LED data...")
+
         # Memory mapping
         self._mmap = None
         self._mmap_file = None
         self._init_mmap()
-
-        # Status label
-        self.status_var = tk.StringVar()
-        self.status_var.set("Waiting for LED data...")
         self.status_label = tk.Label(
             self.root,
             textvariable=self.status_var,
