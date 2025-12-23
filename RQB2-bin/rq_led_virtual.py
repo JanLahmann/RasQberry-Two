@@ -212,3 +212,76 @@ class VirtualNeoPixel:
     def __del__(self):
         """Destructor - clean up resources."""
         self.deinit()
+
+
+class MirrorNeoPixel:
+    """
+    Proxy that writes to both real and virtual NeoPixel simultaneously.
+
+    Used when LED_VIRTUAL_MIRROR=true to display on both the physical LEDs
+    and the virtual GUI display for debugging.
+
+    Example:
+        real_pixels = neopixel.NeoPixel(...)
+        virtual_pixels = VirtualNeoPixel(...)
+        pixels = MirrorNeoPixel(real_pixels, virtual_pixels)
+        pixels[0] = (255, 0, 0)  # Updates both displays
+        pixels.show()  # Refreshes both displays
+    """
+
+    def __init__(self, real, virtual):
+        """
+        Initialize mirror display.
+
+        Args:
+            real: Real NeoPixel object for physical LEDs
+            virtual: VirtualNeoPixel object for GUI display
+        """
+        self.real = real
+        self.virtual = virtual
+        self.n = real.n if hasattr(real, 'n') else len(real)
+
+    def __len__(self):
+        """Return number of pixels."""
+        return self.n
+
+    def __setitem__(self, index, color):
+        """Set pixel color on both displays."""
+        self.real[index] = color
+        self.virtual[index] = color
+
+    def __getitem__(self, index):
+        """Get pixel color (from real display)."""
+        return self.real[index]
+
+    def fill(self, color):
+        """Fill all pixels on both displays."""
+        self.real.fill(color)
+        self.virtual.fill(color)
+
+    def show(self):
+        """Update both displays."""
+        self.real.show()
+        self.virtual.show()
+
+    @property
+    def brightness(self):
+        """Get current brightness."""
+        return self.real.brightness
+
+    @brightness.setter
+    def brightness(self, value):
+        """Set brightness on both displays."""
+        self.real.brightness = value
+        self.virtual.brightness = value
+
+    def deinit(self):
+        """Clean up resources on both displays."""
+        if hasattr(self.real, 'deinit'):
+            self.real.deinit()
+        if hasattr(self.virtual, 'deinit'):
+            self.virtual.deinit()
+
+    def __del__(self):
+        """Destructor - clean up resources."""
+        self.deinit()

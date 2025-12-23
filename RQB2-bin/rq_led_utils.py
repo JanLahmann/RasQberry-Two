@@ -76,6 +76,7 @@ def get_led_config():
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
         'led_virtual': config.get('LED_VIRTUAL', 'false').lower() == 'true',
+        'led_virtual_mirror': config.get('LED_VIRTUAL_MIRROR', 'false').lower() == 'true',
     }
 
 
@@ -97,14 +98,51 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         gpio_pin (int, optional): GPIO pin number. If None, reads from config (default 18).
 
     Returns:
-        neopixel.NeoPixel or VirtualNeoPixel: Configured LED strip object
+        neopixel.NeoPixel, VirtualNeoPixel, or MirrorNeoPixel: Configured LED strip object
 
     Note:
-        Requires sudo/root for GPIO access (unless using virtual mode).
+        Requires sudo/root for GPIO access (unless using virtual-only mode).
         For Pi 5, requires firmware with /dev/pio0 support.
     """
-    # Check for virtual mode first (before importing hardware-specific modules)
     config = get_led_config()
+
+    # Check for mirror mode (both virtual and real LEDs)
+    if config.get('led_virtual_mirror', False):
+        from rq_led_virtual import VirtualNeoPixel, MirrorNeoPixel
+        print("LED_VIRTUAL_MIRROR=true: Using both virtual and real LED display")
+
+        # Create virtual display
+        virtual_pixels = VirtualNeoPixel(
+            None,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+
+        # Create real NeoPixel
+        import board
+        import neopixel
+
+        if gpio_pin is None:
+            gpio_pin = config['led_gpio_pin']
+        gpio_board_pin = getattr(board, f'D{gpio_pin}')
+        if isinstance(pixel_order, str):
+            pixel_order = getattr(neopixel, pixel_order)
+
+        real_pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+        real_pixels.fill((0, 0, 0))
+        real_pixels.show()
+
+        return MirrorNeoPixel(real_pixels, virtual_pixels)
+
+    # Check for virtual-only mode
     if config.get('led_virtual', False):
         from rq_led_virtual import VirtualNeoPixel
         print("LED_VIRTUAL=true: Using virtual LED display")
