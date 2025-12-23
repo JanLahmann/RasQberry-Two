@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-23T08:13:16Z",
+  "generated": "2025-12-23T08:13:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "81d41373091d7b4000e9ceb0fe8cbeb75cd81c47a27f329344385d1297a7220d",
       "highlights": [
-        "create status_var before _init_mmap in virtual GUI"
+        "extract highlights from GitHub release body"
       ]
     }
   }

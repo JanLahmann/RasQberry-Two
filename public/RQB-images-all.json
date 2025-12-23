@@ -1,8 +1,48 @@
 {
-  "generated": "2025-12-23T08:04:58Z",
+  "generated": "2025-12-23T08:13:42Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 16,
+  "count": 18,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-23-084949/rasqberry-dev-features05-virtualled-2025-12-23-084949.img.xz",
+      "extract_size": 8841592832,
+      "extract_sha256": "81d41373091d7b4000e9ceb0fe8cbeb75cd81c47a27f329344385d1297a7220d",
+      "image_download_size": 1989204000,
+      "release_date": "2025-12-23 08:49",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-features05-virtualled-2025-12-23-084949",
+      "_branch": "dev-features05-virtualled",
+      "_published": "2025-12-23T07:50:21Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-23-084949/rasqberry-dev-features05-virtualled-2025-12-23-084949-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "caab98498005204aa939db59917038be08c7447b18fea9054a3dc962f70fc10b",
+      "image_download_size": 2029704304,
+      "release_date": "2025-12-23 08:49",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-features05-virtualled-2025-12-23-084949",
+      "_branch": "dev-features05-virtualled",
+      "_published": "2025-12-23T07:50:21Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
