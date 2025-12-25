@@ -13,15 +13,15 @@
 #   This workflow fetches from release assets and builds:
 #
 #   RQB-images.json (Pi Imager):
-#   - Top-level: Main stable (std), Beta (std)
-#   - "RasQberry Development Images" folder: All dev std images
+#   - Top-level: Main stable, Beta, Development (integration branch)
+#   - "RasQberry Development Images" folder: dev-featuresXX images
 #   - "RasQberry A/B Boot Images" folder: All A/B images (main, beta, dev)
 #   - Raspberry Pi OS (64-bit)
 #
 #   RQB-releases.json (Website):
 #   - streams.stable: Latest main release (or placeholder if none)
 #   - streams.beta: Latest beta release (or placeholder if none)
-#   - streams.dev: Latest dev release from newest dev branch
+#   - streams.dev: Latest from development branch (or fallback to dev-featuresXX)
 #
 # Trigger:
 #   - Automatically triggered after image builds complete
@@ -148,6 +148,7 @@ jobs:
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
           beta_std = []      # Beta standard images (top-level)
+          dev_std = []       # Development branch images (top-level)
           dev_main = []      # Main dev branches (dev-featuresXX) - direct in folder
           dev_sub = []       # Sub-branches (dev-featuresXX-*) - nested sub-folder
           ab_main = []       # Main dev A/B images - direct in folder
@@ -267,6 +268,12 @@ jobs:
                           else:
                               ab_sub.append((published, branch_name, entry_clean))
                               print(f"  → A/B sub-folder: {entry_clean['name']}")
+                      elif branch_name == 'development':
+                          # Development integration branch → top-level dev entry
+                          entry_clean['name'] = "RasQberry Two Dev (64-bit)"
+                          entry_clean['description'] = "Development integration branch with latest features"
+                          dev_std.append((published, branch_name, entry_clean))
+                          print(f"  → Top-level Dev: {entry_clean['name']}")
                       elif branch_name.startswith('dev'):
                           # Dev images: include branch name + timestamp
                           timestamp = extract_timestamp(entry.get('url', ''))
@@ -314,6 +321,7 @@ jobs:
           # Sort each category by release_date (newest first)
           main_std.sort(key=lambda x: x[0], reverse=True)
           beta_std.sort(key=lambda x: x[0], reverse=True)
+          dev_std.sort(key=lambda x: x[0], reverse=True)
           dev_main.sort(key=lambda x: x[0], reverse=True)
           dev_sub.sort(key=lambda x: x[0], reverse=True)
           ab_main.sort(key=lambda x: x[0], reverse=True)
@@ -332,7 +340,12 @@ jobs:
               os_list.append(beta_std[0][2])
               print(f"✓ Added beta: {beta_std[0][2].get('name')}")
 
-          # 3. Add Development Images folder (if any dev images exist)
+          # 3. Add development images (top-level) - only latest
+          if dev_std:
+              os_list.append(dev_std[0][2])
+              print(f"✓ Added development: {dev_std[0][2].get('name')}")
+
+          # 5. Add Development Images folder (if any dev images exist)
           if dev_main or dev_sub:
               dev_subitems = [entry for _, _, entry in dev_main]
               # Add sub-branches in nested folder if any exist
@@ -353,7 +366,7 @@ jobs:
               os_list.append(dev_folder)
               print(f"✓ Added Development folder with {len(dev_main)} main + {len(dev_sub)} sub-branch images")
 
-          # 4. Add A/B Test Images folder (if any AB images exist)
+          # 6. Add A/B Test Images folder (if any AB images exist)
           if ab_main or ab_sub:
               ab_subitems = [entry for _, _, entry in ab_main]
               # Add sub-branches in nested folder if any exist
@@ -522,9 +535,13 @@ jobs:
               return stream_entry
 
           # Build RQB-releases.json
-          # Combine dev_main and dev_sub for the dev stream (newest overall)
-          all_dev = dev_main + dev_sub
-          all_dev.sort(key=lambda x: x[0], reverse=True)
+          # Use development branch for dev stream if available, otherwise fallback to dev-featuresXX
+          if dev_std:
+              all_dev = dev_std  # Use the permanent development integration branch
+          else:
+              # Fallback: combine dev_main and dev_sub for the dev stream (newest overall)
+              all_dev = dev_main + dev_sub
+              all_dev.sort(key=lambda x: x[0], reverse=True)
           releases_json = {
               'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
               'streams': {
@@ -618,14 +635,15 @@ jobs:
           echo "1. RQB-images.json (Pi Imager - hierarchical structure):"
           echo "   ├── RasQberry Two (64-bit)         - Main stable"
           echo "   ├── RasQberry Two Beta (64-bit)    - Beta release"
-          echo "   ├── RasQberry Development Images   - Dev builds folder"
+          echo "   ├── RasQberry Two Dev (64-bit)     - Development integration"
+          echo "   ├── RasQberry Development Images   - dev-featuresXX builds"
           echo "   ├── RasQberry A/B Boot Images      - A/B images folder"
           echo "   └── Raspberry Pi OS (64-bit)       - Official Pi OS"
           echo ""
           echo "2. RQB-releases.json (Website /latest/ - stream structure):"
           echo "   ├── streams.stable  - Latest main branch release"
           echo "   ├── streams.beta    - Latest beta branch release"
-          echo "   └── streams.dev     - Latest dev branch release"
+          echo "   └── streams.dev     - Latest development branch release"
           echo ""
           echo "3. RQB-images-all.json (All versions for development/testing):"
           echo "   └── All historical releases from all branches"
