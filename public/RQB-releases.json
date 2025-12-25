@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-25T09:19:51Z",
+  "generated": "2025-12-25T09:20:17Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,10 +28,7 @@
       "extract_size": 8875147264,
       "extract_sha256": "aea09cd1028e0804937bf7a13fe365b5dc8af8e2f822d5b16389f5176427f37d",
       "highlights": [
-        "add consolidate-json workflow with development branch support",
-        "remove consolidate-json.yaml (now runs from main only)",
-        "remove compression-benchmark.yaml workflow",
-        "sync RQB-image-v2.yaml from main"
+        "extract highlights from GitHub release body"
       ]
     }
   }
