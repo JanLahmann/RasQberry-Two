@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-25T09:29:11Z",
+  "generated": "2025-12-25T09:29:34Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8875147264,
       "extract_sha256": "34938c6ac8290073e812b343cdd3fc59233a9c8730e7c681db00ff17b559239b",
       "highlights": [
-        "add consolidate-json workflow with development branch support"
+        "extract highlights from GitHub release body"
       ]
     }
   }
