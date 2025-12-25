@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-25T08:04:32Z",
+  "generated": "2025-12-25T09:19:51Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,19 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-virtualled-2025-12-23-102633",
-      "name": "rasqberry-dev-features05-virtualled-2025-12-23-102633",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-23-102633/rasqberry-dev-features05-virtualled-2025-12-23-102633.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-virtualled-2025-12-23-102633",
-      "release_date": "2025-12-23 10:26",
-      "image_download_size": 1991337212,
-      "extract_size": 8841592832,
-      "extract_sha256": "80bc50c95c85a598f76955ff7bcab3f1a2a07d5c15980d5b2405ab050038c9d1",
+      "tag": "dev-features05-2025-12-25-095736",
+      "name": "rasqberry-dev-features05-2025-12-25-095736",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-25-095736/rasqberry-dev-features05-2025-12-25-095736.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-25-095736",
+      "release_date": "2025-12-25 09:57",
+      "image_download_size": 1996929820,
+      "extract_size": 8875147264,
+      "extract_sha256": "aea09cd1028e0804937bf7a13fe365b5dc8af8e2f822d5b16389f5176427f37d",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "add consolidate-json workflow with development branch support",
+        "remove consolidate-json.yaml (now runs from main only)",
+        "remove compression-benchmark.yaml workflow",
+        "sync RQB-image-v2.yaml from main"
       ]
     }
   }
