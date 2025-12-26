@@ -35,20 +35,6 @@ interface ABImage {
   image_download_size?: number;
 }
 
-interface AllRelease {
-  name: string;
-  url: string;
-  _branch: string;
-  _release_tag: string;
-  _published: string;
-  release_date?: string;
-  image_download_size?: number;
-  image_type?: string;
-}
-
-interface AllImagesData {
-  releases: AllRelease[];
-}
 
 interface ImagesData {
   os_list: Array<{
@@ -115,18 +101,15 @@ export default function LatestPage() {
   const [releases, setReleases] = useState<ReleasesData | null>(null);
   const [devBranches, setDevBranches] = useState<DevBranch[]>([]);
   const [abImages, setAbImages] = useState<ABImage[]>([]);
-  const [otherDevImages, setOtherDevImages] = useState<AllRelease[]>([]);
-  const [otherABImages, setOtherABImages] = useState<AllRelease[]>([]);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch releases, images, and all-images data
-        const [releasesRes, imagesRes, allImagesRes] = await Promise.all([
+        // Fetch releases and images data
+        const [releasesRes, imagesRes] = await Promise.all([
           fetch('/RQB-releases.json'),
           fetch('/RQB-images.json'),
-          fetch('/RQB-images-all.json'),
         ]);
 
         if (!releasesRes.ok) throw new Error('Failed to fetch releases');
@@ -169,28 +152,6 @@ export default function LatestPage() {
           }
         }
 
-        // Extract sub-branch images from all-images (ones not in main JSON)
-        if (allImagesRes.ok) {
-          const allData: AllImagesData = await allImagesRes.json();
-          // Filter to only sub-branches (dev-featuresXX-*) and standard images
-          const subBranchImages = allData.releases.filter((r) => {
-            const isSubBranch = r._branch.match(/^dev-features\d{2}-.+$/);
-            const isStandard = r.image_type !== 'ab';
-            return isSubBranch && isStandard;
-          });
-          // Sort by published date (newest first)
-          subBranchImages.sort((a, b) => b._published.localeCompare(a._published));
-          setOtherDevImages(subBranchImages);
-
-          // Filter A/B images from sub-branches
-          const subBranchABImages = allData.releases.filter((r) => {
-            const isSubBranch = r._branch.match(/^dev-features\d{2}-.+$/);
-            const isAB = r.image_type === 'ab';
-            return isSubBranch && isAB;
-          });
-          subBranchABImages.sort((a, b) => b._published.localeCompare(a._published));
-          setOtherABImages(subBranchABImages);
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       }
@@ -385,43 +346,6 @@ export default function LatestPage() {
               </details>
             )}
 
-            {/* Other development builds (sub-branches) */}
-            {otherDevImages.length > 0 && (
-              <details style={{ marginTop: '1rem' }}>
-                <summary style={{
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  color: '#666',
-                  padding: '0.5rem 0',
-                }}>
-                  Other development builds ({otherDevImages.length} images from sub-branches)
-                </summary>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {otherDevImages.map((image: AllRelease) => (
-                    <div key={image._release_tag} style={{
-                      padding: '0.5rem 0.75rem',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: '0.5rem',
-                      fontSize: '0.875rem',
-                    }}>
-                      <div>
-                        <strong>{image._branch}</strong>
-                        <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                          {formatDevDate(image.release_date, image.url)}
-                          {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
-                        </span>
-                      </div>
-                      <a href={image.url} style={smallButtonStyle}>Download</a>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
           </div>
 
           {/* A/B Boot Images card */}
@@ -466,43 +390,6 @@ export default function LatestPage() {
                 ))}
               </div>
 
-              {/* Other A/B builds (sub-branches) */}
-              {otherABImages.length > 0 && (
-                <details style={{ marginTop: '1rem' }}>
-                  <summary style={{
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    color: '#666',
-                    padding: '0.5rem 0',
-                  }}>
-                    Other A/B builds ({otherABImages.length} images from sub-branches)
-                  </summary>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    {otherABImages.map((image: AllRelease) => (
-                      <div key={image._release_tag} style={{
-                        padding: '0.5rem 0.75rem',
-                        backgroundColor: '#fafafa',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '0.5rem',
-                        fontSize: '0.875rem',
-                      }}>
-                        <div>
-                          <strong>{image._branch}</strong>
-                          <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                            {formatDevDate(image.release_date, image.url)}
-                            {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
-                          </span>
-                        </div>
-                        <a href={image.url} style={smallButtonStyle}>Download</a>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
             </div>
           )}
 
