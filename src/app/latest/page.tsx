@@ -306,7 +306,7 @@ export default function LatestPage() {
             );
           })}
 
-          {/* Development card with all branches */}
+          {/* Development card - shows dev stream + dev-featuresXX branches */}
           <div style={cardStyle}>
             <h2 style={{ margin: '0 0 0.25rem 0' }}>
               Development
@@ -320,35 +320,69 @@ export default function LatestPage() {
               </span>
             </h2>
             <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
-              Latest development builds with cutting-edge features. Choose a branch:
+              Latest development builds with cutting-edge features.
             </p>
 
-            {devBranches.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {devBranches.map((branch) => (
-                  <div key={branch.branch} style={{
-                    padding: '0.75rem',
-                    backgroundColor: '#f4f4f4',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                  }}>
-                    <div>
-                      <strong style={{ fontSize: '0.9375rem' }}>{branch.branch}</strong>
-                      <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                        {formatDevDate(branch.release_date, branch.url)}
-                        {branch.image_download_size && ' • ' + formatSize(branch.image_download_size)}
-                      </span>
-                    </div>
-                    <a href={branch.url} style={smallButtonStyle}>Download</a>
-                  </div>
-                ))}
-              </div>
+            {/* Main development branch (from dev stream) */}
+            {releases.streams.dev?.image_url && releases.streams.dev?.tag ? (
+              <>
+                <p style={{ fontSize: '0.875rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                  Released: {releases.streams.dev.release_date}
+                  {releases.streams.dev.image_download_size && ' • ' + formatSize(releases.streams.dev.image_download_size)}
+                </p>
+                {releases.streams.dev.highlights && releases.streams.dev.highlights.length > 0 && (
+                  <ul style={{ fontSize: '0.875rem', color: '#444', margin: '0 0 1rem 0', paddingLeft: '1.25rem' }}>
+                    {releases.streams.dev.highlights.slice(0, 3).map((h, i) => (
+                      <li key={i} style={{ marginBottom: '0.25rem' }}>{h}</li>
+                    ))}
+                  </ul>
+                )}
+                <a href="/latest/dev" style={buttonStyle}>Download</a>
+                <a href={releases.streams.dev.release_url} style={{ ...buttonStyle, backgroundColor: '#393939' }}>
+                  Release Notes
+                </a>
+              </>
             ) : (
-              <p style={{ fontSize: '0.875rem', color: '#666' }}>Loading development branches...</p>
+              <p style={{ fontSize: '0.875rem', color: '#666', margin: '0 0 1rem 0' }}>
+                {releases.streams.dev?.message || 'No development release available'}
+              </p>
+            )}
+
+            {/* Other dev-featuresXX branches */}
+            {devBranches.length > 0 && (
+              <details style={{ marginTop: '1.5rem' }}>
+                <summary style={{
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  color: '#666',
+                  padding: '0.5rem 0',
+                }}>
+                  Feature branches ({devBranches.length} dev-featuresXX images)
+                </summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  {devBranches.map((branch) => (
+                    <div key={branch.branch} style={{
+                      padding: '0.75rem',
+                      backgroundColor: '#f4f4f4',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}>
+                      <div>
+                        <strong style={{ fontSize: '0.9375rem' }}>{branch.branch}</strong>
+                        <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
+                          {formatDevDate(branch.release_date, branch.url)}
+                          {branch.image_download_size && ' • ' + formatSize(branch.image_download_size)}
+                        </span>
+                      </div>
+                      <a href={branch.url} style={smallButtonStyle}>Download</a>
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
 
             {/* Other development builds (sub-branches) */}
