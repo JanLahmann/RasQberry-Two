@@ -15,7 +15,6 @@ set -euo pipefail
 # Configuration paths
 STATE_FILE="/var/lib/rasqberry/touch-mode.conf"
 GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
-ONBOARD_AUTOSTART_SRC="/usr/config/touch-mode/onboard-autostart.desktop"
 ENV_FILE="/etc/rasqberry/rasqberry_environment.env"
 
 # Source environment file for configurable touch mode settings
@@ -50,8 +49,6 @@ get_user_home() {
 
 USER_HOME=$(get_user_home)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
-ONBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/onboard-autostart.desktop"
-SQUEEKBOARD_AUTOSTART_DST="$USER_HOME/.config/autostart/squeekboard.desktop"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
 PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
 LIBFM_CONFIG="$USER_HOME/.config/libfm/libfm.conf"
@@ -92,6 +89,18 @@ info() { echo -e "${GREEN}INFO:${NC} $1"; }
 warn() { echo -e "${YELLOW}WARN:${NC} $1"; }
 error() { echo -e "${RED}ERROR:${NC} $1"; }
 
+# Logout user to apply changes (works on Wayland/labwc)
+do_logout() {
+    warn "Logging out in 3 seconds to apply changes..."
+    sleep 3
+    # Try labwc exit first (Wayland), fall back to loginctl
+    if pgrep -x labwc >/dev/null 2>&1; then
+        pkill -SIGTERM labwc
+    else
+        loginctl terminate-user "${SUDO_USER:-$USER}" 2>/dev/null || pkill -u "${SUDO_USER:-$USER}"
+    fi
+}
+
 # Get current touch mode state
 get_state() {
     if [ -f "$STATE_FILE" ]; then
@@ -108,13 +117,7 @@ enable_touch_mode() {
     # Ensure state directory exists
     sudo mkdir -p "$(dirname "$STATE_FILE")"
 
-    # 1. Enable on-screen keyboard autostart (remove any Hidden=true overrides)
-    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
-    # Remove override files so system autostart can run
-    rm -f "$ONBOARD_AUTOSTART_DST" "$SQUEEKBOARD_AUTOSTART_DST"
-    info "On-screen keyboard autostart enabled (removed overrides)"
-
-    # 2. Apply GTK touch CSS
+    # 1. Apply GTK touch CSS
     if [ -f "$GTK_CSS_SRC" ]; then
         mkdir -p "$(dirname "$GTK_CSS_DST")"
         cp "$GTK_CSS_SRC" "$GTK_CSS_DST"
@@ -123,7 +126,7 @@ enable_touch_mode() {
         warn "GTK touch CSS not found at $GTK_CSS_SRC"
     fi
 
-    # 3. Update panel (Wayland: wf-panel-pi, X11: lxpanel)
+    # 2. Update panel (Wayland: wf-panel-pi, X11: lxpanel)
     if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
         # Wayland: wf-panel-pi
         if [ ! -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
@@ -157,18 +160,18 @@ enable_touch_mode() {
         fi
     fi
 
-    # 4. Set Chromium touch flags
+    # 3. Set Chromium touch flags
     mkdir -p "$CHROMIUM_FLAGS_DIR"
     echo "--touch-events=enabled" > "$CHROMIUM_FLAGS_DIR/touch.conf"
     info "Chromium touch flags set"
 
-    # 5. Adjust double-click timing (if xfconf available)
+    # 4. Adjust double-click timing (if xfconf available)
     if command -v xfconf-query >/dev/null 2>&1; then
         xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$TOUCH_DOUBLE_CLICK_MS" 2>/dev/null || true
         info "Double-click time set to ${TOUCH_DOUBLE_CLICK_MS}ms"
     fi
 
-    # 6. Increase desktop icon size (in libfm.conf) and adjust grid spacing (in pcmanfm configs)
+    # 5. Increase desktop icon size (in libfm.conf) and adjust grid spacing (in pcmanfm configs)
     # big_icon_size is read from libfm.conf [ui] section, NOT desktop-items*.conf
     if [ -f "$LIBFM_CONFIG" ]; then
         if [ ! -f "${LIBFM_CONFIG}.touch-backup" ]; then
@@ -215,7 +218,7 @@ enable_touch_mode() {
         info "Desktop grid spacing set to ${TOUCH_DESKTOP_GRID_SPACING}px"
     fi
 
-    # 7. Increase terminal font size
+    # 6. Increase terminal font size
     if [ -f "$LXTERMINAL_CONFIG" ]; then
         if [ ! -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
             cp "$LXTERMINAL_CONFIG" "${LXTERMINAL_CONFIG}.touch-backup"
@@ -225,7 +228,7 @@ enable_touch_mode() {
         info "Terminal font size increased (${TOUCH_TERMINAL_FONT_SIZE}pt)"
     fi
 
-    # 8. Update state file
+    # 7. Update state file
     sudo tee "$STATE_FILE" > /dev/null << EOF
 TOUCH_MODE=enabled
 ENABLED_AT=$(date -Iseconds)
@@ -245,7 +248,6 @@ EOF
     info "Touch mode ENABLED"
     echo ""
     echo "Settings applied:"
-    echo "  - On-screen keyboard: autostart enabled"
     echo "  - GTK buttons/scrollbars: enlarged (48px min)"
     echo "  - Panel: height=${TOUCH_PANEL_HEIGHT}px, icons=${TOUCH_PANEL_ICON_SIZE}px"
     echo "  - Desktop icons: ${TOUCH_DESKTOP_ICON_SIZE}px (grid: ${TOUCH_DESKTOP_GRID_SPACING}px)"
@@ -253,37 +255,22 @@ EOF
     echo "  - Chromium: touch events enabled"
     echo "  - Double-click time: ${TOUCH_DOUBLE_CLICK_MS}ms"
     echo ""
-    warn "Restart desktop session (logout/login) for all changes to take effect"
+
+    # Auto-logout to apply changes
+    do_logout
 }
 
 # Disable touch mode
 disable_touch_mode() {
     info "Disabling touch mode..."
 
-    # 1. Disable on-screen keyboards (both onboard and squeekboard)
-    # Create user autostart files with Hidden=true to override system-wide autostart
-    mkdir -p "$(dirname "$ONBOARD_AUTOSTART_DST")"
-    cat > "$ONBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
-[Desktop Entry]
-Type=Application
-Name=Onboard
-Hidden=true
-DESKTOP_EOF
-    cat > "$SQUEEKBOARD_AUTOSTART_DST" << 'DESKTOP_EOF'
-[Desktop Entry]
-Type=Application
-Name=Squeekboard
-Hidden=true
-DESKTOP_EOF
-    info "On-screen keyboards disabled (onboard + squeekboard)"
-
-    # 2. Remove GTK touch CSS
+    # 1. Remove GTK touch CSS
     if [ -f "$GTK_CSS_DST" ]; then
         rm -f "$GTK_CSS_DST"
         info "GTK touch CSS removed"
     fi
 
-    # 3. Restore panel defaults (Wayland: wf-panel-pi, X11: lxpanel)
+    # 2. Restore panel defaults (Wayland: wf-panel-pi, X11: lxpanel)
     if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
         # Wayland: wf-panel-pi
         if [ -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
@@ -308,17 +295,17 @@ DESKTOP_EOF
         fi
     fi
 
-    # 4. Remove Chromium touch flags
+    # 3. Remove Chromium touch flags
     rm -f "$CHROMIUM_FLAGS_DIR/touch.conf"
     info "Chromium touch flags removed"
 
-    # 5. Restore double-click timing
+    # 4. Restore double-click timing
     if command -v xfconf-query >/dev/null 2>&1; then
         xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$DEFAULT_DOUBLE_CLICK_MS" 2>/dev/null || true
         info "Double-click time restored to ${DEFAULT_DOUBLE_CLICK_MS}ms"
     fi
 
-    # 6. Restore desktop icon size (in libfm.conf) and grid spacing (in pcmanfm configs)
+    # 5. Restore desktop icon size (in libfm.conf) and grid spacing (in pcmanfm configs)
     if [ -f "${LIBFM_CONFIG}.touch-backup" ]; then
         cp "${LIBFM_CONFIG}.touch-backup" "$LIBFM_CONFIG"
         info "Desktop icon size restored (libfm.conf)"
@@ -338,7 +325,7 @@ DESKTOP_EOF
         info "Desktop grid spacing restored to default"
     fi
 
-    # 7. Restore terminal font size
+    # 6. Restore terminal font size
     if [ -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
         cp "${LXTERMINAL_CONFIG}.touch-backup" "$LXTERMINAL_CONFIG"
         info "Terminal font size restored"
@@ -347,7 +334,7 @@ DESKTOP_EOF
         info "Terminal font size restored (${DEFAULT_TERMINAL_FONT_SIZE}pt)"
     fi
 
-    # 8. Update state file
+    # 7. Update state file
     sudo tee "$STATE_FILE" > /dev/null << EOF
 TOUCH_MODE=disabled
 DISABLED_AT=$(date -Iseconds)
@@ -358,7 +345,6 @@ EOF
     info "Touch mode DISABLED"
     echo ""
     echo "Settings restored to defaults:"
-    echo "  - On-screen keyboard: autostart disabled"
     echo "  - GTK buttons/scrollbars: system default"
     echo "  - Panel: height=${DEFAULT_PANEL_HEIGHT}px, icons=${DEFAULT_PANEL_ICON_SIZE}px"
     echo "  - Desktop icons: default size"
@@ -366,7 +352,9 @@ EOF
     echo "  - Chromium: touch events default"
     echo "  - Double-click time: ${DEFAULT_DOUBLE_CLICK_MS}ms"
     echo ""
-    warn "Restart desktop session (logout/login) for all changes to take effect"
+
+    # Auto-logout to apply changes
+    do_logout
 }
 
 # Toggle touch mode
@@ -400,22 +388,6 @@ show_status() {
 
     # Show individual settings
     echo "Current Settings:"
-
-    # On-screen keyboards (check both onboard and squeekboard)
-    local kbd_disabled=0
-    if [ -f "$ONBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$ONBOARD_AUTOSTART_DST" 2>/dev/null; then
-        kbd_disabled=$((kbd_disabled + 1))
-    fi
-    if [ -f "$SQUEEKBOARD_AUTOSTART_DST" ] && grep -q "Hidden=true" "$SQUEEKBOARD_AUTOSTART_DST" 2>/dev/null; then
-        kbd_disabled=$((kbd_disabled + 1))
-    fi
-    if [ "$kbd_disabled" -eq 2 ]; then
-        echo -e "  On-screen keyboard: ${YELLOW}autostart disabled${NC}"
-    elif [ "$kbd_disabled" -eq 0 ]; then
-        echo -e "  On-screen keyboard: ${GREEN}autostart enabled${NC}"
-    else
-        echo -e "  On-screen keyboard: ${YELLOW}partially disabled${NC}"
-    fi
 
     # GTK CSS
     if [ -f "$GTK_CSS_DST" ]; then
@@ -465,7 +437,6 @@ show_usage() {
     echo "  status --quiet  Show just 'enabled' or 'disabled'"
     echo ""
     echo "Touch mode adjusts the following settings:"
-    echo "  - On-screen keyboard (onboard/squeekboard) autostart"
     echo "  - GTK3 button and scrollbar sizes"
     echo "  - Panel height and icon size"
     echo "  - Desktop icon size and grid spacing"

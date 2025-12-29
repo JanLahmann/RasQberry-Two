@@ -1,39 +1,81 @@
 #!/bin/bash -e
+#
+# Install touchscreen support (runs in CHROOT)
+# Files are already installed by 00-run.sh
+#
 
 echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 
-# Install matchbox-keyboard (lightweight virtual keyboard for touchscreens)
-echo "=> Installing matchbox-keyboard"
-apt-get install -y matchbox-keyboard
+# Install wvkbd - Wayland-native on-screen keyboard
+# wvkbd provides a docked keyboard that works natively with Wayland/labwc
+apt-get install -y wvkbd
 
-# Note: Florence was removed from Debian Bookworm repositories
-# matchbox-keyboard is the recommended virtual keyboard for Raspberry Pi OS
-
-# Install toggle script
-echo "=> Installing keyboard toggle script"
-STAGE_DIR="$(dirname "$0")"
-if [ -f "${STAGE_DIR}/files/toggle-keyboard.sh" ]; then
-    cp "${STAGE_DIR}/files/toggle-keyboard.sh" /usr/local/bin/
-    chmod +x /usr/local/bin/toggle-keyboard.sh
-    echo "Toggle script installed: /usr/local/bin/toggle-keyboard.sh"
+# Disable squeekboard autostart (default RPi OS keyboard) - we use wvkbd instead
+# Move the autostart file to prevent squeekboard from starting
+echo "=> Disabling squeekboard autostart (using wvkbd instead)"
+if [ -f /etc/xdg/autostart/squeekboard.desktop ]; then
+    mv /etc/xdg/autostart/squeekboard.desktop /etc/xdg/autostart/squeekboard.desktop.disabled
+    echo "Squeekboard autostart disabled (file renamed)"
 fi
 
-# Install desktop icon for virtual keyboard
-echo "=> Installing virtual keyboard desktop icon"
-DESKTOP_DIR="/home/${FIRST_USER_NAME}/Desktop"
+# Add keyboard toggle icon to panel (wf-panel-pi for Wayland)
+# Note: No desktop icon needed since it's in the panel
+echo "=> Adding keyboard toggle to panel"
+add_keyboard_to_panel() {
+    local panel_config="$1"
+    if [ -f "$panel_config" ]; then
+        # Find next available launcher number
+        local max_num=$(grep -oP 'launcher_\K[0-9]+' "$panel_config" 2>/dev/null | sort -n | tail -1)
+        if [ -z "$max_num" ]; then
+            max_num=0
+        fi
+        local next_num=$(printf "%06d" $((10#$max_num + 1)))
 
-if [ -f "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" ]; then
-    mkdir -p "${DESKTOP_DIR}"
-    cp "${STAGE_DIR}/files/desktop-bookmarks/virtual-keyboard.desktop" "${DESKTOP_DIR}/"
-    chmod +x "${DESKTOP_DIR}/virtual-keyboard.desktop"
-    chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} "${DESKTOP_DIR}"
-    echo "Desktop icon installed: ${DESKTOP_DIR}/virtual-keyboard.desktop"
+        # Add keyboard launcher if not already present
+        if ! grep -q "virtual-keyboard.desktop" "$panel_config" 2>/dev/null; then
+            echo "launcher_${next_num}=virtual-keyboard.desktop" >> "$panel_config"
+            echo "Added keyboard toggle to panel: $panel_config"
+        fi
+    fi
+}
+
+# Add to skel for new users (create if missing)
+SKEL_PANEL_DIR="/etc/skel/.config"
+SKEL_PANEL_CONFIG="${SKEL_PANEL_DIR}/wf-panel-pi.ini"
+mkdir -p "$SKEL_PANEL_DIR"
+if [ ! -f "$SKEL_PANEL_CONFIG" ]; then
+    # Create default panel config with keyboard launcher
+    cat > "$SKEL_PANEL_CONFIG" << 'EOF'
+[panel]
+launcher_000001=lxde-x-www-browser.desktop
+launcher_000002=pcmanfm.desktop
+launcher_000003=lxterminal.desktop
+launcher_000004=virtual-keyboard.desktop
+EOF
+    echo "Created panel config with keyboard: $SKEL_PANEL_CONFIG"
+else
+    add_keyboard_to_panel "$SKEL_PANEL_CONFIG"
+fi
+
+# Add to first user's panel config (create if missing)
+if [ -n "${FIRST_USER_NAME}" ]; then
+    USER_PANEL_DIR="/home/${FIRST_USER_NAME}/.config"
+    USER_PANEL_CONFIG="${USER_PANEL_DIR}/wf-panel-pi.ini"
+    mkdir -p "$USER_PANEL_DIR"
+    if [ ! -f "$USER_PANEL_CONFIG" ]; then
+        cp "$SKEL_PANEL_CONFIG" "$USER_PANEL_CONFIG"
+        echo "Created user panel config: $USER_PANEL_CONFIG"
+    else
+        add_keyboard_to_panel "$USER_PANEL_CONFIG"
+    fi
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_PANEL_DIR"
 fi
 
 echo ""
-echo "Virtual keyboard installed:"
-echo "  - matchbox-keyboard (lightweight, touchscreen-optimized)"
+echo "Virtual keyboard toggle installed:"
+echo "  - Uses wvkbd (Wayland-native keyboard)"
+echo "  - Keyboard icon added to panel"
 echo ""
 echo "To use:"
-echo "  - Click 'Toggle Keyboard' icon on desktop to show/hide"
+echo "  - Click keyboard icon in panel to show/hide"
 echo "  - Or run 'toggle-keyboard.sh' from terminal"
