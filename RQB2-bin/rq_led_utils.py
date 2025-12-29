@@ -80,6 +80,39 @@ def get_led_config():
     }
 
 
+def _ensure_virtual_led_gui_running():
+    """Auto-launch the virtual LED GUI if not already running."""
+    import subprocess
+    import shutil
+
+    # Check if GUI is already running
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'rq_led_virtual_gui'],
+            capture_output=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return  # GUI already running
+    except Exception:
+        pass  # pgrep failed, try to start GUI anyway
+
+    # Find and launch the GUI
+    gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
+    try:
+        subprocess.Popen(
+            ['python3', gui_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            env={**__import__('os').environ, 'DISPLAY': ':0'}
+        )
+        print("Auto-started virtual LED GUI")
+        __import__('time').sleep(1)  # Give GUI time to initialize
+    except Exception as e:
+        print(f"Warning: Could not auto-start virtual LED GUI: {e}")
+
+
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
     Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
@@ -110,6 +143,9 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     if config.get('led_virtual_mirror', False):
         from rq_led_virtual import VirtualNeoPixel, MirrorNeoPixel
         print("LED_VIRTUAL_MIRROR=true: Using both virtual and real LED display")
+
+        # Auto-launch GUI if not running
+        _ensure_virtual_led_gui_running()
 
         # Create virtual display
         virtual_pixels = VirtualNeoPixel(
@@ -146,6 +182,10 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     if config.get('led_virtual', False):
         from rq_led_virtual import VirtualNeoPixel
         print("LED_VIRTUAL=true: Using virtual LED display")
+
+        # Auto-launch GUI if not running
+        _ensure_virtual_led_gui_running()
+
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
             num_pixels,
