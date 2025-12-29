@@ -525,20 +525,20 @@ if [ -f "$CHROMIUM_DESKTOP" ]; then
 fi
 
 # =============================================================================
-# Autostart Chromium browser on login
+# Autostart Chromium browser on login (with delay for time sync)
 # =============================================================================
-echo "Creating Chromium autostart entry..."
+echo "Creating Chromium autostart entry with startup delay..."
 cat > /etc/xdg/autostart/rasqberry-browser.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=RasQberry Browser
 Comment=Open Chromium browser on login
-Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org
+Exec=sh -c 'sleep 10 && /usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org'
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
 EOF
-echo "Chromium will start automatically on login"
+echo "Chromium will start automatically on login (10s delay for time sync)"
 
 # =============================================================================
 # Configure labwc window positioning for Chromium
