@@ -504,9 +504,57 @@ echo "Created Chromium policy for RasQberry homepage"
 # This prevents the "Enter password to unlock keyring" dialog
 CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
 if [ -f "$CHROMIUM_DESKTOP" ]; then
-    # Add --password-store=basic, --disable-features=Keyring, and --window-size for wider default window
-    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1167,985 |' "$CHROMIUM_DESKTOP"
-    echo "Modified Chromium desktop launcher with keyring bypass and window size flags"
+    # Add flags and default URL for rasqberry.org homepage
+    # Note: URL at end ensures it opens on launch; policy handles Home button
+    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org |' "$CHROMIUM_DESKTOP"
+    echo "Modified Chromium desktop launcher with keyring bypass, window size, and homepage URL"
+fi
+
+# =============================================================================
+# Autostart Chromium browser on login (with delay for time sync)
+# =============================================================================
+echo "Creating Chromium autostart entry with startup delay..."
+cat > /etc/xdg/autostart/rasqberry-browser.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=RasQberry Browser
+Comment=Open Chromium browser on login
+Exec=sh -c 'sleep 10 && /usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org'
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+echo "Chromium will start automatically on login (10s delay for time sync)"
+
+# =============================================================================
+# Configure labwc window positioning for Chromium
+# =============================================================================
+echo "Configuring labwc window rules for Chromium..."
+
+# Create labwc config directory in skel for new users
+SKEL_LABWC_DIR="/etc/skel/.config/labwc"
+mkdir -p "$SKEL_LABWC_DIR"
+
+# Create rc.xml with Chromium window positioning rule
+cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
+<?xml version="1.0"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <windowRules>
+    <windowRule identifier="chromium">
+      <action name="MoveTo" x="480" y="45"/>
+    </windowRule>
+  </windowRules>
+</openbox_config>
+EOF
+echo "Created labwc window rules: ${SKEL_LABWC_DIR}/rc.xml"
+
+# Also create for first user if exists
+if [ -n "${FIRST_USER_NAME}" ]; then
+    USER_LABWC_DIR="/home/${FIRST_USER_NAME}/.config/labwc"
+    mkdir -p "$USER_LABWC_DIR"
+    cp "${SKEL_LABWC_DIR}/rc.xml" "${USER_LABWC_DIR}/rc.xml"
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_LABWC_DIR"
+    echo "Created user labwc config: ${USER_LABWC_DIR}/rc.xml"
 fi
 
 # =============================================================================
