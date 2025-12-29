@@ -107,7 +107,7 @@
     },
     {
       "name": "RasQberry A/B Boot Images",
-      "description": "Images with A/B partition support for safer updates",
+      "description": "Images with A/B partition support for safer updates (experimental)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
