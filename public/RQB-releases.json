@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-29T09:05:52Z",
+  "generated": "2025-12-29T09:06:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,20 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-features05-2025-12-29-093930",
-      "name": "rasqberry-dev-features05-2025-12-29-093930",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-29-093930/rasqberry-dev-features05-2025-12-29-093930.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-features05-2025-12-29-093930",
-      "release_date": "2025-12-29 09:39",
-      "image_download_size": 1990449340,
-      "extract_size": 8841592832,
-      "extract_sha256": "ed8feb21453e3f430679a7a44d86a3cf709dfc4fac3d5c8ea25d6e75e1837bc1",
+      "tag": "development-2025-12-25-100707",
+      "name": "rasqberry-development-2025-12-25-100707",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-25-100707/rasqberry-development-2025-12-25-100707.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-25-100707",
+      "release_date": "2025-12-25 10:07",
+      "image_download_size": 1995272152,
+      "extract_size": 8875147264,
+      "extract_sha256": "34938c6ac8290073e812b343cdd3fc59233a9c8730e7c681db00ff17b559239b",
       "highlights": [
-        "add 10s delay to Chrome autostart for NTP time sync",
-        "create status_var before _init_mmap in virtual GUI",
-        "improve Docker setup, keyboard toggle, and Jupyter ports",
-        "update touch mode icon to input-touchpad-symbolic",
-        "update Quantum-Lights-Out patch to use singleton"
+        "extract highlights from GitHub release body"
       ]
     }
   }
