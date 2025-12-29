@@ -346,44 +346,44 @@ export default function LatestPage() {
               </details>
             )}
 
-          </div>
-
-          {/* A/B Boot Images collapsible */}
-          {abImages.length > 0 && (
-            <details style={{ marginTop: '1rem' }}>
-              <summary style={{
-                cursor: 'pointer',
-                fontSize: '0.9375rem',
-                color: '#666',
-                padding: '0.5rem 0',
-              }}>
-                A/B Boot Images ({abImages.length} experimental images with dual-partition support)
-              </summary>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-                {abImages.map((image: ABImage, index: number) => (
-                  <div key={index} style={{
-                    padding: '0.75rem',
-                    backgroundColor: '#f4f4f4',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                  }}>
-                    <div>
-                      <strong style={{ fontSize: '0.9375rem' }}>{extractBranchName(image.name)}</strong>
-                      <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
-                        {formatDevDate(image.release_date, image.url)}
-                        {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
-                      </span>
+            {/* A/B Boot Images collapsible */}
+            {abImages.length > 0 && (
+              <details style={{ marginTop: '1rem' }}>
+                <summary style={{
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  color: '#666',
+                  padding: '0.5rem 0',
+                }}>
+                  A/B Boot Images ({abImages.length} experimental images)
+                </summary>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  {abImages.map((image: ABImage, index: number) => (
+                    <div key={index} style={{
+                      padding: '0.75rem',
+                      backgroundColor: '#f4f4f4',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}>
+                      <div>
+                        <strong style={{ fontSize: '0.9375rem' }}>{extractBranchName(image.name)}</strong>
+                        <span style={{ fontSize: '0.8125rem', color: '#666', marginLeft: '0.75rem' }}>
+                          {formatDevDate(image.release_date, image.url)}
+                          {image.image_download_size && ' • ' + formatSize(image.image_download_size)}
+                        </span>
+                      </div>
+                      <a href={image.url} style={smallButtonStyle}>Download</a>
                     </div>
-                    <a href={image.url} style={smallButtonStyle}>Download</a>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
+                  ))}
+                </div>
+              </details>
+            )}
+
+          </div>
 
         </>
       )}
