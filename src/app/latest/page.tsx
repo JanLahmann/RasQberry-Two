@@ -348,25 +348,18 @@ export default function LatestPage() {
 
           </div>
 
-          {/* A/B Boot Images card */}
+          {/* A/B Boot Images collapsible */}
           {abImages.length > 0 && (
-            <div style={cardStyle}>
-              <h2 style={{ margin: '0 0 0.25rem 0' }}>
-                A/B Boot Images
-                <span style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 'normal',
-                  color: '#8a3ffc',
-                  marginLeft: '0.5rem',
-                }}>
-                  (Experimental)
-                </span>
-              </h2>
-              <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
-                Images with A/B partition support for safer over-the-air updates.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <details style={{ marginTop: '1rem' }}>
+              <summary style={{
+                cursor: 'pointer',
+                fontSize: '0.9375rem',
+                color: '#666',
+                padding: '0.5rem 0',
+              }}>
+                A/B Boot Images ({abImages.length} experimental images with dual-partition support)
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
                 {abImages.map((image: ABImage, index: number) => (
                   <div key={index} style={{
                     padding: '0.75rem',
@@ -389,8 +382,7 @@ export default function LatestPage() {
                   </div>
                 ))}
               </div>
-
-            </div>
+            </details>
           )}
 
         </>
