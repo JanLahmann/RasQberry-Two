@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T10:44:21Z",
+  "generated": "2025-12-30T10:44:47Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -28,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "4ddf6249257c414c117d401410dc2096b03b660fe9943f035984f080c127ad07",
       "highlights": [
-        "enable touch screen mouse emulation for double-tap support"
+        "extract highlights from GitHub release body"
       ]
     }
   }
