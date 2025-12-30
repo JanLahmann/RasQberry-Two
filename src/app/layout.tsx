@@ -10,6 +10,9 @@ const plex = IBM_Plex_Sans({ weight: ['100', '200', '300', '400', '500', '600', 
 export const metadata: Metadata = {
   title: "RasQberry Two",
   description: "Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer",
+  icons: {
+    icon: "/Artwork/RasQberry 2 Logo Cube 64x64.png",
+  },
 };
 
 interface Props {
