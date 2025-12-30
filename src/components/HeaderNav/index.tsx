@@ -1,10 +1,11 @@
 'use client'
 
-import { Header, HeaderName, HeaderMenuButton, SkipToContent, Grid, Column, HeaderNavigation, HeaderMenuItem, HeaderMenu, SideNav, SideNavItems, HeaderSideNavItems } from "@/components/carbon-wrapper"
+import { Header, HeaderName, HeaderMenuButton, SkipToContent, Grid, Column, HeaderNavigation, HeaderMenuItem, HeaderMenu, HeaderGlobalBar, HeaderGlobalAction, SideNav, SideNavItems, HeaderSideNavItems } from "@/components/carbon-wrapper"
 import { ReactElement, useState } from "react"
 
 import styles from './header-nav.module.scss'
 import Link from "next/link"
+import { NotebookLMIcon } from "@/components/NotebookLMIcon"
 
 export type NavItem = {
     label: string
@@ -34,6 +35,17 @@ export function HeaderNav({ items }: Props) {
                     <HeaderNavigation>
                         {items.map(getMenuItem)}
                     </HeaderNavigation>
+                    <HeaderGlobalBar>
+                        {process.env.NEXT_PUBLIC_NOTEBOOKLM_URL && (
+                            <HeaderGlobalAction
+                                aria-label="Ask AI - Search documentation with NotebookLM"
+                                tooltipAlignment="end"
+                                onClick={() => window.open(process.env.NEXT_PUBLIC_NOTEBOOKLM_URL, '_blank')}
+                            >
+                                <NotebookLMIcon />
+                            </HeaderGlobalAction>
+                        )}
+                    </HeaderGlobalBar>
                     <SideNav aria-label="Side navigation" expanded={isSideNavExpanded} isPersistent={false} onSideNavBlur={onClickSideNavExpand} inert={undefined}>
                         <SideNavItems>
                             <HeaderSideNavItems>
