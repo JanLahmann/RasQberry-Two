@@ -145,3 +145,7 @@ RasQberry is an open-source educational project. We welcome contributions:
 4. **Create quantum demos** - Build new interactive demonstrations
 
 **Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
+
+## Need Help?
+
+Try our AI-powered documentation assistant based on [Google NotebookLM](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344). Click the black NotebookLM icon in the header or use the link to ask questions about RasQberry setup, demos, and troubleshooting.
