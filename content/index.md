@@ -70,7 +70,7 @@ Run Pi Imager with our custom repository to see all RasQberry images directly in
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
 
-### Option 3: Pi Imager Desktop Launcher
+### Option 3: Pi Imager Desktop Launcher (Recommended)
 
 Install a pre-configured Pi Imager launcher that automatically loads RasQberry images:
 
@@ -140,8 +140,8 @@ For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-mode
 RasQberry is an open-source educational project. We welcome contributions:
 
 1. **Test & report issues** - Try RasQberry and [report bugs](https://github.com/JanLahmann/RasQberry-Two/issues)
-2. **Share ideas & feature requests** - Open a [GitHub Discussion](https://github.com/JanLahmann/RasQberry-Two/discussions)
-3. **Improve documentation** - Fix typos or add troubleshooting tips
+2. **Share ideas & feature requests** - Open a [GitHub Discussion](https://github.com/JanLahmann/RasQberry-Two/discussions) or [issue](https://github.com/JanLahmann/RasQberry-Two/issues)
+3. **Improve documentation** - Fix typos or add troubleshooting tips using the "Edit this page on GitHub" link on each page
 4. **Create quantum demos** - Build new interactive demonstrations
 
 **Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
