@@ -1,0 +1,46 @@
+# git-cliff configuration for GitHub releases
+# https://git-cliff.org
+
+[changelog]
+# Order categories: Features first, Bug Fixes last
+group_order = ["Features", "Performance", "Refactoring", "Documentation", "Testing", "CI/CD", "Build", "Styling", "Miscellaneous", "Other", "Bug Fixes"]
+header = """
+## Changelog
+
+All notable changes in this release:
+"""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim }}\
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^style", group = "Styling" },
+    { message = "^test", group = "Testing" },
+    { message = "^chore", group = "Miscellaneous" },
+    { message = "^ci", group = "CI/CD" },
+    { message = "^build", group = "Build" },
+    { body = ".*", group = "Other" },
+]
+filter_commits = false
+# Match all tag patterns: v1.0.0, dev-*, beta-*, stable-*
+tag_pattern = ".*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "newest"
