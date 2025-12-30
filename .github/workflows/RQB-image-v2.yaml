@@ -553,7 +553,7 @@ jobs:
 
       # Determine caching strategy for this build
       # Rules:
-      # - Main/beta branches: Delete existing caches, build fresh, then save new caches
+      # - Main/beta branches: Skip restore, build fresh, then save new caches for dev to use
       # - Dev branches: Restore and save caches (incremental builds)
       - name: Determine caching strategy
         id: cache-decision
@@ -562,14 +562,16 @@ jobs:
 
           if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
             echo "use_cache=true" >> $GITHUB_OUTPUT
-            echo "delete_cache=true" >> $GITHUB_OUTPUT
-            echo "Cache enabled with deletion for production branch: $BRANCH_NAME"
-            echo "  - Will delete existing caches for this branch"
-            echo "  - Will build fresh and populate new caches"
+            echo "skip_restore=true" >> $GITHUB_OUTPUT
+            echo "Cache strategy for production branch: $BRANCH_NAME"
+            echo "  - Will SKIP cache restore (build fresh)"
+            echo "  - Will SAVE new caches for dev branches to use"
           else
             echo "use_cache=true" >> $GITHUB_OUTPUT
-            echo "delete_cache=false" >> $GITHUB_OUTPUT
-            echo "Cache enabled for development branch: $BRANCH_NAME"
+            echo "skip_restore=false" >> $GITHUB_OUTPUT
+            echo "Cache strategy for development branch: $BRANCH_NAME"
+            echo "  - Will restore from existing caches"
+            echo "  - Will save if cache miss"
           fi
 
       # Generate cache keys with time-based rotation (daily for wheel cache)
@@ -582,56 +584,14 @@ jobs:
           echo "cache_date=${CACHE_DATE}" >> $GITHUB_OUTPUT
 
       # ========================================================================
-      # CACHE DELETION (main/beta only)
-      # ========================================================================
-      # Delete existing caches for this branch before building fresh
-      # This ensures main/beta always get latest packages while populating cache
-      # for dev branches to use. Each branch only deletes its own caches.
-      - name: Delete branch caches (main/beta only)
-        if: steps.cache-decision.outputs.delete_cache == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          REPO="${{ github.repository }}"
-
-          echo "=== Deleting caches for branch: $BRANCH_NAME ==="
-
-          # List and delete wheel caches for this branch
-          echo "Deleting wheel caches..."
-          WHEEL_CACHES=$(gh api "repos/${REPO}/actions/caches?ref=refs/heads/${BRANCH_NAME}&key=wheels-arm64" --jq '.actions_caches[].id' 2>/dev/null || echo "")
-          if [ -n "$WHEEL_CACHES" ]; then
-            echo "$WHEEL_CACHES" | while read cache_id; do
-              echo "  Deleting wheel cache ID: $cache_id"
-              gh api -X DELETE "repos/${REPO}/actions/caches/${cache_id}" || true
-            done
-          else
-            echo "  No wheel caches found for branch $BRANCH_NAME"
-          fi
-
-          # List and delete base-stages caches for this branch
-          echo "Deleting base-stages caches..."
-          BASE_CACHES=$(gh api "repos/${REPO}/actions/caches?ref=refs/heads/${BRANCH_NAME}&key=base-stages" --jq '.actions_caches[].id' 2>/dev/null || echo "")
-          if [ -n "$BASE_CACHES" ]; then
-            echo "$BASE_CACHES" | while read cache_id; do
-              echo "  Deleting base-stages cache ID: $cache_id"
-              gh api -X DELETE "repos/${REPO}/actions/caches/${cache_id}" || true
-            done
-          else
-            echo "  No base-stages caches found for branch $BRANCH_NAME"
-          fi
-
-          echo "Cache deletion complete"
-
-      # ========================================================================
-      # CACHE RESTORATION - Base Stages Only
+      # CACHE RESTORATION - Base Stages Only (dev branches only)
       # ========================================================================
       # Cache only the base stages (0-4) which are shared across all dev branches
       # Custom stage-RQB2 always builds fresh to ensure branch-specific changes
-      # For main/beta: caches were just deleted, so restore will miss → fresh build
+      # Main/beta skip restore entirely to ensure fresh builds with latest packages
       - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
-        if: steps.cache-decision.outputs.use_cache == 'true'
+        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-decision.outputs.skip_restore != 'true'
         uses: actions/cache/restore@v4
         with:
           path: base-stages-cache.tar.gz
@@ -755,8 +715,9 @@ jobs:
           echo "✓ Created deferred initramfs hook in stage0"
 
       # Extract cached base stages if cache was hit (after pi-gen exists)
+      # Skipped for main/beta since they don't restore caches
       - name: Extract cached base stages
-        if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
+        if: steps.cache-decision.outputs.skip_restore != 'true' && steps.cache-base-stages.outputs.cache-hit == 'true'
         run: |
           echo "Extracting cached base stages..."
           if [ -f "base-stages-cache.tar.gz" ]; then
@@ -928,11 +889,11 @@ jobs:
       # ========================================================================
       # BASE STAGE BUILD (Conditional)
       # ========================================================================
-      # Build stages 0-4 only if:
-      # 1. Cache is disabled, OR
-      # 2. Cache miss (no existing cache found)
-      - name: Build base stages (if not cached or cache disabled)
-        if: steps.cache-decision.outputs.use_cache == 'false' || steps.cache-base-stages.outputs.cache-hit != 'true'
+      # Build stages 0-4 if:
+      # 1. skip_restore=true (main/beta - always build fresh), OR
+      # 2. Cache miss (no existing cache found for dev branches)
+      - name: Build base stages (if not cached or fresh build required)
+        if: steps.cache-decision.outputs.skip_restore == 'true' || steps.cache-base-stages.outputs.cache-hit != 'true'
         run: |
           cd pi-gen
           echo "Building base stages 0-4..."
@@ -959,9 +920,9 @@ jobs:
       # IMMEDIATE CACHE SAVE - Base Stages
       # ========================================================================
       # Save the cache immediately after base stages complete to prevent loss
-      # if custom stage fails. Only save if we built the base stages.
+      # if custom stage fails. Save when we built fresh (skip_restore or cache miss).
       - name: Save Base Stages Cache (Immediate)
-        if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-base-stages.outputs.cache-hit != 'true')
+        if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-decision.outputs.skip_restore == 'true' || steps.cache-base-stages.outputs.cache-hit != 'true')
         run: |
           echo "Creating tarball of base stages work directory..."
           cd pi-gen
@@ -975,8 +936,9 @@ jobs:
           ls -lh ../base-stages-cache.tar.gz
           
       # Cache the tarball (separate step for cleaner error handling)
+      # Save when we built fresh (skip_restore or cache miss)
       - name: Cache Base Stages Tarball
-        if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-base-stages.outputs.cache-hit != 'true')
+        if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-decision.outputs.skip_restore == 'true' || steps.cache-base-stages.outputs.cache-hit != 'true')
         uses: actions/cache/save@v4
         with:
           path: base-stages-cache.tar.gz
@@ -1443,8 +1405,10 @@ jobs:
           echo "=== Cache Status ==="
 
           # Base stages cache
-          if [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
-            echo "Base stages cache: HIT"
+          if [ "${{ steps.cache-decision.outputs.skip_restore }}" == "true" ]; then
+            echo "Base stages cache: SKIPPED (production build - built fresh, saved for dev)"
+          elif [ "${{ steps.cache-base-stages.outputs.cache-hit }}" == "true" ]; then
+            echo "Base stages cache: HIT (restored from cache)"
           else
             echo "Base stages cache: MISS (built fresh)"
           fi
