@@ -6,6 +6,7 @@ import { ReactElement, useState } from "react"
 import styles from './header-nav.module.scss'
 import Link from "next/link"
 import { NotebookLMIcon } from "@/components/NotebookLMIcon"
+import { ClaudeIcon } from "@/components/ClaudeIcon"
 
 export type NavItem = {
     label: string
@@ -36,6 +37,15 @@ export function HeaderNav({ items }: Props) {
                         {items.map(getMenuItem)}
                     </HeaderNavigation>
                     <HeaderGlobalBar>
+                        {process.env.NEXT_PUBLIC_CLAUDE_ARTIFACT_URL && (
+                            <HeaderGlobalAction
+                                aria-label="RasQberry Assistant - AI-powered help"
+                                tooltipAlignment="end"
+                                onClick={() => window.open(process.env.NEXT_PUBLIC_CLAUDE_ARTIFACT_URL, '_blank')}
+                            >
+                                <ClaudeIcon />
+                            </HeaderGlobalAction>
+                        )}
                         {process.env.NEXT_PUBLIC_NOTEBOOKLM_URL && (
                             <HeaderGlobalAction
                                 aria-label="Ask AI - Search documentation with NotebookLM"
