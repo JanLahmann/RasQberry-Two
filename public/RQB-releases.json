@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T20:31:25Z",
+  "generated": "2025-12-30T20:31:45Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -21,10 +21,17 @@
       ]
     },
     "dev": {
-      "tag": null,
-      "name": null,
-      "message": "No development release available.",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
+      "tag": "development-2025-12-30-145529",
+      "name": "rasqberry-development-2025-12-30-145529",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-145529/rasqberry-development-2025-12-30-145529.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-30-145529",
+      "release_date": "2025-12-30 14:55",
+      "image_download_size": 1989990444,
+      "extract_size": 8841592832,
+      "extract_sha256": "24b2e7091c70658195dd61692ceb54a8179a3e5b6ae78e5b00fa644be8775491",
+      "highlights": [
+        "extract highlights from GitHub release body"
+      ]
     }
   }
 }
