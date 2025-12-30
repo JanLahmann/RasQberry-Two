@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T16:04:25Z",
+  "generated": "2025-12-30T20:30:30Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -15,11 +15,7 @@
       "release_date": "2025-10-29",
       "image_download_size": 1836523436,
       "highlights": [
-        "LED text and logo display feature",
-        "Boot-time LED configuration system",
-        "Improved touchscreen support",
-        "Enhanced demo launcher integration",
-        "IP address display on LED matrix at boot"
+        "extract highlights from GitHub release body"
       ]
     },
     "dev": {
@@ -32,7 +28,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "24b2e7091c70658195dd61692ceb54a8179a3e5b6ae78e5b00fa644be8775491",
       "highlights": [
-        "add manual highlights.json support for release streams"
+        "extract highlights from GitHub release body"
       ]
     }
   }
