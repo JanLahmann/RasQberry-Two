@@ -106,9 +106,14 @@ ENVEOF
     echo "Edit: $ENV_FILE"
     echo
 
-    if show_yesno "Edit Configuration?" \
-        "Configuration file created at:\n$ENV_FILE\n\nYou need to add your API credentials:\n• Home Connect Client ID & Secret\n• IBM Quantum API Key\n\nWould you like to edit it now?"; then
-        ${EDITOR:-nano} "$ENV_FILE"
+    # Skip interactive dialog in auto-install mode
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if show_yesno "Edit Configuration?" \
+            "Configuration file created at:\n$ENV_FILE\n\nYou need to add your API credentials:\n• Home Connect Client ID & Secret\n• IBM Quantum API Key\n\nWould you like to edit it now?"; then
+            ${EDITOR:-nano} "$ENV_FILE"
+        fi
+    else
+        info "Skipping credentials setup (auto-install mode)"
     fi
 else
     info "Configuration file exists: $ENV_FILE"

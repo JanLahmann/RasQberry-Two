@@ -349,6 +349,363 @@ run_ibm_courses_demo() {
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
+# -----------------------------------------------------------------------------
+# Download All Demos - Batch install all available demos
+# -----------------------------------------------------------------------------
+
+# Check network connectivity
+check_network_connectivity() {
+    # Try to reach GitHub (most reliable for our use case)
+    if curl -s --connect-timeout 5 https://github.com > /dev/null 2>&1; then
+        return 0
+    fi
+    # Fallback: try ping to Google DNS
+    if ping -c 1 -W 3 8.8.8.8 > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# Check available disk space in MB
+check_disk_space_mb() {
+    df -m "$USER_HOME" 2>/dev/null | awk 'NR==2 {print $4}'
+}
+
+# Install Qoffee-Maker for batch install (setup + pull image)
+do_qoffee_install() {
+    if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
+        return 0  # Already installed
+    fi
+
+    # Check if Docker is available
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "Skipping Qoffee-Maker: Docker not installed"
+        return 1
+    fi
+
+    echo "Setting up Qoffee-Maker (Docker)..."
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "ERROR: Qoffee-Maker setup failed"
+        return 1
+    fi
+
+    # Pull Docker image
+    echo "Pulling Qoffee-Maker Docker image..."
+    QOFFEE_IMAGE="ghcr.io/janlahmann/qoffee-maker"
+    if docker pull "$QOFFEE_IMAGE"; then
+        update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
+        echo "✓ Qoffee-Maker setup complete"
+        return 0
+    else
+        echo "ERROR: Failed to pull Qoffee-Maker image"
+        return 1
+    fi
+}
+
+# Install Quantum-Mixer for batch install (setup + build image)
+do_quantum_mixer_install() {
+    if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
+        return 0  # Already installed
+    fi
+
+    # Check if Docker is available
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "Skipping Quantum-Mixer: Docker not installed"
+        return 1
+    fi
+
+    echo "Setting up Quantum-Mixer (Docker)..."
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "ERROR: Quantum-Mixer setup failed"
+        return 1
+    fi
+
+    # Build Docker image for ARM64
+    MIXER_DIR="$DEMO_ROOT/quantum-mixer"
+    MIXER_IMAGE="quantum-mixer:arm64"
+
+    # Clone quantum-mixer repo if not present
+    if [ ! -d "$MIXER_DIR" ]; then
+        echo "Cloning Quantum-Mixer repository..."
+        git clone --depth 1 "$GIT_REPO_DEMO_QUANTUM_MIXER" "$MIXER_DIR" || {
+            echo "ERROR: Failed to clone Quantum-Mixer"
+            return 1
+        }
+    fi
+
+    echo "Building Quantum-Mixer Docker image (this may take 10-15 minutes)..."
+    if cd "$MIXER_DIR" && docker build -f Dockerfile.arm64 -t "$MIXER_IMAGE" .; then
+        cd - > /dev/null
+        update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
+        echo "✓ Quantum-Mixer setup complete"
+        return 0
+    else
+        cd - > /dev/null 2>/dev/null
+        echo "ERROR: Failed to build Quantum-Mixer image"
+        return 1
+    fi
+}
+
+# Download all demos at once
+do_download_all_demos() {
+    # Pre-flight check: Network connectivity
+    if ! check_network_connectivity; then
+        whiptail --title "Network Error" --msgbox \
+            "No internet connection detected.\n\nPlease connect to the internet and try again." \
+            10 60
+        return 1
+    fi
+
+    # Pre-flight check: Disk space (require at least 500MB free)
+    AVAILABLE_MB=$(check_disk_space_mb)
+    if [ "${AVAILABLE_MB:-0}" -lt 500 ]; then
+        whiptail --title "Low Disk Space" --msgbox \
+            "Insufficient disk space.\n\nAvailable: ${AVAILABLE_MB:-0} MB\nRequired: ~500 MB minimum\n\nPlease free up some space and try again." \
+            12 60
+        return 1
+    fi
+
+    # Count demos: already installed vs to-install
+    TO_INSTALL=0
+    ALREADY_INSTALLED=0
+
+    # Git-clone demos (7 total, excluding LED-Painter)
+    [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$GROK_BLOCH_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$IBM_TUTORIALS_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$IBM_COURSES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+
+    # Docker demos (2 total)
+    DOCKER_AVAILABLE="no"
+    if command -v docker > /dev/null 2>&1; then
+        DOCKER_AVAILABLE="yes"
+        [ "$QOFFEE_MAKER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+        [ "$QUANTUM_MIXER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    fi
+
+    TOTAL_DEMOS=$((ALREADY_INSTALLED + TO_INSTALL))
+
+    # If all already installed, inform and exit
+    if [ "$TO_INSTALL" -eq 0 ]; then
+        whiptail --title "All Demos Installed" --msgbox \
+            "All $TOTAL_DEMOS demos are already installed!\n\nNothing to do." \
+            10 50
+        return 0
+    fi
+
+    # Build confirmation message
+    CONFIRM_MSG="This will download and install quantum demos.\n\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Demos to install: $TO_INSTALL\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Already installed: $ALREADY_INSTALLED\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Available disk space: ${AVAILABLE_MB} MB\n\n"
+    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
+        CONFIRM_MSG="${CONFIRM_MSG}Docker demos included (may take 10-15 min to build).\n\n"
+    else
+        CONFIRM_MSG="${CONFIRM_MSG}Docker demos skipped (Docker not installed).\n\n"
+    fi
+    CONFIRM_MSG="${CONFIRM_MSG}Proceed with installation?"
+
+    # Show confirmation dialog
+    if ! whiptail --title "Download All Demos" --yesno "$CONFIRM_MSG" 18 65; then
+        return 0
+    fi
+
+    # Enable auto-install mode to skip individual confirmations
+    export RQ_AUTO_INSTALL=1
+    export RQ_NO_MESSAGES=true
+
+    # Create temp file for tracking results from subshell
+    RESULTS_FILE=$(mktemp)
+
+    # Process git-clone demos with progress display (7 demos)
+    {
+        # Initialize counters inside subshell
+        INSTALLED_COUNT=0
+        SKIPPED_COUNT=0
+        FAILED_COUNT=0
+        FAILED_DEMOS=""
+        CURRENT=0
+        TOTAL=7
+
+        # 1. Quantum Lights Out
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Lights Out (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Lights Out..."; echo "XXX"
+            if do_qlo_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Lights Out\n"
+            fi
+        fi
+
+        # 2. Quantum Raspberry-Tie
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Raspberry-Tie (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Raspberry-Tie..."; echo "XXX"
+            if do_rasp_tie_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Raspberry-Tie\n"
+            fi
+        fi
+
+        # 3. Grok Bloch
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$GROK_BLOCH_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Grok Bloch (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Grok Bloch..."; echo "XXX"
+            if do_grok_bloch_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Grok Bloch\n"
+            fi
+        fi
+
+        # 4. Fun with Quantum
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Fun with Quantum (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Fun with Quantum..."; echo "XXX"
+            if do_fwq_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Fun with Quantum\n"
+            fi
+        fi
+
+        # 5. Quantum Paradoxes
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Paradoxes (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Paradoxes..."; echo "XXX"
+            if do_quantum_paradoxes_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Paradoxes\n"
+            fi
+        fi
+
+        # 6. IBM Quantum Tutorials
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$IBM_TUTORIALS_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Tutorials (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Tutorials..."; echo "XXX"
+            if do_ibm_tutorials_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Tutorials\n"
+            fi
+        fi
+
+        # 7. IBM Quantum Courses
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$IBM_COURSES_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Courses (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Courses..."; echo "XXX"
+            if do_ibm_courses_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Courses\n"
+            fi
+        fi
+
+        # Write results to temp file
+        echo "${INSTALLED_COUNT}:${SKIPPED_COUNT}:${FAILED_COUNT}:${FAILED_DEMOS}" > "$RESULTS_FILE"
+        echo "100"
+    } | whiptail --title "Downloading Demos" --gauge "Preparing..." 8 70 0
+
+    # Read results from temp file
+    INSTALLED_COUNT=0
+    SKIPPED_COUNT=0
+    FAILED_COUNT=0
+    FAILED_DEMOS=""
+    if [ -f "$RESULTS_FILE" ]; then
+        IFS=: read -r INSTALLED_COUNT SKIPPED_COUNT FAILED_COUNT FAILED_DEMOS < "$RESULTS_FILE"
+        rm -f "$RESULTS_FILE"
+    fi
+
+    # --- Docker demos (run OUTSIDE gauge to allow their own dialogs) ---
+    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
+        # Qoffee-Maker
+        if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            whiptail --title "Docker Demos" --infobox "Setting up Qoffee-Maker...\n\nThis may take several minutes." 8 50
+            if do_qoffee_install; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Qoffee-Maker\n"
+            fi
+        fi
+
+        # Quantum-Mixer
+        if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            whiptail --title "Docker Demos" --infobox "Setting up Quantum-Mixer...\n\nThis may take several minutes." 8 50
+            if do_quantum_mixer_install; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum-Mixer\n"
+            fi
+        fi
+    fi
+
+    # Restore normal mode
+    unset RQ_AUTO_INSTALL
+    export RQ_NO_MESSAGES=false
+
+    # Build summary message
+    SUMMARY="Installation Complete!\n\n"
+    SUMMARY="${SUMMARY}Installed: ${INSTALLED_COUNT:-0}\n"
+    SUMMARY="${SUMMARY}Skipped (already installed): ${SKIPPED_COUNT:-0}\n"
+    SUMMARY="${SUMMARY}Failed: ${FAILED_COUNT:-0}"
+
+    if [ "${FAILED_COUNT:-0}" -gt 0 ] && [ -n "$FAILED_DEMOS" ]; then
+        SUMMARY="${SUMMARY}\n\nFailed demos:\n${FAILED_DEMOS}"
+        SUMMARY="${SUMMARY}\nYou can try installing failed demos individually."
+    fi
+
+    whiptail --title "Download All Demos - Summary" --msgbox "$SUMMARY" 16 60
+
+    return 0
+}
+
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
@@ -857,6 +1214,7 @@ do_quantum_demo_menu() {
        IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
+       DALL "Download All Demos" \
        LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
@@ -875,6 +1233,7 @@ do_quantum_demo_menu() {
       IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      DALL) do_download_all_demos      || continue ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
       QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
