@@ -12,4 +12,6 @@ Subscribe to receive occasional updates about RasQberry Two. We send not more th
   <div className="sender-form-field" data-sender-form-id="aKrR6x"></div>
 </div>
 
+<small>If the form does not display correctly, please reload the page.</small>
+
 You can also follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for real-time updates.
