@@ -148,4 +148,4 @@ RasQberry is an open-source educational project. We welcome contributions:
 
 ## Need Help?
 
-Try our [AI-powered documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) to ask questions about RasQberry setup, demos, and troubleshooting (login with your Google ID required). [![NotebookLM](/Artwork/notebooklm-icon.svg)](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344)
+Try our [AI-powered documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) to ask questions about RasQberry setup, demos, and troubleshooting (login with your Google ID required). <a href="https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344" target="_blank"><img src="/Artwork/notebooklm-icon.svg" alt="NotebookLM" width="20" height="20" style={{verticalAlign: 'middle'}} /></a>
