@@ -2,6 +2,8 @@
 # https://git-cliff.org
 
 [changelog]
+# Order categories: Features first, Bug Fixes last
+group_order = ["Features", "Performance", "Refactoring", "Documentation", "Testing", "CI/CD", "Build", "Styling", "Miscellaneous", "Other", "Bug Fixes"]
 header = """
 ## Changelog
 
