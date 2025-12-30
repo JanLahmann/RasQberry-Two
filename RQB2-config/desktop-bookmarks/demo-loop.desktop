@@ -1,6 +1,6 @@
 [Desktop Entry]
 Version=1.1
-Name=Demo Loop (Conference)
+Name=Demo Loop
 Comment=Continuous loop of quantum demos for conference showcases (IBM Logo, Lights Out, RasQberry Tie, RasQ-LED)
 Icon=media-playlist-repeat
 Type=Application

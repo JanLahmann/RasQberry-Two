@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.1
+Name=Quantum Paradoxes
+Comment=Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris
+Icon=/usr/share/icons/rasqberry/orbit-pi.png
+Type=Application
+Categories=RasQberry;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_paradoxes_auto.sh'
+Terminal=true
+StartupNotify=true
+MimeType=text/x-python;
+Keywords=quantum;paradox;jupyter;notebook;qiskit;education;
+X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false

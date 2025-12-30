@@ -201,6 +201,151 @@ do_grok_bloch_install() {
                  "Grok Bloch Sphere" ""
 }
 
+# Install Fun-with-Quantum notebooks if needed
+do_fwq_install() {
+    install_demo "fun-with-quantum" "$GIT_REPO_DEMO_FWQ" \
+                 "$MARKER_FWQ" "FUN_WITH_QUANTUM_INSTALLED" \
+                 "Fun with Quantum" ""
+}
+
+# Install Quantum Paradoxes demo if needed
+do_quantum_paradoxes_install() {
+    install_demo "quantum-paradoxes" "$GIT_REPO_DEMO_PARADOXES" \
+                 "$MARKER_PARADOXES" "QUANTUM_PARADOXES_INSTALLED" \
+                 "Quantum Paradoxes" ""
+
+    # Run post-install setup (creates WELCOME.ipynb, fixes Qiskit imports)
+    PARADOX_DIR="$DEMO_ROOT/quantum-paradoxes"
+    if [ -f "$PARADOX_DIR/schrodingers-cat.ipynb" ]; then
+        echo "Running Quantum Paradoxes setup..."
+        . "$VENV_ACTIVATE"
+        python3 "$BIN_DIR/setup_quantum_paradoxes.py" --path "$PARADOX_DIR"
+    fi
+}
+
+# Run Quantum Paradoxes demo
+run_quantum_paradoxes_demo() {
+    # Ensure installation
+    do_quantum_paradoxes_install || return 1
+
+    # Launch the demo using the dedicated launcher script
+    "$BIN_DIR/rq_quantum_paradoxes.sh"
+}
+
+# Clone IBM Quantum Learning content (shared by tutorials and courses)
+# Content licensed under CC BY-SA 4.0 by IBM/Qiskit
+# Source: https://github.com/Qiskit/documentation
+clone_ibm_learning_content() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -d "$DEST/.git" ]; then
+        return 0  # Already cloned
+    fi
+
+    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if command -v whiptail > /dev/null 2>&1; then
+            whiptail --title "IBM Quantum Learning Content" \
+                     --yesno "IBM Quantum Tutorials & Courses are not installed yet.\n\nThis will download content from:\nhttps://github.com/Qiskit/documentation\n\nContent is licensed under CC BY-SA 4.0.\nRequires internet connection.\n\nInstall now?" \
+                     14 70 3>&1 1>&2 2>&3
+
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
+        fi
+    else
+        echo "Auto-installing IBM Quantum Learning content..."
+    fi
+
+    echo "Cloning IBM Quantum Learning content (sparse checkout)..."
+    echo "This may take a few minutes..."
+
+    # Sparse clone - only tutorials and courses directories
+    mkdir -p "$DEST"
+    cd "$DEST"
+    git init
+    git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
+    git sparse-checkout init --cone
+    git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS
+    git pull --depth=1 origin main
+    cd - > /dev/null
+
+    # Copy credentials setup notebook
+    if [ -f "/usr/config/00-Save-Credentials.ipynb" ]; then
+        cp "/usr/config/00-Save-Credentials.ipynb" "$DEST/"
+        echo "Added credentials setup notebook."
+    fi
+
+    # Fix ownership if needed
+    if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
+    fi
+
+    echo "IBM Quantum Learning content downloaded successfully."
+}
+
+# Install IBM Quantum Tutorials
+do_ibm_tutorials_install() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -f "$DEST/$MARKER_IBM_TUTORIALS" ]; then
+        return 0
+    fi
+
+    # Clone content if needed
+    clone_ibm_learning_content || return 1
+
+    # Generate WELCOME-tutorials.ipynb
+    echo "Generating tutorials welcome notebook..."
+    . "$VENV_ACTIVATE"
+    python3 "$BIN_DIR/setup_ibm_tutorials.py" --tutorials --path "$DEST"
+
+    update_environment_file "IBM_TUTORIALS_INSTALLED" "true"
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+        whiptail --title "IBM Quantum Tutorials" --msgbox "Tutorials installed successfully." 8 60
+    else
+        echo "IBM Quantum Tutorials installed successfully."
+    fi
+}
+
+# Install IBM Quantum Courses
+do_ibm_courses_install() {
+    DEST="$DEMO_ROOT/ibm-quantum-learning"
+
+    if [ -f "$DEST/$MARKER_IBM_COURSES" ]; then
+        return 0
+    fi
+
+    # Clone content if needed
+    clone_ibm_learning_content || return 1
+
+    # Generate WELCOME-courses.ipynb
+    echo "Generating courses welcome notebook..."
+    . "$VENV_ACTIVATE"
+    python3 "$BIN_DIR/setup_ibm_tutorials.py" --courses --path "$DEST"
+
+    update_environment_file "IBM_COURSES_INSTALLED" "true"
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
+        whiptail --title "IBM Quantum Courses" --msgbox "Courses installed successfully." 8 60
+    else
+        echo "IBM Quantum Courses installed successfully."
+    fi
+}
+
+# Run IBM Quantum Tutorials demo
+run_ibm_tutorials_demo() {
+    do_ibm_tutorials_install || return 1
+    "$BIN_DIR/rq_ibm_tutorials.sh"
+}
+
+# Run IBM Quantum Courses demo
+run_ibm_courses_demo() {
+    do_ibm_courses_install || return 1
+    "$BIN_DIR/rq_ibm_courses.sh"
+}
+
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
@@ -707,6 +852,9 @@ do_quantum_demo_menu() {
        FRC  "Quantum Fractals" \
        RQL  "RasQ-LED (Quantum Circuit)" \
        LDP  "LED-Painter (Paint on LEDs)" \
+       QPX  "Quantum Paradoxes (Notebooks)" \
+       IBMT "IBM Quantum Tutorials" \
+       IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
        LOOP "Continuous Demo Loop (Conference)" \
@@ -722,6 +870,9 @@ do_quantum_demo_menu() {
       FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
       RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
       LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
+      QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
+      IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
+      IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
       QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
       QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
@@ -973,7 +1124,123 @@ do_select_led_layout() {
   esac
 }
 
-# A/B Boot Administration Menu
+# -----------------------------------------------------------------------------
+# Update from GitHub Branch
+# -----------------------------------------------------------------------------
+
+# Detect current repository from git config or environment
+detect_git_repo() {
+    local repo=""
+
+    # Method 1: Check git remote in user's repo directory
+    local git_config="${REPO_DIR}/.git/config"
+
+    if [ -f "$git_config" ]; then
+        local origin_url
+        origin_url=$(grep -A2 '\[remote "origin"\]' "$git_config" 2>/dev/null | grep 'url' | sed 's/.*= //' | head -1)
+
+        if [ -n "$origin_url" ]; then
+            if echo "$origin_url" | grep -q "github.com"; then
+                repo=$(echo "$origin_url" | sed 's|.*github\.com[:/]||' | sed 's|\.git$||')
+            fi
+        fi
+    fi
+
+    # Method 2: Use environment variables
+    if [ -z "$repo" ]; then
+        local git_user="${RQB_GIT_USER:-}"
+        local git_repo="${REPO:-}"
+        if [ -n "$git_user" ] && [ -n "$git_repo" ]; then
+            repo="${git_user}/${git_repo}"
+        fi
+    fi
+
+    # Method 3: Default fallback
+    if [ -z "$repo" ]; then
+        repo="JanLahmann/RasQberry-Two"
+    fi
+
+    echo "$repo"
+}
+
+# Update from GitHub branch menu handler
+do_update_from_branch() {
+    local detected_repo
+    detected_repo=$(detect_git_repo)
+
+    # Step 1: Repository selection
+    local tmpfile=$(mktemp)
+    exec 4>"$tmpfile"
+
+    whiptail --output-fd 4 --title "Update from GitHub Branch" --menu \
+        "Select repository source:\n\nDetected: $detected_repo" \
+        14 70 2 \
+        "detected" "Use detected repository ($detected_repo)" \
+        "custom"   "Enter custom repository" \
+        1>/dev/tty 2>/dev/tty </dev/tty
+
+    local exit_code=$?
+    exec 4>&-
+
+    if [ $exit_code -ne 0 ]; then
+        rm -f "$tmpfile"
+        return 0
+    fi
+
+    local repo_choice=$(cat "$tmpfile")
+    rm -f "$tmpfile"
+
+    local repo="$detected_repo"
+    if [ "$repo_choice" = "custom" ]; then
+        repo=$(whiptail --inputbox "Enter GitHub repository (user/repo):" 10 60 "$detected_repo" 3>&1 1>&2 2>&3)
+        if [ $? -ne 0 ] || [ -z "$repo" ]; then
+            return 0
+        fi
+        # Validate format
+        if ! echo "$repo" | grep -q '^[^/]\+/[^/]\+$'; then
+            whiptail --title "Invalid Format" --msgbox "Invalid repository format.\n\nPlease use: username/repository" 10 50
+            return 1
+        fi
+    fi
+
+    # Step 2: Branch selection
+    local branch
+    branch=$(whiptail --inputbox "Enter branch name to update from:\n\nCommon branches: main, dev, dev-features05" 12 60 "main" 3>&1 1>&2 2>&3)
+    if [ $? -ne 0 ] || [ -z "$branch" ]; then
+        return 0
+    fi
+
+    # Step 3: Confirmation
+    if ! whiptail --title "Confirm Update" --yesno \
+        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
+        20 70; then
+        return 0
+    fi
+
+    # Step 4: Run update
+    whiptail --title "Updating..." --infobox \
+        "Updating from GitHub...\n\nRepository: $repo\nBranch: $branch\n\nThis may take a minute.\nPlease wait..." \
+        12 60
+
+    local update_output
+    local update_result
+
+    # Run the update script and capture output
+    update_output=$("$BIN_DIR/rq_update_from_branch.sh" --repo "$repo" --branch "$branch" 2>&1) || update_result=$?
+
+    if [ "${update_result:-0}" -eq 0 ]; then
+        whiptail --title "Update Complete" --msgbox \
+            "Update completed successfully!\n\nRepository: $repo\nBranch: $branch\n\nChanges applied:\n  - Scripts updated in /usr/bin/\n  - Config files updated in /usr/config/\n  - Environment reloaded\n\nYou may need to exit and re-enter raspi-config\nfor menu changes to take effect." \
+            18 70
+    else
+        whiptail --title "Update Failed" --msgbox \
+            "Update failed!\n\nError output:\n$update_output\n\nCheck /var/log/rasqberry-branch-update.log for details." \
+            16 70
+        return 1
+    fi
+}
+
+# Software & Full Image Updates Menu
 do_ab_boot_menu() {
     while true; do
         # Check if this is an AB boot image
@@ -982,13 +1249,15 @@ do_ab_boot_menu() {
             is_ab_image="Yes"
         fi
 
-        FUN=$(show_menu "RasQberry: A/B Boot Administration" "A/B Image: ${is_ab_image}" \
+        FUN=$(show_menu "RasQberry: Software & Full Image Updates" "A/B Image: ${is_ab_image}" \
             EXPAND "Expand A/B Partitions (64GB+ SD)" \
-            SLOTS  "Slot Manager (switch, confirm, promote)") || break
+            SLOTS  "Slot Manager (switch, confirm, promote)" \
+            BRANCH "Update from GitHub Branch") || break
 
         case "$FUN" in
             EXPAND) do_expand_ab_partitions || continue ;;
             SLOTS)  do_slot_manager_menu    || continue ;;
+            BRANCH) do_update_from_branch   || continue ;;
             *)      continue ;;
         esac
     done
@@ -1439,15 +1708,66 @@ do_slot_manager_menu() {
     done
 }
 
+# -----------------------------------------------------------------------------
+# Touch Mode Menu
+# -----------------------------------------------------------------------------
+
+do_touch_mode_menu() {
+    # Get current status
+    local current_status
+    current_status=$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null || echo "disabled")
+
+    while true; do
+        FUN=$(show_menu "RasQberry: Touch Mode" "Current: $current_status" \
+           ENABLE  "Enable Touch Mode" \
+           DISABLE "Disable Touch Mode" \
+           STATUS  "Show Current Settings") || break
+
+        case "$FUN" in
+            ENABLE)
+                "$BIN_DIR/rq_touch_mode.sh" enable
+                current_status="enabled"
+                offer_desktop_restart
+                ;;
+            DISABLE)
+                "$BIN_DIR/rq_touch_mode.sh" disable
+                current_status="disabled"
+                offer_desktop_restart
+                ;;
+            STATUS)
+                local status_output
+                status_output=$("$BIN_DIR/rq_touch_mode.sh" status 2>&1)
+                whiptail --title "Touch Mode Status" --msgbox "$status_output" 20 70
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# Offer to restart the desktop session
+offer_desktop_restart() {
+    if whiptail --title "Restart Desktop?" --yesno \
+        "Touch mode settings have been changed.\n\nRestart desktop session now for all changes to take effect?\n\n(You can also logout/login manually later)" \
+        12 60; then
+        whiptail --title "Restarting..." --infobox "Restarting desktop session..." 6 40
+        sleep 2
+        systemctl restart lightdm 2>/dev/null || true
+    fi
+}
+
 do_rasqberry_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
        QD      "Quantum Demos" \
+       TOUCH   "Touch Mode Settings" \
        UEF     "Update Env File" \
-       AB_BOOT "A/B Boot Administration" \
+       AB_BOOT "Software & Full Image Updates" \
        INFO    "System Info") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      TOUCH)   do_touch_mode_menu             || continue ;;
       UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;

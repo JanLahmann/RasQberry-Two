@@ -1,72 +1,178 @@
 #!/usr/bin/env python3
 """
-LED-Painter: Convert from SPI to PWM/PIO drivers with persistent NeoPixel object.
+LED-Painter: Convert from SPI to PWM/PIO drivers using shared rq_led_utils module.
 
 This script modifies LED-Painter files to:
-1. Convert from SPI-based neopixel to PWM/PIO based neopixel
-2. Use persistent global NeoPixel object to prevent GPIO busy errors
-3. Update imports and initialization code
+1. Convert display_to_LEDs_from_file.py to use rq_led_utils singleton
+2. Convert turn_off_LEDs.py to use rq_led_utils.clear_all_leds()
+3. Update LED_painter.py to use the shared module for atexit
+4. Update requirements.txt for PWM/PIO drivers
 
-Works with the LED-Painter repository as-is, no patch file needed.
+Uses the system-wide rq_led_utils module (/usr/bin/rq_led_utils.py) which provides
+a singleton NeoPixel object to prevent GPIO conflicts on Pi 5.
 """
 
 import sys
 import os
-import re
 
 
-def convert_display_to_leds(file_path):
-    """Convert display_to_LEDs_from_file.py from SPI to PWM/PIO with persistent object."""
+DISPLAY_TO_LEDS_MODULE = '''# Standard
+import json
+import argparse
+import atexit
+import sys
+
+# Add /usr/bin to path for rq_led_utils
+sys.path.insert(0, '/usr/bin')
+
+# Local - use RasQberry shared LED utilities (singleton NeoPixel)
+from rq_led_utils import get_pixels, clear_all_leds
+from LED_array_indices import LED_ARRAY_INDICES
+
+# Constants
+NUM_PIXELS = 192
+
+
+def display_to_LEDs(array_data, args):
+    """
+    Display pixel data to the LED array.
+
+    Args:
+        array_data (dict): Data to display. Format: {index: [R, G, B]} for each pixel.
+        args: Namespace with console (bool) and brightness (float) attributes.
+    """
+    console = args.console
+    brightness = args.brightness
+
+    # Get the shared NeoPixel object from rq_led_utils
+    pixels = get_pixels(brightness)
+
+    # Display to LED array
+    for index, color in array_data.items():
+        red, green, blue = color[0], color[1], color[2]
+        LED_array_index = LED_ARRAY_INDICES[int(index)]
+        pixels[LED_array_index] = (red, green, blue)
+
+    pixels.show()
+
+    if console:
+        print("LED Array Data:")
+        print(array_data)
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file", help="LED array pixel values file", type=str, default=None)
+    parser.add_argument("-c", "--console", help="Print values to console", action="store_true")
+    parser.add_argument("-b", "--brightness", help="LED brightness (0.0-1.0)", type=float, default=1.0)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_arguments()
+    atexit.register(clear_all_leds)
+
+    if args.file:
+        array_data_file = args.file
+    else:
+        array_data_file = input("Enter LED color values file path: ")
+
+    try:
+        with open(array_data_file) as file:
+            array_data = json.load(file)
+    except Exception as e:
+        print(f"Error loading file: {e}")
+        return
+
+    try:
+        print("Displaying to LEDs...")
+        display_to_LEDs(array_data, args)
+        print("Done")
+    except Exception as e:
+        print(f"Error displaying to LEDs: {e}")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+TURN_OFF_LEDS_MODULE = '''"""Turn off all LEDs using the shared RasQberry LED utilities."""
+import sys
+
+# Add /usr/bin to path for rq_led_utils
+sys.path.insert(0, '/usr/bin')
+
+from rq_led_utils import clear_all_leds
+
+
+def turn_off_LEDs():
+    """Turn off all LEDs using the shared singleton NeoPixel object."""
+    clear_all_leds()
+
+
+def main():
+    print("Turning off all LEDs...")
+    turn_off_LEDs()
+    print("Done!")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def convert_display_to_leds(demo_dir):
+    """Replace display_to_LEDs_from_file.py with version using shared module."""
+    file_path = os.path.join(demo_dir, 'display_to_LEDs_from_file.py')
+    with open(file_path, 'w') as f:
+        f.write(DISPLAY_TO_LEDS_MODULE)
+    return True
+
+
+def convert_turn_off_leds(demo_dir):
+    """Replace turn_off_LEDs.py with version using shared module."""
+    file_path = os.path.join(demo_dir, 'turn_off_LEDs.py')
+    with open(file_path, 'w') as f:
+        f.write(TURN_OFF_LEDS_MODULE)
+    return True
+
+
+def update_led_painter(demo_dir):
+    """Update LED_painter.py to use shared module for atexit."""
+    file_path = os.path.join(demo_dir, 'LED_painter.py')
+    if not os.path.exists(file_path):
+        return False
 
     with open(file_path, 'r') as f:
         content = f.read()
 
-    # 1. Change import from neopixel_spi to neopixel
-    content = re.sub(
-        r'import neopixel_spi as neopixel',
-        'import neopixel',
-        content
+    # Add sys.path for rq_led_utils import at the top of imports
+    if 'sys.path.insert' not in content:
+        content = content.replace(
+            'import sys',
+            'import sys\n\n# Add /usr/bin to path for rq_led_utils\nsys.path.insert(0, \'/usr/bin\')'
+        )
+
+    # Add import for clear_all_leds from shared module
+    if 'from turn_off_LEDs import turn_off_LEDs' in content:
+        content = content.replace(
+            'from turn_off_LEDs import turn_off_LEDs',
+            'from turn_off_LEDs import turn_off_LEDs\nfrom rq_led_utils import clear_all_leds'
+        )
+
+    # Use clear_all_leds for atexit instead of turn_off_LEDs
+    content = content.replace(
+        'atexit.register(turn_off_LEDs)',
+        'atexit.register(clear_all_leds)'
     )
 
-    # 2. Add persistent NeoPixel object after PIXEL_ORDER definition
-    pixel_order_pattern = r'(PIXEL_ORDER = neopixel\.\w+)'
-    if re.search(pixel_order_pattern, content):
-        replacement = r'\1\n\n# Global NeoPixel object - created once and reused to prevent GPIO busy errors\n_pixels = None\n\ndef _get_pixels(brightness=1.0):\n    """Get or create the global NeoPixel object."""\n    global _pixels\n    if _pixels is None:\n        _pixels = neopixel.NeoPixel(\n            board.D18,\n            NUM_PIXELS,\n            pixel_order=PIXEL_ORDER,\n            brightness=brightness,\n            auto_write=False\n        )\n    else:\n        # Update brightness if different\n        _pixels.brightness = brightness\n    return _pixels\n'
-        content = re.sub(pixel_order_pattern, replacement, content, count=1)
-
-    # 3. Replace SPI-based NeoPixel initialization with persistent object getter
-    # Match the old SPI initialization block
-    spi_init_pattern = r'    # Neopixel initialization\s+spi = board\.SPI\(\)\s+pixels = neopixel\.NeoPixel_SPI\([^)]+\)'
-    spi_init_replacement = '    # Get the persistent NeoPixel object (PWM/PIO driver)\n    pixels = _get_pixels(brightness)'
-
-    content = re.sub(spi_init_pattern, spi_init_replacement, content, flags=re.DOTALL)
-
-    # Alternative pattern if the above doesn't match (multiline with more whitespace)
-    if 'NeoPixel_SPI' in content:
-        # More aggressive replacement
-        lines = content.split('\n')
-        new_lines = []
-        skip_until_closing_paren = False
-
-        for i, line in enumerate(lines):
-            if 'spi = board.SPI()' in line:
-                # Skip this line
-                continue
-            elif 'pixels = neopixel.NeoPixel_SPI(' in line:
-                # Replace with our new initialization
-                new_lines.append('    # Get the persistent NeoPixel object (PWM/PIO driver)')
-                new_lines.append('    pixels = _get_pixels(brightness)')
-                skip_until_closing_paren = True
-                continue
-            elif skip_until_closing_paren:
-                if ')' in line and 'brightness' in lines[i-1]:
-                    # Found the closing paren, stop skipping
-                    skip_until_closing_paren = False
-                continue
-            else:
-                new_lines.append(line)
-
-        content = '\n'.join(new_lines)
+    # Comment out redundant turn_off_LEDs call before display_to_LEDs
+    import re
+    content = re.sub(
+        r'(\s+)turn_off_LEDs\(\)(\s+)(display_to_LEDs)',
+        r'\1# turn_off_LEDs()  # Disabled: display_to_LEDs handles pixel state\2\3',
+        content
+    )
 
     with open(file_path, 'w') as f:
         f.write(content)
@@ -74,33 +180,11 @@ def convert_display_to_leds(file_path):
     return True
 
 
-def convert_turn_off_leds(file_path):
-    """Convert turn_off_LEDs.py from SPI to PWM/PIO."""
-
-    with open(file_path, 'r') as f:
-        content = f.read()
-
-    # 1. Change import
-    content = re.sub(
-        r'import neopixel_spi as neopixel',
-        'import neopixel',
-        content
-    )
-
-    # 2. Replace SPI initialization with PWM/PIO
-    spi_pattern = r'        spi = board\.SPI\(\)\s+pixels = neopixel\.NeoPixel_SPI\([^)]+\)'
-    pwm_replacement = '        # Use board.D18 for GPIO 18 (PWM/PIO driver auto-detects Pi 4 vs Pi 5)\n        pixels = neopixel.NeoPixel(board.D18, NUM_PIXELS, pixel_order=PIXEL_ORDER, auto_write=False)'
-
-    content = re.sub(spi_pattern, pwm_replacement, content, flags=re.DOTALL)
-
-    with open(file_path, 'w') as f:
-        f.write(content)
-
-    return True
-
-
-def update_requirements(file_path):
+def update_requirements(demo_dir):
     """Update requirements.txt to use PWM/PIO drivers."""
+    file_path = os.path.join(demo_dir, 'requirements.txt')
+    if not os.path.exists(file_path):
+        return False
 
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -122,29 +206,6 @@ def update_requirements(file_path):
     return True
 
 
-def disable_turn_off_in_main(file_path):
-    """Disable redundant turn_off_LEDs call in LED_painter.py to prevent GPIO conflict."""
-
-    if not os.path.exists(file_path):
-        print(f"Warning: {file_path} not found, skipping")
-        return False
-
-    with open(file_path, 'r') as f:
-        content = f.read()
-
-    # Comment out the turn_off_LEDs() call before display_to_LEDs()
-    content = re.sub(
-        r'(\s+)turn_off_LEDs\(\)(\s+display_to_LEDs)',
-        r'\1# turn_off_LEDs()  # Disabled: causes GPIO conflict\n\1# display_to_LEDs() now clears pixels internally\2',
-        content
-    )
-
-    with open(file_path, 'w') as f:
-        f.write(content)
-
-    return True
-
-
 def main():
     if len(sys.argv) != 2:
         print("Usage: led-painter-convert-to-pwm.py <led-painter-directory>")
@@ -158,38 +219,29 @@ def main():
     print("Converting LED-Painter from SPI to PWM/PIO drivers...")
 
     try:
-        # Convert display_to_LEDs_from_file.py
-        display_file = os.path.join(demo_dir, 'display_to_LEDs_from_file.py')
-        if os.path.exists(display_file):
-            convert_display_to_leds(display_file)
-            print(f"✓ Converted {display_file}")
-        else:
-            print(f"⚠ File not found: {display_file}")
+        # Replace display_to_LEDs_from_file.py
+        convert_display_to_leds(demo_dir)
+        print(f"✓ Converted display_to_LEDs_from_file.py (uses rq_led_utils singleton)")
 
-        # Convert turn_off_LEDs.py
-        turn_off_file = os.path.join(demo_dir, 'turn_off_LEDs.py')
-        if os.path.exists(turn_off_file):
-            convert_turn_off_leds(turn_off_file)
-            print(f"✓ Converted {turn_off_file}")
-        else:
-            print(f"⚠ File not found: {turn_off_file}")
+        # Replace turn_off_LEDs.py
+        convert_turn_off_leds(demo_dir)
+        print(f"✓ Converted turn_off_LEDs.py (uses rq_led_utils.clear_all_leds)")
+
+        # Update LED_painter.py
+        main_file = os.path.join(demo_dir, 'LED_painter.py')
+        if os.path.exists(main_file):
+            update_led_painter(demo_dir)
+            print(f"✓ Updated LED_painter.py (uses shared module for atexit)")
 
         # Update requirements.txt
         req_file = os.path.join(demo_dir, 'requirements.txt')
         if os.path.exists(req_file):
-            update_requirements(req_file)
-            print(f"✓ Updated {req_file}")
-        else:
-            print(f"⚠ File not found: {req_file}")
-
-        # Disable redundant turn_off_LEDs call
-        main_file = os.path.join(demo_dir, 'LED_painter.py')
-        if os.path.exists(main_file):
-            disable_turn_off_in_main(main_file)
-            print(f"✓ Updated {main_file}")
+            update_requirements(demo_dir)
+            print(f"✓ Updated requirements.txt")
 
         print("\n✓ LED-Painter successfully converted to PWM/PIO drivers!")
-        print("  - Using persistent NeoPixel object (prevents GPIO busy errors)")
+        print("  - Uses rq_led_utils.get_pixels() singleton (prevents GPIO conflicts)")
+        print("  - Uses rq_led_utils.clear_all_leds() for cleanup")
         print("  - Compatible with both Pi 4 (PWM) and Pi 5 (PIO)")
 
     except Exception as e:

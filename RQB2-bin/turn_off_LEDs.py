@@ -1,40 +1,19 @@
 #!/usr/bin/env python3
 #
 # Turn off all LEDs on the NeoPixel strip
-# Uses PWM/PIO driver for Pi4/Pi5 compatibility
+# Uses singleton NeoPixel from rq_led_utils for Pi5 compatibility
 
-from rq_led_utils import get_led_config, create_neopixel_strip, chunked_clear
+from rq_led_utils import clear_all_leds
 
 
 def turn_off_LEDs():
     """
-    A simple function that turns off all LEDs.
+    Turn off all LEDs using the shared singleton NeoPixel object.
 
-    Args:
-        None
-
-    Returns:
-        None
+    This prevents GPIO conflicts on Pi 5 by reusing the same NeoPixel
+    instance across all modules.
     """
-    # Load configuration from environment
-    config = get_led_config()
-    NUM_PIXELS = config['led_count']
-    pixel_order_str = config['pixel_order']
-
-    try:
-        # Create NeoPixel strip (auto-detects Pi4 PWM or Pi5 PIO)
-        pixels = create_neopixel_strip(
-            NUM_PIXELS,
-            pixel_order_str,
-            brightness=config['led_default_brightness']
-        )
-
-        # Turn off all pixels
-        chunked_clear(pixels)
-        print(f"Turned off {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order, GPIO{config['led_gpio_pin']})")
-
-    except Exception as e:
-        print("Error turning off LEDs: ", e)
+    clear_all_leds()
 
 
 def main():

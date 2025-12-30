@@ -19,6 +19,9 @@ from dotenv import dotenv_values
 # System-wide environment file location
 ENV_FILE = "/usr/config/rasqberry_environment.env"
 
+# Global singleton NeoPixel object - prevents GPIO conflicts on Pi 5
+_pixels_singleton = None
+
 # Emergency defaults if env file is missing/unreadable
 EMERGENCY_DEFAULTS = {
     'PI_MODEL': 'Pi5',
@@ -72,16 +75,52 @@ def get_led_config():
         'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
+        'led_virtual': config.get('LED_VIRTUAL', 'false').lower() == 'true',
+        'led_virtual_mirror': config.get('LED_VIRTUAL_MIRROR', 'false').lower() == 'true',
     }
+
+
+def _ensure_virtual_led_gui_running():
+    """Auto-launch the virtual LED GUI if not already running."""
+    import subprocess
+    import shutil
+
+    # Check if GUI is already running
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'rq_led_virtual_gui'],
+            capture_output=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return  # GUI already running
+    except Exception:
+        pass  # pgrep failed, try to start GUI anyway
+
+    # Find and launch the GUI
+    gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
+    try:
+        subprocess.Popen(
+            ['python3', gui_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            env={**__import__('os').environ, 'DISPLAY': ':0'}
+        )
+        print("Auto-started virtual LED GUI")
+        __import__('time').sleep(1)  # Give GUI time to initialize
+    except Exception as e:
+        print(f"Warning: Could not auto-start virtual LED GUI: {e}")
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
-    Factory function to create NeoPixel strip using PWM (Pi4) or PIO (Pi5).
+    Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
 
     Uses adafruit-circuitpython-neopixel which auto-detects the platform:
     - Pi 4: Uses rpi_ws281x (PWM/DMA backend) - requires root
     - Pi 5: Uses PIO hardware - requires /dev/pio0
+    - Virtual: Uses VirtualNeoPixel when LED_VIRTUAL=true (no hardware needed)
 
     No SPI, no buffer limits, no chunking needed!
 
@@ -92,18 +131,74 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         gpio_pin (int, optional): GPIO pin number. If None, reads from config (default 18).
 
     Returns:
-        neopixel.NeoPixel: Configured LED strip object
+        neopixel.NeoPixel, VirtualNeoPixel, or MirrorNeoPixel: Configured LED strip object
 
     Note:
-        Requires sudo/root for GPIO access.
+        Requires sudo/root for GPIO access (unless using virtual-only mode).
         For Pi 5, requires firmware with /dev/pio0 support.
     """
+    config = get_led_config()
+
+    # Check for mirror mode (both virtual and real LEDs)
+    if config.get('led_virtual_mirror', False):
+        from rq_led_virtual import VirtualNeoPixel, MirrorNeoPixel
+        print("LED_VIRTUAL_MIRROR=true: Using both virtual and real LED display")
+
+        # Auto-launch GUI if not running
+        _ensure_virtual_led_gui_running()
+
+        # Create virtual display
+        virtual_pixels = VirtualNeoPixel(
+            None,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+
+        # Create real NeoPixel
+        import board
+        import neopixel
+
+        if gpio_pin is None:
+            gpio_pin = config['led_gpio_pin']
+        gpio_board_pin = getattr(board, f'D{gpio_pin}')
+        if isinstance(pixel_order, str):
+            pixel_order = getattr(neopixel, pixel_order)
+
+        real_pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+        real_pixels.fill((0, 0, 0))
+        real_pixels.show()
+
+        return MirrorNeoPixel(real_pixels, virtual_pixels)
+
+    # Check for virtual-only mode
+    if config.get('led_virtual', False):
+        from rq_led_virtual import VirtualNeoPixel
+        print("LED_VIRTUAL=true: Using virtual LED display")
+
+        # Auto-launch GUI if not running
+        _ensure_virtual_led_gui_running()
+
+        return VirtualNeoPixel(
+            None,  # No GPIO pin needed
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
+
     import board
     import neopixel
 
-    # Get GPIO pin from config if not provided
+    # Get GPIO pin from config if not provided (reuse config from virtual mode check)
     if gpio_pin is None:
-        config = get_led_config()
         gpio_pin = config['led_gpio_pin']
 
     # Convert GPIO pin number to board constant
@@ -129,6 +224,65 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     pixels.show()
 
     return pixels
+
+
+def get_pixels(brightness=None):
+    """
+    Get or create the singleton NeoPixel object.
+
+    This function returns a shared NeoPixel instance to prevent GPIO conflicts
+    that occur when multiple NeoPixel objects access the same pin on Pi 5.
+    Use this instead of create_neopixel_strip() when you need to share the
+    LED strip across multiple modules (e.g., LED Painter's display and clear functions).
+
+    Args:
+        brightness (float, optional): LED brightness 0.0-1.0. If None, uses config default.
+
+    Returns:
+        neopixel.NeoPixel: Shared LED strip object
+
+    Example:
+        pixels = get_pixels()
+        pixels[0] = (255, 0, 0)
+        pixels.show()
+    """
+    global _pixels_singleton
+
+    config = get_led_config()
+
+    if brightness is None:
+        brightness = config['led_default_brightness']
+
+    if _pixels_singleton is None:
+        _pixels_singleton = create_neopixel_strip(
+            config['led_count'],
+            config['pixel_order'],
+            brightness=brightness,
+            gpio_pin=config['led_gpio_pin']
+        )
+    else:
+        # Update brightness if specified
+        _pixels_singleton.brightness = brightness
+
+    return _pixels_singleton
+
+
+def clear_all_leds():
+    """
+    Turn off all LEDs using the singleton NeoPixel object.
+
+    This function uses the shared NeoPixel instance to prevent GPIO conflicts.
+    Safe to call from multiple modules (e.g., LED Painter's clear and atexit).
+
+    Example:
+        clear_all_leds()  # Turn off all LEDs
+    """
+    try:
+        pixels = get_pixels()
+        pixels.fill((0, 0, 0))
+        pixels.show()
+    except Exception as e:
+        print(f"Error clearing LEDs: {e}")
 
 
 def chunked_show(pixels, chunk_size=None, delay_ms=None):

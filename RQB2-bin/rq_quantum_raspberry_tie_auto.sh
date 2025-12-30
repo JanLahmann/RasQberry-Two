@@ -64,6 +64,14 @@ echo "========================================="
 
 cd "$DEMO_DIR" || die "Cannot change to demo directory"
 
+# Start sense_emu_gui as user (not root) so shared memory files have correct permissions
+# This must be done before the Python demo starts to prevent it from spawning its own
+if ! pgrep -u "$(get_user_name)" sense_emu_gui >/dev/null 2>&1; then
+    info "Starting Sense HAT Emulator as user..."
+    run_as_user sense_emu_gui &
+    sleep 1  # Wait for GUI to initialize and create shared memory files
+fi
+
 # Run the demo in background (redirect stdin to prevent input conflicts)
 python3 QuantumRaspberryTie.v7_1.py </dev/null &
 PYTHON_PID=$!

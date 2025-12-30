@@ -28,13 +28,15 @@ REPO_DIR="${USER_HOME}/quantum-mixer"
 REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
 
 ################################################################################
-# run_qoffee_setup - Run qoffee-setup for Docker prerequisites
+# run_docker_setup - Run docker-setup for Docker prerequisites
 ################################################################################
-run_qoffee_setup() {
+run_docker_setup() {
     local reason="$1"
     info "$reason"
-    echo "Running setup script..."
-    exec "$BIN_DIR/qoffee-setup.sh"
+    echo "Running Docker setup..."
+    "$BIN_DIR/docker-setup.sh" || exit 1
+    # Re-exec this script after Docker setup completes
+    exec "$0" "$@"
 }
 
 ################################################################################
@@ -42,12 +44,12 @@ run_qoffee_setup() {
 ################################################################################
 
 # Check if Docker is installed
-command -v docker &> /dev/null || run_qoffee_setup "Error: Docker is not installed."
+command -v docker &> /dev/null || run_docker_setup "Error: Docker is not installed."
 
 # Check if user is in docker group
 USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    run_qoffee_setup "Error: User '$USER_NAME' is not in the docker group."
+    run_docker_setup "Error: User '$USER_NAME' is not in the docker group."
 fi
 
 # Check if docker group is active in current session
