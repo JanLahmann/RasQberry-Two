@@ -38,40 +38,47 @@
     },
     {
       "name": "RasQberry A/B Boot Images",
-      "description": "Images with A/B partition support for safer updates (experimental)",
+      "description": "Images with A/B partition support for safer updates",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (development 2025-12-30-214503)",
-          "description": "A/B boot image from development",
+          "name": "Other A/B Builds",
+          "description": "A/B boot images from feature sub-branches",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-214503/rasqberry-development-2025-12-30-214503-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "d566222074d9069ac245d64b95f92381bdaa62853744cd4e632c50b6ca729efa",
-          "image_download_size": 2028301824,
-          "release_date": "2025-12-30 21:45",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two A/B (beta 2025-12-30)",
-          "description": "A/B boot image from beta",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-12-30-211449/rasqberry-beta-2025-12-30-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "d035a6672a3b8e4b2c8b82b6d42ecaeddfc271f4548960c4dcc9e5b3d6212e15",
-          "image_download_size": 1639401356,
-          "release_date": "2025-12-30",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
+          "subitems": [
+            {
+              "name": "RasQberry Two A/B (development 2025-12-30-214503)",
+              "description": "A/B boot image from development",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-214503/rasqberry-development-2025-12-30-214503-ab.img.xz",
+              "extract_size": 12398362624,
+              "extract_sha256": "d566222074d9069ac245d64b95f92381bdaa62853744cd4e632c50b6ca729efa",
+              "image_download_size": 2028301824,
+              "release_date": "2025-12-30 21:45",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            },
+            {
+              "name": "RasQberry Two A/B (beta 2025-12-30)",
+              "description": "A/B boot image from beta",
+              "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+              "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-12-30-211449/rasqberry-beta-2025-12-30-ab.img.xz",
+              "extract_size": 12398362624,
+              "extract_sha256": "d035a6672a3b8e4b2c8b82b6d42ecaeddfc271f4548960c4dcc9e5b3d6212e15",
+              "image_download_size": 1639401356,
+              "release_date": "2025-12-30",
+              "init_format": "systemd",
+              "devices": [
+                "pi5-64bit",
+                "pi4-64bit"
+              ],
+              "website": "https://rasqberry.org"
+            }
+          ]
         }
       ]
     },

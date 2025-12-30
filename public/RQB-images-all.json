@@ -1,7 +1,7 @@
 {
-  "generated": "2025-12-30T21:09:09Z",
+  "generated": "2025-12-30T21:40:53Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 9,
+  "count": 5,
   "releases": [
     {
       "name": "RasQberry Two Dev (64-bit)",
@@ -82,86 +82,6 @@
       "_release_tag": "beta-2025-12-30-211449",
       "_branch": "beta",
       "_published": "2025-12-30T20:15:21Z"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-145529/rasqberry-development-2025-12-30-145529.img.xz",
-      "extract_size": 8841592832,
-      "extract_sha256": "24b2e7091c70658195dd61692ceb54a8179a3e5b6ae78e5b00fa644be8775491",
-      "image_download_size": 1989990444,
-      "release_date": "2025-12-30 14:55",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "standard",
-      "_release_tag": "development-2025-12-30-145529",
-      "_branch": "development",
-      "_published": "2025-12-30T13:56:00Z"
-    },
-    {
-      "name": "RasQberry Two Dev A/B (64-bit)",
-      "description": "RasQberry development build with A/B boot support",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-145529/rasqberry-development-2025-12-30-145529-ab.img.xz",
-      "extract_size": 12398362624,
-      "extract_sha256": "e3f6ec239152ba2d6ea09ebec0704240d4da988c2b541b7c750fe05da2fc4816",
-      "image_download_size": 2028699980,
-      "release_date": "2025-12-30 14:55",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "ab",
-      "_release_tag": "development-2025-12-30-145529",
-      "_branch": "development",
-      "_published": "2025-12-30T13:56:00Z"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-112304/rasqberry-development-2025-12-30-112304.img.xz",
-      "extract_size": 8841592832,
-      "extract_sha256": "4ddf6249257c414c117d401410dc2096b03b660fe9943f035984f080c127ad07",
-      "image_download_size": 1990436112,
-      "release_date": "2025-12-30 11:23",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "standard",
-      "_release_tag": "development-2025-12-30-112304",
-      "_branch": "development",
-      "_published": "2025-12-30T10:23:37Z"
-    },
-    {
-      "name": "RasQberry Two Dev A/B (64-bit)",
-      "description": "RasQberry development build with A/B boot support",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-112304/rasqberry-development-2025-12-30-112304-ab.img.xz",
-      "extract_size": 12398362624,
-      "extract_sha256": "d91a7da8c11243c207276151cc33b7a2ed3eeb543220b8b3c0a95cde5307e29b",
-      "image_download_size": 2030161912,
-      "release_date": "2025-12-30 11:23",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "ab",
-      "_release_tag": "development-2025-12-30-112304",
-      "_branch": "development",
-      "_published": "2025-12-30T10:23:37Z"
     },
     {
       "name": "RasQberry Two Beta (64-bit)",
