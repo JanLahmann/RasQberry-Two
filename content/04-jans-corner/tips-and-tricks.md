@@ -7,7 +7,7 @@ On this page, you will find various tips & tricks from Jan for building the 3D m
 
 I have slightly modified some of the STL files to create a specific variant of the RasQberry Two model or to adjust them a bit to my environment (e.g. the specific 3D printer I use, etc).
 
-*STL files will be added soon*
+Modified STL files are available in the [3D Model modifications folder](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan).
 
 ### Standalone model
 
@@ -15,55 +15,32 @@ The "standalone model" does not use the floor at all. The intention is to use mu
 
 ### LED Filter Screen
 
-The bill-of-material mentions a "welding shield" than can be used in front of the LEDs. Instead, you can 3D print it - with the right material. Many black filaments will not work as they absorb too much light, but a screen printed with 0.6 mm Prusament PLA Galaxy Grey does just fine. STL file is here, and removes the need for a separate order of a welding shield and cutting it.
-
-### Polarisation of the Magnets 
+The bill-of-material mentions a "welding shield" than can be used in front of the LEDs. Instead, you can 3D print it - with the right material. Many black filaments will not work as they absorb too much light, but a screen printed with 0.6 mm Prusament PLA Galaxy Grey does just fine. The [STL file](https://github.com/JanLahmann/RasQberry-Two/blob/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan/October%202025/wall/RQB2-WallPanel-jrl02-2.stl) removes the need for a separate order of a welding shield and cutting it.
 
 ## SW Developer Infos
 
-### Forking the repo 
+### Forking the Repository
 
-If you fork the repository, you’ll need to update two files to reflect your GitHub user, branch, and repo name:
+The GitHub Actions workflow automatically detects your repository and username from the GitHub context. In most cases, forking should work without any changes.
 
-- The `on:` trigger in `.github/workflows/RQB-image.yaml` (around line 15).
-- The `GIT_USER`, `GIT_BRANCH` (and optionally `REPO`) variables at the top of the pi-gen stage script at `stage-RQB2/01-install-qiskit/01-run-chroot.sh`.
+If you need to customize the build configuration, edit `pi-gen-config` which contains the `RQB_GIT_USER`, `RQB_GIT_BRANCH`, and `RQB_REPO` variables.
 
-### Iterative Development of RQB2_menu.sh
+### Iterative Development
 
-> **Note**: This is an experimental approach and has not been fully tested. Use with caution.
-
-The complete GitHub Actions workflow to build a new SW image takes about 70 minutes. To speed up iterations when modifying RQB2_menu.sh (and related files) at run-time, the following approach can be used to "dynamically" update the files in RQB2-bin and RQB2-config in a running system:
+The full GitHub Actions workflow takes ~21-65 minutes. For faster iteration when modifying scripts (like `RQB2_menu.sh`) on a running system, use the built-in update script:
 
 ```bash
-# CUSTOMIZE: Set your development repository and branch
-export GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git"  # Change to your fork if needed
-export GIT_BRANCH="dev-JRL-features02"  # Change to your development branch
+# Update from a specific branch (auto-detects repository)
+sudo rq_update_from_branch.sh --branch dev-features05
 
-# System configuration (usually no need to change)
-export CLONE_DIR="/tmp/RasQberry-Two"
-export FIRST_USER_NAME="rasqberry"
+# Update from a different repository
+sudo rq_update_from_branch.sh --repo YourUser/RasQberry-Two --branch main
 
-# Clone your development branch
-git clone --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
-
-# Copy scripts to user's local bin directory (used when running as normal user)
-cp ${CLONE_DIR}/RQB2-bin/* /home/${FIRST_USER_NAME}/.local/bin/
-
-# Copy to system directories (used when running as root, e.g., from raspi-config)
-sudo cp ${CLONE_DIR}/RQB2-bin/* /usr/bin
-sudo cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
-
-# Clean up
-rm -rf ${CLONE_DIR}
-
-# Reload environment to pick up any changes
-. /usr/config/rasqberry_env-config.sh
+# Preview changes without applying them
+sudo rq_update_from_branch.sh --branch dev --dry-run
 ```
 
-**Architecture Notes:**
-- Configuration files (environment): Global only (`/usr/config/`)
-- Script files: Both user-local (`~/.local/bin/`) and system (`/usr/bin/`) directories
-- Scripts use `/usr/config/rasqberry_env-config.sh` for environment loading
+This updates scripts in `/usr/bin/` and config files in `/usr/config/` from the specified branch. For full system updates (kernel, packages, partition layout), use A/B boot slot updates instead.
 
 ## Build System
 
@@ -85,11 +62,6 @@ Development builds use a sophisticated caching mechanism:
 - Base OS layers (stages 0-4) are cached monthly
 - Only the RasQberry-specific stage is rebuilt
 - Force refresh: Use `refresh_cache` option in manual workflow
-
-#### Version Management
-- **Main branch**: Requires semantic versioning (e.g., `1.2.3`)
-- **Beta branch**: (tbd)
-- **Dev branches**: Auto-generated as `branch-YYYY-MM-DD-HHMMSS`
 
 ## GitHub Actions Workflows
 
