@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.1
+Name=IBM Quantum Tutorials
+Comment=Official IBM Quantum tutorials covering algorithms, optimization, error mitigation (CC BY-SA 4.0)
+Icon=/usr/share/icons/rasqberry/qiskit-logo.png
+Type=Application
+Categories=RasQberry;
+Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_ibm_tutorials_auto.sh'
+Terminal=true
+StartupNotify=true
+MimeType=text/x-python;
+Keywords=quantum;ibm;qiskit;tutorial;grover;shor;vqe;education;jupyter;
+X-GNOME-TextColor=#000000
+TryExec=bash
+NoDisplay=false

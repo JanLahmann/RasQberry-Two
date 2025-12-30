@@ -187,27 +187,28 @@ diff --git a/turn_off_LEDs.py b/turn_off_LEDs.py
 index 70bb763..3c18209 100644
 --- a/turn_off_LEDs.py
 +++ b/turn_off_LEDs.py
-@@ -1,6 +1,11 @@
- # Imports for LED array
-+import sys
- import board
+@@ -1,6 +1,10 @@
+-# Imports for LED array
+-import board
 -import neopixel_spi as neopixel
-+import neopixel
++"""Turn off all LEDs using the shared RasQberry LED utilities."""
++import sys
 +
-+# Import RasQberry LED utilities
++# Add /usr/bin to path for rq_led_utils
 +sys.path.insert(0, '/usr/bin')
-+from rq_led_utils import get_led_config
- 
- 
++
++from rq_led_utils import clear_all_leds
+
+
  def turn_off_LEDs():
-@@ -13,17 +18,15 @@ def turn_off_LEDs():
+@@ -13,17 +17,8 @@ def turn_off_LEDs():
      Returns:
          None
      """
 -    NUM_PIXELS = 192
 -    PIXEL_ORDER = neopixel.GRB
 -
-     try:
+-    try:
 -        spi = board.SPI()
 -
 -        pixels = neopixel.NeoPixel_SPI(
@@ -215,14 +216,17 @@ index 70bb763..3c18209 100644
 -        )
 -
 -        for index in range(NUM_PIXELS):
-+        # Load LED configuration from environment
-+        config = get_led_config()
-+        gpio_pin = config['led_gpio_pin']
-+        num_pixels = config['led_count']
-+        gpio_board_pin = getattr(board, f'D{gpio_pin}')
-+        pixels = neopixel.NeoPixel(gpio_board_pin, num_pixels, auto_write=False)
+-            # Setting pixel to 0 value will turn it off
+-            pixels[index] = 0x000000
+-
++    clear_all_leds()
 +
-+        for index in range(num_pixels):
-             # Setting pixel to 0 value will turn it off
-             pixels[index] = 0x000000
- 
++
++def main():
++    print("Turning off all LEDs...")
++    turn_off_LEDs()
++    print("Done!")
++
++
++if __name__ == "__main__":
++    main()

@@ -98,7 +98,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -111,7 +111,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -158,57 +158,64 @@ trusted=true
 x=340
 y=10
 trusted=true
-[quantum-lights-out.desktop]
-x=10
-y=120
-trusted=true
-[quantum-raspberry-tie.desktop]
-x=120
-y=120
-trusted=true
-[qoffee-maker.desktop]
-x=10
-y=230
-trusted=true
-[quantum-mixer.desktop]
-x=120
-y=230
-trusted=true
 [led-ibm-demo.desktop]
-x=230
+x=10
 y=120
 trusted=true
-[clear-leds.desktop]
-x=340
+[quantum-lights-out.desktop]
+x=120
 y=120
 trusted=true
 [rasq-led.desktop]
 x=230
-y=230
+y=120
+trusted=true
+[quantum-raspberry-tie.desktop]
+x=340
+y=120
 trusted=true
 [led-painter.desktop]
 x=10
-y=340
-trusted=true
-[fun-with-quantum.desktop]
-x=120
-y=340
-trusted=true
-[quantum-coin-game.desktop]
-x=230
-y=340
+y=230
 trusted=true
 [demo-loop.desktop]
+x=120
+y=230
+trusted=true
+[clear-leds.desktop]
+x=230
+y=230
+trusted=true
+[touch-mode.desktop]
 x=340
 y=230
 trusted=true
-
-[quantum-paradoxes.desktop]
-x=340
+[qoffee-maker.desktop]
+x=10
 y=340
 trusted=true
-[touch-mode.desktop]
+[quantum-mixer.desktop]
 x=120
+y=340
+trusted=true
+[quantum-paradoxes.desktop]
+x=230
+y=340
+trusted=true
+[fun-with-quantum.desktop]
+x=10
+y=450
+trusted=true
+[quantum-coin-game.desktop]
+x=120
+y=450
+trusted=true
+[ibm-quantum-tutorials.desktop]
+x=230
+y=450
+trusted=true
+[ibm-quantum-courses.desktop]
+x=340
 y=450
 trusted=true
 EOF
@@ -305,29 +312,8 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
-# Disable on-screen keyboards by default (only enabled when touch mode is activated)
-# Create user autostart overrides with Hidden=true to prevent system autostart
-SKEL_AUTOSTART="/etc/skel/.config/autostart"
-mkdir -p "$SKEL_AUTOSTART"
-cat > "$SKEL_AUTOSTART/onboard-autostart.desktop" << 'KEYBOARD_EOF'
-[Desktop Entry]
-Type=Application
-Name=Onboard
-Hidden=true
-KEYBOARD_EOF
-
-cat > "$SKEL_AUTOSTART/squeekboard.desktop" << 'KEYBOARD_EOF'
-[Desktop Entry]
-Type=Application
-Name=Squeekboard
-Hidden=true
-KEYBOARD_EOF
-echo "On-screen keyboards disabled by default (enable via touch mode)"
-
-# Install on-screen keyboard package for touch mode
-echo "Installing on-screen keyboard (onboard)..."
-apt-get update -qq
-apt-get install -y -qq onboard || echo "Warning: Failed to install onboard package"
+# Note: Virtual keyboard (wvkbd) is installed separately in stage 09-touchscreen-support
+# and toggled manually via panel icon - no autostart needed
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
@@ -449,6 +435,32 @@ sleep 1
 pcmanfm --desktop 2>> "$LOG_FILE" &
 echo "$(date): PCManFM desktop restarted" >> "$LOG_FILE"
 
+# Configure Chromium window size and position (centered on 1920x1080)
+# --window-size flag doesn't work on Wayland, so we set via preferences
+echo "$(date): Configuring Chromium window position..." >> "$LOG_FILE"
+CHROMIUM_PREFS_DIR="$HOME/.config/chromium/Default"
+CHROMIUM_PREFS="$CHROMIUM_PREFS_DIR/Preferences"
+mkdir -p "$CHROMIUM_PREFS_DIR" 2>> "$LOG_FILE"
+python3 - "$CHROMIUM_PREFS" 2>> "$LOG_FILE" << 'CHROMEPY' || true
+import sys, json, os
+prefs_file = sys.argv[1]
+if os.path.exists(prefs_file):
+    with open(prefs_file, 'r') as f:
+        prefs = json.load(f)
+else:
+    prefs = {}
+prefs.setdefault('browser', {})['window_placement'] = {
+    'left': 480, 'top': 45, 'right': 1550, 'bottom': 1050,
+    'maximized': False,
+    'work_area_left': 0, 'work_area_top': 36,
+    'work_area_right': 1920, 'work_area_bottom': 1080
+}
+with open(prefs_file, 'w') as f:
+    json.dump(prefs, f)
+print("Configured Chromium window position (1070x1005 at 480,45)")
+CHROMEPY
+echo "$(date): Chromium window configured" >> "$LOG_FILE"
+
 echo "$(date): First-login setup completed" >> "$LOG_FILE"
 
 # Remove autostart entry so this doesn't run again
@@ -494,7 +506,9 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "RestoreOnStartup": 4,
   "RestoreOnStartupURLs": ["https://rasqberry.org"],
   "PasswordManagerEnabled": false,
-  "ShowHomeButton": true
+  "ShowHomeButton": true,
+  "PromotionalTabsEnabled": false,
+  "WelcomePagesEnabled": false
 }
 EOF
 chmod 644 /etc/chromium/policies/managed/rasqberry.json
@@ -504,9 +518,57 @@ echo "Created Chromium policy for RasQberry homepage"
 # This prevents the "Enter password to unlock keyring" dialog
 CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
 if [ -f "$CHROMIUM_DESKTOP" ]; then
-    # Add --password-store=basic, --disable-features=Keyring, and --window-size for wider default window
-    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1167,985 |' "$CHROMIUM_DESKTOP"
-    echo "Modified Chromium desktop launcher with keyring bypass and window size flags"
+    # Add flags and default URL for rasqberry.org homepage
+    # Note: URL at end ensures it opens on launch; policy handles Home button
+    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org |' "$CHROMIUM_DESKTOP"
+    echo "Modified Chromium desktop launcher with keyring bypass, window size, and homepage URL"
+fi
+
+# =============================================================================
+# Autostart Chromium browser on login (with delay for time sync)
+# =============================================================================
+echo "Creating Chromium autostart entry with startup delay..."
+cat > /etc/xdg/autostart/rasqberry-browser.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=RasQberry Browser
+Comment=Open Chromium browser on login
+Exec=sh -c 'sleep 10 && /usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org'
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+echo "Chromium will start automatically on login (10s delay for time sync)"
+
+# =============================================================================
+# Configure labwc window positioning for Chromium
+# =============================================================================
+echo "Configuring labwc window rules for Chromium..."
+
+# Create labwc config directory in skel for new users
+SKEL_LABWC_DIR="/etc/skel/.config/labwc"
+mkdir -p "$SKEL_LABWC_DIR"
+
+# Create rc.xml with Chromium window positioning rule
+cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
+<?xml version="1.0"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <windowRules>
+    <windowRule identifier="chromium">
+      <action name="MoveTo" x="480" y="45"/>
+    </windowRule>
+  </windowRules>
+</openbox_config>
+EOF
+echo "Created labwc window rules: ${SKEL_LABWC_DIR}/rc.xml"
+
+# Also create for first user if exists
+if [ -n "${FIRST_USER_NAME}" ]; then
+    USER_LABWC_DIR="/home/${FIRST_USER_NAME}/.config/labwc"
+    mkdir -p "$USER_LABWC_DIR"
+    cp "${SKEL_LABWC_DIR}/rc.xml" "${USER_LABWC_DIR}/rc.xml"
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_LABWC_DIR"
+    echo "Created user labwc config: ${USER_LABWC_DIR}/rc.xml"
 fi
 
 # =============================================================================
