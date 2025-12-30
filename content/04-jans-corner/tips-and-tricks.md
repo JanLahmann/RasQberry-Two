@@ -114,6 +114,3 @@ Development builds use a sophisticated caching mechanism:
 | Dev (cached) | ✓ | ~21 minutes | Regular development |
 | Dev (fresh) | ✗ | ~65 minutes | Monthly or forced refresh |
 | Production | ✗ | ~65 minutes | Official releases |
-
-
-

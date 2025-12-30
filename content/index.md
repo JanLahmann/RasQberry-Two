@@ -18,8 +18,6 @@ leadspace:
 
 RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit, a Raspberry Pi and a 3D printed model of IBM Q System Two to explore various state-of-the-art technologies and create a tool that can be used for education and in meetings, meetups, demo booths, etc. A spectrum of Quantum Computing demos and Serious Games for Quantum Computing (that illustrate e.g. superposition, interference and entanglement) will be made available on the RasQberry platform for an engaging introduction to Quantum Computing.
 
-> **Legal Notice**: RasQberry is an independent educational project and is not affiliated with, endorsed by, or sponsored by IBM Corporation. IBM, IBM Quantum, Qiskit, and IBM Quantum System Two are trademarks of International Business Machines Corporation. This project creates an educational tool inspired by IBM's quantum computing systems for teaching purposes.
-
 **Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
 ## See It In Action
@@ -52,9 +50,29 @@ Subscribe to our [newsletter](/newsletter) for occasional updates on new release
 
 ## Getting Started
 
-### Option 1: Custom Pi Imager Launcher (Recommended)
+### Option 1: Download Page
 
-The easiest way to get RasQberry is with our pre-configured Pi Imager launcher:
+Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, and development builds.
+
+After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
+
+### Option 2: Run Pi Imager with RasQberry Repository
+
+Run Pi Imager with our custom repository to see all RasQberry images directly in the imager:
+
+**macOS:**
+```bash
+/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
+```
+
+**Windows:**
+```bash
+"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
+```
+
+### Option 3: Pi Imager Desktop Launcher
+
+Install a pre-configured Pi Imager launcher that automatically loads RasQberry images:
 
 **macOS** (one-line command):
 ```bash
@@ -66,36 +84,7 @@ curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
 ```
 
-This creates a "Pi Imager for RasQberry" launcher on your Desktop that opens Pi Imager with all RasQberry images pre-loaded. Select an image, write to SD card, and boot your Pi!
-
-### Option 2: Download Page
-
-Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, development, and A/B boot images.
-
-After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
-
-<details>
-<summary>More options: Run Pi Imager manually or automation URLs</summary>
-
-**Run Pi Imager with our RasQberry custom repo:**
-
-macOS:
-```bash
-/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
-```
-
-Windows:
-```bash
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
-```
-
-**Automation URLs:** `/latest/stable`, `/latest/beta`, `/latest/dev` redirect to the latest images.
-
-**API Endpoints:**
-- [RQB-images.json](/RQB-images.json) - Pi Imager format with latest stable/beta/dev images
-- [RQB-images-all.json](/RQB-images-all.json) - All image versions from all branches (for development/testing)
-- [RQB-releases.json](/RQB-releases.json) - Release metadata with download URLs by stream
-</details>
+This creates a "Pi Imager for RasQberry" launcher on your Desktop.
 
 ### First Boot Setup
 
@@ -112,7 +101,7 @@ Once your RasQberry Two is running:
 
 3. **Report Issues** at [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues)
 
-> **Beta Note**: Additional features, demos, and improvements are continuously being added to [beta releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+> **Note**: Additional features, demos, and improvements are continuously being added. Check [/latest/](/latest/) for the newest releases.
 
 
 ## Working with Qiskit
@@ -148,15 +137,11 @@ For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-mode
 
 ## Contributing
 
-RasQberry is an open-source educational project, and we welcome contributions from the community!
+RasQberry is an open-source educational project. We welcome contributions:
 
-**Ways to Contribute:**
-- 🎮 Create new quantum computing demos
-- 📚 Improve documentation
-- 🐛 Report bugs or fix issues
-- 💡 Share your ideas and projects
+1. **Test & report issues** - Try RasQberry and [report bugs](https://github.com/JanLahmann/RasQberry-Two/issues)
+2. **Share ideas & feature requests** - Open a [GitHub Discussion](https://github.com/JanLahmann/RasQberry-Two/discussions)
+3. **Improve documentation** - Fix typos or add troubleshooting tips
+4. **Create quantum demos** - Build new interactive demonstrations
 
-Whether you're a quantum computing enthusiast, educator, developer, or student, there's a way for you to contribute and help make quantum computing more accessible.
-
-**Get Started:** Visit our [Contributing Guide](05-contributing/) to learn how you can be part of the RasQberry community!
-
+**Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
