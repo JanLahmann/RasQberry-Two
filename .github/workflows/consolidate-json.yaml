@@ -141,9 +141,22 @@ jobs:
           import json
           import os
           import re
+          import urllib.request
           from pathlib import Path
+          from datetime import datetime, timezone
 
           print("=== Merging RQB-images.json files into hierarchical structure ===")
+
+          # Fetch manual highlights from gh-pages
+          manual_highlights = {'stable': [], 'beta': []}
+          try:
+              url = "https://raw.githubusercontent.com/${{ github.repository }}/gh-pages/public/highlights.json"
+              req = urllib.request.Request(url, headers={"User-Agent": "RasQberry-Workflow"})
+              with urllib.request.urlopen(req, timeout=10) as response:
+                  manual_highlights = json.loads(response.read().decode())
+                  print(f"Loaded manual highlights: stable={len(manual_highlights.get('stable', []))}, beta={len(manual_highlights.get('beta', []))}")
+          except Exception as e:
+              print(f"Could not fetch highlights.json: {e} - using empty highlights")
 
           # Collect entries by category
           main_std = []      # Main stable standard images (top-level)
@@ -481,7 +494,34 @@ jobs:
           # ================================================================
           # Generate RQB-releases.json for website /latest/ redirects
           # ================================================================
-          from datetime import datetime, timezone
+
+          def extract_highlights_from_release(tag, repo):
+              """Extract highlights from GitHub release body for dev releases."""
+              highlights = []
+              try:
+                  url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+                  req = urllib.request.Request(url, headers={
+                      "Accept": "application/vnd.github.v3+json",
+                      "User-Agent": "RasQberry-Workflow"
+                  })
+                  with urllib.request.urlopen(req, timeout=10) as response:
+                      release_data = json.loads(response.read().decode())
+                      body = release_data.get('body', '')
+
+                      # Extract bullet points from release body (lines starting with - or *)
+                      for line in body.split('\n'):
+                          line = line.strip()
+                          if line.startswith(('- ', '* ', '• ')):
+                              highlight = re.sub(r'^[-*•]\s*', '', line).strip()
+                              # Skip links-only, empty, or very short items
+                              if highlight and len(highlight) > 10 and not highlight.startswith('http'):
+                                  highlights.append(highlight)
+                                  if len(highlights) >= 5:
+                                      break
+                  print(f"Extracted {len(highlights)} highlights from release {tag}")
+              except Exception as e:
+                  print(f"Could not fetch release highlights for {tag}: {e}")
+              return highlights
 
           def build_stream_entry(entries, stream_type):
               """Build a stream entry from the first (newest) entry in the list."""
@@ -529,8 +569,17 @@ jobs:
               if entry.get('extract_sha256'):
                   stream_entry['extract_sha256'] = entry.get('extract_sha256')
 
-              # Add highlights placeholder (can be enhanced later)
-              stream_entry['highlights'] = ['extract highlights from GitHub release body']
+              # Add highlights based on stream type
+              if stream_type in ('stable', 'beta') and manual_highlights.get(stream_type):
+                  # Use manually curated highlights from highlights.json
+                  stream_entry['highlights'] = manual_highlights[stream_type]
+              elif stream_type == 'dev' and tag:
+                  # Auto-extract from release body for dev releases
+                  highlights = extract_highlights_from_release(tag, '${{ github.repository }}')
+                  stream_entry['highlights'] = highlights if highlights else ['Development build - see release notes for details']
+              else:
+                  # Fallback
+                  stream_entry['highlights'] = []
 
               return stream_entry
 
