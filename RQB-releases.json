@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T10:44:21Z",
+  "generated": "2025-12-30T14:18:45Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -19,16 +19,16 @@
       ]
     },
     "dev": {
-      "tag": "development-2025-12-30-112304",
-      "name": "rasqberry-development-2025-12-30-112304",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-112304/rasqberry-development-2025-12-30-112304.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-30-112304",
-      "release_date": "2025-12-30 11:23",
-      "image_download_size": 1990436112,
+      "tag": "development-2025-12-30-145529",
+      "name": "rasqberry-development-2025-12-30-145529",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-145529/rasqberry-development-2025-12-30-145529.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-30-145529",
+      "release_date": "2025-12-30 14:55",
+      "image_download_size": 1989990444,
       "extract_size": 8841592832,
-      "extract_sha256": "4ddf6249257c414c117d401410dc2096b03b660fe9943f035984f080c127ad07",
+      "extract_sha256": "24b2e7091c70658195dd61692ceb54a8179a3e5b6ae78e5b00fa644be8775491",
       "highlights": [
-        "enable touch screen mouse emulation for double-tap support"
+        "add manual highlights.json support for release streams"
       ]
     }
   }
