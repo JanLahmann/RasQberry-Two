@@ -1,0 +1,10 @@
+{
+  "stable": [],
+  "beta": [
+    "LED text and logo display feature",
+    "Boot-time LED configuration system",
+    "Improved touchscreen support",
+    "Enhanced demo launcher integration",
+    "IP address display on LED matrix at boot"
+  ]
+}
