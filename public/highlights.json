@@ -1,10 +1,12 @@
 {
   "stable": [],
   "beta": [
-    "LED text and logo display feature",
-    "Boot-time LED configuration system",
-    "Improved touchscreen support",
-    "Enhanced demo launcher integration",
-    "IP address display on LED matrix at boot"
+    "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
+    "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
+    "Virtual LED Display - Demo mode without physical hardware",
+    "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
+    "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
+    "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
+    "XZ Compression - Smaller images (~30% reduction)"
   ]
 }
