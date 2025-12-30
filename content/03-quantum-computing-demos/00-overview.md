@@ -68,7 +68,7 @@ Most demos can be started in multiple ways:
 
 **LED-Based Demos:**
 - 4× WS2812 LED panels (4×12 pixels each)
-- Connected to GPIO pin 21
+- Connected to GPIO pin 18
 - Required for: Raspberry Tie, Quantum Lights Out, GHZ Demo
 
 **Browser-Based Demos:**

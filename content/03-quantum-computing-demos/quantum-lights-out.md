@@ -66,7 +66,7 @@ source venv/RQB2/bin/activate
 
 - Raspberry Pi (Pi 5 recommended, Pi 4 supported)
 - **RasQberry Two LED Panel** (required for visualization)
-- LED strip connected to GPIO pin 21 (default configuration)
+- LED strip connected to GPIO pin 18 (default configuration)
 - Minimum 25 LEDs for 5x5 grid (60 LEDs recommended for full RasQberry setup)
 
 ## The Classic Lights Out Game
@@ -123,7 +123,7 @@ Developed by **Luka Dojcinovic**
 ## Troubleshooting
 
 ### LEDs not responding
-- Check LED strip connection to GPIO pin 21
+- Check LED strip connection to GPIO pin 18
 - Verify LED configuration in `~/RasQberry-Two/RQB2-config/rasqberry_environment.env`
 - Test with: `python3 RQB2-bin/turn_off_LEDs.py`
 - Ensure SPI is enabled in raspi-config

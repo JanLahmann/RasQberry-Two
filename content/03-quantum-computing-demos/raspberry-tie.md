@@ -109,7 +109,7 @@ The pixel patterns correspond to qubit connectivity on IBM quantum processors, h
 
 - Raspberry Pi (Pi 5 recommended, Pi 4 supported)
 - **4× WS2812 LED panels** (4×12 pixels each) - Required for LED display
-- Connected to GPIO pin 21
+- Connected to GPIO pin 18
 - Display (monitor or VNC) for configuration
 - Internet connection (for IBM Quantum backends)
 

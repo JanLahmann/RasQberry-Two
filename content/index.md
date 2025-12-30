@@ -97,7 +97,7 @@ Once your RasQberry Two is running:
 2. **Explore Demos** through the menu system:
    - Run `sudo raspi-config` and select the first menu item
    - Or use desktop icons to launch demos directly
-   - Note: Most demos require LED strips connected to GPIO pin 21
+   - Note: Most demos require LED strips connected to GPIO pin 18
 
 3. **Report Issues** at [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues)
 
