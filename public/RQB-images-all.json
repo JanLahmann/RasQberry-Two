@@ -1,7 +1,7 @@
 {
-  "generated": "2025-12-30T20:30:30Z",
+  "generated": "2025-12-30T20:30:49Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 30,
+  "count": 24,
   "releases": [
     {
       "name": "RasQberry Two Dev (64-bit)",
@@ -87,46 +87,6 @@
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-29-091235/rasqberry-dev-features05-virtualled-2025-12-29-091235.img.xz",
-      "extract_size": 8841592832,
-      "extract_sha256": "c8d2e0083a509583aac660878e4e4be5efa60ba090f841be5f877a12eb7d7408",
-      "image_download_size": 1991515468,
-      "release_date": "2025-12-29 09:12",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "standard",
-      "_release_tag": "dev-features05-virtualled-2025-12-29-091235",
-      "_branch": "dev-features05-virtualled",
-      "_published": "2025-12-29T08:13:07Z"
-    },
-    {
-      "name": "RasQberry Two Dev A/B (64-bit)",
-      "description": "RasQberry development build with A/B boot support",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-29-091235/rasqberry-dev-features05-virtualled-2025-12-29-091235-ab.img.xz",
-      "extract_size": 12398362624,
-      "extract_sha256": "ad19b9b62b539c6bdad438f0efd547b78039336d504af693749346374338f35d",
-      "image_download_size": 2029817592,
-      "release_date": "2025-12-29 09:12",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "ab",
-      "_release_tag": "dev-features05-virtualled-2025-12-29-091235",
-      "_branch": "dev-features05-virtualled",
-      "_published": "2025-12-29T08:13:07Z"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-25-100707/rasqberry-development-2025-12-25-100707.img.xz",
       "extract_size": 8875147264,
       "extract_sha256": "34938c6ac8290073e812b343cdd3fc59233a9c8730e7c681db00ff17b559239b",
@@ -162,86 +122,6 @@
       "_release_tag": "development-2025-12-25-100707",
       "_branch": "development",
       "_published": "2025-12-25T09:07:38Z"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-25-095736/rasqberry-dev-features05-2025-12-25-095736.img.xz",
-      "extract_size": 8875147264,
-      "extract_sha256": "aea09cd1028e0804937bf7a13fe365b5dc8af8e2f822d5b16389f5176427f37d",
-      "image_download_size": 1996929820,
-      "release_date": "2025-12-25 09:57",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "standard",
-      "_release_tag": "dev-features05-2025-12-25-095736",
-      "_branch": "dev-features05",
-      "_published": "2025-12-25T08:58:10Z"
-    },
-    {
-      "name": "RasQberry Two Dev A/B (64-bit)",
-      "description": "RasQberry development build with A/B boot support",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-2025-12-25-095736/rasqberry-dev-features05-2025-12-25-095736-ab.img.xz",
-      "extract_size": 12398362624,
-      "extract_sha256": "9054908ca34b8e483555a7871edf12b1e53ac352284610cd4b7578cc8168ada7",
-      "image_download_size": 2034736264,
-      "release_date": "2025-12-25 09:57",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "ab",
-      "_release_tag": "dev-features05-2025-12-25-095736",
-      "_branch": "dev-features05",
-      "_published": "2025-12-25T08:58:10Z"
-    },
-    {
-      "name": "RasQberry Two Dev (64-bit)",
-      "description": "RasQberry development build with cutting-edge features (unstable)",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-23-102633/rasqberry-dev-features05-virtualled-2025-12-23-102633.img.xz",
-      "extract_size": 8841592832,
-      "extract_sha256": "80bc50c95c85a598f76955ff7bcab3f1a2a07d5c15980d5b2405ab050038c9d1",
-      "image_download_size": 1991337212,
-      "release_date": "2025-12-23 10:26",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "standard",
-      "_release_tag": "dev-features05-virtualled-2025-12-23-102633",
-      "_branch": "dev-features05-virtualled",
-      "_published": "2025-12-23T09:27:09Z"
-    },
-    {
-      "name": "RasQberry Two Dev A/B (64-bit)",
-      "description": "RasQberry development build with A/B boot support",
-      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-features05-virtualled-2025-12-23-102633/rasqberry-dev-features05-virtualled-2025-12-23-102633-ab.img.xz",
-      "extract_size": 12398362624,
-      "extract_sha256": "f3b037d16ae119ae546ceb4862d3dc5eff92e452b8e5ad6ee9f806c3d18da5b2",
-      "image_download_size": 2030611228,
-      "release_date": "2025-12-23 10:26",
-      "init_format": "systemd",
-      "devices": [
-        "pi5-64bit",
-        "pi4-64bit"
-      ],
-      "website": "https://rasqberry.org",
-      "image_type": "ab",
-      "_release_tag": "dev-features05-virtualled-2025-12-23-102633",
-      "_branch": "dev-features05-virtualled",
-      "_published": "2025-12-23T09:27:09Z"
     },
     {
       "name": "RasQberry Two Dev (64-bit)",
