@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T20:32:19Z",
+  "generated": "2025-12-30T21:03:13Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,14 +8,20 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2025-10-29-155618",
-      "name": "rasqberry-beta-2025-10-29",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-10-29-155618/rasqberry-beta-2025-10-29.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2025-10-29-155618",
-      "release_date": "2025-10-29",
-      "image_download_size": 1836523436,
+      "tag": "beta-2025-12-30-211449",
+      "name": "rasqberry-beta-2025-12-30-211449",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-12-30-211449/rasqberry-beta-2025-12-30.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2025-12-30-211449",
+      "release_date": "2025-12-30",
+      "image_download_size": 1668208604,
+      "extract_size": 8866758656,
+      "extract_sha256": "5830bc6a22020b3095d3b50612df650c54caefad61adfe39ab9515e9c9e122b7",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "add 10s delay to Chrome autostart for NTP time sync",
+        "add 10s delay to Chrome autostart for NTP time sync",
+        "create status_var before _init_mmap in virtual GUI",
+        "improve Docker setup, keyboard toggle, and Jupyter ports",
+        "update touch mode icon to input-touchpad-symbolic"
       ]
     },
     "dev": {
