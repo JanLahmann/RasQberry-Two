@@ -549,10 +549,13 @@ echo "Configuring labwc window rules for Chromium..."
 SKEL_LABWC_DIR="/etc/skel/.config/labwc"
 mkdir -p "$SKEL_LABWC_DIR"
 
-# Create rc.xml with Chromium window positioning rule
+# Create rc.xml with touch config and Chromium window positioning rule
+# Note: Empty deviceName applies mouseEmulation to ALL touch devices (universal fallback)
 cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
 <?xml version="1.0"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
+  <!-- Enable mouse emulation for all USB/HDMI touch screens (enables double-tap) -->
+  <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
     <windowRule identifier="chromium">
       <action name="MoveTo" x="480" y="45"/>
