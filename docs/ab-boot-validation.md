@@ -16,9 +16,11 @@
 
 ## Fixes Applied
 
-### 1. Tryboot Reboot Fix
-**File**: `RQB2-bin/rq_update_slot.sh`
-Changed `reboot` to `reboot '0 tryboot'` in `reboot_system()` to trigger the tryboot mechanism.
+### 1. Reliable Tryboot from raspi-config Menu
+**Files**: `RQB2-bin/rq_update_slot.sh`, `RQB2-config/RQB2_menu.sh`
+- Use `exec` before reboot commands to prevent parent shell interference
+- Combined configure + reboot into atomic `switch-to --reboot` call
+- Renamed SWITCH_A/B to TRYBOOT_A/B with immediate reboot
 
 ### 2. Terminal-Aware Progress Indicators
 **File**: `RQB2-bin/rq_update_slot.sh`
