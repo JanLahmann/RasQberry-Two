@@ -1,0 +1,44 @@
+{
+  "id": "ibm-tutorials",
+  "name": "IBM Quantum Tutorials",
+  "category": "jupyter",
+  "description": "Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0)",
+  "keywords": ["quantum", "jupyter", "notebook", "ibm", "qiskit", "tutorial", "education"],
+
+  "entrypoint": {
+    "type": "jupyter",
+    "working_dir": "ibm-quantum-learning/tutorials",
+    "jupyter_port": 8889,
+    "launcher": "rq_ibm_tutorials.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/Qiskit/documentation.git",
+    "marker_file": "WELCOME-tutorials.ipynb"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-education"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 50
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

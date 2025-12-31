@@ -1,0 +1,67 @@
+{
+  "id": "led-demos",
+  "name": "LED Demos",
+  "category": "led-demo",
+  "description": "Collection of LED matrix display demos and animations",
+  "keywords": ["led", "demo", "animation", "display", "matrix"],
+
+  "entrypoint": {
+    "type": "script"
+  },
+
+  "install": {
+    "preinstalled": true
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "none"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": false,
+  "loop_ok": true,
+  "timeout": 15,
+
+  "icon": {
+    "type": "system",
+    "path": "video-display"
+  },
+
+  "menu": {
+    "show": true,
+    "parent": "led-menu",
+    "order": 90
+  },
+
+  "desktop": {
+    "show": false
+  },
+
+  "variants": [
+    {
+      "id": "ibm-logo",
+      "name": "IBM Logo",
+      "entrypoint": {"launcher": "rq_led_ibm_demo.sh"}
+    },
+    {
+      "id": "text-display",
+      "name": "Text Display",
+      "entrypoint": {"launcher": "rq_led_display_text.sh"}
+    },
+    {
+      "id": "logo-display",
+      "name": "Logo Display",
+      "entrypoint": {"launcher": "rq_led_display_logo.sh"}
+    },
+    {
+      "id": "led-test",
+      "name": "LED Test",
+      "entrypoint": {"launcher": "rq_led_test.sh"}
+    },
+    {
+      "id": "clear-leds",
+      "name": "Clear LEDs",
+      "entrypoint": {"launcher": "rq_clear_leds.sh"}
+    }
+  ]
+}

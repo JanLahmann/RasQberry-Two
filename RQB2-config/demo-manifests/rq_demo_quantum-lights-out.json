@@ -1,0 +1,59 @@
+{
+  "id": "quantum-lights-out",
+  "name": "Quantum Lights Out",
+  "category": "game",
+  "description": "A quantum version of the classic Lights Out puzzle game using quantum circuits",
+  "keywords": ["quantum", "game", "puzzle", "lights", "qiskit", "circuit"],
+
+  "entrypoint": {
+    "type": "python",
+    "script": "lights_out.py",
+    "working_dir": "Quantum-Lights-Out",
+    "launcher": "rq_quantum_lights_out_auto.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/Luka-D/Quantum-Lights-Out.git",
+    "marker_file": "lights_out.py",
+    "patch_file": "quantum-lights-out.patch"
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "optional"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": false,
+  "loop_ok": true,
+  "timeout": 60,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-games"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 10
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  },
+
+  "variants": [
+    {
+      "id": "gui",
+      "name": "GUI Mode",
+      "needs_hw": {"display": "required"}
+    },
+    {
+      "id": "console",
+      "name": "Console Mode",
+      "args": ["--console"],
+      "needs_hw": {"display": "none"}
+    }
+  ]
+}

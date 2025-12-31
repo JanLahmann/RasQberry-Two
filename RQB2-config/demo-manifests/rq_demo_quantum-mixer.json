@@ -1,0 +1,44 @@
+{
+  "id": "quantum-mixer",
+  "name": "Quantum Mixer",
+  "category": "visualization",
+  "description": "Interactive quantum circuit builder and simulator (Docker container)",
+  "keywords": ["quantum", "mixer", "circuit", "builder", "docker", "web"],
+
+  "entrypoint": {
+    "type": "docker",
+    "docker_image": "quantum-mixer:arm64",
+    "docker_port": 8080,
+    "launcher": "quantum-mixer.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/JanLahmann/quantum-mixer.git"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "network": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-science"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 75
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

@@ -265,7 +265,87 @@ Categories=Education;Science;
 
 **Install location:** This will be automatically copied during image build.
 
-### Step 6: Document Your Demo
+### Step 6: Create Demo Manifest (Recommended)
+
+Create a manifest file to register your demo in the manifest system. This enables automatic menu generation and validation.
+
+**Create:** `RQB2-config/demo-manifests/rq_demo_<your-demo-id>.json`
+
+```json
+{
+  "id": "my-quantum-demo",
+  "name": "My Quantum Demo",
+  "category": "visualization",
+  "description": "Brief description of your demo (max 200 chars)",
+  "keywords": ["quantum", "demo", "your-keywords"],
+
+  "entrypoint": {
+    "type": "python",
+    "script": "main.py",
+    "working_dir": "my-quantum-demo",
+    "launcher": "rq_myquantum.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/your-username/my-quantum-demo.git",
+    "marker_file": "main.py"
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "optional"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": false,
+  "loop_ok": true,
+  "timeout": 60,
+
+  "menu": {
+    "show": true,
+    "order": 50
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}
+```
+
+**Key fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique ID (lowercase, hyphens only) |
+| `name` | Yes | Display name |
+| `category` | Yes | `game`, `visualization`, `education`, `jupyter`, `led-demo`, or `tool` |
+| `description` | Yes | Short description (max 200 chars) |
+| `entrypoint.type` | Yes | `python`, `script`, `jupyter`, `docker`, or `browser` |
+| `entrypoint.launcher` | No | Launcher script in RQB2-bin/ |
+| `install.repo_url` | No | Git URL for cloning |
+| `install.marker_file` | No | File that indicates demo is installed |
+| `install.patch_file` | No | Patch file in demo-patches/ for RasQberry customizations |
+| `needs_hw.leds` | No | Requires LED matrix (default: false) |
+| `needs_hw.display` | No | `none`, `optional`, or `required` |
+| `needs_ibm_token` | No | `none`, `prefer`, or `required` |
+| `loop_ok` | No | Safe for demo loop (default: true) |
+
+**Validate your manifest:**
+
+```bash
+./RQB2-bin/rq_demo_validate.sh RQB2-config/demo-manifests/rq_demo_my-quantum-demo.json
+```
+
+**View generated menu items:**
+
+```bash
+./RQB2-bin/rq_demo_generate_menu.sh --list
+```
+
+See the [schema file](RQB2-config/demo-manifests/rq_demo_schema.json) for complete field documentation.
+
+### Step 7: Document Your Demo
 
 Add documentation to the website (gh-pages branch):
 
@@ -425,8 +505,12 @@ RasQberry-Two/
 | `RQB2-bin/rq_common.sh` | Shell script library with reusable functions |
 | `RQB2-bin/rq_led_utils.py` | Python LED control utilities |
 | `RQB2-bin/_TEMPLATE.sh` | Template for new demo launchers |
+| `RQB2-bin/rq_demo_validate.sh` | Validate demo manifest files |
+| `RQB2-bin/rq_demo_generate_menu.sh` | Generate menu entries from manifests |
 | `RQB2-config/rasqberry_environment.env` | All configuration variables |
 | `RQB2-config/RQB2_menu.sh` | Interactive menu integrated into raspi-config |
+| `RQB2-config/demo-manifests/rq_demo_*.json` | Demo manifest files |
+| `RQB2-config/demo-manifests/rq_demo_schema.json` | JSON schema for manifest validation |
 
 ---
 

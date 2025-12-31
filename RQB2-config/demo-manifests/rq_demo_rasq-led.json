@@ -1,0 +1,40 @@
+{
+  "id": "rasq-led",
+  "name": "RasQ-LED",
+  "category": "visualization",
+  "description": "Visualize quantum circuit execution results on the LED matrix",
+  "keywords": ["quantum", "led", "visualization", "circuit", "qiskit"],
+
+  "entrypoint": {
+    "type": "script",
+    "launcher": "rq_rasq_led.sh"
+  },
+
+  "install": {
+    "preinstalled": true
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "none"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": false,
+  "loop_ok": true,
+  "timeout": 60,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-science"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 85
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

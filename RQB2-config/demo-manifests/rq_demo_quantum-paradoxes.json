@@ -1,0 +1,44 @@
+{
+  "id": "quantum-paradoxes",
+  "name": "Quantum Paradoxes",
+  "category": "jupyter",
+  "description": "Interactive Jupyter notebooks exploring quantum paradoxes and phenomena",
+  "keywords": ["quantum", "jupyter", "notebook", "paradox", "education", "physics"],
+
+  "entrypoint": {
+    "type": "jupyter",
+    "working_dir": "quantum-paradoxes",
+    "jupyter_port": 8891,
+    "launcher": "rq_quantum_paradoxes.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/maria-violaris/quantum-paradoxes",
+    "marker_file": "WELCOME.ipynb"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-education"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 45
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

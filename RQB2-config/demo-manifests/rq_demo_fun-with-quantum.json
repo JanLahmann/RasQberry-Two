@@ -1,0 +1,44 @@
+{
+  "id": "fun-with-quantum",
+  "name": "Fun with Quantum",
+  "category": "jupyter",
+  "description": "Jupyter notebooks exploring quantum computing concepts with the Quantum Coin Game",
+  "keywords": ["quantum", "jupyter", "notebook", "coin", "game", "education"],
+
+  "entrypoint": {
+    "type": "jupyter",
+    "working_dir": "fun-with-quantum",
+    "jupyter_port": 8888,
+    "launcher": "rq_fun_with_quantum.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
+    "marker_file": "Quantum-Coin-Game.ipynb"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-education"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 40
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

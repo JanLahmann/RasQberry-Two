@@ -1,0 +1,45 @@
+{
+  "id": "led-painter",
+  "name": "LED Painter",
+  "category": "tool",
+  "description": "Paint and draw on the LED matrix using a graphical interface",
+  "keywords": ["led", "paint", "draw", "art", "matrix", "gui"],
+
+  "entrypoint": {
+    "type": "python",
+    "script": "LED_painter.py",
+    "working_dir": "RasQberry-Two-LED-Painter",
+    "launcher": "rq_led_painter.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/Luka-D/RasQberry-Two-LED-Painter.git",
+    "marker_file": "LED_painter.py",
+    "patch_file": "led-painter.patch"
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": false,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-graphics"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 60
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

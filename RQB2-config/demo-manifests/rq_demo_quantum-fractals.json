@@ -1,0 +1,40 @@
+{
+  "id": "quantum-fractals",
+  "name": "Quantum Fractals",
+  "category": "visualization",
+  "description": "Generate and explore quantum-inspired fractal patterns in the browser",
+  "keywords": ["quantum", "fractal", "visualization", "browser", "art"],
+
+  "entrypoint": {
+    "type": "script",
+    "launcher": "fractals.sh"
+  },
+
+  "install": {
+    "preinstalled": true
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-graphics"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 80
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

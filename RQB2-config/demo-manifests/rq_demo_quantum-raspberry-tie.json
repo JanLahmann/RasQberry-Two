@@ -1,0 +1,64 @@
+{
+  "id": "quantum-raspberry-tie",
+  "name": "Quantum Raspberry Tie",
+  "category": "visualization",
+  "description": "Visualize quantum circuit execution on LED matrix with Sense HAT emulator",
+  "keywords": ["quantum", "visualization", "circuit", "sense-hat", "led"],
+
+  "entrypoint": {
+    "type": "python",
+    "script": "QuantumRaspberryTie.v7_1.py",
+    "working_dir": "quantum-raspberry-tie",
+    "launcher": "rq_quantum_raspberry_tie_auto.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/KPRoche/quantum-raspberry-tie.git",
+    "marker_file": "QuantumRaspberryTie.v7_1.py",
+    "patch_file": "quantum-raspberry-tie.patch"
+  },
+
+  "needs_hw": {
+    "leds": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": false,
+  "loop_ok": true,
+  "timeout": 60,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-science"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 20
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  },
+
+  "variants": [
+    {
+      "id": "simulator",
+      "name": "Aer Simulator",
+      "args": ["--backend", "aer"]
+    },
+    {
+      "id": "noise",
+      "name": "Noise Model",
+      "args": ["--backend", "noise"]
+    },
+    {
+      "id": "real",
+      "name": "Real Backend",
+      "args": ["--backend", "real"],
+      "needs_hw": {"network": true}
+    }
+  ]
+}

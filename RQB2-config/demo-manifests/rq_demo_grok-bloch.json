@@ -1,0 +1,63 @@
+{
+  "id": "grok-bloch",
+  "name": "Grok Bloch",
+  "category": "visualization",
+  "description": "Interactive Bloch sphere visualization for understanding qubit states",
+  "keywords": ["quantum", "bloch", "sphere", "visualization", "qubit", "state"],
+
+  "entrypoint": {
+    "type": "browser",
+    "working_dir": "grok-bloch",
+    "launcher": "rq_grok_bloch.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/JavaFXpert/grok-bloch.git",
+    "marker_file": "index.html"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "system",
+    "path": "applications-education"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 30
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  },
+
+  "variants": [
+    {
+      "id": "local",
+      "name": "Local (offline)",
+      "entrypoint": {
+        "type": "browser",
+        "launcher": "rq_grok_bloch.sh"
+      }
+    },
+    {
+      "id": "web",
+      "name": "Web Version",
+      "entrypoint": {
+        "type": "browser",
+        "browser_url": "https://javafxpert.github.io/grok-bloch/"
+      },
+      "needs_hw": {"network": true}
+    }
+  ]
+}

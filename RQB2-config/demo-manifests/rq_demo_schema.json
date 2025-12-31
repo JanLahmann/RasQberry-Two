@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RasQberry Demo Manifest",
+  "description": "Schema for RasQberry Two demo manifest files (rq_demo_*.json)",
+  "type": "object",
+  "required": ["id", "name", "category", "description", "entrypoint"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Unique identifier (lowercase, hyphens only), matches filename rq_demo_<id>.json"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable display name for menus and desktop entries"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["game", "visualization", "education", "jupyter", "led-demo", "tool"],
+      "description": "Demo category for menu organization"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Short description for menu and desktop entry"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Search keywords for discovery"
+    },
+    "entrypoint": {
+      "type": "object",
+      "required": ["type"],
+      "description": "How to launch the demo",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["python", "script", "jupyter", "docker", "browser"],
+          "description": "Launcher type"
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to execute (e.g., python3, bash)"
+        },
+        "script": {
+          "type": "string",
+          "description": "Script file to run"
+        },
+        "args": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Command-line arguments"
+        },
+        "working_dir": {
+          "type": "string",
+          "description": "Working directory relative to demos root (. = demo root)"
+        },
+        "launcher": {
+          "type": "string",
+          "description": "Existing launcher script in RQB2-bin (e.g., rq_quantum_lights_out_auto.sh)"
+        },
+        "jupyter_port": {
+          "type": "integer",
+          "description": "Jupyter notebook server port"
+        },
+        "docker_image": {
+          "type": "string",
+          "description": "Docker image name or URL"
+        },
+        "docker_port": {
+          "type": "integer",
+          "description": "Port exposed by Docker container"
+        },
+        "browser_url": {
+          "type": "string",
+          "description": "URL to open in browser (for browser-based demos)"
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "description": "Installation configuration",
+      "properties": {
+        "preinstalled": {
+          "type": "boolean",
+          "default": false,
+          "description": "true if bundled in image, false if cloned on first run"
+        },
+        "repo_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Git URL for dynamic installation"
+        },
+        "marker_file": {
+          "type": "string",
+          "description": "File that must exist to confirm installation"
+        },
+        "patch_file": {
+          "type": "string",
+          "description": "Patch file name in RQB2-config/patches/"
+        },
+        "pip_requirements": {
+          "type": "boolean",
+          "default": false,
+          "description": "Install requirements.txt after cloning"
+        }
+      }
+    },
+    "needs_hw": {
+      "type": "object",
+      "description": "Hardware requirements",
+      "properties": {
+        "leds": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires LED matrix"
+        },
+        "buttons": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires physical buttons"
+        },
+        "network": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires internet connectivity at runtime"
+        },
+        "display": {
+          "type": "string",
+          "enum": ["none", "optional", "required"],
+          "default": "none",
+          "description": "Display requirement: none=headless OK, optional=prefers GUI, required=GUI mandatory"
+        }
+      }
+    },
+    "needs_ibm_token": {
+      "type": "string",
+      "enum": ["none", "prefer", "required"],
+      "default": "none",
+      "description": "IBM Quantum token requirement"
+    },
+    "browser_based": {
+      "type": "boolean",
+      "default": false,
+      "description": "Runs in Chromium browser"
+    },
+    "loop_ok": {
+      "type": "boolean",
+      "default": true,
+      "description": "Safe to include in demo loop (non-interactive, auto-exits)"
+    },
+    "timeout": {
+      "type": "integer",
+      "default": 60,
+      "description": "Default timeout in seconds for demo loop (0 = no timeout)"
+    },
+    "icon": {
+      "type": "object",
+      "description": "Icon for desktop entry",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["system", "custom", "none"],
+          "description": "system=freedesktop icon name, custom=path to file, none=no icon"
+        },
+        "path": {
+          "type": "string",
+          "description": "Icon name or file path"
+        }
+      }
+    },
+    "menu": {
+      "type": "object",
+      "description": "Menu configuration",
+      "properties": {
+        "show": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show in raspi-config menu"
+        },
+        "parent": {
+          "type": "string",
+          "description": "Parent menu ID for submenus"
+        },
+        "order": {
+          "type": "integer",
+          "default": 50,
+          "description": "Sort order (lower = earlier in menu)"
+        }
+      }
+    },
+    "desktop": {
+      "type": "object",
+      "description": "Desktop launcher configuration",
+      "properties": {
+        "show": {
+          "type": "boolean",
+          "default": true,
+          "description": "Create .desktop file"
+        },
+        "terminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run in terminal window"
+        }
+      }
+    },
+    "variants": {
+      "type": "array",
+      "description": "Demo modes/variants (e.g., GUI vs console)",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Variant identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Variant display name"
+          },
+          "args": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Additional arguments for this variant"
+          },
+          "needs_hw": {
+            "type": "object",
+            "description": "Override hardware requirements for this variant"
+          },
+          "entrypoint": {
+            "type": "object",
+            "description": "Override entrypoint for this variant"
+          }
+        }
+      }
+    }
+  }
+}
