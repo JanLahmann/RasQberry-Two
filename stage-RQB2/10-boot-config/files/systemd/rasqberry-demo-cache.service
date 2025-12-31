@@ -1,0 +1,17 @@
+[Unit]
+Description=RasQberry Demo Menu Cache Generator
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+After=local-fs.target
+Before=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_demo_generate_menu.sh --cache /usr/config/demo-menu-cache.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+# Run only if jq is installed
+ExecCondition=/usr/bin/which jq
+
+[Install]
+WantedBy=multi-user.target

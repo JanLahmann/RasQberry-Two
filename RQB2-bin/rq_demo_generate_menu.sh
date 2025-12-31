@@ -118,6 +118,115 @@ generate_menu_items() {
     echo ")"
 }
 
+# Generate cache file for menu integration
+# Output: A sourceable shell script with menu arrays and dispatch function
+generate_cache() {
+    # Default to /usr/config on installed system (TODO: use global var per issue #246)
+    local cache_file="${1:-/usr/config/demo-menu-cache.sh}"
+    local cache_dir
+    cache_dir=$(dirname "$cache_file")
+
+    # Create cache directory if needed
+    if [ ! -d "$cache_dir" ]; then
+        mkdir -p "$cache_dir" 2>/dev/null || {
+            echo "Error: Cannot create cache directory $cache_dir" >&2
+            return 1
+        }
+    fi
+
+    cat > "$cache_file" << 'CACHE_HEADER'
+#!/bin/sh
+# Auto-generated demo menu cache from manifests
+# DO NOT EDIT - regenerate with: rq_demo_generate_menu.sh --cache
+#
+CACHE_HEADER
+
+    echo "# Generated: $(date -Iseconds)" >> "$cache_file"
+    echo "# Manifest directory: $MANIFEST_DIR" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    # Generate menu items array (POSIX-compatible format for whiptail)
+    echo "# Demo menu items for whiptail (tag description pairs)" >> "$cache_file"
+    echo "# Usage: eval \"set -- \$DEMO_MENU_ITEMS\"; show_menu \"\$@\"" >> "$cache_file"
+    echo "DEMO_MENU_ITEMS='" >> "$cache_file"
+
+    # Use subshell to avoid pipefail issues with read at end of input
+    (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id name launcher
+        id=$(jq -r '.id' "$file")
+        name=$(jq -r '.name' "$file")
+        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+
+        # Skip demos without launchers
+        [ -z "$launcher" ] && continue
+
+        # Escape single quotes in name
+        name=$(echo "$name" | sed "s/'/'\\\\''/g")
+
+        echo "\"$id\" \"$name\"" >> "$cache_file"
+    done) || true
+
+    echo "'" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    # Generate dispatch function
+    echo "# Dispatch function: run demo by ID" >> "$cache_file"
+    echo "# Usage: dispatch_demo_by_id <demo-id>" >> "$cache_file"
+    echo "dispatch_demo_by_id() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+
+    (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id launcher
+        id=$(jq -r '.id' "$file")
+        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+
+        # Skip demos without launchers
+        [ -z "$launcher" ] && continue
+
+        echo "        \"$id\") /usr/bin/$launcher ;;" >> "$cache_file"
+    done) || true
+
+    echo "        *) echo \"Unknown demo: \$1\" >&2; return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    # Generate launcher lookup function
+    echo "# Get launcher script for demo ID" >> "$cache_file"
+    echo "# Usage: get_demo_launcher <demo-id>" >> "$cache_file"
+    echo "get_demo_launcher() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+
+    (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id launcher
+        id=$(jq -r '.id' "$file")
+        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+
+        [ -z "$launcher" ] && continue
+
+        echo "        \"$id\") echo \"/usr/bin/$launcher\" ;;" >> "$cache_file"
+    done) || true
+
+    echo "        *) return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    # Generate demo count by counting dispatch entries
+    local count
+    count=$(grep -c '^        "[a-z].*) /usr/bin/' "$cache_file" 2>/dev/null) || count=0
+
+    echo "" >> "$cache_file"
+    echo "# Total demos with launchers: $count" >> "$cache_file"
+    echo "DEMO_COUNT=$count" >> "$cache_file"
+
+    echo "Cache written to: $cache_file" >&2
+    echo "$cache_file"
+}
+
 # Get demo info by ID
 get_demo_info() {
     local demo_id="$1"
@@ -158,6 +267,7 @@ Commands:
   --whiptail          Generate whiptail menu array entries
   --functions         Generate shell launcher functions
   --menu-items        Generate menu items array for RQB2_menu.sh
+  --cache [path]      Generate sourceable cache file (default: /usr/config/demo-menu-cache.sh)
   --info <id>         Show full manifest for a demo
   --field <id> <fld>  Get specific field from manifest
   --help, -h          Show this help
@@ -171,6 +281,19 @@ Examples:
 
   # Show full info for a demo
   rq_demo_generate_menu.sh --info grok-bloch
+
+  # Generate menu cache for RQB2_menu.sh
+  rq_demo_generate_menu.sh --cache
+
+  # Generate cache to custom location
+  rq_demo_generate_menu.sh --cache /tmp/demo-menu.sh
+
+Cache File Usage:
+  The cache file can be sourced by RQB2_menu.sh and provides:
+  - DEMO_MENU_ITEMS: Menu entries for whiptail
+  - dispatch_demo_by_id(): Function to run a demo by ID
+  - get_demo_launcher(): Function to get launcher path for a demo ID
+  - DEMO_COUNT: Total number of demos with launchers
 
 EOF
 }
@@ -191,6 +314,9 @@ main() {
             ;;
         --menu-items)
             generate_menu_items
+            ;;
+        --cache)
+            generate_cache "${2:-}"
             ;;
         --info)
             if [ -z "${2:-}" ]; then

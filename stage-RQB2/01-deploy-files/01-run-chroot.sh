@@ -93,6 +93,15 @@ chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment
 chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
 chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
 
+# Generate demo menu cache from manifests (if jq available)
+if command -v jq > /dev/null 2>&1; then
+    echo "Generating demo menu cache from manifests..."
+    /usr/bin/rq_demo_generate_menu.sh --cache /usr/config/demo-menu-cache.sh || true
+    [ -f /usr/config/demo-menu-cache.sh ] && chmod 644 /usr/config/demo-menu-cache.sh
+else
+    echo "Note: jq not available, skipping demo menu cache generation (will be done at first boot)"
+fi
+
 # Fix ownership of all user directories created as root
 # This ensures demos can be installed later without permission issues
 # IMPORTANT: Must also fix the home directory itself, not just subdirectories
