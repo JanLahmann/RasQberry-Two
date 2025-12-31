@@ -906,7 +906,7 @@ do_show_system_info() {
 # Expand A/B partitions for 64GB+ SD cards
 do_expand_ab_partitions() {
     # Check if this is an AB boot image
-    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -q "config"; then
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qi "config"; then
         whiptail --title "Not AB Boot Image" --msgbox \
             "This system is not running an A/B boot image.\n\nPartition expansion is only available for AB boot layouts." \
             10 60
