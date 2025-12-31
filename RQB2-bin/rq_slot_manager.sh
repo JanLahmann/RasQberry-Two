@@ -5,15 +5,19 @@ set -euo pipefail
 # RasQberry: A/B Boot Slot Manager
 # ============================================================================
 # Description: Manage A/B boot slots for remote testing
-# Usage: rq_slot_manager.sh {status|confirm|switch|rollback}
+# Usage: rq_slot_manager.sh {status|confirm|switch-to|rollback|promote}
 #
 # Commands:
-#   status    - Show current slot and boot status
-#   confirm   - Confirm current slot (prevent tryboot rollback)
-#   switch    - Switch to the other slot on next boot
-#   rollback  - Force rollback to previous slot
+#   status      - Show current slot and boot status
+#   confirm     - Confirm current slot (prevent rollback)
+#   switch-to   - Switch to a specific slot (A or B) using tryboot
+#   rollback    - Force rollback to previous slot
+#   promote     - Promote Slot B to Slot A (copy)
 #
-# This utility manages the Raspberry Pi tryboot feature for A/B boot testing.
+# Tryboot mechanism (Pi 4 and Pi 5):
+#   - Uses autoboot.txt with tryboot_a_b=1 for partition-level A/B switching
+#   - boot_partition_fallback provides firmware-level fallback on boot failure
+#   - Health check confirms slot; unconfirmed slots auto-rollback on reboot
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -26,10 +30,6 @@ BOOT_COMMON_DIR="/boot/config"
 AUTOBOOT_TXT="${BOOT_COMMON_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE="${BOOT_COMMON_DIR}/current-slot"
 SLOT_CONFIRMED_FILE="${BOOT_COMMON_DIR}/slot-confirmed"
-
-# tryboot.txt is optional - only needed for per-slot boot configurations
-# With tryboot_a_b=1 in autoboot.txt, we use autoboot.txt for AB detection
-TRYBOOT_TXT="${BOOT_DIR}/tryboot.txt"
 
 # Old paths for backwards compatibility (non-AB images)
 AUTOBOOT_TXT_FALLBACK="${BOOT_DIR}/autoboot.txt"
@@ -222,7 +222,6 @@ cmd_status() {
     echo ""
     info "Boot Configuration Files:"
     [ -f "${AUTOBOOT_TXT}" ] && info "  autoboot.txt: EXISTS" || warn "  autoboot.txt: MISSING"
-    [ -f "${TRYBOOT_TXT}" ] && info "  tryboot.txt: EXISTS" || warn "  tryboot.txt: MISSING"
     [ -f "${CURRENT_SLOT_FILE}" ] && info "  current-slot: $(cat "${CURRENT_SLOT_FILE}")" || warn "  current-slot: MISSING"
 
     echo ""
@@ -252,11 +251,27 @@ cmd_confirm() {
     # Update current-slot file
     echo "${current_slot}" > "${CURRENT_SLOT_FILE}"
 
-    # Update autoboot.txt to make this slot the default
-    # (Remove tryboot, set permanent boot)
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
+    # Update autoboot.txt to make this slot the permanent default
+    # This ensures normal boots (without tryboot flag) use the confirmed slot
+    local confirmed_partition other_partition
+    if [ "${current_slot}" = "A" ]; then
+        confirmed_partition=2
+        other_partition=3
+    else
+        confirmed_partition=3
+        other_partition=2
     fi
+
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=${confirmed_partition}
+boot_partition_fallback=${other_partition}
+
+[tryboot]
+boot_partition=${other_partition}
+boot_partition_fallback=${confirmed_partition}
+EOF
 
     info "Slot ${current_slot} confirmed"
     info "This slot will be used for future boots"
@@ -285,7 +300,9 @@ cmd_switch() {
 }
 
 cmd_switch_to() {
-    # Switch to a specific slot on next boot
+    # Switch to a specific slot on next boot using tryboot
+    # The tryboot flag triggers [tryboot] section in autoboot.txt
+    # If health check fails, normal reboot falls back to [all] section (confirmed slot)
     check_root
 
     local target_slot="$1"
@@ -302,25 +319,41 @@ cmd_switch_to() {
             ;;
     esac
 
-    info "Configuring boot to Slot ${target_slot}..."
+    local current_slot
+    current_slot=$(get_current_slot)
+
+    if [ "$current_slot" = "$target_slot" ]; then
+        info "Already on Slot ${target_slot}"
+        return 0
+    fi
+
+    info "Configuring tryboot to Slot ${target_slot}..."
 
     # Ensure boot config directory exists
     mkdir -p "${BOOT_COMMON_DIR}"
 
-    # Determine boot partition for target slot
+    # Determine partitions
     # v3 layout: p2=boot-a (Slot A), p3=boot-b (Slot B)
-    local boot_partition
-    if [ "$target_slot" = "A" ]; then
-        boot_partition=2
+    local current_partition target_partition
+    if [ "$current_slot" = "A" ]; then
+        current_partition=2
+        target_partition=3
     else
-        boot_partition=3
+        current_partition=3
+        target_partition=2
     fi
 
-    # Write autoboot.txt with boot_partition
-    # Note: tryboot_a_b is not supported on Pi 5 bootloader, use direct boot_partition instead
+    # Update autoboot.txt: current slot as default, target as tryboot
+    # This ensures rollback to current slot if tryboot fails
     cat > "${AUTOBOOT_TXT}" << EOF
 [all]
-boot_partition=${boot_partition}
+tryboot_a_b=1
+boot_partition=${current_partition}
+boot_partition_fallback=${target_partition}
+
+[tryboot]
+boot_partition=${target_partition}
+boot_partition_fallback=${current_partition}
 EOF
 
     # Clear confirmation (will test new slot)
@@ -329,12 +362,18 @@ EOF
     # Mark which slot we're trying to boot
     echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
 
-    info "Slot ${target_slot} configured (boot_partition=${boot_partition})"
-    info "Reboot to switch: sudo reboot"
+    info "Slot ${target_slot} configured for tryboot"
+    info "Current slot (${current_slot}) remains default until new slot is confirmed"
+    info ""
+    info "To switch now with automatic rollback protection:"
+    info "  sudo reboot '0 tryboot'"
+    info ""
+    info "Or for direct switch (no tryboot rollback):"
+    info "  sudo reboot"
 }
 
 cmd_rollback() {
-    # Force rollback to the other slot (simulate failed health check)
+    # Force rollback to the other slot
     check_root
 
     local current_slot
@@ -353,13 +392,30 @@ cmd_rollback() {
 
     warn "Forcing rollback from slot ${current_slot} to slot ${other_slot}"
 
-    # Remove confirmation (trigger rollback)
-    rm -f "${SLOT_CONFIRMED_FILE}"
-
-    # Remove tryboot (will boot confirmed slot)
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
+    # Determine partitions
+    local other_partition current_partition
+    if [ "${other_slot}" = "A" ]; then
+        other_partition=2
+        current_partition=3
+    else
+        other_partition=3
+        current_partition=2
     fi
+
+    # Update autoboot.txt to boot other slot as default
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=${other_partition}
+boot_partition_fallback=${current_partition}
+
+[tryboot]
+boot_partition=${current_partition}
+boot_partition_fallback=${other_partition}
+EOF
+
+    # Remove confirmation
+    rm -f "${SLOT_CONFIRMED_FILE}"
 
     # Update current-slot to other slot
     echo "${other_slot}" > "${CURRENT_SLOT_FILE}"
@@ -439,10 +495,17 @@ cmd_promote() {
 
     info "Copy complete"
 
-    # Set Slot A as default boot
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
-    fi
+    # Set Slot A as default boot with proper tryboot config
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=2
+boot_partition_fallback=3
+
+[tryboot]
+boot_partition=3
+boot_partition_fallback=2
+EOF
 
     # Mark Slot A as confirmed
     echo "$(date -Iseconds)" > "${SLOT_CONFIRMED_FILE}"

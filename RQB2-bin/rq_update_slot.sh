@@ -113,11 +113,17 @@ download_image() {
     log_message "Downloading image from: $url"
     log_message "Saving to: $output_file"
 
-    # Use wget or curl
+    # Use wget or curl - quiet mode, progress output floods logs when not on a terminal
     if command -v wget >/dev/null 2>&1; then
-        wget -O "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE" || die "Download failed"
+        # -nv: non-verbose (shows start/end only, no progress dots)
+        if ! wget -nv -O "$output_file" "$url" 2>> "$LOG_FILE"; then
+            die "Download failed"
+        fi
     elif command -v curl >/dev/null 2>&1; then
-        curl -L -o "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE" || die "Download failed"
+        # -s: silent, -S: show errors, -L: follow redirects
+        if ! curl -sSL -o "$output_file" "$url" 2>> "$LOG_FILE"; then
+            die "Download failed"
+        fi
     else
         die "Neither wget nor curl found"
     fi
@@ -163,10 +169,10 @@ write_image_to_slot() {
     local work_dir="${DOWNLOAD_DIR}/extract-$$"
     mkdir -p "$work_dir"
 
-    # Decompress image
-    log_message "Decompressing image..."
+    # Decompress image (use all CPU cores with -T0 for faster decompression)
+    log_message "Decompressing image (multi-threaded)..."
     local raw_image="${work_dir}/image.img"
-    if ! xz -dc "$image_file" > "$raw_image" 2>&1; then
+    if ! xz -dcT0 "$image_file" > "$raw_image" 2>&1; then
         rm -rf "$work_dir"
         die "Failed to decompress image"
     fi
@@ -237,6 +243,12 @@ write_image_to_slot() {
         die "Failed to mount image boot partition"
     }
 
+    # Unmount target boot partition if mounted (e.g., by desktop automounter)
+    if mountpoint -q "$boot_partition" 2>/dev/null || mount | grep -q "$boot_partition"; then
+        log_message "Unmounting $boot_partition (was auto-mounted)..."
+        umount "$boot_partition" 2>> "$LOG_FILE" || true
+    fi
+
     # Format and mount target boot partition
     mkfs.vfat -F 32 -n "boot-${target_slot,,}" "$boot_partition" >> "$LOG_FILE" 2>&1 || {
         umount "$img_boot_mount"
@@ -252,14 +264,14 @@ write_image_to_slot() {
         die "Failed to mount target boot partition"
     }
 
-    # Copy all boot files
-    cp -a "$img_boot_mount"/* "$tgt_boot_mount"/ 2>&1 | tee -a "$LOG_FILE" || {
+    # Copy all boot files (quietly, log only on error)
+    if ! cp -a "$img_boot_mount"/* "$tgt_boot_mount"/ 2>> "$LOG_FILE"; then
         umount "$tgt_boot_mount"
         umount "$img_boot_mount"
         losetup -d "$loop_dev"
         rm -rf "$work_dir"
         die "Failed to copy boot files"
-    }
+    fi
 
     # Update cmdline.txt for the target slot
     log_message "Updating cmdline.txt for Slot $target_slot..."
@@ -285,11 +297,18 @@ write_image_to_slot() {
     umount "$img_boot_mount"
     log_message "Boot files copied successfully"
 
+    # Unmount target system partition if mounted
+    if mountpoint -q "$system_partition" 2>/dev/null || mount | grep -q "$system_partition"; then
+        log_message "Unmounting $system_partition (was mounted)..."
+        umount "$system_partition" 2>> "$LOG_FILE" || true
+    fi
+
     # Write rootfs to system partition
     log_message "Writing rootfs to $system_partition..."
     log_message "This may take 10-20 minutes..."
 
-    if dd if="$img_root" of="$system_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
+    # Suppress progress output (floods logs when not on a terminal)
+    if dd if="$img_root" of="$system_partition" bs=4M status=none 2>> "$LOG_FILE"; then
         log_message "Rootfs written successfully"
     else
         losetup -d "$loop_dev"
@@ -360,7 +379,10 @@ configure_tryboot() {
         die "Slot manager not found: $SLOT_MANAGER"
     fi
 
-    "$SLOT_MANAGER" switch-to "$target_slot" 2>&1 | tee -a "$LOG_FILE" || die "Failed to configure tryboot"
+    # Run slot manager - output goes to terminal, errors to log
+    if ! "$SLOT_MANAGER" switch-to "$target_slot" 2>> "$LOG_FILE"; then
+        die "Failed to configure tryboot"
+    fi
 
     log_message "Tryboot configured for Slot $target_slot"
 }
