@@ -424,16 +424,17 @@ configure_tryboot() {
 }
 
 reboot_system() {
-    # Reboot the system to activate the new slot
+    # Reboot the system to activate the new slot with tryboot
     log_message "Rebooting system to activate new slot..."
-    log_message "System will boot into Slot ${TARGET_SLOT}"
+    log_message "System will boot into Slot ${TARGET_SLOT} (tryboot mode)"
 
     sync
 
     # Give a few seconds for logs to flush
     sleep 2
 
-    reboot
+    # Use tryboot to enable automatic rollback if health check fails
+    reboot '0 tryboot'
 }
 
 # ============================================================================
