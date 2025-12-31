@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T14:16:40Z",
+  "generated": "2025-12-31T14:17:02Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-demojson228-2025-12-31-145514",
-      "name": "rasqberry-dev-demojson228-2025-12-31-145514",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2025-12-31-145514/rasqberry-dev-demojson228-2025-12-31-145514.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demojson228-2025-12-31-145514",
-      "release_date": "2025-12-31 14:55",
-      "image_download_size": 1990948404,
+      "tag": "development-2025-12-31-113832",
+      "name": "rasqberry-development-2025-12-31-113832",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-31-113832/rasqberry-development-2025-12-31-113832.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-31-113832",
+      "release_date": "2025-12-31 11:38",
+      "image_download_size": 1989503604,
       "extract_size": 8841592832,
-      "extract_sha256": "9ad9e4c92daa6a7977d05aa8ed86ce45c47923ee5c72999376b7862a476396b5",
+      "extract_sha256": "f31ebb1cdb7e2d0972e8da41292164e7825be1e385f36b39e8bde194636b7bc6",
       "highlights": [
-        "skip cache restore for main/beta to ensure fresh builds",
-        "add 10s delay to Chrome autostart for NTP time sync",
-        "add 10s delay to Chrome autostart for NTP time sync",
-        "create status_var before _init_mmap in virtual GUI",
-        "improve Docker setup, keyboard toggle, and Jupyter ports"
+        "improve Download All Demos with retry logic and better UX"
       ]
     }
   }

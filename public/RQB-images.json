@@ -42,6 +42,22 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
+          "name": "RasQberry Two Dev (dev-demojson228 2025-12-31-145514)",
+          "description": "Development build from dev-demojson228",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2025-12-31-145514/rasqberry-dev-demojson228-2025-12-31-145514.img.xz",
+          "extract_size": 8841592832,
+          "extract_sha256": "9ad9e4c92daa6a7977d05aa8ed86ce45c47923ee5c72999376b7862a476396b5",
+          "image_download_size": 1990948404,
+          "release_date": "2025-12-31 14:55",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-ab01 2025-12-31-145049)",
           "description": "Development build from dev-ab01",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -96,6 +112,22 @@
       "description": "Images with A/B partition support for safer updates (experimental)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
+        {
+          "name": "RasQberry Two A/B (dev-demojson228 2025-12-31-145514)",
+          "description": "A/B boot image from dev-demojson228",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2025-12-31-145514/rasqberry-dev-demojson228-2025-12-31-145514-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "c3a29546abe4d645f970bea511a201d76e41a5159162f7289d545fb4993ae811",
+          "image_download_size": 2027608108,
+          "release_date": "2025-12-31 14:55",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
         {
           "name": "RasQberry Two A/B (dev-ab01 2025-12-31-145049)",
           "description": "A/B boot image from dev-ab01",
