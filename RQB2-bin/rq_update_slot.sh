@@ -45,6 +45,12 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE"
 }
 
+is_terminal() {
+    # Check if stdout is connected to a terminal
+    # Returns 0 (true) if terminal, 1 (false) otherwise
+    [ -t 1 ]
+}
+
 get_target_slot() {
     # Determine which slot to write to
     # Default: Slot B (testing slot)
@@ -113,16 +119,30 @@ download_image() {
     log_message "Downloading image from: $url"
     log_message "Saving to: $output_file"
 
-    # Use wget or curl - quiet mode, progress output floods logs when not on a terminal
+    # Use wget or curl - show progress bar when in terminal, quiet otherwise
     if command -v wget >/dev/null 2>&1; then
-        # -nv: non-verbose (shows start/end only, no progress dots)
-        if ! wget -nv -O "$output_file" "$url" 2>> "$LOG_FILE"; then
-            die "Download failed"
+        if is_terminal; then
+            # Show progress bar in terminal
+            if ! wget --progress=bar:force -O "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        else
+            # Non-verbose for non-terminal (logs, systemd)
+            if ! wget -nv -O "$output_file" "$url" 2>> "$LOG_FILE"; then
+                die "Download failed"
+            fi
         fi
     elif command -v curl >/dev/null 2>&1; then
-        # -s: silent, -S: show errors, -L: follow redirects
-        if ! curl -sSL -o "$output_file" "$url" 2>> "$LOG_FILE"; then
-            die "Download failed"
+        if is_terminal; then
+            # Show progress bar in terminal
+            if ! curl -L --progress-bar -o "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        else
+            # Silent for non-terminal
+            if ! curl -sSL -o "$output_file" "$url" 2>> "$LOG_FILE"; then
+                die "Download failed"
+            fi
         fi
     else
         die "Neither wget nor curl found"
@@ -172,9 +192,18 @@ write_image_to_slot() {
     # Decompress image (use all CPU cores with -T0 for faster decompression)
     log_message "Decompressing image (multi-threaded)..."
     local raw_image="${work_dir}/image.img"
-    if ! xz -dcT0 "$image_file" > "$raw_image" 2>&1; then
-        rm -rf "$work_dir"
-        die "Failed to decompress image"
+    if is_terminal; then
+        # Show progress in terminal (-v for verbose)
+        if ! xz -dcvT0 "$image_file" > "$raw_image" 2>&1 | tee -a "$LOG_FILE"; then
+            rm -rf "$work_dir"
+            die "Failed to decompress image"
+        fi
+    else
+        # Quiet for non-terminal
+        if ! xz -dcT0 "$image_file" > "$raw_image" 2>> "$LOG_FILE"; then
+            rm -rf "$work_dir"
+            die "Failed to decompress image"
+        fi
     fi
     log_message "Decompression complete"
 
@@ -307,14 +336,21 @@ write_image_to_slot() {
     log_message "Writing rootfs to $system_partition..."
     log_message "This may take 10-20 minutes..."
 
-    # Suppress progress output (floods logs when not on a terminal)
-    if dd if="$img_root" of="$system_partition" bs=4M status=none 2>> "$LOG_FILE"; then
-        log_message "Rootfs written successfully"
+    # Show progress when in terminal, quiet otherwise
+    if is_terminal; then
+        if ! dd if="$img_root" of="$system_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
+            losetup -d "$loop_dev"
+            rm -rf "$work_dir"
+            die "Failed to write rootfs to partition"
+        fi
     else
-        losetup -d "$loop_dev"
-        rm -rf "$work_dir"
-        die "Failed to write rootfs to partition"
+        if ! dd if="$img_root" of="$system_partition" bs=4M 2>> "$LOG_FILE"; then
+            losetup -d "$loop_dev"
+            rm -rf "$work_dir"
+            die "Failed to write rootfs to partition"
+        fi
     fi
+    log_message "Rootfs written successfully"
 
     # Release loop device (no longer needed)
     losetup -d "$loop_dev"
