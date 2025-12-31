@@ -389,17 +389,30 @@ do_qoffee_install() {
         return 1
     fi
 
-    # Pull Docker image
+    # Pull Docker image with retry logic (large images can fail on slow connections)
     echo "Pulling Qoffee-Maker Docker image..."
     QOFFEE_IMAGE="ghcr.io/janlahmann/qoffee-maker"
-    if docker pull "$QOFFEE_IMAGE"; then
-        update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
-        echo "✓ Qoffee-Maker setup complete"
-        return 0
-    else
-        echo "ERROR: Failed to pull Qoffee-Maker image"
-        return 1
-    fi
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Pull attempt $RETRY_COUNT of $MAX_RETRIES..."
+        if docker pull "$QOFFEE_IMAGE"; then
+            update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
+            echo "✓ Qoffee-Maker setup complete"
+            return 0
+        else
+            echo "Pull attempt $RETRY_COUNT failed"
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Waiting 10 seconds before retry..."
+                sleep 10
+                # Clean up any partial/corrupted layers
+                docker system prune -f >/dev/null 2>&1 || true
+            fi
+        fi
+    done
+    echo "ERROR: Failed to pull Qoffee-Maker image after $MAX_RETRIES attempts"
+    return 1
 }
 
 # Install Quantum-Mixer for batch install (setup + build image)
@@ -434,16 +447,36 @@ do_quantum_mixer_install() {
     fi
 
     echo "Building Quantum-Mixer Docker image (this may take 10-15 minutes)..."
-    if cd "$MIXER_DIR" && docker build -f Dockerfile.arm64 -t "$MIXER_IMAGE" .; then
-        cd - > /dev/null
-        update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
-        echo "✓ Quantum-Mixer setup complete"
-        return 0
-    else
-        cd - > /dev/null 2>/dev/null
-        echo "ERROR: Failed to build Quantum-Mixer image"
-        return 1
-    fi
+    cd "$MIXER_DIR" || return 1
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Build attempt $RETRY_COUNT of $MAX_RETRIES..."
+        # Use --no-cache on retries to avoid corrupted cached layers
+        if [ $RETRY_COUNT -eq 1 ]; then
+            BUILD_OPTS=""
+        else
+            BUILD_OPTS="--no-cache"
+        fi
+        if docker build $BUILD_OPTS -f Dockerfile.arm64 -t "$MIXER_IMAGE" .; then
+            cd - > /dev/null
+            update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
+            echo "✓ Quantum-Mixer setup complete"
+            return 0
+        else
+            echo "Build attempt $RETRY_COUNT failed"
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Waiting 10 seconds before retry..."
+                sleep 10
+                # Clean up any partial/corrupted layers
+                docker system prune -f >/dev/null 2>&1 || true
+            fi
+        fi
+    done
+    cd - > /dev/null 2>/dev/null
+    echo "ERROR: Failed to build Quantum-Mixer image after $MAX_RETRIES attempts"
+    return 1
 }
 
 # Download all demos at once
@@ -1201,6 +1234,7 @@ do_select_qrt_option() {
 do_quantum_demo_menu() {
   while true; do
     FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
+       DALL ">> Download All Demos (optional one-time setup)" \
        LED  "Test LEDs" \
        QLO  "Quantum-Lights-Out Demo" \
        QRT  "Quantum Raspberry-Tie" \
@@ -1214,7 +1248,6 @@ do_quantum_demo_menu() {
        IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
-       DALL "Download All Demos" \
        LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
