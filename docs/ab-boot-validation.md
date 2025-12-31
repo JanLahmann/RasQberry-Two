@@ -61,9 +61,9 @@ This avoids issues where running `switch-to` and `reboot` as separate SSH comman
 | `/boot/config/autoboot.txt` | Boot partition switching with tryboot_a_b=1 |
 | `/boot/config/config.txt` | **Must be non-empty** for Pi 5 bootloader |
 | `/boot/config/slot-confirmed` | Confirmation marker (timestamp) |
-| `/usr/local/bin/rq_slot_manager.sh` | Slot management commands |
-| `/usr/local/bin/rq_update_slot.sh` | Image update to inactive slot |
-| `/usr/local/bin/rq_health_check.py` | Boot validation service |
+| `/usr/bin/rq_slot_manager.sh` | Slot management commands |
+| `/usr/bin/rq_update_slot.sh` | Image update to inactive slot |
+| `/usr/bin/rq_health_check.py` | Boot validation service |
 
 ---
 

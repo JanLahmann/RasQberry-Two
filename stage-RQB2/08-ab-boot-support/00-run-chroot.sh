@@ -36,13 +36,14 @@ if [ ! -f "${CLONE_DIR}/RQB2-bin/rq_health_check.py" ]; then
     exit 1
 fi
 
-# Copy A/B boot scripts to /usr/local/bin
-echo "=> Installing A/B boot scripts to /usr/local/bin"
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_health_check.py" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_slot_manager.sh" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_common.sh" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_poller.py" /usr/local/bin/
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rq_update_slot.sh" /usr/local/bin/
+# Note: Scripts are already installed to /usr/bin by stage 01-deploy-files
+# Just verify they exist
+echo "=> Verifying A/B boot scripts in /usr/bin"
+for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_poller.py rq_update_slot.sh; do
+    if [ ! -f "/usr/bin/$script" ]; then
+        echo "Warning: /usr/bin/$script not found"
+    fi
+done
 
 # Note: systemd service files are already installed by 00-run.sh
 

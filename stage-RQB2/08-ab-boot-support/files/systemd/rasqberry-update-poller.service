@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/rq_update_poller.py
+ExecStart=/usr/bin/rq_update_poller.py
 TimeoutSec=120
 StandardOutput=journal
 StandardError=journal

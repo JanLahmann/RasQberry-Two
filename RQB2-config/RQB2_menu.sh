@@ -1614,9 +1614,9 @@ do_slot_manager_menu() {
     while true; do
         # Get current status for menu display
         local current_slot
-        current_slot=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
+        current_slot=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
         local slot_status
-        slot_status=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
+        slot_status=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
 
         FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
             STATUS   "Show detailed slot status" \
@@ -1630,19 +1630,19 @@ do_slot_manager_menu() {
         case "$FUN" in
             STATUS)
                 local status_output
-                status_output=$(/usr/local/bin/rq_slot_manager.sh status 2>&1)
+                status_output=$(/usr/bin/rq_slot_manager.sh status 2>&1)
                 whiptail --title "A/B Boot Status" --msgbox "$status_output" 20 70
                 ;;
             CONFIRM)
                 local confirm_output
-                confirm_output=$(/usr/local/bin/rq_slot_manager.sh confirm 2>&1)
+                confirm_output=$(/usr/bin/rq_slot_manager.sh confirm 2>&1)
                 whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
                 ;;
             SWITCH_A)
                 if whiptail --title "Switch to Slot A" --yesno \
                     "This will configure the system to boot from Slot A on next reboot.\n\nContinue?" 10 60; then
                     local switch_output
-                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to A 2>&1)
+                    switch_output=$(/usr/bin/rq_slot_manager.sh switch-to A 2>&1)
                     whiptail --title "Switch to Slot A" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
                 fi
                 ;;
@@ -1650,7 +1650,7 @@ do_slot_manager_menu() {
                 if whiptail --title "Switch to Slot B" --yesno \
                     "This will configure the system to boot from Slot B on next reboot.\n\nNote: Slot B must have a valid system image installed.\n\nContinue?" 12 60; then
                     local switch_output
-                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to B 2>&1)
+                    switch_output=$(/usr/bin/rq_slot_manager.sh switch-to B 2>&1)
                     whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
                 fi
                 ;;
@@ -1687,7 +1687,7 @@ do_slot_manager_menu() {
                 if whiptail --title "Force Rollback" --yesno \
                     "This will force a rollback to the other slot.\n\nUse this if the current slot is having problems.\n\nContinue?" 12 60; then
                     local rollback_output
-                    rollback_output=$(/usr/local/bin/rq_slot_manager.sh rollback 2>&1)
+                    rollback_output=$(/usr/bin/rq_slot_manager.sh rollback 2>&1)
                     whiptail --title "Rollback" --msgbox "$rollback_output\n\nReboot required for changes to take effect." 14 60
                 fi
                 ;;
@@ -1697,7 +1697,7 @@ do_slot_manager_menu() {
                     whiptail --title "Promoting Slot B" --infobox \
                         "Promoting Slot B to Slot A...\n\nThis may take several minutes." 8 50
                     local promote_output
-                    promote_output=$(/usr/local/bin/rq_slot_manager.sh promote 2>&1)
+                    promote_output=$(/usr/bin/rq_slot_manager.sh promote 2>&1)
                     whiptail --title "Promote Result" --msgbox "$promote_output" 16 70
                 fi
                 ;;
