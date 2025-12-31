@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T00:18:04Z",
+  "generated": "2025-12-31T09:30:30Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,14 +27,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-install-2025-12-31-005340",
-      "name": "rasqberry-dev-install-2025-12-31-005340",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-install-2025-12-31-005340/rasqberry-dev-install-2025-12-31-005340.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-install-2025-12-31-005340",
-      "release_date": "2025-12-31 00:53",
-      "image_download_size": 1991086060,
+      "tag": "dev-install-2025-12-31-100911",
+      "name": "rasqberry-dev-install-2025-12-31-100911",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-install-2025-12-31-100911/rasqberry-dev-install-2025-12-31-100911.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-install-2025-12-31-100911",
+      "release_date": "2025-12-31 10:09",
+      "image_download_size": 1989614192,
       "extract_size": 8841592832,
-      "extract_sha256": "5aff01a9dd120be99c185d57a1bd60dcf89464cf2d3209ac75d3587b5ca247df"
+      "extract_sha256": "c3b0995e9b767c0bc9ef2eff29985d8fc88d844ad2c9e5101b875ceb8fd5525f",
+      "highlights": [
+        "improve Download All Demos with retry logic and better UX"
+      ]
     }
   }
 }
