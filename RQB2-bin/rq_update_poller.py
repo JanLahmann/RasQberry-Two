@@ -39,7 +39,7 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_REPO = "JanLahmann/RasQberry-Two"
 TARGET_BRANCH_PATTERN = "dev"  # Matches dev*, dev-remote01, dev-JRL-features02, etc.
 STATE_FILE = Path("/var/lib/rasqberry-update-poller/state.json")
-UPDATE_SCRIPT = Path("/usr/local/bin/rq_update_slot.sh")
+UPDATE_SCRIPT = Path("/usr/bin/rq_update_slot.sh")
 CHECK_INTERVAL_SECONDS = 30  # How often this script runs (via systemd timer)
 
 class UpdatePoller:

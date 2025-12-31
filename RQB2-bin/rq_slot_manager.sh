@@ -583,7 +583,7 @@ EOF
     info "Tag: $release_tag"
 
     # Call rq_update_slot.sh with --slot A --confirm
-    local update_script="/usr/local/bin/rq_update_slot.sh"
+    local update_script="/usr/bin/rq_update_slot.sh"
 
     if [ ! -x "$update_script" ]; then
         die "Update script not found: $update_script"

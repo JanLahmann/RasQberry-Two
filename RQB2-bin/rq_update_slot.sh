@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration
 DOWNLOAD_DIR="/var/tmp/rasqberry-updates"
-SLOT_MANAGER="/usr/local/bin/rq_slot_manager.sh"
+SLOT_MANAGER="/usr/bin/rq_slot_manager.sh"
 LOG_FILE="/var/log/rasqberry-update-slot.log"
 DEFAULT_TARGET_SLOT="B"  # Always update Slot B by default
 STABLE_SLOT="A"          # Slot A is the stable/protected slot

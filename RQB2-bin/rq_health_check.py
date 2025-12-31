@@ -194,7 +194,7 @@ def confirm_boot_slot() -> bool:
 
     logger.info("A/B boot system detected")
 
-    slot_manager = Path('/usr/local/bin/rq_slot_manager.sh')
+    slot_manager = Path('/usr/bin/rq_slot_manager.sh')
 
     if not slot_manager.exists():
         logger.warning("Slot manager not found, cannot confirm slot")
