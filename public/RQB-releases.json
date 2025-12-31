@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T08:18:31Z",
+  "generated": "2025-12-31T08:18:53Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,14 +27,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2025-12-31-085436",
-      "name": "rasqberry-dev-ab01-2025-12-31-085436",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-085436/rasqberry-dev-ab01-2025-12-31-085436.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-085436",
-      "release_date": "2025-12-31 08:54",
-      "image_download_size": 1990074232,
+      "tag": "development-2025-12-31-005032",
+      "name": "rasqberry-development-2025-12-31-005032",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-31-005032/rasqberry-development-2025-12-31-005032.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-31-005032",
+      "release_date": "2025-12-31 00:50",
+      "image_download_size": 1989923668,
       "extract_size": 8841592832,
-      "extract_sha256": "2f290ad42ec85d20b22e65cd59ab04eb31d5029548e1944247b2a01c444a9770"
+      "extract_sha256": "53c34b39d29eb4e66623cff6e59ef2c6be86ee9463528e011008807eda5cdd24",
+      "highlights": [
+        "add \"Download All Demos\" menu option (#239)"
+      ]
     }
   }
 }
