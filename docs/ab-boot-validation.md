@@ -5,10 +5,23 @@
 ### Test Results
 | Test | Result | Notes |
 |------|--------|-------|
+| Partition expansion (119GB SD) | ✅ PASS | 52GB/52GB/11GB for A/B/data |
+| Populate Slot B via rq_update_slot.sh | ✅ PASS | 6.6GB image written successfully |
 | Switch A→B with tryboot | ✅ PASS | Booted to Slot B successfully |
-| Health check on Slot B | ✅ PASS | Qiskit 2.2.3 detected, auto-confirmed |
+| Health check + auto-confirm on Slot B | ✅ PASS | Slot confirmed automatically |
 | Switch B→A with tryboot | ✅ PASS | Returned to Slot A successfully |
-| Health check on Slot A | ✅ PASS | Auto-confirmed |
+| Health check + auto-confirm on Slot A | ✅ PASS | Slot confirmed automatically |
+
+---
+
+## Improvements Made
+
+### `--reboot` flag for switch-to command
+Added `--reboot` flag to `rq_slot_manager.sh switch-to` command to combine configuration and reboot into a single reliable command:
+```bash
+sudo rq_slot_manager.sh switch-to B --reboot
+```
+This avoids issues where running `switch-to` and `reboot` as separate SSH commands could fail if the connection is interrupted between commands.
 
 ---
 
@@ -54,6 +67,34 @@
 
 ---
 
+## Partition Expansion (Required for 64GB+ SD Cards)
+
+The AB boot image uses a two-step process:
+
+### Step 1: Build Time (convert-to-ab-boot-v3.sh)
+Creates a small ~12GB image with placeholder partitions:
+- p5 (SYSTEM-A): 10GB - contains the rootfs
+- p6 (SYSTEM-B): 16MB - placeholder
+- p7 (DATA): 16MB - placeholder
+
+This keeps the downloadable image small and fast to flash.
+
+### Step 2: Runtime Expansion (raspi-config)
+After booting on a 64GB+ SD card, expand partitions via:
+```bash
+sudo raspi-config → 0 RasQberry → AB_BOOT → EXPAND
+```
+
+This runs `do_expand_ab_partitions()` which:
+1. Expands p4 (extended) to fill the SD card
+2. Resizes p5 (SYSTEM-A) to 45% of available space
+3. Recreates p6 (SYSTEM-B) at 45% of available space
+4. Recreates p7 (DATA) at 10% of available space
+
+**Note**: Expansion must be done before using `rq_update_slot.sh` to populate Slot B, as the 16MB placeholder cannot hold an 8GB+ rootfs image.
+
+---
+
 ## Quick Reference
 
 ```bash
@@ -61,8 +102,10 @@
 sudo rq_slot_manager.sh status
 
 # Switch to other slot (with rollback protection)
-sudo rq_slot_manager.sh switch-to B  # or A
-sudo reboot '0 tryboot'
+sudo rq_slot_manager.sh switch-to B --reboot  # or A
+# Or separately:
+# sudo rq_slot_manager.sh switch-to B
+# sudo reboot '0 tryboot'
 
 # Confirm current slot
 sudo rq_slot_manager.sh confirm

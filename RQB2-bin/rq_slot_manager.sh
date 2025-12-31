@@ -218,6 +218,26 @@ cmd_status() {
     info "  Slot A: $(get_slot_partition A)"
     info "  Slot B: $(get_slot_partition B)"
 
+    # Partition sizes
+    echo ""
+    info "Partition Sizes:"
+    local size_a size_b size_data
+    size_a=$(lsblk -bno SIZE /dev/mmcblk0p5 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_b=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_data=$(lsblk -bno SIZE /dev/mmcblk0p7 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    info "  SYSTEM-A (p5): ${size_a}"
+    info "  SYSTEM-B (p6): ${size_b}"
+    info "  DATA (p7):     ${size_data}"
+
+    # Check if expansion needed (system-b < 1GB indicates placeholder)
+    local size_b_bytes
+    size_b_bytes=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    if [ "${size_b_bytes:-0}" -lt 1073741824 ]; then
+        echo ""
+        warn "⚠ Partitions need expansion! Run: sudo raspi-config → RasQberry → AB_BOOT → EXPAND"
+        warn "  Or: sudo $(basename "$0") expand"
+    fi
+
     # Boot files
     echo ""
     info "Boot Configuration Files:"
@@ -305,19 +325,28 @@ cmd_switch_to() {
     # If health check fails, normal reboot falls back to [all] section (confirmed slot)
     check_root
 
-    local target_slot="$1"
+    local target_slot=""
+    local do_reboot=false
+
+    # Parse arguments
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            A|B)
+                target_slot="$1"
+                ;;
+            --reboot)
+                do_reboot=true
+                ;;
+            *)
+                die "Invalid argument: $1"
+                ;;
+        esac
+        shift
+    done
 
     if [ -z "$target_slot" ]; then
-        die "Usage: $0 switch-to {A|B}"
+        die "Usage: $0 switch-to {A|B} [--reboot]"
     fi
-
-    case "$target_slot" in
-        A|B)
-            ;;
-        *)
-            die "Invalid slot: $target_slot (must be A or B)"
-            ;;
-    esac
 
     local current_slot
     current_slot=$(get_current_slot)
@@ -364,12 +393,21 @@ EOF
 
     info "Slot ${target_slot} configured for tryboot"
     info "Current slot (${current_slot}) remains default until new slot is confirmed"
-    info ""
-    info "To switch now with automatic rollback protection:"
-    info "  sudo reboot '0 tryboot'"
-    info ""
-    info "Or for direct switch (no tryboot rollback):"
-    info "  sudo reboot"
+
+    if [ "$do_reboot" = true ]; then
+        info ""
+        info "Rebooting with tryboot flag..."
+        sync
+        sleep 1
+        reboot '0 tryboot'
+    else
+        info ""
+        info "To switch now with automatic rollback protection:"
+        info "  sudo reboot '0 tryboot'"
+        info ""
+        info "Or for direct switch (no tryboot rollback):"
+        info "  sudo reboot"
+    fi
 }
 
 cmd_rollback() {
@@ -567,7 +605,7 @@ Strategy: Slot A = STABLE (protected), Slot B = TESTING (auto-updates)
 Commands:
     status                          Show current slot and boot status
     confirm                         Confirm current slot (prevent rollback)
-    switch-to {A|B}                 Boot specific slot on next reboot
+    switch-to {A|B} [--reboot]      Boot specific slot on next reboot
     switch                          Switch to other slot (deprecated)
     rollback                        Force rollback to other slot
     promote                         Promote Slot B (tested) → Slot A (stable)
@@ -582,6 +620,10 @@ Examples:
 
     # Switch to specific slot for testing
     sudo $(basename "$0") switch-to B
+    sudo reboot '0 tryboot'
+
+    # Switch and reboot in one command
+    sudo $(basename "$0") switch-to B --reboot
 
     # Promote tested Slot B to become new stable Slot A
     sudo $(basename "$0") promote
