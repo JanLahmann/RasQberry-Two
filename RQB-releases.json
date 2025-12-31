@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T14:13:56Z",
+  "generated": "2025-12-31T16:55:22Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2025-12-31-145049",
-      "name": "rasqberry-dev-ab01-2025-12-31-145049",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-145049/rasqberry-dev-ab01-2025-12-31-145049.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-145049",
-      "release_date": "2025-12-31 14:50",
-      "image_download_size": 1969953100,
+      "tag": "dev-ab01-2025-12-31-173429",
+      "name": "rasqberry-dev-ab01-2025-12-31-173429",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-173429/rasqberry-dev-ab01-2025-12-31-173429.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-173429",
+      "release_date": "2025-12-31 17:34",
+      "image_download_size": 1970374616,
       "extract_size": 8841592832,
-      "extract_sha256": "a02eac6b12456d8b67518d0a7b5183854aca885db76d1ae3447d1217c80afa28",
+      "extract_sha256": "77ec6a5f75df986af8debdb8edd5de8bd5c3c5702b7e568f8bf3bacb0fd9b33a",
       "highlights": [
-        "update AB boot validation with all fixes applied"
+        "reliable tryboot reboot from raspi-config menu"
       ]
     }
   }
