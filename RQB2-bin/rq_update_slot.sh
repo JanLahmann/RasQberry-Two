@@ -405,8 +405,9 @@ cleanup_download() {
     fi
 }
 
-configure_tryboot() {
-    # Configure tryboot to boot into the specified slot
+configure_and_reboot() {
+    # Configure tryboot and reboot to the specified slot
+    # Uses --reboot flag for atomic operation
     local target_slot="$1"
 
     log_message "Configuring tryboot to boot Slot $target_slot..."
@@ -415,26 +416,13 @@ configure_tryboot() {
         die "Slot manager not found: $SLOT_MANAGER"
     fi
 
-    # Run slot manager - output goes to terminal, errors to log
-    if ! "$SLOT_MANAGER" switch-to "$target_slot" 2>> "$LOG_FILE"; then
-        die "Failed to configure tryboot"
-    fi
-
-    log_message "Tryboot configured for Slot $target_slot"
-}
-
-reboot_system() {
-    # Reboot the system to activate the new slot with tryboot
-    log_message "Rebooting system to activate new slot..."
-    log_message "System will boot into Slot ${TARGET_SLOT} (tryboot mode)"
+    log_message "Rebooting to Slot $target_slot (tryboot mode)..."
 
     sync
-
-    # Give a few seconds for logs to flush
     sleep 2
 
-    # Use tryboot to enable automatic rollback if health check fails
-    reboot '0 tryboot'
+    # Use exec + --reboot for reliable atomic switch-and-reboot
+    exec "$SLOT_MANAGER" switch-to "$target_slot" --reboot 2>> "$LOG_FILE"
 }
 
 # ============================================================================
@@ -574,15 +562,12 @@ EOF
     # Cleanup
     cleanup_download "$image_file"
 
-    # Configure tryboot to boot the new slot
-    configure_tryboot "$TARGET_SLOT"
-
-    # Reboot
+    # Configure tryboot and reboot to the new slot
     log_message "=== Update Complete ==="
     log_message "Rebooting in 5 seconds..."
     sleep 5
 
-    reboot_system
+    configure_and_reboot "$TARGET_SLOT"
 }
 
 main "$@"

@@ -1619,13 +1619,13 @@ do_slot_manager_menu() {
         slot_status=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
 
         FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
-            STATUS   "Show detailed slot status" \
-            CONFIRM  "Confirm current slot (prevent rollback)" \
-            SWITCH_A "Switch to Slot A on next reboot" \
-            SWITCH_B "Switch to Slot B on next reboot" \
-            UPDATE   "Update Slot B with new image" \
-            ROLLBACK "Force rollback to other slot" \
-            PROMOTE  "Promote Slot B to Slot A") || break
+            STATUS    "Show detailed slot status" \
+            CONFIRM   "Confirm current slot (prevent rollback)" \
+            TRYBOOT_A "Switch to Slot A and reboot now" \
+            TRYBOOT_B "Switch to Slot B and reboot now" \
+            UPDATE    "Update Slot B with new image" \
+            ROLLBACK  "Force rollback to other slot" \
+            PROMOTE   "Promote Slot B to Slot A") || break
 
         case "$FUN" in
             STATUS)
@@ -1638,20 +1638,20 @@ do_slot_manager_menu() {
                 confirm_output=$(/usr/bin/rq_slot_manager.sh confirm 2>&1)
                 whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
                 ;;
-            SWITCH_A)
+            TRYBOOT_A)
                 if whiptail --title "Switch to Slot A" --yesno \
-                    "This will configure the system to boot from Slot A on next reboot.\n\nContinue?" 10 60; then
-                    local switch_output
-                    switch_output=$(/usr/bin/rq_slot_manager.sh switch-to A 2>&1)
-                    whiptail --title "Switch to Slot A" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                    "This will switch to Slot A and reboot immediately.\n\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 12 60; then
+                    whiptail --title "Switching to Slot A" --infobox \
+                        "Configuring tryboot and rebooting to Slot A..." 6 50
+                    exec /usr/bin/rq_slot_manager.sh switch-to A --reboot
                 fi
                 ;;
-            SWITCH_B)
+            TRYBOOT_B)
                 if whiptail --title "Switch to Slot B" --yesno \
-                    "This will configure the system to boot from Slot B on next reboot.\n\nNote: Slot B must have a valid system image installed.\n\nContinue?" 12 60; then
-                    local switch_output
-                    switch_output=$(/usr/bin/rq_slot_manager.sh switch-to B 2>&1)
-                    whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                    "This will switch to Slot B and reboot immediately.\n\nNote: Slot B must have a valid system image installed.\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 14 60; then
+                    whiptail --title "Switching to Slot B" --infobox \
+                        "Configuring tryboot and rebooting to Slot B..." 6 50
+                    exec /usr/bin/rq_slot_manager.sh switch-to B --reboot
                 fi
                 ;;
             UPDATE)
@@ -1680,7 +1680,8 @@ do_slot_manager_menu() {
                     whiptail --title "Updating Slot B" --infobox \
                         "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
 
-                    /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+                    # Use exec to ensure clean reboot after update
+                    exec /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
                 fi
                 ;;
             ROLLBACK)
