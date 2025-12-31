@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T10:02:53Z",
+  "generated": "2025-12-31T12:28:05Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,17 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2025-12-31-104134",
-      "name": "rasqberry-dev-ab01-2025-12-31-104134",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-104134/rasqberry-dev-ab01-2025-12-31-104134.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-104134",
-      "release_date": "2025-12-31 10:41",
-      "image_download_size": 1969795896,
+      "tag": "dev-ab01-2025-12-31-130722",
+      "name": "rasqberry-dev-ab01-2025-12-31-130722",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-130722/rasqberry-dev-ab01-2025-12-31-130722.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-130722",
+      "release_date": "2025-12-31 13:07",
+      "image_download_size": 1971630056,
       "extract_size": 8841592832,
-      "extract_sha256": "fdaf7b324596b9ee093949ee88560f79537475934cd637a8801636e2490c6981",
+      "extract_sha256": "e34c1cbadb31b7e954d8ffaa64cbde008734c2ef6978c2036719dfe4affd9b56",
       "highlights": [
-        "reduce update script output and enable parallel xz decompression",
-        "cleanup obsolete script and minor fixes"
+        "standardize script paths to /usr/bin",
+        "use /usr/bin instead of /usr/local/bin for script paths",
+        "add AB boot validation results",
+        "add terminal-aware progress indicators to rq_update_slot.sh",
+        "add --reboot flag to switch-to command and show partition sizes"
       ]
     }
   }
