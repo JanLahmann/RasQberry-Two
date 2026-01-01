@@ -1,5 +1,5 @@
 {
-  "generated": "2026-01-01T12:54:57Z",
+  "generated": "2026-01-01T16:31:27Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,14 +27,14 @@
       ]
     },
     "dev": {
-      "tag": "dev-demojson228-2026-01-01-133314",
-      "name": "rasqberry-dev-demojson228-2026-01-01-133314",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2026-01-01-133314/rasqberry-dev-demojson228-2026-01-01-133314.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demojson228-2026-01-01-133314",
-      "release_date": "2026-01-01 13:33",
-      "image_download_size": 1989617704,
+      "tag": "dev-demojson228-2026-01-01-170643",
+      "name": "rasqberry-dev-demojson228-2026-01-01-170643",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2026-01-01-170643/rasqberry-dev-demojson228-2026-01-01-170643.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demojson228-2026-01-01-170643",
+      "release_date": "2026-01-01 17:06",
+      "image_download_size": 1991640292,
       "extract_size": 8841592832,
-      "extract_sha256": "ec2884288a261eba4c1a9102be239d341680376979d58e273a16e0abfaa47f58"
+      "extract_sha256": "813c272db48081f50684a6893ef63ad1e943a8cf1503cb371a3f9f1ecf7645b2"
     }
   }
 }
