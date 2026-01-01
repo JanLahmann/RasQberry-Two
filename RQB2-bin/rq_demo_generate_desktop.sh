@@ -14,10 +14,19 @@
 set -euo pipefail
 
 # Find script directory and manifest directory
+# When installed: /usr/bin → /usr/config/...
+# When in repo: RQB2-bin → RQB2-config/...
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
-MANIFEST_DIR="$REPO_DIR/RQB2-config/demo-manifests"
-DESKTOP_DIR="$REPO_DIR/RQB2-config/desktop-bookmarks"
+if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+    # Installed system: config is at /usr/config (see issue #246 for global vars)
+    MANIFEST_DIR="/usr/config/demo-manifests"
+    DESKTOP_DIR="/usr/config/desktop-bookmarks"
+else
+    # Development: relative to repo structure
+    REPO_DIR="$(dirname "$SCRIPT_DIR")"
+    MANIFEST_DIR="$REPO_DIR/RQB2-config/demo-manifests"
+    DESKTOP_DIR="$REPO_DIR/RQB2-config/desktop-bookmarks"
+fi
 
 # Check if jq is available
 check_jq() {

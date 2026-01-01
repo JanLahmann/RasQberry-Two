@@ -19,10 +19,19 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Find script directory and manifest directory
+# When installed: /usr/bin → /usr/config/...
+# When in repo: RQB2-bin → RQB2-config/...
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
-MANIFEST_DIR="$REPO_DIR/RQB2-config/demo-manifests"
-PATCHES_DIR="$REPO_DIR/RQB2-config/demo-patches"
+if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+    # Installed system: config is at /usr/config (see issue #246 for global vars)
+    MANIFEST_DIR="/usr/config/demo-manifests"
+    PATCHES_DIR="/usr/config/demo-patches"
+else
+    # Development: relative to repo structure
+    REPO_DIR="$(dirname "$SCRIPT_DIR")"
+    MANIFEST_DIR="$REPO_DIR/RQB2-config/demo-manifests"
+    PATCHES_DIR="$REPO_DIR/RQB2-config/demo-patches"
+fi
 
 # Counters
 TOTAL=0
