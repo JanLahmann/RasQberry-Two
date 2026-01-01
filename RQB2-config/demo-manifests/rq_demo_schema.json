@@ -31,13 +31,12 @@
     },
     "entrypoint": {
       "type": "object",
-      "required": ["type"],
-      "description": "How to launch the demo",
+      "description": "How to launch the demo. Either 'type' or 'launcher' must be specified. If both are present, 'launcher' serves as fallback when the type handler cannot run directly.",
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["python", "script", "jupyter", "docker", "browser"],
-          "description": "Launcher type"
+          "enum": ["python", "jupyter", "docker", "browser"],
+          "description": "Launcher type: jupyter (notebook server), docker (container), browser (URL or local server), python (script). If omitted, 'launcher' is used directly."
         },
         "command": {
           "type": "string",
@@ -58,7 +57,7 @@
         },
         "launcher": {
           "type": "string",
-          "description": "Existing launcher script in RQB2-bin (e.g., rq_quantum_lights_out_auto.sh)"
+          "description": "Existing launcher script in RQB2-bin. Used as primary launcher if no 'type' specified, or as fallback for complex demos that can't be handled by type-specific handlers."
         },
         "jupyter_port": {
           "type": "integer",

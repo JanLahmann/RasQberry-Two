@@ -45,7 +45,7 @@ CHECK_FILES=false
 # Required fields for validation
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
-VALID_ENTRYPOINT_TYPES='["python", "script", "jupyter", "docker", "browser"]'
+VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser"]'
 VALID_DISPLAY_VALUES='["none", "optional", "required"]'
 VALID_TOKEN_VALUES='["none", "prefer", "required"]'
 
@@ -114,6 +114,8 @@ validate_manifest() {
     category=$(jq -r '.category // ""' "$file")
     local entrypoint_type
     entrypoint_type=$(jq -r '.entrypoint.type // ""' "$file")
+    local launcher
+    launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
     local display
     display=$(jq -r '.needs_hw.display // "none"' "$file")
     local token
@@ -142,14 +144,22 @@ validate_manifest() {
         print_pass "Valid category: $category"
     fi
 
-    # Validate entrypoint type
-    if [ -n "$entrypoint_type" ]; then
-        if ! echo "$VALID_ENTRYPOINT_TYPES" | jq -e "index(\"$entrypoint_type\")" > /dev/null 2>&1; then
-            print_fail "Invalid entrypoint type: $entrypoint_type"
+    # Validate entrypoint: either type or launcher must be specified
+    if [ -z "$entrypoint_type" ] && [ -z "$launcher" ]; then
+        print_fail "entrypoint must have either 'type' or 'launcher'"
+        errors=$((errors + 1))
+    elif [ -n "$entrypoint_type" ]; then
+        # Accept "script" as legacy type (still works, not documented)
+        if [ "$entrypoint_type" = "script" ]; then
+            print_pass "Valid entrypoint type: $entrypoint_type (legacy, uses launcher)"
+        elif ! echo "$VALID_ENTRYPOINT_TYPES" | jq -e "index(\"$entrypoint_type\")" > /dev/null 2>&1; then
+            print_fail "Invalid entrypoint type: $entrypoint_type (valid: python, jupyter, docker, browser)"
             errors=$((errors + 1))
         else
             print_pass "Valid entrypoint type: $entrypoint_type"
         fi
+    else
+        print_pass "Using launcher fallback: $launcher"
     fi
 
     # Validate display value
