@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-31T16:55:22Z",
+  "generated": "2026-01-01T11:37:23Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,17 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2025-12-31-173429",
-      "name": "rasqberry-dev-ab01-2025-12-31-173429",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2025-12-31-173429/rasqberry-dev-ab01-2025-12-31-173429.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2025-12-31-173429",
-      "release_date": "2025-12-31 17:34",
-      "image_download_size": 1970374616,
+      "tag": "dev-ab01-2026-01-01-120950",
+      "name": "rasqberry-dev-ab01-2026-01-01-120950",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-120950/rasqberry-dev-ab01-2026-01-01-120950.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-01-01-120950",
+      "release_date": "2026-01-01 12:09",
+      "image_download_size": 1970067544,
       "extract_size": 8841592832,
-      "extract_sha256": "77ec6a5f75df986af8debdb8edd5de8bd5c3c5702b7e568f8bf3bacb0fd9b33a",
+      "extract_sha256": "88e30d219ec786166ec8bcad06dfc486334e16466426997803862528acd30721",
       "highlights": [
-        "reliable tryboot reboot from raspi-config menu"
+        "separate UPDATE and TRYBOOT to avoid reboot issues after heavy I/O",
+        "add raspi-config menu fix to validation doc"
       ]
     }
   }
