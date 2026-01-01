@@ -42,14 +42,14 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-ab01 2026-01-01-150231)",
+          "name": "RasQberry Two Dev (dev-ab01 2026-01-01-160443)",
           "description": "Development build from dev-ab01",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-150231/rasqberry-dev-ab01-2026-01-01-150231.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-160443/rasqberry-dev-ab01-2026-01-01-160443.img.xz",
           "extract_size": 8841592832,
-          "extract_sha256": "d0f23e891fc46d39846700ec8751fde6e33f1f5b78665f4421e1566be0c8a9fd",
-          "image_download_size": 1971018268,
-          "release_date": "2026-01-01 15:02",
+          "extract_sha256": "5aea320adfa5e48943bdf4cd2919760255e90520de154fc603d54865ed435dce",
+          "image_download_size": 1971146188,
+          "release_date": "2026-01-01 16:04",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
@@ -113,14 +113,14 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-ab01 2026-01-01-150231)",
+          "name": "RasQberry Two A/B (dev-ab01 2026-01-01-160443)",
           "description": "A/B boot image from dev-ab01",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-150231/rasqberry-dev-ab01-2026-01-01-150231-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-160443/rasqberry-dev-ab01-2026-01-01-160443-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "fc7c5610058b31cbde165bef9fc182b59b519c821a05c246f82a89778a9813de",
-          "image_download_size": 2010194496,
-          "release_date": "2026-01-01 15:02",
+          "extract_sha256": "216e185773bd8b5540286ab0fa0249fc10293ce4f9508c975d38057325eb8d78",
+          "image_download_size": 2009543760,
+          "release_date": "2026-01-01 16:04",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
