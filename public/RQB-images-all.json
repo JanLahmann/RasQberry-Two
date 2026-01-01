@@ -1,8 +1,48 @@
 {
-  "generated": "2026-01-01T11:37:46Z",
+  "generated": "2026-01-01T12:55:29Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 31,
+  "count": 33,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2026-01-01-133314/rasqberry-dev-demojson228-2026-01-01-133314.img.xz",
+      "extract_size": 8841592832,
+      "extract_sha256": "ec2884288a261eba4c1a9102be239d341680376979d58e273a16e0abfaa47f58",
+      "image_download_size": 1989617704,
+      "release_date": "2026-01-01 13:33",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-demojson228-2026-01-01-133314",
+      "_branch": "dev-demojson228",
+      "_published": "2026-01-01T12:33:45Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demojson228-2026-01-01-133314/rasqberry-dev-demojson228-2026-01-01-133314-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "b10bbbd749253ddba7412bf39789f371320962f3e6985cea8727a51de4261c49",
+      "image_download_size": 2028946992,
+      "release_date": "2026-01-01 13:33",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-demojson228-2026-01-01-133314",
+      "_branch": "dev-demojson228",
+      "_published": "2026-01-01T12:33:45Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
