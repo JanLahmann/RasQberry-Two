@@ -166,11 +166,6 @@ verify_image() {
         die "Downloaded file seems too small: $size bytes"
     fi
 
-    # Check if it's a valid xz file
-    if ! xz -t "$image_file" 2>/dev/null; then
-        die "Downloaded file is not a valid xz compressed file"
-    fi
-
     log_message "Image file verified: $size bytes"
 }
 

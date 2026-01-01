@@ -398,23 +398,36 @@ EOF
         info ""
         info "Rebooting with tryboot flag..."
 
+        # Stop automounter to prevent re-mounting during reboot
+        systemctl stop udisks2 2>/dev/null && info "Stopped udisks2" || true
+
         # Unmount target slot partitions - automounter may have mounted them
         # which can interfere with tryboot on Pi 5
         if [ "$target_slot" = "B" ]; then
-            umount /dev/mmcblk0p3 2>/dev/null || true  # boot-b
-            umount /dev/mmcblk0p6 2>/dev/null || true  # SYSTEM-B
+            umount /dev/mmcblk0p3 2>/dev/null && info "Unmounted boot-b" || true
+            umount /dev/mmcblk0p6 2>/dev/null && info "Unmounted SYSTEM-B" || true
         else
-            umount /dev/mmcblk0p2 2>/dev/null || true  # BOOT-A
-            umount /dev/mmcblk0p5 2>/dev/null || true  # SYSTEM-A
+            umount /dev/mmcblk0p2 2>/dev/null && info "Unmounted BOOT-A" || true
+            umount /dev/mmcblk0p5 2>/dev/null && info "Unmounted SYSTEM-A" || true
         fi
 
+        # Verify unmount succeeded
+        if mount | grep -qE "mmcblk0p[36].*$target_slot" 2>/dev/null; then
+            warn "Warning: target slot partitions may still be mounted"
+        fi
+
+        # Flush all buffers and drop caches - critical after partition writes
+        info "Flushing buffers and caches..."
         sync
-        sleep 2
+        blockdev --flushbufs /dev/mmcblk0 2>/dev/null || true
+        echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+        sync
+        sleep 5
         reboot '0 tryboot'
     else
         info ""
-        info "To boot into the new slot, use: AB_BOOT -> TRYBOOT_${target_slot}"
-        info "If reboot returns to same slot, retry TRYBOOT_${target_slot}"
+        info "To boot into Slot ${target_slot}, use: raspi-config -> RasQberry -> AB_BOOT -> TRYBOOT_${target_slot}"
+        info "Note: After UPDATE, you may need to reboot first, then use TRYBOOT_${target_slot} again."
     fi
 }
 
