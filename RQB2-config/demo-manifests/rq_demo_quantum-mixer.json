@@ -1,6 +1,6 @@
 {
   "id": "quantum-mixer",
-  "name": "Quantum Mixer",
+  "name": "Quantum-Mixer",
   "category": "visualization",
   "description": "Interactive quantum circuit builder and simulator (Docker container)",
   "keywords": ["quantum", "mixer", "circuit", "builder", "docker", "web"],
@@ -28,8 +28,8 @@
   "timeout": 0,
 
   "icon": {
-    "type": "system",
-    "path": "applications-science"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/QoffeeMug_vector-s.png"
   },
 
   "menu": {

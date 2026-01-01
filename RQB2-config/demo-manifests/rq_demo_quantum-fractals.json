@@ -24,8 +24,8 @@
   "timeout": 0,
 
   "icon": {
-    "type": "system",
-    "path": "applications-graphics"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/quantum_raspberry_tie_icon.svg"
   },
 
   "menu": {

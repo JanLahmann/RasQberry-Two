@@ -29,8 +29,8 @@
   "timeout": 60,
 
   "icon": {
-    "type": "system",
-    "path": "applications-science"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/sensehat-icon.png"
   },
 
   "menu": {

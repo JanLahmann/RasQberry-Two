@@ -90,7 +90,7 @@ validate_manifest() {
     # Check JSON syntax
     if ! jq empty "$file" 2>/dev/null; then
         print_fail "Invalid JSON syntax"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         return 1
     fi
     print_pass "Valid JSON syntax"
@@ -99,7 +99,7 @@ validate_manifest() {
     for field in id name category description entrypoint; do
         if ! jq -e ".$field" "$file" > /dev/null 2>&1; then
             print_fail "Missing required field: $field"
-            ((errors++))
+            errors=$((errors + 1))
         fi
     done
 
@@ -123,7 +123,7 @@ validate_manifest() {
     local expected_filename="rq_demo_${id}.json"
     if [ "$filename" != "$expected_filename" ]; then
         print_fail "ID '$id' doesn't match filename (expected: $expected_filename)"
-        ((errors++))
+        errors=$((errors + 1))
     else
         print_pass "ID matches filename"
     fi
@@ -131,13 +131,13 @@ validate_manifest() {
     # Validate ID format (lowercase, hyphens only)
     if ! echo "$id" | grep -qE '^[a-z0-9-]+$'; then
         print_fail "ID must be lowercase alphanumeric with hyphens only: $id"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Validate category
     if ! echo "$VALID_CATEGORIES" | jq -e "index(\"$category\")" > /dev/null 2>&1; then
         print_fail "Invalid category: $category (valid: game, visualization, education, jupyter, led-demo, tool)"
-        ((errors++))
+        errors=$((errors + 1))
     else
         print_pass "Valid category: $category"
     fi
@@ -146,7 +146,7 @@ validate_manifest() {
     if [ -n "$entrypoint_type" ]; then
         if ! echo "$VALID_ENTRYPOINT_TYPES" | jq -e "index(\"$entrypoint_type\")" > /dev/null 2>&1; then
             print_fail "Invalid entrypoint type: $entrypoint_type"
-            ((errors++))
+            errors=$((errors + 1))
         else
             print_pass "Valid entrypoint type: $entrypoint_type"
         fi
@@ -155,13 +155,13 @@ validate_manifest() {
     # Validate display value
     if ! echo "$VALID_DISPLAY_VALUES" | jq -e "index(\"$display\")" > /dev/null 2>&1; then
         print_fail "Invalid display value: $display (valid: none, optional, required)"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Validate token value
     if ! echo "$VALID_TOKEN_VALUES" | jq -e "index(\"$token\")" > /dev/null 2>&1; then
         print_fail "Invalid needs_ibm_token value: $token (valid: none, prefer, required)"
-        ((errors++))
+        errors=$((errors + 1))
     fi
 
     # Check for duplicate IDs (will be checked globally)
@@ -176,7 +176,7 @@ validate_manifest() {
                 print_pass "Patch file exists: $patch_file"
             else
                 print_warn "Patch file not found: $patch_file"
-                ((warnings++))
+                warnings=$((warnings + 1))
             fi
         fi
 
@@ -188,7 +188,7 @@ validate_manifest() {
                 print_pass "Launcher script exists: $launcher"
             else
                 print_warn "Launcher script not found: $launcher"
-                ((warnings++))
+                warnings=$((warnings + 1))
             fi
         fi
     fi
@@ -196,16 +196,16 @@ validate_manifest() {
     # Summary for this file
     if [ $errors -gt 0 ]; then
         print_fail "Validation failed with $errors error(s)"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         return 1
     else
         if [ $warnings -gt 0 ]; then
             print_pass "Validation passed with $warnings warning(s)"
-            ((WARNINGS += warnings))
+            WARNINGS=$((WARNINGS + warnings))
         else
             print_pass "Validation passed"
         fi
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
         return 0
     fi
 }
@@ -278,13 +278,13 @@ main() {
 
     # Validate each file
     for file in "${files[@]}"; do
-        ((TOTAL++))
+        TOTAL=$((TOTAL + 1))
         validate_manifest "$file" || true
     done
 
     # Check for duplicates if validating all
     if [ ${#files[@]} -gt 1 ]; then
-        check_duplicate_ids || ((FAILED++))
+        check_duplicate_ids || FAILED=$((FAILED + 1))
     fi
 
     # Final summary

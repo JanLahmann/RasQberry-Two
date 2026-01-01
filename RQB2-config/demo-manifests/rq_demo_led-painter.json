@@ -1,6 +1,6 @@
 {
   "id": "led-painter",
-  "name": "LED Painter",
+  "name": "LED-Painter",
   "category": "tool",
   "description": "Paint and draw on the LED matrix using a graphical interface",
   "keywords": ["led", "paint", "draw", "art", "matrix", "gui"],

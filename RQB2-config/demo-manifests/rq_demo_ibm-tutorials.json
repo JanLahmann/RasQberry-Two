@@ -9,7 +9,7 @@
     "type": "jupyter",
     "working_dir": "ibm-quantum-learning/tutorials",
     "jupyter_port": 8889,
-    "launcher": "rq_ibm_tutorials.sh"
+    "launcher": "rq_ibm_tutorials_auto.sh"
   },
 
   "install": {
@@ -28,8 +28,8 @@
   "timeout": 0,
 
   "icon": {
-    "type": "system",
-    "path": "applications-education"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
   },
 
   "menu": {

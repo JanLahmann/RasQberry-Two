@@ -9,7 +9,7 @@
     "type": "jupyter",
     "working_dir": "fun-with-quantum",
     "jupyter_port": 8888,
-    "launcher": "rq_fun_with_quantum.sh"
+    "launcher": "rq_fun_with_quantum_auto.sh"
   },
 
   "install": {
@@ -28,8 +28,8 @@
   "timeout": 0,
 
   "icon": {
-    "type": "system",
-    "path": "applications-education"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/Coin-115-0-0-Kante.png"
   },
 
   "menu": {

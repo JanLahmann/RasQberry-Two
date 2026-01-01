@@ -1,6 +1,6 @@
 {
   "id": "grok-bloch",
-  "name": "Grok Bloch",
+  "name": "Grokking the Bloch Sphere",
   "category": "visualization",
   "description": "Interactive Bloch sphere visualization for understanding qubit states",
   "keywords": ["quantum", "bloch", "sphere", "visualization", "qubit", "state"],
@@ -8,7 +8,7 @@
   "entrypoint": {
     "type": "browser",
     "working_dir": "grok-bloch",
-    "launcher": "rq_grok_bloch.sh"
+    "launcher": "rq_grok_bloch_auto.sh"
   },
 
   "install": {
@@ -27,8 +27,8 @@
   "timeout": 0,
 
   "icon": {
-    "type": "system",
-    "path": "applications-education"
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/orbit-pi.png"
   },
 
   "menu": {
@@ -47,7 +47,7 @@
       "name": "Local (offline)",
       "entrypoint": {
         "type": "browser",
-        "launcher": "rq_grok_bloch.sh"
+        "launcher": "rq_grok_bloch_auto.sh"
       }
     },
     {

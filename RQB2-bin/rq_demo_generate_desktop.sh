@@ -107,12 +107,13 @@ NoDisplay=false
 EOF
 }
 
-# Get all manifests with desktop.show=true
+# Get all manifests with desktop.show=true (or missing/null, which defaults to true)
 get_desktop_manifests() {
     find "$MANIFEST_DIR" -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | \
     while IFS= read -r -d '' file; do
         local show
-        show=$(jq -r '.desktop.show // true' "$file" 2>/dev/null)
+        # Note: // is alternative operator which treats false as falsy, so use explicit null check
+        show=$(jq -r 'if .desktop.show == null then true else .desktop.show end' "$file" 2>/dev/null)
         if [ "$show" = "true" ]; then
             echo "$file"
         fi
@@ -136,19 +137,19 @@ generate_all() {
             # Write to file
             if generate_desktop_entry "$file" > "$output_dir/$filename" 2>/dev/null; then
                 echo "Generated: $filename"
-                ((count++))
+                count=$((count + 1))
             else
                 rm -f "$output_dir/$filename"
-                ((skipped++))
+                skipped=$((skipped + 1))
             fi
         else
             # Write to stdout
             echo "=== $filename ==="
             if ! generate_desktop_entry "$file" 2>/dev/null; then
                 echo "# (skipped - no launcher)"
-                ((skipped++))
+                skipped=$((skipped + 1))
             else
-                ((count++))
+                count=$((count + 1))
             fi
             echo ""
         fi
@@ -186,11 +187,11 @@ diff_desktop_files() {
                 echo ""
                 echo "DIFFERS: $filename"
                 diff -u "$existing" "$generated" || true
-                ((differences++))
+                differences=$((differences + 1))
             fi
         else
             echo "NEW (not in existing): $filename"
-            ((missing_in_existing++))
+            missing_in_existing=$((missing_in_existing + 1))
         fi
     done
 
@@ -203,7 +204,7 @@ diff_desktop_files() {
 
         if [ ! -f "$generated" ]; then
             echo "EXTRA (not from manifest): $filename"
-            ((missing_in_generated++))
+            missing_in_generated=$((missing_in_generated + 1))
         fi
     done
 
