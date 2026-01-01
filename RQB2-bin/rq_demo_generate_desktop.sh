@@ -37,6 +37,21 @@ check_jq() {
     fi
 }
 
+# Sanitize name for use as filename
+# - Convert to lowercase
+# - Replace spaces with hyphens
+# - Remove special characters (keep only alphanumeric and hyphens)
+# - Collapse multiple hyphens
+sanitize_name() {
+    local name="$1"
+    echo "$name" | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed 's/ /-/g' | \
+        sed 's/[^a-z0-9-]//g' | \
+        sed 's/--*/-/g' | \
+        sed 's/^-//; s/-$//'
+}
+
 # Generate a single .desktop file content
 # Arguments: $1 = manifest file path
 generate_desktop_entry() {
@@ -136,9 +151,10 @@ generate_all() {
     while read -r file; do
         [ -z "$file" ] && continue
 
-        local id
-        id=$(jq -r '.id' "$file")
-        local filename="${id}.desktop"
+        local name
+        name=$(jq -r '.name' "$file")
+        local filename
+        filename="$(sanitize_name "$name").desktop"
 
         if [ -n "$output_dir" ]; then
             # Write to file
