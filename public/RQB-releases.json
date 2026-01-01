@@ -1,5 +1,5 @@
 {
-  "generated": "2026-01-01T12:55:29Z",
+  "generated": "2026-01-01T14:24:03Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "development-2025-12-31-113832",
-      "name": "rasqberry-development-2025-12-31-113832",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-31-113832/rasqberry-development-2025-12-31-113832.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-31-113832",
-      "release_date": "2025-12-31 11:38",
-      "image_download_size": 1989503604,
+      "tag": "dev-ab01-2026-01-01-150231",
+      "name": "rasqberry-dev-ab01-2026-01-01-150231",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-150231/rasqberry-dev-ab01-2026-01-01-150231.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-01-01-150231",
+      "release_date": "2026-01-01 15:02",
+      "image_download_size": 1971018268,
       "extract_size": 8841592832,
-      "extract_sha256": "f31ebb1cdb7e2d0972e8da41292164e7825be1e385f36b39e8bde194636b7bc6",
+      "extract_sha256": "d0f23e891fc46d39846700ec8751fde6e33f1f5b78665f4421e1566be0c8a9fd",
       "highlights": [
-        "improve Download All Demos with retry logic and better UX"
+        "unmount target slot partitions before tryboot reboot"
       ]
     }
   }
