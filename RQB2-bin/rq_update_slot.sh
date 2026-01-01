@@ -360,6 +360,11 @@ write_image_to_slot() {
     e2fsck -f -y "$system_partition" >> "$LOG_FILE" 2>&1 || true
     resize2fs "$system_partition" >> "$LOG_FILE" 2>&1 || warn "Could not resize filesystem"
 
+    # Set correct label for the target slot
+    local system_label="SYSTEM-${target_slot}"
+    log_message "Setting filesystem label to ${system_label}..."
+    e2label "$system_partition" "$system_label" >> "$LOG_FILE" 2>&1 || warn "Could not set filesystem label"
+
     # Mount and update fstab
     log_message "Updating fstab for Slot $target_slot..."
     local tgt_root_mount="${work_dir}/tgt_root"
@@ -417,16 +422,10 @@ configure_tryboot() {
 
     # Wait for I/O to settle
     sync
-    sync
-    sync
     sleep 5
 
-    # Configure the slot (without reboot)
-    "$SLOT_MANAGER" switch-to "$target_slot"
-
-    log_message "Tryboot configured for Slot $target_slot"
-    log_message "To boot into the new slot, use: AB_BOOT -> TRYBOOT_$target_slot"
-    log_message "If reboot returns to same slot, retry TRYBOOT_$target_slot"
+    # Configure and reboot via slot manager (handles unmounting)
+    exec "$SLOT_MANAGER" switch-to "$target_slot" --reboot
 }
 
 # ============================================================================

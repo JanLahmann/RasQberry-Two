@@ -397,12 +397,18 @@ EOF
     if [ "$do_reboot" = true ]; then
         info ""
         info "Rebooting with tryboot flag..."
-        # Aggressive cache flush - required after heavy I/O (dd, wget)
-        # Without this, tryboot flag may not be set properly on Pi 5
+
+        # Unmount target slot partitions - automounter may have mounted them
+        # which can interfere with tryboot on Pi 5
+        if [ "$target_slot" = "B" ]; then
+            umount /dev/mmcblk0p3 2>/dev/null || true  # boot-b
+            umount /dev/mmcblk0p6 2>/dev/null || true  # SYSTEM-B
+        else
+            umount /dev/mmcblk0p2 2>/dev/null || true  # BOOT-A
+            umount /dev/mmcblk0p5 2>/dev/null || true  # SYSTEM-A
+        fi
+
         sync
-        sync
-        sync
-        echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
         sleep 2
         reboot '0 tryboot'
     else
