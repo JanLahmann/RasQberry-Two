@@ -405,9 +405,8 @@ cleanup_download() {
     fi
 }
 
-configure_and_reboot() {
-    # Configure tryboot and reboot to the specified slot
-    # Uses --reboot flag for atomic operation
+configure_tryboot() {
+    # Configure tryboot to the specified slot (no reboot)
     local target_slot="$1"
 
     log_message "Configuring tryboot to boot Slot $target_slot..."
@@ -416,13 +415,18 @@ configure_and_reboot() {
         die "Slot manager not found: $SLOT_MANAGER"
     fi
 
-    log_message "Rebooting to Slot $target_slot (tryboot mode)..."
-
+    # Wait for I/O to settle
     sync
-    sleep 2
+    sync
+    sync
+    sleep 5
 
-    # Use exec + --reboot for reliable atomic switch-and-reboot
-    exec "$SLOT_MANAGER" switch-to "$target_slot" --reboot 2>> "$LOG_FILE"
+    # Configure the slot (without reboot)
+    "$SLOT_MANAGER" switch-to "$target_slot"
+
+    log_message "Tryboot configured for Slot $target_slot"
+    log_message "To boot into the new slot, use: AB_BOOT -> TRYBOOT_$target_slot"
+    log_message "If reboot returns to same slot, retry TRYBOOT_$target_slot"
 }
 
 # ============================================================================
@@ -562,12 +566,9 @@ EOF
     # Cleanup
     cleanup_download "$image_file"
 
-    # Configure tryboot and reboot to the new slot
+    # Configure tryboot (no automatic reboot)
     log_message "=== Update Complete ==="
-    log_message "Rebooting in 5 seconds..."
-    sleep 5
-
-    configure_and_reboot "$TARGET_SLOT"
+    configure_tryboot "$TARGET_SLOT"
 }
 
 main "$@"

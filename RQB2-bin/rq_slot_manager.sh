@@ -397,16 +397,18 @@ EOF
     if [ "$do_reboot" = true ]; then
         info ""
         info "Rebooting with tryboot flag..."
+        # Aggressive cache flush - required after heavy I/O (dd, wget)
+        # Without this, tryboot flag may not be set properly on Pi 5
         sync
-        sleep 1
+        sync
+        sync
+        echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+        sleep 2
         reboot '0 tryboot'
     else
         info ""
-        info "To switch now with automatic rollback protection:"
-        info "  sudo reboot '0 tryboot'"
-        info ""
-        info "Or for direct switch (no tryboot rollback):"
-        info "  sudo reboot"
+        info "To boot into the new slot, use: AB_BOOT -> TRYBOOT_${target_slot}"
+        info "If reboot returns to same slot, retry TRYBOOT_${target_slot}"
     fi
 }
 

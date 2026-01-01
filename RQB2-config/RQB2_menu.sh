@@ -1675,13 +1675,16 @@ do_slot_manager_menu() {
                 image_name=$(basename "$image_url")
 
                 if whiptail --title "Confirm Update" --yesno \
-                    "This will download and install:\n\nRelease: $release_tag\nImage: $image_name\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
+                    "This will download and install:\n\nRelease: $release_tag\nImage: $image_name\n\nThis will take 10-20 minutes.\n\nContinue?" 16 70; then
 
                     whiptail --title "Updating Slot B" --infobox \
-                        "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
+                        "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes." 8 60
 
-                    # Use exec to ensure clean reboot after update
-                    exec /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+                    # Run update script (configures tryboot but doesn't reboot)
+                    /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+
+                    whiptail --title "Update Complete" --msgbox \
+                        "Slot B updated and configured for tryboot.\n\nTo boot into the new slot:\n  AB_BOOT -> TRYBOOT_B\n\nIf reboot returns to same slot, retry TRYBOOT_B" 14 55
                 fi
                 ;;
             ROLLBACK)
