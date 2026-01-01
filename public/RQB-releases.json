@@ -1,5 +1,5 @@
 {
-  "generated": "2026-01-01T14:24:27Z",
+  "generated": "2026-01-01T15:27:24Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "development-2025-12-31-113832",
-      "name": "rasqberry-development-2025-12-31-113832",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-31-113832/rasqberry-development-2025-12-31-113832.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-31-113832",
-      "release_date": "2025-12-31 11:38",
-      "image_download_size": 1989503604,
+      "tag": "dev-ab01-2026-01-01-160443",
+      "name": "rasqberry-dev-ab01-2026-01-01-160443",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-01-01-160443/rasqberry-dev-ab01-2026-01-01-160443.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-01-01-160443",
+      "release_date": "2026-01-01 16:04",
+      "image_download_size": 1971146188,
       "extract_size": 8841592832,
-      "extract_sha256": "f31ebb1cdb7e2d0972e8da41292164e7825be1e385f36b39e8bde194636b7bc6",
+      "extract_sha256": "5aea320adfa5e48943bdf4cd2919760255e90520de154fc603d54865ed435dce",
       "highlights": [
-        "improve Download All Demos with retry logic and better UX"
+        "improve tryboot reliability on Pi 5"
       ]
     }
   }
