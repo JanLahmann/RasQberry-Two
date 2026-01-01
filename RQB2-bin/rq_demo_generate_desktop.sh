@@ -43,7 +43,7 @@ generate_desktop_entry() {
     local file="$1"
 
     # Read manifest fields
-    local id name description keywords_json icon_type icon_path launcher terminal
+    local id name description keywords_json icon_type icon_path launcher browser_url terminal
 
     id=$(jq -r '.id' "$file")
     name=$(jq -r '.name' "$file")
@@ -52,11 +52,12 @@ generate_desktop_entry() {
     icon_type=$(jq -r '.icon.type // "system"' "$file")
     icon_path=$(jq -r '.icon.path // "applications-other"' "$file")
     launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+    browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
     terminal=$(jq -r '.desktop.terminal // true' "$file")
 
-    # Skip if no launcher defined
-    if [ -z "$launcher" ]; then
-        echo "# Skipped $id: no launcher defined" >&2
+    # Skip if no launcher and no browser_url defined
+    if [ -z "$launcher" ] && [ -z "$browser_url" ]; then
+        echo "# Skipped $id: no launcher or browser_url defined" >&2
         return 1
     fi
 
@@ -85,8 +86,14 @@ generate_desktop_entry() {
     fi
 
     # Build Exec command
-    local exec_cmd="/usr/bin/$launcher"
-    local tryexec="$exec_cmd"
+    local exec_cmd tryexec
+    if [ -n "$launcher" ]; then
+        exec_cmd="/usr/bin/$launcher"
+        tryexec="$exec_cmd"
+    elif [ -n "$browser_url" ]; then
+        exec_cmd="chromium-browser --password-store=basic $browser_url"
+        tryexec="chromium-browser"
+    fi
 
     # Generate the desktop entry
     cat << EOF

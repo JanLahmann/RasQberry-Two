@@ -1,0 +1,41 @@
+{
+  "id": "grok-bloch-web",
+  "name": "Grokking the Bloch Sphere (Web)",
+  "category": "visualization",
+  "description": "Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (online version)",
+  "keywords": ["quantum", "bloch", "sphere", "visualization", "education", "qubit", "web", "online"],
+
+  "entrypoint": {
+    "type": "browser",
+    "browser_url": "https://javafxpert.github.io/grok-bloch/"
+  },
+
+  "install": {
+    "preinstalled": true
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "network": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/orbit-pi.png"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 31
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": false
+  }
+}

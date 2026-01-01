@@ -161,13 +161,14 @@ CACHE_HEADER
     # Use subshell to avoid pipefail issues with read at end of input
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id name launcher
+        local id name launcher browser_url
         id=$(jq -r '.id' "$file")
         name=$(jq -r '.name' "$file")
         launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        # Skip demos without launchers
-        [ -z "$launcher" ] && continue
+        # Skip demos without launchers or browser_url
+        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
 
         # Escape single quotes in name
         name=$(echo "$name" | sed "s/'/'\\\\''/g")
@@ -186,14 +187,19 @@ CACHE_HEADER
 
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id launcher
+        local id launcher browser_url
         id=$(jq -r '.id' "$file")
         launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        # Skip demos without launchers
-        [ -z "$launcher" ] && continue
+        # Skip demos without launchers or browser_url
+        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
 
-        echo "        \"$id\") /usr/bin/$launcher ;;" >> "$cache_file"
+        if [ -n "$launcher" ]; then
+            echo "        \"$id\") /usr/bin/$launcher ;;" >> "$cache_file"
+        elif [ -n "$browser_url" ]; then
+            echo "        \"$id\") chromium-browser --password-store=basic $browser_url ;;" >> "$cache_file"
+        fi
     done) || true
 
     echo "        *) echo \"Unknown demo: \$1\" >&2; return 1 ;;" >> "$cache_file"
@@ -209,13 +215,18 @@ CACHE_HEADER
 
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id launcher
+        local id launcher browser_url
         id=$(jq -r '.id' "$file")
         launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        [ -z "$launcher" ] && continue
+        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
 
-        echo "        \"$id\") echo \"/usr/bin/$launcher\" ;;" >> "$cache_file"
+        if [ -n "$launcher" ]; then
+            echo "        \"$id\") echo \"/usr/bin/$launcher\" ;;" >> "$cache_file"
+        elif [ -n "$browser_url" ]; then
+            echo "        \"$id\") echo \"chromium-browser --password-store=basic $browser_url\" ;;" >> "$cache_file"
+        fi
     done) || true
 
     echo "        *) return 1 ;;" >> "$cache_file"
@@ -223,12 +234,12 @@ CACHE_HEADER
     echo "}" >> "$cache_file"
     echo "" >> "$cache_file"
 
-    # Generate demo count by counting dispatch entries
+    # Generate demo count by counting dispatch entries (launchers and browser entries)
     local count
-    count=$(grep -c '^        "[a-z].*) /usr/bin/' "$cache_file" 2>/dev/null) || count=0
+    count=$(grep -c '^        "[a-z].*) ' "$cache_file" 2>/dev/null) || count=0
 
     echo "" >> "$cache_file"
-    echo "# Total demos with launchers: $count" >> "$cache_file"
+    echo "# Total demos: $count" >> "$cache_file"
     echo "DEMO_COUNT=$count" >> "$cache_file"
 
     echo "Cache written to: $cache_file" >&2
