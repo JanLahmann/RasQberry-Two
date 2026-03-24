@@ -148,11 +148,13 @@ To connect the LED array to the Pi, we will need to use jumper wires to connect 
 
 Now, we need to connect these wires to the Pi’s GPIO on the female end and to the LED panel’s input plug on the male end. I have provided a pinout of the Pi 5’s GPIO below. The three pins we need to connect are circled in their appropriate wire colors.
 
-![Figure 11](/assembly-images/wall_assembly_11.JPG "Figure 11: GPIO Pinout of the Pi 5, with the needed connections circled in the wire color.")
+![Figure 11](/assembly-images/wall_assembly_11_NEW.JPG "Figure 11: GPIO Pinout of the Pi 5, with the needed connections circled in the wire color.")
 
-Connect the Red wire to Pin 2 (5V). Connect the White wire to Pin 6 (GND). Connect the Green wire to Pin 19 (SPI MOSI GPIO 10). Once finished, your wiring should look like this:
+**NOTE:** The wiring diagram for the Raspberry Pi 5 has changed with a new update! If you are using an OS version newer than the Beta version released on December 30, 2025 (2025-12-30), please follow the instructions below. If you are running an older OS version, refer to the wiring diagram found [here](/assembly-images/wall_assembly_11.JPG).
 
-![Figure 12](/assembly-images/wall_assembly_12.JPG "Figure 12: Wiring the Raspberry Pi.")
+Connect the Red wire to Pin 2 (5V). Connect the White wire to Pin 6 (GND). Connect the Green wire to Pin 12 (GPIO 18 | CLK | PCM). Once finished, your wiring should look like this:
+
+![Figure 12](/assembly-images/wall_assembly_12_NEW.JPG "Figure 12: Wiring the Raspberry Pi.")
 
 Now we need to connect the male ends to the LED panel. The male end has a bit of exposed wire, this can be carefully slotted into the input plug to achieve a connection:
 
