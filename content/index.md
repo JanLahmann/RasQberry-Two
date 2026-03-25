@@ -2,7 +2,7 @@
 leadspace:
   variant: light
   title: RasQberry Two
-  copy: "<span class=\"text-gradient\">The RasQberry project</span>: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or:  <span class=\"text-gradient\">Building a Functional Model of a Quantum Computer at Home</span>"
+  copy: "Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or:  <span class=\"text-gradient\">Building a Functional Model of a Quantum Computer at Home</span>"
   size: tall
   cta:
     primary:
@@ -17,8 +17,6 @@ leadspace:
 ---
 
 RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit, a Raspberry Pi and a 3D printed model of IBM Q System Two to explore various state-of-the-art technologies and create a tool that can be used for education and in meetings, meetups, demo booths, etc. A spectrum of Quantum Computing demos and Serious Games for Quantum Computing (that illustrate e.g. superposition, interference and entanglement) will be made available on the RasQberry platform for an engaging introduction to Quantum Computing.
-
-> **Legal Notice**: RasQberry is an independent educational project and is not affiliated with, endorsed by, or sponsored by IBM Corporation. IBM, IBM Quantum, Qiskit, and IBM Quantum System Two are trademarks of International Business Machines Corporation. This project creates an educational tool inspired by IBM's quantum computing systems for teaching purposes.
 
 **Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
@@ -36,50 +34,57 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
     </video>
     <p className="media-caption">Demo video showing RasQberry Two beta with quantum computing demos</p>
   </div>
+  <div className="media-item">
+    <a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank" title="Click for slow-motion version (4s per frame)">
+      <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" />
+    </a>
+    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualization, quantum games, circuit composer, and fractal animations (<a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank">slow-motion version</a>)</p>
+  </div>
 </div>
 
+## Stay Updated
 
-## Quick Installation
+Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
 
-Get started with RasQberry Two in three easy steps:
+Subscribe to our [newsletter](/newsletter) for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
 
-1. **Download** a RasQberry image from [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases) (beta phase)
-2. **Write** the image to an SD card using Raspberry Pi Imager (no customizations needed)
-3. **Boot** your Raspberry Pi 5 and explore quantum computing demos
+## Getting Started
 
-### Simplified Installation with Custom Pi Imager
+### Option 1: Download Page
 
-For an even easier experience, use our pre-configured Pi Imager launcher that automatically loads RasQberry images:
+Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, and development builds.
 
-**On macOS**, you can install a convenient Desktop launcher (one-line command):
+After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
 
-```bash
-curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
-```
+### Option 2: Run Pi Imager with RasQberry Repository
 
-This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon that opens Pi Imager with RasQberry images pre-loaded. You can then move it to Applications or your Dock.
+Run Pi Imager with our custom repository to see all RasQberry images directly in the imager:
 
-Alternatively, run Pi Imager with a custom repository manually in a terminal:
-
+**macOS:**
 ```bash
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 ```
 
-**On Windows**, you can install a convenient Desktop shortcut (one-line command):
+**Windows:**
+```bash
+"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
+```
 
-Open PowerShell as Administrator and run:
+### Option 3: Pi Imager Desktop Launcher (Recommended)
 
+Install a pre-configured Pi Imager launcher that automatically loads RasQberry images:
+
+**macOS** (one-line command):
+```bash
+curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
+```
+
+**Windows** (PowerShell as Administrator):
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
 ```
 
-This creates a "Pi Imager for RasQberry" shortcut on your Desktop with the RasQberry icon. You can then pin it to Start Menu or Taskbar.
-
-Alternatively, run Pi Imager manually in a command prompt:
-
-```bash
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
-```
+This creates a "Pi Imager for RasQberry" launcher on your Desktop.
 
 ### First Boot Setup
 
@@ -92,11 +97,11 @@ Once your RasQberry Two is running:
 2. **Explore Demos** through the menu system:
    - Run `sudo raspi-config` and select the first menu item
    - Or use desktop icons to launch demos directly
-   - Note: Most demos require LED strips connected to GPIO pin 21
+   - Note: Most demos require LED strips connected to GPIO pin 18
 
 3. **Report Issues** at [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues)
 
-> **Beta Note**: Additional features, demos, and improvements are continuously being added to [beta releases](https://github.com/JanLahmann/RasQberry-Two/releases).
+> **Note**: Additional features, demos, and improvements are continuously being added. Check [/latest/](/latest/) for the newest releases.
 
 
 ## Working with Qiskit
@@ -129,3 +134,18 @@ STL files for the 3D-printed model are available in the [3D-model branch](https:
 </div>
 
 For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/hardware-assembly-guide).
+
+## Contributing
+
+RasQberry is an open-source educational project. We welcome contributions:
+
+1. **Test & report issues** - Try RasQberry and [report bugs](https://github.com/JanLahmann/RasQberry-Two/issues)
+2. **Share ideas & feature requests** - Open a [GitHub Discussion](https://github.com/JanLahmann/RasQberry-Two/discussions) or [issue](https://github.com/JanLahmann/RasQberry-Two/issues)
+3. **Improve documentation** - Fix typos or add troubleshooting tips using the "Edit this page on GitHub" link on each page
+4. **Create quantum demos** - Build new interactive demonstrations
+
+**Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
+
+## Need Help?
+
+Try our [AI-powered documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) to ask questions about RasQberry setup, demos, and troubleshooting (login with your Google ID required). <a href="https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344" target="_blank"><img src="/Artwork/notebooklm-icon.svg" alt="NotebookLM" width="20" height="20" style={{verticalAlign: 'middle'}} /></a>

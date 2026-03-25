@@ -1,0 +1,76 @@
+# Workflow to check for broken external links in markdown source files
+# See: https://github.com/JanLahmann/RasQberry-Two/issues/191
+#
+# Note: Internal links are checked by the post-deployment job in nextjs.yml
+# This workflow focuses on external links and runs on schedule to catch
+# external sites that go down over time.
+#
+name: Check External Links
+
+on:
+  # Run weekly on Sunday at midnight UTC
+  schedule:
+    - cron: '0 0 * * 0'
+
+  # Run on PRs that modify content files
+  pull_request:
+    paths:
+      - 'content/**/*.md'
+      - '*.md'
+
+  # Allow manual triggering
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check External Links
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Check only external links (skip relative/internal links)
+          args: >-
+            --verbose
+            --no-progress
+            --accept 200,204,301,302,403,429
+            --exclude 'localhost'
+            --exclude '127\.0\.0\.1'
+            --exclude 'example\.com'
+            --exclude '^\.\.?/'
+            --exclude '^[a-zA-Z0-9_-]+$'
+            --exclude '^[a-zA-Z0-9_/-]+$'
+            --timeout 30
+            --max-retries 3
+            --retry-wait-time 5
+            './content/**/*.md'
+            './*.md'
+          fail: false
+          format: markdown
+          output: ./lychee-report.md
+
+      - name: Upload link check report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: external-link-check-report
+          path: ./lychee-report.md
+          retention-days: 30
+
+      - name: Create or update issue for broken links
+        if: steps.lychee.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Broken links detected on rasqberry.org"
+          content-filepath: ./lychee-report.md
+          labels: |
+            documentation
+            automated
+          assignees: JanLahmann
