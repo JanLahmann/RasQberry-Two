@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-21T09:14:45Z",
+  "generated": "2026-06-21T16:32:37Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -36,7 +36,7 @@
       "extract_size": 8841592832,
       "extract_sha256": "f31ebb1cdb7e2d0972e8da41292164e7825be1e385f36b39e8bde194636b7bc6",
       "highlights": [
-        "improve Download All Demos with retry logic and better UX"
+        "Development build - see release notes for details"
       ]
     }
   }
