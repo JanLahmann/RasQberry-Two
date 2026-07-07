@@ -28,6 +28,12 @@ export default function RootLayout({
         {children}
         <Footer />
         <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="97f347ac-e7ba-4be3-b26f-ab4b328bdbf2"
+          data-domains="rasqberry.org"
+        />
+        <Script
           id="sender-net"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
