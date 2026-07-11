@@ -377,8 +377,24 @@ EOF
         sync
         blockdev --flushbufs "/dev/$(ab_boot_device)" 2>/dev/null || true
         echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-        sync
-        sleep 5
+
+        # Wait until writeback has fully drained: a tryboot reboot issued
+        # while the kernel is still flushing loses the tryboot flag and the
+        # system boots the default slot instead (reproduced on Pi 4 and
+        # Pi 5 directly after writing a full image to SD).
+        info "Waiting for disk writeback to settle..."
+        local settle_deadline=$((SECONDS + 300)) dirty_kb=0 wb_kb=0
+        while [ "$SECONDS" -lt "$settle_deadline" ]; do
+            sync
+            dirty_kb=$(awk '/^Dirty:/ {print $2}' /proc/meminfo)
+            wb_kb=$(awk '/^Writeback:/ {print $2}' /proc/meminfo)
+            if [ $((dirty_kb + wb_kb)) -lt 4096 ]; then
+                break
+            fi
+            sleep 2
+        done
+        info "Writeback settled (Dirty=${dirty_kb}kB Writeback=${wb_kb}kB)"
+        sleep 2
         reboot '0 tryboot'
     else
         info ""
