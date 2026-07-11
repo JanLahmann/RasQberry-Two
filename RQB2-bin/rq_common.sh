@@ -641,6 +641,62 @@ install_demo_raspiconfig() {
 }
 
 # ============================================================================
+# A/B BOOT PARTITION HELPERS
+# ============================================================================
+# Single source of truth for slot -> device resolution (issue #229).
+# Resolves by partition label first (works on SD, NVMe and USB boot),
+# falling back to partition-number naming on the boot device.
+
+ab_boot_device() {
+    # Print the parent block device of the running root fs (e.g. mmcblk0, sda)
+    lsblk -no pkname "$(findmnt / -o source -n)"
+}
+
+ab_partition_by_number() {
+    # Print partition device <n> of the boot device, handling both
+    # mmcblk0p<n> and sda<n> naming
+    local num="$1" dev
+    dev=$(ab_boot_device)
+    if [ -b "/dev/${dev}p${num}" ]; then
+        echo "/dev/${dev}p${num}"
+    else
+        echo "/dev/${dev}${num}"
+    fi
+}
+
+ab_partition_by_label() {
+    # Print the partition device with the given label (case-insensitive),
+    # searching only the device the system booted from. Empty if not found.
+    local label="$1" dev
+    dev=$(ab_boot_device)
+    lsblk -lnpo NAME,LABEL "/dev/${dev}" 2>/dev/null \
+        | awk -v want="$(echo "$label" | tr '[:lower:]' '[:upper:]')" \
+          'toupper($2) == want { print $1; exit }'
+}
+
+get_ab_system_partition() {
+    # System (root) partition for slot A or B. Label first, number fallback
+    # (v3 layout: p5=SYSTEM-A, p6=SYSTEM-B).
+    local slot="$1" part
+    case "$slot" in
+        A) part=$(ab_partition_by_label "SYSTEM-A"); echo "${part:-$(ab_partition_by_number 5)}" ;;
+        B) part=$(ab_partition_by_label "SYSTEM-B"); echo "${part:-$(ab_partition_by_number 6)}" ;;
+        *) return 1 ;;
+    esac
+}
+
+get_ab_boot_partition() {
+    # Boot (firmware) partition for slot A or B. Label first, number fallback
+    # (v3 layout: p2=BOOT-A, p3=boot-b).
+    local slot="$1" part
+    case "$slot" in
+        A) part=$(ab_partition_by_label "BOOT-A"); echo "${part:-$(ab_partition_by_number 2)}" ;;
+        B) part=$(ab_partition_by_label "BOOT-B"); echo "${part:-$(ab_partition_by_number 3)}" ;;
+        *) return 1 ;;
+    esac
+}
+
+# ============================================================================
 # INITIALIZATION
 # ============================================================================
 

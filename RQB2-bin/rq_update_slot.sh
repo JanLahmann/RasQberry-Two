@@ -67,48 +67,65 @@ get_target_slot() {
     esac
 }
 
-get_slot_partition() {
-    # Get the system partition device for a slot
-    # v3 AB layout: p5=system-a, p6=system-b
-    local slot="$1"
-    local root_part
-    root_part=$(findmnt / -o source -n)
-    local root_dev
-    root_dev=$(lsblk -no pkname "$root_part")
+# Slot -> partition resolution comes from rq_common.sh:
+# get_ab_system_partition / get_ab_boot_partition (label-based, issue #229)
 
-    case "$slot" in
-        A)
-            echo "/dev/${root_dev}p5"
-            ;;
-        B)
-            echo "/dev/${root_dev}p6"
-            ;;
-        *)
-            die "Invalid slot: $slot"
-            ;;
-    esac
+preflight_checks() {
+    # Safety checks before any destructive action
+    local target_slot="$1" system_partition="$2" boot_partition="$3"
+
+    # Never flash the slot we are running from
+    local current_root
+    current_root=$(findmnt / -o source -n)
+    if [ "$current_root" = "$system_partition" ]; then
+        die "Refusing to flash Slot $target_slot: it is the currently booted system ($current_root). Boot the other slot first."
+    fi
+    local current_boot
+    current_boot=$(findmnt /boot/firmware -o source -n 2>/dev/null || echo "")
+    if [ -n "$current_boot" ] && [ "$current_boot" = "$boot_partition" ]; then
+        die "Refusing to flash Slot $target_slot: $boot_partition is the active boot partition."
+    fi
+
+    # Target partition must be expanded (factory Slot B is a 16MB placeholder)
+    local part_size
+    part_size=$(blockdev --getsize64 "$system_partition" 2>/dev/null || echo 0)
+    if [ "$part_size" -lt 4294967296 ]; then  # < 4GB cannot hold any image
+        die "Slot $target_slot partition is too small ($((part_size / 1024 / 1024))MB). Run partition expansion first: raspi-config -> RasQberry -> AB_BOOT -> EXPAND"
+    fi
+
+    # Enough free space to download + decompress in DOWNLOAD_DIR
+    local avail_kb
+    avail_kb=$(df --output=avail "$DOWNLOAD_DIR" | tail -1)
+    if [ "${avail_kb:-0}" -lt 15728640 ]; then  # < 15GB (xz + ~10GB raw image)
+        die "Not enough free space in $DOWNLOAD_DIR ($((avail_kb / 1024 / 1024))GB free, 15GB needed)"
+    fi
 }
 
-get_boot_partition() {
-    # Get the boot partition device for a slot
-    # v3 AB layout: p2=boot-a, p3=boot-b
-    local slot="$1"
-    local root_part
-    root_part=$(findmnt / -o source -n)
-    local root_dev
-    root_dev=$(lsblk -no pkname "$root_part")
+verify_checksum() {
+    # Verify the downloaded image against a SHA256 checksum.
+    # Uses --sha256 argument if given, else tries <url>.sha256 alongside
+    # the image. Skips with a warning if no checksum is available.
+    local image_file="$1" url="$2" expected="${3:-}"
 
-    case "$slot" in
-        A)
-            echo "/dev/${root_dev}p2"
-            ;;
-        B)
-            echo "/dev/${root_dev}p3"
-            ;;
-        *)
-            die "Invalid slot: $slot"
-            ;;
-    esac
+    if [ -z "$expected" ]; then
+        local sum_url="${url}.sha256"
+        expected=$(curl -sSLf --max-time 30 "$sum_url" 2>/dev/null | awk '{print $1}' || true)
+        if [ -z "$expected" ]; then
+            warn "No SHA256 checksum available for this release - skipping verification"
+            log_message "WARNING: image installed without checksum verification"
+            return 0
+        fi
+        log_message "Fetched checksum from $sum_url"
+    fi
+
+    log_message "Verifying SHA256 checksum..."
+    local actual
+    actual=$(sha256sum "$image_file" | awk '{print $1}')
+    if [ "$actual" != "$expected" ]; then
+        rm -f "$image_file"
+        die "Checksum mismatch! expected=$expected actual=$actual - download corrupted or tampered, aborting"
+    fi
+    log_message "Checksum OK: $actual"
 }
 
 download_image() {
@@ -327,6 +344,16 @@ write_image_to_slot() {
         umount "$system_partition" 2>> "$LOG_FILE" || true
     fi
 
+    # The image's root partition must fit into the target partition
+    local img_root_size target_size
+    img_root_size=$(blockdev --getsize64 "$img_root")
+    target_size=$(blockdev --getsize64 "$system_partition")
+    if [ "$img_root_size" -gt "$target_size" ]; then
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Image rootfs ($((img_root_size / 1024 / 1024))MB) does not fit target partition $system_partition ($((target_size / 1024 / 1024))MB)"
+    fi
+
     # Write rootfs to system partition
     log_message "Writing rootfs to $system_partition..."
     log_message "This may take 10-20 minutes..."
@@ -431,6 +458,7 @@ parse_arguments() {
     # Parse command line arguments
     TARGET_SLOT="$DEFAULT_TARGET_SLOT"
     REQUIRE_CONFIRM=false
+    SHA256_SUM=""
 
     # Shift past URL and tag to get to optional parameters
     shift 2
@@ -439,6 +467,10 @@ parse_arguments() {
         case "$1" in
             --slot)
                 TARGET_SLOT="$2"
+                shift 2
+                ;;
+            --sha256)
+                SHA256_SUM="$2"
                 shift 2
                 ;;
             --confirm)
@@ -488,6 +520,7 @@ Arguments:
 
 Options:
   --slot A|B      Target slot (default: B for testing)
+  --sha256 <sum>  Expected SHA256 of the .img.xz (else <url>.sha256 is tried)
   --confirm       Required when updating Slot A (stable)
 
 Slot Strategy:
@@ -525,11 +558,11 @@ EOF
     # Create download directory
     mkdir -p "$DOWNLOAD_DIR"
 
-    # Determine target slot partitions
+    # Determine target slot partitions (shared helpers from rq_common.sh)
     local system_partition
     local boot_partition
-    system_partition=$(get_slot_partition "$TARGET_SLOT")
-    boot_partition=$(get_boot_partition "$TARGET_SLOT")
+    system_partition=$(get_ab_system_partition "$TARGET_SLOT")
+    boot_partition=$(get_ab_boot_partition "$TARGET_SLOT")
     log_message "Target system partition: $system_partition"
     log_message "Target boot partition: $boot_partition"
 
@@ -540,6 +573,9 @@ EOF
     if [ ! -b "$boot_partition" ]; then
         die "Target boot partition does not exist: $boot_partition"
     fi
+
+    # Safety guards: never the booted slot, size and free-space prechecks
+    preflight_checks "$TARGET_SLOT" "$system_partition" "$boot_partition"
 
     # Download image
     local image_file="${DOWNLOAD_DIR}/rasqberry-${release_tag}.img.xz"
@@ -553,6 +589,7 @@ EOF
 
     # Verify download
     verify_image "$image_file"
+    verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
 
     # Write image to target slot (both boot and system partitions)
     write_image_to_slot "$image_file" "$system_partition" "$boot_partition" "$TARGET_SLOT"

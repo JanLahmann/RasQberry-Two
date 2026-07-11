@@ -123,60 +123,15 @@ get_root_partition() {
 }
 
 get_slot_partition() {
-    # Get ROOT partition device for a given slot
-    # V2 layout: p5=Slot A rootfs, p6=Slot B rootfs
+    # Get ROOT partition device for a given slot (shared helper, issue #229)
     local slot="$1"
-    local root_dev
-    root_dev=$(lsblk -no pkname "$(get_root_partition)")
-
-    case "${slot}" in
-        A)
-            # Handle both mmcblk0p5 and sd5 style naming
-            if [ -b "/dev/${root_dev}p5" ]; then
-                echo "/dev/${root_dev}p5"
-            else
-                echo "/dev/${root_dev}5"
-            fi
-            ;;
-        B)
-            if [ -b "/dev/${root_dev}p6" ]; then
-                echo "/dev/${root_dev}p6"
-            else
-                echo "/dev/${root_dev}6"
-            fi
-            ;;
-        *)
-            echo "UNKNOWN"
-            ;;
-    esac
+    get_ab_system_partition "$slot" || echo "UNKNOWN"
 }
 
 get_boot_partition() {
-    # Get BOOT partition device for a given slot
-    # V2 layout: p2=Slot A bootfs, p3=Slot B bootfs
+    # Get BOOT partition device for a given slot (shared helper, issue #229)
     local slot="$1"
-    local root_dev
-    root_dev=$(lsblk -no pkname "$(get_root_partition)")
-
-    case "${slot}" in
-        A)
-            if [ -b "/dev/${root_dev}p2" ]; then
-                echo "/dev/${root_dev}p2"
-            else
-                echo "/dev/${root_dev}2"
-            fi
-            ;;
-        B)
-            if [ -b "/dev/${root_dev}p3" ]; then
-                echo "/dev/${root_dev}p3"
-            else
-                echo "/dev/${root_dev}3"
-            fi
-            ;;
-        *)
-            echo "UNKNOWN"
-            ;;
-    esac
+    get_ab_boot_partition "$slot" || echo "UNKNOWN"
 }
 
 # ============================================================================
@@ -221,17 +176,20 @@ cmd_status() {
     # Partition sizes
     echo ""
     info "Partition Sizes:"
-    local size_a size_b size_data
-    size_a=$(lsblk -bno SIZE /dev/mmcblk0p5 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_b=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_data=$(lsblk -bno SIZE /dev/mmcblk0p7 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    info "  SYSTEM-A (p5): ${size_a}"
-    info "  SYSTEM-B (p6): ${size_b}"
-    info "  DATA (p7):     ${size_data}"
+    local part_a part_b part_data size_a size_b size_data
+    part_a=$(get_slot_partition A)
+    part_b=$(get_slot_partition B)
+    part_data=$(ab_partition_by_number 7)
+    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    info "  SYSTEM-A (${part_a}): ${size_a}"
+    info "  SYSTEM-B (${part_b}): ${size_b}"
+    info "  DATA (${part_data}):     ${size_data}"
 
     # Check if expansion needed (system-b < 1GB indicates placeholder)
     local size_b_bytes
-    size_b_bytes=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
+    size_b_bytes=$(lsblk -bno SIZE "$part_b" 2>/dev/null)
     if [ "${size_b_bytes:-0}" -lt 1073741824 ]; then
         echo ""
         warn "⚠ Partitions need expansion! Run: sudo raspi-config → RasQberry → AB_BOOT → EXPAND"
@@ -403,23 +361,21 @@ EOF
 
         # Unmount target slot partitions - automounter may have mounted them
         # which can interfere with tryboot on Pi 5
-        if [ "$target_slot" = "B" ]; then
-            umount /dev/mmcblk0p3 2>/dev/null && info "Unmounted boot-b" || true
-            umount /dev/mmcblk0p6 2>/dev/null && info "Unmounted SYSTEM-B" || true
-        else
-            umount /dev/mmcblk0p2 2>/dev/null && info "Unmounted BOOT-A" || true
-            umount /dev/mmcblk0p5 2>/dev/null && info "Unmounted SYSTEM-A" || true
-        fi
+        local tgt_boot tgt_sys
+        tgt_boot=$(get_boot_partition "$target_slot")
+        tgt_sys=$(get_slot_partition "$target_slot")
+        umount "$tgt_boot" 2>/dev/null && info "Unmounted ${tgt_boot}" || true
+        umount "$tgt_sys" 2>/dev/null && info "Unmounted ${tgt_sys}" || true
 
         # Verify unmount succeeded
-        if mount | grep -qE "mmcblk0p[36].*$target_slot" 2>/dev/null; then
+        if mount | grep -qE "^(${tgt_boot}|${tgt_sys}) " 2>/dev/null; then
             warn "Warning: target slot partitions may still be mounted"
         fi
 
         # Flush all buffers and drop caches - critical after partition writes
         info "Flushing buffers and caches..."
         sync
-        blockdev --flushbufs /dev/mmcblk0 2>/dev/null || true
+        blockdev --flushbufs "/dev/$(ab_boot_device)" 2>/dev/null || true
         echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
         sync
         sleep 5
@@ -524,15 +480,16 @@ cmd_promote() {
     fi
 
     # Get partition devices
-    local slot_a_part
+    local slot_a_part slot_b_part boot_a_part boot_b_part
     slot_a_part=$(get_slot_partition A)
-    local slot_b_part
     slot_b_part=$(get_slot_partition B)
+    boot_a_part=$(get_boot_partition A)
+    boot_b_part=$(get_boot_partition B)
 
     info "Copying Slot B ($slot_b_part) to Slot A ($slot_a_part)..."
     info "This will take several minutes..."
 
-    # Mount both partitions
+    # Mount both system partitions
     local mount_a="/mnt/slot_a_temp"
     local mount_b="/mnt/slot_b_temp"
 
@@ -548,9 +505,51 @@ cmd_promote() {
         die "Failed to copy Slot B to Slot A"
     }
 
-    # Unmount
+    # The copy carries Slot B's fstab - rewrite mounts for Slot A
+    info "Updating fstab for Slot A..."
+    local config_part data_part
+    config_part=$(ab_partition_by_number 1)
+    data_part=$(ab_partition_by_number 7)
+    cat > "$mount_a/etc/fstab" << EOF
+proc                        /proc           proc    defaults          0   0
+${config_part}              /boot/config    vfat    defaults          0   2
+${boot_a_part}              /boot/firmware  vfat    defaults          0   2
+${slot_a_part}              /               ext4    defaults,noatime  0   1
+${data_part}                /data           ext4    defaults,noatime  0   2
+EOF
+
     umount "$mount_a" "$mount_b"
     rmdir "$mount_a" "$mount_b"
+
+    # Sync the boot partition too - kernel and /lib/modules must match
+    info "Copying boot partition ($boot_b_part -> $boot_a_part)..."
+    local boot_mount_a="/mnt/boot_a_temp"
+    local boot_mount_b="/mnt/boot_b_temp"
+    mkdir -p "$boot_mount_a" "$boot_mount_b"
+
+    # Boot-B is normally mounted at /boot/firmware on a running Slot B; use bind-safe ro mount
+    mount -o ro "$boot_b_part" "$boot_mount_b" 2>/dev/null || boot_mount_b="/boot/firmware"
+    mount "$boot_a_part" "$boot_mount_a" || {
+        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+        die "Failed to mount Slot A boot partition"
+    }
+
+    rsync -a --delete "$boot_mount_b/" "$boot_mount_a/" || {
+        umount "$boot_mount_a"
+        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+        die "Failed to copy boot partition"
+    }
+
+    # The copied cmdline.txt points at Slot B's root - fix it for Slot A
+    if [ -f "$boot_mount_a/cmdline.txt" ]; then
+        sed -i "s|root=[^ ]*|root=${slot_a_part}|g" "$boot_mount_a/cmdline.txt"
+        info "cmdline.txt updated: root=${slot_a_part}"
+    fi
+
+    sync
+    umount "$boot_mount_a"
+    [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+    rmdir "$boot_mount_a" /mnt/boot_b_temp 2>/dev/null || true
 
     info "Copy complete"
 
