@@ -552,7 +552,8 @@ EOF
         die "Failed to mount Slot A boot partition"
     }
 
-    rsync -a --delete "$boot_mount_b/" "$boot_mount_a/" || {
+    # VFAT supports neither ownership nor permissions - copy data+times only
+    rsync -rt --delete "$boot_mount_b/" "$boot_mount_a/" || {
         umount "$boot_mount_a"
         [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
         die "Failed to copy boot partition"
