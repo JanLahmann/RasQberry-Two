@@ -505,15 +505,18 @@ run_docker() {
         fi
     fi
 
-    # Find available port
-    docker_port=$(find_available_port "$docker_port")
+    # Find an available HOST port. The container-side port stays at the
+    # manifest's docker_port — images serve on a fixed internal port, so a
+    # bumped host port must still map onto it (host:host would dangle).
+    local host_port
+    host_port=$(find_available_port "$docker_port")
 
     # Start container
     info "Starting container: $CONTAINER_NAME"
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
         --rm \
-        -p "${docker_port}:${docker_port}" \
+        -p "${host_port}:${docker_port}" \
         "$docker_image"; then
         die "Failed to start Docker container"
     fi
@@ -528,7 +531,7 @@ run_docker() {
         die "Container failed to start"
     fi
 
-    local url="http://127.0.0.1:${docker_port}"
+    local url="http://127.0.0.1:${host_port}"
     echo
     echo "Demo is running at: $url"
     echo
