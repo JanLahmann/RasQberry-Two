@@ -116,8 +116,12 @@ fi
 # of the list (a combined call with || true shipped an image without any LED
 # backend). Failures are reported here and enforced by the verification below.
 echo "Pre-installing hardware dependencies with PEP 517..."
-HW_PACKAGES="sysv_ipc RPi.GPIO rpi_ws281x lgpio Adafruit-Blinka-Raspberry-Pi5-Neopixel"
-for pkg in $HW_PACKAGES; do
+# Array, not a space-separated string: this script sets IFS to newline+tab,
+# so an unquoted string expansion does NOT split on spaces (caused the
+# 2026-07-12 build failure: all five names reached pip as one requirement,
+# which the post-install verification correctly caught).
+HW_PACKAGES=(sysv_ipc RPi.GPIO rpi_ws281x lgpio Adafruit-Blinka-Raspberry-Pi5-Neopixel)
+for pkg in "${HW_PACKAGES[@]}"; do
     if ! pip install --use-pep517 --prefer-binary --find-links="$WHEEL_DIR" "$pkg"; then
         echo "WARNING: failed to install hardware dependency: $pkg"
     fi
