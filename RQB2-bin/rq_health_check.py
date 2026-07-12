@@ -216,11 +216,14 @@ def confirm_boot_slot() -> bool:
                 logger.error(
                     f"✗ Slot switch FAILED: target was Slot {target_slot} "
                     f"but system booted Slot {current_slot} ({root_dev}). "
+                    "Retry budget exhausted (see rq_tryboot_retry.sh). "
                     "Not confirming; investigate before retrying."
                 )
                 target_file.unlink(missing_ok=True)
+                Path('/boot/config/switch-retries').unlink(missing_ok=True)
                 return False
             target_file.unlink(missing_ok=True)
+            Path('/boot/config/switch-retries').unlink(missing_ok=True)
             logger.info(f"✓ Booted the requested target slot ({current_slot})")
         except Exception as e:
             logger.warning(f"Could not verify target slot: {e}")

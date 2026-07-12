@@ -15,6 +15,9 @@ echo "=> Installing systemd service files"
 install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-health-check.service" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-health-check.service"
 
+install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-tryboot-retry.service" \
+  "${ROOTFS_DIR}/etc/systemd/system/rasqberry-tryboot-retry.service"
+
 install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-update-poller.timer" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-update-poller.timer"
 

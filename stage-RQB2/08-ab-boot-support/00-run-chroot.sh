@@ -39,7 +39,7 @@ fi
 # Note: Scripts are already installed to /usr/bin by stage 01-deploy-files
 # Just verify they exist
 echo "=> Verifying A/B boot scripts in /usr/bin"
-for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_poller.py rq_update_slot.sh; do
+for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_poller.py rq_update_slot.sh rq_tryboot_retry.sh; do
     if [ ! -f "/usr/bin/$script" ]; then
         echo "Warning: /usr/bin/$script not found"
     fi
@@ -50,6 +50,10 @@ done
 # Enable health check (runs once on boot to validate new slot)
 echo "=> Enabling rasqberry-health-check.service"
 systemctl enable rasqberry-health-check.service
+
+# Enable tryboot retry (re-issues a lost slot switch once, before health check)
+echo "=> Enabling rasqberry-tryboot-retry.service"
+systemctl enable rasqberry-tryboot-retry.service
 
 echo "=> RasQberry A/B Boot Support installed"
 echo ""

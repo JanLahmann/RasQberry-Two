@@ -346,8 +346,10 @@ EOF
     # Clear confirmation (will test new slot)
     rm -f "${SLOT_CONFIRMED_FILE}"
 
-    # Mark which slot we're trying to boot
+    # Mark which slot we're trying to boot and reset the retry budget
+    # (rq_tryboot_retry.sh re-issues the tryboot once if the flag is lost)
     echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
+    echo 0 > "${BOOT_COMMON_DIR}/switch-retries"
 
     info "Slot ${target_slot} configured for tryboot"
     info "Current slot (${current_slot}) remains default until new slot is confirmed"
