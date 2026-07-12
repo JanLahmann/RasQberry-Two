@@ -34,9 +34,10 @@ LAYOUTS_FILENAME = "led-layouts.json"
 # Global singleton NeoPixel object - prevents GPIO conflicts on Pi 5
 _pixels_singleton = None
 
-# Cache for the parsed layout registry (keyed by resolved file path)
+# Cache for the parsed layout registry (keyed by (shipped_path, user_path,
+# user_mtime) so a freshly written user overlay is picked up).
 _layouts_cache = None
-_layouts_cache_path = None
+_layouts_cache_key = None
 
 # Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
 _LEGACY_LAYOUT_ALIASES = {
@@ -186,11 +187,12 @@ def get_logo_dir():
 
 def _find_layouts_file():
     """
-    Locate the LED layout registry JSON using the standard dual-path convention.
+    Locate the SHIPPED LED layout registry JSON using the dual-path convention.
 
     Returns:
-        str: Path to led-layouts.json (installed path preferred, repo path
-             fallback). The returned path may not exist if neither is present.
+        str: Path to the shipped led-layouts.json (installed path preferred,
+             repo path fallback). The returned path may not exist if neither is
+             present.
     """
     installed = os.path.join("/usr/config", LAYOUTS_FILENAME)
     if os.path.exists(installed):
@@ -201,34 +203,79 @@ def _find_layouts_file():
     return repo_path
 
 
-def _load_layouts():
+def _user_layouts_file():
     """
-    Load and cache the layout registry.
+    Path to the USER-LOCAL layout overlay (may not exist).
+
+    Custom layouts written by the LED setup wizard live here so they survive
+    OS image updates (which replace /usr/config). Unlike the demo-manifest
+    search path - where the shipped/trusted copy WINS on id collision - the user
+    overlay WINS here: a custom layout the user just built for their own hardware
+    must take precedence over any shipped preset of the same name.
+
+    Resolution mirrors rq_common.sh's USER_HOME convention so it works in the
+    raspi-config (root) context: $USER_HOME first, then ~$SUDO_USER, then ~.
 
     Returns:
-        dict: Mapping of layout name -> layout definition. Registry metadata
-              keys (those starting with '_') are excluded. Returns {} if the
-              file is missing or unparseable.
+        str: Path to $USER_HOME/.local/config/led-layouts.json (or the best
+             available home). The file itself may be absent.
     """
-    global _layouts_cache, _layouts_cache_path
+    home = os.environ.get('USER_HOME')
+    if not home:
+        sudo_user = os.environ.get('SUDO_USER')
+        home = os.path.expanduser('~' + sudo_user) if sudo_user else os.path.expanduser('~')
+    return os.path.join(home, '.local', 'config', LAYOUTS_FILENAME)
 
-    path = _find_layouts_file()
-    if _layouts_cache is not None and _layouts_cache_path == path:
-        return _layouts_cache
 
-    layouts = {}
+def _read_layouts_file(path):
+    """Parse one layout registry file, dropping '_'-prefixed metadata keys.
+
+    Returns {} (and prints a diagnostic) when the file is missing or invalid.
+    """
     try:
         with open(path, 'r') as f:
             raw = json.load(f)
-        # Drop registry-level metadata keys (e.g. "_about")
-        layouts = {k: v for k, v in raw.items() if not k.startswith('_')}
+        return {k: v for k, v in raw.items() if not k.startswith('_')}
     except FileNotFoundError:
-        print(f"ERROR: Layout registry not found: {path}")
+        return {}
     except Exception as e:
         print(f"ERROR: Failed to parse layout registry {path}: {e}")
+        return {}
+
+
+def _load_layouts():
+    """
+    Load and cache the layout registry (shipped presets + user overlay).
+
+    The shipped registry provides the presets; the user-local overlay
+    (_user_layouts_file) is merged on top and WINS on name collision, so custom
+    layouts emitted by the setup wizard take precedence over shipped presets.
+
+    Returns:
+        dict: Mapping of layout name -> layout definition. Registry metadata
+              keys (those starting with '_') are excluded. Returns {} if no
+              file is present or parseable.
+    """
+    global _layouts_cache, _layouts_cache_key
+
+    shipped = _find_layouts_file()
+    user = _user_layouts_file()
+    user_mtime = os.path.getmtime(user) if os.path.exists(user) else None
+    key = (shipped, user, user_mtime)
+
+    if _layouts_cache is not None and _layouts_cache_key == key:
+        return _layouts_cache
+
+    layouts = _read_layouts_file(shipped)
+    if not layouts and not os.path.exists(shipped):
+        print(f"ERROR: Layout registry not found: {shipped}")
+
+    # User overlay wins on name collision (opposite of the manifest search path).
+    if os.path.exists(user):
+        layouts.update(_read_layouts_file(user))
 
     _layouts_cache = layouts
-    _layouts_cache_path = path
+    _layouts_cache_key = key
     return layouts
 
 
@@ -285,12 +332,12 @@ def get_layout(name=None):
     return result
 
 
-def _panel_local_index(lx, ly, w, h, serpentine, start):
+def _panel_local_index(lx, ly, w, h, serpentine, start, zigzag=True):
     """
     Compute the panel-local pixel index for a coordinate inside one panel.
 
-    Implements a serpentine (boustrophedon) walk parameterised by the stepping
-    axis and the corner that holds panel-local index 0.
+    Implements a boustrophedon walk parameterised by the stepping axis and the
+    corner that holds panel-local index 0.
 
     Args:
         lx (int): Panel-local x (0..w-1).
@@ -299,6 +346,11 @@ def _panel_local_index(lx, ly, w, h, serpentine, start):
         h (int): Panel height.
         serpentine (str): 'column' (step along columns) or 'row' (step along rows).
         start (str): 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'.
+        zigzag (bool): True (default) for serpentine wiring where alternate
+            rows/columns reverse direction; False for PROGRESSIVE wiring where
+            every row/column runs in the same direction. Absent from shipped
+            presets (all serpentine), so their behaviour is unchanged; the LED
+            setup wizard sets zigzag=False for custom progressive panels.
 
     Returns:
         int: Panel-local index in [0, w*h).
@@ -310,14 +362,14 @@ def _panel_local_index(lx, ly, w, h, serpentine, start):
         # Primary axis = rows (stepped, alternating), secondary = x within a row.
         r = ly if top else (h - 1 - ly)
         s = lx if left else (w - 1 - lx)
-        if r % 2 == 1:
+        if zigzag and r % 2 == 1:
             s = w - 1 - s
         return r * w + s
 
     # Default: 'column'. Primary axis = columns, secondary = y within a column.
     c = lx if left else (w - 1 - lx)
     s = ly if top else (h - 1 - ly)
-    if c % 2 == 1:
+    if zigzag and c % 2 == 1:
         s = h - 1 - s
     return c * h + s
 
@@ -375,6 +427,7 @@ def map_xy_to_pixel(x, y, layout=None):
                 x - ox, y - oy, w, h,
                 panel.get('serpentine', 'column'),
                 panel.get('start', 'top-left'),
+                panel.get('zigzag', True),
             )
             return offset + local
         offset += w * h
