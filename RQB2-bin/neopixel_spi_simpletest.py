@@ -28,84 +28,98 @@ pixels = create_neopixel_strip(
 # Hardware info no longer printed to avoid terminal pollution in whiptail menus
 # (info still available via environment variables if needed)
 
+
+def set_px(index, color):
+    """Set a single pixel, but only when it exists on this strip.
+
+    The "IBM" glyph below is laid out with fixed chain indices chosen for a
+    192-LED serpentine. Guarding every write against NUM_PIXELS (derived from
+    the active layout) keeps the demo from crashing on shorter strips - the
+    out-of-range dots are simply skipped - instead of blindly indexing e.g.
+    pixels[191] on a smaller layout.
+    """
+    if 0 <= index < NUM_PIXELS:
+        pixels[index] = color
+
+
 while True:
     for color in COLORS:
         # Letter "I"
-        pixels[0] = color
-        pixels[191] = color
+        set_px(0, color)
+        set_px(191, color)
 
-        pixels[4] = color
-        pixels[5] = color
-        pixels[6] = color
-        pixels[7] = color
-        pixels[187] = color
-        pixels[186] = color
-        pixels[185] = color
-        pixels[184] = color
+        set_px(4, color)
+        set_px(5, color)
+        set_px(6, color)
+        set_px(7, color)
+        set_px(187, color)
+        set_px(186, color)
+        set_px(185, color)
+        set_px(184, color)
 
-        pixels[8] = color
-        pixels[9] = color
-        pixels[10] = color
-        pixels[11] = color
-        pixels[183] = color
-        pixels[182] = color
-        pixels[181] = color
-        pixels[180] = color
+        set_px(8, color)
+        set_px(9, color)
+        set_px(10, color)
+        set_px(11, color)
+        set_px(183, color)
+        set_px(182, color)
+        set_px(181, color)
+        set_px(180, color)
 
-        pixels[176] = color
-        pixels[15] = color
+        set_px(176, color)
+        set_px(15, color)
 
         # Letter "B"
-        pixels[20] = color
-        pixels[21] = color
-        pixels[22] = color
-        pixels[23] = color
-        pixels[171] = color
-        pixels[170] = color
-        pixels[169] = color
-        pixels[168] = color
+        set_px(20, color)
+        set_px(21, color)
+        set_px(22, color)
+        set_px(23, color)
+        set_px(171, color)
+        set_px(170, color)
+        set_px(169, color)
+        set_px(168, color)
 
-        pixels[24] = color
-        pixels[27] = color
-        pixels[164] = color
-        pixels[167] = color
+        set_px(24, color)
+        set_px(27, color)
+        set_px(164, color)
+        set_px(167, color)
 
-        pixels[28] = color
-        pixels[31] = color
-        pixels[163] = color
-        pixels[160] = color
+        set_px(28, color)
+        set_px(31, color)
+        set_px(163, color)
+        set_px(160, color)
 
-        pixels[32] = color
-        pixels[33] = color
-        pixels[34] = color
-        # pixels[159] = color
-        pixels[158] = color
-        pixels[157] = color
-        pixels[156] = color
+        set_px(32, color)
+        set_px(33, color)
+        set_px(34, color)
+        # set_px(159, color)
+        set_px(158, color)
+        set_px(157, color)
+        set_px(156, color)
 
         # Letter "M"
-        pixels[40] = color
-        pixels[41] = color
-        pixels[42] = color
-        pixels[43] = color
-        pixels[151] = color
-        pixels[150] = color
-        pixels[149] = color
-        pixels[148] = color
+        set_px(40, color)
+        set_px(41, color)
+        set_px(42, color)
+        set_px(43, color)
+        set_px(151, color)
+        set_px(150, color)
+        set_px(149, color)
+        set_px(148, color)
 
-        pixels[46] = color
-        pixels[50] = color
-        pixels[51] = color
-        pixels[54] = color
+        set_px(46, color)
+        set_px(50, color)
+        set_px(51, color)
+        set_px(54, color)
 
-        pixels[56] = color
-        pixels[57] = color
-        pixels[58] = color
-        pixels[59] = color
-        pixels[132] = color
-        pixels[133] = color
-        pixels[134] = color
-        pixels[135] = color
+        set_px(56, color)
+        set_px(57, color)
+        set_px(58, color)
+        set_px(59, color)
+        set_px(132, color)
+        set_px(133, color)
+        set_px(134, color)
+        set_px(135, color)
 
         chunked_show(pixels)
         time.sleep(16 * DELAY)
