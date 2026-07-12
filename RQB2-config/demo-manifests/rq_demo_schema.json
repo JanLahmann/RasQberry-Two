@@ -63,6 +63,10 @@
           "type": "integer",
           "description": "Jupyter notebook server port"
         },
+        "notebook": {
+          "type": "string",
+          "description": "Notebook file to open (relative to working_dir) for jupyter-type demos"
+        },
         "docker_image": {
           "type": "string",
           "description": "Docker image name or URL"

@@ -37,11 +37,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Load environment
 load_rqb2_env
 
-# Find manifest directory
+# Find manifest and patches directories
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
     MANIFEST_DIR="/usr/config/demo-manifests"
+    PATCHES_DIR="/usr/config/demo-patches"
 else
     MANIFEST_DIR="$(dirname "$SCRIPT_DIR")/RQB2-config/demo-manifests"
+    PATCHES_DIR="$(dirname "$SCRIPT_DIR")/RQB2-config/demo-patches"
 fi
 
 # Tracking variables for cleanup
@@ -149,6 +151,37 @@ get_bool() {
     fi
 }
 
+# Variant-aware field lookup: the selected variant's value wins, the main
+# manifest is the fallback. Variants use the same paths as the manifest
+# (.entrypoint.launcher, .needs_hw.display, ...) relative to the variant object.
+demo_field() {
+    local field="$1"
+    local default="${2:-}"
+    local value=""
+
+    if [ -n "${VARIANT:-}" ]; then
+        value=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | $field // empty" "$MANIFEST_FILE" 2>/dev/null)
+    fi
+    if [ -z "$value" ] || [ "$value" = "null" ]; then
+        value=$(get_field "$field" "$default")
+    fi
+    echo "$value"
+}
+
+# Script arguments, one per line. Variants carry args at their top level
+# (.variants[].args), the main manifest under .entrypoint.args.
+get_demo_args() {
+    if [ -n "${VARIANT:-}" ]; then
+        local vargs
+        vargs=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | (.args // [])[]" "$MANIFEST_FILE" 2>/dev/null)
+        if [ -n "$vargs" ]; then
+            printf '%s\n' "$vargs"
+            return 0
+        fi
+    fi
+    jq -r '(.entrypoint.args // [])[]' "$MANIFEST_FILE" 2>/dev/null
+}
+
 # ============================================================================
 # REQUIREMENT CHECKS
 # ============================================================================
@@ -156,9 +189,9 @@ get_bool() {
 check_requirements() {
     local display_req needs_leds needs_network
 
-    display_req=$(get_field '.needs_hw.display' 'none')
-    needs_leds=$(get_field '.needs_hw.leds' 'false')
-    needs_network=$(get_field '.needs_hw.network' 'false')
+    display_req=$(demo_field '.needs_hw.display' 'none')
+    needs_leds=$(demo_field '.needs_hw.leds' 'false')
+    needs_network=$(demo_field '.needs_hw.network' 'false')
 
     # Check display requirement
     case "$display_req" in
@@ -216,7 +249,7 @@ check_installed() {
 # Clones repo, applies patches, installs pip requirements
 install_demo() {
     local repo_url working_dir patch_file pip_requirements
-    local demo_dir patches_dir
+    local demo_dir
 
     repo_url=$(get_field '.install.repo_url' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
@@ -232,34 +265,47 @@ install_demo() {
     fi
 
     demo_dir="$USER_HOME/$REPO/demos/$working_dir"
-    patches_dir="$USER_HOME/$REPO/RQB2-config/patches"
 
-    # Create demos directory if needed
+    # Create demos directory if needed (keep it user-owned when run as root)
     mkdir -p "$USER_HOME/$REPO/demos"
+    fix_root_ownership "$USER_HOME/$REPO/demos"
 
-    # Clone the repository
-    info "Cloning demo from $repo_url..."
-    if ! git clone "$repo_url" "$demo_dir"; then
-        die "Failed to clone demo repository"
-    fi
+    # Clone the repository (clone_demo cleans up partial clones and fixes ownership)
+    clone_demo "$repo_url" "$demo_dir"
 
     # Apply patch if specified
-    if [ -n "$patch_file" ] && [ -f "$patches_dir/$patch_file" ]; then
+    if [ -n "$patch_file" ] && [ -f "$PATCHES_DIR/$patch_file" ]; then
         info "Applying patch: $patch_file"
         cd "$demo_dir"
-        if ! git apply "$patches_dir/$patch_file" 2>/dev/null; then
+        if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
             # Try with -3 for 3-way merge
-            if ! git apply -3 "$patches_dir/$patch_file" 2>/dev/null; then
+            if ! git apply -3 "$PATCHES_DIR/$patch_file" 2>/dev/null; then
                 warn "Patch may not have applied cleanly: $patch_file"
             fi
         fi
+    elif [ -n "$patch_file" ]; then
+        warn "Patch file not found: $PATCHES_DIR/$patch_file"
     fi
 
-    # Install pip requirements if specified
+    # Install pip requirements if specified (as the user, into the user's venv)
     if [ "$pip_requirements" = "true" ] && [ -f "$demo_dir/requirements.txt" ]; then
         info "Installing Python requirements..."
-        activate_venv || warn "Could not activate venv for pip install"
-        pip install -r "$demo_dir/requirements.txt" || warn "Some requirements may have failed"
+        local venv_path
+        if venv_path=$(find_venv "$STD_VENV"); then
+            run_as_user "$venv_path/bin/pip" install -r "$demo_dir/requirements.txt" \
+                || warn "Some requirements may have failed"
+        else
+            warn "Virtual environment not found - skipping pip requirements"
+        fi
+    fi
+
+    # git apply run as root recreates files root-owned even inside a
+    # user-owned tree, and fix_root_ownership only checks the top-level
+    # owner - chown the whole tree unconditionally when running as root
+    if [ "$(id -u)" = "0" ]; then
+        local owner
+        owner=$(get_user_name)
+        [ "$owner" != "root" ] && chown -R "$owner:$owner" "$demo_dir"
     fi
 
     info "Demo installed successfully"
@@ -291,9 +337,9 @@ ensure_installed() {
 run_jupyter() {
     local working_dir port notebook demo_dir
 
-    working_dir=$(get_field '.entrypoint.working_dir' '')
-    port=$(get_field '.entrypoint.jupyter_port' '8888')
-    notebook=$(get_field '.entrypoint.notebook' '')
+    working_dir=$(demo_field '.entrypoint.working_dir' '')
+    port=$(demo_field '.entrypoint.jupyter_port' '8888')
+    notebook=$(demo_field '.entrypoint.notebook' '')
 
     demo_dir="$USER_HOME/$REPO/demos/$working_dir"
 
@@ -301,12 +347,11 @@ run_jupyter() {
         die "Demo directory not found: $demo_dir"
     fi
 
-    # Activate virtual environment
-    info "Activating Python virtual environment..."
-    activate_venv || die "Failed to activate virtual environment"
-
-    # Check if Jupyter is available
-    if ! command -v jupyter &>/dev/null; then
+    # Locate Jupyter in the virtual environment
+    local venv_path jupyter_bin
+    venv_path=$(find_venv "$STD_VENV") || die "Virtual environment not found"
+    jupyter_bin="$venv_path/bin/jupyter"
+    if [ ! -x "$jupyter_bin" ]; then
         die "Jupyter is not installed. Please run the Qiskit installation first."
     fi
 
@@ -325,9 +370,9 @@ run_jupyter() {
     # Change to demo directory
     cd "$demo_dir"
 
-    # Start Jupyter notebook in background
+    # Start Jupyter notebook in background (as the user, not root)
     info "Starting Jupyter notebook server..."
-    jupyter notebook \
+    run_as_user "$jupyter_bin" notebook \
         --no-browser \
         --port="$port" \
         --ip=127.0.0.1 \
@@ -469,8 +514,8 @@ run_docker() {
 run_browser_type() {
     local browser_url launcher
 
-    browser_url=$(get_field '.entrypoint.browser_url' '')
-    launcher=$(get_field '.entrypoint.launcher' '')
+    browser_url=$(demo_field '.entrypoint.browser_url' '')
+    launcher=$(demo_field '.entrypoint.launcher' '')
 
     # If browser_url is specified, just open it
     if [ -n "$browser_url" ]; then
@@ -494,10 +539,10 @@ run_browser_type() {
 run_python() {
     local working_dir script launcher needs_leds demo_dir venv_python
 
-    working_dir=$(get_field '.entrypoint.working_dir' '')
-    script=$(get_field '.entrypoint.script' '')
-    launcher=$(get_field '.entrypoint.launcher' '')
-    needs_leds=$(get_field '.needs_hw.leds' 'false')
+    working_dir=$(demo_field '.entrypoint.working_dir' '')
+    script=$(demo_field '.entrypoint.script' '')
+    launcher=$(demo_field '.entrypoint.launcher' '')
+    needs_leds=$(demo_field '.needs_hw.leds' 'false')
 
     # If no script specified, fallback to launcher
     if [ -z "$script" ]; then
@@ -519,6 +564,13 @@ run_python() {
     venv_path=$(find_venv "$STD_VENV") || die "Virtual environment not found"
     venv_python="$venv_path/bin/python3"
 
+    # Collect script arguments (variant args override .entrypoint.args)
+    local -a script_args=()
+    local arg
+    while IFS= read -r arg; do
+        [ -n "$arg" ] && script_args+=("$arg")
+    done < <(get_demo_args)
+
     # Change to demo directory
     cd "$demo_dir"
 
@@ -532,11 +584,11 @@ run_python() {
         fi
 
         info "Running with LED support (as root)..."
-        "$venv_python" -W ignore::DeprecationWarning "$script"
+        "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user
         info "Running Python script..."
-        run_as_user "$venv_python" "$script"
+        run_as_user "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }
 
@@ -546,7 +598,7 @@ delegate_launcher() {
     local launcher="${1:-}"
 
     if [ -z "$launcher" ]; then
-        launcher=$(get_field '.entrypoint.launcher' '')
+        launcher=$(demo_field '.entrypoint.launcher' '')
     fi
 
     if [ -z "$launcher" ]; then
@@ -564,54 +616,6 @@ delegate_launcher() {
     fi
 
     info "Delegating to: $launcher"
-    exec "$launcher_path"
-}
-
-# ============================================================================
-# VARIANT HANDLING
-# ============================================================================
-
-# Get variant-specific field, falling back to main manifest
-get_variant_field() {
-    local variant_id="$1"
-    local field="$2"
-    local default="${3:-}"
-    local value
-
-    # Try variant-specific field first
-    value=$(jq -r ".variants[] | select(.id == \"$variant_id\") | $field // null" "$MANIFEST_FILE" 2>/dev/null)
-
-    if [ "$value" = "null" ] || [ -z "$value" ]; then
-        # Fall back to main manifest
-        value=$(get_field "$field" "$default")
-    fi
-
-    echo "$value"
-}
-
-# Run variant using its specific entrypoint
-run_variant() {
-    local variant_id="$1"
-    local launcher
-
-    # Get variant-specific launcher
-    launcher=$(jq -r ".variants[] | select(.id == \"$variant_id\") | .entrypoint.launcher // null" "$MANIFEST_FILE" 2>/dev/null)
-
-    if [ "$launcher" = "null" ] || [ -z "$launcher" ]; then
-        die "Variant '$variant_id' has no launcher specified"
-    fi
-
-    # Find and run the launcher
-    local launcher_path=""
-    if [ -f "$SCRIPT_DIR/$launcher" ]; then
-        launcher_path="$SCRIPT_DIR/$launcher"
-    elif [ -f "/usr/bin/$launcher" ]; then
-        launcher_path="/usr/bin/$launcher"
-    else
-        die "Launcher script not found: $launcher"
-    fi
-
-    info "Running variant '$variant_id' via: $launcher"
     exec "$launcher_path"
 }
 
@@ -682,13 +686,24 @@ main() {
         die "Manifest not found: $MANIFEST_FILE"
     fi
 
-    # Get demo info
+    # Validate the variant exists before any lookups use it
+    if [ -n "$VARIANT" ]; then
+        local variant_exists
+        variant_exists=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | .id // null" "$MANIFEST_FILE" 2>/dev/null)
+        if [ "$variant_exists" = "null" ] || [ -z "$variant_exists" ]; then
+            die "Unknown variant: $VARIANT"
+        fi
+    fi
+
+    # Get demo info (variant-aware: variants may override the entrypoint,
+    # and carry their own args and needs_hw; everything else falls back
+    # to the main manifest)
     local demo_name entrypoint_type
     demo_name=$(get_field '.name' "$DEMO_ID")
-    entrypoint_type=$(get_field '.entrypoint.type' '')
+    entrypoint_type=$(demo_field '.entrypoint.type' '')
 
     echo
-    echo "=== $demo_name ==="
+    echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
     echo
 
     # Setup cleanup trap
@@ -700,22 +715,10 @@ main() {
     # Ensure demo is installed (auto-install if possible)
     ensure_installed
 
-    # Handle variants
-    if [ -n "$VARIANT" ]; then
-        # Check variant exists
-        local variant_exists
-        variant_exists=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | .id // null" "$MANIFEST_FILE" 2>/dev/null)
-        if [ "$variant_exists" = "null" ] || [ -z "$variant_exists" ]; then
-            die "Unknown variant: $VARIANT"
-        fi
-        run_variant "$VARIANT"
-        exit 0
-    fi
-
     # Dispatch based on entrypoint type
     # If a launcher is specified, it can be used as fallback for any type
     local launcher
-    launcher=$(get_field '.entrypoint.launcher' '')
+    launcher=$(demo_field '.entrypoint.launcher' '')
 
     case "$entrypoint_type" in
         jupyter)

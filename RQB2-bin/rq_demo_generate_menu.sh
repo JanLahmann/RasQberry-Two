@@ -34,6 +34,23 @@ check_jq() {
     fi
 }
 
+# Check whether the universal launcher (rq_demo_run.sh) can dispatch this
+# manifest without a variant argument: it needs a concrete entrypoint type,
+# a launcher, or a browser_url. Demos that only define variants (e.g.
+# led-demos) are launched via their own submenu, not the generic dispatch.
+is_dispatchable() {
+    local file="$1"
+    local etype launcher browser_url
+    etype=$(jq -r '.entrypoint.type // ""' "$file")
+    launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
+    browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
+
+    case "$etype" in
+        jupyter|docker|python|browser) return 0 ;;
+    esac
+    [ -n "$launcher" ] || [ -n "$browser_url" ]
+}
+
 # Get all manifests sorted by menu order
 get_sorted_manifests() {
     find "$MANIFEST_DIR" -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | \
@@ -161,14 +178,12 @@ CACHE_HEADER
     # Use subshell to avoid pipefail issues with read at end of input
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id name launcher browser_url
+        local id name
         id=$(jq -r '.id' "$file")
         name=$(jq -r '.name' "$file")
-        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
-        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        # Skip demos without launchers or browser_url
-        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
+        # Skip demos the universal launcher cannot dispatch directly
+        is_dispatchable "$file" || continue
 
         # Escape single quotes in name
         name=$(echo "$name" | sed "s/'/'\\\\''/g")
@@ -187,19 +202,15 @@ CACHE_HEADER
 
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id launcher browser_url
+        local id
         id=$(jq -r '.id' "$file")
-        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
-        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        # Skip demos without launchers or browser_url
-        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
+        is_dispatchable "$file" || continue
 
-        if [ -n "$launcher" ]; then
-            echo "        \"$id\") /usr/bin/$launcher ;;" >> "$cache_file"
-        elif [ -n "$browser_url" ]; then
-            echo "        \"$id\") chromium-browser --password-store=basic $browser_url ;;" >> "$cache_file"
-        fi
+        # All demos go through the universal launcher, which handles type
+        # dispatch, auto-install, and privilege handling (browser as user,
+        # LED scripts as root)
+        echo "        \"$id\") /usr/bin/rq_demo_run.sh \"$id\" ;;" >> "$cache_file"
     done) || true
 
     echo "        *) echo \"Unknown demo: \$1\" >&2; return 1 ;;" >> "$cache_file"
@@ -215,18 +226,12 @@ CACHE_HEADER
 
     (get_sorted_manifests | while read -r file; do
         [ -z "$file" ] && continue
-        local id launcher browser_url
+        local id
         id=$(jq -r '.id' "$file")
-        launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
-        browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
-        [ -z "$launcher" ] && [ -z "$browser_url" ] && continue
+        is_dispatchable "$file" || continue
 
-        if [ -n "$launcher" ]; then
-            echo "        \"$id\") echo \"/usr/bin/$launcher\" ;;" >> "$cache_file"
-        elif [ -n "$browser_url" ]; then
-            echo "        \"$id\") echo \"chromium-browser --password-store=basic $browser_url\" ;;" >> "$cache_file"
-        fi
+        echo "        \"$id\") echo \"/usr/bin/rq_demo_run.sh $id\" ;;" >> "$cache_file"
     done) || true
 
     echo "        *) return 1 ;;" >> "$cache_file"
