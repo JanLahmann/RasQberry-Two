@@ -151,6 +151,35 @@ def get_led_config():
     }
 
 
+# Logo asset directory name (under RQB2-config / /usr/config)
+LOGO_DIRNAME = "LED-Logos"
+
+
+def get_logo_dir():
+    """
+    Return the directory holding the LED-Logos image assets.
+
+    The images ship with the OS image at /usr/config/LED-Logos. A user-local
+    copy at $USER_HOME/$REPO/RQB2-config/LED-Logos is not populated by default,
+    so demos that only looked there failed (#264). Resolution order, user copy
+    first so custom logos win:
+
+      1. ~/$REPO/RQB2-config/LED-Logos, if it exists
+      2. /usr/config/LED-Logos (where the assets ship) - always returned as the
+         fallback, even if absent, so callers have a stable path to report.
+
+    Returns:
+        str: Path to the LED-Logos directory.
+    """
+    repo = os.environ.get('REPO', 'RasQberry-Two')
+    user_dir = os.path.expanduser(
+        os.path.join('~', repo, 'RQB2-config', LOGO_DIRNAME)
+    )
+    if os.path.isdir(user_dir):
+        return user_dir
+    return os.path.join('/usr/config', LOGO_DIRNAME)
+
+
 # ============================================================================
 # Layout registry + generic coordinate mapper
 # ============================================================================
