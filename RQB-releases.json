@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-11T22:06:21Z",
+  "generated": "2026-07-12T04:34:56Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2026-07-11-232834",
-      "name": "rasqberry-dev-ab01-2026-07-11-232834",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-11-232834/rasqberry-dev-ab01-2026-07-11-232834.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-07-11-232834",
-      "release_date": "2026-07-11 23:28",
-      "image_download_size": 1999361764,
+      "tag": "dev-ab01-2026-07-12-061117",
+      "name": "rasqberry-dev-ab01-2026-07-12-061117",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-12-061117/rasqberry-dev-ab01-2026-07-12-061117.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-07-12-061117",
+      "release_date": "2026-07-12 06:11",
+      "image_download_size": 1999845736,
       "extract_size": 8942256128,
-      "extract_sha256": "3a54cee56210ab18f6ecba68201b7f70c7f1207b68150ee387dd5bbc8360ef99",
+      "extract_sha256": "8c783c80c536ecbd87c3476cdc400af118780a0e1a01b4a59d77ddd0e1e884c5",
       "highlights": [
-        "wait for writeback before tryboot; verify target slot in health check",
-        "load environment via common library",
-        "safety guards, shared partition helpers, promote boot sync",
-        "improve Download All Demos with retry logic and better UX",
-        "add \"Download All Demos\" menu option (#239)"
+        "auto-retry lost tryboot slot switches at boot"
       ]
     }
   }
