@@ -1,8 +1,48 @@
 {
-  "generated": "2026-07-12T00:28:15Z",
+  "generated": "2026-07-12T04:35:28Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 41,
+  "count": 43,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-12-061117/rasqberry-dev-ab01-2026-07-12-061117.img.xz",
+      "extract_size": 8942256128,
+      "extract_sha256": "8c783c80c536ecbd87c3476cdc400af118780a0e1a01b4a59d77ddd0e1e884c5",
+      "image_download_size": 1999845736,
+      "release_date": "2026-07-12 06:11",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-ab01-2026-07-12-061117",
+      "_branch": "dev-ab01",
+      "_published": "2026-07-12T04:11:48Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-12-061117/rasqberry-dev-ab01-2026-07-12-061117-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "76175185301dd25be31f7e18c92f0ef68b3a4c88b155b2e4fa25ff45400aca5d",
+      "image_download_size": 2038038408,
+      "release_date": "2026-07-12 06:11",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-ab01-2026-07-12-061117",
+      "_branch": "dev-ab01",
+      "_published": "2026-07-12T04:11:48Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
