@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T04:34:56Z",
+  "generated": "2026-07-12T11:48:33Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2026-07-12-061117",
-      "name": "rasqberry-dev-ab01-2026-07-12-061117",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-12-061117/rasqberry-dev-ab01-2026-07-12-061117.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-07-12-061117",
-      "release_date": "2026-07-12 06:11",
-      "image_download_size": 1999845736,
+      "tag": "development-2026-07-12-132706",
+      "name": "rasqberry-development-2026-07-12-132706",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-12-132706/rasqberry-development-2026-07-12-132706.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-12-132706",
+      "release_date": "2026-07-12 13:27",
+      "image_download_size": 2001171844,
       "extract_size": 8942256128,
-      "extract_sha256": "8c783c80c536ecbd87c3476cdc400af118780a0e1a01b4a59d77ddd0e1e884c5",
+      "extract_sha256": "d7b37da0daffc1df90ed83de01284d09f34a4ceaad29fab44f8aeac7ae9f7cb0",
       "highlights": [
-        "auto-retry lost tryboot slot switches at boot"
+        "hardware-dependency loop must not rely on IFS word splitting"
       ]
     }
   }
