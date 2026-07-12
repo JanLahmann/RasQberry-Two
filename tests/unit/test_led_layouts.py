@@ -42,7 +42,8 @@ def _old_single(x, y, width=24, height=8, y_flip=True):
 
 
 def _old_quad(x, y):
-    """Original map_xy_to_pixel_quad (from neopixel_spi_IBMtestFunc.py)."""
+    """Original map_xy_to_pixel_quad (from rq_led_ibm_logo.py, formerly
+    neopixel_spi_IBMtestFunc.py)."""
     if x < 0 or x >= 24 or y < 0 or y >= 8:
         return None
     x1 = x * 4 + (0 if x % 2 == 0 else 3)

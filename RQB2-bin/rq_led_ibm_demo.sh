@@ -21,16 +21,16 @@ verify_env_vars USER_HOME REPO BIN_DIR STD_VENV
 
 # Check multiple possible locations for the script
 LED_SCRIPT=""
-for location in "$BIN_DIR/neopixel_spi_IBMtestFunc.py" \
-                "/usr/bin/neopixel_spi_IBMtestFunc.py" \
-                "$USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"; do
+for location in "$BIN_DIR/rq_led_ibm_logo.py" \
+                "/usr/bin/rq_led_ibm_logo.py" \
+                "$USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"; do
     if [ -f "$location" ]; then
         LED_SCRIPT="$location"
         break
     fi
 done
 
-[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/neopixel_spi_IBMtestFunc.py\n  - /usr/bin/neopixel_spi_IBMtestFunc.py\n  - $USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
+[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/rq_led_ibm_logo.py\n  - /usr/bin/rq_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"
 
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"
