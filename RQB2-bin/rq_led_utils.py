@@ -415,6 +415,11 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     led_physical = config.get('led_physical', True)
     led_virtual = config.get('led_virtual', False)
 
+    # Virtual geometry (width/height) drives the mmap v2 self-describing header.
+    layout = get_layout(config['led_layout'])
+    v_width = layout['width'] if layout else num_pixels
+    v_height = layout['height'] if layout else 1
+
     def _make_virtual():
         from rq_led_virtual import VirtualNeoPixel
         _ensure_virtual_led_gui_running()
@@ -424,6 +429,8 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
             brightness=brightness,
             auto_write=False,
             pixel_order=pixel_order,
+            width=v_width,
+            height=v_height,
         )
 
     def _make_real():

@@ -9,22 +9,37 @@ The VirtualNeoPixel class mimics the interface of adafruit-circuitpython-neopixe
 allowing existing demos to run without hardware by displaying on the virtual
 LED matrix GUI (rq_led_virtual_gui.py).
 
-Communication uses a memory-mapped file at /tmp/rasqberry_virtual_led.mmap.
+Communication uses a memory-mapped file at /tmp/rasqberry_virtual_led2.mmap
+(transport v2 - self-describing header, dynamic size).
 """
 
 import mmap
 import os
 import struct
 
-# Shared memory file location
-MMAP_FILE = "/tmp/rasqberry_virtual_led.mmap"
+# Shared memory file location (v2: renamed so old GUIs and new writers can't
+# misread each other's incompatible formats).
+MMAP_FILE = "/tmp/rasqberry_virtual_led2.mmap"
 
-# Memory layout:
-# Byte 0: Dirty flag (0=clean, 1=dirty/updated)
-# Bytes 1-576: Pixel data (192 pixels x 3 bytes RGB)
-MMAP_HEADER_SIZE = 1
-MMAP_PIXEL_SIZE = 192 * 3  # 576 bytes
-MMAP_TOTAL_SIZE = MMAP_HEADER_SIZE + MMAP_PIXEL_SIZE  # 577 bytes
+# Memory layout (transport v2):
+#   [0:4]   magic  b'RQL1'
+#   [4:6]   width  (uint16, little-endian)
+#   [6:8]   height (uint16, little-endian)
+#   [8:10]  count  (uint16, little-endian)
+#   [10:16] reserved (6 bytes, zero)
+#   [16]    dirty flag byte (0=clean, 1=dirty/updated)
+#   [17:..] pixel data (count x 3 bytes RGB)
+MMAP_MAGIC = b'RQL1'
+MMAP_HEADER_SIZE = 16
+MMAP_DIRTY_SIZE = 1
+# Offsets
+MMAP_DIRTY_OFFSET = MMAP_HEADER_SIZE            # 16
+MMAP_PIXEL_OFFSET = MMAP_HEADER_SIZE + MMAP_DIRTY_SIZE  # 17
+
+
+def mmap_total_size(count):
+    """Total mmap file size in bytes for a given pixel count."""
+    return MMAP_HEADER_SIZE + MMAP_DIRTY_SIZE + count * 3
 
 
 class VirtualNeoPixel:
@@ -44,7 +59,8 @@ class VirtualNeoPixel:
         pixels.show()  # Update virtual display
     """
 
-    def __init__(self, pin, num_pixels, brightness=0.5, auto_write=False, pixel_order=None):
+    def __init__(self, pin, num_pixels, brightness=0.5, auto_write=False,
+                 pixel_order=None, width=None, height=None):
         """
         Initialize virtual NeoPixel strip.
 
@@ -54,29 +70,75 @@ class VirtualNeoPixel:
             brightness (float): LED brightness 0.0-1.0
             auto_write (bool): If True, update display on every pixel change
             pixel_order: Ignored (always uses RGB internally)
+            width (int, optional): Logical matrix width for the mmap header.
+                If None, derived from the configured layout (fallback num_pixels).
+            height (int, optional): Logical matrix height for the mmap header.
+                If None, derived from the configured layout (fallback 1).
         """
         self.n = num_pixels
         self._brightness = brightness
         self.auto_write = auto_write
         self._pixels = [(0, 0, 0)] * num_pixels
+
+        # Resolve geometry for the self-describing header.
+        if width is None or height is None:
+            d_w, d_h = self._derive_geometry(num_pixels)
+            width = d_w if width is None else width
+            height = d_h if height is None else height
+        self._width = int(width)
+        self._height = int(height)
+
+        self._total_size = mmap_total_size(num_pixels)
         self._mmap = None
         self._mmap_file = None
         self._init_mmap()
 
-    def _init_mmap(self):
-        """Create or open the shared memory file."""
+    @staticmethod
+    def _derive_geometry(num_pixels):
+        """Best-effort (width, height) from the configured layout."""
         try:
-            # Create file if it doesn't exist
-            if not os.path.exists(MMAP_FILE):
+            import rq_led_utils
+            layout = rq_led_utils.get_layout()
+            if layout:
+                return layout['width'], layout['height']
+        except Exception:
+            pass
+        return num_pixels, 1
+
+    def _init_mmap(self):
+        """Create/open the shared memory file, recreating it on size/magic mismatch."""
+        try:
+            need_create = True
+            if os.path.exists(MMAP_FILE):
+                if os.path.getsize(MMAP_FILE) == self._total_size:
+                    with open(MMAP_FILE, 'rb') as f:
+                        if f.read(len(MMAP_MAGIC)) == MMAP_MAGIC:
+                            need_create = False
+
+            # (Re)create the file at the correct size if needed.
+            if need_create:
                 with open(MMAP_FILE, 'wb') as f:
-                    f.write(b'\x00' * MMAP_TOTAL_SIZE)
+                    f.write(b'\x00' * self._total_size)
 
             # Open file for read/write
             self._mmap_file = open(MMAP_FILE, 'r+b')
-            self._mmap = mmap.mmap(self._mmap_file.fileno(), MMAP_TOTAL_SIZE)
+            self._mmap = mmap.mmap(self._mmap_file.fileno(), self._total_size)
+            self._write_header()
         except Exception as e:
             print(f"Warning: Could not initialize virtual LED mmap: {e}")
             self._mmap = None
+
+    def _write_header(self):
+        """Write the self-describing header (magic + geometry)."""
+        if self._mmap is None:
+            return
+        header = MMAP_MAGIC + struct.pack(
+            '<HHH', self._width & 0xFFFF, self._height & 0xFFFF, self.n & 0xFFFF
+        )
+        header += b'\x00' * (MMAP_HEADER_SIZE - len(header))  # reserved bytes
+        self._mmap.seek(0)
+        self._mmap.write(header)
+        self._mmap.flush()
 
     def __len__(self):
         """Return number of pixels."""
@@ -159,11 +221,9 @@ class VirtualNeoPixel:
             return
 
         try:
-            # Build pixel data buffer
-            data = bytearray(MMAP_PIXEL_SIZE)
+            # Build pixel data buffer sized to the full strip (no 192 cap).
+            data = bytearray(self.n * 3)
             for i, (r, g, b) in enumerate(self._pixels):
-                if i >= 192:
-                    break
                 # Apply brightness
                 r = int(r * self._brightness)
                 g = int(g * self._brightness)
@@ -178,8 +238,8 @@ class VirtualNeoPixel:
                 data[offset + 1] = g
                 data[offset + 2] = b
 
-            # Write to mmap: header byte (dirty flag) + pixel data
-            self._mmap.seek(0)
+            # Write dirty flag + pixel payload (header is written once at init).
+            self._mmap.seek(MMAP_DIRTY_OFFSET)
             self._mmap.write(b'\x01')  # Set dirty flag
             self._mmap.write(data)
             self._mmap.flush()
@@ -203,11 +263,15 @@ class VirtualNeoPixel:
                 self._mmap.close()
             except Exception:
                 pass
+            # Null the reference so __del__ can't touch a closed mmap
+            # (fixes the 'mmap closed or invalid' warning).
+            self._mmap = None
         if self._mmap_file:
             try:
                 self._mmap_file.close()
             except Exception:
                 pass
+            self._mmap_file = None
 
     def __del__(self):
         """Destructor - clean up resources."""
