@@ -97,6 +97,12 @@ validate_led_config() {
                 return 1
             fi
             ;;
+        LED_RENDER_MODE)
+            if ! [[ "$value" =~ ^(direct|service)$ ]]; then
+                error "Invalid LED_RENDER_MODE: $value (must be 'direct' or 'service')"
+                return 1
+            fi
+            ;;
         LED_MATRIX_WIDTH|LED_MATRIX_HEIGHT|LED_MATRIX_PANEL_WIDTH|LED_MATRIX_PANEL_HEIGHT)
             if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ]; then
                 error "Invalid $key: $value (must be positive integer)"

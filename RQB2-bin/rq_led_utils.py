@@ -143,6 +143,9 @@ def get_led_config():
         'led_physical': led_physical,
         'led_virtual': led_virtual,
         'led_web': led_web,
+        # Render mode: 'direct' (in-process GPIO, default) or 'service' (frames
+        # go to the mmap only; rasqberry-led-renderer.service drives the strip).
+        'render_mode': config.get('LED_RENDER_MODE', 'direct').lower(),
         # Deprecated, retained so existing callers keep working
         'led_virtual_mirror': raw_mirror,
     }
@@ -395,6 +398,18 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     No SPI, no buffer limits, no chunking needed!
 
+    Render mode (LED_RENDER_MODE, Phase A2):
+    - 'direct' (default): current behaviour. This process opens the physical
+      strip in-process (needs root/GPIO) when LED_PHYSICAL=true, composing the
+      virtual GUI target on top when LED_VIRTUAL=true.
+    - 'service': this process NEVER opens a real neopixel strip. It always
+      returns a VirtualNeoPixel writer that only writes frames into the mmap.
+      The root rasqberry-led-renderer.service is the sole GPIO writer and turns
+      those frames physical, so LED_PHYSICAL=true is satisfied WITHOUT this
+      (unprivileged) process touching GPIO. LED_VIRTUAL adds nothing extra -
+      the GUI simply reads the same mmap - it only decides whether the on-screen
+      emulator is auto-launched. This is how demos run as the user with no sudo.
+
     Args:
         num_pixels (int): Number of LEDs in strip
         pixel_order: Pixel order constant (e.g., neopixel.GRB) or string ('GRB')
@@ -414,15 +429,17 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     # flags (#231). LED_VIRTUAL_MIRROR is folded into these by get_led_config().
     led_physical = config.get('led_physical', True)
     led_virtual = config.get('led_virtual', False)
+    render_mode = config.get('render_mode', 'direct')
 
     # Virtual geometry (width/height) drives the mmap v2 self-describing header.
     layout = get_layout(config['led_layout'])
     v_width = layout['width'] if layout else num_pixels
     v_height = layout['height'] if layout else 1
 
-    def _make_virtual():
+    def _make_virtual(launch_gui=True):
         from rq_led_virtual import VirtualNeoPixel
-        _ensure_virtual_led_gui_running()
+        if launch_gui:
+            _ensure_virtual_led_gui_running()
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
             num_pixels,
@@ -450,6 +467,15 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         real_pixels.fill((0, 0, 0))
         real_pixels.show()
         return real_pixels
+
+    # Service mode: never open GPIO in-process. The renderer service consumes
+    # the mmap and drives the strip, so both LED_PHYSICAL and LED_VIRTUAL are
+    # served by a single VirtualNeoPixel writer. Only auto-launch the on-screen
+    # GUI when LED_VIRTUAL is set.
+    if render_mode == 'service':
+        print("LED_RENDER_MODE=service: writing frames to mmap "
+              "(rasqberry-led-renderer.service drives the physical strip)")
+        return _make_virtual(launch_gui=led_virtual)
 
     # Both targets -> mirror proxy
     if led_physical and led_virtual:
