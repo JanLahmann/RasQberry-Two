@@ -22,6 +22,15 @@ NC='\033[0m' # No Color
 # When installed: /usr/bin → /usr/config/...
 # When in repo: RQB2-bin → RQB2-config/...
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# Soft-load the environment so USER_HOME resolves for the user manifest dir.
+# Degrades silently in dev/CI where the installed config is absent -> the
+# manifest search path falls back to the shipped directory only.
+if [ -f "$RQ_CONFIG_FILE" ]; then
+    load_rqb2_env
+fi
+
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
     # Installed system: config is at /usr/config (see issue #246 for global vars)
     MANIFEST_DIR="/usr/config/demo-manifests"
@@ -41,11 +50,14 @@ WARNINGS=0
 
 # Options
 CHECK_FILES=false
+EXTERNAL=false   # --external: apply the hardened external-demo constraints
 
 # Required fields for validation
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
-VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser"]'
+VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
+# Entrypoint types an external demo may declare (no legacy "script").
+EXTERNAL_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
 VALID_DISPLAY_VALUES='["none", "optional", "required"]'
 VALID_TOKEN_VALUES='["none", "prefer", "required"]'
 
@@ -73,6 +85,137 @@ check_jq() {
         echo "Install with: sudo apt-get install jq"
         exit 1
     fi
+}
+
+# Check a path-like value against the external safety rules:
+#   - matches ^[A-Za-z0-9._/-]+$ (no whitespace, no exotic chars)
+#   - no leading "/"
+#   - no ".." path segment
+# An empty value is treated as "field absent" (safe here; presence is checked
+# separately). Returns 0 if safe, 1 otherwise.
+is_safe_ext_path() {
+    local v="$1"
+    [ -n "$v" ] || return 0
+    echo "$v" | grep -qE '^[A-Za-z0-9._/-]+$' || return 1
+    case "$v" in
+        /*) return 1 ;;
+    esac
+    if echo "$v" | grep -qE '(^|/)\.\.(/|$)'; then
+        return 1
+    fi
+    return 0
+}
+
+# Apply the hardened external-demo constraints (spec §1 + §5). Prints one
+# [FAIL] line per violation and stores the count in the global EXT_ERR_COUNT.
+EXT_ERR_COUNT=0
+validate_external_constraints() {
+    local file="$1"
+    local errs=0
+
+    # Forbidden fields: external demos ship no launcher/patch/command
+    local launcher patch_file command
+    launcher=$(jq -r '.entrypoint.launcher // empty' "$file")
+    patch_file=$(jq -r '.install.patch_file // empty' "$file")
+    command=$(jq -r '.entrypoint.command // empty' "$file")
+
+    if [ -n "$launcher" ]; then
+        print_fail "External demo must not set entrypoint.launcher"
+        errs=$((errs + 1))
+    fi
+    if [ -n "$patch_file" ]; then
+        print_fail "External demo must not set install.patch_file"
+        errs=$((errs + 1))
+    fi
+    if [ -n "$command" ]; then
+        print_fail "External demo must not set entrypoint.command"
+        errs=$((errs + 1))
+    fi
+
+    # Entrypoint type must be one of the declarative types (no legacy "script")
+    local etype
+    etype=$(jq -r '.entrypoint.type // empty' "$file")
+    if [ -z "$etype" ]; then
+        print_fail "External demo must declare entrypoint.type"
+        errs=$((errs + 1))
+    elif ! echo "$EXTERNAL_ENTRYPOINT_TYPES" | jq -e "index(\"$etype\")" >/dev/null 2>&1; then
+        print_fail "External entrypoint.type invalid: '$etype' (valid: python, jupyter, browser, docker, web-static)"
+        errs=$((errs + 1))
+    fi
+
+    # id: kebab-case (also path-safe by construction)
+    local id
+    id=$(jq -r '.id // empty' "$file")
+    if [ -z "$id" ]; then
+        print_fail "External demo missing id"
+        errs=$((errs + 1))
+    elif ! echo "$id" | grep -qE '^[a-z0-9-]+$'; then
+        print_fail "External id must be kebab-case ^[a-z0-9-]+$ : '$id'"
+        errs=$((errs + 1))
+    fi
+
+    # marker_file is required for external demos (proves checkout integrity)
+    local marker_file
+    marker_file=$(jq -r '.install.marker_file // empty' "$file")
+    if [ -z "$marker_file" ]; then
+        print_fail "External demo must set install.marker_file"
+        errs=$((errs + 1))
+    fi
+
+    # repo_url must be https://
+    local repo_url
+    repo_url=$(jq -r '.install.repo_url // empty' "$file")
+    if [ -z "$repo_url" ]; then
+        print_fail "External demo must set install.repo_url"
+        errs=$((errs + 1))
+    elif ! echo "$repo_url" | grep -qE '^https://'; then
+        print_fail "External install.repo_url must start with https:// : '$repo_url'"
+        errs=$((errs + 1))
+    fi
+
+    # Path-safe fields: no traversal, no leading slash, no whitespace
+    local working_dir script serve_dir
+    working_dir=$(jq -r '.entrypoint.working_dir // empty' "$file")
+    script=$(jq -r '.entrypoint.script // empty' "$file")
+    serve_dir=$(jq -r '.entrypoint.serve_dir // empty' "$file")
+
+    local pair name val
+    for pair in "install.marker_file:$marker_file" \
+                "entrypoint.working_dir:$working_dir" \
+                "entrypoint.script:$script" \
+                "entrypoint.serve_dir:$serve_dir"; do
+        name="${pair%%:*}"
+        val="${pair#*:}"
+        if ! is_safe_ext_path "$val"; then
+            print_fail "External $name is unsafe (path traversal / leading slash / illegal chars): '$val'"
+            errs=$((errs + 1))
+        fi
+    done
+
+    # working_dir is required for external demos
+    if [ -z "$working_dir" ]; then
+        print_fail "External demo must set entrypoint.working_dir"
+        errs=$((errs + 1))
+    fi
+
+    # web-static: serve_dir + integer port in range
+    if [ "$etype" = "web-static" ]; then
+        if [ -z "$serve_dir" ]; then
+            print_fail "External web-static demo must set entrypoint.serve_dir"
+            errs=$((errs + 1))
+        fi
+        local port
+        port=$(jq -r '.entrypoint.port // empty' "$file")
+        if [ -z "$port" ]; then
+            print_fail "External web-static demo must set entrypoint.port"
+            errs=$((errs + 1))
+        elif ! echo "$port" | grep -qE '^[0-9]+$' || [ "$port" -lt 1024 ] || [ "$port" -gt 65535 ]; then
+            print_fail "External web-static entrypoint.port must be an integer 1024-65535: '$port'"
+            errs=$((errs + 1))
+        fi
+    fi
+
+    EXT_ERR_COUNT=$errs
 }
 
 # Validate a single manifest file
@@ -203,6 +346,15 @@ validate_manifest() {
         fi
     fi
 
+    # External-demo constraints (only in --external mode)
+    if $EXTERNAL; then
+        validate_external_constraints "$file"
+        if [ "$EXT_ERR_COUNT" -eq 0 ]; then
+            print_pass "External constraints satisfied"
+        fi
+        errors=$((errors + EXT_ERR_COUNT))
+    fi
+
     # Summary for this file
     if [ $errors -gt 0 ]; then
         print_fail "Validation failed with $errors error(s)"
@@ -254,11 +406,17 @@ main() {
             --check-files)
                 CHECK_FILES=true
                 ;;
+            --external)
+                EXTERNAL=true
+                ;;
             --help|-h)
                 echo "Usage: $0 [options] [manifest.json ...]"
                 echo ""
                 echo "Options:"
                 echo "  --check-files    Also verify referenced files exist"
+                echo "  --external       Enforce hardened external-demo constraints"
+                echo "                   (rejects launcher/patch_file/command, path"
+                echo "                   traversal, non-https repo_url; see EXTERNAL_DEMOS.md)"
                 echo "  --help, -h       Show this help"
                 echo ""
                 echo "If no manifest files specified, validates all in $MANIFEST_DIR"
@@ -274,11 +432,12 @@ main() {
     echo "RasQberry Demo Manifest Validator"
     echo "========================================"
 
-    # If no files specified, validate all
+    # If no files specified, validate all across the manifest search path
+    # (shipped + user; shipped wins on id collision)
     if [ ${#files[@]} -eq 0 ]; then
-        while IFS= read -r -d '' file; do
-            files+=("$file")
-        done < <(find "$MANIFEST_DIR" -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | sort -z)
+        while IFS= read -r file; do
+            [ -n "$file" ] && files+=("$file")
+        done < <(rq_list_manifests "$MANIFEST_DIR")
     fi
 
     if [ ${#files[@]} -eq 0 ]; then
