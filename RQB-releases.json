@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T04:34:56Z",
+  "generated": "2026-07-12T12:07:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-ab01-2026-07-12-061117",
-      "name": "rasqberry-dev-ab01-2026-07-12-061117",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ab01-2026-07-12-061117/rasqberry-dev-ab01-2026-07-12-061117.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-ab01-2026-07-12-061117",
-      "release_date": "2026-07-12 06:11",
-      "image_download_size": 1999845736,
+      "tag": "dev-led01-2026-07-12-134654",
+      "name": "rasqberry-dev-led01-2026-07-12-134654",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-led01-2026-07-12-134654/rasqberry-dev-led01-2026-07-12-134654.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-led01-2026-07-12-134654",
+      "release_date": "2026-07-12 13:46",
+      "image_download_size": 2000620756,
       "extract_size": 8942256128,
-      "extract_sha256": "8c783c80c536ecbd87c3476cdc400af118780a0e1a01b4a59d77ddd0e1e884c5",
+      "extract_sha256": "a2ad7d5780b85eba1e8d9213da03f1e996c866f1ecd602b3b62ecc872654c0be",
       "highlights": [
-        "auto-retry lost tryboot slot switches at boot"
+        "fall back to /usr/config/LED-Logos for logo assets (#264)",
+        "retire corrupt led-painter.patch",
+        "make demo patch failures fatal in install_demo",
+        "sweep hardcodes and stale docstrings in led demos",
+        "hardware-dependency loop must not rely on IFS word splitting"
       ]
     }
   }
