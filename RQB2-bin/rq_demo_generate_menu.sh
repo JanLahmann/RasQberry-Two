@@ -16,6 +16,15 @@ set -euo pipefail
 # When installed: /usr/bin → /usr/config/demo-manifests
 # When in repo: RQB2-bin → RQB2-config/demo-manifests
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# Soft-load the environment so USER_HOME resolves for the user manifest dir.
+# Degrades silently in dev/CI where the installed config is absent -> the
+# manifest search path falls back to the shipped directory only.
+if [ -f "$RQ_CONFIG_FILE" ]; then
+    load_rqb2_env
+fi
+
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
     # Installed system: config is at /usr/config (see issue #246 for global vars)
     MANIFEST_DIR="/usr/config/demo-manifests"
@@ -46,15 +55,17 @@ is_dispatchable() {
     browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
 
     case "$etype" in
-        jupyter|docker|python|browser) return 0 ;;
+        jupyter|docker|python|browser|web-static) return 0 ;;
     esac
     [ -n "$launcher" ] || [ -n "$browser_url" ]
 }
 
-# Get all manifests sorted by menu order
+# Get all manifests sorted by menu order.
+# Reads across the manifest search path (shipped + user), shipped wins on id.
 get_sorted_manifests() {
-    find "$MANIFEST_DIR" -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | \
-    while IFS= read -r -d '' file; do
+    rq_list_manifests "$MANIFEST_DIR" | \
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
         local order
         order=$(jq -r '.menu.order // 50' "$file" 2>/dev/null)
         local show
@@ -254,12 +265,11 @@ CACHE_HEADER
 # Get demo info by ID
 get_demo_info() {
     local demo_id="$1"
-    local manifest="$MANIFEST_DIR/rq_demo_${demo_id}.json"
-
-    if [ ! -f "$manifest" ]; then
+    local manifest
+    manifest=$(rq_find_manifest "$MANIFEST_DIR" "$demo_id") || {
         echo "Error: Demo '$demo_id' not found" >&2
         return 1
-    fi
+    }
 
     jq '.' "$manifest"
 }
@@ -268,12 +278,11 @@ get_demo_info() {
 get_demo_field() {
     local demo_id="$1"
     local field="$2"
-    local manifest="$MANIFEST_DIR/rq_demo_${demo_id}.json"
-
-    if [ ! -f "$manifest" ]; then
+    local manifest
+    manifest=$(rq_find_manifest "$MANIFEST_DIR" "$demo_id") || {
         echo "Error: Demo '$demo_id' not found" >&2
         return 1
-    fi
+    }
 
     jq -r ".$field // empty" "$manifest"
 }

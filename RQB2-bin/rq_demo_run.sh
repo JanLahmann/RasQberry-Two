@@ -13,6 +13,7 @@
 #   - jupyter:  Jupyter notebook server with browser
 #   - docker:   Docker container with web interface
 #   - browser:  Opens URL in browser (or delegates to launcher for local server)
+#   - web-static: Serves a static dir over http.server (as user) + browser
 #   - python:   Python script (GUI or LED-based)
 #
 # If entrypoint.launcher is specified, it serves as a fallback for any type.
@@ -96,6 +97,21 @@ find_available_port() {
             die "Could not find available port"
         fi
     done
+}
+
+# Report whether a TCP port is currently in use. Returns 0 if in use.
+# Used by web-static, which refuses to start rather than take over a port.
+port_in_use() {
+    local port="$1"
+    if command -v lsof &>/dev/null; then
+        lsof -i ":$port" &>/dev/null
+    elif command -v ss &>/dev/null; then
+        ss -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v netstat &>/dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+    else
+        return 1  # No tool available - cannot tell, assume free
+    fi
 }
 
 # Launch browser with URL
@@ -541,6 +557,78 @@ run_browser_type() {
     die "No browser_url or launcher specified for browser type"
 }
 
+# Static web launcher (declarative; no per-demo launcher script)
+#
+# Serves a directory inside the demo checkout over http.server AS THE USER,
+# then opens the browser. Refuses to start if the port is already in use
+# (never takes over another process's port). The server is torn down via the
+# EXIT/INT/TERM cleanup trap when the browser/demo session ends.
+run_web_static() {
+    local working_dir serve_dir port demo_dir abs_serve url
+
+    working_dir=$(demo_field '.entrypoint.working_dir' '')
+    serve_dir=$(demo_field '.entrypoint.serve_dir' '')
+    port=$(demo_field '.entrypoint.port' '')
+
+    [ -n "$working_dir" ] || die "No entrypoint.working_dir specified for web-static type"
+    [ -n "$port" ] || die "No entrypoint.port specified for web-static type"
+    case "$port" in
+        ''|*[!0-9]*) die "entrypoint.port must be an integer: $port" ;;
+    esac
+    if [ "$port" -lt 1024 ] || [ "$port" -gt 65535 ]; then
+        die "entrypoint.port must be in range 1024-65535: $port"
+    fi
+
+    demo_dir="$USER_HOME/$REPO/demos/$working_dir"
+    [ -d "$demo_dir" ] || die "Demo directory not found: $demo_dir"
+
+    if [ -n "$serve_dir" ]; then
+        abs_serve="$demo_dir/$serve_dir"
+    else
+        abs_serve="$demo_dir"
+    fi
+    [ -d "$abs_serve" ] || die "serve_dir not found: $abs_serve"
+
+    # Refuse rather than kill the current holder of the port
+    if port_in_use "$port"; then
+        die "Port $port is already in use - refusing to start the static web server"
+    fi
+
+    url="http://localhost:${port}"
+
+    info "Starting static web server on port $port ..."
+    run_as_user python3 -m http.server "$port" --directory "$abs_serve" >/dev/null 2>&1 &
+    HTTP_SERVER_PID=$!
+
+    info "Waiting for server to become ready..."
+    if ! wait_for_http "$url" 15; then
+        kill "$HTTP_SERVER_PID" 2>/dev/null || true
+        HTTP_SERVER_PID=""
+        die "Static web server did not become ready within 15s on port $port"
+    fi
+
+    echo
+    echo "Demo is running at: $url"
+    echo
+
+    launch_browser "$url"
+
+    echo "============================================"
+    echo "  Demo is running (static web)"
+    echo "============================================"
+    echo
+
+    # Interactive wait if TTY available; otherwise wait on the server.
+    # Either way, the cleanup trap stops the http.server on exit.
+    if [ -t 0 ]; then
+        echo "Press Enter to stop the server..."
+        read -r
+        info "Stopping static web server..."
+    else
+        wait "$HTTP_SERVER_PID" 2>/dev/null || true
+    fi
+}
+
 # Python script launcher
 run_python() {
     local working_dir script launcher needs_leds demo_dir venv_python
@@ -686,11 +774,10 @@ main() {
     DEMO_ID="$1"
     VARIANT="${2:-}"
 
-    # Find manifest file
-    MANIFEST_FILE="$MANIFEST_DIR/rq_demo_${DEMO_ID}.json"
-    if [ ! -f "$MANIFEST_FILE" ]; then
-        die "Manifest not found: $MANIFEST_FILE"
-    fi
+    # Find manifest file across the search path (shipped dir, then the user
+    # dir where external demos are added; shipped wins on id collision).
+    MANIFEST_FILE=$(rq_find_manifest "$MANIFEST_DIR" "$DEMO_ID") \
+        || die "Manifest not found for demo '$DEMO_ID' (searched shipped and user manifest dirs)"
 
     # Validate the variant exists before any lookups use it
     if [ -n "$VARIANT" ]; then
@@ -735,6 +822,9 @@ main() {
             ;;
         browser)
             run_browser_type
+            ;;
+        web-static)
+            run_web_static
             ;;
         python)
             run_python

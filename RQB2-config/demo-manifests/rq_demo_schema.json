@@ -35,8 +35,8 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["python", "jupyter", "docker", "browser"],
-          "description": "Launcher type: jupyter (notebook server), docker (container), browser (URL or local server), python (script). If omitted, 'launcher' is used directly."
+          "enum": ["python", "jupyter", "docker", "browser", "web-static"],
+          "description": "Launcher type: jupyter (notebook server), docker (container), browser (URL or local server), python (script), web-static (serve a static dir over http.server as the user). If omitted, 'launcher' is used directly."
         },
         "command": {
           "type": "string",
@@ -78,6 +78,16 @@
         "browser_url": {
           "type": "string",
           "description": "URL to open in browser (for browser-based demos)"
+        },
+        "serve_dir": {
+          "type": "string",
+          "description": "Directory (relative to the demo checkout) to serve for web-static demos, e.g. 'build'. Defaults to the demo root if omitted."
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "TCP port for the web-static http.server (1024-65535)"
         }
       }
     },
