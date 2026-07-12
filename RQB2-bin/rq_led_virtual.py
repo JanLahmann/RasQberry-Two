@@ -135,6 +135,15 @@ class VirtualNeoPixel:
             if need_create:
                 with open(path, 'wb') as f:
                     f.write(b'\x00' * self._total_size)
+                # The transport is shared between root (renderer/legacy sudo
+                # demos) and unprivileged demo processes - whichever creates
+                # it must leave it writable for the other side. Best effort:
+                # chmod fails for a non-owner, but then the owner already
+                # made it 0666.
+                try:
+                    os.chmod(path, 0o666)
+                except OSError:
+                    pass
 
             # Open file for read/write
             self._mmap_file = open(path, 'r+b')

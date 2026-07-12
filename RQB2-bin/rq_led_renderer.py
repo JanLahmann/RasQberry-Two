@@ -194,6 +194,13 @@ class LedRenderer:
         if not os.path.exists(self.path):
             count, width, height = self._configured_geometry()
             create_mmap_file(self.path, count, width, height)
+        else:
+            # A root-run writer may have created the file 0644 before this
+            # service started - re-assert shared access (we run as root).
+            try:
+                os.chmod(self.path, 0o666)
+            except OSError:
+                pass
         self._file = open(self.path, 'r+b')
         st = os.fstat(self._file.fileno())
         self._size = st.st_size
