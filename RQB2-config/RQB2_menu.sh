@@ -965,6 +965,22 @@ run_demo_loop() {
     "$BIN_DIR/rq_demo_loop.sh"
 }
 
+# Add an external demo from the curated registry (known-demos.json).
+# Delegates to rq_demo_add_external.sh (interactive picker), then reloads the
+# regenerated menu cache so the new demo shows up without leaving the menu.
+do_add_external_demo() {
+    if [ -x "$BIN_DIR/rq_demo_add_external.sh" ]; then
+        "$BIN_DIR/rq_demo_add_external.sh"
+        # The add script regenerates the cache; reload it in this session
+        if [ -f "$DEMO_MENU_CACHE" ]; then
+            . "$DEMO_MENU_CACHE"
+        fi
+    else
+        whiptail --title "Error" --msgbox "Add-demo script not found.\n\nExpected: $BIN_DIR/rq_demo_add_external.sh" 10 60
+        return 1
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
@@ -1276,6 +1292,7 @@ do_quantum_demo_menu() {
        IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
+       ADDX "Add demo from catalog" \
        LOOP "Continuous Demo Loop (Conference)" \
        REFR "Refresh Demo List (from manifests)" \
        STOP "Stop last running demo and clear LEDs" \
@@ -1306,6 +1323,7 @@ do_quantum_demo_menu() {
       # QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       QMX)  dispatch_demo_by_id "quantum-mixer"    || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
+      ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalog."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
       REFR) refresh_demo_menu_cache    || continue ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
