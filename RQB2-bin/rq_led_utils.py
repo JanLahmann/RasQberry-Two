@@ -410,65 +410,59 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     """
     config = get_led_config()
 
-    # Check for mirror mode (both virtual and real LEDs)
-    if config.get('led_virtual_mirror', False):
-        from rq_led_virtual import VirtualNeoPixel, MirrorNeoPixel
-        print("LED_VIRTUAL_MIRROR=true: Using both virtual and real LED display")
+    # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL
+    # flags (#231). LED_VIRTUAL_MIRROR is folded into these by get_led_config().
+    led_physical = config.get('led_physical', True)
+    led_virtual = config.get('led_virtual', False)
 
-        # Auto-launch GUI if not running
-        _ensure_virtual_led_gui_running()
-
-        # Create virtual display
-        virtual_pixels = VirtualNeoPixel(
-            None,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=pixel_order
-        )
-
-        # Create real NeoPixel
-        import board
-        import neopixel
-
-        if gpio_pin is None:
-            gpio_pin = config['led_gpio_pin']
-        gpio_board_pin = getattr(board, f'D{gpio_pin}')
-        if isinstance(pixel_order, str):
-            pixel_order = getattr(neopixel, pixel_order)
-
-        real_pixels = neopixel.NeoPixel(
-            gpio_board_pin,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=pixel_order
-        )
-        real_pixels.fill((0, 0, 0))
-        real_pixels.show()
-
-        return MirrorNeoPixel(real_pixels, virtual_pixels)
-
-    # Check for virtual-only mode
-    if config.get('led_virtual', False):
+    def _make_virtual():
         from rq_led_virtual import VirtualNeoPixel
-        print("LED_VIRTUAL=true: Using virtual LED display")
-
-        # Auto-launch GUI if not running
         _ensure_virtual_led_gui_running()
-
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
             num_pixels,
             brightness=brightness,
             auto_write=False,
-            pixel_order=pixel_order
+            pixel_order=pixel_order,
         )
+
+    def _make_real():
+        import board
+        import neopixel
+
+        pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
+        gpio_board_pin = getattr(board, f'D{pin}')
+        order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
+        real_pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=order
+        )
+        real_pixels.fill((0, 0, 0))
+        real_pixels.show()
+        return real_pixels
+
+    # Both targets -> mirror proxy
+    if led_physical and led_virtual:
+        from rq_led_virtual import MirrorNeoPixel
+        print("LED_PHYSICAL+LED_VIRTUAL: driving both real and virtual displays")
+        return MirrorNeoPixel(_make_real(), _make_virtual())
+
+    # Virtual only
+    if led_virtual and not led_physical:
+        print("LED_VIRTUAL: using virtual LED display only")
+        return _make_virtual()
+
+    # Physical only (also the fallback when neither flag is set)
+    if not led_physical and not led_virtual:
+        print("Warning: neither LED_PHYSICAL nor LED_VIRTUAL set; defaulting to physical")
 
     import board
     import neopixel
 
-    # Get GPIO pin from config if not provided (reuse config from virtual mode check)
+    # Get GPIO pin from config if not provided
     if gpio_pin is None:
         gpio_pin = config['led_gpio_pin']
 
