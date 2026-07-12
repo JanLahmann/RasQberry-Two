@@ -1196,7 +1196,8 @@ do_select_led_option() {
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
-           layout "Configure Matrix Layout") || break
+           layout "Configure Matrix Layout" \
+           wizard "LED Setup Wizard (auto-detect layout)") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
@@ -1218,6 +1219,11 @@ do_select_led_option() {
                 ;;
             layout )
                 do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
+                ;;
+            wizard )
+                # Interactive whiptail walkthrough (own process); auto-detects
+                # the physical layout and writes LED_LAYOUT.
+                bash "$BIN_DIR/rq_led_setup_wizard.sh" || { handle_error "LED setup wizard failed."; continue; }
                 ;;
             *) break ;;
         esac
