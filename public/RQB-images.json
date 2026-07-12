@@ -42,6 +42,22 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
+          "name": "RasQberry Two Dev (dev-ledwizard01 2026-07-12-195822)",
+          "description": "Development build from dev-ledwizard01",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ledwizard01-2026-07-12-195822/rasqberry-dev-ledwizard01-2026-07-12-195822.img.xz",
+          "extract_size": 8942256128,
+          "extract_sha256": "c31489f53475819d95b4339fd781411ceda7fd282f6fad0dd02cad171f35b5e5",
+          "image_download_size": 2001163420,
+          "release_date": "2026-07-12 19:58",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-extdemo01 2026-07-12-180014)",
           "description": "Development build from dev-extdemo01",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -160,6 +176,22 @@
       "description": "Images with A/B partition support for safer updates (experimental)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
+        {
+          "name": "RasQberry Two A/B (dev-ledwizard01 2026-07-12-195822)",
+          "description": "A/B boot image from dev-ledwizard01",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-ledwizard01-2026-07-12-195822/rasqberry-dev-ledwizard01-2026-07-12-195822-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "0107fc8fca4f815e8f5b76f35450c03c5617a2e8b37107db219fa796dec1bedc",
+          "image_download_size": 2037913712,
+          "release_date": "2026-07-12 19:58",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
         {
           "name": "RasQberry Two A/B (dev-extdemo01 2026-07-12-180014)",
           "description": "A/B boot image from dev-extdemo01",
