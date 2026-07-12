@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration
 DOWNLOAD_DIR="/var/tmp/rasqberry-updates"
-SLOT_MANAGER="/usr/local/bin/rq_slot_manager.sh"
+SLOT_MANAGER="/usr/bin/rq_slot_manager.sh"
 LOG_FILE="/var/log/rasqberry-update-slot.log"
 DEFAULT_TARGET_SLOT="B"  # Always update Slot B by default
 STABLE_SLOT="A"          # Slot A is the stable/protected slot
@@ -45,6 +45,12 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE"
 }
 
+is_terminal() {
+    # Check if stdout is connected to a terminal
+    # Returns 0 (true) if terminal, 1 (false) otherwise
+    [ -t 1 ]
+}
+
 get_target_slot() {
     # Determine which slot to write to
     # Default: Slot B (testing slot)
@@ -61,48 +67,65 @@ get_target_slot() {
     esac
 }
 
-get_slot_partition() {
-    # Get the system partition device for a slot
-    # v3 AB layout: p5=system-a, p6=system-b
-    local slot="$1"
-    local root_part
-    root_part=$(findmnt / -o source -n)
-    local root_dev
-    root_dev=$(lsblk -no pkname "$root_part")
+# Slot -> partition resolution comes from rq_common.sh:
+# get_ab_system_partition / get_ab_boot_partition (label-based, issue #229)
 
-    case "$slot" in
-        A)
-            echo "/dev/${root_dev}p5"
-            ;;
-        B)
-            echo "/dev/${root_dev}p6"
-            ;;
-        *)
-            die "Invalid slot: $slot"
-            ;;
-    esac
+preflight_checks() {
+    # Safety checks before any destructive action
+    local target_slot="$1" system_partition="$2" boot_partition="$3"
+
+    # Never flash the slot we are running from
+    local current_root
+    current_root=$(findmnt / -o source -n)
+    if [ "$current_root" = "$system_partition" ]; then
+        die "Refusing to flash Slot $target_slot: it is the currently booted system ($current_root). Boot the other slot first."
+    fi
+    local current_boot
+    current_boot=$(findmnt /boot/firmware -o source -n 2>/dev/null || echo "")
+    if [ -n "$current_boot" ] && [ "$current_boot" = "$boot_partition" ]; then
+        die "Refusing to flash Slot $target_slot: $boot_partition is the active boot partition."
+    fi
+
+    # Target partition must be expanded (factory Slot B is a 16MB placeholder)
+    local part_size
+    part_size=$(blockdev --getsize64 "$system_partition" 2>/dev/null || echo 0)
+    if [ "$part_size" -lt 4294967296 ]; then  # < 4GB cannot hold any image
+        die "Slot $target_slot partition is too small ($((part_size / 1024 / 1024))MB). Run partition expansion first: raspi-config -> RasQberry -> AB_BOOT -> EXPAND"
+    fi
+
+    # Enough free space to download + decompress in DOWNLOAD_DIR
+    local avail_kb
+    avail_kb=$(df --output=avail "$DOWNLOAD_DIR" | tail -1)
+    if [ "${avail_kb:-0}" -lt 15728640 ]; then  # < 15GB (xz + ~10GB raw image)
+        die "Not enough free space in $DOWNLOAD_DIR ($((avail_kb / 1024 / 1024))GB free, 15GB needed)"
+    fi
 }
 
-get_boot_partition() {
-    # Get the boot partition device for a slot
-    # v3 AB layout: p2=boot-a, p3=boot-b
-    local slot="$1"
-    local root_part
-    root_part=$(findmnt / -o source -n)
-    local root_dev
-    root_dev=$(lsblk -no pkname "$root_part")
+verify_checksum() {
+    # Verify the downloaded image against a SHA256 checksum.
+    # Uses --sha256 argument if given, else tries <url>.sha256 alongside
+    # the image. Skips with a warning if no checksum is available.
+    local image_file="$1" url="$2" expected="${3:-}"
 
-    case "$slot" in
-        A)
-            echo "/dev/${root_dev}p2"
-            ;;
-        B)
-            echo "/dev/${root_dev}p3"
-            ;;
-        *)
-            die "Invalid slot: $slot"
-            ;;
-    esac
+    if [ -z "$expected" ]; then
+        local sum_url="${url}.sha256"
+        expected=$(curl -sSLf --max-time 30 "$sum_url" 2>/dev/null | awk '{print $1}' || true)
+        if [ -z "$expected" ]; then
+            warn "No SHA256 checksum available for this release - skipping verification"
+            log_message "WARNING: image installed without checksum verification"
+            return 0
+        fi
+        log_message "Fetched checksum from $sum_url"
+    fi
+
+    log_message "Verifying SHA256 checksum..."
+    local actual
+    actual=$(sha256sum "$image_file" | awk '{print $1}')
+    if [ "$actual" != "$expected" ]; then
+        rm -f "$image_file"
+        die "Checksum mismatch! expected=$expected actual=$actual - download corrupted or tampered, aborting"
+    fi
+    log_message "Checksum OK: $actual"
 }
 
 download_image() {
@@ -113,11 +136,31 @@ download_image() {
     log_message "Downloading image from: $url"
     log_message "Saving to: $output_file"
 
-    # Use wget or curl
+    # Use wget or curl - show progress bar when in terminal, quiet otherwise
     if command -v wget >/dev/null 2>&1; then
-        wget -O "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE" || die "Download failed"
+        if is_terminal; then
+            # Show progress bar in terminal
+            if ! wget --progress=bar:force -O "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        else
+            # Non-verbose for non-terminal (logs, systemd)
+            if ! wget -nv -O "$output_file" "$url" 2>> "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        fi
     elif command -v curl >/dev/null 2>&1; then
-        curl -L -o "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE" || die "Download failed"
+        if is_terminal; then
+            # Show progress bar in terminal
+            if ! curl -L --progress-bar -o "$output_file" "$url" 2>&1 | tee -a "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        else
+            # Silent for non-terminal
+            if ! curl -sSL -o "$output_file" "$url" 2>> "$LOG_FILE"; then
+                die "Download failed"
+            fi
+        fi
     else
         die "Neither wget nor curl found"
     fi
@@ -140,11 +183,6 @@ verify_image() {
         die "Downloaded file seems too small: $size bytes"
     fi
 
-    # Check if it's a valid xz file
-    if ! xz -t "$image_file" 2>/dev/null; then
-        die "Downloaded file is not a valid xz compressed file"
-    fi
-
     log_message "Image file verified: $size bytes"
 }
 
@@ -163,12 +201,21 @@ write_image_to_slot() {
     local work_dir="${DOWNLOAD_DIR}/extract-$$"
     mkdir -p "$work_dir"
 
-    # Decompress image
-    log_message "Decompressing image..."
+    # Decompress image (use all CPU cores with -T0 for faster decompression)
+    log_message "Decompressing image (multi-threaded)..."
     local raw_image="${work_dir}/image.img"
-    if ! xz -dc "$image_file" > "$raw_image" 2>&1; then
-        rm -rf "$work_dir"
-        die "Failed to decompress image"
+    if is_terminal; then
+        # Show progress in terminal (-v for verbose)
+        if ! xz -dcvT0 "$image_file" > "$raw_image" 2>&1 | tee -a "$LOG_FILE"; then
+            rm -rf "$work_dir"
+            die "Failed to decompress image"
+        fi
+    else
+        # Quiet for non-terminal
+        if ! xz -dcT0 "$image_file" > "$raw_image" 2>> "$LOG_FILE"; then
+            rm -rf "$work_dir"
+            die "Failed to decompress image"
+        fi
     fi
     log_message "Decompression complete"
 
@@ -237,6 +284,12 @@ write_image_to_slot() {
         die "Failed to mount image boot partition"
     }
 
+    # Unmount target boot partition if mounted (e.g., by desktop automounter)
+    if mountpoint -q "$boot_partition" 2>/dev/null || mount | grep -q "$boot_partition"; then
+        log_message "Unmounting $boot_partition (was auto-mounted)..."
+        umount "$boot_partition" 2>> "$LOG_FILE" || true
+    fi
+
     # Format and mount target boot partition
     mkfs.vfat -F 32 -n "boot-${target_slot,,}" "$boot_partition" >> "$LOG_FILE" 2>&1 || {
         umount "$img_boot_mount"
@@ -252,14 +305,14 @@ write_image_to_slot() {
         die "Failed to mount target boot partition"
     }
 
-    # Copy all boot files
-    cp -a "$img_boot_mount"/* "$tgt_boot_mount"/ 2>&1 | tee -a "$LOG_FILE" || {
+    # Copy all boot files (quietly, log only on error)
+    if ! cp -a "$img_boot_mount"/* "$tgt_boot_mount"/ 2>> "$LOG_FILE"; then
         umount "$tgt_boot_mount"
         umount "$img_boot_mount"
         losetup -d "$loop_dev"
         rm -rf "$work_dir"
         die "Failed to copy boot files"
-    }
+    fi
 
     # Update cmdline.txt for the target slot
     log_message "Updating cmdline.txt for Slot $target_slot..."
@@ -285,17 +338,41 @@ write_image_to_slot() {
     umount "$img_boot_mount"
     log_message "Boot files copied successfully"
 
+    # Unmount target system partition if mounted
+    if mountpoint -q "$system_partition" 2>/dev/null || mount | grep -q "$system_partition"; then
+        log_message "Unmounting $system_partition (was mounted)..."
+        umount "$system_partition" 2>> "$LOG_FILE" || true
+    fi
+
+    # The image's root partition must fit into the target partition
+    local img_root_size target_size
+    img_root_size=$(blockdev --getsize64 "$img_root")
+    target_size=$(blockdev --getsize64 "$system_partition")
+    if [ "$img_root_size" -gt "$target_size" ]; then
+        losetup -d "$loop_dev"
+        rm -rf "$work_dir"
+        die "Image rootfs ($((img_root_size / 1024 / 1024))MB) does not fit target partition $system_partition ($((target_size / 1024 / 1024))MB)"
+    fi
+
     # Write rootfs to system partition
     log_message "Writing rootfs to $system_partition..."
     log_message "This may take 10-20 minutes..."
 
-    if dd if="$img_root" of="$system_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
-        log_message "Rootfs written successfully"
+    # Show progress when in terminal, quiet otherwise
+    if is_terminal; then
+        if ! dd if="$img_root" of="$system_partition" bs=4M status=progress 2>&1 | tee -a "$LOG_FILE"; then
+            losetup -d "$loop_dev"
+            rm -rf "$work_dir"
+            die "Failed to write rootfs to partition"
+        fi
     else
-        losetup -d "$loop_dev"
-        rm -rf "$work_dir"
-        die "Failed to write rootfs to partition"
+        if ! dd if="$img_root" of="$system_partition" bs=4M 2>> "$LOG_FILE"; then
+            losetup -d "$loop_dev"
+            rm -rf "$work_dir"
+            die "Failed to write rootfs to partition"
+        fi
     fi
+    log_message "Rootfs written successfully"
 
     # Release loop device (no longer needed)
     losetup -d "$loop_dev"
@@ -304,6 +381,11 @@ write_image_to_slot() {
     log_message "Resizing filesystem..."
     e2fsck -f -y "$system_partition" >> "$LOG_FILE" 2>&1 || true
     resize2fs "$system_partition" >> "$LOG_FILE" 2>&1 || warn "Could not resize filesystem"
+
+    # Set correct label for the target slot
+    local system_label="SYSTEM-${target_slot}"
+    log_message "Setting filesystem label to ${system_label}..."
+    e2label "$system_partition" "$system_label" >> "$LOG_FILE" 2>&1 || warn "Could not set filesystem label"
 
     # Mount and update fstab
     log_message "Updating fstab for Slot $target_slot..."
@@ -351,7 +433,7 @@ cleanup_download() {
 }
 
 configure_tryboot() {
-    # Configure tryboot to boot into the specified slot
+    # Configure tryboot to the specified slot (no reboot)
     local target_slot="$1"
 
     log_message "Configuring tryboot to boot Slot $target_slot..."
@@ -360,22 +442,12 @@ configure_tryboot() {
         die "Slot manager not found: $SLOT_MANAGER"
     fi
 
-    "$SLOT_MANAGER" switch-to "$target_slot" 2>&1 | tee -a "$LOG_FILE" || die "Failed to configure tryboot"
-
-    log_message "Tryboot configured for Slot $target_slot"
-}
-
-reboot_system() {
-    # Reboot the system to activate the new slot
-    log_message "Rebooting system to activate new slot..."
-    log_message "System will boot into Slot ${TARGET_SLOT}"
-
+    # Wait for I/O to settle
     sync
+    sleep 5
 
-    # Give a few seconds for logs to flush
-    sleep 2
-
-    reboot
+    # Configure and reboot via slot manager (handles unmounting)
+    exec "$SLOT_MANAGER" switch-to "$target_slot" --reboot
 }
 
 # ============================================================================
@@ -386,6 +458,7 @@ parse_arguments() {
     # Parse command line arguments
     TARGET_SLOT="$DEFAULT_TARGET_SLOT"
     REQUIRE_CONFIRM=false
+    SHA256_SUM=""
 
     # Shift past URL and tag to get to optional parameters
     shift 2
@@ -394,6 +467,10 @@ parse_arguments() {
         case "$1" in
             --slot)
                 TARGET_SLOT="$2"
+                shift 2
+                ;;
+            --sha256)
+                SHA256_SUM="$2"
                 shift 2
                 ;;
             --confirm)
@@ -443,6 +520,7 @@ Arguments:
 
 Options:
   --slot A|B      Target slot (default: B for testing)
+  --sha256 <sum>  Expected SHA256 of the .img.xz (else <url>.sha256 is tried)
   --confirm       Required when updating Slot A (stable)
 
 Slot Strategy:
@@ -480,11 +558,11 @@ EOF
     # Create download directory
     mkdir -p "$DOWNLOAD_DIR"
 
-    # Determine target slot partitions
+    # Determine target slot partitions (shared helpers from rq_common.sh)
     local system_partition
     local boot_partition
-    system_partition=$(get_slot_partition "$TARGET_SLOT")
-    boot_partition=$(get_boot_partition "$TARGET_SLOT")
+    system_partition=$(get_ab_system_partition "$TARGET_SLOT")
+    boot_partition=$(get_ab_boot_partition "$TARGET_SLOT")
     log_message "Target system partition: $system_partition"
     log_message "Target boot partition: $boot_partition"
 
@@ -495,6 +573,9 @@ EOF
     if [ ! -b "$boot_partition" ]; then
         die "Target boot partition does not exist: $boot_partition"
     fi
+
+    # Safety guards: never the booted slot, size and free-space prechecks
+    preflight_checks "$TARGET_SLOT" "$system_partition" "$boot_partition"
 
     # Download image
     local image_file="${DOWNLOAD_DIR}/rasqberry-${release_tag}.img.xz"
@@ -508,6 +589,7 @@ EOF
 
     # Verify download
     verify_image "$image_file"
+    verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
 
     # Write image to target slot (both boot and system partitions)
     write_image_to_slot "$image_file" "$system_partition" "$boot_partition" "$TARGET_SLOT"
@@ -515,15 +597,9 @@ EOF
     # Cleanup
     cleanup_download "$image_file"
 
-    # Configure tryboot to boot the new slot
-    configure_tryboot "$TARGET_SLOT"
-
-    # Reboot
+    # Configure tryboot (no automatic reboot)
     log_message "=== Update Complete ==="
-    log_message "Rebooting in 5 seconds..."
-    sleep 5
-
-    reboot_system
+    configure_tryboot "$TARGET_SLOT"
 }
 
 main "$@"

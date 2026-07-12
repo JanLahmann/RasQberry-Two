@@ -5,15 +5,19 @@ set -euo pipefail
 # RasQberry: A/B Boot Slot Manager
 # ============================================================================
 # Description: Manage A/B boot slots for remote testing
-# Usage: rq_slot_manager.sh {status|confirm|switch|rollback}
+# Usage: rq_slot_manager.sh {status|confirm|switch-to|rollback|promote}
 #
 # Commands:
-#   status    - Show current slot and boot status
-#   confirm   - Confirm current slot (prevent tryboot rollback)
-#   switch    - Switch to the other slot on next boot
-#   rollback  - Force rollback to previous slot
+#   status      - Show current slot and boot status
+#   confirm     - Confirm current slot (prevent rollback)
+#   switch-to   - Switch to a specific slot (A or B) using tryboot
+#   rollback    - Force rollback to previous slot
+#   promote     - Promote Slot B to Slot A (copy)
 #
-# This utility manages the Raspberry Pi tryboot feature for A/B boot testing.
+# Tryboot mechanism (Pi 4 and Pi 5):
+#   - Uses autoboot.txt with tryboot_a_b=1 for partition-level A/B switching
+#   - boot_partition_fallback provides firmware-level fallback on boot failure
+#   - Health check confirms slot; unconfirmed slots auto-rollback on reboot
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -26,10 +30,6 @@ BOOT_COMMON_DIR="/boot/config"
 AUTOBOOT_TXT="${BOOT_COMMON_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE="${BOOT_COMMON_DIR}/current-slot"
 SLOT_CONFIRMED_FILE="${BOOT_COMMON_DIR}/slot-confirmed"
-
-# tryboot.txt is optional - only needed for per-slot boot configurations
-# With tryboot_a_b=1 in autoboot.txt, we use autoboot.txt for AB detection
-TRYBOOT_TXT="${BOOT_DIR}/tryboot.txt"
 
 # Old paths for backwards compatibility (non-AB images)
 AUTOBOOT_TXT_FALLBACK="${BOOT_DIR}/autoboot.txt"
@@ -123,60 +123,15 @@ get_root_partition() {
 }
 
 get_slot_partition() {
-    # Get ROOT partition device for a given slot
-    # V2 layout: p5=Slot A rootfs, p6=Slot B rootfs
+    # Get ROOT partition device for a given slot (shared helper, issue #229)
     local slot="$1"
-    local root_dev
-    root_dev=$(lsblk -no pkname "$(get_root_partition)")
-
-    case "${slot}" in
-        A)
-            # Handle both mmcblk0p5 and sd5 style naming
-            if [ -b "/dev/${root_dev}p5" ]; then
-                echo "/dev/${root_dev}p5"
-            else
-                echo "/dev/${root_dev}5"
-            fi
-            ;;
-        B)
-            if [ -b "/dev/${root_dev}p6" ]; then
-                echo "/dev/${root_dev}p6"
-            else
-                echo "/dev/${root_dev}6"
-            fi
-            ;;
-        *)
-            echo "UNKNOWN"
-            ;;
-    esac
+    get_ab_system_partition "$slot" || echo "UNKNOWN"
 }
 
 get_boot_partition() {
-    # Get BOOT partition device for a given slot
-    # V2 layout: p2=Slot A bootfs, p3=Slot B bootfs
+    # Get BOOT partition device for a given slot (shared helper, issue #229)
     local slot="$1"
-    local root_dev
-    root_dev=$(lsblk -no pkname "$(get_root_partition)")
-
-    case "${slot}" in
-        A)
-            if [ -b "/dev/${root_dev}p2" ]; then
-                echo "/dev/${root_dev}p2"
-            else
-                echo "/dev/${root_dev}2"
-            fi
-            ;;
-        B)
-            if [ -b "/dev/${root_dev}p3" ]; then
-                echo "/dev/${root_dev}p3"
-            else
-                echo "/dev/${root_dev}3"
-            fi
-            ;;
-        *)
-            echo "UNKNOWN"
-            ;;
-    esac
+    get_ab_boot_partition "$slot" || echo "UNKNOWN"
 }
 
 # ============================================================================
@@ -218,11 +173,33 @@ cmd_status() {
     info "  Slot A: $(get_slot_partition A)"
     info "  Slot B: $(get_slot_partition B)"
 
+    # Partition sizes
+    echo ""
+    info "Partition Sizes:"
+    local part_a part_b part_data size_a size_b size_data
+    part_a=$(get_slot_partition A)
+    part_b=$(get_slot_partition B)
+    part_data=$(ab_partition_by_number 7)
+    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
+    info "  SYSTEM-A (${part_a}): ${size_a}"
+    info "  SYSTEM-B (${part_b}): ${size_b}"
+    info "  DATA (${part_data}):     ${size_data}"
+
+    # Check if expansion needed (system-b < 1GB indicates placeholder)
+    local size_b_bytes
+    size_b_bytes=$(lsblk -bno SIZE "$part_b" 2>/dev/null)
+    if [ "${size_b_bytes:-0}" -lt 1073741824 ]; then
+        echo ""
+        warn "⚠ Partitions need expansion! Run: sudo raspi-config → RasQberry → AB_BOOT → EXPAND"
+        warn "  Or: sudo $(basename "$0") expand"
+    fi
+
     # Boot files
     echo ""
     info "Boot Configuration Files:"
     [ -f "${AUTOBOOT_TXT}" ] && info "  autoboot.txt: EXISTS" || warn "  autoboot.txt: MISSING"
-    [ -f "${TRYBOOT_TXT}" ] && info "  tryboot.txt: EXISTS" || warn "  tryboot.txt: MISSING"
     [ -f "${CURRENT_SLOT_FILE}" ] && info "  current-slot: $(cat "${CURRENT_SLOT_FILE}")" || warn "  current-slot: MISSING"
 
     echo ""
@@ -252,11 +229,27 @@ cmd_confirm() {
     # Update current-slot file
     echo "${current_slot}" > "${CURRENT_SLOT_FILE}"
 
-    # Update autoboot.txt to make this slot the default
-    # (Remove tryboot, set permanent boot)
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
+    # Update autoboot.txt to make this slot the permanent default
+    # This ensures normal boots (without tryboot flag) use the confirmed slot
+    local confirmed_partition other_partition
+    if [ "${current_slot}" = "A" ]; then
+        confirmed_partition=2
+        other_partition=3
+    else
+        confirmed_partition=3
+        other_partition=2
     fi
+
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=${confirmed_partition}
+boot_partition_fallback=${other_partition}
+
+[tryboot]
+boot_partition=${other_partition}
+boot_partition_fallback=${confirmed_partition}
+EOF
 
     info "Slot ${current_slot} confirmed"
     info "This slot will be used for future boots"
@@ -285,56 +278,135 @@ cmd_switch() {
 }
 
 cmd_switch_to() {
-    # Switch to a specific slot on next boot
+    # Switch to a specific slot on next boot using tryboot
+    # The tryboot flag triggers [tryboot] section in autoboot.txt
+    # If health check fails, normal reboot falls back to [all] section (confirmed slot)
     check_root
 
-    local target_slot="$1"
+    local target_slot=""
+    local do_reboot=false
+
+    # Parse arguments
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            A|B)
+                target_slot="$1"
+                ;;
+            --reboot)
+                do_reboot=true
+                ;;
+            *)
+                die "Invalid argument: $1"
+                ;;
+        esac
+        shift
+    done
 
     if [ -z "$target_slot" ]; then
-        die "Usage: $0 switch-to {A|B}"
+        die "Usage: $0 switch-to {A|B} [--reboot]"
     fi
 
-    case "$target_slot" in
-        A|B)
-            ;;
-        *)
-            die "Invalid slot: $target_slot (must be A or B)"
-            ;;
-    esac
+    local current_slot
+    current_slot=$(get_current_slot)
 
-    info "Configuring boot to Slot ${target_slot}..."
+    if [ "$current_slot" = "$target_slot" ]; then
+        info "Already on Slot ${target_slot}"
+        return 0
+    fi
+
+    info "Configuring tryboot to Slot ${target_slot}..."
 
     # Ensure boot config directory exists
     mkdir -p "${BOOT_COMMON_DIR}"
 
-    # Determine boot partition for target slot
+    # Determine partitions
     # v3 layout: p2=boot-a (Slot A), p3=boot-b (Slot B)
-    local boot_partition
-    if [ "$target_slot" = "A" ]; then
-        boot_partition=2
+    local current_partition target_partition
+    if [ "$current_slot" = "A" ]; then
+        current_partition=2
+        target_partition=3
     else
-        boot_partition=3
+        current_partition=3
+        target_partition=2
     fi
 
-    # Write autoboot.txt with boot_partition
-    # Note: tryboot_a_b is not supported on Pi 5 bootloader, use direct boot_partition instead
+    # Update autoboot.txt: current slot as default, target as tryboot
+    # This ensures rollback to current slot if tryboot fails
     cat > "${AUTOBOOT_TXT}" << EOF
 [all]
-boot_partition=${boot_partition}
+tryboot_a_b=1
+boot_partition=${current_partition}
+boot_partition_fallback=${target_partition}
+
+[tryboot]
+boot_partition=${target_partition}
+boot_partition_fallback=${current_partition}
 EOF
 
     # Clear confirmation (will test new slot)
     rm -f "${SLOT_CONFIRMED_FILE}"
 
-    # Mark which slot we're trying to boot
+    # Mark which slot we're trying to boot and reset the retry budget
+    # (rq_tryboot_retry.sh re-issues the tryboot once if the flag is lost)
     echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
+    echo 0 > "${BOOT_COMMON_DIR}/switch-retries"
 
-    info "Slot ${target_slot} configured (boot_partition=${boot_partition})"
-    info "Reboot to switch: sudo reboot"
+    info "Slot ${target_slot} configured for tryboot"
+    info "Current slot (${current_slot}) remains default until new slot is confirmed"
+
+    if [ "$do_reboot" = true ]; then
+        info ""
+        info "Rebooting with tryboot flag..."
+
+        # Stop automounter to prevent re-mounting during reboot
+        systemctl stop udisks2 2>/dev/null && info "Stopped udisks2" || true
+
+        # Unmount target slot partitions - automounter may have mounted them
+        # which can interfere with tryboot on Pi 5
+        local tgt_boot tgt_sys
+        tgt_boot=$(get_boot_partition "$target_slot")
+        tgt_sys=$(get_slot_partition "$target_slot")
+        umount "$tgt_boot" 2>/dev/null && info "Unmounted ${tgt_boot}" || true
+        umount "$tgt_sys" 2>/dev/null && info "Unmounted ${tgt_sys}" || true
+
+        # Verify unmount succeeded
+        if mount | grep -qE "^(${tgt_boot}|${tgt_sys}) " 2>/dev/null; then
+            warn "Warning: target slot partitions may still be mounted"
+        fi
+
+        # Flush all buffers and drop caches - critical after partition writes
+        info "Flushing buffers and caches..."
+        sync
+        blockdev --flushbufs "/dev/$(ab_boot_device)" 2>/dev/null || true
+        echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+
+        # Wait until writeback has fully drained: a tryboot reboot issued
+        # while the kernel is still flushing loses the tryboot flag and the
+        # system boots the default slot instead (reproduced on Pi 4 and
+        # Pi 5 directly after writing a full image to SD).
+        info "Waiting for disk writeback to settle..."
+        local settle_deadline=$((SECONDS + 300)) dirty_kb=0 wb_kb=0
+        while [ "$SECONDS" -lt "$settle_deadline" ]; do
+            sync
+            dirty_kb=$(awk '/^Dirty:/ {print $2}' /proc/meminfo)
+            wb_kb=$(awk '/^Writeback:/ {print $2}' /proc/meminfo)
+            if [ $((dirty_kb + wb_kb)) -lt 4096 ]; then
+                break
+            fi
+            sleep 2
+        done
+        info "Writeback settled (Dirty=${dirty_kb}kB Writeback=${wb_kb}kB)"
+        sleep 2
+        reboot '0 tryboot'
+    else
+        info ""
+        info "To boot into Slot ${target_slot}, use: raspi-config -> RasQberry -> AB_BOOT -> TRYBOOT_${target_slot}"
+        info "Note: After UPDATE, you may need to reboot first, then use TRYBOOT_${target_slot} again."
+    fi
 }
 
 cmd_rollback() {
-    # Force rollback to the other slot (simulate failed health check)
+    # Force rollback to the other slot
     check_root
 
     local current_slot
@@ -353,13 +425,30 @@ cmd_rollback() {
 
     warn "Forcing rollback from slot ${current_slot} to slot ${other_slot}"
 
-    # Remove confirmation (trigger rollback)
-    rm -f "${SLOT_CONFIRMED_FILE}"
-
-    # Remove tryboot (will boot confirmed slot)
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
+    # Determine partitions
+    local other_partition current_partition
+    if [ "${other_slot}" = "A" ]; then
+        other_partition=2
+        current_partition=3
+    else
+        other_partition=3
+        current_partition=2
     fi
+
+    # Update autoboot.txt to boot other slot as default
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=${other_partition}
+boot_partition_fallback=${current_partition}
+
+[tryboot]
+boot_partition=${current_partition}
+boot_partition_fallback=${other_partition}
+EOF
+
+    # Remove confirmation
+    rm -f "${SLOT_CONFIRMED_FILE}"
 
     # Update current-slot to other slot
     echo "${other_slot}" > "${CURRENT_SLOT_FILE}"
@@ -409,15 +498,16 @@ cmd_promote() {
     fi
 
     # Get partition devices
-    local slot_a_part
+    local slot_a_part slot_b_part boot_a_part boot_b_part
     slot_a_part=$(get_slot_partition A)
-    local slot_b_part
     slot_b_part=$(get_slot_partition B)
+    boot_a_part=$(get_boot_partition A)
+    boot_b_part=$(get_boot_partition B)
 
     info "Copying Slot B ($slot_b_part) to Slot A ($slot_a_part)..."
     info "This will take several minutes..."
 
-    # Mount both partitions
+    # Mount both system partitions
     local mount_a="/mnt/slot_a_temp"
     local mount_b="/mnt/slot_b_temp"
 
@@ -433,16 +523,66 @@ cmd_promote() {
         die "Failed to copy Slot B to Slot A"
     }
 
-    # Unmount
+    # The copy carries Slot B's fstab - rewrite mounts for Slot A
+    info "Updating fstab for Slot A..."
+    local config_part data_part
+    config_part=$(ab_partition_by_number 1)
+    data_part=$(ab_partition_by_number 7)
+    cat > "$mount_a/etc/fstab" << EOF
+proc                        /proc           proc    defaults          0   0
+${config_part}              /boot/config    vfat    defaults          0   2
+${boot_a_part}              /boot/firmware  vfat    defaults          0   2
+${slot_a_part}              /               ext4    defaults,noatime  0   1
+${data_part}                /data           ext4    defaults,noatime  0   2
+EOF
+
     umount "$mount_a" "$mount_b"
     rmdir "$mount_a" "$mount_b"
 
+    # Sync the boot partition too - kernel and /lib/modules must match
+    info "Copying boot partition ($boot_b_part -> $boot_a_part)..."
+    local boot_mount_a="/mnt/boot_a_temp"
+    local boot_mount_b="/mnt/boot_b_temp"
+    mkdir -p "$boot_mount_a" "$boot_mount_b"
+
+    # Boot-B is normally mounted at /boot/firmware on a running Slot B; use bind-safe ro mount
+    mount -o ro "$boot_b_part" "$boot_mount_b" 2>/dev/null || boot_mount_b="/boot/firmware"
+    mount "$boot_a_part" "$boot_mount_a" || {
+        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+        die "Failed to mount Slot A boot partition"
+    }
+
+    # VFAT supports neither ownership nor permissions - copy data+times only
+    rsync -rt --delete "$boot_mount_b/" "$boot_mount_a/" || {
+        umount "$boot_mount_a"
+        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+        die "Failed to copy boot partition"
+    }
+
+    # The copied cmdline.txt points at Slot B's root - fix it for Slot A
+    if [ -f "$boot_mount_a/cmdline.txt" ]; then
+        sed -i "s|root=[^ ]*|root=${slot_a_part}|g" "$boot_mount_a/cmdline.txt"
+        info "cmdline.txt updated: root=${slot_a_part}"
+    fi
+
+    sync
+    umount "$boot_mount_a"
+    [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
+    rmdir "$boot_mount_a" /mnt/boot_b_temp 2>/dev/null || true
+
     info "Copy complete"
 
-    # Set Slot A as default boot
-    if [ -f "${AUTOBOOT_TXT}" ]; then
-        sed -i '/tryboot_a_b/d' "${AUTOBOOT_TXT}" 2>/dev/null || true
-    fi
+    # Set Slot A as default boot with proper tryboot config
+    cat > "${AUTOBOOT_TXT}" << EOF
+[all]
+tryboot_a_b=1
+boot_partition=2
+boot_partition_fallback=3
+
+[tryboot]
+boot_partition=3
+boot_partition_fallback=2
+EOF
 
     # Mark Slot A as confirmed
     echo "$(date -Iseconds)" > "${SLOT_CONFIRMED_FILE}"
@@ -482,7 +622,7 @@ EOF
     info "Tag: $release_tag"
 
     # Call rq_update_slot.sh with --slot A --confirm
-    local update_script="/usr/local/bin/rq_update_slot.sh"
+    local update_script="/usr/bin/rq_update_slot.sh"
 
     if [ ! -x "$update_script" ]; then
         die "Update script not found: $update_script"
@@ -504,7 +644,7 @@ Strategy: Slot A = STABLE (protected), Slot B = TESTING (auto-updates)
 Commands:
     status                          Show current slot and boot status
     confirm                         Confirm current slot (prevent rollback)
-    switch-to {A|B}                 Boot specific slot on next reboot
+    switch-to {A|B} [--reboot]      Boot specific slot on next reboot
     switch                          Switch to other slot (deprecated)
     rollback                        Force rollback to other slot
     promote                         Promote Slot B (tested) → Slot A (stable)
@@ -519,6 +659,10 @@ Examples:
 
     # Switch to specific slot for testing
     sudo $(basename "$0") switch-to B
+    sudo reboot '0 tryboot'
+
+    # Switch and reboot in one command
+    sudo $(basename "$0") switch-to B --reboot
 
     # Promote tested Slot B to become new stable Slot A
     sudo $(basename "$0") promote

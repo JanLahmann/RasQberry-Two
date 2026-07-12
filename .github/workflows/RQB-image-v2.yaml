@@ -1250,7 +1250,8 @@ jobs:
             local COMPRESSED="${IMG}.xz"
 
             echo "Compressing $(basename "$IMG") with xz -${LEVEL}..."
-            run_xz -${LEVEL} -T0 -k "$IMG"  # -k keeps original for potential recompression
+            # --block-size enables parallel decompression (xz -T0 can decompress blocks in parallel)
+            run_xz -${LEVEL} -T0 --block-size=128MiB -k "$IMG"  # -k keeps original for potential recompression
 
             # Check size
             local SIZE=$(stat -c%s "$COMPRESSED")
@@ -1261,7 +1262,7 @@ jobs:
               echo "  ⚠️ Image exceeds 2GB limit (${SIZE_MB} MB)"
               echo "  Recompressing with xz -${FALLBACK}..."
               rm -f "$COMPRESSED"
-              run_xz -${FALLBACK} -T0 -k "$IMG"
+              run_xz -${FALLBACK} -T0 --block-size=128MiB -k "$IMG"
               SIZE=$(stat -c%s "$COMPRESSED")
               SIZE_MB=$((SIZE / 1024 / 1024))
               echo "  New size: ${SIZE_MB} MB"

@@ -200,18 +200,28 @@ echo ""
 # ============================================================================
 echo "Step 8: Creating config partition contents..."
 
-# Create autoboot.txt
+# Create autoboot.txt with tryboot A/B boot support
+# - tryboot_a_b=1: Enables partition-level A/B boot switching
+# - boot_partition_fallback: Firmware-level fallback on boot failure (Pi 5 firmware 2025-03+)
+# - [tryboot] section: Used when tryboot flag is set for testing new slot
 cat > "${MOUNT_DIR}/config/autoboot.txt" << 'EOF'
 [all]
 tryboot_a_b=1
 boot_partition=2
+boot_partition_fallback=3
 
 [tryboot]
 boot_partition=3
+boot_partition_fallback=2
 EOF
 
-# Create empty config.txt (required by Pi 5 firmware)
-touch "${MOUNT_DIR}/config/config.txt"
+# Create minimal config.txt (Pi 5 bootloader requires non-empty config.txt
+# to recognize partition as bootable and process autoboot.txt)
+cat > "${MOUNT_DIR}/config/config.txt" << 'EOF'
+# RasQberry CONFIG partition
+# This file enables the Pi 5 bootloader to recognize this partition
+# and process autoboot.txt for A/B boot partition switching.
+EOF
 
 # Copy bootcode.bin for older Pi models
 if [ -f "${MOUNT_DIR}/boot-a/bootcode.bin" ]; then
@@ -429,7 +439,7 @@ echo "  p6: SYSTEM-B    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (placeholder)"
 echo "  p7: DATA        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
 echo ""
 echo "Next steps:"
-echo "  1. Compress: xz -9 -T0 $OUTPUT_IMG"
+echo "  1. Compress: xz -9 -T0 --block-size=128MiB $OUTPUT_IMG"
 echo "  2. Flash to SD card (64GB+ recommended)"
 echo "  3. Boot and use raspi-config to expand partitions"
 echo "     (Expansion available on 64GB+ SD cards)"

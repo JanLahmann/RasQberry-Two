@@ -13,3 +13,5 @@ libxcb-cursor-dev
 # utilities for A/B boot release picker
 jq
 curl
+# partition management for A/B boot expansion (RQB2 menu)
+parted
