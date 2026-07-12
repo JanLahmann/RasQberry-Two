@@ -1,0 +1,18 @@
+[Unit]
+Description=RasQberry LED Renderer (root-confined GPIO frame renderer)
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rq_led_renderer.py
+Restart=on-failure
+RestartSec=2
+# The ONLY component that touches GPIO. Demos run as the unprivileged user and
+# write frames to the mmap; this reads them and drives the physical strip.
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

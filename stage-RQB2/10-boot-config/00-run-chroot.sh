@@ -40,5 +40,8 @@ install -v -m 755 "${CLONE_DIR}/RQB2-bin/rasqberry-load-boot-config.sh" \
 echo "=> Enabling boot configuration services"
 systemctl enable rasqberry-boot-config.service
 systemctl enable rasqberry-demo-cache.service
+# NOTE: rasqberry-led-renderer.service is intentionally NOT enabled here.
+# LED_RENDER_MODE defaults to 'direct', so the renderer ships disabled; it is
+# enabled only when switching to service mode (see rasqberry_environment.env).
 
 echo "Boot configuration system installed and enabled"

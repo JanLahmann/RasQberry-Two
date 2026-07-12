@@ -20,6 +20,11 @@ install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-boot-config.service" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-boot-config.service"
 install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-demo-cache.service" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-demo-cache.service"
+# LED renderer (Phase A2): shipped DISABLED because LED_RENDER_MODE defaults to
+# 'direct'. Enable it only when switching to service mode:
+#   sudo systemctl enable --now rasqberry-led-renderer.service
+install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-led-renderer.service" \
+  "${ROOTFS_DIR}/etc/systemd/system/rasqberry-led-renderer.service"
 
 # Copy the stage config file to chroot for 00-run-chroot.sh
 cp "${SCRIPT_DIR}/../config" "${ROOTFS_DIR}/tmp/stage-config"
