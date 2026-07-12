@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T08:44:06Z",
+  "generated": "2026-07-12T11:05:12Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,17 @@
       ]
     },
     "dev": {
-      "tag": "development-2025-12-31-113832",
-      "name": "rasqberry-development-2025-12-31-113832",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-31-113832/rasqberry-development-2025-12-31-113832.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-31-113832",
-      "release_date": "2025-12-31 11:38",
-      "image_download_size": 1989503604,
-      "extract_size": 8841592832,
-      "extract_sha256": "f31ebb1cdb7e2d0972e8da41292164e7825be1e385f36b39e8bde194636b7bc6",
+      "tag": "dev-testing01-2026-07-12-123247",
+      "name": "rasqberry-dev-testing01-2026-07-12-123247",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-testing01-2026-07-12-123247/rasqberry-dev-testing01-2026-07-12-123247.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-testing01-2026-07-12-123247",
+      "release_date": "2026-07-12 12:32",
+      "image_download_size": 2018290692,
+      "extract_size": 8942256128,
+      "extract_sha256": "0367ce47f847c6a47d020b27b9e285bf384b97a1e0121adec8be3cb6d864d922",
       "highlights": [
-        "improve Download All Demos with retry logic and better UX"
+        "judge LED color by delta vs baseline, not absolute channel values",
+        "persistent camera stream in the suite, faster timing, GPIO teardown wait"
       ]
     }
   }
