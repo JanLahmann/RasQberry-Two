@@ -26,11 +26,12 @@ import sys
 sys.path.insert(0, '/usr/bin')
 
 # Local - use RasQberry shared LED utilities (singleton NeoPixel)
-from rq_led_utils import get_pixels, clear_all_leds
+from rq_led_utils import get_pixels, clear_all_leds, get_led_config
 from LED_array_indices import LED_ARRAY_INDICES
 
-# Constants
-NUM_PIXELS = 192
+# LED count comes from the active layout (LED_LAYOUT), not a hardcoded 192, so
+# LED-Painter tracks whatever strip the config describes.
+NUM_PIXELS = get_led_config()['led_count']
 
 
 def display_to_LEDs(array_data, args):
