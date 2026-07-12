@@ -36,8 +36,9 @@ echo "=> Installing boot config loader script"
 install -v -m 755 "${CLONE_DIR}/RQB2-bin/rasqberry-load-boot-config.sh" \
   /usr/local/bin/rasqberry-load-boot-config.sh
 
-# Enable the systemd service (service file already installed by 00-run.sh)
-echo "=> Enabling boot configuration service"
+# Enable the systemd services (service files already installed by 00-run.sh)
+echo "=> Enabling boot configuration services"
 systemctl enable rasqberry-boot-config.service
+systemctl enable rasqberry-demo-cache.service
 
 echo "Boot configuration system installed and enabled"

@@ -36,6 +36,13 @@ DEMO_ROOT="$REPO_DIR/demos"
 BIN_DIR="/usr/bin"  # System-wide bin directory (accessible to both root and normal users)
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
+# Demo menu cache (auto-generated from manifests, provides DEMO_MENU_ITEMS and dispatch_demo_by_id)
+# TODO: Use global directory variable once defined (see issue #246)
+DEMO_MENU_CACHE="/usr/config/demo-menu-cache.sh"
+if [ -f "$DEMO_MENU_CACHE" ]; then
+    . "$DEMO_MENU_CACHE"
+fi
+
 #
 # -----------------------------------------------------------------------------
 # 1. Environment & Bootstrap
@@ -931,6 +938,27 @@ stop_quantum_mixer_containers() {
     fi
 }
 
+# Refresh demo menu cache from manifests
+# This regenerates the demo-menu-cache.sh file from demo manifest files
+refresh_demo_menu_cache() {
+    if [ -x "$BIN_DIR/rq_demo_generate_menu.sh" ]; then
+        whiptail --title "Refreshing Demo Menu" --infobox "Regenerating demo menu from manifests..." 6 50
+        if "$BIN_DIR/rq_demo_generate_menu.sh" --cache "$DEMO_MENU_CACHE" > /dev/null 2>&1; then
+            # Reload the cache
+            if [ -f "$DEMO_MENU_CACHE" ]; then
+                . "$DEMO_MENU_CACHE"
+            fi
+            whiptail --title "Demo Menu Refreshed" --msgbox "Demo menu cache regenerated successfully.\n\n$DEMO_COUNT demos loaded from manifests." 10 50
+        else
+            whiptail --title "Error" --msgbox "Failed to regenerate demo menu cache.\n\nCheck that manifest files are valid." 10 50
+            return 1
+        fi
+    else
+        whiptail --title "Error" --msgbox "Menu generator script not found.\n\nExpected: $BIN_DIR/rq_demo_generate_menu.sh" 10 50
+        return 1
+    fi
+}
+
 # Run continuous demo loop for conference showcases
 run_demo_loop() {
     # Launch the demo loop script
@@ -1249,6 +1277,7 @@ do_quantum_demo_menu() {
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
        LOOP "Continuous Demo Loop (Conference)" \
+       REFR "Refresh Demo List (from manifests)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
        QMXS "Stop Quantum-Mixer containers") || break
@@ -1256,18 +1285,29 @@ do_quantum_demo_menu() {
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo        || continue ;;
-      GRBW) run_grok_bloch_web_demo    || continue ;;
-      FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
-      LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
-      QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
-      IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
-      IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
-      QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
-      QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      # Demos using manifest dispatch (via cache) - old functions kept as comments for debugging
+      # GRB)  run_grok_bloch_demo        || continue ;;
+      GRB)  dispatch_demo_by_id "grok-bloch"       || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
+      GRBW) run_grok_bloch_web_demo                || continue ;;
+      # FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      FRC)  dispatch_demo_by_id "quantum-fractals" || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
+      # RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
+      RQL)  dispatch_demo_by_id "rasq-led"         || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
+      # LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
+      LDP)  dispatch_demo_by_id "led-painter"      || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
+      # QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
+      QPX)  dispatch_demo_by_id "quantum-paradoxes" || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
+      # IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
+      IBMT) dispatch_demo_by_id "ibm-tutorials"    || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
+      # IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
+      IBMC) dispatch_demo_by_id "ibm-courses"      || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
+      # QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
+      QOF)  dispatch_demo_by_id "qoffee-maker"     || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
+      # QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      QMX)  dispatch_demo_by_id "quantum-mixer"    || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
+      REFR) refresh_demo_menu_cache    || continue ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
       QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
       QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;

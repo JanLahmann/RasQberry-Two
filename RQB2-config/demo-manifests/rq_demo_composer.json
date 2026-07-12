@@ -1,0 +1,41 @@
+{
+  "id": "composer",
+  "name": "IBM Quantum Composer",
+  "category": "education",
+  "description": "Design and simulate quantum circuits in your web browser",
+  "keywords": ["quantum", "qiskit", "composer", "circuit", "IBM", "web"],
+
+  "entrypoint": {
+    "type": "browser",
+    "browser_url": "https://quantum.ibm.com/composer/"
+  },
+
+  "install": {
+    "preinstalled": true
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "network": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/ibm-quantum.png"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 25
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": false
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "qoffee-maker",
+  "name": "Qoffee-Maker",
+  "category": "visualization",
+  "description": "Quantum-controlled coffee maker using Home Connect API (Docker container)",
+  "keywords": ["quantum", "coffee", "home-connect", "iot", "docker", "jupyter"],
+
+  "entrypoint": {
+    "type": "docker",
+    "docker_image": "ghcr.io/janlahmann/qoffee-maker",
+    "docker_port": 8887,
+    "launcher": "qoffee-maker.sh"
+  },
+
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/JanLahmann/Qoffee-Maker.git"
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "network": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/QoffeeMug_vector-s.png"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 70
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}
