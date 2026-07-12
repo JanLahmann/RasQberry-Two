@@ -641,6 +641,114 @@ install_demo_raspiconfig() {
 }
 
 # ============================================================================
+# 13. MANIFEST SEARCH PATH (external demos)
+# ============================================================================
+# Demo manifests are read from a two-entry search path:
+#   1. the shipped directory (trusted, /usr/config/demo-manifests)
+#   2. the user directory   ($USER_HOME/.local/config/demo-manifests)
+# Shipped manifests always WIN on id collision (they are the trust anchor);
+# a user manifest that reuses a shipped id is ignored (with a warning).
+#
+# The shipped directory differs between installed (/usr/config) and repo
+# (RQB2-config) contexts, so callers pass it in. The user directory derives
+# from USER_HOME and is skipped silently when USER_HOME is unset (dev/CI) or
+# the directory does not exist - so everything degrades to shipped-only.
+
+# Echo the user manifest directory. Returns non-zero (no output) when
+# USER_HOME is not set, so callers can treat it as "no user dir".
+rq_user_manifest_dir() {
+    [ -n "${USER_HOME:-}" ] || return 1
+    echo "$USER_HOME/.local/config/demo-manifests"
+}
+
+# Echo the existing manifest search directories, shipped first then user.
+# Usage: rq_manifest_dirs "<shipped_dir>"
+rq_manifest_dirs() {
+    local shipped="$1" user_dir
+    [ -d "$shipped" ] && echo "$shipped"
+    if user_dir=$(rq_user_manifest_dir) \
+        && [ -d "$user_dir" ] && [ "$user_dir" != "$shipped" ]; then
+        echo "$user_dir"
+    fi
+}
+
+# Resolve the manifest file for a demo id across the search path.
+# Shipped wins. Echoes the path and returns 0 if found, else returns 1.
+# Usage: file=$(rq_find_manifest "<shipped_dir>" "<id>")
+rq_find_manifest() {
+    local shipped="$1" id="$2" dir file
+    while IFS= read -r dir; do
+        [ -z "$dir" ] && continue
+        file="$dir/rq_demo_${id}.json"
+        if [ -f "$file" ]; then
+            echo "$file"
+            return 0
+        fi
+    done <<EOF
+$(rq_manifest_dirs "$shipped")
+EOF
+    return 1
+}
+
+# List every manifest file across the search path, deduped by id with shipped
+# precedence. Emits one path per line on stdout; warns (stderr) when a user
+# manifest is shadowed by a shipped id.
+# Usage: rq_list_manifests "<shipped_dir>"
+rq_list_manifests() {
+    local shipped="$1" dir file id seen_ids=" "
+    while IFS= read -r dir; do
+        [ -z "$dir" ] && continue
+        while IFS= read -r -d '' file; do
+            id=$(jq -r '.id // empty' "$file" 2>/dev/null)
+            [ -z "$id" ] && id=$(basename "$file" .json | sed 's/^rq_demo_//')
+            case "$seen_ids" in
+                *" $id "*)
+                    warn "Manifest id collision: '$id' from $file is shadowed by a shipped manifest (ignored)"
+                    continue
+                    ;;
+            esac
+            seen_ids="$seen_ids$id "
+            echo "$file"
+        done < <(find "$dir" -maxdepth 1 -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | sort -z)
+    done <<EOF
+$(rq_manifest_dirs "$shipped")
+EOF
+}
+
+# ============================================================================
+# 14. PINNED REPOSITORY FETCH (external demos)
+# ============================================================================
+# A plain "git clone --depth 1" cannot fetch an arbitrary commit SHA, so we
+# init an empty repo and fetch exactly the pinned ref. This is the install
+# path for external demos, whose registry entry pins a full commit SHA.
+
+# Fetch a single pinned commit into a fresh checkout.
+# Usage: fetch_pinned_repo "<https-url>" "<full-sha>" "<dest-dir>"
+fetch_pinned_repo() {
+    local url="$1" sha="$2" dest="$3"
+
+    case "$url" in
+        https://*) : ;;
+        *) die "Refusing non-https repo_url: $url" ;;
+    esac
+    if ! echo "$sha" | grep -qE '^[0-9a-fA-F]{40}$'; then
+        die "Registry ref must be a full 40-character commit SHA, got: $sha"
+    fi
+
+    mkdir -p "$dest" || die "Cannot create destination: $dest"
+    (
+        cd "$dest" || die "Cannot enter destination: $dest"
+        git init -q || die "git init failed in $dest"
+        git fetch --depth 1 "$url" "$sha" 2>/dev/null \
+            || die "Failed to fetch pinned commit $sha from $url"
+        git checkout -q FETCH_HEAD || die "Failed to checkout pinned commit $sha"
+    ) || return 1
+
+    # Keep the checkout user-owned when this runs as root (raspi-config context)
+    fix_root_ownership "$dest"
+}
+
+# ============================================================================
 # A/B BOOT PARTITION HELPERS
 # ============================================================================
 # Single source of truth for slot -> device resolution (issue #229).
