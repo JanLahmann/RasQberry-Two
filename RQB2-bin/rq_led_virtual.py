@@ -21,6 +21,18 @@ import struct
 # misread each other's incompatible formats).
 MMAP_FILE = "/tmp/rasqberry_virtual_led2.mmap"
 
+
+def mmap_path():
+    """
+    Resolve the transport mmap path.
+
+    Defaults to MMAP_FILE. The RQB2_LED_MMAP_PATH environment variable overrides
+    it (used by the unit tests to point writer + renderer at a temp file, and
+    available for advanced multi-bus setups). Resolved at call time so callers
+    that set the env var before constructing a writer pick it up.
+    """
+    return os.environ.get("RQB2_LED_MMAP_PATH", MMAP_FILE)
+
 # Memory layout (transport v2):
 #   [0:4]   magic  b'RQL1'
 #   [4:6]   width  (uint16, little-endian)
@@ -89,6 +101,9 @@ class VirtualNeoPixel:
         self._height = int(height)
 
         self._total_size = mmap_total_size(num_pixels)
+        # Resolve the target path once at construction (honours
+        # RQB2_LED_MMAP_PATH); default is unchanged.
+        self._mmap_path = mmap_path()
         self._mmap = None
         self._mmap_file = None
         self._init_mmap()
@@ -108,20 +123,21 @@ class VirtualNeoPixel:
     def _init_mmap(self):
         """Create/open the shared memory file, recreating it on size/magic mismatch."""
         try:
+            path = self._mmap_path
             need_create = True
-            if os.path.exists(MMAP_FILE):
-                if os.path.getsize(MMAP_FILE) == self._total_size:
-                    with open(MMAP_FILE, 'rb') as f:
+            if os.path.exists(path):
+                if os.path.getsize(path) == self._total_size:
+                    with open(path, 'rb') as f:
                         if f.read(len(MMAP_MAGIC)) == MMAP_MAGIC:
                             need_create = False
 
             # (Re)create the file at the correct size if needed.
             if need_create:
-                with open(MMAP_FILE, 'wb') as f:
+                with open(path, 'wb') as f:
                     f.write(b'\x00' * self._total_size)
 
             # Open file for read/write
-            self._mmap_file = open(MMAP_FILE, 'r+b')
+            self._mmap_file = open(path, 'r+b')
             self._mmap = mmap.mmap(self._mmap_file.fileno(), self._total_size)
             self._write_header()
         except Exception as e:
