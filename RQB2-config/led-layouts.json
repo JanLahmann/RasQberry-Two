@@ -1,0 +1,47 @@
+{
+  "_about": "RasQberry LED layout registry. Each named layout describes a logical width x height matrix composed of one or more physical panels. The 'panels' array order IS the wiring/chain order: panel 0 occupies chain indices [0, w*h), panel 1 the next block, and so on. Within a panel, pixels are addressed by a serpentine walk defined by 'serpentine' (which axis is stepped) and 'start' (which corner holds the panel-local index 0). Optional per-layout 'y_flip': true flips the logical y axis (y -> height-1-y) before mapping, for physically upside-down matrices (decision D4: y_flip lives in the layout, not the environment). LED count is DERIVED as the sum of panel w*h - do not hardcode it.",
+
+  "single-24x8": {
+    "description": "Single 24x8 column-serpentine panel (the default RasQberry matrix). Reproduces the legacy 'single' mapper with LED_MATRIX_Y_FLIP=true baked in, so existing hardware behaves unchanged.",
+    "width": 24,
+    "height": 8,
+    "y_flip": true,
+    "panels": [
+      {"w": 24, "h": 8, "origin": [0, 0], "serpentine": "column", "start": "top-left"}
+    ]
+  },
+
+  "quad-2x2-12x4": {
+    "description": "Four 12x4 panels arranged 2x2 to form a 24x8 logical matrix. Reproduces the legacy 'quad' mapper (map_xy_to_pixel_quad) EXACTLY - backward compatibility of the physical rendering is a hard requirement.",
+    "note": "Actual chain order derived from the legacy arithmetic is bottom-left -> bottom-right -> top-right -> top-left (indices 0-47, 48-95, 96-143, 144-191). The bottom row is wired left-to-right, then the top row is wired right-to-left, producing a continuous boustrophedon. The older 'TL->TR->BR->BL' comment in the code/env did not match the arithmetic.",
+    "width": 24,
+    "height": 8,
+    "panels": [
+      {"w": 12, "h": 4, "origin": [0, 4], "serpentine": "column", "start": "bottom-left"},
+      {"w": 12, "h": 4, "origin": [12, 4], "serpentine": "column", "start": "bottom-left"},
+      {"w": 12, "h": 4, "origin": [12, 0], "serpentine": "column", "start": "top-right"},
+      {"w": 12, "h": 4, "origin": [0, 0], "serpentine": "column", "start": "top-right"}
+    ]
+  },
+
+  "triple-8x8": {
+    "description": "Three 8x8 modules placed side by side to form a 24x8 logical matrix, per-module column-serpentine, chained left to right.",
+    "credit": "adapted from barkol/rasqberry-3x8x8-led-adaptation (#261), chain order to be confirmed",
+    "width": 24,
+    "height": 8,
+    "panels": [
+      {"w": 8, "h": 8, "origin": [0, 0], "serpentine": "column", "start": "top-left"},
+      {"w": 8, "h": 8, "origin": [8, 0], "serpentine": "column", "start": "top-left"},
+      {"w": 8, "h": 8, "origin": [16, 0], "serpentine": "column", "start": "top-left"}
+    ]
+  },
+
+  "single-8x32": {
+    "description": "Single 32-wide x 8-high column-serpentine panel (256 LEDs), used on the Pi 5 test rig.",
+    "width": 32,
+    "height": 8,
+    "panels": [
+      {"w": 32, "h": 8, "origin": [0, 0], "serpentine": "column", "start": "top-left"}
+    ]
+  }
+}
