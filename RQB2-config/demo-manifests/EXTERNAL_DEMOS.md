@@ -77,22 +77,28 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
 1. Menu lists registry entries not yet installed
    (`rq_demo_add_external.sh` with no args → interactive whiptail picker;
    pass an `<id>` to install directly).
-2. On selection: shallow-fetch the pinned ref into
+2. **Third-party disclaimer** (install AND update, before anything is fetched
+   or removed): a dialog states the demo is provided by an external
+   contributor, is not part of the RasQberry project, that the team pins a
+   reviewed version but does not maintain the software and takes no
+   responsibility for its content, behavior, or security. Declining aborts
+   with nothing changed.
+3. On confirmation: shallow-fetch the pinned ref into
    `~/RasQberry-Two/demos/<repo-name>`
    (`git init && git fetch <url> <sha> && git checkout FETCH_HEAD`
    — a plain `git clone --depth 1` cannot fetch an arbitrary SHA; see
    `fetch_pinned_repo` in `rq_common.sh`).
-3. Read `rqb-demo.json` from the checkout, validate against
+4. Read `rqb-demo.json` from the checkout, validate against
    `rq_demo_schema.json` **plus** the external constraints in §1
    (`rq_demo_validate.sh --external`).
-4. Verify the manifest `id` matches the registry id, that
+5. Verify the manifest `id` matches the registry id, that
    `entrypoint.working_dir` equals the repo directory name, and that
    `install.marker_file` exists in the checkout. If `needs_hw.leds` is true,
    confirm with a dialog that warns the demo runs with root privileges.
-5. On pass: copy the manifest to the **user manifest directory**
+6. On pass: copy the manifest to the **user manifest directory**
    `~/.local/config/demo-manifests/rq_demo_<id>.json` (never into
    `/usr/config`), chowned to the user when run as root.
-6. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
+7. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
    dispatches like any other via `rq_demo_run.sh <id>`.
 
 Updates are explicit:

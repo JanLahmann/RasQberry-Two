@@ -182,6 +182,14 @@ add_demo() {
         die "Demo directory already exists: $dest (use --update to re-fetch)"
     fi
 
+    # Third-party disclaimer - must come before anything destructive
+    # (in update mode the existing checkout is removed below)
+    if ! show_yesno "Third-party demo" \
+        "'$id' is provided by an external contributor and is NOT part of the RasQberry project:\n\n$repo_url\n\nThe RasQberry team reviews and pins a specific version, but does not maintain this software and takes no responsibility for its content, behavior, or security. Install at your own risk.\n\nContinue?"; then
+        info "Installation cancelled by user"
+        return 1
+    fi
+
     # Fresh checkout for both install and update (explicit, never git pull)
     if [ -d "$dest" ]; then
         info "Removing previous checkout: $dest"
