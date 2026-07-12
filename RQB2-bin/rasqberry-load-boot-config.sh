@@ -83,6 +83,26 @@ validate_led_config() {
                 return 1
             fi
             ;;
+        LED_LAYOUT)
+            # Names an entry in led-layouts.json. Accept a conservative
+            # identifier charset; unknown names fall back safely in code.
+            if ! [[ "$value" =~ ^[A-Za-z0-9_-]+$ ]]; then
+                error "Invalid LED_LAYOUT: $value (must be a layout name)"
+                return 1
+            fi
+            ;;
+        LED_PHYSICAL|LED_VIRTUAL|LED_WEB|LED_VIRTUAL_MIRROR)
+            if ! [[ "$value" =~ ^(true|false)$ ]]; then
+                error "Invalid $key: $value (must be 'true' or 'false')"
+                return 1
+            fi
+            ;;
+        LED_RENDER_MODE)
+            if ! [[ "$value" =~ ^(direct|service)$ ]]; then
+                error "Invalid LED_RENDER_MODE: $value (must be 'direct' or 'service')"
+                return 1
+            fi
+            ;;
         LED_MATRIX_WIDTH|LED_MATRIX_HEIGHT|LED_MATRIX_PANEL_WIDTH|LED_MATRIX_PANEL_HEIGHT)
             if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ]; then
                 error "Invalid $key: $value (must be positive integer)"

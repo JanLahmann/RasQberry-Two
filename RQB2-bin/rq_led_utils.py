@@ -14,13 +14,38 @@ Both approaches support 192+ LEDs without buffer limits or chunking.
 """
 
 import os
-from dotenv import dotenv_values
+import json
+
+# dotenv is only needed for reading the environment file. Guard the import so
+# the pure coordinate-mapping / layout-registry functions remain importable in
+# environments (e.g. CI) where python-dotenv is not installed.
+try:
+    from dotenv import dotenv_values
+except ImportError:  # pragma: no cover - exercised only without python-dotenv
+    dotenv_values = None
 
 # System-wide environment file location
 ENV_FILE = "/usr/config/rasqberry_environment.env"
 
+# Layout registry file. Installed system: /usr/config/led-layouts.json.
+# Running from a checkout: RQB2-config/led-layouts.json next to RQB2-bin.
+LAYOUTS_FILENAME = "led-layouts.json"
+
 # Global singleton NeoPixel object - prevents GPIO conflicts on Pi 5
 _pixels_singleton = None
+
+# Cache for the parsed layout registry (keyed by resolved file path)
+_layouts_cache = None
+_layouts_cache_path = None
+
+# Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
+_LEGACY_LAYOUT_ALIASES = {
+    'single': 'single-24x8',
+    'quad': 'quad-2x2-12x4',
+}
+
+# Fallback layout name when nothing else can be resolved
+_DEFAULT_LAYOUT_NAME = 'single-24x8'
 
 # Emergency defaults if env file is missing/unreadable
 EMERGENCY_DEFAULTS = {
@@ -47,7 +72,11 @@ def get_led_config():
         If environment file is missing or unreadable, returns emergency defaults.
         All values are trusted (no validation per Issue #6, #13 decisions).
     """
-    if not os.path.exists(ENV_FILE):
+    if dotenv_values is None:
+        print("ERROR: python-dotenv not available, cannot read config")
+        print("Using emergency defaults")
+        config = EMERGENCY_DEFAULTS
+    elif not os.path.exists(ENV_FILE):
         print(f"ERROR: Config file not found: {ENV_FILE}")
         print("Using emergency defaults")
         config = EMERGENCY_DEFAULTS
@@ -63,21 +92,295 @@ def get_led_config():
             print("Using emergency defaults")
             config = EMERGENCY_DEFAULTS
 
+    # --- Resolve the active layout name (LED_LAYOUT is authoritative) ---------
+    # New model: LED_LAYOUT names a registry entry directly. For back-compat the
+    # legacy LED_MATRIX_LAYOUT=single|quad values map onto the registry presets
+    # when LED_LAYOUT is unset.
+    if config.get('LED_LAYOUT'):
+        layout_name = config.get('LED_LAYOUT')
+    else:
+        legacy = config.get('LED_MATRIX_LAYOUT', 'single')
+        layout_name = _LEGACY_LAYOUT_ALIASES.get(legacy, legacy)
+
+    # LED count becomes derivable from the layout. When LED_LAYOUT is set we
+    # trust the layout-derived count over the (possibly stale) LED_COUNT value.
+    led_count = int(config.get('LED_COUNT', 192))
+    if config.get('LED_LAYOUT'):
+        derived = _layout_count(layout_name)
+        if derived is not None:
+            led_count = derived
+
+    # --- Output-target booleans (independent flags, #231) ---------------------
+    # LED_PHYSICAL / LED_VIRTUAL / LED_WEB are the modern, independent flags.
+    # LED_VIRTUAL_MIRROR is DEPRECATED: it maps to LED_PHYSICAL=true + LED_VIRTUAL=true.
+    raw_virtual = config.get('LED_VIRTUAL', 'false').lower() == 'true'
+    raw_mirror = config.get('LED_VIRTUAL_MIRROR', 'false').lower() == 'true'
+
+    if 'LED_PHYSICAL' in config:
+        led_physical = config.get('LED_PHYSICAL', 'true').lower() == 'true'
+    else:
+        # Legacy fallback: physical is on unless the config asked for virtual-only.
+        led_physical = raw_mirror or (not raw_virtual)
+    led_virtual = raw_virtual or raw_mirror
+    led_web = config.get('LED_WEB', 'false').lower() == 'true'
+
     # Convert to standardized dictionary with type conversions
     return {
         'pi_model': config.get('PI_MODEL', 'Pi5'),
-        'led_count': int(config.get('LED_COUNT', 192)),
+        'led_count': led_count,
         'led_gpio_pin': int(config.get('LED_GPIO_PIN', 18)),
         'pixel_order': config.get('LED_PIXEL_ORDER', 'GRB'),
+        # New layout model
+        'led_layout': layout_name,
+        # Legacy key kept for back-compat with callers that read config['layout']
         'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
         'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
         'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
         'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
-        'led_virtual': config.get('LED_VIRTUAL', 'false').lower() == 'true',
-        'led_virtual_mirror': config.get('LED_VIRTUAL_MIRROR', 'false').lower() == 'true',
+        # Output targets
+        'led_physical': led_physical,
+        'led_virtual': led_virtual,
+        'led_web': led_web,
+        # Render mode: 'direct' (in-process GPIO, default) or 'service' (frames
+        # go to the mmap only; rasqberry-led-renderer.service drives the strip).
+        'render_mode': config.get('LED_RENDER_MODE', 'direct').lower(),
+        # Deprecated, retained so existing callers keep working
+        'led_virtual_mirror': raw_mirror,
     }
+
+
+# Logo asset directory name (under RQB2-config / /usr/config)
+LOGO_DIRNAME = "LED-Logos"
+
+
+def get_logo_dir():
+    """
+    Return the directory holding the LED-Logos image assets.
+
+    The images ship with the OS image at /usr/config/LED-Logos. A user-local
+    copy at $USER_HOME/$REPO/RQB2-config/LED-Logos is not populated by default,
+    so demos that only looked there failed (#264). Resolution order, user copy
+    first so custom logos win:
+
+      1. ~/$REPO/RQB2-config/LED-Logos, if it exists
+      2. /usr/config/LED-Logos (where the assets ship) - always returned as the
+         fallback, even if absent, so callers have a stable path to report.
+
+    Returns:
+        str: Path to the LED-Logos directory.
+    """
+    repo = os.environ.get('REPO', 'RasQberry-Two')
+    user_dir = os.path.expanduser(
+        os.path.join('~', repo, 'RQB2-config', LOGO_DIRNAME)
+    )
+    if os.path.isdir(user_dir):
+        return user_dir
+    return os.path.join('/usr/config', LOGO_DIRNAME)
+
+
+# ============================================================================
+# Layout registry + generic coordinate mapper
+# ============================================================================
+
+def _find_layouts_file():
+    """
+    Locate the LED layout registry JSON using the standard dual-path convention.
+
+    Returns:
+        str: Path to led-layouts.json (installed path preferred, repo path
+             fallback). The returned path may not exist if neither is present.
+    """
+    installed = os.path.join("/usr/config", LAYOUTS_FILENAME)
+    if os.path.exists(installed):
+        return installed
+    # Development checkout: RQB2-bin/rq_led_utils.py -> ../RQB2-config/<file>
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo_path = os.path.join(os.path.dirname(here), "RQB2-config", LAYOUTS_FILENAME)
+    return repo_path
+
+
+def _load_layouts():
+    """
+    Load and cache the layout registry.
+
+    Returns:
+        dict: Mapping of layout name -> layout definition. Registry metadata
+              keys (those starting with '_') are excluded. Returns {} if the
+              file is missing or unparseable.
+    """
+    global _layouts_cache, _layouts_cache_path
+
+    path = _find_layouts_file()
+    if _layouts_cache is not None and _layouts_cache_path == path:
+        return _layouts_cache
+
+    layouts = {}
+    try:
+        with open(path, 'r') as f:
+            raw = json.load(f)
+        # Drop registry-level metadata keys (e.g. "_about")
+        layouts = {k: v for k, v in raw.items() if not k.startswith('_')}
+    except FileNotFoundError:
+        print(f"ERROR: Layout registry not found: {path}")
+    except Exception as e:
+        print(f"ERROR: Failed to parse layout registry {path}: {e}")
+
+    _layouts_cache = layouts
+    _layouts_cache_path = path
+    return layouts
+
+
+def _resolve_layout_name(name):
+    """Map legacy layout aliases (single/quad) to registry names; pass through
+    names that are already registry entries."""
+    if name is None:
+        return None
+    return _LEGACY_LAYOUT_ALIASES.get(name, name)
+
+
+def _layout_count(name):
+    """
+    Compute the derived LED count for a layout (sum of panel w*h).
+
+    Args:
+        name (str): Layout name (registry name or legacy alias).
+
+    Returns:
+        int or None: Total pixel count, or None if the layout is unknown.
+    """
+    layout = _load_layouts().get(_resolve_layout_name(name))
+    if not layout:
+        return None
+    return sum(p['w'] * p['h'] for p in layout.get('panels', []))
+
+
+def get_layout(name=None):
+    """
+    Return the parsed definition for a layout, including its derived pixel count.
+
+    Args:
+        name (str, optional): Layout name (registry name such as 'single-24x8',
+            or a legacy alias 'single'/'quad'). If None, the configured layout
+            (LED_LAYOUT, or the legacy mapping) is used.
+
+    Returns:
+        dict or None: A copy of the layout definition augmented with 'name' and
+            'count' keys, or None if the layout cannot be found.
+
+    Example:
+        layout = get_layout('quad-2x2-12x4')
+        print(layout['count'])   # 192
+    """
+    if name is None:
+        name = get_led_config()['led_layout']
+    resolved = _resolve_layout_name(name)
+    layout = _load_layouts().get(resolved)
+    if not layout:
+        return None
+    result = dict(layout)
+    result['name'] = resolved
+    result['count'] = sum(p['w'] * p['h'] for p in layout.get('panels', []))
+    return result
+
+
+def _panel_local_index(lx, ly, w, h, serpentine, start):
+    """
+    Compute the panel-local pixel index for a coordinate inside one panel.
+
+    Implements a serpentine (boustrophedon) walk parameterised by the stepping
+    axis and the corner that holds panel-local index 0.
+
+    Args:
+        lx (int): Panel-local x (0..w-1).
+        ly (int): Panel-local y (0..h-1).
+        w (int): Panel width.
+        h (int): Panel height.
+        serpentine (str): 'column' (step along columns) or 'row' (step along rows).
+        start (str): 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'.
+
+    Returns:
+        int: Panel-local index in [0, w*h).
+    """
+    top = start in ('top-left', 'top-right')
+    left = start in ('top-left', 'bottom-left')
+
+    if serpentine == 'row':
+        # Primary axis = rows (stepped, alternating), secondary = x within a row.
+        r = ly if top else (h - 1 - ly)
+        s = lx if left else (w - 1 - lx)
+        if r % 2 == 1:
+            s = w - 1 - s
+        return r * w + s
+
+    # Default: 'column'. Primary axis = columns, secondary = y within a column.
+    c = lx if left else (w - 1 - lx)
+    s = ly if top else (h - 1 - ly)
+    if c % 2 == 1:
+        s = h - 1 - s
+    return c * h + s
+
+
+def map_xy_to_pixel(x, y, layout=None):
+    """
+    Map logical (x, y) coordinates to a chain pixel index for any layout.
+
+    Generic, registry-driven panel walk (replaces the former hardcoded
+    single/quad mappers). Pure function - unit-testable without hardware.
+
+    Args:
+        x (int): Column index in logical coordinates (0..width-1, left to right).
+        y (int): Row index in logical coordinates (0..height-1, top to bottom).
+        layout (str or dict, optional): Layout name (registry name or legacy
+            'single'/'quad' alias) or an already-parsed layout dict. If None,
+            the configured layout is used.
+
+    Returns:
+        int: Chain pixel index, or None if (x, y) is out of bounds or the layout
+             is unknown.
+
+    Example:
+        pixel_index = map_xy_to_pixel(5, 3)                     # configured layout
+        pixel_index = map_xy_to_pixel(5, 3, layout='quad')      # legacy alias
+        pixel_index = map_xy_to_pixel(5, 3, layout='single-8x32')
+    """
+    if isinstance(layout, dict):
+        ldef = layout
+    else:
+        ldef = get_layout(layout)
+    if not ldef:
+        print(f"Warning: Unknown LED layout '{layout}'")
+        return None
+
+    width = ldef['width']
+    height = ldef['height']
+
+    # Bounds check against the logical matrix
+    if x < 0 or x >= width or y < 0 or y >= height:
+        return None
+
+    # Optional per-layout y-flip for physically upside-down matrices (D4)
+    if ldef.get('y_flip', False):
+        y = height - 1 - y
+
+    # Walk panels in chain order; each panel occupies a contiguous index block.
+    offset = 0
+    for panel in ldef.get('panels', []):
+        w = panel['w']
+        h = panel['h']
+        ox, oy = panel['origin']
+        if ox <= x < ox + w and oy <= y < oy + h:
+            local = _panel_local_index(
+                x - ox, y - oy, w, h,
+                panel.get('serpentine', 'column'),
+                panel.get('start', 'top-left'),
+            )
+            return offset + local
+        offset += w * h
+
+    # Coordinate is within the logical bounds but not covered by any panel.
+    return None
 
 
 def _ensure_virtual_led_gui_running():
@@ -124,6 +427,18 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     No SPI, no buffer limits, no chunking needed!
 
+    Render mode (LED_RENDER_MODE, Phase A2):
+    - 'direct' (default): current behaviour. This process opens the physical
+      strip in-process (needs root/GPIO) when LED_PHYSICAL=true, composing the
+      virtual GUI target on top when LED_VIRTUAL=true.
+    - 'service': this process NEVER opens a real neopixel strip. It always
+      returns a VirtualNeoPixel writer that only writes frames into the mmap.
+      The root rasqberry-led-renderer.service is the sole GPIO writer and turns
+      those frames physical, so LED_PHYSICAL=true is satisfied WITHOUT this
+      (unprivileged) process touching GPIO. LED_VIRTUAL adds nothing extra -
+      the GUI simply reads the same mmap - it only decides whether the on-screen
+      emulator is auto-launched. This is how demos run as the user with no sudo.
+
     Args:
         num_pixels (int): Number of LEDs in strip
         pixel_order: Pixel order constant (e.g., neopixel.GRB) or string ('GRB')
@@ -139,65 +454,77 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     """
     config = get_led_config()
 
-    # Check for mirror mode (both virtual and real LEDs)
-    if config.get('led_virtual_mirror', False):
-        from rq_led_virtual import VirtualNeoPixel, MirrorNeoPixel
-        print("LED_VIRTUAL_MIRROR=true: Using both virtual and real LED display")
+    # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL
+    # flags (#231). LED_VIRTUAL_MIRROR is folded into these by get_led_config().
+    led_physical = config.get('led_physical', True)
+    led_virtual = config.get('led_virtual', False)
+    render_mode = config.get('render_mode', 'direct')
 
-        # Auto-launch GUI if not running
-        _ensure_virtual_led_gui_running()
+    # Virtual geometry (width/height) drives the mmap v2 self-describing header.
+    layout = get_layout(config['led_layout'])
+    v_width = layout['width'] if layout else num_pixels
+    v_height = layout['height'] if layout else 1
 
-        # Create virtual display
-        virtual_pixels = VirtualNeoPixel(
-            None,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=pixel_order
-        )
-
-        # Create real NeoPixel
-        import board
-        import neopixel
-
-        if gpio_pin is None:
-            gpio_pin = config['led_gpio_pin']
-        gpio_board_pin = getattr(board, f'D{gpio_pin}')
-        if isinstance(pixel_order, str):
-            pixel_order = getattr(neopixel, pixel_order)
-
-        real_pixels = neopixel.NeoPixel(
-            gpio_board_pin,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=pixel_order
-        )
-        real_pixels.fill((0, 0, 0))
-        real_pixels.show()
-
-        return MirrorNeoPixel(real_pixels, virtual_pixels)
-
-    # Check for virtual-only mode
-    if config.get('led_virtual', False):
+    def _make_virtual(launch_gui=True):
         from rq_led_virtual import VirtualNeoPixel
-        print("LED_VIRTUAL=true: Using virtual LED display")
-
-        # Auto-launch GUI if not running
-        _ensure_virtual_led_gui_running()
-
+        if launch_gui:
+            _ensure_virtual_led_gui_running()
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
             num_pixels,
             brightness=brightness,
             auto_write=False,
-            pixel_order=pixel_order
+            pixel_order=pixel_order,
+            width=v_width,
+            height=v_height,
         )
+
+    def _make_real():
+        import board
+        import neopixel
+
+        pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
+        gpio_board_pin = getattr(board, f'D{pin}')
+        order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
+        real_pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=order
+        )
+        real_pixels.fill((0, 0, 0))
+        real_pixels.show()
+        return real_pixels
+
+    # Service mode: never open GPIO in-process. The renderer service consumes
+    # the mmap and drives the strip, so both LED_PHYSICAL and LED_VIRTUAL are
+    # served by a single VirtualNeoPixel writer. Only auto-launch the on-screen
+    # GUI when LED_VIRTUAL is set.
+    if render_mode == 'service':
+        print("LED_RENDER_MODE=service: writing frames to mmap "
+              "(rasqberry-led-renderer.service drives the physical strip)")
+        return _make_virtual(launch_gui=led_virtual)
+
+    # Both targets -> mirror proxy
+    if led_physical and led_virtual:
+        from rq_led_virtual import MirrorNeoPixel
+        print("LED_PHYSICAL+LED_VIRTUAL: driving both real and virtual displays")
+        return MirrorNeoPixel(_make_real(), _make_virtual())
+
+    # Virtual only
+    if led_virtual and not led_physical:
+        print("LED_VIRTUAL: using virtual LED display only")
+        return _make_virtual()
+
+    # Physical only (also the fallback when neither flag is set)
+    if not led_physical and not led_virtual:
+        print("Warning: neither LED_PHYSICAL nor LED_VIRTUAL set; defaulting to physical")
 
     import board
     import neopixel
 
-    # Get GPIO pin from config if not provided (reuse config from virtual mode check)
+    # Get GPIO pin from config if not provided
     if gpio_pin is None:
         gpio_pin = config['led_gpio_pin']
 
@@ -359,52 +686,30 @@ def chunked_clear(pixels, chunk_size=None, delay_ms=None):
 
 def map_xy_to_pixel_single(x, y):
     """
-    Map (x, y) coordinates to LED pixel index for single serpentine layout.
+    DEPRECATED thin wrapper for the legacy 'single' layout.
 
-    Layout: Column-major with alternating direction
-    - Even columns (0, 2, 4...): go down (y: 0→height-1)
-    - Odd columns (1, 3, 5...): go up (y: height-1→0)
+    Prefer ``map_xy_to_pixel(x, y, layout='single-24x8')`` (or simply rely on the
+    configured layout). Retained for API compatibility; delegates to the generic
+    registry-driven mapper via the 'single-24x8' layout, which bakes in the
+    historical LED_MATRIX_Y_FLIP=true behaviour.
 
     Args:
-        x (int): Column index (0 to width-1, left to right)
-        y (int): Row index (0 to height-1, top to bottom)
+        x (int): Column index (0..width-1, left to right)
+        y (int): Row index (0..height-1, top to bottom)
 
     Returns:
         int: Pixel index, or None if out of bounds
-
-    Note:
-        Reads LED_MATRIX_WIDTH and LED_MATRIX_HEIGHT from environment.
-        Respects LED_MATRIX_Y_FLIP configuration for physically upside-down matrices.
     """
-    # Get matrix dimensions from config
-    config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-
-    # Bounds checking
-    if x < 0 or x >= width or y < 0 or y >= height:
-        print(f"Warning: Coordinate ({x}, {y}) out of bounds for single layout ({width}x{height})")
-        return None
-
-    # Apply Y-flip if configured (for physically upside-down matrices)
-    if config.get('y_flip', False):
-        y = height - 1 - y
-
-    if x % 2 == 0:  # Even columns go down (0→height-1)
-        return x * height + y
-    else:  # Odd columns go up (height-1→0)
-        return x * height + (height - 1 - y)
+    return map_xy_to_pixel(x, y, layout='single-24x8')
 
 
 def map_xy_to_pixel_quad(x, y):
     """
-    Map (x, y) coordinates to LED pixel index for quad 4x12 panel layout.
+    DEPRECATED thin wrapper for the legacy 'quad' layout.
 
-    Layout: Four 4x12 panels wired TL→TR→BR→BL
-    - Panel 0 (TL): pixels 0-47
-    - Panel 1 (TR): pixels 48-95
-    - Panel 2 (BR): pixels 96-143
-    - Panel 3 (BL): pixels 144-191
+    Prefer ``map_xy_to_pixel(x, y, layout='quad-2x2-12x4')``. Retained for API
+    compatibility; delegates to the generic registry-driven mapper, which
+    reproduces the legacy quad arithmetic exactly.
 
     Args:
         x (int): Column index (0-23, left to right)
@@ -412,60 +717,8 @@ def map_xy_to_pixel_quad(x, y):
 
     Returns:
         int: Pixel index (0-191), or None if out of bounds
-
-    Note:
-        Extracted from neopixel_spi_IBMtestFunc.py with bounds checking added.
     """
-    # Bounds checking
-    if x < 0 or x >= 24 or y < 0 or y >= 8:
-        print(f"Warning: Coordinate ({x}, {y}) out of bounds for quad layout")
-        return None
-
-    # Original calculation logic from neopixel_spi_IBMtestFunc.py
-    # Top row calculation
-    x1 = x * 4 + (0 if x % 2 == 0 else 3)
-    y1 = (7 - y if x % 2 == 0 else y - 7)
-
-    # Bottom row calculation
-    x2 = 96 + (23 - x) * 4 + (0 if x % 2 == 0 else 3)
-    y2 = (3 - y if x % 2 == 0 else y - 3)
-
-    # Select based on row position
-    return x2 + y2 if y < 4 else x1 + y1
-
-
-def map_xy_to_pixel(x, y, layout=None):
-    """
-    Unified coordinate mapping function that adapts to LED matrix layout.
-
-    Args:
-        x (int): Column index (0-23)
-        y (int): Row index (0-7)
-        layout (str, optional): 'single' or 'quad'. If None, reads from config.
-
-    Returns:
-        int: Pixel index, or None if out of bounds
-
-    Example:
-        # Use configured layout
-        pixel_index = map_xy_to_pixel(5, 3)
-
-        # Override layout
-        pixel_index = map_xy_to_pixel(5, 3, layout='quad')
-    """
-    # Get layout from config if not specified
-    if layout is None:
-        config = get_led_config()
-        layout = config['layout']
-
-    # Route to appropriate mapping function
-    if layout == 'single':
-        return map_xy_to_pixel_single(x, y)
-    elif layout == 'quad':
-        return map_xy_to_pixel_quad(x, y)
-    else:
-        print(f"Warning: Unknown layout '{layout}', defaulting to 'single'")
-        return map_xy_to_pixel_single(x, y)
+    return map_xy_to_pixel(x, y, layout='quad-2x2-12x4')
 
 
 def create_text_bitmap(text):

@@ -76,6 +76,12 @@ chmod -R 755 ${CLONE_DIR}/RQB2-config
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
+# compat symlinks, remove after one release: the neopixel_spi_* scripts were
+# renamed to rq_led_* (the SPI backend is gone). Our own wrappers/manifests use
+# the new names; these symlinks cover stragglers (shell history, third-party notes).
+ln -sf rq_led_ibm_logo.py  /usr/bin/neopixel_spi_IBMtestFunc.py
+ln -sf rq_led_simpletest.py /usr/bin/neopixel_spi_simpletest.py
+
 # Copy VERSION file to system directory for identification
 if [ -f ${CLONE_DIR}/VERSION ]; then
   cp ${CLONE_DIR}/VERSION /etc/rasqberry-version

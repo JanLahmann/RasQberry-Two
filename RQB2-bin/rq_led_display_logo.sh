@@ -19,7 +19,10 @@ verify_env_vars REPO USER_HOME STD_VENV BIN_DIR
 main() {
     info "RasQberry LED Logo Display"
 
-    LOGO_DIR="$USER_HOME/$REPO/RQB2-config/LED-Logos"
+    # Resolve the logo directory through the shared helper so the user copy is
+    # preferred and /usr/config/LED-Logos is used as the fallback (#264).
+    LOGO_DIR="$(PYTHONPATH="$BIN_DIR" python3 -c 'import rq_led_utils; print(rq_led_utils.get_logo_dir())' 2>/dev/null || true)"
+    [ -n "$LOGO_DIR" ] || LOGO_DIR="$USER_HOME/$REPO/RQB2-config/LED-Logos"
 
     # Check if logo directory exists
     if [ ! -d "$LOGO_DIR" ]; then
@@ -41,7 +44,7 @@ main() {
 
     # Check if any logos found
     if [ ${#MENU_ITEMS[@]} -eq 0 ]; then
-        show_msgbox "No Logos Found" "No logos found in $LOGO_DIR\n\nPlease run:\npython3 $USER_HOME/$REPO/RQB2-config/LED-Logos/create_logos.py"
+        show_msgbox "No Logos Found" "No logos found in $LOGO_DIR\n\nPlease run:\npython3 $LOGO_DIR/create_logos.py"
         exit 1
     fi
 

@@ -32,8 +32,9 @@ def plotcalc(y, x, color, pixels, rainbow):
         pixels: NeoPixel strip object
         rainbow: If True, override color with rainbow gradient based on y
 
-    Note: Uses map_xy_to_pixel() which reads LED_MATRIX_LAYOUT from environment.
-          Y-flip is handled in rq_led_utils based on LED_MATRIX_Y_FLIP config.
+    Note: Uses map_xy_to_pixel(), which resolves the active layout from
+          LED_LAYOUT against the led-layouts.json registry. Any y-flip is a
+          per-layout property baked into that registry entry.
     """
     # Get pixel index from layout-aware mapping function
     i = map_xy_to_pixel(x, y)

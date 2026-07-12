@@ -273,18 +273,24 @@ install_demo() {
     # Clone the repository (clone_demo cleans up partial clones and fixes ownership)
     clone_demo "$repo_url" "$demo_dir"
 
-    # Apply patch if specified
-    if [ -n "$patch_file" ] && [ -f "$PATCHES_DIR/$patch_file" ]; then
+    # Apply patch if specified.
+    #
+    # A patch failure is fatal: running a demo unpatched silently ships broken
+    # behaviour (a corrupt patch went unnoticed for months precisely because
+    # this only warned). If a manifest declares a patch_file it must exist and
+    # apply cleanly.
+    if [ -n "$patch_file" ]; then
+        if [ ! -f "$PATCHES_DIR/$patch_file" ]; then
+            die "Patch file declared in the manifest but not found: $PATCHES_DIR/$patch_file (demo '$DEMO_ID')"
+        fi
         info "Applying patch: $patch_file"
         cd "$demo_dir"
         if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
             # Try with -3 for 3-way merge
             if ! git apply -3 "$PATCHES_DIR/$patch_file" 2>/dev/null; then
-                warn "Patch may not have applied cleanly: $patch_file"
+                die "Failed to apply patch '$patch_file' for demo '$DEMO_ID' (tried plain and 3-way git apply). Refusing to run the demo unpatched."
             fi
         fi
-    elif [ -n "$patch_file" ]; then
-        warn "Patch file not found: $PATCHES_DIR/$patch_file"
     fi
 
     # Install pip requirements if specified (as the user, into the user's venv)
