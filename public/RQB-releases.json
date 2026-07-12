@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T16:19:26Z",
+  "generated": "2026-07-12T16:19:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-extdemo01-2026-07-12-180014",
-      "name": "rasqberry-dev-extdemo01-2026-07-12-180014",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-extdemo01-2026-07-12-180014/rasqberry-dev-extdemo01-2026-07-12-180014.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-extdemo01-2026-07-12-180014",
-      "release_date": "2026-07-12 18:00",
-      "image_download_size": 2001584012,
+      "tag": "development-2026-07-12-160611",
+      "name": "rasqberry-development-2026-07-12-160611",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-12-160611/rasqberry-development-2026-07-12-160611.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-12-160611",
+      "release_date": "2026-07-12 16:06",
+      "image_download_size": 2000628944,
       "extract_size": 8942256128,
-      "extract_sha256": "23a95f540711fffd6c8bf51c55ea294e73f00e579fad8d984e5888aeee88f791",
+      "extract_sha256": "452bffd762079ce3181d44a60bfe151bd4b8c5989ef5ac11dfe916cd818e645c",
       "highlights": [
-        "show third-party disclaimer before install/update"
+        "run renderer service with the venv python",
+        "fall back to /usr/config/LED-Logos for logo assets (#264)",
+        "retire corrupt led-painter.patch",
+        "make demo patch failures fatal in install_demo",
+        "sweep hardcodes and stale docstrings in led demos"
       ]
     }
   }
