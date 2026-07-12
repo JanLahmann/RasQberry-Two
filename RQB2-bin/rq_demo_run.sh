@@ -439,7 +439,17 @@ run_jupyter() {
 
 # Docker container launcher
 run_docker() {
-    local docker_image docker_port container_name
+    local docker_image docker_port container_name launcher
+
+    # A dedicated launcher wins over the generic docker path (pull, ports,
+    # volumes, tokens are demo-specific — e.g. qoffee-maker.sh,
+    # rq_quantum_lab.sh). External demos cannot set launcher (forbidden by
+    # the external manifest rules), so they always take the generic path.
+    launcher=$(demo_field '.entrypoint.launcher' '')
+    if [ -n "$launcher" ]; then
+        delegate_launcher "$launcher"
+        return 0
+    fi
 
     docker_image=$(get_field '.entrypoint.docker_image' '')
     docker_port=$(get_field '.entrypoint.docker_port' '8080')
