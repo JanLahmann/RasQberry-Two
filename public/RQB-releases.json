@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T22:47:55Z",
+  "generated": "2026-07-12T22:48:24Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -34,7 +34,10 @@
       "release_date": "2026-07-13 00:15",
       "image_download_size": 2001196680,
       "extract_size": 8942256128,
-      "extract_sha256": "7b6051d18fde22879ab8f8c8e622639006972c238478f50de0a3b7737669a8bd"
+      "extract_sha256": "7b6051d18fde22879ab8f8c8e622639006972c238478f50de0a3b7737669a8bd",
+      "highlights": [
+        "Development build - see release notes for details"
+      ]
     }
   }
 }
