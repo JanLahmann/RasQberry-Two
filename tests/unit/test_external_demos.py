@@ -129,6 +129,17 @@ def test_good_external_manifest_passes(tmp_path):
     assert rc == 0, f"good external manifest should pass, got rc={rc}\n{out}"
 
 
+def test_external_manifest_named_rqb_demo_json_passes(tmp_path):
+    # External manifests are validated inside the demo repo checkout, where
+    # the file is named rqb-demo.json (registry manifest_path) - the
+    # rq_demo_<id>.json naming only applies after the add-flow copies it.
+    # Regression: the internal id-matches-filename rule must not apply.
+    path = tmp_path / "rqb-demo.json"
+    _write_manifest(path, _good_manifest())
+    rc, out = _run_external_validate(str(path))
+    assert rc == 0, f"rqb-demo.json-named manifest should pass, got rc={rc}\n{out}"
+
+
 @pytest.mark.parametrize("name,mutator", _BAD_CASES, ids=[c[0] for c in _BAD_CASES])
 def test_bad_external_manifest_rejected(tmp_path, name, mutator):
     m = _good_manifest()

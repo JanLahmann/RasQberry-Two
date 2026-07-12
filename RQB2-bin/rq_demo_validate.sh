@@ -264,13 +264,21 @@ validate_manifest() {
     local token
     token=$(jq -r '.needs_ibm_token // "none"' "$file")
 
-    # Validate ID matches filename
-    local expected_filename="rq_demo_${id}.json"
-    if [ "$filename" != "$expected_filename" ]; then
-        print_fail "ID '$id' doesn't match filename (expected: $expected_filename)"
-        errors=$((errors + 1))
+    # Validate ID matches filename. External manifests are validated inside
+    # the demo repo checkout, where the file carries the registry's
+    # manifest_path name (conventionally rqb-demo.json); the rq_demo_<id>.json
+    # naming is applied by the add-flow when copying into the user manifest
+    # dir, so this check does not apply in --external mode.
+    if [ "$EXTERNAL" = "true" ]; then
+        print_pass "Filename check skipped (external manifest named by registry manifest_path)"
     else
-        print_pass "ID matches filename"
+        local expected_filename="rq_demo_${id}.json"
+        if [ "$filename" != "$expected_filename" ]; then
+            print_fail "ID '$id' doesn't match filename (expected: $expected_filename)"
+            errors=$((errors + 1))
+        else
+            print_pass "ID matches filename"
+        fi
     fi
 
     # Validate ID format (lowercase, hyphens only)
