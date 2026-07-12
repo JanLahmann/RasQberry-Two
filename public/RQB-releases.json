@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T14:37:37Z",
+  "generated": "2026-07-12T14:38:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -36,11 +36,7 @@
       "extract_size": 8942256128,
       "extract_sha256": "452bffd762079ce3181d44a60bfe151bd4b8c5989ef5ac11dfe916cd818e645c",
       "highlights": [
-        "run renderer service with the venv python",
-        "fall back to /usr/config/LED-Logos for logo assets (#264)",
-        "retire corrupt led-painter.patch",
-        "make demo patch failures fatal in install_demo",
-        "sweep hardcodes and stale docstrings in led demos"
+        "Development build - see release notes for details"
       ]
     }
   }
