@@ -5,11 +5,17 @@ After=local-fs.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/rq_led_renderer.py
+# Must run with the venv python: the LED backends (board, neopixel, ...) are
+# installed in the RQB2 venv, not system-wide. @USER@/@REPO@/@VENV@ are
+# substituted at image-build time by 10-boot-config/00-run.sh.
+ExecStart=/home/@USER@/@REPO@/venv/@VENV@/bin/python3 /usr/bin/rq_led_renderer.py
 Restart=on-failure
 RestartSec=2
 # The ONLY component that touches GPIO. Demos run as the unprivileged user and
 # write frames to the mmap; this reads them and drives the physical strip.
+# While this service is active it HOLDS the strip: enable it together with
+# LED_RENDER_MODE=service, and disable it when switching back to direct mode,
+# or direct-mode demos fail with 'GPIO busy'.
 User=root
 StandardOutput=journal
 StandardError=journal
