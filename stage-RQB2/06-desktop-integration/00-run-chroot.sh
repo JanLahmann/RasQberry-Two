@@ -508,7 +508,29 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,
-  "WelcomePagesEnabled": false
+  "WelcomePagesEnabled": false,
+  "BookmarkBarEnabled": true,
+  "ManagedBookmarks": [
+    { "toplevel_name": "Quantum Links" },
+    {
+      "name": "Fun with Quantum family",
+      "children": [
+        { "name": "Fun with Quantum", "url": "https://fun-with-quantum.org" },
+        { "name": "RasQberry One", "url": "https://rasqberry.one" },
+        { "name": "Quantego", "url": "https://quantego.org" },
+        { "name": "Qutie", "url": "https://qutie.org" },
+        { "name": "doQumentation", "url": "https://doqumentation.org" },
+        { "name": "QuBins", "url": "https://qubins.org" },
+        { "name": "QAMPoser games", "url": "https://qamposer.org" }
+      ]
+    },
+    {
+      "name": "IBM Quantum",
+      "children": [
+        { "name": "IBM Quantum Learning", "url": "https://learning.quantum.ibm.com" }
+      ]
+    }
+  ]
 }
 EOF
 chmod 644 /etc/chromium/policies/managed/rasqberry.json
