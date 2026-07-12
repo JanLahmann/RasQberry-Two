@@ -479,9 +479,20 @@ run_docker() {
     fi
     docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-    # Check if image exists
+    # Check if image exists locally; pull from the registry if it is absent.
+    # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
+    # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
+    # are already present, so this pull is skipped entirely and their build
+    # path stays untouched. If a pull is attempted but fails (image not on a
+    # registry, offline, etc.) we fall back to the original "build it first"
+    # error. run_docker() uses plain info/die messages (no whiptail dialogs),
+    # so progress is reported with info.
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        die "Docker image not found: $docker_image. Please build it first."
+        info "Docker image not found locally: $docker_image"
+        info "Attempting to pull from registry (this may take a while)..."
+        if ! docker pull "$docker_image"; then
+            die "Docker image not found: $docker_image. Please build it first."
+        fi
     fi
 
     # Find available port

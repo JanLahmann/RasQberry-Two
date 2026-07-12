@@ -1,0 +1,43 @@
+{
+  "id": "quantum-lab",
+  "name": "Quantum Lab (QuBins)",
+  "category": "education",
+  "description": "Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container)",
+  "keywords": ["quantum", "jupyter", "jupyterlab", "qiskit", "docker", "qubins", "ibm", "course", "education"],
+
+  "entrypoint": {
+    "type": "docker",
+    "docker_image": "ghcr.io/qubins/images:latest-xl",
+    "docker_port": 8892,
+    "launcher": "rq_quantum_lab.sh"
+  },
+
+  "install": {
+    "preinstalled": false
+  },
+
+  "needs_hw": {
+    "leds": false,
+    "network": true,
+    "display": "required"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
+  },
+
+  "menu": {
+    "show": true,
+    "order": 56
+  },
+
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}
