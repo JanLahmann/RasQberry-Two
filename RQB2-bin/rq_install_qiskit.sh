@@ -112,9 +112,16 @@ fi
 # =============================================================================
 
 # Pre-install packages that need --use-pep517 (legacy setup.py)
+# One pip call per package: a single failing package must not abort the rest
+# of the list (a combined call with || true shipped an image without any LED
+# backend). Failures are reported here and enforced by the verification below.
 echo "Pre-installing hardware dependencies with PEP 517..."
-pip install --use-pep517 --prefer-binary --find-links="$WHEEL_DIR" \
-    sysv_ipc RPi.GPIO rpi_ws281x || true
+HW_PACKAGES="sysv_ipc RPi.GPIO rpi_ws281x lgpio Adafruit-Blinka-Raspberry-Pi5-Neopixel"
+for pkg in $HW_PACKAGES; do
+    if ! pip install --use-pep517 --prefer-binary --find-links="$WHEEL_DIR" "$pkg"; then
+        echo "WARNING: failed to install hardware dependency: $pkg"
+    fi
+done
 
 # Pre-install source-only packages that are dependencies of cached packages
 # These need PyPI access and must be installed before --no-index install
@@ -155,6 +162,26 @@ fi
 echo
 echo "Installed Qiskit packages:"
 pip3 list | grep -i qiskit || echo "No qiskit packages found"
+
+# Verify the LED/hardware backends are actually importable. find_spec checks
+# installation without executing module code (imports that probe hardware
+# would fail in the qemu chroot). A missing backend means broken LED demos
+# on the finished image, so this is a hard build failure.
+echo
+echo "Verifying LED/hardware backend modules..."
+MISSING_MODULES=""
+for mod in rpi_ws281x lgpio adafruit_raspberry_pi5_neopixel_write neopixel board; do
+    if python3 -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$mod') else 1)"; then
+        echo "  OK: $mod"
+    else
+        echo "  MISSING: $mod"
+        MISSING_MODULES="$MISSING_MODULES $mod"
+    fi
+done
+if [ -n "$MISSING_MODULES" ]; then
+    echo "ERROR: required hardware modules missing from venv:$MISSING_MODULES"
+    exit 1
+fi
 
 echo
 echo "Start Qiskit install: $STARTDATE"
