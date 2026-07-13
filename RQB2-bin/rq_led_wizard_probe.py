@@ -123,11 +123,15 @@ _IBM_LOGO = [
     "IIIIII  BBBBB   MM   MM ",
 ]
 
-# Named solid colours for the logo probe.
+# Named solid colours for the logo probe. blue/red label the two candidate
+# geometries in the primary question; blue/red/green/yellow label the four
+# orientations in the refinement step (each mounting cycles in its own colour so
+# the operator can name the upright one).
 _LOGO_COLORS = {
     'blue': (0, 0, 255),
     'red': (255, 0, 0),
     'green': (0, 255, 0),
+    'yellow': (255, 255, 0),
     'white': (255, 255, 255),
 }
 

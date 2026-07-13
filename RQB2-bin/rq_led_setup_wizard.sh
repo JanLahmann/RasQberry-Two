@@ -215,6 +215,26 @@ stop_logo_alternator() {
 }
 
 # ----------------------------------------------------------------------------
+# Orientation alternator: cycle ONE layout's IBM logo through its four mountings,
+# each in its OWN colour, so the operator can name the colour that reads upright.
+# Colour<->flip mapping MUST match refine_orientation's case block:
+#   BLUE=normal(--)  RED=y-flip(-y)  GREEN=x-flip(x-)  YELLOW=180(xy)
+# Reuses LOGO_ANIM_PID / stop_logo_alternator.
+# ----------------------------------------------------------------------------
+start_orientation_alternator() {
+    local layout="$1"
+    (
+        while true; do
+            run_logo "${layout}" blue;                    sleep 1.3
+            run_logo "${layout}" red    --flip-y;         sleep 1.3
+            run_logo "${layout}" green  --flip-x;         sleep 1.3
+            run_logo "${layout}" yellow --flip-x --flip-y; sleep 1.3
+        done
+    ) &
+    LOGO_ANIM_PID=$!
+}
+
+# ----------------------------------------------------------------------------
 # Small input helper: integer inputbox with validation and a default.
 # Echoes the value on success; returns 1 if the user cancelled.
 # ----------------------------------------------------------------------------
@@ -484,35 +504,44 @@ Which colour shows a correct, upright IBM logo?" \
 
 # ----------------------------------------------------------------------------
 # Orientation refinement (second step): a logo formed but the panel is mounted
-# rotated. The colour tells us the layout; cycle the 4 mountings (normal, y-flip,
-# x-flip, 180) rendering the logo each time until the operator confirms one is
-# upright. Returns 0 (confirmed), 1 (none looked right -> fall back), 2 (cancel).
+# rotated. The colour that formed it tells us the layout; then the logo cycles
+# through its four mountings, EACH IN ITS OWN COLOUR, and the operator names the
+# colour that reads upright. One question, no per-orientation yes/no.
+# Returns 0 (confirmed), 1 (none looked right -> fall back), 2 (cancel).
 # ----------------------------------------------------------------------------
 refine_orientation() {
-    local which color ori tx ty
+    local which pick
     which=$(show_menu "Which logo" \
 "Which colour formed the IBM logo (even though it was flipped or upside-down)?" \
         blue "BLUE (single 24x8 panel)" \
         red  "RED (quad of four 4x12)") || return 2
     case "${which}" in
-        blue) STD_CANDIDATE="single-24x8"; color="blue" ;;
-        red)  STD_CANDIDATE="quad-4x12";   color="red"  ;;
+        blue) STD_CANDIDATE="single-24x8" ;;
+        red)  STD_CANDIDATE="quad-4x12" ;;
     esac
 
-    for ori in "false false" "false true" "true false" "true true"; do
-        tx="${ori% *}"; ty="${ori#* }"
-        local fargs=()
-        [ "${tx}" = "true" ] && fargs+=(--flip-x)
-        [ "${ty}" = "true" ] && fargs+=(--flip-y)
-        # ${arr[@]+...} guards the empty-array expansion under `set -u` on older bash.
-        run_logo "${STD_CANDIDATE}" "${color}" ${fargs[@]+"${fargs[@]}"}
-        if show_yesno "Orientation" \
-"Is the ${color} IBM logo now UPRIGHT and correct (not mirrored or upside-down)?"; then
-            STD_TX="${tx}"; STD_TY="${ty}"
-            return 0
-        fi
-    done
-    return 1   # none of the four looked right -> general inference
+    start_orientation_alternator "${STD_CANDIDATE}"
+    pick=$(show_menu "Orientation" \
+"The IBM logo is now cycling through its four orientations, each in its OWN
+colour: BLUE, RED, GREEN, YELLOW.
+
+Which COLOUR shows the IBM upright and correct (not mirrored or upside-down)?" \
+        blue   "BLUE is upright" \
+        red    "RED is upright" \
+        green  "GREEN is upright" \
+        yellow "YELLOW is upright" \
+        none   "None of them look right") || { stop_logo_alternator; return 2; }
+    stop_logo_alternator
+
+    # Colour -> flips MUST match start_orientation_alternator's render order.
+    case "${pick}" in
+        blue)   STD_TX="false"; STD_TY="false" ;;   # normal
+        red)    STD_TX="false"; STD_TY="true"  ;;   # y-flip (upside-down)
+        green)  STD_TX="true";  STD_TY="false" ;;   # x-flip (mirrored)
+        yellow) STD_TX="true";  STD_TY="true"  ;;   # 180
+        none)   return 1 ;;                          # -> general inference
+    esac
+    return 0
 }
 
 # ----------------------------------------------------------------------------
