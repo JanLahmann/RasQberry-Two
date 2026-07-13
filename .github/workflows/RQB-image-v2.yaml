@@ -175,7 +175,7 @@ jobs:
     steps:
       # Clone the repository with push permissions
       - name: "Rasqberry: Clone Repository"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -248,7 +248,7 @@ jobs:
       - name: "Rasqberry: git add & commit & push"
         id: version-commit
         if: github.event.inputs.build_scope != 'no-release'
-        uses: EndBug/add-and-commit@v9
+        uses: EndBug/add-and-commit@v10
         with:
           add: "./VERSION"
           default_author: github_actions
@@ -293,7 +293,7 @@ jobs:
 
       # Install cosign for artifact signing (future enhancement)
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@v4
         with:
           cosign-release: 'v2.2.4'
 
@@ -316,7 +316,7 @@ jobs:
       # Checkout with full history for changelog generation
       # Use the commit with updated VERSION file from Job 1
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
           fetch-depth: 0  # Full history needed for git-cliff
@@ -341,7 +341,7 @@ jobs:
 
       # Generate changelog from commits since last tag
       - name: Generate a changelog
-        uses: orhun/git-cliff-action@v1
+        uses: orhun/git-cliff-action@v4
         id: changelog
         with:
           config: ./cliff-release.toml  # Changelog format configuration
@@ -353,7 +353,7 @@ jobs:
       # - Dev: "rasqberry-dev-2024-01-01-123456"
       - name: Create Release
         id: create-release
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ github.ref == 'refs/heads/main' && format('rasqberry-v{0}', needs.rasqberry-push-version-number.outputs.version_num) || format('rasqberry-{0}', needs.rasqberry-push-version-number.outputs.version_num) }}
@@ -395,7 +395,7 @@ jobs:
     steps:
       # Checkout the commit with updated VERSION file from Job 1
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.rasqberry-push-version-number.outputs.commit_sha }}
 
@@ -594,7 +594,7 @@ jobs:
       - name: Restore Base Stages Cache (0-4)
         id: cache-base-stages
         if: steps.cache-decision.outputs.use_cache == 'true' && steps.cache-decision.outputs.skip_restore != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: base-stages-cache.tar.gz
           key: base-stages-${{ env.CACHE_VERSION }}
@@ -608,7 +608,7 @@ jobs:
       - name: Cache ARM64 wheels
         id: cache-wheels
         if: steps.cache-decision.outputs.use_cache == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/wheel-cache
           # No restore-keys: require exact match to prevent stale cache on requirements change
@@ -941,7 +941,7 @@ jobs:
       # Save when we built fresh (skip_restore or cache miss)
       - name: Cache Base Stages Tarball
         if: steps.cache-decision.outputs.use_cache == 'true' && (steps.cache-decision.outputs.skip_restore == 'true' || steps.cache-base-stages.outputs.cache-hit != 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: base-stages-cache.tar.gz
           key: base-stages-${{ env.CACHE_VERSION }}
@@ -1053,7 +1053,7 @@ jobs:
       #   01-run.sh: Saves new wheels back to host
       #   02-run.sh: Cleans caches from rootfs (reduces image size)
       #   Workflow: Copies host cache back to ~/ (after build)
-      # actions/cache@v4 persists wheel cache to GitHub Actions cache
+      # actions/cache@v6 persists wheel cache to GitHub Actions cache
 
       # ========================================================================
       # IMAGE FINALIZATION AND A/B CONVERSION
@@ -1372,27 +1372,27 @@ jobs:
       # full: Both standard and A/B images
       # standard-image: Only standard image
       # no-release: Skip uploads (no release created)
+      # Upload via the gh CLI (preinstalled on runners) instead of the archived,
+      # node12 actions/upload-release-asset@v1. Pure asset upload to the release
+      # already created by the 'release' job - no release-metadata is touched, so
+      # the prerelease flag etc. are preserved. --clobber makes retries idempotent.
       - name: Upload Standard Image
         if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release' && needs.rasqberry-push-version-number.outputs.build_scope != 'ab-only' && steps.set-asset.outputs.asset_path != ''
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ steps.set-asset.outputs.asset_path }}
-          asset_name: ${{ steps.set-asset.outputs.asset_name }}
-          asset_content_type: ${{ steps.set-asset.outputs.content_type }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
+        run: |
+          gh release upload "$RELEASE_TAG" "${{ steps.set-asset.outputs.asset_path }}" \
+            --repo "${{ github.repository }}" --clobber
 
       - name: Upload A/B Image
         if: needs.rasqberry-push-version-number.outputs.build_scope != 'no-release' && (needs.rasqberry-push-version-number.outputs.build_scope == 'full' || needs.rasqberry-push-version-number.outputs.build_scope == 'ab-only') && steps.set-asset.outputs.ab_asset_path != ''
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
-          asset_path: ${{ steps.set-asset.outputs.ab_asset_path }}
-          asset_name: ${{ steps.set-asset.outputs.ab_asset_name }}
-          asset_content_type: ${{ steps.set-asset.outputs.content_type }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
+        run: |
+          gh release upload "$RELEASE_TAG" "${{ steps.set-asset.outputs.ab_asset_path }}" \
+            --repo "${{ github.repository }}" --clobber
 
       # ========================================================================
       # BUILD SUMMARY
@@ -1456,7 +1456,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           
@@ -1762,7 +1762,7 @@ jobs:
           echo "Generated RQB-images.json and RQB-releases.json in current branch"
 
       - name: Upload JSON files to release
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref == 'refs/heads/main' && format('v{0}', needs.rasqberry-push-version-number.outputs.version_num) || needs.rasqberry-push-version-number.outputs.version_num }}
