@@ -448,37 +448,144 @@ def map_xy_to_pixel(x, y, layout=None):
     return None
 
 
+# Virtual-GUI singleton bookkeeping. Every probe/demo process that enables a
+# virtual target calls _ensure_virtual_led_gui_running(); the wizard fires probes
+# back to back, so without serialisation each one could spawn its own window and
+# they would all linger (detached with start_new_session). A pidfile records the
+# one GUI we launched and an flock makes the check-then-spawn atomic, so exactly
+# one window ever exists and reap_virtual_led_gui() can tear it down on exit.
+_VIRTUAL_GUI_PIDFILE = "/tmp/rasqberry_virtual_led_gui.pid"
+_VIRTUAL_GUI_LOCKFILE = "/tmp/rasqberry_virtual_led_gui.lock"
+_VIRTUAL_GUI_PATTERN = "rq_led_virtual_gui"
+
+
+def _gui_pid_alive(pid):
+    """True if `pid` is a live virtual-LED-GUI process.
+
+    Verifies the process command line (Linux /proc) so a reused PID belonging to
+    an unrelated process is not mistaken for the GUI. Falls back to a bare
+    liveness probe on platforms without /proc.
+    """
+    if not pid or pid <= 0:
+        return False
+    if os.path.isdir("/proc"):
+        # Linux (the Pi): verify the command line so a reused PID belonging to an
+        # unrelated process is not mistaken for the GUI. A missing entry (dead
+        # process) or PID whose cmdline no longer matches counts as not-alive.
+        try:
+            with open("/proc/%d/cmdline" % pid, "rb") as f:
+                return _VIRTUAL_GUI_PATTERN.encode() in f.read()
+        except OSError:
+            return False
+    # No /proc (dev laptop): best-effort liveness only.
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _read_gui_pid():
+    """Return the PID recorded in the GUI pidfile, or None."""
+    try:
+        with open(_VIRTUAL_GUI_PIDFILE) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _running_gui_pid():
+    """PID of a live GUI: the tracked pidfile first, then a pgrep sweep.
+
+    The pgrep fallback catches a GUI started outside this mechanism (older code
+    or a manual launch) so we still never double-spawn alongside it.
+    """
+    pid = _read_gui_pid()
+    if _gui_pid_alive(pid):
+        return pid
+    import subprocess
+    try:
+        result = subprocess.run(['pgrep', '-f', _VIRTUAL_GUI_PATTERN],
+                                capture_output=True, timeout=5, text=True)
+        if result.returncode == 0:
+            for token in result.stdout.split():
+                try:
+                    return int(token)
+                except ValueError:
+                    continue
+    except Exception:
+        pass
+    return None
+
+
 def _ensure_virtual_led_gui_running():
-    """Auto-launch the virtual LED GUI if not already running."""
+    """Singleton-launch the virtual LED GUI (idempotent, race-safe).
+
+    An exclusive flock serialises the check-then-spawn so concurrent probe
+    processes start at most ONE GUI; its PID is written to the pidfile so
+    reap_virtual_led_gui() can tear it down instead of leaving it lingering.
+    """
     import subprocess
     import shutil
+    import fcntl
+    import time
 
-    # Check if GUI is already running
+    lock_fd = None
     try:
-        result = subprocess.run(
-            ['pgrep', '-f', 'rq_led_virtual_gui'],
-            capture_output=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            return  # GUI already running
-    except Exception:
-        pass  # pgrep failed, try to start GUI anyway
+        lock_fd = os.open(_VIRTUAL_GUI_LOCKFILE, os.O_CREAT | os.O_RDWR, 0o666)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    except OSError:
+        lock_fd = None  # best effort: proceed without the lock
 
-    # Find and launch the GUI
-    gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
     try:
-        subprocess.Popen(
+        if _running_gui_pid() is not None:
+            return  # already running - singleton
+
+        gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
+        proc = subprocess.Popen(
             ['python3', gui_script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
-            env={**__import__('os').environ, 'DISPLAY': ':0'}
+            env={**os.environ, 'DISPLAY': os.environ.get('DISPLAY', ':0')}
         )
+        try:
+            with open(_VIRTUAL_GUI_PIDFILE, 'w') as f:
+                f.write(str(proc.pid))
+        except OSError:
+            pass
         print("Auto-started virtual LED GUI")
-        __import__('time').sleep(1)  # Give GUI time to initialize
+        time.sleep(1)  # Give GUI time to initialize
     except Exception as e:
         print(f"Warning: Could not auto-start virtual LED GUI: {e}")
+    finally:
+        if lock_fd is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                os.close(lock_fd)
+            except OSError:
+                pass
+
+
+def reap_virtual_led_gui():
+    """Terminate the auto-launched virtual LED GUI and clear its pidfile.
+
+    Best-effort and idempotent - safe to call when no GUI is running. Only the
+    GUI recorded in the pidfile (i.e. one WE auto-launched) is reaped; a GUI a
+    user started by hand has no pidfile and is left alone. The setup wizard calls
+    this on exit so the window it caused to spawn does not linger.
+    """
+    import signal
+    pid = _read_gui_pid()
+    if _gui_pid_alive(pid):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+    try:
+        os.remove(_VIRTUAL_GUI_PIDFILE)
+    except OSError:
+        pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):

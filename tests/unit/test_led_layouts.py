@@ -126,13 +126,15 @@ def test_quad_matches_legacy_arithmetic():
             )
 
 
-def test_single_matches_legacy_arithmetic_with_yflip():
-    """(d) single-24x8 equals the OLD single algorithm with y_flip=true."""
+def test_single_matches_legacy_arithmetic_top_origin():
+    """(d) single-24x8 is now TOP-ORIGIN (y_flip dropped, Jan 2026-07-13), so it
+    equals the OLD single algorithm with y_flip=FALSE (raw serpentine, chain 0 at
+    the top-left). The cosmetic legacy y-flip that compensated for bottom-origin
+    demos is gone now that the xy canvas is top-left origin."""
     for y in range(8):
         for x in range(24):
-            assert lu.map_xy_to_pixel(x, y, layout="single-24x8") == _old_single(x, y), (
-                f"single mismatch at ({x},{y})"
-            )
+            assert lu.map_xy_to_pixel(x, y, layout="single-24x8") == \
+                _old_single(x, y, y_flip=False), f"single mismatch at ({x},{y})"
 
 
 def test_legacy_aliases_route_to_registry_layouts():

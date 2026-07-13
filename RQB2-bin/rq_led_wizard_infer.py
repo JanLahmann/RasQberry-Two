@@ -294,7 +294,8 @@ def flipped_variant(base_name, toggle_x, toggle_y, registry=None):
     mirrored on an axis is corrected by TOGGLING that axis flip relative to the
     base preset (so a 180-degree/upside-down mounting toggles BOTH axes). The
     toggle is relative to the base's own flags, so it composes correctly even for
-    presets that already ship a flip (e.g. single-24x8 has y_flip=true).
+    a preset that ships a flip (all standards are top-origin / no-flip today, but
+    the XOR keeps working if a future preset bakes in an x_flip/y_flip).
 
     Args:
         base_name (str): a registry preset name.

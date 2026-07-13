@@ -40,9 +40,9 @@ import rq_led_wizard_probe as pw  # noqa: E402
 
 PRESET_ANSWERS = {
     "single-24x8": {
-        # single-24x8 bakes in y_flip: physically pixel 0 sits bottom-left.
+        # single-24x8 is TOP-LEFT origin (no y_flip): pixel 0 sits top-left.
         "arrangement": "single", "panel_width": 24, "panel_height": 8,
-        "panel_count": 1, "first_pixel_corner": "bottom-left",
+        "panel_count": 1, "first_pixel_corner": "top-left",
         "run_axis": "vertical", "wiring": "serpentine",
     },
     "single-8x32": {
@@ -63,12 +63,30 @@ PRESET_ANSWERS = {
 }
 
 
+def _maps_identical(name_a, name_b):
+    """True if two presets produce the same (x,y)->index map over their grid."""
+    la, lb = lu.get_layout(name_a), lu.get_layout(name_b)
+    if (la["width"], la["height"]) != (lb["width"], lb["height"]):
+        return False
+    for y in range(la["height"]):
+        for x in range(la["width"]):
+            if lu.map_xy_to_pixel(x, y, layout=name_a) != \
+               lu.map_xy_to_pixel(x, y, layout=name_b):
+                return False
+    return True
+
+
 @pytest.mark.parametrize("preset_name", sorted(PRESET_ANSWERS.keys()))
 def test_each_preset_recoverable(preset_name):
-    """Every shipped preset is recovered from its simulated answer set."""
+    """Every shipped preset is recovered from its simulated answer set.
+
+    single-24x8 and triple-8x8 are the SAME top-origin column-serpentine map (one
+    24-wide panel vs three 8-wide), so the matcher may return either name for
+    those two - accept any map-identical preset rather than the exact string."""
     status, name, layout = w.resolve(PRESET_ANSWERS[preset_name])
     assert status == "preset", f"{preset_name}: expected a preset match, got {status}/{name}"
-    assert name == preset_name, f"expected {preset_name}, inferred {name}"
+    assert name == preset_name or _maps_identical(name, preset_name), \
+        f"expected {preset_name} (or a map-identical preset), inferred {name}"
     # Derived count agrees with the preset's own derived count.
     assert sum(p["w"] * p["h"] for p in layout["panels"]) == lu._layout_count(preset_name)
 
@@ -204,13 +222,29 @@ def test_flipped_variant_corrects_relative_to_base(base, tx, ty):
                 f"{base} flip(x={tx},y={ty}) wrong at ({x},{y})"
 
 
-def test_flipped_variant_toggles_relative_to_existing_flag():
-    """Toggling y on single-24x8 (which ships y_flip=true) clears it, not stacks it."""
+def test_flipped_variant_sets_flag_on_noflip_base():
+    """single-24x8 is now top-origin (no flip), so toggling y SETS y_flip."""
     layout = w.flipped_variant("single-24x8", toggle_x=False, toggle_y=True)
-    assert layout.get("y_flip", False) is False   # true XOR toggle -> false
+    assert layout.get("y_flip", False) is True    # false XOR toggle -> true
     layout2 = w.flipped_variant("single-24x8", toggle_x=True, toggle_y=False)
-    assert layout2.get("x_flip", False) is True    # false XOR toggle -> true
-    assert layout2.get("y_flip", False) is True    # untouched, stays true
+    assert layout2.get("x_flip", False) is True   # false XOR toggle -> true
+    assert layout2.get("y_flip", False) is False  # untouched, stays false
+
+
+def test_flipped_variant_toggle_clears_a_baked_in_flag():
+    """XOR semantics: toggling an axis on a base that ALREADY ships that flip
+    CLEARS it (does not stack) - kept as coverage even though no shipped preset
+    carries a flip today."""
+    registry = {
+        "flipped-base": {
+            "width": 24, "height": 8, "y_flip": True,
+            "panels": [{"w": 24, "h": 8, "origin": [0, 0],
+                        "serpentine": "column", "start": "top-left"}],
+        }
+    }
+    layout = w.flipped_variant("flipped-base", toggle_x=False, toggle_y=True,
+                               registry=registry)
+    assert layout.get("y_flip", False) is False   # true XOR toggle -> false
 
 
 def test_apply_standard_flip_is_valid_bijection():
@@ -259,10 +293,12 @@ def test_signature_probe_distinguishes_all_three_standards():
     assert single == strip and triple == strip
     # So quad is unmistakably different from the strip layouts...
     assert quad != strip
-    # ...and single vs triple are told apart by the RED start marker (pixel 0):
-    # single-24x8 ships y_flip so pixel 0 is at the BOTTOM-left; triple at the TOP.
-    assert lu.map_xy_to_pixel(0, 7, layout="single-24x8") == 0
+    # ...and single vs triple are now the SAME top-origin map (pixel 0 at the
+    # top-left for both): a 3x8x8 is wired like a single-24x8, so the wizard
+    # treats them as one. Both put chain 0 at logical (0,0).
+    assert lu.map_xy_to_pixel(0, 0, layout="single-24x8") == 0
     assert lu.map_xy_to_pixel(0, 0, layout="triple-8x8") == 0
+    assert _maps_identical("single-24x8", "triple-8x8")
 
 
 def _twoblock_fingerprint(base, tx, ty):
@@ -558,3 +594,72 @@ def test_render_mode_override_is_case_insensitive(monkeypatch):
     """The override is lower-cased like the file value, so 'SERVICE' works too."""
     monkeypatch.setenv("LED_RENDER_MODE", "SERVICE")
     assert lu.get_led_config()["render_mode"] == "service"
+
+
+# ---------------------------------------------------------------------------
+# Virtual-GUI singleton / reaper (plan R1 follow-up).
+#
+# With LED_VIRTUAL=true (the shipped default) every probe/demo process that
+# enables a virtual target auto-launches the on-screen emulator. These tests pin
+# the pidfile/liveness bookkeeping that keeps exactly ONE window and lets the
+# wizard reap it on exit - WITHOUT spawning any real GUI (only the helpers are
+# exercised). They are portable: _gui_pid_alive branches on /proc existence.
+# ---------------------------------------------------------------------------
+
+def test_gui_pid_alive_rejects_bogus_pids():
+    """None / 0 / negative are never a live GUI."""
+    assert lu._gui_pid_alive(None) is False
+    assert lu._gui_pid_alive(0) is False
+    assert lu._gui_pid_alive(-1) is False
+
+
+def test_gui_pid_alive_false_for_unused_pid():
+    """A PID that maps to no process is not a live GUI (Linux /proc or os.kill)."""
+    assert lu._gui_pid_alive(2_000_000_000) is False
+
+
+def test_read_gui_pid_roundtrip(tmp_path, monkeypatch):
+    """_read_gui_pid parses the pidfile; a missing or garbage file yields None."""
+    pidfile = tmp_path / "gui.pid"
+    monkeypatch.setattr(lu, "_VIRTUAL_GUI_PIDFILE", str(pidfile))
+    assert lu._read_gui_pid() is None            # missing file
+    pidfile.write_text("4321\n")
+    assert lu._read_gui_pid() == 4321
+    pidfile.write_text("not-a-pid")
+    assert lu._read_gui_pid() is None            # garbage
+
+
+def test_reap_is_idempotent_without_pidfile(tmp_path, monkeypatch):
+    """Reaping when nothing is tracked is a safe no-op (wizard cleanup path)."""
+    pidfile = tmp_path / "gui.pid"
+    monkeypatch.setattr(lu, "_VIRTUAL_GUI_PIDFILE", str(pidfile))
+    lu.reap_virtual_led_gui()                    # must not raise
+    assert not pidfile.exists()
+
+
+def test_reap_clears_stale_pidfile(tmp_path, monkeypatch):
+    """A pidfile naming a dead process is cleared so it cannot mislead later."""
+    pidfile = tmp_path / "gui.pid"
+    pidfile.write_text("2000000000")             # not a live process
+    monkeypatch.setattr(lu, "_VIRTUAL_GUI_PIDFILE", str(pidfile))
+    lu.reap_virtual_led_gui()
+    assert not pidfile.exists()
+
+
+def test_reap_only_touches_pidfile_not_pgrep(tmp_path, monkeypatch):
+    """reap_virtual_led_gui reaps ONLY the pidfile-tracked GUI (one WE spawned);
+    a hand-started window with no pidfile is left alone - so it never consults
+    the pgrep fallback that _running_gui_pid uses for the singleton check."""
+    pidfile = tmp_path / "gui.pid"
+    monkeypatch.setattr(lu, "_VIRTUAL_GUI_PIDFILE", str(pidfile))
+
+    called = {"pgrep": False}
+    real_read = lu._read_gui_pid
+
+    def _tracking_running_pid():
+        called["pgrep"] = True
+        return 4321
+    monkeypatch.setattr(lu, "_running_gui_pid", _tracking_running_pid)
+
+    lu.reap_virtual_led_gui()                    # no pidfile -> nothing to reap
+    assert called["pgrep"] is False              # never fell back to pgrep

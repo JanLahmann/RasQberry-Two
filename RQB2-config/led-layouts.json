@@ -2,10 +2,10 @@
   "_about": "RasQberry LED layout registry. Each named layout describes a logical width x height matrix composed of one or more physical panels. The 'panels' array order IS the wiring/chain order: panel 0 occupies chain indices [0, w*h), panel 1 the next block, and so on. Within a panel, pixels are addressed by a serpentine walk defined by 'serpentine' (which axis is stepped) and 'start' (which corner holds the panel-local index 0). Optional per-layout 'y_flip': true flips the logical y axis (y -> height-1-y) before mapping, for physically upside-down matrices (decision D4: y_flip lives in the layout, not the environment). LED count is DERIVED as the sum of panel w*h - do not hardcode it.",
 
   "single-24x8": {
-    "description": "Single 24x8 column-serpentine panel (the default RasQberry matrix). Reproduces the legacy 'single' mapper with LED_MATRIX_Y_FLIP=true baked in, so existing hardware behaves unchanged.",
+    "description": "Single 24x8 column-serpentine panel (the default RasQberry matrix). TOP-LEFT origin: logical (0,0) is the physical top-left (chain 0), so a demo drawn top-origin in the xy canvas renders upright on the wall AND in the virtual GUI. The legacy LED_MATRIX_Y_FLIP=true was a COSMETIC flip that compensated for a handful of bottom-origin demos; with the canvas convention fixed to top-left origin (Jan 2026-07-13) that flip is dropped. With no flip this map is IDENTICAL to triple-8x8 (same column-serpentine wiring, just one 24-wide panel vs three 8-wide) - the wizard treats a 3x8x8 as a single. NOTE: y_flip:false assumes the panel's chain-0 is physically top-left; confirm on the rig with the wizard --verify F-test.",
     "width": 24,
     "height": 8,
-    "y_flip": true,
+    "y_flip": false,
     "panels": [
       {"w": 24, "h": 8, "origin": [0, 0], "serpentine": "column", "start": "top-left"}
     ]

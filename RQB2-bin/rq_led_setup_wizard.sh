@@ -26,13 +26,15 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   vs what the current config says, WITHOUT writing anything.
 #
 # Usage:
-#   sudo rq_led_setup_wizard.sh          # invoked from the RasQberry LED menu
+#   sudo rq_led_setup_wizard.sh          # full wizard (mode menu), from LED menu
+#   sudo rq_led_setup_wizard.sh --verify # one-look "is this your panel?" check
 #
-# TODO (out of scope for this pass, plan R1): the image already ships a
-#   configured default LED_LAYOUT, so first login is a VERIFY step, not a
-#   from-scratch setup - offer this wizard at first login as a quick "is this
-#   your panel?" confirmation (the glyph step), not gated on an absent layout.
-#   Not wired to first-login here; the wizard is reached via the LED menu for now.
+# FIRST-LOGIN VERIFY (plan R1): the image already ships a configured default
+#   LED_LAYOUT, so first contact is a VERIFY step, not a from-scratch setup. The
+#   --verify mode renders an asymmetric 'F' through the CURRENT layout and asks
+#   "does this look correct?"; YES marks it verified, NO drops into the standards
+#   -first setup to correct it. The LED menu (RQB2_menu.sh) runs --verify once,
+#   gated on LED_LAYOUT_VERIFIED, so the user confirms their panel a single time.
 #
 # Credit: the probe/observe/infer approach is adapted (with credit, per plan
 #   decision D3) from barkol's diagnose_wiring.py in
@@ -99,9 +101,22 @@ cleanup() {
     # Best-effort: blank the strip, tear down the render-hold, remove temp dir.
     run_probe clear || true
     stop_render_hold
+    reap_virtual_gui
     rm -rf "${WORKDIR}" 2>/dev/null || true
 }
 setup_cleanup_trap cleanup
+
+# ----------------------------------------------------------------------------
+# Reap the auto-launched virtual LED GUI (singleton) so it does not linger past
+# the wizard. Only relevant when LED_VIRTUAL is set (otherwise no GUI was ever
+# spawned); rq_led_utils.reap_virtual_led_gui() only touches a GUI WE launched
+# (pidfile-tracked), so a hand-started window is left alone.
+# ----------------------------------------------------------------------------
+reap_virtual_gui() {
+    [ "${LED_VIRTUAL:-false}" = "true" ] || return 0
+    PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}" python3 -c \
+        'import rq_led_utils; rq_led_utils.reap_virtual_led_gui()' 2>/dev/null || true
+}
 
 # ----------------------------------------------------------------------------
 # Render-hold (fix F1): keep the probe pattern lit across the whiptail prompt.
@@ -157,6 +172,20 @@ run_probe() {
     python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
         --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
         || warn "probe pattern '${pattern}' failed to render"
+}
+
+# ----------------------------------------------------------------------------
+# Glyph helper (verify mode): render the asymmetric 'F' THROUGH a named layout so
+# a wrong orientation (mirrored / upside-down) is visible at a glance. Unlike the
+# raw-index probes this maps logical (x, y) coordinates via the layout, which is
+# exactly what "does the shipped default match your panel?" needs to test.
+# ----------------------------------------------------------------------------
+run_glyph() {
+    local layout="$1"; shift || true
+    local count="${UPPER_BOUND:-${LED_COUNT:-192}}"
+    python3 "${PROBE}" --pattern glyph --layout "${layout}" --count "${count}" \
+        --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
+        || warn "glyph render failed for layout '${layout}'"
 }
 
 # ----------------------------------------------------------------------------
@@ -432,18 +461,23 @@ small pale-WHITE marker at the very start. Are the two big blocks:" \
     if [ "${shape}" = "strip" ]; then
         # Single: the RED strip's SIDE gives the left/right flip; the WHITE marker
         # (top vs bottom of that strip) gives the y flip the strips alone can't.
+        # The base single-24x8 is now TOP-ORIGIN (y_flip:false), so the NORMAL,
+        # un-rotated panel shows RED on the LEFT with the WHITE marker at the TOP
+        # (chain 0 = physical top-left). A y-flip is signalled by the marker at
+        # the BOTTOM; an x-flip by RED on the RIGHT.  [Orientation mapping to be
+        # re-confirmed on the rig via --verify after the y_flip:false change.]
         STD_CANDIDATE="single-24x8"
         pos=$(show_menu "Panel orientation" \
 "On the RED strip: which SIDE is it on, and where is the small WHITE marker?" \
-            lb "RED strip on the LEFT,  WHITE marker at its BOTTOM" \
             lt "RED strip on the LEFT,  WHITE marker at its TOP" \
-            rb "RED strip on the RIGHT, WHITE marker at its BOTTOM" \
-            rt "RED strip on the RIGHT, WHITE marker at its TOP") || return 2
+            lb "RED strip on the LEFT,  WHITE marker at its BOTTOM" \
+            rt "RED strip on the RIGHT, WHITE marker at its TOP" \
+            rb "RED strip on the RIGHT, WHITE marker at its BOTTOM") || return 2
         case "${pos}" in
-            lb) STD_TX="false"; STD_TY="false" ;;
-            lt) STD_TX="false"; STD_TY="true"  ;;
-            rb) STD_TX="true";  STD_TY="false" ;;
-            rt) STD_TX="true";  STD_TY="true"  ;;
+            lt) STD_TX="false"; STD_TY="false" ;;
+            lb) STD_TX="false"; STD_TY="true"  ;;
+            rt) STD_TX="true";  STD_TY="false" ;;
+            rb) STD_TX="true";  STD_TY="true"  ;;
         esac
         return 0
     fi
@@ -465,23 +499,13 @@ small pale-WHITE marker at the very start. Are the two big blocks:" \
     return 0
 }
 
-# ============================================================================
-# MAIN
-# ============================================================================
-main() {
-    activate_venv >/dev/null 2>&1 || warn "venv not active; probes may fail if hardware libs are missing"
-
-    local mode
-    mode=$(show_menu "LED setup wizard" "Choose a mode:" \
-        setup      "Identify layout and SAVE the configuration" \
-        diagnostic "Diagnose wiring only (report, no changes)") || return 0
-
-    step_safety || { info "Wizard cancelled."; return 0; }
-
-    # Probes light patterns and ask what the operator sees; route them through
-    # the persistent renderer so each pattern stays lit while they answer (fix
-    # F1). Torn down by cleanup() on exit.
-    start_render_hold
+# ----------------------------------------------------------------------------
+# Run standards-first identification (falling back to detailed per-panel
+# inference) and then apply/report per $1 = setup|diagnostic. Assumes
+# step_safety has set UPPER_BOUND and start_render_hold is active.
+# ----------------------------------------------------------------------------
+run_identification() {
+    local mode="$1"
 
     # Standards-first: try to identify one of the three shipped standard panels
     # as fast as possible (~2 questions), correcting for a flipped mounting.
@@ -523,6 +547,91 @@ main() {
     else
         run_setup || true
     fi
+    return 0
+}
+
+# ----------------------------------------------------------------------------
+# Record that the operator has verified the LED layout, so the first-login
+# prompt (driven from the LED menu) does not reappear on later sessions.
+# ----------------------------------------------------------------------------
+mark_layout_verified() {
+    update_env_var "LED_LAYOUT_VERIFIED" "true" 2>/dev/null || \
+        warn "could not persist LED_LAYOUT_VERIFIED"
+}
+
+# ============================================================================
+# First-login verification (plan R1)
+# ============================================================================
+# The image ships a configured default LED_LAYOUT, so first contact is a VERIFY
+# step, not a from-scratch setup: render the asymmetric 'F' THROUGH the current
+# layout and ask whether it looks correct. YES -> mark verified. NO -> drop into
+# the standards-first setup to correct it (then mark verified either way, so the
+# one-time prompt does not keep reappearing). A hard cancel of the first question
+# leaves it unverified so the user is offered the check again next time.
+# ----------------------------------------------------------------------------
+verify_layout() {
+    local current="${LED_LAYOUT:-<unset>}"
+
+    # One-look confirmation: default the safe bound to the configured count (no
+    # separate safety inputbox) and hold the glyph lit across the question.
+    UPPER_BOUND="${LED_COUNT:-192}"
+    start_render_hold
+    run_glyph "${current}"
+
+    if show_yesno "Verify LED panel" \
+"RasQberry ships pre-configured for this LED layout:
+
+  LED_LAYOUT = ${current}
+
+An 'F' is now shown on your panel. Does it look CORRECT - upright, and NOT
+mirrored or upside-down?"; then
+        mark_layout_verified
+        run_probe clear || true
+        show_msgbox "LED panel confirmed" \
+"The shipped default layout matches your panel:
+
+  LED_LAYOUT = ${current}
+
+You can re-run the LED Setup Wizard any time from the LED menu." 12 66
+        return 0
+    fi
+
+    # NO (or cancelled): offer to identify and set the correct layout.
+    if show_yesno "Set up LED panel" \
+"Let's identify your panel and set the correct layout. Run the setup now?"; then
+        step_safety || { info "Setup cancelled."; mark_layout_verified; return 0; }
+        run_identification setup
+    fi
+    mark_layout_verified
+    return 0
+}
+
+# ============================================================================
+# MAIN
+# ============================================================================
+main() {
+    activate_venv >/dev/null 2>&1 || warn "venv not active; probes may fail if hardware libs are missing"
+
+    # First-login VERIFY mode (invoked once from the LED menu): confirm the
+    # shipped default layout matches the panel, or correct it.
+    if [ "${1:-}" = "--verify" ]; then
+        verify_layout
+        return 0
+    fi
+
+    local mode
+    mode=$(show_menu "LED setup wizard" "Choose a mode:" \
+        setup      "Identify layout and SAVE the configuration" \
+        diagnostic "Diagnose wiring only (report, no changes)") || return 0
+
+    step_safety || { info "Wizard cancelled."; return 0; }
+
+    # Probes light patterns and ask what the operator sees; route them through
+    # the persistent renderer so each pattern stays lit while they answer (fix
+    # F1). Torn down by cleanup() on exit.
+    start_render_hold
+
+    run_identification "${mode}"
     return 0
 }
 

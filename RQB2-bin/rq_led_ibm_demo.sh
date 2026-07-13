@@ -19,18 +19,20 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars USER_HOME REPO BIN_DIR STD_VENV
 
-# Check multiple possible locations for the script
+# Check multiple possible locations for the script. Uses the PIL-based
+# demo_led_ibm_logo.py (top-origin, xy-mapped); the old hardcoded rq_led_ibm_logo.py
+# was retired (it authored the logo bottom-origin -> upside-down in the xy canvas).
 LED_SCRIPT=""
-for location in "$BIN_DIR/rq_led_ibm_logo.py" \
-                "/usr/bin/rq_led_ibm_logo.py" \
-                "$USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"; do
+for location in "$BIN_DIR/demo_led_ibm_logo.py" \
+                "/usr/bin/demo_led_ibm_logo.py" \
+                "$USER_HOME/$REPO/RQB2-bin/demo_led_ibm_logo.py"; do
     if [ -f "$location" ]; then
         LED_SCRIPT="$location"
         break
     fi
 done
 
-[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/rq_led_ibm_logo.py\n  - /usr/bin/rq_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"
+[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/demo_led_ibm_logo.py\n  - /usr/bin/demo_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/demo_led_ibm_logo.py"
 
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"
