@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T16:47:40Z",
+  "generated": "2026-07-13T17:58:06Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-13-151204",
-      "name": "rasqberry-development-2026-07-13-151204",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-13-151204/rasqberry-development-2026-07-13-151204.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-13-151204",
-      "release_date": "2026-07-13 15:12",
-      "image_download_size": 2001353684,
+      "tag": "development-2026-07-13-193617",
+      "name": "rasqberry-development-2026-07-13-193617",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-13-193617/rasqberry-development-2026-07-13-193617.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-13-193617",
+      "release_date": "2026-07-13 19:36",
+      "image_download_size": 2000497176,
       "extract_size": 8942256128,
-      "extract_sha256": "df94758693674b1725d19f94b3c85b7d1ab229f0621bbd9e24f79978eba3d083",
+      "extract_sha256": "9faf45642a6331a0320d7e3a516a1b0656ad084671632bf91948320cf4df6aa6",
       "highlights": [
-        "elevate env-flag write with sudo when the env file is not user-writable",
-        "add rasqberry to docker group at build time",
-        "map bumped host port onto the container's fixed port",
-        "docker entrypoint delegates to dedicated launcher when declared",
-        "describe full Fun with Quantum notebook collection"
+        "soften wizard prompt wording after rig test",
+        "correct quad-4x12 bottom panels to start lower-right",
+        "hold probe pattern lit across the wizard prompt (was cleared on subprocess exit)",
+        "singleton virtual-GUI, first-login verify, top-left-origin canvas",
+        "use a 2x2 white start marker in the wizard signature"
       ]
     }
   }
