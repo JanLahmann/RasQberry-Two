@@ -85,6 +85,72 @@ def test_recovered_mapping_matches_preset_exactly(preset_name):
 
 
 # ---------------------------------------------------------------------------
+# quad-4x12 ground truth (Pi 4 rig, measured 2026-07-13)
+#
+# The rig quad has mixed per-panel start corners (top panels start top-left,
+# bottom panels start top-right) that the single-corner general inference cannot
+# express, so quad-4x12 is a NAMED standard selected directly by the wizard, not
+# recovered from a PRESET_ANSWERS set. These tests pin the preset to the exact
+# index->coordinate formula measured on the physical panel.
+# ---------------------------------------------------------------------------
+
+def _quad_4x12_measured_coord(idx):
+    """Rig-measured chain-index -> (x, y) for the quad-4x12 mounting.
+
+    base=48*p; n=idx-base; c=n//4 (column in chain order); r=n%4;
+    first column descends so y_local = r on even columns, 3-r on odd.
+    p0 top-left, p1 top-right, p2 bottom-right, p3 bottom-left.
+    """
+    p = idx // 48
+    n = idx - p * 48
+    c = n // 4
+    r = n % 4
+    y_local = r if c % 2 == 0 else 3 - r
+    if p == 0:
+        return (c, y_local)
+    if p == 1:
+        return (12 + c, y_local)
+    if p == 2:
+        return (23 - c, 4 + y_local)
+    return (11 - c, 4 + y_local)
+
+
+def test_quad_4x12_matches_measured_rig_mapping():
+    """quad-4x12 reproduces the Pi 4 rig's measured index->coord formula exactly."""
+    for idx in range(192):
+        x, y = _quad_4x12_measured_coord(idx)
+        assert lu.map_xy_to_pixel(x, y, layout="quad-4x12") == idx, \
+            f"quad-4x12: pixel {idx} expected at ({x},{y})"
+
+
+def test_quad_4x12_is_a_bijection_over_24x8():
+    """Every logical (x,y) in the 24x8 matrix maps to a unique pixel in 0..191."""
+    seen = set()
+    for y in range(8):
+        for x in range(24):
+            idx = lu.map_xy_to_pixel(x, y, layout="quad-4x12")
+            assert idx is not None and 0 <= idx < 192, f"({x},{y}) -> {idx}"
+            assert idx not in seen, f"duplicate pixel {idx} at ({x},{y})"
+            seen.add(idx)
+    assert len(seen) == 192
+
+
+def test_quad_4x12_differs_from_legacy_quad():
+    """The rig quad is a genuinely distinct mapping from legacy quad-2x2-12x4.
+
+    Their panel-region ordering is related by a y-flip, but the per-panel
+    serpentine start corners differ, so the full (x,y)->index maps are NOT equal
+    (and NOT a simple global y-flip of each other) - which is why quad-4x12 is a
+    separate canonical preset rather than a y_flip flag on the legacy entry.
+    """
+    q412 = {(x, y): lu.map_xy_to_pixel(x, y, layout="quad-4x12")
+            for y in range(8) for x in range(24)}
+    legacy_flipped = {(x, y): lu.map_xy_to_pixel(x, 7 - y, layout="quad-2x2-12x4")
+                      for y in range(8) for x in range(24)}
+    assert q412 != legacy_flipped
+
+
+# ---------------------------------------------------------------------------
 # Serpentine vs progressive
 # ---------------------------------------------------------------------------
 
