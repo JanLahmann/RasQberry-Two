@@ -792,6 +792,24 @@ run_demo() {
   reset
 }
 
+# Stop the most recently launched demo (its whole setsid process group) and
+# blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
+# chose "No" at the stop prompt) can be stopped here later.
+stop_last_demo() {
+  if [ -z "${LAST_DEMO_PGID:-}" ]; then
+    whiptail --title "Stop demo" --msgbox "No demo has been started in this session." 8 60
+    return 0
+  fi
+  # Negative PID targets the whole process group (setsid session leader).
+  kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+  sleep 1
+  kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null || true
+  do_led_off 2>/dev/null || true
+  whiptail --title "Stop demo" --msgbox "Stopped the last running demo and cleared the LEDs." 8 65
+  LAST_DEMO_PGID=""
+  return 0
+}
+
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
@@ -1022,7 +1040,7 @@ update_environment_file () {
   #check whether string is empty
   if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ]; then
+    if [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
     fi
   else
@@ -1069,7 +1087,7 @@ check_environment_variable() {
 # $2 = silent (optional, suppresses whiptail popup)
 do_rqb_install_qiskit() {
   sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
-  if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
+  if { [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; } && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
 }
@@ -1286,11 +1304,11 @@ do_select_qrt_option() {
             b:custom)
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
-                if [ "$exitstatus" = 0 ]; then
+                if [ "$exitstatus" = 0 ] && [ -n "$CUSTOM_OPTION" ]; then
                     run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
                 else
-                    echo "You chose to cancel. Demo will launch with Local Simulator"
-                    break
+                    # Cancelled or empty input: return to the backend menu, launch nothing.
+                    continue
                 fi
                 ;;
             *) break ;;
@@ -1302,26 +1320,43 @@ do_select_qrt_option() {
 # 3f) Main Quantum Demo Menu
 # -----------------------------------------------------------------------------
 
+# Main quantum demo menu - FULLY GENERATED from the demo manifests.
+#
+# The demo list is built from the auto-generated cache (DEMO_MENU_ITEMS +
+# dispatch_demo_by_id, produced by rq_demo_generate_menu.sh from every manifest,
+# ordered by menu.order). Any newly installed or externally-added catalog demo
+# (e.g. traqmania) appears automatically - there is no curated hardcoded list to
+# keep in sync. Only demos that have their OWN multi-option submenu (or aren't
+# directly launchable) are excluded from the generated list and handled
+# explicitly: LED (setup wizard / tests), QLO (GUI vs console), QRT (backends);
+# led-demos has no launcher and lives under the LED submenu.
+_SUBMENU_DEMO_IDS="quantum-lights-out quantum-raspberry-tie led-demos"
+
 do_quantum_demo_menu() {
   while true; do
-    FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
-       DALL ">> Download All Demos (optional one-time setup)" \
-       LED  "Test LEDs" \
-       QLO  "Quantum-Lights-Out Demo" \
-       QRT  "Quantum Raspberry-Tie" \
-       GRB  "Grok Bloch Sphere (Local)" \
-       GRBW "Grok Bloch Sphere (Web)" \
-       FRC  "Quantum Fractals" \
-       RQL  "RasQ-LED (Quantum Circuit)" \
-       LDP  "LED-Painter (Paint on LEDs)" \
-       QPX  "Quantum Paradoxes (Notebooks)" \
-       IBMT "IBM Quantum Tutorials" \
-       IBMC "IBM Quantum Courses" \
-       QOF  "Qoffee-Maker (Docker)" \
-       QMX  "Quantum-Mixer (Web)" \
+    # Build the generated demo list, dropping the submenu-handled ids (so they
+    # don't appear twice). POSIX-safe: consume the original pairs and re-append
+    # the kept ones, tracking the original count so appended pairs aren't reread.
+    eval "set -- ${DEMO_MENU_ITEMS:-}"
+    _pairs=$(( $# / 2 )); _i=0
+    while [ "$_i" -lt "$_pairs" ]; do
+      _tag="$1"; _desc="$2"; shift 2
+      case " $_SUBMENU_DEMO_IDS " in
+        *" $_tag "*) : ;;                       # skip: has its own submenu
+        *) set -- "$@" "$_tag" "$_desc" ;;      # keep
+      esac
+      _i=$(( _i + 1 ))
+    done
+
+    FUN=$(show_menu "RasQberry: Quantum Demos" "Select a demo or option" \
+       LED  "Test LEDs (setup wizard, tests, demos)" \
+       QLO  "Quantum-Lights-Out (GUI / console)" \
+       QRT  "Quantum Raspberry-Tie (choose backend)" \
+       "$@" \
+       DALL "Download all demos (one-time setup)" \
        ADDX "Add demo from catalog" \
        LOOP "Continuous Demo Loop (Conference)" \
-       REFR "Refresh Demo List (from manifests)" \
+       REFR "Refresh demo list (from manifests)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
        QMXS "Stop Quantum-Mixer containers") || break
@@ -1329,26 +1364,6 @@ do_quantum_demo_menu() {
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      # Demos using manifest dispatch (via cache) - old functions kept as comments for debugging
-      # GRB)  run_grok_bloch_demo        || continue ;;
-      GRB)  dispatch_demo_by_id "grok-bloch"       || { handle_error "Failed to run Grok Bloch demo."; continue; } ;;
-      GRBW) run_grok_bloch_web_demo                || continue ;;
-      # FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      FRC)  dispatch_demo_by_id "quantum-fractals" || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      # RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
-      RQL)  dispatch_demo_by_id "rasq-led"         || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
-      # LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
-      LDP)  dispatch_demo_by_id "led-painter"      || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
-      # QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
-      QPX)  dispatch_demo_by_id "quantum-paradoxes" || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
-      # IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
-      IBMT) dispatch_demo_by_id "ibm-tutorials"    || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
-      # IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
-      IBMC) dispatch_demo_by_id "ibm-courses"      || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
-      # QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
-      QOF)  dispatch_demo_by_id "qoffee-maker"     || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
-      # QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
-      QMX)  dispatch_demo_by_id "quantum-mixer"    || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
       ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalog."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
@@ -1356,7 +1371,9 @@ do_quantum_demo_menu() {
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
       QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
       QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
-      *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
+      "")   continue ;;
+      # Any other tag is a manifest demo id -> universal dispatch (via the cache).
+      *)    dispatch_demo_by_id "$FUN" || { handle_error "Failed to run demo: ${FUN}"; continue; } ;;
     esac
   done
 }
