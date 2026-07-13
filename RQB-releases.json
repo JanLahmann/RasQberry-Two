@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T06:02:58Z",
+  "generated": "2026-07-13T08:45:32Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,17 +27,16 @@
       ]
     },
     "dev": {
-      "tag": "dev-family272-2026-07-13-074026",
-      "name": "rasqberry-dev-family272-2026-07-13-074026",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-074026/rasqberry-dev-family272-2026-07-13-074026.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-family272-2026-07-13-074026",
-      "release_date": "2026-07-13 07:40",
-      "image_download_size": 2004054612,
+      "tag": "dev-family272-2026-07-13-102607",
+      "name": "rasqberry-dev-family272-2026-07-13-102607",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-102607/rasqberry-dev-family272-2026-07-13-102607.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-family272-2026-07-13-102607",
+      "release_date": "2026-07-13 10:26",
+      "image_download_size": 2001577104,
       "extract_size": 8942256128,
-      "extract_sha256": "77feb6b3fdd4edd84af54635627320992c2708aa79603ca03f83726909601061",
+      "extract_sha256": "f473b7682e7862373b6b0fc6ba4e28926a1d1b7405b67ad2a896c038a0a4d69b",
       "highlights": [
-        "pin traQmania as first external catalog entry",
-        "add doQumentation (Workshop Server) on-demand Docker demo"
+        "pass computed CORS_ORIGIN allowlist for LAN workshops"
       ]
     }
   }
