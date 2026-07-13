@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-13T09:04:39Z",
+  "generated": "2026-07-13T10:28:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,17 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-13-001526",
-      "name": "rasqberry-development-2026-07-13-001526",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-13-001526/rasqberry-development-2026-07-13-001526.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-13-001526",
-      "release_date": "2026-07-13 00:15",
-      "image_download_size": 2001196680,
+      "tag": "dev-family272-2026-07-13-120945",
+      "name": "rasqberry-dev-family272-2026-07-13-120945",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-120945/rasqberry-dev-family272-2026-07-13-120945.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-family272-2026-07-13-120945",
+      "release_date": "2026-07-13 12:09",
+      "image_download_size": 2001145772,
       "extract_size": 8942256128,
-      "extract_sha256": "7b6051d18fde22879ab8f8c8e622639006972c238478f50de0a3b7737669a8bd",
+      "extract_sha256": "d0e4b0168d8cbe2fa029060311010edaf6b9678300cda6451239f682aae89e49",
       "highlights": [
-        "Development build - see release notes for details"
+        "elevate env-flag write with sudo when the env file is not user-writable",
+        "add rasqberry to docker group at build time"
       ]
     }
   }
