@@ -8,19 +8,16 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   Interactive whiptail walkthrough that identifies the physical LED layout
 #   and writes the logical config (LED_LAYOUT).
 #
-#   STANDARDS-FIRST (plan R1): it assumes the user has one of the three shipped
-#   standard panels - single-24x8, quad-4x12, triple-8x8 (all 192 LEDs, all a
-#   24x8 composite) - possibly mounted flipped/upside-down, and guides them to
-#   the right one from ONE image: a two-block signature probe lights the FIRST
-#   chain block (idx 0-47) RED and the LAST block (idx 144-191) GREEN. Where the
-#   RED block lands fingerprints the panel AND its mounting - full-height strips
-#   (far-left vs far-right) for single-24x8, or a quarter block (which corner) for
-#   quad-4x12, covering 180-degree mounting and the BL-first quad chaining. Each
-#   state maps to the base preset plus x/y flips. A 3x8x8 is wired like single.
-#   Only if
-#   the panel is not a standard does it fall back to the general per-panel
-#   inference walkthrough (arrangement/corner/run/wiring -> preset match or a
-#   custom overlay in ~/.local/config/led-layouts.json).
+#   STANDARDS-FIRST, LOGO-BASED (plan R1): it assumes the user has one of the
+#   shipped standard panels - single-24x8 or quad-4x12 (a 3x8x8 is wired like a
+#   single) - possibly mounted rotated. PRIMARY question is quad-vs-single: the
+#   panel alternates the IBM logo rendered through the SINGLE map (BLUE) and the
+#   QUAD map (RED); only the matching geometry forms a clean, upright IBM, the
+#   other scatters into noise, so the operator just picks the colour that reads
+#   correctly. Orientation is a SECOND step only if the logo shows but is flipped
+#   (refine_orientation cycles the 4 mountings). If BOTH colours are scrambled it
+#   falls back to the general per-panel inference walkthrough (arrangement/corner/
+#   run/wiring -> preset match or a custom overlay in ~/.local/config).
 #
 #   A "diagnostic only" mode runs the same flow and reports what it identified
 #   vs what the current config says, WITHOUT writing anything.
@@ -31,10 +28,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # FIRST-LOGIN VERIFY (plan R1): the image already ships a configured default
 #   LED_LAYOUT, so first contact is a VERIFY step, not a from-scratch setup. The
-#   --verify mode renders an asymmetric 'F' through the CURRENT layout and asks
-#   "does this look correct?"; YES marks it verified, NO drops into the standards
-#   -first setup to correct it. The LED menu (RQB2_menu.sh) runs --verify once,
-#   gated on LED_LAYOUT_VERIFIED, so the user confirms their panel a single time.
+#   --verify mode renders the IBM logo through the CURRENT layout and asks "does
+#   this look correct?"; YES marks it verified, NO drops into the standards-first
+#   setup to correct it. The LED menu (RQB2_menu.sh) runs --verify once, gated on
+#   LED_LAYOUT_VERIFIED, so the user confirms their panel a single time.
 #
 # Credit: the probe/observe/infer approach is adapted (with credit, per plan
 #   decision D3) from barkol's diagnose_wiring.py in
@@ -98,7 +95,9 @@ INFER_SRC_ARGS=()
 # Cleanup
 # ----------------------------------------------------------------------------
 cleanup() {
-    # Best-effort: blank the strip, tear down the render-hold, remove temp dir.
+    # Best-effort: stop any logo animation, blank the strip, tear down the
+    # render-hold, reap the virtual GUI, remove temp dir.
+    stop_logo_alternator 2>/dev/null || true
     run_probe clear || true
     stop_render_hold
     reap_virtual_gui
@@ -175,17 +174,44 @@ run_probe() {
 }
 
 # ----------------------------------------------------------------------------
-# Glyph helper (verify mode): render the asymmetric 'F' THROUGH a named layout so
-# a wrong orientation (mirrored / upside-down) is visible at a glance. Unlike the
-# raw-index probes this maps logical (x, y) coordinates via the layout, which is
-# exactly what "does the shipped default match your panel?" needs to test.
+# Logo helper: render the IBM logo THROUGH a named layout (optionally flipped) in
+# a solid colour. Mapping the recognizable, asymmetric logo through a candidate
+# layout is the core of both the standards wizard and --verify: it forms a clean,
+# upright IBM only when the layout matches the panel; the wrong geometry (or a
+# flipped mounting) scatters it / reads wrong.
 # ----------------------------------------------------------------------------
-run_glyph() {
-    local layout="$1"; shift || true
+run_logo() {
+    local layout="$1" color="$2"; shift 2 || true
     local count="${UPPER_BOUND:-${LED_COUNT:-192}}"
-    python3 "${PROBE}" --pattern glyph --layout "${layout}" --count "${count}" \
-        --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
-        || warn "glyph render failed for layout '${layout}'"
+    python3 "${PROBE}" --pattern logo --layout "${layout}" --color "${color}" \
+        --count "${count}" --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
+        || warn "logo render failed for layout '${layout}'"
+}
+
+# ----------------------------------------------------------------------------
+# Background logo alternator: flip the panel between the BLUE single-24x8 render
+# and the RED quad-4x12 render on a timer, so both candidates are visible while
+# the operator reads the (blocking) whiptail question. Needs render-hold active
+# (service mode) so each frame latches. Stopped as soon as the question returns.
+# ----------------------------------------------------------------------------
+LOGO_ANIM_PID=""
+start_logo_alternator() {
+    (
+        while true; do
+            run_logo single-24x8 blue
+            sleep 1.6
+            run_logo quad-4x12 red
+            sleep 1.6
+        done
+    ) &
+    LOGO_ANIM_PID=$!
+}
+stop_logo_alternator() {
+    if [ -n "${LOGO_ANIM_PID}" ]; then
+        kill "${LOGO_ANIM_PID}" 2>/dev/null || true
+        wait "${LOGO_ANIM_PID}" 2>/dev/null || true
+        LOGO_ANIM_PID=""
+    fi
 }
 
 # ----------------------------------------------------------------------------
@@ -417,86 +443,76 @@ Restart any running LED demos for the change to take effect." 13 68
 }
 
 # ============================================================================
-# Standards-first identification
+# Standards-first identification (logo-based)
 # ============================================================================
-# In practice there are two physical panels - single (24x8) and quad (four 4x12
-# mounted 2x2) - and the panel may be mounted rotated 180 degrees about the
-# viewing axis (which swaps left<->right AND top<->bottom, not a pure y-flip) or
-# the quad may be chained the other way (BL->BR->TR->TL instead of TL->...->BL,
-# which is exactly quad-4x12 y-flipped). A 3x8x8 is wired like single-24x8.
-#
-# ONE image identifies all of this: two solid colour BLOCKS - the FIRST chain
-# block (idx 0-47) RED and the LAST chain block (idx 144-191) GREEN - plus a
-# WHITE 2x2 marker at the chain start. Where the RED block lands fingerprints the
-# state; the WHITE marker's corner supplies single's y-flip (which the full-height
-# strips otherwise hide). GREEN is the opposite block, for confirmation:
-#   - single: 8-tall columns -> full-height STRIPS. RED far-left = normal; RED
-#     far-right = rotated 180.
-#   - quad: 4-tall columns -> half-height quarter BLOCKS. RED upper-left = normal;
-#     lower-right = 180; lower-left = alt-chain (BL-first); upper-right = alt-chain
-#     rotated. Each state maps to the base preset + x/y flips (180 = both axes).
-# Returns: 0 = a standard was confirmed (STD_CANDIDATE/STD_TX/STD_TY set);
-# 1 = fall back to general inference; 2 = the operator cancelled.
+# PRIMARY question is quad-vs-single; orientation is a SECOND step only if needed.
+# The panel alternates between the IBM logo rendered through the SINGLE map (BLUE)
+# and through the QUAD map (RED). Only the geometry that matches the physical
+# panel forms a clean, upright, recognizable IBM - the wrong geometry scatters the
+# same cells into noise. So:
+#   - BLUE upright   -> single-24x8, no flip   (layout AND orientation confirmed)
+#   - RED  upright   -> quad-4x12,  no flip
+#   - "shows the logo but flipped/upside-down" -> we know the LAYOUT from the
+#     colour; refine_orientation() cycles the 4 mountings until one is upright.
+#   - "both scrambled" -> not a standard panel: fall back to general inference.
+# Returns: 0 = confirmed (STD_CANDIDATE/STD_TX/STD_TY set); 1 = fall back to
+# general inference; 2 = the operator cancelled.
 # ----------------------------------------------------------------------------
 identify_standard() {
-    # One image (RED block idx 0-47, GREEN block idx 144-191, WHITE start marker),
-    # held lit across two quick questions: panel type (shape), then orientation.
-    local shape pos
-    while true; do
-        run_probe twoblock --run 48
-        shape=$(show_menu "Panel type" \
-"Two solid blocks are lit - RED marks the chain START, GREEN the END - with a
-small pale-WHITE marker at the very start. Are the two big blocks:" \
-            strip  "Tall FULL-HEIGHT strips (a single 24x8 panel)" \
-            block  "Shorter HALF-HEIGHT blocks (a quad of four 4x12 panels)" \
-            other  "Neither / not a standard RasQberry panel" \
-            REPEAT "Show the pattern again") || return 2
-        case "${shape}" in
-            strip|block) break ;;
-            other)       return 1 ;;   # fall back to general inference
-            REPEAT)      continue ;;
-        esac
-    done
+    local choice
+    start_logo_alternator
+    choice=$(show_menu "LED panel type" \
+"The panel is alternating between a BLUE 'IBM' logo and a RED one. One colour
+uses the SINGLE-panel wiring, the other the QUAD wiring - only the one that
+matches your panel forms a clean, upright IBM (the other scatters into noise).
 
-    if [ "${shape}" = "strip" ]; then
-        # Single: the RED strip's SIDE gives the left/right flip; the WHITE marker
-        # (top vs bottom of that strip) gives the y flip the strips alone can't.
-        # The base single-24x8 is now TOP-ORIGIN (y_flip:false), so the NORMAL,
-        # un-rotated panel shows RED on the LEFT with the WHITE marker at the TOP
-        # (chain 0 = physical top-left). A y-flip is signalled by the marker at
-        # the BOTTOM; an x-flip by RED on the RIGHT.  [Orientation mapping to be
-        # re-confirmed on the rig via --verify after the y_flip:false change.]
-        STD_CANDIDATE="single-24x8"
-        pos=$(show_menu "Panel orientation" \
-"On the RED strip: which SIDE is it on, and where is the small WHITE marker?" \
-            lt "RED strip on the LEFT,  WHITE marker at its TOP" \
-            lb "RED strip on the LEFT,  WHITE marker at its BOTTOM" \
-            rt "RED strip on the RIGHT, WHITE marker at its TOP" \
-            rb "RED strip on the RIGHT, WHITE marker at its BOTTOM") || return 2
-        case "${pos}" in
-            lt) STD_TX="false"; STD_TY="false" ;;
-            lb) STD_TX="false"; STD_TY="true"  ;;
-            rt) STD_TX="true";  STD_TY="false" ;;
-            rb) STD_TX="true";  STD_TY="true"  ;;
-        esac
-        return 0
-    fi
+Which colour shows a correct, upright IBM logo?" \
+        blue    "BLUE is a correct, upright IBM  (single 24x8 panel)" \
+        red     "RED is a correct, upright IBM   (quad of four 4x12)" \
+        flipped "One colour shows the IBM but FLIPPED / upside-down" \
+        neither "Both are scrambled / unreadable") || { stop_logo_alternator; return 2; }
+    stop_logo_alternator
 
-    # Quad: the RED block's corner encodes both axes (blocks are half-height).
-    STD_CANDIDATE="quad-4x12"
-    pos=$(show_menu "Panel orientation" \
-"Which CORNER is the RED block in?" \
-        ul "UPPER-LEFT  (normal)" \
-        ur "UPPER-RIGHT" \
-        ll "LOWER-LEFT" \
-        lr "LOWER-RIGHT") || return 2
-    case "${pos}" in
-        ul) STD_TX="false"; STD_TY="false" ;;
-        ur) STD_TX="true";  STD_TY="false" ;;
-        ll) STD_TX="false"; STD_TY="true"  ;;
-        lr) STD_TX="true";  STD_TY="true"  ;;
+    case "${choice}" in
+        blue) STD_CANDIDATE="single-24x8"; STD_TX="false"; STD_TY="false"; return 0 ;;
+        red)  STD_CANDIDATE="quad-4x12";   STD_TX="false"; STD_TY="false"; return 0 ;;
+        flipped) refine_orientation; return $? ;;
+        neither) return 1 ;;   # both geometries wrong -> general inference
     esac
-    return 0
+    return 1
+}
+
+# ----------------------------------------------------------------------------
+# Orientation refinement (second step): a logo formed but the panel is mounted
+# rotated. The colour tells us the layout; cycle the 4 mountings (normal, y-flip,
+# x-flip, 180) rendering the logo each time until the operator confirms one is
+# upright. Returns 0 (confirmed), 1 (none looked right -> fall back), 2 (cancel).
+# ----------------------------------------------------------------------------
+refine_orientation() {
+    local which color ori tx ty
+    which=$(show_menu "Which logo" \
+"Which colour formed the IBM logo (even though it was flipped or upside-down)?" \
+        blue "BLUE (single 24x8 panel)" \
+        red  "RED (quad of four 4x12)") || return 2
+    case "${which}" in
+        blue) STD_CANDIDATE="single-24x8"; color="blue" ;;
+        red)  STD_CANDIDATE="quad-4x12";   color="red"  ;;
+    esac
+
+    for ori in "false false" "false true" "true false" "true true"; do
+        tx="${ori% *}"; ty="${ori#* }"
+        local fargs=()
+        [ "${tx}" = "true" ] && fargs+=(--flip-x)
+        [ "${ty}" = "true" ] && fargs+=(--flip-y)
+        # ${arr[@]+...} guards the empty-array expansion under `set -u` on older bash.
+        run_logo "${STD_CANDIDATE}" "${color}" ${fargs[@]+"${fargs[@]}"}
+        if show_yesno "Orientation" \
+"Is the ${color} IBM logo now UPRIGHT and correct (not mirrored or upside-down)?"; then
+            STD_TX="${tx}"; STD_TY="${ty}"
+            return 0
+        fi
+    done
+    return 1   # none of the four looked right -> general inference
 }
 
 # ----------------------------------------------------------------------------
@@ -573,18 +589,18 @@ verify_layout() {
     local current="${LED_LAYOUT:-<unset>}"
 
     # One-look confirmation: default the safe bound to the configured count (no
-    # separate safety inputbox) and hold the glyph lit across the question.
+    # separate safety inputbox) and hold the logo lit across the question.
     UPPER_BOUND="${LED_COUNT:-192}"
     start_render_hold
-    run_glyph "${current}"
+    run_logo "${current}" green
 
     if show_yesno "Verify LED panel" \
 "RasQberry ships pre-configured for this LED layout:
 
   LED_LAYOUT = ${current}
 
-An 'F' is now shown on your panel. Does it look CORRECT - upright, and NOT
-mirrored or upside-down?"; then
+A GREEN 'IBM' logo is now shown on your panel. Does it look CORRECT - upright,
+and NOT mirrored or upside-down?"; then
         mark_layout_verified
         run_probe clear || true
         show_msgbox "LED panel confirmed" \
