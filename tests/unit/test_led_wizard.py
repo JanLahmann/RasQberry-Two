@@ -96,24 +96,29 @@ def test_recovered_mapping_matches_preset_exactly(preset_name):
 # ---------------------------------------------------------------------------
 
 def _quad_4x12_measured_coord(idx):
-    """Rig-measured chain-index -> (x, y) for the quad-4x12 mounting.
+    """Rig-measured chain-index -> (x, y) for the quad-4x12 mounting (2026-07-13).
 
-    base=48*p; n=idx-base; c=n//4 (column in chain order); r=n%4;
-    first column descends so y_local = r on even columns, 3-r on odd.
-    p0 top-left, p1 top-right, p2 bottom-right, p3 bottom-left.
+    base=48*p; n=idx-base; c=n//4 (column in chain order); r=n%4.
+    TOP panels (p0 top-left, p1 top-left/right region) start top-left and their
+    first column DESCENDS -> y_top = r on even columns, 3-r on odd.
+    BOTTOM panels (p2, p3) start BOTTOM-right and their first column ASCENDS from
+    the bottom edge -> region y_bot = 3-r on even columns, r on odd; y = 4+y_bot.
+    Anchors: idx0=(0,0), idx48=(12,0), idx96=(23,7), idx144=(11,7).
     """
     p = idx // 48
     n = idx - p * 48
     c = n // 4
     r = n % 4
-    y_local = r if c % 2 == 0 else 3 - r
     if p == 0:
-        return (c, y_local)
+        y_top = r if c % 2 == 0 else 3 - r
+        return (c, y_top)
     if p == 1:
-        return (12 + c, y_local)
+        y_top = r if c % 2 == 0 else 3 - r
+        return (12 + c, y_top)
+    y_bot = (3 - r) if c % 2 == 0 else r
     if p == 2:
-        return (23 - c, 4 + y_local)
-    return (11 - c, 4 + y_local)
+        return (23 - c, 4 + y_bot)
+    return (11 - c, 4 + y_bot)
 
 
 def test_quad_4x12_matches_measured_rig_mapping():
@@ -136,19 +141,20 @@ def test_quad_4x12_is_a_bijection_over_24x8():
     assert len(seen) == 192
 
 
-def test_quad_4x12_differs_from_legacy_quad():
-    """The rig quad is a genuinely distinct mapping from legacy quad-2x2-12x4.
+def test_quad_4x12_equals_legacy_quad_y_flipped():
+    """The corrected rig quad is EXACTLY the legacy quad-2x2-12x4 y-flipped.
 
-    Their panel-region ordering is related by a y-flip, but the per-panel
-    serpentine start corners differ, so the full (x,y)->index maps are NOT equal
-    (and NOT a simple global y-flip of each other) - which is why quad-4x12 is a
-    separate canonical preset rather than a y_flip flag on the legacy entry.
+    Cross-validation: quad-4x12 was authored from the Pi 4 re-probe (2026-07-13,
+    bottom panels start lower-right) and quad-2x2-12x4 from the legacy arithmetic,
+    yet they agree pixel-for-pixel under a global y-flip. Two independently-derived
+    maps coinciding is strong evidence the re-probed geometry is right. (The
+    earlier mis-read 'top-right' bottom panels did NOT produce this equality.)
     """
-    q412 = {(x, y): lu.map_xy_to_pixel(x, y, layout="quad-4x12")
-            for y in range(8) for x in range(24)}
-    legacy_flipped = {(x, y): lu.map_xy_to_pixel(x, 7 - y, layout="quad-2x2-12x4")
-                      for y in range(8) for x in range(24)}
-    assert q412 != legacy_flipped
+    for y in range(8):
+        for x in range(24):
+            assert lu.map_xy_to_pixel(x, y, layout="quad-4x12") == \
+                lu.map_xy_to_pixel(x, 7 - y, layout="quad-2x2-12x4"), \
+                f"quad-4x12 should equal quad-2x2-12x4 y-flipped at ({x},{y})"
 
 
 # ---------------------------------------------------------------------------

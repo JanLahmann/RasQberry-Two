@@ -25,15 +25,15 @@
   },
 
   "quad-4x12": {
-    "description": "Four 4x12 LED panels, each physically mounted 12 wide x 4 tall, tiled 2x2 into a 24x8 landscape matrix. This is the CANONICAL quad mounting used in the 3D-printed RasQberry model, measured on the Pi 4 test rig 2026-07-13. Chain order TL -> TR -> BR -> BL (idx 0-47 top-left, 48-95 top-right, 96-143 bottom-right, 144-191 bottom-left). Every panel is column-serpentine with its first column descending; the two TOP panels start top-left (chain advances rightward), the two BOTTOM panels start top-right (chain advances leftward). No y_flip: the measured origin is already top-down.",
-    "note": "This is effectively the legacy 'quad-2x2-12x4' preset y-flipped (that preset chains BL->BR->TR->TL / idx0 bottom-left; the rig chains TL->TR->BR->BL / idx0 top-left). The old code/env 'TL->TR->BR->BL' comment matched THIS physical mounting, not the legacy arithmetic. Kept as a distinct canonical preset per decision D-D (2026-07-13) rather than carrying a y_flip on the legacy entry.",
+    "description": "Four 4x12 LED panels, each physically mounted 12 wide x 4 tall, tiled 2x2 into a 24x8 landscape matrix. This is the CANONICAL quad mounting used in the 3D-printed RasQberry model, measured on the Pi 4 test rig 2026-07-13. Chain order TL -> TR -> BR -> BL (idx 0-47 top-left, 48-95 top-right, 96-143 bottom-right, 144-191 bottom-left). All panels column-serpentine. The two TOP panels start top-left (chain advances rightward, first column descending); the two BOTTOM panels start BOTTOM-right (chain advances leftward, first column ascending), so the chain boustrophedons back along the lower half. Anchors: idx0=(0,0), idx48=(12,0), idx96=(23,7), idx144=(11,7). No y_flip: the measured origin is already top-down.",
+    "note": "Re-probed 2026-07-13: the two bottom panels start at their LOWER-right corner (an earlier 'top-right' reading was a blue-diffuser artifact, refuted). With that correction this preset equals the legacy 'quad-2x2-12x4' EXACTLY y-flipped (cross-checked by unit test) - two independently-derived maps agreeing confirms the geometry. Kept as a distinct top-down canonical preset per decision D-D rather than a y_flip flag on the legacy entry.",
     "width": 24,
     "height": 8,
     "panels": [
       {"w": 12, "h": 4, "origin": [0, 0],  "serpentine": "column", "start": "top-left"},
       {"w": 12, "h": 4, "origin": [12, 0], "serpentine": "column", "start": "top-left"},
-      {"w": 12, "h": 4, "origin": [12, 4], "serpentine": "column", "start": "top-right"},
-      {"w": 12, "h": 4, "origin": [0, 4],  "serpentine": "column", "start": "top-right"}
+      {"w": 12, "h": 4, "origin": [12, 4], "serpentine": "column", "start": "bottom-right"},
+      {"w": 12, "h": 4, "origin": [0, 4],  "serpentine": "column", "start": "bottom-right"}
     ]
   },
 
