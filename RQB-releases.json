@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T22:47:55Z",
+  "generated": "2026-07-13T14:44:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,14 +27,21 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-13-001526",
-      "name": "rasqberry-development-2026-07-13-001526",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-13-001526/rasqberry-development-2026-07-13-001526.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-13-001526",
-      "release_date": "2026-07-13 00:15",
-      "image_download_size": 2001196680,
+      "tag": "development-2026-07-13-151204",
+      "name": "rasqberry-development-2026-07-13-151204",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-13-151204/rasqberry-development-2026-07-13-151204.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-13-151204",
+      "release_date": "2026-07-13 15:12",
+      "image_download_size": 2001353684,
       "extract_size": 8942256128,
-      "extract_sha256": "7b6051d18fde22879ab8f8c8e622639006972c238478f50de0a3b7737669a8bd"
+      "extract_sha256": "df94758693674b1725d19f94b3c85b7d1ab229f0621bbd9e24f79978eba3d083",
+      "highlights": [
+        "elevate env-flag write with sudo when the env file is not user-writable",
+        "add rasqberry to docker group at build time",
+        "map bumped host port onto the container's fixed port",
+        "docker entrypoint delegates to dedicated launcher when declared",
+        "describe full Fun with Quantum notebook collection"
+      ]
     }
   }
 }
