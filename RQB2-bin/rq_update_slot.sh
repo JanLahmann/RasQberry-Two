@@ -30,6 +30,11 @@ LOG_FILE="/var/log/rasqberry-update-slot.log"
 DEFAULT_TARGET_SLOT="B"  # Always update Slot B by default
 STABLE_SLOT="A"          # Slot A is the stable/protected slot
 
+# Release manifest that carries per-release checksums (extract_sha256 = SHA256 of
+# the DECOMPRESSED .img). Used to verify integrity when no explicit --sha256 is
+# passed. Overridable via RQB_RELEASES_URL for testing/mirrors.
+RELEASES_MANIFEST_URL="${RQB_RELEASES_URL:-https://rasqberry.org/RQB-releases.json}"
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -128,6 +133,27 @@ verify_checksum() {
     log_message "Checksum OK: $actual"
 }
 
+fetch_extract_sha256() {
+    # Look up the DECOMPRESSED-image SHA256 (extract_sha256) for a release tag
+    # from the release manifest (RQB-releases.json). Prints the sha (empty if the
+    # manifest is unreachable or the tag is not one of the current stream heads).
+    # The manifest only tracks the latest release per stream (dev/beta/stable),
+    # so older tags fall through to no-verification (as before) - not an error.
+    local tag="$1"
+    curl -sSLf --max-time 30 "$RELEASES_MANIFEST_URL" 2>/dev/null | python3 -c '
+import json, sys
+tag = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for stream in (data.get("streams") or {}).values():
+    if isinstance(stream, dict) and stream.get("tag") == tag:
+        print(stream.get("extract_sha256", "") or "")
+        break
+' "$tag" 2>/dev/null || true
+}
+
 download_image() {
     # Download the image file
     local url="$1"
@@ -192,6 +218,7 @@ write_image_to_slot() {
     local system_partition="$2"
     local boot_partition="$3"
     local target_slot="$4"
+    local expected_extract_sha="${5:-}"
 
     log_message "Installing image to Slot $target_slot"
     log_message "  System partition: $system_partition"
@@ -218,6 +245,22 @@ write_image_to_slot() {
         fi
     fi
     log_message "Decompression complete"
+
+    # Verify the DECOMPRESSED image against extract_sha256 from RQB-releases.json
+    # (the manifest only publishes the extracted-image hash, so integrity is
+    # checked here, after decompression, rather than on the .img.xz).
+    if [ -n "$expected_extract_sha" ]; then
+        log_message "Verifying decompressed image against RQB-releases.json checksum..."
+        local actual_extract_sha
+        actual_extract_sha=$(sha256sum "$raw_image" | awk '{print $1}')
+        if [ "$actual_extract_sha" != "$expected_extract_sha" ]; then
+            rm -rf "$work_dir"
+            die "Decompressed image checksum mismatch! expected=$expected_extract_sha actual=$actual_extract_sha - download corrupted or tampered, aborting"
+        fi
+        log_message "Decompressed image checksum OK: $actual_extract_sha"
+    else
+        warn "No extract_sha256 in RQB-releases.json for this tag - installing without decompressed-image verification"
+    fi
 
     # Set up loop device for the image
     log_message "Setting up loop device..."
@@ -589,10 +632,22 @@ EOF
 
     # Verify download
     verify_image "$image_file"
-    verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
+    # Optional compressed-file check only when an explicit --sha256 is provided;
+    # the primary integrity check is the decompressed-image hash below.
+    if [ -n "$SHA256_SUM" ]; then
+        verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
+    fi
+
+    # Fetch the decompressed-image checksum (extract_sha256) from the release
+    # manifest so write_image_to_slot can verify integrity after decompression.
+    local extract_sha
+    extract_sha=$(fetch_extract_sha256 "$release_tag")
+    if [ -n "$extract_sha" ]; then
+        log_message "Fetched extract_sha256 from RQB-releases.json for $release_tag"
+    fi
 
     # Write image to target slot (both boot and system partitions)
-    write_image_to_slot "$image_file" "$system_partition" "$boot_partition" "$TARGET_SLOT"
+    write_image_to_slot "$image_file" "$system_partition" "$boot_partition" "$TARGET_SLOT" "$extract_sha"
 
     # Cleanup
     cleanup_download "$image_file"
