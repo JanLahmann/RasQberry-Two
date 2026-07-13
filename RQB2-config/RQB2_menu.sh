@@ -1027,7 +1027,15 @@ update_environment_file () {
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    # Elevate with sudo when the env file is not writable by the current user
+    # (e.g. running standalone as 'rasqberry' against the root-owned
+    # /usr/config/rasqberry_environment.env). In the raspi-config root context
+    # the file IS writable, so the direct write path is used unchanged.
+    if [ -w "$ENV_FILE" ]; then
+      sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    else
+      sudo sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    fi
     # reload environment file
     . /usr/config/rasqberry_env-config.sh
   fi
