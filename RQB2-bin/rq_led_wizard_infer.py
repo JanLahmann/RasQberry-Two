@@ -286,6 +286,94 @@ def match_preset(layout, registry=None):
     return None
 
 
+def flipped_variant(base_name, toggle_x, toggle_y, registry=None):
+    """Build a flip-corrected copy of a base preset for a rotated mounting.
+
+    The wizard renders a candidate standard, and if the operator reports it looks
+    flipped, corrects it by mirroring the axis/axes. A panel physically mounted
+    mirrored on an axis is corrected by TOGGLING that axis flip relative to the
+    base preset (so a 180-degree/upside-down mounting toggles BOTH axes). The
+    toggle is relative to the base's own flags, so it composes correctly even for
+    presets that already ship a flip (e.g. single-24x8 has y_flip=true).
+
+    Args:
+        base_name (str): a registry preset name.
+        toggle_x (bool): mirror left/right relative to the base.
+        toggle_y (bool): mirror top/bottom relative to the base.
+        registry (dict, optional): preset registry (defaults to live registry).
+
+    Returns:
+        dict: a layout dict (base geometry + corrected x_flip/y_flip flags).
+
+    Raises:
+        WizardInferenceError: if base_name is not a known preset.
+    """
+    if registry is None:
+        import rq_led_utils as lu
+        registry = lu._load_layouts()
+    if base_name not in registry:
+        raise WizardInferenceError(f"unknown base preset: {base_name!r}")
+
+    import copy
+    base = registry[base_name]
+    layout = {
+        'description': base.get('description', ''),
+        'width': base['width'],
+        'height': base['height'],
+        'panels': copy.deepcopy(base['panels']),
+    }
+    x_flip = bool(base.get('x_flip', False)) ^ bool(toggle_x)
+    y_flip = bool(base.get('y_flip', False)) ^ bool(toggle_y)
+    if x_flip:
+        layout['x_flip'] = True
+    if y_flip:
+        layout['y_flip'] = True
+    return layout
+
+
+def _flip_suffix(toggle_x, toggle_y):
+    """Stable name suffix describing which mirror the wizard applied."""
+    if toggle_x and toggle_y:
+        return 'rot180'
+    if toggle_x:
+        return 'flipx'
+    if toggle_y:
+        return 'flipy'
+    return ''
+
+
+def apply_standard(base_name, toggle_x=False, toggle_y=False, registry=None):
+    """Resolve a chosen standard (optionally flip-corrected) to a layout to apply.
+
+    Args:
+        base_name (str): the standard preset the wizard identified.
+        toggle_x, toggle_y (bool): flip corrections the operator asked for.
+        registry (dict, optional): preset registry (defaults to live registry).
+
+    Returns:
+        tuple: (status, name, layout). With no flip, this is the base preset
+            as-is. With a flip, the corrected layout is matched against the
+            registry: if some existing preset already reproduces it, that preset
+            is returned ('preset'); otherwise a named custom variant ('custom').
+
+    Raises:
+        WizardInferenceError: if base_name is unknown.
+    """
+    if not toggle_x and not toggle_y:
+        if registry is None:
+            import rq_led_utils as lu
+            registry = lu._load_layouts()
+        if base_name not in registry:
+            raise WizardInferenceError(f"unknown base preset: {base_name!r}")
+        return 'preset', base_name, registry[base_name]
+
+    layout = flipped_variant(base_name, toggle_x, toggle_y, registry=registry)
+    matched = match_preset(layout, registry=registry)
+    if matched is not None:
+        return 'preset', matched, layout
+    return 'custom', f"{base_name}-{_flip_suffix(toggle_x, toggle_y)}", layout
+
+
 def resolve(answers, registry=None):
     """
     High-level helper: infer a layout, then match it to a preset.
@@ -360,8 +448,15 @@ def main(argv=None):
     import sys
 
     parser = argparse.ArgumentParser(description="LED setup wizard inference")
-    parser.add_argument('--answers-file', required=True,
-                        help="JSON file with the wizard answers dict")
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument('--answers-file',
+                     help="JSON file with the wizard answers dict (general inference)")
+    src.add_argument('--standard',
+                     help="a standard preset name to apply directly (standards-first)")
+    parser.add_argument('--flip-x', action='store_true',
+                        help="mirror the standard left/right (rotated mounting)")
+    parser.add_argument('--flip-y', action='store_true',
+                        help="mirror the standard top/bottom (upside-down mounting)")
     parser.add_argument('--commit', action='store_true',
                         help="write a custom (non-preset) layout to the user overlay")
     parser.add_argument('--json', action='store_true',
@@ -369,16 +464,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        with open(args.answers_file, 'r') as f:
-            answers = json.load(f)
-    except Exception as e:
-        print(f"could not read answers file: {e}", file=sys.stderr)
-        return 2
-
-    try:
-        status, name, layout = resolve(answers)
+        if args.standard:
+            status, name, layout = apply_standard(
+                args.standard, toggle_x=args.flip_x, toggle_y=args.flip_y)
+        else:
+            with open(args.answers_file, 'r') as f:
+                answers = json.load(f)
+            status, name, layout = resolve(answers)
     except WizardInferenceError as e:
         print(str(e), file=sys.stderr)
+        return 2
+    except OSError as e:
+        print(f"could not read answers file: {e}", file=sys.stderr)
         return 2
 
     path = None

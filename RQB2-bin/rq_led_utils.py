@@ -418,9 +418,15 @@ def map_xy_to_pixel(x, y, layout=None):
     if x < 0 or x >= width or y < 0 or y >= height:
         return None
 
-    # Optional per-layout y-flip for physically upside-down matrices (D4)
+    # Optional per-layout flips for physically rotated/mirrored matrices (D4).
+    # y_flip mirrors rows (upside-down top/bottom); x_flip mirrors columns
+    # (left/right). Both together = a 180 degree rotation, the common case for a
+    # standard panel mounted the other way up in the 3D-printed model. The LED
+    # setup wizard writes these onto a base preset to correct a flipped mounting.
     if ldef.get('y_flip', False):
         y = height - 1 - y
+    if ldef.get('x_flip', False):
+        x = width - 1 - x
 
     # Walk panels in chain order; each panel occupies a contiguous index block.
     offset = 0

@@ -6,21 +6,29 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # ============================================================================
 # Description:
 #   Interactive whiptail walkthrough that identifies the physical LED layout
-#   and writes the logical config (LED_LAYOUT). It lights unambiguous probe
-#   patterns on the strip, asks the user what they physically see, infers the
-#   panel size/count/chain-order/serpentine/flip, then either selects a
-#   matching shipped registry preset or writes a custom entry to the user-local
-#   layouts overlay (~/.local/config/led-layouts.json).
+#   and writes the logical config (LED_LAYOUT).
 #
-#   A "diagnostic only" mode runs the same probes and reports what it inferred
+#   STANDARDS-FIRST (plan R1): it assumes the user has one of the three shipped
+#   standard panels - single-24x8, quad-4x12, triple-8x8 (all 192 LEDs, all a
+#   24x8 composite) - possibly mounted flipped/upside-down, and guides them to
+#   the right one as fast as possible: a HEIGHT probe separates quad-4x12 (4-tall
+#   panels) from the 24x8-serpentine family, then an asymmetric "F" glyph confirms
+#   orientation (correcting a rotated/mirrored mounting via x/y flips). Only if
+#   the panel is not a standard does it fall back to the general per-panel
+#   inference walkthrough (arrangement/corner/run/wiring -> preset match or a
+#   custom overlay in ~/.local/config/led-layouts.json).
+#
+#   A "diagnostic only" mode runs the same flow and reports what it identified
 #   vs what the current config says, WITHOUT writing anything.
 #
 # Usage:
 #   sudo rq_led_setup_wizard.sh          # invoked from the RasQberry LED menu
 #
-# TODO (out of scope for this pass, plan Sec 2.8): offer this wizard
-#   automatically on first login when no LED_LAYOUT is configured. Not
-#   implemented here - the wizard is reached only via the LED menu for now.
+# TODO (out of scope for this pass, plan R1): the image already ships a
+#   configured default LED_LAYOUT, so first login is a VERIFY step, not a
+#   from-scratch setup - offer this wizard at first login as a quick "is this
+#   your panel?" confirmation (the glyph step), not gated on an absent layout.
+#   Not wired to first-login here; the wizard is reached via the LED menu for now.
 #
 # Credit: the probe/observe/infer approach is adapted (with credit, per plan
 #   decision D3) from barkol's diagnose_wiring.py in
@@ -68,6 +76,17 @@ RUN_AXIS=""
 WIRING=""
 CHAIN_START="left"
 UPPER_BOUND=""
+
+# Standards-first result (populated by identify_standard): the chosen standard
+# preset and the flip corrections the operator confirmed for a rotated mounting.
+STD_CANDIDATE=""
+STD_TX="false"
+STD_TY="false"
+
+# The inference source (set per path before run_setup/run_diagnostic): either
+# --standard <name> [--flip-*] (standards-first) or --answers-file <file>
+# (general inference fallback).
+INFER_SRC_ARGS=()
 
 # ----------------------------------------------------------------------------
 # Cleanup
@@ -134,6 +153,21 @@ run_probe() {
     python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
         --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
         || warn "probe pattern '${pattern}' failed to render"
+}
+
+# ----------------------------------------------------------------------------
+# Glyph helper: render the asymmetric "F" through a candidate standard layout
+# (optionally flip-corrected), so the operator can confirm orientation.
+# ----------------------------------------------------------------------------
+run_glyph() {
+    local layout="$1" tx="$2" ty="$3"
+    local count="${UPPER_BOUND:-192}"
+    local flags=()
+    [ "${tx}" = "true" ] && flags+=(--flip-x)
+    [ "${ty}" = "true" ] && flags+=(--flip-y)
+    python3 "${PROBE}" --pattern glyph --layout "${layout}" --count "${count}" \
+        --brightness "${PROBE_BRIGHTNESS}" ${flags[@]+"${flags[@]}"} 2>/dev/null \
+        || warn "glyph probe for '${layout}' failed to render"
 }
 
 # ----------------------------------------------------------------------------
@@ -302,7 +336,7 @@ EOF
 # ----------------------------------------------------------------------------
 run_diagnostic() {
     local json inferred count current
-    if ! json=$(python3 "${INFER}" --answers-file "${ANSWERS_FILE}" --json 2>"${WORKDIR}/err"); then
+    if ! json=$(python3 "${INFER}" "${INFER_SRC_ARGS[@]}" --json 2>"${WORKDIR}/err"); then
         show_msgbox "Diagnostic failed" "$(cat "${WORKDIR}/err")"
         return 1
     fi
@@ -326,7 +360,7 @@ Current configuration:
 # ----------------------------------------------------------------------------
 run_setup() {
     local out status name
-    if ! out=$(python3 "${INFER}" --answers-file "${ANSWERS_FILE}" --commit 2>"${WORKDIR}/err"); then
+    if ! out=$(python3 "${INFER}" "${INFER_SRC_ARGS[@]}" --commit 2>"${WORKDIR}/err"); then
         show_msgbox "Setup failed" "Could not infer a layout:
 
 $(cat "${WORKDIR}/err")"
@@ -365,6 +399,73 @@ Restart any running LED demos for the change to take effect." 13 68
 }
 
 # ============================================================================
+# Standards-first identification
+# ============================================================================
+# The three shipped RasQberry standards are ALL 192 LEDs and ALL a 24x8
+# composite (single-24x8, quad-4x12, triple-8x8), so neither LED count nor
+# composite shape can tell them apart. What differs is panel HEIGHT: quad-4x12's
+# panels are mounted 4 tall (the chain walks 4-tall columns), while single/triple
+# walk 8-tall columns. So a single "does the first run reach full height or half?"
+# probe separates quad from the 24x8-serpentine family; the full-height branch
+# defaults to single-24x8 (the shipped default; triple maps the same way for
+# composite addressing). A confirm glyph then fixes any flipped/upside-down
+# mounting. Returns: 0 = a standard was confirmed (STD_CANDIDATE/STD_TX/STD_TY
+# set); 1 = fall back to general inference; 2 = the operator cancelled.
+# ----------------------------------------------------------------------------
+identify_standard() {
+    # Step A: height probe - a short run from the first pixel. Full height ->
+    # single/triple family; half height -> quad-4x12.
+    local h
+    while true; do
+        run_probe edge --index 0 --run 8
+        h=$(show_menu "Panel shape" \
+"A short run of pixels is lit, starting at the first pixel in the chain.
+
+Does the lit shape reach BOTH the top and bottom edges of the panel, or only
+about HALF the height?" \
+            full   "Reaches full height (top edge to bottom edge)" \
+            half   "Only about half the height" \
+            other  "Neither / this is not a standard RasQberry panel" \
+            REPEAT "Show the pattern again") || return 2
+        case "${h}" in
+            full)   STD_CANDIDATE="single-24x8"; break ;;
+            half)   STD_CANDIDATE="quad-4x12";   break ;;
+            other)  return 1 ;;   # fall back to general inference
+            REPEAT) continue ;;
+        esac
+    done
+
+    # Step B: confirm orientation with the asymmetric F glyph. Each "flipped"
+    # choice sets an ABSOLUTE flip correction and re-renders; "yes" accepts the
+    # current correction; "notmine" falls back to the general walkthrough.
+    STD_TX="false"
+    STD_TY="false"
+    local ans
+    while true; do
+        run_glyph "${STD_CANDIDATE}" "${STD_TX}" "${STD_TY}"
+        ans=$(show_menu "Confirm orientation" \
+"An 'F' is drawn: a WHITE dot marks the intended TOP-LEFT corner, a GREEN stem
+runs down the left, and RED bars point RIGHT (the longer bar on top).
+
+Does the F look correct on your panel?" \
+            yes       "Yes - the F looks correct" \
+            upside    "No - upside-down / rotated 180 degrees" \
+            mirror-lr "No - mirrored left-to-right" \
+            mirror-tb "No - mirrored top-to-bottom" \
+            notmine   "This does not match my panel at all" \
+            REPEAT    "Show the F again") || return 2
+        case "${ans}" in
+            yes)       return 0 ;;
+            upside)    STD_TX="true";  STD_TY="true";  continue ;;
+            mirror-lr) STD_TX="true";  STD_TY="false"; continue ;;
+            mirror-tb) STD_TX="false"; STD_TY="true";  continue ;;
+            notmine)   return 1 ;;
+            REPEAT)    continue ;;
+        esac
+    done
+}
+
+# ============================================================================
 # MAIN
 # ============================================================================
 main() {
@@ -375,14 +476,39 @@ main() {
         setup      "Identify layout and SAVE the configuration" \
         diagnostic "Diagnose wiring only (report, no changes)") || return 0
 
-    step_safety      || { info "Wizard cancelled."; return 0; }
-    step_arrangement || { info "Wizard cancelled."; return 0; }
+    step_safety || { info "Wizard cancelled."; return 0; }
 
-    # From here on we light probe patterns and ask the operator about each one.
-    # Route them through the persistent renderer so each pattern stays lit while
-    # the operator answers (fix F1). Torn down by cleanup() on exit.
+    # Probes light patterns and ask what the operator sees; route them through
+    # the persistent renderer so each pattern stays lit while they answer (fix
+    # F1). Torn down by cleanup() on exit.
     start_render_hold
 
+    # Standards-first: try to identify one of the three shipped standard panels
+    # as fast as possible (~2 questions), correcting for a flipped mounting.
+    local rc=0
+    identify_standard || rc=$?
+
+    if [ "${rc}" -eq 0 ]; then
+        # A standard (optionally flip-corrected) was confirmed.
+        INFER_SRC_ARGS=(--standard "${STD_CANDIDATE}")
+        [ "${STD_TX}" = "true" ] && INFER_SRC_ARGS+=(--flip-x)
+        [ "${STD_TY}" = "true" ] && INFER_SRC_ARGS+=(--flip-y)
+        run_probe clear || true
+        if [ "${mode}" = "diagnostic" ]; then
+            run_diagnostic || true
+        else
+            run_setup || true
+        fi
+        return 0
+    elif [ "${rc}" -eq 2 ]; then
+        info "Wizard cancelled."
+        return 0
+    fi
+
+    # rc == 1: no standard matched - fall back to the general per-panel
+    # inference walkthrough (any geometry, custom overlays).
+    info "Falling back to detailed layout identification."
+    step_arrangement || { info "Wizard cancelled."; return 0; }
     step_corner      || { info "Wizard cancelled."; return 0; }
     step_run_axis    || { info "Wizard cancelled."; return 0; }
     step_wiring      || { info "Wizard cancelled."; return 0; }
@@ -390,6 +516,7 @@ main() {
 
     run_probe clear || true
     write_answers
+    INFER_SRC_ARGS=(--answers-file "${ANSWERS_FILE}")
 
     if [ "${mode}" = "diagnostic" ]; then
         run_diagnostic || true

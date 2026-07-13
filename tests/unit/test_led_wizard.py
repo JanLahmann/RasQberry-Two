@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(_REPO_ROOT, "RQB2-bin"))
 
 import rq_led_wizard_infer as w  # noqa: E402
 import rq_led_utils as lu  # noqa: E402
+import rq_led_wizard_probe as pw  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +149,101 @@ def test_quad_4x12_differs_from_legacy_quad():
     legacy_flipped = {(x, y): lu.map_xy_to_pixel(x, 7 - y, layout="quad-2x2-12x4")
                       for y in range(8) for x in range(24)}
     assert q412 != legacy_flipped
+
+
+# ---------------------------------------------------------------------------
+# Standards-first: x_flip mapper support + apply_standard / flipped_variant
+# ---------------------------------------------------------------------------
+
+def test_x_flip_mirrors_columns():
+    """x_flip mirrors the logical x axis before the panel walk (like y_flip does y)."""
+    import copy
+    base = lu._load_layouts()["triple-8x8"]   # no flips shipped -> clean baseline
+    flipped = copy.deepcopy(base)
+    flipped["x_flip"] = True
+    width, height = base["width"], base["height"]
+    for y in range(height):
+        for x in range(width):
+            assert lu.map_xy_to_pixel(x, y, layout=flipped) == \
+                lu.map_xy_to_pixel(width - 1 - x, y, layout=base)
+
+
+def test_apply_standard_no_flip_returns_base_preset():
+    """With no flip correction, a standard resolves straight to its base preset."""
+    status, name, layout = w.apply_standard("quad-4x12")
+    assert status == "preset" and name == "quad-4x12"
+
+
+def test_apply_standard_unknown_raises():
+    with pytest.raises(w.WizardInferenceError):
+        w.apply_standard("no-such-layout")
+
+
+@pytest.mark.parametrize("base", ["single-24x8", "quad-4x12", "triple-8x8"])
+@pytest.mark.parametrize("tx,ty", [(True, False), (False, True), (True, True)])
+def test_flipped_variant_corrects_relative_to_base(base, tx, ty):
+    """flipped_variant(base, tx, ty).map(x,y) == base.map(mirror_x, mirror_y).
+
+    This is the exact correction contract: a panel mounted mirrored on an axis is
+    fixed by asking the base preset for the mirror-image coordinate.
+    """
+    layout = w.flipped_variant(base, tx, ty)
+    width, height = layout["width"], layout["height"]
+    for y in range(height):
+        for x in range(width):
+            xx = (width - 1 - x) if tx else x
+            yy = (height - 1 - y) if ty else y
+            assert lu.map_xy_to_pixel(x, y, layout=layout) == \
+                lu.map_xy_to_pixel(xx, yy, layout=base), \
+                f"{base} flip(x={tx},y={ty}) wrong at ({x},{y})"
+
+
+def test_flipped_variant_toggles_relative_to_existing_flag():
+    """Toggling y on single-24x8 (which ships y_flip=true) clears it, not stacks it."""
+    layout = w.flipped_variant("single-24x8", toggle_x=False, toggle_y=True)
+    assert layout.get("y_flip", False) is False   # true XOR toggle -> false
+    layout2 = w.flipped_variant("single-24x8", toggle_x=True, toggle_y=False)
+    assert layout2.get("x_flip", False) is True    # false XOR toggle -> true
+    assert layout2.get("y_flip", False) is True    # untouched, stays true
+
+
+def test_apply_standard_flip_is_valid_bijection():
+    """A 180-degree-corrected standard still maps every coord to a unique pixel."""
+    status, name, layout = w.apply_standard("quad-4x12", toggle_x=True, toggle_y=True)
+    assert status in ("preset", "custom")
+    seen = set()
+    for y in range(layout["height"]):
+        for x in range(layout["width"]):
+            idx = lu.map_xy_to_pixel(x, y, layout=layout)
+            assert idx is not None and idx not in seen
+            seen.add(idx)
+    assert len(seen) == 192
+
+
+def test_cli_standard_mode(capsys):
+    """The --standard CLI path prints 'PRESET <name>' for an unflipped standard."""
+    rc = w.main(["--standard", "quad-4x12"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "PRESET quad-4x12"
+
+
+@pytest.mark.parametrize("base", ["single-24x8", "quad-4x12"])
+@pytest.mark.parametrize("tx,ty", [(False, False), (True, False), (False, True), (True, True)])
+def test_glyph_preview_matches_saved_layout(base, tx, ty):
+    """The glyph preview maps identically to the layout apply_standard would save.
+
+    Critical: the operator confirms orientation from the glyph, so the previewed
+    layout MUST equal the one written to LED_LAYOUT, or they'd confirm one
+    orientation and get another.
+    """
+    eff = pw._effective_glyph_layout(base, tx, ty)
+    _, _, saved = w.apply_standard(base, toggle_x=tx, toggle_y=ty)
+    width, height = saved["width"], saved["height"]
+    for y in range(height):
+        for x in range(width):
+            assert lu.map_xy_to_pixel(x, y, layout=eff) == \
+                lu.map_xy_to_pixel(x, y, layout=saved), \
+                f"{base} flip(x={tx},y={ty}): preview != saved at ({x},{y})"
 
 
 # ---------------------------------------------------------------------------

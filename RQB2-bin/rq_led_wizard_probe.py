@@ -89,6 +89,75 @@ def _wheel(pos):
     return (0, pos * 3, 255 - pos * 3)
 
 
+# Asymmetric "F" glyph in logical (x, y) coordinates (origin top-left, y down).
+# An F is un-mirrorable: it reads wrong under any flip or 180-degree rotation, so
+# rendering it THROUGH a candidate layout tells the operator at a glance whether
+# that layout's orientation matches their physical panel. Colours reinforce it:
+# a white dot marks the intended top-left, a green stem runs down the left edge,
+# red bars point right (long bar on top).
+_GLYPH_F_STEM = [(1, y) for y in range(0, 7)]          # left vertical stroke
+_GLYPH_F_BARS = [(2, 0), (3, 0), (4, 0), (2, 3), (3, 3)]  # top + middle bars
+_GLYPH_F_ORIGIN = (1, 0)                                 # intended top-left marker
+
+
+def _effective_glyph_layout(layout, toggle_x, toggle_y):
+    """Resolve a layout name to a dict and apply the wizard's flip toggles.
+
+    The toggles are applied relative to the base layout's own flip flags (XOR),
+    matching rq_led_wizard_infer.flipped_variant, so the glyph previews exactly
+    the layout that would be saved. Returns the (possibly modified) layout dict.
+    """
+    if not (toggle_x or toggle_y):
+        return layout
+    from rq_led_utils import get_layout
+    base = get_layout(layout) if isinstance(layout, str) else layout
+    if not base:
+        return layout
+    eff = dict(base)
+    if toggle_x:
+        eff['x_flip'] = not base.get('x_flip', False)
+    if toggle_y:
+        eff['y_flip'] = not base.get('y_flip', False)
+    return eff
+
+
+def render_glyph(count, layout, toggle_x=False, toggle_y=False,
+                 brightness=DEFAULT_PROBE_BRIGHTNESS):
+    """Render the asymmetric F glyph via a layout's logical->pixel mapping.
+
+    Args:
+        count (int): total pixels to allocate on the strip.
+        layout (str or dict): layout name or resolved layout dict to map through.
+        toggle_x (bool): preview the left/right-mirrored variant of `layout`.
+        toggle_y (bool): preview the top/bottom-mirrored variant of `layout`.
+        brightness (float): requested brightness (hard-capped for safety).
+
+    The glyph is drawn in logical coordinates and each (x, y) is routed through
+    rq_led_utils.map_xy_to_pixel(..., layout=layout). If the layout matches the
+    physical wiring/orientation the F looks correct; if the panel is flipped or
+    upside-down relative to the layout, the F visibly reads wrong.
+    """
+    brightness = _clamp_brightness(brightness)
+    from rq_led_utils import chunked_show, map_xy_to_pixel
+
+    layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
+    pixels = _make_strip(count, brightness)
+    pixels.fill((0, 0, 0))
+
+    def _set_xy(x, y, color):
+        idx = map_xy_to_pixel(x, y, layout=layout)
+        if idx is not None and 0 <= idx < count:
+            pixels[idx] = color
+
+    for (x, y) in _GLYPH_F_STEM:
+        _set_xy(x, y, (0, 255, 0))          # green stem
+    for (x, y) in _GLYPH_F_BARS:
+        _set_xy(x, y, (255, 0, 0))          # red bars
+    _set_xy(*_GLYPH_F_ORIGIN, (255, 255, 255))  # white top-left marker (last: wins)
+
+    chunked_show(pixels)
+
+
 def render_pattern(pattern, count, index=0, run=8, panel=64,
                    brightness=DEFAULT_PROBE_BRIGHTNESS):
     """
@@ -177,7 +246,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="LED setup wizard probe renderer")
     parser.add_argument('--pattern', required=True,
                         choices=['corner', 'edge', 'row2', 'gradient',
-                                 'boundaries', 'clear'])
+                                 'boundaries', 'glyph', 'clear'])
     parser.add_argument('--count', type=int, required=True,
                         help="total LED count / safe upper bound to allocate")
     parser.add_argument('--index', type=int, default=0,
@@ -186,16 +255,28 @@ def main(argv=None):
                         help="run length for edge/row2 (typically panel height)")
     parser.add_argument('--panel', type=int, default=64,
                         help="pixels per panel for the boundaries pattern")
+    parser.add_argument('--layout', default=None,
+                        help="layout name to map the glyph pattern through")
+    parser.add_argument('--flip-x', action='store_true',
+                        help="glyph: preview the left/right-mirrored variant")
+    parser.add_argument('--flip-y', action='store_true',
+                        help="glyph: preview the top/bottom-mirrored variant")
     parser.add_argument('--brightness', type=float, default=DEFAULT_PROBE_BRIGHTNESS,
                         help=f"brightness 0-{MAX_PROBE_BRIGHTNESS} (hard-capped)")
     args = parser.parse_args(argv)
 
     if args.count <= 0:
         parser.error("--count must be > 0")
+    if args.pattern == 'glyph' and not args.layout:
+        parser.error("--layout is required for the glyph pattern")
 
     try:
-        render_pattern(args.pattern, args.count, index=args.index, run=args.run,
-                       panel=args.panel, brightness=args.brightness)
+        if args.pattern == 'glyph':
+            render_glyph(args.count, args.layout, toggle_x=args.flip_x,
+                         toggle_y=args.flip_y, brightness=args.brightness)
+        else:
+            render_pattern(args.pattern, args.count, index=args.index, run=args.run,
+                           panel=args.panel, brightness=args.brightness)
     except Exception as e:
         logger.error("probe failed: %s", e)
         return 1
