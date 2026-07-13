@@ -53,6 +53,10 @@ echo
 load_rqb2_env
 verify_env_vars REPO USER_HOME BIN_DIR
 
+# Tracks the :jupyter tag (on-demand pull, so upstream fixes flow automatically).
+# Known-good as of 2026-07-13: sha256:2ab9cf90a741f9183e1e6ed857f94ad5e307378b1f9cacb4faa62f50de38d969
+# (ghcr run 29247875829, commit b01bf7c19: qiskit 2.5.0 + the CORS + nginx-sed
+# fixes, built via the native matrix). Recorded for reproducibility/debugging.
 DOCKER_IMAGE="ghcr.io/janlahmann/doqumentation:jupyter"
 CONTAINER_NAME="doqumentation"
 # Site (nginx) host port. Defaults to 8080 (the image's default allow_origin
