@@ -2,8 +2,8 @@
   "id": "fun-with-quantum",
   "name": "Fun with Quantum",
   "category": "jupyter",
-  "description": "Jupyter notebooks exploring quantum computing concepts with the Quantum Coin Game",
-  "keywords": ["quantum", "jupyter", "notebook", "coin", "game", "education"],
+  "description": "Collection of Jupyter notebooks exploring quantum computing through interactive games and experiments: the Quantum Coin Game, GHZ-Game, GHZ on Real Devices, Hardy's Paradox, the Mermin-Peres Magic Square Game, and 3-SAT",
+  "keywords": ["quantum", "jupyter", "notebook", "coin", "game", "ghz", "hardy", "mermin-peres", "3-sat", "education"],
 
   "entrypoint": {
     "type": "jupyter",

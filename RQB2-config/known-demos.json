@@ -1,4 +1,13 @@
 {
   "_doc": "Curated registry of external RasQberry demos. Each entry pins a third-party demo repository to a full 40-character commit SHA; adding or updating an entry is a reviewed RasQberry PR and is the trust anchor for external demos. Fields per entry: id (kebab-case, must match the demo's rqb-demo.json id and its repo directory name), repo_url (must be https://), ref (full 40-char commit SHA - never a branch or tag), manifest_path (path to the manifest inside the repo, usually rqb-demo.json), added (YYYY-MM-DD), note (optional curator note). Example entry: {\"id\": \"example-demo\", \"repo_url\": \"https://github.com/someuser/example-demo.git\", \"ref\": \"0000000000000000000000000000000000000000\", \"manifest_path\": \"rqb-demo.json\", \"added\": \"2026-07-12\", \"note\": \"curator note\"}. Install with: rq_demo_add_external.sh <id>. Update the pin with: rq_demo_add_external.sh --update <id>.",
-  "demos": []
+  "demos": [
+    {
+      "id": "traqmania",
+      "repo_url": "https://github.com/JanLahmann/traQmania.git",
+      "ref": "8bd2db8c140c68482f1423215dfe542b0c25e57a",
+      "manifest_path": "rqb-demo.json",
+      "added": "2026-07-13",
+      "note": "Quantum reinforcement-learning racing demo (docker image ghcr.io/janlahmann/traqmania, public multi-arch incl. arm64). First Fun-with-Quantum-family catalog entry."
+    }
+  ]
 }

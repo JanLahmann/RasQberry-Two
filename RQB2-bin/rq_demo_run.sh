@@ -439,7 +439,17 @@ run_jupyter() {
 
 # Docker container launcher
 run_docker() {
-    local docker_image docker_port container_name
+    local docker_image docker_port container_name launcher
+
+    # A dedicated launcher wins over the generic docker path (pull, ports,
+    # volumes, tokens are demo-specific — e.g. qoffee-maker.sh,
+    # rq_quantum_lab.sh). External demos cannot set launcher (forbidden by
+    # the external manifest rules), so they always take the generic path.
+    launcher=$(demo_field '.entrypoint.launcher' '')
+    if [ -n "$launcher" ]; then
+        delegate_launcher "$launcher"
+        return 0
+    fi
 
     docker_image=$(get_field '.entrypoint.docker_image' '')
     docker_port=$(get_field '.entrypoint.docker_port' '8080')
@@ -450,13 +460,13 @@ run_docker() {
     fi
 
     # Check Docker is installed
-    check_docker || die "Docker is not installed. Run docker-setup.sh first."
+    check_docker || die "Docker is not installed (the image may be misbuilt)."
 
     # Check Docker group membership
     local user_name
     user_name=$(get_user_name)
     if ! groups "$user_name" | grep -q docker && [ "$user_name" != "root" ]; then
-        die "User '$user_name' is not in the docker group. Run docker-setup.sh first."
+        die "User '$user_name' is not in the docker group (the image may be misbuilt)."
     fi
 
     # Activate Docker group if not active
@@ -479,20 +489,34 @@ run_docker() {
     fi
     docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
-    # Check if image exists
+    # Check if image exists locally; pull from the registry if it is absent.
+    # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
+    # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
+    # are already present, so this pull is skipped entirely and their build
+    # path stays untouched. If a pull is attempted but fails (image not on a
+    # registry, offline, etc.) we fall back to the original "build it first"
+    # error. run_docker() uses plain info/die messages (no whiptail dialogs),
+    # so progress is reported with info.
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        die "Docker image not found: $docker_image. Please build it first."
+        info "Docker image not found locally: $docker_image"
+        info "Attempting to pull from registry (this may take a while)..."
+        if ! docker pull "$docker_image"; then
+            die "Docker image not found: $docker_image. Please build it first."
+        fi
     fi
 
-    # Find available port
-    docker_port=$(find_available_port "$docker_port")
+    # Find an available HOST port. The container-side port stays at the
+    # manifest's docker_port — images serve on a fixed internal port, so a
+    # bumped host port must still map onto it (host:host would dangle).
+    local host_port
+    host_port=$(find_available_port "$docker_port")
 
     # Start container
     info "Starting container: $CONTAINER_NAME"
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
         --rm \
-        -p "${docker_port}:${docker_port}" \
+        -p "${host_port}:${docker_port}" \
         "$docker_image"; then
         die "Failed to start Docker container"
     fi
@@ -507,7 +531,7 @@ run_docker() {
         die "Container failed to start"
     fi
 
-    local url="http://127.0.0.1:${docker_port}"
+    local url="http://127.0.0.1:${host_port}"
     echo
     echo "Demo is running at: $url"
     echo
