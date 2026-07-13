@@ -133,25 +133,25 @@ verify_checksum() {
     log_message "Checksum OK: $actual"
 }
 
-fetch_extract_sha256() {
-    # Look up the DECOMPRESSED-image SHA256 (extract_sha256) for a release tag
-    # from the release manifest (RQB-releases.json). Prints the sha (empty if the
-    # manifest is unreachable or the tag is not one of the current stream heads).
-    # The manifest only tracks the latest release per stream (dev/beta/stable),
-    # so older tags fall through to no-verification (as before) - not an error.
-    local tag="$1"
+fetch_release_sha256() {
+    # Look up a checksum field for a release tag from the release manifest
+    # (RQB-releases.json). $2 = field: image_sha256 (the COMPRESSED .img.xz) or
+    # extract_sha256 (the DECOMPRESSED .img). Prints the sha (empty if the manifest
+    # is unreachable, the field is absent, or the tag is not a current stream head -
+    # so older tags / older manifests fall through to no-verification, not an error).
+    local tag="$1" field="$2"
     curl -sSLf --max-time 30 "$RELEASES_MANIFEST_URL" 2>/dev/null | python3 -c '
 import json, sys
-tag = sys.argv[1]
+tag, field = sys.argv[1], sys.argv[2]
 try:
     data = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
 for stream in (data.get("streams") or {}).values():
     if isinstance(stream, dict) and stream.get("tag") == tag:
-        print(stream.get("extract_sha256", "") or "")
+        print(stream.get(field, "") or "")
         break
-' "$tag" 2>/dev/null || true
+' "$tag" "$field" 2>/dev/null || true
 }
 
 download_image() {
@@ -632,16 +632,24 @@ EOF
 
     # Verify download
     verify_image "$image_file"
-    # Optional compressed-file check only when an explicit --sha256 is provided;
-    # the primary integrity check is the decompressed-image hash below.
+    # Verify the COMPRESSED .img.xz EARLY - before the ~9GB decompress - so a
+    # corrupt/truncated download is caught immediately (not wasted on decompress).
+    # An explicit --sha256 wins; otherwise use image_sha256 from the manifest.
     if [ -n "$SHA256_SUM" ]; then
         verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
+    else
+        local image_sha
+        image_sha=$(fetch_release_sha256 "$release_tag" image_sha256)
+        if [ -n "$image_sha" ]; then
+            log_message "Verifying compressed image against image_sha256 from RQB-releases.json"
+            verify_checksum "$image_file" "$download_url" "$image_sha"
+        fi
     fi
 
     # Fetch the decompressed-image checksum (extract_sha256) from the release
     # manifest so write_image_to_slot can verify integrity after decompression.
     local extract_sha
-    extract_sha=$(fetch_extract_sha256 "$release_tag")
+    extract_sha=$(fetch_release_sha256 "$release_tag" extract_sha256)
     if [ -n "$extract_sha" ]; then
         log_message "Fetched extract_sha256 from RQB-releases.json for $release_tag"
     fi
