@@ -265,6 +265,42 @@ def test_signature_probe_distinguishes_all_three_standards():
     assert lu.map_xy_to_pixel(0, 0, layout="triple-8x8") == 0
 
 
+def _twoblock_fingerprint(base, tx, ty):
+    """Coloured-cell map of the two-block signature (R=0-47, G=144-191, W=0-3)
+    as physically seen for a `base` panel mounted with the given flips."""
+    _, _, layout = w.apply_standard(base, toggle_x=tx, toggle_y=ty)
+    fp = {}
+    for y in range(layout["height"]):
+        for x in range(layout["width"]):
+            idx = lu.map_xy_to_pixel(x, y, layout=layout)
+            if idx is None:
+                continue
+            if idx < 4:
+                fp[(x, y)] = "W"
+            elif idx < 48:
+                fp[(x, y)] = "R"
+            elif idx >= 144:
+                fp[(x, y)] = "G"
+    return fp
+
+
+def test_twoblock_signature_distinguishes_all_eight_states():
+    """The two-block + white-marker image is unique for each of the 8 real states
+    (single/quad x normal/x-flip/y-flip/180) - so the wizard can identify any
+    mounting from one image. The white marker is essential: without it single's
+    normal vs y-flip (and x-flip vs 180) would be identical full-height strips."""
+    states = [("single-24x8", tx, ty) for tx in (False, True) for ty in (False, True)] \
+        + [("quad-4x12", tx, ty) for tx in (False, True) for ty in (False, True)]
+    fps = [_twoblock_fingerprint(*s) for s in states]
+    for i in range(len(fps)):
+        for j in range(i + 1, len(fps)):
+            assert fps[i] != fps[j], f"{states[i]} and {states[j]} look identical"
+
+    # And the white marker specifically is what separates single's y states:
+    assert _twoblock_fingerprint("single-24x8", False, False) != \
+        _twoblock_fingerprint("single-24x8", False, True)
+
+
 @pytest.mark.parametrize("base", ["single-24x8", "quad-4x12"])
 @pytest.mark.parametrize("tx,ty", [(False, False), (True, False), (False, True), (True, True)])
 def test_glyph_preview_matches_saved_layout(base, tx, ty):

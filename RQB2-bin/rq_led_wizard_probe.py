@@ -223,6 +223,22 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
         for i in range(count):
             _set(i, _wheel(int(i * 255 / steps)))
 
+    elif pattern == 'twoblock':
+        # Standards-id signature: the FIRST `run` chain pixels RED and the LAST
+        # `run` chain pixels GREEN - two solid, visible colour blocks. Where each
+        # block lands reveals the panel type (full-height strips = single, quarter
+        # blocks = quad) and the mounting (which corner/side holds RED vs GREEN).
+        # A small WHITE marker on the first 4 chain pixels flags the exact chain
+        # start: for a single panel the two full-height strips cannot show a
+        # top<->bottom (y) flip, so this partial-column marker (top vs bottom of
+        # the RED strip) is what distinguishes single's y-orientation.
+        for k in range(run):
+            _set(k, (255, 0, 0))
+        for k in range(run):
+            _set(count - 1 - k, (0, 255, 0))
+        for k in range(min(4, run)):
+            _set(k, (255, 255, 255))
+
     elif pattern == 'boundaries':
         # Light the first pixel of each panel in a distinct colour to reveal
         # panel count and chain order.
@@ -246,7 +262,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="LED setup wizard probe renderer")
     parser.add_argument('--pattern', required=True,
                         choices=['corner', 'edge', 'row2', 'gradient',
-                                 'boundaries', 'glyph', 'clear'])
+                                 'boundaries', 'twoblock', 'glyph', 'clear'])
     parser.add_argument('--count', type=int, required=True,
                         help="total LED count / safe upper bound to allocate")
     parser.add_argument('--index', type=int, default=0,

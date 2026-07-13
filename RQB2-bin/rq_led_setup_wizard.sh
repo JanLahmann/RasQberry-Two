@@ -11,11 +11,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   STANDARDS-FIRST (plan R1): it assumes the user has one of the three shipped
 #   standard panels - single-24x8, quad-4x12, triple-8x8 (all 192 LEDs, all a
 #   24x8 composite) - possibly mounted flipped/upside-down, and guides them to
-#   the right one in ONE question: a single "signature" probe (the first 48 chain
-#   pixels) paints a distinct footprint that reveals both the panel AND its
-#   orientation - a wide-short block (upper vs lower half) for quad-4x12, or a
-#   tall full-height strip (RED start-marker at bottom vs top) for single-24x8.
-#   A 3x8x8 panel is not a separate case: it is wired like single-24x8 y-flipped.
+#   the right one from ONE image: a two-block signature probe lights the FIRST
+#   chain block (idx 0-47) RED and the LAST block (idx 144-191) GREEN. Where the
+#   RED block lands fingerprints the panel AND its mounting - full-height strips
+#   (far-left vs far-right) for single-24x8, or a quarter block (which corner) for
+#   quad-4x12, covering 180-degree mounting and the BL-first quad chaining. Each
+#   state maps to the base preset plus x/y flips. A 3x8x8 is wired like single.
 #   Only if
 #   the panel is not a standard does it fall back to the general per-panel
 #   inference walkthrough (arrangement/corner/run/wiring -> preset match or a
@@ -389,49 +390,78 @@ Restart any running LED demos for the change to take effect." 13 68
 # ============================================================================
 # Standards-first identification
 # ============================================================================
-# In practice there are just two physical panels - single (24x8) and quad
-# (four 4x12 mounted 2x2) - each possibly mounted upside-down (y-flipped). A
-# 3x8x8 panel is wired the same as single-24x8 (it is just its y-flip), so it is
-# NOT a separate case. ONE probe identifies all four states in a single image:
-# light the first 48 chain pixels (one quad-panel's worth), which paints a
-# distinct footprint because the two panels' column heights differ, and the RED
-# start marker (pixel 0) reveals the y-flip:
-#   - single: 8-tall columns -> a NARROW, TALL 6x8 strip up one side (full
-#     height). RED at the BOTTOM = normal (single-24x8 ships y_flip); RED at the
-#     TOP = upside-down.
-#   - quad: 4-tall columns -> a WIDE, SHORT 12x4 block in one half. Block in the
-#     UPPER half = normal; block in the LOWER half = upside-down.
-# So a single probe + a single question fully identifies the layout AND its
-# orientation - no separate confirm step. Returns: 0 = a standard was confirmed
-# (STD_CANDIDATE/STD_TX/STD_TY set); 1 = fall back to general inference; 2 = the
-# operator cancelled.
+# In practice there are two physical panels - single (24x8) and quad (four 4x12
+# mounted 2x2) - and the panel may be mounted rotated 180 degrees about the
+# viewing axis (which swaps left<->right AND top<->bottom, not a pure y-flip) or
+# the quad may be chained the other way (BL->BR->TR->TL instead of TL->...->BL,
+# which is exactly quad-4x12 y-flipped). A 3x8x8 is wired like single-24x8.
+#
+# ONE image identifies all of this: two solid colour BLOCKS - the FIRST chain
+# block (idx 0-47) RED and the LAST chain block (idx 144-191) GREEN. Solid blocks
+# are far more visible than a single marker pixel. Where the RED block lands
+# fingerprints the state (GREEN is the opposite block, for confirmation):
+#   - single: 8-tall columns -> full-height STRIPS. RED far-left = normal; RED
+#     far-right = rotated 180.
+#   - quad: 4-tall columns -> half-height quarter BLOCKS. RED upper-left = normal;
+#     lower-right = 180; lower-left = alt-chain (BL-first); upper-right = alt-chain
+#     rotated. Each state maps to the base preset + x/y flips (180 = both axes).
+# Returns: 0 = a standard was confirmed (STD_CANDIDATE/STD_TX/STD_TY set);
+# 1 = fall back to general inference; 2 = the operator cancelled.
 # ----------------------------------------------------------------------------
 identify_standard() {
-    # One signature probe (first 48 chain pixels: RED start marker + green body),
-    # one question. STD_TX stays false - the standard mountings differ by y-flip
-    # only; anything else (a left/right mirror) drops to the general fallback.
-    STD_TX="false"
-    local sig
+    # One image (RED block idx 0-47, GREEN block idx 144-191, WHITE start marker),
+    # held lit across two quick questions: panel type (shape), then orientation.
+    local shape pos
     while true; do
-        run_probe edge --index 0 --run 48
-        sig=$(show_menu "Panel layout" \
-"A block of pixels is lit, starting at the FIRST pixel in the chain (marked RED).
-Which picture best matches what you see?" \
-            single-b "A TALL, full-height strip up one side - RED pixel at the BOTTOM" \
-            single-t "A TALL, full-height strip up one side - RED pixel at the TOP" \
-            quad-t   "A WIDE, SHORT block in the UPPER half - RED near the top" \
-            quad-b   "A WIDE, SHORT block in the LOWER half - RED near the bottom" \
-            other    "None of these / not a standard RasQberry panel" \
-            REPEAT   "Show the pattern again") || return 2
-        case "${sig}" in
-            single-b) STD_CANDIDATE="single-24x8"; STD_TY="false"; return 0 ;;
-            single-t) STD_CANDIDATE="single-24x8"; STD_TY="true";  return 0 ;;
-            quad-t)   STD_CANDIDATE="quad-4x12";   STD_TY="false"; return 0 ;;
-            quad-b)   STD_CANDIDATE="quad-4x12";   STD_TY="true";  return 0 ;;
-            other)    return 1 ;;   # fall back to general inference
-            REPEAT)   continue ;;
+        run_probe twoblock --run 48
+        shape=$(show_menu "Panel type" \
+"Two solid blocks are lit - RED marks the chain START, GREEN the END - with a
+small WHITE marker at the very start pixel. Are the two big blocks:" \
+            strip  "Tall FULL-HEIGHT strips (a single 24x8 panel)" \
+            block  "Shorter HALF-HEIGHT blocks (a quad of four 4x12 panels)" \
+            other  "Neither / not a standard RasQberry panel" \
+            REPEAT "Show the pattern again") || return 2
+        case "${shape}" in
+            strip|block) break ;;
+            other)       return 1 ;;   # fall back to general inference
+            REPEAT)      continue ;;
         esac
     done
+
+    if [ "${shape}" = "strip" ]; then
+        # Single: the RED strip's SIDE gives the left/right flip; the WHITE marker
+        # (top vs bottom of that strip) gives the y flip the strips alone can't.
+        STD_CANDIDATE="single-24x8"
+        pos=$(show_menu "Panel orientation" \
+"On the RED strip: which SIDE is it on, and where is the small WHITE marker?" \
+            lb "RED strip on the LEFT,  WHITE marker at its BOTTOM" \
+            lt "RED strip on the LEFT,  WHITE marker at its TOP" \
+            rb "RED strip on the RIGHT, WHITE marker at its BOTTOM" \
+            rt "RED strip on the RIGHT, WHITE marker at its TOP") || return 2
+        case "${pos}" in
+            lb) STD_TX="false"; STD_TY="false" ;;
+            lt) STD_TX="false"; STD_TY="true"  ;;
+            rb) STD_TX="true";  STD_TY="false" ;;
+            rt) STD_TX="true";  STD_TY="true"  ;;
+        esac
+        return 0
+    fi
+
+    # Quad: the RED block's corner encodes both axes (blocks are half-height).
+    STD_CANDIDATE="quad-4x12"
+    pos=$(show_menu "Panel orientation" \
+"Which CORNER is the RED block in?" \
+        ul "UPPER-LEFT  (normal)" \
+        ur "UPPER-RIGHT" \
+        ll "LOWER-LEFT" \
+        lr "LOWER-RIGHT") || return 2
+    case "${pos}" in
+        ul) STD_TX="false"; STD_TY="false" ;;
+        ur) STD_TX="true";  STD_TY="false" ;;
+        ll) STD_TX="false"; STD_TY="true"  ;;
+        lr) STD_TX="true";  STD_TY="true"  ;;
+    esac
+    return 0
 }
 
 # ============================================================================
