@@ -28,28 +28,16 @@ REPO_DIR="${USER_HOME}/quantum-mixer"
 REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
 
 ################################################################################
-# run_docker_setup - Run docker-setup for Docker prerequisites
-################################################################################
-run_docker_setup() {
-    local reason="$1"
-    info "$reason"
-    echo "Running Docker setup..."
-    "$BIN_DIR/docker-setup.sh" || exit 1
-    # Re-exec this script after Docker setup completes
-    exec "$0" "$@"
-}
-
-################################################################################
 # Prerequisites checks
 ################################################################################
 
-# Check if Docker is installed
-command -v docker &> /dev/null || run_docker_setup "Error: Docker is not installed."
+# Check if Docker is installed (guaranteed at image build time)
+command -v docker &> /dev/null || die "Docker is not installed (the image may be misbuilt)."
 
-# Check if user is in docker group
+# Check if user is in docker group (added at image build time)
 USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    run_docker_setup "Error: User '$USER_NAME' is not in the docker group."
+    die "User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
 fi
 
 # Check if docker group is active in current session

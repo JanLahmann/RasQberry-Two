@@ -460,13 +460,13 @@ run_docker() {
     fi
 
     # Check Docker is installed
-    check_docker || die "Docker is not installed. Run docker-setup.sh first."
+    check_docker || die "Docker is not installed (the image may be misbuilt)."
 
     # Check Docker group membership
     local user_name
     user_name=$(get_user_name)
     if ! groups "$user_name" | grep -q docker && [ "$user_name" != "root" ]; then
-        die "User '$user_name' is not in the docker group. Run docker-setup.sh first."
+        die "User '$user_name' is not in the docker group (the image may be misbuilt)."
     fi
 
     # Activate Docker group if not active

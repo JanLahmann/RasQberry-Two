@@ -66,11 +66,11 @@ LAB_PORT="${DOQUMENTATION_LAB_PORT:-8888}"
 # Prerequisites: Docker (mirrors rq_quantum_lab.sh)
 ################################################################################
 
-check_docker || die "Error: Docker is not installed. Run docker-setup.sh first."
+check_docker || die "Error: Docker is not installed (the image may be misbuilt)."
 
 USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    die "Error: User '$USER_NAME' is not in the docker group. Run docker-setup.sh first."
+    die "Error: User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
 fi
 
 # Activate the docker group in this session without a logout, then re-exec.

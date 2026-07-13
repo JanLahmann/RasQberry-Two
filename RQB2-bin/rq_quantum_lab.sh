@@ -44,12 +44,12 @@ DOCS_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 ################################################################################
 
 # Check if Docker is installed
-check_docker || die "Error: Docker is not installed. Run docker-setup.sh first."
+check_docker || die "Error: Docker is not installed (the image may be misbuilt)."
 
 # Check if user is in docker group
 USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    die "Error: User '$USER_NAME' is not in the docker group. Run docker-setup.sh first."
+    die "Error: User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
 fi
 
 # Check if docker group is active in current session
