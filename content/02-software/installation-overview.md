@@ -57,6 +57,22 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 
 This creates a "Pi Imager for RasQberry" shortcut on your Desktop.
 
+### Using the Pi Imager v2 Built-in Custom Repository Option
+
+Raspberry Pi Imager v2 (the 2025 UI rewrite) can load the RasQberry repository directly in the app — no launcher or command line needed:
+
+1. Open Raspberry Pi Imager.
+2. Click **App Options** in the bottom-left corner of the window.
+3. Under **Content Repository**, choose **Use custom URL**.
+4. Paste: `https://RasQberry.org/RQB-images.json`
+5. Click **Apply & Restart**. Imager reloads with the RasQberry images available under **Choose OS**.
+
+A custom *URL* is remembered across app restarts (unlike a custom *file*, which must be re-selected each time).
+
+**Even quicker (Imager v2.0.3+):** if Raspberry Pi Imager is already installed, this link opens it pre-loaded with the RasQberry images:
+[Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)
+(Imager shows a brief security confirmation before switching repositories.)
+
 ### About the RasQberry Image
 
 The RasQberry image contains a desktop environment with quantum computing demos accessible via desktop icons and the raspi-config menu.
