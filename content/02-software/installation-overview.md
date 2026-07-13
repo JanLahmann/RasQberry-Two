@@ -37,41 +37,27 @@ For automation and programmatic access:
 
 ## Using Pi Imager with RasQberry Repository
 
-### Simplified Installation with Desktop Launcher
+### One-click: Open in Raspberry Pi Imager (recommended)
 
-For the easiest experience, install a pre-configured Pi Imager launcher that automatically loads RasQberry images.
+If you already have **Raspberry Pi Imager** installed (version 2.0.3 or newer), just click this link — it opens Imager pre-loaded with the RasQberry images:
 
-**On macOS** (one-line command):
+**[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
 
-```bash
-curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
-```
+Imager shows a brief security confirmation, then the RasQberry images appear under **Choose OS**.
 
-This creates a "Pi Imager for RasQberry" app on your Desktop with the RasQberry icon.
+> **Don't have Raspberry Pi Imager yet?** [Download it here](https://www.raspberrypi.com/software/) first (it's the shipped default on all platforms), then click the link above.
 
-**On Windows** (PowerShell as Administrator):
+### Manual: add the custom repository in Imager
 
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
-```
-
-This creates a "Pi Imager for RasQberry" shortcut on your Desktop.
-
-### Using the Pi Imager v2 Built-in Custom Repository Option
-
-Raspberry Pi Imager v2 (the 2025 UI rewrite) can load the RasQberry repository directly in the app — no launcher or command line needed:
+If the one-click link doesn't launch Imager, add the repository by hand:
 
 1. Open Raspberry Pi Imager.
 2. Click **App Options** in the bottom-left corner of the window.
 3. Under **Content Repository**, choose **Use custom URL**.
 4. Paste: `https://RasQberry.org/RQB-images.json`
-5. Click **Apply & Restart**. Imager reloads with the RasQberry images available under **Choose OS**.
+5. Click **Apply & Restart**. The RasQberry images appear under **Choose OS**.
 
 A custom *URL* is remembered across app restarts (unlike a custom *file*, which must be re-selected each time).
-
-**Even quicker (Imager v2.0.3+):** if Raspberry Pi Imager is already installed, this link opens it pre-loaded with the RasQberry images:
-[Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)
-(Imager shows a brief security confirmation before switching repositories.)
 
 ### About the RasQberry Image
 

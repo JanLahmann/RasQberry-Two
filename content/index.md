@@ -50,15 +50,25 @@ Subscribe to our [newsletter](/newsletter) for occasional updates on new release
 
 ## Getting Started
 
-### Option 1: Download Page
+### Option 1: Open in Raspberry Pi Imager (recommended)
+
+If you have **[Raspberry Pi Imager](https://www.raspberrypi.com/software/)** 2.0.3+ installed, click this link to open it pre-loaded with the RasQberry images:
+
+**[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
+
+Imager shows a brief security confirmation, then the RasQberry images appear under **Choose OS**. *(No Imager yet? [Install it first](https://www.raspberrypi.com/software/), then click the link.)*
+
+You can also add the repository manually: **App Options** (bottom-left) → **Content Repository** → **Use custom URL** → paste `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
+
+### Option 2: Download Page
 
 Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, and development builds.
 
 After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
 
-### Option 2: Run Pi Imager with RasQberry Repository
+### Option 3: Command line (advanced)
 
-Run Pi Imager with our custom repository to see all RasQberry images directly in the imager:
+Launch Imager with the custom repository directly:
 
 **macOS:**
 ```bash
@@ -69,22 +79,6 @@ Run Pi Imager with our custom repository to see all RasQberry images directly in
 ```bash
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
-
-### Option 3: Pi Imager Desktop Launcher (Recommended)
-
-Install a pre-configured Pi Imager launcher that automatically loads RasQberry images:
-
-**macOS** (one-line command):
-```bash
-curl -sSL https://rasqberry.org/install-rpi-imager-launcher.sh | bash
-```
-
-**Windows** (PowerShell as Administrator):
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://rasqberry.org/install-rpi-imager-launcher.ps1'))
-```
-
-This creates a "Pi Imager for RasQberry" launcher on your Desktop.
 
 ### First Boot Setup
 
