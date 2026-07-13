@@ -11,9 +11,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   STANDARDS-FIRST (plan R1): it assumes the user has one of the three shipped
 #   standard panels - single-24x8, quad-4x12, triple-8x8 (all 192 LEDs, all a
 #   24x8 composite) - possibly mounted flipped/upside-down, and guides them to
-#   the right one as fast as possible: a HEIGHT probe separates quad-4x12 (4-tall
-#   panels) from the 24x8-serpentine family, then an asymmetric "F" glyph confirms
-#   orientation (correcting a rotated/mirrored mounting via x/y flips). Only if
+#   the right one in ONE question: a single "signature" probe (the first 48 chain
+#   pixels) paints a distinct footprint per standard - a wide-short quarter block
+#   for quad-4x12, a tall full-height strip for single/triple (which differ only
+#   by the RED start-marker being at the bottom vs the top). An asymmetric "F"
+#   glyph then confirms orientation (correcting a rotated/mirrored mounting via
+#   x/y flips). Only if
 #   the panel is not a standard does it fall back to the general per-panel
 #   inference walkthrough (arrangement/corner/run/wiring -> preset match or a
 #   custom overlay in ~/.local/config/led-layouts.json).
@@ -403,33 +406,41 @@ Restart any running LED demos for the change to take effect." 13 68
 # ============================================================================
 # The three shipped RasQberry standards are ALL 192 LEDs and ALL a 24x8
 # composite (single-24x8, quad-4x12, triple-8x8), so neither LED count nor
-# composite shape can tell them apart. What differs is panel HEIGHT: quad-4x12's
-# panels are mounted 4 tall (the chain walks 4-tall columns), while single/triple
-# walk 8-tall columns. So a single "does the first run reach full height or half?"
-# probe separates quad from the 24x8-serpentine family; the full-height branch
-# defaults to single-24x8 (the shipped default; triple maps the same way for
-# composite addressing). A confirm glyph then fixes any flipped/upside-down
-# mounting. Returns: 0 = a standard was confirmed (STD_CANDIDATE/STD_TX/STD_TY
-# set); 1 = fall back to general inference; 2 = the operator cancelled.
+# composite shape can tell them apart. But ONE pattern does: light the first 48
+# chain pixels (exactly one quad-panel's worth) and the three layouts paint three
+# visually distinct footprints, because their column heights differ:
+#   - quad-4x12  : columns are 4 tall, so 48 px = a WIDE, SHORT 12x4 block filling
+#                  one QUARTER of the matrix (half width x half height).
+#   - single-24x8/triple-8x8 : columns are 8 tall, so 48 px = a NARROW, TALL 6x8
+#                  strip up one side (full height). These two are the SAME panel
+#                  y-flipped, so they differ only by where pixel 0 (the RED start
+#                  marker) sits: single-24x8 ships y_flip -> RED at the BOTTOM;
+#                  triple-8x8 -> RED at the TOP.
+# So a single probe + a single question identifies the layout. A confirm glyph
+# then fixes any remaining flipped/mirrored mounting. Returns: 0 = a standard was
+# confirmed (STD_CANDIDATE/STD_TX/STD_TY set); 1 = fall back to general inference;
+# 2 = the operator cancelled.
 # ----------------------------------------------------------------------------
 identify_standard() {
-    # Step A: height probe - a short run from the first pixel. Full height ->
-    # single/triple family; half height -> quad-4x12.
-    local h
+    # Step A: signature probe - the first 48 chain pixels (RED start + green
+    # body). One question distinguishes all three standards by footprint shape
+    # (quad's short block vs the tall strip) and RED-marker position (single vs
+    # triple). Requires >= 48 LEDs; the standards are all 192.
+    local sig
     while true; do
-        run_probe edge --index 0 --run 8
-        h=$(show_menu "Panel shape" \
-"A short run of pixels is lit, starting at the first pixel in the chain.
-
-Does the lit shape reach BOTH the top and bottom edges of the panel, or only
-about HALF the height?" \
-            full   "Reaches full height (top edge to bottom edge)" \
-            half   "Only about half the height" \
-            other  "Neither / this is not a standard RasQberry panel" \
+        run_probe edge --index 0 --run 48
+        sig=$(show_menu "Panel layout" \
+"A block of pixels is lit starting from the first pixel in the chain (marked
+RED). Which picture best matches what you see?" \
+            quad   "A WIDE, SHORT block filling a QUARTER (about half width x half height)" \
+            triple "A NARROW, TALL strip (full height), with the RED pixel at the TOP" \
+            single "A NARROW, TALL strip (full height), with the RED pixel at the BOTTOM" \
+            other  "None of these / not a standard RasQberry panel" \
             REPEAT "Show the pattern again") || return 2
-        case "${h}" in
-            full)   STD_CANDIDATE="single-24x8"; break ;;
-            half)   STD_CANDIDATE="quad-4x12";   break ;;
+        case "${sig}" in
+            quad)   STD_CANDIDATE="quad-4x12";   break ;;
+            triple) STD_CANDIDATE="triple-8x8";  break ;;
+            single) STD_CANDIDATE="single-24x8"; break ;;
             other)  return 1 ;;   # fall back to general inference
             REPEAT) continue ;;
         esac

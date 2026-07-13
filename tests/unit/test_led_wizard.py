@@ -227,6 +227,38 @@ def test_cli_standard_mode(capsys):
     assert capsys.readouterr().out.strip() == "PRESET quad-4x12"
 
 
+def _footprint(layout, n):
+    """Set of logical (x, y) whose chain index is < n (the lit signature area)."""
+    ldef = lu.get_layout(layout)
+    fp = set()
+    for y in range(ldef["height"]):
+        for x in range(ldef["width"]):
+            idx = lu.map_xy_to_pixel(x, y, layout=layout)
+            if idx is not None and idx < n:
+                fp.add((x, y))
+    return fp
+
+
+def test_signature_probe_distinguishes_all_three_standards():
+    """The first-48-pixel signature paints a distinct footprint per standard, so a
+    single probe + question identifies the layout (plan R1, Jan 2026-07-13)."""
+    quad = _footprint("quad-4x12", 48)
+    single = _footprint("single-24x8", 48)
+    triple = _footprint("triple-8x8", 48)
+
+    # quad's 4-tall columns -> a WIDE, SHORT 12x4 block (the top-left quarter).
+    assert quad == {(x, y) for y in range(4) for x in range(12)}
+    # single/triple's 8-tall columns -> a NARROW, TALL 6x8 strip up the left side.
+    strip = {(x, y) for y in range(8) for x in range(6)}
+    assert single == strip and triple == strip
+    # So quad is unmistakably different from the strip layouts...
+    assert quad != strip
+    # ...and single vs triple are told apart by the RED start marker (pixel 0):
+    # single-24x8 ships y_flip so pixel 0 is at the BOTTOM-left; triple at the TOP.
+    assert lu.map_xy_to_pixel(0, 7, layout="single-24x8") == 0
+    assert lu.map_xy_to_pixel(0, 0, layout="triple-8x8") == 0
+
+
 @pytest.mark.parametrize("base", ["single-24x8", "quad-4x12"])
 @pytest.mark.parametrize("tx,ty", [(False, False), (True, False), (False, True), (True, True)])
 def test_glyph_preview_matches_saved_layout(base, tx, ty):
