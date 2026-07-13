@@ -12,11 +12,11 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   standard panels - single-24x8, quad-4x12, triple-8x8 (all 192 LEDs, all a
 #   24x8 composite) - possibly mounted flipped/upside-down, and guides them to
 #   the right one in ONE question: a single "signature" probe (the first 48 chain
-#   pixels) paints a distinct footprint per standard - a wide-short quarter block
-#   for quad-4x12, a tall full-height strip for single/triple (which differ only
-#   by the RED start-marker being at the bottom vs the top). An asymmetric "F"
-#   glyph then confirms orientation (correcting a rotated/mirrored mounting via
-#   x/y flips). Only if
+#   pixels) paints a distinct footprint that reveals both the panel AND its
+#   orientation - a wide-short block (upper vs lower half) for quad-4x12, or a
+#   tall full-height strip (RED start-marker at bottom vs top) for single-24x8.
+#   A 3x8x8 panel is not a separate case: it is wired like single-24x8 y-flipped.
+#   Only if
 #   the panel is not a standard does it fall back to the general per-panel
 #   inference walkthrough (arrangement/corner/run/wiring -> preset match or a
 #   custom overlay in ~/.local/config/led-layouts.json).
@@ -156,21 +156,6 @@ run_probe() {
     python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
         --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
         || warn "probe pattern '${pattern}' failed to render"
-}
-
-# ----------------------------------------------------------------------------
-# Glyph helper: render the asymmetric "F" through a candidate standard layout
-# (optionally flip-corrected), so the operator can confirm orientation.
-# ----------------------------------------------------------------------------
-run_glyph() {
-    local layout="$1" tx="$2" ty="$3"
-    local count="${UPPER_BOUND:-192}"
-    local flags=()
-    [ "${tx}" = "true" ] && flags+=(--flip-x)
-    [ "${ty}" = "true" ] && flags+=(--flip-y)
-    python3 "${PROBE}" --pattern glyph --layout "${layout}" --count "${count}" \
-        --brightness "${PROBE_BRIGHTNESS}" ${flags[@]+"${flags[@]}"} 2>/dev/null \
-        || warn "glyph probe for '${layout}' failed to render"
 }
 
 # ----------------------------------------------------------------------------
@@ -404,74 +389,47 @@ Restart any running LED demos for the change to take effect." 13 68
 # ============================================================================
 # Standards-first identification
 # ============================================================================
-# The three shipped RasQberry standards are ALL 192 LEDs and ALL a 24x8
-# composite (single-24x8, quad-4x12, triple-8x8), so neither LED count nor
-# composite shape can tell them apart. But ONE pattern does: light the first 48
-# chain pixels (exactly one quad-panel's worth) and the three layouts paint three
-# visually distinct footprints, because their column heights differ:
-#   - quad-4x12  : columns are 4 tall, so 48 px = a WIDE, SHORT 12x4 block filling
-#                  one QUARTER of the matrix (half width x half height).
-#   - single-24x8/triple-8x8 : columns are 8 tall, so 48 px = a NARROW, TALL 6x8
-#                  strip up one side (full height). These two are the SAME panel
-#                  y-flipped, so they differ only by where pixel 0 (the RED start
-#                  marker) sits: single-24x8 ships y_flip -> RED at the BOTTOM;
-#                  triple-8x8 -> RED at the TOP.
-# So a single probe + a single question identifies the layout. A confirm glyph
-# then fixes any remaining flipped/mirrored mounting. Returns: 0 = a standard was
-# confirmed (STD_CANDIDATE/STD_TX/STD_TY set); 1 = fall back to general inference;
-# 2 = the operator cancelled.
+# In practice there are just two physical panels - single (24x8) and quad
+# (four 4x12 mounted 2x2) - each possibly mounted upside-down (y-flipped). A
+# 3x8x8 panel is wired the same as single-24x8 (it is just its y-flip), so it is
+# NOT a separate case. ONE probe identifies all four states in a single image:
+# light the first 48 chain pixels (one quad-panel's worth), which paints a
+# distinct footprint because the two panels' column heights differ, and the RED
+# start marker (pixel 0) reveals the y-flip:
+#   - single: 8-tall columns -> a NARROW, TALL 6x8 strip up one side (full
+#     height). RED at the BOTTOM = normal (single-24x8 ships y_flip); RED at the
+#     TOP = upside-down.
+#   - quad: 4-tall columns -> a WIDE, SHORT 12x4 block in one half. Block in the
+#     UPPER half = normal; block in the LOWER half = upside-down.
+# So a single probe + a single question fully identifies the layout AND its
+# orientation - no separate confirm step. Returns: 0 = a standard was confirmed
+# (STD_CANDIDATE/STD_TX/STD_TY set); 1 = fall back to general inference; 2 = the
+# operator cancelled.
 # ----------------------------------------------------------------------------
 identify_standard() {
-    # Step A: signature probe - the first 48 chain pixels (RED start + green
-    # body). One question distinguishes all three standards by footprint shape
-    # (quad's short block vs the tall strip) and RED-marker position (single vs
-    # triple). Requires >= 48 LEDs; the standards are all 192.
+    # One signature probe (first 48 chain pixels: RED start marker + green body),
+    # one question. STD_TX stays false - the standard mountings differ by y-flip
+    # only; anything else (a left/right mirror) drops to the general fallback.
+    STD_TX="false"
     local sig
     while true; do
         run_probe edge --index 0 --run 48
         sig=$(show_menu "Panel layout" \
-"A block of pixels is lit starting from the first pixel in the chain (marked
-RED). Which picture best matches what you see?" \
-            quad   "A WIDE, SHORT block filling a QUARTER (about half width x half height)" \
-            triple "A NARROW, TALL strip (full height), with the RED pixel at the TOP" \
-            single "A NARROW, TALL strip (full height), with the RED pixel at the BOTTOM" \
-            other  "None of these / not a standard RasQberry panel" \
-            REPEAT "Show the pattern again") || return 2
+"A block of pixels is lit, starting at the FIRST pixel in the chain (marked RED).
+Which picture best matches what you see?" \
+            single-b "A TALL, full-height strip up one side - RED pixel at the BOTTOM" \
+            single-t "A TALL, full-height strip up one side - RED pixel at the TOP" \
+            quad-t   "A WIDE, SHORT block in the UPPER half - RED near the top" \
+            quad-b   "A WIDE, SHORT block in the LOWER half - RED near the bottom" \
+            other    "None of these / not a standard RasQberry panel" \
+            REPEAT   "Show the pattern again") || return 2
         case "${sig}" in
-            quad)   STD_CANDIDATE="quad-4x12";   break ;;
-            triple) STD_CANDIDATE="triple-8x8";  break ;;
-            single) STD_CANDIDATE="single-24x8"; break ;;
-            other)  return 1 ;;   # fall back to general inference
-            REPEAT) continue ;;
-        esac
-    done
-
-    # Step B: confirm orientation with the asymmetric F glyph. Each "flipped"
-    # choice sets an ABSOLUTE flip correction and re-renders; "yes" accepts the
-    # current correction; "notmine" falls back to the general walkthrough.
-    STD_TX="false"
-    STD_TY="false"
-    local ans
-    while true; do
-        run_glyph "${STD_CANDIDATE}" "${STD_TX}" "${STD_TY}"
-        ans=$(show_menu "Confirm orientation" \
-"An 'F' is drawn: a WHITE dot marks the intended TOP-LEFT corner, a GREEN stem
-runs down the left, and RED bars point RIGHT (the longer bar on top).
-
-Does the F look correct on your panel?" \
-            yes       "Yes - the F looks correct" \
-            upside    "No - upside-down / rotated 180 degrees" \
-            mirror-lr "No - mirrored left-to-right" \
-            mirror-tb "No - mirrored top-to-bottom" \
-            notmine   "This does not match my panel at all" \
-            REPEAT    "Show the F again") || return 2
-        case "${ans}" in
-            yes)       return 0 ;;
-            upside)    STD_TX="true";  STD_TY="true";  continue ;;
-            mirror-lr) STD_TX="true";  STD_TY="false"; continue ;;
-            mirror-tb) STD_TX="false"; STD_TY="true";  continue ;;
-            notmine)   return 1 ;;
-            REPEAT)    continue ;;
+            single-b) STD_CANDIDATE="single-24x8"; STD_TY="false"; return 0 ;;
+            single-t) STD_CANDIDATE="single-24x8"; STD_TY="true";  return 0 ;;
+            quad-t)   STD_CANDIDATE="quad-4x12";   STD_TY="false"; return 0 ;;
+            quad-b)   STD_CANDIDATE="quad-4x12";   STD_TY="true";  return 0 ;;
+            other)    return 1 ;;   # fall back to general inference
+            REPEAT)   continue ;;
         esac
     done
 }
