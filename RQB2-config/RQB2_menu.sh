@@ -1196,6 +1196,19 @@ do_led_display_menu() {
 }
 
 do_select_led_option() {
+    # First-visit verification (plan R1): the image ships a default LED_LAYOUT,
+    # so the first time this menu opens we offer a quick "is this your panel?"
+    # check (render an 'F' through the current layout) instead of a from-scratch
+    # setup. The wizard persists LED_LAYOUT_VERIFIED=true when the user answers,
+    # so it never nags again. _RQ_LED_VERIFY_DONE guards against re-prompting
+    # within this menu session if they cancelled without answering.
+    if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ] && [ -z "${_RQ_LED_VERIFY_DONE:-}" ]; then
+        _RQ_LED_VERIFY_DONE=1
+        bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
+        # The wizard writes the env file in its own process; reload so this
+        # session sees LED_LAYOUT_VERIFIED / any corrected LED_LAYOUT.
+        [ -f "$ENV_CONFIG_FILE" ] && . "$ENV_CONFIG_FILE" 2>/dev/null || true
+    fi
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
@@ -1204,7 +1217,8 @@ do_select_led_option() {
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
-           layout "Configure Matrix Layout") || break
+           layout "Configure Matrix Layout" \
+           wizard "LED Setup Wizard (auto-detect layout)") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
@@ -1221,11 +1235,16 @@ do_select_led_option() {
                 do_led_off
                 ;;
             IBM )
-                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
+                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 demo_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
                 ;;
             layout )
                 do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
+                ;;
+            wizard )
+                # Interactive whiptail walkthrough (own process); auto-detects
+                # the physical layout and writes LED_LAYOUT.
+                bash "$BIN_DIR/rq_led_setup_wizard.sh" || { handle_error "LED setup wizard failed."; continue; }
                 ;;
             *) break ;;
         esac

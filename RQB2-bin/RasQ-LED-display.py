@@ -10,12 +10,38 @@
 
 from time import sleep
 import argparse
-from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show
+from rq_led_utils import (
+    get_led_config,
+    create_neopixel_strip,
+    chunked_show,
+    map_xy_to_pixel,
+    get_layout,
+)
 
 # Load configuration from system-wide environment
 config = get_led_config()
 NUM_PIXELS = config['led_count']
 pixel_order_str = config['pixel_order']
+
+# Logical matrix geometry for the active layout, so the qubit readout is laid out
+# in xy space (row-major, TOP-LEFT origin) rather than following the raw
+# serpentine chain - it tracks LED_LAYOUT (single/quad/y-flip) and renders the
+# same way on the physical panel and the virtual GUI.
+_layout = get_layout(config.get('led_layout')) or {}
+WIDTH = _layout.get('width') or NUM_PIXELS
+HEIGHT = _layout.get('height') or 1
+
+
+def set_qubit(pixels, i, color):
+    """Light the i-th qubit at logical (x, y) = (i % WIDTH, i // WIDTH).
+
+    Row-major from the top-left, mapped through the active layout. Cells beyond
+    the logical grid map to None and are skipped, so a longer bitstring degrades
+    gracefully instead of indexing a raw chain position.
+    """
+    idx = map_xy_to_pixel(i % WIDTH, i // WIDTH)
+    if idx is not None and 0 <= idx < NUM_PIXELS:
+        pixels[idx] = color
 
 # Color definitions - using (R, G, B) tuple format
 G = (0, 255, 0)    # Green
@@ -55,7 +81,7 @@ def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
                 break
 
             color = to_color.get(bit, K)  # Get color or black for invalid bits
-            pixels[i] = color
+            set_qubit(pixels, i, color)
             chunked_show(pixels)
             sleep(delay_per_led)
     else:
@@ -66,13 +92,18 @@ def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
                 break
 
             color = to_color.get(bit, K)  # Get color or black for invalid bits
-            pixels[i] = color
+            set_qubit(pixels, i, color)
 
         # Show all LEDs at once after setting colors
         chunked_show(pixels)
 
 def color_wipe(pixels, color=K, wait_ms=wait_ms):
-    """Wipe color across display a pixel at a time"""
+    """Wipe color across display a pixel at a time.
+
+    Walks the RAW chain order on purpose: a wipe (used to clear the strip) must
+    touch every physical pixel, including any not covered by the logical (x, y)
+    grid, so it addresses pixels by chain index rather than via the layout map.
+    """
     for i in range(NUM_PIXELS):
         pixels[i] = color
         chunked_show(pixels)

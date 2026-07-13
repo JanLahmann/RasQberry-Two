@@ -34,9 +34,10 @@ LAYOUTS_FILENAME = "led-layouts.json"
 # Global singleton NeoPixel object - prevents GPIO conflicts on Pi 5
 _pixels_singleton = None
 
-# Cache for the parsed layout registry (keyed by resolved file path)
+# Cache for the parsed layout registry (keyed by (shipped_path, user_path,
+# user_mtime) so a freshly written user overlay is picked up).
 _layouts_cache = None
-_layouts_cache_path = None
+_layouts_cache_key = None
 
 # Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
 _LEGACY_LAYOUT_ALIASES = {
@@ -145,7 +146,13 @@ def get_led_config():
         'led_web': led_web,
         # Render mode: 'direct' (in-process GPIO, default) or 'service' (frames
         # go to the mmap only; rasqberry-led-renderer.service drives the strip).
-        'render_mode': config.get('LED_RENDER_MODE', 'direct').lower(),
+        # An os.environ override lets a caller switch a subprocess into service
+        # mode without rewriting the root-owned env file - used by the LED setup
+        # wizard, which runs a private renderer for its lifetime so probe frames
+        # are latched across the whiptail prompt. Same env-override pattern as
+        # mmap_path()/RQB2_LED_MMAP_PATH.
+        'render_mode': os.environ.get(
+            'LED_RENDER_MODE', config.get('LED_RENDER_MODE', 'direct')).lower(),
         # Deprecated, retained so existing callers keep working
         'led_virtual_mirror': raw_mirror,
     }
@@ -186,11 +193,12 @@ def get_logo_dir():
 
 def _find_layouts_file():
     """
-    Locate the LED layout registry JSON using the standard dual-path convention.
+    Locate the SHIPPED LED layout registry JSON using the dual-path convention.
 
     Returns:
-        str: Path to led-layouts.json (installed path preferred, repo path
-             fallback). The returned path may not exist if neither is present.
+        str: Path to the shipped led-layouts.json (installed path preferred,
+             repo path fallback). The returned path may not exist if neither is
+             present.
     """
     installed = os.path.join("/usr/config", LAYOUTS_FILENAME)
     if os.path.exists(installed):
@@ -201,34 +209,79 @@ def _find_layouts_file():
     return repo_path
 
 
-def _load_layouts():
+def _user_layouts_file():
     """
-    Load and cache the layout registry.
+    Path to the USER-LOCAL layout overlay (may not exist).
+
+    Custom layouts written by the LED setup wizard live here so they survive
+    OS image updates (which replace /usr/config). Unlike the demo-manifest
+    search path - where the shipped/trusted copy WINS on id collision - the user
+    overlay WINS here: a custom layout the user just built for their own hardware
+    must take precedence over any shipped preset of the same name.
+
+    Resolution mirrors rq_common.sh's USER_HOME convention so it works in the
+    raspi-config (root) context: $USER_HOME first, then ~$SUDO_USER, then ~.
 
     Returns:
-        dict: Mapping of layout name -> layout definition. Registry metadata
-              keys (those starting with '_') are excluded. Returns {} if the
-              file is missing or unparseable.
+        str: Path to $USER_HOME/.local/config/led-layouts.json (or the best
+             available home). The file itself may be absent.
     """
-    global _layouts_cache, _layouts_cache_path
+    home = os.environ.get('USER_HOME')
+    if not home:
+        sudo_user = os.environ.get('SUDO_USER')
+        home = os.path.expanduser('~' + sudo_user) if sudo_user else os.path.expanduser('~')
+    return os.path.join(home, '.local', 'config', LAYOUTS_FILENAME)
 
-    path = _find_layouts_file()
-    if _layouts_cache is not None and _layouts_cache_path == path:
-        return _layouts_cache
 
-    layouts = {}
+def _read_layouts_file(path):
+    """Parse one layout registry file, dropping '_'-prefixed metadata keys.
+
+    Returns {} (and prints a diagnostic) when the file is missing or invalid.
+    """
     try:
         with open(path, 'r') as f:
             raw = json.load(f)
-        # Drop registry-level metadata keys (e.g. "_about")
-        layouts = {k: v for k, v in raw.items() if not k.startswith('_')}
+        return {k: v for k, v in raw.items() if not k.startswith('_')}
     except FileNotFoundError:
-        print(f"ERROR: Layout registry not found: {path}")
+        return {}
     except Exception as e:
         print(f"ERROR: Failed to parse layout registry {path}: {e}")
+        return {}
+
+
+def _load_layouts():
+    """
+    Load and cache the layout registry (shipped presets + user overlay).
+
+    The shipped registry provides the presets; the user-local overlay
+    (_user_layouts_file) is merged on top and WINS on name collision, so custom
+    layouts emitted by the setup wizard take precedence over shipped presets.
+
+    Returns:
+        dict: Mapping of layout name -> layout definition. Registry metadata
+              keys (those starting with '_') are excluded. Returns {} if no
+              file is present or parseable.
+    """
+    global _layouts_cache, _layouts_cache_key
+
+    shipped = _find_layouts_file()
+    user = _user_layouts_file()
+    user_mtime = os.path.getmtime(user) if os.path.exists(user) else None
+    key = (shipped, user, user_mtime)
+
+    if _layouts_cache is not None and _layouts_cache_key == key:
+        return _layouts_cache
+
+    layouts = _read_layouts_file(shipped)
+    if not layouts and not os.path.exists(shipped):
+        print(f"ERROR: Layout registry not found: {shipped}")
+
+    # User overlay wins on name collision (opposite of the manifest search path).
+    if os.path.exists(user):
+        layouts.update(_read_layouts_file(user))
 
     _layouts_cache = layouts
-    _layouts_cache_path = path
+    _layouts_cache_key = key
     return layouts
 
 
@@ -285,12 +338,12 @@ def get_layout(name=None):
     return result
 
 
-def _panel_local_index(lx, ly, w, h, serpentine, start):
+def _panel_local_index(lx, ly, w, h, serpentine, start, zigzag=True):
     """
     Compute the panel-local pixel index for a coordinate inside one panel.
 
-    Implements a serpentine (boustrophedon) walk parameterised by the stepping
-    axis and the corner that holds panel-local index 0.
+    Implements a boustrophedon walk parameterised by the stepping axis and the
+    corner that holds panel-local index 0.
 
     Args:
         lx (int): Panel-local x (0..w-1).
@@ -299,6 +352,11 @@ def _panel_local_index(lx, ly, w, h, serpentine, start):
         h (int): Panel height.
         serpentine (str): 'column' (step along columns) or 'row' (step along rows).
         start (str): 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'.
+        zigzag (bool): True (default) for serpentine wiring where alternate
+            rows/columns reverse direction; False for PROGRESSIVE wiring where
+            every row/column runs in the same direction. Absent from shipped
+            presets (all serpentine), so their behaviour is unchanged; the LED
+            setup wizard sets zigzag=False for custom progressive panels.
 
     Returns:
         int: Panel-local index in [0, w*h).
@@ -310,14 +368,14 @@ def _panel_local_index(lx, ly, w, h, serpentine, start):
         # Primary axis = rows (stepped, alternating), secondary = x within a row.
         r = ly if top else (h - 1 - ly)
         s = lx if left else (w - 1 - lx)
-        if r % 2 == 1:
+        if zigzag and r % 2 == 1:
             s = w - 1 - s
         return r * w + s
 
     # Default: 'column'. Primary axis = columns, secondary = y within a column.
     c = lx if left else (w - 1 - lx)
     s = ly if top else (h - 1 - ly)
-    if c % 2 == 1:
+    if zigzag and c % 2 == 1:
         s = h - 1 - s
     return c * h + s
 
@@ -360,9 +418,15 @@ def map_xy_to_pixel(x, y, layout=None):
     if x < 0 or x >= width or y < 0 or y >= height:
         return None
 
-    # Optional per-layout y-flip for physically upside-down matrices (D4)
+    # Optional per-layout flips for physically rotated/mirrored matrices (D4).
+    # y_flip mirrors rows (upside-down top/bottom); x_flip mirrors columns
+    # (left/right). Both together = a 180 degree rotation, the common case for a
+    # standard panel mounted the other way up in the 3D-printed model. The LED
+    # setup wizard writes these onto a base preset to correct a flipped mounting.
     if ldef.get('y_flip', False):
         y = height - 1 - y
+    if ldef.get('x_flip', False):
+        x = width - 1 - x
 
     # Walk panels in chain order; each panel occupies a contiguous index block.
     offset = 0
@@ -375,6 +439,7 @@ def map_xy_to_pixel(x, y, layout=None):
                 x - ox, y - oy, w, h,
                 panel.get('serpentine', 'column'),
                 panel.get('start', 'top-left'),
+                panel.get('zigzag', True),
             )
             return offset + local
         offset += w * h
@@ -383,37 +448,144 @@ def map_xy_to_pixel(x, y, layout=None):
     return None
 
 
+# Virtual-GUI singleton bookkeeping. Every probe/demo process that enables a
+# virtual target calls _ensure_virtual_led_gui_running(); the wizard fires probes
+# back to back, so without serialisation each one could spawn its own window and
+# they would all linger (detached with start_new_session). A pidfile records the
+# one GUI we launched and an flock makes the check-then-spawn atomic, so exactly
+# one window ever exists and reap_virtual_led_gui() can tear it down on exit.
+_VIRTUAL_GUI_PIDFILE = "/tmp/rasqberry_virtual_led_gui.pid"
+_VIRTUAL_GUI_LOCKFILE = "/tmp/rasqberry_virtual_led_gui.lock"
+_VIRTUAL_GUI_PATTERN = "rq_led_virtual_gui"
+
+
+def _gui_pid_alive(pid):
+    """True if `pid` is a live virtual-LED-GUI process.
+
+    Verifies the process command line (Linux /proc) so a reused PID belonging to
+    an unrelated process is not mistaken for the GUI. Falls back to a bare
+    liveness probe on platforms without /proc.
+    """
+    if not pid or pid <= 0:
+        return False
+    if os.path.isdir("/proc"):
+        # Linux (the Pi): verify the command line so a reused PID belonging to an
+        # unrelated process is not mistaken for the GUI. A missing entry (dead
+        # process) or PID whose cmdline no longer matches counts as not-alive.
+        try:
+            with open("/proc/%d/cmdline" % pid, "rb") as f:
+                return _VIRTUAL_GUI_PATTERN.encode() in f.read()
+        except OSError:
+            return False
+    # No /proc (dev laptop): best-effort liveness only.
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _read_gui_pid():
+    """Return the PID recorded in the GUI pidfile, or None."""
+    try:
+        with open(_VIRTUAL_GUI_PIDFILE) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _running_gui_pid():
+    """PID of a live GUI: the tracked pidfile first, then a pgrep sweep.
+
+    The pgrep fallback catches a GUI started outside this mechanism (older code
+    or a manual launch) so we still never double-spawn alongside it.
+    """
+    pid = _read_gui_pid()
+    if _gui_pid_alive(pid):
+        return pid
+    import subprocess
+    try:
+        result = subprocess.run(['pgrep', '-f', _VIRTUAL_GUI_PATTERN],
+                                capture_output=True, timeout=5, text=True)
+        if result.returncode == 0:
+            for token in result.stdout.split():
+                try:
+                    return int(token)
+                except ValueError:
+                    continue
+    except Exception:
+        pass
+    return None
+
+
 def _ensure_virtual_led_gui_running():
-    """Auto-launch the virtual LED GUI if not already running."""
+    """Singleton-launch the virtual LED GUI (idempotent, race-safe).
+
+    An exclusive flock serialises the check-then-spawn so concurrent probe
+    processes start at most ONE GUI; its PID is written to the pidfile so
+    reap_virtual_led_gui() can tear it down instead of leaving it lingering.
+    """
     import subprocess
     import shutil
+    import fcntl
+    import time
 
-    # Check if GUI is already running
+    lock_fd = None
     try:
-        result = subprocess.run(
-            ['pgrep', '-f', 'rq_led_virtual_gui'],
-            capture_output=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            return  # GUI already running
-    except Exception:
-        pass  # pgrep failed, try to start GUI anyway
+        lock_fd = os.open(_VIRTUAL_GUI_LOCKFILE, os.O_CREAT | os.O_RDWR, 0o666)
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    except OSError:
+        lock_fd = None  # best effort: proceed without the lock
 
-    # Find and launch the GUI
-    gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
     try:
-        subprocess.Popen(
+        if _running_gui_pid() is not None:
+            return  # already running - singleton
+
+        gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
+        proc = subprocess.Popen(
             ['python3', gui_script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
-            env={**__import__('os').environ, 'DISPLAY': ':0'}
+            env={**os.environ, 'DISPLAY': os.environ.get('DISPLAY', ':0')}
         )
+        try:
+            with open(_VIRTUAL_GUI_PIDFILE, 'w') as f:
+                f.write(str(proc.pid))
+        except OSError:
+            pass
         print("Auto-started virtual LED GUI")
-        __import__('time').sleep(1)  # Give GUI time to initialize
+        time.sleep(1)  # Give GUI time to initialize
     except Exception as e:
         print(f"Warning: Could not auto-start virtual LED GUI: {e}")
+    finally:
+        if lock_fd is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                os.close(lock_fd)
+            except OSError:
+                pass
+
+
+def reap_virtual_led_gui():
+    """Terminate the auto-launched virtual LED GUI and clear its pidfile.
+
+    Best-effort and idempotent - safe to call when no GUI is running. Only the
+    GUI recorded in the pidfile (i.e. one WE auto-launched) is reaped; a GUI a
+    user started by hand has no pidfile and is left alone. The setup wizard calls
+    this on exit so the window it caused to spawn does not linger.
+    """
+    import signal
+    pid = _read_gui_pid()
+    if _gui_pid_alive(pid):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+    try:
+        os.remove(_VIRTUAL_GUI_PIDFILE)
+    except OSError:
+        pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
