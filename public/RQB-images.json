@@ -42,14 +42,14 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-family272 2026-07-13-102607)",
+          "name": "RasQberry Two Dev (dev-family272 2026-07-13-120945)",
           "description": "Development build from dev-family272",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-102607/rasqberry-dev-family272-2026-07-13-102607.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-120945/rasqberry-dev-family272-2026-07-13-120945.img.xz",
           "extract_size": 8942256128,
-          "extract_sha256": "f473b7682e7862373b6b0fc6ba4e28926a1d1b7405b67ad2a896c038a0a4d69b",
-          "image_download_size": 2001577104,
-          "release_date": "2026-07-13 10:26",
+          "extract_sha256": "d0e4b0168d8cbe2fa029060311010edaf6b9678300cda6451239f682aae89e49",
+          "image_download_size": 2001145772,
+          "release_date": "2026-07-13 12:09",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
@@ -193,14 +193,14 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-family272 2026-07-13-102607)",
+          "name": "RasQberry Two A/B (dev-family272 2026-07-13-120945)",
           "description": "A/B boot image from dev-family272",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-102607/rasqberry-dev-family272-2026-07-13-102607-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-family272-2026-07-13-120945/rasqberry-dev-family272-2026-07-13-120945-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "73b3bb9db5227fcd8e19518c35be8a386724b571c2357de45cf01b45153407d5",
-          "image_download_size": 2036731064,
-          "release_date": "2026-07-13 10:26",
+          "extract_sha256": "1fa6a44f8e7471714cc59eaa19d15526fd9cfbb60705c9fb769c7641948b4a21",
+          "image_download_size": 2037694900,
+          "release_date": "2026-07-13 12:09",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
