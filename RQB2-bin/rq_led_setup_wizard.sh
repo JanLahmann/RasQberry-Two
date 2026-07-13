@@ -397,9 +397,10 @@ Restart any running LED demos for the change to take effect." 13 68
 # which is exactly quad-4x12 y-flipped). A 3x8x8 is wired like single-24x8.
 #
 # ONE image identifies all of this: two solid colour BLOCKS - the FIRST chain
-# block (idx 0-47) RED and the LAST chain block (idx 144-191) GREEN. Solid blocks
-# are far more visible than a single marker pixel. Where the RED block lands
-# fingerprints the state (GREEN is the opposite block, for confirmation):
+# block (idx 0-47) RED and the LAST chain block (idx 144-191) GREEN - plus a
+# WHITE 2x2 marker at the chain start. Where the RED block lands fingerprints the
+# state; the WHITE marker's corner supplies single's y-flip (which the full-height
+# strips otherwise hide). GREEN is the opposite block, for confirmation:
 #   - single: 8-tall columns -> full-height STRIPS. RED far-left = normal; RED
 #     far-right = rotated 180.
 #   - quad: 4-tall columns -> half-height quarter BLOCKS. RED upper-left = normal;
@@ -416,7 +417,7 @@ identify_standard() {
         run_probe twoblock --run 48
         shape=$(show_menu "Panel type" \
 "Two solid blocks are lit - RED marks the chain START, GREEN the END - with a
-small WHITE marker at the very start pixel. Are the two big blocks:" \
+small WHITE 2x2 marker at the very start. Are the two big blocks:" \
             strip  "Tall FULL-HEIGHT strips (a single 24x8 panel)" \
             block  "Shorter HALF-HEIGHT blocks (a quad of four 4x12 panels)" \
             other  "Neither / not a standard RasQberry panel" \

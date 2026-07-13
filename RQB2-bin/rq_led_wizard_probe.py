@@ -44,6 +44,14 @@ logger = logging.getLogger(__name__)
 MAX_PROBE_BRIGHTNESS = 0.30
 DEFAULT_PROBE_BRIGHTNESS = 0.15
 
+# White 2x2 start marker for the 'twoblock' standards-id pattern. These four
+# chain indices form a 2x2 block at the START corner of a single-24x8 panel
+# (columns 0 and 1, bottom two rows; the serpentine puts column 1's bottom pixels
+# at 14/15). A 2x2 block reads more clearly than a thin line for the single-panel
+# y-flip cue. On a quad the same indices fragment into a harmless split mark
+# (quad orientation is read from the RED block's corner, not the marker).
+_WHITE_MARKER_INDICES = (0, 1, 14, 15)
+
 # A few visually distinct colours for boundary/gradient probes.
 _PALETTE = [
     (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
@@ -228,16 +236,16 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
         # `run` chain pixels GREEN - two solid, visible colour blocks. Where each
         # block lands reveals the panel type (full-height strips = single, quarter
         # blocks = quad) and the mounting (which corner/side holds RED vs GREEN).
-        # A small WHITE marker on the first 4 chain pixels flags the exact chain
-        # start: for a single panel the two full-height strips cannot show a
-        # top<->bottom (y) flip, so this partial-column marker (top vs bottom of
-        # the RED strip) is what distinguishes single's y-orientation.
+        # A WHITE 2x2 marker at the chain start (a clean 2x2 corner on single)
+        # flags the start corner: for a single panel the two full-height strips
+        # cannot show a top<->bottom (y) flip, so this marker (which corner of the
+        # RED strip it sits in) is what distinguishes single's y-orientation.
         for k in range(run):
             _set(k, (255, 0, 0))
         for k in range(run):
             _set(count - 1 - k, (0, 255, 0))
-        for k in range(min(4, run)):
-            _set(k, (255, 255, 255))
+        for i in _WHITE_MARKER_INDICES:
+            _set(i, (255, 255, 255))
 
     elif pattern == 'boundaries':
         # Light the first pixel of each panel in a distinct colour to reveal

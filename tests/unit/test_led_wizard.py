@@ -275,7 +275,7 @@ def _twoblock_fingerprint(base, tx, ty):
             idx = lu.map_xy_to_pixel(x, y, layout=layout)
             if idx is None:
                 continue
-            if idx < 4:
+            if idx in pw._WHITE_MARKER_INDICES:
                 fp[(x, y)] = "W"
             elif idx < 48:
                 fp[(x, y)] = "R"
