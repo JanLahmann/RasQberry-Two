@@ -663,3 +663,57 @@ def test_reap_only_touches_pidfile_not_pgrep(tmp_path, monkeypatch):
 
     lu.reap_virtual_led_gui()                    # no pidfile -> nothing to reap
     assert called["pgrep"] is False              # never fell back to pgrep
+
+
+# ---------------------------------------------------------------------------
+# Logo-based standards wizard (Jan 2026-07-13): render the IBM logo THROUGH each
+# candidate layout; only the geometry that matches the physical panel forms the
+# upright logo, the wrong one scatters it. These pin that discrimination with no
+# LED hardware - just the shared mapper + the probe's IBM bitmap.
+# ---------------------------------------------------------------------------
+
+def _logo_bitmap():
+    """The IBM bitmap as a plain filled/blank grid (colour letters -> '#')."""
+    return tuple(row.replace('I', '#').replace('B', '#').replace('M', '#')
+                 for row in pw._IBM_LOGO)
+
+
+def _logo_on_single_panel(via_layout):
+    """Physical render of the IBM logo (drawn THROUGH `via_layout`) on a panel
+    that is physically wired as single-24x8: chain k sits at single-24x8's
+    inverse map, so drawing through single-24x8 is the identity."""
+    inv = {}
+    for y in range(8):
+        for x in range(24):
+            inv[lu.map_xy_to_pixel(x, y, layout="single-24x8")] = (x, y)
+    grid = [[' '] * 24 for _ in range(8)]
+    for y, row in enumerate(pw._IBM_LOGO):
+        for x, cell in enumerate(row):
+            if cell != ' ':
+                px, py = inv[lu.map_xy_to_pixel(x, y, layout=via_layout)]
+                grid[py][px] = '#'
+    return tuple(''.join(r) for r in grid)
+
+
+def test_logo_reads_upright_only_through_matching_geometry():
+    """On a single-wired panel the IBM logo drawn through single-24x8 reproduces
+    the upright bitmap; drawn through quad-4x12 it scatters (does NOT) - which is
+    exactly the signal the operator judges in the alternating blue/red display."""
+    assert _logo_on_single_panel("single-24x8") == _logo_bitmap()
+    assert _logo_on_single_panel("quad-4x12") != _logo_bitmap()
+
+
+def test_logo_render_differs_between_single_and_quad():
+    """The single-map and quad-map logo renders light different pixel sets, so
+    the alternating blue/red display shows two visibly distinct images."""
+    def lit(layout):
+        return {lu.map_xy_to_pixel(x, y, layout=layout)
+                for y, row in enumerate(pw._IBM_LOGO)
+                for x, cell in enumerate(row) if cell != ' '}
+    assert lit("single-24x8") != lit("quad-4x12")
+
+
+def test_logo_bitmap_is_top_origin():
+    """The probe's IBM bitmap is top-origin (row 0 is the top of the logo)."""
+    assert pw._IBM_LOGO[0] == "IIIIII  BBBBB   M     M "
+    assert pw._IBM_LOGO[-1] == "IIIIII  BBBBB   MM   MM "

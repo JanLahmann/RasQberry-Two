@@ -107,6 +107,34 @@ _GLYPH_F_STEM = [(1, y) for y in range(0, 7)]          # left vertical stroke
 _GLYPH_F_BARS = [(2, 0), (3, 0), (4, 0), (2, 3), (3, 3)]  # top + middle bars
 _GLYPH_F_ORIGIN = (1, 0)                                 # intended top-left marker
 
+# "IBM" logo in LOGICAL (x, y), TOP-LEFT origin (y=0 top). Used by the logo-based
+# standards wizard: rendered THROUGH a candidate layout, it forms a clean, upright,
+# instantly-recognisable IBM only when that layout matches the physical panel;
+# through the wrong geometry the same cells scatter into unreadable noise. The
+# letters are asymmetric enough that a flip/rotation is obvious too.
+_IBM_LOGO = [
+    "IIIIII  BBBBB   M     M ",
+    "IIIIII  BB  BB  MM   MM ",
+    "  II    BB  BB  MMM MMM ",
+    "  II    BBBBB   MM M MM ",
+    "  II    BBBBB   MM   MM ",
+    "  II    BB  BB  MM   MM ",
+    "IIIIII  BB  BB  MM   MM ",
+    "IIIIII  BBBBB   MM   MM ",
+]
+
+# Named solid colours for the logo probe. blue/red label the two candidate
+# geometries in the primary question; blue/red/green/yellow label the four
+# orientations in the refinement step (each mounting cycles in its own colour so
+# the operator can name the upright one).
+_LOGO_COLORS = {
+    'blue': (0, 0, 255),
+    'red': (255, 0, 0),
+    'green': (0, 255, 0),
+    'yellow': (255, 255, 0),
+    'white': (255, 255, 255),
+}
+
 
 def _effective_glyph_layout(layout, toggle_x, toggle_y):
     """Resolve a layout name to a dict and apply the wizard's flip toggles.
@@ -162,6 +190,40 @@ def render_glyph(count, layout, toggle_x=False, toggle_y=False,
     for (x, y) in _GLYPH_F_BARS:
         _set_xy(x, y, (255, 0, 0))          # red bars
     _set_xy(*_GLYPH_F_ORIGIN, (255, 255, 255))  # white top-left marker (last: wins)
+
+    chunked_show(pixels)
+
+
+def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False,
+                brightness=DEFAULT_PROBE_BRIGHTNESS):
+    """Render the IBM logo (single solid colour) THROUGH a layout's map.
+
+    Args:
+        count (int): total pixels to allocate on the strip.
+        layout (str or dict): layout name or resolved dict to map through.
+        color (tuple): RGB for the lit logo cells.
+        toggle_x / toggle_y (bool): preview the mirrored variant of `layout`.
+        brightness (float): requested brightness (hard-capped for safety).
+
+    The logo is drawn in logical (x, y) and each lit cell is routed through
+    rq_led_utils.map_xy_to_pixel(..., layout=layout). If the layout matches the
+    physical panel the IBM reads correct and upright; through the wrong geometry
+    (or a flipped mounting) it scatters / reads wrong - which is exactly the
+    signal the operator judges.
+    """
+    brightness = _clamp_brightness(brightness)
+    from rq_led_utils import chunked_show, map_xy_to_pixel
+
+    layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
+    pixels = _make_strip(count, brightness)
+    pixels.fill((0, 0, 0))
+
+    for y, row in enumerate(_IBM_LOGO):
+        for x, cell in enumerate(row):
+            if cell != ' ':
+                idx = map_xy_to_pixel(x, y, layout=layout)
+                if idx is not None and 0 <= idx < count:
+                    pixels[idx] = color
 
     chunked_show(pixels)
 
@@ -270,7 +332,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="LED setup wizard probe renderer")
     parser.add_argument('--pattern', required=True,
                         choices=['corner', 'edge', 'row2', 'gradient',
-                                 'boundaries', 'twoblock', 'glyph', 'clear'])
+                                 'boundaries', 'twoblock', 'glyph', 'logo', 'clear'])
     parser.add_argument('--count', type=int, required=True,
                         help="total LED count / safe upper bound to allocate")
     parser.add_argument('--index', type=int, default=0,
@@ -280,24 +342,30 @@ def main(argv=None):
     parser.add_argument('--panel', type=int, default=64,
                         help="pixels per panel for the boundaries pattern")
     parser.add_argument('--layout', default=None,
-                        help="layout name to map the glyph pattern through")
+                        help="layout name to map the glyph/logo pattern through")
+    parser.add_argument('--color', default='blue', choices=sorted(_LOGO_COLORS),
+                        help="logo colour (logo pattern)")
     parser.add_argument('--flip-x', action='store_true',
-                        help="glyph: preview the left/right-mirrored variant")
+                        help="glyph/logo: preview the left/right-mirrored variant")
     parser.add_argument('--flip-y', action='store_true',
-                        help="glyph: preview the top/bottom-mirrored variant")
+                        help="glyph/logo: preview the top/bottom-mirrored variant")
     parser.add_argument('--brightness', type=float, default=DEFAULT_PROBE_BRIGHTNESS,
                         help=f"brightness 0-{MAX_PROBE_BRIGHTNESS} (hard-capped)")
     args = parser.parse_args(argv)
 
     if args.count <= 0:
         parser.error("--count must be > 0")
-    if args.pattern == 'glyph' and not args.layout:
-        parser.error("--layout is required for the glyph pattern")
+    if args.pattern in ('glyph', 'logo') and not args.layout:
+        parser.error(f"--layout is required for the {args.pattern} pattern")
 
     try:
         if args.pattern == 'glyph':
             render_glyph(args.count, args.layout, toggle_x=args.flip_x,
                          toggle_y=args.flip_y, brightness=args.brightness)
+        elif args.pattern == 'logo':
+            render_logo(args.count, args.layout, color=_LOGO_COLORS[args.color],
+                        toggle_x=args.flip_x, toggle_y=args.flip_y,
+                        brightness=args.brightness)
         else:
             render_pattern(args.pattern, args.count, index=args.index, run=args.run,
                            panel=args.panel, brightness=args.brightness)
