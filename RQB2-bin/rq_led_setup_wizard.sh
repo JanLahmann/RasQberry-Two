@@ -44,9 +44,19 @@ verify_env_vars USER_HOME REPO
 # ----------------------------------------------------------------------------
 PROBE="${SCRIPT_DIR}/rq_led_wizard_probe.py"
 INFER="${SCRIPT_DIR}/rq_led_wizard_infer.py"
+RENDERER="${SCRIPT_DIR}/rq_led_renderer.py"
 PROBE_BRIGHTNESS="0.15"                 # LOW - probes never need more (current draw)
 WORKDIR="$(mktemp -d)"
 ANSWERS_FILE="${WORKDIR}/answers.json"
+
+# Render-hold state (fix F1, plan Sec 7): in the default LED_RENDER_MODE=direct
+# deployment each probe subprocess opens GPIO, draws, and DEINITS on exit -
+# blanking the strip before the operator is asked "which corner lit?". To hold
+# the frame across the whiptail prompt we run the persistent renderer for the
+# wizard's lifetime and route the probes through it in service mode: the probe
+# writes its frame to the mmap and the renderer latches it. RENDERER_PID is set
+# only while we own a renderer we started ourselves.
+RENDERER_PID=""
 
 # Answer variables (populated by the walkthrough)
 ARRANGEMENT=""
@@ -63,11 +73,56 @@ UPPER_BOUND=""
 # Cleanup
 # ----------------------------------------------------------------------------
 cleanup() {
-    # Best-effort: blank the strip and remove the temp dir.
+    # Best-effort: blank the strip, tear down the render-hold, remove temp dir.
     run_probe clear || true
+    stop_render_hold
     rm -rf "${WORKDIR}" 2>/dev/null || true
 }
 setup_cleanup_trap cleanup
+
+# ----------------------------------------------------------------------------
+# Render-hold (fix F1): keep the probe pattern lit across the whiptail prompt.
+#
+# start_render_hold launches the persistent renderer (the sole GPIO writer) and
+# exports LED_RENDER_MODE=service so every subsequent probe writes its frame to
+# the mmap instead of opening/closing GPIO itself. The renderer latches the last
+# frame, so the pattern stays lit while the operator answers the dialog.
+#
+# Only needed when the system is in the default direct mode: if it is already in
+# service mode a renderer (systemd service) is already latching frames, so we
+# leave it alone. The override is a process-local env var - the root-owned env
+# file is never touched, so there is nothing persistent to restore on exit.
+# ----------------------------------------------------------------------------
+start_render_hold() {
+    # Already in service mode? A renderer is expected to be running; do nothing.
+    [ "${LED_RENDER_MODE:-direct}" = "service" ] && return 0
+
+    python3 "${RENDERER}" >/dev/null 2>&1 &
+    RENDERER_PID=$!
+
+    # Give the renderer a moment to open the mmap and the physical strip.
+    sleep 1
+    if ! kill -0 "${RENDERER_PID}" 2>/dev/null; then
+        warn "LED renderer did not start; probes run in direct mode (pattern may not hold across the prompt)"
+        RENDERER_PID=""
+        return 0
+    fi
+
+    # Route probes through the mmap so the renderer latches each frame.
+    export LED_RENDER_MODE=service
+    info "Render-hold active: probe patterns stay lit across each prompt."
+}
+
+stop_render_hold() {
+    # Stop routing probes through the renderer and blank the strip cleanly.
+    if [ -n "${RENDERER_PID}" ]; then
+        # SIGTERM makes the renderer blank the strip and exit (see its run loop).
+        kill -TERM "${RENDERER_PID}" 2>/dev/null || true
+        wait "${RENDERER_PID}" 2>/dev/null || true
+        RENDERER_PID=""
+    fi
+    unset LED_RENDER_MODE 2>/dev/null || true
+}
 
 # ----------------------------------------------------------------------------
 # Probe helper: render one pattern via the python renderer (library-based, so
@@ -322,6 +377,12 @@ main() {
 
     step_safety      || { info "Wizard cancelled."; return 0; }
     step_arrangement || { info "Wizard cancelled."; return 0; }
+
+    # From here on we light probe patterns and ask the operator about each one.
+    # Route them through the persistent renderer so each pattern stays lit while
+    # the operator answers (fix F1). Torn down by cleanup() on exit.
+    start_render_hold
+
     step_corner      || { info "Wizard cancelled."; return 0; }
     step_run_axis    || { info "Wizard cancelled."; return 0; }
     step_wiring      || { info "Wizard cancelled."; return 0; }

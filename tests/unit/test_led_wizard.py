@@ -293,3 +293,32 @@ def test_resolve_via_registry_argument_is_hardware_free():
     }
     layout = w.infer_layout(_single_answers(panel_width=8, panel_height=8))
     assert w.match_preset(layout, registry=registry) == "my-8x8"
+
+
+# ---------------------------------------------------------------------------
+# Render-mode env override (fix F1) - the wizard's render-hold mechanism.
+#
+# The wizard holds each probe pattern lit across the whiptail prompt by running
+# the persistent renderer and routing probes through it in service mode. It
+# switches a probe subprocess into service mode via an os.environ override
+# (LED_RENDER_MODE=service) rather than rewriting the root-owned env file. These
+# tests pin that seam: get_led_config()['render_mode'] must honour the override.
+# ---------------------------------------------------------------------------
+
+def test_render_mode_env_override_forces_service(monkeypatch):
+    """LED_RENDER_MODE=service in the environment switches render_mode, so the
+    wizard can route probes through the renderer without touching the env file."""
+    monkeypatch.setenv("LED_RENDER_MODE", "service")
+    assert lu.get_led_config()["render_mode"] == "service"
+
+
+def test_render_mode_defaults_to_direct_without_override(monkeypatch):
+    """With no override the default direct mode is used (probe opens GPIO)."""
+    monkeypatch.delenv("LED_RENDER_MODE", raising=False)
+    assert lu.get_led_config()["render_mode"] == "direct"
+
+
+def test_render_mode_override_is_case_insensitive(monkeypatch):
+    """The override is lower-cased like the file value, so 'SERVICE' works too."""
+    monkeypatch.setenv("LED_RENDER_MODE", "SERVICE")
+    assert lu.get_led_config()["render_mode"] == "service"

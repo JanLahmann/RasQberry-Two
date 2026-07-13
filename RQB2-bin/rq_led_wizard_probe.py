@@ -103,8 +103,14 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
         panel (int): pixels per panel for the boundaries pattern.
         brightness (float): requested brightness (hard-capped for safety).
 
-    The pattern is left lit on exit (except 'clear'); the shell asks its
-    question, then advances to the next pattern (which clears first).
+    The pattern must stay lit while the shell asks its question, then the shell
+    advances to the next pattern (which clears first). Whether the pattern
+    survives this process exiting depends on the render mode: in service mode
+    the frame is written to the mmap and the persistent renderer latches it, so
+    it stays lit; in direct mode the GPIO is deinitialised on exit and the strip
+    blanks immediately. The wizard therefore runs its probes in service mode
+    (see rq_led_setup_wizard.sh start_render_hold) so the operator still sees
+    the pattern when answering.
     """
     brightness = _clamp_brightness(brightness)
     from rq_led_utils import chunked_show

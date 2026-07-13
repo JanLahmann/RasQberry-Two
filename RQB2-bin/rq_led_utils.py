@@ -146,7 +146,13 @@ def get_led_config():
         'led_web': led_web,
         # Render mode: 'direct' (in-process GPIO, default) or 'service' (frames
         # go to the mmap only; rasqberry-led-renderer.service drives the strip).
-        'render_mode': config.get('LED_RENDER_MODE', 'direct').lower(),
+        # An os.environ override lets a caller switch a subprocess into service
+        # mode without rewriting the root-owned env file - used by the LED setup
+        # wizard, which runs a private renderer for its lifetime so probe frames
+        # are latched across the whiptail prompt. Same env-override pattern as
+        # mmap_path()/RQB2_LED_MMAP_PATH.
+        'render_mode': os.environ.get(
+            'LED_RENDER_MODE', config.get('LED_RENDER_MODE', 'direct')).lower(),
         # Deprecated, retained so existing callers keep working
         'led_virtual_mirror': raw_mirror,
     }
