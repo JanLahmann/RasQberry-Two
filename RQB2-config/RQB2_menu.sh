@@ -792,6 +792,24 @@ run_demo() {
   reset
 }
 
+# Stop the most recently launched demo (its whole setsid process group) and
+# blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
+# chose "No" at the stop prompt) can be stopped here later.
+stop_last_demo() {
+  if [ -z "${LAST_DEMO_PGID:-}" ]; then
+    whiptail --title "Stop demo" --msgbox "No demo has been started in this session." 8 60
+    return 0
+  fi
+  # Negative PID targets the whole process group (setsid session leader).
+  kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+  sleep 1
+  kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null || true
+  do_led_off 2>/dev/null || true
+  whiptail --title "Stop demo" --msgbox "Stopped the last running demo and cleared the LEDs." 8 65
+  LAST_DEMO_PGID=""
+  return 0
+}
+
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
@@ -1022,7 +1040,7 @@ update_environment_file () {
   #check whether string is empty
   if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ]; then
+    if [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
     fi
   else
@@ -1069,7 +1087,7 @@ check_environment_variable() {
 # $2 = silent (optional, suppresses whiptail popup)
 do_rqb_install_qiskit() {
   sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
-  if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
+  if { [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; } && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
 }
@@ -1286,11 +1304,11 @@ do_select_qrt_option() {
             b:custom)
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
-                if [ "$exitstatus" = 0 ]; then
+                if [ "$exitstatus" = 0 ] && [ -n "$CUSTOM_OPTION" ]; then
                     run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
                 else
-                    echo "You chose to cancel. Demo will launch with Local Simulator"
-                    break
+                    # Cancelled or empty input: return to the backend menu, launch nothing.
+                    continue
                 fi
                 ;;
             *) break ;;
@@ -1301,6 +1319,26 @@ do_select_qrt_option() {
 # -----------------------------------------------------------------------------
 # 3f) Main Quantum Demo Menu
 # -----------------------------------------------------------------------------
+
+# Browse and run ANY manifest-defined demo, including externally-added catalog
+# demos (e.g. traqmania) and family demos (quantum-lab, doQumentation, composer)
+# that are not in the curated list below. Driven by the auto-generated
+# DEMO_MENU_ITEMS + dispatch_demo_by_id from the demo-menu cache, so newly
+# registered demos become reachable without editing this menu.
+do_browse_all_demos() {
+  if [ -z "${DEMO_MENU_ITEMS:-}" ]; then
+    whiptail --title "Browse all demos" --msgbox \
+"No demo manifest cache was found.
+
+Choose 'Refresh Demo List (from manifests)' first, then try again." 10 68
+    return 0
+  fi
+  eval "set -- $DEMO_MENU_ITEMS"
+  BALL_CHOICE=$(show_menu "RasQberry: All Installed Demos" \
+    "Select a demo to run (includes catalog / family demos):" "$@") || return 0
+  dispatch_demo_by_id "$BALL_CHOICE" || handle_error "Failed to run demo: ${BALL_CHOICE}"
+  return 0
+}
 
 do_quantum_demo_menu() {
   while true; do
@@ -1319,6 +1357,7 @@ do_quantum_demo_menu() {
        IBMC "IBM Quantum Courses" \
        QOF  "Qoffee-Maker (Docker)" \
        QMX  "Quantum-Mixer (Web)" \
+       BALL "Browse ALL installed demos (incl. family & catalog)" \
        ADDX "Add demo from catalog" \
        LOOP "Continuous Demo Loop (Conference)" \
        REFR "Refresh Demo List (from manifests)" \
@@ -1350,6 +1389,7 @@ do_quantum_demo_menu() {
       # QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       QMX)  dispatch_demo_by_id "quantum-mixer"    || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
+      BALL) do_browse_all_demos        || { handle_error "Failed to browse demos."; continue; } ;;
       ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalog."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
       REFR) refresh_demo_menu_cache    || continue ;;
