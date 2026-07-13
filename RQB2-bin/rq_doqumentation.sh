@@ -24,9 +24,11 @@ set -euo pipefail
 #                 through the site needs NO token from the user.
 #   - jupyter :8888  direct JupyterLab (token required); backs the site's
 #                    "Open in Lab" button.
-#   The container's entrypoint hardcodes allow_origin = http://localhost:8080,
-#   so the site port MUST be published as host 8080 (8080->80). We also publish
-#   8888->8888 for the "Open in Lab" button.
+#   The site port is published as host 8080 (8080->80); we also publish
+#   8888->8888 for the "Open in Lab" button. For LAN participants we pass a
+#   CORS_ORIGIN allowlist (doQumentation PR #386) so in-browser execution works
+#   from the Pi's mDNS name and LAN IPs, not just localhost. Older images that
+#   predate #386 ignore CORS_ORIGIN and fall back to allow_origin=localhost:8080.
 #
 # Concurrency profiles:
 #   A launch-time picker selects how much of the Pi to dedicate to the workshop.
@@ -53,8 +55,9 @@ verify_env_vars REPO USER_HOME BIN_DIR
 
 DOCKER_IMAGE="ghcr.io/janlahmann/doqumentation:jupyter"
 CONTAINER_NAME="doqumentation"
-# Site (nginx) host port. Fixed at 8080 because the image hardcodes
-# allow_origin=http://localhost:8080; changing it breaks in-browser execution.
+# Site (nginx) host port. Defaults to 8080 (the image's default allow_origin
+# and tested port). The CORS allowlist below is derived from this port, so LAN
+# execution follows it on doQumentation #386+ images; 8080 remains the default.
 SITE_PORT="${DOQUMENTATION_SITE_PORT:-8080}"
 # Direct JupyterLab host port (backs the "Open in Lab" button).
 LAB_PORT="${DOQUMENTATION_LAB_PORT:-8888}"
@@ -174,6 +177,30 @@ fi
 JUPYTER_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n' || true)"
 [ -n "$JUPYTER_TOKEN" ] || JUPYTER_TOKEN="rasqberry-workshop"
 
+# CORS allowlist for in-browser code execution (doQumentation PR #386 contract).
+# The site is opened at http://<addr>:${SITE_PORT} both on the Pi and by LAN
+# participants; doQumentation's Jupyter enforces allow_origin, so every address a
+# browser might use must be listed. We pass a comma-separated CORS_ORIGIN
+# (localhost + the Pi's mDNS name + its current IPv4 LAN addresses); the image
+# compiles it into an anchored allow_origin_pat. On images predating #386 this
+# env is ignored (they fall back to allow_origin=http://localhost:${SITE_PORT}),
+# so passing it is safe and forward-compatible.
+build_cors_origin() {
+    local port="$1" origins host ip
+    origins="http://localhost:${port},http://127.0.0.1:${port}"
+    host="$(hostname 2>/dev/null || true)"
+    [ -n "$host" ] && origins="${origins},http://${host}.local:${port}"
+    for ip in $(hostname -I 2>/dev/null || true); do
+        case "$ip" in
+            *:*) continue ;;   # skip IPv6
+        esac
+        origins="${origins},http://${ip}:${port}"
+    done
+    printf '%s' "$origins"
+}
+CORS_ORIGIN="$(build_cors_origin "$SITE_PORT")"
+info "CORS allowlist (active on doQumentation #386+ images): ${CORS_ORIGIN}"
+
 ################################################################################
 # Start container
 #
@@ -193,6 +220,7 @@ if ! docker run -d \
     --cpus "$CPUS" \
     --pids-limit "$PIDS" \
     -e JUPYTER_TOKEN="$JUPYTER_TOKEN" \
+    -e CORS_ORIGIN="$CORS_ORIGIN" \
     "$DOCKER_IMAGE"; then
     echo
     die "Failed to start Docker container. Check logs with: docker logs $CONTAINER_NAME"
@@ -234,7 +262,7 @@ echo
 echo "  Tutorials website (execute code in-browser, no token needed):"
 echo "    $SITE_URL"
 if [ -n "$LAN_IP" ]; then
-    echo "    http://${LAN_IP}:${SITE_PORT}/   (LAN - browse; see note below)"
+    echo "    http://${LAN_IP}:${SITE_PORT}/   (LAN participants; see note below)"
 fi
 echo
 echo "  Direct JupyterLab / 'Open in Lab' (token required):"
@@ -243,10 +271,10 @@ echo
 echo "  Concurrency profile: ${PROFILE_USERS}-user"
 echo "  Content licensed under CC BY-SA 4.0 by IBM/Qiskit."
 echo
-echo "  Note: in-browser code execution is verified on the Pi itself"
-echo "  (localhost:${SITE_PORT}). LAN participants can browse the site, but the"
-echo "  current image pins allow_origin to localhost:${SITE_PORT}, so their"
-echo "  in-browser 'Run' may be blocked until the image parameterizes it."
+echo "  Note: LAN in-browser execution requires a doQumentation image that"
+echo "  supports CORS_ORIGIN (PR #386+); this launcher passes the Pi's mDNS"
+echo "  name and LAN IPs. On older images allow_origin is pinned to"
+echo "  localhost:${SITE_PORT}, so only on-Pi 'Run' works until the image updates."
 echo
 
 # Open browser as the desktop user (never as root)
