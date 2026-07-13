@@ -417,7 +417,7 @@ identify_standard() {
         run_probe twoblock --run 48
         shape=$(show_menu "Panel type" \
 "Two solid blocks are lit - RED marks the chain START, GREEN the END - with a
-small WHITE 2x2 marker at the very start. Are the two big blocks:" \
+small pale-WHITE marker at the very start. Are the two big blocks:" \
             strip  "Tall FULL-HEIGHT strips (a single 24x8 panel)" \
             block  "Shorter HALF-HEIGHT blocks (a quad of four 4x12 panels)" \
             other  "Neither / not a standard RasQberry panel" \
