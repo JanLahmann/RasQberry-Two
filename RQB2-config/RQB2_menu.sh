@@ -771,7 +771,10 @@ run_demo() {
   if [ "$MODE" = "pty" ]; then
       ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
   else
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null ) &
+      # bg mode: send the demo's stdout+stderr to a log, NOT the terminal —
+      # otherwise a background demo's output (and LED library messages) prints
+      # over the "Demo is running" whiptail dialog and corrupts the TUI.
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >/tmp/rqb-demo.log 2>&1 ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
@@ -1161,7 +1164,7 @@ do_led_demo_gradient() {
 }
 
 do_led_demo_ibm_logo() {
-    run_demo bg "IBM Logo" "$BIN_DIR" python3 demo_led_ibm_logo.py
+    run_demo bg "IBM Logo" "$BIN_DIR" python3 rq_led_ibm_logo.py
     do_led_off
 }
 
@@ -1253,7 +1256,7 @@ do_select_led_option() {
                 do_led_off
                 ;;
             IBM )
-                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 demo_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
+                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
                 ;;
             layout )
@@ -2257,12 +2260,15 @@ offer_desktop_restart() {
 
 do_rasqberry_menu() {
   while true; do
-    FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD      "Quantum Demos" \
-       TOUCH   "Touch Mode Settings" \
-       UEF     "Update Env File" \
-       AB_BOOT "Software & Full Image Updates" \
-       INFO    "System Info") || break
+    # Build the menu, offering the A/B image-update entry ONLY on an actual
+    # A/B partition layout (config-labelled p1). On a single-image install it
+    # is irrelevant and confusing, so hide it.
+    set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" UEF "Update Env File"
+    if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+        set -- "$@" AB_BOOT "Software & Full Image Updates"
+    fi
+    set -- "$@" INFO "System Info"
+    FUN=$(show_menu "RasQberry: Main Menu" "System Options" "$@") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       TOUCH)   do_touch_mode_menu             || continue ;;

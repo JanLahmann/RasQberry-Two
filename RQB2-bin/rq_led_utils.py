@@ -14,6 +14,7 @@ Both approaches support 192+ LEDs without buffer limits or chunking.
 """
 
 import os
+import sys
 import json
 
 # dotenv is only needed for reading the environment file. Guard the import so
@@ -554,10 +555,10 @@ def _ensure_virtual_led_gui_running():
                 f.write(str(proc.pid))
         except OSError:
             pass
-        print("Auto-started virtual LED GUI")
+        print("Auto-started virtual LED GUI", file=sys.stderr)
         time.sleep(1)  # Give GUI time to initialize
     except Exception as e:
-        print(f"Warning: Could not auto-start virtual LED GUI: {e}")
+        print(f"Warning: Could not auto-start virtual LED GUI: {e}", file=sys.stderr)
     finally:
         if lock_fd is not None:
             try:
@@ -675,23 +676,25 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     # GUI when LED_VIRTUAL is set.
     if render_mode == 'service':
         print("LED_RENDER_MODE=service: writing frames to mmap "
-              "(rasqberry-led-renderer.service drives the physical strip)")
+              "(rasqberry-led-renderer.service drives the physical strip)",
+              file=sys.stderr)
         return _make_virtual(launch_gui=led_virtual)
 
     # Both targets -> mirror proxy
     if led_physical and led_virtual:
         from rq_led_virtual import MirrorNeoPixel
-        print("LED_PHYSICAL+LED_VIRTUAL: driving both real and virtual displays")
+        print("LED_PHYSICAL+LED_VIRTUAL: driving both real and virtual displays",
+              file=sys.stderr)
         return MirrorNeoPixel(_make_real(), _make_virtual())
 
     # Virtual only
     if led_virtual and not led_physical:
-        print("LED_VIRTUAL: using virtual LED display only")
+        print("LED_VIRTUAL: using virtual LED display only", file=sys.stderr)
         return _make_virtual()
 
     # Physical only (also the fallback when neither flag is set)
     if not led_physical and not led_virtual:
-        print("Warning: neither LED_PHYSICAL nor LED_VIRTUAL set; defaulting to physical")
+        print("Warning: neither LED_PHYSICAL nor LED_VIRTUAL set; defaulting to physical", file=sys.stderr)
 
     import board
     import neopixel
