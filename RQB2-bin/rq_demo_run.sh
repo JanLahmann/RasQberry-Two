@@ -301,6 +301,16 @@ install_demo() {
         fi
         info "Applying patch: $patch_file"
         cd "$demo_dir"
+        # Upstream repos sometimes ship CRLF and/or trailing whitespace (e.g.
+        # KPRoche/quantum-raspberry-tie v8_0), which makes an LF patch's context
+        # fail to match and git apply reject every hunk. Normalize the files this
+        # patch targets (strip CR + trailing whitespace) first — Python is
+        # line-ending agnostic, so this is safe and keeps our patches robust to
+        # upstream whitespace drift. Our patches are generated against the same
+        # normalization (see RQB2-config/demo-patches/).
+        grep '^+++ b/' "$PATCHES_DIR/$patch_file" | sed 's|^+++ b/||' | while IFS= read -r _pf; do
+            [ -f "$_pf" ] && sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"
+        done
         if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
             # Try with -3 for 3-way merge
             if ! git apply -3 "$PATCHES_DIR/$patch_file" 2>/dev/null; then
