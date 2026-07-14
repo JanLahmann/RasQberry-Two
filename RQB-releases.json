@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T13:11:26Z",
+  "generated": "2026-07-14T16:41:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,19 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-14-144903",
-      "name": "rasqberry-development-2026-07-14-144903",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-144903/rasqberry-development-2026-07-14-144903.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-144903",
-      "release_date": "2026-07-14 14:49",
-      "image_download_size": 1999141744,
+      "tag": "development-2026-07-14-182048",
+      "name": "rasqberry-development-2026-07-14-182048",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-182048/rasqberry-development-2026-07-14-182048.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-182048",
+      "release_date": "2026-07-14 18:20",
+      "image_download_size": 1997896556,
       "extract_size": 8942256128,
-      "extract_sha256": "36e8226f4d2638877f57c3e6fe26bd57e70a974a96d73fc45dfa8bdf99deaf70",
-      "image_sha256": "636ddf92b47964372c0a4102e0203661a124cc6b881a0873866f1f6ef812b058",
+      "extract_sha256": "1d2b0ee54de387aabd7183070ea46ed5c921fd0305b39f41c6421d5060bae3d1",
+      "image_sha256": "67cd8717a67467e5797461e3a44b396bce5f447665938599a9de312b351e1917",
       "highlights": [
-        "repair quantum-raspberry-tie for upstream v8_0 (#6)",
-        "Bump version to development-2026-07-14-144903",
-        "Merge remote-tracking branch 'origin/development' into dev-qrt",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-14-093504"
+        "stop TUI pollution, hide A/B menu on single-image, use rainbow IBM in LED menu",
+        "Bump version to development-2026-07-14-182048",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-14-144903"
       ]
     }
   }
