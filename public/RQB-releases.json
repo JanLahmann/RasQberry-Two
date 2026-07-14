@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T16:41:18Z",
+  "generated": "2026-07-14T16:41:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 1997896556,
       "extract_size": 8942256128,
       "extract_sha256": "1d2b0ee54de387aabd7183070ea46ed5c921fd0305b39f41c6421d5060bae3d1",
-      "image_sha256": "67cd8717a67467e5797461e3a44b396bce5f447665938599a9de312b351e1917",
       "highlights": [
         "stop TUI pollution, hide A/B menu on single-image, use rainbow IBM in LED menu",
         "Bump version to development-2026-07-14-182048",
