@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T07:57:46Z",
+  "generated": "2026-07-14T07:58:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2003282112,
       "extract_size": 8942256128,
       "extract_sha256": "e2d90f679c86050e308b827a4629ae98c936e8e6a3ead5d30ff93451238c8615",
-      "image_sha256": "d0286e46207ce4aa06c2d289605ef822eac14c1da8891d2478c6e0893e784670",
       "highlights": [
         "restore colourful rainbow IBM demo, flipped upright for top-origin",
         "restore generated demos in Quantum Demos menu + cache count + image_sha256",
