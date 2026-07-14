@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T16:41:18Z",
+  "generated": "2026-07-14T17:44:29Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,19 +27,21 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-14-182048",
-      "name": "rasqberry-development-2026-07-14-182048",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-182048/rasqberry-development-2026-07-14-182048.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-182048",
-      "release_date": "2026-07-14 18:20",
-      "image_download_size": 1997896556,
+      "tag": "development-2026-07-14-192320",
+      "name": "rasqberry-development-2026-07-14-192320",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-192320/rasqberry-development-2026-07-14-192320.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-192320",
+      "release_date": "2026-07-14 19:23",
+      "image_download_size": 2002574388,
       "extract_size": 8942256128,
-      "extract_sha256": "1d2b0ee54de387aabd7183070ea46ed5c921fd0305b39f41c6421d5060bae3d1",
-      "image_sha256": "67cd8717a67467e5797461e3a44b396bce5f447665938599a9de312b351e1917",
+      "extract_sha256": "af2e131a4826cad0f31f3b5b9b84b8631d5df6ae8b551c73742c5b614db17a0d",
+      "image_sha256": "a250f1b6eb96529a648ec5c3e687fcca9aae95c49d015d050e2d74231373f364",
       "highlights": [
-        "stop TUI pollution, hide A/B menu on single-image, use rainbow IBM in LED menu",
-        "Bump version to development-2026-07-14-182048",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-14-144903"
+        "give each demo a distinct dynamic port (no more 8888 clashes) (#22)",
+        "trigger the one-time layout verify from all entry points",
+        "green/red 2s two-round identify (single vs quad, then y-flip)",
+        "Bump version to development-2026-07-14-192320",
+        "Merge remote-tracking branch 'origin/development' into dev-fixes2"
       ]
     }
   }
