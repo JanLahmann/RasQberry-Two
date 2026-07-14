@@ -25,7 +25,7 @@ DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
 ENV_FILE="$DEMO_DIR/.env"
 DOCKER_IMAGE="ghcr.io/janlahmann/qoffee-maker"
 CONTAINER_NAME="qoffee"
-PORT="${QOFFEE_PORT:-8887}"
+PORT="${QOFFEE_PORT:-$(find_available_port 8887)}"
 
 ################################################################################
 # run_qoffee_setup - Run setup script if needed

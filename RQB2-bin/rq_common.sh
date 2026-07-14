@@ -473,6 +473,47 @@ default_demo_cleanup() {
 }
 
 # ============================================================================
+# 8b. NETWORK / PORT HELPERS
+# ============================================================================
+# Shared by rq_demo_run.sh and the standalone docker launchers so that every
+# demo picks a FREE host port from its own base instead of hard-coding one -
+# otherwise two demos collide (e.g. doQumentation + a Jupyter demo both wanting
+# :8888). Give each demo a distinct base and these shift past a taken port.
+
+# Find a free TCP port at or above the given base (default 8888).
+# Usage: port=$(find_available_port 8896)
+find_available_port() {
+    local port="${1:-8888}"
+    while true; do
+        if command -v lsof &>/dev/null; then
+            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
+        elif command -v ss &>/dev/null; then
+            if ! ss -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        elif command -v netstat &>/dev/null; then
+            if ! netstat -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        else
+            echo "$port"; return 0   # no tool available - assume free
+        fi
+        port=$((port + 1))
+        if [ "$port" -gt 65535 ]; then die "Could not find an available port"; fi
+    done
+}
+
+# Report whether a TCP port is currently in use. Returns 0 if in use.
+port_in_use() {
+    local port="$1"
+    if command -v lsof &>/dev/null; then
+        lsof -i ":$port" &>/dev/null
+    elif command -v ss &>/dev/null; then
+        ss -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v netstat &>/dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+    else
+        return 1   # no tool available - cannot tell, assume free
+    fi
+}
+
+# ============================================================================
 # 9. PATH & DIRECTORY HELPERS
 # ============================================================================
 

@@ -23,7 +23,7 @@ verify_env_vars USER_HOME BIN_DIR
 
 DOCKER_IMAGE="${QUANTUM_MIXER_DOCKER_IMAGE:-quantum-mixer:arm64}"
 CONTAINER_NAME="quantum-mixer"
-PORT="${QUANTUM_MIXER_PORT:-8080}"
+PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
 REPO_DIR="${USER_HOME}/quantum-mixer"
 REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
 

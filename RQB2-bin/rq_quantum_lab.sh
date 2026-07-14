@@ -32,7 +32,7 @@ verify_env_vars REPO USER_HOME BIN_DIR
 
 DOCKER_IMAGE="ghcr.io/qubins/images:latest-xl"
 CONTAINER_NAME="quantum-lab"
-PORT="${QUANTUM_LAB_PORT:-8892}"
+PORT="${QUANTUM_LAB_PORT:-$(find_available_port 8892)}"
 
 # The IBM Quantum Learning content is installed by the ibm-courses demo into
 # this exact directory (sparse checkout of Qiskit/documentation). We reuse it

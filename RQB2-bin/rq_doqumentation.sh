@@ -62,9 +62,11 @@ CONTAINER_NAME="doqumentation"
 # Site (nginx) host port. Defaults to 8080 (the image's default allow_origin
 # and tested port). The CORS allowlist below is derived from this port, so LAN
 # execution follows it on doQumentation #386+ images; 8080 remains the default.
-SITE_PORT="${DOQUMENTATION_SITE_PORT:-8080}"
-# Direct JupyterLab host port (backs the "Open in Lab" button).
-LAB_PORT="${DOQUMENTATION_LAB_PORT:-8888}"
+SITE_PORT="${DOQUMENTATION_SITE_PORT:-$(find_available_port 8080)}"
+# Direct JupyterLab host port (backs the "Open in Lab" button). Base 8896 keeps
+# it clear of the 8888-8891 range the Jupyter demos allocate, and it shifts
+# again if that is taken - fixes the "bind 8888: address already in use" clash.
+LAB_PORT="${DOQUMENTATION_LAB_PORT:-$(find_available_port 8896)}"
 
 ################################################################################
 # Prerequisites: Docker (mirrors rq_quantum_lab.sh)

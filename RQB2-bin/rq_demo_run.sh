@@ -63,56 +63,9 @@ check_jq() {
     fi
 }
 
-# Find an available port starting from the given port
-find_available_port() {
-    local port="${1:-8888}"
-
-    while true; do
-        # Check using lsof (most reliable on Raspberry Pi)
-        if command -v lsof &>/dev/null; then
-            if ! lsof -i ":$port" &>/dev/null; then
-                echo "$port"
-                return 0
-            fi
-        # Fallback to ss
-        elif command -v ss &>/dev/null; then
-            if ! ss -tuln 2>/dev/null | grep -q ":$port "; then
-                echo "$port"
-                return 0
-            fi
-        # Fallback to netstat
-        elif command -v netstat &>/dev/null; then
-            if ! netstat -tuln 2>/dev/null | grep -q ":$port "; then
-                echo "$port"
-                return 0
-            fi
-        else
-            # No tool available, assume port is free
-            echo "$port"
-            return 0
-        fi
-        port=$((port + 1))
-        # Safety limit
-        if [ $port -gt 65535 ]; then
-            die "Could not find available port"
-        fi
-    done
-}
-
-# Report whether a TCP port is currently in use. Returns 0 if in use.
-# Used by web-static, which refuses to start rather than take over a port.
-port_in_use() {
-    local port="$1"
-    if command -v lsof &>/dev/null; then
-        lsof -i ":$port" &>/dev/null
-    elif command -v ss &>/dev/null; then
-        ss -tuln 2>/dev/null | grep -q ":$port "
-    elif command -v netstat &>/dev/null; then
-        netstat -tuln 2>/dev/null | grep -q ":$port "
-    else
-        return 1  # No tool available - cannot tell, assume free
-    fi
-}
+# find_available_port() / port_in_use() now live in rq_common.sh (section 8b),
+# shared with the standalone docker launchers so all demos allocate distinct
+# host ports.
 
 # Launch browser with URL
 launch_browser() {
