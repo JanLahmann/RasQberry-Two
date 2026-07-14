@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T13:11:26Z",
+  "generated": "2026-07-14T13:11:51Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 1999141744,
       "extract_size": 8942256128,
       "extract_sha256": "36e8226f4d2638877f57c3e6fe26bd57e70a974a96d73fc45dfa8bdf99deaf70",
-      "image_sha256": "636ddf92b47964372c0a4102e0203661a124cc6b881a0873866f1f6ef812b058",
       "highlights": [
         "repair quantum-raspberry-tie for upstream v8_0 (#6)",
         "Bump version to development-2026-07-14-144903",
