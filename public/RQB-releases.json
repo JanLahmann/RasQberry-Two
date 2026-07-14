@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T17:44:29Z",
+  "generated": "2026-07-14T17:45:00Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2002574388,
       "extract_size": 8942256128,
       "extract_sha256": "af2e131a4826cad0f31f3b5b9b84b8631d5df6ae8b551c73742c5b614db17a0d",
-      "image_sha256": "a250f1b6eb96529a648ec5c3e687fcca9aae95c49d015d050e2d74231373f364",
       "highlights": [
         "give each demo a distinct dynamic port (no more 8888 clashes) (#22)",
         "trigger the one-time layout verify from all entry points",
