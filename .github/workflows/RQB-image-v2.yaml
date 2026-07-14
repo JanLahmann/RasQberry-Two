@@ -293,7 +293,7 @@ jobs:
 
       # Install cosign for artifact signing (future enhancement)
       - name: Install cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.2
         with:
           cosign-release: 'v2.2.4'
 
