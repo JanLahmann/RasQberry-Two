@@ -196,12 +196,17 @@ run_logo() {
 # ----------------------------------------------------------------------------
 LOGO_ANIM_PID=""
 start_logo_alternator() {
+    # $1 (optional): extra probe flag(s) applied to BOTH renders (e.g. --flip-y
+    # for the upside-down-mounting round). GREEN = single-24x8 wiring, RED =
+    # quad-4x12 wiring; each is held ~2s so the operator can read it before it
+    # swaps, then the (blocking) whiptail question is answered.
+    local extra="${1:-}"
     (
         while true; do
-            run_logo single-24x8 blue
-            sleep 1.6
-            run_logo quad-4x12 red
-            sleep 1.6
+            run_logo single-24x8 green $extra
+            sleep 2
+            run_logo quad-4x12 red $extra
+            sleep 2
         done
     ) &
     LOGO_ANIM_PID=$!
@@ -480,24 +485,40 @@ Restart any running LED demos for the change to take effect." 13 68
 # ----------------------------------------------------------------------------
 identify_standard() {
     local choice
+    # Round 1 - normal mounting: GREEN=single-24x8, RED=quad-4x12, ~2s each.
     start_logo_alternator
     choice=$(show_menu "LED panel type" \
-"The panel is alternating between a BLUE 'IBM' logo and a RED one. One colour
-uses the SINGLE-panel wiring, the other the QUAD wiring - only the one that
-matches your panel forms a clean, upright IBM (the other scatters into noise).
+"Your panel is alternating a GREEN 'IBM' logo and a RED one, ~2 seconds each.
+GREEN uses the SINGLE-panel wiring, RED the QUAD wiring - only the geometry
+that matches your panel forms a clean, upright IBM (the other scatters into
+noise).
 
 Which colour shows a correct, upright IBM logo?" \
-        blue    "BLUE is a correct, upright IBM  (single 24x8 panel)" \
-        red     "RED is a correct, upright IBM   (quad of four 4x12)" \
-        flipped "One colour shows the IBM but FLIPPED / upside-down" \
-        neither "Both are scrambled / unreadable") || { stop_logo_alternator; return 2; }
+        green   "GREEN is a correct, upright IBM  (single 24x8 panel)" \
+        red     "RED is a correct, upright IBM    (quad of four 4x12)" \
+        none    "Neither looks correct") || { stop_logo_alternator; return 2; }
     stop_logo_alternator
-
     case "${choice}" in
-        blue) STD_CANDIDATE="single-24x8"; STD_TX="false"; STD_TY="false"; return 0 ;;
-        red)  STD_CANDIDATE="quad-4x12";   STD_TX="false"; STD_TY="false"; return 0 ;;
-        flipped) refine_orientation; return $? ;;
-        neither) return 1 ;;   # both geometries wrong -> general inference
+        green) STD_CANDIDATE="single-24x8"; STD_TX="false"; STD_TY="false"; return 0 ;;
+        red)   STD_CANDIDATE="quad-4x12";   STD_TX="false"; STD_TY="false"; return 0 ;;
+    esac
+
+    # Round 2 - upside-down mounting: same two geometries, Y-FLIPPED. Catches a
+    # panel wired correctly but mounted rotated 180 vertically.
+    start_logo_alternator --flip-y
+    choice=$(show_menu "LED panel type (flipped)" \
+"Neither matched, so the same GREEN (single) and RED (quad) logos are now shown
+Y-FLIPPED, in case the panel is mounted upside-down.
+
+Which colour NOW shows a correct, upright IBM logo?" \
+        green   "GREEN is now upright  (single 24x8, y-flipped)" \
+        red     "RED is now upright    (quad 4x12, y-flipped)" \
+        none    "Still neither - run deeper analysis") || { stop_logo_alternator; return 2; }
+    stop_logo_alternator
+    case "${choice}" in
+        green) STD_CANDIDATE="single-24x8"; STD_TX="false"; STD_TY="true"; return 0 ;;
+        red)   STD_CANDIDATE="quad-4x12";   STD_TX="false"; STD_TY="true"; return 0 ;;
+        none)  return 1 ;;   # -> general per-panel inference (deeper analysis)
     esac
     return 1
 }
