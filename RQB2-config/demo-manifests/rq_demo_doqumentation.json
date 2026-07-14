@@ -3,19 +3,28 @@
   "name": "doQumentation (Workshop Server)",
   "category": "education",
   "description": "Local IBM Quantum tutorials, guides and courses website with live in-browser code execution against a local Qiskit Jupyter server - the basis for a RasQberry Workshop Server. Pulls the doQumentation jupyter-local image on first run (Docker container, part of the Fun with Quantum family)",
-  "keywords": ["quantum", "jupyter", "qiskit", "docker", "docusaurus", "tutorials", "courses", "workshop", "ibm", "education", "thebelab"],
-
+  "keywords": [
+    "quantum",
+    "jupyter",
+    "qiskit",
+    "docker",
+    "docusaurus",
+    "tutorials",
+    "courses",
+    "workshop",
+    "ibm",
+    "education",
+    "thebelab"
+  ],
   "entrypoint": {
     "type": "docker",
     "docker_image": "ghcr.io/janlahmann/doqumentation:jupyter",
     "docker_port": 8080,
     "launcher": "rq_doqumentation.sh"
   },
-
   "install": {
     "preinstalled": false
   },
-
   "needs_hw": {
     "leds": false,
     "network": true,
@@ -25,17 +34,14 @@
   "browser_based": true,
   "loop_ok": false,
   "timeout": 0,
-
   "icon": {
     "type": "custom",
     "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
   },
-
   "menu": {
     "show": true,
-    "order": 57
+    "order": 160
   },
-
   "desktop": {
     "show": true,
     "terminal": true

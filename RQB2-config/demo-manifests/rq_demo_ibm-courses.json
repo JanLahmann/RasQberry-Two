@@ -3,21 +3,26 @@
   "name": "IBM Quantum Courses",
   "category": "jupyter",
   "description": "Official IBM Quantum learning courses from Qiskit documentation (CC BY-SA 4.0)",
-  "keywords": ["quantum", "jupyter", "notebook", "ibm", "qiskit", "course", "education"],
-
+  "keywords": [
+    "quantum",
+    "jupyter",
+    "notebook",
+    "ibm",
+    "qiskit",
+    "course",
+    "education"
+  ],
   "entrypoint": {
     "type": "jupyter",
     "working_dir": "ibm-quantum-learning/courses",
     "jupyter_port": 8890,
     "launcher": "rq_ibm_courses_auto.sh"
   },
-
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/Qiskit/documentation.git",
     "marker_file": "WELCOME-courses.ipynb"
   },
-
   "needs_hw": {
     "leds": false,
     "display": "required"
@@ -26,17 +31,14 @@
   "browser_based": true,
   "loop_ok": false,
   "timeout": 0,
-
   "icon": {
     "type": "custom",
     "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
   },
-
   "menu": {
     "show": true,
-    "order": 55
+    "order": 130
   },
-
   "desktop": {
     "show": true,
     "terminal": true

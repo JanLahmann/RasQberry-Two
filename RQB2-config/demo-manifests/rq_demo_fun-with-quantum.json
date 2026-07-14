@@ -3,21 +3,29 @@
   "name": "Fun with Quantum",
   "category": "jupyter",
   "description": "Collection of Jupyter notebooks exploring quantum computing through interactive games and experiments: the Quantum Coin Game, GHZ-Game, GHZ on Real Devices, Hardy's Paradox, the Mermin-Peres Magic Square Game, and 3-SAT",
-  "keywords": ["quantum", "jupyter", "notebook", "coin", "game", "ghz", "hardy", "mermin-peres", "3-sat", "education"],
-
+  "keywords": [
+    "quantum",
+    "jupyter",
+    "notebook",
+    "coin",
+    "game",
+    "ghz",
+    "hardy",
+    "mermin-peres",
+    "3-sat",
+    "education"
+  ],
   "entrypoint": {
     "type": "jupyter",
     "working_dir": "fun-with-quantum",
     "jupyter_port": 8888,
     "launcher": "rq_fun_with_quantum_auto.sh"
   },
-
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
     "marker_file": "Quantum-Coin-Game.ipynb"
   },
-
   "needs_hw": {
     "leds": false,
     "display": "required"
@@ -26,17 +34,14 @@
   "browser_based": true,
   "loop_ok": false,
   "timeout": 0,
-
   "icon": {
     "type": "custom",
     "path": "/usr/share/icons/rasqberry/Coin-115-0-0-Kante.png"
   },
-
   "menu": {
     "show": true,
-    "order": 40
+    "order": 100
   },
-
   "desktop": {
     "show": true,
     "terminal": true

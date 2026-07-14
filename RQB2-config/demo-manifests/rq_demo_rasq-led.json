@@ -3,17 +3,20 @@
   "name": "RasQ-LED Demo",
   "category": "visualization",
   "description": "Visualize quantum circuit execution results on the LED matrix",
-  "keywords": ["quantum", "led", "visualization", "circuit", "qiskit"],
-
+  "keywords": [
+    "quantum",
+    "led",
+    "visualization",
+    "circuit",
+    "qiskit"
+  ],
   "entrypoint": {
     "type": "script",
     "launcher": "rq_rasq_led.sh"
   },
-
   "install": {
     "preinstalled": true
   },
-
   "needs_hw": {
     "leds": true,
     "display": "none"
@@ -22,17 +25,14 @@
   "browser_based": false,
   "loop_ok": true,
   "timeout": 60,
-
   "icon": {
     "type": "custom",
     "path": "/usr/share/icons/rasqberry/quantum-pi.png"
   },
-
   "menu": {
     "show": true,
-    "order": 85
+    "order": 60
   },
-
   "desktop": {
     "show": true,
     "terminal": true
