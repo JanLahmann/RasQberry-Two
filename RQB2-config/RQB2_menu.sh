@@ -1337,7 +1337,10 @@ do_quantum_demo_menu() {
     # Build the generated demo list, dropping the submenu-handled ids (so they
     # don't appear twice). POSIX-safe: consume the original pairs and re-append
     # the kept ones, tracking the original count so appended pairs aren't reread.
-    eval "set -- ${DEMO_MENU_ITEMS:-}"
+    # NOTE: DEMO_MENU_ITEMS is emitted one "tag" "desc" pair per line; newlines
+    # are shell command separators, so collapse them to spaces before eval or
+    # `set --` gets zero args and every generated demo silently disappears.
+    eval "set -- $(printf '%s' "${DEMO_MENU_ITEMS:-}" | tr '\n' ' ')"
     _pairs=$(( $# / 2 )); _i=0
     while [ "$_i" -lt "$_pairs" ]; do
       _tag="$1"; _desc="$2"; shift 2

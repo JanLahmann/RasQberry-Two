@@ -250,9 +250,12 @@ CACHE_HEADER
     echo "}" >> "$cache_file"
     echo "" >> "$cache_file"
 
-    # Generate demo count by counting dispatch entries (launchers and browser entries)
+    # Generate demo count by counting dispatch entries. Match ONLY the
+    # dispatch_demo_by_id case lines (they run the launcher directly:
+    # `"id") /usr/bin/rq_demo_run.sh ...`); the get_demo_launcher block has the
+    # same indentation (`"id") echo ...`) and would otherwise double the count.
     local count
-    count=$(grep -c '^        "[a-z].*) ' "$cache_file" 2>/dev/null) || count=0
+    count=$(grep -c '^        "[a-z][a-z0-9-]*") /usr/bin/rq_demo_run' "$cache_file" 2>/dev/null) || count=0
 
     echo "" >> "$cache_file"
     echo "# Total demos: $count" >> "$cache_file"

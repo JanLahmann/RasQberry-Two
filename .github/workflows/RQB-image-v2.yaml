@@ -1712,7 +1712,8 @@ jobs:
               "release_date": "${{ steps.metadata.outputs.release_date }}",
               "image_download_size": ${{ steps.metadata.outputs.compressed_size }},
               "extract_size": ${{ steps.metadata.outputs.extract_size }},
-              "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}"
+              "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
+              "image_sha256": "${{ steps.metadata.outputs.image_sha256 }}"
           }
 
           # Add highlights if we found any
