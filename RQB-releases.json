@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-14T07:57:46Z",
+  "generated": "2026-07-14T13:11:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,21 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-14-093504",
-      "name": "rasqberry-development-2026-07-14-093504",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-093504/rasqberry-development-2026-07-14-093504.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-093504",
-      "release_date": "2026-07-14 09:35",
-      "image_download_size": 2003282112,
+      "tag": "development-2026-07-14-144903",
+      "name": "rasqberry-development-2026-07-14-144903",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-14-144903/rasqberry-development-2026-07-14-144903.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-14-144903",
+      "release_date": "2026-07-14 14:49",
+      "image_download_size": 1999141744,
       "extract_size": 8942256128,
-      "extract_sha256": "e2d90f679c86050e308b827a4629ae98c936e8e6a3ead5d30ff93451238c8615",
-      "image_sha256": "d0286e46207ce4aa06c2d289605ef822eac14c1da8891d2478c6e0893e784670",
+      "extract_sha256": "36e8226f4d2638877f57c3e6fe26bd57e70a974a96d73fc45dfa8bdf99deaf70",
+      "image_sha256": "636ddf92b47964372c0a4102e0203661a124cc6b881a0873866f1f6ef812b058",
       "highlights": [
-        "restore colourful rainbow IBM demo, flipped upright for top-origin",
-        "restore generated demos in Quantum Demos menu + cache count + image_sha256",
-        "add doQumentation desktop icon (F5)",
-        "order Quantum Demos menu simple -> complex",
-        "Bump version to development-2026-07-14-093504"
+        "repair quantum-raspberry-tie for upstream v8_0 (#6)",
+        "Bump version to development-2026-07-14-144903",
+        "Merge remote-tracking branch 'origin/development' into dev-qrt",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-14-093504"
       ]
     }
   }
