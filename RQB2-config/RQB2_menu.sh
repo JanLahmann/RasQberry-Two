@@ -1216,6 +1216,19 @@ do_led_display_menu() {
     done
 }
 
+# Directly-callable LED-layout verify (plan R1). Runs the one-look "is this your
+# panel?" check when the shipped default hasn't been confirmed yet, then reloads
+# the env so the corrected LED_LAYOUT / LED_LAYOUT_VERIFIED are visible. Called on
+# first LED-menu open (below), and reused by the first-login + desktop-autostart
+# triggers via rq_led_verify_prompt.sh. Gated on LED_LAYOUT_VERIFIED, so it is a
+# no-op once the user has answered.
+do_led_verify() {
+    if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ]; then
+        bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
+        [ -f "$ENV_CONFIG_FILE" ] && . "$ENV_CONFIG_FILE" 2>/dev/null || true
+    fi
+}
+
 do_select_led_option() {
     # First-visit verification (plan R1): the image ships a default LED_LAYOUT,
     # so the first time this menu opens we offer a quick "is this your panel?"
@@ -1223,12 +1236,9 @@ do_select_led_option() {
     # setup. The wizard persists LED_LAYOUT_VERIFIED=true when the user answers,
     # so it never nags again. _RQ_LED_VERIFY_DONE guards against re-prompting
     # within this menu session if they cancelled without answering.
-    if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ] && [ -z "${_RQ_LED_VERIFY_DONE:-}" ]; then
+    if [ -z "${_RQ_LED_VERIFY_DONE:-}" ]; then
         _RQ_LED_VERIFY_DONE=1
-        bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
-        # The wizard writes the env file in its own process; reload so this
-        # session sees LED_LAYOUT_VERIFIED / any corrected LED_LAYOUT.
-        [ -f "$ENV_CONFIG_FILE" ] && . "$ENV_CONFIG_FILE" 2>/dev/null || true
+        do_led_verify
     fi
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \

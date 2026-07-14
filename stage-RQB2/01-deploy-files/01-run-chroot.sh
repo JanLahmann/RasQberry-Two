@@ -76,6 +76,17 @@ chmod -R 755 ${CLONE_DIR}/RQB2-config
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
+# One-time LED-layout verify triggers: the wizard is offered from the LED menu,
+# an interactive first login (profile.d), and desktop autostart. All route to
+# /usr/bin/rq_led_verify_prompt.sh (deployed via RQB2-bin above), which
+# self-disables once LED_LAYOUT_VERIFIED=true. Install the two hook files to
+# their system locations and drop the stray copies left in /usr/config.
+install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-led-verify.profile.sh \
+    /etc/profile.d/rasqberry-led-verify.sh
+install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-led-verify.autostart.desktop \
+    /etc/xdg/autostart/rasqberry-led-verify.desktop
+rm -f /usr/config/rasqberry-led-verify.profile.sh /usr/config/rasqberry-led-verify.autostart.desktop
+
 # compat symlinks, remove after one release: the neopixel_spi_* scripts were
 # renamed to rq_led_* (the SPI backend is gone). Our own wrappers/manifests use
 # the new names; these symlinks cover stragglers (shell history, third-party notes).
