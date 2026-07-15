@@ -145,6 +145,8 @@ def get_led_config():
         'led_physical': led_physical,
         'led_virtual': led_virtual,
         'led_web': led_web,
+        # Port for the LED_WEB browser emulator (rq_led_web.py).
+        'led_web_port': int(config.get('LED_WEB_PORT', 8098)),
         # Render mode: 'direct' (in-process GPIO, default) or 'service' (frames
         # go to the mmap only; rasqberry-led-renderer.service drives the strip).
         # An os.environ override lets a caller switch a subprocess into service
@@ -459,23 +461,30 @@ _VIRTUAL_GUI_PIDFILE = "/tmp/rasqberry_virtual_led_gui.pid"
 _VIRTUAL_GUI_LOCKFILE = "/tmp/rasqberry_virtual_led_gui.lock"
 _VIRTUAL_GUI_PATTERN = "rq_led_virtual_gui"
 
+# Web emulator (LED_WEB) singleton bookkeeping - same pidfile+flock scheme as the
+# Tk GUI above, so concurrent demos start at most one server and it can be reaped.
+_VIRTUAL_WEB_PIDFILE = "/tmp/rasqberry_virtual_led_web.pid"
+_VIRTUAL_WEB_LOCKFILE = "/tmp/rasqberry_virtual_led_web.lock"
+_VIRTUAL_WEB_PATTERN = "rq_led_web"
 
-def _gui_pid_alive(pid):
-    """True if `pid` is a live virtual-LED-GUI process.
+
+def _proc_pid_alive(pid, pattern):
+    """True if `pid` is a live process whose command line contains `pattern`.
 
     Verifies the process command line (Linux /proc) so a reused PID belonging to
-    an unrelated process is not mistaken for the GUI. Falls back to a bare
-    liveness probe on platforms without /proc.
+    an unrelated process is not mistaken for ours. Falls back to a bare liveness
+    probe on platforms without /proc. Shared by the GUI and web-emulator
+    singletons so both get the same reused-PID safety.
     """
     if not pid or pid <= 0:
         return False
     if os.path.isdir("/proc"):
         # Linux (the Pi): verify the command line so a reused PID belonging to an
-        # unrelated process is not mistaken for the GUI. A missing entry (dead
+        # unrelated process is not mistaken for ours. A missing entry (dead
         # process) or PID whose cmdline no longer matches counts as not-alive.
         try:
             with open("/proc/%d/cmdline" % pid, "rb") as f:
-                return _VIRTUAL_GUI_PATTERN.encode() in f.read()
+                return pattern.encode() in f.read()
         except OSError:
             return False
     # No /proc (dev laptop): best-effort liveness only.
@@ -486,27 +495,27 @@ def _gui_pid_alive(pid):
         return False
 
 
-def _read_gui_pid():
-    """Return the PID recorded in the GUI pidfile, or None."""
+def _read_pidfile(pidfile):
+    """Return the PID recorded in `pidfile`, or None if missing/garbage."""
     try:
-        with open(_VIRTUAL_GUI_PIDFILE) as f:
+        with open(pidfile) as f:
             return int(f.read().strip())
     except (OSError, ValueError):
         return None
 
 
-def _running_gui_pid():
-    """PID of a live GUI: the tracked pidfile first, then a pgrep sweep.
+def _running_singleton_pid(pidfile, pattern):
+    """PID of a live singleton: the tracked pidfile first, then a pgrep sweep.
 
-    The pgrep fallback catches a GUI started outside this mechanism (older code
-    or a manual launch) so we still never double-spawn alongside it.
+    The pgrep fallback catches an instance started outside this mechanism (older
+    code or a manual launch) so we still never double-spawn alongside it.
     """
-    pid = _read_gui_pid()
-    if _gui_pid_alive(pid):
+    pid = _read_pidfile(pidfile)
+    if _proc_pid_alive(pid, pattern):
         return pid
     import subprocess
     try:
-        result = subprocess.run(['pgrep', '-f', _VIRTUAL_GUI_PATTERN],
+        result = subprocess.run(['pgrep', '-f', pattern],
                                 capture_output=True, timeout=5, text=True)
         if result.returncode == 0:
             for token in result.stdout.split():
@@ -519,12 +528,30 @@ def _running_gui_pid():
     return None
 
 
-def _ensure_virtual_led_gui_running():
-    """Singleton-launch the virtual LED GUI (idempotent, race-safe).
+# Thin GUI-named wrappers (names/signatures preserved for callers and tests).
+def _gui_pid_alive(pid):
+    """True if `pid` is a live virtual-LED-GUI process (see _proc_pid_alive)."""
+    return _proc_pid_alive(pid, _VIRTUAL_GUI_PATTERN)
 
-    An exclusive flock serialises the check-then-spawn so concurrent probe
-    processes start at most ONE GUI; its PID is written to the pidfile so
-    reap_virtual_led_gui() can tear it down instead of leaving it lingering.
+
+def _read_gui_pid():
+    """Return the PID recorded in the GUI pidfile, or None."""
+    return _read_pidfile(_VIRTUAL_GUI_PIDFILE)
+
+
+def _running_gui_pid():
+    """PID of a live GUI: the tracked pidfile first, then a pgrep sweep."""
+    return _running_singleton_pid(_VIRTUAL_GUI_PIDFILE, _VIRTUAL_GUI_PATTERN)
+
+
+def _ensure_singleton(pidfile, lockfile, pattern, script_name,
+                      extra_env=None, ready_msg=None):
+    """Singleton-launch `script_name` (idempotent, race-safe via flock+pidfile).
+
+    An exclusive flock serialises the check-then-spawn so concurrent probe/demo
+    processes start at most ONE instance; its PID is written to `pidfile` so the
+    matching reaper can tear it down instead of leaving it lingering. Shared by
+    the virtual LED GUI and the web emulator.
     """
     import subprocess
     import shutil
@@ -533,32 +560,37 @@ def _ensure_virtual_led_gui_running():
 
     lock_fd = None
     try:
-        lock_fd = os.open(_VIRTUAL_GUI_LOCKFILE, os.O_CREAT | os.O_RDWR, 0o666)
+        lock_fd = os.open(lockfile, os.O_CREAT | os.O_RDWR, 0o666)
         fcntl.flock(lock_fd, fcntl.LOCK_EX)
     except OSError:
         lock_fd = None  # best effort: proceed without the lock
 
     try:
-        if _running_gui_pid() is not None:
+        if _running_singleton_pid(pidfile, pattern) is not None:
             return  # already running - singleton
 
-        gui_script = shutil.which('rq_led_virtual_gui.py') or '/usr/bin/rq_led_virtual_gui.py'
+        script = shutil.which(script_name) or ('/usr/bin/' + script_name)
+        env = {**os.environ}
+        if extra_env:
+            env.update(extra_env)
         proc = subprocess.Popen(
-            ['python3', gui_script],
+            ['python3', script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
-            env={**os.environ, 'DISPLAY': os.environ.get('DISPLAY', ':0')}
+            env=env,
         )
         try:
-            with open(_VIRTUAL_GUI_PIDFILE, 'w') as f:
+            with open(pidfile, 'w') as f:
                 f.write(str(proc.pid))
         except OSError:
             pass
-        print("Auto-started virtual LED GUI", file=sys.stderr)
-        time.sleep(1)  # Give GUI time to initialize
+        # Diagnostics go to STDERR so they never pollute a whiptail TUI (#19).
+        if ready_msg:
+            print(ready_msg, file=sys.stderr)
+        time.sleep(1)  # Give the process time to initialize
     except Exception as e:
-        print(f"Warning: Could not auto-start virtual LED GUI: {e}", file=sys.stderr)
+        print(f"Warning: Could not auto-start {script_name}: {e}", file=sys.stderr)
     finally:
         if lock_fd is not None:
             try:
@@ -568,25 +600,63 @@ def _ensure_virtual_led_gui_running():
                 pass
 
 
-def reap_virtual_led_gui():
-    """Terminate the auto-launched virtual LED GUI and clear its pidfile.
+def _reap_singleton(pidfile, pattern):
+    """Terminate the singleton recorded in `pidfile` and clear it.
 
-    Best-effort and idempotent - safe to call when no GUI is running. Only the
-    GUI recorded in the pidfile (i.e. one WE auto-launched) is reaped; a GUI a
-    user started by hand has no pidfile and is left alone. The setup wizard calls
-    this on exit so the window it caused to spawn does not linger.
+    Best-effort and idempotent - safe to call when nothing is running. Only the
+    process recorded in the pidfile (i.e. one WE auto-launched) is reaped; an
+    instance a user started by hand has no pidfile and is left alone.
     """
     import signal
-    pid = _read_gui_pid()
-    if _gui_pid_alive(pid):
+    pid = _read_pidfile(pidfile)
+    if _proc_pid_alive(pid, pattern):
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             pass
     try:
-        os.remove(_VIRTUAL_GUI_PIDFILE)
+        os.remove(pidfile)
     except OSError:
         pass
+
+
+def _ensure_virtual_led_gui_running():
+    """Singleton-launch the virtual LED GUI (idempotent, race-safe)."""
+    _ensure_singleton(
+        _VIRTUAL_GUI_PIDFILE, _VIRTUAL_GUI_LOCKFILE, _VIRTUAL_GUI_PATTERN,
+        'rq_led_virtual_gui.py',
+        extra_env={'DISPLAY': os.environ.get('DISPLAY', ':0')},
+        ready_msg="Auto-started virtual LED GUI",
+    )
+
+
+def reap_virtual_led_gui():
+    """Terminate the auto-launched virtual LED GUI and clear its pidfile.
+
+    The setup wizard calls this on exit so the window it caused to spawn does not
+    linger. Reaps only the GUI recorded in the pidfile (one WE launched).
+    """
+    _reap_singleton(_VIRTUAL_GUI_PIDFILE, _VIRTUAL_GUI_PATTERN)
+
+
+def _ensure_virtual_led_web_running():
+    """Singleton-launch the LED web emulator (idempotent, race-safe).
+
+    The browser analog of _ensure_virtual_led_gui_running(): starts at most one
+    rq_led_web.py server (shared frame bus) so concurrent demos don't each spawn
+    one. The server itself also refuses to double-bind its port, as a backstop.
+    """
+    _ensure_singleton(
+        _VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_LOCKFILE, _VIRTUAL_WEB_PATTERN,
+        'rq_led_web.py',
+        ready_msg="Auto-started LED web emulator (port %s)"
+                  % os.environ.get('LED_WEB_PORT', '8098'),
+    )
+
+
+def reap_virtual_led_web():
+    """Terminate the auto-launched LED web emulator and clear its pidfile."""
+    _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
@@ -627,21 +697,29 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     """
     config = get_led_config()
 
-    # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL
-    # flags (#231). LED_VIRTUAL_MIRROR is folded into these by get_led_config().
+    # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL /
+    # LED_WEB flags (#231). LED_VIRTUAL_MIRROR is folded into these by
+    # get_led_config(). A virtual mmap writer feeds the frame bus that BOTH
+    # on-screen targets read: the Tk GUI (LED_VIRTUAL) and the browser emulator
+    # (LED_WEB). So a virtual writer is needed for either; LED_VIRTUAL launches
+    # the GUI and LED_WEB launches the web server, independently.
     led_physical = config.get('led_physical', True)
     led_virtual = config.get('led_virtual', False)
+    led_web = config.get('led_web', False)
     render_mode = config.get('render_mode', 'direct')
+    need_virtual = led_virtual or led_web
 
     # Virtual geometry (width/height) drives the mmap v2 self-describing header.
     layout = get_layout(config['led_layout'])
     v_width = layout['width'] if layout else num_pixels
     v_height = layout['height'] if layout else 1
 
-    def _make_virtual(launch_gui=True):
+    def _make_virtual():
         from rq_led_virtual import VirtualNeoPixel
-        if launch_gui:
+        if led_virtual:
             _ensure_virtual_led_gui_running()
+        if led_web:
+            _ensure_virtual_led_web_running()
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
             num_pixels,
@@ -671,30 +749,32 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         return real_pixels
 
     # Service mode: never open GPIO in-process. The renderer service consumes
-    # the mmap and drives the strip, so both LED_PHYSICAL and LED_VIRTUAL are
-    # served by a single VirtualNeoPixel writer. Only auto-launch the on-screen
-    # GUI when LED_VIRTUAL is set.
+    # the mmap and drives the strip, so LED_PHYSICAL is served by a single
+    # VirtualNeoPixel writer. _make_virtual() auto-launches the on-screen GUI
+    # only when LED_VIRTUAL is set and the web emulator only when LED_WEB is set.
+    # All diagnostics go to STDERR so they never pollute a whiptail TUI (#19).
     if render_mode == 'service':
         print("LED_RENDER_MODE=service: writing frames to mmap "
               "(rasqberry-led-renderer.service drives the physical strip)",
               file=sys.stderr)
-        return _make_virtual(launch_gui=led_virtual)
+        return _make_virtual()
 
-    # Both targets -> mirror proxy
-    if led_physical and led_virtual:
+    # Physical + any virtual target (GUI and/or web) -> mirror proxy
+    if led_physical and need_virtual:
         from rq_led_virtual import MirrorNeoPixel
-        print("LED_PHYSICAL+LED_VIRTUAL: driving both real and virtual displays",
+        print("LED_PHYSICAL + virtual target: driving both real and virtual displays",
               file=sys.stderr)
         return MirrorNeoPixel(_make_real(), _make_virtual())
 
-    # Virtual only
-    if led_virtual and not led_physical:
-        print("LED_VIRTUAL: using virtual LED display only", file=sys.stderr)
+    # Virtual/web only (no physical strip)
+    if need_virtual and not led_physical:
+        print("Virtual LED target only (GUI/web), no physical strip", file=sys.stderr)
         return _make_virtual()
 
-    # Physical only (also the fallback when neither flag is set)
-    if not led_physical and not led_virtual:
-        print("Warning: neither LED_PHYSICAL nor LED_VIRTUAL set; defaulting to physical", file=sys.stderr)
+    # Physical only (also the fallback when no target flag is set)
+    if not led_physical and not need_virtual:
+        print("Warning: no LED target set (physical/virtual/web); defaulting to physical",
+              file=sys.stderr)
 
     import board
     import neopixel

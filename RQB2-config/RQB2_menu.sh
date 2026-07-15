@@ -1249,6 +1249,7 @@ do_select_led_option() {
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
            layout "Configure Matrix Layout" \
+           targets "Output Targets (strip / virtual / web)" \
            wizard "LED Setup Wizard (auto-detect layout)") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
@@ -1271,6 +1272,9 @@ do_select_led_option() {
                 ;;
             layout )
                 do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
+                ;;
+            targets )
+                do_led_output_menu || { handle_error "Failed to update LED output targets."; continue; }
                 ;;
             wizard )
                 # Interactive whiptail walkthrough (own process); auto-detects
@@ -1632,6 +1636,68 @@ do_select_led_layout() {
       return 0
       ;;
   esac
+}
+
+# -----------------------------------------------------------------------------
+# LED output targets (#231): choose WHERE LED output appears - the physical
+# strip, the on-screen virtual GUI, and/or the browser emulator (LED_WEB). The
+# three are independent booleans, so a checklist is the natural widget: it shows
+# and edits all three at once, pre-ticked from the current env. Only the flags
+# that actually change are written back (each write reloads the env file).
+# -----------------------------------------------------------------------------
+do_led_output_menu() {
+  cur_phys=$(check_environment_variable "LED_PHYSICAL")
+  cur_virt=$(check_environment_variable "LED_VIRTUAL")
+  cur_web=$(check_environment_variable "LED_WEB")
+
+  web_port=$(check_environment_variable "LED_WEB_PORT")
+  [ -z "$web_port" ] && web_port="8098"
+
+  # Map a "true"/other value to the checklist ON/OFF state.
+  on_state() { [ "$1" = "true" ] && echo "ON" || echo "OFF"; }
+
+  SEL=$(whiptail --title "LED Output Targets" --checklist \
+    "Choose where LED output appears.\nSpace toggles an item, Tab to <Ok>, Enter confirms." 12 74 3 \
+    PHYSICAL "Physical LED strip" "$(on_state "$cur_phys")" \
+    VIRTUAL  "On-screen virtual matrix (GUI window)" "$(on_state "$cur_virt")" \
+    WEB      "Browser view (http://<pi>:${web_port})" "$(on_state "$cur_web")" \
+    3>&1 1>&2 2>&3) || return 0
+
+  # whiptail returns the ticked tags space-separated and quoted; strip quotes.
+  new_phys="false"; new_virt="false"; new_web="false"
+  for tag in $(echo "$SEL" | tr -d '"'); do
+    case "$tag" in
+      PHYSICAL) new_phys="true" ;;
+      VIRTUAL)  new_virt="true" ;;
+      WEB)      new_web="true" ;;
+    esac
+  done
+
+  # Guard against turning EVERYTHING off (no output anywhere) - keep the strip.
+  if [ "$new_phys" = "false" ] && [ "$new_virt" = "false" ] && [ "$new_web" = "false" ]; then
+    whiptail --title "LED Output Targets" --msgbox \
+      "At least one output target is required.\n\nKeeping the physical LED strip enabled." 9 66
+    new_phys="true"
+  fi
+
+  # Write only the flags that changed (each write reloads the env file).
+  [ "$new_phys" != "$cur_phys" ] && update_environment_file "LED_PHYSICAL" "$new_phys"
+  [ "$new_virt" != "$cur_virt" ] && update_environment_file "LED_VIRTUAL" "$new_virt"
+  [ "$new_web" != "$cur_web" ] && update_environment_file "LED_WEB" "$new_web"
+
+  # When the browser view is on, start it now and show the URL so the user does
+  # not have to launch a demo first just to discover the address.
+  if [ "$new_web" = "true" ]; then
+    # rq_led_utils lives in BIN_DIR (/usr/bin when installed), not on Python's
+    # default path - set PYTHONPATH like the wizard does for its reap call.
+    PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
+      'import rq_led_utils; rq_led_utils._ensure_virtual_led_web_running()' 2>/dev/null || true
+    lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    [ -z "$lan_ip" ] && lan_ip="<pi-ip>"
+    whiptail --title "LED Browser View" --msgbox \
+      "Browser view enabled.\n\nOpen from any device on the network:\n  http://${lan_ip}:${web_port}\n\nThe view updates whenever an LED demo runs.\nRestart a running demo for target changes to take effect." \
+      13 74
+  fi
 }
 
 # -----------------------------------------------------------------------------
