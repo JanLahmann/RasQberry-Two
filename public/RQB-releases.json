@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-15T20:54:03Z",
+  "generated": "2026-07-15T20:54:41Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2000759792,
       "extract_size": 8942256128,
       "extract_sha256": "caff4c3e23c9c2d5ad144583567f295f5c8ffe92b14eee6be551cd311e582656",
-      "image_sha256": "3a791a918ebb84f7796f758c6c140d162ed30d327941033d8dc6d359ebdae3b6",
       "highlights": [
         "render via shared layout mapper, not hardcoded table",
         "browser emulator (LED_WEB) + raspi-config toggle",
