@@ -25,13 +25,22 @@ import sys
 # Add /usr/bin to path for rq_led_utils
 sys.path.insert(0, '/usr/bin')
 
-# Local - use RasQberry shared LED utilities (singleton NeoPixel)
-from rq_led_utils import get_pixels, clear_all_leds, get_led_config
-from LED_array_indices import LED_ARRAY_INDICES
+# Local - use RasQberry shared LED utilities (singleton NeoPixel + layout mapper)
+from rq_led_utils import get_pixels, clear_all_leds, get_led_config, map_xy_to_pixel
 
 # LED count comes from the active layout (LED_LAYOUT), not a hardcoded 192, so
 # LED-Painter tracks whatever strip the config describes.
 NUM_PIXELS = get_led_config()['led_count']
+
+# The painter canvas is a fixed 24x8 grid (upstream LED_painter.py: QImage(24, 8)).
+# Both the live display and saved JSON build their flat pixel index row-major over
+# that canvas: index = y * CANVAS_WIDTH + x. We decode back to (x, y) and let the
+# shared, layout-aware map_xy_to_pixel() place each cell on the strip, so the
+# painter honours the configured LED_LAYOUT (single/quad/triple/custom), any
+# y_flip/x_flip and the serpentine wiring - instead of the old hardcoded
+# LED_ARRAY_INDICES table, which only ever matched the quad-4x12 mounting and
+# rendered scrambled on every other layout (#121).
+CANVAS_WIDTH = 24
 
 
 def display_to_LEDs(array_data, args):
@@ -39,7 +48,8 @@ def display_to_LEDs(array_data, args):
     Display pixel data to the LED array.
 
     Args:
-        array_data (dict): Data to display. Format: {index: [R, G, B]} for each pixel.
+        array_data (dict): Data to display. Format: {index: [R, G, B]} keyed by
+            the painter's row-major canvas index (y * 24 + x).
         args: Namespace with console (bool) and brightness (float) attributes.
     """
     console = args.console
@@ -48,11 +58,18 @@ def display_to_LEDs(array_data, args):
     # Get the shared NeoPixel object from rq_led_utils
     pixels = get_pixels(brightness)
 
-    # Display to LED array
+    # Display to LED array using the shared, layout-aware coordinate mapper.
     for index, color in array_data.items():
         red, green, blue = color[0], color[1], color[2]
-        LED_array_index = LED_ARRAY_INDICES[int(index)]
-        pixels[LED_array_index] = (red, green, blue)
+        # Decode the painter's flat canvas index back to (x, y), then map to the
+        # physical strip index for the ACTIVE layout. Out-of-range cells (e.g. a
+        # 24-wide canvas on a narrower layout) map to None and are skipped.
+        canvas_index = int(index)
+        x = canvas_index % CANVAS_WIDTH
+        y = canvas_index // CANVAS_WIDTH
+        strip_index = map_xy_to_pixel(x, y)
+        if strip_index is not None:
+            pixels[strip_index] = (red, green, blue)
 
     pixels.show()
 
