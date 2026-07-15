@@ -27,6 +27,24 @@ DOCKER_IMAGE="ghcr.io/janlahmann/qoffee-maker"
 CONTAINER_NAME="qoffee"
 PORT="${QOFFEE_PORT:-$(find_available_port 8887)}"
 
+# The notebook opened directly (classic Notebook 6.x URL), so the browser lands
+# on the Qoffee app instead of the Jupyter file tree.
+NOTEBOOK="qoffee.ipynb"
+
+# Kiosk app mode: a custom.js mounted into the container auto-fires the Qoffee
+# 'rocket' (simple-app:app-activate) once the notebook loads, hiding all Jupyter
+# chrome and showing only the coffee widgets. Resolve it with the standard
+# dual-path convention (shipped copy first, then the repo checkout).
+APPMODE_JS=""
+for _cand in \
+    "/usr/config/demo-patches/qoffee-appmode-custom.js" \
+    "$USER_HOME/$REPO/RQB2-config/demo-patches/qoffee-appmode-custom.js"; do
+    if [ -f "$_cand" ]; then
+        APPMODE_JS="$_cand"
+        break
+    fi
+done
+
 ################################################################################
 # run_qoffee_setup - Run setup script if needed
 ################################################################################
@@ -160,6 +178,17 @@ fi
 JUPYTER_TOKEN=$(grep "^JUPYTER_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
 [ -z "$JUPYTER_TOKEN" ] && JUPYTER_TOKEN="super-secret-token"
 
+# Mount the app-mode custom.js into the container's Jupyter config dir so the
+# notebook auto-activates Qoffee app mode on load. Built as an array so the
+# mount is simply omitted (with a warning) if the asset is missing.
+APPMODE_MOUNT=()
+if [ -n "$APPMODE_JS" ]; then
+    APPMODE_MOUNT=(-v "$APPMODE_JS:/home/jovyan/.jupyter/custom/custom.js:ro")
+    info "App mode will auto-activate when the notebook loads"
+else
+    warn "App-mode custom.js not found; notebook will open without auto app mode"
+fi
+
 # Start container
 echo
 info "Starting Qoffee-Maker container..."
@@ -169,6 +198,7 @@ if ! docker run -d \
     -p ${PORT}:8887 \
     --env JUPYTER_TOKEN="$JUPYTER_TOKEN" \
     --env-file "$ENV_FILE" \
+    ${APPMODE_MOUNT[@]+"${APPMODE_MOUNT[@]}"} \
     $DOCKER_IMAGE; then
     echo
     die "Failed to start Docker container. Check logs with: docker logs $CONTAINER_NAME"
@@ -187,12 +217,25 @@ if ! docker ps --filter name=$CONTAINER_NAME --filter status=running | grep -q $
     die "Container failed to start"
 fi
 
+# Wait for the Jupyter HTTP server to actually answer before opening the browser,
+# so the page (and its custom.js app-mode hook) loads on the first try instead of
+# hitting a connection-refused screen. Any HTTP response (even the login redirect)
+# means the server is up; bounded so we never hang.
+info "Waiting for Jupyter to be ready..."
+for _ in $(seq 1 30); do
+    if curl -s -o /dev/null "http://127.0.0.1:${PORT}/login"; then
+        break
+    fi
+    sleep 1
+done
+
 ################################################################################
 # Browser launch
 ################################################################################
 
-# Build URL
-JUPYTER_URL="http://127.0.0.1:${PORT}/?token=${JUPYTER_TOKEN}"
+# Open the notebook directly (not the file tree) so it lands on the Qoffee app;
+# the mounted custom.js then auto-activates app mode.
+JUPYTER_URL="http://127.0.0.1:${PORT}/notebooks/${NOTEBOOK}?token=${JUPYTER_TOKEN}"
 
 echo
 echo "✓ Qoffee-Maker is running!"
@@ -200,10 +243,13 @@ echo
 echo "  Access via browser: $JUPYTER_URL"
 echo
 
-# Try to open browser (as user, not root)
+# Try to open browser (as user, not root). Launch chromium fullscreen so the
+# Qoffee app fills the screen like a kiosk (matches the upstream launcher); the
+# app-mode custom.js also requests fullscreen, but that needs a user gesture, so
+# starting fullscreen here is what actually makes it fill the display.
 if command -v chromium-browser &> /dev/null; then
     info "Opening browser..."
-    run_as_user chromium-browser --password-store=basic "$JUPYTER_URL" &
+    run_as_user chromium-browser --password-store=basic --start-fullscreen "$JUPYTER_URL" &
 elif command -v firefox &> /dev/null; then
     info "Opening browser..."
     run_as_user firefox "$JUPYTER_URL" &
