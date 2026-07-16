@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T22:03:10Z",
+  "generated": "2026-07-16T22:03:54Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,19 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-grokfix-2026-07-16-232905",
-      "name": "rasqberry-dev-grokfix-2026-07-16-232905",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-grokfix-2026-07-16-232905/rasqberry-dev-grokfix-2026-07-16-232905.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-grokfix-2026-07-16-232905",
-      "release_date": "2026-07-16 23:29",
-      "image_download_size": 2001302516,
+      "tag": "development-2026-07-16-232307",
+      "name": "rasqberry-development-2026-07-16-232307",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-232307/rasqberry-development-2026-07-16-232307.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-232307",
+      "release_date": "2026-07-16 23:23",
+      "image_download_size": 2000708576,
       "extract_size": 8942256128,
-      "extract_sha256": "a12fad783f8a94a9f27e7f2a33c679fff2a588c4b9ab2fa4f48f306bfa131d9a",
-      "image_sha256": "3353024c5d503e8a271ee5d3f3634c18d4a65feb989d5992db21ef625065eac6",
+      "extract_sha256": "4dda9397654429942285be50e943c953dcd95d5bdb4f1e2773655ac9c1672570",
       "highlights": [
         "stop the verify wizard firing at boot, and hanging on exit",
         "stop reporting demos as running when they died",
-        "Bump version to dev-grokfix-2026-07-16-232905"
+        "Bump version to development-2026-07-16-232307",
+        "Merge remote-tracking branch 'origin/dev-grokfix' into development",
+        "stop killing the demo's own web server"
       ]
     }
   }
