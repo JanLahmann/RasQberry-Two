@@ -19,7 +19,8 @@
   },
   "install": {
     "preinstalled": false,
-    "repo_url": "https://github.com/JanLahmann/quantum-mixer.git"
+    "installer": "do_quantum_mixer_install",
+    "installed_flag": "QUANTUM_MIXER_INSTALLED"
   },
   "needs_hw": {
     "leds": false,

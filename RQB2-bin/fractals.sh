@@ -64,6 +64,19 @@ VENV_PYTHON="$VENV_PATH/bin/python3"
 # Change to demo directory and run
 cd "$DEMO_DIR" || die "Failed to change to demo directory"
 
+# Hand matplotlib's directories back to the user if a root run took them.
+#
+# The demo runs as the user (below), but both of matplotlib's paths were found
+# owned by root:root on the rig - left by some earlier run as root. It cannot
+# write them, so it printed a two-line warning over the whiptail TUI on every
+# start and built a throwaway /tmp/matplotlib-* cache each time. Same
+# root-owned-artifact-in-the-user's-home pattern fix_root_ownership exists for.
+# Both are needed: ~/.config/matplotlib holds the config, ~/.cache/matplotlib
+# the font cache - and it is the CACHE that the warning is actually about.
+for mpl_dir in "$USER_HOME/.config/matplotlib" "$USER_HOME/.cache/matplotlib"; do
+    [ -d "$mpl_dir" ] && fix_root_ownership "$mpl_dir" >/dev/null 2>&1
+done
+
 # Run as actual user (not root) to avoid Chrome/display permission issues
 # When launched from raspi-config, this ensures Chrome can access the user's display
 # Use full path to venv python so it has access to matplotlib, qiskit, etc.

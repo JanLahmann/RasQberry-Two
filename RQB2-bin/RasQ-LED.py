@@ -29,6 +29,11 @@ display_timeout = int(
     )
 )
 
+# Headroom allowed for the display script to start up (python + qiskit/board
+# imports + LED driver init) on top of the time it spends showing the pattern.
+# Measured ~1.9s on a Pi 5; a Pi 4's PWM init is considerably slower.
+DISPLAY_STARTUP_BUDGET_S = 15
+
 print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_GPIO_PIN}")
 print(f"Display timeout: {display_timeout}s")
 
@@ -151,7 +156,16 @@ def call_display_on_strip(measurement_result):
         # Note: PWM/PIO driver requires sudo for GPIO access
         # Display script will handle sudo internally if needed
         # Use configurable timeout (default 3s via RASQ_LED_DISPLAY_TIMEOUT)
-        subprocess_timeout = display_timeout + 2  # Add 2s buffer
+        #
+        # The buffer has to cover everything the display script does BESIDES
+        # showing the pattern: starting python, importing qiskit and board, and
+        # initialising the LED driver. That measured 1.85s on a Pi 5 (4.85s wall
+        # for -t 3), so the old 2s buffer left 0.15s of margin and a Pi 4 - whose
+        # PWM init is far slower - blew through it on EVERY cycle, printing
+        # "Display script timed out" each time even though the LEDs had lit.
+        # This is a safety net against a wedged script, not a performance
+        # target, so give it room.
+        subprocess_timeout = display_timeout + DISPLAY_STARTUP_BUDGET_S
         result = subprocess.run([
             sys.executable, display_script, measurement_result,
             '-t', str(display_timeout)

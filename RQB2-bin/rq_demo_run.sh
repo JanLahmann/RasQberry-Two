@@ -192,11 +192,12 @@ check_requirements() {
 
 # Check if demo is installed
 check_installed() {
-    local marker_file working_dir preinstalled
+    local marker_file working_dir preinstalled installed_flag
 
     marker_file=$(get_field '.install.marker_file' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
     preinstalled=$(get_bool '.install.preinstalled' 'false')
+    installed_flag=$(get_field '.install.installed_flag' '')
 
     # If preinstalled, no check needed
     if [ "$preinstalled" = "true" ]; then
@@ -209,6 +210,21 @@ check_installed() {
         if [ ! -f "$check_path" ]; then
             return 1
         fi
+    fi
+
+    # Check the recorded flag if the manifest names one.
+    #
+    # A demo whose install is not a checkout - a Docker image built on the Pi -
+    # has no marker file to look for, so it records its state in the env file
+    # instead. install_demo has always WRITTEN this flag; nothing ever read it,
+    # so those demos fell through to the "return 0" below and reported installed
+    # when nothing was there. quantum-mixer then skipped its consent prompt and
+    # went straight to a 10-15 minute Docker build from source (finding F19),
+    # which is exactly the build that filled a 10GB slot in F28.
+    if [ -n "$installed_flag" ]; then
+        local flag_value
+        eval "flag_value=\${${installed_flag}:-false}"
+        [ "$flag_value" = "true" ] || return 1
     fi
 
     return 0
