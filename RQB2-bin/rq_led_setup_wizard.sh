@@ -150,12 +150,34 @@ start_render_hold() {
     info "Render-hold active: probe patterns stay lit across each prompt."
 }
 
+# Ask a child to stop, but never hang waiting for it: SIGTERM, give it a moment,
+# then SIGKILL. An unbounded `wait` here froze the whole wizard - it exits
+# through cleanup(), so the user answered the last question and then sat on a
+# black screen forever, with raspi-config never returning (finding F2).
+#
+# The child that does this is the renderer: it catches SIGTERM and leaves its
+# run loop, but then blanks the strip on the way out, and on a Pi 4 that call
+# goes through rpi_ws281x (PWM/DMA) where it can block indefinitely. Pi 5 drives
+# the strip over PIO and exits cleanly, which is why this only bites some rigs.
+# The strip is blanked by the probe just above anyway, so killing the renderer
+# outright costs nothing.
+kill_child_bounded() {
+    local pid="$1" waited=0
+    [ -n "${pid}" ] || return 0
+    kill -TERM "${pid}" 2>/dev/null || true
+    while [ "${waited}" -lt 30 ]; do
+        kill -0 "${pid}" 2>/dev/null || { wait "${pid}" 2>/dev/null || true; return 0; }
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    kill -KILL "${pid}" 2>/dev/null || true
+    wait "${pid}" 2>/dev/null || true
+}
+
 stop_render_hold() {
     # Stop routing probes through the renderer and blank the strip cleanly.
     if [ -n "${RENDERER_PID}" ]; then
-        # SIGTERM makes the renderer blank the strip and exit (see its run loop).
-        kill -TERM "${RENDERER_PID}" 2>/dev/null || true
-        wait "${RENDERER_PID}" 2>/dev/null || true
+        kill_child_bounded "${RENDERER_PID}"
         RENDERER_PID=""
     fi
     unset LED_RENDER_MODE 2>/dev/null || true
@@ -213,8 +235,9 @@ start_logo_alternator() {
 }
 stop_logo_alternator() {
     if [ -n "${LOGO_ANIM_PID}" ]; then
-        kill "${LOGO_ANIM_PID}" 2>/dev/null || true
-        wait "${LOGO_ANIM_PID}" 2>/dev/null || true
+        # Bounded: this subshell is mid-probe more often than not, and a probe
+        # that wedges must not take the wizard down with it (see F2).
+        kill_child_bounded "${LOGO_ANIM_PID}"
         LOGO_ANIM_PID=""
     fi
 }
