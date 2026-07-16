@@ -11,6 +11,8 @@ case $- in
 esac
 
 # Real terminal on both ends, once per shell, tool present.
+# (The "is anyone actually looking?" test lives in rq_led_verify_prompt.sh, so
+# that it covers this hook and the .bashrc one from a single place.)
 if [ -t 0 ] && [ -t 1 ] && [ -z "${_RQ_LED_VERIFY_DONE:-}" ] && [ -x /usr/bin/rq_led_verify_prompt.sh ]; then
     export _RQ_LED_VERIFY_DONE=1
     /usr/bin/rq_led_verify_prompt.sh </dev/tty >/dev/tty 2>&1 || true
