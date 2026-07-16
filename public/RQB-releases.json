@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T09:45:16Z",
+  "generated": "2026-07-16T09:45:44Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2000892788,
       "extract_size": 8942256128,
       "extract_sha256": "2a68beec54c7f7367af4473ed4e152b5cf61b3bb15a6287ac513ce4049c9dccd",
-      "image_sha256": "3fc7ab98fffd37eda3000017161e43b2b3b5801266073a955d9e0efaa8acedce",
       "highlights": [
         "run the GUI as the user on Wayland; drive LEDs via the root renderer",
         "Bump version to development-2026-07-16-112242"
