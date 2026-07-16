@@ -54,7 +54,12 @@ info "Starting Grok Bloch Sphere Demo..."
 debug "Demo directory: $DEMO_DIR"
 debug "Local server port: $PORT"
 
-# Find available port
+# Find available port.
+#
+# Note this only sees LISTENING sockets, so a port still held in TIME_WAIT by a
+# previous run looks free. The server below sets SO_REUSEADDR so it can bind
+# anyway - without it, restarting the demo within ~60s failed to bind every
+# time, silently (see the start-up check further down).
 while netstat -tuln | grep -q ":$PORT "; do
     PORT=$((PORT + 1))
 done
@@ -82,17 +87,33 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         super().log_message(format, *args)
 
+
+class ReusableTCPServer(socketserver.TCPServer):
+    # TCPServer defaults this to False, so a port left in TIME_WAIT by the
+    # previous run refused the bind and the demo died before serving anything.
+    allow_reuse_address = True
+
+
 port = int(sys.argv[1])
-with socketserver.TCPServer(("", port), QuietHTTPRequestHandler) as httpd:
+with ReusableTCPServer(("", port), QuietHTTPRequestHandler) as httpd:
     httpd.serve_forever()
 EOF
 
-# Start HTTP server in background with error suppression
-python3 /tmp/grok_server.py $PORT >/dev/null 2>&1 &
+# Start HTTP server in background. Keep the log: if the bind fails we want to
+# say why, rather than announce a demo that is not there.
+python3 /tmp/grok_server.py "$PORT" >/tmp/grok_server.log 2>&1 &
 SERVER_PID=$!
 
 # Wait a moment for server to start
 sleep 2
+
+# Confirm it actually came up. It previously could not bind and exit silently,
+# leaving the script to print "demo is running" over a dead port.
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    warn "Web server failed to start:"
+    sed 's/^/    /' /tmp/grok_server.log >&2 2>/dev/null || true
+    die "Could not serve the demo on port $PORT"
+fi
 
 info "Opening in browser..."
 
@@ -109,17 +130,22 @@ cleanup() {
 # Set up cleanup trap
 setup_cleanup_trap cleanup
 
-# Try to open in browser
-BROWSER_PID=""
+# Try to open in browser.
+#
+# Fire and forget: the demo's lifetime must NOT be tied to the PID we spawn
+# here. Chromium is single-instance and autostarts on this image, so
+# `chromium-browser <url>` hands the URL to the running instance and exits at
+# once ("Opening in existing browser session."). Waiting on that PID therefore
+# killed the server a second after the tab opened, and the tab it had just
+# opened showed connection refused - reliably, since Chromium is always already
+# up. An exiting launcher tells us nothing about whether the window closed, so
+# we serve until the user stops the demo instead.
 BROWSER_URL="http://localhost:$PORT"
 
-# Launch browser as user
 if command -v chromium-browser >/dev/null 2>&1; then
     run_as_user chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
-    BROWSER_PID=$! 2>/dev/null || true
 elif command -v firefox >/dev/null 2>&1; then
     run_as_user firefox "$BROWSER_URL" >/dev/null 2>&1 &
-    BROWSER_PID=$! 2>/dev/null || true
 elif command -v xdg-open >/dev/null 2>&1; then
     run_as_user xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
 else
@@ -128,27 +154,18 @@ fi
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
-if [ -n "${BROWSER_PID:-}" ]; then
-    echo "The demo will automatically close when you close the browser window."
-else
-    echo "Press Ctrl+C or close this window to stop the demo."
-fi
-echo "Or press Ctrl+C to stop manually."
+echo ""
+echo "  URL: $BROWSER_URL"
 echo ""
 
-# Monitor browser process if we have a PID
-if [ -n "${BROWSER_PID:-}" ] && kill -0 $BROWSER_PID 2>/dev/null; then
-    # Wait for either server or browser to exit
-    while kill -0 $SERVER_PID 2>/dev/null && kill -0 $BROWSER_PID 2>/dev/null; do
-        sleep 1
-    done
-
-    # If browser closed, clean up
-    if ! kill -0 $BROWSER_PID 2>/dev/null; then
-        info "Browser closed. Stopping demo..."
-        cleanup
-    fi
+# Serve until the user stops us. Closing the browser tab does not stop the
+# demo - see the note above on why that cannot be detected.
+if [ -t 0 ]; then
+    echo "Press Enter (or Ctrl+C) to stop the demo..."
+    read -r
+    info "Stopping demo..."
 else
-    # No browser PID tracking, just wait for server or Ctrl+C
+    echo "Press Ctrl+C or close this window to stop the demo."
+    echo ""
     wait $SERVER_PID
 fi
