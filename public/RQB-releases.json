@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T08:45:55Z",
+  "generated": "2026-07-16T08:49:49Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,16 +27,19 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-15-222920",
-      "name": "rasqberry-development-2026-07-15-222920",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-15-222920/rasqberry-development-2026-07-15-222920.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-15-222920",
-      "release_date": "2026-07-15 22:29",
-      "image_download_size": 2000759792,
+      "tag": "development-2026-07-16-102701",
+      "name": "rasqberry-development-2026-07-16-102701",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-102701/rasqberry-development-2026-07-16-102701.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-102701",
+      "release_date": "2026-07-16 10:27",
+      "image_download_size": 2001509376,
       "extract_size": 8942256128,
-      "extract_sha256": "caff4c3e23c9c2d5ad144583567f295f5c8ffe92b14eee6be551cd311e582656",
+      "extract_sha256": "6a03c90d6188e2bfcae3fd05f7f788dab398752091369b6a77b9fa8e1ed7295c",
+      "image_sha256": "4601fde3b88327698103e7e1bb16c8894dad7ddb57ba49144b0920ac3300c8dd",
       "highlights": [
-        "Development build - see release notes for details"
+        "route QRT + QLO through rq_demo_run.sh; retire stale auto-launchers",
+        "Bump version to development-2026-07-16-102701",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-15-222920"
       ]
     }
   }
