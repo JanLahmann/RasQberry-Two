@@ -141,7 +141,7 @@ while true; do
     # Demo 2: Quantum Lights Out
     run_demo_with_controls \
         "[2/4] Quantum Lights Out demo (${LIGHTS_OUT_TIME}s)" \
-        "$BIN_DIR/rq_quantum_lights_out_auto.sh" \
+        "$BIN_DIR/rq_demo_run.sh quantum-lights-out" \
         "${LIGHTS_OUT_TIME}"
     cleanup_demo_processes "QuantumLightsOut"
     clear_leds
@@ -150,7 +150,7 @@ while true; do
     # Demo 3: RasQberry Tie
     run_demo_with_controls \
         "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
-        "$BIN_DIR/rq_quantum_raspberry_tie_auto.sh" \
+        "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" \
         "${RASQBERRY_TIE_TIME}"
     cleanup_demo_processes "QuantumRaspberryTie"
     clear_leds

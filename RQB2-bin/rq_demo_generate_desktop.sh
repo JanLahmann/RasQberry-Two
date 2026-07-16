@@ -58,7 +58,7 @@ generate_desktop_entry() {
     local file="$1"
 
     # Read manifest fields
-    local id name description keywords_json icon_type icon_path launcher browser_url terminal
+    local id name description keywords_json icon_type icon_path launcher browser_url script terminal
 
     id=$(jq -r '.id' "$file")
     name=$(jq -r '.name' "$file")
@@ -68,11 +68,14 @@ generate_desktop_entry() {
     icon_path=$(jq -r '.icon.path // "applications-other"' "$file")
     launcher=$(jq -r '.entrypoint.launcher // ""' "$file")
     browser_url=$(jq -r '.entrypoint.browser_url // ""' "$file")
+    script=$(jq -r '.entrypoint.script // ""' "$file")
     terminal=$(jq -r '.desktop.terminal // true' "$file")
 
-    # Skip if no launcher and no browser_url defined
-    if [ -z "$launcher" ] && [ -z "$browser_url" ]; then
-        echo "# Skipped $id: no launcher or browser_url defined" >&2
+    # Skip only if there is no way to launch: no launcher, no browser_url, and
+    # no runnable script. Demos with an entrypoint.script (and no dedicated
+    # launcher) dispatch through the universal launcher rq_demo_run.sh below.
+    if [ -z "$launcher" ] && [ -z "$browser_url" ] && [ -z "$script" ]; then
+        echo "# Skipped $id: no launcher, browser_url, or script defined" >&2
         return 1
     fi
 
@@ -100,7 +103,14 @@ generate_desktop_entry() {
         terminal_value="false"
     fi
 
-    # Build Exec command
+    # Build Exec command.
+    #
+    # A dedicated launcher wins (docker/browser-server demos, and demos whose
+    # launcher does real pre-launch work such as LED-Painter's PWM converter).
+    # Otherwise a plain script demo dispatches through the universal launcher
+    # rq_demo_run.sh <id>, which installs-if-missing, applies patches and runs
+    # the demo the same way the raspi-config menu does. This keeps every entry
+    # point (menu, desktop, loop) on one code path.
     local exec_cmd tryexec
     if [ -n "$launcher" ]; then
         exec_cmd="/usr/bin/$launcher"
@@ -108,6 +118,9 @@ generate_desktop_entry() {
     elif [ -n "$browser_url" ]; then
         exec_cmd="chromium-browser --password-store=basic $browser_url"
         tryexec="chromium-browser"
+    elif [ -n "$script" ]; then
+        exec_cmd="/usr/bin/rq_demo_run.sh $id"
+        tryexec="/usr/bin/rq_demo_run.sh"
     fi
 
     # Generate the desktop entry

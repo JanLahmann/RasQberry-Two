@@ -14,8 +14,7 @@
   "entrypoint": {
     "type": "python",
     "script": "lights_out.py",
-    "working_dir": "Quantum-Lights-Out",
-    "launcher": "rq_quantum_lights_out_auto.sh"
+    "working_dir": "Quantum-Lights-Out"
   },
   "install": {
     "preinstalled": false,

@@ -13,8 +13,7 @@
   "entrypoint": {
     "type": "python",
     "script": "QuantumRaspberryTie.v8_0.py",
-    "working_dir": "quantum-raspberry-tie",
-    "launcher": "rq_quantum_raspberry_tie_auto.sh"
+    "working_dir": "quantum-raspberry-tie"
   },
   "install": {
     "preinstalled": false,
