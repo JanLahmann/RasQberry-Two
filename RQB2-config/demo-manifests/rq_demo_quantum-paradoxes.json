@@ -20,7 +20,10 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/maria-violaris/quantum-paradoxes",
-    "marker_file": "WELCOME.ipynb"
+    "ref": "78bb6b5b49cabb047c2c586318d307f589e1204d",
+    "marker_file": "WELCOME.ipynb",
+    "post_install": "setup_quantum_paradoxes.py",
+    "installed_flag": "QUANTUM_PARADOXES_INSTALLED"
   },
   "needs_hw": {
     "leds": false,

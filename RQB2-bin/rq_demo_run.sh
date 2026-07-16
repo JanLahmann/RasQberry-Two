@@ -218,6 +218,7 @@ check_installed() {
 # Clones repo, applies patches, installs pip requirements
 install_demo() {
     local repo_url ref working_dir patch_file pip_requirements
+    local post_install installed_flag
     local demo_dir
 
     repo_url=$(get_field '.install.repo_url' '')
@@ -225,6 +226,8 @@ install_demo() {
     working_dir=$(get_field '.entrypoint.working_dir' '')
     patch_file=$(get_field '.install.patch_file' '')
     pip_requirements=$(get_bool '.install.pip_requirements' 'false')
+    post_install=$(get_field '.install.post_install' '')
+    installed_flag=$(get_field '.install.installed_flag' '')
 
     if [ -z "$repo_url" ]; then
         die "No install.repo_url specified in manifest"
@@ -312,6 +315,40 @@ install_demo() {
         local owner
         owner=$(get_user_name)
         [ "$owner" != "root" ] && chown -R "$owner:$owner" "$demo_dir"
+    fi
+
+    # Optional post-install step. Some demos need setup after the checkout before
+    # they are usable - and for those the marker_file is GENERATED here rather
+    # than shipped by upstream (e.g. quantum-paradoxes' WELCOME.ipynb), so the
+    # demo would look permanently "not installed" without this.
+    #
+    # Contract: install.post_install names a RasQberry script (resolved next to
+    # this launcher, else /usr/bin) run as `<script> --path <demo_dir>` with the
+    # venv python, as the user.
+    if [ -n "$post_install" ]; then
+        local post_script="" venv_path
+        if [ -f "$SCRIPT_DIR/$post_install" ]; then
+            post_script="$SCRIPT_DIR/$post_install"
+        elif [ -f "/usr/bin/$post_install" ]; then
+            post_script="/usr/bin/$post_install"
+        else
+            die "install.post_install script not found: $post_install (demo '$DEMO_ID')"
+        fi
+        info "Running post-install: $post_install"
+        if venv_path=$(find_venv "$STD_VENV"); then
+            run_as_user "$venv_path/bin/python3" "$post_script" --path "$demo_dir" \
+                || die "Post-install step failed for demo '$DEMO_ID': $post_install"
+        else
+            die "Virtual environment not found - cannot run post-install for '$DEMO_ID'"
+        fi
+    fi
+
+    # Record the demo as installed in the environment file. The raspi-config menu
+    # reads these *_INSTALLED flags, so the manifest path must set them too or its
+    # view of what is installed drifts from reality.
+    if [ -n "$installed_flag" ]; then
+        update_env_var "$installed_flag" "true" \
+            || warn "Could not set $installed_flag in the environment file"
     fi
 
     info "Demo installed successfully"
@@ -646,12 +683,19 @@ run_python() {
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
 
-    # If no script specified, fallback to launcher
+    # A dedicated launcher WINS when the manifest declares one: it exists
+    # precisely because the demo needs pre-launch work the generic path cannot do
+    # (LED-Painter converts to the PWM/PIO driver and must run its Qt GUI as the
+    # user against the root renderer). Running .entrypoint.script directly in that
+    # case silently bypassed the launcher and its setup.
+    #
+    # The generic script path is for demos that need nothing extra - they simply
+    # declare no launcher (e.g. quantum-raspberry-tie, quantum-lights-out).
+    if [ -n "$launcher" ]; then
+        delegate_launcher "$launcher"
+        return 0
+    fi
     if [ -z "$script" ]; then
-        if [ -n "$launcher" ]; then
-            delegate_launcher "$launcher"
-            return 0
-        fi
         die "No script or launcher specified for python type"
     fi
 

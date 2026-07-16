@@ -19,7 +19,9 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JavaFXpert/grok-bloch.git",
-    "marker_file": "index.html"
+    "ref": "95d1ebef056b56ff90833e748a57a30a3c8daa5c",
+    "marker_file": "index.html",
+    "installed_flag": "GROK_BLOCH_INSTALLED"
   },
   "needs_hw": {
     "leds": false,

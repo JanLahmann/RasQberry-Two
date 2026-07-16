@@ -274,7 +274,17 @@ clone_ibm_learning_content() {
     git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
     git sparse-checkout init --cone
     git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS
-    git pull --depth=1 origin main
+    # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
+    # third-party repo (we do not own it) that changes constantly, so following
+    # main makes installs irreproducible and lets an upstream change alter the
+    # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
+    if [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ]; then
+        git fetch --depth=1 origin "$GIT_REF_DEMO_IBM_LEARNING" || return 1
+        git checkout -q FETCH_HEAD || return 1
+    else
+        echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+        git pull --depth=1 origin main
+    fi
     cd - > /dev/null
 
     # Copy credentials setup notebook
