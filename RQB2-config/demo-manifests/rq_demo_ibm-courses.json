@@ -14,7 +14,7 @@
   ],
   "entrypoint": {
     "type": "jupyter",
-    "working_dir": "ibm-quantum-learning/courses",
+    "working_dir": "ibm-quantum-learning",
     "jupyter_port": 8890,
     "launcher": "rq_ibm_courses.sh"
   },

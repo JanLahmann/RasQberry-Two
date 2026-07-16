@@ -91,6 +91,12 @@ install_via_engine() {
         return 1
     fi
 
+    # Everything below writes to stderr, never stdout. "Download all demos" pipes
+    # this into `whiptail --gauge`, which parses its stdin as the gauge protocol -
+    # a stray line there garbles the progress bar. It silences stderr per demo
+    # (do_*_install 2>/dev/null), so stderr is the channel that stays out of the
+    # way while remaining visible for a single interactive install.
+
     # Already installed? Ask the engine rather than second-guessing it here.
     if "$RUNNER" "$DEMO_ID" --is-installed 2>/dev/null; then
         return 0
@@ -107,9 +113,9 @@ install_via_engine() {
             fi
         else
             # Fallback if whiptail not available (POSIX-compliant for dash)
-            echo "$TITLE is not installed."
-            echo "This requires downloading from GitHub."
-            printf "Install now? (y/n) "
+            echo "$TITLE is not installed." >&2
+            echo "This requires downloading from GitHub." >&2
+            printf "Install now? (y/n) " >&2
             read REPLY
             case "$REPLY" in
                 [Yy]|[Yy][Ee][Ss]) ;;
@@ -117,14 +123,14 @@ install_via_engine() {
             esac
         fi
     else
-        echo "Auto-installing $TITLE..."
+        echo "Auto-installing $TITLE..." >&2
     fi
 
-    if "$RUNNER" "$DEMO_ID" --install-only; then
+    if "$RUNNER" "$DEMO_ID" --install-only >&2; then
         if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
             whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
         else
-            echo "✓ $TITLE installed successfully"
+            echo "✓ $TITLE installed successfully" >&2
         fi
         return 0
     fi
@@ -132,7 +138,7 @@ install_via_engine() {
     if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
         whiptail --title "Installation Error" --msgbox "Failed to install $TITLE.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
     else
-        echo "ERROR: Failed to install $TITLE demo"
+        echo "ERROR: Failed to install $TITLE demo" >&2
     fi
     return 1
 }
