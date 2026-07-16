@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T20:40:16Z",
+  "generated": "2026-07-16T20:40:40Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2000478492,
       "extract_size": 8942256128,
       "extract_sha256": "f7513932e2ab6f1cea1f88b88d3fcaa401729e7c8404b58bc6b9ac402f07c25d",
-      "image_sha256": "08a59a9731ff9da74526e337cbf730f1847ac8bc60d1414e56384c7586252357",
       "highlights": [
         "stop the Lab extension throwing a traceback on notebook 6",
         "Bump version to development-2026-07-16-222036",
