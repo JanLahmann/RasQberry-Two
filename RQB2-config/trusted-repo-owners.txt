@@ -1,0 +1,28 @@
+# RasQberry trusted repository owners
+#
+# GitHub owners (users or organisations) that the RasQberry maintainers control.
+# One owner per line, case-insensitive. Blank lines and #-comments are ignored.
+#
+# What this is for: a demo manifest that checks out code from an owner NOT listed
+# here is third-party, and must pin install.ref to a full 40-character commit SHA.
+# Without a pin we track a moving branch, so an upstream commit we never reviewed
+# changes what ships - and if we also patch that demo, the patch breaks against
+# code it was never written for. That is not hypothetical: it is issue #37
+# (quantum-raspberry-tie), where upstream drift made the patch fail and the demo
+# fell back to an emulator with the LED matrix dark.
+#
+# rq_demo_validate.sh enforces this, and CI runs it on every push.
+#
+# Trusted does NOT mean "internal": trust is about who controls the upstream
+# repository, which decides whether a pin is required. Whether a demo is internal
+# or external is a separate question about how it is distributed and installed.
+# traQmania, for example, is trusted (JanLahmann's) yet ships via the external
+# registry, which pins everything regardless.
+#
+# Adding an owner here removes the pin requirement for its repos - only add
+# owners whose repositories the maintainers actually control.
+
+JanLahmann
+RasQberry
+Fun-with-Quantum
+doQumentation

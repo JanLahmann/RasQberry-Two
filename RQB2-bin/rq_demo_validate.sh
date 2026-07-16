@@ -106,6 +106,87 @@ is_safe_ext_path() {
     return 0
 }
 
+# Owners we control. Any other owner is third-party and must be SHA-pinned.
+# Kept in a data file so adding an owner is not a code change.
+TRUSTED_OWNERS_FILE="${TRUSTED_OWNERS_FILE:-$(dirname "$SCRIPT_DIR")/RQB2-config/trusted-repo-owners.txt}"
+[ -f "$TRUSTED_OWNERS_FILE" ] || TRUSTED_OWNERS_FILE="/usr/config/trusted-repo-owners.txt"
+
+# Extract the owner from a GitHub URL: https://github.com/<owner>/<repo>[.git]
+repo_owner() {
+    echo "$1" | sed -nE 's#^https://github\.com/([^/]+)/.*#\1#p'
+}
+
+is_trusted_owner() {
+    local owner="$1" line
+    [ -n "$owner" ] || return 1
+    [ -f "$TRUSTED_OWNERS_FILE" ] || return 1
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        line="$(echo "$line" | tr -d '[:space:]')"
+        [ -n "$line" ] || continue
+        if [ "$(echo "$line" | tr 'A-Z' 'a-z')" = "$(echo "$owner" | tr 'A-Z' 'a-z')" ]; then
+            return 0
+        fi
+    done < "$TRUSTED_OWNERS_FILE"
+    return 1
+}
+
+# Require a full-SHA pin on any checkout from an owner we do not control.
+#
+# Unpinned, we track a moving branch: an upstream commit nobody reviewed changes
+# what ships, and if we patch that demo the patch breaks against code it was
+# never written for. That is issue #37 (quantum-raspberry-tie) exactly - upstream
+# drift made the patch fail and the demo ran emulator-only with the matrix dark.
+#
+# Demos whose install is delegated (install.installer) are exempt here: they do
+# not clone via the engine, so there is no repo_url for this rule to pin. The
+# installer they name is responsible for its own pinning - the IBM pair pins via
+# GIT_REF_DEMO_IBM_LEARNING.
+validate_pin_policy() {
+    local file="$1"
+    local errs=0
+    local repo_url ref installer owner
+
+    repo_url=$(jq -r '.install.repo_url // empty' "$file")
+    ref=$(jq -r '.install.ref // empty' "$file")
+    installer=$(jq -r '.install.installer // empty' "$file")
+
+    # Declaring both is ambiguous about which one fetches the sources.
+    if [ -n "$installer" ] && [ -n "$repo_url" ]; then
+        print_fail "install.installer and install.repo_url are mutually exclusive (which one fetches?)"
+        errs=$((errs + 1))
+    fi
+
+    if [ -z "$repo_url" ]; then
+        [ -n "$installer" ] && print_pass "Install delegated to $installer (pin is that installer's responsibility)"
+        return $errs
+    fi
+
+    owner=$(repo_owner "$repo_url")
+    if [ -z "$owner" ]; then
+        print_warn "Could not determine repo owner from '$repo_url' - cannot check pin policy"
+        WARNINGS=$((WARNINGS + 1))
+        return $errs
+    fi
+
+    if is_trusted_owner "$owner"; then
+        print_pass "Trusted owner '$owner' (pin optional)"
+        return $errs
+    fi
+
+    if [ -z "$ref" ]; then
+        print_fail "Third-party repo (owner '$owner') must pin install.ref to a full 40-char commit SHA. See RQB2-config/trusted-repo-owners.txt"
+        errs=$((errs + 1))
+    elif ! echo "$ref" | grep -qE '^[0-9a-fA-F]{40}$'; then
+        print_fail "install.ref must be a full 40-character commit SHA, got: '$ref'"
+        errs=$((errs + 1))
+    else
+        print_pass "Third-party owner '$owner' pinned to ${ref:0:8}"
+    fi
+
+    return $errs
+}
+
 # Apply the hardened external-demo constraints (spec §1 + §5). Prints one
 # [FAIL] line per violation and stores the count in the global EXT_ERR_COUNT.
 EXT_ERR_COUNT=0
@@ -353,6 +434,12 @@ validate_manifest() {
             fi
         fi
     fi
+
+    # Pin policy applies to EVERY manifest, curated or external: the rule is about
+    # who controls the upstream repo, not how the demo is distributed.
+    local pin_errs=0
+    validate_pin_policy "$file" || pin_errs=$?
+    errors=$((errors + pin_errs))
 
     # External-demo constraints (only in --external mode)
     if $EXTERNAL; then
