@@ -134,20 +134,57 @@ VENV_PYTHON="$VENV_PATH/bin/python3"
 info "Starting $DEMO_NAME..."
 cd "$DEMO_DIR" || die "Failed to change to demo directory"
 
-# Check if display is available
-if ! check_display; then
-    die "DISPLAY not set. $DEMO_NAME requires a graphical environment"
+# A graphical session is required - Wayland (labwc, the default) or X.
+if [ -z "${WAYLAND_DISPLAY:-}" ] && ! check_display; then
+    die "No graphical session (neither WAYLAND_DISPLAY nor DISPLAY is set). $DEMO_NAME requires a desktop."
 fi
 
-# Run with sudo (required for PWM/PIO LED control on GPIO)
-# Preserve DISPLAY for Qt/PySide6 GUI
-# Note: PWM/PIO drivers require root access, unlike old SPI driver
+# LED-Painter draws the matrix in-process (LED_painter.py imports display_to_LEDs
+# -> get_pixels), so under the default direct mode the GUI itself would need root
+# for GPIO. But a root Qt GUI cannot attach to the user's Wayland session
+# ("qt.qpa.xcb: could not connect to display :0"); Qt then falls back to the
+# offscreen platform and the painter window never appears (plan #11 sec 2.7).
+#
+# Instead: run the GUI as the UNPRIVILEGED user - where Wayland works - and let
+# the root renderer own the GPIO. With LED_RENDER_MODE=service, get_pixels()
+# writes frames to the shared-memory bus and rasqberry-led-renderer.service turns
+# them into GPIO. Rig-verified: visible GUI on Wayland + correct strip output.
+USER_NAME=$(get_user_name)
+USER_UID=$(id -u "$USER_NAME" 2>/dev/null || echo 1000)
+
+# Bring up the root GPIO writer, unless the system already runs in service mode
+# (a renderer is then already active and owns the strip - leave it alone).
+RENDERER_STARTED=0
+if [ "${LED_RENDER_MODE:-direct}" != "service" ]; then
+    if sudo systemctl start rasqberry-led-renderer 2>/dev/null; then
+        RENDERER_STARTED=1
+        debug "Started rasqberry-led-renderer for this painter session"
+    else
+        warn "Could not start the LED renderer - the GUI will run but the strip may stay dark"
+    fi
+fi
+
+stop_renderer() {
+    [ "$RENDERER_STARTED" = "1" ] || return 0
+    # SIGTERM via systemd makes the renderer blank the strip before exiting.
+    sudo systemctl stop rasqberry-led-renderer 2>/dev/null || true
+}
+trap stop_renderer EXIT
+
+# Never run the Qt GUI as root: it cannot reach the user's Wayland compositor.
+# `env` sets the vars explicitly so they survive sudo's env_reset policy.
 if [ "$(id -u)" -eq 0 ]; then
-    # Already root
-    DISPLAY="${DISPLAY:-:0}" "$VENV_PYTHON" LED_painter.py
+    sudo -u "$USER_NAME" -H -- env \
+        LED_RENDER_MODE=service \
+        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" \
+        XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}" \
+        DISPLAY="${DISPLAY:-:0}" \
+        "$VENV_PYTHON" LED_painter.py
 else
-    # Need sudo for GPIO access
-    sudo DISPLAY="${DISPLAY:-:0}" "$VENV_PYTHON" LED_painter.py
+    LED_RENDER_MODE=service \
+    WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" \
+    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}" \
+        "$VENV_PYTHON" LED_painter.py
 fi
 
 exit 0
