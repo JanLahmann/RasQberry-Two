@@ -98,7 +98,16 @@ echo
 info "Starting Jupyter notebook server..."
 cd "$DEMO_DIR"
 
-# Launch Jupyter in background
+# Launch Jupyter in background.
+#
+# This demo runs the classic notebook 6 server on purpose: it offers the RISE
+# slideshow (Alt+R), and RISE 5.7.1 needs notebook 6. The venv also has
+# JupyterLab 4, whose pip install drops a config enabling the jupyterlab SERVER
+# EXTENSION for NotebookApp - but a Lab 4 extension cannot load into notebook 6,
+# so it threw a full traceback ("'NotebookApp' object has no attribute
+# 'identity_provider'") across the terminal on every launch. The server carried
+# on serving, yet the demo looked like it had crashed. Turn the extension off
+# for this server; RISE and the notebooks are unaffected.
 jupyter notebook \
     --no-browser \
     --port="$PORT" \
@@ -106,6 +115,7 @@ jupyter notebook \
     --NotebookApp.token='' \
     --NotebookApp.password='' \
     --NotebookApp.open_browser=False \
+    --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
     2>&1 &
 JUPYTER_PID=$!
 

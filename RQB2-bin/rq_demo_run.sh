@@ -438,7 +438,15 @@ run_jupyter() {
     # Change to demo directory
     cd "$demo_dir"
 
-    # Start Jupyter notebook in background (as the user, not root)
+    # Start Jupyter notebook in background (as the user, not root).
+    #
+    # nbserver_extensions disables the jupyterlab server extension: the venv ships
+    # JupyterLab 4 alongside the classic notebook 6 server, and pip's jupyterlab
+    # config enables its extension for NotebookApp, where a Lab 4 extension cannot
+    # load. The result was a full traceback on launch that made a working demo
+    # look crashed. Demos wanting the Lab UI should declare a launcher that runs
+    # `jupyter lab` (as the IBM and paradoxes demos do); this generic path serves
+    # the classic notebook.
     info "Starting Jupyter notebook server..."
     run_as_user "$jupyter_bin" notebook \
         --no-browser \
@@ -447,6 +455,7 @@ run_jupyter() {
         --NotebookApp.token='' \
         --NotebookApp.password='' \
         --NotebookApp.open_browser=False \
+        --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
         2>&1 &
     JUPYTER_PID=$!
 
