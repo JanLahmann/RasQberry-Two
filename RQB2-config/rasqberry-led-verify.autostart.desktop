@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=RasQberry LED Verify
-Comment=One-time LED panel layout check on first desktop login
-Exec=lxterminal --title=RasQberry-LED-Setup -e /usr/bin/rq_led_verify_prompt.sh
-Terminal=false
-OnlyShowIn=LXDE;
-X-GNOME-Autostart-enabled=true
-NoDisplay=true

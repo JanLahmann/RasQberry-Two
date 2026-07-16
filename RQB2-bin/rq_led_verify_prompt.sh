@@ -3,10 +3,13 @@
 # RasQberry: one-time LED layout verify trigger
 # ============================================================================
 # Shared entry point for the "is this your LED panel?" first-run check. Called
-# from three places so the user meets it however they arrive:
+# at the first INTERACTIVE login so the user meets it however they arrive, but
+# NEVER auto-started unattended at desktop boot (that raced ip-display for the
+# LED GPIO and left a stuck console dialog - task #35):
 #   - the raspi-config LED menu (do_select_led_option)
-#   - an interactive first login (/etc/profile.d/rasqberry-led-verify.sh)
-#   - desktop autostart on first boot (/etc/xdg/autostart/)
+#   - login shells: /etc/profile.d/rasqberry-led-verify.sh (ssh, console login)
+#   - desktop terminals: sourced from .bashrc (non-login interactive shells,
+#     which skip /etc/profile.d)
 # It self-disables: rq_led_setup_wizard.sh --verify persists
 # LED_LAYOUT_VERIFIED=true once the user answers, after which this is a no-op.
 # The wizard re-execs itself with sudo for GPIO, so this need not be root.

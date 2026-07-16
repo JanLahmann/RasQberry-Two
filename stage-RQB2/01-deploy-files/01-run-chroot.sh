@@ -76,16 +76,29 @@ chmod -R 755 ${CLONE_DIR}/RQB2-config
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
-# One-time LED-layout verify triggers: the wizard is offered from the LED menu,
-# an interactive first login (profile.d), and desktop autostart. All route to
-# /usr/bin/rq_led_verify_prompt.sh (deployed via RQB2-bin above), which
-# self-disables once LED_LAYOUT_VERIFIED=true. Install the two hook files to
-# their system locations and drop the stray copies left in /usr/config.
+# One-time LED-layout verify triggers: the wizard is offered from the LED menu
+# and at the first INTERACTIVE login - via /etc/profile.d for login shells (ssh,
+# console login) and via .bashrc for desktop terminals (which are non-login
+# interactive shells and skip /etc/profile.d). It is deliberately NOT auto-started
+# at desktop boot: the old /etc/xdg/autostart entry raced rasqberry-ip-display for
+# the LED GPIO at boot and left a whiptail dialog stuck on an unattended console
+# (task #35). All triggers route to /usr/bin/rq_led_verify_prompt.sh (deployed via
+# RQB2-bin above), which self-disables once LED_LAYOUT_VERIFIED=true.
 install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-led-verify.profile.sh \
     /etc/profile.d/rasqberry-led-verify.sh
-install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-led-verify.autostart.desktop \
-    /etc/xdg/autostart/rasqberry-led-verify.desktop
-rm -f /usr/config/rasqberry-led-verify.profile.sh /usr/config/rasqberry-led-verify.autostart.desktop
+rm -f /usr/config/rasqberry-led-verify.profile.sh
+
+# Desktop terminals are non-login interactive shells, so /etc/profile.d does not
+# fire for them. Source the (self-guarded) verify hook from .bashrc too, so the
+# first terminal a desktop user opens still offers the one-time layout check.
+LED_VERIFY_BASHRC_HOOK='[ -r /etc/profile.d/rasqberry-led-verify.sh ] && . /etc/profile.d/rasqberry-led-verify.sh'
+if ! grep -qF "$LED_VERIFY_BASHRC_HOOK" /etc/skel/.bashrc 2>/dev/null; then
+    printf '\n# RasQberry: one-time LED-layout verify on first interactive terminal (task #35)\n%s\n' "$LED_VERIFY_BASHRC_HOOK" >> /etc/skel/.bashrc
+fi
+if [ -f /home/${FIRST_USER_NAME}/.bashrc ] && ! grep -qF "$LED_VERIFY_BASHRC_HOOK" /home/${FIRST_USER_NAME}/.bashrc; then
+    printf '\n# RasQberry: one-time LED-layout verify on first interactive terminal (task #35)\n%s\n' "$LED_VERIFY_BASHRC_HOOK" >> /home/${FIRST_USER_NAME}/.bashrc
+    chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.bashrc
+fi
 
 # compat symlinks, remove after one release: the neopixel_spi_* scripts were
 # renamed to rq_led_* (the SPI backend is gone). Our own wrappers/manifests use
