@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T09:45:44Z",
+  "generated": "2026-07-16T16:07:45Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,17 +27,21 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-16-112242",
-      "name": "rasqberry-development-2026-07-16-112242",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-112242/rasqberry-development-2026-07-16-112242.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-112242",
-      "release_date": "2026-07-16 11:22",
-      "image_download_size": 2000892788,
+      "tag": "development-2026-07-16-174759",
+      "name": "rasqberry-development-2026-07-16-174759",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-174759/rasqberry-development-2026-07-16-174759.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-174759",
+      "release_date": "2026-07-16 17:47",
+      "image_download_size": 2002972172,
       "extract_size": 8942256128,
-      "extract_sha256": "2a68beec54c7f7367af4473ed4e152b5cf61b3bb15a6287ac513ce4049c9dccd",
+      "extract_sha256": "d3c1046228a640d300d7722aa32a642974ed500981a9af911516ad68980eb3ea",
+      "image_sha256": "093d24220e041775dd5d1c228a09b682209113b2df9cfb90cb09e91f2cd05843",
       "highlights": [
-        "run the GUI as the user on Wayland; drive LEDs via the root renderer",
-        "Bump version to development-2026-07-16-112242"
+        "one pinned checkout shared by both launch paths",
+        "post-install hook, installed flags, launcher precedence, more pins",
+        "pin curated demo checkouts to an upstream SHA (shared fetch engine)",
+        "Bump version to development-2026-07-16-174759",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-16-112242"
       ]
     }
   }
