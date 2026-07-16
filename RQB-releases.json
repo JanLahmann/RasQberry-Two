@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T16:07:45Z",
+  "generated": "2026-07-16T22:03:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,21 +27,19 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-16-174759",
-      "name": "rasqberry-development-2026-07-16-174759",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-174759/rasqberry-development-2026-07-16-174759.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-174759",
-      "release_date": "2026-07-16 17:47",
-      "image_download_size": 2002972172,
+      "tag": "dev-grokfix-2026-07-16-232905",
+      "name": "rasqberry-dev-grokfix-2026-07-16-232905",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-grokfix-2026-07-16-232905/rasqberry-dev-grokfix-2026-07-16-232905.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-grokfix-2026-07-16-232905",
+      "release_date": "2026-07-16 23:29",
+      "image_download_size": 2001302516,
       "extract_size": 8942256128,
-      "extract_sha256": "d3c1046228a640d300d7722aa32a642974ed500981a9af911516ad68980eb3ea",
-      "image_sha256": "093d24220e041775dd5d1c228a09b682209113b2df9cfb90cb09e91f2cd05843",
+      "extract_sha256": "a12fad783f8a94a9f27e7f2a33c679fff2a588c4b9ab2fa4f48f306bfa131d9a",
+      "image_sha256": "3353024c5d503e8a271ee5d3f3634c18d4a65feb989d5992db21ef625065eac6",
       "highlights": [
-        "one pinned checkout shared by both launch paths",
-        "post-install hook, installed flags, launcher precedence, more pins",
-        "pin curated demo checkouts to an upstream SHA (shared fetch engine)",
-        "Bump version to development-2026-07-16-174759",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-16-112242"
+        "stop the verify wizard firing at boot, and hanging on exit",
+        "stop reporting demos as running when they died",
+        "Bump version to dev-grokfix-2026-07-16-232905"
       ]
     }
   }
