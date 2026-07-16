@@ -13,6 +13,7 @@ from copy import deepcopy
 from io import BytesIO
 import traceback
 import timeit
+import signal
 import sys
 import tempfile
 import os
@@ -36,6 +37,24 @@ from qiskit.visualization import plot_bloch_multivector
 from fractal_webclient import WebClient
 from fractal_julia_calculations import JuliaSet
 from fractal_quantum_circuit import QuantumFractalCircuit
+
+# |
+# | Shutdown handling
+# └───────────────────────────────────────────────────────────────────────────────────────────────────────
+# Leave through sys.exit() when asked to stop, so the atexit hook that quits the
+# ChromeDriver and removes its profile directory actually runs.
+#
+# Every way this demo is stopped - the menu's "Yes to stop", the demo loop moving
+# on, a closed terminal - sends SIGTERM, whose default action kills the process
+# outright and skips atexit entirely. Each abandoned Chrome profile is ~7MB in
+# /tmp, so a demo loop cycling all day left hundreds of megabytes behind on a
+# 10GB slot. Raising SystemExit instead lets the normal cleanup path run.
+def _exit_on_signal(signum, _frame):
+    sys.exit(128 + signum)
+
+
+signal.signal(signal.SIGTERM, _exit_on_signal)
+signal.signal(signal.SIGINT, _exit_on_signal)
 
 # |
 # | Global settings for the script
