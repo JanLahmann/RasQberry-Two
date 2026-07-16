@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T21:43:45Z",
+  "generated": "2026-07-16T21:44:11Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 2000708576,
       "extract_size": 8942256128,
       "extract_sha256": "4dda9397654429942285be50e943c953dcd95d5bdb4f1e2773655ac9c1672570",
-      "image_sha256": "adfa3e424e8332b0a099a06f7dcd7a35a8af009357fbd19fc659cff7447b55d8",
       "highlights": [
         "stop the verify wizard firing at boot, and hanging on exit",
         "stop reporting demos as running when they died",
