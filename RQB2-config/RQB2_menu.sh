@@ -719,17 +719,52 @@ run_demo() {
   OLD_STTY=$(stty -g)
   # Reset terminal state before launching
   stty sane
-  # Launch the demo in its own session so we can kill the full process group
+  # Launch the demo in its own session so we can kill the full process group.
+  # Both modes keep a copy of the output in DEMO_LOG so that if the demo dies we
+  # can tell the user WHY (see the liveness check below).
+  DEMO_LOG=/tmp/rqb-demo.log
   if [ "$MODE" = "pty" ]; then
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" "$DEMO_LOG" ) &
   else
       # bg mode: send the demo's stdout+stderr to a log, NOT the terminal —
       # otherwise a background demo's output (and LED library messages) prints
       # over the "Demo is running" whiptail dialog and corrupts the TUI.
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >/tmp/rqb-demo.log 2>&1 ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >"$DEMO_LOG" 2>&1 ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
+
+  # Did it actually start?
+  #
+  # Nothing used to check. The dialog below announced "Demo is running" whether
+  # or not the demo was there, so a demo that died on startup - GPIO already
+  # held by another demo, a missing module, an unpatched upstream - looked
+  # identical to one that worked, except the panel stayed dark. In bg mode the
+  # traceback went to the log, which no user reads. Give it a moment to fall
+  # over, and if it did, report the real error instead of a comfortable lie.
+  sleep 2
+  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+      wait "$DEMO_PID"
+      DEMO_RC=$?
+      stty sane
+      if [ "$DEMO_RC" -ne 0 ]; then
+          # Strip the CR/escape noise a pty log carries, drop the Python stack
+          # frames ('File "..."' and the caret lines under them) which say
+          # nothing to a user, and keep the last lines - the message that
+          # matters ("GPIO busy", "No module named ...") is at the end.
+          RQ_LAST_DEMO_ERROR=$(sed 's/\r//g; s/\x1b\[[0-9;]*[a-zA-Z]//g' "$DEMO_LOG" 2>/dev/null \
+              | grep -v '^[[:space:]]*$' \
+              | grep -vE '^[[:space:]]*(File "|\^+[[:space:]]*$|~+[[:space:]]*$)' \
+              | tail -n 5)
+          [ -z "$RQ_LAST_DEMO_ERROR" ] && RQ_LAST_DEMO_ERROR="Exited immediately with status $DEMO_RC (no output)."
+          stty "$OLD_STTY" 2>/dev/null || true
+          return 1
+      fi
+      # Exited cleanly and quickly: it ran, it finished. Not an error.
+      stty "$OLD_STTY" 2>/dev/null || true
+      return 0
+  fi
+
   # Ask user when to stop
   whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
   RESPONSE=$?
@@ -2315,6 +2350,17 @@ do_rasqberry_menu() {
 # Function for graceful error handling in menus
 handle_error() {
     local MSG="$1"
+    # Every caller passes a generic sentence ("Failed to run demo: X"), which
+    # told the user nothing about the actual cause - the traceback, the "GPIO
+    # busy", the "requires a display". run_demo leaves that here when it catches
+    # a demo dying, so show it with the message rather than instead of it.
+    if [ -n "${RQ_LAST_DEMO_ERROR:-}" ]; then
+        whiptail --title "Error" --msgbox "$MSG
+
+$RQ_LAST_DEMO_ERROR" 20 76
+        RQ_LAST_DEMO_ERROR=""
+        return 1
+    fi
     whiptail --title "Error" --msgbox "$MSG" 8 60
     return 1
 }
