@@ -1,12 +1,30 @@
 #!/bin/bash
 #
-# rq_demo_generate_desktop.sh - Generate .desktop files from demo manifests
+# rq_demo_generate_desktop.sh - Scaffold .desktop files from demo manifests
+#
+# This is a DEVELOPMENT tool. It is not run at build time, and it is NOT a sync
+# tool: RQB2-config/desktop-bookmarks/ is the deployed source of truth and is
+# maintained by hand. Use this to draft the icon for a NEW demo, then edit and
+# commit the result yourself.
+#
+# It cannot reproduce the committed icons, which is why it must not write over
+# them (the --update mode that did was removed):
+#   - it derives filenames from the demo name, so it would add a SECOND icon
+#     beside an existing one (grokking-the-bloch-sphere.desktop vs grok-bloch.desktop)
+#   - it cannot express the terminal wrappers some icons need (qoffee-maker tees
+#     its output to a log and waits for Enter, so a failed Docker build is
+#     readable rather than a window that vanishes)
+#   - it cannot express variants (fun-with-quantum readme vs coin-game)
+#   - it does not know about icons that have no manifest (clear-leds, demo-loop,
+#     touch-mode, ...)
+#
+# Use --diff to see how the committed icons differ from what the manifests imply.
+# Differences are expected: treat it as a prompt to think, not a defect list.
 #
 # Usage:
 #   rq_demo_generate_desktop.sh              # Generate to stdout (dry run)
-#   rq_demo_generate_desktop.sh --output DIR # Generate to specified directory
-#   rq_demo_generate_desktop.sh --diff       # Compare generated with existing
-#   rq_demo_generate_desktop.sh --update     # Update desktop-bookmarks/ directory
+#   rq_demo_generate_desktop.sh --output DIR # Generate to a scratch directory
+#   rq_demo_generate_desktop.sh --diff       # Compare generated with committed
 #
 # Requires: jq
 #
@@ -251,53 +269,44 @@ diff_desktop_files() {
 }
 
 # Update desktop-bookmarks directory with generated files
-update_desktop_files() {
-    local backup_dir="$DESKTOP_DIR.backup.$(date +%Y%m%d_%H%M%S)"
-
-    echo "Creating backup in $backup_dir..."
-    cp -r "$DESKTOP_DIR" "$backup_dir"
-
-    echo "Generating desktop files..."
-    generate_all "$DESKTOP_DIR"
-
-    echo ""
-    echo "Desktop files updated. Backup saved to: $backup_dir"
-}
 
 # Show help
 show_help() {
     cat << 'EOF'
-RasQberry Desktop File Generator
+RasQberry Desktop File Scaffolder
 
-Generates .desktop files from demo manifest files.
+Drafts .desktop files from demo manifests. DEVELOPMENT TOOL - not run at build.
+
+RQB2-config/desktop-bookmarks/ is the deployed source of truth and is edited by
+hand. This tool does not write there: it cannot reproduce those icons (it derives
+its own filenames, and cannot express terminal wrappers, variants, or icons that
+have no manifest). Use it to draft an icon for a NEW demo, then edit and commit.
 
 Usage:
   rq_demo_generate_desktop.sh [command]
 
 Commands:
   (no args)     Print generated desktop entries to stdout (dry run)
-  --output DIR  Generate desktop files to specified directory
-  --diff        Compare generated files with existing desktop-bookmarks/
-  --update      Update desktop-bookmarks/ with generated files (creates backup)
+  --output DIR  Write drafts to a scratch directory for review
+  --diff        Show how committed icons differ from what the manifests imply
   --help, -h    Show this help
 
 Examples:
-  # Preview what would be generated
+  # Preview what the manifests imply
   rq_demo_generate_desktop.sh
 
-  # Generate to a temp directory for review
+  # Draft icons into a scratch dir, then copy what you want by hand
   rq_demo_generate_desktop.sh --output /tmp/desktop-test
 
-  # See differences between manifests and existing files
+  # Inspect drift (differences are EXPECTED - a prompt to think, not a bug list)
   rq_demo_generate_desktop.sh --diff
-
-  # Update desktop-bookmarks/ (creates timestamped backup)
-  rq_demo_generate_desktop.sh --update
 
 Notes:
   - Only manifests with desktop.show=true are processed
-  - Manifests without entrypoint.launcher are skipped
-  - Existing desktop files not generated from manifests are preserved
+  - Everything with a manifest dispatches through rq_demo_run.sh <id>, so the
+    icon installs-if-missing at the pinned SHA and then delegates to any launcher
+  - Icons with no manifest (clear-leds, demo-loop, touch-mode, ...) are not
+    produced here at all
 
 EOF
 }
@@ -319,7 +328,21 @@ main() {
             diff_desktop_files
             ;;
         --update)
-            update_desktop_files
+            # Removed deliberately. This wrote generated files straight into the
+            # committed desktop-bookmarks/, but it cannot reproduce them: it would
+            # add duplicate icons under different filenames and drop the terminal
+            # wrappers and variants the committed icons rely on. See the header.
+            cat >&2 << 'EOF'
+--update has been removed: it silently clobbered the committed icons.
+
+RQB2-config/desktop-bookmarks/ is the source of truth and is edited by hand.
+This tool only scaffolds an icon for a NEW demo:
+
+  rq_demo_generate_desktop.sh --output /tmp/scaffold   # draft, then edit + commit
+  rq_demo_generate_desktop.sh --diff                   # see how committed differs
+
+EOF
+            exit 1
             ;;
         --help|-h)
             show_help
