@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T16:28:38Z",
+  "generated": "2026-07-16T20:40:16Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,19 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-16-174759",
-      "name": "rasqberry-development-2026-07-16-174759",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-174759/rasqberry-development-2026-07-16-174759.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-174759",
-      "release_date": "2026-07-16 17:47",
-      "image_download_size": 2002972172,
+      "tag": "development-2026-07-16-222036",
+      "name": "rasqberry-development-2026-07-16-222036",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-222036/rasqberry-development-2026-07-16-222036.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-222036",
+      "release_date": "2026-07-16 22:20",
+      "image_download_size": 2000478492,
       "extract_size": 8942256128,
-      "extract_sha256": "d3c1046228a640d300d7722aa32a642974ed500981a9af911516ad68980eb3ea",
+      "extract_sha256": "f7513932e2ab6f1cea1f88b88d3fcaa401729e7c8404b58bc6b9ac402f07c25d",
+      "image_sha256": "08a59a9731ff9da74526e337cbf730f1847ac8bc60d1414e56384c7586252357",
       "highlights": [
-        "one pinned checkout shared by both launch paths",
-        "post-install hook, installed flags, launcher precedence, more pins",
-        "pin curated demo checkouts to an upstream SHA (shared fetch engine)",
-        "Bump version to development-2026-07-16-174759",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-16-112242"
+        "stop the Lab extension throwing a traceback on notebook 6",
+        "Bump version to development-2026-07-16-222036",
+        "stop the desktop generator clobbering the committed icons"
       ]
     }
   }
