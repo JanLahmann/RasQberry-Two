@@ -207,8 +207,8 @@ jobs:
             echo "- **Syntax errors**: Run \`bash -n <script>\` locally to check" >> $GITHUB_STEP_SUMMARY
             echo "- **Safety flags**: Add \`set -euo pipefail\` at the top of scripts" >> $GITHUB_STEP_SUMMARY
             echo "- **USER_HOME violations**: Remove USER_HOME redefinitions, use \`load_rqb2_env\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Missing patterns**: Ensure scripts use \`rq_common.sh\` functions
-            echo "- **Unpinned third-party demo**: add \`install.ref\` (full 40-char SHA), or add the owner to \`RQB2-config/trusted-repo-owners.txt\` if we control it"" >> $GITHUB_STEP_SUMMARY
+            echo "- **Missing patterns**: Ensure scripts use \`rq_common.sh\` functions" >> $GITHUB_STEP_SUMMARY
+            echo "- **Unpinned third-party demo**: add \`install.ref\` (full 40-char SHA), or add the owner to \`RQB2-config/trusted-repo-owners.txt\` if we control it" >> $GITHUB_STEP_SUMMARY
           else
             if [ "$IS_DEV_BRANCH" = true ]; then
               echo "## 🎉 Excellent Work!" >> $GITHUB_STEP_SUMMARY
