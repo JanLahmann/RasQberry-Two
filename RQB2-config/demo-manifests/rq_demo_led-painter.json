@@ -20,6 +20,7 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/Luka-D/RasQberry-Two-LED-Painter.git",
+    "ref": "6a6a924bb475002480a425dd7fc934599abf94eb",
     "marker_file": "LED_painter.py"
   },
   "needs_hw": {

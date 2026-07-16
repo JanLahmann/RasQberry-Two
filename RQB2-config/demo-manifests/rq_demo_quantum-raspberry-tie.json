@@ -18,6 +18,7 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/KPRoche/quantum-raspberry-tie.git",
+    "ref": "08bc07b02d3e3a17d8bf0fdaefc0102984f8c8f6",
     "marker_file": "QuantumRaspberryTie.v8_0.py",
     "patch_file": "quantum-raspberry-tie.patch"
   },

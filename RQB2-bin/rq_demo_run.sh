@@ -217,10 +217,11 @@ check_installed() {
 # Install demo from manifest
 # Clones repo, applies patches, installs pip requirements
 install_demo() {
-    local repo_url working_dir patch_file pip_requirements
+    local repo_url ref working_dir patch_file pip_requirements
     local demo_dir
 
     repo_url=$(get_field '.install.repo_url' '')
+    ref=$(get_field '.install.ref' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
     patch_file=$(get_field '.install.patch_file' '')
     pip_requirements=$(get_bool '.install.pip_requirements' 'false')
@@ -239,8 +240,28 @@ install_demo() {
     mkdir -p "$USER_HOME/$REPO/demos"
     fix_root_ownership "$USER_HOME/$REPO/demos"
 
-    # Clone the repository (clone_demo cleans up partial clones and fixes ownership)
-    clone_demo "$repo_url" "$demo_dir"
+    # Acquire the sources.
+    #
+    # A manifest that pins install.ref gets exactly that upstream commit, via the
+    # same fetch_pinned_repo() primitive the external-demo registry uses. This
+    # matters most for the demos we PATCH: a patch is written against specific
+    # lines of a specific upstream version, so tracking a moving HEAD lets an
+    # unrelated upstream commit break our install (the patch then fails to apply
+    # and the demo refuses to run). Pinning makes installs reproducible and puts
+    # us in control of when upstream changes are taken.
+    #
+    # Unpinned manifests keep the old behaviour (track the default branch).
+    if [ -n "$ref" ]; then
+        info "Fetching pinned commit ${ref} ..."
+        # fetch_pinned_repo git-inits in place, so hand it a clean destination
+        # (a previous partial/failed checkout may be lying around).
+        [ -d "$demo_dir" ] && rm -rf "$demo_dir"
+        fetch_pinned_repo "$repo_url" "$ref" "$demo_dir" \
+            || die "Failed to fetch pinned commit $ref for demo '$DEMO_ID'"
+    else
+        # clone_demo cleans up partial clones and fixes ownership
+        clone_demo "$repo_url" "$demo_dir"
+    fi
 
     # Apply patch if specified.
     #
