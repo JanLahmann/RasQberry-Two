@@ -24,7 +24,14 @@ verify_env_vars USER_HOME BIN_DIR
 DOCKER_IMAGE="${QUANTUM_MIXER_DOCKER_IMAGE:-quantum-mixer:arm64}"
 CONTAINER_NAME="quantum-mixer"
 PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
-REPO_DIR="${USER_HOME}/quantum-mixer"
+# Same directory the menu's installer (do_quantum_mixer_install) builds in.
+#
+# This used to be ${USER_HOME}/quantum-mixer - outside demos/, unlike every
+# other demo (issue #246), and NOT where the installer put its checkout. So the
+# two disagreed: QUANTUM_MIXER_INSTALLED could be true against a tree this
+# script never looked at, and it would clone and build a second copy. Same
+# two-installers-two-directories bug that made the led-painter pin inert.
+REPO_DIR="$(get_demo_dir quantum-mixer)"
 REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
 
 ################################################################################

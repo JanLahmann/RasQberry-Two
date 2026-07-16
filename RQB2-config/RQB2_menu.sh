@@ -806,11 +806,17 @@ run_qlo_demo() {
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
     # Ensure installed
     do_qlo_install
-    # Launch appropriate mode
+    # Launch appropriate mode.
+    #
+    # The console variant IS played in the terminal, so it keeps the pty. The
+    # default variant plays on the LEDs and its stdout is just noise - the
+    # solver's progress and Qiskit's deprecation warnings, which used to print
+    # over the whiptail dialog and hide the "Select Yes to stop" prompt (users
+    # had to press Enter blind). Send that to the log instead.
     if [ "$MODE" = "console" ]; then
         run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
     else
-        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
     fi
     # Turn off LEDs when demo ends
     do_led_off
@@ -878,8 +884,12 @@ run_led_painter_demo() {
 
 # Run RasQ-LED demo
 run_rasq_led_demo() {
-    # Launch the RasQ-LED quantum circuit demo directly
-    run_demo "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
+    # Launch the RasQ-LED quantum circuit demo directly.
+    #
+    # bg: this demo's output is the LEDs, not the terminal. Its raw console
+    # output used to replace the TUI entirely (the other LED demos already run
+    # this way).
+    run_demo bg "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -917,13 +927,15 @@ stop_qoffee_containers() {
 
 # Run Quantum-Mixer demo
 run_quantum_mixer_demo() {
-    # Check if setup has been run (Docker installed)
-    if ! command -v docker > /dev/null 2>&1; then
-        whiptail --title "Setup Required" --msgbox \
-            "Quantum-Mixer requires Docker, which is not installed.\n\nSetup will now run to install Docker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
-            12 70
-        "$BIN_DIR/qoffee-setup.sh" || return 1
-    fi
+    # Ask before installing, like every other demo.
+    #
+    # This used to drop straight into quantum-mixer.sh, which cloned and then
+    # ran a Docker build FROM SOURCE with no prompt and no dialog - raw build
+    # output over the TUI for several minutes. On a 10GB A/B slot that build ran
+    # the disk to 100% and left the system unusable (finding F28), so of all the
+    # demos this is the one that should ask first. install_via_engine gives it
+    # the same consent prompt and error dialog as the rest.
+    install_via_engine "quantum-mixer" "Quantum-Mixer" || return 1
 
     # Launch the Quantum-Mixer demo
     "$BIN_DIR/quantum-mixer.sh"
