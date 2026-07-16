@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-16T00:26:08Z",
+  "generated": "2026-07-16T08:45:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -36,11 +36,7 @@
       "extract_size": 8942256128,
       "extract_sha256": "caff4c3e23c9c2d5ad144583567f295f5c8ffe92b14eee6be551cd311e582656",
       "highlights": [
-        "render via shared layout mapper, not hardcoded table",
-        "browser emulator (LED_WEB) + raspi-config toggle",
-        "autostart the notebook and activate app mode (kiosk)",
-        "Bump version to development-2026-07-15-222920",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-14-192320"
+        "Development build - see release notes for details"
       ]
     }
   }
