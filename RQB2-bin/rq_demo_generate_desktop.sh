@@ -105,20 +105,19 @@ generate_desktop_entry() {
 
     # Build Exec command.
     #
-    # A dedicated launcher wins (docker/browser-server demos, and demos whose
-    # launcher does real pre-launch work such as LED-Painter's PWM converter).
-    # Otherwise a plain script demo dispatches through the universal launcher
-    # rq_demo_run.sh <id>, which installs-if-missing, applies patches and runs
-    # the demo the same way the raspi-config menu does. This keeps every entry
-    # point (menu, desktop, loop) on one code path.
+    # Everything with a manifest dispatches through the universal launcher
+    # rq_demo_run.sh <id>: it installs-if-missing (at the manifest's pinned SHA),
+    # then delegates to the demo's launcher if it declares one. Pointing an icon
+    # straight at a launcher instead is what let the desktop bypass this engine -
+    # such icons installed via their own unpinned path, or not at all.
+    #
+    # A pure browser_url demo is the one exception: there is nothing to install
+    # or delegate, so the icon just opens the URL.
     local exec_cmd tryexec
-    if [ -n "$launcher" ]; then
-        exec_cmd="/usr/bin/$launcher"
-        tryexec="$exec_cmd"
-    elif [ -n "$browser_url" ]; then
+    if [ -n "$browser_url" ] && [ -z "$launcher" ] && [ -z "$script" ]; then
         exec_cmd="chromium-browser --password-store=basic $browser_url"
         tryexec="chromium-browser"
-    elif [ -n "$script" ]; then
+    else
         exec_cmd="/usr/bin/rq_demo_run.sh $id"
         tryexec="/usr/bin/rq_demo_run.sh"
     fi

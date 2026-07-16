@@ -130,6 +130,10 @@
         "installed_flag": {
           "type": "string",
           "description": "Optional environment variable (e.g. QUANTUM_PARADOXES_INSTALLED) set to true once installed. The raspi-config menu reads these flags, so declare it for any demo the menu tracks."
+        },
+        "installer": {
+          "type": "string",
+          "description": "Optional raspi-config install function (e.g. do_ibm_tutorials_install) that owns this demo's installation instead of the generic clone. Use ONLY when the setup cannot be expressed as 'clone a repo at a ref' - e.g. the IBM learning pair, which is one shared sparse checkout of Qiskit/documentation feeding two demos, with generated markers and a licence dialog. Mutually exclusive with repo_url: declaring both is ambiguous about which fetches the sources."
         }
       }
     },

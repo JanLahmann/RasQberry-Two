@@ -62,31 +62,47 @@ show_menu() {
 }
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
-install_demo() {
-    NAME="$1"           # demo directory name
-    GIT_URL="$2"        # corresponding repo URL variable
-    MARKER="$3"         # script or file that must exist
-    ENV_VAR="$4"        # environment variable name to set
-    TITLE="$5"          # title for dialog messages
-    PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
-    INSTALL_REQS="${7:-}"   # optional: "pip" to install requirements.txt (default empty)
+# The generic demo installer that used to live here has been removed.
+# Demo installation is now owned by ONE engine, rq_demo_run.sh, which every
+# entry point (this menu, desktop icons, the demo loop) calls. Having a
+# second installer here meant this menu cloned demos unpinned into the very
+# directories the engine installs pinned, so the upstream revision a user got
+# depended on which path they happened to use first. See install_via_engine().
 
-    DEST="$DEMO_ROOT/$NAME"
+# Install a demo through the single install engine (rq_demo_run.sh).
+#
+# Why this exists: this menu used to clone demos itself, into the SAME
+# directories the engine uses but WITHOUT the manifest's upstream SHA pin. Two
+# installers writing one directory meant whoever ran first decided which upstream
+# revision the user got - so a pinned demo silently became unpinned when it was
+# installed from this menu, which is how a patch could break against upstream
+# drift even though the manifest pinned it.
+#
+# This keeps the parts that belong to the menu (consent before a download,
+# success/error dialogs) and hands the actual acquisition - pin, patch, pip,
+# post-install, installed flag - to the engine.
+install_via_engine() {
+    DEMO_ID="$1"    # manifest id, e.g. grok-bloch
+    TITLE="$2"      # title for dialog messages
 
-    # Check if already installed
-    if [ -f "$DEST/$MARKER" ]; then
-        return 0  # Already installed
+    RUNNER="$BIN_DIR/rq_demo_run.sh"
+    if [ ! -x "$RUNNER" ]; then
+        echo "ERROR: demo engine not found at $RUNNER"
+        return 1
     fi
 
-    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    # Already installed? Ask the engine rather than second-guessing it here.
+    if "$RUNNER" "$DEMO_ID" --is-installed 2>/dev/null; then
+        return 0
+    fi
+
+    # Confirm before using the network (unless a caller enabled auto-install)
     if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
         if command -v whiptail > /dev/null 2>&1; then
             whiptail --title "$TITLE Not Installed" \
                      --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
                      10 65 3>&1 1>&2 2>&3
-
             if [ $? -ne 0 ]; then
-                # User cancelled installation
                 return 1
             fi
         else
@@ -95,139 +111,59 @@ install_demo() {
             echo "This requires downloading from GitHub."
             printf "Install now? (y/n) "
             read REPLY
-            # POSIX case pattern matching (works in dash, unlike [[ =~ ]])
             case "$REPLY" in
-                [Yy]|[Yy][Ee][Ss]) ;;  # Continue with installation
-                *) return 1 ;;          # User declined
+                [Yy]|[Yy][Ee][Ss]) ;;
+                *) return 1 ;;
             esac
         fi
     else
-        # Auto-install mode - proceed without prompting
         echo "Auto-installing $TITLE..."
     fi
 
-    # Clone demo repository
-    mkdir -p "$DEST"
-    if git clone --depth 1 "$GIT_URL" "$DEST"; then
-        # Fix ownership if cloned as root (when run from raspi-config)
-        if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-            chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
-        fi
-
-        # Apply RasQberry customization patch if specified
-        # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
-        PATCH_PATH=""
-        if [ -n "$PATCH_FILE" ]; then
-            if [ -f "/usr/config/demo-patches/$PATCH_FILE" ]; then
-                PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE"
-            elif [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
-                PATCH_PATH="$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE"
-            fi
-        fi
-
-        if [ -n "$PATCH_PATH" ]; then
-            echo "Applying RasQberry customizations..."
-            cd "$DEST" || return 1
-            if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
-                echo "✓ Applied RasQberry customizations (PWM/PIO LED driver support)"
-            else
-                echo "Warning: Could not apply customization patch (demo may not work correctly)"
-            fi
-            cd - > /dev/null || true
-        fi
-
-        # Install Python dependencies if requested
-        if [ "$INSTALL_REQS" = "pip" ] && [ -f "$DEST/requirements.txt" ]; then
-            echo "Installing Python dependencies..."
-
-            # Verify virtual environment exists
-            if [ ! -d "$REPO_DIR/venv/$STD_VENV" ]; then
-                whiptail --title "Error" --msgbox "Virtual environment not found at $REPO_DIR/venv/$STD_VENV" 8 70
-                rm -rf "$DEST"
-                return 1
-            fi
-
-            # Use venv's pip directly
-            VENV_PIP="$REPO_DIR/venv/$STD_VENV/bin/pip3"
-
-            # Show progress message
-            if command -v whiptail > /dev/null 2>&1; then
-                whiptail --title "Installing Dependencies" --infobox "Installing Python packages from requirements.txt...\n\nThis may take a few minutes.\nPlease wait..." 10 60
-            fi
-
-            # Install using venv's pip with sudo (venv is owned by root from build)
-            cd "$DEST" || return 1
-            if sudo "$VENV_PIP" install -r requirements.txt > /dev/null 2>&1; then
-                echo "✓ Python dependencies installed successfully"
-            else
-                whiptail --title "Warning" --msgbox "Failed to install some Python dependencies.\n\nDemo may not work correctly." 10 60
-            fi
-            cd - > /dev/null || true
-        fi
-
-        update_environment_file "$ENV_VAR" "true"
-
-        # Show success message (unless in auto-install mode)
+    if "$RUNNER" "$DEMO_ID" --install-only; then
         if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
             whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
         else
             echo "✓ $TITLE installed successfully"
         fi
-    else
-        # Clean up empty directory and show error
-        rm -rf "$DEST"
-
-        # Show error message (unless in auto-install mode)
-        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
-        else
-            echo "ERROR: Failed to download $TITLE demo"
-        fi
-        return 1
+        return 0
     fi
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        whiptail --title "Installation Error" --msgbox "Failed to install $TITLE.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+    else
+        echo "ERROR: Failed to install $TITLE demo"
+    fi
+    return 1
 }
 
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
-    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
-                 "$MARKER_QLO" "QUANTUM_LIGHTS_OUT_INSTALLED" \
-                 "Quantum Lights Out" "$PATCH_FILE_QLO"
+    install_via_engine "quantum-lights-out" "Quantum Lights Out"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
-    install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "$MARKER_QRT" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
-                 "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
+    install_via_engine "quantum-raspberry-tie" "Quantum Raspberry-Tie"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
-    install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
-                 "$MARKER_GROK_BLOCH" "GROK_BLOCH_INSTALLED" \
-                 "Grok Bloch Sphere" ""
+    install_via_engine "grok-bloch" "Grok Bloch Sphere"
 }
 
 # Install Fun-with-Quantum notebooks if needed
 do_fwq_install() {
-    install_demo "fun-with-quantum" "$GIT_REPO_DEMO_FWQ" \
-                 "$MARKER_FWQ" "FUN_WITH_QUANTUM_INSTALLED" \
-                 "Fun with Quantum" ""
+    install_via_engine "fun-with-quantum" "Fun with Quantum"
 }
 
 # Install Quantum Paradoxes demo if needed
+#
+# The setup step that creates WELCOME.ipynb and fixes the Qiskit imports is no
+# longer invoked here: it is declared as install.post_install in the manifest and
+# run by the engine, so every entry point gets it rather than just this one.
 do_quantum_paradoxes_install() {
-    install_demo "quantum-paradoxes" "$GIT_REPO_DEMO_PARADOXES" \
-                 "$MARKER_PARADOXES" "QUANTUM_PARADOXES_INSTALLED" \
-                 "Quantum Paradoxes" ""
-
-    # Run post-install setup (creates WELCOME.ipynb, fixes Qiskit imports)
-    PARADOX_DIR="$DEMO_ROOT/quantum-paradoxes"
-    if [ -f "$PARADOX_DIR/schrodingers-cat.ipynb" ]; then
-        echo "Running Quantum Paradoxes setup..."
-        . "$VENV_ACTIVATE"
-        python3 "$BIN_DIR/setup_quantum_paradoxes.py" --path "$PARADOX_DIR"
-    fi
+    install_via_engine "quantum-paradoxes" "Quantum Paradoxes"
 }
 
 # Run Quantum Paradoxes demo

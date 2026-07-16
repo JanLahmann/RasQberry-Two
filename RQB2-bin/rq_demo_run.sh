@@ -360,8 +360,22 @@ ensure_installed() {
         return 0
     fi
 
+    # A demo whose setup cannot be expressed as "clone a repo" names its own
+    # installer instead. The IBM learning pair is the live case: one shared
+    # sparse checkout of Qiskit/documentation feeding two demos, with generated
+    # marker notebooks and a licence dialog. Delegating keeps that special case
+    # in one place while this engine still owns WHEN installs happen, so every
+    # entry point (menu, desktop icon, demo loop) goes through here.
+    local installer repo_url
+    installer=$(get_field '.install.installer' '')
+    if [ -n "$installer" ]; then
+        info "Demo not installed. Auto-installing via $installer ..."
+        install_demo_raspiconfig "$installer" \
+            || die "Installation failed for demo '$DEMO_ID' ($installer)"
+        return 0
+    fi
+
     # Check if we can auto-install
-    local repo_url
     repo_url=$(get_field '.install.repo_url' '')
 
     if [ -z "$repo_url" ]; then
@@ -378,11 +392,22 @@ ensure_installed() {
 
 # Jupyter notebook launcher
 run_jupyter() {
-    local working_dir port notebook demo_dir
+    local working_dir port notebook demo_dir launcher
 
     working_dir=$(demo_field '.entrypoint.working_dir' '')
     port=$(demo_field '.entrypoint.jupyter_port' '8888')
     notebook=$(demo_field '.entrypoint.notebook' '')
+    launcher=$(demo_field '.entrypoint.launcher' '')
+
+    # A declared launcher wins, exactly as in run_python/run_docker/run_browser.
+    # These launchers do per-demo work the generic server start cannot know about
+    # (app-mode/voila, notebook selection, token prompts). Ignoring them here was
+    # why the menu (which calls the launcher) and the desktop icon (which came
+    # through this engine) behaved differently for the same jupyter demo.
+    if [ -n "$launcher" ]; then
+        delegate_launcher "$launcher"
+        return 0
+    fi
 
     demo_dir="$USER_HOME/$REPO/demos/$working_dir"
 
@@ -761,8 +786,18 @@ delegate_launcher() {
         die "Launcher script not found: $launcher"
     fi
 
-    info "Delegating to: $launcher"
-    exec "$launcher_path"
+    # Pass the demo/variant args on to the launcher. Without this a launcher that
+    # takes a parameter could not be driven from a manifest at all, which is why
+    # per-notebook demos needed their own bespoke wrapper scripts and desktop
+    # icons that bypassed this engine entirely.
+    local launcher_args=()
+    local a
+    while IFS= read -r a; do
+        [ -n "$a" ] && launcher_args+=("$a")
+    done < <(get_demo_args)
+
+    info "Delegating to: $launcher${launcher_args[*]:+ ${launcher_args[*]}}"
+    exec "$launcher_path" "${launcher_args[@]}"
 }
 
 # ============================================================================
@@ -803,11 +838,21 @@ Arguments:
   demo-id    The demo identifier (e.g., fun-with-quantum, led-demos)
   variant    Optional variant for demos with multiple modes (e.g., ibm-logo)
 
+Options:
+  --install-only   Install the demo if needed, then exit without launching it.
+                   Lets callers that only want the demo on disk (the raspi-config
+                   menu, batch "download all demos") share this one install path
+                   instead of keeping their own.
+  --is-installed   Exit 0 if the demo is installed, 1 if not. Prints nothing.
+                   Lets callers decide whether to prompt before a download
+                   without re-implementing this engine's install check.
+
 Examples:
   rq_demo_run.sh fun-with-quantum       # Launch Fun with Quantum notebooks
   rq_demo_run.sh quantum-mixer          # Launch Quantum Mixer Docker demo
   rq_demo_run.sh grok-bloch-web         # Open Grok Bloch in browser
   rq_demo_run.sh led-demos ibm-logo     # Run IBM Logo LED demo
+  rq_demo_run.sh grok-bloch --install-only   # Install only, do not launch
 
 Available demos can be found in: /usr/config/demo-manifests/
 
@@ -822,6 +867,25 @@ main() {
         usage
         exit 0
     fi
+
+    # Collect flags from anywhere in the argument list, so both
+    # "<id> --install-only" and "<id> <variant> --install-only" work.
+    local INSTALL_ONLY=0
+    local IS_INSTALLED_CHECK=0
+    local positional=""
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            --install-only) INSTALL_ONLY=1 ;;
+            --is-installed) IS_INSTALLED_CHECK=1 ;;
+            -*) die "Unknown option: $arg" ;;
+            *) positional="$positional $arg" ;;
+        esac
+    done
+    # shellcheck disable=SC2086 # deliberate word splitting of collected args
+    set -- $positional
+
+    [ $# -lt 1 ] && { usage; exit 0; }
 
     DEMO_ID="$1"
     VARIANT="${2:-}"
@@ -840,6 +904,14 @@ main() {
         fi
     fi
 
+    # A pure query: answer and leave, before the banner, trap or any other
+    # output. Callers use this to decide whether to prompt for a download, so it
+    # must stay silent - stray output would land in their whiptail dialogs.
+    if [ "$IS_INSTALLED_CHECK" = "1" ]; then
+        check_installed && exit 0
+        exit 1
+    fi
+
     # Get demo info (variant-aware: variants may override the entrypoint,
     # and carry their own args and needs_hw; everything else falls back
     # to the main manifest)
@@ -853,6 +925,16 @@ main() {
 
     # Setup cleanup trap
     trap cleanup EXIT INT TERM
+
+    # Install-only runs BEFORE check_requirements on purpose: installing a demo
+    # only needs the network, not the hardware it will eventually run on. The
+    # raspi-config menu installs from the console with no DISPLAY, and demanding
+    # a display here would refuse to download a demo the user just asked for.
+    if [ "$INSTALL_ONLY" = "1" ]; then
+        ensure_installed
+        info "$demo_name is installed"
+        exit 0
+    fi
 
     # Check requirements
     check_requirements

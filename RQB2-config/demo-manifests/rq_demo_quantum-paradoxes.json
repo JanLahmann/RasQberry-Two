@@ -15,7 +15,7 @@
     "type": "jupyter",
     "working_dir": "quantum-paradoxes",
     "jupyter_port": 8891,
-    "launcher": "rq_quantum_paradoxes_auto.sh"
+    "launcher": "rq_quantum_paradoxes.sh"
   },
   "install": {
     "preinstalled": false,

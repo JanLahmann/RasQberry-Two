@@ -16,12 +16,13 @@
     "type": "jupyter",
     "working_dir": "ibm-quantum-learning/tutorials",
     "jupyter_port": 8889,
-    "launcher": "rq_ibm_tutorials_auto.sh"
+    "launcher": "rq_ibm_tutorials.sh"
   },
   "install": {
     "preinstalled": false,
-    "repo_url": "https://github.com/Qiskit/documentation.git",
-    "marker_file": "WELCOME-tutorials.ipynb"
+    "marker_file": "WELCOME-tutorials.ipynb",
+    "installer": "do_ibm_tutorials_install",
+    "installed_flag": "IBM_TUTORIALS_INSTALLED"
   },
   "needs_hw": {
     "leds": false,

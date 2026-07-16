@@ -5,11 +5,11 @@ Comment=Interactive demonstration of quantum superposition and interference usin
 Icon=/usr/share/icons/rasqberry/Coin-Zahl-Kante.png
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh Quantum-Coin-Game.ipynb'
+Exec=/usr/bin/rq_demo_run.sh fun-with-quantum coin-game
 Terminal=true
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;coin;game;superposition;interference;jupyter;notebook;
 X-GNOME-TextColor=#000000
-TryExec=bash
+TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

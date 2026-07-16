@@ -61,7 +61,7 @@ check_display || warn "No display detected. Browser may not open automatically."
 
 # Verify demo is installed
 if [ ! -f "$DEMO_DIR/$MARKER_FWQ" ]; then
-    die "Fun-with-Quantum not installed. Use rq_fun_with_quantum_auto.sh or install via raspi-config."
+    die "Fun-with-Quantum not installed. Run 'rq_demo_run.sh fun-with-quantum' (installs on demand) or install via raspi-config."
 fi
 
 # Activate virtual environment

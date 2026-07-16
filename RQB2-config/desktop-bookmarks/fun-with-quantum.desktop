@@ -5,11 +5,11 @@ Comment=Interactive Jupyter notebooks for learning quantum computing through gam
 Icon=/usr/share/icons/rasqberry/Coin-115-0-0-Kante.png
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_fun_with_quantum_auto.sh Readme.ipynb'
+Exec=/usr/bin/rq_demo_run.sh fun-with-quantum readme
 Terminal=true
 StartupNotify=true
 MimeType=text/html;
 Keywords=quantum;jupyter;notebook;games;education;qiskit;rise;coin;grover;
 X-GNOME-TextColor=#000000
-TryExec=bash
+TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

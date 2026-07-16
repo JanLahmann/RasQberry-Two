@@ -19,12 +19,16 @@
     "type": "jupyter",
     "working_dir": "fun-with-quantum",
     "jupyter_port": 8888,
-    "launcher": "rq_fun_with_quantum_auto.sh"
+    "launcher": "rq_fun_with_quantum.sh",
+    "args": [
+      "Readme.ipynb"
+    ]
   },
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
-    "marker_file": "Quantum-Coin-Game.ipynb"
+    "marker_file": "Quantum-Coin-Game.ipynb",
+    "installed_flag": "FUN_WITH_QUANTUM_INSTALLED"
   },
   "needs_hw": {
     "leds": false,
@@ -45,5 +49,29 @@
   "desktop": {
     "show": true,
     "terminal": true
-  }
+  },
+  "variants": [
+    {
+      "id": "readme",
+      "name": "Fun with Quantum (start here)",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "Readme.ipynb"
+      ]
+    },
+    {
+      "id": "coin-game",
+      "name": "Quantum Coin Game",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "Quantum-Coin-Game.ipynb"
+      ]
+    }
+  ]
 }
