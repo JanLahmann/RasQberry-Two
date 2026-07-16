@@ -18,8 +18,29 @@ load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV GIT_REPO_DEMO_LED_PAINTER MARKER_LED_PAINTER
 
 DEMO_NAME="LED-Painter"
-DEMO_DIR="$USER_HOME/$REPO/demos/led-painter"
 MARKER="$MARKER_LED_PAINTER"
+
+# The manifest is the single source of truth for WHERE the demo lives and WHICH
+# upstream commit it is pinned to. This launcher is both a standalone entry point
+# (desktop icon, raspi-config menu) and rq_demo_run.sh's delegate, so reading the
+# same manifest keeps the two paths on ONE checkout. Hardcoding a directory here
+# forked them: the engine installed the pinned tree to the manifest's working_dir
+# while this script cloned an unpinned second copy elsewhere, and the unpinned one
+# was what actually ran - silently voiding the pin.
+MANIFEST_FILE=$(rq_find_manifest "/usr/config/demo-manifests" "led-painter" \
+    || echo "$(dirname "$SCRIPT_DIR")/RQB2-config/demo-manifests/rq_demo_led-painter.json")
+
+manifest_field() {
+    local val=""
+    [ -f "$MANIFEST_FILE" ] && val=$(jq -r "$1 // empty" "$MANIFEST_FILE" 2>/dev/null)
+    [ -n "$val" ] && echo "$val" || echo "$2"
+}
+
+# Fall back to the upstream repo name (the demo-directory convention) if the
+# manifest is unreadable, so a broken manifest cannot resurrect the old fork.
+DEMO_DIR=$(get_demo_dir "$(manifest_field '.entrypoint.working_dir' 'RasQberry-Two-LED-Painter')")
+DEMO_REF=$(manifest_field '.install.ref' '')
+DEMO_URL=$(manifest_field '.install.repo_url' "$GIT_REPO_DEMO_LED_PAINTER")
 
 ################################################################################
 # check_and_install_demo - Install LED Painter with all dependencies
@@ -46,10 +67,17 @@ check_and_install_demo() {
     # Create demos directory if it doesn't exist
     mkdir -p "$(dirname "$DEMO_DIR")"
 
-    # Clone repository
-    info "Cloning $DEMO_NAME repository..."
-    if ! git clone --depth 1 "$GIT_REPO_DEMO_LED_PAINTER" "$DEMO_DIR" 2>&1; then
-        die "Failed to clone $DEMO_NAME repository"
+    # Acquire the sources, honouring the manifest pin. LED-Painter is third-party
+    # (Luka-D), and we rewrite its driver code post-checkout, so tracking a moving
+    # HEAD would let an upstream commit break the conversion.
+    if [ -n "$DEMO_REF" ]; then
+        info "Fetching pinned commit $DEMO_REF ..."
+        [ -d "$DEMO_DIR" ] && rm -rf "$DEMO_DIR"
+        fetch_pinned_repo "$DEMO_URL" "$DEMO_REF" "$DEMO_DIR" \
+            || die "Failed to fetch pinned commit $DEMO_REF for $DEMO_NAME"
+    else
+        info "Cloning $DEMO_NAME repository (unpinned)..."
+        clone_demo "$DEMO_URL" "$DEMO_DIR"
     fi
 
     # Fix ownership if cloned as root
