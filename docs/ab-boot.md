@@ -24,8 +24,21 @@ room to put a system in Slot B, so every A/B operation fails until they grow:
 | Docker demos (quantum-mixer, Qoffee-Maker) fill the disk and die | ~500MB of headroom cannot hold an image build. |
 | Most of the SD card is unpartitioned | e.g. a 238GB card with only ~11.5GB in use. |
 
-The placeholders are deliberate: the image has to fit small cards and be quick to
-flash, so it ships minimal and grows to fit the card it lands on.
+The placeholders are deliberate. The A/B image is not built by pi-gen directly:
+CI takes the finished standard image and runs
+[`stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh`](../stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh)
+over it (`.github/workflows/RQB-image-v2.yaml`), which rewrites 2 partitions into
+the 7-partition A/B layout. That script is the source of truth for the layout,
+and its own header states the strategy:
+
+> Key improvements over v2:
+>   - Small initial image (~12GB) for fast download
+>   - Partitions expand via raspi-config on 64GB+ SD cards
+
+So Slot B and data are 16MB **so that the download stays ~12GB instead of ~120GB**
+— the image ships minimal and grows to fit the card it lands on. The expansion
+percentages (data 10%, system-a 45%, system-b 45%) are specified in that header
+and implemented in `do_expand_ab_partitions`; if you change one, change both.
 
 ### Why isn't it automatic, like the standard image?
 
