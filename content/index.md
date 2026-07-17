@@ -42,61 +42,58 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
   </div>
 </div>
 
-## Stay Updated
-
-Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
-
-Subscribe to our [newsletter](/newsletter) for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
-
 ## Getting Started
 
-### Option 1: Open in Raspberry Pi Imager (recommended)
-
-If you have **[Raspberry Pi Imager](https://www.raspberrypi.com/software/)** 2.0.3+ installed, click this link to open it pre-loaded with the RasQberry images:
+**1. Write the image.** With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3+ installed, this opens it pre-loaded with the RasQberry images:
 
 **[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
 
-Imager shows a brief security confirmation, then the RasQberry images appear under **Choose OS**. *(No Imager yet? [Install it first](https://www.raspberrypi.com/software/), then click the link.)*
+Confirm the security prompt, choose a RasQberry image under **Choose OS**, and write it to an SD card. No customisations needed.
 
-You can also add the repository manually: **App Options** (bottom-left) → **Content Repository** → **Use custom URL** → paste `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
+**2. Boot your Pi and log in.** SSH and VNC both work out of the box — username `rasqberry`, password `Qiskit1!`.
 
-### Option 2: Download Page
+**3. Answer the setup questions** on first login (below), then start a demo.
 
-Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, and development builds.
+<details>
+<summary><b>The link did nothing, or you don't have Imager yet</b></summary>
 
-After downloading, write the image to an SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/) (no customizations needed), then boot your Pi.
+The link needs **Raspberry Pi Imager 2.0.3 or newer** — [install it](https://www.raspberrypi.com/software/) and click again. If still nothing happens, your browser may not hand `rpi-imager://` links to the app. Any of these work instead:
 
-### Option 3: Command line (advanced)
+**Add the repository by hand.** In Imager: **App Options** (bottom-left) → **Content Repository** → **Use custom URL** → paste `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
 
-Launch Imager with the custom repository directly:
+**Download the image yourself.** Browse [rasqberry.org/latest/](/latest/) for stable, beta and development builds, then write it with Imager like any other image.
 
-**macOS:**
+**Start Imager from the command line.**
+
 ```bash
+# macOS
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
-```
 
-**Windows:**
-```bash
+# Windows
 "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
 ```
 
-### First Boot Setup
+</details>
 
-Once your RasQberry Two is running:
+### First boot
 
-1. **Connect** via SSH or VNC (both work out of the box)
-   - Username: `rasqberry`
-   - Password: `Qiskit1!`
+The first time you log in, RasQberry offers the setup steps that still need a
+decision from you. Nothing happens behind your back, and it stops asking once
+they are done:
 
-2. **Explore Demos** through the menu system:
-   - Run `sudo raspi-config` and select the first menu item
-   - Or use desktop icons to launch demos directly
-   - Note: Most demos require LED strips connected to GPIO pin 18
+- **Check the LED panel.** An IBM logo appears on your panel and you pick the
+  colour that shows it upright — that tells RasQberry how your LEDs are wired
+  and which way up they are mounted. Nothing to do if you have no panel.
+- **Expand the partitions.** Only on the [A/B image](02-software/03-ab-boot),
+  which ships with a placeholder second slot and needs a 64GB or larger card.
+  Worth doing first: until you do there is nowhere to put a second system, and
+  the disk is nearly full.
 
-3. **Report Issues** at [GitHub Issues](https://github.com/JanLahmann/RasQberry-Two/issues)
+Both are available later from `sudo raspi-config` → **0 RasQberry**.
 
-> **Note**: Additional features, demos, and improvements are continuously being added. Check [/latest/](/latest/) for the newest releases.
-
+Then try something: double-click a demo icon on the desktop, or see the
+[demo list](03-quantum-computing-demos/01-demo-list) — 17 demos ship with the
+image. Found a bug? [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 
 ## Working with Qiskit
 
@@ -139,6 +136,12 @@ RasQberry is an open-source educational project. We welcome contributions:
 4. **Create quantum demos** - Build new interactive demonstrations
 
 **Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
+
+## Stay Updated
+
+Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
+
+Subscribe to our [newsletter](/newsletter) for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
 
 ## Need Help?
 
