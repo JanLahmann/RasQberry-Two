@@ -97,6 +97,11 @@ INFER_SRC_ARGS=()
 cleanup() {
     # Best-effort: stop any logo animation, blank the strip, tear down the
     # render-hold, reap the virtual GUI, remove temp dir.
+    #
+    # Say so: this takes a few seconds (blanking the panel, waiting for the
+    # renderer to go), and it runs after the last dialog closes - so without a
+    # word here the wizard appears to sit silently and then vanish.
+    echo "Clearing the panel and finishing up..."
     stop_logo_alternator 2>/dev/null || true
     run_probe clear || true
     stop_render_hold
@@ -667,13 +672,19 @@ verify_layout() {
     start_render_hold
     run_logo "${current}" green
 
+    # Keep every line under the box width and pass an explicit height: at the
+    # default 12x65 the long question wrapped and whiptail dropped the last
+    # line, so this asked "Does it look CORRECT - upright," and never mentioned
+    # mirrored or upside-down - the two things it is actually asking about.
     if show_yesno "Verify LED panel" \
-"RasQberry ships pre-configured for this LED layout:
+"RasQberry is configured for this LED layout:
 
   LED_LAYOUT = ${current}
 
-A GREEN 'IBM' logo is now shown on your panel. Does it look CORRECT - upright,
-and NOT mirrored or upside-down?"; then
+A GREEN 'IBM' logo is now shown on your panel.
+
+Does it look right: upright, not mirrored,
+not upside-down?" 14 60; then
         mark_layout_verified
         run_probe clear || true
         show_msgbox "LED panel confirmed" \

@@ -1477,14 +1477,27 @@ do_expand_ab_partitions() {
     # two ~100GB partitions (step 7) is minutes on its own, and a frozen box with
     # no output is indistinguishable from a hang, on an operation we also tell
     # people not to interrupt.
-    # Keep the copy short enough to FIT: whiptail silently truncates anything
-    # taller than the box, and the line it drops is the last one - which is the
-    # "do not power off" warning.
+    # Plain text, NOT whiptail --infobox.
+    #
+    # An infobox does not block, and whiptail restores the screen when it exits -
+    # so the box flashes and is gone. That is why this operation looked silent
+    # with one infobox, and still looked silent when I gave it nine. The --yesno
+    # dialogs work only because they block waiting for an answer.
+    #
+    # Once the confirmation closes, the screen is a plain terminal until the
+    # final msgbox, which is exactly where the user is sitting and waiting - so
+    # print there. Nine steps, several minutes, and formatting two ~50GB
+    # partitions in step 7 with no output at all is indistinguishable from a
+    # hang, on the one operation we also tell people not to interrupt.
     expand_progress() {
-        whiptail --title "Expanding Partitions - step $1 of 9" --infobox \
-            "$2\n\nThis can take several minutes.\nDo not power off the system." \
-            10 64
+        printf '  [%s/9] %s\n' "$1" "$2"
     }
+
+    echo ""
+    echo "Expanding partitions. This takes several minutes on a large card -"
+    echo "formatting the new partitions (step 7) is the slow part."
+    echo "Do NOT power off the system."
+    echo ""
 
 
     # Initialize log file
