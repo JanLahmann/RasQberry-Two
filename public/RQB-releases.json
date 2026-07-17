@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T16:25:56Z",
+  "generated": "2026-07-17T18:18:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-17-170541",
-      "name": "rasqberry-development-2026-07-17-170541",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-170541/rasqberry-development-2026-07-17-170541.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-170541",
-      "release_date": "2026-07-17 17:05",
-      "image_download_size": 2000710704,
+      "tag": "development-2026-07-17-195907",
+      "name": "rasqberry-development-2026-07-17-195907",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-195907/rasqberry-development-2026-07-17-195907.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-195907",
+      "release_date": "2026-07-17 19:59",
+      "image_download_size": 2000431388,
       "extract_size": 8942256128,
-      "extract_sha256": "99f9d6b9fe111b6435e2c5331412dc1369dc0985b8a23a9f40ea66340613fbd5",
+      "extract_sha256": "f32e1d1e5c7fe9b6205280a1150d27c48e7557a56f35d17159460b76b0494ad8",
+      "image_sha256": "517112b7dd8a0cf6252433d2c144f7604e54e539d62902322cf853b713504fd0",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-195907/rasqberry-development-2026-07-17-195907-ab.img.xz",
+      "ab_extract_sha256": "ea1978b2fbd9591ae0bcdab0710a5e1551e1fadfae03363f33c2a66dcc4b8e28",
+      "ab_image_sha256": "6a9808bcc01a7f3ea75baf9eeb64587bcd32bd9606fb02da4a151cd9fcfa1dd1",
+      "ab_image_download_size": 2037378308,
+      "ab_extract_size": 12398362624,
       "highlights": [
-        "publish and use A/B checksums so A/B slot updates verify",
-        "Bump version to development-2026-07-17-170541",
-        "Merge branch 'development' of https://github.com/JanLahmann/RasQberry-Two into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-17-123456",
-        "Merge remote-tracking branch 'origin/dev-demoux' into development"
+        "three launcher bugs found while capturing screenshots",
+        "Bump version to development-2026-07-17-195907",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-17-170541"
       ]
     }
   }
