@@ -28,7 +28,7 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
     <p className="media-caption">3D-printed model inspired by IBM Quantum System Two</p>
   </div>
   <div className="media-item">
-    <video controls className="media-video" poster="/Artwork/RasQberry2model.png">
+    <video controls className="media-video" poster="/Artwork/RasQberry-demo-desktop.png" preload="none">
       <source src="/videos/RasQberry-beta-2026-06-04.mp4" type="video/mp4" />
       Your browser does not support the video tag.
     </video>
