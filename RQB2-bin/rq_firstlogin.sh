@@ -84,14 +84,23 @@ task_expand_label() {
 }
 task_expand_run() {
     # The expansion lives in the raspi-config menu (do_expand_ab_partitions);
-    # there is no standalone script - see docs/ab-boot.md on why. Source the
-    # menu in a subshell so its functions do not leak into this shell.
+    # there is no standalone script - see docs/ab-boot.md on why.
     if [ ! -r "$MENU_FILE" ]; then
         whiptail --title "Expand A/B partitions" --msgbox \
             "Could not find the RasQberry menu at:\n\n  $MENU_FILE\n\nRun it directly instead:\n\n  sudo raspi-config -> RasQberry -> AB_BOOT -> EXPAND" 12 68
         return 1
     fi
-    ( . "$MENU_FILE" >/dev/null 2>&1; do_expand_ab_partitions )
+    # Run it as root, and do NOT assume we already are.
+    #
+    # do_expand_ab_partitions repartitions the card and logs to /var/log: it only
+    # ever ran from raspi-config, which is already root, so it never had to ask.
+    # We are a login shell - the user - so sourcing and calling it directly gave
+    # "Permission denied" on every parted and every log write, and a dialog
+    # saying expansion "may have failed" when it had not started. (No damage:
+    # parted could not touch the table either.) The LED task works because the
+    # wizard re-execs itself via ensure_root; this has no such thing, so sudo it
+    # here. sudo -E keeps the env, and sets SUDO_USER, which the menu wants.
+    sudo -E bash -c ". '$MENU_FILE' >/dev/null 2>&1; do_expand_ab_partitions"
 }
 
 # ---------------------------------------------------------------------------
