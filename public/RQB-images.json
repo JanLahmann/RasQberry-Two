@@ -43,15 +43,15 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-demoux 2026-07-17-073311)",
+          "name": "RasQberry Two Dev (dev-demoux 2026-07-17-101704)",
           "description": "Development build from dev-demoux",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-073311/rasqberry-dev-demoux-2026-07-17-073311.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-101704/rasqberry-dev-demoux-2026-07-17-101704.img.xz",
           "extract_size": 8942256128,
-          "extract_sha256": "6e043a819ec076e595c5a230f537da226c5f51c766ce529875f4aa6d695087cd",
-          "image_download_size": 2000944520,
-          "image_sha256": "d65f9494932a7bab621f955abb8f28d11b7b87a8f6e390104029bee24c9b20ba",
-          "release_date": "2026-07-17 07:33",
+          "extract_sha256": "3958f861427656dc96f8f423fe2e5b5c098722d25d5060823540e8c819680660",
+          "image_download_size": 1999255240,
+          "image_sha256": "6691d982cb074b1c2fa4be44dc287299aa9bfe03158058ee2fed2f1737a1a911",
+          "release_date": "2026-07-17 10:17",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
@@ -101,15 +101,15 @@
           "website": "https://rasqberry.org"
         },
         {
-          "name": "RasQberry Two A/B (dev-demoux 2026-07-17-073311)",
+          "name": "RasQberry Two A/B (dev-demoux 2026-07-17-101704)",
           "description": "A/B boot image from dev-demoux",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-073311/rasqberry-dev-demoux-2026-07-17-073311-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-101704/rasqberry-dev-demoux-2026-07-17-101704-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "5774795149bf549c28641b04b440ddb0f714a2a94c24869d9d9c48ff902f2bb6",
-          "image_download_size": 2036994324,
-          "image_sha256": "0c6a4c0261220ba70c5aceeb0b00510d65ec9e31294fd59447a7368a8117f470",
-          "release_date": "2026-07-17 07:33",
+          "extract_sha256": "82d8e57c5f8eef0254a85fc02b82f1a971aee271df70130c20e895623601fe4a",
+          "image_download_size": 2035905384,
+          "image_sha256": "7981dc00450b38196737c00225546ec00d875300f6478b15858141aec03f5fe4",
+          "release_date": "2026-07-17 10:17",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
