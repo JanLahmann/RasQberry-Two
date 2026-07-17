@@ -118,7 +118,7 @@ For a complete list with descriptions and screenshots, see the [Demo List](01-de
 
 ### RasQberry Documentation
 - [Software Installation](../02-software/01-installation-overview)
-- [Hardware Assembly](../01-3d-model/hardware-assembly-guide)
+- [Hardware Assembly](../01-3d-model/02-hardware-assembly-guide)
 - [3D Model Files](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
 
 ## Contributing

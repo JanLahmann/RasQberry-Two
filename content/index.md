@@ -127,7 +127,7 @@ STL files for the 3D-printed model are available in the [3D-model branch](https:
   <p className="media-caption">Exploded view showing all 3D-printed components</p>
 </div>
 
-For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/hardware-assembly-guide).
+For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/02-hardware-assembly-guide).
 
 ## Contributing
 
