@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T18:18:18Z",
+  "generated": "2026-07-17T18:18:46Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,12 +35,6 @@
       "image_download_size": 2000431388,
       "extract_size": 8942256128,
       "extract_sha256": "f32e1d1e5c7fe9b6205280a1150d27c48e7557a56f35d17159460b76b0494ad8",
-      "image_sha256": "517112b7dd8a0cf6252433d2c144f7604e54e539d62902322cf853b713504fd0",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-195907/rasqberry-development-2026-07-17-195907-ab.img.xz",
-      "ab_extract_sha256": "ea1978b2fbd9591ae0bcdab0710a5e1551e1fadfae03363f33c2a66dcc4b8e28",
-      "ab_image_sha256": "6a9808bcc01a7f3ea75baf9eeb64587bcd32bd9606fb02da4a151cd9fcfa1dd1",
-      "ab_image_download_size": 2037378308,
-      "ab_extract_size": 12398362624,
       "highlights": [
         "three launcher bugs found while capturing screenshots",
         "Bump version to development-2026-07-17-195907",
