@@ -117,7 +117,7 @@ For a complete list with descriptions and screenshots, see the [Demo List](01-de
 - [IBM Quantum Composer](https://quantum.ibm.com/composer)
 
 ### RasQberry Documentation
-- [Software Installation](../02-software/installation-overview)
+- [Software Installation](../02-software/01-installation-overview)
 - [Hardware Assembly](../01-3d-model/hardware-assembly-guide)
 - [3D Model Files](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
 

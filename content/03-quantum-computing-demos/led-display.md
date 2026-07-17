@@ -161,7 +161,7 @@ LED display uses your configured matrix settings from `/usr/config/rasqberry_env
 - `LED_DEFAULT_BRIGHTNESS` - Default brightness 0.0-1.0
 - `LED_MATRIX_LAYOUT` - single or quad panel layout
 
-See [Boot Configuration](/02-software/installation-overview) for details on modifying LED settings.
+See [Boot Configuration](/02-software/01-installation-overview) for details on modifying LED settings.
 
 ## Troubleshooting
 

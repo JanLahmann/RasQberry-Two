@@ -20,7 +20,7 @@ This assembly guide assumes that you have already printed out the 3D files for t
 
 In this section, we will be going through the initial setup process of the Raspberry Pi.
 
-Our first step is to install the RasQberry Two Operating System (OS). Instructions for installing the operating system can be found [here](/02-software/installation-overview).
+Our first step is to install the RasQberry Two Operating System (OS). Instructions for installing the operating system can be found [here](/02-software/01-installation-overview).
 
 After you have finished flashing the OS image to the micro-SD card, you can insert it into the slot underneath the Pi as such:
 ![Figure 1](/assembly-images/mounting_location_sd_card.JPG "Figure 1: Mounting location for the Micro SD card.")

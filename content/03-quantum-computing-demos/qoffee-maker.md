@@ -12,7 +12,7 @@ mechanics being what it is, you can shift the odds but never quite give an order
 ## Run it
 
 Double-click the **Qoffee Maker** icon on the desktop. It starts the Qoffee
-container, opens the notebook, and switches straight into the app view — you do
+container, opens `qoffee.ipynb`, and switches straight into the app view — you do
 not have to run any cells yourself.
 
 It is also under **Applications → RasQberry → Qoffee Maker**, or in
@@ -20,6 +20,11 @@ It is also under **Applications → RasQberry → Qoffee Maker**, or in
 
 The first launch pulls the Qoffee container image, so give it a few minutes and a
 decent connection. After that it starts quickly.
+
+**If you end up looking at the notebook instead of the app** — the auto-start did
+not take, or you opened `qoffee.ipynb` yourself — click the **rocket icon** (🚀)
+in the toolbar. That runs every cell and starts the app view, which is exactly
+what the icon does for you.
 
 ## What you'll see
 
