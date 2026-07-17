@@ -65,10 +65,12 @@ env_true() { grep -q "^$1=true" "$ENV_FILE" 2>/dev/null; }
 task_expand_applies() {
     # A/B layout: p1 is the shared CONFIG partition.
     lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qi "config" || return 1
-    # Expansion refuses below ~63GB, so do not offer it on a small card.
+    # Expansion needs 58 GiB or more. A "64GB" card is only ~59.6 GiB (decimal
+    # marketing vs binary GiB), so the old 63 GiB (67645734912) cutoff wrongly
+    # refused genuine 64GB cards. 58 GiB accepts them and still rejects 32GB.
     local card
     card=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
-    [ "${card:-0}" -ge 67645734912 ] || return 1
+    [ "${card:-0}" -ge 62277025792 ] || return 1
     return 0
 }
 task_expand_pending() {

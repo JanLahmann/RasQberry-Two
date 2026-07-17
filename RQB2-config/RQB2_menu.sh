@@ -1430,8 +1430,10 @@ do_expand_ab_partitions() {
     SD_SIZE_BYTES=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
     SD_SIZE_GB=$((SD_SIZE_BYTES / 1024 / 1024 / 1024))
 
-    # Check minimum size (63GB = ~64GB marketed card)
-    if [ "$SD_SIZE_GB" -lt 63 ]; then
+    # Minimum 58 GiB. A "64GB" card is only ~59.6 GiB (decimal marketing vs
+    # binary GiB), so the old 63-GiB cutoff wrongly refused genuine 64GB cards.
+    # 58 GiB accepts them and still rejects 32GB cards (~29.8 GiB).
+    if [ "$SD_SIZE_GB" -lt 58 ]; then
         whiptail --title "SD Card Too Small" --msgbox \
             "SD card size: ${SD_SIZE_GB}GB\n\nPartition expansion requires a 64GB or larger SD card.\n\nYour current 10GB system partition is sufficient for basic use." \
             12 60
