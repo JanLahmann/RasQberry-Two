@@ -34,6 +34,14 @@ DOCKER_IMAGE="ghcr.io/qubins/images:latest-xl"
 CONTAINER_NAME="quantum-lab"
 PORT="${QUANTUM_LAB_PORT:-$(find_available_port 8892)}"
 
+# A fixed, known token that we bake into the container AND the URL we open.
+# An empty JUPYTER_TOKEN does NOT disable auth on this image: its start script
+# treats an unset/empty value as "generate a random token", so the browser
+# lands on JupyterLab's /login wall instead of the lab. A non-empty token that
+# we also put in the URL bypasses the wall deterministically. The port binds to
+# loopback only (see below), so this token is not a LAN-exposed secret.
+LAB_TOKEN="rasqberry"
+
 # The IBM Quantum Learning content is installed by the ibm-courses demo into
 # this exact directory (sparse checkout of Qiskit/documentation). We reuse it
 # rather than re-cloning inside the container.
@@ -124,10 +132,10 @@ fi
 #
 # Security tradeoff:
 #   -p 127.0.0.1:${PORT}:8888  binds the published port to host loopback ONLY,
-#   so the JupyterLab server is NOT reachable from the LAN. Because access is
-#   restricted to this machine, we run with an empty JUPYTER_TOKEN (no login
-#   prompt) for a friction-free classroom experience. Do NOT change the bind
-#   address to 0.0.0.0 without also setting a token/password.
+#   so the JupyterLab server is NOT reachable from the LAN. Access is restricted
+#   to this machine, and we bake in a fixed token (LAB_TOKEN) that we also carry
+#   in the URL we open, for a friction-free classroom experience. Do NOT change
+#   the bind address to 0.0.0.0 without switching to a strong per-run secret.
 #
 # The QuBins image is based on quay.io/jupyter/base-notebook: default user is
 # "jovyan", home /home/jovyan, JupyterLab listens on port 8888 inside.
@@ -145,7 +153,7 @@ if ! docker run -d \
     --name $CONTAINER_NAME \
     --rm \
     -p 127.0.0.1:${PORT}:8888 \
-    -e JUPYTER_TOKEN= \
+    -e JUPYTER_TOKEN="$LAB_TOKEN" \
     -v "$DOCS_DIR":/home/jovyan/ibm-quantum-learning:ro \
     "$DOCKER_IMAGE"; then
     echo
@@ -154,7 +162,7 @@ fi
 
 # Wait for JupyterLab to answer on the loopback port
 info "Waiting for JupyterLab to start..."
-LAB_URL="http://127.0.0.1:${PORT}/lab"
+LAB_URL="http://127.0.0.1:${PORT}/lab?token=${LAB_TOKEN}"
 MAX_WAIT=30
 WAIT_COUNT=0
 until curl -sf "http://127.0.0.1:${PORT}/lab" >/dev/null 2>&1; do

@@ -1464,7 +1464,7 @@ do_expand_ab_partitions() {
     # Show confirmation dialog
     if ! whiptail --title "Expand A/B Partitions" --yesno \
         "SD Card Size: ${SD_SIZE_GB}GB\n\nProposed partition sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nThis will:\n- Expand system-a from 10GB to ${SYSTEM_GB}GB\n- Expand system-b from 16MB to ${SYSTEM_GB}GB\n- Expand data from 16MB to ${DATA_GB}GB\n\nThis operation cannot be undone.\n\nProceed with expansion?" \
-        20 60; then
+        23 60; then
         return 0
     fi
 
