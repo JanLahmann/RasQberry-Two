@@ -34,9 +34,17 @@ BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ---------------------------------------------------------------------------
 # Gate: is anyone actually looking? (rule 1)
 # ---------------------------------------------------------------------------
-case "$(tty 2>/dev/null)" in
-    /dev/pts/*) ;;
-    *)          exit 0 ;;
+# Ask ps for the CONTROLLING terminal, not `tty` for stdin's.
+#
+# The hooks call us as `rq_firstlogin.sh </dev/tty >/dev/tty 2>&1`, and with
+# stdin redirected from /dev/tty, `tty` reports the literal string "/dev/tty" -
+# which matches no /dev/pts/* test. So a `tty`-based gate swallowed every real
+# login while passing every direct invocation it was tested with. ps reads the
+# controlling terminal off the process itself: "pts/N" over ssh or a desktop
+# terminal, "tty1" on the boot console, however stdin happens to be plumbed.
+case "$(ps -o tty= -p $$ 2>/dev/null | tr -d '[:space:]')" in
+    pts/*) ;;
+    *)     exit 0 ;;
 esac
 
 # Asked to stop asking.
