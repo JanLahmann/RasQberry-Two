@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T05:56:10Z",
+  "generated": "2026-07-17T05:56:39Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 1999196576,
       "extract_size": 8942256128,
       "extract_sha256": "87cc081e447375382ef3b262a4e5eecd3775ed24e5854b481b6d1d72f6b2fc4f",
-      "image_sha256": "7a038adbae4b03cf51281ab3a5c285f72bd34e00c68fc2336f61ab9d67b2fe1a",
       "highlights": [
         "ship skip-expansion so A/B images stop faking a first-boot resize",
         "offer pending setup steps instead of only the LED check",
