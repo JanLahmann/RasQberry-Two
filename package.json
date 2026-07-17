@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "validate": "node scripts/validate-content.js",
-    "validate:external": "node scripts/validate-content.js --check-external"
+    "validate:external": "node scripts/validate-content.js --check-external",
+    "demos": "node scripts/generate-demo-list.js",
+    "demos:check": "node scripts/generate-demo-list.js --check"
   },
   "dependencies": {
     "@carbon/ibmdotcom-styles": "^2.11.0",
