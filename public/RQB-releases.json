@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T10:53:42Z",
+  "generated": "2026-07-17T10:54:07Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-demoux-2026-07-17-123308",
-      "name": "rasqberry-dev-demoux-2026-07-17-123308",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-123308/rasqberry-dev-demoux-2026-07-17-123308.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demoux-2026-07-17-123308",
-      "release_date": "2026-07-17 12:33",
-      "image_download_size": 1999298456,
+      "tag": "development-2026-07-17-123456",
+      "name": "rasqberry-development-2026-07-17-123456",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-123456/rasqberry-development-2026-07-17-123456.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-123456",
+      "release_date": "2026-07-17 12:34",
+      "image_download_size": 2002360596,
       "extract_size": 8942256128,
-      "extract_sha256": "07f9df7e089f7b030ece6c610d04249297e4c39e0a2b1be47cad7b24bc0a33f7",
-      "image_sha256": "9741411779bdb725f7e870061af6fec062c932eac3cfa93bb32453a2959cd9c6",
+      "extract_sha256": "4e5d3731353ffb84a752acd107c3e7781140458dd030e2ad938540e6be7c1c98",
       "highlights": [
+        "Bump version to development-2026-07-17-123456",
+        "Merge remote-tracking branch 'origin/dev-demoux' into development",
         "actually show progress, and stop cutting the question",
         "three-round identification, four candidates in one menu",
-        "Bump version to dev-demoux-2026-07-17-123308",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-demoux-2026-07-17-111947"
+        "Bump version to dev-demoux-2026-07-17-123308"
       ]
     }
   }
