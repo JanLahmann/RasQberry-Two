@@ -1,5 +1,9 @@
 # AB Boot Validation Results
 
+> This is the validation record. For how to set up and use A/B boot - starting
+> with the partition expansion that a freshly flashed image **requires** - see
+> [ab-boot.md](ab-boot.md).
+
 ## Validation Complete (2025-12-31)
 
 ### Test Results

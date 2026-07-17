@@ -192,8 +192,15 @@ cmd_status() {
     size_b_bytes=$(lsblk -bno SIZE "$part_b" 2>/dev/null)
     if [ "${size_b_bytes:-0}" -lt 1073741824 ]; then
         echo ""
-        warn "⚠ Partitions need expansion! Run: sudo raspi-config → RasQberry → AB_BOOT → EXPAND"
-        warn "  Or: sudo $(basename "$0") expand"
+        warn "⚠ Slot B is still the 16MB placeholder the image ships with - A/B cannot"
+        warn "  be used until the partitions are expanded (needs a 64GB+ card):"
+        warn "      sudo raspi-config → RasQberry → AB_BOOT → EXPAND"
+        warn "  Until then Slot A stays at 10GB, which the image nearly fills, and"
+        warn "  rq_update_slot.sh cannot stage a download. See docs/ab-boot.md."
+        # NB: this used to also offer "sudo rq_slot_manager.sh expand". There is no
+        # such command here - it would have died with "Unknown command: expand".
+        # The expansion lives in RQB2_menu.sh (do_expand_ab_partitions), reached
+        # through raspi-config.
     fi
 
     # Boot files
