@@ -1469,14 +1469,29 @@ do_expand_ab_partitions() {
     fi
 
     # Show progress
-    whiptail --title "Expanding Partitions" --infobox \
-        "Expanding partitions...\n\nThis may take a few minutes.\nDo not power off the system." \
-        10 50
+    # Say what is happening, step by step.
+    #
+    # The steps below log to /var/log/rasqberry-expand.log and print nothing, and
+    # an --infobox does not block - so this used to draw one static "may take a
+    # few minutes" box and then sit there, silent, for the whole run. Formatting
+    # two ~100GB partitions (step 7) is minutes on its own, and a frozen box with
+    # no output is indistinguishable from a hang, on an operation we also tell
+    # people not to interrupt.
+    # Keep the copy short enough to FIT: whiptail silently truncates anything
+    # taller than the box, and the line it drops is the last one - which is the
+    # "do not power off" warning.
+    expand_progress() {
+        whiptail --title "Expanding Partitions - step $1 of 9" --infobox \
+            "$2\n\nThis can take several minutes.\nDo not power off the system." \
+            10 64
+    }
+
 
     # Initialize log file
     echo "=== AB Partition Expansion $(date) ===" > /var/log/rasqberry-expand.log
 
     # Step 1: Unmount partitions that will be modified
+    expand_progress 1 "Unmounting the placeholder partitions..."
     echo "Step 1: Unmounting partitions..." >> /var/log/rasqberry-expand.log
     umount /dev/mmcblk0p7 2>/dev/null || true
     umount /dev/mmcblk0p6 2>/dev/null || true
@@ -1500,6 +1515,7 @@ do_expand_ab_partitions() {
     echo "  DATA: ${DATA_START} - 100%" >> /var/log/rasqberry-expand.log
 
     # Step 2: Delete p7 and p6 first (must be done before resizing p5)
+    expand_progress 2 "Removing the 16MB placeholders..."
     echo "Step 2: Deleting old partitions..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 rm 7 >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Warning: Failed to delete partition 7" >> /var/log/rasqberry-expand.log
@@ -1509,18 +1525,21 @@ do_expand_ab_partitions() {
     fi
 
     # Step 3: Expand extended partition (p4) to fill disk
+    expand_progress 3 "Expanding the extended partition..."
     echo "Step 3: Expanding extended partition..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 resizepart 4 100% >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to expand extended partition" >> /var/log/rasqberry-expand.log
     fi
 
     # Step 4: Resize system-a (p5)
+    expand_progress 4 "Resizing Slot A..."
     echo "Step 4: Resizing system-a partition..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to resize partition 5" >> /var/log/rasqberry-expand.log
     fi
 
     # Step 5: Create new system-b and data partitions
+    expand_progress 5 "Creating Slot B and the data partition..."
     echo "Step 5: Creating new partitions..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to create system-b partition" >> /var/log/rasqberry-expand.log
@@ -1534,10 +1553,12 @@ do_expand_ab_partitions() {
     sleep 2
 
     # Step 6: Resize system-a filesystem
+    expand_progress 6 "Growing the Slot A filesystem..."
     echo "Step 6: Resizing system-a filesystem..." >> /var/log/rasqberry-expand.log
     resize2fs /dev/mmcblk0p5 >> /var/log/rasqberry-expand.log 2>&1 || true
 
     # Step 7: Format new partitions
+    expand_progress 7 "Formatting Slot B and the data partition (the slow step)..."
     echo "Step 7: Formatting new partitions..." >> /var/log/rasqberry-expand.log
     if ! mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6 >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to format system-b" >> /var/log/rasqberry-expand.log
@@ -1547,6 +1568,7 @@ do_expand_ab_partitions() {
     fi
 
     # Step 8: Set up system-b structure
+    expand_progress 8 "Preparing Slot B..."
     echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
@@ -1569,6 +1591,7 @@ EOF
     rmdir "$TEMP_MOUNT" 2>/dev/null || true
 
     # Step 9: Set up data partition structure
+    expand_progress 9 "Preparing the data partition..."
     echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
