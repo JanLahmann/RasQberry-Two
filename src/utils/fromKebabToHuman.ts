@@ -12,6 +12,8 @@ export function fromKebabToHuman(str: string): string {
   const specialCases: { [key: string]: string } = {
     '3d Model': '3D Model',
     '3d': '3D',
+    // Otherwise "ab-boot" renders as "Ab Boot"
+    'Ab Boot': 'A/B Boot',
   };
 
   // Apply special case replacements

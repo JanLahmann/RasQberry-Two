@@ -26,22 +26,6 @@ The demo combines several concepts:
 - Different quantum states → different fractal patterns
 - Animation frames correspond to quantum circuit evolution
 
-## Features
-
-- **Animated Fractals**: Creates GIF animations showing fractal evolution
-- **Quantum State Visualization**: Relates fractals to Bloch sphere rotations
-- **Multiple Complex Numbers**: Can use both 1-qubit and 2-qubit quantum states
-- **Real Quantum Hardware**: Can run on both simulators and real quantum computers
-- **Artistic Output**: Generates beautiful, mathematically-grounded art
-
-## What You'll Learn
-
-- **Quantum Visualization**: Novel ways to visualize quantum states
-- **Julia Sets**: Understanding fractal mathematics
-- **Quantum-Classical Hybrid**: How quantum computing can enhance classical algorithms
-- **Complex Numbers**: The role of complex amplitudes in quantum mechanics
-- **State Evolution**: How quantum states change over time
-
 ## Running the Demo
 
 ### From RasQberry Configuration Menu
@@ -66,9 +50,7 @@ The demo combines several concepts:
 ### Command Line (Advanced)
 
 ```bash
-cd ~/RasQberry-Two
-source venv/RQB2/bin/activate
-./RQB2-bin/fractals.sh
+rq_demo_run.sh quantum-fractals
 ```
 
 ## What You'll See
@@ -80,7 +62,7 @@ The demo generates:
 3. **Bloch Sphere Views**: Visualization of the corresponding quantum states
 4. **Progress Output**: Terminal feedback showing generation progress
 
-The fractals are saved to an `img/` directory in the demo folder.
+The fractals are saved to `/tmp/rasqberry-fractals-img/`.
 
 ## Hardware Requirements
 
@@ -132,26 +114,6 @@ The quantum circuit provides the `c` parameter(s):
 - **Use Simulators**: Faster than waiting for real quantum hardware
 - **Watch RAM Usage**: Monitor with `htop` if generation is slow
 
-## Educational Context
-
-Perfect for teaching:
-
-- **Quantum Visualization**: Alternative ways to understand quantum states
-- **Fractal Mathematics**: Julia sets and complex dynamics
-- **Quantum Art**: Intersection of science and creativity
-- **Complex Numbers**: Practical application of complex number mathematics
-- **Quantum-Classical Hybrid Algorithms**: Combining quantum and classical computing
-
-## Variations and Experiments
-
-Try these modifications:
-
-- **Different Quantum Gates**: Modify the circuit to use different gates
-- **Multiple Qubits**: Expand to 3+ qubits for more parameters
-- **Color Schemes**: Change the fractal coloring
-- **Zoom Animations**: Animate zooming into specific fractal regions
-- **Real Hardware Noise**: Compare simulator vs. real quantum computer results
-
 ## Credits
 
 Developed by **Wiktor Mazin** (Principal Data Scientist, IBM Quantum Ambassador) and team
@@ -174,16 +136,6 @@ Developed by **Wiktor Mazin** (Principal Data Scientist, IBM Quantum Ambassador)
 
 ### Source Code
 - [GitHub: wmazin/Visualizing-Quantum-Computing-using-fractals](https://github.com/wmazin/Visualizing-Quantum-Computing-using-fractals)
-
-## Gallery Ideas
-
-Try creating these fractal series:
-
-- **Quantum Gate Tour**: One animation per gate type (X, Y, Z, H, etc.)
-- **Bloch Sphere Journey**: Animate a complete rotation around the Bloch sphere
-- **Superposition Showcase**: Visualize equal superposition states
-- **Entanglement Patterns**: Use 2-qubit entangled states
-- **Noise Comparison**: Side-by-side simulator vs. real hardware
 
 ## Related Demos
 

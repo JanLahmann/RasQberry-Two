@@ -19,13 +19,6 @@ The game starts with a random configuration of lit and unlit LEDs. The goal is t
 - **Solution Finding**: Quantum algorithm determines which buttons to press
 - **Visualization**: Each step of the solution is displayed on the LED panel
 
-## Features
-
-- **Automated Solving**: Quantum algorithm finds the solution
-- **Step-by-Step Visualization**: Watch each move on the LED panel
-- **Educational**: Learn how quantum computing solves combinatorial problems
-- **Interactive**: See quantum algorithms in action with physical feedback
-
 ## Running the Demo
 
 ### From RasQberry Configuration Menu
@@ -50,9 +43,7 @@ The game starts with a random configuration of lit and unlit LEDs. The goal is t
 ### Command Line (Advanced)
 
 ```bash
-cd ~/RasQberry-Two
-source venv/RQB2/bin/activate
-./RQB2-bin/rq_quantum_lights_out_auto.sh
+rq_demo_run.sh quantum-lights-out
 ```
 
 ## What You'll See
@@ -85,14 +76,6 @@ This demo demonstrates:
 - **Visualization**: Making quantum algorithms tangible
 - **Physical Feedback**: LED panel makes quantum computing visible
 
-## Educational Value
-
-Perfect for teaching:
-- **Quantum Algorithms**: Practical application of quantum computing
-- **Linear Algebra**: Binary matrix operations
-- **Problem Solving**: Combinatorial optimization
-- **Visual Learning**: See quantum solutions in action
-
 ## Tips
 
 - **Watch Carefully**: Each LED update represents a button press in the solution
@@ -119,32 +102,6 @@ Developed by **Luka Dojcinovic**
 - [Qiskit Documentation](https://docs.qiskit.org/)
 - [Qiskit YouTube Channel](https://www.youtube.com/@qiskit)
 - [IBM Quantum Documentation](https://docs.quantum.ibm.com/)
-
-## Troubleshooting
-
-### LEDs not responding
-- Check LED strip connection to GPIO pin 18
-- Verify LED configuration in `~/RasQberry-Two/RQB2-config/rasqberry_environment.env`
-- Test with: `python3 RQB2-bin/turn_off_LEDs.py`
-- Ensure SPI is enabled in raspi-config
-
-### Demo won't start
-- Ensure virtual environment is activated
-- Check dependencies: `pip list | grep qiskit`
-- Verify LED_COUNT matches your hardware setup
-- Check permissions: LED control requires appropriate access
-
-### Wrong colors or pattern
-- Check `LED_COUNT` in environment file
-- Verify SPI is enabled: `ls /dev/spi*`
-- Test LED strip: `python3 RQB2-bin/neopixel_spi_simpletest.py`
-- Ensure LED strip type matches configuration (WS2812B/SK6812)
-
-### No solution found
-- This is expected for certain configurations (mathematically unsolvable)
-- The demo will indicate when no solution exists
-- Try running again for a different random puzzle
-- Approximately 50% of random configurations are solvable
 
 ## Technical Details
 

@@ -31,15 +31,6 @@ Each beverage is assigned a binary number. By carefully constructing a quantum c
 - **Beverage Selection**: The binary number maps to a specific beverage
 - **Quantum Randomness**: True quantum randomness from simulators
 
-## Features
-
-- **Interactive Jupyter Notebook**: Design circuits in an intuitive interface
-- **Multiple Beverages**: Coffee, cappuccino, espresso, tea, and more
-- **Multiple Backends**: Choose from statevector, local simulator, or noisy simulator
-- **Realistic Simulation**: Mock device mimics real quantum hardware behavior
-- **Educational**: Learn about quantum measurement and superposition
-- **Fun Demonstrations**: Great for events and workshops
-
 ## Running the Demo
 
 ### Preferred Method: Desktop Icon
@@ -64,11 +55,11 @@ Each beverage is assigned a binary number. By carefully constructing a quantum c
 ### Command Line (Advanced)
 
 ```bash
-cd ~/RasQberry-Two
-source venv/RQB2/bin/activate
-./RQB2-bin/qoffee-setup.sh    # First time setup
-./RQB2-bin/qoffee-maker.sh    # Launch Jupyter
+rq_demo_run.sh qoffee-maker
 ```
+
+Docker is installed on first run if it is missing; the demo asks before it
+builds anything.
 
 ## Beverage Menu
 
@@ -133,17 +124,6 @@ The demo can run on different quantum simulators:
 - **Aer**: Understand measurement statistics
 - **Mock Device**: Prepare for real quantum hardware, understand noise effects
 
-## Educational Value
-
-Perfect for teaching:
-
-- **Quantum Measurement**: How measurement collapses superposition
-- **Binary Encoding**: Mapping numbers to outcomes
-- **Circuit Design**: Strategic use of quantum gates
-- **Probability**: Quantum probabilities vs. desired outcomes
-- **Superposition**: Multiple states existing simultaneously
-- **Noise Effects**: How real quantum computers behave (with mock device)
-
 ## Tips
 
 - **Start Simple**: Try to get espresso (000) or hot water (111) first
@@ -172,38 +152,6 @@ Developed by **Max Simon** and **Jan-R. Lahmann**
 ### Related Resources
 - [Fun with Quantum](http://fun-with-quantum.org) - More quantum games by Jan-R. Lahmann
 - [IBM Quantum Documentation](https://docs.quantum.ibm.com/)
-
-## Troubleshooting
-
-### Jupyter won't open
-- Check that Jupyter is installed: `jupyter --version`
-- Manually start: `jupyter lab` from the qoffee directory
-- Try different browser
-- Check for port conflicts (default: 8888)
-
-### Rocket icon doesn't appear
-- **Check internet connection** - Rocket icon requires network access
-- Refresh the page after internet connection is restored
-- Try reloading the notebook
-- Check browser console for errors (F12)
-
-### Unexpected measurement results
-- This is normal with mock device (noise simulation)
-- Try increasing shots (measurements) for better statistics
-- Use statevector simulator for deterministic testing
-- Compare results across different backends
-
-### Demo won't start
-- Run setup first: `./RQB2-bin/qoffee-setup.sh`
-- Check dependencies: `pip list | grep qiskit`
-- Ensure virtual environment is activated
-- Check Jupyter installation: `pip list | grep jupyter`
-
-## Variations
-
-### Quantum Mixer
-
-A related demo with cocktail/mocktail selection instead of coffee. Uses the same quantum principles with different beverage options and Docker-based deployment.
 
 ## Related Demos
 

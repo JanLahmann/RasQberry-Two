@@ -57,7 +57,10 @@ Most demos can be started in multiple ways:
    **Applications** → **RasQberry** → [Demo Name]
 
 4. **Command Line**
-   Each demo has its own launcher script in `RQB2-bin/`
+   Every demo starts the same way — `rq_demo_run.sh <demo-id>`, e.g.
+   `rq_demo_run.sh quantum-fractals`. The ids are listed on the
+   [Demo List](01-demo-list); the demo is installed on first use if it is not
+   there yet.
 
 ### Hardware Requirements
 

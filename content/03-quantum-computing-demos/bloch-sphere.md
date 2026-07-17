@@ -21,21 +21,6 @@ The Grok Bloch demo provides an interactive web interface where you can:
 ![Grok Bloch Demo Interface](/demo-screenshots/grok-bloch-interface.png)
 *The interactive Grok Bloch interface showing the Bloch sphere, quantum state, and gate controls*
 
-## Features
-
-- **Interactive Visualization**: See how quantum gates transform qubit states in real-time
-- **Educational Tool**: Perfect for understanding fundamental single-qubit quantum concepts
-- **Web-Based Interface**: Runs in your browser for easy access
-- **Gate Operations**: Apply common quantum gates (Pauli-X, Y, Z, Hadamard, rotations)
-- **Real-Time Updates**: Watch the Bloch vector move as you apply gates
-
-## What You'll Learn
-
-- **Quantum State Representation**: How single qubits are represented on the Bloch sphere
-- **Gate Operations**: Visual understanding of how gates transform states
-- **Superposition**: See how qubits exist in multiple states simultaneously
-- **Phase**: Understand the role of quantum phase in single-qubit operations
-
 ## Running the Demo
 
 ### Preferred Method: Desktop Icon
@@ -53,10 +38,7 @@ The Grok Bloch demo provides an interactive web interface where you can:
 ### Command Line (Advanced)
 
 ```bash
-cd ~/RasQberry-Two
-source venv/RQB2/bin/activate
-cd demos/grok-bloch
-python3 grok_bloch.py
+rq_demo_run.sh grok-bloch
 ```
 
 ## Understanding the Visualization
@@ -101,16 +83,6 @@ Creates equal superposition: transforms |0⟩ to (|0⟩ + |1⟩)/√2
 - **Reset State**: Use the reset button to return to |0⟩ state
 - **Experiment**: Try to reach specific target states by combining gates
 
-## Educational Context
-
-This demo is excellent for:
-
-- **Introduction to Quantum Computing**: First visualization of quantum states
-- **University Courses**: Teaching quantum mechanics and single-qubit operations
-- **Workshops**: Interactive demonstrations at quantum computing events
-- **Self-Learning**: Exploring quantum concepts at your own pace
-- **Gate Intuition**: Building mental models for quantum gate operations
-
 ## Limitations
 
 - **Single Qubit Only**: The Bloch sphere cannot represent multi-qubit states or entanglement
@@ -137,30 +109,6 @@ Developed by **James Weaver** (JavaFXpert)
 ### General Resources
 - [Bloch Sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
 - [IBM Quantum Documentation](https://docs.quantum.ibm.com/)
-
-## Troubleshooting
-
-### Demo won't start
-- Ensure virtual environment is activated
-- Check that dependencies are installed: `pip list | grep qiskit`
-- Verify Python version: `python3 --version` (should be 3.9+)
-
-### Browser doesn't open
-- Open manually and navigate to: `http://localhost:5000`
-- Check firewall settings
-- Try a different browser (Firefox, Chromium)
-
-### Visualization not loading
-- Check console for errors (F12 in browser)
-- Ensure Python server is running in the background
-- Restart the demo
-- Check that no other service is using port 5000
-
-### Port already in use
-```bash
-# Find and kill process using port 5000
-lsof -ti:5000 | xargs kill -9
-```
 
 ## Related Demos
 

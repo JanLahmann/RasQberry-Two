@@ -8,22 +8,6 @@ Run quantum circuits on IBM Quantum processors or simulators and visualize the r
 
 Raspberry Tie brings quantum computing to life through physical LED visualization. Submit quantum circuits to IBM Quantum backends (real or simulated) and watch the measurement results light up on your RasQberry's LED array in real-time.
 
-## Features
-
-- **LED Visualization**: Results displayed as red (0) and blue (1) pixels on the 8×8 LED matrix
-- **Multiple Display Modes**: Supports 5-qubit (bowtie/tee), 12-qubit (hex), and 16-qubit layouts
-- **Backend Options**: Local Aer simulator, IBM Quantum simulators, or real quantum hardware
-- **Interactive Mode**: Menu-driven setup for easy demo configuration
-- **Accelerometer Support**: Auto-rotates display based on Pi orientation
-- **SVG Alternative**: Browser-based display option when LEDs aren't available
-
-## What You'll Learn
-
-- **Quantum Measurement**: See how quantum states collapse to classical bits
-- **Processor Topologies**: Understand how qubits are arranged on real quantum computers
-- **Backend Comparison**: Experience differences between simulators and real hardware
-- **IBM Quantum Platform**: Work with IBM's quantum computing infrastructure
-
 ## Running the Demo
 
 ### From RasQberry Configuration Menu
@@ -46,26 +30,12 @@ Raspberry Tie brings quantum computing to life through physical LED visualizatio
 ### Command Line (Advanced)
 
 ```bash
-cd ~/RasQberry-Two
-source venv/RQB2/bin/activate
-python3 RQB2-bin/quantum-raspberry-tie.py
+rq_demo_run.sh quantum-raspberry-tie            # local Aer simulator (default)
+rq_demo_run.sh quantum-raspberry-tie noise      # simulator with a noise model
+rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware
 ```
 
-**Command-line options:**
-```bash
-# Interactive mode (recommended)
-python3 quantum-raspberry-tie.py -int
-
-# Specify display mode
-python3 quantum-raspberry-tie.py -bowtie  # 5-qubit bowtie
-python3 quantum-raspberry-tie.py -tee     # 5-qubit tee
-python3 quantum-raspberry-tie.py -hex     # 12-qubit hex
-python3 quantum-raspberry-tie.py -16      # 16-qubit
-
-# Use specific backend
-python3 quantum-raspberry-tie.py -aer     # Local Aer simulator
-python3 quantum-raspberry-tie.py -real    # Real quantum hardware
-```
+The `real` variant needs a network connection and an IBM Quantum token.
 
 ## Display Modes
 
@@ -137,14 +107,6 @@ See the [Bill of Materials](../01-3d-model/bill-of-materials) and [Hardware Asse
 
 ## Configuration
 
-### Interactive Mode
-
-The `-int` flag launches an interactive menu to configure:
-1. Number of qubits (5, 12, or 16)
-2. Display mode (bowtie, tee, hex, or 16-qubit rows)
-3. Simulator vs. real backend
-4. Specific backend selection
-
 ### IBM Quantum Setup
 
 To use IBM Quantum backends:
@@ -180,21 +142,12 @@ Open `svg/qubits.html` in a browser to watch the demo without physical LEDs.
 - **Check Connectivity**: Ensure stable internet for IBM Quantum backends
 - **Use Interactive Mode**: Easier than command-line flags for demos
 
-## Educational Context
-
-Perfect for teaching:
-
-- **Quantum Measurement**: Physical representation of state collapse
-- **IBM Quantum Platform**: Hands-on experience with real quantum systems
-- **Processor Architecture**: Understanding qubit connectivity and topology
-- **Backend Comparison**: Simulator vs. real hardware differences
-
 ## Credits
 
 Developed by **Kevin Roche**
 
 - **GitHub**: [KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)
-- **Requirements**: Qiskit 1.x, Python 3, SenseHat libraries
+- **Requirements**: Qiskit 2.x, Python 3, SenseHat libraries
 
 ## Learn More
 
