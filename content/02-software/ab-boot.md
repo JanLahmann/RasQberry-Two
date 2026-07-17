@@ -18,7 +18,9 @@ To keep the download around 12GB instead of 120GB, the image ships with Slot B a
 the data partition as **16MB placeholders**. There is no room for a second system
 in 16MB, so nothing A/B-related works until they grow to fit your card:
 
-    sudo raspi-config   →   RasQberry   →   AB_BOOT   →   EXPAND
+```bash
+sudo raspi-config   →   RasQberry   →   AB_BOOT   →   EXPAND
+```
 
 You need a **64GB or larger card** (expansion refuses below ~63GB). It asks once,
 shows the sizes it proposes, takes a few minutes, and needs no reboot.
@@ -51,7 +53,9 @@ lost**. On a card you just flashed there is nothing there to lose.
 
 To check where you stand:
 
-    sudo rq_slot_manager.sh status
+```bash
+sudo rq_slot_manager.sh status
+```
 
 It tells you the slot you booted, the partition sizes, and warns you if Slot B is
 still a placeholder.
@@ -61,30 +65,40 @@ still a placeholder.
 Put a system in the slot you are not running (use the **`-ab`** image — the
 standard one has no A/B layout):
 
-    sudo rq_update_slot.sh <ab-image-url> <release-tag>
+```bash
+sudo rq_update_slot.sh <ab-image-url> <release-tag>
+```
 
 It refuses to overwrite the slot you are booted from, so you cannot saw off the
 branch you are sitting on.
 
 Then try it:
 
-    sudo rq_slot_manager.sh switch-to B --reboot
+```bash
+sudo rq_slot_manager.sh switch-to B --reboot
+```
 
 A slot booted this way is **on probation**: unless it is confirmed, the next
 reboot returns you to the slot you came from. A healthy system confirms itself
 automatically. That is the whole point — a broken image cannot strand you.
 
-    sudo rq_slot_manager.sh confirm                # keep this slot
-    sudo rq_slot_manager.sh rollback && sudo reboot   # go back now
+```bash
+sudo rq_slot_manager.sh confirm                # keep this slot
+sudo rq_slot_manager.sh rollback && sudo reboot   # go back now
+```
 
 Slot A is the **stable** slot, Slot B the **testing** slot. Once a system in Slot B
 has earned it:
 
-    sudo rq_slot_manager.sh promote     # copy tested Slot B → stable Slot A
+```bash
+sudo rq_slot_manager.sh promote     # copy tested Slot B → stable Slot A
+```
 
 ## Which image am I running?
 
-    cat /etc/rasqberry-version
+```bash
+cat /etc/rasqberry-version
+```
 
 That is the build marker. (`/etc/rpi-issue` only records the pi-gen tool commit
 and does not change between RasQberry builds — it will not tell images apart.)
