@@ -191,6 +191,29 @@ echo ""
 echo "Step 6: Copying boot files to boot-a..."
 rsync -aAX "${MOUNT_DIR}/input-boot/" "${MOUNT_DIR}/boot-a/"
 
+# Tell the standard firstboot expansion task to stand down.
+#
+# The standard image expands its root to fill the card on first boot
+# (/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh, generated in
+# stage-RQB2/00-firstboot-setup). That is wrong for an A/B card: the split is
+# the user's decision, made via raspi-config (see issue #142), and root is not
+# even the last partition here - system-b and data sit after it.
+#
+# The task already looks for this marker ("typically used for A/B boot setup"),
+# but nothing was writing it, so it ran on every A/B image and marked itself
+# .done having expanded nothing - leaving a "completed" marker on a card that is
+# still 10GB with a 16MB Slot B, which reads as "already expanded" to anyone
+# checking. Write it before boot-b is copied from boot-a, so both slots get it.
+echo "  Marking A/B image: firstboot root expansion disabled (manual via raspi-config)"
+cat > "${MOUNT_DIR}/boot-a/skip-expansion" << 'MARKER'
+This is an A/B boot image.
+
+The root filesystem is deliberately NOT expanded on first boot: Slot A, Slot B
+and data are sized by the user via
+    sudo raspi-config -> RasQberry -> AB_BOOT -> EXPAND
+which needs a 64GB or larger card. See docs/ab-boot.md.
+MARKER
+
 echo "Step 7: Copying boot files to boot-b..."
 rsync -aAX "${MOUNT_DIR}/boot-a/" "${MOUNT_DIR}/boot-b/"
 echo ""

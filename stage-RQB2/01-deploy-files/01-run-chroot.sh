@@ -84,21 +84,29 @@ cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 # the LED GPIO at boot and left a whiptail dialog stuck on an unattended console
 # (task #35). All triggers route to /usr/bin/rq_led_verify_prompt.sh (deployed via
 # RQB2-bin above), which self-disables once LED_LAYOUT_VERIFIED=true.
-install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-led-verify.profile.sh \
-    /etc/profile.d/rasqberry-led-verify.sh
-rm -f /usr/config/rasqberry-led-verify.profile.sh
+install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-firstlogin.profile.sh \
+    /etc/profile.d/rasqberry-firstlogin.sh
+rm -f /usr/config/rasqberry-firstlogin.profile.sh
+# Superseded by the checklist above (which offers the LED check as one of its
+# steps). Remove the LED-only hook so an upgraded image does not run both.
+rm -f /etc/profile.d/rasqberry-led-verify.sh /usr/config/rasqberry-led-verify.profile.sh
 
 # Desktop terminals are non-login interactive shells, so /etc/profile.d does not
-# fire for them. Source the (self-guarded) verify hook from .bashrc too, so the
-# first terminal a desktop user opens still offers the one-time layout check.
-LED_VERIFY_BASHRC_HOOK='[ -r /etc/profile.d/rasqberry-led-verify.sh ] && . /etc/profile.d/rasqberry-led-verify.sh'
-if ! grep -qF "$LED_VERIFY_BASHRC_HOOK" /etc/skel/.bashrc 2>/dev/null; then
-    printf '\n# RasQberry: one-time LED-layout verify on first interactive terminal (task #35)\n%s\n' "$LED_VERIFY_BASHRC_HOOK" >> /etc/skel/.bashrc
+# fire for them. Source the (self-guarded) hook from .bashrc too, so the first
+# terminal a desktop user opens also offers any pending setup.
+FIRSTLOGIN_BASHRC_HOOK='[ -r /etc/profile.d/rasqberry-firstlogin.sh ] && . /etc/profile.d/rasqberry-firstlogin.sh'
+if ! grep -qF "$FIRSTLOGIN_BASHRC_HOOK" /etc/skel/.bashrc 2>/dev/null; then
+    printf '\n# RasQberry: offer pending setup steps on the first interactive terminal\n%s\n' "$FIRSTLOGIN_BASHRC_HOOK" >> /etc/skel/.bashrc
 fi
-if [ -f /home/${FIRST_USER_NAME}/.bashrc ] && ! grep -qF "$LED_VERIFY_BASHRC_HOOK" /home/${FIRST_USER_NAME}/.bashrc; then
-    printf '\n# RasQberry: one-time LED-layout verify on first interactive terminal (task #35)\n%s\n' "$LED_VERIFY_BASHRC_HOOK" >> /home/${FIRST_USER_NAME}/.bashrc
+if [ -f /home/${FIRST_USER_NAME}/.bashrc ] && ! grep -qF "$FIRSTLOGIN_BASHRC_HOOK" /home/${FIRST_USER_NAME}/.bashrc; then
+    printf '\n# RasQberry: offer pending setup steps on the first interactive terminal\n%s\n' "$FIRSTLOGIN_BASHRC_HOOK" >> /home/${FIRST_USER_NAME}/.bashrc
     chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.bashrc
 fi
+# Drop the superseded LED-only .bashrc line if an earlier image left one. Its
+# own [ -r ] guard makes it harmless once the file is gone, but two hooks in a
+# .bashrc invite two prompts the day someone restores the old file.
+sed -i '/rasqberry-led-verify\.sh/d; /one-time LED-layout verify on first interactive terminal/d' \
+    /etc/skel/.bashrc /home/${FIRST_USER_NAME}/.bashrc 2>/dev/null || true
 
 # compat symlinks, remove after one release: the neopixel_spi_* scripts were
 # renamed to rq_led_* (the SPI backend is gone). Our own wrappers/manifests use
