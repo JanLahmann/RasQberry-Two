@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T05:54:06Z",
+  "generated": "2026-07-17T05:54:36Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,19 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-demoux-2026-07-17-073311",
-      "name": "rasqberry-dev-demoux-2026-07-17-073311",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-073311/rasqberry-dev-demoux-2026-07-17-073311.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demoux-2026-07-17-073311",
-      "release_date": "2026-07-17 07:33",
-      "image_download_size": 2000944520,
+      "tag": "development-2026-07-16-232307",
+      "name": "rasqberry-development-2026-07-16-232307",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-232307/rasqberry-development-2026-07-16-232307.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-232307",
+      "release_date": "2026-07-16 23:23",
+      "image_download_size": 2000708576,
       "extract_size": 8942256128,
-      "extract_sha256": "6e043a819ec076e595c5a230f537da226c5f51c766ce529875f4aa6d695087cd",
-      "image_sha256": "d65f9494932a7bab621f955abb8f28d11b7b87a8f6e390104029bee24c9b20ba",
+      "extract_sha256": "4dda9397654429942285be50e943c953dcd95d5bdb4f1e2773655ac9c1672570",
       "highlights": [
-        "ship skip-expansion so A/B images stop faking a first-boot resize",
-        "offer pending setup steps instead of only the LED check",
-        "Bump version to dev-demoux-2026-07-17-073311"
+        "stop the verify wizard firing at boot, and hanging on exit",
+        "stop reporting demos as running when they died",
+        "Bump version to development-2026-07-16-232307",
+        "Merge remote-tracking branch 'origin/dev-grokfix' into development",
+        "stop killing the demo's own web server"
       ]
     }
   }

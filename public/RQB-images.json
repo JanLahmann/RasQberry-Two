@@ -43,6 +43,23 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
+          "name": "RasQberry Two Dev (dev-demoux 2026-07-17-073311)",
+          "description": "Development build from dev-demoux",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-073311/rasqberry-dev-demoux-2026-07-17-073311.img.xz",
+          "extract_size": 8942256128,
+          "extract_sha256": "6e043a819ec076e595c5a230f537da226c5f51c766ce529875f4aa6d695087cd",
+          "image_download_size": 2000944520,
+          "image_sha256": "d65f9494932a7bab621f955abb8f28d11b7b87a8f6e390104029bee24c9b20ba",
+          "release_date": "2026-07-17 07:33",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-grokfix 2026-07-16-232905)",
           "description": "Development build from dev-grokfix",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -66,6 +83,23 @@
       "description": "Images with A/B partition support for safer updates (experimental)",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
+        {
+          "name": "RasQberry Two A/B (dev-demoux 2026-07-17-073311)",
+          "description": "A/B boot image from dev-demoux",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-073311/rasqberry-dev-demoux-2026-07-17-073311-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "5774795149bf549c28641b04b440ddb0f714a2a94c24869d9d9c48ff902f2bb6",
+          "image_download_size": 2036994324,
+          "image_sha256": "0c6a4c0261220ba70c5aceeb0b00510d65ec9e31294fd59447a7368a8117f470",
+          "release_date": "2026-07-17 07:33",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
         {
           "name": "RasQberry Two A/B (dev-grokfix 2026-07-16-232905)",
           "description": "A/B boot image from dev-grokfix",
