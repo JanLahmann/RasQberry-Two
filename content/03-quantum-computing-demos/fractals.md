@@ -1,150 +1,64 @@
 # Quantum Fractals
 
-Create stunning animated fractal art using quantum computing! This demo combines quantum circuits with Julia set fractals to visualize quantum states in beautiful, artistic ways.
-
-## Overview
-
-Quantum Fractals uses quantum computing to generate parameters for Julia set fractals, creating mesmerizing animations that visualize how quantum states evolve. Each frame of the animation corresponds to a different quantum circuit measurement, resulting in unique fractal patterns that showcase the connection between quantum mechanics and mathematical beauty.
+A quantum circuit produces a complex number; that number draws a Julia set. Step
+the circuit through a rotation and the fractal moves with it — so an abstract
+quantum state becomes something you can watch change.
 
 ![Quantum Fractals Demo](/demo-screenshots/quantum-fractals.png)
-*Quantum-generated fractal animation showing Julia set evolution*
 
-## How It Works
+**Needs:** a display · **Start it with:** `rq_demo_run.sh quantum-fractals`
 
-The demo combines several concepts:
+## Run it
 
-1. **Quantum Circuits**: Creates quantum circuits with varying parameters
-2. **State Vector Extraction**: Measures the quantum state to get complex number amplitudes
-3. **Julia Set Generation**: Uses these quantum-derived complex numbers as parameters for Julia set fractals
-4. **Animation**: Generates multiple frames to create animated fractal art
-5. **Bloch Sphere Correlation**: Relates the fractal evolution to rotations on the Bloch sphere
+Double-click the **Quantum Fractals** icon on the desktop; it starts generating
+straight away and opens the result in your browser.
 
-### The Quantum-Fractal Connection
+It is also under **Applications → RasQberry → Quantum Fractals**, or in
+`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
 
-- Each quantum measurement provides complex numbers (quantum amplitudes)
-- These complex numbers serve as parameters (c values) for Julia set calculations
-- Different quantum states → different fractal patterns
-- Animation frames correspond to quantum circuit evolution
+## How it works
 
-## Running the Demo
+A Julia set is defined by repeating one line:
 
-### From RasQberry Configuration Menu
-
-1. Open a terminal on your RasQberry
-2. Run: `sudo raspi-config`
-3. Navigate to: **0 RasQberry** → **Quantum Computing Demos** → **Quantum Fractals**
-4. The demo will generate animated fractals
-
-### Desktop Icon
-
-- Look for the **"Quantum Fractals"** icon on your RasQberry desktop
-- Double-click to launch the demo
-- Fractal generation will begin automatically
-
-### Desktop Menu
-
-1. Click on the desktop menu
-2. Navigate to: **Applications** → **RasQberry** → **Quantum Fractals**
-3. The demo will start generating fractals
-
-### Command Line (Advanced)
-
-```bash
-rq_demo_run.sh quantum-fractals
-```
-
-## What You'll See
-
-The demo generates:
-
-1. **Fractal Images**: Individual frames showing Julia set fractals with quantum-derived parameters
-2. **Animated GIF**: Animation showing how fractals evolve as quantum parameters change
-3. **Bloch Sphere Views**: Visualization of the corresponding quantum states
-4. **Progress Output**: Terminal feedback showing generation progress
-
-The fractals are saved to `/tmp/rasqberry-fractals-img/`.
-
-## Hardware Requirements
-
-- Raspberry Pi (Pi 5 recommended, Pi 4 supported)
-- Display (monitor or VNC connection)
-- **Sufficient RAM** (2GB minimum, 4GB+ recommended for larger fractals)
-- Web browser (Chromium included in RasQberry)
-- **No LEDs required** for this demo
-
-## Configuration Options
-
-### Adjustable Parameters (in fractals.py)
-
-- **frame_resolution**: Image size (default: 200x200 pixels)
-- **number_of_frames**: Animation length (default: 60 frames)
-- **GIF_ms_intervals**: Animation speed (default: 200ms per frame = 5 fps)
-- **zoom**: Fractal zoom level
-- **julia_iterations**: Fractal calculation detail
-
-### Quantum Circuit Options
-
-- **1-qubit circuits**: Simpler, faster generation
-- **2-qubit circuits**: More complex fractal patterns
-- **Simulator**: Fast, ideal quantum behavior
-- **Real hardware**: Can connect to IBM Quantum for authentic quantum results
-
-## Technical Details
-
-### Julia Sets
-
-Julia sets are fractals defined by iterating:
 ```
 z(n+1) = z(n)² + c
 ```
 
-Where `c` is a complex number constant. Different values of `c` create different fractal shapes.
+Change the complex constant `c` and you get a completely different shape. This
+demo takes `c` from a **quantum state** — the amplitudes of a one-qubit circuit
+are complex numbers, so they can be fed straight in.
 
-### Quantum Input
+Each frame advances the circuit a little, giving a new `c` and a new fractal. Run
+60 of them together and the fractal appears to flow, tracing the qubit's path
+around the Bloch sphere. Each frame shows the circuit that made it alongside its
+fractals, and the finished animation is saved as a GIF.
 
-The quantum circuit provides the `c` parameter(s):
-- **1-qubit**: Uses one complex amplitude as `c`
-- **2-qubit**: Can use multiple amplitudes for multi-parameter fractals
+Everything runs on the local simulator — no IBM Quantum account, no network.
 
-## Performance Tips
+## What you'll see
 
-- **Start Small**: Use lower resolution (100x100) for faster testing
-- **Fewer Frames**: Reduce to 30 frames for quicker animations
-- **Close Browsers**: Free up RAM by closing unnecessary applications
-- **Use Simulators**: Faster than waiting for real quantum hardware
-- **Watch RAM Usage**: Monitor with `htop` if generation is slow
+Frames appear one by one in the browser (the Pi computes each one), then an
+animated GIF of the whole sequence. Images are written to
+`/tmp/rasqberry-fractals-img/`.
 
-## Credits
+A full 60-frame run takes a while on a Pi. If you want it quicker, the constants
+at the top of `fractals.py` are the ones to change:
 
-Developed by **Wiktor Mazin** (Principal Data Scientist, IBM Quantum Ambassador) and team
+| Setting | Default | Does |
+|---|---|---|
+| `frame_resolution` | 200 | image size, in pixels square |
+| `number_of_frames` | 60 | how long the animation is |
+| `GIF_ms_intervals` | 200 | ms per frame (200 = 5 fps) |
+| `julia_iterations` | 100 | fractal detail |
+| `zoom` | 1.0 | how far in |
 
-- **Original Project**: [Visualizing Quantum Computing using Fractals](https://github.com/wmazin/Visualizing-Quantum-Computing-using-fractals)
-- **Medium Article 1**: [Creating Fractal Art with Qiskit](https://medium.com/qiskit/creating-fractal-art-with-qiskit-df69427026a0)
-- **Medium Article 2**: [Fractal Animations with Quantum Computing on a Raspberry Pi](https://medium.com/qiskit/fractal-animations-with-quantum-computing-on-a-raspberry-pi-8834ef43d423)
-- **RasQberry Port**: Adapted for RasQberry-Two by Jan-R. Lahmann
+## Credits and links
 
-## Learn More
+Created by **Wiktor Mazin** and team; ported to RasQberry by **Jan-R. Lahmann**.
 
-### Fractals and Julia Sets
-- [Julia Set on Wikipedia](https://en.wikipedia.org/wiki/Julia_set)
-- [Fractal Mathematics](https://mathworld.wolfram.com/JuliaSet.html)
+- [Visualizing Quantum Computing using Fractals](https://github.com/wmazin/Visualizing-Quantum-Computing-using-fractals) — the original
+- [Creating Fractal Art with Qiskit](https://medium.com/qiskit/creating-fractal-art-with-qiskit-df69427026a0)
+- [Fractal Animations with Quantum Computing on a Raspberry Pi](https://medium.com/qiskit/fractal-animations-with-quantum-computing-on-a-raspberry-pi-8834ef43d423)
+- [Julia sets on Wikipedia](https://en.wikipedia.org/wiki/Julia_set)
 
-### Quantum Computing Visualization
-- [Qiskit Visualization Documentation](https://docs.qiskit.org/stable/visualization.html)
-- [IBM Quantum Learning](https://learning.quantum.ibm.com/)
-- [Qiskit YouTube Channel](https://www.youtube.com/@qiskit)
-
-### Source Code
-- [GitHub: wmazin/Visualizing-Quantum-Computing-using-fractals](https://github.com/wmazin/Visualizing-Quantum-Computing-using-fractals)
-
-## Related Demos
-
-- [Bloch Sphere](bloch-sphere) - Understand the quantum states being visualized
-- [Raspberry Tie](raspberry-tie) - Another quantum visualization approach
-- [Qoffee Maker](qoffee-maker) - Quantum circuit design
-- [Quantum Lights Out](quantum-lights-out) - Quantum puzzle solving
-- [Demo List](01-demo-list) - All available demos
-
----
-
-*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*
+*See the [Demo List](01-demo-list) for everything else on the image.*

@@ -62,22 +62,15 @@ Most demos can be started in multiple ways:
    [Demo List](01-demo-list); the demo is installed on first use if it is not
    there yet.
 
-### Hardware Requirements
+### What you need
 
-**All Demos:**
-- Raspberry Pi 5 (recommended) or Pi 4
-- Display (monitor or VNC)
-- RasQberry OS installed
+Every demo needs a RasQberry image on a Pi 5 (recommended) or Pi 4, and a display
+— a monitor, or VNC.
 
-**LED-Based Demos:**
-- 4× WS2812 LED panels (4×12 pixels each)
-- Connected to GPIO pin 18
-- Required for: Raspberry Tie, Quantum Lights Out, GHZ Demo
-
-**Browser-Based Demos:**
-- No LEDs needed
-- Run in Chromium browser
-- Includes: Bloch Sphere, Qoffee Maker, Fractals
+Beyond that it varies: some need the LED panel, some a network connection, a few
+an IBM Quantum token. The [Demo List](01-demo-list) states it per demo, taken from
+the same manifests the image installs from, so it stays right as demos come and
+go.
 
 ## Educational Value
 

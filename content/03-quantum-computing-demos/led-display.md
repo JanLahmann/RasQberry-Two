@@ -12,7 +12,8 @@ The LED Display feature allows you to:
 
 ## Accessing via raspi-config
 
-Navigate to: **Main Menu → Quantum Demos → Test LEDs → Text & Logo Display**
+Run `sudo raspi-config` and navigate to:
+**0 RasQberry → Quantum Demos → Test LEDs → Text & Logo Display**
 
 ### Available Options
 
@@ -177,10 +178,11 @@ See [Boot Configuration](/02-software/installation-overview) for details on modi
 
 ### LEDs not turning on
 
-1. Check virtual environment is activated
-2. Verify SPI is enabled: `ls /dev/spidev*`
-3. Run LED test: `python3 /usr/bin/rq_test_leds.py`
-4. Check wiring and power supply
+1. Make sure no other demo is still running. The panel is driven by one process
+   at a time, so a demo left running holds it and the next one finds it busy.
+   Stop the running demo, or reboot.
+2. Run the LED test: `rq_demo_run.sh led-demos`
+3. Check wiring and power supply
 
 ### Turn off LEDs
 

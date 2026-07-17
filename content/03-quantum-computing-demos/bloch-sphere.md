@@ -1,122 +1,52 @@
-# Bloch Sphere Demo
+# Bloch Sphere
 
-The Bloch Sphere demo is an interactive visualization tool that helps users understand how quantum gates affect single-qubit states on the Bloch sphere.
-
-## Overview
-
-The Bloch sphere is a geometrical representation of a pure quantum state of a 2-level quantum system (qubit). This demo provides an intuitive way to explore quantum gates and their effects on single-qubit states through visual feedback in your web browser.
-
-> **Note**: The Bloch sphere representation is only applicable to **single qubits**. For multi-qubit systems, other visualization methods are needed.
-
-## Demo Interface
-
-The Grok Bloch demo provides an interactive web interface where you can:
-- View the Bloch sphere representation in 3D
-- See the current quantum state equation at the top
-- Click gate buttons (X, Y, Z, S, T, H, etc.) to apply transformations
-- Choose rotation angles (θ=π/8 or θ=π/12) for rotation gates
-- Watch the Bloch vector move in real-time
-- Monitor the probability of measuring |0⟩
+An interactive Bloch sphere in your browser: click a gate, watch the qubit move.
+It is the quickest way to build intuition for what quantum gates actually *do* to
+a single qubit.
 
 ![Grok Bloch Demo Interface](/demo-screenshots/grok-bloch-interface.png)
-*The interactive Grok Bloch interface showing the Bloch sphere, quantum state, and gate controls*
 
-## Running the Demo
+**Needs:** a display · **Start it with:** `rq_demo_run.sh grok-bloch`
 
-### Preferred Method: Desktop Icon
+## Run it
 
-1. Look for the **"Grok Bloch"** icon on your RasQberry desktop
-2. Double-click to launch the demo
-3. Your default web browser will open with the interactive visualization
+Double-click the **Grok Bloch** icon on the desktop, and it opens in your browser.
 
-### Alternative: Desktop Menu
+It is also under **Applications → RasQberry → Grok Bloch**, or in
+`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
 
-1. Click on the desktop menu
-2. Navigate to: **Applications** → **RasQberry** → **Grok Bloch**
-3. The demo will launch in your browser
+## Reading the sphere
 
-### Command Line (Advanced)
+Every pure state of one qubit is a point on the sphere:
 
-```bash
-rq_demo_run.sh grok-bloch
-```
+- **North pole** — |0⟩, **south pole** — |1⟩
+- **Equator** — superpositions with an equal chance of either
+- **X axis** — |+⟩ and |−⟩ (the Hadamard basis)
+- **Y axis** — |+i⟩ and |−i⟩ (the circular basis)
 
-## Understanding the Visualization
+The state equation is shown at the top, and the probability of measuring |0⟩
+alongside it. Click gates and watch the vector swing: **X**, **Y** and **Z** turn
+the state half a revolution about their axis, **H** takes the poles to the
+equator (|0⟩ → (|0⟩ + |1⟩)/√2), and **Rx/Ry/Rz** rotate by an angle you choose
+(θ = π/8 or π/12).
 
-The Bloch sphere represents a single qubit's state as a point on a unit sphere:
+Start with X, Z and H before the rotation gates — the effect is easier to see.
+Then try reaching a state you pick in advance.
 
-- **North Pole** (top): |0⟩ state
-- **South Pole** (bottom): |1⟩ state
-- **Equator**: Superposition states with equal probabilities
-- **X-axis**: |+⟩ and |-⟩ states (Hadamard basis)
-- **Y-axis**: |+i⟩ and |-i⟩ states (circular basis)
+## What it cannot show
 
-Any point on the sphere represents a valid pure quantum state of a single qubit.
+Worth knowing, because it is the honest limit of the picture:
 
-## Quantum Gates Demonstrated
+- **One qubit only.** There is no Bloch sphere for two entangled qubits — the
+  whole point of entanglement is that neither qubit has a state of its own.
+- **Pure states only.** No mixed states, so no decoherence or noise.
 
-### Pauli Gates
-- **X Gate** (NOT gate): Rotates around X-axis by π (flips |0⟩ ↔ |1⟩)
-- **Y Gate**: Rotates around Y-axis by π
-- **Z Gate** (Phase flip): Rotates around Z-axis by π (adds phase)
+## Credits and links
 
-### Hadamard Gate
-Creates equal superposition: transforms |0⟩ to (|0⟩ + |1⟩)/√2
+Built by **James Weaver** (JavaFXpert) — [JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch).
 
-### Rotation Gates
-- **Rx(θ)**: Rotation around X-axis by angle θ
-- **Ry(θ)**: Rotation around Y-axis by angle θ
-- **Rz(θ)**: Rotation around Z-axis by angle θ
+- [IBM Quantum Learning: single-qubit gates](https://learning.quantum.ibm.com/course/basics-of-quantum-information/single-systems)
+- [IBM Quantum Composer](https://quantum.ibm.com/composer) — build circuits with a Bloch sphere beside them
+- [Bloch sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
 
-## Hardware Requirements
-
-- Raspberry Pi (Pi 5 recommended, Pi 4 supported)
-- Display (monitor or VNC connection)
-- Web browser (Chromium included in RasQberry)
-- Mouse/keyboard or touchscreen for interaction
-
-## Tips
-
-- **Start Simple**: Begin with basic gates (X, Z, H) before trying rotation gates
-- **Observe Patterns**: Notice how different gates affect the Bloch vector direction
-- **Combine Gates**: Apply multiple gates sequentially to see composite effects
-- **Reset State**: Use the reset button to return to |0⟩ state
-- **Experiment**: Try to reach specific target states by combining gates
-
-## Limitations
-
-- **Single Qubit Only**: The Bloch sphere cannot represent multi-qubit states or entanglement
-- **Pure States**: Only represents pure states, not mixed states (density matrices)
-- **Classical Visualization**: A classical 3D visualization of quantum phenomena
-
-## Credits
-
-Developed by **James Weaver** (JavaFXpert)
-
-- **Repository**: [JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch)
-- **Purpose**: Educational visualization of single-qubit quantum states
-
-## Learn More
-
-### IBM Quantum Resources
-- [IBM Quantum Learning: Single-Qubit Gates](https://learning.quantum.ibm.com/course/basics-of-quantum-information/single-systems)
-- [IBM Quantum Composer](https://quantum.ibm.com/composer) - Build circuits with visual Bloch sphere
-
-### Qiskit Documentation
-- [Qiskit: Visualizing Quantum States](https://docs.qiskit.org/stable/visualization.html#bloch-sphere)
-- [Qiskit YouTube Channel](https://www.youtube.com/@qiskit)
-
-### General Resources
-- [Bloch Sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
-- [IBM Quantum Documentation](https://docs.quantum.ibm.com/)
-
-## Related Demos
-
-- [Raspberry Tie](raspberry-tie) - Run quantum circuits with LED visualization
-- [Quantum Lights Out](quantum-lights-out) - Quantum puzzle solving
-- [Qoffee Maker](qoffee-maker) - Quantum coffee selection
-- [Demo List](01-demo-list) - All available demos
-
----
-
-*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*
+*See the [Demo List](01-demo-list) for everything else on the image.*

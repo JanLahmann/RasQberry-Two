@@ -22,12 +22,18 @@ const path = require('path');
 
 const REPO = 'JanLahmann/RasQberry-Two';
 const MANIFEST_DIR = 'RQB2-config/demo-manifests';
+
+// Which branch the website describes. `development` while the demo work is
+// landing there; switch to `beta` once this round is merged to beta, so the
+// site documents what people can actually download rather than what is in
+// flight. Override per-run with --ref.
+const DEFAULT_REF = 'development';
 const OUT = path.join(__dirname, '..', 'content', '03-quantum-computing-demos', '01-demo-list.md');
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
 const refIdx = args.indexOf('--ref');
-const ref = refIdx !== -1 ? args[refIdx + 1] : 'development';
+const ref = refIdx !== -1 ? args[refIdx + 1] : DEFAULT_REF;
 
 // A demo has a full page when a file of that name exists next to the list.
 function pageFor(id) {
@@ -46,16 +52,30 @@ function needsOf(m) {
   return n;
 }
 
+// Authenticate when a token is around (CI sets GITHUB_TOKEN). Unauthenticated
+// GitHub API calls are limited to 60/hour per IP, and Actions runners share IPs
+// - which is the difference between this check being reliable in the deploy
+// build and failing at random.
+function ghHeaders() {
+  const h = { Accept: 'application/vnd.github+json' };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
 async function fetchManifests() {
   const api = `https://api.github.com/repos/${REPO}/contents/${MANIFEST_DIR}?ref=${ref}`;
-  const res = await fetch(api, { headers: { Accept: 'application/vnd.github+json' } });
-  if (!res.ok) throw new Error(`GitHub API ${res.status} for ${api}`);
+  const res = await fetch(api, { headers: ghHeaders() });
+  if (!res.ok) {
+    const hint = res.status === 403 ? ' (rate limited? set GITHUB_TOKEN)' : '';
+    throw new Error(`GitHub API ${res.status} for ${api}${hint}`);
+  }
   const files = await res.json();
   const out = [];
   for (const f of files) {
     if (!f.name.startsWith('rq_demo_') || !f.name.endsWith('.json')) continue;
     if (f.name.includes('schema')) continue;
-    const r = await fetch(f.download_url);
+    const r = await fetch(f.download_url, { headers: ghHeaders() });
     if (!r.ok) throw new Error(`fetch ${f.name}: ${r.status}`);
     out.push(await r.json());
   }

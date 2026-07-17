@@ -76,6 +76,17 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock') }}-
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+      - name: Check the demo list matches the demo manifests
+        # 01-demo-list.md is generated from RQB2-config/demo-manifests - the same
+        # files the image installs from. This fails the build when a demo is added
+        # or changed there and the list is not regenerated, which is how 17 demos
+        # came to ship with 8 listed. Fix with: npm run demos
+        #
+        # GITHUB_TOKEN lifts the GitHub API limit from 60/hour per IP (and Actions
+        # runners share IPs) to 1000/hour, so this does not fail at random.
+        run: npm run demos:check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
       - name: Upload artifact

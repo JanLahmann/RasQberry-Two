@@ -2,32 +2,21 @@
 
 ![Raspberry Tie](/qrtimages/New Logo Screen.png)
 
-Run quantum circuits on IBM Quantum processors or simulators and visualize the results on the RasQberry LED array! The Raspberry Tie displays quantum measurement results as colored pixels on the 8×8 LED matrix, with patterns corresponding to IBM quantum processor topologies.
+Run a quantum circuit — on a simulator or on real IBM Quantum hardware — and watch
+the measured qubits light up on the panel, laid out the way the qubits are
+actually arranged on the processor.
 
-## Overview
+**Needs:** the LED panel · a display · an IBM Quantum token for the `real` variant
+**Start it with:** `rq_demo_run.sh quantum-raspberry-tie`
 
-Raspberry Tie brings quantum computing to life through physical LED visualization. Submit quantum circuits to IBM Quantum backends (real or simulated) and watch the measurement results light up on your RasQberry's LED array in real-time.
+## Run it
 
-## Running the Demo
+Double-click the **Raspberry Tie** icon on the desktop.
 
-### From RasQberry Configuration Menu
+It is also under **Applications → RasQberry → Raspberry Tie**, or in
+`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
 
-1. Open a terminal on your RasQberry
-2. Run: `sudo raspi-config`
-3. Navigate to: **0 RasQberry** → **Quantum Computing Demos** → **Raspberry Tie**
-4. Follow the interactive prompts to configure the demo
-
-### Desktop Icon
-
-- Look for the **"Raspberry Tie"** icon on your RasQberry desktop
-- Double-click to launch the demo with interactive configuration
-
-### Desktop Menu
-
-1. Click on the desktop menu
-2. Navigate to: **Applications** → **RasQberry** → **Raspberry Tie**
-
-### Command Line (Advanced)
+From a terminal you can pick the backend:
 
 ```bash
 rq_demo_run.sh quantum-raspberry-tie            # local Aer simulator (default)
@@ -35,141 +24,32 @@ rq_demo_run.sh quantum-raspberry-tie noise      # simulator with a noise model
 rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware
 ```
 
-The `real` variant needs a network connection and an IBM Quantum token.
+The `real` variant needs a network connection and an IBM Quantum token, and your
+job may sit in a queue before it runs.
 
-## Display Modes
+## What you'll see
 
-### 5-Qubit Displays
+Each qubit is a coloured pixel: **blue** for a qubit measured as |1⟩, **red** for
+|0⟩, and a paler shade for qubits that were not measured. The pixels are not in a
+line — they are placed to match the connectivity of a real IBM processor, so a
+5-qubit run makes the "bowtie", and larger runs the heavy-hex pattern used by
+current devices.
 
-**Bowtie**
-
-<img src='/qrtimages/ibm_qubit_cpu.jpg' width='200' alt='IBM 5 qubit processor' />
 <img src='/qrtimages/RaspberryTieOutput.png' width='200' alt='Bowtie display output' />
-
-The classic 5-qubit "bowtie" layout matching IBM's early quantum processors. Each colored pixel represents one qubit's measurement result.
-
-**Tee**
-
-<img src='/qrtimages/5-qubit tee.png' width='200' alt='Tee display output' />
-
-A 5-qubit layout based on the "tee" connectivity of later IBM processors, offering lower noise characteristics.
-
-### 12-Qubit Display (Hex)
-
 <img src='/qrtimages/12-qubit display.png' width='200' alt='12-qubit hex display' />
 
-The "heavy hex" topology used in modern IBM quantum processors. This diamond-shaped layout is topologically equivalent to a hexagon with qubits at vertices and edge midpoints.
+Comparing the same circuit on the simulator and on real hardware is the thing
+worth doing: the ideal result is crisp, and the real device shows you noise.
 
-### 16-Qubit Display
+No LEDs? It also renders to an SVG you can open in a browser.
 
-<img src='/qrtimages/ibm_16_qubit_processor-100722935-large.3x2.jpg' width='200' alt='IBM 16 qubit processor' />
-<img src='/qrtimages/16-bitRpi-result.JPG' width='200' alt='16-qubit display output' />
+## Credits and documentation
 
-Layout corresponding to IBM's experimental 16-qubit processors, arranged in four rows.
+Written and maintained by **Kevin Roche**. The upstream project documents the
+display modes, backends and options in full — start there rather than here:
 
-## Understanding the Display
+- **[KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)** — the project and its documentation
+- [IBM Quantum Platform](https://quantum.ibm.com/) — for a token, if you want the `real` variant
+- [Bill of Materials](../01-3d-model/bill-of-materials) · [Hardware Assembly Guide](../01-3d-model/hardware-assembly-guide) — for the LED panel
 
-- **Blue pixels**: Qubit measured as |1⟩
-- **Red pixels**: Qubit measured as |0⟩
-- **Purple/lavender pixels**: Unmeasured qubits (when using fewer than max qubits)
-
-The pixel patterns correspond to qubit connectivity on IBM quantum processors, helping visualize the physical hardware topology.
-
-## Hardware Requirements
-
-- Raspberry Pi (Pi 5 recommended, Pi 4 supported)
-- **4× WS2812 LED panels** (4×12 pixels each) - Required for LED display
-- Connected to GPIO pin 18
-- Display (monitor or VNC) for configuration
-- Internet connection (for IBM Quantum backends)
-
-**Alternative**: If no LEDs are connected, an SVG browser display is available.
-
-See the [Bill of Materials](../01-3d-model/bill-of-materials) and [Hardware Assembly Guide](../01-3d-model/hardware-assembly-guide) for LED panel details and assembly instructions.
-
-## Backend Options
-
-### Local Aer Simulator (Default)
-- **Type**: Fast local simulation
-- **Requirements**: No IBM account needed
-- **Behavior**: Ideal quantum behavior, no noise
-
-### IBM Quantum Simulators
-- **Type**: Cloud-based simulation
-- **Requirements**: IBM Quantum account
-- **Behavior**: Can model noise from real devices
-
-### Real Quantum Hardware
-- **Type**: Actual quantum computer
-- **Requirements**: IBM Quantum account
-- **Behavior**: Real quantum effects including noise and errors
-- **Note**: Jobs may queue; results take longer
-
-## Configuration
-
-### IBM Quantum Setup
-
-To use IBM Quantum backends:
-
-1. Create account at [IBM Quantum](https://quantum.ibm.com/)
-2. Get your API token from account settings
-3. Save credentials:
-   ```bash
-   python3
-   >>> from qiskit_ibm_runtime import QiskitRuntimeService
-   >>> QiskitRuntimeService.save_account(channel="ibm_quantum", token="YOUR_TOKEN")
-   ```
-
-The demo will prompt for credentials if needed.
-
-## SVG Display Mode
-
-When LEDs aren't available, the demo creates browser-viewable output:
-
-<img src='/qrtimages/SVG%20display%20tee.png' width='200' alt='SVG tee display' />
-<img src='/qrtimages/svg%20display%2012%20on%20hex12.png' width='200' alt='SVG 12-qubit display' />
-
-The demo generates:
-- `svg/qubits.html` - Auto-refreshing wrapper (every 2 seconds)
-- `svg/pixels.html` - SVG rendering of current LED state
-
-Open `svg/qubits.html` in a browser to watch the demo without physical LEDs.
-
-## Performance Tips
-
-- **Start with Local**: Use Aer simulator for fastest results
-- **Monitor Queue Times**: Real hardware jobs may take minutes to hours
-- **Check Connectivity**: Ensure stable internet for IBM Quantum backends
-- **Use Interactive Mode**: Easier than command-line flags for demos
-
-## Credits
-
-Developed by **Kevin Roche**
-
-- **GitHub**: [KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)
-- **Requirements**: Qiskit 2.x, Python 3, SenseHat libraries
-
-## Learn More
-
-### IBM Quantum
-- [IBM Quantum Platform](https://quantum.ibm.com/)
-- [Qiskit Documentation](https://docs.qiskit.org/)
-- [IBM Quantum Learning](https://learning.quantum.ibm.com/)
-
-### Hardware
-- [Bill of Materials](../01-3d-model/bill-of-materials) - Component list including LED panels
-- [Hardware Assembly Guide](../01-3d-model/hardware-assembly-guide) - Assembly instructions
-
-### Source Code
-- [GitHub Repository](https://github.com/KPRoche/quantum-raspberry-tie)
-
-## Related Demos
-
-- [Bloch Sphere](bloch-sphere) - Understand single-qubit states
-- [Quantum Lights Out](quantum-lights-out) - Another LED-based demo
-- [Qoffee Maker](qoffee-maker) - Quantum circuit design
-- [Demo List](01-demo-list) - All available demos
-
----
-
-*IBM Quantum and Qiskit are trademarks of IBM Corporation. This demo uses open-source Qiskit software.*
+*See the [Demo List](01-demo-list) for everything else on the image.*
