@@ -1,8 +1,50 @@
 {
-  "generated": "2026-07-17T08:52:38Z",
+  "generated": "2026-07-17T09:40:14Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 39,
+  "count": 41,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-111947/rasqberry-dev-demoux-2026-07-17-111947.img.xz",
+      "extract_size": 8942256128,
+      "extract_sha256": "e9a33f6519ae3328d97a4b9591c8dd13d639ca69b0515b7a5f6321a1aa9dcb96",
+      "image_download_size": 1998575484,
+      "image_sha256": "498fdd80556f287678a2848cf5b1d7f0c4bb2bcc364368dbbebb87b51203d512",
+      "release_date": "2026-07-17 11:19",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-demoux-2026-07-17-111947",
+      "_branch": "dev-demoux",
+      "_published": "2026-07-17T09:20:25Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demoux-2026-07-17-111947/rasqberry-dev-demoux-2026-07-17-111947-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "f99293a841439c1acdba9612e9c2fc5f3d6ecd385df2da29f0928df67858246a",
+      "image_download_size": 2036755072,
+      "image_sha256": "68071380ac2cd3e5bf25fded3b586eac22058850918f73ee4f1c21fe20de2e2c",
+      "release_date": "2026-07-17 11:19",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-demoux-2026-07-17-111947",
+      "_branch": "dev-demoux",
+      "_published": "2026-07-17T09:20:25Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
