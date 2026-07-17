@@ -1704,6 +1704,13 @@ jobs:
               print(f"Could not fetch release highlights: {e}")
 
           # Create the stream entry with all metadata
+          # The image_url / extract_sha256 / image_sha256 here describe the
+          # STANDARD image. rq_update_slot.sh writing an A/B slot needs the -ab
+          # image and verifies it against extract_sha256 after decompression, so
+          # without a separate set of AB fields it checked the -ab download
+          # against the standard hash and aborted every A/B OTA. The ab_* values
+          # are already computed (steps.metadata.outputs.ab_*) - just never
+          # written here.
           stream_entry = {
               "tag": tag,
               "name": "${{ steps.version-type.outputs.release_name }}",
@@ -1715,6 +1722,18 @@ jobs:
               "extract_sha256": "${{ steps.metadata.outputs.extract_sha256 }}",
               "image_sha256": "${{ steps.metadata.outputs.image_sha256 }}"
           }
+
+          # A/B image fields, when this release built one. rq_update_slot.sh uses
+          # ab_image_url / ab_extract_sha256 for A/B-slot updates; absent on a
+          # standard-only build.
+          ab_url = "${{ steps.metadata.outputs.ab_download_url }}"
+          ab_extract_sha = "${{ steps.metadata.outputs.ab_extract_sha256 }}"
+          if ab_url and ab_extract_sha:
+              stream_entry["ab_image_url"] = ab_url
+              stream_entry["ab_extract_sha256"] = ab_extract_sha
+              stream_entry["ab_image_sha256"] = "${{ steps.metadata.outputs.ab_image_sha256 }}"
+              stream_entry["ab_image_download_size"] = ${{ steps.metadata.outputs.ab_compressed_size || 0 }}
+              stream_entry["ab_extract_size"] = ${{ steps.metadata.outputs.ab_extract_size || 0 }}
 
           # Add highlights if we found any
           if highlights:

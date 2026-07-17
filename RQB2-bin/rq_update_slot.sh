@@ -646,12 +646,26 @@ EOF
         fi
     fi
 
-    # Fetch the decompressed-image checksum (extract_sha256) from the release
-    # manifest so write_image_to_slot can verify integrity after decompression.
-    local extract_sha
-    extract_sha=$(fetch_release_sha256 "$release_tag" extract_sha256)
+    # Fetch the decompressed-image checksum from the release manifest so
+    # write_image_to_slot can verify integrity after decompression.
+    #
+    # An A/B slot is written from the -ab image - a different file from the
+    # standard one, with a different decompressed hash (ab_extract_sha256, not
+    # extract_sha256). Fetching the wrong field made the post-decompress check
+    # abort every A/B OTA against the standard image's hash. Detect the -ab
+    # image by its URL (both slots on an A/B card use it).
+    local extract_sha sha_field="extract_sha256"
+    case "$download_url" in
+        *-ab.img.xz|*-ab.img) sha_field="ab_extract_sha256" ;;
+    esac
+    extract_sha=$(fetch_release_sha256 "$release_tag" "$sha_field")
     if [ -n "$extract_sha" ]; then
-        log_message "Fetched extract_sha256 from RQB-releases.json for $release_tag"
+        log_message "Fetched ${sha_field} from RQB-releases.json for $release_tag"
+    elif [ "$sha_field" = "ab_extract_sha256" ]; then
+        # Older manifests predate the ab_* fields. Fall back to writing WITHOUT
+        # the post-decompress check (with a warning), rather than silently
+        # borrowing the standard hash - which was the bug.
+        warn "No ab_extract_sha256 in RQB-releases.json for $release_tag (older manifest?) - writing without decompressed-image verification"
     fi
 
     # Write image to target slot (both boot and system partitions)
