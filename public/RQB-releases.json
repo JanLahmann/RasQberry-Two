@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T15:25:40Z",
+  "generated": "2026-07-17T15:26:17Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,12 +35,6 @@
       "image_download_size": 2000710704,
       "extract_size": 8942256128,
       "extract_sha256": "99f9d6b9fe111b6435e2c5331412dc1369dc0985b8a23a9f40ea66340613fbd5",
-      "image_sha256": "383863dadcbfaa7fa5ab3acae6565d3d24ef67281c83caed57434c82e6b78904",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-170541/rasqberry-development-2026-07-17-170541-ab.img.xz",
-      "ab_extract_sha256": "c9dbc08e32ad9c835867d268a8559b7fdf2151405d46fb30aec847c3b03727f1",
-      "ab_image_sha256": "61d96bde65e81f2a16c6475a0ba4b16894b8a397800decab983311a1e05fd568",
-      "ab_image_download_size": 2038820612,
-      "ab_extract_size": 12398362624,
       "highlights": [
         "publish and use A/B checksums so A/B slot updates verify",
         "Bump version to development-2026-07-17-170541",
