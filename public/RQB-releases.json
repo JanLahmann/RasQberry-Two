@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T05:54:36Z",
+  "generated": "2026-07-17T05:56:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,20 +27,21 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-16-232307",
-      "name": "rasqberry-development-2026-07-16-232307",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-16-232307/rasqberry-development-2026-07-16-232307.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-16-232307",
-      "release_date": "2026-07-16 23:23",
-      "image_download_size": 2000708576,
+      "tag": "development-2026-07-17-073726",
+      "name": "rasqberry-development-2026-07-17-073726",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-073726/rasqberry-development-2026-07-17-073726.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-073726",
+      "release_date": "2026-07-17 07:37",
+      "image_download_size": 1999196576,
       "extract_size": 8942256128,
-      "extract_sha256": "4dda9397654429942285be50e943c953dcd95d5bdb4f1e2773655ac9c1672570",
+      "extract_sha256": "87cc081e447375382ef3b262a4e5eecd3775ed24e5854b481b6d1d72f6b2fc4f",
+      "image_sha256": "7a038adbae4b03cf51281ab3a5c285f72bd34e00c68fc2336f61ab9d67b2fe1a",
       "highlights": [
-        "stop the verify wizard firing at boot, and hanging on exit",
-        "stop reporting demos as running when they died",
-        "Bump version to development-2026-07-16-232307",
-        "Merge remote-tracking branch 'origin/dev-grokfix' into development",
-        "stop killing the demo's own web server"
+        "ship skip-expansion so A/B images stop faking a first-boot resize",
+        "offer pending setup steps instead of only the LED check",
+        "Bump version to development-2026-07-17-073726",
+        "Merge remote-tracking branch 'origin/dev-demoux' into development",
+        "Bump version to dev-demoux-2026-07-17-070040"
       ]
     }
   }
