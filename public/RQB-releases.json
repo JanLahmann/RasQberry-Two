@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T08:39:26Z",
+  "generated": "2026-07-17T08:39:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,7 +35,6 @@
       "image_download_size": 1998719896,
       "extract_size": 8942256128,
       "extract_sha256": "f25eb371181a969756b9117f0079e4b292cbee5ecc1c7aebedc5b4c6f0ae3f38",
-      "image_sha256": "8ba5d051953f7cd86edc3085259ff38e9620338b69c2573a894f06b2d22d3c0d",
       "highlights": [
         "Bump version to development-2026-07-17-101822",
         "Merge remote-tracking branch 'origin/dev-demoux' into development",
