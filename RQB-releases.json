@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T18:18:18Z",
+  "generated": "2026-07-17T20:17:16Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,24 +27,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-07-17-195907",
-      "name": "rasqberry-development-2026-07-17-195907",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-195907/rasqberry-development-2026-07-17-195907.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-195907",
-      "release_date": "2026-07-17 19:59",
-      "image_download_size": 2000431388,
+      "tag": "development-2026-07-17-215751",
+      "name": "rasqberry-development-2026-07-17-215751",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-215751/rasqberry-development-2026-07-17-215751.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-07-17-215751",
+      "release_date": "2026-07-17 21:57",
+      "image_download_size": 2001275264,
       "extract_size": 8942256128,
-      "extract_sha256": "f32e1d1e5c7fe9b6205280a1150d27c48e7557a56f35d17159460b76b0494ad8",
-      "image_sha256": "517112b7dd8a0cf6252433d2c144f7604e54e539d62902322cf853b713504fd0",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-195907/rasqberry-development-2026-07-17-195907-ab.img.xz",
-      "ab_extract_sha256": "ea1978b2fbd9591ae0bcdab0710a5e1551e1fadfae03363f33c2a66dcc4b8e28",
-      "ab_image_sha256": "6a9808bcc01a7f3ea75baf9eeb64587bcd32bd9606fb02da4a151cd9fcfa1dd1",
-      "ab_image_download_size": 2037378308,
+      "extract_sha256": "6be98ec6341d7e674e3a61ff4cf7c51ed590d06a522d7c75b135460659caff63",
+      "image_sha256": "cabfb72af8dc6d1ca7074add46c95cb616742122e716b85c29f09ffee6db62b1",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-215751/rasqberry-development-2026-07-17-215751-ab.img.xz",
+      "ab_extract_sha256": "a9cef0af5ae637ae601a9355bcd7bdad3d1f452e32654a7baa284aacb59bcc86",
+      "ab_image_sha256": "bc43cb812058f2f587d46a0364c6428ba9646eeb35a3ce73cd08d6d3f2ac9181",
+      "ab_image_download_size": 2038457168,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "three launcher bugs found while capturing screenshots",
-        "Bump version to development-2026-07-17-195907",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-17-170541"
+        "accept 64GB cards (58 GiB minimum, was 63 GiB)",
+        "Bump version to development-2026-07-17-215751",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-17-195907"
       ]
     }
   }
