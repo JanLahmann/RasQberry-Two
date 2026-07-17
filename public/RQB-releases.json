@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-17T20:17:16Z",
+  "generated": "2026-07-17T20:17:40Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,12 +35,6 @@
       "image_download_size": 2001275264,
       "extract_size": 8942256128,
       "extract_sha256": "6be98ec6341d7e674e3a61ff4cf7c51ed590d06a522d7c75b135460659caff63",
-      "image_sha256": "cabfb72af8dc6d1ca7074add46c95cb616742122e716b85c29f09ffee6db62b1",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-07-17-215751/rasqberry-development-2026-07-17-215751-ab.img.xz",
-      "ab_extract_sha256": "a9cef0af5ae637ae601a9355bcd7bdad3d1f452e32654a7baa284aacb59bcc86",
-      "ab_image_sha256": "bc43cb812058f2f587d46a0364c6428ba9646eeb35a3ce73cd08d6d3f2ac9181",
-      "ab_image_download_size": 2038457168,
-      "ab_extract_size": 12398362624,
       "highlights": [
         "accept 64GB cards (58 GiB minimum, was 63 GiB)",
         "Bump version to development-2026-07-17-215751",
