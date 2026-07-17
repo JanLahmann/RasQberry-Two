@@ -27,6 +27,41 @@ room to put a system in Slot B, so every A/B operation fails until they grow:
 The placeholders are deliberate: the image has to fit small cards and be quick to
 flash, so it ships minimal and grows to fit the card it lands on.
 
+### Why isn't it automatic, like the standard image?
+
+Because it was made manual on purpose. The two images expand differently:
+
+| | Standard image | A/B image |
+|---|---|---|
+| Expands | automatically, on first boot | **only when you ask** |
+| By | `/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh`, run by `rasqberry-firstboot.service` → `raspi-config nonint do_expand_rootfs` | `raspi-config` → RasQberry → AB_BOOT → EXPAND (`do_expand_ab_partitions` in `RQB2-config/RQB2_menu.sh`) |
+| Decides sizes | grow root to fill the card | you confirm a 45/45/10 split first |
+
+There is **no standalone A/B expansion script, by design.** One existed
+(`stage-RQB2/00-firstboot-expansion/files/02-expand-ab-partitions.sh`) and was
+removed in `54f6a3f` (2025-11-23, issue #142): *"Replace automatic firstboot
+expansion with manual raspi-config approach for A/B boot images. This gives
+users control over partition sizing."* Splitting a card in half is not a
+decision to make behind the user's back, so A/B asks. The trade is that a fresh
+A/B card does nothing until someone knows to ask — which is what this page is
+for.
+
+The firstboot task is generated into the image at build time (a heredoc in
+`stage-RQB2/00-firstboot-setup/00-run-chroot.sh`), so it exists on the running
+Pi but not as a file in this repo — grepping the source for its filename finds
+nothing.
+
+It is meant to stand down on A/B images via a `/boot/firmware/skip-expansion`
+marker ("typically used for A/B boot setup"). **That marker is not actually on
+the A/B images we ship** — checked on two rig Pis, neither had it — so the
+standard task does run on an A/B card. In practice it is harmless: it marks
+itself done without expanding, because `raspi-config nonint do_expand_rootfs`
+will not grow a root partition that is not last on the disk (p6 and p7 sit after
+it). It leaves `01-expand-filesystem.sh.done` behind and no expansion, which is
+one more reason a fresh A/B card looks like it "already expanded" when it has
+not. Worth either shipping the marker or teaching the task to recognise an A/B
+layout.
+
 ### Requirements
 
 - **A 64GB or larger SD card.** Expansion refuses to run below ~63GB. On a
