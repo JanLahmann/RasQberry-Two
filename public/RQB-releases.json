@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-17T16:19:22Z",
+  "generated": "2026-08-18T00:50:54Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -16,7 +16,15 @@
       "image_download_size": 1668208604,
       "extract_size": 8866758656,
       "extract_sha256": "5830bc6a22020b3095d3b50612df650c54caefad61adfe39ab9515e9c9e122b7",
-      "highlights": []
+      "highlights": [
+        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
+        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
+        "Virtual LED Display - Demo mode without physical hardware",
+        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
+        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
+        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
+        "XZ Compression - Smaller images (~30% reduction)"
+      ]
     },
     "dev": {
       "tag": "development-2026-07-17-215751",
