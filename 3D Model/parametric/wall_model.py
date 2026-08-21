@@ -30,16 +30,41 @@ from build123d import Mesher
 # ---------------------------------------------------------------------------
 
 # Where to cut each part, in the part's own coordinates (x, 0 = left edge).
-# x = 97 passes only through plain plate/wall regions of all three parts:
-# it avoids the hexagon/circle floor openings, the ribs and the lid pegs of
-# the base/lid (features at x = 41-46, 51-75, 81-84, 111-135, ...), and the
-# vent grilles / screw bosses of the back panel.
-# Resulting segment widths: 97 mm + 148.7 mm - both fit a 150 mm bed.
-# Add more cut positions for even smaller printers (each must be feature-free).
+#
+# Base and Lid are cut at x = 122.86 - the CENTRE of the middle facade seam
+# (the wall's five seam lines - lid pegs plus the matching grooves on the
+# lid's top face - sit at x = 43.86, 82.86, 122.86, 162.86, 201.86). This
+# way the visible joint coincides with a pre-existing seam: on the base the
+# cut passes through the gap in the front lip (121.26..124.46), on the lid
+# the front peg is kept in one piece via CARVE below and the joint follows
+# the seam line. Inside, the cut crosses the base's circular floor opening
+# and halves the middle rib and the lid's centre post lengthwise - purely
+# interior faces (base rib and lid post halves still mate after assembly).
+# Segments are symmetric: ~123 mm each, both fit a 150 mm bed.
+#
+# The Back keeps x = 97: at 122.86 its screw bosses (123.8..129.8) are in
+# the way, its rear face has no seam lines anyway, and staggering the back
+# joint against the base/lid joint stiffens the assembled wall.
+#
+# Any added cut position must avoid part features (see README).
+SEAM_CENTRE = 122.86
 CUTS = {
-    "R2_Wall-Base": [97.0],
+    "R2_Wall-Base": [SEAM_CENTRE],
     "R2_Wall-Back": [97.0],
-    "R2_Wall-Lid": [97.0],
+    "R2_Wall-Lid": [SEAM_CENTRE],
+}
+
+# Regions re-assigned wholly to one side of a cut (axis-aligned boxes,
+# (xmin, ymin, zmin, xmax, ymax, zmax)). Used to keep a feature that
+# straddles a cut in one piece instead of slicing it. "cut" is the index
+# into CUTS[part]; "to" is "left" or "right".
+CARVE = {
+    # keep the lid's free-hanging front peg (x 121.36..124.36, y 0.2..6.2,
+    # z 0..83.72) in one piece on the left segment; above z 83.72 the wall
+    # is solid and the flat cut continues on the seam centre line
+    "R2_Wall-Lid": [
+        {"cut": 0, "to": "left", "box": (121.36, -1.0, -1.0, 124.36, 7.0, 83.72)},
+    ],
 }
 
 CLEARANCE = 0.15   # per-side clearance between dovetail key and pocket
@@ -53,9 +78,11 @@ KEY_END = 12.0     # key width at its wide (locking) end
 # panel thickness y0..y1 (assembles by pressing horizontally).
 KEYS = {
     "R2_Wall-Base": [
-        # bottom plate, 3 mm thick
-        {"kind": "plate", "at": 15.0, "z0": 0.0, "z1": 3.0},
-        {"kind": "plate", "at": 30.0, "z0": 0.0, "z1": 3.0},
+        # bottom plate, 3 mm thick; y positions clear the circular floor
+        # opening (centre y 27.3, r 11.0) that the seam cut passes through.
+        # The front key is narrower: it has to fit between the front-lip
+        # slot recess (up to y 6.1) and the circular opening (from y 16.3).
+        {"kind": "plate", "at": 11.0, "z0": 0.0, "z1": 3.0, "neck": 5.0, "end": 8.0},
         {"kind": "plate", "at": 45.0, "z0": 0.0, "z1": 3.0},
     ],
     "R2_Wall-Back": [
@@ -126,8 +153,8 @@ def trapezoid_prism(cut_x, spec, grow=0.0):
 
     grow > 0 expands the key into the pocket shape (clearance offset).
     """
-    neck = KEY_NECK + 2 * grow
-    end = KEY_END + 2 * grow
+    neck = spec.get("neck", KEY_NECK) + 2 * grow
+    end = spec.get("end", KEY_END) + 2 * grow
     depth = KEY_DEPTH + grow
     anchor = 2.0  # straight shank reaching back into the left segment
     c, at = cut_x, spec["at"]
@@ -167,6 +194,14 @@ def split_part(part, name, size):
             x1 - x0, big + ymax, big + zmax, align=None)
         seg = (part & region).clean()
         segments.append(seg)
+    # carve-outs: move a feature that straddles a cut wholly to one side
+    for spec in CARVE.get(name, []):
+        x0, y0, z0, x1, y1, z1 = spec["box"]
+        box = Location((x0, y0, z0)) * Box(x1 - x0, y1 - y0, z1 - z0, align=None)
+        i = spec["cut"]
+        keep, lose = (i, i + 1) if spec["to"] == "left" else (i + 1, i)
+        segments[keep] = (segments[keep] + (part & box)).clean()
+        segments[lose] = (segments[lose] - box).clean()
     # keys: each segment gets tails reaching into the next segment,
     # the next segment gets the matching (expanded) pockets
     for i, cut in enumerate(cuts):

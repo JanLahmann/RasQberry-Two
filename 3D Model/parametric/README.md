@@ -20,8 +20,9 @@ long-standing wishes:
    [discussion #93](https://github.com/JanLahmann/RasQberry-Two/discussions/93).
 2. **Split version for smaller printers.** At ~246 mm the wall does not
    fit many common print beds. Each part is additionally generated as two
-   segments (97 mm + 149 mm — both fit a 150 mm bed) joined by printable
-   dovetail (puzzle) keys.
+   segments joined by printable dovetail (puzzle) keys; Base and Lid are
+   cut on the middle facade seam (2 x ~123 mm), the Back at 97 mm — all
+   segments fit a 150 mm bed. See "Split design" below.
 
 ## Files
 
@@ -76,13 +77,33 @@ outside the original part's volume, and the total clearance gap is
 
 ## Split design
 
-The cut runs at x = 97 mm from the left edge. That position passes only
-through plain plate/wall regions of all three parts — it avoids the
-hexagon/circle floor openings, ribs and pegs (features at x ≈ 41-46,
-51-75, 81-84, 111-135, 161-164, 200-204 mm) and the back panel's vent
-grilles and screw bosses. Keys sit in:
+**Base and Lid are cut on a pre-existing seam.** The wall facade has five
+vertical seam lines (the lid pegs, continued by matching grooves on the
+lid's top face) at x = 43.86 / 82.86 / 122.86 / 162.86 / 201.86. The cut
+runs through the centre of the middle seam (x = 122.86, which is also the
+exact centre of the part), so the visible joint disappears into the seam:
 
-- **Base**: bottom plate (3 mm), keys at y = 15/30/45
+- on the **Base** the cut passes through the pre-existing gap in the front
+  lip (x = 121.26-124.46) — no new line on the facade;
+- on the **Lid** the free-hanging front peg is kept in one piece (assigned
+  wholly to segment A via a stepped cut) and the joint follows the seam
+  line; on the top face the cut runs between the decorative seam grooves.
+
+Interior faces are allowed to be pragmatic: the cut crosses the base's
+circular floor opening and halves the middle rib and the lid's centre
+post lengthwise — the halved rib and post still mate with each other
+after assembly, and none of this is visible from the outside.
+
+The **Back** keeps its cut at x = 97: at 122.86 its screw bosses
+(x = 123.8-129.8) are in the way, its rear face carries no seam lines,
+and staggering the back joint against the base/lid joint stiffens the
+assembled wall.
+
+Segment widths: Base/Lid 2 x ~123 mm, Back 97 + 148 mm — everything fits
+a 150 mm bed. Keys sit in:
+
+- **Base**: bottom plate (3 mm), keys at y = 9/45 (clearing the circular
+  floor opening, centre y 27.3 / r 11, that the seam cut passes through)
 - **Back**: main panel (4 mm), keys at z = 15/40/65
 - **Lid**: top plate (z = 96.97-98.32, the only solid cross-plate at the
   cut; the keys stop below the decorative seam grooves so the visible top
