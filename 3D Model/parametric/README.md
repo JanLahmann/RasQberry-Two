@@ -1,6 +1,28 @@
-# Parametric wall model (Base / Back / Lid)
+# Parametric (code-CAD) models
 
-This folder contains a parametric, code-based rebuild of the three wall
+This folder holds the RasQberry models that are written as code (build123d)
+instead of drawn in a GUI:
+
+- **the wall** (Base / Back / Lid) — a rebuild of the SketchUp originals with
+  a split version for small printers, described below;
+- **[`union/`](union/README.md) — IBM's modular cryogenic cell ("Union")**,
+  the first model built from scratch with this approach (two scale presets,
+  magnetic door, gold chandelier, multi-colour output);
+- `rqb_cad.py` — the shared helper library both use (export to STL/STEP/3MF,
+  multi-colour 3MF, dovetail split, rounded boxes, magnet pockets, checks).
+
+Set-up for all of them (build123d is not in the default Python):
+
+```bash
+cd "3D Model/parametric"
+python3 -m venv .venv-cad
+.venv-cad/bin/pip install build123d trimesh manifold3d shapely rtree numpy networkx matplotlib
+.venv-cad/bin/python wall_model.py            # or union/union_model.py
+```
+
+## The wall (Base / Back / Lid)
+
+This is a parametric, code-based rebuild of the three wall
 parts of the RasQberry Two 3D model:
 
 | Part | Original STL (branch `3D-model`) | Size (mm) |
@@ -36,6 +58,10 @@ long-standing wishes:
 - `wall_model.py` — rebuilds the three parts as B-rep solids from the
   measured profiles and applies the parametric split. All tunables are at
   the top of the file: cut positions, key positions/sizes, clearance.
+- `rqb_cad.py` (parent folder) — shared helpers: `export_all`,
+  `export_multicolour_3mf`, `split_part` / `trapezoid_prism` (the dovetail
+  machinery, now taking cuts/keys/carve-outs as arguments), `rounded_box`,
+  `magnet_pocket`, `check_solid`.
 - `output/` — generated STL / STEP / 3MF files, one-piece
   (`*.parametric.*`) and split (`*.split-A.*`, `*.split-B.*`).
 
@@ -132,56 +158,57 @@ the same as for the original parts; no supports needed.
 
 The pipeline above is written around rebuilding an existing STL. For a
 brand-new part the measurement half (`extract_profiles.py` /
-`wall_profiles.json`) falls away and the approach reduces to:
+`wall_profiles.json`) falls away. The Union cell (`union/`) is the first
+model built this way; what worked, in the order you would do it again:
 
-1. **Write the part as code** (build123d, mm units). No GUI modelling —
+1. **Write the part as code** (build123d, algebra mode). No GUI modelling —
    the Python script is the source of truth and lives in git like normal
    code, so every design change is a reviewable diff and regeneration is
    deterministic.
-2. **Put every design decision in a parameter block** at the top of the
-   file: dimensions, hole positions, clearances, magnet/insert sizes,
-   split positions. Nothing magic hidden in the geometry code.
-3. **Export all formats in one run**: STL and 3MF for printing, STEP for
+2. **Author in real-world units and scale down.** Put the real object in a
+   `REAL = {...}` dict (metres, straight from photos / data sheets / whatever
+   you could decode) and a `PRESETS` dict with the scales you want (`desk`
+   = 93.3 mm body height, the RasQberry style constant; `showpiece` = 1:15).
+   Nothing magic hidden in the geometry code.
+3. **Derive feature toggles from printability, not by hand.** A `PRINT` dict
+   (0.4 mm nozzle: min wall 1.0, min web 1.0, min free-standing detail 0.6,
+   magnet sizes, clearances) and a `Dims` class that computes every mm
+   number *and* decides which details exist at this scale (clamps, handles,
+   text…). Print the derived table at run time — it is the first thing to
+   look at when something is off.
+4. **One part = one closed solid, exported in print orientation** (resting
+   on z = 0), plus one **assembled, coloured 3MF** of all parts for
+   multi-material printers. Hand build123d's `Mesher` the bare `Solid`
+   (`rqb_cad.export_multicolour_3mf` does this) — handing it a `Part`
+   silently drops names and colours.
+5. **Export all formats in one run**: STL and 3MF for printing, STEP for
    anyone who wants to edit in Fusion 360 / FreeCAD / Onshape.
-4. **Validate programmatically** (trimesh + manifold3d) instead of only
-   eyeballing in a slicer: volumes, wall thicknesses, clearances between
-   mating parts, "do split segments overlap", bounding boxes vs. print
-   bed. For reusable machinery (dovetail split, carve-outs, export
-   helper) crib from `wall_model.py`.
+6. **Validate programmatically** with a `validate_<model>.py` next to the
+   model (trimesh): the CI checks (watertight, winding, no degenerate faces,
+   one body per STL, fits the bed) plus model checks (mating magnet pockets
+   line up, clearances, assembled height). Use a manifest JSON written by
+   the model script so the validator never re-derives numbers.
+7. **Render previews** (`render_preview.py`, matplotlib, no GPU) and commit
+   the PNGs — they go into the README and the website, and they catch
+   "the door faces the wrong way" in seconds.
+8. **Per-model subfolder** with `README.md` (presets, parts, print
+   orientation, BOM, assembly), `sources.md` (provenance and deliberate
+   deviations, licences) and `output/`. Commit the generated `output/` files
+   together with the script that produced them.
 
-Starter template for a new part:
+Gotchas that cost us time:
 
-```python
-#!/usr/bin/env python3
-"""RasQberry <part name> - parametric model. All dimensions in mm."""
-from pathlib import Path
-from build123d import *          # pip install build123d
-
-# --- parameters -----------------------------------------------------------
-LENGTH, WIDTH, WALL = 120.0, 40.0, 2.4
-HOLE_D, HOLE_SPACING = 3.2, (58.0, 49.0)   # e.g. Raspberry Pi 4/5 pattern
-
-# --- geometry --------------------------------------------------------------
-body = Box(LENGTH, WIDTH, WALL, align=(Align.MIN, Align.MIN, Align.MIN))
-for dx in (0, HOLE_SPACING[0]):
-    for dy in (0, HOLE_SPACING[1]):
-        body -= Pos(20 + dx, (WIDTH - HOLE_SPACING[1]) / 2 + dy, 0) * \
-                Cylinder(HOLE_D / 2, 3 * WALL)
-
-# --- export ----------------------------------------------------------------
-out = Path(__file__).parent / "output"
-out.mkdir(exist_ok=True)
-stem = str(out / "my-part")
-export_stl(body, stem + ".stl")
-export_step(body, stem + ".step")
-m = Mesher(); m.add_shape(body); m.write(stem + ".3mf")
-print("volume", round(body.volume / 1000, 2), "cm3")
-```
-
-Conventions to keep: mm units; one script (or module) per part family;
-parameter block at the top; commit the generated `output/` files together
-with the script that produced them; add print orientation and assembly
-notes to the README. Gotchas that cost us time on the wall: `extrude()`
-follows the sketch face normal, so force polygon winding counter-clockwise
-(see `ring_sketch()` in `wall_model.py`), and `align=` matters on every
-primitive - decide corner vs. centre alignment explicitly.
+- `extrude()` follows the sketch face normal — force polygon winding
+  counter-clockwise (`rqb_cad.ccw_polygon`); `align=` matters on every
+  primitive — decide corner vs. centre alignment explicitly.
+- matplotlib's `azim=-90` looks from −y: label your preview views by what
+  they show, not by what you meant.
+- Spheres tessellate into zero-area triangles at the poles; the CI analyzer
+  rejects those. Use short cylinders for knobs.
+- Round posts intersect flat doors behind the face — give the posts a flat
+  jamb instead of notching the door (no feather edges).
+- build123d's `Shape.is_valid` is a property in 0.11 (was a method).
+- The CI analyzer's "hole" count came from the Euler characteristic, which
+  also drops for watertight bodies with loops (trusses, handles, grilles);
+  it now only runs on non-watertight meshes. If an STL is flagged, check
+  `is_watertight` first.
