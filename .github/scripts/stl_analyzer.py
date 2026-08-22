@@ -126,14 +126,16 @@ def analyze_mesh(file_path: Path) -> MeshStats:
         except Exception:
             issues.broken_face_count = 0
 
-        # Estimate hole count from euler characteristic
-        # For a watertight mesh: V - E + F = 2 (sphere topology)
-        # Each hole reduces this by 1
+        # Estimate hole count from the Euler characteristic, but only for
+        # meshes that are NOT watertight: a closed surface has V - E + F = 2
+        # only for genus 0 - a watertight body with through-holes or loops
+        # (a truss, a handle) has a lower Euler number but no holes to fill.
         try:
-            euler = mesh.euler_number
-            expected_euler = 2  # For a single closed surface
-            if euler < expected_euler:
-                issues.hole_count = expected_euler - euler
+            if not issues.is_watertight:
+                euler = mesh.euler_number
+                expected_euler = 2  # For a single closed surface
+                if euler < expected_euler:
+                    issues.hole_count = expected_euler - euler
         except Exception:
             pass
 
