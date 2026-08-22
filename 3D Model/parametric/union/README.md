@@ -29,34 +29,61 @@ clamped to what a 0.4 mm nozzle can print.
 | plinth W × D (mm) | 48.8 × 78.6, 7.2 thick, 4.2 mm casters | 76.7 × 123.3, 11.3 thick |
 | door W × H × T (mm) | 35.6 × 77.6 × 4.85 | 55.7 × 122.1 × 7.33 |
 | pockets | 3 × 6 front/back, 5 × 6 sides; 2.9 mm deep, 1.9 mm webs | 4.3 mm deep, 3.0 mm webs |
-| fine detail | — (clamps, handle, hinges too small) | toggle clamps, pull handle, hinge barrels, recessed "IBM" on the processor can |
+| fine detail | toggle clamps (4 per door edge), pull handle, hinge barrels — clamped to 0.8 mm sections | same, finer, plus recessed white "IBM" on the processor can |
 | chandelier plates (mm) | 30.6 → 13.2, pitch 7.5 | 48.0 → 20.7, pitch 11.7 |
-| filament (solid volume) | body 61 + plinth 29 + door 9 + chandelier 4 cm³ | 234 + 112 + 35 + 11 cm³ |
+| gantry frame (optional part) | 59 × 89 × 114.5 mm, 3.5 mm posts | 93 × 140 × 180 mm |
+| filament (solid volume) | body 61 + plinth 29 + door 9 + chandelier 4 + gantry 10 cm³ | 234 + 112 + 35 + 11 + ≈35 cm³ |
 
 `python3 union_model.py --preset desk|showpiece|all` prints a table of all
 derived dimensions and feature toggles.
 
+**Accurate by default:** exteriors are flat brushed aluminium, the square
+weight-saving pockets face the *inside* (vacuum space) of every door and
+panel — exactly as in the photos and in IBM's explorer. Remove the door and
+you look at pocketed walls and the chandelier; the door shows its own pocket
+grid on the back. `--pockets-outside` gives the decorative variant.
+
 ## Parts and printing
 
 All parts are exported in print orientation (resting on z = 0), **no
-supports needed**. Files: `output/Union_<preset>_<part>.stl / .step / .3mf`.
+supports needed**. Files: `output/Union_<preset>[<variant>]_<part>.stl / .step / .3mf`.
 
 | Part | Colour | Print orientation | Notes |
 |---|---|---|---|
 | `body` | silver (Silk Silver like the cryostat) | upside down — top plate on the bed, open bottom up | posts, top plate, three fixed pocketed panels, flat door jambs on the front posts; magnet pockets + chandelier hole in the ceiling |
 | `plinth` | black (Matte Black like the wall) | upside down — top face with the 1 mm registration lip on the bed, casters up | magnet pockets for the door (top face) and for coupling (left/right faces), LED pocket + wire channel |
-| `door` | silver | flat, pocketed face up (back on the bed); showpiece must print face-up because of clamps/handle | magnet pockets in the top and bottom edges (horizontal holes when printed flat) |
-| `chandelier` | gold (Silk Gold) + copper details | upside down — largest plate on the bed; bridges ≤ 15 mm between the corner rods, no supports | locating stub on top glues into the ceiling hole |
+| `door` | silver | flat, outer face (clamps, handle) up — the pocket ceilings are short bridges (≤ 10 mm desk, ≤ 13 mm showpiece); alternatively print it standing on its bottom edge with a brim (no bridges at all, like the original cryostat door) | magnet pockets in the top and bottom edges (horizontal holes when printed flat) |
+| `chandelier` | gold (Silk Gold) + copper details (+ silver can, white label) | upside down — top flange/largest plate on the bed; bridges ≤ 15 mm between the corner rods, no supports | top flange glues to the ceiling, stub locates it |
+| `gantry` | silver | upside down — top frame on the bed, four tall posts up (use a brim) | optional: the aluminium-extrusion frame from the photos, two pulse-tube lines hang from the cross beam to the top plate; stands on the floor around the plinth, 0.5 m (scaled) above the cell |
+| `ports` | silver | standing on their pegs | two feedthrough-port pins glued into blind holes in the top face (`--no-ports` to omit) |
 
 Multi-colour (Prusa MMU / Bambu AMS): `output/Union_<preset>_assembly.3mf`
-contains every coloured body in assembled position (silver body + door, black
-plinth, gold chandelier, copper mixing chamber + processor can, white "IBM"
-inlay on the showpiece). In PrusaSlicer use *File → Import → Import STL/3MF…*,
+contains every coloured body in assembled position (silver body, door,
+gantry, ports, processor can; black plinth; gold plates/column/rods/mixing
+chamber; copper pulse tube, feedthroughs, side blocks; white "IBM" inlay on
+the showpiece). The colours are the explorer's palette (#c4c8cd, #131416,
+#e9c86c, #b5723c). In PrusaSlicer use *File → Import → Import STL/3MF…*,
 answer **"Yes"** to *"Multi-part object detected — import as a single object
 with multiple parts?"*, then assign extruders per part and split it into
 objects (right-click → *Split → To objects*) to lay the parts flat. For
 single-colour printers simply print the four `Union_<preset>_<part>.stl`
 files; the copper/white details are part of the chandelier STL.
+
+### Variants (CLI flags, suffix in the file names)
+
+| Flag | Suffix | What |
+|---|---|---|
+| `--hinge right` | `_R` | hinge barrels on the right post, handle on the left — IBM's left cell hinges left, the right one right |
+| `--coupled left\|right\|both` | `_cL` / `_cR` / `_cLR` | window with a shallow flange in the side panel(s) facing a neighbour; two cells' flanges meet and form the cold tunnel |
+| `--chandelier photo` | `_photo` | round plates + three tiers of copper blocks, as in the press photos, instead of the explorer's square plates + can |
+| `--pockets-outside` | `_out` | decorative variant |
+| `--no-ports`, `--no-led` | — | omit the top-plate ports / the LED pocket and channel |
+
+Pre-generated: `Union_desk`, `Union_showpiece` (single cells, all formats),
+`Union_desk_cR` + `Union_desk_R_cL` (a coupled pair, STL/3MF) and
+`Union_desk_photo` (STL/3MF). Anything else: run the script.
+
+![pair](preview_desk_pair.png)
 
 ## Bill of materials (per cell)
 
@@ -70,20 +97,26 @@ files; the copper/white details are part of the chandelier STL.
   plinth's centre pocket (Ø10 × 3 mm), wire in the 3 × 3 mm channel out of the
   rear edge; the body is open at the bottom so the light shines up into the
   chandelier. `--no-led` removes pocket and channel.
-- CA glue for the chandelier stub and (optionally) body ↔ plinth.
+- CA glue for the chandelier flange/stub, the port pins and (optionally)
+  body ↔ plinth.
 
 ## Assembly
 
 1. Press/glue the magnets (check polarity twice — a door that repels is a
    reprint of the plinth or the body).
-2. Glue the chandelier's stub into the hole in the body's ceiling (largest
-   plate up).
+2. Glue the chandelier's top flange to the body's ceiling (stub into the
+   centre hole, largest plate up). Glue the two port pins into the holes on
+   the top face.
 3. Set the body over the plinth's registration lip (0.15 mm clearance; glue
    if you want it permanent — the LED wire leaves through the channel under
    the rear panel).
 4. Hang the door between the front posts: it sits on the plinth, the top
    and bottom magnets hold it, the flat jambs stop it from being pushed in.
-5. Couple cells side by side; print more cells as IBM adds modules.
+5. Couple cells side by side (for a pair use `_cR` on the left and `_R_cL`
+   on the right, so the hinges are on the outside and the coupling windows
+   face each other); print more cells as IBM adds modules.
+6. Optional: drop the gantry frame over the cell (it stands on the floor
+   around the plinth; its tubes reach down to the top plate).
 
 ## Regenerating and validating
 

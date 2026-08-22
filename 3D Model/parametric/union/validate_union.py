@@ -40,7 +40,11 @@ def mesh_checks(path, bed):
     check(m.is_watertight, f"{name}: watertight")
     check(m.is_winding_consistent, f"{name}: consistent winding")
     check(bool(np.all(m.area_faces > 1e-10)), f"{name}: no degenerate faces")
-    check(len(m.split(only_watertight=False)) == 1, f"{name}: exactly one body")
+    n_bodies = len(m.split(only_watertight=False))
+    if "_ports" in name:
+        check(n_bodies >= 1, f"{name}: {n_bodies} pins (loose by design)")
+    else:
+        check(n_bodies == 1, f"{name}: exactly one body")
     size = m.bounds[1] - m.bounds[0]
     check(all(s <= b + 1e-6 for s, b in zip(sorted(size), sorted(bed))),
           f"{name}: {size[0]:.1f} x {size[1]:.1f} x {size[2]:.1f} mm fits bed {bed}")
@@ -77,6 +81,7 @@ def solid_at(mesh, pts):
 
 
 def validate(preset, bed):
+    """preset may carry a variant suffix, e.g. 'desk_R' or 'showpiece_photo'."""
     print(f"=== {preset} ===")
     man = json.loads((OUT / f"Union_{preset}_manifest.json").read_text())
     for part in man["parts"]:
@@ -85,11 +90,17 @@ def validate(preset, bed):
     body, plinth, door = pick(bodies, "body"), pick(bodies, "plinth"), pick(bodies, "door")
     chand = [m for n, m in bodies.items() if "chandelier" in n]
     # overall size
-    allv = np.vstack([m.vertices for m in bodies.values()])
+    cell_bodies = {n: m for n, m in bodies.items() if not any(k in n for k in ("gantry", "ports"))}
+    allv = np.vstack([m.vertices for m in cell_bodies.values()])
     size = allv.max(0) - allv.min(0)
     want = man["cell"]
     check(abs(size[2] - want[2]) < 0.05 and abs(allv.min(0)[2]) < 1e-3,
-          f"assembled height {size[2]:.2f} mm == {want[2]:.2f} (floor at z=0)")
+          f"assembled cell height {size[2]:.2f} mm == {want[2]:.2f} (floor at z=0)")
+    gantry = [m for n, m in bodies.items() if "gantry" in n]
+    if gantry:
+        gz = gantry[0].bounds[1][2]
+        check(gz > want[2] + 1 and abs(gantry[0].bounds[0][2]) < 1e-3,
+              f"gantry stands on the floor and tops out at {gz:.1f} mm (cell {want[2]:.1f})")
     # door magnets: cavity in door top/bottom edge, in top-plate underside, in plinth top
     mag_d, mag_t = man["magnet"]
     zt, zp = man["z_ceiling"], man["z_plinth_top"]
@@ -119,7 +130,7 @@ def validate(preset, bed):
     # sample the chandelier surface (full ray-cast containment is slow without embree)
     step = max(1, len(ch.vertices) // 400)
     sample = ch.vertices[::step]
-    body_below_ceiling = sample[sample[:, 2] < zt - 0.05]   # ignore the stub inside the top plate
+    body_below_ceiling = sample[sample[:, 2] < zt - 2.5]    # ignore stub + flange glued to the ceiling
     for other, label, pts in ((door, "door", sample), (body, "body", body_below_ceiling)):
         _, dist, _ = trimesh.proximity.closest_point(other, pts)
         inside = other.contains(pts)
@@ -137,7 +148,11 @@ def main():
     ap.add_argument("--bed", nargs=3, type=float, default=[250, 220, 270],
                     help="printer volume X Y Z in mm (default: Prusa Core One)")
     a = ap.parse_args()
-    presets = ["desk", "showpiece"] if a.preset == "all" else [a.preset]
+    if a.preset == "all":
+        presets = sorted(f.name[len("Union_"):-len("_manifest.json")]
+                         for f in OUT.glob("Union_*_manifest.json"))
+    else:
+        presets = [a.preset]
     for p in presets:
         if (OUT / f"Union_{p}_manifest.json").exists():
             validate(p, a.bed)

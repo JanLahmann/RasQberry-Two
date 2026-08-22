@@ -70,15 +70,37 @@ REAL = dict(
     DOOR_GAP=0.025,    # explorer: door 0.05 shorter than the frame zone
     POCKET=dict(margin_x=0.10, margin_y=0.075, gap=0.045, r=0.014),
     POCKET_COLS=dict(front=3, side=5, back=3), POCKET_ROWS=6,
-    CLAMP_Z=(0.13, 0.377, 0.624, 0.871),    # fractions of door height
+    CLAMP_Z=(0.13, 0.377, 0.624, 0.871),    # fractions of door height, both door edges
     CLAMP=dict(body=(0.05, 0.072, 0.026), lever_l=0.084, lever_d=0.018, knob_r=0.012),
-    HANDLE=dict(r=0.011, length=0.22, standoff=0.052, x_frac=0.86),
+    HANDLE=dict(r=0.011, length=0.22, standoff=0.052, x_frac=0.86),  # x_frac from the hinge edge
     HINGE=dict(r=0.022, h=0.10, z_frac=0.34, standoff=0.012),
+    DOOR_OPEN_DEG=110,  # explorer opens doors to 1.92 rad (informational)
+    # aluminium-extrusion gantry around the cell (press photos; not in the explorer)
+    GANTRY=dict(profile=0.08, clearance=0.04, above=0.50,
+                tubes=dict(n=2, r=0.06, dx=0.30)),        # pulse-tube lines hanging from the top beam
+    # coupling window in a side panel (cells share a cold tunnel through wall openings)
+    COUPLE_WINDOW=dict(w=0.60, h=0.90, z_frac=0.42, flange=0.05, flange_out=0.025),
+    # feedthrough ports on the top plate (photos); separate pins glued into blind holes
+    PORTS=dict(r=0.05, h=0.12, at=((0.0, 0.50), (0.0, -0.50))),
     CH=dict(plates=(0.72, 0.68, 0.59, 0.49, 0.40, 0.31), plate_r=0.09, plate_t=0.015,
             top_gap=0.085, pitch=0.176, column_r=0.013, rod_r=0.011,
             rod_top_frac=0.90, rod_bot_frac=0.92, mc_r=0.05, mc_h=0.10,
-            can=(0.19, 0.21, 0.19), can_label="IBM", can_label_h=0.05),
+            flange=(0.30, 0.022), pulse_tube=(0.075, 0.028),       # on top of plate 1
+            feedthroughs=dict(n=7, circle_r=0.115, r=0.016, h=0.045),
+            side_blocks=(0.05, 0.042, 0.14, 0.05),                # w, h, d, +-x offset
+            can=(0.19, 0.21, 0.19), can_label="IBM", can_label_h=0.05,
+            # "photo" style (press photos): round plates + tiers of copper blocks
+            photo_block=(0.12, 0.10, 0.10), photo_blocks_per_tier=5, photo_tiers=(3, 4, 5)),
 )
+
+# Pockets are on the INSIDE of every door/panel (photos + explorer: flat
+# brushed exteriors, weight-saving pockets facing the vacuum space). Set to
+# True for the decorative variant with pockets on the outside.
+POCKETS_OUTSIDE = False
+HINGE_SIDE = "left"          # "left" or "right": which post carries the hinge barrels
+CH_STYLE = "explorer"        # "explorer" (square brass/gold plates) or "photo" (round plates + copper tiers)
+COUPLED = "none"             # "none" | "left" | "right" | "both": side panels with a coupling window
+PORTS = True                 # top-plate feedthrough ports (blind holes + "ports" pin part)
 
 # --- presets ----------------------------------------------------------------
 TOTAL_REAL_H = REAL["CASTER_H"] + REAL["PLINTH_T"] + REAL["FRAME_H"] + REAL["TOP_T"]  # 2.197 m
@@ -106,11 +128,13 @@ PRINT = dict(
 LED = True   # --no-led turns the pocket/channel off
 
 # --- colours (5 MMU slots) ----------------------------------------------------
+# the explorer's material palette: panels #c4c8cd/#d2d6da, frame #9aa0a6,
+# brass #c8a24a, gold #e9c86c, copper #b5723c, black #131416, chrome #dfe2e6
 COLOURS = dict(
-    silver=Color(0.80, 0.80, 0.82),
-    black=Color(0.10, 0.10, 0.11),
-    gold=Color(0.85, 0.66, 0.15),
-    copper=Color(0.85, 0.52, 0.33),
+    silver=Color(0xC4 / 255, 0xC8 / 255, 0xCD / 255),
+    black=Color(0x13 / 255, 0x14 / 255, 0x16 / 255),
+    gold=Color(0xE9 / 255, 0xC8 / 255, 0x6C / 255),
+    copper=Color(0xB5 / 255, 0x72 / 255, 0x3C / 255),
     white=Color(0.95, 0.95, 0.95),
 )
 
@@ -162,10 +186,11 @@ class Dims:
         self.pocket_margin_y = mm(pk["margin_y"])
         self.pocket_gap = max(mm(pk["gap"]), PRINT["min_gap"])
         self.pocket_r = mm(pk["r"])
-        # features by size
-        self.clamps = self.detail and mm(R["CLAMP"]["body"][2]) >= PRINT["min_detail"]
-        self.handle = self.detail
-        self.hinges = self.detail
+        # features by size (clamps/handle/hinges survive at both scales once
+        # their sections are clamped to the printable minimum; the label does not)
+        self.clamps = mm(R["CLAMP"]["body"][2]) >= PRINT["min_detail"]
+        self.handle = True
+        self.hinges = True
         self.label = self.detail
         # chandelier
         ch = R["CH"]
@@ -217,8 +242,10 @@ class Dims:
             ("coupling magnets", f"{self.couple_magnet[0]:.1f} x {self.couple_magnet[1]} mm, 2 per plinth side"),
             ("chandelier plates", " / ".join(f"{s:.1f}" for s in self.ch_plates)
              + f"  (t {self.ch_plate_t:.2f}, pitch {self.ch_pitch:.2f})"),
-            ("detail: clamps / handle / hinges / label",
+            ("clamps / handle / hinges / label",
              " / ".join(str(v) for v in (self.clamps, self.handle, self.hinges, self.label))),
+            ("pockets / hinge / chandelier / coupled / ports",
+             f"{'outside' if POCKETS_OUTSIDE else 'inside'} / {HINGE_SIDE} / {CH_STYLE} / {COUPLED} / {PORTS}"),
             ("LED pocket / channel", f"{PRINT['led_pocket']} / {PRINT['led_channel']}" if LED else "off"),
         ]
         w = max(len(k) for k, _ in rows)
@@ -246,14 +273,16 @@ def pocket_grid(d, w, h, cols, rows):
 
 
 def pocketed_panel(d, w, h, cols, rows):
-    """Panel w (x) by h (y) by panel_t (z), pockets cut into the z = 0 face.
-    Local frame: x = horizontal along the face, y = up, z = into the panel."""
+    """Panel w (x) by h (y) by panel_t (z). Local frame: x = horizontal along
+    the face, y = up, z = into the panel; z = 0 is the OUTER face. Pockets are
+    cut into the inner face (z = panel_t) unless POCKETS_OUTSIDE."""
     panel = Box(w, h, d.panel_t, align=(Align.MIN, Align.MIN, Align.MIN))
+    z0 = -0.01 if POCKETS_OUTSIDE else d.panel_t - d.pocket_depth
     cutters = []
     for cx, cy, pw, ph in pocket_grid(d, w, h, cols, rows):
         r = min(d.pocket_r, pw / 2 - 0.01, ph / 2 - 0.01)
         face = RectangleRounded(pw, ph, r) if r >= 0.3 else Rectangle(pw, ph)
-        cutters.append(extrude(Plane.XY.offset(-0.01) * Pos(cx, cy) * face,
+        cutters.append(extrude(Plane.XY.offset(z0) * Pos(cx, cy) * face,
                                d.pocket_depth + 0.01))
     return (panel - cutters).clean() if cutters else panel
 
@@ -306,19 +335,38 @@ def build_body(d):
         body += Pos(sx * (d.post_cx - d.jamb / 2), d.P / 2 - d.panel_t / 2, z0) * Box(
             d.jamb, d.panel_t, d.frame_h, align=(Align.CENTER, Align.CENTER, Align.MIN))
     body = body.clean()
+    # coupling windows: opening through the side panel with a shallow flange frame
+    cw = REAL["COUPLE_WINDOW"]
+    for side, sx in (("left", -1), ("right", 1)):
+        if COUPLED not in (side, "both"):
+            continue
+        ww, wh = d.mm(cw["w"]), d.mm(cw["h"])
+        fw, fo = max(d.mm(cw["flange"]), 1.2), max(d.mm(cw["flange_out"]), 0.8)
+        zc = z0 + cw["z_frac"] * d.frame_h
+        x_face = sx * d.U / 2
+        frame = Pos(x_face, 0, zc) * Box(2 * fo, ww + 2 * fw, wh + 2 * fw)
+        body += frame
+        body -= Pos(x_face, 0, zc) * Box(2 * d.panel_t + 2 * fo + 2, ww, wh)
     # door magnets: pockets in the top-plate underside (axis +z, open downwards)
     mag_d, mag_t = PRINT["magnet"]
     for x, y in d.door_magnet_xy():
         body -= Pos(x, y, z1) * magnet_pocket(mag_d, mag_t)
+    # blind holes for the feedthrough-port pins in the top face
+    if PORTS:
+        pr = max(d.mm(REAL["PORTS"]["r"]), 1.5)
+        for x, y in REAL["PORTS"]["at"]:
+            body -= Pos(d.mm(x), d.mm(y), d.z_top - 1.5) * z_cyl(pr * 0.8 + 0.15, 0, 1.6)
     # chandelier stub hole in the ceiling centre
     body -= Pos(0, 0, z1) * magnet_pocket(d.stub_d, d.stub_hole_depth, clearance_d=0.3, clearance_h=0.0)
-    # hinge barrels on the front face beside the door (left post side), showpiece only
+    # hinge barrels on the front face of the hinge-side post
     if d.hinges:
-        hr, hh = d.mm(REAL["HINGE"]["r"]), d.mm(REAL["HINGE"]["h"])
+        hr = max(d.mm(REAL["HINGE"]["r"]), 0.8)
+        hh = d.mm(REAL["HINGE"]["h"])
         zf = REAL["HINGE"]["z_frac"]
         zc = z0 + d.frame_h / 2
-        x = -(d.post_cx - d.post_r * 0.15)   # just inboard of the post's front tangent
-        y = d.P / 2 + d.mm(REAL["HINGE"]["standoff"])
+        sx = -1 if HINGE_SIDE == "left" else 1
+        x = sx * (d.post_cx - d.post_r * 0.15)   # just inboard of the post's front tangent
+        y = d.P / 2 + hr * 0.6                    # half sunk into the post face: prints upright, no overhang
         for s in (-1, 1):
             body += z_cyl(hr, zc + s * zf * d.frame_h - hh / 2, zc + s * zf * d.frame_h + hh / 2, x, y)
     return body.clean()
@@ -386,10 +434,12 @@ def build_door(d):
         door -= Pos(x, y, z0 + d.door_h) * Rot(X=180) * magnet_pocket(mag_d, mag_t)
         door -= Pos(x, y, z0) * magnet_pocket(mag_d, mag_t)
     door = door.clean()
-    yf = d.P / 2   # door face plane
+    yf = d.P / 2   # door's flat outer face
     if d.clamps:
-        bw, bh, bt = (d.mm(v) for v in REAL["CLAMP"]["body"])
-        ll, ld_, kr = (d.mm(REAL["CLAMP"][k]) for k in ("lever_l", "lever_d", "knob_r"))
+        bw, bh, bt = (max(d.mm(v), 0.8) for v in REAL["CLAMP"]["body"])
+        ll = d.mm(REAL["CLAMP"]["lever_l"])
+        ld_ = max(d.mm(REAL["CLAMP"]["lever_d"]), 0.8)
+        kr = max(d.mm(REAL["CLAMP"]["knob_r"]), 0.6)
         for sx in (-1, 1):
             x = sx * (d.door_w / 2 - d.pocket_margin_x / 2)
             for zf in REAL["CLAMP_Z"]:
@@ -404,63 +454,153 @@ def build_door(d):
         h = REAL["HANDLE"]
         hr = max(d.mm(h["r"]), 0.8)
         hl, so = d.mm(h["length"]), d.mm(h["standoff"])
-        x = -d.door_w / 2 + h["x_frac"] * d.door_w
+        # x_frac is measured from the hinge edge, so the handle sits near the free edge
+        x = (-d.door_w / 2 + h["x_frac"] * d.door_w) * (1 if HINGE_SIDE == "left" else -1)
         zc = z0 + d.door_h / 2
         door += z_cyl(hr, zc - hl / 2, zc + hl / 2, x, yf + so)
-        # stand-offs reach down to the pocket floor (the handle sits over a pocket column)
+        reach = (0.5 if not POCKETS_OUTSIDE else d.pocket_depth + 0.5)
         for s in (-1, 1):
-            door += cyl_between((x, yf - d.pocket_depth - 0.5, zc + s * hl / 2),
+            door += cyl_between((x, yf - reach, zc + s * hl / 2),
                                 (x, yf + so, zc + s * hl / 2), hr * 1.1)
     return door.clean()
 
 
 def build_chandelier(d):
-    """Six shrinking square plates on a central column with four slanted
-    corner rods, locating stub on top; mixing-chamber cylinder under plate 5
-    and one processor can under the bottom plate (copper). Returns
-    (gold_solid, copper_solid, label_solid_or_None)."""
+    """Dilution-fridge "chandelier" hanging from the ceiling. Returns a dict of
+    colour bodies {colour: solid}.
+
+    CH_STYLE "explorer": six shrinking square plates (upper brass, lower
+    gold - printed in one gold), central column, four slanted corner rods,
+    top flange on the ceiling, pulse tube + 7 feedthroughs + two side blocks
+    (copper) on plate 1, mixing chamber (gold) under plate 5, processor can
+    (silver, recessed "IBM" on the showpiece) under the bottom plate.
+    CH_STYLE "photo": as in the press photos - round plates, and three tiers
+    of copper blocks under the lower plates instead of the can."""
+    ch = REAL["CH"]
     z_ceiling = d.z_ceiling
-    tops = [z_ceiling - d.ch_top_gap - i * d.ch_pitch for i in range(len(d.ch_plates))]
+    n = len(d.ch_plates)
+    tops = [z_ceiling - d.ch_top_gap - i * d.ch_pitch for i in range(n)]
+    round_plates = CH_STYLE == "photo"
+
+    def plate(size, zt):
+        if round_plates:
+            return z_cyl(size / 2, zt - d.ch_plate_t, zt)
+        return rounded_box(size, size, d.ch_plate_t, d.ch_plate_r, z0=zt - d.ch_plate_t)
+
     gold = None
-    for s, zt in zip(d.ch_plates, tops):
-        plate = rounded_box(s, s, d.ch_plate_t, d.ch_plate_r, z0=zt - d.ch_plate_t)
-        gold = plate if gold is None else gold + plate
+    for sz, zt in zip(d.ch_plates, tops):
+        pl = plate(sz, zt)
+        gold = pl if gold is None else gold + pl
     z_top, z_bot = tops[0], tops[-1] - d.ch_plate_t
     gold += z_cyl(d.ch_column_r, z_bot, z_top)
-    # stub into the ceiling hole
-    gold += z_cyl(d.stub_d / 2, z_top - 0.01, z_ceiling + d.stub_hole_depth - 0.2)
+    # top flange sitting on the ceiling + locating stub into the ceiling hole
+    fl_w, fl_t = d.mm(ch["flange"][0]), max(d.mm(ch["flange"][1]), 0.8)
+    gold += rounded_box(fl_w, fl_w, fl_t, d.mm(0.03), z0=z_ceiling - fl_t)
+    gold += z_cyl(d.stub_d / 2, z_ceiling - fl_t - 0.01, z_ceiling + d.stub_hole_depth - 0.2)
+    # column continues up to the flange
+    gold += z_cyl(d.ch_column_r, z_top - 0.01, z_ceiling - fl_t + 0.01)
     # slanted corner rods
-    ch = REAL["CH"]
     a0 = d.ch_plates[0] / 2 * ch["rod_top_frac"]
     a1 = d.ch_plates[-1] / 2 * ch["rod_bot_frac"]
+    if round_plates:      # keep the rods inside the round plates
+        a0, a1 = a0 / math.sqrt(2), a1 / math.sqrt(2)
     for sx in (-1, 1):
         for sy in (-1, 1):
             gold += cyl_between((sx * a0, sy * a0, z_top - d.ch_plate_t / 2),
                                 (sx * a1, sy * a1, z_bot + d.ch_plate_t / 2), d.ch_rod_r)
-    gold = gold.clean()
-    # copper: mixing chamber under plate 5, processor can under plate 6
+    # mixing chamber (gold) under plate 5
     z5 = tops[4] - d.ch_plate_t
-    copper = z_cyl(d.ch_mc_r, z5 - d.ch_mc_h, z5 + 0.01)
-    cw, ch_, cd = d.ch_can
-    copper += Pos(0, 0, z_bot + 0.01) * Box(cw, cd, ch_, align=(Align.CENTER, Align.CENTER, Align.MAX))
-    copper = copper.clean()
+    gold += z_cyl(d.ch_mc_r, z5 - d.ch_mc_h, z5 + 0.01)
+    gold = gold.clean()
+
+    # copper: pulse tube + feedthroughs + side blocks on top of plate 1
+    pt_r, pt_h = max(d.mm(ch["pulse_tube"][0]), 1.0), max(d.mm(ch["pulse_tube"][1]), 0.8)
+    copper = z_cyl(pt_r, z_top - 0.01, z_top + pt_h)
+    ft = ch["feedthroughs"]
+    ft_r = max(d.mm(ft["r"]), 0.5)
+    for i in range(ft["n"]):
+        a = 2 * math.pi * i / ft["n"]
+        x, y = d.mm(ft["circle_r"]) * math.cos(a), d.mm(ft["circle_r"]) * math.sin(a)
+        copper += z_cyl(ft_r, z_top - 0.01, z_top + max(d.mm(ft["h"]) * (0.6 + 0.2 * (i % 3)), 0.8), x, y)
+    bw, bh, bd, bx = (d.mm(v) for v in ch["side_blocks"])
+    for sx in (-1, 1):
+        copper += Pos(sx * bx, 0, z_top - 0.01) * Box(bw, bd, bh, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    bodies = {"gold": gold}
     label = None
-    if d.label:
-        try:
-            txt = Text(ch["can_label"], font_size=d.mm(ch["can_label_h"]), font="Arial")
-            depth = 0.4
-            # on the can's front face (+y), recessed and filled white
-            stamp = Pos(0, cd / 2 + 0.01, z_bot - ch_ / 2) * Rot(X=90) * extrude(txt, depth + 0.01)
-            # extrude goes +z in the text frame -> after Rot(X=90) it points -y (into the can)
-            label = (copper & stamp).clean()
-            if label.volume > 0:
-                copper = (copper - stamp).clean()
-            else:
+    if round_plates:
+        # tiers of copper blocks hanging under the lower plates
+        pw_, ph_, pd_ = (d.mm(v) for v in ch["photo_block"])
+        per = ch["photo_blocks_per_tier"]
+        for ti in ch["photo_tiers"]:
+            zt = tops[ti] - d.ch_plate_t
+            span = d.ch_plates[ti] * 0.8
+            for k in range(per):
+                x = -span / 2 + span * (k + 0.5) / per
+                w = min(pw_, span / per - 0.3)
+                copper += Pos(x, 0, zt + 0.01) * Box(w, pd_, ph_, align=(Align.CENTER, Align.CENTER, Align.MAX))
+        bodies["copper"] = copper.clean()
+    else:
+        bodies["copper"] = copper.clean()
+        # processor can (silver) under the bottom plate
+        cw, ch_, cd = d.ch_can
+        can = Pos(0, 0, z_bot + 0.01) * Box(cw, cd, ch_, align=(Align.CENTER, Align.CENTER, Align.MAX))
+        if d.label:
+            try:
+                txt = Text(ch["can_label"], font_size=d.mm(ch["can_label_h"]), font="Arial")
+                depth = 0.4
+                stamp = Pos(0, cd / 2 + 0.01, z_bot - ch_ / 2) * Rot(X=90) * extrude(txt, depth + 0.01)
+                label = (can & stamp).clean()
+                if label.volume > 0:
+                    can = (can - stamp).clean()
+                else:
+                    label = None
+            except Exception as exc:  # font problems etc. - label is decoration only
+                print(f"  (label skipped: {exc})")
                 label = None
-        except Exception as exc:  # font problems etc. - label is decoration only
-            print(f"  (label skipped: {exc})")
-            label = None
-    return gold, copper, label
+        bodies["silver"] = can.clean()
+    if label is not None:
+        bodies["white"] = label
+    return bodies
+
+
+def build_gantry(d):
+    """Aluminium-extrusion frame around the cell as in the press photos: four
+    square posts outside the plinth, a top rectangle of beams 0.5 m above the
+    cell, one cross beam carrying two pulse-tube lines that hang down to the
+    top plate. Prints upside down (top frame on the bed)."""
+    g = REAL["GANTRY"]
+    prof = max(d.mm(g["profile"]), 3.5)
+    gap = d.mm(g["clearance"])
+    hx = d.plinth_w / 2 + gap + prof / 2
+    hy = d.plinth_d / 2 + gap + prof / 2
+    z_top = d.z_top + d.mm(g["above"])
+    gantry = None
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            post = Pos(sx * hx, sy * hy, 0) * Box(prof, prof, z_top, align=(Align.CENTER, Align.CENTER, Align.MIN))
+            gantry = post if gantry is None else gantry + post
+    for sy in (-1, 1):   # beams along x
+        gantry += Pos(0, sy * hy, z_top - prof / 2) * Box(2 * hx + prof, prof, prof)
+    for sx in (-1, 1):   # beams along y
+        gantry += Pos(sx * hx, 0, z_top - prof / 2) * Box(prof, 2 * hy + prof, prof)
+    gantry += Pos(0, 0, z_top - prof / 2) * Box(2 * hx, prof, prof)   # cross beam
+    tr = max(d.mm(g["tubes"]["r"]), 1.2)
+    for i in range(g["tubes"]["n"]):
+        x = (i - (g["tubes"]["n"] - 1) / 2) * 2 * d.mm(g["tubes"]["dx"])
+        gantry += z_cyl(tr, d.z_top + 0.6, z_top - prof + 0.01, x, 0)
+    return gantry.clean()
+
+
+def build_ports(d):
+    """Feedthrough-port pins for the top plate (glued into the blind holes)."""
+    pr = max(d.mm(REAL["PORTS"]["r"]), 1.5)
+    ph = max(d.mm(REAL["PORTS"]["h"]), 2.0)
+    ports = None
+    for x, y in REAL["PORTS"]["at"]:
+        pin = z_cyl(pr * 0.8, d.z_top - 1.4, d.z_top + 0.01, d.mm(x), d.mm(y)) + \
+            z_cyl(pr, d.z_top, d.z_top + ph, d.mm(x), d.mm(y))
+        ports = pin if ports is None else ports + pin
+    return ports.clean()
 
 
 # ===========================================================================
@@ -474,10 +614,12 @@ def on_bed(shape):
 
 
 def print_orientation(name, shape):
-    if name in ("body", "plinth", "chandelier"):
-        shape = Rot(X=180) * shape          # upside down: flat top / plinth top / biggest plate on the bed
+    if name in ("body", "plinth", "chandelier", "gantry"):
+        shape = Rot(X=180) * shape          # upside down: flat top / plinth top / biggest plate / top frame on the bed
+    elif name == "ports":
+        pass                                # pins standing on their pegs
     elif name == "door":
-        shape = Rot(X=90) * shape           # lying flat, pocketed face up
+        shape = Rot(X=90) * shape           # lying flat, outer face (clamps, handle) up
     return on_bed(shape)
 
 
@@ -485,14 +627,20 @@ def build_cell(preset):
     d = Dims(preset)
     print(f"=== preset {preset} ===")
     print(d.table())
-    gold, copper, label = build_chandelier(d)
-    chandelier = (gold + copper).clean() if label is None else (gold + copper + label).clean()
+    ch_bodies = build_chandelier(d)
+    chandelier = None
+    for b in ch_bodies.values():
+        chandelier = b if chandelier is None else chandelier + b
+    chandelier = chandelier.clean()
     parts = {
         "body": (build_body(d), [("silver", None)]),
         "plinth": (build_plinth(d), [("black", None)]),
         "door": (build_door(d), [("silver", None)]),
-        "chandelier": (chandelier, [("gold", gold), ("copper", copper)] + ([("white", label)] if label is not None else [])),
+        "chandelier": (chandelier, list(ch_bodies.items())),
+        "gantry": (build_gantry(d), [("silver", None)]),
     }
+    if PORTS:
+        parts["ports"] = (build_ports(d), [("silver", None)])
     return d, parts
 
 
@@ -500,10 +648,25 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--preset", default="all", choices=["all", *PRESETS])
     ap.add_argument("--no-led", action="store_true", help="omit LED pocket and wire channel")
+    ap.add_argument("--hinge", default="left", choices=["left", "right"],
+                    help="hinge side (IBM's left cell hinges left, the right one right); "
+                         "'right' adds the suffix _R to the output files")
+    ap.add_argument("--chandelier", default="explorer", choices=["explorer", "photo"],
+                    help="chandelier style; 'photo' adds the suffix _photo")
+    ap.add_argument("--pockets-outside", action="store_true",
+                    help="decorative variant: pocket grid on the outside (suffix _out)")
+    ap.add_argument("--coupled", default="none", choices=["none", "left", "right", "both"],
+                    help="coupling window in the given side panel(s) (suffix _cL/_cR/_cLR)")
+    ap.add_argument("--no-ports", action="store_true", help="omit top-plate port holes and the ports part")
     ap.add_argument("--no-step", action="store_true", help="skip STEP export (faster)")
     args = ap.parse_args()
-    global LED
+    global LED, HINGE_SIDE, CH_STYLE, POCKETS_OUTSIDE, COUPLED, PORTS
     LED = not args.no_led
+    HINGE_SIDE, CH_STYLE, POCKETS_OUTSIDE = args.hinge, args.chandelier, args.pockets_outside
+    COUPLED, PORTS = args.coupled, not args.no_ports
+    suffix = ("_R" if HINGE_SIDE == "right" else "") + ("_photo" if CH_STYLE == "photo" else "") \
+        + ("_out" if POCKETS_OUTSIDE else "") \
+        + {"none": "", "left": "_cL", "right": "_cR", "both": "_cLR"}[COUPLED]
     formats = ("stl", "3mf") if args.no_step else ("stl", "step", "3mf")
     OUTDIR.mkdir(exist_ok=True)
     for preset in (PRESETS if args.preset == "all" else [args.preset]):
@@ -515,25 +678,30 @@ def main():
                         cell=(d.U, d.P, d.z_top), door=(d.door_w, d.door_h, d.panel_t))
         coloured = {}
         for name, (solid, colour_bodies) in parts.items():
-            vol = check_solid(solid, name)
+            if name == "ports":     # several loose pins in one file, by design
+                vol = sum(check_solid(sub, f"{name}[{i}]") for i, sub in enumerate(solid.solids()))
+            else:
+                vol = check_solid(solid, name)
             size = bbox_size(solid)
             print(f"  {name:<10} {size[0]:6.1f} x {size[1]:6.1f} x {size[2]:6.1f} mm  "
                   f"{vol / 1000:6.2f} cm3")
             manifest["parts"][name] = dict(size_assembled=size, volume_cm3=vol / 1000,
                                            colours=[c for c, _ in colour_bodies])
-            stem = f"Union_{preset}_{name}"
+            stem = f"Union_{preset}{suffix}_{name}"
             export_all(print_orientation(name, solid), stem, OUTDIR, formats=formats,
                        color=COLOURS[colour_bodies[0][0]], stl_tolerance=PRINT["stl_tolerance"])
             for colour, sub in colour_bodies:
                 coloured[f"{name}.{colour}"] = (solid if sub is None else sub, COLOURS[colour])
-        export_multicolour_3mf(coloured, OUTDIR / f"Union_{preset}_assembly.3mf",
+        export_multicolour_3mf(coloured, OUTDIR / f"Union_{preset}{suffix}_assembly.3mf",
                                tolerance=PRINT["stl_tolerance"])
         if not args.no_step:
             from build123d import export_step
             asm = Compound(children=[s for s, _ in coloured.values()])
-            export_step(asm, str(OUTDIR / f"Union_{preset}_assembly.step"))
-            print(f"  wrote Union_{preset}_assembly.step")
-        (OUTDIR / f"Union_{preset}_manifest.json").write_text(json.dumps(manifest, indent=1))
+            export_step(asm, str(OUTDIR / f"Union_{preset}{suffix}_assembly.step"))
+            print(f"  wrote Union_{preset}{suffix}_assembly.step")
+        manifest.update(hinge=HINGE_SIDE, chandelier=CH_STYLE, pockets_outside=POCKETS_OUTSIDE,
+                        coupled=COUPLED, ports=PORTS)
+        (OUTDIR / f"Union_{preset}{suffix}_manifest.json").write_text(json.dumps(manifest, indent=1))
 
 
 if __name__ == "__main__":

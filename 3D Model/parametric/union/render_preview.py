@@ -88,6 +88,8 @@ def main():
         interior = [(m, c) for m, c in asm if "door" not in m.metadata.get("name", "")]
         draw(fig.add_subplot(2, 3, 3, projection="3d"), interior, 8, 90, f"{preset}: door removed, looking in from the front")
         for i, part in enumerate(("body", "door", "chandelier")):
+            if not (OUT / f"Union_{preset}_{part}.stl").exists():
+                continue
             m = trimesh.load(OUT / f"Union_{preset}_{part}.stl")
             draw(fig.add_subplot(2, 3, 4 + i, projection="3d"), [(m, np.array(COL["silver" if part != "chandelier" else "gold"]))],
                  25, 120 if part == "door" else -60, f"{preset}: {part} in print orientation")
@@ -95,6 +97,29 @@ def main():
         path = Path(a.out) / f"preview_{preset}.png"
         fig.savefig(path); plt.close(fig)
         print("wrote", path)
+        # coupled pair: hinge-left/coupled-right cell next to hinge-right/coupled-left cell
+        left, right = OUT / f"Union_{preset}_cR_assembly.3mf", OUT / f"Union_{preset}_R_cL_assembly.3mf"
+        if left.exists() and right.exists():
+            import json
+            man = json.loads((OUT / f"Union_{preset}_cR_manifest.json").read_text())
+            pitch = man["cell"][0] + 2 * (man["cell"][0] * 0.025 / 1.1)   # plinths touch (0.025 m overhang each)
+            a_l = load_assembly(f"{preset}_cR")
+            a_r = load_assembly(f"{preset}_R_cL")
+            for m, _ in a_l:
+                m.apply_translation([-pitch / 2, 0, 0])
+            for m, _ in a_r:
+                m.apply_translation([pitch / 2, 0, 0])
+            pair = a_l + a_r
+            fig = plt.figure(figsize=(16, 6), dpi=110)
+            draw(fig.add_subplot(1, 3, 1, projection="3d"), pair, 16, 125, f"{preset}: coupled pair, front")
+            nodoors = [(m, c) for m, c in pair if "door" not in m.metadata.get("name", "")]
+            draw(fig.add_subplot(1, 3, 2, projection="3d"), nodoors, 10, 90, f"{preset}: pair, doors removed")
+            nog = [(m, c) for m, c in pair if "gantry" not in m.metadata.get("name", "") and "door" not in m.metadata.get("name", "")]
+            draw(fig.add_subplot(1, 3, 3, projection="3d"), nog, 20, 60, f"{preset}: pair without gantry/doors (coupling window)")
+            fig.tight_layout()
+            path = Path(a.out) / f"preview_{preset}_pair.png"
+            fig.savefig(path); plt.close(fig)
+            print("wrote", path)
 
 
 if __name__ == "__main__":

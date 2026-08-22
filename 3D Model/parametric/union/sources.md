@@ -22,6 +22,49 @@ Internal IBM marketing deck "ModularCryoGeoEnablement_Union" (5 photos,
 brand copper `#FFD8C8`, IBM Plex) was used as a visual reference only and is
 not part of this repository.
 
+## What the explorer bundle tells us (beyond the table above)
+
+- **Pockets are on the inside.** The door code builds the pocketed plate at
+  the cell-facing side and a flat plate outside; clamps and handle sit on the
+  flat outside. With the doors closed the explorer shows flat panels — as do
+  the photos. Our model follows this.
+- **Door kinematics:** hinge on one vertical edge, opens to 1.92 rad (110°);
+  the four doors of a cell hinge "pinwheel"-wise (front: left edge, right:
+  front edge, back: right edge, left: back edge). The two coupled cells in
+  the photos hinge their front doors on the *outer* posts, so the right cell
+  is the mirror image of the left one (`--hinge right`).
+- **Coupling:** when a fridge is added, the facing side doors are removed and
+  the chandelier plates extend across both cells (a shared cold space); the
+  L-coupler hotspot sits between the cells at processor height. We model the
+  shared space as a flanged window in the side panel (`--coupled`).
+- **Chandelier details:** 6 plates (0.72 … 0.31 m, corner r 0.09, t 0.015,
+  pitch 0.176, top one 0.085 below the ceiling); the upper four are brass
+  (`#c8a24a`), the lower two gold (`#e9c86c`); a 0.30 m top flange on the
+  ceiling; on plate 1 a pulse tube (r 0.075–0.09), seven copper feedthroughs
+  (r 0.016 on a 0.115 m circle) and two copper side blocks (0.05 × 0.042 × 0.14);
+  a central column (r 0.013), four slanted corner rods (r 0.011), four mid
+  rods (r 0.009), 12 dark braided cables and flex ribbons (0.05 wide) down the
+  stages; mixing chamber (gold, r 0.05, h 0.10) under plate 5; an aluminium
+  stage frame (0.72 × 0.12 × 0.42) and two silver sample cans (0.19 × 0.21
+  × 0.19) with an "IBM" label 0.265 m below the bottom plate. We keep plates,
+  column, rods, flange, pulse tube, feedthroughs, side blocks, MC and one can;
+  cables/ribbons/frame are omitted (too fine).
+- **Materials palette:** panels `#c4c8cd` / `#d2d6da`, frame/posts `#9aa0a6`,
+  chrome handle `#dfe2e6`, aluminium `#bcc0c4`, casters/black `#131416`,
+  copper `#b5723c`, ribbon `#c79248`, braided cable `#33302b`, floor
+  `#141517`. Used for the MMU colour slots.
+- **Frame:** posts r 0.13 full height, plinth 1.15 × 1.85 × 0.17 (r 0.15) on
+  casters (wheel r 0.05, block 0.07 × 0.06 × 0.05 at ±0.45/±0.80), top plate
+  1.1 × 1.8 × 0.09 (r 0.13); up to 12 fridges in a row at pitch 1.1 m.
+- **Hotspot copy** (the explorer's captions): "Airtight doors with
+  weight-saving square pockets", "Toggle clamps … without the need for
+  tools", "Pull handle", "Casters … rolled across fixed casters",
+  "Temperature stages", "Signal wiring … flexible ribbon cables", "Mixing
+  chamber", "Quantum processor … about a hundredth of a degree above
+  absolute zero", "L-coupler".
+- Not in the explorer but in every photo: the aluminium-extrusion gantry
+  around/above the cells with pumps and hoses → our optional `gantry` part.
+
 ## Deviations from the explorer (deliberate)
 
 - **Post radius 0.07 m instead of 0.13 m**, plus a flat door jamb on the front
@@ -34,5 +77,8 @@ not part of this repository.
   minimums; one centred processor can instead of two.
 - **Cells are self-contained prints** coupled by magnets in the plinth sides;
   the real cells share a cold tunnel through wall openings.
-- Door held by magnets, no hinges/clamps at desk scale (too small to print);
-  the showpiece preset models clamps, pull handle and hinge barrels.
+- Door held by magnets (removable) instead of hinged; hinge barrels, clamps
+  and handle are modelled at both scales with their sections clamped to
+  printable minimums.
+- One chandelier per cell (photos); optional `--chandelier photo` style with
+  round plates and copper block tiers as seen in the right-hand cell photo.
