@@ -127,3 +127,61 @@ the same as for the original parts; no supports needed.
   (e.g. display cutouts, #224, or heat-set insert bosses from
   discussion #93): edit `wall_model.py` to add/subtract features on top of
   the rebuilt solids.
+
+## Building a NEW model with this approach
+
+The pipeline above is written around rebuilding an existing STL. For a
+brand-new part the measurement half (`extract_profiles.py` /
+`wall_profiles.json`) falls away and the approach reduces to:
+
+1. **Write the part as code** (build123d, mm units). No GUI modelling —
+   the Python script is the source of truth and lives in git like normal
+   code, so every design change is a reviewable diff and regeneration is
+   deterministic.
+2. **Put every design decision in a parameter block** at the top of the
+   file: dimensions, hole positions, clearances, magnet/insert sizes,
+   split positions. Nothing magic hidden in the geometry code.
+3. **Export all formats in one run**: STL and 3MF for printing, STEP for
+   anyone who wants to edit in Fusion 360 / FreeCAD / Onshape.
+4. **Validate programmatically** (trimesh + manifold3d) instead of only
+   eyeballing in a slicer: volumes, wall thicknesses, clearances between
+   mating parts, "do split segments overlap", bounding boxes vs. print
+   bed. For reusable machinery (dovetail split, carve-outs, export
+   helper) crib from `wall_model.py`.
+
+Starter template for a new part:
+
+```python
+#!/usr/bin/env python3
+"""RasQberry <part name> - parametric model. All dimensions in mm."""
+from pathlib import Path
+from build123d import *          # pip install build123d
+
+# --- parameters -----------------------------------------------------------
+LENGTH, WIDTH, WALL = 120.0, 40.0, 2.4
+HOLE_D, HOLE_SPACING = 3.2, (58.0, 49.0)   # e.g. Raspberry Pi 4/5 pattern
+
+# --- geometry --------------------------------------------------------------
+body = Box(LENGTH, WIDTH, WALL, align=(Align.MIN, Align.MIN, Align.MIN))
+for dx in (0, HOLE_SPACING[0]):
+    for dy in (0, HOLE_SPACING[1]):
+        body -= Pos(20 + dx, (WIDTH - HOLE_SPACING[1]) / 2 + dy, 0) * \
+                Cylinder(HOLE_D / 2, 3 * WALL)
+
+# --- export ----------------------------------------------------------------
+out = Path(__file__).parent / "output"
+out.mkdir(exist_ok=True)
+stem = str(out / "my-part")
+export_stl(body, stem + ".stl")
+export_step(body, stem + ".step")
+m = Mesher(); m.add_shape(body); m.write(stem + ".3mf")
+print("volume", round(body.volume / 1000, 2), "cm3")
+```
+
+Conventions to keep: mm units; one script (or module) per part family;
+parameter block at the top; commit the generated `output/` files together
+with the script that produced them; add print orientation and assembly
+notes to the README. Gotchas that cost us time on the wall: `extrude()`
+follows the sketch face normal, so force polygon winding counter-clockwise
+(see `ring_sketch()` in `wall_model.py`), and `align=` matters on every
+primitive - decide corner vs. centre alignment explicitly.
