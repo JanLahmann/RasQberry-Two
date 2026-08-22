@@ -5,9 +5,10 @@ Architecture** (announced 2026-08-19, photo-asset name "Union"): the
 box-shaped aluminium "fridge" with pocketed doors that replaces the cylindrical
 cryostat, designed to be coupled side-by-side into larger systems.
 
-The model is a **self-contained cell**; print two (or more) and they couple
-side-by-side with magnets in the plinth — the same "clunk" that joins the RTE
-servers to the RasQberry cryostat.
+The model is a **self-contained cell** with **four removable doors** (as on
+the real cell: every face is a door); print two (or more) cells and they
+couple side-by-side with magnets in the plinth — the same "clunk" that joins
+the RTE servers to the RasQberry cryostat.
 
 ![preview desk](preview_desk.png)
 
@@ -27,12 +28,13 @@ clamped to what a 0.4 mm nozzle can print.
 | scale | 1:23.5 (body height **93.3 mm** = every existing RasQberry body) | 1:15 |
 | cell W × D × H (mm) | 46.7 × 76.4 × 93.3 | 73.3 × 120.0 × 146.5 |
 | plinth W × D (mm) | 48.8 × 78.6, 7.2 thick, 4.2 mm casters | 76.7 × 123.3, 11.3 thick |
-| door W × H × T (mm) | 35.6 × 77.6 × 4.85 | 55.7 × 122.1 × 7.33 |
+| front/back door W × H × T (mm) | 35.6 × 77.6 × 4.85 | 55.7 × 122.1 × 7.33 |
+| left/right door W (mm) | 65.3 | 102.5 |
 | pockets | 3 × 6 front/back, 5 × 6 sides; 2.9 mm deep, 1.9 mm webs | 4.3 mm deep, 3.0 mm webs |
 | fine detail | toggle clamps (4 per door edge), pull handle, hinge barrels — clamped to 0.8 mm sections | same, finer, plus recessed white "IBM" on the processor can |
 | chandelier plates (mm) | 30.6 → 13.2, pitch 7.5 | 48.0 → 20.7, pitch 11.7 |
 | gantry frame (optional part) | 59 × 89 × 114.5 mm, 3.5 mm posts | 93 × 140 × 180 mm |
-| filament (solid volume) | body 61 + plinth 29 + door 9 + chandelier 4 + gantry 10 cm³ | 234 + 112 + 35 + 11 + ≈35 cm³ |
+| filament (solid volume) | body 23 + plinth 29 + doors 2×9 + 2×16 + chandelier 4 + gantry 10 cm³ | ≈ 85 + 112 + 2×35 + 2×60 + 11 + 35 cm³ |
 
 `python3 union_model.py --preset desk|showpiece|all` prints a table of all
 derived dimensions and feature toggles.
@@ -50,9 +52,9 @@ supports needed**. Files: `output/Union_<preset>[<variant>]_<part>.stl / .step /
 
 | Part | Colour | Print orientation | Notes |
 |---|---|---|---|
-| `body` | silver (Silk Silver like the cryostat) | upside down — top plate on the bed, open bottom up | posts, top plate, three fixed pocketed panels, flat door jambs on the front posts; magnet pockets + chandelier hole in the ceiling |
+| `body` | silver (Silk Silver like the cryostat) | upside down — top plate on the bed, open bottom up | four posts, top plate, flat door jambs on every post, hinge barrels; with `--doors front` the left/right/back faces become fixed pocketed panels; a `--coupled` side is always a fixed panel with the window; magnet pockets + chandelier hole + port holes in the top plate |
 | `plinth` | black (Matte Black like the wall) | upside down — top face with the 1 mm registration lip on the bed, casters up | magnet pockets for the door (top face) and for coupling (left/right faces), LED pocket + wire channel |
-| `door` | silver | flat, outer face (clamps, handle) up — the pocket ceilings are short bridges (≤ 10 mm desk, ≤ 13 mm showpiece); alternatively print it standing on its bottom edge with a brim (no bridges at all, like the original cryostat door) | magnet pockets in the top and bottom edges (horizontal holes when printed flat) |
+| `door_front`, `door_back`, `door_left`, `door_right` | silver | flat, outer face (clamps, handle) up — the pocket ceilings are short bridges (≤ 10 mm desk, ≤ 13 mm showpiece); alternatively print it standing on its bottom edge with a brim (no bridges at all, like the original cryostat door) | magnet pockets in the top and bottom edges (horizontal holes when printed flat) |
 | `chandelier` | gold (Silk Gold) + copper details (+ silver can, white label) | upside down — top flange/largest plate on the bed; bridges ≤ 15 mm between the corner rods, no supports | top flange glues to the ceiling, stub locates it |
 | `gantry` | silver | upside down — top frame on the bed, four tall posts up (use a brim) | optional: the aluminium-extrusion frame from the photos, two pulse-tube lines hang from the cross beam to the top plate; stands on the floor around the plinth, 0.5 m (scaled) above the cell |
 | `ports` | silver | standing on their pegs | two feedthrough-port pins glued into blind holes in the top face (`--no-ports` to omit) |
@@ -77,18 +79,22 @@ files; the copper/white details are part of the chandelier STL.
 | `--coupled left\|right\|both` | `_cL` / `_cR` / `_cLR` | window with a shallow flange in the side panel(s) facing a neighbour; two cells' flanges meet and form the cold tunnel |
 | `--chandelier photo` | `_photo` | round plates + three tiers of copper blocks, as in the press photos, instead of the explorer's square plates + can |
 | `--pockets-outside` | `_out` | decorative variant |
+| `--doors front` | `_1d` | only the front door is removable; left/right/back are fixed pocketed panels (stiffer body, 24 magnets fewer) |
 | `--no-ports`, `--no-led` | — | omit the top-plate ports / the LED pocket and channel |
 
 Pre-generated: `Union_desk`, `Union_showpiece` (single cells, all formats),
-`Union_desk_cR` + `Union_desk_R_cL` (a coupled pair, STL/3MF) and
-`Union_desk_photo` (STL/3MF). Anything else: run the script.
+`Union_desk_cR` + `Union_desk_R_cL` (a coupled pair, STL/3MF),
+`Union_desk_photo` and `Union_desk_1d` (STL/3MF). Anything else: run the script.
 
 ![pair](preview_desk_pair.png)
 
 ## Bill of materials (per cell)
 
-- 8 × disc magnets **Ø3 × 2 mm** for the door: 2 in the door's top edge ↔ 2 in
-  the body's ceiling, 2 in the door's bottom edge ↔ 2 in the plinth top.
+- **8 × disc magnets Ø3 × 2 mm per door** (2 in the door's top edge ↔ 2 in
+  the body's ceiling, 2 in the bottom edge ↔ 2 in the plinth top): 32 for a
+  four-door cell, 8 with `--doors front`, 24 for a coupled cell (three doors).
+  Cheap in bags of 50/100; glue the door-edge magnets first, then set the
+  ceiling/plinth ones against them to get the polarity right.
 - 4 × disc magnets **Ø5 × 2 mm** for coupling cells (2 in each plinth side
   face). Orient every cell the same way (left face N out, right face S out) so
   any right face attracts any left face. Pockets are Ø0.25 mm oversize and
@@ -110,8 +116,10 @@ Pre-generated: `Union_desk`, `Union_showpiece` (single cells, all formats),
 3. Set the body over the plinth's registration lip (0.15 mm clearance; glue
    if you want it permanent — the LED wire leaves through the channel under
    the rear panel).
-4. Hang the door between the front posts: it sits on the plinth, the top
-   and bottom magnets hold it, the flat jambs stop it from being pushed in.
+4. Hang the doors between the posts: each sits on the plinth, its top and
+   bottom magnets hold it, the flat jambs stop it from being pushed in.
+   Hinge barrels mark the hinge edge (pinwheel: front door hinges left,
+   right door front, back door right, left door back — mirrored for `_R`).
 5. Couple cells side by side (for a pair use `_cR` on the left and `_R_cL`
    on the right, so the hinges are on the outside and the coupling windows
    face each other); print more cells as IBM adds modules.

@@ -77,8 +77,8 @@ not part of this repository.
   minimums; one centred processor can instead of two.
 - **Cells are self-contained prints** coupled by magnets in the plinth sides;
   the real cells share a cold tunnel through wall openings.
-- Door held by magnets (removable) instead of hinged; hinge barrels, clamps
-  and handle are modelled at both scales with their sections clamped to
-  printable minimums.
+- All four doors are removable (held by magnets) instead of hinged; hinge
+  barrels, clamps and handle are modelled at both scales with their sections
+  clamped to printable minimums. `--doors front` keeps three faces fixed.
 - One chandelier per cell (photos); optional `--chandelier photo` style with
   round plates and copper block tiers as seen in the right-hand cell photo.

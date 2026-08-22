@@ -100,6 +100,9 @@ POCKETS_OUTSIDE = False
 HINGE_SIDE = "left"          # "left" or "right": which post carries the hinge barrels
 CH_STYLE = "explorer"        # "explorer" (square brass/gold plates) or "photo" (round plates + copper tiers)
 COUPLED = "none"             # "none" | "left" | "right" | "both": side panels with a coupling window
+DOORS = "all"                # "all": four removable doors (explorer/photos) | "front": only the front door
+# hinge edge per face, pinwheel like the explorer (front: left edge, right: front edge, ...)
+HINGE_EDGES = {"front": "left", "right": "front", "back": "right", "left": "back"}
 PORTS = True                 # top-plate feedthrough ports (blind holes + "ports" pin part)
 
 # --- presets ----------------------------------------------------------------
@@ -216,13 +219,33 @@ class Dims:
     def mm(self, metres):
         return metres * 1000.0 * self.scale
 
+    # ---- faces ---------------------------------------------------------------
+    def door_faces(self):
+        """Which faces carry a removable door."""
+        faces = ["front"] if DOORS == "front" else ["front", "right", "back", "left"]
+        coupled = {"none": (), "left": ("left",), "right": ("right",), "both": ("left", "right")}[COUPLED]
+        return [f for f in faces if f not in coupled]
+
+    def face_w_real(self, side):
+        """Opening between the jambs of a face."""
+        return 2 * ((self.post_cx if side in ("front", "back") else self.post_cy) - self.jamb)
+
+    def face_door_w(self, side):
+        return self.face_w_real(side) - 2 * PRINT["door_clearance"]
+
+    def face_xy(self, side, u, v):
+        """Face-local (u along the face from its centre, v = depth from the
+        outer face inwards) -> world (x, y)."""
+        return {"front": (u, self.P / 2 - v), "back": (-u, -self.P / 2 + v),
+                "left": (-self.U / 2 + v, -u), "right": (self.U / 2 - v, u)}[side]
+
     # ---- shared positions (door magnets, coupling magnets) -----------------
-    def door_magnet_xy(self):
-        """(x, y) of the door magnets in world coords: 25 % / 75 % of the door
+    def door_magnet_xy(self, side="front"):
+        """(x, y) of a door's magnets in world coords: 25 % / 75 % of the door
         width, on the door's mid-thickness plane. Used for the door edges,
         the top-plate underside and the plinth top - one formula, no drift."""
-        y = self.P / 2 - self.panel_t / 2
-        return [(-0.25 * self.door_w, y), (0.25 * self.door_w, y)]
+        w = self.face_door_w(side)
+        return [self.face_xy(side, u, self.panel_t / 2) for u in (-0.25 * w, 0.25 * w)]
 
     def couple_magnet_yz(self):
         """(y, z) of the coupling magnets on the plinth's left/right faces."""
@@ -244,6 +267,7 @@ class Dims:
              + f"  (t {self.ch_plate_t:.2f}, pitch {self.ch_pitch:.2f})"),
             ("clamps / handle / hinges / label",
              " / ".join(str(v) for v in (self.clamps, self.handle, self.hinges, self.label))),
+            ("doors", ", ".join(self.door_faces())),
             ("pockets / hinge / chandelier / coupled / ports",
              f"{'outside' if POCKETS_OUTSIDE else 'inside'} / {HINGE_SIDE} / {CH_STYLE} / {COUPLED} / {PORTS}"),
             ("LED pocket / channel", f"{PRINT['led_pocket']} / {PRINT['led_channel']}" if LED else "off"),
@@ -327,13 +351,20 @@ def build_body(d):
             body += z_cyl(d.post_r, z0, z1, sx * d.post_cx, sy * d.post_cy)
     cols = REAL["POCKET_COLS"]
     rows = REAL["POCKET_ROWS"]
-    body += place_face(pocketed_panel(d, d.door_w_real, d.frame_h, cols["back"], rows), d, "back", z0)
-    for side in ("left", "right"):
-        body += place_face(pocketed_panel(d, d.side_w, d.frame_h, cols["side"], rows), d, side, z0)
-    # flat door jambs on the front posts (fill between post surface and door edge)
-    for sx in (-1, 1):
-        body += Pos(sx * (d.post_cx - d.jamb / 2), d.P / 2 - d.panel_t / 2, z0) * Box(
-            d.jamb, d.panel_t, d.frame_h, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    doors = d.door_faces()
+    for side in ("front", "right", "back", "left"):
+        if side in doors:
+            continue
+        ncols = cols["side"] if side in ("left", "right") else cols["back"]
+        body += place_face(pocketed_panel(d, d.door_w_real if side in ("front", "back") else d.side_w,
+                                          d.frame_h, ncols, rows), d, side, z0)
+    # flat door jambs on the posts of every door face (fill between post surface and door edge)
+    for side in doors:
+        half = d.post_cx if side in ("front", "back") else d.post_cy
+        for sgn in (-1, 1):
+            x, y = d.face_xy(side, sgn * (half - d.jamb / 2), d.panel_t / 2)
+            sz = (d.jamb, d.panel_t) if side in ("front", "back") else (d.panel_t, d.jamb)
+            body += Pos(x, y, z0) * Box(sz[0], sz[1], d.frame_h, align=(Align.CENTER, Align.CENTER, Align.MIN))
     body = body.clean()
     # coupling windows: opening through the side panel with a shallow flange frame
     cw = REAL["COUPLE_WINDOW"]
@@ -349,8 +380,9 @@ def build_body(d):
         body -= Pos(x_face, 0, zc) * Box(2 * d.panel_t + 2 * fo + 2, ww, wh)
     # door magnets: pockets in the top-plate underside (axis +z, open downwards)
     mag_d, mag_t = PRINT["magnet"]
-    for x, y in d.door_magnet_xy():
-        body -= Pos(x, y, z1) * magnet_pocket(mag_d, mag_t)
+    for side in doors:
+        for x, y in d.door_magnet_xy(side):
+            body -= Pos(x, y, z1) * magnet_pocket(mag_d, mag_t)
     # blind holes for the feedthrough-port pins in the top face
     if PORTS:
         pr = max(d.mm(REAL["PORTS"]["r"]), 1.5)
@@ -358,18 +390,31 @@ def build_body(d):
             body -= Pos(d.mm(x), d.mm(y), d.z_top - 1.5) * z_cyl(pr * 0.8 + 0.15, 0, 1.6)
     # chandelier stub hole in the ceiling centre
     body -= Pos(0, 0, z1) * magnet_pocket(d.stub_d, d.stub_hole_depth, clearance_d=0.3, clearance_h=0.0)
-    # hinge barrels on the front face of the hinge-side post
+    # hinge barrels on the hinge-side post of every door face
     if d.hinges:
         hr = max(d.mm(REAL["HINGE"]["r"]), 0.8)
         hh = d.mm(REAL["HINGE"]["h"])
         zf = REAL["HINGE"]["z_frac"]
         zc = z0 + d.frame_h / 2
-        sx = -1 if HINGE_SIDE == "left" else 1
-        x = sx * (d.post_cx - d.post_r * 0.15)   # just inboard of the post's front tangent
-        y = d.P / 2 + hr * 0.6                    # half sunk into the post face: prints upright, no overhang
-        for s in (-1, 1):
-            body += z_cyl(hr, zc + s * zf * d.frame_h - hh / 2, zc + s * zf * d.frame_h + hh / 2, x, y)
+        for side in doors:
+            half = d.post_cx if side in ("front", "back") else d.post_cy
+            u = hinge_u(d, side, half - d.post_r * 0.15)   # just inboard of the post's tangent
+            x, y = d.face_xy(side, u, -hr * 0.6)          # half sunk into the post face: prints upright
+            for s in (-1, 1):
+                body += z_cyl(hr, zc + s * zf * d.frame_h - hh / 2, zc + s * zf * d.frame_h + hh / 2, x, y)
     return body.clean()
+
+
+def hinge_u(d, side, half):
+    """Face-local u of the hinge edge (+-half): explorer pinwheel, mirrored
+    for HINGE_SIDE == "right" (the right-hand cell of a pair)."""
+    edge = HINGE_EDGES[side]
+    # face-local +u runs: front -> +x (right), back -> -x, left -> -y (back), right -> +y (front)
+    plus_u = {"front": "right", "back": "left", "left": "back", "right": "front"}[side]
+    sign = 1 if edge == plus_u else -1
+    if HINGE_SIDE == "right":
+        sign = -sign
+    return sign * half
 
 
 def build_plinth(d):
@@ -400,10 +445,11 @@ def build_plinth(d):
     lip -= Pos(0, d.P / 2 - d.panel_t - c, zt - 1) * Box(d.U, d.panel_t * 2, lip_h + 2,
                                                         align=(Align.CENTER, Align.MIN, Align.MIN))
     plinth = (plinth + lip).clean()
-    # door magnets in the top face (open upwards)
+    # door magnets in the top face (open upwards), one set per door
     mag_d, mag_t = PRINT["magnet"]
-    for x, y in d.door_magnet_xy():
-        plinth -= Pos(x, y, zt) * Rot(X=180) * magnet_pocket(mag_d, mag_t)
+    for side in d.door_faces():
+        for x, y in d.door_magnet_xy(side):
+            plinth -= Pos(x, y, zt) * Rot(X=180) * magnet_pocket(mag_d, mag_t)
     # coupling magnets in the left/right faces (axis x)
     cm_d, cm_t = d.couple_magnet
     for y, z in d.couple_magnet_yz():
@@ -421,47 +467,61 @@ def build_plinth(d):
     return plinth.clean()
 
 
-def build_door(d):
-    """Removable front door: flat pocketed panel between the post jambs,
-    magnet pockets in the top and bottom edges. Showpiece: toggle clamps +
-    pull handle."""
-    cols, rows = REAL["POCKET_COLS"]["front"], REAL["POCKET_ROWS"]
+def build_door(d, side="front"):
+    """Removable door for one face: flat pocketed panel between the post
+    jambs, magnet pockets in the top and bottom edges, toggle clamps on both
+    edges, pull handle at the free edge. Built in place (world coords)."""
+    cols = REAL["POCKET_COLS"]["side" if side in ("left", "right") else "front"]
+    rows = REAL["POCKET_ROWS"]
     z0 = d.z_plinth_top + 0.2
-    door = place_face(pocketed_panel(d, d.door_w, d.door_h, cols, rows), d, "front", z0)
-    # magnets in the top and bottom edges
+    w = d.face_door_w(side)
+    door = place_face(pocketed_panel(d, w, d.door_h, cols, rows), d, side, z0)
     mag_d, mag_t = PRINT["magnet"]
-    for x, y in d.door_magnet_xy():
+    for x, y in d.door_magnet_xy(side):
         door -= Pos(x, y, z0 + d.door_h) * Rot(X=180) * magnet_pocket(mag_d, mag_t)
         door -= Pos(x, y, z0) * magnet_pocket(mag_d, mag_t)
     door = door.clean()
-    yf = d.P / 2   # door's flat outer face
+
+    def at(u, v, z):          # face-local (u, v = outward stand-off) -> world Pos
+        x, y = d.face_xy(side, u, -v)
+        return Pos(x, y, z)
+
+    along = (1, 0) if side in ("front", "back") else (0, 1)   # world axis of face-local u
+    outward = (0, 1) if side in ("front", "back") else (1, 0)  # world axis of face-local v
+
+    def box(lu, lv, lz):      # box with lu along the face, lv outward, lz up
+        return Box(lu * along[0] + lv * outward[0], lu * along[1] + lv * outward[1], lz)
+
     if d.clamps:
         bw, bh, bt = (max(d.mm(v), 0.8) for v in REAL["CLAMP"]["body"])
         ll = d.mm(REAL["CLAMP"]["lever_l"])
         ld_ = max(d.mm(REAL["CLAMP"]["lever_d"]), 0.8)
         kr = max(d.mm(REAL["CLAMP"]["knob_r"]), 0.6)
-        for sx in (-1, 1):
-            x = sx * (d.door_w / 2 - d.pocket_margin_x / 2)
+        for su in (-1, 1):
+            u = su * (w / 2 - d.pocket_margin_x / 2)
             for zf in REAL["CLAMP_Z"]:
                 z = z0 + zf * d.door_h
-                door += Pos(x, yf + bt / 2, z) * Box(bw, bt, bh)
+                door += at(u, bt / 2, z) * box(bw, bt, bh)
                 # lever lying on the clamp body, pointing to the door centre
-                door += Pos(x - sx * (ll / 2 - bw / 4), yf + bt + ld_ / 2, z) * Box(ll, ld_, ld_)
+                door += at(u - su * (ll / 2 - bw / 4), bt + ld_ / 2, z) * box(ll, ld_, ld_)
                 # knob: short cylinder, not a sphere (sphere poles tessellate into
                 # zero-area triangles that the CI analyzer rejects)
-                door += Pos(x - sx * (ll - bw / 4), yf + bt + ld_ / 2, z) * Rot(Y=90) * Cylinder(kr, 1.5 * kr)
+                knob = Cylinder(kr, 1.5 * kr)
+                knob = (Rot(Y=90) if along[0] else Rot(X=90)) * knob
+                door += at(u - su * (ll - bw / 4), bt + ld_ / 2, z) * knob
     if d.handle:
         h = REAL["HANDLE"]
         hr = max(d.mm(h["r"]), 0.8)
         hl, so = d.mm(h["length"]), d.mm(h["standoff"])
         # x_frac is measured from the hinge edge, so the handle sits near the free edge
-        x = (-d.door_w / 2 + h["x_frac"] * d.door_w) * (1 if HINGE_SIDE == "left" else -1)
+        u = hinge_u(d, side, w / 2) * (1 - 2 * h["x_frac"])
         zc = z0 + d.door_h / 2
-        door += z_cyl(hr, zc - hl / 2, zc + hl / 2, x, yf + so)
+        x, y = d.face_xy(side, u, -so)
+        door += z_cyl(hr, zc - hl / 2, zc + hl / 2, x, y)
         reach = (0.5 if not POCKETS_OUTSIDE else d.pocket_depth + 0.5)
-        for s in (-1, 1):
-            door += cyl_between((x, yf - reach, zc + s * hl / 2),
-                                (x, yf + so, zc + s * hl / 2), hr * 1.1)
+        xi, yi = d.face_xy(side, u, reach)
+        for sgn in (-1, 1):
+            door += cyl_between((xi, yi, zc + sgn * hl / 2), (x, y, zc + sgn * hl / 2), hr * 1.1)
     return door.clean()
 
 
@@ -618,8 +678,10 @@ def print_orientation(name, shape):
         shape = Rot(X=180) * shape          # upside down: flat top / plinth top / biggest plate / top frame on the bed
     elif name == "ports":
         pass                                # pins standing on their pegs
-    elif name == "door":
-        shape = Rot(X=90) * shape           # lying flat, outer face (clamps, handle) up
+    elif name.startswith("door"):
+        side = name.split("_")[1] if "_" in name else "front"
+        # bring the face's outward normal to +z: lying flat, outer face (clamps, handle) up
+        shape = {"front": Rot(X=90), "back": Rot(X=-90), "left": Rot(Y=90), "right": Rot(Y=-90)}[side] * shape
     return on_bed(shape)
 
 
@@ -635,10 +697,13 @@ def build_cell(preset):
     parts = {
         "body": (build_body(d), [("silver", None)]),
         "plinth": (build_plinth(d), [("black", None)]),
-        "door": (build_door(d), [("silver", None)]),
+    }
+    for side in d.door_faces():
+        parts[f"door_{side}"] = (build_door(d, side), [("silver", None)])
+    parts.update({
         "chandelier": (chandelier, list(ch_bodies.items())),
         "gantry": (build_gantry(d), [("silver", None)]),
-    }
+    })
     if PORTS:
         parts["ports"] = (build_ports(d), [("silver", None)])
     return d, parts
@@ -658,24 +723,29 @@ def main():
     ap.add_argument("--coupled", default="none", choices=["none", "left", "right", "both"],
                     help="coupling window in the given side panel(s) (suffix _cL/_cR/_cLR)")
     ap.add_argument("--no-ports", action="store_true", help="omit top-plate port holes and the ports part")
+    ap.add_argument("--doors", default="all", choices=["all", "front"],
+                    help="four removable doors (default, as the real cell) or only the front door (suffix _1d)")
     ap.add_argument("--no-step", action="store_true", help="skip STEP export (faster)")
     args = ap.parse_args()
-    global LED, HINGE_SIDE, CH_STYLE, POCKETS_OUTSIDE, COUPLED, PORTS
+    global LED, HINGE_SIDE, CH_STYLE, POCKETS_OUTSIDE, COUPLED, PORTS, DOORS
     LED = not args.no_led
     HINGE_SIDE, CH_STYLE, POCKETS_OUTSIDE = args.hinge, args.chandelier, args.pockets_outside
-    COUPLED, PORTS = args.coupled, not args.no_ports
+    COUPLED, PORTS, DOORS = args.coupled, not args.no_ports, args.doors
     suffix = ("_R" if HINGE_SIDE == "right" else "") + ("_photo" if CH_STYLE == "photo" else "") \
         + ("_out" if POCKETS_OUTSIDE else "") \
-        + {"none": "", "left": "_cL", "right": "_cR", "both": "_cLR"}[COUPLED]
+        + {"none": "", "left": "_cL", "right": "_cR", "both": "_cLR"}[COUPLED] \
+        + ("_1d" if DOORS == "front" else "")
     formats = ("stl", "3mf") if args.no_step else ("stl", "step", "3mf")
     OUTDIR.mkdir(exist_ok=True)
     for preset in (PRESETS if args.preset == "all" else [args.preset]):
         d, parts = build_cell(preset)
         manifest = dict(preset=preset, scale=d.scale, led=LED, parts={},
-                        door_magnet_xy=d.door_magnet_xy(), couple_magnet_yz=d.couple_magnet_yz(),
+                        doors={side: d.door_magnet_xy(side) for side in d.door_faces()},
+                        couple_magnet_yz=d.couple_magnet_yz(),
                         magnet=PRINT["magnet"], couple_magnet=d.couple_magnet,
                         z_plinth_top=d.z_plinth_top, z_ceiling=d.z_ceiling, z_top=d.z_top,
-                        cell=(d.U, d.P, d.z_top), door=(d.door_w, d.door_h, d.panel_t))
+                        cell=(d.U, d.P, d.z_top), door=(d.door_w, d.door_h, d.panel_t),
+                        doors_mode=DOORS)
         coloured = {}
         for name, (solid, colour_bodies) in parts.items():
             if name == "ports":     # several loose pins in one file, by design

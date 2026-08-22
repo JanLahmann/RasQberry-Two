@@ -87,7 +87,8 @@ def validate(preset, bed):
     for part in man["parts"]:
         mesh_checks(OUT / f"Union_{preset}_{part}.stl", bed)
     bodies = assembled(preset)
-    body, plinth, door = pick(bodies, "body"), pick(bodies, "plinth"), pick(bodies, "door")
+    body, plinth = pick(bodies, "body"), pick(bodies, "plinth")
+    doors = {n.split("_")[1].split(".")[0]: m for n, m in bodies.items() if n.startswith("door")}
     chand = [m for n, m in bodies.items() if "chandelier" in n]
     # overall size
     cell_bodies = {n: m for n, m in bodies.items() if not any(k in n for k in ("gantry", "ports"))}
@@ -104,19 +105,22 @@ def validate(preset, bed):
     # door magnets: cavity in door top/bottom edge, in top-plate underside, in plinth top
     mag_d, mag_t = man["magnet"]
     zt, zp = man["z_ceiling"], man["z_plinth_top"]
-    dz = man["door"][1]
-    for x, y in man["door_magnet_xy"]:
-        probe = lambda z: [(x, y, z), (x + mag_d / 4, y, z), (x, y + mag_d / 4, z)]
-        check(cavity_at(body, probe(zt + 0.5 * mag_t)) and solid_at(body, probe(zt + mag_t + 0.4)),
-              f"top-plate magnet pocket at ({x:.1f}, {y:.1f})")
-        check(cavity_at(plinth, probe(zp - 0.5 * mag_t)) and solid_at(plinth, probe(zp - mag_t - 0.4)),
-              f"plinth magnet pocket at ({x:.1f}, {y:.1f})")
-        ztop = door.bounds[1][2]
-        zbot = door.bounds[0][2]
-        check(cavity_at(door, probe(ztop - 0.5 * mag_t)) and cavity_at(door, probe(zbot + 0.5 * mag_t)),
-              f"door edge magnet pockets at ({x:.1f}, {y:.1f})")
-        check(abs(ztop - zt) < 0.35 and abs(zbot - zp) < 0.35,
-              f"door spans plinth top -> ceiling (gaps {zbot - zp:.2f} / {zt - ztop:.2f} mm)")
+    check(set(doors) == set(man["doors"]), f"doors present: {sorted(doors)}")
+    for side, pts in man["doors"].items():
+        door = doors[side]
+        # door edges are free of clamps/handle: use the panel (not the handle) for the z extent
+        ztop = zt - 0.2
+        zbot = zp + 0.2
+        check(abs(door.bounds[1][2] - ztop) < 0.05 and abs(door.bounds[0][2] - zbot) < 0.05,
+              f"door_{side} spans plinth top -> ceiling (gaps 0.2 mm)")
+        for x, y in pts:
+            probe = lambda z: [(x, y, z), (x + mag_d / 4, y, z), (x, y + mag_d / 4, z)]
+            check(cavity_at(body, probe(zt + 0.5 * mag_t)) and solid_at(body, probe(zt + mag_t + 0.4)),
+                  f"door_{side}: top-plate magnet pocket at ({x:.1f}, {y:.1f})")
+            check(cavity_at(plinth, probe(zp - 0.5 * mag_t)) and solid_at(plinth, probe(zp - mag_t - 0.4)),
+                  f"door_{side}: plinth magnet pocket at ({x:.1f}, {y:.1f})")
+            check(cavity_at(door, probe(ztop - 0.5 * mag_t)) and cavity_at(door, probe(zbot + 0.5 * mag_t)),
+                  f"door_{side}: edge magnet pockets at ({x:.1f}, {y:.1f})")
     # coupling magnets: mirror left <-> right
     cm_d, cm_t = man["couple_magnet"]
     xl, xr = plinth.bounds[0][0], plinth.bounds[1][0]
@@ -131,7 +135,8 @@ def validate(preset, bed):
     step = max(1, len(ch.vertices) // 400)
     sample = ch.vertices[::step]
     body_below_ceiling = sample[sample[:, 2] < zt - 2.5]    # ignore stub + flange glued to the ceiling
-    for other, label, pts in ((door, "door", sample), (body, "body", body_below_ceiling)):
+    door = trimesh.util.concatenate(list(doors.values()))
+    for other, label, pts in ((door, "doors", sample), (body, "body", body_below_ceiling)):
         _, dist, _ = trimesh.proximity.closest_point(other, pts)
         inside = other.contains(pts)
         clear = dist.min() if not inside.any() else -dist[inside].max()
