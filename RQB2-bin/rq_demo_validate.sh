@@ -142,6 +142,12 @@ is_trusted_owner() {
 # not clone via the engine, so there is no repo_url for this rule to pin. The
 # installer they name is responsible for its own pinning - the IBM pair pins via
 # GIT_REF_DEMO_IBM_LEARNING.
+#
+# External manifests (--external) are exempt from the *missing* pin: the manifest
+# lives inside the very repo it would pin, so it can never carry its own commit
+# SHA. There the pin is known-demos.json, which the add-flow fetches by SHA and
+# which is the trust anchor for the demo (EXTERNAL_DEMOS.md §2). A ref that IS
+# declared still has to be a full SHA.
 validate_pin_policy() {
     local file="$1"
     local errs=0
@@ -174,7 +180,9 @@ validate_pin_policy() {
         return $errs
     fi
 
-    if [ -z "$ref" ]; then
+    if [ -z "$ref" ] && [ "$EXTERNAL" = "true" ]; then
+        print_pass "Third-party owner '$owner' pinned by known-demos.json (external registry)"
+    elif [ -z "$ref" ]; then
         print_fail "Third-party repo (owner '$owner') must pin install.ref to a full 40-char commit SHA. See RQB2-config/trusted-repo-owners.txt"
         errs=$((errs + 1))
     elif ! echo "$ref" | grep -qE '^[0-9a-fA-F]{40}$'; then
@@ -436,7 +444,9 @@ validate_manifest() {
     fi
 
     # Pin policy applies to EVERY manifest, curated or external: the rule is about
-    # who controls the upstream repo, not how the demo is distributed.
+    # who controls the upstream repo, not how the demo is distributed. External
+    # manifests satisfy it through the registry rather than install.ref - see the
+    # comment on validate_pin_policy.
     local pin_errs=0
     validate_pin_policy "$file" || pin_errs=$?
     errors=$((errors + pin_errs))
