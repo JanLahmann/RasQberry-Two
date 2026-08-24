@@ -8,6 +8,14 @@
       "manifest_path": "rqb-demo.json",
       "added": "2026-07-13",
       "note": "Quantum reinforcement-learning racing demo (docker image ghcr.io/janlahmann/traqmania, public multi-arch incl. arm64). First Fun-with-Quantum-family catalog entry."
+    },
+    {
+      "id": "sap-quantum-transport-optimizer",
+      "repo_url": "https://github.com/Sameer-kulkarni-sk/SAP-Quantum-Transportation-Optimizer.git",
+      "ref": "7ca848b50b4558d0584c492fd16d84c116d5a5b1",
+      "manifest_path": "rqb-demo.json",
+      "added": "2026-08-24",
+      "note": "SAP partner demo (Sameer-kulkarni-sk): QAOA vs classical transport assignment, tkinter GUI on the local Aer simulator - no IBM token, no network. Pinned commit carries the MIT LICENSE and the ==-pinned requirements we asked for in PR #1 (merged 2026-07-16)."
     }
   ]
 }
