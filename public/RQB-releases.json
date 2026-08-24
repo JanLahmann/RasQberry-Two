@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-24T00:53:29Z",
+  "generated": "2026-08-24T08:39:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -36,9 +36,7 @@
       "extract_size": 8942256128,
       "extract_sha256": "6be98ec6341d7e674e3a61ff4cf7c51ed590d06a522d7c75b135460659caff63",
       "highlights": [
-        "accept 64GB cards (58 GiB minimum, was 63 GiB)",
-        "Bump version to development-2026-07-17-215751",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-07-17-195907"
+        "Development build - see release notes for details"
       ]
     }
   }
