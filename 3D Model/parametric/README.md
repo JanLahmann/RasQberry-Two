@@ -205,6 +205,9 @@ Gotchas that cost us time:
   they show, not by what you meant.
 - Spheres tessellate into zero-area triangles at the poles; the CI analyzer
   rejects those. Use short cylinders for knobs.
+- Two perpendicular cylinders of EQUAL radius whose axes intersect touch
+  tangentially — OCCT builds an invalid B-rep from the union. Make one of
+  them 10–15 % fatter (door handle stand-offs, wire bails).
 - Round posts intersect flat doors behind the face — give the posts a flat
   jamb instead of notching the door (no feather edges).
 - build123d's `Shape.is_valid` is a property in 0.11 (was a method).

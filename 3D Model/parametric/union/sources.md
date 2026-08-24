@@ -15,7 +15,7 @@ real geometry does not print at desk scale, printability wins (see the
 | Interactive "Cryogenic Enclosure — interactive model" (iframe in the blog) | `https://research-website-prod-interactive.s3.us-east.cloud-object-storage.appdomain.cloud/cryo-fridge-explorer/index.html` | **All proportions in `REAL`**: the explorer has no downloadable 3D asset; its three.js scene is generated procedurally in `assets/index-*.js` with metre dimensions (cell 1.1 × 1.8 × ~2.2 m, door 0.84 × 1.787 × 0.11 m, pocket grid margin 0.075 / gap 0.045, 4 clamps per door edge, handle, hinge barrels, 6 chandelier plates 0.72→0.31 m at 0.176 m pitch, casters, plinth). Decoded by reading the bundle; values copied into `union_model.py` |
 | IBM Newsroom press release | https://newsroom.ibm.com/2026-08-19-ibm-connects-its-first-modular-cryogenic-systems-in-milestone-toward-fault-tolerant-quantum-computing | "> 8 ft tall and 8 ft wide" for the two coupled cells; two downloadable photos |
 | Public information sheet *IBM's Modular Quantum Cryogenic Architecture* v2.1 (`MoQCA_v2.1.pdf`), Zenodo DOI 10.5281/zenodo.21997093, **CC-BY-4.0**, © 2026 IBM | https://zenodo.org/records/21997093 | Rectangular form factor, flat coupling faces, 2.75 m³ / 0.25 m³ (< 20 mK) per module, 3000 kg, 0.53 m² wiring; Figure 1 photo |
-| Jay Gambetta, LinkedIn post + article; IBM / IBM Quantum LinkedIn, IBM News on X, IBM Instagram; YouTube "Unveiling IBM's cryogenic modules…" (`wwMI6IhvwE0`) | (social) | Same photos and copy as above; no additional geometry |
+| Jay Gambetta, LinkedIn post + article; IBM / IBM Quantum LinkedIn, IBM News on X, IBM Instagram; YouTube "Unveiling IBM's cryogenic modules…" (`wwMI6IhvwE0`) | (social) | Same photos and copy as above; the **YouTube animation** was additionally mined frame by frame in a second pass (2026-08-24), see "What the video adds" below |
 | Press coverage (Next Platform, EE Times, SiliconANGLE, Live Science, Quantum Insider, NAND Research, Futurum) | (see article titles) | EMI gasket + O-ring door seals, Mylar superinsulation, Bluefors cooling engines, cells couple through wall openings into a shielded tunnel |
 
 Internal IBM marketing deck "ModularCryoGeoEnablement_Union" (5 photos,
@@ -64,6 +64,36 @@ not part of this repository.
   absolute zero", "L-coupler".
 - Not in the explorer but in every photo: the aluminium-extrusion gantry
   around/above the cells with pumps and hoses → our optional `gantry` part.
+
+## What the video adds (frame-by-frame pass, 2026-08-24)
+
+From the 40 s announcement animation (YouTube `wwMI6IhvwE0`; the "IE
+Explains" reel re-uses the same IBM Research footage):
+
+- **0:12** — door openings have large-radius rounded corners with a dark
+  gasket/O-ring seam; toggle clamps are over-centre latches with black
+  levers on silver base plates, with matching catch plates on the body;
+  hex-head standoff pins near the top-plate corners. → gasket groove
+  engraved on every door face (both scales), two-colour latches + jamb
+  catch plates (showpiece), hex pins in the `ports` part.
+- **0:27** — the top plate carries two clusters of ~7 round connector
+  feedthroughs and a bolt-hole grid. → cluster discs in the `ports` part
+  (both scales), bolt-hole grid (showpiece).
+- **0:33 (tunnel shot)** — the cavity floor is a waffle grid of square
+  recesses, the ceiling has round vent recesses. → engraved at both scales.
+- **0:05–0:08 + close-up stills** — chandelier carried by black wavy
+  topology-optimised blades (not straight rods); below the bottom plate a
+  machined stage with a pillar bank and blocks with circular openings; two
+  "IBM" cans with rounded vertical edges, hanging brackets and wire bail
+  loops under the bottom corners; a helical coax line between two plates.
+  → all modelled at the showpiece (desk keeps straight rods and a single
+  plain can). U-shaped braided thermal straps and corrugated heat-exchanger
+  banks remain omitted (too fine even at 1:15).
+- **0:17 / poster frame** — the future payload: a grid of modules (gold
+  shelf + silver electronics box + finned flex-cable stack). → optional
+  `--interior payload` part (suffix `_pl`).
+- **0:37** — parallel cooling lines run along the overhead gantry frames.
+  → four pipes nested at beam level in the `gantry` part.
 
 ## Deviations from the explorer (deliberate)
 

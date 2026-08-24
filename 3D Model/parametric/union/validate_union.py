@@ -88,8 +88,12 @@ def validate(preset, bed):
         mesh_checks(OUT / f"Union_{preset}_{part}.stl", bed)
     bodies = assembled(preset)
     body, plinth = pick(bodies, "body"), pick(bodies, "plinth")
-    doors = {n.split("_")[1].split(".")[0]: m for n, m in bodies.items() if n.startswith("door")}
-    chand = [m for n, m in bodies.items() if "chandelier" in n]
+    doors = {}      # a door may have several colour bodies (black latch levers)
+    for n, m in bodies.items():
+        if n.startswith("door"):
+            side = n.split("_")[1].split(".")[0]
+            doors[side] = trimesh.util.concatenate([doors[side], m]) if side in doors else m
+    chand = [m for n, m in bodies.items() if "chandelier" in n or "payload" in n]
     # overall size
     cell_bodies = {n: m for n, m in bodies.items() if not any(k in n for k in ("gantry", "ports"))}
     allv = np.vstack([m.vertices for m in cell_bodies.values()])
@@ -129,9 +133,10 @@ def validate(preset, bed):
         pr = [(xr - 0.5 * cm_t, y, z), (xr - 0.5 * cm_t, y + cm_d / 4, z)]
         check(cavity_at(plinth, pl) and cavity_at(plinth, pr),
               f"coupling magnet pockets at y={y:.1f} on both plinth sides")
-    # chandelier clearance
+    # interior (chandelier or payload rack) clearance
+    interior_name = man.get("interior", "chandelier")
     ch = trimesh.util.concatenate(chand)
-    # sample the chandelier surface (full ray-cast containment is slow without embree)
+    # sample the interior surface (full ray-cast containment is slow without embree)
     step = max(1, len(ch.vertices) // 400)
     sample = ch.vertices[::step]
     body_below_ceiling = sample[sample[:, 2] < zt - 2.5]    # ignore stub + flange glued to the ceiling
@@ -141,10 +146,10 @@ def validate(preset, bed):
         inside = other.contains(pts)
         clear = dist.min() if not inside.any() else -dist[inside].max()
         check(not inside.any() and clear >= 1.0,
-              f"chandelier clearance to {label}: {clear:.2f} mm ({len(pts)} sample points)")
-    # the chandelier stub must actually sit in the ceiling hole
+              f"{interior_name} clearance to {label}: {clear:.2f} mm ({len(pts)} sample points)")
+    # the interior's stub must actually sit in the ceiling hole
     top = ch.bounds[1][2]
-    check(top > zt + 0.5, f"chandelier stub reaches into the top plate ({top - zt:.2f} mm)")
+    check(top > zt + 0.5, f"{interior_name} stub reaches into the top plate ({top - zt:.2f} mm)")
 
 
 def main():
