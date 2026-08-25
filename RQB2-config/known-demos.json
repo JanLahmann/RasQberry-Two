@@ -24,6 +24,14 @@
       "manifest_path": "rqb-demo.json",
       "added": "2026-08-25",
       "note": "SAP partner demo (Sameer-kulkarni-sk, MIT): browser quiz and drag-and-drop circuit composer, served from the committed production bundle via the web-static entrypoint - no Node or npm on the Pi. Pinned commit is the PR #1 merge, which brings the root build/ and package-lock.json we asked for."
+    },
+    {
+      "id": "sap-quantum-led",
+      "repo_url": "https://github.com/Sameer-kulkarni-sk/sap-quantum-led.git",
+      "ref": "8456118323408800256038200aeef26598c7b14b",
+      "manifest_path": "rqb-demo.json",
+      "added": "2026-08-25",
+      "note": "SAP partner demo (Sameer-kulkarni-sk, Apache-2.0): SAP logo on the LED matrix with colors drawn from a 3-qubit Aer circuit each cycle. Extracted from their RasQberry-Two fork on our request (issue #273); repo renamed to match the demo id, which is why the pinned commit reverts our PR's working_dir change."
     }
   ]
 }
