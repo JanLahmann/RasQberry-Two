@@ -16,6 +16,14 @@
       "manifest_path": "rqb-demo.json",
       "added": "2026-08-24",
       "note": "SAP partner demo (Sameer-kulkarni-sk): QAOA vs classical transport assignment, tkinter GUI on the local Aer simulator - no IBM token, no network. Pinned commit carries the MIT LICENSE and the ==-pinned requirements we asked for in PR #1 (merged 2026-07-16)."
+    },
+    {
+      "id": "sap-quantum-learning",
+      "repo_url": "https://github.com/Sameer-kulkarni-sk/rasqberry-sap-demo.git",
+      "ref": "609f5a94ae67e18a09dd77cf31f81afd6385a149",
+      "manifest_path": "rqb-demo.json",
+      "added": "2026-08-25",
+      "note": "SAP partner demo (Sameer-kulkarni-sk, MIT): browser quiz and drag-and-drop circuit composer, served from the committed production bundle via the web-static entrypoint - no Node or npm on the Pi. Pinned commit is the PR #1 merge, which brings the root build/ and package-lock.json we asked for."
     }
   ]
 }
