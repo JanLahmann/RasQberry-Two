@@ -59,8 +59,24 @@ export default function RedirectClient({ stream }: RedirectClientProps) {
 
         setStatus('redirecting');
 
-        // Redirect to the image URL
-        window.location.href = streamData.image_url;
+        // Umami `download` event (Fun with Quantum family taxonomy): the redirect IS the download.
+        // Best-effort; a short delay lets the tracker's request leave before navigation.
+        try {
+          const umami = (window as unknown as { umami?: { track: (name: string, data?: Record<string, string>) => void } }).umami;
+          umami?.track('download', {
+            kind: 'image',
+            file: streamData.image_url.split('/').pop() ?? '',
+            stream,
+            tag: streamData.tag,
+          });
+        } catch {
+          /* analytics is best-effort */
+        }
+        const imageUrl = streamData.image_url;
+        setTimeout(() => {
+          // Redirect to the image URL
+          window.location.href = imageUrl;
+        }, 300);
       } catch (err) {
         setStatus('error');
         setError(err instanceof Error ? err.message : 'Unknown error');
