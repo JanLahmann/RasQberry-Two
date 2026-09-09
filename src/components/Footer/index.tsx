@@ -11,7 +11,7 @@ export async function Footer() {
             <Column sm={4} md={8} lg={16}>
                 <p>RasQberry <strong>Two</strong>: <em>Building a Functional Model of a Quantum Computer at Home</em></p>
                 <p style={{ fontSize: '0.875rem', marginTop: '1rem', opacity: 0.8 }}>
-                    <a href="/newsletter" style={{ color: 'inherit', textDecoration: 'underline' }}>Subscribe to our newsletter</a> for occasional updates.
+                    <a href="/newsletter" style={{ color: 'inherit', textDecoration: 'underline' }} data-umami-event="newsletter" data-umami-event-step="open">Subscribe to our newsletter</a> for occasional updates.
                 </p>
                 <p style={{ fontSize: '0.75rem', marginTop: '1rem', opacity: 0.8, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
                     {family.brand.tagline.l}
@@ -19,7 +19,8 @@ export async function Footer() {
                 <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', opacity: 0.8 }}>{family.brand.footer_lead}</p>
                 <div className={styles["family"]}>
                     {links.map((m) => (
-                        <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className={styles["member"]}>
+                        <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className={styles["member"]}
+                           data-umami-event="family-footer" data-umami-event-to={m.id}>
                             <span>{m.name}</span>
                             {m.short && <small>{m.short}</small>}
                         </a>
