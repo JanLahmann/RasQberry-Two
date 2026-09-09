@@ -1,0 +1,21 @@
+name: Family manifest changed → rebuild site
+
+# GitHub delivers repository_dispatch events only to workflows on the DEFAULT branch, but this
+# repo's website (rasqberry.org) is built by nextjs.yml on the gh-pages branch. This tiny relay
+# lives on main and forwards the family-updated event (fired by JanLahmann/Fun-with-Quantum when
+# family/family.json changes) to that workflow, so the family footer re-renders.
+on:
+  repository_dispatch:
+    types: [family-updated]
+
+permissions:
+  actions: write
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the gh-pages site build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run nextjs.yml --ref gh-pages -R "$GITHUB_REPOSITORY"
