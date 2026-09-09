@@ -6,3 +6,21 @@
     padding: 2rem;
     color: themes.$text-on-color;
 }
+
+/* Fun with Quantum family: name + short description per member (rendered from the shared manifest) */
+.family {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.6rem 1.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.85;
+}
+.member {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.3;
+  span { display: block; text-decoration: underline; }
+  small { display: block; font-size: 0.75rem; opacity: 0.8; }
+}
