@@ -48,8 +48,10 @@ STL files for a 3D model of IBM Quantum System Two are available in the [3D-mode
 
 ---
 
+<!-- FWQ-FAMILY:START format=list — generated from family.json in JanLahmann/Fun-with-Quantum, do not edit by hand -->
 ## Part of the Fun with Quantum family
 
-RasQberry Two is part of [**Fun with Quantum**](https://fun-with-quantum.org), a family of open-source quantum outreach projects: [RasQberry One](https://rasqberry.one) · [Quantego](https://quantego.org) · [Qutie](https://qutie.org) · [Qoffee-Maker](https://qoffee-maker.org).
+This project is part of [**Fun with Quantum**](https://fun-with-quantum.org), a family of open-source quantum outreach projects: [Fun with Quantum](https://fun-with-quantum.org) · [RasQberry One](https://rasqberry.one) · [Quantego](https://quantego.org) · [Qutie](https://qutie.org) · [Qoffee-Maker](https://qoffee-maker.org) · [Entangible](https://entangible.org) · [CertiQ](https://certiq.dev) · [QuBins](https://qubins.org) · [QAMPoser](https://qamposer.org).
 
 *God does play dice. Come play, build, learn.*
+<!-- FWQ-FAMILY:END -->
