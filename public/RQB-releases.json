@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-10T21:26:14Z",
+  "generated": "2026-09-10T21:26:43Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,23 +27,20 @@
       ]
     },
     "dev": {
-      "tag": "dev-demofixes-2026-09-10-230502",
-      "name": "rasqberry-dev-demofixes-2026-09-10-230502",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-10-230502/rasqberry-dev-demofixes-2026-09-10-230502.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demofixes-2026-09-10-230502",
-      "release_date": "2026-09-10 23:05",
-      "image_download_size": 2019841252,
+      "tag": "development-2026-09-10-221606",
+      "name": "rasqberry-development-2026-09-10-221606",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-10-221606/rasqberry-development-2026-09-10-221606.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-10-221606",
+      "release_date": "2026-09-10 22:16",
+      "image_download_size": 2022279824,
       "extract_size": 9017753600,
-      "extract_sha256": "926e814ea08b9049dc94713564056ed521e76ae2a4d131c35aa4b6d435a10103",
-      "image_sha256": "17ca752b33c0b606e4829cf6486892db1f438fa9c0a9d0159f11f5f10e6db26c",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-10-230502/rasqberry-dev-demofixes-2026-09-10-230502-ab.img.xz",
-      "ab_extract_sha256": "5c58184aa7f98b0e762f64ac476fcf09f532231b37e4379a76b0c4a68ed41e79",
-      "ab_image_sha256": "bbf5a1e9b135eb20d5d97bc942e1196443ac83661d8b82d4e84bdd953a4897ea",
-      "ab_image_download_size": 2054149280,
-      "ab_extract_size": 12398362624,
+      "extract_sha256": "0c9546ceca74ca8a5c4e65bf2999b2634eb89dae8511460af42c0ba2bac418e7",
       "highlights": [
-        "hand the whole venv back to the user before installing extras",
-        "Bump version to dev-demofixes-2026-09-10-230502"
+        "Bump version to development-2026-09-10-221606",
+        "Merge dev-sapdemos into development: SAP partner demos in the catalog",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-sapdemos-2026-09-10-212551",
+        "re-pin SAP Quantum Transport Optimizer to the 2026-09-06 head",
+        "Bump version to dev-sapdemos-2026-09-10-212551"
       ]
     }
   }
