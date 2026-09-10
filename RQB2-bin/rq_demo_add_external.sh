@@ -177,12 +177,20 @@ write_desktop_entry() {
     fi
     [ -x "$writer" ] || [ -f "$writer" ] || { warn "Missing helper: $writer"; return 1; }
 
+    # pcmanfm parses a launcher on the create event and never re-reads it, so
+    # a file that is written in place (empty at creation, root-owned until the
+    # chown) stays labelled with its file name until the desktop is reloaded.
+    # Write a hidden temp file in the same directory with the final owner and
+    # mode, then rename it into place: one create event, complete content.
     out="$USER_HOME/Desktop/rq-ext-${id}.desktop"
-    bash "$writer" "$manifest_file" "$out" "$dest" || rc=$?
+    tmp="$USER_HOME/Desktop/.rq-ext-${id}.desktop.tmp"
+    mkdir -p "$USER_HOME/Desktop"
+    chown_to_user "$USER_HOME/Desktop"
+    bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
     case "$rc" in
-        0) chown_to_user "$out" ;;
-        3) rm -f "$out" ;;   # desktop.show false: make sure no stale icon remains
-        *) warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
+        0) chown_to_user "$tmp"; mv -f "$tmp" "$out" ;;
+        3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
+        *) rm -f "$tmp"; warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
     esac
     return 0
 }
