@@ -124,9 +124,12 @@ install_pip_extras() {
     fi
     [ -f "$splitter" ] || { warn "Missing helper: $splitter"; return 1; }
 
-    # Root-run demos leave root-owned __pycache__ in the user venv (#285)
-    if [ "$(id -u)" = "0" ]; then
-        fix_root_ownership "$venv_path" >/dev/null 2>&1 || true
+    # Root-run demos leave root-owned __pycache__ in the user venv (#285).
+    # fix_root_ownership only acts when the top directory itself is root-owned,
+    # which the venv never is, so hand the whole tree back to the user here.
+    if [ "$(id -u)" = "0" ] && [ -n "$(find "$venv_path" -user root -print -quit 2>/dev/null)" ]; then
+        info "Repairing root-owned files in the venv..."
+        chown_to_user "$venv_path"
     fi
 
     work=$(mktemp -d /tmp/rq_ext_pip.XXXXXX)
