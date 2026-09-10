@@ -127,7 +127,12 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
 7. On pass: copy the manifest to the **user manifest directory**
    `~/.local/config/demo-manifests/rq_demo_<id>.json` (never into
    `/usr/config`), chowned to the user when run as root.
-8. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
+8. If `desktop.show` is true (the default): write
+   `~/Desktop/rq-ext-<id>.desktop` from the manifest via
+   `rq_demo_desktop_entry.sh` (Exec = `rq_demo_run.sh <id>`, icon from
+   `icon`, `Terminal` from `desktop.terminal`). `desktop.show: false`
+   removes a stale icon (#287).
+9. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
    dispatches like any other via `rq_demo_run.sh <id>`.
 
 Updates are explicit:

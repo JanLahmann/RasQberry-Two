@@ -161,6 +161,29 @@ install_pip_extras() {
     return 0
 }
 
+# Write ~/Desktop/rq-ext-<id>.desktop from the manifest when desktop.show is
+# true (#287). Shipped demos keep their icons in desktop-bookmarks/.
+write_desktop_entry() {
+    local id="$1" manifest_file="$2" dest="$3"
+    local writer out rc=0
+
+    if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+        writer="/usr/bin/rq_demo_desktop_entry.sh"
+    else
+        writer="$SCRIPT_DIR/rq_demo_desktop_entry.sh"
+    fi
+    [ -x "$writer" ] || [ -f "$writer" ] || { warn "Missing helper: $writer"; return 1; }
+
+    out="$USER_HOME/Desktop/rq-ext-${id}.desktop"
+    bash "$writer" "$manifest_file" "$out" "$dest" || rc=$?
+    case "$rc" in
+        0) chown_to_user "$out" ;;
+        3) rm -f "$out" ;;   # desktop.show false: make sure no stale icon remains
+        *) warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
+    esac
+    return 0
+}
+
 refresh_cache() {
     if [ -x "$GENERATOR" ]; then
         info "Refreshing demo menu cache..."
@@ -323,6 +346,10 @@ add_demo() {
     cp "$manifest_file" "$USER_MANIFEST_DIR/rq_demo_${id}.json"
     chown_to_user "$USER_MANIFEST_DIR"
     chown_to_user "$dest"
+
+    # Desktop icon, when the manifest asks for one (#287). Non-fatal: the demo
+    # is fully usable from the menu without it.
+    write_desktop_entry "$id" "$manifest_file" "$dest" || true
 
     refresh_cache
 
