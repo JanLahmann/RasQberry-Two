@@ -140,6 +140,42 @@ def test_external_manifest_named_rqb_demo_json_passes(tmp_path):
     assert rc == 0, f"rqb-demo.json-named manifest should pass, got rc={rc}\n{out}"
 
 
+def test_external_third_party_manifest_needs_no_install_ref(tmp_path):
+    # Regression (2026-08-24): the pin policy added in 260706f fired in
+    # --external mode too, so every third-party external manifest failed - and a
+    # manifest cannot carry the SHA of the commit it is part of. For external
+    # demos known-demos.json is the pin; the add-flow fetches that SHA.
+    m = _good_manifest()
+    assert "ref" not in m["install"]
+    assert "github.com/example/" in m["install"]["repo_url"]  # untrusted owner
+    path = tmp_path / "rqb-demo.json"
+    _write_manifest(path, m)
+    rc, out = _run_external_validate(str(path))
+    assert rc == 0, f"external manifest needs no install.ref, got rc={rc}\n{out}"
+    assert "known-demos.json" in out
+
+
+def test_external_manifest_with_short_ref_still_rejected(tmp_path):
+    # The exemption is only for a *missing* ref: a declared one must be a full SHA.
+    m = _good_manifest()
+    m["install"]["ref"] = "a1b2c3d"
+    path = tmp_path / "rqb-demo.json"
+    _write_manifest(path, m)
+    rc, out = _run_external_validate(str(path))
+    assert rc != 0, f"external manifest with a short ref should be rejected\n{out}"
+
+
+def test_internal_third_party_manifest_still_needs_pin(tmp_path):
+    # The exemption must not leak into normal (curated) validation, which is what
+    # CI runs on the shipped manifests.
+    path = tmp_path / "rq_demo_good-ext.json"
+    _write_manifest(path, _good_manifest())
+    proc = subprocess.run([_VALIDATE, str(path)], capture_output=True, text=True)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0, f"unpinned third-party manifest should fail\n{out}"
+    assert "must pin install.ref" in out
+
+
 @pytest.mark.parametrize("name,mutator", _BAD_CASES, ids=[c[0] for c in _BAD_CASES])
 def test_bad_external_manifest_rejected(tmp_path, name, mutator):
     m = _good_manifest()

@@ -43,6 +43,24 @@ manifests (`rq_demo_schema.json`), with these constraints:
   **pinned versions** (`package==x.y.z`)
 - `variants[]` for multiple modes (args-only variants preferred)
 
+**Demo API available at run time** (`python` entrypoints)
+
+`rq_demo_run.sh` puts the RasQberry script directory (`/usr/bin` on an image)
+on `PYTHONPATH` before launching, so a demo can import the shipped helpers
+without vendoring them:
+
+```python
+from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show, map_xy_to_pixel
+```
+
+LED demos should take their geometry from `get_led_config()`
+(`matrix_width`/`matrix_height`) and address pixels through
+`map_xy_to_pixel(x, y)` rather than hardcoding a panel size: layouts are
+registry-driven (24x8, quad, 8x32, ...), and coordinates outside the configured
+matrix are dropped silently, which renders as a clipped image. `python` demos
+run with the RasQberry venv interpreter, so `qiskit` and `qiskit-aer` are
+importable without declaring them as requirements.
+
 ## 2. What RasQberry maintains: `known-demos.json`
 
 A thin registry in `RQB2-config/known-demos.json`:

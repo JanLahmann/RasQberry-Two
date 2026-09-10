@@ -770,6 +770,13 @@ run_python() {
     # Change to demo directory
     cd "$demo_dir"
 
+    # Put the demo API on sys.path. A demo runs from its own checkout, and
+    # /usr/bin - where rq_led_utils.py ships - is not a Python path, so
+    # "from rq_led_utils import get_led_config" fails there even though we ask
+    # external LED demos to use exactly that. Internal demos never noticed:
+    # they live next to the module and sys.path[0] covers them.
+    local demo_pythonpath="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
     # LED demos require root for GPIO access
     if [ "$needs_leds" = "true" ]; then
         # Re-exec with sudo if needed
@@ -780,11 +787,14 @@ run_python() {
         fi
 
         info "Running with LED support (as root)..."
-        "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
+        PYTHONPATH="$demo_pythonpath" \
+            "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
-        # Regular Python script, run as user
+        # Regular Python script, run as user. sudo resets the environment, so
+        # PYTHONPATH has to travel through env(1) rather than an export.
         info "Running Python script..."
-        run_as_user "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
+        run_as_user env PYTHONPATH="$demo_pythonpath" \
+            "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }
 
