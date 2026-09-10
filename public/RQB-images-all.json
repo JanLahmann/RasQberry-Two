@@ -1,8 +1,50 @@
 {
-  "generated": "2026-09-10T21:26:43Z",
+  "generated": "2026-09-10T22:20:23Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 15,
+  "count": 17,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-11-000349/rasqberry-dev-demofixes-2026-09-11-000349.img.xz",
+      "extract_size": 9017753600,
+      "extract_sha256": "1f2f8b52a79cc7d37d0f4181885c1b47915fe968e8c32bcd169608addba0a5d3",
+      "image_download_size": 2019062112,
+      "image_sha256": "d2db06b59f2fbb109d21408bb11996b1f70f23b7cb25fe29a7853f7c838e9473",
+      "release_date": "2026-09-11 00:03",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-demofixes-2026-09-11-000349",
+      "_branch": "dev-demofixes",
+      "_published": "2026-09-10T22:04:35Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-11-000349/rasqberry-dev-demofixes-2026-09-11-000349-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "21362d3598cab235324ebd72f8eefc066e839f32700cebe79e72730872213ef4",
+      "image_download_size": 2055562524,
+      "image_sha256": "931164c4c578bf522765d476a8012067d35d6aaee531c51c83735c539a5cd7fa",
+      "release_date": "2026-09-11 00:03",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-demofixes-2026-09-11-000349",
+      "_branch": "dev-demofixes",
+      "_published": "2026-09-10T22:04:35Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
