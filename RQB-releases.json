@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-10T19:45:14Z",
+  "generated": "2026-09-10T21:26:14Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,24 +27,23 @@
       ]
     },
     "dev": {
-      "tag": "dev-sapdemos-2026-09-10-212551",
-      "name": "rasqberry-dev-sapdemos-2026-09-10-212551",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-sapdemos-2026-09-10-212551/rasqberry-dev-sapdemos-2026-09-10-212551.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-sapdemos-2026-09-10-212551",
-      "release_date": "2026-09-10 21:25",
-      "image_download_size": 2019913480,
+      "tag": "dev-demofixes-2026-09-10-230502",
+      "name": "rasqberry-dev-demofixes-2026-09-10-230502",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-10-230502/rasqberry-dev-demofixes-2026-09-10-230502.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-demofixes-2026-09-10-230502",
+      "release_date": "2026-09-10 23:05",
+      "image_download_size": 2019841252,
       "extract_size": 9017753600,
-      "extract_sha256": "758e9abd7119087c75b3667031d69fbb3647c6040724d6f918fe2d3fe3030152",
-      "image_sha256": "f71d9138e6b0163de131cc243a5c3327b586ed75639a9e3544827867e7379bfd",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-sapdemos-2026-09-10-212551/rasqberry-dev-sapdemos-2026-09-10-212551-ab.img.xz",
-      "ab_extract_sha256": "cf4cd57e926eba4223b329939e34398e75c52c0aeef96014061f716b58ec0e10",
-      "ab_image_sha256": "360dd71a5e38670d7bc051f9c03f946eddacba8b79215a1ae43bb21ba23de0f6",
-      "ab_image_download_size": 2058816520,
+      "extract_sha256": "926e814ea08b9049dc94713564056ed521e76ae2a4d131c35aa4b6d435a10103",
+      "image_sha256": "17ca752b33c0b606e4829cf6486892db1f438fa9c0a9d0159f11f5f10e6db26c",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demofixes-2026-09-10-230502/rasqberry-dev-demofixes-2026-09-10-230502-ab.img.xz",
+      "ab_extract_sha256": "5c58184aa7f98b0e762f64ac476fcf09f532231b37e4379a76b0c4a68ed41e79",
+      "ab_image_sha256": "bbf5a1e9b135eb20d5d97bc942e1196443ac83661d8b82d4e84bdd953a4897ea",
+      "ab_image_download_size": 2054149280,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "re-pin SAP Quantum Transport Optimizer to the 2026-09-06 head",
-        "Bump version to dev-sapdemos-2026-09-10-212551",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-sapdemos-2026-09-10-205147"
+        "hand the whole venv back to the user before installing extras",
+        "Bump version to dev-demofixes-2026-09-10-230502"
       ]
     }
   }
