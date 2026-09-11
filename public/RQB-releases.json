@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-11T08:23:21Z",
+  "generated": "2026-09-11T08:23:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,12 +35,6 @@
       "image_download_size": 2019459220,
       "extract_size": 9017753600,
       "extract_sha256": "426169da9569763de9839b02fc99b4f7e1fe1941b53843c836aed09cbc92c2b2",
-      "image_sha256": "04f9825ea0e84f03a596d8be5f9a31040a60fe0ac6c84c53805f0160c1ec01e8",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-11-100457/rasqberry-development-2026-09-11-100457-ab.img.xz",
-      "ab_extract_sha256": "98e6721f855359c3f6f1dfc45a375882debe480e7d197f8bd63050927904cb22",
-      "ab_image_sha256": "169517785205f90b4111cd5975c56ccd2e2cbcf4166bf049a24b9ee53268a6f8",
-      "ab_image_download_size": 2056084440,
-      "ab_extract_size": 12398362624,
       "highlights": [
         "re-pin SAP Quantum LED to the upstream merge of the logo-orientation fix",
         "Bump version to development-2026-09-11-100457",
