@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-10T20:46:45Z",
+  "generated": "2026-09-11T04:36:11Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,26 +27,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-10-221606",
-      "name": "rasqberry-development-2026-09-10-221606",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-10-221606/rasqberry-development-2026-09-10-221606.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-10-221606",
-      "release_date": "2026-09-10 22:16",
-      "image_download_size": 2022279824,
+      "tag": "development-2026-09-11-060453",
+      "name": "rasqberry-development-2026-09-11-060453",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-11-060453/rasqberry-development-2026-09-11-060453.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-11-060453",
+      "release_date": "2026-09-11 06:04",
+      "image_download_size": 2020072596,
       "extract_size": 9017753600,
-      "extract_sha256": "0c9546ceca74ca8a5c4e65bf2999b2634eb89dae8511460af42c0ba2bac418e7",
-      "image_sha256": "154cbfc10e641b65327bc98f5eb86d92ac7f16064b0831b4cd4f67dd12a5031a",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-10-221606/rasqberry-development-2026-09-10-221606-ab.img.xz",
-      "ab_extract_sha256": "7468deb002e06f35843a04ad6d3a126b514cf1854e4a8129bc2dad58595135cc",
-      "ab_image_sha256": "bcb063f23c48ac35423af8e036f7c68d752c4c61e13ae0fa8bb03d40f2ca44c1",
-      "ab_image_download_size": 2057438568,
+      "extract_sha256": "5da16e5da955cc2c2e1c4265c99152e1474f7cc2c664712d3b99542c6c14dad9",
+      "image_sha256": "d3997f1232552fc465bdfe69d19253acf5feee7570ea1ff0d2f376ff8e600dd4",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-11-060453/rasqberry-development-2026-09-11-060453-ab.img.xz",
+      "ab_extract_sha256": "8ac5a0798dd1d38a00c7924eb359aa0fd6ed89b35e63eea07187491bfd3df5f3",
+      "ab_image_sha256": "4d5c2c125f58533a022794ef108e26ea817c8e67e9398b7e4d7d676b943251de",
+      "ab_image_download_size": 2056696868,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-09-10-221606",
-        "Merge dev-sapdemos into development: SAP partner demos in the catalog",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-sapdemos-2026-09-10-212551",
-        "re-pin SAP Quantum Transport Optimizer to the 2026-09-06 head",
-        "Bump version to dev-sapdemos-2026-09-10-212551"
+        "Bump version to development-2026-09-11-060453",
+        "Merge dev-demofixes into development: external-demo install hardening",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-demofixes-2026-09-11-000349",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-10-221606",
+        "write the catalog desktop icon atomically so pcmanfm shows its name"
       ]
     }
   }
