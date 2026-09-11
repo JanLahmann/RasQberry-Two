@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-11T04:36:11Z",
+  "generated": "2026-09-11T04:36:40Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,12 +35,6 @@
       "image_download_size": 2020072596,
       "extract_size": 9017753600,
       "extract_sha256": "5da16e5da955cc2c2e1c4265c99152e1474f7cc2c664712d3b99542c6c14dad9",
-      "image_sha256": "d3997f1232552fc465bdfe69d19253acf5feee7570ea1ff0d2f376ff8e600dd4",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-11-060453/rasqberry-development-2026-09-11-060453-ab.img.xz",
-      "ab_extract_sha256": "8ac5a0798dd1d38a00c7924eb359aa0fd6ed89b35e63eea07187491bfd3df5f3",
-      "ab_image_sha256": "4d5c2c125f58533a022794ef108e26ea817c8e67e9398b7e4d7d676b943251de",
-      "ab_image_download_size": 2056696868,
-      "ab_extract_size": 12398362624,
       "highlights": [
         "Bump version to development-2026-09-11-060453",
         "Merge dev-demofixes into development: external-demo install hardening",
