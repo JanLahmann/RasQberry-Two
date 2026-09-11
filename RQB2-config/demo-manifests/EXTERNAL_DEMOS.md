@@ -40,7 +40,12 @@ manifests (`rq_demo_schema.json`), with these constraints:
 **Recommended**
 - `needs_hw` declarations (leds/display/network) so requirement checks work
 - `install.pip_requirements: true` with a `requirements.txt` carrying
-  **pinned versions** (`package==x.y.z`)
+  **pinned versions** (`package==x.y.z`). Only packages the RasQberry venv
+  does not already have are installed; anything the image ships (qiskit,
+  numpy, scipy, pillow, ...) stays at the shipped version regardless of the
+  pin, and pip runs with those versions as constraints so transitive
+  dependencies cannot move them either (#285). A pip failure aborts the
+  install.
 - `variants[]` for multiple modes (args-only variants preferred)
 
 **Demo API available at run time** (`python` entrypoints)
@@ -113,10 +118,21 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
    `entrypoint.working_dir` equals the repo directory name, and that
    `install.marker_file` exists in the checkout. If `needs_hw.leds` is true,
    confirm with a dialog that warns the demo runs with root privileges.
-6. On pass: copy the manifest to the **user manifest directory**
+6. If `install.pip_requirements` is true: `rq_pip_extras.py` (run with the
+   venv interpreter, as the user) splits `requirements.txt` into the
+   distributions the venv lacks and a constraints file pinning everything it
+   already has; `pip install -c constraints -r extras` then adds only the
+   missing packages. Any pip error removes the checkout and fails the
+   install with the pip output in the dialog (#285).
+7. On pass: copy the manifest to the **user manifest directory**
    `~/.local/config/demo-manifests/rq_demo_<id>.json` (never into
    `/usr/config`), chowned to the user when run as root.
-7. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
+8. If `desktop.show` is true (the default): write
+   `~/Desktop/rq-ext-<id>.desktop` from the manifest via
+   `rq_demo_desktop_entry.sh` (Exec = `rq_demo_run.sh <id>`, icon from
+   `icon`, `Terminal` from `desktop.terminal`). `desktop.show: false`
+   removes a stale icon (#287).
+9. Refresh the menu cache (`rq_demo_generate_menu.sh --cache`). The demo now
    dispatches like any other via `rq_demo_run.sh <id>`.
 
 Updates are explicit:

@@ -102,6 +102,99 @@ chown_to_user() {
 }
 
 # Regenerate the demo menu cache so the new demo appears in the menu.
+# Install the demo's Python requirements into the user venv without touching
+# packages the image already provides. rq_pip_extras.py (run with the venv
+# interpreter, as the user) splits requirements.txt into extras.txt (missing
+# distributions) and constraints.txt (every installed one, ==-pinned); pip then
+# installs the extras under those constraints. Root-owned files left in the
+# venv by root-run LED demos are repaired first, since user pip cannot replace
+# them. Returns non-zero, after showing the pip output, on any failure.
+install_pip_extras() {
+    local id="$1" dest="$2"
+    local venv_path splitter work log rc
+
+    if ! venv_path=$(find_venv "$STD_VENV"); then
+        warn "Virtual environment not found - cannot install Python requirements"
+        return 1
+    fi
+    if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+        splitter="/usr/bin/rq_pip_extras.py"
+    else
+        splitter="$SCRIPT_DIR/rq_pip_extras.py"
+    fi
+    [ -f "$splitter" ] || { warn "Missing helper: $splitter"; return 1; }
+
+    # Root-run demos leave root-owned __pycache__ in the user venv (#285).
+    # fix_root_ownership only acts when the top directory itself is root-owned,
+    # which the venv never is, so hand the whole tree back to the user here.
+    if [ "$(id -u)" = "0" ] && [ -n "$(find "$venv_path" -user root -print -quit 2>/dev/null)" ]; then
+        info "Repairing root-owned files in the venv..."
+        chown_to_user "$venv_path"
+    fi
+
+    work=$(mktemp -d /tmp/rq_ext_pip.XXXXXX)
+    chmod 755 "$work"
+    log="$work/pip.log"
+    cp "$dest/requirements.txt" "$work/requirements.txt"
+    chmod 644 "$work/requirements.txt"
+    chown_to_user "$work"
+
+    info "Resolving Python requirements against the venv..."
+    if ! run_as_user "$venv_path/bin/python" "$splitter" "$work/requirements.txt" "$work" 2>&1 | tee "$log"; then
+        show_msgbox "Requirements not installed" "Could not read requirements.txt for '$id':\n\n$(tail -n 8 "$log")"
+        rm -rf "$work"
+        return 1
+    fi
+
+    rc=0
+    if [ -s "$work/extras.txt" ]; then
+        info "Installing the packages the venv is missing (as user)..."
+        # set -o pipefail: the pipeline's status is pip's, not tee's
+        run_as_user "$venv_path/bin/pip" install -c "$work/constraints.txt" -r "$work/extras.txt" 2>&1 | tee -a "$log" || rc=$?
+    else
+        info "All Python requirements already present in the venv"
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+        show_msgbox "Requirements not installed" "pip failed for '$id' (exit $rc). The demo was NOT installed.\n\nLast lines:\n$(tail -n 10 "$log" | cut -c1-110)"
+        rm -rf "$work"
+        return 1
+    fi
+    rm -rf "$work"
+    return 0
+}
+
+# Write ~/Desktop/rq-ext-<id>.desktop from the manifest when desktop.show is
+# true (#287). Shipped demos keep their icons in desktop-bookmarks/.
+write_desktop_entry() {
+    local id="$1" manifest_file="$2" dest="$3"
+    local writer out rc=0
+
+    if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
+        writer="/usr/bin/rq_demo_desktop_entry.sh"
+    else
+        writer="$SCRIPT_DIR/rq_demo_desktop_entry.sh"
+    fi
+    [ -x "$writer" ] || [ -f "$writer" ] || { warn "Missing helper: $writer"; return 1; }
+
+    # pcmanfm parses a launcher on the create event and never re-reads it, so
+    # a file that is written in place (empty at creation, root-owned until the
+    # chown) stays labelled with its file name until the desktop is reloaded.
+    # Write a hidden temp file in the same directory with the final owner and
+    # mode, then rename it into place: one create event, complete content.
+    out="$USER_HOME/Desktop/rq-ext-${id}.desktop"
+    tmp="$USER_HOME/Desktop/.rq-ext-${id}.desktop.tmp"
+    mkdir -p "$USER_HOME/Desktop"
+    chown_to_user "$USER_HOME/Desktop"
+    bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
+    case "$rc" in
+        0) chown_to_user "$tmp"; mv -f "$tmp" "$out" ;;
+        3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
+        *) rm -f "$tmp"; warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
+    esac
+    return 0
+}
+
 refresh_cache() {
     if [ -x "$GENERATOR" ]; then
         info "Refreshing demo menu cache..."
@@ -247,17 +340,15 @@ add_demo() {
         fi
     fi
 
-    # Install pip requirements as the user, if declared (pinned into user venv)
+    # Install pip requirements as the user, if declared. Only packages the
+    # venv lacks are installed, everything already present is held at its
+    # installed version, and a failure fails the whole install (#285).
     local pip_req
     pip_req=$(jq -r '.install.pip_requirements // false' "$manifest_file")
     if [ "$pip_req" = "true" ] && [ -f "$dest/requirements.txt" ]; then
-        info "Installing Python requirements (as user)..."
-        local venv_path
-        if venv_path=$(find_venv "$STD_VENV"); then
-            run_as_user "$venv_path/bin/pip" install -r "$dest/requirements.txt" \
-                || warn "Some requirements may have failed to install"
-        else
-            warn "Virtual environment not found - skipping pip requirements"
+        if ! install_pip_extras "$id" "$dest"; then
+            rm -rf "$dest"
+            die "Python requirements for '$id' could not be installed - demo not installed"
         fi
     fi
 
@@ -266,6 +357,10 @@ add_demo() {
     cp "$manifest_file" "$USER_MANIFEST_DIR/rq_demo_${id}.json"
     chown_to_user "$USER_MANIFEST_DIR"
     chown_to_user "$dest"
+
+    # Desktop icon, when the manifest asks for one (#287). Non-fatal: the demo
+    # is fully usable from the menu without it.
+    write_desktop_entry "$id" "$manifest_file" "$dest" || true
 
     refresh_cache
 

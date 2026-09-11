@@ -787,7 +787,10 @@ run_python() {
         fi
 
         info "Running with LED support (as root)..."
-        PYTHONPATH="$demo_pythonpath" \
+        # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
+        # writes __pycache__ leaves root-owned files behind, and the user's
+        # next pip install into the venv then fails with EACCES (#285).
+        PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
