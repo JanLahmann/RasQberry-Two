@@ -28,10 +28,10 @@
     {
       "id": "sap-quantum-led",
       "repo_url": "https://github.com/Sameer-kulkarni-sk/sap-quantum-led.git",
-      "ref": "8456118323408800256038200aeef26598c7b14b",
+      "ref": "d08c88bca686560091d6caf32d1dafa58e84f4f2",
       "manifest_path": "rqb-demo.json",
       "added": "2026-08-25",
-      "note": "SAP partner demo (Sameer-kulkarni-sk, Apache-2.0): SAP logo on the LED matrix with colors drawn from a 3-qubit Aer circuit each cycle. Extracted from their RasQberry-Two fork on our request (issue #273); repo renamed to match the demo id, which is why the pinned commit reverts our PR's working_dir change."
+      "note": "SAP partner demo (Sameer-kulkarni-sk, Apache-2.0): SAP logo on the LED matrix with colors drawn from a 3-qubit Aer circuit each cycle. Extracted from their RasQberry-Two fork on our request (issue #273); repo renamed to match the demo id. Re-pinned 2026-09-11 to the merge of our PR #3 (logo rendered upside down: SAP_PIXELS is authored bottom-origin, draw_sap now flips the row for the top-origin canvas); manifest unchanged."
     }
   ]
 }
