@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-11T18:54:40Z",
+  "generated": "2026-09-12T02:35:46Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -36,9 +36,7 @@
       "extract_size": 9017753600,
       "extract_sha256": "426169da9569763de9839b02fc99b4f7e1fe1941b53843c836aed09cbc92c2b2",
       "highlights": [
-        "re-pin SAP Quantum LED to the upstream merge of the logo-orientation fix",
-        "Bump version to development-2026-09-11-100457",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-11-060453"
+        "Development build - see release notes for details"
       ]
     }
   }
