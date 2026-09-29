@@ -17,6 +17,8 @@ exclude = [
   'notebooklm\.google\.com',
   # answers every non-browser client with 408
   'umagnets\.com',
+  # refuses connections from GitHub's runners
+  'homedepot\.ca',
 ]
 
 max_retries = 2
