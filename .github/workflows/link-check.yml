@@ -1,18 +1,22 @@
-# Workflow to check for broken external links in markdown source files
-# See: https://github.com/JanLahmann/RasQberry-Two/issues/191
+# Weekly check of every link on the live branches (issue #191).
 #
-# Note: Internal links are checked by the post-deployment job in nextjs.yml
-# This workflow focuses on external links and runs on schedule to catch
-# external sites that go down over time.
+# Scheduled workflows only run from the default branch, so this file lives on
+# main and checks out each branch itself. It used to check main's own
+# checkout, which holds a single README, so the website and the code
+# docs went unchecked.
 #
-name: Check External Links
+# Push-time checks catch internal links: nextjs.yml on gh-pages checks the
+# built site before deploy, code-quality.yml on development checks the docs.
+# This one catches external sites that change or go away.
+#
+# Broken links are reported in ONE rolling issue, updated each week and
+# closed when a run comes back clean.
+#
+name: Check Links
 
 on:
-  # Run weekly on Sunday at midnight UTC
   schedule:
     - cron: '0 0 * * 0'
-
-  # Allow manual triggering
   workflow_dispatch:
 
 permissions:
@@ -20,51 +24,101 @@ permissions:
   issues: write
 
 jobs:
-  link-check:
+  check:
+    name: Links on ${{ matrix.branch }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [gh-pages, development, beta, 3D-model]
     steps:
-      - name: Checkout
+      - name: Checkout ${{ matrix.branch }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
 
-      - name: Check External Links
+      # The website is checked as built HTML, so links from page components
+      # count too and relative links resolve the way a browser resolves them.
+      - name: Set up Node
+        if: matrix.branch == 'gh-pages'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Build the site
+        if: matrix.branch == 'gh-pages'
+        run: npm ci && npx --no-install next build
+
+      - name: Choose inputs
+        id: inputs
+        run: |
+          if [ "${{ matrix.branch }}" = gh-pages ]; then
+            # settings come from lychee.toml on gh-pages
+            echo "args=--root-dir $PWD/out 'out/**/*.html'" >> "$GITHUB_OUTPUT"
+          else
+            # 403/429/999 are bot blocks (shops, medium.com, LinkedIn), not dead pages
+            echo "args=--root-dir $PWD --accept '200..=299,403,429,999' --max-retries 2 --timeout 30 --max-concurrency 8 '**/*.md' 'RQB2-config/**/*.json' 'RQB2-config/*.env'" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check links
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          # Check only external links (skip relative/internal links)
-          args: >-
-            --verbose
-            --no-progress
-            --accept 200,204,301,302,403,429
-            --exclude 'localhost'
-            --exclude '127\.0\.0\.1'
-            --exclude 'example\.com'
-            --exclude '^\.\.?/'
-            --exclude '^[a-zA-Z0-9_-]+$'
-            --exclude '^[a-zA-Z0-9_/-]+$'
-            --timeout 30
-            --max-retries 3
-            --retry-wait-time 5
-            './content/**/*.md'
-            './*.md'
+          lycheeVersion: v0.24.2
+          args: --no-progress ${{ steps.inputs.outputs.args }}
           fail: false
           format: markdown
-          output: ./lychee-report.md
+          output: lychee-${{ matrix.branch }}.md
 
-      - name: Upload link check report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: external-link-check-report
-          path: ./lychee-report.md
-          retention-days: 30
-
-      - name: Create or update issue for broken links
+      - name: Keep the report only if something is broken
         if: steps.lychee.outputs.exit_code != 0
-        uses: peter-evans/create-issue-from-file@v5
+        run: |
+          mkdir -p report
+          { echo "## Branch \`${{ matrix.branch }}\`"; echo; sed '1{/^# /d}' lychee-${{ matrix.branch }}.md; echo; } > report/${{ matrix.branch }}.md
+
+      - name: Upload report
+        if: steps.lychee.outputs.exit_code != 0
+        uses: actions/upload-artifact@v4
         with:
-          title: "Broken links detected on rasqberry.org"
-          content-filepath: ./lychee-report.md
-          labels: |
-            documentation
-            automated
-          assignees: JanLahmann
+          name: links-${{ matrix.branch }}
+          path: report/
+
+  report:
+    name: Update the broken-links issue
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: Broken links detected on rasqberry.org
+    steps:
+      - name: Collect reports
+        # no artifacts at all means every branch passed
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: links-*
+          path: reports
+          merge-multiple: true
+
+      - name: Open, update or close the issue
+        run: |
+          existing=$(gh issue list --state open --label automated --search "\"$TITLE\" in:title" --json number -q '.[0].number // empty')
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if ls reports/*.md >/dev/null 2>&1; then
+            {
+              echo "Weekly link check found broken links. Details per branch below; full log: $run_url"
+              echo
+              cat reports/*.md
+            } > body.md
+            if [ -n "$existing" ]; then
+              gh issue edit "$existing" --body-file body.md
+              gh issue comment "$existing" --body "Still broken as of $run_url"
+            else
+              gh issue create --title "$TITLE" --label documentation,automated --assignee JanLahmann --body-file body.md
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "All links pass as of $run_url"
+          fi
