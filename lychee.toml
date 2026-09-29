@@ -1,0 +1,24 @@
+# lychee link checker settings for the website.
+# Used by nextjs.yml (internal links in the built site, before deploy) and by
+# the weekly link-check.yml on main (external links). Run locally with:
+#   npx next build && lychee --root-dir "$PWD/out" 'out/**/*.html'
+
+# Pages are exported as <slug>/index.html and linked as /<slug>/
+index_files = ["index.html"]
+
+# 403/429/999 are bot blocks (shops, medium.com, LinkedIn, raspberrypi.com),
+# not dead pages - they all open in a browser.
+accept = ["200..=299", 403, 429, 999]
+
+exclude = [
+  # "Edit this page" links need a GitHub login
+  'github\.com/.*/edit/',
+  # login wall
+  'notebooklm\.google\.com',
+  # answers every non-browser client with 408
+  'umagnets\.com',
+]
+
+max_retries = 2
+timeout = 30
+max_concurrency = 8

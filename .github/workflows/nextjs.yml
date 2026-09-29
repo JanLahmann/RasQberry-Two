@@ -22,7 +22,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  issues: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
@@ -92,6 +91,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
+      - name: Check internal links in the built site
+        # Checks every page of ./out offline, before deploy, so a broken
+        # internal link blocks the deploy instead of reaching rasqberry.org.
+        # A relative link like (01-demo-list) resolves below the current
+        # page because of trailingSlash, which is how 19 demo links 404ed.
+        # External links are checked weekly by link-check.yml on main.
+        uses: lycheeverse/lychee-action@v2
+        with:
+          lycheeVersion: v0.24.2
+          args: >-
+            --offline --no-progress
+            --root-dir ${{ github.workspace }}/out
+            'out/**/*.html'
+          fail: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -108,42 +121,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  # Link check job - runs after deployment to check live site
-  link-check:
-    runs-on: ubuntu-latest
-    needs: deploy
-    continue-on-error: true
-    steps:
-      - name: Wait for deployment to propagate
-        run: sleep 30
-
-      - name: Check links on live site
-        id: lychee
-        uses: lycheeverse/lychee-action@v2
-        with:
-          args: >-
-            --verbose --no-progress
-            --accept 200,204,301,302,403,429
-            --exclude 'localhost' --exclude '127\.0\.0\.1' --exclude 'example\.com'
-            --timeout 30 --max-retries 3 --retry-wait-time 5
-            --max-concurrency 5
-            'https://rasqberry.org'
-          fail: false
-          format: markdown
-          output: ./lychee-report.md
-
-      - name: Upload link check report
-        uses: actions/upload-artifact@v4
-        with:
-          name: link-check-report
-          path: ./lychee-report.md
-
-      - name: Create or update issue for broken links
-        if: steps.lychee.outputs.exit_code != 0
-        uses: peter-evans/create-issue-from-file@v5
-        with:
-          title: "Broken links detected on rasqberry.org"
-          content-filepath: ./lychee-report.md
-          labels: documentation, automated
-          assignees: JanLahmann
