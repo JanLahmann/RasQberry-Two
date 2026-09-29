@@ -14,19 +14,19 @@ you run them.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **[Grokking the Bloch Sphere](bloch-sphere)** | Interactive Bloch sphere visualization for understanding qubit states | display | `grok-bloch` |
+| **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** | Interactive Bloch sphere visualization for understanding qubit states | display | `grok-bloch` |
 | **Grokking the Bloch Sphere (Web)** | Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (online version) | display, network | `grok-bloch-web` |
-| **[Quantum Fractals](fractals)** | Generate and explore quantum-inspired fractal patterns in the browser | display | `quantum-fractals` |
-| **[Quantum Raspberry Tie](raspberry-tie)** | Visualize quantum circuit execution on LED matrix with Sense HAT emulator | LED panel, display, IBM Quantum token | `quantum-raspberry-tie` |
+| **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Generate and explore quantum-inspired fractal patterns in the browser | display | `quantum-fractals` |
+| **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Visualize quantum circuit execution on LED matrix with Sense HAT emulator | LED panel, display, IBM Quantum token | `quantum-raspberry-tie` |
 | **RasQ-LED Demo** | Visualize quantum circuit execution results on the LED matrix | LED panel, IBM Quantum token | `rasq-led` |
 | **Quantum-Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display | `quantum-mixer` |
-| **[Qoffee-Maker](qoffee-maker)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
+| **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
 
 ## Play
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **[Quantum Lights Out](quantum-lights-out)** | A quantum version of the classic Lights Out puzzle game using quantum circuits | LED panel | `quantum-lights-out` |
+| **[Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/)** | A quantum version of the classic Lights Out puzzle game using quantum circuits | LED panel | `quantum-lights-out` |
 
 ## Notebooks to work through
 

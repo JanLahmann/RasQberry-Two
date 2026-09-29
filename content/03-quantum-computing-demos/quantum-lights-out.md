@@ -47,6 +47,6 @@ Built by **Luka Dojcinovic** — [Luka-D/Quantum-Lights-Out](https://github.com/
 with the quantum algorithm from the IBM Quantum Challenge 2020.
 
 - [Lights Out on Wikipedia](https://en.wikipedia.org/wiki/Lights_Out_(game))
-- [IBM Quantum Learning: Grover's algorithm](https://learning.quantum.ibm.com/course/fundamentals-of-quantum-algorithms/grover-algorithm)
+- [IBM Quantum Learning: Grover's algorithm](https://quantum.cloud.ibm.com/learning/en/courses/fundamentals-of-quantum-algorithms/grover-algorithm/introduction)
 
-*See the [Demo List](01-demo-list) for everything else on the image.*
+*See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

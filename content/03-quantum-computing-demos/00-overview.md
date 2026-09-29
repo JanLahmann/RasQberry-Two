@@ -10,21 +10,21 @@ These demos are designed to make quantum computing accessible and engaging. Each
 
 ### 🎨 Visualization & Art
 
-**[Bloch Sphere](bloch-sphere)** - Interactive single-qubit state visualization
+**[Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** - Interactive single-qubit state visualization
 Perfect for beginners. See how quantum gates transform qubit states in real-time on the Bloch sphere.
 
-**[Fractals](fractals)** - Quantum-generated fractal art
+**[Fractals](/03-quantum-computing-demos/fractals/)** - Quantum-generated fractal art
 Create beautiful animated Julia set fractals using quantum-derived parameters. Art meets quantum mechanics!
 
-**[Raspberry Tie](raspberry-tie)** - LED display of quantum circuit results
+**[Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** - LED display of quantum circuit results
 Run quantum circuits on IBM Quantum and visualize results on the LED array. Your quantum computer with lights!
 
 ### 🎮 Games & Puzzles
 
-**[Quantum Lights Out](quantum-lights-out)** - Quantum puzzle solver
+**[Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/)** - Quantum puzzle solver
 Watch a quantum algorithm solve the classic Lights Out puzzle step-by-step on your LED panel.
 
-**[Qoffee Maker](qoffee-maker)** - Quantum beverage selection
+**[Qoffee Maker](/03-quantum-computing-demos/qoffee-maker/)** - Quantum beverage selection
 Design quantum circuits to select your favorite beverage. Fun introduction to quantum measurement!
 
 **[Fun with Quantum](http://fun-with-quantum.org)** - Serious games collection
@@ -59,7 +59,7 @@ Most demos can be started in multiple ways:
 4. **Command Line**
    Every demo starts the same way — `rq_demo_run.sh <demo-id>`, e.g.
    `rq_demo_run.sh quantum-fractals`. The ids are listed on the
-   [Demo List](01-demo-list); the demo is installed on first use if it is not
+   [Demo List](/03-quantum-computing-demos/01-demo-list/); the demo is installed on first use if it is not
    there yet.
 
 ### What you need
@@ -68,7 +68,7 @@ Every demo needs a RasQberry image on a Pi 5 (recommended) or Pi 4, and a displa
 — a monitor, or VNC.
 
 Beyond that it varies: some need the LED panel, some a network connection, a few
-an IBM Quantum token. The [Demo List](01-demo-list) states it per demo, taken from
+an IBM Quantum token. The [Demo List](/03-quantum-computing-demos/01-demo-list/) states it per demo, taken from
 the same manifests the image installs from, so it stays right as demos come and
 go.
 
@@ -89,16 +89,16 @@ Each demo teaches different quantum concepts:
 ## Quick Demo Recommendations
 
 **New to Quantum Computing?**
-1. Start with [Bloch Sphere](bloch-sphere) - understand single qubits
-2. Try [Qoffee Maker](qoffee-maker) - learn about measurement
+1. Start with [Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/) - understand single qubits
+2. Try [Qoffee Maker](/03-quantum-computing-demos/qoffee-maker/) - learn about measurement
 3. Explore [Fun with Quantum games](http://fun-with-quantum.org)
 
 **Have LEDs Connected?**
-1. [Raspberry Tie](raspberry-tie) - see your quantum circuits in lights
-2. [Quantum Lights Out](quantum-lights-out) - quantum puzzle solving
+1. [Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/) - see your quantum circuits in lights
+2. [Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/) - quantum puzzle solving
 
 **Want to Create Art?**
-1. [Fractals](fractals) - generate stunning quantum fractals
+1. [Fractals](/03-quantum-computing-demos/fractals/) - generate stunning quantum fractals
 
 **Ready for Advanced Topics?**
 1. GHZ Demo - explore multi-qubit entanglement
@@ -106,19 +106,19 @@ Each demo teaches different quantum concepts:
 
 ## All Demos
 
-For a complete list with descriptions and screenshots, see the [Demo List](01-demo-list).
+For a complete list with descriptions and screenshots, see the [Demo List](/03-quantum-computing-demos/01-demo-list/).
 
 ## Resources
 
 ### Learning Quantum Computing
 - [IBM Quantum Learning](https://learning.quantum.ibm.com/)
-- [Qiskit Documentation](https://docs.qiskit.org/)
+- [Qiskit Documentation](https://quantum.cloud.ibm.com/docs/)
 - [Qiskit YouTube Channel](https://www.youtube.com/@qiskit)
 - [IBM Quantum Composer](https://quantum.ibm.com/composer)
 
 ### RasQberry Documentation
-- [Software Installation](../02-software/01-installation-overview)
-- [Hardware Assembly](../01-3d-model/02-hardware-assembly-guide)
+- [Software Installation](/02-software/01-installation-overview/)
+- [Hardware Assembly](/01-3d-model/02-hardware-assembly-guide/)
 - [3D Model Files](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model)
 
 ## Contributing

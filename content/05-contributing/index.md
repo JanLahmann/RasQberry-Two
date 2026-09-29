@@ -50,7 +50,7 @@ Build new interactive demonstrations:
 
 **Learning Qiskit:**
 - [IBM Quantum Learning](https://learning.quantum.ibm.com/)
-- [Qiskit Documentation](https://docs.qiskit.org/)
+- [Qiskit Documentation](https://quantum.cloud.ibm.com/docs/)
 
 **Development:**
 - Python 3.11+, Raspberry Pi 4 or 5

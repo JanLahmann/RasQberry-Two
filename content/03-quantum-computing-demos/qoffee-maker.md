@@ -56,4 +56,4 @@ project's own site:
 - [Fun with Quantum](http://fun-with-quantum.org) — more quantum games, also on this image
 - [IBM Quantum Learning: measurement](https://learning.quantum.ibm.com/course/basics-of-quantum-information/single-systems#measurement)
 
-*See the [Demo List](01-demo-list) for everything else on the image.*
+*See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

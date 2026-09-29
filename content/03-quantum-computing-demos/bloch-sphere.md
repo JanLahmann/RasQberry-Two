@@ -49,4 +49,4 @@ Built by **James Weaver** (JavaFXpert) — [JavaFXpert/grok-bloch](https://githu
 - [IBM Quantum Composer](https://quantum.ibm.com/composer) — build circuits with a Bloch sphere beside them
 - [Bloch sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
 
-*See the [Demo List](01-demo-list) for everything else on the image.*
+*See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

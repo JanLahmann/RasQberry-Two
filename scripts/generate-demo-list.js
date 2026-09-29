@@ -40,7 +40,9 @@ function pageFor(id) {
   const dir = path.dirname(OUT);
   const candidates = { 'quantum-fractals': 'fractals', 'grok-bloch': 'bloch-sphere', 'quantum-raspberry-tie': 'raspberry-tie' };
   const slug = candidates[id] || id;
-  return fs.existsSync(path.join(dir, `${slug}.md`)) ? slug : null;
+  // Absolute, because pages are served with a trailing slash: a bare slug
+  // would resolve below the list page itself and 404.
+  return fs.existsSync(path.join(dir, `${slug}.md`)) ? `/03-quantum-computing-demos/${slug}/` : null;
 }
 
 function needsOf(m) {

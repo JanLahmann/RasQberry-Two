@@ -61,4 +61,4 @@ Created by **Wiktor Mazin** and team; ported to RasQberry by **Jan-R. Lahmann**.
 - [Fractal Animations with Quantum Computing on a Raspberry Pi](https://medium.com/qiskit/fractal-animations-with-quantum-computing-on-a-raspberry-pi-8834ef43d423)
 - [Julia sets on Wikipedia](https://en.wikipedia.org/wiki/Julia_set)
 
-*See the [Demo List](01-demo-list) for everything else on the image.*
+*See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
