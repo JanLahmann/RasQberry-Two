@@ -531,7 +531,7 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
     {
       "name": "IBM Quantum",
       "children": [
-        { "name": "IBM Quantum Learning", "url": "https://learning.quantum.ibm.com" }
+        { "name": "IBM Quantum Learning", "url": "https://quantum.cloud.ibm.com/learning" }
       ]
     }
   ]

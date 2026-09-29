@@ -831,7 +831,7 @@ Closes #123
 **Documentation:**
 - Project README: [README.md](README.md)
 - Website: https://rasqberry.org
-- Qiskit docs: https://docs.qiskit.org/
+- Qiskit docs: https://quantum.cloud.ibm.com/docs/
 
 **Common Functions Reference:**
 - Shell library: `RQB2-bin/RQ_COMMON_README.md`
