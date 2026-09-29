@@ -57,6 +57,20 @@ jobs:
           ./RQB2-bin/rq_demo_validate.sh | tee /tmp/manifest_validation.log
         continue-on-error: false
 
+      - name: Check links between docs
+        # Offline: relative links and file references in the Markdown docs,
+        # which break silently when a file is renamed or a README never gets
+        # written. External URLs are checked weekly by link-check.yml on main.
+        # Placeholder URLs in templates go in .lycheeignore.
+        uses: lycheeverse/lychee-action@v2
+        with:
+          lycheeVersion: v0.24.2
+          args: >-
+            --offline --no-progress
+            --root-dir ${{ github.workspace }}
+            '**/*.md'
+          fail: true
+
       - name: Run ShellCheck (Advisory)
         id: shellcheck
         run: |

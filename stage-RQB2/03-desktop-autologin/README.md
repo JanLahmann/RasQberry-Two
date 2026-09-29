@@ -90,7 +90,7 @@ Requires graphical desktop environment installed:
 
 ## Related Stages
 
-- Works with [06-desktop-integration](../06-desktop-integration/README.md) for complete desktop experience
+- Works with [06-desktop-integration](../06-desktop-integration/) for complete desktop experience
 - Enables immediate access to RasQberry menu and demos
 - Part of user-friendly quantum computing education platform
 
@@ -130,4 +130,4 @@ SUDO_USER="${FIRST_USER_NAME}" raspi-config nonint do_boot_behaviour B1
 ## Documentation References
 
 - [Raspberry Pi Documentation - raspi-config](https://www.raspberrypi.com/documentation/computers/configuration.html#raspi-config)
-- [raspi-config Source](https://github.com/raspberrypi/documentation/blob/develop/documentation/asciidoc/computers/configuration/raspi-config.adoc)
+- [raspi-config Source](https://github.com/raspberrypi/documentation/blob/master/documentation/asciidoc/computers/configuration/raspi-config.adoc)

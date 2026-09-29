@@ -124,8 +124,8 @@ Approximate sizes:
 ## Dependencies
 
 **Required by:**
-- [03-install-qiskit](../03-install-qiskit/README.md) - Qiskit installation needs NumPy, dev tools
-- [06-desktop-integration](../06-desktop-integration/README.md) - Chromium for web demos
+- [03-install-qiskit](../03-install-qiskit/) - Qiskit installation needs NumPy, dev tools
+- [06-desktop-integration](../06-desktop-integration/) - Chromium for web demos
 - All LED control scripts - rpi_ws281x library
 - All Python demos - requests, pyserial, etc.
 
@@ -174,9 +174,9 @@ build-essential, python3-dev, and gfortran are needed for:
 
 ## Related Stages
 
-- Provides dependencies for [03-install-qiskit](../03-install-qiskit/README.md)
+- Provides dependencies for [03-install-qiskit](../03-install-qiskit/)
 - Enables LED control in all demo stages
-- Chromium used by [06-desktop-integration](../06-desktop-integration/README.md) demos
+- Chromium used by [06-desktop-integration](../06-desktop-integration/) demos
 
 ## Version Considerations
 
