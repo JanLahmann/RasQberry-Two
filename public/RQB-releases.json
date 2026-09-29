@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29T03:40:31Z",
+  "generated": "2026-09-29T07:28:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -27,18 +27,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-11-100457",
-      "name": "rasqberry-development-2026-09-11-100457",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-11-100457/rasqberry-development-2026-09-11-100457.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-11-100457",
-      "release_date": "2026-09-11 10:04",
-      "image_download_size": 2019459220,
-      "extract_size": 9017753600,
-      "extract_sha256": "426169da9569763de9839b02fc99b4f7e1fe1941b53843c836aed09cbc92c2b2",
+      "tag": "development-2026-09-29-091003",
+      "name": "rasqberry-development-2026-09-29-091003",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-29-091003/rasqberry-development-2026-09-29-091003.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-29-091003",
+      "release_date": "2026-09-29 09:10",
+      "image_download_size": 2024720472,
+      "extract_size": 9034530816,
+      "extract_sha256": "cae53c5369ae63a8601ca6ca706fae9d90e57544964ec9d27833088f9147db65",
+      "image_sha256": "2827cf6153a3564c3fbbf965ff4d0bc8aab16e7e6edd9f082cb9b5c16e2bc753",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-29-091003/rasqberry-development-2026-09-29-091003-ab.img.xz",
+      "ab_extract_sha256": "c45fa3c04e630a71632a3170ed11b31a024b8c74fac31cfe8fee502f524dc47f",
+      "ab_image_sha256": "3af227dc7fd01ef097da580e50673bffe4212e00e66a8ce779351f2137886443",
+      "ab_image_download_size": 2061501836,
+      "ab_extract_size": 12398362624,
       "highlights": [
-        "re-pin SAP Quantum LED to the upstream merge of the logo-orientation fix",
-        "Bump version to development-2026-09-11-100457",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-11-060453"
+        "check links between docs; fix broken README links",
+        "Bump version to development-2026-09-29-091003"
       ]
     }
   }
