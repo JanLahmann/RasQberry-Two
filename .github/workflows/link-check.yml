@@ -33,7 +33,7 @@ jobs:
         branch: [gh-pages, development, beta, 3D-model]
     steps:
       - name: Checkout ${{ matrix.branch }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.branch }}
 
@@ -41,7 +41,7 @@ jobs:
       # count too and relative links resolve the way a browser resolves them.
       - name: Set up Node
         if: matrix.branch == 'gh-pages'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload report
         if: steps.lychee.outputs.exit_code != 0
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: links-${{ matrix.branch }}
           path: report/
@@ -96,7 +96,7 @@ jobs:
       - name: Collect reports
         # no artifacts at all means every branch passed
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: links-*
           path: reports
