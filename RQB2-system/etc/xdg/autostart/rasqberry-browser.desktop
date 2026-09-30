@@ -2,7 +2,7 @@
 Type=Application
 Name=RasQberry Browser
 Comment=Open Chromium browser on login
-Exec=sh -c 'sleep 10 && /usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org'
+Exec=sh -c '[ "$(sed -n "s/^BROWSER_AUTOSTART=//p" /usr/config/rasqberry_environment.env | tail -1)" = false ] && exit 0; sleep 10 && /usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org'
 Terminal=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true

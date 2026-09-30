@@ -115,7 +115,7 @@ validate_led_config() {
                 return 1
             fi
             ;;
-        LED_FREQ_HZ|LED_DMA|LED_CHANNEL|LED_CHUNK_SIZE|LED_CHUNK_DELAY_MS|RASQ_LED_DISPLAY_TIMEOUT)
+        LED_FREQ_HZ|LED_DMA|LED_CHANNEL|RASQ_LED_DISPLAY_TIMEOUT)
             if ! [[ "$value" =~ ^[0-9]+$ ]]; then
                 error "Invalid $key: $value (must be integer)"
                 return 1

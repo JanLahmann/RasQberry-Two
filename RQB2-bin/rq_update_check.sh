@@ -89,7 +89,7 @@ case "${1:-}" in
         exit "$rc" ;;
     --notice)
         [ -s "$STATE_FILE" ] || exit 0
-        echo "RasQberry: a newer image is available ($(cat "$STATE_FILE")). sudo raspi-config -> 0 RasQberry -> Software & Full Image Updates"
+        echo "RasQberry: a newer image is available ($(cat "$STATE_FILE")). sudo raspi-config -> 0 RasQberry -> Software & Image Updates"
         exit 0 ;;
     -h|--help)
         sed -n '/^# Usage:/,/^# Exit:/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
