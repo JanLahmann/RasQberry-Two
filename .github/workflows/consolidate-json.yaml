@@ -531,6 +531,21 @@ jobs:
               if entry.get('extract_sha256'):
                   stream_entry['extract_sha256'] = entry.get('extract_sha256')
 
+              # The A/B image of the same release. rq_update_slot.sh verifies an
+              # A/B-slot update against ab_extract_sha256; without these fields
+              # every rebuild of this file silently dropped them again.
+              if tag:
+                  for _, _, ab in ab_all:
+                      if f"/releases/download/{tag}/" in ab.get('url', ''):
+                          stream_entry['ab_image_url'] = ab.get('url')
+                          for src, dst in (('extract_sha256', 'ab_extract_sha256'),
+                                           ('image_sha256', 'ab_image_sha256'),
+                                           ('extract_size', 'ab_extract_size'),
+                                           ('image_download_size', 'ab_image_download_size')):
+                              if ab.get(src):
+                                  stream_entry[dst] = ab.get(src)
+                          break
+
               # Add highlights based on stream type
               if stream_type in ('stable', 'beta') and manual_highlights.get(stream_type):
                   # Use manually curated highlights from highlights.json
