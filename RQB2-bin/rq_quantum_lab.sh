@@ -163,11 +163,16 @@ fi
 # Wait for JupyterLab to answer on the loopback port
 info "Waiting for JupyterLab to start..."
 LAB_URL="http://127.0.0.1:${PORT}/lab?token=${LAB_TOKEN}"
-MAX_WAIT=30
+# JupyterLab needs ~15 s to start on a Pi 4; the loop returns as soon as
+# it answers, so a generous limit costs nothing (rig test, #234)
+MAX_WAIT=60
 WAIT_COUNT=0
 until curl -sf "http://127.0.0.1:${PORT}/lab" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
+    if [ -n "${JUPYTER_PID:-}" ] && ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
+        die "JupyterLab exited during startup - see the output above"
+    fi
     # Bail out early if the container died
     if ! docker ps --filter name=$CONTAINER_NAME --filter status=running | grep -q $CONTAINER_NAME; then
         echo
