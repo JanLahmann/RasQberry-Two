@@ -118,11 +118,11 @@ cat > /usr/local/bin/rasqberry-enable-vnc.sh << 'EOF'
 # RasQberry Desktop Login: Ensure VNC Server is Enabled
 # Runs on every login - raspi-config do_vnc is idempotent
 #
-# On a freshly flashed slot, do_vnc run in the first seconds of the session
-# returns without starting wayvnc, and get_vnc still reports it off (#288).
-# The same command works a little later, so wait for the session to settle,
-# then retry until get_vnc confirms VNC is on. Every outcome goes to the
-# journal: journalctl -t rasqberry-enable-vnc
+# On a fresh slot, raspi-config aborted in the first seconds of the session:
+# it sources demo-menu-cache.sh, which rasqberry-demo-cache.service was still
+# writing (#288). The generator now writes the cache atomically; the wait and
+# the retries until get_vnc confirms VNC is on stay as a safety net. Every
+# outcome goes to the journal: journalctl -t rasqberry-enable-vnc
 
 log() { logger -t rasqberry-enable-vnc "$*"; }
 vnc_on() { [ "$(sudo raspi-config nonint get_vnc 2>/dev/null)" = "0" ]; }
