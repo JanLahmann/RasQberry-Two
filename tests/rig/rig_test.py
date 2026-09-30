@@ -180,7 +180,9 @@ def update_slot(pi, tag):
     time.sleep(120)
     if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version", 3600, interval=30):
         raise RuntimeError("new slot did not come up with the release")
-    wait_for(host, "! systemctl is-active -q rasqberry-health-check.service", 600)
+    # the health check confirms the new slot a minute or two after boot; the
+    # service may not have started yet when the release first answers
+    wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600)
 
 
 def run_checks(pi):
@@ -217,14 +219,15 @@ def list_demos(pi):
 #            lights up, which takes ~20 s on a Pi 4
 #   dark:    the demo's job is to switch the panel off - lit is the failure
 #   service: the panel stays dark by design (Painter starts with an empty
-#            canvas), so check instead that the unit driving the LEDs runs
+#            canvas), so check instead that the unit driving the LEDs runs at
+#            some point (a first start installs the demo first: 90 s)
 DEMO_HINTS = {
     "led-demos:text-display": {"keys": r"5:\r 2:\r 2:\r 2:\r"},
     "led-demos:logo-display": {"keys": r"5:\r 2:\r 2:\r 2:\r"},
     "quantum-lights-out:gui": {"seconds": 60},
     "quantum-lights-out:console": {"seconds": 60},
     "led-demos:clear-leds": {"dark": True},
-    "led-painter": {"service": "rasqberry-led-renderer"},
+    "led-painter": {"service": "rasqberry-led-renderer", "seconds": 90},
 }
 
 
@@ -249,20 +252,26 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
     led = None
     service_state = None
     if hint.get("service"):
-        time.sleep(seconds / 2)
-        _, service_state = ssh(host, f"systemctl is-active {hint['service']}")
-        service_state = service_state.strip() or "unknown"
+        end = time.time() + seconds - 5
+        while time.time() < end and t.is_alive():
+            _, service_state = ssh(host, f"systemctl is-active {hint['service']}")
+            service_state = service_state.strip() or "unknown"
+            if service_state == "active":
+                break
+            time.sleep(3)
+        service_state = service_state or "not checked"
     elif camera and demo["leds"] and pi.get("panel_crop"):
         # LED demos blink, animate and (on a Pi 4) take a while to import
         # Qiskit: sample every couple of seconds for the whole run, keep the best
         tag = demo["id"].replace(":", "-")
-        best, kept = -1.0, None
+        best, kept, last = -1.0, None, -1.0
         end = time.time() + seconds - 2
         time.sleep(4)
         i = 0
         while time.time() < end and t.is_alive():
             frame = camera.grab(outdir / f"{pi['name']}-{tag}-camera{i}.png")
             score = lit_score(frame, baseline, pi["panel_crop"])
+            last = score
             if score > best:
                 if kept:
                     kept.unlink()
@@ -272,7 +281,8 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
             i += 1
         if kept:
             kept.rename(outdir / f"{pi['name']}-{tag}-camera.png")
-        led = best if best >= 0 else None
+        # a demo that switches the panel off is judged by where it ends up
+        led = (last if hint.get("dark") else best) if best >= 0 else None
     t.join()
     name = demo["id"].replace(":", "-")
     fetch(host, f"{REMOTE_DIR}/{name}.png", outdir / f"{pi['name']}-{name}-screen.png")
