@@ -43,15 +43,15 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two Dev (dev-backlog 2026-09-30-085733)",
+          "name": "RasQberry Two Dev (dev-backlog 2026-09-30-095805)",
           "description": "Development build from dev-backlog",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-backlog-2026-09-30-085733/rasqberry-dev-backlog-2026-09-30-085733.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-backlog-2026-09-30-095805/rasqberry-dev-backlog-2026-09-30-095805.img.xz",
           "extract_size": 9034530816,
-          "extract_sha256": "6dba41d15bbde5fd827e9dc357670b0e3e4d24ed658a7d43d6557a8886b861b9",
-          "image_download_size": 2024918128,
-          "image_sha256": "72c689bf522899f3eaabeb5d49e8b56af9c6568e5f862f03b44cccbd4dea4c02",
-          "release_date": "2026-09-30 08:57",
+          "extract_sha256": "c88c85243129892d0c99faa86b5bb4c40853775fdb78add9ace7683c03a701e3",
+          "image_download_size": 2023287028,
+          "image_sha256": "b00a447624448a6aad326b8608774e78b3acaa35d9a39b13532c1b0440d49782",
+          "release_date": "2026-09-30 09:58",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
@@ -101,15 +101,15 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
-          "name": "RasQberry Two A/B (dev-backlog 2026-09-30-085733)",
+          "name": "RasQberry Two A/B (dev-backlog 2026-09-30-095805)",
           "description": "A/B boot image from dev-backlog",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-backlog-2026-09-30-085733/rasqberry-dev-backlog-2026-09-30-085733-ab.img.xz",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-backlog-2026-09-30-095805/rasqberry-dev-backlog-2026-09-30-095805-ab.img.xz",
           "extract_size": 12398362624,
-          "extract_sha256": "4a8fa8aa8da74de66d2d76b21381de6188bbc360f5116106bdd7b431d64d9b30",
-          "image_download_size": 2060893344,
-          "image_sha256": "c09a62db7eed3a90fc0508343d7d8daf82461e8b463e37a038ff87f601c65a29",
-          "release_date": "2026-09-30 08:57",
+          "extract_sha256": "17bc76d1d30bf66f4f9acf5e87427758ab67c9d5234e0a6f44153e6eda769295",
+          "image_download_size": 2057115392,
+          "image_sha256": "391f2d87ccd41e1068ed3ba8a19ef8bdea62c682cc4e4bf9ad8596ccbf9437cf",
+          "release_date": "2026-09-30 09:58",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
