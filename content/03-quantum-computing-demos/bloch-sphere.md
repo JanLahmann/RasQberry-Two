@@ -13,7 +13,7 @@ a single qubit.
 Double-click the **Grok Bloch** icon on the desktop, and it opens in your browser.
 
 It is also under **Applications → RasQberry → Grok Bloch**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
 
 ## Reading the sphere
 

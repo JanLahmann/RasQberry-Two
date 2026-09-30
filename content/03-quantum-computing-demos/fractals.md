@@ -14,7 +14,7 @@ Double-click the **Quantum Fractals** icon on the desktop; it starts generating
 straight away and opens the result in your browser.
 
 It is also under **Applications → RasQberry → Quantum Fractals**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
 
 ## How it works
 

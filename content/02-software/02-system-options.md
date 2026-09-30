@@ -33,7 +33,8 @@ There are several ways to connect to your RasQberry Two. SSH and VNC are enabled
 
 Open a terminal on your remote device and specify your ssh username and IP address. The default username is `rasqberry`.
 ```
-ssh rasqberry@/{your IP address}
+ssh rasqberry@<your IP address>
 ```
+On most networks the hostname works as well: `ssh rasqberry@rasqberry.local`.
 You need to agree that you want to connect your devices and enter your Raspberry Pi password (default: `Qiskit1!`). Now you should be able to use SSH.
 

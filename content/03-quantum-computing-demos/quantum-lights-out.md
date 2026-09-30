@@ -15,7 +15,7 @@ Double-click the **Quantum Lights Out** icon on the desktop; the puzzle and its
 solution appear on the LED panel.
 
 It is also under **Applications → RasQberry → Quantum Lights Out**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**. There is a
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**. There is a
 console variant in the menu that plays in the terminal instead.
 
 ## What you'll see

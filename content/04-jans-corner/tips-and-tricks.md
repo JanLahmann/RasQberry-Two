@@ -1,5 +1,4 @@
 # Tips and Tricks from Jan
-===
 
 On this page, you will find various tips & tricks from Jan for building the 3D model (e.g. slightly modified STL files, useful tools), installing and using the SW stack and the quantum computing demos, and for modifications of the SW stack and adding new demos to the platform.
 
@@ -23,66 +22,29 @@ The bill-of-material mentions a "welding shield" than can be used in front of th
 
 The GitHub Actions workflow automatically detects your repository and username from the GitHub context. In most cases, forking should work without any changes.
 
-If you need to customize the build configuration, edit `pi-gen-config` which contains the `RQB_GIT_USER`, `RQB_GIT_BRANCH`, and `RQB_REPO` variables.
+`pi-gen-config` holds the rest of the build configuration. Its `RQB_GIT_USER`, `RQB_GIT_BRANCH` and `RQB_REPO` are filled in by the workflow, so there is no need to edit them.
 
 ### Iterative Development
 
-The full GitHub Actions workflow takes ~21-65 minutes. For faster iteration when modifying scripts (like `RQB2_menu.sh`) on a running system, use the built-in update script:
+A full image build takes a while. For faster iteration when modifying scripts (like `RQB2_menu.sh`) on a running system, use the built-in update script:
 
 ```bash
 # Update from a specific branch (auto-detects repository)
 sudo rq_update_from_branch.sh --branch dev-features05
 
 # Update from a different repository
-sudo rq_update_from_branch.sh --repo YourUser/RasQberry-Two --branch main
+sudo rq_update_from_branch.sh --repo YourUser/RasQberry-Two --branch development
 
 # Preview changes without applying them
 sudo rq_update_from_branch.sh --branch dev --dry-run
 ```
 
-This updates scripts in `/usr/bin/` and config files in `/usr/config/` from the specified branch. For full system updates (kernel, packages, partition layout), use A/B boot slot updates instead.
+This updates scripts in `/usr/bin/`, config files in `/usr/config/` and system files (systemd units, autostart entries) from the specified branch. Device settings in `rasqberry_environment.env`, such as the LED layout, are kept: new keys arrive, existing values stay. The same function is in `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates** → **Update from GitHub Branch**. For full system updates (kernel, packages, partition layout), write a new image or use an A/B slot update.
 
 ## Build System
 
-### Automated Image Building
+Images are built by GitHub Actions (`.github/workflows/RQB-image-v2.yaml`, "Rasqberry Pi Image Release v2"):
 
-The RasQberry-Two project uses GitHub Actions to automatically build custom Raspberry Pi OS images. 
-
-#### Build Triggers
-- **Automatic builds**: Push to any `dev*` branch
-- **Manual builds**: Use the "Actions" tab → "RasQberry Pi Image Release" → "Run workflow"
-
-#### Build Types
-- **Development builds** (`dev*` branches): Use caching for faster iteration (~21 min)
-- **Beta builds** (`beta` branch): Full clean build (~65 min)
-- **Production builds** (`main` branch): Full clean build (~65 min)
-
-#### Caching System
-Development builds use a sophisticated caching mechanism:
-- Base OS layers (stages 0-4) are cached monthly
-- Only the RasQberry-specific stage is rebuilt
-- Force refresh: Use `refresh_cache` option in manual workflow
-
-## GitHub Actions Workflows
-
-.github/workflows/RQB-image-v2.yaml - RasQberry Image Build Workflow
-
-### Quick Start
-
-#### Manual Build (Recommended for testing)
-1. Go to Actions tab
-2. Select "RasQberry Pi Image Release"
-3. Click "Run workflow"
-4. For dev branches:
-   - Leave version blank (auto-generated)
-   - Check "Force cache refresh" if needed
-5. For main and beta branch:
-   - Enter semantic version (e.g., "1.2.3")
-
-### Build Performance
-
-| Build Type | Cache | Typical Duration | When to Use |
-|------------|-------|------------------|-------------|
-| Dev (cached) | ✓ | ~21 minutes | Regular development |
-| Dev (fresh) | ✗ | ~65 minutes | Monthly or forced refresh |
-| Production | ✗ | ~65 minutes | Official releases |
+- **Automatic:** every push to a `dev*` branch (this includes `development`).
+- **Manual:** Actions tab → "Rasqberry Pi Image Release v2" → "Run workflow". Inputs: `version` (required for `main`), `build_scope` (`ab-only`, `standard-image`, `full`, `no-release`), `console_type` and `boot_verbosity`.
+- By default every build produces both the standard and the A/B image.

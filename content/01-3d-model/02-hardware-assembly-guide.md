@@ -27,28 +27,9 @@ After you have finished flashing the OS image to the micro-SD card, you can inse
 
 Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard into any of the USB ports on the back. If the OS installation was successful, you should be met with a login screen on your monitor. The standard username is `rasqberry` and the password is listed in the installation instructions above. Login with these credentials and you should see a desktop interface.
 
-Next, we will enable SPI for the LED array to work. To do so, open a terminal window by pressing the `CTRL + ALT + T` keys at the same time. When the window appears, run the following command:
+The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. Once the panels are wired (below), you check them with the LED Setup Wizard.
 
-```sh
-sudo raspi-config
-```
-
-You will be met with this screen:
-
-![2024-11-26-100131_1920x1080_scrot](/assembly-images/raspi_config_1.png)
-
-In the menu that shows up, navigate to `3. Interface Options` using the arrow keys and press enter.
-
-![2024-11-26-100142_1920x1080_scrot](/assembly-images/raspi_config_2.png)
-
-Then, navigate to `I4 SPI` the same way and press enter again.
-
-![2024-11-26-100148_1920x1080_scrot](/assembly-images/raspi_config_3.png)
-
-The dialog will ask you to enable the SPI interface. Hover over the option that says `Yes` and press enter.
-
-![2024-11-26-100151_1920x1080_scrot](/assembly-images/raspi_config_4.png)
-Now you’re all set to use SPI!
+(Images older than the beta of 2025-12-30 drove the LEDs over SPI; on those, enable SPI first with `sudo raspi-config` → `3 Interface Options` → `I4 SPI`.)
 
 ### Mounting the fan
 
@@ -140,7 +121,7 @@ You will notice that the plugs have three wires; red, green and white. The purpo
 
 Red: This wire is the power lead. This is usually hooked up to 5V and provides all the power needed to turn the LEDs on.
 
-Green: This wire is the SPI interface lead. This will be used to tell our panel which LEDs to turn on and off, depending on which program we run from the Pi.
+Green: This wire is the data lead (GPIO 18; SPI on images older than 2025-12-30). This will be used to tell our panel which LEDs to turn on and off, depending on which program we run from the Pi.
 
 White: This wire is the ground lead. This is needed to complete the circuit.
 
@@ -177,13 +158,15 @@ After ensuring that all four panels are in line, take the two panels on the righ
 **! Warning:**
 The LEDs can be very bright! It is recommended to wear eye protection when working with the LED panels.
 
-Now it’s time to test the LEDs! Run the Python script in your terminal:
+Now it’s time to test the LEDs! Open a terminal (`CTRL + ALT + T`) and run the LED Setup Wizard:
 
 ```sh
-python3 neopixel_spi_IBMtestFunc.py.
+sudo rq_led_setup_wizard.sh
 ```
 
-If everything is wired up correctly, you should see the IBM logo appear on the LED array in the correct orientation. Verify that your result looks similar to this:
+(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `Test LEDs (setup wizard, tests, demos)` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
+
+If everything is wired up correctly, the IBM logo appears on the LED array in the correct orientation. Verify that your result looks similar to this:
 
 ![Figure 17](/assembly-images/wall_assembly_17.JPG "Figure 17: Testing the proper orientation of the LED panels before slotting them into the wall.")
 
@@ -192,7 +175,7 @@ Finally, take the bottom two LED panels and slot them into the space in the wall
 ![Figure 18](/assembly-images/wall_assembly_18.JPG "Figure 18: Placing the bottom row of LED panels.")
 
 While making sure to preserve the LED orientation, slot the other two panels on top. You can rest the top row of the LEDs onto the black board of the bottom LEDs.
-You can run `python3 neopixel_spi_IBMtestFunc.py` again to help you line up the columns together. Once you’re all done, it should look like this:
+To line up the columns, show the IBM logo again: `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `Test LEDs` → `IBM LED Demo`. Once you’re all done, it should look like this:
 
 ![Figure 19](/assembly-images/wall_assembly_19.JPG "Figure 19: Both rows of LED panels lined up.")
 
