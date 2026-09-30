@@ -10,6 +10,7 @@ The most valuable contribution is testing and reporting bugs:
 - Try out RasQberry on your hardware
 - [Report issues](https://github.com/JanLahmann/RasQberry-Two/issues) with clear steps to reproduce
 - Include error messages, screenshots, and hardware details
+- Paste the output of `rq_info.sh --json`: RasQberry version, build origin, A/B slot and Pi model
 
 ### 2. Share Ideas & Feature Requests
 
@@ -27,10 +28,10 @@ Help make RasQberry easier to use:
 ### 4. Create Quantum Demos
 
 Build new interactive demonstrations:
-1. Create your demo using Python and Qiskit
-2. Package it in a GitHub repository with `requirements.txt` and `README.md`
-3. Integrate with RasQberry (launcher script, menu entry)
-4. Submit a pull request
+1. Create your demo using Python and Qiskit, in its own GitHub repository with `requirements.txt` and `README.md`
+2. Add an `rqb-demo.json` manifest at the repository root that says how the demo runs (`python`, `jupyter`, `browser` or `docker`); the format is described in [EXTERNAL_DEMOS.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/RQB2-config/demo-manifests/EXTERNAL_DEMOS.md)
+3. Open a pull request that adds your repository, pinned to a commit, to `RQB2-config/known-demos.json`
+4. Once merged, users install it from **Quantum Demos** → **Add demo from catalog** (`rq_demo_add_external.sh <id>`)
 
 **Example demos for inspiration:**
 - [Quantum Lights Out](../03-quantum-computing-demos/quantum-lights-out) - Puzzle game with quantum algorithms

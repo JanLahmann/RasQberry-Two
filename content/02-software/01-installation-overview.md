@@ -29,7 +29,7 @@ Use these URLs to always get the latest release for each stream:
 
 | Stream | URL | Description |
 |--------|-----|-------------|
-| **Stable** | [rasqberry.org/latest/stable](https://rasqberry.org/latest/stable) | Production-ready releases |
+| **Stable** | [rasqberry.org/latest/stable](https://rasqberry.org/latest/stable) | Not published yet — use Beta until the first stable release |
 | **Beta** | [rasqberry.org/latest/beta](https://rasqberry.org/latest/beta) | Pre-release with latest features |
 | **Dev** | [rasqberry.org/latest/dev](https://rasqberry.org/latest/dev) | Development builds (unstable) |
 
@@ -147,3 +147,23 @@ written for Qiskit 1.x may need updating (see the
 9. Wait for the writing and verification process to complete.
 
 10. Insert the SD Card into your Raspberry Pi 4 or 5, connect power, and boot.
+
+## Keeping up to date
+
+Everything is in `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates**,
+on the standard and the A/B image:
+
+- **Check for a newer image** compares your build with the latest release of the
+  same channel (beta, dev or stable). A check also runs once a day in the
+  background; when a newer image exists, a terminal or SSH login shows one line about it.
+  From a terminal: `rq_update_check.sh`.
+- **Update from GitHub Branch** refreshes the RasQberry scripts, configuration and
+  system files (services, autostart entries) from a branch, and keeps your device
+  settings such as the LED layout. It does not update the OS packages, the kernel
+  or Qiskit — for that, write a new image (or, on the
+  [A/B image](/02-software/03-ab-boot/), update the other slot).
+
+**System Info** in the same menu (or `rq_info.sh`) shows the RasQberry version, the
+branch and commit it was built from, the Python and Qiskit versions and, on A/B
+images, the booted slot. When you [report a bug](https://github.com/JanLahmann/RasQberry-Two/issues),
+paste the output of `rq_info.sh --json`.

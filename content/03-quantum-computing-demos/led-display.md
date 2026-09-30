@@ -10,6 +10,22 @@ The LED Display feature allows you to:
 - Run animated text and color effect demos
 - Create your own logo images
 
+## Set up your panel first
+
+RasQberry needs to know how your LED panel is wired and which way up it is
+mounted. The **LED Setup Wizard** finds out without any measuring: it shows an
+IBM logo in up to four colours, and you pick the colour in which the logo reads
+upright. It handles the single 24×8 panel and the quad 4×12 panel, either way up;
+other arrangements get a step-by-step walkthrough.
+
+Run it from `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** →
+**Test LEDs (setup wizard, tests, demos)** → **LED Setup Wizard**
+(or `sudo rq_led_setup_wizard.sh`). The first-login checklist offers a short
+version of the same check.
+
+The result is stored as `LED_LAYOUT`. On an [A/B image](/02-software/03-ab-boot/)
+it is kept when you update the other slot.
+
 ## Accessing via raspi-config
 
 Run `sudo raspi-config` and navigate to:
@@ -51,9 +67,71 @@ Features:
 - Load custom PNG/JPG images
 - Configurable duration and fade effects
 
-## Python API
+## Custom Logos
 
-### Display Text
+The logos ship in `/usr/config/LED-Logos` (`ibm-logo-24x8.png`,
+`rasqberry-icon-24x8.png`, `rasqberry-cube-24x8.png`, and 16×8 variants).
+To show your own image, choose **Browse for custom image...** in
+`rq_led_display_logo.sh` (or **Display Logo from Library** in the menu) and
+enter the path to a PNG or JPG.
+
+- **Size**: 24×8 pixels (width × height) fits the panel exactly; other sizes are
+  resized automatically.
+- Use high-contrast images with simple shapes; fine details disappear at this
+  resolution.
+
+## Configuration
+
+LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
+`sudo raspi-config` → **0 RasQberry** → **Update Env File**:
+
+- `LED_LAYOUT` - panel layout, set by the LED Setup Wizard (default: `single-24x8`;
+  also `quad-4x12`, `quad-2x2-12x4`, `triple-8x8`, `single-8x32`). The LED count
+  and matrix size follow from the layout.
+- `LED_DEFAULT_BRIGHTNESS` - default brightness 0.0-1.0 (default: 0.4)
+- `LED_PIXEL_ORDER` - colour order of your LEDs (default: GRB)
+- `LED_GPIO_PIN` - data pin (default: 18)
+
+`LED_MATRIX_LAYOUT`, `LED_MATRIX_WIDTH`, `LED_MATRIX_HEIGHT` and
+`LED_MATRIX_Y_FLIP` are deprecated and only read on old images.
+
+## Troubleshooting
+
+### Text or logo upside down or scrambled
+
+- Run the LED Setup Wizard (see above) to set `LED_LAYOUT` for your panel.
+- Try shorter text for static mode (max ~4 characters visible)
+
+### Colors appear wrong
+
+- Check `LED_PIXEL_ORDER` setting (RGB vs GRB)
+- Some LED strips use different color orderings
+
+### LEDs not turning on
+
+1. Make sure no other demo is still running. The panel is driven by one process
+   at a time, so a demo left running holds it and the next one finds it busy.
+   Stop the running demo (**Quantum Demos** → **Stop last running demo and clear
+   LEDs**), or reboot.
+2. Run the LED test: `rq_demo_run.sh led-demos`
+3. Check wiring and power supply
+
+### Turn off LEDs
+
+```bash
+# From command line
+source ~/RasQberry-Two/venv/RQB2/bin/activate
+python3 /usr/bin/turn_off_LEDs.py
+
+# Or via raspi-config menu
+# Quantum Demos → Test LEDs → Turn off all LEDs
+```
+
+## For developers
+
+### Python API
+
+Display text:
 
 ```python
 from rq_led_utils import (
@@ -84,7 +162,7 @@ pixels.fill((0, 0, 0))
 pixels.show()
 ```
 
-### Display Logos
+Display logos:
 
 ```python
 from rq_led_logo import display_logo
@@ -99,9 +177,9 @@ display_logo(
 )
 ```
 
-## Demo Scripts
+### Demo scripts
 
-Run these directly from the command line:
+These are what the menu entries run:
 
 | Script | Description |
 |--------|-------------|
@@ -122,75 +200,4 @@ source ~/RasQberry-Two/venv/RQB2/bin/activate
 
 # Run a demo
 python3 /usr/bin/demo_led_ibm_logo.py
-```
-
-## Creating Custom Logos
-
-### Logo Requirements
-
-- **Format**: PNG or JPG
-- **Size**: 24×8 pixels (width × height)
-- **Colors**: RGB, will be mapped to LED matrix
-
-### Generate Logo Library
-
-```bash
-cd ~/RasQberry-Two/RQB2-config/LED-Logos
-python3 create_logos.py
-```
-
-This creates pre-built logos:
-- `ibm-24x8.png` - IBM logo
-- `rasqberry-24x8.png` - RasQberry logo
-- Additional themed logos
-
-### Custom Logo from Any Image
-
-The display script automatically resizes images to fit the 8×24 matrix. For best results:
-1. Use high-contrast images
-2. Simple designs work best on low-resolution matrix
-3. Avoid fine details that won't be visible
-
-## Configuration
-
-LED display uses your configured matrix settings from `/usr/config/rasqberry_environment.env`:
-
-- `LED_COUNT` - Number of LEDs (default: 192)
-- `LED_MATRIX_WIDTH` - Width in pixels (default: 24)
-- `LED_MATRIX_HEIGHT` - Height in pixels (default: 8)
-- `LED_DEFAULT_BRIGHTNESS` - Default brightness 0.0-1.0
-- `LED_MATRIX_LAYOUT` - single or quad panel layout
-
-See [Boot Configuration](/02-software/01-installation-overview) for details on modifying LED settings.
-
-## Troubleshooting
-
-### Text not displaying correctly
-
-- Check LED matrix orientation (`LED_MATRIX_Y_FLIP`)
-- Verify matrix layout matches your hardware (`LED_MATRIX_LAYOUT`)
-- Try shorter text for static mode (max ~4 characters visible)
-
-### Colors appear wrong
-
-- Check `LED_PIXEL_ORDER` setting (RGB vs GRB)
-- Some LED strips use different color orderings
-
-### LEDs not turning on
-
-1. Make sure no other demo is still running. The panel is driven by one process
-   at a time, so a demo left running holds it and the next one finds it busy.
-   Stop the running demo, or reboot.
-2. Run the LED test: `rq_demo_run.sh led-demos`
-3. Check wiring and power supply
-
-### Turn off LEDs
-
-```bash
-# From command line
-source ~/RasQberry-Two/venv/RQB2/bin/activate
-python3 /usr/bin/turn_off_LEDs.py
-
-# Or via raspi-config menu
-# Quantum Demos → Test LEDs → Clear LEDs
 ```

@@ -81,15 +81,21 @@ The first time you log in, RasQberry offers the setup steps that still need a
 decision from you. Nothing happens behind your back, and it stops asking once
 they are done:
 
-- **Check the LED panel.** An IBM logo appears on your panel and you pick the
-  colour that shows it upright — that tells RasQberry how your LEDs are wired
-  and which way up they are mounted. Nothing to do if you have no panel.
+- **Connect to a WLAN.** Only offered when the Pi has no network connection.
 - **Expand the partitions.** Only on the [A/B image](02-software/03-ab-boot),
   which ships with a placeholder second slot and needs a 64GB or larger card.
   Worth doing first: until you do there is nowhere to put a second system, and
   the disk is nearly full.
+- **Check the LED panel.** An IBM logo appears on your panel and you pick the
+  colour that shows it upright — that tells RasQberry how your LEDs are wired
+  and which way up they are mounted. Nothing to do if you have no panel.
+- **Download all demos.** Optional; otherwise each demo installs the first time
+  you start it.
+- **Turn on touch mode.** Only offered when a touchscreen is attached.
 
-Both are available later from `sudo raspi-config` → **0 RasQberry**.
+To see the list again later, double-click the **RasQberry Setup** icon on the
+desktop (or run `rq_firstlogin.sh --all`). Apart from the WLAN step, each one
+is also in `sudo raspi-config` → **0 RasQberry**.
 
 Then try something: double-click a demo icon on the desktop, or see the
 [demo list](03-quantum-computing-demos/01-demo-list) — 17 demos ship with the
@@ -97,23 +103,9 @@ image. Found a bug? [Open an issue](https://github.com/JanLahmann/RasQberry-Two/
 
 ## Working with Qiskit
 
-Qiskit comes pre-installed in the default virtual environment (RQB2).
-
-**Activate the environment:**
-```bash
-source /home/rasqberry/RasQberry-Two/venv/RQB2/bin/activate
-```
-
-**Check installed packages:**
-```bash
-(RQB2) rasqberry@raspberrypi:~ $ pip list | grep qiskit
-qiskit                 2.0.1
-qiskit-aer             0.15.1
-qiskit-ibm-runtime     0.30.0
-qiskit-qasm3-import    0.5.1
-```
-
-> **Note**: Package versions shown are examples. Use `pip list | grep qiskit` to see your current installation.
+Qiskit 2.x is pre-installed in the virtual environment `~/RasQberry-Two/venv/RQB2`; see
+[Installation Overview](02-software/01-installation-overview)
+for versions and how to activate it.
 
 ## Building the RasQberry 3D Model
 

@@ -19,7 +19,7 @@ the data partition as **16MB placeholders**. There is no room for a second syste
 in 16MB, so nothing A/B-related works until they grow to fit your card:
 
 ```bash
-sudo raspi-config   →   RasQberry   →   AB_BOOT   →   EXPAND
+sudo raspi-config   →   0 RasQberry   →   Software & Image Updates   →   Expand A/B Partitions
 ```
 
 You need a **64GB or larger card** (expansion refuses below ~63GB). It asks once,
@@ -72,6 +72,18 @@ sudo rq_update_slot.sh <ab-image-url> <release-tag>
 It refuses to overwrite the slot you are booted from, so you cannot saw off the
 branch you are sitting on.
 
+The new slot keeps what makes this Pi yours:
+
+- **SSH identity.** The SSH host keys and your `~/.ssh/authorized_keys` are copied
+  into the new slot, so clients do not warn about a changed host and key login
+  keeps working.
+- **LED settings.** The LED layout from the setup wizard, brightness and output
+  settings, and your custom layouts are saved on the shared `/data` partition and
+  restored in the other slot at boot.
+
+Installed demos are per slot: a demo you downloaded in Slot A is downloaded again
+the first time you start it in Slot B.
+
 Then try it:
 
 ```bash
@@ -94,14 +106,21 @@ has earned it:
 sudo rq_slot_manager.sh promote     # copy tested Slot B → stable Slot A
 ```
 
+All of this is also in the menu: `sudo raspi-config` → **0 RasQberry** →
+**Software & Image Updates** → **Slot Manager** (status, confirm, switch, update
+Slot B, rollback, promote).
+
 ## Which image am I running?
+
+**System Info** in `sudo raspi-config` → **0 RasQberry**, or `rq_info.sh`, shows the
+version, where it was built from and the slot you booted. The bare build marker is:
 
 ```bash
 cat /etc/rasqberry-version
 ```
 
-That is the build marker. (`/etc/rpi-issue` only records the pi-gen tool commit
-and does not change between RasQberry builds — it will not tell images apart.)
+(`/etc/rpi-issue` only records the pi-gen tool commit and does not change between
+RasQberry builds — it will not tell images apart.)
 
 ## Details
 

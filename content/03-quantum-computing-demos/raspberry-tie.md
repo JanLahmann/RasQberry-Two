@@ -14,7 +14,7 @@ actually arranged on the processor.
 Double-click the **Raspberry Tie** icon on the desktop.
 
 It is also under **Applications → RasQberry → Raspberry Tie**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Computing Demos**.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
 
 From a terminal you can pick the backend:
 
@@ -26,6 +26,15 @@ rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware
 
 The `real` variant needs a network connection and an IBM Quantum token, and your
 job may sit in a queue before it runs.
+
+**Entering the token:** in the menu (**Quantum Demos** → **Quantum Raspberry-Tie**),
+picking a backend other than the local simulator asks for your token and saves it.
+From a terminal, save it once with:
+
+```bash
+source ~/RasQberry-Two/venv/RQB2/bin/activate
+python3 /usr/bin/rq_set_qiskit_ibm_token.py
+```
 
 ## What you'll see
 
