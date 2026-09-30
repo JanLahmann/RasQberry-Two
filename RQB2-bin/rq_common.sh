@@ -204,14 +204,40 @@ ensure_venv() {
 
 # Show yes/no dialog
 # Usage: show_yesno "Title" "Question text" && echo "User said yes"
+# Height that fits <text> in a whiptail box of <width>, at least <min>.
+# whiptail cuts off text that does not fit instead of wrapping into view, so
+# fixed heights truncated longer messages (e.g. the third-party demo
+# disclaimer). Capped at the terminal height; the caller adds --scrolltext
+# when the text is longer than that.
+_rq_dialog_height() {
+    local text="$1" width="$2" min="$3" lines rows
+    lines=$(printf '%b\n' "$text" | fold -s -w $((width - 4)) | wc -l)
+    rows=$(tput lines 2>/dev/null || echo 24)
+    [ "$rows" -ge 10 ] 2>/dev/null || rows=24
+    lines=$((lines + 7))
+    [ "$lines" -lt "$min" ] && lines="$min"
+    [ "$lines" -gt "$rows" ] && lines="$rows"
+    echo "$lines"
+}
+
+# --scrolltext when <text> does not fit the chosen height
+_rq_dialog_scroll() {
+    local text="$1" width="$2" height="$3"
+    [ "$(printf '%b\n' "$text" | fold -s -w $((width - 4)) | wc -l)" -gt $((height - 7)) ] && echo "--scrolltext"
+    return 0
+}
+
 show_yesno() {
     local title="$1"
     local text="$2"
-    local height="${3:-12}"
     local width="${4:-65}"
+    local height
+    height=$(_rq_dialog_height "$text" "$width" "${3:-12}")
 
     if command -v whiptail >/dev/null 2>&1; then
-        whiptail --title "$title" --yesno "$text" "$height" "$width" 3>&1 1>&2 2>&3
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        whiptail --title "$title" $(_rq_dialog_scroll "$text" "$width" "$height") \
+            --yesno "$text" "$height" "$width" 3>&1 1>&2 2>&3
     else
         # Fallback to read if whiptail not available
         echo "$text"
@@ -226,11 +252,14 @@ show_yesno() {
 show_msgbox() {
     local title="$1"
     local text="$2"
-    local height="${3:-10}"
     local width="${4:-60}"
+    local height
+    height=$(_rq_dialog_height "$text" "$width" "${3:-10}")
 
     if command -v whiptail >/dev/null 2>&1; then
-        whiptail --title "$title" --msgbox "$text" "$height" "$width" 3>&1 1>&2 2>&3
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        whiptail --title "$title" $(_rq_dialog_scroll "$text" "$width" "$height") \
+            --msgbox "$text" "$height" "$width" 3>&1 1>&2 2>&3
     else
         echo "=== $title ==="
         echo "$text"
