@@ -34,7 +34,7 @@ cleanup() {
     echo ""
     info "Stopping demo loop..."
     # Kill any running demo processes
-    cleanup_demo_processes "QuantumLightsOut|QuantumRaspberryTie|RasQ-LED"
+    cleanup_demo_processes "QuantumLightsOut|lights_out.py|QuantumRaspberryTie|sense_emu_gui|RasQ-LED"
     # Turn off all LEDs
     clear_leds
     info "Demo loop stopped"
@@ -120,6 +120,18 @@ run_demo_with_controls() {
 }
 
 ################################################################################
+# Install the demos first: installing inside a demo's time slot used up that
+# slot (on a fresh image the whole first loop showed installers, not demos)
+################################################################################
+for demo in quantum-lights-out quantum-raspberry-tie; do
+    if ! "$BIN_DIR/rq_demo_run.sh" "$demo" --is-installed >/dev/null 2>&1; then
+        echo "Installing $demo before the loop starts..."
+        "$BIN_DIR/rq_demo_run.sh" "$demo" --install-only || warn "Could not install $demo - it will be skipped"
+    fi
+done
+echo ""
+
+################################################################################
 # Main demo loop
 ################################################################################
 
@@ -143,7 +155,7 @@ while true; do
         "[2/4] Quantum Lights Out demo (${LIGHTS_OUT_TIME}s)" \
         "$BIN_DIR/rq_demo_run.sh quantum-lights-out" \
         "${LIGHTS_OUT_TIME}"
-    cleanup_demo_processes "QuantumLightsOut"
+    cleanup_demo_processes "QuantumLightsOut" "lights_out.py"
     clear_leds
     sleep ${PAUSE_BETWEEN_DEMOS}
 
@@ -152,7 +164,8 @@ while true; do
         "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
         "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" \
         "${RASQBERRY_TIE_TIME}"
-    cleanup_demo_processes "QuantumRaspberryTie"
+    # Raspberry Tie also opens the SenseHAT emulator window
+    cleanup_demo_processes "QuantumRaspberryTie" "sense_emu_gui"
     clear_leds
     sleep ${PAUSE_BETWEEN_DEMOS}
 

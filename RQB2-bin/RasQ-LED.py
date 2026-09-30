@@ -301,6 +301,12 @@ def demo_loop(duration=2):
         # stdin is not a TTY (e.g., redirected or piped), skip flush
         pass
 
+    # Only a real Enter stops the demo. Without a terminal (the demo loop runs
+    # demos as background jobs, whose stdin is /dev/null) select() reports
+    # stdin readable at once and readline() returns '' - that is end of
+    # input, not a key press, and it stopped the demo after one cycle.
+    watch_stdin = sys.stdin is not None and sys.stdin.isatty()
+
     try:
         for cycle in range(duration):
             print(f"\n--- Demo Cycle {cycle + 1}/{duration} ---")
@@ -308,11 +314,13 @@ def demo_loop(duration=2):
 
             for factor in factors:
                 # Check for Enter key press
-                if select.select([sys.stdin], [], [], 0)[0]:
-                    sys.stdin.readline()
-                    print("\nDemo stopped by user")
-                    clear_leds()
-                    return
+                if watch_stdin and select.select([sys.stdin], [], [], 0)[0]:
+                    if sys.stdin.readline() == "":
+                        watch_stdin = False  # terminal closed: keep running
+                    else:
+                        print("\nDemo stopped by user")
+                        clear_leds()
+                        return
 
                 print(f"Entanglement block size: {factor}")
                 if run_circuit(factor):
