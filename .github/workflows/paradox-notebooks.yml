@@ -2,9 +2,10 @@ name: Quantum Paradoxes notebooks
 
 # Runs the patched Quantum Paradoxes notebooks and compares every circuit's exact
 # outcome probabilities with the values recorded from Maria Violaris' originals
-# (tests/paradoxes, #181). Here: when the patch rules or the test change.
-# The weekly run against the latest Qiskit lives on main (it checks out
-# development), because scheduled workflows only run from the default branch.
+# (tests/paradoxes, #181): when the patch rules or the test change, and weekly
+# against the latest Qiskit. Identical copies live on development and main:
+# scheduled workflows only run from the default branch, so the main copy's
+# weekly run checks out development. Edit both together.
 
 on:
   push:
@@ -14,6 +15,8 @@ on:
       - 'RQB2-config/demo-manifests/rq_demo_quantum-paradoxes.json'
       - 'tests/paradoxes/**'
       - '.github/workflows/paradox-notebooks.yml'
+  schedule:
+    - cron: '17 4 * * 1'   # Mondays 04:17 UTC
   workflow_dispatch:
 
 jobs:
@@ -22,6 +25,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'development' || '' }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'   # the image's Python
