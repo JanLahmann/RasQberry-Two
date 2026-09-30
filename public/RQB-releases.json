@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T20:34:30Z",
+  "generated": "2026-09-30T21:16:52Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,27 +8,26 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-09-30-142314",
-      "name": "rasqberry-beta-2026-09-30",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-142314/rasqberry-beta-2026-09-30.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-142314",
+      "tag": "beta-2026-09-30-221656",
+      "name": "rasqberry-beta-2026-09-30-221656",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-221656/rasqberry-beta-2026-09-30.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-221656",
       "release_date": "2026-09-30",
-      "image_download_size": 1663612092,
+      "image_download_size": 1667418152,
       "extract_size": 9034530816,
-      "extract_sha256": "7de6911d4ea8bd5db765de94eb4d79e285e697cfd12a12051f64929211271f4f",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-142314/rasqberry-beta-2026-09-30-ab.img.xz",
-      "ab_extract_sha256": "eae653876e98c12c13b1ab9200ac7db0195983f2cb03f8fc8d17df6f3ddeb4fe",
-      "ab_image_sha256": "dcdf03db49a7270b0423b2a19470effe33f5814b2dc87d11cf8701b61caf0a5c",
+      "extract_sha256": "6139cf1f840e264d2aada44a5eab919b1edf8214404d68e76521bef2ecf700c1",
+      "image_sha256": "ef8bc498addc9bc24ff9b797e7e02711f94a8dc1bb8680f1cbc2254cfda57c08",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-221656/rasqberry-beta-2026-09-30-ab.img.xz",
+      "ab_extract_sha256": "3e1d9c2e7e719b2e8b675ff167bc9f82fdceaa182f9b7dbf92d5710032a6dbce",
+      "ab_image_sha256": "b7bb26a978e9e05e3274faec2ff17f90106d20429d28ccbf5b4529ef3078f56c",
+      "ab_image_download_size": 1671527604,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1672393380,
       "highlights": [
-        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
-        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
-        "Virtual LED Display - Demo mode without physical hardware",
-        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
-        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
-        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
-        "XZ Compression - Smaller images (~30% reduction)"
+        "text and logo display ran without root and without the LED modules",
+        "Bump version to beta-2026-09-30-221656",
+        "Merge development into beta: beta round 3",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-30-214101",
+        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-09-30-142314"
       ]
     },
     "dev": {
