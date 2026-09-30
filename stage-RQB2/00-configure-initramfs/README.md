@@ -22,13 +22,11 @@ in the pi-gen config.
 ## Notes
 
 - If `/tmp/stage-config` is missing, `SKIP_INITRAMFS` defaults to `0`.
-- `pi-gen-config` sets `SKIP_INITRAMFS=1`. For main and beta the workflow
-  replaces it with `SKIP_INITRAMFS_PROD` from `pi-gen-config`; that variable is
-  not defined there, so the value becomes empty and this stage treats it as `0`.
+- `pi-gen-config` sets `SKIP_INITRAMFS=1` for every stream (dev, beta, main).
 - The GitHub workflow also injects a `stage0/00-disable-initramfs` hook into
   pi-gen that diverts both tools from the start of the build. With
   `SKIP_INITRAMFS=0` this stage removes those diversions, so later calls
   (e.g. `update-initramfs -u` in [07-splash-screen](../07-splash-screen/README.md))
   generate a real initramfs.
-- [export-image/04-restore-initramfs](../export-image/README.md) was meant to
-  restore the tools at the end; see the note there.
+- No stream builds an initramfs any more (`SKIP_INITRAMFS=1` everywhere); the
+  unused `export-image/04-restore-initramfs` was removed (#301).

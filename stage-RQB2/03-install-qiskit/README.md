@@ -28,7 +28,6 @@ using a wheel cache kept on the build host between builds.
 
 ## Notes
 
-- The venv's `site-packages` path is hard-coded as `lib/python3.11`.
 - The workflow fills and saves `wheel-cache-host/` around the build; without it
   all wheels are downloaded or built.
 - Because `02-run.sh` removes `/tmp/wheels`, later stages (e.g.

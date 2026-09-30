@@ -37,7 +37,7 @@ mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 
 # Symlink GTK/Cairo bindings into venv (can't be pip-installed, need system versions)
-VENV_SITE="/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/lib/python3.11/site-packages"
+VENV_SITE=$("/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/python3" -c "import site; print(site.getsitepackages()[0])")
 echo "Symlinking GTK bindings into venv..."
 ln -sf /usr/lib/python3/dist-packages/gi "$VENV_SITE/"
 ln -sf /usr/lib/python3/dist-packages/cairo "$VENV_SITE/"
@@ -73,8 +73,8 @@ cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
 
 # Add setup script to bashrc
 export LINE=". /usr/config/setup_qiskit_env.sh"
-echo "$LINE" >> /etc/skel/.bashrc
-echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
+grep -qxF "$LINE" /etc/skel/.bashrc || echo "$LINE" >> /etc/skel/.bashrc
+grep -qxF "$LINE" /home/${FIRST_USER_NAME}/.bashrc || echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
 
 # Fix ownership of venv and bashrc created/modified as root
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/$REPO

@@ -52,19 +52,7 @@ fi
 # Install desktop files to system applications menu
 mkdir -p /usr/share/applications
 
-# Install launcher scripts to /usr/bin
-mkdir -p /usr/bin
-if [ -d "${CLONE_DIR}/RQB2-bin" ]; then
-    for launcher_script in "${CLONE_DIR}/RQB2-bin"/*.sh; do
-        if [ -f "$launcher_script" ] && [[ "$(basename "$launcher_script")" =~ ^rq_.*\.sh$ ]]; then
-            cp "$launcher_script" /usr/bin/
-            chmod 755 "/usr/bin/$(basename "$launcher_script")"
-            echo "Installed launcher: $(basename "$launcher_script")"
-        fi
-    done
-else
-    echo "WARNING: RQB2-bin directory not found"
-fi
+# (Launcher scripts in RQB2-bin are installed to /usr/bin by 01-deploy-files.)
 
 # Install custom category definition
 mkdir -p /usr/share/desktop-directories

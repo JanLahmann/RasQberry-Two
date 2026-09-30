@@ -1,37 +1,25 @@
 # 08-ab-boot-support
 
-Checks that the A/B boot tools are in the image. The A/B partition layout itself
-is not built here: the workflow runs this stage's `files/convert-to-ab-boot-v3.sh`
-on the finished standard image.
+Checks that the image carries what an A/B image needs at runtime. The A/B
+partition layout itself is created after the build by
+[`files/convert-to-ab-boot-v3.sh`](files/convert-to-ab-boot-v3.sh), which the image
+workflow runs on the finished standard image (see [docs/ab-boot.md](../../docs/ab-boot.md)).
 
-## What it does
+## What it does (`00-run-chroot.sh`, chroot)
 
-- `00-run.sh` (host): copies the pi-gen `config` to `${ROOTFS_DIR}/tmp/stage-config`.
-- `00-run-chroot.sh` (chroot):
-  - sources `/tmp/stage-config` (falls back to JanLahmann/RasQberry-Two, `main`)
-    and shallow-clones the repository to `/tmp/${RQB_REPO}` unless it exists;
-  - fails if the clone has no `RQB2-bin/rq_health_check.py`;
-  - warns for each of `rq_health_check.py`, `rq_slot_manager.sh`,
-    `rq_common.sh`, `rq_update_poller.py`, `rq_update_slot.sh`,
-    `rq_tryboot_retry.sh` missing from `/usr/bin`.
+- Fails the build unless `rq_health_check.py`, `rq_slot_manager.sh`,
+  `rq_common.sh`, `rq_update_slot.sh` and `rq_tryboot_retry.sh` are in `/usr/bin`
+  and `rasqberry-health-check.service` and `rasqberry-tryboot-retry.service` are
+  enabled.
 
 ## Files
 
-- `files/convert-to-ab-boot-v3.sh` - not used by the stage scripts. After the
-  build, the workflow runs it (for `full` and `ab-only` builds) with
-  `CONSOLE_TYPE` and `BOOT_VERBOSITY` to turn the standard image into a
-  7-partition A/B image: CONFIG (`autoboot.txt` with `tryboot_a_b=1`), BOOT-A,
-  BOOT-B, SYSTEM-A (10GB), SYSTEM-B and DATA (16MB placeholders). It writes
-  `skip-expansion` to the boot partitions, rebuilds `cmdline.txt` per slot
-  (keeping extra parameters) and disables initramfs. See
-  [docs/ab-boot.md](../../docs/ab-boot.md).
-- From `RQB2-system/`, installed and enabled by
-  [01-deploy-files](../01-deploy-files/README.md):
-  `rasqberry-health-check.service` and `rasqberry-tryboot-retry.service`.
+- The scripts come from `RQB2-bin/` and the units from `RQB2-system/`, both
+  installed (and the units enabled) by [01-deploy-files](../01-deploy-files/README.md).
+- `files/convert-to-ab-boot-v3.sh` - used by the workflow, not by this stage.
 
 ## Notes
 
-- The stage leaves `/tmp/stage-config` and the clone in place;
-  [10-boot-config](../10-boot-config/README.md) reuses the clone and
-  [98-clean-caches](../98-clean-caches/README.md) empties `/tmp`.
-- The scripts in `/usr/bin` come from `RQB2-bin/` via 01-deploy-files.
+- `rasqberry-update-poller.timer` ships disabled: it installs new dev releases
+  automatically and is a rig/dev tool. `rasqberry-update-check.timer` (enabled)
+  only reports a newer release.
