@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T10:01:50Z",
+  "generated": "2026-09-30T10:02:49Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,23 +32,25 @@
       ]
     },
     "dev": {
-      "tag": "dev-beta-prep-2026-09-30-114312",
-      "name": "rasqberry-dev-beta-prep-2026-09-30-114312",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-beta-prep-2026-09-30-114312/rasqberry-dev-beta-prep-2026-09-30-114312.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-beta-prep-2026-09-30-114312",
-      "release_date": "2026-09-30 11:43",
-      "image_download_size": 2023833204,
+      "tag": "development-2026-09-30-112935",
+      "name": "rasqberry-development-2026-09-30-112935",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-112935/rasqberry-development-2026-09-30-112935.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-112935",
+      "release_date": "2026-09-30 11:29",
+      "image_download_size": 2023105384,
       "extract_size": 9034530816,
-      "extract_sha256": "b64912bb6dbad77823d402f0206543c89b4daa5b78bea53bb6d16811bb1c0e60",
-      "image_sha256": "d1e180a1797676a4e2881973d5fd445642db36135cd238fed279577c2687ce6e",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-beta-prep-2026-09-30-114312/rasqberry-dev-beta-prep-2026-09-30-114312-ab.img.xz",
-      "ab_extract_sha256": "f2b87dd63aa536800f9d6244e8ebcd51a194ce13ae1cf0d154e57c1a2e01bcdd",
-      "ab_image_sha256": "6a88990e8562c72266c87d0fbfa1a5405f6c58dae9f4b0ea4d9904ec2e29de9b",
-      "ab_image_download_size": 2060916712,
+      "extract_sha256": "43f4632002edf5bccb2118a097b66cbcfffe47c0c3b6b9a42c018c7079cd5320",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-112935/rasqberry-development-2026-09-30-112935-ab.img.xz",
+      "ab_extract_sha256": "b3d758167b56c3cae2314ec59ec437cda3f180af812face346a5dae752d8f2e1",
+      "ab_image_sha256": "868ed4846ed31b705a986e1c99549f4e07e4c91307f1a51d9239195973af7c1a",
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2058170804,
       "highlights": [
-        "Bump version to dev-beta-prep-2026-09-30-114312",
-        "Keep the SSH identity across A/B slot updates (#275)"
+        "Bump version to development-2026-09-30-112935",
+        "Merge dev-beta-prep: first-login steps (#177), update notice (#139), build metadata (#233), SSH identity across slot updates (#275)",
+        "Keep the SSH identity across A/B slot updates (#275)",
+        "Bump version to dev-beta-prep-2026-09-30-111201",
+        "First-login setup, update notice, build metadata (#177, #139, #233)"
       ]
     }
   }
