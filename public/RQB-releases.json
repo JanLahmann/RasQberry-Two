@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T17:52:13Z",
+  "generated": "2026-09-30T17:52:45Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2024584844,
       "extract_size": 9034530816,
       "extract_sha256": "2fbd0c9f387e0753dfa6ebb998c602eab4707c02f7d4902182a0f14f22e808c5",
-      "image_sha256": "95d7c3340281733ce17a5bc64572329782085c326d46429abcd6a29d46dccdee",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-192333/rasqberry-development-2026-09-30-192333-ab.img.xz",
       "ab_extract_sha256": "533b8d827a780e40d222656bd6764755c3e109f8cbbf7171edf13718c6466353",
       "ab_image_sha256": "caa80e0705eeaf3acb7058b1b5a301655a66e0951311d5c3ea22491600cd60af",
-      "ab_image_download_size": 2060705020,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2060705020,
       "highlights": [
         "Bump version to development-2026-09-30-192333",
         "Merge dev-buildcleanup: build-stage cleanup (#301)",
