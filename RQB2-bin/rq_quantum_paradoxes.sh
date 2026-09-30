@@ -56,6 +56,13 @@ debug "JupyterLab port: $PORT"
 # Activate virtual environment
 activate_venv || warn "Virtual environment not available"
 
+# Re-patch the notebooks if the setup script changed since they were installed
+# (a fix in the patch rules then reaches existing installs, #181)
+SETUP_SCRIPT="$SCRIPT_DIR/setup_quantum_paradoxes.py"
+[ -f "$SETUP_SCRIPT" ] || SETUP_SCRIPT=/usr/bin/setup_quantum_paradoxes.py
+python3 "$SETUP_SCRIPT" --refresh --path "$DEMO_DIR" \
+    || warn "Could not update the notebooks - starting with the installed ones"
+
 # Verify jupyter-lab is available
 if ! command -v jupyter-lab >/dev/null 2>&1; then
     die "JupyterLab not found. Please ensure Qiskit is installed."
