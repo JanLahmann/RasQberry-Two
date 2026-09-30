@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T12:43:21Z",
+  "generated": "2026-09-30T12:43:53Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2024819152,
       "extract_size": 9034530816,
       "extract_sha256": "c71019a40bb67aa3187bc4c6d36706a999d21037c07dac514e4107fe591c187e",
-      "image_sha256": "24a40c1d4d761406426641c275cdcc4dc2053d633f5b67d3b41d156215379308",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-142217/rasqberry-development-2026-09-30-142217-ab.img.xz",
       "ab_extract_sha256": "4a900ea4aede35f61f8fdc28be77024cb12e1f17740da4bf31fcbf8a03f8e28b",
       "ab_image_sha256": "a6a2fe5b3f0e287e2d5ae74b42908e7c74eb9e331e6c3f0414f6f24ef96f4138",
-      "ab_image_download_size": 2060894064,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2060894064,
       "highlights": [
         "Bump version to development-2026-09-30-142217",
         "Build every stream without an initramfs",
