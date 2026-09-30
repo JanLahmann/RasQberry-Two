@@ -11,6 +11,7 @@ nowhere else (#212).
 | `consolidate-json.yaml` | main | schedule, dispatch | script in `.github/scripts/consolidate_json.py`; writes to gh-pages |
 | `family-dispatch-relay.yml` | main | repository_dispatch | relays Fun-with-Quantum updates to the site build |
 | `stl-analysis.yml` | main **and** 3D-model, identical | STL push/PR (3D-model copy), weekly schedule (main copy, audits 3D-model) | edit both together |
+| `paradox-notebooks.yml` | main **and** development, identical | push of the patch rules/test (development copy), weekly schedule (main copy, checks out development) | Quantum Paradoxes regression test (#181); edit both together |
 | `RQB-image-v2.yaml` | development, beta, dev-* | push dev*, dispatch | flows development → beta by merge |
 | `code-quality.yml` | development, beta, dev-* | push, PR | flows development → beta by merge |
 | `nextjs.yml` | gh-pages | push gh-pages, dispatch | website build and deploy |
