@@ -1409,14 +1409,14 @@ do_quantum_demo_menu() {
 # -----------------------------------------------------------------------------
 
 do_show_system_info() {
-  local version="Unknown"
-  if [ -f /etc/rasqberry-version ]; then
-    version=$(cat /etc/rasqberry-version)
+  local info
+  if [ -x /usr/bin/rq_info.sh ]; then
+    info=$(/usr/bin/rq_info.sh 2>/dev/null)
+  else
+    info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
   fi
-
   whiptail --title "RasQberry System Information" --msgbox \
-    "RasQberry Version: $version\n\nThis version identifier corresponds to the GitHub Actions workflow run that built this image." \
-    10 70
+    "$info\n\nFor bug reports: rq_info.sh --json" 18 78
 }
 
 # -----------------------------------------------------------------------------
@@ -1871,6 +1871,24 @@ do_update_from_branch() {
     fi
 }
 
+# Is a newer image published for this image's channel? (#139)
+do_check_for_update() {
+    local out rc=0 how
+    whiptail --title "Checking for updates" --infobox "Asking rasqberry.org for the latest release..." 8 60
+    out=$(/usr/bin/rq_update_check.sh --refresh 2>&1) || rc=$?
+    if [ "$rc" -eq 10 ]; then
+        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+            how="Install it into the other slot:\nSlot Manager -> Update Slot B with new image."
+        else
+            how="Download it from rasqberry.org/latest/ and write it to a card\n(the standard image has no second slot to update into)."
+        fi
+        whiptail --title "Update available" --msgbox "$out\n\n$how" 16 76
+    else
+        whiptail --title "Check for updates" --msgbox "$out" 12 76
+    fi
+    return 0
+}
+
 # Software & Full Image Updates Menu
 do_ab_boot_menu() {
     while true; do
@@ -1881,11 +1899,13 @@ do_ab_boot_menu() {
         fi
 
         FUN=$(show_menu "RasQberry: Software & Full Image Updates" "A/B Image: ${is_ab_image}" \
+            CHECK  "Check for a newer image" \
             EXPAND "Expand A/B Partitions (64GB+ SD)" \
             SLOTS  "Slot Manager (switch, confirm, promote)" \
             BRANCH "Update from GitHub Branch") || break
 
         case "$FUN" in
+            CHECK)  do_check_for_update     || continue ;;
             EXPAND) do_expand_ab_partitions || continue ;;
             SLOTS)  do_slot_manager_menu    || continue ;;
             BRANCH) do_update_from_branch   || continue ;;

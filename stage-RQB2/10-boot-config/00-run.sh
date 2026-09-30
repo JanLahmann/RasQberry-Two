@@ -20,6 +20,11 @@ install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-boot-config.service" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-boot-config.service"
 install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-demo-cache.service" \
   "${ROOTFS_DIR}/etc/systemd/system/rasqberry-demo-cache.service"
+# Daily check for a newer image (#139)
+install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-update-check.service" \
+  "${ROOTFS_DIR}/etc/systemd/system/rasqberry-update-check.service"
+install -v -m 644 "${STAGE_DIR}/files/systemd/rasqberry-update-check.timer" \
+  "${ROOTFS_DIR}/etc/systemd/system/rasqberry-update-check.timer"
 # LED renderer (Phase A2): shipped DISABLED because LED_RENDER_MODE defaults to
 # 'direct'. Enable it only when switching to service mode:
 #   sudo systemctl enable --now rasqberry-led-renderer.service

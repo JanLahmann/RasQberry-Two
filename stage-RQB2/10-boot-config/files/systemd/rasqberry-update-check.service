@@ -1,0 +1,10 @@
+[Unit]
+Description=RasQberry: check rasqberry.org for a newer image (#139)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Exit 10 means "update available", which is not a failure
+SuccessExitStatus=10 1
+ExecStart=/usr/bin/rq_update_check.sh --refresh
