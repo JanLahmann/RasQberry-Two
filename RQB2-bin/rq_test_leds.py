@@ -123,16 +123,29 @@ def main():
 
         print()
         print("=" * 70)
-        print("✓ ALL TESTS COMPLETED SUCCESSFULLY!")
+        # Only the person watching the panel can say whether this passed.
+        #
+        # This used to announce "ALL TESTS COMPLETED SUCCESSFULLY / All N LEDs
+        # responded", which nothing here measures: there is no readback from a
+        # NeoPixel chain, so "responded" only ever meant "we sent the data and
+        # got no exception". The LEDs can be dark - GPIO held elsewhere, no
+        # power, wrong pin - and every claim above still prints. Say what we
+        # did, and let the observed panel decide.
+        if sys.stdin.isatty():
+            print("All 6 patterns sent without errors.")
+        else:
+            print("All 6 patterns sent without errors (unattended run - nobody")
+            print("confirmed the panel actually lit).")
         print("=" * 70)
         print()
-        print("Verification checklist:")
-        print(f"  ✓ No errors or exceptions")
-        print(f"  ✓ All {NUM_PIXELS} LEDs responded")
-        print(f"  ✓ No buffer overflow or corruption")
-        print(f"  ✓ Single show() call works for all LEDs")
-        print(f"  ✓ Individual pixel control works")
-        print(f"  ✓ No chunking needed (old SPI limitation removed)")
+        print("What this does and does not tell you:")
+        print(f"  ✓ No errors sending {NUM_PIXELS} pixels to GPIO{GPIO_PIN}")
+        print(f"  ✓ Single show() call and individual pixel writes accepted")
+        print(f"  ? Whether the panel lit up - only you can see that")
+        print()
+        print("If the panel stayed dark, the data left the Pi but never became")
+        print("light: check power, wiring to GPIO{}, and that no other demo is".format(GPIO_PIN))
+        print("still running and holding the GPIO.")
         print()
         print(f"Platform: {PI_MODEL} using PWM/PIO driver on GPIO{GPIO_PIN}")
         print()

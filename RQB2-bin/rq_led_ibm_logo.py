@@ -32,11 +32,19 @@ def plotcalc(y, x, color, pixels, rainbow):
         pixels: NeoPixel strip object
         rainbow: If True, override color with rainbow gradient based on y
 
-    Note: Uses map_xy_to_pixel() which reads LED_MATRIX_LAYOUT from environment.
-          Y-flip is handled in rq_led_utils based on LED_MATRIX_Y_FLIP config.
+    Note: Uses map_xy_to_pixel(), which resolves the active layout from
+          LED_LAYOUT against the led-layouts.json registry. Any y-flip is a
+          per-layout property baked into that registry entry.
+
+    The IBM glyph in doibm() is authored bottom-origin (row 0 = bottom of the
+    letters). The canvas is now top-origin (single-24x8 y_flip=false), so the
+    glyph row must be flipped within its 8-row height to render upright. The
+    rainbow gradient stays keyed to the authored row, preserving the original
+    pink-top / purple-bottom sweep.
     """
-    # Get pixel index from layout-aware mapping function
-    i = map_xy_to_pixel(x, y)
+    _GLYPH_H = 8
+    # Get pixel index from layout-aware mapping function (flip glyph to top-origin)
+    i = map_xy_to_pixel(x, _GLYPH_H - 1 - y)
 
     if i is None:
         # Out of bounds, skip
@@ -181,8 +189,14 @@ def doibm(toggle):
 import sys
 import select
 
-print("Press Enter to stop...")
-print()
+# Only offer the interactive "Enter to stop" when stdin is a real terminal.
+# Under the raspi-config menu (run_demo bg) stdin is /dev/null, where select()
+# reports EOF as "readable" and would stop the demo instantly; there we loop
+# until the launcher sends SIGTERM (the whiptail "stop" dialog).
+_stdin_is_tty = sys.stdin.isatty()
+if _stdin_is_tty:
+    print("Press Enter to stop...")
+    print()
 
 try:
     while True:
@@ -193,8 +207,8 @@ try:
         chunked_show(pixels)
         time.sleep(DELAY)
 
-        # Check for Enter key press (non-blocking)
-        if select.select([sys.stdin], [], [], 0)[0]:
+        # Check for Enter key press (non-blocking) — only when interactive
+        if _stdin_is_tty and select.select([sys.stdin], [], [], 0)[0]:
             sys.stdin.readline()
             print("\nStopping demo...")
             break

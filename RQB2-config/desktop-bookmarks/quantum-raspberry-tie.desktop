@@ -5,10 +5,10 @@ Comment=Interactive quantum computing demonstration with LED visualization and m
 Icon=/usr/share/icons/rasqberry/sensehat-icon.png
 Type=Application
 Categories=RasQberry;
-Exec=bash -c 'export HOME=${HOME:-/home/rasqberry}; /usr/bin/rq_quantum_raspberry_tie_auto.sh'
+Exec=/usr/bin/rq_demo_run.sh quantum-raspberry-tie
 Terminal=true
 StartupNotify=true
 Keywords=quantum;raspberry;tie;music;LED;visualization;qiskit;
 X-GNOME-TextColor=#000000
-TryExec=bash
+TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

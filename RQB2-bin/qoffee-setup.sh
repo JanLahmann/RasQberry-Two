@@ -5,9 +5,9 @@ set -euo pipefail
 # qoffee-setup.sh - RasQberry Qoffee-Maker Setup
 #
 # Description:
-#   Sets up Qoffee-Maker demo (Docker + repository + configuration)
-#   Calls docker-setup.sh for Docker installation/permissions
+#   Sets up Qoffee-Maker demo (repository + configuration)
 #   Clones repository and creates configuration file
+#   Docker is installed and configured at image build time
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,13 +22,6 @@ load_rqb2_env
 verify_env_vars USER_HOME REPO BIN_DIR GIT_REPO_DEMO_QOFFEE
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
-
-################################################################################
-# Docker setup (install, permissions, networking)
-################################################################################
-
-# Run generic Docker setup
-"${SCRIPT_DIR}/docker-setup.sh" || exit 1
 
 ################################################################################
 # Clone Qoffee-Maker repository
@@ -106,9 +99,14 @@ ENVEOF
     echo "Edit: $ENV_FILE"
     echo
 
-    if show_yesno "Edit Configuration?" \
-        "Configuration file created at:\n$ENV_FILE\n\nYou need to add your API credentials:\n• Home Connect Client ID & Secret\n• IBM Quantum API Key\n\nWould you like to edit it now?"; then
-        ${EDITOR:-nano} "$ENV_FILE"
+    # Skip interactive dialog in auto-install mode
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        if show_yesno "Edit Configuration?" \
+            "Configuration file created at:\n$ENV_FILE\n\nYou need to add your API credentials:\n• Home Connect Client ID & Secret\n• IBM Quantum API Key\n\nWould you like to edit it now?"; then
+            ${EDITOR:-nano} "$ENV_FILE"
+        fi
+    else
+        info "Skipping credentials setup (auto-install mode)"
     fi
 else
     info "Configuration file exists: $ENV_FILE"

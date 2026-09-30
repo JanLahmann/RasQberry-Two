@@ -9,7 +9,7 @@ Key features:
 - Load PNG/JPG images and display on LED matrix
 - Automatic resizing to fit matrix dimensions
 - Fade-in/fade-out effects
-- Support for both single and quad panel layouts
+- Works with any layout defined in the led-layouts.json registry
 """
 
 import os
@@ -116,7 +116,9 @@ def display_static_image(pixels, image_array, duration=10, brightness=1.0, layou
         image_array: 2D array of (r, g, b) tuples from load_image_as_led_array()
         duration (float): How long to display (seconds)
         brightness (float): Brightness multiplier 0.0-1.0
-        layout (str, optional): 'single' or 'quad'. If None, uses config.
+        layout (str or dict, optional): Layout name (registry entry such as
+            'single-24x8', or a legacy 'single'/'quad' alias). If None, uses
+            the configured layout.
 
     Example:
         led_array = load_image_as_led_array("logo.png")
@@ -169,7 +171,9 @@ def display_image_with_fade(pixels, image_array, duration=10, fade_in=True, fade
         fade_in (bool): If True, fade in from black
         fade_out (bool): If True, fade out to black
         fade_steps (int): Number of steps in fade animation
-        layout (str, optional): 'single' or 'quad'. If None, uses config.
+        layout (str or dict, optional): Layout name (registry entry such as
+            'single-24x8', or a legacy 'single'/'quad' alias). If None, uses
+            the configured layout.
 
     Example:
         led_array = load_image_as_led_array("logo.png")
@@ -299,8 +303,15 @@ if __name__ == "__main__":
     # Test configuration loading
     print("\n1. Testing configuration loading...")
     config = get_led_config()
-    print(f"   Matrix: {config['matrix_width']}x{config['matrix_height']}")
-    print(f"   Layout: {config['layout']}")
+    # Prefer the layout-derived geometry so this reflects e.g. 8x32; fall back
+    # to the (deprecated) matrix_width/height config keys if the layout is
+    # unavailable.
+    from rq_led_utils import get_layout
+    _layout = get_layout(config['led_layout'])
+    matrix_w = _layout['width'] if _layout else config['matrix_width']
+    matrix_h = _layout['height'] if _layout else config['matrix_height']
+    print(f"   Matrix: {matrix_w}x{matrix_h}")
+    print(f"   Layout: {config['led_layout']}")
 
     # Test image loading (if test image exists)
     print("\n2. Testing image loading...")
@@ -308,7 +319,7 @@ if __name__ == "__main__":
     if os.path.exists(test_image_path):
         print(f"   Loading: {test_image_path}")
         try:
-            led_array = load_image_as_led_array(test_image_path, 24, 8)
+            led_array = load_image_as_led_array(test_image_path, matrix_w, matrix_h)
             print(f"   Success! Array size: {len(led_array)}x{len(led_array[0])}")
             print(f"   Sample pixel [0][0]: {led_array[0][0]}")
         except Exception as e:

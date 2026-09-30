@@ -98,7 +98,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -111,7 +111,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -200,6 +200,10 @@ y=340
 trusted=true
 [quantum-paradoxes.desktop]
 x=230
+y=340
+trusted=true
+[doqumentation.desktop]
+x=340
 y=340
 trusted=true
 [fun-with-quantum.desktop]
@@ -508,7 +512,29 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,
-  "WelcomePagesEnabled": false
+  "WelcomePagesEnabled": false,
+  "BookmarkBarEnabled": true,
+  "ManagedBookmarks": [
+    { "toplevel_name": "Quantum Links" },
+    {
+      "name": "Fun with Quantum family",
+      "children": [
+        { "name": "Fun with Quantum", "url": "https://fun-with-quantum.org" },
+        { "name": "RasQberry One", "url": "https://rasqberry.one" },
+        { "name": "Quantego", "url": "https://quantego.org" },
+        { "name": "Qutie", "url": "https://qutie.org" },
+        { "name": "doQumentation", "url": "https://doqumentation.org" },
+        { "name": "QuBins", "url": "https://qubins.org" },
+        { "name": "QAMPoser games", "url": "https://qamposer.org" }
+      ]
+    },
+    {
+      "name": "IBM Quantum",
+      "children": [
+        { "name": "IBM Quantum Learning", "url": "https://quantum.cloud.ibm.com/learning" }
+      ]
+    }
+  ]
 }
 EOF
 chmod 644 /etc/chromium/policies/managed/rasqberry.json

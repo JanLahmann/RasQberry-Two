@@ -381,7 +381,7 @@ def generate_tutorials_welcome_structured(base_path: Path, sections: List[Dict],
     # Build markdown content
     header = ATTRIBUTION_HEADER.format(title="IBM Quantum Tutorials")
 
-    intro = f"""These tutorials are from the official [IBM Quantum Learning](https://learning.quantum.ibm.com/) platform.
+    intro = f"""These tutorials are from the official [IBM Quantum Learning](https://quantum.cloud.ibm.com/learning) platform.
 
 **{total_tutorials} tutorials available** organized by topic.
 
@@ -459,7 +459,7 @@ def generate_tutorials_welcome_flat(base_path: Path) -> bool:
     # Build markdown content
     header = ATTRIBUTION_HEADER.format(title="IBM Quantum Tutorials")
 
-    intro = f"""These tutorials are from the official [IBM Quantum Learning](https://learning.quantum.ibm.com/) platform.
+    intro = f"""These tutorials are from the official [IBM Quantum Learning](https://quantum.cloud.ibm.com/learning) platform.
 
 **{len(tutorials)} tutorials available** covering quantum algorithms, optimization, error mitigation, and more.
 
@@ -721,7 +721,7 @@ def _generate_course_content(base_path: Path, course_dir: Path) -> Tuple[str, in
     notebook_count = 0
 
     # URL to online course
-    online_url = f"https://learning.quantum.ibm.com/course/{course_slug}"
+    online_url = f"https://quantum.cloud.ibm.com/learning/en/courses/{course_slug}"
 
     if toc_sections:
         # Use _toc.json ordering
@@ -892,7 +892,7 @@ def generate_courses_welcome(base_path: Path) -> bool:
                 total_courses += 1
                 total_notebooks += notebook_count
 
-    intro = f"""These courses are from the official [IBM Quantum Learning](https://learning.quantum.ibm.com/) platform.
+    intro = f"""These courses are from the official [IBM Quantum Learning](https://quantum.cloud.ibm.com/learning) platform.
 
 **{total_courses} courses available** with **{total_notebooks} notebooks** covering quantum information, algorithms, machine learning, and more.
 

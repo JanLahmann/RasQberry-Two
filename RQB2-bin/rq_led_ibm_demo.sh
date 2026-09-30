@@ -19,18 +19,24 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars USER_HOME REPO BIN_DIR STD_VENV
 
-# Check multiple possible locations for the script
+# Check multiple possible locations for the script. Uses the colourful rainbow
+# rq_led_ibm_logo.py (procedural I=green/B=red/M=blue + per-row rainbow), now
+# glyph-flipped to render upright on the top-origin xy canvas. (The PIL-based
+# demo_led_ibm_logo.py renders a flat blue block-letter PNG and is kept as a
+# fallback only.)
 LED_SCRIPT=""
-for location in "$BIN_DIR/neopixel_spi_IBMtestFunc.py" \
-                "/usr/bin/neopixel_spi_IBMtestFunc.py" \
-                "$USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"; do
+for location in "$BIN_DIR/rq_led_ibm_logo.py" \
+                "/usr/bin/rq_led_ibm_logo.py" \
+                "$USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py" \
+                "$BIN_DIR/demo_led_ibm_logo.py" \
+                "/usr/bin/demo_led_ibm_logo.py"; do
     if [ -f "$location" ]; then
         LED_SCRIPT="$location"
         break
     fi
 done
 
-[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/neopixel_spi_IBMtestFunc.py\n  - /usr/bin/neopixel_spi_IBMtestFunc.py\n  - $USER_HOME/$REPO/RQB2-bin/neopixel_spi_IBMtestFunc.py"
+[ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/rq_led_ibm_logo.py\n  - /usr/bin/rq_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"
 
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"

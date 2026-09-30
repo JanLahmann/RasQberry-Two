@@ -246,6 +246,6 @@ die "Error message"
 
 - **Common Library**: [RQB2-bin/rq_common.sh](../RQB2-bin/rq_common.sh)
 - **Environment Config**: [RQB2-config/rasqberry_env-config.sh](../RQB2-config/rasqberry_env-config.sh)
-- **Environment Loader**: [RQB2-config/env-config.sh](../RQB2-config/env-config.sh)
+- **Environment Loader**: [RQB2-config/rasqberry_env-config.sh](../RQB2-config/rasqberry_env-config.sh)
 - **Script Template**: [RQB2-bin/_TEMPLATE.sh](../RQB2-bin/_TEMPLATE.sh)
 - **CI Workflow**: [.github/workflows/code-quality.yml](../.github/workflows/code-quality.yml)

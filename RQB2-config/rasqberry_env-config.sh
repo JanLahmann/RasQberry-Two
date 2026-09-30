@@ -4,8 +4,15 @@
 # Determine non-root user home directory
 if [ -n "${SUDO_USER-}" ] && [ "${SUDO_USER}" != "root" ]; then
   USER_HOME="$(eval echo ~${SUDO_USER})"
-else
+elif [ -n "${HOME-}" ]; then
   USER_HOME="${HOME}"
+else
+  # No HOME at all: systemd units and cron jobs run this way. Fall back to the
+  # primary desktop user (uid 1000) so per-user config such as the external
+  # demo manifests still resolves, then to /root. Without this, callers that
+  # run under `set -u` (rasqberry-demo-cache.service) died on "HOME: unbound".
+  USER_HOME="$(getent passwd 1000 2>/dev/null | cut -d: -f6)"
+  [ -n "${USER_HOME}" ] || USER_HOME="/root"
 fi
 
 # Path to global system-wide environment file

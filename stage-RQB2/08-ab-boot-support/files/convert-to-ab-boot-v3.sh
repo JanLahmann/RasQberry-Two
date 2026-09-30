@@ -191,6 +191,29 @@ echo ""
 echo "Step 6: Copying boot files to boot-a..."
 rsync -aAX "${MOUNT_DIR}/input-boot/" "${MOUNT_DIR}/boot-a/"
 
+# Tell the standard firstboot expansion task to stand down.
+#
+# The standard image expands its root to fill the card on first boot
+# (/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh, generated in
+# stage-RQB2/00-firstboot-setup). That is wrong for an A/B card: the split is
+# the user's decision, made via raspi-config (see issue #142), and root is not
+# even the last partition here - system-b and data sit after it.
+#
+# The task already looks for this marker ("typically used for A/B boot setup"),
+# but nothing was writing it, so it ran on every A/B image and marked itself
+# .done having expanded nothing - leaving a "completed" marker on a card that is
+# still 10GB with a 16MB Slot B, which reads as "already expanded" to anyone
+# checking. Write it before boot-b is copied from boot-a, so both slots get it.
+echo "  Marking A/B image: firstboot root expansion disabled (manual via raspi-config)"
+cat > "${MOUNT_DIR}/boot-a/skip-expansion" << 'MARKER'
+This is an A/B boot image.
+
+The root filesystem is deliberately NOT expanded on first boot: Slot A, Slot B
+and data are sized by the user via
+    sudo raspi-config -> RasQberry -> AB_BOOT -> EXPAND
+which needs a 64GB or larger card. See docs/ab-boot.md.
+MARKER
+
 echo "Step 7: Copying boot files to boot-b..."
 rsync -aAX "${MOUNT_DIR}/boot-a/" "${MOUNT_DIR}/boot-b/"
 echo ""
@@ -200,18 +223,28 @@ echo ""
 # ============================================================================
 echo "Step 8: Creating config partition contents..."
 
-# Create autoboot.txt
+# Create autoboot.txt with tryboot A/B boot support
+# - tryboot_a_b=1: Enables partition-level A/B boot switching
+# - boot_partition_fallback: Firmware-level fallback on boot failure (Pi 5 firmware 2025-03+)
+# - [tryboot] section: Used when tryboot flag is set for testing new slot
 cat > "${MOUNT_DIR}/config/autoboot.txt" << 'EOF'
 [all]
 tryboot_a_b=1
 boot_partition=2
+boot_partition_fallback=3
 
 [tryboot]
 boot_partition=3
+boot_partition_fallback=2
 EOF
 
-# Create empty config.txt (required by Pi 5 firmware)
-touch "${MOUNT_DIR}/config/config.txt"
+# Create minimal config.txt (Pi 5 bootloader requires non-empty config.txt
+# to recognize partition as bootable and process autoboot.txt)
+cat > "${MOUNT_DIR}/config/config.txt" << 'EOF'
+# RasQberry CONFIG partition
+# This file enables the Pi 5 bootloader to recognize this partition
+# and process autoboot.txt for A/B boot partition switching.
+EOF
 
 # Copy bootcode.bin for older Pi models
 if [ -f "${MOUNT_DIR}/boot-a/bootcode.bin" ]; then
@@ -429,7 +462,7 @@ echo "  p6: SYSTEM-B    (${SYSTEM_B_SIZE_MB}MB) - rootfs Slot B (placeholder)"
 echo "  p7: DATA        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
 echo ""
 echo "Next steps:"
-echo "  1. Compress: xz -9 -T0 $OUTPUT_IMG"
+echo "  1. Compress: xz -9 -T0 --block-size=128MiB $OUTPUT_IMG"
 echo "  2. Flash to SD card (64GB+ recommended)"
 echo "  3. Boot and use raspi-config to expand partitions"
 echo "     (Expansion available on 64GB+ SD cards)"

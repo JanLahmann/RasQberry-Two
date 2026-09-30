@@ -14,6 +14,7 @@ import glob
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rq_led_logo import display_logo
+from rq_led_utils import get_logo_dir
 
 
 def main():
@@ -21,12 +22,8 @@ def main():
     print("RasQberry LED Logo Slideshow Demo")
     print("=" * 50)
 
-    # Get repository name from environment or use default
-    repo_name = os.environ.get('REPO', 'RasQberry-Two')
-
-    # Get logo directory
-    config_dir = os.path.expanduser(f"~/{repo_name}/RQB2-config")
-    logo_dir = os.path.join(config_dir, "LED-Logos")
+    # Get logo directory (prefers the user copy, falls back to /usr/config)
+    logo_dir = get_logo_dir()
 
     # Find all 24x8 PNG files in logo directory
     pattern = os.path.join(logo_dir, "*-24x8.png")
@@ -34,7 +31,7 @@ def main():
 
     if not logos:
         print(f"ERROR: No logos found in {logo_dir}")
-        print(f"Please run: python3 ~/{repo_name}/RQB2-config/LED-Logos/create_logos.py")
+        print(f"Please run: python3 {os.path.join(logo_dir, 'create_logos.py')}")
         sys.exit(1)
 
     print(f"Logo directory: {logo_dir}")

@@ -23,33 +23,28 @@ verify_env_vars USER_HOME BIN_DIR
 
 DOCKER_IMAGE="${QUANTUM_MIXER_DOCKER_IMAGE:-quantum-mixer:arm64}"
 CONTAINER_NAME="quantum-mixer"
-PORT="${QUANTUM_MIXER_PORT:-8080}"
-REPO_DIR="${USER_HOME}/quantum-mixer"
+PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
+# Same directory the menu's installer (do_quantum_mixer_install) builds in.
+#
+# This used to be ${USER_HOME}/quantum-mixer - outside demos/, unlike every
+# other demo (issue #246), and NOT where the installer put its checkout. So the
+# two disagreed: QUANTUM_MIXER_INSTALLED could be true against a tree this
+# script never looked at, and it would clone and build a second copy. Same
+# two-installers-two-directories bug that made the led-painter pin inert.
+REPO_DIR="$(get_demo_dir quantum-mixer)"
 REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
-
-################################################################################
-# run_docker_setup - Run docker-setup for Docker prerequisites
-################################################################################
-run_docker_setup() {
-    local reason="$1"
-    info "$reason"
-    echo "Running Docker setup..."
-    "$BIN_DIR/docker-setup.sh" || exit 1
-    # Re-exec this script after Docker setup completes
-    exec "$0" "$@"
-}
 
 ################################################################################
 # Prerequisites checks
 ################################################################################
 
-# Check if Docker is installed
-command -v docker &> /dev/null || run_docker_setup "Error: Docker is not installed."
+# Check if Docker is installed (guaranteed at image build time)
+command -v docker &> /dev/null || die "Docker is not installed (the image may be misbuilt)."
 
-# Check if user is in docker group
+# Check if user is in docker group (added at image build time)
 USER_NAME=$(get_user_name)
 if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    run_docker_setup "Error: User '$USER_NAME' is not in the docker group."
+    die "User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
 fi
 
 # Check if docker group is active in current session

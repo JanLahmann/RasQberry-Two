@@ -15,13 +15,12 @@ set -euo pipefail
 # Configuration paths
 STATE_FILE="/var/lib/rasqberry/touch-mode.conf"
 GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
-ENV_FILE="/etc/rasqberry/rasqberry_environment.env"
 
-# Source environment file for configurable touch mode settings
-if [ -f "$ENV_FILE" ]; then
-    # shellcheck source=/dev/null
-    source "$ENV_FILE"
-fi
+# Load environment (TOUCH_* settings and USER_HOME) via the common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+load_rqb2_env
+verify_env_vars USER_HOME
 
 # Touch mode settings (from env file or defaults)
 TOUCH_PANEL_HEIGHT="${TOUCH_PANEL_HEIGHT:-64}"
@@ -38,16 +37,7 @@ DEFAULT_TERMINAL_FONT_SIZE=10
 DEFAULT_DOUBLE_CLICK_MS=400
 DEFAULT_GRID_SPACING=110
 
-# User-specific paths (resolved at runtime)
-get_user_home() {
-    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-        getent passwd "$SUDO_USER" | cut -d: -f6
-    else
-        echo "$HOME"
-    fi
-}
-
-USER_HOME=$(get_user_home)
+# User-specific paths (USER_HOME comes from the environment config)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
 CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
 PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
@@ -444,7 +434,7 @@ show_usage() {
     echo "  - Chromium touch event handling"
     echo "  - Double-click timing"
     echo ""
-    echo "Settings are configurable via /etc/rasqberry/rasqberry_environment.env:"
+    echo "Settings are configurable via /usr/config/rasqberry_environment.env:"
     echo "  TOUCH_PANEL_HEIGHT, TOUCH_PANEL_ICON_SIZE, TOUCH_DESKTOP_ICON_SIZE,"
     echo "  TOUCH_DESKTOP_GRID_SPACING, TOUCH_TERMINAL_FONT_SIZE, TOUCH_DOUBLE_CLICK_MS"
 }

@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=doQumentation
+Comment=RasQberry Workshop Server - doQumentation (Docker/Jupyter documentation)
+Icon=/usr/share/icons/rasqberry/doqumentation-logo.svg
+Type=Application
+Categories=RasQberry;
+Exec=/bin/bash -c "/usr/bin/rq_doqumentation.sh 2>&1 | tee /tmp/doqumentation.log; echo; echo 'Log saved to /tmp/doqumentation.log'; echo 'Press Enter to close...'; read"
+Terminal=true
+StartupNotify=true
+Keywords=quantum;documentation;workshop;docker;jupyter;doqumentation;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_doqumentation.sh
+NoDisplay=false

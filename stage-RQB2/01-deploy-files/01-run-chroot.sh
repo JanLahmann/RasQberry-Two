@@ -76,6 +76,44 @@ chmod -R 755 ${CLONE_DIR}/RQB2-config
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config
 
+# One-time LED-layout verify triggers: the wizard is offered from the LED menu
+# and at the first INTERACTIVE login - via /etc/profile.d for login shells (ssh,
+# console login) and via .bashrc for desktop terminals (which are non-login
+# interactive shells and skip /etc/profile.d). It is deliberately NOT auto-started
+# at desktop boot: the old /etc/xdg/autostart entry raced rasqberry-ip-display for
+# the LED GPIO at boot and left a whiptail dialog stuck on an unattended console
+# (task #35). All triggers route to /usr/bin/rq_led_verify_prompt.sh (deployed via
+# RQB2-bin above), which self-disables once LED_LAYOUT_VERIFIED=true.
+install -D -m 644 ${CLONE_DIR}/RQB2-config/rasqberry-firstlogin.profile.sh \
+    /etc/profile.d/rasqberry-firstlogin.sh
+rm -f /usr/config/rasqberry-firstlogin.profile.sh
+# Superseded by the checklist above (which offers the LED check as one of its
+# steps). Remove the LED-only hook so an upgraded image does not run both.
+rm -f /etc/profile.d/rasqberry-led-verify.sh /usr/config/rasqberry-led-verify.profile.sh
+
+# Desktop terminals are non-login interactive shells, so /etc/profile.d does not
+# fire for them. Source the (self-guarded) hook from .bashrc too, so the first
+# terminal a desktop user opens also offers any pending setup.
+FIRSTLOGIN_BASHRC_HOOK='[ -r /etc/profile.d/rasqberry-firstlogin.sh ] && . /etc/profile.d/rasqberry-firstlogin.sh'
+if ! grep -qF "$FIRSTLOGIN_BASHRC_HOOK" /etc/skel/.bashrc 2>/dev/null; then
+    printf '\n# RasQberry: offer pending setup steps on the first interactive terminal\n%s\n' "$FIRSTLOGIN_BASHRC_HOOK" >> /etc/skel/.bashrc
+fi
+if [ -f /home/${FIRST_USER_NAME}/.bashrc ] && ! grep -qF "$FIRSTLOGIN_BASHRC_HOOK" /home/${FIRST_USER_NAME}/.bashrc; then
+    printf '\n# RasQberry: offer pending setup steps on the first interactive terminal\n%s\n' "$FIRSTLOGIN_BASHRC_HOOK" >> /home/${FIRST_USER_NAME}/.bashrc
+    chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.bashrc
+fi
+# Drop the superseded LED-only .bashrc line if an earlier image left one. Its
+# own [ -r ] guard makes it harmless once the file is gone, but two hooks in a
+# .bashrc invite two prompts the day someone restores the old file.
+sed -i '/rasqberry-led-verify\.sh/d; /one-time LED-layout verify on first interactive terminal/d' \
+    /etc/skel/.bashrc /home/${FIRST_USER_NAME}/.bashrc 2>/dev/null || true
+
+# compat symlinks, remove after one release: the neopixel_spi_* scripts were
+# renamed to rq_led_* (the SPI backend is gone). Our own wrappers/manifests use
+# the new names; these symlinks cover stragglers (shell history, third-party notes).
+ln -sf rq_led_ibm_logo.py /usr/bin/neopixel_spi_IBMtestFunc.py
+ln -sf rq_led_simpletest.py /usr/bin/neopixel_spi_simpletest.py
+
 # Copy VERSION file to system directory for identification
 if [ -f ${CLONE_DIR}/VERSION ]; then
   cp ${CLONE_DIR}/VERSION /etc/rasqberry-version
@@ -89,9 +127,33 @@ chmod 755 /usr/venv     # World-readable/executable so users can copy venv templ
 
 # Set permissions on system-wide files
 chmod 644 /usr/config/rasqberry_environment.env   # World-readable configuration
+
+# Record where this image was built from, so "Update from GitHub Branch"
+# can offer it as the default (#289)
+ENV_FILE=/usr/config/rasqberry_environment.env
+set_env_default() {
+    if grep -q "^$1=" "$ENV_FILE"; then
+        sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"
+    else
+        echo "$1=$2" >> "$ENV_FILE"
+    fi
+}
+set_env_default RQB_BUILD_REPO "$(echo "$GIT_REPO" | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
+set_env_default RQB_BUILD_BRANCH "$GIT_BRANCH"
+set_env_default RQB_BUILD_COMMIT "$(git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true)"
+grep '^RQB_BUILD_' "$ENV_FILE"
 chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment loader
 chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
 chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
+
+# Generate demo menu cache from manifests (if jq available)
+if command -v jq > /dev/null 2>&1; then
+    echo "Generating demo menu cache from manifests..."
+    /usr/bin/rq_demo_generate_menu.sh --cache /usr/config/demo-menu-cache.sh || true
+    [ -f /usr/config/demo-menu-cache.sh ] && chmod 644 /usr/config/demo-menu-cache.sh
+else
+    echo "Note: jq not available, skipping demo menu cache generation (will be done at first boot)"
+fi
 
 # Fix ownership of all user directories created as root
 # This ensures demos can be installed later without permission issues

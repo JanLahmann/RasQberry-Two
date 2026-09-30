@@ -184,7 +184,7 @@ index 90f9fe8..2d214de 100644
  
  if __name__ == "__main__":
 diff --git a/turn_off_LEDs.py b/turn_off_LEDs.py
-index 70bb763..3c18209 100644
+index 70bb763..92afb05 100644
 --- a/turn_off_LEDs.py
 +++ b/turn_off_LEDs.py
 @@ -1,6 +1,10 @@
@@ -198,10 +198,10 @@ index 70bb763..3c18209 100644
 +sys.path.insert(0, '/usr/bin')
 +
 +from rq_led_utils import clear_all_leds
-
-
+ 
+ 
  def turn_off_LEDs():
-@@ -13,17 +17,8 @@ def turn_off_LEDs():
+@@ -13,24 +17,7 @@ def turn_off_LEDs():
      Returns:
          None
      """
@@ -219,14 +219,11 @@ index 70bb763..3c18209 100644
 -            # Setting pixel to 0 value will turn it off
 -            pixels[index] = 0x000000
 -
+-        pixels.show()
+-
+-    except Exception as e:
+-        print("Error turning off LEDs: ", e)
 +    clear_all_leds()
-+
-+
-+def main():
-+    print("Turning off all LEDs...")
-+    turn_off_LEDs()
-+    print("Done!")
-+
-+
-+if __name__ == "__main__":
-+    main()
+ 
+ 
+ def main():

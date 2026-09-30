@@ -7,7 +7,7 @@ Before=rasqberry-update-poller.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/rq_health_check.py
+ExecStart=/usr/bin/rq_health_check.py
 TimeoutSec=600
 Restart=no
 StandardOutput=journal

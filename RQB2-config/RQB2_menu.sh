@@ -36,6 +36,13 @@ DEMO_ROOT="$REPO_DIR/demos"
 BIN_DIR="/usr/bin"  # System-wide bin directory (accessible to both root and normal users)
 VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
+# Demo menu cache (auto-generated from manifests, provides DEMO_MENU_ITEMS and dispatch_demo_by_id)
+# TODO: Use global directory variable once defined (see issue #246)
+DEMO_MENU_CACHE="/usr/config/demo-menu-cache.sh"
+if [ -f "$DEMO_MENU_CACHE" ]; then
+    . "$DEMO_MENU_CACHE"
+fi
+
 #
 # -----------------------------------------------------------------------------
 # 1. Environment & Bootstrap
@@ -55,172 +62,114 @@ show_menu() {
 }
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
-install_demo() {
-    NAME="$1"           # demo directory name
-    GIT_URL="$2"        # corresponding repo URL variable
-    MARKER="$3"         # script or file that must exist
-    ENV_VAR="$4"        # environment variable name to set
-    TITLE="$5"          # title for dialog messages
-    PATCH_FILE="$6"     # optional: patch file name for RasQberry customizations
-    INSTALL_REQS="${7:-}"   # optional: "pip" to install requirements.txt (default empty)
+# The generic demo installer that used to live here has been removed.
+# Demo installation is now owned by ONE engine, rq_demo_run.sh, which every
+# entry point (this menu, desktop icons, the demo loop) calls. Having a
+# second installer here meant this menu cloned demos unpinned into the very
+# directories the engine installs pinned, so the upstream revision a user got
+# depended on which path they happened to use first. See install_via_engine().
 
-    DEST="$DEMO_ROOT/$NAME"
+# Install a demo through the single install engine (rq_demo_run.sh).
+#
+# Why this exists: this menu used to clone demos itself, into the SAME
+# directories the engine uses but WITHOUT the manifest's upstream SHA pin. Two
+# installers writing one directory meant whoever ran first decided which upstream
+# revision the user got - so a pinned demo silently became unpinned when it was
+# installed from this menu, which is how a patch could break against upstream
+# drift even though the manifest pinned it.
+#
+# This keeps the parts that belong to the menu (consent before a download,
+# success/error dialogs) and hands the actual acquisition - pin, patch, pip,
+# post-install, installed flag - to the engine.
+install_via_engine() {
+    DEMO_ID="$1"    # manifest id, e.g. grok-bloch
+    TITLE="$2"      # title for dialog messages
 
-    # Check if already installed
-    if [ -f "$DEST/$MARKER" ]; then
-        return 0  # Already installed
+    RUNNER="$BIN_DIR/rq_demo_run.sh"
+    if [ ! -x "$RUNNER" ]; then
+        echo "ERROR: demo engine not found at $RUNNER"
+        return 1
     fi
 
-    # Show confirmation dialog before downloading (unless auto-install is enabled)
+    # Everything below writes to stderr, never stdout. "Download all demos" pipes
+    # this into `whiptail --gauge`, which parses its stdin as the gauge protocol -
+    # a stray line there garbles the progress bar. It silences stderr per demo
+    # (do_*_install 2>/dev/null), so stderr is the channel that stays out of the
+    # way while remaining visible for a single interactive install.
+
+    # Already installed? Ask the engine rather than second-guessing it here.
+    if "$RUNNER" "$DEMO_ID" --is-installed 2>/dev/null; then
+        return 0
+    fi
+
+    # Confirm before using the network (unless a caller enabled auto-install)
     if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
         if command -v whiptail > /dev/null 2>&1; then
             whiptail --title "$TITLE Not Installed" \
                      --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
                      10 65 3>&1 1>&2 2>&3
-
             if [ $? -ne 0 ]; then
-                # User cancelled installation
                 return 1
             fi
         else
             # Fallback if whiptail not available (POSIX-compliant for dash)
-            echo "$TITLE is not installed."
-            echo "This requires downloading from GitHub."
-            printf "Install now? (y/n) "
+            echo "$TITLE is not installed." >&2
+            echo "This requires downloading from GitHub." >&2
+            printf "Install now? (y/n) " >&2
             read REPLY
-            # POSIX case pattern matching (works in dash, unlike [[ =~ ]])
             case "$REPLY" in
-                [Yy]|[Yy][Ee][Ss]) ;;  # Continue with installation
-                *) return 1 ;;          # User declined
+                [Yy]|[Yy][Ee][Ss]) ;;
+                *) return 1 ;;
             esac
         fi
     else
-        # Auto-install mode - proceed without prompting
-        echo "Auto-installing $TITLE..."
+        echo "Auto-installing $TITLE..." >&2
     fi
 
-    # Clone demo repository
-    mkdir -p "$DEST"
-    if git clone --depth 1 "$GIT_URL" "$DEST"; then
-        # Fix ownership if cloned as root (when run from raspi-config)
-        if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-            chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
-        fi
-
-        # Apply RasQberry customization patch if specified
-        # Try both locations: /usr/config (on fresh image) and ~/RasQberry-Two (after git clone)
-        PATCH_PATH=""
-        if [ -n "$PATCH_FILE" ]; then
-            if [ -f "/usr/config/demo-patches/$PATCH_FILE" ]; then
-                PATCH_PATH="/usr/config/demo-patches/$PATCH_FILE"
-            elif [ -f "$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE" ]; then
-                PATCH_PATH="$REPO_DIR/RQB2-config/demo-patches/$PATCH_FILE"
-            fi
-        fi
-
-        if [ -n "$PATCH_PATH" ]; then
-            echo "Applying RasQberry customizations..."
-            cd "$DEST" || return 1
-            if patch -p1 < "$PATCH_PATH" > /dev/null 2>&1; then
-                echo "✓ Applied RasQberry customizations (PWM/PIO LED driver support)"
-            else
-                echo "Warning: Could not apply customization patch (demo may not work correctly)"
-            fi
-            cd - > /dev/null || true
-        fi
-
-        # Install Python dependencies if requested
-        if [ "$INSTALL_REQS" = "pip" ] && [ -f "$DEST/requirements.txt" ]; then
-            echo "Installing Python dependencies..."
-
-            # Verify virtual environment exists
-            if [ ! -d "$REPO_DIR/venv/$STD_VENV" ]; then
-                whiptail --title "Error" --msgbox "Virtual environment not found at $REPO_DIR/venv/$STD_VENV" 8 70
-                rm -rf "$DEST"
-                return 1
-            fi
-
-            # Use venv's pip directly
-            VENV_PIP="$REPO_DIR/venv/$STD_VENV/bin/pip3"
-
-            # Show progress message
-            if command -v whiptail > /dev/null 2>&1; then
-                whiptail --title "Installing Dependencies" --infobox "Installing Python packages from requirements.txt...\n\nThis may take a few minutes.\nPlease wait..." 10 60
-            fi
-
-            # Install using venv's pip with sudo (venv is owned by root from build)
-            cd "$DEST" || return 1
-            if sudo "$VENV_PIP" install -r requirements.txt > /dev/null 2>&1; then
-                echo "✓ Python dependencies installed successfully"
-            else
-                whiptail --title "Warning" --msgbox "Failed to install some Python dependencies.\n\nDemo may not work correctly." 10 60
-            fi
-            cd - > /dev/null || true
-        fi
-
-        update_environment_file "$ENV_VAR" "true"
-
-        # Show success message (unless in auto-install mode)
+    if "$RUNNER" "$DEMO_ID" --install-only >&2; then
         if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
             whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
         else
-            echo "✓ $TITLE installed successfully"
+            echo "✓ $TITLE installed successfully" >&2
         fi
-    else
-        # Clean up empty directory and show error
-        rm -rf "$DEST"
-
-        # Show error message (unless in auto-install mode)
-        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-            whiptail --title "Installation Error" --msgbox "Failed to download $TITLE demo.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
-        else
-            echo "ERROR: Failed to download $TITLE demo"
-        fi
-        return 1
+        return 0
     fi
+
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
+        whiptail --title "Installation Error" --msgbox "Failed to install $TITLE.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
+    else
+        echo "ERROR: Failed to install $TITLE demo" >&2
+    fi
+    return 1
 }
 
 # Install Quantum-Lights-Out demo if needed
 do_qlo_install() {
-    install_demo "Quantum-Lights-Out" "$GIT_REPO_DEMO_QLO" \
-                 "$MARKER_QLO" "QUANTUM_LIGHTS_OUT_INSTALLED" \
-                 "Quantum Lights Out" "$PATCH_FILE_QLO"
+    install_via_engine "quantum-lights-out" "Quantum Lights Out"
 }
 
 # Install Quantum Raspberry-Tie demo if needed
 do_rasp_tie_install() {
-    install_demo "quantum-raspberry-tie" "$GIT_REPO_DEMO_QRT" \
-                 "$MARKER_QRT" "QUANTUM_RASPBERRY_TIE_INSTALLED" \
-                 "Quantum Raspberry-Tie" "$PATCH_FILE_QRT"
+    install_via_engine "quantum-raspberry-tie" "Quantum Raspberry-Tie"
 }
 
 # Install Grok Bloch demo if needed
 do_grok_bloch_install() {
-    install_demo "grok-bloch" "$GIT_REPO_DEMO_GROK_BLOCH" \
-                 "$MARKER_GROK_BLOCH" "GROK_BLOCH_INSTALLED" \
-                 "Grok Bloch Sphere" ""
+    install_via_engine "grok-bloch" "Grok Bloch Sphere"
 }
 
 # Install Fun-with-Quantum notebooks if needed
 do_fwq_install() {
-    install_demo "fun-with-quantum" "$GIT_REPO_DEMO_FWQ" \
-                 "$MARKER_FWQ" "FUN_WITH_QUANTUM_INSTALLED" \
-                 "Fun with Quantum" ""
+    install_via_engine "fun-with-quantum" "Fun with Quantum"
 }
 
 # Install Quantum Paradoxes demo if needed
+#
+# The setup step that creates WELCOME.ipynb and fixes the Qiskit imports is no
+# longer invoked here: it is declared as install.post_install in the manifest and
+# run by the engine, so every entry point gets it rather than just this one.
 do_quantum_paradoxes_install() {
-    install_demo "quantum-paradoxes" "$GIT_REPO_DEMO_PARADOXES" \
-                 "$MARKER_PARADOXES" "QUANTUM_PARADOXES_INSTALLED" \
-                 "Quantum Paradoxes" ""
-
-    # Run post-install setup (creates WELCOME.ipynb, fixes Qiskit imports)
-    PARADOX_DIR="$DEMO_ROOT/quantum-paradoxes"
-    if [ -f "$PARADOX_DIR/schrodingers-cat.ipynb" ]; then
-        echo "Running Quantum Paradoxes setup..."
-        . "$VENV_ACTIVATE"
-        python3 "$BIN_DIR/setup_quantum_paradoxes.py" --path "$PARADOX_DIR"
-    fi
+    install_via_engine "quantum-paradoxes" "Quantum Paradoxes"
 }
 
 # Run Quantum Paradoxes demo
@@ -267,7 +216,17 @@ clone_ibm_learning_content() {
     git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
     git sparse-checkout init --cone
     git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS
-    git pull --depth=1 origin main
+    # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
+    # third-party repo (we do not own it) that changes constantly, so following
+    # main makes installs irreproducible and lets an upstream change alter the
+    # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
+    if [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ]; then
+        git fetch --depth=1 origin "$GIT_REF_DEMO_IBM_LEARNING" || return 1
+        git checkout -q FETCH_HEAD || return 1
+    else
+        echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+        git pull --depth=1 origin main
+    fi
     cd - > /dev/null
 
     # Copy credentials setup notebook
@@ -349,6 +308,396 @@ run_ibm_courses_demo() {
 # LED-Painter installation is handled by rq_led_painter.sh
 # (uses conversion script instead of patch file)
 
+# -----------------------------------------------------------------------------
+# Download All Demos - Batch install all available demos
+# -----------------------------------------------------------------------------
+
+# Check network connectivity
+check_network_connectivity() {
+    # Try to reach GitHub (most reliable for our use case)
+    if curl -s --connect-timeout 5 https://github.com > /dev/null 2>&1; then
+        return 0
+    fi
+    # Fallback: try ping to Google DNS
+    if ping -c 1 -W 3 8.8.8.8 > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# Check available disk space in MB
+check_disk_space_mb() {
+    df -m "$USER_HOME" 2>/dev/null | awk 'NR==2 {print $4}'
+}
+
+# Install Qoffee-Maker for batch install (setup + pull image)
+do_qoffee_install() {
+    if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
+        return 0  # Already installed
+    fi
+
+    # Check if Docker is available
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "Skipping Qoffee-Maker: Docker not installed"
+        return 1
+    fi
+
+    echo "Setting up Qoffee-Maker (Docker)..."
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "ERROR: Qoffee-Maker setup failed"
+        return 1
+    fi
+
+    # Pull Docker image with retry logic (large images can fail on slow connections)
+    echo "Pulling Qoffee-Maker Docker image..."
+    QOFFEE_IMAGE="ghcr.io/janlahmann/qoffee-maker"
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Pull attempt $RETRY_COUNT of $MAX_RETRIES..."
+        if docker pull "$QOFFEE_IMAGE"; then
+            update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
+            echo "✓ Qoffee-Maker setup complete"
+            return 0
+        else
+            echo "Pull attempt $RETRY_COUNT failed"
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Waiting 10 seconds before retry..."
+                sleep 10
+                # Clean up any partial/corrupted layers
+                docker system prune -f >/dev/null 2>&1 || true
+            fi
+        fi
+    done
+    echo "ERROR: Failed to pull Qoffee-Maker image after $MAX_RETRIES attempts"
+    return 1
+}
+
+# Install Quantum-Mixer for batch install (setup + build image)
+do_quantum_mixer_install() {
+    if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
+        return 0  # Already installed
+    fi
+
+    # Check if Docker is available
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "Skipping Quantum-Mixer: Docker not installed"
+        return 1
+    fi
+
+    echo "Setting up Quantum-Mixer (Docker)..."
+    if ! "$BIN_DIR/qoffee-setup.sh"; then
+        echo "ERROR: Quantum-Mixer setup failed"
+        return 1
+    fi
+
+    # Build Docker image for ARM64
+    MIXER_DIR="$DEMO_ROOT/quantum-mixer"
+    MIXER_IMAGE="quantum-mixer:arm64"
+
+    # Clone quantum-mixer repo if not present
+    if [ ! -d "$MIXER_DIR" ]; then
+        echo "Cloning Quantum-Mixer repository..."
+        git clone --depth 1 "$GIT_REPO_DEMO_QUANTUM_MIXER" "$MIXER_DIR" || {
+            echo "ERROR: Failed to clone Quantum-Mixer"
+            return 1
+        }
+    fi
+
+    echo "Building Quantum-Mixer Docker image (this may take 10-15 minutes)..."
+    cd "$MIXER_DIR" || return 1
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Build attempt $RETRY_COUNT of $MAX_RETRIES..."
+        # Use --no-cache on retries to avoid corrupted cached layers
+        if [ $RETRY_COUNT -eq 1 ]; then
+            BUILD_OPTS=""
+        else
+            BUILD_OPTS="--no-cache"
+        fi
+        if docker build $BUILD_OPTS -f Dockerfile.arm64 -t "$MIXER_IMAGE" .; then
+            cd - > /dev/null
+            update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
+            echo "✓ Quantum-Mixer setup complete"
+            return 0
+        else
+            echo "Build attempt $RETRY_COUNT failed"
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Waiting 10 seconds before retry..."
+                sleep 10
+                # Clean up any partial/corrupted layers
+                docker system prune -f >/dev/null 2>&1 || true
+            fi
+        fi
+    done
+    cd - > /dev/null 2>/dev/null
+    echo "ERROR: Failed to build Quantum-Mixer image after $MAX_RETRIES attempts"
+    return 1
+}
+
+# Download all demos at once
+do_download_all_demos() {
+    # Pre-flight check: Network connectivity
+    if ! check_network_connectivity; then
+        whiptail --title "Network Error" --msgbox \
+            "No internet connection detected.\n\nPlease connect to the internet and try again." \
+            10 60
+        return 1
+    fi
+
+    # Pre-flight check: Disk space (require at least 500MB free)
+    AVAILABLE_MB=$(check_disk_space_mb)
+    if [ "${AVAILABLE_MB:-0}" -lt 500 ]; then
+        whiptail --title "Low Disk Space" --msgbox \
+            "Insufficient disk space.\n\nAvailable: ${AVAILABLE_MB:-0} MB\nRequired: ~500 MB minimum\n\nPlease free up some space and try again." \
+            12 60
+        return 1
+    fi
+
+    # Count demos: already installed vs to-install
+    TO_INSTALL=0
+    ALREADY_INSTALLED=0
+
+    # Git-clone demos (7 total, excluding LED-Painter)
+    [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$GROK_BLOCH_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$IBM_TUTORIALS_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    [ "$IBM_COURSES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+
+    # Docker demos (2 total)
+    DOCKER_AVAILABLE="no"
+    if command -v docker > /dev/null 2>&1; then
+        DOCKER_AVAILABLE="yes"
+        [ "$QOFFEE_MAKER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+        [ "$QUANTUM_MIXER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
+    fi
+
+    TOTAL_DEMOS=$((ALREADY_INSTALLED + TO_INSTALL))
+
+    # If all already installed, inform and exit
+    if [ "$TO_INSTALL" -eq 0 ]; then
+        whiptail --title "All Demos Installed" --msgbox \
+            "All $TOTAL_DEMOS demos are already installed!\n\nNothing to do." \
+            10 50
+        return 0
+    fi
+
+    # Build confirmation message
+    CONFIRM_MSG="This will download and install quantum demos.\n\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Demos to install: $TO_INSTALL\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Already installed: $ALREADY_INSTALLED\n"
+    CONFIRM_MSG="${CONFIRM_MSG}Available disk space: ${AVAILABLE_MB} MB\n\n"
+    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
+        CONFIRM_MSG="${CONFIRM_MSG}Docker demos included (may take 10-15 min to build).\n\n"
+    else
+        CONFIRM_MSG="${CONFIRM_MSG}Docker demos skipped (Docker not installed).\n\n"
+    fi
+    CONFIRM_MSG="${CONFIRM_MSG}Proceed with installation?"
+
+    # Show confirmation dialog
+    if ! whiptail --title "Download All Demos" --yesno "$CONFIRM_MSG" 18 65; then
+        return 0
+    fi
+
+    # Enable auto-install mode to skip individual confirmations
+    export RQ_AUTO_INSTALL=1
+    export RQ_NO_MESSAGES=true
+
+    # Create temp file for tracking results from subshell
+    RESULTS_FILE=$(mktemp)
+
+    # Process git-clone demos with progress display (7 demos)
+    {
+        # Initialize counters inside subshell
+        INSTALLED_COUNT=0
+        SKIPPED_COUNT=0
+        FAILED_COUNT=0
+        FAILED_DEMOS=""
+        CURRENT=0
+        TOTAL=7
+
+        # 1. Quantum Lights Out
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Lights Out (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Lights Out..."; echo "XXX"
+            if do_qlo_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Lights Out\n"
+            fi
+        fi
+
+        # 2. Quantum Raspberry-Tie
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Raspberry-Tie (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Raspberry-Tie..."; echo "XXX"
+            if do_rasp_tie_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Raspberry-Tie\n"
+            fi
+        fi
+
+        # 3. Grok Bloch
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$GROK_BLOCH_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Grok Bloch (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Grok Bloch..."; echo "XXX"
+            if do_grok_bloch_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Grok Bloch\n"
+            fi
+        fi
+
+        # 4. Fun with Quantum
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Fun with Quantum (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Fun with Quantum..."; echo "XXX"
+            if do_fwq_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Fun with Quantum\n"
+            fi
+        fi
+
+        # 5. Quantum Paradoxes
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Paradoxes (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Paradoxes..."; echo "XXX"
+            if do_quantum_paradoxes_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum Paradoxes\n"
+            fi
+        fi
+
+        # 6. IBM Quantum Tutorials
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$IBM_TUTORIALS_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Tutorials (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Tutorials..."; echo "XXX"
+            if do_ibm_tutorials_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Tutorials\n"
+            fi
+        fi
+
+        # 7. IBM Quantum Courses
+        CURRENT=$((CURRENT + 1))
+        PERCENT=$((CURRENT * 100 / TOTAL))
+        if [ "$IBM_COURSES_INSTALLED" = "true" ]; then
+            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Courses (already installed)..."; echo "XXX"
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Courses..."; echo "XXX"
+            if do_ibm_courses_install 2>/dev/null; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Courses\n"
+            fi
+        fi
+
+        # Write results to temp file
+        echo "${INSTALLED_COUNT}:${SKIPPED_COUNT}:${FAILED_COUNT}:${FAILED_DEMOS}" > "$RESULTS_FILE"
+        echo "100"
+    } | whiptail --title "Downloading Demos" --gauge "Preparing..." 8 70 0
+
+    # Read results from temp file
+    INSTALLED_COUNT=0
+    SKIPPED_COUNT=0
+    FAILED_COUNT=0
+    FAILED_DEMOS=""
+    if [ -f "$RESULTS_FILE" ]; then
+        IFS=: read -r INSTALLED_COUNT SKIPPED_COUNT FAILED_COUNT FAILED_DEMOS < "$RESULTS_FILE"
+        rm -f "$RESULTS_FILE"
+    fi
+
+    # --- Docker demos (run OUTSIDE gauge to allow their own dialogs) ---
+    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
+        # Qoffee-Maker
+        if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            whiptail --title "Docker Demos" --infobox "Setting up Qoffee-Maker...\n\nThis may take several minutes." 8 50
+            if do_qoffee_install; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Qoffee-Maker\n"
+            fi
+        fi
+
+        # Quantum-Mixer
+        if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+        else
+            whiptail --title "Docker Demos" --infobox "Setting up Quantum-Mixer...\n\nThis may take several minutes." 8 50
+            if do_quantum_mixer_install; then
+                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+            else
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                FAILED_DEMOS="${FAILED_DEMOS}Quantum-Mixer\n"
+            fi
+        fi
+    fi
+
+    # Restore normal mode
+    unset RQ_AUTO_INSTALL
+    export RQ_NO_MESSAGES=false
+
+    # Build summary message
+    SUMMARY="Installation Complete!\n\n"
+    SUMMARY="${SUMMARY}Installed: ${INSTALLED_COUNT:-0}\n"
+    SUMMARY="${SUMMARY}Skipped (already installed): ${SKIPPED_COUNT:-0}\n"
+    SUMMARY="${SUMMARY}Failed: ${FAILED_COUNT:-0}"
+
+    if [ "${FAILED_COUNT:-0}" -gt 0 ] && [ -n "$FAILED_DEMOS" ]; then
+        SUMMARY="${SUMMARY}\n\nFailed demos:\n${FAILED_DEMOS}"
+        SUMMARY="${SUMMARY}\nYou can try installing failed demos individually."
+    fi
+
+    whiptail --title "Download All Demos - Summary" --msgbox "$SUMMARY" 16 60
+
+    return 0
+}
+
 # Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
@@ -370,14 +719,52 @@ run_demo() {
   OLD_STTY=$(stty -g)
   # Reset terminal state before launching
   stty sane
-  # Launch the demo in its own session so we can kill the full process group
+  # Launch the demo in its own session so we can kill the full process group.
+  # Both modes keep a copy of the output in DEMO_LOG so that if the demo dies we
+  # can tell the user WHY (see the liveness check below).
+  DEMO_LOG=/tmp/rqb-demo.log
   if [ "$MODE" = "pty" ]; then
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" /dev/null ) &
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" "$DEMO_LOG" ) &
   else
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null ) &
+      # bg mode: send the demo's stdout+stderr to a log, NOT the terminal —
+      # otherwise a background demo's output (and LED library messages) prints
+      # over the "Demo is running" whiptail dialog and corrupts the TUI.
+      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >"$DEMO_LOG" 2>&1 ) &
   fi
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
+
+  # Did it actually start?
+  #
+  # Nothing used to check. The dialog below announced "Demo is running" whether
+  # or not the demo was there, so a demo that died on startup - GPIO already
+  # held by another demo, a missing module, an unpatched upstream - looked
+  # identical to one that worked, except the panel stayed dark. In bg mode the
+  # traceback went to the log, which no user reads. Give it a moment to fall
+  # over, and if it did, report the real error instead of a comfortable lie.
+  sleep 2
+  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+      wait "$DEMO_PID"
+      DEMO_RC=$?
+      stty sane
+      if [ "$DEMO_RC" -ne 0 ]; then
+          # Strip the CR/escape noise a pty log carries, drop the Python stack
+          # frames ('File "..."' and the caret lines under them) which say
+          # nothing to a user, and keep the last lines - the message that
+          # matters ("GPIO busy", "No module named ...") is at the end.
+          RQ_LAST_DEMO_ERROR=$(sed 's/\r//g; s/\x1b\[[0-9;]*[a-zA-Z]//g' "$DEMO_LOG" 2>/dev/null \
+              | grep -v '^[[:space:]]*$' \
+              | grep -vE '^[[:space:]]*(File "|\^+[[:space:]]*$|~+[[:space:]]*$)' \
+              | tail -n 5)
+          [ -z "$RQ_LAST_DEMO_ERROR" ] && RQ_LAST_DEMO_ERROR="Exited immediately with status $DEMO_RC (no output)."
+          stty "$OLD_STTY" 2>/dev/null || true
+          return 1
+      fi
+      # Exited cleanly and quickly: it ran, it finished. Not an error.
+      stty "$OLD_STTY" 2>/dev/null || true
+      return 0
+  fi
+
   # Ask user when to stop
   whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
   RESPONSE=$?
@@ -395,17 +782,41 @@ run_demo() {
   reset
 }
 
+# Stop the most recently launched demo (its whole setsid process group) and
+# blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
+# chose "No" at the stop prompt) can be stopped here later.
+stop_last_demo() {
+  if [ -z "${LAST_DEMO_PGID:-}" ]; then
+    whiptail --title "Stop demo" --msgbox "No demo has been started in this session." 8 60
+    return 0
+  fi
+  # Negative PID targets the whole process group (setsid session leader).
+  kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+  sleep 1
+  kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null || true
+  do_led_off 2>/dev/null || true
+  whiptail --title "Stop demo" --msgbox "Stopped the last running demo and cleared the LEDs." 8 65
+  LAST_DEMO_PGID=""
+  return 0
+}
+
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
     # Ensure installed
     do_qlo_install
-    # Launch appropriate mode
+    # Launch appropriate mode.
+    #
+    # The console variant IS played in the terminal, so it keeps the pty. The
+    # default variant plays on the LEDs and its stdout is just noise - the
+    # solver's progress and Qiskit's deprecation warnings, which used to print
+    # over the whiptail dialog and hide the "Select Yes to stop" prompt (users
+    # had to press Enter blind). Send that to the log instead.
     if [ "$MODE" = "console" ]; then
         run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
     else
-        run_demo "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
     fi
     # Turn off LEDs when demo ends
     do_led_off
@@ -473,8 +884,12 @@ run_led_painter_demo() {
 
 # Run RasQ-LED demo
 run_rasq_led_demo() {
-    # Launch the RasQ-LED quantum circuit demo directly
-    run_demo "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
+    # Launch the RasQ-LED quantum circuit demo directly.
+    #
+    # bg: this demo's output is the LEDs, not the terminal. Its raw console
+    # output used to replace the TUI entirely (the other LED demos already run
+    # this way).
+    run_demo bg "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
     # Turn off LEDs when demo ends
     do_led_off
 }
@@ -512,13 +927,15 @@ stop_qoffee_containers() {
 
 # Run Quantum-Mixer demo
 run_quantum_mixer_demo() {
-    # Check if setup has been run (Docker installed)
-    if ! command -v docker > /dev/null 2>&1; then
-        whiptail --title "Setup Required" --msgbox \
-            "Quantum-Mixer requires Docker, which is not installed.\n\nSetup will now run to install Docker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
-            12 70
-        "$BIN_DIR/qoffee-setup.sh" || return 1
-    fi
+    # Ask before installing, like every other demo.
+    #
+    # This used to drop straight into quantum-mixer.sh, which cloned and then
+    # ran a Docker build FROM SOURCE with no prompt and no dialog - raw build
+    # output over the TUI for several minutes. On a 10GB A/B slot that build ran
+    # the disk to 100% and left the system unusable (finding F28), so of all the
+    # demos this is the one that should ask first. install_via_engine gives it
+    # the same consent prompt and error dialog as the rest.
+    install_via_engine "quantum-mixer" "Quantum-Mixer" || return 1
 
     # Launch the Quantum-Mixer demo
     "$BIN_DIR/quantum-mixer.sh"
@@ -541,10 +958,47 @@ stop_quantum_mixer_containers() {
     fi
 }
 
+# Refresh demo menu cache from manifests
+# This regenerates the demo-menu-cache.sh file from demo manifest files
+refresh_demo_menu_cache() {
+    if [ -x "$BIN_DIR/rq_demo_generate_menu.sh" ]; then
+        whiptail --title "Refreshing Demo Menu" --infobox "Regenerating demo menu from manifests..." 6 50
+        if "$BIN_DIR/rq_demo_generate_menu.sh" --cache "$DEMO_MENU_CACHE" > /dev/null 2>&1; then
+            # Reload the cache
+            if [ -f "$DEMO_MENU_CACHE" ]; then
+                . "$DEMO_MENU_CACHE"
+            fi
+            whiptail --title "Demo Menu Refreshed" --msgbox "Demo menu cache regenerated successfully.\n\n$DEMO_COUNT demos loaded from manifests." 10 50
+        else
+            whiptail --title "Error" --msgbox "Failed to regenerate demo menu cache.\n\nCheck that manifest files are valid." 10 50
+            return 1
+        fi
+    else
+        whiptail --title "Error" --msgbox "Menu generator script not found.\n\nExpected: $BIN_DIR/rq_demo_generate_menu.sh" 10 50
+        return 1
+    fi
+}
+
 # Run continuous demo loop for conference showcases
 run_demo_loop() {
     # Launch the demo loop script
     "$BIN_DIR/rq_demo_loop.sh"
+}
+
+# Add an external demo from the curated registry (known-demos.json).
+# Delegates to rq_demo_add_external.sh (interactive picker), then reloads the
+# regenerated menu cache so the new demo shows up without leaving the menu.
+do_add_external_demo() {
+    if [ -x "$BIN_DIR/rq_demo_add_external.sh" ]; then
+        "$BIN_DIR/rq_demo_add_external.sh"
+        # The add script regenerates the cache; reload it in this session
+        if [ -f "$DEMO_MENU_CACHE" ]; then
+            . "$DEMO_MENU_CACHE"
+        fi
+    else
+        whiptail --title "Error" --msgbox "Add-demo script not found.\n\nExpected: $BIN_DIR/rq_demo_add_external.sh" 10 60
+        return 1
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -588,12 +1042,20 @@ update_environment_file () {
   #check whether string is empty
   if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ]; then
+    if [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; then
       [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
     fi
   else
     # update environment file
-    sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    # Elevate with sudo when the env file is not writable by the current user
+    # (e.g. running standalone as 'rasqberry' against the root-owned
+    # /usr/config/rasqberry_environment.env). In the raspi-config root context
+    # the file IS writable, so the direct write path is used unchanged.
+    if [ -w "$ENV_FILE" ]; then
+      sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    else
+      sudo sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
+    fi
     # reload environment file
     . /usr/config/rasqberry_env-config.sh
   fi
@@ -627,7 +1089,7 @@ check_environment_variable() {
 # $2 = silent (optional, suppresses whiptail popup)
 do_rqb_install_qiskit() {
   sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
-  if [ "$INTERACTIVE" = true ] && ! [ "$2" = silent ]; then
+  if { [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; } && ! [ "$2" = silent ]; then
     [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
   fi
 }
@@ -701,7 +1163,7 @@ do_led_demo_gradient() {
 }
 
 do_led_demo_ibm_logo() {
-    run_demo bg "IBM Logo" "$BIN_DIR" python3 demo_led_ibm_logo.py
+    run_demo bg "IBM Logo" "$BIN_DIR" python3 rq_led_ibm_logo.py
     do_led_off
 }
 
@@ -753,7 +1215,30 @@ do_led_display_menu() {
     done
 }
 
+# Directly-callable LED-layout verify (plan R1). Runs the one-look "is this your
+# panel?" check when the shipped default hasn't been confirmed yet, then reloads
+# the env so the corrected LED_LAYOUT / LED_LAYOUT_VERIFIED are visible. Called on
+# first LED-menu open (below), and reused by the first-login + desktop-autostart
+# triggers via rq_led_verify_prompt.sh. Gated on LED_LAYOUT_VERIFIED, so it is a
+# no-op once the user has answered.
+do_led_verify() {
+    if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ]; then
+        bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
+        [ -f "$ENV_CONFIG_FILE" ] && . "$ENV_CONFIG_FILE" 2>/dev/null || true
+    fi
+}
+
 do_select_led_option() {
+    # First-visit verification (plan R1): the image ships a default LED_LAYOUT,
+    # so the first time this menu opens we offer a quick "is this your panel?"
+    # check (render an 'F' through the current layout) instead of a from-scratch
+    # setup. The wizard persists LED_LAYOUT_VERIFIED=true when the user answers,
+    # so it never nags again. _RQ_LED_VERIFY_DONE guards against re-prompting
+    # within this menu session if they cancelled without answering.
+    if [ -z "${_RQ_LED_VERIFY_DONE:-}" ]; then
+        _RQ_LED_VERIFY_DONE=1
+        do_led_verify
+    fi
     while true; do
         FUN=$(show_menu "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
@@ -762,7 +1247,9 @@ do_select_led_option() {
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
-           layout "Configure Matrix Layout") || break
+           layout "Configure Matrix Layout" \
+           targets "Output Targets (strip / virtual / web)" \
+           wizard "LED Setup Wizard (auto-detect layout)") || break
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
@@ -775,15 +1262,23 @@ do_select_led_option() {
                 do_led_off
                 ;;
             simple )
-                run_demo bg "Simple LED Demo" "$BIN_DIR" python3 neopixel_spi_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
+                run_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 do_led_off
                 ;;
             IBM )
-                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 neopixel_spi_IBMtestFunc.py || { handle_error "IBM LED demo failed."; continue; }
+                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
                 do_led_off
                 ;;
             layout )
                 do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
+                ;;
+            targets )
+                do_led_output_menu || { handle_error "Failed to update LED output targets."; continue; }
+                ;;
+            wizard )
+                # Interactive whiptail walkthrough (own process); auto-detects
+                # the physical layout and writes LED_LAYOUT.
+                bash "$BIN_DIR/rq_led_setup_wizard.sh" || { handle_error "LED setup wizard failed."; continue; }
                 ;;
             *) break ;;
         esac
@@ -825,11 +1320,11 @@ do_select_qrt_option() {
             b:custom)
                 CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
                 exitstatus=$?
-                if [ "$exitstatus" = 0 ]; then
+                if [ "$exitstatus" = 0 ] && [ -n "$CUSTOM_OPTION" ]; then
                     run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
                 else
-                    echo "You chose to cancel. Demo will launch with Local Simulator"
-                    break
+                    # Cancelled or empty input: return to the backend menu, launch nothing.
+                    continue
                 fi
                 ;;
             *) break ;;
@@ -841,23 +1336,46 @@ do_select_qrt_option() {
 # 3f) Main Quantum Demo Menu
 # -----------------------------------------------------------------------------
 
+# Main quantum demo menu - FULLY GENERATED from the demo manifests.
+#
+# The demo list is built from the auto-generated cache (DEMO_MENU_ITEMS +
+# dispatch_demo_by_id, produced by rq_demo_generate_menu.sh from every manifest,
+# ordered by menu.order). Any newly installed or externally-added catalog demo
+# (e.g. traqmania) appears automatically - there is no curated hardcoded list to
+# keep in sync. Only demos that have their OWN multi-option submenu (or aren't
+# directly launchable) are excluded from the generated list and handled
+# explicitly: LED (setup wizard / tests), QLO (GUI vs console), QRT (backends);
+# led-demos has no launcher and lives under the LED submenu.
+_SUBMENU_DEMO_IDS="quantum-lights-out quantum-raspberry-tie led-demos"
+
 do_quantum_demo_menu() {
   while true; do
-    FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
-       LED  "Test LEDs" \
-       QLO  "Quantum-Lights-Out Demo" \
-       QRT  "Quantum Raspberry-Tie" \
-       GRB  "Grok Bloch Sphere (Local)" \
-       GRBW "Grok Bloch Sphere (Web)" \
-       FRC  "Quantum Fractals" \
-       RQL  "RasQ-LED (Quantum Circuit)" \
-       LDP  "LED-Painter (Paint on LEDs)" \
-       QPX  "Quantum Paradoxes (Notebooks)" \
-       IBMT "IBM Quantum Tutorials" \
-       IBMC "IBM Quantum Courses" \
-       QOF  "Qoffee-Maker (Docker)" \
-       QMX  "Quantum-Mixer (Web)" \
+    # Build the generated demo list, dropping the submenu-handled ids (so they
+    # don't appear twice). POSIX-safe: consume the original pairs and re-append
+    # the kept ones, tracking the original count so appended pairs aren't reread.
+    # NOTE: DEMO_MENU_ITEMS is emitted one "tag" "desc" pair per line; newlines
+    # are shell command separators, so collapse them to spaces before eval or
+    # `set --` gets zero args and every generated demo silently disappears.
+    eval "set -- $(printf '%s' "${DEMO_MENU_ITEMS:-}" | tr '\n' ' ')"
+    _pairs=$(( $# / 2 )); _i=0
+    while [ "$_i" -lt "$_pairs" ]; do
+      _tag="$1"; _desc="$2"; shift 2
+      case " $_SUBMENU_DEMO_IDS " in
+        *" $_tag "*) : ;;                       # skip: has its own submenu
+        *) set -- "$@" "$_tag" "$_desc" ;;      # keep
+      esac
+      _i=$(( _i + 1 ))
+    done
+
+    FUN=$(show_menu "RasQberry: Quantum Demos" "Select a demo or option" \
+       LED  "Test LEDs (setup wizard, tests, demos)" \
+       QLO  "Quantum-Lights-Out (GUI / console)" \
+       QRT  "Quantum Raspberry-Tie (choose backend)" \
+       "$@" \
+       DALL "Download all demos (one-time setup)" \
+       ADDX "Add demo from catalog" \
        LOOP "Continuous Demo Loop (Conference)" \
+       REFR "Refresh demo list (from manifests)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker containers" \
        QMXS "Stop Quantum-Mixer containers") || break
@@ -865,21 +1383,16 @@ do_quantum_demo_menu() {
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo        || continue ;;
-      GRBW) run_grok_bloch_web_demo    || continue ;;
-      FRC)  run_fractals_demo          || { handle_error "Failed to run Quantum Fractals demo."; continue; } ;;
-      RQL)  run_rasq_led_demo          || { handle_error "Failed to run RasQ-LED demo."; continue; } ;;
-      LDP)  run_led_painter_demo       || { handle_error "Failed to run LED-Painter demo."; continue; } ;;
-      QPX)  run_quantum_paradoxes_demo || { handle_error "Failed to run Quantum Paradoxes demo."; continue; } ;;
-      IBMT) run_ibm_tutorials_demo     || { handle_error "Failed to run IBM Quantum Tutorials."; continue; } ;;
-      IBMC) run_ibm_courses_demo       || { handle_error "Failed to run IBM Quantum Courses."; continue; } ;;
-      QOF)  run_qoffee_demo            || { handle_error "Failed to run Qoffee-Maker demo."; continue; } ;;
-      QMX)  run_quantum_mixer_demo     || { handle_error "Failed to run Quantum-Mixer demo."; continue; } ;;
+      DALL) do_download_all_demos      || continue ;;
+      ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalog."; continue; } ;;
       LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
+      REFR) refresh_demo_menu_cache    || continue ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
       QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
       QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
-      *)    handle_error "Programmer error: unrecognized Quantum Demo option ${FUN}."; continue ;;
+      "")   continue ;;
+      # Any other tag is a manifest demo id -> universal dispatch (via the cache).
+      *)    dispatch_demo_by_id "$FUN" || { handle_error "Failed to run demo: ${FUN}"; continue; } ;;
     esac
   done
 }
@@ -906,7 +1419,7 @@ do_show_system_info() {
 # Expand A/B partitions for 64GB+ SD cards
 do_expand_ab_partitions() {
     # Check if this is an AB boot image
-    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -q "config"; then
+    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qi "config"; then
         whiptail --title "Not AB Boot Image" --msgbox \
             "This system is not running an A/B boot image.\n\nPartition expansion is only available for AB boot layouts." \
             10 60
@@ -917,8 +1430,10 @@ do_expand_ab_partitions() {
     SD_SIZE_BYTES=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
     SD_SIZE_GB=$((SD_SIZE_BYTES / 1024 / 1024 / 1024))
 
-    # Check minimum size (63GB = ~64GB marketed card)
-    if [ "$SD_SIZE_GB" -lt 63 ]; then
+    # Minimum 58 GiB. A "64GB" card is only ~59.6 GiB (decimal marketing vs
+    # binary GiB), so the old 63-GiB cutoff wrongly refused genuine 64GB cards.
+    # 58 GiB accepts them and still rejects 32GB cards (~29.8 GiB).
+    if [ "$SD_SIZE_GB" -lt 58 ]; then
         whiptail --title "SD Card Too Small" --msgbox \
             "SD card size: ${SD_SIZE_GB}GB\n\nPartition expansion requires a 64GB or larger SD card.\n\nYour current 10GB system partition is sufficient for basic use." \
             12 60
@@ -951,19 +1466,47 @@ do_expand_ab_partitions() {
     # Show confirmation dialog
     if ! whiptail --title "Expand A/B Partitions" --yesno \
         "SD Card Size: ${SD_SIZE_GB}GB\n\nProposed partition sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nThis will:\n- Expand system-a from 10GB to ${SYSTEM_GB}GB\n- Expand system-b from 16MB to ${SYSTEM_GB}GB\n- Expand data from 16MB to ${DATA_GB}GB\n\nThis operation cannot be undone.\n\nProceed with expansion?" \
-        20 60; then
+        23 60; then
         return 0
     fi
 
     # Show progress
-    whiptail --title "Expanding Partitions" --infobox \
-        "Expanding partitions...\n\nThis may take a few minutes.\nDo not power off the system." \
-        10 50
+    # Say what is happening, step by step.
+    #
+    # The steps below log to /var/log/rasqberry-expand.log and print nothing, and
+    # an --infobox does not block - so this used to draw one static "may take a
+    # few minutes" box and then sit there, silent, for the whole run. Formatting
+    # two ~100GB partitions (step 7) is minutes on its own, and a frozen box with
+    # no output is indistinguishable from a hang, on an operation we also tell
+    # people not to interrupt.
+    # Plain text, NOT whiptail --infobox.
+    #
+    # An infobox does not block, and whiptail restores the screen when it exits -
+    # so the box flashes and is gone. That is why this operation looked silent
+    # with one infobox, and still looked silent when I gave it nine. The --yesno
+    # dialogs work only because they block waiting for an answer.
+    #
+    # Once the confirmation closes, the screen is a plain terminal until the
+    # final msgbox, which is exactly where the user is sitting and waiting - so
+    # print there. Nine steps, several minutes, and formatting two ~50GB
+    # partitions in step 7 with no output at all is indistinguishable from a
+    # hang, on the one operation we also tell people not to interrupt.
+    expand_progress() {
+        printf '  [%s/9] %s\n' "$1" "$2"
+    }
+
+    echo ""
+    echo "Expanding partitions. This takes several minutes on a large card -"
+    echo "formatting the new partitions (step 7) is the slow part."
+    echo "Do NOT power off the system."
+    echo ""
+
 
     # Initialize log file
     echo "=== AB Partition Expansion $(date) ===" > /var/log/rasqberry-expand.log
 
     # Step 1: Unmount partitions that will be modified
+    expand_progress 1 "Unmounting the placeholder partitions..."
     echo "Step 1: Unmounting partitions..." >> /var/log/rasqberry-expand.log
     umount /dev/mmcblk0p7 2>/dev/null || true
     umount /dev/mmcblk0p6 2>/dev/null || true
@@ -987,6 +1530,7 @@ do_expand_ab_partitions() {
     echo "  DATA: ${DATA_START} - 100%" >> /var/log/rasqberry-expand.log
 
     # Step 2: Delete p7 and p6 first (must be done before resizing p5)
+    expand_progress 2 "Removing the 16MB placeholders..."
     echo "Step 2: Deleting old partitions..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 rm 7 >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Warning: Failed to delete partition 7" >> /var/log/rasqberry-expand.log
@@ -996,18 +1540,21 @@ do_expand_ab_partitions() {
     fi
 
     # Step 3: Expand extended partition (p4) to fill disk
+    expand_progress 3 "Expanding the extended partition..."
     echo "Step 3: Expanding extended partition..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 resizepart 4 100% >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to expand extended partition" >> /var/log/rasqberry-expand.log
     fi
 
     # Step 4: Resize system-a (p5)
+    expand_progress 4 "Resizing Slot A..."
     echo "Step 4: Resizing system-a partition..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to resize partition 5" >> /var/log/rasqberry-expand.log
     fi
 
     # Step 5: Create new system-b and data partitions
+    expand_progress 5 "Creating Slot B and the data partition..."
     echo "Step 5: Creating new partitions..." >> /var/log/rasqberry-expand.log
     if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to create system-b partition" >> /var/log/rasqberry-expand.log
@@ -1021,10 +1568,12 @@ do_expand_ab_partitions() {
     sleep 2
 
     # Step 6: Resize system-a filesystem
+    expand_progress 6 "Growing the Slot A filesystem..."
     echo "Step 6: Resizing system-a filesystem..." >> /var/log/rasqberry-expand.log
     resize2fs /dev/mmcblk0p5 >> /var/log/rasqberry-expand.log 2>&1 || true
 
     # Step 7: Format new partitions
+    expand_progress 7 "Formatting Slot B and the data partition (the slow step)..."
     echo "Step 7: Formatting new partitions..." >> /var/log/rasqberry-expand.log
     if ! mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6 >> /var/log/rasqberry-expand.log 2>&1; then
         echo "Error: Failed to format system-b" >> /var/log/rasqberry-expand.log
@@ -1034,6 +1583,7 @@ do_expand_ab_partitions() {
     fi
 
     # Step 8: Set up system-b structure
+    expand_progress 8 "Preparing Slot B..."
     echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
@@ -1056,6 +1606,7 @@ EOF
     rmdir "$TEMP_MOUNT" 2>/dev/null || true
 
     # Step 9: Set up data partition structure
+    expand_progress 9 "Preparing the data partition..."
     echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
     TEMP_MOUNT=$(mktemp -d)
     if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
@@ -1125,12 +1676,80 @@ do_select_led_layout() {
 }
 
 # -----------------------------------------------------------------------------
+# LED output targets (#231): choose WHERE LED output appears - the physical
+# strip, the on-screen virtual GUI, and/or the browser emulator (LED_WEB). The
+# three are independent booleans, so a checklist is the natural widget: it shows
+# and edits all three at once, pre-ticked from the current env. Only the flags
+# that actually change are written back (each write reloads the env file).
+# -----------------------------------------------------------------------------
+do_led_output_menu() {
+  cur_phys=$(check_environment_variable "LED_PHYSICAL")
+  cur_virt=$(check_environment_variable "LED_VIRTUAL")
+  cur_web=$(check_environment_variable "LED_WEB")
+
+  web_port=$(check_environment_variable "LED_WEB_PORT")
+  [ -z "$web_port" ] && web_port="8098"
+
+  # Map a "true"/other value to the checklist ON/OFF state.
+  on_state() { [ "$1" = "true" ] && echo "ON" || echo "OFF"; }
+
+  SEL=$(whiptail --title "LED Output Targets" --checklist \
+    "Choose where LED output appears.\nSpace toggles an item, Tab to <Ok>, Enter confirms." 12 74 3 \
+    PHYSICAL "Physical LED strip" "$(on_state "$cur_phys")" \
+    VIRTUAL  "On-screen virtual matrix (GUI window)" "$(on_state "$cur_virt")" \
+    WEB      "Browser view (http://<pi>:${web_port})" "$(on_state "$cur_web")" \
+    3>&1 1>&2 2>&3) || return 0
+
+  # whiptail returns the ticked tags space-separated and quoted; strip quotes.
+  new_phys="false"; new_virt="false"; new_web="false"
+  for tag in $(echo "$SEL" | tr -d '"'); do
+    case "$tag" in
+      PHYSICAL) new_phys="true" ;;
+      VIRTUAL)  new_virt="true" ;;
+      WEB)      new_web="true" ;;
+    esac
+  done
+
+  # Guard against turning EVERYTHING off (no output anywhere) - keep the strip.
+  if [ "$new_phys" = "false" ] && [ "$new_virt" = "false" ] && [ "$new_web" = "false" ]; then
+    whiptail --title "LED Output Targets" --msgbox \
+      "At least one output target is required.\n\nKeeping the physical LED strip enabled." 9 66
+    new_phys="true"
+  fi
+
+  # Write only the flags that changed (each write reloads the env file).
+  [ "$new_phys" != "$cur_phys" ] && update_environment_file "LED_PHYSICAL" "$new_phys"
+  [ "$new_virt" != "$cur_virt" ] && update_environment_file "LED_VIRTUAL" "$new_virt"
+  [ "$new_web" != "$cur_web" ] && update_environment_file "LED_WEB" "$new_web"
+
+  # When the browser view is on, start it now and show the URL so the user does
+  # not have to launch a demo first just to discover the address.
+  if [ "$new_web" = "true" ]; then
+    # rq_led_utils lives in BIN_DIR (/usr/bin when installed), not on Python's
+    # default path - set PYTHONPATH like the wizard does for its reap call.
+    PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
+      'import rq_led_utils; rq_led_utils._ensure_virtual_led_web_running()' 2>/dev/null || true
+    lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    [ -z "$lan_ip" ] && lan_ip="<pi-ip>"
+    whiptail --title "LED Browser View" --msgbox \
+      "Browser view enabled.\n\nOpen from any device on the network:\n  http://${lan_ip}:${web_port}\n\nThe view updates whenever an LED demo runs.\nRestart a running demo for target changes to take effect." \
+      13 74
+  fi
+}
+
+# -----------------------------------------------------------------------------
 # Update from GitHub Branch
 # -----------------------------------------------------------------------------
 
 # Detect current repository from git config or environment
 detect_git_repo() {
     local repo=""
+
+    # Method 0: the repository this image was built from (#289)
+    if [ -n "${RQB_BUILD_REPO:-}" ]; then
+        echo "$RQB_BUILD_REPO"
+        return 0
+    fi
 
     # Method 1: Check git remote in user's repo directory
     local git_config="${REPO_DIR}/.git/config"
@@ -1204,8 +1823,11 @@ do_update_from_branch() {
     fi
 
     # Step 2: Branch selection
-    local branch
-    branch=$(whiptail --inputbox "Enter branch name to update from:\n\nCommon branches: main, dev, dev-features05" 12 60 "main" 3>&1 1>&2 2>&3)
+    # Default to the branch this image was built from (#289)
+    local branch default_branch="${RQB_BUILD_BRANCH:-main}" built_from=""
+    [ -f /etc/rasqberry-version ] && built_from="\n\nThis image: $(cat /etc/rasqberry-version)"
+    [ -n "${RQB_BUILD_BRANCH:-}" ] && built_from="$built_from\nBuilt from: ${RQB_BUILD_REPO:-?} @ $RQB_BUILD_BRANCH"
+    branch=$(whiptail --inputbox "Enter branch name to update from:$built_from\n\nCommon branches: main, beta, development" 14 70 "$default_branch" 3>&1 1>&2 2>&3)
     if [ $? -ne 0 ] || [ -z "$branch" ]; then
         return 0
     fi
@@ -1614,44 +2236,44 @@ do_slot_manager_menu() {
     while true; do
         # Get current status for menu display
         local current_slot
-        current_slot=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
+        current_slot=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
         local slot_status
-        slot_status=$(/usr/local/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
+        slot_status=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
 
         FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
-            STATUS   "Show detailed slot status" \
-            CONFIRM  "Confirm current slot (prevent rollback)" \
-            SWITCH_A "Switch to Slot A on next reboot" \
-            SWITCH_B "Switch to Slot B on next reboot" \
-            UPDATE   "Update Slot B with new image" \
-            ROLLBACK "Force rollback to other slot" \
-            PROMOTE  "Promote Slot B to Slot A") || break
+            STATUS    "Show detailed slot status" \
+            CONFIRM   "Confirm current slot (prevent rollback)" \
+            TRYBOOT_A "Switch to Slot A and reboot now" \
+            TRYBOOT_B "Switch to Slot B and reboot now" \
+            UPDATE    "Update Slot B with new image" \
+            ROLLBACK  "Force rollback to other slot" \
+            PROMOTE   "Promote Slot B to Slot A") || break
 
         case "$FUN" in
             STATUS)
                 local status_output
-                status_output=$(/usr/local/bin/rq_slot_manager.sh status 2>&1)
+                status_output=$(/usr/bin/rq_slot_manager.sh status 2>&1)
                 whiptail --title "A/B Boot Status" --msgbox "$status_output" 20 70
                 ;;
             CONFIRM)
                 local confirm_output
-                confirm_output=$(/usr/local/bin/rq_slot_manager.sh confirm 2>&1)
+                confirm_output=$(/usr/bin/rq_slot_manager.sh confirm 2>&1)
                 whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
                 ;;
-            SWITCH_A)
+            TRYBOOT_A)
                 if whiptail --title "Switch to Slot A" --yesno \
-                    "This will configure the system to boot from Slot A on next reboot.\n\nContinue?" 10 60; then
-                    local switch_output
-                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to A 2>&1)
-                    whiptail --title "Switch to Slot A" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                    "This will switch to Slot A and reboot immediately.\n\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 12 60; then
+                    whiptail --title "Switching to Slot A" --infobox \
+                        "Configuring tryboot and rebooting to Slot A..." 6 50
+                    exec /usr/bin/rq_slot_manager.sh switch-to A --reboot
                 fi
                 ;;
-            SWITCH_B)
+            TRYBOOT_B)
                 if whiptail --title "Switch to Slot B" --yesno \
-                    "This will configure the system to boot from Slot B on next reboot.\n\nNote: Slot B must have a valid system image installed.\n\nContinue?" 12 60; then
-                    local switch_output
-                    switch_output=$(/usr/local/bin/rq_slot_manager.sh switch-to B 2>&1)
-                    whiptail --title "Switch to Slot B" --msgbox "$switch_output\n\nReboot required for changes to take effect." 14 60
+                    "This will switch to Slot B and reboot immediately.\n\nNote: Slot B must have a valid system image installed.\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 14 60; then
+                    whiptail --title "Switching to Slot B" --infobox \
+                        "Configuring tryboot and rebooting to Slot B..." 6 50
+                    exec /usr/bin/rq_slot_manager.sh switch-to B --reboot
                 fi
                 ;;
             UPDATE)
@@ -1680,14 +2302,15 @@ do_slot_manager_menu() {
                     whiptail --title "Updating Slot B" --infobox \
                         "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
 
-                    /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
+                    # Run update script (reboots automatically via slot manager)
+                    exec /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
                 fi
                 ;;
             ROLLBACK)
                 if whiptail --title "Force Rollback" --yesno \
                     "This will force a rollback to the other slot.\n\nUse this if the current slot is having problems.\n\nContinue?" 12 60; then
                     local rollback_output
-                    rollback_output=$(/usr/local/bin/rq_slot_manager.sh rollback 2>&1)
+                    rollback_output=$(/usr/bin/rq_slot_manager.sh rollback 2>&1)
                     whiptail --title "Rollback" --msgbox "$rollback_output\n\nReboot required for changes to take effect." 14 60
                 fi
                 ;;
@@ -1697,7 +2320,7 @@ do_slot_manager_menu() {
                     whiptail --title "Promoting Slot B" --infobox \
                         "Promoting Slot B to Slot A...\n\nThis may take several minutes." 8 50
                     local promote_output
-                    promote_output=$(/usr/local/bin/rq_slot_manager.sh promote 2>&1)
+                    promote_output=$(/usr/bin/rq_slot_manager.sh promote 2>&1)
                     whiptail --title "Promote Result" --msgbox "$promote_output" 16 70
                 fi
                 ;;
@@ -1759,12 +2382,15 @@ offer_desktop_restart() {
 
 do_rasqberry_menu() {
   while true; do
-    FUN=$(show_menu "RasQberry: Main Menu" "System Options" \
-       QD      "Quantum Demos" \
-       TOUCH   "Touch Mode Settings" \
-       UEF     "Update Env File" \
-       AB_BOOT "Software & Full Image Updates" \
-       INFO    "System Info") || break
+    # Build the menu, offering the A/B image-update entry ONLY on an actual
+    # A/B partition layout (config-labelled p1). On a single-image install it
+    # is irrelevant and confusing, so hide it.
+    set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" UEF "Update Env File"
+    if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+        set -- "$@" AB_BOOT "Software & Full Image Updates"
+    fi
+    set -- "$@" INFO "System Info"
+    FUN=$(show_menu "RasQberry: Main Menu" "System Options" "$@") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       TOUCH)   do_touch_mode_menu             || continue ;;
@@ -1783,6 +2409,17 @@ do_rasqberry_menu() {
 # Function for graceful error handling in menus
 handle_error() {
     local MSG="$1"
+    # Every caller passes a generic sentence ("Failed to run demo: X"), which
+    # told the user nothing about the actual cause - the traceback, the "GPIO
+    # busy", the "requires a display". run_demo leaves that here when it catches
+    # a demo dying, so show it with the message rather than instead of it.
+    if [ -n "${RQ_LAST_DEMO_ERROR:-}" ]; then
+        whiptail --title "Error" --msgbox "$MSG
+
+$RQ_LAST_DEMO_ERROR" 20 76
+        RQ_LAST_DEMO_ERROR=""
+        return 1
+    fi
     whiptail --title "Error" --msgbox "$MSG" 8 60
     return 1
 }

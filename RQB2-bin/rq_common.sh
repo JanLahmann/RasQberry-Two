@@ -204,14 +204,40 @@ ensure_venv() {
 
 # Show yes/no dialog
 # Usage: show_yesno "Title" "Question text" && echo "User said yes"
+# Height that fits <text> in a whiptail box of <width>, at least <min>.
+# whiptail cuts off text that does not fit instead of wrapping into view, so
+# fixed heights truncated longer messages (e.g. the third-party demo
+# disclaimer). Capped at the terminal height; the caller adds --scrolltext
+# when the text is longer than that.
+_rq_dialog_height() {
+    local text="$1" width="$2" min="$3" lines rows
+    lines=$(printf '%b\n' "$text" | fold -s -w $((width - 4)) | wc -l)
+    rows=$(tput lines 2>/dev/null || echo 24)
+    [ "$rows" -ge 10 ] 2>/dev/null || rows=24
+    lines=$((lines + 7))
+    [ "$lines" -lt "$min" ] && lines="$min"
+    [ "$lines" -gt "$rows" ] && lines="$rows"
+    echo "$lines"
+}
+
+# --scrolltext when <text> does not fit the chosen height
+_rq_dialog_scroll() {
+    local text="$1" width="$2" height="$3"
+    [ "$(printf '%b\n' "$text" | fold -s -w $((width - 4)) | wc -l)" -gt $((height - 7)) ] && echo "--scrolltext"
+    return 0
+}
+
 show_yesno() {
     local title="$1"
     local text="$2"
-    local height="${3:-12}"
     local width="${4:-65}"
+    local height
+    height=$(_rq_dialog_height "$text" "$width" "${3:-12}")
 
     if command -v whiptail >/dev/null 2>&1; then
-        whiptail --title "$title" --yesno "$text" "$height" "$width" 3>&1 1>&2 2>&3
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        whiptail --title "$title" $(_rq_dialog_scroll "$text" "$width" "$height") \
+            --yesno "$text" "$height" "$width" 3>&1 1>&2 2>&3
     else
         # Fallback to read if whiptail not available
         echo "$text"
@@ -226,11 +252,14 @@ show_yesno() {
 show_msgbox() {
     local title="$1"
     local text="$2"
-    local height="${3:-10}"
     local width="${4:-60}"
+    local height
+    height=$(_rq_dialog_height "$text" "$width" "${3:-10}")
 
     if command -v whiptail >/dev/null 2>&1; then
-        whiptail --title "$title" --msgbox "$text" "$height" "$width" 3>&1 1>&2 2>&3
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        whiptail --title "$title" $(_rq_dialog_scroll "$text" "$width" "$height") \
+            --msgbox "$text" "$height" "$width" 3>&1 1>&2 2>&3
     else
         echo "=== $title ==="
         echo "$text"
@@ -473,6 +502,47 @@ default_demo_cleanup() {
 }
 
 # ============================================================================
+# 8b. NETWORK / PORT HELPERS
+# ============================================================================
+# Shared by rq_demo_run.sh and the standalone docker launchers so that every
+# demo picks a FREE host port from its own base instead of hard-coding one -
+# otherwise two demos collide (e.g. doQumentation + a Jupyter demo both wanting
+# :8888). Give each demo a distinct base and these shift past a taken port.
+
+# Find a free TCP port at or above the given base (default 8888).
+# Usage: port=$(find_available_port 8896)
+find_available_port() {
+    local port="${1:-8888}"
+    while true; do
+        if command -v lsof &>/dev/null; then
+            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
+        elif command -v ss &>/dev/null; then
+            if ! ss -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        elif command -v netstat &>/dev/null; then
+            if ! netstat -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        else
+            echo "$port"; return 0   # no tool available - assume free
+        fi
+        port=$((port + 1))
+        if [ "$port" -gt 65535 ]; then die "Could not find an available port"; fi
+    done
+}
+
+# Report whether a TCP port is currently in use. Returns 0 if in use.
+port_in_use() {
+    local port="$1"
+    if command -v lsof &>/dev/null; then
+        lsof -i ":$port" &>/dev/null
+    elif command -v ss &>/dev/null; then
+        ss -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v netstat &>/dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+    else
+        return 1   # no tool available - cannot tell, assume free
+    fi
+}
+
+# ============================================================================
 # 9. PATH & DIRECTORY HELPERS
 # ============================================================================
 
@@ -638,6 +708,170 @@ install_demo_raspiconfig() {
     fi
 
     return 0
+}
+
+# ============================================================================
+# 13. MANIFEST SEARCH PATH (external demos)
+# ============================================================================
+# Demo manifests are read from a two-entry search path:
+#   1. the shipped directory (trusted, /usr/config/demo-manifests)
+#   2. the user directory   ($USER_HOME/.local/config/demo-manifests)
+# Shipped manifests always WIN on id collision (they are the trust anchor);
+# a user manifest that reuses a shipped id is ignored (with a warning).
+#
+# The shipped directory differs between installed (/usr/config) and repo
+# (RQB2-config) contexts, so callers pass it in. The user directory derives
+# from USER_HOME and is skipped silently when USER_HOME is unset (dev/CI) or
+# the directory does not exist - so everything degrades to shipped-only.
+
+# Echo the user manifest directory. Returns non-zero (no output) when
+# USER_HOME is not set, so callers can treat it as "no user dir".
+rq_user_manifest_dir() {
+    [ -n "${USER_HOME:-}" ] || return 1
+    echo "$USER_HOME/.local/config/demo-manifests"
+}
+
+# Echo the existing manifest search directories, shipped first then user.
+# Usage: rq_manifest_dirs "<shipped_dir>"
+rq_manifest_dirs() {
+    local shipped="$1" user_dir
+    [ -d "$shipped" ] && echo "$shipped"
+    if user_dir=$(rq_user_manifest_dir) \
+        && [ -d "$user_dir" ] && [ "$user_dir" != "$shipped" ]; then
+        echo "$user_dir"
+    fi
+}
+
+# Resolve the manifest file for a demo id across the search path.
+# Shipped wins. Echoes the path and returns 0 if found, else returns 1.
+# Usage: file=$(rq_find_manifest "<shipped_dir>" "<id>")
+rq_find_manifest() {
+    local shipped="$1" id="$2" dir file
+    while IFS= read -r dir; do
+        [ -z "$dir" ] && continue
+        file="$dir/rq_demo_${id}.json"
+        if [ -f "$file" ]; then
+            echo "$file"
+            return 0
+        fi
+    done <<EOF
+$(rq_manifest_dirs "$shipped")
+EOF
+    return 1
+}
+
+# List every manifest file across the search path, deduped by id with shipped
+# precedence. Emits one path per line on stdout; warns (stderr) when a user
+# manifest is shadowed by a shipped id.
+# Usage: rq_list_manifests "<shipped_dir>"
+rq_list_manifests() {
+    local shipped="$1" dir file id seen_ids=" "
+    while IFS= read -r dir; do
+        [ -z "$dir" ] && continue
+        while IFS= read -r -d '' file; do
+            id=$(jq -r '.id // empty' "$file" 2>/dev/null)
+            [ -z "$id" ] && id=$(basename "$file" .json | sed 's/^rq_demo_//')
+            case "$seen_ids" in
+                *" $id "*)
+                    warn "Manifest id collision: '$id' from $file is shadowed by a shipped manifest (ignored)"
+                    continue
+                    ;;
+            esac
+            seen_ids="$seen_ids$id "
+            echo "$file"
+        done < <(find "$dir" -maxdepth 1 -name 'rq_demo_*.json' -not -name '*schema*' -print0 2>/dev/null | sort -z)
+    done <<EOF
+$(rq_manifest_dirs "$shipped")
+EOF
+}
+
+# ============================================================================
+# 14. PINNED REPOSITORY FETCH (external demos)
+# ============================================================================
+# A plain "git clone --depth 1" cannot fetch an arbitrary commit SHA, so we
+# init an empty repo and fetch exactly the pinned ref. This is the install
+# path for external demos, whose registry entry pins a full commit SHA.
+
+# Fetch a single pinned commit into a fresh checkout.
+# Usage: fetch_pinned_repo "<https-url>" "<full-sha>" "<dest-dir>"
+fetch_pinned_repo() {
+    local url="$1" sha="$2" dest="$3"
+
+    case "$url" in
+        https://*) : ;;
+        *) die "Refusing non-https repo_url: $url" ;;
+    esac
+    if ! echo "$sha" | grep -qE '^[0-9a-fA-F]{40}$'; then
+        die "Registry ref must be a full 40-character commit SHA, got: $sha"
+    fi
+
+    mkdir -p "$dest" || die "Cannot create destination: $dest"
+    (
+        cd "$dest" || die "Cannot enter destination: $dest"
+        git init -q || die "git init failed in $dest"
+        git fetch --depth 1 "$url" "$sha" 2>/dev/null \
+            || die "Failed to fetch pinned commit $sha from $url"
+        git checkout -q FETCH_HEAD || die "Failed to checkout pinned commit $sha"
+    ) || return 1
+
+    # Keep the checkout user-owned when this runs as root (raspi-config context)
+    fix_root_ownership "$dest"
+}
+
+# ============================================================================
+# A/B BOOT PARTITION HELPERS
+# ============================================================================
+# Single source of truth for slot -> device resolution (issue #229).
+# Resolves by partition label first (works on SD, NVMe and USB boot),
+# falling back to partition-number naming on the boot device.
+
+ab_boot_device() {
+    # Print the parent block device of the running root fs (e.g. mmcblk0, sda)
+    lsblk -no pkname "$(findmnt / -o source -n)"
+}
+
+ab_partition_by_number() {
+    # Print partition device <n> of the boot device, handling both
+    # mmcblk0p<n> and sda<n> naming
+    local num="$1" dev
+    dev=$(ab_boot_device)
+    if [ -b "/dev/${dev}p${num}" ]; then
+        echo "/dev/${dev}p${num}"
+    else
+        echo "/dev/${dev}${num}"
+    fi
+}
+
+ab_partition_by_label() {
+    # Print the partition device with the given label (case-insensitive),
+    # searching only the device the system booted from. Empty if not found.
+    local label="$1" dev
+    dev=$(ab_boot_device)
+    lsblk -lnpo NAME,LABEL "/dev/${dev}" 2>/dev/null \
+        | awk -v want="$(echo "$label" | tr '[:lower:]' '[:upper:]')" \
+          'toupper($2) == want { print $1; exit }'
+}
+
+get_ab_system_partition() {
+    # System (root) partition for slot A or B. Label first, number fallback
+    # (v3 layout: p5=SYSTEM-A, p6=SYSTEM-B).
+    local slot="$1" part
+    case "$slot" in
+        A) part=$(ab_partition_by_label "SYSTEM-A"); echo "${part:-$(ab_partition_by_number 5)}" ;;
+        B) part=$(ab_partition_by_label "SYSTEM-B"); echo "${part:-$(ab_partition_by_number 6)}" ;;
+        *) return 1 ;;
+    esac
+}
+
+get_ab_boot_partition() {
+    # Boot (firmware) partition for slot A or B. Label first, number fallback
+    # (v3 layout: p2=BOOT-A, p3=boot-b).
+    local slot="$1" part
+    case "$slot" in
+        A) part=$(ab_partition_by_label "BOOT-A"); echo "${part:-$(ab_partition_by_number 2)}" ;;
+        B) part=$(ab_partition_by_label "BOOT-B"); echo "${part:-$(ab_partition_by_number 3)}" ;;
+        *) return 1 ;;
+    esac
 }
 
 # ============================================================================

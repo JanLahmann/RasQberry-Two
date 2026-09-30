@@ -194,11 +194,39 @@ def confirm_boot_slot() -> bool:
 
     logger.info("A/B boot system detected")
 
-    slot_manager = Path('/usr/local/bin/rq_slot_manager.sh')
+    slot_manager = Path('/usr/bin/rq_slot_manager.sh')
 
     if not slot_manager.exists():
         logger.warning("Slot manager not found, cannot confirm slot")
         return True  # Don't fail health check
+
+    # If a slot switch was requested, verify we actually booted the target
+    # slot. Blindly confirming would mask a failed tryboot (system silently
+    # kept running the old slot).
+    target_file = Path('/boot/config/target-slot')
+    if target_file.exists():
+        try:
+            target_slot = target_file.read_text().strip()
+            root_dev = subprocess.run(
+                ['findmnt', '/', '-o', 'source', '-n'],
+                capture_output=True, text=True, timeout=5
+            ).stdout.strip()
+            current_slot = 'A' if root_dev.endswith('5') else 'B'
+            if target_slot in ('A', 'B') and target_slot != current_slot:
+                logger.error(
+                    f"✗ Slot switch FAILED: target was Slot {target_slot} "
+                    f"but system booted Slot {current_slot} ({root_dev}). "
+                    "Retry budget exhausted (see rq_tryboot_retry.sh). "
+                    "Not confirming; investigate before retrying."
+                )
+                target_file.unlink(missing_ok=True)
+                Path('/boot/config/switch-retries').unlink(missing_ok=True)
+                return False
+            target_file.unlink(missing_ok=True)
+            Path('/boot/config/switch-retries').unlink(missing_ok=True)
+            logger.info(f"✓ Booted the requested target slot ({current_slot})")
+        except Exception as e:
+            logger.warning(f"Could not verify target slot: {e}")
 
     try:
         result = subprocess.run(

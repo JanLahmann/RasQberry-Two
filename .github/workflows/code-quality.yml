@@ -19,17 +19,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
+          sudo apt-get install -y shellcheck jq
 
       - name: Run Basic Validation
         id: basic
@@ -44,6 +44,32 @@ jobs:
           chmod +x tests/test_common_library_usage.sh
           ./tests/test_common_library_usage.sh | tee /tmp/advanced_validation.log
         continue-on-error: false
+
+      - name: Validate Demo Manifests
+        id: manifests
+        run: |
+          # Schema checks plus the pin policy: any demo checked out from a repo
+          # owner we do not control (RQB2-config/trusted-repo-owners.txt) must pin
+          # install.ref to a full commit SHA. Unpinned we track a moving branch,
+          # so an unreviewed upstream commit changes what ships - and breaks the
+          # patches written against it (issue #37).
+          chmod +x RQB2-bin/rq_demo_validate.sh
+          ./RQB2-bin/rq_demo_validate.sh | tee /tmp/manifest_validation.log
+        continue-on-error: false
+
+      - name: Check links between docs
+        # Offline: relative links and file references in the Markdown docs,
+        # which break silently when a file is renamed or a README never gets
+        # written. External URLs are checked weekly by link-check.yml on main.
+        # Placeholder URLs in templates go in .lycheeignore.
+        uses: lycheeverse/lychee-action@v2
+        with:
+          lycheeVersion: v0.24.2
+          args: >-
+            --offline --no-progress
+            --root-dir ${{ github.workspace }}
+            '**/*.md'
+          fail: true
 
       - name: Run ShellCheck (Advisory)
         id: shellcheck
@@ -107,7 +133,7 @@ jobs:
           echo "**Branch:** \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.basic.outcome }}" == "success" ] && [ "${{ steps.advanced.outcome }}" == "success" ]; then
+          if [ "${{ steps.basic.outcome }}" == "success" ] && [ "${{ steps.advanced.outcome }}" == "success" ] && [ "${{ steps.manifests.outcome }}" == "success" ]; then
             echo "✅ **All validation checks passed**" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Validation checks failed**" >> $GITHUB_STEP_SUMMARY
@@ -120,6 +146,7 @@ jobs:
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Basic Validation | ${{ steps.basic.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Advanced Pattern Detection | ${{ steps.advanced.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Demo Manifests (schema + pin policy) | ${{ steps.manifests.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| ShellCheck Analysis | ${{ steps.shellcheck.outcome == 'success' && '✅ Completed' || '⚠️ See logs' }} (Advisory) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -184,7 +211,7 @@ jobs:
             fi
           fi
 
-          if [ "${{ steps.basic.outcome }}" != "success" ] || [ "${{ steps.advanced.outcome }}" != "success" ]; then
+          if [ "${{ steps.basic.outcome }}" != "success" ] || [ "${{ steps.advanced.outcome }}" != "success" ] || [ "${{ steps.manifests.outcome }}" != "success" ]; then
             echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please review the logs above and fix the validation errors before merging." >> $GITHUB_STEP_SUMMARY
@@ -195,6 +222,7 @@ jobs:
             echo "- **Safety flags**: Add \`set -euo pipefail\` at the top of scripts" >> $GITHUB_STEP_SUMMARY
             echo "- **USER_HOME violations**: Remove USER_HOME redefinitions, use \`load_rqb2_env\`" >> $GITHUB_STEP_SUMMARY
             echo "- **Missing patterns**: Ensure scripts use \`rq_common.sh\` functions" >> $GITHUB_STEP_SUMMARY
+            echo "- **Unpinned third-party demo**: add \`install.ref\` (full 40-char SHA), or add the owner to \`RQB2-config/trusted-repo-owners.txt\` if we control it" >> $GITHUB_STEP_SUMMARY
           else
             if [ "$IS_DEV_BRANCH" = true ]; then
               echo "## 🎉 Excellent Work!" >> $GITHUB_STEP_SUMMARY
@@ -210,7 +238,7 @@ jobs:
           fi
 
       - name: Fail if validation failed
-        if: steps.basic.outcome != 'success' || steps.advanced.outcome != 'success'
+        if: steps.basic.outcome != 'success' || steps.advanced.outcome != 'success' || steps.manifests.outcome != 'success'
         run: |
           echo "❌ Code quality validation failed"
           echo "Please review the errors above and fix them before merging"

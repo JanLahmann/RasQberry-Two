@@ -216,7 +216,7 @@ Ensures all users get RasQberry menu system.
 
 - **Provides files for**: All subsequent stages
 - **Used by**: [02-system-integration](../02-system-integration/README.md) - patches deployed by this stage
-- **Artwork used by**: [05-wallpapers](../05-wallpapers/README.md), [06-desktop-integration](../06-desktop-integration/README.md)
+- **Artwork used by**: [05-wallpapers](../05-wallpapers/), [06-desktop-integration](../06-desktop-integration/)
 - **Scripts used by**: All runtime operations and demos
 
 ## Deployment Verification

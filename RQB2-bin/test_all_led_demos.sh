@@ -43,13 +43,21 @@ echo "Virtual LED Demo Test Suite"
 echo "=========================================="
 echo ""
 
-# Check if virtual mode is enabled
-if grep -q "LED_VIRTUAL=true" /usr/config/rasqberry_environment.env 2>/dev/null; then
-    echo -e "${GREEN}LED_VIRTUAL=true${NC} - Virtual mode enabled"
+# Check if virtual mode is enabled.
+#
+# NOTE: rq_led_utils reads the configuration from the environment FILE
+# (/usr/config/rasqberry_environment.env), NOT from the shell environment, so
+# `export LED_VIRTUAL=true` here would have no effect on the demos. The only way
+# to enable virtual mode is to set LED_VIRTUAL=true in that file.
+ENV_FILE="/usr/config/rasqberry_environment.env"
+if grep -q "^LED_VIRTUAL=true" "$ENV_FILE" 2>/dev/null; then
+    echo -e "${GREEN}LED_VIRTUAL=true${NC} - Virtual mode enabled in $ENV_FILE"
 else
-    echo -e "${YELLOW}Warning: LED_VIRTUAL not set to true${NC}"
-    echo "Setting LED_VIRTUAL=true for this session..."
-    export LED_VIRTUAL=true
+    echo -e "${YELLOW}Warning: LED_VIRTUAL is not set to true in $ENV_FILE${NC}"
+    echo "The library reads that file (not the shell environment), so exporting"
+    echo "LED_VIRTUAL here cannot enable virtual mode. To run the demos against"
+    echo "the virtual display, set LED_VIRTUAL=true in $ENV_FILE and re-run."
+    echo "Continuing with the current configuration..."
 fi
 
 # Activate virtual environment if it exists
