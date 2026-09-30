@@ -117,9 +117,30 @@ cat > /usr/local/bin/rasqberry-enable-vnc.sh << 'EOF'
 #!/bin/bash
 # RasQberry Desktop Login: Ensure VNC Server is Enabled
 # Runs on every login - raspi-config do_vnc is idempotent
+#
+# On a freshly flashed slot, do_vnc run in the first seconds of the session
+# returns without starting wayvnc, and get_vnc still reports it off (#288).
+# The same command works a little later, so wait for the session to settle,
+# then retry until get_vnc confirms VNC is on. Every outcome goes to the
+# journal: journalctl -t rasqberry-enable-vnc
 
-# Enable VNC using raspi-config (idempotent, safe to run every login)
-sudo raspi-config nonint do_vnc 0 2>/dev/null
+log() { logger -t rasqberry-enable-vnc "$*"; }
+vnc_on() { [ "$(sudo raspi-config nonint get_vnc 2>/dev/null)" = "0" ]; }
+
+vnc_on && exit 0
+
+sleep 15
+for attempt in 1 2 3 4 5; do
+    out=$(sudo raspi-config nonint do_vnc 0 2>&1)
+    if vnc_on; then
+        log "VNC enabled (attempt $attempt)"
+        exit 0
+    fi
+    log "attempt $attempt: VNC still off after do_vnc 0${out:+: $out}"
+    sleep 10
+done
+log "giving up: VNC is off - enable it in raspi-config (Interface Options -> VNC)"
+exit 1
 EOF
 
 chmod +x /usr/local/bin/rasqberry-enable-vnc.sh

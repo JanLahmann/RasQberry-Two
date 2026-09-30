@@ -127,6 +127,21 @@ chmod 755 /usr/venv     # World-readable/executable so users can copy venv templ
 
 # Set permissions on system-wide files
 chmod 644 /usr/config/rasqberry_environment.env   # World-readable configuration
+
+# Record where this image was built from, so "Update from GitHub Branch"
+# can offer it as the default (#289)
+ENV_FILE=/usr/config/rasqberry_environment.env
+set_env_default() {
+    if grep -q "^$1=" "$ENV_FILE"; then
+        sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"
+    else
+        echo "$1=$2" >> "$ENV_FILE"
+    fi
+}
+set_env_default RQB_BUILD_REPO "$(echo "$GIT_REPO" | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
+set_env_default RQB_BUILD_BRANCH "$GIT_BRANCH"
+set_env_default RQB_BUILD_COMMIT "$(git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true)"
+grep '^RQB_BUILD_' "$ENV_FILE"
 chmod 755 /usr/config/rasqberry_env-config.sh     # World-executable environment loader
 chmod 755 /usr/bin/rq_detect_hardware.sh          # Executable hardware detection script
 chmod 644 /usr/bin/rq_led_utils.py                # Python module (not executable)
