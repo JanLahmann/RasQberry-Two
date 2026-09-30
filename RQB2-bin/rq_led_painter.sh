@@ -47,17 +47,41 @@ DEMO_URL=$(manifest_field '.install.repo_url' "$GIT_REPO_DEMO_LED_PAINTER")
 #
 # Uses inline version of install_demo() pattern for standalone launcher context
 ################################################################################
+################################################################################
+# link_system_pyqt5 - make Raspberry Pi OS's PyQt5 importable from the venv
+#
+# The GUI runs on the system PyQt5 (python3-pyqt5), not on PySide6 from pip:
+# PySide6's wheels bundle a Qt that crashes with a bus error on the Pi 5 kernel
+# (16 KB pages), #302. The image build links it (03-install-qiskit); this covers
+# images built before that.
+################################################################################
+link_system_pyqt5() {
+    local venv_py="$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" site dist
+    [ -x "$venv_py" ] || return 1
+    "$venv_py" -c "import PyQt5.QtWidgets" 2>/dev/null && return 0
+    dist=/usr/lib/python3/dist-packages
+    [ -d "$dist/PyQt5" ] || { warn "python3-pyqt5 is not installed (sudo apt-get install python3-pyqt5)"; return 1; }
+    site=$("$venv_py" -c "import site; print(site.getsitepackages()[0])")
+    info "Linking the system PyQt5 into the venv..."
+    sudo ln -sfn "$dist/PyQt5" "$site/PyQt5"
+    for meta in "$dist"/PyQt5-*.dist-info "$dist"/PyQt5_sip-*.egg-info; do
+        [ -e "$meta" ] && sudo ln -sfn "$meta" "$site/"
+    done
+    "$venv_py" -c "import PyQt5.QtWidgets" 2>/dev/null
+}
+
 check_and_install_demo() {
-    # Check if already installed
+    link_system_pyqt5 || warn "PyQt5 not available in the venv - the painter window cannot open"
+
+    # Installed = checkout present AND already ported to PyQt5. A checkout
+    # converted before #302 still imports PySide6 (bus error on the Pi 5), so
+    # it is fetched and converted again.
     if [ -f "$DEMO_DIR/$MARKER" ]; then
-        # Verify PySide6 is actually installed in the venv
-        if [ -f "$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" ]; then
-            if "$USER_HOME/$REPO/venv/$STD_VENV/bin/python3" -c "import PySide6" 2>/dev/null; then
-                debug "LED Painter already installed with all dependencies"
-                return 0
-            fi
-            info "Demo directory exists but dependencies are missing. Reinstalling..."
+        if grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
+            debug "LED Painter already installed (PyQt5)"
+            return 0
         fi
+        info "LED Painter was installed for PySide6 - reinstalling for PyQt5..."
     fi
 
     # Demo not installed - auto-install without prompting
@@ -151,7 +175,7 @@ check_and_install_demo() {
 # Check and install if needed
 check_and_install_demo
 
-# Find virtual environment python (required for PySide6, qiskit, etc.)
+# Find virtual environment python (required for PyQt5, qiskit, etc.)
 VENV_PATH=$(find_venv "$STD_VENV") || die "Virtual environment '$STD_VENV' not found"
 VENV_PYTHON="$VENV_PATH/bin/python3"
 
