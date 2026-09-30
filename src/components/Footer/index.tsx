@@ -1,17 +1,18 @@
 import { Column, Grid } from "../carbon-wrapper"
 import styles from "./footer.module.scss"
-import { loadFamily, footerLinks } from "@/lib/fwq-family"
+import { loadFamily, footerLinks, footerEvent } from "@/lib/fwq-family"
 
 // Server component: the family roster is fetched at build time from the shared manifest.
 export async function Footer() {
     const family = await loadFamily()
     const links = footerLinks(family)
+    const clickEvent = footerEvent(family)
     return <div className={styles["footer"]}>
         <Grid >
             <Column sm={4} md={8} lg={16}>
                 <p>RasQberry <strong>Two</strong>: <em>Building a Functional Model of a Quantum Computer at Home</em></p>
                 <p style={{ fontSize: '0.875rem', marginTop: '1rem', opacity: 0.8 }}>
-                    <a href="/newsletter" style={{ color: 'inherit', textDecoration: 'underline' }} data-umami-event="newsletter" data-umami-event-step="open">Subscribe to our newsletter</a> for occasional updates.
+                    <a href="/newsletter" style={{ color: 'inherit', textDecoration: 'underline' }} data-umami-event="RasQberry Two: newsletter open">Subscribe to our newsletter</a> for occasional updates.
                 </p>
                 <p style={{ fontSize: '0.75rem', marginTop: '1rem', opacity: 0.8, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
                     {family.brand.tagline.l}
@@ -20,7 +21,7 @@ export async function Footer() {
                 <div className={styles["family"]}>
                     {links.map((m) => (
                         <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className={styles["member"]}
-                           data-umami-event="family-footer" data-umami-event-to={m.id}>
+                           data-umami-event={clickEvent} data-umami-event-to={m.id}>
                             <span>{m.name}</span>
                             {m.short && <small>{m.short}</small>}
                         </a>

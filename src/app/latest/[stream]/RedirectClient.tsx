@@ -59,12 +59,11 @@ export default function RedirectClient({ stream }: RedirectClientProps) {
 
         setStatus('redirecting');
 
-        // Umami `download` event (Fun with Quantum family taxonomy): the redirect IS the download.
+        // Umami `RasQberry Two: image download` event (Fun with Quantum v2 naming): the redirect IS the download.
         // Best-effort; a short delay lets the tracker's request leave before navigation.
         try {
           const umami = (window as unknown as { umami?: { track: (name: string, data?: Record<string, string>) => void } }).umami;
-          umami?.track('download', {
-            kind: 'image',
+          umami?.track('RasQberry Two: image download', {
             file: streamData.image_url.split('/').pop() ?? '',
             stream,
             tag: streamData.tag,
