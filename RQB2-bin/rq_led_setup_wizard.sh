@@ -66,6 +66,10 @@ INFER="${SCRIPT_DIR}/rq_led_wizard_infer.py"
 RENDERER="${SCRIPT_DIR}/rq_led_renderer.py"
 PROBE_BRIGHTNESS="0.15"                 # LOW - probes never need more (current draw)
 WORKDIR="$(mktemp -d)"
+# Render errors go here, never to the terminal: the logo alternator runs in the
+# background while a whiptail question is on screen, and its warnings were
+# printed straight across the dialog.
+WIZ_LOG="/var/log/rasqberry-led-wizard.log"
 ANSWERS_FILE="${WORKDIR}/answers.json"
 
 # Render-hold state (fix F1, plan Sec 7): in the default LED_RENDER_MODE=direct
@@ -144,6 +148,8 @@ reap_virtual_gui() {
 # file is never touched, so there is nothing persistent to restore on exit.
 # ----------------------------------------------------------------------------
 start_render_hold() {
+    ensure_leds_free || exit 1
+
     # Already in service mode? A renderer is expected to be running; do nothing.
     [ "${LED_RENDER_MODE:-direct}" = "service" ] && return 0
 
@@ -204,8 +210,8 @@ run_probe() {
     local pattern="$1"; shift || true
     local count="${UPPER_BOUND:-192}"
     python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
-        --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
-        || warn "probe pattern '${pattern}' failed to render"
+        --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
+        || echo "$(date '+%F %T') probe pattern '${pattern}' failed to render" >> "${WIZ_LOG}"
 }
 
 # ----------------------------------------------------------------------------
@@ -219,8 +225,56 @@ run_logo() {
     local layout="$1" color="$2"; shift 2 || true
     local count="${UPPER_BOUND:-${LED_COUNT:-192}}"
     python3 "${PROBE}" --pattern logo --layout "${layout}" --color "${color}" \
-        --count "${count}" --brightness "${PROBE_BRIGHTNESS}" "$@" 2>/dev/null \
-        || warn "logo render failed for layout '${layout}'"
+        --count "${count}" --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
+        || echo "$(date '+%F %T') logo render failed for layout '${layout}'" >> "${WIZ_LOG}"
+}
+
+# ----------------------------------------------------------------------------
+# Can we drive the panel at all? Another program holding the LED GPIO (a demo
+# left running, the demo loop, a second wizard) made every render fail, and the
+# operator was asked to pick the correct logo on a dark panel. Check once, name
+# the holder and offer to stop it.
+# ----------------------------------------------------------------------------
+led_holders() {
+    local dev pids="" pid
+    for dev in /dev/gpiochip* /dev/pio0 /dev/spidev0.0; do
+        [ -e "$dev" ] || continue
+        pids="$pids $(fuser "$dev" 2>/dev/null)"
+    done
+    for pid in $(echo "$pids" | tr ' ' '\n' | grep -E '^[0-9]+$' | sort -u); do
+        [ "$pid" = "$$" ] && continue
+        echo "$pid $(ps -o args= -p "$pid" 2>/dev/null | cut -c1-60)"
+    done
+}
+
+ensure_leds_free() {
+    local holders
+    python3 "${PROBE}" --pattern clear --count "${UPPER_BOUND:-${LED_COUNT:-192}}" \
+        --brightness "${PROBE_BRIGHTNESS}" 2>>"${WIZ_LOG}" && return 0
+    holders=$(led_holders)
+    if [ -z "$holders" ]; then
+        show_msgbox "LED panel not responding" \
+"The LED panel could not be driven, and no other program seems to be using it.
+
+Check the cable and the power supply, then try again.
+Details: ${WIZ_LOG}"
+        return 1
+    fi
+    if show_yesno "LEDs in use" \
+"Another program is using the LED panel, so the setup cannot show anything:
+
+$(echo "$holders" | sed 's/^[0-9]* /  /')
+
+Stop it and continue?"; then
+        echo "$holders" | awk '{print $1}' | xargs -r kill 2>/dev/null
+        sleep 2
+        echo "$holders" | awk '{print $1}' | xargs -r kill -9 2>/dev/null
+        sleep 1
+        python3 "${PROBE}" --pattern clear --count "${UPPER_BOUND:-${LED_COUNT:-192}}" \
+            --brightness "${PROBE_BRIGHTNESS}" 2>>"${WIZ_LOG}" && return 0
+        show_msgbox "LED panel not responding" "The panel still cannot be driven. Details: ${WIZ_LOG}"
+    fi
+    return 1
 }
 
 # ----------------------------------------------------------------------------
@@ -610,7 +664,7 @@ run_identification() {
         if [ "${mode}" = "diagnostic" ]; then
             run_diagnostic || true
         else
-            run_setup || true
+            run_setup && SETUP_SAVED=true || true
         fi
         return 0
     elif [ "${rc}" -eq 2 ]; then
@@ -634,7 +688,7 @@ run_identification() {
     if [ "${mode}" = "diagnostic" ]; then
         run_diagnostic || true
     else
-        run_setup || true
+        run_setup && SETUP_SAVED=true || true
     fi
     return 0
 }
@@ -673,8 +727,16 @@ verify_layout() {
     # is the count this image already drives.
     UPPER_BOUND="${LED_COUNT:-192}"
     start_render_hold
+    SETUP_SAVED=false
     run_identification setup
-    mark_layout_verified
+    # Only a layout the operator actually confirmed counts as verified. A
+    # cancelled check used to be marked verified too, so first login never
+    # offered it again.
+    if [ "${SETUP_SAVED}" = true ]; then
+        mark_layout_verified
+    else
+        info "LED layout not verified - you will be asked again at the next login."
+    fi
     return 0
 }
 
