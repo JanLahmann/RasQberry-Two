@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T13:21:12Z",
+  "generated": "2026-09-30T13:21:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -9,25 +9,26 @@
     },
     "beta": {
       "tag": "beta-2026-09-30-142314",
-      "name": "rasqberry-beta-2026-09-30-142314",
+      "name": "rasqberry-beta-2026-09-30",
       "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-142314/rasqberry-beta-2026-09-30.img.xz",
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-142314",
       "release_date": "2026-09-30",
       "image_download_size": 1663612092,
       "extract_size": 9034530816,
       "extract_sha256": "7de6911d4ea8bd5db765de94eb4d79e285e697cfd12a12051f64929211271f4f",
-      "image_sha256": "c08576637928efc84f416766cae173429297dffbf34280375011a7bd7d660530",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-142314/rasqberry-beta-2026-09-30-ab.img.xz",
       "ab_extract_sha256": "eae653876e98c12c13b1ab9200ac7db0195983f2cb03f8fc8d17df6f3ddeb4fe",
       "ab_image_sha256": "dcdf03db49a7270b0423b2a19470effe33f5814b2dc87d11cf8701b61caf0a5c",
-      "ab_image_download_size": 1672393380,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1672393380,
       "highlights": [
-        "Bump version to beta-2026-09-30-142314",
-        "Merge development into beta (second beta round)",
-        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-09-30-102147",
-        "Bump version to development-2026-09-30-142217",
-        "Build every stream without an initramfs"
+        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
+        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
+        "Virtual LED Display - Demo mode without physical hardware",
+        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
+        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
+        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
+        "XZ Compression - Smaller images (~30% reduction)"
       ]
     },
     "dev": {
