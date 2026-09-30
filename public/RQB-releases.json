@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T10:43:12Z",
+  "generated": "2026-09-30T10:43:37Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2022917216,
       "extract_size": 9034530816,
       "extract_sha256": "cc3e5f87caa58a1fd0456df81f46f4b14562e6dda038e141224aa3f74dc7c786",
-      "image_sha256": "e25bcdd63fc21462bba360921e2a99b42a240ca12d9f0a9753233a1b77de8ec1",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-122502/rasqberry-development-2026-09-30-122502-ab.img.xz",
       "ab_extract_sha256": "096f5b6f0f0e1f48e552b6bbcb123badbeb913507579239fce4f8c133adebf27",
       "ab_image_sha256": "fb37989a1e7c0f2df3e0f6d54b54683258cfe40f3d29586c15c5a0dbd7921f30",
-      "ab_image_download_size": 2060979400,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2060979400,
       "highlights": [
         "Bump version to development-2026-09-30-122502",
         "LED wizard: handle busy LEDs, keep errors off the dialog, don't verify on cancel"
