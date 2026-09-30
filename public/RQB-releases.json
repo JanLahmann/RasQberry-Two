@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T11:57:10Z",
+  "generated": "2026-09-30T11:57:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2023934340,
       "extract_size": 9034530816,
       "extract_sha256": "2471a23b0f13c6fa5e4b3b5d3c070eaa6abd8d04cbe909617b1e41dc01575fd1",
-      "image_sha256": "af0131a88448fb4d0ec00ce6e0dfafbb13b39bac41f5481fbb95c0fcde869a4f",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-132714/rasqberry-development-2026-09-30-132714-ab.img.xz",
       "ab_extract_sha256": "e9fa0015cbda83ffc89a59dc4fcd1c8eed02614c1d0f653994275938eb4de722",
       "ab_image_sha256": "e5db2413c26d2d01f8f6f86456b169e8d44223a9730dcdb70c887c942045c4d7",
-      "ab_image_download_size": 2060330908,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2060330908,
       "highlights": [
         "Bump version to development-2026-09-30-132714",
         "Merge dev-cleanup: system files in RQB2-system (#294), stage READMEs (#124), LED chunking removed (#132), Raspberry Tie stoppable (#104), browser at login (#227)",
