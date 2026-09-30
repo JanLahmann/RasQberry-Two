@@ -2,7 +2,7 @@
 # Auto-generated demo menu cache from manifests
 # DO NOT EDIT - regenerate with: rq_demo_generate_menu.sh --cache
 #
-# Generated: 2026-09-30T08:50:04+02:00
+# Generated: 2026-09-30T08:56:51+02:00
 # Manifest directory: /Users/majl/GitHub/RasQberry-Two-dev-backlog/RQB2-config/demo-manifests
 
 # Demo menu items for whiptail (tag description pairs)
