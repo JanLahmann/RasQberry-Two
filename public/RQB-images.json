@@ -43,6 +43,23 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
+          "name": "RasQberry Two Dev (dev-devicesettings 2026-09-30-102741)",
+          "description": "Development build from dev-devicesettings",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-devicesettings-2026-09-30-102741/rasqberry-dev-devicesettings-2026-09-30-102741.img.xz",
+          "extract_size": 9034530816,
+          "extract_sha256": "e0f2da79343df89cf06f12235d11bf6fc881b1cff6bfe496d0f02792861baed1",
+          "image_download_size": 2024222208,
+          "image_sha256": "60a746a14a9cda62cc6fb1b0aa88e2052acb4ddcda97531d0e2a1e0debfe2622",
+          "release_date": "2026-09-30 10:27",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-backlog 2026-09-30-095805)",
           "description": "Development build from dev-backlog",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -110,6 +127,23 @@
           "image_download_size": 2059929268,
           "image_sha256": "11bbdbb15159b704688aba58026ef16f6aa0e1adee9902156d41a346b15aafa4",
           "release_date": "2026-09-30 10:32",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two A/B (dev-devicesettings 2026-09-30-102741)",
+          "description": "A/B boot image from dev-devicesettings",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-devicesettings-2026-09-30-102741/rasqberry-dev-devicesettings-2026-09-30-102741-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "5548ea75792acc888713fbfe42d19a57221aded870d62bcb21f3474b92d94410",
+          "image_download_size": 2057568648,
+          "image_sha256": "67dc2e21321a93b541fb5d6244e784c4394e143727f8df2b6015d2814e7f8f3e",
+          "release_date": "2026-09-30 10:27",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
