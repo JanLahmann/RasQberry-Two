@@ -31,18 +31,9 @@ else
     echo "Repository already exists at ${CLONE_DIR}"
 fi
 
-# Install boot config loader script
-echo "=> Installing boot config loader script"
-install -v -m 755 "${CLONE_DIR}/RQB2-bin/rasqberry-load-boot-config.sh" \
-  /usr/local/bin/rasqberry-load-boot-config.sh
-
-# Enable the systemd services (service files already installed by 00-run.sh)
-echo "=> Enabling boot configuration services"
-systemctl enable rasqberry-boot-config.service
-systemctl enable rasqberry-demo-cache.service
-systemctl enable rasqberry-update-check.timer
-# NOTE: rasqberry-led-renderer.service is intentionally NOT enabled here.
-# LED_RENDER_MODE defaults to 'direct', so the renderer ships disabled; it is
-# enabled only when switching to service mode (see rasqberry_environment.env).
+# The boot config loader (/usr/local/bin/rasqberry-load-boot-config.sh) and the
+# units are installed, and enabled per RQB2-system/enabled-units.txt, by
+# 01-deploy-files (#294). rasqberry-led-renderer.service ships disabled on
+# purpose (LED_RENDER_MODE defaults to 'direct').
 
 echo "Boot configuration system installed and enabled"
