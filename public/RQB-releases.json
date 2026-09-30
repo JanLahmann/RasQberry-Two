@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T08:59:41Z",
+  "generated": "2026-09-30T09:18:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,22 +8,26 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2025-12-30-211449",
-      "name": "rasqberry-beta-2025-12-30",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-12-30-211449/rasqberry-beta-2025-12-30.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2025-12-30-211449",
-      "release_date": "2025-12-30",
-      "image_download_size": 1668208604,
-      "extract_size": 8866758656,
-      "extract_sha256": "5830bc6a22020b3095d3b50612df650c54caefad61adfe39ab9515e9c9e122b7",
+      "tag": "beta-2026-09-30-102147",
+      "name": "rasqberry-beta-2026-09-30-102147",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-102147/rasqberry-beta-2026-09-30.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-102147",
+      "release_date": "2026-09-30",
+      "image_download_size": 1714947160,
+      "extract_size": 9059696640,
+      "extract_sha256": "38e3078fe5373293360b0aadbc00f7f42024ddcc8438d3aa30f3d15ea1e5d3ff",
+      "image_sha256": "740043323edf090fdf427f2b6692b33fa9924d5d96135e9b3f0261afba510f53",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-102147/rasqberry-beta-2026-09-30-ab.img.xz",
+      "ab_extract_sha256": "328d03f42a0d35f0f1eb43f8a3e9827d73bf755311ded320735177f77aa6870b",
+      "ab_image_sha256": "367bf0032a54e50b649111e33ad9346ee7c335c8e7d94dab7e7ff837e5298e2c",
+      "ab_image_download_size": 1692071996,
+      "ab_extract_size": 12398362624,
       "highlights": [
-        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
-        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
-        "Virtual LED Display - Demo mode without physical hardware",
-        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
-        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
-        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
-        "XZ Compression - Smaller images (~30% reduction)"
+        "skip cache restore for main/beta to ensure fresh builds",
+        "order changelog categories (Features first, Bug Fixes last)",
+        "Bump version to beta-2026-09-30-102147",
+        "Merge development into beta",
+        "size yes/no and message boxes to their text"
       ]
     },
     "dev": {
