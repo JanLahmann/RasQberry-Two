@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T11:57:50Z",
+  "generated": "2026-09-30T12:43:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,25 +32,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-30-132714",
-      "name": "rasqberry-development-2026-09-30-132714",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-132714/rasqberry-development-2026-09-30-132714.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-132714",
-      "release_date": "2026-09-30 13:27",
-      "image_download_size": 2023934340,
+      "tag": "development-2026-09-30-142217",
+      "name": "rasqberry-development-2026-09-30-142217",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-142217/rasqberry-development-2026-09-30-142217.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-142217",
+      "release_date": "2026-09-30 14:22",
+      "image_download_size": 2024819152,
       "extract_size": 9034530816,
-      "extract_sha256": "2471a23b0f13c6fa5e4b3b5d3c070eaa6abd8d04cbe909617b1e41dc01575fd1",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-132714/rasqberry-development-2026-09-30-132714-ab.img.xz",
-      "ab_extract_sha256": "e9fa0015cbda83ffc89a59dc4fcd1c8eed02614c1d0f653994275938eb4de722",
-      "ab_image_sha256": "e5db2413c26d2d01f8f6f86456b169e8d44223a9730dcdb70c887c942045c4d7",
+      "extract_sha256": "c71019a40bb67aa3187bc4c6d36706a999d21037c07dac514e4107fe591c187e",
+      "image_sha256": "24a40c1d4d761406426641c275cdcc4dc2053d633f5b67d3b41d156215379308",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-142217/rasqberry-development-2026-09-30-142217-ab.img.xz",
+      "ab_extract_sha256": "4a900ea4aede35f61f8fdc28be77024cb12e1f17740da4bf31fcbf8a03f8e28b",
+      "ab_image_sha256": "a6a2fe5b3f0e287e2d5ae74b42908e7c74eb9e331e6c3f0414f6f24ef96f4138",
+      "ab_image_download_size": 2060894064,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2060330908,
       "highlights": [
-        "Bump version to development-2026-09-30-132714",
-        "Merge dev-cleanup: system files in RQB2-system (#294), stage READMEs (#124), LED chunking removed (#132), Raspberry Tie stoppable (#104), browser at login (#227)",
-        "Stage READMEs for every build stage; remove dead stage scripts (#124)",
-        "Bump version to dev-cleanup-2026-09-30-130242",
-        "Browser-at-login setting; updates menu on every image (#227)"
+        "Bump version to development-2026-09-30-142217",
+        "Build every stream without an initramfs",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-30-132714"
       ]
     }
   }
