@@ -10,7 +10,6 @@ settings that avoid password and "execute file" dialogs.
 - `00-run-chroot.sh` (chroot), after cloning `RQB_GIT_REPO` (branch
   `RQB_GIT_BRANCH`) to `/tmp/${RQB_REPO}`:
   - icons from `desktop-icons/` to `/usr/share/icons/rasqberry/`;
-  - `RQB2-bin/rq_*.sh` to `/usr/bin/`;
   - `RQB2-config/desktop-categories/*.directory` to `/usr/share/desktop-directories/`;
   - `RQB2-config/desktop-bookmarks/*.desktop` to `/usr/share/applications/`;
   - a fixed list of those launchers to `/etc/skel/Desktop/` and the first

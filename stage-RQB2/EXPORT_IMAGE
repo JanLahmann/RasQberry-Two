@@ -4,8 +4,8 @@
 
 if [ -z "${IMG_FILENAME:-}" ]; then
     # Fallback: derive IMG_FILENAME from version file if it exists
-    if [ -f /etc/rasqberry-version ]; then
-        VERSION=$(cat /etc/rasqberry-version)
+    if [ -f "${ROOTFS_DIR}/etc/rasqberry-version" ]; then
+        VERSION=$(cat "${ROOTFS_DIR}/etc/rasqberry-version")
         echo "WARNING: IMG_FILENAME not set, deriving from VERSION: $VERSION"
 
         if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then

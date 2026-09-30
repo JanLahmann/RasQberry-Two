@@ -1,28 +1,20 @@
 # 08-ip-display
 
-Prepares the boot-time service that scrolls the Pi's IP address across the LED
-matrix.
+Shows the device's IP address on the LED panel for a minute after boot, so a
+headless RasQberry can be found on the network.
 
-## What it does
+## What it does (`00-run-chroot.sh`, chroot)
 
-`00-run-chroot.sh` (chroot):
-
-- Installs `netifaces` into `/home/rasqberry/RasQberry-Two/venv/RQB2`, from
-  `/tmp/wheels` if that holds wheels, otherwise from PyPI. If the venv is
-  missing it only prints a warning.
+- Installs `netifaces` into the RQB2 venv of `${FIRST_USER_NAME}` and gives the
+  venv back to the user afterwards (pip runs as root here).
 
 ## Files
 
-From `RQB2-system/`, installed and enabled by
-[01-deploy-files](../01-deploy-files/README.md):
-
-- `/etc/systemd/system/rasqberry-ip-display.service` - after
-  `network-online.target`, runs `/usr/bin/rq_display_ip.py --duration 60` with
-  the venv's Python as root; restarts on failure.
+- `rasqberry-ip-display.service` comes from `RQB2-system/` and is enabled by
+  [01-deploy-files](../01-deploy-files/README.md); it runs
+  `/usr/bin/rq_display_ip.py` with the venv python.
 
 ## Notes
 
-- The venv path is hard-coded, here and in the unit, not derived from
-  `FIRST_USER_NAME`, `RQB_REPO` or `RQB_STD_VENV`.
-- `/tmp/wheels` is already deleted by `03-install-qiskit/02-run.sh`, so the
-  PyPI path is the one that runs.
+- The service holds the LED GPIO while it runs (about 60 s after boot); LED demos
+  started in that window report the GPIO as busy.

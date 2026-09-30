@@ -4,20 +4,14 @@
 # This service displays the device's IP address on the LED matrix for 30 seconds at boot
 
 # Install netifaces package in the virtual environment
-# Uses wheel cache from Qiskit stage for faster installation
-VENV_PATH="/home/rasqberry/RasQberry-Two/venv/RQB2"
-WHEEL_DIR="/tmp/wheels"
+VENV_PATH="/home/${FIRST_USER_NAME}/RasQberry-Two/venv/RQB2"
 
 if [ -d "$VENV_PATH" ]; then
     echo "Installing netifaces in virtual environment..."
-    # Use wheel cache if available (populated by 03-install-qiskit)
-    if [ -d "$WHEEL_DIR" ] && [ -n "$(ls -A $WHEEL_DIR/*.whl 2>/dev/null)" ]; then
-        echo "Using wheel cache for fast install..."
-        "$VENV_PATH/bin/pip3" install --prefer-binary --find-links="$WHEEL_DIR" netifaces
-    else
-        echo "No wheel cache - installing from PyPI..."
-        "$VENV_PATH/bin/pip3" install --use-pep517 netifaces
-    fi
+    "$VENV_PATH/bin/pip3" install --use-pep517 netifaces
+    # pip ran as root: give the venv back to the user, or later user-level
+    # installs (catalog demos) trip over root-owned files
+    chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$VENV_PATH"
 else
     echo "WARNING: Virtual environment not found at $VENV_PATH"
     echo "netifaces will need to be installed manually"
