@@ -91,8 +91,7 @@ RQ_SYS_USER="${FIRST_USER_NAME}" RQ_SYS_REPO="${REPO}" RQ_SYS_VENV="${STD_VENV}"
 # the LED GPIO at boot and left a whiptail dialog stuck on an unattended console
 # (task #35). All triggers route to /usr/bin/rq_led_verify_prompt.sh (deployed via
 # RQB2-bin above), which self-disables once LED_LAYOUT_VERIFIED=true.
-# (/etc/profile.d/rasqberry-firstlogin.sh comes from RQB2-system/, below)
-rm -f /usr/config/rasqberry-firstlogin.profile.sh
+# (/etc/profile.d/rasqberry-firstlogin.sh comes from RQB2-system/, installed above)
 # Superseded by the checklist above (which offers the LED check as one of its
 # steps). Remove the LED-only hook so an upgraded image does not run both.
 rm -f /etc/profile.d/rasqberry-led-verify.sh /usr/config/rasqberry-led-verify.profile.sh

@@ -20,7 +20,6 @@ Classes:
 |---|---|---|
 | `rasqberry_environment.env` | state | LED layout from the first-login wizard, `*_INSTALLED` flags, first-login bookkeeping, painter/web settings, build origin (`RQB_BUILD_*`) |
 | `demo-menu-cache.sh` | generated | built by `rq_demo_generate_menu.sh` from the shipped manifests plus the user's catalog demos |
-| `rasqberry-led-verify.profile.sh` | build | retired; the build removes it |
 | `known-demos.json` | default | catalog pins; after an update the updater lists installed catalog demos whose pin moved |
 | `led-layouts.json` | default | custom layouts live in `~/.local/config/led-layouts.json` |
 | `trusted-repo-owners.txt` | default | |
