@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T20:33:55Z",
+  "generated": "2026-09-30T20:34:30Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2023308056,
       "extract_size": 9034530816,
       "extract_sha256": "81de076c7338039e3f385340a8ed9c8435701b0fa0ad7a49dae0906c67587aef",
-      "image_sha256": "5cc672bd5e4f4456ca69f5b3a0f5cc2b5d1cc168e16db95e016fe7bf04cf1bb7",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-221556/rasqberry-development-2026-09-30-221556-ab.img.xz",
       "ab_extract_sha256": "b8a87ecc08b164b134d669298f01606e5bbc505fec65f9f3705f8b802ee97f5e",
       "ab_image_sha256": "1d5c9cfe130aef1daa3384ec9a3dc05c603f8d1a8948b881d22ef216dae05e97",
-      "ab_image_download_size": 2063113064,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2063113064,
       "highlights": [
         "text and logo display ran without root and without the LED modules",
         "Bump version to development-2026-09-30-221556",
