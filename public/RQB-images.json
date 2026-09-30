@@ -24,12 +24,12 @@
       "name": "RasQberry Two Dev (64-bit)",
       "description": "Development integration branch with latest features",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-29-091003/rasqberry-development-2026-09-29-091003.img.xz",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-103242/rasqberry-development-2026-09-30-103242.img.xz",
       "extract_size": 9034530816,
-      "extract_sha256": "cae53c5369ae63a8601ca6ca706fae9d90e57544964ec9d27833088f9147db65",
-      "image_download_size": 2024720472,
-      "image_sha256": "2827cf6153a3564c3fbbf965ff4d0bc8aab16e7e6edd9f082cb9b5c16e2bc753",
-      "release_date": "2026-09-29 09:10",
+      "extract_sha256": "19d02eb99c1e45ebc52aad7e422e12b3b58075f60982c02f82f4ba26af7869cb",
+      "image_download_size": 2022277152,
+      "image_sha256": "16cd6a5221bb8e09a1cb90dbe9003b216b1b5db0effa98df54cf611f0ea72953",
+      "release_date": "2026-09-30 10:32",
       "init_format": "systemd",
       "devices": [
         "pi5-64bit",
@@ -101,6 +101,23 @@
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "subitems": [
         {
+          "name": "RasQberry Two A/B (development 2026-09-30-103242)",
+          "description": "A/B boot image from development",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-103242/rasqberry-development-2026-09-30-103242-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "efc0b925530c9f3fbce67c03c5f74fc10d9448e3586ac6288d42015006880610",
+          "image_download_size": 2059929268,
+          "image_sha256": "11bbdbb15159b704688aba58026ef16f6aa0e1adee9902156d41a346b15aafa4",
+          "release_date": "2026-09-30 10:32",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two A/B (dev-backlog 2026-09-30-095805)",
           "description": "A/B boot image from dev-backlog",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -110,23 +127,6 @@
           "image_download_size": 2057115392,
           "image_sha256": "391f2d87ccd41e1068ed3ba8a19ef8bdea62c682cc4e4bf9ad8596ccbf9437cf",
           "release_date": "2026-09-30 09:58",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two A/B (development 2026-09-29-091003)",
-          "description": "A/B boot image from development",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-29-091003/rasqberry-development-2026-09-29-091003-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "c45fa3c04e630a71632a3170ed11b31a024b8c74fac31cfe8fee502f524dc47f",
-          "image_download_size": 2061501836,
-          "image_sha256": "3af227dc7fd01ef097da580e50673bffe4212e00e66a8ce779351f2137886443",
-          "release_date": "2026-09-29 09:10",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
