@@ -9,7 +9,7 @@ The full guide - what you need, the standard and A/B images, writing the SD card
 **[rasqberry.org](https://rasqberry.org/02-software/01-installation-overview/)**.
 
 In short: with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
-installed, [open Imager with the RasQberry images](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)
+installed, use the [one-click link on rasqberry.org](https://rasqberry.org/02-software/01-installation-overview/#one-click-open-in-raspberry-pi-imager-recommended) to open Imager with the RasQberry images
 and pick one under **Choose OS**. Alternatively start Imager with the RasQberry repository
 from a terminal, e.g. on a Mac:
 
