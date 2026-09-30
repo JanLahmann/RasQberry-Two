@@ -3,6 +3,20 @@
 Below you can find the list of steps that are needed to write the RasQberry Two image to
 an SD card and use it in your Raspberry Pi version 4 or 5.
 
+## What you need
+
+- **Raspberry Pi 5** (2GB RAM is enough for most demos) or **Raspberry Pi 4B** (4GB RAM).
+  The Pi 5 is recommended; the [hardware assembly guide](/01-3d-model/02-hardware-assembly-guide/) assumes one.
+- **MicroSD card:** at least **32GB** for the standard image, at least **64GB** for the
+  [A/B image](/02-software/03-ab-boot/) (two system slots for safe updates).
+- **Official power supply** (27W USB-C for the Pi 5), and an active cooler for the Pi 5.
+- **Internet access:** several demos are downloaded the first time you start them.
+- Optional: the LED panel, a display, keyboard and mouse. Without a display you can use
+  the desktop over VNC.
+
+The full parts list, including the 3D-printed case and LEDs, is in the
+[Bill of Materials](/01-3d-model/01-bill-of-materials/).
+
 ## Download Options
 
 ### Download Page
