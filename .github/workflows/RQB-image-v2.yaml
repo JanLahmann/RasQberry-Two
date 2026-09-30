@@ -60,7 +60,7 @@
 # 1. Build Quality Settings:
 #    - COMPRESSION_LEVEL_DEV / COMPRESSION_LEVEL_PROD: Image compression (1 dev, 9 prod)
 #    - COMPRESSION_LEVEL_DEV_FALLBACK: Higher level if dev image exceeds 2GB (6)
-#    - SKIP_INITRAMFS / SKIP_INITRAMFS_PROD: Initramfs generation control
+#    - SKIP_INITRAMFS: Initramfs generation control (1 for every stream)
 #
 # 2. Console Configuration (read by workflow):
 #    - CONSOLE_TYPE / CONSOLE_TYPE_PROD / CONSOLE_TYPE_DEV: Console output (hdmi/serial)
@@ -758,15 +758,16 @@ jobs:
           if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "beta" ]]; then
             echo "Applying production build settings for: $BRANCH_NAME"
 
-            # Read production values from config file
-            SKIP_INITRAMFS_PROD=$(grep "^SKIP_INITRAMFS_PROD=" pi-gen-config | cut -d'=' -f2)
+            # Read production values from config file. SKIP_INITRAMFS is NOT
+            # overridden: no stream needs an initramfs (direct kernel boot), and
+            # the old override read an undefined SKIP_INITRAMFS_PROD, so beta and
+            # main silently built one.
             COMPRESSION_FORMAT_PROD=$(grep "^COMPRESSION_FORMAT_PROD=" pi-gen-config | cut -d'=' -f2)
             COMPRESSION_FORMAT_PROD="${COMPRESSION_FORMAT_PROD:-xz}"
             COMPRESSION_LEVEL_PROD=$(grep "^COMPRESSION_LEVEL_PROD=" pi-gen-config | cut -d'=' -f2)
             COMPRESSION_LEVEL_PROD="${COMPRESSION_LEVEL_PROD:-9}"
 
             # Apply production values
-            sed -i "s/^SKIP_INITRAMFS=.*/SKIP_INITRAMFS=${SKIP_INITRAMFS_PROD}/" pi-gen-config
             echo "COMPRESSION_FORMAT=${COMPRESSION_FORMAT_PROD}" >> "$GITHUB_ENV"
             echo "COMPRESSION_LEVEL=${COMPRESSION_LEVEL_PROD}" >> "$GITHUB_ENV"
           else
