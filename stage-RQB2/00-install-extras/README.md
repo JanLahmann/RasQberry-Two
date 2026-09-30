@@ -11,6 +11,7 @@ pi-gen installs every package listed in `00-packages` (no scripts in this stage)
 |---|---|
 | `python3-gi`, `gir1.2-gtk-3.0`, `libgirepository1.0-dev`, `libcairo2-dev` | GTK/cairo bindings, linked into the venv by 03-install-qiskit |
 | `graphviz` | circuit and graph drawings |
+| `python3-pyqt5`, `python3-pyqt5.qtsvg` | Qt GUI (LED Painter, matplotlib), linked into the venv by 03-install-qiskit; pip's Qt wheels crash on the Pi 5 kernel (#302) |
 | `python3-pkg-resources` | older Python packages that still import `pkg_resources` |
 | `sense-emu-tools` | SenseHAT emulator (Quantum Raspberry Tie); pulls in `python3-sense-emu` |
 | `chromium-browser`, `chromium-chromedriver` | browser demos and the start page |

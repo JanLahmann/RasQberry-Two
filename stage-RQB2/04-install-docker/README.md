@@ -12,7 +12,7 @@ for the Docker-based demos and the doQumentation Workshop Server.
     image's codename);
   - installs `docker-ce`, `docker-ce-cli`, `containerd.io`,
     `docker-buildx-plugin`, `docker-compose-plugin`;
-  - if the user `rasqberry` exists, adds it to the `docker` group (creating
+  - if `${FIRST_USER_NAME}` exists, adds it to the `docker` group (creating
     the group if needed).
 - `01-run.sh` (host): appends `cgroup_enable=memory cgroup_memory=1` to
   `${ROOTFS_DIR}/boot/firmware/cmdline.txt` if missing. Without them the
@@ -20,8 +20,6 @@ for the Docker-based demos and the doQumentation Workshop Server.
 
 ## Notes
 
-- The user name `rasqberry` is hard-coded, not `FIRST_USER_NAME`.
 - The cmdline edit runs after [00-enable-serial-console](../00-enable-serial-console/README.md)
   and before the A/B conversion, which copies the extra cmdline parameters into
   both slots (see [08-ab-boot-support](../08-ab-boot-support/README.md)).
-- The two `apt-get install` calls do not pass `-y`.

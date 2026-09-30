@@ -37,7 +37,7 @@ mkdir -p /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 python3 -m venv /home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV
 
 # Symlink GTK/Cairo bindings into venv (can't be pip-installed, need system versions)
-VENV_SITE="/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/lib/python3.11/site-packages"
+VENV_SITE=$("/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV/bin/python3" -c "import site; print(site.getsitepackages()[0])")
 echo "Symlinking GTK bindings into venv..."
 ln -sf /usr/lib/python3/dist-packages/gi "$VENV_SITE/"
 ln -sf /usr/lib/python3/dist-packages/cairo "$VENV_SITE/"
@@ -47,6 +47,14 @@ for egg in /usr/lib/python3/dist-packages/PyGObject-*.egg-info; do
 done
 for egg in /usr/lib/python3/dist-packages/pycairo-*.egg-info; do
     [ -e "$egg" ] && ln -sf "$egg" "$VENV_SITE/"
+done
+
+# Qt for GUI demos (LED Painter, matplotlib's Qt backend): the system PyQt5.
+# PySide6/PyQt wheels from pip bundle a Qt that crashes with a bus error on the
+# Pi 5 kernel (16 KB pages), #302.
+ln -sfn /usr/lib/python3/dist-packages/PyQt5 "$VENV_SITE/PyQt5"
+for meta in /usr/lib/python3/dist-packages/PyQt5-*.dist-info /usr/lib/python3/dist-packages/PyQt5_sip-*.egg-info; do
+    [ -e "$meta" ] && ln -sf "$meta" "$VENV_SITE/"
 done
 
 # Install Qiskit using consolidated script (scripts are now in /usr/bin)
@@ -65,8 +73,8 @@ cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
 
 # Add setup script to bashrc
 export LINE=". /usr/config/setup_qiskit_env.sh"
-echo "$LINE" >> /etc/skel/.bashrc
-echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
+grep -qxF "$LINE" /etc/skel/.bashrc || echo "$LINE" >> /etc/skel/.bashrc
+grep -qxF "$LINE" /home/${FIRST_USER_NAME}/.bashrc || echo "$LINE" >> /home/${FIRST_USER_NAME}/.bashrc
 
 # Fix ownership of venv and bashrc created/modified as root
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/$REPO

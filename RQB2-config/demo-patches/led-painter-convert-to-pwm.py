@@ -7,6 +7,8 @@ This script modifies LED-Painter files to:
 2. Convert turn_off_LEDs.py to use rq_led_utils.clear_all_leds()
 3. Update LED_painter.py to use the shared module for atexit
 4. Update requirements.txt for PWM/PIO drivers
+5. Port the GUI from PySide6 to the system PyQt5 (#302): PySide6's pip wheels
+   bundle a Qt that crashes with a bus error on the Pi 5 kernel (16 KB pages)
 
 Uses the system-wide rq_led_utils module (/usr/bin/rq_led_utils.py) which provides
 a singleton NeoPixel object to prevent GPIO conflicts on Pi 5.
@@ -198,6 +200,57 @@ def update_led_painter(demo_dir):
     return True
 
 
+def port_to_pyqt5(demo_dir):
+    """
+    Switch LED_painter.py from PySide6 to PyQt5 (#302).
+
+    The image ships PyQt5 from Raspberry Pi OS (python3-pyqt5, linked into the
+    venv); Debian's Qt5 runs on both the Pi 4 and the 16 KB-page Pi 5 kernel.
+    Differences that matter for this file: QAction lives in QtWidgets,
+    QMouseEvent has pos() instead of Qt6's position(), exec() is exec_(),
+    and QPoint needs ints.
+
+    Returns:
+        bool: True when the file was ported (or already was).
+    """
+    file_path = os.path.join(demo_dir, 'LED_painter.py')
+    if not os.path.exists(file_path):
+        return False
+    with open(file_path) as f:
+        content = f.read()
+    if 'PyQt5' in content and 'PySide6' not in content:
+        return True
+    content = content.replace('from PySide6.QtWidgets import (',
+                              'from PyQt5.QtWidgets import (\n    QAction,')
+    content = content.replace('from PySide6.QtGui import QImage, QPixmap, QPen, QAction, QPainter, QColor',
+                              'from PyQt5.QtGui import QImage, QPixmap, QPen, QPainter, QColor')
+    content = content.replace('from PySide6.QtCore import', 'from PyQt5.QtCore import')
+    content = content.replace('.position()', '.pos()')
+    content = content.replace('.exec()', '.exec_()')
+    # PyQt5's QPoint takes ints only (PySide6 accepted the float division)
+    content = content.replace('return QPoint(min(scaled_x, 31), min(scaled_y, 7))',
+                              'return QPoint(int(min(scaled_x, 31)), int(min(scaled_y, 7)))')
+    # Ctrl+C in the painter's terminal: a running Qt event loop keeps Python from
+    # seeing SIGINT, so quit the app from a handler and wake the interpreter
+    # with a short timer (atexit still clears the LEDs)
+    content = content.replace(
+        '    app = QApplication(sys.argv)\n',
+        '    app = QApplication(sys.argv)\n'
+        '    import signal\n'
+        '    from PyQt5.QtCore import QTimer\n'
+        '    signal.signal(signal.SIGINT, lambda *_: app.quit())\n'
+        '    _rq_wake = QTimer()\n'
+        '    _rq_wake.timeout.connect(lambda: None)\n'
+        '    _rq_wake.start(250)\n')
+    if 'PySide6' in content:
+        raise RuntimeError('LED_painter.py still imports PySide6 after the port - upstream changed')
+    if 'signal.SIGINT' not in content:
+        raise RuntimeError('could not add the Ctrl+C handler - upstream changed')
+    with open(file_path, 'w') as f:
+        f.write(content)
+    return True
+
+
 def update_requirements(demo_dir):
     """Update requirements.txt to use PWM/PIO drivers."""
     file_path = os.path.join(demo_dir, 'requirements.txt')
@@ -209,7 +262,10 @@ def update_requirements(demo_dir):
 
     new_lines = []
     for line in lines:
-        if 'adafruit-circuitpython-neopixel-spi' in line:
+        if line.strip().lower().startswith(('pyside6', 'shiboken6')):
+            # GUI runs on the system PyQt5 instead (#302)
+            new_lines.append(f'# {line.strip()}  (replaced by system PyQt5, RasQberry #302)\n')
+        elif 'adafruit-circuitpython-neopixel-spi' in line:
             # Comment out SPI driver and add PWM/PIO drivers
             new_lines.append(f'# {line}')
             new_lines.append('adafruit-circuitpython-neopixel>=6.3.0\n')
@@ -250,6 +306,8 @@ def main():
         if os.path.exists(main_file):
             update_led_painter(demo_dir)
             print(f"✓ Updated LED_painter.py (uses shared module for atexit)")
+            port_to_pyqt5(demo_dir)
+            print(f"✓ Ported LED_painter.py to PyQt5")
 
         # Update requirements.txt
         req_file = os.path.join(demo_dir, 'requirements.txt')

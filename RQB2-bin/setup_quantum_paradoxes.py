@@ -151,10 +151,13 @@ QISKIT_CODE_FIXES = [
     ("qc.append(XGate().to_mutable().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
     ("qc.append(XGate().c_if(cr_Alice_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Alice_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
     ("qc.append(XGate().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
-    # Qiskit 2.x requires transpile before run on noisy simulator
-    ("sim_noise.run(engine)", "sim_noise.run(transpile(engine, sim_noise))"),
-    ("sim_noise.run(reset_circ)", "sim_noise.run(transpile(reset_circ, sim_noise))"),
-    # AerSimulator.from_backend() restricts basis gates - use plain AerSimulator with noise_model
+    # Maxwell's demon: in Aer 0.17, from_backend(FakeVigoV2(), noise_model=...) rejects
+    # the notebook's x/swap gates. The original never transpiled, so the Vigo backend
+    # contributed nothing but its basis gates (the noise_model argument replaces Vigo's
+    # noise). A plain AerSimulator with the same noise model runs the circuits as-is.
+    # Do NOT add transpile() before sim_noise.run(): from optimization level 1 on it
+    # strips the noisy `id` gates that prepare the maximally mixed particle/memory, and
+    # the 50/50 results turn deterministic (issue #181).
     ("sim_noise = AerSimulator.from_backend(device_backend, noise_model = noise_model)",
      "sim_noise = AerSimulator(noise_model=noise_model)  # Use plain simulator with noise"),
 ]
@@ -547,6 +550,58 @@ def setup_quantum_paradoxes(repo_path: Optional[Path] = None) -> None:
     print(f"Qiskit fixes: {total_fixes}")
     print("Created: WELCOME.ipynb")
 
+    (repo_path / STAMP_FILE).write_text(setup_fingerprint() + "\n")
+
+
+# ============================================================================
+# REFRESH EXISTING INSTALLS
+# ============================================================================
+# The patch rules above only run at install time. When they change (e.g. the
+# Maxwell's demon fix, #181), existing installs keep the old patched notebooks.
+# The stamp records which version of this script patched the checkout; the
+# launcher calls --refresh, which re-patches from the pristine upstream files
+# whenever the stamp is missing or different.
+
+STAMP_FILE = ".rasqberry-setup"
+
+
+def setup_fingerprint() -> str:
+    """Return a fingerprint of this script (changes whenever the rules do)."""
+    import hashlib
+    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+
+
+def refresh_quantum_paradoxes(repo_path: Path) -> None:
+    """Re-patch the notebooks if they were patched by another script version.
+
+    The user's copies of the notebooks (with their outputs or edits) are moved
+    to a backup-<date>/ folder first, then the upstream files are restored
+    from git and patched again.
+    """
+    import shutil
+    import subprocess
+    from datetime import datetime
+
+    stamp = repo_path / STAMP_FILE
+    current = setup_fingerprint()
+    if stamp.exists() and stamp.read_text().strip() == current:
+        return
+    if not (repo_path / ".git").exists():
+        print(f"Warning: {repo_path} is not a git checkout - cannot refresh notebooks")
+        return
+
+    print("Updating the Quantum Paradoxes notebooks to the current fixes...")
+    backup = repo_path / f"backup-{datetime.now():%Y%m%d-%H%M%S}"
+    backup.mkdir()
+    for filename in PARADOXES:
+        if (repo_path / filename).exists():
+            shutil.copy2(repo_path / filename, backup / filename)
+    print(f"  Your previous notebooks are saved in {backup.name}/")
+
+    subprocess.run(["git", "-C", str(repo_path), "checkout", "--", *PARADOXES.keys()],
+                   check=True, stdout=subprocess.DEVNULL)
+    setup_quantum_paradoxes(repo_path)
+
 
 def main():
     """CLI entry point."""
@@ -554,9 +609,15 @@ def main():
 
     parser = argparse.ArgumentParser(description="Setup quantum-paradoxes repository")
     parser.add_argument('--path', type=str, help='Path to repository', default=None)
+    parser.add_argument('--refresh', action='store_true',
+                        help='Re-patch only if this script changed since the last setup')
     args = parser.parse_args()
 
-    setup_quantum_paradoxes(Path(args.path) if args.path else None)
+    path = Path(args.path) if args.path else Path.cwd()
+    if args.refresh:
+        refresh_quantum_paradoxes(path)
+    else:
+        setup_quantum_paradoxes(path)
 
 
 if __name__ == '__main__':

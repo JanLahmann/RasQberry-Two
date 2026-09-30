@@ -1,69 +1,24 @@
 #!/bin/bash -e
 
-echo "=> Installing RasQberry A/B Boot Support (Health Check Only)"
+echo "=> Checking RasQberry A/B boot support"
 
-# Source the configuration file
-if [ -f "/tmp/stage-config" ]; then
-    . /tmp/stage-config
-
-    # Map the RQB_ prefixed variables to local names
-    REPO="${RQB_REPO}"
-    GIT_USER="${RQB_GIT_USER}"
-    GIT_BRANCH="${RQB_GIT_BRANCH}"
-    GIT_REPO="${RQB_GIT_REPO}"
-
-    echo "Configuration loaded successfully"
-else
-    echo "WARNING: stage config file not found, using defaults"
-    REPO="RasQberry-Two"
-    GIT_BRANCH="main"
-    GIT_REPO="https://github.com/JanLahmann/RasQberry-Two.git"
-fi
-
-export CLONE_DIR="/tmp/${REPO}"
-
-# Clone the repository if not already cloned
-if [ ! -d "${CLONE_DIR}" ]; then
-    echo "Cloning repository ${GIT_REPO} (branch: ${GIT_BRANCH}) to ${CLONE_DIR}"
-    git clone --depth 1 --branch ${GIT_BRANCH} ${GIT_REPO} ${CLONE_DIR}
-else
-    echo "Repository already exists at ${CLONE_DIR}"
-fi
-
-# Verify required files exist
-if [ ! -f "${CLONE_DIR}/RQB2-bin/rq_health_check.py" ]; then
-    echo "ERROR: Required A/B boot files not found in ${CLONE_DIR}/RQB2-bin"
-    exit 1
-fi
-
-# Note: Scripts are already installed to /usr/bin by stage 01-deploy-files
-# Just verify they exist
-echo "=> Verifying A/B boot scripts in /usr/bin"
-for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_poller.py rq_update_slot.sh rq_tryboot_retry.sh; do
+# The A/B scripts are installed to /usr/bin by 01-deploy-files, and the
+# health-check and tryboot-retry units are installed and enabled from
+# RQB2-system/ by the same stage (#294). This stage only verifies them.
+missing=0
+for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_slot.sh rq_tryboot_retry.sh; do
     if [ ! -f "/usr/bin/$script" ]; then
-        echo "Warning: /usr/bin/$script not found"
+        echo "ERROR: /usr/bin/$script not found"
+        missing=1
     fi
 done
+for unit in rasqberry-health-check.service rasqberry-tryboot-retry.service; do
+    # the enablement symlink (no running systemd in the build chroot)
+    ls /etc/systemd/system/*.wants/"$unit" >/dev/null 2>&1 || { echo "ERROR: $unit is not enabled"; missing=1; }
+done
+[ "$missing" -eq 0 ] || exit 1
 
-# Note: systemd service files are already installed by 00-run.sh
-
-# Enable health check (runs once on boot to validate new slot)
-echo "=> Enabling rasqberry-health-check.service"
-# rasqberry-health-check.service: enabled by 01-deploy-files (RQB2-system/enabled-units.txt)
-
-# Enable tryboot retry (re-issues a lost slot switch once, before health check)
-echo "=> Enabling rasqberry-tryboot-retry.service"
-# rasqberry-tryboot-retry.service: enabled by 01-deploy-files (RQB2-system/enabled-units.txt)
-
-echo "=> RasQberry A/B Boot Support installed"
-echo ""
-echo "A/B boot health check is enabled and will run on every boot."
-echo "This validates new slots and confirms them to prevent rollback."
-echo ""
-echo "For A/B boot images, you can manage slots with:"
-echo "  sudo rq_slot_manager.sh status     - Show current slot status"
-echo "  sudo rq_slot_manager.sh switch-to B - Switch to Slot B on next reboot"
-echo "  sudo rq_slot_manager.sh confirm    - Confirm current slot (prevent rollback)"
-echo ""
-echo "Note: A/B boot layout is created during image build (convert-to-ab-boot-v3.sh)"
-echo "      Update polling is NOT included - updates are manual only"
+echo "=> A/B boot support present: health check and tryboot retry enabled."
+echo "   The A/B layout itself is created after the build (convert-to-ab-boot-v3.sh)."
+echo "   rasqberry-update-poller.timer ships disabled (rig/dev tool); the daily"
+echo "   rasqberry-update-check.timer only reports new releases."

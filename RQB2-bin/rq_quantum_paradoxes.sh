@@ -56,6 +56,13 @@ debug "JupyterLab port: $PORT"
 # Activate virtual environment
 activate_venv || warn "Virtual environment not available"
 
+# Re-patch the notebooks if the setup script changed since they were installed
+# (a fix in the patch rules then reaches existing installs, #181)
+SETUP_SCRIPT="$SCRIPT_DIR/setup_quantum_paradoxes.py"
+[ -f "$SETUP_SCRIPT" ] || SETUP_SCRIPT=/usr/bin/setup_quantum_paradoxes.py
+python3 "$SETUP_SCRIPT" --refresh --path "$DEMO_DIR" \
+    || warn "Could not update the notebooks - starting with the installed ones"
+
 # Verify jupyter-lab is available
 if ! command -v jupyter-lab >/dev/null 2>&1; then
     die "JupyterLab not found. Please ensure Qiskit is installed."
@@ -120,11 +127,16 @@ if ! kill -0 $JUPYTER_PID 2>/dev/null; then
 fi
 
 # Wait for server to respond
-MAX_WAIT=15
+# JupyterLab needs ~15 s to start on a Pi 4; the loop returns as soon as
+# it answers, so a generous limit costs nothing (rig test, #234)
+MAX_WAIT=60
 WAIT_COUNT=0
 while ! curl -s "http://localhost:${PORT}/" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
+    if [ -n "${JUPYTER_PID:-}" ] && ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
+        die "JupyterLab exited during startup - see the output above"
+    fi
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
         echo ""
         echo "ERROR: JupyterLab not responding on port $PORT"

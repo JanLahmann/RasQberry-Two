@@ -8,6 +8,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 
+# Ensure running as root (PWM/PIO drivers require GPIO access)
+ensure_root "$@"
+
 # Load and verify environment
 load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV BIN_DIR
@@ -141,7 +144,8 @@ PYTHON_EOF
 
     # Execute display
     info "Displaying logo on LED matrix..."
-    python3 "$TEMP_SCRIPT" "$CHOICE" "$DURATION" $FADE_EFFECTS || die "Failed to display logo"
+    # the helper lives in /tmp, so point Python at the RasQberry modules
+    PYTHONPATH="${BIN_DIR:-/usr/bin}${PYTHONPATH:+:$PYTHONPATH}" python3 "$TEMP_SCRIPT" "$CHOICE" "$DURATION" $FADE_EFFECTS || die "Failed to display logo"
 
     info "Display complete!"
 }

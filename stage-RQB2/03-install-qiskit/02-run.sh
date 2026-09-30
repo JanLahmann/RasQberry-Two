@@ -10,7 +10,7 @@ if [ -d "$WHEEL_CACHE_ROOTFS" ]; then
     rm -rf "$WHEEL_CACHE_ROOTFS"
 fi
 
-# Clean pip cache (already saved to host in 01-run.sh)
+# Clean pip cache (01-run.sh saves the wheels, not this cache)
 PIP_CACHE_ROOTFS="${ROOTFS_DIR}/root/.cache/pip"
 if [ -d "$PIP_CACHE_ROOTFS" ]; then
     CACHE_SIZE=$(du -sh "$PIP_CACHE_ROOTFS" 2>/dev/null | cut -f1 || echo "unknown")

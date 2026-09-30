@@ -70,6 +70,20 @@ Advanced validator that detects duplicate functionality, reimplemented patterns,
 - Anti-patterns: ≤5 across entire codebase
 - Duplication score: ≤10% of scripts
 
+### paradoxes/ (Quantum Paradoxes regression, #181)
+
+Fetches maria-violaris/quantum-paradoxes at the manifest's pinned ref, patches
+it with `RQB2-bin/setup_quantum_paradoxes.py`, runs every notebook headless and
+compares the exact outcome probabilities of every simulated circuit with
+`paradoxes/reference_probabilities.json` (recorded from the original notebooks).
+It needs a Qiskit 2.x venv (qiskit, qiskit-aer, qiskit-ibm-runtime, nbclient,
+ipykernel, matplotlib, pylatexenc) and takes about 3-5 minutes. It skips itself
+when that stack is missing, so it is not part of the fast `tests/unit` run:
+
+```bash
+python3 -m pytest -q tests/paradoxes          # PARADOXES_SRC=<checkout> avoids the git fetch
+```
+
 ## CI/CD Integration
 
 The validation suite runs automatically on GitHub Actions for:
