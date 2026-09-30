@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T10:43:37Z",
+  "generated": "2026-09-30T11:22:28Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,22 +32,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-30-122502",
-      "name": "rasqberry-development-2026-09-30-122502",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-122502/rasqberry-development-2026-09-30-122502.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-122502",
-      "release_date": "2026-09-30 12:25",
-      "image_download_size": 2022917216,
+      "tag": "dev-systemfiles-2026-09-30-130028",
+      "name": "rasqberry-dev-systemfiles-2026-09-30-130028",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-systemfiles-2026-09-30-130028/rasqberry-dev-systemfiles-2026-09-30-130028.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-systemfiles-2026-09-30-130028",
+      "release_date": "2026-09-30 13:00",
+      "image_download_size": 2022621084,
       "extract_size": 9034530816,
-      "extract_sha256": "cc3e5f87caa58a1fd0456df81f46f4b14562e6dda038e141224aa3f74dc7c786",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-122502/rasqberry-development-2026-09-30-122502-ab.img.xz",
-      "ab_extract_sha256": "096f5b6f0f0e1f48e552b6bbcb123badbeb913507579239fce4f8c133adebf27",
-      "ab_image_sha256": "fb37989a1e7c0f2df3e0f6d54b54683258cfe40f3d29586c15c5a0dbd7921f30",
+      "extract_sha256": "e69b48d7a8a0256808a1e7d2087c8592eeb766bae917b5136400225e24a082de",
+      "image_sha256": "ed963276c65891bb410442688de578940733eaf6f2deb6400496f383e7b33700",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-systemfiles-2026-09-30-130028/rasqberry-dev-systemfiles-2026-09-30-130028-ab.img.xz",
+      "ab_extract_sha256": "f79f13d885f15cff21a447f3d38adf64b122dfea8a43ac1366b977c5f493a648",
+      "ab_image_sha256": "a8e364aa3c028d98ddc37fe007b91e35121c58dce27af516c31417776328cd03",
+      "ab_image_download_size": 2059861672,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2060979400,
       "highlights": [
-        "Bump version to development-2026-09-30-122502",
-        "LED wizard: handle busy LEDs, keep errors off the dialog, don't verify on cancel"
+        "Bump version to dev-systemfiles-2026-09-30-130028",
+        "Track the first-boot expansion task in RQB2-system"
       ]
     }
   }
