@@ -139,6 +139,10 @@ Updates are explicit:
 `rq_demo_add_external.sh --update <id>` re-fetches the (possibly new) pinned
 SHA from a refreshed registry — never an implicit `git pull`.
 `rq_demo_add_external.sh --list` shows registry entries with install status.
+`rq_demo_add_external.sh --remove <id>` uninstalls a demo (checkout, user
+manifest, desktop icon, menu entry). It reads the installed manifest, so it also
+removes a demo that has been withdrawn from the registry; Python extras stay in
+the venv.
 
 ## 4. Structural change: manifest search path
 

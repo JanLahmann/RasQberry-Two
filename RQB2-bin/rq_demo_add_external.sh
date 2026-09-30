@@ -16,6 +16,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   rq_demo_add_external.sh                 # interactive: pick an uninstalled demo
 #   rq_demo_add_external.sh <id>            # install demo <id> from the registry
 #   rq_demo_add_external.sh --update <id>   # re-fetch the current registry SHA
+#   rq_demo_add_external.sh --remove <id>   # uninstall (checkout, manifest, icon)
 #   rq_demo_add_external.sh --list          # list registry entries + status
 #
 # Requires: jq, git, curl (via the launcher)
@@ -374,6 +375,33 @@ add_demo() {
     return 0
 }
 
+# remove_demo <id> - uninstall a catalog demo: checkout, user manifest,
+# desktop icon, menu entry. Works from the installed manifest, so it also
+# removes demos that have since been withdrawn from the registry. Python
+# packages installed as extras stay in the venv (other demos may use them).
+remove_demo() {
+    local id="$1" manifest dir
+
+    manifest="$USER_MANIFEST_DIR/rq_demo_${id}.json"
+    [ -f "$manifest" ] || die "Demo '$id' is not installed (no $manifest)"
+
+    dir=$(jq -r '.entrypoint.working_dir // empty' "$manifest")
+    [ -n "$dir" ] || dir=$(repo_dir_name "$(jq -r '.install.repo_url // empty' "$manifest")")
+    # Only ever a single directory name below DEMOS_ROOT
+    case "$dir" in
+        ""|.|..|*/*) die "Cannot determine the checkout directory for '$id' (got '$dir')" ;;
+    esac
+
+    if [ -d "$DEMOS_ROOT/$dir" ]; then
+        info "Removing checkout: $DEMOS_ROOT/$dir"
+        rm -rf "${DEMOS_ROOT:?}/$dir"
+    fi
+    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop"
+    refresh_cache
+    info "Demo '$id' removed"
+    return 0
+}
+
 # ============================================================================
 # MAIN
 # ============================================================================
@@ -387,6 +415,7 @@ Install or update an external demo from the curated registry.
   (no args)          Interactive menu of registry demos not yet installed
   <id>               Install the demo with this registry id
   --update <id>      Re-fetch the current registry SHA for an installed demo
+  --remove <id>      Uninstall a catalog demo (also one withdrawn from the registry)
   --list             List registry entries with install status
   --help, -h         Show this help
 EOF
@@ -407,6 +436,10 @@ main() {
         --update)
             [ -n "${2:-}" ] || die "--update requires a demo id"
             add_demo "$2" update
+            ;;
+        --remove)
+            [ -n "${2:-}" ] || die "--remove requires a demo id"
+            remove_demo "$2"
             ;;
         "")
             local id
