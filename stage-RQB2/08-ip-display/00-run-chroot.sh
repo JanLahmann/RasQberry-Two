@@ -24,35 +24,9 @@ else
 fi
 
 # Create systemd service file
-cat > /etc/systemd/system/rasqberry-ip-display.service << 'EOF'
-[Unit]
-Description=RasQberry IP Display on LED Matrix
-Documentation=https://github.com/JanLahmann/RasQberry-Two/issues/120
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-User=root
-# Wait a bit after network is up to allow DHCP to complete
-ExecStartPre=/bin/sleep 5
-# Display IP address on LEDs (60 seconds per IP, auto-calculated)
-ExecStart=/home/rasqberry/RasQberry-Two/venv/RQB2/bin/python3 /usr/bin/rq_display_ip.py --duration 60 --speed 0.08 --brightness 0.3
-# Service runs once at boot
-RemainAfterExit=no
-StandardOutput=journal
-StandardError=journal
-
-# Restart on failure (in case network isn't ready)
-Restart=on-failure
-RestartSec=10
-StartLimitBurst=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# /etc/systemd/system/rasqberry-ip-display.service is installed from RQB2-system/ by 01-deploy-files (#294)
 
 # Enable the service to run at boot
-systemctl enable rasqberry-ip-display.service
+# rasqberry-ip-display.service is enabled by 01-deploy-files (RQB2-system/enabled-units.txt)
 
 echo "IP display service installed and enabled"

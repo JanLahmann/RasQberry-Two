@@ -3,7 +3,7 @@
 # Modified for RasQberry: Pi4/Pi5 compatible IBM LED demo with PWM/PIO drivers
 
 import time
-from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show, map_xy_to_pixel
+from rq_led_utils import get_led_config, create_neopixel_strip, map_xy_to_pixel
 
 # Load configuration from environment file
 config = get_led_config()
@@ -201,10 +201,10 @@ if _stdin_is_tty:
 try:
     while True:
         doibm(0)  # Solid colors: I=green, B=red, M=blue
-        chunked_show(pixels)
+        pixels.show()
         time.sleep(DELAY)
         doibm(1)  # Rainbow gradient based on rows
-        chunked_show(pixels)
+        pixels.show()
         time.sleep(DELAY)
 
         # Check for Enter key press (non-blocking) — only when interactive
@@ -217,4 +217,4 @@ except KeyboardInterrupt:
 
 # Turn off all LEDs
 pixels.fill((0, 0, 0))
-chunked_show(pixels)
+pixels.show()

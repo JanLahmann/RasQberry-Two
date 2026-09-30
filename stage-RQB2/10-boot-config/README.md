@@ -5,8 +5,8 @@ This stage installs the RasQberry boot-time configuration system, which allows u
 ## What it does
 
 1. **Installs boot config template**: Copies `rasqberry_boot.env` to `/boot/firmware/` (accessible from any OS)
-2. **Installs loader script**: Installs `rasqberry-load-boot-config.sh` to `/usr/local/bin/`
-3. **Installs systemd service**: Creates and enables `rasqberry-boot-config.service`
+2. **Loader script**: `/usr/local/bin/rasqberry-load-boot-config.sh` comes from `RQB2-system/usr/local/bin/`, installed by [01-deploy-files](../01-deploy-files/README.md) (#294)
+3. **Systemd service**: `rasqberry-boot-config.service` comes from `RQB2-system/etc/systemd/system/` and is enabled by 01-deploy-files (`RQB2-system/enabled-units.txt`)
 4. **Runs at boot**: Service executes early in boot sequence to merge boot config with global config
 
 ## How it works
@@ -70,8 +70,8 @@ This stage installs the RasQberry boot-time configuration system, which allows u
 ## Files Installed
 
 - `/boot/firmware/rasqberry_boot.env` - Boot configuration template (world-readable)
-- `/usr/local/bin/rasqberry-load-boot-config.sh` - Configuration loader script
-- `/etc/systemd/system/rasqberry-boot-config.service` - Systemd service unit
+- `/usr/local/bin/rasqberry-load-boot-config.sh` - Configuration loader script (from `RQB2-system/`, via 01-deploy-files)
+- `/etc/systemd/system/rasqberry-boot-config.service` - Systemd service unit (from `RQB2-system/`, via 01-deploy-files)
 - `/usr/config/rasqberry_environment.env.original` - Backup of original config (created on first boot)
 
 ## Validation
@@ -119,4 +119,4 @@ cat /usr/config/rasqberry_environment.env.original | grep LED_
 
 - Issue #123: Boot-time configuration system enhancement
 - `RQB2-config/rasqberry_environment.env` - Global configuration file
-- `RQB2-bin/rasqberry-load-boot-config.sh` - Loader script source
+- `RQB2-system/usr/local/bin/rasqberry-load-boot-config.sh` - Loader script source

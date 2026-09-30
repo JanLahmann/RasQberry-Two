@@ -10,6 +10,8 @@ Install the RasQberry modular firstboot service that runs critical initializatio
 
 This stage creates a flexible, modular firstboot framework that executes tasks sequentially on first boot. Tasks are self-contained scripts that run once and mark themselves as completed.
 
+The stage script itself only creates `/usr/local/lib/rasqberry-firstboot.d/` and `/var/lib/rasqberry-firstboot/`. The components below live in `RQB2-system/` (at their install paths) and are installed, and the service enabled via `RQB2-system/enabled-units.txt`, by [01-deploy-files](../01-deploy-files/README.md) (#294).
+
 ### Components Installed
 
 #### 1. Firstboot Framework
@@ -59,7 +61,7 @@ Automatically expands the root filesystem to fill the entire SD card on first bo
 - Runs very early: After systemd-remount-fs.service, boot-firmware.mount
 - Before: rc-local.service, systemd-user-sessions.service
 - Logs to journal+console for visibility
-- Enabled to run at sysinit.target
+- Enabled to run at sysinit.target (listed in `RQB2-system/enabled-units.txt`)
 
 ## Files Installed
 
@@ -78,7 +80,7 @@ No configuration variables required. This stage is self-contained.
 
 ## Scripts
 
-- `00-run-chroot.sh`: Creates all firstboot components and enables systemd service
+- `00-run-chroot.sh`: Creates the task and marker directories; the components and the service come from `RQB2-system/` via [01-deploy-files](../01-deploy-files/README.md)
 
 ## Task Exit Codes
 
@@ -153,10 +155,10 @@ VNC enablement runs on **every desktop login**, not just first boot:
 
 ## Execution Context
 
-- **Execution**: Inside chroot environment (creates files for runtime)
+- **Execution**: Inside chroot environment (creates the task and marker directories)
 - **Service Runs**: At first boot on actual Raspberry Pi
 - **User**: root (service), $FIRST_USER_NAME (VNC script via autostart)
-- **Order**: Very early (00-prefix) to install framework used by other stages
+- **Order**: 00-prefix; the framework files themselves are installed by 01-deploy-files
 
 ## Troubleshooting
 
@@ -194,9 +196,9 @@ VNC enablement runs on **every desktop login**, not just first boot:
 
 To add a new firstboot task:
 
-1. Create script in `/usr/local/lib/rasqberry-firstboot.d/`
+1. Add the script to `RQB2-system/usr/local/lib/rasqberry-firstboot.d/` in the repository (installed to `/usr/local/lib/rasqberry-firstboot.d/`)
 2. Name with numeric prefix for ordering: `03-my-task.sh`
-3. Make executable: `chmod +x`
+3. Make executable: `chmod +x` (the installer keeps the file mode)
 4. Implement task logic
 5. Exit 0 (success), 99 (reboot needed), or non-zero (failure)
 6. Framework automatically discovers and runs it

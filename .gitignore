@@ -176,3 +176,7 @@ CLAUDE.local.md
 # Local planning and improvement documents
 IMPROVEMENT_PLAN.md
 RQB2-config/demo-menu-cache.sh
+
+# RQB2-system/ mirrors the root filesystem (#294): never ignore anything in it,
+# e.g. usr/local/lib/ would otherwise match the Python 'lib/' rule above.
+!RQB2-system/**

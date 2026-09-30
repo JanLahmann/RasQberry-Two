@@ -7,7 +7,6 @@ import time
 from rq_led_utils import (
     get_led_config,
     create_neopixel_strip,
-    chunked_show,
     map_xy_to_pixel,
 )
 
@@ -75,7 +74,7 @@ while True:
     for color in COLORS:
         pixels.fill((0, 0, 0))
         draw_ibm(color)
-        chunked_show(pixels)
+        pixels.show()
         time.sleep(16 * DELAY)
 
         # Animated sweep effect: a short run walked along the RAW chain order.
@@ -91,6 +90,6 @@ while True:
             if (i + 3) < NUM_PIXELS:
                 pixels[i + 3] = color
             # PWM/PIO drivers can update every pixel without flickering!
-            chunked_show(pixels)
+            pixels.show()
             time.sleep(DELAY)
             pixels.fill((0, 0, 0))
