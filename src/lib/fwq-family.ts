@@ -8,7 +8,12 @@
  */
 import vendored from "@/data/fwq-family.json";
 
-export interface FamilyMember { id: string; name: string; url: string; short?: string; footer: boolean }
+export interface FamilyMember {
+  id: string; name: string;
+  /** Prefix of this site's Umami events ("<label>: <what happened>"); defaults to `name`. */
+  label?: string;
+  url: string; short?: string; footer: boolean;
+}
 export interface FamilyManifest {
   version: number; updated: string;
   brand: { id: string; name: string; url: string; footer_lead: string; tagline: { s: string; m: string; l: string } };
@@ -47,4 +52,10 @@ async function load(): Promise<FamilyManifest> {
 /** Every visible member except this site, in manifest order (family home first). */
 export function footerLinks(m: FamilyManifest, selfId = SELF_ID): FamilyMember[] {
   return m.members.filter((x) => x.footer && x.id !== selfId);
+}
+
+/** Umami event name for a click on a family-footer link on site `selfId`. */
+export function footerEvent(m: FamilyManifest, selfId = SELF_ID): string {
+  const self = m.members.find((x) => x.id === selfId);
+  return `${self?.label ?? self?.name ?? selfId}: family footer click`;
 }
