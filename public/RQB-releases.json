@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T09:24:59Z",
+  "generated": "2026-09-30T09:58:38Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,25 +32,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-30-103242",
-      "name": "rasqberry-development-2026-09-30-103242",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-103242/rasqberry-development-2026-09-30-103242.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-103242",
-      "release_date": "2026-09-30 10:32",
-      "image_download_size": 2022277152,
+      "tag": "development-2026-09-30-112935",
+      "name": "rasqberry-development-2026-09-30-112935",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-112935/rasqberry-development-2026-09-30-112935.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-112935",
+      "release_date": "2026-09-30 11:29",
+      "image_download_size": 2023105384,
       "extract_size": 9034530816,
-      "extract_sha256": "19d02eb99c1e45ebc52aad7e422e12b3b58075f60982c02f82f4ba26af7869cb",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-103242/rasqberry-development-2026-09-30-103242-ab.img.xz",
-      "ab_extract_sha256": "efc0b925530c9f3fbce67c03c5f74fc10d9448e3586ac6288d42015006880610",
-      "ab_image_sha256": "11bbdbb15159b704688aba58026ef16f6aa0e1adee9902156d41a346b15aafa4",
+      "extract_sha256": "43f4632002edf5bccb2118a097b66cbcfffe47c0c3b6b9a42c018c7079cd5320",
+      "image_sha256": "1b88c206d40c00f070c87a08dfe4f4604254a7ccf7edde4b02e9a5616dd274b7",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-112935/rasqberry-development-2026-09-30-112935-ab.img.xz",
+      "ab_extract_sha256": "b3d758167b56c3cae2314ec59ec437cda3f180af812face346a5dae752d8f2e1",
+      "ab_image_sha256": "868ed4846ed31b705a986e1c99549f4e07e4c91307f1a51d9239195973af7c1a",
+      "ab_image_download_size": 2058170804,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2059929268,
       "highlights": [
-        "Bump version to development-2026-09-30-103242",
-        "Restore development's VERSION",
-        "Bump version to dev-devicesettings-2026-09-30-102741",
-        "Keep LED settings across A/B image updates (#290)",
-        "size yes/no and message boxes to their text"
+        "Bump version to development-2026-09-30-112935",
+        "Merge dev-beta-prep: first-login steps (#177), update notice (#139), build metadata (#233), SSH identity across slot updates (#275)",
+        "Keep the SSH identity across A/B slot updates (#275)",
+        "Bump version to dev-beta-prep-2026-09-30-111201",
+        "First-login setup, update notice, build metadata (#177, #139, #233)"
       ]
     }
   }
