@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T17:52:13Z",
+  "generated": "2026-09-30T19:59:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,26 +32,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-09-30-192333",
-      "name": "rasqberry-development-2026-09-30-192333",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-192333/rasqberry-development-2026-09-30-192333.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-192333",
-      "release_date": "2026-09-30 19:23",
-      "image_download_size": 2024584844,
+      "tag": "development-2026-09-30-214101",
+      "name": "rasqberry-development-2026-09-30-214101",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-214101/rasqberry-development-2026-09-30-214101.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-214101",
+      "release_date": "2026-09-30 21:41",
+      "image_download_size": 2024188424,
       "extract_size": 9034530816,
-      "extract_sha256": "2fbd0c9f387e0753dfa6ebb998c602eab4707c02f7d4902182a0f14f22e808c5",
-      "image_sha256": "95d7c3340281733ce17a5bc64572329782085c326d46429abcd6a29d46dccdee",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-192333/rasqberry-development-2026-09-30-192333-ab.img.xz",
-      "ab_extract_sha256": "533b8d827a780e40d222656bd6764755c3e109f8cbbf7171edf13718c6466353",
-      "ab_image_sha256": "caa80e0705eeaf3acb7058b1b5a301655a66e0951311d5c3ea22491600cd60af",
-      "ab_image_download_size": 2060705020,
+      "extract_sha256": "385a237d730954c9831395623aa5471f04876d91b834d144b42ec42e7becee3b",
+      "image_sha256": "e6692c4d40a4484b2eb39b84aa05458036c6aff7ad9fc7d3a7a577aeb0506980",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-214101/rasqberry-development-2026-09-30-214101-ab.img.xz",
+      "ab_extract_sha256": "7503b03d942c8565bea91b4d58aca27e202363e41c02c5b453f979133632d7e3",
+      "ab_image_sha256": "dadb026b062c1a34acf50b2ce40d2a887c31f71addb7807c9df9c61801f4ef0c",
+      "ab_image_download_size": 2059462424,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-09-30-192333",
-        "Merge dev-buildcleanup: build-stage cleanup (#301)",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-buildcleanup-2026-09-30-182015",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-09-30-181812",
-        "Bump version to dev-buildcleanup-2026-09-30-182015"
+        "weekly schedule (main copy checks out development) (#181)",
+        "Bump version to development-2026-09-30-214101"
       ]
     }
   }
