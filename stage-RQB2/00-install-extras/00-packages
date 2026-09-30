@@ -7,6 +7,10 @@ libgirepository1.0-dev
 python3-pkg-resources
 # sense-emu-tools provides desktop menu shortcuts and pulls in python3-sense-emu
 sense-emu-tools
+# Qt5 for GUI demos (LED Painter, matplotlib), linked into the venv by
+# 03-install-qiskit; the pip Qt wheels crash on the Pi 5 kernel (#302)
+python3-pyqt5
+python3-pyqt5.qtsvg
 chromium-browser
 chromium-chromedriver
 libxcb-cursor-dev

@@ -49,6 +49,14 @@ for egg in /usr/lib/python3/dist-packages/pycairo-*.egg-info; do
     [ -e "$egg" ] && ln -sf "$egg" "$VENV_SITE/"
 done
 
+# Qt for GUI demos (LED Painter, matplotlib's Qt backend): the system PyQt5.
+# PySide6/PyQt wheels from pip bundle a Qt that crashes with a bus error on the
+# Pi 5 kernel (16 KB pages), #302.
+ln -sfn /usr/lib/python3/dist-packages/PyQt5 "$VENV_SITE/PyQt5"
+for meta in /usr/lib/python3/dist-packages/PyQt5-*.dist-info /usr/lib/python3/dist-packages/PyQt5_sip-*.egg-info; do
+    [ -e "$meta" ] && ln -sf "$meta" "$VENV_SITE/"
+done
+
 # Install Qiskit using consolidated script (scripts are now in /usr/bin)
 # The script handles venv activation based on PIGEN environment variable
 . /usr/bin/rq_install_qiskit.sh latest

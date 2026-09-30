@@ -47,12 +47,11 @@ else
     PATCHES_DIR="$(dirname "$SCRIPT_DIR")/RQB2-config/demo-patches"
 fi
 
-# Matplotlib picks the first Qt binding it finds, and the LED Painter installs
-# PySide6 into the shared venv. PySide6's pip wheels bundle a Qt that dies with
-# a bus error on the Pi 5 kernel (16 KB pages), so after the Painter was
-# installed, Quantum Fractals crashed at its first window. Pin matplotlib to the
-# system PyQt5 unless the user chose otherwise (rig test, #234). Code that
-# imports PySide6 directly (the Painter) is unaffected.
+# Matplotlib picks the first Qt binding it finds. PySide6 from pip (older LED
+# Painter installs put it into the shared venv) bundles a Qt that dies with a
+# bus error on the Pi 5 kernel (16 KB pages); Quantum Fractals crashed at its
+# first window. Pin matplotlib to PyQt5, the system Qt linked into the venv
+# (#234, #302), unless the user chose otherwise.
 export QT_API="${QT_API:-pyqt5}"
 
 # Tracking variables for cleanup
