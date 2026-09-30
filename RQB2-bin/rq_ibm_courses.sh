@@ -99,11 +99,16 @@ if ! kill -0 $JUPYTER_PID 2>/dev/null; then
 fi
 
 # Wait for server to respond
-MAX_WAIT=10
+# JupyterLab needs ~15 s to start on a Pi 4; the loop returns as soon as
+# it answers, so a generous limit costs nothing (rig test, #234)
+MAX_WAIT=60
 WAIT_COUNT=0
 while ! curl -s "http://localhost:${PORT}/" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
+    if [ -n "${JUPYTER_PID:-}" ] && ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
+        die "JupyterLab exited during startup - see the output above"
+    fi
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
         kill $JUPYTER_PID 2>/dev/null || true
         die "JupyterLab failed to respond after ${MAX_WAIT} seconds"

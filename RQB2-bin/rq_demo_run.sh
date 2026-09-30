@@ -47,6 +47,14 @@ else
     PATCHES_DIR="$(dirname "$SCRIPT_DIR")/RQB2-config/demo-patches"
 fi
 
+# Matplotlib picks the first Qt binding it finds, and the LED Painter installs
+# PySide6 into the shared venv. PySide6's pip wheels bundle a Qt that dies with
+# a bus error on the Pi 5 kernel (16 KB pages), so after the Painter was
+# installed, Quantum Fractals crashed at its first window. Pin matplotlib to the
+# system PyQt5 unless the user chose otherwise (rig test, #234). Code that
+# imports PySide6 directly (the Painter) is unaffected.
+export QT_API="${QT_API:-pyqt5}"
+
 # Tracking variables for cleanup
 JUPYTER_PID=""
 CONTAINER_NAME=""
@@ -88,7 +96,7 @@ launch_browser() {
 # Wait for HTTP endpoint to become available
 wait_for_http() {
     local url="$1"
-    local max_wait="${2:-30}"
+    local max_wait="${2:-60}"  # JupyterLab needs ~15 s on a Pi 4 (#234)
     local count=0
 
     while ! curl -sf "$url" >/dev/null 2>&1; do
