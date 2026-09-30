@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-30T16:56:12Z",
+  "generated": "2026-09-30T16:56:53Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,20 +32,24 @@
       ]
     },
     "dev": {
-      "tag": "dev-buildcleanup-2026-09-30-182015",
-      "name": "rasqberry-dev-buildcleanup-2026-09-30-182015",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-buildcleanup-2026-09-30-182015/rasqberry-dev-buildcleanup-2026-09-30-182015.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-buildcleanup-2026-09-30-182015",
-      "release_date": "2026-09-30 18:20",
-      "image_download_size": 2023309956,
+      "tag": "development-2026-09-30-181812",
+      "name": "rasqberry-development-2026-09-30-181812",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-181812/rasqberry-development-2026-09-30-181812.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-181812",
+      "release_date": "2026-09-30 18:18",
+      "image_download_size": 2024526428,
       "extract_size": 9034530816,
-      "extract_sha256": "321ad1b5d6574f7925638129cf2cdc9747c9ac5d792233537884770fa5ecb834",
-      "image_sha256": "4f18d122de5a8198c5ec0b2d122821dc7f8d7339f541c8f07e98c2326a1e9464",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-buildcleanup-2026-09-30-182015/rasqberry-dev-buildcleanup-2026-09-30-182015-ab.img.xz",
-      "ab_extract_sha256": "077852962999bc11f0d5d41aca33faf8d8bd5116291fab82aed4f3406765bd21",
-      "ab_image_sha256": "980f00a4c70c347e44c354ac64c430d37f2c2325f143b9a124a0d8bdce46ef42",
-      "ab_image_download_size": 2059919948,
-      "ab_extract_size": 12398362624
+      "extract_sha256": "71e83f2ee197b9d71d504b1bbb78faae7b26cb0e9dbf0381411628d59a7e1012",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-181812/rasqberry-development-2026-09-30-181812-ab.img.xz",
+      "ab_extract_sha256": "4ee1327febc4322c442b987649acfcd236993e5794eea8b046cfe1bcf6b3b769",
+      "ab_image_sha256": "811d29730caee2fa893a2600d273928c96fa14b655cb016062914a80fb7b0ec1",
+      "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2057523604,
+      "highlights": [
+        "Bump version to development-2026-09-30-181812",
+        "Merge dev-painter-pyqt5: LED Painter on PyQt5 (#302)",
+        "LED Painter on PyQt5: runs on the Pi 5 (#302)"
+      ]
     }
   }
 }
