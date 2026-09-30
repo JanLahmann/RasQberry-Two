@@ -1,46 +1,32 @@
 # RasQberry
 ## The RasQberry project: Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer - or: Building a Functional Model of a Quantum Computer at Home
 
-*Note:* If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 1.x, more Quantum Computing Demos, integration into raspi-config, etc.
+*Note:* If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 2.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
 ## Quick Installation of RasQberry
 
-Quick setup instructions:<br/>
-Initialize an SD card with Raspberry Pi Imager, using the new RasQberry image based on "bookworm, 64-bit". 
+The full guide - what you need, the standard and A/B images, writing the SD card - is at
+**[rasqberry.org](https://rasqberry.org/02-software/01-installation-overview/)**.
 
-The latest RasQberry images can be found at [https://github.com/JanLahmann/RasQberry-Two/releases](https://github.com/JanLahmann/RasQberry-Two/releases)
+In short: with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
+installed, [open Imager with the RasQberry images](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)
+and pick one under **Choose OS**. Alternatively start Imager with the RasQberry repository
+from a terminal, e.g. on a Mac:
 
-Alternatively, this image can be accessed with the Raspberry Pi Imager using a custom repository. On a Mac, run the following command in a terminal
-
-```python
+```bash
 /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 ```
 
-or on Windows
-```python
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
+All images are also on the [releases page](https://github.com/JanLahmann/RasQberry-Two/releases).
+
+The image ships **Qiskit 2.x** in the virtual environment `RQB2`. To use it in a terminal:
+
+```bash
+source ~/RasQberry-Two/venv/RQB2/bin/activate
+pip list | grep qiskit
 ```
 
-This image includes Qiskit 1.x and several Quantum computing Demos.
-
-Further instructions will be released, soon.
-
-
-### working with Qiskit
-
-Qiskit is available in the default venv called RQB2. In case this venv is not activated, you can activate with
-
-```python
-. /home/pi/RasQberry-Two/venv/RQB2/bin/activate
-```
-
-and list the available Qiskit modules:
-
-```python
-(RQB2) pi@raspberrypi:~ $ pip list | grep qiskit
-qiskit                 1.1.1
-qiskit-qasm3-import    0.5.0
-```
+**System Info** in `sudo raspi-config` → **0 RasQberry** shows which image you are running.
 
 ## Building the RasQberry 3D model of IBM Quantum System Two
 
