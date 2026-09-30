@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.1
+Name=RasQberry Setup
+Comment=Setup steps: LED panel check, A/B partitions, WLAN, demo downloads, touch mode
+Icon=preferences-system
+Type=Application
+Categories=Settings;RasQberry;
+Exec=lxterminal -t "RasQberry Setup" -e "bash -c '/usr/bin/rq_firstlogin.sh --all; echo; echo Press Enter to close...; read'"
+Terminal=false
+StartupNotify=true
+Keywords=setup;first;login;wizard;wifi;led;touch;
+NoDisplay=false
