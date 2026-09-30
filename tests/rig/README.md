@@ -60,3 +60,14 @@ icons do, and types Ctrl+C into it. Shortcuts gave false results:
 - Demos that open a window (SenseHAT emulator, browser) take the keyboard
   focus, so the keystroke is injected into the terminal's input queue
   (`TIOCSTI`, as root) instead of sent through a keyboard tool.
+
+Some demos can't be judged by "start it and watch the panel". `DEMO_HINTS` in
+`rig_test.py` handles them:
+
+- LED text and logo display open dialogs first: the test presses Enter through
+  them (accepting the defaults) so the demo reaches its LED output.
+- Quantum Lights Out computes its solution before it lights up (~20 s on a
+  Pi 4): it runs for 60 s.
+- Clear LEDs should leave the panel dark: a lit panel is the failure.
+- LED Painter starts with an empty canvas: instead of the camera, the test
+  checks that the LED renderer service that drives the panel is running.

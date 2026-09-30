@@ -16,6 +16,7 @@
 # Usage: demo_smoke.sh <demo-id[:variant]> [seconds] [out-dir]
 # Prints one line: "<PASS|FAIL|SKIP> demo:<id> | <detail>"
 # Env: RIG_ALLOW_DOCKER=1 also runs docker demos (large image pulls).
+#      RIG_KEYS="<delay>:<keys> ..." types keys into the demo (see below).
 
 spec="$1"; secs="${2:-30}"; out="${3:-/tmp/rigtest}"
 id="${spec%%:*}"; variant=""; [ "$spec" != "$id" ] && variant="${spec#*:}"
@@ -39,6 +40,22 @@ sleep 3
 spid=$(pgrep -f "^script -qfc $cmd( |$)" | head -1)
 tpid=$(pgrep -f "^lxterminal -t RIGTEST-$name " | head -1)
 
+gone() { ! kill -0 "$spid" 2>/dev/null; }
+# type <bytes> into the demo's terminal, as if pressed on its keyboard
+press() {
+    local tty; tty=$(ps -o tty= -p "$spid" 2>/dev/null | tr -d ' ')
+    [ -n "$tty" ] && [ "$tty" != "?" ] || return 1
+    sudo python3 -c 'import fcntl, os, sys, termios
+fd = os.open("/dev/" + sys.argv[1], os.O_RDWR)
+for ch in sys.argv[2].encode().decode("unicode_escape").encode("latin-1"):
+    fcntl.ioctl(fd, termios.TIOCSTI, bytes([ch]))' "$tty" "$1"
+}
+# scripted input (RIG_KEYS="<delay>:<keys> ...", e.g. "5:\\r 2:\\r"): answers a
+# demo's dialogs the way a person would, so it gets to its LED output
+if [ -n "${RIG_KEYS:-}" ]; then
+    ( for item in $RIG_KEYS; do sleep "${item%%:*}"; press "${item#*:}"; done ) &
+fi
+
 sleep "$secs"
 grim -s 0.5 "$shot" 2>/dev/null || true
 alive=no; [ -n "$spid" ] && kill -0 "$spid" 2>/dev/null && alive=yes
@@ -56,16 +73,6 @@ if [ "$type" = browser ] || [ "$type" = web-static ]; then
     [ -n "$url" ] && http=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 15 "$url")
 fi
 
-gone() { ! kill -0 "$spid" 2>/dev/null; }
-# type <bytes> into the demo's terminal, as if pressed on its keyboard
-press() {
-    local tty; tty=$(ps -o tty= -p "$spid" 2>/dev/null | tr -d ' ')
-    [ -n "$tty" ] && [ "$tty" != "?" ] || return 1
-    sudo python3 -c 'import fcntl, os, sys, termios
-fd = os.open("/dev/" + sys.argv[1], os.O_RDWR)
-for ch in sys.argv[2].encode().decode("unicode_escape").encode("latin-1"):
-    fcntl.ioctl(fd, termios.TIOCSTI, bytes([ch]))' "$tty" "$1"
-}
 stopped="n/a"
 if [ "$alive" = yes ]; then
     press '\x03'

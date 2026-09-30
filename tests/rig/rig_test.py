@@ -210,10 +210,32 @@ def list_demos(pi):
     return demos
 
 
+# Per-demo test hints, for demos a plain "start and watch" cannot judge:
+#   keys:    typed into the demo's terminal ("<delay>:<keys>" ...) - accepts the
+#            defaults of the text/logo dialogs so the demo reaches its LED output
+#   seconds: minimum run time - Lights Out computes its solution before it
+#            lights up, which takes ~20 s on a Pi 4
+#   dark:    the demo's job is to switch the panel off - lit is the failure
+#   service: the panel stays dark by design (Painter starts with an empty
+#            canvas), so check instead that the unit driving the LEDs runs
+DEMO_HINTS = {
+    "led-demos:text-display": {"keys": r"5:\r 2:\r 2:\r 2:\r"},
+    "led-demos:logo-display": {"keys": r"5:\r 2:\r 2:\r 2:\r"},
+    "quantum-lights-out:gui": {"seconds": 60},
+    "quantum-lights-out:console": {"seconds": 60},
+    "led-demos:clear-leds": {"dark": True},
+    "led-painter": {"service": "rasqberry-led-renderer"},
+}
+
+
 def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
     """Run one demo smoke test; for LED demos grab a camera frame mid-run."""
     host = pi["host"]
+    hint = DEMO_HINTS.get(demo["id"], {})
+    seconds = max(seconds, hint.get("seconds", 0))
     env = "RIG_ALLOW_DOCKER=1 " if docker else ""
+    if hint.get("keys"):
+        env += f"RIG_KEYS={shlex.quote(hint['keys'])} "
     result = {}
 
     def worker():
@@ -225,7 +247,12 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
     t = threading.Thread(target=worker)
     t.start()
     led = None
-    if camera and demo["leds"] and pi.get("panel_crop"):
+    service_state = None
+    if hint.get("service"):
+        time.sleep(seconds / 2)
+        _, service_state = ssh(host, f"systemctl is-active {hint['service']}")
+        service_state = service_state.strip() or "unknown"
+    elif camera and demo["leds"] and pi.get("panel_crop"):
         # LED demos blink, animate and (on a Pi 4) take a while to import
         # Qiskit: sample every couple of seconds for the whole run, keep the best
         tag = demo["id"].replace(":", "-")
@@ -249,9 +276,18 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
     t.join()
     name = demo["id"].replace(":", "-")
     fetch(host, f"{REMOTE_DIR}/{name}.png", outdir / f"{pi['name']}-{name}-screen.png")
+    if service_state is not None:
+        result["detail"] = result.get("detail", "") + f" {hint['service']}={service_state}"
+        if service_state != "active" and result.get("verdict") == "PASS":
+            result["verdict"] = "FAIL"
     if led is not None:
         lit = led >= pi.get("lit_threshold", 0.006)
         detail = result.get("detail", "")
+        if hint.get("dark"):
+            result["detail"] = detail + f" led={led:.3f}" + (" (panel still lit)" if lit else " (panel off)")
+            if lit and result.get("verdict") == "PASS":
+                result["verdict"] = "FAIL"
+            return result
         waits = "dialog=yes" in detail            # waiting for input: nothing to show
         ended = "alive=no" in detail and "exit=0" in detail   # finished by itself
         result["detail"] = detail + f" led={led:.3f}" + ("" if lit else " (panel dark)")
