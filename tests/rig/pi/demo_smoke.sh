@@ -42,7 +42,7 @@ tpid=$(pgrep -f "^lxterminal -t RIGTEST-$name " | head -1)
 sleep "$secs"
 grim -s 0.5 "$shot" 2>/dev/null || true
 alive=no; [ -n "$spid" ] && kill -0 "$spid" 2>/dev/null && alive=yes
-errors=$(tr -d '\r' < "$log" 2>/dev/null | grep -av '^INFO' | grep -aE 'Traceback|ERROR:|Error:|GPIO busy|No module named|Bus error|Segmentation fault|core dumped' | head -2 | tr '\n' ' ' | cut -c1-160)
+errors=$(tr -d '\r' < "$log" 2>/dev/null | grep -av '^INFO' | grep -avE '^\[[0-9]+:[0-9]+:[0-9]+/' | grep -aE 'Traceback|ERROR:|Error:|GPIO busy|No module named|Bus error|Segmentation fault|core dumped' | head -2 | tr '\n' ' ' | cut -c1-160)
 # a whiptail dialog is on screen (box drawing in the terminal output)
 dialog=no; grep -aq '┌' "$log" 2>/dev/null && dialog=yes
 exitcode=$(tr -d '\r' < "$log" 2>/dev/null | sed -n 's/.*COMMAND_EXIT_CODE="\([0-9]*\)".*/\1/p' | tail -1)
