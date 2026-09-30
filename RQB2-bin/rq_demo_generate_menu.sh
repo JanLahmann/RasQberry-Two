@@ -170,6 +170,16 @@ generate_cache() {
         }
     fi
 
+    # Build the cache in a temp file and rename it into place at the end.
+    # Generating takes tens of seconds, and raspi-config sources this file:
+    # read half-written at boot, it aborted with a syntax error before
+    # running anything - which is why VNC stayed off on fresh slots (#288).
+    local final_file="$cache_file"
+    cache_file=$(mktemp "$cache_dir/.demo-menu-cache.XXXXXX") || {
+        echo "Error: Cannot write to $cache_dir" >&2
+        return 1
+    }
+
     cat > "$cache_file" << 'CACHE_HEADER'
 #!/bin/sh
 # Auto-generated demo menu cache from manifests
@@ -261,8 +271,10 @@ CACHE_HEADER
     echo "# Total demos: $count" >> "$cache_file"
     echo "DEMO_COUNT=$count" >> "$cache_file"
 
-    echo "Cache written to: $cache_file" >&2
-    echo "$cache_file"
+    chmod 644 "$cache_file"
+    mv -f "$cache_file" "$final_file"
+    echo "Cache written to: $final_file" >&2
+    echo "$final_file"
 }
 
 # Get demo info by ID

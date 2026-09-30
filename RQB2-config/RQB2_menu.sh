@@ -1745,6 +1745,12 @@ do_led_output_menu() {
 detect_git_repo() {
     local repo=""
 
+    # Method 0: the repository this image was built from (#289)
+    if [ -n "${RQB_BUILD_REPO:-}" ]; then
+        echo "$RQB_BUILD_REPO"
+        return 0
+    fi
+
     # Method 1: Check git remote in user's repo directory
     local git_config="${REPO_DIR}/.git/config"
 
@@ -1817,8 +1823,11 @@ do_update_from_branch() {
     fi
 
     # Step 2: Branch selection
-    local branch
-    branch=$(whiptail --inputbox "Enter branch name to update from:\n\nCommon branches: main, dev, dev-features05" 12 60 "main" 3>&1 1>&2 2>&3)
+    # Default to the branch this image was built from (#289)
+    local branch default_branch="${RQB_BUILD_BRANCH:-main}" built_from=""
+    [ -f /etc/rasqberry-version ] && built_from="\n\nThis image: $(cat /etc/rasqberry-version)"
+    [ -n "${RQB_BUILD_BRANCH:-}" ] && built_from="$built_from\nBuilt from: ${RQB_BUILD_REPO:-?} @ $RQB_BUILD_BRANCH"
+    branch=$(whiptail --inputbox "Enter branch name to update from:$built_from\n\nCommon branches: main, beta, development" 14 70 "$default_branch" 3>&1 1>&2 2>&3)
     if [ $? -ne 0 ] || [ -z "$branch" ]; then
         return 0
     fi
