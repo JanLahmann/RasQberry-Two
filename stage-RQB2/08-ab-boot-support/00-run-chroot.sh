@@ -49,11 +49,11 @@ done
 
 # Enable health check (runs once on boot to validate new slot)
 echo "=> Enabling rasqberry-health-check.service"
-systemctl enable rasqberry-health-check.service
+# rasqberry-health-check.service: enabled by 01-deploy-files (RQB2-system/enabled-units.txt)
 
 # Enable tryboot retry (re-issues a lost slot switch once, before health check)
 echo "=> Enabling rasqberry-tryboot-retry.service"
-systemctl enable rasqberry-tryboot-retry.service
+# rasqberry-tryboot-retry.service: enabled by 01-deploy-files (RQB2-system/enabled-units.txt)
 
 echo "=> RasQberry A/B Boot Support installed"
 echo ""

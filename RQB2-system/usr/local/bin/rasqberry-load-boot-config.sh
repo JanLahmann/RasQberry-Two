@@ -115,7 +115,7 @@ validate_led_config() {
                 return 1
             fi
             ;;
-        LED_FREQ_HZ|LED_DMA|LED_CHANNEL|LED_CHUNK_SIZE|LED_CHUNK_DELAY_MS|RASQ_LED_DISPLAY_TIMEOUT)
+        LED_FREQ_HZ|LED_DMA|LED_CHANNEL|RASQ_LED_DISPLAY_TIMEOUT)
             if ! [[ "$value" =~ ^[0-9]+$ ]]; then
                 error "Invalid $key: $value (must be integer)"
                 return 1
@@ -204,6 +204,13 @@ main() {
     if [ ! -f "${GLOBAL_ENV}.original" ]; then
         log "Creating original backup: ${GLOBAL_ENV}.original"
         cp "$GLOBAL_ENV" "${GLOBAL_ENV}.original"
+    fi
+
+    # A freshly flashed A/B slot starts with the shipped defaults: put back
+    # the LED settings saved on the shared /data partition (#290). The boot
+    # partition's rasqberry_boot.env below still overrides them.
+    if [ -x /usr/bin/rq_device_settings.sh ]; then
+        /usr/bin/rq_device_settings.sh restore || error "device settings restore failed"
     fi
 
     # Merge configurations

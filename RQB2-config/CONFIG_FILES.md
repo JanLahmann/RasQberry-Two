@@ -20,8 +20,6 @@ Classes:
 |---|---|---|
 | `rasqberry_environment.env` | state | LED layout from the first-login wizard, `*_INSTALLED` flags, first-login bookkeeping, painter/web settings, build origin (`RQB_BUILD_*`) |
 | `demo-menu-cache.sh` | generated | built by `rq_demo_generate_menu.sh` from the shipped manifests plus the user's catalog demos |
-| `rasqberry-firstlogin.profile.sh` | build | installed to `/etc/profile.d/rasqberry-firstlogin.sh` |
-| `rasqberry-led-verify.profile.sh` | build | retired; the build removes it |
 | `known-demos.json` | default | catalog pins; after an update the updater lists installed catalog demos whose pin moved |
 | `led-layouts.json` | default | custom layouts live in `~/.local/config/led-layouts.json` |
 | `trusted-repo-owners.txt` | default | |
@@ -41,6 +39,20 @@ Classes:
 | `desktop-bookmarks/` | default | |
 | `desktop-categories/` | default | |
 | `touch-mode/` | default | |
+
+On A/B images the LED settings in `rasqberry_environment.env` (`LED_*`, `RASQ_LED_*`,
+except `*_INSTALLED`) and the user's custom `led-layouts.json` are also kept in
+`/data/rasqberry/`, on the partition both slots share (`rq_device_settings.sh`). They
+are saved whenever an LED setting is written and restored at boot into a slot that
+has not applied them yet, so an image update to the other slot keeps the LED setup.
+Installed demos and their `*_INSTALLED` flags stay per slot.
+
+System files outside `/usr/bin` and `/usr/config` (boot scripts in `/usr/local/bin`,
+systemd units, autostart entries, `/etc/profile.d`, the XDG menu) live in `RQB2-system/`,
+which mirrors the root filesystem. `rq_install_system_files.sh` installs that tree for the
+image build and for Update from GitHub Branch; units listed in
+`RQB2-system/enabled-units.txt` are enabled (by an update only when new, so a unit the
+user turned off stays off).
 
 Per-user state outside `/usr/config` that no update touches:
 `~/.local/config/demo-manifests/` (catalog demos), `~/.local/config/led-layouts.json`

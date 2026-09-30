@@ -15,6 +15,12 @@ case $- in
 esac
 
 # Real terminal on both ends, once per shell, tool present.
+# One line when the daily check (rasqberry-update-check.timer) found a newer
+# image (#139); silent otherwise.
+if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_update_check.sh ]; then
+    /usr/bin/rq_update_check.sh --notice 2>/dev/null || true
+fi
+
 if [ -t 0 ] && [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_firstlogin.sh ]; then
     export _RQ_FIRSTLOGIN_DONE=1
     /usr/bin/rq_firstlogin.sh </dev/tty >/dev/tty 2>&1 || true

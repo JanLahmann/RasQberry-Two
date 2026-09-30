@@ -1,0 +1,13 @@
+# systemd units enabled on every RasQberry image (#294). One per line.
+# The image build enables all of them; "Update from GitHub Branch" enables a
+# listed unit only when it is new on the device, so a unit the user turned off
+# stays off. Units shipped disabled on purpose are NOT listed:
+#   rasqberry-led-renderer.service  (only for LED_RENDER_MODE=service)
+#   rasqberry-update-poller.timer   (rig/dev tool: auto-installs dev releases)
+rasqberry-firstboot.service
+rasqberry-boot-config.service
+rasqberry-demo-cache.service
+rasqberry-health-check.service
+rasqberry-tryboot-retry.service
+rasqberry-ip-display.service
+rasqberry-update-check.timer

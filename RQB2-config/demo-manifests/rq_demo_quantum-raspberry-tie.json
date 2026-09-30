@@ -13,7 +13,10 @@
   "entrypoint": {
     "type": "python",
     "script": "QuantumRaspberryTie.v8_0.py",
-    "working_dir": "quantum-raspberry-tie"
+    "working_dir": "quantum-raspberry-tie",
+    "stop_on_exit": [
+      "/usr/bin/sense_emu_gui"
+    ]
   },
   "install": {
     "preinstalled": false,

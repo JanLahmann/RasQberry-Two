@@ -457,6 +457,17 @@ EOF
         log_message "fstab updated for Slot $target_slot"
     fi
 
+    # Keep this device's SSH host key and authorized_keys in the new slot, so
+    # ssh neither refuses the changed host key nor falls back to a password
+    # (#275). A failure here must not fail the update.
+    local carrier="${SCRIPT_DIR:-/usr/bin}/rq_carry_ssh_identity.sh"
+    [ -x "$carrier" ] || carrier=/usr/bin/rq_carry_ssh_identity.sh
+    if [ -x "$carrier" ]; then
+        "$carrier" "$tgt_root_mount" 2>&1 | tee -a "$LOG_FILE" || warn "Could not carry over the SSH identity"
+    else
+        warn "rq_carry_ssh_identity.sh not found - the new slot gets a new SSH host key"
+    fi
+
     # Unmount and cleanup
     sync
     umount "$tgt_root_mount"

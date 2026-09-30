@@ -174,7 +174,7 @@ def render_glyph(count, layout, toggle_x=False, toggle_y=False,
     upside-down relative to the layout, the F visibly reads wrong.
     """
     brightness = _clamp_brightness(brightness)
-    from rq_led_utils import chunked_show, map_xy_to_pixel
+    from rq_led_utils import map_xy_to_pixel
 
     layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
     pixels = _make_strip(count, brightness)
@@ -191,7 +191,7 @@ def render_glyph(count, layout, toggle_x=False, toggle_y=False,
         _set_xy(x, y, (255, 0, 0))          # red bars
     _set_xy(*_GLYPH_F_ORIGIN, (255, 255, 255))  # white top-left marker (last: wins)
 
-    chunked_show(pixels)
+    pixels.show()
 
 
 def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False,
@@ -212,7 +212,7 @@ def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False
     signal the operator judges.
     """
     brightness = _clamp_brightness(brightness)
-    from rq_led_utils import chunked_show, map_xy_to_pixel
+    from rq_led_utils import map_xy_to_pixel
 
     layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
     pixels = _make_strip(count, brightness)
@@ -225,7 +225,7 @@ def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False
                 if idx is not None and 0 <= idx < count:
                     pixels[idx] = color
 
-    chunked_show(pixels)
+    pixels.show()
 
 
 def render_pattern(pattern, count, index=0, run=8, panel=64,
@@ -252,8 +252,6 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
     the pattern when answering.
     """
     brightness = _clamp_brightness(brightness)
-    from rq_led_utils import chunked_show
-
     pixels = _make_strip(count, brightness)
     pixels.fill((0, 0, 0))
 
@@ -262,7 +260,7 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
             pixels[i] = color
 
     if pattern == 'clear':
-        chunked_show(pixels)
+        pixels.show()
         return
 
     if pattern == 'corner':
@@ -324,7 +322,7 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
     else:
         raise ValueError(f"unknown pattern: {pattern}")
 
-    chunked_show(pixels)
+    pixels.show()
 
 
 def main(argv=None):

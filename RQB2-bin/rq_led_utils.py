@@ -867,6 +867,13 @@ def clear_all_leds():
         print(f"Error clearing LEDs: {e}")
 
 
+# ----------------------------------------------------------------------------
+# Compatibility wrappers for external demos (#132)
+# ----------------------------------------------------------------------------
+# Chunked writes were a workaround for the retired SPI driver. RasQberry's own
+# code calls pixels.show()/fill() directly; these three stay because external
+# catalog demos (e.g. sap-quantum-led) and patched demos still import them.
+
 def chunked_show(pixels, chunk_size=None, delay_ms=None):
     """
     Display pixels on LED strip.
@@ -1147,7 +1154,8 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
         time.sleep(scroll_speed)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255), center=True):
@@ -1213,7 +1221,8 @@ def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255),
     time.sleep(duration_seconds)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(255, 0, 0), center=True):
@@ -1284,7 +1293,8 @@ def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(2
         time.sleep(flash_speed / 2)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def wheel(pos):
@@ -1405,7 +1415,8 @@ def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_spe
         time.sleep(scroll_speed)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, cycle_speed=0.05):
@@ -1479,7 +1490,8 @@ def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, c
         time.sleep(cycle_speed)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), color2=(0, 0, 255), center=True):
@@ -1558,7 +1570,8 @@ def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), 
     time.sleep(duration_seconds)
 
     # Clear LEDs when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 # Module self-test

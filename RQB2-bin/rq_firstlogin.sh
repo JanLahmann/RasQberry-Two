@@ -47,8 +47,13 @@ case "$(ps -o tty= -p $$ 2>/dev/null | tr -d '[:space:]')" in
     *)     exit 0 ;;
 esac
 
+# --all: the "RasQberry Setup" desktop icon. Show every step that applies,
+# pending ones ticked, even after "Don't ask again" or once already offered.
+SHOW_ALL=false
+[ "${1:-}" = "--all" ] && SHOW_ALL=true
+
 # Asked to stop asking.
-grep -q '^RQ_FIRSTLOGIN_DONE=true' "$ENV_FILE" 2>/dev/null && exit 0
+[ "$SHOW_ALL" = true ] || ! grep -q '^RQ_FIRSTLOGIN_DONE=true' "$ENV_FILE" 2>/dev/null || exit 0
 
 command -v whiptail >/dev/null 2>&1 || exit 0
 
@@ -113,7 +118,64 @@ task_led_pending() { ! env_true LED_LAYOUT_VERIFIED; }
 task_led_label()   { printf 'Check the LED panel shows the IBM logo the right way up'; }
 task_led_run()     { "$BIN_DIR/rq_led_setup_wizard.sh" --verify; }
 
-TASKS="expand led"
+# ---------------------------------------------------------------------------
+# Optional tasks: offered once, not on every login
+# ---------------------------------------------------------------------------
+# expand and led stay pending until done. The ones below are preferences, so
+# after the checklist has shown them once they only come back through the
+# "RasQberry Setup" desktop icon (--all). Per user, no root needed.
+OFFERED_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry/firstlogin-offered"
+offered()      { grep -qx "$1" "$OFFERED_FILE" 2>/dev/null; }
+mark_offered() { mkdir -p "$(dirname "$OFFERED_FILE")" && { offered "$1" || echo "$1" >> "$OFFERED_FILE"; }; }
+
+# ---------------------------------------------------------------------------
+# Task: connect to a WLAN (only when there is no network at all)
+# ---------------------------------------------------------------------------
+task_wifi_applies() { [ -d /sys/class/net/wlan0 ] && command -v nmtui >/dev/null 2>&1; }
+task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
+task_wifi_label()   { printf 'Connect to a WLAN (no network connection found)'; }
+task_wifi_run()     { nmtui connect || sudo nmtui connect; }
+
+# ---------------------------------------------------------------------------
+# Task: download all demos now (they otherwise install on first use)
+# ---------------------------------------------------------------------------
+task_demos_applies() { [ -r "$MENU_FILE" ]; }
+task_demos_pending() {
+    # Pending while any git-installed demo is missing
+    grep -qE '^(QUANTUM_LIGHTS_OUT|QUANTUM_RASPBERRY_TIE|GROK_BLOCH|FUN_WITH_QUANTUM|QUANTUM_PARADOXES|IBM_TUTORIALS|IBM_COURSES)_INSTALLED=false' "$ENV_FILE" 2>/dev/null
+}
+task_demos_label()   { printf 'Download all demos now (otherwise each installs when first started)'; }
+task_demos_run() {
+    sudo -E bash -c ". /usr/config/rasqberry_env-config.sh >/dev/null 2>&1; . '$MENU_FILE' >/dev/null 2>&1; do_download_all_demos"
+}
+
+# ---------------------------------------------------------------------------
+# Task: touch mode (only with a touchscreen attached)
+# ---------------------------------------------------------------------------
+# Enabling it restarts the desktop session, so it runs last (TASKS order).
+task_touch_applies() {
+    [ -x "$BIN_DIR/rq_touch_mode.sh" ] && grep -qiE 'touch|ft5x06|goodix|ili2' /proc/bus/input/devices 2>/dev/null
+}
+task_touch_pending() { [ "$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null)" != "enabled" ]; }
+task_touch_label()   { printf 'Enable touch mode (larger icons, on-screen keyboard; restarts the desktop)'; }
+task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable; }
+
+# How a finished step reads in the --all list
+done_label() {
+    case "$1" in
+        wifi)   echo "network connection" ;;
+        expand) echo "A/B partitions expanded" ;;
+        led)    echo "LED panel checked" ;;
+        demos)  echo "demos downloaded" ;;
+        touch)  echo "touch mode enabled" ;;
+        *)      echo "$1" ;;
+    esac
+}
+
+OPTIONAL_TASKS="wifi demos touch"
+is_optional() { case " $OPTIONAL_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
+
+TASKS="wifi expand led demos touch"
 
 # ---------------------------------------------------------------------------
 # Collect what is pending
@@ -122,22 +184,36 @@ pending=""
 args=()
 for t in $TASKS; do
     "task_${t}_applies" 2>/dev/null || continue
-    "task_${t}_pending" 2>/dev/null || continue
-    pending="$pending $t"
-    args+=("$t" "$("task_${t}_label")" "ON")
+    if "task_${t}_pending" 2>/dev/null; then
+        if is_optional "$t" && offered "$t" && [ "$SHOW_ALL" != true ]; then
+            continue
+        fi
+        # Required steps start ticked, optional ones unticked (rule 2)
+        state=ON; is_optional "$t" && [ "$t" != wifi ] && state=OFF
+        pending="$pending $t"
+        args+=("$t" "$("task_${t}_label")" "$state")
+    elif [ "$SHOW_ALL" = true ]; then
+        args+=("$t" "Done: $(done_label "$t")" "OFF")
+    fi
 done
 
 # Nothing to do: say nothing. This runs on every login.
-[ -n "$pending" ] || exit 0
+if [ -z "$pending" ]; then
+    [ "$SHOW_ALL" = true ] && whiptail --title "RasQberry setup" --msgbox \
+        "All setup steps are done.\n\nEverything is also in: sudo raspi-config -> 0 RasQberry" 10 64
+    exit 0
+fi
 
-args+=("never" "Don't ask again" "OFF")
+for t in $pending; do is_optional "$t" && mark_offered "$t"; done
+[ "$SHOW_ALL" = true ] || args+=("never" "Don't ask again" "OFF")
 
 # ---------------------------------------------------------------------------
 # Ask once
 # ---------------------------------------------------------------------------
+rows=$(( ${#args[@]} / 3 ))
 choice=$(whiptail --title "RasQberry setup" --notags --separate-output \
     --checklist "Some setup steps are still pending.\n\nSpace to select, Enter to run them. Choose Cancel to be asked again next time." \
-    16 74 4 "${args[@]}" 3>&1 1>&2 2>&3) || exit 0
+    $((rows + 11)) 78 "$rows" "${args[@]}" 3>&1 1>&2 2>&3) || exit 0
 
 [ -n "$choice" ] || exit 0
 

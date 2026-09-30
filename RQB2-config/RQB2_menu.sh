@@ -54,7 +54,10 @@ fi
 # 2. Helpers
 # -----------------------------------------------------------------------------
 
-# POSIX-compatible generic whiptail menu helper
+# POSIX-compatible generic whiptail menu helper.
+# Deliberately NOT the one from rq_common.sh (#230): raspi-config runs this file
+# under /bin/sh (dash on Raspberry Pi OS), and rq_common.sh uses bash-only syntax
+# (arrays), so sourcing it here would stop raspi-config from parsing at all.
 show_menu() {
     title="$1"; shift
     prompt="$1"; shift
@@ -1056,6 +1059,13 @@ update_environment_file () {
     else
       sudo sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
     fi
+    # LED settings also go to the store both A/B slots share (#290)
+    case "$1" in
+      *_INSTALLED) ;;
+      LED_*|RASQ_LED_*)
+        if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
+        else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
+    esac
     # reload environment file
     . /usr/config/rasqberry_env-config.sh
   fi
@@ -1402,14 +1412,14 @@ do_quantum_demo_menu() {
 # -----------------------------------------------------------------------------
 
 do_show_system_info() {
-  local version="Unknown"
-  if [ -f /etc/rasqberry-version ]; then
-    version=$(cat /etc/rasqberry-version)
+  local info
+  if [ -x /usr/bin/rq_info.sh ]; then
+    info=$(/usr/bin/rq_info.sh 2>/dev/null)
+  else
+    info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
   fi
-
   whiptail --title "RasQberry System Information" --msgbox \
-    "RasQberry Version: $version\n\nThis version identifier corresponds to the GitHub Actions workflow run that built this image." \
-    10 70
+    "$info\n\nFor bug reports: rq_info.sh --json" 18 78
 }
 
 # -----------------------------------------------------------------------------
@@ -1619,6 +1629,8 @@ EOF
 
     # Remount /data for current session
     mount /dev/mmcblk0p7 /data 2>/dev/null || true
+    # /data was just reformatted: save this slot's LED settings there again
+    /usr/bin/rq_device_settings.sh save >> /var/log/rasqberry-expand.log 2>&1 || true
 
     echo "=== Expansion complete ===" >> /var/log/rasqberry-expand.log
 
@@ -1834,7 +1846,7 @@ do_update_from_branch() {
 
     # Step 3: Confirmation
     if ! whiptail --title "Confirm Update" --yesno \
-        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
+        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/ (your settings are kept)\n  - Boot scripts, services, autostart entries\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
         20 70; then
         return 0
     fi
@@ -1862,7 +1874,25 @@ do_update_from_branch() {
     fi
 }
 
-# Software & Full Image Updates Menu
+# Is a newer image published for this image's channel? (#139)
+do_check_for_update() {
+    local out rc=0 how
+    whiptail --title "Checking for updates" --infobox "Asking rasqberry.org for the latest release..." 8 60
+    out=$(/usr/bin/rq_update_check.sh --refresh 2>&1) || rc=$?
+    if [ "$rc" -eq 10 ]; then
+        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
+            how="Install it into the other slot:\nSlot Manager -> Update Slot B with new image."
+        else
+            how="Download it from rasqberry.org/latest/ and write it to a card\n(the standard image has no second slot to update into)."
+        fi
+        whiptail --title "Update available" --msgbox "$out\n\n$how" 16 76
+    else
+        whiptail --title "Check for updates" --msgbox "$out" 12 76
+    fi
+    return 0
+}
+
+# Software & Image Updates Menu
 do_ab_boot_menu() {
     while true; do
         # Check if this is an AB boot image
@@ -1871,12 +1901,17 @@ do_ab_boot_menu() {
             is_ab_image="Yes"
         fi
 
-        FUN=$(show_menu "RasQberry: Software & Full Image Updates" "A/B Image: ${is_ab_image}" \
-            EXPAND "Expand A/B Partitions (64GB+ SD)" \
-            SLOTS  "Slot Manager (switch, confirm, promote)" \
-            BRANCH "Update from GitHub Branch") || break
+        # The A/B entries only make sense on an A/B partition layout
+        set -- CHECK "Check for a newer image"
+        if [ "$is_ab_image" = "Yes" ]; then
+            set -- "$@" EXPAND "Expand A/B Partitions (64GB+ SD)" \
+                SLOTS "Slot Manager (switch, confirm, promote)"
+        fi
+        set -- "$@" BRANCH "Update from GitHub Branch"
+        FUN=$(show_menu "RasQberry: Software & Image Updates" "A/B Image: ${is_ab_image}" "$@") || break
 
         case "$FUN" in
+            CHECK)  do_check_for_update     || continue ;;
             EXPAND) do_expand_ab_partitions || continue ;;
             SLOTS)  do_slot_manager_menu    || continue ;;
             BRANCH) do_update_from_branch   || continue ;;
@@ -2380,21 +2415,42 @@ offer_desktop_restart() {
     fi
 }
 
+# Chromium opening rasqberry.org at desktop login (#227)
+browser_autostart_state() {
+    [ "$(sed -n 's/^BROWSER_AUTOSTART=//p' /usr/config/rasqberry_environment.env | tail -1)" = "false" ] \
+        && echo "off" || echo "on"
+}
+
+do_toggle_browser_autostart() {
+    local new=false
+    [ "$(browser_autostart_state)" = "off" ] && new=true
+    if grep -q '^BROWSER_AUTOSTART=' "$ENV_FILE"; then
+        update_environment_file "BROWSER_AUTOSTART" "$new"
+    else
+        echo "BROWSER_AUTOSTART=$new" >> "$ENV_FILE"
+    fi
+    whiptail --title "Browser at login" --msgbox \
+        "Chromium will $([ "$new" = true ] && echo "open" || echo "no longer open") at the next desktop login." 8 60
+    return 0
+}
+
 do_rasqberry_menu() {
   while true; do
     # Build the menu, offering the A/B image-update entry ONLY on an actual
     # A/B partition layout (config-labelled p1). On a single-image install it
     # is irrelevant and confusing, so hide it.
-    set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" UEF "Update Env File"
-    if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
-        set -- "$@" AB_BOOT "Software & Full Image Updates"
-    fi
-    set -- "$@" INFO "System Info"
+    # Software & Image Updates is on every image: checking for a newer image
+    # and Update from GitHub Branch work on the standard image too; the A/B-only
+    # entries inside are hidden there.
+    set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" \
+        BROWSER "Browser at login: $(browser_autostart_state)" \
+        UEF "Update Env File" AB_BOOT "Software & Image Updates" INFO "System Info"
     FUN=$(show_menu "RasQberry: Main Menu" "System Options" "$@") || break
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       TOUCH)   do_touch_mode_menu             || continue ;;
       UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
+      BROWSER) do_toggle_browser_autostart    || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
       *)       handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;

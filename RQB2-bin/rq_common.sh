@@ -135,6 +135,12 @@ update_env_var() {
         sudo chown root:root "$RQ_ENV_FILE"
     fi
 
+    # LED settings also go to the store both A/B slots share (#290)
+    case "$var_name" in
+        *_INSTALLED) ;;
+        LED_*|RASQ_LED_*) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
+    esac
+
     # Reload environment
     load_rqb2_env
 }
@@ -413,8 +419,14 @@ clear_leds() {
         return 0
     }
 
-    debug "Clearing LEDs using: $led_script"
-    python3 "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
+    # The LED libraries (board, neopixel) live in the venv; the system
+    # python3 only printed "No module named 'board'" and left the LEDs on
+    local py="python3" venv
+    if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
+        py="$venv/bin/python3"
+    fi
+    debug "Clearing LEDs using: $py $led_script"
+    "$py" "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
 }
 
 # ============================================================================

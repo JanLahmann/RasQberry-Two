@@ -13,7 +13,6 @@ import argparse
 from rq_led_utils import (
     get_led_config,
     create_neopixel_strip,
-    chunked_show,
     map_xy_to_pixel,
     get_layout,
 )
@@ -69,7 +68,7 @@ def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
 
     # Clear all pixels first
     pixels.fill(K)
-    chunked_show(pixels)
+    pixels.show()
 
     if animate and len(measurement_list) > 0:
         # Sequential animation - display each LED one at a time
@@ -82,7 +81,7 @@ def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
 
             color = to_color.get(bit, K)  # Get color or black for invalid bits
             set_qubit(pixels, i, color)
-            chunked_show(pixels)
+            pixels.show()
             sleep(delay_per_led)
     else:
         # Instant display - set all LEDs at once
@@ -95,7 +94,7 @@ def display_on_strip(pixels, measurement, animate=True, animation_duration=0.5):
             set_qubit(pixels, i, color)
 
         # Show all LEDs at once after setting colors
-        chunked_show(pixels)
+        pixels.show()
 
 def color_wipe(pixels, color=K, wait_ms=wait_ms):
     """Wipe color across display a pixel at a time.
@@ -106,13 +105,13 @@ def color_wipe(pixels, color=K, wait_ms=wait_ms):
     """
     for i in range(NUM_PIXELS):
         pixels[i] = color
-        chunked_show(pixels)
+        pixels.show()
         sleep(wait_ms / 1000.0)
 
 def clear_strip(pixels):
     """Clear all LEDs immediately"""
     pixels.fill(K)
-    chunked_show(pixels)
+    pixels.show()
     print("All LEDs cleared")
 
 # Main program logic

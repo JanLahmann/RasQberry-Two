@@ -46,7 +46,9 @@ DISABLE_FIRST_BOOT_USER_RENAME=1
 PUBKEY_ONLY_SSH=0
 
 # Build quality settings
-# Note: AB boot uses direct kernel mount per official Raspberry Pi pattern
+# No initramfs on any stream (dev, beta, main): the kernel mounts the root
+# partition directly, per the official Raspberry Pi pattern, on both the
+# standard and the A/B image.
 SKIP_INITRAMFS=1
 
 # ============================================================================

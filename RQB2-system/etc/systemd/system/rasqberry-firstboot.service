@@ -1,0 +1,16 @@
+[Unit]
+Description=RasQberry First Boot Tasks
+After=systemd-remount-fs.service boot-firmware.mount
+Requires=boot-firmware.mount
+Before=rc-local.service systemd-user-sessions.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rasqberry-firstboot.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=sysinit.target
