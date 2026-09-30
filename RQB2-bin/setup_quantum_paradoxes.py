@@ -151,10 +151,13 @@ QISKIT_CODE_FIXES = [
     ("qc.append(XGate().to_mutable().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
     ("qc.append(XGate().c_if(cr_Alice_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Alice_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
     ("qc.append(XGate().c_if(cr_Bob_outcome, 1), [qr_Check_qubit])", "with qc.if_test((cr_Bob_outcome, 1)):\n    qc.x(qr_Check_qubit)"),
-    # Qiskit 2.x requires transpile before run on noisy simulator
-    ("sim_noise.run(engine)", "sim_noise.run(transpile(engine, sim_noise))"),
-    ("sim_noise.run(reset_circ)", "sim_noise.run(transpile(reset_circ, sim_noise))"),
-    # AerSimulator.from_backend() restricts basis gates - use plain AerSimulator with noise_model
+    # Maxwell's demon: in Aer 0.17, from_backend(FakeVigoV2(), noise_model=...) rejects
+    # the notebook's x/swap gates. The original never transpiled, so the Vigo backend
+    # contributed nothing but its basis gates (the noise_model argument replaces Vigo's
+    # noise). A plain AerSimulator with the same noise model runs the circuits as-is.
+    # Do NOT add transpile() before sim_noise.run(): from optimization level 1 on it
+    # strips the noisy `id` gates that prepare the maximally mixed particle/memory, and
+    # the 50/50 results turn deterministic (issue #181).
     ("sim_noise = AerSimulator.from_backend(device_backend, noise_model = noise_model)",
      "sim_noise = AerSimulator(noise_model=noise_model)  # Use plain simulator with noise"),
 ]
