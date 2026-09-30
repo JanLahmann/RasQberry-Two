@@ -135,6 +135,12 @@ update_env_var() {
         sudo chown root:root "$RQ_ENV_FILE"
     fi
 
+    # LED settings also go to the store both A/B slots share (#290)
+    case "$var_name" in
+        *_INSTALLED) ;;
+        LED_*|RASQ_LED_*) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
+    esac
+
     # Reload environment
     load_rqb2_env
 }

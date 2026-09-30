@@ -206,6 +206,13 @@ main() {
         cp "$GLOBAL_ENV" "${GLOBAL_ENV}.original"
     fi
 
+    # A freshly flashed A/B slot starts with the shipped defaults: put back
+    # the LED settings saved on the shared /data partition (#290). The boot
+    # partition's rasqberry_boot.env below still overrides them.
+    if [ -x /usr/bin/rq_device_settings.sh ]; then
+        /usr/bin/rq_device_settings.sh restore || error "device settings restore failed"
+    fi
+
     # Merge configurations
     # Create temp file first to ensure it exists
     touch "$TEMP_ENV"

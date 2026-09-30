@@ -42,6 +42,13 @@ Classes:
 | `desktop-categories/` | default | |
 | `touch-mode/` | default | |
 
+On A/B images the LED settings in `rasqberry_environment.env` (`LED_*`, `RASQ_LED_*`,
+except `*_INSTALLED`) and the user's custom `led-layouts.json` are also kept in
+`/data/rasqberry/`, on the partition both slots share (`rq_device_settings.sh`). They
+are saved whenever an LED setting is written and restored at boot into a slot that
+has not applied them yet, so an image update to the other slot keeps the LED setup.
+Installed demos and their `*_INSTALLED` flags stay per slot.
+
 Per-user state outside `/usr/config` that no update touches:
 `~/.local/config/demo-manifests/` (catalog demos), `~/.local/config/led-layouts.json`
 (custom layouts), `~/Desktop/rq-ext-*.desktop` (catalog demo icons).

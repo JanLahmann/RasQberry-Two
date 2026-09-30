@@ -1056,6 +1056,13 @@ update_environment_file () {
     else
       sudo sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
     fi
+    # LED settings also go to the store both A/B slots share (#290)
+    case "$1" in
+      *_INSTALLED) ;;
+      LED_*|RASQ_LED_*)
+        if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
+        else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
+    esac
     # reload environment file
     . /usr/config/rasqberry_env-config.sh
   fi
@@ -1619,6 +1626,8 @@ EOF
 
     # Remount /data for current session
     mount /dev/mmcblk0p7 /data 2>/dev/null || true
+    # /data was just reformatted: save this slot's LED settings there again
+    /usr/bin/rq_device_settings.sh save >> /var/log/rasqberry-expand.log 2>&1 || true
 
     echo "=== Expansion complete ===" >> /var/log/rasqberry-expand.log
 
