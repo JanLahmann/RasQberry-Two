@@ -280,6 +280,20 @@ report_catalog_pins() {
     done
 }
 
+# Boot scripts, systemd units, autostart entries etc. live in RQB2-system/ and
+# are installed by the same script the image build uses (#294). New units are
+# enabled; existing ones keep their state, so a unit turned off stays off.
+install_system_files() {
+    local tree="$1/RQB2-system" installer="$1/RQB2-bin/rq_install_system_files.sh"
+    if [ ! -d "$tree" ] || [ ! -f "$installer" ]; then
+        log_message "Branch has no RQB2-system/ - system files not updated"
+        return 0
+    fi
+    log_message "Installing system files (boot scripts, services, autostart)..."
+    bash "$installer" "$tree" --update 2>&1 | tee -a "$LOG_FILE" \
+        || warn "Some system files could not be installed - see $LOG_FILE"
+}
+
 reload_environment() {
     log_message "Reloading environment configuration..."
 
@@ -399,6 +413,7 @@ main() {
         info "Would copy:"
         info "  RQB2-bin/*     -> $TARGET_BIN/"
         info "  RQB2-config/*  -> $TARGET_CONFIG/"
+        info "  RQB2-system/*  -> / (boot scripts, services, autostart)"
         info ""
         info "Run without --dry-run to apply changes."
         exit 0
@@ -434,6 +449,7 @@ main() {
     copy_bin_files "$WORK_DIR"
     copy_config_files "$WORK_DIR"
 
+    install_system_files "$WORK_DIR"
     regenerate_menu_cache
 
     # Reload environment
@@ -453,6 +469,7 @@ main() {
     info "Changes applied:"
     info "  - Scripts updated in $TARGET_BIN/"
     info "  - Config files updated in $TARGET_CONFIG/"
+    info "  - Boot scripts, services and autostart entries updated"
     info "  - Environment reloaded"
     info ""
     info "Note: You may need to restart raspi-config or reboot for"

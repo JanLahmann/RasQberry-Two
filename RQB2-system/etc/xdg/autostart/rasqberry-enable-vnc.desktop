@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RasQberry VNC Enablement
+Comment=Ensure VNC Server is enabled on each desktop login
+Exec=/usr/local/bin/rasqberry-enable-vnc.sh
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

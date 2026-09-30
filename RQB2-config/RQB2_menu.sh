@@ -1843,7 +1843,7 @@ do_update_from_branch() {
 
     # Step 3: Confirmation
     if ! whiptail --title "Confirm Update" --yesno \
-        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
+        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/ (your settings are kept)\n  - Boot scripts, services, autostart entries\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
         20 70; then
         return 0
     fi
