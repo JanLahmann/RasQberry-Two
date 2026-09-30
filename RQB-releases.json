@@ -1,5 +1,5 @@
 {
-  "generated": "2025-12-30T21:03:13Z",
+  "generated": "2026-09-30T09:18:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,33 +8,43 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2025-12-30-211449",
-      "name": "rasqberry-beta-2025-12-30-211449",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2025-12-30-211449/rasqberry-beta-2025-12-30.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2025-12-30-211449",
-      "release_date": "2025-12-30",
-      "image_download_size": 1668208604,
-      "extract_size": 8866758656,
-      "extract_sha256": "5830bc6a22020b3095d3b50612df650c54caefad61adfe39ab9515e9c9e122b7",
+      "tag": "beta-2026-09-30-102147",
+      "name": "rasqberry-beta-2026-09-30-102147",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-102147/rasqberry-beta-2026-09-30.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-102147",
+      "release_date": "2026-09-30",
+      "image_download_size": 1714947160,
+      "extract_size": 9059696640,
+      "extract_sha256": "38e3078fe5373293360b0aadbc00f7f42024ddcc8438d3aa30f3d15ea1e5d3ff",
+      "image_sha256": "740043323edf090fdf427f2b6692b33fa9924d5d96135e9b3f0261afba510f53",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-102147/rasqberry-beta-2026-09-30-ab.img.xz",
+      "ab_extract_sha256": "328d03f42a0d35f0f1eb43f8a3e9827d73bf755311ded320735177f77aa6870b",
+      "ab_image_sha256": "367bf0032a54e50b649111e33ad9346ee7c335c8e7d94dab7e7ff837e5298e2c",
+      "ab_image_download_size": 1692071996,
+      "ab_extract_size": 12398362624,
       "highlights": [
-        "add 10s delay to Chrome autostart for NTP time sync",
-        "add 10s delay to Chrome autostart for NTP time sync",
-        "create status_var before _init_mmap in virtual GUI",
-        "improve Docker setup, keyboard toggle, and Jupyter ports",
-        "update touch mode icon to input-touchpad-symbolic"
+        "skip cache restore for main/beta to ensure fresh builds",
+        "order changelog categories (Features first, Bug Fixes last)",
+        "Bump version to beta-2026-09-30-102147",
+        "Merge development into beta",
+        "size yes/no and message boxes to their text"
       ]
     },
     "dev": {
-      "tag": "development-2025-12-30-145529",
-      "name": "rasqberry-development-2025-12-30-145529",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2025-12-30-145529/rasqberry-development-2025-12-30-145529.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2025-12-30-145529",
-      "release_date": "2025-12-30 14:55",
-      "image_download_size": 1989990444,
-      "extract_size": 8841592832,
-      "extract_sha256": "24b2e7091c70658195dd61692ceb54a8179a3e5b6ae78e5b00fa644be8775491",
+      "tag": "development-2026-09-30-103242",
+      "name": "rasqberry-development-2026-09-30-103242",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-09-30-103242/rasqberry-development-2026-09-30-103242.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-09-30-103242",
+      "release_date": "2026-09-30 10:32",
+      "image_download_size": 2022277152,
+      "extract_size": 9034530816,
+      "extract_sha256": "19d02eb99c1e45ebc52aad7e422e12b3b58075f60982c02f82f4ba26af7869cb",
       "highlights": [
-        "extract highlights from GitHub release body"
+        "Bump version to development-2026-09-30-103242",
+        "Restore development's VERSION",
+        "Bump version to dev-devicesettings-2026-09-30-102741",
+        "Keep LED settings across A/B image updates (#290)",
+        "size yes/no and message boxes to their text"
       ]
     }
   }
