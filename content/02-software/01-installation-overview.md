@@ -83,9 +83,25 @@ The RasQberry image contains a desktop environment with quantum computing demos 
 |-----------|-------------|
 | Quantum Demos | LED tests, Quantum Lights Out, Raspberry-Tie, Bloch Sphere, Fractals, IBM Tutorials, and more |
 | Touch Mode Settings | Enable/disable touch screen mode |
+| Browser at login | Turn Chromium opening rasqberry.org at desktop login on or off |
 | Update Env File | Modify RasQberry environment variables |
-| Software & Full Image Updates | A/B boot management, GitHub branch updates |
-| System Info | View RasQberry version information |
+| Software & Image Updates | Check for a newer image, update from a GitHub branch; on A/B images also partition expansion and the slot manager |
+| System Info | Version, build origin, Python and Qiskit versions, A/B slot |
+
+**Software on the image** (beta of 2026-09-30; exact versions on your Pi: **System Info** in the menu, or `rq_info.sh`):
+
+| Component | Version |
+|-----------|---------|
+| Raspberry Pi OS | Bookworm (Debian 12), 64-bit |
+| Python | 3.11 |
+| Qiskit | 2.5 (Qiskit 2.x) |
+| Qiskit Aer | 0.17 |
+| Qiskit IBM Runtime | 0.50 |
+
+Qiskit and the demos live in the virtual environment `~/RasQberry-Two/venv/RQB2`
+(`source ~/RasQberry-Two/venv/RQB2/bin/activate`). The image ships Qiskit 2.x: code
+written for Qiskit 1.x may need updating (see the
+[Qiskit 2.0 migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0)).
 
 **Default credentials:**
 - Username: `rasqberry`
