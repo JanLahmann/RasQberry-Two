@@ -40,8 +40,7 @@ except ImportError:
 from rq_led_utils import (
     get_led_config,
     create_neopixel_strip,
-    map_xy_to_pixel,
-    chunked_clear
+    map_xy_to_pixel
 )
 
 
@@ -156,7 +155,8 @@ def display_static_image(pixels, image_array, duration=10, brightness=1.0, layou
     time.sleep(duration)
 
     # Clear when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_image_with_fade(pixels, image_array, duration=10, fade_in=True, fade_out=True,
@@ -240,7 +240,8 @@ def display_image_with_fade(pixels, image_array, duration=10, fade_in=True, fade
             time.sleep(fade_delay)
 
     # Clear when done
-    chunked_clear(pixels)
+    pixels.fill((0, 0, 0))
+    pixels.show()
 
 
 def display_logo(image_path, duration=10, brightness=0.5, fade_in=False, fade_out=False):

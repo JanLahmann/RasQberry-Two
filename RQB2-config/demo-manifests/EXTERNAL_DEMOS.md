@@ -55,7 +55,7 @@ on `PYTHONPATH` before launching, so a demo can import the shipped helpers
 without vendoring them:
 
 ```python
-from rq_led_utils import get_led_config, create_neopixel_strip, chunked_show, map_xy_to_pixel
+from rq_led_utils import get_led_config, create_neopixel_strip, map_xy_to_pixel
 ```
 
 LED demos should take their geometry from `get_led_config()`

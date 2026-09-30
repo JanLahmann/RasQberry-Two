@@ -7,7 +7,7 @@ set -euo pipefail
 # Description:
 #   Installs and launches the LED Painter demonstration
 #   Allows users to paint images on a GUI and display them on the LED array
-#   Uses standardized installation approach with chunked LED write support
+#   Uses standardized installation approach
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

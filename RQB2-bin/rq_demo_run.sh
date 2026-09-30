@@ -51,6 +51,9 @@ fi
 JUPYTER_PID=""
 CONTAINER_NAME=""
 HTTP_SERVER_PID=""
+# Helper processes a demo starts that outlive it (manifest
+# .entrypoint.stop_on_exit, e.g. Raspberry Tie's SenseHAT emulator window, #104)
+STOP_ON_EXIT=()
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -733,6 +736,13 @@ run_python() {
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
 
+    # Terminal demos run until stopped; say how (#104). LED demos re-run this
+    # launcher as root, so only that pass prints it.
+    if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
+        echo "Press Ctrl+C in this window to stop the demo."
+        echo
+    fi
+
     # A dedicated launcher WINS when the manifest declares one: it exists
     # precisely because the demo needs pre-launch work the generic path cannot do
     # (LED-Painter converts to the PWM/PIO driver and must run its Qt GUI as the
@@ -858,6 +868,16 @@ cleanup() {
         kill "$HTTP_SERVER_PID" 2>/dev/null || true
     fi
 
+    # Helper windows/processes the demo started (only those that were not
+    # already running when it launched)
+    local pat
+    for pat in "${STOP_ON_EXIT[@]}"; do
+        if pgrep -f -- "$pat" >/dev/null 2>&1; then
+            info "Closing $pat..."
+            pkill -f -- "$pat" 2>/dev/null || sudo -n pkill -f -- "$pat" 2>/dev/null || true
+        fi
+    done
+
     # Note: Docker containers are not stopped here - they use --rm and stop on their own
     # or user explicitly stops them
 }
@@ -976,6 +996,13 @@ main() {
 
     # Check requirements
     check_requirements
+
+    # Remember which declared helper processes the demo will start itself
+    local pat
+    while IFS= read -r pat; do
+        [ -n "$pat" ] || continue
+        pgrep -f -- "$pat" >/dev/null 2>&1 || STOP_ON_EXIT+=("$pat")
+    done < <(jq -r '.entrypoint.stop_on_exit[]? // empty' "$MANIFEST_FILE" 2>/dev/null)
 
     # Ensure demo is installed (auto-install if possible)
     ensure_installed

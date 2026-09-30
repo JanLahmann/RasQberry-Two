@@ -88,6 +88,11 @@
           "minimum": 1024,
           "maximum": 65535,
           "description": "TCP port for the web-static http.server (1024-65535)"
+        },
+        "stop_on_exit": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Command-line patterns (pgrep -f) of helper processes the demo starts that outlive it, e.g. an emulator window. Stopped when the demo exits, unless they were already running before it started."
         }
       }
     },

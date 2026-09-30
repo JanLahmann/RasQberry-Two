@@ -54,7 +54,10 @@ fi
 # 2. Helpers
 # -----------------------------------------------------------------------------
 
-# POSIX-compatible generic whiptail menu helper
+# POSIX-compatible generic whiptail menu helper.
+# Deliberately NOT the one from rq_common.sh (#230): raspi-config runs this file
+# under /bin/sh (dash on Raspberry Pi OS), and rq_common.sh uses bash-only syntax
+# (arrays), so sourcing it here would stop raspi-config from parsing at all.
 show_menu() {
     title="$1"; shift
     prompt="$1"; shift
