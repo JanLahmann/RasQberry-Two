@@ -96,7 +96,7 @@ launch_browser() {
 # Wait for HTTP endpoint to become available
 wait_for_http() {
     local url="$1"
-    local max_wait="${2:-60}"  # JupyterLab needs ~15 s on a Pi 4 (#234)
+    local max_wait="${2:-30}"
     local count=0
 
     while ! curl -sf "$url" >/dev/null 2>&1; do
