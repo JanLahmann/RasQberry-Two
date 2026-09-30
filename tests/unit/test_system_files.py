@@ -82,3 +82,13 @@ def test_no_stage_script_writes_system_files_inline():
             if re.match(r"\s*(cat\s*>|install\b.*|cp\b.*)\s*\"?(\$\{ROOTFS_DIR\})?/(usr/local/(bin|lib)|etc/systemd/system|etc/xdg/autostart|etc/profile\.d)/", line):
                 bad.append(f"{os.path.relpath(script, _ROOT)}:{n}: {line.strip()}")
     assert not bad, "install these from RQB2-system/ instead:\n" + "\n".join(bad)
+
+
+def test_firstboot_tasks_are_in_the_tree():
+    # rasqberry-firstboot.sh runs every task in /usr/local/lib/rasqberry-firstboot.d;
+    # a .gitignore 'lib/' rule once dropped this file from the repository.
+    task = os.path.join(_TREE, "usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh")
+    assert os.path.isfile(task) and os.access(task, os.X_OK)
+    tracked = subprocess.run(["git", "ls-files", "--error-unmatch", task], cwd=_ROOT,
+                             capture_output=True, text=True)
+    assert tracked.returncode == 0, "01-expand-filesystem.sh is not tracked by git"
