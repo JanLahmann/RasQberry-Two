@@ -2,10 +2,13 @@ name: Quantum Paradoxes notebooks
 
 # Runs the patched Quantum Paradoxes notebooks and compares every circuit's exact
 # outcome probabilities with the values recorded from Maria Violaris' originals
-# (tests/paradoxes, #181): when the patch rules or the test change, and weekly
-# against the latest Qiskit. Identical copies live on development and main:
-# scheduled workflows only run from the default branch, so the main copy's
-# weekly run checks out development. Edit both together.
+# (tests/paradoxes, #181). Only when it can matter:
+#   - on pushes that change the patch rules, the manifest or the test;
+#   - when Qiskit gets a new minor or major release (the image installs the
+#     latest Qiskit): a weekly check asks PyPI whether an x.y.0 came out in the
+#     last 7 days and only then runs the notebooks - once per Qiskit release.
+# Identical copies live on development and main: scheduled workflows only run
+# from the default branch, so the main copy checks out development. Edit both.
 
 on:
   push:
@@ -16,11 +19,34 @@ on:
       - 'tests/paradoxes/**'
       - '.github/workflows/paradox-notebooks.yml'
   schedule:
-    - cron: '17 4 * * 1'   # Mondays 04:17 UTC
+    - cron: '17 4 * * 1'   # Mondays 04:17 UTC - the cheap release check only
   workflow_dispatch:
 
 jobs:
+  qiskit-release:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      new: ${{ steps.check.outputs.new }}
+    steps:
+      - id: check
+        shell: python
+        run: |
+          import json, os, urllib.request
+          from datetime import datetime, timedelta, timezone
+          data = json.load(urllib.request.urlopen("https://pypi.org/pypi/qiskit/json"))
+          major, minor = data["info"]["version"].split(".")[:2]
+          first = f"{major}.{minor}.0"
+          files = data["releases"].get(first, [])
+          new = bool(files) and datetime.now(timezone.utc) - datetime.fromisoformat(
+              files[0]["upload_time_iso_8601"].replace("Z", "+00:00")) < timedelta(days=7)
+          print(f"latest Qiskit {data['info']['version']}; {first} released in the last 7 days: {new}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"new={'true' if new else 'false'}\n")
+
   notebooks:
+    needs: qiskit-release
+    if: always() && (github.event_name != 'schedule' || needs.qiskit-release.outputs.new == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
