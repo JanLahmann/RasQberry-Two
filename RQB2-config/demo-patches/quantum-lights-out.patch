@@ -1,5 +1,5 @@
 diff --git a/lights_out.py b/lights_out.py
-index 90f9fe8..2d214de 100644
+index 90f9fe8..9aa6435 100644
 --- a/lights_out.py
 +++ b/lights_out.py
 @@ -1,4 +1,5 @@
@@ -81,7 +81,18 @@ index 90f9fe8..2d214de 100644
  
  # Colors for Neopixel are in the form RGB
  OFF_COLOR = 0x111111  # Grey
-@@ -258,7 +283,7 @@ def visualize_lights_out_grid_to_console(grid, selected=None):
+@@ -158,7 +183,9 @@ def compute_quantum_solution(lights):
+ 
+     def lights_out_oracle(qc, tile, oracle, auxiliary):
+         qc.x(tile[6:9])
+-        qc.mcx(tile[6:9], oracle[0], auxiliary, mode="basic")
++        # mode="basic" is deprecated since Qiskit 2.1; the plain MCX gate is
++        # synthesized by the transpiler (same result)
++        qc.mcx(tile[6:9], oracle[0])
+         qc.x(tile[6:9])
+ 
+     def diffusion(qc, flip):
+@@ -258,7 +285,7 @@ def visualize_lights_out_grid_to_console(grid, selected=None):
      print("\n")
  
  
@@ -90,7 +101,7 @@ index 90f9fe8..2d214de 100644
      """
      This function shows the lights-out grid on the LED arrray.
  
-@@ -277,17 +302,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
+@@ -277,17 +304,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
          LED_array_index_list = LED_array_indices[index]
          if selected != None and index == selected:
              for coord in LED_array_index_list:
@@ -112,7 +123,7 @@ index 90f9fe8..2d214de 100644
      """
      This function receives the lights-out grid and
      the solution to the grid that was generated from the quantum circuit.
-@@ -310,16 +335,7 @@ def visualize_solution(grid, solution, args):
+@@ -310,16 +337,7 @@ def visualize_solution(grid, solution, args):
      delay = args.delay
      brightness = args.brightness
  
@@ -130,7 +141,7 @@ index 90f9fe8..2d214de 100644
  
      # The square root of the length of the grid will be used to find the left and right columns later
      root = int(math.sqrt(len(grid)))
-@@ -341,7 +357,7 @@ def visualize_solution(grid, solution, args):
+@@ -341,7 +359,7 @@ def visualize_solution(grid, solution, args):
      if console:
          visualize_lights_out_grid_to_console(grid)
  
@@ -139,7 +150,7 @@ index 90f9fe8..2d214de 100644
      time.sleep(delay)
  
      for index, step in enumerate(solution):
-@@ -350,7 +366,7 @@ def visualize_solution(grid, solution, args):
+@@ -350,7 +368,7 @@ def visualize_solution(grid, solution, args):
              if console:
                  visualize_lights_out_grid_to_console(grid, index)
  
@@ -148,7 +159,7 @@ index 90f9fe8..2d214de 100644
              time.sleep(delay)
  
              # Flip the square itself
-@@ -392,7 +408,7 @@ def visualize_solution(grid, solution, args):
+@@ -392,7 +410,7 @@ def visualize_solution(grid, solution, args):
              if console:
                  visualize_lights_out_grid_to_console(grid)
  
@@ -157,7 +168,7 @@ index 90f9fe8..2d214de 100644
  
              # Sleep so that the display doesn't change too fast
              time.sleep(delay)
-@@ -428,6 +444,12 @@ def parse_arguments():
+@@ -428,6 +446,12 @@ def parse_arguments():
  def main(**kwargs):
      args = parse_arguments()
  
@@ -170,7 +181,7 @@ index 90f9fe8..2d214de 100644
      # Turn off LEDs whenever the program is closed
      atexit.register(turn_off_LEDs)
  
-@@ -441,10 +463,10 @@ def main(**kwargs):
+@@ -441,10 +465,10 @@ def main(**kwargs):
              quantum_solution = compute_quantum_solution(lights_grid)
              print("Quantum solution found!")
              print("Visualizing solution...")
