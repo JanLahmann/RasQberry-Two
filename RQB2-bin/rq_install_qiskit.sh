@@ -187,6 +187,41 @@ if [ -n "$MISSING_MODULES" ]; then
     exit 1
 fi
 
+# Same check for the Qiskit core every Qiskit demo needs: without these the
+# image would ship with no working quantum demos, so a hard build failure.
+# find_spec again (no import: importing Qiskit in the qemu chroot is slow and
+# not needed); versions come from package metadata, also without importing.
+echo
+echo "Verifying Qiskit core modules..."
+MISSING_MODULES=""
+for mod in qiskit qiskit_aer qiskit_ibm_runtime; do
+    if python3 -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$mod') else 1)"; then
+        echo "  OK: $mod $(python3 -c "import importlib.metadata as m; print(m.version('${mod//_/-}'))" 2>/dev/null || echo '(version unknown)')"
+    else
+        echo "  MISSING: $mod"
+        MISSING_MODULES="$MISSING_MODULES $mod"
+    fi
+done
+if [ -n "$MISSING_MODULES" ]; then
+    echo "ERROR: required Qiskit modules missing from venv:$MISSING_MODULES"
+    exit 1
+fi
+
+# Report dependency conflicts as a WARNING only. pip check also flags
+# conflicts that do not break anything we ship (an add-on declaring an upper
+# bound it was never re-released for, metadata of the source-built hardware
+# packages above), and failing on those would block every image build until
+# upstream reacts. The qiskit-compat CI workflow runs pip check on the same
+# package set off-Pi and reports it there; here it leaves a trace in the log.
+echo
+echo "Checking installed package dependencies (pip check)..."
+if PIP_CHECK_OUTPUT=$(pip check 2>&1); then
+    echo "  $PIP_CHECK_OUTPUT"
+else
+    echo "WARNING: pip check reports dependency conflicts (build continues):"
+    printf '%s\n' "$PIP_CHECK_OUTPUT" | sed 's/^/  /'
+fi
+
 echo
 echo "Start Qiskit install: $STARTDATE"
 echo "End   Qiskit install: $(date)"
