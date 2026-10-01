@@ -84,6 +84,49 @@ when that stack is missing, so it is not part of the fast `tests/unit` run:
 python3 -m pytest -q tests/paradoxes          # PARADOXES_SRC=<checkout> avoids the git fetch
 ```
 
+### qiskit_compat/ (our Qiskit code under the installed Qiskit)
+
+Headless runs, without LEDs or a display, of everything in the image that uses
+Qiskit besides the paradox notebooks:
+
+| Test | What runs |
+|---|---|
+| `test_rasq_led.py` | every RasQ-LED entanglement pattern (checks entangled blocks agree) + one cycle through `RasQ-LED-display.py` |
+| `test_fractals.py` | fractal statevectors, Julia sets, Bloch plot, then `fractals.py` for 3 frames (Agg backend, fake browser) |
+| `test_ibm_token.py` | `rq_set_qiskit_ibm_token.py` saves a dummy token with the installed qiskit-ibm-runtime (temp HOME, network blocked) |
+| `test_lights_out.py` | Quantum Lights Out at the pinned ref + our patch: the Grover solver must solve all 18 built-in puzzles |
+| `test_raspberry_tie.py` | Quantum Raspberry Tie at the pinned ref + our patch, until its first result on Aer, Aer MPS (16 qubits) and FakeManilaV2 |
+| `test_ci_requirements.py` | the CI install leaves out only the Pi-only packages (runs without Qiskit) |
+
+LEDs go to a temp mmap file (`LED_RENDER_MODE=service`, `RQB2_LED_MMAP_PATH`);
+`board`/`neopixel` are stubbed where a demo imports them. Not covered: the real
+IBM backend paths (need an account and the network) and anything that needs the
+Sense HAT or GTK emulator GUI (Raspberry Tie runs with its bundled `sense_faux`).
+Demo patches are applied the way `rq_demo_run.sh` applies them, so a patch that
+no longer applies fails here too.
+
+Needs the image's Qiskit stack (`qiskit[all]` + `RQB2-config/qiskit-requirements.txt`
+minus the Pi-only packages, see `compat_ci.py requirements`), git and network
+access for the pinned demo repos (or `QLO_SRC`/`QRT_SRC` checkouts); about 2
+minutes. Tests skip themselves when their modules are missing. Deprecation
+warnings never fail a test; with `QISKIT_COMPAT_REPORT=<file>` they are written
+there as markdown:
+
+```bash
+python3 tests/qiskit_compat/compat_ci.py requirements /tmp/req.txt
+pip install "qiskit[all]" -r /tmp/req.txt pytest
+python3 -m pytest -q -W default::DeprecationWarning tests/qiskit_compat
+```
+
+`compat_ci.py` also holds the install checks of the CI workflow
+(`check-latest`, `versions`, `wheels` for cp311 manylinux aarch64).
+
+**Workflow:** `.github/workflows/qiskit-compat.yml` runs `qiskit_compat/` and
+`paradoxes/` on pushes that touch our Qiskit code, its patches/pins or these
+tests, and - via a weekly PyPI check - when a new Qiskit x.y.0 is released;
+then it also opens one "Qiskit X.Y released: compatibility checklist" issue
+with the results and the manual follow-ups.
+
 ## CI/CD Integration
 
 The validation suite runs automatically on GitHub Actions for:
