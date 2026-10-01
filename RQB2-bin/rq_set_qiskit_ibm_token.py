@@ -39,8 +39,12 @@ def get_token():
         return getpass.getpass(prompt="Enter your IBM Quantum token: ")
 
 
-# Get channel input from user, with default value as 'ibm_quantum'
-channel = input("Enter the channel (default: ibm_quantum): ") or "ibm_quantum"
+# Get channel input from user. The legacy 'ibm_quantum' channel was retired
+# with the old IBM Quantum Platform; current qiskit-ibm-runtime rejects it
+# (InvalidAccountError), so it maps to its successor 'ibm_quantum_platform'.
+channel = input("Enter the channel (default: ibm_quantum_platform): ") or "ibm_quantum_platform"
+if channel == "ibm_quantum":
+    channel = "ibm_quantum_platform"
 
 # Get the token (either saved or by prompting the user)
 token = get_token()
