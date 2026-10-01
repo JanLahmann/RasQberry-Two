@@ -50,24 +50,21 @@
       "id": "simulator",
       "name": "Aer Simulator",
       "args": [
-        "--backend",
-        "aer"
+        "-local"
       ]
     },
     {
       "id": "noise",
       "name": "Noise Model",
       "args": [
-        "--backend",
-        "noise"
+        "-nois"
       ]
     },
     {
       "id": "real",
       "name": "Real Backend",
       "args": [
-        "--backend",
-        "real"
+        "-b:least"
       ],
       "needs_hw": {
         "network": true
