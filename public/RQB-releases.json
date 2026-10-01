@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T06:32:40Z",
+  "generated": "2026-10-01T06:33:09Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,24 +32,23 @@
       ]
     },
     "dev": {
-      "tag": "dev-qiskit-compat-2026-10-01-081207",
-      "name": "rasqberry-dev-qiskit-compat-2026-10-01-081207",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-qiskit-compat-2026-10-01-081207/rasqberry-dev-qiskit-compat-2026-10-01-081207.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-qiskit-compat-2026-10-01-081207",
-      "release_date": "2026-10-01 08:12",
-      "image_download_size": 2024406580,
+      "tag": "development-2026-10-01-061238",
+      "name": "rasqberry-development-2026-10-01-061238",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-01-061238/rasqberry-development-2026-10-01-061238.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-01-061238",
+      "release_date": "2026-10-01 06:12",
+      "image_download_size": 2025437072,
       "extract_size": 9034530816,
-      "extract_sha256": "3c3d1e4ea9fc22aeea4a7f8433e0aa5b974774be7f43ae82ba2e0efbae2e8d70",
-      "image_sha256": "feb904a1c21d4117794d035b7c37c09fc9f80d449eb8b14133f992e3a115c18c",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-qiskit-compat-2026-10-01-081207/rasqberry-dev-qiskit-compat-2026-10-01-081207-ab.img.xz",
-      "ab_extract_sha256": "c66b89ee67e6652067d0ea7cefc8191f451cf5b96bf95ca592579d9ed0ecd597",
-      "ab_image_sha256": "2d37bf397aa6715cbc7599e4ecb62cfed3a8d4fad16c58e921c6c6bb6ad46d6b",
-      "ab_image_download_size": 2060993932,
+      "extract_sha256": "1050b387487c8523b8c76bd383d610a4c3afb61be863994ed2e5371bc1b39ecd",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-01-061238/rasqberry-development-2026-10-01-061238-ab.img.xz",
+      "ab_extract_sha256": "93d67384705045ae1be053ce55563332c24681b117166108b037adc27955ba7e",
+      "ab_image_sha256": "1093ee102fbf16f4ebae8bf4c8551423a3811e44c05534f05eee8f9bdd7eaeb9",
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2059964624,
       "highlights": [
-        "replace mcx(mode=\"basic\"), deprecated since Qiskit 2.1",
-        "menu variants pass QRT's own backend flags",
-        "Bump version to dev-qiskit-compat-2026-10-01-081207"
+        "run on new Qiskit minor/major releases, not weekly (#181)",
+        "Bump version to development-2026-10-01-061238",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-01-003128"
       ]
     }
   }
