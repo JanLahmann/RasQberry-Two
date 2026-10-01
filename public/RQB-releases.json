@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T04:36:14Z",
+  "generated": "2026-10-01T04:36:46Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2025437072,
       "extract_size": 9034530816,
       "extract_sha256": "1050b387487c8523b8c76bd383d610a4c3afb61be863994ed2e5371bc1b39ecd",
-      "image_sha256": "c9a0ab04f7124cde0fcb25593f95e8e52b6c2324c0f583617e0d82d8f11e7227",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-01-061238/rasqberry-development-2026-10-01-061238-ab.img.xz",
       "ab_extract_sha256": "93d67384705045ae1be053ce55563332c24681b117166108b037adc27955ba7e",
       "ab_image_sha256": "1093ee102fbf16f4ebae8bf4c8551423a3811e44c05534f05eee8f9bdd7eaeb9",
-      "ab_image_download_size": 2059964624,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2059964624,
       "highlights": [
         "run on new Qiskit minor/major releases, not weekly (#181)",
         "Bump version to development-2026-10-01-061238",
