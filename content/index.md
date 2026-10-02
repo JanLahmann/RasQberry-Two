@@ -59,35 +59,16 @@ Already running RasQberry Two? Go to [First boot](/#3-first-boot).
 **[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
 
 Confirm the security prompt, pick **RasQberry Two Beta** under **Choose OS**, and
-skip OS customisation. Which card size suits which image:
-[installation overview](/02-software/01-installation-overview/).
+skip OS customisation. Which image suits your card:
+[card sizes](/02-software/01-installation-overview/#2-which-image). The link did
+nothing, or no Imager yet? See
+[other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
 **2. Start the Pi.** The first start takes a few minutes and restarts on its
-own: do not unplug it. Log in as `rasqberry` with password `Qiskit1!`, on the
-Pi or over SSH and VNC.
+own: do not unplug it. The desktop opens without a login; over SSH and VNC the
+login is `rasqberry` with password `Qiskit1!`.
 
 **3. Answer the setup questions** (below), then start a demo.
-
-<details>
-<summary><b>The link did nothing, or you don't have Imager yet</b></summary>
-
-The link needs **Raspberry Pi Imager 2.0.3 or newer** — [install it](https://www.raspberrypi.com/software/) and click again. If still nothing happens, your browser may not hand `rpi-imager://` links to the app. Any of these work instead:
-
-**Add the repository by hand.** In Imager: **App Options** (bottom-left) → **Content Repository** → **Use custom URL** → paste `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
-
-**Download the image yourself.** Browse [rasqberry.org/latest/](/latest/) for stable, beta and development builds, then write it with Imager like any other image.
-
-**Start Imager from the command line.**
-
-```bash
-# macOS
-/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
-
-# Windows
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
-```
-
-</details>
 
 ### First boot
 

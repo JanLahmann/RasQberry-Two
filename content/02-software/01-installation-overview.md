@@ -68,8 +68,9 @@ installed, this opens it with the RasQberry images:
 ## First start
 
 The first start takes a few minutes and the Pi restarts on its own: do not
-unplug it. Then the desktop appears and a short setup checklist opens (see
-[First boot](/#3-first-boot)). The login is `rasqberry` with password `Qiskit1!`.
+unplug it. Then the desktop opens, without a login, and a short setup checklist
+appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
+`rasqberry` with password `Qiskit1!`.
 
 ## Downloads
 
@@ -113,8 +114,8 @@ Qiskit and the demos live in the virtual environment `~/RasQberry-Two/venv/RQB2`
 need updating: see the
 [Qiskit 2.0 migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
 
-**Login:** user `rasqberry`, password `Qiskit1!`. SSH is on; VNC is switched on at
-the first start ([remote access](/02-software/02-system-options/)).
+SSH is on; VNC is switched on at the first start
+([remote access](/02-software/02-system-options/)).
 
 ## Keeping up to date
 
