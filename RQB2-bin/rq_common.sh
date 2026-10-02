@@ -886,6 +886,19 @@ get_ab_boot_partition() {
     esac
 }
 
+# Release channel of a version/tag, as RQB-releases.json names its streams
+# (rq_update_check.sh, rq_ab_releases.sh):
+#   beta-*                 -> beta
+#   development-*, dev-*   -> dev    (feature-branch builds follow development)
+#   anything else          -> stable (main releases are tagged v{version})
+rq_release_channel() {
+    case "$1" in
+        beta-*)                echo beta ;;
+        development-*|dev-*)   echo dev ;;
+        *)                     echo stable ;;
+    esac
+}
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================

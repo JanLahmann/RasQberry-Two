@@ -13,7 +13,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # Usage:
 #   rq_update_check.sh            check now, print the result
-#   rq_update_check.sh --refresh  check now, store the result for --notice (root; daily timer)
+#   rq_update_check.sh --refresh  check now, print the result and store it for
+#                                 --notice (root; daily timer and the menu's CHECK)
 #   rq_update_check.sh --notice   print one line if the stored result says an update exists
 #
 # Exit: 0 up to date (or nothing to compare), 10 newer image available, 1 error.
@@ -21,19 +22,16 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # Environment overrides (tests): RQ_VERSION_FILE, RQ_RELEASES_URL, RQ_RELEASES_FILE,
 #   RQ_UPDATE_STATE
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
 VERSION_FILE="${RQ_VERSION_FILE:-/etc/rasqberry-version}"
 RELEASES_URL="${RQ_RELEASES_URL:-https://rasqberry.org/RQB-releases.json}"
 STATE_FILE="${RQ_UPDATE_STATE:-/var/lib/rasqberry/update-available}"
 
 stamp_of() { echo "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}' | tail -1; }
 
-channel_of() {
-    case "$1" in
-        beta-*)                  echo beta ;;
-        development-*|dev-*)     echo dev ;;
-        *)                       echo stable ;;
-    esac
-}
+channel_of() { rq_release_channel "$1"; }   # rq_common.sh
 
 fetch_releases() {
     if [ -n "${RQ_RELEASES_FILE:-}" ]; then
@@ -50,12 +48,17 @@ check() {
     current=$(head -1 "$VERSION_FILE" | tr -d '[:space:]')
     channel=$(channel_of "$current")
 
-    json=$(fetch_releases 2>/dev/null) || { echo "Could not reach $RELEASES_URL"; return 1; }
+    json=$(fetch_releases 2>/dev/null) || {
+        printf '%-15s %s\n' "This image:" "$current"
+        echo "Could not reach rasqberry.org to ask for the latest release."
+        echo "Check the network connection and try again."
+        return 1
+    }
     latest=$(echo "$json" | jq -r --arg c "$channel" '.streams[$c].tag // empty' 2>/dev/null) \
         || { echo "Unexpected release list format"; return 1; }
 
     if [ -z "$latest" ]; then
-        echo "This image: $current"
+        printf '%-15s %s\n' "This image:" "$current"
         echo "No $channel release is published yet."
         return 0
     fi
@@ -65,8 +68,8 @@ check() {
 
     cur_stamp=$(stamp_of "$current")
     new_stamp=$(stamp_of "$latest")
-    echo "This image:     $current"
-    echo "Latest $channel: $latest$note"
+    printf '%-15s %s\n' "This image:" "$current"
+    printf '%-15s %s\n' "Latest $channel:" "$latest$note"
     if [ -n "$cur_stamp" ] && [ -n "$new_stamp" ] && [[ "$new_stamp" > "$cur_stamp" ]]; then
         echo "A newer image is available."
         return 10
@@ -79,7 +82,10 @@ case "${1:-}" in
     "")
         rc=0; check || rc=$?; exit "$rc" ;;
     --refresh)
+        # Prints the result too: the menu's CHECK shows it (R-048 - it used
+        # to print nothing, so the box was empty when up to date or offline)
         out=$(check) && rc=0 || rc=$?
+        echo "$out"
         mkdir -p "$(dirname "$STATE_FILE")"
         if [ "$rc" -eq 10 ]; then
             echo "$out" | sed -n 's/^Latest [a-z]*: *//p' | cut -d' ' -f1 > "$STATE_FILE"
