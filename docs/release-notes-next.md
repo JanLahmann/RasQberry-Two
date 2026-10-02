@@ -36,7 +36,6 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 
 **Known issues**
 
-- doQumentation (Workshop Server): code cells fail, because the current upstream image has no Qiskit ([doQumentation#958](https://github.com/JanLahmann/doQumentation/issues/958)).
 - Report problems in [Issues](https://github.com/JanLahmann/RasQberry-Two/issues) and paste the output of `rq_info.sh --json`.
 
 Guides: [installation](https://rasqberry.org/02-software/01-installation-overview/) · [A/B image](https://rasqberry.org/02-software/03-ab-boot/) · [demos](https://rasqberry.org/03-quantum-computing-demos/00-overview/)
