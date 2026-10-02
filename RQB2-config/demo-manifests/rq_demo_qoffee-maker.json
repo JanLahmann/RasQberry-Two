@@ -15,11 +15,20 @@
     "type": "docker",
     "docker_image": "ghcr.io/janlahmann/qoffee-maker",
     "docker_port": 8887,
-    "launcher": "qoffee-maker.sh"
+    "launcher": "qoffee-maker.sh",
+    "working_dir": "Qoffee-Maker"
   },
   "install": {
     "preinstalled": false,
-    "repo_url": "https://github.com/JanLahmann/Qoffee-Maker.git"
+    "marker_file": "qoffee.ipynb",
+    "installer": "do_qoffee_install",
+    "installed_flag": "QOFFEE_MAKER_INSTALLED",
+    "download": {
+      "what": "Docker image from ghcr.io and the Qoffee-Maker notebooks",
+      "download_mb": 770,
+      "disk_mb": 2900,
+      "time": "5-10 minutes"
+    }
   },
   "needs_hw": {
     "leds": false,

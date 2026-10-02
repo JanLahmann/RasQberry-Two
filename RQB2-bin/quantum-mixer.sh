@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Quantum-Mixer Demo ==="
@@ -81,6 +82,9 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 # Check if we need to build the Docker image
 IMAGE_EXISTS=$(docker images -q $DOCKER_IMAGE 2>/dev/null)
 if [ -z "$IMAGE_EXISTS" ]; then
+    # A 15-30 minute build of several GB: ask first (no-op when the demo
+    # engine asked already)
+    rq_require_demo_consent quantum-mixer
     echo
     info "Docker image not found. Building Quantum-Mixer from source..."
     echo

@@ -44,6 +44,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== doQumentation (Workshop Server) ==="
@@ -167,6 +168,9 @@ docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
 # Pull the image only if it is not already present locally (~3 GB on first run).
 if ! docker images -q "$DOCKER_IMAGE" 2>/dev/null | grep -q .; then
+    # One consent dialog for a first download (no-op when the demo engine
+    # asked already)
+    rq_require_demo_consent doqumentation
     echo
     info "doQumentation image not found locally."
     info "Pulling $DOCKER_IMAGE ..."

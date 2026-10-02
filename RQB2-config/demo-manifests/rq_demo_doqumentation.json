@@ -23,7 +23,13 @@
     "launcher": "rq_doqumentation.sh"
   },
   "install": {
-    "preinstalled": false
+    "preinstalled": false,
+    "download": {
+      "what": "Docker image from ghcr.io",
+      "download_mb": 1300,
+      "disk_mb": 5400,
+      "time": "10-20 minutes"
+    }
   },
   "needs_hw": {
     "leds": false,

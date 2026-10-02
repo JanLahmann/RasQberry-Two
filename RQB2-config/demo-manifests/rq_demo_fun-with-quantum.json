@@ -28,7 +28,12 @@
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
     "marker_file": "Quantum-Coin-Game.ipynb",
-    "installed_flag": "FUN_WITH_QUANTUM_INSTALLED"
+    "installed_flag": "FUN_WITH_QUANTUM_INSTALLED",
+    "download": {
+      "what": "Jupyter notebooks from GitHub",
+      "download_mb": 26,
+      "time": "1 minute"
+    }
   },
   "needs_hw": {
     "leds": false,

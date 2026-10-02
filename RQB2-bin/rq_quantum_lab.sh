@@ -21,6 +21,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Quantum Lab (QuBins) Demo ==="
@@ -92,8 +93,11 @@ fi
 # the WELCOME notebook if it is not already there. install_demo_raspiconfig sets
 # RQ_AUTO_INSTALL=1 so no interactive prompts appear.
 ################################################################################
-if [ ! -d "$DOCS_DIR/.git" ]; then
+# The WELCOME notebook marks a finished install; a .git alone may be what an
+# interrupted download left (R-056)
+if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
     info "IBM Quantum Learning content not found."
+    rq_require_demo_consent ibm-courses
     info "Installing course notebooks (Qiskit/documentation)..."
     install_demo_raspiconfig do_ibm_courses_install \
         || die "Failed to install IBM Quantum Learning content"
@@ -117,6 +121,7 @@ docker rm $CONTAINER_NAME 2>/dev/null || true
 # Pull the image only if it is not already present locally. The QuBins xl image
 # is ~1 GB, so warn the user once that the first run downloads it.
 if ! docker images -q "$DOCKER_IMAGE" 2>/dev/null | grep -q .; then
+    rq_require_demo_consent quantum-lab
     echo
     info "Quantum Lab image not found locally."
     info "Pulling $DOCKER_IMAGE ..."

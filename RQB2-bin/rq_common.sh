@@ -29,6 +29,8 @@ if [ -n "${RQ_COMMON_LOADED:-}" ]; then
     return 0
 fi
 RQ_COMMON_LOADED=1
+# Where this library lives: /usr/bin when installed, RQB2-bin in a checkout
+_RQ_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ============================================================================
 # CONFIGURATION
@@ -57,6 +59,24 @@ die() {
         printf '%s\n' "$*" >> "$RQ_ERROR_FILE" 2>/dev/null || true
     fi
     exit 1
+}
+
+# --help / -h for scripts that otherwise act on any argument: print the
+# script's header comment and exit, before anything is downloaded, installed
+# or started (R-107: --help used to clone, install Qiskit "--help" or start
+# the demo loop).
+# Usage (right after sourcing this file): rq_help_guard "$@"
+rq_help_guard() {
+    case "${1:-}" in
+        -h|--help) ;;
+        *) return 0 ;;
+    esac
+    local script="${BASH_SOURCE[1]:-$0}"
+    # The first comment block after the shebang, without rulers and "#"
+    awk 'NR == 1 && /^#!/ { next }
+         /^#/ { sub(/^# ?/, ""); if ($0 !~ /^[=#-]+$/) print; seen = 1; next }
+         seen { exit }' "$script"
+    exit 0
 }
 
 # Print warning message
@@ -115,30 +135,51 @@ verify_env_vars() {
     fi
 }
 
+# Run a command as root: directly when we are root, else through sudo.
+_rq_as_root() {
+    if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi
+}
+
 # Update a variable in the environment file
 # Usage: update_env_var "VARIABLE_NAME" "new_value"
+#
+# The new file is written next to the old one and renamed over it only when it
+# is complete. This used to be `sudo sed ... > tmp; sudo mv tmp env` with no
+# check: on a full disk sed wrote nothing, the empty file replaced the settings
+# and every demo then failed on unset variables (R-058). A failed write now
+# leaves the file as it was and returns 1.
 update_env_var() {
     local var_name="$1"
     local var_value="$2"
-    local temp_file
+    local env_dir tmp lines_before lines_after
+    # Key and value come in through the environment, so no character in the
+    # value (/ | & \) is special (the menu's _rq_env_write does the same).
+    local prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+        index($0, k "=") == 1 { print k "=" v; done = 1; next }
+        { print }
+        END { if (!done) print k "=" v }'
 
-    temp_file=$(mktemp) || die "Failed to create temp file"
-
-    if grep -q "^${var_name}=" "$RQ_ENV_FILE"; then
-        # Variable exists - update it
-        # Use sudo to read protected file, write to temp file, then move
-        sudo sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
-        sudo mv "$temp_file" "$RQ_ENV_FILE" || die "Failed to update $var_name"
-        # Restore proper permissions (world-readable, root-owned)
-        sudo chmod 644 "$RQ_ENV_FILE"
-        sudo chown root:root "$RQ_ENV_FILE"
-    else
-        # Variable doesn't exist - append it
-        echo "${var_name}=${var_value}" | sudo tee -a "$RQ_ENV_FILE" > /dev/null || die "Failed to add $var_name"
-        # Ensure proper permissions after append
-        sudo chmod 644 "$RQ_ENV_FILE"
-        sudo chown root:root "$RQ_ENV_FILE"
+    env_dir=$(dirname "$RQ_ENV_FILE")
+    tmp=$(_rq_as_root mktemp "$env_dir/.rasqberry_environment.XXXXXX" 2>/dev/null) || tmp=""
+    if [ -z "$tmp" ]; then
+        warn "Could not save $var_name: cannot write in $env_dir (is the SD card full?)"
+        return 1
     fi
+    lines_before=$(wc -l < "$RQ_ENV_FILE" 2>/dev/null | tr -d ' ')
+    if RQ_EW_KEY="$var_name" RQ_EW_VALUE="$var_value" awk "$prog" "$RQ_ENV_FILE" \
+            | _rq_as_root tee "$tmp" > /dev/null; then
+        lines_after=$(_rq_as_root wc -l "$tmp" 2>/dev/null | awk '{ print $1 }')
+    else
+        lines_after=0
+    fi
+    if [ "${lines_after:-0}" -lt "${lines_before:-1}" ] \
+        || ! _rq_as_root chmod 644 "$tmp" \
+        || ! _rq_as_root mv -f "$tmp" "$RQ_ENV_FILE"; then
+        _rq_as_root rm -f "$tmp" 2>/dev/null || true
+        warn "Could not save $var_name in $RQ_ENV_FILE (is the SD card full?). The settings were left as they were."
+        return 1
+    fi
+    _rq_as_root chown root:root "$RQ_ENV_FILE" 2>/dev/null || true
 
     # LED settings also go to the store both A/B slots share (#290)
     case "$var_name" in
@@ -676,28 +717,243 @@ open_browser() {
 # 12. DEMO INSTALLATION HELPERS
 # ============================================================================
 
-# Ask user to install demo with size info
-# Usage: ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
-ask_demo_install() {
-    local demo_name="$1"
-    local download_size="${2:-unknown}"
-    local install_size="${3:-unknown}"
+# ----------------------------------------------------------------------------
+# Consent and free space for downloads (Jan, Q27; R-030, R-166)
+# ----------------------------------------------------------------------------
+# Every first install asks once - the same dialog from the menu, a desktop icon
+# or the command line: what is fetched, how big, how long, and free space now
+# and afterwards. It refuses with a plain message when the space is too low or
+# the download source cannot be reached. A first start used to download or
+# build several GB without asking (one click could fill an A/B slot), and with
+# outside traffic blocked git hung without a word.
 
-    local message="$demo_name is not installed yet.
+# Space kept free on top of what a download needs (MB)
+RQ_SPACE_RESERVE_MB="${RQ_SPACE_RESERVE_MB:-1000}"
 
-Download: ~$download_size
-Install size: ~$install_size
-
-Requires internet connection.
-
-Install now?"
-
-    if show_yesno "$demo_name Not Installed" "$message" 14 65; then
+# Free space in MB (1 MB = 1,000,000 bytes, as card sizes are sold) on the
+# file system holding PATH, or its nearest existing parent.
+# RQ_TEST_FREE_MB replaces the measurement (tests, lab).
+# Usage: free=$(rq_free_mb /var/lib/docker)
+rq_free_mb() {
+    local p="${1:-/}"
+    if [ -n "${RQ_TEST_FREE_MB:-}" ]; then
+        echo "$RQ_TEST_FREE_MB"
         return 0
-    else
-        info "Installation cancelled by user"
-        return 1
     fi
+    while [ ! -e "$p" ] && [ "$p" != "/" ] && [ -n "$p" ]; do p=$(dirname "$p"); done
+    df -Pk "$p" 2>/dev/null | awk 'NR == 2 { printf "%d\n", $4 * 1024 / 1000000 }'
+}
+
+# "850 MB", "3.9 GB"
+# Usage: rq_fmt_mb 3900
+rq_fmt_mb() {
+    awk -v m="${1:-0}" 'BEGIN { if (m < 1000) printf "%d MB\n", m; else printf "%.1f GB\n", m / 1000 }'
+}
+
+# The URL to check before pulling a Docker image: its registry
+# ("ghcr.io/x/y:tag" -> https://ghcr.io/v2/, "python:3" -> Docker Hub).
+rq_image_registry_url() {
+    local first="${1%%/*}"
+    case "$1" in
+        */*) case "$first" in *.*|*:*) echo "https://$first/v2/"; return 0 ;; esac ;;
+    esac
+    echo "https://registry-1.docker.io/v2/"
+}
+
+# Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
+# timeouts, so a network that drops outside traffic fails in seconds instead
+# of hanging in git (R-166). RQ_TEST_OFFLINE=1 makes every check fail.
+rq_reachable() {
+    local url="${1:-}"
+    [ "${RQ_TEST_OFFLINE:-0}" = "1" ] && return 1
+    [ -n "$url" ] || return 0
+    command -v curl >/dev/null 2>&1 || return 0   # cannot tell; let the download try
+    curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
+}
+
+# Ask before a download. Shared by the demo engine, "Download all demos", the
+# Docker launchers and other one-off downloads (e.g. a newer Docker image).
+#
+#   rq_confirm_download NAME DOWNLOAD_MB DISK_MB [options]
+#     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
+#     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
+#     --path DIR       where the data goes; free space is measured there
+#                      (default: $USER_HOME)
+#     --url URL        checked first with a short timeout
+#     --peak MB        extra space needed only while installing (a build cache)
+#     --title TEXT     dialog title (default "Download NAME?")
+#     --intro TEXT     first line (default "NAME is not on this Pi yet.")
+#     --question TEXT  last line (default "Download now?")
+#
+# DOWNLOAD_MB/DISK_MB 0 = unknown. Returns 0 to go ahead, 1 declined, 2 not
+# enough space, 3 source not reachable, 4 no terminal to ask on. For 1-4,
+# RQ_CONSENT_MSG holds a sentence for the user. With RQ_AUTO_INSTALL=1 (the
+# caller has already asked, e.g. "Download all demos") there is no question,
+# but the space and network checks still run.
+rq_confirm_download() {
+    local name="$1" dl="${2:-0}" disk="${3:-0}"
+    shift 3 || true
+    local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --what) what="$2"; shift 2 ;;
+            --time) time="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            --url) url="$2"; shift 2 ;;
+            --peak) peak="$2"; shift 2 ;;
+            --title) title="$2"; shift 2 ;;
+            --intro) intro="$2"; shift 2 ;;
+            --question) question="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    case "$dl" in ''|*[!0-9]*) dl=0 ;; esac
+    case "$disk" in ''|*[!0-9]*) disk=0 ;; esac
+    case "$peak" in ''|*[!0-9]*) peak=0 ;; esac
+    RQ_CONSENT_MSG=""
+
+    local free need space_txt
+    free=$(rq_free_mb "$path")
+    case "$free" in ''|*[!0-9]*) free="" ;; esac
+    need=$((disk + peak + RQ_SPACE_RESERVE_MB))
+    space_txt="about $(rq_fmt_mb "$disk")"
+    [ "$disk" -gt 0 ] || space_txt="unknown"
+    [ "$peak" -gt 0 ] && space_txt="$space_txt ($(rq_fmt_mb $((disk + peak))) while installing)"
+    local card_txt="$space_txt on the SD card"
+    [ "$disk" -gt 0 ] || card_txt="unknown"
+    if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
+        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+        return 2
+    fi
+
+    if ! rq_reachable "$url"; then
+        local host="${url#*://}"
+        host="${host%%/*}"
+        RQ_CONSENT_MSG="$name has to be downloaded first, and ${host:-the internet} cannot be reached. Connect the Pi to the internet and try again."
+        return 3
+    fi
+
+    [ "${RQ_AUTO_INSTALL:-0}" = "1" ] && return 0
+
+    local text dl_txt free_txt
+    dl_txt="about $(rq_fmt_mb "$dl")"
+    [ "$dl" -gt 0 ] || dl_txt="size unknown"
+    free_txt="unknown"
+    [ -n "$free" ] && free_txt="$(rq_fmt_mb "$free") now, $(rq_fmt_mb $((free > disk ? free - disk : 0))) afterwards"
+    text="${intro:-$name is not on this Pi yet.}\n\n"
+    [ -n "$what" ] && text="${text}What:      $what\n"
+    text="${text}Download:  $dl_txt (needs the internet)\n"
+    text="${text}Space:     $card_txt\n"
+    [ -n "$time" ] && text="${text}Time:      about $time\n"
+    text="${text}Free:      $free_txt\n\n${question:-Download now?}"
+
+    # Ask on the terminal itself, so a caller that pipes our output (a log
+    # tee) still gets the dialog drawn. (RQ_TEST_TTY: tests use a file.)
+    local tty="${RQ_TEST_TTY:-/dev/tty}"
+    if ! { : < "$tty" > "$tty"; } 2>/dev/null; then
+        RQ_CONSENT_MSG="$name is not on this Pi yet. Start it from its desktop icon or the RasQberry menu, which ask before downloading."
+        return 4
+    fi
+    if command -v whiptail >/dev/null 2>&1; then
+        local width=72 height
+        height=$(_rq_dialog_height "$text" "$width" 12)
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        if whiptail --title "${title:-Download $name?}" --yes-button "Download" --no-button "Not now" \
+                $(_rq_dialog_scroll "$text" "$width" "$height") \
+                --yesno "$text" "$height" "$width" < "$tty" > "$tty" 2>&1; then
+            return 0
+        fi
+    else
+        local reply=""
+        printf '%b\n' "$text" > "$tty"
+        printf '(y/n) ' > "$tty"
+        read -r reply < "$tty" || reply=""
+        case "$reply" in [Yy]*) return 0 ;; esac
+    fi
+    RQ_CONSENT_MSG="$name was not downloaded."
+    return 1
+}
+
+# Echo the shipped manifest directory (installed or repo checkout)
+rq_shipped_manifest_dir() {
+    if [ "$_RQ_COMMON_DIR" = "/usr/bin" ]; then
+        echo "/usr/config/demo-manifests"
+    else
+        echo "$(dirname "$_RQ_COMMON_DIR")/RQB2-config/demo-manifests"
+    fi
+}
+
+# Ask for a demo's first install, with the sizes from its manifest
+# (install.download). Asks once per demo per run: a launcher the engine hands
+# over to does not ask again (RQ_CONFIRMED_DEMO).
+#   rq_confirm_demo_install DEMO_ID [MANIFEST_FILE]
+# Returns like rq_confirm_download.
+rq_confirm_demo_install() {
+    local id="$1" mf="${2:-}"
+    [ -n "$id" ] && [ "${RQ_CONFIRMED_DEMO:-}" = "$id" ] && return 0
+    if [ -z "$mf" ]; then
+        mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$id") || mf=""
+    fi
+    local name="$id" dl=0 disk=0 peak=0 what="" time="" url="" path="${USER_HOME:-/}"
+    local type="" image="" repo=""
+    if [ -n "$mf" ] && [ -f "$mf" ]; then
+        name=$(jq -r '.name // .id' "$mf" 2>/dev/null) || name="$id"
+        dl=$(jq -r '.install.download.download_mb // 0' "$mf" 2>/dev/null) || dl=0
+        disk=$(jq -r '.install.download.disk_mb // .install.download.download_mb // 0' "$mf" 2>/dev/null) || disk=0
+        peak=$(jq -r '.install.download.peak_mb // 0' "$mf" 2>/dev/null) || peak=0
+        what=$(jq -r '.install.download.what // empty' "$mf" 2>/dev/null) || what=""
+        time=$(jq -r '.install.download.time // empty' "$mf" 2>/dev/null) || time=""
+        url=$(jq -r '.install.download.url // empty' "$mf" 2>/dev/null) || url=""
+        type=$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null) || type=""
+        image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
+        repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
+    fi
+    if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        path="/var/lib/docker"
+        [ -n "$what" ] || what="Docker image ($image)"
+        [ -n "$url" ] || url=$(rq_image_registry_url "$image")
+    fi
+    [ -n "$url" ] || url="${repo:-https://github.com}"
+    rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
+        --path "$path" --peak "$peak" --url "$url" || return $?
+    RQ_CONFIRMED_DEMO="$id"
+    export RQ_CONFIRMED_DEMO
+    return 0
+}
+
+# For scripts: ask for DEMO_ID's first install; a "Not now" ends the script
+# quietly (exit 0), anything else that stops the download dies with the
+# reason (shown by the menu, or by the desktop icon's window).
+#   rq_require_demo_consent DEMO_ID [MANIFEST_FILE]
+rq_require_demo_consent() {
+    local rc=0
+    rq_confirm_demo_install "$@" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        1) info "${RQ_CONSENT_MSG:-Not downloaded.}"; exit 0 ;;
+        *) die "${RQ_CONSENT_MSG:-The download was stopped.}" ;;
+    esac
+}
+
+# Old name, kept for scripts written from the template: ask_demo_install
+# "LED-Painter" "5MB" "500MB" (sizes in MB or GB).
+ask_demo_install() {
+    rq_confirm_download "$1" "$(_rq_size_to_mb "${2:-0}")" "$(_rq_size_to_mb "${3:-0}")"
+}
+_rq_size_to_mb() {
+    awk -v s="$1" 'BEGIN { n = s + 0; if (s ~ /[Gg][Bb]?$/) n *= 1000; printf "%d\n", n }'
+}
+
+# Remove a directory tree, also one a root run left behind (a half download
+# from the menu is root-owned and a user's rm fails on it, R-057).
+# Usage: rq_remove_tree DIR || die "..."
+rq_remove_tree() {
+    local d="$1"
+    [ -n "$d" ] && [ "$d" != "/" ] || return 1
+    [ -e "$d" ] || return 0
+    rm -rf "$d" 2>/dev/null && return 0
+    [ "$(id -u)" != "0" ] && sudo -n rm -rf "$d" 2>/dev/null && return 0
+    [ ! -e "$d" ]
 }
 
 # Install demo by calling RQB2_menu.sh function directly
@@ -830,13 +1086,22 @@ fetch_pinned_repo() {
     fi
 
     mkdir -p "$dest" || die "Cannot create destination: $dest"
-    (
+    # A failed or interrupted fetch must not leave a half checkout: run as root
+    # (the menu) it was root-owned, and every later install - from a desktop
+    # icon as the user, or the catalogue - failed on it (R-057).
+    # The low-speed limit ends a transfer that stalls (traffic dropped by a
+    # filter) instead of hanging without a word (R-166).
+    if ! (
         cd "$dest" || die "Cannot enter destination: $dest"
         git init -q || die "git init failed in $dest"
-        git fetch --depth 1 "$url" "$sha" 2>/dev/null \
+        git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 \
+            fetch -q --depth 1 "$url" "$sha" 2>/dev/null \
             || die "Failed to fetch pinned commit $sha from $url"
         git checkout -q FETCH_HEAD || die "Failed to checkout pinned commit $sha"
-    ) || return 1
+    ); then
+        rq_remove_tree "$dest" || warn "Could not remove the incomplete download: $dest"
+        return 1
+    fi
 
     # Keep the checkout user-owned when this runs as root (raspi-config context)
     fix_root_ownership "$dest"

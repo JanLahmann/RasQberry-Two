@@ -21,7 +21,13 @@
     "launcher": "rq_quantum_lab.sh"
   },
   "install": {
-    "preinstalled": false
+    "preinstalled": false,
+    "download": {
+      "what": "Docker image from ghcr.io (QuBins), and the IBM course notebooks if missing",
+      "download_mb": 860,
+      "disk_mb": 4000,
+      "time": "5-10 minutes"
+    }
   },
   "needs_hw": {
     "leds": false,

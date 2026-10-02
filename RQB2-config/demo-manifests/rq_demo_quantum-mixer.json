@@ -20,7 +20,15 @@
   "install": {
     "preinstalled": false,
     "installer": "do_quantum_mixer_install",
-    "installed_flag": "QUANTUM_MIXER_INSTALLED"
+    "installed_flag": "QUANTUM_MIXER_INSTALLED",
+    "download": {
+      "what": "Docker image built on this Pi from source (GitHub)",
+      "download_mb": 1200,
+      "disk_mb": 2300,
+      "peak_mb": 5600,
+      "time": "15-30 minutes",
+      "url": "https://github.com"
+    }
   },
   "needs_hw": {
     "leds": false,

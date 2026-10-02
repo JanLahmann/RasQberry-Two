@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Qoffee-Maker Demo ==="
@@ -62,8 +63,12 @@ run_qoffee_setup() {
 # Prerequisites checks
 ################################################################################
 
-# Check if demo directory exists
-[ -d "$DEMO_DIR" ] || run_qoffee_setup "Error: Qoffee-Maker not installed."
+# Check if demo directory exists (a first install asks first; no-op when the
+# demo engine asked already)
+if [ ! -d "$DEMO_DIR" ] || ! docker images -q "$DOCKER_IMAGE" 2>/dev/null | grep -q .; then
+    rq_require_demo_consent qoffee-maker
+fi
+[ -d "$DEMO_DIR" ] || run_qoffee_setup "Qoffee-Maker not installed."
 
 # Check if Docker is installed
 command -v docker &> /dev/null || run_qoffee_setup "Error: Docker is not installed."

@@ -136,6 +136,19 @@
           "type": "string",
           "description": "Optional environment variable (e.g. QUANTUM_PARADOXES_INSTALLED) set to true once installed. The raspi-config menu reads these flags, so declare it for any demo the menu tracks."
         },
+        "download": {
+          "type": "object",
+          "description": "What a first install fetches, for the one consent dialog every first install shows (size, time, free space; refused when the space is too low). Measured values; keep them current when a pin or image changes.",
+          "properties": {
+            "what": {"type": "string", "description": "What is fetched, e.g. 'Jupyter notebooks from GitHub'"},
+            "download_mb": {"type": "integer", "minimum": 0, "description": "Download size in MB (1 MB = 1,000,000 bytes)"},
+            "disk_mb": {"type": "integer", "minimum": 0, "description": "Space on the SD card afterwards in MB (default: download_mb)"},
+            "peak_mb": {"type": "integer", "minimum": 0, "description": "Extra space needed only while installing, e.g. a Docker build cache"},
+            "time": {"type": "string", "description": "Rough duration on a Pi, e.g. '1 minute', '10-20 minutes'"},
+            "url": {"type": "string", "description": "Checked for reachability before asking (default: repo_url, the Docker registry, else GitHub)"},
+            "shares": {"type": "string", "description": "Demos with the same value share one download (counted once by 'Download all demos')"}
+          }
+        },
         "installer": {
           "type": "string",
           "description": "Optional raspi-config install function (e.g. do_ibm_tutorials_install) that owns this demo's installation instead of the generic clone. Use ONLY when the setup cannot be expressed as 'clone a repo at a ref' - e.g. the IBM learning pair, which is one shared sparse checkout of Qiskit/documentation feeding two demos, with generated markers and a licence dialog. Mutually exclusive with repo_url: declaring both is ambiguous about which fetches the sources."

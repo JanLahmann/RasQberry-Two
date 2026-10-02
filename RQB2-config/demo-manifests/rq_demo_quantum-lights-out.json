@@ -21,7 +21,13 @@
     "repo_url": "https://github.com/Luka-D/Quantum-Lights-Out.git",
     "ref": "dcd7550fe3eaf37d9419e15349b76b49a9af84f3",
     "marker_file": "lights_out.py",
-    "patch_file": "quantum-lights-out.patch"
+    "patch_file": "quantum-lights-out.patch",
+    "download": {
+      "what": "Lights Out game from GitHub",
+      "download_mb": 1,
+      "time": "1 minute"
+    },
+    "installed_flag": "QUANTUM_LIGHTS_OUT_INSTALLED"
   },
   "needs_hw": {
     "leds": true,

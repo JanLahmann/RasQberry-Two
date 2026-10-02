@@ -21,7 +21,12 @@
     "repo_url": "https://github.com/JavaFXpert/grok-bloch.git",
     "ref": "95d1ebef056b56ff90833e748a57a30a3c8daa5c",
     "marker_file": "index.html",
-    "installed_flag": "GROK_BLOCH_INSTALLED"
+    "installed_flag": "GROK_BLOCH_INSTALLED",
+    "download": {
+      "what": "Bloch sphere web app from GitHub",
+      "download_mb": 6,
+      "time": "1 minute"
+    }
   },
   "needs_hw": {
     "leds": false,
