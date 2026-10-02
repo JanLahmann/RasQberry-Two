@@ -87,3 +87,22 @@ def test_real_env_file_merges_onto_itself_unchanged():
     merged, added, kept, carried = rq_env_merge.merge(lines, lines)
     assert (added, kept, carried) == ([], [], [])
     assert merged == lines
+
+
+def test_retired_raspi_config_globals_are_dropped():
+    # R-001: INTERACTIVE/ASK_TO_REBOOT/CONFIG are raspi-config's own variables;
+    # carried over, they switch raspi-config to non-interactive mode.
+    new = "A=1\n"
+    cur = ("A=1\nINTERACTIVE=true\nASK_TO_REBOOT=0\nCONFIG=/boot/config.txt\n"
+           "MARKER_QRT=QuantumRaspberryTie.v7_1.py\nRQ_FIRSTLOGIN_DONE=true\n")
+    text, added, kept, carried = _merge(new, cur)
+    assert carried == ["RQ_FIRSTLOGIN_DONE"]
+    for key in ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT"):
+        assert key + "=" not in text
+
+
+def test_shipped_defaults_do_not_set_raspi_config_globals():
+    env = os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")
+    keys = rq_env_merge.assignments(open(env, encoding="utf-8").read().splitlines())
+    for key in rq_env_merge.RETIRED_KEYS:
+        assert key not in keys, f"{key} must not be in the shipped env file (R-001)"
