@@ -45,12 +45,18 @@ function pageFor(id) {
   return fs.existsSync(path.join(dir, `${slug}.md`)) ? `/03-quantum-computing-demos/${slug}/` : null;
 }
 
+// What a demo needs, in the words a teacher plans with. LED demos fall back to
+// an on-screen view without a panel; an IBM account that is only "preferred"
+// is optional (the simulator is the default); a demo that is not on the card
+// needs the network once, for its first start.
 function needsOf(m) {
   const n = [];
-  if (m.needs_hw?.leds) n.push('LED panel');
+  if (m.needs_hw?.leds) n.push('LED panel or on-screen view');
   if (m.needs_hw?.display === 'required') n.push('display');
   if (m.needs_hw?.network) n.push('network');
-  if (m.needs_ibm_token && m.needs_ibm_token !== 'none') n.push('IBM Quantum token');
+  else if (m.install && m.install.preinstalled === false) n.push('network on first start');
+  if (m.needs_ibm_token === 'required') n.push('IBM account');
+  else if (m.needs_ibm_token === 'prefer') n.push('IBM account optional');
   return n;
 }
 
@@ -110,12 +116,12 @@ function render(manifests) {
   // No HTML comment header here: pages are compiled as MDX, which rejects
   // <!-- --> ("Unexpected character `!`"). The generated-file warning is the
   // blockquote below - visible to readers, which is where it belongs anyway.
-  let md = `# Quantum Computing Demos in RasQberry
+  let md = `# Quantum Computing Demos in RasQberry Two
 
-Every demo below ships with the RasQberry image. Start one from the desktop icon,
-from \`sudo raspi-config\` → **0 RasQberry** → **Quantum Computing Demos**, or from
-a terminal with \`rq_demo_run.sh <id>\`. Demos install themselves the first time
-you run them.
+Start a demo from its desktop icon, from \`sudo raspi-config\` → **0 RasQberry** →
+**Quantum Demos**, or from a terminal with \`rq_demo_run.sh <id>\`. Demos marked
+"network on first start" download the first time you run them. An optional IBM
+account is only needed to run on real IBM hardware.
 
 > This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
 > — the same files the image installs from, so it cannot fall out of step with
