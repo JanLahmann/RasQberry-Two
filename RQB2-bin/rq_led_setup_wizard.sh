@@ -50,6 +50,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # LED/GPIO work needs root (direct mode); re-exec with sudo if necessary.
 ensure_root "$@"

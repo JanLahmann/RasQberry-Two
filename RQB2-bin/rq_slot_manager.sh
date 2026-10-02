@@ -956,6 +956,8 @@ main() {
     if [ $# -lt 1 ]; then
         usage
     fi
+    # --help prints the usage (it was "Unknown command: --help", R-107)
+    case "$1" in -h|--help|help) usage 2>&1; exit 0 ;; esac
 
     local command="$1"
     shift  # Remove command from arguments

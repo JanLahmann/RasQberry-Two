@@ -14,6 +14,12 @@ set -euo pipefail
 IFS=$'\n\t'
 
 VERSION="${1:-latest}"
+# --help must not start an install of Qiskit "--help" (R-107)
+case "$VERSION" in
+    -h|--help) sed -n '5,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    latest|[0-9]*) ;;
+    *) echo "ERROR: Unknown Qiskit version: $VERSION (use latest, 1.0 or 1.1)" >&2; exit 1 ;;
+esac
 
 # =============================================================================
 # Environment Setup

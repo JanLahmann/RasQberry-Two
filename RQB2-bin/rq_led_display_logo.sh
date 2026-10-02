@@ -7,6 +7,7 @@ set -euo pipefail
 # Load common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # Ensure running as root (PWM/PIO drivers require GPIO access)
 ensure_root "$@"
