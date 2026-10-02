@@ -158,6 +158,14 @@ on; a rollback into one is permanent. `--force` skips the check.
 `rq_slot_manager.sh summary` prints the state as `key=value` lines
 (`current`, `confirmed`, `default`, `slot_a`, `slot_b`, `expanded`, ...).
 
+**If the Pi hangs after a switch** (black screen, no desktop): switch it off
+and on. A tryboot is tried once, so the next start returns to the previous
+slot; if the switch is retried automatically, a second power cycle is needed.
+**If it hangs at every start** (a rollback made an empty slot the default, on
+images before this check): put the card into another computer, open the
+`CONFIG` partition and set `boot_partition=2` (Slot A) under `[all]` in
+`autoboot.txt` (`3` is Slot B).
+
 A slot booted with `switch-to` is **on probation**: unless it is confirmed, the
 next reboot returns to the previous slot. The health check confirms a healthy
 slot automatically. That is the safety net — a slot that cannot boot cannot trap
