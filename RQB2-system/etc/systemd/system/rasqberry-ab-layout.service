@@ -1,0 +1,23 @@
+[Unit]
+Description=RasQberry: prepare a newly written A/B card (two systems, or one on a small card)
+Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot.md
+# Repartitions the card on its first start: after the fstab mounts (it
+# unmounts the placeholder /data itself and mounts the new one), before
+# anything reads /data. Only cards written from an image whose CONFIG
+# partition says "pending" (convert-to-ab-boot-v3.sh) are touched; the
+# opt-out file /boot/config/no-auto-expand keeps the card as written.
+DefaultDependencies=no
+After=local-fs.target systemd-remount-fs.service
+Before=sysinit.target rasqberry-boot-config.service rasqberry-carry-over.service
+ConditionPathExists=/boot/config/ab-layout
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rq_expand_ab.sh firstboot
+TimeoutStartSec=30min
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=sysinit.target

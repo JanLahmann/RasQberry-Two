@@ -90,7 +90,8 @@ def test_menu_parses_under_dash():
     (ON_A.replace("slot_b=EMPTY", "slot_b=beta-2026-10-15-101010"), "restart into Slot B to use it"),
     (ON_B, "If this version works well, PROMOTE copies it to Slot A"),
     (ON_B.replace("confirmed=yes", "confirmed=no"), "on trial"),
-    (ON_A.replace("expanded=yes", "expanded=no"), "EXPAND it first"),
+    # the visible label, not the hidden EXPAND tag (B4, R-095)
+    (ON_A.replace("expanded=yes", "expanded=no"), "Prepare the card for A/B updates"),
     # right after PROMOTE, before the restart
     (ON_B.replace("default=B", "default=A").replace("slot_a=beta-2026-09-30-221656", "slot_a=beta-2026-10-15-101010"),
      "PROMOTE is done: restart to start from Slot A"),
@@ -186,3 +187,48 @@ def test_install_dialog_names_both_slots(tmp_path):
     assert "Install beta-2026-10-15-101010 into Slot B (testing)?" in confirm
     assert "beta-2026-09-01-000000 - will be replaced" in confirm
     assert "beta-2026-09-30-221656 - not touched" in confirm
+
+
+# ---------------------------------------------------------------------------
+# B2 + B4: a placeholder Slot B on a small card is single-system mode (R-006)
+# ---------------------------------------------------------------------------
+
+EXPLAIN = """\
+    #!/bin/sh
+    # Stand-in for rq_expand_ab.sh
+    case "$1" in
+        mode)    echo "${FAKE_MODE:-dual}" ;;
+        explain) echo "This 32 GB card is smaller than 64 GB, so it runs ONE system: (explain $2)" ;;
+    esac
+    """
+
+
+def _stub(tmp_path, name, body):
+    d = tmp_path / "stubs"
+    d.mkdir(exist_ok=True)
+    (d / name).write_text(textwrap.dedent(body))
+    (d / name).chmod(0o755)
+
+
+@pytest.mark.parametrize("mode,title,text", [
+    ("single", "One system on this card", "runs ONE system: (explain --update)"),
+    ("single-pending", "One system on this card", "runs ONE system: (explain --update)"),
+    ("dual-pending", "Slot B is not set up", "Prepare the card for A/B updates"),
+])
+def test_not_set_up_follows_the_card_mode_from_the_summary(tmp_path, mode, title, text):
+    _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
+    _stub(tmp_path, "rq_update_slot.sh", "#!/bin/sh\necho 'ERROR: placeholder' >&2\nexit 21\n")
+    _stub(tmp_path, "rq_slot_manager.sh", "#!/bin/sh\nprintf '%s\\n' \"$S\"\n")
+    summary = ON_A.replace("expanded=yes", "expanded=no") + "\ncard_mode=" + mode
+    _, wt = _menu(tmp_path, 'do_ab_install_update', S=summary)
+    box = wt.split("=== whiptail")[-1]
+    assert title in box and text in box
+    assert "too small for two systems" not in box
+
+
+def test_not_set_up_falls_back_to_rq_expand_ab_without_the_key(tmp_path):
+    # an older rq_slot_manager.sh without card_mode: ask rq_expand_ab.sh
+    _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
+    proc, _ = _menu(tmp_path, 'ab_not_expanded_text "$S"',
+                    S=ON_A.replace("expanded=yes", "expanded=no"), FAKE_MODE="single")
+    assert "runs ONE system" in proc.stdout

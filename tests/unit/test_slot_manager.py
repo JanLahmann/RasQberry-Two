@@ -153,6 +153,17 @@ def test_summary_reports_both_slots(card):
     assert s["expanded"] == "yes"
 
 
+def test_summary_says_single_system_mode(card):
+    # B4: a placeholder Slot B on a small card is single-system mode; the menu
+    # explains that instead of "not set up" (card_mode from rq_expand_ab.sh)
+    card["env"].update(RQ_AB_IS_AB="1", RQ_AB_CARD_BYTES=str(32_000_000_000),
+                       RQ_AB_SLOT_A_BYTES=str(25 * GB), RQ_AB_SLOT_B_BYTES=str(16 * 1024 * 1024),
+                       RQ_AB_DATA_BYTES=str(3 * GB), FAKE_SIZE_mmcblk0p6=str(16 * 1024 * 1024))
+    s = _summary(card)
+    assert s["card_mode"] == "single"
+    assert s["expanded"] == "no"
+
+
 def test_summary_on_a_standard_image(card):
     card["env"]["FAKE_P1_LABEL"] = "bootfs"
     assert _run(card, "summary").stdout.strip() == "layout=single"

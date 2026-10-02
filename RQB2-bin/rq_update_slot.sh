@@ -30,7 +30,8 @@ set -euo pipefail
 #   0  the target slot can be updated
 #   1  any other error
 #   20 the target slot is the system that is running now
-#   21 the target slot is not set up (the 16MB placeholder; expand first)
+#   21 the target slot is not set up (the 16MB placeholder): the card is not
+#      prepared yet, or runs one system (single-system mode, rq_expand_ab.sh)
 #   22 not enough free space to stage the download
 #   23 this card has no A/B layout
 #   24 another update is already running
@@ -187,9 +188,20 @@ Slot A). Then install the update."
     local part_size
     part_size=$(blockdev --getsize64 "$system_partition" 2>/dev/null || echo 0)
     if [ "$part_size" -lt 4294967296 ]; then  # < 4GB cannot hold any image
-        refuse "$RC_NOT_EXPANDED" "Slot $target_slot is not set up yet: it is the $((part_size / 1024 / 1024))MB placeholder the A/B image ships with.
-Expand the A/B partitions first (needs a 64GB card or larger):
-sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> EXPAND"
+        # Say why, for this card (R-006): not prepared yet, or a small card
+        # running one system (single-system mode) - not "expand first" on a
+        # card where expanding is impossible. rq_expand_ab.sh knows which;
+        # the exit code stays RC_NOT_EXPANDED, so the menu can explain it.
+        local card_mode why=""
+        card_mode=$("${SCRIPT_DIR}/rq_expand_ab.sh" mode 2>/dev/null || true)
+        case "$card_mode" in
+            dual-pending|single|single-pending)
+                why=$("${SCRIPT_DIR}/rq_expand_ab.sh" explain --update 2>/dev/null || true) ;;
+        esac
+        [ -n "$why" ] || why="Prepare the card first (two systems need a 64GB card or larger):
+sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Prepare the card for A/B updates"
+        refuse "$RC_NOT_EXPANDED" "Slot $target_slot is only a $((part_size / 1024 / 1024))MB placeholder: there is no second system to install into.
+$why"
     fi
 
     # Enough free space to download + decompress in DOWNLOAD_DIR
@@ -539,6 +551,9 @@ write_image_to_slot() {
         sed -i "s|root=[^ ]*|root=${system_partition}|g" "$tgt_boot_mount/cmdline.txt"
         sed -i 's| init=[^ ]*||g' "$tgt_boot_mount/cmdline.txt"
         sed -i 's|^ *||g' "$tgt_boot_mount/cmdline.txt"
+        # A kernel that cannot start must reboot (back to the working slot),
+        # not hang (R-054). Images from the converter carry it; older ones not.
+        grep -q 'panic=' "$tgt_boot_mount/cmdline.txt" || sed -i 's|$| panic=10|' "$tgt_boot_mount/cmdline.txt"
         log_message "cmdline.txt updated: root=${system_partition}"
     fi
 
@@ -598,7 +613,7 @@ proc                        /proc           proc    defaults          0   0
 /dev/${root_dev}p1          /boot/config    vfat    defaults          0   2
 ${boot_partition}           /boot/firmware  vfat    defaults          0   2
 ${system_partition}         /               ext4    defaults,noatime  0   1
-/dev/${root_dev}p7          /data           ext4    defaults,noatime  0   2
+/dev/${root_dev}p7          /data           ext4    defaults,noatime,nofail  0   2
 EOF
         log_message "fstab updated for Slot $target_slot"
     fi
@@ -612,6 +627,21 @@ EOF
         "$carrier" "$tgt_root_mount" 2>&1 | tee -a "$LOG_FILE" || warn "Could not carry over the SSH identity"
     else
         warn "rq_carry_ssh_identity.sh not found - the new slot gets a new SSH host key"
+    fi
+
+    # Everything else that makes the Pi yours (Wi-Fi, password, hostname,
+    # locale, ~/Shared, ~/.qiskit) is taken over by the
+    # NEW system on its first start: rq_carry_over.sh boot, run by
+    # rasqberry-carry-over.service, pulls from this slot (R-053). Images from
+    # the converter carry the marker; set it for any image that has the
+    # script, so the pull also happens when an image was built without it.
+    if [ -x "$tgt_root_mount/usr/bin/rq_carry_over.sh" ]; then
+        mkdir -p "$tgt_root_mount/var/lib/rasqberry"
+        [ -e "$tgt_root_mount/var/lib/rasqberry/carry-over-pending" ] \
+            || date -Iseconds > "$tgt_root_mount/var/lib/rasqberry/carry-over-pending"
+        log_message "Slot $target_slot takes over this system's settings on its first start (rq_carry_over.sh)"
+    else
+        warn "The new system has no rq_carry_over.sh: Wi-Fi, password and hostname are not carried over"
     fi
 
     local new_version

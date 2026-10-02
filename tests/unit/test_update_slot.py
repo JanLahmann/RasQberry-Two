@@ -206,7 +206,9 @@ def test_preflight_running_on_slot_b_explains_promote_or_slot_a(tmp_path):
 def test_preflight_placeholder_slot_says_expand(tmp_path):
     proc = _preflight(tmp_path, "/dev/mmcblk0p5", 16 * 1024 * 1024, 40 * 1024 * 1024)
     assert proc.returncode == 21
-    assert "EXPAND" in proc.stderr and "Software & Image Updates" in proc.stderr
+    # the visible menu label (B4, R-095); a small card gets rq_expand_ab.sh's
+    # single-system explanation instead (tests/unit/test_expand_ab.py)
+    assert "Prepare the card for A/B updates" in proc.stderr and "Software & Image Updates" in proc.stderr
 
 
 def test_preflight_too_little_space_says_what_to_do(tmp_path):

@@ -9,5 +9,8 @@ rasqberry-boot-config.service
 rasqberry-demo-cache.service
 rasqberry-health-check.service
 rasqberry-tryboot-retry.service
+rasqberry-ab-layout.service
+rasqberry-carry-over.service
+rasqberry-probation.timer
 rasqberry-ip-display.service
 rasqberry-update-check.timer

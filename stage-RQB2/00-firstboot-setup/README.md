@@ -4,7 +4,7 @@
 
 Install the RasQberry modular firstboot service that runs critical initialization tasks on the first boot, including filesystem expansion and VNC enablement.
 
-**Note:** A/B partition expansion is handled manually via raspi-config (RasQberry menu → Expand A/B Partitions) to allow user confirmation and control over partition sizing on 64GB+ SD cards.
+**Note:** an A/B card is not expanded by this framework. Since B4 it is laid out on its first start by its own unit, `rasqberry-ab-layout.service` (`rq_expand_ab.sh firstboot`): two systems on a 64GB+ card, one system using the whole card on a smaller one, opt-out file `no-auto-expand` on the CONFIG partition. It is a separate unit, not a task here, because it must run after the fstab mounts (it unmounts the placeholder `/data` and mounts the new one) and before anything reads `/data`; this runner starts before the mounts are done. See [08-ab-boot-support](../08-ab-boot-support/README.md) and [docs/ab-boot.md](../../docs/ab-boot.md).
 
 ## What This Stage Does
 
@@ -108,8 +108,8 @@ Firstboot tasks can use special exit codes:
 1. **Runner checks Task 01**: Already complete (marker exists), skips
 2. **No more tasks**, firstboot complete
 
-**Note:** For A/B images, partition expansion is handled manually via raspi-config
-(RasQberry menu → Expand A/B Partitions) on 64GB+ SD cards.
+**Note:** On A/B images Task 01 stands down (`skip-expansion` marker); the card is
+laid out by `rasqberry-ab-layout.service` instead (see the note at the top).
 
 ### First Desktop Login
 
@@ -130,8 +130,9 @@ Firstboot tasks can use special exit codes:
 ### Standard vs A/B Images
 
 - **Standard Image**: Task 01 runs (filesystem expansion to fill SD card)
-- **A/B Image**: Task 01 skipped (A/B images have fixed initial partition sizes)
-  - Manual expansion available via raspi-config for 64GB+ SD cards
+- **A/B Image**: Task 01 skipped (`skip-expansion` on BOOT-A/BOOT-B); the card is
+  laid out on its first start by `rasqberry-ab-layout.service` (two systems on
+  64GB+ cards, one system on smaller ones)
 
 ### Skip Expansion
 
@@ -168,10 +169,10 @@ VNC enablement runs on **every desktop login**, not just first boot:
 - **Logs**: `journalctl -u rasqberry-firstboot.service`
 - **Marker**: Check if `/boot/firmware/skip-expansion` exists
 
-**Issue**: A/B partitions too small
-- **Cause**: A/B images start with minimal partition sizes (~12GB total)
-- **Solution**: Use raspi-config (RasQberry menu → Expand A/B Partitions)
-- **Requirement**: 64GB or larger SD card for expansion
+**Issue**: A/B card still at 10GB / Slot B a 16MB placeholder
+- **Cause**: `no-auto-expand` on the CONFIG partition, or a card written from an image before B4
+- **Check**: `sudo rq_expand_ab.sh status`, `journalctl -u rasqberry-ab-layout`, `/var/log/rasqberry-expand.log`
+- **Solution**: `sudo raspi-config` -> 0 RasQberry -> Software & Image Updates
 
 **Issue**: VNC not enabled after first login
 - **Cause**: Autostart script failed or VNC service issue

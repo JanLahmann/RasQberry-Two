@@ -354,20 +354,21 @@ cmd_status() {
     info "  SYSTEM-B (${part_b}): ${size_b}"
     info "  DATA (${part_data}):     ${size_data}"
 
-    # Check if expansion needed (system-b < 1GB indicates placeholder)
+    # Placeholder Slot B: say what this card can do (not prepared yet, or a
+    # small card running one system) - rq_expand_ab.sh decides (R-006)
     local size_b_bytes
     size_b_bytes=$(lsblk -bno SIZE "$part_b" 2>/dev/null)
     if [ "${size_b_bytes:-0}" -lt 1073741824 ]; then
         echo ""
-        warn "⚠ Slot B is still the 16MB placeholder the image ships with - A/B cannot"
-        warn "  be used until the partitions are expanded (needs a 64GB+ card):"
-        warn "      sudo raspi-config → 0 RasQberry → Software & Image Updates → EXPAND"
-        warn "  Until then Slot A stays at 10GB, which the image nearly fills, and"
-        warn "  rq_update_slot.sh cannot stage a download. See docs/ab-boot.md."
-        # NB: this used to also offer "sudo rq_slot_manager.sh expand". There is no
-        # such command here - it would have died with "Unknown command: expand".
-        # The expansion lives in RQB2_menu.sh (do_expand_ab_partitions), reached
-        # through raspi-config.
+        "${SCRIPT_DIR}/rq_expand_ab.sh" explain 2>/dev/null | sed 's/^/  /' \
+            || warn "Slot B is still the 16MB placeholder (see docs/ab-boot.md)"
+    fi
+
+    # A trial boot that failed and was rolled back (rq_health_check.py, R-054)
+    if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
+        echo ""
+        warn "Last slot switch FAILED and was rolled back:"
+        sed 's/^/    /' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
     # Boot files
@@ -389,6 +390,8 @@ cmd_summary() {
     #   slot_a     what Slot A holds (see slot_content)
     #   slot_b     what Slot B holds
     #   expanded   yes | no              Slot B is large enough for an image
+    #   card_mode  dual | dual-pending | single | single-pending  (rq_expand_ab.sh
+    #              mode): single = one system on a card under 64GB (R-006)
     local current
     current=$(get_current_slot)
     if [ "$current" = "SINGLE" ]; then
@@ -411,6 +414,9 @@ cmd_summary() {
     else
         echo "expanded=no"
     fi
+    local card_mode=""
+    [ -x "${SCRIPT_DIR}/rq_expand_ab.sh" ] && card_mode=$("${SCRIPT_DIR}/rq_expand_ab.sh" mode 2>/dev/null || true)
+    echo "card_mode=${card_mode:-unknown}"
 }
 
 cmd_slot_content() {
@@ -625,7 +631,7 @@ EOF
     else
         info ""
         info "To boot into Slot ${target_slot} now: sudo reboot '0 tryboot'"
-        info "(or: raspi-config -> 0 RasQberry -> Software & Image Updates -> Slot Manager)"
+        info "(or: sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Slot Manager -> TRYBOOT_${target_slot})"
     fi
 }
 
@@ -797,7 +803,7 @@ proc                        /proc           proc    defaults          0   0
 ${config_part}              /boot/config    vfat    defaults          0   2
 ${boot_a_part}              /boot/firmware  vfat    defaults          0   2
 ${slot_a_part}              /               ext4    defaults,noatime  0   1
-${data_part}                /data           ext4    defaults,noatime  0   2
+${data_part}                /data           ext4    defaults,noatime,nofail  0   2
 EOF
 
     umount "$mount_a" "$mount_b"

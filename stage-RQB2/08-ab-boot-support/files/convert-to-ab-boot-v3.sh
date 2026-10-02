@@ -6,7 +6,8 @@
 #
 # Key improvements over v2:
 #   - Small initial image (~12GB) for fast download
-#   - Partitions expand via raspi-config on 64GB+ SD cards
+#   - The card is set up on its first start (rasqberry-ab-layout.service ->
+#     rq_expand_ab.sh): two systems on 64GB+ cards, one system on smaller ones
 #
 # Input: Standard RasQberry .img file (uncompressed, 2 partitions)
 # Output: AB-ready .img file (7 partitions with extended partition)
@@ -20,10 +21,16 @@
 #     p6: SYSTEM-B    16MB    ext4    (rootfs Slot B, placeholder)
 #     p7: DATA        16MB    ext4    (user data, placeholder)
 #
-# Expansion (via raspi-config, requires 64GB+ SD card):
-#   data:     10% of available space
-#   system-a: 45% of available space
-#   system-b: 45% of available space
+# First start (RQB2-bin/rq_expand_ab.sh; opt out with an empty file
+# "no-auto-expand" on the CONFIG partition):
+#   card of 58 GiB or more ("64GB"): data 10% / system-a 45% / system-b 45%
+#                                     of the space after the boot partitions
+#   smaller card: one system - system-a grows to the card minus data (10%),
+#                 system-b stays a 16MB placeholder
+#
+# B4 additions (each marked below): panic=10 in both cmdlines, nofail on
+# /data, CONFIG/ab-layout = "pending", and system-a's
+# /var/lib/rasqberry/carry-over-pending (rq_carry_over.sh).
 #
 # Usage: ./convert-to-ab-boot-v3.sh <input.img> <output.img>
 # ============================================================================
@@ -194,10 +201,10 @@ rsync -aAX "${MOUNT_DIR}/input-boot/" "${MOUNT_DIR}/boot-a/"
 # Tell the standard firstboot expansion task to stand down.
 #
 # The standard image expands its root to fill the card on first boot
-# (/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh, generated in
-# stage-RQB2/00-firstboot-setup). That is wrong for an A/B card: the split is
-# the user's decision, made via raspi-config (see issue #142), and root is not
-# even the last partition here - system-b and data sit after it.
+# (/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh). That is
+# wrong for an A/B card: root is not even the last partition here - system-b
+# and data sit after it. The A/B card is laid out by rq_expand_ab.sh instead
+# (rasqberry-ab-layout.service, see CONFIG/ab-layout below).
 #
 # The task already looks for this marker ("typically used for A/B boot setup"),
 # but nothing was writing it, so it ran on every A/B image and marked itself
@@ -208,10 +215,9 @@ echo "  Marking A/B image: firstboot root expansion disabled (manual via raspi-c
 cat > "${MOUNT_DIR}/boot-a/skip-expansion" << 'MARKER'
 This is an A/B boot image.
 
-The root filesystem is deliberately NOT expanded on first boot: Slot A, Slot B
-and data are sized by the user via
-    sudo raspi-config -> RasQberry -> AB_BOOT -> EXPAND
-which needs a 64GB or larger card. See docs/ab-boot.md.
+The standard root expansion does not run here: on its first start the card is
+set up by rq_expand_ab.sh (two systems on a 64GB or larger card, one system on
+a smaller one) - see ab-layout on the CONFIG partition and docs/ab-boot.md.
 MARKER
 
 echo "Step 7: Copying boot files to boot-b..."
@@ -251,6 +257,20 @@ if [ -f "${MOUNT_DIR}/boot-a/bootcode.bin" ]; then
     cp "${MOUNT_DIR}/boot-a/bootcode.bin" "${MOUNT_DIR}/config/"
 fi
 
+# B4: the card is set up on its first start (rasqberry-ab-layout.service).
+# "pending" is what lets it act: cards written from older images have no
+# such file and are never repartitioned behind the user's back.
+cat > "${MOUNT_DIR}/config/ab-layout" << 'EOF'
+pending
+# RasQberry A/B card layout. On its first start this card is set up to fit:
+#   64GB or larger: two systems (Slot A and Slot B) for safe updates
+#   smaller:        one system that uses the whole card
+# To keep the card exactly as written, create an empty file named
+#   no-auto-expand
+# next to this file BEFORE the first start. You can still set it up later:
+#   sudo raspi-config -> 0 RasQberry -> Software & Image Updates
+EOF
+
 echo "Created autoboot.txt:"
 cat "${MOUNT_DIR}/config/autoboot.txt"
 echo ""
@@ -276,6 +296,7 @@ PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed \
     -e 's/splash//g' \
     -e 's/plymouth\.ignore-serial-consoles//g' \
     -e 's/init=[^ ]*//g' \
+    -e 's/panic=[^ ]*//g' \
     -e 's/  */ /g' \
     -e 's/^ *//' \
     -e 's/ *$//')
@@ -301,6 +322,10 @@ else
     BOOT_OPTIONS=" quiet splash plymouth.ignore-serial-consoles"
     echo "  Verbosity: splash"
 fi
+# B4 (R-054): a kernel that cannot start reboots after 10 s instead of hanging.
+# The tryboot flag lasts one boot, so on a slot under test that reboot starts
+# the slot that worked - automatic rollback without a power cycle.
+BOOT_OPTIONS="${BOOT_OPTIONS} panic=10"
 
 # cmdline.txt for slot A (use device paths for reliability)
 if [ -n "$PRESERVED_PARAMS" ]; then
@@ -389,8 +414,16 @@ proc                        /proc           proc    defaults          0   0
 /dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
 /dev/mmcblk0p2              /boot/firmware  vfat    defaults          0   2
 /dev/mmcblk0p5              /               ext4    defaults,noatime  0   1
-/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
+/dev/mmcblk0p7              /data           ext4    defaults,noatime,nofail  0   2
 EOF
+# (B4: nofail - a missing or unformatted /data must not stop the boot in
+# emergency mode; it can be missing while the first-boot set-up is cut off.)
+
+# B4: this rootfs starts as a FRESH slot - on its first start it takes over
+# password, hostname, locale, Wi-Fi... from the other slot (rq_carry_over.sh).
+# An update writes this same rootfs into the other slot, marker included.
+mkdir -p "${MOUNT_DIR}/system-a/var/lib/rasqberry"
+touch "${MOUNT_DIR}/system-a/var/lib/rasqberry/carry-over-pending"
 
 echo "system-a fstab:"
 cat "${MOUNT_DIR}/system-a/etc/fstab"
@@ -409,7 +442,7 @@ proc                        /proc           proc    defaults          0   0
 /dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
 /dev/mmcblk0p3              /boot/firmware  vfat    defaults          0   2
 /dev/mmcblk0p6              /               ext4    defaults,noatime  0   1
-/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
+/dev/mmcblk0p7              /data           ext4    defaults,noatime,nofail  0   2
 EOF
 
 echo "system-b prepared"
@@ -463,7 +496,7 @@ echo "  p7: DATA        (${DATA_SIZE_MB}MB)     - user data (placeholder)"
 echo ""
 echo "Next steps:"
 echo "  1. Compress: xz -9 -T0 --block-size=128MiB $OUTPUT_IMG"
-echo "  2. Flash to SD card (64GB+ recommended)"
-echo "  3. Boot and use raspi-config to expand partitions"
-echo "     (Expansion available on 64GB+ SD cards)"
+echo "  2. Flash to SD card (64GB+ for two systems; smaller cards run one system)"
+echo "  3. First boot sets the card up automatically (CONFIG/ab-layout = pending;"
+echo "     an empty CONFIG/no-auto-expand file keeps it as written)"
 echo ""
