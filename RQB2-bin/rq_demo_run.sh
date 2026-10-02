@@ -78,15 +78,18 @@ check_jq() {
 # host ports.
 
 # Launch browser with URL
+#
+# The browser's own console chatter ("Opening in existing browser session.")
+# went to the terminal and was drawn over the raspi-config menu (R-137).
 launch_browser() {
     local url="$1"
 
     if command -v chromium-browser &>/dev/null; then
         info "Opening browser..."
-        run_as_user chromium-browser --password-store=basic "$url" &
+        run_as_user chromium-browser --password-store=basic "$url" >/dev/null 2>&1 &
     elif command -v firefox &>/dev/null; then
         info "Opening browser..."
-        run_as_user firefox "$url" &
+        run_as_user firefox "$url" >/dev/null 2>&1 &
     else
         info "No browser found. Please open manually: $url"
     fi
@@ -176,7 +179,7 @@ check_requirements() {
     case "$display_req" in
         required)
             if ! check_display; then
-                die "This demo requires a display (DISPLAY not set)"
+                die "This demo needs a screen: start it on the Pi's desktop or over VNC (no display, DISPLAY is not set)"
             fi
             ;;
         optional)
@@ -804,10 +807,14 @@ run_python() {
         fi
 
         info "Running with LED support (as root)..."
+        prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
         # writes __pycache__ leaves root-owned files behind, and the user's
         # next pip install into the venv then fails with EACCES (#285).
-        PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
+        # HOME: the desktop user's, from the menu (where sudo set /root) as from
+        # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
+        # user's own in ~/.qiskit on every path (Q26).
+        HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
@@ -816,6 +823,55 @@ run_python() {
         run_as_user env PYTHONPATH="$demo_pythonpath" \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
+}
+
+# ============================================================================
+# ROOT RUNS AND THE USER'S HOME
+# ============================================================================
+# LED demos run as root (GPIO), but with the desktop user's HOME, so they use
+# the user's IBM Quantum account in ~/.qiskit (Q26). Whatever root creates
+# there is the user's afterwards: qiskit-ibm-runtime creates
+# ~/.qiskit/qiskit-ibm.json on any account lookup, and one Raspberry Tie run on
+# a real backend left it root-owned - the learner's own
+# QiskitRuntimeService.save_account() then failed with Errno 13 (R-147).
+
+ROOT_RUN_HOME=""
+ROOT_RUN_MARK=""
+
+# Set ROOT_RUN_HOME to the desktop user's home when this is a root run for a
+# desktop user, and create the IBM account file as that user beforehand.
+prepare_user_home_for_root_run() {
+    local user_name
+    [ "$(id -u)" = "0" ] || return 0
+    user_name=$(get_user_name)
+    [ "$user_name" != "root" ] || return 0
+    [ -n "${USER_HOME:-}" ] && [ "$USER_HOME" != "/root" ] && [ -d "$USER_HOME" ] || return 0
+    ROOT_RUN_HOME="$USER_HOME"
+    # what root creates in the home from now on is handed back afterwards
+    ROOT_RUN_MARK=$(mktemp) || ROOT_RUN_MARK=""
+    if [ "$(get_field '.needs_ibm_token' 'none')" != "none" ]; then
+        sudo -u "$user_name" -H sh -c \
+            'mkdir -p "$1/.qiskit" && { [ -e "$1/.qiskit/qiskit-ibm.json" ] || printf "{}" > "$1/.qiskit/qiskit-ibm.json"; }' \
+            _ "$ROOT_RUN_HOME" 2>/dev/null || true
+    fi
+}
+
+# Hand back to the user what the root run created in the home (new top-level
+# entries such as ~/.dbus from the SenseHAT emulator), and anything root-owned
+# in the places Python, Qiskit, matplotlib and the emulator write to.
+restore_user_home_after_root_run() {
+    [ -n "$ROOT_RUN_HOME" ] || return 0
+    local user_name d
+    user_name=$(get_user_name)
+    if [ -n "$ROOT_RUN_MARK" ] && [ -e "$ROOT_RUN_MARK" ]; then
+        find "$ROOT_RUN_HOME" -mindepth 1 -maxdepth 1 -user root -newer "$ROOT_RUN_MARK" \
+            -exec chown -hR "$user_name:" {} + 2>/dev/null || true
+        rm -f "$ROOT_RUN_MARK"
+    fi
+    for d in .qiskit .cache .config .matplotlib .sensehat .dbus; do
+        [ -e "$ROOT_RUN_HOME/$d" ] || continue
+        find "$ROOT_RUN_HOME/$d" -maxdepth 3 -user root -exec chown -h "$user_name:" {} + 2>/dev/null || true
+    done
 }
 
 # Delegate to existing launcher script
@@ -885,6 +941,8 @@ cleanup() {
         fi
     done
 
+    restore_user_home_after_root_run
+
     # Note: Docker containers are not stopped here - they use --rm and stop on their own
     # or user explicitly stops them
 }
@@ -924,8 +982,27 @@ Available demos can be found in: /usr/config/demo-manifests/
 EOF
 }
 
+# Re-run this engine as the desktop user when it runs as root for a demo that
+# does not need the LED panel. Keeps the display (only if there is one, so the
+# "needs a screen" check still sees an SSH login) and the menu's error file.
+drop_to_desktop_user() {
+    local user_name
+    [ "$(id -u)" = "0" ] || return 0
+    [ "$(demo_field '.needs_hw.leds' 'false')" != "true" ] || return 0
+    user_name=$(get_user_name)
+    [ "$user_name" != "root" ] || return 0
+    local -a keep=()
+    local v
+    for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG; do
+        [ -n "${!v:-}" ] && keep+=("$v=${!v}")
+    done
+    info "Starting as $user_name (only LED demos run as root)..."
+    exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
+}
+
 main() {
     check_jq
+    local -a orig_args=("$@")
 
     # Parse arguments
     if [ $# -lt 1 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
@@ -976,6 +1053,15 @@ main() {
         check_installed && exit 0
         exit 1
     fi
+
+    # Demos that do not drive the LED panel run as the desktop user (Q26).
+    #
+    # From the RasQberry menu this engine runs as root (sudo raspi-config).
+    # Jupyter refuses to start as root, so all four notebook demos failed there
+    # while their desktop icons, which run as the user, worked (R-025); and
+    # whatever a root run downloads or saves lands root-owned in the user's
+    # home. Only LED demos need root, for the GPIO, and they get it below.
+    drop_to_desktop_user "${orig_args[@]}"
 
     # Get demo info (variant-aware: variants may override the entrypoint,
     # and carry their own args and needs_hw; everything else falls back

@@ -1,0 +1,5 @@
+// RasQberry Two: put the "0 RasQberry" entry back into raspi-config as soon as
+// apt has installed a new raspi-config. Without this the entry was missing
+// until the next reboot (the root @reboot job), and raspi-config's own
+// "Update" restarts straight into the new, unpatched file (R-117).
+DPkg::Post-Invoke { "if [ -x /usr/bin/rq_patch_raspiconfig.sh ]; then /usr/bin/rq_patch_raspiconfig.sh >/dev/null 2>&1 || true; fi"; };

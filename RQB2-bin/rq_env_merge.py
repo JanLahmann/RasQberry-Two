@@ -23,6 +23,13 @@ from pathlib import Path
 
 _KEY_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=")
 
+# Keys that must not survive an update even though the device has them.
+# INTERACTIVE, ASK_TO_REBOOT and CONFIG are raspi-config's own variables: the
+# env file is loaded inside raspi-config, and these switched it to
+# non-interactive mode (R-001). MARKER_QRT named a file the pinned Raspberry
+# Tie checkout no longer has.
+RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT")
+
 KEPT_HEADER = (
     "\n# -----------------------------------------------------------------------------\n"
     "# Device settings that the shipped defaults do not (or no longer) contain.\n"
@@ -75,6 +82,7 @@ def merge(new_lines, current_lines):
         tuple: (merged_lines, added, kept, carried) where added are keys new
         in the defaults, kept are keys whose device value differs from the new
         default, and carried are device-only keys appended at the end.
+        Device-only keys listed in RETIRED_KEYS are dropped.
     """
     current = assignments(current_lines)
     shipped = set()
@@ -98,7 +106,7 @@ def merge(new_lines, current_lines):
             added.append(key)
             merged.append(line)
 
-    carried = [k for k in current if k not in shipped]
+    carried = [k for k in current if k not in shipped and k not in RETIRED_KEYS]
     if carried:
         merged.extend(KEPT_HEADER.rstrip("\n").split("\n"))
         merged.extend(current[k] for k in carried)
