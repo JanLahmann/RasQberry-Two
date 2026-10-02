@@ -2,7 +2,7 @@
   "id": "rasq-led",
   "name": "RasQ-LED Demo",
   "category": "visualization",
-  "description": "Visualize quantum circuit execution results on the LED matrix",
+  "description": "Circuits with superposition and entanglement, measured and shown on the LED panel",
   "keywords": [
     "quantum",
     "led",
@@ -21,7 +21,7 @@
     "leds": true,
     "display": "none"
   },
-  "needs_ibm_token": "prefer",
+  "needs_ibm_token": "none",
   "browser_based": false,
   "loop_ok": true,
   "timeout": 60,

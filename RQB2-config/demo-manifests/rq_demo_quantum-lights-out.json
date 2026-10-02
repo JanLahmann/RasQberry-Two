@@ -2,7 +2,7 @@
   "id": "quantum-lights-out",
   "name": "Quantum Lights Out",
   "category": "game",
-  "description": "A quantum version of the classic Lights Out puzzle game using quantum circuits",
+  "description": "Lights Out puzzle on the LED panel, solved by Grover's search",
   "keywords": [
     "quantum",
     "game",

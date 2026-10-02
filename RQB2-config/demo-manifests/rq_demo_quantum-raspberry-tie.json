@@ -2,7 +2,7 @@
   "id": "quantum-raspberry-tie",
   "name": "Quantum Raspberry Tie",
   "category": "visualization",
-  "description": "Visualize quantum circuit execution on LED matrix with Sense HAT emulator",
+  "description": "Measured qubits on the LED panel, from a simulator or a real IBM quantum computer",
   "keywords": [
     "quantum",
     "visualization",
