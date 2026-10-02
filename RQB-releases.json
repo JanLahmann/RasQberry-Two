@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-01T07:03:55Z",
+  "generated": "2026-10-02T08:18:00Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,26 +32,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-01-083408",
-      "name": "rasqberry-development-2026-10-01-083408",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-01-083408/rasqberry-development-2026-10-01-083408.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-01-083408",
-      "release_date": "2026-10-01 08:34",
-      "image_download_size": 2025253620,
+      "tag": "development-2026-10-02-095106",
+      "name": "rasqberry-development-2026-10-02-095106",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-02-095106/rasqberry-development-2026-10-02-095106.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-02-095106",
+      "release_date": "2026-10-02 09:51",
+      "image_download_size": 2027621696,
       "extract_size": 9034530816,
-      "extract_sha256": "4609ab9bb54e19a9efec8f815915e411f785d46a6c9af84dae2e7d0fcd516ef4",
-      "image_sha256": "0182264887a324fab638a1d0a8d6aa1628a8a7817717f66a1212a04d700ad828",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-01-083408/rasqberry-development-2026-10-01-083408-ab.img.xz",
-      "ab_extract_sha256": "afc6266c58f0b9197b866f79109e496e4a9aee14fcc5f12805c42427de1a073e",
-      "ab_image_sha256": "10c87e5785ab8ca3a1c790308ffc84bde289957efed45d658415c32f16314dfd",
-      "ab_image_download_size": 2058162296,
+      "extract_sha256": "5981b22a835129cab32dea079e351b0727b9d9123cf76a0c574ccb12e35572ce",
+      "image_sha256": "617a50227df64faad255f51a8c1f6190fb1488510392ab744e54a410e3b0d17d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-02-095106/rasqberry-development-2026-10-02-095106-ab.img.xz",
+      "ab_extract_sha256": "c44c8a2c346672d62968dbf31896615dbbc95159e65a5f7249e54285eb2faa98",
+      "ab_image_sha256": "2c6805ac318d65d0250d49b8e070ef4008fc665302e86359617a7920e105eeb9",
+      "ab_image_download_size": 2065484676,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-10-01-083408",
-        "Merge dev-qiskit-compat: Qiskit compatibility workflow and the fixes it found",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-qiskit-compat-2026-10-01-081207",
-        "replace mcx(mode=\"basic\"), deprecated since Qiskit 2.1",
-        "menu variants pass QRT's own backend flags"
+        "descriptions say what a demo shows; IBM account flags",
+        "no false success for branches without scripts; undo the last update",
+        "A/B Slot Manager follows the Slot A stable / Slot B testing model and explains its dead ends",
+        "refuse empty slots, say what each slot holds, promote without a hidden prompt",
+        "keep xz progress out of the slot image; check -ab downloads against the ab_* checksums"
       ]
     }
   }
