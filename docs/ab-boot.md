@@ -117,20 +117,46 @@ you are expanded.
 
 ## Then: put a system in Slot B
 
-Use the **AB image** (`-ab.img.xz`), not the standard image — the standard image
-has no A/B layout and will not boot as a slot.
+The model: **Slot A is the stable system, Slot B the testing slot.** Updates
+always go into Slot B; a Slot B that has proven itself is copied to Slot A
+with PROMOTE.
 
+From the menu: `sudo raspi-config` → 0 RasQberry → Software & Image Updates →
+Slot Manager → *Install an update into Slot B*. It first checks whether Slot B
+can take an update, then offers the latest A/B image of the image's own
+channel (beta, dev or stable; other releases and channels behind *Other*),
+and runs the update in the terminal with its progress.
+
+From a terminal, use the **AB image** (`-ab.img.xz`), not the standard image —
+the standard image has no A/B layout and will not boot as a slot.
+
+    sudo rq_update_slot.sh --preflight                 # can Slot B be updated? (nothing is downloaded)
+    rq_ab_releases.sh latest                           # newest A/B image of this image's channel
     sudo rq_update_slot.sh <ab-image-url> <release-tag>
 
 It refuses to overwrite the slot you are booted from, so you cannot saw off the
-branch you are sitting on.
+branch you are sitting on. Running Slot B, first PROMOTE it (or switch back to
+Slot A), then update. The refusals have their own exit codes (20 running
+slot, 21 not expanded, 22 not enough space, 23 no A/B layout, 24 another
+update running), which is what the menu explains.
+
+While a slot is being written (or copied by PROMOTE),
+`/boot/config/slot-<A|B>-incomplete` exists; the slot counts as unusable
+until the write has finished.
 
 ## Switching, confirming, rolling back
 
     sudo rq_slot_manager.sh switch-to B --reboot   # boot Slot B next (tryboot)
-    sudo rq_slot_manager.sh status                 # where am I?
+    sudo rq_slot_manager.sh status                 # where am I, what does each slot hold?
     sudo rq_slot_manager.sh confirm                # keep this slot
     sudo rq_slot_manager.sh rollback && sudo reboot
+
+`switch-to` and `rollback` refuse a slot that holds no system (exit code 25):
+the placeholder, a freshly expanded Slot B, or an interrupted update. Starting
+an empty slot halts the kernel and the Pi hangs until it is switched off and
+on; a rollback into one is permanent. `--force` skips the check.
+`rq_slot_manager.sh summary` prints the state as `key=value` lines
+(`current`, `confirmed`, `default`, `slot_a`, `slot_b`, `expanded`, ...).
 
 A slot booted with `switch-to` is **on probation**: unless it is confirmed, the
 next reboot returns to the previous slot. The health check confirms a healthy
@@ -141,6 +167,10 @@ Slot A is the **stable** slot and Slot B is the **testing** slot. When a system
 in Slot B has proven itself:
 
     sudo rq_slot_manager.sh promote     # copy tested Slot B → stable Slot A
+
+`promote` asks for a typed `PROMOTE` in a terminal; the menu asks in its own
+dialog and passes `--yes`. Afterwards restart: the Pi starts from Slot A, and
+Slot B is free for the next update.
 
 ## Partition layout
 
@@ -161,11 +191,12 @@ shared: it lives on each slot's own root.
 
 ```bash
 # One time, on a 64GB+ card - REQUIRED before anything else works
-sudo raspi-config     # -> RasQberry -> AB_BOOT -> EXPAND
+sudo raspi-config     # -> 0 RasQberry -> Software & Image Updates -> EXPAND
 
-sudo rq_slot_manager.sh status                    # current slot, sizes, warnings
-sudo rq_update_slot.sh <ab-image-url> <tag>       # write a system into the other slot
-sudo rq_slot_manager.sh switch-to B --reboot      # try the other slot
+sudo rq_slot_manager.sh status                    # current slot, slot contents, sizes, warnings
+sudo rq_update_slot.sh --preflight                # can Slot B take an update?
+sudo rq_update_slot.sh <ab-image-url> <tag>       # write a system into Slot B
+sudo rq_slot_manager.sh switch-to B --reboot      # try Slot B
 sudo rq_slot_manager.sh confirm                   # keep it
 sudo rq_slot_manager.sh rollback && sudo reboot   # go back
 sudo rq_slot_manager.sh promote                   # Slot B -> Slot A (stable)

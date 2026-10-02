@@ -1419,7 +1419,7 @@ do_show_system_info() {
     info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
   fi
   whiptail --title "RasQberry System Information" --msgbox \
-    "$info\n\nFor bug reports: rq_info.sh --json" 18 78
+    "$info\n\nFor bug reports: rq_info.sh --json" 20 78
 }
 
 # -----------------------------------------------------------------------------
@@ -1874,20 +1874,202 @@ do_update_from_branch() {
     fi
 }
 
-# Is a newer image published for this image's channel? (#139)
-do_check_for_update() {
-    local out rc=0 how
-    whiptail --title "Checking for updates" --infobox "Asking rasqberry.org for the latest release..." 8 60
-    out=$(/usr/bin/rq_update_check.sh --refresh 2>&1) || rc=$?
-    if [ "$rc" -eq 10 ]; then
-        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
-            how="Install it into the other slot:\nSlot Manager -> Update Slot B with new image."
-        else
-            how="Download it from rasqberry.org/latest/ and write it to a card\n(the standard image has no second slot to update into)."
-        fi
-        whiptail --title "Update available" --msgbox "$out\n\n$how" 16 76
+# -----------------------------------------------------------------------------
+# A/B updates: helpers
+# -----------------------------------------------------------------------------
+# The A/B model (Jan, 2026-10-02): Slot A is the stable system, Slot B the
+# testing slot. Updates always go into Slot B; a tested Slot B is copied to
+# Slot A with PROMOTE. The logic lives in rq_slot_manager.sh, rq_update_slot.sh
+# and rq_ab_releases.sh; these functions only ask and explain. POSIX sh, no
+# set -e: this file runs inside raspi-config.
+#
+# Long operations (download, PROMOTE) run in the foreground of this terminal
+# and print their own progress. A whiptail --infobox would vanish at once
+# (whiptail restores the screen when it exits), and output captured with
+# $( ) hides any prompt and any progress (R-051).
+
+# Value of <key> in `rq_slot_manager.sh summary` output
+ab_value() {
+    printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
+}
+
+# What a slot holds, in words
+ab_describe() {
+    case "$1" in
+        EMPTY)      echo "empty (no system)" ;;
+        INCOMPLETE) echo "unfinished (an update or copy was interrupted)" ;;
+        UNKNOWN|"") echo "unknown" ;;
+        SYSTEM)     echo "a system without version information" ;;
+        *)          echo "$1" ;;
+    esac
+}
+
+# True when a slot content value is something the Pi can start
+ab_has_system() {
+    case "$1" in
+        EMPTY|INCOMPLETE|UNKNOWN|"") return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Bytes -> "1.7 GB" (decimal, as card and download sizes are sold)
+ab_gb() {
+    case "${1:-0}" in
+        ""|0|*[!0-9]*) echo "about 2 GB" ;;
+        *) awk -v b="$1" 'BEGIN { printf "%.1f GB\n", b / 1000000000 }' ;;
+    esac
+}
+
+ab_width() {
+    _ab_cols=$(tput cols 2>/dev/null || echo 80)
+    [ "$_ab_cols" -ge 64 ] 2>/dev/null || _ab_cols=80
+    [ "$_ab_cols" -gt 80 ] && _ab_cols=80
+    echo $((_ab_cols - 4))
+}
+
+# Height for a box showing <text> at <width>, plus <extra> rows, capped at
+# the terminal height (whiptail cuts off text that does not fit)
+ab_box_height() {
+    _ab_h=$(printf '%b\n' "$1" | fold -s -w $(($2 - 4)) | wc -l)
+    _ab_h=$((_ab_h + $3))
+    _ab_rows=$(tput lines 2>/dev/null || echo 24)
+    [ "$_ab_rows" -ge 12 ] 2>/dev/null || _ab_rows=24
+    [ "$_ab_h" -gt "$_ab_rows" ] && _ab_h=$_ab_rows
+    echo "$_ab_h"
+}
+
+ab_msgbox() {
+    _ab_w=$(ab_width)
+    _ab_hh=$(ab_box_height "$2" "$_ab_w" 7)
+    if [ "$(printf '%b\n' "$2" | fold -s -w $((_ab_w - 4)) | wc -l)" -gt $((_ab_hh - 7)) ]; then
+        whiptail --title "$1" --scrolltext --msgbox "$2" "$_ab_hh" "$_ab_w"
     else
-        whiptail --title "Check for updates" --msgbox "$out" 12 76
+        whiptail --title "$1" --msgbox "$2" "$_ab_hh" "$_ab_w"
+    fi
+}
+
+# ab_yesno <title> <yes label> <no label> <text> [--defaultno]
+ab_yesno() {
+    _ab_w=$(ab_width)
+    _ab_hh=$(ab_box_height "$4" "$_ab_w" 7)
+    if [ "${5:-}" = "--defaultno" ]; then
+        whiptail --title "$1" --yes-button "$2" --no-button "$3" --defaultno --yesno "$4" "$_ab_hh" "$_ab_w"
+    else
+        whiptail --title "$1" --yes-button "$2" --no-button "$3" --yesno "$4" "$_ab_hh" "$_ab_w"
+    fi
+}
+
+# ab_menu <title> <text> <tag> <item>... ; prints the chosen tag.
+# AB_MENU_DEFAULT=<tag> puts the cursor on that item.
+ab_menu() {
+    _ab_title="$1"; _ab_text="$2"; shift 2
+    _ab_n=$(($# / 2))
+    _ab_w=$(ab_width)
+    _ab_hh=$(ab_box_height "$_ab_text" "$_ab_w" $((_ab_n + 7)))
+    whiptail --title "$_ab_title" --default-item "${AB_MENU_DEFAULT:-}" \
+        --menu "$_ab_text" "$_ab_hh" "$_ab_w" "$_ab_n" "$@" 3>&1 1>&2 2>&3
+}
+
+ab_pause() {
+    printf '\n%s' "${1:-Press Enter to return to the menu.}"
+    read -r _ab_dummy < /dev/tty
+}
+
+# What to do when Slot B is not set up (the 16MB placeholder)
+ab_not_expanded_text() {
+    _ab_dev=$(lsblk -no pkname "$(findmnt / -o source -n)" 2>/dev/null | head -n 1)
+    _ab_size=$(lsblk -bno SIZE "/dev/${_ab_dev:-mmcblk0}" 2>/dev/null | head -n 1)
+    # 58 GiB: the same limit as EXPAND (a "64GB" card is about 59.6 GiB)
+    if [ "$((${_ab_size:-0} / 1024 / 1024 / 1024))" -ge 58 ]; then
+        echo "Slot B is not set up yet: it is still the small placeholder the A/B image ships with.\n\nExpand the A/B partitions first (Software & Image Updates -> EXPAND), then install the update into Slot B."
+    else
+        echo "This card is too small for two systems, so an update cannot be installed into Slot B.\n\nDownload the new image from rasqberry.org/latest/ and write it to a card. Writing a new image erases the card: copy your notebooks and your IBM Quantum account (~/.qiskit) first, or use a second card."
+    fi
+}
+
+# How a slot gets a system
+ab_fill_hint() {
+    if [ "$1" = "B" ]; then
+        echo "Install a system into Slot B first: Slot Manager -> Install an update into Slot B."
+    else
+        echo "Slot A gets a system when you PROMOTE a tested Slot B."
+    fi
+}
+
+ab_slot_label() {
+    if [ "$1" = "A" ]; then echo "stable"; else echo "testing"; fi
+}
+
+# The other slot
+ab_other() {
+    if [ "$1" = "A" ]; then echo "B"; else echo "A"; fi
+}
+
+# True right after PROMOTE, before the restart: running a confirmed Slot B,
+# the next start is Slot A, and both slots hold the same version
+ab_promoted() {
+    [ "$(ab_value "$1" current)" = "B" ] && [ "$(ab_value "$1" default)" = "A" ] \
+        && [ "$(ab_value "$1" confirmed)" = "yes" ] \
+        && ab_has_system "$(ab_value "$1" slot_a)" \
+        && [ "$(ab_value "$1" slot_a)" = "$(ab_value "$1" slot_b)" ]
+}
+
+# What the user should do next, from the summary
+ab_next_step() {
+    _ab_cur=$(ab_value "$1" current)
+    _ab_def=$(ab_value "$1" default)
+    if [ "$(ab_value "$1" expanded)" != "yes" ]; then
+        echo "Slot B is not set up yet: EXPAND it first (Software & Image Updates)."
+    elif ab_promoted "$1"; then
+        echo "PROMOTE is done: restart to start from Slot A. Then Slot B is free for the next update."
+    elif [ "$_ab_cur" = "B" ] && [ "$(ab_value "$1" confirmed)" != "yes" ]; then
+        echo "Slot B is on trial: the health check confirms it after a good start. Otherwise the next restart returns to Slot A."
+    elif [ "$_ab_def" = "A" ] || [ "$_ab_def" = "B" ] && [ "$_ab_def" != "$_ab_cur" ]; then
+        echo "The next restart starts Slot ${_ab_def}."
+    elif [ "$_ab_cur" = "A" ]; then
+        if ab_has_system "$(ab_value "$1" slot_b)"; then
+            echo "Next: install a newer update into Slot B, or restart into Slot B to use it."
+        else
+            echo "Next: install an update into Slot B."
+        fi
+    else
+        echo "If this version works well, PROMOTE copies it to Slot A. Then Slot B is free for the next update."
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Check for a newer image (#139, R-048)
+# -----------------------------------------------------------------------------
+
+do_check_for_update() {
+    local out rc=0 summary prc=0
+    # A plain line: an infobox would vanish at once
+    printf '\nAsking rasqberry.org for the latest release...\n'
+    out=$("$BIN_DIR"/rq_update_check.sh --refresh 2>&1) || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        ab_msgbox "Check for updates" "$out"
+        return 0
+    fi
+    if [ "$rc" -ne 10 ]; then
+        ab_msgbox "Check for updates" "Could not check for updates.\n\n$out"
+        return 0
+    fi
+
+    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
+    if [ "$(ab_value "$summary" layout)" != "ab" ]; then
+        # Standard image: no second slot - a new card is the way (R-045)
+        ab_msgbox "Update available" "$out\n\nTo install it, download it from rasqberry.org/latest/ and write it to a card.\n\nWriting a new image erases this card: copy your notebooks and your IBM Quantum account (~/.qiskit) first, or use a second card."
+        return 0
+    fi
+
+    "$BIN_DIR"/rq_update_slot.sh --preflight >/dev/null 2>&1 || prc=$?
+    if [ "$prc" -eq 21 ]; then
+        ab_msgbox "Update available" "$out\n\n$(ab_not_expanded_text)"
+        return 0
+    fi
+    if ab_yesno "Update available" "Install now" "Later" \
+        "$out\n\nInstall it into Slot B (testing) now? Slot A (stable) stays as it is, so you can go back to it."; then
+        do_ab_install_update
     fi
     return 0
 }
@@ -1905,7 +2087,7 @@ do_ab_boot_menu() {
         set -- CHECK "Check for a newer image"
         if [ "$is_ab_image" = "Yes" ]; then
             set -- "$@" EXPAND "Expand A/B Partitions (64GB+ SD)" \
-                SLOTS "Slot Manager (switch, confirm, promote)"
+                SLOTS "Slot Manager (install updates, switch, promote)"
         fi
         set -- "$@" BRANCH "Update from GitHub Branch"
         FUN=$(show_menu "RasQberry: Software & Image Updates" "A/B Image: ${is_ab_image}" "$@") || break
@@ -1920,448 +2102,319 @@ do_ab_boot_menu() {
     done
 }
 
-# GitHub Release Picker Helper Functions
-# Fetch releases from GitHub and select image via menus
+# -----------------------------------------------------------------------------
+# Release picker for Slot B (R-049)
+# -----------------------------------------------------------------------------
+# Offers the latest A/B image of this image's own channel first (from
+# RQB-releases.json); other releases, channels and repositories are behind
+# "Other". Standard images are never offered: they cannot fill a slot.
+# Prints "url|tag|size"; returns 1 when the user cancels.
 
-# Pick stream (dev/beta/stable)
-pick_stream() {
-    # Ensure TERM is set for whiptail
-    [ -z "$TERM" ] && export TERM=linux
+ab_pick_image() {
+    local current channel latest lrc=0 ltag="" lurl="" ldate lsize="" note prompt choice
+    current=$(head -n 1 /etc/rasqberry-version 2>/dev/null | tr -d '[:space:]')
+    channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
+    # stdout is the result of this function: progress goes to stderr (the terminal)
+    printf '\nAsking rasqberry.org for the latest %s release...\n' "$channel" >&2
+    latest=$("$BIN_DIR"/rq_ab_releases.sh latest 2>&1) || lrc=$?
 
-    # Use temp file with --output-fd to separate selection from display
-    local tmpfile=$(mktemp)
-
-    # Open tmpfile for writing as fd 4 (avoid conflict with parent menu's fd 3)
-    exec 4>"$tmpfile"
-
-    # Use --output-fd 4 to write selection to tmpfile
-    # Redirect UI (stdout/stderr) to the tty; only the selection goes to fd 4
-    whiptail --output-fd 4 --title "Select Release Stream" --menu \
-        "Choose the release stream:\n\n  dev    - Development builds (latest features)\n  beta   - Beta releases (testing)\n  stable - Stable releases (production)" \
-        16 60 3 \
-        "dev"    "Development builds" \
-        "beta"   "Beta releases" \
-        "stable" "Stable releases" \
-        1>/dev/tty 2>/dev/tty </dev/tty
-
-    local exit_code=$?
-    exec 4>&-
-
-    if [ $exit_code -eq 0 ]; then
-        cat "$tmpfile"
-        rm -f "$tmpfile"
-        return 0
+    set --
+    if [ "$lrc" -eq 0 ]; then
+        ltag=$(printf '%s\n' "$latest" | cut -f1)
+        lurl=$(printf '%s\n' "$latest" | cut -f2)
+        ldate=$(printf '%s\n' "$latest" | cut -f3)
+        lsize=$(printf '%s\n' "$latest" | cut -f4)
+        note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
+        [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
+        set -- "$ltag" "$note"
+        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot B (testing):"
     else
-        rm -f "$tmpfile"
-        return 1
+        prompt="This system: ${current:-unknown} (channel: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
+    set -- "$@" OTHER "Other release or channel..."
+
+    choice=$(ab_menu "Install an update into Slot B" "$prompt" "$@") || return 1
+    if [ "$choice" = "OTHER" ]; then
+        ab_pick_other "$channel" "$current"
+        return $?
+    fi
+    echo "${lurl}|${ltag}|${lsize}"
 }
 
-# Pick release from stream
-pick_release() {
-    local stream="$1"
-    local github_user_param="$2"
-    local github_repo_param="$3"
-    local releases_json
-    local menu_items
-    local selected
+ab_pick_other() {
+    local channel="$1" current="$2" stream repo="" list lrc=0 choice line t d s note
+    # The device's own channel is the default (Q6 is open: the others stay)
+    stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other release" \
+        "Choose a release channel. This system follows: ${channel}" \
+        beta   "Beta releases" \
+        dev    "Development builds (newest, less tested)" \
+        stable "Stable releases" \
+        REPO   "Another GitHub repository...") || return 1
+    if [ "$stream" = "REPO" ]; then
+        repo=$(whiptail --title "Other repository" --inputbox \
+            "GitHub repository (user/repository):" 10 60 \
+            "${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}" 3>&1 1>&2 2>&3) || return 1
+        stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other repository" \
+            "Release channel in ${repo}:" \
+            beta   "Beta releases" \
+            dev    "Development builds (newest, less tested)" \
+            stable "Stable releases") || return 1
+    fi
 
-    # Ensure TERM is set for whiptail
-    [ -z "$TERM" ] && export TERM=linux
-
-    # Use provided parameters or fall back to environment variables
-    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
-    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
-    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
-
-    # Fetch releases from GitHub
-    whiptail --title "Fetching Releases" --infobox \
-        "Fetching releases from GitHub...\n\nPlease wait." 8 50 \
-        1>/dev/tty 2>/dev/tty </dev/tty
-
-    # Download directly to temp file to avoid command substitution issues
-    local releases_file=$(mktemp)
-    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases" -o "$releases_file" 2>/dev/null; then
-        rm -f "$releases_file"
-        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
-            1>/dev/tty 2>/dev/tty </dev/tty
+    printf '\nAsking GitHub for the %s releases...\n' "$stream" >&2
+    if [ -n "$repo" ]; then
+        list=$("$BIN_DIR"/rq_ab_releases.sh list "$stream" --repo "$repo" 2>&1) || lrc=$?
+    else
+        list=$("$BIN_DIR"/rq_ab_releases.sh list "$stream" 2>&1) || lrc=$?
+    fi
+    if [ "$lrc" -ne 0 ]; then
+        ab_msgbox "Release list" "$list"
+        return 1
+    fi
+    if [ -z "$list" ]; then
+        ab_msgbox "Release list" "No A/B images found in the '${stream}' channel${repo:+ of $repo}."
         return 1
     fi
 
-    # Check if download was successful and has content
-    if [ ! -s "$releases_file" ] || grep -q '"message"' "$releases_file"; then
-        rm -f "$releases_file"
-        whiptail --title "Error" --msgbox "Failed to fetch releases from GitHub.\n\nPlease check your internet connection." 10 60 \
-            1>/dev/tty 2>/dev/tty </dev/tty
-        return 1
-    fi
-
-    # Filter releases by stream prefix and build menu items
-    # Format: tag_name + created_at for display
-    menu_items=$(jq -r --arg stream "$stream" '
-        [.[] | select(.tag_name | startswith($stream + "-"))] |
-        sort_by(.created_at) | reverse |
-        .[0:10] |
-        .[] |
-        "\(.tag_name)\n\(.created_at | split("T")[0])"
-    ' < "$releases_file" 2>/dev/null)
-
-    # Clean up temp file
-    rm -f "$releases_file"
-
-    if [ -z "$menu_items" ]; then
-        whiptail --title "No Releases" --msgbox "No releases found for stream: $stream\n\nTry a different stream." 10 50 \
-            1>/dev/tty 2>/dev/tty </dev/tty
-        return 1
-    fi
-
-    # Convert to whiptail menu format (tag date tag date ...)
-    # Build args safely without xargs to preserve spaces and provide TTY
-    local tmpfile=$(mktemp)
-    exec 4>"$tmpfile"
-
-    # Build argument list from menu_items (one arg per line)
     set --
     while IFS= read -r line; do
-        set -- "$@" "$line"
+        [ -n "$line" ] || continue
+        t=$(printf '%s\n' "$line" | cut -f1)
+        d=$(printf '%s\n' "$line" | cut -f3)
+        s=$(printf '%s\n' "$line" | cut -f4)
+        note="${d}, $(ab_gb "$s")"
+        [ "$t" = "$current" ] && note="${note} (running now)"
+        set -- "$@" "$t" "$note"
     done <<EOF
-$menu_items
+$list
 EOF
+    choice=$(ab_menu "Choose a release" "A/B images in the '${stream}' channel, newest first:" "$@") || return 1
+    line=$(printf '%s\n' "$list" | awk -F '\t' -v t="$choice" '$1 == t { print; exit }')
+    [ -n "$line" ] || return 1
+    echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)"
+}
 
-    # Use --output-fd to separate selection from display
-    whiptail --output-fd 4 --title "Select Release" --menu \
-        "Choose a release from the '$stream' stream:" \
-        20 70 10 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
+# -----------------------------------------------------------------------------
+# A/B actions (R-050, R-051, R-055)
+# -----------------------------------------------------------------------------
 
-    local exit_code=$?
-    exec 4>&-
+# Install an update into Slot B: checks first, then the picker, then the
+# update itself in this terminal (it shows its own progress)
+do_ab_install_update() {
+    local pre prc=0 summary picked url tag size rest slot_a slot_b rc=0
+    printf '\nChecking whether Slot B can take an update...\n'
+    pre=$("$BIN_DIR"/rq_update_slot.sh --preflight 2>&1) || prc=$?
+    pre=$(printf '%s\n' "$pre" | sed 's/^ERROR: //')
+    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
+    case "$prc" in
+        0)  ;;
+        20) ab_offer_free_slot_b "$summary"; return 0 ;;
+        21) ab_msgbox "Slot B is not set up" "$(ab_not_expanded_text)"; return 0 ;;
+        *)  ab_msgbox "Cannot install an update now" "$pre"; return 0 ;;
+    esac
 
-    if [ $exit_code -eq 0 ]; then
-        selected=$(cat "$tmpfile")
-        rm -f "$tmpfile"
-        echo "$selected"
+    picked=$(ab_pick_image) || return 0
+    url=${picked%%|*}
+    rest=${picked#*|}
+    tag=${rest%%|*}
+    size=${rest#*|}
+    if [ -z "$url" ] || [ -z "$tag" ]; then
+        ab_msgbox "Install an update" "No image was selected."
         return 0
-    else
-        rm -f "$tmpfile"
-        return 1
     fi
+
+    slot_a=$(ab_describe "$(ab_value "$summary" slot_a)")
+    slot_b=$(ab_describe "$(ab_value "$summary" slot_b)")
+    ab_has_system "$(ab_value "$summary" slot_b)" && slot_b="${slot_b} - will be replaced"
+    ab_yesno "Install an update into Slot B" "Install" "Cancel" \
+        "Install ${tag} into Slot B (testing)?\n\nSlot B (testing) now: ${slot_b}\nSlot A (stable): ${slot_a} - not touched\n\nDownload: $(ab_gb "$size"). With unpacking and writing it takes about 20-30 minutes. Progress is shown on this screen; keep the Pi switched on.\n\nWhen it is done, the Pi restarts into Slot B. If Slot B does not start, switch the Pi off and on: it then starts Slot A again (rarely, this takes a second time)." \
+        || return 0
+
+    clear
+    printf 'Installing %s into Slot B (testing).\nKeep the Pi switched on. It restarts by itself when the update is done.\n\n' "$tag"
+    "$BIN_DIR"/rq_update_slot.sh "$url" "$tag" --slot B || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        # rq_update_slot.sh ends by asking for the restart into Slot B
+        printf '\nThe update is installed. The Pi is restarting into Slot B...\n'
+        sleep 120
+    fi
+    printf '\nThe update did not finish (see the message above; log:\n/var/log/rasqberry-update-slot.log). The running system is unchanged.\n'
+    ab_pause
+    return 0
 }
 
-# Pick image from release assets
-pick_image() {
-    local release_tag="$1"
-    local github_user_param="$2"
-    local github_repo_param="$3"
-    local assets_json
-    local menu_items
-    local selected
-
-    # Ensure TERM is set for whiptail
-    [ -z "$TERM" ] && export TERM=linux
-
-    # Use provided parameters or fall back to environment variables
-    # Environment variables are set by the workflow during build and stored in rasqberry_environment.env
-    local github_user="${github_user_param:-${RQB_GIT_USER:-JanLahmann}}"
-    local github_repo="${github_repo_param:-${REPO:-RasQberry-Two}}"
-
-    # Fetch release assets
-    whiptail --title "Fetching Images" --infobox \
-        "Fetching available images for release:\n$release_tag\n\nPlease wait." 10 60 \
-        1>/dev/tty 2>/dev/tty </dev/tty
-
-    # Download directly to temp file to avoid command substitution issues
-    local assets_file=$(mktemp)
-    if ! curl -s "https://api.github.com/repos/$github_user/$github_repo/releases/tags/$release_tag" -o "$assets_file" 2>/dev/null; then
-        rm -f "$assets_file"
-        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
-            1>/dev/tty 2>/dev/tty </dev/tty
-        return 1
-    fi
-
-    # Check if download was successful and has content
-    if [ ! -s "$assets_file" ] || grep -q '"message"' "$assets_file"; then
-        rm -f "$assets_file"
-        whiptail --title "Error" --msgbox "Failed to fetch release details.\n\nPlease check your connection." 10 60 \
-            1>/dev/tty 2>/dev/tty </dev/tty
-        return 1
-    fi
-
-    # Filter for .img.xz files and build menu items
-    # Create a mapping of short tags to filenames for display
-    # Format: filename|tag|description (one per line)
-    # AB boot images end with -ab.img.xz (display shows: xxx-ab)
-    local image_map
-    image_map=$(jq -r '
-        .assets[] |
-        select(.name | endswith(".img.xz")) |
-        if (.name | test("-ab\\.img\\.xz$")) then
-            "\(.name)|[AB]|\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
-        else
-            "\(.name)| |\(.name | sub(".*rasqberry-"; "") | sub(".img.xz$"; "")) (\(.size / 1024 / 1024 | floor)MB)"
-        end
-    ' < "$assets_file" 2>/dev/null)
-
-    # Build menu_items in whiptail format (tag description pairs)
-    menu_items=$(echo "$image_map" | awk -F'|' '{print $2 "\n" $3}')
-
-    # Clean up temp file
-    rm -f "$assets_file"
-
-    if [ -z "$menu_items" ]; then
-        whiptail --title "No Images" --msgbox "No image files found in release: $release_tag" 10 50 \
-            1>/dev/tty 2>/dev/tty </dev/tty
-        return 1
-    fi
-
-    # Count number of images (count tags)
-    local image_count
-    image_count=$(echo "$image_map" | wc -l)
-
-    if [ "$image_count" -eq 1 ]; then
-        # Only one image, return URL directly
-        local filename
-        filename=$(echo "$image_map" | cut -d'|' -f1)
-        # Reconstruct URL from filename
-        echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
+# UPDATE while running Slot B: Slot B cannot be overwritten, so offer the
+# two ways to free it (R-050)
+ab_offer_free_slot_b() {
+    local summary="$1" a b choice
+    a=$(ab_describe "$(ab_value "$summary" slot_a)")
+    b=$(ab_describe "$(ab_value "$summary" slot_b)")
+    if ab_promoted "$summary"; then
+        if ab_yesno "Restart into Slot A first" "Restart now" "Later" \
+            "PROMOTE is done: Slot A holds ${a}, but the Pi is still running Slot B.\n\nRestart now? The Pi then starts from Slot A. After the restart, choose 'Install an update into Slot B' again."; then
+            clear
+            printf 'Restarting into Slot A...\n'
+            reboot
+            sleep 120
+        fi
         return 0
-    else
-        # Multiple images, show selection menu using --output-fd
-        # Build args safely without xargs to preserve spaces and provide TTY
-        local tmpfile=$(mktemp)
-        exec 4>"$tmpfile"
-
-        # Build argument list from menu_items (one arg per line)
-        set --
-        while IFS= read -r line; do
-            set -- "$@" "$line"
-        done <<EOF
-$menu_items
-EOF
-
-        # Use --output-fd to separate selection from display
-        whiptail --output-fd 4 --title "Select Image" --menu \
-            "Multiple images available.\nChoose the image type:" \
-            16 80 5 "$@" </dev/tty 1>/dev/tty 2>/dev/tty
-
-        local exit_code=$?
-        exec 4>&-
-
-        if [ $exit_code -eq 0 ]; then
-            local selected_tag
-            selected_tag=$(cat "$tmpfile")
-            rm -f "$tmpfile"
-
-            # Look up filename from tag in image_map
-            local filename
-            filename=$(echo "$image_map" | awk -F'|' -v tag="$selected_tag" '$2 == tag {print $1; exit}')
-
-            if [ -z "$filename" ]; then
-                return 1
-            fi
-
-            # Reconstruct URL from filename
-            echo "https://github.com/$github_user/$github_repo/releases/download/$release_tag/$filename"
-            return 0
-        else
-            rm -f "$tmpfile"
-            return 1
-        fi
     fi
+    set -- PROMOTE "Keep this version: copy it to Slot A, then restart"
+    if ab_has_system "$(ab_value "$summary" slot_a)"; then
+        set -- "$@" SLOT_A "Go back to the version in Slot A, then restart"
+    fi
+    choice=$(ab_menu "Slot B is in use" \
+        "Updates are always installed into Slot B (testing). You are running Slot B right now, so it cannot be overwritten.\n\nSlot A (stable): ${a}\nSlot B (testing, running): ${b}\n\nFree Slot B first. After the restart, choose 'Install an update into Slot B' again." \
+        "$@") || return 0
+    case "$choice" in
+        PROMOTE) do_ab_promote "$summary" ;;
+        SLOT_A)  ab_restart_into A "$summary" ;;
+    esac
+    return 0
 }
 
-# Ask user for GitHub repository source (default or custom)
-# Returns: "default" or "user/repo" format
-pick_repo_source() {
-    # Ensure TERM is set for whiptail
-    [ -z "$TERM" ] && export TERM=linux
+# PROMOTE: copy the running, confirmed Slot B to Slot A (R-051: a proper
+# dialog instead of an invisible typed prompt, progress on screen)
+do_ab_promote() {
+    local summary="$1" current a b b_raw rc=0
+    current=$(ab_value "$summary" current)
+    b_raw=$(ab_value "$summary" slot_b)
+    a=$(ab_describe "$(ab_value "$summary" slot_a)")
+    b=$(ab_describe "$b_raw")
 
-    local tmpfile=$(mktemp)
-    exec 4>"$tmpfile"
-
-    # Show default repo from environment
-    local default_repo="${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}"
-
-    whiptail --output-fd 4 --title "Select Repository" --menu \
-        "Choose the GitHub repository to fetch releases from:\n\nDefault: $default_repo" \
-        16 70 2 \
-        "default" "Use default repository ($default_repo)" \
-        "custom"  "Enter custom GitHub repository" \
-        1>/dev/tty 2>/dev/tty </dev/tty
-
-    local exit_code=$?
-    exec 4>&-
-
-    if [ $exit_code -eq 0 ]; then
-        local choice=$(cat "$tmpfile")
-        rm -f "$tmpfile"
-
-        if [ "$choice" = "custom" ]; then
-            # Prompt for custom GitHub repository in user/repo format
-            local custom_repo
-            custom_repo=$(whiptail --inputbox "Enter GitHub repository in format:\nusername/repository\n\nExample: JanLahmann/RasQberry-Two" 12 60 "$default_repo" 3>&1 1>&2 2>&3)
-
-            if [ $? -eq 0 ] && [ -n "$custom_repo" ]; then
-                # Validate format (should contain exactly one /)
-                if echo "$custom_repo" | grep -q '^[^/]\+/[^/]\+$'; then
-                    echo "$custom_repo"
-                    return 0
-                else
-                    whiptail --title "Invalid Format" --msgbox "Invalid repository format.\n\nPlease use: username/repository" 10 50 \
-                        1>/dev/tty 2>/dev/tty </dev/tty
-                    return 1
-                fi
-            else
-                return 1
-            fi
+    if [ "$current" != "B" ]; then
+        if ab_has_system "$b_raw"; then
+            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\nTo use the version in Slot B, choose 'Restart into Slot B'. Once it has started properly, come back here and PROMOTE it."
         else
-            echo "default"
-            return 0
+            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\n$(ab_fill_hint B)"
         fi
-    else
-        rm -f "$tmpfile"
-        return 1
+        return 0
     fi
+    if [ "$(ab_value "$summary" confirmed)" != "yes" ]; then
+        ab_msgbox "PROMOTE" "Slot B has not been confirmed yet. The health check confirms it shortly after a good start.\n\nWait a moment and try again, or choose CONFIRM in the Slot Manager."
+        return 0
+    fi
+
+    ab_yesno "Make Slot B the stable system" "Promote" "Cancel" \
+        "Copy the running system to Slot A?\n\nSlot B (testing, running): ${b}\nSlot A (stable): ${a} - will be replaced\n\nCopying takes 10-15 minutes. Progress is shown on this screen; do not switch the Pi off.\n\nAfterwards the Pi starts from Slot A, and Slot B is free for the next update." \
+        --defaultno || return 0
+
+    clear
+    printf 'PROMOTE: copying Slot B (%s) to Slot A.\nDo not switch the Pi off.\n\n' "$b"
+    "$BIN_DIR"/rq_slot_manager.sh promote --yes || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        printf '\nPROMOTE did not finish (see the message above). The Pi keeps starting from Slot B.\n'
+        ab_pause
+        return 0
+    fi
+    if ab_yesno "Slot A updated" "Restart now" "Later" \
+        "Slot A (stable) now holds ${b}.\n\nRestart now? The Pi then starts from Slot A.\n\nFor the next update: Software & Image Updates -> Slot Manager -> Install an update into Slot B."; then
+        clear
+        printf 'Restarting into Slot A...\n'
+        reboot
+        sleep 120
+    fi
+    return 0
 }
 
-# Main release picker function - returns "url|tag" or empty on cancel
-do_pick_release_image() {
-    local stream
-    local release_tag
-    local image_url
-    local github_user
-    local github_repo
-
-    # Step 0: Ask for repository source (default or custom)
-    local repo_choice
-    repo_choice=$(pick_repo_source) || return 1
-
-    if [ "$repo_choice" = "default" ]; then
-        # Use environment variables
-        github_user="${RQB_GIT_USER:-JanLahmann}"
-        github_repo="${REPO:-RasQberry-Two}"
+# Restart into <slot> on trial (tryboot); refused for a slot without a system
+ab_restart_into() {
+    local slot="$1" summary="$2" content other rc=0
+    other=$(ab_other "$slot")
+    if [ "$slot" = "A" ]; then
+        content=$(ab_value "$summary" slot_a)
     else
-        # Parse custom repo (format: user/repo)
-        github_user=$(echo "$repo_choice" | cut -d'/' -f1)
-        github_repo=$(echo "$repo_choice" | cut -d'/' -f2)
+        content=$(ab_value "$summary" slot_b)
     fi
+    if ! ab_has_system "$content"; then
+        ab_msgbox "Slot $slot cannot be started" "Slot ${slot} holds: $(ab_describe "$content"). The Pi cannot start from it.\n\nStarting a slot without a system leaves the Pi hanging at a black screen until it is switched off and on, so this is not offered.\n\n$(ab_fill_hint "$slot")"
+        return 0
+    fi
+    ab_yesno "Restart into Slot $slot" "Restart" "Cancel" \
+        "Restart now into Slot ${slot} ($(ab_slot_label "$slot")): ${content}?\n\nThe Pi starts Slot ${slot} on trial. If it starts properly, the health check makes it the default. If it does not start, switch the Pi off and on: it then starts Slot ${other} again (rarely, this takes a second time)." \
+        || return 0
+    clear
+    printf 'Restarting into Slot %s...\n\n' "$slot"
+    "$BIN_DIR"/rq_slot_manager.sh switch-to "$slot" --reboot || rc=$?
+    [ "$rc" -eq 0 ] && sleep 120
+    printf '\nThe switch to Slot %s did not happen (see the message above).\n' "$slot"
+    ab_pause
+    return 0
+}
 
-    # Step 1: Pick stream
-    stream=$(pick_stream) || return 1
-
-    # Step 2: Pick release from stream (pass repo info)
-    release_tag=$(pick_release "$stream" "$github_user" "$github_repo") || return 1
-
-    # Step 3: Pick image from release (pass repo info)
-    image_url=$(pick_image "$release_tag" "$github_user" "$github_repo") || return 1
-
-    # Return url|tag format
-    echo "${image_url}|${release_tag}"
+# Rollback: make the other slot the permanent default
+ab_rollback() {
+    local summary="$1" current other content out rc=0
+    current=$(ab_value "$summary" current)
+    other=$(ab_other "$current")
+    if [ "$other" = "A" ]; then
+        content=$(ab_value "$summary" slot_a)
+    else
+        content=$(ab_value "$summary" slot_b)
+    fi
+    if ! ab_has_system "$content"; then
+        ab_msgbox "Rollback not possible" "Slot ${other} holds: $(ab_describe "$content"). A rollback would make the Pi try to start from it at every start, and it would hang at a black screen.\n\n$(ab_fill_hint "$other")"
+        return 0
+    fi
+    ab_yesno "Go back to Slot $other" "Roll back" "Cancel" \
+        "Make Slot ${other} ($(ab_slot_label "$other")): ${content} the default for every start from now on?\n\nRunning now: Slot ${current}.\n\nUse this when the running system has problems. To only try the other slot once, choose 'Restart into Slot ${other}' instead." \
+        --defaultno || return 0
+    out=$("$BIN_DIR"/rq_slot_manager.sh rollback 2>&1) || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        ab_msgbox "Rollback" "$(printf '%s\n' "$out" | sed 's/^ERROR: //')"
+        return 0
+    fi
+    if ab_yesno "Rollback" "Restart now" "Later" \
+        "Slot ${other} is now the default.\n\nRestart now to start it?"; then
+        clear
+        printf 'Restarting into Slot %s...\n' "$other"
+        reboot
+        sleep 120
+    fi
+    return 0
 }
 
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
-    # Check if this is an AB boot image
-    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
-        whiptail --title "Not AB Boot Image" --msgbox \
-            "This system is not running an A/B boot image.\n\nSlot management is only available for AB boot layouts." \
-            10 60
-        return 1
-    fi
-
+    local summary current other prompt FUN out
     while true; do
-        # Get current status for menu display
-        local current_slot
-        current_slot=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Current Slot:" | awk '{print $NF}')
-        local slot_status
-        slot_status=$(/usr/bin/rq_slot_manager.sh status 2>&1 | grep "Slot Status:" | sed 's/.*Slot Status: //')
+        summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
+        if [ "$(ab_value "$summary" layout)" != "ab" ]; then
+            whiptail --title "Not AB Boot Image" --msgbox \
+                "This system is not running an A/B boot image.\n\nSlot management is only available for AB boot layouts." \
+                10 60
+            return 1
+        fi
+        current=$(ab_value "$summary" current)
+        other=$(ab_other "$current")
 
-        FUN=$(show_menu "RasQberry: A/B Boot Slot Manager" "Current: Slot ${current_slot} (${slot_status})" \
-            STATUS    "Show detailed slot status" \
-            CONFIRM   "Confirm current slot (prevent rollback)" \
-            TRYBOOT_A "Switch to Slot A and reboot now" \
-            TRYBOOT_B "Switch to Slot B and reboot now" \
-            UPDATE    "Update Slot B with new image" \
-            ROLLBACK  "Force rollback to other slot" \
-            PROMOTE   "Promote Slot B to Slot A") || break
+        prompt="Running: Slot ${current} ($(ab_slot_label "$current"))"
+        [ "$(ab_value "$summary" confirmed)" = "yes" ] || prompt="${prompt}, not confirmed yet"
+        prompt="${prompt}\nSlot A (stable):  $(ab_describe "$(ab_value "$summary" slot_a)")\nSlot B (testing): $(ab_describe "$(ab_value "$summary" slot_b)")\n\n$(ab_next_step "$summary")"
+
+        FUN=$(ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" \
+            UPDATE    "Install an update into Slot B (testing)" \
+            PROMOTE   "Make Slot B the stable system (copy B to A)" \
+            "TRYBOOT_${other}" "Restart into Slot ${other} ($(ab_slot_label "$other"))" \
+            STATUS    "Show slot details" \
+            CONFIRM   "Keep the running slot as the default" \
+            ROLLBACK  "Go back to Slot ${other} for good (rollback)") || break
 
         case "$FUN" in
+            UPDATE)    do_ab_install_update ;;
+            PROMOTE)   do_ab_promote "$summary" ;;
+            TRYBOOT_A) ab_restart_into A "$summary" ;;
+            TRYBOOT_B) ab_restart_into B "$summary" ;;
             STATUS)
-                local status_output
-                status_output=$(/usr/bin/rq_slot_manager.sh status 2>&1)
-                whiptail --title "A/B Boot Status" --msgbox "$status_output" 20 70
+                out=$("$BIN_DIR"/rq_slot_manager.sh status 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
+                ab_msgbox "A/B Boot Status" "$out"
                 ;;
             CONFIRM)
-                local confirm_output
-                confirm_output=$(/usr/bin/rq_slot_manager.sh confirm 2>&1)
-                whiptail --title "Confirm Slot" --msgbox "$confirm_output" 12 60
+                out=$("$BIN_DIR"/rq_slot_manager.sh confirm 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
+                ab_msgbox "Confirm Slot" "$out"
                 ;;
-            TRYBOOT_A)
-                if whiptail --title "Switch to Slot A" --yesno \
-                    "This will switch to Slot A and reboot immediately.\n\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 12 60; then
-                    whiptail --title "Switching to Slot A" --infobox \
-                        "Configuring tryboot and rebooting to Slot A..." 6 50
-                    exec /usr/bin/rq_slot_manager.sh switch-to A --reboot
-                fi
-                ;;
-            TRYBOOT_B)
-                if whiptail --title "Switch to Slot B" --yesno \
-                    "This will switch to Slot B and reboot immediately.\n\nNote: Slot B must have a valid system image installed.\nIf the boot fails, the system will automatically rollback.\n\nContinue?" 14 60; then
-                    whiptail --title "Switching to Slot B" --infobox \
-                        "Configuring tryboot and rebooting to Slot B..." 6 50
-                    exec /usr/bin/rq_slot_manager.sh switch-to B --reboot
-                fi
-                ;;
-            UPDATE)
-                # Use release picker to select image from GitHub
-                local picker_result
-                picker_result=$(do_pick_release_image) || continue
-
-                # Parse result (url|tag format)
-                local image_url
-                local release_tag
-                image_url=$(echo "$picker_result" | cut -d'|' -f1)
-                release_tag=$(echo "$picker_result" | cut -d'|' -f2)
-
-                if [ -z "$image_url" ] || [ -z "$release_tag" ]; then
-                    whiptail --title "Error" --msgbox "Failed to get image selection." 8 50
-                    continue
-                fi
-
-                # Extract just the filename for display
-                local image_name
-                image_name=$(basename "$image_url")
-
-                if whiptail --title "Confirm Update" --yesno \
-                    "This will download and install:\n\nRelease: $release_tag\nImage: $image_name\n\nThis will take 10-20 minutes and reboot automatically.\n\nContinue?" 16 70; then
-
-                    whiptail --title "Updating Slot B" --infobox \
-                        "Downloading and installing image to Slot B...\n\nThis will take 10-20 minutes.\nSystem will reboot automatically when complete." 10 60
-
-                    # Run update script (reboots automatically via slot manager)
-                    exec /usr/bin/rq_update_slot.sh "$image_url" "$release_tag" --slot B
-                fi
-                ;;
-            ROLLBACK)
-                if whiptail --title "Force Rollback" --yesno \
-                    "This will force a rollback to the other slot.\n\nUse this if the current slot is having problems.\n\nContinue?" 12 60; then
-                    local rollback_output
-                    rollback_output=$(/usr/bin/rq_slot_manager.sh rollback 2>&1)
-                    whiptail --title "Rollback" --msgbox "$rollback_output\n\nReboot required for changes to take effect." 14 60
-                fi
-                ;;
-            PROMOTE)
-                if whiptail --title "Promote Slot B" --yesno \
-                    "This will promote Slot B to become the new Slot A.\n\nThis copies the tested Slot B system to Slot A.\n\nWARNING: This will overwrite Slot A!\n\nContinue?" 14 60; then
-                    whiptail --title "Promoting Slot B" --infobox \
-                        "Promoting Slot B to Slot A...\n\nThis may take several minutes." 8 50
-                    local promote_output
-                    promote_output=$(/usr/bin/rq_slot_manager.sh promote 2>&1)
-                    whiptail --title "Promote Result" --msgbox "$promote_output" 16 70
-                fi
-                ;;
-            *)
-                continue
-                ;;
+            ROLLBACK)  ab_rollback "$summary" ;;
+            *)         continue ;;
         esac
     done
 }
