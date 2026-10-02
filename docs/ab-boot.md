@@ -10,108 +10,107 @@ For validation history and the fixes behind it, see
 
 ---
 
-## First: expand the partitions
+## First start: the card sets itself up
 
-**A freshly flashed A/B image cannot do A/B until you expand it.** The image
-ships with Slot B and the data partition as **16MB placeholders** — there is no
-room to put a system in Slot B, so every A/B operation fails until they grow:
+The A/B image ships small so the download stays ~12 GB: Slot A is 10 GiB, Slot B
+and the data partition are placeholders (16 MB and 28 MB). On its **first start**
+the card is laid out to fit, before the desktop comes up
+(`rasqberry-ab-layout.service` -> [`rq_expand_ab.sh`](../RQB2-bin/rq_expand_ab.sh) `firstboot`):
 
-| Symptom on an unexpanded card | What you are actually seeing |
-|---|---|
-| `SYSTEM-B` is 16MB in `lsblk` | The placeholder. This is the giveaway. |
-| Root filesystem sits at ~95% full when idle | The image is ~9.3GB and the unexpanded Slot A is 10GB. That is all the space there is. |
-| `rq_update_slot.sh` dies with "Not enough free space … 15GB needed" | It stages the download in `/var/tmp`, on the 10GB root. The requirement cannot be met on an unexpanded slot, no matter how much you clean up. |
-| Docker demos (quantum-mixer, Qoffee-Maker) fill the disk and die | ~500MB of headroom cannot hold an image build. |
-| Most of the SD card is unpartitioned | e.g. a 238GB card with only ~11.5GB in use. |
-
-The placeholders are deliberate. The A/B image is not built by pi-gen directly:
-CI takes the finished standard image and runs
-[`stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh`](../stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh)
-over it (`.github/workflows/RQB-image-v2.yaml`), which rewrites 2 partitions into
-the 7-partition A/B layout. That script is the source of truth for the layout,
-and its own header states the strategy:
-
-> Key improvements over v2:
->   - Small initial image (~12GB) for fast download
->   - Partitions expand via raspi-config on 64GB+ SD cards
-
-So Slot B and data are 16MB **so that the download stays ~12GB instead of ~120GB**
-— the image ships minimal and grows to fit the card it lands on. The expansion
-percentages (data 10%, system-a 45%, system-b 45%) are specified in that header
-and implemented in `do_expand_ab_partitions`; if you change one, change both.
-
-### Why isn't it automatic, like the standard image?
-
-Because it was made manual on purpose. The two images expand differently:
-
-| | Standard image | A/B image |
+| Card | What the first start does | Result (measured on loop-device copies of the real image) |
 |---|---|---|
-| Expands | automatically, on first boot | **only when you ask** |
-| By | `/usr/local/lib/rasqberry-firstboot.d/01-expand-filesystem.sh`, run by `rasqberry-firstboot.service` → `raspi-config nonint do_expand_rootfs` | `raspi-config` → RasQberry → AB_BOOT → EXPAND (`do_expand_ab_partitions` in `RQB2-config/RQB2_menu.sh`) |
-| Decides sizes | grow root to fill the card | you confirm a 45/45/10 split first |
+| **64 GB or larger** (58 GiB or more - a genuine "64GB" card is ~59.5 GiB) | **two systems**: Slot A grows in place, Slot B and DATA are created | 64 GB card: Slot A 28.0 GB, Slot B 28.0 GB, DATA 6.2 GB |
+| **smaller** (16 GB, 32 GB) | **one system**: Slot A grows to the card minus DATA; Slot B stays a 16 MB placeholder | 32 GB: Slot A 27.3 GB, DATA 3.0 GB; 16 GB: Slot A 12.9 GB, DATA 1.4 GB |
 
-There is **no standalone A/B expansion script, by design.** One existed
-(`stage-RQB2/00-firstboot-expansion/files/02-expand-ab-partitions.sh`) and was
-removed in `54f6a3f` (2025-11-23, issue #142): *"Replace automatic firstboot
-expansion with manual raspi-config approach for A/B boot images. This gives
-users control over partition sizing."* Splitting a card in half is not a
-decision to make behind the user's back, so A/B asks. The trade is that a fresh
-A/B card does nothing until someone knows to ask — which is what this page is
-for.
+It takes seconds to a few minutes and shows "Preparing the SD card (n/7) - do
+not switch off" on the splash screen. The split for two systems is 45% / 45% /
+10% of the space after the boot partitions, as the manual expansion always was.
+DATA is 10% of the card in both cases (it holds the user data that survives
+updates, see below). A log is written to `/var/log/rasqberry-expand.log`.
 
-The firstboot task is generated into the image at build time (a heredoc in
-`stage-RQB2/00-firstboot-setup/00-run-chroot.sh`), so it exists on the running
-Pi but not as a file in this repo — grepping the source for its filename finds
-nothing.
+This reverses the earlier "the user decides" rule of #142 (Jan, 2026-10-02).
+It only happens on a card written from an image that says so: the converter
+writes `ab-layout` = `pending` onto the CONFIG partition. Cards written from
+older images are never repartitioned by themselves.
 
-It is meant to stand down on A/B images via a `/boot/firmware/skip-expansion`
-marker ("typically used for A/B boot setup"). **That marker is not actually on
-the A/B images we ship** — checked on two rig Pis, neither had it — so the
-standard task does run on an A/B card. In practice it is harmless: it marks
-itself done without expanding, because `raspi-config nonint do_expand_rootfs`
-will not grow a root partition that is not last on the disk (p6 and p7 sit after
-it). It leaves `01-expand-filesystem.sh.done` behind and no expansion, which is
-one more reason a fresh A/B card looks like it "already expanded" when it has
-not. Worth either shipping the marker or teaching the task to recognise an A/B
-layout.
+### Opting out: `no-auto-expand`
 
-### Requirements
+To keep a new card **exactly as written**, create an empty file named
+**`no-auto-expand`** (`no-auto-expand.txt` works too, for Windows) on the
+**CONFIG** partition before its first start - that is the first FAT partition
+a PC shows when the card is inserted, next to `autoboot.txt` and `ab-layout`.
+The card then stays at Slot A 10 GiB with placeholders until you set it up
+from the menu, or delete the file (the next start then does it).
 
-- **A 64GB or larger SD card.** Expansion refuses to run below ~63GB. On a
-  smaller card you keep the single 10GB Slot A and simply do not use A/B.
-- The Pi boots normally (expansion runs on the live system).
+### By hand
 
-### How to expand
+    sudo raspi-config  ->  0 RasQberry  ->  Software & Image Updates
 
-    sudo raspi-config   →   RasQberry   →   AB_BOOT   →   EXPAND
+shows "Prepare the card for A/B updates" (64GB+ card) or "Use the whole card"
+(smaller card) whenever a card is still in its shipped layout, e.g. after the
+opt-out or on a card written from an older image. From a shell:
 
-It shows the proposed sizes, asks once, then takes a few minutes. **Do not power
-off during it.** No reboot is needed afterwards. A log is written to
-`/var/log/rasqberry-expand.log`.
+    sudo rq_expand_ab.sh status            # mode, sizes, state
+    sudo rq_expand_ab.sh plan --text       # what it would do
+    sudo rq_expand_ab.sh apply --yes       # do it (--dual / --single to choose)
 
-### What you get
+Slot A keeps its contents - it is grown in place. Slot B and DATA are created
+fresh; the little that is on the 28 MB placeholder DATA (the LED settings) is
+copied aside first and put back. If the set-up is cut off (power), `ab-layout`
+says `resume-dual` or `resume-single` and the next start finishes it.
+The partition table is written in one `sfdisk` call; `parted` is not used
+any more, because `parted -s` refuses to resize the extended partition while
+Slot A is mounted (on the Pi it only worked because the root shows up as
+`/dev/root` and parted could not tell it was busy).
 
-Fixed partitions (config + boot-a + boot-b = 1.5GB) come off the top; the rest is
-split **45% Slot A / 45% Slot B / 10% data**. Measured on real cards:
+### Small cards: one system
 
-| SD card | System-A | System-B | Data | |
-|---|---|---|---|---|
-| 119GB | 52.9GB | 52.9GB | 11.8GB | validated 2025-12-31 |
-| 238GB | 106.6GB | 106.6GB | 23.7GB | validated 2026-07-17 |
+A card under 64 GB runs **one system** ("single-system mode"): it uses the
+whole card, but there is no second slot to install an update into. The menu
+says so instead of offering dead ends: "Software & Image Updates" shows
+"Why there are no A/B updates on this card" instead of the Slot Manager, and
+"Check for a newer image" says to write the new image to a card (copy your
+files first - that erases the card). `rq_update_slot.sh` explains the same
+instead of "run partition expansion first". A small card cannot become a
+two-system card later (that would need Slot A to shrink); use a 64 GB card.
 
-A 64GB card lands near 26GB / 26GB / 6GB.
+### Requirements and checks
 
-Slot A keeps its contents — it is grown in place, not rewritten. Slot B and data
-are created fresh and formatted, so **anything in `/data` is destroyed**. On a
-newly flashed card there is nothing there to lose. The operation cannot be
-undone, so if `/data` holds anything you care about, copy it off first.
+- The Pi boots normally (the set-up runs on the live system, no reboot).
+- `sudo rq_slot_manager.sh status` explains what the card can do whenever Slot
+  B is a placeholder. If `SYSTEM-B` is over 1 GB, the card has two systems.
 
-### Checking
+---
 
-    sudo rq_slot_manager.sh status
+## What survives an update
 
-`status` warns you when Slot B is still a placeholder. If `SYSTEM-B` is over 1GB,
-you are expanded.
+Each slot has its own root filesystem, so a slot written by an update starts
+with the image's defaults. Since B4 ([`rq_carry_over.sh`](../RQB2-bin/rq_carry_over.sh),
+`rasqberry-carry-over.service`, before the network and the desktop start):
+
+| | How |
+|---|---|
+| `~/Shared` (a folder for your files) | lives on DATA (`/data/home/<user>/Shared`), linked from the home folder in both slots |
+| `~/.qiskit` (IBM Quantum account) | lives on DATA (`/data/home/<user>/.qiskit`), linked |
+| Wi-Fi networks (NetworkManager profiles) | live on DATA (`/data/rasqberry/system-connections`), bind-mounted over `/etc/NetworkManager/system-connections` |
+| LED panel settings | on DATA (`rq_device_settings.sh`, #290) |
+| password of the desktop user, hostname, time zone, locale, keyboard layout, "Browser at login", the checklist's "Don't ask again" | copied once from the other slot on the first start of a freshly written slot (the image carries `/var/lib/rasqberry/carry-over-pending`) |
+| SSH host keys and `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`, #275) |
+
+**Not kept** (they stay in the old slot): other files in the home folder,
+installed demos, Docker images, Python packages you added. Put files you want
+to keep in `~/Shared`.
+
+The new image pulls these from the old slot rather than the old updater pushing
+them, so even the first update from a release that knows nothing about it
+carries everything over; a slot that predates DATA also has its `~/.qiskit` and
+Wi-Fi profiles moved onto DATA then.
+
+**The password** is carried over (its hash from `/etc/shadow`, never the plain
+text; only the desktop user's entry, system accounts come from the new image).
+Otherwise every update would silently put the published default password back on
+a device whose owner had changed it, with SSH and VNC on - and the owner's own
+password would stop working.
 
 ---
 
@@ -132,10 +131,27 @@ branch you are sitting on.
     sudo rq_slot_manager.sh confirm                # keep this slot
     sudo rq_slot_manager.sh rollback && sudo reboot
 
-A slot booted with `switch-to` is **on probation**: unless it is confirmed, the
-next reboot returns to the previous slot. The health check confirms a healthy
-slot automatically. That is the safety net — a slot that cannot boot cannot trap
-you.
+A slot booted with `switch-to` is **on probation** (the firmware starts it once
+with the tryboot flag): unless it is confirmed, the next reboot returns to the
+previous slot. The health check confirms a healthy slot automatically. Since B4
+the return needs nobody at the Pi (R-054):
+
+- **The kernel cannot start**: `panic=10` in both slots' `cmdline.txt` reboots
+  after 10 s, and the reboot starts the old slot. `rq_tryboot_retry.sh` tries
+  the new slot once more (the tryboot flag is sometimes lost after a big
+  write), then gives up; the old slot records the failure.
+- **The new slot starts but a check fails** (venv, Qiskit, and - on a desktop
+  image - the display manager within 5 minutes): the health check records it
+  and reboots into the old slot at once, without retrying.
+- **Start-up hangs** (a service never finishes, emergency mode):
+  `rasqberry-probation.timer` reboots into the old slot 15 minutes after boot
+  if the trial boot is still unconfirmed. A kernel or PID 1 hang is caught by
+  systemd's hardware watchdog (15 s), armed for the trial boot only.
+
+A failed switch leaves `/boot/config/last-switch-failed` (slot, reason, time),
+which `rq_slot_manager.sh status` shows. If the Pi still does not start: open
+the CONFIG partition on a PC and set `boot_partition=2` (Slot A) or `3`
+(Slot B) under `[all]` in `autoboot.txt`.
 
 Slot A is the **stable** slot and Slot B is the **testing** slot. When a system
 in Slot B has proven itself:
@@ -150,8 +166,12 @@ in Slot B has proven itself:
 | p2 | BOOT-A | /boot/firmware (on A) | Boot files, Slot A | 512MB |
 | p3 | boot-b | /boot/firmware (on B) | Boot files, Slot B | 512MB |
 | p5 | SYSTEM-A | / (on A) | Root filesystem, Slot A | 10GB |
-| p6 | SYSTEM-B | / (on B) | Root filesystem, Slot B | **16MB placeholder** |
-| p7 | data | /data | Shared user data | **16MB placeholder** |
+| p6 | SYSTEM-B | / (on B) | Root filesystem, Slot B | **16MB placeholder** (set up on first start on 64GB+ cards) |
+| p7 | DATA | /data | Shared user data (see "What survives an update") | **28MB placeholder** (10% of the card after the first start) |
+
+The CONFIG partition also holds `ab-layout` (`pending` / `dual` / `single` /
+`resume-*`, see above), the opt-out file `no-auto-expand` if you made one, and
+`last-switch-failed` after a rolled-back switch.
 
 `/boot/config` (p1) is shared by both slots and holds `autoboot.txt` — that is
 what the firmware reads to decide which slot boots. `/usr/config` is *not*
@@ -160,8 +180,8 @@ shared: it lives on each slot's own root.
 ## Quick reference
 
 ```bash
-# One time, on a 64GB+ card - REQUIRED before anything else works
-sudo raspi-config     # -> RasQberry -> AB_BOOT -> EXPAND
+sudo rq_expand_ab.sh status                       # two systems, one, or not set up yet
+sudo raspi-config     # -> 0 RasQberry -> Software & Image Updates (set up by hand)
 
 sudo rq_slot_manager.sh status                    # current slot, sizes, warnings
 sudo rq_update_slot.sh <ab-image-url> <tag>       # write a system into the other slot
