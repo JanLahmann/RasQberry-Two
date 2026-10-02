@@ -1,5 +1,5 @@
 import { promises as fs } from "fs";
-import { join } from 'path'
+import { join, relative } from 'path'
 import { PageLayout } from "@/components/PageLayout";
 import { extractHeadersFromMd } from '@/utils/extractHeadersFromMd';
 import { getPagesFilesPaths } from '@/utils/getPagesFilesPath';
@@ -46,6 +46,7 @@ export default async function Page({ params }: Props) {
         navItems={navItems}
         tableofcontent={{ items: tocItems }}
         pagePath={path}
+        contentFile={relative(CONTENT_PATH, filePath)}
     >
         {content}
     </PageLayout>

@@ -52,7 +52,7 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'ligh
                                 {cta.primary.label}
                             </Button>
                         </Link>
-                        {cta.secondary && <Link renderIcon={secondaryIcon} href={cta.secondary.url} target={cta.primary.target || '_self'}>{cta.secondary.label}</Link>}
+                        {cta.secondary && <Link renderIcon={secondaryIcon} href={cta.secondary.url} target={cta.secondary.target || '_self'}>{cta.secondary.label}</Link>}
                     </div>
                     )}
                 </Column>
