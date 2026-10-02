@@ -88,6 +88,48 @@ def create_rasqberry_icon(width=24, height=8):
     return img
 
 
+# The RasQberry cube as pixel art: the three faces of the logo's cube - the
+# Qiskit sphere on top (blue), the raspberry on the left (red), 3D printing on
+# the right (grey) - on a DARK background. Resizing the 1000x1000 artwork gave
+# an almost solid white rectangle on the panel, the brightest frame any demo
+# shows (R-159, R-007); this lights about 60 of 192 LEDs, none of them white.
+_CUBE_ROWS = [
+    "..........TTT...........",
+    "........TTTTTTT.........",
+    "......LLTTTTTTTRR.......",
+    "......LLLLTTTRRRR.......",
+    "......LLLLL.RRRRR.......",
+    "......LLLLL.RRRRR.......",
+    "........LLL.RRR.........",
+    "..........L.R...........",
+]
+_CUBE_COLOURS = {
+    'T': (0, 110, 230),    # top: Qiskit blue
+    'L': (200, 0, 70),     # left: raspberry red
+    'R': (120, 120, 120),  # right: grey
+}
+
+
+def create_rasqberry_cube(width=24, height=8):
+    """
+    Create the RasQberry cube logo as pixel art on a dark background.
+
+    Args:
+        width (int): Image width (the cube is centred).
+        height (int): Image height (8 rows are drawn).
+
+    Returns:
+        PIL.Image: The logo.
+    """
+    img = Image.new('RGB', (width, height), color=(0, 0, 0))
+    offset = (width - len(_CUBE_ROWS[0])) // 2
+    for y, row in enumerate(_CUBE_ROWS[:height]):
+        for x, cell in enumerate(row):
+            if cell in _CUBE_COLOURS and 0 <= x + offset < width:
+                img.putpixel((x + offset, y), _CUBE_COLOURS[cell])
+    return img
+
+
 def resize_existing_logo(source_path, target_width, target_height):
     """
     Resize existing high-resolution logo to LED matrix size.
@@ -132,20 +174,12 @@ def main():
     rq_icon.save(rq_icon_path)
     print(f"   Saved: {rq_icon_path}")
 
-    # 3. Resize existing RasQberry cube logo
-    print("\n3. Creating RasQberry cube logo from artwork...")
-    artwork_path = os.path.join(script_dir, "..", "Artwork", "Logo-Wallpaper", "RasQberry Cube Logo 1000x1000.png")
-    if os.path.exists(artwork_path):
-        cube_logo = resize_existing_logo(artwork_path, 24, 8)
-        if cube_logo:
-            cube_path = os.path.join(script_dir, "rasqberry-cube-24x8.png")
-            cube_logo.save(cube_path)
-            print(f"   Saved: {cube_path}")
-    else:
-        print(f"   Source not found: {artwork_path}")
-        print("   Creating placeholder instead...")
-        # Use the icon as fallback
-        rq_icon.save(os.path.join(script_dir, "rasqberry-cube-24x8.png"))
+    # 3. RasQberry cube logo (pixel art, dark background - not the resized
+    #    artwork, which came out as a white block on the panel, R-159)
+    print("\n3. Creating RasQberry cube logo (24x8)...")
+    cube_path = os.path.join(script_dir, "rasqberry-cube-24x8.png")
+    create_rasqberry_cube(24, 8).save(cube_path)
+    print(f"   Saved: {cube_path}")
 
     # 4. Create 16x8 versions for smaller displays
     print("\n4. Creating 16x8 variants...")
