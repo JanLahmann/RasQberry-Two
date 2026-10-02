@@ -1,0 +1,16 @@
+[Unit]
+Description=RasQberry: roll back an updated A/B slot that does not finish starting
+Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot.md
+# Started at the very beginning of every boot and kept through emergency
+# mode (IgnoreOnIsolate): 15 minutes after boot, rq_health_check.py
+# --deadline reboots back to the working slot if this boot is a trial boot
+# (tryboot) that never got confirmed. On any other boot it does nothing.
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+
+[Timer]
+OnBootSec=15min
+AccuracySec=30s
+
+[Install]
+WantedBy=sysinit.target

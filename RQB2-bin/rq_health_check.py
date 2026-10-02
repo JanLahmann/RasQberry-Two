@@ -2,38 +2,70 @@
 """
 RasQberry A/B Boot Health Check
 
-Validates that a newly booted system is functional and confirms the boot slot.
-This script runs automatically after booting into a new slot (tryboot mode).
+Validates that a booted system is functional and confirms the boot slot.
+Runs at every boot (rasqberry-health-check.service); on an A/B card it matters
+most on the first boot of a newly installed slot, which the firmware starts
+once with the tryboot flag ("on probation").
 
 Success criteria:
-- SSH is accessible (implicit - script is running)
-- Qiskit is installed in virtual environment
-- Virtual environment exists
+- the virtual environment exists and Qiskit is installed in it
+- on probation with a desktop (default target graphical.target): the display
+  manager came up
 
-If all checks pass: Confirms the slot (prevents rollback)
-If any check fails: Exits non-zero (triggers automatic rollback to previous slot)
+If all checks pass: confirms the slot (it becomes the default; no rollback).
+
+If a check fails ON PROBATION: records the failure on the CONFIG partition
+(/boot/config/last-switch-failed), clears the pending switch so it is not
+retried, and reboots. The tryboot flag only lasts one boot, so the firmware
+then starts the slot that worked (autoboot.txt [all]) - automatic rollback,
+no power cycle needed (R-054). Outside probation a failure is only reported.
+
+The other halves of the rollback safety net:
+- panic=10 in both slots' cmdline.txt: a kernel that cannot start reboots
+  instead of hanging (convert-to-ab-boot-v3.sh, rq_update_slot.sh)
+- rq_tryboot_retry.sh arms systemd's hardware watchdog (15 s) for the
+  probation boot; this script disarms it again after confirming
+- rasqberry-probation.timer runs this script with --deadline 15 minutes after
+  boot: a probation boot that never got confirmed (hung start-up, emergency
+  mode) is rolled back the same way
 
 Timeout: 10 minutes (configured in systemd service)
 """
 
+import logging
 import os
 import subprocess
 import sys
 import time
-import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/var/log/rasqberry-health-check.log')
-    ]
-)
-logger = logging.getLogger(__name__)
+# Paths (overridable for tests)
+BOOT_CONFIG_DIR = Path(os.environ.get('RQ_BOOT_CONFIG_DIR', '/boot/config'))
+DT_BOOTLOADER_DIR = Path(os.environ.get('RQ_DT_BOOTLOADER_DIR',
+                                        '/proc/device-tree/chosen/bootloader'))
+FAILED_NOTICE = 'last-switch-failed'
+WATCHDOG_MARKER = Path(os.environ.get('RQ_WATCHDOG_MARKER',
+                                      '/run/rasqberry/probation-watchdog'))
+SLOT_MANAGER = Path(os.environ.get('RQ_SLOT_MANAGER', '/usr/bin/rq_slot_manager.sh'))
+DISPLAY_MANAGER_TIMEOUT = 300      # seconds to wait for the desktop on probation
+DEADLINE_MINUTES = 15              # rasqberry-probation.timer OnBootSec
+
+
+def _setup_logging() -> logging.Logger:
+    handlers = [logging.StreamHandler(sys.stdout)]
+    log_file = os.environ.get('RQ_HEALTH_LOG', '/var/log/rasqberry-health-check.log')
+    try:
+        handlers.append(logging.FileHandler(log_file))
+    except OSError:
+        pass  # not root (tests) - stdout only
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        handlers=handlers)
+    return logging.getLogger(__name__)
+
+
+logger = _setup_logging()
 
 
 def load_environment() -> dict:
@@ -176,6 +208,286 @@ def detect_ab_layout() -> Tuple[bool, str]:
         return False, 'none'
 
 
+# ---------------------------------------------------------------------------
+# Probation and automatic rollback (R-054)
+# ---------------------------------------------------------------------------
+
+def read_dt_u32(name: str, base: Optional[Path] = None) -> Optional[int]:
+    """
+    Read a big-endian u32 the bootloader left in the device tree.
+
+    /proc/device-tree/chosen/bootloader/tryboot is 1 when the firmware
+    started this boot with the tryboot flag (Pi 4 and Pi 5, checked on the
+    rig 2026-10-02).
+
+    Args:
+        name (str): property name, e.g. 'tryboot' or 'partition'
+        base (Path): directory holding the properties (tests)
+
+    Returns:
+        int or None: the value, or None when the property is not there
+    """
+    path = (base or DT_BOOTLOADER_DIR) / name
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if len(data) < 4:
+        return None
+    return int.from_bytes(data[:4], 'big')
+
+
+def slot_from_root(root_dev: str) -> Optional[str]:
+    """
+    Slot of a root device on the A/B layout (p5 = Slot A, p6 = Slot B).
+
+    Args:
+        root_dev (str): e.g. '/dev/mmcblk0p6'
+
+    Returns:
+        str or None: 'A', 'B' or None
+    """
+    if root_dev.endswith('5'):
+        return 'A'
+    if root_dev.endswith('6'):
+        return 'B'
+    return None
+
+
+def current_root_device() -> str:
+    """
+    The device mounted at / (findmnt).
+
+    Returns:
+        str: device path, '' if unknown
+    """
+    try:
+        return subprocess.run(['findmnt', '/', '-o', 'source', '-n'],
+                              capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        return ''
+
+
+def slot_boot_partition(slot: str) -> int:
+    """
+    Boot partition number of a slot (v3 layout: BOOT-A = 2, BOOT-B = 3).
+
+    Args:
+        slot (str): 'A' or 'B'
+
+    Returns:
+        int: partition number
+    """
+    return 2 if slot == 'A' else 3
+
+
+def autoboot_default_partition(text: str) -> Optional[int]:
+    """
+    boot_partition of the [all] section of autoboot.txt: what a normal boot
+    (without the tryboot flag) starts.
+
+    Args:
+        text (str): autoboot.txt contents
+
+    Returns:
+        int or None: partition number
+    """
+    section = 'all'
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith('[') and line.endswith(']'):
+            section = line[1:-1].strip().lower()
+            continue
+        if section == 'all' and line.startswith('boot_partition='):
+            try:
+                return int(line.split('=', 1)[1].strip())
+            except ValueError:
+                return None
+    return None
+
+
+def _read(path: Path) -> str:
+    try:
+        return path.read_text().strip()
+    except OSError:
+        return ''
+
+
+def on_probation(config_dir: Path, slot: Optional[str], tryboot_flag: Optional[int]) -> bool:
+    """
+    Is this the unconfirmed first boot of a slot switch?
+
+    True when a switch to this very slot is pending (target-slot), the slot is
+    not confirmed yet, and the firmware did not say this was a normal boot.
+    A slot reached by firmware fallback (tryboot flag 0) is never on
+    probation: rolling it back could boot a broken slot again and loop.
+
+    Args:
+        config_dir (Path): the CONFIG partition (/boot/config)
+        slot (str): the running slot
+        tryboot_flag (int or None): chosen/bootloader/tryboot, None if unknown
+
+    Returns:
+        bool
+    """
+    if slot not in ('A', 'B'):
+        return False
+    if _read(config_dir / 'target-slot') != slot:
+        return False
+    if (config_dir / 'slot-confirmed').exists():
+        return False
+    if tryboot_flag == 0:
+        return False
+    return True
+
+
+def rollback_target_exists(config_dir: Path, slot: str) -> bool:
+    """
+    Would a normal reboot start a DIFFERENT slot than this one?
+
+    Args:
+        config_dir (Path): the CONFIG partition
+        slot (str): the running slot
+
+    Returns:
+        bool: False when autoboot.txt [all] already points at this slot (a
+        reboot would come straight back - never reboot then)
+    """
+    default = autoboot_default_partition(_read(config_dir / 'autoboot.txt'))
+    return default is not None and default != slot_boot_partition(slot)
+
+
+def record_failed_switch(config_dir: Path, slot: str, reason: str,
+                         version: str = '') -> None:
+    """
+    Leave a notice on the CONFIG partition (both slots and a PC can read it;
+    rq_slot_manager.sh status shows it) and clear the pending switch, so
+    rq_tryboot_retry.sh does not try the failed slot again.
+
+    Args:
+        config_dir (Path): the CONFIG partition
+        slot (str): the slot that failed
+        reason (str): one line for the user
+        version (str): the failed slot's /etc/rasqberry-version, if known
+    """
+    lines = [f"slot={slot}", f"reason={reason}",
+             f"time={time.strftime('%Y-%m-%d %H:%M:%S')}"]
+    if version:
+        lines.append(f"version={version}")
+    try:
+        (config_dir / FAILED_NOTICE).write_text('\n'.join(lines) + '\n')
+    except OSError as e:
+        logger.warning(f"Could not write {config_dir / FAILED_NOTICE}: {e}")
+    for name in ('target-slot', 'switch-retries'):
+        try:
+            (config_dir / name).unlink()
+        except OSError:
+            pass
+
+
+def reboot_now() -> None:
+    """Reboot without the tryboot flag (the firmware then starts autoboot.txt [all])."""
+    if os.environ.get('RQ_HEALTH_NO_REBOOT') == '1':
+        logger.info("(RQ_HEALTH_NO_REBOOT=1: not rebooting)")
+        return
+    subprocess.run(['sync'], check=False)
+    subprocess.run(['systemctl', 'reboot'], check=False)
+
+
+def fail_probation(config_dir: Path, slot: str, reason: str) -> str:
+    """
+    A slot on probation failed: record it and go back to the slot that worked.
+
+    Args:
+        config_dir (Path): the CONFIG partition
+        slot (str): the running (failed) slot
+        reason (str): why
+
+    Returns:
+        str: 'rolled-back' or 'no-rollback-target'
+    """
+    version = _read(Path('/etc/rasqberry-version'))
+    record_failed_switch(config_dir, slot, reason, version)
+    if not rollback_target_exists(config_dir, slot):
+        logger.error("✗ autoboot.txt already starts this slot by default - "
+                     "not rebooting (it would come straight back)")
+        return 'no-rollback-target'
+    other = 'B' if slot == 'A' else 'A'
+    logger.error(f"✗ Slot {slot} failed on its trial boot ({reason}). "
+                 f"Rebooting into Slot {other}, the system that worked.")
+    reboot_now()
+    return 'rolled-back'
+
+
+def wait_for_display_manager(timeout: int = DISPLAY_MANAGER_TIMEOUT,
+                             poll: float = 5.0) -> Tuple[bool, str]:
+    """
+    On a desktop image, wait until the display manager is active.
+
+    Not graphical.target itself: this service is part of multi-user.target,
+    which graphical.target waits for, so that would never become active
+    while we wait.
+
+    Args:
+        timeout (int): seconds
+        poll (float): seconds between checks
+
+    Returns:
+        Tuple of (success, message)
+    """
+    try:
+        default = subprocess.run(['systemctl', 'get-default'], capture_output=True,
+                                 text=True, timeout=10).stdout.strip()
+    except Exception:
+        default = ''
+    if default != 'graphical.target':
+        return True, f"default target {default or 'unknown'} - no desktop to check"
+    deadline = time.monotonic() + timeout
+    state = ''
+    while True:
+        try:
+            state = subprocess.run(['systemctl', 'is-active', 'display-manager.service'],
+                                   capture_output=True, text=True, timeout=10).stdout.strip()
+        except Exception:
+            state = 'unknown'
+        if state == 'active':
+            return True, "display manager active"
+        if time.monotonic() >= deadline:
+            return False, f"desktop did not start within {timeout}s (display-manager: {state})"
+        time.sleep(poll)
+
+
+def set_runtime_watchdog(seconds: int) -> bool:
+    """
+    Arm (seconds > 0) or disarm (0) systemd's hardware watchdog at runtime.
+
+    Args:
+        seconds (int): RuntimeWatchdogSec
+
+    Returns:
+        bool: success
+    """
+    try:
+        r = subprocess.run(['busctl', 'set-property', 'org.freedesktop.systemd1',
+                            '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager',
+                            'RuntimeWatchdogUSec', 't', str(seconds * 1000000)],
+                           capture_output=True, text=True, timeout=10)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def disarm_probation_watchdog() -> None:
+    """Switch off the watchdog rq_tryboot_retry.sh armed for the trial boot."""
+    if WATCHDOG_MARKER.exists():
+        if set_runtime_watchdog(0):
+            logger.info("✓ Trial-boot watchdog disarmed")
+        try:
+            WATCHDOG_MARKER.unlink()
+        except OSError:
+            pass
+
+
 def confirm_boot_slot() -> bool:
     """
     Confirm the current boot slot to prevent rollback.
@@ -194,7 +506,7 @@ def confirm_boot_slot() -> bool:
 
     logger.info("A/B boot system detected")
 
-    slot_manager = Path('/usr/bin/rq_slot_manager.sh')
+    slot_manager = SLOT_MANAGER
 
     if not slot_manager.exists():
         logger.warning("Slot manager not found, cannot confirm slot")
@@ -203,28 +515,34 @@ def confirm_boot_slot() -> bool:
     # If a slot switch was requested, verify we actually booted the target
     # slot. Blindly confirming would mask a failed tryboot (system silently
     # kept running the old slot).
-    target_file = Path('/boot/config/target-slot')
+    target_file = BOOT_CONFIG_DIR / 'target-slot'
     if target_file.exists():
         try:
             target_slot = target_file.read_text().strip()
-            root_dev = subprocess.run(
-                ['findmnt', '/', '-o', 'source', '-n'],
-                capture_output=True, text=True, timeout=5
-            ).stdout.strip()
-            current_slot = 'A' if root_dev.endswith('5') else 'B'
+            root_dev = current_root_device()
+            current_slot = slot_from_root(root_dev) or 'B'
             if target_slot in ('A', 'B') and target_slot != current_slot:
+                # The target never got as far as this check, twice (the first
+                # time rq_tryboot_retry.sh tried again): typically a kernel
+                # that cannot start, which panic=10 turns into a reboot back
+                # here. Say so where the user can see it, and keep THIS slot
+                # - it works - as the confirmed default.
                 logger.error(
                     f"✗ Slot switch FAILED: target was Slot {target_slot} "
                     f"but system booted Slot {current_slot} ({root_dev}). "
-                    "Retry budget exhausted (see rq_tryboot_retry.sh). "
-                    "Not confirming; investigate before retrying."
+                    "Retry budget exhausted (see rq_tryboot_retry.sh)."
                 )
-                target_file.unlink(missing_ok=True)
-                Path('/boot/config/switch-retries').unlink(missing_ok=True)
-                return False
-            target_file.unlink(missing_ok=True)
-            Path('/boot/config/switch-retries').unlink(missing_ok=True)
-            logger.info(f"✓ Booted the requested target slot ({current_slot})")
+                record_failed_switch(
+                    BOOT_CONFIG_DIR, target_slot,
+                    f"Slot {target_slot} did not start (tried twice); "
+                    f"back on Slot {current_slot}")
+            else:
+                for name in ('target-slot', 'switch-retries', FAILED_NOTICE):
+                    try:
+                        (BOOT_CONFIG_DIR / name).unlink()
+                    except OSError:
+                        pass
+                logger.info(f"✓ Booted the requested target slot ({current_slot})")
         except Exception as e:
             logger.warning(f"Could not verify target slot: {e}")
 
@@ -264,15 +582,51 @@ def report_status(success: bool, checks: dict):
         checks: Dictionary of check results
     """
     status_file = Path('/var/lib/rasqberry-health-check.status')
-    status_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        status_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(status_file, 'w') as f:
+            f.write(f"timestamp: {time.time()}\n")
+            f.write(f"success: {success}\n")
+            for check_name, (check_success, message) in checks.items():
+                f.write(f"{check_name}: {check_success} - {message}\n")
+        logger.info(f"Status written to {status_file}")
+    except OSError as e:
+        logger.warning(f"Could not write {status_file}: {e}")
 
-    with open(status_file, 'w') as f:
-        f.write(f"timestamp: {time.time()}\n")
-        f.write(f"success: {success}\n")
-        for check_name, (check_success, message) in checks.items():
-            f.write(f"{check_name}: {check_success} - {message}\n")
 
-    logger.info(f"Status written to {status_file}")
+def probation_slot() -> Optional[str]:
+    """
+    The running slot if this boot is on probation, else None.
+
+    Returns:
+        str or None
+    """
+    if not (BOOT_CONFIG_DIR / 'autoboot.txt').exists():
+        return None
+    slot = slot_from_root(current_root_device())
+    if on_probation(BOOT_CONFIG_DIR, slot, read_dt_u32('tryboot')):
+        return slot
+    return None
+
+
+def run_deadline() -> int:
+    """
+    rasqberry-probation.timer, 15 minutes after boot: a trial boot that is
+    still unconfirmed did not finish starting - roll it back.
+
+    Returns:
+        int: exit code
+    """
+    if BOOT_CONFIG_DIR.is_dir() and not (BOOT_CONFIG_DIR / 'autoboot.txt').exists():
+        # emergency mode may have left the CONFIG partition unmounted
+        subprocess.run(['mount', str(BOOT_CONFIG_DIR)], capture_output=True, check=False)
+    slot = probation_slot()
+    if slot is None:
+        return 0
+    fail_probation(BOOT_CONFIG_DIR, slot,
+                   f"not confirmed {DEADLINE_MINUTES} minutes after start "
+                   "(start-up hung or the health check could not run)")
+    return 1
 
 
 def main():
@@ -281,10 +635,23 @@ def main():
 
     Exits with 0 on success, non-zero on failure.
     """
+    if '--deadline' in sys.argv[1:]:
+        sys.exit(run_deadline())
+
     logger.info("=== RasQberry A/B Boot Health Check ===")
+    probation = probation_slot()
+    if probation:
+        logger.info(f"Slot {probation} is on its trial boot (tryboot): a failed check rolls back")
     logger.info("Starting health checks...")
 
     checks = {}
+
+    def failed(reason: str):
+        logger.error(f"✗ Health check FAILED: {reason}")
+        report_status(False, checks)
+        if probation:
+            fail_probation(BOOT_CONFIG_DIR, probation, reason)
+        sys.exit(1)
 
     # Load environment
     logger.info("Loading environment configuration...")
@@ -293,26 +660,29 @@ def main():
                 f"REPO={env.get('REPO')}, STD_VENV={env.get('STD_VENV')}")
 
     # Check 1: Virtual environment exists
-    logger.info("\n[1/2] Checking virtual environment...")
+    logger.info("\n[1/3] Checking virtual environment...")
     success, message = check_venv_exists(env)
     checks['venv'] = (success, message)
-
     if not success:
-        logger.error("✗ Health check FAILED: Virtual environment check failed")
-        report_status(False, checks)
-        sys.exit(1)
+        failed("virtual environment missing")
 
     venv_path = message
 
     # Check 2: Qiskit installed
-    logger.info("\n[2/2] Checking Qiskit installation...")
+    logger.info("\n[2/3] Checking Qiskit installation...")
     success, message = check_qiskit_installed(venv_path)
     checks['qiskit'] = (success, message)
-
     if not success:
-        logger.error("✗ Health check FAILED: Qiskit check failed")
-        report_status(False, checks)
-        sys.exit(1)
+        failed(f"Qiskit check failed ({message})")
+
+    # Check 3: the desktop came up (trial boots only)
+    if probation:
+        logger.info("\n[3/3] Waiting for the desktop (display manager)...")
+        success, message = wait_for_display_manager()
+        checks['desktop'] = (success, message)
+        if not success:
+            failed(message)
+        logger.info(f"✓ {message}")
 
     # All checks passed
     logger.info("\n=== All Health Checks Passed ===")
@@ -324,6 +694,7 @@ def main():
     logger.info("\nConfirming boot slot...")
     if confirm_boot_slot():
         logger.info("✓ Boot slot confirmed - no rollback will occur")
+        disarm_probation_watchdog()
     else:
         logger.warning("⚠ Could not confirm boot slot")
 
@@ -337,6 +708,8 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except SystemExit:
+        raise
     except Exception as e:
         logger.error(f"✗ Health check FAILED with exception: {e}", exc_info=True)
         sys.exit(1)

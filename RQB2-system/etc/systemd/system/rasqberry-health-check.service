@@ -1,7 +1,7 @@
 [Unit]
 Description=RasQberry A/B Boot Health Check
 Documentation=https://github.com/JanLahmann/RasQberry-Two
-After=network-online.target
+After=network-online.target rasqberry-carry-over.service
 Wants=network-online.target
 Before=rasqberry-update-poller.service
 

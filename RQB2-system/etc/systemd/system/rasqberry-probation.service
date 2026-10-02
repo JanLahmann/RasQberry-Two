@@ -1,0 +1,12 @@
+[Unit]
+Description=RasQberry: roll back an unconfirmed A/B trial boot
+Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot.md
+DefaultDependencies=no
+IgnoreOnIsolate=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_health_check.py --deadline
+TimeoutStartSec=2min
+StandardOutput=journal+console
+StandardError=journal+console
