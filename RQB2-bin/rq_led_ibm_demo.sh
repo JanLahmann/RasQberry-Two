@@ -38,6 +38,11 @@ done
 
 [ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/rq_led_ibm_logo.py\n  - /usr/bin/rq_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"
 
+# The panel must be free (R-162), and is cleared when the window is closed
+# or the demo stopped (R-158)
+led_panel_ready || exit 0
+trap 'led_clear_quietly' EXIT HUP INT TERM
+
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"
 echo

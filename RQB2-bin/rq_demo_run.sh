@@ -806,6 +806,11 @@ run_python() {
             exec sudo -E DISPLAY="${DISPLAY:-:0}" "$0" "$DEMO_ID" "${VARIANT:-}"
         fi
 
+        # Another program on the LED panel? On a Pi 4 both would draw at
+        # once without an error (R-162): name it and offer to stop it.
+        led_panel_ready || exit 0
+        # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
+        LED_DEMO_RAN=1
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -943,6 +948,13 @@ cleanup() {
 
     restore_user_home_after_root_run
 
+    # An LED demo leaves its last frame on the panel when it is stopped with
+    # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
+    if [ -n "${LED_DEMO_RAN:-}" ]; then
+        LED_DEMO_RAN=""
+        led_clear_quietly
+    fi
+
     # Note: Docker containers are not stopped here - they use --rm and stop on their own
     # or user explicitly stops them
 }
@@ -1075,7 +1087,7 @@ main() {
     echo
 
     # Setup cleanup trap
-    trap cleanup EXIT INT TERM
+    trap cleanup EXIT INT TERM HUP
 
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The
