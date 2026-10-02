@@ -50,7 +50,7 @@ Build new interactive demonstrations:
 ## Resources
 
 **Learning Qiskit:**
-- [IBM Quantum Learning](https://learning.quantum.ibm.com/)
+- [IBM Quantum Learning](https://quantum.cloud.ibm.com/learning)
 - [Qiskit Documentation](https://quantum.cloud.ibm.com/docs/)
 
 **Development:**

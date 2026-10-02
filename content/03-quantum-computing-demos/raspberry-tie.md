@@ -58,7 +58,7 @@ Written and maintained by **Kevin Roche**. The upstream project documents the
 display modes, backends and options in full — start there rather than here:
 
 - **[KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)** — the project and its documentation
-- [IBM Quantum Platform](https://quantum.ibm.com/) — for a token, if you want the `real` variant
+- [IBM Quantum Platform](https://quantum.cloud.ibm.com/) — for a token, if you want the `real` variant
 - [Bill of Materials](/01-3d-model/01-bill-of-materials/) · [Hardware Assembly Guide](/01-3d-model/02-hardware-assembly-guide/) — for the LED panel
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

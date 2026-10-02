@@ -54,6 +54,6 @@ project's own site:
 
 - **[qoffee-maker.org](https://qoffee-maker.org)** — the project and its documentation
 - [Fun with Quantum](http://fun-with-quantum.org) — more quantum games, also on this image
-- [IBM Quantum Learning: measurement](https://learning.quantum.ibm.com/course/basics-of-quantum-information/single-systems#measurement)
+- [IBM Quantum Learning: measurement](https://quantum.cloud.ibm.com/learning/en/courses/basics-of-quantum-information/single-systems/quantum-information)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*
