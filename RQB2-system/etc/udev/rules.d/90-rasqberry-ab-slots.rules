@@ -1,0 +1,10 @@
+# RasQberry Two A/B image: keep the slot partitions away from the desktop
+# automounter (R-146). Without this the file manager mounts the slot that is
+# not running - read-write, its boot partition even writable without sudo - so
+# a learner can change or delete the fallback system, and an update or a
+# PROMOTE could find its target mounted. The running slot is mounted through
+# /etc/fstab and is not affected; rq_slot_manager.sh mounts the other slot
+# read-only on its own when it needs to look inside.
+# Partition numbers and labels of the v3 layout (convert-to-ab-boot-v3.sh);
+# EXPAND and the slot updater write some labels in lower case.
+SUBSYSTEM=="block", ENV{ID_PART_ENTRY_NUMBER}=="1|2|3|5|6", ENV{ID_FS_LABEL}=="CONFIG|config|BOOT-A|boot-a|BOOT-B|boot-b|SYSTEM-A|system-a|SYSTEM-B|system-b", ENV{UDISKS_IGNORE}="1"
