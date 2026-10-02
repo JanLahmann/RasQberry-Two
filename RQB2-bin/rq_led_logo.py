@@ -39,6 +39,7 @@ except ImportError:
 # Import LED utilities
 from rq_led_utils import (
     get_led_config,
+    get_layout,
     create_neopixel_strip,
     map_xy_to_pixel
 )
@@ -128,7 +129,8 @@ def display_static_image(pixels, image_array, duration=10, brightness=1.0, layou
     width = config['matrix_width']
     height = config['matrix_height']
     if layout is None:
-        layout = config['layout']
+        # LED_LAYOUT, parsed once for the whole image (R-022)
+        layout = get_layout(config['led_layout']) or config['led_layout']
 
     # Clear all pixels first
     for i in range(config['led_count']):
@@ -184,7 +186,8 @@ def display_image_with_fade(pixels, image_array, duration=10, fade_in=True, fade
     width = config['matrix_width']
     height = config['matrix_height']
     if layout is None:
-        layout = config['layout']
+        # LED_LAYOUT, parsed once for the whole image (R-022)
+        layout = get_layout(config['led_layout']) or config['led_layout']
 
     fade_delay = 0.05  # Delay between fade steps (seconds)
 
@@ -307,7 +310,6 @@ if __name__ == "__main__":
     # Prefer the layout-derived geometry so this reflects e.g. 8x32; fall back
     # to the (deprecated) matrix_width/height config keys if the layout is
     # unavailable.
-    from rq_led_utils import get_layout
     _layout = get_layout(config['led_layout'])
     matrix_w = _layout['width'] if _layout else config['matrix_width']
     matrix_h = _layout['height'] if _layout else config['matrix_height']

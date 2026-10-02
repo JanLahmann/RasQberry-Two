@@ -73,10 +73,20 @@ _layouts_cache_key = None
 _env_cache = None
 _env_cache_key = None
 
-# Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
+# Back-compat aliases for layout NAMES passed by callers, e.g.
+# map_xy_to_pixel(x, y, layout='quad'): the arithmetic of the old mappers.
 _LEGACY_LAYOUT_ALIASES = {
     'single': 'single-24x8',
     'quad': 'quad-2x2-12x4',
+}
+
+# The retired LED_MATRIX_LAYOUT setting (Q22), for an env file that has no
+# LED_LAYOUT yet: what the person meant was the panel kit, and the four 4x12
+# panels as mounted in the model are quad-4x12 ('quad-2x2-12x4' shows them
+# upside down). rq_env_merge.py and the boot config loader use the same map.
+_RETIRED_MATRIX_LAYOUTS = {
+    'single': 'single-24x8',
+    'quad': 'quad-4x12',
 }
 
 # Fallback layout name when nothing else can be resolved
@@ -89,9 +99,7 @@ EMERGENCY_DEFAULTS = {
     'LED_GPIO_PIN': '18',  # GPIO18 for PWM (Pi4) and PIO (Pi5)
     'LED_PIXEL_ORDER': 'GRB',
     'LED_DEFAULT_BRIGHTNESS': '0.4',
-    'LED_MATRIX_LAYOUT': 'single',
-    'LED_MATRIX_WIDTH': '24',
-    'LED_MATRIX_HEIGHT': '8',
+    'LED_LAYOUT': _DEFAULT_LAYOUT_NAME,
     'N_QUBIT': '192',  # 4*4*12 = 192 qubits
 }
 
@@ -162,15 +170,15 @@ def get_led_config():
     """
     config = _read_env_file()
 
-    # --- Resolve the active layout name (LED_LAYOUT is authoritative) ---------
-    # New model: LED_LAYOUT names a registry entry directly. For back-compat the
-    # legacy LED_MATRIX_LAYOUT=single|quad values map onto the registry presets
-    # when LED_LAYOUT is unset.
+    # --- Resolve the active layout name (LED_LAYOUT is the only setting) -------
+    # LED_LAYOUT names a registry entry. Only a very old env file without it
+    # still has the retired LED_MATRIX_LAYOUT=single|quad; that maps onto the
+    # kit panels (quad = the four 4x12 panels as mounted in the model).
     if config.get('LED_LAYOUT'):
         layout_name = config.get('LED_LAYOUT')
     else:
         legacy = config.get('LED_MATRIX_LAYOUT', 'single')
-        layout_name = _LEGACY_LAYOUT_ALIASES.get(legacy, legacy)
+        layout_name = _RETIRED_MATRIX_LAYOUTS.get(legacy, _DEFAULT_LAYOUT_NAME)
 
     # LED count becomes derivable from the layout. When LED_LAYOUT is set we
     # trust the layout-derived count over the (possibly stale) LED_COUNT value.
@@ -179,6 +187,20 @@ def get_led_config():
         derived = _layout_count(layout_name)
         if derived is not None:
             led_count = derived
+
+    # ONE layout setting (Jan, Q22): the text, logo and IP-scroll code reads
+    # 'layout', 'matrix_width' and 'matrix_height'. They used to come from the
+    # retired LED_MATRIX_* keys, so on a quad-4x12 panel set up by the wizard
+    # (LED_LAYOUT=quad-4x12, LED_MATRIX_LAYOUT=single as shipped) every text,
+    # logo and the boot IP scroll came out scrambled (R-022, R-155). They now
+    # describe the LED_LAYOUT layout like everything else.
+    layout_def = _load_layouts().get(_resolve_layout_name(layout_name))
+    if layout_def:
+        matrix_width = int(layout_def['width'])
+        matrix_height = int(layout_def['height'])
+        y_flip = bool(layout_def.get('y_flip', False))
+    else:
+        matrix_width, matrix_height, y_flip = 24, 8, False
 
     # --- Output-target booleans (independent flags, #231) ---------------------
     # LED_PHYSICAL / LED_VIRTUAL / LED_WEB are the modern, independent flags.
@@ -200,13 +222,13 @@ def get_led_config():
         'led_count': led_count,
         'led_gpio_pin': int(config.get('LED_GPIO_PIN', 18)),
         'pixel_order': config.get('LED_PIXEL_ORDER', 'GRB'),
-        # New layout model
+        # The layout (LED_LAYOUT). 'layout', 'matrix_width', 'matrix_height'
+        # and 'y_flip' stay for existing callers and describe the same layout.
         'led_layout': layout_name,
-        # Legacy key kept for back-compat with callers that read config['layout']
-        'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
-        'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
-        'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
-        'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
+        'layout': layout_name,
+        'matrix_width': matrix_width,
+        'matrix_height': matrix_height,
+        'y_flip': y_flip,
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
         # Output targets
@@ -1011,6 +1033,11 @@ def clear_all_leds():
     This function uses the shared NeoPixel instance to prevent GPIO conflicts.
     Safe to call from multiple modules (e.g., LED Painter's clear and atexit).
 
+    Returns:
+        bool: True when the LEDs were cleared, False when that failed (the
+            reason is printed, e.g. "GPIO busy" while another program holds
+            the panel). It never raises.
+
     Example:
         clear_all_leds()  # Turn off all LEDs
     """
@@ -1018,8 +1045,10 @@ def clear_all_leds():
         pixels = get_pixels()
         pixels.fill((0, 0, 0))
         pixels.show()
+        return True
     except Exception as e:
         print(f"Error clearing LEDs: {e}")
+        return False
 
 
 # ----------------------------------------------------------------------------
@@ -1136,6 +1165,22 @@ def map_xy_to_pixel_quad(x, y):
         int: Pixel index (0-191), or None if out of bounds
     """
     return map_xy_to_pixel(x, y, layout='quad-2x2-12x4')
+
+
+def _text_canvas(config):
+    """
+    The configured layout (as a parsed dict, so the per-pixel mapping does not
+    look it up again) and its width and height, for the text functions.
+
+    Args:
+        config (dict): Result of get_led_config().
+
+    Returns:
+        tuple: (layout, width, height); layout is the parsed LED_LAYOUT
+            definition, or its name if the registry does not know it.
+    """
+    layout = get_layout(config['led_layout']) or config['led_layout']
+    return layout, config['matrix_width'], config['matrix_height']
 
 
 def create_text_bitmap(text):
@@ -1263,9 +1308,7 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1336,9 +1379,7 @@ def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255),
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1404,9 +1445,7 @@ def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(2
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1518,9 +1557,7 @@ def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_spe
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1596,9 +1633,7 @@ def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, c
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1674,9 +1709,7 @@ def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), 
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)

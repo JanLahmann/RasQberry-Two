@@ -12,7 +12,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 #   Saved: LED_* and RASQ_LED_* keys (layout, verification, pin, brightness,
 #   outputs) - but not *_INSTALLED flags, since installed software is per
-#   slot - plus the user's custom layouts (~/.local/config/led-layouts.json).
+#   slot, nor the retired LED_MATRIX_* keys - plus the user's custom layouts
+#   (~/.local/config/led-layouts.json).
 #
 #   Restore runs at boot (rasqberry-load-boot-config.sh) and only applies the
 #   saved copy when this slot has never applied it, or when it was saved
@@ -36,7 +37,10 @@ STORE_LAYOUTS="$STORE_DIR/led-layouts.json"
 MARKER="${RQ_SETTINGS_MARKER:-/var/lib/rasqberry/device-settings.applied}"
 
 KEY_RE='^(LED_|RASQ_LED_)[A-Za-z0-9_]*='
-SKIP_RE='^[A-Za-z0-9_]*_INSTALLED='
+# Not device settings: *_INSTALLED flags (per slot), and the retired
+# LED_MATRIX_* keys (Q22: LED_LAYOUT is the one layout setting) - an older
+# store must not put them back into a new slot.
+SKIP_RE='^([A-Za-z0-9_]*_INSTALLED|LED_MATRIX_[A-Za-z0-9_]*)='
 
 log() {
     if command -v logger >/dev/null 2>&1; then

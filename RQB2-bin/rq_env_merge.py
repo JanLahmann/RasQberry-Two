@@ -28,7 +28,17 @@ _KEY_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=")
 # env file is loaded inside raspi-config, and these switched it to
 # non-interactive mode (R-001). MARKER_QRT named a file the pinned Raspberry
 # Tie checkout no longer has.
-RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT")
+RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT",
+                # The old "Configure Matrix Layout" (Q22): LED_LAYOUT is the
+                # one layout setting now, and nothing reads these any more.
+                "LED_MATRIX_LAYOUT", "LED_MATRIX_WIDTH", "LED_MATRIX_HEIGHT",
+                "LED_MATRIX_Y_FLIP", "LED_MATRIX_PANEL_WIDTH", "LED_MATRIX_PANEL_HEIGHT")
+
+# A device file from before LED_LAYOUT existed knew its panel only as
+# LED_MATRIX_LAYOUT. Carry that choice into LED_LAYOUT instead of the shipped
+# default (quad = the four 4x12 panels as mounted in the model; the same map as
+# rq_led_utils._RETIRED_MATRIX_LAYOUTS).
+RETIRED_MATRIX_LAYOUTS = {"single": "single-24x8", "quad": "quad-4x12"}
 
 KEPT_HEADER = (
     "\n# -----------------------------------------------------------------------------\n"
@@ -85,6 +95,10 @@ def merge(new_lines, current_lines):
         Device-only keys listed in RETIRED_KEYS are dropped.
     """
     current = assignments(current_lines)
+    if "LED_LAYOUT" not in current and "LED_MATRIX_LAYOUT" in current:
+        legacy = current["LED_MATRIX_LAYOUT"].split("=", 1)[1].strip().strip('"\'')
+        if legacy in RETIRED_MATRIX_LAYOUTS:
+            current["LED_LAYOUT"] = "LED_LAYOUT=" + RETIRED_MATRIX_LAYOUTS[legacy]
     shipped = set()
     merged, added, kept = [], [], []
 
