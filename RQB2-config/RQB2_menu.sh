@@ -203,69 +203,32 @@ show_msgbox_fit() {
 # installed from this menu, which is how a patch could break against upstream
 # drift even though the manifest pinned it.
 #
-# This keeps the parts that belong to the menu (consent before a download,
-# success/error dialogs) and hands the actual acquisition - pin, patch, pip,
-# post-install, installed flag - to the engine.
+# The consent dialog (size, time, free space; refused when the space is too
+# low) is the engine's, the same as from a desktop icon (Jan, Q27); the engine
+# gets the pin, patch, pip, post-install and installed flag right.
+#
+# Returns 0 when the demo is installed, 2 when the user chose "Not now",
+# 1 on failure with RQ_LAST_DEMO_ERROR set (handle_error shows it).
 install_via_engine() {
     DEMO_ID="$1"    # manifest id, e.g. grok-bloch
-    TITLE="$2"      # title for dialog messages
+    TITLE="$2"      # title for messages
 
     RUNNER="$BIN_DIR/rq_demo_run.sh"
     if [ ! -x "$RUNNER" ]; then
-        echo "ERROR: demo engine not found at $RUNNER"
+        RQ_LAST_DEMO_ERROR="The demo engine is missing: $RUNNER"
         return 1
     fi
-
-    # Everything below writes to stderr, never stdout. "Download all demos" pipes
-    # this into `whiptail --gauge`, which parses its stdin as the gauge protocol -
-    # a stray line there garbles the progress bar. It silences stderr per demo
-    # (do_*_install 2>/dev/null), so stderr is the channel that stays out of the
-    # way while remaining visible for a single interactive install.
 
     # Already installed? Ask the engine rather than second-guessing it here.
     if "$RUNNER" "$DEMO_ID" --is-installed 2>/dev/null; then
         return 0
     fi
 
-    # Confirm before using the network (unless a caller enabled auto-install)
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-        if command -v whiptail > /dev/null 2>&1; then
-            whiptail --title "$TITLE Not Installed" \
-                     --yesno "$TITLE is not installed yet.\n\nRequires internet connection.\n\nInstall now?" \
-                     10 65 3>&1 1>&2 2>&3
-            if [ $? -ne 0 ]; then
-                return 1
-            fi
-        else
-            # Fallback if whiptail not available (POSIX-compliant for dash)
-            echo "$TITLE is not installed." >&2
-            echo "This requires downloading from GitHub." >&2
-            printf "Install now? (y/n) " >&2
-            read REPLY
-            case "$REPLY" in
-                [Yy]|[Yy][Ee][Ss]) ;;
-                *) return 1 ;;
-            esac
-        fi
-    else
-        echo "Auto-installing $TITLE..." >&2
-    fi
-
-    if "$RUNNER" "$DEMO_ID" --install-only >&2; then
-        if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
-            whiptail --title "$TITLE" --msgbox "Demo installed successfully." 8 60
-        else
-            echo "✓ $TITLE installed successfully" >&2
-        fi
-        return 0
-    fi
-
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-        whiptail --title "Installation Error" --msgbox "Failed to install $TITLE.\n\nPossible causes:\n- No internet connection\n- Repository unavailable\n- Network firewall blocking access\n\nPlease check your connection and try again." 12 70
-    else
-        echo "ERROR: Failed to install $TITLE demo" >&2
-    fi
-    return 1
+    # Everything goes to stderr: "Download all demos" used to pipe this into a
+    # whiptail gauge, and stray stdout garbled it.
+    run_engine_demo "$RUNNER" "$DEMO_ID" --install-only >&2 || return 1
+    "$RUNNER" "$DEMO_ID" --is-installed 2>/dev/null && return 0
+    return 2    # "Not now"
 }
 
 # Install Quantum-Lights-Out demo if needed
@@ -298,136 +261,141 @@ do_quantum_paradoxes_install() {
 }
 
 # Run Quantum Paradoxes demo
+# (through the engine: it asks before a first download, like every entry point)
 run_quantum_paradoxes_demo() {
-    # Ensure installation
-    do_quantum_paradoxes_install || return 1
-
-    # Launch the demo using the dedicated launcher script
-    "$BIN_DIR/rq_quantum_paradoxes.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-paradoxes
 }
 
 # Clone IBM Quantum Learning content (shared by tutorials and courses)
 # Content licensed under CC BY-SA 4.0 by IBM/Qiskit
 # Source: https://github.com/Qiskit/documentation
+#
+# The demo engine asks before this runs (the consent dialog names the licence).
+# A download that was interrupted or failed offline used to leave a .git with
+# no commit; every retry then took it for "cloned", reported success and set
+# the installed flag, and IBM Tutorials, IBM Courses and the Quantum Lab stayed
+# broken until someone ran rm -rf (R-056). The checkout counts only with a
+# commit and the content; anything else is removed and fetched again, and a
+# failure leaves nothing behind.
+_rq_ibm_content_ok() {
+    # safe.directory: as root, git refuses to look into the user's checkout
+    git -c safe.directory='*' -C "$1" rev-parse -q --verify HEAD >/dev/null 2>&1 \
+        && [ -d "$1/docs/tutorials" ] && [ -d "$1/learning/courses" ]
+}
+
+# Run a command as the desktop user when this menu runs as root, so what it
+# creates in the home stays the user's (R-138: the WELCOME notebooks were
+# root-owned and could not be saved).
+_rq_as_desktop_user() {
+    if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        sudo -u "$SUDO_USER" -H "$@"
+    else
+        "$@"
+    fi
+}
+
 clone_ibm_learning_content() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
 
-    if [ -d "$DEST/.git" ]; then
-        return 0  # Already cloned
-    fi
-
-    # Show confirmation dialog before downloading (unless auto-install is enabled)
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-        if command -v whiptail > /dev/null 2>&1; then
-            whiptail --title "IBM Quantum Learning Content" \
-                     --yesno "IBM Quantum Tutorials & Courses are not installed yet.\n\nThis will download content from:\nhttps://github.com/Qiskit/documentation\n\nContent is licensed under CC BY-SA 4.0.\nRequires internet connection.\n\nInstall now?" \
-                     14 70 3>&1 1>&2 2>&3
-
-            if [ $? -ne 0 ]; then
-                return 1
-            fi
+    _rq_ibm_content_ok "$DEST" && return 0
+    if [ -e "$DEST" ]; then
+        echo "Removing an incomplete download of the IBM Quantum content..."
+        rm -rf "$DEST" 2>/dev/null || sudo -n rm -rf "$DEST" 2>/dev/null
+        if [ -e "$DEST" ]; then
+            echo "ERROR: Cannot remove the incomplete download: $DEST" >&2
+            return 1
         fi
-    else
-        echo "Auto-installing IBM Quantum Learning content..."
     fi
 
-    echo "Cloning IBM Quantum Learning content (sparse checkout)..."
-    echo "This may take a few minutes..."
-
-    # Sparse clone - only tutorials and courses directories
-    mkdir -p "$DEST"
-    cd "$DEST"
-    git init
-    git remote add origin "$GIT_REPO_DEMO_IBM_LEARNING"
-    git sparse-checkout init --cone
-    git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS
+    echo "Downloading IBM Quantum Learning content (sparse checkout). This may take a few minutes..."
+    _rq_as_desktop_user mkdir -p "$DEST" || return 1
     # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
     # third-party repo (we do not own it) that changes constantly, so following
     # main makes installs irreproducible and lets an upstream change alter the
     # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
-    if [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ]; then
-        git fetch --depth=1 origin "$GIT_REF_DEMO_IBM_LEARNING" || return 1
-        git checkout -q FETCH_HEAD || return 1
-    else
-        echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
-        git pull --depth=1 origin main
+    _ibm_ref="${GIT_REF_DEMO_IBM_LEARNING:-main}"
+    [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+    if ! _rq_as_desktop_user sh -c '
+        cd "$1" &&
+        git init -q &&
+        git remote add origin "$2" &&
+        git sparse-checkout init --cone &&
+        git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS &&
+        git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 fetch -q --depth=1 origin "$3" &&
+        git checkout -q FETCH_HEAD' _ "$DEST" "$GIT_REPO_DEMO_IBM_LEARNING" "$_ibm_ref" \
+        || ! _rq_ibm_content_ok "$DEST"; then
+        rm -rf "$DEST" 2>/dev/null || sudo -n rm -rf "$DEST" 2>/dev/null
+        echo "ERROR: Failed to download the IBM Quantum content from $GIT_REPO_DEMO_IBM_LEARNING" >&2
+        return 1
     fi
-    cd - > /dev/null
 
     # Copy credentials setup notebook
     if [ -f "/usr/config/00-Save-Credentials.ipynb" ]; then
-        cp "/usr/config/00-Save-Credentials.ipynb" "$DEST/"
+        _rq_as_desktop_user cp "/usr/config/00-Save-Credentials.ipynb" "$DEST/"
         echo "Added credentials setup notebook."
     fi
 
-    # Fix ownership if needed
-    if [ "$(stat -c '%U' "$DEST")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-        chown -R "$SUDO_USER":"$SUDO_USER" "$DEST"
-    fi
+    echo "IBM Quantum Learning content downloaded."
+}
 
-    echo "IBM Quantum Learning content downloaded successfully."
+# Write the WELCOME notebook (the demo's marker) for "--tutorials"/"--courses"
+_rq_ibm_welcome() {
+    _iw_py="$REPO_DIR/venv/$STD_VENV/bin/python3"
+    [ -x "$_iw_py" ] || _iw_py=python3
+    _rq_as_desktop_user env PYTHONDONTWRITEBYTECODE=1 \
+        "$_iw_py" "$BIN_DIR/setup_ibm_tutorials.py" "$1" --path "$DEMO_ROOT/ibm-quantum-learning"
 }
 
 # Install IBM Quantum Tutorials
 do_ibm_tutorials_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
 
-    if [ -f "$DEST/$MARKER_IBM_TUTORIALS" ]; then
+    if [ -f "$DEST/$MARKER_IBM_TUTORIALS" ] && _rq_ibm_content_ok "$DEST"; then
         return 0
     fi
 
     # Clone content if needed
     clone_ibm_learning_content || return 1
 
-    # Generate WELCOME-tutorials.ipynb
     echo "Generating tutorials welcome notebook..."
-    . "$VENV_ACTIVATE"
-    python3 "$BIN_DIR/setup_ibm_tutorials.py" --tutorials --path "$DEST"
+    if ! _rq_ibm_welcome --tutorials || [ ! -f "$DEST/$MARKER_IBM_TUTORIALS" ]; then
+        echo "ERROR: Could not set up the IBM Quantum Tutorials (no tutorials found in the download)" >&2
+        return 1
+    fi
 
     update_environment_file "IBM_TUTORIALS_INSTALLED" "true"
-
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
-        whiptail --title "IBM Quantum Tutorials" --msgbox "Tutorials installed successfully." 8 60
-    else
-        echo "IBM Quantum Tutorials installed successfully."
-    fi
+    echo "IBM Quantum Tutorials installed."
 }
 
 # Install IBM Quantum Courses
 do_ibm_courses_install() {
     DEST="$DEMO_ROOT/ibm-quantum-learning"
 
-    if [ -f "$DEST/$MARKER_IBM_COURSES" ]; then
+    if [ -f "$DEST/$MARKER_IBM_COURSES" ] && _rq_ibm_content_ok "$DEST"; then
         return 0
     fi
 
     # Clone content if needed
     clone_ibm_learning_content || return 1
 
-    # Generate WELCOME-courses.ipynb
     echo "Generating courses welcome notebook..."
-    . "$VENV_ACTIVATE"
-    python3 "$BIN_DIR/setup_ibm_tutorials.py" --courses --path "$DEST"
+    if ! _rq_ibm_welcome --courses || [ ! -f "$DEST/$MARKER_IBM_COURSES" ]; then
+        echo "ERROR: Could not set up the IBM Quantum Courses (no courses found in the download)" >&2
+        return 1
+    fi
 
     update_environment_file "IBM_COURSES_INSTALLED" "true"
-
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ "$RQ_NO_MESSAGES" = false ]; then
-        whiptail --title "IBM Quantum Courses" --msgbox "Courses installed successfully." 8 60
-    else
-        echo "IBM Quantum Courses installed successfully."
-    fi
+    echo "IBM Quantum Courses installed."
 }
 
 # Run IBM Quantum Tutorials demo
 run_ibm_tutorials_demo() {
-    do_ibm_tutorials_install || return 1
-    "$BIN_DIR/rq_ibm_tutorials.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" ibm-tutorials
 }
 
 # Run IBM Quantum Courses demo
 run_ibm_courses_demo() {
-    do_ibm_courses_install || return 1
-    "$BIN_DIR/rq_ibm_courses.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" ibm-courses
 }
 
 # LED-Painter installation is handled by rq_led_painter.sh
@@ -437,390 +405,105 @@ run_ibm_courses_demo() {
 # Download All Demos - Batch install all available demos
 # -----------------------------------------------------------------------------
 
-# Check network connectivity
-check_network_connectivity() {
-    # Try to reach GitHub (most reliable for our use case)
-    if curl -s --connect-timeout 5 https://github.com > /dev/null 2>&1; then
-        return 0
-    fi
-    # Fallback: try ping to Google DNS
-    if ping -c 1 -W 3 8.8.8.8 > /dev/null 2>&1; then
-        return 0
-    fi
-    return 1
+# Is a Docker image on this Pi? (as the desktop user's docker would see it)
+_rq_docker_image_present() {
+    command -v docker > /dev/null 2>&1 && docker image inspect "$1" > /dev/null 2>&1
 }
 
-# Check available disk space in MB
-check_disk_space_mb() {
-    df -m "$USER_HOME" 2>/dev/null | awk 'NR==2 {print $4}'
-}
-
-# Install Qoffee-Maker for batch install (setup + pull image)
+# Install Qoffee-Maker: notebooks + settings file (qoffee-setup.sh) and its
+# Docker image. Run by the demo engine (manifest install.installer) after its
+# consent dialog. "Installed" is the image and the checkout, not the flag:
+# an image removed to free space was otherwise never fetched again.
 do_qoffee_install() {
-    if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
-        return 0  # Already installed
-    fi
-
-    # Check if Docker is available
-    if ! command -v docker > /dev/null 2>&1; then
-        echo "Skipping Qoffee-Maker: Docker not installed"
-        return 1
-    fi
-
-    echo "Setting up Qoffee-Maker (Docker)..."
-    if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "ERROR: Qoffee-Maker setup failed"
-        return 1
-    fi
-
-    # Pull Docker image with retry logic (large images can fail on slow connections)
-    echo "Pulling Qoffee-Maker Docker image..."
     QOFFEE_IMAGE="ghcr.io/janlahmann/qoffee-maker"
+    if _rq_docker_image_present "$QOFFEE_IMAGE" && [ -f "$DEMO_ROOT/Qoffee-Maker/qoffee.ipynb" ]; then
+        return 0
+    fi
+
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "ERROR: Qoffee-Maker needs Docker, which is not installed" >&2
+        return 1
+    fi
+
+    if [ ! -f "$DEMO_ROOT/Qoffee-Maker/qoffee.ipynb" ]; then
+        echo "Setting up Qoffee-Maker..."
+        if ! "$BIN_DIR/qoffee-setup.sh"; then
+            echo "ERROR: Qoffee-Maker setup failed" >&2
+            return 1
+        fi
+    fi
+
+    # Pull with retries (large images can fail on slow connections)
     MAX_RETRIES=3
     RETRY_COUNT=0
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo "Pull attempt $RETRY_COUNT of $MAX_RETRIES..."
+        echo "Downloading the Qoffee-Maker Docker image (attempt $RETRY_COUNT of $MAX_RETRIES)..."
         if docker pull "$QOFFEE_IMAGE"; then
             update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
-            echo "✓ Qoffee-Maker setup complete"
+            echo "Qoffee-Maker is ready."
             return 0
-        else
-            echo "Pull attempt $RETRY_COUNT failed"
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Waiting 10 seconds before retry..."
-                sleep 10
-                # Clean up any partial/corrupted layers
-                docker system prune -f >/dev/null 2>&1 || true
-            fi
         fi
+        [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 10
     done
-    echo "ERROR: Failed to pull Qoffee-Maker image after $MAX_RETRIES attempts"
+    echo "ERROR: Could not download the Qoffee-Maker Docker image (tried $MAX_RETRIES times)" >&2
     return 1
 }
 
-# Install Quantum-Mixer for batch install (setup + build image)
+# Install Quantum-Mixer: build its Docker image on this Pi from source. Run by
+# the demo engine (manifest install.installer) after its consent dialog, which
+# states the size and the 15-30 minutes. It used to set up Qoffee-Maker first
+# (an unrelated clone, and "Qoffee-Maker is ready to use!") - no longer.
 do_quantum_mixer_install() {
-    if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
-        return 0  # Already installed
-    fi
-
-    # Check if Docker is available
-    if ! command -v docker > /dev/null 2>&1; then
-        echo "Skipping Quantum-Mixer: Docker not installed"
-        return 1
-    fi
-
-    echo "Setting up Quantum-Mixer (Docker)..."
-    if ! "$BIN_DIR/qoffee-setup.sh"; then
-        echo "ERROR: Quantum-Mixer setup failed"
-        return 1
-    fi
-
-    # Build Docker image for ARM64
     MIXER_DIR="$DEMO_ROOT/quantum-mixer"
     MIXER_IMAGE="quantum-mixer:arm64"
-
-    # Clone quantum-mixer repo if not present
-    if [ ! -d "$MIXER_DIR" ]; then
-        echo "Cloning Quantum-Mixer repository..."
-        git clone --depth 1 "$GIT_REPO_DEMO_QUANTUM_MIXER" "$MIXER_DIR" || {
-            echo "ERROR: Failed to clone Quantum-Mixer"
-            return 1
-        }
+    if _rq_docker_image_present "$MIXER_IMAGE"; then
+        return 0
     fi
 
-    echo "Building Quantum-Mixer Docker image (this may take 10-15 minutes)..."
-    cd "$MIXER_DIR" || return 1
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "ERROR: Quantum-Mixer needs Docker, which is not installed" >&2
+        return 1
+    fi
+
+    if [ ! -f "$MIXER_DIR/Dockerfile.arm64" ]; then
+        rm -rf "$MIXER_DIR" 2>/dev/null || sudo -n rm -rf "$MIXER_DIR" 2>/dev/null
+        echo "Downloading the Quantum-Mixer source..."
+        if ! _rq_as_desktop_user git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 \
+                clone -q --depth 1 "$GIT_REPO_DEMO_QUANTUM_MIXER" "$MIXER_DIR"; then
+            rm -rf "$MIXER_DIR" 2>/dev/null || sudo -n rm -rf "$MIXER_DIR" 2>/dev/null
+            echo "ERROR: Could not download the Quantum-Mixer source from $GIT_REPO_DEMO_QUANTUM_MIXER" >&2
+            return 1
+        fi
+    fi
+
+    echo "Building the Quantum-Mixer Docker image. This takes 15-30 minutes..."
     MAX_RETRIES=3
     RETRY_COUNT=0
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         RETRY_COUNT=$((RETRY_COUNT + 1))
         echo "Build attempt $RETRY_COUNT of $MAX_RETRIES..."
-        # Use --no-cache on retries to avoid corrupted cached layers
-        if [ $RETRY_COUNT -eq 1 ]; then
-            BUILD_OPTS=""
-        else
-            BUILD_OPTS="--no-cache"
-        fi
-        if docker build $BUILD_OPTS -f Dockerfile.arm64 -t "$MIXER_IMAGE" .; then
-            cd - > /dev/null
+        # --no-cache on retries to avoid corrupted cached layers
+        BUILD_OPTS=""
+        [ $RETRY_COUNT -gt 1 ] && BUILD_OPTS="--no-cache"
+        if (cd "$MIXER_DIR" && docker build $BUILD_OPTS -f Dockerfile.arm64 -t "$MIXER_IMAGE" .); then
+            # The build leaves a cache of about 5.6 GB that nothing reuses (R-153)
+            docker builder prune -f > /dev/null 2>&1 || true
             update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
-            echo "✓ Quantum-Mixer setup complete"
+            echo "Quantum-Mixer is ready."
             return 0
-        else
-            echo "Build attempt $RETRY_COUNT failed"
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Waiting 10 seconds before retry..."
-                sleep 10
-                # Clean up any partial/corrupted layers
-                docker system prune -f >/dev/null 2>&1 || true
-            fi
         fi
+        [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 10
     done
-    cd - > /dev/null 2>/dev/null
-    echo "ERROR: Failed to build Quantum-Mixer image after $MAX_RETRIES attempts"
+    docker builder prune -f > /dev/null 2>&1 || true
+    echo "ERROR: Could not build the Quantum-Mixer Docker image (tried $MAX_RETRIES times)" >&2
     return 1
 }
 
-# Download all demos at once
+# Download all demos at once (rq_download_all.sh: the list comes from the demo
+# manifests, sizes included; the Docker demos are asked for separately, R-031)
 do_download_all_demos() {
-    # Pre-flight check: Network connectivity
-    if ! check_network_connectivity; then
-        whiptail --title "Network Error" --msgbox \
-            "No internet connection detected.\n\nPlease connect to the internet and try again." \
-            10 60
-        return 1
-    fi
-
-    # Pre-flight check: Disk space (require at least 500MB free)
-    AVAILABLE_MB=$(check_disk_space_mb)
-    if [ "${AVAILABLE_MB:-0}" -lt 500 ]; then
-        whiptail --title "Low Disk Space" --msgbox \
-            "Insufficient disk space.\n\nAvailable: ${AVAILABLE_MB:-0} MB\nRequired: ~500 MB minimum\n\nPlease free up some space and try again." \
-            12 60
-        return 1
-    fi
-
-    # Count demos: already installed vs to-install
-    TO_INSTALL=0
-    ALREADY_INSTALLED=0
-
-    # Git-clone demos (7 total, excluding LED-Painter)
-    [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$GROK_BLOCH_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$IBM_TUTORIALS_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    [ "$IBM_COURSES_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-
-    # Docker demos (2 total)
-    DOCKER_AVAILABLE="no"
-    if command -v docker > /dev/null 2>&1; then
-        DOCKER_AVAILABLE="yes"
-        [ "$QOFFEE_MAKER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-        [ "$QUANTUM_MIXER_INSTALLED" = "true" ] && ALREADY_INSTALLED=$((ALREADY_INSTALLED + 1)) || TO_INSTALL=$((TO_INSTALL + 1))
-    fi
-
-    TOTAL_DEMOS=$((ALREADY_INSTALLED + TO_INSTALL))
-
-    # If all already installed, inform and exit
-    if [ "$TO_INSTALL" -eq 0 ]; then
-        whiptail --title "All Demos Installed" --msgbox \
-            "All $TOTAL_DEMOS demos are already installed!\n\nNothing to do." \
-            10 50
-        return 0
-    fi
-
-    # Build confirmation message
-    CONFIRM_MSG="This will download and install quantum demos.\n\n"
-    CONFIRM_MSG="${CONFIRM_MSG}Demos to install: $TO_INSTALL\n"
-    CONFIRM_MSG="${CONFIRM_MSG}Already installed: $ALREADY_INSTALLED\n"
-    CONFIRM_MSG="${CONFIRM_MSG}Available disk space: ${AVAILABLE_MB} MB\n\n"
-    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
-        CONFIRM_MSG="${CONFIRM_MSG}Docker demos included (may take 10-15 min to build).\n\n"
-    else
-        CONFIRM_MSG="${CONFIRM_MSG}Docker demos skipped (Docker not installed).\n\n"
-    fi
-    CONFIRM_MSG="${CONFIRM_MSG}Proceed with installation?"
-
-    # Show confirmation dialog
-    if ! whiptail --title "Download All Demos" --yesno "$CONFIRM_MSG" 18 65; then
-        return 0
-    fi
-
-    # Enable auto-install mode to skip individual confirmations
-    export RQ_AUTO_INSTALL=1
-    export RQ_NO_MESSAGES=true
-
-    # Create temp file for tracking results from subshell
-    RESULTS_FILE=$(mktemp)
-
-    # Process git-clone demos with progress display (7 demos)
-    {
-        # Initialize counters inside subshell
-        INSTALLED_COUNT=0
-        SKIPPED_COUNT=0
-        FAILED_COUNT=0
-        FAILED_DEMOS=""
-        CURRENT=0
-        TOTAL=7
-
-        # 1. Quantum Lights Out
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$QUANTUM_LIGHTS_OUT_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Lights Out (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Lights Out..."; echo "XXX"
-            if do_qlo_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Quantum Lights Out\n"
-            fi
-        fi
-
-        # 2. Quantum Raspberry-Tie
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$QUANTUM_RASPBERRY_TIE_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Raspberry-Tie (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Raspberry-Tie..."; echo "XXX"
-            if do_rasp_tie_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Quantum Raspberry-Tie\n"
-            fi
-        fi
-
-        # 3. Grok Bloch
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$GROK_BLOCH_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping Grok Bloch (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing Grok Bloch..."; echo "XXX"
-            if do_grok_bloch_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Grok Bloch\n"
-            fi
-        fi
-
-        # 4. Fun with Quantum
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$FUN_WITH_QUANTUM_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping Fun with Quantum (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing Fun with Quantum..."; echo "XXX"
-            if do_fwq_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Fun with Quantum\n"
-            fi
-        fi
-
-        # 5. Quantum Paradoxes
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$QUANTUM_PARADOXES_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping Quantum Paradoxes (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing Quantum Paradoxes..."; echo "XXX"
-            if do_quantum_paradoxes_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Quantum Paradoxes\n"
-            fi
-        fi
-
-        # 6. IBM Quantum Tutorials
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$IBM_TUTORIALS_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Tutorials (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Tutorials..."; echo "XXX"
-            if do_ibm_tutorials_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Tutorials\n"
-            fi
-        fi
-
-        # 7. IBM Quantum Courses
-        CURRENT=$((CURRENT + 1))
-        PERCENT=$((CURRENT * 100 / TOTAL))
-        if [ "$IBM_COURSES_INSTALLED" = "true" ]; then
-            echo "XXX"; echo "$PERCENT"; echo "Skipping IBM Quantum Courses (already installed)..."; echo "XXX"
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            echo "XXX"; echo "$PERCENT"; echo "Installing IBM Quantum Courses..."; echo "XXX"
-            if do_ibm_courses_install 2>/dev/null; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}IBM Quantum Courses\n"
-            fi
-        fi
-
-        # Write results to temp file
-        echo "${INSTALLED_COUNT}:${SKIPPED_COUNT}:${FAILED_COUNT}:${FAILED_DEMOS}" > "$RESULTS_FILE"
-        echo "100"
-    } | whiptail --title "Downloading Demos" --gauge "Preparing..." 8 70 0
-
-    # Read results from temp file
-    INSTALLED_COUNT=0
-    SKIPPED_COUNT=0
-    FAILED_COUNT=0
-    FAILED_DEMOS=""
-    if [ -f "$RESULTS_FILE" ]; then
-        IFS=: read -r INSTALLED_COUNT SKIPPED_COUNT FAILED_COUNT FAILED_DEMOS < "$RESULTS_FILE"
-        rm -f "$RESULTS_FILE"
-    fi
-
-    # --- Docker demos (run OUTSIDE gauge to allow their own dialogs) ---
-    if [ "$DOCKER_AVAILABLE" = "yes" ]; then
-        # Qoffee-Maker
-        if [ "$QOFFEE_MAKER_INSTALLED" = "true" ]; then
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            whiptail --title "Docker Demos" --infobox "Setting up Qoffee-Maker...\n\nThis may take several minutes." 8 50
-            if do_qoffee_install; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Qoffee-Maker\n"
-            fi
-        fi
-
-        # Quantum-Mixer
-        if [ "$QUANTUM_MIXER_INSTALLED" = "true" ]; then
-            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-        else
-            whiptail --title "Docker Demos" --infobox "Setting up Quantum-Mixer...\n\nThis may take several minutes." 8 50
-            if do_quantum_mixer_install; then
-                INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-            else
-                FAILED_COUNT=$((FAILED_COUNT + 1))
-                FAILED_DEMOS="${FAILED_DEMOS}Quantum-Mixer\n"
-            fi
-        fi
-    fi
-
-    # Restore normal mode
-    unset RQ_AUTO_INSTALL
-    export RQ_NO_MESSAGES=false
-
-    # Build summary message
-    SUMMARY="Installation Complete!\n\n"
-    SUMMARY="${SUMMARY}Installed: ${INSTALLED_COUNT:-0}\n"
-    SUMMARY="${SUMMARY}Skipped (already installed): ${SKIPPED_COUNT:-0}\n"
-    SUMMARY="${SUMMARY}Failed: ${FAILED_COUNT:-0}"
-
-    if [ "${FAILED_COUNT:-0}" -gt 0 ] && [ -n "$FAILED_DEMOS" ]; then
-        SUMMARY="${SUMMARY}\n\nFailed demos:\n${FAILED_DEMOS}"
-        SUMMARY="${SUMMARY}\nYou can try installing failed demos individually."
-    fi
-
-    whiptail --title "Download All Demos - Summary" --msgbox "$SUMMARY" 16 60
-
-    return 0
+    "$BIN_DIR/rq_download_all.sh"
 }
 
 # Turn a demo log into the few lines worth showing a user: strip the CR/escape
@@ -991,7 +674,7 @@ _rq_explain_demo_error() {
         *"Failed to fetch pinned commit"*|*"Failed to clone"*|*"Could not resolve host"*|*"unable to access"*|*"Network is unreachable"*)
             _ex="The demo could not be downloaded. Check that the Pi is online (Wi-Fi or network cable) and try again." ;;
         *"No space left on device"*)
-            _ex="The SD card is full. Free some space, then try again." ;;
+            _ex="The SD card is full. Free some space (Quantum Demos > Remove a demo), then try again." ;;
         *) _ex="" ;;
     esac
     if [ -n "$1" ]; then
@@ -1036,7 +719,7 @@ run_engine_demo() {
         rm -f "$_ed_err"
     fi
     RQ_LAST_DEMO_ERROR=$(_rq_explain_demo_error "$_ed_msg" "$_ed_rc")
-    _rq_pause "The demo stopped with an error (see above). Press Enter to continue."
+    _rq_pause "It stopped with an error (see above). Press Enter to continue."
     return 1
 }
 
@@ -1044,8 +727,10 @@ run_engine_demo() {
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
-    # Ensure installed (install_via_engine shows its own dialog on failure)
-    do_qlo_install || return 0
+    # Ensure installed: the engine asks first; "Not now" (2) is not an error,
+    # a failure leaves its reason for handle_error
+    do_qlo_install
+    case $? in 0) ;; 2) return 0 ;; *) return 1 ;; esac
     # Launch appropriate mode.
     #
     # The console variant IS played in the terminal, so it runs in the
@@ -1065,12 +750,7 @@ run_qlo_demo() {
 
 # Run grok-bloch demo local version (ensures install first)
 run_grok_bloch_demo() {
-    # Ensure installation
-    do_grok_bloch_install || return 1
-
-    # Launch the demo using the dedicated launcher script
-    # (Script will check for DISPLAY and show appropriate error if needed)
-    "$BIN_DIR/rq_grok_bloch.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" grok-bloch
 }
 
 # Run grok-bloch web version (no installation needed)
@@ -1122,16 +802,7 @@ run_rasq_led_demo() {
 
 # Run Qoffee-Maker demo
 run_qoffee_demo() {
-    # Check if setup has been run (Docker installed)
-    if ! command -v docker > /dev/null 2>&1; then
-        whiptail --title "Setup Required" --msgbox \
-            "Qoffee-Maker requires Docker, which is not installed.\n\nSetup will now run to install Docker and configure Qoffee-Maker.\n\nNote: This requires internet connection and may take 5-10 minutes." \
-            12 70
-        "$BIN_DIR/qoffee-setup.sh" || return 1
-    fi
-
-    # Launch the Qoffee-Maker demo
-    "$BIN_DIR/qoffee-maker.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" qoffee-maker
 }
 
 # Stop Qoffee-Maker containers
@@ -1151,20 +822,9 @@ stop_qoffee_containers() {
     fi
 }
 
-# Run Quantum-Mixer demo
+# Run Quantum-Mixer demo (the engine asks before its 15-30 minute build)
 run_quantum_mixer_demo() {
-    # Ask before installing, like every other demo.
-    #
-    # This used to drop straight into quantum-mixer.sh, which cloned and then
-    # ran a Docker build FROM SOURCE with no prompt and no dialog - raw build
-    # output over the TUI for several minutes. On a 10GB A/B slot that build ran
-    # the disk to 100% and left the system unusable (finding F28), so of all the
-    # demos this is the one that should ask first. install_via_engine gives it
-    # the same consent prompt and error dialog as the rest.
-    install_via_engine "quantum-mixer" "Quantum-Mixer" || return 1
-
-    # Launch the Quantum-Mixer demo
-    "$BIN_DIR/quantum-mixer.sh"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-mixer
 }
 
 # Stop Quantum-Mixer containers
@@ -1204,6 +864,19 @@ refresh_demo_menu_cache() {
     fi
 }
 
+# Remove a downloaded demo to free space (rq_demo_remove.sh; catalogue demos
+# lose their menu entry too)
+do_remove_demo() {
+    if [ -x "$BIN_DIR/rq_demo_remove.sh" ]; then
+        run_engine_demo "$BIN_DIR/rq_demo_remove.sh"
+        _rm_rc=$?
+        _rq_load_demo_cache || :
+        return $_rm_rc
+    fi
+    whiptail --title "Error" --msgbox "Remove script not found.\n\nExpected: $BIN_DIR/rq_demo_remove.sh" 10 60
+    return 1
+}
+
 # Run continuous demo loop for conference showcases
 run_demo_loop() {
     # Launch the demo loop script
@@ -1215,9 +888,13 @@ run_demo_loop() {
 # regenerated menu cache so the new demo shows up without leaving the menu.
 do_add_external_demo() {
     if [ -x "$BIN_DIR/rq_demo_add_external.sh" ]; then
-        "$BIN_DIR/rq_demo_add_external.sh"
+        # run_engine_demo keeps the script's reason when it fails: a failed
+        # install used to return to the menu without a word (R-057)
+        run_engine_demo "$BIN_DIR/rq_demo_add_external.sh"
+        _ax_rc=$?
         # The add script regenerates the cache; reload it in this session
         _rq_load_demo_cache || :
+        return $_ax_rc
     else
         whiptail --title "Error" --msgbox "Add-demo script not found.\n\nExpected: $BIN_DIR/rq_demo_add_external.sh" 10 60
         return 1
@@ -1557,7 +1234,7 @@ do_select_led_option() {
         FUN=$(show_menu ${_led_last:+--default-item "$_led_last"} "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            DISP "Text & Logo Display" \
-           quicktest "Quick LED Test (6 colors)" \
+           quicktest "Quick LED Test (6 colours)" \
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
@@ -1640,7 +1317,7 @@ do_select_qrt_option() {
         _qrt_last="$FUN"
         case "$FUN" in
             simulator|noise|real)
-                do_rasp_tie_install || continue
+                # the engine asks before a first download, then runs it
                 run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-raspberry-tie "$FUN" \
                     || { handle_error "Raspberry Tie could not run."; continue; }
                 ;;
@@ -1701,6 +1378,7 @@ do_quantum_demo_menu() {
        "$@" \
        DALL "Download all demos (one-time setup)" \
        ADDX "Add demo from catalogue" \
+       REM  "Remove a demo (free space)" \
        LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop last running demo and clear LEDs" \
        QSTP "Stop Qoffee-Maker" \
@@ -1712,6 +1390,7 @@ do_quantum_demo_menu() {
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
       ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalogue."; continue; } ;;
+      REM)  do_remove_demo             || { handle_error "Could not remove the demo."; continue; } ;;
       LOOP) run_demo_loop
             # 130/143: stopped with Ctrl+C - the loop's own emergency stop
             case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;
@@ -1744,7 +1423,7 @@ do_show_system_info() {
     info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
   fi
   whiptail --title "RasQberry System Information" --msgbox \
-    "$info\n\nFor bug reports: rq_info.sh --json" 20 78
+    "$info\n\nFor a bug report: rq_info.sh --report (saves the logs to a file)" 20 78
 }
 
 # -----------------------------------------------------------------------------
@@ -2829,7 +2508,9 @@ handle_error() {
     if [ -n "${RQ_LAST_DEMO_ERROR:-}" ]; then
         show_msgbox_fit "Error" "$_he_msg
 
-$RQ_LAST_DEMO_ERROR" 76
+$RQ_LAST_DEMO_ERROR
+
+(For a bug report: rq_info.sh --report)" 76
         RQ_LAST_DEMO_ERROR=""
         return 1
     fi

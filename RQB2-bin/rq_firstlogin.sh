@@ -141,15 +141,13 @@ task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 # ---------------------------------------------------------------------------
 # Task: download all demos now (they otherwise install on first use)
 # ---------------------------------------------------------------------------
-task_demos_applies() { [ -r "$MENU_FILE" ]; }
-task_demos_pending() {
-    # Pending while any git-installed demo is missing
-    grep -qE '^(QUANTUM_LIGHTS_OUT|QUANTUM_RASPBERRY_TIE|GROK_BLOCH|FUN_WITH_QUANTUM|QUANTUM_PARADOXES|IBM_TUTORIALS|IBM_COURSES)_INSTALLED=false' "$ENV_FILE" 2>/dev/null
-}
+task_demos_applies() { [ -x "$BIN_DIR/rq_download_all.sh" ]; }
+# Pending while a demo (the Docker demos aside) is not on the Pi. It looks at
+# the demos themselves: the *_INSTALLED flags never counted Lights Out and
+# Raspberry Tie, so the step stayed pending for good (R-087).
+task_demos_pending() { "$BIN_DIR/rq_download_all.sh" --pending; }
 task_demos_label()   { printf 'Download all demos now (otherwise each installs when first started)'; }
-task_demos_run() {
-    sudo -E bash -c ". /usr/config/rasqberry_env-config.sh >/dev/null 2>&1; . '$MENU_FILE' >/dev/null 2>&1; do_download_all_demos"
-}
+task_demos_run()     { "$BIN_DIR/rq_download_all.sh"; }
 
 # ---------------------------------------------------------------------------
 # Task: touch mode (only with a touchscreen attached)

@@ -79,6 +79,17 @@ registry_ids() {
     jq -r '.demos[].id' "$REGISTRY_FILE"
 }
 
+# Picker text: "Name - summary" (cut to the menu width), else the curator
+# note. The note is maintainer prose, cut mid-word, so the two SAP entries
+# looked the same (R-105).
+registry_label() {
+    local id="$1" name summary
+    name=$(registry_field "$id" "name")
+    summary=$(registry_field "$id" "summary")
+    [ -n "$summary" ] || summary=$(registry_field "$id" "note")
+    printf '%s' "${name:-$id}${summary:+ - $summary}" | cut -c1-66
+}
+
 # Is a demo already installed (user manifest present)?
 is_installed() {
     local id="$1"
@@ -199,8 +210,14 @@ write_desktop_entry() {
 refresh_cache() {
     if [ -x "$GENERATOR" ]; then
         info "Refreshing demo menu cache..."
-        "$GENERATOR" --cache "$CACHE_FILE" >/dev/null 2>&1 \
-            || warn "Failed to refresh demo menu cache (regenerate manually)"
+        # The cache in /usr/config is root's: run as the user (--remove from a
+        # terminal) the refresh failed and the removed demo stayed in the
+        # menu (R-160)
+        if [ -w "$CACHE_FILE" ] || { [ ! -e "$CACHE_FILE" ] && [ -w "$(dirname "$CACHE_FILE")" ]; }; then
+            "$GENERATOR" --cache "$CACHE_FILE" >/dev/null 2>&1
+        else
+            sudo -n "$GENERATOR" --cache "$CACHE_FILE" >/dev/null 2>&1
+        fi || warn "Failed to refresh demo menu cache (regenerate manually)"
     else
         warn "Menu generator not found: $GENERATOR (menu cache not refreshed)"
     fi
@@ -231,9 +248,9 @@ pick_demo_interactive() {
     while IFS= read -r id; do
         [ -z "$id" ] && continue
         if ! is_installed "$id"; then
-            local note
-            note=$(registry_field "$id" "note")
-            args+=("$id" "${note:-external demo}")
+            local label
+            label=$(registry_label "$id")
+            args+=("$id" "$label")
             count=$((count + 1))
         fi
     done < <(registry_ids)
@@ -272,29 +289,45 @@ add_demo() {
     repo_name=$(repo_dir_name "$repo_url")
     dest="$DEMOS_ROOT/$repo_name"
 
-    if [ "$mode" = "install" ] && [ -d "$dest" ]; then
-        die "Demo directory already exists: $dest (use --update to re-fetch)"
+    if [ "$mode" = "install" ] && is_installed "$id"; then
+        die "'$id' is already installed (use --update to fetch it again)"
     fi
+    # A directory without an installed manifest is what a failed download
+    # left behind; it blocked every later install (R-057). It is replaced
+    # below, after the question.
 
-    # Third-party disclaimer - must come before anything destructive
-    # (in update mode the existing checkout is removed below)
+    # Third-party disclaimer, with what the install takes - must come before
+    # anything destructive (in update mode the existing checkout is removed
+    # below)
+    local name summary dl disk size_txt=""
+    name=$(registry_field "$id" "name")
+    summary=$(registry_field "$id" "summary")
+    dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
+    disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
+    [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
     if ! show_yesno "Third-party demo" \
-        "'$id' is provided by an external contributor and is NOT part of the RasQberry project:\n\n$repo_url\n\nThe RasQberry team reviews and pins a specific version, but does not maintain this software and takes no responsibility for its content, behavior, or security. Install at your own risk.\n\nContinue?"; then
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}'$id' is provided by an external contributor and is NOT part of the RasQberry project:\n\n$repo_url\n\nThe RasQberry team reviews and pins a specific version, but does not maintain this software and takes no responsibility for its content, behaviour, or security. Install at your own risk.\n\nContinue?"; then
         info "Installation cancelled by user"
         return 1
     fi
+    if [ -n "$disk" ] && [ "$(rq_free_mb "$USER_HOME")" -lt $((disk + RQ_SPACE_RESERVE_MB)) ]; then
+        die "Not enough free space for '$id': it needs about $(rq_fmt_mb "$disk") plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+    fi
+    rq_reachable "$repo_url" \
+        || die "'$id' has to be downloaded, and github.com cannot be reached. Connect the Pi to the internet and try again."
 
     # Fresh checkout for both install and update (explicit, never git pull)
-    if [ -d "$dest" ]; then
+    if [ -e "$dest" ]; then
         info "Removing previous checkout: $dest"
-        rm -rf "$dest"
+        rq_remove_tree "$dest" || die "Cannot remove the previous checkout: $dest"
     fi
 
     mkdir -p "$DEMOS_ROOT"
     chown_to_user "$DEMOS_ROOT"
 
     info "Fetching '$id' at pinned commit ${ref:0:12}..."
-    fetch_pinned_repo "$repo_url" "$ref" "$dest"
+    fetch_pinned_repo "$repo_url" "$ref" "$dest" \
+        || die "Could not download '$id' from $repo_url. Check the internet connection and try again."
 
     manifest_file="$dest/$manifest_path"
     [ -f "$manifest_file" ] || { rm -rf "$dest"; die "Manifest not found in checkout: $manifest_path"; }
@@ -353,10 +386,21 @@ add_demo() {
         fi
     fi
 
-    # Copy the manifest into the user manifest directory (never /usr/config)
-    mkdir -p "$USER_MANIFEST_DIR"
-    cp "$manifest_file" "$USER_MANIFEST_DIR/rq_demo_${id}.json"
+    # Copy the manifest into the user manifest directory (never /usr/config).
+    # Created as the user: run as root from the menu, mkdir -p made
+    # ~/.local/config root-owned, and user tools then failed there (R-161).
+    run_as_user mkdir -p "$USER_MANIFEST_DIR" 2>/dev/null || mkdir -p "$USER_MANIFEST_DIR"
+    # The registry's sizes go with it, for the first start's consent dialog
+    local reg_download
+    reg_download=$(jq -c --arg id "$id" '.demos[] | select(.id == $id) | .download // empty' "$REGISTRY_FILE")
+    if [ -n "$reg_download" ]; then
+        jq --argjson d "$reg_download" '.install.download = (.install.download // $d)' "$manifest_file" \
+            > "$USER_MANIFEST_DIR/rq_demo_${id}.json"
+    else
+        cp "$manifest_file" "$USER_MANIFEST_DIR/rq_demo_${id}.json"
+    fi
     chown_to_user "$USER_MANIFEST_DIR"
+    chown_to_user "$USER_HOME/.local/config"
     chown_to_user "$dest"
 
     # Desktop icon, when the manifest asks for one (#287). Non-fatal: the demo
@@ -392,12 +436,31 @@ remove_demo() {
         ""|.|..|*/*) die "Cannot determine the checkout directory for '$id' (got '$dir')" ;;
     esac
 
+    local image=""
+    [ "$(jq -r '.entrypoint.type // empty' "$manifest")" = "docker" ] \
+        && image=$(jq -r '.entrypoint.docker_image // empty' "$manifest")
+
     if [ -d "$DEMOS_ROOT/$dir" ]; then
         info "Removing checkout: $DEMOS_ROOT/$dir"
-        rm -rf "${DEMOS_ROOT:?}/$dir"
+        rq_remove_tree "${DEMOS_ROOT:?}/$dir" || die "Could not remove $DEMOS_ROOT/$dir"
     fi
     rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop"
     refresh_cache
+
+    # Its Docker image is most of the space (traQmania: 3.2 GB) and stayed
+    # behind (R-160)
+    if [ -n "$image" ] && command -v docker >/dev/null 2>&1 \
+        && docker image inspect "$image" >/dev/null 2>&1; then
+        local mb
+        mb=$(docker image inspect -f '{{.Size}}' "$image" 2>/dev/null | awk '{ printf "%d", $1 / 1000000 }')
+        if [ "${RQ_ASSUME_YES:-no}" = yes ] || { [ -t 0 ] && show_yesno "Remove the Docker image?" \
+                "Also remove the Docker image of '$id' ($image, about $(rq_fmt_mb "${mb:-0}"))?"; }; then
+            docker rmi "$image" >/dev/null && info "Removed the Docker image $image" \
+                || warn "Could not remove the Docker image $image (is the demo still running?)"
+        else
+            info "Kept the Docker image $image (remove it with: docker rmi $image)"
+        fi
+    fi
     info "Demo '$id' removed"
     return 0
 }
