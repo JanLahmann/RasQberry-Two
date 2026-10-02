@@ -95,7 +95,11 @@ preflight_checks() {
     local part_size
     part_size=$(blockdev --getsize64 "$system_partition" 2>/dev/null || echo 0)
     if [ "$part_size" -lt 4294967296 ]; then  # < 4GB cannot hold any image
-        die "Slot $target_slot partition is too small ($((part_size / 1024 / 1024))MB). Run partition expansion first: raspi-config -> RasQberry -> AB_BOOT -> EXPAND"
+        # Say why, for this card: not prepared yet, or too small for two
+        # systems (single-system mode, R-006) - not "expand first" on a card
+        # where expanding is impossible.
+        die "Slot $target_slot is only a $((part_size / 1024 / 1024))MB placeholder: there is no second system to install into.
+$("${SCRIPT_DIR}/rq_expand_ab.sh" explain --update 2>/dev/null || true)"
     fi
 
     # Enough free space to download + decompress in DOWNLOAD_DIR
@@ -371,6 +375,9 @@ write_image_to_slot() {
         sed -i 's| plymouth.ignore-serial-consoles||g' "$tgt_boot_mount/cmdline.txt"
         sed -i 's| quiet||g' "$tgt_boot_mount/cmdline.txt"
         sed -i 's|^ *||g' "$tgt_boot_mount/cmdline.txt"
+        # A kernel that cannot start must reboot (back to the working slot),
+        # not hang (R-054). Images from the converter carry it; older ones not.
+        grep -q 'panic=' "$tgt_boot_mount/cmdline.txt" || sed -i 's|$| panic=10|' "$tgt_boot_mount/cmdline.txt"
         log_message "cmdline.txt updated: root=${system_partition}"
         log_message "Removed: init, splash, plymouth, quiet"
     fi
@@ -452,7 +459,7 @@ proc                        /proc           proc    defaults          0   0
 /dev/${root_dev}p1          /boot/config    vfat    defaults          0   2
 ${boot_partition}           /boot/firmware  vfat    defaults          0   2
 ${system_partition}         /               ext4    defaults,noatime  0   1
-/dev/${root_dev}p7          /data           ext4    defaults,noatime  0   2
+/dev/${root_dev}p7          /data           ext4    defaults,noatime,nofail  0   2
 EOF
         log_message "fstab updated for Slot $target_slot"
     fi
