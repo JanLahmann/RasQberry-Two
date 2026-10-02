@@ -630,7 +630,7 @@ EOF
     fi
 
     # Everything else that makes the Pi yours (Wi-Fi, password, hostname,
-    # locale, ~/Shared, ~/.qiskit) is taken over by the
+    # locale, ~/Shared, ~/.qiskit, ~/My-Quantum-Programs) is taken over by the
     # NEW system on its first start: rq_carry_over.sh boot, run by
     # rasqberry-carry-over.service, pulls from this slot (R-053). Images from
     # the converter carry the marker; set it for any image that has the

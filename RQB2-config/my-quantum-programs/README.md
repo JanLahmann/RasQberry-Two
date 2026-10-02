@@ -86,6 +86,11 @@ environment breaks, `rq_venv_repair.sh` repairs it (see `rq_venv_repair.sh --hel
 
 ## Keeping your work
 
-Updates from a GitHub branch leave this folder alone. A new image (a fresh SD
-card, or on the A/B image an update into the other slot) starts with a new
-home folder, so copy this folder to a USB stick or another computer first.
+- **A/B image:** this folder lives on the data partition (`/data`), like
+  `~/Shared` and your IBM Quantum account, so an update into the other slot
+  keeps it. An update never overwrites your files and does not bring back
+  starter files you deleted.
+- **Standard image:** the folder is in your home folder. Updates from a GitHub
+  branch leave it alone.
+- **Writing a new image to the card** erases everything on it, also `/data`:
+  copy this folder to a USB stick or another computer first.

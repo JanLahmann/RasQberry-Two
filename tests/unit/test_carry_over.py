@@ -220,6 +220,70 @@ def test_standard_image_is_left_alone(slots):
 
 def test_list_names_what_is_kept_and_lost(tmp_path):
     out = _run(tmp_path, tmp_path, "list").stdout
-    for item in ("Shared", "~/.qiskit", "Wi-Fi", "LED", "password", "hostname",
-                 "SSH host keys", "installed demos"):
+    for item in ("Shared", "~/.qiskit", "~/My-Quantum-Programs", "Wi-Fi", "LED",
+                 "password", "hostname", "SSH host keys", "installed demos"):
         assert item in out
+
+
+# ---------------------------------------------------------------------------
+# ~/My-Quantum-Programs on /data (Jan, Q33c)
+# ---------------------------------------------------------------------------
+
+STARTERS = {"01_bell_state.py": "# Bell\n", "README.md": "# My Quantum Programs\n"}
+
+
+def _ship_programs(root, extra=None):
+    """The image's starter files, and the copy rq_learner_setup.sh made at build."""
+    shipped = root / "usr/config/my-quantum-programs"
+    folder = root / ("." + HOME) / "My-Quantum-Programs"
+    for d in (shipped, folder):
+        d.mkdir(parents=True, exist_ok=True)
+        for name, text in {**STARTERS, **(extra or {})}.items():
+            (d / name).write_text(text)
+    return folder
+
+
+def test_link_moves_my_programs_to_data(slots):
+    _, new, data = slots
+    folder = _ship_programs(new)
+    (folder / "mine.py").write_text("print('mine')\n")
+    proc = _run(new, data, "link")
+    assert proc.returncode == 0, proc.stderr
+    on_data = data / f"home/{USER}/My-Quantum-Programs"
+    assert os.readlink(folder) == str(on_data)
+    assert sorted(os.listdir(on_data)) == ["01_bell_state.py", "README.md", "mine.py"]
+
+
+def test_an_update_keeps_the_learners_programs(slots):
+    # /data holds the learner's folder from the old slot; the new slot ships
+    # the starter files again (and one new starter)
+    _, new, data = slots
+    on_data = data / f"home/{USER}/My-Quantum-Programs"
+    on_data.mkdir(parents=True)
+    (on_data / "01_bell_state.py").write_text("# Bell, my changes\n")   # edited starter
+    (on_data / "mine.py").write_text("print('mine')\n")                  # own file
+    # README.md: a starter the learner deleted
+    folder = _ship_programs(new, extra={"05_new_starter.py": "# new\n"})
+    (folder / "made-in-slot.py").write_text("x = 1\n")    # made before the link existed
+    _run(new, data, "link")
+    assert folder.is_symlink()
+    assert (on_data / "01_bell_state.py").read_text() == "# Bell, my changes\n"
+    assert (on_data / "mine.py").exists() and (on_data / "made-in-slot.py").exists()
+    assert not (on_data / "README.md").exists(), "a deleted starter must not come back"
+    assert not (on_data / "05_new_starter.py").exists()   # shipped, unchanged: stays in /usr/config
+
+
+def test_no_my_programs_link_without_the_folder(slots):
+    # a learner who deleted the folder does not get an empty one back
+    _, new, data = slots
+    _run(new, data, "link")
+    assert not os.path.lexists(new / ("." + HOME) / "My-Quantum-Programs")
+
+
+def test_pull_brings_my_programs_from_a_slot_without_data(slots):
+    old, new, data = slots
+    folder = _ship_programs(old)
+    (folder / "mine.py").write_text("print('mine')\n")
+    proc = _run(new, data, "pull", str(old))
+    assert "own programs (~/My-Quantum-Programs)" in proc.stdout
+    assert (data / f"home/{USER}/My-Quantum-Programs/mine.py").exists()

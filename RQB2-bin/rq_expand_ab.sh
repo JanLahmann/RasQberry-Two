@@ -231,7 +231,8 @@ explain_mode() {
             echo ""
             echo "To get a new RasQberry release, write the new image to a card with"
             echo "Raspberry Pi Imager (rasqberry.org/latest/). That erases this card:"
-            echo "copy your files (the Shared folder, ~/.qiskit) to another computer first."
+            echo "copy your files (~/My-Quantum-Programs, ~/Shared, ~/.qiskit) to another"
+            echo "computer first."
             echo "A 64 GB or larger card gets two systems and updates from the menu."
             ;;
         single-pending)

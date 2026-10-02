@@ -59,6 +59,7 @@ user turned off stays off).
 Per-user state outside `/usr/config` that no update touches:
 `~/.local/config/demo-manifests/` (catalog demos), `~/.local/config/led-layouts.json`
 (custom layouts), `~/Desktop/rq-ext-*.desktop` (catalog demo icons),
-`~/My-Quantum-Programs/` (the learner's own programs), and the Thonny and Geany
+`~/My-Quantum-Programs/` (the learner's own programs; on an A/B card a link to
+`/data/home/<user>/My-Quantum-Programs`, see `rq_carry_over.sh`), and the Thonny and Geany
 settings `rq_learner_setup.sh` writes once (`~/.local/state/rasqberry/learner-setup/`
 records that).

@@ -17,7 +17,11 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   - Thonny runs programs with the venv python, so `import qiskit` works (R-074).
 #     An interpreter the user picked in Thonny is left alone.
 #   - Geany's Execute runs Python files through rq_python (R-074).
-#   - ~/My-Quantum-Programs with the starter programs (R-071).
+#   - ~/My-Quantum-Programs with the starter programs (R-071). On an A/B card
+#     with a data partition the folder lives on /data and ~/My-Quantum-Programs
+#     is a link to it (rq_carry_over.sh, Jan Q33c), so it survives updates; the
+#     starter files go where the link points. A file already there is never
+#     replaced.
 #
 #   Callers: the image build (stage 03-install-qiskit), the XDG autostart
 #   entry rasqberry-learner-setup.desktop (every desktop login, which covers
@@ -142,17 +146,32 @@ EOF
     _mark geany
 }
 
-# ~/My-Quantum-Programs with the starter programs, created once.
+# ~/My-Quantum-Programs with the starter programs, created once. On an A/B
+# card ~/My-Quantum-Programs may be a link to /data (rq_carry_over.sh): the
+# starter files then land on /data, next to the learner's own files, and
+# survive updates. Files that are already there are never overwritten.
 seed_programs() {
-    local dest="${USER_HOME}/${PROGRAMS_DIRNAME}"
+    local dest="${USER_HOME}/${PROGRAMS_DIRNAME}" target
     _done programs && return 0
     [ -d "$STARTER_DIR" ] || { warn "Starter programs not found: $STARTER_DIR"; return 0; }
-    if [ ! -e "$dest" ]; then
-        mkdir -p "$dest" || return 1
+    if [ -L "$dest" ] && [ ! -e "$dest" ]; then
+        # A link to a folder that is gone: recreate it only where its parent
+        # exists (/data/home/<user> on a mounted data partition)
+        target=$(readlink "$dest")
+        if [ ! -d "$(dirname "$target")" ]; then
+            warn "~/${PROGRAMS_DIRNAME} points to $target, which is not available - starter programs not copied"
+            return 0
+        fi
+        mkdir -p "$target" || return 1
+    fi
+    if [ ! -e "$dest" ] || [ -z "$(ls -A "$dest/" 2>/dev/null)" ]; then
+        # Only into a new or empty folder: nothing of the learner's to overwrite
+        mkdir -p "$dest/" || return 1
         cp -R "$STARTER_DIR"/. "$dest"/ || return 1
         # /usr/config is installed 755 throughout; these are documents to edit.
-        find "$dest" -type f -exec chmod 644 {} + || return 1
-        find "$dest" -type d -exec chmod 755 {} + || return 1
+        # "$dest/": follow the link to /data.
+        find "$dest/" -type f -exec chmod 644 {} + || return 1
+        find "$dest/" -type d -exec chmod 755 {} + || return 1
         say "Created $dest with starter programs"
     fi
     _mark programs

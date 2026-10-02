@@ -25,7 +25,7 @@ passes. Otherwise use the alternative given in the comment next to them.
 
 - **Software & Image Updates** → **Check for a newer image**, then **Slot Manager** → **Update Slot B with new image**: about 1.7GB, 20–30 minutes, then the Pi restarts into Slot B.
 - When Slot B works, **Promote Slot B to Slot A** makes it your stable system again.
-- **Kept** (on `/data`): the Shared folder, your IBM Quantum account (`~/.qiskit`), Wi-Fi networks, LED settings, SSH keys. **Not kept:** installed demos download again; other files in your home folder stay in the other slot.
+- **Kept:** your own programs (`~/My-Quantum-Programs`), the Shared folder, your IBM Quantum account (`~/.qiskit`), Wi-Fi networks and LED settings live on `/data`; your password, hostname, language, keyboard and SSH keys are copied to the new system. **Not kept:** installed demos download again; other files in your home folder stay in the other slot.
 - **Going back:** **Slot Manager** → **Switch to Slot A**. If the Pi does not start, switch it off and on. If it still does not start, set `boot_partition=2` under `[all]` in `autoboot.txt` on the CONFIG drive.
 - **Standard image:** OS updates through the taskbar updater or `sudo apt full-upgrade`. A new RasQberry release means writing a new card: back up your notebooks and `~/.qiskit` first.
 

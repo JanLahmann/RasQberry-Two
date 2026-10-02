@@ -29,7 +29,9 @@ PORT=$(find_available_port "${MY_PROGRAMS_JUPYTER_PORT:-8893}")
 
 "${SCRIPT_DIR}/rq_learner_setup.sh" --quiet || warn "Learner setup reported a problem (see above)"
 # The folder is created once; if the user removed it, start an empty one.
-mkdir -p "$PROGRAMS_DIR"
+# On an A/B card it is a link to /data (rq_carry_over.sh): "$PROGRAMS_DIR/".
+mkdir -p "$PROGRAMS_DIR/" 2>/dev/null || \
+    die "Cannot open $PROGRAMS_DIR (on the A/B image it lives on the data partition, /data)"
 
 activate_venv || die "RasQberry Python environment not found"
 command -v jupyter-lab >/dev/null 2>&1 || \

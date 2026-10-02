@@ -13,6 +13,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   whichever system runs (set up at every boot, "link"):
 #     ~/Shared                                -> /data/home/<user>/Shared   (symlink)
 #     ~/.qiskit  (IBM Quantum account)        -> /data/home/<user>/.qiskit  (symlink)
+#     ~/My-Quantum-Programs (own programs)    -> /data/home/<user>/My-Quantum-Programs
+#                                                 (symlink; Jan, Q33c)
 #     /etc/NetworkManager/system-connections  <- /data/rasqberry/system-connections
 #                                                 (bind mount, before NetworkManager)
 #     LED/device settings: /data/rasqberry/device-settings.env (rq_device_settings.sh)
@@ -23,7 +25,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
 #     BROWSER_AUTOSTART and RQ_FIRSTLOGIN_DONE from rasqberry_environment.env,
-#     and - from a slot that predates /data - its ~/.qiskit and Wi-Fi profiles.
+#     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
+#     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
 #   rq_carry_ssh_identity.sh.)
 #
@@ -55,6 +58,9 @@ NM_MIGRATED="$ROOT/var/lib/rasqberry/nm-connections-on-data"
 NM_DIR="/etc/NetworkManager/system-connections"
 DATA_NM="$DATA/rasqberry/system-connections"
 DATA_MIN_BYTES=268435456   # 256 MiB: smaller is the image's placeholder
+PROGRAMS=My-Quantum-Programs
+# The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
+STARTERS="$ROOT/usr/config/my-quantum-programs"
 ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE"
 # Live = changing the running system (hostname, locale-gen, nmcli), not a test root
 LIVE=true
@@ -112,6 +118,28 @@ merge_dir() {
 
 dir_has_entries() { [ -d "$1" ] && [ -n "$(ls -A "$1" 2>/dev/null)" ]; }
 
+# Like merge_dir, for ~/My-Quantum-Programs (<src> <dst> <starter dir>). Every
+# image ships this folder with the starter files (rq_learner_setup.sh at build
+# time). The first time, everything moves to /data. Once /data holds the
+# learner's folder, a slot's copy brings only what the learner made or changed:
+# a starter file identical to the shipped one is skipped, so a starter the
+# learner deleted or renamed does not come back with every update. Nothing on
+# /data is overwritten. Reads <src> only (it may be a read-only slot).
+merge_programs() {
+    local src="$1" dst="$2" starters="$3" rel rc=0
+    [ -d "$src" ] || return 0
+    dir_has_entries "$dst" || { merge_dir "$src" "$dst"; return; }
+    while IFS= read -r -d '' rel; do
+        rel="${rel#./}"
+        [ -e "$dst/$rel" ] || [ -L "$dst/$rel" ] && continue
+        if [ -f "$starters/$rel" ] && cmp -s "$src/$rel" "$starters/$rel"; then
+            continue
+        fi
+        mkdir -p "$dst/$(dirname "$rel")" && cp -pP "$src/$rel" "$dst/$rel" || rc=1
+    done < <(cd "$src" && find . \( -type f -o -type l \) -print0)
+    return "$rc"
+}
+
 # ----------------------------------------------------------------------------
 # link: user data lives on /data
 # ----------------------------------------------------------------------------
@@ -135,7 +163,13 @@ link_home_dir() {
             say "~/$name is a normal folder with files - left alone (the shared folder is $target)"
             return 0
         fi
-        if ! merge_dir "$path" "$target"; then
+        local merged=0
+        if [ "$name" = "$PROGRAMS" ]; then
+            merge_programs "$path" "$target" "$STARTERS" || merged=$?
+        else
+            merge_dir "$path" "$target" || merged=$?
+        fi
+        if [ "$merged" -ne 0 ]; then
             warn "could not copy ~/$name to $target - left as it is"
             return 1
         fi
@@ -191,6 +225,13 @@ cmd_link() {
         give_to_user "$DATA/home/$user"
         link_home_dir Shared "$DATA/home/$user/Shared" 755 || true
         link_home_dir .qiskit "$DATA/home/$user/.qiskit" 700 || true
+        # Own programs (B10's starter folder, Jan Q33c) - only once the folder
+        # exists in this slot or on /data, so a learner who deleted it does
+        # not get an empty one back
+        if [ -e "$ROOT$home/$PROGRAMS" ] || [ -L "$ROOT$home/$PROGRAMS" ] \
+            || [ -d "$DATA/home/$user/$PROGRAMS" ]; then
+            link_home_dir "$PROGRAMS" "$DATA/home/$user/$PROGRAMS" 755 || true
+        fi
     fi
     link_nm_connections || true
     return 0
@@ -277,7 +318,8 @@ pull_env_keys() {
 }
 
 pull_old_slot_data() {
-    # From a slot that predates /data: its ~/.qiskit and Wi-Fi profiles
+    # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
+    # and Wi-Fi profiles
     local other="$1" user home carried=""
     data_is_real || return 1
     user=$(desktop_user); home=$(desktop_home)
@@ -287,6 +329,15 @@ pull_old_slot_data() {
         give_to_user "$DATA/home/$user"
         give_to_user -R "$DATA/home/$user/.qiskit"
         carried="IBM Quantum account (~/.qiskit)"
+    fi
+    if [ -n "$user" ] && [ -d "$other$home/$PROGRAMS" ] && [ ! -L "$other$home/$PROGRAMS" ] \
+        && dir_has_entries "$other$home/$PROGRAMS" \
+        && merge_programs "$other$home/$PROGRAMS" "$DATA/home/$user/$PROGRAMS" \
+            "$other/usr/config/my-quantum-programs"; then
+        chmod 755 "$DATA/home/$user/$PROGRAMS"
+        give_to_user "$DATA/home/$user"
+        give_to_user -R "$DATA/home/$user/$PROGRAMS"
+        carried="${carried:+$carried, }own programs (~/$PROGRAMS)"
     fi
     if [ ! -e "$other/var/lib/rasqberry/nm-connections-on-data" ] && dir_has_entries "$other$NM_DIR" \
         && merge_dir "$other$NM_DIR" "$DATA_NM"; then
@@ -368,6 +419,7 @@ cmd_list() {
     cat <<'EOF'
 Kept across an update, on the data partition (both systems use one copy):
   - the Shared folder in your home (~/Shared)
+  - your own programs (~/My-Quantum-Programs)
   - your IBM Quantum account (~/.qiskit)
   - Wi-Fi networks
   - LED panel settings
@@ -377,6 +429,7 @@ Copied from the old system when the new one starts for the first time:
   - "Browser at login" and the setup checklist's "Don't ask again"
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
+    or ~/My-Quantum-Programs
   - installed demos, Docker images and Python packages you added
 EOF
 }

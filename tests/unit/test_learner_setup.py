@@ -224,6 +224,40 @@ def test_starter_programs_are_seeded_once(home):
     assert not programs.exists(), "a folder the user removed must not come back"
 
 
+def test_starter_programs_follow_a_link_to_data(home, tmp_path):
+    # A/B card (Jan, Q33c): rq_carry_over.sh made ~/My-Quantum-Programs a link
+    # to /data; the starter files land there, beside the learner's own files
+    h, _ = home
+    on_data = tmp_path / "data" / "home" / "rasqberry" / "My-Quantum-Programs"
+    on_data.mkdir(parents=True)
+    os.symlink(on_data, h / "My-Quantum-Programs")
+    _run(_SETUP, [], home)
+    shipped = sorted(os.listdir(os.path.join(_CONFIG, "my-quantum-programs")))
+    assert sorted(os.listdir(on_data)) == shipped
+    assert (h / "My-Quantum-Programs").is_symlink()
+
+
+def test_starter_programs_never_overwrite_the_learners_files(home, tmp_path):
+    h, _ = home
+    on_data = tmp_path / "data" / "home" / "rasqberry" / "My-Quantum-Programs"
+    on_data.mkdir(parents=True)
+    (on_data / "01_bell_state.py").write_text("# my version\n")
+    os.symlink(on_data, h / "My-Quantum-Programs")
+    _run(_SETUP, [], home)
+    assert (on_data / "01_bell_state.py").read_text() == "# my version\n"
+    assert sorted(os.listdir(on_data)) == ["01_bell_state.py"]
+
+
+def test_starter_programs_wait_for_a_missing_data_partition(home, tmp_path):
+    # the link points to /data, but /data is not mounted: nothing is created
+    h, _ = home
+    gone = tmp_path / "not-mounted" / "home" / "rasqberry" / "My-Quantum-Programs"
+    os.symlink(gone, h / "My-Quantum-Programs")
+    proc = _run(_SETUP, [], home)
+    assert not gone.exists()
+    assert "not available" in proc.stdout + proc.stderr
+
+
 def test_starter_programs_compile():
     folder = os.path.join(_CONFIG, "my-quantum-programs")
     for name in os.listdir(folder):
