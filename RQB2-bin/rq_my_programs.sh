@@ -14,6 +14,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 if [ "$(id -u)" -eq 0 ]; then
     user_name=$(get_user_name)

@@ -9,6 +9,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   only be known at runtime: image type, booted A/B slot, Pi model.
 # Usage: rq_info.sh            human-readable
 #        rq_info.sh --json     build metadata plus runtime fields as JSON
+#        rq_info.sh --report   save this, disk space, demos and recent logs to
+#                              ~/rasqberry-report-<date>.txt for a bug report
 
 BUILD_JSON="${RQ_BUILD_JSON:-/etc/rasqberry-build.json}"
 
@@ -45,6 +47,48 @@ describe() {
 model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || uname -m)
 version=$(field version)
 [ -n "$version" ] || version=$(cat /etc/rasqberry-version 2>/dev/null || echo unknown)
+
+# A file to attach to a bug report: what this prints, plus disk, memory,
+# demos and the recent logs (R-121). No IBM Quantum key or other secrets.
+if [ "${1:-}" = "--report" ]; then
+    out="${HOME:-/tmp}/rasqberry-report-$(date +%Y%m%d-%H%M%S).txt"
+    self="$0"
+    section() { printf '\n===== %s =====\n' "$1"; }
+    # Read a root-only log without a password prompt, or skip it
+    readable() { if [ -r "$1" ]; then tail -n "$2" "$1"; else sudo -n tail -n "$2" "$1" 2>/dev/null || echo "(not readable: $1)"; fi; }
+    {
+        echo "RasQberry Two report, $(date '+%Y-%m-%d %H:%M:%S')"
+        section "System";        "$self" 2>&1 || true
+        section "Build (json)";  "$self" --json 2>&1 || true
+        section "Disk";          df -h / /boot/firmware /data 2>/dev/null || df -h /
+        section "Memory";        free -m 2>/dev/null || true
+        section "Docker"
+        if command -v docker >/dev/null 2>&1; then
+            docker system df 2>&1 || true
+            docker image ls 2>&1 || true
+            docker ps -a 2>&1 || true
+        else
+            echo "(no docker)"
+        fi
+        section "Demos"
+        ls -la "$HOME/RasQberry-Two/demos" 2>&1 || true
+        section "Settings (secrets removed)"
+        grep -vE '^[[:space:]]*#|^[[:space:]]*$' /usr/config/rasqberry_environment.env 2>/dev/null \
+            | grep -viE 'token|key|secret|password|passwd' || true
+        for f in "$HOME"/.cache/rasqberry/*.log /tmp/rqb-demo.log /var/log/rasqberry-*.log; do
+            [ -e "$f" ] || continue
+            section "Log: $f (last lines)"
+            readable "$f" 80
+        done
+        section "Journal: warnings since boot (last 100)"
+        journalctl -b -p warning -n 100 --no-pager 2>/dev/null \
+            || sudo -n journalctl -b -p warning -n 100 --no-pager 2>/dev/null || echo "(not available)"
+    } > "$out" 2>&1
+    echo "Saved: $out"
+    echo "Attach it to a bug report (https://github.com/JanLahmann/RasQberry-Two/issues)."
+    echo "It holds no IBM Quantum key, but it shows this Pi's name, addresses and logs."
+    exit 0
+fi
 
 if [ "${1:-}" = "--json" ]; then
     base='{}'

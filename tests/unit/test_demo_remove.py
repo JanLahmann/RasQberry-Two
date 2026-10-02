@@ -77,3 +77,22 @@ def test_remove_unknown_demo_fails(tmp_path):
     proc = _remove(stub, "absent")
     assert proc.returncode != 0
     assert "not installed" in proc.stdout + proc.stderr
+
+
+def test_remove_offers_to_delete_the_docker_image(tmp_path):
+    # R-160: traQmania's 3.2 GB image stayed behind
+    m = {"id": "dock-demo", "entrypoint": {"type": "docker", "docker_image": "ghcr.io/x/dock:latest",
+                                            "working_dir": "dock-demo"},
+         "install": {"repo_url": "https://github.com/x/dock-demo.git"}}
+    home, stub = _home(tmp_path, m)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "docker.log"
+    (bin_dir / "docker").write_text(f'#!/bin/sh\necho "$*" >> "{log}"\n'
+                                    'case "$1 $2" in "image inspect") echo 3240000000; exit 0 ;; esac\nexit 0\n')
+    (bin_dir / "docker").chmod(0o755)
+    env = dict(os.environ, RQ_CONFIG_FILE=str(stub), RQ_ASSUME_YES="yes",
+               PATH=f"{bin_dir}:{os.environ['PATH']}")
+    proc = subprocess.run(["bash", _SCRIPT, "--remove", "dock-demo"], capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "rmi ghcr.io/x/dock:latest" in log.read_text()

@@ -8,10 +8,16 @@ set -euo pipefail
 #   Installs and launches the LED Painter demonstration
 #   Allows users to paint images on a GUI and display them on the LED array
 #   Uses standardized installation approach
+#
+# Usage:
+#   rq_led_painter.sh              install if needed (asks first), then start
+#   rq_led_painter.sh --path DIR   set up a downloaded checkout, do not start
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+
+rq_help_guard "$@"
 
 # Load environment and verify required variables
 load_rqb2_env
@@ -70,107 +76,106 @@ link_system_pyqt5() {
     "$venv_py" -c "import PyQt5.QtWidgets" 2>/dev/null
 }
 
-check_and_install_demo() {
-    link_system_pyqt5 || warn "PyQt5 not available in the venv - the painter window cannot open"
+# Find the PWM/PIO + PyQt5 conversion script (shipped copy, else the checkout)
+find_convert_script() {
+    local c
+    for c in "/usr/config/demo-patches/led-painter-convert-to-pwm.py" \
+             "$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-convert-to-pwm.py"; do
+        [ -f "$c" ] && { echo "$c"; return 0; }
+    done
+    return 1
+}
 
-    # Installed = checkout present AND already ported to PyQt5. A checkout
-    # converted before #302 still imports PySide6 (bus error on the Pi 5), so
-    # it is fetched and converted again.
-    if [ -f "$DEMO_DIR/$MARKER" ]; then
-        if grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
-            debug "LED Painter already installed (PyQt5)"
-            return 0
-        fi
-        info "LED Painter was installed for PySide6 - reinstalling for PyQt5..."
+# Convert the checkout in DEMO_DIR from SPI to the PWM/PIO drivers (shared
+# NeoPixel object) and its GUI from PySide6 to the system PyQt5 (#302).
+# Works on a fresh checkout and on one converted before #302.
+convert_checkout() {
+    local convert_script
+    convert_script=$(find_convert_script) || { warn "Conversion script not found (demo may use incompatible SPI drivers)"; return 1; }
+    info "Converting to PWM/PIO drivers and PyQt5..."
+    if python3 "$convert_script" "$DEMO_DIR" > /dev/null 2>&1 \
+        && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
+        info "Converted to PWM/PIO drivers (Pi 4/Pi 5) and PyQt5"
+        return 0
     fi
+    warn "Could not convert LED Painter"
+    return 1
+}
 
-    # Demo not installed - auto-install without prompting
-    # Desktop icons and automated launchers don't have interactive terminals
+# Install the Python requirements of the converted checkout into the venv
+install_requirements() {
+    info "Installing Python dependencies (this may take several minutes)..."
+    [ -d "$USER_HOME/$REPO/venv/$STD_VENV" ] \
+        || die "Virtual environment not found at $USER_HOME/$REPO/venv/$STD_VENV"
+    local venv_pip="$USER_HOME/$REPO/venv/$STD_VENV/bin/pip3" pip_exit=0
+    [ -f "$DEMO_DIR/requirements.txt" ] || return 0
+    if [ "$(id -u)" -eq 0 ]; then
+        "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
+    elif sudo -n true 2>/dev/null; then
+        sudo "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
+    else
+        "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
+    fi
+    [ "$pip_exit" -eq 0 ] || die "Failed to install Python dependencies"
+}
+
+# Fetch the pinned checkout (first install; asks first, one dialog with size)
+fetch_checkout() {
+    rq_require_demo_consent led-painter "$MANIFEST_FILE"
     info "Installing $DEMO_NAME..."
-
-    # Create demos directory if it doesn't exist
     mkdir -p "$(dirname "$DEMO_DIR")"
-
-    # Acquire the sources, honouring the manifest pin. LED-Painter is third-party
-    # (Luka-D), and we rewrite its driver code post-checkout, so tracking a moving
-    # HEAD would let an upstream commit break the conversion.
+    rq_remove_tree "$DEMO_DIR" || die "Cannot remove the old checkout: $DEMO_DIR"
+    # LED-Painter is third-party (Luka-D), and we rewrite its driver code
+    # post-checkout, so tracking a moving HEAD would let an upstream commit
+    # break the conversion.
     if [ -n "$DEMO_REF" ]; then
         info "Fetching pinned commit $DEMO_REF ..."
-        [ -d "$DEMO_DIR" ] && rm -rf "$DEMO_DIR"
         fetch_pinned_repo "$DEMO_URL" "$DEMO_REF" "$DEMO_DIR" \
             || die "Failed to fetch pinned commit $DEMO_REF for $DEMO_NAME"
     else
         info "Cloning $DEMO_NAME repository (unpinned)..."
         clone_demo "$DEMO_URL" "$DEMO_DIR"
     fi
-
-    # Fix ownership if cloned as root
-    if [ "$(stat -c '%U' "$DEMO_DIR" 2>/dev/null || stat -f '%Su' "$DEMO_DIR")" = "root" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-        chown -R "$SUDO_USER":"$SUDO_USER" "$DEMO_DIR" 2>/dev/null || true
+    if [ "$(id -u)" = "0" ] && [ "$(get_user_name)" != "root" ]; then
+        chown -R "$(get_user_name):" "$DEMO_DIR" 2>/dev/null || true
     fi
+}
 
-    # Convert LED-Painter from SPI to PWM/PIO drivers with persistent NeoPixel object
-    # This replaces the old patch + GPIO fix approach with a comprehensive conversion script
-    CONVERT_SCRIPT=""
-    if [ -f "/usr/config/demo-patches/led-painter-convert-to-pwm.py" ]; then
-        CONVERT_SCRIPT="/usr/config/demo-patches/led-painter-convert-to-pwm.py"
-    elif [ -f "$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-convert-to-pwm.py" ]; then
-        CONVERT_SCRIPT="$USER_HOME/$REPO/RQB2-config/demo-patches/led-painter-convert-to-pwm.py"
-    fi
+# Installed = checkout present AND already ported to PyQt5. A checkout the
+# demo engine just fetched, or one converted before #302 (still PySide6, a bus
+# error on the Pi 5), is converted in place - it used to be downloaded a
+# second time on every first start (R-138).
+check_and_install_demo() {
+    link_system_pyqt5 || warn "PyQt5 not available in the venv - the painter window cannot open"
 
-    if [ -n "$CONVERT_SCRIPT" ]; then
-        info "Converting to PWM/PIO drivers..."
-        if python3 "$CONVERT_SCRIPT" "$DEMO_DIR" > /dev/null 2>&1; then
-            info "✓ Converted to PWM/PIO drivers (Pi 4/Pi 5 compatible)"
-            info "✓ Applied persistent NeoPixel object (prevents GPIO busy errors)"
-        else
-            warn "Could not convert to PWM/PIO drivers (demo may not work)"
-        fi
-    else
-        warn "Conversion script not found (demo may use incompatible SPI drivers)"
-    fi
-
-    # Install Python dependencies
-    info "Installing Python dependencies (this may take several minutes)..."
-
-    # Verify virtual environment exists
-    if [ ! -d "$USER_HOME/$REPO/venv/$STD_VENV" ]; then
-        die "Virtual environment not found at $USER_HOME/$REPO/venv/$STD_VENV"
-    fi
-
-    # Use venv's pip directly
-    VENV_PIP="$USER_HOME/$REPO/venv/$STD_VENV/bin/pip3"
-
-    # Install using venv's pip
-    # (venv is owned by root from build, so use sudo if we're root or have sudo privileges)
-    cd "$DEMO_DIR" || die "Failed to cd to demo directory"
-    local pip_exit=0
-
-    if [ "$(id -u)" -eq 0 ]; then
-        # Already root, run directly
-        $VENV_PIP install -r requirements.txt || pip_exit=$?
-    elif sudo -n true 2>/dev/null; then
-        # Have sudo privileges
-        sudo $VENV_PIP install -r requirements.txt || pip_exit=$?
-    else
-        # No sudo, try without
-        $VENV_PIP install -r requirements.txt || pip_exit=$?
-    fi
-    cd - > /dev/null || true
-
-    if [ $pip_exit -eq 0 ]; then
-        # Update environment flag
-        update_env_var "LED_PAINTER_INSTALLED" "true"
-        info "$DEMO_NAME installed successfully!"
+    if [ -f "$DEMO_DIR/$MARKER" ] && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
+        debug "LED Painter already installed (PyQt5)"
         return 0
-    else
-        die "Failed to install Python dependencies"
     fi
+    [ -f "$DEMO_DIR/$MARKER" ] || fetch_checkout
+    if ! convert_checkout; then
+        # The checkout may be damaged: start again from the pinned commit
+        fetch_checkout
+        convert_checkout || die "Could not convert LED Painter for this Pi"
+    fi
+    install_requirements
+    update_env_var "LED_PAINTER_INSTALLED" "true" || true
+    info "$DEMO_NAME installed successfully!"
 }
 
 ################################################################################
 # Main execution
 ################################################################################
+
+# --path DIR: set up a checkout the demo engine has just fetched (its
+# install.post_install), then stop - "Download all demos" leaves LED-Painter
+# ready to start offline.
+if [ "${1:-}" = "--path" ]; then
+    [ -n "${2:-}" ] || die "--path needs the checkout directory"
+    DEMO_DIR="$2"
+    check_and_install_demo
+    exit 0
+fi
 
 # Check and install if needed
 check_and_install_demo

@@ -438,13 +438,30 @@ open_browser "$URL"
 
 ### 12. Demo Installation Helpers
 
-#### `ask_demo_install "name" "download" "install"`
-Ask user to install demo with size information.
+#### Download consent and free space (every first install asks once)
 
 ```bash
-ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
-# Shows whiptail dialog, returns 0 if user confirms
+# A demo's first install: sizes from its manifest (install.download).
+# "Not now" exits 0, low space / offline / no terminal die with the reason.
+rq_require_demo_consent doqumentation
+
+# Any other download (e.g. a newer Docker image); MB, 0 = unknown
+rq_confirm_download "doQumentation" 1300 5400 --what "Docker image from ghcr.io" \
+    --time "10-20 minutes" --path /var/lib/docker --url https://ghcr.io/v2/ \
+    --intro "A newer doQumentation image is available." --question "Update now?"
+# 0 go ahead, 1 "Not now", 2 not enough space, 3 not reachable, 4 no terminal;
+# $RQ_CONSENT_MSG says why. RQ_AUTO_INSTALL=1: no question, checks still run.
+
+rq_free_mb /var/lib/docker      # free MB (1 MB = 10^6 bytes); RQ_TEST_FREE_MB fakes it
+rq_fmt_mb 3900                  # "3.9 GB"
 ```
+
+`ask_demo_install "name" "5MB" "500MB"` is the old name; it calls
+`rq_confirm_download`.
+
+#### `rq_help_guard "$@"`
+Right after sourcing this file: `--help`/`-h` prints the script's header
+comment and exits before anything runs.
 
 #### `install_demo_raspiconfig function_name`
 Install demo using raspi-config nonint function.

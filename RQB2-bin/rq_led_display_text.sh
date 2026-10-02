@@ -7,6 +7,7 @@ set -euo pipefail
 # Load common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # Ensure running as root (PWM/PIO drivers require GPIO access)
 ensure_root "$@"
@@ -23,7 +24,7 @@ main() {
     info "RasQberry LED Text Display"
 
     # Prompt for text
-    TEXT=$(whiptail --inputbox "Enter text to display on LEDs:\n(Max ~4 chars for centered text)" 10 60 \
+    TEXT=$(whiptail --inputbox "Enter text to display on LEDs:\n(Static text fits about 4 characters; choose Scrolling for longer text)" 10 60 \
            "RASQBERRY" --title "LED Text Display" 3>&1 1>&2 2>&3) || {
         info "User cancelled"
         exit 0
@@ -37,7 +38,7 @@ main() {
     # Prompt for display mode
     MODE=$(whiptail --menu "Display mode:" 15 60 3 \
            "scroll" "Scrolling text" \
-           "static" "Static centered text" \
+           "static" "Static centred text" \
            "flash" "Flashing text" \
            --title "LED Text Display" 3>&1 1>&2 2>&3) || {
         info "User cancelled"

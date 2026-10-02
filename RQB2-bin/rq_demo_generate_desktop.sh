@@ -138,6 +138,8 @@ generate_desktop_entry() {
     else
         exec_cmd="/usr/bin/rq_demo_run.sh $id"
         tryexec="/usr/bin/rq_demo_run.sh"
+        # a terminal window stays open when the demo fails (R-029)
+        [ "$terminal_value" = "true" ] && exec_cmd="/usr/bin/rq_hold_on_error.sh $exec_cmd"
     fi
 
     # Generate the desktop entry

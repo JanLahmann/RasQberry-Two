@@ -427,3 +427,48 @@ def test_patched_raspi_config_nonint_smoke(menu_env, tmp_path):
                           capture_output=True, text=True, env=base, timeout=60)
     assert "R:True:1:" in proc.stdout, proc.stdout + proc.stderr
     assert "/leaked/" not in proc.stdout
+
+
+# --- B3: installs go through the engine's consent; IBM content repairs -------
+
+def _fake_bin(tmp, engine_body):
+    b = tmp / "fakebin"
+    b.mkdir(exist_ok=True)
+    _write_exec(b / "rq_demo_run.sh", engine_body)
+    return b
+
+
+def test_install_via_engine_not_now_is_not_an_error(menu_env):
+    # the engine asked and the user chose "Not now": exit 0, still not installed
+    b = _fake_bin(menu_env.tmp, '#!/bin/sh\n[ "$2" = --is-installed ] && exit 1\nexit 0\n')
+    proc = menu_env(f'BIN_DIR="{b}"; install_via_engine quantum-lights-out QLO; echo "RC=$?"')
+    assert "RC=2" in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_install_via_engine_failure_keeps_the_reason(menu_env):
+    b = _fake_bin(menu_env.tmp, '#!/bin/sh\n[ "$2" = --is-installed ] && exit 1\n'
+                                'echo "Not enough free space for X" >> "$RQ_ERROR_FILE"\nexit 1\n')
+    proc = menu_env(f'BIN_DIR="{b}"; install_via_engine x X; echo "RC=$?"; echo "ERR=$RQ_LAST_DEMO_ERROR"')
+    assert "RC=1" in proc.stdout and "ERR=Not enough free space for X" in proc.stdout, proc.stdout
+
+
+def test_broken_ibm_download_is_removed_not_reported_installed(menu_env):
+    # R-056: a .git without a commit counted as "cloned" for good
+    dest = menu_env.tmp / "home" / "RasQberry-Two" / "demos" / "ibm-quantum-learning"
+    (dest / ".git").mkdir(parents=True)
+    git = menu_env.tmp / "stubs" / "git"
+    _write_exec(git, '#!/bin/sh\ncase " $* " in *" fetch "*|*" rev-parse "*) exit 1 ;; esac\n'
+                     'case "$1" in init) mkdir -p .git ;; esac\nexit 0\n')
+    proc = menu_env('do_ibm_tutorials_install; echo "RC=$?"', extra_env={"RQ_AUTO_INSTALL": "1"})
+    assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
+    assert not dest.exists()
+    assert _env_value(menu_env.env_file, "IBM_TUTORIALS_INSTALLED") == "false"
+
+
+def test_quantum_demos_menu_offers_remove_and_download_all():
+    menu = open(_MENU).read()
+    assert 'REM  "Remove a demo (free space)"' in menu
+    assert '"$BIN_DIR/rq_download_all.sh"' in menu
+    # the Mixer installer no longer sets up Qoffee-Maker
+    start = menu.index("do_quantum_mixer_install() {")
+    assert "qoffee-setup.sh" not in menu[start:menu.index("\n}\n", start)]
