@@ -648,18 +648,47 @@ run_demo() {
 # Stop the most recently launched demo (its whole setsid process group) and
 # blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
 # chose "Keep running" at the stop prompt) can be stopped here later.
+#
+# A demo started elsewhere (a desktop icon, an earlier menu session, the IP
+# scroll at start-up) is not in LAST_DEMO_PGID: STOP used to say "Stopped the
+# last running demo and cleared the LEDs." while it kept the panel lit, or
+# "No demo has been started" (R-103, R-148). Whatever holds the panel is now
+# named and stopped too, and the result says what really happened.
 stop_last_demo() {
-  if [ -z "${LAST_DEMO_PGID:-}" ]; then
-    whiptail --title "Stop demo" --msgbox "No demo has been started in this session." 8 60
+  _sd_done=""
+  if [ -n "${LAST_DEMO_PGID:-}" ] && kill -0 "$LAST_DEMO_PGID" 2>/dev/null; then
+    # Negative PID targets the whole process group (setsid session leader).
+    kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+    sleep 1
+    kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null || true
+    _sd_done="yes"
+  fi
+  LAST_DEMO_PGID=""
+  _sd_h=$(_rq_led_holders)
+  if [ -n "$_sd_h" ]; then
+    _sd_n=$(printf '%s\n' "$_sd_h" | sed 's/^[0-9]* /  /')
+    _sd_rows=$(printf '%s\n' "$_sd_h" | wc -l)
+    if whiptail --title "Stop Demo" --yes-button "Stop It" --no-button "Leave It" --yesno \
+        "This program is using the LED panel:\n\n$_sd_n\n\nStop it too?" $((_sd_rows + 10)) 70; then
+      "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
+      _sd_done="yes"
+    else
+      [ -n "$_sd_done" ] && whiptail --title "Stop Demo" --msgbox \
+        "Stopped the last demo started here. The LED panel is still in use by:\n\n$_sd_n" $((_sd_rows + 9)) 70
+      return 0
+    fi
+  fi
+  if [ -z "$_sd_done" ]; then
+    whiptail --title "Stop Demo" --msgbox "No demo is running." 8 50
     return 0
   fi
-  # Negative PID targets the whole process group (setsid session leader).
-  kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
-  sleep 1
-  kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null || true
-  do_led_off 2>/dev/null || true
-  whiptail --title "Stop demo" --msgbox "Stopped the last running demo and cleared the LEDs." 8 65
-  LAST_DEMO_PGID=""
+  if do_led_off; then
+    whiptail --title "Stop Demo" --msgbox "Stopped. The LEDs are off." 8 50
+  else
+    whiptail --title "Stop Demo" --msgbox \
+      "Stopped, but the LEDs could not be turned off:\n\n${RQ_LAST_DEMO_ERROR:-unknown error}" 12 70
+    RQ_LAST_DEMO_ERROR=""
+  fi
   return 0
 }
 
@@ -737,15 +766,12 @@ run_qlo_demo() {
     # foreground. The default variant plays on the LEDs and its stdout is just
     # noise - the solver's progress and Qiskit's deprecation warnings - so it
     # goes to the log under the stop dialog.
+    # run_led_demo checks the panel is free and turns the LEDs off afterwards
     if [ "$MODE" = "console" ]; then
-        run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+        run_led_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
     else
-        run_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_led_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
     fi
-    _qlo_rc=$?
-    # Turn off LEDs when demo ends (the demo's status is what the caller needs)
-    do_led_off
-    return $_qlo_rc
 }
 
 # Run grok-bloch demo local version (ensures install first)
@@ -795,9 +821,7 @@ run_rasq_led_demo() {
     # bg: this demo's output is the LEDs, not the terminal. Its raw console
     # output used to replace the TUI entirely (the other LED demos already run
     # this way).
-    run_demo bg "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
-    # Turn off LEDs when demo ends
-    do_led_off
+    run_led_demo bg "RasQ-LED Demo" "$BIN_DIR" python3 RasQ-LED.py
 }
 
 # Run Qoffee-Maker demo
@@ -909,7 +933,9 @@ do_add_external_demo() {
 # still carry them, see _rq_load_env) and the ones the env file marks
 # "# DEPRECATED: KEY ..." (nothing reads them any more).
 _rq_hidden_env_keys() {
-    printf ' INTERACTIVE ASK_TO_REBOOT CONFIG '
+    # + the retired LED_MATRIX_* keys (Q22), which older files still carry
+    printf ' INTERACTIVE ASK_TO_REBOOT CONFIG LED_MATRIX_LAYOUT LED_MATRIX_WIDTH LED_MATRIX_HEIGHT'
+    printf ' LED_MATRIX_Y_FLIP LED_MATRIX_PANEL_WIDTH LED_MATRIX_PANEL_HEIGHT '
     sed -n 's/^# DEPRECATED: *//p' "$ENV_FILE" 2>/dev/null \
         | sed 's/ - .*//; s/(.*//; s/\. .*//' \
         | grep -oE '[A-Z][A-Z0-9_]+' | tr '\n' ' '
@@ -958,6 +984,18 @@ do_select_environment_variable() {
       return 0 ;;
   esac
   [ "$new_value" = "$current" ] && return 0
+  if [ "$FUN" = "LED_DEFAULT_BRIGHTNESS" ]; then
+    if ! printf '%s\n' "$new_value" | grep -Eq '^(0(\.[0-9]+)?|1(\.0+)?|\.[0-9]+)$'; then
+      whiptail --title "Value not saved" --msgbox \
+        "LED_DEFAULT_BRIGHTNESS is a number from 0 to 1, for example 0.3." 9 70
+      return 0
+    fi
+    # No hard limit (Q21 is open), but say what it costs (R-007)
+    if awk -v b="$new_value" 'BEGIN { exit !(b + 0 > 0.4) }'; then
+      whiptail --title "Brighter LED Panel" --yes-button "Save" --no-button "Cancel" --yesno \
+        "Above 0.4 a bright demo can draw more current than the Pi's power supply has left over for a panel powered from the Pi. The Pi can then restart or flicker.\n\nUse more than 0.4 only with a separate 5V supply for the panel. Save ${new_value}?" 13 70 || return 0
+    fi
+  fi
   update_environment_file "${FUN}" "$new_value"
 }
 
@@ -1077,11 +1115,75 @@ do_rqb_qiskit_menu() {
 #Turn off all LEDs
 # In a subshell: sourcing the venv here used to activate it in raspi-config's
 # own shell for the rest of the session (PATH, VIRTUAL_ENV).
+# turn_off_LEDs.py exits 1 when the panel could not be cleared ("GPIO busy"
+# while another program holds it); its message is kept for handle_error, so a
+# failure is reported as one (R-148).
 do_led_off() {
-  (
+  _lo_out=$(
     [ -f "$VENV_ACTIVATE" ] && . "$VENV_ACTIVATE"
-    python3 "$BIN_DIR/turn_off_LEDs.py"
+    python3 "$BIN_DIR/turn_off_LEDs.py" 2>&1
   )
+  _lo_rc=$?
+  if [ "$_lo_rc" -ne 0 ]; then
+    RQ_LAST_DEMO_ERROR=$(printf '%s\n' "$_lo_out" | grep -v '^Turning off' | tail -n 3)
+  fi
+  return "$_lo_rc"
+}
+
+# Programs holding the LED panel, one "PID name" per line; empty when it is
+# free (rq_clear_leds.sh --holders, the same check the wizard uses).
+_rq_led_holders() {
+  "$BIN_DIR/rq_clear_leds.sh" --holders 2>/dev/null || true
+}
+
+# Before an LED demo: if another program holds the panel, name it and offer to
+# stop it (R-162). On a Pi 4 a second LED program used to draw over the first
+# without any error. Returns 1 when the person keeps it - then do not start.
+_rq_led_ready() {
+  _lr_h=$(_rq_led_holders)
+  [ -n "$_lr_h" ] || return 0
+  _lr_n=$(printf '%s\n' "$_lr_h" | sed 's/^[0-9]* /  /')
+  _lr_rows=$(printf '%s\n' "$_lr_h" | wc -l)
+  if whiptail --title "LED Panel in Use" --yes-button "Stop It" --no-button "Cancel" --yesno \
+      "Another program is using the LED panel:\n\n$_lr_n\n\nStop it and start this demo?" \
+      $((_lr_rows + 10)) 70; then
+    "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
+    return 0
+  fi
+  return 1
+}
+
+# run_demo for a demo that drives the LED panel: the panel must be free first,
+# and it is cleared afterwards - unless the demo was left running ("Keep
+# running"). Same arguments as run_demo.
+run_led_demo() {
+  _rq_led_ready || return 0
+  run_demo "$@"
+  _rld_rc=$?
+  if [ -n "${LAST_DEMO_PGID:-}" ] && kill -0 "$LAST_DEMO_PGID" 2>/dev/null; then
+    return "$_rld_rc"
+  fi
+  _rld_err="${RQ_LAST_DEMO_ERROR:-}"
+  do_led_off >/dev/null 2>&1
+  RQ_LAST_DEMO_ERROR="$_rld_err"
+  return "$_rld_rc"
+}
+
+# "Turn off all LEDs" / "Clear LEDs": a program that still holds the panel is
+# named and, if the person agrees, stopped first. Says so when it fails.
+do_led_clear() {
+  _lc_h=$(_rq_led_holders)
+  if [ -n "$_lc_h" ]; then
+    _lc_n=$(printf '%s\n' "$_lc_h" | sed 's/^[0-9]* /  /')
+    _lc_rows=$(printf '%s\n' "$_lc_h" | wc -l)
+    if ! whiptail --title "LED Panel in Use" --yes-button "Stop It" --no-button "Cancel" --yesno \
+        "Another program is using the LED panel:\n\n$_lc_n\n\nStop it and turn the LEDs off?" \
+        $((_lc_rows + 10)) 70; then
+      return 0
+    fi
+    "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
+  fi
+  do_led_off
 }
 
 # -----------------------------------------------------------------------------
@@ -1089,74 +1191,47 @@ do_led_off() {
 # -----------------------------------------------------------------------------
 
 do_led_custom_text() {
-    run_demo "LED Text Display" "$BIN_DIR" bash rq_led_display_text.sh
+    run_led_demo "LED Text Display" "$BIN_DIR" bash rq_led_display_text.sh
 }
 
 do_led_choose_logo() {
-    run_demo "LED Logo Display" "$BIN_DIR" bash rq_led_display_logo.sh
+    run_led_demo "LED Logo Display" "$BIN_DIR" bash rq_led_display_logo.sh
 }
 
 do_led_demo_scroll_welcome() {
-    run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_text_scroll_welcome.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_text_scroll_welcome.py
 }
 
 do_led_demo_status() {
-    run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_text_status.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_text_status.py
 }
 
 do_led_demo_alert() {
-    run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_text_alert.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_text_alert.py
 }
 
 do_led_demo_rainbow_scroll() {
-    run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_text_rainbow_scroll.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_text_rainbow_scroll.py
 }
 
 do_led_demo_rainbow_static() {
-    run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
 }
 
 do_led_demo_gradient() {
-    run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
 }
 
 do_led_demo_ibm_logo() {
-    run_demo bg "IBM Logo" "$BIN_DIR" python3 rq_led_ibm_logo.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "IBM Logo" "$BIN_DIR" python3 rq_led_ibm_logo.py
 }
 
 do_led_demo_rasqberry_logo() {
-    run_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
 }
 
 do_led_demo_logo_slideshow() {
-    run_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
-    _led_rc=$?
-    do_led_off
-    return $_led_rc
+    run_led_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
 }
 
 # The separator rows have blank tags. Their old tags ("---1") and texts start
@@ -1197,40 +1272,41 @@ do_led_display_menu() {
             IBML  ) do_led_demo_ibm_logo         || { handle_error "Demo failed."; continue; } ;;
             RQBL  ) do_led_demo_rasqberry_logo   || { handle_error "Demo failed."; continue; } ;;
             SLID  ) do_led_demo_logo_slideshow   || { handle_error "Demo failed."; continue; } ;;
-            CLEAR ) do_led_off                   || { handle_error "Failed to clear LEDs."; continue; } ;;
+            CLEAR ) do_led_clear                 || { handle_error "The LEDs could not be turned off."; continue; } ;;
             " "|"  "|"   "|"    " ) continue ;;  # Ignore separator items
             *) break ;;
         esac
     done
 }
 
-# Directly-callable LED-layout verify (plan R1). Runs the one-look "is this your
-# panel?" check when the shipped default hasn't been confirmed yet, then reloads
-# the env so the corrected LED_LAYOUT / LED_LAYOUT_VERIFIED are visible. Called on
-# first LED-menu open (below), and reused by the first-login + desktop-autostart
-# triggers via rq_led_verify_prompt.sh. Gated on LED_LAYOUT_VERIFIED, so it is a
-# no-op once the user has answered.
+# The LED panel check (plan R1): "which kit is this, and which way up?", the
+# same check as the setup checklist's. The first visit to the LED menu runs it
+# while LED_LAYOUT_VERIFIED is false; "skipped" (no panel) and "true" are not
+# asked again - the menu item "Check the LED Panel" runs it any time. The env
+# is reloaded so the new LED_LAYOUT / LED_LAYOUT_VERIFIED are visible.
 do_led_verify() {
-    if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ]; then
-        bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
-        # keeps raspi-config's INTERACTIVE etc. (R-001)
-        _rq_load_env 2>/dev/null || true
-    fi
+    case "${LED_LAYOUT_VERIFIED:-false}" in
+        true|skipped) [ "${1:-}" = "--again" ] || return 0 ;;
+    esac
+    bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
+    # keeps raspi-config's INTERACTIVE etc. (R-001)
+    _rq_load_env 2>/dev/null || true
 }
 
 do_select_led_option() {
-    # First-visit verification (plan R1): the image ships a default LED_LAYOUT,
-    # so the first time this menu opens we offer a quick "is this your panel?"
-    # check (render an 'F' through the current layout) instead of a from-scratch
-    # setup. The wizard persists LED_LAYOUT_VERIFIED=true when the user answers,
-    # so it never nags again. _RQ_LED_VERIFY_DONE guards against re-prompting
-    # within this menu session if they cancelled without answering.
+    # First visit: the check, while the panel has not been checked. The wizard
+    # saves LED_LAYOUT_VERIFIED, so it is asked once; _RQ_LED_VERIFY_DONE also
+    # keeps a cancelled check from coming back within this menu session.
     if [ -z "${_RQ_LED_VERIFY_DONE:-}" ]; then
         _RQ_LED_VERIFY_DONE=1
         do_led_verify
     fi
     _led_last=""
     while true; do
+        # One layout setting (Q22): "Configure Matrix Layout" wrote the retired
+        # LED_MATRIX_LAYOUT, which only text and logos read - they came out
+        # scrambled on the four-panel kit (R-022). The check and the wizard
+        # set LED_LAYOUT, which everything uses.
         FUN=$(show_menu ${_led_last:+--default-item "$_led_last"} "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            DISP "Text & Logo Display" \
@@ -1238,39 +1314,38 @@ do_select_led_option() {
            test "LED Test & Diagnostics" \
            simple "Simple LED Demo" \
            IBM "IBM LED Demo" \
-           layout "Configure Matrix Layout" \
-           targets "Output Targets (strip / virtual / web)" \
-           wizard "LED Setup Wizard (auto-detect layout)") || break
+           check "Check the LED Panel (which kit, which way up)" \
+           targets "Output Targets (panel / on-screen / browser)" \
+           wizard "LED Setup Wizard (other panels, wiring check)") || break
         _led_last="$FUN"
         case "$FUN" in
-            OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
+            OFF ) do_led_clear || { handle_error "The LEDs could not be turned off."; continue; } ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
             quicktest )
-                run_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
-                do_led_off
+                run_led_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
                 ;;
             test )
-                run_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
-                do_led_off
+                run_led_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
                 ;;
             simple )
-                run_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
-                do_led_off
+                run_led_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 ;;
             IBM )
-                run_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
-                do_led_off
+                run_led_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
                 ;;
-            layout )
-                do_select_led_layout || { handle_error "Failed to update LED layout."; continue; }
+            check )
+                do_led_verify --again
                 ;;
             targets )
                 do_led_output_menu || { handle_error "Failed to update LED output targets."; continue; }
                 ;;
             wizard )
-                # Interactive whiptail walkthrough (own process); auto-detects
-                # the physical layout and writes LED_LAYOUT.
-                bash "$BIN_DIR/rq_led_setup_wizard.sh" || { handle_error "LED setup wizard failed."; continue; }
+                # Interactive whiptail walkthrough (own process); finds the
+                # physical layout and writes LED_LAYOUT. It ends with status 0
+                # after its own messages (a stopped check, a busy panel), so
+                # the box below is only for real errors (R-133).
+                bash "$BIN_DIR/rq_led_setup_wizard.sh" || { _rq_load_env 2>/dev/null; handle_error "The LED setup wizard stopped with an error."; continue; }
+                _rq_load_env 2>/dev/null || true
                 ;;
             *) break ;;
         esac
@@ -1472,43 +1547,6 @@ do_expand_ab_partitions() {
             12 72
         return 1
     fi
-}
-
-# LED Matrix Layout Configuration
-do_select_led_layout() {
-  # Get current layout setting
-  CURRENT_LAYOUT=$(check_environment_variable "LED_MATRIX_LAYOUT")
-
-  # Show current setting in menu
-  if [ "$CURRENT_LAYOUT" = "quad" ]; then
-    CURRENT_DESC="Current: 4× 4×12 panels (quad layout)"
-  else
-    CURRENT_DESC="Current: Single 8×24 panel (serpentine)"
-  fi
-
-  FUN=$(show_menu "LED Matrix Layout Configuration" "$CURRENT_DESC\n\nSelect your LED matrix layout:\nBoth layouts use 192 LEDs (8 rows × 24 columns)" \
-     single "Single 8×24 serpentine panel" \
-     quad   "4× 4×12 panels (2×2 grid)") || return 0
-
-  case "$FUN" in
-    single)
-      update_environment_file "LED_MATRIX_LAYOUT" "single"
-      update_environment_file "LED_MATRIX_Y_FLIP" "true"
-      whiptail --title "LED Layout Updated" --msgbox \
-        "LED matrix layout set to:\n\nSingle 8×24 serpentine panel\n- Total: 192 LEDs (8 rows × 24 columns)\n- Wiring: Serpentine (zigzag) pattern\n- Y-axis: Flipped (upside down)\n\nRestart demos for changes to take effect." \
-        13 60
-      ;;
-    quad)
-      update_environment_file "LED_MATRIX_LAYOUT" "quad"
-      update_environment_file "LED_MATRIX_Y_FLIP" "false"
-      whiptail --title "LED Layout Updated" --msgbox \
-        "LED matrix layout set to:\n\n4× 4×12 panels (quad layout)\n- Total: 192 LEDs (8 rows × 24 columns)\n- Each panel: 4×12 LEDs\n- Arrangement: 2×2 grid\n- Wiring: TL→TR→BR→BL\n\nRestart demos for changes to take effect." \
-        14 60
-      ;;
-    *)
-      return 0
-      ;;
-  esac
 }
 
 # -----------------------------------------------------------------------------
@@ -2440,6 +2478,36 @@ do_ibm_account_menu() {
 }
 
 # -----------------------------------------------------------------------------
+# The setup checklist (rq_firstlogin.sh). It opens by itself only once, at the
+# first desktop login (Jan, Q12); from then on here and under the RasQberry
+# Setup icon. It runs as the desktop user: its notes and the steps it starts
+# (they use sudo where they need root) are theirs.
+# -----------------------------------------------------------------------------
+do_setup_checklist() {
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    sudo -u "$SUDO_USER" -H "$BIN_DIR/rq_firstlogin.sh" --all
+  else
+    "$BIN_DIR/rq_firstlogin.sh" --all
+  fi
+  _rq_load_env 2>/dev/null || true
+  return 0
+}
+
+# -----------------------------------------------------------------------------
+# Shut down safely (R-043). The LEDs go off first (rasqberry-led-clear.service
+# also clears them at every shutdown), and the text says when the power may be
+# switched off - the kit's only switch is the inline power switch.
+# -----------------------------------------------------------------------------
+do_shutdown_safely() {
+  whiptail --title "Shut Down" --yes-button "Shut Down" --no-button "Cancel" --yesno \
+    "Shut the Raspberry Pi down now?\n\nThe LEDs go off first. Wait about 10 seconds, until the green light on the Pi stays off, then switch the power off." \
+    11 66 || return 0
+  "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1 || true
+  sync
+  systemctl poweroff
+}
+
+# -----------------------------------------------------------------------------
 # Advanced: expert tools, kept out of the everyday menus (Jan, Q35)
 # -----------------------------------------------------------------------------
 do_rasqberry_advanced_menu() {
@@ -2473,15 +2541,17 @@ do_rasqberry_menu() {
     # Software & Image Updates is on every image: checking for a newer image
     # works on the standard image too; the A/B-only entries inside are hidden
     # there.
-    set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" \
+    set -- QD "Quantum Demos" SETUP "Setup Checklist" TOUCH "Touch Mode Settings" \
         BROWSER "Browser at login: $(browser_autostart_state)" \
         IBMQ "IBM Quantum account" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \
-        ADV "Advanced"
+        ADV "Advanced" OFF "Shut Down Safely"
     FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" "System Options" "$@") || break
     _main_last="$FUN"
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
+      SETUP)   do_setup_checklist             || continue ;;
+      OFF)     do_shutdown_safely             || continue ;;
       TOUCH)   do_touch_mode_menu             || continue ;;
       BROWSER) do_toggle_browser_autostart    || continue ;;
       IBMQ)    do_ibm_account_menu            || continue ;;

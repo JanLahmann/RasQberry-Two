@@ -482,6 +482,137 @@ clear_leds() {
     "$py" "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
 }
 
+# ----------------------------------------------------------------------------
+# Who holds the LED panel (R-103, R-148, R-162)
+# ----------------------------------------------------------------------------
+# A demo left running (an icon, an earlier menu session, the IP scroll at
+# start-up) keeps the panel. On a Pi 5 the next LED program then fails with
+# "GPIO busy"; on a Pi 4 the PWM driver claims nothing, so the next one draws
+# over the first without any error (R-162). STOP and Clear LEDs used to report
+# success either way (R-148).
+#
+# The devices: /dev/pio0 and /dev/gpiochip* (Pi 5), /dev/mem and /dev/gpiomem
+# (the Pi 4 PWM driver maps both), /dev/spidev0.0 (the retired SPI driver).
+# Needs root to see other users' processes.
+
+# A short name for a holder's command line
+_rq_led_holder_label() {
+    case "$1" in
+        *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
+        *rq_led_renderer.py*)    echo "the LED renderer service" ;;
+        *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
+        *lights_out.py*)         echo "Quantum Lights Out" ;;
+        *QuantumRaspberryTie*)   echo "Quantum Raspberry Tie" ;;
+        *RasQ-LED*)              echo "RasQ-LED" ;;
+        *rq_demo_loop*)          echo "the demo loop" ;;
+        *)
+            # the script it runs, else the program
+            local word
+            for word in $1; do
+                case "$word" in *.py|*.sh) basename "$word"; return 0 ;; esac
+            done
+            # shellcheck disable=SC2086
+            set -- $1
+            basename "${1:-unknown}"
+            ;;
+    esac
+}
+
+# The calling process and its parents: never a holder to stop
+_rq_led_self_chain() {
+    local pid=$$ n=0
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null && [ "$n" -lt 30 ]; do
+        printf ' %s' "$pid"
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+        n=$((n + 1))
+    done
+    printf ' '
+}
+
+# Usage: holders=$(led_holders)   ->  "PID label" per line, nothing if free
+led_holders() {
+    local dev pids="" pid args self
+    self=$(_rq_led_self_chain)
+    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0; do
+        [ -e "$dev" ] || continue
+        pids="$pids $(fuser "$dev" 2>/dev/null || true)"
+    done
+    # shellcheck disable=SC2086
+    for pid in $(printf '%s\n' $pids | grep -E '^[0-9]+$' | sort -un); do
+        case "$self" in *" $pid "*) continue ;; esac
+        args=$(ps -o args= -p "$pid" 2>/dev/null) || continue
+        [ -n "$args" ] || continue
+        # In service mode the renderer IS the panel's driver, not a rival
+        if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
+            case "$args" in *rq_led_renderer.py*) continue ;; esac
+        fi
+        echo "$pid $(_rq_led_holder_label "$args")"
+    done
+}
+
+# Stop the holders listed by led_holders (one "PID label" per line). A
+# RasQberry service is stopped through systemd, so it does not restart.
+# Usage: stop_led_holders "$holders"
+stop_led_holders() {
+    local pid unit waited=0 left=""
+    while read -r pid _; do
+        [ -n "$pid" ] || continue
+        unit=$(ps -o unit= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+        case "$unit" in
+            rasqberry-*.service) systemctl stop "$unit" 2>/dev/null || kill "$pid" 2>/dev/null || true ;;
+            *) kill "$pid" 2>/dev/null || true ;;
+        esac
+    done <<< "$1"
+    while [ "$waited" -lt 30 ]; do
+        left=""
+        while read -r pid _; do
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then left="$left $pid"; fi
+        done <<< "$1"
+        [ -z "$left" ] && return 0
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    # shellcheck disable=SC2086
+    kill -9 $left 2>/dev/null || true
+    sleep 0.5
+}
+
+# Before an LED demo: if another program holds the panel, name it and offer to
+# stop it. Returns 1 when it keeps running - then do not start the demo.
+# Without a terminal it only warns and returns 0 (as before).
+# Usage: led_panel_ready || exit 0
+led_panel_ready() {
+    local holders
+    holders=$(led_holders)
+    [ -n "$holders" ] || return 0
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        warn "The LED panel is in use by: $(echo "$holders" | cut -d' ' -f2- | paste -sd, -)"
+        return 0
+    fi
+    if whiptail --title "LED Panel in Use" --yes-button "Stop It" --no-button "Cancel" --yesno \
+"Another program is using the LED panel:
+
+$(echo "$holders" | sed 's/^[0-9]* /  /')
+
+Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
+        stop_led_holders "$holders"
+        return 0
+    fi
+    return 1
+}
+
+# Clear the panel and say nothing: for exit traps, where the terminal may
+# already be gone (a closed window) and any output would fail.
+led_clear_quietly() {
+    local py="python3" venv script
+    script=$(find_led_script "turn_off_LEDs.py") || return 0
+    if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
+        py="$venv/bin/python3"
+    fi
+    PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" \
+        "$py" "$script" >/dev/null 2>&1 </dev/null || true
+}
+
 # ============================================================================
 # 7. DEPENDENCY CHECKING
 # ============================================================================
@@ -676,8 +807,8 @@ run_as_user() {
 # Call this early in scripts that require root access (LED control, GPIO, etc.)
 ensure_root() {
     if [ "$(id -u)" != "0" ]; then
-        info "LED/GPIO operations require root access"
-        info "Re-executing with sudo..."
+        # Technical detail: only with RQ_DEBUG=1 (R-133)
+        debug "LED/GPIO operations require root access; re-executing with sudo"
         exec sudo -E "$0" "$@"
     fi
 }

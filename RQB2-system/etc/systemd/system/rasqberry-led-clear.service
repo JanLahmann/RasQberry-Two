@@ -1,0 +1,26 @@
+[Unit]
+Description=RasQberry: turn the LED panel off at shutdown
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+# The panel keeps its last frame after the Pi halts, and the kit powers it
+# from the Pi's 5V pin, which stays on: a demo still running at shutdown left
+# it glowing (R-043). This unit does nothing at start; its ExecStop clears the
+# panel. Units stop in the reverse order of starting, so with Before= the user
+# sessions (where demos run), the IP scroll and the renderer are already gone
+# when it runs and nothing draws over the cleared panel.
+After=local-fs.target
+Before=systemd-user-sessions.service rasqberry-ip-display.service rasqberry-led-renderer.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+# --physical: only the panel - no on-screen or browser view at shutdown, and
+# not through the renderer, which has already stopped.
+ExecStop=/home/@USER@/@REPO@/venv/@VENV@/bin/python3 /usr/bin/turn_off_LEDs.py --physical
+# Root runs the user's venv python: no __pycache__ in it (#285, R-059)
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/usr/bin
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

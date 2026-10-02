@@ -8,9 +8,10 @@ set -euo pipefail
 #              and merges it with /usr/config/rasqberry_environment.env
 # Usage: Called automatically by systemd at boot (rasqberry-boot-config.service)
 
-BOOT_CONFIG="/boot/firmware/rasqberry_boot.env"
-GLOBAL_ENV="/usr/config/rasqberry_environment.env"
-TEMP_ENV="/tmp/rasqberry_env_merged.tmp"
+# (RQ_BOOT_CONFIG, RQ_ENV_FILE, RQ_BOOT_TEMP_ENV: test overrides)
+BOOT_CONFIG="${RQ_BOOT_CONFIG:-/boot/firmware/rasqberry_boot.env}"
+GLOBAL_ENV="${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}"
+TEMP_ENV="${RQ_BOOT_TEMP_ENV:-/tmp/rasqberry_env_merged.tmp}"
 
 # Logging function (outputs to stderr to avoid pollution of redirected stdout)
 log() {
@@ -77,9 +78,9 @@ validate_led_config() {
                 return 1
             fi
             ;;
-        LED_MATRIX_LAYOUT)
-            if ! [[ "$value" =~ ^(single|quad)$ ]]; then
-                error "Invalid LED_MATRIX_LAYOUT: $value (must be 'single' or 'quad')"
+        LED_LAYOUT_VERIFIED)
+            if ! [[ "$value" =~ ^(true|false|skipped)$ ]]; then
+                error "Invalid LED_LAYOUT_VERIFIED: $value (must be 'true', 'false' or 'skipped')"
                 return 1
             fi
             ;;
@@ -103,13 +104,7 @@ validate_led_config() {
                 return 1
             fi
             ;;
-        LED_MATRIX_WIDTH|LED_MATRIX_HEIGHT|LED_MATRIX_PANEL_WIDTH|LED_MATRIX_PANEL_HEIGHT)
-            if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ]; then
-                error "Invalid $key: $value (must be positive integer)"
-                return 1
-            fi
-            ;;
-        LED_MATRIX_Y_FLIP|LED_INVERT)
+        LED_INVERT)
             if ! [[ "$value" =~ ^(true|false)$ ]]; then
                 error "Invalid $key: $value (must be 'true' or 'false')"
                 return 1
@@ -129,7 +124,7 @@ validate_led_config() {
 # Merge boot config with global environment
 merge_configs() {
     declare -A config_map
-    local boot_overrides=0
+    BOOT_OVERRIDES=0
 
     # Load defaults from global environment file
     if [ -f "$GLOBAL_ENV" ]; then
@@ -145,23 +140,51 @@ merge_configs() {
     fi
 
     # Override with boot config (with validation)
+    local -a boot_keys=()
+    local matrix_layout="" boot_layout=false
     if [ -f "$BOOT_CONFIG" ]; then
         log "Found boot configuration file: $BOOT_CONFIG"
 
         while IFS='=' read -r key value; do
+            # The old LED_MATRIX_* keys are retired (Q22): LED_LAYOUT is the one
+            # layout setting. A card prepared with an older template still
+            # means a panel kit by LED_MATRIX_LAYOUT, so carry that over.
+            case "$key" in
+                LED_MATRIX_LAYOUT)
+                    case "$value" in
+                        single) matrix_layout="single-24x8" ;;
+                        quad)   matrix_layout="quad-4x12" ;;
+                        *)      log "  Skipping invalid config: $key=$value" ;;
+                    esac
+                    continue ;;
+                LED_MATRIX_*)
+                    log "  Ignoring retired setting $key (LED_LAYOUT sets the layout)"
+                    continue ;;
+                LED_LAYOUT) boot_layout=true ;;
+            esac
             if validate_led_config "$key" "$value"; then
+                boot_keys+=("$key")
                 if [ "${config_map[$key]:-}" != "$value" ]; then
                     log "  Override: $key=$value (was: ${config_map[$key]:-<unset>})"
                     config_map["$key"]="$value"
-                    ((boot_overrides++))
+                    ((BOOT_OVERRIDES++)) || true
                 fi
             else
                 log "  Skipping invalid config: $key=$value"
             fi
         done < <(parse_boot_config "$BOOT_CONFIG")
 
-        if [ $boot_overrides -gt 0 ]; then
-            log "Applied $boot_overrides boot configuration overrides"
+        if [ -n "$matrix_layout" ] && [ "$boot_layout" = false ]; then
+            boot_keys+=("LED_LAYOUT")
+            if [ "${config_map[LED_LAYOUT]:-}" != "$matrix_layout" ]; then
+                log "  Override: LED_LAYOUT=$matrix_layout (from the retired LED_MATRIX_LAYOUT)"
+                config_map["LED_LAYOUT"]="$matrix_layout"
+                ((BOOT_OVERRIDES++)) || true
+            fi
+        fi
+
+        if [ "$BOOT_OVERRIDES" -gt 0 ]; then
+            log "Applied $BOOT_OVERRIDES boot configuration overrides"
         else
             log "No valid boot configuration overrides found"
         fi
@@ -187,8 +210,18 @@ merge_configs() {
                 echo "$line"
             fi
         done < "$GLOBAL_ENV"
+
+        # A boot setting the environment file does not have yet (an older
+        # file) used to be dropped here without a word: append it.
+        for key in ${boot_keys[@]+"${boot_keys[@]}"}; do
+            if ! grep -q "^${key}=" "$GLOBAL_ENV"; then
+                echo "${key}=${config_map[$key]}"
+            fi
+        done
     fi
 }
+
+BOOT_OVERRIDES=0
 
 # Main execution
 main() {
@@ -221,6 +254,12 @@ main() {
         mv "$TEMP_ENV" "$GLOBAL_ENV"
         chmod 644 "$GLOBAL_ENV"
         log "Boot configuration loaded successfully"
+        # Keep what the boot file set across A/B updates too: the next slot
+        # gets its LED settings from /data, not from this boot partition
+        # (R-062). Does nothing on the standard image.
+        if [ "${BOOT_OVERRIDES:-0}" -gt 0 ] && [ -x /usr/bin/rq_device_settings.sh ]; then
+            /usr/bin/rq_device_settings.sh save || error "device settings save failed"
+        fi
     else
         # No valid output or merge failed - keep original configuration
         log "No configuration changes needed, keeping original"

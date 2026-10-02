@@ -34,7 +34,9 @@ Usage (one pattern per call):
 """
 
 import argparse
+import json
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -123,10 +125,10 @@ _IBM_LOGO = [
     "IIIIII  BBBBB   MM   MM ",
 ]
 
-# Named solid colours for the logo probe. blue/red label the two candidate
-# geometries in the primary question; blue/red/green/yellow label the four
-# orientations in the refinement step (each mounting cycles in its own colour so
-# the operator can name the upright one).
+# Named solid colours for the logo probe. The wizard shows its two candidate
+# geometries in BLUE (steady) and YELLOW (blinking) - a pair that stays apart
+# for red-green colour blindness, plus a cue that needs no colour (R-011) - and
+# the chosen one alone in WHITE to confirm it.
 _LOGO_COLORS = {
     'blue': (0, 0, 255),
     'red': (255, 0, 0),
@@ -194,8 +196,37 @@ def render_glyph(count, layout, toggle_x=False, toggle_y=False,
     pixels.show()
 
 
+def logo_cells(layout, count, toggle_x=False, toggle_y=False):
+    """Chain indices the IBM logo lights when drawn THROUGH a layout.
+
+    Args:
+        layout (str or dict): layout name or resolved dict to map through.
+        count (int): pixels on the strip (indices beyond it are dropped).
+        toggle_x / toggle_y (bool): the mirrored variant of `layout`.
+
+    Returns:
+        list: chain indices, in logo order.
+    """
+    from rq_led_utils import map_xy_to_pixel
+
+    layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
+    cells = []
+    for y, row in enumerate(_IBM_LOGO):
+        for x, cell in enumerate(row):
+            if cell != ' ':
+                idx = map_xy_to_pixel(x, y, layout=layout)
+                if idx is not None and 0 <= idx < count:
+                    cells.append(idx)
+    return cells
+
+
+# Blinking (steady vs blinking is the colour-free cue, R-011): on/off seconds
+BLINK_ON_S = 0.5
+BLINK_OFF_S = 0.3
+
+
 def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False,
-                brightness=DEFAULT_PROBE_BRIGHTNESS):
+                brightness=DEFAULT_PROBE_BRIGHTNESS, blink=0):
     """Render the IBM logo (single solid colour) THROUGH a layout's map.
 
     Args:
@@ -204,6 +235,9 @@ def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False
         color (tuple): RGB for the lit logo cells.
         toggle_x / toggle_y (bool): preview the mirrored variant of `layout`.
         brightness (float): requested brightness (hard-capped for safety).
+        blink (int): blink the logo this many times, ending lit; 0 = steady.
+            The wizard tells its two candidates apart by steady vs blinking as
+            well as by colour, so the answer needs no colour vision (R-011).
 
     The logo is drawn in logical (x, y) and each lit cell is routed through
     rq_led_utils.map_xy_to_pixel(..., layout=layout). If the layout matches the
@@ -212,20 +246,22 @@ def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False
     signal the operator judges.
     """
     brightness = _clamp_brightness(brightness)
-    from rq_led_utils import map_xy_to_pixel
-
-    layout = _effective_glyph_layout(layout, toggle_x, toggle_y)
+    cells = logo_cells(layout, count, toggle_x, toggle_y)
     pixels = _make_strip(count, brightness)
-    pixels.fill((0, 0, 0))
 
-    for y, row in enumerate(_IBM_LOGO):
-        for x, cell in enumerate(row):
-            if cell != ' ':
-                idx = map_xy_to_pixel(x, y, layout=layout)
-                if idx is not None and 0 <= idx < count:
-                    pixels[idx] = color
+    def _draw(lit):
+        pixels.fill((0, 0, 0))
+        if lit:
+            for idx in cells:
+                pixels[idx] = color
+        pixels.show()
 
-    pixels.show()
+    _draw(True)
+    for _ in range(max(0, int(blink))):
+        time.sleep(BLINK_ON_S)
+        _draw(False)
+        time.sleep(BLINK_OFF_S)
+        _draw(True)
 
 
 def render_pattern(pattern, count, index=0, run=8, panel=64,
@@ -268,21 +304,25 @@ def render_pattern(pattern, count, index=0, run=8, panel=64,
         _set(index, (255, 0, 0))
 
     elif pattern == 'edge':
-        # A short contiguous run from `index` as a green->the-strip gradient,
-        # revealing the direction the first run travels (an edge of the panel).
+        # A short contiguous BLUE run from `index`, revealing the direction the
+        # first run travels (an edge of the panel). The very first pixel is
+        # WHITE so the user sees where the run starts. Blue/white, not
+        # red/green: readable with red-green colour blindness (R-011).
         for k in range(run):
-            _set(index + k, (0, 255, 0))
-        # Mark the very first pixel red so the user sees where the run starts.
-        _set(index, (255, 0, 0))
+            _set(index + k, (0, 0, 255))
+        _set(index, (255, 255, 255))
 
     elif pattern == 'row2':
-        # First run in red, SECOND run in green. If the green run reverses
-        # relative to the red one, the wiring is serpentine; if it repeats in
-        # the same direction, it is progressive.
+        # First run BLUE, SECOND run YELLOW, each starting with a WHITE pixel,
+        # so the direction of each run reads without colour (R-011). If the
+        # second run reverses relative to the first, the wiring is serpentine;
+        # if it repeats in the same direction, it is progressive.
         for k in range(run):
-            _set(k, (255, 0, 0))
+            _set(k, (0, 0, 255))
         for k in range(run):
-            _set(run + k, (0, 255, 0))
+            _set(run + k, (255, 255, 0))
+        _set(0, (255, 255, 255))
+        _set(run, (255, 255, 255))
 
     elif pattern == 'gradient':
         # Whole-strip hue gradient in a few distinct steps -> overview of the
@@ -341,6 +381,11 @@ def main(argv=None):
                         help="pixels per panel for the boundaries pattern")
     parser.add_argument('--layout', default=None,
                         help="layout name to map the glyph/logo pattern through")
+    parser.add_argument('--layout-file', default=None,
+                        help="JSON file with a layout definition (a custom layout "
+                             "the wizard has not saved yet) instead of --layout")
+    parser.add_argument('--blink', type=int, default=0,
+                        help="logo: blink this many times (0 = steady)")
     parser.add_argument('--color', default='blue', choices=sorted(_LOGO_COLORS),
                         help="logo colour (logo pattern)")
     parser.add_argument('--flip-x', action='store_true',
@@ -353,6 +398,12 @@ def main(argv=None):
 
     if args.count <= 0:
         parser.error("--count must be > 0")
+    if args.layout_file:
+        try:
+            with open(args.layout_file) as f:
+                args.layout = json.load(f)
+        except (OSError, ValueError) as e:
+            parser.error(f"--layout-file: {e}")
     if args.pattern in ('glyph', 'logo') and not args.layout:
         parser.error(f"--layout is required for the {args.pattern} pattern")
 
@@ -363,7 +414,7 @@ def main(argv=None):
         elif args.pattern == 'logo':
             render_logo(args.count, args.layout, color=_LOGO_COLORS[args.color],
                         toggle_x=args.flip_x, toggle_y=args.flip_y,
-                        brightness=args.brightness)
+                        brightness=args.brightness, blink=args.blink)
         else:
             render_pattern(args.pattern, args.count, index=args.index, run=args.run,
                            panel=args.panel, brightness=args.brightness)

@@ -16,6 +16,9 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV BIN_DIR
 
+# Another program on the LED panel? Name it and offer to stop it (R-162)
+led_panel_ready || exit 0
+
 # ============================================================================
 # Main function
 # ============================================================================

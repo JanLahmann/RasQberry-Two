@@ -14,3 +14,5 @@ rasqberry-carry-over.service
 rasqberry-probation.timer
 rasqberry-ip-display.service
 rasqberry-update-check.timer
+# Turns the LED panel off at shutdown (R-043)
+rasqberry-led-clear.service
