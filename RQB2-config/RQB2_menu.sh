@@ -1426,226 +1426,46 @@ do_show_system_info() {
 # A/B Boot Partition Expansion
 # -----------------------------------------------------------------------------
 
-# Expand A/B partitions for 64GB+ SD cards
+# What this card can do: dual | dual-pending | single | single-pending |
+# standard (rq_expand_ab.sh decides from the card and partition sizes)
+ab_card_mode() {
+    local mode
+    mode=$("$BIN_DIR/rq_expand_ab.sh" mode 2>/dev/null) || mode=""
+    echo "${mode:-standard}"
+}
+
+# Prepare an A/B card by hand: two systems on a 64GB+ card, or one system
+# using the whole card on a smaller one. A newly written card does this by
+# itself on its first start (rasqberry-ab-layout.service) unless the CONFIG
+# partition holds "no-auto-expand"; this is for that case and for cards
+# written from older images. The work is done by rq_expand_ab.sh.
 do_expand_ab_partitions() {
-    # Check if this is an AB boot image
-    if ! lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qi "config"; then
-        whiptail --title "Not AB Boot Image" --msgbox \
-            "This system is not running an A/B boot image.\n\nPartition expansion is only available for AB boot layouts." \
-            10 60
+    local mode how title plan rc=0
+    mode=$(ab_card_mode)
+    case "$mode" in
+        dual-pending)   how=--dual;   title="Prepare the card for A/B updates" ;;
+        single-pending) how=--single; title="Use the whole card" ;;
+        *)
+            whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+            return 0 ;;
+    esac
+    if ! plan=$("$BIN_DIR/rq_expand_ab.sh" plan "$how" --text 2>&1); then
+        whiptail --title "$title" --msgbox "$plan" 12 72
         return 1
     fi
+    whiptail --title "$title" --yesno "$plan\n\nProceed?" 18 72 || return 0
 
-    # Get SD card size in bytes
-    SD_SIZE_BYTES=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
-    SD_SIZE_GB=$((SD_SIZE_BYTES / 1024 / 1024 / 1024))
-
-    # Minimum 58 GiB. A "64GB" card is only ~59.6 GiB (decimal marketing vs
-    # binary GiB), so the old 63-GiB cutoff wrongly refused genuine 64GB cards.
-    # 58 GiB accepts them and still rejects 32GB cards (~29.8 GiB).
-    if [ "$SD_SIZE_GB" -lt 58 ]; then
-        whiptail --title "SD Card Too Small" --msgbox \
-            "SD card size: ${SD_SIZE_GB}GB\n\nPartition expansion requires a 64GB or larger SD card.\n\nYour current 10GB system partition is sufficient for basic use." \
-            12 60
-        return 1
-    fi
-
-    # Check if already expanded (system-b > 1GB indicates expansion)
-    SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
-    SYSTEM_B_SIZE_GB=$((SYSTEM_B_SIZE / 1024 / 1024 / 1024))
-    if [ "$SYSTEM_B_SIZE_GB" -gt 1 ]; then
-        whiptail --title "Already Expanded" --msgbox \
-            "Partitions appear to already be expanded.\n\nSystem-B size: ${SYSTEM_B_SIZE_GB}GB" \
-            10 60
-        return 0
-    fi
-
-    # Calculate partition sizes
-    # Fixed partitions: config (512MB) + boot-a (512MB) + boot-b (512MB) = 1536MB
-    FIXED_MB=1536
-    SD_SIZE_MB=$((SD_SIZE_BYTES / 1024 / 1024))
-    AVAILABLE_MB=$((SD_SIZE_MB - FIXED_MB))
-
-    # Calculate: data=10%, system-a=45%, system-b=45%
-    DATA_MB=$((AVAILABLE_MB * 10 / 100))
-    SYSTEM_MB=$(((AVAILABLE_MB - DATA_MB) / 2))
-
-    DATA_GB=$((DATA_MB / 1024))
-    SYSTEM_GB=$((SYSTEM_MB / 1024))
-
-    # Show confirmation dialog
-    if ! whiptail --title "Expand A/B Partitions" --yesno \
-        "SD Card Size: ${SD_SIZE_GB}GB\n\nProposed partition sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nThis will:\n- Expand system-a from 10GB to ${SYSTEM_GB}GB\n- Expand system-b from 16MB to ${SYSTEM_GB}GB\n- Expand data from 16MB to ${DATA_GB}GB\n\nThis operation cannot be undone.\n\nProceed with expansion?" \
-        23 60; then
-        return 0
-    fi
-
-    # Show progress
-    # Say what is happening, step by step.
-    #
-    # The steps below log to /var/log/rasqberry-expand.log and print nothing, and
-    # an --infobox does not block - so this used to draw one static "may take a
-    # few minutes" box and then sit there, silent, for the whole run. Formatting
-    # two ~100GB partitions (step 7) is minutes on its own, and a frozen box with
-    # no output is indistinguishable from a hang, on an operation we also tell
-    # people not to interrupt.
-    # Plain text, NOT whiptail --infobox.
-    #
-    # An infobox does not block, and whiptail restores the screen when it exits -
-    # so the box flashes and is gone. That is why this operation looked silent
-    # with one infobox, and still looked silent when I gave it nine. The --yesno
-    # dialogs work only because they block waiting for an answer.
-    #
-    # Once the confirmation closes, the screen is a plain terminal until the
-    # final msgbox, which is exactly where the user is sitting and waiting - so
-    # print there. Nine steps, several minutes, and formatting two ~50GB
-    # partitions in step 7 with no output at all is indistinguishable from a
-    # hang, on the one operation we also tell people not to interrupt.
-    expand_progress() {
-        printf '  [%s/9] %s\n' "$1" "$2"
-    }
-
+    clear
     echo ""
-    echo "Expanding partitions. This takes several minutes on a large card -"
-    echo "formatting the new partitions (step 7) is the slow part."
-    echo "Do NOT power off the system."
+    echo "$title - this takes a few minutes. Do NOT switch off the Pi."
     echo ""
-
-
-    # Initialize log file
-    echo "=== AB Partition Expansion $(date) ===" > /var/log/rasqberry-expand.log
-
-    # Step 1: Unmount partitions that will be modified
-    expand_progress 1 "Unmounting the placeholder partitions..."
-    echo "Step 1: Unmounting partitions..." >> /var/log/rasqberry-expand.log
-    umount /dev/mmcblk0p7 2>/dev/null || true
-    umount /dev/mmcblk0p6 2>/dev/null || true
-    # Also unmount any automounted locations
-    umount /media/*/system-b 2>/dev/null || true
-    umount /media/*/data 2>/dev/null || true
-
-    # Get current partition boundaries
-    # p5 = system-a, p6 = system-b, p7 = data
-    SYSTEM_A_START=$(parted -s /dev/mmcblk0 unit MiB print | grep "^ 5" | awk '{print $2}' | tr -d 'MiB')
-
-    # Calculate new boundaries
-    SYSTEM_A_END=$((SYSTEM_A_START + SYSTEM_MB))
-    SYSTEM_B_START=$((SYSTEM_A_END + 2))  # 2 MiB gap for alignment
-    SYSTEM_B_END=$((SYSTEM_B_START + SYSTEM_MB))
-    DATA_START=$((SYSTEM_B_END + 2))  # 2 MiB gap for alignment
-
-    echo "Calculated boundaries:" >> /var/log/rasqberry-expand.log
-    echo "  SYSTEM_A: ${SYSTEM_A_START} - ${SYSTEM_A_END} MiB" >> /var/log/rasqberry-expand.log
-    echo "  SYSTEM_B: ${SYSTEM_B_START} - ${SYSTEM_B_END} MiB" >> /var/log/rasqberry-expand.log
-    echo "  DATA: ${DATA_START} - 100%" >> /var/log/rasqberry-expand.log
-
-    # Step 2: Delete p7 and p6 first (must be done before resizing p5)
-    expand_progress 2 "Removing the 16MB placeholders..."
-    echo "Step 2: Deleting old partitions..." >> /var/log/rasqberry-expand.log
-    if ! parted -s /dev/mmcblk0 rm 7 >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Warning: Failed to delete partition 7" >> /var/log/rasqberry-expand.log
-    fi
-    if ! parted -s /dev/mmcblk0 rm 6 >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Warning: Failed to delete partition 6" >> /var/log/rasqberry-expand.log
-    fi
-
-    # Step 3: Expand extended partition (p4) to fill disk
-    expand_progress 3 "Expanding the extended partition..."
-    echo "Step 3: Expanding extended partition..." >> /var/log/rasqberry-expand.log
-    if ! parted -s /dev/mmcblk0 resizepart 4 100% >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to expand extended partition" >> /var/log/rasqberry-expand.log
-    fi
-
-    # Step 4: Resize system-a (p5)
-    expand_progress 4 "Resizing Slot A..."
-    echo "Step 4: Resizing system-a partition..." >> /var/log/rasqberry-expand.log
-    if ! parted -s /dev/mmcblk0 resizepart 5 ${SYSTEM_A_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to resize partition 5" >> /var/log/rasqberry-expand.log
-    fi
-
-    # Step 5: Create new system-b and data partitions
-    expand_progress 5 "Creating Slot B and the data partition..."
-    echo "Step 5: Creating new partitions..." >> /var/log/rasqberry-expand.log
-    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${SYSTEM_B_START}MiB ${SYSTEM_B_END}MiB >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to create system-b partition" >> /var/log/rasqberry-expand.log
-    fi
-    if ! parted -s /dev/mmcblk0 mkpart logical ext4 ${DATA_START}MiB 100% >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to create data partition" >> /var/log/rasqberry-expand.log
-    fi
-
-    # Wait for kernel to recognize new partitions
-    partprobe /dev/mmcblk0
-    sleep 2
-
-    # Step 6: Resize system-a filesystem
-    expand_progress 6 "Growing the Slot A filesystem..."
-    echo "Step 6: Resizing system-a filesystem..." >> /var/log/rasqberry-expand.log
-    resize2fs /dev/mmcblk0p5 >> /var/log/rasqberry-expand.log 2>&1 || true
-
-    # Step 7: Format new partitions
-    expand_progress 7 "Formatting Slot B and the data partition (the slow step)..."
-    echo "Step 7: Formatting new partitions..." >> /var/log/rasqberry-expand.log
-    if ! mkfs.ext4 -F -L "system-b" /dev/mmcblk0p6 >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to format system-b" >> /var/log/rasqberry-expand.log
-    fi
-    if ! mkfs.ext4 -F -L "data" /dev/mmcblk0p7 >> /var/log/rasqberry-expand.log 2>&1; then
-        echo "Error: Failed to format data" >> /var/log/rasqberry-expand.log
-    fi
-
-    # Step 8: Set up system-b structure
-    expand_progress 8 "Preparing Slot B..."
-    echo "Step 8: Setting up system-b structure..." >> /var/log/rasqberry-expand.log
-    TEMP_MOUNT=$(mktemp -d)
-    if mount /dev/mmcblk0p6 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
-        # Create directory structure (no brace expansion - POSIX sh compatible)
-        mkdir -p "$TEMP_MOUNT/boot/config"
-        mkdir -p "$TEMP_MOUNT/boot/firmware"
-        mkdir -p "$TEMP_MOUNT/data"
-        mkdir -p "$TEMP_MOUNT/etc"
-
-        # Create fstab for slot B
-        cat > "$TEMP_MOUNT/etc/fstab" << EOF
-proc                        /proc           proc    defaults          0   0
-/dev/mmcblk0p1              /boot/config    vfat    defaults          0   2
-/dev/mmcblk0p3              /boot/firmware  vfat    defaults          0   2
-/dev/mmcblk0p6              /               ext4    defaults,noatime  0   1
-/dev/mmcblk0p7              /data           ext4    defaults,noatime  0   2
-EOF
-        umount "$TEMP_MOUNT"
-    fi
-    rmdir "$TEMP_MOUNT" 2>/dev/null || true
-
-    # Step 9: Set up data partition structure
-    expand_progress 9 "Preparing the data partition..."
-    echo "Step 9: Setting up data partition..." >> /var/log/rasqberry-expand.log
-    TEMP_MOUNT=$(mktemp -d)
-    if mount /dev/mmcblk0p7 "$TEMP_MOUNT" 2>> /var/log/rasqberry-expand.log; then
-        # Create directory structure (no brace expansion - POSIX sh compatible)
-        mkdir -p "$TEMP_MOUNT/home"
-        mkdir -p "$TEMP_MOUNT/var/log"
-        umount "$TEMP_MOUNT"
-    fi
-    rmdir "$TEMP_MOUNT" 2>/dev/null || true
-
-    # Remount /data for current session
-    mount /dev/mmcblk0p7 /data 2>/dev/null || true
-    # /data was just reformatted: save this slot's LED settings there again
-    /usr/bin/rq_device_settings.sh save >> /var/log/rasqberry-expand.log 2>&1 || true
-
-    echo "=== Expansion complete ===" >> /var/log/rasqberry-expand.log
-
-    # Verify expansion
-    NEW_SYSTEM_B_SIZE=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
-    NEW_SYSTEM_B_GB=$((NEW_SYSTEM_B_SIZE / 1024 / 1024 / 1024))
-
-    if [ "$NEW_SYSTEM_B_GB" -gt 1 ]; then
-        whiptail --title "Expansion Complete" --msgbox \
-            "Partitions expanded successfully!\n\nNew sizes:\n  System-A: ${SYSTEM_GB}GB\n  System-B: ${SYSTEM_GB}GB\n  Data:     ${DATA_GB}GB\n\nYour A/B boot system is now fully configured." \
-            14 60
+    "$BIN_DIR/rq_expand_ab.sh" apply "$how" --yes || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        whiptail --title "Done" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
     else
-        whiptail --title "Expansion Failed" --msgbox \
-            "Partition expansion may have failed.\n\nPlease check /var/log/rasqberry-expand.log for details." \
-            10 60
+        whiptail --title "Not finished" --msgbox \
+            "Setting up the card did not finish.\n\nThe details are in /var/log/rasqberry-expand.log.\nIf the Pi is restarted, the next start finishes the job by itself." \
+            12 72
         return 1
     fi
 }
@@ -1880,11 +1700,16 @@ do_check_for_update() {
     whiptail --title "Checking for updates" --infobox "Asking rasqberry.org for the latest release..." 8 60
     out=$(/usr/bin/rq_update_check.sh --refresh 2>&1) || rc=$?
     if [ "$rc" -eq 10 ]; then
-        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
-            how="Install it into the other slot:\nSlot Manager -> Update Slot B with new image."
-        else
-            how="Download it from rasqberry.org/latest/ and write it to a card\n(the standard image has no second slot to update into)."
-        fi
+        case "$(ab_card_mode)" in
+            dual)
+                how="Install it into the other slot:\nSlot Manager -> Update Slot B with new image." ;;
+            dual-pending)
+                how="This card has no second system yet. First:\nSoftware & Image Updates -> Prepare the card for A/B updates,\nthen Slot Manager -> Update Slot B with new image." ;;
+            single|single-pending)
+                how="This card is smaller than 64GB and runs one system, so there is no\nsecond slot to update into. Write the new image to a card\n(rasqberry.org/latest/) - that erases it: copy your files first." ;;
+            *)
+                how="Download it from rasqberry.org/latest/ and write it to a card\n(the standard image has no second slot to update into)." ;;
+        esac
         whiptail --title "Update available" --msgbox "$out\n\n$how" 16 76
     else
         whiptail --title "Check for updates" --msgbox "$out" 12 76
@@ -1895,24 +1720,34 @@ do_check_for_update() {
 # Software & Image Updates Menu
 do_ab_boot_menu() {
     while true; do
-        # Check if this is an AB boot image
-        local is_ab_image="No"
-        if lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qiE "^config$"; then
-            is_ab_image="Yes"
-        fi
-
-        # The A/B entries only make sense on an A/B partition layout
+        # What this card can do decides the A/B entries (R-006): the Slot
+        # Manager only where there are two systems; on a small card one entry
+        # that explains single-system mode instead of dead ends.
+        local ab_mode card_text
+        ab_mode=$(ab_card_mode)
         set -- CHECK "Check for a newer image"
-        if [ "$is_ab_image" = "Yes" ]; then
-            set -- "$@" EXPAND "Expand A/B Partitions (64GB+ SD)" \
-                SLOTS "Slot Manager (switch, confirm, promote)"
-        fi
+        case "$ab_mode" in
+            dual)
+                card_text="A/B image: two systems on this card"
+                set -- "$@" SLOTS "Slot Manager (switch, confirm, promote)" ;;
+            dual-pending)
+                card_text="A/B image: second system not set up yet"
+                set -- "$@" EXPAND "Prepare the card for A/B updates (64GB+ card)" ;;
+            single-pending)
+                card_text="A/B image on a card under 64GB: one system"
+                set -- "$@" EXPAND "Use the whole card (one system)" ;;
+            single)
+                card_text="A/B image on a card under 64GB: one system"
+                set -- "$@" ABOUT "Why there are no A/B updates on this card" ;;
+            *)
+                card_text="Standard image (one system)" ;;
+        esac
         set -- "$@" BRANCH "Update from GitHub Branch"
-        FUN=$(show_menu "RasQberry: Software & Image Updates" "A/B Image: ${is_ab_image}" "$@") || break
+        FUN=$(show_menu "RasQberry: Software & Image Updates" "$card_text" "$@") || break
 
         case "$FUN" in
             CHECK)  do_check_for_update     || continue ;;
-            EXPAND) do_expand_ab_partitions || continue ;;
+            EXPAND|ABOUT) do_expand_ab_partitions || continue ;;
             SLOTS)  do_slot_manager_menu    || continue ;;
             BRANCH) do_update_from_branch   || continue ;;
             *)      continue ;;

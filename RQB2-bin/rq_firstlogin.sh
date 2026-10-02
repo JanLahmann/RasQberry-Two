@@ -21,9 +21,11 @@
 #      the LED GPIO for the whole session - which made every LED demo fail with
 #      "GPIO busy" against a dark panel. A person arrives on a pts.
 #
-#   2. Offer, never act. Expanding the partitions halves someone's SD card;
-#      automatic firstboot expansion was deliberately removed (issue #142) so
-#      the user decides. Same for anything added here.
+#   2. Offer, never act. The A/B card layout is the one exception, and it is
+#      not done here: since B4 (Jan's decision 2026-10-02, reversing #142) a
+#      newly written A/B card is set up on its first start by
+#      rasqberry-ab-layout.service, with an opt-out file on CONFIG. The expand
+#      step below only shows up where that did not happen.
 
 set +u
 
@@ -60,54 +62,54 @@ command -v whiptail >/dev/null 2>&1 || exit 0
 env_true() { grep -q "^$1=true" "$ENV_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
-# Task: expand the A/B partitions
+# Task: set up the A/B card (B4: rq_expand_ab.sh decides what the card can do)
 # ---------------------------------------------------------------------------
-# An A/B image ships Slot B and data as 16MB placeholders so the download stays
-# ~12GB instead of ~120GB (convert-to-ab-boot-v3.sh). Until they are expanded
-# there is nowhere to put a second system, Slot A stays 10GB - which the image
-# nearly fills - and rq_update_slot.sh cannot stage a download. See
-# docs/ab-boot.md.
+# A newly written A/B card is set up on its first start. This step is for the
+# rest: the opt-out file was on CONFIG, or the card was written from an image
+# before B4. dual-pending = a 64GB+ card without its second system yet;
+# single-pending = a smaller card still using only 10GB of itself.
+# Asked several times per login (in subshells): look once, here
+AB_MODE=$("$BIN_DIR/rq_expand_ab.sh" mode 2>/dev/null || echo standard)
+ab_mode() { echo "${AB_MODE:-standard}"; }
 task_expand_applies() {
-    # A/B layout: p1 is the shared CONFIG partition.
-    lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | grep -qi "config" || return 1
-    # Expansion needs 58 GiB or more. A "64GB" card is only ~59.6 GiB (decimal
-    # marketing vs binary GiB), so the old 63 GiB (67645734912) cutoff wrongly
-    # refused genuine 64GB cards. 58 GiB accepts them and still rejects 32GB.
-    local card
-    card=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
-    [ "${card:-0}" -ge 62277025792 ] || return 1
-    return 0
+    case "$(ab_mode)" in
+        dual|dual-pending|single-pending) return 0 ;;
+    esac
+    return 1
 }
 task_expand_pending() {
-    local slot_b
-    slot_b=$(lsblk -bno SIZE /dev/mmcblk0p6 2>/dev/null)
-    [ "${slot_b:-0}" -lt 1073741824 ]
+    case "$(ab_mode)" in
+        dual-pending|single-pending) return 0 ;;
+    esac
+    return 1
 }
 task_expand_label() {
-    local card
-    card=$(lsblk -bno SIZE /dev/mmcblk0 2>/dev/null | head -1)
-    printf 'Expand A/B partitions (%sGB card; Slot B is a 16MB placeholder)' \
-        "$((${card:-0} / 1024 / 1024 / 1024))"
+    if [ "$(ab_mode)" = "single-pending" ]; then
+        printf 'Use the whole SD card (it is under 64GB: one system, no A/B updates)'
+    else
+        printf 'Prepare the SD card for A/B updates (second system, a few minutes)'
+    fi
 }
 task_expand_run() {
-    # The expansion lives in the raspi-config menu (do_expand_ab_partitions);
-    # there is no standalone script - see docs/ab-boot.md on why.
+    # The menu function asks first and shows progress; run it as root, and do
+    # NOT assume we already are - we are a login shell, the user. sudo -E keeps
+    # the env and sets SUDO_USER, which the menu wants.
     if [ ! -r "$MENU_FILE" ]; then
-        whiptail --title "Expand A/B partitions" --msgbox \
-            "Could not find the RasQberry menu at:\n\n  $MENU_FILE\n\nRun it directly instead:\n\n  sudo raspi-config -> RasQberry -> AB_BOOT -> EXPAND" 12 68
+        whiptail --title "SD card" --msgbox \
+            "Could not find the RasQberry menu at:\n\n  $MENU_FILE\n\nUse instead:\n\n  sudo raspi-config -> 0 RasQberry -> Software & Image Updates" 12 72
         return 1
     fi
-    # Run it as root, and do NOT assume we already are.
-    #
-    # do_expand_ab_partitions repartitions the card and logs to /var/log: it only
-    # ever ran from raspi-config, which is already root, so it never had to ask.
-    # We are a login shell - the user - so sourcing and calling it directly gave
-    # "Permission denied" on every parted and every log write, and a dialog
-    # saying expansion "may have failed" when it had not started. (No damage:
-    # parted could not touch the table either.) The LED task works because the
-    # wizard re-execs itself via ensure_root; this has no such thing, so sudo it
-    # here. sudo -E keeps the env, and sets SUDO_USER, which the menu wants.
     sudo -E bash -c ". '$MENU_FILE' >/dev/null 2>&1; do_expand_ab_partitions"
+}
+
+# ---------------------------------------------------------------------------
+# Task (B4, optional, offered once): say why a small card has no A/B updates
+# ---------------------------------------------------------------------------
+task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
+task_abinfo_pending() { return 0; }
+task_abinfo_label()   { printf 'About this SD card: under 64GB, so ONE system and no A/B updates'; }
+task_abinfo_run() {
+    whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
 }
 
 # ---------------------------------------------------------------------------
@@ -164,7 +166,7 @@ task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable; }
 done_label() {
     case "$1" in
         wifi)   echo "network connection" ;;
-        expand) echo "A/B partitions expanded" ;;
+        expand) echo "SD card set up for A/B updates" ;;
         led)    echo "LED panel checked" ;;
         demos)  echo "demos downloaded" ;;
         touch)  echo "touch mode enabled" ;;
@@ -172,10 +174,10 @@ done_label() {
     esac
 }
 
-OPTIONAL_TASKS="wifi demos touch"
+OPTIONAL_TASKS="wifi demos touch abinfo"
 is_optional() { case " $OPTIONAL_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-TASKS="wifi expand led demos touch"
+TASKS="wifi expand abinfo led demos touch"
 
 # ---------------------------------------------------------------------------
 # Collect what is pending
