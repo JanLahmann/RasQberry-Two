@@ -55,8 +55,17 @@ on `PYTHONPATH` before launching, so a demo can import the shipped helpers
 without vendoring them:
 
 ```python
-from rq_led_utils import get_pixels, matrix_size, set_xy, map_xy_to_pixel
+from rq_led_utils import get_pixels, matrix_size, set_xy, clear_all_leds
 ```
+
+These four are the **supported LED API** (Jan, Q33a): they keep their names,
+arguments and behaviour across releases, for catalogue demos and for learners'
+own programs (plus `layout=get_layout()` for the fastest loops). The rest of
+`rq_led_utils` (`map_xy_to_pixel`, `get_led_config`, the `chunked_*` wrappers)
+stays for existing demos but may change. Outside the demo engine, run an LED program with `rq_python
+<program>`: on a Pi 4, where the LED driver needs root, it starts the LED
+renderer (service mode) for the run and the program runs as the user; on a
+Pi 5 the user drives the panel directly.
 
 (The RasQberry venv also has `/usr/bin` on its path through
 `00-rasqberry.pth`, so the import works with the venv python anywhere; the

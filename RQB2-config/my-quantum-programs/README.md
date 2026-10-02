@@ -47,14 +47,18 @@ New notebooks are saved where JupyterLab runs, so start it here.
     pixels.show()                        # nothing changes before show()
     clear_all_leds()
 
+These four functions are the supported LED API: your programs keep working
+with later RasQberry releases. Other functions in `rq_led_utils` are internal
+and may change.
+
 - **Coordinates**: x runs from 0 (left) to width-1 (right), y from 0 (top) to
   height-1 (bottom). `set_xy` finds the right LED for the configured panel,
   whatever its wiring. Positions off the panel are ignored, so shapes may run
   over the edge. Avoid `pixels[number]`: raw numbers follow the cables
   (`pixels[0]` to `pixels[7]` run down the first column, the next column runs
   back up), not rows.
-- **Speed**: `set_xy` and `map_xy_to_pixel(x, y)` take about 0.1 ms per LED on
-  a Pi 4, fine for animations. For the fastest loops, look the layout up once:
+- **Speed**: `set_xy` takes about 0.1 ms per LED on a Pi 4, fine for
+  animations. For the fastest loops, look the layout up once:
   `layout = get_layout()`, then `set_xy(pixels, x, y, color, layout=layout)`.
 - **Who may switch the LEDs on**:
   - **Raspberry Pi 5**: your programs drive the panel directly, from Thonny,

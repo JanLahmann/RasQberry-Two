@@ -12,13 +12,31 @@ This module uses adafruit-circuitpython-neopixel which auto-detects hardware:
 - Pi 5: Uses PIO (RP1 chip)
 Both approaches support 192+ LEDs without buffer limits or chunking.
 
+SUPPORTED LEARNER API (Jan, Q33a, 2026-10-02) - for your own programs and
+catalogue demos. These four keep their names, arguments and behaviour across
+releases:
+
+    get_pixels(brightness=None)        the LED strip (one shared object)
+    matrix_size(layout=None)           (width, height) of the configured panel
+    set_xy(pixels, x, y, color)        one LED by position, (0, 0) = top left;
+                                       positions off the panel are ignored
+    clear_all_leds()                   all LEDs off
+
+Call pixels.show() to display a frame. For the fastest loops, pass
+layout=get_layout() to set_xy/matrix_size (that use of get_layout() is
+supported too). Everything else here is internal and may change;
+map_xy_to_pixel(), get_led_config() and the chunked_* wrappers stay for
+existing demos but are not part of the learner API.
+
 Using it from your own program: the RasQberry venv puts /usr/bin (where this
 module ships) on its import path, so with the venv python a learner's script
-can simply `from rq_led_utils import get_pixels, set_xy, matrix_size`. Who may
-drive the panel: on a Pi 5 the user (group gpio, /dev/pio0) needs no root; on
-a Pi 4 the PWM driver opens /dev/mem and needs root - or service mode, where
-rasqberry-led-renderer.service drives the strip and the program runs as the
-user. `rq_python my_program.py` handles both.
+can simply `from rq_led_utils import get_pixels, set_xy, matrix_size,
+clear_all_leds`. Who may drive the panel (Q33b): on a Pi 5 the user (group
+gpio, /dev/pio0) needs no root. On a Pi 4 the PWM driver opens /dev/mem and
+needs root; the supported route is `rq_python my_program.py`, which starts
+rasqberry-led-renderer.service (service mode) for the run and runs the program
+as the user. `rq_python` works on both boards; never `sudo python3` (the
+system python has no LED libraries).
 """
 
 import os
@@ -505,6 +523,8 @@ def matrix_size(layout=None):
     """
     Return the size of the LED matrix in logical coordinates.
 
+    Part of the supported learner API (see the module docstring).
+
     Args:
         layout (str or dict, optional): Layout name or parsed layout dict; the
             configured layout if None.
@@ -526,6 +546,8 @@ def matrix_size(layout=None):
 def set_xy(pixels, x, y, color, layout=None):
     """
     Set the LED at logical (x, y) to a colour, ignoring positions off the matrix.
+
+    Part of the supported learner API (see the module docstring).
 
     The raw pixel index follows the wiring (pixels[0..7] is the first column on
     a single 24x8 panel, the next column runs the other way), so programs should
@@ -953,9 +975,11 @@ def get_pixels(brightness=None):
     Returns:
         neopixel.NeoPixel: Shared LED strip object
 
+    Part of the supported learner API (see the module docstring).
+
     Example:
         pixels = get_pixels()
-        pixels[0] = (255, 0, 0)
+        set_xy(pixels, 0, 0, (255, 0, 0))    # top-left LED red
         pixels.show()
     """
     global _pixels_singleton
@@ -983,6 +1007,7 @@ def clear_all_leds():
     """
     Turn off all LEDs using the singleton NeoPixel object.
 
+    Part of the supported learner API (see the module docstring).
     This function uses the shared NeoPixel instance to prevent GPIO conflicts.
     Safe to call from multiple modules (e.g., LED Painter's clear and atexit).
 
