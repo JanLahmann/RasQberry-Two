@@ -113,7 +113,9 @@ totals() {
         fi
     done
     if [ "$hi" -gt 0 ]; then
-        if [ "$lo" = "$hi" ]; then T_TIME="$hi minutes"; else T_TIME="$lo-$hi minutes"; fi
+        if [ "$hi" = 1 ]; then T_TIME="1 minute"
+        elif [ "$lo" = "$hi" ]; then T_TIME="$hi minutes"
+        else T_TIME="$lo-$hi minutes"; fi
     fi
     return 0
 }
@@ -207,7 +209,7 @@ else
         text="${text}Download:  about $(rq_fmt_mb "$G_DL") (needs the internet)\n"
         [ -n "$G_TIME" ] && text="${text}Time:      about $G_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
-        text="${text}Afterwards they start without the internet.\n\nDownload them now?"
+        text="${text}Afterwards they start without the internet.\n\nDownload now?"
         ask "$TITLE" "$text" && WANT_GIT=yes
     fi
     if [ "$D_COUNT" -gt 0 ]; then
