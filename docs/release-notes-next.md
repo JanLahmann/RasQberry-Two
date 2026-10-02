@@ -2,8 +2,7 @@
 generated changelog in the GitHub release body; GitHub hides these comments.
 CONDITIONAL: A/B default - the lines marked [A/B default] apply only if this
 round ships the A/B fixes (batches B2 and B4) and the menu update test H-34
-passes. Otherwise use the alternative given in the comment next to them.
-<opt-out marker> is the file name chosen in batch B4. -->
+passes. Otherwise use the alternative given in the comment next to them. -->
 
 ## What's new for you
 
@@ -17,16 +16,16 @@ passes. Otherwise use the alternative given in the comment next to them.
 **First start**
 
 - The first start prepares the card and restarts on its own. It takes a few minutes: do not unplug.
-- A/B image on a card of 64GB or more: the card is split into two systems automatically. To keep one system, put an empty file `<opt-out marker>` on the CONFIG drive before the first start.
+- A/B image on a card of 64GB or more: the card is split into two systems automatically. To keep the card as written, put an empty file `no-auto-expand` (or `no-auto-expand.txt`) on the CONFIG drive before the first start.
 - A setup checklist opens once on the first desktop login: Wi-Fi, an optional password change, the LED panel check, Download all demos, touch mode.
 - VNC is switched on once at the first start and stays off if you switch it off.
 
 **Updating later (A/B image)**
 
-- **Software & Image Updates** → **Check for a newer image**, then **Slot Manager** → **Update Slot B with new image**: about 1.7GB, 20–30 minutes, then the Pi restarts into Slot B.
-- When Slot B works, **Promote Slot B to Slot A** makes it your stable system again.
+- **Software & Image Updates** → **Check for a newer image** → **Install now**, or **Slot Manager** → **Install an update into Slot B (testing)**: about 1.7GB, 20–30 minutes, then the Pi restarts into Slot B.
+- When Slot B works, **Slot Manager** → **Make Slot B the stable system (copy B to A)** makes it your stable system again.
 - **Kept:** your own programs (`~/My-Quantum-Programs`), the Shared folder, your IBM Quantum account (`~/.qiskit`), Wi-Fi networks and LED settings live on `/data`; your password, hostname, language, keyboard and SSH keys are copied to the new system. **Not kept:** installed demos download again; other files in your home folder stay in the other slot.
-- **Going back:** **Slot Manager** → **Switch to Slot A**. If the Pi does not start, switch it off and on. If it still does not start, set `boot_partition=2` under `[all]` in `autoboot.txt` on the CONFIG drive.
+- **Going back:** **Slot Manager** → **Restart into Slot A (stable)**. If a new system does not start properly, the Pi goes back to the old one by itself, at the latest after 15 minutes; if the screen stays black, switch it off and on. If it still does not start, set `boot_partition=2` under `[all]` in `autoboot.txt` on the CONFIG drive.
 - **Standard image:** OS updates through the taskbar updater or `sudo apt full-upgrade`. A new RasQberry release means writing a new card: back up your notebooks and `~/.qiskit` first.
 
 **Coming from an earlier beta**
