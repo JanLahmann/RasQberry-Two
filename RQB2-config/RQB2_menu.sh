@@ -1,7 +1,12 @@
 #!/bin/sh
 # Note: removed set -eu to prevent raspi-config crashes from unset variables
-IFS='\
-	'
+#
+# This file is SOURCED into raspi-config (#!/bin/sh, dash on Raspberry Pi OS),
+# so everything at file scope runs in raspi-config's own shell. Do not change
+# shell-wide state here. A file-scope IFS without a space used to live on this
+# line: it broke raspi-config's own word splitting ("Network Proxy -> All"
+# died with "bad variable name", R-017) and the LED Output Targets checklist
+# (R-018).
 
 # -----------------------------------------------------------------------------
 # RasQberry-Two: RQB2_menu.sh
@@ -19,9 +24,35 @@ IFS='\
 # -----------------------------------------------------------------------------
 
 # load RasQberry environment and constants with error handling
-ENV_CONFIG_FILE="/usr/config/rasqberry_env-config.sh"
-if [ -f "$ENV_CONFIG_FILE" ]; then
+# (RQ_CONFIG_FILE: same override as rq_common.sh; the unit tests use it)
+ENV_CONFIG_FILE="${RQ_CONFIG_FILE:-/usr/config/rasqberry_env-config.sh}"
+
+# Load (or reload) the RasQberry environment without touching raspi-config's
+# own globals.
+#
+# raspi-config tests [ "$INTERACTIVE" = True ] before every dialog. The env file
+# used to assign INTERACTIVE=true, ASK_TO_REBOOT=0 and CONFIG=/boot/config.txt,
+# so every reload after a RasQberry setting changed switched raspi-config to
+# non-interactive mode: S4 Hostname then set an EMPTY hostname without asking,
+# SSH/VNC only said "There was an error", and a queued reboot was dropped
+# (R-001). The lines are gone from the shipped defaults, but env files on
+# devices keep them (a branch update carries device keys over), so keep
+# whatever raspi-config had set - or not set - across every load.
+_rq_load_env() {
+    [ -f "$ENV_CONFIG_FILE" ] || return 1
+    _rq_sv_int="${INTERACTIVE-_rq_unset_}"
+    _rq_sv_atr="${ASK_TO_REBOOT-_rq_unset_}"
+    _rq_sv_cfg="${CONFIG-_rq_unset_}"
     . "$ENV_CONFIG_FILE"
+    _rq_load_rc=$?
+    if [ "$_rq_sv_int" = _rq_unset_ ]; then unset INTERACTIVE; else INTERACTIVE="$_rq_sv_int"; fi
+    if [ "$_rq_sv_atr" = _rq_unset_ ]; then unset ASK_TO_REBOOT; else ASK_TO_REBOOT="$_rq_sv_atr"; fi
+    if [ "$_rq_sv_cfg" = _rq_unset_ ]; then unset CONFIG; else CONFIG="$_rq_sv_cfg"; fi
+    return $_rq_load_rc
+}
+
+if [ -f "$ENV_CONFIG_FILE" ]; then
+    _rq_load_env
 else
     echo "Warning: RasQberry environment config not found at $ENV_CONFIG_FILE"
     # Set minimal defaults to prevent crashes
@@ -38,10 +69,31 @@ VENV_ACTIVATE="$REPO_DIR/venv/$STD_VENV/bin/activate"
 
 # Demo menu cache (auto-generated from manifests, provides DEMO_MENU_ITEMS and dispatch_demo_by_id)
 # TODO: Use global directory variable once defined (see issue #246)
-DEMO_MENU_CACHE="/usr/config/demo-menu-cache.sh"
-if [ -f "$DEMO_MENU_CACHE" ]; then
-    . "$DEMO_MENU_CACHE"
-fi
+DEMO_MENU_CACHE="${RQ_DEMO_MENU_CACHE:-/usr/config/demo-menu-cache.sh}"
+
+# Source the generated demo list, but only if it parses.
+#
+# raspi-config sources this file before anything else, so a cache that dash
+# cannot parse (cut short, or generated from a bad user manifest) stopped ALL of
+# raspi-config: Wi-Fi, VNC, `raspi-config nonint`, and the Refresh item that
+# would rebuild the cache (R-120). Check it with `sh -n` first; if it is broken
+# or missing, carry on with an empty generated list (the Quantum Demos menu says
+# so) and a dispatcher that still runs any demo through the engine.
+_rq_load_demo_cache() {
+    if [ ! -f "$DEMO_MENU_CACHE" ]; then
+        _RQ_DEMO_CACHE_STATE=missing
+    elif /bin/sh -n "$DEMO_MENU_CACHE" 2>/dev/null && . "$DEMO_MENU_CACHE"; then
+        _RQ_DEMO_CACHE_STATE=ok
+        return 0
+    else
+        _RQ_DEMO_CACHE_STATE=broken
+    fi
+    DEMO_MENU_ITEMS=""
+    DEMO_COUNT=0
+    dispatch_demo_by_id() { "$BIN_DIR/rq_demo_run.sh" "$1"; }
+    return 1
+}
+_rq_load_demo_cache || :
 
 #
 # -----------------------------------------------------------------------------
@@ -58,10 +110,80 @@ fi
 # Deliberately NOT the one from rq_common.sh (#230): raspi-config runs this file
 # under /bin/sh (dash on Raspberry Pi OS), and rq_common.sh uses bash-only syntax
 # (arrays), so sourcing it here would stop raspi-config from parsing at all.
+#
+#   show_menu [--default-item TAG] [--tags] TITLE PROMPT TAG DESC [TAG DESC ...]
+#
+# - The box is sized so the PROMPT is visible. With raspi-config's fixed 18x11
+#   newt leaves 0 lines for it ((H-2)-4-1-L), so the state several menus put
+#   there ("Current: Slot B", the current layout) was never shown (R-019).
+# - `--` ends whiptail's option parsing before the items: whiptail (popt) reads
+#   options anywhere, so an item starting with "-" made it fail with
+#   "unknown option" and the menu silently never opened (R-024).
+# - --default-item keeps the cursor on the last choice (R-152).
+# - The tags are internal ids (QD, AB_BOOT, TRYBOOT_A, grok-bloch-web), so they
+#   are hidden and the item text alone says what an entry is (R-092); --tags
+#   shows them where the tag IS the information (the settings editor).
+# - If whiptail fails with a message instead of a choice, show it rather than
+#   behaving as if the user pressed Back.
 show_menu() {
+    _sm_default=""; _sm_notags="--notags"
+    while :; do
+        case "$1" in
+            --default-item) _sm_default="$2"; shift 2 ;;
+            --tags) _sm_notags=""; shift ;;
+            --notags) _sm_notags="--notags"; shift ;;
+            *) break ;;
+        esac
+    done
     title="$1"; shift
     prompt="$1"; shift
-    whiptail --title "$title" --menu "$prompt" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3
+
+    _sm_w="${WT_WIDTH:-80}"
+    _sm_mh="${WT_MENU_HEIGHT:-11}"
+    _sm_n=$(( $# / 2 ))
+    [ "$_sm_n" -lt "$_sm_mh" ] && [ "$_sm_n" -gt 0 ] && _sm_mh="$_sm_n"
+    _sm_pl=0
+    [ -n "$prompt" ] && _sm_pl=$(printf '%b\n' "$prompt" | fold -s -w $((_sm_w - 4)) | wc -l)
+    _sm_rows=$(stty size </dev/tty 2>/dev/null | cut -d' ' -f1)
+    case "$_sm_rows" in ''|*[!0-9]*) _sm_rows=24 ;; esac
+    _sm_h=$((_sm_mh + _sm_pl + 7))
+    if [ "$_sm_h" -gt $((_sm_rows - 1)) ]; then
+        _sm_h=$((_sm_rows - 1))
+        _sm_mh=$((_sm_h - 7 - _sm_pl))
+        [ "$_sm_mh" -lt 3 ] && _sm_mh=3
+    fi
+
+    _sm_out=$(whiptail --title "$title" ${_sm_default:+--default-item "$_sm_default"} $_sm_notags \
+        --ok-button Select --cancel-button Back \
+        --menu "$prompt" "$_sm_h" "$_sm_w" "$_sm_mh" -- "$@" 3>&1 1>&2 2>&3)
+    _sm_rc=$?
+    if [ "$_sm_rc" -ne 0 ] && [ "$_sm_rc" -ne 255 ] && [ -n "$_sm_out" ]; then
+        whiptail --title "Menu error" --msgbox \
+            "The menu \"$title\" could not be shown:\n\n$_sm_out" 12 70 </dev/tty >/dev/tty 2>&1
+        return 2
+    fi
+    [ "$_sm_rc" -eq 0 ] && printf '%s' "$_sm_out"
+    return $_sm_rc
+}
+
+# msgbox sized to its text, scrolling when it does not fit (a POSIX port of
+# _rq_dialog_height/_rq_dialog_scroll from rq_common.sh). A whiptail msgbox
+# shows H-6 lines and silently cuts the rest, so fixed-size boxes lost their
+# last lines (R-020).
+#   show_msgbox_fit TITLE TEXT [WIDTH]
+show_msgbox_fit() {
+    _mf_w="${3:-70}"
+    _mf_lines=$(printf '%b\n' "$2" | fold -s -w $((_mf_w - 4)) | wc -l)
+    _mf_rows=$(stty size </dev/tty 2>/dev/null | cut -d' ' -f1)
+    case "$_mf_rows" in ''|*[!0-9]*) _mf_rows=24 ;; esac
+    _mf_h=$((_mf_lines + 7))
+    [ "$_mf_h" -lt 8 ] && _mf_h=8
+    _mf_scroll=""
+    if [ "$_mf_h" -gt "$_mf_rows" ]; then
+        _mf_h="$_mf_rows"
+        _mf_scroll="--scrolltext"
+    fi
+    whiptail --title "$1" $_mf_scroll --msgbox "$2" "$_mf_h" "$_mf_w"
 }
 
 # Generic installer for demos: name, git URL, marker file, env var, dialog title, optional size
@@ -701,7 +823,45 @@ do_download_all_demos() {
     return 0
 }
 
-# Helper: run a demo in its directory using a pty for correct TTY behavior, or in background without pty
+# Turn a demo log into the few lines worth showing a user: strip the CR/escape
+# noise a pty log carries, drop the Python stack frames ('File "..."' and the
+# caret lines under them) which say nothing to a user, and keep the last lines -
+# the message that matters ("GPIO busy", "No module named ...") is at the end.
+#   _rq_log_tail LOGFILE STATUS
+_rq_log_tail() {
+    _lt=$(sed 's/\r//g; s/\x1b\[[0-9;]*[a-zA-Z]//g' "$1" 2>/dev/null \
+        | grep -v '^[[:space:]]*$' \
+        | grep -vE '^[[:space:]]*(File "|\^+[[:space:]]*$|~+[[:space:]]*$)' \
+        | grep -vE '^Script (started|done) on ' \
+        | tail -n 5)
+    [ -z "$_lt" ] && _lt="It stopped with status $2 and printed nothing."
+    printf '%s' "$_lt"
+}
+
+# Wait for Enter before the menu redraws over what a demo printed.
+_rq_pause() {
+    printf '\n%s ' "${1:-Press Enter to return to the menu.}"
+    read _rq_pause_answer
+}
+
+# Helper: run a demo from this menu.
+#
+#   run_demo [bg] TITLE DIR CMD [ARGS...]
+#
+# Default (console) mode: the demo runs in the FOREGROUND on this terminal,
+# through `script -e` so it has a pty and a copy of its output lands in
+# DEMO_LOG. The terminal is the demo's UI (Lights Out console, the LED test, the
+# text/logo prompts): it gets the keyboard, Ctrl+C stops it and only it, and
+# nothing is drawn over it. These demos used to run in the background under a
+# "Demo is running" dialog: their output scrolled the dialog away, keys went to
+# the dialog instead of the demo, and - `script` without -e always exits 0 - a
+# demo that crashed looked like one that finished (R-028, R-156).
+#
+# bg mode: for demos whose output is the LEDs. Output goes to DEMO_LOG, a dialog
+# offers to stop the demo, and an exit before the user answered is reported
+# instead of being taken for a clean finish (R-102).
+#
+# Returns non-zero with RQ_LAST_DEMO_ERROR set when the demo failed.
 run_demo() {
   # Mode selection: default is pty; allow "bg" as first arg
   MODE="pty"
@@ -718,22 +878,36 @@ run_demo() {
   if [ -f "$VENV_ACTIVATE" ]; then
     CMD=". \"$VENV_ACTIVATE\" && exec $CMD"
   fi
+  RQ_LAST_DEMO_ERROR=""
   # Save current terminal settings
-  OLD_STTY=$(stty -g)
+  OLD_STTY=$(stty -g 2>/dev/null)
   # Reset terminal state before launching
-  stty sane
-  # Launch the demo in its own session so we can kill the full process group.
+  stty sane 2>/dev/null
   # Both modes keep a copy of the output in DEMO_LOG so that if the demo dies we
-  # can tell the user WHY (see the liveness check below).
-  DEMO_LOG=/tmp/rqb-demo.log
+  # can tell the user WHY.
+  DEMO_LOG="${RQ_DEMO_LOG:-/tmp/rqb-demo.log}"
+
   if [ "$MODE" = "pty" ]; then
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid script -qfc "$CMD" "$DEMO_LOG" ) &
-  else
-      # bg mode: send the demo's stdout+stderr to a log, NOT the terminal —
-      # otherwise a background demo's output (and LED library messages) prints
-      # over the "Demo is running" whiptail dialog and corrupts the TUI.
-      ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >"$DEMO_LOG" 2>&1 ) &
+      printf '\n=== %s ===   (Ctrl+C stops the demo)\n\n' "$DEMO_TITLE"
+      ( cd "$DEMO_DIR" && exec script -qefc "$CMD" "$DEMO_LOG" )
+      DEMO_RC=$?
+      stty sane 2>/dev/null
+      [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
+      case "$DEMO_RC" in
+          # finished, or stopped with Ctrl+C (130) / closed (129, 143)
+          0|129|130|143) ;;
+          *) RQ_LAST_DEMO_ERROR=$(_rq_log_tail "$DEMO_LOG" "$DEMO_RC") ;;
+      esac
+      _rq_pause
+      [ -n "$RQ_LAST_DEMO_ERROR" ] && return 1
+      return 0
   fi
+
+  # bg mode: send the demo's stdout+stderr to a log, NOT the terminal -
+  # otherwise a background demo's output (and LED library messages) prints
+  # over the "Demo is running" whiptail dialog and corrupts the TUI. It runs in
+  # its own session so we can kill the full process group.
+  ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >"$DEMO_LOG" 2>&1 ) &
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
 
@@ -749,45 +923,48 @@ run_demo() {
   if ! kill -0 "$DEMO_PID" 2>/dev/null; then
       wait "$DEMO_PID"
       DEMO_RC=$?
-      stty sane
+      LAST_DEMO_PGID=""
+      stty sane 2>/dev/null
+      [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
       if [ "$DEMO_RC" -ne 0 ]; then
-          # Strip the CR/escape noise a pty log carries, drop the Python stack
-          # frames ('File "..."' and the caret lines under them) which say
-          # nothing to a user, and keep the last lines - the message that
-          # matters ("GPIO busy", "No module named ...") is at the end.
-          RQ_LAST_DEMO_ERROR=$(sed 's/\r//g; s/\x1b\[[0-9;]*[a-zA-Z]//g' "$DEMO_LOG" 2>/dev/null \
-              | grep -v '^[[:space:]]*$' \
-              | grep -vE '^[[:space:]]*(File "|\^+[[:space:]]*$|~+[[:space:]]*$)' \
-              | tail -n 5)
-          [ -z "$RQ_LAST_DEMO_ERROR" ] && RQ_LAST_DEMO_ERROR="Exited immediately with status $DEMO_RC (no output)."
-          stty "$OLD_STTY" 2>/dev/null || true
+          RQ_LAST_DEMO_ERROR=$(_rq_log_tail "$DEMO_LOG" "$DEMO_RC")
           return 1
       fi
       # Exited cleanly and quickly: it ran, it finished. Not an error.
-      stty "$OLD_STTY" 2>/dev/null || true
       return 0
   fi
 
   # Ask user when to stop
-  whiptail --title "${DEMO_TITLE}" --yesno "Demo is running. Select Yes to stop." 8 60
+  whiptail --title "${DEMO_TITLE}" --yes-button "Stop demo" --no-button "Keep running" --yesno \
+      "The demo is running.\n\nStop demo: end it now.\nKeep running: back to the menu, the demo goes on (end it later with \"Stop last running demo\")." \
+      12 70
   RESPONSE=$?
   # Restore terminal state before killing demo
-  stty sane
-  # Terminate the entire demo process group only if user chose Yes
-  if [ "$RESPONSE" -eq 0 ]; then
+  stty sane 2>/dev/null
+  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+      # It ended by itself while the dialog was up. A slow start (a Qiskit
+      # import on a Pi 4 takes several seconds) can fail after the 2-second
+      # check above, and that used to vanish without a word (R-102).
+      wait "$DEMO_PID"
+      DEMO_RC=$?
+      LAST_DEMO_PGID=""
+      [ "$DEMO_RC" -ne 0 ] && RQ_LAST_DEMO_ERROR=$(_rq_log_tail "$DEMO_LOG" "$DEMO_RC")
+  elif [ "$RESPONSE" -eq 0 ]; then
+      # Terminate the entire demo process group only if user chose Stop
       kill -TERM -"$DEMO_PID" 2>/dev/null || true
       wait "$DEMO_PID" 2>/dev/null || true
+      LAST_DEMO_PGID=""
   fi
   # Restore original terminal settings
-  stty "$OLD_STTY"
-  stty intr ^C
-  # Final reset to clear any residual state
-  reset
+  [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
+  stty intr ^C 2>/dev/null
+  [ -n "$RQ_LAST_DEMO_ERROR" ] && return 1
+  return 0
 }
 
 # Stop the most recently launched demo (its whole setsid process group) and
 # blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
-# chose "No" at the stop prompt) can be stopped here later.
+# chose "Keep running" at the stop prompt) can be stopped here later.
 stop_last_demo() {
   if [ -z "${LAST_DEMO_PGID:-}" ]; then
     whiptail --title "Stop demo" --msgbox "No demo has been started in this session." 8 60
@@ -803,41 +980,87 @@ stop_last_demo() {
   return 0
 }
 
+# Plain-language reason for a demo the engine could not run.
+#   _rq_explain_demo_error MESSAGE STATUS
+# MESSAGE is what the engine (or the launcher it handed over to) gave as its
+# reason; the common causes get a sentence that says what to do.
+_rq_explain_demo_error() {
+    case "$1" in
+        *"needs a screen"*|*"requires a display"*)
+            _ex="This demo opens a window on the Pi's desktop, and this terminal has none (an SSH login, for example). Start it on the desktop - its icon, or this menu in a terminal there - or over VNC." ;;
+        *"Failed to fetch pinned commit"*|*"Failed to clone"*|*"Could not resolve host"*|*"unable to access"*|*"Network is unreachable"*)
+            _ex="The demo could not be downloaded. Check that the Pi is online (Wi-Fi or network cable) and try again." ;;
+        *"No space left on device"*)
+            _ex="The SD card is full. Free some space, then try again." ;;
+        *) _ex="" ;;
+    esac
+    if [ -n "$1" ]; then
+        if [ -n "$_ex" ]; then printf '%s\n\nDetails: %s' "$_ex" "$1"; else printf '%s' "$1"; fi
+    else
+        printf 'It stopped with status %s. The messages it printed (shown before this box) say why.' "$2"
+    fi
+}
+
+# Run a demo through the demo engine (rq_demo_run.sh), in the foreground.
+#
+#   run_engine_demo COMMAND [ARGS...]
+#   e.g. run_engine_demo dispatch_demo_by_id grok-bloch
+#        run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-raspberry-tie real
+#
+# The engine prints why it stops ("needs a display", "could not download", a
+# traceback), and the menu used to redraw over it at once, leaving only
+# "Failed to run demo: <id>" (R-026). Its reason now also goes to a file
+# (RQ_ERROR_FILE, written by die() in rq_common.sh), a failure keeps the output
+# on screen until Enter, and the caller's error box gets the reason in plain
+# words. Ctrl+C (exit 130) stops the demo; that is not an error.
+run_engine_demo() {
+    RQ_LAST_DEMO_ERROR=""
+    _ed_err=$(mktemp /tmp/rqb-demo-error.XXXXXX 2>/dev/null) || _ed_err=""
+    # Non-LED demos run as the desktop user (rq_demo_run.sh drops root) and
+    # their die() appends here too, LED demos as root. Keep the file root's
+    # (in sticky /tmp, protected_regular stops root from opening a file another
+    # user owns) and let everyone append, but only root read.
+    [ -n "$_ed_err" ] && chmod 622 "$_ed_err" 2>/dev/null
+    RQ_ERROR_FILE="$_ed_err"
+    export RQ_ERROR_FILE
+    "$@"
+    _ed_rc=$?
+    unset RQ_ERROR_FILE
+    stty sane 2>/dev/null
+    case "$_ed_rc" in
+        0|130|143) [ -n "$_ed_err" ] && rm -f "$_ed_err"; return 0 ;;
+    esac
+    _ed_msg=""
+    if [ -n "$_ed_err" ]; then
+        _ed_msg=$(tail -n 3 "$_ed_err" 2>/dev/null)
+        rm -f "$_ed_err"
+    fi
+    RQ_LAST_DEMO_ERROR=$(_rq_explain_demo_error "$_ed_msg" "$_ed_rc")
+    _rq_pause "The demo stopped with an error (see above). Press Enter to continue."
+    return 1
+}
+
 # Generic runner for Quantum-Lights-Out demo (POSIX sh compatible)
 run_qlo_demo() {
     MODE="${1:-}"  # empty for GUI, "console" for console mode
     DEMO_DIR="$DEMO_ROOT/Quantum-Lights-Out"
-    # Ensure installed
-    do_qlo_install
+    # Ensure installed (install_via_engine shows its own dialog on failure)
+    do_qlo_install || return 0
     # Launch appropriate mode.
     #
-    # The console variant IS played in the terminal, so it keeps the pty. The
-    # default variant plays on the LEDs and its stdout is just noise - the
-    # solver's progress and Qiskit's deprecation warnings, which used to print
-    # over the whiptail dialog and hide the "Select Yes to stop" prompt (users
-    # had to press Enter blind). Send that to the log instead.
+    # The console variant IS played in the terminal, so it runs in the
+    # foreground. The default variant plays on the LEDs and its stdout is just
+    # noise - the solver's progress and Qiskit's deprecation warnings - so it
+    # goes to the log under the stop dialog.
     if [ "$MODE" = "console" ]; then
         run_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
     else
         run_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
     fi
-    # Turn off LEDs when demo ends
+    _qlo_rc=$?
+    # Turn off LEDs when demo ends (the demo's status is what the caller needs)
     do_led_off
-}
-
-# Run quantum-raspberry-tie demo (ensures install first)
-run_rasp_tie_demo() {
-    # Ensure installation
-    do_rasp_tie_install
-    DEMO_DIR="$DEMO_ROOT/quantum-raspberry-tie"
-    RUN_OPTION=$1
-    if  [ "$RUN_OPTION" != "b:aer" ]; then
-      echo "For this option, we need a IBM Quantum Token"
-      python3 "$BIN_DIR/rq_set_qiskit_ibm_token.py"
-    fi
-    run_demo "Quantum Raspberry-Tie Demo" "$DEMO_DIR" python3 "QuantumRaspberryTie.v7_1.py" "-${RUN_OPTION}"
-    # Turn off LEDs when demo ends
-    do_led_off
+    return $_qlo_rc
 }
 
 # Run grok-bloch demo local version (ensures install first)
@@ -965,19 +1188,18 @@ stop_quantum_mixer_containers() {
 # This regenerates the demo-menu-cache.sh file from demo manifest files
 refresh_demo_menu_cache() {
     if [ -x "$BIN_DIR/rq_demo_generate_menu.sh" ]; then
-        whiptail --title "Refreshing Demo Menu" --infobox "Regenerating demo menu from manifests..." 6 50
-        if "$BIN_DIR/rq_demo_generate_menu.sh" --cache "$DEMO_MENU_CACHE" > /dev/null 2>&1; then
-            # Reload the cache
-            if [ -f "$DEMO_MENU_CACHE" ]; then
-                . "$DEMO_MENU_CACHE"
-            fi
-            whiptail --title "Demo Menu Refreshed" --msgbox "Demo menu cache regenerated successfully.\n\n$DEMO_COUNT demos loaded from manifests." 10 50
+        # Plain text, not an --infobox: whiptail restores the screen when it
+        # exits, so an infobox vanished at once and the rebuild looked frozen.
+        printf '\nRebuilding the demo list from the demo descriptions. This can take a minute...\n'
+        if "$BIN_DIR/rq_demo_generate_menu.sh" --cache "$DEMO_MENU_CACHE" > /dev/null 2>&1 \
+            && _rq_load_demo_cache; then
+            whiptail --title "Demo List Refreshed" --msgbox "The demo list was rebuilt.\n\n$DEMO_COUNT demos are in the Quantum Demos menu." 10 60
         else
-            whiptail --title "Error" --msgbox "Failed to regenerate demo menu cache.\n\nCheck that manifest files are valid." 10 50
+            whiptail --title "Error" --msgbox "The demo list could not be rebuilt.\n\nOne of the demo descriptions (manifest files) may be damaged." 10 60
             return 1
         fi
     else
-        whiptail --title "Error" --msgbox "Menu generator script not found.\n\nExpected: $BIN_DIR/rq_demo_generate_menu.sh" 10 50
+        whiptail --title "Error" --msgbox "Menu generator script not found.\n\nExpected: $BIN_DIR/rq_demo_generate_menu.sh" 10 60
         return 1
     fi
 }
@@ -995,9 +1217,7 @@ do_add_external_demo() {
     if [ -x "$BIN_DIR/rq_demo_add_external.sh" ]; then
         "$BIN_DIR/rq_demo_add_external.sh"
         # The add script regenerates the cache; reload it in this session
-        if [ -f "$DEMO_MENU_CACHE" ]; then
-            . "$DEMO_MENU_CACHE"
-        fi
+        _rq_load_demo_cache || :
     else
         whiptail --title "Error" --msgbox "Add-demo script not found.\n\nExpected: $BIN_DIR/rq_demo_add_external.sh" 10 60
         return 1
@@ -1008,36 +1228,95 @@ do_add_external_demo() {
 # 3a) Environment Variable Menu
 # -----------------------------------------------------------------------------
 
-# Function to update values stored in the rasqberry_environment.env file
+# Keys that must not be edited here: raspi-config's own globals (old env files
+# still carry them, see _rq_load_env) and the ones the env file marks
+# "# DEPRECATED: KEY ..." (nothing reads them any more).
+_rq_hidden_env_keys() {
+    printf ' INTERACTIVE ASK_TO_REBOOT CONFIG '
+    sed -n 's/^# DEPRECATED: *//p' "$ENV_FILE" 2>/dev/null \
+        | sed 's/ - .*//; s/(.*//; s/\. .*//' \
+        | grep -oE '[A-Z][A-Z0-9_]+' | tr '\n' ' '
+}
+
+# "Advanced: edit a setting" - change one value in rasqberry_environment.env.
+# Shows the current value as the item text and pre-fills it, hides keys that
+# must not be edited here, and refuses values the shell-sourced file cannot
+# hold (R-093).
 do_select_environment_variable() {
 
   if [ ! -f "$ENV_FILE" ]; then
-    whiptail --title "Error" --msgbox "Environment file not found!" 8 50
+    whiptail --title "Error" --msgbox "Settings file not found:\n$ENV_FILE" 9 70
     return 1
   fi
 
   # Build menu items as positional parameters from environment file (POSIX-compliant)
+  _hidden=$(_rq_hidden_env_keys)
   set --
   while IFS='=' read -r key value; do
-    # Skip comments and empty lines
+    # Skip comments, empty lines and hidden keys
     case "$key" in
-      ''|'#'*|' #'*|'	#'*) continue ;;
+      ''|'#'*|' #'*|'	#'*|*[!A-Za-z0-9_]*) continue ;;
     esac
-    set -- "$@" "$key" "$value"
+    case "$_hidden" in *" $key "*) continue ;; esac
+    set -- "$@" "$key" "${value:- }"
   done < "$ENV_FILE"
 
   # Create a menu with the environment variables
-  FUN=$(whiptail --title "Select Environment Variable" --menu "Choose a variable to update" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" "$@" 3>&1 1>&2 2>&3)
+  FUN=$(show_menu --tags ${_uef_last:+--default-item "$_uef_last"} "Advanced: RasQberry Two settings" \
+        "Pick a setting to change. Wrong values can stop demos or the LEDs from working." "$@")
   RET=$?
-  if [ "$RET" -eq 1 ]; then
-    return 0
-  fi
+  [ "$RET" -ne 0 ] && return 0
+  _uef_last="$FUN"
+  current=$(check_environment_variable "$FUN")
   # Prompt for the new value and update the environment file
-  new_value=$(whiptail --inputbox "Enter new value for ${FUN}" "$WT_HEIGHT" "$WT_WIDTH" 3>&1 1>&2 2>&3)
+  new_value=$(whiptail --title "Advanced: RasQberry Two settings" --inputbox \
+      "New value for ${FUN}:\n\n(Current value is filled in. Letters, digits and . _ - : / @ % + , = ~ only.)" \
+      12 "${WT_WIDTH:-78}" "$current" 3>&1 1>&2 2>&3)
   RET=$?
-  if [ "$RET" -eq 0 ]; then
-    update_environment_file "${FUN}" "$new_value"
-  fi
+  [ "$RET" -ne 0 ] && return 0
+  case "$new_value" in
+    *[!A-Za-z0-9._:/@%+,=~-]*)
+      whiptail --title "Value not saved" --msgbox \
+        "The value for ${FUN} was not saved: it contains a space, quote or other character the settings file cannot hold.\n\nAllowed: letters, digits and . _ - : / @ % + , = ~" 12 70
+      return 0 ;;
+  esac
+  [ "$new_value" = "$current" ] && return 0
+  update_environment_file "${FUN}" "$new_value"
+}
+
+# Write KEY=VALUE into the env file: replace the key's lines, or append it.
+#
+# This used to be `sed -i "s/^$1=.*/$1=$2/gm"`, which failed on a "/" in the
+# value (any URL) while returning 0, and turned "&" into the matched text -
+# 'a&b' became 'aLED_LAYOUT=...b' (R-093). awk takes the key and value
+# from the environment, so no character in them is special. The new file is
+# written next to the old one and renamed over it, so a full disk cannot leave
+# a half-written file behind.
+_rq_env_write() {
+    _ew_dir=$(dirname "$ENV_FILE")
+    _ew_prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+        index($0, k "=") == 1 { print k "=" v; done = 1; next }
+        { print }
+        END { if (!done) print k "=" v }'
+    if [ -w "$ENV_FILE" ] && [ -w "$_ew_dir" ]; then
+        _ew_tmp=$(mktemp "$_ew_dir/.rasqberry_environment.XXXXXX") || return 1
+        if RQ_EW_KEY="$1" RQ_EW_VALUE="$2" awk "$_ew_prog" "$ENV_FILE" > "$_ew_tmp" \
+            && [ -s "$_ew_tmp" ] && chmod 644 "$_ew_tmp" && mv -f "$_ew_tmp" "$ENV_FILE"; then
+            return 0
+        fi
+        rm -f "$_ew_tmp"
+        return 1
+    fi
+    # Not writable (run standalone as the user against the root-owned file):
+    # build the new file in /tmp and let sudo copy it into place.
+    _ew_tmp=$(mktemp) || return 1
+    if RQ_EW_KEY="$1" RQ_EW_VALUE="$2" awk "$_ew_prog" "$ENV_FILE" > "$_ew_tmp" \
+        && [ -s "$_ew_tmp" ] && sudo cp "$_ew_tmp" "$ENV_FILE"; then
+        rm -f "$_ew_tmp"
+        return 0
+    fi
+    rm -f "$_ew_tmp"
+    return 1
 }
 
 # Function to update values stored in the rasqberry_environment.env file
@@ -1045,30 +1324,23 @@ update_environment_file () {
   #check whether string is empty
   if [ -z "$2" ] || [ -z "$1" ]; then
     # whiptail message box to show error
-    if [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; then
-      [ "$RQ_NO_MESSAGES" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
-    fi
-  else
-    # update environment file
-    # Elevate with sudo when the env file is not writable by the current user
-    # (e.g. running standalone as 'rasqberry' against the root-owned
-    # /usr/config/rasqberry_environment.env). In the raspi-config root context
-    # the file IS writable, so the direct write path is used unchanged.
-    if [ -w "$ENV_FILE" ]; then
-      sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
-    else
-      sudo sed -i "s/^$1=.*/$1=$2/gm" "$ENV_FILE"
-    fi
-    # LED settings also go to the store both A/B slots share (#290)
-    case "$1" in
-      *_INSTALLED) ;;
-      LED_*|RASQ_LED_*)
-        if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
-        else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
-    esac
-    # reload environment file
-    . /usr/config/rasqberry_env-config.sh
+    [ "${RQ_NO_MESSAGES:-false}" = false ] && whiptail --title "Error" --msgbox "Error: No value provided. Environment variable not updated" 8 78
+    return 1
   fi
+  if ! _rq_env_write "$1" "$2"; then
+    [ "${RQ_NO_MESSAGES:-false}" = false ] && whiptail --title "Error" --msgbox \
+      "Could not save $1 to $ENV_FILE (is the SD card full?)." 9 78
+    return 1
+  fi
+  # LED settings also go to the store both A/B slots share (#290)
+  case "$1" in
+    *_INSTALLED) ;;
+    LED_*|RASQ_LED_*)
+      if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
+      else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
+  esac
+  # reload environment file (keeping raspi-config's INTERACTIVE etc., R-001)
+  _rq_load_env
 }
 
 
@@ -1082,8 +1354,9 @@ check_environment_variable() {
         return 1
     fi
 
-    # Retrieve the value of the variable
-    VALUE=$(grep -E "^$VARIABLE_NAME=" "$ENV_FILE" | cut -d'=' -f2)
+    # Retrieve the value of the variable (the last assignment wins, as when
+    # the file is sourced; values may contain "=")
+    VALUE=$(sed -n "s/^${VARIABLE_NAME}=//p" "$ENV_FILE" | tail -n 1)
 
     # Return the value
     echo "$VALUE"
@@ -1125,9 +1398,13 @@ do_rqb_qiskit_menu() {
 # -----------------------------------------------------------------------------
 
 #Turn off all LEDs
+# In a subshell: sourcing the venv here used to activate it in raspi-config's
+# own shell for the rest of the session (PATH, VIRTUAL_ENV).
 do_led_off() {
-  . "$VENV_ACTIVATE"
-  python3 "$BIN_DIR/turn_off_LEDs.py"
+  (
+    [ -f "$VENV_ACTIVATE" ] && . "$VENV_ACTIVATE"
+    python3 "$BIN_DIR/turn_off_LEDs.py"
+  )
 }
 
 # -----------------------------------------------------------------------------
@@ -1144,68 +1421,93 @@ do_led_choose_logo() {
 
 do_led_demo_scroll_welcome() {
     run_demo bg "Scrolling Welcome" "$BIN_DIR" python3 demo_led_text_scroll_welcome.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_status() {
     run_demo bg "Status Messages" "$BIN_DIR" python3 demo_led_text_status.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_alert() {
     run_demo bg "Alert Flash" "$BIN_DIR" python3 demo_led_text_alert.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_rainbow_scroll() {
     run_demo bg "Rainbow Scroll" "$BIN_DIR" python3 demo_led_text_rainbow_scroll.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_rainbow_static() {
     run_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_gradient() {
     run_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_ibm_logo() {
     run_demo bg "IBM Logo" "$BIN_DIR" python3 rq_led_ibm_logo.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_rasqberry_logo() {
     run_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
 do_led_demo_logo_slideshow() {
     run_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
+    _led_rc=$?
     do_led_off
+    return $_led_rc
 }
 
+# The separator rows have blank tags. Their old tags ("---1") and texts start
+# with "-", which whiptail took for unknown options: it failed with
+# "---1: unknown option" and this menu never opened (R-024). show_menu now also
+# passes "--" before the items.
 do_led_display_menu() {
+    _disp_last=""
     while true; do
-        FUN=$(show_menu "RasQberry: LED Text & Logo Display" "Display Options" \
+        FUN=$(show_menu ${_disp_last:+--default-item "$_disp_last"} \
+           "RasQberry: LED Text & Logo Display" "Display Options" \
            TEXT    "Display Custom Text" \
            LOGO    "Display Logo from Library" \
-           "---1"  "--- Text Demos ---" \
+           " "     "--- Text Demos ---" \
            SWEL    "Demo: Scrolling Welcome" \
            STAT    "Demo: Status Messages" \
            ALRT    "Demo: Alert Flash" \
-           "---2"  "--- Color Effect Demos ---" \
+           "  "    "--- Color Effect Demos ---" \
            RSCR    "Demo: Rainbow Scroll" \
            RSTA    "Demo: Rainbow Color Cycle" \
            GRAD    "Demo: Color Gradient" \
-           "---3"  "--- Logo Demos ---" \
+           "   "   "--- Logo Demos ---" \
            IBML    "Demo: IBM Logo" \
            RQBL    "Demo: RasQberry Logo" \
            SLID    "Demo: Logo Slideshow" \
-           "---4"  "---" \
+           "    "  "---" \
            CLEAR   "Clear LEDs") || break
+        _disp_last="$FUN"
         case "$FUN" in
             TEXT  ) do_led_custom_text           || { handle_error "Text display failed."; continue; } ;;
             LOGO  ) do_led_choose_logo           || { handle_error "Logo display failed."; continue; } ;;
@@ -1219,7 +1521,7 @@ do_led_display_menu() {
             RQBL  ) do_led_demo_rasqberry_logo   || { handle_error "Demo failed."; continue; } ;;
             SLID  ) do_led_demo_logo_slideshow   || { handle_error "Demo failed."; continue; } ;;
             CLEAR ) do_led_off                   || { handle_error "Failed to clear LEDs."; continue; } ;;
-            "---1"|"---2"|"---3"|"---4" ) continue ;;  # Ignore separator items
+            " "|"  "|"   "|"    " ) continue ;;  # Ignore separator items
             *) break ;;
         esac
     done
@@ -1234,7 +1536,8 @@ do_led_display_menu() {
 do_led_verify() {
     if [ "${LED_LAYOUT_VERIFIED:-false}" != "true" ]; then
         bash "$BIN_DIR/rq_led_setup_wizard.sh" --verify || true
-        [ -f "$ENV_CONFIG_FILE" ] && . "$ENV_CONFIG_FILE" 2>/dev/null || true
+        # keeps raspi-config's INTERACTIVE etc. (R-001)
+        _rq_load_env 2>/dev/null || true
     fi
 }
 
@@ -1249,8 +1552,9 @@ do_select_led_option() {
         _RQ_LED_VERIFY_DONE=1
         do_led_verify
     fi
+    _led_last=""
     while true; do
-        FUN=$(show_menu "RasQberry: LEDs" "LED options" \
+        FUN=$(show_menu ${_led_last:+--default-item "$_led_last"} "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
            DISP "Text & Logo Display" \
            quicktest "Quick LED Test (6 colors)" \
@@ -1260,6 +1564,7 @@ do_select_led_option() {
            layout "Configure Matrix Layout" \
            targets "Output Targets (strip / virtual / web)" \
            wizard "LED Setup Wizard (auto-detect layout)") || break
+        _led_last="$FUN"
         case "$FUN" in
             OFF ) do_led_off || { handle_error "Turning off all LEDs failed."; continue; } ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
@@ -1300,10 +1605,12 @@ do_select_led_option() {
 # -----------------------------------------------------------------------------
 
 do_select_qlo_option() {
+    _qlo_last=""
     while true; do
-        FUN=$(show_menu "RasQberry: Quantum Lights Out" "Options" \
-           QLO  "Run Demo" \
+        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" "Options" \
+           QLO  "Run Demo (LED panel)" \
            QLOC "Run Demo (console)") || break
+        _qlo_last="$FUN"
         case "$FUN" in
             QLO  ) run_qlo_demo      || { handle_error "QLO demo failed."; continue; } ;;
             QLOC ) run_qlo_demo console    || { handle_error "QLO console demo failed."; continue; } ;;
@@ -1316,26 +1623,26 @@ do_select_qlo_option() {
 # 3e) Quantum Raspberry-Tie Menu
 # -----------------------------------------------------------------------------
 
+# The entries are the manifest's variants (rq_demo_quantum-raspberry-tie.json),
+# run through the demo engine like the desktop icons. The menu used to start
+# QuantumRaspberryTie.v7_1.py itself, a file the pinned checkout does not have,
+# so every backend failed silently (R-023). An IBM Quantum account is needed for
+# "real" only: Raspberry Tie asks for it when none is saved, and it is read from
+# and saved to the desktop user's ~/.qiskit like everywhere else.
 do_select_qrt_option() {
+    _qrt_last=""
     while true; do
-        FUN=$(show_menu "RasQberry: Quantum Raspberry-Tie" "Backend options" \
-           b:aer       "Local Aer simulator" \
-           b:aer_noise "Aer with noise model" \
-           b:least     "Least busy real backend" \
-           b:custom    "Custom backend or option") || break
+        FUN=$(show_menu ${_qrt_last:+--default-item "$_qrt_last"} \
+           "RasQberry: Quantum Raspberry Tie" "Where should the circuit run?" \
+           simulator "Local simulator (no account needed)" \
+           noise     "Local simulator with a noise model" \
+           real      "Real IBM Quantum computer (IBM Quantum account)") || break
+        _qrt_last="$FUN"
         case "$FUN" in
-            b:aer ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            b:aer_noise ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            b:least ) run_rasp_tie_demo "$FUN" || { handle_error "RasQberry Tie failed."; continue; } ;;
-            b:custom)
-                CUSTOM_OPTION=$(whiptail --inputbox "Enter your custom backend or option:" 8 50 3>&1 1>&2 2>&3)
-                exitstatus=$?
-                if [ "$exitstatus" = 0 ] && [ -n "$CUSTOM_OPTION" ]; then
-                    run_rasp_tie_demo "$CUSTOM_OPTION" || { handle_error "RasQberry Tie failed."; continue; }
-                else
-                    # Cancelled or empty input: return to the backend menu, launch nothing.
-                    continue
-                fi
+            simulator|noise|real)
+                do_rasp_tie_install || continue
+                run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-raspberry-tie "$FUN" \
+                    || { handle_error "Raspberry Tie could not run."; continue; }
                 ;;
             *) break ;;
         esac
@@ -1359,6 +1666,7 @@ do_select_qrt_option() {
 _SUBMENU_DEMO_IDS="quantum-lights-out quantum-raspberry-tie led-demos"
 
 do_quantum_demo_menu() {
+  _qd_last=""
   while true; do
     # Build the generated demo list, dropping the submenu-handled ids (so they
     # don't appear twice). POSIX-safe: consume the original pairs and re-append
@@ -1377,34 +1685,51 @@ do_quantum_demo_menu() {
       _i=$(( _i + 1 ))
     done
 
-    FUN=$(show_menu "RasQberry: Quantum Demos" "Select a demo or option" \
-       LED  "Test LEDs (setup wizard, tests, demos)" \
-       QLO  "Quantum-Lights-Out (GUI / console)" \
-       QRT  "Quantum Raspberry-Tie (choose backend)" \
+    # The generated list could not be loaded (see _rq_load_demo_cache): say so
+    # once instead of quietly showing a short menu.
+    if [ "${_RQ_DEMO_CACHE_STATE:-ok}" != ok ] && [ -z "${_RQ_DEMO_CACHE_WARNED:-}" ]; then
+        _RQ_DEMO_CACHE_WARNED=1
+        whiptail --title "Demo list" --msgbox \
+            "The list of demos could not be loaded, so only the fixed entries are shown.\n\nTo rebuild it: RasQberry -> Advanced -> Refresh the demo list." 11 70
+    fi
+
+    FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
+       "RasQberry: Quantum Demos" "Select a demo or option" \
+       LED  "LEDs: setup, tests and LED demos" \
+       QLO  "Quantum Lights Out (LED panel / console)" \
+       QRT  "Quantum Raspberry Tie (simulator or real quantum computer)" \
        "$@" \
        DALL "Download all demos (one-time setup)" \
-       ADDX "Add demo from catalog" \
+       ADDX "Add demo from catalogue" \
        LOOP "Continuous Demo Loop (Conference)" \
-       REFR "Refresh demo list (from manifests)" \
        STOP "Stop last running demo and clear LEDs" \
-       QSTP "Stop Qoffee-Maker containers" \
-       QMXS "Stop Quantum-Mixer containers") || break
+       QSTP "Stop Qoffee-Maker" \
+       QMXS "Stop Quantum-Mixer") || break
+    _qd_last="$FUN"
     case "$FUN" in
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
       DALL) do_download_all_demos      || continue ;;
-      ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalog."; continue; } ;;
-      LOOP) run_demo_loop              || { handle_error "Failed to run demo loop."; continue; } ;;
-      REFR) refresh_demo_menu_cache    || continue ;;
+      ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalogue."; continue; } ;;
+      LOOP) run_demo_loop
+            # 130/143: stopped with Ctrl+C - the loop's own emergency stop
+            case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
-      QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee containers."; continue; } ;;
-      QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer containers."; continue; } ;;
+      QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee-Maker."; continue; } ;;
+      QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer."; continue; } ;;
       "")   continue ;;
       # Any other tag is a manifest demo id -> universal dispatch (via the cache).
-      *)    dispatch_demo_by_id "$FUN" || { handle_error "Failed to run demo: ${FUN}"; continue; } ;;
+      *)    run_engine_demo dispatch_demo_by_id "$FUN" \
+                || { handle_error "Could not run $(_rq_demo_label "$FUN")."; continue; } ;;
     esac
   done
+}
+
+# Menu text of a generated demo entry (its name), for messages.
+_rq_demo_label() {
+    _dl=$(printf '%s\n' "${DEMO_MENU_ITEMS:-}" | sed -n "s/^\"$1\" \"\(.*\)\"\$/\1/p" | head -n 1)
+    printf '%s' "${_dl:-$1}"
 }
 
 # -----------------------------------------------------------------------------
@@ -1712,15 +2037,16 @@ do_led_output_menu() {
     WEB      "Browser view (http://<pi>:${web_port})" "$(on_state "$cur_web")" \
     3>&1 1>&2 2>&3) || return 0
 
-  # whiptail returns the ticked tags space-separated and quoted; strip quotes.
+  # whiptail returns the ticked tags quoted and space-separated
+  # ("PHYSICAL" "VIRTUAL"). Match each tag in that string instead of word
+  # splitting it: the split depended on IFS, and with the old file-scope IFS
+  # (no space) two ticks came back as one word, so confirming the default
+  # silently turned the virtual view off (R-018).
   new_phys="false"; new_virt="false"; new_web="false"
-  for tag in $(echo "$SEL" | tr -d '"'); do
-    case "$tag" in
-      PHYSICAL) new_phys="true" ;;
-      VIRTUAL)  new_virt="true" ;;
-      WEB)      new_web="true" ;;
-    esac
-  done
+  _sel=" $(printf '%s' "$SEL" | tr -d '"' | tr '\n\t' '  ') "
+  case "$_sel" in *" PHYSICAL "*) new_phys="true" ;; esac
+  case "$_sel" in *" VIRTUAL "*)  new_virt="true" ;; esac
+  case "$_sel" in *" WEB "*)      new_web="true" ;; esac
 
   # Guard against turning EVERYTHING off (no output anywhere) - keep the strip.
   if [ "$new_phys" = "false" ] && [ "$new_virt" = "false" ] && [ "$new_web" = "false" ]; then
@@ -1907,14 +2233,13 @@ do_ab_boot_menu() {
             set -- "$@" EXPAND "Expand A/B Partitions (64GB+ SD)" \
                 SLOTS "Slot Manager (switch, confirm, promote)"
         fi
-        set -- "$@" BRANCH "Update from GitHub Branch"
+        # "Update from GitHub Branch" is under RasQberry -> Advanced (Q35)
         FUN=$(show_menu "RasQberry: Software & Image Updates" "A/B Image: ${is_ab_image}" "$@") || break
 
         case "$FUN" in
             CHECK)  do_check_for_update     || continue ;;
             EXPAND) do_expand_ab_partitions || continue ;;
             SLOTS)  do_slot_manager_menu    || continue ;;
-            BRANCH) do_update_from_branch   || continue ;;
             *)      continue ;;
         esac
     done
@@ -2417,45 +2742,150 @@ offer_desktop_restart() {
 
 # Chromium opening rasqberry.org at desktop login (#227)
 browser_autostart_state() {
-    [ "$(sed -n 's/^BROWSER_AUTOSTART=//p' /usr/config/rasqberry_environment.env | tail -1)" = "false" ] \
+    [ "$(sed -n 's/^BROWSER_AUTOSTART=//p' "$ENV_FILE" | tail -1)" = "false" ] \
         && echo "off" || echo "on"
 }
 
 do_toggle_browser_autostart() {
     local new=false
     [ "$(browser_autostart_state)" = "off" ] && new=true
-    if grep -q '^BROWSER_AUTOSTART=' "$ENV_FILE"; then
-        update_environment_file "BROWSER_AUTOSTART" "$new"
-    else
-        echo "BROWSER_AUTOSTART=$new" >> "$ENV_FILE"
-    fi
+    # update_environment_file adds the key when the file does not have it yet
+    update_environment_file "BROWSER_AUTOSTART" "$new" || return 0
     whiptail --title "Browser at login" --msgbox \
         "Chromium will $([ "$new" = true ] && echo "open" || echo "no longer open") at the next desktop login." 8 60
     return 0
 }
 
+# -----------------------------------------------------------------------------
+# IBM Quantum account
+# -----------------------------------------------------------------------------
+# The account lives in the desktop user's ~/.qiskit for every path - the menu,
+# the notebooks and the learner's own code (Jan, Q26). Older versions of this
+# menu saved it for root (/root/.qiskit), so "forget" removes that copy too.
+_rq_ibm_account_files() {
+    printf '%s\n' "$USER_HOME/.qiskit/qiskit-ibm.json"
+    [ "$USER_HOME" != /root ] && printf '%s\n' "/root/.qiskit/qiskit-ibm.json"
+}
+
+# Echo a short description of the accounts saved in FILE; non-zero if none.
+_rq_ibm_account_summary() {
+    [ -s "$1" ] || return 1
+    _ias=$(jq -r 'to_entries[] | "  \(.key): \(.value.channel // "unknown channel")"
+        + (if .value.instance then ", instance set" else "" end)
+        + (if .value.is_default_account then " (default)" else "" end)' "$1" 2>/dev/null)
+    if [ -z "$_ias" ]; then
+        # unreadable, or "{}" (qiskit-ibm-runtime creates that on a lookup)
+        [ "$(tr -d ' \n\t' < "$1" 2>/dev/null)" = "{}" ] && return 1
+        _ias="  (a saved account file that could not be read)"
+    fi
+    printf '%s' "$_ias"
+}
+
+do_ibm_account_show() {
+    _ia_text=""
+    for _ia_f in $(_rq_ibm_account_files); do
+        if _ia_sum=$(_rq_ibm_account_summary "$_ia_f"); then
+            _ia_text="${_ia_text}${_ia_f}:\n${_ia_sum}\n\n"
+        fi
+    done
+    if [ -z "$_ia_text" ]; then
+        _ia_text="No IBM Quantum account is saved on this Pi.\n\nRaspberry Tie asks for your API key the first time you run it on a real quantum computer; notebooks and your own programs use QiskitRuntimeService.save_account()."
+    else
+        _ia_text="${_ia_text}The API key itself is not shown."
+    fi
+    show_msgbox_fit "IBM Quantum account" "$_ia_text" 74
+}
+
+do_ibm_account_forget() {
+    _ia_found=""
+    for _ia_f in $(_rq_ibm_account_files); do
+        [ -e "$_ia_f" ] && _ia_found="${_ia_found} $_ia_f"
+    done
+    if [ -z "$_ia_found" ]; then
+        whiptail --title "IBM Quantum account" --msgbox "No IBM Quantum account is saved on this Pi." 8 60
+        return 0
+    fi
+    whiptail --title "Forget IBM Quantum account" --defaultno --yesno \
+        "Delete the IBM Quantum account (API key) saved on this Pi?\n\nUse this before handing the Pi to the next person. Notebooks, Raspberry Tie and your own programs then need an API key again before they can use IBM Quantum computers." \
+        13 74 || return 0
+    _ia_failed=""
+    for _ia_f in $_ia_found; do
+        rm -f "$_ia_f" 2>/dev/null || _ia_failed="${_ia_failed} $_ia_f"
+    done
+    if [ -n "$_ia_failed" ]; then
+        whiptail --title "IBM Quantum account" --msgbox "Could not delete:${_ia_failed}" 9 74
+        return 1
+    fi
+    whiptail --title "IBM Quantum account" --msgbox "The saved IBM Quantum account was deleted." 8 60
+}
+
+do_ibm_account_menu() {
+    while true; do
+        FUN=$(show_menu "RasQberry: IBM Quantum account" \
+            "The account (API key) used for real IBM Quantum computers." \
+            SHOW   "Show the saved account" \
+            FORGET "Forget the saved account") || break
+        case "$FUN" in
+            SHOW)   do_ibm_account_show ;;
+            FORGET) do_ibm_account_forget || continue ;;
+            *)      break ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Advanced: expert tools, kept out of the everyday menus (Jan, Q35)
+# -----------------------------------------------------------------------------
+do_rasqberry_advanced_menu() {
+    _adv_last=""
+    while true; do
+        FUN=$(show_menu ${_adv_last:+--default-item "$_adv_last"} "RasQberry: Advanced" \
+            "Tools for experts. Changes here can stop demos from working." \
+            UEF    "Edit a RasQberry Two setting (settings file)" \
+            REFR   "Refresh the demo list" \
+            BRANCH "Update from a GitHub branch") || break
+        _adv_last="$FUN"
+        case "$FUN" in
+            UEF)    do_select_environment_variable || { handle_error "Failed to update the settings file."; continue; } ;;
+            REFR)   refresh_demo_menu_cache        || continue ;;
+            BRANCH) do_update_from_branch          || continue ;;
+            *)      break ;;
+        esac
+    done
+}
+
 do_rasqberry_menu() {
+  # Ctrl+C is how most demos are stopped. raspi-config is a /bin/sh script, and
+  # dash exits on SIGINT while it waits for a foreground child, so stopping a
+  # demo that way also quit raspi-config (R-027). A no-op trap keeps raspi-config
+  # alive while the demo still gets the signal (`trap '' INT` would be inherited
+  # as "ignore" and make demos unstoppable). raspi-config sets no INT trap of
+  # its own; restore the default when leaving.
+  trap ':' INT
+  _main_last=""
   while true; do
-    # Build the menu, offering the A/B image-update entry ONLY on an actual
-    # A/B partition layout (config-labelled p1). On a single-image install it
-    # is irrelevant and confusing, so hide it.
     # Software & Image Updates is on every image: checking for a newer image
-    # and Update from GitHub Branch work on the standard image too; the A/B-only
-    # entries inside are hidden there.
+    # works on the standard image too; the A/B-only entries inside are hidden
+    # there.
     set -- QD "Quantum Demos" TOUCH "Touch Mode Settings" \
         BROWSER "Browser at login: $(browser_autostart_state)" \
-        UEF "Update Env File" AB_BOOT "Software & Image Updates" INFO "System Info"
-    FUN=$(show_menu "RasQberry: Main Menu" "System Options" "$@") || break
+        IBMQ "IBM Quantum account" \
+        AB_BOOT "Software & Image Updates" INFO "System Info" \
+        ADV "Advanced"
+    FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" "System Options" "$@") || break
+    _main_last="$FUN"
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       TOUCH)   do_touch_mode_menu             || continue ;;
-      UEF)     do_select_environment_variable || { handle_error "Failed to update environment file."; continue; } ;;
       BROWSER) do_toggle_browser_autostart    || continue ;;
+      IBMQ)    do_ibm_account_menu            || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      ADV)     do_rasqberry_advanced_menu     || continue ;;
       *)       handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac
   done
+  trap - INT
 }
 
 # -----------------------------------------------------------------------------
@@ -2464,18 +2894,18 @@ do_rasqberry_menu() {
 
 # Function for graceful error handling in menus
 handle_error() {
-    local MSG="$1"
-    # Every caller passes a generic sentence ("Failed to run demo: X"), which
-    # told the user nothing about the actual cause - the traceback, the "GPIO
-    # busy", the "requires a display". run_demo leaves that here when it catches
-    # a demo dying, so show it with the message rather than instead of it.
+    _he_msg="$1"
+    # Every caller passes a generic sentence ("Could not run X"), which told the
+    # user nothing about the actual cause - the traceback, the "GPIO busy", the
+    # "requires a display". run_demo and run_engine_demo leave that here when a
+    # demo fails, so show it with the message rather than instead of it.
     if [ -n "${RQ_LAST_DEMO_ERROR:-}" ]; then
-        whiptail --title "Error" --msgbox "$MSG
+        show_msgbox_fit "Error" "$_he_msg
 
-$RQ_LAST_DEMO_ERROR" 20 76
+$RQ_LAST_DEMO_ERROR" 76
         RQ_LAST_DEMO_ERROR=""
         return 1
     fi
-    whiptail --title "Error" --msgbox "$MSG" 8 60
+    show_msgbox_fit "Error" "$_he_msg" 64
     return 1
 }

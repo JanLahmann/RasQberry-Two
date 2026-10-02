@@ -57,6 +57,25 @@ jobs:
           ./RQB2-bin/rq_demo_validate.sh | tee /tmp/manifest_validation.log
         continue-on-error: false
 
+      - name: RasQberry menu inside raspi-config
+        id: menu
+        # RQB2_menu.sh is sourced into raspi-config's own /bin/sh, so a global
+        # it sets changes raspi-config (R-001: Hostname set to "" without a
+        # dialog; R-017: "Network Proxy -> All" crashed). These tests run the
+        # menu under dash, and the smoke test runs the raspi-config the image
+        # ships (bookworm 20250813 = RPi-Distro/raspi-config aabbd962) patched
+        # with raspi-config.diff.
+        run: |
+          python -m pip install --quiet pytest
+          curl -fsSL -o "$RUNNER_TEMP/raspi-config" \
+            https://raw.githubusercontent.com/RPi-Distro/raspi-config/aabbd96212484856e324eff82d519a5ff243cd9b/raspi-config
+          echo "a937107d3f5489ed954dd2299b936bd3a2322b3a9009ee2b2089fb6e1c3c2e51  $RUNNER_TEMP/raspi-config" | sha256sum -c -
+          RQ_TEST_RASPI_CONFIG="$RUNNER_TEMP/raspi-config" python -m pytest -q -rs \
+            tests/unit/test_raspi_config_menu.py tests/unit/test_raspi_config_patch.py \
+            tests/unit/test_demo_menu_cache.py tests/unit/test_env_merge.py \
+            tests/unit/test_demo_engine_user.py
+        continue-on-error: false
+
       - name: Check links between docs
         # Offline: relative links and file references in the Markdown docs,
         # which break silently when a file is renamed or a README never gets
