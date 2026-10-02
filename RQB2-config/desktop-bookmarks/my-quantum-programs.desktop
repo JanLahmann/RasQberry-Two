@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=My Quantum Programs
+Comment=Write and run your own Qiskit and LED programs: JupyterLab in your folder ~/My-Quantum-Programs, with starter programs
+Icon=/usr/share/icons/rasqberry/quantum_icon_circuit.svg
+Type=Application
+Categories=RasQberry;Development;
+Exec=/usr/bin/rq_my_programs.sh
+Terminal=true
+StartupNotify=true
+Keywords=quantum;qiskit;jupyter;notebook;python;programming;own;learn;LED;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_my_programs.sh
+NoDisplay=false

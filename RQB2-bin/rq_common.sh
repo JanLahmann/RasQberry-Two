@@ -183,6 +183,13 @@ activate_venv() {
     debug "Activating venv: $venv_path"
     # shellcheck disable=SC1091
     . "$venv_path/bin/activate" || die "Failed to activate venv"
+
+    # Root using the user's venv must not leave root-owned __pycache__ in it:
+    # a later pip upgrade there fails half-way (#285, R-059). Exported, so it
+    # also covers the python processes this script starts.
+    if [ "$(id -u)" -eq 0 ]; then
+        export PYTHONDONTWRITEBYTECODE=1
+    fi
 }
 
 # Ensure virtual environment exists and has required packages

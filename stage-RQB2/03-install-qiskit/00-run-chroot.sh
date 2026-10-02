@@ -68,6 +68,14 @@ echo "Pip cache will be managed by post-install scripts"
 echo "Pip cache location: /root/.cache/pip"
 echo "Pip cache size: $(du -sh /root/.cache/pip 2>/dev/null | cut -f1 || echo 'N/A')"
 
+# Venv extras for learners' own programs (B10): 00-rasqberry.pth makes the
+# RasQberry Python modules in /usr/bin (rq_led_utils, ...) importable and keeps
+# root runs from writing bytecode into the venv; a Jupyter setting stops
+# `jupyter notebook` from loading the JupyterLab extension it cannot run.
+# Installed before the copy below, so a venv recreated from the template
+# (setup_qiskit_env.sh) has them too.
+/usr/bin/rq_learner_setup.sh --venv-only "/home/${FIRST_USER_NAME}/$REPO/venv/$STD_VENV"
+
 # Copy venv to system location for new users
 cp -r /home/${FIRST_USER_NAME}/$REPO /usr/venv
 
@@ -79,5 +87,13 @@ grep -qxF "$LINE" /home/${FIRST_USER_NAME}/.bashrc || echo "$LINE" >> /home/${FI
 # Fix ownership of venv and bashrc created/modified as root
 chown -R ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/$REPO
 chown ${FIRST_USER_NAME}:${FIRST_USER_NAME} /home/${FIRST_USER_NAME}/.bashrc
+
+# First user's learner setup (B10): Thonny and Geany run programs with the venv,
+# ~/My-Quantum-Programs gets the starter programs. Run as that user, so the
+# files are theirs. Not needed for the image to work: on failure the build
+# goes on, and the autostart entry rasqberry-learner-setup.desktop repeats the
+# setup at the first desktop login.
+runuser -u "${FIRST_USER_NAME}" -- env HOME="/home/${FIRST_USER_NAME}" /usr/bin/rq_learner_setup.sh \
+    || echo "WARNING: learner setup for ${FIRST_USER_NAME} failed; it runs again at the first desktop login"
 
 echo "Qiskit installation completed for ${FIRST_USER_NAME}"
