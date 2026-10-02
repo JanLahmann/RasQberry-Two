@@ -228,7 +228,12 @@ DEMO_HINTS = {
     "quantum-lights-out:console": {"seconds": 60},
     "led-demos:clear-leds": {"dark": True},
     "led-painter": {"service": "rasqberry-led-renderer", "seconds": 90},
+    # without an IBM account the real backend waits at its account prompt
+    "quantum-raspberry-tie:real": {"led_optional": True},
 }
+
+# a first start installs the demo after the consent dialog: allow for it
+INSTALL_ALLOWANCE = 600
 
 
 def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
@@ -243,7 +248,7 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
 
     def worker():
         _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
-                     timeout=seconds + 180)
+                     timeout=seconds + INSTALL_ALLOWANCE + 180)
         parsed = parse_lines(out)
         result.update(parsed[0] if parsed else {"verdict": "FAIL", "name": f"demo:{demo['id']}", "detail": out.strip()[:200]})
 
@@ -265,7 +270,7 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
         # Qiskit: sample every couple of seconds for the whole run, keep the best
         tag = demo["id"].replace(":", "-")
         best, kept, last = -1.0, None, -1.0
-        end = time.time() + seconds - 2
+        end = time.time() + seconds - 2 + (0 if hint.get("dark") else INSTALL_ALLOWANCE)
         time.sleep(4)
         i = 0
         while time.time() < end and t.is_alive():
@@ -301,7 +306,9 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
         waits = "dialog=yes" in detail            # waiting for input: nothing to show
         ended = "alive=no" in detail and "exit=0" in detail   # finished by itself
         result["detail"] = detail + f" led={led:.3f}" + ("" if lit else " (panel dark)")
-        if not lit and result.get("verdict") == "PASS":
+        if not lit and hint.get("led_optional"):
+            result["detail"] += " (expected without an IBM account)"
+        elif not lit and result.get("verdict") == "PASS":
             result["verdict"] = "WARN" if (waits or ended) else "FAIL"
     return result
 

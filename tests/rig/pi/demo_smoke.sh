@@ -56,6 +56,23 @@ if [ -n "${RIG_KEYS:-}" ]; then
     ( for item in $RIG_KEYS; do sleep "${item%%:*}"; press "${item#*:}"; done ) &
 fi
 
+# First start of a demo that is not installed yet: the consent dialog asks
+# "Download now?" (default button: Download). Answer it like a person and give
+# the install time to finish before the run timer starts (up to 10 min).
+consent=""
+for _ in $(seq 1 10); do
+    grep -aq "is not on this Pi yet" "$log" 2>/dev/null && { consent=yes; break; }
+    sleep 1
+done
+if [ -n "$consent" ]; then
+    press '\r'
+    for _ in $(seq 1 300); do
+        kill -0 "$spid" 2>/dev/null || break
+        tr -d '\r' < "$log" 2>/dev/null | grep -aqE "Delegating to:|Starting|Running|Launching|Using port|Press Ctrl\+C" && break
+        sleep 2
+    done
+fi
+
 sleep "$secs"
 grim -s 0.5 "$shot" 2>/dev/null || true
 alive=no; [ -n "$spid" ] && kill -0 "$spid" 2>/dev/null && alive=yes
@@ -100,7 +117,7 @@ for pat in "${helpers[@]}"; do sudo pkill -9 -f -- "$pat" 2>/dev/null; done
 [ -n "$tpid" ] && kill "$tpid" 2>/dev/null
 
 dlg=""; [ "$dialog" = yes ] && dlg=" dialog=yes"
-detail="type=$type ran=${secs}s alive=$alive$dlg stop=$stopped${exitcode:+ exit=$exitcode}${http:+ http=$http}${errors:+ errors: $errors}"
+detail="type=$type ran=${secs}s${consent:+ installed=first-start} alive=$alive$dlg stop=$stopped${exitcode:+ exit=$exitcode}${http:+ http=$http}${errors:+ errors: $errors}"
 verdict=PASS
 case "$type" in
     python|script|jupyter)
