@@ -51,6 +51,11 @@ WT_MENU_HEIGHT="${WT_MENU_HEIGHT:-12}"
 # Usage: die "Error message"
 die() {
     echo "ERROR: $*" >&2
+    # The RasQberry menu passes a file here (RQB2_menu.sh run_engine_demo), so
+    # the reason survives the menu redrawing over this terminal output.
+    if [ -n "${RQ_ERROR_FILE:-}" ]; then
+        printf '%s\n' "$*" >> "$RQ_ERROR_FILE" 2>/dev/null || true
+    fi
     exit 1
 }
 
@@ -647,7 +652,7 @@ open_browser() {
             if [ "$(whoami)" = "root" ]; then
                 local user_name
                 user_name=$(get_user_name)
-                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' &" 2>/dev/null &
+                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' >/dev/null 2>&1 &" >/dev/null 2>&1 &
             else
                 "$browser" "$url" &>/dev/null &
             fi

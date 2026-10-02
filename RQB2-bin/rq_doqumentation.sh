@@ -286,7 +286,7 @@ echo
 # Open browser as the desktop user (never as root)
 if command -v chromium-browser &>/dev/null; then
     info "Opening browser..."
-    run_as_user chromium-browser --password-store=basic "$SITE_URL" &
+    run_as_user chromium-browser --password-store=basic "$SITE_URL" >/dev/null 2>&1 &
 elif command -v firefox &>/dev/null; then
     info "Opening browser..."
     run_as_user firefox "$SITE_URL" &
