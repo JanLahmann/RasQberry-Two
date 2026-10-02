@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-02T14:22:20Z",
+  "generated": "2026-10-02T20:16:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -46,7 +46,11 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 2065484676,
       "highlights": [
-        "Development build - see release notes for details"
+        "descriptions say what a demo shows; IBM account flags",
+        "no false success for branches without scripts; undo the last update",
+        "A/B Slot Manager follows the Slot A stable / Slot B testing model and explains its dead ends",
+        "refuse empty slots, say what each slot holds, promote without a hidden prompt",
+        "keep xz progress out of the slot image; check -ab downloads against the ab_* checksums"
       ]
     }
   }
