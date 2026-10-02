@@ -5,8 +5,10 @@
 # Heavily guarded so it NEVER fires for non-interactive sessions (scp, rsync,
 # `ssh host <cmd>`, cron, scripts). The "is anyone actually looking?" test - and
 # the list of steps - live in rq_firstlogin.sh, so this hook and the .bashrc one
-# share one rule. It says nothing when nothing is pending, and self-disables once
-# the steps are done or dismissed.
+# share one rule. The checklist opens by itself only once per user (Q12): here
+# for an SSH or console login, in its own window for the desktop
+# (/etc/xdg/autostart/rasqberry-setup-checklist.desktop); a desktop terminal
+# leaves it to that window. After that it exits at once.
 
 # Interactive shells only.
 case $- in

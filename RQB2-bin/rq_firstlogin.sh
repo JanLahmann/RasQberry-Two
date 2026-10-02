@@ -1,18 +1,27 @@
 #!/bin/bash
 # ============================================================================
-# RasQberry: first-login setup checklist
+# RasQberry: the setup checklist
 # ============================================================================
-# Offers the setup steps that are still pending, once, on the first interactive
-# login - and says nothing at all when there is nothing to do.
+# Offers the setup steps that are still pending. It opens by itself ONCE per
+# user (Jan, Q12): at the first desktop login in its own terminal window, after
+# the IP address scroll has let go of the LED panel - or, for someone who only
+# ever logs in over SSH, at that first login. After that it opens only from the
+# "RasQberry Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry
+# -> Setup Checklist).
 #
-# Called from /etc/profile.d/rasqberry-firstlogin.sh (login shells: ssh, console
-# login) and, via the same file, from .bashrc (desktop terminals are non-login
-# interactive shells and skip /etc/profile.d).
+# Usage:
+#   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
+#                               also sourced from .bashrc): once, not in desktop
+#                               terminals (the desktop opens its own window)
+#   rq_firstlogin.sh --desktop  desktop autostart: once, opens a terminal window
+#   rq_firstlogin.sh --now      the pending steps, now (that terminal window)
+#   rq_firstlogin.sh --all      every step, finished ones to run again (Setup
+#                               icon, menu)
 #
 # Adding a task: give it an _applies (is it relevant to this machine?), a
-# _pending (is it still undone?), a label, and a _run. Nothing else changes.
+# _pending (is it still undone?), a label, a done_label line and a _run.
 #
-# Two rules learned the hard way, do not drop them:
+# Three rules learned the hard way, do not drop them:
 #
 #   1. Only ask where a person can answer. The image logs itself in on tty1 at
 #      boot (/bin/login -f) and that shell is interactive WITH a real tty, so
@@ -21,7 +30,10 @@
 #      the LED GPIO for the whole session - which made every LED demo fail with
 #      "GPIO busy" against a dark panel. A person arrives on a pts.
 #
-#   2. Offer, never act. The A/B card layout is the one exception, and it is
+#   2. Never race the IP scroll for the LED panel (task #35): the desktop
+#      autostart waits until rasqberry-ip-display.service is done.
+#
+#   3. Offer, never act. The A/B card layout is the one exception, and it is
 #      not done here: since B4 (Jan's decision 2026-10-02, reversing #142) a
 #      newly written A/B card is set up on its first start by
 #      rasqberry-ab-layout.service, with an opt-out file on CONFIG. The expand
@@ -32,10 +44,40 @@ set +u
 ENV_FILE="/usr/config/rasqberry_environment.env"
 MENU_FILE="/usr/config/RQB2_menu.sh"
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"
+# Written when the checklist has opened by itself: it never does so again
+SHOWN_FILE="$STATE_DIR/setup-checklist-shown"
+# Before the once-only rule: optional steps already offered at a login
+OLD_OFFERED_FILE="$STATE_DIR/firstlogin-offered"
+
+MODE="login"
+case "${1:-}" in
+    --desktop) MODE="desktop" ;;
+    --now)     MODE="now" ;;
+    --all)     MODE="all" ;;
+esac
+
+# Opened by itself before (or "Don't ask again" in an older version)?
+already_shown() {
+    [ -e "$SHOWN_FILE" ] || [ -e "$OLD_OFFERED_FILE" ] \
+        || grep -q '^RQ_FIRSTLOGIN_DONE=true' "$ENV_FILE" 2>/dev/null
+}
+mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
-# Gate: is anyone actually looking? (rule 1)
+# Gates for the automatic modes (rules 1 and 2)
 # ---------------------------------------------------------------------------
+if [ "$MODE" = "login" ]; then
+    already_shown && exit 0
+    # A terminal on the desktop: the desktop opens the checklist itself, in
+    # its own window and after the IP scroll. Popping it into a terminal the
+    # person opened for something else (the assembly guide's Ctrl+Alt+T for
+    # the wizard) got in the way (R-009).
+    if { [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ]; } && [ -z "${SSH_CONNECTION:-}" ]; then
+        exit 0
+    fi
+fi
+
 # Ask ps for the CONTROLLING terminal, not `tty` for stdin's.
 #
 # The hooks call us as `rq_firstlogin.sh </dev/tty >/dev/tty 2>&1`, and with
@@ -44,22 +86,19 @@ BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # login while passing every direct invocation it was tested with. ps reads the
 # controlling terminal off the process itself: "pts/N" over ssh or a desktop
 # terminal, "tty1" on the boot console, however stdin happens to be plumbed.
-case "$(ps -o tty= -p $$ 2>/dev/null | tr -d '[:space:]')" in
-    pts/*) ;;
-    *)     exit 0 ;;
-esac
+# --all is only ever started by a person (icon, menu), on any terminal.
+if [ "$MODE" = "login" ] || [ "$MODE" = "now" ]; then
+    case "$(ps -o tty= -p $$ 2>/dev/null | tr -d '[:space:]')" in
+        pts/*) ;;
+        *)     exit 0 ;;
+    esac
+fi
 
-# --all: the "RasQberry Setup" desktop icon. Show every step that applies,
-# pending ones ticked, even after "Don't ask again" or once already offered.
-SHOW_ALL=false
-[ "${1:-}" = "--all" ] && SHOW_ALL=true
+if [ "$MODE" != "desktop" ]; then
+    command -v whiptail >/dev/null 2>&1 || exit 0
+fi
 
-# Asked to stop asking.
-[ "$SHOW_ALL" = true ] || ! grep -q '^RQ_FIRSTLOGIN_DONE=true' "$ENV_FILE" 2>/dev/null || exit 0
-
-command -v whiptail >/dev/null 2>&1 || exit 0
-
-env_true() { grep -q "^$1=true" "$ENV_FILE" 2>/dev/null; }
+env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n 1; }
 
 # ---------------------------------------------------------------------------
 # Task: set up the A/B card (B4: rq_expand_ab.sh decides what the card can do)
@@ -103,39 +142,103 @@ task_expand_run() {
 }
 
 # ---------------------------------------------------------------------------
-# Task (B4, optional, offered once): say why a small card has no A/B updates
+# Task (B4, optional): say why a small card has no A/B updates
 # ---------------------------------------------------------------------------
 task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
-task_abinfo_pending() { return 0; }
+task_abinfo_pending() { [ ! -e "$STATE_DIR/abinfo-read" ]; }
 task_abinfo_label()   { printf 'About this SD card: under 64GB, so ONE system and no A/B updates'; }
 task_abinfo_run() {
     whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+    mkdir -p "$STATE_DIR" 2>/dev/null && touch "$STATE_DIR/abinfo-read" 2>/dev/null
+    return 0
 }
 
 # ---------------------------------------------------------------------------
-# Task: verify the LED panel layout
+# Task: the LED panel check (which kit, which way up - or no panel)
 # ---------------------------------------------------------------------------
+# LED_LAYOUT_VERIFIED: true = checked, skipped = "no LED panel" (R-009).
 task_led_applies() { [ -x "$BIN_DIR/rq_led_setup_wizard.sh" ]; }
-task_led_pending() { ! env_true LED_LAYOUT_VERIFIED; }
-task_led_label()   { printf 'Check the LED panel shows the IBM logo the right way up'; }
+task_led_pending() {
+    case "$(env_value LED_LAYOUT_VERIFIED)" in
+        true|skipped) return 1 ;;
+    esac
+    return 0
+}
+task_led_label()   { printf 'Check the LED panel: which kit, which way up  (1 min)'; }
 task_led_run()     { "$BIN_DIR/rq_led_setup_wizard.sh" --verify; }
 
 # ---------------------------------------------------------------------------
-# Optional tasks: offered once, not on every login
+# Task (optional, Q16): change the password, or keep the demo password
 # ---------------------------------------------------------------------------
-# expand and led stay pending until done. The ones below are preferences, so
-# after the checklist has shown them once they only come back through the
-# "RasQberry Setup" desktop icon (--all). Per user, no root needed.
-OFFERED_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry/firstlogin-offered"
-offered()      { grep -qx "$1" "$OFFERED_FILE" 2>/dev/null; }
-mark_offered() { mkdir -p "$(dirname "$OFFERED_FILE")" && { offered "$1" || echo "$1" >> "$OFFERED_FILE"; }; }
+# Every card starts with the published password, and SSH and VNC accept it
+# (R-013). A booth or a classroom may want to keep it; anyone else should
+# change it. This step only asks - remote access and security as a whole are
+# batch B7.
+DEMO_PASSWORD='Qiskit1!'
+PASSWORD_KEPT_FILE="$STATE_DIR/demo-password-kept"
+
+# Is the account still on the demo password? Reads the shadow hash with sudo
+# (passwordless on the image) and compares through crypt(3) in perl, which
+# knows yescrypt. Unknown (no sudo, no perl) counts as no: then the step is
+# not shown at all.
+still_demo_password() {
+    local user hash
+    user="${USER:-$(id -un)}"
+    hash=$(sudo -n getent shadow "$user" 2>/dev/null | cut -d: -f2)
+    case "$hash" in ''|'!'*|'*'*) return 1 ;; esac
+    RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
+        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit((defined $c && $c eq $ENV{RQ_HASH}) ? 0 : 1)' \
+        2>/dev/null
+}
+DEMO_PW=unknown
+demo_pw() {
+    if [ "$DEMO_PW" = unknown ]; then
+        if still_demo_password; then DEMO_PW=yes; else DEMO_PW=no; fi
+    fi
+    [ "$DEMO_PW" = yes ]
+}
+task_password_applies() { demo_pw; }
+task_password_pending() { [ ! -e "$PASSWORD_KEPT_FILE" ]; }
+task_password_label()   { printf 'Change the password, or keep the demo one (booth, class)'; }
+task_password_run() {
+    local choice who
+    who="${USER:-$(id -un)}"
+    choice=$(whiptail --title "Password" --notags --menu \
+"This RasQberry Two still has the demo password, which is printed on the website. Anyone on the same network can log in with it over SSH or VNC.
+
+At a booth or in a classroom you may want to keep it." 15 74 2 \
+        change "Change the password now (recommended)" \
+        keep   "Keep the demo password (booth, classroom)" \
+        3>&1 1>&2 2>&3) || return 0
+    case "$choice" in
+        keep)
+            mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F' > "$PASSWORD_KEPT_FILE"
+            whiptail --title "Password" --msgbox \
+"The demo password stays. To change it later: this checklist, or type passwd in a terminal." 9 70
+            ;;
+        change)
+            clear
+            echo "New password for $who: type it twice. Nothing is shown while you type."
+            echo
+            if sudo passwd "$who"; then
+                rm -f "$PASSWORD_KEPT_FILE"
+                DEMO_PW=no
+                whiptail --title "Password" --msgbox \
+"Password changed. Use the new one for SSH, VNC and the login screen." 9 70
+            else
+                whiptail --title "Password" --msgbox "The password was not changed." 8 50
+            fi
+            ;;
+    esac
+    return 0
+}
 
 # ---------------------------------------------------------------------------
-# Task: connect to a WLAN (only when there is no network at all)
+# Task: connect to Wi-Fi (only when there is no network at all)
 # ---------------------------------------------------------------------------
 task_wifi_applies() { [ -d /sys/class/net/wlan0 ] && command -v nmtui >/dev/null 2>&1; }
 task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
-task_wifi_label()   { printf 'Connect to a WLAN (no network connection found)'; }
+task_wifi_label()   { printf 'Connect to Wi-Fi (no network connection found)'; }
 task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 
 # ---------------------------------------------------------------------------
@@ -146,7 +249,7 @@ task_demos_pending() {
     # Pending while any git-installed demo is missing
     grep -qE '^(QUANTUM_LIGHTS_OUT|QUANTUM_RASPBERRY_TIE|GROK_BLOCH|FUN_WITH_QUANTUM|QUANTUM_PARADOXES|IBM_TUTORIALS|IBM_COURSES)_INSTALLED=false' "$ENV_FILE" 2>/dev/null
 }
-task_demos_label()   { printf 'Download all demos now (otherwise each installs when first started)'; }
+task_demos_label()   { printf 'Download all demos now (otherwise each one when first started)'; }
 task_demos_run() {
     sudo -E bash -c ". /usr/config/rasqberry_env-config.sh >/dev/null 2>&1; . '$MENU_FILE' >/dev/null 2>&1; do_download_all_demos"
 }
@@ -159,25 +262,87 @@ task_touch_applies() {
     [ -x "$BIN_DIR/rq_touch_mode.sh" ] && grep -qiE 'touch|ft5x06|goodix|ili2' /proc/bus/input/devices 2>/dev/null
 }
 task_touch_pending() { [ "$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null)" != "enabled" ]; }
-task_touch_label()   { printf 'Enable touch mode (larger icons, on-screen keyboard; restarts the desktop)'; }
+task_touch_label()   { printf 'Touch mode: bigger icons, on-screen keyboard (restarts the desktop)'; }
 task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable; }
 
-# How a finished step reads in the --all list
+# How a finished step reads in the --all list (R-134: "run again")
 done_label() {
     case "$1" in
-        wifi)   echo "network connection" ;;
-        expand) echo "SD card set up for A/B updates" ;;
-        led)    echo "LED panel checked" ;;
-        demos)  echo "demos downloaded" ;;
-        touch)  echo "touch mode enabled" ;;
-        *)      echo "$1" ;;
+        wifi)     echo "Run again: Wi-Fi (connected)" ;;
+        password) echo "Run again: password (keeping the demo password)" ;;
+        expand)   echo "Run again: SD card set up for A/B updates" ;;
+        abinfo)   echo "Read again: about this SD card" ;;
+        led)
+            if [ "$(env_value LED_LAYOUT_VERIFIED)" = "skipped" ]; then
+                echo "Run again: LED panel check (skipped: no panel)"
+            else
+                echo "Run again: LED panel check ($(env_value LED_LAYOUT))"
+            fi ;;
+        demos)    echo "Run again: download all demos (done)" ;;
+        touch)    echo "Run again: touch mode (on)" ;;
+        *)        echo "Run again: $1" ;;
     esac
 }
 
-OPTIONAL_TASKS="wifi demos touch abinfo"
-is_optional() { case " $OPTIONAL_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
+# Steps that are ticked when they are pending; the rest start unticked
+# (rule 3). Wi-Fi only shows up without any network, so it is ticked too.
+TICKED_TASKS="wifi expand led"
+is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-TASKS="wifi expand abinfo led demos touch"
+TASKS="wifi password expand abinfo led demos touch"
+
+# Pending steps, one id per line
+pending_tasks() {
+    local t
+    for t in $TASKS; do
+        "task_${t}_applies" 2>/dev/null || continue
+        if "task_${t}_pending" 2>/dev/null; then echo "$t"; fi
+    done
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# --desktop: open the checklist ONCE, in its own window (Q12)
+# ---------------------------------------------------------------------------
+# Started by /etc/xdg/autostart/rasqberry-setup-checklist.desktop at every
+# desktop login; does nothing after the first time.
+#
+# The IP address scroll (rasqberry-ip-display.service) waits for the network
+# and then holds the LED panel for a minute or more. The checklist's LED check
+# must not start under it (rule 2), so wait until the service has finished -
+# and at least a little, so the browser that opens 10 s after login does not
+# land on top of the checklist window.
+wait_for_ip_display() {
+    local waited=0 limit="${RQ_FIRSTLOGIN_WAIT:-300}" state
+    sleep "${RQ_FIRSTLOGIN_MIN_WAIT:-15}"
+    command -v systemctl >/dev/null 2>&1 || return 0
+    while [ "$waited" -lt "$limit" ]; do
+        state=$(systemctl show -p ActiveState --value rasqberry-ip-display.service 2>/dev/null)
+        case "$state" in
+            activating|deactivating|reloading) ;;
+            *)
+                # not started yet, still waiting for the network?
+                systemctl list-jobs --no-legend 2>/dev/null | grep -q 'rasqberry-ip-display' || return 0 ;;
+        esac
+        sleep 5
+        waited=$((waited + 5))
+    done
+    return 0
+}
+
+if [ "$MODE" = "desktop" ]; then
+    already_shown && exit 0
+    if [ -z "$(pending_tasks)" ]; then
+        mark_shown
+        exit 0
+    fi
+    wait_for_ip_display
+    already_shown && exit 0     # opened in an SSH login in the meantime
+    mark_shown
+    term=$(command -v lxterminal || command -v x-terminal-emulator) || exit 0
+    exec "$term" -t "RasQberry Setup" -e \
+        "bash -c '/usr/bin/rq_firstlogin.sh --now; echo; echo Press Enter to close this window...; read'"
+fi
 
 # ---------------------------------------------------------------------------
 # Collect what is pending
@@ -187,49 +352,73 @@ args=()
 for t in $TASKS; do
     "task_${t}_applies" 2>/dev/null || continue
     if "task_${t}_pending" 2>/dev/null; then
-        if is_optional "$t" && offered "$t" && [ "$SHOW_ALL" != true ]; then
-            continue
-        fi
-        # Required steps start ticked, optional ones unticked (rule 2)
-        state=ON; is_optional "$t" && [ "$t" != wifi ] && state=OFF
+        state=OFF
+        is_ticked "$t" && state=ON
         pending="$pending $t"
         args+=("$t" "$("task_${t}_label")" "$state")
-    elif [ "$SHOW_ALL" = true ]; then
-        args+=("$t" "Done: $(done_label "$t")" "OFF")
+    elif [ "$MODE" = "all" ]; then
+        args+=("$t" "$(done_label "$t")" "OFF")
     fi
 done
 
-# Nothing to do: say nothing. This runs on every login.
-if [ -z "$pending" ]; then
-    [ "$SHOW_ALL" = true ] && whiptail --title "RasQberry setup" --msgbox \
-        "All setup steps are done.\n\nEverything is also in: sudo raspi-config -> 0 RasQberry" 10 64
+REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
+
+# Nothing to do: the login hook says nothing (it runs at a login); the window
+# the desktop opened says so instead of standing empty.
+if [ -z "$pending" ] && [ "$MODE" != "all" ]; then
+    [ "$MODE" = "login" ] && mark_shown
+    [ "$MODE" = "now" ] && echo "All setup steps are done."
+    exit 0
+fi
+[ "$MODE" = "login" ] && mark_shown
+
+# ---------------------------------------------------------------------------
+# Ask
+# ---------------------------------------------------------------------------
+if [ "$MODE" = "all" ]; then
+    if [ -z "$pending" ]; then
+        text="All setup steps are done. Tick a step to run it again.
+
+Space ticks or unticks a step, Enter runs the ticked ones."
+    else
+        text="Space ticks or unticks a step, Enter runs the ticked ones. Finished steps can be run again."
+    fi
+else
+    text="Welcome to RasQberry Two! These steps finish the setup. Each takes a few minutes, and all of them can wait.
+
+Space ticks or unticks a step, Enter runs the ticked ones.
+$REOPEN"
+fi
+rows=$(( ${#args[@]} / 3 ))
+lines=$(printf '%s\n' "$text" | fold -s -w 72 | wc -l)
+height=$(( rows + lines + 8 ))
+max=$(tput lines 2>/dev/null || echo 24)
+[ "$max" -ge 12 ] 2>/dev/null || max=24
+[ "$height" -gt "$max" ] && height="$max"
+choice=$(whiptail --title "RasQberry Two Setup" --notags --separate-output \
+    --ok-button "Run" --cancel-button "Later" \
+    --checklist "$text" "$height" 78 "$rows" "${args[@]}" 3>&1 1>&2 2>&3) || choice=""
+
+if [ -z "$choice" ]; then
+    [ "$MODE" = "all" ] || echo "$REOPEN"
     exit 0
 fi
 
-for t in $pending; do is_optional "$t" && mark_offered "$t"; done
-[ "$SHOW_ALL" = true ] || args+=("never" "Don't ask again" "OFF")
-
-# ---------------------------------------------------------------------------
-# Ask once
-# ---------------------------------------------------------------------------
-rows=$(( ${#args[@]} / 3 ))
-choice=$(whiptail --title "RasQberry setup" --notags --separate-output \
-    --checklist "Some setup steps are still pending.\n\nSpace to select, Enter to run them. Choose Cancel to be asked again next time." \
-    $((rows + 11)) 78 "$rows" "${args[@]}" 3>&1 1>&2 2>&3) || exit 0
-
-[ -n "$choice" ] || exit 0
-
+ran=false
 for sel in $choice; do
-    if [ "$sel" = "never" ]; then
-        if [ -w "$ENV_FILE" ] || [ "$(id -u)" = "0" ]; then
-            sed -i '/^RQ_FIRSTLOGIN_DONE=/d' "$ENV_FILE" 2>/dev/null
-            echo "RQ_FIRSTLOGIN_DONE=true" >> "$ENV_FILE" 2>/dev/null
-        else
-            sudo sh -c "sed -i '/^RQ_FIRSTLOGIN_DONE=/d' '$ENV_FILE'; echo 'RQ_FIRSTLOGIN_DONE=true' >> '$ENV_FILE'" 2>/dev/null
-        fi
-        continue
-    fi
     "task_${sel}_run" || true
+    ran=true
 done
 
+# Closing (R-088): where to start
+if [ "$ran" = true ]; then
+    whiptail --title "RasQberry Two Setup" --msgbox \
+"Done. Good first demos:
+ - Quantum Lights Out: a puzzle game on the LED panel
+ - Quantum Fractals: quantum pictures on the screen
+
+Double-click their icons on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos.
+
+$REOPEN" 15 74
+fi
 exit 0
