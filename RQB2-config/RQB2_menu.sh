@@ -1799,15 +1799,18 @@ do_update_from_branch() {
     local detected_repo
     detected_repo=$(detect_git_repo)
 
-    # Step 1: Repository selection
+    # Step 1: Repository selection (or undo the last branch update, R-115)
     local tmpfile=$(mktemp)
     exec 4>"$tmpfile"
 
+    set -- "detected" "Use detected repository ($detected_repo)" \
+        "custom"   "Enter custom repository"
+    if [ -s /var/tmp/rasqberry-last-backup ]; then
+        set -- "$@" "restore" "Undo the last update from a branch"
+    fi
     whiptail --output-fd 4 --title "Update from GitHub Branch" --menu \
         "Select repository source:\n\nDetected: $detected_repo" \
-        14 70 2 \
-        "detected" "Use detected repository ($detected_repo)" \
-        "custom"   "Enter custom repository" \
+        15 70 $(($# / 2)) "$@" \
         1>/dev/tty 2>/dev/tty </dev/tty
 
     local exit_code=$?
@@ -1820,6 +1823,24 @@ do_update_from_branch() {
 
     local repo_choice=$(cat "$tmpfile")
     rm -f "$tmpfile"
+
+    if [ "$repo_choice" = "restore" ]; then
+        if ! whiptail --title "Undo branch update" --yesno \
+            "Put back the scripts and configuration saved before the last update from a branch?\n\nSaved: $(cat /var/tmp/rasqberry-last-backup)" 12 70; then
+            return 0
+        fi
+        local restore_output restore_result=0
+        printf '\nRestoring the saved scripts and configuration...\n'
+        restore_output=$("$BIN_DIR/rq_update_from_branch.sh" --restore 2>&1) || restore_result=$?
+        if [ "$restore_result" -eq 0 ]; then
+            whiptail --title "Restored" --msgbox \
+                "The saved scripts and configuration are back.\n\nExit and re-enter raspi-config for menu changes to take effect." 11 70
+        else
+            whiptail --title "Restore Failed" --msgbox \
+                "Restoring failed:\n\n$(printf '%s\n' "$restore_output" | tail -n 8)" 18 76
+        fi
+        return 0
+    fi
 
     local repo="$detected_repo"
     if [ "$repo_choice" = "custom" ]; then
@@ -1836,25 +1857,26 @@ do_update_from_branch() {
 
     # Step 2: Branch selection
     # Default to the branch this image was built from (#289)
-    local branch default_branch="${RQB_BUILD_BRANCH:-main}" built_from=""
+    # main holds no RasQberry Two scripts (website only), so it is not offered
+    local branch default_branch="${RQB_BUILD_BRANCH:-beta}" built_from=""
+    [ "$default_branch" = "main" ] && default_branch="beta"
     [ -f /etc/rasqberry-version ] && built_from="\n\nThis image: $(cat /etc/rasqberry-version)"
     [ -n "${RQB_BUILD_BRANCH:-}" ] && built_from="$built_from\nBuilt from: ${RQB_BUILD_REPO:-?} @ $RQB_BUILD_BRANCH"
-    branch=$(whiptail --inputbox "Enter branch name to update from:$built_from\n\nCommon branches: main, beta, development" 14 70 "$default_branch" 3>&1 1>&2 2>&3)
+    branch=$(whiptail --inputbox "Enter branch name to update from:$built_from\n\nCommon branches: beta, development" 14 70 "$default_branch" 3>&1 1>&2 2>&3)
     if [ $? -ne 0 ] || [ -z "$branch" ]; then
         return 0
     fi
 
     # Step 3: Confirmation
     if ! whiptail --title "Confirm Update" --yesno \
-        "This will update RasQberry scripts and configuration.\n\nRepository: $repo\nBranch: $branch\n\nThis updates:\n  - Scripts in /usr/bin/\n  - Config files in /usr/config/ (your settings are kept)\n  - Boot scripts, services, autostart entries\n\nThis does NOT update:\n  - System packages or kernel\n  - Python virtual environment\n\nA backup will be created before updating.\n\nProceed with update?" \
-        20 70; then
+        "Update the RasQberry Two scripts and configuration?\n\nRepository: $repo\nBranch: $branch\n\nUpdates: scripts in /usr/bin, config files in /usr/config (your settings are kept), boot scripts, services and autostart entries.\nNot updated: system packages, kernel, Python environment.\n\nThe current scripts and configuration are saved first; 'Undo the last update from a branch' puts them back." \
+        19 72; then
         return 0
     fi
 
-    # Step 4: Run update
-    whiptail --title "Updating..." --infobox \
-        "Updating from GitHub...\n\nRepository: $repo\nBranch: $branch\n\nThis may take a minute.\nPlease wait..." \
-        12 60
+    # Step 4: Run update. A plain line, not an infobox: an infobox vanishes
+    # at once in most terminals and the screen looks frozen (R-021)
+    printf '\nUpdating from GitHub (%s, branch %s). This may take a minute...\n' "$repo" "$branch"
 
     local update_output
     local update_result
@@ -1867,9 +1889,10 @@ do_update_from_branch() {
             "Update completed successfully!\n\nRepository: $repo\nBranch: $branch\n\nChanges applied:\n  - Scripts updated in /usr/bin/\n  - Config files updated in /usr/config/\n  - Environment reloaded\n\nYou may need to exit and re-enter raspi-config\nfor menu changes to take effect." \
             18 70
     else
+        # The cause is at the end of the output: show that part (R-115)
         whiptail --title "Update Failed" --msgbox \
-            "Update failed!\n\nError output:\n$update_output\n\nCheck /var/log/rasqberry-branch-update.log for details." \
-            16 70
+            "Update failed:\n\n$(printf '%s\n' "$update_output" | grep -v '^\[' | tail -n 8)\n\nFull log: /var/log/rasqberry-branch-update.log" \
+            20 76
         return 1
     fi
 }
