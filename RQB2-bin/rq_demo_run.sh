@@ -836,6 +836,7 @@ run_python() {
 # QiskitRuntimeService.save_account() then failed with Errno 13 (R-147).
 
 ROOT_RUN_HOME=""
+ROOT_RUN_MARK=""
 
 # Set ROOT_RUN_HOME to the desktop user's home when this is a root run for a
 # desktop user, and create the IBM account file as that user beforehand.
@@ -846,6 +847,8 @@ prepare_user_home_for_root_run() {
     [ "$user_name" != "root" ] || return 0
     [ -n "${USER_HOME:-}" ] && [ "$USER_HOME" != "/root" ] && [ -d "$USER_HOME" ] || return 0
     ROOT_RUN_HOME="$USER_HOME"
+    # what root creates in the home from now on is handed back afterwards
+    ROOT_RUN_MARK=$(mktemp) || ROOT_RUN_MARK=""
     if [ "$(get_field '.needs_ibm_token' 'none')" != "none" ]; then
         sudo -u "$user_name" -H sh -c \
             'mkdir -p "$1/.qiskit" && { [ -e "$1/.qiskit/qiskit-ibm.json" ] || printf "{}" > "$1/.qiskit/qiskit-ibm.json"; }' \
@@ -853,13 +856,19 @@ prepare_user_home_for_root_run() {
     fi
 }
 
-# Hand back to the user anything the root run created in the places Python,
-# Qiskit and matplotlib write to under HOME.
+# Hand back to the user what the root run created in the home (new top-level
+# entries such as ~/.dbus from the SenseHAT emulator), and anything root-owned
+# in the places Python, Qiskit, matplotlib and the emulator write to.
 restore_user_home_after_root_run() {
     [ -n "$ROOT_RUN_HOME" ] || return 0
     local user_name d
     user_name=$(get_user_name)
-    for d in .qiskit .cache .config .matplotlib; do
+    if [ -n "$ROOT_RUN_MARK" ] && [ -e "$ROOT_RUN_MARK" ]; then
+        find "$ROOT_RUN_HOME" -mindepth 1 -maxdepth 1 -user root -newer "$ROOT_RUN_MARK" \
+            -exec chown -hR "$user_name:" {} + 2>/dev/null || true
+        rm -f "$ROOT_RUN_MARK"
+    fi
+    for d in .qiskit .cache .config .matplotlib .sensehat .dbus; do
         [ -e "$ROOT_RUN_HOME/$d" ] || continue
         find "$ROOT_RUN_HOME/$d" -maxdepth 3 -user root -exec chown -h "$user_name:" {} + 2>/dev/null || true
     done
