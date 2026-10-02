@@ -140,7 +140,9 @@ venv_path=$(find_venv "custom-venv")
 ```
 
 #### `activate_venv [venv_name]`
-Activate virtual environment (tries multiple locations).
+Activate virtual environment (tries multiple locations). As root it also
+exports `PYTHONDONTWRITEBYTECODE=1`, so a root run leaves no root-owned
+`__pycache__` in the user's venv (#285).
 
 ```bash
 activate_venv  # Uses $STD_VENV

@@ -13,7 +13,8 @@ settings that avoid password and "execute file" dialogs.
   - `RQB2-config/desktop-categories/*.directory` to `/usr/share/desktop-directories/`;
   - `RQB2-config/desktop-bookmarks/*.desktop` to `/usr/share/applications/`;
   - a fixed list of those launchers to `/etc/skel/Desktop/` and the first
-    user's `~/Desktop/`;
+    user's `~/Desktop/` (including `my-quantum-programs.desktop`, JupyterLab
+    in `~/My-Quantum-Programs`);
   - first user (copied to `/etc/skel`): `~/.config/pcmanfm/LXDE-pi/desktop-items-0.conf`
     (wallpaper, icon positions, `trusted=true`) and `~/.config/libfm/libfm.conf`
     (`quick_exec=1`);
@@ -42,6 +43,8 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
 - `/etc/xdg/menus/applications-merged/rasqberry.menu`
 - `/usr/local/bin/trust-rasqberry-desktop-files.sh`
 - `/etc/xdg/autostart/rasqberry-browser.desktop` (Chromium at login)
+- `/etc/xdg/autostart/rasqberry-learner-setup.desktop` (`rq_learner_setup.sh`
+  at login, see [03-install-qiskit](../03-install-qiskit/README.md))
 
 ## Notes
 

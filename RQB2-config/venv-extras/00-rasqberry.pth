@@ -1,0 +1,13 @@
+# RasQberry: installed into the site-packages of the RQB2 venv by
+# rq_learner_setup.sh (image build, every desktop login, venv recovery).
+# Lines starting with '#' are comments; the others are read by Python's site
+# module at every start of the venv python.
+#
+# 1. Append /usr/bin, where RasQberry ships its Python modules (rq_led_utils,
+#    rq_led_logo, ...), to sys.path, so a learner's own program can import them
+#    (R-072). Appended, so it never shadows an installed package.
+/usr/bin
+# 2. A root run of the venv python (sudo, systemd units, raspi-config) must not
+#    write __pycache__ into the user's venv: root-owned bytecode makes a later
+#    pip upgrade or reinstall fail half-way (#285, R-059).
+import os, sys; sys.dont_write_bytecode = sys.dont_write_bytecode or os.geteuid() == 0

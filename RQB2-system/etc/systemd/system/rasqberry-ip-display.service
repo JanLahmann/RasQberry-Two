@@ -7,6 +7,9 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=root
+# Root runs the user's venv python: write no __pycache__ into it, or a later
+# pip upgrade there fails on root-owned files (#285, R-059).
+Environment=PYTHONDONTWRITEBYTECODE=1
 # Wait a bit after network is up to allow DHCP to complete
 ExecStartPre=/bin/sleep 5
 # Display IP address on LEDs (60 seconds per IP, auto-calculated)

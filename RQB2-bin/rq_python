@@ -1,0 +1,111 @@
+#!/bin/bash
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
+# ============================================================================
+# RasQberry: rq_python - run your own Python program the RasQberry way
+# ============================================================================
+# Description: Runs a Python program with the RasQberry venv python, so Qiskit,
+#   qiskit-aer, the LED libraries and rq_led_utils are importable (R-073).
+#   For a program that uses the LED panel it also does what the board needs:
+#   - Raspberry Pi 5: nothing extra. The user drives the panel through
+#     /dev/pio0 (group gpio), no root.
+#   - Raspberry Pi 4: the PWM driver maps /dev/mem and needs root. Instead of
+#     running the program as root, rq_python starts rasqberry-led-renderer for
+#     the run (sudo systemctl) and runs the program as the user in service
+#     mode (LED_RENDER_MODE=service): the program writes frames, the root
+#     renderer drives the strip, and the renderer blanks the panel at the end.
+#     The LED Painter uses the same arrangement.
+#   A program "uses the LEDs" if it mentions rq_led_utils, rq_led_logo or
+#   neopixel; --leds / --no-leds decide explicitly (e.g. for `-m module`).
+#
+# Usage: rq_python [--leds|--no-leds] program.py [args...]
+#        rq_python [--leds] -c "code" | -m module [args...]
+#        rq_python                       (interactive venv python)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/rq_common.sh"
+
+# A render mode set by the caller wins; the env file below would overwrite it.
+CALLER_RENDER_MODE="${LED_RENDER_MODE:-}"
+
+load_rqb2_env
+verify_env_vars REPO USER_HOME STD_VENV
+
+RENDERER_UNIT="rasqberry-led-renderer.service"
+RENDERER_STARTED=false
+
+usage() {
+    sed -n 's/^# Usage: /Usage: /p; s/^#        rq_python/       rq_python/p' "$0"
+}
+
+leds="auto"
+case "${1:-}" in
+    --leds) leds="yes"; shift ;;
+    --no-leds) leds="no"; shift ;;
+    -h|--help) usage; exit 0 ;;
+esac
+
+venv=$(find_venv "$STD_VENV") || die "RasQberry Python environment not found (expected $USER_HOME/$REPO/venv/$STD_VENV)"
+PY="$venv/bin/python3"
+[ -x "$PY" ] || die "No python in $venv"
+
+# A venv without the RasQberry .pth (built before it existed): put the module
+# directory on the path explicitly. rq_learner_setup.sh adds the .pth.
+site=$(find "$venv/lib" -maxdepth 2 -type d -name site-packages 2>/dev/null | head -1)
+if [ -z "$site" ] || [ ! -f "$site/00-rasqberry.pth" ]; then
+    export PYTHONPATH="${PYTHONPATH:+$PYTHONPATH:}/usr/bin"
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    # Root writes no bytecode into the user's venv (#285, R-059).
+    export PYTHONDONTWRITEBYTECODE=1
+fi
+
+# Does the program use the LEDs?
+uses_leds() {
+    case "$leds" in
+        yes) return 0 ;;
+        no) return 1 ;;
+    esac
+    [ -n "${1:-}" ] && [ -f "$1" ] || return 1
+    grep -qE '\b(rq_led_utils|rq_led_logo|neopixel)\b' "$1"
+}
+
+# Does this run need the renderer service to reach the physical strip?
+needs_renderer() {
+    [ "$(id -u)" -ne 0 ] || return 1                            # root drives the strip itself
+    [ "${CALLER_RENDER_MODE:-${LED_RENDER_MODE:-direct}}" = "direct" ] || return 1
+    [ "${LED_PHYSICAL:-true}" = "true" ] || return 1            # virtual-only setup
+    [ -e /dev/pio0 ] && [ -r /dev/pio0 ] && [ -w /dev/pio0 ] && return 1   # Pi 5: user may drive PIO
+    return 0
+}
+
+stop_renderer() {
+    $RENDERER_STARTED || return 0
+    # SIGTERM via systemd makes the renderer blank the strip before it exits.
+    sudo -n systemctl stop "$RENDERER_UNIT" >/dev/null 2>&1 || true
+}
+
+if [ -n "$CALLER_RENDER_MODE" ]; then
+    export LED_RENDER_MODE="$CALLER_RENDER_MODE"
+fi
+
+if uses_leds "${1:-}" && needs_renderer; then
+    if systemctl is-active --quiet "$RENDERER_UNIT" 2>/dev/null; then
+        debug "LED renderer already running - using it"
+    elif sudo -n systemctl start "$RENDERER_UNIT" >/dev/null 2>&1; then
+        RENDERER_STARTED=true
+        trap stop_renderer EXIT
+        sleep 1    # let the renderer open the frame buffer and the strip
+    else
+        warn "Could not start the LED renderer (needs sudo rights): the panel stays dark."
+        warn "Ask the owner of this RasQberry, or run: sudo rq_python $*"
+    fi
+    if systemctl is-active --quiet "$RENDERER_UNIT" 2>/dev/null; then
+        export LED_RENDER_MODE=service
+    fi
+fi
+
+status=0
+"$PY" "$@" || status=$?
+exit "$status"

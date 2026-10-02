@@ -17,10 +17,22 @@ using a wheel cache kept on the build host between builds.
     venv's `site-packages`;
   - sources `/usr/bin/rq_install_qiskit.sh latest` (deployed by
     [01-deploy-files](../01-deploy-files/README.md)) to install Qiskit;
+  - `rq_learner_setup.sh --venv-only` installs the venv extras from
+    `/usr/config/venv-extras/`: `00-rasqberry.pth` in `site-packages` (puts
+    `/usr/bin`, where `rq_led_utils` ships, on the import path; root runs write
+    no bytecode) and `etc/jupyter/jupyter_notebook_config.d/zz-rasqberry.json`
+    (turns off the JupyterLab extension in `jupyter notebook`). A failure here
+    fails the build;
   - copies `/home/${FIRST_USER_NAME}/${REPO}` to `/usr/venv/` as a template for
-    other users;
+    other users (with the venv extras);
   - appends `. /usr/config/setup_qiskit_env.sh` to `/etc/skel/.bashrc` and the
-    first user's `.bashrc`, and chowns the venv and `.bashrc` to the first user.
+    first user's `.bashrc`, and chowns the venv and `.bashrc` to the first user;
+  - runs `rq_learner_setup.sh` as the first user (`runuser`): Thonny's
+    `~/.config/Thonny/configuration.ini` and Geany's
+    `~/.config/geany/filedefs/filetypes.python` point at the venv, and
+    `~/My-Quantum-Programs` gets the starter programs. A failure only logs a
+    warning; the autostart entry `rasqberry-learner-setup.desktop` (from
+    `RQB2-system/`) runs the same setup at every desktop login.
 - `01-run.sh` (host): copies the wheels from `${ROOTFS_DIR}/tmp/wheels` back to
   `wheel-cache-host/` for the next build.
 - `02-run.sh` (host): deletes `/tmp/wheels`, `/root/.cache/pip` and the first

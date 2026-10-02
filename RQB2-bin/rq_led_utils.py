@@ -11,6 +11,14 @@ This module uses adafruit-circuitpython-neopixel which auto-detects hardware:
 - Pi 4: Uses PWM/DMA (rpi_ws281x backend)
 - Pi 5: Uses PIO (RP1 chip)
 Both approaches support 192+ LEDs without buffer limits or chunking.
+
+Using it from your own program: the RasQberry venv puts /usr/bin (where this
+module ships) on its import path, so with the venv python a learner's script
+can simply `from rq_led_utils import get_pixels, set_xy, matrix_size`. Who may
+drive the panel: on a Pi 5 the user (group gpio, /dev/pio0) needs no root; on
+a Pi 4 the PWM driver opens /dev/mem and needs root - or service mode, where
+rasqberry-led-renderer.service drives the strip and the program runs as the
+user. `rq_python my_program.py` handles both.
 """
 
 import os
@@ -40,6 +48,13 @@ _pixels_singleton = None
 _layouts_cache = None
 _layouts_cache_key = None
 
+# Cache for the parsed environment file, keyed by the file's stat signature, so
+# the file is parsed again only when it changes. map_xy_to_pixel(x, y) without
+# a layout resolves the configured layout through get_led_config() for every
+# pixel; parsing the file each time cost 3.2 s per 24x8 frame on a Pi 4 (R-157).
+_env_cache = None
+_env_cache_key = None
+
 # Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
 _LEGACY_LAYOUT_ALIASES = {
     'single': 'single-24x8',
@@ -63,17 +78,31 @@ EMERGENCY_DEFAULTS = {
 }
 
 
-def get_led_config():
+def _env_file_key(path):
+    """Stat signature of the env file: changes when the file is edited,
+    replaced (sed -i, rename) or has its permissions changed."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return (path, None)
+    return (path, st.st_ino, st.st_mtime_ns, st.st_ctime_ns, st.st_size)
+
+
+def _read_env_file():
     """
-    Load LED configuration from system-wide environment file.
+    Parse the system-wide environment file, cached until the file changes.
 
     Returns:
-        dict: Configuration dictionary with LED settings
-
-    Note:
-        If environment file is missing or unreadable, returns emergency defaults.
-        All values are trusted (no validation per Issue #6, #13 decisions).
+        dict: Raw KEY -> value mapping, or EMERGENCY_DEFAULTS if the file is
+            missing, unreadable or unparsable (reported once per file state).
+            Callers must not modify it.
     """
+    global _env_cache, _env_cache_key
+
+    key = _env_file_key(ENV_FILE)
+    if _env_cache is not None and key == _env_cache_key:
+        return _env_cache
+
     if dotenv_values is None:
         print("ERROR: python-dotenv not available, cannot read config")
         print("Using emergency defaults")
@@ -93,6 +122,27 @@ def get_led_config():
             print(f"ERROR: Failed to parse config: {e}")
             print("Using emergency defaults")
             config = EMERGENCY_DEFAULTS
+
+    _env_cache = config
+    _env_cache_key = key
+    return config
+
+
+def get_led_config():
+    """
+    Load LED configuration from system-wide environment file.
+
+    Returns:
+        dict: Configuration dictionary with LED settings
+
+    Note:
+        If environment file is missing or unreadable, returns emergency defaults.
+        All values are trusted (no validation per Issue #6, #13 decisions).
+        The file is parsed once and again only after it changes, so calling
+        this in a loop is cheap. LED_RENDER_MODE in os.environ is read on
+        every call.
+    """
+    config = _read_env_file()
 
     # --- Resolve the active layout name (LED_LAYOUT is authoritative) ---------
     # New model: LED_LAYOUT names a registry entry directly. For back-compat the
@@ -451,6 +501,61 @@ def map_xy_to_pixel(x, y, layout=None):
     return None
 
 
+def matrix_size(layout=None):
+    """
+    Return the size of the LED matrix in logical coordinates.
+
+    Args:
+        layout (str or dict, optional): Layout name or parsed layout dict; the
+            configured layout if None.
+
+    Returns:
+        tuple: (width, height). x runs 0..width-1 from left to right, y runs
+            0..height-1 from top to bottom, whatever the wiring of the panels.
+
+    Example:
+        width, height = matrix_size()    # (24, 8) on the RasQberry panels
+    """
+    ldef = layout if isinstance(layout, dict) else get_layout(layout)
+    if ldef:
+        return ldef['width'], ldef['height']
+    config = get_led_config()
+    return config['matrix_width'], config['matrix_height']
+
+
+def set_xy(pixels, x, y, color, layout=None):
+    """
+    Set the LED at logical (x, y) to a colour, ignoring positions off the matrix.
+
+    The raw pixel index follows the wiring (pixels[0..7] is the first column on
+    a single 24x8 panel, the next column runs the other way), so programs should
+    address LEDs by (x, y). Unlike pixels[map_xy_to_pixel(x, y)], which raises
+    TypeError when (x, y) is outside the matrix (the index is None), this simply
+    returns False, so shapes can be drawn partly off the edge. Call
+    pixels.show() afterwards to display the frame.
+
+    Args:
+        pixels: Strip object from get_pixels() or create_neopixel_strip().
+        x (int): Column, 0 = left.
+        y (int): Row, 0 = top.
+        color (tuple): (R, G, B), 0-255 each.
+        layout (str or dict, optional): As for map_xy_to_pixel().
+
+    Returns:
+        bool: True if an LED was set, False if (x, y) is off the matrix.
+
+    Example:
+        pixels = get_pixels()
+        set_xy(pixels, 0, 0, (255, 0, 0))    # top-left LED red
+        pixels.show()
+    """
+    index = map_xy_to_pixel(x, y, layout)
+    if index is None:
+        return False
+    pixels[index] = color
+    return True
+
+
 # Virtual-GUI singleton bookkeeping. Every probe/demo process that enables a
 # virtual target calls _ensure_virtual_led_gui_running(); the wizard fires probes
 # back to back, so without serialisation each one could spawn its own window and
@@ -659,6 +764,23 @@ def reap_virtual_led_web():
     _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
 
 
+def _with_root_hint(error):
+    """
+    Add the way out to the Pi 4 driver's 'requires running with sudo' error.
+
+    A learner's next guess, `sudo python3 my.py`, runs the system python, which
+    has neither the LED libraries nor Qiskit (R-073). Other errors, and errors
+    of a process that already is root, are returned unchanged.
+    """
+    if 'sudo' not in str(error) or os.geteuid() == 0:
+        return error
+    script = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else 'my_program.py'
+    return RuntimeError(
+        f"{error}\nOn a Raspberry Pi 4 the LEDs need root. Run your program with:\n"
+        f"    rq_python {script}\n"
+        "(it uses the RasQberry Python and lets the LED renderer service drive the panel)")
+
+
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
     Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
@@ -692,8 +814,10 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         neopixel.NeoPixel, VirtualNeoPixel, or MirrorNeoPixel: Configured LED strip object
 
     Note:
-        Requires sudo/root for GPIO access (unless using virtual-only mode).
-        For Pi 5, requires firmware with /dev/pio0 support.
+        Who may open the physical strip in direct mode: on a Pi 4 only root
+        (the PWM driver maps /dev/mem); on a Pi 5 any member of the gpio group
+        (/dev/pio0, firmware with PIO support), so no root is needed there.
+        Service mode and virtual-only mode need no GPIO access at all.
     """
     config = get_led_config()
 
@@ -737,15 +861,18 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
-        real_pixels = neopixel.NeoPixel(
-            gpio_board_pin,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=order
-        )
-        real_pixels.fill((0, 0, 0))
-        real_pixels.show()
+        try:
+            real_pixels = neopixel.NeoPixel(
+                gpio_board_pin,
+                num_pixels,
+                brightness=brightness,
+                auto_write=False,
+                pixel_order=order
+            )
+            real_pixels.fill((0, 0, 0))
+            real_pixels.show()
+        except RuntimeError as e:
+            raise _with_root_hint(e) from e
         return real_pixels
 
     # Service mode: never open GPIO in-process. The renderer service consumes
@@ -793,17 +920,20 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     # Create NeoPixel object
     # Library auto-detects Pi4 (PWM) vs Pi5 (PIO)
-    pixels = neopixel.NeoPixel(
-        gpio_board_pin,
-        num_pixels,
-        brightness=brightness,
-        auto_write=False,
-        pixel_order=pixel_order
-    )
+    try:
+        pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
 
-    # Initialize all LEDs to black
-    pixels.fill((0, 0, 0))
-    pixels.show()
+        # Initialize all LEDs to black
+        pixels.fill((0, 0, 0))
+        pixels.show()
+    except RuntimeError as e:
+        raise _with_root_hint(e) from e
 
     return pixels
 
