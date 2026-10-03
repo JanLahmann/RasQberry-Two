@@ -1,0 +1,55 @@
+name: Demo feedback
+description: Tell us how a demo worked for you - especially the new (beta) ones.
+title: "Demo feedback: "
+labels: ["demo feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for trying a RasQberry demo! Tell us what worked and what didn't - short notes are fine.
+  - type: input
+    id: demo
+    attributes:
+      label: Demo
+      description: Its name (filled in when you came from the demo's link).
+      placeholder: e.g. Workshop & Qiskit Server, traQmania
+    validations:
+      required: true
+  - type: dropdown
+    id: verdict
+    attributes:
+      label: How did it go?
+      options:
+        - It worked well
+        - It worked, with problems
+        - It did not work
+    validations:
+      required: true
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked, what didn't?
+      description: What you did, what you expected, what happened. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: ideas
+    attributes:
+      label: Ideas or wishes (optional)
+  - type: dropdown
+    id: pi
+    attributes:
+      label: Raspberry Pi
+      options:
+        - Pi 5
+        - Pi 4
+        - Other / not sure
+  - type: input
+    id: version
+    attributes:
+      label: RasQberry version (optional)
+      description: "System Info in the RasQberry menu, or: cat /etc/rasqberry-version"
+  - type: textarea
+    id: info
+    attributes:
+      label: Output of rq_info.sh --json (optional)
+      render: json
