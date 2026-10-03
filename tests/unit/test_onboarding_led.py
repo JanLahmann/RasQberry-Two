@@ -340,7 +340,7 @@ def test_shutdown_clear_unit_is_enabled_and_physical_only():
 
 
 # ---------------------------------------------------------------------------
-# The setup checklist opens by itself once (Q12)
+# The setup checklist opens by itself until a person answered it (Q12, item 22)
 # ---------------------------------------------------------------------------
 
 def test_desktop_opens_the_checklist_once(tmp_path):
@@ -363,7 +363,23 @@ def test_desktop_opens_the_checklist_once(tmp_path):
     first = subprocess.run(["bash", script, "--desktop"], env=env, capture_output=True, text=True)
     assert first.returncode == 0, first.stderr
     assert "--now" in log.read_text()
-    assert (home / ".state" / "rasqberry" / "setup-checklist-shown").exists()
+    # item 22: opening a window is not "shown" - nobody may be looking (monitor
+    # off, headless); the window's --now marks it once a person answers
+    shown = home / ".state" / "rasqberry" / "setup-checklist-shown"
+    assert not shown.exists()
     log.unlink()
     second = subprocess.run(["bash", script, "--desktop"], env=env, capture_output=True, text=True)
-    assert second.returncode == 0 and not log.exists()
+    assert second.returncode == 0 and "--now" in log.read_text()
+    log.unlink()
+    shown.parent.mkdir(parents=True, exist_ok=True)
+    shown.write_text("answered\n")
+    third = subprocess.run(["bash", script, "--desktop"], env=env, capture_output=True, text=True)
+    assert third.returncode == 0 and not log.exists()
+
+
+def test_checklist_is_marked_only_after_an_answer():
+    # the mark comes from the dialog's exit code, not from opening it
+    text = open(os.path.join(_BIN, "rq_firstlogin.sh")).read()
+    desktop = text[text.index('if [ "$MODE" = "desktop" ]; then'):text.index("# Collect what is pending")]
+    assert "mark_shown\n    term=" not in desktop
+    assert "0|1|255) [ \"$MODE\" = \"all\" ] || mark_shown" in text

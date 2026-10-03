@@ -70,10 +70,23 @@ check() {
     new_stamp=$(stamp_of "$latest")
     printf '%-15s %s\n' "This image:" "$current"
     printf '%-15s %s\n' "Latest $channel:" "$latest$note"
+    # A development image follows the dev channel, but a newer beta is worth
+    # one line (H-34: CHECK said nothing about it). Not an install offer: the
+    # beta is another channel (Slot Manager -> Install an update -> Other).
+    local beta beta_stamp beta_line=""
+    if [ "$channel" = "dev" ]; then
+        beta=$(echo "$json" | jq -r '.streams.beta.tag // empty' 2>/dev/null || true)
+        beta_stamp=$(stamp_of "$beta")
+        if [ -n "$beta_stamp" ] && [ -n "$cur_stamp" ] && [[ "$beta_stamp" > "$cur_stamp" ]]; then
+            beta_line=$(printf '%-15s %s' "Newer beta:" "$beta (beta channel)")
+        fi
+    fi
     if [ -n "$cur_stamp" ] && [ -n "$new_stamp" ] && [[ "$new_stamp" > "$cur_stamp" ]]; then
+        [ -n "$beta_line" ] && echo "$beta_line"
         echo "A newer image is available."
         return 10
     fi
+    [ -n "$beta_line" ] && echo "$beta_line"
     echo "This image is up to date."
     return 0
 }
@@ -88,7 +101,7 @@ case "${1:-}" in
         echo "$out"
         mkdir -p "$(dirname "$STATE_FILE")"
         if [ "$rc" -eq 10 ]; then
-            echo "$out" | sed -n 's/^Latest [a-z]*: *//p' | cut -d' ' -f1 > "$STATE_FILE"
+            echo "$out" | sed -n 's/^Latest [a-z]*: *//p' | head -n 1 | cut -d' ' -f1 > "$STATE_FILE"
         elif [ "$rc" -eq 0 ]; then
             rm -f "$STATE_FILE"
         fi

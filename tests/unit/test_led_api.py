@@ -127,3 +127,34 @@ def test_other_errors_and_root_get_no_hint(monkeypatch):
     monkeypatch.setattr(lu.os, "geteuid", lambda: 0)
     sudo_error = RuntimeError("requires running with sudo")
     assert lu._with_root_hint(sudo_error) is sudo_error
+
+
+# --- item 23: the boot-time address scroll -----------------------------------
+
+class _Strip(list):
+    """192 pixels that count show() calls."""
+    def __init__(self):
+        super().__init__([(0, 0, 0)] * 192)
+        self.shows = 0
+
+    def show(self):
+        self.shows += 1
+
+    def fill(self, colour):
+        self[:] = [colour] * len(self)
+
+
+def test_scroll_runs_whole_passes_and_ignores_clock_jumps(monkeypatch, tmp_path):
+    monkeypatch.setattr(lu, "ENV_FILE", str(tmp_path / "missing.env"))
+    monkeypatch.setattr(lu, "_env_cache", None)
+    monkeypatch.setattr(lu, "_env_cache_key", None)
+    # NTP setting the wall clock forward must not end the scroll (it ran
+    # ~11 s of 60); passes=N scrolls the text N whole times
+    import time as _time
+    monkeypatch.setattr(_time, "sleep", lambda s: None)
+    steps = lu.scroll_pass_columns("10.0.0.5")
+    strip = _Strip()
+    lu.display_scrolling_text(strip, "10.0.0.5", scroll_speed=0.08, passes=2)
+    assert strip.shows == 2 * steps + 1          # + the final clear
+    import inspect
+    assert "time.time()" not in inspect.getsource(lu.display_scrolling_text)

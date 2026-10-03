@@ -10,8 +10,12 @@ set -euo pipefail
 #        99-rasqberry-raspi-config), so an update does not remove the
 #        "0 RasQberry" entry until the next reboot.
 #
-# The patch makes three changes, and all three must be there: the line that
-# sources RQB2_menu.sh, the "0 RasQberry" menu item, and its dispatch line.
+# The patch makes four changes, and all of them must be there: the line that
+# sources RQB2_menu.sh, the "0 RasQberry" menu item, its dispatch line, and
+# "9 About raspi-config" sent to do_rasqberry_about (raspi-config's own text
+# plus a note about the RasQberry extension). A raspi-config patched by an
+# older version (without the About line) counts as partly patched and is
+# patched again from the copy `patch -b` kept.
 # The old check looked for the word "RasQberry" only, so a raspi-config the
 # diff no longer fits (trixie fails hunk 1 of 3) ended up with the menu item but
 # without the code behind it - and was reported as success (R-117). Now the
@@ -31,14 +35,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATCH_FILE="${RQ_RASPI_CONFIG_DIFF:-/usr/config/raspi-config.diff}"
 TARGET_FILE="${RQ_RASPI_CONFIG:-/usr/bin/raspi-config}"
 
-# One marker per hunk of raspi-config.diff
+# One marker per change in raspi-config.diff
 MARKERS=(
     'RQB2_menu="/usr/config/RQB2_menu.sh"'
     '"0 RasQberry"'
     'do_rasqberry_menu'
+    'do_rasqberry_about'
 )
 
-# How many of the markers the file has (0..3)
+# How many of the markers the file has (0..4)
 count_markers() {
     local file="$1" n=0 m
     for m in "${MARKERS[@]}"; do
@@ -63,7 +68,7 @@ fi
 # `patch -b` kept, if that one is clean.
 if [ "$found" -gt 0 ]; then
     if [ -f "$TARGET_FILE.orig" ] && [ "$(count_markers "$TARGET_FILE.orig")" -eq 0 ]; then
-        warn "raspi-config has only part of the RasQberry patch - restoring $TARGET_FILE.orig"
+        warn "raspi-config has an older or partial RasQberry patch - starting again from $TARGET_FILE.orig"
         cp -p "$TARGET_FILE.orig" "$TARGET_FILE"
     else
         die "raspi-config has only part of the RasQberry patch and no clean backup to start from; reinstall raspi-config (sudo apt install --reinstall raspi-config)"

@@ -266,3 +266,20 @@ def test_explain_for_update_is_empty_on_a_dual_card():
     out = _run("explain", "--update", env=_facts(CARDS["64GB"], slot_a=28 * GIB, slot_b=28 * GIB))
     assert out.returncode == 0
     assert out.stdout.strip() == ""
+
+
+@pytest.mark.parametrize("size,label", [
+    (CARDS["16GB"], "16"), (CARDS["32GB"], "32"), (31_100_000_000, "32"),
+    (CARDS["64GB"], "64"), (CARDS["128GB"], "128"), (100_000_000_000, "100"),
+])
+def test_card_size_is_the_one_on_the_label(size, label):
+    # item 24: "31 GB card" for a 32 GB card
+    out = _kv(_run("status", env=_facts(size)).stdout)
+    assert out["card_gb"] == label
+
+
+def test_explain_is_one_line_per_paragraph():
+    # the dialogs wrap the text; hard-wrapped lines broke up unevenly
+    out = _run("explain", env=_facts(CARDS["32GB"], slot_a=25 * GIB)).stdout
+    assert "This 32 GB card is smaller than 64 GB, so it runs ONE system: " in out
+    assert "64GB" not in out and len(out.strip().splitlines()) <= 5

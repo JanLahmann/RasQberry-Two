@@ -31,11 +31,12 @@
           "3 Interface Options" "Configure connections to peripherals" \
 ***************
 *** 3632,3637 ****
---- 3644,3650 ----
+--- 3644,3651 ----
         do_finish
       elif [ $RET -eq 0 ]; then
         case "$FUN" in
 +         0\ *) do_rasqberry_menu ;;
++         9\ *) do_rasqberry_about ;;
           1\ *) do_system_menu ;;
           2\ *) do_display_menu ;;
           3\ *) do_interface_menu ;;

@@ -202,47 +202,44 @@ plan_layout() {
 
 gb()  { awk -v b="${1:-0}" 'BEGIN { printf "%.0f", b / 1e9 }'; }
 gb1() { awk -v b="${1:-0}" 'BEGIN { printf "%.1f", b / 1e9 }'; }
+# The size printed on the card (item 24): a "32 GB" card holds about 31.9 GB,
+# some only 31.1, and "31 GB card" read like a different card. Sizes within
+# 8% below a power of two are that power of two; anything else is rounded.
+card_gb() {
+    awk -v b="${1:-0}" 'BEGIN { g = b / 1e9; n = 1
+        while (n < g) n *= 2
+        if (g >= n * 0.92) printf "%d", n; else printf "%.0f", g }'
+}
 MENU_PATH="sudo raspi-config -> 0 RasQberry -> Software & Image Updates"
 
+# One line per paragraph: the dialogs (whiptail) wrap them to their width;
+# hard-wrapped lines broke up unevenly in a narrower box (item 24)
 explain_mode() {
     local mode="$1" card="$2" a="$3" b="$4" data="$5" update="${6:-}"
     case "$mode" in
         dual)
             [ -n "$update" ] && return 0
-            echo "This card holds two systems: Slot A ($(gb1 "$a") GB) and Slot B ($(gb1 "$b") GB),"
-            echo "plus a $(gb1 "$data") GB data partition shared by both."
-            echo "Updates install into the system you are not using; if the new one does"
-            echo "not start, the Pi goes back to the one that worked."
+            echo "This card holds two systems: Slot A ($(gb1 "$a") GB) and Slot B ($(gb1 "$b") GB), plus a $(gb1 "$data") GB data partition shared by both."
+            echo "Updates install into the system you are not using; if the new one does not start, the Pi goes back to the one that worked."
             ;;
         dual-pending)
-            echo "This $(gb "$card") GB card is big enough for two systems, but it has not"
-            echo "been prepared yet: Slot B is still the 16 MB placeholder, so there is"
-            echo "nowhere to install an update."
-            optout_present && echo "(Automatic preparation is off: no-auto-expand is on the CONFIG partition.)"
+            echo "This $(card_gb "$card") GB card is big enough for two systems, but the second one is not set up yet, so there is nowhere to install an update."
+            optout_present && echo "(Automatic set-up is off: no-auto-expand is on the CONFIG partition.)"
             echo ""
-            echo "Prepare it with: $MENU_PATH"
-            echo "  -> Prepare the card for A/B updates"
-            echo "It takes a few minutes and keeps everything on Slot A."
+            echo "Set it up with: $MENU_PATH -> Prepare the card for A/B updates. It takes a few minutes and keeps everything on Slot A."
             ;;
         single)
-            echo "This $(gb "$card") GB card is smaller than 64 GB, so it runs ONE system:"
-            echo "Slot A uses the card ($(gb1 "$a") GB) plus a $(gb1 "$data") GB data partition."
-            echo "There is no second system to install updates into."
+            echo "This $(card_gb "$card") GB card is smaller than 64 GB, so it runs ONE system: $(gb1 "$a") GB, plus a $(gb1 "$data") GB data partition. There is no second system to install updates into."
             echo ""
-            echo "To get a new RasQberry release, write the new image to a card with"
-            echo "Raspberry Pi Imager (rasqberry.org/latest/). That erases this card:"
-            echo "copy your files (~/My-Quantum-Programs, ~/Shared, ~/.qiskit) to another"
-            echo "computer first."
-            echo "A 64 GB or larger card gets two systems and updates from the menu."
+            echo "To get a new RasQberry release, write the new image to a card with Raspberry Pi Imager (rasqberry.org/latest/). That erases the card: first copy your files (~/My-Quantum-Programs, ~/Shared, ~/.qiskit) to another computer."
+            echo ""
+            echo "A card of 64 GB or more gets two systems and updates from the menu."
             ;;
         single-pending)
-            echo "This $(gb "$card") GB card is smaller than 64 GB, so it can only run ONE"
-            echo "system, and right now only $(gb "$a") GB of it is used."
-            optout_present && echo "(Automatic setup is off: no-auto-expand is on the CONFIG partition.)"
+            echo "This $(card_gb "$card") GB card is smaller than 64 GB, so it runs ONE system, and so far only $(gb1 "$a") GB of the card is used."
+            optout_present && echo "(Automatic set-up is off: no-auto-expand is on the CONFIG partition.)"
             echo ""
-            echo "Use the whole card with: $MENU_PATH"
-            echo "  -> Use the whole card"
-            echo "It takes a minute and keeps everything."
+            echo "Use the whole card with: $MENU_PATH -> Use the whole card. It takes a minute and keeps everything."
             [ -n "$update" ] && echo "" && echo "Updates: write the new image to a card (copy your files first)."
             ;;
         *)
@@ -277,7 +274,7 @@ mode=$MODE
 layout=$([ "$IS_AB" = "1" ] && echo ab || echo standard)
 disk=$(ab_disk)
 card_bytes=$CARD
-card_gb=$(gb "$CARD")
+card_gb=$(card_gb "$CARD")
 slot_a_bytes=$SLOT_A
 slot_b_bytes=$SLOT_B
 data_bytes=$DATA
@@ -307,7 +304,7 @@ check_plan() {
     # <how> -> sets A_END B_START B_END DATA_START DATA_MIB SYSTEM_MIB P5_START P5_END
     local how="$1"
     if [ "$how" = "dual" ] && [ "$CARD" -lt "$AB_MIN_DUAL_BYTES" ]; then
-        die "This $(gb "$CARD") GB card is too small for two systems (64 GB or larger needed)."
+        die "This $(card_gb "$CARD") GB card is too small for two systems (64 GB or larger needed)."
     fi
     P5_START=$(fact_p5_start_mib)
     P5_END=$(fact_p5_end_mib)
@@ -333,7 +330,7 @@ cmd_plan() {
     check_plan "$how"
     local slot_b_mib=$(( B_END - B_START ))
     if $text; then
-        echo "Card: $(gb "$CARD") GB"
+        echo "Card: $(card_gb "$CARD") GB"
         echo ""
         if [ "$how" = "dual" ]; then
             echo "  Slot A:  $(gb1 $(( (A_END - P5_START) * 1048576 ))) GB  (grows; your system stays as it is)"

@@ -35,6 +35,8 @@ WHIPTAIL = """\
             if [ -n "${WT_ANSWERS:-}" ] && [ -s "$WT_ANSWERS" ]; then
                 head -n 1 "$WT_ANSWERS" >&2
                 sed -i.bak 1d "$WT_ANSWERS"
+            elif [ -n "${WT_ANSWERS:-}" ]; then
+                exit 1    # no answers left: Back
             elif [ -n "${WT_ANSWER:-}" ]; then
                 printf '%s' "$WT_ANSWER" >&2
             fi ;;
@@ -51,9 +53,9 @@ RELEASES = """\
     G=https://github.com/JanLahmann/RasQberry-Two/releases/download
     case "$1" in
         channel) echo beta ;;
-        latest)  printf 'beta-2026-10-15-101010\\t%s/beta-2026-10-15-101010/r-ab.img.xz\\t2026-10-15\\t1671527604\\n' "$G" ;;
-        list)    printf 'development-2026-10-01-083408\\t%s/development-2026-10-01-083408/d-ab.img.xz\\t2026-10-01\\t2058162296\\n' "$G"
-                 printf 'dev-x-2026-09-30-000000\\t%s/dev-x-2026-09-30-000000/x-ab.img.xz\\t2026-09-30\\t2000000000\\n' "$G" ;;
+        latest)  printf 'beta-2026-10-15-101010\\t%s/beta-2026-10-15-101010/r-ab.img.xz\\t2026-10-15\\t1671527604\\tabc1\\n' "$G" ;;
+        list)    printf 'development-2026-10-01-083408\\t%s/development-2026-10-01-083408/d-ab.img.xz\\t2026-10-01\\t2058162296\\tdef2\\n' "$G"
+                 printf 'dev-x-2026-09-30-000000\\t%s/dev-x-2026-09-30-000000/x-ab.img.xz\\t2026-09-30\\t2000000000\\tfed3\\n' "$G" ;;
     esac
     """
 
@@ -115,7 +117,7 @@ def test_restart_into_an_empty_slot_is_refused(tmp_path):
 
 def test_rollback_into_an_empty_slot_is_refused(tmp_path):
     _, wt = _menu(tmp_path, 'ab_rollback "$S"', S=ON_A)
-    assert "Rollback not possible" in wt and "--yesno" not in wt
+    assert "Slot B cannot be the default" in wt and "--yesno" not in wt
 
 
 def test_promote_on_slot_a_explains_instead_of_failing(tmp_path):
@@ -157,7 +159,7 @@ def test_picker_offers_the_own_channel_first_and_returns_only_the_choice(tmp_pat
     proc, wt = _menu(tmp_path, 'ab_pick_image', WT_ANSWER="beta-2026-10-15-101010")
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == ("https://github.com/JanLahmann/RasQberry-Two/releases/download/"
-                           "beta-2026-10-15-101010/r-ab.img.xz|beta-2026-10-15-101010|1671527604\n")
+                           "beta-2026-10-15-101010/r-ab.img.xz|beta-2026-10-15-101010|1671527604|abc1\n")
     assert "latest beta, 2026-10-15, 1.7 GB (recommended)" in wt
     assert "Asking rasqberry.org" in proc.stderr
 
@@ -167,7 +169,7 @@ def test_picker_other_channel_defaults_to_the_own_channel(tmp_path):
     answers.write_text("OTHER\ndev\ndev-x-2026-09-30-000000\n")
     proc, wt = _menu(tmp_path, 'ab_pick_image', WT_ANSWERS=str(answers))
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip().endswith("/x-ab.img.xz|dev-x-2026-09-30-000000|2000000000")
+    assert proc.stdout.strip().endswith("/x-ab.img.xz|dev-x-2026-09-30-000000|2000000000|fed3")
     channel_menu = wt.split("=== whiptail")[2]
     assert "--default-item\nbeta\n" in channel_menu
     assert "This system follows: beta" in channel_menu
@@ -232,3 +234,48 @@ def test_not_set_up_falls_back_to_rq_expand_ab_without_the_key(tmp_path):
     proc, _ = _menu(tmp_path, 'ab_not_expanded_text "$S"',
                     S=ON_A.replace("expanded=yes", "expanded=no"), FAKE_MODE="single")
     assert "runs ONE system" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# Feedback 2026-10-03: item 28 and the H-34 follow-ups
+# ---------------------------------------------------------------------------
+
+def _slot_manager(tmp_path, summary, answers):
+    _stub(tmp_path, "rq_slot_manager.sh", "#!/bin/sh\nprintf '%s\\n' \"$S\"\n")
+    _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
+    f = tmp_path / "answers"
+    f.write_text(answers)
+    _, wt = _menu(tmp_path, 'do_slot_manager_menu', S=summary, WT_ANSWERS=str(f))
+    return [c for c in wt.split("=== whiptail") if "Slot Manager" in c]
+
+
+def test_slot_manager_on_slot_a_offers_no_promote_and_no_rollback_to_b(tmp_path):
+    menus = _slot_manager(tmp_path, ON_A.replace("slot_b=EMPTY", "slot_b=beta-2026-10-15-101010"), "")
+    first = menus[0]
+    assert "\nPROMOTE\n" not in first
+    assert "Make Slot B the stable system" not in first
+    assert "Go back to Slot B" not in first and "Start Slot B by default from now on" in first
+    assert "beta-2026-09-30-221656 (running, starts by default)" in first
+
+
+def test_slot_manager_on_slot_b_says_which_slot_starts(tmp_path):
+    first = _slot_manager(tmp_path, ON_B, "")[0]
+    assert "Slot B (testing): beta-2026-10-15-101010 (running, starts by default)" in first
+    assert "\"testing\" only says that updates go into it" in first
+    assert "Go back to Slot A for good (rollback)" in first and "PROMOTE" in first
+
+
+def test_slot_manager_keeps_the_cursor_on_the_last_choice(tmp_path):
+    # STATUS, then Back: the second menu opens on STATUS, not on UPDATE
+    menus = _slot_manager(tmp_path, ON_A, "STATUS\n")
+    assert len(menus) >= 2
+    assert "--default-item\nSTATUS\n" in menus[1]
+
+
+def test_install_dialog_gives_a_realistic_time(tmp_path):
+    _stub(tmp_path, "rq_update_slot.sh", "#!/bin/sh\necho ok\n")
+    _stub(tmp_path, "rq_slot_manager.sh", "#!/bin/sh\nprintf '%s\\n' \"$S\"\n")
+    _, wt = _menu(tmp_path, 'do_ab_install_update', S=ON_A,
+                  WT_ANSWER="beta-2026-10-15-101010", WT_YESNO_RC="1")
+    confirm = wt.split("=== whiptail")[-1]
+    assert "about 10-20 minutes" in confirm and "20-30" not in confirm
