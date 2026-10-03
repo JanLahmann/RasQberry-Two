@@ -24,7 +24,7 @@ The image is not built by pi-gen directly: CI runs
 [`convert-to-ab-boot-v3.sh`](../stage-RQB2/08-ab-boot-support/files/convert-to-ab-boot-v3.sh)
 over the finished standard image (`.github/workflows/RQB-image-v2.yaml`). That
 script is the source of truth for the layout. The placeholders keep the download
-small: the `-ab.img.xz` is about 1.7GB (12.4GB extracted), the same as the
+small: the `-ab.img.xz` is about 1.7 GB (12.4 GB extracted), the same as the
 standard image. A fresh Slot A has about 7.2GiB of its 10GiB in use.
 
 CONFIG also holds `ab-layout` (`pending` / `dual` / `single` / `resume-*`), the
@@ -46,14 +46,14 @@ mounts and before anything reads `/data`. It acts only when CONFIG/`ab-layout`
 says `pending` (the converter writes it), so cards written from older images
 never change by themselves:
 
-- **Card of 58GiB or more** (a "64GB" card is about 59.6GiB): two systems.
-  Fixed partitions take 1.5GB; the rest is split 45% Slot A / 45% Slot B / 10%
+- **Card of 58GiB or more** (a "64 GB" card is about 59.6GiB): two systems.
+  Fixed partitions take 1.5 GB; the rest is split 45% Slot A / 45% Slot B / 10%
   DATA. Slot A grows in place; Slot B and DATA are created. Measured on
-  loop-device copies of the real image: 64GB card 28.0 / 28.0 / 6.2GB.
+  loop-device copies of the real image: 64 GB card 28.0 / 28.0 / 6.2 GB.
 - **Card under 58GiB:** single-system mode. Slot A grows to the card minus DATA
   (10%), Slot B stays the 16MB placeholder, so partition numbers and every fstab
-  stay the same; `ab-layout` becomes `single`. Measured: 32GB card Slot A
-  27.3GB, DATA 3.0GB. A small card cannot become a two-system card later (Slot A
+  stay the same; `ab-layout` becomes `single`. Measured: 32 GB card Slot A
+  27.3 GB, DATA 3.0 GB. A small card cannot become a two-system card later (Slot A
   would have to shrink).
 - **Opt-out:** an empty file `no-auto-expand` (`no-auto-expand.txt` works too)
   on the CONFIG partition keeps the card as written.

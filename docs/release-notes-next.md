@@ -9,14 +9,14 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 **Which image**
 
 - **New default: the A/B image** [A/B default]. It holds two systems on one card: updates go into Slot B, and if the new system does not start, the Pi goes back to Slot A.
-  <!-- If A/B is not the default: "The standard image stays the default. The A/B image is recommended for cards of 64GB or more: updates install in place and you can go back." -->
-- **64GB or larger card:** the A/B image. **16GB or 32GB card:** the A/B image runs as one system, or take the standard image ("single system" in Imager) [A/B default]. On a small card, a new release means writing a new card.
+  <!-- If A/B is not the default: "The standard image stays the default. The A/B image is recommended for cards of 64 GB or more: updates install in place and you can go back." -->
+- **64 GB or larger card:** the A/B image. **16 GB or 32 GB card:** the A/B image runs as one system, or take the standard image ("single system" in Imager) [A/B default]. On a small card, a new release means writing a new card.
 - **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). Without customisation: login `rasqberry`, password `Qiskit1!`.
 
 **First start**
 
 - The first start prepares the card and restarts on its own. It takes a few minutes: do not unplug.
-- A/B image on a card of 64GB or more: the card is split into two systems automatically. To keep the card as written, put an empty file `no-auto-expand` (or `no-auto-expand.txt`) on the CONFIG drive before the first start.
+- A/B image on a card of 64 GB or more: the card is split into two systems automatically. To keep the card as written, put an empty file `no-auto-expand` (or `no-auto-expand.txt`) on the CONFIG drive before the first start.
 - A setup checklist opens at the first desktop or SSH login, until someone answers it: keyboard and time zone, Wi-Fi, an optional password change, a name for the Pi, the LED panel check, Download all demos, touch mode.
 - The LED panel check asks which kit you have (one 24x8 panel or four 4x12 panels), without a pre-selected answer, and has a "no LED panel" answer. Text, logos and the IP address scroll follow it: they are no longer scrambled on the four-panel kit. **Configure Matrix Layout** is gone.
 - VNC is switched on once at the first start and stays off if you switch it off.
@@ -24,7 +24,7 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 
 **Updating later (A/B image)**
 
-- **Software & Image Updates** → **Check for a newer image** → **Install now**, or **Slot Manager** → **Install an update into Slot B (testing)**: about 1.7GB, 10–20 minutes, then the Pi restarts into Slot B. Every release in the list is checked against its SHA256 before anything is written.
+- **Software & Image Updates** → **Check for a newer image** → **Install now**, or **Slot Manager** → **Install an update into Slot B (testing)**: about 1.7 GB, 10–20 minutes, then the Pi restarts into Slot B. Every release in the list is checked against its SHA256 before anything is written.
 - When Slot B works, **Slot Manager** → **Make Slot B the stable system (copy B to A)** makes it your stable system again.
 - **Kept:** your own programs (`~/My-Quantum-Programs`), the Shared folder, your IBM Quantum account (`~/.qiskit`), Wi-Fi networks and LED settings live on `/data`; your password, hostname, language, keyboard and SSH keys are copied to the new system. **Not kept:** installed demos download again; other files in your home folder stay in the other slot.
 - **Going back:** **Slot Manager** → **Restart into Slot A (stable)**. If a new system does not start properly, the Pi goes back to the old one by itself, at the latest after 15 minutes; if the screen stays black, switch it off and on. If it still does not start, set `boot_partition=2` under `[all]` in `autoboot.txt` on the CONFIG drive.

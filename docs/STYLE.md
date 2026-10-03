@@ -23,7 +23,7 @@ icons, demo manifests and release notes.
 - British English: colour, customise, organise, licence (noun), centre, catalogue.
 - Short sentences, second person, present tense. Say what the user sees and what
   to do next. One topic in one place: link instead of repeating.
-- Card sizes as printed on the card, decimal: "64GB card", "about 1.7GB". GiB only
+- Card sizes as printed on the card, decimal, with a space: "64 GB card", "about 1.7 GB". GiB only
   in developer docs.
 - Ranges with an en dash: "20–30 minutes".
 
@@ -62,7 +62,7 @@ icons, demo manifests and release notes.
 
 | Term | Meaning |
 |---|---|
-| A/B image | Image with two systems (Slot A, Slot B) on cards of 64GB or more |
+| A/B image | Image with two systems (Slot A, Slot B) on cards of 64 GB or more |
 | Standard image | Image with one system |
 | Promote | Copy a tested Slot B to Slot A |
 | CONFIG drive | The first partition, readable on any computer; holds `autoboot.txt` |
