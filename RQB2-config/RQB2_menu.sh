@@ -1480,14 +1480,14 @@ do_expand_ab_partitions() {
         dual-pending)   how=--dual;   title="Prepare the card for A/B updates" ;;
         single-pending) how=--single; title="Use the whole card" ;;
         *)
-            whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+            ab_msgbox "This SD card" "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)"
             return 0 ;;
     esac
     if ! plan=$("$BIN_DIR/rq_expand_ab.sh" plan "$how" --text 2>&1); then
-        whiptail --title "$title" --msgbox "$plan" 12 72
+        ab_msgbox "$title" "$plan"
         return 1
     fi
-    whiptail --title "$title" --yesno "$plan\n\nProceed?" 18 72 || return 0
+    ab_yesno "$title" "Yes" "No" "$plan\n\nProceed?" || return 0
 
     clear
     echo ""
@@ -1495,7 +1495,7 @@ do_expand_ab_partitions() {
     echo ""
     "$BIN_DIR/rq_expand_ab.sh" apply "$how" --yes || rc=$?
     if [ "$rc" -eq 0 ]; then
-        whiptail --title "Done" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+        ab_msgbox "Done" "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)"
     else
         whiptail --title "Not finished" --msgbox \
             "Setting up the card did not finish.\n\nThe details are in /var/log/rasqberry-expand.log.\nIf the Pi is restarted, the next start finishes the job by itself." \

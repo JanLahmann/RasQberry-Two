@@ -151,7 +151,13 @@ task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
 task_abinfo_pending() { [ ! -e "$STATE_DIR/abinfo-read" ]; }
 task_abinfo_label()   { printf 'About this SD card: under 64 GB, so ONE system and no A/B updates'; }
 task_abinfo_run() {
-    whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+    local text h
+    text=$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)
+    # sized to the text (one line per paragraph since item 24): whiptail
+    # shows H-6 lines
+    h=$(( $(printf '%s\n' "$text" | fold -s -w 70 | wc -l) + 6 ))
+    [ "$h" -gt "$(tput lines 2>/dev/null || echo 24)" ] && h=$(tput lines 2>/dev/null || echo 24)
+    whiptail --title "This SD card" --msgbox "$text" "$h" 74
     mkdir -p "$STATE_DIR" 2>/dev/null && touch "$STATE_DIR/abinfo-read" 2>/dev/null
     return 0
 }
