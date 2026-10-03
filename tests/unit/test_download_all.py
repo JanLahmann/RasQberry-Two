@@ -163,7 +163,7 @@ def test_one_question_then_the_docker_opt_in_with_total_size(box):
     assert "--defaultno" in calls[1]
     assert set(box.installs()) == _GIT_DEMOS
     # IBM tutorials and courses share one download: counted once
-    assert "about 170 MB" in first, first   # 26+6+80+2+1+31+24
+    assert "about 174 MB" in first, first   # 30+6+80+2+1+31+24
     summary = _text(box.dialogs()[-1], "--msgbox")
     assert "Downloaded: 8 of 8." in summary
     assert "Docker demos download on their first start" in summary

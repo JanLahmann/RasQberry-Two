@@ -1369,11 +1369,35 @@ do_quantum_demo_menu() {
       UPD)  do_update_demos            || { handle_error "Could not update the demo."; continue; } ;;
       DSTP) do_stop_docker_demos       || continue ;;
       "")   continue ;;
-      # Any other tag is a manifest demo id -> universal dispatch (via the cache).
-      *)    run_engine_demo dispatch_demo_by_id "$FUN" \
-                || { handle_error "Could not run $(_rq_demo_label "$FUN")."; continue; } ;;
+      # Any other tag is a manifest demo id -> universal dispatch (via the
+      # cache), or its submenu of variants (menu.variant_menu).
+      *)    if _dv_items=$(demo_variant_items "$FUN" 2>/dev/null) && [ -n "$_dv_items" ]; then
+                do_demo_variant_menu "$FUN" "$_dv_items"
+            else
+                run_engine_demo dispatch_demo_by_id "$FUN" \
+                    || { handle_error "Could not run $(_rq_demo_label "$FUN")."; continue; }
+            fi ;;
     esac
   done
+}
+
+# Submenu of a demo's variants (from the cache: demo_variant_items), each run
+# through the demo engine like the desktop icons, e.g. Fun with Quantum: one
+# entry per notebook game, the website and the family.
+#   do_demo_variant_menu DEMO_ID ITEMS
+do_demo_variant_menu() {
+  _dv_id="$1"; _dv_list="$2"; _dv_last=""
+  _dv_name=$(_rq_demo_label "$_dv_id")
+  while true; do
+    eval "set -- $(printf '%s' "$_dv_list" | tr '\n' ' ')"
+    _dv_sel=$(show_menu ${_dv_last:+--default-item "$_dv_last"} \
+       "RasQberry: $_dv_name" "Select an entry" "$@") || break
+    [ -n "$_dv_sel" ] || continue
+    _dv_last="$_dv_sel"
+    run_engine_demo "$BIN_DIR/rq_demo_run.sh" "$_dv_id" "$_dv_sel" \
+        || handle_error "Could not run $_dv_name ($_dv_sel)."
+  done
+  return 0
 }
 
 # Menu text of a generated demo entry (its name), for messages.

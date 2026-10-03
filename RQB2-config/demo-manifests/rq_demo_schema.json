@@ -252,6 +252,11 @@
           "type": "integer",
           "default": 50,
           "description": "Sort order (lower = earlier in menu)"
+        },
+        "variant_menu": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open a submenu of the variants in the RasQberry menu instead of starting the default entry"
         }
       }
     },

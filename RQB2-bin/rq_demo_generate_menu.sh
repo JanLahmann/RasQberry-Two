@@ -283,6 +283,36 @@ CACHE_HEADER
     echo "}" >> "$cache_file"
     echo "" >> "$cache_file"
 
+    # Demos whose manifest sets menu.variant_menu open a submenu of their
+    # variants: "tag" "name" pairs, one per line, escaped like DEMO_MENU_ITEMS
+    # because the menu eval's them the same way.
+    echo "# Variant submenu items (menu.variant_menu)" >> "$cache_file"
+    echo "# Usage: demo_variant_items <demo-id>" >> "$cache_file"
+    echo "demo_variant_items() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+
+    (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id items vid vname
+        [ "$(jq -r '.menu.variant_menu // false' "$file")" = "true" ] || continue
+        id=$(jq -r '.id' "$file")
+        is_dispatchable "$file" || continue
+        valid_cache_id "$id" "$file" 2>/dev/null || continue
+        items=""
+        while IFS=$'\t' read -r vid vname; do
+            valid_cache_id "$vid" "$file (variant)" || continue
+            vname=$(printf '%s' "$vname" | sed 's/[\\"$`]/\\&/g')
+            vname=$(printf '%s' "$vname" | sed "s/'/'\\\\''/g")
+            items="$items '\"$vid\" \"$vname\"'"
+        done < <(jq -r '.variants[]? | [.id, .name] | @tsv' "$file")
+        [ -n "$items" ] && echo "        \"$id\") printf '%s\\n'$items ;;" >> "$cache_file"
+    done) || true
+
+    echo "        *) return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
     # Generate demo count by counting dispatch entries. Match ONLY the
     # dispatch_demo_by_id case lines (they run the launcher directly:
     # `"id") /usr/bin/rq_demo_run.sh ...`); the get_demo_launcher block has the

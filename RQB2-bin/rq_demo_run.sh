@@ -156,13 +156,17 @@ demo_field() {
 }
 
 # Script arguments, one per line. Variants carry args at their top level
-# (.variants[].args), the main manifest under .entrypoint.args.
+# (.variants[].args), the main manifest under .entrypoint.args. A variant
+# with "args": [] has none (it does not inherit the main manifest's).
 get_demo_args() {
     if [ -n "${VARIANT:-}" ]; then
         local vargs
         vargs=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | (.args // [])[]" "$MANIFEST_FILE" 2>/dev/null)
         if [ -n "$vargs" ]; then
             printf '%s\n' "$vargs"
+            return 0
+        fi
+        if jq -e ".variants[] | select(.id == \"$VARIANT\") | has(\"args\")" "$MANIFEST_FILE" >/dev/null 2>&1; then
             return 0
         fi
     fi

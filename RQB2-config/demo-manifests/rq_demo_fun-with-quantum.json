@@ -2,7 +2,7 @@
   "id": "fun-with-quantum",
   "name": "Fun with Quantum",
   "category": "jupyter",
-  "description": "Collection of Jupyter notebooks exploring quantum computing through interactive games and experiments: the Quantum Coin Game, GHZ-Game, GHZ on Real Devices, Hardy's Paradox, the Mermin-Peres Magic Square Game, and 3-SAT",
+  "description": "Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin-Peres magic square, 3-SAT with Grover), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects",
   "keywords": [
     "quantum",
     "jupyter",
@@ -13,7 +13,9 @@
     "hardy",
     "mermin-peres",
     "3-sat",
-    "education"
+    "education",
+    "website",
+    "family"
   ],
   "entrypoint": {
     "type": "jupyter",
@@ -31,10 +33,11 @@
     "marker_file": "Quantum-Coin-Game.ipynb",
     "installed_flag": "FUN_WITH_QUANTUM_INSTALLED",
     "download": {
-      "what": "Jupyter notebooks from GitHub",
-      "download_mb": 26,
+      "what": "Jupyter notebooks and website from GitHub",
+      "download_mb": 30,
       "time": "1 minute"
-    }
+    },
+    "post_install": "rq_fwq.py"
   },
   "needs_hw": {
     "leds": false,
@@ -50,7 +53,8 @@
   },
   "menu": {
     "show": true,
-    "order": 100
+    "order": 100,
+    "variant_menu": true
   },
   "desktop": {
     "show": true,
@@ -59,7 +63,7 @@
   "variants": [
     {
       "id": "readme",
-      "name": "Fun with Quantum (start here)",
+      "name": "Start here: what the games are about",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -78,6 +82,68 @@
       "args": [
         "Quantum-Coin-Game.ipynb"
       ]
+    },
+    {
+      "id": "ghz-game",
+      "name": "GHZ game",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "GHZ-Game.ipynb"
+      ]
+    },
+    {
+      "id": "hardys-paradox",
+      "name": "Hardy's paradox",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "Hardys-Paradox.ipynb"
+      ]
+    },
+    {
+      "id": "mermin-peres",
+      "name": "Mermin-Peres magic square",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "Mermin-Peres-Game.ipynb"
+      ]
+    },
+    {
+      "id": "3-sat",
+      "name": "3-SAT with Grover",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "3sat.ipynb"
+      ]
+    },
+    {
+      "id": "website",
+      "name": "Fun with Quantum website (games in the browser)",
+      "entrypoint": {
+        "type": "script",
+        "launcher": "rq_fwq_portal.sh"
+      },
+      "args": []
+    },
+    {
+      "id": "family",
+      "name": "Fun with Quantum family (related projects)",
+      "entrypoint": {
+        "type": "script",
+        "launcher": "rq_fwq_family.sh"
+      },
+      "args": []
     }
   ]
 }
