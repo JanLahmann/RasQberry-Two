@@ -38,6 +38,7 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 
 **Demos, workshops and IBM accounts**
 
+- **Learning paths (beta):** four short tours through the demos (a stand, a school lesson, entanglement, your first program) that say what to try and what to notice at each step and start each demo for you: the **Learning paths** icon, **Quantum Demos** → **Learning paths**, or [on the website](https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/). Tell us how they work for you.
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for doQumentation: the latest build or one in between, with date, size and Qiskit version), or back.
 - **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Restarting it restores the original notebooks.
 - **Qiskit Tutorials on this Pi:** the same tutorials just for you, on this Pi only (not on the network), with less memory. It opens the browser and stops with its window.

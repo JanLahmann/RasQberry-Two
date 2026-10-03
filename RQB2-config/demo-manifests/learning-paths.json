@@ -1,0 +1,127 @@
+{
+  "_doc": "Learning paths (issue #309): short tours through the demos for one audience, read by the Pi (rq_learning_paths.sh: raspi-config -> Quantum Demos -> Learning paths, and the desktop icon) and by the website (scripts/generate-demo-list.js on gh-pages writes the Learning paths page). Fields per path: id (a-z, 0-9, -), title, audience, minutes, goal (one line), maturity (\"beta\" while new), steps (2-6). A step names what to start: demo (a manifest id, with an optional variant id), or command (an rq_*.sh tool in /usr/bin, for My Quantum Programs), or url (an outside page); name (optional for a demo, which then uses its manifest name; required for command and url); try and notice (one short line each, plain ASCII: whiptail shows them). tests/unit/test_learning_paths.py checks all of this.",
+  "paths": [
+    {
+      "id": "first-15-minutes",
+      "title": "First 15 minutes",
+      "audience": "Visitors at a stand",
+      "minutes": 15,
+      "goal": "See a qubit, lose a coin game to a quantum computer and watch measured qubits light up.",
+      "maturity": "beta",
+      "steps": [
+        {
+          "demo": "led-demos",
+          "variant": "ibm-logo",
+          "name": "IBM LED Demo",
+          "try": "Look at the model: the IBM logo lights up on the LED panel.",
+          "notice": "The LEDs are this quantum computer's display. Later steps show qubits on them."
+        },
+        {
+          "demo": "grok-bloch",
+          "variant": "local",
+          "try": "Press H: the arrow moves from the top of the sphere to the equator.",
+          "notice": "On the equator the qubit is in a superposition: 0 and 1 are equally likely."
+        },
+        {
+          "demo": "fun-with-quantum",
+          "variant": "coin-game",
+          "name": "Quantum Coin Game",
+          "try": "Play heads or tails against a quantum computer: run each cell with Shift+Enter.",
+          "notice": "The quantum computer wins every game. Its trick is the H gate you just saw."
+        },
+        {
+          "demo": "quantum-raspberry-tie",
+          "variant": "simulator",
+          "try": "Watch the LED panel: every round measures the qubits and lights them up.",
+          "notice": "Each qubit is in a superposition, so every round gives a new random pattern."
+        }
+      ]
+    },
+    {
+      "id": "superposition-and-measurement",
+      "title": "Superposition & measurement",
+      "audience": "A school lesson",
+      "minutes": 45,
+      "goal": "Learn what a superposition is and what a measurement does to it.",
+      "maturity": "beta",
+      "steps": [
+        {
+          "demo": "grok-bloch",
+          "variant": "local",
+          "try": "Press H: the arrow lies on the equator. Press H again: it is back at the top.",
+          "notice": "The bar shows the chance of 0. A measurement gives 0 or 1, never both."
+        },
+        {
+          "demo": "fun-with-quantum",
+          "variant": "coin-game",
+          "name": "Quantum Coin Game",
+          "try": "Play the classical game first, then the quantum one with the H gate.",
+          "notice": "Two H gates bring the coin back to heads, whatever the other player did."
+        },
+        {
+          "demo": "fun-with-quantum",
+          "variant": "hardys-paradox",
+          "name": "Hardy's paradox",
+          "try": "Follow the quantum cars and run each cell with Shift+Enter.",
+          "notice": "Everyday logic fails: you cannot reason about a measurement that did not happen."
+        }
+      ]
+    },
+    {
+      "id": "entanglement",
+      "title": "Entanglement",
+      "audience": "Curious learners",
+      "minutes": 40,
+      "goal": "Win games that no classical team can win every time, with entangled qubits.",
+      "maturity": "beta",
+      "steps": [
+        {
+          "demo": "fun-with-quantum",
+          "variant": "ghz-game",
+          "name": "GHZ game",
+          "try": "Look for a strategy that always wins, then let the quantum team play.",
+          "notice": "No classical strategy wins every round. Three entangled qubits do."
+        },
+        {
+          "demo": "fun-with-quantum",
+          "variant": "mermin-peres",
+          "name": "Mermin-Peres magic square",
+          "try": "Look for a magic square that works, then run the quantum strategy for many rounds.",
+          "notice": "Alice's and Bob's answers are random, yet they always agree where they meet."
+        },
+        {
+          "demo": "rasq-led",
+          "try": "Choose 1 (no entanglement), then 2 (complete entanglement).",
+          "notice": "Without entanglement the LEDs are random. Entangled, they all show the same result."
+        }
+      ]
+    },
+    {
+      "id": "your-first-program",
+      "title": "Your first program",
+      "audience": "Learners who want to code",
+      "minutes": 60,
+      "goal": "Write and run a quantum circuit with Qiskit, then keep learning.",
+      "maturity": "beta",
+      "steps": [
+        {
+          "command": "rq_my_programs.sh",
+          "name": "My Quantum Programs",
+          "try": "Hello-World.ipynb opens: run its cells one by one with Shift+Enter.",
+          "notice": "Two entangled qubits: you measure 00 or 11, never 01 or 10."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "try": "Open Tutorials, then Get started, and run the code on this Pi.",
+          "notice": "The same Qiskit as in Hello World, with guides and courses next to it."
+        },
+        {
+          "url": "https://quantum.cloud.ibm.com/learning",
+          "name": "IBM Quantum Learning",
+          "try": "Take a free course, for example Basics of quantum information.",
+          "notice": "It needs the internet. With an IBM Quantum account your code runs on real quantum computers."
+        }
+      ]
+    }
+  ]
+}

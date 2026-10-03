@@ -130,7 +130,7 @@ def test_layout_only_when_something_changed(tmp_path, monkeypatch):
     monkeypatch.setattr(ds, "libfm_icon_size", lambda path=None: 48)
     args = dict(desktop=str(desk), conf=str(conf), record=str(rec))
     assert ds.layout_desktop((1920, 1080), False, **args)
-    conf.write_text(conf.read_text().replace("[composer.desktop]\nx=10", "[composer.desktop]\nx=900"))
+    conf.write_text(re.sub(r"(\[composer\.desktop\]\nx=)\d+", r"\g<1>900", conf.read_text()))
     assert not ds.layout_desktop((1920, 1080), False, **args)
     assert "x=900" in conf.read_text()
     assert ds.layout_desktop((800, 480), False, **args)
