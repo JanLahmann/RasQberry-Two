@@ -1,11 +1,13 @@
 """
-Tests for fix batch B9 (classroom, Workshop Server, Docker demos, IBM accounts):
+Tests for fix batch B9 (classroom, Workshop & Qiskit Server, Docker demos, IBM accounts):
 
 - every downloaded demo is pinned per release (git commit or image digest),
   and "Update demos" choices hold only while the release keeps its pin (Q8/Q32);
 - rq_image_versions.py lists the newer image builds, newest first;
-- doQumentation attaches to a running Workshop Server instead of restarting
-  it (R-069, R-145) and starts headless over SSH with an ssh -L hint (Q19);
+- doQumentation attaches to a running Workshop & Qiskit Server instead of
+  restarting it (R-069, R-145) and starts headless over SSH with an ssh -L
+  hint (Q19); its single-user mode "Qiskit Tutorials (on this Pi)" binds
+  127.0.0.1 only, without the picker (items 6, 25);
 - the credentials notebook saves strings, not tuples (R-064).
 """
 
@@ -183,8 +185,9 @@ case "$*" in
   "container inspect -f {{.State.Running}} doqumentation") [ -n "$RUNNING" ] && echo true; [ -n "$RUNNING" ] ;;
   "container inspect -f {{range .Config.Env}}{{println .}}{{end}} doqumentation") echo JUPYTER_TOKEN=tok123 ;;
   "container inspect -f {{.Config.Image}} doqumentation") echo "$PINNED" ;;
+  "container inspect -f {{index .Config.Labels \"org.rasqberry.mode\"}} doqumentation") echo "$CONTAINER_MODE" ;;
   "container inspect doqumentation") exit 1 ;;
-  "port doqumentation 80/tcp") echo 0.0.0.0:8080 ;;
+  "port doqumentation 80/tcp") [ "$CONTAINER_MODE" = solo ] && echo 127.0.0.1:8080 || echo 0.0.0.0:8080 ;;
   "port doqumentation 8888/tcp") echo 127.0.0.1:8896 ;;
   "image inspect"*) exit 0 ;;
   run*) echo cid ;;
@@ -211,12 +214,12 @@ def doq(tmp_path):
     env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nBIN_DIR="{_BIN}"\nSTD_VENV=RQB2\n')
     log = tmp_path / "docker.log"
 
-    def run(running):
+    def run(running, args=(), mode=""):
         env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
                "RQ_CONFIG_FILE": str(env_config), "DOCKER_LOG": str(log),
-               "RUNNING": "1" if running else "",
+               "RUNNING": "1" if running else "", "CONTAINER_MODE": mode,
                "PINNED": _manifest("doqumentation")["entrypoint"]["docker_image"]}
-        proc = subprocess.run(["bash", os.path.join(_BIN, "rq_doqumentation.sh")],
+        proc = subprocess.run(["bash", os.path.join(_BIN, "rq_doqumentation.sh"), *args],
                               capture_output=True, text=True, env=env, timeout=120,
                               stdin=subprocess.DEVNULL)
         return proc, (log.read_text() if log.exists() else "")
@@ -230,7 +233,8 @@ def test_reopening_attaches_to_the_running_server(doq):
     assert "http://rasqberry.local:8080/" in proc.stdout
     assert "http://192.168.1.5:8080/" in proc.stdout and "172.17.0.1" not in proc.stdout
     assert "token=tok123" in proc.stdout
-    assert "Trust:" in proc.stdout
+    assert "Anyone on this network can open these addresses and run code on this Pi." in proc.stdout
+    assert "Restarting the server restores the" in proc.stdout
     # nothing was stopped, removed or started
     assert not re.search(r"^(stop|rm|run) ", calls, re.M), calls
 
@@ -248,6 +252,55 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
     assert "CORS_ORIGIN=http://localhost:8080" in run[0] and "http://192.168.1.5:8080" in run[0]
     assert "ssh -N -L 8080:127.0.0.1:8080 rasqberry@rasqberry.local" in proc.stdout
     assert "keeps running" in proc.stdout
+
+
+@needs_bash
+def test_solo_mode_is_for_this_pi_only(doq):
+    proc, calls = doq(running=False, args=["--solo"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    run = [c for c in calls.splitlines() if c.startswith("run ")]
+    assert len(run) == 1
+    assert "-p 127.0.0.1:8080:80" in run[0] and "-p 8080:80" not in run[0]
+    assert "--label org.rasqberry.mode=solo" in run[0]
+    assert "--memory 3072m" in run[0] or "--memory " in run[0]
+    # localhost only: no LAN address may call the Jupyter API
+    assert "192.168.1.5" not in run[0] and "rasqberry.local" not in run[0]
+    assert "Qiskit Tutorials (on this Pi) is running: http://localhost:8080/" in proc.stdout
+    assert "Participants" not in proc.stdout
+
+
+@needs_bash
+def test_workshop_mode_is_labelled(doq):
+    proc, calls = doq(running=False)
+    run = [c for c in calls.splitlines() if c.startswith("run ")][0]
+    assert "--label org.rasqberry.mode=workshop" in run and "-p 8080:80" in run
+
+
+@needs_bash
+def test_solo_attaches_to_a_running_workshop_server(doq):
+    # opened as "Qiskit Tutorials" while the group server runs: keep it, open it
+    proc, calls = doq(running=True, args=["--solo"], mode="workshop")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Workshop & Qiskit Server is running." in proc.stdout
+    assert not re.search(r"^(stop|rm|run) ", calls, re.M), calls
+
+
+@needs_bash
+def test_reopening_a_solo_server_shows_no_addresses(doq):
+    proc, calls = doq(running=True, args=["--solo"], mode="solo")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Qiskit Tutorials (on this Pi) is running" in proc.stdout
+    assert "192.168.1.5" not in proc.stdout
+    assert not re.search(r"^(stop|rm|run) ", calls, re.M), calls
+
+
+def test_solo_entry_runs_the_launcher_in_solo_mode():
+    m = _manifest("qiskit-tutorials")
+    assert m["name"] == "Qiskit Tutorials (on this Pi)"
+    assert m["entrypoint"] == {"launcher": "rq_doqumentation.sh", "args": ["--solo"]}
+    assert _manifest("doqumentation")["name"] == "Workshop & Qiskit Server"
+    # next to each other in the menu
+    assert abs(m["menu"]["order"] - _manifest("doqumentation")["menu"]["order"]) <= 5
 
 
 # --- texts and small fixes ----------------------------------------------------

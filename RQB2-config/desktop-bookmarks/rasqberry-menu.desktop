@@ -1,3 +1,5 @@
+# On the desktop only: NoDisplay keeps it out of the Applications menu
+# (pcmanfm still shows it on the desktop), item 8.
 [Desktop Entry]
 Version=1.1
 Name=RasQberry Menu
@@ -10,4 +12,4 @@ Terminal=false
 StartupNotify=true
 Keywords=menu;raspi-config;settings;rasqberry;
 X-GNOME-TextColor=#000000
-NoDisplay=false
+NoDisplay=true

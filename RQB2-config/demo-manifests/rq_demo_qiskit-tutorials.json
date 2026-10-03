@@ -1,0 +1,49 @@
+{
+  "id": "qiskit-tutorials",
+  "name": "Qiskit Tutorials (on this Pi)",
+  "category": "education",
+  "description": "The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network",
+  "maturity": "beta",
+  "keywords": [
+    "quantum",
+    "jupyter",
+    "qiskit",
+    "docker",
+    "tutorials",
+    "courses",
+    "guides",
+    "ibm",
+    "education",
+    "doqumentation"
+  ],
+  "entrypoint": {
+    "launcher": "rq_doqumentation.sh",
+    "args": [
+      "--solo"
+    ]
+  },
+  "install": {
+    "preinstalled": true
+  },
+  "needs_hw": {
+    "leds": false,
+    "network": false,
+    "display": "optional"
+  },
+  "needs_ibm_token": "prefer",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/doqumentation-logo.svg"
+  },
+  "menu": {
+    "show": true,
+    "order": 158
+  },
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

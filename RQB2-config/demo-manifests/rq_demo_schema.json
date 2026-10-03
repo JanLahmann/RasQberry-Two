@@ -24,6 +24,12 @@
       "maxLength": 200,
       "description": "Short description for menu and desktop entry"
     },
+    "maturity": {
+      "type": "string",
+      "enum": ["stable", "beta"],
+      "default": "stable",
+      "description": "beta: a new or less-tested demo. Shown as '(beta)' in the RasQberry menu, the catalogue and the desktop tooltip; its start invites feedback (demo-feedback issue form). Variants may set it too."
+    },
     "keywords": {
       "type": "array",
       "items": {"type": "string"},
@@ -300,6 +306,11 @@
           "name": {
             "type": "string",
             "description": "Variant display name"
+          },
+          "maturity": {
+            "type": "string",
+            "enum": ["stable", "beta"],
+            "description": "As the top-level maturity, for this variant only"
           },
           "args": {
             "type": "array",

@@ -1389,6 +1389,38 @@ rq_demo_set_version() {
     fix_root_ownership "$f" >/dev/null 2>&1 || true
 }
 
+# Where new and less-tested demos ask for feedback (a GitHub issue form)
+RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml"
+
+# Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
+# The variant's value wins, then the manifest's, then the catalogue entry's
+# (known-demos.json), so a catalogue demo installed before it was marked
+# shows it too.
+# Usage: [ -n "$(rq_demo_maturity ID [MANIFEST] [VARIANT])" ]
+rq_demo_maturity() {
+    local id="$1" variant="${3:-}" mf m="" registry
+    if mf=$(_rq_demo_mf "$id" "${2:-}") && [ -f "$mf" ]; then
+        [ -n "$variant" ] && m=$(jq -r --arg v "$variant" \
+            '.variants[]? | select(.id == $v) | .maturity // empty' "$mf" 2>/dev/null)
+        [ -n "$m" ] || m=$(jq -r '.maturity // empty' "$mf" 2>/dev/null)
+    fi
+    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    if [ -z "$m" ] && [ -f "$registry" ]; then
+        m=$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .maturity // empty' \
+            "$registry" 2>/dev/null)
+    fi
+    [ "$m" = "beta" ] && echo beta
+    return 0
+}
+
+# The invitation at the start of a beta demo.
+# Usage: rq_beta_notice DEMO_ID
+rq_beta_notice() {
+    echo "This demo is new - please try it and tell us what works and what doesn't."
+    echo "Your feedback helps a lot: ${RQ_FEEDBACK_URL}&demo=$1"
+    echo
+}
+
 # ============================================================================
 # 17. DOCKER DEMO HELPERS (doQumentation, Quantum Lab, Qoffee-Maker, Mixer)
 # ============================================================================

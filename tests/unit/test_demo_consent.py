@@ -185,7 +185,7 @@ def test_demo_consent_uses_the_manifest_and_asks_once(box):
     assert "RC2=0" in proc.stdout
     (call,) = box.dialogs()
     text = call[call.index("--yesno") + 1]
-    assert "doQumentation (Workshop Server) is not on this Pi yet." in text
+    assert "Workshop & Qiskit Server is not on this Pi yet." in text
     assert "about 1.3 GB" in text and "5.4 GB on the SD card" in text
 
 
@@ -210,7 +210,7 @@ def test_engine_asks_and_not_now_downloads_nothing(box):
 def test_engine_refuses_on_low_space_with_the_reason(box):
     proc = box([_ENGINE, "quantum-mixer", "--install-only"], extra={"RQ_TEST_FREE_MB": "3000"})
     assert proc.returncode == 1
-    assert "Not enough free space for Quantum-Mixer" in box.err()
+    assert "Not enough free space for Quantum Mixer" in box.err()
     assert box.dialogs() == []
 
 

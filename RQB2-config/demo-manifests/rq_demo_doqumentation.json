@@ -1,8 +1,9 @@
 {
   "id": "doqumentation",
-  "name": "doQumentation (Workshop Server)",
+  "name": "Workshop & Qiskit Server",
   "category": "education",
-  "description": "Local IBM Quantum tutorials, guides and courses website with live in-browser code execution against a local Qiskit Jupyter server - the basis for a RasQberry Workshop Server. Pulls the doQumentation jupyter-local image on first run (Docker container, part of the Fun with Quantum family)",
+  "description": "One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start)",
+  "maturity": "beta",
   "keywords": [
     "quantum",
     "jupyter",

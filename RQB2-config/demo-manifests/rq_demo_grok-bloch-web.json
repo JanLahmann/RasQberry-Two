@@ -34,11 +34,11 @@
     "path": "/usr/share/icons/rasqberry/orbit-pi.png"
   },
   "menu": {
-    "show": true,
+    "show": false,
     "order": 20
   },
   "desktop": {
-    "show": true,
+    "show": false,
     "terminal": false
   }
 }

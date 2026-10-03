@@ -39,8 +39,13 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 **Demos, workshops and IBM accounts**
 
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for doQumentation: the latest build or one in between, with date, size and Qiskit version), or back.
-- **Workshop Server (doQumentation):** one Pi serves a class's laptops over the network. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Everyone on the network can run code on it: use it on a class network you trust.
-- **Quantum Demos** → **Stop Docker demos** stops the Workshop Server, Quantum Lab, Qoffee-Maker or Quantum-Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
+- **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Restarting it restores the original notebooks.
+- **Qiskit Tutorials (on this Pi):** the same tutorials just for you, on this Pi only (not on the network), with less memory. It opens the browser and stops with its window.
+- **Beta demos:** new and less-tested demos say "(beta)" in the menus (Workshop & Qiskit Server, Qiskit Tutorials, traQmania, the SAP demos, the Fun with Quantum website and family) and ask for your feedback when they start.
+- **My Quantum Programs** opens JupyterLab at `Hello-World.ipynb`, the first circuit from doQumentation. Existing folders get it once; your files are never replaced.
+- **Grokking the Bloch Sphere** shows tips: what the sphere shows, what to try, what to notice. One menu entry, with the online version as a second choice.
+- The **Fun with Quantum** desktop icon offers the games, the website (works offline) and the family. Its website copy now includes the Workshops page.
+- **Quantum Demos** → **Stop Docker demos** stops the Workshop & Qiskit Server, Quantum Lab, Qoffee-Maker or Quantum Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
 - Quantum-Mixer downloads a ready image instead of building for 15-30 minutes.
 - Notebook demos also start over SSH and print an `ssh -L` command for your computer.
 - **IBM Quantum account:** every demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com and use **IBM Quantum account** → **Save my API key**: the key is checked before it is saved.

@@ -53,10 +53,10 @@ SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 # Setup, the menu and the touch switch come first, the LED tools last.
 ICON_ORDER = [
     "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
-    "composer", "grok-bloch", "grok-bloch-web", "quantum-fractals",
+    "composer", "grok-bloch", "quantum-fractals",
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
-    "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
+    "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
     "ibm-quantum-courses", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"

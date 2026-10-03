@@ -87,6 +87,7 @@ registry_label() {
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
+    [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
     printf '%s' "${name:-$id}${summary:+ - $summary}" | cut -c1-66
 }
 

@@ -70,7 +70,7 @@ def test_menu_cache_lists_the_variants(tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert subprocess.run([_SH, "-n", str(cache)]).returncode == 0
     script = ('. "$1"; eval "set -- $(demo_variant_items fun-with-quantum | tr \'\\n\' \' \')"; '
-              'printf "%s\\n" "$@"; demo_variant_items grok-bloch || echo none')
+              'printf "%s\\n" "$@"; demo_variant_items quantum-lab || echo none')
     out = subprocess.run([_SH, "-c", script, "sh", str(cache)], capture_output=True,
                          text=True).stdout.splitlines()
     pairs = dict(zip(out[0:-1:2], out[1:-1:2]))

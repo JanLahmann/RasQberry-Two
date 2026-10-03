@@ -157,7 +157,7 @@ def test_one_question_then_the_docker_opt_in_with_total_size(box):
     first, docker = _text(calls[0]), _text(calls[1])
     assert "Not on this Pi yet (8)" in first and "Quantum Lights Out" in first
     assert "Free:      50.0 GB" in first and "start without the internet" in first
-    assert "Docker demos" in docker and "doQumentation" in docker and "Quantum-Mixer" in docker
+    assert "Docker demos" in docker and "Workshop & Qiskit Server" in docker and "Quantum Mixer" in docker
     # the Mixer is a prebuilt download now (Jan, Q27c): no build cache peak
     assert "while installing" not in docker and "Space:" in docker
     assert "--defaultno" in calls[1]

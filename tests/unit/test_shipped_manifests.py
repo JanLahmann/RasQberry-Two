@@ -47,7 +47,7 @@ def test_quantum_lab_manifest_validates():
 
 
 def test_doqumentation_manifest_validates():
-    """The doQumentation (Workshop Server) manifest validates individually."""
+    """The doQumentation (Workshop & Qiskit Server) manifest validates individually."""
     manifest = os.path.join(_MANIFEST_DIR, "rq_demo_doqumentation.json")
     assert os.path.isfile(manifest), "doqumentation manifest is missing"
     proc = subprocess.run([_VALIDATE, manifest], capture_output=True, text=True)
