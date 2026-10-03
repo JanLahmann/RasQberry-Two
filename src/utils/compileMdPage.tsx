@@ -18,6 +18,7 @@ import { H5 } from "@/components/Markdown/H5";
 import { H6 } from "@/components/Markdown/H6";
 import { Img } from "@/components/Markdown/Img";
 import { Blockquote } from "@/components/Markdown/Blockquote";
+import { EventsEmail, Qdc2025 } from "@/components/Events";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -43,7 +44,10 @@ export function compileMdPage(content: string) {
       customDirective: ({ children }) => <p>{children}</p>,
       table: ({ children }) => <Table>{children}</Table>,
       img: ({ src, alt, title }) => <Img src={src} alt={alt} title={title} />,
-      blockquote: ({ children }) => <Blockquote>{children}</Blockquote>
+      blockquote: ({ children }) => <Blockquote>{children}</Blockquote>,
+      // content/workshops.md; settings in src/data/events.ts
+      EventsEmail,
+      Qdc2025,
     },
   });
 }

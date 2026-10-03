@@ -20,6 +20,8 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
 
 **Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 2.x, more Quantum Computing Demos, integration into raspi-config, etc.
 
+**Running a workshop or event?** We help you prepare it with a custom image, your branding and tested demos. [Workshops & events](/workshops/)
+
 ## See It In Action
 
 <div className="media-grid">
