@@ -26,6 +26,9 @@ python3 tests/rig/rig_test.py --pi pi5 --demos rasq-led,quantum-lights-out
 python3 tests/rig/rig_test.py --checks-only            # system checks only, ~1 min
 python3 tests/rig/rig_test.py --update beta-2026-09-30-142314   # install a release first
 python3 tests/rig/rig_test.py --docker                 # include docker demos (big pulls)
+python3 tests/rig/rig_test.py --demos none --icons --docker     # desktop icons only
+python3 tests/rig/rig_test.py --icons rasq-led.desktop,clear-leds.desktop
+python3 tests/rig/rig_test.py --no-web-check           # leave the desktop Chromium alone
 ```
 
 `--update TAG` switches each Pi to Slot A, installs the release's A/B image into
@@ -45,6 +48,8 @@ demo and, for LED demos, the camera frame. Exit status 1 if anything failed.
 | Every shipped unit enabled; LED renderer and update poller disabled | `pi/checks.sh` |
 | VNC on, no initramfs, update check answers | `pi/checks.sh` |
 | Each demo: starts, still running after N s, no traceback, Jupyter/browser URL answers, stops on Ctrl+C with nothing left over | `pi/demo_smoke.sh` |
+| Web and Jupyter demos work, not just answer | `pi/webcheck.py` in the demo's own Chromium tab |
+| Desktop icons start their demo on a double-click (`--icons`) | `pi/mouse.py`, a kernel-level mouse |
 | LED demos light the Pi's panel | camera frames vs. a fresh frame with every panel off, taken right before the demo |
 
 ## How a demo is driven, and why
@@ -101,3 +106,42 @@ plus a 0.02 margin, give the crop. Check that each Pi's fill scores 0 in the
 other Pi's crop.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
+
+## Desktop icons (`--icons`)
+
+`--icons` double-clicks desktop icons with a real mouse: `pi/mouse.py` creates
+an absolute pointer through the kernel's uinput (like a virtual machine's
+"tablet" mouse), so the click goes through libinput and labwc like a physical
+one. wlrctl is not packaged for bookworm, and ydotool moves a relative mouse
+that labwc accelerates; the absolute pointer needs neither. The icon's
+position comes from pcmanfm's `desktop-items-0.conf`; its centre is x+60,
+y+67 (override per Pi with `"icon_offset": [dx, dy]` in rig.json). The test
+then finds the demo by the log `rq_hold_on_error.sh` writes
+(`~/.cache/rasqberry/<name>.log`) and stops it with Ctrl+C as before. Default
+icons: RasQ-LED (LED), Quantum Paradoxes (Jupyter), Qoffee-Maker (docker; runs
+only with `--docker`). Icons that start Chromium directly (Composer) are not
+supported.
+
+## Web and Jupyter checks
+
+A page that answers 200 can still be blank or broken. For browser, Jupyter and
+docker demos the test restarts the desktop Chromium with remote debugging
+(127.0.0.1 only, same profile and page), and `pi/webcheck.py` checks the tab
+the demo opened:
+
+- every page: it loads (load event, a title or text); uncaught JavaScript
+  errors are reported;
+- web pages: a key control responds to a real click - the page changes or
+  navigates. `DEMO_HINTS[...]["web"]` names the element to wait for and the
+  control (`click`), or a point in a canvas app (`click_at`, judged by the
+  picture changing: Grok Bloch's "X" gate);
+- Jupyter: the notebook UI renders, and the first code cell (no pip installs)
+  of the notebook shown - or, for a welcome page without code, of the first
+  notebook with code next to it - runs in a fresh kernel of that server,
+  without an error. The kernel has its own session: nothing is saved into the
+  demo's notebook.
+- a browser demo that opens no tab fails.
+
+After each demo the tabs it opened are closed, and when the Pi is done its
+Chromium is restarted as the session starts it. `--no-web-check` skips all
+this.

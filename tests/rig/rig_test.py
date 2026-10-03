@@ -11,6 +11,11 @@ are on a local LAN). For every Pi in rig.json it
   3. smoke-tests each demo the way a person does - desktop terminal, runs,
      Ctrl+C, nothing left behind (tests/rig/pi/demo_smoke.sh),
   4. for LED demos, checks with the camera that the Pi's panel actually lights,
+  5. for web/Jupyter/docker demos, checks the page in the demo's own Chromium
+     tab (tests/rig/pi/webcheck.py): it renders, a control responds, a
+     notebook's first code cell runs,
+  6. with --icons, starts demos by double-clicking their desktop icons with a
+     real (uinput) mouse (tests/rig/pi/mouse.py),
 
 and writes results/<timestamp>/report.md with screenshots and camera frames.
 Exit status 1 if anything failed.
@@ -20,6 +25,7 @@ Usage:
     python3 tests/rig/rig_test.py --pi pi5 --demos quantum-lights-out,rasq-led
     python3 tests/rig/rig_test.py --update beta-2026-09-30-142314
     python3 tests/rig/rig_test.py --checks-only
+    python3 tests/rig/rig_test.py --demos none --icons --docker
 
 Needs on this machine: ssh (key login to the Pis), ffmpeg, Python 3 + Pillow.
 Needs on the Pis: nothing beyond the image (key login for the rig user).
@@ -45,6 +51,7 @@ REMOTE_DIR = "/tmp/rigtest"
 VENV_PY = "/home/*/RasQberry-Two/venv/RQB2/bin/python3"
 CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
 HOLDER_PID = f"{REMOTE_DIR}/led_fill.pid"
+CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
 
 
 # ----------------------------------------------------------------------------
@@ -264,27 +271,60 @@ def run_checks(pi):
     """Copy the Pi-side scripts and run the system checks."""
     host = pi["host"]
     ssh(host, f"mkdir -p {REMOTE_DIR}", check=True)
-    scp(host, [HERE / "pi" / f for f in ("checks.sh", "demo_smoke.sh", "led_fill.py")], f"{REMOTE_DIR}/")
+    scp(host, [HERE / "pi" / f for f in ("checks.sh", "demo_smoke.sh", "led_fill.py", "mouse.py", "webcheck.py")], f"{REMOTE_DIR}/")
     _, out = ssh(host, f"bash {REMOTE_DIR}/checks.sh", timeout=300)
     return parse_lines(out)
 
 
 def list_demos(pi):
-    """Demo ids with their type and LED need, from the Pi's manifests."""
+    """Demo ids with their type, LED need and launcher, from the Pi's manifests."""
     _, out = ssh(pi["host"], "for f in /usr/config/demo-manifests/rq_demo_*.json; do "
-                             "jq -r 'select(.id) | [.id, .entrypoint.type, (.needs_hw.leds // false|tostring), "
-                             "([.variants[]?.id] | join(\",\"))] | @tsv' \"$f\"; done")
+                             "jq -r 'select(.id) | . as $m | [$m.entrypoint.type, ($m.needs_hw.leds // false|tostring)] as $c "
+                             "| if ([.variants[]?] | length) == 0 then [$m.id] + $c + [$m.entrypoint.launcher // \"\"] "
+                             "else ($m.variants[] | [\"\\($m.id):\\(.id)\"] + $c "
+                             "+ [.entrypoint.launcher // $m.entrypoint.launcher // \"\"]) end | @tsv' \"$f\"; done")
     demos = []
     for line in out.splitlines():
         parts = line.split("\t")
         if len(parts) != 4:
             continue
-        base = {"type": parts[1], "leds": parts[2] == "true"}
-        variants = [v for v in parts[3].split(",") if v]
         # a manifest with variants is a menu; each variant is its own demo
-        for spec in ([f"{parts[0]}:{v}" for v in variants] or [parts[0]]):
-            demos.append(dict(base, id=spec))
+        demos.append({"id": parts[0], "type": parts[1], "leds": parts[2] == "true", "launcher": parts[3]})
     return demos
+
+
+# desktop icons --icons double-clicks by default: an LED demo, a Jupyter
+# demo and a docker demo (the docker one runs only with --docker)
+DEFAULT_ICONS = "rasq-led.desktop,quantum-paradoxes.desktop,qoffee-maker.desktop"
+
+
+def icon_demos(pi, icons, demos):
+    """
+    The demo each desktop icon starts, read from the icon's Exec line.
+
+    Args:
+        icons (list): desktop file names, e.g. "rasq-led.desktop".
+        demos (list): list_demos() of this Pi.
+
+    Returns:
+        list: demo dicts with an "icon" key (unknown icons: id "?").
+    """
+    out = []
+    for icon in icons:
+        _, line = ssh(pi["host"], f"sed -n 's/^Exec=//p' ~/Desktop/{shlex.quote(icon)} | head -1")
+        words = shlex.split(line.strip()) if line.strip() else []
+        spec = None
+        runner = [i for i, w in enumerate(words) if w.endswith("rq_demo_run.sh")]
+        if runner:
+            spec = ":".join(words[runner[0] + 1:runner[0] + 3])
+        else:   # a demo's own launcher script
+            scripts = {os.path.basename(w) for w in words if w.endswith(".sh")}
+            spec = next((d["id"] for d in demos if d["launcher"] and d["launcher"] in scripts), None)
+        demo = next((d for d in demos if d["id"] == spec), None)
+        if demo is None and spec:   # a menu of variants: the icon asks which
+            demo = next(({**d, "id": spec} for d in demos if d["id"].startswith(spec + ":")), None)
+        out.append(dict(demo or {"id": "?", "type": "?", "leds": False, "launcher": ""}, icon=icon))
+    return out
 
 
 # Per-demo test hints, for demos a plain "start and watch" cannot judge:
@@ -309,10 +349,38 @@ DEMO_HINTS = {
     "led-painter": {"service": "rasqberry-led-renderer", "seconds": 90},
     # without an IBM account the real backend waits at its account prompt
     "quantum-raspberry-tie:real": {"led_optional": True},
+    # web:     what webcheck.py checks on the demo's page - wait: a selector
+    #          that must appear; click: the key control; click_at: [x, y] in a
+    #          canvas app (negative = from the right/bottom), judged by the
+    #          picture changing. Grok Bloch is a Babylon.js canvas: its "X"
+    #          gate button sits 140 px from the right edge.
+    "grok-bloch:local": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
+    "grok-bloch:web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
+    "grok-bloch-web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
 }
 
 # a first start installs the demo after the consent dialog: allow for it
 INSTALL_ALLOWANCE = 600
+
+
+def demo_tag(demo):
+    """File-name tag of a demo run (as demo_smoke.sh names its files)."""
+    return ("icon-" if demo.get("icon") else "") + demo["id"].replace(":", "-")
+
+
+def browser_debug(pi, on):
+    """
+    Turn the remote debugging of the Pi's desktop Chromium on (restart it with
+    a 127.0.0.1 debugging port, same profile and page) or off again (restore).
+
+    Returns:
+        bool: True if debugging is on (web checks possible).
+    """
+    sub = "browser-debug" if on else "browser-restore"
+    rc, out = ssh(pi["host"], f"RIG_OUT={REMOTE_DIR} RIG_CDP_PORT={CDP_PORT} timeout 90 "
+                              f"$HOME/RasQberry-Two/venv/RQB2/bin/python {REMOTE_DIR}/webcheck.py {sub}", timeout=120)
+    print(f"   {out.strip()}")
+    return on and rc == 0
 
 
 def smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
@@ -334,7 +402,15 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     env = "RIG_ALLOW_DOCKER=1 " if docker else ""
     if hint.get("keys"):
         env += f"RIG_KEYS={shlex.quote(hint['keys'])} "
-    tag = demo["id"].replace(":", "-")
+    if pi.get("web_check"):
+        env += f"RIG_CDP_PORT={CDP_PORT} "
+        if hint.get("web"):
+            env += f"RIG_WEB={shlex.quote(json.dumps(hint['web']))} "
+    if demo.get("icon"):
+        env += f"RIG_ICON={shlex.quote(demo['icon'])} "
+        if pi.get("icon_offset"):
+            env += f"RIG_ICON_OFFSET={pi['icon_offset'][0]},{pi['icon_offset'][1]} "
+    tag = demo_tag(demo)
     crop = pi.get("panel_crop")
     notes = ""
 
@@ -395,7 +471,7 @@ def _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, befor
     """Run the demo (demo_smoke.sh), sample the camera, and judge."""
     host = pi["host"]
     result = {}
-    tag = demo["id"].replace(":", "-")
+    tag = demo_tag(demo)
     crop = pi.get("panel_crop")
     threshold = pi.get("lit_threshold", 0.006)
 
@@ -403,7 +479,8 @@ def _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, befor
         _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
                      timeout=seconds + INSTALL_ALLOWANCE + 180)
         parsed = parse_lines(out)
-        result.update(parsed[0] if parsed else {"verdict": "FAIL", "name": f"demo:{demo['id']}", "detail": out.strip()[:200]})
+        name = f"icon:{demo['icon']}" if demo.get("icon") else f"demo:{demo['id']}"
+        result.update(parsed[0] if parsed else {"verdict": "FAIL", "name": name, "detail": out.strip()[:200]})
 
     t = threading.Thread(target=worker)
     t.start()
@@ -477,6 +554,20 @@ def _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, befor
     return result
 
 
+def run_demos(pi, demos, section, args, camera, outdir, cfg):
+    """Smoke-test each demo (menu demos and icons) and add its report row."""
+    for d in demos:
+        label = f"icon:{d['icon']}" if d.get("icon") else f"demo:{d['id']}"
+        print(f"   {label} ...", flush=True)
+        if d["id"] == "?":
+            section["rows"].append({"verdict": "FAIL", "name": label, "detail": "no demo found for this icon"})
+            continue
+        try:
+            section["rows"].append(smoke_demo(pi, d, args.seconds, camera, outdir, cfg["pis"], args.docker))
+        except Exception as exc:  # one broken demo must not end the run
+            section["rows"].append({"verdict": "FAIL", "name": label, "detail": f"harness: {exc}"})
+
+
 # ----------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -488,6 +579,11 @@ def main():
     ap.add_argument("--no-camera", action="store_true")
     ap.add_argument("--checks-only", action="store_true")
     ap.add_argument("--update", metavar="TAG", help="first install this release into Slot B (A/B images)")
+    ap.add_argument("--no-web-check", action="store_true",
+                    help="don't check web/Jupyter pages in the desktop Chromium (and don't restart it)")
+    ap.add_argument("--icons", nargs="?", const=DEFAULT_ICONS, metavar="FILES",
+                    help="also start demos by double-clicking their desktop icons with a real (uinput) "
+                         f"mouse; comma-separated .desktop names (default: {DEFAULT_ICONS})")
     args = ap.parse_args()
 
     cfg = json.loads(Path(args.config).read_text())
@@ -516,18 +612,25 @@ def main():
                 if args.update:
                     update_slot(pi, args.update)
                 section["rows"] += run_checks(pi)
-                if not args.checks_only and args.demos != "none":
-                    demos = list_demos(pi)
-                    if args.demos != "all":
+                if not args.checks_only:
+                    every = list_demos(pi)
+                    demos = [] if args.demos == "none" else every
+                    if args.demos not in ("all", "none"):
                         wanted = args.demos.split(",")
                         # a base id selects all its variants (id:variant)
                         demos = [d for d in demos if d["id"] in wanted or d["id"].split(":")[0] in wanted]
-                    for d in demos:
-                        print(f"   demo {d['id']} ...", flush=True)
-                        try:
-                            section["rows"].append(smoke_demo(pi, d, args.seconds, camera, outdir, cfg["pis"], args.docker))
-                        except Exception as exc:  # one broken demo must not end the run
-                            section["rows"].append({"verdict": "FAIL", "name": f"demo:{d['id']}", "detail": f"harness: {exc}"})
+                    if args.icons:
+                        demos += icon_demos(pi, args.icons.split(","), every)
+                    # web checks: the desktop Chromium with remote debugging,
+                    # restored when this Pi is done
+                    pi["web_check"] = (not args.no_web_check and any(
+                        d["type"] in ("jupyter", "browser", "web-static", "docker") for d in demos)
+                        and browser_debug(pi, True))
+                    try:
+                        run_demos(pi, demos, section, args, camera, outdir, cfg)
+                    finally:
+                        if pi["web_check"]:
+                            browser_debug(pi, False)
             except Exception as exc:  # keep going with the next Pi
                 section["rows"].append({"verdict": "FAIL", "name": "run", "detail": str(exc)})
             for r in section["rows"]:
