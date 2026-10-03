@@ -221,7 +221,7 @@ echo
 echo "RasQberry version: $version"
 if [ -f "$BUILD_JSON" ]; then
     echo "Built:             $built, $from"
-    echo "OS:                $os_name, kernel $(uname -r)"
+    echo "OS / kernel:       $os_name / $(uname -r)"
     echo "Python / Qiskit:   $(field python_version) / $(field qiskit_version)"
 else
     echo "OS kernel:         $(uname -r) (no $BUILD_JSON: an image from before build metadata)"

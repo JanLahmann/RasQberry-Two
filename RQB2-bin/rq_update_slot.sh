@@ -102,7 +102,7 @@ refuse() {
 
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
-        echo "ERROR: Run it with sudo: sudo $(basename "$0") $*" >&2
+        echo "ERROR: $(basename "$0") needs root: run it with sudo." >&2
         exit 1
     fi
 }
