@@ -68,9 +68,15 @@ Some demos can't be judged by "start it and watch the panel". `DEMO_HINTS` in
   them (accepting the defaults) so the demo reaches its LED output.
 - Quantum Lights Out computes its solution before it lights up (~20 s on a
   Pi 4): it runs for 60 s.
-- Clear LEDs should leave the panel dark: the test lights the panel first
-  (`pi/led_fill.py`), then judges the demo's last frame; a lit panel is the
-  failure.
+- Clear LEDs: a helper (`pi/led_fill.py --hold`) lights the panel and keeps
+  holding it, like a program someone left running. The test waits until the
+  camera sees the panel lit, runs Clear LEDs (Enter answers its "Stop it?"),
+  and requires that the holder was stopped and the last frame is dark. The
+  helper ends on SIGTERM without clearing, so the demo itself must switch the
+  panel off. The test always kills the helper afterwards (by its pid file).
+  `rq_clear_leds.sh` finds holders by the LED devices they have open
+  (`led_holders`: fuser on /dev/pio0, /dev/gpiochip*, /dev/gpiomem, /dev/mem),
+  so any program counts, not only RasQberry's.
 
 ## Camera judgement
 

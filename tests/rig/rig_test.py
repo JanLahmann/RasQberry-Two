@@ -44,6 +44,7 @@ REPO = HERE.parent.parent
 REMOTE_DIR = "/tmp/rigtest"
 VENV_PY = "/home/*/RasQberry-Two/venv/RQB2/bin/python3"
 CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
+HOLDER_PID = f"{REMOTE_DIR}/led_fill.pid"
 
 
 # ----------------------------------------------------------------------------
@@ -292,8 +293,9 @@ def list_demos(pi):
 #   seconds: minimum run time - Lights Out computes its solution before it
 #            lights up, which takes ~20 s on a Pi 4
 #   dark:    the demo's job is to switch the panel off - lit is the failure.
-#            The test lights the panel first (so there is something to switch
-#            off) and judges the demo's last frame against a fresh baseline
+#            A helper (led_fill.py --hold) lights the panel and keeps holding
+#            it, like a program a person forgot; the demo must stop that
+#            holder and leave the panel dark (last frame vs. a fresh baseline)
 #   service: the panel stays dark by design (Painter starts with an empty
 #            canvas), so check instead that the unit driving the LEDs runs at
 #            some point (a first start installs the demo first: 90 s)
@@ -302,7 +304,8 @@ DEMO_HINTS = {
     "led-demos:logo-display": {"keys": r"5:\r 2:\r 2:\r 2:\r"},
     "quantum-lights-out:gui": {"seconds": 60},
     "quantum-lights-out:console": {"seconds": 60},
-    "led-demos:clear-leds": {"dark": True},
+    # a holder owns the panel: Clear LEDs asks "Stop it ...? [Y/n]" - Enter
+    "led-demos:clear-leds": {"dark": True, "keys": r"4:\r"},
     "led-painter": {"service": "rasqberry-led-renderer", "seconds": 90},
     # without an IBM account the real backend waits at its account prompt
     "quantum-raspberry-tie:real": {"led_optional": True},
@@ -326,30 +329,75 @@ def smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
 
 def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     """smoke_demo's body (camera is None unless this demo is camera-judged)."""
-    host = pi["host"]
     hint = DEMO_HINTS.get(demo["id"], {})
     seconds = max(seconds, hint.get("seconds", 0))
     env = "RIG_ALLOW_DOCKER=1 " if docker else ""
     if hint.get("keys"):
         env += f"RIG_KEYS={shlex.quote(hint['keys'])} "
+    tag = demo["id"].replace(":", "-")
+    crop = pi.get("panel_crop")
+    notes = ""
+
+    baseline = before = None
+    holding = False
+    try:
+        # a fresh baseline right before the demo: every panel off, now
+        if camera and not hint.get("service"):
+            baseline, unclear = fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-{tag}-baseline.png")
+            if unclear:
+                notes += f" (baseline: could not clear {','.join(unclear)})"
+            if hint.get("dark"):
+                # a program holds the panel lit, as when a person picks Clear
+                # LEDs: the demo must stop it and leave the panel dark (and
+                # the camera is shown to see this Pi's panel at all)
+                holding = True
+                before = start_holder(pi, camera, baseline, outdir / f"{pi['name']}-{tag}-before.png",
+                                      seconds + INSTALL_ALLOWANCE)
+        return _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, before, notes)
+    finally:
+        if holding:
+            stop_holder(pi)   # always: it must never outlive the check
+
+
+def start_holder(pi, camera, baseline, dest, hold):
+    """
+    Light the Pi's panel with a helper that keeps holding it (led_fill.py
+    --hold), and wait until the camera sees it lit.
+
+    Returns:
+        float: the lit score of the last frame (below the threshold: the
+            panel never lit).
+    """
+    ssh(pi["host"], f"sudo rm -f {HOLDER_PID}; sudo setsid nohup {VENV_PY} {REMOTE_DIR}/led_fill.py "
+                    f"--hold {int(hold)} --pidfile {HOLDER_PID} 0 60 0 >{REMOTE_DIR}/led_fill.log 2>&1 </dev/null &",
+        timeout=60)
+    score, end = 0.0, time.time() + 20
+    while time.time() < end:
+        score = lit_score(camera.grab(dest), baseline, pi["panel_crop"])
+        if score >= pi.get("lit_threshold", 0.006):
+            break
+    return score
+
+
+def holder_alive(pi):
+    """True while the led_fill.py holder still runs on the Pi."""
+    return ssh(pi["host"], f"p=$(cat {HOLDER_PID} 2>/dev/null) && grep -qa led_fill /proc/$p/cmdline 2>/dev/null",
+               timeout=30)[0] == 0
+
+
+def stop_holder(pi):
+    """Kill the led_fill.py holder (by its pid file; never by pattern)."""
+    ssh(pi["host"], f"p=$(cat {HOLDER_PID} 2>/dev/null); [ -n \"$p\" ] && grep -qa led_fill /proc/$p/cmdline 2>/dev/null "
+                    f"&& sudo kill -9 $p; sudo rm -f {HOLDER_PID}; true", timeout=30)
+
+
+def _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, before, notes):
+    """Run the demo (demo_smoke.sh), sample the camera, and judge."""
+    host = pi["host"]
     result = {}
     tag = demo["id"].replace(":", "-")
     crop = pi.get("panel_crop")
     threshold = pi.get("lit_threshold", 0.006)
-    notes = ""
-
-    # a fresh baseline right before the demo: every panel off, now
-    baseline = before = None
-    if camera and not hint.get("service"):
-        baseline, unclear = fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-{tag}-baseline.png")
-        if unclear:
-            notes += f" (baseline: could not clear {','.join(unclear)})"
-        if hint.get("dark"):
-            # light the panel first, so the demo has something to switch off
-            # and the camera is shown to see this Pi's panel at all
-            ssh(host, f"sudo {VENV_PY} {REMOTE_DIR}/led_fill.py 0 60 0 >/dev/null 2>&1", timeout=60)
-            time.sleep(1)
-            before = lit_score(camera.grab(outdir / f"{pi['name']}-{tag}-before.png"), baseline, crop)
 
     def worker():
         _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
@@ -397,6 +445,9 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
         # a demo that switches the panel off is judged by where it ends up
         led = (last if hint.get("dark") else best) if best >= 0 else None
     t.join()
+    holder = None
+    if before is not None:
+        holder = "still running" if holder_alive(pi) else "stopped"
     fetch(host, f"{REMOTE_DIR}/{tag}.png", outdir / f"{pi['name']}-{tag}-screen.png")
     if service_state is not None:
         result["detail"] = result.get("detail", "") + f" {hint['service']}={service_state}"
@@ -407,8 +458,9 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
         detail = result.get("detail", "")
         if hint.get("dark"):
             result["detail"] = (detail + f" before={before:.3f} led={led:.3f}"
-                                + (" (panel still lit)" if lit else " (panel off)") + notes)
-            if lit and result.get("verdict") == "PASS":
+                                + (" (panel still lit)" if lit else " (panel off)")
+                                + f" holder={holder}" + notes)
+            if (lit or holder != "stopped") and result.get("verdict") == "PASS":
                 result["verdict"] = "FAIL"
             elif before < threshold and result.get("verdict") == "PASS":
                 # the panel never lit: nothing was shown to be switched off
