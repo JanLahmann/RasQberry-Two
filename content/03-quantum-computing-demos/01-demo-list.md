@@ -19,7 +19,7 @@ account is only needed to run on real IBM hardware.
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 | **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer | LED panel or on-screen view, display, network on first start, IBM account optional | `quantum-raspberry-tie` |
 | **RasQ-LED Demo** | Circuits with superposition and entanglement, measured and shown on the LED panel | LED panel or on-screen view | `rasq-led` |
-| **Quantum-Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
+| **Quantum Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
 | **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
 
 ## Play
@@ -43,13 +43,14 @@ account is only needed to run on real IBM hardware.
 |---|---|---|---|
 | **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM account | `composer` |
 | **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network | `quantum-lab` |
-| **doQumentation (Workshop Server)** | Local IBM Quantum tutorials, guides and courses website with live in-browser code execution against a local Qiskit Jupyter server - the basis for a RasQberry Workshop Server. Pulls the doQumentation jupyter-local image on first run (Docker container, part of the Fun with Quantum family) | network, IBM account optional | `doqumentation` |
+| **Qiskit Tutorials on this Pi** | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | IBM account optional | `qiskit-tutorials` |
+| **Workshop & Qiskit Server** | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, IBM account optional | `doqumentation` |
 
 ## LED panel
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **LED Demos** | Collection of LED matrix display demos and animations | LED panel or on-screen view | `led-demos` |
+| **[LED Demos](/03-quantum-computing-demos/led-display/)** | Collection of LED matrix display demos and animations | LED panel or on-screen view | `led-demos` |
 
 ## Tools
 

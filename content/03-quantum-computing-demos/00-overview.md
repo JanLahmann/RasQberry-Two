@@ -3,7 +3,9 @@
 RasQberry Two has 17 demos: visualisations, games, notebooks and LED demos that
 make quantum concepts visible. The [Demo List](/03-quantum-computing-demos/01-demo-list/)
 has the details for each one, generated from the same manifests the image
-installs from.
+installs from. Not sure where to start? The
+[Learning paths](/03-quantum-computing-demos/02-learning-paths/) put demos in a
+good order for a stand, a lesson or your first program.
 
 ## The demos at a glance
 

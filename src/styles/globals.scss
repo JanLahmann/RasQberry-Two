@@ -61,6 +61,34 @@ img {
   }
 }
 
+// Learning paths page (generated from learning-paths.json): one card per path
+.path-card {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  background: themes.$layer-01;
+  border-left: 4px solid $text-gradient-blue;
+  border-radius: 8px;
+
+  h2 {
+    margin: 0 0 0.5rem;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+// "beta" next to a new feature
+.beta-tag {
+  display: inline-block;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  color: $text-gradient-purple;
+  border: 1px solid $text-gradient-purple;
+  border-radius: 1rem;
+}
+
 // Prominent call-to-action link styled as a button ("Open in Raspberry Pi Imager")
 a.cta-button {
   display: inline-block;

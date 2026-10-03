@@ -12,9 +12,16 @@
  * manifests. Prose stays hand-written in the per-demo pages - only the catalogue
  * is generated.
  *
- *   node scripts/generate-demo-list.js            # write the file
- *   node scripts/generate-demo-list.js --check    # fail if it is out of date (CI)
- *   node scripts/generate-demo-list.js --ref beta # read manifests from another branch
+ * It also writes 02-learning-paths.md from learning-paths.json, which sits next
+ * to the manifests: the Pi's Learning paths chooser reads the same file, so the
+ * website and the Pi show the same paths (issue #309).
+ *
+ *   node scripts/generate-demo-list.js            # write both files
+ *   node scripts/generate-demo-list.js --check    # fail if one is out of date (CI)
+ *   node scripts/generate-demo-list.js --ref beta # read from another branch
+ *   node scripts/generate-demo-list.js --local ../RasQberry-Two-development
+ *                                                 # read a local checkout instead
+ *                                                 # (before a push; links still name --ref)
  */
 
 const fs = require('fs');
@@ -29,16 +36,23 @@ const MANIFEST_DIR = 'RQB2-config/demo-manifests';
 // flight. Override per-run with --ref.
 const DEFAULT_REF = 'development';
 const OUT = path.join(__dirname, '..', 'content', '03-quantum-computing-demos', '01-demo-list.md');
+const PATHS_FILE = 'learning-paths.json';
+const PATHS_OUT = path.join(path.dirname(OUT), '02-learning-paths.md');
+const DEMO_LIST_URL = '/03-quantum-computing-demos/01-demo-list/';
+// The demo feedback form, as the Pi's beta demos link it (rq_common.sh RQ_FEEDBACK_URL)
+const FEEDBACK = `https://github.com/${REPO}/issues/new?template=demo-feedback.yml`;
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
 const refIdx = args.indexOf('--ref');
 const ref = refIdx !== -1 ? args[refIdx + 1] : DEFAULT_REF;
+const localIdx = args.indexOf('--local');
+const local = localIdx !== -1 ? args[localIdx + 1] : null;
 
 // A demo has a full page when a file of that name exists next to the list.
 function pageFor(id) {
   const dir = path.dirname(OUT);
-  const candidates = { 'quantum-fractals': 'fractals', 'grok-bloch': 'bloch-sphere', 'quantum-raspberry-tie': 'raspberry-tie' };
+  const candidates = { 'quantum-fractals': 'fractals', 'grok-bloch': 'bloch-sphere', 'quantum-raspberry-tie': 'raspberry-tie', 'led-demos': 'led-display' };
   const slug = candidates[id] || id;
   // Absolute, because pages are served with a trailing slash: a bare slug
   // would resolve below the list page itself and 404.
@@ -71,7 +85,20 @@ function ghHeaders() {
   return h;
 }
 
-async function fetchManifests() {
+const isManifest = (name) => name.startsWith('rq_demo_') && name.endsWith('.json') && !name.includes('schema');
+
+// The manifests and the learning paths, from GitHub at `ref` or from a local
+// checkout (--local). A missing learning-paths.json is an error, not an empty
+// page: the Pi would still show the paths.
+async function fetchSources() {
+  if (local) {
+    const dir = path.join(local, MANIFEST_DIR);
+    const manifests = fs.readdirSync(dir).filter(isManifest).sort()
+      .map((n) => JSON.parse(fs.readFileSync(path.join(dir, n), 'utf8')));
+    const file = path.join(dir, PATHS_FILE);
+    if (!fs.existsSync(file)) throw new Error(`${PATHS_FILE} not found in ${dir}`);
+    return { manifests, paths: JSON.parse(fs.readFileSync(file, 'utf8')).paths };
+  }
   const api = `https://api.github.com/repos/${REPO}/contents/${MANIFEST_DIR}?ref=${ref}`;
   const res = await fetch(api, { headers: ghHeaders() });
   if (!res.ok) {
@@ -79,15 +106,16 @@ async function fetchManifests() {
     throw new Error(`GitHub API ${res.status} for ${api}${hint}`);
   }
   const files = await res.json();
-  const out = [];
-  for (const f of files) {
-    if (!f.name.startsWith('rq_demo_') || !f.name.endsWith('.json')) continue;
-    if (f.name.includes('schema')) continue;
+  const get = async (f) => {
     const r = await fetch(f.download_url, { headers: ghHeaders() });
     if (!r.ok) throw new Error(`fetch ${f.name}: ${r.status}`);
-    out.push(await r.json());
-  }
-  return out;
+    return r.json();
+  };
+  const manifests = [];
+  for (const f of files) if (isManifest(f.name)) manifests.push(await get(f));
+  const pathsFile = files.find((f) => f.name === PATHS_FILE);
+  if (!pathsFile) throw new Error(`${PATHS_FILE} not found on ${ref}: merge the learning paths there first`);
+  return { manifests, paths: (await get(pathsFile)).paths };
 }
 
 // Headings and running order for the manifest `category` values. Anything not
@@ -146,24 +174,93 @@ account is only needed to run on real IBM hardware.
   return md;
 }
 
+// Text from the JSON inside Markdown/MDX: characters that would start markup,
+// JSX or an expression are escaped.
+const esc = (t) => String(t).replace(/[\\`*_{}[\]<>]/g, (c) => `\\${c}`);
+
+// One step: where to start it, then what to try and what to notice. A demo
+// links to its page (or the demo list); a notebook inside a demo (a Fun with
+// Quantum game) names the demo it is in.
+function renderStep(step, i, byId) {
+  let what;
+  if (step.demo) {
+    const m = byId[step.demo];
+    if (!m) throw new Error(`learning path step "${step.name || step.demo}": no demo "${step.demo}" in the manifests`);
+    const link = pageFor(m.id) || DEMO_LIST_URL;
+    const name = step.name || m.name;
+    what = name === m.name ? `**[${esc(name)}](${link})**` : `**${esc(name)}** in [${esc(m.name)}](${link})`;
+  } else if (step.command) {
+    what = `**${esc(step.name)}** (desktop icon on the Pi)`;
+  } else {
+    what = `**[${esc(step.name)}](${step.url})** (online)`;
+  }
+  return `${i + 1}. ${what}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
+}
+
+function renderPaths(paths, manifests) {
+  const byId = Object.fromEntries(manifests.map((m) => [m.id, m]));
+  // MDX comment: invisible on the page, unlike the demo list's blockquote
+  let md = `{/* Generated by scripts/generate-demo-list.js from ${MANIFEST_DIR}/${PATHS_FILE} (${ref}). Edit that file, not this page. */}
+
+# Learning paths
+
+Short tours through the demos, each for one audience. Every step says what to
+try and what to notice. On the Pi, open the **Learning paths** icon or
+\`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** → **Learning paths
+(beta)**: it starts each demo for you. All demos are on the
+[Demo List](${DEMO_LIST_URL}).
+`;
+  for (const p of paths) {
+    const beta = p.maturity === 'beta' ? ' · <span className="beta-tag">beta</span>' : '';
+    md += `
+<div className="path-card">
+
+## ${esc(p.title)}
+
+${esc(p.audience)} · about ${p.minutes} minutes${beta}
+
+${esc(p.goal)}
+
+${p.steps.map((st, i) => renderStep(st, i, byId)).join('')}
+${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
+
+</div>
+`;
+  }
+  return md;
+}
+
 (async () => {
-  const manifests = await fetchManifests();
+  const { manifests, paths } = await fetchSources();
   if (!manifests.length) throw new Error('no manifests found — refusing to write an empty list');
-  const md = render(manifests);
+  if (!paths || !paths.length) throw new Error(`no paths in ${PATHS_FILE} — refusing to write an empty page`);
+  const outputs = [
+    [OUT, render(manifests), `demo list matches the manifests (${manifests.length} demos)`],
+    [PATHS_OUT, renderPaths(paths, manifests), `learning paths match ${PATHS_FILE} (${paths.length} paths)`],
+  ];
 
   if (check) {
-    const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-    if (current !== md) {
-      console.error('✗ 01-demo-list.md is out of date with the demo manifests.');
+    let stale = false;
+    for (const [file, md, ok] of outputs) {
+      const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+      if (current !== md) {
+        console.error(`✗ ${path.basename(file)} is out of date with ${MANIFEST_DIR}.`);
+        stale = true;
+      } else {
+        console.log(`✓ ${ok}`);
+      }
+    }
+    if (stale) {
       console.error('  Run: node scripts/generate-demo-list.js');
       process.exit(1);
     }
-    console.log(`✓ demo list matches the manifests (${manifests.length} demos)`);
     return;
   }
 
-  fs.writeFileSync(OUT, md);
-  console.log(`✓ wrote ${path.relative(process.cwd(), OUT)} (${manifests.length} demos from ${ref})`);
+  for (const [file, md] of outputs) {
+    fs.writeFileSync(file, md);
+    console.log(`✓ wrote ${path.relative(process.cwd(), file)} (from ${local || ref})`);
+  }
 })().catch((e) => {
   console.error(`✗ ${e.message}`);
   process.exit(1);
