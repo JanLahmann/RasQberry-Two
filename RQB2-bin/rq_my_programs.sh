@@ -82,12 +82,7 @@ until curl -s "http://localhost:${PORT}/" >/dev/null 2>&1; do
 done
 
 if check_display || [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    # --password-store=basic as in the other Jupyter launchers: no keyring prompt.
-    if command -v chromium-browser >/dev/null 2>&1; then
-        chromium-browser --password-store=basic "$URL" >/dev/null 2>&1 &
-    else
-        open_browser "$URL" || true
-    fi
+    open_browser "$URL" || true
 fi
 
 echo ""

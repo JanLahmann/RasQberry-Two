@@ -9,7 +9,9 @@ Tests for feedback batch C2 (2026-10-03): how demos stop, LEDs and Docker.
   offered a lower brightness - never lowered silently (item 31);
 - the consent dialog of a Docker demo says that its image stays in the
   running slot and what fits on a 16 GB card (item 32);
-- Fun with Quantum lists its notebooks from the manifest (item 10).
+- Fun with Quantum lists its notebooks from the manifest (item 10);
+- a browser tab a demo opens outlives the demo's window, which still stops
+  the demo (rig test 2026-10-04).
 """
 
 import importlib.util
@@ -505,3 +507,190 @@ def test_a_stuck_driver_is_restarted_without_a_reboot(box):
     assert (drv / "unbind").read_text().strip() == "1f00178000.pio"
     assert (drv / "bind").read_text().strip() == "1f00178000.pio"
     assert "has been restarted now" in box.wt_log.read_text()
+
+
+# --- a tab a demo opens outlives the demo's window -------------------------------
+
+# util-linux script(1) as far as it matters for a browser the demo opens: the
+# command runs on a pty of its own as that session's leader, so when it ends the
+# kernel hangs up the pty's foreground process group. Ignores SIGHUP (the
+# command does not) and passes SIGTERM on, like the real one; -e: the
+# command's exit status.
+_PTY_SCRIPT = f'''#!{sys.executable}
+import os, pty, select, signal, sys
+args, cmd, log = sys.argv[1:], None, None
+while args:
+    a = args.pop(0)
+    if a.startswith("-") and "c" in a:
+        cmd = args.pop(0)
+    elif not a.startswith("-"):
+        log = a
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
+pid, fd = pty.fork()
+if pid == 0:
+    signal.signal(signal.SIGHUP, signal.SIG_DFL)
+    os.execvp("bash", ["bash", "-c", cmd])
+signal.signal(signal.SIGTERM, lambda *_: os.kill(pid, signal.SIGTERM))
+out = open(log, "ab") if log else None
+
+def copy(timeout):
+    if not select.select([fd], [], [], timeout)[0]:
+        return False
+    try:
+        data = os.read(fd, 4096)
+    except OSError:
+        return False
+    if not data:
+        return False
+    for f in (lambda d: os.write(1, d), out and out.write):
+        try:
+            f and f(data)
+        except OSError:
+            pass
+    return True
+
+while True:
+    copy(0.1)
+    done, st = os.waitpid(pid, os.WNOHANG)
+    if done:
+        while copy(0):
+            pass
+        os.close(fd)
+        sys.exit(os.WEXITSTATUS(st) if os.WIFEXITED(st) else 128 + os.WTERMSIG(st))
+'''
+
+# util-linux setsid, where there is none (macOS)
+_SETSID = f'''#!{sys.executable}
+import os, sys
+args, wait = sys.argv[1:], False
+while args[0].startswith("-"):
+    wait = wait or args.pop(0) in ("-w", "--wait")
+if os.getpgid(0) == os.getpid():
+    pid = os.fork()
+    if pid:
+        st = os.waitpid(pid, 0)[1] if wait else 0
+        sys.exit(os.WEXITSTATUS(st) if os.WIFEXITED(st) else 1)
+os.setsid()
+os.execvp(args[0], args)
+'''
+
+_IDS = f'"{sys.executable}" -c "import os; print(os.getsid(0), os.getpgid(0))"'
+
+
+def _browser(tmp_path, stays=False):
+    """chromium-browser that takes a second to hand its address to the running
+    browser and then exits, as the real one does - or, with stays, one that
+    keeps running (no Chromium was running yet). Records its session, process
+    group and arguments."""
+    stubs = tmp_path / "stubs"
+    stubs.mkdir(exist_ok=True)
+    tail = (f'echo $$ > "{tmp_path}/browser-pid"\nexec sleep 60\n' if stays else
+            f'sleep 1\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
+    _exe(stubs / "chromium-browser", f'#!/bin/sh\n{_IDS} > "{tmp_path}/browser-ids"\n{tail}')
+    if shutil.which("setsid") is None:
+        _exe(stubs / "setsid", _SETSID)
+    return stubs
+
+
+def _ids(path):
+    return [int(v) for v in path.read_text().split()]
+
+
+def _alive(pid):
+    st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout
+    return bool(st.strip()) and not st.strip().startswith("Z")
+
+
+def _await_file(path, timeout=5):
+    end = time.time() + timeout
+    while time.time() < end and not (path.exists() and path.read_text()):
+        time.sleep(0.1)
+    return path.exists() and path.read_text()
+
+
+@needs_bash
+def test_browser_runs_outside_the_window_session_and_hands_over_first(tmp_path):
+    stubs = _browser(tmp_path)
+    p = _Pty(f'. "{_COMMON}"; {_IDS} > "{tmp_path}/caller-ids"; '
+             'rq_open_browser http://127.0.0.1:8080/ --start-fullscreen; '
+             f'[ -s "{tmp_path}/browser-args" ] && echo HANDED-OVER',
+             env={"PATH": f"{stubs}:{os.environ['PATH']}"})
+    assert p.wait() == 0
+    # it returns once the address is with the browser, not before
+    assert b"HANDED-OVER" in p.out
+    caller_sid, caller_pgid = _ids(tmp_path / "caller-ids")
+    browser_sid, browser_pgid = _ids(tmp_path / "browser-ids")
+    # neither a closed window (the session) nor a stop of the demo (its
+    # process group) reaches the browser
+    assert browser_sid != caller_sid and browser_pgid != caller_pgid
+    assert (tmp_path / "browser-args").read_text().split() == [
+        "--password-store=basic", "--start-fullscreen", "http://127.0.0.1:8080/"]
+
+
+@needs_bash
+def test_browser_from_root_goes_to_the_user_outside_the_window_session(tmp_path):
+    stubs = _browser(tmp_path)
+    _exe(stubs / "id", '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\nexec /usr/bin/id "$@"\n')
+    _exe(stubs / "sudo", f'#!/bin/sh\n{_IDS} > "{tmp_path}/sudo-ids"\n'
+                         f'printf "%s\\n" "$@" > "{tmp_path}/sudo-args"\n'
+                         'while [ "$1" != "--" ]; do shift; done\nshift\nexec "$@"\n')
+    p = _Pty(f'. "{_COMMON}"; {_IDS} > "{tmp_path}/caller-ids"; rq_open_browser http://x/',
+             env={"PATH": f"{stubs}:{os.environ['PATH']}", "SUDO_USER": "rasqberry", "DISPLAY": ":0"})
+    assert p.wait() == 0
+    assert (tmp_path / "sudo-args").read_text().split() == [
+        "-u", "rasqberry", "-H", "DISPLAY=:0", "--", "chromium-browser", "--password-store=basic", "http://x/"]
+    # sudo passes signals on to the browser: it must be outside the session too
+    assert _ids(tmp_path / "sudo-ids")[0] != _ids(tmp_path / "caller-ids")[0]
+
+
+@needs_bash
+def test_a_website_demo_opens_its_tab_from_a_desktop_icon(box):
+    # Composer and Grok Bloch online open a website and end at once. From a
+    # desktop icon (rq_hold_on_error.sh, script) the end of the demo hung up
+    # its terminal and the browser call with it, a second before the hand-off:
+    # no tab.
+    stubs = _browser(box.tmp)
+    _exe(stubs / "script", _PTY_SCRIPT)
+    _exe(stubs / "ping", "#!/bin/sh\nexit 0\n")
+    p = _Pty(f'exec bash "{_BIN}/rq_hold_on_error.sh" "{_BIN}/rq_demo_run.sh" composer',
+             env=box({"DISPLAY": ":0", "XDG_CACHE_HOME": str(box.tmp)}))
+    assert p.wait(30) == 0, p.out.decode(errors="replace")
+    assert (_await_file(box.tmp / "browser-args") or "").split() == [
+        "--password-store=basic", "https://quantum.ibm.com/composer/"]
+
+
+@needs_bash
+def test_closing_a_demo_window_stops_the_demo_not_its_browser(tmp_path):
+    # A Chromium the demo had to start (none was running): closing the window
+    # stops the demo, as every demo, and the browser stays
+    stubs = _browser(tmp_path, stays=True)
+    _exe(stubs / "script", _PTY_SCRIPT)
+    marker = tmp_path / "cleaned"
+    demo = tmp_path / "demo.sh"
+    _exe(demo, f'#!/bin/bash\n. "{_COMMON}"\n'
+               f'trap \'echo cleaned > "{marker}"; exit 143\' TERM HUP\n'
+               'RQ_BROWSER_HANDOFF_WAIT=1 rq_open_browser http://127.0.0.1:8080/\n'
+               'echo READY\nwhile :; do sleep 0.2; done\n')
+    p = _Pty(f'exec bash "{os.path.join(_BIN, "rq_hold_on_error.sh")}" "{demo}"',
+             env={"PATH": f"{stubs}:{os.environ['PATH']}", "XDG_CACHE_HOME": str(tmp_path)})
+    assert p.read_until("READY", 20)
+    browser = int(_await_file(tmp_path / "browser-pid"))
+    try:
+        os.killpg(p.pid, signal.SIGHUP)          # the window is closed
+        assert p.wait() == 143
+        assert marker.read_text().strip() == "cleaned"
+        time.sleep(1)
+        assert _alive(browser)
+    finally:
+        try:
+            os.kill(browser, signal.SIGKILL)
+        except OSError:
+            pass
+
+
+def test_demos_open_the_browser_through_one_helper():
+    # a browser started with & from a demo dies with the demo's window
+    direct = re.compile(r'^\s*(run_as_user\s+)?(chromium-browser|chromium|firefox|xdg-open)\b.*&\s*$', re.M)
+    for name in sorted(os.listdir(_BIN)):
+        if name.endswith(".sh"):
+            assert not direct.search(_read(name)), name

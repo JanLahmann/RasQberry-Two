@@ -21,7 +21,7 @@
 #   - Process: cleanup_demo_processes, setup_cleanup_trap
 #   - Paths: get_demo_dir, ensure_demo_dir
 #   - Users: get_user_name, run_as_user
-#   - Browser: open_browser
+#   - Browser: rq_open_browser, rq_show_url, open_browser
 # ============================================================================
 
 # Prevent multiple sourcing
@@ -966,30 +966,80 @@ ensure_root() {
 # 11. BROWSER LAUNCHING
 # ============================================================================
 
-# Open URL in available browser
-# Usage: open_browser "http://localhost:8080"
-open_browser() {
-    local url="$1"
-    local browsers=("chromium-browser" "firefox" "google-chrome" "xdg-open")
+# Longest wait (seconds) for the browser command to hand its address over
+RQ_BROWSER_HANDOFF_WAIT="${RQ_BROWSER_HANDOFF_WAIT:-10}"
 
-    for browser in "${browsers[@]}"; do
-        if command -v "$browser" >/dev/null 2>&1; then
-            info "Opening browser: $browser"
-
-            # Run as user if we're root
-            if [ "$(whoami)" = "root" ]; then
-                local user_name
-                user_name=$(get_user_name)
-                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' >/dev/null 2>&1 &" >/dev/null 2>&1 &
-            else
-                "$browser" "$url" &>/dev/null &
-            fi
-
+# The browser command on this Pi; fails if there is none
+_rq_find_browser() {
+    local b
+    for b in chromium-browser chromium firefox xdg-open; do
+        if command -v "$b" >/dev/null 2>&1; then
+            echo "$b"
             return 0
         fi
     done
+    return 1
+}
 
-    warn "No browser found. Please open manually: $url"
+# Open URL in the desktop user's browser, so that the tab outlives the demo
+# window that opened it. Extra arguments are Chromium flags
+# (--start-fullscreen). Prints nothing; returns 1 when there is no browser.
+#
+# A demo window is a terminal session (lxterminal; script(1) under
+# rq_hold_on_error.sh). A command started there with & stays in the
+# terminal's foreground process group, and the kernel sends that group SIGHUP
+# when the session leader ends - under rq_hold_on_error.sh, the demo itself -
+# and when the window closes. Composer and Grok Bloch online end right after
+# starting `chromium-browser URL`, so in a window of their own (an icon
+# running rq_demo_run.sh) the hangup killed it before it had handed the
+# address to the running Chromium: no tab. And a Chromium that a demo had
+# started itself (none was running) closed, all tabs, with the demo's window.
+# So the browser command gets a session of its own (setsid): no terminal, and
+# no process group that a closed window or a demo's cleanup reaches - those
+# still stop the demo's own server, LEDs and containers. This then waits until
+# the command has handed the address over and exited, at most
+# RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+# Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
+rq_open_browser() {
+    local url="$1" browser pid user_name ticks=0
+    local -a cmd
+    shift
+    browser=$(_rq_find_browser) || return 1
+    case "$browser" in
+        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
+        *)         cmd=("$browser" "$url") ;;
+    esac
+    # As the desktop user, as run_as_user does. sudo goes inside setsid: it
+    # passes the signals it gets on to the browser.
+    user_name=$(get_user_name)
+    if [ "$(id -u)" = "0" ] && [ "$user_name" != "root" ]; then
+        cmd=(sudo -u "$user_name" -H DISPLAY="${DISPLAY:-:0}" -- "${cmd[@]}")
+    fi
+    if command -v setsid >/dev/null 2>&1; then
+        # -w: should setsid have to fork (as a process group leader), $! still
+        # ends with the browser command
+        setsid -w "${cmd[@]}" </dev/null >/dev/null 2>&1 &
+    else
+        nohup "${cmd[@]}" </dev/null >/dev/null 2>&1 &
+    fi
+    pid=$!
+    while _rq_pid_alive "$pid" && [ "$ticks" -lt $((RQ_BROWSER_HANDOFF_WAIT * 5)) ]; do
+        sleep 0.2
+        ticks=$((ticks + 1))
+    done
+    _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    return 0
+}
+
+# Open URL in available browser (see rq_open_browser), or say where to go
+# Usage: open_browser "http://localhost:8080"
+open_browser() {
+    if _rq_find_browser >/dev/null; then
+        info "Opening the browser..."
+        rq_open_browser "$1"
+        return 0
+    fi
+    warn "No browser found. Please open manually: $1"
     return 1
 }
 
@@ -1718,23 +1768,20 @@ rq_docker_drop_old() {
     return 0
 }
 
-# Open URL in the desktop user's browser - or, without a screen (an SSH
-# session), say how to reach it from another computer (Jan, Q19). PORT is the
+# Open URL in the desktop user's browser (rq_open_browser: the tab stays when
+# the demo's window closes) - or, without a screen (an SSH session), say how
+# to reach it from another computer (Jan, Q19). PORT is the
 # Pi-side port behind URL, for an ssh -L tunnel to a server on 127.0.0.1.
 # Usage: rq_show_url URL [PORT]
 rq_show_url() {
-    local url="$1" port="${2:-}" browser
+    local url="$1" port="${2:-}"
     if check_display; then
-        for browser in chromium-browser chromium firefox xdg-open; do
-            command -v "$browser" >/dev/null 2>&1 || continue
+        if _rq_find_browser >/dev/null; then
             info "Opening the browser..."
-            case "$browser" in
-                chromium*) run_as_user "$browser" --password-store=basic "$url" >/dev/null 2>&1 & ;;
-                *)         run_as_user "$browser" "$url" >/dev/null 2>&1 & ;;
-            esac
-            return 0
-        done
-        info "No browser found. Open this address: $url"
+            rq_open_browser "$url"
+        else
+            info "No browser found. Open this address: $url"
+        fi
         return 0
     fi
     echo

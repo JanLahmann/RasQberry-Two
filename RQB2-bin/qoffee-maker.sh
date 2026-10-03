@@ -111,7 +111,7 @@ echo
 # Fullscreen like a kiosk (the app's own fullscreen request needs a click)
 if check_display && command -v chromium-browser >/dev/null 2>&1; then
     info "Opening the browser..."
-    run_as_user chromium-browser --password-store=basic --start-fullscreen "$JUPYTER_URL" >/dev/null 2>&1 &
+    rq_open_browser "$JUPYTER_URL" --start-fullscreen
 else
     rq_show_url "$JUPYTER_URL" "$PORT"
 fi

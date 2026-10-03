@@ -412,26 +412,28 @@ run_as_user pip install PySide6
 
 ### 11. Browser Launching
 
-#### `open_browser "url"`
-Open URL in available browser (handles root context).
+#### `rq_open_browser URL [CHROMIUM_FLAGS...]`
+Opens URL in the desktop user's browser (as that user when run as root) in a
+session of its own, so the tab stays when the demo's window closes, and
+returns once the browser command has handed the address over (at most
+`RQ_BROWSER_HANDOFF_WAIT` seconds, default 10). Prints nothing; returns 1 when
+there is no browser. `rq_show_url` (with a message, or an SSH hint without a
+screen) and `open_browser` use it.
 
 ```bash
-open_browser "http://localhost:8080"
+rq_open_browser "http://127.0.0.1:8899/" --start-fullscreen
+open_browser "http://localhost:8080"    # says "Opening the browser..." or where to go
 ```
 
-**Replaces:**
+**Never** start a browser with `&` from a demo: it stays in the window's
+process group, and the hangup when the demo ends or its window closes kills it
+before the tab opens.
 ```bash
 # OLD
-if command -v chromium-browser &> /dev/null; then
-    if [ "$(whoami)" = "root" ]; then
-        su - "$USER" -c "DISPLAY=:0 chromium-browser '$URL' &"
-    else
-        chromium-browser "$URL" &
-    fi
-fi
+run_as_user chromium-browser --password-store=basic "$URL" >/dev/null 2>&1 &
 
 # NEW
-open_browser "$URL"
+rq_open_browser "$URL"
 ```
 
 ---

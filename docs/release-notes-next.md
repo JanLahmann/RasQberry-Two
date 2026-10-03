@@ -48,6 +48,7 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 - **Grokking the Bloch Sphere** shows tips (what to try, what to notice) and a short explanation with links to IBM Quantum Learning. One menu entry, with the online version as a second choice.
 - The **Fun with Quantum** desktop icon offers the games, the website (works offline) and the family. Its website copy now includes the Workshops page.
 - Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it.
+- Website demos (Composer, Grokking the Bloch Sphere online, catalogue demos) open their tab from every icon, and closing a demo's window leaves the browser open.
 - **Quantum Demos** → **Stop Docker demos** stops the Workshop & Qiskit Server, Quantum Lab, Qoffee-Maker or Quantum Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
 - **LEDs** → **LED brightness**. If the Pi 5's LED panel stops because the power supply is too weak, RasQberry says so, restarts the LED driver and offers a lower brightness. Use the official 27 W power supply.
 - Quantum-Mixer downloads a ready image instead of building for 15-30 minutes.

@@ -85,16 +85,16 @@ check_jq() {
 # Launch browser with URL
 #
 # The browser's own console chatter ("Opening in existing browser session.")
-# went to the terminal and was drawn over the raspi-config menu (R-137).
+# went to the terminal and was drawn over the raspi-config menu (R-137), so
+# rq_open_browser keeps it quiet. It also keeps the tab when this window
+# closes: a demo that only opens a website (Composer, Grok Bloch online) ends
+# at once, and in a window of its own that took the browser call with it.
 launch_browser() {
     local url="$1"
 
-    if command -v chromium-browser &>/dev/null; then
+    if _rq_find_browser >/dev/null; then
         info "Opening browser..."
-        run_as_user chromium-browser --password-store=basic "$url" >/dev/null 2>&1 &
-    elif command -v firefox &>/dev/null; then
-        info "Opening browser..."
-        run_as_user firefox "$url" >/dev/null 2>&1 &
+        rq_open_browser "$url"
     else
         info "No browser found. Please open manually: $url"
     fi

@@ -135,25 +135,19 @@ setup_cleanup_trap cleanup
 
 # Try to open in browser.
 #
-# Fire and forget: the demo's lifetime must NOT be tied to the PID we spawn
-# here. Chromium is single-instance and autostarts on this image, so
-# `chromium-browser <url>` hands the URL to the running instance and exits at
-# once ("Opening in existing browser session."). Waiting on that PID therefore
+# The demo's lifetime must NOT be tied to the browser command. Chromium is
+# single-instance and autostarts on this image, so `chromium-browser <url>`
+# hands the URL to the running instance and exits at once ("Opening in
+# existing browser session."). Tying the demo to that command therefore
 # killed the server a second after the tab opened, and the tab it had just
 # opened showed connection refused - reliably, since Chromium is always already
 # up. An exiting launcher tells us nothing about whether the window closed, so
-# we serve until the user stops the demo instead.
+# we serve until the user stops the demo instead. rq_open_browser waits only
+# for that hand-off, and the tab stays when this window closes (the server
+# stops then).
 BROWSER_URL="http://localhost:$PORT"
 
-if command -v chromium-browser >/dev/null 2>&1; then
-    run_as_user chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
-elif command -v firefox >/dev/null 2>&1; then
-    run_as_user firefox "$BROWSER_URL" >/dev/null 2>&1 &
-elif command -v xdg-open >/dev/null 2>&1; then
-    run_as_user xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
-else
-    info "Please open $BROWSER_URL in your web browser"
-fi
+rq_open_browser "$BROWSER_URL" || info "Please open $BROWSER_URL in your web browser"
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
