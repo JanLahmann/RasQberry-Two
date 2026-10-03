@@ -13,7 +13,7 @@ The full guide (what you need, which image for which SD card, first start) is at
 
 In short: with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
 installed, use the [one-click link on rasqberry.org](https://rasqberry.org/02-software/01-installation-overview/#3-one-click-open-in-raspberry-pi-imager-recommended) to open Imager with the RasQberry images
-and pick **RasQberry Two Beta** under **Choose OS**. Alternatively start Imager with the RasQberry repository
+and pick **RasQberry Two Beta** under **OS** (any card; 128 GB A2/U3 recommended). Alternatively start Imager with the RasQberry repository
 from a terminal, e.g. on a Mac:
 
 ```bash
