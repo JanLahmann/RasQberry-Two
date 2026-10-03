@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T18:56:05Z",
+  "generated": "2026-10-03T19:04:08Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -30,25 +30,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-03-094345",
-      "name": "rasqberry-development-2026-10-03-094345",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-094345",
-      "release_date": "2026-10-03 09:43",
-      "image_download_size": 2030552064,
-      "extract_size": 9034530816,
-      "extract_sha256": "e7a534f57099cbf67e4cb0227423284722ff8a3629ce0ddb11c03ad6c49ba5d3",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345-ab.img.xz",
-      "ab_extract_sha256": "988b047a7bdac9b2ada9e9af3b21a362a576f007ff120633466924241c1fedb8",
-      "ab_image_sha256": "57a831eb6fd3ce4d68066d11b2d9e9afb4cf25e4b8b4c2319b6257e5222f38cf",
+      "tag": "development-2026-10-03-203600",
+      "name": "rasqberry-development-2026-10-03-203600",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-203600/rasqberry-development-2026-10-03-203600.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-203600",
+      "release_date": "2026-10-03 20:36",
+      "image_download_size": 2009736496,
+      "extract_size": 9076473856,
+      "extract_sha256": "95fda95ea40ee43b1059b351acee3a39ceb077f8500d1d7a3ac53a109a4bff3a",
+      "image_sha256": "59a955fd7e3a4d8e86211f8a2882ab8dce42def8b3ed6e0764f980338625ca54",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-203600/rasqberry-development-2026-10-03-203600-ab.img.xz",
+      "ab_extract_sha256": "ef6a1abe0feb9f5b04be451bf982d398155a15177f570566e0523d6b681e2418",
+      "ab_image_sha256": "0f9a17fb96b3da23d2aadd997a259beb052dfc1d470a7a6b9cb5851d09f30f04",
+      "ab_image_download_size": 2063942644,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2066591656,
       "highlights": [
-        "the Quantum-Mixer image is built in the quantum-mixer repository",
-        "Bump version to development-2026-10-03-094345",
-        "pin the Fun with Quantum website bundle (ea110b0, first published bundle)",
-        "pin the Fun with Quantum website separately from the notebooks",
-        "Fun with Quantum submenu with every game, the website offline and the family"
+        "one way to stop every demo; LED clear, Pi 5 driver stalls, Docker demos (C2)",
+        "no initramfs on the standard image's boot partition (items 37/41)",
+        "docs, mixer: \"64 GB\" with a space; \"Quantum Mixer\" in its window",
+        "Bump version to development-2026-10-03-203600",
+        "Merge branch 'dev-qiskit-server' into development (feedback C3)"
       ]
     }
   }
