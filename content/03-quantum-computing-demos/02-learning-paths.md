@@ -26,6 +26,8 @@ Light up the panel, see a qubit and lose a coin game to a quantum computer.
    - Try: Play heads or tails against a quantum computer: run each cell with Shift+Enter.
    - Notice: The quantum computer wins every game. Its trick is the H gate you just saw.
 
+**Keep going:** [Superposition & measurement](#2-superposition-measurement "Find out what the H gate did to the coin.") · [Fun with Quantum](https://fun-with-quantum.org "Play the quantum games at home, in your browser.") · [QAMPoser](https://qamposer.org "Build your own quantum circuits in the browser.")
+
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/first-15-minutes).
 
 </div>
@@ -47,6 +49,8 @@ Learn what a superposition is and what a measurement does to it.
 3. **Hardy's paradox** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
    - Try: Follow the quantum cars and run each cell with Shift+Enter.
    - Notice: Everyday logic fails: you cannot reason about a measurement that did not happen.
+
+**Keep going:** [Quantum mechanics module](https://doqumentation.org/learning/modules/quantum-mechanics "Lessons on superposition, measurement and uncertainty, with Qiskit code.") · [Basics of quantum information](https://doqumentation.org/learning/courses/basics-of-quantum-information "The full course: qubits, measurements and gates, at your own pace.") · [Entanglement](#2-entanglement "See what happens when two or three qubits share one state.")
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/superposition-and-measurement).
 
@@ -70,6 +74,8 @@ Win games that no classical team can win every time, with entangled qubits.
    - Try: Choose 1 (no entanglement), then 2 (complete entanglement).
    - Notice: Without entanglement the LEDs are random. Entangled, they all show the same result.
 
+**Keep going:** [CHSH inequality tutorial](https://doqumentation.org/tutorials/chsh-inequality "Run a Bell test on a real quantum computer.") · [Entanglement in action](https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction "Teleportation, superdense coding and the CHSH game, step by step.") · [Your first program](#2-your-first-program "Write your own entangled circuit with Qiskit.")
+
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/entanglement).
 
 </div>
@@ -92,6 +98,19 @@ Write and run a quantum circuit with Qiskit, then keep learning.
    - Try: Take a free course, for example Basics of quantum information.
    - Notice: It needs the internet. With an IBM Quantum account your code runs on real quantum computers.
 
+**Keep going:** [Qiskit 101 hands-on](https://doqumentation.org/workshop/Qiskit%20101%20Hands-on "A workshop notebook: your first circuits, a quiz and a run on real hardware.") · [Fundamentals of quantum algorithms](https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms "Query algorithms, phase estimation, factoring and Grover's search.") · [CertiQ](https://certiq.dev "Free community prep for the Qiskit developer certification (unofficial, not by IBM).")
+
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/your-first-program).
 
 </div>
+
+## Where to go next
+
+From playing to building your own:
+
+1. **Play.** Quantum games and circuits to try for yourself: [Fun with Quantum](https://fun-with-quantum.org), [QAMPoser](https://qamposer.org), [Entangible](https://entangible.org). Entangible builds a circuit from printed tiles and an iPad.
+2. **Understand.** Courses and modules on the ideas behind it: [Basics of quantum information](https://doqumentation.org/learning/courses/basics-of-quantum-information), [All courses and modules](https://doqumentation.org/learning).
+3. **Code.** Write and run your own Qiskit programs: [Hello World](https://doqumentation.org/tutorials/hello-world), [QuBins](https://qubins.org). QuBins has ready Qiskit environments: one click in Binder, or with Docker.
+4. **Real hardware.** Run your circuits on IBM quantum computers: [IBM Quantum](https://quantum.cloud.ibm.com). A free IBM Quantum account gives you time on real quantum computers.
+5. **Certify.** Prepare for the Qiskit v2.x Developer certification: [CertiQ](https://certiq.dev). CertiQ is free, machine-verified prep for IBM exam C1000-179. An unofficial community project, not affiliated with or endorsed by IBM.
+6. **Build & share.** Build a model, run a workshop, help translate: [RasQberry Two 3D model](/01-3d-model/01-bill-of-materials/), [Quantego, Qutie and more builds](https://fun-with-quantum.org/build/), [Workshops](/workshops/), [doQumentation translations](https://github.com/JanLahmann/doQumentation/blob/main/CONTRIBUTING-TRANSLATIONS.md).
