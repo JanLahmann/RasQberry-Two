@@ -34,12 +34,12 @@ automatically. To keep it as one system, create an empty file named
 1. `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates** →
    **Check for a newer image** tells you whether a new release is out. A
    terminal or SSH login also shows a one-line notice.
-2. **Slot Manager** → **Update Slot B with new image**. It downloads about
+2. **Slot Manager** → **Install an update into Slot B (testing)**. It downloads about
    1.7GB and takes 20–30 minutes, then the Pi restarts into Slot B.
 3. If Slot B starts properly, it is kept. If not, the Pi goes back to Slot A
    by itself.
-4. Once you are happy with Slot B, **Slot Manager** → **Promote Slot B to
-   Slot A** copies it to Slot A, which becomes your stable system again. Restart afterwards.
+4. Once you are happy with Slot B, **Slot Manager** → **Make Slot B the stable
+   system (copy B to A)** copies it to Slot A, which becomes your stable system again. Restart afterwards.
    The next update goes into Slot B again.
 
 Promoting replaces everything in Slot A, including the files in your home folder
@@ -60,7 +60,7 @@ home folder stay in the other slot: switch back to fetch them.
 
 ## Go back
 
-- **Use the other system:** **Slot Manager** → **Switch to Slot A** (or B).
+- **Use the other system:** **Slot Manager** → **Restart into Slot A** (or B).
 - **The Pi does not start after an update:** switch it off and on again. It
   starts the previous system.
 - **It still does not start:** put the card in a computer and open the
