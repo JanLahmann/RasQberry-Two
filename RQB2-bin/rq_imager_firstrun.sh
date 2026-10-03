@@ -23,6 +23,17 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     firstrun.sh runs once (kernel-command-line.service), removes itself and
 #     its cmdline.txt entries, and restarts the Pi.
 #
+#   First start only: Imager's customisation belongs to a newly written card.
+#   An A/B card that has started before (see AB_HISTORY) never applies it:
+#   a leftover firstrun.sh - typically on CONFIG since the card was written,
+#   as images before this one never used it - is set aside and the Pi is not
+#   restarted for it. Applied by the first start of an updated Slot B, it
+#   restarted the trial into Slot A and set the old settings again (rig,
+#   2026-10-03). The standard image has no updates in place: unchanged.
+#
+#   Restarts never change the slot that runs (restart_pi): a plain restart
+#   during an A/B trial (tryboot) starts the default slot and ends the trial.
+#
 #   The user stays "rasqberry": its home holds the demos, the Python
 #   environment and the desktop settings, which a rename would break. Imager's
 #   call to userconf goes to rq_imager_userconf.sh, which applies the password
@@ -33,7 +44,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # Environment (tests): RQ_FW_DIR (/boot/firmware), RQ_AB_CONFIG_DIR
 #   (/boot/config), RQ_BOOT_DIR (/boot), RQ_PROC_CMDLINE (/proc/cmdline),
-#   RQ_IMAGER_LOG, RQ_IMAGER_REBOOT (command that restarts the Pi)
+#   RQ_IMAGER_LOG, RQ_IMAGER_STATE (/var/lib/rasqberry), RQ_DT_BOOTLOADER_DIR
+#   (/proc/device-tree/chosen/bootloader), RQ_IMAGER_REBOOT (command that
+#   restarts the Pi; gets "0 tryboot" during a trial)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -43,9 +56,17 @@ CONFIG_DIR="${RQ_AB_CONFIG_DIR:-/boot/config}"
 BOOT_DIR="${RQ_BOOT_DIR:-/boot}"
 PROC_CMDLINE="${RQ_PROC_CMDLINE:-/proc/cmdline}"
 LOG_FILE="${RQ_IMAGER_LOG:-/var/log/rasqberry-imager.log}"
+IGNORED_DIR="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-ignored"
+DT_TRYBOOT="${RQ_DT_BOOTLOADER_DIR:-/proc/device-tree/chosen/bootloader}/tryboot"
 USERCONF_WRAPPER="/usr/bin/rq_imager_userconf.sh"
 MARK="# RasQberry: patched by rq_imager_firstrun.sh"
 RUN_ARGS="systemd.run=/boot/firmware/firstrun.sh systemd.run_success_action=reboot systemd.unit=kernel-command-line.target"
+# What the A/B code leaves on CONFIG once a card has run: an update or a
+# slot switch writes target-slot (and removes slot-confirmed); the health
+# check confirms a good start (slot-confirmed, current-slot); a rollback
+# writes current-slot. A newly written card - also one written again - has
+# none of them until its first full start.
+AB_HISTORY="target-slot slot-confirmed current-slot"
 
 log() {
     echo "rq_imager_firstrun: $*"
@@ -74,6 +95,106 @@ imager_regdom() {
     grep -o 'cfg80211\.ieee80211_regdom=[A-Za-z][A-Za-z]' "$1" 2>/dev/null | tail -n 1 || true
 }
 
+is_ab_card() { [ -f "$CONFIG_DIR/autoboot.txt" ]; }
+
+# The A/B card has started before: prints the first AB_HISTORY marker found
+ab_history() {
+    local m
+    for m in $AB_HISTORY; do
+        if [ -e "$CONFIG_DIR/$m" ]; then
+            echo "$m"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Did the firmware start this system with the tryboot flag (an A/B trial)?
+# chosen/bootloader/tryboot is a 32-bit big-endian number. Firmware that does
+# not report it: a pending switch that is not confirmed yet counts as a trial.
+this_start_is_tryboot() {
+    local hex
+    hex=$(od -An -tx1 "$DT_TRYBOOT" 2>/dev/null | tr -d ' \n' || true)
+    case "$hex" in
+        "")         [ -f "$CONFIG_DIR/target-slot" ] && [ ! -e "$CONFIG_DIR/slot-confirmed" ] ;;
+        *[1-9a-f]*) return 0 ;;
+        *)          return 1 ;;
+    esac
+}
+
+# Restart into the system that runs now. During an A/B trial a plain restart
+# starts the default slot instead and ends the trial (rig, 2026-10-03), so a
+# trial restarts with "0 tryboot", as rq_slot_manager.sh and
+# rq_tryboot_retry.sh do. Never a plain restart on a trial.
+restart_pi() {
+    local reboot_cmd="${RQ_IMAGER_REBOOT:-systemctl reboot --force}"
+    sync
+    if is_ab_card && this_start_is_tryboot; then
+        log "Restarting with tryboot: the trial of this slot goes on"
+        $reboot_cmd "0 tryboot"
+    else
+        $reboot_cmd
+    fi
+}
+
+# Imager made CONFIG/cmdline.txt (CONFIG has none) or appended to it; the
+# boot does not read it. Prints Imager's Wi-Fi country from it, then removes
+# Imager's entries (and the file when nothing else is left).
+take_config_cmdline() {
+    local f="$CONFIG_DIR/cmdline.txt"
+    [ -f "$f" ] || return 0
+    imager_regdom "$f"
+    sed -i -e 's| *systemd\.run.*||' -e 's| *cfg80211\.ieee80211_regdom=[^ ]*||g' "$f"
+    if ! grep -q '[^[:space:]]' "$f"; then
+        rm -f "$f"
+    fi
+}
+
+# A leftover firstrun.sh goes off the FAT partitions, which every user can
+# read (it holds the Wi-Fi key and the password hash): root only under
+# $IGNORED_DIR, for reference. Removed when that fails. Prints where it went.
+set_aside() {
+    local f="$1" from="$2" dest
+    dest="$IGNORED_DIR/firstrun.sh.$from.$(date '+%Y%m%d-%H%M%S')"
+    if mkdir -p "$IGNORED_DIR" 2>/dev/null && chmod 700 "$IGNORED_DIR" 2>/dev/null \
+        && mv -f "$f" "$dest" 2>/dev/null; then
+        chmod 600 "$dest" 2>/dev/null || true
+        echo "$dest"
+    else
+        rm -f "$f"
+        echo "removed"
+    fi
+}
+
+# An A/B card that has started before ($1: the marker that says so). Not for
+# this start: set Imager's files aside, no restart for them - except when
+# this very start was told to run firstrun.sh (systemd.run= in
+# /proc/cmdline): without it, it would stop at kernel-command-line.target.
+ignore_leftovers() {
+    local why="$1" f from moved="" armed=false
+    if grep -q 'systemd\.run=[^ ]*firstrun\.sh' "$PROC_CMDLINE" 2>/dev/null; then
+        armed=true
+    fi
+    for from in config boot; do
+        if [ "$from" = config ]; then f="$CONFIG_DIR/firstrun.sh"; else f="$FW_DIR/firstrun.sh"; fi
+        [ -f "$f" ] || continue
+        moved="${moved:+$moved, }$f -> $(set_aside "$f" "$from")"
+    done
+    take_config_cmdline >/dev/null
+    if grep -q 'systemd\.run=[^ ]*firstrun\.sh' "$FW_DIR/cmdline.txt" 2>/dev/null; then
+        sed -i 's| *systemd\.run=.*||' "$FW_DIR/cmdline.txt"
+    fi
+    sync
+    log "Not applied: Raspberry Pi Imager's customisation (${moved:-nothing left to move}) - it is for the first start of a newly written card, and this card has started before (CONFIG/$why)"
+    $armed || return 0
+    if grep -q 'systemd\.run=[^ ]*firstrun\.sh' "$FW_DIR/cmdline.txt" 2>/dev/null; then
+        log "WARNING: could not remove it from $FW_DIR/cmdline.txt - not restarting"
+        return 0
+    fi
+    log "This start was set to run it: restarting without it"
+    restart_pi
+}
+
 # A/B: Imager wrote to CONFIG (partition 1), which the Pi does not boot from
 move_from_config() {
     local cfg_run="$CONFIG_DIR/firstrun.sh" regdom cmd
@@ -82,16 +203,7 @@ move_from_config() {
     rm -f "$cfg_run"
     patch_firstrun "$FW_DIR/firstrun.sh"
 
-    regdom=""
-    if [ -f "$CONFIG_DIR/cmdline.txt" ]; then
-        regdom=$(imager_regdom "$CONFIG_DIR/cmdline.txt")
-        # Imager made this file (CONFIG has none) or appended to it; the boot
-        # does not read it. Keep whatever is left without Imager's entries.
-        sed -i -e 's| *systemd\.run.*||' -e 's| *cfg80211\.ieee80211_regdom=[^ ]*||g' "$CONFIG_DIR/cmdline.txt"
-        if ! grep -q '[^[:space:]]' "$CONFIG_DIR/cmdline.txt"; then
-            rm -f "$CONFIG_DIR/cmdline.txt"
-        fi
-    fi
+    regdom=$(take_config_cmdline)
 
     # This slot's cmdline.txt: Imager's Wi-Fi country, then the one-time run
     # at the end (firstrun.sh removes " systemd.run" and everything after it)
@@ -106,10 +218,16 @@ move_from_config() {
     printf '%s %s\n' "$cmd" "$RUN_ARGS" > "$FW_DIR/cmdline.txt"
     sync
     log "Restarting to apply it"
-    ${RQ_IMAGER_REBOOT:-systemctl reboot --force}
+    restart_pi
 }
 
 cmd_boot() {
+    local history
+    if is_ab_card && history=$(ab_history); then
+        ignore_leftovers "$history"
+        return 0
+    fi
+    # From here: the standard image, or the first start of a new A/B card
     if [ -f "$CONFIG_DIR/firstrun.sh" ] && [ -f "$FW_DIR/cmdline.txt" ]; then
         move_from_config
         return 0

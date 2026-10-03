@@ -70,7 +70,11 @@ copied aside and put back. Progress shows on the splash screen; the log is
 lands on CONFIG, the first FAT partition, which the Pi does not boot from.
 `rasqberry-imager-firstrun.service` moves it to BOOT-A before the layout runs and
 restarts once; the next start applies it and restarts again
-([00-firstboot-setup](../stage-RQB2/00-firstboot-setup/README.md)).
+([00-firstboot-setup](../stage-RQB2/00-firstboot-setup/README.md)). This happens
+on the first start of a newly written card only. A card that has run before
+(`target-slot`, `slot-confirmed` or `current-slot` on CONFIG) - e.g. the trial
+start of an updated slot - never applies a leftover `firstrun.sh` and never
+restarts for it: it goes to `/var/lib/rasqberry/imager-ignored/` (root only).
 
 What the card can do is `rq_expand_ab.sh mode`: `dual`, `dual-pending`, `single`,
 `single-pending` (or `standard`). The menu follows it: **Software & Image

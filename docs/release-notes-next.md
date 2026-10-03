@@ -11,7 +11,7 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 - **New default: the A/B image** [A/B default]. It holds two systems on one card: updates go into Slot B, and if the new system does not start, the Pi goes back to Slot A.
   <!-- If A/B is not the default: "The standard image stays the default. The A/B image is recommended for cards of 64 GB or more: updates install in place and you can go back." -->
 - **64 GB or larger card:** the A/B image. **16 GB or 32 GB card:** the A/B image runs as one system, or take the standard image ("single system" in Imager) [A/B default]. On a small card, a new release means writing a new card.
-- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). Without customisation: login `rasqberry`, password `Qiskit1!`.
+- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). The customisation applies at the first start of a newly written card only; an update does not apply it again. Without customisation: login `rasqberry`, password `Qiskit1!`.
 
 **First start**
 

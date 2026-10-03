@@ -77,6 +77,10 @@ when a `firstrun.sh` is on `/boot/firmware` or `/boot/config`) runs
 `/usr/bin/rq_imager_firstrun.sh boot`:
 - A/B: moves `CONFIG/firstrun.sh` to the slot's boot partition, adds Imager's
   Wi-Fi country and the one-time `systemd.run` entry to its `cmdline.txt`, and restarts.
+  First start of a newly written card only: once the card has run (`target-slot`,
+  `slot-confirmed` or `current-slot` on CONFIG), a leftover `firstrun.sh` is moved to
+  `/var/lib/rasqberry/imager-ignored/` (root only) and not applied. A restart during a
+  tryboot trial uses `0 tryboot`, never a plain restart (that would end the trial).
 - Both: points `firstrun.sh` at `/boot/firmware`, and gives the start that runs it a
   self-removing `/boot/firstrun.sh`. `kernel-command-line.service` runs it once; it
   removes itself and its `cmdline.txt` entries and restarts the Pi.
