@@ -10,8 +10,11 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   through the demo engine (rq_demo_run.sh, which asks before a first
 #   download), and its step comes back when it stops. The paths are in
 #   learning-paths.json next to the demo manifests; the website's Learning
-#   paths page is made from the same file. Opened from the RasQberry menu
-#   (Quantum Demos -> Learning paths) and from the Learning paths icon.
+#   paths page is made from the same file. After the last step, Keep going
+#   offers what to do next (another path or a page), and Where to go next
+#   lists six steps from playing to building your own. Opened from the
+#   RasQberry menu (Quantum Demos -> Learning paths) and from the Learning
+#   paths icon.
 # Usage: rq_learning_paths.sh           choose a path
 #        rq_learning_paths.sh --menu    the same, started from the RasQberry menu
 #        rq_learning_paths.sh --list    print the paths and their steps
@@ -78,6 +81,43 @@ step_info() {
     fi
 }
 
+# What comes after path INDEX (Keep going): one entry per array element.
+# N_KIND is "path" (N_TARGET = that path's index, N_NAME its title) or "url".
+# Usage: next_info INDEX  -> sets N_KIND N_TARGET N_NAME N_WHY
+next_info() {
+    local kind target name why
+    N_KIND=(); N_TARGET=(); N_NAME=(); N_WHY=()
+    while IFS="$US" read -r kind target name why; do
+        [ -n "$kind" ] || continue
+        N_KIND+=("$kind"); N_TARGET+=("$target"); N_NAME+=("$name"); N_WHY+=("$why")
+    done < <(jq -r --argjson i "$1" '.paths as $all | .paths[$i].next[]?
+        | if .path then (.path as $p | ["path", ($all | map(.id) | index($p) | tostring),
+                                        ($all[] | select(.id == $p) | .title), .why])
+          else ["url", .url, .name, .why] end
+        | join("\u001f")' "$PATHS_FILE")
+}
+
+# The rungs of Where to go next. Usage: ladder_info -> sets L_RUNG L_TEXT
+ladder_info() {
+    local rung text
+    L_RUNG=(); L_TEXT=()
+    while IFS="$US" read -r rung text; do
+        [ -n "$rung" ] || continue
+        L_RUNG+=("$rung"); L_TEXT+=("$text")
+    done < <(jq -r '.ladder[]? | [.rung, .text] | join("\u001f")' "$PATHS_FILE")
+}
+
+# The links of rung INDEX. Usage: rung_links INDEX -> sets K_NAME K_URL K_NOTE
+rung_links() {
+    local name url note
+    K_NAME=(); K_URL=(); K_NOTE=()
+    while IFS="$US" read -r name url note; do
+        [ -n "$name" ] || continue
+        K_NAME+=("$name"); K_URL+=("$url"); K_NOTE+=("$note")
+    done < <(jq -r --argjson r "$1" '.ladder[$r].links[] | [.name, .url, (.note // "")]
+        | join("\u001f")' "$PATHS_FILE")
+}
+
 # ============================================================================
 # PLAIN TEXT (--list, and without whiptail or a terminal)
 # ============================================================================
@@ -95,8 +135,28 @@ list_paths() {
             echo "     Try: $S_TRY"
             echo "     Notice: $S_NOTICE"
         done
+        next_info "$i"
+        echo "  Keep going:"
+        for ((s = 0; s < ${#N_KIND[@]}; s++)); do
+            if [ "${N_KIND[s]}" = path ]; then
+                echo "   - the path \"${N_NAME[s]}\": ${N_WHY[s]}"
+            else
+                echo "   - ${N_NAME[s]} (${N_TARGET[s]}): ${N_WHY[s]}"
+            fi
+        done
         echo
     done
+    echo "Where to go next:"
+    ladder_info
+    for ((i = 0; i < ${#L_RUNG[@]}; i++)); do
+        echo "  $((i + 1)). ${L_RUNG[i]}: ${L_TEXT[i]}"
+        rung_links "$i"
+        for ((s = 0; s < ${#K_NAME[@]}; s++)); do
+            echo "     ${K_NAME[s]} (${K_URL[s]})"
+            [ -z "${K_NOTE[s]}" ] || echo "       ${K_NOTE[s]}"
+        done
+    done
+    echo
     echo "Learning paths are new. Your feedback helps a lot: $FEEDBACK"
 }
 
@@ -145,6 +205,88 @@ feedback_notice() {
     echo "Your feedback helps a lot: ${FEEDBACK}${1:+/$1}"
 }
 
+# Open a page: the browser on the desktop, the address over SSH
+# Usage: open_page NAME URL
+open_page() {
+    clear 2>/dev/null || true
+    echo "$1: $2"
+    rq_show_url "$2"
+    pause "Press Enter to go back."
+}
+
+# ============================================================================
+# KEEP GOING AND WHERE TO GO NEXT
+# ============================================================================
+
+# Where to go next: six rungs from playing to building your own; a rung
+# shows its links, and a link opens its page.
+show_ladder() {
+    local r k choice last="" prompt
+    ladder_info
+    [ "${#L_RUNG[@]}" -gt 0 ] || return 0
+    while true; do
+        set --
+        for ((r = 0; r < ${#L_RUNG[@]}; r++)); do
+            set -- "$@" "r$r" "$((r + 1)) ${L_RUNG[r]}: ${L_TEXT[r]}"
+        done
+        choice=$(lp_menu "RasQberry: Where to Go Next" \
+            "From playing to building your own. Pick a step for its links." \
+            "Select" "Back" "$last" "$@") || return 0
+        last="$choice"
+        r="${choice#r}"
+        rung_links "$r"
+        local klast=""
+        while true; do
+            prompt="${L_RUNG[r]}: ${L_TEXT[r]}"
+            for ((k = 0; k < ${#K_NAME[@]}; k++)); do
+                [ -n "${K_NOTE[k]}" ] && prompt+=$'\n\n'"${K_NOTE[k]}"
+            done
+            set --
+            for ((k = 0; k < ${#K_NAME[@]}; k++)); do
+                set -- "$@" "k$k" "Open ${K_NAME[k]}"
+            done
+            choice=$(lp_menu "RasQberry: ${L_RUNG[r]}" "$prompt" "Open" "Back" "$klast" "$@") || break
+            klast="$choice"
+            k="${choice#k}"
+            open_page "${K_NAME[k]}" "${K_URL[k]}"
+        done
+    done
+}
+
+# Keep going after path INDEX: its next entries (another path or a page)
+# and Where to go next. Picking a path sets JUMP to it and returns.
+keep_going() {
+    local i="$1" e choice last="" prompt
+    path_info "$i"
+    next_info "$i"
+    prompt="Keep going after \"$P_TITLE\":"
+    set --
+    for ((e = 0; e < ${#N_KIND[@]}; e++)); do
+        prompt+=$'\n\n'"${N_NAME[e]}: ${N_WHY[e]}"
+        if [ "${N_KIND[e]}" = path ]; then
+            set -- "$@" "n$e" "Next path: ${N_NAME[e]}"
+        else
+            set -- "$@" "n$e" "Open ${N_NAME[e]}"
+        fi
+    done
+    set -- "$@" more "More ideas: where to go next"
+    while true; do
+        choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
+        last="$choice"
+        case "$choice" in
+            more) show_ladder ;;
+            n*)
+                e="${choice#n}"
+                if [ "${N_KIND[e]}" = path ]; then
+                    JUMP="${N_TARGET[e]}"
+                    return 0
+                fi
+                open_page "${N_NAME[e]}" "${N_TARGET[e]}"
+                ;;
+        esac
+    done
+}
+
 # ============================================================================
 # A PATH, STEP BY STEP
 # ============================================================================
@@ -179,8 +321,8 @@ start_step() {
 }
 
 # Walk path INDEX from the step it was left at. Done leaves it (the step is
-# remembered while this window is open); Finish after the last step says so
-# and invites feedback.
+# remembered while this window is open); Finish after the last step says so,
+# invites feedback and offers Keep going (which may set JUMP to another path).
 walk_path() {
     local i="$1" s default choice prompt start next back
     path_info "$i"
@@ -220,7 +362,8 @@ walk_path() {
                     echo "That was the last step of \"$P_TITLE\". Well done!"
                     echo
                     feedback_notice "$P_ID"
-                    pause "Press Enter to go back to the learning paths."
+                    pause "Press Enter to keep going."
+                    keep_going "$i"
                     return 0
                 fi
                 ;;
@@ -252,6 +395,7 @@ CLOSE="Close"
 [ "$MODE" = "--menu" ] && CLOSE="Back"
 
 declare -a LAST_STEP=()
+JUMP=""
 last=""
 while true; do
     set --
@@ -262,17 +406,28 @@ while true; do
         audience="$(printf '%s' "${P_AUDIENCE:0:1}" | tr '[:upper:]' '[:lower:]')${P_AUDIENCE:1}"
         set -- "$@" "$i" "$P_TITLE: $audience, $P_MINUTES min"
     done
-    set -- "$@" feedback "Tell us how it went (feedback)"
+    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (feedback)"
     choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break
     last="$choice"
-    if [ "$choice" = "feedback" ]; then
-        clear 2>/dev/null || true
-        feedback_notice
-        pause "Press Enter to go back to the learning paths."
-    else
-        walk_path "$choice"
-    fi
+    case "$choice" in
+        feedback)
+            clear 2>/dev/null || true
+            feedback_notice
+            pause "Press Enter to go back to the learning paths."
+            ;;
+        ladder) show_ladder ;;
+        *)
+            # Keep going may lead from one path to the next (JUMP)
+            JUMP="$choice"
+            while [ -n "$JUMP" ]; do
+                choice="$JUMP"
+                JUMP=""
+                walk_path "$choice"
+            done
+            last="$choice"
+            ;;
+    esac
 done
 exit 0

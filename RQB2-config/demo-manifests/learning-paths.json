@@ -1,5 +1,5 @@
 {
-  "_doc": "Learning paths (issue #309): short tours through the demos for one audience, read by the Pi (rq_learning_paths.sh: raspi-config -> Quantum Demos -> Learning paths, and the desktop icon) and by the website (scripts/generate-demo-list.js on gh-pages writes the Learning paths page). Fields per path: id (a-z, 0-9, -), title, audience, minutes, goal (one line), maturity (\"beta\" while new), steps (2-6). A step names what to start: demo (a manifest id, with an optional variant id), or command (an rq_*.sh tool in /usr/bin, for My Quantum Programs), or url (an outside page); name (optional for a demo, which then uses its manifest name; required for command and url); try and notice (one short line each, plain ASCII: whiptail shows them). tests/unit/test_learning_paths.py checks all of this.",
+  "_doc": "Learning paths (issue #309): short tours through the demos for one audience, read by the Pi (rq_learning_paths.sh: raspi-config -> Quantum Demos -> Learning paths, and the desktop icon) and by the website (scripts/generate-demo-list.js on gh-pages writes the Learning paths page). Fields per path: id (a-z, 0-9, -), title, audience, minutes, goal (one line), maturity (\"beta\" while new), steps (2-6). A step names what to start: demo (a manifest id, with an optional variant id), or command (an rq_*.sh tool in /usr/bin, for My Quantum Programs), or url (an outside page); name (optional for a demo, which then uses its manifest name; required for command and url); try and notice (one short line each, plain ASCII: whiptail shows them). next (2-3 entries, shown as Keep going after the last step): name, url and why (one short line), or path (the id of another path) and why. ladder (Where to go next, six rungs): rung, text (one short line) and links (1-4, each name and url, with an optional note: a sentence that names it). tests/unit/test_learning_paths.py checks all of this.",
   "paths": [
     {
       "id": "first-15-minutes",
@@ -28,6 +28,22 @@
           "name": "Quantum Coin Game",
           "try": "Play heads or tails against a quantum computer: run each cell with Shift+Enter.",
           "notice": "The quantum computer wins every game. Its trick is the H gate you just saw."
+        }
+      ],
+      "next": [
+        {
+          "path": "superposition-and-measurement",
+          "why": "Find out what the H gate did to the coin."
+        },
+        {
+          "name": "Fun with Quantum",
+          "url": "https://fun-with-quantum.org",
+          "why": "Play the quantum games at home, in your browser."
+        },
+        {
+          "name": "QAMPoser",
+          "url": "https://qamposer.org",
+          "why": "Build your own quantum circuits in the browser."
         }
       ]
     },
@@ -59,6 +75,22 @@
           "try": "Follow the quantum cars and run each cell with Shift+Enter.",
           "notice": "Everyday logic fails: you cannot reason about a measurement that did not happen."
         }
+      ],
+      "next": [
+        {
+          "name": "Quantum mechanics module",
+          "url": "https://doqumentation.org/learning/modules/quantum-mechanics",
+          "why": "Lessons on superposition, measurement and uncertainty, with Qiskit code."
+        },
+        {
+          "name": "Basics of quantum information",
+          "url": "https://doqumentation.org/learning/courses/basics-of-quantum-information",
+          "why": "The full course: qubits, measurements and gates, at your own pace."
+        },
+        {
+          "path": "entanglement",
+          "why": "See what happens when two or three qubits share one state."
+        }
       ]
     },
     {
@@ -88,6 +120,22 @@
           "try": "Choose 1 (no entanglement), then 2 (complete entanglement).",
           "notice": "Without entanglement the LEDs are random. Entangled, they all show the same result."
         }
+      ],
+      "next": [
+        {
+          "name": "CHSH inequality tutorial",
+          "url": "https://doqumentation.org/tutorials/chsh-inequality",
+          "why": "Run a Bell test on a real quantum computer."
+        },
+        {
+          "name": "Entanglement in action",
+          "url": "https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction",
+          "why": "Teleportation, superdense coding and the CHSH game, step by step."
+        },
+        {
+          "path": "your-first-program",
+          "why": "Write your own entangled circuit with Qiskit."
+        }
       ]
     },
     {
@@ -114,6 +162,117 @@
           "name": "IBM Quantum Learning",
           "try": "Take a free course, for example Basics of quantum information.",
           "notice": "It needs the internet. With an IBM Quantum account your code runs on real quantum computers."
+        }
+      ],
+      "next": [
+        {
+          "name": "Qiskit 101 hands-on",
+          "url": "https://doqumentation.org/workshop/Qiskit%20101%20Hands-on",
+          "why": "A workshop notebook: your first circuits, a quiz and a run on real hardware."
+        },
+        {
+          "name": "Fundamentals of quantum algorithms",
+          "url": "https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms",
+          "why": "Query algorithms, phase estimation, factoring and Grover's search."
+        },
+        {
+          "name": "CertiQ",
+          "url": "https://certiq.dev",
+          "why": "Free community prep for the Qiskit developer certification (unofficial, not by IBM)."
+        }
+      ]
+    }
+  ],
+  "ladder": [
+    {
+      "rung": "Play",
+      "text": "Quantum games and circuits to try for yourself",
+      "links": [
+        {
+          "name": "Fun with Quantum",
+          "url": "https://fun-with-quantum.org"
+        },
+        {
+          "name": "QAMPoser",
+          "url": "https://qamposer.org"
+        },
+        {
+          "name": "Entangible",
+          "url": "https://entangible.org",
+          "note": "Entangible builds a circuit from printed tiles and an iPad."
+        }
+      ]
+    },
+    {
+      "rung": "Understand",
+      "text": "Courses and modules on the ideas behind it",
+      "links": [
+        {
+          "name": "Basics of quantum information",
+          "url": "https://doqumentation.org/learning/courses/basics-of-quantum-information"
+        },
+        {
+          "name": "All courses and modules",
+          "url": "https://doqumentation.org/learning"
+        }
+      ]
+    },
+    {
+      "rung": "Code",
+      "text": "Write and run your own Qiskit programs",
+      "links": [
+        {
+          "name": "Hello World",
+          "url": "https://doqumentation.org/tutorials/hello-world"
+        },
+        {
+          "name": "QuBins",
+          "url": "https://qubins.org",
+          "note": "QuBins has ready Qiskit environments: one click in Binder, or with Docker."
+        }
+      ]
+    },
+    {
+      "rung": "Real hardware",
+      "text": "Run your circuits on IBM quantum computers",
+      "links": [
+        {
+          "name": "IBM Quantum",
+          "url": "https://quantum.cloud.ibm.com",
+          "note": "A free IBM Quantum account gives you time on real quantum computers."
+        }
+      ]
+    },
+    {
+      "rung": "Certify",
+      "text": "Prepare for the Qiskit v2.x Developer certification",
+      "links": [
+        {
+          "name": "CertiQ",
+          "url": "https://certiq.dev",
+          "note": "CertiQ is free, machine-verified prep for IBM exam C1000-179. An unofficial community project, not affiliated with or endorsed by IBM."
+        }
+      ]
+    },
+    {
+      "rung": "Build & share",
+      "text": "Build a model, run a workshop, help translate",
+      "links": [
+        {
+          "name": "RasQberry Two 3D model",
+          "url": "https://rasqberry.org/01-3d-model/01-bill-of-materials/"
+        },
+        {
+          "name": "Quantego, Qutie and more builds",
+          "url": "https://fun-with-quantum.org/build/"
+        },
+        {
+          "name": "Workshops",
+          "url": "https://rasqberry.org/workshops/"
+        },
+        {
+          "name": "doQumentation translations",
+          "url": "https://github.com/JanLahmann/doQumentation/blob/main/CONTRIBUTING-TRANSLATIONS.md"
         }
       ]
     }

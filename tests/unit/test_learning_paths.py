@@ -104,6 +104,47 @@ def test_hints_are_short_plain_ascii():
         assert p["goal"].isascii() and len(p["goal"]) <= 100, p["id"]
 
 
+_RUNGS = ["Play", "Understand", "Code", "Real hardware", "Certify", "Build & share"]
+
+
+def test_every_path_says_where_to_go_next():
+    ids = [p["id"] for p in _paths()]
+    for p in _paths():
+        assert 2 <= len(p.get("next", [])) <= 3, p["id"]
+        for e in p["next"]:
+            assert ("path" in e) != ("url" in e), f"{p['id']}: path or url: {e}"
+            if "path" in e:
+                assert e["path"] in ids and e["path"] != p["id"], f"{p['id']}: {e['path']}"
+            else:
+                assert e["url"].startswith("https://") and e.get("name"), f"{p['id']}: {e}"
+            why = e.get("why", "")
+            assert why.strip() and why.isascii() and len(why) <= 100, f"{p['id']}: {why}"
+
+
+def test_where_to_go_next_ladder():
+    with open(_PATHS, encoding="utf-8") as fh:
+        ladder = json.load(fh)["ladder"]
+    assert [r["rung"] for r in ladder] == _RUNGS
+    for r in ladder:
+        assert r["text"].isascii() and r["text"].strip(), r["rung"]
+        # one menu line: "N Rung: text"
+        assert len(r["rung"]) + len(r["text"]) + 4 <= 70, r["rung"]
+        assert 1 <= len(r["links"]) <= 4, r["rung"]
+        for link in r["links"]:
+            assert link.get("name") and link["url"].startswith("https://"), link
+            note = link.get("note", "")
+            assert note.isascii() and len(note) <= 140, link
+            # a sentence that names it: the website and the Pi show it alone
+            assert not note or link["name"].split()[-1] in note, link
+    # CertiQ is a community project: say so where it is offered (Jan)
+    certiq = [lk for r in ladder for lk in r["links"] if lk["name"] == "CertiQ"]
+    assert certiq and "not affiliated with or endorsed by IBM" in certiq[0]["note"]
+    for p in _paths():
+        for e in p["next"]:
+            if e.get("name") == "CertiQ":
+                assert "unofficial" in e["why"], e
+
+
 def _lines(text, width):
     return sum(len(textwrap.wrap(line, width) or [""]) for line in text.split("\n"))
 
@@ -116,6 +157,24 @@ def test_step_screens_fit_80x24():
         prompt = (p["goal"] + "\n\n" if i == 0 else "") + \
             f"Step {i + 1} of {len(p['steps'])}: {name}\n\nTry: {s['try']}\nNotice: {s['notice']}"
         assert _lines(prompt, 74) + 3 + 7 <= 24, f"{p['id']} step {i + 1}"
+
+
+def test_keep_going_and_ladder_screens_fit_80x24():
+    titles = {p["id"]: p["title"] for p in _paths()}
+    for p in _paths():
+        prompt = f'Keep going after "{p["title"]}":'
+        for e in p["next"]:
+            prompt += f"\n\n{e.get('name') or titles[e['path']]}: {e['why']}"
+        assert _lines(prompt, 74) + len(p["next"]) + 1 + 7 <= 24, p["id"]
+    with open(_PATHS, encoding="utf-8") as fh:
+        ladder = json.load(fh)["ladder"]
+    assert 2 + len(ladder) + 7 <= 24
+    for r in ladder:
+        prompt = f"{r['rung']}: {r['text']}"
+        for link in r["links"]:
+            if link.get("note"):
+                prompt += f"\n\n{link['note']}"
+        assert _lines(prompt, 74) + len(r["links"]) + 7 <= 24, r["rung"]
 
 
 # --- where it is offered ----------------------------------------------------------
@@ -217,7 +276,8 @@ def _arg(call, option):
 @needs_bash
 def test_walk_a_path_start_next_back_finish(tmp_path):
     replies = ["0", "start", "next", "back", "next", "next", "next",   # path 1
-               "3", "start", "next", "next", "start", "ESC",                   # path 4, URL step
+               "ESC",                                                   # Keep going: Done
+               "3", "start", "next", "next", "start", "ESC",            # path 4, URL step
                "ESC"]
     proc, calls, started = _walk(tmp_path, replies)
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -229,7 +289,7 @@ def test_walk_a_path_start_next_back_finish(tmp_path):
     # the list: one entry per path, then feedback; Close on the desktop
     assert _arg(calls[0], "--cancel-button") == "Close"
     assert "First 15 minutes: visitors at a stand, 15 min" in calls[0]
-    assert "feedback" in calls[0]
+    assert "feedback" in calls[0] and "ladder" in calls[0]
     # step 1: the goal, the step, the hints; no Back yet
     step1 = calls[1][calls[1].index("--menu") + 1]
     assert paths[0]["goal"] in step1 and "Step 1 of 3: IBM LED Demo" in step1
@@ -245,7 +305,8 @@ def test_walk_a_path_start_next_back_finish(tmp_path):
     assert 'That was the last step of "First 15 minutes"' in proc.stdout
     assert "&demo=learning-paths/first-15-minutes" in proc.stdout
     # the URL step: no screen here, so the address is shown
-    assert "Open IBM Quantum Learning" in calls[11]
+    assert _arg(calls[7], "--title") == "RasQberry: Keep Going"
+    assert "Open IBM Quantum Learning" in calls[12]
     assert "https://quantum.cloud.ibm.com/learning" in proc.stdout
 
 
@@ -271,3 +332,47 @@ def test_after_a_failed_start_the_step_offers_start_again(tmp_path):
     assert started == ["rq_demo_run.sh grok-bloch local"]
     assert "It stopped with an error" in proc.stderr + proc.stdout
     assert _arg(calls[2], "--default-item") == "start"
+
+
+
+@needs_bash
+def test_finish_keep_going_and_where_to_go_next(tmp_path):
+    replies = ["2", "next", "next", "next",      # Entanglement to the end
+               "n0",                             # Keep going: open the CHSH tutorial
+               "more", "r4", "k0", "ESC", "ESC",  # Where to go next: Certify, CertiQ
+               "n2",                             # Keep going: the next path
+               "ESC", "ESC"]                     # Done, Close
+    proc, calls, _ = _walk(tmp_path, replies)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    for call in calls:
+        menu = call.index("--menu")
+        assert int(call[menu + 2]) <= 24 and int(call[menu + 3]) <= 80, call
+    keep = calls[4]
+    assert _arg(keep, "--title") == "RasQberry: Keep Going" and _arg(keep, "--cancel-button") == "Done"
+    prompt = keep[keep.index("--menu") + 1]
+    for e in _paths()[2]["next"]:
+        assert e["why"] in prompt
+    assert "Open CHSH inequality tutorial" in keep and "Next path: Your first program" in keep
+    assert "More ideas: where to go next" in keep
+    # a page: no screen here, so the address is printed
+    assert "https://doqumentation.org/tutorials/chsh-inequality" in proc.stdout
+    ladder = calls[6]
+    assert _arg(ladder, "--title") == "RasQberry: Where to Go Next"
+    assert "5 Certify: Prepare for the Qiskit v2.x Developer certification" in ladder
+    certify = calls[7]
+    assert "not affiliated with or endorsed by IBM" in certify[certify.index("--menu") + 1]
+    assert "Open CertiQ" in certify and "https://certiq.dev" in proc.stdout
+    # the next path starts at its first step
+    step = calls[11]
+    assert _arg(step, "--title") == "RasQberry: Your first program (beta)"
+    assert "Step 1 of 3: My Quantum Programs" in step[step.index("--menu") + 1]
+
+
+@needs_bash
+def test_where_to_go_next_from_the_list(tmp_path):
+    proc, calls, _ = _walk(tmp_path, ["ladder", "r0", "k1", "ESC", "ESC", "ESC"])
+    assert proc.returncode == 0, proc.stderr
+    assert _arg(calls[1], "--title") == "RasQberry: Where to Go Next"
+    assert _arg(calls[2], "--title") == "RasQberry: Play"
+    assert "https://qamposer.org" in proc.stdout
+    assert _arg(calls[4], "--title") == "RasQberry: Where to Go Next"
