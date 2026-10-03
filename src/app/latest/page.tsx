@@ -225,7 +225,7 @@ export default function LatestPage() {
       </p>
       <p style={{ marginBottom: '1rem' }}>
         <a href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" style={{ ...buttonStyle, background: 'linear-gradient(45deg, #0f62fe, #9b5cff)', fontWeight: 600 }}>
-          ▶ Open in Raspberry Pi Imager
+          ▶ Write RasQberry Two to your SD card
         </a>
       </p>
       <p style={{ color: '#666', marginBottom: '2rem' }}>

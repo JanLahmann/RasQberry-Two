@@ -45,6 +45,13 @@ export function compileMdPage(content: string) {
       table: ({ children }) => <Table>{children}</Table>,
       img: ({ src, alt, title }) => <Img src={src} alt={alt} title={title} />,
       blockquote: ({ children }) => <Blockquote>{children}</Blockquote>,
+      // External links (other sites) open in a new tab; links within rasqberry.org stay in place
+      a: ({ href, children, ...rest }) => {
+        const external = typeof href === 'string' && /^https?:\/\//i.test(href) && !/^https?:\/\/(www\.)?rasqberry\.org(\/|$)/i.test(href)
+        return external
+          ? <a href={href} target="_blank" rel="noopener noreferrer" {...rest}>{children}</a>
+          : <a href={href} {...rest}>{children}</a>
+      },
       // content/workshops.md; settings in src/data/events.ts
       EventsEmail,
       Qdc2025,

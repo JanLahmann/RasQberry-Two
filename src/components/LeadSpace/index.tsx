@@ -13,6 +13,8 @@ interface CTA {
     url: string
     icon?: string
     target?: '_blank'
+    // "gradient": the site-wide call-to-action button (a.cta-button), e.g. "Write RasQberry Two to your SD card"
+    style?: 'gradient'
 }
 
 export interface Props {
@@ -49,11 +51,13 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'ligh
                 <Column sm={4} md={6} lg={8}>
                     {copy && <div dangerouslySetInnerHTML={{ __html: copy }}></div>}
                     {cta && (<div className={styles['lead-space__content__bottom__cta']}>
-                        <Link href={cta.primary.url} target={cta.primary.target || '_self'}>
-                            <Button renderIcon={primaryIcon}>
-                                {cta.primary.label}
-                            </Button>
-                        </Link>
+                        {cta.primary.style === 'gradient'
+                            ? <a className="cta-button" href={cta.primary.url} target={cta.primary.target || '_self'}>▶ {cta.primary.label}</a>
+                            : <Link href={cta.primary.url} target={cta.primary.target || '_self'}>
+                                <Button renderIcon={primaryIcon}>
+                                    {cta.primary.label}
+                                </Button>
+                            </Link>}
                         {cta.secondary && <Link renderIcon={secondaryIcon} href={cta.secondary.url} target={cta.secondary.target || '_self'}>{cta.secondary.label}</Link>}
                         {cta.tertiary && <Link renderIcon={tertiaryIcon} href={cta.tertiary.url} target={cta.tertiary.target || '_self'}>{cta.tertiary.label}</Link>}
                     </div>

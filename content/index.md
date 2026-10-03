@@ -6,8 +6,9 @@ leadspace:
   size: tall
   cta:
     primary:
-      label: Open in Raspberry Pi Imager
+      label: Write RasQberry Two to your SD card
       url: "rpi-imager://open?repo=https://RasQberry.org/RQB-images.json"
+      style: gradient
     secondary:
       label: Get started
       url: /#2-getting-started
