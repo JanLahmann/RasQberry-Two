@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T23:34:29Z",
+  "generated": "2026-10-03T23:35:11Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -38,12 +38,11 @@
       "image_download_size": 2011420600,
       "extract_size": 9076473856,
       "extract_sha256": "6452e8b9cb1f291ccaa62160b044b4b86072e17747e3c07f5a137862271a7d3e",
-      "image_sha256": "f4ae31e730bec3d53dcd13a26157a35020711a38ffe75797af60d5ab8d8a849c",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-011708/rasqberry-development-2026-10-04-011708-ab.img.xz",
       "ab_extract_sha256": "94debaf4123e91e67b66d4de739fe690c469614c4cb9c8deba46bf9c8ab7f463",
       "ab_image_sha256": "6d1953013b2150de42ae6524dc7b101a3dbd5ccf13a05e03bce5cc728f2608b6",
-      "ab_image_download_size": 2062926972,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2062926972,
       "highlights": [
         "serve the local page with one thread per connection",
         "a browser tab a demo opens outlives the demo's window",
