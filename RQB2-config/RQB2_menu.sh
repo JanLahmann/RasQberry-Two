@@ -2352,12 +2352,14 @@ do_touch_mode_menu() {
 
         case "$FUN" in
             ENABLE)
-                "$BIN_DIR/rq_touch_mode.sh" enable
+                # --no-restart: the script must not end the desktop under this
+                # menu; offer_desktop_restart asks first (R-032)
+                "$BIN_DIR/rq_touch_mode.sh" enable --no-restart >/dev/null
                 current_status="enabled"
                 offer_desktop_restart
                 ;;
             DISABLE)
-                "$BIN_DIR/rq_touch_mode.sh" disable
+                "$BIN_DIR/rq_touch_mode.sh" disable --no-restart >/dev/null
                 current_status="disabled"
                 offer_desktop_restart
                 ;;
@@ -2374,13 +2376,16 @@ do_touch_mode_menu() {
 }
 
 # Offer to restart the desktop session
+# (restarting lightdm logs the desktop user straight back in and leaves SSH
+# sessions alone; ending the session left the password screen, R-149)
 offer_desktop_restart() {
-    if whiptail --title "Restart Desktop?" --yesno \
-        "Touch mode settings have been changed.\n\nRestart desktop session now for all changes to take effect?\n\n(You can also logout/login manually later)" \
-        12 60; then
-        whiptail --title "Restarting..." --infobox "Restarting desktop session..." 6 40
+    systemctl is-active --quiet lightdm 2>/dev/null || return 0
+    if whiptail --title "Restart the desktop?" --yesno \
+        "Touch mode changes when the desktop restarts.\n\nRestart it now? All windows on the desktop close, this one too if it is on the desktop. SSH stays connected.\n\nOr later: at the next login." \
+        13 64; then
+        whiptail --title "Restarting..." --infobox "Restarting the desktop..." 6 40
         sleep 2
-        systemctl restart lightdm 2>/dev/null || true
+        systemctl --no-block restart lightdm 2>/dev/null || true
     fi
 }
 
