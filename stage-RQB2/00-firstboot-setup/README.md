@@ -63,6 +63,32 @@ Automatically expands the root filesystem to fill the entire SD card on first bo
 - Logs to journal+console for visibility
 - Enabled to run at sysinit.target (listed in `RQB2-system/enabled-units.txt`)
 
+#### 5. Raspberry Pi Imager's OS customisation
+
+Imager (`init_format` `systemd`) writes `firstrun.sh` - Wi-Fi, keyboard and time
+zone, SSH key, password, hostname - into the FIRST FAT partition and appends
+`systemd.run=/boot/firstrun.sh ... systemd.unit=kernel-command-line.target` to its
+`cmdline.txt`. Raspberry Pi OS bookworm makes that path work in its initramfs
+(`imager_fixup`); RasQberry images have no initramfs, and on the A/B image the
+first FAT partition is CONFIG, which the Pi does not boot from.
+
+**Service** `rasqberry-imager-firstrun.service` (early, before `sysinit.target`, only
+when a `firstrun.sh` is on `/boot/firmware` or `/boot/config`) runs
+`/usr/bin/rq_imager_firstrun.sh boot`:
+- A/B: moves `CONFIG/firstrun.sh` to the slot's boot partition, adds Imager's
+  Wi-Fi country and the one-time `systemd.run` entry to its `cmdline.txt`, and restarts.
+- Both: points `firstrun.sh` at `/boot/firmware`, and gives the start that runs it a
+  self-removing `/boot/firstrun.sh`. `kernel-command-line.service` runs it once; it
+  removes itself and its `cmdline.txt` entries and restarts the Pi.
+- The user stays `rasqberry`: Imager's call to `userconf` goes to
+  `/usr/bin/rq_imager_userconf.sh`, which sets the password for `rasqberry` instead of
+  renaming the user (Imager renames to `pi` when it has an SSH key but no user name),
+  logs a different requested name (`/var/lib/rasqberry/imager-user-requested`,
+  `/var/log/rasqberry-imager.log`) and keeps the desktop autologin.
+
+The first-boot runner skips its tasks in that start (`systemd.run=` on the kernel
+command line): the root expansion's restart would cut `firstrun.sh` off.
+
 ## Files Installed
 
 ```
@@ -71,6 +97,8 @@ Automatically expands the root filesystem to fill the entire SD card on first bo
 /usr/local/bin/rasqberry-enable-vnc.sh                      # VNC enablement
 /etc/xdg/autostart/rasqberry-enable-vnc.desktop             # VNC autostart
 /etc/systemd/system/rasqberry-firstboot.service             # Systemd service
+/etc/systemd/system/rasqberry-imager-firstrun.service       # Imager customisation
+/usr/bin/rq_imager_firstrun.sh, rq_imager_userconf.sh       # (from RQB2-bin)
 /var/lib/rasqberry-firstboot/                               # Completion markers
 ```
 

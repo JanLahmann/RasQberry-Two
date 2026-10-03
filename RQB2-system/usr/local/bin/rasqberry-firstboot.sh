@@ -8,6 +8,16 @@ REBOOT_REQUESTED=0
 
 echo "=== RasQberry First Boot Task Runner ==="
 
+# A start that runs Raspberry Pi Imager's customisation (systemd.run=, see
+# rasqberry-imager-firstrun.service) restarts the Pi when firstrun.sh is done.
+# A task's own restart (the root expansion) would cut firstrun.sh off half-way
+# - e.g. in the middle of setting the password - so the tasks wait for the
+# next start.
+if grep -q 'systemd\.run=' "${RQ_PROC_CMDLINE:-/proc/cmdline}" 2>/dev/null; then
+    echo "Imager customisation runs in this start; first-boot tasks run at the next start"
+    exit 0
+fi
+
 # Run each task in order
 for task in "$TASK_DIR"/*; do
     [ -f "$task" ] || continue

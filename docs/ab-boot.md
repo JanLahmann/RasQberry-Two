@@ -66,6 +66,12 @@ while Slot A is mounted. The little on the placeholder DATA (LED settings) is
 copied aside and put back. Progress shows on the splash screen; the log is
 `/var/log/rasqberry-expand.log`.
 
+**Raspberry Pi Imager's OS customisation** (Wi-Fi, keyboard, SSH key, password)
+lands on CONFIG, the first FAT partition, which the Pi does not boot from.
+`rasqberry-imager-firstrun.service` moves it to BOOT-A before the layout runs and
+restarts once; the next start applies it and restarts again
+([00-firstboot-setup](../stage-RQB2/00-firstboot-setup/README.md)).
+
 What the card can do is `rq_expand_ab.sh mode`: `dual`, `dual-pending`, `single`,
 `single-pending` (or `standard`). The menu follows it: **Software & Image
 Updates** shows the **Slot Manager** only with two systems, **Prepare the card
