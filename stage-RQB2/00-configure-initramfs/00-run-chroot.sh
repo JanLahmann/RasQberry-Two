@@ -37,9 +37,12 @@ EOF
 # Check if we should skip initramfs
 if [ "$INITRD" = "No" ]; then
     echo "Skipping initramfs generation (INITRD=No via RasQberry config)"
-    # Remove any existing initramfs to save space
-    rm -f /boot/initrd* /boot/initramfs* 2>/dev/null || true
-    # Exit successfully to prevent other scripts from running
+    # Remove initramfs files a kernel update left: the kernel's copy in /boot
+    # and the firmware's copy on the boot partition (the firmware loads that
+    # one at every start while config.txt has auto_initramfs=1)
+    rm -f /boot/initrd* /boot/initramfs* /boot/firmware/initramfs* 2>/dev/null || true
+    # exit 0 ends only this hook: run-parts still runs the other
+    # postinst.d scripts (the update-initramfs no-op, z50-raspi-firmware)
     exit 0
 fi
 EOF
@@ -76,8 +79,15 @@ EOF
         chmod +x /usr/sbin/mkinitramfs
     fi
 
-    # Method 6: Remove any initramfs files that might already exist
-    rm -f /boot/initrd* /boot/initramfs* 2>/dev/null || true
+    # Method 6: Remove any initramfs files that might already exist. pi-gen's
+    # kernel install (stage 2) already put initramfs8 / initramfs_2712 on the
+    # boot partition; with auto_initramfs=1 the firmware loaded that stale
+    # copy at every start and never updated it (feedback items 37/41). Same
+    # as convert-to-ab-boot-v3.sh step 10 does for the A/B image.
+    rm -f /boot/initrd* /boot/initramfs* /boot/firmware/initramfs* 2>/dev/null || true
+    if [ -f /boot/firmware/config.txt ]; then
+        sed -i '/^auto_initramfs=/d; /^initramfs /d' /boot/firmware/config.txt
+    fi
 
     echo "Standard Raspberry Pi initramfs disable method applied successfully"
     
