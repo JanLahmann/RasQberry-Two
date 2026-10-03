@@ -29,8 +29,11 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   # Virtual environment exists, activate it
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 
-  # Verify Qiskit is installed
-  if ! pip show qiskit > /dev/null 2>&1; then
+  # Verify Qiskit is installed. Every terminal and SSH login runs this: a file
+  # test takes milliseconds, `pip show` seconds on a Pi 4 (R-091), so pip only
+  # decides when the file test misses - before the venv is rebuilt.
+  if ! compgen -G "$HOME/$REPO/venv/$STD_VENV/lib/python3*/site-packages/qiskit-*.dist-info" > /dev/null \
+      && ! pip show qiskit > /dev/null 2>&1; then
     # Qiskit missing - recreate venv from template
     echo "Qiskit not found in venv, recreating from template..."
     deactivate

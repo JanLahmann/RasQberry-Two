@@ -1,0 +1,40 @@
+#!/bin/bash
+# RasQberry: scroll the address on the LEDs again when it changes (R-016)
+#
+# NetworkManager runs this as root with <interface> <action> after a network
+# change. The scroll at start-up (rasqberry-ip-display.service) runs once, and
+# a Pi that joins Wi-Fi later - or gets a cable plugged in - never showed its
+# new address. This starts the scroll again, but:
+#   - not before that first scroll ran (it writes /run/rasqberry/ip-shown, and
+#     will show the address itself),
+#   - not for addresses it already showed,
+#   - not while a demo has the LED panel,
+#   - not when the service was switched off.
+# Environment (tests): RQ_IP_SHOWN, RQ_CLEAR_LEDS
+
+iface="${1:-}"
+action="${2:-}"
+SHOWN="${RQ_IP_SHOWN:-/run/rasqberry/ip-shown}"
+CLEAR_LEDS="${RQ_CLEAR_LEDS:-/usr/bin/rq_clear_leds.sh}"
+
+case "$action" in up|dhcp4-change) ;; *) exit 0 ;; esac
+case "$iface" in ""|lo|docker*|br-*|veth*) exit 0 ;; esac
+[ -e "$SHOWN" ] || exit 0
+systemctl is-enabled --quiet rasqberry-ip-display.service 2>/dev/null || exit 0
+
+# The same addresses rq_display_ip.py shows, one per line, sorted
+now=$(ip -4 -o addr show 2>/dev/null \
+    | awk '$2 !~ /^(lo|docker|br-|veth)/ { split($4, a, "/"); print a[1] }' \
+    | grep -vE '^(127|169\.254)\.' | sort -u)
+[ -n "$now" ] || exit 0
+[ "$now" = "$(cat "$SHOWN" 2>/dev/null)" ] && exit 0
+
+# A demo on the panel keeps it; a running address scroll is replaced
+if [ -x "$CLEAR_LEDS" ]; then
+    others=$("$CLEAR_LEDS" --holders 2>/dev/null | grep -v "IP address scroll" || true)
+    [ -z "$others" ] || exit 0
+fi
+
+logger -t rasqberry-ip-display "new address on $iface ($action): scrolling it on the LEDs" 2>/dev/null || true
+systemctl restart --no-block rasqberry-ip-display.service 2>/dev/null || true
+exit 0

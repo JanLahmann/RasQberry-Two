@@ -6,7 +6,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # ============================================================================
 # Description: Prints what this image is and where it was built from
 #   (/etc/rasqberry-build.json, written by the image build), plus what can
-#   only be known at runtime: image type, booted A/B slot, Pi model.
+#   only be known at runtime: image type, booted A/B slot, Pi model - and
+#   how to reach this Pi and how it is doing (R-016, R-112): name, address,
+#   power, temperature, memory and free space.
 # Usage: rq_info.sh            human-readable
 #        rq_info.sh --json     build metadata plus runtime fields as JSON
 #        rq_info.sh --report   save this, disk space, demos and recent logs to
@@ -44,7 +46,62 @@ describe() {
         *)          echo "$1" ;;
     esac
 }
-model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || uname -m)
+model=$( (tr -d '\0' < /proc/device-tree/model) 2>/dev/null || uname -m)
+
+# ---------------------------------------------------------------------------
+# Reaching this Pi, and how it is doing
+# ---------------------------------------------------------------------------
+here="$(dirname "$0")"
+remote="$here/rq_remote_access.sh"
+[ -x "$remote" ] || remote=/usr/bin/rq_remote_access.sh
+host_name=$(hostname 2>/dev/null || echo unknown)
+mdns=""
+addrs=""
+if [ -x "$remote" ]; then
+    mdns=$("$remote" mdns 2>/dev/null || true)
+    addrs=$("$remote" address 2>/dev/null | awk '{ printf "%s%s (%s)", sep, $2, $1; sep = ", " }' || true)
+fi
+[ -n "$mdns" ] || mdns="$host_name.local"
+
+# vcgencmd get_throttled: bit 0 under-voltage now, bit 16 since start-up,
+# bit 3 / 19 the temperature limit now / since start-up
+throttled=""
+command -v vcgencmd >/dev/null 2>&1 \
+    && throttled=$(vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p' || true)
+power_text() {
+    local t="$1" v
+    case "$t" in 0x[0-9a-fA-F]*) v=$((t)) ;; *) echo "unknown"; return 0 ;; esac
+    if (( v & 0x1 )); then
+        echo "UNDER-VOLTAGE now - use the official power supply"
+    elif (( v & 0x10000 )); then
+        echo "under-voltage since start-up - use the official power supply"
+    else
+        echo "OK"
+    fi
+}
+# Pi 5: the supply says how much it can give (5000 mA = the 27 W supply)
+supply_note=""
+if [ -r /proc/device-tree/chosen/power/max_current ]; then
+    ma=$(od -An -tx1 /proc/device-tree/chosen/power/max_current 2>/dev/null | tr -d ' \n' || true)
+    if [ -n "$ma" ] && [ $((16#$ma)) -gt 0 ] && [ $((16#$ma)) -lt 5000 ]; then
+        supply_note=" (supply gives $((16#$ma)) mA; the 27 W supply gives 5000)"
+    fi
+fi
+temp_c=""
+if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+    temp_c=$(( $(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0) / 1000 ))
+fi
+temp_note=""
+case "$throttled" in
+    0x[0-9a-fA-F]*) (( throttled & 0x80008 )) && temp_note=" - too hot, slowed down" ;;
+esac
+mem_used=""; mem_total=""
+if [ -r /proc/meminfo ]; then
+    mem_total=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
+    mem_used=$(awk '/^MemTotal:/ { t = $2 } /^MemAvailable:/ { a = $2 } END { print t - a }' /proc/meminfo)
+fi
+gb() { awk -v k="$1" 'BEGIN { printf "%.1f GB", k / 1048576 }'; }
+disk=$(df -Pk / 2>/dev/null | awk 'NR == 2 { print $4, $2 }' || true)
 version=$(field version)
 [ -n "$version" ] || version=$(cat /etc/rasqberry-version 2>/dev/null || echo unknown)
 
@@ -95,11 +152,24 @@ if [ "${1:-}" = "--json" ]; then
     [ -f "$BUILD_JSON" ] && base=$(cat "$BUILD_JSON")
     echo "$base" | jq --arg t "$image_type" --arg s "$slot" --arg m "$model" --arg k "$(uname -r)" \
         --arg a "$slot_a" --arg b "$slot_b" \
-        '. + {image_type: $t, current_slot: $s, model: $m, running_kernel: $k}
+        --arg hn "$host_name" --arg md "$mdns" --arg ip "$addrs" --arg th "$throttled" \
+        --arg pw "$(power_text "$throttled")" --arg tc "$temp_c" \
+        --arg mu "$mem_used" --arg mt "$mem_total" --arg df "$disk" \
+        '. + {image_type: $t, current_slot: $s, model: $m, running_kernel: $k,
+              hostname: $hn, mdns_name: $md, addresses: $ip, throttled: $th, power: $pw,
+              temperature_c: $tc, mem_used_kb: $mu, mem_total_kb: $mt,
+              root_free_kb: ($df | split(" ")[0] // ""), root_size_kb: ($df | split(" ")[1] // "")}
          + (if $t == "A/B" then {slot_a: $a, slot_b: $b} else {} end)'
     exit 0
 fi
 
+echo "Name:              $host_name (network: $mdns)"
+echo "Address:           ${addrs:-none - not connected}"
+echo "Power:             $(power_text "$throttled")$supply_note"
+[ -n "$temp_c" ] && echo "Temperature:       ${temp_c} °C$temp_note"
+[ -n "$mem_total" ] && echo "Memory:            $(gb "$mem_used") of $(gb "$mem_total") in use"
+[ -n "$disk" ] && echo "Free space:        $(gb "${disk% *}") of $(gb "${disk#* }")"
+echo
 echo "RasQberry version: $version"
 if [ -f "$BUILD_JSON" ]; then
     echo "Built:             $(field build_timestamp)"
