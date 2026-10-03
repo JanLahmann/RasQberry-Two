@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
+# ============================================================================
+# RasQberry: rq_help - the commands meant for you, one line each (R-139)
+# ============================================================================
+# Description: About 80 rq_* and helper files are on PATH; most are used by
+#   the menu, the desktop icons and the system. This lists the ones to type.
+#   (Jan, Q20: the scripts stay where they are, rq_help is the front door.)
+# Usage: rq_help
+
+MANIFESTS="${RQ_MANIFEST_DIR:-/usr/config/demo-manifests}"
+
+cat <<'EOF'
+RasQberry Two commands (sudo = run as administrator)
+
+Menu and setup
+  sudo raspi-config             the menu: 0 RasQberry (demos, setup, updates)
+  rq_firstlogin.sh --all        the setup checklist
+  rq_info.sh                    name, address, power and version
+  rq_info.sh --report           a file to attach to a bug report
+  rq_remote_access.sh status    SSH and VNC on or off, this Pi's name
+  sudo rq_remote_access.sh ...  ssh on|off, vnc on|off, name NEW
+  passwd                        change your password
+
+Demos
+  rq_demo_run.sh <demo>         start a demo (names below)
+  rq_download_all.sh            download all demos now
+  rq_demo_remove.sh             remove a downloaded demo
+  sudo rq_demo_loop.sh          run demos one after another (booth)
+
+LED panel
+  sudo rq_led_setup_wizard.sh   which panel, which way up
+  sudo rq_clear_leds.sh         LEDs off (--stop: stop what uses them)
+  sudo rq_led_display_text.sh   show your own text
+  sudo rq_led_test.sh           test the LEDs
+
+Programming
+  rq_python program.py          Python with Qiskit and the LED helpers
+  rq_my_programs.sh             JupyterLab in ~/My-Quantum-Programs
+  rq_venv_repair.sh             check and repair the Python environment
+
+System
+  rq_update_check.sh            is there a newer RasQberry Two image?
+  rq_touch_mode.sh status       touch mode (enable | disable)
+  sudo rq_slot_manager.sh status   A/B image: what is in Slot A and B
+EOF
+
+demos=""
+for f in "$MANIFESTS"/rq_demo_*.json; do
+    [ -e "$f" ] || continue
+    id=$(basename "$f" .json)
+    id="${id#rq_demo_}"
+    [ "$id" = schema ] && continue
+    demos="${demos:+$demos }$id"
+done
+if [ -n "$demos" ]; then
+    echo
+    echo "Demo names:"
+    echo "$demos" | fold -s -w 76 | sed -e 's/ *$//' -e 's/^/  /'
+fi

@@ -172,8 +172,8 @@ task_led_run()     { "$BIN_DIR/rq_led_setup_wizard.sh" --verify; }
 # ---------------------------------------------------------------------------
 # Every card starts with the published password, and SSH and VNC accept it
 # (R-013). A booth or a classroom may want to keep it; anyone else should
-# change it. This step only asks - remote access and security as a whole are
-# batch B7.
+# change it. This step only asks; SSH, VNC and the password are all in the
+# menu's Remote Access & Security (rq_remote_access.sh).
 DEMO_PASSWORD='Qiskit1!'
 PASSWORD_KEPT_FILE="$STATE_DIR/demo-password-kept"
 
@@ -214,7 +214,7 @@ At a booth or in a classroom you may want to keep it." 15 74 2 \
         keep)
             mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F' > "$PASSWORD_KEPT_FILE"
             whiptail --title "Password" --msgbox \
-"The demo password stays. To change it later: this checklist, or type passwd in a terminal." 9 70
+"The demo password stays. To change it later: this checklist, the menu's Remote Access & Security, or passwd in a terminal." 9 70
             ;;
         change)
             clear
@@ -230,6 +230,81 @@ At a booth or in a classroom you may want to keep it." 15 74 2 \
             fi
             ;;
     esac
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Task: keyboard layout and time zone (R-005)
+# ---------------------------------------------------------------------------
+# The image is set up for the UK. On a UK layout, US and German keyboards type
+# some keys wrongly - in a Wi-Fi password, too - so this comes first. Pending
+# while both are still the image's and the step was not answered.
+LOCALE_DONE_FILE="$STATE_DIR/keyboard-timezone-set"
+KEYBOARD_FILE="${RQ_KEYBOARD_FILE:-/etc/default/keyboard}"
+TIMEZONE_FILE="${RQ_TIMEZONE_FILE:-/etc/timezone}"
+kb_layout() { sed -n 's/^XKBLAYOUT="\{0,1\}\([^"]*\)"\{0,1\}/\1/p' "$KEYBOARD_FILE" 2>/dev/null | head -n 1; }
+time_zone() { cat "$TIMEZONE_FILE" 2>/dev/null || echo unknown; }
+task_locale_applies() { [ -f "$KEYBOARD_FILE" ]; }
+task_locale_pending() {
+    [ ! -e "$LOCALE_DONE_FILE" ] && [ "$(kb_layout)" = gb ] && [ "$(time_zone)" = "Europe/London" ]
+}
+task_locale_label() { printf 'Keyboard layout and time zone (set for the UK now)'; }
+task_locale_run() {
+    local layout zone
+    layout=$(whiptail --title "Keyboard layout" --notags --default-item "$(kb_layout)" --menu \
+        "Which keyboard is connected? Now: $(kb_layout)" 17 60 9 \
+        gb "English (UK)" us "English (US)" de "German" fr "French" \
+        es "Spanish" it "Italian" ch "Swiss" nl "Dutch" \
+        other "Other: sudo raspi-config -> 5 Localisation Options" \
+        3>&1 1>&2 2>&3) || return 0
+    case "$layout" in
+        other) ;;
+        "$(kb_layout)") ;;
+        *) sudo raspi-config nonint do_configure_keyboard "$layout" >/dev/null 2>&1 \
+               || whiptail --title "Keyboard layout" --msgbox "Could not set the layout. Use: sudo raspi-config -> 5 Localisation Options" 8 72 ;;
+    esac
+    zone=$(time_zone)
+    if whiptail --title "Time zone" --yes-button "Change" --no-button "Keep" --yesno \
+        "The time zone is $zone. Change it?" 8 60; then
+        sudo dpkg-reconfigure tzdata
+    fi
+    mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F' > "$LOCALE_DONE_FILE"
+    [ "$layout" = other ] && whiptail --title "Keyboard layout" --msgbox \
+        "For another layout: sudo raspi-config -> 5 Localisation Options -> Keyboard." 8 72
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Task (optional): give this Pi its own name (R-063)
+# ---------------------------------------------------------------------------
+# Every card is called "rasqberry". With several kits on one network the
+# later ones become rasqberry-2.local, -3 ... in no fixed order.
+NAME_KEPT_FILE="$STATE_DIR/name-kept"
+task_name_applies() { [ -x "$BIN_DIR/rq_remote_access.sh" ]; }
+task_name_pending() { [ ! -e "$NAME_KEPT_FILE" ] && [ "$(hostname 2>/dev/null)" = rasqberry ]; }
+task_name_label()   { printf 'Name this RasQberry (several kits on one network)'; }
+task_name_run() {
+    local old new out
+    old=$(hostname 2>/dev/null)
+    while true; do
+        new=$(whiptail --title "Name this RasQberry" --ok-button "Rename" --cancel-button "Keep" --inputbox \
+"With several kits on one network, give each its own name, e.g. rasqberry-01. Other computers then reach it as <name>.local.
+
+Lowercase letters, digits and hyphens." 13 72 "$old" 3>&1 1>&2 2>&3) || new="$old"
+        new=$(printf '%s' "$new" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+        if [ -z "$new" ] || [ "$new" = "$old" ]; then
+            mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F' > "$NAME_KEPT_FILE"
+            return 0
+        fi
+        "$BIN_DIR/rq_remote_access.sh" check-name "$new" && break
+        whiptail --title "Name this RasQberry" --msgbox \
+            "'$new' cannot be used. Use lowercase letters, digits and hyphens, not at the start or end." 8 72
+    done
+    if out=$(sudo "$BIN_DIR/rq_remote_access.sh" name "$new" 2>&1); then
+        whiptail --title "Name this RasQberry" --msgbox "$(printf '%s\n' "$out" | tail -n 1)" 8 72
+    else
+        whiptail --title "Name this RasQberry" --msgbox "The name was not changed:\n\n$out" 12 72
+    fi
     return 0
 }
 
@@ -268,6 +343,8 @@ done_label() {
     case "$1" in
         wifi)     echo "Run again: Wi-Fi (connected)" ;;
         password) echo "Run again: password (keeping the demo password)" ;;
+        locale)   echo "Run again: keyboard ($(kb_layout)) and time zone ($(time_zone))" ;;
+        name)     echo "Run again: name ($(hostname 2>/dev/null))" ;;
         expand)   echo "Run again: SD card set up for A/B updates" ;;
         abinfo)   echo "Read again: about this SD card" ;;
         led)
@@ -284,10 +361,11 @@ done_label() {
 
 # Steps that are ticked when they are pending; the rest start unticked
 # (rule 3). Wi-Fi only shows up without any network, so it is ticked too.
-TICKED_TASKS="wifi expand led"
+# The keyboard comes first: the Wi-Fi and the new password are typed on it.
+TICKED_TASKS="locale wifi expand led"
 is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-TASKS="wifi password expand abinfo led demos touch"
+TASKS="locale wifi password name expand abinfo led demos touch"
 
 # Pending steps, one id per line
 pending_tasks() {

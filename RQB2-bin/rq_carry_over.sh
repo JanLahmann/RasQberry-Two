@@ -25,6 +25,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
 #     BROWSER_AUTOSTART and RQ_FIRSTLOGIN_DONE from rasqberry_environment.env,
+#     VNC switched off (Q17: the new system then does not switch it on),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
@@ -317,6 +318,19 @@ pull_env_keys() {
     return "$changed"
 }
 
+pull_vnc_off() {
+    # VNC is switched on once, at the first desktop login, unless this marker
+    # exists (rasqberry-enable-vnc.sh, Q17). The old system had VNC off after
+    # that first time: the user switched it off, so the new one keeps it off.
+    # VNC on there (or no marker - a release that always switched it on):
+    # nothing to do, the new system switches it on once.
+    local other="$1" marker=/var/lib/rasqberry/vnc-auto-enabled
+    [ -e "$other$marker" ] && [ ! -e "$ROOT$marker" ] || return 1
+    compgen -G "$other/etc/systemd/system/*.wants/wayvnc.service" >/dev/null && return 1
+    mkdir -p "$(dirname "$ROOT$marker")"
+    cp -p "$other$marker" "$ROOT$marker"
+}
+
 pull_old_slot_data() {
     # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
     # and Wi-Fi profiles
@@ -363,6 +377,7 @@ cmd_pull() {
     pull_locale "$other" && carried+=("locale")
     copy_if_different "$other" /etc/default/keyboard && carried+=("keyboard layout")
     pull_env_keys "$other" && carried+=("browser/checklist choices")
+    pull_vnc_off "$other" && carried+=("VNC off")
     if what=$(pull_old_slot_data "$other"); then
         carried+=("$what")
     fi
@@ -427,6 +442,7 @@ Copied from the old system when the new one starts for the first time:
   - your password, the hostname, time zone, language and keyboard layout
   - SSH host keys and authorized_keys
   - "Browser at login" and the setup checklist's "Don't ask again"
+  - VNC switched off
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
     or ~/My-Quantum-Programs

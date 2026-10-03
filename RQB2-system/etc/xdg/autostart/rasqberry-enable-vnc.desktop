@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=RasQberry VNC Enablement
-Comment=Ensure VNC Server is enabled on each desktop login
+Name=RasQberry VNC (first start)
+Comment=Switch VNC on once, at the first desktop login
 Exec=/usr/local/bin/rasqberry-enable-vnc.sh
 Terminal=false
 NoDisplay=true

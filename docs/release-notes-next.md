@@ -17,9 +17,10 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 
 - The first start prepares the card and restarts on its own. It takes a few minutes: do not unplug.
 - A/B image on a card of 64GB or more: the card is split into two systems automatically. To keep the card as written, put an empty file `no-auto-expand` (or `no-auto-expand.txt`) on the CONFIG drive before the first start.
-- A setup checklist opens once on the first desktop login: Wi-Fi, an optional password change, the LED panel check, Download all demos, touch mode.
+- A setup checklist opens once on the first desktop login: keyboard and time zone, Wi-Fi, an optional password change, a name for the Pi, the LED panel check, Download all demos, touch mode.
 - The LED panel check asks which kit you have (one 24x8 panel or four 4x12 panels), without a pre-selected answer, and has a "no LED panel" answer. Text, logos and the IP address scroll follow it: they are no longer scrambled on the four-panel kit. **Configure Matrix Layout** is gone.
 - VNC is switched on once at the first start and stays off if you switch it off.
+- **Remote Access & Security** in the RasQberry menu: change the password, switch SSH and VNC on or off, name the Pi. **System Info** shows the Pi's name, address, power and free space; an SSH login shows the name and address, and `rq_help` lists the commands.
 
 **Updating later (A/B image)**
 

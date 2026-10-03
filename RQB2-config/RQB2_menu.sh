@@ -1497,8 +1497,9 @@ do_show_system_info() {
   else
     info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
   fi
-  whiptail --title "RasQberry System Information" --msgbox \
-    "$info\n\nFor a bug report: rq_info.sh --report (saves the logs to a file)" 20 78
+  # Name, address, power and the rest come first; a long list scrolls
+  show_msgbox_fit "RasQberry System Information" \
+    "$info\n\nFor a bug report: rq_info.sh --report (saves the logs to a file)" 78
 }
 
 # -----------------------------------------------------------------------------
@@ -2478,6 +2479,112 @@ do_ibm_account_menu() {
 }
 
 # -----------------------------------------------------------------------------
+# Remote Access & Security (R-013, R-014, R-063): the password, SSH, VNC and
+# this Pi's name in one place. Every card starts with the published password,
+# and SSH and VNC accept it. VNC is switched on once at the first start (Q17);
+# switched off here it stays off. The work is done by rq_remote_access.sh.
+# -----------------------------------------------------------------------------
+_rq_remote() { "$BIN_DIR/rq_remote_access.sh" "$@"; }
+
+# One field of `rq_remote_access.sh status` (ssh=on vnc=off name=... mdns=...)
+_rq_remote_field() {
+    printf '%s\n' "$1" | tr ' ' '\n' | sed -n "s/^$2=//p" | head -n 1
+}
+
+do_change_password() {
+    _cp_user="${SUDO_USER:-$USER}"
+    clear
+    echo "New password for $_cp_user: type it twice. Nothing is shown while you type."
+    echo
+    if passwd "$_cp_user"; then
+        whiptail --title "Password" --msgbox \
+            "Password changed. Use the new one for SSH, VNC and the login screen." 8 72
+    else
+        whiptail --title "Password" --msgbox "The password was not changed." 8 50
+    fi
+    return 0
+}
+
+# Switch SSH or VNC on or off. $1 = ssh|vnc, $2 = its state now (on|off)
+do_toggle_remote() {
+    _tr_what="$1"; _tr_now="$2"
+    if [ "$_tr_what" = ssh ]; then
+        _tr_name="SSH"
+        _tr_off="Nobody can log in from another computer with SSH then."
+        [ -n "${SSH_CONNECTION:-}" ] && _tr_off="$_tr_off\n\nYou are connected over SSH: this session stays open, but the next SSH login fails. Switching SSH on again then needs a screen and keyboard."
+        _tr_on="Anyone on this network who knows the password can then log in."
+    else
+        _tr_name="VNC"
+        _tr_off="Nobody can see or use the desktop from another computer then. It stays off, also after a restart."
+        _tr_on="Anyone on this network who knows the password can then see and use the desktop."
+    fi
+    if [ "$_tr_now" = on ]; then
+        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" \
+            --yesno "Switch $_tr_name off?\n\n$_tr_off" 13 72 || return 0
+        _tr_new=off
+    else
+        whiptail --title "$_tr_name" --yes-button "Switch on" --no-button "Cancel" \
+            --yesno "Switch $_tr_name on?\n\n$_tr_on" 11 72 || return 0
+        _tr_new=on
+    fi
+    if _tr_out=$(_rq_remote "$_tr_what" "$_tr_new" 2>&1); then
+        whiptail --title "$_tr_name" --msgbox "$(printf '%s\n' "$_tr_out" | tail -n 1)" 8 50
+    else
+        show_msgbox_fit "$_tr_name" "Could not switch $_tr_name $_tr_new:\n\n$_tr_out" 72
+    fi
+    return 0
+}
+
+# $1 = the name now
+do_name_this_rasqberry() {
+    _nr_old="$1"
+    _nr_new=$(whiptail --title "Name this RasQberry" --inputbox \
+"With several RasQberry Two kits on one network, give each its own name, e.g. rasqberry-01. Other computers then reach it as <name>.local.
+
+Lowercase letters, digits and hyphens." 13 72 "$_nr_old" 3>&1 1>&2 2>&3) || return 0
+    _nr_new=$(printf '%s' "$_nr_new" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+    [ -n "$_nr_new" ] && [ "$_nr_new" != "$_nr_old" ] || return 0
+    if ! _rq_remote check-name "$_nr_new"; then
+        whiptail --title "Name this RasQberry" --msgbox \
+            "'$_nr_new' cannot be used. Use lowercase letters, digits and hyphens (up to 63), not starting or ending with a hyphen." 9 72
+        return 0
+    fi
+    if _nr_out=$(_rq_remote name "$_nr_new" 2>&1); then
+        whiptail --title "Name this RasQberry" --msgbox \
+            "$(printf '%s\n' "$_nr_out" | tail -n 1)\n\nPrograms that are already open keep the old name until the next restart." 10 72
+    else
+        show_msgbox_fit "Name this RasQberry" "The name was not changed:\n\n$_nr_out" 72
+    fi
+    return 0
+}
+
+do_remote_access_menu() {
+    _ra_last=""
+    while true; do
+        _ra_status=$(_rq_remote status 2>/dev/null) || _ra_status=""
+        _ra_ssh=$(_rq_remote_field "$_ra_status" ssh)
+        _ra_vnc=$(_rq_remote_field "$_ra_status" vnc)
+        _ra_name=$(_rq_remote_field "$_ra_status" name)
+        _ra_mdns=$(_rq_remote_field "$_ra_status" mdns)
+        FUN=$(show_menu ${_ra_last:+--default-item "$_ra_last"} "RasQberry: Remote Access & Security" \
+            "Anyone on the same network who knows the password can log in over SSH and VNC." \
+            PASS "Change the password" \
+            SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}" \
+            VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
+            NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}") || break
+        _ra_last="$FUN"
+        case "$FUN" in
+            PASS) do_change_password ;;
+            SSH)  do_toggle_remote ssh "$_ra_ssh" ;;
+            VNC)  do_toggle_remote vnc "$_ra_vnc" ;;
+            NAME) do_name_this_rasqberry "$_ra_name" ;;
+            *)    break ;;
+        esac
+    done
+    return 0
+}
+
+# -----------------------------------------------------------------------------
 # The setup checklist (rq_firstlogin.sh). It opens by itself only once, at the
 # first desktop login (Jan, Q12); from then on here and under the RasQberry
 # Setup icon. It runs as the desktop user: its notes and the steps it starts
@@ -2543,7 +2650,7 @@ do_rasqberry_menu() {
     # there.
     set -- QD "Quantum Demos" SETUP "Setup Checklist" TOUCH "Touch Mode Settings" \
         BROWSER "Browser at login: $(browser_autostart_state)" \
-        IBMQ "IBM Quantum account" \
+        IBMQ "IBM Quantum account" REMOTE "Remote Access & Security" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \
         ADV "Advanced" OFF "Shut Down Safely"
     FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" "System Options" "$@") || break
@@ -2555,6 +2662,7 @@ do_rasqberry_menu() {
       TOUCH)   do_touch_mode_menu             || continue ;;
       BROWSER) do_toggle_browser_autostart    || continue ;;
       IBMQ)    do_ibm_account_menu            || continue ;;
+      REMOTE)  do_remote_access_menu          || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
       ADV)     do_rasqberry_advanced_menu     || continue ;;

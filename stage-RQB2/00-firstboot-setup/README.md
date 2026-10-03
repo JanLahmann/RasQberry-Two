@@ -45,13 +45,13 @@ Automatically expands the root filesystem to fill the entire SD card on first bo
 #### 3. VNC Enablement
 
 **Desktop Login Script** (`/usr/local/bin/rasqberry-enable-vnc.sh`):
-- Runs on every desktop login (not just first boot)
-- Uses `raspi-config nonint do_vnc 0` to enable VNC
-- Idempotent (safe to run multiple times)
+- Runs at the first desktop login only: it writes `/var/lib/rasqberry/vnc-auto-enabled`
+  once VNC is on, and does nothing after that (Jan, Q17; R-014)
+- Uses `raspi-config nonint do_vnc 0` to enable VNC (wayvnc), with retries (#288)
 
 **Autostart Entry** (`/etc/xdg/autostart/rasqberry-enable-vnc.desktop`):
 - Launches VNC enablement script on graphical login
-- Ensures VNC is always enabled even if disabled manually
+- VNC switched off later (raspi-config, or the RasQberry menu's Remote Access & Security) stays off
 - Non-intrusive (runs silently in background)
 
 #### 4. Systemd Service
@@ -115,7 +115,7 @@ laid out by `rasqberry-ab-layout.service` instead (see the note at the top).
 
 1. **Desktop autostart triggers rasqberry-enable-vnc**
 2. **VNC enabled via raspi-config**
-3. **VNC continues to run on every login** (ensures always enabled)
+3. **Marker written**: later logins leave VNC as the user set it
 
 ## Benefits
 
@@ -149,9 +149,9 @@ touch /media/$USER/bootfs/skip-expansion # Linux
 
 ### VNC Auto-Enablement
 
-VNC enablement runs on **every desktop login**, not just first boot:
-- Ensures VNC stays enabled even if manually disabled
-- Uses raspi-config which is idempotent (safe to run repeatedly)
+VNC is switched on **once**, at the first desktop login:
+- Switched off later, it stays off; an A/B update carries the choice over (`rq_carry_over.sh`)
+- To have it switched on again: `sudo rm /var/lib/rasqberry/vnc-auto-enabled`
 - Non-intrusive (no visible dialogs)
 
 ## Execution Context
@@ -176,7 +176,7 @@ VNC enablement runs on **every desktop login**, not just first boot:
 
 **Issue**: VNC not enabled after first login
 - **Cause**: Autostart script failed or VNC service issue
-- **Check**: `systemctl status vncserver-x11-serviced.service`
+- **Check**: `systemctl status wayvnc.service`, `journalctl -t rasqberry-enable-vnc`
 - **Verify**: `/usr/local/bin/rasqberry-enable-vnc.sh` exists and is executable
 - **Test**: Run manually: `sudo raspi-config nonint do_vnc 0`
 
