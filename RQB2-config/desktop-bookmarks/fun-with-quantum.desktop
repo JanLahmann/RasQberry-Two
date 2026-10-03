@@ -8,7 +8,6 @@ Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh fun-with-quantum readme
 Terminal=true
 StartupNotify=true
-MimeType=text/html;
 Keywords=quantum;jupyter;notebook;games;education;qiskit;rise;coin;grover;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh

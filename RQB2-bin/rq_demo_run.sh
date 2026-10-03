@@ -1204,6 +1204,8 @@ main() {
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
     DEMO_TITLE="$demo_name"
+    # The window's title: the demo's name, not the command line (R-135)
+    [ -t 1 ] && printf '\033]0;%s\007' "$demo_name"
 
     echo
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="

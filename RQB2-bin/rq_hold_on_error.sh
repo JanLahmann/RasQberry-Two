@@ -11,13 +11,19 @@ set -uo pipefail
 #   that failed - offline on its first start, say - closed its window at once
 #   and the error was never seen (R-029). A copy of the output is kept in
 #   ~/.cache/rasqberry/<name>.log (rq_info.sh --report collects it).
-# Usage: rq_hold_on_error.sh COMMAND [ARGS...]
+# Usage: rq_hold_on_error.sh [-t TITLE] COMMAND [ARGS...]
 #   e.g. Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh grok-bloch
+#   -t sets the window title (else the terminal shows the command line, R-135;
+#   rq_demo_run.sh sets the demo's name itself).
 
 case "${1:-}" in
     ""|-h|--help)
-        sed -n '6p;8,16p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '6p;8,17p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
+        ;;
+    -t)
+        [ -t 1 ] && printf '\033]0;%s\007' "${2:-RasQberry}"
+        shift 2 2>/dev/null && [ $# -gt 0 ] || exit 2
         ;;
 esac
 

@@ -10,6 +10,7 @@ creating the demo's marker file; whiptail is a stub that answers from WT_RC.
 
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -235,7 +236,9 @@ def test_icons_in_a_terminal_keep_their_window_on_failure():
         if "\nTerminal=true" not in text:
             continue
         exec_line = [line for line in text.splitlines() if line.startswith("Exec=")][0]
-        assert exec_line.startswith("Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/"), (name, exec_line)
+        # -t "Title": the window's title instead of the command line (R-135)
+        assert re.match(r'Exec=/usr/bin/rq_hold_on_error\.sh (-t "[^"]+" )?/usr/bin/', exec_line), \
+            (name, exec_line)
 
 
 @pytest.mark.parametrize("icon,demo", [("doqumentation", "doqumentation"),

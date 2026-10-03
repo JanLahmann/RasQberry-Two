@@ -8,7 +8,6 @@ Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh grok-bloch
 Terminal=true
 StartupNotify=true
-MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
