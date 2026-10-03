@@ -1,94 +1,105 @@
 # RasQberry Installation Overview
 
-Below you can find the list of steps that are needed to write the RasQberry Two image to
-an SD card and use it in your Raspberry Pi version 4 or 5.
+How to write the RasQberry Two image to an SD card, start it on a Raspberry Pi 4
+or 5, keep it up to date, and what to do when something goes wrong.
 
 ## What you need
 
 - **Raspberry Pi 5** (2GB RAM is enough for most demos) or **Raspberry Pi 4B** (4GB RAM).
   The Pi 5 is recommended; the [hardware assembly guide](/01-3d-model/02-hardware-assembly-guide/) assumes one.
-- **MicroSD card:** at least **32GB** for the standard image, at least **64GB** for the
-  [A/B image](/02-software/03-ab-boot/) (two system slots for safe updates).
-- **Official power supply** (27W USB-C for the Pi 5), and an active cooler for the Pi 5.
-- **Internet access:** several demos are downloaded the first time you start them.
-- Optional: the LED panel, a display, keyboard and mouse. Without a display you can use
-  the desktop over VNC.
+- **MicroSD card:** 16GB or more, 32GB recommended. Two systems with safe updates
+  need 64GB or more (see below).
+- **Official power supply:** the 27W USB-C supply (5.1V, 5A) for the Pi 5, the 15W
+  USB-C supply for the Pi 4. Ordinary USB-C chargers give a Pi 5 only 3A, too
+  little with a bright LED panel. An active cooler for the Pi 5.
+- **Internet access:** most demos download the first time you start them.
+- Optional: the LED panel, a display, keyboard and mouse. Without a display you can
+  use the desktop over [VNC](/02-software/02-system-options/).
 
 The full parts list, including the 3D-printed case and LEDs, is in the
 [Bill of Materials](/01-3d-model/01-bill-of-materials/).
 
-## Download Options
+## Which image?
 
-### Download Page
+{/* CONDITIONAL: A/B default. If A/B is not the default, the A/B row reads
+"A/B image, recommended for 64GB+ cards" and the 16GB-32GB row reads
+"Standard image". */}
 
-Visit **[rasqberry.org/latest/](/latest/)** to browse and download all available RasQberry images including stable, beta, and development builds.
+| Your card | Image |
+|---|---|
+| 64GB or more | The **A/B image** (default): two systems on one card, so updates install in place and you can always go back. See [A/B image](/02-software/03-ab-boot/). |
+| 16GB or 32GB | The A/B image runs as one system on a small card. The **standard image** does the same. Either way, a new release means writing a new card. |
 
-### Direct Download URLs
-
-Use these URLs to always get the latest release for each stream:
-
-| Stream | URL | Description |
-|--------|-----|-------------|
-| **Stable** | [rasqberry.org/latest/stable](https://rasqberry.org/latest/stable) | Not published yet — use Beta until the first stable release |
-| **Beta** | [rasqberry.org/latest/beta](https://rasqberry.org/latest/beta) | Pre-release with latest features |
-| **Dev** | [rasqberry.org/latest/dev](https://rasqberry.org/latest/dev) | Development builds (unstable) |
-
-These URLs automatically redirect to the latest image for each release stream.
-
-### GitHub Releases
-
-All releases are also available on [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases).
-
-### JSON APIs
-
-For automation and programmatic access:
-
-| Endpoint | Description |
-|----------|-------------|
-| [RQB-images.json](/RQB-images.json) | Pi Imager format with latest stable/beta/dev images |
-| [RQB-images-all.json](/RQB-images-all.json) | All image versions from all branches (for development/testing) |
-| [RQB-releases.json](/RQB-releases.json) | Release metadata with download URLs, file sizes, and checksums |
-
-## Using Pi Imager with RasQberry Repository
+## Write the card
 
 ### One-click: Open in Raspberry Pi Imager (recommended)
 
-If you already have **Raspberry Pi Imager** installed (version 2.0.3 or newer), just click this link — it opens Imager pre-loaded with the RasQberry images:
+With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
+installed, this opens it with the RasQberry images:
 
 **[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
 
-Imager shows a brief security confirmation, then the RasQberry images appear under **Choose OS**.
+1. Confirm Imager's security prompt and choose your Raspberry Pi model.
+2. Under **Choose OS**, pick **RasQberry Two Beta**. Development and branch builds
+   are in **RasQberry developer builds**: they are untested.
+3. Choose your SD card. Writing erases everything on it.
+4. Skip OS customisation: the image is already set up. Wi-Fi is offered on the
+   first start.
+5. Write the card, put it in the Pi and switch on.
 
-> **Don't have Raspberry Pi Imager yet?** [Download it here](https://www.raspberrypi.com/software/) first (it's the shipped default on all platforms), then click the link above.
+### If the link does not open Imager
 
-### Manual: add the custom repository in Imager
+- **Add the repository by hand.** In Imager: **App Options** (bottom left) →
+  **Content Repository** → **Use custom URL** → paste
+  `https://RasQberry.org/RQB-images.json` → **Apply & Restart**. Imager remembers it.
+- **Start Imager from a terminal:**
 
-If the one-click link doesn't launch Imager, add the repository by hand:
+  ```bash
+  # macOS
+  /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
 
-1. Open Raspberry Pi Imager.
-2. Click **App Options** in the bottom-left corner of the window.
-3. Under **Content Repository**, choose **Use custom URL**.
-4. Paste: `https://RasQberry.org/RQB-images.json`
-5. Click **Apply & Restart**. The RasQberry images appear under **Choose OS**.
+  # Windows
+  "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
+  ```
 
-A custom *URL* is remembered across app restarts (unlike a custom *file*, which must be re-selected each time).
+- **Download the image** from [rasqberry.org/latest/](/latest/) and write it with
+  Imager (**Choose OS** → **Use custom**).
 
-### About the RasQberry Image
+## First start
 
-The RasQberry image contains a desktop environment with quantum computing demos accessible via desktop icons and the raspi-config menu.
+The first start takes a few minutes and the Pi restarts on its own: do not
+unplug it. Then the desktop opens, without a login, and a short setup checklist
+appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
+`rasqberry` with password `Qiskit1!`.
 
-**raspi-config Menu** (access via `sudo raspi-config`):
+## Downloads
 
-| Menu Item | Description |
-|-----------|-------------|
-| Quantum Demos | LED tests, Quantum Lights Out, Raspberry-Tie, Bloch Sphere, Fractals, IBM Tutorials, and more |
-| Touch Mode Settings | Enable/disable touch screen mode |
-| Browser at login | Turn Chromium opening rasqberry.org at desktop login on or off |
-| Update Env File | Modify RasQberry environment variables |
-| Software & Image Updates | Check for a newer image, update from a GitHub branch; on A/B images also partition expansion and the slot manager |
-| System Info | Version, build origin, Python and Qiskit versions, A/B slot |
+- [rasqberry.org/latest/](/latest/): all current images (stable, beta, development).
+- Direct links to the newest standard image of each stream:
+  [/latest/stable](https://rasqberry.org/latest/stable) (not published yet),
+  [/latest/beta](https://rasqberry.org/latest/beta),
+  [/latest/dev](https://rasqberry.org/latest/dev).
+- [GitHub Releases](https://github.com/JanLahmann/RasQberry-Two/releases): every build
+  with its release notes.
+- For scripts: [RQB-images.json](/RQB-images.json) (the Imager list),
+  [RQB-releases.json](/RQB-releases.json) (newest release per stream, with checksums),
+  [RQB-images-all.json](/RQB-images-all.json) (every build).
 
-**Software on the image** (beta of 2026-09-30; exact versions on your Pi: **System Info** in the menu, or `rq_info.sh`):
+## About the image
+
+The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
+→ **0 RasQberry**:
+
+| Menu item | What it does |
+|---|---|
+| Quantum Demos | All demos, the LED tests, Download all demos, the demo catalogue |
+| Touch Mode Settings | Settings for touchscreens, with an on-screen keyboard |
+| Browser at login | Open rasqberry.org at desktop login, or not |
+| Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |
+| System Info | Version, Python and Qiskit versions, A/B slot |
+| Advanced | Edit RasQberry settings, update from a GitHub branch, refresh the demo list |
+
+**Software on the image** (beta of 2026-09-30; exact versions on your Pi: **System Info**, or `rq_info.sh`):
 
 | Component | Version |
 |-----------|---------|
@@ -99,71 +110,42 @@ The RasQberry image contains a desktop environment with quantum computing demos 
 | Qiskit IBM Runtime | 0.50 |
 
 Qiskit and the demos live in the virtual environment `~/RasQberry-Two/venv/RQB2`
-(`source ~/RasQberry-Two/venv/RQB2/bin/activate`). The image ships Qiskit 2.x: code
-written for Qiskit 1.x may need updating (see the
-[Qiskit 2.0 migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0)).
+(`source ~/RasQberry-Two/venv/RQB2/bin/activate`). Code written for Qiskit 1.x may
+need updating: see the
+[Qiskit 2.0 migration guide](https://quantum.cloud.ibm.com/docs/en/migration-guides/qiskit-2.0).
 
-**Default credentials:**
-- Username: `rasqberry`
-- Password: `Qiskit1!`
-- SSH and VNC are enabled by default
-
-## Steps to write the RasQberry Image to your SD Card
-
-**! Warning:** Ensure there is no important information stored on this SD Card before following these steps.
-
-1. Download and install the Raspberry Pi Imager: https://www.raspberrypi.com/software/
-
-2. Put a formatted SD into the SD card reader of your computer. If your computer does not have an SD Card reader slot, you can use a USB SD Card Reader.
-
-3. Open the Raspberry Pi Imager with the following command in a terminal window. Depending on your OS the command will differ:
-
-   Mac OS
-
-   ```
-   /Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://rasqberry.org/RQB-images.json
-   ```
-
-   Windows
-
-   ```
-   "C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://rasqberry.org/RQB-images.json
-   ```
-
-   <br/>
-
-4. Click `Choose OS` and select a RasQberry image:
-   - **RasQberry Two Beta** - Pre-release with latest tested features
-   - **RasQberry Two Dev** - Development builds (latest but may be unstable)
-
-5. Click `Choose Storage` and select your SD Card.
-
-6. Click `Next`.
-
-7. When prompted about OS customization, select `No` - the RasQberry image is pre-configured and should be written without modifications.
-
-8. Click `Yes` to erase all existing data and write the image to the SD card.
-
-9. Wait for the writing and verification process to complete.
-
-10. Insert the SD Card into your Raspberry Pi 4 or 5, connect power, and boot.
+SSH is on; VNC is switched on at the first start
+([remote access](/02-software/02-system-options/)).
 
 ## Keeping up to date
 
-Everything is in `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates**,
-on the standard and the A/B image:
+- **Operating system and security updates** work on both images: click the update
+  icon in the taskbar, or run `sudo apt update && sudo apt full-upgrade` and
+  restart. If an upgrade includes raspi-config, **0 RasQberry** is back after the
+  restart.
+- **A new RasQberry release** (new Qiskit, demos and fixes): on the A/B image,
+  install it into the other slot ([how](/02-software/03-ab-boot/)). On the
+  standard image or a small card, write a new card. That erases the card: copy
+  your notebooks and `~/.qiskit` (your IBM Quantum account) to a USB stick first.
+- **Check for a newer image** (in **Software & Image Updates**, or
+  `rq_update_check.sh`) compares your build with the newest release of your
+  channel. A daily check also shows a one-line notice at a terminal or SSH login.
 
-- **Check for a newer image** compares your build with the latest release of the
-  same channel (beta, dev or stable). A check also runs once a day in the
-  background; when a newer image exists, a terminal or SSH login shows one line about it.
-  From a terminal: `rq_update_check.sh`.
-- **Update from GitHub Branch** refreshes the RasQberry scripts, configuration and
-  system files (services, autostart entries) from a branch, and keeps your device
-  settings such as the LED layout. It does not update the OS packages, the kernel
-  or Qiskit — for that, write a new image (or, on the
-  [A/B image](/02-software/03-ab-boot/), update the other slot).
+## Troubleshooting
 
-**System Info** in the same menu (or `rq_info.sh`) shows the RasQberry version, the
-branch and commit it was built from, the Python and Qiskit versions and, on A/B
-images, the booted slot. When you [report a bug](https://github.com/JanLahmann/RasQberry-Two/issues),
-paste the output of `rq_info.sh --json`.
+- **Cannot find the Pi on the network:** try `rasqberry.local`. The LED panel
+  scrolls the IP address at start-up; on the Pi, **System Info** or `hostname -I`
+  shows it.
+- **VNC does not connect:** use RealVNC Viewer or TigerVNC; see
+  [remote access](/02-software/02-system-options/).
+- **"Failed to run demo":** the message names the cause. The usual ones: no
+  network on a demo's first start, or a display demo started over SSH (start it
+  on the desktop or over VNC instead).
+- **Disk full:** the Docker demos (Qoffee-Maker, Quantum-Mixer, Quantum Lab,
+  doQumentation) take 2–4GB each. On a 16GB card, install only the ones you need.
+- **LED panel stays dark:** see [LED troubleshooting](/03-quantum-computing-demos/led-display/).
+- **Known issue:** code cells in doQumentation (Workshop Server) fail, because the
+  current upstream image has no Qiskit
+  ([doQumentation#958](https://github.com/JanLahmann/doQumentation/issues/958)).
+- **Still stuck?** [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
+  and paste the output of `rq_info.sh --json`.

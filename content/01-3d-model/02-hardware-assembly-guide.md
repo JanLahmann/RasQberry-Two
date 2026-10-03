@@ -25,7 +25,7 @@ Our first step is to install the RasQberry Two Operating System (OS). Instructio
 After you have finished flashing the OS image to the micro-SD card, you can insert it into the slot underneath the Pi as such:
 ![Figure 1](/assembly-images/mounting_location_sd_card.JPG "Figure 1: Mounting location for the Micro SD card.")
 
-Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard into any of the USB ports on the back. If the OS installation was successful, you should be met with a login screen on your monitor. The standard username is `rasqberry` and the password is listed in the installation instructions above. Login with these credentials and you should see a desktop interface.
+Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts once on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`.
 
 The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. Once the panels are wired (below), you check them with the LED Setup Wizard.
 
@@ -158,7 +158,7 @@ After ensuring that all four panels are in line, take the two panels on the righ
 **! Warning:**
 The LEDs can be very bright! It is recommended to wear eye protection when working with the LED panels.
 
-Now it’s time to test the LEDs! Open a terminal (`CTRL + ALT + T`) and run the LED Setup Wizard:
+Now it’s time to test the LEDs! Double-click the **RasQberry Setup** icon on the desktop and run the LED check, or open a terminal (`CTRL + ALT + T`) and run the LED Setup Wizard:
 
 ```sh
 sudo rq_led_setup_wizard.sh
@@ -166,7 +166,7 @@ sudo rq_led_setup_wizard.sh
 
 (It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `Test LEDs (setup wizard, tests, demos)` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
 
-If everything is wired up correctly, the IBM logo appears on the LED array in the correct orientation. Verify that your result looks similar to this:
+If everything is wired up correctly, the IBM logo appears on the LED panel in the correct orientation. Verify that your result looks similar to this:
 
 ![Figure 17](/assembly-images/wall_assembly_17.JPG "Figure 17: Testing the proper orientation of the LED panels before slotting them into the wall.")
 

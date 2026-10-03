@@ -7,11 +7,15 @@
         width: 100%;
         border-collapse: collapse;
 
+        // Cells wrap: with nowrap, the BOM and Demo List columns that matter
+        // (quantity, cost, needs) sat off-screen behind a hidden scrollbar.
+        // Long words and URLs still scroll the wrapper sideways.
         th,
         td {
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            min-width: 6rem;
+            vertical-align: top;
         }
 
         th {

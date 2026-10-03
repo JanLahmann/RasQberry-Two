@@ -22,12 +22,19 @@ interface Props {
     frontmatter?: FrontMatter
     tableofcontent: TableOfContentProps
     pagePath?: string[]
+    // The Markdown file behind the page, relative to content/ - a directory
+    // route such as 05-contributing/ is served from 05-contributing/index.md.
+    contentFile?: string
 }
 
-export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath }: Props) {
+// Generated pages: an edit on GitHub would be overwritten, so no edit link.
+const GENERATED_PAGES = ['03-quantum-computing-demos/01-demo-list.md']
+
+export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath, contentFile }: Props) {
     // Construct the GitHub edit URL
-    const contentPath = pagePath ? pagePath.join('/') : 'index';
-    const githubEditUrl = `https://github.com/JanLahmann/RasQberry-Two/edit/gh-pages/content/${contentPath}.md`;
+    const contentPath = contentFile || `${pagePath ? pagePath.join('/') : 'index'}.md`;
+    const githubEditUrl = `https://github.com/JanLahmann/RasQberry-Two/edit/gh-pages/content/${contentPath}`;
+    const showEditLink = !GENERATED_PAGES.includes(contentPath);
 
     return <>
         {leadspace && <LeadSpace {...leadspace} />}
@@ -46,7 +53,7 @@ export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems
                         {children}
 
                         {/* Edit this page footer */}
-                        <div className={styles['page-layout__footer']}>
+                        {showEditLink && <div className={styles['page-layout__footer']}>
                             <a
                                 href={githubEditUrl}
                                 target="_blank"
@@ -56,7 +63,7 @@ export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems
                                 <Edit size={16} />
                                 <span>Edit this page on GitHub</span>
                             </a>
-                        </div>
+                        </div>}
                     </Column>
                 </Grid>
             </Column>

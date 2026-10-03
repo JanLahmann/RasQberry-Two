@@ -45,8 +45,8 @@ Worth knowing, because it is the honest limit of the picture:
 
 Built by **James Weaver** (JavaFXpert) — [JavaFXpert/grok-bloch](https://github.com/JavaFXpert/grok-bloch).
 
-- [IBM Quantum Learning: single-qubit gates](https://learning.quantum.ibm.com/course/basics-of-quantum-information/single-systems)
-- [IBM Quantum Composer](https://quantum.ibm.com/composer) — build circuits with a Bloch sphere beside them
+- [IBM Quantum Learning: single-qubit gates](https://quantum.cloud.ibm.com/learning/en/courses/basics-of-quantum-information/single-systems/introduction)
+- [IBM Quantum Composer](https://quantum.cloud.ibm.com/composer) — build circuits with a Bloch sphere beside them
 - [Bloch sphere on Wikipedia](https://en.wikipedia.org/wiki/Bloch_sphere)
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

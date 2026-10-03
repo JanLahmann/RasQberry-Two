@@ -1,129 +1,82 @@
-# A/B Images: Two Systems, One Card
+# A/B Image: Two Systems, One Card
 
-Alongside the standard image we publish an **A/B image** (`-ab.img.xz`). It puts
-**two complete systems on one SD card** — Slot A and Slot B. You update the slot
-you are not using, boot into it, and if it misbehaves the Pi falls back to the
-one that worked.
+{/* CONDITIONAL: A/B default. If A/B is not the default of this release, replace
+the next paragraph with: "Alongside the standard image we publish an A/B image.
+It is recommended for cards of 64GB or more: updates install in place and you
+can always go back." */}
 
-That makes it safe to try a new release on real hardware without losing a working
-system. If you just want a RasQberry that works, take the standard image — you do
-not need this page.
+The A/B image is the recommended RasQberry Two image. On a card of 64GB or more
+it holds **two systems**, Slot A and Slot B. An update goes into Slot B while
+Slot A keeps the system that works, so a failed update never leaves you without
+a working Pi.
 
-## Expand the partitions first
+## Card sizes
 
-**A freshly flashed A/B card cannot do A/B until you expand it**, and this is the
-step people miss.
+| Card | What you get |
+|---|---|
+| 64GB or more | Two systems (about 26GB each on a 64GB card) and a shared data partition (10% of the card) |
+| 16GB or 32GB | One system that uses the whole card. There are no updates in place: write a new card for each release |
 
-To keep the download around 12GB instead of 120GB, the image ships with Slot B and
-the data partition as **16MB placeholders**. There is no room for a second system
-in 16MB, so nothing A/B-related works until they grow to fit your card:
+The standard image is still published. It is always one system, like the A/B
+image on a small card.
 
-```bash
-sudo raspi-config   →   0 RasQberry   →   Software & Image Updates   →   Expand A/B Partitions
-```
+## First start
 
-You need a **64GB or larger card** (expansion refuses below ~63GB). It asks once,
-shows the sizes it proposes, takes a few minutes, and needs no reboot.
+The first start prepares the card. It takes a few minutes and the Pi restarts
+on its own: do not unplug it. It is done when the desktop appears.
 
-**If you skip this**, here is what you will see — none of it looks like "you
-forgot to expand", which is exactly why it is worth doing first:
+On a card of 64GB or more, the card is split into the two systems
+automatically. To keep it as one system, create an empty file named
+`<opt-out marker>` on the **CONFIG** drive before the first start.
 
-- The disk is ~95% full the moment you boot. The system is ~9.3GB and the
-  unexpanded Slot A is 10GB. That is simply all the space there is.
-- Demos that build a Docker image (Quantum-Mixer, Qoffee-Maker) fill the disk and
-  fail. ~500MB of headroom is not enough for a build.
-- Updating a slot fails with *"Not enough free space … 15GB needed"* — it stages
-  the download on the 10GB root, so no amount of tidying up will help.
-- Most of your SD card sits unpartitioned.
+## Update
 
-### What you get
+1. `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates** →
+   **Check for a newer image** tells you whether a new release is out. A
+   terminal or SSH login also shows a one-line notice.
+2. **Slot Manager** → **Install an update into Slot B (testing)**. It downloads about
+   1.7GB and takes 20–30 minutes, then the Pi restarts into Slot B.
+3. If Slot B starts properly, it is kept. If not, the Pi goes back to Slot A
+   by itself.
+4. Once you are happy with Slot B, **Slot Manager** → **Make Slot B the stable
+   system (copy B to A)** copies it to Slot A, which becomes your stable system again. Restart afterwards.
+   The next update goes into Slot B again.
 
-Fixed partitions take 1.5GB; the rest is split **45% Slot A / 45% Slot B /
-10% shared data**. Measured on real cards:
+Promoting replaces everything in Slot A, including the files in your home folder
+there. Keep anything you want to keep in the **Shared** folder.
 
-| Your card | Slot A | Slot B | Data |
-|---|---|---|---|
-| 64GB | ~26GB | ~26GB | ~6GB |
-| 128GB | 52.9GB | 52.9GB | 11.8GB |
-| 256GB | 106.6GB | 106.6GB | 23.7GB |
+## What an update keeps
 
-Slot A keeps everything you already have — it grows in place. Slot B and the data
-partition are created fresh and formatted, so **anything already in `/data` is
-lost**. On a card you just flashed there is nothing there to lose.
+The shared data partition (`/data`) carries these into the new system:
 
-To check where you stand:
+- the **Shared** folder in your home folder
+- your IBM Quantum account (`~/.qiskit`)
+- Wi-Fi networks
+- LED panel settings
+- SSH keys, so remote logins keep working
 
-```bash
-sudo rq_slot_manager.sh status
-```
+Installed demos are downloaded again on their first start. Other files in your
+home folder stay in the other slot: switch back to fetch them.
 
-It tells you the slot you booted, the partition sizes, and warns you if Slot B is
-still a placeholder.
+## Go back
 
-## Using the second slot
+- **Use the other system:** **Slot Manager** → **Restart into Slot A** (or B).
+- **The Pi does not start after an update:** switch it off and on again. It
+  starts the previous system.
+- **It still does not start:** put the card in a computer and open the
+  **CONFIG** drive. In `autoboot.txt`, under `[all]`, set `boot_partition=2`
+  (Slot A), save, and put the card back.
 
-Put a system in the slot you are not running (use the **`-ab`** image — the
-standard one has no A/B layout):
+**System Info** in the RasQberry menu shows the version and the slot you are
+running.
 
-```bash
-sudo rq_update_slot.sh <ab-image-url> <release-tag>
-```
+## Raspberry Pi 4
 
-It refuses to overwrite the slot you are booted from, so you cannot saw off the
-branch you are sitting on.
-
-The new slot keeps what makes this Pi yours:
-
-- **SSH identity.** The SSH host keys and your `~/.ssh/authorized_keys` are copied
-  into the new slot, so clients do not warn about a changed host and key login
-  keeps working.
-- **LED settings.** The LED layout from the setup wizard, brightness and output
-  settings, and your custom layouts are saved on the shared `/data` partition and
-  restored in the other slot at boot.
-
-Installed demos are per slot: a demo you downloaded in Slot A is downloaded again
-the first time you start it in Slot B.
-
-Then try it:
-
-```bash
-sudo rq_slot_manager.sh switch-to B --reboot
-```
-
-A slot booted this way is **on probation**: unless it is confirmed, the next
-reboot returns you to the slot you came from. A healthy system confirms itself
-automatically. That is the whole point — a broken image cannot strand you.
-
-```bash
-sudo rq_slot_manager.sh confirm                # keep this slot
-sudo rq_slot_manager.sh rollback && sudo reboot   # go back now
-```
-
-Slot A is the **stable** slot, Slot B the **testing** slot. Once a system in Slot B
-has earned it:
-
-```bash
-sudo rq_slot_manager.sh promote     # copy tested Slot B → stable Slot A
-```
-
-All of this is also in the menu: `sudo raspi-config` → **0 RasQberry** →
-**Software & Image Updates** → **Slot Manager** (status, confirm, switch, update
-Slot B, rollback, promote).
-
-## Which image am I running?
-
-**System Info** in `sudo raspi-config` → **0 RasQberry**, or `rq_info.sh`, shows the
-version, where it was built from and the slot you booted. The bare build marker is:
-
-```bash
-cat /etc/rasqberry-version
-```
-
-(`/etc/rpi-issue` only records the pi-gen tool commit and does not change between
-RasQberry builds — it will not tell images apart.)
+The A/B image needs a recent bootloader. If a Pi 4 does not start from the
+card, update its bootloader with Raspberry Pi Imager (**Misc utility images** →
+**Bootloader** → **SD Card Boot**), then try again.
 
 ## Details
 
-Layout, the boot mechanism, and the reasoning are in
-[docs/ab-boot.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/docs/ab-boot.md)
-in the repository.
+The partition layout, the boot mechanism and the command-line tools are in
+[docs/ab-boot.md](https://github.com/JanLahmann/RasQberry-Two/blob/development/docs/ab-boot.md).

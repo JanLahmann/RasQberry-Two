@@ -6,7 +6,10 @@ leadspace:
   size: tall
   cta:
     primary:
-      label: View On GitHub
+      label: Get started
+      url: /#2-getting-started
+    secondary:
+      label: View on GitHub
       url: https://github.com/JanLahmann/RasQberry-Two
       icon: logo-github
       target: _blank
@@ -16,9 +19,14 @@ leadspace:
       alt: lead space background image
 ---
 
-RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit, a Raspberry Pi and a 3D printed model of IBM Q System Two to explore various state-of-the-art technologies and create a tool that can be used for education and in meetings, meetups, demo booths, etc. A spectrum of Quantum Computing demos and Serious Games for Quantum Computing (that illustrate e.g. superposition, interference and entanglement) will be made available on the RasQberry platform for an engaging introduction to Quantum Computing.
+RasQberry Two is a functional model of IBM Quantum System Two. It combines
+Qiskit, a Raspberry Pi and a 3D-printed model for teaching, meetups and demo
+booths. Its demos and serious games show superposition, interference and
+entanglement on screen and on the model's LED panel.
 
-**Note:** If you are looking for the functional model of IBM Quantum System ONE, please go to [https://rasqberry.one](https://rasqberry.one). Here is the new project, building a functional model of IBM Quantum System TWO, including several additional updates, e.g. 64-bit OS, Raspberry Pi 5, Qiskit 2.x, more Quantum Computing Demos, integration into raspi-config, etc.
+**Note:** Looking for the model of IBM Quantum System One? Go to
+[rasqberry.one](https://rasqberry.one). RasQberry Two adds a 64-bit OS, the
+Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
 
 **Running a workshop or event?** We help you prepare it with a custom image, your branding and tested demos. [Workshops & events](/workshops/)
 
@@ -38,70 +46,55 @@ RasQberry is a functional model of IBM Quantum System Two. It integrates Qiskit,
   </div>
   <div className="media-item">
     <a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank" title="Click for slow-motion version (4s per frame)">
-      <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" />
+      <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" loading="lazy" />
     </a>
-    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualization, quantum games, circuit composer, and fractal animations (<a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank">slow-motion version</a>)</p>
+    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualisation, quantum games, circuit composer, and fractal animations (<a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank">slow-motion version</a>)</p>
   </div>
 </div>
 
 ## Getting Started
 
+Already running RasQberry Two? Go to [First boot](/#3-first-boot).
+
 **1. Write the image.** With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3+ installed, this opens it pre-loaded with the RasQberry images:
 
 **[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
 
-Confirm the security prompt, choose a RasQberry image under **Choose OS**, and write it to an SD card. No customisations needed.
+Confirm the security prompt, pick **RasQberry Two Beta** under **Choose OS**, and
+skip OS customisation. Which image suits your card:
+[card sizes](/02-software/01-installation-overview/#2-which-image). The link did
+nothing, or no Imager yet? See
+[other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
-**2. Boot your Pi and log in.** SSH and VNC both work out of the box — username `rasqberry`, password `Qiskit1!`.
+**2. Start the Pi.** The first start takes a few minutes and restarts on its
+own: do not unplug it. The desktop opens without a login; over SSH and VNC the
+login is `rasqberry` with password `Qiskit1!`.
 
-**3. Answer the setup questions** on first login (below), then start a demo.
-
-<details>
-<summary><b>The link did nothing, or you don't have Imager yet</b></summary>
-
-The link needs **Raspberry Pi Imager 2.0.3 or newer** — [install it](https://www.raspberrypi.com/software/) and click again. If still nothing happens, your browser may not hand `rpi-imager://` links to the app. Any of these work instead:
-
-**Add the repository by hand.** In Imager: **App Options** (bottom-left) → **Content Repository** → **Use custom URL** → paste `https://RasQberry.org/RQB-images.json` → **Apply & Restart**.
-
-**Download the image yourself.** Browse [rasqberry.org/latest/](/latest/) for stable, beta and development builds, then write it with Imager like any other image.
-
-**Start Imager from the command line.**
-
-```bash
-# macOS
-/Applications/Raspberry\ Pi\ Imager.app/Contents/MacOS/rpi-imager --repo https://RasQberry.org/RQB-images.json
-
-# Windows
-"C:\Program Files (x86)\Raspberry Pi Imager\rpi-imager.exe" --repo https://RasQberry.org/RQB-images.json
-```
-
-</details>
+**3. Answer the setup questions** (below), then start a demo.
 
 ### First boot
 
-The first time you log in, RasQberry offers the setup steps that still need a
-decision from you. Nothing happens behind your back, and it stops asking once
-they are done:
+On the first desktop login a short setup checklist opens once. It offers only
+the steps that still need a decision from you:
 
-- **Connect to a WLAN.** Only offered when the Pi has no network connection.
-- **Expand the partitions.** Only on the [A/B image](02-software/03-ab-boot),
-  which ships with a placeholder second slot and needs a 64GB or larger card.
-  Worth doing first: until you do there is nowhere to put a second system, and
-  the disk is nearly full.
-- **Check the LED panel.** An IBM logo appears on your panel and you pick the
-  colour that shows it upright — that tells RasQberry how your LEDs are wired
-  and which way up they are mounted. Nothing to do if you have no panel.
-- **Download all demos.** Optional; otherwise each demo installs the first time
-  you start it.
-- **Turn on touch mode.** Only offered when a touchscreen is attached.
+- **Connect to Wi-Fi.** Only when the Pi has no network connection.
+- **Change the password.** Optional: keep the demo password for a booth.
+- **Check the LED panel.** An IBM logo appears on the panel and you pick the
+  colour in which it reads upright. That tells RasQberry how your panel is wired.
+  No panel? Say so, and the LED demos use an on-screen view.
+- **Download all demos.** Optional; otherwise each demo downloads on its first start.
+- **Turn on touch mode.** Only when a touchscreen is attached.
 
-To see the list again later, double-click the **RasQberry Setup** icon on the
-desktop (or run `rq_firstlogin.sh --all`). Apart from the WLAN step, each one
-is also in `sudo raspi-config` → **0 RasQberry**.
+On the [A/B image](/02-software/03-ab-boot/) the card is prepared for two systems
+during the first start, on cards of 64GB or more.
 
-Then try something: double-click a demo icon on the desktop, or see the
-[demo list](03-quantum-computing-demos/01-demo-list) — 17 demos ship with the
-image. Found a bug? [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
+To see the checklist again, double-click the **RasQberry Setup** icon on the
+desktop (or run `rq_firstlogin.sh --all`). Most steps are also in
+`sudo raspi-config` → **0 RasQberry**.
+
+Then try something: double-click a demo icon on the desktop, or pick one from the
+[demo list](/03-quantum-computing-demos/01-demo-list/). Found a bug?
+[Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 
 ## Working with Qiskit
 
@@ -122,7 +115,7 @@ For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-mode
 
 ## Contributing
 
-RasQberry is an open-source educational project. We welcome contributions:
+RasQberry Two is an open-source educational project. We welcome contributions:
 
 1. **Test & report issues** - Try RasQberry and [report bugs](https://github.com/JanLahmann/RasQberry-Two/issues)
 2. **Share ideas & feature requests** - Open a [GitHub Discussion](https://github.com/JanLahmann/RasQberry-Two/discussions) or [issue](https://github.com/JanLahmann/RasQberry-Two/issues)
@@ -139,4 +132,5 @@ Subscribe to our [newsletter](/newsletter) for occasional updates on new release
 
 ## Need Help?
 
-Try our [AI-powered documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) to ask questions about RasQberry setup, demos, and troubleshooting (login with your Google ID required). <a href="https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344" target="_blank"><img src="/Artwork/notebooklm-icon.svg" alt="NotebookLM" width="20" height="20" style={{verticalAlign: 'middle'}} /></a>
+Start with [Troubleshooting](/02-software/01-installation-overview/#2-troubleshooting).
+You can also ask our [AI documentation assistant](https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344) based on [Google NotebookLM](https://notebooklm.google.com/) (needs a Google login), or [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues). <a href="https://notebooklm.google.com/notebook/d68081c6-19c4-4191-9092-77fb2674e344" target="_blank"><img src="/Artwork/notebooklm-icon.svg" alt="NotebookLM" width="20" height="20" style={{verticalAlign: 'middle'}} /></a>

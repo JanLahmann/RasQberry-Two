@@ -9,6 +9,8 @@ interface StreamData {
   release_url: string;
   release_date?: string;
   image_download_size?: number;
+  ab_image_url?: string;
+  ab_image_download_size?: number;
   message?: string;
   highlights?: string[];
 }
@@ -48,6 +50,20 @@ interface ImagesData {
   }>;
 }
 
+// CONDITIONAL: A/B default. true once a release makes the A/B image the
+// default (then its button comes first); keep in step with AB_DEFAULT in
+// .github/scripts/consolidate_json.py on main.
+const AB_DEFAULT = false;
+
+// Imager list folders that hold development builds. The first two are the
+// names used before the catalogue was regrouped; keep them so this page works
+// with either version of RQB-images.json.
+const DEV_FOLDERS = ['RasQberry developer builds', 'RasQberry Development Images', 'RasQberry A/B Boot Images'];
+
+function isAbImage(url: string): boolean {
+  return url.endsWith('-ab.img.xz');
+}
+
 const streamInfo = {
   stable: {
     title: 'Stable',
@@ -71,8 +87,8 @@ function extractBranchName(name: string): string {
   // and strip the date-timestamp suffix
   const match = name.match(/\(([^)]+)\)/);
   if (match) {
-    // Remove date-timestamp suffix (e.g., -2025-12-19-100018)
-    return match[1].replace(/-\d{4}-\d{2}-\d{2}-\d{6}$/, '');
+    // Remove the date-timestamp suffix ("-2025-12-19-100018" or " 2025-12-19-100018")
+    return match[1].replace(/[ -]\d{4}-\d{2}-\d{2}(-\d{6})?$/, '');
   }
   return name;
 }
@@ -119,37 +135,34 @@ export default function LatestPage() {
         // Extract dev branches from images data
         if (imagesRes.ok) {
           const imagesData: ImagesData = await imagesRes.json();
-          const devFolder = imagesData.os_list.find(
-            (item) => item.name === 'RasQberry Development Images'
-          );
-          if (devFolder?.subitems) {
-            const branches: DevBranch[] = devFolder.subitems
-              .filter((item) => item.url)
-              .map((item) => ({
-                name: item.name,
-                branch: extractBranchName(item.name),
-                url: item.url!,
-                release_date: item.release_date,
-                image_download_size: item.image_download_size,
-              }));
-            setDevBranches(branches);
-          }
+          const items = imagesData.os_list
+            .filter((item) => DEV_FOLDERS.includes(item.name))
+            .flatMap((item) => item.subitems || [])
+            .filter((item) => item.url);
 
-          // Extract A/B images
-          const abFolder = imagesData.os_list.find(
-            (item) => item.name === 'RasQberry A/B Boot Images'
-          );
-          if (abFolder?.subitems) {
-            const images: ABImage[] = abFolder.subitems
-              .filter((item) => item.url)
-              .map((item) => ({
-                name: item.name,
-                url: item.url!,
-                release_date: item.release_date,
-                image_download_size: item.image_download_size,
-              }));
-            setAbImages(images);
-          }
+          // Standard branch builds; the development build itself is the Dev
+          // stream above, so it is not repeated here.
+          setDevBranches(items
+            .filter((item) => !isAbImage(item.url!))
+            .map((item) => ({
+              name: item.name,
+              branch: extractBranchName(item.name),
+              url: item.url!,
+              release_date: item.release_date,
+              image_download_size: item.image_download_size,
+            }))
+            .filter((item) => item.branch !== 'development'));
+
+          // Beta and stable A/B images are on their own cards above.
+          setAbImages(items
+            .filter((item) => isAbImage(item.url!))
+            .filter((item) => !['beta', 'main'].includes(extractBranchName(item.name)))
+            .map((item) => ({
+              name: item.name,
+              url: item.url!,
+              release_date: item.release_date,
+              image_download_size: item.image_download_size,
+            })));
         }
 
       } catch (err) {
@@ -199,9 +212,11 @@ export default function LatestPage() {
     }}>
       <h1 style={{ marginBottom: '0.5rem' }}>RasQberry Two Downloads</h1>
       <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Choose a release stream to download the RasQberry Two image, or use a{' '}
-        <a href="/#3-simplified-installation-with-custom-pi-imager">customized Raspberry Pi Imager</a> for
-        simplified installation.
+        Download an image here, or let{' '}
+        <a href="/02-software/01-installation-overview/">Raspberry Pi Imager</a> fetch and write it.
+        Which image suits your card:{' '}
+        <a href="/02-software/01-installation-overview/#2-which-image">card sizes</a>.
+        Writing an image erases the card: copy your notebooks and <code>~/.qiskit</code> off it first.
       </p>
 
       {error && (
@@ -241,7 +256,6 @@ export default function LatestPage() {
                   <>
                     <p style={{ fontSize: '0.875rem', color: '#666', margin: '0 0 0.5rem 0' }}>
                       Released: {data.release_date}
-                      {data.image_download_size && ' • ' + formatSize(data.image_download_size)}
                     </p>
                     {data.highlights && data.highlights.length > 0 && (
                       <ul style={{ fontSize: '0.875rem', color: '#444', margin: '0 0 1rem 0', paddingLeft: '1.25rem' }}>
@@ -250,7 +264,19 @@ export default function LatestPage() {
                         ))}
                       </ul>
                     )}
-                    <a href={'/latest/' + stream} style={buttonStyle}>Download</a>
+                    {(() => {
+                      const standard = (
+                        <a key="std" href={'/latest/' + stream} style={buttonStyle}>
+                          Standard image{data.image_download_size ? ' (' + formatSize(data.image_download_size) + ')' : ''}
+                        </a>
+                      );
+                      const ab = data.ab_image_url ? (
+                        <a key="ab" href={data.ab_image_url} style={buttonStyle}>
+                          A/B image{data.ab_image_download_size ? ' (' + formatSize(data.ab_image_download_size) + ')' : ''}
+                        </a>
+                      ) : null;
+                      return AB_DEFAULT ? [ab, standard] : [standard, ab];
+                    })()}
                     <a href={data.release_url} style={{ ...buttonStyle, backgroundColor: '#393939' }}>
                       Release Notes
                     </a>
@@ -318,7 +344,7 @@ export default function LatestPage() {
                   color: '#666',
                   padding: '0.5rem 0',
                 }}>
-                  Feature branches ({devBranches.length} dev-featuresXX images)
+                  Branch builds ({devBranches.length} images, untested)
                 </summary>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
                   {devBranches.map((branch) => (
@@ -355,7 +381,7 @@ export default function LatestPage() {
                   color: '#666',
                   padding: '0.5rem 0',
                 }}>
-                  A/B Boot Images ({abImages.length} experimental images)
+                  A/B images of development and branch builds ({abImages.length})
                 </summary>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
                   {abImages.map((image: ABImage, index: number) => (

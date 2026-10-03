@@ -1,40 +1,54 @@
 # System Options
 
-The System Options allows you to configure system based settings such as WiFi Connectivity. Open your terminal window and connect to the Raspberry Configuration Tool.
+Wi-Fi, remote access and the password are set in the standard Raspberry Pi
+configuration tool. Open a terminal and run:
 
 ```
 sudo raspi-config
 ```
 
-Select `S1 System Options` to configure system settings 
-<img width="851" height="269" alt="systemsettings-01" src="https://github.com/user-attachments/assets/78e10ba9-49b8-472f-808a-040c0f50a3b4" />
+## Wi-Fi
 
-## Setting up WiFi Connectivity 
+If the Pi has no network on the first start, the setup checklist offers to
+connect to Wi-Fi. Later: **1 System Options** → **S1 Wireless LAN**, then enter
+the network name (SSID) and the passphrase.
 
-Select `S1 Wireless LAN` to configure your WiFi SSID and Passphrase. 
+<img width="850" height="276" alt="raspi-config Wireless LAN" src="https://github.com/user-attachments/assets/d50544dc-3502-4824-a434-a74496b835dc" />
 
-<img width="850" height="276" alt="wifi-01" src="https://github.com/user-attachments/assets/d50544dc-3502-4824-a434-a74496b835dc" />
+To see the Pi's IP address, run `hostname -I`, or look at **System Info** in
+**0 RasQberry**. The LED panel also scrolls it at start-up.
 
-Specify your WifI `SSID` followed by the `passphrase` (if any) then apply the settings. 
-<img width="434" height="302" alt="wifi-02" src="https://github.com/user-attachments/assets/0a32232b-5280-4c7b-a2c9-1abd17dd1872" />
+## Remote access
 
-If WiFi is enabled for your network, your device will obtain an IP address via DHCP. To view your WiFi IP address, run this command via terminal:
+On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
+address. The login is `rasqberry` with password `Qiskit1!` unless you changed it.
+
+### SSH
+
+SSH is on. From a terminal on your computer:
 
 ```
-ip address
+ssh rasqberry@rasqberry.local
 ```
-<img width="740" height="105" alt="image" src="https://github.com/user-attachments/assets/ff351437-5f6f-45c5-8cac-3419c395c16f" />
 
-## Connecting to RasQberry Remotely 
+Confirm the host key the first time, then enter the password.
 
-There are several ways to connect to your RasQberry Two. SSH and VNC are enabled by default. 
+### VNC (the desktop)
 
-### Connecting to RasQberry Remotely via SSH 
+VNC is switched on once, at the first start. If you switch it off
+(**3 Interface Options** → **VNC**), it stays off.
 
-Open a terminal on your remote device and specify your ssh username and IP address. The default username is `rasqberry`.
-```
-ssh rasqberry@<your IP address>
-```
-On most networks the hostname works as well: `ssh rasqberry@rasqberry.local`.
-You need to agree that you want to connect your devices and enter your Raspberry Pi password (default: `Qiskit1!`). Now you should be able to use SSH.
+Use **RealVNC Viewer** or **TigerVNC** and connect to `rasqberry.local`. The Pi
+only accepts encrypted logins, so the Mac's built-in Screen Sharing and some
+free Windows viewers (TightVNC, UltraVNC) cannot connect. VNC starts with the
+desktop, so give the Pi a minute after switching on.
 
+Display demos started over SSH have no screen to open on: start them on the
+desktop, locally or over VNC.
+
+## Password
+
+Everyone who reads this website knows the default password. On a shared
+network, change it: the setup checklist offers this once on the first login
+(skip it to keep the demo password, for example at a booth). Later, run
+`passwd`, or use **1 System Options** → **S3 Password**.
