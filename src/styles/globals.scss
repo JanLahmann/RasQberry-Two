@@ -48,6 +48,70 @@ img {
   text-align: center;
 }
 
+// Highlighted box with a button (homepage workshop invite)
+.callout {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  background: themes.$layer-01;
+  border-left: 4px solid $text-gradient-blue;
+  border-radius: 8px;
+
+  p {
+    margin: 0 0 0.75rem;
+  }
+}
+
+// Prominent call-to-action link styled as a button ("Open in Raspberry Pi Imager")
+a.cta-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(45deg, $text-gradient-blue, $text-gradient-purple);
+  border-radius: $border-radius;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+
+  &:hover,
+  &:focus {
+    color: #fff;
+    opacity: 0.9;
+  }
+}
+
+.cta-note {
+  font-size: 0.875rem;
+  color: themes.$text-secondary;
+}
+
+// Workshops page: photos and the clip as a 2x2 grid of equal tiles
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1rem 0 0.5rem;
+
+  img,
+  video {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  // The clip is portrait: show it whole on a dark tile
+  video {
+    object-fit: contain;
+    background: #161616;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
 h1 {
   @include type.type-style('fluid-display-01', true);
   color: themes.$text-primary;

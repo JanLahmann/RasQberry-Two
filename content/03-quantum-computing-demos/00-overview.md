@@ -22,14 +22,14 @@ installs from.
 | IBM Quantum Tutorials | Official IBM Quantum tutorials as local notebooks | display |
 | IBM Quantum Courses | Official IBM Quantum courses as local notebooks | display |
 | Quantum Lab (QuBins) | Local JupyterLab with the IBM Quantum Learning notebooks | display, network |
-| doQumentation (Workshop Server) | Local IBM Quantum docs site with runnable code | display, network |
+| Workshop & Qiskit Server | IBM Quantum tutorials and courses with runnable code, for one Pi or a whole group (based on doQumentation) | display, network |
 | Quantum-Mixer | Interactive circuit builder and simulator | display |
 | IBM Quantum Composer | IBM's online circuit composer | display, network, IBM account |
 
 Only the LED demos, RasQ-LED and Quantum Fractals are on the card from the
 start. The others download on their first start, which needs a network
 connection; Docker demos (Qoffee-Maker, Quantum-Mixer, Quantum Lab,
-doQumentation) take 2–4GB each.
+Workshop & Qiskit Server) take 2–4 GB each and need a card of 32 GB or more.
 
 ## Running demos
 
@@ -74,7 +74,9 @@ uses it.
   **2 Display Options** → **Screen Blanking**.
 - **Browser at login** in **0 RasQberry** stops the browser opening rasqberry.org
   at every start.
-- The **Continuous Demo Loop** keeps the model busy between visitors.
+- On a large monitor, Quantum Lights Out, Grokking the Bloch Sphere, Quantum
+  Fractals, the LED demos and the Quantum Coin Game draw visitors in
+  ([more](/workshops/#2-for-a-stand)).
 - Change the default password on a shared network, or keep it for a booth
   ([how](/02-software/02-system-options/)).
 

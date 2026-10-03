@@ -50,10 +50,10 @@ interface ImagesData {
   }>;
 }
 
-// CONDITIONAL: A/B default. true once a release makes the A/B image the
-// default (then its button comes first); keep in step with AB_DEFAULT in
+// A/B default: the A/B image is the recommended download and its button comes
+// first, as in the Imager list. Keep in step with AB_DEFAULT in
 // .github/scripts/consolidate_json.py on main.
-const AB_DEFAULT = false;
+const AB_DEFAULT = true;
 
 // Imager list folders that hold development builds. The first two are the
 // names used before the catalogue was regrouped; keep them so this page works
@@ -73,7 +73,7 @@ const streamInfo = {
   beta: {
     title: 'Beta',
     subtitle: 'Testing',
-    description: 'New features for testing before stable release',
+    description: 'The current release, with the newest features',
   },
 };
 
@@ -191,6 +191,13 @@ export default function LatestPage() {
     marginBottom: '0.5rem',
   };
 
+  const outlineButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#fff',
+    color: '#0f62fe',
+    boxShadow: 'inset 0 0 0 1px #0f62fe',
+  };
+
   const smallButtonStyle: React.CSSProperties = {
     ...buttonStyle,
     padding: '0.375rem 0.75rem',
@@ -211,12 +218,20 @@ export default function LatestPage() {
       fontFamily: 'system-ui, sans-serif',
     }}>
       <h1 style={{ marginBottom: '0.5rem' }}>RasQberry Two Downloads</h1>
-      <p style={{ color: '#666', marginBottom: '2rem' }}>
-        Download an image here, or let{' '}
-        <a href="/02-software/01-installation-overview/">Raspberry Pi Imager</a> fetch and write it.
-        Which image suits your card:{' '}
-        <a href="/02-software/01-installation-overview/#2-which-image">card sizes</a>.
+      <p style={{ color: '#666', marginBottom: '1rem' }}>
+        The easiest way: let Raspberry Pi Imager 2.0.3+ download and write the image.
+        Or download it here and write it with Imager (<strong>Use custom</strong>).
         Writing an image erases the card: copy your notebooks and <code>~/.qiskit</code> off it first.
+      </p>
+      <p style={{ marginBottom: '1rem' }}>
+        <a href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" style={{ ...buttonStyle, background: 'linear-gradient(45deg, #0f62fe, #9b5cff)', fontWeight: 600 }}>
+          ▶ Open in Raspberry Pi Imager
+        </a>
+      </p>
+      <p style={{ color: '#666', marginBottom: '2rem' }}>
+        Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum. The recommended image
+        holds two systems from 64 GB and one system on smaller cards
+        (<a href="/02-software/01-installation-overview/#2-which-image">card sizes</a>).
       </p>
 
       {error && (
@@ -232,6 +247,8 @@ export default function LatestPage() {
             const data = releases.streams[stream];
             const info = streamInfo[stream];
             const hasRelease = data?.image_url && data?.tag;
+            // As in the Imager list: without a stable release, the beta is the recommended one.
+            const recommended = stream === 'stable' || !releases.streams.stable?.image_url;
 
             return (
               <div key={stream} style={cardStyle}>
@@ -242,10 +259,10 @@ export default function LatestPage() {
                       <span style={{
                         fontSize: '0.875rem',
                         fontWeight: 'normal',
-                        color: stream === 'stable' ? '#198038' : '#f1c21b',
+                        color: recommended ? '#198038' : '#b28600',
                         marginLeft: '0.5rem',
                       }}>
-                        ({info.subtitle})
+                        ({recommended ? 'Recommended' : info.subtitle})
                       </span>
                     </h2>
                     <p style={{ color: '#666', margin: '0 0 1rem 0' }}>{info.description}</p>
@@ -266,13 +283,13 @@ export default function LatestPage() {
                     )}
                     {(() => {
                       const standard = (
-                        <a key="std" href={'/latest/' + stream} style={buttonStyle}>
-                          Standard image{data.image_download_size ? ' (' + formatSize(data.image_download_size) + ')' : ''}
+                        <a key="std" href={'/latest/' + stream} style={AB_DEFAULT && data.ab_image_url ? outlineButtonStyle : buttonStyle}>
+                          Single system{data.image_download_size ? ' (' + formatSize(data.image_download_size) + ')' : ''}
                         </a>
                       );
                       const ab = data.ab_image_url ? (
                         <a key="ab" href={data.ab_image_url} style={buttonStyle}>
-                          A/B image{data.ab_image_download_size ? ' (' + formatSize(data.ab_image_download_size) + ')' : ''}
+                          {AB_DEFAULT ? 'Recommended: A/B image' : 'A/B image'}{data.ab_image_download_size ? ' (' + formatSize(data.ab_image_download_size) + ')' : ''}
                         </a>
                       ) : null;
                       return AB_DEFAULT ? [ab, standard] : [standard, ab];
@@ -307,7 +324,8 @@ export default function LatestPage() {
               </span>
             </h2>
             <p style={{ color: '#666', margin: '0 0 1rem 0' }}>
-              Latest development builds with cutting-edge features.
+              The newest builds, untested: for developers, not for classrooms or events.
+              In Imager they are in <strong>RasQberry developer builds</strong>.
             </p>
 
             {/* Main development branch (from dev stream) */}

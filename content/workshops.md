@@ -1,26 +1,40 @@
 # Workshops & events
 
-You run the workshop or event, and we help you prepare RasQberry Two for it.
+You run the workshop or event, and we help you prepare RasQberry Two for it:
+free, as part of our open-source community work.
 
-## What we offer
+## How we can help
 
-- **A custom image** made for your event.
-- **Your branding**: logo, splash screen, wallpaper, LED logo and browser start page.
+- **An image made for your event**, with **your branding**: logo, splash screen,
+  wallpaper, LED logo and browser start page.
 - **Extensions** for your topic.
 - **Testing**: we check every function you plan to use.
 - **Advice** on tools, setup and agenda: how many Pis, offline use, LED panels.
 
-## One Pi for the whole group
+You bring the Raspberry Pis; we help you get them ready.
 
-The **Workshop Server** (doQumentation) runs on one Pi and serves the participants' laptops over the local network. They get IBM Quantum tutorials and courses, and the code runs on the Pi. We help you size it for your group.
+## One of your Pis as a server for the whole group
+
+The **Workshop & Qiskit Server** runs on one of your Pis and serves the
+participants' laptops over the local network: IBM Quantum tutorials and courses,
+with the Qiskit code running on the Pi. It is based on
+[doQumentation](https://doqumentation.org). We help you size it for your group.
 
 ## For a stand
 
-The **Demo Loop** plays demos one after another on the screen and the LEDs. It is made for conference stands.
+Demos that draw visitors in, on a large monitor and on the model:
+
+- **LED demos on the model**: circuits, logos and colour effects on the LED panel.
+- **Quantum Lights Out**: Grover's search solves the puzzle, step by step on the LEDs.
+- **Grokking the Bloch Sphere**: apply gates to a qubit and watch the sphere turn.
+- **Quantum Fractals**: fractals that change with the state of one qubit.
+- **Quantum Coin Game**: play heads or tails against a quantum computer, and lose.
 
 ## Past events
 
-RasQberry Two was shown at the IBM Quantum Developer Conference in November 2025.
+RasQberry Two was shown at the IBM Quantum Developer Conference in November 2025,
+and IBM Quantum [featured it on LinkedIn](https://www.linkedin.com/posts/qiskit-ugcPost-7406757487208730624-4Tpr/)
+in December 2025.
 
 <Qdc2025 />
 

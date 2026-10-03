@@ -7,8 +7,8 @@ or 5, keep it up to date, and what to do when something goes wrong.
 
 - **Raspberry Pi 5** (2GB RAM is enough for most demos) or **Raspberry Pi 4B** (4GB RAM).
   The Pi 5 is recommended; the [hardware assembly guide](/01-3d-model/02-hardware-assembly-guide/) assumes one.
-- **MicroSD card:** 16GB or more, 32GB recommended. Two systems with safe updates
-  need 64GB or more (see below).
+- **MicroSD card:** 128 GB high-speed (A2, U3) recommended, 16 GB minimum
+  (see below).
 - **Official power supply:** the 27W USB-C supply (5.1V, 5A) for the Pi 5, the 15W
   USB-C supply for the Pi 4. Ordinary USB-C chargers give a Pi 5 only 3A, too
   little with a bright LED panel. An active cooler for the Pi 5.
@@ -21,31 +21,59 @@ The full parts list, including the 3D-printed case and LEDs, is in the
 
 ## Which image?
 
-{/* CONDITIONAL: A/B default. If A/B is not the default, the A/B row reads
-"A/B image, recommended for 64GB+ cards" and the 16GB-32GB row reads
-"Standard image". */}
+Pick **RasQberry Two Beta**, the A/B image, whatever your card. From 64 GB it holds
+two systems, so updates install in place and you can always go back
+([A/B image](/02-software/03-ab-boot/)); on a smaller card it runs as one system.
+**RasQberry Two Beta — single system** is the standard image, always one system.
+We publish it for at least one more release.
 
-| Your card | Image |
+| Card | What fits |
 |---|---|
-| 64GB or more | The **A/B image** (default): two systems on one card, so updates install in place and you can always go back. See [A/B image](/02-software/03-ab-boot/). |
-| 16GB or 32GB | The A/B image runs as one system on a small card. The **standard image** does the same. Either way, a new release means writing a new card. |
+| **128 GB (recommended)** | Two systems with safe updates, and all Docker demos |
+| 64 GB | Two systems with safe updates, and some Docker demos |
+| 32 GB | One system, with the Docker demos |
+| 16 GB | One system, without the Docker demos |
+
+A high-speed card (A2, U3) makes the desktop and the demos start faster. Docker demos (Qoffee-Maker,
+Quantum-Mixer, Quantum Lab, Workshop & Qiskit Server) take 2–4 GB each, per system.
 
 ## Write the card
 
 ### One-click: Open in Raspberry Pi Imager (recommended)
 
 With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
-installed, this opens it with the RasQberry images:
+installed:
 
-**[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
+<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json">▶ Write RasQberry Two to your SD card</a></p>
+<p className="cta-note">Opens Raspberry Pi Imager with the RasQberry images.</p>
 
-1. Confirm Imager's security prompt and choose your Raspberry Pi model.
-2. Under **Choose OS**, pick **RasQberry Two Beta**. Development and branch builds
-   are in **RasQberry developer builds**: they are untested.
-3. Choose your SD card. Writing erases everything on it.
-4. Skip OS customisation: the image is already set up. Wi-Fi is offered on the
-   first start.
-5. Write the card, put it in the Pi and switch on.
+1. Let your browser open Imager, and confirm **Switch repository**.
+2. **Device:** choose your Raspberry Pi model.
+3. **OS:** pick **RasQberry Two Beta**. Development and branch builds are in
+   **RasQberry developer builds**: they are untested.
+4. **Storage:** choose your SD card. Writing erases everything on it.
+5. **Customisation:** optional, see below, or **Skip customisation**.
+6. **Write**, put the card in the Pi and switch it on.
+
+### Customisation
+
+Imager can set these, so the Pi is ready without a screen:
+
+- **Localisation:** time zone and keyboard layout (this also sets the Wi-Fi country).
+- **Wi-Fi:** your network and its password.
+- **Remote access:** SSH is already on. To log in with a key, choose **Use public
+  key authentication**; SSH then accepts only keys. This needs the **User** step.
+
+Leave **Hostname** empty. Leave **User** empty too, unless you add an SSH key: then
+enter the user name `rasqberry` and a password (it replaces `Qiskit1!`). Never
+enter another user name: RasQberry and its demos need `rasqberry`.
+
+{/* CONDITIONAL: Imager customisation on the A/B image. Delete this paragraph
+once the A/B image applies it and consolidate_json.py (main) keeps init_format
+for A/B entries (AB_IMAGER_CUSTOMISATION). */}
+The A/B image (**RasQberry Two Beta**) does not offer customisation yet: it asks
+for Wi-Fi on the first start. Without a screen, use an Ethernet cable, or
+**RasQberry Two Beta — single system**.
 
 ### If the link does not open Imager
 
@@ -142,10 +170,11 @@ SSH is on; VNC is switched on at the first start
   network on a demo's first start, or a display demo started over SSH (start it
   on the desktop or over VNC instead).
 - **Disk full:** the Docker demos (Qoffee-Maker, Quantum-Mixer, Quantum Lab,
-  doQumentation) take 2–4GB each. On a 16GB card, install only the ones you need.
+  Workshop & Qiskit Server) take 2–4 GB each and need a card of 32 GB or more
+  ([card sizes](#2-which-image)).
 - **LED panel stays dark:** see [LED troubleshooting](/03-quantum-computing-demos/led-display/).
-- **Known issue:** code cells in doQumentation (Workshop Server) fail, because the
-  current upstream image has no Qiskit
+- **Known issue:** code cells in the Workshop & Qiskit Server fail, because the
+  current upstream doQumentation image has no Qiskit
   ([doQumentation#958](https://github.com/JanLahmann/doQumentation/issues/958)).
 - **Still stuck?** [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
   and paste the output of `rq_info.sh --json`.

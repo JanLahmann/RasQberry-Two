@@ -1,32 +1,64 @@
 # Tips and Tricks from Jan
 
-On this page, you will find various tips & tricks from Jan for building the 3D model (e.g. slightly modified STL files, useful tools), installing and using the SW stack and the quantum computing demos, and for modifications of the SW stack and adding new demos to the platform.
+Tips from my own builds: the 3D model, the LED panel, the beta and the A/B
+image, and working on the software.
 
 ## 3D model
 
-I have slightly modified some of the STL files to create a specific variant of the RasQberry Two model or to adjust them a bit to my environment (e.g. the specific 3D printer I use, etc).
-
-Modified STL files are available in the [3D Model modifications folder](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan).
+Some STL files I changed for my printer or for a variant of the model are in the
+[3D Model modifications folder](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan).
 
 ### Standalone model
 
-The "standalone model" does not use the floor at all. The intention is to use multiple of these standalone models to resemble the modular structure of Quantum System Two, i.e. being able to rearrange the elements and build larger quantum computing structures. For that case, the holes for the screws have been removed. Also, we do not use the double wide version of the RTEs, but only the small RTEs, which then have four magents (two on each side). This allows more flexible configurations.
+The standalone model has no floor. Several of them together resemble the modular
+structure of IBM Quantum System Two: you can rearrange the elements and build
+larger systems. So the screw holes are gone, and instead of the double-wide RTEs
+it uses the small ones, with four magnets each (two on each side).
 
-### LED Filter Screen
+### LED filter screen
 
-The bill-of-material mentions a "welding shield" than can be used in front of the LEDs. Instead, you can 3D print it - with the right material. Many black filaments will not work as they absorb too much light, but a screen printed with 0.6 mm Prusament PLA Galaxy Grey does just fine. The [STL file](https://github.com/JanLahmann/RasQberry-Two/blob/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan/October%202025/wall/RQB2-WallPanel-jrl02-2.stl) removes the need for a separate order of a welding shield and cutting it.
+Instead of cutting a welding shield, you can print the screen in front of the
+LEDs. Most black filaments absorb too much light, but 0.6 mm of Prusament PLA
+Galaxy Grey works well:
+[STL file](https://github.com/JanLahmann/RasQberry-Two/blob/3D-model/3D%20Model/3D%20Model%20-%20modifications%20-%20Jan/October%202025/wall/RQB2-WallPanel-jrl02-2.stl).
 
-## SW Developer Infos
+## LED panel: one 8×32 panel, cut to 8×24
 
-### Forking the Repository
+I recommend one flexible 8×32 WS2812B panel, cut to 8×24 (192 LEDs), over the
+four 4×12 panels in the Bill of Materials: one piece means no wiring between
+panels and no seams. Cut between two columns and keep the end with the data
+input. The LED check in the setup checklist works with both kits.
 
-The GitHub Actions workflow automatically detects your repository and username from the GitHub context. In most cases, forking should work without any changes.
+Use the official 27 W power supply for the Pi 5. On a weaker supply a bright
+panel can make the LEDs stop until the next restart.
 
-`pi-gen-config` holds the rest of the build configuration. Its `RQB_GIT_USER`, `RQB_GIT_BRANCH` and `RQB_REPO` are filled in by the workflow, so there is no need to edit them.
+## The beta and the A/B image
 
-### Iterative Development
+- **Card:** 128 GB, A2/U3. The A/B image then holds two systems, each with room
+  for all Docker demos.
+- **Updates:** install a new release into Slot B and try it. Make Slot B the
+  stable system only once you are happy with it; until then Slot A is your way back.
+- **Keep your files in Shared:** that folder, your IBM Quantum account, Wi-Fi and
+  LED settings move with every update. The rest of your home folder stays in its slot.
+- **Docker demos belong to one system:** after an update they download again.
+- **Tell us how it goes:** the beta is tested on a Pi 5 and a Pi 4 on my desk, not
+  in your classroom. Your feedback is highly appreciated:
+  [open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 
-A full image build takes a while. For faster iteration when modifying scripts (like `RQB2_menu.sh`) on a running system, use the built-in update script:
+More in [A/B image](/02-software/03-ab-boot/).
+
+## Working on the software
+
+### Forking the repository
+
+The image workflow takes the repository and user name from the GitHub context,
+so a fork usually builds without changes. `RQB_GIT_USER`, `RQB_GIT_BRANCH` and
+`RQB_REPO` in `pi-gen-config` are filled in by the workflow.
+
+### Trying changes on a running Pi
+
+A full image build takes a while. To test scripts (like `RQB2_menu.sh`) on a
+running Pi, update them from a branch:
 
 ```bash
 # Update from a specific branch (auto-detects repository)
@@ -39,12 +71,20 @@ sudo rq_update_from_branch.sh --repo YourUser/RasQberry-Two --branch development
 sudo rq_update_from_branch.sh --branch dev --dry-run
 ```
 
-This updates scripts in `/usr/bin/`, config files in `/usr/config/` and system files (systemd units, autostart entries) from the specified branch. Device settings in `rasqberry_environment.env`, such as the LED layout, are kept: new keys arrive, existing values stay. The same function is in `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates** → **Update from GitHub Branch**. For full system updates (kernel, packages, partition layout), write a new image or use an A/B slot update.
+This updates the scripts in `/usr/bin/`, the files in `/usr/config/` and the
+system files (systemd units, autostart entries). Device settings in
+`rasqberry_environment.env`, such as the LED layout, are kept: new keys arrive,
+existing values stay. The same function is in `sudo raspi-config` →
+**0 RasQberry** → **Advanced** → **Update from GitHub Branch**. Kernel, packages
+and the partition layout need a new image or an A/B update.
 
-## Build System
+### Building images
 
-Images are built by GitHub Actions (`.github/workflows/RQB-image-v2.yaml`, "Rasqberry Pi Image Release v2"):
+GitHub Actions builds the images (`.github/workflows/RQB-image-v2.yaml`,
+"Rasqberry Pi Image Release v2"):
 
-- **Automatic:** every push to a `dev*` branch (this includes `development`).
-- **Manual:** Actions tab → "Rasqberry Pi Image Release v2" → "Run workflow". Inputs: `version` (required for `main`), `build_scope` (`ab-only`, `standard-image`, `full`, `no-release`), `console_type` and `boot_verbosity`.
+- **Automatic:** every push to a `dev*` branch, `development` included.
+- **Manual:** Actions → "Rasqberry Pi Image Release v2" → "Run workflow". Inputs:
+  `version` (required for `main`), `build_scope` (`ab-only`, `standard-image`,
+  `full`, `no-release`), `console_type`, `boot_verbosity` and `runner_type`.
 - By default every build produces both the standard and the A/B image.

@@ -1,33 +1,29 @@
 # A/B Image: Two Systems, One Card
 
-{/* CONDITIONAL: A/B default. If A/B is not the default of this release, replace
-the next paragraph with: "Alongside the standard image we publish an A/B image.
-It is recommended for cards of 64GB or more: updates install in place and you
-can always go back." */}
-
-The A/B image is the recommended RasQberry Two image. On a card of 64GB or more
-it holds **two systems**, Slot A and Slot B. An update goes into Slot B while
-Slot A keeps the system that works, so a failed update never leaves you without
-a working Pi.
+The A/B image is the recommended RasQberry Two image (**RasQberry Two Beta** in
+Raspberry Pi Imager). On a card of 64 GB or more it holds **two systems**, Slot A
+and Slot B. An update goes into Slot B while Slot A keeps the system that works,
+so a failed update never leaves you without a working Pi.
 
 ## Card sizes
 
 | Card | What you get |
 |---|---|
-| 64GB or more | Two systems (about 26GB each on a 64GB card) and a shared data partition (10% of the card) |
-| 16GB or 32GB | One system that uses the whole card. There are no updates in place: write a new card for each release |
+| **128 GB, A2/U3 (recommended)** | Two systems, each with room for all Docker demos, and a shared data partition (10% of the card) |
+| 64 GB | Two systems (about 26 GB each) and the shared data partition. Room for some Docker demos |
+| 16 GB or 32 GB | One system that uses the whole card (Docker demos need 32 GB). There are no updates in place: write a new card for each release |
 
-The standard image is still published. It is always one system, like the A/B
-image on a small card.
+The standard image (**RasQberry Two Beta — single system**) is still published. It
+is always one system, like the A/B image on a small card.
 
 ## First start
 
 The first start prepares the card. It takes a few minutes and the Pi restarts
 on its own: do not unplug it. It is done when the desktop appears.
 
-On a card of 64GB or more, the card is split into the two systems
+On a card of 64 GB or more, the card is split into the two systems
 automatically. To keep it as one system, create an empty file named
-`<opt-out marker>` on the **CONFIG** drive before the first start.
+`no-auto-expand` on the **CONFIG** drive before the first start.
 
 ## Update
 
@@ -35,7 +31,7 @@ automatically. To keep it as one system, create an empty file named
    **Check for a newer image** tells you whether a new release is out. A
    terminal or SSH login also shows a one-line notice.
 2. **Slot Manager** → **Install an update into Slot B (testing)**. It downloads about
-   1.7GB and takes 20–30 minutes, then the Pi restarts into Slot B.
+   1.7 GB and takes 10–20 minutes, then the Pi restarts into Slot B.
 3. If Slot B starts properly, it is kept. If not, the Pi goes back to Slot A
    by itself.
 4. Once you are happy with Slot B, **Slot Manager** → **Make Slot B the stable
@@ -55,8 +51,9 @@ The shared data partition (`/data`) carries these into the new system:
 - LED panel settings
 - SSH keys, so remote logins keep working
 
-Installed demos are downloaded again on their first start. Other files in your
-home folder stay in the other slot: switch back to fetch them.
+Each system has its own demos: after an update they download again on their
+first start, Docker demos included (2–4 GB each). Other files in your home folder
+stay in the other slot: switch back to fetch them.
 
 ## Go back
 

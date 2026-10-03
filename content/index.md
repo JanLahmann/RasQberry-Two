@@ -6,9 +6,12 @@ leadspace:
   size: tall
   cta:
     primary:
+      label: Open in Raspberry Pi Imager
+      url: "rpi-imager://open?repo=https://RasQberry.org/RQB-images.json"
+    secondary:
       label: Get started
       url: /#2-getting-started
-    secondary:
+    tertiary:
       label: View on GitHub
       url: https://github.com/JanLahmann/RasQberry-Two
       icon: logo-github
@@ -28,7 +31,10 @@ entanglement on screen and on the model's LED panel.
 [rasqberry.one](https://rasqberry.one). RasQberry Two adds a 64-bit OS, the
 Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
 
-**Running a workshop or event?** We help you prepare it with a custom image, your branding and tested demos. [Workshops & events](/workshops/)
+<div className="callout">
+  <p><strong>Running a workshop or event?</strong> We help you prepare it, free, as part of our open-source community work: an image made for your event, your branding and tested demos.</p>
+  <a className="cta-button" href="/workshops/">Workshops &amp; events</a>
+</div>
 
 ## See It In Action
 
@@ -56,15 +62,18 @@ Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
 
 Already running RasQberry Two? Go to [First boot](/#3-first-boot).
 
-**1. Write the image.** With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3+ installed, this opens it pre-loaded with the RasQberry images:
+**1. Write the image.** Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer, then:
 
-**[▶ Open in Raspberry Pi Imager](rpi-imager://open?repo=https://RasQberry.org/RQB-images.json)**
+<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json">▶ Write RasQberry Two to your SD card</a></p>
+<p className="cta-note">Opens Raspberry Pi Imager with the RasQberry images.</p>
 
-Confirm the security prompt, pick **RasQberry Two Beta** under **Choose OS**, and
-skip OS customisation. Which image suits your card:
-[card sizes](/02-software/01-installation-overview/#2-which-image). The link did
-nothing, or no Imager yet? See
-[other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
+In Imager, confirm **Switch repository**, then choose your Pi under **Device**,
+**RasQberry Two Beta** under **OS** and your card under **Storage**.
+**Customisation** (Wi-Fi, time zone, keyboard, SSH key) is optional; keep the
+user name `rasqberry` ([details](/02-software/01-installation-overview/#3-customisation)).
+Card: 128 GB high-speed (A2/U3) recommended, 16 GB minimum
+([card sizes](/02-software/01-installation-overview/#2-which-image)). The link did
+nothing? See [other ways](/02-software/01-installation-overview/#3-if-the-link-does-not-open-imager).
 
 **2. Start the Pi.** The first start takes a few minutes and restarts on its
 own: do not unplug it. The desktop opens without a login; over SSH and VNC the
@@ -86,15 +95,17 @@ the steps that still need a decision from you:
 - **Turn on touch mode.** Only when a touchscreen is attached.
 
 On the [A/B image](/02-software/03-ab-boot/) the card is prepared for two systems
-during the first start, on cards of 64GB or more.
+during the first start, on cards of 64 GB or more.
 
 To see the checklist again, double-click the **RasQberry Setup** icon on the
 desktop (or run `rq_firstlogin.sh --all`). Most steps are also in
 `sudo raspi-config` → **0 RasQberry**.
 
 Then try something: double-click a demo icon on the desktop, or pick one from the
-[demo list](/03-quantum-computing-demos/01-demo-list/). Found a bug?
-[Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues).
+[demo list](/03-quantum-computing-demos/01-demo-list/).
+
+**Your feedback is highly appreciated.** Tell us what works and what doesn't, or
+report a bug, in a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/issues).
 
 ## Working with Qiskit
 

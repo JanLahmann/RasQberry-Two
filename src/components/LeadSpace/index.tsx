@@ -22,7 +22,8 @@ export interface Props {
     copy?: string
     cta?: {
         primary: CTA,
-        secondary?: CTA
+        secondary?: CTA,
+        tertiary?: CTA
     }
     bg?: {
         gradient: boolean,
@@ -37,6 +38,7 @@ export interface Props {
 export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'light' }: Props) {
     const primaryIcon = icons[cta?.primary.icon || "arrow-right"]
     const secondaryIcon = icons[cta?.secondary?.icon || "arrow-right"]
+    const tertiaryIcon = icons[cta?.tertiary?.icon || "arrow-right"]
 
     return <div className={clsx(styles['lead-space'], styles[`lead-space--${size}`])}>
         <Grid className={clsx(styles['lead-space__content'], styles[`lead-space__content--${size}`], styles[`lead-space__content--${variant}`])}>
@@ -53,6 +55,7 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'ligh
                             </Button>
                         </Link>
                         {cta.secondary && <Link renderIcon={secondaryIcon} href={cta.secondary.url} target={cta.secondary.target || '_self'}>{cta.secondary.label}</Link>}
+                        {cta.tertiary && <Link renderIcon={tertiaryIcon} href={cta.tertiary.url} target={cta.tertiary.target || '_self'}>{cta.tertiary.label}</Link>}
                     </div>
                     )}
                 </Column>

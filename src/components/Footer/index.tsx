@@ -14,6 +14,9 @@ export async function Footer() {
                 <p style={{ fontSize: '0.875rem', marginTop: '1rem', opacity: 0.8 }}>
                     <a href="/newsletter" style={{ color: 'inherit', textDecoration: 'underline' }} data-umami-event="RasQberry Two: newsletter open">Subscribe to our newsletter</a> for occasional updates.
                 </p>
+                <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', opacity: 0.8 }}>
+                    Your feedback is highly appreciated: tell us what works and what doesn&apos;t in a <a href="https://github.com/JanLahmann/RasQberry-Two/issues" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>GitHub issue</a>.
+                </p>
                 <p style={{ fontSize: '0.75rem', marginTop: '1rem', opacity: 0.8, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
                     {family.brand.tagline.l}
                 </p>
