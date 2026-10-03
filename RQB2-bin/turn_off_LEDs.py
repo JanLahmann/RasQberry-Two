@@ -12,9 +12,14 @@ a failure (R-148).
                                  browser view (used at shutdown)
 """
 
+import os
 import sys
 
-from rq_led_utils import clear_all_leds, get_led_config
+# Clearing updates an open on-screen LED view but does not open one
+os.environ.setdefault('RQ_LED_NO_WINDOW', '1')
+
+from rq_led_utils import (clear_all_leds, get_led_config,  # noqa: E402
+                          guard_pi5_led_writes, _wait_for_last_frame)
 
 
 def turn_off_LEDs():
@@ -39,6 +44,7 @@ def turn_off_physical():
     try:
         import board
         import neopixel
+        guard_pi5_led_writes()
         config = get_led_config()
         pixels = neopixel.NeoPixel(
             getattr(board, f"D{config['led_gpio_pin']}"),
@@ -49,6 +55,7 @@ def turn_off_physical():
         )
         pixels.fill((0, 0, 0))
         pixels.show()
+        _wait_for_last_frame()   # Pi 5: let the frame out before exiting
         # No deinit(): on a Pi 4 it can block in the PWM driver (see
         # kill_child_bounded in rq_led_setup_wizard.sh); exiting frees it.
         return True

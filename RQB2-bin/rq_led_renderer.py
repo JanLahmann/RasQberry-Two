@@ -255,6 +255,11 @@ class LedRenderer:
         """Create the real NeoPixel strip directly (root, brightness 1.0)."""
         import board
         import neopixel
+        try:  # Pi 5: notice and recover driver stalls (item 31)
+            from rq_led_utils import guard_pi5_led_writes
+            guard_pi5_led_writes()
+        except Exception:  # pragma: no cover - the strip works without it
+            pass
 
         pin = int(self.config.get('led_gpio_pin', 18))
         order_name = self.config.get('pixel_order', 'GRB')

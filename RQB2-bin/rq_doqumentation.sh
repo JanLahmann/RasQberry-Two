@@ -246,6 +246,7 @@ if ! docker run -d \
     --pids-limit "$PIDS" \
     -e JUPYTER_TOKEN="$JUPYTER_TOKEN" \
     -e CORS_ORIGIN="$CORS_ORIGIN" \
+    -e MPLCONFIGDIR=/tmp/matplotlib \
     "$DOCKER_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Workshop Server container did not start."
 fi

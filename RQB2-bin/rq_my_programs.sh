@@ -55,6 +55,8 @@ jupyter-lab \
 JUPYTER_PID=$!
 
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     if kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping JupyterLab..."
         kill "$JUPYTER_PID" 2>/dev/null || true
@@ -91,7 +93,4 @@ echo "Folder: $PROGRAMS_DIR"
 echo "URL:    $URL"
 echo ""
 echo "Your notebooks and programs are saved in this folder."
-echo "Press Ctrl+C (or close this window) to stop JupyterLab."
-echo ""
-
-wait "$JUPYTER_PID" 2>/dev/null || true
+rq_wait_for_stop "JupyterLab" "$JUPYTER_PID"

@@ -29,6 +29,8 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 # Change to home directory to avoid permission issues with lgpio temp files
 cd "$USER_HOME" || cd /tmp
 
-# Launch LED test utility
+# Launch LED test utility. Not exec: the EXIT trap clears the panel when the
+# window is closed (R-158).
+rq_led_clear_on_exit
 info "Starting LED Test Utility..."
-exec python3 "$BIN_DIR/rq_led_test.py" "$@"
+python3 "$BIN_DIR/rq_led_test.py" "$@"

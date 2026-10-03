@@ -60,6 +60,8 @@ NM_DIR="/etc/NetworkManager/system-connections"
 DATA_NM="$DATA/rasqberry/system-connections"
 DATA_MIN_BYTES=268435456   # 256 MiB: smaller is the image's placeholder
 PROGRAMS=My-Quantum-Programs
+# rq_learner_setup.sh made ~/My-Quantum-Programs for this user (once)
+LEARNER_STAMP=.local/state/rasqberry/learner-setup/programs
 # The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
 STARTERS="$ROOT/usr/config/my-quantum-programs"
 ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE"
@@ -226,11 +228,15 @@ cmd_link() {
         give_to_user "$DATA/home/$user"
         link_home_dir Shared "$DATA/home/$user/Shared" 755 || true
         link_home_dir .qiskit "$DATA/home/$user/.qiskit" 700 || true
-        # Own programs (B10's starter folder, Jan Q33c) - only once the folder
-        # exists in this slot or on /data, so a learner who deleted it does
-        # not get an empty one back
+        # Own programs (B10's starter folder, Jan Q33c): when the folder exists
+        # in this slot or on /data, and on the first start before the learner
+        # setup made it - that runs at the desktop login, seconds after this,
+        # and its folder stayed a normal one until the next restart (item 27);
+        # it now fills the linked folder. A learner who deleted the folder
+        # (the setup's stamp is there) does not get an empty one back.
         if [ -e "$ROOT$home/$PROGRAMS" ] || [ -L "$ROOT$home/$PROGRAMS" ] \
-            || [ -d "$DATA/home/$user/$PROGRAMS" ]; then
+            || [ -d "$DATA/home/$user/$PROGRAMS" ] \
+            || [ ! -e "$ROOT$home/$LEARNER_STAMP" ]; then
             link_home_dir "$PROGRAMS" "$DATA/home/$user/$PROGRAMS" 755 || true
         fi
     fi

@@ -81,17 +81,16 @@ done
 # Run as actual user (not root) to avoid Chrome/display permission issues
 # When launched from raspi-config, this ensures Chrome can access the user's display
 # Use full path to venv python so it has access to matplotlib, qiskit, etc.
-run_as_user "$VENV_PYTHON" fractals.py
-EXIT_CODE=$?
+#
+# It stops when its window is closed, or with Ctrl+C here (items 5, 33); this
+# window then closes too, or stays open with the error (rq_hold_on_error.sh).
+rq_stop_hint "Quantum Fractals" keys
+EXIT_CODE=0
+run_as_user "$VENV_PYTHON" fractals.py || EXIT_CODE=$?
 
 cd "$USER_HOME" || warn "Failed to return to home directory"
 
-# Show completion message
-echo
-if [ $EXIT_CODE -eq 0 ]; then
-    info "Fractals demo completed successfully"
-else
-    warn "Fractals demo exited with errors (code: $EXIT_CODE)"
-fi
-echo
-read -p "Press Enter to close this window..."
+case "$EXIT_CODE" in
+    0|129|130|143) info "Quantum Fractals stopped." ;;
+    *) die "Quantum Fractals stopped with an error (status $EXIT_CODE)." ;;
+esac

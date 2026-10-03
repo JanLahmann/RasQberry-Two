@@ -75,8 +75,9 @@ activate_venv || fail "The RasQberry Python environment is missing, so the LEDs 
 
 LED_SCRIPT=$(find_led_script "turn_off_LEDs.py") || fail "turn_off_LEDs.py not found."
 
-# turn_off_LEDs.py exits 1 when the panel could not be cleared ("GPIO busy")
-if python3 "$LED_SCRIPT"; then
+# turn_off_LEDs.py exits 1 when the panel could not be cleared ("GPIO busy").
+# One more try after a moment: a program that just ended may still hold it.
+if python3 "$LED_SCRIPT" || { sleep 1; python3 "$LED_SCRIPT"; }; then
     echo "All LEDs are off."
 else
     fail "The LEDs could not be cleared (see the message above)."

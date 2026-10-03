@@ -101,11 +101,33 @@ fi
 rq_docker_stop "$CONTAINER_NAME" || die "The previous Quantum-Mixer container did not go away; try again in a minute."
 PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
 
+# Qoffee (the coffee-machine use case) logs in to Home Connect with OAuth and
+# needs HOMECONNECT_CLIENT_ID, _SECRET and _BASE_URL. Without them its login
+# answered "Internal Server Error" (oauthlib: "OAuth 2 MUST utilize https",
+# item 18). The credentials are the ones Qoffee-Maker uses (its settings
+# file); Qocktails and Ice need none.
+QOFFEE_ENV="$USER_HOME/$REPO/demos/Qoffee-Maker/.env"
+hc_value() {
+    [ -f "$QOFFEE_ENV" ] || return 0
+    sed -n "s/^$1=//p" "$QOFFEE_ENV" | head -1 | tr -d "\"'" | tr -d '\r'
+}
+HC_ID=$(hc_value HOMECONNECT_CLIENT_ID)
+HC_SECRET=$(hc_value HOMECONNECT_CLIENT_SECRET)
+HC_URL=$(hc_value HOMECONNECT_API_URL)
+HC_ENV=()
+case "$HC_ID" in
+    ""|your_*) ;;
+    *)  HC_URL="${HC_URL:-https://simulator.home-connect.com/}"
+        HC_ENV=(-e "HOMECONNECT_CLIENT_ID=$HC_ID" -e "HOMECONNECT_CLIENT_SECRET=$HC_SECRET"
+                -e "HOMECONNECT_BASE_URL=${HC_URL%/}" -e "HOST_ADDRESS=http://127.0.0.1:${PORT}") ;;
+esac
+
 info "Starting Quantum-Mixer..."
 if ! docker run -d \
     --name "$CONTAINER_NAME" \
     --label "org.rasqberry.demo=quantum-mixer" \
     -p "127.0.0.1:${PORT}:8080" \
+    ${HC_ENV[@]+"${HC_ENV[@]}"} \
     "$RUN_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Quantum-Mixer container did not start."
 fi
@@ -120,17 +142,19 @@ done
 
 echo
 echo "Quantum-Mixer is running: $MIXER_URL"
-echo "  Qocktails - quantum cocktail mixer; Qoffee - needs Home Connect; Ice"
+echo "  Qocktails (quantum cocktail mixer), Ice and Qoffee (coffee machine)"
+if [ ${#HC_ENV[@]} -eq 0 ]; then
+    echo "  Qoffee needs a Home Connect account (developer.home-connect.com): put"
+    echo "  its client ID and secret into Qoffee-Maker's settings file"
+    echo "  $QOFFEE_ENV"
+    echo "  Until then the Qoffee login shows an error; the other two work."
+else
+    echo "  Qoffee logs in with the Home Connect account from Qoffee-Maker's settings;"
+    echo "  its redirect address must be registered there:"
+    echo "  http://127.0.0.1:${PORT}/api/usecase/qoffee/auth/callback"
+fi
 echo
 rq_show_url "$MIXER_URL" "$PORT"
 
-echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
-if [ -t 0 ]; then
-    echo "Press Enter to stop Quantum-Mixer..."
-    read -r || exit 0
-    info "Stopping Quantum-Mixer..."
-    rq_docker_stop "$CONTAINER_NAME" || true
-    info "Quantum-Mixer stopped."
-else
-    info "Quantum-Mixer keeps running in the background."
-fi
+# Enter, Ctrl+C or closing this window stops it (item 33)
+rq_docker_stop_with_window "$CONTAINER_NAME" "Quantum-Mixer"

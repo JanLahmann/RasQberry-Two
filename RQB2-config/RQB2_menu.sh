@@ -457,9 +457,12 @@ _rq_pause() {
 # the dialog instead of the demo, and - `script` without -e always exits 0 - a
 # demo that crashed looked like one that finished (R-028, R-156).
 #
-# bg mode: for demos whose output is the LEDs. Output goes to DEMO_LOG, a dialog
-# offers to stop the demo, and an exit before the user answered is reported
-# instead of being taken for a clean finish (R-102).
+# bg mode: for demos whose output is the LEDs. Output goes to DEMO_LOG, and the
+# terminal waits like every other demo window: Enter or Ctrl+C stops the demo,
+# closing the window (an SSH session too) stops it as well (items 5, 33). It
+# used to be a "Stop demo / Keep running" dialog, unlike every other demo. An
+# exit before the user stopped it is reported, not taken for a clean finish
+# (R-102).
 #
 # Returns non-zero with RQ_LAST_DEMO_ERROR set when the demo failed.
 run_demo() {
@@ -487,10 +490,28 @@ run_demo() {
   # can tell the user WHY.
   DEMO_LOG="${RQ_DEMO_LOG:-/tmp/rqb-demo.log}"
 
+  # A closed window (HUP) stops the demo and clears the LEDs too
+  trap '_rq_demo_hangup' HUP
+
   if [ "$MODE" = "pty" ]; then
-      printf '\n=== %s ===   (Ctrl+C stops the demo)\n\n' "$DEMO_TITLE"
-      ( cd "$DEMO_DIR" && exec script -qefc "$CMD" "$DEMO_LOG" )
+      # The demo has the keyboard: Ctrl+C or closing the window stops it (the
+      # same words as rq_stop_hint in rq_common.sh)
+      printf '\n=== %s ===\nTo stop %s: press Ctrl+C or close this window.\n\n' "$DEMO_TITLE" "$DEMO_TITLE"
+      # In the background with the terminal as its input (fd 9), so that a
+      # closed window can stop it: script blocks SIGHUP, and the trap only
+      # runs once the foreground command is done - which never came.
+      # (env: a background command starts with Ctrl+C ignored, and the demo
+      # would inherit that)
+      _rd_env=""
+      env --default-signal=INT,QUIT true 2>/dev/null && _rd_env="env --default-signal=INT,QUIT"
+      exec 9<&0
+      ( cd "$DEMO_DIR" && exec $_rd_env script -qefc "$CMD" "$DEMO_LOG" ) <&9 9<&- &
+      _RQ_PTY_PID=$!
+      exec 9<&-
+      wait "$_RQ_PTY_PID"
       DEMO_RC=$?
+      _RQ_PTY_PID=""
+      trap - HUP
       stty sane 2>/dev/null
       [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
       case "$DEMO_RC" in
@@ -521,6 +542,7 @@ run_demo() {
   # over, and if it did, report the real error instead of a comfortable lie.
   sleep 2
   if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+      trap - HUP
       wait "$DEMO_PID"
       DEMO_RC=$?
       LAST_DEMO_PGID=""
@@ -534,27 +556,34 @@ run_demo() {
       return 0
   fi
 
-  # Ask user when to stop
-  whiptail --title "${DEMO_TITLE}" --yes-button "Stop demo" --no-button "Keep running" --yesno \
-      "The demo is running.\n\nStop demo: end it now.\nKeep running: back to the menu, the demo goes on (end it later with \"Stop last running demo\")." \
-      12 70
-  RESPONSE=$?
-  # Restore terminal state before killing demo
+  # Wait in the terminal, as every demo window does (the same words as
+  # rq_stop_hint in rq_common.sh). dash has no "read -t", so bash waits: for
+  # Enter, or until the demo ends by itself (exit 2); with no input left it
+  # only waits. Ctrl+C ends only that wait - raspi-config keeps its no-op INT
+  # trap, and the demo is in its own session.
+  printf '\n=== %s ===\nRunning on the LED panel.\nTo stop %s: press Enter or Ctrl+C, or close this window.\n' \
+      "$DEMO_TITLE" "$DEMO_TITLE"
+  bash -c 'eof=""; while :; do
+      case "$(ps -o stat= -p "$1" 2>/dev/null)" in ""|Z*) exit 2 ;; esac
+      if [ -n "$eof" ]; then sleep 1; continue; fi
+      read -r -t 1 _ && exit 0
+      [ $? -gt 128 ] || eof=1
+  done' _ "$DEMO_PID"
+  _rd_wait=$?
   stty sane 2>/dev/null
-  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
-      # It ended by itself while the dialog was up. A slow start (a Qiskit
-      # import on a Pi 4 takes several seconds) can fail after the 2-second
-      # check above, and that used to vanish without a word (R-102).
+  if [ "$_rd_wait" -eq 2 ]; then
+      # It ended by itself. A slow start (a Qiskit import on a Pi 4 takes
+      # several seconds) can fail after the 2-second check above, and that
+      # used to vanish without a word (R-102).
       wait "$DEMO_PID"
       DEMO_RC=$?
-      LAST_DEMO_PGID=""
       [ "$DEMO_RC" -ne 0 ] && RQ_LAST_DEMO_ERROR=$(_rq_log_tail "$DEMO_LOG" "$DEMO_RC")
-  elif [ "$RESPONSE" -eq 0 ]; then
-      # Terminate the entire demo process group only if user chose Stop
-      kill -TERM -"$DEMO_PID" 2>/dev/null || true
+  else
+      kill -TERM -"$DEMO_PID" 2>/dev/null || kill -TERM "$DEMO_PID" 2>/dev/null || true
       wait "$DEMO_PID" 2>/dev/null || true
-      LAST_DEMO_PGID=""
   fi
+  LAST_DEMO_PGID=""
+  trap - HUP
   # Restore original terminal settings
   [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
   stty intr ^C 2>/dev/null
@@ -562,9 +591,28 @@ run_demo() {
   return 0
 }
 
-# Stop the most recently launched demo (its whole setsid process group) and
-# blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
-# chose "Keep running" at the stop prompt) can be stopped here later.
+# The window of a demo started from this menu was closed (an SSH session
+# ended, the terminal closed): stop the demo and clear the LEDs before
+# raspi-config goes. A background demo runs in its own session and would
+# otherwise keep the panel.
+_rq_demo_hangup() {
+  # script passes SIGTERM on to the demo, whose own traps then clean up
+  if [ -n "${_RQ_PTY_PID:-}" ]; then
+    kill -TERM "$_RQ_PTY_PID" 2>/dev/null
+    wait "$_RQ_PTY_PID" 2>/dev/null
+  fi
+  if [ -n "${LAST_DEMO_PGID:-}" ]; then
+    kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+    sleep 1
+    kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null
+  fi
+  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off >/dev/null 2>&1
+  exit 129
+}
+
+# Stop a demo still running and blank the LEDs. A demo started here stops
+# with its window (items 5, 33); LAST_DEMO_PGID is only still set when that
+# stop did not happen.
 #
 # A demo started elsewhere (a desktop icon, an earlier menu session, the IP
 # scroll at start-up) is not in LAST_DEMO_PGID: STOP used to say "Stopped the
@@ -1050,17 +1098,19 @@ _rq_led_ready() {
 }
 
 # run_demo for a demo that drives the LED panel: the panel must be free first,
-# and it is cleared afterwards - unless the demo was left running ("Keep
-# running"). Same arguments as run_demo.
+# and it is cleared afterwards. If the Pi 5's LED driver stalled during the
+# demo (a weak power supply, item 31), the person is told and offered a lower
+# brightness. Same arguments as run_demo.
 run_led_demo() {
   _rq_led_ready || return 0
+  _rld_start=$(date +%s)
+  _RQ_LED_RUN=1
   run_demo "$@"
   _rld_rc=$?
-  if [ -n "${LAST_DEMO_PGID:-}" ] && kill -0 "$LAST_DEMO_PGID" 2>/dev/null; then
-    return "$_rld_rc"
-  fi
+  _RQ_LED_RUN=""
   _rld_err="${RQ_LAST_DEMO_ERROR:-}"
   do_led_off >/dev/null 2>&1
+  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" 2>/dev/null || :
   RQ_LAST_DEMO_ERROR="$_rld_err"
   return "$_rld_rc"
 }
@@ -1205,6 +1255,7 @@ do_select_led_option() {
         # set LED_LAYOUT, which everything uses.
         FUN=$(show_menu ${_led_last:+--default-item "$_led_last"} "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           BRIGHT "LED brightness (weak power supply?)" \
            DISP "Text & Logo Display" \
            quicktest "Quick LED Test (6 colours)" \
            test "LED Test & Diagnostics" \
@@ -1216,6 +1267,8 @@ do_select_led_option() {
         _led_last="$FUN"
         case "$FUN" in
             OFF ) do_led_clear || { handle_error "The LEDs could not be turned off."; continue; } ;;
+            BRIGHT ) "$BIN_DIR/rq_led_brightness.sh" || { handle_error "The LED brightness could not be changed."; continue; }
+                     _rq_load_env 2>/dev/null || true ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
             quicktest )
                 run_led_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
@@ -1352,7 +1405,7 @@ do_quantum_demo_menu() {
        REM  "Remove a demo (free space)" \
        UPD  "Update demos (newer versions)" \
        LOOP "Continuous Demo Loop (Conference)" \
-       STOP "Stop last running demo and clear LEDs" \
+       STOP "Stop an LED demo still running, clear LEDs" \
        DSTP "Stop Docker demos (Workshop Server, Quantum Lab...)") || break
     _qd_last="$FUN"
     case "$FUN" in

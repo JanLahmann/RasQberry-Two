@@ -42,6 +42,7 @@ system python has no LED libraries).
 import os
 import sys
 import json
+import time
 
 # dotenv is only needed for reading the environment file. Guard the import so
 # the pure coordinate-mapping / layout-registry functions remain importable in
@@ -231,6 +232,9 @@ def get_led_config():
         'y_flip': y_flip,
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
+        # Upper limit for every demo's brightness (LED brightness menu; lowered
+        # after a driver stall on a weak power supply, item 31). 1.0 = none.
+        'led_max_brightness': _brightness_limit(config.get('LED_MAX_BRIGHTNESS', '1.0')),
         # Output targets
         'led_physical': led_physical,
         'led_virtual': led_virtual,
@@ -825,6 +829,188 @@ def _with_root_hint(error):
         "(it uses the RasQberry Python and lets the LED renderer service drive the panel)")
 
 
+def _brightness_limit(value):
+    """
+    LED_MAX_BRIGHTNESS as a number.
+
+    Args:
+        value (str): the setting.
+
+    Returns:
+        float: the limit in (0, 1]; 1.0 (no limit) when unset or unreadable.
+    """
+    try:
+        limit = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    return limit if 0.0 < limit <= 1.0 else 1.0
+
+
+def cap_brightness(brightness, config=None):
+    """
+    Hold a demo's brightness under the LED brightness limit (LED_MAX_BRIGHTNESS).
+
+    Args:
+        brightness (float): what the demo asked for.
+        config (dict, optional): get_led_config() result.
+
+    Returns:
+        float: the brightness to use.
+    """
+    if config is None:
+        config = get_led_config()
+    try:
+        return min(float(brightness), config.get('led_max_brightness', 1.0))
+    except (TypeError, ValueError):
+        return brightness
+
+
+# ----------------------------------------------------------------------------
+# Pi 5 LED driver: stalls and the last frame (items 30, 31)
+# ----------------------------------------------------------------------------
+# The Pi 5 writes a frame by DMA into the PIO and returns before the frame is
+# out. Two things follow:
+#
+# - A program that ends right after its last write closes the PIO while the
+#   frame is still going out: the kernel disables the state machine first, the
+#   transfer can never finish ("rp1-pio ...: DMA wait timed out") and the panel
+#   keeps part of the old picture. Seen on the rig as frames that never
+#   appeared. So the last write is given time to finish before the program ends.
+# - On a power supply too weak for the LEDs the driver can stop moving frames:
+#   every write then waits for the kernel's 1 s timeout, the panel stays dark
+#   and the library reports nothing (rig: under-voltage at brightness 0.7, 43
+#   frames in 45 s, all timed out). A write that slow is a stall: the PIO is
+#   reopened, which recovered it on the rig. While it stays stuck the writes are
+#   skipped (the demo keeps its pace) and retried every few seconds. The person
+#   is told once, and a note in /var/tmp lets the launcher offer a lower
+#   brightness afterwards (rq_led_brightness.sh --after-stall).
+
+LED_STALL_SECONDS = 0.5           # a 192-LED frame takes about 6 ms
+LED_STALL_RETRY_SECONDS = 10.0    # while stuck, try to reopen this often
+LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
+LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
+
+_stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
+                'last_write': 0.0}
+
+
+def _record_led_stall(recovered):
+    """
+    Leave a note for the launcher: when the panel stalled, and whether it recovered.
+
+    Args:
+        recovered (bool): the reopened driver works again.
+    """
+    path = f"{LED_STALL_FILE_PREFIX}{os.getuid()}"
+    try:
+        tmp = f"{path}.{os.getpid()}"
+        with open(tmp, 'w') as f:
+            f.write(f"time={int(time.time())}\nrecovered={'yes' if recovered else 'no'}\n")
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def _report_led_stall(message):
+    """Say it once per program, on stderr (never into a whiptail screen)."""
+    if not _stall_state['reported']:
+        _stall_state['reported'] = True
+        print(message, file=sys.stderr)
+
+
+def _wait_for_last_frame():
+    """Give the last frame time to go out before the PIO is closed."""
+    left = _stall_state['last_write'] + LED_FRAME_DRAIN_SECONDS - time.monotonic()
+    if left > 0:
+        time.sleep(left)
+
+
+def _guarded_pi5_write(write, reopen):
+    """
+    Wrap the Pi 5 frame writer: notice stalls, reopen the driver, finish frames.
+
+    Args:
+        write (callable): the library's neopixel_write(pin, buf).
+        reopen (callable): releases the PIO, so the next write opens it again.
+
+    Returns:
+        callable: a neopixel_write replacement.
+    """
+    def timed(pin, buf):
+        start = time.monotonic()
+        write(pin, buf)
+        _stall_state['last_write'] = time.monotonic()
+        return _stall_state['last_write'] - start < LED_STALL_SECONDS
+
+    def reopen_and_write(pin, buf):
+        reopen()
+        # 4 bytes more: the library sets the transfer up again only when the
+        # size changes. The extra bytes go past the last LED.
+        return timed(pin, bytes(buf) + b'\0\0\0\0')
+
+    def guarded(pin, buf):
+        state = _stall_state
+        if state['stuck_since'] is not None:
+            now = time.monotonic()
+            if now - state['last_try'] < LED_STALL_RETRY_SECONDS:
+                return
+            state['last_try'] = now
+            if reopen_and_write(pin, buf):
+                state['stuck_since'] = None
+                print("LED panel: the LED driver works again.", file=sys.stderr)
+            return
+        if timed(pin, buf):
+            if sys.is_finalizing():
+                _wait_for_last_frame()
+            return
+        recovered = reopen_and_write(pin, buf)
+        _record_led_stall(recovered)
+        if recovered:
+            _report_led_stall(
+                "LED panel: the LED driver stalled and was restarted. The power "
+                "supply may be too weak for the LEDs (the official 27 W supply is "
+                "recommended).")
+        else:
+            state['stuck_since'] = state['last_try'] = time.monotonic()
+            _report_led_stall(
+                "LED panel stopped: the LED driver does not respond. The power "
+                "supply may be too weak for the LEDs (the official 27 W supply is "
+                "recommended). The demo goes on without the panel.")
+
+    guarded._rq_stall_guard = True
+    return guarded
+
+
+def guard_pi5_led_writes():
+    """
+    Install the stall guard on the Pi 5 NeoPixel writer (idempotent).
+
+    Does nothing on a Pi 4 (rpi_ws281x waits for its frames itself) or without
+    the LED libraries.
+
+    Returns:
+        bool: True when the guard is in place.
+    """
+    try:
+        import neopixel
+        import neopixel_write
+    except ImportError:
+        return False
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if getattr(backend, '__name__', '') != 'adafruit_raspberry_pi5_neopixel_write':
+        return False
+    current = getattr(neopixel, 'neopixel_write', None)
+    if current is None:
+        return False
+    if getattr(current, '_rq_stall_guard', False):
+        return True
+    neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
+    import atexit
+    atexit.register(_wait_for_last_frame)
+    return True
+
+
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
     Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
@@ -864,6 +1050,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         Service mode and virtual-only mode need no GPIO access at all.
     """
     config = get_led_config()
+    brightness = cap_brightness(brightness, config)
 
     # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL /
     # LED_WEB flags (#231). LED_VIRTUAL_MIRROR is folded into these by
@@ -884,9 +1071,12 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     def _make_virtual():
         from rq_led_virtual import VirtualNeoPixel
-        if led_virtual:
+        # Clearing the panel (turn_off_LEDs.py) updates an open on-screen view
+        # but does not open one (RQ_LED_NO_WINDOW=1).
+        quiet = os.environ.get('RQ_LED_NO_WINDOW') == '1'
+        if led_virtual and not quiet:
             _ensure_virtual_led_gui_running()
-        if led_web:
+        if led_web and not quiet:
             _ensure_virtual_led_web_running()
         return VirtualNeoPixel(
             None,  # No GPIO pin needed
@@ -902,6 +1092,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         import board
         import neopixel
 
+        guard_pi5_led_writes()
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
@@ -949,6 +1140,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     import board
     import neopixel
+    guard_pi5_led_writes()
 
     # Get GPIO pin from config if not provided
     if gpio_pin is None:
@@ -1019,8 +1211,8 @@ def get_pixels(brightness=None):
             gpio_pin=config['led_gpio_pin']
         )
     else:
-        # Update brightness if specified
-        _pixels_singleton.brightness = brightness
+        # Update brightness if specified (under the LED brightness limit)
+        _pixels_singleton.brightness = cap_brightness(brightness, config)
 
     return _pixels_singleton
 
@@ -1045,6 +1237,8 @@ def clear_all_leds():
         pixels = get_pixels()
         pixels.fill((0, 0, 0))
         pixels.show()
+        # A program that ends now must not cut this frame off (Pi 5)
+        _wait_for_last_frame()
         return True
     except Exception as e:
         print(f"Error clearing LEDs: {e}")

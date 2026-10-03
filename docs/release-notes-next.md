@@ -40,7 +40,9 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for doQumentation: the latest build or one in between, with date, size and Qiskit version), or back.
 - **Workshop Server (doQumentation):** one Pi serves a class's laptops over the network. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Everyone on the network can run code on it: use it on a class network you trust.
+- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop Server keeps running until you stop it.
 - **Quantum Demos** → **Stop Docker demos** stops the Workshop Server, Quantum Lab, Qoffee-Maker or Quantum-Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
+- **LEDs** → **LED brightness**. If the Pi 5's LED panel stops because the power supply is too weak, RasQberry says so, restarts the LED driver and offers a lower brightness. Use the official 27 W power supply.
 - Quantum-Mixer downloads a ready image instead of building for 15-30 minutes.
 - Notebook demos also start over SSH and print an `ssh -L` command for your computer.
 - **IBM Quantum account:** every demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com and use **IBM Quantum account** → **Save my API key**: the key is checked before it is saved.

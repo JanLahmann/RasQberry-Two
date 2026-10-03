@@ -40,8 +40,31 @@ if [ -t 0 ] && [ -t 1 ] && command -v script >/dev/null 2>&1 \
     && mkdir -p "$log_dir" 2>/dev/null && : > "$log" 2>/dev/null; then
     # script(1) keeps the demo on a terminal (dialogs, Ctrl+C) and copies its
     # output to the log; -e returns the demo's own exit status.
-    script -qefc "$(printf '%q ' "$@")" "$log"
-    rc=$?
+    #
+    # Closing the window must stop the demo (items 5, 33). script blocks
+    # SIGHUP, so a closed window reached nothing: the demo, its sudo and
+    # script itself ran on without a window (seen with RasQ-LED, LED panel
+    # still lit). script passes SIGTERM on to the demo (sudo relays it to the
+    # root demo's process group), whose traps then clear the LEDs, stop the
+    # container or the server. So script runs in the background here (stdin
+    # from the window, fd 9) and a hangup is turned into that SIGTERM. A
+    # background command starts with Ctrl+C (SIGINT) ignored, and the demo
+    # would inherit that and could not be stopped with Ctrl+C: env resets it.
+    dflt=()
+    env --default-signal=INT,QUIT true 2>/dev/null && dflt=(env --default-signal=INT,QUIT)
+    exec 9<&0
+    ${dflt[@]+"${dflt[@]}"} script -qefc "$(printf '%q ' "$@")" "$log" <&9 9<&- &
+    spid=$!
+    exec 9<&-
+    trap 'kill -TERM "$spid" 2>/dev/null' HUP TERM
+    rc=0
+    wait "$spid" || rc=$?
+    # A trapped signal ends the wait early: wait again while the demo cleans up
+    while kill -0 "$spid" 2>/dev/null; do
+        rc=0
+        wait "$spid" || rc=$?
+    done
+    trap - HUP TERM
 else
     log=""
     "$@"
