@@ -10,12 +10,20 @@ in the pi-gen config.
   - `SKIP_INITRAMFS=1`:
     - writes `INITRD=No` to `/etc/default/raspberrypi-kernel`;
     - adds the kernel hook `/etc/kernel/postinst.d/00-skip-initramfs`, which
-      deletes `/boot/initrd*` and `/boot/initramfs*` when `INITRD=No`;
+      deletes `/boot/initrd*`, `/boot/initramfs*` and `/boot/firmware/initramfs*`
+      when `INITRD=No` (its `exit 0` ends only this hook; run-parts runs the
+      others);
     - writes `INITRAMFS=no` to `/etc/default/raspi-firmware` (if `/boot/firmware`
       or `/usr/lib/raspi-firmware/update` exists);
     - diverts `update-initramfs` and `mkinitramfs` (`dpkg-divert`, originals kept
       as `*.real`) and replaces them with no-op scripts;
-    - deletes any existing `/boot/initrd*` and `/boot/initramfs*`.
+    - deletes any existing `/boot/initrd*`, `/boot/initramfs*` and
+      `/boot/firmware/initramfs*` (pi-gen's kernel install puts `initramfs8` /
+      `initramfs_2712` there before this stage), and drops `auto_initramfs=` and
+      `initramfs` lines from `/boot/firmware/config.txt`, as
+      `convert-to-ab-boot-v3.sh` step 10 does for the A/B image. Before, the
+      standard image loaded that stale initramfs at every start (feedback 37/41).
+      [98-clean-caches](../98-clean-caches/README.md) checks again at the end.
   - any other value: removes the `INITRD=No` line and the two diversions, so
     initramfs is generated normally.
 
@@ -30,3 +38,8 @@ in the pi-gen config.
   generate a real initramfs.
 - No stream builds an initramfs any more (`SKIP_INITRAMFS=1` everywhere); the
   unused `export-image/04-restore-initramfs` was removed (#301).
+- Raspberry Pi OS bookworm's initramfs carried one thing the image needs:
+  `imager_fixup`, which makes Raspberry Pi Imager's OS customisation
+  (`firstrun.sh`) run. Without an initramfs `rasqberry-imager-firstrun.service`
+  does that instead, for the standard and the A/B image (see
+  [00-firstboot-setup](../00-firstboot-setup/README.md)).

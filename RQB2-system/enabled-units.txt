@@ -5,6 +5,8 @@
 #   rasqberry-led-renderer.service  (only for LED_RENDER_MODE=service)
 #   rasqberry-update-poller.timer   (rig/dev tool: auto-installs dev releases)
 rasqberry-firstboot.service
+# Raspberry Pi Imager's OS customisation (firstrun.sh) on images without initramfs
+rasqberry-imager-firstrun.service
 rasqberry-boot-config.service
 rasqberry-demo-cache.service
 rasqberry-health-check.service

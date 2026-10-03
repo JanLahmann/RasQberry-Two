@@ -27,7 +27,8 @@ try:
     from rq_led_utils import (
         get_led_config,
         create_neopixel_strip,
-        display_scrolling_text
+        display_scrolling_text,
+        scroll_pass_columns
     )
 except ImportError as e:
     print(f"Error importing LED utilities: {e}", file=sys.stderr)
@@ -163,24 +164,23 @@ def main():
             brightness=args.brightness
         )
 
-        # Use 60 seconds per IP address to ensure plenty of time for viewing
-        # Count number of IPs being displayed
+        # About a minute per address, in whole passes: the text never stops
+        # half-way, so the last pass can be read to its end (item 23). The
+        # log says what really happens (it said "60s" for a run that the
+        # clock jump after NTP ended after ~11 s).
         num_ips = len(addresses) if addresses else 1  # At least 1 for "NO IP" message
-        calculated_duration = num_ips * 60
+        wanted = max(args.duration, num_ips * 60)
+        pass_seconds = scroll_pass_columns(text, config) * args.speed
+        passes = max(1, round(wanted / pass_seconds)) if pass_seconds > 0 else 1
+        print(f"Scrolling {passes} time(s), about {passes * pass_seconds:.0f}s "
+              f"({pass_seconds:.0f}s per pass)")
 
-        # Use the calculated duration or user-specified, whichever is longer
-        actual_duration = max(args.duration, calculated_duration)
-
-        print(f"Scroll duration: {actual_duration}s ({num_ips} IP(s) x 60s each)")
-
-        # Display scrolling IP using common utility function
         display_scrolling_text(
             pixels,
             text,
-            duration_seconds=int(actual_duration),
-            scroll_speed=args.speed
+            scroll_speed=args.speed,
+            passes=passes
         )
-
         print("IP display completed")
 
     except KeyboardInterrupt:

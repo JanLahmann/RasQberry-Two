@@ -46,7 +46,31 @@ describe() {
         *)          echo "$1" ;;
     esac
 }
-model=$( (tr -d '\0' < /proc/device-tree/model) 2>/dev/null || uname -m)
+# The Pi model and its RAM (item 2). The model comes from the device tree
+# (/proc/cpuinfo "Model" without one); the RAM from the board's revision code
+# (bits 20-22: 0 = 256 MB ... 5 = 8 GB, 6 = 16 GB), which says what the board
+# has rather than what the kernel can use (MemTotal is a little less).
+model=""
+[ -r /proc/device-tree/model ] && model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
+[ -n "$model" ] || model=$(sed -n 's/^Model[[:space:]]*: *//p' /proc/cpuinfo 2>/dev/null | head -1 || true)
+[ -n "$model" ] || model=$(uname -m)
+board_ram() {
+    local rev mem
+    rev=$(sed -n 's/^Revision[[:space:]]*: *//p' /proc/cpuinfo 2>/dev/null | head -1 || true)
+    case "$rev" in ''|*[!0-9a-fA-F]*) ;; *)
+        if (( 16#$rev & 0x800000 )); then
+            mem=$(( (16#$rev >> 20) & 7 ))
+            case "$mem" in
+                0) echo "256 MB" ;; 1) echo "512 MB" ;; *) echo "$(( 1 << (mem - 2) )) GB" ;;
+            esac
+            return 0
+        fi ;;
+    esac
+    # No revision code: round MemTotal up to the next power of two
+    awk '/^MemTotal:/ { g = $2 / 1048576; n = 1; while (n < g) n *= 2; if (g > 0) printf "%d GB\n", n }' /proc/meminfo 2>/dev/null || true
+}
+ram=$(board_ram)
+hardware="$model${ram:+, $ram RAM}"
 
 # ---------------------------------------------------------------------------
 # Reaching this Pi, and how it is doing
@@ -100,7 +124,11 @@ if [ -r /proc/meminfo ]; then
     mem_total=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
     mem_used=$(awk '/^MemTotal:/ { t = $2 } /^MemAvailable:/ { a = $2 } END { print t - a }' /proc/meminfo)
 fi
+# RAM in binary GB, as RAM is sold; disk space in decimal GB, as SD cards are
+# sold and as the A/B texts say it (item 24: 26.7 GB / 24.3 GB / 24.8G mixed
+# both before)
 gb() { awk -v k="$1" 'BEGIN { printf "%.1f GB", k / 1048576 }'; }
+gb_disk() { awk -v k="$1" 'BEGIN { printf "%.1f GB", k * 1024 / 1e9 }'; }
 disk=$(df -Pk / 2>/dev/null | awk 'NR == 2 { print $4, $2 }' || true)
 version=$(field version)
 [ -n "$version" ] || version=$(cat /etc/rasqberry-version 2>/dev/null || echo unknown)
@@ -150,12 +178,12 @@ fi
 if [ "${1:-}" = "--json" ]; then
     base='{}'
     [ -f "$BUILD_JSON" ] && base=$(cat "$BUILD_JSON")
-    echo "$base" | jq --arg t "$image_type" --arg s "$slot" --arg m "$model" --arg k "$(uname -r)" \
+    echo "$base" | jq --arg t "$image_type" --arg s "$slot" --arg m "$model" --arg r "$ram" --arg k "$(uname -r)" \
         --arg a "$slot_a" --arg b "$slot_b" \
         --arg hn "$host_name" --arg md "$mdns" --arg ip "$addrs" --arg th "$throttled" \
         --arg pw "$(power_text "$throttled")" --arg tc "$temp_c" \
         --arg mu "$mem_used" --arg mt "$mem_total" --arg df "$disk" \
-        '. + {image_type: $t, current_slot: $s, model: $m, running_kernel: $k,
+        '. + {image_type: $t, current_slot: $s, model: $m, ram: $r, running_kernel: $k,
               hostname: $hn, mdns_name: $md, addresses: $ip, throttled: $th, power: $pw,
               temperature_c: $tc, mem_used_kb: $mu, mem_total_kb: $mt,
               root_free_kb: ($df | split(" ")[0] // ""), root_size_kb: ($df | split(" ")[1] // "")}
@@ -163,26 +191,53 @@ if [ "${1:-}" = "--json" ]; then
     exit 0
 fi
 
+# What the A/B card holds, in words (item 24: a small card runs ONE system,
+# so "Slot B (testing): empty" was misleading there)
+card_mode=$(sval card_mode)
+default_slot=$(sval default)
+slot_line() {   # <A|B> <content>
+    local note=""
+    [ "$1" = "$slot" ] && note="running"
+    [ "$1" = "$default_slot" ] && note="${note:+$note, }starts by default"
+    printf '%s%s' "$(describe "$2")" "${note:+ ($note)}"
+}
+built=$(field build_timestamp | sed 's/T/ /; s/:[0-9][0-9]Z$/ UTC/; s/Z$/ UTC/')
+repo=$(field git_repo)
+from="$(field git_branch) @ $(field git_commit | cut -c1-12)"
+[ -n "$repo" ] && [ "$repo" != "JanLahmann/RasQberry-Two" ] && from="$repo $from"
+os_name=$(field os)
+codename=$(printf '%s' "$os_name" | sed -n 's/.*(\(.*\)).*/\1/p')
+deb=$(field debian_version)
+[ -n "$deb" ] && os_name="Debian $deb${codename:+ ($codename)}"
+
 echo "Name:              $host_name (network: $mdns)"
 echo "Address:           ${addrs:-none - not connected}"
+echo "Hardware:          $hardware"
 echo "Power:             $(power_text "$throttled")$supply_note"
 [ -n "$temp_c" ] && echo "Temperature:       ${temp_c} °C$temp_note"
 [ -n "$mem_total" ] && echo "Memory:            $(gb "$mem_used") of $(gb "$mem_total") in use"
-[ -n "$disk" ] && echo "Free space:        $(gb "${disk% *}") of $(gb "${disk#* }")"
+[ -n "$disk" ] && echo "Free space:        $(gb_disk "${disk% *}") of $(gb_disk "${disk#* }")"
 echo
 echo "RasQberry version: $version"
 if [ -f "$BUILD_JSON" ]; then
-    echo "Built:             $(field build_timestamp)"
-    echo "From:              $(field git_repo) @ $(field git_branch) ($(field git_commit | cut -c1-12))"
-    echo "OS:                $(field os) (Debian $(field debian_version))"
+    echo "Built:             $built, $from"
+    echo "OS / kernel:       $os_name / $(uname -r)"
     echo "Python / Qiskit:   $(field python_version) / $(field qiskit_version)"
 else
-    echo "(no $BUILD_JSON - image built before build metadata existed)"
+    echo "OS kernel:         $(uname -r) (no $BUILD_JSON: an image from before build metadata)"
 fi
-echo "Image type:        $image_type${slot:+ (booted from Slot $slot)}"
-if [ "$image_type" = "A/B" ]; then
-    echo "Slot A (stable):   $(describe "$slot_a")"
-    echo "Slot B (testing):  $(describe "$slot_b")"
+if [ "$image_type" != "A/B" ]; then
+    echo "Image type:        standard (one system on this card)"
+else
+    case "$card_mode" in
+        single|single-pending)
+            echo "Image type:        A/B image, one system on this card (card under 64 GB)" ;;
+        dual-pending)
+            echo "Image type:        A/B, second system not set up yet${slot:+ (running Slot $slot)}"
+            echo "Slot A (stable):   $(slot_line A "$slot_a")" ;;
+        *)
+            echo "Image type:        A/B, two systems${slot:+ (running Slot $slot)}"
+            echo "Slot A (stable):   $(slot_line A "$slot_a")"
+            echo "Slot B (testing):  $(slot_line B "$slot_b")" ;;
+    esac
 fi
-echo "Hardware:          $model"
-echo "Running kernel:    $(uname -r)"

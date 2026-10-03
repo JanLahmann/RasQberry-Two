@@ -24,7 +24,8 @@ pytestmark = pytest.mark.skipif(
     shutil.which("bash") is None or shutil.which("patch") is None,
     reason="bash and patch are required")
 
-_MARKERS = ('RQB2_menu="/usr/config/RQB2_menu.sh"', '"0 RasQberry"', "do_rasqberry_menu")
+_MARKERS = ('RQB2_menu="/usr/config/RQB2_menu.sh"', '"0 RasQberry"', "do_rasqberry_menu",
+            "do_rasqberry_about")
 
 
 def _original_hunks():
@@ -100,3 +101,19 @@ def test_half_patched_file_is_repaired_from_its_backup(tmp_path):
     proc = _patch(target)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert _markers(target.read_text()) == list(_MARKERS)
+
+
+def test_older_patch_without_the_about_line_is_upgraded(tmp_path):
+    # a raspi-config patched before "About" sent 9 to do_rasqberry_about
+    target = tmp_path / "raspi-config"
+    clean = _fake_raspi_config(target)
+    shutil.copy(target, str(target) + ".orig")
+    assert _patch(target).returncode == 0
+    target.write_text(target.read_text().replace("        9\\ *) do_rasqberry_about ;;\n", ""))
+    assert "do_rasqberry_about" not in target.read_text()
+    proc = _patch(target)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    text = target.read_text()
+    assert _markers(text) == list(_MARKERS)
+    # the About line comes before raspi-config's own "9" case: first match wins
+    assert text.index("do_rasqberry_about") < text.index("do_rasqberry_menu") + 200

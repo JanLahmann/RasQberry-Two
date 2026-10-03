@@ -12,6 +12,13 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   - "list" asks the GitHub API for every release of a stream (100 per
 #     page; the picker used to read page 1 only, where a beta falls off after
 #     a few dozen dev builds).
+#   - Every image comes with its SHA256, so the update can be checked before
+#     it is written: "latest" takes ab_image_sha256 from RQB-releases.json,
+#     "list" the digest GitHub computes for every release asset when it is
+#     uploaded (the same value; the manifest has it only for the newest
+#     release of each stream). A release whose image has no checksum is not
+#     listed: it cannot be verified (H-34: older releases used to install
+#     unchecked).
 #
 # Usage:
 #   rq_ab_releases.sh channel              this image's release channel: beta, dev or stable
@@ -21,7 +28,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #                                          stable), newest first, at most 15
 #
 # Output of latest and list: one line per image, tab-separated:
-#   tag  ab_image_url  date (YYYY-MM-DD)  download size in bytes
+#   tag  ab_image_url  date (YYYY-MM-DD)  download size in bytes  sha256 of the .img.xz
 #
 # Streams: beta = beta-*, dev = development-* and dev-* (feature-branch
 #   builds), stable = v* (main releases are tagged v{version}) and stable-*.
@@ -83,7 +90,7 @@ cmd_latest() {
     line=$(echo "$json" | jq -r --arg c "$channel" '
         .streams[$c] | select(.ab_image_url != null and .ab_image_url != "")
         | [.tag, .ab_image_url, ((.release_date // "") | .[0:10]),
-           ((.ab_image_download_size // 0) | tostring)] | @tsv' 2>/dev/null || true)
+           ((.ab_image_download_size // 0) | tostring), (.ab_image_sha256 // "")] | @tsv' 2>/dev/null || true)
     [ -n "$line" ] || fail 2 "The latest $channel release ($tag) has no A/B image."
     echo "$line"
 }
@@ -134,13 +141,16 @@ cmd_list() {
           | . as $r
           | ([ ($r.assets // [])[] | select(.name | endswith("-ab.img.xz")) ] | .[0]) as $a
           | select($a != null)
+          | (($a.digest // "") | if startswith("sha256:") then .[7:] else "" end) as $sum
+          | select($sum | test("^[0-9a-f]{64}$"))
           | { tag: $r.tag_name,
               url: $a.browser_download_url,
               date: (($r.published_at // $r.created_at // "") | .[0:10]),
               size: ($a.size // 0),
+              sha: $sum,
               created: ($r.created_at // "") } ]
         | sort_by(.created) | reverse | .[0:$max][]
-        | [.tag, .url, .date, (.size | tostring)] | @tsv'
+        | [.tag, .url, .date, (.size | tostring), .sha] | @tsv'
 }
 
 case "${1:-}" in

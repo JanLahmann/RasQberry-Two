@@ -1296,6 +1296,20 @@ get_ab_boot_partition() {
     esac
 }
 
+# Before scripts that mount partitions (slot update, PROMOTE): mount prints
+# "(hint) your fstab has been modified, but systemd still uses the old
+# version" for EVERY mount when /etc/fstab is newer than systemd's last
+# reload - which happens when the clock was behind at start-up (no RTC battery,
+# NTP not there yet). One reload ends it (H-34: the hint appeared twice).
+rq_refresh_fstab_view() {
+    local loaded=/run/systemd/systemd-units-load
+    [ -e /etc/fstab ] && [ -e "$loaded" ] || return 0
+    if [ /etc/fstab -nt "$loaded" ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+    return 0
+}
+
 # Release channel of a version/tag, as RQB-releases.json names its streams
 # (rq_update_check.sh, rq_ab_releases.sh):
 #   beta-*                 -> beta

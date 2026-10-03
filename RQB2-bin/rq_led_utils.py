@@ -1286,12 +1286,33 @@ def create_text_bitmap(text):
     return columns
 
 
-def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, color=(0, 100, 255)):
+def scroll_pass_columns(text, config=None):
+    """
+    How many scroll steps one full pass of TEXT takes on the configured panel
+    (the text plus a blank panel at the end).
+
+    Args:
+        text (str): Text to scroll
+        config (dict): get_led_config() result (read when not given)
+
+    Returns:
+        int: Steps per pass; one step lasts about scroll_speed seconds.
+    """
+    config = config or get_led_config()
+    _layout, width, _height = _text_canvas(config)
+    return len(create_text_bitmap(text)) + width
+
+
+def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, color=(0, 100, 255),
+                           passes=None):
     """
     Display scrolling text on LED matrix for specified duration.
 
     Uses configured LED matrix layout to display text scrolling horizontally.
-    Automatically adapts to single or quad panel layouts.
+    Automatically adapts to single or quad panel layouts. The duration is
+    measured on the monotonic clock: the wall clock jumps when NTP sets it
+    after start-up, which ended the boot-time address scroll after ~11 s of
+    a 60 s run (item 23).
 
     Args:
         pixels: NeoPixel object
@@ -1299,6 +1320,8 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
         duration_seconds (int): How long to display (seconds)
         scroll_speed (float): Delay between scroll steps (seconds)
         color (tuple): RGB color tuple (0-255 per channel), default bright blue
+        passes (int): If given, scroll the text exactly this many whole
+            times instead of for duration_seconds (never stops mid-text)
 
     Example:
         pixels = create_neopixel_strip(192, 'GRB', 0.3)
@@ -1319,10 +1342,13 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
     # Calculate number of scroll positions needed
     total_columns = len(text_columns) + width  # Text + blank screen at end
 
-    start_time = time.time()
+    start_time = time.monotonic()
     position = 0
+    steps_left = passes * total_columns if passes else None
 
-    while time.time() - start_time < duration_seconds:
+    while (steps_left > 0) if steps_left is not None else (time.monotonic() - start_time < duration_seconds):
+        if steps_left is not None:
+            steps_left -= 1
         # Clear all pixels
         for i in range(config['led_count']):
             pixels[i] = (0, 0, 0)
@@ -1568,11 +1594,11 @@ def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_spe
     # Calculate number of scroll positions needed
     total_columns = len(text_columns) + width
 
-    start_time = time.time()
+    start_time = time.monotonic()
     position = 0
     color_offset = 0
 
-    while time.time() - start_time < duration_seconds:
+    while time.monotonic() - start_time < duration_seconds:
         # Clear all pixels
         for i in range(config['led_count']):
             pixels[i] = (0, 0, 0)
@@ -1648,10 +1674,10 @@ def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, c
     else:
         start_x = 0
 
-    start_time = time.time()
+    start_time = time.monotonic()
     color_offset = 0
 
-    while time.time() - start_time < duration_seconds:
+    while time.monotonic() - start_time < duration_seconds:
         # Clear all pixels
         for i in range(config['led_count']):
             pixels[i] = (0, 0, 0)

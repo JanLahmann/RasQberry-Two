@@ -738,7 +738,7 @@ cmd_promote() {
 
     info "PROMOTE: copy the running system (Slot B, ${version_b})"
     info "         to the stable Slot A (now: ${version_a})."
-    info "Slot A's current contents are replaced. This takes 10-15 minutes."
+    info "Slot A's current contents are replaced. This takes about 5-10 minutes."
 
     if [ "$assume_yes" != true ]; then
         # The prompt goes to stderr: it is only visible in a terminal. Without
@@ -758,6 +758,9 @@ cmd_promote() {
     slot_b_part=$(get_slot_partition B)
     boot_a_part=$(get_boot_partition A)
     boot_b_part=$(get_boot_partition B)
+
+    # No "fstab has been modified" hint at every mount below (H-34)
+    rq_refresh_fstab_view
 
     # Slot A must not be in use elsewhere (desktop automount) while it is
     # overwritten - stop now, before anything is written

@@ -108,7 +108,26 @@ case "$cmd" in
             # avahi does not follow a new hostname by itself
             systemctl try-restart avahi-daemon.service 2>/dev/null || true
         fi
-        echo "This Pi is now called $new ($new.local on the network)." ;;
+        # Say the name avahi really announces (item 40): when another device
+        # has <new>.local already, avahi takes <new>-2.local. It needs a
+        # moment after the restart, so ask until it answers with the new name.
+        net="$new.local"
+        if command -v busctl >/dev/null 2>&1; then
+            waited=0
+            while [ "$waited" -lt "${RQ_MDNS_WAIT:-8}" ]; do
+                sleep 1
+                waited=$((waited + 1))
+                got=$(mdns_name)
+                case "$got" in
+                    "$new.local"|"$new"-[0-9]*.local) net="$got"; break ;;
+                esac
+            done
+        fi
+        if [ "$net" = "$new.local" ]; then
+            echo "This Pi is now called $new ($net on the network)."
+        else
+            echo "This Pi is now called $new. $new.local is taken on this network, so other computers reach it as $net."
+        fi ;;
     -h|--help|"")
         usage ;;
     *)
