@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T22:09:33Z",
+  "generated": "2026-10-03T23:34:29Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -30,24 +30,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-03-235019",
-      "name": "rasqberry-development-2026-10-03-235019",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-235019/rasqberry-development-2026-10-03-235019.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-235019",
-      "release_date": "2026-10-03 23:50",
-      "image_download_size": 2008807156,
+      "tag": "development-2026-10-04-011708",
+      "name": "rasqberry-development-2026-10-04-011708",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-011708/rasqberry-development-2026-10-04-011708.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-011708",
+      "release_date": "2026-10-04 01:17",
+      "image_download_size": 2011420600,
       "extract_size": 9076473856,
-      "extract_sha256": "1ae75977cf9144c4302edb16d920eb8e996e57b7e4adf919ee2bb54e85dd2811",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-235019/rasqberry-development-2026-10-03-235019-ab.img.xz",
-      "ab_extract_sha256": "46eab0fe142c381369a9674381dd9d13120e82671d33c5c6e6b329ba8de93b32",
-      "ab_image_sha256": "ca2189d9afbc2dd48349801442ddd126f46aa2986968ee277be20879fd827772",
+      "extract_sha256": "6452e8b9cb1f291ccaa62160b044b4b86072e17747e3c07f5a137862271a7d3e",
+      "image_sha256": "f4ae31e730bec3d53dcd13a26157a35020711a38ffe75797af60d5ab8d8a849c",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-011708/rasqberry-development-2026-10-04-011708-ab.img.xz",
+      "ab_extract_sha256": "94debaf4123e91e67b66d4de739fe690c469614c4cb9c8deba46bf9c8ab7f463",
+      "ab_image_sha256": "6d1953013b2150de42ae6524dc7b101a3dbd5ccf13a05e03bce5cc728f2608b6",
+      "ab_image_download_size": 2062926972,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2067165012,
       "highlights": [
-        "Bump version to development-2026-10-03-235019",
+        "serve the local page with one thread per connection",
+        "a browser tab a demo opens outlives the demo's window",
+        "Bump version to development-2026-10-04-011708",
         "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-03-220656",
-        "Learning paths: Keep going after each path, Where to go next ladder"
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-03-235019"
       ]
     }
   }
