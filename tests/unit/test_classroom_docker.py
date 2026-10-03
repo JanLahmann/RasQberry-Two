@@ -65,13 +65,11 @@ def test_every_downloaded_demo_is_pinned():
             assert inst.get("update", {}).get("docker_tags"), m["id"]
 
 
-def test_mixer_image_is_the_ci_build_of_its_pinned_source():
+def test_mixer_image_is_the_build_of_its_pinned_source():
+    # built by the quantum-mixer repository's CI, tagged with the commit
     m = _manifest("quantum-mixer")
     assert m["entrypoint"]["docker_image"] == \
         "ghcr.io/janlahmann/quantum-mixer:" + m["install"]["source"]["ref"]
-    wf = open(os.path.join(_ROOT, ".github", "workflows", "quantum-mixer-image.yml")).read()
-    assert "install.source.ref" in wf and "ghcr.io/janlahmann/quantum-mixer" in wf
-    assert "linux/arm64" in wf
 
 
 @needs_bash

@@ -6,9 +6,9 @@ set -euo pipefail
 #
 # Description:
 #   Web-based quantum beverage mixer (Qocktails, Qoffee, Ice) in a Docker
-#   container. The arm64 image is built by RasQberry's CI from the pinned
-#   quantum-mixer commit (.github/workflows/quantum-mixer-image.yml) and
-#   pulled from ghcr.io like the other Docker demos (Jan, Q27c). Building it
+#   container. The arm64 image is built by the quantum-mixer repository's own
+#   CI (JanLahmann/quantum-mixer, .github/workflows/docker-arm64.yml, tagged
+#   with the commit) and pulled from ghcr.io like the other Docker demos (Jan, Q27c). Building it
 #   on this Pi (15-30 minutes, 5.6 GB build cache) is only the fallback when
 #   the prebuilt image cannot be had.
 #
