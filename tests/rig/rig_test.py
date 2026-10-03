@@ -26,12 +26,15 @@ Needs on the Pis: nothing beyond the image (key login for the rig user).
 """
 
 import argparse
+import contextlib
 import datetime
+import fcntl
 import json
 import os
 import shlex
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -39,6 +42,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 REMOTE_DIR = "/tmp/rigtest"
+VENV_PY = "/home/*/RasQberry-Two/venv/RQB2/bin/python3"
+CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
 
 
 # ----------------------------------------------------------------------------
@@ -134,6 +139,75 @@ class Camera:
             self.proc.terminate()
 
 
+class PanelLock:
+    """
+    One camera judgement at a time.
+
+    The Pis' panels share the camera view: while one Pi's LED demo is judged,
+    no other Pi may light its panel or change it. Held across threads and
+    across harness processes run side by side (--pi pi5 & --pi pi4).
+    """
+
+    def __init__(self):
+        self.path = Path(tempfile.gettempdir()) / "rasqberry-rigtest-panels.lock"
+        self.local = threading.Lock()
+        self.fh = None
+
+    def __enter__(self):
+        self.local.acquire()
+        self.fh = open(self.path, "w")
+        fcntl.flock(self.fh, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        fcntl.flock(self.fh, fcntl.LOCK_UN)
+        self.fh.close()
+        self.local.release()
+
+
+PANEL_LOCK = PanelLock()
+
+
+def clear_all_panels(pis):
+    """
+    Switch every Pi's LEDs off (in parallel).
+
+    Returns:
+        list: names of the Pis whose panel could not be cleared.
+    """
+    failed = []
+
+    def one(p):
+        try:
+            if ssh(p["host"], CLEAR_LEDS, timeout=60)[0] != 0:
+                failed.append(p["name"])
+        except subprocess.TimeoutExpired:
+            failed.append(p["name"])
+
+    threads = [threading.Thread(target=one, args=(p,)) for p in pis]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return failed
+
+
+def fresh_baseline(pis, camera, dest):
+    """
+    A frame with every panel off, taken now.
+
+    A baseline from the start of the run goes stale: daylight and the camera's
+    auto exposure drift, and a stale one made a dark panel score 0.01-0.04
+    ("partly lit"). Take it right before each judgement, under PANEL_LOCK.
+
+    Returns:
+        tuple: (frame path, list of Pis that could not be cleared)
+    """
+    failed = clear_all_panels(pis)
+    time.sleep(3)   # last frame out, camera exposure settled
+    return camera.grab(dest), failed
+
+
 def lit_score(frame, baseline, crop):
     """
     How much brighter the panel region is than with the LEDs off.
@@ -189,7 +263,7 @@ def run_checks(pi):
     """Copy the Pi-side scripts and run the system checks."""
     host = pi["host"]
     ssh(host, f"mkdir -p {REMOTE_DIR}", check=True)
-    scp(host, [HERE / "pi" / "checks.sh", HERE / "pi" / "demo_smoke.sh"], f"{REMOTE_DIR}/")
+    scp(host, [HERE / "pi" / f for f in ("checks.sh", "demo_smoke.sh", "led_fill.py")], f"{REMOTE_DIR}/")
     _, out = ssh(host, f"bash {REMOTE_DIR}/checks.sh", timeout=300)
     return parse_lines(out)
 
@@ -217,7 +291,9 @@ def list_demos(pi):
 #            defaults of the text/logo dialogs so the demo reaches its LED output
 #   seconds: minimum run time - Lights Out computes its solution before it
 #            lights up, which takes ~20 s on a Pi 4
-#   dark:    the demo's job is to switch the panel off - lit is the failure
+#   dark:    the demo's job is to switch the panel off - lit is the failure.
+#            The test lights the panel first (so there is something to switch
+#            off) and judges the demo's last frame against a fresh baseline
 #   service: the panel stays dark by design (Painter starts with an empty
 #            canvas), so check instead that the unit driving the LEDs runs at
 #            some point (a first start installs the demo first: 90 s)
@@ -236,8 +312,20 @@ DEMO_HINTS = {
 INSTALL_ALLOWANCE = 600
 
 
-def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
-    """Run one demo smoke test; for LED demos grab a camera frame mid-run."""
+def smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
+    """
+    Run one demo smoke test; for LED demos judge the panel with the camera.
+
+    A camera-judged LED demo holds PANEL_LOCK for its whole run, so no other
+    Pi (thread or harness process) lights its panel in the shared view.
+    """
+    judged = bool(camera and demo["leds"] and pi.get("panel_crop"))
+    with PANEL_LOCK if judged else contextlib.nullcontext():
+        return _smoke_demo(pi, demo, seconds, camera if judged else None, outdir, all_pis, docker)
+
+
+def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
+    """smoke_demo's body (camera is None unless this demo is camera-judged)."""
     host = pi["host"]
     hint = DEMO_HINTS.get(demo["id"], {})
     seconds = max(seconds, hint.get("seconds", 0))
@@ -245,6 +333,23 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
     if hint.get("keys"):
         env += f"RIG_KEYS={shlex.quote(hint['keys'])} "
     result = {}
+    tag = demo["id"].replace(":", "-")
+    crop = pi.get("panel_crop")
+    threshold = pi.get("lit_threshold", 0.006)
+    notes = ""
+
+    # a fresh baseline right before the demo: every panel off, now
+    baseline = before = None
+    if camera and not hint.get("service"):
+        baseline, unclear = fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-{tag}-baseline.png")
+        if unclear:
+            notes += f" (baseline: could not clear {','.join(unclear)})"
+        if hint.get("dark"):
+            # light the panel first, so the demo has something to switch off
+            # and the camera is shown to see this Pi's panel at all
+            ssh(host, f"sudo {VENV_PY} {REMOTE_DIR}/led_fill.py 0 60 0 >/dev/null 2>&1", timeout=60)
+            time.sleep(1)
+            before = lit_score(camera.grab(outdir / f"{pi['name']}-{tag}-before.png"), baseline, crop)
 
     def worker():
         _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
@@ -265,22 +370,25 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
                 break
             time.sleep(3)
         service_state = service_state or "not checked"
-    elif camera and demo["leds"] and pi.get("panel_crop"):
+    elif baseline:
         # LED demos blink, animate and (on a Pi 4) take a while to import
         # Qiskit: sample every couple of seconds for the whole run, keep the best
-        tag = demo["id"].replace(":", "-")
         best, kept, last = -1.0, None, -1.0
         end = time.time() + seconds - 2 + (0 if hint.get("dark") else INSTALL_ALLOWANCE)
         time.sleep(4)
         i = 0
         while time.time() < end and t.is_alive():
             frame = camera.grab(outdir / f"{pi['name']}-{tag}-camera{i}.png")
-            score = lit_score(frame, baseline, pi["panel_crop"])
+            score = lit_score(frame, baseline, crop)
             last = score
             if score > best:
                 if kept:
                     kept.unlink()
                 best, kept = score, frame
+            elif hint.get("dark"):   # keep the last frame: it is the one judged
+                if kept:
+                    kept.unlink()
+                kept = frame
             else:
                 frame.unlink()
             i += 1
@@ -289,23 +397,27 @@ def smoke_demo(pi, demo, seconds, camera, outdir, baseline, docker):
         # a demo that switches the panel off is judged by where it ends up
         led = (last if hint.get("dark") else best) if best >= 0 else None
     t.join()
-    name = demo["id"].replace(":", "-")
-    fetch(host, f"{REMOTE_DIR}/{name}.png", outdir / f"{pi['name']}-{name}-screen.png")
+    fetch(host, f"{REMOTE_DIR}/{tag}.png", outdir / f"{pi['name']}-{tag}-screen.png")
     if service_state is not None:
         result["detail"] = result.get("detail", "") + f" {hint['service']}={service_state}"
         if service_state != "active" and result.get("verdict") == "PASS":
             result["verdict"] = "FAIL"
     if led is not None:
-        lit = led >= pi.get("lit_threshold", 0.006)
+        lit = led >= threshold
         detail = result.get("detail", "")
         if hint.get("dark"):
-            result["detail"] = detail + f" led={led:.3f}" + (" (panel still lit)" if lit else " (panel off)")
+            result["detail"] = (detail + f" before={before:.3f} led={led:.3f}"
+                                + (" (panel still lit)" if lit else " (panel off)") + notes)
             if lit and result.get("verdict") == "PASS":
                 result["verdict"] = "FAIL"
+            elif before < threshold and result.get("verdict") == "PASS":
+                # the panel never lit: nothing was shown to be switched off
+                result["detail"] += " (could not light the panel first: check panel_crop)"
+                result["verdict"] = "WARN"
             return result
         waits = "dialog=yes" in detail            # waiting for input: nothing to show
         ended = "alive=no" in detail and "exit=0" in detail   # finished by itself
-        result["detail"] = detail + f" led={led:.3f}" + ("" if lit else " (panel dark)")
+        result["detail"] = detail + f" led={led:.3f}" + ("" if lit else " (panel dark)") + notes
         if not lit and hint.get("led_optional"):
             result["detail"] += " (expected without an IBM account)"
         elif not lit and result.get("verdict") == "PASS":
@@ -358,18 +470,10 @@ def main():
                         wanted = args.demos.split(",")
                         # a base id selects all its variants (id:variant)
                         demos = [d for d in demos if d["id"] in wanted or d["id"].split(":")[0] in wanted]
-                    baseline = None
-                    if camera:
-                        # every panel off (another Pi's lit panel or a demo's
-                        # last frame would pollute the baseline)
-                        for other in cfg["pis"]:
-                            ssh(other["host"], "sudo /home/*/RasQberry-Two/venv/RQB2/bin/python3 /usr/bin/turn_off_LEDs.py >/dev/null 2>&1; true", timeout=60)
-                        time.sleep(2)
-                        baseline = camera.grab(outdir / f"{pi['name']}-baseline.png")
                     for d in demos:
                         print(f"   demo {d['id']} ...", flush=True)
                         try:
-                            section["rows"].append(smoke_demo(pi, d, args.seconds, camera, outdir, baseline, args.docker))
+                            section["rows"].append(smoke_demo(pi, d, args.seconds, camera, outdir, cfg["pis"], args.docker))
                         except Exception as exc:  # one broken demo must not end the run
                             section["rows"].append({"verdict": "FAIL", "name": f"demo:{d['id']}", "detail": f"harness: {exc}"})
             except Exception as exc:  # keep going with the next Pi

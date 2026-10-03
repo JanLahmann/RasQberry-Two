@@ -45,7 +45,7 @@ demo and, for LED demos, the camera frame. Exit status 1 if anything failed.
 | Every shipped unit enabled; LED renderer and update poller disabled | `pi/checks.sh` |
 | VNC on, no initramfs, update check answers | `pi/checks.sh` |
 | Each demo: starts, still running after N s, no traceback, Jupyter/browser URL answers, stops on Ctrl+C with nothing left over | `pi/demo_smoke.sh` |
-| LED demos light the Pi's panel | camera frame vs. a frame with the LEDs off |
+| LED demos light the Pi's panel | camera frames vs. a fresh frame with every panel off, taken right before the demo |
 
 ## How a demo is driven, and why
 
@@ -68,6 +68,30 @@ Some demos can't be judged by "start it and watch the panel". `DEMO_HINTS` in
   them (accepting the defaults) so the demo reaches its LED output.
 - Quantum Lights Out computes its solution before it lights up (~20 s on a
   Pi 4): it runs for 60 s.
-- Clear LEDs should leave the panel dark: a lit panel is the failure.
+- Clear LEDs should leave the panel dark: the test lights the panel first
+  (`pi/led_fill.py`), then judges the demo's last frame; a lit panel is the
+  failure.
+
+## Camera judgement
+
+The panels share one camera view, and daylight and the camera's auto exposure
+drift during a run. A baseline taken at the start went stale and made a dark
+panel score 0.01-0.04 ("still lit"). So before every LED demo the test switches
+every Pi's panel off, waits 3 s and takes a fresh baseline, and it holds a lock
+(`$TMPDIR/rasqberry-rigtest-panels.lock`) for the whole LED demo, so no other
+Pi - another thread or a second harness process run side by side - lights its
+panel in the meantime.
+
+`panel_crop` must cover only the Pi's LEDs: frame edges, the table (it reflects
+the lower panel) and the cables at the lower right change with ambient light.
+To find it, fill one panel at a time and diff against a dark frame:
+
+```bash
+sudo /home/rasqberry/RasQberry-Two/venv/RQB2/bin/python /tmp/rigtest/led_fill.py 0 80 0   # on the Pi
+```
+
+Rows and columns where at least 15% of the pixels brighten by 80+ grey levels,
+plus a 0.02 margin, give the crop. Check that each Pi's fill scores 0 in the
+other Pi's crop.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
