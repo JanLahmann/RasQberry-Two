@@ -238,23 +238,70 @@ def test_family_menu_starts_local_demos_and_opens_websites():
     assert rq_fwq.menu_items(_FAMILY, set())[1][2].startswith("url:")
 
 
-def test_local_demo_ids_and_setup_writes_the_page_offline(tmp_path, monkeypatch):
+def _setup_dirs(tmp_path, portal_ref=""):
     mdir = tmp_path / "manifests"
     mdir.mkdir()
     (mdir / "rq_demo_qoffee-maker.json").write_text('{"id": "qoffee-maker"}')
     (mdir / "rq_demo_schema.json").write_text('{"id": "nope"}')
     (mdir / "rq_demo_broken.json").write_text("{")
-    assert rq_fwq.local_demo_ids([str(mdir)]) == {"qoffee-maker"}
-
+    (mdir / "rq_demo_fun-with-quantum.json").write_text(json.dumps(
+        {"id": "fun-with-quantum", "install": {"ref": _SHA, "portal_ref": portal_ref}}))
     demo = tmp_path / "fun-with-quantum"
     (demo / "family").mkdir(parents=True)
     (demo / "family" / "family.json").write_text(json.dumps(_FAMILY))
-    monkeypatch.setattr(rq_fwq, "manifest_dirs", lambda: [str(mdir)])
-    monkeypatch.setattr(rq_fwq, "checkout_commit", lambda path: _SHA)
+    return mdir, demo
 
-    def offline(*a, **k):
+
+@pytest.mark.parametrize("portal_ref", ["", _SHA])
+def test_setup_writes_the_page_and_never_fails_the_install(tmp_path, monkeypatch, portal_ref):
+    mdir, demo = _setup_dirs(tmp_path, portal_ref)
+    assert rq_fwq.local_demo_ids([str(mdir)]) == {"qoffee-maker", "fun-with-quantum"}
+    monkeypatch.setattr(rq_fwq, "manifest_dirs", lambda: [str(mdir)])
+    calls = []
+
+    def offline(url, timeout=None):
+        calls.append(url)
         raise urllib.error.URLError("offline")
     monkeypatch.setattr(rq_fwq.urllib.request, "urlopen", offline)
-    assert rq_fwq.main(["--path", str(demo)]) == 0       # never fails the install
-    page = (demo / rq_fwq.FAMILY_PAGE).read_text()
-    assert "Qoffee-Maker" in page and not (demo / "portal").exists()
+    assert rq_fwq.main(["--path", str(demo)]) == 0
+    assert "Qoffee-Maker" in (demo / rq_fwq.FAMILY_PAGE).read_text()
+    assert not (demo / "portal").exists()
+    assert len(calls) == (1 if portal_ref else 0)        # nothing pinned: no request
+
+
+# ----------------------------------------------------------------------------
+# Website pin (install.portal_ref), separate from the notebook pin
+# ----------------------------------------------------------------------------
+
+def test_manifest_pins_the_website_separately():
+    inst = _manifest()["install"]
+    assert inst["ref"] and "portal_ref" in inst and "portal_sha256" in inst
+    ref, sha = rq_fwq.portal_pin(_manifest())
+    assert ref == inst["portal_ref"].lower()             # empty until a bundle exists
+    assert sha == inst["portal_sha256"].lower()
+    assert rq_fwq.portal_pin({"install": {"portal_ref": "abc", "portal_sha256": "x"}}) == ("", "")
+    assert rq_fwq.portal_pin({"install": {"portal_ref": _SHA.upper(),
+                                          "portal_sha256": "AB" * 32}}) == (_SHA, "ab" * 32)
+    assert rq_fwq.portal_pin({}) == ("", "")
+
+
+def test_pinned_sha256_is_used_and_the_copy_is_stamped(tmp_path):
+    bundle = _tar({"./index.html": b"x"})
+    opener = _opener(bundle, sha_text="ignored")
+    rq_fwq.fetch_portal(str(tmp_path), _SHA, opener=opener,
+                        sha256=hashlib.sha256(bundle).hexdigest())
+    assert opener.calls == [rq_fwq.bundle_urls(_SHA)[0]]  # no .sha256 request
+    assert (tmp_path / rq_fwq.PORTAL_STAMP).read_text().strip() == _SHA
+    with pytest.raises(rq_fwq.BundleError, match="mismatch"):
+        rq_fwq.fetch_portal(str(tmp_path / "b"), _SHA, opener=opener, sha256="0" * 64)
+
+
+def test_portal_state(tmp_path):
+    bundle = _tar({"./index.html": b"x"})
+    assert rq_fwq.portal_state(str(tmp_path), "") == "none"
+    assert rq_fwq.portal_state(str(tmp_path), _SHA, opener=_opener(bundle)) == "download"
+    assert rq_fwq.portal_state(str(tmp_path), _SHA, opener=_opener(b"", missing=True)) == "none"
+    rq_fwq.fetch_portal(str(tmp_path), _SHA, opener=_opener(bundle))
+    assert rq_fwq.portal_state(str(tmp_path), _SHA, opener=_opener(b"", missing=True)) == "current"
+    other = "b" * 40                                     # a newer pin: fetch it
+    assert rq_fwq.portal_state(str(tmp_path), other, opener=_opener(bundle)) == "download"

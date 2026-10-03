@@ -5,9 +5,9 @@ set -euo pipefail
 # RasQberry: Fun with Quantum website (offline copy)
 # ============================================================================
 # Description: Serves the copy of fun-with-quantum.org that was downloaded
-#   with the notebooks (portal/dist, the build of the pinned commit) on
-#   127.0.0.1 and opens it in the browser. Without a copy (not published for
-#   this version yet) it opens the online website, or the offline page.
+#   with the notebooks (portal/dist, the build pinned by install.portal_ref)
+#   on 127.0.0.1 and opens it in the browser. Without a copy (none pinned yet)
+#   it opens the online website, or the offline page.
 # Usage: rq_fwq_portal.sh   (normally: rq_demo_run.sh fun-with-quantum website)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,9 +31,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-# Installed before the website was bundled: fetch it now if it is published
-if [ ! -f "$SITE/index.html" ] && [ -d "$DEMO_DIR/.git" ] \
-        && "${FWQ_PY[@]}" portal --check --path "$DEMO_DIR" >/dev/null 2>&1; then
+# The pinned website (install.portal_ref) is not here yet - an install from
+# before it was pinned, or a newer pin: fetch it now, after asking
+state=$("${FWQ_PY[@]}" portal-state --path "$DEMO_DIR" 2>/dev/null) || state=none
+if [ "$state" = "download" ]; then
     rc=0
     rq_confirm_download "Fun with Quantum website" 4 10 \
         --what "The Fun with Quantum website, to use without the internet" \
@@ -46,7 +47,7 @@ fi
 
 if [ ! -f "$SITE/index.html" ]; then
     if rq_reachable "$ONLINE_URL"; then
-        info "No copy of the website for this version yet: opening $ONLINE_URL"
+        info "No copy of the website on this Pi: opening $ONLINE_URL"
         rq_show_url "$ONLINE_URL"
     else
         info "No copy of the website on this Pi, and no internet."

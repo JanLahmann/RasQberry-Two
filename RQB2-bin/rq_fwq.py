@@ -3,16 +3,22 @@
 Fun with Quantum on RasQberry Two: the offline website and the family page.
 
 The Fun-with-Quantum repository publishes every build of its website as
-fwq-portal-<commit>.tar.gz (+ .sha256) on the "portal-bundles" release. The
-demo engine runs this script after it has fetched the pinned commit
-(install.post_install, as "rq_fwq.py --path DIR"): it downloads the bundle of
-that commit, checks its SHA-256 and unpacks it into DIR/portal/dist, and it
-writes the family page from DIR/family/family.json. No step needs the network
-when the pages are viewed.
+fwq-portal-<commit>.tar.gz (+ .sha256) on the "portal-bundles" release. Only
+commits that change the website have one, so the manifest pins the website
+separately from the notebooks: install.portal_ref (a commit with a bundle) and
+install.portal_sha256 (optional; else the published .sha256 is used). Empty
+portal_ref: no local copy, the menu entry opens the online website.
+
+The demo engine runs this script after it has fetched the notebooks
+(install.post_install, as "rq_fwq.py --path DIR"): it downloads the pinned
+bundle, checks its SHA-256 and unpacks it into DIR/portal/dist, and it writes
+the family page from DIR/family/family.json (the notebook pin). No step needs
+the network when the pages are viewed.
 
 Usage:
     rq_fwq.py --path DIR                      post-install: website + family page
-    rq_fwq.py portal --path DIR [--check]     download the website (2: not published)
+    rq_fwq.py portal --path DIR               download the pinned website (2: none)
+    rq_fwq.py portal-state --path DIR         current | download | none
     rq_fwq.py family-page --path DIR [--out FILE]
     rq_fwq.py family-menu --path DIR          menu items: tag<TAB>label<TAB>action
 """
@@ -26,7 +32,6 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -42,6 +47,8 @@ SITE_URL = "https://fun-with-quantum.org"
 SITE_SUBDIR = os.path.join("portal", "dist")
 FAMILY_JSON = os.path.join("family", "family.json")
 FAMILY_PAGE = "rasqberry-family.html"
+PORTAL_STAMP = os.path.join("portal", ".rasqberry-portal-ref")
+DEMO_ID = "fun-with-quantum"
 MAX_BUNDLE_BYTES = 200 * 1000 * 1000
 
 # Family members that are RasQberry demos: family id -> demo id
@@ -158,24 +165,6 @@ def _safe_extract(data, dest):
             tar.extractall(root, members=members)
 
 
-def checkout_commit(path):
-    """
-    The commit the demo checkout is at.
-
-    Args:
-        path (str): Demo directory.
-
-    Returns:
-        str: Full commit SHA, or "" when it cannot be told.
-    """
-    try:
-        out = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True,
-                             text=True, check=True, timeout=20).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return out if _SHA_RE.match(out) else ""
-
-
 def bundle_published(commit, opener=None):
     """
     Is the commit's bundle on the release? (Short request for the .sha256.)
@@ -194,7 +183,7 @@ def bundle_published(commit, opener=None):
         return False
 
 
-def fetch_portal(path, commit, opener=None):
+def fetch_portal(path, commit, opener=None, sha256=""):
     """
     Download, verify and unpack the website of a commit into path/portal/dist.
 
@@ -204,13 +193,19 @@ def fetch_portal(path, commit, opener=None):
         path (str): Demo directory.
         commit (str): Full commit SHA.
         opener (callable): urlopen replacement for tests.
+        sha256 (str): Pinned hash; empty = use the published .sha256.
 
     Returns:
         str: The directory the website is in.
     """
     url, sha_url = bundle_urls(commit)
     name = bundle_name(commit)
-    expected = parse_sha256(_get(sha_url, opener, limit=4096).decode("utf-8", "replace"), name)
+    if sha256:
+        expected = sha256.strip().lower()
+        if not _HEX256_RE.match(expected):
+            raise BundleError("pinned SHA-256 is not 64 hex digits")
+    else:
+        expected = parse_sha256(_get(sha_url, opener, limit=4096).decode("utf-8", "replace"), name)
     data = _get(url, opener)
     actual = hashlib.sha256(data).hexdigest()
     if actual != expected:
@@ -229,7 +224,50 @@ def fetch_portal(path, commit, opener=None):
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
+    with open(os.path.join(path, PORTAL_STAMP), "w", encoding="utf-8") as fh:
+        fh.write(commit.lower() + "\n")
     return site
+
+
+def portal_pin(manifest):
+    """
+    The website pin of the manifest: (commit, sha256), "" when not set.
+
+    Args:
+        manifest (dict): Parsed rq_demo_fun-with-quantum.json.
+
+    Returns:
+        tuple: (portal_ref, portal_sha256), lower case; invalid values count as unset.
+    """
+    inst = manifest.get("install", {}) if isinstance(manifest, dict) else {}
+    ref = str(inst.get("portal_ref") or "").strip().lower()
+    sha = str(inst.get("portal_sha256") or "").strip().lower()
+    return (ref if _SHA_RE.match(ref) else "", sha if _HEX256_RE.match(sha) else "")
+
+
+def portal_state(path, ref, opener=None):
+    """
+    What the website needs: "current", "download" or "none".
+
+    Args:
+        path (str): Demo directory.
+        ref (str): Pinned website commit ("" = none pinned).
+        opener (callable): urlopen replacement for tests.
+
+    Returns:
+        str: "current" (the pinned copy is here), "download" (it is published
+        and not here), "none" (nothing pinned, or not published).
+    """
+    if not ref:
+        return "none"
+    try:
+        with open(os.path.join(path, PORTAL_STAMP), encoding="utf-8") as fh:
+            stamp = fh.read().strip()
+    except OSError:
+        stamp = ""
+    if stamp == ref and os.path.isfile(os.path.join(path, SITE_SUBDIR, "index.html")):
+        return "current"
+    return "download" if bundle_published(ref, opener=opener) else "none"
 
 
 # ----------------------------------------------------------------------------
@@ -279,6 +317,28 @@ def local_demo_ids(dirs):
                 continue
     ids.discard("")
     return ids
+
+
+def find_manifest(dirs, demo_id=DEMO_ID):
+    """
+    The manifest of a demo in the manifest directories (shipped first).
+
+    Args:
+        dirs (list): Manifest directories.
+        demo_id (str): Demo id.
+
+    Returns:
+        dict: Parsed manifest, or {} when there is none.
+    """
+    for d in dirs:
+        try:
+            with open(os.path.join(d, "rq_demo_%s.json" % demo_id), encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and data.get("id") == demo_id:
+            return data
+    return {}
 
 
 def family_members(family, local_ids):
@@ -427,21 +487,26 @@ def write_family_page(path, out=None):
     return out
 
 
-def _portal(path, check=False):
-    """Download the website of the checkout's commit; 2 = not published."""
-    commit = checkout_commit(path)
-    if not commit:
-        logger.warning("Cannot tell which version of Fun with Quantum is installed.")
-        return 1
-    if check:
-        return 0 if bundle_published(commit) else 2
-    try:
-        site = fetch_portal(path, commit)
-    except BundleMissing:
-        logger.info("The Fun with Quantum website of this version (%s) is not published yet.",
-                    commit[:7])
+def _pin(args):
+    """The website pin: command-line overrides, else the manifest."""
+    ref, sha = portal_pin(find_manifest(manifest_dirs()))
+    if args.ref is not None:
+        ref, sha = args.ref.strip().lower(), (args.sha256 or "").strip().lower()
+    return ref, sha
+
+
+def _portal(path, ref, sha256):
+    """Download the pinned website; 2 = none pinned or not published."""
+    if not ref:
+        logger.info("No Fun with Quantum website is pinned for offline use; "
+                    "the menu entry opens fun-with-quantum.org.")
         return 2
-    except BundleError as exc:
+    try:
+        site = fetch_portal(path, ref, sha256=sha256)
+    except (BundleMissing, ValueError):
+        logger.info("The Fun with Quantum website %s is not published.", ref[:7])
+        return 2
+    except (BundleError, OSError) as exc:
         logger.warning("The Fun with Quantum website could not be downloaded: %s", exc)
         return 1
     logger.info("Fun with Quantum website saved for offline use: %s", site)
@@ -460,15 +525,19 @@ def main(argv=None):
     """
     p = argparse.ArgumentParser(description="Fun with Quantum: offline website and family page")
     p.add_argument("command", nargs="?", default="setup",
-                   choices=["setup", "portal", "family-page", "family-menu"])
+                   choices=["setup", "portal", "portal-state", "family-page", "family-menu"])
     p.add_argument("--path", required=True, help="the fun-with-quantum demo directory")
     p.add_argument("--out", help="family-page: output file")
-    p.add_argument("--check", action="store_true", help="portal: only check it is published")
+    p.add_argument("--ref", help="portal: website commit instead of install.portal_ref")
+    p.add_argument("--sha256", help="portal: its SHA-256 (with --ref)")
     args = p.parse_args(argv)
     path = os.path.abspath(args.path)
 
     if args.command == "portal":
-        return _portal(path, args.check)
+        return _portal(path, *_pin(args))
+    if args.command == "portal-state":
+        print(portal_state(path, _pin(args)[0]))
+        return 0
     if args.command == "family-page":
         print(write_family_page(path, args.out))
         return 0
@@ -477,7 +546,7 @@ def main(argv=None):
             print("\t".join(item))
         return 0
     # setup (post-install): neither step may fail the notebook install
-    _portal(path)
+    _portal(path, *_pin(args))
     try:
         write_family_page(path)
     except (OSError, ValueError) as exc:
