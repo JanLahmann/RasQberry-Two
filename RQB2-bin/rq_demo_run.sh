@@ -232,7 +232,9 @@ check_installed() {
 
     marker_file=$(get_field '.install.marker_file' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
-    preinstalled=$(get_bool '.install.preinstalled' 'false')
+    # variant-aware: a variant that only opens a website (grok-bloch's online
+    # version) needs nothing of the demo's download
+    preinstalled=$(demo_field '.install.preinstalled' 'false')
     installed_flag=$(get_field '.install.installed_flag' '')
 
     # If preinstalled, no check needed
@@ -362,8 +364,10 @@ install_demo() {
         # line-ending agnostic, so this is safe and keeps our patches robust to
         # upstream whitespace drift. Our patches are generated against the same
         # normalization (see RQB2-config/demo-patches/).
+        # (a file the patch creates is not there yet: skip it - as the loop's
+        # last command a failed test would stop the install under pipefail)
         grep '^+++ b/' "$PATCHES_DIR/$patch_file" | sed 's|^+++ b/||' | while IFS= read -r _pf; do
-            [ -f "$_pf" ] && sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"
+            if [ -f "$_pf" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"; fi
         done
         if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
             # Try with -3 for 3-way merge
@@ -1232,6 +1236,11 @@ main() {
         ensure_installed
         info "$demo_name is installed"
         exit 0
+    fi
+
+    # New or less-tested demos ask for feedback (item 36)
+    if [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then
+        rq_beta_notice "$DEMO_ID"
     fi
 
     # Check requirements

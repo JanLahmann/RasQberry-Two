@@ -1406,7 +1406,7 @@ do_quantum_demo_menu() {
        UPD  "Update demos (newer versions)" \
        LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop an LED demo still running, clear LEDs" \
-       DSTP "Stop Docker demos (Workshop Server, Quantum Lab...)") || break
+       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
     _qd_last="$FUN"
     case "$FUN" in
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;

@@ -85,7 +85,8 @@ get_sorted_manifests() {
         local order
         order=$(jq -r '.menu.order // 50' "$file" 2>/dev/null)
         local show
-        show=$(jq -r '.menu.show // true' "$file" 2>/dev/null)
+        # not `.menu.show // true`: jq's // treats false as missing
+        show=$(jq -r 'if .menu.show == false then "false" else "true" end' "$file" 2>/dev/null)
         if [ "$show" = "true" ]; then
             echo "$order $file"
         fi
@@ -223,6 +224,8 @@ CACHE_HEADER
         is_dispatchable "$file" || continue
         # ... and ids that would break the cache (see valid_cache_id)
         valid_cache_id "$id" "$file" || continue
+        # New or less-tested demos carry a tag (item 36)
+        [ -n "$(rq_demo_maturity "$id" "$file")" ] && name="$name (beta)"
 
         # The menu eval's these pairs inside double quotes: escape what is
         # special there (\ " $ `), so a name is text and never runs.
@@ -299,12 +302,13 @@ CACHE_HEADER
         is_dispatchable "$file" || continue
         valid_cache_id "$id" "$file" 2>/dev/null || continue
         items=""
-        while IFS=$'\t' read -r vid vname; do
+        while IFS=$'\t' read -r vid vname vmaturity; do
             valid_cache_id "$vid" "$file (variant)" || continue
+            [ "$vmaturity" = "beta" ] && vname="$vname (beta)"
             vname=$(printf '%s' "$vname" | sed 's/[\\"$`]/\\&/g')
             vname=$(printf '%s' "$vname" | sed "s/'/'\\\\''/g")
             items="$items '\"$vid\" \"$vname\"'"
-        done < <(jq -r '.variants[]? | [.id, .name] | @tsv' "$file")
+        done < <(jq -r '.variants[]? | [.id, .name, (.maturity // "")] | @tsv' "$file")
         [ -n "$items" ] && echo "        \"$id\") printf '%s\\n'$items ;;" >> "$cache_file"
     done) || true
 

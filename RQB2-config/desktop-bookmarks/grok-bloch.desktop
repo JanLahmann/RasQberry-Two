@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=Grokking the Bloch Sphere
-Comment=Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (local version)
+Comment=One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try)
 Icon=/usr/share/icons/rasqberry/orbit-pi.png
 Type=Application
 Categories=RasQberry;

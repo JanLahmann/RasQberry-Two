@@ -39,9 +39,15 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 **Demos, workshops and IBM accounts**
 
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for doQumentation: the latest build or one in between, with date, size and Qiskit version), or back.
-- **Workshop Server (doQumentation):** one Pi serves a class's laptops over the network. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Everyone on the network can run code on it: use it on a class network you trust.
-- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop Server keeps running until you stop it.
-- **Quantum Demos** → **Stop Docker demos** stops the Workshop Server, Quantum Lab, Qoffee-Maker or Quantum-Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
+- **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Restarting it restores the original notebooks.
+- **Qiskit Tutorials on this Pi:** the same tutorials just for you, on this Pi only (not on the network), with less memory. It opens the browser and stops with its window.
+- The desktop icon **RasQberry Configuration (raspi-config)** (was RasQberry Menu) opens raspi-config with **0 RasQberry**.
+- **Beta demos:** new and less-tested demos say "(beta)" in the menus (Workshop & Qiskit Server, Qiskit Tutorials on this Pi, traQmania, the Fun with Quantum website and family) and ask for your feedback when they start.
+- **My Quantum Programs** opens JupyterLab at `Hello-World.ipynb`, the first circuit from doQumentation. Existing folders get it once; your files are never replaced.
+- **Grokking the Bloch Sphere** shows tips (what to try, what to notice) and a short explanation with links to IBM Quantum Learning. One menu entry, with the online version as a second choice.
+- The **Fun with Quantum** desktop icon offers the games, the website (works offline) and the family. Its website copy now includes the Workshops page.
+- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it.
+- **Quantum Demos** → **Stop Docker demos** stops the Workshop & Qiskit Server, Quantum Lab, Qoffee-Maker or Quantum Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
 - **LEDs** → **LED brightness**. If the Pi 5's LED panel stops because the power supply is too weak, RasQberry says so, restarts the LED driver and offers a lower brightness. Use the official 27 W power supply.
 - Quantum-Mixer downloads a ready image instead of building for 15-30 minutes.
 - Notebook demos also start over SSH and print an `ssh -L` command for your computer.

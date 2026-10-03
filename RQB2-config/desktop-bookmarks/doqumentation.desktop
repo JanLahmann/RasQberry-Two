@@ -1,14 +1,14 @@
 [Desktop Entry]
 Version=1.1
-Name=doQumentation
-Comment=RasQberry Workshop Server - doQumentation (Docker/Jupyter documentation)
+Name=Workshop & Qiskit Server
+Comment=(beta) One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation)
 Icon=/usr/share/icons/rasqberry/doqumentation-logo.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh doqumentation
 Terminal=true
 StartupNotify=true
-Keywords=quantum;documentation;workshop;docker;jupyter;doqumentation;
+Keywords=quantum;qiskit;workshop;class;tutorials;courses;docker;jupyter;doqumentation;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

@@ -1,6 +1,6 @@
 {
   "id": "quantum-mixer",
-  "name": "Quantum-Mixer",
+  "name": "Quantum Mixer",
   "category": "visualization",
   "description": "Interactive quantum circuit builder and simulator (Docker container)",
   "keywords": [

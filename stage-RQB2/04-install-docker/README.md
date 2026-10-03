@@ -1,7 +1,7 @@
 # 04-install-docker
 
 Installs Docker Engine from Docker's apt repository and enables memory cgroups,
-for the Docker-based demos and the doQumentation Workshop Server.
+for the Docker-based demos and the Workshop & Qiskit Server (doQumentation).
 
 ## What it does
 

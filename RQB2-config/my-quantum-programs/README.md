@@ -1,41 +1,40 @@
 # My Quantum Programs
 
 This folder is yours: write, change and run your own quantum programs here.
-Everything below runs on this Raspberry Pi with local simulators, so you do not
-need an IBM Quantum account to start.
+Everything runs on this Raspberry Pi with local simulators, so you do not need
+an IBM Quantum account to start.
+
+## Start with a notebook
+
+The desktop icon **My Quantum Programs** opens JupyterLab in this folder, at
+`Hello-World.ipynb`: your first circuit, two entangled qubits, run on a
+perfect simulator, on a simulator with the noise of a real device and, with
+an IBM Quantum account, on a real quantum computer. It is the Hello World of
+[doQumentation](https://doqumentation.org), so the tutorials there continue
+where it ends.
+
+- Run a cell with **Shift+Enter**. Change things and run them again: this copy
+  is yours.
+- New notebook: **File > New > Notebook**. It is saved in this folder.
+- From a terminal, `jupyter lab` opens JupyterLab in the current folder.
+
+## Python programs
 
 | File | What it does |
 |---|---|
-| `01_bell_state.py` | Your first circuit: two entangled qubits on the built-in simulator |
+| `01_bell_state.py` | Two entangled qubits on the built-in simulator |
 | `02_ghz_histogram.py` | Three entangled qubits on Qiskit Aer, results saved as a chart |
 | `03_led_hello.py` | Lights the LED panel from your own program |
 | `04_bell_on_leds.py` | Qiskit and LEDs together: every shot becomes a column of light |
-| `My-First-Circuit.ipynb` | The Bell state as a Jupyter notebook, with drawings and a chart |
+
+Run them in a terminal (`python3 01_bell_state.py`; terminals start with the
+RasQberry Python environment active, the prompt shows `(RQB2)`), with
+`rq_python 01_bell_state.py` from anywhere (also over SSH), or in **Thonny**
+(**Run**) or **Geany** (**Build > Execute**) from menu > Programming: both use
+the RasQberry Python, which has Qiskit.
 
 The original files are kept in `/usr/config/my-quantum-programs/`, so you can
 always copy a fresh one back.
-
-## Run a program
-
-**Thonny** (menu > Programming > Thonny): open a file and press **Run**.
-Thonny uses the RasQberry Python, which has Qiskit. If Thonny shows a simple
-window without a menu bar, that is its beginner mode; it works the same.
-
-**A terminal**:
-
-    cd ~/My-Quantum-Programs
-    python3 01_bell_state.py
-
-Terminals start with the RasQberry Python environment active (the prompt shows
-`(RQB2)`). `rq_python 01_bell_state.py` does the same from anywhere, also from
-scripts and over SSH.
-
-**Geany** (menu > Programming > Geany): **Build > Execute** runs the file with
-`rq_python`.
-
-**Jupyter**: the desktop icon **My Quantum Programs** opens JupyterLab in this
-folder. From a terminal, `jupyter lab` does the same in the current folder.
-New notebooks are saved where JupyterLab runs, so start it here.
 
 ## The LED panel
 

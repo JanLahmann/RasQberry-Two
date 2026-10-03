@@ -2,7 +2,7 @@
 Tests for feedback batch C2 (2026-10-03): how demos stop, LEDs and Docker.
 
 - one stop rule for every demo window: Enter or Ctrl+C, or closing the window
-  (items 5, 33); Docker demos stop with their window, the Workshop Server
+  (items 5, 33); Docker demos stop with their window, the Workshop & Qiskit Server
   keeps running by design;
 - LED launchers clear the panel once, however they end (R-158);
 - the Pi 5 LED driver stall is noticed, the driver reopened and the person
@@ -184,8 +184,12 @@ def test_docker_launchers_stop_with_their_window():
         text = _read(name)
         assert "rq_docker_stop_with_window" in text, name
         assert "To stop it later" not in text, name
-    # the Workshop Server keeps running by design
-    assert "rq_docker_stop_with_window" not in _read("rq_doqumentation.sh")
+    # the Workshop & Qiskit Server keeps running by design; only its
+    # single-user mode (Qiskit Tutorials on this Pi) stops with its window
+    doq = _read("rq_doqumentation.sh")
+    assert doq.count("rq_docker_stop_with_window") == 1
+    solo = doq[doq.index('if [ "$MODE" = "solo" ]; then\n    # Just you'):]
+    assert "rq_docker_stop_with_window" in solo[:solo.index("\nfi\n")]
 
 
 def test_demo_windows_share_one_stop_hint():

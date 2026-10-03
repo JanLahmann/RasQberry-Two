@@ -30,8 +30,8 @@
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
     "ref": "aa6474614ef1c07b18a4d7ce568eed228d71a273",
-    "portal_ref": "ea110b0c2124464eddb7bb88f2f1d5617aeb9652",
-    "portal_sha256": "889b4d52872b720bcde2b2adc93637ac77db9086608928ba07b27577ee18d957",
+    "portal_ref": "fce37a055a77f712a942b2e479e68a2bca3188b1",
+    "portal_sha256": "285ae867ddb001085703fd376173ccbfbf2c7edda725a2387bc09d5fbab88991",
     "marker_file": "Quantum-Coin-Game.ipynb",
     "installed_flag": "FUN_WITH_QUANTUM_INSTALLED",
     "download": {
@@ -131,7 +131,8 @@
     },
     {
       "id": "website",
-      "name": "Fun with Quantum website (games in the browser)",
+      "name": "Fun with Quantum website: games in the browser",
+      "maturity": "beta",
       "entrypoint": {
         "type": "script",
         "launcher": "rq_fwq_portal.sh"
@@ -140,7 +141,8 @@
     },
     {
       "id": "family",
-      "name": "Fun with Quantum family (related projects)",
+      "name": "Fun with Quantum family: related projects",
+      "maturity": "beta",
       "entrypoint": {
         "type": "script",
         "launcher": "rq_fwq_family.sh"

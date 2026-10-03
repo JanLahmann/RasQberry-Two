@@ -5,7 +5,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # RasQberry: My Quantum Programs (JupyterLab in your own folder)
 # ============================================================================
 # Description: Opens JupyterLab in ~/My-Quantum-Programs, the learner's own
-#   folder with the starter programs (R-071). Unlike the demo launchers, which
+#   folder with the starter notebooks and programs (R-071), at the Hello
+#   World notebook (doQumentation's, item 9). Unlike the demo launchers, which
 #   start Jupyter inside a demo checkout, new notebooks land in a folder that
 #   belongs to the user. Creates the folder first if needed
 #   (rq_learner_setup.sh). Runs as the user; started as root it re-runs itself
@@ -39,8 +40,13 @@ command -v jupyter-lab >/dev/null 2>&1 || \
     die "JupyterLab not found in the RasQberry Python environment (rq_venv_repair.sh --reset restores it)"
 
 JUPYTER_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
-START_PAGE="lab/tree/README.md"
-[ -f "$PROGRAMS_DIR/README.md" ] || START_PAGE="lab"
+# Jupyter first (item 9): open the Hello World notebook, else the guide
+START_PAGE="lab"
+if [ -f "$PROGRAMS_DIR/Hello-World.ipynb" ]; then
+    START_PAGE="lab/tree/Hello-World.ipynb"
+elif [ -f "$PROGRAMS_DIR/README.md" ]; then
+    START_PAGE="lab/tree/README.md"
+fi
 URL="http://localhost:${PORT}/${START_PAGE}?token=${JUPYTER_TOKEN}"
 
 cd "$PROGRAMS_DIR"
@@ -92,5 +98,5 @@ echo ""
 echo "Folder: $PROGRAMS_DIR"
 echo "URL:    $URL"
 echo ""
-echo "Your notebooks and programs are saved in this folder."
+echo "Start with Hello-World.ipynb. Your notebooks and programs are saved in this folder."
 rq_wait_for_stop "JupyterLab" "$JUPYTER_PID"

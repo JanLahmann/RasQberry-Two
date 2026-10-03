@@ -5,7 +5,7 @@ set -euo pipefail
 # RasQberry: Docker demos - list or stop the running ones
 # ============================================================================
 # Description: Closing a Docker demo's window keeps the container running
-#   (the Workshop Server is meant to). This lists the running demo
+#   (the Workshop & Qiskit Server is meant to). This lists the running demo
 #   containers and stops the ones chosen (R-110).
 # Usage: rq_docker_demos.sh --list | --stop-menu | --stop NAME...
 
@@ -18,10 +18,10 @@ KNOWN_NAMES="doqumentation quantum-lab qoffee quantum-mixer"
 
 label_of() {
     case "$1" in
-        doqumentation) echo "Workshop Server (doQumentation)" ;;
+        doqumentation) echo "Workshop & Qiskit Server / Qiskit Tutorials" ;;
         quantum-lab)   echo "Quantum Lab (QuBins)" ;;
         qoffee)        echo "Qoffee-Maker" ;;
-        quantum-mixer) echo "Quantum-Mixer" ;;
+        quantum-mixer) echo "Quantum Mixer" ;;
         *)             echo "$1" ;;
     esac
 }
@@ -62,7 +62,7 @@ case "${1:-}" in
             set -- "$@" "$n" "$(label_of "$n")" ON
         done
         chosen=$(whiptail --title "Stop Docker demos" --checklist \
-            "Running Docker demos. Stop the selected ones?\nThe Workshop Server's participants lose unsaved work." \
+            "Running Docker demos. Stop the selected ones?\nWorkshop participants lose work they have not downloaded." \
             16 70 6 "$@" 3>&1 1>&2 2>&3) || exit 0
         for n in $(echo "$chosen" | tr -d '"'); do
             info "Stopping $(label_of "$n")..."
