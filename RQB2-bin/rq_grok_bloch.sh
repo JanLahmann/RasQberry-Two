@@ -89,10 +89,17 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().log_message(format, *args)
 
 
-class ReusableTCPServer(socketserver.TCPServer):
+class ReusableTCPServer(socketserver.ThreadingTCPServer):
     # TCPServer defaults this to False, so a port left in TIME_WAIT by the
     # previous run refused the bind and the demo died before serving anything.
     allow_reuse_address = True
+    # One thread per connection: a single-threaded server waits for the
+    # request on the connection it accepted first, and a browser's idle
+    # connection (Chromium opens spare ones) held up every other request
+    # (seen by the rig test, 1 run in 3). Daemon threads: such a connection
+    # does not keep the server from stopping. (Not ThreadingHTTPServer: its
+    # bind resolves the host name, which can be slow offline.)
+    daemon_threads = True
 
 
 port = int(sys.argv[1])
