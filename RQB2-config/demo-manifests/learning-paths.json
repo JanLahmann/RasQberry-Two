@@ -6,7 +6,7 @@
       "title": "First 15 minutes",
       "audience": "Visitors at a stand",
       "minutes": 15,
-      "goal": "See a qubit, lose a coin game to a quantum computer and watch measured qubits light up.",
+      "goal": "Light up the panel, see a qubit and lose a coin game to a quantum computer.",
       "maturity": "beta",
       "steps": [
         {
@@ -28,12 +28,6 @@
           "name": "Quantum Coin Game",
           "try": "Play heads or tails against a quantum computer: run each cell with Shift+Enter.",
           "notice": "The quantum computer wins every game. Its trick is the H gate you just saw."
-        },
-        {
-          "demo": "quantum-raspberry-tie",
-          "variant": "simulator",
-          "try": "Watch the LED panel: every round measures the qubits and lights them up.",
-          "notice": "Each qubit is in a superposition, so every round gives a new random pattern."
         }
       ]
     },

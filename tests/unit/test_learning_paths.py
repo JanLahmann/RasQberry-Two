@@ -216,7 +216,7 @@ def _arg(call, option):
 
 @needs_bash
 def test_walk_a_path_start_next_back_finish(tmp_path):
-    replies = ["0", "start", "next", "back", "next", "next", "next", "next",   # path 1
+    replies = ["0", "start", "next", "back", "next", "next", "next",   # path 1
                "3", "start", "next", "next", "start", "ESC",                   # path 4, URL step
                "ESC"]
     proc, calls, started = _walk(tmp_path, replies)
@@ -232,20 +232,20 @@ def test_walk_a_path_start_next_back_finish(tmp_path):
     assert "feedback" in calls[0]
     # step 1: the goal, the step, the hints; no Back yet
     step1 = calls[1][calls[1].index("--menu") + 1]
-    assert paths[0]["goal"] in step1 and "Step 1 of 4: IBM LED Demo" in step1
+    assert paths[0]["goal"] in step1 and "Step 1 of 3: IBM LED Demo" in step1
     assert "Try: " + paths[0]["steps"][0]["try"] in step1
     assert "back" not in calls[1] and _arg(calls[1], "--cancel-button") == "Done"
     # after the demo: Next is preselected
     assert _arg(calls[2], "--default-item") == "next"
     step2 = calls[3]
-    assert "Step 2 of 4: Grokking the Bloch Sphere" in step2[step2.index("--menu") + 1]
+    assert "Step 2 of 3: Grokking the Bloch Sphere" in step2[step2.index("--menu") + 1]
     assert "Back to step 1: IBM LED Demo" in step2 and "Next step: Quantum Coin Game" in step2
-    assert "Step 1 of 4" in calls[4][calls[4].index("--menu") + 1]
-    assert "Finish this path" in calls[7]
+    assert "Step 1 of 3" in calls[4][calls[4].index("--menu") + 1]
+    assert "Finish this path" in calls[6]
     assert 'That was the last step of "First 15 minutes"' in proc.stdout
     assert "&demo=learning-paths/first-15-minutes" in proc.stdout
     # the URL step: no screen here, so the address is shown
-    assert "Open IBM Quantum Learning" in calls[12]
+    assert "Open IBM Quantum Learning" in calls[11]
     assert "https://quantum.cloud.ibm.com/learning" in proc.stdout
 
 
