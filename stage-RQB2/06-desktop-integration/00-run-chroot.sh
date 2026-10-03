@@ -86,7 +86,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation|my-quantum-programs)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation|my-quantum-programs)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -99,7 +99,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation|my-quantum-programs)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|grok-bloch-web|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|doqumentation|my-quantum-programs)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -130,95 +130,12 @@ sort=mtime;ascending;
 show_documents=0
 show_trash=0
 show_mounts=0
-[composer.desktop]
-x=10
-y=10
-trusted=true
-[grok-bloch.desktop]
-x=120
-y=10
-trusted=true
-[grok-bloch-web.desktop]
-x=230
-y=10
-trusted=true
-[quantum-fractals.desktop]
-x=340
-y=10
-trusted=true
-[led-ibm-demo.desktop]
-x=10
-y=120
-trusted=true
-[quantum-lights-out.desktop]
-x=120
-y=120
-trusted=true
-[rasq-led.desktop]
-x=230
-y=120
-trusted=true
-[quantum-raspberry-tie.desktop]
-x=340
-y=120
-trusted=true
-[led-painter.desktop]
-x=10
-y=230
-trusted=true
-[demo-loop.desktop]
-x=120
-y=230
-trusted=true
-[clear-leds.desktop]
-x=230
-y=230
-trusted=true
-[touch-mode.desktop]
-x=340
-y=230
-trusted=true
-[qoffee-maker.desktop]
-x=10
-y=340
-trusted=true
-[quantum-mixer.desktop]
-x=120
-y=340
-trusted=true
-[quantum-paradoxes.desktop]
-x=230
-y=340
-trusted=true
-[doqumentation.desktop]
-x=340
-y=340
-trusted=true
-[fun-with-quantum.desktop]
-x=10
-y=450
-trusted=true
-[quantum-coin-game.desktop]
-x=120
-y=450
-trusted=true
-[ibm-quantum-tutorials.desktop]
-x=230
-y=450
-trusted=true
-[ibm-quantum-courses.desktop]
-x=340
-y=450
-trusted=true
-[rasqberry-setup.desktop]
-x=450
-y=10
-trusted=true
-[my-quantum-programs.desktop]
-x=450
-y=120
-trusted=true
 EOF
+    # Icon positions for a 1920x1080 screen, RasQberry Setup first. At every
+    # login rq_desktop_session.py lays them out again for the actual screen
+    # (small screens, touch mode) - R-008, R-035.
+    python3 "${CLONE_DIR}/RQB2-bin/rq_desktop_session.py" --layout 1920x1080 "$USER_CONFIG_DIR/desktop-items-0.conf" \
+        || echo "WARNING: could not write the desktop icon positions"
 
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
 
@@ -411,15 +328,9 @@ EOF
 chmod 644 /etc/chromium/policies/managed/rasqberry.json
 echo "Created Chromium policy for RasQberry homepage"
 
-# Modify Chromium desktop launcher to bypass GNOME Keyring
-# This prevents the "Enter password to unlock keyring" dialog
-CHROMIUM_DESKTOP="/usr/share/applications/chromium.desktop"
-if [ -f "$CHROMIUM_DESKTOP" ]; then
-    # Add flags and default URL for rasqberry.org homepage
-    # Note: URL at end ensures it opens on launch; policy handles Home button
-    sed -i 's|^Exec=/usr/bin/chromium |Exec=/usr/bin/chromium --password-store=basic --disable-features=Keyring --window-size=1070,1005 https://rasqberry.org |' "$CHROMIUM_DESKTOP"
-    echo "Modified Chromium desktop launcher with keyring bypass, window size, and homepage URL"
-fi
+# Chromium flags (no keyring dialog, no "Restore pages?", maximised on small
+# screens, touch mode) are in /etc/chromium.d/rasqberry from RQB2-system/, so
+# that a Chromium update keeps them (R-141); chromium.desktop stays as shipped.
 
 # =============================================================================
 # Autostart Chromium browser on login (with delay for time sync)
@@ -437,7 +348,7 @@ echo "Configuring labwc window rules for Chromium..."
 SKEL_LABWC_DIR="/etc/skel/.config/labwc"
 mkdir -p "$SKEL_LABWC_DIR"
 
-# Create rc.xml with touch config and Chromium window positioning rule
+# Create rc.xml with touch config and window rules (Chromium, on-screen LED view)
 # Note: Empty deviceName applies mouseEmulation to ALL touch devices (universal fallback)
 cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
 <?xml version="1.0"?>
@@ -445,8 +356,15 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
   <!-- Enable mouse emulation for all USB/HDMI touch screens (enables double-tap) -->
   <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
+    <!-- Chromium to the right of the desktop icons; rq_desktop_session.py
+         switches this rule off on small screens, where Chromium opens maximised -->
     <windowRule identifier="chromium">
       <action name="MoveTo" x="480" y="45"/>
+    </windowRule>
+    <!-- The on-screen LED view in the bottom right corner, not over the demo's terminal -->
+    <windowRule title="RasQberry Virtual LED*">
+      <action name="MoveToEdge" direction="right" snapWindows="no"/>
+      <action name="MoveToEdge" direction="down" snapWindows="no"/>
     </windowRule>
   </windowRules>
 </openbox_config>
@@ -468,8 +386,10 @@ fi
 echo "Disabling GNOME Keyring secrets component..."
 
 # Disable XDG autostart for gnome-keyring-secrets
+# dpkg-divert, not mv: a gnome-keyring update would put a moved file back (R-141)
 if [ -f "/etc/xdg/autostart/gnome-keyring-secrets.desktop" ]; then
-    mv /etc/xdg/autostart/gnome-keyring-secrets.desktop /etc/xdg/autostart/gnome-keyring-secrets.desktop.disabled
+    dpkg-divert --local --rename --divert /etc/xdg/autostart/gnome-keyring-secrets.desktop.disabled \
+        --add /etc/xdg/autostart/gnome-keyring-secrets.desktop
     echo "Disabled gnome-keyring-secrets autostart"
 fi
 
@@ -479,7 +399,7 @@ for dbus_service in \
     "/usr/share/dbus-1/services/org.gnome.keyring.service" \
     "/usr/share/dbus-1/services/org.freedesktop.impl.portal.Secret.service"; do
     if [ -f "$dbus_service" ]; then
-        mv "$dbus_service" "${dbus_service}.disabled"
+        dpkg-divert --local --rename --divert "${dbus_service}.disabled" --add "$dbus_service"
         echo "Disabled D-Bus service: $(basename "$dbus_service")"
     fi
 done

@@ -1,0 +1,16 @@
+# RasQberry Two: Chromium flags, sourced by /usr/bin/chromium at every start.
+# Here rather than in chromium.desktop, which every Chromium update replaces
+# (R-141). Plain sh; every line must end with status 0.
+
+# No keyring password dialog; no "Restore pages?" bubble after a power cut (R-154)
+CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic --disable-features=Keyring --hide-crash-restore-bubble"
+
+# Small screen (flag set at login by rq_desktop_session.py): open maximised (R-034)
+if [ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rasqberry-small-screen" ]; then
+  CHROMIUM_FLAGS="$CHROMIUM_FLAGS --start-maximized"
+fi
+
+# Touch mode (rq_touch_mode.sh)
+if grep -qx 'TOUCH_MODE=enabled' /var/lib/rasqberry/touch-mode.conf 2>/dev/null; then
+  CHROMIUM_FLAGS="$CHROMIUM_FLAGS --touch-events=enabled"
+fi

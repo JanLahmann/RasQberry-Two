@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.1
-Name=Toggle Touch Mode
-Comment=Enable/disable touch-friendly interface settings
+Name=Touch Mode
+Comment=Bigger icons, buttons and menus for a touchscreen (asks first; restarts the desktop)
 Icon=input-touchpad-symbolic
 Type=Application
 Categories=Settings;RasQberry;
-Exec=lxterminal -e "bash -c '/usr/bin/rq_touch_mode.sh toggle; echo; echo Press Enter to close...; read'"
+Exec=/usr/bin/rq_touch_mode.sh toggle --ask
 Terminal=false
 StartupNotify=true
 Keywords=touch;touchscreen;accessibility;keyboard;

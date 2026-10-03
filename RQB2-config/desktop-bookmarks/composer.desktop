@@ -8,7 +8,6 @@ Categories=RasQberry;
 Exec=chromium-browser --password-store=basic https://quantum.ibm.com/composer/
 Terminal=false
 StartupNotify=true
-MimeType=text/html;
 Keywords=quantum;qiskit;composer;circuit;IBM;
 X-GNOME-TextColor=#000000
 TryExec=chromium-browser

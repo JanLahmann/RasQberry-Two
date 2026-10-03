@@ -8,7 +8,6 @@ Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh ibm-tutorials
 Terminal=true
 StartupNotify=true
-MimeType=text/x-python;
 Keywords=quantum;ibm;qiskit;tutorial;grover;shor;vqe;education;jupyter;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh

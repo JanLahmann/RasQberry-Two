@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RasQberry Two - offline</title>
+<style>
+  body { font-family: sans-serif; max-width: 40em; margin: 2em auto; padding: 0 1em;
+         line-height: 1.5; color: #1a1a1a; background: #fff; }
+  h1 { font-size: 1.6em; margin-bottom: .3em; }
+  li { margin: .4em 0; }
+  .note { color: #555; font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>RasQberry Two: no internet yet</h1>
+<p>This page opens instead of rasqberry.org while the Pi has no internet connection.</p>
+<ul>
+  <li><b>Demos:</b> start them from the desktop icons. Demos you have already started once work offline; a first start needs internet to download the demo.</li>
+  <li><b>Connect:</b> click the network icon at the top right and choose your Wi-Fi, or open the <b>RasQberry Setup</b> icon.</li>
+  <li><b>Then:</b> <a href="https://rasqberry.org">open rasqberry.org</a>. This page also does it by itself once the Pi is online.</li>
+</ul>
+<p class="note">To stop the browser opening at login: <code>sudo raspi-config</code> &rarr; 0 RasQberry &rarr; Browser at login.</p>
+<script>
+  // Go to rasqberry.org as soon as it answers
+  setInterval(function () {
+    fetch("https://rasqberry.org/", { mode: "no-cors", cache: "no-store" })
+      .then(function () { location.href = "https://rasqberry.org"; })
+      .catch(function () {});
+  }, 10000);
+</script>
+</body>
+</html>

@@ -335,8 +335,8 @@ task_touch_applies() {
     [ -x "$BIN_DIR/rq_touch_mode.sh" ] && grep -qiE 'touch|ft5x06|goodix|ili2' /proc/bus/input/devices 2>/dev/null
 }
 task_touch_pending() { [ "$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null)" != "enabled" ]; }
-task_touch_label()   { printf 'Touch mode: bigger icons, on-screen keyboard (restarts the desktop)'; }
-task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable; }
+task_touch_label()   { printf 'Touch mode: bigger icons and buttons (restarts the desktop)'; }
+task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable --restart; }
 
 # How a finished step reads in the --all list (R-134: "run again")
 done_label() {
@@ -465,6 +465,11 @@ else
 Space ticks or unticks a step, Enter runs the ticked ones.
 $REOPEN"
 fi
+# Touchscreen without a keyboard (R-089)
+if task_touch_applies 2>/dev/null; then
+    text="$text
+No keyboard? The keyboard icon in the top bar opens one on the screen."
+fi
 rows=$(( ${#args[@]} / 3 ))
 lines=$(printf '%s\n' "$text" | fold -s -w 72 | wc -l)
 height=$(( rows + lines + 8 ))
@@ -481,7 +486,10 @@ if [ -z "$choice" ]; then
 fi
 
 ran=false
+touch_chosen=false
 for sel in $choice; do
+    # touch mode restarts the desktop, which closes this window: run it last
+    if [ "$sel" = "touch" ]; then touch_chosen=true; continue; fi
     "task_${sel}_run" || true
     ran=true
 done
@@ -496,5 +504,8 @@ if [ "$ran" = true ]; then
 Double-click their icons on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos.
 
 $REOPEN" 15 74
+fi
+if [ "$touch_chosen" = true ]; then
+    task_touch_run || true
 fi
 exit 0
