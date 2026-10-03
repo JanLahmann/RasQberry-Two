@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T22:08:50Z",
+  "generated": "2026-10-03T22:09:33Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -38,12 +38,11 @@
       "image_download_size": 2008807156,
       "extract_size": 9076473856,
       "extract_sha256": "1ae75977cf9144c4302edb16d920eb8e996e57b7e4adf919ee2bb54e85dd2811",
-      "image_sha256": "6e2f425f89a471cbdd0199fdd038feee096049875b09518cdffcc18f91728e4d",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-235019/rasqberry-development-2026-10-03-235019-ab.img.xz",
       "ab_extract_sha256": "46eab0fe142c381369a9674381dd9d13120e82671d33c5c6e6b329ba8de93b32",
       "ab_image_sha256": "ca2189d9afbc2dd48349801442ddd126f46aa2986968ee277be20879fd827772",
-      "ab_image_download_size": 2067165012,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2067165012,
       "highlights": [
         "Bump version to development-2026-10-03-235019",
         "Merge remote-tracking branch 'origin/development' into development",
