@@ -14,7 +14,7 @@ try and what to notice. On the Pi, open the **Learning paths** icon or
 
 Visitors at a stand · about 15 minutes · <span className="beta-tag">beta</span>
 
-See a qubit, lose a coin game to a quantum computer and watch measured qubits light up.
+Light up the panel, see a qubit and lose a coin game to a quantum computer.
 
 1. **IBM LED Demo** in [LED Demos](/03-quantum-computing-demos/led-display/)
    - Try: Look at the model: the IBM logo lights up on the LED panel.
@@ -25,9 +25,6 @@ See a qubit, lose a coin game to a quantum computer and watch measured qubits li
 3. **Quantum Coin Game** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
    - Try: Play heads or tails against a quantum computer: run each cell with Shift+Enter.
    - Notice: The quantum computer wins every game. Its trick is the H gate you just saw.
-4. **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)**
-   - Try: Watch the LED panel: every round measures the qubits and lights them up.
-   - Notice: Each qubit is in a superposition, so every round gives a new random pattern.
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/first-15-minutes).
 
