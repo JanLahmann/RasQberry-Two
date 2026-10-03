@@ -1,7 +1,7 @@
 # 07-splash-screen
 
-Installs the RasQberry Plymouth boot splash (cube logo on a dark blue background)
-and makes it the default theme.
+Installs the RasQberry Plymouth boot splash (cube logo on a white background,
+the logo's own colour) and makes it the default theme.
 
 ## What it does
 
@@ -16,8 +16,9 @@ and makes it the default theme.
 
 - `files/images/RasQberry Cube Logo 1000x1000.png`
 - `files/plymouth/rasqberry.plymouth` - theme definition (script module)
-- `files/plymouth/rasqberry.script` - centred logo with fade-in, progress
-  percentage, boot messages
+- `files/plymouth/rasqberry.script` - centred logo with fade-in, scaled to 45%
+  of the screen height (so it fits the 800x480 display), progress percentage
+  below it and boot messages, both in dark grey
 
 ## Notes
 

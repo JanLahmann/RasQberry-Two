@@ -1,23 +1,26 @@
 # RasQberry Plymouth Splash Screen Script
-# Simple centered logo display with fade-in effect
+# Centred logo with a fade-in, the progress below it.
+#
+# The logo has a white background and black strokes, so the screen is white
+# too (it showed a white square on dark blue, with white progress text on the
+# white logo at 1080p), and the logo is scaled to the screen, so that it is
+# not cropped on the 800x480 display (R-085).
 
-# Set background color (dark blue/black for quantum theme)
-Window.SetBackgroundTopColor(0.0, 0.05, 0.15);
-Window.SetBackgroundBottomColor(0.0, 0.02, 0.10);
+Window.SetBackgroundTopColor(1.0, 1.0, 1.0);
+Window.SetBackgroundBottomColor(1.0, 1.0, 1.0);
 
-# Load RasQberry logo
-logo.image = Image("rasqberry-logo.png");
+# Logo: 45% of the screen height
+logo.raw = Image("rasqberry-logo.png");
+logo.size = Math.Int(Window.GetHeight() * 0.45);
+logo.image = logo.raw.Scale(logo.size, logo.size);
 logo.sprite = Sprite(logo.image);
-
-# Center the logo
 logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
 logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
 
-# Fade in effect
+# Fade in
 logo.opacity = 0;
 logo.sprite.SetOpacity(logo.opacity);
 
-# Animation function for fade-in
 fun refresh_callback() {
     if (logo.opacity < 1) {
         logo.opacity += 0.02;
@@ -27,16 +30,17 @@ fun refresh_callback() {
 
 Plymouth.SetRefreshFunction(refresh_callback);
 
-# Progress bar (optional, below logo)
-progress_box.image = Image.Text("", 1, 1, 1);
+# Progress in dark grey, below the logo
+progress_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 20;
+progress_box.image = Image.Text("", 0.25, 0.25, 0.25);
 progress_box.sprite = Sprite(progress_box.image);
 progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
-progress_box.sprite.SetY(Window.GetHeight() * 0.75);
+progress_box.sprite.SetY(progress_y);
 
 fun progress_callback(duration, progress) {
     if (progress >= 0 && progress <= 1) {
         progress_text = Math.Int(progress * 100) + "%";
-        progress_box.image = Image.Text(progress_text, 1, 1, 1);
+        progress_box.image = Image.Text(progress_text, 0.25, 0.25, 0.25);
         progress_box.sprite.SetImage(progress_box.image);
         progress_box.sprite.SetX(Window.GetWidth() / 2 - progress_box.image.GetWidth() / 2);
     }
@@ -44,12 +48,12 @@ fun progress_callback(duration, progress) {
 
 Plymouth.SetBootProgressFunction(progress_callback);
 
-# Message display (for boot messages)
+# Boot messages, top left
 message_sprite = Sprite();
 message_sprite.SetPosition(10, 10, 10000);
 
 fun message_callback(text) {
-    message_image = Image.Text(text, 0.8, 0.8, 0.8);
+    message_image = Image.Text(text, 0.3, 0.3, 0.3);
     message_sprite.SetImage(message_image);
 }
 
