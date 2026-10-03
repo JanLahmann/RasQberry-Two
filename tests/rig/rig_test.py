@@ -13,7 +13,8 @@ are on a local LAN). For every Pi in rig.json it
   4. for LED demos, checks with the camera that the Pi's panel actually lights,
   5. for web/Jupyter/docker demos, checks the page in the demo's own Chromium
      tab (tests/rig/pi/webcheck.py): it renders, a control responds, a
-     notebook's first code cell runs,
+     notebook's first safe code cell runs - never one that touches the IBM
+     Quantum account; ~/.qiskit is backed up and restored around the check,
   6. with --icons, starts demos by double-clicking their desktop icons with a
      real (uinput) mouse (tests/rig/pi/mouse.py),
 
@@ -277,11 +278,15 @@ def run_checks(pi):
 
 
 def list_demos(pi):
-    """Demo ids with their type, LED need and launcher, from the Pi's manifests."""
+    """
+    Demo ids with their type, LED need and launcher, from the Pi's manifests
+    (a variant's own type and launcher win: Fun with Quantum's website variant
+    is a script that opens a page, its notebooks are Jupyter).
+    """
     _, out = ssh(pi["host"], "for f in /usr/config/demo-manifests/rq_demo_*.json; do "
                              "jq -r 'select(.id) | . as $m | [$m.entrypoint.type, ($m.needs_hw.leds // false|tostring)] as $c "
                              "| if ([.variants[]?] | length) == 0 then [$m.id] + $c + [$m.entrypoint.launcher // \"\"] "
-                             "else ($m.variants[] | [\"\\($m.id):\\(.id)\"] + $c "
+                             "else ($m.variants[] | [\"\\($m.id):\\(.id)\", (.entrypoint.type // $c[0]), $c[1]] "
                              "+ [.entrypoint.launcher // $m.entrypoint.launcher // \"\"]) end | @tsv' \"$f\"; done")
     demos = []
     for line in out.splitlines():
@@ -357,6 +362,9 @@ DEMO_HINTS = {
     "grok-bloch:local": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
     "grok-bloch:web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
     "grok-bloch-web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
+    # title: text the page title must have. The Fun with Quantum website is a
+    # web page (a script variant of a Jupyter demo), not a Jupyter UI
+    "fun-with-quantum:website": {"web": {"title": "Fun with Quantum"}},
 }
 
 # a first start installs the demo after the consent dialog: allow for it
@@ -624,7 +632,8 @@ def main():
                     # web checks: the desktop Chromium with remote debugging,
                     # restored when this Pi is done
                     pi["web_check"] = (not args.no_web_check and any(
-                        d["type"] in ("jupyter", "browser", "web-static", "docker") for d in demos)
+                        d["type"] in ("jupyter", "browser", "web-static", "docker")
+                        or DEMO_HINTS.get(d["id"], {}).get("web") for d in demos)
                         and browser_debug(pi, True))
                     try:
                         run_demos(pi, demos, section, args, camera, outdir, cfg)

@@ -24,14 +24,18 @@
 #        its position in pcmanfm's desktop-items-0.conf.
 #      RIG_CDP_PORT=9222 checks web/Jupyter pages in the desktop Chromium
 #        (started with remote debugging by webcheck.py browser-debug) and
-#        closes the demo's tabs; RIG_WEB='{"wait":sel,"click":sel}' hints.
+#        closes the demo's tabs; RIG_WEB='{"title":text,"wait":sel,"click":sel}'
+#        hints (with RIG_WEB, a script demo's page is checked too). Around the
+#        check, ~/.qiskit/qiskit-ibm.json is backed up and put back if changed.
 
 spec="$1"; secs="${2:-30}"; out="${3:-/tmp/rigtest}"
 id="${spec%%:*}"; variant=""; [ "$spec" != "$id" ] && variant="${spec#*:}"
 mkdir -p "$out"
 manifest=$(ls /usr/config/demo-manifests/rq_demo_"$id".json "$HOME"/.local/config/demo-manifests/rq_demo_"$id".json 2>/dev/null | head -1)
 [ -n "$manifest" ] || { echo "FAIL demo:$spec${RIG_ICON:+ (icon $RIG_ICON)} | no manifest"; exit 0; }
-type=$(jq -r '.entrypoint.type // "?"' "$manifest")
+# a variant may start something else than its demo (Fun with Quantum: the
+# notebooks are Jupyter, the website variant is a script that opens a page)
+type=$(jq -r --arg v "$variant" '(if $v != "" then ([.variants[]? | select(.id == $v) | .entrypoint.type // empty] | first) else null end) // .entrypoint.type // "?"' "$manifest")
 mapfile -t helpers < <(jq -r '.entrypoint.stop_on_exit[]? // empty' "$manifest")
 name="$id${variant:+-$variant}"
 label="demo:$spec"
@@ -48,6 +52,41 @@ hpid=""; launched=""
 # debugging (RIG_CDP_PORT): note the open tabs, to find and close the demo's
 VPY="$HOME/RasQberry-Two/venv/RQB2/bin/python"
 webcheck() { RIG_OUT="$out" timeout 300 "$VPY" "$out/webcheck.py" "$@" 2>/dev/null; }
+
+# The web check runs notebook code. Besides its own credential filter: keep a
+# root-only copy (mode 600) of the saved IBM Quantum account and put it back
+# if anything changed it - the check once ran a credentials notebook and
+# replaced the real API key on both rig Pis. Never print the file's content.
+qfile="$HOME/.qiskit/qiskit-ibm.json"
+qbak="$out/qiskit-backup"
+qsum=""; qmeta=""; qnote=""
+qiskit_backup() {
+    sudo rm -rf "$qbak"
+    [ -f "$qfile" ] || return 0
+    qmeta=$(stat -L -c '%u:%g %a' "$qfile")
+    if sudo install -d -m 700 -o root -g root "$qbak" &&
+       sudo install -m 600 -o root -g root "$qfile" "$qbak/qiskit-ibm.json"; then
+        qsum=$(sudo sha256sum "$qfile" | cut -d' ' -f1)
+        trap qiskit_restore EXIT; trap 'exit 129' HUP; trap 'exit 143' TERM
+    else
+        qnote="qiskit-backup=failed "
+    fi
+}
+qiskit_restore() {
+    [ -n "$qsum" ] || return 0
+    if [ "$(sudo sha256sum "$qfile" 2>/dev/null | cut -d' ' -f1)" != "$qsum" ]; then
+        mkdir -p "$(dirname "$qfile")"
+        if sudo cp "$qbak/qiskit-ibm.json" "$qfile" && sudo chown "${qmeta% *}" "$qfile" &&
+           sudo chmod "${qmeta#* }" "$qfile"; then
+            qnote="restored ~/.qiskit after $spec "
+        else
+            qnote="COULD NOT restore ~/.qiskit after $spec (root-only copy kept in $qbak) "
+            qsum=""; return 0
+        fi
+    fi
+    sudo rm -rf "$qbak"
+    qsum=""
+}
 [ -n "${RIG_CDP_PORT:-}" ] && webcheck tabs "$out/$name.tabs"
 if [ -n "${RIG_ICON:-}" ]; then
     # Double-click the icon, as a person does. Its position comes from the
@@ -140,20 +179,28 @@ if [ "$type" = jupyter ]; then
     url=$(tr -d '\r' < "$log" | grep -aoE 'http://(localhost|127\.0\.0\.1):[0-9]+/[^ ]*' | head -1)
     [ -n "$url" ] && http=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url")
 fi
-if [ "$type" = browser ] || [ "$type" = web-static ]; then
-    url=$(tr -d '\r' < "$log" | grep -aoE 'https?://[^ ]+' | head -1)
+if [ "$type" = browser ] || [ "$type" = web-static ] || { [ "$type" = script ] && [ -n "${RIG_WEB:-}" ]; }; then
+    # a script's log may name other sites first (a download dialog): its own
+    # local page wins
+    [ "$type" = script ] && url=$(tr -d '\r' < "$log" | grep -aoE 'http://(localhost|127\.0\.0\.1):[0-9]+/[^ ]*' | head -1)
+    [ -n "${url:-}" ] || url=$(tr -d '\r' < "$log" | grep -aoE 'https?://[^ ]+' | head -1)
     [ -n "$url" ] && http=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 15 "$url")
 fi
 # Does the page work, not just answer? Check the demo's own tab (webcheck.py:
-# loads, a key control responds; Jupyter: the first code cell runs)
+# loads, a key control responds; Jupyter: the first safe code cell runs)
 web=""
 if [ -n "${RIG_CDP_PORT:-}" ]; then
+    check=""
     case "$type" in
-        jupyter|browser|web-static|docker)
-            [ "$type" = docker ] && url=$(tr -d '\r' < "$log" | grep -aoE 'http://(localhost|127\.0\.0\.1):[0-9]+/[^ ]*' | head -1)
-            web=$(webcheck check "$type" "$out/$name.tabs" "${url:-}" "${RIG_WEB:-}" | grep -a '^web=' | tail -1)
-            [ -n "$web" ] || web="web=fail the check gave no answer (timeout?)" ;;
+        jupyter|browser|web-static|docker) check=yes ;;
+        script) [ -n "${RIG_WEB:-}" ] && check=yes ;;   # a script that opens a page
     esac
+    if [ -n "$check" ]; then
+        [ "$type" = docker ] && url=$(tr -d '\r' < "$log" | grep -aoE 'http://(localhost|127\.0\.0\.1):[0-9]+/[^ ]*' | head -1)
+        qiskit_backup
+        web=$(webcheck check "$type" "$out/$name.tabs" "${url:-}" "${RIG_WEB:-}" | grep -a '^web=' | tail -1)
+        [ -n "$web" ] || web="web=fail the check gave no answer (timeout?)"
+    fi
 fi
 
 stopped="n/a"
@@ -186,9 +233,11 @@ for pat in "${helpers[@]}"; do sudo pkill -9 -f -- "$pat" 2>/dev/null; done
 [ -n "$hpid" ] && kill "$hpid" 2>/dev/null
 # and close the tabs the demo opened
 [ -n "${RIG_CDP_PORT:-}" ] && webcheck close-new "$out/$name.tabs" >/dev/null
+# the demo and its kernels are gone: put the IBM Quantum account back if changed
+qiskit_restore
 
 dlg=""; [ "$dialog" = yes ] && dlg=" dialog=yes"
-detail="${launched}type=$type ran=${secs}s${consent:+ installed=first-start} alive=$alive$dlg stop=$stopped${exitcode:+ exit=$exitcode}${http:+ http=$http}${web:+ $web}${errors:+ errors: $errors}"
+detail="${qnote}${launched}type=$type ran=${secs}s${consent:+ installed=first-start} alive=$alive$dlg stop=$stopped${exitcode:+ exit=$exitcode}${http:+ http=$http}${web:+ $web}${errors:+ errors: $errors}"
 verdict=PASS
 case "$type" in
     python|script|jupyter)
@@ -203,5 +252,9 @@ case "$http" in ""|2*|3*) ;; *) verdict=FAIL ;; esac
 case "$web" in
     web=fail*) verdict=FAIL ;;
     web=warn*) [ "$verdict" = PASS ] && verdict=WARN ;;
+esac   # web=info: fine (e.g. an empty JupyterLab workspace)
+case "$qnote" in
+    COULD*) verdict=FAIL ;;
+    ?*) [ "$verdict" = PASS ] && verdict=WARN ;;   # something changed the account
 esac
 echo "$verdict $label | $detail"

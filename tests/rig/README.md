@@ -132,15 +132,28 @@ the demo opened:
 - every page: it loads (load event, a title or text); uncaught JavaScript
   errors are reported;
 - web pages: a key control responds to a real click - the page changes or
-  navigates. `DEMO_HINTS[...]["web"]` names the element to wait for and the
-  control (`click`), or a point in a canvas app (`click_at`, judged by the
-  picture changing: Grok Bloch's "X" gate);
-- Jupyter: the notebook UI renders, and the first code cell (no pip installs)
-  of the notebook shown - or, for a welcome page without code, of the first
-  notebook with code next to it - runs in a fresh kernel of that server,
-  without an error. The kernel has its own session: nothing is saved into the
-  demo's notebook.
+  navigates. `DEMO_HINTS[...]["web"]` names text the title must have
+  (`title`), the element to wait for and the control (`click`), or a point in
+  a canvas app (`click_at`, judged by the picture changing: Grok Bloch's "X"
+  gate). A variant's own type counts: Fun with Quantum's website variant is a
+  web page, its notebooks are Jupyter;
+- Jupyter: the notebook UI renders, and the first safe code cell of the
+  notebook shown - or, for a welcome page without code, of the first notebook
+  with one nearby (two folder levels down) - runs in a fresh kernel of that
+  server, without an error. The kernel has its own session: nothing is saved
+  into the demo's notebook. An empty workspace is `web=info`, not a warning.
 - a browser demo that opens no tab fails.
+
+**Never credential code.** The check once ran cell 1 of
+`00-Save-Credentials.ipynb` as shipped and saved the placeholder over the real
+API key on both Pis (`~/.qiskit` is on `/data`, shared by both slots). Now it
+skips notebooks named like credentials/accounts/tokens and cells with
+`save_account`, `delete_account`, `saved_accounts`, `token=`, `api_key`,
+`QISKIT_IBM_TOKEN`, `qiskit-ibm.json` or `.qiskit` ("no safe cell" is
+`web=info`). And `demo_smoke.sh` keeps a root-only copy (mode 600, in
+`/tmp/rigtest/qiskit-backup`) of `~/.qiskit/qiskit-ibm.json` during each web
+check and puts it back if it changed - "restored ~/.qiskit after <demo>" in the
+detail, verdict WARN. The file's content is never printed.
 
 After each demo the tabs it opened are closed, and when the Pi is done its
 Chromium is restarted as the session starts it. `--no-web-check` skips all

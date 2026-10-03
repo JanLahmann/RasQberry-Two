@@ -20,15 +20,21 @@ opened (as a person would), and the test can close the demo's tabs afterwards
 (a full run used to leave dozens open). Remote debugging only listens on
 127.0.0.1 and ends with browser-restore.
 
-check prints one line, "web=<ok|warn|fail> <detail>":
+check prints one line, "web=<ok|info|warn|fail> <detail>":
   - every page: it loads (load event, title or text, no failed document),
     uncaught JavaScript errors while it loads are reported;
-  - web pages: a key element (HINT {"wait": selector}) is there and a key
-    control responds when clicked (HINT {"click": selector}; else the first
-    visible button) - the page changes or navigates, no new error;
-  - Jupyter: the notebook renders, and its first code cell (skipping pip/conda
-    installs) runs in a fresh kernel of the same server without an error.
-    The kernel gets its own session, so nothing is saved into the notebook.
+  - web pages: the title has HINT {"title": text}, a key element (HINT
+    {"wait": selector}) is there and a key control responds when clicked
+    (HINT {"click": selector}; else the first visible button) - the page
+    changes or navigates, no new error;
+  - Jupyter: the notebook renders, and its first safe code cell runs in a
+    fresh kernel of the same server without an error. The kernel gets its own
+    session, so nothing is saved into the notebook. Safe: no pip/conda
+    installs, and nothing that touches the IBM Quantum account - notebooks
+    named like credentials/accounts/tokens and cells that save, delete or read
+    accounts, set a token or API key, or touch ~/.qiskit are never run (the
+    check once ran 00-Save-Credentials.ipynb and replaced the saved API key).
+    No notebook at all, or none with a safe cell: info.
 All steps are time-bounded.
 """
 
@@ -53,6 +59,17 @@ HOMEPAGE = "https://rasqberry.org"
 SESSION_ENV = {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0",
                "XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"}
 JUPYTER_PATH = re.compile(r"/(lab|tree|notebooks|doc|voila)(/|$|\?)")
+# never run code that can change the saved IBM Quantum account
+CREDENTIAL_NOTEBOOK = re.compile(r"credential|account|token|api[-_ ]?key|password|secret", re.I)
+CREDENTIAL_CODE = re.compile(
+    r"save_account|delete_account|saved_accounts|enable_account|token\s*=(?!=)|api[-_]?key"
+    r"|QISKIT_IBM_TOKEN|qiskit-ibm\.json|(^|[\s\"'~/(])\.qiskit\b", re.I | re.M)
+VERDICTS = ("ok", "info", "warn", "fail")
+
+
+def worst(*verdicts):
+    """The most serious of the verdicts (ok < info < warn < fail)."""
+    return max(verdicts, key=VERDICTS.index)
 
 
 # ----------------------------------------------------------------------------
@@ -402,6 +419,7 @@ class Jupyter:
         self.jar = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
         self.cookies = dict(cookies)
+        self.seen, self.skipped = 0, []   # set by runnable_notebook
         self.notebook = urllib.parse.unquote(u.path[m.end() - 1:].lstrip("/")) if m else ""
         if m and m.group(1) == "lab" and self.notebook.startswith("tree/"):
             self.notebook = self.notebook[5:]
@@ -452,34 +470,58 @@ class Jupyter:
 
     def runnable_notebook(self, shown, deadline, limit=40):
         """
-        The notebook whose first code cell is run: the one the demo shows, or -
-        a welcome page without code - the first one with code in its folder
-        (then one level of subfolders).
+        The notebook whose first safe code cell is run: the one the demo shows,
+        or - a welcome page without code, a credentials notebook, or none
+        shown - the first one with a safe code cell in its folder (then two
+        levels of subfolders). Sets self.seen (notebooks looked at) and
+        self.skipped (what was passed over as credential code).
 
         Returns:
             tuple: (path, notebook JSON) or ("", None)
         """
-        nb = self.contents(shown)
-        if first_code_cell(nb)[0] is not None:
+        self.seen, self.skipped = 0, []
+
+        def usable(path):
+            name = os.path.basename(path)
+            self.seen += 1
+            if CREDENTIAL_NOTEBOOK.search(name):
+                self.skipped.append(name)
+                return None
+            nb = self.contents(path)
+            index, _, unsafe = first_code_cell(nb)
+            if unsafe:
+                self.skipped.append(f"{unsafe} cell{'s' if unsafe > 1 else ''} of {name}")
+            return nb if index is not None else None
+
+        nb = usable(shown) if shown else None
+        if nb is not None:
             return shown, nb
-        queue, seen = [(os.path.dirname(shown), 0)], 0
-        while queue and seen < limit and time.time() < deadline:
+        queue, looked = [(os.path.dirname(shown), 0)], 0
+        while queue and looked < limit and time.time() < deadline:
             folder, depth = queue.pop(0)
             items = self.request("GET", self.base + "api/contents/" + urllib.parse.quote(folder))
             items = sorted(items.get("content") or [], key=lambda i: i["path"].lower())
             for item in items:
                 if item["type"] == "notebook" and item["path"] != shown and ".rigtest-" not in item["path"]:
-                    seen += 1
-                    nb = self.contents(item["path"])
-                    if first_code_cell(nb)[0] is not None:
+                    looked += 1
+                    nb = usable(item["path"])
+                    if nb is not None:
                         return item["path"], nb
-                elif item["type"] == "directory" and depth < 1 and not item["name"].startswith("."):
+                elif item["type"] == "directory" and depth < 2 and not item["name"].startswith("."):
                     queue.append((item["path"], depth + 1))
         return "", None
 
 
 def first_code_cell(nb):
-    """(index, source) of the first code cell that installs nothing, or (None, '')."""
+    """
+    The first code cell that is safe to run: it installs nothing and touches no
+    IBM Quantum credentials (CREDENTIAL_CODE).
+
+    Returns:
+        tuple: (index, source, credential cells passed over) - (None, '', n)
+            if there is none.
+    """
+    unsafe = 0
     for i, cell in enumerate(nb.get("cells", [])):
         src = cell.get("source", "")
         src = "".join(src) if isinstance(src, list) else src
@@ -487,8 +529,11 @@ def first_code_cell(nb):
             continue
         if re.search(r"\b(pip|conda|mamba|apt(-get)?)\s+install\b", src):
             continue
-        return i, src
-    return None, ""
+        if CREDENTIAL_CODE.search(src):
+            unsafe += 1
+            continue
+        return i, src, unsafe
+    return None, "", unsafe
 
 
 def run_cell(jup, nb_path, nb, deadline):
@@ -496,9 +541,11 @@ def run_cell(jup, nb_path, nb, deadline):
     Run the notebook's first code cell in a fresh kernel; return a detail string
     and whether it worked.
     """
-    index, src = first_code_cell(nb)
+    index, src, _ = first_code_cell(nb)
     if index is None:
         return "cell=none", True
+    if CREDENTIAL_CODE.search(src):   # last line of defence: never run credential code
+        return f"cell={index} not run (credential code)", True
     specs = jup.request("GET", jup.base + "api/kernelspecs")
     kname = nb.get("metadata", {}).get("kernelspec", {}).get("name")
     if kname not in specs.get("kernelspecs", {}):
@@ -592,7 +639,7 @@ def check(kind, before_file, url, hint):
         # when its window closes); still check the page itself
         target = cdp_json("/json/new?" + urllib.parse.quote(url, safe=":/?=&%"), method="PUT")
         notes.append("tab=test (the demo opened none)")
-        verdict = "fail" if kind in ("browser", "web-static") else "warn"
+        verdict = "fail" if kind in ("browser", "web-static", "script") else "warn"
     else:
         print("web=fail the demo opened no tab and printed no URL")
         return 0
@@ -621,16 +668,27 @@ def check(kind, before_file, url, hint):
                 if not jup.notebook:   # the tab's own URL names the notebook (the log's may not)
                     jup.notebook = Jupyter(page["url"], cookies).notebook
                 shown = jup.find_notebook()
-                nb_path, nb = jup.runnable_notebook(shown, deadline) if shown else ("", None)
+                nb_path, nb = jup.runnable_notebook(shown, deadline)
+                skipped = f" (not run, credentials: {', '.join(jup.skipped)[:80]})" if jup.skipped else ""
                 if nb_path:
                     detail, ok = run_cell(jup, nb_path, nb, deadline)
-                    notes.append(f"nb={nb_path} {detail}")
+                    notes.append(f"nb={nb_path} {detail}{skipped}")
                     verdict = verdict if ok else "fail"
                     worked = ok
+                elif not jup.seen:
+                    # an empty workspace (JupyterLab with no notebooks) is fine
+                    notes.append("empty workspace, no notebook to run")
+                    verdict = worst(verdict, "info")
+                elif jup.skipped:
+                    notes.append(f"no safe cell to run{skipped}")
+                    verdict = worst(verdict, "info")
                 else:
                     notes.append(f"no notebook with code to run (shown: {shown or 'none'})")
-                    verdict = "warn" if verdict == "ok" else verdict
+                    verdict = worst(verdict, "warn")
         else:
+            if hint.get("title") and hint["title"].lower() not in title.lower():
+                verdict = "fail"
+                notes.append(f"title lacks '{hint['title']}'")
             if hint.get("wait") and not wait_for(tab, hint["wait"], min(deadline, time.time() + 30)):
                 verdict = "fail"
                 notes.append(f"missing {hint['wait']}")
@@ -655,7 +713,7 @@ def check(kind, before_file, url, hint):
         if errs:
             # reported; a warning only when nothing showed the page working
             notes.append(f"js-errors={len(errs)} ({errs[0]})")
-            if verdict == "ok" and not worked:
+            if verdict in ("ok", "info") and not worked:
                 verdict = "warn"
     except (OSError, RuntimeError, TimeoutError, websocket.WebSocketException, ValueError, KeyError) as exc:
         verdict = "fail"
