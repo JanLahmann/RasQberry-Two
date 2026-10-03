@@ -1396,6 +1396,7 @@ do_quantum_demo_menu() {
 
     FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
        "RasQberry: Quantum Demos" "Select a demo or option" \
+       PATHS "Learning paths (beta): the demos step by step" \
        LED  "LEDs: setup, tests and LED demos" \
        QLO  "Quantum Lights Out (LED panel / console)" \
        QRT  "Quantum Raspberry Tie (simulator or real quantum computer)" \
@@ -1409,6 +1410,7 @@ do_quantum_demo_menu() {
        DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
     _qd_last="$FUN"
     case "$FUN" in
+      PATHS) do_learning_paths         || { handle_error "Could not open the learning paths."; continue; } ;;
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
@@ -1432,6 +1434,14 @@ do_quantum_demo_menu() {
             fi ;;
     esac
   done
+}
+
+# Learning paths (beta, #309): short tours through the demos for a stand, a
+# lesson or learning to code, from learning-paths.json next to the manifests.
+# Each step starts its demo through the engine and comes back when it stops;
+# the desktop icon "Learning paths" opens the same chooser.
+do_learning_paths() {
+  run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu
 }
 
 # Submenu of a demo's variants (from the cache: demo_variant_items), each run
