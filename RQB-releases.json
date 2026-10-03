@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T20:24:51Z",
+  "generated": "2026-10-03T22:08:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -30,26 +30,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-03-220656",
-      "name": "rasqberry-development-2026-10-03-220656",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-220656/rasqberry-development-2026-10-03-220656.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-220656",
-      "release_date": "2026-10-03 22:06",
-      "image_download_size": 2009684368,
+      "tag": "development-2026-10-03-235019",
+      "name": "rasqberry-development-2026-10-03-235019",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-235019/rasqberry-development-2026-10-03-235019.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-235019",
+      "release_date": "2026-10-03 23:50",
+      "image_download_size": 2008807156,
       "extract_size": 9076473856,
-      "extract_sha256": "b41ffa46a5e5286a55f09dbfa696d64857fdc789a6d26cc9461003c929283cad",
-      "image_sha256": "ad23e5a153307a02ba12f3e1a776f82390d602fc8795ae46f50b87a92eb817ca",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-220656/rasqberry-development-2026-10-03-220656-ab.img.xz",
-      "ab_extract_sha256": "0a18557d1c73c52e0a2c4af510c423011a9cb97fcd316945e8df7e4ac4ce2a66",
-      "ab_image_sha256": "1114099ff9c2372e7d312b6df392b2c059de97ee7e13596cc26fa57818e7eabc",
-      "ab_image_download_size": 2065198756,
+      "extract_sha256": "1ae75977cf9144c4302edb16d920eb8e996e57b7e4adf919ee2bb54e85dd2811",
+      "image_sha256": "6e2f425f89a471cbdd0199fdd038feee096049875b09518cdffcc18f91728e4d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-235019/rasqberry-development-2026-10-03-235019-ab.img.xz",
+      "ab_extract_sha256": "46eab0fe142c381369a9674381dd9d13120e82671d33c5c6e6b329ba8de93b32",
+      "ab_image_sha256": "ca2189d9afbc2dd48349801442ddd126f46aa2986968ee277be20879fd827772",
+      "ab_image_download_size": 2067165012,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-10-03-220656",
+        "Bump version to development-2026-10-03-235019",
         "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-03-203600",
-        "Merge branch 'dev-imager-ota-fix' into development",
-        "apply Imager's customisation on a new card's first start only"
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-03-220656",
+        "Learning paths: Keep going after each path, Where to go next ladder"
       ]
     }
   }
