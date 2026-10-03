@@ -96,3 +96,12 @@ def test_terminal_defaults_to_true(tmp_path):
     proc, out = _run(_manifest(desktop={"show": True}), tmp_path)
     assert proc.returncode == 0
     assert _fields(out)["Terminal"] == "true"
+
+
+def test_terminal_icon_keeps_its_window_open_on_failure(tmp_path):
+    # R-029: lxterminal has no "hold", so a failed first start closed the
+    # window before its error could be read
+    proc, out = _run(_manifest(desktop={"show": True}), tmp_path)
+    assert proc.returncode == 0
+    assert _fields(out)["Exec"] == "/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh ext-demo"
+    assert _fields(out)["TryExec"] == "/usr/bin/rq_demo_run.sh"

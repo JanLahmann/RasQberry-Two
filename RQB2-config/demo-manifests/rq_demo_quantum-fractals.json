@@ -2,7 +2,7 @@
   "id": "quantum-fractals",
   "name": "Quantum Fractals",
   "category": "visualization",
-  "description": "Generate and explore quantum-inspired fractal patterns in the browser",
+  "description": "Julia-set fractals that change with the state of one qubit, in the browser",
   "keywords": [
     "quantum",
     "fractal",

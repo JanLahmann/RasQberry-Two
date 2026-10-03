@@ -16,17 +16,27 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "ghcr.io/qubins/images:latest-xl",
+    "docker_image": "ghcr.io/qubins/images@sha256:a686b45167d42743c90bcd2e32ee10294de39528a5fe37b2651dcdfab3119884",
     "docker_port": 8892,
     "launcher": "rq_quantum_lab.sh"
   },
   "install": {
-    "preinstalled": false
+    "preinstalled": false,
+    "download": {
+      "what": "Docker image from ghcr.io (QuBins), and the IBM course notebooks if missing",
+      "download_mb": 880,
+      "disk_mb": 4000,
+      "time": "5-10 minutes"
+    },
+    "update": {
+      "docker_tags": "^[0-9]+\\.[0-9]+-xl$",
+      "docker_latest": "latest-xl"
+    }
   },
   "needs_hw": {
     "leds": false,
     "network": true,
-    "display": "required"
+    "display": "optional"
   },
   "needs_ibm_token": "none",
   "browser_based": true,

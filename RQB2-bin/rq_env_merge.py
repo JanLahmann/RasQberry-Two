@@ -23,6 +23,23 @@ from pathlib import Path
 
 _KEY_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=")
 
+# Keys that must not survive an update even though the device has them.
+# INTERACTIVE, ASK_TO_REBOOT and CONFIG are raspi-config's own variables: the
+# env file is loaded inside raspi-config, and these switched it to
+# non-interactive mode (R-001). MARKER_QRT named a file the pinned Raspberry
+# Tie checkout no longer has.
+RETIRED_KEYS = ("INTERACTIVE", "ASK_TO_REBOOT", "CONFIG", "MARKER_QRT",
+                # The old "Configure Matrix Layout" (Q22): LED_LAYOUT is the
+                # one layout setting now, and nothing reads these any more.
+                "LED_MATRIX_LAYOUT", "LED_MATRIX_WIDTH", "LED_MATRIX_HEIGHT",
+                "LED_MATRIX_Y_FLIP", "LED_MATRIX_PANEL_WIDTH", "LED_MATRIX_PANEL_HEIGHT")
+
+# A device file from before LED_LAYOUT existed knew its panel only as
+# LED_MATRIX_LAYOUT. Carry that choice into LED_LAYOUT instead of the shipped
+# default (quad = the four 4x12 panels as mounted in the model; the same map as
+# rq_led_utils._RETIRED_MATRIX_LAYOUTS).
+RETIRED_MATRIX_LAYOUTS = {"single": "single-24x8", "quad": "quad-4x12"}
+
 KEPT_HEADER = (
     "\n# -----------------------------------------------------------------------------\n"
     "# Device settings that the shipped defaults do not (or no longer) contain.\n"
@@ -75,8 +92,13 @@ def merge(new_lines, current_lines):
         tuple: (merged_lines, added, kept, carried) where added are keys new
         in the defaults, kept are keys whose device value differs from the new
         default, and carried are device-only keys appended at the end.
+        Device-only keys listed in RETIRED_KEYS are dropped.
     """
     current = assignments(current_lines)
+    if "LED_LAYOUT" not in current and "LED_MATRIX_LAYOUT" in current:
+        legacy = current["LED_MATRIX_LAYOUT"].split("=", 1)[1].strip().strip('"\'')
+        if legacy in RETIRED_MATRIX_LAYOUTS:
+            current["LED_LAYOUT"] = "LED_LAYOUT=" + RETIRED_MATRIX_LAYOUTS[legacy]
     shipped = set()
     merged, added, kept = [], [], []
 
@@ -98,7 +120,7 @@ def merge(new_lines, current_lines):
             added.append(key)
             merged.append(line)
 
-    carried = [k for k in current if k not in shipped]
+    carried = [k for k in current if k not in shipped and k not in RETIRED_KEYS]
     if carried:
         merged.extend(KEPT_HEADER.rstrip("\n").split("\n"))
         merged.extend(current[k] for k in carried)

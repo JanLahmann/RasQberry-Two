@@ -1,463 +1,255 @@
 #!/bin/bash
-#
-# RasQberry Touch Mode Toggle
-# Enables/disables comprehensive touch-friendly settings for touch screen displays
-#
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
+# ============================================================================
+# RasQberry: Touch Mode
+# ============================================================================
+# Description: Bigger panel icons, desktop icons, buttons and menus for a
+#   touchscreen. The settings apply when the desktop restarts; restarting it
+#   closes all windows, so this script never does that without being asked
+#   (R-032). It restarts the display manager, which logs straight back in,
+#   instead of ending the session, which left the password screen (R-149)
+#   and could also end SSH logins.
 # Usage:
-#   rq_touch_mode.sh enable   - Enable touch mode
-#   rq_touch_mode.sh disable  - Disable touch mode
-#   rq_touch_mode.sh toggle   - Toggle touch mode
-#   rq_touch_mode.sh status   - Show current status
-#
+#   rq_touch_mode.sh enable|disable|toggle            change it; applies at the next desktop login
+#   rq_touch_mode.sh enable|disable|toggle --ask      ask first (a dialog on the desktop),
+#                                                     then restart the desktop (the icon)
+#   rq_touch_mode.sh enable|disable|toggle --restart  restart the desktop without asking
+#   rq_touch_mode.sh status [--quiet]                 show the settings (or just enabled/disabled)
+# Settings: TOUCH_* in /usr/config/rasqberry_environment.env.
 
-set -euo pipefail
-
-# Configuration paths
-STATE_FILE="/var/lib/rasqberry/touch-mode.conf"
-GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
-
-# Load environment (TOUCH_* settings and USER_HOME) via the common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 load_rqb2_env
 verify_env_vars USER_HOME
 
-# Touch mode settings (from env file or defaults)
-TOUCH_PANEL_HEIGHT="${TOUCH_PANEL_HEIGHT:-64}"
+STATE_FILE="${RQ_TOUCH_STATE_FILE:-/var/lib/rasqberry/touch-mode.conf}"
+GTK_CSS_SRC="/usr/config/touch-mode/gtk-touch.css"
+
 TOUCH_PANEL_ICON_SIZE="${TOUCH_PANEL_ICON_SIZE:-48}"
 TOUCH_DESKTOP_ICON_SIZE="${TOUCH_DESKTOP_ICON_SIZE:-72}"
-TOUCH_DESKTOP_GRID_SPACING="${TOUCH_DESKTOP_GRID_SPACING:-140}"
-TOUCH_TERMINAL_FONT_SIZE="${TOUCH_TERMINAL_FONT_SIZE:-16}"
+# 12 pt at most: at 16 pt the RasQberry dialogs did not fit (R-033). On a
+# screen lower than 600 px (the 7-inch display) the font stays as it is:
+# even at 12 pt an 80x24 terminal runs off its bottom edge there.
+TOUCH_TERMINAL_FONT_SIZE="${TOUCH_TERMINAL_FONT_SIZE:-12}"
+[ "$TOUCH_TERMINAL_FONT_SIZE" -gt 12 ] 2>/dev/null && TOUCH_TERMINAL_FONT_SIZE=12
 TOUCH_DOUBLE_CLICK_MS="${TOUCH_DOUBLE_CLICK_MS:-500}"
-
-# Default (non-touch) settings - fixed values
-DEFAULT_PANEL_HEIGHT=36
 DEFAULT_PANEL_ICON_SIZE=24
-DEFAULT_TERMINAL_FONT_SIZE=10
+DEFAULT_DESKTOP_ICON_SIZE=48
 DEFAULT_DOUBLE_CLICK_MS=400
-DEFAULT_GRID_SPACING=110
 
-# User-specific paths (USER_HOME comes from the environment config)
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
-CHROMIUM_FLAGS_DIR="$USER_HOME/.config/chromium-flags.conf.d"
-PCMANFM_CONFIG_DIR="$USER_HOME/.config/pcmanfm/LXDE-pi"
 LIBFM_CONFIG="$USER_HOME/.config/libfm/libfm.conf"
 LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
-
-# Wayfire panel config (Wayland - used on newer Raspberry Pi OS)
 WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+# Older versions wrote here; Pi OS's Chromium never read it (R-098). The
+# touch flag now comes from /etc/chromium.d/rasqberry.
+OLD_CHROMIUM_FLAGS="$USER_HOME/.config/chromium-flags.conf.d/touch.conf"
 
-# LXDE panel config paths (X11 - fallback for older setups)
-USER_PANEL_CONFIG="$USER_HOME/.config/lxpanel/LXDE-pi/panels/panel"
-SYSTEM_PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
+DESKTOP_USER=$(get_user_name)
 
-# Detect which panel system is in use
-is_wayland() {
-    [ -f "$WF_PANEL_CONFIG" ] || pgrep -x wayfire >/dev/null 2>&1
+as_root() {
+    if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi
 }
 
-# Find active panel config (user config takes precedence)
-get_panel_config() {
-    if [ -f "$USER_PANEL_CONFIG" ]; then
-        echo "$USER_PANEL_CONFIG"
-    elif [ -f "$SYSTEM_PANEL_CONFIG" ]; then
-        echo "$SYSTEM_PANEL_CONFIG"
-    else
-        echo ""
-    fi
-}
-
-PANEL_CONFIG=$(get_panel_config)
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
-
-info() { echo -e "${GREEN}INFO:${NC} $1"; }
-warn() { echo -e "${YELLOW}WARN:${NC} $1"; }
-error() { echo -e "${RED}ERROR:${NC} $1"; }
-
-# Logout user to apply changes (works on Wayland/labwc)
-do_logout() {
-    warn "Logging out in 3 seconds to apply changes..."
-    sleep 3
-    # Try labwc exit first (Wayland), fall back to loginctl
-    if pgrep -x labwc >/dev/null 2>&1; then
-        pkill -SIGTERM labwc
-    else
-        loginctl terminate-user "${SUDO_USER:-$USER}" 2>/dev/null || pkill -u "${SUDO_USER:-$USER}"
-    fi
-}
-
-# Get current touch mode state
 get_state() {
-    if [ -f "$STATE_FILE" ]; then
-        grep -E "^TOUCH_MODE=" "$STATE_FILE" 2>/dev/null | cut -d= -f2
-    else
-        echo "disabled"
+    local s
+    s=$(sed -n 's/^TOUCH_MODE=//p' "$STATE_FILE" 2>/dev/null | tail -1) || true
+    echo "${s:-disabled}"
+}
+
+# The desktop's screen height in pixels; empty without a running desktop
+screen_height() {
+    local uid run
+    uid=$(id -u "$DESKTOP_USER" 2>/dev/null) || return 0
+    run="/run/user/$uid"
+    [ -S "$run/wayland-0" ] || return 0
+    XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 \
+        python3 "$SCRIPT_DIR/rq_desktop_session.py" --screen 2>/dev/null | cut -dx -f2 || true
+}
+
+desktop_running() {
+    systemctl is-active --quiet lightdm 2>/dev/null && pgrep -u "$DESKTOP_USER" -x labwc >/dev/null 2>&1
+}
+
+# Run a filter over FILE in place (keeps the file's owner and mode)
+rewrite() {  # file command...
+    local file="$1" tmp
+    shift
+    tmp=$(mktemp)
+    "$@" < "$file" > "$tmp" && cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
+# Set KEY=VALUE in an ini-style file (added below [SECTION] if missing)
+set_ini() {
+    local file="$1" section="$2" key="$3" value="$4"
+    [ -f "$file" ] || return 0
+    if grep -q "^${key}=" "$file"; then
+        rewrite "$file" awk -v k="$key" -v v="$value" 'index($0, k "=") == 1 { $0 = k "=" v } { print }'
+    elif grep -qF "[${section}]" "$file"; then
+        rewrite "$file" awk -v s="[${section}]" -v k="$key" -v v="$value" '{ print } $0 == s { print k "=" v }'
     fi
 }
 
-# Enable touch mode
+backup_once() {
+    if [ -f "$1" ] && [ ! -f "$1.touch-backup" ]; then cp "$1" "$1.touch-backup"; fi
+}
+
+restore_or_set() {  # file section key default
+    if [ -f "$1.touch-backup" ]; then
+        mv "$1.touch-backup" "$1"
+    else
+        set_ini "$1" "$2" "$3" "$4"
+    fi
+}
+
+write_state() {
+    as_root mkdir -p "$(dirname "$STATE_FILE")"
+    printf 'TOUCH_MODE=%s\nCHANGED_AT=%s\nCHANGED_BY=%s\n' "$1" "$(date -Iseconds)" "$DESKTOP_USER" \
+        | as_root tee "$STATE_FILE" >/dev/null
+}
+
+fix_owner() {
+    [ "$(id -u)" -eq 0 ] && [ "$DESKTOP_USER" != "root" ] || return 0
+    local p
+    for p in "$USER_HOME/.config/gtk-3.0" "$USER_HOME/.config/libfm" \
+             "$USER_HOME/.config/lxterminal" "$WF_PANEL_CONFIG"; do
+        if [ -e "$p" ]; then chown -R "$DESKTOP_USER:" "$p"; fi
+    done
+}
+
 enable_touch_mode() {
-    info "Enabling touch mode..."
-
-    # Ensure state directory exists
-    sudo mkdir -p "$(dirname "$STATE_FILE")"
-
-    # 1. Apply GTK touch CSS
+    local h
     if [ -f "$GTK_CSS_SRC" ]; then
         mkdir -p "$(dirname "$GTK_CSS_DST")"
-        cp "$GTK_CSS_SRC" "$GTK_CSS_DST"
-        info "GTK touch CSS applied"
-    else
-        warn "GTK touch CSS not found at $GTK_CSS_SRC"
+        cp "$GTK_CSS_SRC" "$GTK_CSS_DST"   # again at every login: labwc-pi deletes it
     fi
-
-    # 2. Update panel (Wayland: wf-panel-pi, X11: lxpanel)
-    if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
-        # Wayland: wf-panel-pi
-        if [ ! -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
-            cp "$WF_PANEL_CONFIG" "${WF_PANEL_CONFIG}.touch-backup"
-        fi
-        # Update icon_size in [panel] section (wf-panel-pi uses icon_size not iconsize)
-        if grep -q "icon_size=" "$WF_PANEL_CONFIG"; then
-            sed -i "s/icon_size=.*/icon_size=$TOUCH_PANEL_ICON_SIZE/" "$WF_PANEL_CONFIG"
-        else
-            sed -i "/^\[panel\]/a icon_size=$TOUCH_PANEL_ICON_SIZE" "$WF_PANEL_CONFIG"
-        fi
-        info "Wayfire panel updated (icon_size=$TOUCH_PANEL_ICON_SIZE)"
-    else
-        # X11: lxpanel
-        PANEL_CONFIG=$(get_panel_config)
-        if [ -n "$PANEL_CONFIG" ]; then
-            if [ "$PANEL_CONFIG" = "$SYSTEM_PANEL_CONFIG" ]; then
-                mkdir -p "$(dirname "$USER_PANEL_CONFIG")"
-                cp "$SYSTEM_PANEL_CONFIG" "$USER_PANEL_CONFIG"
-                PANEL_CONFIG="$USER_PANEL_CONFIG"
-                info "Copied system panel config to user config"
-            fi
-            if [ ! -f "${PANEL_CONFIG}.touch-backup" ]; then
-                cp "$PANEL_CONFIG" "${PANEL_CONFIG}.touch-backup"
-            fi
-            sed -i "s/height=.*/height=$TOUCH_PANEL_HEIGHT/" "$PANEL_CONFIG"
-            sed -i "s/iconsize=.*/iconsize=$TOUCH_PANEL_ICON_SIZE/" "$PANEL_CONFIG"
-            info "LXDE panel updated (height=$TOUCH_PANEL_HEIGHT, iconsize=$TOUCH_PANEL_ICON_SIZE)"
-        else
-            info "Panel config not found (will apply on next desktop login)"
-        fi
+    backup_once "$WF_PANEL_CONFIG"
+    set_ini "$WF_PANEL_CONFIG" panel icon_size "$TOUCH_PANEL_ICON_SIZE"
+    backup_once "$LIBFM_CONFIG"
+    set_ini "$LIBFM_CONFIG" ui big_icon_size "$TOUCH_DESKTOP_ICON_SIZE"
+    h=$(screen_height)
+    if [ -n "$h" ] && [ "$h" -lt 600 ]; then
+        info "Terminal font unchanged (small screen)."
+    elif [ -f "$LXTERMINAL_CONFIG" ]; then
+        backup_once "$LXTERMINAL_CONFIG"
+        rewrite "$LXTERMINAL_CONFIG" sed "s/^\(fontname=.*\) [0-9][0-9]*$/\1 $TOUCH_TERMINAL_FONT_SIZE/"
     fi
-
-    # 3. Set Chromium touch flags
-    mkdir -p "$CHROMIUM_FLAGS_DIR"
-    echo "--touch-events=enabled" > "$CHROMIUM_FLAGS_DIR/touch.conf"
-    info "Chromium touch flags set"
-
-    # 4. Adjust double-click timing (if xfconf available)
     if command -v xfconf-query >/dev/null 2>&1; then
         xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$TOUCH_DOUBLE_CLICK_MS" 2>/dev/null || true
-        info "Double-click time set to ${TOUCH_DOUBLE_CLICK_MS}ms"
     fi
-
-    # 5. Increase desktop icon size (in libfm.conf) and adjust grid spacing (in pcmanfm configs)
-    # big_icon_size is read from libfm.conf [ui] section, NOT desktop-items*.conf
-    if [ -f "$LIBFM_CONFIG" ]; then
-        if [ ! -f "${LIBFM_CONFIG}.touch-backup" ]; then
-            cp "$LIBFM_CONFIG" "${LIBFM_CONFIG}.touch-backup"
-        fi
-        # Update big_icon_size in [ui] section
-        if grep -q "^big_icon_size=" "$LIBFM_CONFIG"; then
-            sed -i "s/^big_icon_size=.*/big_icon_size=$TOUCH_DESKTOP_ICON_SIZE/" "$LIBFM_CONFIG"
-        else
-            # Add to [ui] section if it exists, otherwise append
-            if grep -q "^\[ui\]" "$LIBFM_CONFIG"; then
-                sed -i "/^\[ui\]/a big_icon_size=$TOUCH_DESKTOP_ICON_SIZE" "$LIBFM_CONFIG"
-            fi
-        fi
-        info "Desktop icon size set to ${TOUCH_DESKTOP_ICON_SIZE}px (libfm.conf)"
-    fi
-
-    # Adjust grid spacing in pcmanfm desktop-items configs
-    if [ -d "$PCMANFM_CONFIG_DIR" ]; then
-        # Calculate scaled grid positions based on TOUCH_DESKTOP_GRID_SPACING
-        # Default grid is 110px, touch grid from env (default 140px)
-        # Formula: new_pos = 10 + ((old_pos - 10) * TOUCH_GRID / DEFAULT_GRID)
-        local g1=$(( 10 + ((120 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
-        local g2=$(( 10 + ((230 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
-        local g3=$(( 10 + ((340 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
-        local g4=$(( 10 + ((450 - 10) * TOUCH_DESKTOP_GRID_SPACING / DEFAULT_GRID_SPACING) ))
-
-        for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
-            [ -f "$conf" ] || continue
-            # Backup original if not already backed up
-            if [ ! -f "${conf}.touch-backup" ]; then
-                cp "$conf" "${conf}.touch-backup"
-            fi
-            # Scale grid spacing based on configured touch grid spacing
-            sed -i "s/^x=120\$/x=$g1/" "$conf"
-            sed -i "s/^x=230\$/x=$g2/" "$conf"
-            sed -i "s/^x=340\$/x=$g3/" "$conf"
-            sed -i "s/^x=450\$/x=$g4/" "$conf"
-            sed -i "s/^y=120\$/y=$g1/" "$conf"
-            sed -i "s/^y=230\$/y=$g2/" "$conf"
-            sed -i "s/^y=340\$/y=$g3/" "$conf"
-            sed -i "s/^y=450\$/y=$g4/" "$conf"
-        done
-        info "Desktop grid spacing set to ${TOUCH_DESKTOP_GRID_SPACING}px"
-    fi
-
-    # 6. Increase terminal font size
-    if [ -f "$LXTERMINAL_CONFIG" ]; then
-        if [ ! -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
-            cp "$LXTERMINAL_CONFIG" "${LXTERMINAL_CONFIG}.touch-backup"
-        fi
-        # Change font size from default to configured touch size
-        sed -i "s/fontname=Monospace [0-9]*/fontname=Monospace $TOUCH_TERMINAL_FONT_SIZE/" "$LXTERMINAL_CONFIG"
-        info "Terminal font size increased (${TOUCH_TERMINAL_FONT_SIZE}pt)"
-    fi
-
-    # 7. Update state file
-    sudo tee "$STATE_FILE" > /dev/null << EOF
-TOUCH_MODE=enabled
-ENABLED_AT=$(date -Iseconds)
-ENABLED_BY=${SUDO_USER:-$USER}
-EOF
-
-    # Fix ownership of user config files
-    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/gtk-3.0" 2>/dev/null || true
-        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/autostart" 2>/dev/null || true
-        chown -R "$SUDO_USER:$SUDO_USER" "$CHROMIUM_FLAGS_DIR" 2>/dev/null || true
-        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/pcmanfm" 2>/dev/null || true
-        chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config/lxterminal" 2>/dev/null || true
-    fi
-
-    echo ""
-    info "Touch mode ENABLED"
-    echo ""
-    echo "Settings applied:"
-    echo "  - GTK buttons/scrollbars: enlarged (48px min)"
-    echo "  - Panel: height=${TOUCH_PANEL_HEIGHT}px, icons=${TOUCH_PANEL_ICON_SIZE}px"
-    echo "  - Desktop icons: ${TOUCH_DESKTOP_ICON_SIZE}px (grid: ${TOUCH_DESKTOP_GRID_SPACING}px)"
-    echo "  - Terminal font: ${TOUCH_TERMINAL_FONT_SIZE}pt"
-    echo "  - Chromium: touch events enabled"
-    echo "  - Double-click time: ${TOUCH_DOUBLE_CLICK_MS}ms"
-    echo ""
-
-    # Auto-logout to apply changes
-    do_logout
+    rm -f "$OLD_CHROMIUM_FLAGS"
+    write_state enabled
+    fix_owner
+    info "Touch Mode is on: bigger panel and desktop icons, buttons and menus."
 }
 
-# Disable touch mode
 disable_touch_mode() {
-    info "Disabling touch mode..."
-
-    # 1. Remove GTK touch CSS
-    if [ -f "$GTK_CSS_DST" ]; then
-        rm -f "$GTK_CSS_DST"
-        info "GTK touch CSS removed"
+    rm -f "$GTK_CSS_DST" "$OLD_CHROMIUM_FLAGS"
+    restore_or_set "$WF_PANEL_CONFIG" panel icon_size "$DEFAULT_PANEL_ICON_SIZE"
+    restore_or_set "$LIBFM_CONFIG" ui big_icon_size "$DEFAULT_DESKTOP_ICON_SIZE"
+    if [ -f "$LXTERMINAL_CONFIG.touch-backup" ]; then
+        mv "$LXTERMINAL_CONFIG.touch-backup" "$LXTERMINAL_CONFIG"
     fi
-
-    # 2. Restore panel defaults (Wayland: wf-panel-pi, X11: lxpanel)
-    if is_wayland && [ -f "$WF_PANEL_CONFIG" ]; then
-        # Wayland: wf-panel-pi
-        if [ -f "${WF_PANEL_CONFIG}.touch-backup" ]; then
-            cp "${WF_PANEL_CONFIG}.touch-backup" "$WF_PANEL_CONFIG"
-            info "Wayfire panel restored from backup"
-        elif [ -f "$WF_PANEL_CONFIG" ]; then
-            sed -i "s/icon_size=.*/icon_size=$DEFAULT_PANEL_ICON_SIZE/" "$WF_PANEL_CONFIG"
-            info "Wayfire panel restored (icon_size=$DEFAULT_PANEL_ICON_SIZE)"
-        fi
-    else
-        # X11: lxpanel
-        PANEL_CONFIG=$(get_panel_config)
-        if [ -n "$PANEL_CONFIG" ]; then
-            if [ -f "${USER_PANEL_CONFIG}.touch-backup" ]; then
-                cp "${USER_PANEL_CONFIG}.touch-backup" "$USER_PANEL_CONFIG"
-                info "LXDE panel restored from backup"
-            elif [ -f "$USER_PANEL_CONFIG" ]; then
-                sed -i "s/height=.*/height=$DEFAULT_PANEL_HEIGHT/" "$USER_PANEL_CONFIG"
-                sed -i "s/iconsize=.*/iconsize=$DEFAULT_PANEL_ICON_SIZE/" "$USER_PANEL_CONFIG"
-                info "LXDE panel restored (height=$DEFAULT_PANEL_HEIGHT, iconsize=$DEFAULT_PANEL_ICON_SIZE)"
-            fi
-        fi
-    fi
-
-    # 3. Remove Chromium touch flags
-    rm -f "$CHROMIUM_FLAGS_DIR/touch.conf"
-    info "Chromium touch flags removed"
-
-    # 4. Restore double-click timing
     if command -v xfconf-query >/dev/null 2>&1; then
         xfconf-query -c xsettings -p /Net/DoubleClickTime -s "$DEFAULT_DOUBLE_CLICK_MS" 2>/dev/null || true
-        info "Double-click time restored to ${DEFAULT_DOUBLE_CLICK_MS}ms"
     fi
-
-    # 5. Restore desktop icon size (in libfm.conf) and grid spacing (in pcmanfm configs)
-    if [ -f "${LIBFM_CONFIG}.touch-backup" ]; then
-        cp "${LIBFM_CONFIG}.touch-backup" "$LIBFM_CONFIG"
-        info "Desktop icon size restored (libfm.conf)"
-    elif [ -f "$LIBFM_CONFIG" ]; then
-        # Restore default big_icon_size=48
-        sed -i "s/^big_icon_size=.*/big_icon_size=48/" "$LIBFM_CONFIG"
-        info "Desktop icon size restored to 48px"
-    fi
-
-    if [ -d "$PCMANFM_CONFIG_DIR" ]; then
-        for conf in "$PCMANFM_CONFIG_DIR"/desktop-items*.conf; do
-            [ -f "$conf" ] || continue
-            if [ -f "${conf}.touch-backup" ]; then
-                cp "${conf}.touch-backup" "$conf"
-            fi
-        done
-        info "Desktop grid spacing restored to default"
-    fi
-
-    # 6. Restore terminal font size
-    if [ -f "${LXTERMINAL_CONFIG}.touch-backup" ]; then
-        cp "${LXTERMINAL_CONFIG}.touch-backup" "$LXTERMINAL_CONFIG"
-        info "Terminal font size restored"
-    elif [ -f "$LXTERMINAL_CONFIG" ]; then
-        sed -i "s/fontname=Monospace [0-9]*/fontname=Monospace $DEFAULT_TERMINAL_FONT_SIZE/" "$LXTERMINAL_CONFIG"
-        info "Terminal font size restored (${DEFAULT_TERMINAL_FONT_SIZE}pt)"
-    fi
-
-    # 7. Update state file
-    sudo tee "$STATE_FILE" > /dev/null << EOF
-TOUCH_MODE=disabled
-DISABLED_AT=$(date -Iseconds)
-DISABLED_BY=${SUDO_USER:-$USER}
-EOF
-
-    echo ""
-    info "Touch mode DISABLED"
-    echo ""
-    echo "Settings restored to defaults:"
-    echo "  - GTK buttons/scrollbars: system default"
-    echo "  - Panel: height=${DEFAULT_PANEL_HEIGHT}px, icons=${DEFAULT_PANEL_ICON_SIZE}px"
-    echo "  - Desktop icons: default size"
-    echo "  - Terminal font: ${DEFAULT_TERMINAL_FONT_SIZE}pt"
-    echo "  - Chromium: touch events default"
-    echo "  - Double-click time: ${DEFAULT_DOUBLE_CLICK_MS}ms"
-    echo ""
-
-    # Auto-logout to apply changes
-    do_logout
+    write_state disabled
+    fix_owner
+    info "Touch Mode is off: standard sizes."
 }
 
-# Toggle touch mode
-toggle_touch_mode() {
-    current=$(get_state)
-    if [ "$current" = "enabled" ]; then
-        disable_touch_mode
-    else
-        enable_touch_mode
-    fi
-}
-
-# Show status
-show_status() {
-    current=$(get_state)
-    quiet_mode="${1:-}"
-
-    if [ "$quiet_mode" = "--quiet" ] || [ "$quiet_mode" = "-q" ]; then
-        echo "$current"
+# Ask before a restart: a dialog on the desktop (works with a finger), else a
+# question in the terminal. Returns 1 for "no".
+confirm() {  # target-state
+    local verb="on" now="off" text answer
+    if [ "$1" = "disabled" ]; then verb="off"; now="on"; fi
+    text="Touch Mode is $now.\n\nTurn it $verb?"
+    if [ "$verb" = "on" ]; then text="$text Bigger icons, buttons and menus for a touchscreen."; fi
+    text="$text\n\nThe desktop restarts: all open windows close."
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] && command -v zenity >/dev/null 2>&1; then
+        zenity --question --title "Touch Mode" --width 360 --text "$text" \
+            --ok-label "Turn $verb" --cancel-label "Cancel" 2>/dev/null
         return
     fi
+    [ -t 0 ] || return 1
+    printf '%b\n\nTurn it %s and restart the desktop now? [y/N] ' "$text" "$verb"
+    read -r answer || return 1
+    case "$answer" in y|Y|yes|Yes) return 0 ;; esac
+    return 1
+}
 
-    echo "=== RasQberry Touch Mode Status ==="
-    echo ""
-    if [ "$current" = "enabled" ]; then
-        echo -e "Touch Mode: ${GREEN}ENABLED${NC}"
-    else
-        echo -e "Touch Mode: ${YELLOW}DISABLED${NC}"
+# Restart the display manager: it logs the desktop user in again by itself
+# (autologin), and SSH sessions stay.
+restart_desktop() {
+    if ! desktop_running; then
+        info "The desktop is not running; the settings apply at the next desktop login."
+        return 0
     fi
-    echo ""
+    info "Restarting the desktop..."
+    as_root systemctl --no-block restart lightdm
+}
 
-    # Show individual settings
-    echo "Current Settings:"
-
-    # GTK CSS
-    if [ -f "$GTK_CSS_DST" ]; then
-        echo -e "  GTK touch CSS: ${GREEN}applied${NC}"
-    else
-        echo -e "  GTK touch CSS: ${YELLOW}not applied${NC}"
+change() {  # target-state restart-mode
+    local target="$1" mode="$2"
+    if [ "$mode" = "ask" ]; then
+        if desktop_running; then
+            confirm "$target" || { info "Nothing changed."; return 0; }
+        fi
+        mode="restart"
     fi
-
-    # LXDE panel
-    local status_panel_config
-    status_panel_config=$(get_panel_config)
-    if [ -n "$status_panel_config" ]; then
-        height=$(grep "height=" "$status_panel_config" 2>/dev/null | head -1 | cut -d= -f2)
-        iconsize=$(grep "iconsize=" "$status_panel_config" 2>/dev/null | head -1 | cut -d= -f2)
-        echo "  LXDE panel: height=${height:-?}, iconsize=${iconsize:-?}"
+    if [ "$target" = "enabled" ]; then enable_touch_mode; else disable_touch_mode; fi
+    if [ "$mode" = "restart" ]; then
+        restart_desktop
     else
-        echo "  LXDE panel: config not created yet"
-    fi
-
-    # Chromium flags
-    if [ -f "$CHROMIUM_FLAGS_DIR/touch.conf" ]; then
-        echo -e "  Chromium touch: ${GREEN}enabled${NC}"
-    else
-        echo -e "  Chromium touch: ${YELLOW}default${NC}"
-    fi
-
-    echo ""
-
-    # State file info
-    if [ -f "$STATE_FILE" ]; then
-        echo "State file: $STATE_FILE"
-        cat "$STATE_FILE" | sed 's/^/  /'
+        info "Applies when the desktop restarts (or at the next login)."
     fi
 }
 
-# Show usage
-show_usage() {
-    echo "RasQberry Touch Mode Toggle"
-    echo ""
-    echo "Usage: $0 <command>"
-    echo ""
-    echo "Commands:"
-    echo "  enable   Enable touch-friendly mode"
-    echo "  disable  Disable touch mode (restore defaults)"
-    echo "  toggle   Toggle touch mode on/off"
-    echo "  status   Show current status"
-    echo "  status --quiet  Show just 'enabled' or 'disabled'"
-    echo ""
-    echo "Touch mode adjusts the following settings:"
-    echo "  - GTK3 button and scrollbar sizes"
-    echo "  - Panel height and icon size"
-    echo "  - Desktop icon size and grid spacing"
-    echo "  - Terminal font size"
-    echo "  - Chromium touch event handling"
-    echo "  - Double-click timing"
-    echo ""
-    echo "Settings are configurable via /usr/config/rasqberry_environment.env:"
-    echo "  TOUCH_PANEL_HEIGHT, TOUCH_PANEL_ICON_SIZE, TOUCH_DESKTOP_ICON_SIZE,"
-    echo "  TOUCH_DESKTOP_GRID_SPACING, TOUCH_TERMINAL_FONT_SIZE, TOUCH_DOUBLE_CLICK_MS"
+show_status() {
+    local state panel icons font
+    state=$(get_state)
+    if [ "${1:-}" = "--quiet" ] || [ "${1:-}" = "-q" ]; then
+        echo "$state"
+        return 0
+    fi
+    # (|| true: a missing file must not end the script under pipefail)
+    panel=$(sed -n 's/^icon_size=//p' "$WF_PANEL_CONFIG" 2>/dev/null | head -1) || true
+    icons=$(sed -n 's/^big_icon_size=//p' "$LIBFM_CONFIG" 2>/dev/null | head -1) || true
+    font=$(sed -n 's/^fontname=.* \([0-9][0-9]*\)$/\1/p' "$LXTERMINAL_CONFIG" 2>/dev/null | head -1) || true
+    if [ "$state" = "enabled" ]; then echo "Touch Mode: ON"; else echo "Touch Mode: OFF"; fi
+    echo
+    echo "  Panel icons:    $( [ -n "$panel" ] && echo "$panel px" || echo default )"
+    echo "  Desktop icons:  ${icons:-48} px"
+    echo "  Terminal font:  ${font:-10} pt"
+    echo
+    echo "The keyboard icon in the top bar opens an on-screen keyboard."
 }
 
-# Main
-case "${1:-}" in
-    enable|on)
-        enable_touch_mode
+usage() {
+    echo "Usage: $(basename "$0") enable|disable|toggle [--ask|--restart] | status [--quiet]" >&2
+    exit 1
+}
+
+cmd="${1:-}"
+case "$cmd" in
+    enable|on|disable|off|toggle)
+        mode="none"
+        case "${2:-}" in
+            --ask) mode="ask" ;;
+            --restart) mode="restart" ;;
+            ""|--no-restart) ;;
+            *) usage ;;
+        esac
+        case "$cmd" in
+            enable|on) target="enabled" ;;
+            disable|off) target="disabled" ;;
+            *) target="enabled"; [ "$(get_state)" = "enabled" ] && target="disabled" ;;
+        esac
+        change "$target" "$mode"
         ;;
-    disable|off)
-        disable_touch_mode
-        ;;
-    toggle)
-        toggle_touch_mode
-        ;;
-    status)
-        show_status "${2:-}"
-        ;;
-    -h|--help|help)
-        show_usage
-        ;;
-    *)
-        show_usage
-        exit 1
-        ;;
+    status) show_status "${2:-}" ;;
+    *) usage ;;
 esac

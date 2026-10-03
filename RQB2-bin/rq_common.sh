@@ -29,6 +29,8 @@ if [ -n "${RQ_COMMON_LOADED:-}" ]; then
     return 0
 fi
 RQ_COMMON_LOADED=1
+# Where this library lives: /usr/bin when installed, RQB2-bin in a checkout
+_RQ_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ============================================================================
 # CONFIGURATION
@@ -51,7 +53,30 @@ WT_MENU_HEIGHT="${WT_MENU_HEIGHT:-12}"
 # Usage: die "Error message"
 die() {
     echo "ERROR: $*" >&2
+    # The RasQberry menu passes a file here (RQB2_menu.sh run_engine_demo), so
+    # the reason survives the menu redrawing over this terminal output.
+    if [ -n "${RQ_ERROR_FILE:-}" ]; then
+        printf '%s\n' "$*" >> "$RQ_ERROR_FILE" 2>/dev/null || true
+    fi
     exit 1
+}
+
+# --help / -h for scripts that otherwise act on any argument: print the
+# script's header comment and exit, before anything is downloaded, installed
+# or started (R-107: --help used to clone, install Qiskit "--help" or start
+# the demo loop).
+# Usage (right after sourcing this file): rq_help_guard "$@"
+rq_help_guard() {
+    case "${1:-}" in
+        -h|--help) ;;
+        *) return 0 ;;
+    esac
+    local script="${BASH_SOURCE[1]:-$0}"
+    # The first comment block after the shebang, without rulers and "#"
+    awk 'NR == 1 && /^#!/ { next }
+         /^#/ { sub(/^# ?/, ""); if ($0 !~ /^[=#-]+$/) print; seen = 1; next }
+         seen { exit }' "$script"
+    exit 0
 }
 
 # Print warning message
@@ -110,30 +135,51 @@ verify_env_vars() {
     fi
 }
 
+# Run a command as root: directly when we are root, else through sudo.
+_rq_as_root() {
+    if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi
+}
+
 # Update a variable in the environment file
 # Usage: update_env_var "VARIABLE_NAME" "new_value"
+#
+# The new file is written next to the old one and renamed over it only when it
+# is complete. This used to be `sudo sed ... > tmp; sudo mv tmp env` with no
+# check: on a full disk sed wrote nothing, the empty file replaced the settings
+# and every demo then failed on unset variables (R-058). A failed write now
+# leaves the file as it was and returns 1.
 update_env_var() {
     local var_name="$1"
     local var_value="$2"
-    local temp_file
+    local env_dir tmp lines_before lines_after
+    # Key and value come in through the environment, so no character in the
+    # value (/ | & \) is special (the menu's _rq_env_write does the same).
+    local prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+        index($0, k "=") == 1 { print k "=" v; done = 1; next }
+        { print }
+        END { if (!done) print k "=" v }'
 
-    temp_file=$(mktemp) || die "Failed to create temp file"
-
-    if grep -q "^${var_name}=" "$RQ_ENV_FILE"; then
-        # Variable exists - update it
-        # Use sudo to read protected file, write to temp file, then move
-        sudo sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$RQ_ENV_FILE" > "$temp_file"
-        sudo mv "$temp_file" "$RQ_ENV_FILE" || die "Failed to update $var_name"
-        # Restore proper permissions (world-readable, root-owned)
-        sudo chmod 644 "$RQ_ENV_FILE"
-        sudo chown root:root "$RQ_ENV_FILE"
-    else
-        # Variable doesn't exist - append it
-        echo "${var_name}=${var_value}" | sudo tee -a "$RQ_ENV_FILE" > /dev/null || die "Failed to add $var_name"
-        # Ensure proper permissions after append
-        sudo chmod 644 "$RQ_ENV_FILE"
-        sudo chown root:root "$RQ_ENV_FILE"
+    env_dir=$(dirname "$RQ_ENV_FILE")
+    tmp=$(_rq_as_root mktemp "$env_dir/.rasqberry_environment.XXXXXX" 2>/dev/null) || tmp=""
+    if [ -z "$tmp" ]; then
+        warn "Could not save $var_name: cannot write in $env_dir (is the SD card full?)"
+        return 1
     fi
+    lines_before=$(wc -l < "$RQ_ENV_FILE" 2>/dev/null | tr -d ' ')
+    if RQ_EW_KEY="$var_name" RQ_EW_VALUE="$var_value" awk "$prog" "$RQ_ENV_FILE" \
+            | _rq_as_root tee "$tmp" > /dev/null; then
+        lines_after=$(_rq_as_root wc -l "$tmp" 2>/dev/null | awk '{ print $1 }')
+    else
+        lines_after=0
+    fi
+    if [ "${lines_after:-0}" -lt "${lines_before:-1}" ] \
+        || ! _rq_as_root chmod 644 "$tmp" \
+        || ! _rq_as_root mv -f "$tmp" "$RQ_ENV_FILE"; then
+        _rq_as_root rm -f "$tmp" 2>/dev/null || true
+        warn "Could not save $var_name in $RQ_ENV_FILE (is the SD card full?). The settings were left as they were."
+        return 1
+    fi
+    _rq_as_root chown root:root "$RQ_ENV_FILE" 2>/dev/null || true
 
     # LED settings also go to the store both A/B slots share (#290)
     case "$var_name" in
@@ -183,6 +229,13 @@ activate_venv() {
     debug "Activating venv: $venv_path"
     # shellcheck disable=SC1091
     . "$venv_path/bin/activate" || die "Failed to activate venv"
+
+    # Root using the user's venv must not leave root-owned __pycache__ in it:
+    # a later pip upgrade there fails half-way (#285, R-059). Exported, so it
+    # also covers the python processes this script starts.
+    if [ "$(id -u)" -eq 0 ]; then
+        export PYTHONDONTWRITEBYTECODE=1
+    fi
 }
 
 # Ensure virtual environment exists and has required packages
@@ -429,6 +482,137 @@ clear_leds() {
     "$py" "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
 }
 
+# ----------------------------------------------------------------------------
+# Who holds the LED panel (R-103, R-148, R-162)
+# ----------------------------------------------------------------------------
+# A demo left running (an icon, an earlier menu session, the IP scroll at
+# start-up) keeps the panel. On a Pi 5 the next LED program then fails with
+# "GPIO busy"; on a Pi 4 the PWM driver claims nothing, so the next one draws
+# over the first without any error (R-162). STOP and Clear LEDs used to report
+# success either way (R-148).
+#
+# The devices: /dev/pio0 and /dev/gpiochip* (Pi 5), /dev/mem and /dev/gpiomem
+# (the Pi 4 PWM driver maps both), /dev/spidev0.0 (the retired SPI driver).
+# Needs root to see other users' processes.
+
+# A short name for a holder's command line
+_rq_led_holder_label() {
+    case "$1" in
+        *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
+        *rq_led_renderer.py*)    echo "the LED renderer service" ;;
+        *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
+        *lights_out.py*)         echo "Quantum Lights Out" ;;
+        *QuantumRaspberryTie*)   echo "Quantum Raspberry Tie" ;;
+        *RasQ-LED*)              echo "RasQ-LED" ;;
+        *rq_demo_loop*)          echo "the demo loop" ;;
+        *)
+            # the script it runs, else the program
+            local word
+            for word in $1; do
+                case "$word" in *.py|*.sh) basename "$word"; return 0 ;; esac
+            done
+            # shellcheck disable=SC2086
+            set -- $1
+            basename "${1:-unknown}"
+            ;;
+    esac
+}
+
+# The calling process and its parents: never a holder to stop
+_rq_led_self_chain() {
+    local pid=$$ n=0
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null && [ "$n" -lt 30 ]; do
+        printf ' %s' "$pid"
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+        n=$((n + 1))
+    done
+    printf ' '
+}
+
+# Usage: holders=$(led_holders)   ->  "PID label" per line, nothing if free
+led_holders() {
+    local dev pids="" pid args self
+    self=$(_rq_led_self_chain)
+    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0; do
+        [ -e "$dev" ] || continue
+        pids="$pids $(fuser "$dev" 2>/dev/null || true)"
+    done
+    # shellcheck disable=SC2086
+    for pid in $(printf '%s\n' $pids | grep -E '^[0-9]+$' | sort -un); do
+        case "$self" in *" $pid "*) continue ;; esac
+        args=$(ps -o args= -p "$pid" 2>/dev/null) || continue
+        [ -n "$args" ] || continue
+        # In service mode the renderer IS the panel's driver, not a rival
+        if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
+            case "$args" in *rq_led_renderer.py*) continue ;; esac
+        fi
+        echo "$pid $(_rq_led_holder_label "$args")"
+    done
+}
+
+# Stop the holders listed by led_holders (one "PID label" per line). A
+# RasQberry service is stopped through systemd, so it does not restart.
+# Usage: stop_led_holders "$holders"
+stop_led_holders() {
+    local pid unit waited=0 left=""
+    while read -r pid _; do
+        [ -n "$pid" ] || continue
+        unit=$(ps -o unit= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+        case "$unit" in
+            rasqberry-*.service) systemctl stop "$unit" 2>/dev/null || kill "$pid" 2>/dev/null || true ;;
+            *) kill "$pid" 2>/dev/null || true ;;
+        esac
+    done <<< "$1"
+    while [ "$waited" -lt 30 ]; do
+        left=""
+        while read -r pid _; do
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then left="$left $pid"; fi
+        done <<< "$1"
+        [ -z "$left" ] && return 0
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    # shellcheck disable=SC2086
+    kill -9 $left 2>/dev/null || true
+    sleep 0.5
+}
+
+# Before an LED demo: if another program holds the panel, name it and offer to
+# stop it. Returns 1 when it keeps running - then do not start the demo.
+# Without a terminal it only warns and returns 0 (as before).
+# Usage: led_panel_ready || exit 0
+led_panel_ready() {
+    local holders
+    holders=$(led_holders)
+    [ -n "$holders" ] || return 0
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        warn "The LED panel is in use by: $(echo "$holders" | cut -d' ' -f2- | paste -sd, -)"
+        return 0
+    fi
+    if whiptail --title "LED Panel in Use" --yes-button "Stop It" --no-button "Cancel" --yesno \
+"Another program is using the LED panel:
+
+$(echo "$holders" | sed 's/^[0-9]* /  /')
+
+Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
+        stop_led_holders "$holders"
+        return 0
+    fi
+    return 1
+}
+
+# Clear the panel and say nothing: for exit traps, where the terminal may
+# already be gone (a closed window) and any output would fail.
+led_clear_quietly() {
+    local py="python3" venv script
+    script=$(find_led_script "turn_off_LEDs.py") || return 0
+    if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
+        py="$venv/bin/python3"
+    fi
+    PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" \
+        "$py" "$script" >/dev/null 2>&1 </dev/null || true
+}
+
 # ============================================================================
 # 7. DEPENDENCY CHECKING
 # ============================================================================
@@ -526,10 +710,12 @@ default_demo_cleanup() {
 find_available_port() {
     local port="${1:-8888}"
     while true; do
-        if command -v lsof &>/dev/null; then
-            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
-        elif command -v ss &>/dev/null; then
+        # ss first: it sees every listening socket, lsof run as the user misses
+        # root-owned ones (docker-proxy), so a "free" port could be taken (R-109)
+        if command -v ss &>/dev/null; then
             if ! ss -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        elif command -v lsof &>/dev/null; then
+            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
         elif command -v netstat &>/dev/null; then
             if ! netstat -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
         else
@@ -543,10 +729,10 @@ find_available_port() {
 # Report whether a TCP port is currently in use. Returns 0 if in use.
 port_in_use() {
     local port="$1"
-    if command -v lsof &>/dev/null; then
-        lsof -i ":$port" &>/dev/null
-    elif command -v ss &>/dev/null; then
+    if command -v ss &>/dev/null; then
         ss -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v lsof &>/dev/null; then
+        lsof -i ":$port" &>/dev/null
     elif command -v netstat &>/dev/null; then
         netstat -tuln 2>/dev/null | grep -q ":$port "
     else
@@ -623,8 +809,8 @@ run_as_user() {
 # Call this early in scripts that require root access (LED control, GPIO, etc.)
 ensure_root() {
     if [ "$(id -u)" != "0" ]; then
-        info "LED/GPIO operations require root access"
-        info "Re-executing with sudo..."
+        # Technical detail: only with RQ_DEBUG=1 (R-133)
+        debug "LED/GPIO operations require root access; re-executing with sudo"
         exec sudo -E "$0" "$@"
     fi
 }
@@ -647,7 +833,7 @@ open_browser() {
             if [ "$(whoami)" = "root" ]; then
                 local user_name
                 user_name=$(get_user_name)
-                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' &" 2>/dev/null &
+                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' >/dev/null 2>&1 &" >/dev/null 2>&1 &
             else
                 "$browser" "$url" &>/dev/null &
             fi
@@ -664,28 +850,243 @@ open_browser() {
 # 12. DEMO INSTALLATION HELPERS
 # ============================================================================
 
-# Ask user to install demo with size info
-# Usage: ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
-ask_demo_install() {
-    local demo_name="$1"
-    local download_size="${2:-unknown}"
-    local install_size="${3:-unknown}"
+# ----------------------------------------------------------------------------
+# Consent and free space for downloads (Jan, Q27; R-030, R-166)
+# ----------------------------------------------------------------------------
+# Every first install asks once - the same dialog from the menu, a desktop icon
+# or the command line: what is fetched, how big, how long, and free space now
+# and afterwards. It refuses with a plain message when the space is too low or
+# the download source cannot be reached. A first start used to download or
+# build several GB without asking (one click could fill an A/B slot), and with
+# outside traffic blocked git hung without a word.
 
-    local message="$demo_name is not installed yet.
+# Space kept free on top of what a download needs (MB)
+RQ_SPACE_RESERVE_MB="${RQ_SPACE_RESERVE_MB:-1000}"
 
-Download: ~$download_size
-Install size: ~$install_size
-
-Requires internet connection.
-
-Install now?"
-
-    if show_yesno "$demo_name Not Installed" "$message" 14 65; then
+# Free space in MB (1 MB = 1,000,000 bytes, as card sizes are sold) on the
+# file system holding PATH, or its nearest existing parent.
+# RQ_TEST_FREE_MB replaces the measurement (tests, lab).
+# Usage: free=$(rq_free_mb /var/lib/docker)
+rq_free_mb() {
+    local p="${1:-/}"
+    if [ -n "${RQ_TEST_FREE_MB:-}" ]; then
+        echo "$RQ_TEST_FREE_MB"
         return 0
-    else
-        info "Installation cancelled by user"
-        return 1
     fi
+    while [ ! -e "$p" ] && [ "$p" != "/" ] && [ -n "$p" ]; do p=$(dirname "$p"); done
+    df -Pk "$p" 2>/dev/null | awk 'NR == 2 { printf "%d\n", $4 * 1024 / 1000000 }'
+}
+
+# "850 MB", "3.9 GB"
+# Usage: rq_fmt_mb 3900
+rq_fmt_mb() {
+    awk -v m="${1:-0}" 'BEGIN { if (m < 1000) printf "%d MB\n", m; else printf "%.1f GB\n", m / 1000 }'
+}
+
+# The URL to check before pulling a Docker image: its registry
+# ("ghcr.io/x/y:tag" -> https://ghcr.io/v2/, "python:3" -> Docker Hub).
+rq_image_registry_url() {
+    local first="${1%%/*}"
+    case "$1" in
+        */*) case "$first" in *.*|*:*) echo "https://$first/v2/"; return 0 ;; esac ;;
+    esac
+    echo "https://registry-1.docker.io/v2/"
+}
+
+# Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
+# timeouts, so a network that drops outside traffic fails in seconds instead
+# of hanging in git (R-166). RQ_TEST_OFFLINE=1 makes every check fail.
+rq_reachable() {
+    local url="${1:-}"
+    [ "${RQ_TEST_OFFLINE:-0}" = "1" ] && return 1
+    [ -n "$url" ] || return 0
+    command -v curl >/dev/null 2>&1 || return 0   # cannot tell; let the download try
+    curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
+}
+
+# Ask before a download. Shared by the demo engine, "Download all demos", the
+# Docker launchers and other one-off downloads (e.g. a newer Docker image).
+#
+#   rq_confirm_download NAME DOWNLOAD_MB DISK_MB [options]
+#     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
+#     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
+#     --path DIR       where the data goes; free space is measured there
+#                      (default: $USER_HOME)
+#     --url URL        checked first with a short timeout
+#     --peak MB        extra space needed only while installing (a build cache)
+#     --title TEXT     dialog title (default "Download NAME?")
+#     --intro TEXT     first line (default "NAME is not on this Pi yet.")
+#     --question TEXT  last line (default "Download now?")
+#
+# DOWNLOAD_MB/DISK_MB 0 = unknown. Returns 0 to go ahead, 1 declined, 2 not
+# enough space, 3 source not reachable, 4 no terminal to ask on. For 1-4,
+# RQ_CONSENT_MSG holds a sentence for the user. With RQ_AUTO_INSTALL=1 (the
+# caller has already asked, e.g. "Download all demos") there is no question,
+# but the space and network checks still run.
+rq_confirm_download() {
+    local name="$1" dl="${2:-0}" disk="${3:-0}"
+    shift 3 || true
+    local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --what) what="$2"; shift 2 ;;
+            --time) time="$2"; shift 2 ;;
+            --path) path="$2"; shift 2 ;;
+            --url) url="$2"; shift 2 ;;
+            --peak) peak="$2"; shift 2 ;;
+            --title) title="$2"; shift 2 ;;
+            --intro) intro="$2"; shift 2 ;;
+            --question) question="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    case "$dl" in ''|*[!0-9]*) dl=0 ;; esac
+    case "$disk" in ''|*[!0-9]*) disk=0 ;; esac
+    case "$peak" in ''|*[!0-9]*) peak=0 ;; esac
+    RQ_CONSENT_MSG=""
+
+    local free need space_txt
+    free=$(rq_free_mb "$path")
+    case "$free" in ''|*[!0-9]*) free="" ;; esac
+    need=$((disk + peak + RQ_SPACE_RESERVE_MB))
+    space_txt="about $(rq_fmt_mb "$disk")"
+    [ "$disk" -gt 0 ] || space_txt="unknown"
+    [ "$peak" -gt 0 ] && space_txt="$space_txt ($(rq_fmt_mb $((disk + peak))) while installing)"
+    local card_txt="$space_txt on the SD card"
+    [ "$disk" -gt 0 ] || card_txt="unknown"
+    if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
+        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+        return 2
+    fi
+
+    if ! rq_reachable "$url"; then
+        local host="${url#*://}"
+        host="${host%%/*}"
+        RQ_CONSENT_MSG="$name has to be downloaded first, and ${host:-the internet} cannot be reached. Connect the Pi to the internet and try again."
+        return 3
+    fi
+
+    [ "${RQ_AUTO_INSTALL:-0}" = "1" ] && return 0
+
+    local text dl_txt free_txt
+    dl_txt="about $(rq_fmt_mb "$dl")"
+    [ "$dl" -gt 0 ] || dl_txt="size unknown"
+    free_txt="unknown"
+    [ -n "$free" ] && free_txt="$(rq_fmt_mb "$free") now, $(rq_fmt_mb $((free > disk ? free - disk : 0))) afterwards"
+    text="${intro:-$name is not on this Pi yet.}\n\n"
+    [ -n "$what" ] && text="${text}What:      $what\n"
+    text="${text}Download:  $dl_txt (needs the internet)\n"
+    text="${text}Space:     $card_txt\n"
+    [ -n "$time" ] && text="${text}Time:      about $time\n"
+    text="${text}Free:      $free_txt\n\n${question:-Download now?}"
+
+    # Ask on the terminal itself, so a caller that pipes our output (a log
+    # tee) still gets the dialog drawn. (RQ_TEST_TTY: tests use a file.)
+    local tty="${RQ_TEST_TTY:-/dev/tty}"
+    if ! { : < "$tty" > "$tty"; } 2>/dev/null; then
+        RQ_CONSENT_MSG="$name is not on this Pi yet. Start it from its desktop icon or the RasQberry menu, which ask before downloading."
+        return 4
+    fi
+    if command -v whiptail >/dev/null 2>&1; then
+        local width=72 height
+        height=$(_rq_dialog_height "$text" "$width" 12)
+        # shellcheck disable=SC2046  # empty or --scrolltext
+        if whiptail --title "${title:-Download $name?}" --yes-button "Download" --no-button "Not now" \
+                $(_rq_dialog_scroll "$text" "$width" "$height") \
+                --yesno "$text" "$height" "$width" < "$tty" > "$tty" 2>&1; then
+            return 0
+        fi
+    else
+        local reply=""
+        printf '%b\n' "$text" > "$tty"
+        printf '(y/n) ' > "$tty"
+        read -r reply < "$tty" || reply=""
+        case "$reply" in [Yy]*) return 0 ;; esac
+    fi
+    RQ_CONSENT_MSG="$name was not downloaded."
+    return 1
+}
+
+# Echo the shipped manifest directory (installed or repo checkout)
+rq_shipped_manifest_dir() {
+    if [ "$_RQ_COMMON_DIR" = "/usr/bin" ]; then
+        echo "/usr/config/demo-manifests"
+    else
+        echo "$(dirname "$_RQ_COMMON_DIR")/RQB2-config/demo-manifests"
+    fi
+}
+
+# Ask for a demo's first install, with the sizes from its manifest
+# (install.download). Asks once per demo per run: a launcher the engine hands
+# over to does not ask again (RQ_CONFIRMED_DEMO).
+#   rq_confirm_demo_install DEMO_ID [MANIFEST_FILE]
+# Returns like rq_confirm_download.
+rq_confirm_demo_install() {
+    local id="$1" mf="${2:-}"
+    [ -n "$id" ] && [ "${RQ_CONFIRMED_DEMO:-}" = "$id" ] && return 0
+    if [ -z "$mf" ]; then
+        mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$id") || mf=""
+    fi
+    local name="$id" dl=0 disk=0 peak=0 what="" time="" url="" path="${USER_HOME:-/}"
+    local type="" image="" repo=""
+    if [ -n "$mf" ] && [ -f "$mf" ]; then
+        name=$(jq -r '.name // .id' "$mf" 2>/dev/null) || name="$id"
+        dl=$(jq -r '.install.download.download_mb // 0' "$mf" 2>/dev/null) || dl=0
+        disk=$(jq -r '.install.download.disk_mb // .install.download.download_mb // 0' "$mf" 2>/dev/null) || disk=0
+        peak=$(jq -r '.install.download.peak_mb // 0' "$mf" 2>/dev/null) || peak=0
+        what=$(jq -r '.install.download.what // empty' "$mf" 2>/dev/null) || what=""
+        time=$(jq -r '.install.download.time // empty' "$mf" 2>/dev/null) || time=""
+        url=$(jq -r '.install.download.url // empty' "$mf" 2>/dev/null) || url=""
+        type=$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null) || type=""
+        image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
+        repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
+    fi
+    if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        path="/var/lib/docker"
+        [ -n "$what" ] || what="Docker image ($image)"
+        [ -n "$url" ] || url=$(rq_image_registry_url "$image")
+    fi
+    [ -n "$url" ] || url="${repo:-https://github.com}"
+    rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
+        --path "$path" --peak "$peak" --url "$url" || return $?
+    RQ_CONFIRMED_DEMO="$id"
+    export RQ_CONFIRMED_DEMO
+    return 0
+}
+
+# For scripts: ask for DEMO_ID's first install; a "Not now" ends the script
+# quietly (exit 0), anything else that stops the download dies with the
+# reason (shown by the menu, or by the desktop icon's window).
+#   rq_require_demo_consent DEMO_ID [MANIFEST_FILE]
+rq_require_demo_consent() {
+    local rc=0
+    rq_confirm_demo_install "$@" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        1) info "${RQ_CONSENT_MSG:-Not downloaded.}"; exit 0 ;;
+        *) die "${RQ_CONSENT_MSG:-The download was stopped.}" ;;
+    esac
+}
+
+# Old name, kept for scripts written from the template: ask_demo_install
+# "LED-Painter" "5MB" "500MB" (sizes in MB or GB).
+ask_demo_install() {
+    rq_confirm_download "$1" "$(_rq_size_to_mb "${2:-0}")" "$(_rq_size_to_mb "${3:-0}")"
+}
+_rq_size_to_mb() {
+    awk -v s="$1" 'BEGIN { n = s + 0; if (s ~ /[Gg][Bb]?$/) n *= 1000; printf "%d\n", n }'
+}
+
+# Remove a directory tree, also one a root run left behind (a half download
+# from the menu is root-owned and a user's rm fails on it, R-057).
+# Usage: rq_remove_tree DIR || die "..."
+rq_remove_tree() {
+    local d="$1"
+    [ -n "$d" ] && [ "$d" != "/" ] || return 1
+    [ -e "$d" ] || return 0
+    rm -rf "$d" 2>/dev/null && return 0
+    [ "$(id -u)" != "0" ] && sudo -n rm -rf "$d" 2>/dev/null && return 0
+    [ ! -e "$d" ]
 }
 
 # Install demo by calling RQB2_menu.sh function directly
@@ -818,13 +1219,22 @@ fetch_pinned_repo() {
     fi
 
     mkdir -p "$dest" || die "Cannot create destination: $dest"
-    (
+    # A failed or interrupted fetch must not leave a half checkout: run as root
+    # (the menu) it was root-owned, and every later install - from a desktop
+    # icon as the user, or the catalogue - failed on it (R-057).
+    # The low-speed limit ends a transfer that stalls (traffic dropped by a
+    # filter) instead of hanging without a word (R-166).
+    if ! (
         cd "$dest" || die "Cannot enter destination: $dest"
         git init -q || die "git init failed in $dest"
-        git fetch --depth 1 "$url" "$sha" 2>/dev/null \
+        git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 \
+            fetch -q --depth 1 "$url" "$sha" 2>/dev/null \
             || die "Failed to fetch pinned commit $sha from $url"
         git checkout -q FETCH_HEAD || die "Failed to checkout pinned commit $sha"
-    ) || return 1
+    ); then
+        rq_remove_tree "$dest" || warn "Could not remove the incomplete download: $dest"
+        return 1
+    fi
 
     # Keep the checkout user-owned when this runs as root (raspi-config context)
     fix_root_ownership "$dest"
@@ -884,6 +1294,229 @@ get_ab_boot_partition() {
         B) part=$(ab_partition_by_label "BOOT-B"); echo "${part:-$(ab_partition_by_number 3)}" ;;
         *) return 1 ;;
     esac
+}
+
+# Release channel of a version/tag, as RQB-releases.json names its streams
+# (rq_update_check.sh, rq_ab_releases.sh):
+#   beta-*                 -> beta
+#   development-*, dev-*   -> dev    (feature-branch builds follow development)
+#   anything else          -> stable (main releases are tagged v{version})
+rq_release_channel() {
+    case "$1" in
+        beta-*)                echo beta ;;
+        development-*|dev-*)   echo dev ;;
+        *)                     echo stable ;;
+    esac
+}
+
+# ============================================================================
+# 16. DEMO VERSIONS: release pins and the user's updates (Jan, Q8/Q32)
+# ============================================================================
+# Every downloaded demo is pinned per RasQberry release: a git commit
+# (install.ref, or install.source.ref for a demo with its own installer) and/or
+# a Docker image digest (entrypoint.docker_image "repo@sha256:..."). "Update
+# demos" (rq_demo_update.sh) moves a demo to a newer upstream version on
+# request. That choice is kept in demos/.demo-versions, one line per pin:
+#   ID:image|ID:ref <TAB> RELEASE_PIN <TAB> CHOSEN <TAB> LABEL
+# It holds only while the release still ships the pin it replaced: a newer
+# RasQberry release brings a newer tested pin, and that one wins.
+
+rq_demo_versions_file() {
+    echo "${USER_HOME:-$HOME}/${REPO:-RasQberry-Two}/demos/.demo-versions"
+}
+
+# Manifest file of a demo (the given one, else the shipped/user search path)
+_rq_demo_mf() {
+    if [ -n "${2:-}" ]; then echo "$2"; return 0; fi
+    rq_find_manifest "$(rq_shipped_manifest_dir)" "$1"
+}
+
+# The version chosen for KEY while the release pin is PIN; non-zero if none
+_rq_demo_chosen() {
+    local f
+    f=$(rq_demo_versions_file)
+    [ -f "$f" ] || return 1
+    awk -F'\t' -v k="$1" -v p="$2" '$1 == k && $2 == p && $3 != "" { v = $3 }
+        END { if (v == "") exit 1; print v }' "$f" 2>/dev/null
+}
+
+# Label of the chosen version for KEY (e.g. "bc4229e-jupyter, 2026-10-02")
+rq_demo_chosen_label() {
+    local f
+    f=$(rq_demo_versions_file)
+    [ -f "$f" ] || return 1
+    awk -F'\t' -v k="$1" '$1 == k { v = $4 } END { if (v == "") exit 1; print v }' "$f" 2>/dev/null
+}
+
+# The Docker image a demo runs: its release pin, or the newer version chosen
+# under "Update demos". Empty for a demo without an image.
+# Usage: image=$(rq_demo_image doqumentation [MANIFEST])
+rq_demo_image() {
+    local mf pin
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    pin=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null)
+    [ -n "$pin" ] || return 0
+    _rq_demo_chosen "$1:image" "$pin" || echo "$pin"
+}
+
+# The git commit a demo installs (install.ref or install.source.ref), likewise
+rq_demo_ref() {
+    local mf pin
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    pin=$(jq -r '.install.ref // .install.source.ref // empty' "$mf" 2>/dev/null)
+    [ -n "$pin" ] || return 0
+    _rq_demo_chosen "$1:ref" "$pin" || echo "$pin"
+}
+
+# The git repository a demo installs from (install.repo_url or install.source)
+rq_demo_repo() {
+    local mf
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    jq -r '.install.repo_url // .install.source.repo_url // empty' "$mf" 2>/dev/null
+}
+
+# Record (or, with an empty CHOSEN, drop) a newer version for KEY.
+# Usage: rq_demo_set_version "doqumentation:image" RELEASE_PIN CHOSEN LABEL
+rq_demo_set_version() {
+    local key="$1" pin="$2" chosen="${3:-}" label="${4:-}" f tmp
+    f=$(rq_demo_versions_file)
+    mkdir -p "$(dirname "$f")" || return 1
+    tmp="$f.tmp.$$"
+    {
+        if [ -f "$f" ]; then awk -F'\t' -v k="$key" '$1 != k' "$f"; fi
+        if [ -n "$chosen" ]; then printf '%s\t%s\t%s\t%s\n' "$key" "$pin" "$chosen" "$label"; fi
+    } > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+    fix_root_ownership "$f" >/dev/null 2>&1 || true
+}
+
+# ============================================================================
+# 17. DOCKER DEMO HELPERS (doQumentation, Quantum Lab, Qoffee-Maker, Mixer)
+# ============================================================================
+
+# Make docker usable in this script. The user is in the docker group from the
+# image build; a session older than that membership is re-run with it (sg).
+# Usage: rq_docker_access "$@"
+rq_docker_access() {
+    check_docker || die "Docker is not installed (the image may be misbuilt)."
+    local user_name
+    user_name=$(get_user_name)
+    if [ "$user_name" != "root" ] && ! id -nG "$user_name" 2>/dev/null | grep -qw docker; then
+        die "User '$user_name' is not in the docker group (the image may be misbuilt)."
+    fi
+    if [ "$(id -u)" != "0" ] && ! id -nG | grep -qw docker && [ -z "${DOCKER_GROUP_ACTIVATED:-}" ]; then
+        export DOCKER_GROUP_ACTIVATED=1
+        exec sg docker -c "$(printf '%q ' "$0" "$@")"
+    fi
+    docker ps >/dev/null 2>&1 \
+        || die "Docker does not answer: $(docker ps 2>&1 | tail -1)"
+}
+
+# Is the container running?
+rq_docker_running() {
+    [ "$(docker container inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
+}
+
+# Stop and remove a container, and wait until it is really gone: docker stop
+# returns before --rm has removed it, and a docker run with the same name then
+# failed with "Conflict" and left no server at all (R-145).
+# Usage: rq_docker_stop NAME [TIMEOUT_S]
+rq_docker_stop() {
+    local name="$1" n=0
+    docker stop "$name" >/dev/null 2>&1 || true
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    while docker container inspect "$name" >/dev/null 2>&1; do
+        [ "$n" -ge "${2:-30}" ] && return 1
+        sleep 1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# Why a container failed: keep its log (the containers no longer run with
+# --rm, so `docker logs` still works, R-109), show the end, then die.
+# Usage: rq_docker_fail NAME "message"
+rq_docker_fail() {
+    local name="$1" msg="$2" log
+    log="${USER_HOME:-$HOME}/.cache/rasqberry/${name}.log"
+    mkdir -p "$(dirname "$log")" 2>/dev/null || true
+    if docker logs "$name" > "$log" 2>&1; then
+        fix_root_ownership "$log" >/dev/null 2>&1 || true
+        echo
+        echo "Last lines of the $name log (all of it: $log):"
+        tail -15 "$log"
+    fi
+    die "$msg"
+}
+
+# Download an image, with Docker's own progress and, on failure, its own
+# reason instead of "check your internet connection" (R-038).
+# Usage: rq_docker_pull IMAGE "Name"
+rq_docker_pull() {
+    local image="$1" name="${2:-$1}" err rc=0 why
+    info "Downloading $name: $image"
+    err=$(mktemp)
+    docker pull "$image" 2> "$err" || rc=$?
+    why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
+    rm -f "$err"
+    [ "$rc" -eq 0 ] && return 0
+    case "$why" in
+        *"no space left"*)
+            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
+        *"manifest unknown"*|*"not found"*|*"denied"*)
+            die "The registry does not offer $image (any more): $why" ;;
+        *)
+            die "Could not download $name: ${why:-docker pull failed}" ;;
+    esac
+}
+
+# After a new version is there, remove the other versions of the same image
+# that no container uses (a release with a new pin, or "Update demos", would
+# otherwise keep every old version on the SD card).
+# Usage: rq_docker_drop_old IMAGE_IN_USE
+rq_docker_drop_old() {
+    local keep="$1" repo keep_id id
+    repo="${keep%%@*}"
+    case "${repo##*/}" in *:*) repo="${repo%:*}" ;; esac
+    keep_id=$(docker image inspect -f '{{.Id}}' "$keep" 2>/dev/null) || return 0
+    for id in $(docker images --no-trunc -q "$repo" 2>/dev/null | sort -u); do
+        [ "$id" = "$keep_id" ] && continue
+        docker image rm "$id" >/dev/null 2>&1 \
+            && info "Removed an older version of $repo"
+    done
+    return 0
+}
+
+# Open URL in the desktop user's browser - or, without a screen (an SSH
+# session), say how to reach it from another computer (Jan, Q19). PORT is the
+# Pi-side port behind URL, for an ssh -L tunnel to a server on 127.0.0.1.
+# Usage: rq_show_url URL [PORT]
+rq_show_url() {
+    local url="$1" port="${2:-}" browser
+    if check_display; then
+        for browser in chromium-browser chromium firefox xdg-open; do
+            command -v "$browser" >/dev/null 2>&1 || continue
+            info "Opening the browser..."
+            case "$browser" in
+                chromium*) run_as_user "$browser" --password-store=basic "$url" >/dev/null 2>&1 & ;;
+                *)         run_as_user "$browser" "$url" >/dev/null 2>&1 & ;;
+            esac
+            return 0
+        done
+        info "No browser found. Open this address: $url"
+        return 0
+    fi
+    echo
+    echo "No screen in this session, so no browser opens here."
+    if [ -n "$port" ]; then
+        echo "To use the demo from your computer:"
+        echo "  1. On your computer, run:"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "  2. Open in its browser:"
+        echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
+    else
+        echo "Open this address: $url"
+    fi
+    echo
 }
 
 # ============================================================================

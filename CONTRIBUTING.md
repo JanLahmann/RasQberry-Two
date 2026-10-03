@@ -518,6 +518,10 @@ RasQberry-Two/
 
 Following these standards ensures consistency and maintainability.
 
+For anything a user reads (menu and dialog text, demo names and descriptions,
+docs, the website), follow the [style guide](docs/STYLE.md): British English,
+"RasQberry Two" in prose, "LED panel", and the menu-path and dialog rules.
+
 ### Shell Script Standards
 
 **1. Use the Template**

@@ -1,0 +1,22 @@
+[Unit]
+Description=RasQberry: keep Wi-Fi, password, settings and user files across A/B updates
+Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot.md
+# rq_carry_over.sh boot: on the first start of a freshly written slot, copy
+# password, hostname, time zone, locale and keyboard from the other slot;
+# at every start, link ~/Shared and ~/.qiskit to /data and bind the
+# NetworkManager profiles from /data - before NetworkManager, ssh, avahi
+# and the desktop start. A/B cards only.
+After=local-fs.target data.mount rasqberry-ab-layout.service
+Before=NetworkManager.service avahi-daemon.service ssh.service systemd-user-sessions.service display-manager.service rasqberry-health-check.service
+ConditionPathExists=/boot/config/autoboot.txt
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rq_carry_over.sh boot
+TimeoutStartSec=10min
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

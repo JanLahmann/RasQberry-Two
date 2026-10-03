@@ -19,6 +19,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Fun with Quantum ==="
@@ -56,8 +57,8 @@ cleanup() {
 # Setup cleanup trap
 trap cleanup EXIT INT TERM
 
-# Check display
-check_display || warn "No display detected. Browser may not open automatically."
+# Without a screen (SSH) the server starts headless and the address and an
+# ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
 
 # Verify demo is installed
 if [ ! -f "$DEMO_DIR/$MARKER_FWQ" ]; then
@@ -142,16 +143,9 @@ echo
 echo "  RISE Slideshow: Press Alt+R in any notebook"
 echo
 
-# Try to open browser
-if command -v chromium-browser &>/dev/null; then
-    info "Opening browser..."
-    run_as_user chromium-browser --password-store=basic "$JUPYTER_URL" &
-elif command -v firefox &>/dev/null; then
-    info "Opening browser..."
-    run_as_user firefox "$JUPYTER_URL" &
-else
-    info "No browser found. Please open the URL manually."
-fi
+# Try to open browser (its console output would be drawn over the
+# raspi-config menu, R-137)
+rq_show_url "$JUPYTER_URL" "$PORT"
 
 echo
 echo "============================================"

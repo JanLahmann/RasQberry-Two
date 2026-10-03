@@ -140,7 +140,9 @@ venv_path=$(find_venv "custom-venv")
 ```
 
 #### `activate_venv [venv_name]`
-Activate virtual environment (tries multiple locations).
+Activate virtual environment (tries multiple locations). As root it also
+exports `PYTHONDONTWRITEBYTECODE=1`, so a root run leaves no root-owned
+`__pycache__` in the user's venv (#285).
 
 ```bash
 activate_venv  # Uses $STD_VENV
@@ -436,13 +438,30 @@ open_browser "$URL"
 
 ### 12. Demo Installation Helpers
 
-#### `ask_demo_install "name" "download" "install"`
-Ask user to install demo with size information.
+#### Download consent and free space (every first install asks once)
 
 ```bash
-ask_demo_install "LED-Painter" "5MB" "500MB" || exit 0
-# Shows whiptail dialog, returns 0 if user confirms
+# A demo's first install: sizes from its manifest (install.download).
+# "Not now" exits 0, low space / offline / no terminal die with the reason.
+rq_require_demo_consent doqumentation
+
+# Any other download (e.g. a newer Docker image); MB, 0 = unknown
+rq_confirm_download "doQumentation" 1300 5400 --what "Docker image from ghcr.io" \
+    --time "10-20 minutes" --path /var/lib/docker --url https://ghcr.io/v2/ \
+    --intro "A newer doQumentation image is available." --question "Update now?"
+# 0 go ahead, 1 "Not now", 2 not enough space, 3 not reachable, 4 no terminal;
+# $RQ_CONSENT_MSG says why. RQ_AUTO_INSTALL=1: no question, checks still run.
+
+rq_free_mb /var/lib/docker      # free MB (1 MB = 10^6 bytes); RQ_TEST_FREE_MB fakes it
+rq_fmt_mb 3900                  # "3.9 GB"
 ```
+
+`ask_demo_install "name" "5MB" "500MB"` is the old name; it calls
+`rq_confirm_download`.
+
+#### `rq_help_guard "$@"`
+Right after sourcing this file: `--help`/`-h` prints the script's header
+comment and exits before anything runs.
 
 #### `install_demo_raspiconfig function_name`
 Install demo using raspi-config nonint function.
@@ -586,26 +605,25 @@ set -euo pipefail
 . "$(dirname "$0")/rq_common.sh"
 load_rqb2_env
 
-# Check Docker
-check_docker || die "Docker is required. Please run qoffee-setup.sh first."
+IMAGE="$(rq_demo_image my-demo)"   # release pin (digest) or the "Update demos" choice
+rq_docker_access "$@"              # docker group, sg re-exec, docker answers
 
-# Start container
-CONTAINER_NAME="qoffee"
-PORT=8887
-
-info "Starting Qoffee-Maker container..."
-docker run -d --name "$CONTAINER_NAME" -p "$PORT:8888" \
-    ghcr.io/janlahmann/qoffee-maker || die "Failed to start container"
-
-# Wait for startup
-sleep 5
-
-# Open browser
-JUPYTER_URL="http://localhost:$PORT"
-open_browser "$JUPYTER_URL"
-
-info "Qoffee-Maker running at $JUPYTER_URL"
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    rq_require_demo_consent my-demo  # one dialog: size, time, free space
+    rq_docker_pull "$IMAGE" "My demo"
+    rq_docker_drop_old "$IMAGE"      # older versions of the same image
+fi
+rq_docker_stop my-demo               # an earlier container, and wait until it is gone
+docker run -d --name my-demo --label org.rasqberry.demo=my-demo \
+    -p 127.0.0.1:8899:8080 "$IMAGE" >/dev/null \
+    || rq_docker_fail my-demo "My demo did not start."   # keeps and shows its log
+rq_show_url "http://127.0.0.1:8899/" 8899   # browser, or an ssh -L hint over SSH
 ```
+
+Demo versions (section 16 of rq_common.sh): `rq_demo_image ID`,
+`rq_demo_ref ID`, `rq_demo_repo ID` give what a demo runs or installs;
+`rq_demo_set_version KEY RELEASE_PIN CHOSEN LABEL` records an "Update demos"
+choice in `demos/.demo-versions`, which holds while the release keeps that pin.
 
 ### Example 4: Demo with Cleanup
 

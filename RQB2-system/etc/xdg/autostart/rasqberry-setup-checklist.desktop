@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RasQberry Setup Checklist
+Comment=Open the setup checklist once, at the first desktop login, after the IP address scroll on the LED panel
+Exec=/usr/bin/rq_firstlogin.sh --desktop
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

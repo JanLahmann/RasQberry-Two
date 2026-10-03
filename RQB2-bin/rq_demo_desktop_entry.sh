@@ -55,6 +55,11 @@ if [ "$icon_type" = "custom" ]; then
     esac
 fi
 
+# In a terminal window the wrapper keeps the window open when the demo fails,
+# so its error can be read (R-029)
+exec_cmd="/usr/bin/rq_demo_run.sh $id"
+[ "$terminal" = "true" ] && exec_cmd="/usr/bin/rq_hold_on_error.sh $exec_cmd"
+
 mkdir -p "$(dirname "$OUTPUT")"
 cat > "$OUTPUT" << EOF
 [Desktop Entry]
@@ -64,7 +69,7 @@ Comment=$description
 Icon=$icon
 Type=Application
 Categories=RasQberry;
-Exec=/usr/bin/rq_demo_run.sh $id
+Exec=$exec_cmd
 Terminal=$terminal
 StartupNotify=true
 Keywords=${keywords:+$keywords;}

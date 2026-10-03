@@ -66,3 +66,26 @@ def test_notice_is_silent_when_up_to_date(tmp_path):
     _run(tmp_path, "beta-2025-12-30-211449", "--refresh")
     assert _run(tmp_path, "beta-2026-10-01-120000", "--refresh").returncode == 0
     assert _run(tmp_path, "beta-2026-10-01-120000", "--notice").stdout == ""
+
+
+def test_refresh_prints_the_result_for_the_menu(tmp_path):
+    # R-048: the menu's CHECK shows what --refresh prints; it used to print
+    # nothing, so the box was empty when up to date
+    up_to_date = _run(tmp_path, "beta-2026-10-01-120000", "--refresh")
+    assert up_to_date.returncode == 0
+    assert "This image is up to date." in up_to_date.stdout
+    newer = _run(tmp_path, "beta-2025-12-30-211449", "--refresh")
+    assert newer.returncode == 10
+    assert "beta-2025-12-30-211449" in newer.stdout      # both versions
+    assert "beta-2026-10-01-120000" in newer.stdout
+
+
+def test_offline_says_so(tmp_path):
+    (tmp_path / "version").write_text("beta-2025-12-30-211449\n")
+    env = dict(os.environ, RQ_VERSION_FILE=str(tmp_path / "version"),
+               RQ_RELEASES_URL="http://127.0.0.1:9/RQB-releases.json",
+               RQ_UPDATE_STATE=str(tmp_path / "state"))
+    proc = subprocess.run(["bash", _SCRIPT, "--refresh"], capture_output=True, text=True, env=env)
+    assert proc.returncode == 1
+    assert "Could not reach rasqberry.org" in proc.stdout
+    assert "network" in proc.stdout

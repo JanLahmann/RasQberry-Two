@@ -15,6 +15,13 @@ set -euo pipefail
 # is exhausted the health check reports the failed switch instead.
 #
 # Runs via rasqberry-tryboot-retry.service (before the health check).
+#
+# When the switch DID land (this is the trial boot of the target slot), it
+# arms systemd's hardware watchdog for this boot only (R-054): a kernel or
+# PID 1 that hangs is reset, and the reset starts the slot that worked
+# (the tryboot flag lasts one boot). rq_health_check.py disarms it after
+# confirming the slot. Not armed permanently: on a 2 GB Pi swapping under a
+# Docker build a 15 s watchdog could reset a healthy system.
 
 BOOT_COMMON_DIR="/boot/config"
 TARGET_FILE="${BOOT_COMMON_DIR}/target-slot"
@@ -41,6 +48,16 @@ esac
 if [ "$current" = "$target" ]; then
     # Switch succeeded - health check will confirm and consume the marker
     rm -f "$RETRY_FILE"
+    # Trial boot: arm the watchdog unless the firmware says this was a normal
+    # (non-tryboot) boot. 15 s is the BCM2835 watchdog's maximum.
+    tryboot=$(od -An -tu4 --endian=big /proc/device-tree/chosen/bootloader/tryboot 2>/dev/null | tr -d ' ' || true)
+    if [ ! -e "${BOOT_COMMON_DIR}/slot-confirmed" ] && [ "${tryboot:-1}" != "0" ]; then
+        if busctl set-property org.freedesktop.systemd1 /org/freedesktop/systemd1 \
+            org.freedesktop.systemd1.Manager RuntimeWatchdogUSec t 15000000 2>/dev/null; then
+            mkdir -p /run/rasqberry && touch /run/rasqberry/probation-watchdog
+            echo "Trial boot of Slot $current: hardware watchdog armed (15 s) until the health check confirms it"
+        fi
+    fi
     exit 0
 fi
 

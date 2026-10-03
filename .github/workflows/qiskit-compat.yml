@@ -1,0 +1,241 @@
+name: Qiskit compatibility
+
+# The image installs the LATEST Qiskit at build time (RQB2-bin/rq_install_qiskit.sh:
+# "qiskit[all]" + RQB2-config/qiskit-requirements.txt), so every new Qiskit
+# release reaches the next image unchanged. This workflow checks everything in
+# the image that depends on Qiskit, off-Pi (x86, Python 3.11 like the image):
+#   install    - the image's Qiskit stack installs; pip resolves PyPI's latest
+#                Qiskit (no add-on caps it); pip check; versions; aarch64 wheels
+#   demos      - our Qiskit code headless, no hardware (tests/qiskit_compat):
+#                RasQ-LED, Quantum Fractals, the IBM token script, Quantum
+#                Lights Out and Quantum Raspberry Tie (pinned refs + our patches);
+#                deprecation warnings are reported, not failed on
+#   paradoxes  - the Quantum Paradoxes notebooks against recorded results (#181)
+#   checklist  - scheduled run only: opens one issue with the results and the
+#                manual follow-up checklist for the new release
+# When it runs:
+#   - on pushes that change our Qiskit code, its patches/pins or these tests;
+#   - when Qiskit gets a new minor or major release: a weekly check asks PyPI
+#     whether an x.y.0 came out in the last 7 days and only then runs the rest.
+# Identical copies live on development and main: scheduled workflows only run
+# from the default branch, so the main copy checks out development. Edit both.
+
+on:
+  push:
+    branches: ['development', 'beta', 'dev*']
+    paths:
+      - 'RQB2-bin/setup_quantum_paradoxes.py'
+      - 'RQB2-config/demo-manifests/rq_demo_quantum-paradoxes.json'
+      - 'tests/paradoxes/**'
+      - 'RQB2-bin/rq_install_qiskit.sh'
+      - 'RQB2-config/qiskit-requirements.txt'
+      - 'RQB2-bin/RasQ-LED.py'
+      - 'RQB2-bin/fractal_files/**'
+      - 'RQB2-bin/rq_set_qiskit_ibm_token.py'
+      - 'RQB2-config/demo-patches/quantum-lights-out.patch'
+      - 'RQB2-config/demo-patches/quantum-raspberry-tie.patch'
+      - 'RQB2-config/demo-manifests/rq_demo_quantum-lights-out.json'
+      - 'RQB2-config/demo-manifests/rq_demo_quantum-raspberry-tie.json'
+      - 'tests/qiskit_compat/**'
+      - '.github/workflows/qiskit-compat.yml'
+  schedule:
+    - cron: '17 4 * * 1'   # Mondays 04:17 UTC - the cheap release check only
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # scheduled runs come from main's copy, which holds no code: test development
+  CODE_REF: ${{ github.event_name == 'schedule' && 'development' || '' }}
+
+jobs:
+  qiskit-release:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      new: ${{ steps.check.outputs.new }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - id: check
+        shell: python
+        run: |
+          import json, os, urllib.request
+          from datetime import datetime, timedelta, timezone
+          data = json.load(urllib.request.urlopen("https://pypi.org/pypi/qiskit/json"))
+          major, minor = data["info"]["version"].split(".")[:2]
+          first = f"{major}.{minor}.0"
+          files = data["releases"].get(first, [])
+          new = bool(files) and datetime.now(timezone.utc) - datetime.fromisoformat(
+              files[0]["upload_time_iso_8601"].replace("Z", "+00:00")) < timedelta(days=7)
+          print(f"latest Qiskit {data['info']['version']}; {first} released in the last 7 days: {new}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"new={'true' if new else 'false'}\n")
+              out.write(f"version={major}.{minor}\n")
+
+  install:
+    needs: qiskit-release
+    # always-style condition: qiskit-release is SKIPPED on push/dispatch, which
+    # would otherwise skip this job too; !cancelled() still honours a cancel
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.qiskit-release.outputs.new == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      QISKIT_COMPAT_REPORT: ${{ github.workspace }}/report/install.md
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODE_REF }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'   # the image's Python
+      - name: Install the image's Qiskit stack (latest, minus Pi-only hardware packages)
+        run: |
+          mkdir -p report
+          echo "### install" >> report/install.md
+          python -m pip install --upgrade pip
+          python tests/qiskit_compat/compat_ci.py requirements "$RUNNER_TEMP/requirements.txt"
+          pip install "qiskit[all]" -r "$RUNNER_TEMP/requirements.txt"
+      - name: pip resolved the latest Qiskit
+        run: python tests/qiskit_compat/compat_ci.py check-latest
+      - name: pip check
+        if: ${{ !cancelled() }}
+        run: |
+          if out=$(pip check 2>&1); then
+            echo "$out"
+            printf '**pip check:** OK\n\n' >> report/install.md
+          else
+            echo "$out"
+            echo "::error::pip check reports dependency conflicts"
+            { echo '**pip check: conflicts**'; echo; echo '```'; echo "$out"; echo '```'; echo; } \
+              | tee -a report/install.md >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Versions
+        if: ${{ !cancelled() }}
+        run: python tests/qiskit_compat/compat_ci.py versions
+      - name: aarch64 wheels (cp311 manylinux)
+        if: ${{ !cancelled() }}
+        run: python tests/qiskit_compat/compat_ci.py wheels
+      - name: Keep the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: compat-1-install
+          path: report/
+
+  demos:
+    needs: qiskit-release
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.qiskit-release.outputs.new == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      QISKIT_COMPAT_REPORT: ${{ github.workspace }}/report/demos.md
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODE_REF }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install the image's Qiskit stack (latest, minus Pi-only hardware packages)
+        run: |
+          python -m pip install --upgrade pip
+          python tests/qiskit_compat/compat_ci.py requirements "$RUNNER_TEMP/requirements.txt"
+          pip install "qiskit[all]" -r "$RUNNER_TEMP/requirements.txt" pytest
+          pip list | grep -iE '^qiskit'
+      - name: Run our Qiskit code and demos headless
+        run: |
+          mkdir -p report
+          echo "### demos" >> report/demos.md
+          python -m pytest -v -rs -W default::DeprecationWarning \
+            -W default::PendingDeprecationWarning tests/qiskit_compat
+      - name: Deprecation summary
+        if: ${{ !cancelled() }}
+        run: cat report/demos.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: compat-2-demos
+          path: report/
+
+  paradoxes:
+    needs: qiskit-release
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || needs.qiskit-release.outputs.new == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODE_REF }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'   # the image's Python
+      - name: Install the Qiskit/Jupyter stack (latest, as the image does)
+        run: |
+          python -m pip install --upgrade pip
+          pip install qiskit qiskit-aer qiskit-ibm-runtime nbclient nbformat \
+                      ipykernel matplotlib pylatexenc pytest
+          pip list | grep -iE '^qiskit'
+      - name: Run the notebooks and compare
+        run: python -m pytest -v tests/paradoxes
+
+  checklist:
+    needs: [qiskit-release, install, demos, paradoxes]
+    if: ${{ !cancelled() && github.event_name == 'schedule' && needs.qiskit-release.outputs.new == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: "Qiskit ${{ needs.qiskit-release.outputs.version }} released: compatibility checklist"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      INSTALL: ${{ needs.install.result }}
+      DEMOS: ${{ needs.demos.result }}
+      PARADOXES: ${{ needs.paradoxes.result }}
+    steps:
+      - name: Collect reports
+        continue-on-error: true   # a job that failed early may have none
+        uses: actions/download-artifact@v8
+        with:
+          pattern: compat-*
+          path: reports
+          merge-multiple: true
+
+      - name: Open the checklist issue (once per release)
+        run: |
+          existing=$(gh issue list --state all --search "\"$TITLE\" in:title" --json number,title \
+                     -q "[.[] | select(.title == env.TITLE)][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already exists for this release - nothing to do"
+            exit 0
+          fi
+          mark() { [ "$1" = success ] && echo "passed" || echo "**$1**"; }
+          {
+            echo "Qiskit ${{ needs.qiskit-release.outputs.version }} is out. The image installs the latest Qiskit, so the next image build ships it."
+            echo
+            echo "## Automated checks ([run]($RUN_URL), development branch)"
+            echo
+            echo "- install (image stack resolves the new Qiskit, pip check, aarch64 wheels): $(mark "$INSTALL")"
+            echo "- demos (RasQ-LED, Fractals, IBM token script, Quantum Lights Out, Quantum Raspberry Tie): $(mark "$DEMOS")"
+            echo "- Quantum Paradoxes notebooks vs. recorded results: $(mark "$PARADOXES")"
+            echo
+            for part in install demos; do
+              if [ -f "reports/$part.md" ]; then cat "reports/$part.md"; echo; fi
+            done
+            echo "## Manual checklist"
+            echo
+            echo "- [ ] Rig test (tests/rig) on the next image build, on both Pis"
+            echo "- [ ] Fun-with-Quantum notebooks (JanLahmann/Fun-with-Quantum) under the new Qiskit"
+            echo "- [ ] IBM Quantum tutorials/courses: spot check a few in the image"
+            echo "- [ ] SAP catalog demos (external demo catalog in RQB2-config) still install and run"
+            echo "- [ ] Qiskit version menu options in RQB2-bin/rq_install_qiskit.sh (1.0/1.1 are dated): add/drop versions?"
+            echo "- [ ] Website (gh-pages): version table and \"Qiskit 2.x\" wording"
+            echo "- [ ] Deprecations listed above: fix our code/patches before the next major removes them"
+            echo
+            echo "Dev images get the new Qiskit from the next day's build (the wheel cache is keyed by date); beta/main always build fresh."
+          } > body.md
+          gh issue create --title "$TITLE" --label automated --assignee JanLahmann --body-file body.md

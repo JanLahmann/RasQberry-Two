@@ -33,7 +33,8 @@ def main():
 
     print(f"Logo: {logo_path}")
     print("Duration: 15 seconds")
-    print("Brightness: 60%")
+    # display_logo() fades up to the panel's LED_DEFAULT_BRIGHTNESS (R-007)
+    print("Brightness: LED_DEFAULT_BRIGHTNESS (RasQberry settings)")
     print("Effects: Fade-in and fade-out")
     print()
 

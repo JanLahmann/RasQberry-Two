@@ -39,17 +39,20 @@ This stage installs the RasQberry boot-time configuration system, which allows u
 
 ## Configurable Variables
 
-### LED Strip Configuration
-- `LED_COUNT` - Number of LEDs
+### LED panel layout
+- `LED_LAYOUT` - the one layout setting (a name from `led-layouts.json`:
+  `single-24x8`, `quad-4x12`, `triple-8x8`, `single-8x32`); it also sets the
+  LED count
+- `LED_LAYOUT_VERIFIED` - `true` skips the LED panel check of the setup
+  checklist, `skipped` means no panel
+- The retired `LED_MATRIX_LAYOUT=single|quad` becomes `LED_LAYOUT=single-24x8`
+  or `quad-4x12`; the other `LED_MATRIX_*` keys are ignored (Q22)
+
+### LED wiring and output
 - `LED_GPIO_PIN` - GPIO pin (default: 18)
 - `LED_PIXEL_ORDER` - RGB/GRB/RGBW/GRBW
 - `LED_DEFAULT_BRIGHTNESS` - 0.0-1.0
-
-### LED Matrix Layout
-- `LED_MATRIX_LAYOUT` - single/quad
-- `LED_MATRIX_WIDTH`, `LED_MATRIX_HEIGHT` - Dimensions
-- `LED_MATRIX_Y_FLIP` - Orientation flip
-- `LED_MATRIX_PANEL_WIDTH`, `LED_MATRIX_PANEL_HEIGHT` - Quad panel dimensions
+- `LED_PHYSICAL`, `LED_VIRTUAL`, `LED_WEB` - panel, on-screen view, browser view
 
 ### Advanced Settings
 - `LED_FREQ_HZ`, `LED_DMA`, `LED_CHANNEL` - Expert settings
@@ -60,7 +63,7 @@ This stage installs the RasQberry boot-time configuration system, which allows u
 
 1. Write RasQberry image to SD card
 2. **Before removing** SD card from computer:
-   - Mount boot partition (labeled "bootfs")
+   - Mount boot partition (labeled "bootfs"; BOOT-A on the A/B image)
    - Edit `rasqberry_boot.env`
    - Uncomment and modify desired LED settings
    - Save changes
@@ -81,8 +84,11 @@ The loader script validates all configuration values:
 - LED_GPIO_PIN must be 0-27
 - LED_PIXEL_ORDER must be RGB/GRB/RGBW/GRBW
 - LED_DEFAULT_BRIGHTNESS must be 0.0-1.0
-- LED_MATRIX_LAYOUT must be single/quad
+- LED_LAYOUT must be a layout name; LED_LAYOUT_VERIFIED true/false/skipped
 - Booleans must be true/false
+
+Values the boot file changed are also saved to `/data` on the A/B image
+(`rq_device_settings.sh save`), so the next slot gets them after an update.
 
 Invalid values are logged and skipped (system uses defaults).
 

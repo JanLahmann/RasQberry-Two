@@ -2,7 +2,7 @@
   "id": "quantum-raspberry-tie",
   "name": "Quantum Raspberry Tie",
   "category": "visualization",
-  "description": "Visualize quantum circuit execution on LED matrix with Sense HAT emulator",
+  "description": "Measured qubits on the LED panel, from a simulator or a real IBM quantum computer",
   "keywords": [
     "quantum",
     "visualization",
@@ -23,7 +23,13 @@
     "repo_url": "https://github.com/KPRoche/quantum-raspberry-tie.git",
     "ref": "08bc07b02d3e3a17d8bf0fdaefc0102984f8c8f6",
     "marker_file": "QuantumRaspberryTie.v8_0.py",
-    "patch_file": "quantum-raspberry-tie.patch"
+    "patch_file": "quantum-raspberry-tie.patch",
+    "download": {
+      "what": "Raspberry Tie program from GitHub",
+      "download_mb": 24,
+      "time": "1 minute"
+    },
+    "installed_flag": "QUANTUM_RASPBERRY_TIE_INSTALLED"
   },
   "needs_hw": {
     "leds": true,
@@ -50,24 +56,21 @@
       "id": "simulator",
       "name": "Aer Simulator",
       "args": [
-        "--backend",
-        "aer"
+        "-local"
       ]
     },
     {
       "id": "noise",
       "name": "Noise Model",
       "args": [
-        "--backend",
-        "noise"
+        "-nois"
       ]
     },
     {
       "id": "real",
       "name": "Real Backend",
       "args": [
-        "--backend",
-        "real"
+        "-b:least"
       ],
       "needs_hw": {
         "network": true

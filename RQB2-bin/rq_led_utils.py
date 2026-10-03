@@ -11,6 +11,32 @@ This module uses adafruit-circuitpython-neopixel which auto-detects hardware:
 - Pi 4: Uses PWM/DMA (rpi_ws281x backend)
 - Pi 5: Uses PIO (RP1 chip)
 Both approaches support 192+ LEDs without buffer limits or chunking.
+
+SUPPORTED LEARNER API (Jan, Q33a, 2026-10-02) - for your own programs and
+catalogue demos. These four keep their names, arguments and behaviour across
+releases:
+
+    get_pixels(brightness=None)        the LED strip (one shared object)
+    matrix_size(layout=None)           (width, height) of the configured panel
+    set_xy(pixels, x, y, color)        one LED by position, (0, 0) = top left;
+                                       positions off the panel are ignored
+    clear_all_leds()                   all LEDs off
+
+Call pixels.show() to display a frame. For the fastest loops, pass
+layout=get_layout() to set_xy/matrix_size (that use of get_layout() is
+supported too). Everything else here is internal and may change;
+map_xy_to_pixel(), get_led_config() and the chunked_* wrappers stay for
+existing demos but are not part of the learner API.
+
+Using it from your own program: the RasQberry venv puts /usr/bin (where this
+module ships) on its import path, so with the venv python a learner's script
+can simply `from rq_led_utils import get_pixels, set_xy, matrix_size,
+clear_all_leds`. Who may drive the panel (Q33b): on a Pi 5 the user (group
+gpio, /dev/pio0) needs no root. On a Pi 4 the PWM driver opens /dev/mem and
+needs root; the supported route is `rq_python my_program.py`, which starts
+rasqberry-led-renderer.service (service mode) for the run and runs the program
+as the user. `rq_python` works on both boards; never `sudo python3` (the
+system python has no LED libraries).
 """
 
 import os
@@ -40,10 +66,27 @@ _pixels_singleton = None
 _layouts_cache = None
 _layouts_cache_key = None
 
-# Back-compat aliases: legacy LED_MATRIX_LAYOUT values -> registry layout names
+# Cache for the parsed environment file, keyed by the file's stat signature, so
+# the file is parsed again only when it changes. map_xy_to_pixel(x, y) without
+# a layout resolves the configured layout through get_led_config() for every
+# pixel; parsing the file each time cost 3.2 s per 24x8 frame on a Pi 4 (R-157).
+_env_cache = None
+_env_cache_key = None
+
+# Back-compat aliases for layout NAMES passed by callers, e.g.
+# map_xy_to_pixel(x, y, layout='quad'): the arithmetic of the old mappers.
 _LEGACY_LAYOUT_ALIASES = {
     'single': 'single-24x8',
     'quad': 'quad-2x2-12x4',
+}
+
+# The retired LED_MATRIX_LAYOUT setting (Q22), for an env file that has no
+# LED_LAYOUT yet: what the person meant was the panel kit, and the four 4x12
+# panels as mounted in the model are quad-4x12 ('quad-2x2-12x4' shows them
+# upside down). rq_env_merge.py and the boot config loader use the same map.
+_RETIRED_MATRIX_LAYOUTS = {
+    'single': 'single-24x8',
+    'quad': 'quad-4x12',
 }
 
 # Fallback layout name when nothing else can be resolved
@@ -56,24 +99,36 @@ EMERGENCY_DEFAULTS = {
     'LED_GPIO_PIN': '18',  # GPIO18 for PWM (Pi4) and PIO (Pi5)
     'LED_PIXEL_ORDER': 'GRB',
     'LED_DEFAULT_BRIGHTNESS': '0.4',
-    'LED_MATRIX_LAYOUT': 'single',
-    'LED_MATRIX_WIDTH': '24',
-    'LED_MATRIX_HEIGHT': '8',
+    'LED_LAYOUT': _DEFAULT_LAYOUT_NAME,
     'N_QUBIT': '192',  # 4*4*12 = 192 qubits
 }
 
 
-def get_led_config():
+def _env_file_key(path):
+    """Stat signature of the env file: changes when the file is edited,
+    replaced (sed -i, rename) or has its permissions changed."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return (path, None)
+    return (path, st.st_ino, st.st_mtime_ns, st.st_ctime_ns, st.st_size)
+
+
+def _read_env_file():
     """
-    Load LED configuration from system-wide environment file.
+    Parse the system-wide environment file, cached until the file changes.
 
     Returns:
-        dict: Configuration dictionary with LED settings
-
-    Note:
-        If environment file is missing or unreadable, returns emergency defaults.
-        All values are trusted (no validation per Issue #6, #13 decisions).
+        dict: Raw KEY -> value mapping, or EMERGENCY_DEFAULTS if the file is
+            missing, unreadable or unparsable (reported once per file state).
+            Callers must not modify it.
     """
+    global _env_cache, _env_cache_key
+
+    key = _env_file_key(ENV_FILE)
+    if _env_cache is not None and key == _env_cache_key:
+        return _env_cache
+
     if dotenv_values is None:
         print("ERROR: python-dotenv not available, cannot read config")
         print("Using emergency defaults")
@@ -94,15 +149,36 @@ def get_led_config():
             print("Using emergency defaults")
             config = EMERGENCY_DEFAULTS
 
-    # --- Resolve the active layout name (LED_LAYOUT is authoritative) ---------
-    # New model: LED_LAYOUT names a registry entry directly. For back-compat the
-    # legacy LED_MATRIX_LAYOUT=single|quad values map onto the registry presets
-    # when LED_LAYOUT is unset.
+    _env_cache = config
+    _env_cache_key = key
+    return config
+
+
+def get_led_config():
+    """
+    Load LED configuration from system-wide environment file.
+
+    Returns:
+        dict: Configuration dictionary with LED settings
+
+    Note:
+        If environment file is missing or unreadable, returns emergency defaults.
+        All values are trusted (no validation per Issue #6, #13 decisions).
+        The file is parsed once and again only after it changes, so calling
+        this in a loop is cheap. LED_RENDER_MODE in os.environ is read on
+        every call.
+    """
+    config = _read_env_file()
+
+    # --- Resolve the active layout name (LED_LAYOUT is the only setting) -------
+    # LED_LAYOUT names a registry entry. Only a very old env file without it
+    # still has the retired LED_MATRIX_LAYOUT=single|quad; that maps onto the
+    # kit panels (quad = the four 4x12 panels as mounted in the model).
     if config.get('LED_LAYOUT'):
         layout_name = config.get('LED_LAYOUT')
     else:
         legacy = config.get('LED_MATRIX_LAYOUT', 'single')
-        layout_name = _LEGACY_LAYOUT_ALIASES.get(legacy, legacy)
+        layout_name = _RETIRED_MATRIX_LAYOUTS.get(legacy, _DEFAULT_LAYOUT_NAME)
 
     # LED count becomes derivable from the layout. When LED_LAYOUT is set we
     # trust the layout-derived count over the (possibly stale) LED_COUNT value.
@@ -111,6 +187,20 @@ def get_led_config():
         derived = _layout_count(layout_name)
         if derived is not None:
             led_count = derived
+
+    # ONE layout setting (Jan, Q22): the text, logo and IP-scroll code reads
+    # 'layout', 'matrix_width' and 'matrix_height'. They used to come from the
+    # retired LED_MATRIX_* keys, so on a quad-4x12 panel set up by the wizard
+    # (LED_LAYOUT=quad-4x12, LED_MATRIX_LAYOUT=single as shipped) every text,
+    # logo and the boot IP scroll came out scrambled (R-022, R-155). They now
+    # describe the LED_LAYOUT layout like everything else.
+    layout_def = _load_layouts().get(_resolve_layout_name(layout_name))
+    if layout_def:
+        matrix_width = int(layout_def['width'])
+        matrix_height = int(layout_def['height'])
+        y_flip = bool(layout_def.get('y_flip', False))
+    else:
+        matrix_width, matrix_height, y_flip = 24, 8, False
 
     # --- Output-target booleans (independent flags, #231) ---------------------
     # LED_PHYSICAL / LED_VIRTUAL / LED_WEB are the modern, independent flags.
@@ -132,13 +222,13 @@ def get_led_config():
         'led_count': led_count,
         'led_gpio_pin': int(config.get('LED_GPIO_PIN', 18)),
         'pixel_order': config.get('LED_PIXEL_ORDER', 'GRB'),
-        # New layout model
+        # The layout (LED_LAYOUT). 'layout', 'matrix_width', 'matrix_height'
+        # and 'y_flip' stay for existing callers and describe the same layout.
         'led_layout': layout_name,
-        # Legacy key kept for back-compat with callers that read config['layout']
-        'layout': config.get('LED_MATRIX_LAYOUT', 'single'),
-        'matrix_width': int(config.get('LED_MATRIX_WIDTH', 24)),
-        'matrix_height': int(config.get('LED_MATRIX_HEIGHT', 8)),
-        'y_flip': config.get('LED_MATRIX_Y_FLIP', 'false').lower() == 'true',
+        'layout': layout_name,
+        'matrix_width': matrix_width,
+        'matrix_height': matrix_height,
+        'y_flip': y_flip,
         'n_qubit': int(config.get('N_QUBIT', 192)),
         'led_default_brightness': float(config.get('LED_DEFAULT_BRIGHTNESS', 0.4)),
         # Output targets
@@ -451,6 +541,65 @@ def map_xy_to_pixel(x, y, layout=None):
     return None
 
 
+def matrix_size(layout=None):
+    """
+    Return the size of the LED matrix in logical coordinates.
+
+    Part of the supported learner API (see the module docstring).
+
+    Args:
+        layout (str or dict, optional): Layout name or parsed layout dict; the
+            configured layout if None.
+
+    Returns:
+        tuple: (width, height). x runs 0..width-1 from left to right, y runs
+            0..height-1 from top to bottom, whatever the wiring of the panels.
+
+    Example:
+        width, height = matrix_size()    # (24, 8) on the RasQberry panels
+    """
+    ldef = layout if isinstance(layout, dict) else get_layout(layout)
+    if ldef:
+        return ldef['width'], ldef['height']
+    config = get_led_config()
+    return config['matrix_width'], config['matrix_height']
+
+
+def set_xy(pixels, x, y, color, layout=None):
+    """
+    Set the LED at logical (x, y) to a colour, ignoring positions off the matrix.
+
+    Part of the supported learner API (see the module docstring).
+
+    The raw pixel index follows the wiring (pixels[0..7] is the first column on
+    a single 24x8 panel, the next column runs the other way), so programs should
+    address LEDs by (x, y). Unlike pixels[map_xy_to_pixel(x, y)], which raises
+    TypeError when (x, y) is outside the matrix (the index is None), this simply
+    returns False, so shapes can be drawn partly off the edge. Call
+    pixels.show() afterwards to display the frame.
+
+    Args:
+        pixels: Strip object from get_pixels() or create_neopixel_strip().
+        x (int): Column, 0 = left.
+        y (int): Row, 0 = top.
+        color (tuple): (R, G, B), 0-255 each.
+        layout (str or dict, optional): As for map_xy_to_pixel().
+
+    Returns:
+        bool: True if an LED was set, False if (x, y) is off the matrix.
+
+    Example:
+        pixels = get_pixels()
+        set_xy(pixels, 0, 0, (255, 0, 0))    # top-left LED red
+        pixels.show()
+    """
+    index = map_xy_to_pixel(x, y, layout)
+    if index is None:
+        return False
+    pixels[index] = color
+    return True
+
+
 # Virtual-GUI singleton bookkeeping. Every probe/demo process that enables a
 # virtual target calls _ensure_virtual_led_gui_running(); the wizard fires probes
 # back to back, so without serialisation each one could spawn its own window and
@@ -659,6 +808,23 @@ def reap_virtual_led_web():
     _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
 
 
+def _with_root_hint(error):
+    """
+    Add the way out to the Pi 4 driver's 'requires running with sudo' error.
+
+    A learner's next guess, `sudo python3 my.py`, runs the system python, which
+    has neither the LED libraries nor Qiskit (R-073). Other errors, and errors
+    of a process that already is root, are returned unchanged.
+    """
+    if 'sudo' not in str(error) or os.geteuid() == 0:
+        return error
+    script = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else 'my_program.py'
+    return RuntimeError(
+        f"{error}\nOn a Raspberry Pi 4 the LEDs need root. Run your program with:\n"
+        f"    rq_python {script}\n"
+        "(it uses the RasQberry Python and lets the LED renderer service drive the panel)")
+
+
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
     Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
@@ -692,8 +858,10 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         neopixel.NeoPixel, VirtualNeoPixel, or MirrorNeoPixel: Configured LED strip object
 
     Note:
-        Requires sudo/root for GPIO access (unless using virtual-only mode).
-        For Pi 5, requires firmware with /dev/pio0 support.
+        Who may open the physical strip in direct mode: on a Pi 4 only root
+        (the PWM driver maps /dev/mem); on a Pi 5 any member of the gpio group
+        (/dev/pio0, firmware with PIO support), so no root is needed there.
+        Service mode and virtual-only mode need no GPIO access at all.
     """
     config = get_led_config()
 
@@ -737,15 +905,18 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
-        real_pixels = neopixel.NeoPixel(
-            gpio_board_pin,
-            num_pixels,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=order
-        )
-        real_pixels.fill((0, 0, 0))
-        real_pixels.show()
+        try:
+            real_pixels = neopixel.NeoPixel(
+                gpio_board_pin,
+                num_pixels,
+                brightness=brightness,
+                auto_write=False,
+                pixel_order=order
+            )
+            real_pixels.fill((0, 0, 0))
+            real_pixels.show()
+        except RuntimeError as e:
+            raise _with_root_hint(e) from e
         return real_pixels
 
     # Service mode: never open GPIO in-process. The renderer service consumes
@@ -793,17 +964,20 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
 
     # Create NeoPixel object
     # Library auto-detects Pi4 (PWM) vs Pi5 (PIO)
-    pixels = neopixel.NeoPixel(
-        gpio_board_pin,
-        num_pixels,
-        brightness=brightness,
-        auto_write=False,
-        pixel_order=pixel_order
-    )
+    try:
+        pixels = neopixel.NeoPixel(
+            gpio_board_pin,
+            num_pixels,
+            brightness=brightness,
+            auto_write=False,
+            pixel_order=pixel_order
+        )
 
-    # Initialize all LEDs to black
-    pixels.fill((0, 0, 0))
-    pixels.show()
+        # Initialize all LEDs to black
+        pixels.fill((0, 0, 0))
+        pixels.show()
+    except RuntimeError as e:
+        raise _with_root_hint(e) from e
 
     return pixels
 
@@ -823,9 +997,11 @@ def get_pixels(brightness=None):
     Returns:
         neopixel.NeoPixel: Shared LED strip object
 
+    Part of the supported learner API (see the module docstring).
+
     Example:
         pixels = get_pixels()
-        pixels[0] = (255, 0, 0)
+        set_xy(pixels, 0, 0, (255, 0, 0))    # top-left LED red
         pixels.show()
     """
     global _pixels_singleton
@@ -853,8 +1029,14 @@ def clear_all_leds():
     """
     Turn off all LEDs using the singleton NeoPixel object.
 
+    Part of the supported learner API (see the module docstring).
     This function uses the shared NeoPixel instance to prevent GPIO conflicts.
     Safe to call from multiple modules (e.g., LED Painter's clear and atexit).
+
+    Returns:
+        bool: True when the LEDs were cleared, False when that failed (the
+            reason is printed, e.g. "GPIO busy" while another program holds
+            the panel). It never raises.
 
     Example:
         clear_all_leds()  # Turn off all LEDs
@@ -863,8 +1045,10 @@ def clear_all_leds():
         pixels = get_pixels()
         pixels.fill((0, 0, 0))
         pixels.show()
+        return True
     except Exception as e:
         print(f"Error clearing LEDs: {e}")
+        return False
 
 
 # ----------------------------------------------------------------------------
@@ -981,6 +1165,22 @@ def map_xy_to_pixel_quad(x, y):
         int: Pixel index (0-191), or None if out of bounds
     """
     return map_xy_to_pixel(x, y, layout='quad-2x2-12x4')
+
+
+def _text_canvas(config):
+    """
+    The configured layout (as a parsed dict, so the per-pixel mapping does not
+    look it up again) and its width and height, for the text functions.
+
+    Args:
+        config (dict): Result of get_led_config().
+
+    Returns:
+        tuple: (layout, width, height); layout is the parsed LED_LAYOUT
+            definition, or its name if the registry does not know it.
+    """
+    layout = get_layout(config['led_layout']) or config['led_layout']
+    return layout, config['matrix_width'], config['matrix_height']
 
 
 def create_text_bitmap(text):
@@ -1108,9 +1308,7 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1181,9 +1379,7 @@ def display_static_text(pixels, text, duration_seconds=5, color=(255, 255, 255),
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1249,9 +1445,7 @@ def display_flashing_text(pixels, text, flash_count=5, flash_speed=0.3, color=(2
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1363,9 +1557,7 @@ def display_scrolling_text_rainbow(pixels, text, duration_seconds=30, scroll_spe
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1441,9 +1633,7 @@ def display_static_text_rainbow(pixels, text, duration_seconds=5, center=True, c
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
@@ -1519,9 +1709,7 @@ def display_text_gradient(pixels, text, duration_seconds=5, color1=(255, 0, 0), 
 
     # Get configuration
     config = get_led_config()
-    width = config['matrix_width']
-    height = config['matrix_height']
-    layout = config['layout']
+    layout, width, height = _text_canvas(config)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)

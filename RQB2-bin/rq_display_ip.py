@@ -2,16 +2,23 @@
 """
 RasQberry IP Address Display on LED Matrix
 
-Displays the device's IP address(es) scrolling across the LED matrix.
-Designed for boot-time display to help identify device on networks.
+Displays the device's network name and IP address(es) scrolling across the
+LED matrix. Designed for boot-time display to help identify device on networks.
+The addresses shown are written to /run/rasqberry/ip-shown: the NetworkManager
+hook (90-rasqberry-ip-display) scrolls them again when they change (R-016).
 
 Usage:
     python3 rq_display_ip.py [--duration SECONDS] [--speed SPEED]
 """
 
+import os
+import socket
+import subprocess
 import sys
 import argparse
 from pathlib import Path
+
+SHOWN_FILE = os.environ.get("RQ_IP_SHOWN", "/run/rasqberry/ip-shown")
 
 # Add RQB2-bin to path for LED utilities
 sys.path.insert(0, str(Path(__file__).parent))
@@ -58,13 +65,52 @@ def get_ip_addresses():
             if netifaces.AF_INET in addrs:
                 for addr_info in addrs[netifaces.AF_INET]:
                     ip = addr_info.get('addr')
-                    if ip and not ip.startswith('127.'):
+                    if ip and not ip.startswith(('127.', '169.254.')):
                         # Format: "eth0: 192.168.1.42"
                         addresses.append(f"{iface}: {ip}")
         except (ValueError, KeyError):
             continue
 
     return addresses
+
+
+def get_network_name():
+    """
+    Return the name other computers reach this Pi by.
+
+    With several Pis called "rasqberry" on one network, avahi calls the later
+    ones rasqberry-2.local, -3 ... (R-063), so ask avahi; fall back to the
+    hostname.
+
+    Returns:
+        str: e.g. "rasqberry-2.local"
+    """
+    try:
+        out = subprocess.run(
+            ["busctl", "--system", "call", "org.freedesktop.Avahi", "/",
+             "org.freedesktop.Avahi.Server", "GetHostNameFqdn"],
+            capture_output=True, text=True, timeout=3).stdout.strip()
+        if out.startswith('s "') and out.endswith('"') and len(out) > 4:
+            return out[3:-1]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return socket.gethostname() + ".local"
+
+
+def record_shown(addresses):
+    """
+    Write the shown IPs (one per line, sorted) for the NetworkManager hook.
+
+    Args:
+        addresses (list): "iface: ip" strings
+    """
+    ips = sorted({a.split(": ", 1)[-1] for a in addresses})
+    try:
+        os.makedirs(os.path.dirname(SHOWN_FILE), exist_ok=True)
+        with open(SHOWN_FILE, "w") as fh:
+            fh.write("\n".join(ips))
+    except OSError:
+        pass  # not root (run by hand): the hook just finds nothing
 
 
 def main():
@@ -98,14 +144,15 @@ def main():
 
         # Get IP addresses
         addresses = get_ip_addresses()
+        record_shown(addresses)
 
         if not addresses:
             print("No IP addresses found - device may not be connected to network yet")
             # Display "NO IP" message
             text = "NO IP"
         else:
-            # Join all addresses with separator
-            text = "  ***  ".join(addresses)
+            # The name first, then each address
+            text = "  ***  ".join([get_network_name()] + addresses)
 
         print(f"Displaying: {text}")
 

@@ -6,6 +6,7 @@ set -euo pipefail
 # ============================================================================
 # Description: Update RasQberry scripts and configs from a GitHub branch
 # Usage: rq_update_from_branch.sh [--repo user/repo] [--branch branch_name]
+#        rq_update_from_branch.sh --restore    put back what the last update replaced
 #
 # This script updates:
 #   - Scripts in /usr/bin/ (from RQB2-bin/)
@@ -38,7 +39,9 @@ fi
 WORK_DIR="/var/tmp/rasqberry-branch-update"
 LOG_FILE="/var/log/rasqberry-branch-update.log"
 DEFAULT_REPO="JanLahmann/RasQberry-Two"
-DEFAULT_BRANCH="main"
+DEFAULT_BRANCH="beta"   # main holds the website only, no RQB2-bin
+BACKUP_POINTER="/var/tmp/rasqberry-last-backup"
+KEEP_BACKUPS=3
 
 # Paths to update
 TARGET_BIN="/usr/bin"
@@ -127,23 +130,52 @@ clone_branch() {
 }
 
 backup_current() {
-    # Create timestamped backup of current files
+    # Create timestamped backup of the files an update replaces: the
+    # RasQberry Two scripts in /usr/bin (rq_*) and /usr/config. --restore
+    # puts them back (R-115: the backup used to hold /usr/config only, and
+    # nothing could restore it).
     local timestamp
     timestamp=$(date '+%Y%m%d-%H%M%S')
     local backup_dir="/var/tmp/rasqberry-backup-${timestamp}"
 
     log_message "Creating backup in $backup_dir..."
-    mkdir -p "$backup_dir"
+    mkdir -p "$backup_dir/bin"
 
-    # Backup key files (not everything, just what we're updating)
     if [ -d "$TARGET_CONFIG" ]; then
         cp -a "$TARGET_CONFIG" "$backup_dir/config" 2>/dev/null || true
     fi
+    cp -a "$TARGET_BIN"/rq_* "$backup_dir/bin/" 2>/dev/null || true
 
-    # Store backup location for potential rollback
-    echo "$backup_dir" > /var/tmp/rasqberry-last-backup
+    # Store backup location for --restore
+    echo "$backup_dir" > "$BACKUP_POINTER"
+
+    # Keep only the newest few backups
+    local old
+    for old in $(ls -1d /var/tmp/rasqberry-backup-* 2>/dev/null | sort -r | tail -n +$((KEEP_BACKUPS + 1))); do
+        rm -rf "$old"
+    done
 
     log_message "Backup created"
+}
+
+restore_backup() {
+    # Put back the scripts and configuration saved by the last update.
+    # Files the update added (new scripts) stay; system files from
+    # RQB2-system/ are not part of the backup.
+    local backup_dir
+    backup_dir=$(cat "$BACKUP_POINTER" 2>/dev/null || true)
+    [ -n "$backup_dir" ] && [ -d "$backup_dir" ] \
+        || die "No saved scripts and configuration found (nothing to undo)"
+    log_message "Restoring from $backup_dir..."
+    if [ -d "$backup_dir/bin" ] && compgen -G "$backup_dir/bin/rq_*" >/dev/null; then
+        cp -a "$backup_dir"/bin/rq_* "$TARGET_BIN/" || die "Could not restore the scripts in $TARGET_BIN"
+    fi
+    if [ -d "$backup_dir/config" ]; then
+        cp -a "$backup_dir/config/." "$TARGET_CONFIG/" || die "Could not restore $TARGET_CONFIG"
+    fi
+    regenerate_menu_cache
+    log_message "Restored scripts and configuration from $backup_dir"
+    info "Restored the scripts and configuration saved on $(basename "$backup_dir" | sed 's/^rasqberry-backup-//')."
 }
 
 copy_bin_files() {
@@ -323,19 +355,24 @@ Options:
   --branch BRANCH     Branch name to pull from (default: $DEFAULT_BRANCH)
   --dry-run           Show what would be updated without making changes
   --no-backup         Skip creating backup of current files
+  --restore           Put back the scripts and configuration saved before
+                      the last update
   --from-dir DIR      Internal: continue on an existing clone (used when the
                       branch ships a newer updater and this one hands over)
   -h, --help          Show this help message
 
 Examples:
-  # Update from main branch (auto-detect repository)
-  sudo $0 --branch main
+  # Update from the beta branch (auto-detect repository)
+  sudo $0 --branch beta
 
   # Update from specific branch
   sudo $0 --branch dev-features05
 
   # Update from different repository
-  sudo $0 --repo JanLahmann/RasQberry-Two --branch main
+  sudo $0 --repo JanLahmann/RasQberry-Two --branch development
+
+  # Undo the last update
+  sudo $0 --restore
 
   # Dry run to see what would be updated
   sudo $0 --branch dev --dry-run
@@ -355,6 +392,7 @@ main() {
     local dry_run=false
     local skip_backup=false
     local from_dir=""
+    local restore=false
 
     # Parse arguments
     while [ $# -gt 0 ]; do
@@ -379,6 +417,10 @@ main() {
                 from_dir="$2"
                 shift 2
                 ;;
+            --restore)
+                restore=true
+                shift
+                ;;
             -h|--help)
                 show_usage
                 exit 0
@@ -395,6 +437,13 @@ main() {
 
     # Initialize log
     mkdir -p "$(dirname "$LOG_FILE")"
+
+    if [ "$restore" = true ]; then
+        log_message "=== RasQberry Branch Update: restore ==="
+        restore_backup
+        exit 0
+    fi
+
     log_message "=== RasQberry Branch Update Started ==="
 
     # Detect repository if not specified
@@ -426,6 +475,12 @@ main() {
     else
         if ! clone_branch "$repo" "$branch" "$WORK_DIR"; then
             die "Failed to clone repository. Check internet connection and branch name."
+        fi
+        # A branch without the scripts (main is the website only) would
+        # "succeed" while updating nothing (R-115)
+        if [ ! -d "$WORK_DIR/RQB2-bin" ]; then
+            rm -rf "$WORK_DIR"
+            die "Branch '$branch' of $repo has no RasQberry Two scripts (no RQB2-bin/). Use beta or development."
         fi
         # Hand over to the updater from the branch, so a fix to the update
         # logic itself (such as keeping device settings, #290) applies to

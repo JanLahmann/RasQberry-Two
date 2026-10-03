@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Description:
 #   Runs a local JupyterLab quantum environment in a Docker container using the
-#   QuBins signed community image (ghcr.io/qubins/images:latest-xl). The IBM
+#   QuBins signed community image (ghcr.io/qubins/images, pinned by digest). The IBM
 #   Quantum Learning course notebooks - the same Qiskit/documentation content
 #   the ibm-courses demo installs - are mounted read-only into the container so
 #   users can run the official courses fully locally.
@@ -21,6 +21,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Quantum Lab (QuBins) Demo ==="
@@ -30,10 +31,15 @@ echo
 load_rqb2_env
 verify_env_vars REPO USER_HOME BIN_DIR
 
-DOCKER_IMAGE="ghcr.io/qubins/images:latest-xl"
+# Pinned per release by digest (manifest); "Update demos" can move it
+DOCKER_IMAGE="$(rq_demo_image quantum-lab)"
 CONTAINER_NAME="quantum-lab"
-PORT="${QUANTUM_LAB_PORT:-$(find_available_port 8892)}"
-
+# One fixed port, so a relaunch does not move the lab to another address
+# (R-153): the old container is gone before the new one starts.
+PORT="${QUANTUM_LAB_PORT:-8892}"
+# Learners' own work survives a stop (R-067): this folder on the Pi is the
+# lab's "my-work" folder.
+WORK_DIR="$USER_HOME/$REPO/work/quantum-lab"
 # A fixed, known token that we bake into the container AND the URL we open.
 # An empty JUPYTER_TOKEN does NOT disable auth on this image: its start script
 # treats an unset/empty value as "generate a random token", so the browser
@@ -51,38 +57,7 @@ DOCS_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 # Prerequisites: Docker (mirrors qoffee-maker.sh)
 ################################################################################
 
-# Check if Docker is installed
-check_docker || die "Error: Docker is not installed (the image may be misbuilt)."
-
-# Check if user is in docker group
-USER_NAME=$(get_user_name)
-if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    die "Error: User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
-fi
-
-# Check if docker group is active in current session
-# This handles the case where user was added to docker group but hasn't logged
-# out/in. We use 'sg' to activate the group immediately without requiring logout.
-if ! groups | grep -q docker && [ "$(whoami)" != "root" ]; then
-    info "Docker group not active in current session"
-    info "Activating Docker group permissions..."
-    if [ -z "${DOCKER_GROUP_ACTIVATED:-}" ]; then
-        export DOCKER_GROUP_ACTIVATED=1
-        # Re-exec this script with docker group active
-        exec sg docker -c "$0 $*"
-    fi
-fi
-
-# Verify Docker actually works (after group activation)
-if ! docker ps &>/dev/null; then
-    echo
-    echo "ERROR: Cannot access Docker"
-    echo
-    echo "Docker is installed but you don't have permission to use it."
-    echo "Add yourself to the 'docker' group and log out/in, or run with sudo."
-    echo
-    die "Docker permission denied"
-fi
+rq_docker_access "$@"
 
 ################################################################################
 # Ensure the IBM Quantum Learning course notebooks are present
@@ -92,8 +67,11 @@ fi
 # the WELCOME notebook if it is not already there. install_demo_raspiconfig sets
 # RQ_AUTO_INSTALL=1 so no interactive prompts appear.
 ################################################################################
-if [ ! -d "$DOCS_DIR/.git" ]; then
+# The WELCOME notebook marks a finished install; a .git alone may be what an
+# interrupted download left (R-056)
+if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
     info "IBM Quantum Learning content not found."
+    rq_require_demo_consent ibm-courses
     info "Installing course notebooks (Qiskit/documentation)..."
     install_demo_raspiconfig do_ibm_courses_install \
         || die "Failed to install IBM Quantum Learning content"
@@ -106,26 +84,26 @@ fi
 # Docker container management
 ################################################################################
 
-# Stop/replace any existing quantum-lab container
-info "Checking for existing containers..."
-if docker ps -q --filter name=$CONTAINER_NAME 2>/dev/null | grep -q .; then
-    info "Stopping existing Quantum Lab container..."
-    docker stop $CONTAINER_NAME 2>/dev/null || true
+# Replace an earlier Quantum Lab container, and wait until it is gone
+rq_docker_stop "$CONTAINER_NAME" \
+    || die "The previous Quantum Lab container did not go away; try again in a minute."
+if port_in_use "$PORT"; then
+    PORT=$(find_available_port $((PORT + 1)))
+    warn "Port 8892 is taken; Quantum Lab uses $PORT this time."
 fi
-docker rm $CONTAINER_NAME 2>/dev/null || true
 
-# Pull the image only if it is not already present locally. The QuBins xl image
-# is ~1 GB, so warn the user once that the first run downloads it.
-if ! docker images -q "$DOCKER_IMAGE" 2>/dev/null | grep -q .; then
-    echo
-    info "Quantum Lab image not found locally."
-    info "Pulling $DOCKER_IMAGE ..."
-    info "This is a ~1 GB download and may take several minutes on first run."
-    if ! docker pull "$DOCKER_IMAGE"; then
-        echo
-        die "Failed to pull Docker image. Please check your internet connection"
-    fi
+# The image (pinned), downloaded after the consent dialog
+if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+    rq_require_demo_consent quantum-lab
+    rq_docker_pull "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    rq_docker_drop_old "$DOCKER_IMAGE"
 fi
+
+mkdir -p "$WORK_DIR"
+fix_root_ownership "$USER_HOME/$REPO/work" >/dev/null 2>&1 || true
+# jovyan in the container is uid 1000, like the first desktop user; a folder
+# of another owner is opened up so the lab can save into it
+[ "$(stat -c %u "$WORK_DIR" 2>/dev/null || echo 1000)" = "1000" ] || chmod 777 "$WORK_DIR" 2>/dev/null || true
 
 ################################################################################
 # Start container
@@ -140,24 +118,21 @@ fi
 # The QuBins image is based on quay.io/jupyter/base-notebook: default user is
 # "jovyan", home /home/jovyan, JupyterLab listens on port 8888 inside.
 #
-# The course notebooks are mounted READ-ONLY. Edits inside the container are
-# ephemeral (the container runs with --rm); learners who want to keep changes
-# should "Save As" / copy a notebook into their writable home in the container.
-# (The xl image ships nbgitpuller, so a persistent work dir could be added
-# later if desired; kept minimal here to match the qoffee-maker pattern, which
-# mounts no writable work dir.)
+# The course notebooks are mounted READ-ONLY. Learners save their work in
+# my-work/, which is WORK_DIR on the Pi and survives a stop (R-067); anything
+# else in the container is gone when it stops.
 ################################################################################
 echo
 info "Starting Quantum Lab container..."
 if ! docker run -d \
-    --name $CONTAINER_NAME \
-    --rm \
-    -p 127.0.0.1:${PORT}:8888 \
+    --name "$CONTAINER_NAME" \
+    --label "org.rasqberry.demo=quantum-lab" \
+    -p "127.0.0.1:${PORT}:8888" \
     -e JUPYTER_TOKEN="$LAB_TOKEN" \
     -v "$DOCS_DIR":/home/jovyan/ibm-quantum-learning:ro \
-    "$DOCKER_IMAGE"; then
-    echo
-    die "Failed to start Docker container. Check logs with: docker logs $CONTAINER_NAME"
+    -v "$WORK_DIR":/home/jovyan/my-work \
+    "$DOCKER_IMAGE" >/dev/null; then
+    rq_docker_fail "$CONTAINER_NAME" "The Quantum Lab container did not start."
 fi
 
 # Wait for JupyterLab to answer on the loopback port
@@ -170,21 +145,10 @@ WAIT_COUNT=0
 until curl -sf "http://127.0.0.1:${PORT}/lab" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
-    if [ -n "${JUPYTER_PID:-}" ] && ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
-        die "JupyterLab exited during startup - see the output above"
-    fi
-    # Bail out early if the container died
-    if ! docker ps --filter name=$CONTAINER_NAME --filter status=running | grep -q $CONTAINER_NAME; then
-        echo
-        echo "Error: Container stopped unexpectedly."
-        echo "Logs:"
-        docker logs $CONTAINER_NAME 2>&1 | tail -20 || true
-        die "Container failed to start"
-    fi
+    rq_docker_running "$CONTAINER_NAME" \
+        || rq_docker_fail "$CONTAINER_NAME" "Quantum Lab stopped while starting."
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
-        docker logs $CONTAINER_NAME 2>&1 | tail -20 || true
-        docker stop $CONTAINER_NAME 2>/dev/null || true
-        die "JupyterLab did not respond after ${MAX_WAIT} seconds"
+        rq_docker_fail "$CONTAINER_NAME" "JupyterLab did not answer within ${MAX_WAIT} seconds."
     fi
 done
 
@@ -198,48 +162,25 @@ echo "✓ Quantum Lab is running!"
 echo
 echo "  Access via browser: $LAB_URL"
 echo
-echo "  Course notebooks are mounted at: ibm-quantum-learning/ (read-only)"
+echo "  Course notebooks: ibm-quantum-learning/ (read-only)"
+echo "  Save your own work in my-work/ - it is kept on the Pi in:"
+echo "    $WORK_DIR"
+echo "  Anything saved elsewhere in the lab is lost when it stops."
 echo "  Content licensed under CC BY-SA 4.0 by IBM/Qiskit"
 echo
 
-# Open browser as the desktop user (never as root)
-if command -v chromium-browser &>/dev/null; then
-    info "Opening browser..."
-    run_as_user chromium-browser --password-store=basic "$LAB_URL" &
-elif command -v firefox &>/dev/null; then
-    info "Opening browser..."
-    run_as_user firefox "$LAB_URL" &
-elif command -v xdg-open &>/dev/null; then
-    info "Opening browser..."
-    run_as_user xdg-open "$LAB_URL" &
-else
-    info "No browser found. Please open manually: $LAB_URL"
-fi
+rq_show_url "$LAB_URL" "$PORT"
 
 ################################################################################
 # Interactive wait and cleanup (matches qoffee-maker.sh lifecycle)
 ################################################################################
-echo
-echo "============================================"
-echo "  Quantum Lab is running in the background"
-echo "============================================"
-echo
-echo "To stop the container, run:"
-echo "  docker stop $CONTAINER_NAME"
-echo
-
-# Only wait for input if we have a TTY (interactive session)
+echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
 if [ -t 0 ]; then
-    echo "Press Enter to stop the container now..."
-    read -r
-    echo
-    info "Stopping Quantum Lab container..."
-    docker stop $CONTAINER_NAME 2>/dev/null || true
-    info "Container stopped"
-    echo
+    echo "Press Enter to stop Quantum Lab (work outside my-work/ is lost)..."
+    read -r || exit 0
+    info "Stopping Quantum Lab..."
+    rq_docker_stop "$CONTAINER_NAME" || true
+    info "Quantum Lab stopped."
 else
-    # No TTY - launched from desktop icon, keep container running
-    info "Container will keep running in the background"
-    info "Use 'docker stop $CONTAINER_NAME' to stop it when done"
-    echo
+    info "Quantum Lab keeps running in the background."
 fi

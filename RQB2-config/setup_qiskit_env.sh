@@ -29,29 +29,24 @@ if [ -d "$HOME/$REPO/venv/$STD_VENV" ]; then
   # Virtual environment exists, activate it
   source $HOME/$REPO/venv/$STD_VENV/bin/activate
 
-  # Verify Qiskit is installed
-  if ! pip show qiskit > /dev/null 2>&1; then
+  # Verify Qiskit is installed. Every terminal and SSH login runs this: a file
+  # test takes milliseconds, `pip show` seconds on a Pi 4 (R-091), so pip only
+  # decides when the file test misses - before the venv is rebuilt.
+  if ! compgen -G "$HOME/$REPO/venv/$STD_VENV/lib/python3*/site-packages/qiskit-*.dist-info" > /dev/null \
+      && ! pip show qiskit > /dev/null 2>&1; then
     # Qiskit missing - recreate venv from template
     echo "Qiskit not found in venv, recreating from template..."
     deactivate
 
-    # Only delete venv subdirectory, NOT the entire $REPO (demos might be there!)
-    rm -fR $HOME/$REPO/venv
-
-    # Recreate venv from system template
-    mkdir -p $HOME/$REPO/venv
-    python3 -m venv $HOME/$REPO/venv/$STD_VENV
-    cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-
-    source $HOME/$REPO/venv/$STD_VENV/bin/activate
+    # A full copy of the template (bin/ with jupyter included); the broken venv
+    # is kept as $STD_VENV.previous, not deleted (R-128).
+    /usr/bin/rq_venv_repair.sh --reset --yes
+    [ -f $HOME/$REPO/venv/$STD_VENV/bin/activate ] && source $HOME/$REPO/venv/$STD_VENV/bin/activate
   fi
 else
   # Virtual environment doesn't exist - create new one from template
   echo "Virtual Environment doesn't exist. Creating new one from template..."
 
-  mkdir -p $HOME/$REPO/venv
-  python3 -m venv $HOME/$REPO/venv/$STD_VENV
-  cp -r /usr/venv/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/* $HOME/$REPO/venv/$STD_VENV/lib/python3.11/site-packages/
-
-  source $HOME/$REPO/venv/$STD_VENV/bin/activate
+  /usr/bin/rq_venv_repair.sh --reset --yes
+  [ -f $HOME/$REPO/venv/$STD_VENV/bin/activate ] && source $HOME/$REPO/venv/$STD_VENV/bin/activate
 fi

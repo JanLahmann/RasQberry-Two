@@ -68,9 +68,10 @@ def main():
         print(f"✗ Error creating NeoPixel object: {e}")
         print()
         print("Common issues:")
-        print("  - Run with sudo: sudo python3 rq_test_leds.py")
-        print("  - Check wiring to GPIO{GPIO_PIN}")
-        print("  - Verify power supply is adequate for {NUM_PIXELS} LEDs")
+        print("  - Start it from the RasQberry menu (LEDs > Quick LED Test) or with: rq_led_test.sh")
+        print("  - Close any other LED demo first (only one program can drive the LEDs)")
+        print(f"  - Check wiring to GPIO{GPIO_PIN}")
+        print(f"  - Verify power supply is adequate for {NUM_PIXELS} LEDs")
         return 1
 
     print("Running 6 visual tests - watch the LEDs!")

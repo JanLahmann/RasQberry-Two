@@ -57,7 +57,12 @@ export QT_API="${QT_API:-pyqt5}"
 # Tracking variables for cleanup
 JUPYTER_PID=""
 CONTAINER_NAME=""
+DOCKER_STOP_ON_EXIT=0
 HTTP_SERVER_PID=""
+# The demo's name, for messages (set in main)
+DEMO_TITLE="the demo"
+# Checkout of a first install still in progress (removed if it does not finish)
+INSTALLING_DIR=""
 # Helper processes a demo starts that outlive it (manifest
 # .entrypoint.stop_on_exit, e.g. Raspberry Tie's SenseHAT emulator window, #104)
 STOP_ON_EXIT=()
@@ -78,15 +83,18 @@ check_jq() {
 # host ports.
 
 # Launch browser with URL
+#
+# The browser's own console chatter ("Opening in existing browser session.")
+# went to the terminal and was drawn over the raspi-config menu (R-137).
 launch_browser() {
     local url="$1"
 
     if command -v chromium-browser &>/dev/null; then
         info "Opening browser..."
-        run_as_user chromium-browser --password-store=basic "$url" &
+        run_as_user chromium-browser --password-store=basic "$url" >/dev/null 2>&1 &
     elif command -v firefox &>/dev/null; then
         info "Opening browser..."
-        run_as_user firefox "$url" &
+        run_as_user firefox "$url" >/dev/null 2>&1 &
     else
         info "No browser found. Please open manually: $url"
     fi
@@ -148,13 +156,17 @@ demo_field() {
 }
 
 # Script arguments, one per line. Variants carry args at their top level
-# (.variants[].args), the main manifest under .entrypoint.args.
+# (.variants[].args), the main manifest under .entrypoint.args. A variant
+# with "args": [] has none (it does not inherit the main manifest's).
 get_demo_args() {
     if [ -n "${VARIANT:-}" ]; then
         local vargs
         vargs=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | (.args // [])[]" "$MANIFEST_FILE" 2>/dev/null)
         if [ -n "$vargs" ]; then
             printf '%s\n' "$vargs"
+            return 0
+        fi
+        if jq -e ".variants[] | select(.id == \"$VARIANT\") | has(\"args\")" "$MANIFEST_FILE" >/dev/null 2>&1; then
             return 0
         fi
     fi
@@ -176,11 +188,13 @@ check_requirements() {
     case "$display_req" in
         required)
             if ! check_display; then
-                die "This demo requires a display (DISPLAY not set)"
+                die "This demo needs a screen: start it on the Pi's desktop or over VNC (no display, DISPLAY is not set)"
             fi
             ;;
         optional)
-            check_display || warn "No display detected. Some features may not work."
+            # Server demos start headless over SSH and print their address
+            # (Jan, Q19)
+            check_display || info "No screen in this session: the demo prints its address instead of opening a browser."
             ;;
         none)
             # No display requirement
@@ -200,9 +214,21 @@ check_requirements() {
     fi
 }
 
+# The Docker image a docker demo runs, when it names one: the release pin, or
+# the newer version chosen under "Update demos"
+demo_docker_image() {
+    [ "$(get_field '.entrypoint.type' '')" = "docker" ] || return 0
+    rq_demo_image "$DEMO_ID" "$MANIFEST_FILE"
+}
+
+# Is Docker usable here? (If not, the demo's launcher explains why.)
+docker_usable() {
+    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
+}
+
 # Check if demo is installed
 check_installed() {
-    local marker_file working_dir preinstalled installed_flag
+    local marker_file working_dir preinstalled installed_flag image
 
     marker_file=$(get_field '.install.marker_file' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
@@ -214,12 +240,25 @@ check_installed() {
         return 0
     fi
 
-    # Check marker file if specified
+    # A Docker demo is there when its image is. Its flag (if any) says nothing
+    # once the image was removed to free space, and doQumentation and the
+    # Quantum Lab have no flag at all: they pulled ~1 GB on first start
+    # without asking (R-030).
+    image=$(demo_docker_image)
+    if [ -n "$image" ] && docker_usable; then
+        docker image inspect "$image" >/dev/null 2>&1 || return 1
+        [ -z "$marker_file" ] && return 0
+    fi
+
+    # Check marker file if specified. When the checkout is there, the demo is
+    # installed even if its flag says otherwise: Lights Out and Raspberry Tie
+    # had no flag before (R-087), and an older engine did not set it.
     if [ -n "$marker_file" ] && [ -n "$working_dir" ]; then
         local check_path="$USER_HOME/$REPO/demos/$working_dir/$marker_file"
         if [ ! -f "$check_path" ]; then
             return 1
         fi
+        return 0
     fi
 
     # Check the recorded flag if the manifest names one.
@@ -248,7 +287,8 @@ install_demo() {
     local demo_dir
 
     repo_url=$(get_field '.install.repo_url' '')
-    ref=$(get_field '.install.ref' '')
+    # the release pin, or the newer commit chosen under "Update demos"
+    ref=$(rq_demo_ref "$DEMO_ID" "$MANIFEST_FILE")
     working_dir=$(get_field '.entrypoint.working_dir' '')
     patch_file=$(get_field '.install.patch_file' '')
     pip_requirements=$(get_bool '.install.pip_requirements' 'false')
@@ -269,6 +309,12 @@ install_demo() {
     mkdir -p "$USER_HOME/$REPO/demos"
     fix_root_ownership "$USER_HOME/$REPO/demos"
 
+    # Until the install has finished, the cleanup trap removes the checkout:
+    # a failed patch or post-install, or Ctrl+C, used to leave a tree whose
+    # marker file made the demo look installed - and it then ran unpatched or
+    # half set up (R-057).
+    INSTALLING_DIR="$demo_dir"
+
     # Acquire the sources.
     #
     # A manifest that pins install.ref gets exactly that upstream commit, via the
@@ -283,12 +329,17 @@ install_demo() {
     if [ -n "$ref" ]; then
         info "Fetching pinned commit ${ref} ..."
         # fetch_pinned_repo git-inits in place, so hand it a clean destination
-        # (a previous partial/failed checkout may be lying around).
-        [ -d "$demo_dir" ] && rm -rf "$demo_dir"
+        # (a previous partial/failed checkout may be lying around - root-owned
+        # if the menu made it, which a plain rm as the user could not remove:
+        # 25 "Permission denied" lines and a silent exit, R-057).
+        rq_remove_tree "$demo_dir" \
+            || die "An earlier, incomplete download of $DEMO_ID is in the way and cannot be removed: $demo_dir"
         fetch_pinned_repo "$repo_url" "$ref" "$demo_dir" \
             || die "Failed to fetch pinned commit $ref for demo '$DEMO_ID'"
     else
         # clone_demo cleans up partial clones and fixes ownership
+        rq_remove_tree "$demo_dir" \
+            || die "An earlier, incomplete download of $DEMO_ID is in the way and cannot be removed: $demo_dir"
         clone_demo "$repo_url" "$demo_dir"
     fi
 
@@ -349,8 +400,10 @@ install_demo() {
     # demo would look permanently "not installed" without this.
     #
     # Contract: install.post_install names a RasQberry script (resolved next to
-    # this launcher, else /usr/bin) run as `<script> --path <demo_dir>` with the
-    # venv python, as the user.
+    # this launcher, else /usr/bin) run as `<script> --path <demo_dir>`, as the
+    # user: a .py script with the venv python, any other with bash (LED-Painter's
+    # launcher converts its checkout this way, so its first start needs no second
+    # download and "Download all demos" leaves it ready offline, R-138).
     if [ -n "$post_install" ]; then
         local post_script="" venv_path
         if [ -f "$SCRIPT_DIR/$post_install" ]; then
@@ -361,12 +414,20 @@ install_demo() {
             die "install.post_install script not found: $post_install (demo '$DEMO_ID')"
         fi
         info "Running post-install: $post_install"
-        if venv_path=$(find_venv "$STD_VENV"); then
-            run_as_user "$venv_path/bin/python3" "$post_script" --path "$demo_dir" \
-                || die "Post-install step failed for demo '$DEMO_ID': $post_install"
-        else
-            die "Virtual environment not found - cannot run post-install for '$DEMO_ID'"
-        fi
+        case "$post_install" in
+            *.py)
+                if venv_path=$(find_venv "$STD_VENV"); then
+                    run_as_user "$venv_path/bin/python3" "$post_script" --path "$demo_dir" \
+                        || die "Post-install step failed for demo '$DEMO_ID': $post_install"
+                else
+                    die "Virtual environment not found - cannot run post-install for '$DEMO_ID'"
+                fi
+                ;;
+            *)
+                run_as_user bash "$post_script" --path "$demo_dir" \
+                    || die "Post-install step failed for demo '$DEMO_ID': $post_install"
+                ;;
+        esac
     fi
 
     # Record the demo as installed in the environment file. The raspi-config menu
@@ -377,39 +438,86 @@ install_demo() {
             || warn "Could not set $installed_flag in the environment file"
     fi
 
+    INSTALLING_DIR=""
     info "Demo installed successfully"
 }
 
-# Ensure demo is installed, auto-install if missing
+# The installed flag follows the checkout: set it when the demo is there but
+# the flag is not (a demo installed before it had one, R-087). Quiet, and a
+# write that fails changes nothing.
+sync_installed_flag() {
+    local installed_flag flag_value
+    installed_flag=$(get_field '.install.installed_flag' '')
+    [ -n "$installed_flag" ] || return 0
+    eval "flag_value=\${${installed_flag}:-false}"
+    [ "$flag_value" = "true" ] && return 0
+    update_env_var "$installed_flag" "true" >/dev/null 2>&1 || true
+}
+
+# Is the demo's checkout there (its marker file, else its directory)?
+checkout_present() {
+    local marker_file working_dir
+    marker_file=$(get_field '.install.marker_file' '')
+    working_dir=$(get_field '.entrypoint.working_dir' '')
+    [ -n "$working_dir" ] || return 1
+    if [ -n "$marker_file" ]; then
+        [ -f "$USER_HOME/$REPO/demos/$working_dir/$marker_file" ]
+    else
+        [ -d "$USER_HOME/$REPO/demos/$working_dir" ]
+    fi
+}
+
+# Download the demo's Docker image (a docker demo with nothing else to install)
+install_docker_image() {
+    local image="$1"
+    docker_usable || die "Docker is not available, so $DEMO_ID cannot be downloaded (the image may be misbuilt)."
+    info "Downloading the Docker image $image. This takes several minutes..."
+    if ! docker pull "$image"; then
+        die "Could not download the Docker image $image. Check the internet connection and the free space, then try again."
+    fi
+}
+
+# Ensure demo is installed; on its first start, ask (one dialog with size,
+# time and free space, Jan's Q27) and install it.
 ensure_installed() {
     if check_installed; then
+        sync_installed_flag
         return 0
     fi
+
+    rq_require_demo_consent "$DEMO_ID" "$MANIFEST_FILE"
 
     # A demo whose setup cannot be expressed as "clone a repo" names its own
     # installer instead. The IBM learning pair is the live case: one shared
     # sparse checkout of Qiskit/documentation feeding two demos, with generated
-    # marker notebooks and a licence dialog. Delegating keeps that special case
-    # in one place while this engine still owns WHEN installs happen, so every
-    # entry point (menu, desktop icon, demo loop) goes through here.
-    local installer repo_url
+    # marker notebooks. Delegating keeps that special case in one place while
+    # this engine still owns WHEN installs happen, so every entry point (menu,
+    # desktop icon, demo loop) goes through here.
+    local installer repo_url image
     installer=$(get_field '.install.installer' '')
     if [ -n "$installer" ]; then
-        info "Demo not installed. Auto-installing via $installer ..."
+        info "Installing via $installer ..."
         install_demo_raspiconfig "$installer" \
             || die "Installation failed for demo '$DEMO_ID' ($installer)"
         return 0
     fi
 
-    # Check if we can auto-install
     repo_url=$(get_field '.install.repo_url' '')
+    image=$(demo_docker_image)
 
-    if [ -z "$repo_url" ]; then
+    if [ -z "$repo_url" ] && [ -z "$image" ]; then
         die "Demo not installed and no install.repo_url specified. Please install via raspi-config or the RasQberry menu."
     fi
 
-    info "Demo not installed. Auto-installing..."
-    install_demo
+    # (a catalogue Docker demo keeps its checkout when only the image is gone)
+    if [ -n "$repo_url" ] && ! checkout_present; then
+        info "Installing..."
+        install_demo
+    fi
+    if [ -n "$image" ] && docker_usable && ! docker image inspect "$image" >/dev/null 2>&1; then
+        install_docker_image "$image"
+    fi
+    return 0
 }
 
 # ============================================================================
@@ -509,7 +617,7 @@ run_jupyter() {
 
     # Interactive wait if TTY available
     if [ -t 0 ]; then
-        echo "Press Enter to stop the Jupyter server..."
+        echo "Press Enter or close this window to stop $DEMO_TITLE."
         read -r
         info "Stopping Jupyter server..."
     else
@@ -532,7 +640,7 @@ run_docker() {
         return 0
     fi
 
-    docker_image=$(get_field '.entrypoint.docker_image' '')
+    docker_image=$(demo_docker_image)
     docker_port=$(get_field '.entrypoint.docker_port' '8080')
     container_name=$(get_field '.id' 'rasqberry-demo')
 
@@ -597,6 +705,7 @@ run_docker() {
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
         --rm \
+        --label "org.rasqberry.demo=$DEMO_ID" \
         -p "${host_port}:${docker_port}" \
         "$docker_image"; then
         die "Failed to start Docker container"
@@ -625,15 +734,18 @@ run_docker() {
     echo "  Demo is running in Docker"
     echo "============================================"
     echo
-    echo "To stop: docker stop $CONTAINER_NAME"
-    echo
 
-    # Interactive wait if TTY available
+    # Interactive wait if TTY available. Closing the window stops it too
+    # (cleanup), so the rule is the same as for every other demo (R-099).
     if [ -t 0 ]; then
-        echo "Press Enter to stop the container..."
+        DOCKER_STOP_ON_EXIT=1
+        echo "Press Enter or close this window to stop $DEMO_TITLE."
         read -r
         info "Stopping container..."
         docker stop "$CONTAINER_NAME" 2>/dev/null || true
+        DOCKER_STOP_ON_EXIT=0
+    else
+        echo "To stop it: docker stop $CONTAINER_NAME"
     fi
 }
 
@@ -694,12 +806,21 @@ run_web_static() {
     fi
     [ -d "$abs_serve" ] || die "serve_dir not found: $abs_serve"
 
+    url="http://localhost:${port}"
+
+    # Started before (an icon without a window keeps its server): open it
+    # again instead of failing on the port, which a click without a terminal
+    # did invisibly (R-106).
+    if pgrep -f -- "http.server $port --directory $abs_serve" >/dev/null 2>&1; then
+        info "$DEMO_TITLE is already running at $url"
+        launch_browser "$url"
+        return 0
+    fi
+
     # Refuse rather than kill the current holder of the port
     if port_in_use "$port"; then
         die "Port $port is already in use - refusing to start the static web server"
     fi
-
-    url="http://localhost:${port}"
 
     info "Starting static web server on port $port ..."
     run_as_user python3 -m http.server "$port" --directory "$abs_serve" >/dev/null 2>&1 &
@@ -726,7 +847,7 @@ run_web_static() {
     # Interactive wait if TTY available; otherwise wait on the server.
     # Either way, the cleanup trap stops the http.server on exit.
     if [ -t 0 ]; then
-        echo "Press Enter to stop the server..."
+        echo "Press Enter or close this window to stop $DEMO_TITLE."
         read -r
         info "Stopping static web server..."
     else
@@ -746,7 +867,7 @@ run_python() {
     # Terminal demos run until stopped; say how (#104). LED demos re-run this
     # launcher as root, so only that pass prints it.
     if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        echo "Press Ctrl+C in this window to stop the demo."
+        echo "Press Ctrl+C or close this window to stop $DEMO_TITLE."
         echo
     fi
 
@@ -803,11 +924,20 @@ run_python() {
             exec sudo -E DISPLAY="${DISPLAY:-:0}" "$0" "$DEMO_ID" "${VARIANT:-}"
         fi
 
+        # Another program on the LED panel? On a Pi 4 both would draw at
+        # once without an error (R-162): name it and offer to stop it.
+        led_panel_ready || exit 0
+        # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
+        LED_DEMO_RAN=1
         info "Running with LED support (as root)..."
+        prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
         # writes __pycache__ leaves root-owned files behind, and the user's
         # next pip install into the venv then fails with EACCES (#285).
-        PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
+        # HOME: the desktop user's, from the menu (where sudo set /root) as from
+        # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
+        # user's own in ~/.qiskit on every path (Q26).
+        HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
@@ -816,6 +946,55 @@ run_python() {
         run_as_user env PYTHONPATH="$demo_pythonpath" \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
+}
+
+# ============================================================================
+# ROOT RUNS AND THE USER'S HOME
+# ============================================================================
+# LED demos run as root (GPIO), but with the desktop user's HOME, so they use
+# the user's IBM Quantum account in ~/.qiskit (Q26). Whatever root creates
+# there is the user's afterwards: qiskit-ibm-runtime creates
+# ~/.qiskit/qiskit-ibm.json on any account lookup, and one Raspberry Tie run on
+# a real backend left it root-owned - the learner's own
+# QiskitRuntimeService.save_account() then failed with Errno 13 (R-147).
+
+ROOT_RUN_HOME=""
+ROOT_RUN_MARK=""
+
+# Set ROOT_RUN_HOME to the desktop user's home when this is a root run for a
+# desktop user, and create the IBM account file as that user beforehand.
+prepare_user_home_for_root_run() {
+    local user_name
+    [ "$(id -u)" = "0" ] || return 0
+    user_name=$(get_user_name)
+    [ "$user_name" != "root" ] || return 0
+    [ -n "${USER_HOME:-}" ] && [ "$USER_HOME" != "/root" ] && [ -d "$USER_HOME" ] || return 0
+    ROOT_RUN_HOME="$USER_HOME"
+    # what root creates in the home from now on is handed back afterwards
+    ROOT_RUN_MARK=$(mktemp) || ROOT_RUN_MARK=""
+    if [ "$(get_field '.needs_ibm_token' 'none')" != "none" ]; then
+        sudo -u "$user_name" -H sh -c \
+            'mkdir -p "$1/.qiskit" && { [ -e "$1/.qiskit/qiskit-ibm.json" ] || printf "{}" > "$1/.qiskit/qiskit-ibm.json"; }' \
+            _ "$ROOT_RUN_HOME" 2>/dev/null || true
+    fi
+}
+
+# Hand back to the user what the root run created in the home (new top-level
+# entries such as ~/.dbus from the SenseHAT emulator), and anything root-owned
+# in the places Python, Qiskit, matplotlib and the emulator write to.
+restore_user_home_after_root_run() {
+    [ -n "$ROOT_RUN_HOME" ] || return 0
+    local user_name d
+    user_name=$(get_user_name)
+    if [ -n "$ROOT_RUN_MARK" ] && [ -e "$ROOT_RUN_MARK" ]; then
+        find "$ROOT_RUN_HOME" -mindepth 1 -maxdepth 1 -user root -newer "$ROOT_RUN_MARK" \
+            -exec chown -hR "$user_name:" {} + 2>/dev/null || true
+        rm -f "$ROOT_RUN_MARK"
+    fi
+    for d in .qiskit .cache .config .matplotlib .sensehat .dbus; do
+        [ -e "$ROOT_RUN_HOME/$d" ] || continue
+        find "$ROOT_RUN_HOME/$d" -maxdepth 3 -user root -exec chown -h "$user_name:" {} + 2>/dev/null || true
+    done
 }
 
 # Delegate to existing launcher script
@@ -878,15 +1057,33 @@ cleanup() {
     # Helper windows/processes the demo started (only those that were not
     # already running when it launched)
     local pat
-    for pat in "${STOP_ON_EXIT[@]}"; do
+    for pat in ${STOP_ON_EXIT[@]+"${STOP_ON_EXIT[@]}"}; do
         if pgrep -f -- "$pat" >/dev/null 2>&1; then
             info "Closing $pat..."
             pkill -f -- "$pat" 2>/dev/null || sudo -n pkill -f -- "$pat" 2>/dev/null || true
         fi
     done
 
-    # Note: Docker containers are not stopped here - they use --rm and stop on their own
-    # or user explicitly stops them
+    restore_user_home_after_root_run
+
+    if [ -n "$INSTALLING_DIR" ]; then
+        info "Removing the unfinished download: $INSTALLING_DIR"
+        rq_remove_tree "$INSTALLING_DIR" || warn "Could not remove $INSTALLING_DIR"
+        INSTALLING_DIR=""
+    fi
+
+    # A container this run waited on is stopped when its window closes; one
+    # started without a terminal keeps running (stop it with docker stop).
+    if [ "$DOCKER_STOP_ON_EXIT" = "1" ] && [ -n "$CONTAINER_NAME" ]; then
+        docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    fi
+
+    # An LED demo leaves its last frame on the panel when it is stopped with
+    # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
+    if [ -n "${LED_DEMO_RAN:-}" ]; then
+        LED_DEMO_RAN=""
+        led_clear_quietly
+    fi
 }
 
 # ============================================================================
@@ -908,6 +1105,9 @@ Options:
                    Lets callers that only want the demo on disk (the raspi-config
                    menu, batch "download all demos") share this one install path
                    instead of keeping their own.
+
+A first install asks first (size, time, free space). RQ_AUTO_INSTALL=1 skips
+the question (the caller asked already); the free-space check still runs.
   --is-installed   Exit 0 if the demo is installed, 1 if not. Prints nothing.
                    Lets callers decide whether to prompt before a download
                    without re-implementing this engine's install check.
@@ -924,8 +1124,28 @@ Available demos can be found in: /usr/config/demo-manifests/
 EOF
 }
 
+# Re-run this engine as the desktop user when it runs as root for a demo that
+# does not need the LED panel. Keeps the display (only if there is one, so the
+# "needs a screen" check still sees an SSH login) and the menu's error file.
+drop_to_desktop_user() {
+    local user_name
+    [ "$(id -u)" = "0" ] || return 0
+    [ "$(demo_field '.needs_hw.leds' 'false')" != "true" ] || return 0
+    user_name=$(get_user_name)
+    [ "$user_name" != "root" ] || return 0
+    local -a keep=()
+    local v
+    for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
+             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE; do
+        [ -n "${!v:-}" ] && keep+=("$v=${!v}")
+    done
+    info "Starting as $user_name (only LED demos run as root)..."
+    exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
+}
+
 main() {
     check_jq
+    local -a orig_args=("$@")
 
     # Parse arguments
     if [ $# -lt 1 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
@@ -977,19 +1197,31 @@ main() {
         exit 1
     fi
 
+    # Demos that do not drive the LED panel run as the desktop user (Q26).
+    #
+    # From the RasQberry menu this engine runs as root (sudo raspi-config).
+    # Jupyter refuses to start as root, so all four notebook demos failed there
+    # while their desktop icons, which run as the user, worked (R-025); and
+    # whatever a root run downloads or saves lands root-owned in the user's
+    # home. Only LED demos need root, for the GPIO, and they get it below.
+    drop_to_desktop_user "${orig_args[@]}"
+
     # Get demo info (variant-aware: variants may override the entrypoint,
     # and carry their own args and needs_hw; everything else falls back
     # to the main manifest)
     local demo_name entrypoint_type
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
+    DEMO_TITLE="$demo_name"
+    # The window's title: the demo's name, not the command line (R-135)
+    [ -t 1 ] && printf '\033]0;%s\007' "$demo_name"
 
     echo
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
     echo
 
-    # Setup cleanup trap
-    trap cleanup EXIT INT TERM
+    # Setup cleanup trap (HUP: the demo's window was closed)
+    trap cleanup EXIT INT TERM HUP
 
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The

@@ -60,6 +60,22 @@ is_dispatchable() {
     [ -n "$launcher" ] || [ -n "$browser_url" ]
 }
 
+# Demo ids go into the cache as shell code (menu tags and case patterns) that
+# raspi-config sources, so only the ids the manifest schema allows
+# (^[a-z0-9-]+$, not starting with "-") get in. A user manifest whose id held a
+# quote produced a cache dash could not parse, and that took all of
+# raspi-config down with it, at every boot (R-120).
+valid_cache_id() {
+    case "$1" in
+        [a-z0-9]*) ;;
+        *) echo "Skipping $2: id '$1' must start with a-z or 0-9" >&2; return 1 ;;
+    esac
+    case "$1" in
+        *[!a-z0-9-]*) echo "Skipping $2: id '$1' may contain only a-z, 0-9 and -" >&2; return 1 ;;
+    esac
+    return 0
+}
+
 # Get all manifests sorted by menu order.
 # Reads across the manifest search path (shipped + user), shipped wins on id.
 get_sorted_manifests() {
@@ -205,9 +221,14 @@ CACHE_HEADER
 
         # Skip demos the universal launcher cannot dispatch directly
         is_dispatchable "$file" || continue
+        # ... and ids that would break the cache (see valid_cache_id)
+        valid_cache_id "$id" "$file" || continue
 
-        # Escape single quotes in name
-        name=$(echo "$name" | sed "s/'/'\\\\''/g")
+        # The menu eval's these pairs inside double quotes: escape what is
+        # special there (\ " $ `), so a name is text and never runs.
+        name=$(printf '%s' "$name" | sed 's/[\\"$`]/\\&/g')
+        # Escape single quotes in name (DEMO_MENU_ITEMS is single-quoted)
+        name=$(printf '%s' "$name" | sed "s/'/'\\\\''/g")
 
         echo "\"$id\" \"$name\"" >> "$cache_file"
     done) || true
@@ -227,6 +248,7 @@ CACHE_HEADER
         id=$(jq -r '.id' "$file")
 
         is_dispatchable "$file" || continue
+        valid_cache_id "$id" "$file" 2>/dev/null || continue
 
         # All demos go through the universal launcher, which handles type
         # dispatch, auto-install, and privilege handling (browser as user,
@@ -251,8 +273,39 @@ CACHE_HEADER
         id=$(jq -r '.id' "$file")
 
         is_dispatchable "$file" || continue
+        valid_cache_id "$id" "$file" 2>/dev/null || continue
 
         echo "        \"$id\") echo \"/usr/bin/rq_demo_run.sh $id\" ;;" >> "$cache_file"
+    done) || true
+
+    echo "        *) return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    # Demos whose manifest sets menu.variant_menu open a submenu of their
+    # variants: "tag" "name" pairs, one per line, escaped like DEMO_MENU_ITEMS
+    # because the menu eval's them the same way.
+    echo "# Variant submenu items (menu.variant_menu)" >> "$cache_file"
+    echo "# Usage: demo_variant_items <demo-id>" >> "$cache_file"
+    echo "demo_variant_items() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+
+    (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id items vid vname
+        [ "$(jq -r '.menu.variant_menu // false' "$file")" = "true" ] || continue
+        id=$(jq -r '.id' "$file")
+        is_dispatchable "$file" || continue
+        valid_cache_id "$id" "$file" 2>/dev/null || continue
+        items=""
+        while IFS=$'\t' read -r vid vname; do
+            valid_cache_id "$vid" "$file (variant)" || continue
+            vname=$(printf '%s' "$vname" | sed 's/[\\"$`]/\\&/g')
+            vname=$(printf '%s' "$vname" | sed "s/'/'\\\\''/g")
+            items="$items '\"$vid\" \"$vname\"'"
+        done < <(jq -r '.variants[]? | [.id, .name] | @tsv' "$file")
+        [ -n "$items" ] && echo "        \"$id\") printf '%s\\n'$items ;;" >> "$cache_file"
     done) || true
 
     echo "        *) return 1 ;;" >> "$cache_file"
@@ -265,7 +318,7 @@ CACHE_HEADER
     # `"id") /usr/bin/rq_demo_run.sh ...`); the get_demo_launcher block has the
     # same indentation (`"id") echo ...`) and would otherwise double the count.
     local count
-    count=$(grep -c '^        "[a-z][a-z0-9-]*") /usr/bin/rq_demo_run' "$cache_file" 2>/dev/null) || count=0
+    count=$(grep -c '^        "[a-z0-9][a-z0-9-]*") /usr/bin/rq_demo_run' "$cache_file" 2>/dev/null) || count=0
 
     echo "" >> "$cache_file"
     echo "# Total demos: $count" >> "$cache_file"

@@ -23,11 +23,16 @@
     "ref": "78bb6b5b49cabb047c2c586318d307f589e1204d",
     "marker_file": "WELCOME.ipynb",
     "post_install": "setup_quantum_paradoxes.py",
-    "installed_flag": "QUANTUM_PARADOXES_INSTALLED"
+    "installed_flag": "QUANTUM_PARADOXES_INSTALLED",
+    "download": {
+      "what": "Jupyter notebooks from GitHub",
+      "download_mb": 31,
+      "time": "1 minute"
+    }
   },
   "needs_hw": {
     "leds": false,
-    "display": "required"
+    "display": "optional"
   },
   "needs_ibm_token": "prefer",
   "browser_based": true,

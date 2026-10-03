@@ -55,14 +55,31 @@ on `PYTHONPATH` before launching, so a demo can import the shipped helpers
 without vendoring them:
 
 ```python
-from rq_led_utils import get_led_config, create_neopixel_strip, map_xy_to_pixel
+from rq_led_utils import get_pixels, matrix_size, set_xy, clear_all_leds
 ```
 
-LED demos should take their geometry from `get_led_config()`
-(`matrix_width`/`matrix_height`) and address pixels through
-`map_xy_to_pixel(x, y)` rather than hardcoding a panel size: layouts are
-registry-driven (24x8, quad, 8x32, ...), and coordinates outside the configured
-matrix are dropped silently, which renders as a clipped image. `python` demos
+These four are the **supported LED API** (Jan, Q33a): they keep their names,
+arguments and behaviour across releases, for catalogue demos and for learners'
+own programs (plus `layout=get_layout()` for the fastest loops). The rest of
+`rq_led_utils` (`map_xy_to_pixel`, `get_led_config`, the `chunked_*` wrappers)
+stays for existing demos but may change. Outside the demo engine, run an LED program with `rq_python
+<program>`: on a Pi 4, where the LED driver needs root, it starts the LED
+renderer (service mode) for the run and the program runs as the user; on a
+Pi 5 the user drives the panel directly.
+
+(The RasQberry venv also has `/usr/bin` on its path through
+`00-rasqberry.pth`, so the import works with the venv python anywhere; the
+`PYTHONPATH` above covers venvs built before that file existed.)
+
+LED demos should take their geometry from `matrix_size()` (or
+`get_led_config()`'s `matrix_width`/`matrix_height`) and address pixels by
+(x, y) rather than hardcoding a panel size or raw indices: layouts are
+registry-driven (24x8, quad, 8x32, ...), and a raw index follows the wiring, not
+the rows. `set_xy(pixels, x, y, color)` sets one LED and ignores positions
+outside the matrix, which renders as a clipped image. `map_xy_to_pixel(x, y)`
+returns `None` there, so `pixels[map_xy_to_pixel(x, y)]` raises `TypeError` off
+the edge. Both cost about 0.1 ms per call on a Pi 4 (the env file is parsed
+once); pass `layout=get_layout()` for the tightest loops. `python` demos
 run with the RasQberry venv interpreter, so `qiskit` and `qiskit-aer` are
 importable without declaring them as requirements.
 

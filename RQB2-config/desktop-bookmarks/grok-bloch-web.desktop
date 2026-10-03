@@ -8,7 +8,6 @@ Categories=RasQberry;
 Exec=chromium-browser --password-store=basic https://javafxpert.github.io/grok-bloch/
 Terminal=false
 StartupNotify=true
-MimeType=text/html;
 Keywords=quantum;bloch;sphere;visualization;education;qubit;web;online;
 X-GNOME-TextColor=#000000
 TryExec=chromium-browser

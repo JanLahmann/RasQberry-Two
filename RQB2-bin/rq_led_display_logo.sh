@@ -7,6 +7,7 @@ set -euo pipefail
 # Load common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # Ensure running as root (PWM/PIO drivers require GPIO access)
 ensure_root "$@"
@@ -14,6 +15,9 @@ ensure_root "$@"
 # Load and verify environment
 load_rqb2_env
 verify_env_vars REPO USER_HOME STD_VENV BIN_DIR
+
+# Another program on the LED panel? Name it and offer to stop it (R-162)
+led_panel_ready || exit 0
 
 # ============================================================================
 # Main function

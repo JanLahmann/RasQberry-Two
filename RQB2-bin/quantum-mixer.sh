@@ -5,194 +5,132 @@ set -euo pipefail
 # quantum-mixer.sh - RasQberry Quantum-Mixer Demo Launcher
 #
 # Description:
-#   Modern web-based quantum beverage mixer (Qocktails, Qoffee, Ice)
-#   Runs in Docker container with web interface
-#   Handles Docker setup, image building, and permissions
+#   Web-based quantum beverage mixer (Qocktails, Qoffee, Ice) in a Docker
+#   container. The arm64 image is built by the quantum-mixer repository's own
+#   CI (JanLahmann/quantum-mixer, .github/workflows/docker-arm64.yml, tagged
+#   with the commit) and pulled from ghcr.io like the other Docker demos (Jan, Q27c). Building it
+#   on this Pi (15-30 minutes, 5.6 GB build cache) is only the fallback when
+#   the prebuilt image cannot be had.
+#
+# Usage: quantum-mixer.sh [--install-only]
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 echo
 echo "=== Quantum-Mixer Demo ==="
 echo
 
-# Load environment and verify required variables
 load_rqb2_env
-verify_env_vars USER_HOME BIN_DIR
+verify_env_vars USER_HOME REPO BIN_DIR
 
-DOCKER_IMAGE="${QUANTUM_MIXER_DOCKER_IMAGE:-quantum-mixer:arm64}"
+DOCKER_IMAGE="$(rq_demo_image quantum-mixer)"
+SRC_URL="$(rq_demo_repo quantum-mixer)"
+SRC_REF="$(rq_demo_ref quantum-mixer)"
 CONTAINER_NAME="quantum-mixer"
-PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
-# Same directory the menu's installer (do_quantum_mixer_install) builds in.
-#
-# This used to be ${USER_HOME}/quantum-mixer - outside demos/, unlike every
-# other demo (issue #246), and NOT where the installer put its checkout. So the
-# two disagreed: QUANTUM_MIXER_INSTALLED could be true against a tree this
-# script never looked at, and it would clone and build a second copy. Same
-# two-installers-two-directories bug that made the led-painter pin inert.
 REPO_DIR="$(get_demo_dir quantum-mixer)"
-REPO_URL="${GIT_REPO_DEMO_QUANTUM_MIXER:-https://github.com/JanLahmann/quantum-mixer.git}"
+[ -n "$DOCKER_IMAGE" ] || die "The Quantum-Mixer demo description (manifest) names no Docker image."
 
-################################################################################
-# Prerequisites checks
-################################################################################
+# A local fallback build is tagged with the pinned name when that is a tag;
+# a digest cannot be given to a local build, so it gets its own tag then
+LOCAL_IMAGE="$DOCKER_IMAGE"
+case "$DOCKER_IMAGE" in
+    *@*) LOCAL_IMAGE="${DOCKER_IMAGE%%@*}:local-${SRC_REF:0:12}" ;;
+esac
 
-# Check if Docker is installed (guaranteed at image build time)
-command -v docker &> /dev/null || die "Docker is not installed (the image may be misbuilt)."
+rq_docker_access "$@"
 
-# Check if user is in docker group (added at image build time)
-USER_NAME=$(get_user_name)
-if ! groups "$USER_NAME" | grep -q docker && [ "$USER_NAME" != "root" ]; then
-    die "User '$USER_NAME' is not in the docker group (the image may be misbuilt)."
-fi
-
-# Check if docker group is active in current session
-# This handles the case where user was added to docker group but hasn't logged out/in.
-# We use 'sg' to activate the group immediately without requiring logout.
-if ! groups | grep -q docker && [ "$(whoami)" != "root" ]; then
-    info "Docker group not active in current session"
-    info "Activating Docker group permissions..."
-    if [ -z "${DOCKER_GROUP_ACTIVATED:-}" ]; then
-        export DOCKER_GROUP_ACTIVATED=1
-        # Re-exec this script with docker group active
-        exec sg docker -c "$0 $*"
+# Build the image on this Pi from the pinned source (fallback only)
+build_locally() {
+    local rc=0
+    rq_confirm_download "Quantum-Mixer" 1200 2300 --peak 5600 --time "15-30 minutes" \
+        --what "Source code from GitHub, built into a Docker image on this Pi" \
+        --path /var/lib/docker --url "$SRC_URL" \
+        --title "Build Quantum-Mixer on this Pi?" \
+        --intro "The prebuilt Quantum-Mixer image could not be downloaded." \
+        --question "Build it on this Pi instead?" || rc=$?
+    case "$rc" in
+        0) ;;
+        1) info "${RQ_CONSENT_MSG:-Not built.}"; exit 0 ;;
+        *) die "${RQ_CONSENT_MSG:-Quantum-Mixer cannot be built.}" ;;
+    esac
+    if [ ! -f "$REPO_DIR/Dockerfile.arm64" ]; then
+        rq_remove_tree "$REPO_DIR" || die "An earlier, incomplete download is in the way: $REPO_DIR"
+        fetch_pinned_repo "$SRC_URL" "$SRC_REF" "$REPO_DIR" \
+            || die "Could not download the Quantum-Mixer source from $SRC_URL"
     fi
-fi
+    info "Building the Quantum-Mixer image (15-30 minutes)..."
+    if ! (cd "$REPO_DIR" && docker build -f Dockerfile.arm64 -t "$LOCAL_IMAGE" .); then
+        docker builder prune -f >/dev/null 2>&1 || true
+        die "The Quantum-Mixer image could not be built (see the output above)."
+    fi
+    # The build leaves a cache of about 5.6 GB that nothing reuses (R-153)
+    docker builder prune -f >/dev/null 2>&1 || true
+}
 
 ################################################################################
-# Docker container management
+# Install: pull the prebuilt image (consent first; no-op when the engine asked)
 ################################################################################
-
-# Stop any existing quantum-mixer containers
-info "Checking for existing containers..."
-if docker ps -q --filter name=$CONTAINER_NAME 2>/dev/null | grep -q .; then
-    info "Stopping existing Quantum-Mixer container..."
-    docker stop $CONTAINER_NAME 2>/dev/null || true
-fi
-
-# Remove stopped container if exists
-docker rm $CONTAINER_NAME 2>/dev/null || true
-
-################################################################################
-# Docker image build (if needed)
-################################################################################
-
-# Check if we need to build the Docker image
-IMAGE_EXISTS=$(docker images -q $DOCKER_IMAGE 2>/dev/null)
-if [ -z "$IMAGE_EXISTS" ]; then
-    echo
-    info "Docker image not found. Building Quantum-Mixer from source..."
-    echo
-
-    # Clone or update repository
-    if [ ! -d "$REPO_DIR" ]; then
-        info "Cloning quantum-mixer repository..."
-        if ! clone_demo "$REPO_URL" "$REPO_DIR"; then
-            die "Failed to clone repository. Please check your internet connection"
-        fi
+RUN_IMAGE=""
+if docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+    RUN_IMAGE="$DOCKER_IMAGE"
+elif docker image inspect "$LOCAL_IMAGE" >/dev/null 2>&1; then
+    RUN_IMAGE="$LOCAL_IMAGE"
+else
+    rq_require_demo_consent quantum-mixer
+    info "Downloading Quantum-Mixer: $DOCKER_IMAGE"
+    if docker pull "$DOCKER_IMAGE"; then
+        RUN_IMAGE="$DOCKER_IMAGE"
+    elif rq_reachable "https://ghcr.io/v2/"; then
+        warn "The prebuilt image is not available on ghcr.io."
+        build_locally
+        RUN_IMAGE="$LOCAL_IMAGE"
     else
-        info "Updating quantum-mixer repository..."
-        cd "$REPO_DIR"
-        git pull origin main || warn "Could not update repository, using existing version"
+        die "Could not download Quantum-Mixer: ghcr.io cannot be reached. Connect the Pi to the internet and try again."
     fi
-
-    # Build Docker image using ARM64 Dockerfile
-    echo
-    info "Building Docker image for ARM64..."
-    info "This may take 10-15 minutes on first build..."
-    cd "$REPO_DIR"
-
-    if ! docker build -f Dockerfile.arm64 -t $DOCKER_IMAGE .; then
-        echo
-        die "Failed to build Docker image. Check the build output above for details"
-    fi
-
-    echo
-    echo "✓ Docker image built successfully!"
-else
-    info "Using existing Docker image: $DOCKER_IMAGE"
+    rq_docker_drop_old "$RUN_IMAGE"
+    update_env_var "QUANTUM_MIXER_INSTALLED" "true" >/dev/null 2>&1 || true
 fi
+[ "${1:-}" = "--install-only" ] && exit 0
 
 ################################################################################
-# Start container
+# Start (an earlier Mixer container is replaced)
 ################################################################################
+rq_docker_stop "$CONTAINER_NAME" || die "The previous Quantum-Mixer container did not go away; try again in a minute."
+PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
 
-echo
-info "Starting Quantum-Mixer container..."
+info "Starting Quantum-Mixer..."
 if ! docker run -d \
-    --name $CONTAINER_NAME \
-    --rm \
-    -p ${PORT}:8080 \
-    $DOCKER_IMAGE; then
-    echo
-    die "Failed to start Docker container. Check logs with: docker logs $CONTAINER_NAME"
+    --name "$CONTAINER_NAME" \
+    --label "org.rasqberry.demo=quantum-mixer" \
+    -p "127.0.0.1:${PORT}:8080" \
+    "$RUN_IMAGE" >/dev/null; then
+    rq_docker_fail "$CONTAINER_NAME" "The Quantum-Mixer container did not start."
 fi
 
-# Wait for container to start
-info "Waiting for web server to start..."
-sleep 5
-
-# Verify container is running
-if ! docker ps --filter name=$CONTAINER_NAME --filter status=running | grep -q $CONTAINER_NAME; then
-    echo
-    echo "Error: Container failed to start properly."
-    echo "Logs:"
-    docker logs $CONTAINER_NAME 2>&1 | tail -20
-    die "Container failed to start"
-fi
-
-################################################################################
-# Browser launch
-################################################################################
-
-# Build URL
-MIXER_URL="http://127.0.0.1:${PORT}"
+MIXER_URL="http://127.0.0.1:${PORT}/"
+for _ in $(seq 1 30); do
+    curl -s -o /dev/null "$MIXER_URL" && break
+    rq_docker_running "$CONTAINER_NAME" \
+        || rq_docker_fail "$CONTAINER_NAME" "Quantum-Mixer stopped while starting."
+    sleep 1
+done
 
 echo
-echo "✓ Quantum-Mixer is running!"
+echo "Quantum-Mixer is running: $MIXER_URL"
+echo "  Qocktails - quantum cocktail mixer; Qoffee - needs Home Connect; Ice"
 echo
-echo "  Access via browser: $MIXER_URL"
-echo
-echo "Available demos:"
-echo "  • Qocktails - Quantum cocktail mixer (educational)"
-echo "  • Qoffee - Quantum coffee maker (requires Home Connect)"
-echo "  • Ice - Quantum ice dispenser"
-echo
+rq_show_url "$MIXER_URL" "$PORT"
 
-# Try to open browser (as user, not root)
-if command -v chromium-browser &> /dev/null; then
-    info "Opening browser..."
-    run_as_user chromium-browser --password-store=basic "$MIXER_URL" &
-elif command -v firefox &> /dev/null; then
-    info "Opening browser..."
-    run_as_user firefox "$MIXER_URL" &
+echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
+if [ -t 0 ]; then
+    echo "Press Enter to stop Quantum-Mixer..."
+    read -r || exit 0
+    info "Stopping Quantum-Mixer..."
+    rq_docker_stop "$CONTAINER_NAME" || true
+    info "Quantum-Mixer stopped."
 else
-    info "No browser found. Please open the URL manually."
+    info "Quantum-Mixer keeps running in the background."
 fi
-
-################################################################################
-# Interactive wait and cleanup
-################################################################################
-
-echo
-echo "============================================"
-echo "  Quantum-Mixer is running in the background"
-echo "============================================"
-echo
-echo "To stop the container, run:"
-echo "  docker stop $CONTAINER_NAME"
-echo
-echo "Or use the RasQberry menu:"
-echo "  Quantum Demos → Stop Quantum-Mixer"
-echo
-echo "Press Enter to stop the container now..."
-read -r
-
-# Cleanup
-echo
-info "Stopping Quantum-Mixer container..."
-docker stop $CONTAINER_NAME
-
-info "Container stopped"
-echo

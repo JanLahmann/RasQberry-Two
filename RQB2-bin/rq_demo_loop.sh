@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # Ensure running as root (PWM/PIO LED drivers require GPIO access)
 ensure_root "$@"
@@ -31,6 +32,8 @@ PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
 # cleanup - Stop all demos and turn off LEDs
 ################################################################################
 cleanup() {
+    # runs once: the exit below fires the EXIT trap again (R-164)
+    trap - EXIT INT TERM
     echo ""
     info "Stopping demo loop..."
     # Kill any running demo processes

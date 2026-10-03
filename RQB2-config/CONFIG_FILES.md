@@ -39,6 +39,8 @@ Classes:
 | `desktop-bookmarks/` | default | |
 | `desktop-categories/` | default | |
 | `touch-mode/` | default | |
+| `venv-extras/` | default | installed into the user's RQB2 venv by `rq_learner_setup.sh` (`.pth` for `/usr/bin` modules and root runs without bytecode; Jupyter notebook setting) |
+| `my-quantum-programs/` | default | starter programs, copied once to `~/My-Quantum-Programs` by `rq_learner_setup.sh` |
 
 On A/B images the LED settings in `rasqberry_environment.env` (`LED_*`, `RASQ_LED_*`,
 except `*_INSTALLED`) and the user's custom `led-layouts.json` are also kept in
@@ -56,4 +58,8 @@ user turned off stays off).
 
 Per-user state outside `/usr/config` that no update touches:
 `~/.local/config/demo-manifests/` (catalog demos), `~/.local/config/led-layouts.json`
-(custom layouts), `~/Desktop/rq-ext-*.desktop` (catalog demo icons).
+(custom layouts), `~/Desktop/rq-ext-*.desktop` (catalog demo icons),
+`~/My-Quantum-Programs/` (the learner's own programs; on an A/B card a link to
+`/data/home/<user>/My-Quantum-Programs`, see `rq_carry_over.sh`), and the Thonny and Geany
+settings `rq_learner_setup.sh` writes once (`~/.local/state/rasqberry/learner-setup/`
+records that).

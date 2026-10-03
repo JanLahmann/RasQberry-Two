@@ -17,6 +17,9 @@ RestartSec=2
 # LED_RENDER_MODE=service, and disable it when switching back to direct mode,
 # or direct-mode demos fail with 'GPIO busy'.
 User=root
+# Root runs the user's venv python: write no __pycache__ into it, or a later
+# pip upgrade there fails on root-owned files (#285, R-059).
+Environment=PYTHONDONTWRITEBYTECODE=1
 StandardOutput=journal
 StandardError=journal
 

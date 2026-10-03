@@ -11,6 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
+rq_help_guard "$@"
 
 # Ensure running as root (PWM/PIO drivers require GPIO access)
 ensure_root "$@"
@@ -37,6 +38,11 @@ for location in "$BIN_DIR/rq_led_ibm_logo.py" \
 done
 
 [ -n "$LED_SCRIPT" ] || die "LED demo script not found. Searched:\n  - $BIN_DIR/rq_led_ibm_logo.py\n  - /usr/bin/rq_led_ibm_logo.py\n  - $USER_HOME/$REPO/RQB2-bin/rq_led_ibm_logo.py"
+
+# The panel must be free (R-162), and is cleared when the window is closed
+# or the demo stopped (R-158)
+led_panel_ready || exit 0
+trap 'led_clear_quietly' EXIT HUP INT TERM
 
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"

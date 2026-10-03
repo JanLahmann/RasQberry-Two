@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RasQberry Learner Setup
+Comment=Prepare ~/My-Quantum-Programs, Thonny and Geany for your own Qiskit programs (quick and idempotent)
+Exec=/usr/bin/rq_learner_setup.sh --quiet
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

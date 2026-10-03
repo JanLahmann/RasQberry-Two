@@ -9,5 +9,10 @@ rasqberry-boot-config.service
 rasqberry-demo-cache.service
 rasqberry-health-check.service
 rasqberry-tryboot-retry.service
+rasqberry-ab-layout.service
+rasqberry-carry-over.service
+rasqberry-probation.timer
 rasqberry-ip-display.service
 rasqberry-update-check.timer
+# Turns the LED panel off at shutdown (R-043)
+rasqberry-led-clear.service
