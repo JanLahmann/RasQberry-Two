@@ -615,15 +615,10 @@ run_jupyter() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available
-    if [ -t 0 ]; then
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping Jupyter server..."
-    else
-        info "Jupyter server running in background (PID: $JUPYTER_PID)"
-        wait "$JUPYTER_PID" 2>/dev/null || true
-    fi
+    # Enter, Ctrl+C or closing the window stops it (items 5, 33); without a
+    # terminal it runs until the server ends. The cleanup trap stops it.
+    [ -t 0 ] || info "Jupyter server running in background (PID: $JUPYTER_PID)"
+    rq_wait_for_stop "$DEMO_TITLE" "$JUPYTER_PID"
 }
 
 # Docker container launcher
@@ -735,17 +730,13 @@ run_docker() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available. Closing the window stops it too
-    # (cleanup), so the rule is the same as for every other demo (R-099).
-    if [ -t 0 ]; then
+    # Enter, Ctrl+C or closing the window stops it (cleanup), as for every
+    # other demo (R-099, item 33)
+    if [ -t 0 ] && [ -t 1 ]; then
         DOCKER_STOP_ON_EXIT=1
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping container..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        DOCKER_STOP_ON_EXIT=0
+        rq_wait_for_stop "$DEMO_TITLE" --container "$CONTAINER_NAME"
     else
-        echo "To stop it: docker stop $CONTAINER_NAME"
+        info "$DEMO_TITLE keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
     fi
 }
 
@@ -844,15 +835,9 @@ run_web_static() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available; otherwise wait on the server.
-    # Either way, the cleanup trap stops the http.server on exit.
-    if [ -t 0 ]; then
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping static web server..."
-    else
-        wait "$HTTP_SERVER_PID" 2>/dev/null || true
-    fi
+    # Enter, Ctrl+C or closing the window; without a terminal, until the
+    # server ends. Either way, the cleanup trap stops the http.server on exit.
+    rq_wait_for_stop "$DEMO_TITLE" "$HTTP_SERVER_PID"
 }
 
 # Python script launcher
@@ -864,10 +849,11 @@ run_python() {
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
 
-    # Terminal demos run until stopped; say how (#104). LED demos re-run this
-    # launcher as root, so only that pass prints it.
+    # Terminal demos run until stopped; say how (#104). The demo has the
+    # keyboard, so Ctrl+C or closing the window (items 5, 33). LED demos re-run
+    # this launcher as root, so only that pass prints it.
     if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        echo "Press Ctrl+C or close this window to stop $DEMO_TITLE."
+        rq_stop_hint "$DEMO_TITLE" keys
         echo
     fi
 
@@ -929,6 +915,7 @@ run_python() {
         led_panel_ready || exit 0
         # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
         LED_DEMO_RAN=1
+        RQ_LED_RUN_START=$(date +%s)
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -1039,6 +1026,12 @@ delegate_launcher() {
 # ============================================================================
 
 cleanup() {
+    local rc=$?
+    # Run to the end: after a closed window every message fails to print, and
+    # with errexit the first one ended the cleanup before the LEDs were cleared;
+    # the hangup that follows a closed window must not cut it short either
+    set +e
+    trap '' HUP INT TERM
     debug "Running cleanup..."
 
     # Stop Jupyter if running
@@ -1075,7 +1068,8 @@ cleanup() {
     # A container this run waited on is stopped when its window closes; one
     # started without a terminal keeps running (stop it with docker stop).
     if [ "$DOCKER_STOP_ON_EXIT" = "1" ] && [ -n "$CONTAINER_NAME" ]; then
-        docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+        { info "Stopping $DEMO_TITLE..."; } 2>/dev/null || true
+        rq_docker_stop_detached "$CONTAINER_NAME"
     fi
 
     # An LED demo leaves its last frame on the panel when it is stopped with
@@ -1083,6 +1077,9 @@ cleanup() {
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
         led_clear_quietly
+        # The Pi 5's LED driver stalled during the demo (weak power supply,
+        # item 31)? Say so and offer a lower brightness - not to a closed window.
+        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
     fi
 }
 
@@ -1220,8 +1217,12 @@ main() {
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
     echo
 
-    # Setup cleanup trap (HUP: the demo's window was closed)
-    trap cleanup EXIT INT TERM HUP
+    # Cleanup runs once, on exit; the signals end the run (HUP: the demo's
+    # window was closed)
+    trap cleanup EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The

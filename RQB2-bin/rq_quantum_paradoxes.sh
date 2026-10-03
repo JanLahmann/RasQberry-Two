@@ -143,6 +143,8 @@ info "JupyterLab ready!"
 # cleanup - Stop JupyterLab on exit
 ################################################################################
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     info "Stopping JupyterLab..."
     if [ -n "${JUPYTER_PID:-}" ]; then
         kill $JUPYTER_PID 2>/dev/null || true
@@ -174,8 +176,5 @@ echo "  - WELCOME.ipynb (Start here)"
 echo "  - schrodingers-cat.ipynb"
 echo "  - quantum-zeno-effect.ipynb"
 echo ""
-echo "Press Ctrl+C to stop"
-echo ""
-
-wait $JUPYTER_PID 2>/dev/null || true
+rq_wait_for_stop "Quantum Paradoxes" "$JUPYTER_PID"
 cleanup

@@ -568,13 +568,20 @@ stop_led_holders() {
         while read -r pid _; do
             if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then left="$left $pid"; fi
         done <<< "$1"
-        [ -z "$left" ] && return 0
+        [ -z "$left" ] && break
         sleep 0.1
         waited=$((waited + 1))
     done
     # shellcheck disable=SC2086
-    kill -9 $left 2>/dev/null || true
-    sleep 0.5
+    [ -z "$left" ] || { kill -9 $left 2>/dev/null || true; sleep 0.5; }
+    # The stopped demo's launcher clears the panel as it ends (its exit trap)
+    # and holds it for a moment: wait for that. A clear started meanwhile
+    # failed with "GPIO busy" (Pi 5) or drew over it (Pi 4) - item 30.
+    waited=0
+    while [ -n "$(led_holders)" ] && [ "$waited" -lt 50 ]; do
+        sleep 0.2
+        waited=$((waited + 1))
+    done
 }
 
 # Before an LED demo: if another program holds the panel, name it and offer to
@@ -601,6 +608,21 @@ Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
     return 1
 }
 
+# Run a command so that it finishes even if this script is killed: when a
+# demo's window is closed, script(1) (rq_hold_on_error.sh) asks the demo to
+# stop and kills it 2 s later. A cleanup that took longer - stopping a
+# container, clearing the LEDs on a Pi 4 - was cut off (item 33). Waits for
+# the command as long as this script lives. Quiet: the terminal may be gone.
+# Usage: rq_run_detached COMMAND [ARGS...]
+rq_run_detached() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid -w "$@" </dev/null >/dev/null 2>&1 &
+        wait $! 2>/dev/null || true
+    else
+        "$@" </dev/null >/dev/null 2>&1 || true
+    fi
+}
+
 # Clear the panel and say nothing: for exit traps, where the terminal may
 # already be gone (a closed window) and any output would fail.
 led_clear_quietly() {
@@ -609,8 +631,133 @@ led_clear_quietly() {
     if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
         py="$venv/bin/python3"
     fi
-    PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" \
-        "$py" "$script" >/dev/null 2>&1 </dev/null || true
+    rq_run_detached env PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script"
+}
+
+# Stop and remove a container, to the end even if this script is killed
+# (see rq_run_detached)
+rq_docker_stop_detached() {
+    rq_run_detached bash -c '. "$1" && rq_docker_stop "$2"' _ "$_RQ_COMMON_DIR/rq_common.sh" "$1"
+}
+
+# After an LED demo: if the Pi 5's LED driver stalled during it (a power
+# supply too weak for the LEDs, item 31), say so and offer a lower brightness.
+# Only with a terminal to ask on.
+# Usage: rq_led_stall_check START_EPOCH
+rq_led_stall_check() {
+    [ -t 0 ] && [ -t 1 ] || return 0
+    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" 2>/dev/null || true
+}
+
+# An LED launcher clears the panel once when it ends, however it ends: Enter,
+# Ctrl+C, a closed window (HUP) or a stop from the menu (TERM). The signals
+# only end the script; the EXIT trap clears. A closed window (R-158) left the
+# panel lit when a launcher exec'd its demo or trapped only some signals.
+# Usage: rq_led_clear_on_exit
+rq_led_clear_on_exit() {
+    RQ_LED_RUN_START=$(date +%s)
+    trap '_rq_led_on_exit' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+}
+
+_rq_led_on_exit() {
+    local rc=$?
+    # A closed window ends script(1) too, and the hangup that follows must not
+    # cut this short
+    trap '' HUP INT TERM
+    led_clear_quietly
+    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+}
+
+# ----------------------------------------------------------------------------
+# Stopping a demo: one rule for all (items 5, 33)
+# ----------------------------------------------------------------------------
+# Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
+# the window - from a desktop icon and from the RasQberry menu (also over SSH).
+# A demo that reads the keyboard itself (a console game, a text prompt) stops
+# with Ctrl+C or by closing the window. Docker demos stop with their window
+# too; only the Workshop Server keeps running by design.
+
+# Usage: rq_stop_hint NAME [keys]
+rq_stop_hint() {
+    if [ "${2:-}" = "keys" ]; then
+        echo "To stop $1: press Ctrl+C or close this window."
+    else
+        echo "To stop $1: press Enter or Ctrl+C, or close this window."
+    fi
+}
+
+# Is process PID still there (not a zombie)? Works for children started
+# through sudo, where kill -0 fails with "not permitted".
+_rq_pid_alive() {
+    case "$(ps -o stat= -p "$1" 2>/dev/null)" in
+        ""|Z*) return 1 ;;
+    esac
+    return 0
+}
+
+# Show the stop hint and wait until Enter, or until the demo ends by itself
+# (PID, or the Docker container named after --container). Ctrl+C and a closed
+# window end the calling script through its traps. Without a terminal there
+# is nobody to press Enter: wait for the PID (if any) and return.
+# Usage: rq_wait_for_stop NAME [PID | --container CONTAINER]
+rq_wait_for_stop() {
+    local name="$1" pid="" container="" rc
+    case "${2:-}" in
+        --container) container="${3:-}" ;;
+        *) pid="${2:-}" ;;
+    esac
+    if ! [ -t 0 ]; then
+        if [ -n "$pid" ]; then wait "$pid" 2>/dev/null || true; fi
+        return 0
+    fi
+    echo
+    rq_stop_hint "$name"
+    while :; do
+        if [ -n "$pid" ]; then _rq_pid_alive "$pid" || return 0; fi
+        if [ -n "$container" ]; then rq_docker_running "$container" || return 0; fi
+        rc=0
+        read -r -t 2 _ || rc=$?
+        [ "$rc" -eq 0 ] && return 0      # Enter
+        [ "$rc" -gt 128 ] || return 0    # no more input
+    done
+}
+
+# A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
+# closing the window stops the container. All four used to keep running after
+# their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
+# running; RasQberry menu > Quantum Demos > Stop Docker demos stops it.
+# Usage: rq_docker_stop_with_window CONTAINER NAME
+rq_docker_stop_with_window() {
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
+        return 0
+    fi
+    RQ_WINDOW_CONTAINER="$1"
+    RQ_WINDOW_NAME="$2"
+    trap '_rq_window_container_stop' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    rq_wait_for_stop "$2" --container "$1"
+    _rq_window_container_stop
+    trap - EXIT HUP INT TERM
+}
+
+# Quietly where needed: after a closed window, writing to it fails.
+_rq_window_container_stop() {
+    [ -n "${RQ_WINDOW_CONTAINER:-}" ] || return 0
+    # The hangup that follows a closed window must not cut the stop short:
+    # the container was stopped but left behind
+    trap '' HUP INT TERM
+    local name="$RQ_WINDOW_CONTAINER"
+    RQ_WINDOW_CONTAINER=""
+    { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_docker_stop_detached "$name"
+    { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
 
 # ============================================================================
@@ -927,8 +1074,10 @@ rq_confirm_download() {
     local name="$1" dl="${2:-0}" disk="${3:-0}"
     shift 3 || true
     local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
+    local docker=0
     while [ $# -gt 0 ]; do
         case "$1" in
+            --docker) docker=1; shift ;;
             --what) what="$2"; shift 2 ;;
             --time) time="$2"; shift 2 ;;
             --path) path="$2"; shift 2 ;;
@@ -977,6 +1126,7 @@ rq_confirm_download() {
     [ -n "$what" ] && text="${text}What:      $what\n"
     text="${text}Download:  $dl_txt (needs the internet)\n"
     text="${text}Space:     $card_txt\n"
+    [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
     [ -n "$time" ] && text="${text}Time:      about $time\n"
     text="${text}Free:      $free_txt\n\n${question:-Download now?}"
 
@@ -1005,6 +1155,40 @@ rq_confirm_download() {
     fi
     RQ_CONSENT_MSG="$name was not downloaded."
     return 1
+}
+
+# Is / one slot of an A/B card? (RQ_TEST_AB=1/0 in tests)
+_rq_root_is_ab_slot() {
+    if [ -n "${RQ_TEST_AB:-}" ]; then [ "$RQ_TEST_AB" = 1 ]; return; fi
+    case "$(lsblk -no LABEL "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null)" in
+        SYSTEM-A|SYSTEM-B|system-a|system-b) return 0 ;;
+    esac
+    return 1
+}
+
+# Size of the root file system in whole GB (RQ_TEST_ROOT_GB in tests)
+_rq_root_size_gb() {
+    if [ -n "${RQ_TEST_ROOT_GB:-}" ]; then echo "$RQ_TEST_ROOT_GB"; return; fi
+    df -P -k / 2>/dev/null | awk 'NR == 2 { printf "%d\n", $2 / 1000000 }'
+}
+
+# Extra lines under "Space:" for a Docker demo (item 32): the images live in
+# the running system, so on an A/B card each slot keeps its own and an update
+# downloads them again; a 16 GB card fits one Docker demo.
+# Prints dialog text with literal \n, like the rest of the consent text.
+_rq_docker_space_note() {
+    local gb
+    if _rq_root_is_ab_slot; then
+        printf '%s' "           Docker images stay in this system's slot: after an\n"
+        printf '%s' "           update into the other slot they download again.\n"
+    fi
+    gb=$(_rq_root_size_gb)
+    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
+    if [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]; then
+        printf '%s' "           A 16 GB card has room for one Docker demo (not the\n"
+        printf '%s' "           Workshop Server).\n"
+    fi
+    return 0
 }
 
 # Echo the shipped manifest directory (installed or repo checkout)
@@ -1041,14 +1225,16 @@ rq_confirm_demo_install() {
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
     fi
+    local docker_opt=""
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        docker_opt="--docker"
         path="/var/lib/docker"
         [ -n "$what" ] || what="Docker image ($image)"
         [ -n "$url" ] || url=$(rq_image_registry_url "$image")
     fi
     [ -n "$url" ] || url="${repo:-https://github.com}"
     rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
-        --path "$path" --peak "$peak" --url "$url" || return $?
+        --path "$path" --peak "$peak" --url "$url" $docker_opt || return $?
     RQ_CONFIRMED_DEMO="$id"
     export RQ_CONFIRMED_DEMO
     return 0

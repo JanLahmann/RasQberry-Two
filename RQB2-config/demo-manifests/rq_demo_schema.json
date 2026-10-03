@@ -69,7 +69,7 @@
         },
         "docker_image": {
           "type": "string",
-          "description": "Docker image, pinned per RasQberry release: name@sha256:<digest>, or name:<40-char source commit> for an image our CI builds from a pinned commit (the local fallback build tags the same name). 'Update demos' can move it (rq_demo_image)."
+          "description": "Docker image, pinned per RasQberry release: name@sha256:<digest>, or name:<40-char source commit> for an image built by CI from a pinned source commit (the local fallback build tags the same name). 'Update demos' can move it (rq_demo_image)."
         },
         "docker_port": {
           "type": "integer",

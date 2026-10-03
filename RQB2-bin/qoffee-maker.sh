@@ -119,13 +119,5 @@ fi
 ################################################################################
 # Stop
 ################################################################################
-echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
-if [ -t 0 ]; then
-    echo "Press Enter to stop Qoffee-Maker..."
-    read -r || exit 0
-    info "Stopping Qoffee-Maker..."
-    rq_docker_stop "$CONTAINER_NAME" || true
-    info "Qoffee-Maker stopped."
-else
-    info "Qoffee-Maker keeps running in the background."
-fi
+# Enter, Ctrl+C or closing this window stops it (item 33)
+rq_docker_stop_with_window "$CONTAINER_NAME" "Qoffee-Maker"

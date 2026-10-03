@@ -289,7 +289,8 @@ def demo_loop(duration=2):
     print("The entanglement group size varies from 1 (no entanglement)")
     print("up to all qubits (complete entanglement).")
     print()
-    print("Press Enter to stop the demo (or Ctrl+C)")
+    # The stop rule every demo window shares (rq_stop_hint in rq_common.sh)
+    print("To stop RasQ-LED: press Enter or Ctrl+C, or close this window.")
     print()
 
     # Clear any pending input from stdin before starting

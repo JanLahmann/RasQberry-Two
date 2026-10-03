@@ -42,7 +42,7 @@ done
 # The panel must be free (R-162), and is cleared when the window is closed
 # or the demo stopped (R-158)
 led_panel_ready || exit 0
-trap 'led_clear_quietly' EXIT HUP INT TERM
+rq_led_clear_on_exit
 
 info "Starting LED IBM Demo..."
 debug "Script location: $LED_SCRIPT"
@@ -51,9 +51,7 @@ echo
 # Activate virtual environment if available
 activate_venv || warn "Virtual environment not available, continuing anyway..."
 
-# Run the script
+# Run the script. It stops with Enter or Ctrl+C, and the window closes with
+# it (one Enter, not a second "close this window" prompt); an error keeps the
+# window open (rq_hold_on_error.sh).
 python3 "$LED_SCRIPT"
-
-# Script handles its own exit prompt now
-echo
-read -p "Press Enter to close this window..."

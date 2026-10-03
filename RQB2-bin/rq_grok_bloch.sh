@@ -122,6 +122,8 @@ info "Opening in browser..."
 # cleanup - Stop server and remove temp files
 ################################################################################
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     info "Cleaning up..."
     kill $SERVER_PID 2>/dev/null || true
     rm -f /tmp/grok_server.py
@@ -161,12 +163,4 @@ echo ""
 
 # Serve until the user stops us. Closing the browser tab does not stop the
 # demo - see the note above on why that cannot be detected.
-if [ -t 0 ]; then
-    echo "Press Enter (or Ctrl+C) to stop the demo..."
-    read -r
-    info "Stopping demo..."
-else
-    echo "Press Ctrl+C or close this window to stop the demo."
-    echo ""
-    wait $SERVER_PID
-fi
+rq_wait_for_stop "Grok Bloch Sphere" "$SERVER_PID"
