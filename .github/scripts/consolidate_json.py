@@ -15,6 +15,48 @@ from datetime import datetime, timezone
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "JanLahmann/RasQberry-Two")
 
+# A/B default (on since beta round 4, Jan 2026-10-03). True: the A/B image is
+# the recommended entry, for every card size (two systems from 64 GB, one
+# system below), and the standard image is listed as "single system". False
+# (RQB_AB_DEFAULT=false): the standard image leads again and the A/B image is
+# listed for 64 GB+ cards. Keep AB_DEFAULT in the website's
+# src/app/latest/page.tsx in step.
+AB_DEFAULT = os.environ.get("RQB_AB_DEFAULT", "true").lower() in ("1", "true", "yes")
+
+# Raspberry Pi Imager OS customisation (Wi-Fi, localisation, SSH key) needs
+# init_format in the entry; without it Imager 2.x skips the customisation step.
+# The images are Bookworm, so the format is "systemd": Imager writes
+# firstrun.sh and a systemd.run entry in cmdline.txt on the FIRST FAT
+# partition. On the standard image that is the boot partition, so it works. On
+# the A/B image it is CONFIG, which the firmware reads only for autoboot.txt:
+# the customisation would be silently ignored (no cmdline.txt there, and
+# firstrun.sh never runs). So A/B entries go out without init_format until the
+# A/B image applies CONFIG/firstrun.sh itself; then switch this on (or set
+# RQB_AB_CUSTOMISATION=true) and delete the CONDITIONAL note on the website's
+# installation page.
+AB_IMAGER_CUSTOMISATION = os.environ.get("RQB_AB_CUSTOMISATION", "false").lower() in ("1", "true", "yes")
+
+# The developer folder lists the development branch and the newest few other
+# branches (standard and A/B image each); older branch builds stay in
+# RQB-images-all.json and on the releases page.
+DEV_BRANCHES_SHOWN = int(os.environ.get("RQB_DEV_BRANCHES_SHOWN", "3"))
+
+# Imager shows the description under the name: the login is the one thing a
+# user who never visits the website cannot find out.
+LOGIN = "Login rasqberry / Qiskit1!"
+ICON = "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png"
+DEV_FOLDER_NAME = "RasQberry developer builds"
+SINGLE = " \u2014 single system"   # "RasQberry Two Beta — single system"
+
+
+def imager_entry(entry, is_ab):
+    """Set init_format as Imager customisation allows for this image type."""
+    if is_ab and not AB_IMAGER_CUSTOMISATION:
+        entry.pop('init_format', None)
+    else:
+        entry.setdefault('init_format', 'systemd')
+    return entry
+
 print("=== Merging RQB-images.json files into hierarchical structure ===")
 
 # Fetch manual highlights from gh-pages
@@ -28,12 +70,15 @@ try:
 except Exception as e:
     print(f"Could not fetch highlights.json: {e} - using empty highlights")
 
-# Collect entries by category
-main_std = []      # Main stable standard images (top-level)
-beta_std = []      # Beta standard images (top-level)
-dev_std = []       # Development branch images (top-level)
-dev_all = []       # All dev-* branches (flat folder)
-ab_all = []        # All A/B images (flat folder)
+# Collect entries by category. Each list holds (published, branch, entry).
+main_std = []      # Stable (main) standard image
+main_ab = []       # Stable (main) A/B image
+beta_std = []      # Beta standard image
+beta_ab = []       # Beta A/B image
+dev_std = []       # Dev stream candidates (development branch) for RQB-releases.json
+dev_all = []       # dev-* branch standard images (dev stream fallback)
+ab_all = []        # Every A/B image, to look up a release's ab_image_url
+dev_builds = []    # Everything for the developer folder: (published, branch, is_ab, entry)
 
 # Collect ALL releases for RQB-images-all.json
 all_releases = []  # All releases from all branches
@@ -128,109 +173,113 @@ for branch_name, (published, tag, json_file) in branch_releases.items():
             entry_clean = {k: v for k, v in entry.items()
                            if k not in ('image_type', '_release_tag', '_branch', '_published')}
 
-            # Classify by BRANCH NAME for proper categorization
-            # Dev and AB images: include branch name AND full timestamp for Pi Imager
-            if image_type == 'ab' or 'A/B' in name:
-                # A/B images: include branch name + timestamp
-                timestamp = extract_timestamp(entry.get('url', ''))
-                if timestamp:
-                    entry_clean['name'] = f"RasQberry Two A/B ({branch_name} {timestamp})"
-                else:
-                    entry_clean['name'] = f"RasQberry Two A/B ({branch_name})"
-                entry_clean['description'] = f"A/B boot image from {branch_name}"
+            # Classify by BRANCH NAME. Names and descriptions of the stable
+            # and beta entries are set when the list is built (AB_DEFAULT).
+            is_ab = image_type == 'ab' or 'A/B' in name
+            if is_ab:
                 ab_all.append((published, branch_name, entry_clean))
-                print(f"  → A/B folder: {entry_clean['name']}")
-            elif branch_name == 'development':
-                # Development integration branch → top-level dev entry
-                entry_clean['name'] = "RasQberry Two Dev (64-bit)"
-                entry_clean['description'] = "Development integration branch with latest features"
-                dev_std.append((published, branch_name, entry_clean))
-                print(f"  → Top-level Dev: {entry_clean['name']}")
-            elif branch_name.startswith('dev'):
-                # Dev images: include branch name + timestamp
-                timestamp = extract_timestamp(entry.get('url', ''))
-                if timestamp:
-                    entry_clean['name'] = f"RasQberry Two Dev ({branch_name} {timestamp})"
-                else:
-                    entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
-                entry_clean['description'] = f"Development build from {branch_name}"
-                dev_all.append((published, branch_name, entry_clean))
-                print(f"  → Dev folder: {entry_clean['name']}")
+
+            if branch_name == 'main' and 'Dev' not in name:
+                (main_ab if is_ab else main_std).append((published, branch_name, entry_clean))
+                print(f"  → Stable{' A/B' if is_ab else ''}")
             elif branch_name == 'beta':
-                # Beta branch → top-level beta entry
-                entry_clean['name'] = "RasQberry Two Beta (64-bit)"
-                entry_clean['description'] = "Beta release with new features for testing"
-                beta_std.append((published, branch_name, entry_clean))
-                print(f"  → Top-level Beta: {entry_clean['name']}")
-            elif branch_name == 'main':
-                # Main branch: only stable if name doesn't contain "Dev"
-                if 'Dev' in name:
-                    # Main has dev image - put in dev folder
-                    entry_clean['name'] = f"RasQberry Two Dev ({branch_name})"
-                    entry_clean['description'] = f"Development build from {branch_name}"
-                    dev_std.append((published, branch_name, entry_clean))
-                    print(f"  → Dev folder (main has dev): {entry_clean['name']}")
-                else:
-                    # Main has stable release
-                    entry_clean['name'] = "RasQberry Two (64-bit)"
-                    entry_clean['description'] = "Stable release for Raspberry Pi 4/5 (Recommended)"
-                    main_std.append((published, branch_name, entry_clean))
-                    print(f"  → Top-level Main: {entry_clean['name']}")
+                (beta_ab if is_ab else beta_std).append((published, branch_name, entry_clean))
+                print(f"  → Beta{' A/B' if is_ab else ''}")
             else:
-                # Unknown branch pattern - treat as dev
-                entry_clean['name'] = f"RasQberry Two ({branch_name})"
-                dev_std.append((published, branch_name, entry_clean))
-                print(f"  → Dev folder (unknown): {entry_clean['name']}")
+                # development, dev-* branches, a dev build on main, unknown
+                # branches: all in the developer folder, never at the top.
+                timestamp = extract_timestamp(url)
+                stamp = f" {timestamp}" if timestamp else ""
+                kind = "Dev A/B" if is_ab else "Dev"
+                entry_clean['name'] = f"RasQberry Two {kind} ({branch_name}{stamp})"
+                entry_clean['description'] = (
+                    f"{'A/B image' if is_ab else 'Build'} from the {branch_name} branch. "
+                    f"Untested, for developers. {LOGIN}")
+                dev_builds.append((published, branch_name, is_ab, entry_clean))
+                if not is_ab:
+                    if branch_name.startswith('dev') and branch_name != 'development':
+                        dev_all.append((published, branch_name, entry_clean))
+                    else:
+                        dev_std.append((published, branch_name, entry_clean))
+                print(f"  → Developer folder: {entry_clean['name']}")
 
     except Exception as e:
         print(f"  Error loading {json_file}: {e}")
 
 # Sort each category by release_date (newest first)
-main_std.sort(key=lambda x: x[0], reverse=True)
-beta_std.sort(key=lambda x: x[0], reverse=True)
-dev_std.sort(key=lambda x: x[0], reverse=True)
-dev_all.sort(key=lambda x: x[0], reverse=True)
-ab_all.sort(key=lambda x: x[0], reverse=True)
+for category in (main_std, main_ab, beta_std, beta_ab, dev_std, dev_all, ab_all):
+    category.sort(key=lambda x: x[0], reverse=True)
+# Developer folder: the development branch first, then the newest
+# DEV_BRANCHES_SHOWN other branches, newest first, each standard image before
+# its A/B image.
+dev_builds.sort(key=lambda x: x[2])
+dev_builds.sort(key=lambda x: x[0], reverse=True)
+dev_builds.sort(key=lambda x: x[1] != 'development')
+shown_branches = []
+for _, branch, _, _ in dev_builds:
+    if branch != 'development' and branch not in shown_branches:
+        shown_branches.append(branch)
+hidden_branches = shown_branches[DEV_BRANCHES_SHOWN:]
+dev_builds = [b for b in dev_builds if b[1] not in hidden_branches]
+if hidden_branches:
+    print(f"\nDeveloper folder: older branch builds left out: {', '.join(hidden_branches)}")
 
-# Build hierarchical os_list
+
+def release_entries(std_list, ab_list, label, recommended):
+    """The top-level entries of one release stream (stable or beta).
+
+    Only the newest image of each type. With AB_DEFAULT the A/B image is the
+    main entry and the standard image is "single system"; without it, the
+    other way round. Returns the entries in display order.
+    """
+    std = std_list[0][2] if std_list else None
+    ab = ab_list[0][2] if ab_list else None
+    lead = "Recommended. " if recommended else "Newest features, for testing. "
+    if AB_DEFAULT:
+        if ab:
+            ab['name'] = label
+            ab['description'] = (f"{lead}Two systems with safe updates on 64 GB+ cards, one "
+                                 f"system on smaller ones. Best: 128 GB A2/U3. Pi 4/5. {LOGIN}")
+        if std:
+            std['name'] = f"{label}{SINGLE}"
+            std['description'] = (f"One system, no updates in place. 16 GB+ card, 32 GB+ for "
+                                  f"Docker demos. Pi 4/5. {LOGIN}")
+        order = [ab, std]
+    else:
+        if std:
+            std['name'] = label
+            std['description'] = (f"{lead}Pi 4/5, 16 GB+ card (128 GB A2/U3 recommended). "
+                                  f"{LOGIN}")
+        if ab:
+            ab['name'] = f"{label} A/B (64 GB+ card)"
+            ab['description'] = (f"Two systems on one card: updates install in place and you "
+                                 f"can go back. Needs a 64 GB+ card. {LOGIN}")
+        order = [std, ab]
+    if std:
+        imager_entry(std, is_ab=False)
+    if ab:
+        imager_entry(ab, is_ab=True)
+    return [e for e in order if e]
+
+
+# Build the os_list: stable, beta, the developer folder, stock Pi OS last.
 os_list = []
+has_stable = bool(main_std or main_ab)
+for entry in release_entries(main_std, main_ab, "RasQberry Two", recommended=True):
+    os_list.append(entry)
+    print(f"\n✓ Added stable: {entry['name']}")
+for entry in release_entries(beta_std, beta_ab, "RasQberry Two Beta", recommended=not has_stable):
+    os_list.append(entry)
+    print(f"✓ Added beta: {entry['name']}")
 
-# 1. Add main stable images (top-level) - only latest
-if main_std:
-    os_list.append(main_std[0][2])
-    print(f"\n✓ Added main stable: {main_std[0][2].get('name')}")
-
-# 2. Add beta images (top-level) - only latest
-if beta_std:
-    os_list.append(beta_std[0][2])
-    print(f"✓ Added beta: {beta_std[0][2].get('name')}")
-
-# 3. Add development images (top-level) - only latest
-if dev_std:
-    os_list.append(dev_std[0][2])
-    print(f"✓ Added development: {dev_std[0][2].get('name')}")
-
-# 5. Add Development Images folder (flat list of all dev-* branches)
-if dev_all:
-    dev_folder = {
-        "name": "RasQberry Development Images",
-        "description": "Development builds with cutting-edge features (unstable)",
-        "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-        "subitems": [entry for _, _, entry in dev_all]
-    }
-    os_list.append(dev_folder)
-    print(f"✓ Added Development folder with {len(dev_all)} images")
-
-# 6. Add A/B Test Images folder (flat list of all A/B images)
-if ab_all:
-    ab_folder = {
-        "name": "RasQberry A/B Boot Images",
-        "description": "Images with A/B partition support for safer updates (experimental)",
-        "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-        "subitems": [entry for _, _, entry in ab_all]
-    }
-    os_list.append(ab_folder)
-    print(f"✓ Added A/B folder with {len(ab_all)} images")
+if dev_builds:
+    os_list.append({
+        "name": DEV_FOLDER_NAME,
+        "description": "Development and the newest branch builds. Untested: not for classrooms or events.",
+        "icon": ICON,
+        "subitems": [imager_entry(entry, is_ab) for _, _, is_ab, entry in dev_builds]
+    })
+    print(f"✓ Added developer folder with {len(dev_builds)} images")
 
 # Build final consolidated structure
 consolidated = {
@@ -242,6 +291,19 @@ consolidated = {
 }
 
 print(f"\n=== Built hierarchical structure with {len(os_list)} top-level entries ===")
+
+# Stock Raspberry Pi OS stays in the list (the custom repository replaces
+# Imager's own list), but last and labelled: upstream calls it
+# "(Recommended)", which in a RasQberry list sent teachers to an OS without
+# RasQberry.
+def stock_name(name):
+    return f"{name} \u2014 without RasQberry"
+
+
+def stock_description(description):
+    base = re.sub(r'\s*\(Recommended\)', '', description).strip().rstrip('.')
+    return f"Plain Raspberry Pi OS, no RasQberry software. {base}."
+
 
 # Fetch official Raspberry Pi OS entry from their JSON
 try:
@@ -277,8 +339,8 @@ try:
     if raspios_entry:
         # Clean up the entry to match our schema
         clean_entry = {
-            "name": raspios_entry.get('name', 'Raspberry Pi OS (64-bit)'),
-            "description": raspios_entry.get('description', 'Official Raspberry Pi OS'),
+            "name": stock_name(raspios_entry.get('name', 'Raspberry Pi OS (64-bit)')),
+            "description": stock_description(raspios_entry.get('description', 'Official Raspberry Pi OS')),
             "icon": raspios_entry.get('icon', 'https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png'),
             "url": raspios_entry.get('url'),
             "extract_size": raspios_entry.get('extract_size'),
@@ -302,8 +364,8 @@ except Exception as e:
     print("  Using fallback entry (may be outdated)")
     # Fallback to a known working entry
     consolidated['os_list'].append({
-        "name": "Raspberry Pi OS (64-bit)",
-        "description": "A port of Debian Bookworm with the Raspberry Pi Desktop (Recommended)",
+        "name": stock_name("Raspberry Pi OS (64-bit)"),
+        "description": stock_description("A port of Debian Bookworm with the Raspberry Pi Desktop"),
         "icon": "https://downloads.raspberrypi.com/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
         "url": "https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-10-28/2024-10-22-raspios-bookworm-arm64.img.xz",
         "extract_size": 6102712320,
