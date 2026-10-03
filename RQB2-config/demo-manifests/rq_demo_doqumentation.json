@@ -18,7 +18,7 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "ghcr.io/janlahmann/doqumentation:jupyter",
+    "docker_image": "ghcr.io/janlahmann/doqumentation@sha256:3f5898ec735f0bc0c007843969f5901bade1de8e9cfa3aeff2806b87a2809f15",
     "docker_port": 8080,
     "launcher": "rq_doqumentation.sh"
   },
@@ -29,12 +29,16 @@
       "download_mb": 1300,
       "disk_mb": 5400,
       "time": "10-20 minutes"
+    },
+    "update": {
+      "docker_tags": "^[0-9a-f]{7}-jupyter$",
+      "docker_latest": "jupyter"
     }
   },
   "needs_hw": {
     "leds": false,
     "network": true,
-    "display": "required"
+    "display": "optional"
   },
   "needs_ibm_token": "prefer",
   "browser_based": true,

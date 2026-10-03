@@ -605,26 +605,25 @@ set -euo pipefail
 . "$(dirname "$0")/rq_common.sh"
 load_rqb2_env
 
-# Check Docker
-check_docker || die "Docker is required. Please run qoffee-setup.sh first."
+IMAGE="$(rq_demo_image my-demo)"   # release pin (digest) or the "Update demos" choice
+rq_docker_access "$@"              # docker group, sg re-exec, docker answers
 
-# Start container
-CONTAINER_NAME="qoffee"
-PORT=8887
-
-info "Starting Qoffee-Maker container..."
-docker run -d --name "$CONTAINER_NAME" -p "$PORT:8888" \
-    ghcr.io/janlahmann/qoffee-maker || die "Failed to start container"
-
-# Wait for startup
-sleep 5
-
-# Open browser
-JUPYTER_URL="http://localhost:$PORT"
-open_browser "$JUPYTER_URL"
-
-info "Qoffee-Maker running at $JUPYTER_URL"
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    rq_require_demo_consent my-demo  # one dialog: size, time, free space
+    rq_docker_pull "$IMAGE" "My demo"
+    rq_docker_drop_old "$IMAGE"      # older versions of the same image
+fi
+rq_docker_stop my-demo               # an earlier container, and wait until it is gone
+docker run -d --name my-demo --label org.rasqberry.demo=my-demo \
+    -p 127.0.0.1:8899:8080 "$IMAGE" >/dev/null \
+    || rq_docker_fail my-demo "My demo did not start."   # keeps and shows its log
+rq_show_url "http://127.0.0.1:8899/" 8899   # browser, or an ssh -L hint over SSH
 ```
+
+Demo versions (section 16 of rq_common.sh): `rq_demo_image ID`,
+`rq_demo_ref ID`, `rq_demo_repo ID` give what a demo runs or installs;
+`rq_demo_set_version KEY RELEASE_PIN CHOSEN LABEL` records an "Update demos"
+choice in `demos/.demo-versions`, which holds while the release keeps that pin.
 
 ### Example 4: Demo with Cleanup
 

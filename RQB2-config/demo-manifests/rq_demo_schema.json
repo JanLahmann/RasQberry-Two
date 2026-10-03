@@ -69,7 +69,7 @@
         },
         "docker_image": {
           "type": "string",
-          "description": "Docker image name or URL"
+          "description": "Docker image, pinned per RasQberry release: name@sha256:<digest>, or name:<40-char source commit> for an image our CI builds from a pinned commit (the local fallback build tags the same name). 'Update demos' can move it (rq_demo_image)."
         },
         "docker_port": {
           "type": "integer",
@@ -147,6 +147,23 @@
             "time": {"type": "string", "description": "Rough duration on a Pi, e.g. '1 minute', '10-20 minutes'"},
             "url": {"type": "string", "description": "Checked for reachability before asking (default: repo_url, the Docker registry, else GitHub)"},
             "shares": {"type": "string", "description": "Demos with the same value share one download (counted once by 'Download all demos')"}
+          }
+        },
+        "source": {
+          "type": "object",
+          "description": "Git sources that install.installer (or the demo's launcher) fetches, pinned like repo_url/ref. 'Update demos' moves the ref on request (rq_demo_ref).",
+          "properties": {
+            "repo_url": {"type": "string", "format": "uri"},
+            "ref": {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"}
+          },
+          "required": ["repo_url", "ref"]
+        },
+        "update": {
+          "type": "object",
+          "description": "How 'Update demos' finds newer versions of the Docker image on ghcr.io",
+          "properties": {
+            "docker_tags": {"type": "string", "description": "Regular expression for the version tags, e.g. ^[0-9a-f]{7}-jupyter$"},
+            "docker_latest": {"type": "string", "description": "Tag of the newest build, e.g. jupyter"}
           }
         },
         "installer": {

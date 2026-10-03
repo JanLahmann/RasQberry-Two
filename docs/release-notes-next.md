@@ -35,6 +35,15 @@ passes. Otherwise use the alternative given in the comment next to them. -->
 - A/B cards from beta round 3: the round-3 update menu stops with a false "corrupted" error. On Slot A, run it from a terminal with the output in a file: `sudo rq_update_slot.sh <URL of the -ab image> <release tag> --slot B > ~/update.log 2>&1`. Or write a new card.
 - **Raspberry Pi 4:** the A/B image needs a recent bootloader. If the card does not start, update it with Imager: **Misc utility images** → **Bootloader** → **SD Card Boot**.
 
+**Demos, workshops and IBM accounts**
+
+- Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for doQumentation: the latest build or one in between, with date, size and Qiskit version), or back.
+- **Workshop Server (doQumentation):** one Pi serves a class's laptops over the network. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Everyone on the network can run code on it: use it on a class network you trust.
+- **Quantum Demos** → **Stop Docker demos** stops the Workshop Server, Quantum Lab, Qoffee-Maker or Quantum-Mixer. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
+- Quantum-Mixer downloads a ready image instead of building for 15-30 minutes.
+- Notebook demos also start over SSH and print an `ssh -L` command for your computer.
+- **IBM Quantum account:** every demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com and use **IBM Quantum account** → **Save my API key**: the key is checked before it is saved.
+
 **Known issues**
 
 - Report problems in [Issues](https://github.com/JanLahmann/RasQberry-Two/issues) and paste the output of `rq_info.sh --json`.

@@ -405,99 +405,16 @@ run_ibm_courses_demo() {
 # Download All Demos - Batch install all available demos
 # -----------------------------------------------------------------------------
 
-# Is a Docker image on this Pi? (as the desktop user's docker would see it)
-_rq_docker_image_present() {
-    command -v docker > /dev/null 2>&1 && docker image inspect "$1" > /dev/null 2>&1
-}
-
-# Install Qoffee-Maker: notebooks + settings file (qoffee-setup.sh) and its
-# Docker image. Run by the demo engine (manifest install.installer) after its
-# consent dialog. "Installed" is the image and the checkout, not the flag:
-# an image removed to free space was otherwise never fetched again.
+# Install Qoffee-Maker (notebooks, settings file, Docker image) and
+# Quantum-Mixer (its prebuilt image, Jan Q27c) at the versions pinned for this
+# release. Run by the demo engine (manifest install.installer) after its
+# consent dialog; the launchers own the install steps (--install-only).
 do_qoffee_install() {
-    QOFFEE_IMAGE="ghcr.io/janlahmann/qoffee-maker"
-    if _rq_docker_image_present "$QOFFEE_IMAGE" && [ -f "$DEMO_ROOT/Qoffee-Maker/qoffee.ipynb" ]; then
-        return 0
-    fi
-
-    if ! command -v docker > /dev/null 2>&1; then
-        echo "ERROR: Qoffee-Maker needs Docker, which is not installed" >&2
-        return 1
-    fi
-
-    if [ ! -f "$DEMO_ROOT/Qoffee-Maker/qoffee.ipynb" ]; then
-        echo "Setting up Qoffee-Maker..."
-        if ! "$BIN_DIR/qoffee-setup.sh"; then
-            echo "ERROR: Qoffee-Maker setup failed" >&2
-            return 1
-        fi
-    fi
-
-    # Pull with retries (large images can fail on slow connections)
-    MAX_RETRIES=3
-    RETRY_COUNT=0
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo "Downloading the Qoffee-Maker Docker image (attempt $RETRY_COUNT of $MAX_RETRIES)..."
-        if docker pull "$QOFFEE_IMAGE"; then
-            update_environment_file "QOFFEE_MAKER_INSTALLED" "true"
-            echo "Qoffee-Maker is ready."
-            return 0
-        fi
-        [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 10
-    done
-    echo "ERROR: Could not download the Qoffee-Maker Docker image (tried $MAX_RETRIES times)" >&2
-    return 1
+    "$BIN_DIR/qoffee-maker.sh" --install-only
 }
 
-# Install Quantum-Mixer: build its Docker image on this Pi from source. Run by
-# the demo engine (manifest install.installer) after its consent dialog, which
-# states the size and the 15-30 minutes. It used to set up Qoffee-Maker first
-# (an unrelated clone, and "Qoffee-Maker is ready to use!") - no longer.
 do_quantum_mixer_install() {
-    MIXER_DIR="$DEMO_ROOT/quantum-mixer"
-    MIXER_IMAGE="quantum-mixer:arm64"
-    if _rq_docker_image_present "$MIXER_IMAGE"; then
-        return 0
-    fi
-
-    if ! command -v docker > /dev/null 2>&1; then
-        echo "ERROR: Quantum-Mixer needs Docker, which is not installed" >&2
-        return 1
-    fi
-
-    if [ ! -f "$MIXER_DIR/Dockerfile.arm64" ]; then
-        rm -rf "$MIXER_DIR" 2>/dev/null || sudo -n rm -rf "$MIXER_DIR" 2>/dev/null
-        echo "Downloading the Quantum-Mixer source..."
-        if ! _rq_as_desktop_user git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 \
-                clone -q --depth 1 "$GIT_REPO_DEMO_QUANTUM_MIXER" "$MIXER_DIR"; then
-            rm -rf "$MIXER_DIR" 2>/dev/null || sudo -n rm -rf "$MIXER_DIR" 2>/dev/null
-            echo "ERROR: Could not download the Quantum-Mixer source from $GIT_REPO_DEMO_QUANTUM_MIXER" >&2
-            return 1
-        fi
-    fi
-
-    echo "Building the Quantum-Mixer Docker image. This takes 15-30 minutes..."
-    MAX_RETRIES=3
-    RETRY_COUNT=0
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo "Build attempt $RETRY_COUNT of $MAX_RETRIES..."
-        # --no-cache on retries to avoid corrupted cached layers
-        BUILD_OPTS=""
-        [ $RETRY_COUNT -gt 1 ] && BUILD_OPTS="--no-cache"
-        if (cd "$MIXER_DIR" && docker build $BUILD_OPTS -f Dockerfile.arm64 -t "$MIXER_IMAGE" .); then
-            # The build leaves a cache of about 5.6 GB that nothing reuses (R-153)
-            docker builder prune -f > /dev/null 2>&1 || true
-            update_environment_file "QUANTUM_MIXER_INSTALLED" "true"
-            echo "Quantum-Mixer is ready."
-            return 0
-        fi
-        [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 10
-    done
-    docker builder prune -f > /dev/null 2>&1 || true
-    echo "ERROR: Could not build the Quantum-Mixer Docker image (tried $MAX_RETRIES times)" >&2
-    return 1
+    "$BIN_DIR/quantum-mixer.sh" --install-only
 }
 
 # Download all demos at once (rq_download_all.sh: the list comes from the demo
@@ -829,43 +746,22 @@ run_qoffee_demo() {
     run_engine_demo "$BIN_DIR/rq_demo_run.sh" qoffee-maker
 }
 
-# Stop Qoffee-Maker containers
-stop_qoffee_containers() {
-    if ! command -v docker > /dev/null 2>&1; then
-        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
-        return 0
-    fi
-
-    # Check if any qoffee containers are running
-    if docker ps -q --filter name=qoffee 2>/dev/null | grep -q .; then
-        echo "Stopping Qoffee-Maker containers..."
-        docker stop $(docker ps -q --filter name=qoffee) 2>/dev/null || true
-        whiptail --title "Qoffee-Maker Stopped" --msgbox "All Qoffee-Maker containers have been stopped." 8 60
-    else
-        whiptail --title "No Containers" --msgbox "No running Qoffee-Maker containers found." 8 60
-    fi
-}
-
 # Run Quantum-Mixer demo (the engine asks before its 15-30 minute build)
 run_quantum_mixer_demo() {
     run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-mixer
 }
 
-# Stop Quantum-Mixer containers
-stop_quantum_mixer_containers() {
-    if ! command -v docker > /dev/null 2>&1; then
-        whiptail --title "Docker Not Found" --msgbox "Docker is not installed. No containers to stop." 8 60
-        return 0
-    fi
+# Stop the Docker demos that are running (doQumentation, Quantum Lab,
+# Qoffee-Maker, Quantum-Mixer, catalogue demos): closing their window keeps
+# them running, and only Qoffee and the Mixer had a stop entry (R-110).
+do_stop_docker_demos() {
+    "$BIN_DIR/rq_docker_demos.sh" --stop-menu
+}
 
-    # Check if any quantum-mixer containers are running
-    if docker ps -q --filter name=quantum-mixer 2>/dev/null | grep -q .; then
-        echo "Stopping Quantum-Mixer containers..."
-        docker stop $(docker ps -q --filter name=quantum-mixer) 2>/dev/null || true
-        whiptail --title "Quantum-Mixer Stopped" --msgbox "All Quantum-Mixer containers have been stopped." 8 60
-    else
-        whiptail --title "No Containers" --msgbox "No running Quantum-Mixer containers found." 8 60
-    fi
+# Move a demo to a newer upstream version, or back to the one this release
+# ships (Jan, Q8/Q32)
+do_update_demos() {
+    run_engine_demo "$BIN_DIR/rq_demo_update.sh"
 }
 
 # Refresh demo menu cache from manifests
@@ -1454,10 +1350,10 @@ do_quantum_demo_menu() {
        DALL "Download all demos (one-time setup)" \
        ADDX "Add demo from catalogue" \
        REM  "Remove a demo (free space)" \
+       UPD  "Update demos (newer versions)" \
        LOOP "Continuous Demo Loop (Conference)" \
        STOP "Stop last running demo and clear LEDs" \
-       QSTP "Stop Qoffee-Maker" \
-       QMXS "Stop Quantum-Mixer") || break
+       DSTP "Stop Docker demos (Workshop Server, Quantum Lab...)") || break
     _qd_last="$FUN"
     case "$FUN" in
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
@@ -1470,8 +1366,8 @@ do_quantum_demo_menu() {
             # 130/143: stopped with Ctrl+C - the loop's own emergency stop
             case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;
       STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
-      QSTP) stop_qoffee_containers     || { handle_error "Failed to stop Qoffee-Maker."; continue; } ;;
-      QMXS) stop_quantum_mixer_containers || { handle_error "Failed to stop Quantum-Mixer."; continue; } ;;
+      UPD)  do_update_demos            || { handle_error "Could not update the demo."; continue; } ;;
+      DSTP) do_stop_docker_demos       || continue ;;
       "")   continue ;;
       # Any other tag is a manifest demo id -> universal dispatch (via the cache).
       *)    run_engine_demo dispatch_demo_by_id "$FUN" \
@@ -2433,7 +2329,7 @@ do_ibm_account_show() {
         fi
     done
     if [ -z "$_ia_text" ]; then
-        _ia_text="No IBM Quantum account is saved on this Pi.\n\nRaspberry Tie asks for your API key the first time you run it on a real quantum computer; notebooks and your own programs use QiskitRuntimeService.save_account()."
+        _ia_text="No IBM Quantum account is saved on this Pi.\n\nEvery demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com, create an API key and save it with \"Save my API key\"."
     else
         _ia_text="${_ia_text}The API key itself is not shown."
     fi
@@ -2463,13 +2359,31 @@ do_ibm_account_forget() {
     whiptail --title "IBM Quantum account" --msgbox "The saved IBM Quantum account was deleted." 8 60
 }
 
+# Save or check the account as the desktop user, with the venv's Qiskit
+# (rq_set_qiskit_ibm_token.py): the key is checked with IBM Quantum before it
+# is saved, and it goes to the user's ~/.qiskit (Jan, Q26/Q31).
+_rq_ibm_token_tool() {
+    _it_py="$REPO_DIR/venv/$STD_VENV/bin/python3"
+    [ -x "$_it_py" ] || _it_py=python3
+    clear
+    _rq_as_desktop_user "$_it_py" "$BIN_DIR/rq_set_qiskit_ibm_token.py" "$@"
+    _it_rc=$?
+    printf '\nPress Enter to return to the menu.'
+    read -r _it_x || :
+    return $_it_rc
+}
+
 do_ibm_account_menu() {
     while true; do
         FUN=$(show_menu "RasQberry: IBM Quantum account" \
-            "The account (API key) used for real IBM Quantum computers." \
+            "Every demo runs on a simulator without an account. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com)." \
+            SAVE   "Save my API key (checked first)" \
+            CHECK  "Check the saved account" \
             SHOW   "Show the saved account" \
             FORGET "Forget the saved account") || break
         case "$FUN" in
+            SAVE)   _rq_ibm_token_tool || continue ;;
+            CHECK)  _rq_ibm_token_tool --check || continue ;;
             SHOW)   do_ibm_account_show ;;
             FORGET) do_ibm_account_forget || continue ;;
             *)      break ;;

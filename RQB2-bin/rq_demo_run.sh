@@ -188,7 +188,9 @@ check_requirements() {
             fi
             ;;
         optional)
-            check_display || warn "No display detected. Some features may not work."
+            # Server demos start headless over SSH and print their address
+            # (Jan, Q19)
+            check_display || info "No screen in this session: the demo prints its address instead of opening a browser."
             ;;
         none)
             # No display requirement
@@ -208,10 +210,11 @@ check_requirements() {
     fi
 }
 
-# The Docker image a docker demo runs, when it names one
+# The Docker image a docker demo runs, when it names one: the release pin, or
+# the newer version chosen under "Update demos"
 demo_docker_image() {
     [ "$(get_field '.entrypoint.type' '')" = "docker" ] || return 0
-    get_field '.entrypoint.docker_image' ''
+    rq_demo_image "$DEMO_ID" "$MANIFEST_FILE"
 }
 
 # Is Docker usable here? (If not, the demo's launcher explains why.)
@@ -280,7 +283,8 @@ install_demo() {
     local demo_dir
 
     repo_url=$(get_field '.install.repo_url' '')
-    ref=$(get_field '.install.ref' '')
+    # the release pin, or the newer commit chosen under "Update demos"
+    ref=$(rq_demo_ref "$DEMO_ID" "$MANIFEST_FILE")
     working_dir=$(get_field '.entrypoint.working_dir' '')
     patch_file=$(get_field '.install.patch_file' '')
     pip_requirements=$(get_bool '.install.pip_requirements' 'false')
@@ -632,7 +636,7 @@ run_docker() {
         return 0
     fi
 
-    docker_image=$(get_field '.entrypoint.docker_image' '')
+    docker_image=$(demo_docker_image)
     docker_port=$(get_field '.entrypoint.docker_port' '8080')
     container_name=$(get_field '.id' 'rasqberry-demo')
 
@@ -697,6 +701,7 @@ run_docker() {
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
         --rm \
+        --label "org.rasqberry.demo=$DEMO_ID" \
         -p "${host_port}:${docker_port}" \
         "$docker_image"; then
         die "Failed to start Docker container"

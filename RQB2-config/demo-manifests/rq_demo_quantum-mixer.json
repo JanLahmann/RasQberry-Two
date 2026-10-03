@@ -13,7 +13,7 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "quantum-mixer:arm64",
+    "docker_image": "ghcr.io/janlahmann/quantum-mixer:fc0cb984508ce80b3d0c650669bc7f2b8bde72c3",
     "docker_port": 8080,
     "launcher": "quantum-mixer.sh"
   },
@@ -21,13 +21,19 @@
     "preinstalled": false,
     "installer": "do_quantum_mixer_install",
     "installed_flag": "QUANTUM_MIXER_INSTALLED",
+    "source": {
+      "repo_url": "https://github.com/JanLahmann/quantum-mixer.git",
+      "ref": "fc0cb984508ce80b3d0c650669bc7f2b8bde72c3"
+    },
+    "update": {
+      "docker_tags": "^[0-9a-f]{40}$",
+      "docker_latest": "latest"
+    },
     "download": {
-      "what": "Docker image built on this Pi from source (GitHub)",
-      "download_mb": 1200,
+      "what": "Docker image from ghcr.io (built by RasQberry's CI)",
+      "download_mb": 900,
       "disk_mb": 2300,
-      "peak_mb": 5600,
-      "time": "15-30 minutes",
-      "url": "https://github.com"
+      "time": "5-10 minutes"
     }
   },
   "needs_hw": {

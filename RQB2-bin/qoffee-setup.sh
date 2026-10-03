@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Description:
 #   Sets up Qoffee-Maker demo (repository + configuration)
-#   Clones repository and creates configuration file
+#   Fetches the notebooks at the pinned commit and creates the settings file
 #   Docker is installed and configured at image build time
 ################################################################################
 
@@ -20,114 +20,58 @@ echo
 
 # Load environment and verify required variables
 load_rqb2_env
-verify_env_vars USER_HOME REPO BIN_DIR GIT_REPO_DEMO_QOFFEE
+verify_env_vars USER_HOME REPO BIN_DIR
 
 DEMO_DIR="$USER_HOME/$REPO/demos/Qoffee-Maker"
+SRC_URL="$(rq_demo_repo qoffee-maker)"
+SRC_REF="$(rq_demo_ref qoffee-maker)"
+[ -n "$SRC_URL" ] && [ -n "$SRC_REF" ] \
+    || die "The Qoffee-Maker demo description (manifest) names no pinned source."
 
 ################################################################################
-# Clone Qoffee-Maker repository
+# The Qoffee-Maker notebooks, at the commit pinned for this release (Q32)
 ################################################################################
-
-# Clone Qoffee-Maker repository if needed
-# Check for marker file (qoffee.ipynb) to verify successful installation
 if [ ! -f "$DEMO_DIR/qoffee.ipynb" ]; then
-    echo
-    info "Cloning Qoffee-Maker repository..."
-
-    if ! clone_demo "$GIT_REPO_DEMO_QOFFEE" "$DEMO_DIR"; then
-        # Clean up incomplete directory and show error
-        rm -rf "$DEMO_DIR"
-        show_msgbox "Clone Error" "Failed to clone Qoffee-Maker repository.\n\nPlease check your internet connection."
-        die "Failed to clone Qoffee-Maker repository"
-    fi
-    info "Qoffee-Maker repository cloned"
+    info "Downloading the Qoffee-Maker notebooks (commit ${SRC_REF:0:7})..."
+    rq_remove_tree "$DEMO_DIR" || die "An earlier, incomplete download is in the way: $DEMO_DIR"
+    fetch_pinned_repo "$SRC_URL" "$SRC_REF" "$DEMO_DIR" \
+        || die "Could not download the Qoffee-Maker notebooks from $SRC_URL"
 else
-    info "Qoffee-Maker repository already exists"
-
-    # Update repository
-    info "Updating Qoffee-Maker repository..."
-    cd "$DEMO_DIR" && git pull --quiet origin main 2>/dev/null || true
-    cd "$USER_HOME" || die "Failed to return to home directory"
+    info "Qoffee-Maker notebooks are there"
 fi
 
 ################################################################################
-# Create configuration file
+# Settings file (.env). The credentials are optional (R-037).
 ################################################################################
-
-# Create .env configuration file if needed
 ENV_FILE="$DEMO_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
-    echo
-    info "Creating configuration file..."
-
-    # Check if env-template exists
     if [ -f "$DEMO_DIR/env-template" ]; then
         cp "$DEMO_DIR/env-template" "$ENV_FILE"
     else
-        # Create default .env if template missing
         cat > "$ENV_FILE" << 'ENVEOF'
-# Home Connect API Configuration
-# Register at: https://developer.home-connect.com/
 HOMECONNECT_API_URL=https://simulator.home-connect.com/
 HOMECONNECT_CLIENT_ID=your_client_id_here
 HOMECONNECT_CLIENT_SECRET=your_client_secret_here
 HOMECONNECT_REDIRECT_URL=http://localhost:8887/auth/callback
 DEVICE_HA_ID=
-
-# IBM Quantum API Key
-# Get your key at: https://quantum-computing.ibm.com/account
 IBMQ_API_KEY=your_ibmq_api_key_here
-
-# Jupyter Token (change for security)
 JUPYTER_TOKEN=super-secret-token
 ENVEOF
     fi
-
-    # Fix ownership to user (not root)
-    USER_NAME=$(get_user_name)
-    sudo chown "$USER_NAME":"$USER_NAME" "$ENV_FILE"
-
-    info "Configuration file created: $ENV_FILE"
+    fix_root_ownership "$ENV_FILE" >/dev/null 2>&1 || true
+    info "Settings file created: $ENV_FILE"
     echo
-    warn "CONFIGURATION REQUIRED!"
+    echo "Qoffee-Maker opens without any accounts. To brew with a real coffee"
+    echo "machine, add your Home Connect credentials (developer.home-connect.com)"
+    echo "to $ENV_FILE"
     echo
-    echo "Before using Qoffee-Maker, you must configure:"
-    echo "  1. Home Connect Developer Account"
-    echo "     → https://developer.home-connect.com/"
-    echo "  2. IBM Quantum Account"
-    echo "     → https://quantum-computing.ibm.com/account"
-    echo
-    echo "Edit: $ENV_FILE"
-    echo
-
-    # Skip interactive dialog in auto-install mode
-    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ]; then
-        if show_yesno "Edit Configuration?" \
-            "Configuration file created at:\n$ENV_FILE\n\nYou need to add your API credentials:\n• Home Connect Client ID & Secret\n• IBM Quantum API Key\n\nWould you like to edit it now?"; then
+    if [ "${RQ_AUTO_INSTALL:-0}" != "1" ] && [ -t 0 ]; then
+        if whiptail --title "Qoffee-Maker settings" --defaultno --yesno \
+            "Qoffee-Maker opens without any accounts.\n\nTo brew with a real coffee machine it needs your Home Connect credentials (developer.home-connect.com) in:\n$ENV_FILE\n\nEdit the settings file now?" 14 70; then
             ${EDITOR:-nano} "$ENV_FILE"
         fi
-    else
-        info "Skipping credentials setup (auto-install mode)"
     fi
-else
-    info "Configuration file exists: $ENV_FILE"
 fi
 
-################################################################################
-# Complete setup
-################################################################################
-
-echo
-echo "=== Setup Complete ==="
-echo
-echo "Qoffee-Maker is ready to use!"
-echo "You can now run it from:"
-echo "  • RasQberry menu → Quantum Demos → Qoffee-Maker"
-echo "  • Desktop shortcut"
-echo "  • Command line: $BIN_DIR/qoffee-maker.sh"
-echo
-
-# Update environment variable
 update_env_var "QOFFEE_MAKER_INSTALLED" "true"
-
 exit 0
