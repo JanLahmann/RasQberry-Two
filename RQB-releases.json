@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T08:04:20Z",
+  "generated": "2026-10-03T19:04:08Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,50 +8,48 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-09-30-221656",
-      "name": "rasqberry-beta-2026-09-30",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-221656/rasqberry-beta-2026-09-30.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-09-30-221656",
-      "release_date": "2026-09-30",
-      "image_download_size": 1667418152,
-      "extract_size": 9034530816,
-      "extract_sha256": "6139cf1f840e264d2aada44a5eab919b1edf8214404d68e76521bef2ecf700c1",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-221656/rasqberry-beta-2026-09-30-ab.img.xz",
-      "ab_extract_sha256": "3e1d9c2e7e719b2e8b675ff167bc9f82fdceaa182f9b7dbf92d5710032a6dbce",
-      "ab_image_sha256": "b7bb26a978e9e05e3274faec2ff17f90106d20429d28ccbf5b4529ef3078f56c",
+      "tag": "beta-2026-10-03-095636",
+      "name": "rasqberry-beta-2026-10-03",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-03-095636/rasqberry-beta-2026-10-03.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-03-095636",
+      "release_date": "2026-10-03",
+      "image_download_size": 1665591352,
+      "extract_size": 9076473856,
+      "extract_sha256": "7486c54357ab83036815dcf99e78eb3c9c4ccf9c96f053259e0e7de04abbea7e",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-03-095636/rasqberry-beta-2026-10-03-ab.img.xz",
+      "ab_extract_sha256": "bd2f93e50bf1dc63818d52602c39eeda343951c560742235d948999e4bc241f6",
+      "ab_image_sha256": "575b10fe85fc4f9711eeace8578715f5c034abb91b9f1084947f8bd8dcd273e5",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1671527604,
+      "ab_image_download_size": 1668588980,
       "highlights": [
-        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
-        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
-        "Virtual LED Display - Demo mode without physical hardware",
-        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
-        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
-        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
-        "XZ Compression - Smaller images (~30% reduction)"
+        "17 demos, each downloaded from a pinned, checked source on its first start",
+        "LED setup wizard and a first-login setup checklist",
+        "Qiskit 2.5 with Qiskit Aer 0.17 and Qiskit IBM Runtime 0.50",
+        "Demo catalogue: add reviewed third-party demos such as traQmania and the SAP demos",
+        "Update notice at login, and System Info (rq_info.sh) for bug reports"
       ]
     },
     "dev": {
-      "tag": "development-2026-10-03-094345",
-      "name": "rasqberry-development-2026-10-03-094345",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-094345",
-      "release_date": "2026-10-03 09:43",
-      "image_download_size": 2030552064,
-      "extract_size": 9034530816,
-      "extract_sha256": "e7a534f57099cbf67e4cb0227423284722ff8a3629ce0ddb11c03ad6c49ba5d3",
-      "image_sha256": "443ac1b66c8e64b14f8772b7c84a17eee8ab6a9ee003256d103010688de285a3",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345-ab.img.xz",
-      "ab_extract_sha256": "988b047a7bdac9b2ada9e9af3b21a362a576f007ff120633466924241c1fedb8",
-      "ab_image_sha256": "57a831eb6fd3ce4d68066d11b2d9e9afb4cf25e4b8b4c2319b6257e5222f38cf",
-      "ab_image_download_size": 2066591656,
+      "tag": "development-2026-10-03-203600",
+      "name": "rasqberry-development-2026-10-03-203600",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-203600/rasqberry-development-2026-10-03-203600.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-203600",
+      "release_date": "2026-10-03 20:36",
+      "image_download_size": 2009736496,
+      "extract_size": 9076473856,
+      "extract_sha256": "95fda95ea40ee43b1059b351acee3a39ceb077f8500d1d7a3ac53a109a4bff3a",
+      "image_sha256": "59a955fd7e3a4d8e86211f8a2882ab8dce42def8b3ed6e0764f980338625ca54",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-203600/rasqberry-development-2026-10-03-203600-ab.img.xz",
+      "ab_extract_sha256": "ef6a1abe0feb9f5b04be451bf982d398155a15177f570566e0523d6b681e2418",
+      "ab_image_sha256": "0f9a17fb96b3da23d2aadd997a259beb052dfc1d470a7a6b9cb5851d09f30f04",
+      "ab_image_download_size": 2063942644,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "the Quantum-Mixer image is built in the quantum-mixer repository",
-        "Bump version to development-2026-10-03-094345",
-        "pin the Fun with Quantum website bundle (ea110b0, first published bundle)",
-        "pin the Fun with Quantum website separately from the notebooks",
-        "Fun with Quantum submenu with every game, the website offline and the family"
+        "one way to stop every demo; LED clear, Pi 5 driver stalls, Docker demos (C2)",
+        "no initramfs on the standard image's boot partition (items 37/41)",
+        "docs, mixer: \"64 GB\" with a space; \"Quantum Mixer\" in its window",
+        "Bump version to development-2026-10-03-203600",
+        "Merge branch 'dev-qiskit-server' into development (feedback C3)"
       ]
     }
   }
