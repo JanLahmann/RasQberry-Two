@@ -20,25 +20,8 @@ rq_help_guard "$@"
 load_rqb2_env
 verify_env_vars USER_HOME REPO STD_VENV MARKER_IBM_TUTORIALS IBM_TUTORIALS_JUPYTER_PORT
 
-# Check for GUI/Desktop environment
-if ! check_display; then
-    echo ""
-    echo "=========================================="
-    echo "ERROR: Graphical Desktop Required"
-    echo "=========================================="
-    echo ""
-    echo "This demo requires a graphical desktop environment (GUI)."
-    echo "It cannot run from a terminal-only session."
-    echo ""
-    echo "To run this demo:"
-    echo "  1. Connect via VNC or use the desktop environment"
-    echo "  2. Open a terminal in the desktop"
-    echo "  3. Run this demo from there"
-    echo ""
-    echo "Or use the desktop launcher icon instead."
-    echo ""
-    die "No display available"
-fi
+# Without a screen (SSH) the server starts headless and the address and an
+# ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
 
 DEMO_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 PORT="${IBM_TUTORIALS_JUPYTER_PORT:-8889}"
@@ -136,17 +119,7 @@ setup_cleanup_trap cleanup
 ################################################################################
 # Open browser
 ################################################################################
-info "Opening browser..."
-
-if command -v chromium-browser >/dev/null 2>&1; then
-    run_as_user chromium-browser --password-store=basic "$WELCOME_URL" >/dev/null 2>&1 &
-elif command -v firefox >/dev/null 2>&1; then
-    run_as_user firefox "$WELCOME_URL" >/dev/null 2>&1 &
-elif command -v xdg-open >/dev/null 2>&1; then
-    run_as_user xdg-open "$WELCOME_URL" >/dev/null 2>&1 &
-else
-    info "Please open manually: $WELCOME_URL"
-fi
+rq_show_url "$WELCOME_URL" "$PORT"
 
 ################################################################################
 # Display info and wait

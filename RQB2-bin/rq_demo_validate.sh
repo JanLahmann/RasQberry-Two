@@ -163,6 +163,33 @@ validate_pin_policy() {
         errs=$((errs + 1))
     fi
 
+    # Shipped demos are all pinned per release, whoever owns them (Jan, Q8/
+    # Q32): the commit a demo's installer fetches (install.source) and the
+    # Docker image (by digest, or by a tag named after the source commit that
+    # the image's CI writes once). "Update demos" moves a pin on request.
+    if [ "$EXTERNAL" != "true" ]; then
+        local src_ref image
+        src_ref=$(jq -r '.install.source.ref // empty' "$file")
+        if jq -e '.install.source' "$file" >/dev/null 2>&1 \
+                && ! echo "$src_ref" | grep -qE '^[0-9a-fA-F]{40}$'; then
+            print_fail "install.source.ref must be a full 40-character commit SHA, got: '$src_ref'"
+            errs=$((errs + 1))
+        fi
+        image=$(jq -r 'select(.entrypoint.type == "docker") | .entrypoint.docker_image // empty' "$file")
+        if [ -n "$image" ]; then
+            if echo "$image" | grep -qE '@sha256:[0-9a-f]{64}$|:[0-9a-f]{40}$'; then
+                print_pass "Docker image pinned (${image##*[@:]})"
+            else
+                print_fail "entrypoint.docker_image must be pinned by digest (name@sha256:...) or by a source-commit tag, got: '$image'"
+                errs=$((errs + 1))
+            fi
+        fi
+        if [ -n "$repo_url" ] && ! echo "$ref" | grep -qE '^[0-9a-fA-F]{40}$'; then
+            print_fail "Shipped demos pin install.ref to a full 40-character commit SHA, got: '${ref:-none}'"
+            errs=$((errs + 1))
+        fi
+    fi
+
     if [ -z "$repo_url" ]; then
         [ -n "$installer" ] && print_pass "Install delegated to $installer (pin is that installer's responsibility)"
         return $errs

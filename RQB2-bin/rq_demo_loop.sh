@@ -32,6 +32,8 @@ PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
 # cleanup - Stop all demos and turn off LEDs
 ################################################################################
 cleanup() {
+    # runs once: the exit below fires the EXIT trap again (R-164)
+    trap - EXIT INT TERM
     echo ""
     info "Stopping demo loop..."
     # Kill any running demo processes

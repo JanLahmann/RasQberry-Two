@@ -59,6 +59,7 @@ list_downloaded() {
     while IFS= read -r mf; do
         [ -n "$mf" ] || continue
         IFS=$'\037' read -r id name type image wd flag shares pre <<< "$(fields "$mf")"
+        [ -n "$image" ] && image=$(rq_demo_image "$id" "$mf")   # the version in use
         [ "$pre" = "true" ] && continue
         if [ -n "$shares" ]; then
             case "$seen" in *" $shares "*) continue ;; esac
@@ -96,6 +97,7 @@ remove_demo() {
     mf=$(rq_find_manifest "$SHIPPED_DIR" "$id") || die "Unknown demo: $id"
 
     IFS=$'\037' read -r id_ name type image wd flag shares pre <<< "$(fields "$mf")"
+    [ -n "$image" ] && image=$(rq_demo_image "$id" "$mf")   # the version in use
 
     if is_catalog "$id"; then
         if [ "$assume_yes" != yes ]; then
@@ -134,6 +136,9 @@ remove_demo() {
     if [ "$type" = docker ] && [ -n "$image" ] && [ "$DOCKER_OK" = yes ] \
         && docker image inspect "$image" >/dev/null 2>&1; then
         info "Removing the Docker image $image"
+        # a stopped container kept for its log would block the removal
+        docker ps -aq --filter "ancestor=$image" --filter status=exited --filter status=created \
+            | xargs -r docker rm >/dev/null 2>&1 || true
         docker rmi "$image" >/dev/null || warn "Could not remove the Docker image $image (is the demo still running?)"
         docker builder prune -f >/dev/null 2>&1 || true
     fi

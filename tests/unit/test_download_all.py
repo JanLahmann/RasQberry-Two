@@ -158,7 +158,8 @@ def test_one_question_then_the_docker_opt_in_with_total_size(box):
     assert "Not on this Pi yet (8)" in first and "Quantum Lights Out" in first
     assert "Free:      50.0 GB" in first and "start without the internet" in first
     assert "Docker demos" in docker and "doQumentation" in docker and "Quantum-Mixer" in docker
-    assert "while installing" in docker
+    # the Mixer is a prebuilt download now (Jan, Q27c): no build cache peak
+    assert "while installing" not in docker and "Space:" in docker
     assert "--defaultno" in calls[1]
     assert set(box.installs()) == _GIT_DEMOS
     # IBM tutorials and courses share one download: counted once
@@ -287,7 +288,8 @@ def test_remove_takes_the_docker_image(box, tmp_path):
     assert "quantum-lab\t3910\tQuantum Lab (QuBins)" in proc.stdout, proc.stdout + proc.stderr
     proc = box(_REMOVE, ["quantum-lab", "--yes"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "rmi ghcr.io/qubins/images:latest-xl" in log.read_text()
+    # the pinned image (by digest, Jan Q8)
+    assert "rmi ghcr.io/qubins/images@sha256:" in log.read_text()
 
 
 # --- R-121 ------------------------------------------------------------------

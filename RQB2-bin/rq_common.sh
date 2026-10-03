@@ -710,10 +710,12 @@ default_demo_cleanup() {
 find_available_port() {
     local port="${1:-8888}"
     while true; do
-        if command -v lsof &>/dev/null; then
-            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
-        elif command -v ss &>/dev/null; then
+        # ss first: it sees every listening socket, lsof run as the user misses
+        # root-owned ones (docker-proxy), so a "free" port could be taken (R-109)
+        if command -v ss &>/dev/null; then
             if ! ss -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
+        elif command -v lsof &>/dev/null; then
+            if ! lsof -i ":$port" &>/dev/null; then echo "$port"; return 0; fi
         elif command -v netstat &>/dev/null; then
             if ! netstat -tuln 2>/dev/null | grep -q ":$port "; then echo "$port"; return 0; fi
         else
@@ -727,10 +729,10 @@ find_available_port() {
 # Report whether a TCP port is currently in use. Returns 0 if in use.
 port_in_use() {
     local port="$1"
-    if command -v lsof &>/dev/null; then
-        lsof -i ":$port" &>/dev/null
-    elif command -v ss &>/dev/null; then
+    if command -v ss &>/dev/null; then
         ss -tuln 2>/dev/null | grep -q ":$port "
+    elif command -v lsof &>/dev/null; then
+        lsof -i ":$port" &>/dev/null
     elif command -v netstat &>/dev/null; then
         netstat -tuln 2>/dev/null | grep -q ":$port "
     else
@@ -1305,6 +1307,216 @@ rq_release_channel() {
         development-*|dev-*)   echo dev ;;
         *)                     echo stable ;;
     esac
+}
+
+# ============================================================================
+# 16. DEMO VERSIONS: release pins and the user's updates (Jan, Q8/Q32)
+# ============================================================================
+# Every downloaded demo is pinned per RasQberry release: a git commit
+# (install.ref, or install.source.ref for a demo with its own installer) and/or
+# a Docker image digest (entrypoint.docker_image "repo@sha256:..."). "Update
+# demos" (rq_demo_update.sh) moves a demo to a newer upstream version on
+# request. That choice is kept in demos/.demo-versions, one line per pin:
+#   ID:image|ID:ref <TAB> RELEASE_PIN <TAB> CHOSEN <TAB> LABEL
+# It holds only while the release still ships the pin it replaced: a newer
+# RasQberry release brings a newer tested pin, and that one wins.
+
+rq_demo_versions_file() {
+    echo "${USER_HOME:-$HOME}/${REPO:-RasQberry-Two}/demos/.demo-versions"
+}
+
+# Manifest file of a demo (the given one, else the shipped/user search path)
+_rq_demo_mf() {
+    if [ -n "${2:-}" ]; then echo "$2"; return 0; fi
+    rq_find_manifest "$(rq_shipped_manifest_dir)" "$1"
+}
+
+# The version chosen for KEY while the release pin is PIN; non-zero if none
+_rq_demo_chosen() {
+    local f
+    f=$(rq_demo_versions_file)
+    [ -f "$f" ] || return 1
+    awk -F'\t' -v k="$1" -v p="$2" '$1 == k && $2 == p && $3 != "" { v = $3 }
+        END { if (v == "") exit 1; print v }' "$f" 2>/dev/null
+}
+
+# Label of the chosen version for KEY (e.g. "bc4229e-jupyter, 2026-10-02")
+rq_demo_chosen_label() {
+    local f
+    f=$(rq_demo_versions_file)
+    [ -f "$f" ] || return 1
+    awk -F'\t' -v k="$1" '$1 == k { v = $4 } END { if (v == "") exit 1; print v }' "$f" 2>/dev/null
+}
+
+# The Docker image a demo runs: its release pin, or the newer version chosen
+# under "Update demos". Empty for a demo without an image.
+# Usage: image=$(rq_demo_image doqumentation [MANIFEST])
+rq_demo_image() {
+    local mf pin
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    pin=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null)
+    [ -n "$pin" ] || return 0
+    _rq_demo_chosen "$1:image" "$pin" || echo "$pin"
+}
+
+# The git commit a demo installs (install.ref or install.source.ref), likewise
+rq_demo_ref() {
+    local mf pin
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    pin=$(jq -r '.install.ref // .install.source.ref // empty' "$mf" 2>/dev/null)
+    [ -n "$pin" ] || return 0
+    _rq_demo_chosen "$1:ref" "$pin" || echo "$pin"
+}
+
+# The git repository a demo installs from (install.repo_url or install.source)
+rq_demo_repo() {
+    local mf
+    mf=$(_rq_demo_mf "$1" "${2:-}") || return 0
+    jq -r '.install.repo_url // .install.source.repo_url // empty' "$mf" 2>/dev/null
+}
+
+# Record (or, with an empty CHOSEN, drop) a newer version for KEY.
+# Usage: rq_demo_set_version "doqumentation:image" RELEASE_PIN CHOSEN LABEL
+rq_demo_set_version() {
+    local key="$1" pin="$2" chosen="${3:-}" label="${4:-}" f tmp
+    f=$(rq_demo_versions_file)
+    mkdir -p "$(dirname "$f")" || return 1
+    tmp="$f.tmp.$$"
+    {
+        if [ -f "$f" ]; then awk -F'\t' -v k="$key" '$1 != k' "$f"; fi
+        if [ -n "$chosen" ]; then printf '%s\t%s\t%s\t%s\n' "$key" "$pin" "$chosen" "$label"; fi
+    } > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+    fix_root_ownership "$f" >/dev/null 2>&1 || true
+}
+
+# ============================================================================
+# 17. DOCKER DEMO HELPERS (doQumentation, Quantum Lab, Qoffee-Maker, Mixer)
+# ============================================================================
+
+# Make docker usable in this script. The user is in the docker group from the
+# image build; a session older than that membership is re-run with it (sg).
+# Usage: rq_docker_access "$@"
+rq_docker_access() {
+    check_docker || die "Docker is not installed (the image may be misbuilt)."
+    local user_name
+    user_name=$(get_user_name)
+    if [ "$user_name" != "root" ] && ! id -nG "$user_name" 2>/dev/null | grep -qw docker; then
+        die "User '$user_name' is not in the docker group (the image may be misbuilt)."
+    fi
+    if [ "$(id -u)" != "0" ] && ! id -nG | grep -qw docker && [ -z "${DOCKER_GROUP_ACTIVATED:-}" ]; then
+        export DOCKER_GROUP_ACTIVATED=1
+        exec sg docker -c "$(printf '%q ' "$0" "$@")"
+    fi
+    docker ps >/dev/null 2>&1 \
+        || die "Docker does not answer: $(docker ps 2>&1 | tail -1)"
+}
+
+# Is the container running?
+rq_docker_running() {
+    [ "$(docker container inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]
+}
+
+# Stop and remove a container, and wait until it is really gone: docker stop
+# returns before --rm has removed it, and a docker run with the same name then
+# failed with "Conflict" and left no server at all (R-145).
+# Usage: rq_docker_stop NAME [TIMEOUT_S]
+rq_docker_stop() {
+    local name="$1" n=0
+    docker stop "$name" >/dev/null 2>&1 || true
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    while docker container inspect "$name" >/dev/null 2>&1; do
+        [ "$n" -ge "${2:-30}" ] && return 1
+        sleep 1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# Why a container failed: keep its log (the containers no longer run with
+# --rm, so `docker logs` still works, R-109), show the end, then die.
+# Usage: rq_docker_fail NAME "message"
+rq_docker_fail() {
+    local name="$1" msg="$2" log
+    log="${USER_HOME:-$HOME}/.cache/rasqberry/${name}.log"
+    mkdir -p "$(dirname "$log")" 2>/dev/null || true
+    if docker logs "$name" > "$log" 2>&1; then
+        fix_root_ownership "$log" >/dev/null 2>&1 || true
+        echo
+        echo "Last lines of the $name log (all of it: $log):"
+        tail -15 "$log"
+    fi
+    die "$msg"
+}
+
+# Download an image, with Docker's own progress and, on failure, its own
+# reason instead of "check your internet connection" (R-038).
+# Usage: rq_docker_pull IMAGE "Name"
+rq_docker_pull() {
+    local image="$1" name="${2:-$1}" err rc=0 why
+    info "Downloading $name: $image"
+    err=$(mktemp)
+    docker pull "$image" 2> "$err" || rc=$?
+    why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
+    rm -f "$err"
+    [ "$rc" -eq 0 ] && return 0
+    case "$why" in
+        *"no space left"*)
+            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
+        *"manifest unknown"*|*"not found"*|*"denied"*)
+            die "The registry does not offer $image (any more): $why" ;;
+        *)
+            die "Could not download $name: ${why:-docker pull failed}" ;;
+    esac
+}
+
+# After a new version is there, remove the other versions of the same image
+# that no container uses (a release with a new pin, or "Update demos", would
+# otherwise keep every old version on the SD card).
+# Usage: rq_docker_drop_old IMAGE_IN_USE
+rq_docker_drop_old() {
+    local keep="$1" repo keep_id id
+    repo="${keep%%@*}"
+    case "${repo##*/}" in *:*) repo="${repo%:*}" ;; esac
+    keep_id=$(docker image inspect -f '{{.Id}}' "$keep" 2>/dev/null) || return 0
+    for id in $(docker images --no-trunc -q "$repo" 2>/dev/null | sort -u); do
+        [ "$id" = "$keep_id" ] && continue
+        docker image rm "$id" >/dev/null 2>&1 \
+            && info "Removed an older version of $repo"
+    done
+    return 0
+}
+
+# Open URL in the desktop user's browser - or, without a screen (an SSH
+# session), say how to reach it from another computer (Jan, Q19). PORT is the
+# Pi-side port behind URL, for an ssh -L tunnel to a server on 127.0.0.1.
+# Usage: rq_show_url URL [PORT]
+rq_show_url() {
+    local url="$1" port="${2:-}" browser
+    if check_display; then
+        for browser in chromium-browser chromium firefox xdg-open; do
+            command -v "$browser" >/dev/null 2>&1 || continue
+            info "Opening the browser..."
+            case "$browser" in
+                chromium*) run_as_user "$browser" --password-store=basic "$url" >/dev/null 2>&1 & ;;
+                *)         run_as_user "$browser" "$url" >/dev/null 2>&1 & ;;
+            esac
+            return 0
+        done
+        info "No browser found. Open this address: $url"
+        return 0
+    fi
+    echo
+    echo "No screen in this session, so no browser opens here."
+    if [ -n "$port" ]; then
+        echo "To use the demo from your computer:"
+        echo "  1. On your computer, run:"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "  2. Open in its browser:"
+        echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
+    else
+        echo "Open this address: $url"
+    fi
+    echo
 }
 
 # ============================================================================

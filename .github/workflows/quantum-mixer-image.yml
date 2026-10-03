@@ -1,0 +1,128 @@
+name: Quantum-Mixer image
+
+# Builds the arm64 Docker image of Quantum-Mixer from the commit the demo
+# manifest pins (RQB2-config/demo-manifests/rq_demo_quantum-mixer.json,
+# install.source.ref) and pushes it to ghcr.io/janlahmann/quantum-mixer:<commit>
+# (and :latest). The Pi pulls that image (RQB2-bin/quantum-mixer.sh) instead
+# of building it for 15-30 minutes with a 5.6 GB build cache (Jan, Q27c); the
+# build on the Pi is only the fallback when the image cannot be had.
+#
+# Run it: Actions > "Quantum-Mixer image" > Run workflow (branch development;
+# optionally another quantum-mixer commit). It also runs when the manifest's
+# pin changes on development. A tag that exists is not built again.
+# After the FIRST run: make the package public once (github.com/JanLahmann >
+# Packages > quantum-mixer > Package settings > Change visibility), else the
+# Pi cannot pull it. The job summary shows the digest.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'quantum-mixer commit, 40 characters (empty = the manifest pin)'
+        required: false
+        default: ''
+      latest:
+        description: 'Also tag it latest'
+        type: boolean
+        default: true
+  push:
+    branches: [development]
+    paths:
+      - 'RQB2-config/demo-manifests/rq_demo_quantum-mixer.json'
+      - '.github/workflows/quantum-mixer-image.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/janlahmann/quantum-mixer
+  MANIFEST: RQB2-config/demo-manifests/rq_demo_quantum-mixer.json
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm   # native arm64: no QEMU, about 5 minutes
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit to build
+        id: src
+        run: |
+          ref="${{ inputs.ref }}"
+          [ -n "$ref" ] || ref=$(jq -r '.install.source.ref' "$MANIFEST")
+          url=$(jq -r '.install.source.repo_url' "$MANIFEST")
+          if ! echo "$ref" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "::error::Not a 40-character commit: $ref"
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Already built?
+        id: exists
+        run: |
+          if docker manifest inspect "$IMAGE:${{ steps.src.outputs.ref }}" >/dev/null 2>&1; then
+            echo "built=yes" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE:${{ steps.src.outputs.ref }} exists; not built again." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fetch quantum-mixer at the commit
+        if: steps.exists.outputs.built != 'yes'
+        run: |
+          git init -q mixer
+          cd mixer
+          git fetch -q --depth 1 "${{ steps.src.outputs.url }}" "${{ steps.src.outputs.ref }}"
+          git checkout -q FETCH_HEAD
+          test -f Dockerfile.arm64
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.exists.outputs.built != 'yes'
+
+      - name: Build and push
+        id: build
+        if: steps.exists.outputs.built != 'yes'
+        uses: docker/build-push-action@v6
+        with:
+          context: mixer
+          file: mixer/Dockerfile.arm64
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.src.outputs.ref }}
+            ${{ (github.event_name == 'push' || inputs.latest) && format('{0}:latest', env.IMAGE) || '' }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/JanLahmann/RasQberry-Two
+            org.opencontainers.image.url=https://github.com/JanLahmann/quantum-mixer
+            org.opencontainers.image.revision=${{ steps.src.outputs.ref }}
+            org.opencontainers.image.title=Quantum-Mixer (RasQberry Two build)
+            org.opencontainers.image.description=Quantum-Mixer for RasQberry Two, built from JanLahmann/quantum-mixer
+
+      - name: Smoke test (the server answers)
+        if: steps.exists.outputs.built != 'yes'
+        run: |
+          docker run -d --name mixer -p 8080:8080 "$IMAGE:${{ steps.src.outputs.ref }}"
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/ >/dev/null && { echo "answers after ${i}s"; break; }
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/ >/dev/null || { docker logs mixer; exit 1; }
+          docker rm -f mixer
+
+      - name: Summary
+        if: steps.exists.outputs.built != 'yes'
+        run: |
+          {
+            echo "Pushed $IMAGE:${{ steps.src.outputs.ref }}"
+            echo
+            echo "Digest: ${{ steps.build.outputs.digest }}"
+            echo
+            echo "The manifest pins it by this tag; RQB2-bin/quantum-mixer.sh pulls it."
+          } >> "$GITHUB_STEP_SUMMARY"

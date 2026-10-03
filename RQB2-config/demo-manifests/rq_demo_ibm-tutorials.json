@@ -33,7 +33,7 @@
   },
   "needs_hw": {
     "leds": false,
-    "display": "required"
+    "display": "optional"
   },
   "needs_ibm_token": "prefer",
   "browser_based": true,
