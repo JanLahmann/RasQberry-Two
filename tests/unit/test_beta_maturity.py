@@ -4,10 +4,11 @@ Feedback batch C3 (2026-10-03):
 - item 36: "maturity": "beta" in manifests, variants and the catalogue gives a
   "(beta)" tag in the RasQberry menu and the desktop tooltip, and a feedback
   invitation when the demo starts;
-- item 8: the Applications menu - no "RasQberry Menu" entry (the desktop icon
-  stays), one Bloch sphere entry, one name per demo;
+- item 8: the Applications menu - the raspi-config icon named for what it
+  opens, one Bloch sphere entry, one name per demo;
 - item 11: the Fun with Quantum icon offers every variant, website bundle pin;
-- item 29: the Bloch sphere tips come from our patch on the pinned upstream.
+- item 29: the Bloch sphere tips and explanation come from our patch on the
+  pinned upstream.
 """
 
 import json
@@ -60,8 +61,9 @@ def test_the_new_demos_are_beta():
     fwq = {v["id"]: v.get("maturity") for v in _manifest("fun-with-quantum")["variants"]}
     assert fwq["website"] == fwq["family"] == "beta" and fwq["coin-game"] is None
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))["demos"]
-    assert {d["id"] for d in registry if d.get("maturity") == "beta"} >= \
-        {"traqmania", "sap-quantum-learning", "sap-quantum-led"}
+    beta = {d["id"] for d in registry if d.get("maturity") == "beta"}
+    # the SAP demos are SAP's to call beta: we take them as they are (Jan)
+    assert "traqmania" in beta and not beta & {"sap-quantum-learning", "sap-quantum-led"}
 
 
 @needs_bash
@@ -94,7 +96,7 @@ def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
     assert proc.returncode == 0, proc.stderr
     text = cache.read_text()
     assert '"doqumentation" "Workshop & Qiskit Server (beta)"' in text
-    assert '"qiskit-tutorials" "Qiskit Tutorials (on this Pi) (beta)"' in text
+    assert '"qiskit-tutorials" "Qiskit Tutorials on this Pi (beta)"' in text
     assert '"Fun with Quantum website: games in the browser (beta)"' in text
     assert '"coin-game" "Quantum Coin Game"' in text
     # item 8: one Bloch sphere entry, the online version is its variant
@@ -136,10 +138,11 @@ def test_catalogue_picker_and_desktop_entries_show_beta():
 
 # --- item 8: Applications menu -----------------------------------------------------
 
-def test_rasqberry_menu_is_on_the_desktop_only():
-    # NoDisplay hides it from the Applications menu; pcmanfm still shows the
-    # desktop copy (checked in the lab, 2026-10-03)
-    assert _desktop("rasqberry-menu.desktop")["NoDisplay"] == "true"
+def test_raspi_config_icon_says_what_it_opens():
+    # the name was the confusing part (Jan): it is raspi-config
+    entry = _desktop("rasqberry-menu.desktop")
+    assert entry["Name"] == "RasQberry Configuration (raspi-config)"
+    assert entry["NoDisplay"] == "false"
     stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     assert "|rasqberry-menu|" in stage
 
@@ -188,5 +191,6 @@ def test_bloch_tips_come_from_our_patch():
     patch = open(os.path.join(_CFG, "demo-patches", "grok-bloch-help.patch")).read()
     assert "+++ b/rasqberry-help.js" in patch and "new file mode" in patch
     assert '+    <script src="rasqberry-help.js"></script>' in patch
-    for words in ("What it shows", "Try this", "What to notice"):
+    for words in ("What it shows", "Try this", "What to notice", "Explain the Bloch sphere"):
         assert words in patch
+    assert "https://quantum.cloud.ibm.com/learning/en/courses/" in patch

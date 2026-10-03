@@ -12,7 +12,7 @@ set -euo pipefail
 #   Two ways to run it (Jan, 2026-10-03):
 #   - Workshop & Qiskit Server (default): one Pi serves the laptops of a class
 #     over the LAN (Jan, Q30). Participants picker, addresses, QR code.
-#   - Qiskit Tutorials (on this Pi), --solo: just the person at this Pi. Bound
+#   - Qiskit Tutorials on this Pi, --solo: just the person at this Pi. Bound
 #     to 127.0.0.1 only, the smallest memory profile, no picker or addresses;
 #     opens the browser, and stops with its window.
 #
@@ -51,7 +51,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rq_help_guard "$@"
 
 WORKSHOP_NAME="Workshop & Qiskit Server"
-SOLO_NAME="Qiskit Tutorials (on this Pi)"
+SOLO_NAME="Qiskit Tutorials on this Pi"
 MODE="workshop"
 case "${1:-}" in
     --solo) MODE="solo" ;;

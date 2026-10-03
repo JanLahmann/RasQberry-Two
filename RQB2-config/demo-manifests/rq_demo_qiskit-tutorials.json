@@ -1,6 +1,6 @@
 {
   "id": "qiskit-tutorials",
-  "name": "Qiskit Tutorials (on this Pi)",
+  "name": "Qiskit Tutorials on this Pi",
   "category": "education",
   "description": "The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network",
   "maturity": "beta",

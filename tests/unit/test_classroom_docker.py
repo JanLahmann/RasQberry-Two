@@ -6,7 +6,7 @@ Tests for fix batch B9 (classroom, Workshop & Qiskit Server, Docker demos, IBM a
 - rq_image_versions.py lists the newer image builds, newest first;
 - doQumentation attaches to a running Workshop & Qiskit Server instead of
   restarting it (R-069, R-145) and starts headless over SSH with an ssh -L
-  hint (Q19); its single-user mode "Qiskit Tutorials (on this Pi)" binds
+  hint (Q19); its single-user mode "Qiskit Tutorials on this Pi" binds
   127.0.0.1 only, without the picker (items 6, 25);
 - the credentials notebook saves strings, not tuples (R-064).
 """
@@ -265,7 +265,7 @@ def test_solo_mode_is_for_this_pi_only(doq):
     assert "--memory 3072m" in run[0] or "--memory " in run[0]
     # localhost only: no LAN address may call the Jupyter API
     assert "192.168.1.5" not in run[0] and "rasqberry.local" not in run[0]
-    assert "Qiskit Tutorials (on this Pi) is running: http://localhost:8080/" in proc.stdout
+    assert "Qiskit Tutorials on this Pi is running: http://localhost:8080/" in proc.stdout
     assert "Participants" not in proc.stdout
 
 
@@ -289,14 +289,14 @@ def test_solo_attaches_to_a_running_workshop_server(doq):
 def test_reopening_a_solo_server_shows_no_addresses(doq):
     proc, calls = doq(running=True, args=["--solo"], mode="solo")
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "Qiskit Tutorials (on this Pi) is running" in proc.stdout
+    assert "Qiskit Tutorials on this Pi is running" in proc.stdout
     assert "192.168.1.5" not in proc.stdout
     assert not re.search(r"^(stop|rm|run) ", calls, re.M), calls
 
 
 def test_solo_entry_runs_the_launcher_in_solo_mode():
     m = _manifest("qiskit-tutorials")
-    assert m["name"] == "Qiskit Tutorials (on this Pi)"
+    assert m["name"] == "Qiskit Tutorials on this Pi"
     assert m["entrypoint"] == {"launcher": "rq_doqumentation.sh", "args": ["--solo"]}
     assert _manifest("doqumentation")["name"] == "Workshop & Qiskit Server"
     # next to each other in the menu
