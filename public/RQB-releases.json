@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T12:56:09Z",
+  "generated": "2026-10-03T17:27:58Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -22,13 +22,11 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 1668588980,
       "highlights": [
-        "Quantum Paradoxes - 14 interactive notebooks with Qiskit 2.x compatibility",
-        "Fun-with-Quantum - Quantum Coin Game, GHZ Game, Grover's Algorithm",
-        "Virtual LED Display - Demo mode without physical hardware",
-        "Touch Mode - Kiosk-friendly interface with on-screen keyboard",
-        "IBM Quantum Tutorials - Desktop shortcuts and credentials notebook",
-        "ARM64 Native Builds - Faster CI with native ARM runners + wheel cache",
-        "XZ Compression - Smaller images (~30% reduction)"
+        "17 demos, each downloaded from a pinned, checked source on its first start",
+        "LED setup wizard and a first-login setup checklist",
+        "Qiskit 2.5 with Qiskit Aer 0.17 and Qiskit IBM Runtime 0.50",
+        "Demo catalogue: add reviewed third-party demos such as traQmania and the SAP demos",
+        "Update notice at login, and System Info (rq_info.sh) for bug reports"
       ]
     },
     "dev": {
