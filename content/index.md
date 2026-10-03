@@ -140,8 +140,6 @@ RasQberry Two is an open-source educational project. We welcome contributions:
 
 Follow our [Announcements on GitHub Discussions](https://github.com/JanLahmann/RasQberry-Two/discussions/categories/announcements) for the latest news and updates.
 
-Subscribe to our [newsletter](/newsletter) for occasional updates on new releases, quantum computing demos, and community news. We send not more than one email per month.
-
 ## Need Help?
 
 Start with [Troubleshooting](/02-software/01-installation-overview/#2-troubleshooting).
