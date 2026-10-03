@@ -5,7 +5,8 @@ set -euo pipefail
 # RasQberry: A/B Boot Slot Updater
 # ============================================================================
 # Description: Download and install new RasQberry image to boot slot
-# Usage: rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--confirm]
+# Usage: rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
+#                          [--confirm] [--allow-unverified]
 #        rq_update_slot.sh --preflight [--slot A|B]
 #
 # Strategy:
@@ -35,6 +36,14 @@ set -euo pipefail
 #   22 not enough free space to stage the download
 #   23 this card has no A/B layout
 #   24 another update is already running
+#   25 no SHA256 for the image, so it cannot be verified (only installed with
+#      --allow-unverified)
+#
+# The image is always checked against a SHA256 before anything is written:
+# --sha256 (the menu passes the one its release list shows), else
+# ab_image_sha256 from RQB-releases.json (newest release of each stream), else
+# the digest GitHub keeps for every release asset, else <url>.sha256. Older
+# releases used to install unchecked (H-34).
 #
 # While a slot is being written, ${BOOT_COMMON_DIR}/slot-<X>-incomplete exists;
 # rq_slot_manager.sh refuses to switch or roll back to a slot marked like that.
@@ -57,6 +66,7 @@ RC_NOT_EXPANDED=21
 RC_NO_SPACE=22
 RC_NOT_AB=23
 RC_BUSY=24
+RC_UNVERIFIED=25
 
 # Release manifest that carries per-release checksums (extract_sha256 = SHA256 of
 # the DECOMPRESSED .img). Used to verify integrity when no explicit --sha256 is
@@ -78,7 +88,7 @@ INCOMPLETE_SLOT=""
 # the user's terminal, and the log is what is left after the screen scrolls.
 die() {
     echo "ERROR: $*" >&2
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >> "$LOG_FILE" 2>/dev/null || true
+    log_only "ERROR: $*"
     exit 1
 }
 
@@ -86,19 +96,29 @@ die() {
 refuse() {
     local rc="$1"; shift
     echo "ERROR: $*" >&2
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] REFUSED ($rc): $*" >> "$LOG_FILE" 2>/dev/null || true
+    log_only "REFUSED ($rc): $*"
     exit "$rc"
 }
 
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
-        die "This script must be run as root"
+        echo "ERROR: Run it with sudo: sudo $(basename "$0") $*" >&2
+        exit 1
     fi
 }
 
+# A timestamped line in the log only. The redirection of stderr comes first:
+# written the other way round, a run without root printed "Permission
+# denied" for the log before its own message (item 24).
+log_only() {
+    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; } 2>/dev/null || true
+}
+
+# The screen gets the plain text, the log the timestamped line (H-34: the
+# progress screen was the raw log)
 log_message() {
-    local message="$1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE"
+    echo "$1"
+    log_only "$1"
 }
 
 is_terminal() {
@@ -198,47 +218,90 @@ Slot A). Then install the update."
             dual-pending|single|single-pending)
                 why=$("${SCRIPT_DIR}/rq_expand_ab.sh" explain --update 2>/dev/null || true) ;;
         esac
-        [ -n "$why" ] || why="Prepare the card first (two systems need a 64GB card or larger):
+        # rq_expand_ab.sh says it for this card; repeating "no second
+        # system" above it, with the placeholder's size, only confused (item 24)
+        [ -n "$why" ] || why="Slot $target_slot is not set up yet, so there is nowhere to install an update.
+Prepare the card first (two systems need a card of 64 GB or more):
 sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Prepare the card for A/B updates"
-        refuse "$RC_NOT_EXPANDED" "Slot $target_slot is only a $((part_size / 1024 / 1024))MB placeholder: there is no second system to install into.
-$why"
+        log_only "Slot $target_slot partition is $((part_size / 1024 / 1024)) MiB (not set up)"
+        refuse "$RC_NOT_EXPANDED" "$why"
     fi
 
     # Enough free space to download + decompress in DOWNLOAD_DIR
     local avail_kb
     avail_kb=$(df --output=avail "$DOWNLOAD_DIR" | tail -1 | tr -d ' ')
     if [ "${avail_kb:-0}" -lt "$MIN_FREE_KB" ]; then
-        refuse "$RC_NO_SPACE" "Not enough free space to stage the update: $((avail_kb / 1024 / 1024))GB free, $((MIN_FREE_KB / 1024 / 1024))GB needed
+        refuse "$RC_NO_SPACE" "Not enough free space to stage the update: $((avail_kb / 1024 / 1024)) GB free, $((MIN_FREE_KB / 1024 / 1024)) GB needed
 (the download plus the unpacked image, in $DOWNLOAD_DIR).
 Delete Docker demo images or large files you no longer need, then try again."
     fi
 }
 
 verify_checksum() {
-    # Verify the downloaded image against a SHA256 checksum.
-    # Uses --sha256 argument if given, else tries <url>.sha256 alongside
-    # the image. Skips with a warning if no checksum is available.
-    local image_file="$1" url="$2" expected="${3:-}"
-
+    # Check <image_file> against <expected> SHA256 (resolve_image_sha256 found
+    # it before the download). Empty only with --allow-unverified.
+    local image_file="$1" expected="${2:-}"
     if [ -z "$expected" ]; then
-        local sum_url="${url}.sha256"
-        expected=$(curl -sSLf --max-time 30 "$sum_url" 2>/dev/null | awk '{print $1}' || true)
-        if [ -z "$expected" ]; then
-            warn "No SHA256 checksum available for this release - skipping verification"
-            log_message "WARNING: image installed without checksum verification"
-            return 0
-        fi
-        log_message "Fetched checksum from $sum_url"
+        warn "No SHA256 for this image (--allow-unverified): not checked"
+        log_only "WARNING: image installed without checksum verification"
+        return 0
     fi
-
-    log_message "Verifying SHA256 checksum..."
+    echo "Checking the download..."
     local actual
     actual=$(sha256sum "$image_file" | awk '{print $1}')
     if [ "$actual" != "$expected" ]; then
         rm -f "$image_file"
-        die "Checksum mismatch! expected=$expected actual=$actual - download corrupted or tampered, aborting"
+        die "The download is damaged or not the published image (SHA256 does not match: expected $expected, got $actual). Nothing was written; try again."
     fi
-    log_message "Checksum OK: $actual"
+    log_only "Checksum OK: $actual"
+    echo "  OK"
+}
+
+fetch_github_digest() {
+    # The SHA256 GitHub keeps for a release asset ("digest": "sha256:..."),
+    # for https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.
+    # Prints nothing when the URL is not like that or GitHub has none.
+    local url="$1" path owner repo tag name
+    case "$url" in
+        https://github.com/*/*/releases/download/*/*) ;;
+        *) return 0 ;;
+    esac
+    path=${url#https://github.com/}
+    owner=${path%%/*}; path=${path#*/}
+    repo=${path%%/*}; path=${path#*/releases/download/}
+    tag=${path%%/*}; name=${path#*/}
+    curl -sSLf --max-time 30 -H "Accept: application/vnd.github+json" \
+        "${RQ_GITHUB_API:-https://api.github.com}/repos/${owner}/${repo}/releases/tags/${tag}" 2>/dev/null \
+        | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for a in data.get("assets") or []:
+    d = a.get("digest") or ""
+    if a.get("name") == sys.argv[1] and d.startswith("sha256:"):
+        print(d[7:])
+        break
+' "$name" 2>/dev/null || true
+}
+
+resolve_image_sha256() {
+    # The expected SHA256 of <url>'s .img.xz (see the header for the order);
+    # prints nothing when there is none
+    local url="$1" tag="$2" sum=""
+    if [ -n "$SHA256_SUM" ]; then
+        echo "$SHA256_SUM"
+        return 0
+    fi
+    sum=$(fetch_release_sha256 "$tag" "$(sha_field_for "$url" image)")
+    [ -n "$sum" ] || sum=$(fetch_github_digest "$url")
+    [ -n "$sum" ] || sum=$(curl -sSLf --max-time 30 "${url}.sha256" 2>/dev/null | awk '{print $1}' || true)
+    case "$sum" in
+        *[!0-9a-fA-F]*|"") sum="" ;;
+    esac
+    [ "${#sum}" -eq 64 ] || sum=""
+    echo "$sum" | tr '[:upper:]' '[:lower:]'
 }
 
 fetch_release_sha256() {
@@ -281,15 +344,17 @@ download_image() {
     local url="$1"
     local output_file="$2"
 
-    log_message "Downloading image from: $url"
-    log_message "Saving to: $output_file"
+    log_only "Downloading image from: $url"
+    log_only "Saving to: $output_file"
 
     # Use wget or curl - show progress bar when in terminal, quiet otherwise.
     # The progress goes to the screen only (stderr), not through tee into
     # the log: a pipe would turn wget's bar into thousands of log lines.
     if command -v wget >/dev/null 2>&1; then
         if is_terminal; then
-            if ! wget --progress=bar:force -O "$output_file" "$url"; then
+            # -q --show-progress: the bar only, not the redirects to
+            # GitHub's long signed download URLs
+            if ! wget -q --show-progress --progress=bar:force -O "$output_file" "$url"; then
                 die "Download failed"
             fi
         else
@@ -313,7 +378,7 @@ download_image() {
         die "Neither wget nor curl found"
     fi
 
-    log_message "Download complete"
+    log_only "Download complete"
 }
 
 verify_image() {
@@ -331,7 +396,7 @@ verify_image() {
         die "Downloaded file seems too small: $size bytes"
     fi
 
-    log_message "Image file verified: $size bytes"
+    log_only "Image file verified: $size bytes"
 }
 
 decompress_image() {
@@ -357,7 +422,7 @@ unmount_target() {
     # unmount that fails stops the update instead of being ignored.
     local dev="$1" mnt
     for mnt in $(findmnt -rn -o TARGET --source "$dev" 2>/dev/null); do
-        log_message "Unmounting $dev from $mnt..."
+        log_only "Unmounting $dev from $mnt..."
         umount "$mnt" 2>> "$LOG_FILE" || true
     done
     mnt=$(findmnt -rn -o TARGET --source "$dev" 2>/dev/null | head -1 || true)
@@ -410,7 +475,7 @@ cleanup_on_exit() {
         echo "The running system is unchanged. Install the update again to fill Slot $INCOMPLETE_SLOT." >&2
     fi
     if [ "$rc" -ne 0 ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Update stopped (exit code $rc)" >> "$LOG_FILE" 2>/dev/null || true
+        log_only "Update stopped (exit code $rc)"
     fi
 }
 
@@ -423,9 +488,9 @@ write_image_to_slot() {
     local expected_extract_sha="${5:-}"
     local release_tag="${6:-}"
 
-    log_message "Installing image to Slot $target_slot"
-    log_message "  System partition: $system_partition"
-    log_message "  Boot partition: $boot_partition"
+    log_only "Installing image to Slot $target_slot"
+    log_only "  System partition: $system_partition"
+    log_only "  Boot partition: $boot_partition"
 
     # Create work directory (removed by the EXIT trap on any failure)
     WORK_DIR="${DOWNLOAD_DIR}/extract-$$"
@@ -433,26 +498,29 @@ write_image_to_slot() {
     mkdir -p "$work_dir"
 
     # Decompress image (use all CPU cores with -T0 for faster decompression)
-    log_message "Decompressing image (multi-threaded)..."
+    log_message "Step 2 of 4: unpacking the image..."
     local raw_image="${work_dir}/image.img"
     if ! decompress_image "$image_file" "$raw_image"; then
         die "Failed to decompress image"
     fi
-    log_message "Decompression complete"
+    log_only "Decompression complete"
 
     # Verify the DECOMPRESSED image against extract_sha256 from RQB-releases.json
     # (the manifest only publishes the extracted-image hash, so integrity is
     # checked here, after decompression, rather than on the .img.xz).
     if [ -n "$expected_extract_sha" ]; then
-        log_message "Verifying decompressed image against RQB-releases.json checksum..."
+        log_message "Checking the unpacked image..."
         local actual_extract_sha
         actual_extract_sha=$(sha256sum "$raw_image" | awk '{print $1}')
         if [ "$actual_extract_sha" != "$expected_extract_sha" ]; then
             die "Decompressed image checksum mismatch! expected=$expected_extract_sha actual=$actual_extract_sha - download corrupted or tampered, aborting"
         fi
-        log_message "Decompressed image checksum OK: $actual_extract_sha"
+        log_only "Decompressed image checksum OK: $actual_extract_sha"
+        echo "  OK"
     else
-        warn "No extract_sha256 in RQB-releases.json for this tag - installing without decompressed-image verification"
+        # The download itself was checked; the manifest only has this second
+        # checksum for the newest release of each stream
+        log_only "No extract_sha256 in RQB-releases.json for this tag - the unpacked image is not checked again"
     fi
 
     # The unpacked image is checked; the compressed download is not needed
@@ -460,10 +528,10 @@ write_image_to_slot() {
     cleanup_download "$image_file"
 
     # Set up loop device for the image
-    log_message "Setting up loop device..."
+    log_only "Setting up loop device..."
     LOOP_DEV=$(losetup -f --show -P "$raw_image") || die "Failed to set up loop device"
     local loop_dev="$LOOP_DEV"
-    log_message "Loop device: $loop_dev"
+    log_only "Loop device: $loop_dev"
 
     # Wait for partitions to appear
     sleep 2
@@ -485,14 +553,14 @@ write_image_to_slot() {
     case "$p1_label_upper" in
         CONFIG)
             # AB image: p1=config, p2=boot-a, p5=system-a
-            log_message "AB image detected (p1 label: $p1_label)"
-            log_message "Using Slot A partitions as source (boot-a, system-a)"
+            log_only "AB image detected (p1 label: $p1_label)"
+            log_only "Using Slot A partitions as source (boot-a, system-a)"
             img_boot="${loop_dev}p2"
             img_root="${loop_dev}p5"
             ;;
         BOOTFS)
             # Standard image: p1=bootfs, p2=rootfs
-            log_message "Standard image detected (p1 label: $p1_label)"
+            log_only "Standard image detected (p1 label: $p1_label)"
             img_boot="${loop_dev}p1"
             img_root="${loop_dev}p2"
             ;;
@@ -515,7 +583,8 @@ write_image_to_slot() {
     fi
 
     # Mount image boot partition and copy to target boot partition
-    log_message "Copying boot files to $boot_partition..."
+    log_message "Step 3 of 4: writing Slot $target_slot (do not switch the Pi off)..."
+    log_only "Copying boot files to $boot_partition..."
     local img_boot_mount="${work_dir}/img_boot"
     local tgt_boot_mount="${work_dir}/tgt_boot"
     mkdir -p "$img_boot_mount" "$tgt_boot_mount"
@@ -542,7 +611,7 @@ write_image_to_slot() {
     fi
 
     # Update cmdline.txt for the target slot
-    log_message "Updating cmdline.txt for Slot $target_slot..."
+    log_only "Updating cmdline.txt for Slot $target_slot..."
     if [ -f "$tgt_boot_mount/cmdline.txt" ]; then
         # Point root= at the target slot and drop a first-boot init= (not
         # needed for a slot update). Everything else stays as the image has
@@ -554,18 +623,17 @@ write_image_to_slot() {
         # A kernel that cannot start must reboot (back to the working slot),
         # not hang (R-054). Images from the converter carry it; older ones not.
         grep -q 'panic=' "$tgt_boot_mount/cmdline.txt" || sed -i 's|$| panic=10|' "$tgt_boot_mount/cmdline.txt"
-        log_message "cmdline.txt updated: root=${system_partition}"
+        log_only "cmdline.txt updated: root=${system_partition}"
     fi
 
     # Unmount boot partitions
     sync
     umount "$tgt_boot_mount"
     umount "$img_boot_mount"
-    log_message "Boot files copied successfully"
+    log_only "Boot files copied successfully"
 
     # Write rootfs to system partition
-    log_message "Writing rootfs to $system_partition..."
-    log_message "This takes 10-20 minutes..."
+    log_only "Writing rootfs to $system_partition..."
 
     # Show progress when in terminal, quiet otherwise
     if is_terminal; then
@@ -577,25 +645,33 @@ write_image_to_slot() {
             die "Failed to write rootfs to partition"
         fi
     fi
-    log_message "Rootfs written successfully"
+    log_only "Rootfs written successfully"
 
     # Release loop device and the unpacked image (no longer needed)
     losetup -d "$loop_dev"
     LOOP_DEV=""
     rm -f "$raw_image"
 
-    # Resize filesystem to fill partition
-    log_message "Resizing filesystem..."
-    e2fsck -f -y "$system_partition" >> "$LOG_FILE" 2>&1 || true
+    # Check the file system and grow it to the partition. Their output goes
+    # to the log; the screen gets one line (H-34). e2fsck: 0 clean, 1 errors
+    # corrected, 2 corrected (reboot advised), 4 and up not corrected.
+    log_message "Step 4 of 4: checking the new system and taking over your settings..."
+    local fsck_rc=0
+    e2fsck -f -y "$system_partition" >> "$LOG_FILE" 2>&1 || fsck_rc=$?
+    case "$fsck_rc" in
+        0) log_only "e2fsck: clean" ;;
+        1|2|3) echo "  File system check: small errors corrected (details in $LOG_FILE)" ;;
+        *) warn "File system check reported errors it could not correct (exit $fsck_rc, see $LOG_FILE)" ;;
+    esac
     resize2fs "$system_partition" >> "$LOG_FILE" 2>&1 || warn "Could not resize filesystem"
 
     # Set correct label for the target slot
     local system_label="SYSTEM-${target_slot}"
-    log_message "Setting filesystem label to ${system_label}..."
+    log_only "Setting filesystem label to ${system_label}..."
     e2label "$system_partition" "$system_label" >> "$LOG_FILE" 2>&1 || warn "Could not set filesystem label"
 
     # Mount and update fstab
-    log_message "Updating fstab for Slot $target_slot..."
+    log_only "Updating fstab for Slot $target_slot..."
     local tgt_root_mount="${work_dir}/tgt_root"
     mkdir -p "$tgt_root_mount"
 
@@ -615,7 +691,7 @@ ${boot_partition}           /boot/firmware  vfat    defaults          0   2
 ${system_partition}         /               ext4    defaults,noatime  0   1
 /dev/${root_dev}p7          /data           ext4    defaults,noatime,nofail  0   2
 EOF
-        log_message "fstab updated for Slot $target_slot"
+        log_only "fstab updated for Slot $target_slot"
     fi
 
     # Keep this device's SSH host key and authorized_keys in the new slot, so
@@ -624,7 +700,7 @@ EOF
     local carrier="${SCRIPT_DIR:-/usr/bin}/rq_carry_ssh_identity.sh"
     [ -x "$carrier" ] || carrier=/usr/bin/rq_carry_ssh_identity.sh
     if [ -x "$carrier" ]; then
-        "$carrier" "$tgt_root_mount" 2>&1 | tee -a "$LOG_FILE" || warn "Could not carry over the SSH identity"
+        "$carrier" "$tgt_root_mount" >> "$LOG_FILE" 2>&1 || warn "Could not carry over the SSH identity"
     else
         warn "rq_carry_ssh_identity.sh not found - the new slot gets a new SSH host key"
     fi
@@ -639,7 +715,7 @@ EOF
         mkdir -p "$tgt_root_mount/var/lib/rasqberry"
         [ -e "$tgt_root_mount/var/lib/rasqberry/carry-over-pending" ] \
             || date -Iseconds > "$tgt_root_mount/var/lib/rasqberry/carry-over-pending"
-        log_message "Slot $target_slot takes over this system's settings on its first start (rq_carry_over.sh)"
+        log_only "Slot $target_slot takes over this system's settings on its first start (rq_carry_over.sh)"
     else
         warn "The new system has no rq_carry_over.sh: Wi-Fi, password and hostname are not carried over"
     fi
@@ -655,7 +731,7 @@ EOF
     WORK_DIR=""
 
     clear_slot_incomplete "$target_slot"
-    log_message "Image installation complete"
+    log_only "Image installation complete"
 }
 
 cleanup_download() {
@@ -663,7 +739,7 @@ cleanup_download() {
     local image_file="$1"
 
     if [ -f "$image_file" ]; then
-        log_message "Cleaning up downloaded file: $image_file"
+        log_only "Cleaning up downloaded file: $image_file"
         rm -f "$image_file" || warn "Could not remove downloaded file"
     fi
     IMAGE_FILE=""
@@ -673,7 +749,7 @@ configure_tryboot() {
     # Configure tryboot to the specified slot (no reboot)
     local target_slot="$1"
 
-    log_message "Configuring tryboot to boot Slot $target_slot..."
+    log_only "Configuring tryboot to boot Slot $target_slot..."
 
     if [ ! -x "$SLOT_MANAGER" ]; then
         die "Slot manager not found: $SLOT_MANAGER"
@@ -696,6 +772,7 @@ parse_arguments() {
     TARGET_SLOT="$DEFAULT_TARGET_SLOT"
     REQUIRE_CONFIRM=false
     SHA256_SUM=""
+    ALLOW_UNVERIFIED=false
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -709,6 +786,10 @@ parse_arguments() {
                 ;;
             --confirm)
                 REQUIRE_CONFIRM=true
+                shift
+                ;;
+            --allow-unverified)
+                ALLOW_UNVERIFIED=true
                 shift
                 ;;
             *)
@@ -763,12 +844,12 @@ run_preflight() {
     preflight_checks "$TARGET_SLOT" "$SYSTEM_PARTITION" "$BOOT_PARTITION"
     local avail_kb
     avail_kb=$(df --output=avail "$DOWNLOAD_DIR" | tail -1 | tr -d ' ')
-    echo "Slot $TARGET_SLOT can be updated ($((avail_kb / 1024 / 1024))GB free for the download)."
+    echo "Slot $TARGET_SLOT can be updated ($((avail_kb / 1024 / 1024)) GB free for the download)."
 }
 
 usage() {
     cat << EOF
-Usage: $0 <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--confirm]
+Usage: $0 <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--confirm] [--allow-unverified]
        $0 --preflight [--slot A|B]
 
 Arguments:
@@ -777,7 +858,9 @@ Arguments:
 
 Options:
   --slot A|B      Target slot (default: B, the testing slot)
-  --sha256 <sum>  Expected SHA256 of the .img.xz (else RQB-releases.json, then <url>.sha256)
+  --sha256 <sum>  Expected SHA256 of the .img.xz (else RQB-releases.json, GitHub's
+                  asset digest, then <url>.sha256; without one the update is refused)
+  --allow-unverified  Install an image no SHA256 can be found for (experts only)
   --confirm       Required when updating Slot A (stable)
   --preflight     Only check whether the slot can be updated (exit codes 20-24
                   explain why not); downloads nothing
@@ -825,17 +908,17 @@ main() {
     shift 2
     parse_arguments "$@"
 
-    log_message "=== RasQberry A/B Boot Slot Update ==="
-    log_message "Download URL: $download_url"
-    log_message "Release Tag: $release_tag"
-    log_message "Target Slot: $TARGET_SLOT"
+    log_only "=== RasQberry A/B Boot Slot Update ==="
+    log_only "Download URL: $download_url"
+    log_only "Release Tag: $release_tag"
+    log_only "Target Slot: $TARGET_SLOT"
 
     # Determine target slot partitions
     resolve_target_partitions
     local system_partition="$SYSTEM_PARTITION"
     local boot_partition="$BOOT_PARTITION"
-    log_message "Target system partition: $system_partition"
-    log_message "Target boot partition: $boot_partition"
+    log_only "Target system partition: $system_partition"
+    log_only "Target boot partition: $boot_partition"
 
     # Create download directory, one update at a time, no leftovers
     mkdir -p "$DOWNLOAD_DIR"
@@ -852,35 +935,36 @@ main() {
     # Confirm if updating stable slot
     confirm_stable_update
 
+    # The checksum is found BEFORE the download: an image that cannot be
+    # verified is refused without fetching 2 GB first
+    local image_sha
+    image_sha=$(resolve_image_sha256 "$download_url" "$release_tag")
+    if [ -z "$image_sha" ] && [ "$ALLOW_UNVERIFIED" != true ]; then
+        refuse "$RC_UNVERIFIED" "No checksum (SHA256) is published for $release_tag, so the download could not be verified. Nothing was changed. Choose a newer release."
+    fi
+    log_only "Expected SHA256 of the image: ${image_sha:-none (--allow-unverified)}"
+
+    # mount would print "your fstab has been modified" for every mount below
+    # when the clock was behind at start-up (H-34)
+    rq_refresh_fstab_view
+
     # Download image
     local image_file="${DOWNLOAD_DIR}/rasqberry-${release_tag}.img.xz"
     IMAGE_FILE="$image_file"
 
     if [ -f "$image_file" ]; then
-        log_message "Image file already exists, removing old download"
+        log_only "Image file already exists, removing old download"
         rm -f "$image_file"
     fi
 
+    log_message "Step 1 of 4: downloading $(basename "$download_url")..."
     download_image "$download_url" "$image_file"
 
     # Verify download
     verify_image "$image_file"
     # Verify the COMPRESSED .img.xz EARLY - before the ~12GB decompress - so a
     # corrupt/truncated download is caught immediately (not wasted on decompress).
-    # An explicit --sha256 wins; otherwise the manifest's checksum of the image
-    # actually downloaded (ab_image_sha256 for an -ab image, not image_sha256,
-    # which belongs to the standard image).
-    if [ -n "$SHA256_SUM" ]; then
-        verify_checksum "$image_file" "$download_url" "$SHA256_SUM"
-    else
-        local image_sha image_field
-        image_field=$(sha_field_for "$download_url" image)
-        image_sha=$(fetch_release_sha256 "$release_tag" "$image_field")
-        if [ -n "$image_sha" ]; then
-            log_message "Verifying compressed image against ${image_field} from RQB-releases.json"
-            verify_checksum "$image_file" "$download_url" "$image_sha"
-        fi
-    fi
+    verify_checksum "$image_file" "$image_sha"
 
     # Fetch the decompressed-image checksum from the release manifest so
     # write_image_to_slot can verify integrity after decompression.
@@ -894,12 +978,11 @@ main() {
     sha_field=$(sha_field_for "$download_url" extract)
     extract_sha=$(fetch_release_sha256 "$release_tag" "$sha_field")
     if [ -n "$extract_sha" ]; then
-        log_message "Fetched ${sha_field} from RQB-releases.json for $release_tag"
-    elif [ "$sha_field" = "ab_extract_sha256" ]; then
-        # Older manifests predate the ab_* fields. Fall back to writing WITHOUT
-        # the post-decompress check (with a warning), rather than silently
-        # borrowing the standard hash - which was the bug.
-        warn "No ab_extract_sha256 in RQB-releases.json for $release_tag (older manifest?) - writing without decompressed-image verification"
+        log_only "Fetched ${sha_field} from RQB-releases.json for $release_tag"
+    else
+        # Only the newest release of each stream has it; never borrow the
+        # standard image's hash (that was the bug). The download was checked.
+        log_only "No ${sha_field} in RQB-releases.json for $release_tag - the unpacked image is not checked again"
     fi
 
     # Write image to target slot (both boot and system partitions)
@@ -909,7 +992,7 @@ main() {
     cleanup_download "$image_file"
 
     # Configure tryboot (no automatic reboot)
-    log_message "=== Update Complete ==="
+    log_only "=== Update Complete ==="
     configure_tryboot "$TARGET_SLOT"
 }
 

@@ -214,7 +214,7 @@ def test_preflight_placeholder_slot_says_expand(tmp_path):
 def test_preflight_too_little_space_says_what_to_do(tmp_path):
     proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 5 * 1024 * 1024)
     assert proc.returncode == 22
-    assert "15GB needed" in proc.stderr and "Delete" in proc.stderr
+    assert "15 GB needed" in proc.stderr and "Delete" in proc.stderr
 
 
 def test_refusals_are_logged(tmp_path):
@@ -243,3 +243,36 @@ def test_a_target_that_stays_mounted_stops_the_update(tmp_path):
     assert proc.returncode == 1
     assert "cannot be unmounted" in proc.stderr
     assert "went on" not in proc.stdout
+
+
+# --- H-34 / item 24: checksums for every release, quiet logs ------------------
+
+def test_github_digest_is_used_when_the_manifest_has_none(tmp_path):
+    # older releases are no stream head: GitHub's asset digest verifies them
+    api = tmp_path / "api" / "repos" / "JanLahmann" / "RasQberry-Two" / "releases" / "tags"
+    api.mkdir(parents=True)
+    (api / "beta-2026-09-30-221656").write_text(
+        '{"assets": [{"name": "x-ab.img.xz", "digest": "sha256:' + "ab" * 32 + '"}]}')
+    env = _env(tmp_path, RQ_GITHUB_API=f"file://{tmp_path}/api",
+               RQB_RELEASES_URL=f"file://{tmp_path}/missing.json")
+    proc = subprocess.run(_source(
+        'SHA256_SUM=""; resolve_image_sha256 '
+        'https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-09-30-221656/x-ab.img.xz '
+        'beta-2026-09-30-221656'), capture_output=True, text=True, env=env)
+    assert proc.stdout.strip() == "ab" * 32, proc.stderr
+
+
+def test_an_image_without_any_checksum_is_refused_before_the_download():
+    text = open(_SCRIPT).read()
+    main = text[text.index("main() {"):]
+    assert main.index('refuse "$RC_UNVERIFIED"') < main.index("download_image ")
+    assert "--allow-unverified" in text
+
+
+def test_preflight_without_root_says_sudo_without_a_log_error(tmp_path):
+    env = dict(os.environ, RQ_UPDATE_LOG="/var/log/rasqberry-update-slot-test-no-write.log")
+    if os.geteuid() == 0:
+        pytest.skip("runs as root")
+    proc = subprocess.run(["bash", _SCRIPT, "--preflight"], capture_output=True, text=True, env=env)
+    assert proc.returncode == 1
+    assert "Permission denied" not in proc.stderr and "sudo" in proc.stderr
