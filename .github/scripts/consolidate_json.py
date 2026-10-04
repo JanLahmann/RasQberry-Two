@@ -29,12 +29,11 @@ AB_DEFAULT = os.environ.get("RQB_AB_DEFAULT", "true").lower() in ("1", "true", "
 # firstrun.sh and a systemd.run entry in cmdline.txt on the FIRST FAT
 # partition. On the standard image that is the boot partition, so it works. On
 # the A/B image it is CONFIG, which the firmware reads only for autoboot.txt:
-# the customisation would be silently ignored (no cmdline.txt there, and
-# firstrun.sh never runs). So A/B entries go out without init_format until the
-# A/B image applies CONFIG/firstrun.sh itself; then switch this on (or set
-# RQB_AB_CUSTOMISATION=true) and delete the CONDITIONAL note on the website's
-# installation page.
-AB_IMAGER_CUSTOMISATION = os.environ.get("RQB_AB_CUSTOMISATION", "false").lower() in ("1", "true", "yes")
+# the firmware alone would ignore it (no cmdline.txt there). Since the beta of
+# October 2026 the A/B image applies CONFIG/firstrun.sh itself, on the first
+# start of a newly written card, so A/B entries carry init_format too.
+# RQB_AB_CUSTOMISATION=false switches it off again.
+AB_IMAGER_CUSTOMISATION = os.environ.get("RQB_AB_CUSTOMISATION", "true").lower() in ("1", "true", "yes")
 
 # The developer folder lists the development branch and the newest few other
 # branches (standard and A/B image each); older branch builds stay in
