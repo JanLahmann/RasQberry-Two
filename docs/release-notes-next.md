@@ -47,7 +47,7 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Restarting it restores the original notebooks.
 - **Qiskit Tutorials on this Pi:** the same tutorials just for you, on this Pi only (not on the network), with less memory. It opens the browser and stops with its window.
 - **Beta demos:** new and less-tested demos say "(beta)" in the menus (Learning paths, Workshop & Qiskit Server, Qiskit Tutorials on this Pi, traQmania, the Fun with Quantum website and family) and ask for your feedback when they start.
-- **My Quantum Programs** opens JupyterLab at `Hello-World.ipynb`, the first circuit from doQumentation. Existing folders get it once; your files are never replaced.
+- **My Quantum Programs** opens JupyterLab at `Hello-World.ipynb`, the first circuit from doQumentation. Existing folders get it once; your files are never replaced. JupyterLab no longer asks about Jupyter news.
 - **Grokking the Bloch Sphere** shows tips (what to try, what to notice) and a short explanation with links to IBM Quantum Learning. One menu entry, with the online version as a second choice.
 - The **Fun with Quantum** desktop icon offers the games, the website (works offline) and the family. Its website copy now includes the Workshops page.
 

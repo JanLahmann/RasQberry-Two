@@ -13,7 +13,9 @@ later stage relies on what this one installs.
 - Installs the system files from `RQB2-system/` with
   `RQB2-bin/rq_install_system_files.sh --build`: boot scripts in `/usr/local/bin`,
   systemd units, autostart entries, `/etc/profile.d/rasqberry-firstlogin.sh`, the XDG
-  menu. `@USER@`/`@REPO@`/`@VENV@` are filled in and the units in
+  menu, and JupyterLab's defaults in `/etc/jupyter/labconfig/` (no "Jupyter news"
+  question, no update check), which every venv's JupyterLab reads.
+  `@USER@`/`@REPO@`/`@VENV@` are filled in and the units in
   `RQB2-system/enabled-units.txt` are enabled (#294).
 - Adds the first-login hook to `.bashrc` (skel and the first user), since desktop
   terminals skip `/etc/profile.d`; removes the retired LED-verify hook.
