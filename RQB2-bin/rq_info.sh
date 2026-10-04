@@ -40,9 +40,12 @@ fi
 describe() {
     case "$1" in
         EMPTY)      echo "empty (no system)" ;;
-        INCOMPLETE) echo "unfinished (an update or copy was interrupted)" ;;
+        INCOMPLETE) echo "unfinished (an update was interrupted)" ;;
         UNKNOWN|"") echo "unknown (run with sudo to look)" ;;
         SYSTEM)     echo "a system without version information" ;;
+        beta-*)     echo "$1 (beta)" ;;
+        development-*|dev-*) echo "$1 (dev)" ;;
+        v[0-9]*|[0-9]*|stable-*) echo "$1 (stable)" ;;
         *)          echo "$1" ;;
     esac
 }
@@ -192,14 +195,16 @@ if [ "${1:-}" = "--json" ]; then
 fi
 
 # What the A/B card holds, in words (item 24: a small card runs ONE system,
-# so "Slot B (testing): empty" was misleading there)
+# so "Slot B: empty" was misleading there). No slot is special (ping-pong
+# updates): each line says what the slot holds, which one runs and which one
+# a normal start boots (the start slot).
 card_mode=$(sval card_mode)
 default_slot=$(sval default)
 slot_line() {   # <A|B> <content>
     local note=""
     [ "$1" = "$slot" ] && note="running"
-    [ "$1" = "$default_slot" ] && note="${note:+$note, }starts by default"
-    printf '%s%s' "$(describe "$2")" "${note:+ ($note)}"
+    [ "$1" = "$default_slot" ] && note="${note:+$note, }start slot"
+    printf '%s%s' "$(describe "$2")" "${note:+ - $note}"
 }
 built=$(field build_timestamp | sed 's/T/ /; s/:[0-9][0-9]Z$/ UTC/; s/Z$/ UTC/')
 repo=$(field git_repo)
@@ -234,10 +239,10 @@ else
             echo "Image type:        A/B image, one system on this card (card under 64 GB)" ;;
         dual-pending)
             echo "Image type:        A/B, second system not set up yet${slot:+ (running Slot $slot)}"
-            echo "Slot A (stable):   $(slot_line A "$slot_a")" ;;
+            echo "Slot A:            $(slot_line A "$slot_a")" ;;
         *)
             echo "Image type:        A/B, two systems${slot:+ (running Slot $slot)}"
-            echo "Slot A (stable):   $(slot_line A "$slot_a")"
-            echo "Slot B (testing):  $(slot_line B "$slot_b")" ;;
+            echo "Slot A:            $(slot_line A "$slot_a")"
+            echo "Slot B:            $(slot_line B "$slot_b")" ;;
     esac
 fi

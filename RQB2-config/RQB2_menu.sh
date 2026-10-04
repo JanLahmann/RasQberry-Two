@@ -1781,30 +1781,44 @@ do_update_from_branch() {
 # -----------------------------------------------------------------------------
 # A/B updates: helpers
 # -----------------------------------------------------------------------------
-# The A/B model (Jan, 2026-10-02): Slot A is the stable system, Slot B the
-# testing slot. Updates always go into Slot B; a tested Slot B is copied to
-# Slot A with PROMOTE. The logic lives in rq_slot_manager.sh, rq_update_slot.sh
-# and rq_ab_releases.sh; these functions only ask and explain. POSIX sh, no
-# set -e: this file runs inside raspi-config.
+# The A/B model (ping-pong, Jan 2026-10-04): every update goes into the slot
+# that is not running, A or B alike. A good trial start makes it the start
+# slot; the other slot stays as the way back. Jan's guard keeps at least one
+# slot at beta or stable (rq_slot_manager.sh plan-update). The logic lives in
+# rq_slot_manager.sh, rq_update_slot.sh and rq_ab_releases.sh; these functions
+# only ask and explain. POSIX sh, no set -e: this file runs inside raspi-config.
 #
-# Long operations (download, PROMOTE) run in the foreground of this terminal
-# and print their own progress. A whiptail --infobox would vanish at once
-# (whiptail restores the screen when it exits), and output captured with
-# $( ) hides any prompt and any progress (R-051).
+# The update runs in the foreground of this terminal and prints its own
+# progress. A whiptail --infobox would vanish at once (whiptail restores the
+# screen when it exits), and output captured with $( ) hides any prompt and
+# any progress (R-051).
 
-# Value of <key> in `rq_slot_manager.sh summary` output
+# Value of <key> in `rq_slot_manager.sh summary` (or plan-update) output
 ab_value() {
     printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
 }
 
-# What a slot holds, in words
+# Release stream of a version: dev, beta, stable or unknown (the same rule as
+# rq_slot_manager.sh: stable releases are v1.2.3 / 1.2.3 / stable-*)
+ab_stream() {
+    case "$1" in
+        beta-*)                  echo beta ;;
+        development-*|dev-*)     echo dev ;;
+        v[0-9]*|[0-9]*|stable-*) echo stable ;;
+        *)                       echo unknown ;;
+    esac
+}
+
+# What a slot holds, in words: "beta-2026-10-03-095636 (beta)"
 ab_describe() {
     case "$1" in
         EMPTY)      echo "empty (no system)" ;;
-        INCOMPLETE) echo "unfinished (an update or copy was interrupted)" ;;
+        INCOMPLETE) echo "unfinished (an update was interrupted)" ;;
         UNKNOWN|"") echo "unknown" ;;
         SYSTEM)     echo "a system without version information" ;;
-        *)          echo "$1" ;;
+        *)
+            _ab_s=$(ab_stream "$1")
+            if [ "$_ab_s" = "unknown" ]; then echo "$1"; else echo "$1 ($_ab_s)"; fi ;;
     esac
 }
 
@@ -1912,17 +1926,9 @@ ab_not_expanded_title() {
     esac
 }
 
-# How a slot gets a system
+# How a slot gets a system: an update always goes into the slot not running
 ab_fill_hint() {
-    if [ "$1" = "B" ]; then
-        echo "Install a system into Slot B first: Slot Manager -> Install an update into Slot B."
-    else
-        echo "Slot A gets a system when you PROMOTE a tested Slot B."
-    fi
-}
-
-ab_slot_label() {
-    if [ "$1" = "A" ]; then echo "stable"; else echo "testing"; fi
+    echo "Install an update into Slot $1 first: Slot Manager -> Install an update into the other system (Slot $1)."
 }
 
 # The other slot
@@ -1930,47 +1936,37 @@ ab_other() {
     if [ "$1" = "A" ]; then echo "B"; else echo "A"; fi
 }
 
-# True right after PROMOTE, before the restart: running a confirmed Slot B,
-# the next start is Slot A, and both slots hold the same version
-ab_promoted() {
-    [ "$(ab_value "$1" current)" = "B" ] && [ "$(ab_value "$1" default)" = "A" ] \
-        && [ "$(ab_value "$1" confirmed)" = "yes" ] \
-        && ab_has_system "$(ab_value "$1" slot_a)" \
-        && [ "$(ab_value "$1" slot_a)" = "$(ab_value "$1" slot_b)" ]
+# What <slot> holds, from the summary
+ab_slot_content() {
+    if [ "$1" = "A" ]; then ab_value "$2" slot_a; else ab_value "$2" slot_b; fi
 }
 
 # What the user should do next, from the summary
 ab_next_step() {
     _ab_cur=$(ab_value "$1" current)
     _ab_def=$(ab_value "$1" default)
+    _ab_oth=$(ab_other "$_ab_cur")
     if [ "$(ab_value "$1" expanded)" != "yes" ]; then
         echo "Slot B is not set up yet: prepare the card first (Software & Image Updates -> Prepare the card for A/B updates)."
-    elif ab_promoted "$1"; then
-        echo "PROMOTE is done: restart to start from Slot A. Then Slot B is free for the next update."
-    elif [ "$_ab_cur" = "B" ] && [ "$(ab_value "$1" confirmed)" != "yes" ]; then
-        echo "Slot B is on trial: the health check confirms it after a good start. Otherwise the next restart returns to Slot A."
-    elif [ "$_ab_def" = "A" ] || [ "$_ab_def" = "B" ] && [ "$_ab_def" != "$_ab_cur" ]; then
+    elif [ "$(ab_value "$1" confirmed)" != "yes" ] && [ "$(ab_value "$1" pending)" = "$_ab_cur" ]; then
+        echo "Slot ${_ab_cur} is on trial: the health check makes it the start slot after a good start. If the update doesn't work, the next restart returns to Slot ${_ab_oth}."
+    elif { [ "$_ab_def" = "A" ] || [ "$_ab_def" = "B" ]; } && [ "$_ab_def" != "$_ab_cur" ]; then
         echo "The next restart starts Slot ${_ab_def}."
-    elif [ "$_ab_cur" = "A" ]; then
-        if ab_has_system "$(ab_value "$1" slot_b)"; then
-            echo "Next: install a newer update into Slot B, or restart into Slot B to use it."
-        else
-            echo "Next: install an update into Slot B."
-        fi
+    elif ab_has_system "$(ab_slot_content "$_ab_oth" "$1")"; then
+        echo "Next: install an update into Slot ${_ab_oth}, the other system. To go back to Slot ${_ab_oth} instead, switch to it."
     else
-        echo "Slot B is confirmed and starts by default; \"testing\" only says that updates go into it. If this version works well, PROMOTE copies it to Slot A, the stable fallback. Then Slot B is free for the next update."
+        echo "Next: install an update into Slot ${_ab_oth}, the other system."
     fi
 }
 
-# "<what the slot holds> (running, starts by default)" for the Slot Manager
-# and the dialogs (item 28: after a confirmed update Slot B "testing" is the
-# slot that starts, which the bare labels did not say)
+# "<what the slot holds> - running, start slot" for the Slot Manager and the
+# dialogs: which slot runs and which one a normal start boots (item 28)
 ab_slot_line() {
-    _ab_c=$(ab_value "$2" "slot_$(echo "$1" | tr 'AB' 'ab')")
+    _ab_c=$(ab_slot_content "$1" "$2")
     _ab_n=""
     [ "$(ab_value "$2" current)" = "$1" ] && _ab_n="running"
-    [ "$(ab_value "$2" default)" = "$1" ] && _ab_n="${_ab_n:+$_ab_n, }starts by default"
-    printf '%s%s' "$(ab_describe "$_ab_c")" "${_ab_n:+ ($_ab_n)}"
+    [ "$(ab_value "$2" default)" = "$1" ] && _ab_n="${_ab_n:+$_ab_n, }start slot"
+    printf '%s%s' "$(ab_describe "$_ab_c")" "${_ab_n:+ - $_ab_n}"
 }
 
 # -----------------------------------------------------------------------------
@@ -1978,7 +1974,7 @@ ab_slot_line() {
 # -----------------------------------------------------------------------------
 
 do_check_for_update() {
-    local out rc=0 summary prc=0
+    local out rc=0 summary prc=0 current target
     # A plain line: an infobox would vanish at once
     printf '\nAsking rasqberry.org for the latest release...\n'
     out=$("$BIN_DIR"/rq_update_check.sh --refresh 2>&1) || rc=$?
@@ -2003,8 +1999,10 @@ do_check_for_update() {
         ab_msgbox "Update available" "$out\n\n$(ab_not_expanded_text "$summary")"
         return 0
     fi
+    current=$(ab_value "$summary" current)
+    target=$(ab_other "$current")
     if ab_yesno "Update available" "Install now" "Later" \
-        "$out\n\nInstall it into Slot B (testing) now? Slot A (stable) stays as it is, so you can go back to it."; then
+        "$out\n\nInstall it into Slot ${target}, the other system, now? Slot ${current}, the system you are running, stays as it is, so you can go back to it."; then
         do_ab_install_update
     fi
     return 0
@@ -2022,7 +2020,7 @@ do_ab_boot_menu() {
         case "$ab_mode" in
             dual)
                 card_text="A/B image: two systems on this card"
-                set -- "$@" SLOTS "Slot Manager (install updates, switch, promote)" ;;
+                set -- "$@" SLOTS "Slot Manager (install updates, switch systems)" ;;
             dual-pending)
                 card_text="A/B image: second system not set up yet"
                 set -- "$@" EXPAND "Prepare the card for A/B updates (64 GB or larger card)" ;;
@@ -2048,16 +2046,17 @@ do_ab_boot_menu() {
 }
 
 # -----------------------------------------------------------------------------
-# Release picker for Slot B (R-049)
+# Release picker (R-049)
 # -----------------------------------------------------------------------------
 # Offers the latest A/B image of this image's own channel first (from
 # RQB-releases.json); other releases, channels and repositories are behind
 # "Other". Standard images are never offered: they cannot fill a slot.
+# ab_pick_image <target slot>
 # Prints "url|tag|size|sha256" (the .img.xz's SHA256, which the update checks
 # before it writes anything); returns 1 when the user cancels.
 
 ab_pick_image() {
-    local current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
+    local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
     current=$(head -n 1 /etc/rasqberry-version 2>/dev/null | tr -d '[:space:]')
     channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
     # stdout is the result of this function: progress goes to stderr (the terminal)
@@ -2074,13 +2073,13 @@ ab_pick_image() {
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
         set -- "$ltag" "$note"
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot B (testing):"
+        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
         prompt="This system: ${current:-unknown} (channel: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
     set -- "$@" OTHER "Other release or channel..."
 
-    choice=$(ab_menu "Install an update into Slot B" "$prompt" "$@") || return 1
+    choice=$(ab_menu "Install an update into Slot ${slot}" "$prompt" "$@") || return 1
     if [ "$choice" = "OTHER" ]; then
         ab_pick_other "$channel" "$current"
         return $?
@@ -2145,22 +2144,75 @@ EOF
 # A/B actions (R-050, R-051, R-055)
 # -----------------------------------------------------------------------------
 
-# Install an update into Slot B: checks first, then the picker, then the
-# update itself in this terminal (it shows its own progress)
+# Jan's guard, from `rq_slot_manager.sh plan-update` output <plan>: warn before
+# a downgrade (default: Cancel) and before the last beta or stable system on
+# the card is replaced (typed REPLACE, with the safer way offered first).
+# Sets AB_GUARD_OPTS to the options for rq_update_slot.sh; returns 1 when the
+# user stops. (Not called in $( ): its dialogs must reach the screen.)
+ab_guard() {
+    local plan="$1" summary="$2" tag="$3" target running holds t_ver r_holds r_ver new_s choice typed opts=""
+    AB_GUARD_OPTS=""
+    target=$(ab_value "$plan" target)
+    running=$(ab_other "$target")
+    holds=$(ab_value "$plan" target_holds)
+    t_ver=$(ab_describe "${holds#* }")
+    r_holds=$(ab_value "$plan" running_holds)
+    r_ver=$(ab_describe "${r_holds#* }")
+    new_s=$(ab_stream "$tag")
+
+    case "$(ab_value "$plan" downgrade)" in
+        stream)
+            ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
+                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release channel, so installing it is a downgrade.\n\nInstall it anyway?" \
+                --defaultno || return 1
+            opts="--allow-downgrade" ;;
+        older)
+            ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
+                "Slot ${target} holds ${t_ver}.\n${tag} is older, so installing it is a downgrade.\n\nInstall it anyway?" \
+                --defaultno || return 1
+            opts="--allow-downgrade" ;;
+    esac
+
+    if [ "$(ab_value "$plan" last_safe_slot)" = "yes" ]; then
+        choice=$(ab_menu "Slot ${target} holds your last beta or stable system" \
+            "Slot ${target}: ${t_ver}\nSlot ${running} (running): ${r_ver}\n\nInstalling ${tag} into Slot ${target} replaces the only beta or stable system on this card. If the update doesn't work, none is left to go back to.\n\nSafer: switch to Slot ${target} first. After the restart, install the update into Slot ${running}." \
+            SWITCH  "Switch to Slot ${target} now, then install into Slot ${running}" \
+            REPLACE "Replace Slot ${target} anyway") || return 1
+        if [ "$choice" = "SWITCH" ]; then
+            ab_restart_into "$target" "$summary"
+            return 1
+        fi
+        typed=$(whiptail --title "Replace Slot ${target}" --inputbox \
+            "Slot ${target} holds ${t_ver}, the only beta or stable system on this card.\n\nType REPLACE to overwrite it:" \
+            12 "$(ab_width)" "" 3>&1 1>&2 2>&3) || return 1
+        if [ "$typed" != "REPLACE" ]; then
+            ab_msgbox "Nothing was changed" "Slot ${target} still holds ${t_ver}."
+            return 1
+        fi
+        opts="${opts:+$opts }--force-replace-safe-slot"
+    fi
+    AB_GUARD_OPTS="$opts"
+    return 0
+}
+
+# Install an update into the other system: checks first, then the picker,
+# Jan's guard, then the update itself in this terminal (it shows its own
+# progress)
 do_ab_install_update() {
-    local pre prc=0 summary picked url tag size sha rest slot_a slot_b rc=0
-    printf '\nChecking whether Slot B can take an update...\n'
+    local pre prc=0 summary current target picked url tag size sha rest plan prc2=0 opts t_now r_now rc=0
+    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
+    current=$(ab_value "$summary" current)
+    target=$(ab_other "$current")
+    printf '\nChecking whether Slot %s can take an update...\n' "$target"
     pre=$("$BIN_DIR"/rq_update_slot.sh --preflight 2>&1) || prc=$?
     pre=$(printf '%s\n' "$pre" | sed 's/^ERROR: //')
-    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
     case "$prc" in
         0)  ;;
-        20) ab_offer_free_slot_b "$summary"; return 0 ;;
         21) ab_msgbox "$(ab_not_expanded_title "$summary")" "$(ab_not_expanded_text "$summary")"; return 0 ;;
         *)  ab_msgbox "Cannot install an update now" "$pre"; return 0 ;;
     esac
 
-    picked=$(ab_pick_image) || return 0
+    picked=$(ab_pick_image "$target") || return 0
     url=${picked%%|*}
     rest=${picked#*|}
     tag=${rest%%|*}
@@ -2173,19 +2225,32 @@ do_ab_install_update() {
         return 0
     fi
 
-    slot_a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    slot_b=$(ab_describe "$(ab_value "$summary" slot_b)")
-    ab_has_system "$(ab_value "$summary" slot_b)" && slot_b="${slot_b} - will be replaced"
-    ab_yesno "Install an update into Slot B" "Install" "Cancel" \
-        "Install ${tag} into Slot B (testing)?\n\nSlot B (testing) now: ${slot_b}\nSlot A (stable): ${slot_a} - not touched\n\nDownload: $(ab_gb "$size"). Downloading, unpacking and writing take about 10-20 minutes. Progress is shown on this screen; keep the Pi switched on.\n\nWhen it is done, the Pi restarts into Slot B. If Slot B does not start properly, the Pi goes back to Slot A by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
+    # Jan's guard: what the update would replace
+    plan=$("$BIN_DIR"/rq_slot_manager.sh plan-update "$tag" 2>&1) || prc2=$?
+    if [ "$prc2" -ne 0 ] || [ -z "$(ab_value "$plan" target)" ]; then
+        ab_msgbox "Cannot install an update now" "Could not check what the update would replace.\n\n$(printf '%s\n' "$plan" | sed 's/^ERROR: //')"
+        return 0
+    fi
+    target=$(ab_value "$plan" target)
+    current=$(ab_other "$target")
+    ab_guard "$plan" "$summary" "$tag" || return 0
+    opts="$AB_GUARD_OPTS"
+
+    t_now=$(ab_describe "$(ab_slot_content "$target" "$summary")")
+    ab_has_system "$(ab_slot_content "$target" "$summary")" && t_now="${t_now} - will be replaced"
+    r_now=$(ab_describe "$(ab_slot_content "$current" "$summary")")
+    ab_yesno "Install an update into Slot ${target}" "Install" "Cancel" \
+        "Install ${tag} into Slot ${target}?\n\nSlot ${target} now: ${t_now}\nSlot ${current} (running): ${r_now} - not touched\n\nDownload: $(ab_gb "$size"). Downloading, unpacking and writing take about 10-20 minutes. Progress is shown on this screen; keep the Pi switched on.\n\nWhen it is done, the Pi restarts into Slot ${target}. If the update doesn't work, the Pi goes back to Slot ${current} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
         || return 0
 
     clear
-    printf 'Installing %s into Slot B (testing).\nKeep the Pi switched on. It restarts by itself when the update is done.\n\n' "$tag"
-    "$BIN_DIR"/rq_update_slot.sh "$url" "$tag" --slot B ${sha:+--sha256 "$sha"} || rc=$?
+    printf 'Installing %s into Slot %s.\nKeep the Pi switched on. It restarts by itself when the update is done.\n\n' "$tag" "$target"
+    # $opts: only the fixed options from ab_guard, split on purpose
+    # shellcheck disable=SC2086
+    "$BIN_DIR"/rq_update_slot.sh "$url" "$tag" --slot "$target" ${sha:+--sha256 "$sha"} $opts || rc=$?
     if [ "$rc" -eq 0 ]; then
-        # rq_update_slot.sh ends by asking for the restart into Slot B
-        printf '\nThe update is installed. The Pi is restarting into Slot B...\n'
+        # rq_update_slot.sh ends by asking for the restart into the new slot
+        printf '\nThe update is installed. The Pi is restarting into Slot %s...\n' "$target"
         sleep 120
     fi
     printf '\nThe update did not finish (see the message above; log:\n/var/log/rasqberry-update-slot.log). The running system is unchanged.\n'
@@ -2193,95 +2258,18 @@ do_ab_install_update() {
     return 0
 }
 
-# UPDATE while running Slot B: Slot B cannot be overwritten, so offer the
-# two ways to free it (R-050)
-ab_offer_free_slot_b() {
-    local summary="$1" a b choice
-    a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    b=$(ab_describe "$(ab_value "$summary" slot_b)")
-    if ab_promoted "$summary"; then
-        if ab_yesno "Restart into Slot A first" "Restart now" "Later" \
-            "PROMOTE is done: Slot A holds ${a}, but the Pi is still running Slot B.\n\nRestart now? The Pi then starts from Slot A. After the restart, choose 'Install an update into Slot B' again."; then
-            clear
-            printf 'Restarting into Slot A...\n'
-            reboot
-            sleep 120
-        fi
-        return 0
-    fi
-    set -- PROMOTE "Keep this version: copy it to Slot A, then restart"
-    if ab_has_system "$(ab_value "$summary" slot_a)"; then
-        set -- "$@" SLOT_A "Go back to the version in Slot A, then restart"
-    fi
-    choice=$(ab_menu "Slot B is in use" \
-        "Updates are always installed into Slot B (testing). You are running Slot B right now, so it cannot be overwritten.\n\nSlot A (stable): ${a}\nSlot B (testing, running): ${b}\n\nFree Slot B first. After the restart, choose 'Install an update into Slot B' again." \
-        "$@") || return 0
-    case "$choice" in
-        PROMOTE) do_ab_promote "$summary" ;;
-        SLOT_A)  ab_restart_into A "$summary" ;;
-    esac
-    return 0
-}
-
-# PROMOTE: copy the running, confirmed Slot B to Slot A (R-051: a proper
-# dialog instead of an invisible typed prompt, progress on screen)
-do_ab_promote() {
-    local summary="$1" current a b b_raw rc=0
-    current=$(ab_value "$summary" current)
-    b_raw=$(ab_value "$summary" slot_b)
-    a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    b=$(ab_describe "$b_raw")
-
-    if [ "$current" != "B" ]; then
-        if ab_has_system "$b_raw"; then
-            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\nTo use the version in Slot B, choose 'Restart into Slot B'. Once it has started properly, come back here and PROMOTE it."
-        else
-            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\n$(ab_fill_hint B)"
-        fi
-        return 0
-    fi
-    if [ "$(ab_value "$summary" confirmed)" != "yes" ]; then
-        ab_msgbox "PROMOTE" "Slot B has not been confirmed yet. The health check confirms it shortly after a good start.\n\nWait a moment and try again, or choose CONFIRM in the Slot Manager."
-        return 0
-    fi
-
-    ab_yesno "Make Slot B the stable system" "Promote" "Cancel" \
-        "Copy the running system to Slot A?\n\nSlot B (testing, running): ${b}\nSlot A (stable): ${a} - will be replaced\n\nCopying takes about 5-10 minutes. Progress is shown on this screen; do not switch the Pi off.\n\nAfterwards the Pi starts from Slot A, and Slot B is free for the next update." \
-        --defaultno || return 0
-
-    clear
-    printf 'PROMOTE: copying Slot B (%s) to Slot A.\nDo not switch the Pi off.\n\n' "$b"
-    "$BIN_DIR"/rq_slot_manager.sh promote --yes || rc=$?
-    if [ "$rc" -ne 0 ]; then
-        printf '\nPROMOTE did not finish (see the message above). The Pi keeps starting from Slot B.\n'
-        ab_pause
-        return 0
-    fi
-    if ab_yesno "Slot A updated" "Restart now" "Later" \
-        "Slot A (stable) now holds ${b}.\n\nRestart now? The Pi then starts from Slot A.\n\nFor the next update: Software & Image Updates -> Slot Manager -> Install an update into Slot B."; then
-        clear
-        printf 'Restarting into Slot A...\n'
-        reboot
-        sleep 120
-    fi
-    return 0
-}
-
-# Restart into <slot> on trial (tryboot); refused for a slot without a system
+# Switch to <slot>: restart into it on trial (tryboot); refused for a slot
+# without a system
 ab_restart_into() {
     local slot="$1" summary="$2" content other rc=0
     other=$(ab_other "$slot")
-    if [ "$slot" = "A" ]; then
-        content=$(ab_value "$summary" slot_a)
-    else
-        content=$(ab_value "$summary" slot_b)
-    fi
+    content=$(ab_slot_content "$slot" "$summary")
     if ! ab_has_system "$content"; then
         ab_msgbox "Slot $slot cannot be started" "Slot ${slot} holds: $(ab_describe "$content"). The Pi cannot start from it.\n\nStarting a slot without a system leaves the Pi hanging at a black screen until it is switched off and on, so this is not offered.\n\n$(ab_fill_hint "$slot")"
         return 0
     fi
-    ab_yesno "Restart into Slot $slot" "Restart" "Cancel" \
-        "Restart now into Slot ${slot} ($(ab_slot_label "$slot")): ${content}?\n\nThe Pi starts Slot ${slot} on trial. If it starts properly, the health check makes it the default. If it does not start properly, the Pi goes back to Slot ${other} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
+    ab_yesno "Switch to Slot $slot" "Restart" "Cancel" \
+        "Restart now into Slot ${slot}: $(ab_describe "$content")?\n\nThe Pi starts Slot ${slot} on trial. If it works, the health check makes it the start slot, and Slot ${other} stays as the way back. If it doesn't work, the Pi goes back to Slot ${other} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
         || return 0
     clear
     printf 'Restarting into Slot %s...\n\n' "$slot"
@@ -2292,36 +2280,26 @@ ab_restart_into() {
     return 0
 }
 
-# Rollback: make the other slot the permanent default
+# Rollback: make the other slot the start slot, without a trial start
 ab_rollback() {
     local summary="$1" current other content out rc=0
     current=$(ab_value "$summary" current)
     other=$(ab_other "$current")
-    if [ "$other" = "A" ]; then
-        content=$(ab_value "$summary" slot_a)
-    else
-        content=$(ab_value "$summary" slot_b)
-    fi
+    content=$(ab_slot_content "$other" "$summary")
     if ! ab_has_system "$content"; then
-        ab_msgbox "Slot ${other} cannot be the default" "Slot ${other} holds: $(ab_describe "$content"). The Pi would try to start from it at every start, and it would hang at a black screen.\n\n$(ab_fill_hint "$other")"
+        ab_msgbox "Slot ${other} cannot be the start slot" "Slot ${other} holds: $(ab_describe "$content"). The Pi would try to start from it at every start, and it would hang at a black screen.\n\n$(ab_fill_hint "$other")"
         return 0
     fi
-    if [ "$other" = "A" ]; then
-        ab_yesno "Go back to Slot A" "Roll back" "Cancel" \
-            "Make Slot A (stable): ${content} the default for every start from now on?\n\nRunning now: Slot B.\n\nUse this when the running system has problems. To only try Slot A once, choose 'Restart into Slot A' instead." \
-            --defaultno || return 0
-    else
-        ab_yesno "Start Slot B by default" "Make default" "Cancel" \
-            "Make Slot B (testing): ${content} the default for every start from now on?\n\nRunning now: Slot A (stable), which stays as it is.\n\nTo only try Slot B once, choose 'Restart into Slot B' instead." \
-            --defaultno || return 0
-    fi
+    ab_yesno "Make Slot ${other} the start slot" "Make start slot" "Cancel" \
+        "Start Slot ${other}: $(ab_describe "$content") from now on, at every start?\n\nRunning now: Slot ${current}, which stays as it is.\n\nThis skips the trial start: use it when the running system has problems. To try Slot ${other} first, choose 'Switch to Slot ${other}' instead." \
+        --defaultno || return 0
     out=$("$BIN_DIR"/rq_slot_manager.sh rollback 2>&1) || rc=$?
     if [ "$rc" -ne 0 ]; then
         ab_msgbox "Rollback" "$(printf '%s\n' "$out" | sed 's/^ERROR: //')"
         return 0
     fi
-    if ab_yesno "Slot ${other} is the default" "Restart now" "Later" \
-        "Slot ${other} is now the default.\n\nRestart now to start it?"; then
+    if ab_yesno "Slot ${other} is the start slot" "Restart now" "Later" \
+        "Slot ${other} is now the start slot.\n\nRestart now to start it?"; then
         clear
         printf 'Restarting into Slot %s...\n' "$other"
         reboot
@@ -2344,21 +2322,19 @@ do_slot_manager_menu() {
         current=$(ab_value "$summary" current)
         other=$(ab_other "$current")
 
-        prompt="Running: Slot ${current} ($(ab_slot_label "$current"))"
-        [ "$(ab_value "$summary" confirmed)" = "yes" ] || prompt="${prompt}, not confirmed yet"
-        prompt="${prompt}\nSlot A (stable):  $(ab_slot_line A "$summary")\nSlot B (testing): $(ab_slot_line B "$summary")\n\n$(ab_next_step "$summary")"
+        prompt="Slot A: $(ab_slot_line A "$summary")\nSlot B: $(ab_slot_line B "$summary")\n\n$(ab_next_step "$summary")"
 
-        # PROMOTE copies a running Slot B, so it is offered there only; on
-        # Slot A the "rollback" would not go back to anything (H-34)
-        set -- UPDATE "Install an update into Slot B (testing)"
-        [ "$current" = "B" ] && set -- "$@" PROMOTE "Make Slot B the stable system (copy B to A)"
-        set -- "$@" "TRYBOOT_${other}" "Restart into Slot ${other} ($(ab_slot_label "$other"))" \
-            STATUS  "Show slot details" \
-            CONFIRM "Keep the running slot as the default"
-        if [ "$current" = "B" ]; then
-            set -- "$@" ROLLBACK "Go back to Slot A for good (rollback)"
+        # Updates always go into the slot that is not running. On trial (or
+        # with a rollback waiting) the other slot is still the start slot.
+        set -- UPDATE "Install an update into the other system (Slot ${other})" \
+            "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)" \
+            STATUS  "Show slot details"
+        if [ "$(ab_value "$summary" default)" = "$other" ]; then
+            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)" \
+                ROLLBACK "Go back to Slot ${other} (rollback)"
         else
-            set -- "$@" ROLLBACK "Start Slot B by default from now on"
+            set -- "$@" CONFIRM "Keep Slot ${current} as the start slot" \
+                ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
         fi
         # The cursor stays on the last choice (H-34: it jumped back to UPDATE)
         FUN=$(AB_MENU_DEFAULT="$last" ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" "$@") || break
@@ -2366,7 +2342,6 @@ do_slot_manager_menu() {
 
         case "$FUN" in
             UPDATE)    do_ab_install_update ;;
-            PROMOTE)   do_ab_promote "$summary" ;;
             TRYBOOT_A) ab_restart_into A "$summary" ;;
             TRYBOOT_B) ab_restart_into B "$summary" ;;
             STATUS)

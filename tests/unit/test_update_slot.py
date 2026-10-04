@@ -8,6 +8,10 @@ Tests for RQB2-bin/rq_update_slot.sh (A/B slot update, batch B2).
   menu does, and compare sha256.
 - The checksum fields: an -ab image is checked against the ab_* fields.
 - --preflight refusals and their exit codes (R-050, R-052).
+- Ping-pong (Jan, 2026-10-04): the target is the slot that is not running, A
+  or B alike; a slot on trial is not left without its way back (28); Jan's
+  guard refuses an unconfirmed downgrade (26) or an overwrite of the last beta
+  or stable slot (27) without a terminal, and asks in one.
 
 The script is sourced (it only runs main when executed), and commands that
 need a real A/B card (findmnt, blockdev, df) are stubbed on PATH.
@@ -177,14 +181,20 @@ def _stubs(tmp_path):
     return bindir
 
 
-def _preflight(tmp_path, root, size, avail_kb, slot="B"):
+PARTS = {"A": ("/dev/mmcblk0p5", "/dev/mmcblk0p2"), "B": ("/dev/mmcblk0p6", "/dev/mmcblk0p3")}
+
+
+def _preflight(tmp_path, root, size, avail_kb, slot="B", config=None):
+    bootfw = PARTS["A" if root.endswith("5") else "B"][1]
     env = _env(tmp_path,
                PATH=f"{_stubs(tmp_path)}:{os.environ['PATH']}",
                RQ_UPDATE_DIR=str(tmp_path / "dl"),
-               FAKE_ROOT=root, FAKE_BOOTFW="/dev/mmcblk0p2",
+               RQ_BOOT_COMMON_DIR=str(config or tmp_path / "no-config"),
+               FAKE_ROOT=root, FAKE_BOOTFW=bootfw,
                FAKE_PART_SIZE=str(size), FAKE_AVAIL_KB=str(avail_kb))
+    system, boot = PARTS[slot]
     return subprocess.run(
-        _source(f'preflight_checks {slot} /dev/mmcblk0p6 /dev/mmcblk0p3'),
+        _source(f'preflight_checks {slot} {system} {boot}'),
         capture_output=True, text=True, env=env)
 
 
@@ -196,11 +206,19 @@ def test_preflight_passes_on_slot_a_with_an_expanded_slot_b(tmp_path):
     assert proc.returncode == 0, proc.stderr
 
 
-def test_preflight_running_on_slot_b_explains_promote_or_slot_a(tmp_path):
-    proc = _preflight(tmp_path, "/dev/mmcblk0p6", 26 * GB, 40 * 1024 * 1024)
+def test_preflight_passes_on_slot_b_for_slot_a(tmp_path):
+    # ping-pong: running Slot B, the update goes into Slot A
+    proc = _preflight(tmp_path, "/dev/mmcblk0p6", 26 * GB, 40 * 1024 * 1024, slot="A")
+    assert proc.returncode == 0, proc.stderr
+
+
+@pytest.mark.parametrize("root,slot,other", [("/dev/mmcblk0p6", "B", "A"), ("/dev/mmcblk0p5", "A", "B")])
+def test_preflight_refuses_the_running_slot_and_names_the_other(tmp_path, root, slot, other):
+    proc = _preflight(tmp_path, root, 26 * GB, 40 * 1024 * 1024, slot=slot)
     assert proc.returncode == 20
     assert "running now" in proc.stderr
-    assert "PROMOTE" in proc.stderr and "Slot A" in proc.stderr
+    assert f"Updates go into the other system, Slot {other}" in proc.stderr
+    assert "PROMOTE" not in proc.stderr and "stable" not in proc.stderr
 
 
 def test_preflight_placeholder_slot_says_expand(tmp_path):
@@ -276,3 +294,216 @@ def test_preflight_without_root_says_sudo_without_a_log_error(tmp_path):
     proc = subprocess.run(["bash", _SCRIPT, "--preflight"], capture_output=True, text=True, env=env)
     assert proc.returncode == 1
     assert "Permission denied" not in proc.stderr and "sudo" in proc.stderr
+
+
+# --- ping-pong: the target, a slot on trial (exit 28) --------------------------
+
+LSBLK = """\
+    #!/bin/bash
+    case "$*" in
+        *pkname*) echo mmcblk0 ;;
+        *NAME,LABEL*)
+            echo "/dev/mmcblk0p1 CONFIG"
+            echo "/dev/mmcblk0p2 BOOT-A"
+            echo "/dev/mmcblk0p3 boot-b"
+            echo "/dev/mmcblk0p5 SYSTEM-A"
+            echo "/dev/mmcblk0p6 SYSTEM-B"
+            echo "/dev/mmcblk0p7 data" ;;
+    esac
+    exit 0
+    """
+
+
+@pytest.mark.parametrize("root,target", [("/dev/mmcblk0p5", "B"), ("/dev/mmcblk0p6", "A")])
+def test_the_default_target_is_the_slot_that_is_not_running(tmp_path, root, target):
+    bindir = _stubs(tmp_path)
+    (bindir / "lsblk").write_text(textwrap.dedent(LSBLK))
+    (bindir / "lsblk").chmod(0o755)
+    env = _env(tmp_path, PATH=f"{bindir}:{os.environ['PATH']}", FAKE_ROOT=root)
+    proc = subprocess.run(_source('parse_arguments; echo "$TARGET_SLOT"'),
+                          capture_output=True, text=True, env=env)
+    assert proc.stdout.strip() == target, proc.stderr
+
+
+def _config(tmp_path, default, pending=None, confirmed=True):
+    config = tmp_path / "config"
+    config.mkdir()
+    other = 3 if default == 2 else 2
+    (config / "autoboot.txt").write_text(
+        f"[all]\ntryboot_a_b=1\nboot_partition={default}\nboot_partition_fallback={other}\n\n"
+        f"[tryboot]\nboot_partition={other}\nboot_partition_fallback={default}\n")
+    if pending:
+        (config / "target-slot").write_text(pending + "\n")
+    if confirmed:
+        (config / "slot-confirmed").write_text("now\n")
+    return config
+
+
+def test_a_slot_on_trial_keeps_its_way_back(tmp_path):
+    # Running Slot B on trial ([all] still starts A): Slot A is not overwritten
+    config = _config(tmp_path, default=2, pending="B", confirmed=False)
+    proc = _preflight(tmp_path, "/dev/mmcblk0p6", 26 * GB, 40 * 1024 * 1024, slot="A", config=config)
+    assert proc.returncode == 28
+    assert "still on trial" in proc.stderr and "Slot A is the way back" in proc.stderr
+
+
+def test_a_pending_rollback_says_restart_first(tmp_path):
+    # rollback chose Slot B; the Pi still runs Slot A
+    config = _config(tmp_path, default=3, confirmed=False)
+    proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 40 * 1024 * 1024, slot="B", config=config)
+    assert proc.returncode == 28
+    assert "The next restart starts Slot B" in proc.stderr and "Restart first" in proc.stderr
+
+
+@pytest.mark.parametrize("root,slot,default", [("/dev/mmcblk0p5", "B", 2), ("/dev/mmcblk0p6", "A", 3)])
+def test_a_confirmed_start_slot_can_be_updated(tmp_path, root, slot, default):
+    config = _config(tmp_path, default=default, pending="A" if slot == "B" else "B")
+    proc = _preflight(tmp_path, root, 26 * GB, 40 * 1024 * 1024, slot=slot, config=config)
+    assert proc.returncode == 0, proc.stderr
+
+
+def test_an_unconfirmed_start_slot_without_a_trial_can_be_updated(tmp_path):
+    # e.g. a health check that failed on a normal start: updating must stay possible
+    config = _config(tmp_path, default=2, confirmed=False)
+    proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 40 * 1024 * 1024, slot="B", config=config)
+    assert proc.returncode == 0, proc.stderr
+
+
+# --- Jan's guard: exit codes 26 and 27 ------------------------------------------
+
+def _plan_stub(tmp_path, downgrade="none", last_safe="no", target="B",
+               target_holds="beta beta-2026-10-03-095636", new="dev development-2026-10-05-010101"):
+    stub = tmp_path / "planner"
+    stub.write_text("#!/bin/sh\n"
+                    "[ \"$1\" = plan-update ] || exit 9\n"
+                    f"echo target={target}\necho running={'A' if target == 'B' else 'B'}\n"
+                    f"echo 'target_holds={target_holds}'\n"
+                    "echo 'running_holds=dev development-2026-10-04-014357'\n"
+                    f"echo 'new={new}'\necho downgrade={downgrade}\n"
+                    f"echo last_safe_slot={last_safe}\necho advice=x\n")
+    stub.chmod(0o755)
+    return stub
+
+
+def _guard(tmp_path, flags="", pty_input=None, **plan):
+    env = _env(tmp_path, RQ_SLOT_PLANNER=str(_plan_stub(tmp_path, **plan)))
+    snippet = f'TARGET_SLOT=B; parse_arguments {flags}; enforce_update_guard development-2026-10-05-010101; echo GUARD-PASSED'
+    if pty_input is None:
+        proc = subprocess.run(_source(snippet), capture_output=True, text=True, env=env,
+                              stdin=subprocess.DEVNULL)
+        return proc.returncode, proc.stdout + proc.stderr
+    return _run_on_pty_with_input(_source(snippet), env, pty_input)
+
+
+def _run_on_pty_with_input(cmd, env, text, timeout=30):
+    master, slave = pty.openpty()
+    proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
+    os.close(slave)
+    shown, sent = b"", False
+    while True:
+        ready, _, _ = select.select([master], [], [], timeout)
+        if not ready:
+            proc.kill()
+            raise AssertionError("timed out; terminal so far: %r" % shown)
+        try:
+            chunk = os.read(master, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        shown += chunk
+        if not sent and (b"[y/N]" in shown or b"anyway: " in shown):
+            os.write(master, text.encode() + b"\n")
+            sent = True
+    os.close(master)
+    return proc.wait(timeout=timeout), shown.decode(errors="replace")
+
+
+def test_no_warning_passes(tmp_path):
+    rc, out = _guard(tmp_path)
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+@pytest.mark.parametrize("downgrade,text", [
+    ("stream", "comes from a less tested release channel, so installing it is a downgrade"),
+    ("older", "is older, so installing it is a downgrade"),
+])
+def test_a_downgrade_without_a_terminal_is_refused_with_26(tmp_path, downgrade, text):
+    rc, out = _guard(tmp_path, downgrade=downgrade)
+    assert rc == 26
+    assert text in out and "--allow-downgrade" in out and "Nothing was changed" in out
+    assert "GUARD-PASSED" not in out
+    assert "REFUSED (26)" in (tmp_path / "update.log").read_text()
+
+
+def test_allow_downgrade_lets_it_through(tmp_path):
+    rc, out = _guard(tmp_path, flags="--allow-downgrade", downgrade="stream")
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+def test_the_last_safe_slot_without_a_terminal_is_refused_with_27(tmp_path):
+    rc, out = _guard(tmp_path, last_safe="yes")
+    assert rc == 27
+    assert "the only beta or stable system on this card" in out
+    assert "Safer: switch to Slot B first" in out and "switch-to B --reboot" in out
+    assert "--force-replace-safe-slot" in out and "GUARD-PASSED" not in out
+
+
+def test_force_replace_safe_slot_lets_it_through(tmp_path):
+    rc, out = _guard(tmp_path, flags="--force-replace-safe-slot", last_safe="yes")
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+def test_both_warnings_need_both_options(tmp_path):
+    rc, _ = _guard(tmp_path, flags="--allow-downgrade", downgrade="stream", last_safe="yes")
+    assert rc == 27
+    rc, out = _guard(tmp_path, flags="--allow-downgrade --force-replace-safe-slot",
+                     downgrade="stream", last_safe="yes")
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+@pytest.mark.parametrize("answer,rc", [("y", 0), ("n", 26), ("", 26)])
+def test_a_downgrade_in_a_terminal_asks_default_no(tmp_path, answer, rc):
+    code, shown = _guard(tmp_path, pty_input=answer, downgrade="older")
+    assert "Install it anyway? [y/N]" in shown
+    assert code == rc
+
+
+@pytest.mark.parametrize("answer,rc", [("REPLACE", 0), ("replace", 27), ("yes", 27)])
+def test_the_last_safe_slot_in_a_terminal_needs_a_typed_replace(tmp_path, answer, rc):
+    code, shown = _guard(tmp_path, pty_input=answer, last_safe="yes")
+    assert "Type REPLACE to overwrite Slot B anyway:" in shown
+    assert code == rc
+
+
+def test_a_plan_for_another_slot_stops_the_update(tmp_path):
+    rc, out = _guard(tmp_path, target="A")
+    assert rc == 1 and "Nothing was changed" in out
+
+
+def test_the_guard_runs_before_the_download():
+    text = open(_SCRIPT).read()
+    main = text[text.index("main() {"):]
+    assert main.index('preflight_checks "$TARGET_SLOT"') < main.index("enforce_update_guard ")
+    assert main.index("enforce_update_guard ") < main.index("resolve_image_sha256 ")
+    assert main.index("enforce_update_guard ") < main.index("download_image ")
+
+
+def test_slot_a_is_not_special_any_more():
+    text = open(_SCRIPT).read()
+    for gone in ("UPDATE STABLE", "--confirm", "STABLE_SLOT", "PROMOTE", "promote"):
+        assert gone not in text, gone
+
+
+def test_exit_codes_are_documented_in_the_header():
+    text = open(_SCRIPT).read()
+    header = text[:text.index("SCRIPT_DIR=")]
+    for code in range(20, 29):
+        assert f"#   {code} " in header, code
+
+
+def test_fstab_of_the_new_slot_names_config_and_data_by_the_shared_helper():
+    # "/dev/<disk>p1" was wrong for a card on USB (sda1)
+    text = open(_SCRIPT).read()
+    assert "ab_partition_by_number 1" in text and "ab_partition_by_number 7" in text
+    assert "${root_dev}p1" not in text and "${root_dev}p7" not in text

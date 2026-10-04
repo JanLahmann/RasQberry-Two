@@ -114,7 +114,9 @@ def test_two_system_card_marks_the_default_slot(stubs, tmp_path):
                          "expanded=yes", "card_mode=dual"])
     out = _rq_info(stubs, tmp_path, summary).stdout
     assert "Image type:        A/B, two systems (running Slot B)" in out
-    assert "Slot B (testing):  beta-2026-10-15-101010 (running, starts by default)" in out
+    assert "Slot A:            beta-2026-09-30-221656 (beta)\n" in out
+    assert "Slot B:            beta-2026-10-15-101010 (beta) - running, start slot" in out
+    assert "stable" not in out and "testing" not in out
 
 
 # --- item 40: the name avahi really uses ---------------------------------------
