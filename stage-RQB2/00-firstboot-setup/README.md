@@ -93,6 +93,12 @@ when a `firstrun.sh` is on `/boot/firmware` or `/boot/config`) runs
 The first-boot runner skips its tasks in that start (`systemd.run=` on the kernel
 command line): the root expansion's restart would cut `firstrun.sh` off.
 
+Imager's Wi-Fi profile (`preconfigured`, password stored in it) is looked after by
+`rasqberry-wifi-watchdog.timer` (`/usr/bin/rq_wifi_watchdog.sh`, every minute): it
+retries forever, and it gets `nmcli connection up` when NetworkManager gave up on
+it - at a first start the router may turn the Pi away, and NetworkManager then waits
+for a new password that nobody headless can type (rig, 2026-10-04).
+
 ## Files Installed
 
 ```

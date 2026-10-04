@@ -1,0 +1,20 @@
+[Unit]
+Description=RasQberry: bring Wi-Fi back when NetworkManager gave up on it
+# Started by rasqberry-wifi-watchdog.timer. rq_wifi_watchdog.sh: Wi-Fi
+# profiles with a stored password retry forever; a Wi-Fi device stuck in
+# need-auth, or disconnected after a failure, at two checks in a row gets
+# one `nmcli connection up` (then 2, 4, 8, 16 and 30 minutes between
+# tries). Wi-Fi switched off, profiles with autoconnect no and a Wi-Fi the
+# user disconnected are left alone.
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_wifi_watchdog.sh
+# nmcli connection up waits up to 60 s per device
+TimeoutStartSec=5min
+# Quiet: no "Starting/Finished" lines every minute (systemd's own lines about
+# this unit are info). The script's line per change or try, and anything it
+# prints, is notice and stays.
+LogLevelMax=notice
+SyslogLevel=notice

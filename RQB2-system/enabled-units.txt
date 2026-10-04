@@ -16,5 +16,7 @@ rasqberry-carry-over.service
 rasqberry-probation.timer
 rasqberry-ip-display.service
 rasqberry-update-check.timer
+# Wi-Fi that NetworkManager gave up on at start (need-auth with a stored password)
+rasqberry-wifi-watchdog.timer
 # Turns the LED panel off at shutdown (R-043)
 rasqberry-led-clear.service
