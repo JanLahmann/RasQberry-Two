@@ -46,10 +46,19 @@ def _run(tmp_path, version, *args):
     ("beta-2025-12-30-211449", 10),          # older beta
     ("beta-2026-10-01-120000", 0),
     ("v1.0.0", 0),                           # stable channel, nothing published
+    ("1.0.0", 0),                            # VERSION on main has no "v": stable too
+    ("my-build-2026-09-11-000349", 10),      # no known channel: compared with dev
+    ("my-build-2026-10-02-000000", 0),
 ])
 def test_channel_and_date_comparison(tmp_path, version, rc):
     proc = _run(tmp_path, version)
     assert proc.returncode == rc, proc.stdout + proc.stderr
+
+
+def test_an_image_of_no_known_channel_is_never_called_stable(tmp_path):
+    out = _run(tmp_path, "my-build-2026-09-11-000349").stdout
+    assert "Latest dev:" in out and "belongs to no release channel" in out
+    assert "stable" not in out
 
 
 def test_feature_branch_build_is_explained(tmp_path):

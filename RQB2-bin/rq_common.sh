@@ -1546,17 +1546,32 @@ rq_refresh_fstab_view() {
     return 0
 }
 
-# Release channel of a version/tag, as RQB-releases.json names its streams
-# (rq_update_check.sh, rq_ab_releases.sh):
-#   beta-*                 -> beta
-#   development-*, dev-*   -> dev    (feature-branch builds follow development)
-#   anything else          -> stable (main releases are tagged v{version})
+# Release channel (stream) of a version/tag, as RQB-releases.json names its
+# streams. The one shell copy of the rule: rq_slot_manager.sh plan-update
+# (Jan's guard), rq_slot_status.sh, rq_update_check.sh and rq_ab_releases.sh
+# use it; rq_release_notice.py has the Python copy, and
+# tests/unit/data/plan_update_cases.json tests both.
+#   beta-*                    -> beta
+#   development-*, dev-*      -> dev     (feature-branch builds follow development)
+#   v1.2.3, 1.2.3, stable-*   -> stable  (main releases are tagged v{version})
+#   anything else             -> unknown (never stable: it ranks like dev and
+#                                         takes its updates from dev)
 rq_release_channel() {
     case "$1" in
-        beta-*)                echo beta ;;
-        development-*|dev-*)   echo dev ;;
-        *)                     echo stable ;;
+        beta-*)                    echo beta ;;
+        development-*|dev-*)       echo dev ;;
+        v[0-9]*|[0-9]*|stable-*)   echo stable ;;
+        *)                         echo unknown ;;
     esac
+}
+
+# The channel an image takes its updates from: its own; an image of no known
+# channel (a version file of any other name, or none) follows dev
+rq_update_channel() {
+    local channel
+    channel=$(rq_release_channel "$1")
+    [ "$channel" = "unknown" ] && channel=dev
+    echo "$channel"
 }
 
 # Release controls (#242): rasqberry.org/RQB-release-controls.json maps a

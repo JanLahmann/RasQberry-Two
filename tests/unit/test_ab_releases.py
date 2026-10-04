@@ -99,6 +99,9 @@ def _rows(proc):
     ("development-2026-09-11-000349", "dev"),
     ("dev-backlog-2026-09-30-085733", "dev"),
     ("v1.0.0", "stable"),
+    # a version of no known channel is not stable: it follows dev (strict tags)
+    ("my-build-2026-10-10", "dev"),
+    ("", "dev"),
 ])
 def test_channel_of_this_image(tmp_path, version, channel):
     assert _run(tmp_path, version, "channel").stdout.strip() == channel
@@ -117,6 +120,12 @@ def test_latest_for_a_dev_device_is_the_development_head(tmp_path):
     (row,) = _rows(_run(tmp_path, "dev-backlog-2026-09-30-085733", "latest"))
     assert row[0] == "development-2026-10-01-083408"
     assert row[2] == "2026-10-01"
+
+
+def test_latest_for_an_image_of_no_known_channel_is_the_development_head(tmp_path):
+    proc = _run(tmp_path, "my-build-2026-10-10", "latest")
+    assert proc.returncode == 0, proc.stderr
+    assert _rows(proc)[0][0] == "development-2026-10-01-083408"
 
 
 def test_latest_of_an_empty_channel(tmp_path):

@@ -24,6 +24,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # Usage:
 #   rq_ab_releases.sh channel              this image's release channel: beta, dev or stable
+#                                          (dev for a version of no known channel)
 #   rq_ab_releases.sh latest [CHANNEL]     newest A/B image of CHANNEL (default: this image's)
 #   rq_ab_releases.sh list STREAM [--repo USER/REPO]
 #                                          A/B images on GitHub for STREAM (beta, dev,
@@ -62,7 +63,7 @@ own_version() {
 }
 
 own_channel() {
-    rq_release_channel "$(own_version)"
+    rq_update_channel "$(own_version)"     # rq_common.sh: unknown follows dev
 }
 
 stream_regex() {

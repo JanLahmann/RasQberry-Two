@@ -5,10 +5,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # RasQberry: Is a newer image available? (#139)
 # ============================================================================
 # Description: Compares this image (/etc/rasqberry-version) with the latest
-#   release of the same channel in rasqberry.org/RQB-releases.json:
-#     beta-*                  -> beta
-#     development-*, dev-*    -> dev
-#     anything else           -> stable
+#   release of the same channel in rasqberry.org/RQB-releases.json
+#   (rq_release_channel in rq_common.sh):
+#     beta-*                    -> beta
+#     development-*, dev-*      -> dev
+#     v1.2.3, 1.2.3, stable-*   -> stable
+#     anything else             -> no known channel: compared with dev
 #   Release tags end in YYYY-MM-DD-HHMMSS, which is what gets compared.
 #   A release withdrawn in rasqberry.org/RQB-release-controls.json is not
 #   offered (#242).
@@ -34,7 +36,7 @@ STATE_FILE="${RQ_UPDATE_STATE:-/var/lib/rasqberry/update-available}"
 
 stamp_of() { echo "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}' | tail -1; }
 
-channel_of() { rq_release_channel "$1"; }   # rq_common.sh
+channel_of() { rq_update_channel "$1"; }    # rq_common.sh: unknown follows dev
 
 fetch_releases() {
     if [ -n "${RQ_RELEASES_FILE:-}" ]; then
@@ -65,8 +67,11 @@ check() {
         echo "No $channel release is published yet."
         return 0
     fi
-    case "$current" in
-        dev-*) note=" (this image was built from a feature branch; comparing with the latest development release)" ;;
+    case "$(rq_release_channel "$current")" in
+        unknown) note=" (this image belongs to no release channel; comparing with the latest development release)" ;;
+        *) case "$current" in
+               dev-*) note=" (this image was built from a feature branch; comparing with the latest development release)" ;;
+           esac ;;
     esac
 
     cur_stamp=$(stamp_of "$current")

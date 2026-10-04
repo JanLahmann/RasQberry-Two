@@ -11,7 +11,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   write           (root) Writes /run/rasqberry/slot-status: the output of
 #                   `rq_slot_manager.sh summary` plus the running version, the
 #                   other slot's version and each slot's stream (dev, beta,
-#                   stable). As root the summary can look into the other slot,
+#                   stable, unknown: rq_release_channel). As root the summary can look into the other slot,
 #                   which the desktop user cannot. Key=value lines, world-
 #                   readable, replaced in one step (rename). The health check
 #                   runs it at every start; /run is empty after a restart.

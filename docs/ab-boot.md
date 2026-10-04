@@ -152,7 +152,8 @@ From a shell:
 **The guard (Jan): at least one slot keeps a beta or stable system.** The
 stream comes from the version or tag: `development-*`/`dev-*` dev (rank 0),
 `beta-*` beta (1), `v1.2.3`/`1.2.3`/`stable-*` stable (2); anything else is
-unknown: it ranks like dev and never counts as beta or stable.
+unknown: it ranks like dev, never counts as beta or stable, and takes its
+updates from dev (`rq_release_channel` in `rq_common.sh`).
 
 - **Downgrade:** a lower stream than the target holds, or an older release of
   the same beta or stable stream. Always a warning (default: Cancel).

@@ -278,12 +278,7 @@ default_boot_slot() {
 # slot does not.
 
 version_stream() {
-    case "$1" in
-        beta-*)                    echo beta ;;
-        development-*|dev-*)       echo dev ;;
-        v[0-9]*|[0-9]*|stable-*)   echo stable ;;
-        *)                         echo unknown ;;
-    esac
+    rq_release_channel "$1"     # rq_common.sh: the one shell copy of the rule
 }
 
 # The stream of a slot_content value: none for a slot without a system
