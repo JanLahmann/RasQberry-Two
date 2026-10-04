@@ -432,11 +432,12 @@ cmd_status() {
             || warn "Slot B is still the 16MB placeholder (see docs/ab-boot.md)"
     fi
 
-    # A trial boot that failed and was rolled back (rq_health_check.py, R-054)
+    # A trial boot that failed and was rolled back (rq_health_check.py, R-054),
+    # in the words System Info and the taskbar indicator use (#242)
     if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
         echo ""
-        warn "Last slot switch FAILED and was rolled back:"
-        sed 's/^/    /' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
+        warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update didn't work.")"
+        sed -n 's/^reason=/    Reason: /p; s/^time=/    When: /p' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
     # Boot files

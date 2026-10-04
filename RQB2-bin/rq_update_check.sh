@@ -10,17 +10,20 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     development-*, dev-*    -> dev
 #     anything else           -> stable
 #   Release tags end in YYYY-MM-DD-HHMMSS, which is what gets compared.
+#   A release withdrawn in rasqberry.org/RQB-release-controls.json is not
+#   offered (#242).
 #
 # Usage:
 #   rq_update_check.sh            check now, print the result
 #   rq_update_check.sh --refresh  check now, print the result and store it for
 #                                 --notice (root; daily timer and the menu's CHECK)
 #   rq_update_check.sh --notice   print one line if the stored result says an update exists
+#                                 (the login message uses rq_release_notice.py now, #242)
 #
 # Exit: 0 up to date (or nothing to compare), 10 newer image available, 1 error.
 #
 # Environment overrides (tests): RQ_VERSION_FILE, RQ_RELEASES_URL, RQ_RELEASES_FILE,
-#   RQ_UPDATE_STATE
+#   RQ_UPDATE_STATE, RQ_RELEASE_CONTROLS_FILE, RQ_RELEASE_CONTROLS_URL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -83,6 +86,12 @@ check() {
     fi
     if [ -n "$cur_stamp" ] && [ -n "$new_stamp" ] && [[ "$new_stamp" > "$cur_stamp" ]]; then
         [ -n "$beta_line" ] && echo "$beta_line"
+        local reason
+        if reason=$(rq_release_withdrawn "$latest"); then
+            echo "$latest was withdrawn: $reason"
+            echo "There is no newer image to install."
+            return 0
+        fi
         echo "A newer image is available."
         return 10
     fi

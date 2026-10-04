@@ -48,6 +48,7 @@ FAILED_NOTICE = 'last-switch-failed'
 WATCHDOG_MARKER = Path(os.environ.get('RQ_WATCHDOG_MARKER',
                                       '/run/rasqberry/probation-watchdog'))
 SLOT_MANAGER = Path(os.environ.get('RQ_SLOT_MANAGER', '/usr/bin/rq_slot_manager.sh'))
+SLOT_STATUS = Path(os.environ.get('RQ_SLOT_STATUS', '/usr/bin/rq_slot_status.sh'))
 DISPLAY_MANAGER_TIMEOUT = 300      # seconds to wait for the desktop on probation
 DEADLINE_MINUTES = 15              # rasqberry-probation.timer OnBootSec
 
@@ -453,7 +454,7 @@ def wait_for_display_manager(timeout: int = DISPLAY_MANAGER_TIMEOUT,
         if state == 'active':
             return True, "display manager active"
         if time.monotonic() >= deadline:
-            return False, f"desktop did not start within {timeout}s (display-manager: {state})"
+            return False, f"the desktop did not come up within {timeout} s (display-manager: {state})"
         time.sleep(poll)
 
 
@@ -534,8 +535,8 @@ def confirm_boot_slot() -> bool:
                 )
                 record_failed_switch(
                     BOOT_CONFIG_DIR, target_slot,
-                    f"Slot {target_slot} did not start (tried twice); "
-                    f"back on Slot {current_slot}")
+                    f"Slot {target_slot} was tried twice without success; "
+                    f"Slot {current_slot} is running again")
             else:
                 for name in ('target-slot', 'switch-retries', FAILED_NOTICE):
                     try:
@@ -569,6 +570,22 @@ def confirm_boot_slot() -> bool:
     except Exception as e:
         logger.error(f"✗ Error confirming boot slot: {e}")
         return False
+
+
+def write_slot_status() -> None:
+    """
+    Refresh /run/rasqberry/slot-status for the taskbar indicator (#242): as
+    root it can say what the other slot holds. Never fails the health check.
+    """
+    if not SLOT_STATUS.exists():
+        return
+    try:
+        result = subprocess.run([str(SLOT_STATUS), 'write'], capture_output=True,
+                                text=True, timeout=60)
+        if result.returncode != 0:
+            logger.warning(f"Could not write the slot status: {result.stderr.strip()}")
+    except Exception as e:
+        logger.warning(f"Could not write the slot status: {e}")
 
 
 def report_status(success: bool, checks: dict):
@@ -649,8 +666,8 @@ def main():
     def failed(reason: str):
         logger.error(f"✗ Health check FAILED: {reason}")
         report_status(False, checks)
-        if probation:
-            fail_probation(BOOT_CONFIG_DIR, probation, reason)
+        if not probation or fail_probation(BOOT_CONFIG_DIR, probation, reason) != 'rolled-back':
+            write_slot_status()
         sys.exit(1)
 
     # Load environment
@@ -700,6 +717,7 @@ def main():
 
     # Report success
     report_status(True, checks)
+    write_slot_status()
 
     logger.info("\n=== Health Check Complete: SUCCESS ===")
     sys.exit(0)

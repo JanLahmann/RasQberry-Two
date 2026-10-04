@@ -1559,6 +1559,42 @@ rq_release_channel() {
     esac
 }
 
+# Release controls (#242): rasqberry.org/RQB-release-controls.json maps a
+# release tag to {"notify_after", "rollout", "withdrawn", "reason"}. Only
+# "withdrawn" matters to the shell tools: the update check and the release
+# picker do not offer a withdrawn release. No file (404), no network or a
+# broken file all mean: nothing is withdrawn.
+# Environment (tests): RQ_RELEASE_CONTROLS_FILE, RQ_RELEASE_CONTROLS_URL; a
+# release list read from a file (RQ_RELEASES_FILE, RQ_GITHUB_RELEASES_FILE)
+# never goes online for the controls either
+rq_release_controls() {
+    local json=""
+    if [ -n "${RQ_RELEASE_CONTROLS_FILE:-}" ]; then
+        json=$(cat "$RQ_RELEASE_CONTROLS_FILE" 2>/dev/null || true)
+    elif [ -n "${RQ_RELEASES_FILE:-}${RQ_GITHUB_RELEASES_FILE:-}" ]; then
+        json='{}'
+    else
+        json=$(curl -fsSL --max-time 10 \
+            "${RQ_RELEASE_CONTROLS_URL:-https://rasqberry.org/RQB-release-controls.json}" 2>/dev/null || true)
+    fi
+    if printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+        printf '%s\n' "$json"
+    else
+        echo '{}'
+    fi
+}
+
+# rq_release_withdrawn TAG [CONTROLS_JSON]: prints the reason (or "no reason
+# given") and returns 0 when TAG was withdrawn, else returns 1
+rq_release_withdrawn() {
+    local json="${2:-}"
+    [ -n "$json" ] || json=$(rq_release_controls)
+    printf '%s' "$json" | jq -er --arg t "$1" '
+        (if (.releases | type) == "object" then .releases else . end)[$t]
+        | select(type == "object" and .withdrawn == true)
+        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null
+}
+
 # ============================================================================
 # 16. DEMO VERSIONS: release pins and the user's updates (Jan, Q8/Q32)
 # ============================================================================
