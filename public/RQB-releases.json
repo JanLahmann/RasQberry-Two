@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T07:22:09Z",
+  "generated": "2026-10-04T07:22:58Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -38,12 +38,11 @@
       "image_download_size": 2008009756,
       "extract_size": 9076473856,
       "extract_sha256": "0e80d5152d976bed41c8637d61f2ebaf2994c45b80643b5a20c01a2ec8f301be",
-      "image_sha256": "bec4f8656286291f84b823076bd749041a660a1937736944a55c09dfc02057a6",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-090517/rasqberry-development-2026-10-04-090517-ab.img.xz",
       "ab_extract_sha256": "de5d99f0eb62b5be9c51add7abbd260d3bb5539209edcf2427b725d4f820560f",
       "ab_image_sha256": "7a893f1cb8ab2c8672adee319d91339d5f28687e27c462f9c5127685b449f1e9",
-      "ab_image_download_size": 2067057872,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2067057872,
       "highlights": [
         "release notes for the plain badge and the switch wording",
         "ping-pong A/B updates, the guard, no promote",
