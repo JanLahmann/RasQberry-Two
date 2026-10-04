@@ -30,10 +30,10 @@ only true for the standard image. -->
 - **Going back:** **Slot Manager** → **Switch to Slot A** (or B). If an update doesn't work, the Pi goes back to the previous system by itself, at the latest after 15 minutes; if the screen stays black, switch it off and on. If that does not help, set `boot_partition=2` (Slot A; `3` for Slot B) under `[all]` in `autoboot.txt` on the CONFIG drive.
 - **Standard image:** OS updates through the taskbar updater or `sudo apt full-upgrade`. A new RasQberry release means writing a new card: back up your notebooks and `~/.qiskit` first.
 
-**In the taskbar (A/B image)**
+**In the taskbar**
 
-- **Slot badge:** shows the running slot, A or B. Green: confirmed. Amber: a new system is being checked, or a restart is due. Red with "!": an update didn't work and the Pi went back. Click it for both slots, System Info and updates.
-- **Update notices:** a new release shows once, with a short "What's new" and where it would go; an SSH login shows it as one line. Betas and stable releases appear a few days after release, and not on every Pi at once.
+- **Slot badge (A/B image):** shows the running slot, A or B. Green: confirmed. Amber: a new system is being checked, or a restart is due. Red with "!": an update or switch didn't work and the Pi went back. Click it for both slots, System Info and updates.
+- **Update notices:** a new release shows once, with a short "What's new" and where it would go; an SSH login shows it as one line. Betas and stable releases appear a few days after release, and not on every Pi at once. On the standard image and on cards with one system, a grey badge appears only while a new release is available.
 
 **Coming from an earlier beta**
 
