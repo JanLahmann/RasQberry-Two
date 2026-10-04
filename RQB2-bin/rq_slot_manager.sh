@@ -412,12 +412,14 @@ cmd_status() {
     part_a=$(get_slot_partition A)
     part_b=$(get_slot_partition B)
     part_data=$(ab_partition_by_number 7)
-    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    info "  SYSTEM-A (${part_a}): ${size_a}"
-    info "  SYSTEM-B (${part_b}): ${size_b}"
-    info "  DATA (${part_data}):     ${size_data}"
+    # Decimal GB, as printed on the card (R-095); a placeholder in MB
+    local gb='{ if ($1 < 1e9) printf "%d MB", $1 / 1e6; else printf "%.1f GB", $1 / 1e9 }'
+    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk "$gb")
+    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk "$gb")
+    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk "$gb")
+    info "  Slot A (${part_a}): ${size_a}"
+    info "  Slot B (${part_b}): ${size_b}"
+    info "  Data (${part_data}): ${size_data}"
 
     # Placeholder Slot B: say what this card can do (not prepared yet, or a
     # small card running one system) - rq_expand_ab.sh decides (R-006)

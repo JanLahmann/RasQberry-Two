@@ -24,6 +24,9 @@ verify_env_vars BIN_DIR
 # The demos it restarts again and again are not counted one by one (the
 # usage count in rq_demo_run.sh)
 export RQ_DEMO_HOW=loop
+# One on-screen LED view for all its demos: closing and reopening it at every
+# demo would take the keyboard focus from this window each time (R-100)
+export RQ_LED_KEEP_WINDOW=1
 
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"
@@ -42,8 +45,8 @@ cleanup() {
     info "Stopping demo loop..."
     # Kill any running demo processes
     cleanup_demo_processes "QuantumLightsOut|lights_out.py|QuantumRaspberryTie|sense_emu_gui|RasQ-LED"
-    # Turn off all LEDs
-    clear_leds
+    # Turn off all LEDs and close the on-screen view
+    clear_leds --close-window
     info "Demo loop stopped"
     exit 0
 }

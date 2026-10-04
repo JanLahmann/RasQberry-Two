@@ -11,6 +11,13 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
 - **Updates need much less free space:** an A/B update now unpacks the image straight into the other slot instead of into a 12 GB file first. It needs the download plus 0.5 GB free (about 2.5 GB) instead of 15 GB, so a 64 GB card with all Docker demos can update too.
+- **On-screen LED view:** it now closes when the LED demo ends; the demo loop keeps one view until the loop stops.
+- **LED Demos from a terminal:** `rq_demo_run.sh led-demos` without a part shows the list of LED demos (without a terminal: the commands for each) instead of an error.
+- **Demo catalogue:** the install question says who provides each demo (traQmania: the Fun with Quantum family; the SAP demos: SAP).
+- **Catalogue web and Docker demos:** their desktop icons open a window, so the demo stops like the others (Enter, Ctrl+C or closing the window). SAP Quantum Learning used to keep running with no way to stop it.
+- **Catalogue Docker demos (traQmania):** when one stops right after it starts, its log is kept and its last lines are shown.
+- **Workshop & Qiskit Server:** the start text says that running code in the notebooks needs the internet for now.
+- **Plain words:** the update picker says "release stream" instead of "channel"; the Slot Manager status shows sizes in GB and the names Slot A and Slot B; the LED settings say "LED panel" and "on-screen view"; a failed catalogue install and the Workshop & Qiskit Server no longer name pip or Docker commands.
 
 ## What's new for you
 
@@ -27,7 +34,7 @@ only true for the standard image. -->
 - A setup checklist opens at the first desktop or SSH login, until someone answers it: keyboard and time zone, Wi-Fi, an optional password change, a name for the Pi, the LED panel check, Download all demos, touch mode.
 - The LED panel check asks which kit you have (one 24x8 panel or four 4x12 panels), without a pre-selected answer, and has a "no LED panel" answer. Text, logos and the IP address scroll follow it: they are no longer scrambled on the four-panel kit. **Configure Matrix Layout** is gone.
 - VNC is switched on once at the first start and stays off if you switch it off.
-- RasQberry menu: **Remote Access & Security** changes the password, switches SSH and VNC on or off and names the Pi; **Desktop Settings** has touch mode and the browser at login. **System Info** shows the Pi's name, address, model and RAM, power and free space; an SSH login shows the name and address, and `rq_help` lists the commands.
+- RasQberry menu: **Remote Access & Security** changes the password, switches SSH and VNC on or off and names the Pi; **Desktop Settings** has touch mode and the browser at login. **System Info** shows the Pi's name, address, model and RAM, power and free space; **Shut Down Safely** switches the LEDs off and shuts the Pi down. An SSH login shows the name and address, and `rq_help` lists the commands.
 
 **Updating later (A/B image)**
 
@@ -51,7 +58,7 @@ only true for the standard image. -->
 **Learning paths and new demos**
 
 - **Learning paths (beta):** four short tours through the demos (a stand, a school lesson, entanglement, your first program). Each step says what to try and what to notice and starts the demo for you; at the end, **Keep going** and **Where to go next** suggest what to do after. The **Learning paths** icon, **Quantum Demos** → **Learning paths**, or [on the website](https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/).
-- **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Restarting it restores the original notebooks.
+- **Workshop & Qiskit Server** (built on doQumentation): one Pi serves the IBM Quantum tutorials, guides and courses to a class's laptops over the network, with live Qiskit code. Opening it again while it runs keeps it running and shows the addresses; only the window that started it offers to stop it. It also starts over SSH without a screen and prints the addresses. Anyone on the network can run code on the Pi: use a network you trust, not public Wi-Fi. Running code in the notebooks needs the internet for now. Restarting it restores the original notebooks.
 - **Qiskit Tutorials on this Pi:** the same tutorials just for you, on this Pi only (not on the network), with less memory. It opens the browser and stops with its window.
 - **Beta demos:** new and less-tested demos say "(beta)" in the menus (Learning paths, Workshop & Qiskit Server, Qiskit Tutorials on this Pi, traQmania, the Fun with Quantum website and family) and ask for your feedback when they start.
 - **My Quantum Programs** opens JupyterLab at `Hello-World.ipynb`, the first circuit from doQumentation. Existing folders get it once; your files are never replaced. JupyterLab no longer asks about Jupyter news.

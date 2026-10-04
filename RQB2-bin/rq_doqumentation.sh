@@ -120,6 +120,9 @@ participant_urls() {
 
 # Item 19: what the server means for this Pi, precise and calm
 TRUST_SHORT="Anyone on this network can open these addresses and run code on this Pi: use a network you trust, not public Wi-Fi. Restarting the server restores the original notebooks."
+# Running code needs the internet for now: the pages load their code runner
+# (thebelab) from unpkg.com (R-068, upstream JanLahmann/doQumentation#964)
+INTERNET_NOTE="Running code in the notebooks needs the internet for now: the pages load their code runner from the web."
 
 # A QR code of the first LAN address, for phones and tablets: 29 columns by
 # 15 lines (margin 2). Shown last, just above the Enter prompt, so that it
@@ -155,6 +158,8 @@ print_addresses() {
     echo "- Everyone works on the same notebooks. Restarting the server restores the"
     echo "  original notebooks; participants download what they want to keep."
     echo "- Code in a notebook left idle for 10 minutes stops; run its cells again."
+    echo "- Running code needs the internet for now: the pages load their code runner"
+    echo "  from the web."
     echo "- The 'Open in Lab' button on the website does not work for participants yet."
     echo
 }
@@ -166,6 +171,7 @@ print_local() {
     echo "$SOLO_NAME is running: http://localhost:${port}/"
     echo "Only this Pi can open it. Restarting it restores the original notebooks;"
     echo "download what you want to keep."
+    echo "$INTERNET_NOTE"
     echo
     echo "JupyterLab with every notebook: $lab_url"
     echo
@@ -370,7 +376,7 @@ print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 
 if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
     show_msgbox "$WORKSHOP_NAME is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$TRUST_SHORT" \
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$TRUST_SHORT\n\n$INTERNET_NOTE" \
         17 74
 fi
 
@@ -402,5 +408,5 @@ if [ -t 0 ]; then
     rq_docker_stop "$CONTAINER_NAME" || warn "The container is still being removed."
     info "$WORKSHOP_NAME stopped."
 else
-    info "The $WORKSHOP_NAME keeps running. Stop it with: docker stop $CONTAINER_NAME"
+    info "The $WORKSHOP_NAME keeps running. To stop it: open it again, or RasQberry menu > Quantum Demos > Stop Docker demos."
 fi

@@ -1587,8 +1587,8 @@ do_led_output_menu() {
 
   SEL=$(whiptail --title "LED Output Targets" --checklist \
     "Choose where LED output appears.\nSpace toggles an item, Tab to <Ok>, Enter confirms." 12 74 3 \
-    PHYSICAL "Physical LED strip" "$(on_state "$cur_phys")" \
-    VIRTUAL  "On-screen virtual matrix (GUI window)" "$(on_state "$cur_virt")" \
+    PHYSICAL "LED panel" "$(on_state "$cur_phys")" \
+    VIRTUAL  "On-screen view (a window on the desktop)" "$(on_state "$cur_virt")" \
     WEB      "Browser view (http://<pi>:${web_port})" "$(on_state "$cur_web")" \
     3>&1 1>&2 2>&3) || return 0
 
@@ -1606,7 +1606,7 @@ do_led_output_menu() {
   # Guard against turning EVERYTHING off (no output anywhere) - keep the strip.
   if [ "$new_phys" = "false" ] && [ "$new_virt" = "false" ] && [ "$new_web" = "false" ]; then
     whiptail --title "LED Output Targets" --msgbox \
-      "At least one output target is required.\n\nKeeping the physical LED strip enabled." 9 66
+      "At least one output target is required.\n\nKeeping the LED panel switched on." 9 66
     new_phys="true"
   fi
 
@@ -2073,11 +2073,11 @@ ab_pick_image() {
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
         set -- "$ltag" "$note"
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
-    set -- "$@" OTHER "Other release or channel..."
+    set -- "$@" OTHER "Other release..."
 
     choice=$(ab_menu "Install an update into Slot ${slot}" "$prompt" "$@") || return 1
     if [ "$choice" = "OTHER" ]; then
@@ -2091,7 +2091,7 @@ ab_pick_other() {
     local channel="$1" current="$2" stream repo="" list lrc=0 choice line t d s note
     # The device's own channel is the default (Q6 is open: the others stay)
     stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other release" \
-        "Choose a release channel. This system follows: ${channel}" \
+        "Choose a release stream. This system follows: ${channel}" \
         beta   "Beta releases" \
         dev    "Development builds (newest, less tested)" \
         stable "Stable releases" \
@@ -2101,7 +2101,7 @@ ab_pick_other() {
             "GitHub repository (user/repository):" 10 60 \
             "${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}" 3>&1 1>&2 2>&3) || return 1
         stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other repository" \
-            "Release channel in ${repo}:" \
+            "Release type in ${repo}:" \
             beta   "Beta releases" \
             dev    "Development builds (newest, less tested)" \
             stable "Stable releases") || return 1
@@ -2118,7 +2118,7 @@ ab_pick_other() {
         return 1
     fi
     if [ -z "$list" ]; then
-        ab_msgbox "Release list" "No A/B images found in the '${stream}' channel${repo:+ of $repo}."
+        ab_msgbox "Release list" "No A/B images found among the ${stream} releases${repo:+ of $repo}."
         return 1
     fi
 
@@ -2134,7 +2134,7 @@ ab_pick_other() {
     done <<EOF
 $list
 EOF
-    choice=$(ab_menu "Choose a release" "A/B images in the '${stream}' channel, newest first (only releases with a checksum):" "$@") || return 1
+    choice=$(ab_menu "Choose a release" "A/B images of the ${stream} releases, newest first (only releases with a checksum):" "$@") || return 1
     line=$(printf '%s\n' "$list" | awk -F '\t' -v t="$choice" '$1 == t { print; exit }')
     [ -n "$line" ] || return 1
     echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)|$(printf '%s\n' "$line" | cut -f5)"
@@ -2163,7 +2163,7 @@ ab_guard() {
     case "$(ab_value "$plan" downgrade)" in
         stream)
             ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
-                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release channel, so installing it is a downgrade.\n\nInstall it anyway?" \
+                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release stream, so installing it is a downgrade.\n\nInstall it anyway?" \
                 --defaultno || return 1
             opts="--allow-downgrade" ;;
         older)

@@ -118,7 +118,7 @@ def clear_strip(pixels):
 if __name__ == '__main__':
     # Process arguments
     parser = argparse.ArgumentParser(
-        description="Display quantum measurement results on LED strip",
+        description="Display quantum measurement results on the LED panel",
         epilog="Examples:\n"
                "  python3 RasQ-LED-display.py 001010100100100\n"
                "  python3 RasQ-LED-display.py 0 -c",
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         )
         print(f"Initialized {NUM_PIXELS} LEDs ({config['pi_model']}, {pixel_order_str} pixel order, GPIO{config['led_gpio_pin']})")
     except Exception as e:
-        print(f"Error initializing LED strip: {e}")
+        print(f"Error initializing LED panel: {e}")
         print("Note: This script requires root/sudo for GPIO access")
         print("Try: sudo python3 RasQ-LED-display.py ...")
         exit(1)

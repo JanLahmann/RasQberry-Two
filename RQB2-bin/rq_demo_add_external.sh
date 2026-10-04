@@ -124,7 +124,7 @@ chown_to_user() {
 # them. Returns non-zero, after showing the pip output, on any failure.
 install_pip_extras() {
     local id="$1" dest="$2"
-    local venv_path splitter work log rc
+    local venv_path splitter work log rc label
 
     if ! venv_path=$(find_venv "$STD_VENV"); then
         warn "Virtual environment not found - cannot install Python requirements"
@@ -169,7 +169,8 @@ install_pip_extras() {
     fi
 
     if [ "$rc" -ne 0 ]; then
-        show_msgbox "Requirements not installed" "pip failed for '$id' (exit $rc). The demo was NOT installed.\n\nLast lines:\n$(tail -n 10 "$log" | cut -c1-110)"
+        label=$(registry_field "$id" "name")
+        show_msgbox "Demo not installed" "The Python packages that ${label:-$id} needs could not be installed, so the demo was not installed. Check the internet connection and the free space, then try again.\n\nThe last lines of the installer:\n$(tail -n 10 "$log" | cut -c1-110)"
         rm -rf "$work"
         return 1
     fi
@@ -297,17 +298,19 @@ add_demo() {
     # left behind; it blocked every later install (R-057). It is replaced
     # below, after the question.
 
-    # Third-party disclaimer, with what the install takes - must come before
+    # Who provides it, with what the install takes - must come before
     # anything destructive (in update mode the existing checkout is removed
-    # below)
-    local name summary dl disk size_txt=""
+    # below). The provider comes from the registry: Jan's own traQmania was
+    # "an external contributor ... NOT part of the RasQberry project" (R-163).
+    local name summary provider dl disk size_txt=""
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
+    provider=$(registry_field "$id" "provider")
     dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
     disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
-    if ! show_yesno "Third-party demo" \
-        "${name:-$id}${summary:+: $summary}\n\n${size_txt}'$id' is provided by an external contributor and is NOT part of the RasQberry project:\n\n$repo_url\n\nThe RasQberry team reviews and pins a specific version, but does not maintain this software and takes no responsibility for its content, behaviour, or security. Install at your own risk.\n\nContinue?"; then
+    if ! show_yesno "Demo from the Catalogue" \
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\nInstall it?"; then
         info "Installation cancelled by user"
         return 1
     fi

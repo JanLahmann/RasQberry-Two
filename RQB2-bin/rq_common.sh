@@ -462,8 +462,8 @@ find_led_script() {
     return 1
 }
 
-# Clear all LEDs
-# Usage: clear_leds
+# Clear all LEDs (--close-window: also close the on-screen view)
+# Usage: clear_leds [--close-window]
 clear_leds() {
     local led_script
 
@@ -479,7 +479,7 @@ clear_leds() {
         py="$venv/bin/python3"
     fi
     debug "Clearing LEDs using: $py $led_script"
-    "$py" "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
+    "$py" "$led_script" "$@" 2>/dev/null || warn "Failed to clear LEDs"
 }
 
 # ----------------------------------------------------------------------------
@@ -624,15 +624,18 @@ rq_run_detached() {
 }
 
 # Clear the panel and say nothing: for exit traps, where the terminal may
-# already be gone (a closed window) and any output would fail.
+# already be gone (a closed window) and any output would fail. The demo has
+# ended, so the on-screen LED view it opened closes too (R-100), unless
+# RQ_LED_KEEP_WINDOW=1: the demo loop keeps one view for all its demos.
 led_clear_quietly() {
-    local py="python3" venv script
+    local py="python3" venv script close="--close-window"
     script=$(find_led_script "turn_off_LEDs.py") || return 0
     if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
         py="$venv/bin/python3"
     fi
+    [ "${RQ_LED_KEEP_WINDOW:-}" = "1" ] && close=""
     rq_run_detached env PYTHONDONTWRITEBYTECODE=1 \
-        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script"
+        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script" ${close:+"$close"}
 }
 
 # Stop and remove a container, to the end even if this script is killed

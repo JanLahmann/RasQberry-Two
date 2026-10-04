@@ -174,6 +174,14 @@ def test_led_output_targets_two_ticks(menu_env):
     assert "At least one output target is required" not in texts
 
 
+def test_led_output_targets_use_the_style_names(menu_env):
+    # R-095: "LED panel" and "on-screen view", not "LED strip" or "matrix"
+    menu_env("do_led_output_menu", extra_env={"WT_REPLY_checklist": '"PHYSICAL"'})
+    texts = "\n".join("\n".join(c) for c in menu_env.whiptail_calls())
+    assert "LED panel" in texts and "On-screen view" in texts
+    assert "strip" not in texts.lower() and "matrix" not in texts.lower()
+
+
 # --- R-001: raspi-config's globals survive every env reload ------------------
 
 def test_initial_load_does_not_set_raspi_config_globals(menu_env):

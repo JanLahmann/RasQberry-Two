@@ -669,13 +669,10 @@ run_docker() {
 
     CONTAINER_NAME="$container_name"
 
-    # Stop any existing container
+    # Stop any existing container, and remove a stopped one an earlier run kept
+    # for its log
     info "Checking for existing containers..."
-    if docker ps -q --filter name="$CONTAINER_NAME" 2>/dev/null | grep -q .; then
-        info "Stopping existing container..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-    fi
-    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+    rq_docker_stop "$CONTAINER_NAME" 10 || true
 
     # Check if image exists locally; pull from the registry if it is absent.
     # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
@@ -699,26 +696,28 @@ run_docker() {
     local host_port
     host_port=$(find_available_port "$docker_port")
 
-    # Start container
+    # Start container. Without --rm: a container that stops right away keeps
+    # its log for rq_docker_fail, which --rm had already removed (R-109). Its
+    # window's stop and the next start remove it (rq_docker_stop).
     info "Starting container: $CONTAINER_NAME"
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
-        --rm \
         --label "org.rasqberry.demo=$DEMO_ID" \
         -p "${host_port}:${docker_port}" \
-        "$docker_image"; then
-        die "Failed to start Docker container"
+        "$docker_image" >/dev/null; then
+        rq_docker_fail "$CONTAINER_NAME" "The $DEMO_TITLE container did not start."
     fi
+    # A window closed while it starts stops it too
+    if [ -t 0 ] && [ -t 1 ]; then DOCKER_STOP_ON_EXIT=1; fi
 
-    # Wait for container to start
+    # Give it a few seconds; a container that stops in them failed (its log
+    # is saved first)
     info "Waiting for container to start..."
-    sleep 5
-
-    # Verify container is running
-    if ! docker ps --filter name="$CONTAINER_NAME" --filter status=running | grep -q "$CONTAINER_NAME"; then
-        docker logs "$CONTAINER_NAME" 2>&1 | tail -20
-        die "Container failed to start"
-    fi
+    for _ in 1 2 3 4 5; do
+        sleep 1
+        rq_docker_running "$CONTAINER_NAME" \
+            || rq_docker_fail "$CONTAINER_NAME" "$DEMO_TITLE stopped right after it started."
+    done
 
     local url="http://127.0.0.1:${host_port}"
     echo
@@ -1125,6 +1124,24 @@ Available demos can be found in: /usr/config/demo-manifests/
 EOF
 }
 
+# Does this demo only run as one of its variants? (variants, and no type or
+# launcher of its own)
+needs_a_variant() {
+    jq -e '(.variants // []) != []
+           and ((.entrypoint.type // "") == "" or .entrypoint.type == "script")
+           and ((.entrypoint.launcher // "") == "")' "$MANIFEST_FILE" >/dev/null 2>&1
+}
+
+# The demo's variants as commands, one per line after a ":" (for messages)
+variant_list() {
+    local name
+    name=$(basename "$0")
+    jq -e '(.variants // []) != []' "$MANIFEST_FILE" >/dev/null 2>&1 || return 0
+    printf ':\n'
+    jq -r --arg cmd "$name $DEMO_ID" '.variants[] | "  \($cmd) \(.id)\t(\(.name))"' \
+        "$MANIFEST_FILE" | expand -t 44
+}
+
 # Re-run this engine as the desktop user when it runs as root for a demo that
 # does not need the LED panel. Keeps the display (only if there is one, so the
 # "needs a screen" check still sees an SSH login) and the menu's error file.
@@ -1187,7 +1204,7 @@ main() {
         local variant_exists
         variant_exists=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | .id // null" "$MANIFEST_FILE" 2>/dev/null)
         if [ "$variant_exists" = "null" ] || [ -z "$variant_exists" ]; then
-            die "Unknown variant: $VARIANT"
+            die "Unknown variant: $VARIANT$(variant_list)"
         fi
     fi
 
@@ -1197,6 +1214,16 @@ main() {
     if [ "$IS_INSTALLED_CHECK" = "1" ]; then
         check_installed && exit 0
         exit 1
+    fi
+
+    # A demo that is only a set of variants (LED Demos) needs one to start.
+    # Without it, this stopped with "No entrypoint.type or entrypoint.launcher"
+    # (R-103): in a terminal, offer the list; otherwise name the variants.
+    if [ -z "$VARIANT" ] && [ "$INSTALL_ONLY" = "0" ] && needs_a_variant; then
+        if [ -t 0 ] && [ -t 1 ] && command -v whiptail >/dev/null 2>&1; then
+            exec "$SCRIPT_DIR/rq_demo_choose.sh" "$DEMO_ID"
+        fi
+        die "$(get_field '.name' "$DEMO_ID") has several parts. Start one of them$(variant_list)"
     fi
 
     # Demos that do not drive the LED panel run as the desktop user (Q26).

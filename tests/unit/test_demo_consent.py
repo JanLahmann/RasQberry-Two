@@ -351,3 +351,35 @@ def test_hold_closes_quietly_on_success_or_ctrl_c(box, rc):
     proc = box([_HOLD, "sh", "-c", f"exit {rc}"])
     assert proc.returncode == rc
     assert "Press Enter" not in proc.stdout
+
+
+# --- the catalogue says who provides a demo (R-163) ------------------------------
+
+_ADD = os.path.join(_BIN, "rq_demo_add_external.sh")
+
+
+@pytest.mark.parametrize("demo_id,provider", [
+    ("traqmania", "Provided by the Fun with Quantum family."),
+    ("sap-quantum-learning", "Provided by SAP."),
+    ("sap-quantum-led", "Provided by SAP."),
+])
+def test_catalogue_question_names_the_provider_from_the_registry(box, demo_id, provider):
+    proc = box([_ADD, demo_id], extra={"WT_RC": "1"})       # "No": nothing installed
+    assert proc.returncode != 0
+    text = "\n".join(box.dialogs()[0])
+    assert provider in text
+    assert "external contributor" not in text and "NOT part of" not in text
+    assert "Its makers maintain the demo" in text
+    assert not (box.home / "RasQberry-Two/demos").exists()
+
+
+def test_every_catalogue_entry_names_its_provider():
+    import json
+    registry = json.load(open(os.path.join(_ROOT, "RQB2-config", "known-demos.json")))["demos"]
+    assert all(d.get("provider") for d in registry), [d["id"] for d in registry if not d.get("provider")]
+
+
+def test_a_failed_pip_install_is_said_in_plain_words():
+    add = open(_ADD).read()
+    assert "pip failed" not in add
+    assert "could not be installed, so the demo was not installed" in add
