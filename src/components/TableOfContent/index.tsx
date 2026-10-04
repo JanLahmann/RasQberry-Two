@@ -75,6 +75,7 @@ export function TableOfContent({ items }: Props) {
             hideLabel={true}
             label="Jump to section"
             items={items.filter(item => item.level === 2)}
+            itemToString={(item: { title: string; level: number } | null) => item?.title ?? ''}
         />
     </div>
 }
