@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=RasQberry Setup
-Comment=Setup steps: LED panel check, A/B partitions, WLAN, demo downloads, touch mode
+Comment=The setup checklist: Wi-Fi, keyboard and time zone, password, the Pi's name, LED panel check, demo downloads, touch mode
 Icon=preferences-system
 Type=Application
 Categories=Settings;RasQberry;

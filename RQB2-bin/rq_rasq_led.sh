@@ -28,4 +28,6 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 
 # Launch RasQ-LED demo
 info "Starting RasQ-LED Quantum Circuit Demo..."
-exec python3 "$BIN_DIR/RasQ-LED.py"
+# Not exec: the EXIT trap clears the panel when the window is closed (R-158)
+rq_led_clear_on_exit
+python3 "$BIN_DIR/RasQ-LED.py"

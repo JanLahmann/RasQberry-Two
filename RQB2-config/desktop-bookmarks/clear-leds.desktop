@@ -1,14 +1,14 @@
 [Desktop Entry]
 Version=1.1
 Name=Clear All LEDs
-Comment=Turn off all NeoPixel LEDs
+Comment=Turn off all LEDs on the LED panel
 Icon=edit-clear-all
 Type=Application
 Categories=RasQberry;
-Exec=/usr/bin/rq_hold_on_error.sh -t "Clear All LEDs" /usr/bin/rq_clear_leds.sh
+Exec=/usr/bin/rq_hold_on_error.sh -t "Clear All LEDs" /usr/bin/rq_demo_run.sh led-demos clear-leds
 Terminal=true
 StartupNotify=true
 Keywords=LED;clear;off;neopixel;hardware;rasqberry;
 X-GNOME-TextColor=#000000
-TryExec=/usr/bin/rq_clear_leds.sh
+TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

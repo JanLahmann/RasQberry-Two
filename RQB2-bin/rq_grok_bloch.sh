@@ -89,10 +89,17 @@ class QuietHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().log_message(format, *args)
 
 
-class ReusableTCPServer(socketserver.TCPServer):
+class ReusableTCPServer(socketserver.ThreadingTCPServer):
     # TCPServer defaults this to False, so a port left in TIME_WAIT by the
     # previous run refused the bind and the demo died before serving anything.
     allow_reuse_address = True
+    # One thread per connection: a single-threaded server waits for the
+    # request on the connection it accepted first, and a browser's idle
+    # connection (Chromium opens spare ones) held up every other request
+    # (seen by the rig test, 1 run in 3). Daemon threads: such a connection
+    # does not keep the server from stopping. (Not ThreadingHTTPServer: its
+    # bind resolves the host name, which can be slow offline.)
+    daemon_threads = True
 
 
 port = int(sys.argv[1])
@@ -122,6 +129,8 @@ info "Opening in browser..."
 # cleanup - Stop server and remove temp files
 ################################################################################
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     info "Cleaning up..."
     kill $SERVER_PID 2>/dev/null || true
     rm -f /tmp/grok_server.py
@@ -133,25 +142,19 @@ setup_cleanup_trap cleanup
 
 # Try to open in browser.
 #
-# Fire and forget: the demo's lifetime must NOT be tied to the PID we spawn
-# here. Chromium is single-instance and autostarts on this image, so
-# `chromium-browser <url>` hands the URL to the running instance and exits at
-# once ("Opening in existing browser session."). Waiting on that PID therefore
+# The demo's lifetime must NOT be tied to the browser command. Chromium is
+# single-instance and autostarts on this image, so `chromium-browser <url>`
+# hands the URL to the running instance and exits at once ("Opening in
+# existing browser session."). Tying the demo to that command therefore
 # killed the server a second after the tab opened, and the tab it had just
 # opened showed connection refused - reliably, since Chromium is always already
 # up. An exiting launcher tells us nothing about whether the window closed, so
-# we serve until the user stops the demo instead.
+# we serve until the user stops the demo instead. rq_open_browser waits only
+# for that hand-off, and the tab stays when this window closes (the server
+# stops then).
 BROWSER_URL="http://localhost:$PORT"
 
-if command -v chromium-browser >/dev/null 2>&1; then
-    run_as_user chromium-browser --password-store=basic "$BROWSER_URL" >/dev/null 2>&1 &
-elif command -v firefox >/dev/null 2>&1; then
-    run_as_user firefox "$BROWSER_URL" >/dev/null 2>&1 &
-elif command -v xdg-open >/dev/null 2>&1; then
-    run_as_user xdg-open "$BROWSER_URL" >/dev/null 2>&1 &
-else
-    info "Please open $BROWSER_URL in your web browser"
-fi
+rq_open_browser "$BROWSER_URL" || info "Please open $BROWSER_URL in your web browser"
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
@@ -161,12 +164,4 @@ echo ""
 
 # Serve until the user stops us. Closing the browser tab does not stop the
 # demo - see the note above on why that cannot be detected.
-if [ -t 0 ]; then
-    echo "Press Enter (or Ctrl+C) to stop the demo..."
-    read -r
-    info "Stopping demo..."
-else
-    echo "Press Ctrl+C or close this window to stop the demo."
-    echo ""
-    wait $SERVER_PID
-fi
+rq_wait_for_stop "Grok Bloch Sphere" "$SERVER_PID"

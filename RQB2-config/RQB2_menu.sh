@@ -457,9 +457,12 @@ _rq_pause() {
 # the dialog instead of the demo, and - `script` without -e always exits 0 - a
 # demo that crashed looked like one that finished (R-028, R-156).
 #
-# bg mode: for demos whose output is the LEDs. Output goes to DEMO_LOG, a dialog
-# offers to stop the demo, and an exit before the user answered is reported
-# instead of being taken for a clean finish (R-102).
+# bg mode: for demos whose output is the LEDs. Output goes to DEMO_LOG, and the
+# terminal waits like every other demo window: Enter or Ctrl+C stops the demo,
+# closing the window (an SSH session too) stops it as well (items 5, 33). It
+# used to be a "Stop demo / Keep running" dialog, unlike every other demo. An
+# exit before the user stopped it is reported, not taken for a clean finish
+# (R-102).
 #
 # Returns non-zero with RQ_LAST_DEMO_ERROR set when the demo failed.
 run_demo() {
@@ -487,10 +490,28 @@ run_demo() {
   # can tell the user WHY.
   DEMO_LOG="${RQ_DEMO_LOG:-/tmp/rqb-demo.log}"
 
+  # A closed window (HUP) stops the demo and clears the LEDs too
+  trap '_rq_demo_hangup' HUP
+
   if [ "$MODE" = "pty" ]; then
-      printf '\n=== %s ===   (Ctrl+C stops the demo)\n\n' "$DEMO_TITLE"
-      ( cd "$DEMO_DIR" && exec script -qefc "$CMD" "$DEMO_LOG" )
+      # The demo has the keyboard: Ctrl+C or closing the window stops it (the
+      # same words as rq_stop_hint in rq_common.sh)
+      printf '\n=== %s ===\nTo stop %s: press Ctrl+C or close this window.\n\n' "$DEMO_TITLE" "$DEMO_TITLE"
+      # In the background with the terminal as its input (fd 9), so that a
+      # closed window can stop it: script blocks SIGHUP, and the trap only
+      # runs once the foreground command is done - which never came.
+      # (env: a background command starts with Ctrl+C ignored, and the demo
+      # would inherit that)
+      _rd_env=""
+      env --default-signal=INT,QUIT true 2>/dev/null && _rd_env="env --default-signal=INT,QUIT"
+      exec 9<&0
+      ( cd "$DEMO_DIR" && exec $_rd_env script -qefc "$CMD" "$DEMO_LOG" ) <&9 9<&- &
+      _RQ_PTY_PID=$!
+      exec 9<&-
+      wait "$_RQ_PTY_PID"
       DEMO_RC=$?
+      _RQ_PTY_PID=""
+      trap - HUP
       stty sane 2>/dev/null
       [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
       case "$DEMO_RC" in
@@ -521,6 +542,7 @@ run_demo() {
   # over, and if it did, report the real error instead of a comfortable lie.
   sleep 2
   if ! kill -0 "$DEMO_PID" 2>/dev/null; then
+      trap - HUP
       wait "$DEMO_PID"
       DEMO_RC=$?
       LAST_DEMO_PGID=""
@@ -534,27 +556,34 @@ run_demo() {
       return 0
   fi
 
-  # Ask user when to stop
-  whiptail --title "${DEMO_TITLE}" --yes-button "Stop demo" --no-button "Keep running" --yesno \
-      "The demo is running.\n\nStop demo: end it now.\nKeep running: back to the menu, the demo goes on (end it later with \"Stop last running demo\")." \
-      12 70
-  RESPONSE=$?
-  # Restore terminal state before killing demo
+  # Wait in the terminal, as every demo window does (the same words as
+  # rq_stop_hint in rq_common.sh). dash has no "read -t", so bash waits: for
+  # Enter, or until the demo ends by itself (exit 2); with no input left it
+  # only waits. Ctrl+C ends only that wait - raspi-config keeps its no-op INT
+  # trap, and the demo is in its own session.
+  printf '\n=== %s ===\nRunning on the LED panel.\nTo stop %s: press Enter or Ctrl+C, or close this window.\n' \
+      "$DEMO_TITLE" "$DEMO_TITLE"
+  bash -c 'eof=""; while :; do
+      case "$(ps -o stat= -p "$1" 2>/dev/null)" in ""|Z*) exit 2 ;; esac
+      if [ -n "$eof" ]; then sleep 1; continue; fi
+      read -r -t 1 _ && exit 0
+      [ $? -gt 128 ] || eof=1
+  done' _ "$DEMO_PID"
+  _rd_wait=$?
   stty sane 2>/dev/null
-  if ! kill -0 "$DEMO_PID" 2>/dev/null; then
-      # It ended by itself while the dialog was up. A slow start (a Qiskit
-      # import on a Pi 4 takes several seconds) can fail after the 2-second
-      # check above, and that used to vanish without a word (R-102).
+  if [ "$_rd_wait" -eq 2 ]; then
+      # It ended by itself. A slow start (a Qiskit import on a Pi 4 takes
+      # several seconds) can fail after the 2-second check above, and that
+      # used to vanish without a word (R-102).
       wait "$DEMO_PID"
       DEMO_RC=$?
-      LAST_DEMO_PGID=""
       [ "$DEMO_RC" -ne 0 ] && RQ_LAST_DEMO_ERROR=$(_rq_log_tail "$DEMO_LOG" "$DEMO_RC")
-  elif [ "$RESPONSE" -eq 0 ]; then
-      # Terminate the entire demo process group only if user chose Stop
-      kill -TERM -"$DEMO_PID" 2>/dev/null || true
+  else
+      kill -TERM -"$DEMO_PID" 2>/dev/null || kill -TERM "$DEMO_PID" 2>/dev/null || true
       wait "$DEMO_PID" 2>/dev/null || true
-      LAST_DEMO_PGID=""
   fi
+  LAST_DEMO_PGID=""
+  trap - HUP
   # Restore original terminal settings
   [ -n "$OLD_STTY" ] && stty "$OLD_STTY" 2>/dev/null
   stty intr ^C 2>/dev/null
@@ -562,9 +591,28 @@ run_demo() {
   return 0
 }
 
-# Stop the most recently launched demo (its whole setsid process group) and
-# blank the LEDs. run_demo records LAST_DEMO_PGID; a demo left running (user
-# chose "Keep running" at the stop prompt) can be stopped here later.
+# The window of a demo started from this menu was closed (an SSH session
+# ended, the terminal closed): stop the demo and clear the LEDs before
+# raspi-config goes. A background demo runs in its own session and would
+# otherwise keep the panel.
+_rq_demo_hangup() {
+  # script passes SIGTERM on to the demo, whose own traps then clean up
+  if [ -n "${_RQ_PTY_PID:-}" ]; then
+    kill -TERM "$_RQ_PTY_PID" 2>/dev/null
+    wait "$_RQ_PTY_PID" 2>/dev/null
+  fi
+  if [ -n "${LAST_DEMO_PGID:-}" ]; then
+    kill -TERM -"$LAST_DEMO_PGID" 2>/dev/null
+    sleep 1
+    kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null
+  fi
+  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off >/dev/null 2>&1
+  exit 129
+}
+
+# Stop a demo still running and blank the LEDs. A demo started here stops
+# with its window (items 5, 33); LAST_DEMO_PGID is only still set when that
+# stop did not happen.
 #
 # A demo started elsewhere (a desktop icon, an earlier menu session, the IP
 # scroll at start-up) is not in LAST_DEMO_PGID: STOP used to say "Stopped the
@@ -1050,17 +1098,19 @@ _rq_led_ready() {
 }
 
 # run_demo for a demo that drives the LED panel: the panel must be free first,
-# and it is cleared afterwards - unless the demo was left running ("Keep
-# running"). Same arguments as run_demo.
+# and it is cleared afterwards. If the Pi 5's LED driver stalled during the
+# demo (a weak power supply, item 31), the person is told and offered a lower
+# brightness. Same arguments as run_demo.
 run_led_demo() {
   _rq_led_ready || return 0
+  _rld_start=$(date +%s)
+  _RQ_LED_RUN=1
   run_demo "$@"
   _rld_rc=$?
-  if [ -n "${LAST_DEMO_PGID:-}" ] && kill -0 "$LAST_DEMO_PGID" 2>/dev/null; then
-    return "$_rld_rc"
-  fi
+  _RQ_LED_RUN=""
   _rld_err="${RQ_LAST_DEMO_ERROR:-}"
   do_led_off >/dev/null 2>&1
+  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" 2>/dev/null || :
   RQ_LAST_DEMO_ERROR="$_rld_err"
   return "$_rld_rc"
 }
@@ -1111,11 +1161,11 @@ do_led_demo_rainbow_scroll() {
 }
 
 do_led_demo_rainbow_static() {
-    run_led_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
+    run_led_demo bg "Rainbow Colour Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
 }
 
 do_led_demo_gradient() {
-    run_led_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
+    run_led_demo bg "Colour Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
 }
 
 do_led_demo_ibm_logo() {
@@ -1145,10 +1195,10 @@ do_led_display_menu() {
            SWEL    "Demo: Scrolling Welcome" \
            STAT    "Demo: Status Messages" \
            ALRT    "Demo: Alert Flash" \
-           "  "    "--- Color Effect Demos ---" \
+           "  "    "--- Colour Effect Demos ---" \
            RSCR    "Demo: Rainbow Scroll" \
-           RSTA    "Demo: Rainbow Color Cycle" \
-           GRAD    "Demo: Color Gradient" \
+           RSTA    "Demo: Rainbow Colour Cycle" \
+           GRAD    "Demo: Colour Gradient" \
            "   "   "--- Logo Demos ---" \
            IBML    "Demo: IBM Logo" \
            RQBL    "Demo: RasQberry Logo" \
@@ -1205,6 +1255,7 @@ do_select_led_option() {
         # set LED_LAYOUT, which everything uses.
         FUN=$(show_menu ${_led_last:+--default-item "$_led_last"} "RasQberry: LEDs" "LED options" \
            OFF "Turn off all LEDs" \
+           BRIGHT "LED brightness (weak power supply?)" \
            DISP "Text & Logo Display" \
            quicktest "Quick LED Test (6 colours)" \
            test "LED Test & Diagnostics" \
@@ -1216,6 +1267,8 @@ do_select_led_option() {
         _led_last="$FUN"
         case "$FUN" in
             OFF ) do_led_clear || { handle_error "The LEDs could not be turned off."; continue; } ;;
+            BRIGHT ) "$BIN_DIR/rq_led_brightness.sh" || { handle_error "The LED brightness could not be changed."; continue; }
+                     _rq_load_env 2>/dev/null || true ;;
             DISP ) do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
             quicktest )
                 run_led_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
@@ -1290,7 +1343,7 @@ do_select_qrt_option() {
             simulator|noise|real)
                 # the engine asks before a first download, then runs it
                 run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-raspberry-tie "$FUN" \
-                    || { handle_error "Raspberry Tie could not run."; continue; }
+                    || { handle_error "Quantum Raspberry Tie could not run."; continue; }
                 ;;
             *) break ;;
         esac
@@ -1343,6 +1396,7 @@ do_quantum_demo_menu() {
 
     FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
        "RasQberry: Quantum Demos" "Select a demo or option" \
+       PATHS "Learning paths (beta): the demos step by step" \
        LED  "LEDs: setup, tests and LED demos" \
        QLO  "Quantum Lights Out (LED panel / console)" \
        QRT  "Quantum Raspberry Tie (simulator or real quantum computer)" \
@@ -1352,10 +1406,11 @@ do_quantum_demo_menu() {
        REM  "Remove a demo (free space)" \
        UPD  "Update demos (newer versions)" \
        LOOP "Continuous Demo Loop (Conference)" \
-       STOP "Stop last running demo and clear LEDs" \
-       DSTP "Stop Docker demos (Workshop Server, Quantum Lab...)") || break
+       STOP "Stop an LED demo still running, clear LEDs" \
+       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
     _qd_last="$FUN"
     case "$FUN" in
+      PATHS) do_learning_paths         || { handle_error "Could not open the learning paths."; continue; } ;;
       LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
       QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
       QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
@@ -1379,6 +1434,14 @@ do_quantum_demo_menu() {
             fi ;;
     esac
   done
+}
+
+# Learning paths (beta, #309): short tours through the demos for a stand, a
+# lesson or learning to code, from learning-paths.json next to the manifests.
+# Each step starts its demo through the engine and comes back when it stops;
+# the desktop icon "Learning paths" opens the same chooser.
+do_learning_paths() {
+  run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu
 }
 
 # Submenu of a demo's variants (from the cache: demo_variant_items), each run
@@ -1410,16 +1473,50 @@ _rq_demo_label() {
 # 3g) Main Raspi Config Menu
 # -----------------------------------------------------------------------------
 
+# System Info (H-34 follow-up): a box that fits, so it neither scrolls (where
+# Enter moved through the text instead of pressing Ok and the last line was
+# hidden) nor touches the right edge; Esc is not an error. Where the terminal
+# is too small for the box, the text is printed with a "press Enter" line.
 do_show_system_info() {
-  local info
+  _si_text=""
   if [ -x /usr/bin/rq_info.sh ]; then
-    info=$(/usr/bin/rq_info.sh 2>/dev/null)
-  else
-    info="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
+    _si_text=$(/usr/bin/rq_info.sh 2>/dev/null)
   fi
-  # Name, address, power and the rest come first; a long list scrolls
-  show_msgbox_fit "RasQberry System Information" \
-    "$info\n\nFor a bug report: rq_info.sh --report (saves the logs to a file)" 78
+  [ -n "$_si_text" ] || _si_text="RasQberry version: $(cat /etc/rasqberry-version 2>/dev/null || echo unknown)"
+  _si_text="$_si_text
+
+For a bug report: rq_info.sh --report (saves the logs to a file)"
+  _si_cols=$(stty size </dev/tty 2>/dev/null | cut -d' ' -f2)
+  _si_rows=$(stty size </dev/tty 2>/dev/null | cut -d' ' -f1)
+  case "$_si_cols" in ''|*[!0-9]*) _si_cols=80 ;; esac
+  case "$_si_rows" in ''|*[!0-9]*) _si_rows=24 ;; esac
+  _si_w=$((_si_cols - 4))
+  [ "$_si_w" -gt 76 ] && _si_w=76
+  _si_lines=$(printf '%s\n' "$_si_text" | fold -s -w $((_si_w - 4)) | wc -l)
+  # whiptail shows H-6 lines of a msgbox
+  _si_h=$((_si_lines + 6))
+  if [ "$_si_w" -ge 60 ] && [ "$_si_h" -le "$_si_rows" ]; then
+    whiptail --title "RasQberry System Information" --msgbox "$_si_text" "$_si_h" "$_si_w"
+  else
+    clear
+    printf '%s\n\n' "$_si_text"
+    printf 'Press Enter to return to the menu.'
+    read -r _si_dummy </dev/tty
+  fi
+  return 0
+}
+
+# "9 About raspi-config" (raspi-config.diff sends it here): raspi-config's own
+# text, and what the "0 RasQberry" entry is (item 1)
+do_rasqberry_about() {
+  show_msgbox_fit "About raspi-config" "\
+This tool provides a straightforward way of doing initial configuration of the Raspberry Pi. Although it can be run at any time, some of the options may have difficulties if you have heavily customised your installation.
+
+$(dpkg -s raspi-config 2>/dev/null | grep '^Version')
+
+\"0 RasQberry\" is not part of raspi-config: the RasQberry Two project adds it to this tool for its quantum demos, setup, settings and image updates.
+RasQberry Two $(head -n 1 /etc/rasqberry-version 2>/dev/null) - rasqberry.org" 70
+  return 0
 }
 
 # -----------------------------------------------------------------------------
@@ -1434,7 +1531,7 @@ ab_card_mode() {
     echo "${mode:-standard}"
 }
 
-# Prepare an A/B card by hand: two systems on a 64GB+ card, or one system
+# Prepare an A/B card by hand: two systems on a 64 GB+ card, or one system
 # using the whole card on a smaller one. A newly written card does this by
 # itself on its first start (rasqberry-ab-layout.service) unless the CONFIG
 # partition holds "no-auto-expand"; this is for that case and for cards
@@ -1446,14 +1543,14 @@ do_expand_ab_partitions() {
         dual-pending)   how=--dual;   title="Prepare the card for A/B updates" ;;
         single-pending) how=--single; title="Use the whole card" ;;
         *)
-            whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+            ab_msgbox "This SD card" "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)"
             return 0 ;;
     esac
     if ! plan=$("$BIN_DIR/rq_expand_ab.sh" plan "$how" --text 2>&1); then
-        whiptail --title "$title" --msgbox "$plan" 12 72
+        ab_msgbox "$title" "$plan"
         return 1
     fi
-    whiptail --title "$title" --yesno "$plan\n\nProceed?" 18 72 || return 0
+    ab_yesno "$title" "Yes" "No" "$plan\n\nProceed?" || return 0
 
     clear
     echo ""
@@ -1461,7 +1558,7 @@ do_expand_ab_partitions() {
     echo ""
     "$BIN_DIR/rq_expand_ab.sh" apply "$how" --yes || rc=$?
     if [ "$rc" -eq 0 ]; then
-        whiptail --title "Done" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+        ab_msgbox "Done" "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)"
     else
         whiptail --title "Not finished" --msgbox \
             "Setting up the card did not finish.\n\nThe details are in /var/log/rasqberry-expand.log.\nIf the Pi is restarted, the next start finishes the job by itself." \
@@ -1684,30 +1781,44 @@ do_update_from_branch() {
 # -----------------------------------------------------------------------------
 # A/B updates: helpers
 # -----------------------------------------------------------------------------
-# The A/B model (Jan, 2026-10-02): Slot A is the stable system, Slot B the
-# testing slot. Updates always go into Slot B; a tested Slot B is copied to
-# Slot A with PROMOTE. The logic lives in rq_slot_manager.sh, rq_update_slot.sh
-# and rq_ab_releases.sh; these functions only ask and explain. POSIX sh, no
-# set -e: this file runs inside raspi-config.
+# The A/B model (ping-pong, Jan 2026-10-04): every update goes into the slot
+# that is not running, A or B alike. A good trial start makes it the start
+# slot; the other slot stays as the way back. Jan's guard keeps at least one
+# slot at beta or stable (rq_slot_manager.sh plan-update). The logic lives in
+# rq_slot_manager.sh, rq_update_slot.sh and rq_ab_releases.sh; these functions
+# only ask and explain. POSIX sh, no set -e: this file runs inside raspi-config.
 #
-# Long operations (download, PROMOTE) run in the foreground of this terminal
-# and print their own progress. A whiptail --infobox would vanish at once
-# (whiptail restores the screen when it exits), and output captured with
-# $( ) hides any prompt and any progress (R-051).
+# The update runs in the foreground of this terminal and prints its own
+# progress. A whiptail --infobox would vanish at once (whiptail restores the
+# screen when it exits), and output captured with $( ) hides any prompt and
+# any progress (R-051).
 
-# Value of <key> in `rq_slot_manager.sh summary` output
+# Value of <key> in `rq_slot_manager.sh summary` (or plan-update) output
 ab_value() {
     printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
 }
 
-# What a slot holds, in words
+# Release stream of a version: dev, beta, stable or unknown (the same rule as
+# rq_slot_manager.sh: stable releases are v1.2.3 / 1.2.3 / stable-*)
+ab_stream() {
+    case "$1" in
+        beta-*)                  echo beta ;;
+        development-*|dev-*)     echo dev ;;
+        v[0-9]*|[0-9]*|stable-*) echo stable ;;
+        *)                       echo unknown ;;
+    esac
+}
+
+# What a slot holds, in words: "beta-2026-10-03-095636 (beta)"
 ab_describe() {
     case "$1" in
         EMPTY)      echo "empty (no system)" ;;
-        INCOMPLETE) echo "unfinished (an update or copy was interrupted)" ;;
+        INCOMPLETE) echo "unfinished (an update was interrupted)" ;;
         UNKNOWN|"") echo "unknown" ;;
         SYSTEM)     echo "a system without version information" ;;
-        *)          echo "$1" ;;
+        *)
+            _ab_s=$(ab_stream "$1")
+            if [ "$_ab_s" = "unknown" ]; then echo "$1"; else echo "$1 ($_ab_s)"; fi ;;
     esac
 }
 
@@ -1815,17 +1926,9 @@ ab_not_expanded_title() {
     esac
 }
 
-# How a slot gets a system
+# How a slot gets a system: an update always goes into the slot not running
 ab_fill_hint() {
-    if [ "$1" = "B" ]; then
-        echo "Install a system into Slot B first: Slot Manager -> Install an update into Slot B."
-    else
-        echo "Slot A gets a system when you PROMOTE a tested Slot B."
-    fi
-}
-
-ab_slot_label() {
-    if [ "$1" = "A" ]; then echo "stable"; else echo "testing"; fi
+    echo "Install an update into Slot $1 first: Slot Manager -> Install an update into the other system (Slot $1)."
 }
 
 # The other slot
@@ -1833,36 +1936,37 @@ ab_other() {
     if [ "$1" = "A" ]; then echo "B"; else echo "A"; fi
 }
 
-# True right after PROMOTE, before the restart: running a confirmed Slot B,
-# the next start is Slot A, and both slots hold the same version
-ab_promoted() {
-    [ "$(ab_value "$1" current)" = "B" ] && [ "$(ab_value "$1" default)" = "A" ] \
-        && [ "$(ab_value "$1" confirmed)" = "yes" ] \
-        && ab_has_system "$(ab_value "$1" slot_a)" \
-        && [ "$(ab_value "$1" slot_a)" = "$(ab_value "$1" slot_b)" ]
+# What <slot> holds, from the summary
+ab_slot_content() {
+    if [ "$1" = "A" ]; then ab_value "$2" slot_a; else ab_value "$2" slot_b; fi
 }
 
 # What the user should do next, from the summary
 ab_next_step() {
     _ab_cur=$(ab_value "$1" current)
     _ab_def=$(ab_value "$1" default)
+    _ab_oth=$(ab_other "$_ab_cur")
     if [ "$(ab_value "$1" expanded)" != "yes" ]; then
         echo "Slot B is not set up yet: prepare the card first (Software & Image Updates -> Prepare the card for A/B updates)."
-    elif ab_promoted "$1"; then
-        echo "PROMOTE is done: restart to start from Slot A. Then Slot B is free for the next update."
-    elif [ "$_ab_cur" = "B" ] && [ "$(ab_value "$1" confirmed)" != "yes" ]; then
-        echo "Slot B is on trial: the health check confirms it after a good start. Otherwise the next restart returns to Slot A."
-    elif [ "$_ab_def" = "A" ] || [ "$_ab_def" = "B" ] && [ "$_ab_def" != "$_ab_cur" ]; then
+    elif [ "$(ab_value "$1" confirmed)" != "yes" ] && [ "$(ab_value "$1" pending)" = "$_ab_cur" ]; then
+        echo "Slot ${_ab_cur} is on trial: the health check makes it the start slot after a good start. If the update doesn't work, the next restart returns to Slot ${_ab_oth}."
+    elif { [ "$_ab_def" = "A" ] || [ "$_ab_def" = "B" ]; } && [ "$_ab_def" != "$_ab_cur" ]; then
         echo "The next restart starts Slot ${_ab_def}."
-    elif [ "$_ab_cur" = "A" ]; then
-        if ab_has_system "$(ab_value "$1" slot_b)"; then
-            echo "Next: install a newer update into Slot B, or restart into Slot B to use it."
-        else
-            echo "Next: install an update into Slot B."
-        fi
+    elif ab_has_system "$(ab_slot_content "$_ab_oth" "$1")"; then
+        echo "Next: install an update into Slot ${_ab_oth}, the other system. To go back to Slot ${_ab_oth} instead, switch to it."
     else
-        echo "If this version works well, PROMOTE copies it to Slot A. Then Slot B is free for the next update."
+        echo "Next: install an update into Slot ${_ab_oth}, the other system."
     fi
+}
+
+# "<what the slot holds> - running, start slot" for the Slot Manager and the
+# dialogs: which slot runs and which one a normal start boots (item 28)
+ab_slot_line() {
+    _ab_c=$(ab_slot_content "$1" "$2")
+    _ab_n=""
+    [ "$(ab_value "$2" current)" = "$1" ] && _ab_n="running"
+    [ "$(ab_value "$2" default)" = "$1" ] && _ab_n="${_ab_n:+$_ab_n, }start slot"
+    printf '%s%s' "$(ab_describe "$_ab_c")" "${_ab_n:+ - $_ab_n}"
 }
 
 # -----------------------------------------------------------------------------
@@ -1870,7 +1974,7 @@ ab_next_step() {
 # -----------------------------------------------------------------------------
 
 do_check_for_update() {
-    local out rc=0 summary prc=0
+    local out rc=0 summary prc=0 current target
     # A plain line: an infobox would vanish at once
     printf '\nAsking rasqberry.org for the latest release...\n'
     out=$("$BIN_DIR"/rq_update_check.sh --refresh 2>&1) || rc=$?
@@ -1895,8 +1999,10 @@ do_check_for_update() {
         ab_msgbox "Update available" "$out\n\n$(ab_not_expanded_text "$summary")"
         return 0
     fi
+    current=$(ab_value "$summary" current)
+    target=$(ab_other "$current")
     if ab_yesno "Update available" "Install now" "Later" \
-        "$out\n\nInstall it into Slot B (testing) now? Slot A (stable) stays as it is, so you can go back to it."; then
+        "$out\n\nInstall it into Slot ${target}, the other system, now? Slot ${current}, the system you are running, stays as it is, so you can go back to it."; then
         do_ab_install_update
     fi
     return 0
@@ -1914,15 +2020,15 @@ do_ab_boot_menu() {
         case "$ab_mode" in
             dual)
                 card_text="A/B image: two systems on this card"
-                set -- "$@" SLOTS "Slot Manager (install updates, switch, promote)" ;;
+                set -- "$@" SLOTS "Slot Manager (install updates, switch systems)" ;;
             dual-pending)
                 card_text="A/B image: second system not set up yet"
-                set -- "$@" EXPAND "Prepare the card for A/B updates (64GB+ card)" ;;
+                set -- "$@" EXPAND "Prepare the card for A/B updates (64 GB or larger card)" ;;
             single-pending)
-                card_text="A/B image on a card under 64GB: one system"
+                card_text="A/B image on a card under 64 GB: one system"
                 set -- "$@" EXPAND "Use the whole card (one system)" ;;
             single)
-                card_text="A/B image on a card under 64GB: one system"
+                card_text="A/B image on a card under 64 GB: one system"
                 set -- "$@" ABOUT "Why there are no A/B updates on this card" ;;
             *)
                 card_text="Standard image (one system)" ;;
@@ -1940,15 +2046,17 @@ do_ab_boot_menu() {
 }
 
 # -----------------------------------------------------------------------------
-# Release picker for Slot B (R-049)
+# Release picker (R-049)
 # -----------------------------------------------------------------------------
 # Offers the latest A/B image of this image's own channel first (from
 # RQB-releases.json); other releases, channels and repositories are behind
 # "Other". Standard images are never offered: they cannot fill a slot.
-# Prints "url|tag|size"; returns 1 when the user cancels.
+# ab_pick_image <target slot>
+# Prints "url|tag|size|sha256" (the .img.xz's SHA256, which the update checks
+# before it writes anything); returns 1 when the user cancels.
 
 ab_pick_image() {
-    local current channel latest lrc=0 ltag="" lurl="" ldate lsize="" note prompt choice
+    local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
     current=$(head -n 1 /etc/rasqberry-version 2>/dev/null | tr -d '[:space:]')
     channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
     # stdout is the result of this function: progress goes to stderr (the terminal)
@@ -1961,21 +2069,22 @@ ab_pick_image() {
         lurl=$(printf '%s\n' "$latest" | cut -f2)
         ldate=$(printf '%s\n' "$latest" | cut -f3)
         lsize=$(printf '%s\n' "$latest" | cut -f4)
+        lsha=$(printf '%s\n' "$latest" | cut -f5)
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
         set -- "$ltag" "$note"
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot B (testing):"
+        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
         prompt="This system: ${current:-unknown} (channel: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
     set -- "$@" OTHER "Other release or channel..."
 
-    choice=$(ab_menu "Install an update into Slot B" "$prompt" "$@") || return 1
+    choice=$(ab_menu "Install an update into Slot ${slot}" "$prompt" "$@") || return 1
     if [ "$choice" = "OTHER" ]; then
         ab_pick_other "$channel" "$current"
         return $?
     fi
-    echo "${lurl}|${ltag}|${lsize}"
+    echo "${lurl}|${ltag}|${lsize}|${lsha}"
 }
 
 ab_pick_other() {
@@ -2025,54 +2134,123 @@ ab_pick_other() {
     done <<EOF
 $list
 EOF
-    choice=$(ab_menu "Choose a release" "A/B images in the '${stream}' channel, newest first:" "$@") || return 1
+    choice=$(ab_menu "Choose a release" "A/B images in the '${stream}' channel, newest first (only releases with a checksum):" "$@") || return 1
     line=$(printf '%s\n' "$list" | awk -F '\t' -v t="$choice" '$1 == t { print; exit }')
     [ -n "$line" ] || return 1
-    echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)"
+    echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)|$(printf '%s\n' "$line" | cut -f5)"
 }
 
 # -----------------------------------------------------------------------------
 # A/B actions (R-050, R-051, R-055)
 # -----------------------------------------------------------------------------
 
-# Install an update into Slot B: checks first, then the picker, then the
-# update itself in this terminal (it shows its own progress)
+# Jan's guard, from `rq_slot_manager.sh plan-update` output <plan>: warn before
+# a downgrade (default: Cancel) and before the last beta or stable system on
+# the card is replaced (typed REPLACE, with the safer way offered first).
+# Sets AB_GUARD_OPTS to the options for rq_update_slot.sh; returns 1 when the
+# user stops. (Not called in $( ): its dialogs must reach the screen.)
+ab_guard() {
+    local plan="$1" summary="$2" tag="$3" target running holds t_ver r_holds r_ver new_s choice typed opts=""
+    AB_GUARD_OPTS=""
+    target=$(ab_value "$plan" target)
+    running=$(ab_other "$target")
+    holds=$(ab_value "$plan" target_holds)
+    t_ver=$(ab_describe "${holds#* }")
+    r_holds=$(ab_value "$plan" running_holds)
+    r_ver=$(ab_describe "${r_holds#* }")
+    new_s=$(ab_stream "$tag")
+
+    case "$(ab_value "$plan" downgrade)" in
+        stream)
+            ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
+                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release channel, so installing it is a downgrade.\n\nInstall it anyway?" \
+                --defaultno || return 1
+            opts="--allow-downgrade" ;;
+        older)
+            ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
+                "Slot ${target} holds ${t_ver}.\n${tag} is older, so installing it is a downgrade.\n\nInstall it anyway?" \
+                --defaultno || return 1
+            opts="--allow-downgrade" ;;
+    esac
+
+    if [ "$(ab_value "$plan" last_safe_slot)" = "yes" ]; then
+        choice=$(ab_menu "Slot ${target} holds your last beta or stable system" \
+            "Slot ${target}: ${t_ver}\nSlot ${running} (running): ${r_ver}\n\nInstalling ${tag} into Slot ${target} replaces the only beta or stable system on this card. If the update doesn't work, none is left to go back to.\n\nSafer: switch to Slot ${target} first. After the restart, install the update into Slot ${running}." \
+            SWITCH  "Switch to Slot ${target} now, then install into Slot ${running}" \
+            REPLACE "Replace Slot ${target} anyway") || return 1
+        if [ "$choice" = "SWITCH" ]; then
+            ab_restart_into "$target" "$summary"
+            return 1
+        fi
+        typed=$(whiptail --title "Replace Slot ${target}" --inputbox \
+            "Slot ${target} holds ${t_ver}, the only beta or stable system on this card.\n\nType REPLACE to overwrite it:" \
+            12 "$(ab_width)" "" 3>&1 1>&2 2>&3) || return 1
+        if [ "$typed" != "REPLACE" ]; then
+            ab_msgbox "Nothing was changed" "Slot ${target} still holds ${t_ver}."
+            return 1
+        fi
+        opts="${opts:+$opts }--force-replace-safe-slot"
+    fi
+    AB_GUARD_OPTS="$opts"
+    return 0
+}
+
+# Install an update into the other system: checks first, then the picker,
+# Jan's guard, then the update itself in this terminal (it shows its own
+# progress)
 do_ab_install_update() {
-    local pre prc=0 summary picked url tag size rest slot_a slot_b rc=0
-    printf '\nChecking whether Slot B can take an update...\n'
+    local pre prc=0 summary current target picked url tag size sha rest plan prc2=0 opts t_now r_now rc=0
+    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
+    current=$(ab_value "$summary" current)
+    target=$(ab_other "$current")
+    printf '\nChecking whether Slot %s can take an update...\n' "$target"
     pre=$("$BIN_DIR"/rq_update_slot.sh --preflight 2>&1) || prc=$?
     pre=$(printf '%s\n' "$pre" | sed 's/^ERROR: //')
-    summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
     case "$prc" in
         0)  ;;
-        20) ab_offer_free_slot_b "$summary"; return 0 ;;
         21) ab_msgbox "$(ab_not_expanded_title "$summary")" "$(ab_not_expanded_text "$summary")"; return 0 ;;
         *)  ab_msgbox "Cannot install an update now" "$pre"; return 0 ;;
     esac
 
-    picked=$(ab_pick_image) || return 0
+    picked=$(ab_pick_image "$target") || return 0
     url=${picked%%|*}
     rest=${picked#*|}
     tag=${rest%%|*}
-    size=${rest#*|}
+    rest=${rest#*|}
+    size=${rest%%|*}
+    sha=${rest#*|}
+    [ "$sha" = "$rest" ] && sha=""
     if [ -z "$url" ] || [ -z "$tag" ]; then
         ab_msgbox "Install an update" "No image was selected."
         return 0
     fi
 
-    slot_a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    slot_b=$(ab_describe "$(ab_value "$summary" slot_b)")
-    ab_has_system "$(ab_value "$summary" slot_b)" && slot_b="${slot_b} - will be replaced"
-    ab_yesno "Install an update into Slot B" "Install" "Cancel" \
-        "Install ${tag} into Slot B (testing)?\n\nSlot B (testing) now: ${slot_b}\nSlot A (stable): ${slot_a} - not touched\n\nDownload: $(ab_gb "$size"). With unpacking and writing it takes about 20-30 minutes. Progress is shown on this screen; keep the Pi switched on.\n\nWhen it is done, the Pi restarts into Slot B. If Slot B does not start properly, the Pi goes back to Slot A by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
+    # Jan's guard: what the update would replace
+    plan=$("$BIN_DIR"/rq_slot_manager.sh plan-update "$tag" 2>&1) || prc2=$?
+    if [ "$prc2" -ne 0 ] || [ -z "$(ab_value "$plan" target)" ]; then
+        ab_msgbox "Cannot install an update now" "Could not check what the update would replace.\n\n$(printf '%s\n' "$plan" | sed 's/^ERROR: //')"
+        return 0
+    fi
+    target=$(ab_value "$plan" target)
+    current=$(ab_other "$target")
+    ab_guard "$plan" "$summary" "$tag" || return 0
+    opts="$AB_GUARD_OPTS"
+
+    t_now=$(ab_describe "$(ab_slot_content "$target" "$summary")")
+    ab_has_system "$(ab_slot_content "$target" "$summary")" && t_now="${t_now} - will be replaced"
+    r_now=$(ab_describe "$(ab_slot_content "$current" "$summary")")
+    ab_yesno "Install an update into Slot ${target}" "Install" "Cancel" \
+        "Install ${tag} into Slot ${target}?\n\nSlot ${target} now: ${t_now}\nSlot ${current} (running): ${r_now} - not touched\n\nDownload: $(ab_gb "$size"). Downloading, unpacking and writing take about 10-20 minutes. Progress is shown on this screen; keep the Pi switched on.\n\nWhen it is done, the Pi restarts into Slot ${target}. If the update doesn't work, the Pi goes back to Slot ${current} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
         || return 0
 
     clear
-    printf 'Installing %s into Slot B (testing).\nKeep the Pi switched on. It restarts by itself when the update is done.\n\n' "$tag"
-    "$BIN_DIR"/rq_update_slot.sh "$url" "$tag" --slot B || rc=$?
+    printf 'Installing %s into Slot %s.\nKeep the Pi switched on. It restarts by itself when the update is done.\n\n' "$tag" "$target"
+    # $opts: only the fixed options from ab_guard, split on purpose
+    # shellcheck disable=SC2086
+    "$BIN_DIR"/rq_update_slot.sh "$url" "$tag" --slot "$target" ${sha:+--sha256 "$sha"} $opts || rc=$?
     if [ "$rc" -eq 0 ]; then
-        # rq_update_slot.sh ends by asking for the restart into Slot B
-        printf '\nThe update is installed. The Pi is restarting into Slot B...\n'
+        # rq_update_slot.sh ends by asking for the restart into the new slot
+        printf '\nThe update is installed. The Pi is restarting into Slot %s...\n' "$target"
         sleep 120
     fi
     printf '\nThe update did not finish (see the message above; log:\n/var/log/rasqberry-update-slot.log). The running system is unchanged.\n'
@@ -2080,95 +2258,18 @@ do_ab_install_update() {
     return 0
 }
 
-# UPDATE while running Slot B: Slot B cannot be overwritten, so offer the
-# two ways to free it (R-050)
-ab_offer_free_slot_b() {
-    local summary="$1" a b choice
-    a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    b=$(ab_describe "$(ab_value "$summary" slot_b)")
-    if ab_promoted "$summary"; then
-        if ab_yesno "Restart into Slot A first" "Restart now" "Later" \
-            "PROMOTE is done: Slot A holds ${a}, but the Pi is still running Slot B.\n\nRestart now? The Pi then starts from Slot A. After the restart, choose 'Install an update into Slot B' again."; then
-            clear
-            printf 'Restarting into Slot A...\n'
-            reboot
-            sleep 120
-        fi
-        return 0
-    fi
-    set -- PROMOTE "Keep this version: copy it to Slot A, then restart"
-    if ab_has_system "$(ab_value "$summary" slot_a)"; then
-        set -- "$@" SLOT_A "Go back to the version in Slot A, then restart"
-    fi
-    choice=$(ab_menu "Slot B is in use" \
-        "Updates are always installed into Slot B (testing). You are running Slot B right now, so it cannot be overwritten.\n\nSlot A (stable): ${a}\nSlot B (testing, running): ${b}\n\nFree Slot B first. After the restart, choose 'Install an update into Slot B' again." \
-        "$@") || return 0
-    case "$choice" in
-        PROMOTE) do_ab_promote "$summary" ;;
-        SLOT_A)  ab_restart_into A "$summary" ;;
-    esac
-    return 0
-}
-
-# PROMOTE: copy the running, confirmed Slot B to Slot A (R-051: a proper
-# dialog instead of an invisible typed prompt, progress on screen)
-do_ab_promote() {
-    local summary="$1" current a b b_raw rc=0
-    current=$(ab_value "$summary" current)
-    b_raw=$(ab_value "$summary" slot_b)
-    a=$(ab_describe "$(ab_value "$summary" slot_a)")
-    b=$(ab_describe "$b_raw")
-
-    if [ "$current" != "B" ]; then
-        if ab_has_system "$b_raw"; then
-            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\nTo use the version in Slot B, choose 'Restart into Slot B'. Once it has started properly, come back here and PROMOTE it."
-        else
-            ab_msgbox "PROMOTE" "PROMOTE copies Slot B to Slot A. It works only while the Pi is running Slot B.\n\nYou are running Slot A (stable): ${a}\nSlot B (testing) holds: ${b}\n\n$(ab_fill_hint B)"
-        fi
-        return 0
-    fi
-    if [ "$(ab_value "$summary" confirmed)" != "yes" ]; then
-        ab_msgbox "PROMOTE" "Slot B has not been confirmed yet. The health check confirms it shortly after a good start.\n\nWait a moment and try again, or choose CONFIRM in the Slot Manager."
-        return 0
-    fi
-
-    ab_yesno "Make Slot B the stable system" "Promote" "Cancel" \
-        "Copy the running system to Slot A?\n\nSlot B (testing, running): ${b}\nSlot A (stable): ${a} - will be replaced\n\nCopying takes 10-15 minutes. Progress is shown on this screen; do not switch the Pi off.\n\nAfterwards the Pi starts from Slot A, and Slot B is free for the next update." \
-        --defaultno || return 0
-
-    clear
-    printf 'PROMOTE: copying Slot B (%s) to Slot A.\nDo not switch the Pi off.\n\n' "$b"
-    "$BIN_DIR"/rq_slot_manager.sh promote --yes || rc=$?
-    if [ "$rc" -ne 0 ]; then
-        printf '\nPROMOTE did not finish (see the message above). The Pi keeps starting from Slot B.\n'
-        ab_pause
-        return 0
-    fi
-    if ab_yesno "Slot A updated" "Restart now" "Later" \
-        "Slot A (stable) now holds ${b}.\n\nRestart now? The Pi then starts from Slot A.\n\nFor the next update: Software & Image Updates -> Slot Manager -> Install an update into Slot B."; then
-        clear
-        printf 'Restarting into Slot A...\n'
-        reboot
-        sleep 120
-    fi
-    return 0
-}
-
-# Restart into <slot> on trial (tryboot); refused for a slot without a system
+# Switch to <slot>: restart into it on trial (tryboot); refused for a slot
+# without a system
 ab_restart_into() {
     local slot="$1" summary="$2" content other rc=0
     other=$(ab_other "$slot")
-    if [ "$slot" = "A" ]; then
-        content=$(ab_value "$summary" slot_a)
-    else
-        content=$(ab_value "$summary" slot_b)
-    fi
+    content=$(ab_slot_content "$slot" "$summary")
     if ! ab_has_system "$content"; then
         ab_msgbox "Slot $slot cannot be started" "Slot ${slot} holds: $(ab_describe "$content"). The Pi cannot start from it.\n\nStarting a slot without a system leaves the Pi hanging at a black screen until it is switched off and on, so this is not offered.\n\n$(ab_fill_hint "$slot")"
         return 0
     fi
-    ab_yesno "Restart into Slot $slot" "Restart" "Cancel" \
-        "Restart now into Slot ${slot} ($(ab_slot_label "$slot")): ${content}?\n\nThe Pi starts Slot ${slot} on trial. If it starts properly, the health check makes it the default. If it does not start properly, the Pi goes back to Slot ${other} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
+    ab_yesno "Switch to Slot $slot" "Restart" "Cancel" \
+        "Restart now into Slot ${slot}: $(ab_describe "$content")?\n\nThe Pi starts Slot ${slot} on trial. If it works, the health check makes it the start slot, and Slot ${other} stays as the way back. If it doesn't work, the Pi goes back to Slot ${other} by itself (at the latest after 15 minutes). If the screen stays black, switch the Pi off and on." \
         || return 0
     clear
     printf 'Restarting into Slot %s...\n\n' "$slot"
@@ -2179,30 +2280,26 @@ ab_restart_into() {
     return 0
 }
 
-# Rollback: make the other slot the permanent default
+# Rollback: make the other slot the start slot, without a trial start
 ab_rollback() {
     local summary="$1" current other content out rc=0
     current=$(ab_value "$summary" current)
     other=$(ab_other "$current")
-    if [ "$other" = "A" ]; then
-        content=$(ab_value "$summary" slot_a)
-    else
-        content=$(ab_value "$summary" slot_b)
-    fi
+    content=$(ab_slot_content "$other" "$summary")
     if ! ab_has_system "$content"; then
-        ab_msgbox "Rollback not possible" "Slot ${other} holds: $(ab_describe "$content"). A rollback would make the Pi try to start from it at every start, and it would hang at a black screen.\n\n$(ab_fill_hint "$other")"
+        ab_msgbox "Slot ${other} cannot be the start slot" "Slot ${other} holds: $(ab_describe "$content"). The Pi would try to start from it at every start, and it would hang at a black screen.\n\n$(ab_fill_hint "$other")"
         return 0
     fi
-    ab_yesno "Go back to Slot $other" "Roll back" "Cancel" \
-        "Make Slot ${other} ($(ab_slot_label "$other")): ${content} the default for every start from now on?\n\nRunning now: Slot ${current}.\n\nUse this when the running system has problems. To only try the other slot once, choose 'Restart into Slot ${other}' instead." \
+    ab_yesno "Make Slot ${other} the start slot" "Make start slot" "Cancel" \
+        "Start Slot ${other}: $(ab_describe "$content") from now on, at every start?\n\nRunning now: Slot ${current}, which stays as it is.\n\nThis skips the trial start: use it when the running system has problems. To try Slot ${other} first, choose 'Switch to Slot ${other}' instead." \
         --defaultno || return 0
     out=$("$BIN_DIR"/rq_slot_manager.sh rollback 2>&1) || rc=$?
     if [ "$rc" -ne 0 ]; then
         ab_msgbox "Rollback" "$(printf '%s\n' "$out" | sed 's/^ERROR: //')"
         return 0
     fi
-    if ab_yesno "Rollback" "Restart now" "Later" \
-        "Slot ${other} is now the default.\n\nRestart now to start it?"; then
+    if ab_yesno "Slot ${other} is the start slot" "Restart now" "Later" \
+        "Slot ${other} is now the start slot.\n\nRestart now to start it?"; then
         clear
         printf 'Restarting into Slot %s...\n' "$other"
         reboot
@@ -2213,7 +2310,7 @@ ab_rollback() {
 
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
-    local summary current other prompt FUN out
+    local summary current other prompt FUN out last=""
     while true; do
         summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
         if [ "$(ab_value "$summary" layout)" != "ab" ]; then
@@ -2225,21 +2322,26 @@ do_slot_manager_menu() {
         current=$(ab_value "$summary" current)
         other=$(ab_other "$current")
 
-        prompt="Running: Slot ${current} ($(ab_slot_label "$current"))"
-        [ "$(ab_value "$summary" confirmed)" = "yes" ] || prompt="${prompt}, not confirmed yet"
-        prompt="${prompt}\nSlot A (stable):  $(ab_describe "$(ab_value "$summary" slot_a)")\nSlot B (testing): $(ab_describe "$(ab_value "$summary" slot_b)")\n\n$(ab_next_step "$summary")"
+        prompt="Slot A: $(ab_slot_line A "$summary")\nSlot B: $(ab_slot_line B "$summary")\n\n$(ab_next_step "$summary")"
 
-        FUN=$(ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" \
-            UPDATE    "Install an update into Slot B (testing)" \
-            PROMOTE   "Make Slot B the stable system (copy B to A)" \
-            "TRYBOOT_${other}" "Restart into Slot ${other} ($(ab_slot_label "$other"))" \
-            STATUS    "Show slot details" \
-            CONFIRM   "Keep the running slot as the default" \
-            ROLLBACK  "Go back to Slot ${other} for good (rollback)") || break
+        # Updates always go into the slot that is not running. On trial (or
+        # with a rollback waiting) the other slot is still the start slot.
+        set -- UPDATE "Install an update into the other system (Slot ${other})" \
+            "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)" \
+            STATUS  "Show slot details"
+        if [ "$(ab_value "$summary" default)" = "$other" ]; then
+            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)" \
+                ROLLBACK "Go back to Slot ${other} (rollback)"
+        else
+            set -- "$@" CONFIRM "Keep Slot ${current} as the start slot" \
+                ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
+        fi
+        # The cursor stays on the last choice (H-34: it jumped back to UPDATE)
+        FUN=$(AB_MENU_DEFAULT="$last" ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" "$@") || break
+        last="$FUN"
 
         case "$FUN" in
             UPDATE)    do_ab_install_update ;;
-            PROMOTE)   do_ab_promote "$summary" ;;
             TRYBOOT_A) ab_restart_into A "$summary" ;;
             TRYBOOT_B) ab_restart_into B "$summary" ;;
             STATUS)
@@ -2326,6 +2428,27 @@ do_toggle_browser_autostart() {
     return 0
 }
 
+# Desktop settings: touch mode and the browser at login, off the main menu
+# (item 4)
+do_desktop_settings_menu() {
+    _ds_last=""
+    while true; do
+        _ds_touch=$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null) || _ds_touch=""
+        case "$_ds_touch" in enabled) _ds_touch=on ;; disabled|"") _ds_touch=off ;; esac
+        FUN=$(show_menu ${_ds_last:+--default-item "$_ds_last"} "RasQberry: Desktop Settings" \
+            "How the desktop looks and what it opens at login." \
+            TOUCH   "Touch mode (bigger icons and buttons): $_ds_touch" \
+            BROWSER "Browser at login (rasqberry.org): $(browser_autostart_state)") || break
+        _ds_last="$FUN"
+        case "$FUN" in
+            TOUCH)   do_touch_mode_menu          || continue ;;
+            BROWSER) do_toggle_browser_autostart || continue ;;
+            *)       break ;;
+        esac
+    done
+    return 0
+}
+
 # -----------------------------------------------------------------------------
 # IBM Quantum account
 # -----------------------------------------------------------------------------
@@ -2376,7 +2499,7 @@ do_ibm_account_forget() {
         return 0
     fi
     whiptail --title "Forget IBM Quantum account" --defaultno --yesno \
-        "Delete the IBM Quantum account (API key) saved on this Pi?\n\nUse this before handing the Pi to the next person. Notebooks, Raspberry Tie and your own programs then need an API key again before they can use IBM Quantum computers." \
+        "Delete the IBM Quantum account (API key) saved on this Pi?\n\nUse this before handing the Pi to the next person. Notebooks, Quantum Raspberry Tie and your own programs then need an API key again before they can use IBM Quantum computers." \
         13 74 || return 0
     _ia_failed=""
     for _ia_f in $_ia_found; do
@@ -2493,8 +2616,10 @@ Lowercase letters, digits and hyphens." 13 72 "$_nr_old" 3>&1 1>&2 2>&3) || retu
         return 0
     fi
     if _nr_out=$(_rq_remote name "$_nr_new" 2>&1); then
-        whiptail --title "Name this RasQberry" --msgbox \
-            "$(printf '%s\n' "$_nr_out" | tail -n 1)\n\nPrograms that are already open keep the old name until the next restart." 10 72
+        # sized to the text: a fixed 10x72 box cut off the last line for
+        # longer names (item 39)
+        show_msgbox_fit "Name this RasQberry" \
+            "$(printf '%s\n' "$_nr_out" | tail -n 1)\n\nPrograms that are already open keep the old name until the next restart." 72
     else
         show_msgbox_fit "Name this RasQberry" "The name was not changed:\n\n$_nr_out" 72
     fi
@@ -2591,23 +2716,23 @@ do_rasqberry_menu() {
     # Software & Image Updates is on every image: checking for a newer image
     # works on the standard image too; the A/B-only entries inside are hidden
     # there.
-    set -- QD "Quantum Demos" SETUP "Setup Checklist" TOUCH "Touch Mode Settings" \
-        BROWSER "Browser at login: $(browser_autostart_state)" \
+    set -- QD "Quantum Demos" SETUP "Setup Checklist" \
+        DESKTOP "Desktop Settings (touch mode, browser at login)" \
         IBMQ "IBM Quantum account" REMOTE "Remote Access & Security" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \
         ADV "Advanced" OFF "Shut Down Safely"
-    FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" "System Options" "$@") || break
+    FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" \
+        "Quantum demos, setup and settings for this RasQberry Two" "$@") || break
     _main_last="$FUN"
     case "$FUN" in
       QD)      do_quantum_demo_menu           || { handle_error "Failed to open Quantum Demos menu."; continue; } ;;
       SETUP)   do_setup_checklist             || continue ;;
       OFF)     do_shutdown_safely             || continue ;;
-      TOUCH)   do_touch_mode_menu             || continue ;;
-      BROWSER) do_toggle_browser_autostart    || continue ;;
+      DESKTOP) do_desktop_settings_menu       || continue ;;
       IBMQ)    do_ibm_account_menu            || continue ;;
       REMOTE)  do_remote_access_menu          || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
-      INFO)    do_show_system_info            || { handle_error "Failed to show system info."; continue; } ;;
+      INFO)    do_show_system_info            || continue ;;
       ADV)     do_rasqberry_advanced_menu     || continue ;;
       *)       handle_error "Programmer error: unrecognized main menu option ${FUN}."; continue ;;
     esac

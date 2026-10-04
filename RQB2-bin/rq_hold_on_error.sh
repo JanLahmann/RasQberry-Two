@@ -14,7 +14,7 @@ set -uo pipefail
 # Usage: rq_hold_on_error.sh [-t TITLE] COMMAND [ARGS...]
 #   e.g. Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh grok-bloch
 #   -t sets the window title (else the terminal shows the command line, R-135;
-#   rq_demo_run.sh sets the demo's name itself).
+#   rq_demo_run.sh sets the demo's name itself, or this title: RQ_WINDOW_TITLE).
 
 case "${1:-}" in
     ""|-h|--help)
@@ -23,14 +23,22 @@ case "${1:-}" in
         ;;
     -t)
         [ -t 1 ] && printf '\033]0;%s\007' "${2:-RasQberry}"
+        title="${2:-}"
         shift 2 2>/dev/null && [ $# -gt 0 ] || exit 2
+        # The demo engine sets the demo's name as the title: this one wins (an
+        # icon for one variant, e.g. "IBM LED Demo"). Only for the engine
+        # itself, not for what a chooser starts later.
+        [ "$(basename "$1")" = "rq_demo_run.sh" ] && export RQ_WINDOW_TITLE="$title"
         ;;
 esac
 
-# Log name: the demo id for the engine, else the command's name
+# Desktop icons start here: for the demo engine's usage count (rq_demo_run.sh)
+export RQ_DEMO_HOW="${RQ_DEMO_HOW:-desktop}"
+
+# Log name: the demo id (and variant) for the engine, else the command's name
 name=$(basename "$1" .sh)
 if [ "$name" = "rq_demo_run" ] && [ -n "${2:-}" ]; then
-    name="$2"
+    name="$2${3:+-$3}"
 fi
 log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/rasqberry"
 log="$log_dir/$name.log"
@@ -40,8 +48,31 @@ if [ -t 0 ] && [ -t 1 ] && command -v script >/dev/null 2>&1 \
     && mkdir -p "$log_dir" 2>/dev/null && : > "$log" 2>/dev/null; then
     # script(1) keeps the demo on a terminal (dialogs, Ctrl+C) and copies its
     # output to the log; -e returns the demo's own exit status.
-    script -qefc "$(printf '%q ' "$@")" "$log"
-    rc=$?
+    #
+    # Closing the window must stop the demo (items 5, 33). script blocks
+    # SIGHUP, so a closed window reached nothing: the demo, its sudo and
+    # script itself ran on without a window (seen with RasQ-LED, LED panel
+    # still lit). script passes SIGTERM on to the demo (sudo relays it to the
+    # root demo's process group), whose traps then clear the LEDs, stop the
+    # container or the server. So script runs in the background here (stdin
+    # from the window, fd 9) and a hangup is turned into that SIGTERM. A
+    # background command starts with Ctrl+C (SIGINT) ignored, and the demo
+    # would inherit that and could not be stopped with Ctrl+C: env resets it.
+    dflt=()
+    env --default-signal=INT,QUIT true 2>/dev/null && dflt=(env --default-signal=INT,QUIT)
+    exec 9<&0
+    ${dflt[@]+"${dflt[@]}"} script -qefc "$(printf '%q ' "$@")" "$log" <&9 9<&- &
+    spid=$!
+    exec 9<&-
+    trap 'kill -TERM "$spid" 2>/dev/null' HUP TERM
+    rc=0
+    wait "$spid" || rc=$?
+    # A trapped signal ends the wait early: wait again while the demo cleans up
+    while kill -0 "$spid" 2>/dev/null; do
+        rc=0
+        wait "$spid" || rc=$?
+    done
+    trap - HUP TERM
 else
     log=""
     "$@"

@@ -10,6 +10,7 @@ Slot Manager's update picker.
 - A GitHub rate limit is reported as such, not as "no internet".
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -36,6 +37,7 @@ MANIFEST = {
             "ab_image_url": f"{GH}/beta-2026-09-30-221656/rasqberry-beta-2026-09-30-ab.img.xz",
             "release_date": "2026-09-30",
             "ab_image_download_size": 1671527604,
+            "ab_image_sha256": "b7bb26a9" + "0" * 56,
         },
         "dev": {
             "tag": "development-2026-10-01-083408",
@@ -48,14 +50,19 @@ MANIFEST = {
 }
 
 
-def _release(tag, created, ab=True, standard=True, draft=False):
+def _digest(tag):
+    return hashlib.sha256(tag.encode()).hexdigest()
+
+
+def _release(tag, created, ab=True, standard=True, draft=False, digest=True):
     assets = []
     if standard:
         assets.append({"name": f"rasqberry-{tag}.img.xz", "size": 1,
                        "browser_download_url": f"{GH}/{tag}/rasqberry-{tag}.img.xz"})
     if ab:
         assets.append({"name": f"rasqberry-{tag}-ab.img.xz", "size": 1700000000,
-                       "browser_download_url": f"{GH}/{tag}/rasqberry-{tag}-ab.img.xz"})
+                       "browser_download_url": f"{GH}/{tag}/rasqberry-{tag}-ab.img.xz",
+                       "digest": f"sha256:{_digest(tag)}" if digest else None})
     return {"tag_name": tag, "created_at": created, "published_at": created,
             "draft": draft, "assets": assets}
 
@@ -67,6 +74,7 @@ GITHUB = [
     _release("dev-draft-2026-10-01-060000", "2026-10-01T06:00:00Z", draft=True),
     _release("beta-2026-09-30-221656", "2026-09-30T22:16:56Z"),
     _release("beta-2025-12-30-211449", "2025-12-30T21:14:49Z"),
+    _release("beta-2025-06-01-000000", "2025-06-01T00:00:00Z", digest=False),
     _release("v1.0.0", "2026-11-01T10:00:00Z"),
 ] + [_release(f"dev-x-2026-09-{d:02d}-000000", f"2026-09-{d:02d}T00:00:00Z") for d in range(1, 29)]
 
@@ -91,6 +99,9 @@ def _rows(proc):
     ("development-2026-09-11-000349", "dev"),
     ("dev-backlog-2026-09-30-085733", "dev"),
     ("v1.0.0", "stable"),
+    # a version of no known channel is not stable: it follows dev (strict tags)
+    ("my-build-2026-10-10", "dev"),
+    ("", "dev"),
 ])
 def test_channel_of_this_image(tmp_path, version, channel):
     assert _run(tmp_path, version, "channel").stdout.strip() == channel
@@ -102,13 +113,19 @@ def test_latest_defaults_to_the_own_channel_and_the_ab_image(tmp_path):
     (row,) = _rows(proc)
     assert row[0] == "beta-2026-09-30-221656"
     assert row[1].endswith("-ab.img.xz")
-    assert row[2:] == ["2026-09-30", "1671527604"]
+    assert row[2:] == ["2026-09-30", "1671527604", "b7bb26a9" + "0" * 56]
 
 
 def test_latest_for_a_dev_device_is_the_development_head(tmp_path):
     (row,) = _rows(_run(tmp_path, "dev-backlog-2026-09-30-085733", "latest"))
     assert row[0] == "development-2026-10-01-083408"
     assert row[2] == "2026-10-01"
+
+
+def test_latest_for_an_image_of_no_known_channel_is_the_development_head(tmp_path):
+    proc = _run(tmp_path, "my-build-2026-10-10", "latest")
+    assert proc.returncode == 0, proc.stderr
+    assert _rows(proc)[0][0] == "development-2026-10-01-083408"
 
 
 def test_latest_of_an_empty_channel(tmp_path):
@@ -130,6 +147,9 @@ def test_beta_list_reaches_old_releases_and_only_ab_images(tmp_path):
     rows = _rows(_run(tmp_path, "beta-2026-09-30-221656", "list", "beta"))
     assert [r[0] for r in rows] == ["beta-2026-09-30-221656", "beta-2025-12-30-211449"]
     assert all(r[1].endswith("-ab.img.xz") for r in rows)
+    # each with the SHA256 GitHub keeps for the asset; beta-2025-06-01 has
+    # none, so it cannot be verified and is not offered (H-34)
+    assert rows[1][4] == _digest("beta-2025-12-30-211449")
 
 
 def test_dev_list_covers_development_and_feature_builds_newest_first(tmp_path):

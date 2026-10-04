@@ -1,0 +1,99 @@
+diff --git a/index.html b/index.html
+index 9201fb8..a65a18c 100644
+--- a/index.html
++++ b/index.html
+@@ -63,6 +63,8 @@
+ <body>
+     <canvas id="renderCanvas"></canvas>
+     <script src="js/main.js"></script>
++    <!-- RasQberry Two: tips panel (rasqberry-help.js) -->
++    <script src="rasqberry-help.js"></script>
+ </body>
+ 
+ </html>
+\ No newline at end of file
+diff --git a/rasqberry-help.js b/rasqberry-help.js
+new file mode 100644
+index 0000000..cf9e792
+--- /dev/null
++++ b/rasqberry-help.js
+@@ -0,0 +1,79 @@
++/*
++ * RasQberry Two: a short guide to Grokking the Bloch Sphere.
++ * Added by RasQberry's patch (RQB2-config/demo-patches/grok-bloch-help.patch);
++ * not part of the upstream demo. Open at the first visit on a large screen;
++ * whether it is open is remembered in this browser.
++ */
++(function () {
++    "use strict";
++    var KEY = "rasqberry-bloch-tips-open";
++
++    var style = document.createElement("style");
++    style.textContent =
++        "#rq-tips{position:fixed;top:10px;left:10px;z-index:10;max-width:225px;" +
++        "background:rgba(255,255,255,0.94);color:#222;border-radius:8px;" +
++        "box-shadow:0 2px 8px rgba(0,0,0,0.25);font:13px/1.35 sans-serif;padding:4px 10px}" +
++        "#rq-tips summary{cursor:pointer;font-weight:bold;padding:4px 0}" +
++        "#rq-tips h4{margin:6px 0 2px;font-size:13px}" +
++        "#rq-tips ol,#rq-tips ul{margin:2px 0 4px;padding-left:18px}" +
++        "#rq-tips li{margin:2px 0}" +
++        "#rq-tips details{margin:4px 0 6px}" +
++        "#rq-tips details summary{font-weight:bold}" +
++        "#rq-tips a{color:#0f62fe}";
++    document.head.appendChild(style);
++
++    var tips = document.createElement("details");
++    tips.id = "rq-tips";
++    tips.innerHTML =
++        "<summary>Tips: what to try</summary>" +
++        "<h4>What it shows</h4>" +
++        "<ul><li>One qubit. The arrow is its state: up is |0⟩, down is |1⟩, " +
++        "anywhere else is a superposition of both.</li>" +
++        "<li>The bar on the left is the chance of measuring 0.</li></ul>" +
++        "<h4>Try this</h4>" +
++        "<ol><li>Press <b>X</b>: the arrow flips from |0⟩ to |1⟩, a quantum NOT.</li>" +
++        "<li>Press <b>|0⟩</b>, then <b>H</b>: the arrow lies on the equator, " +
++        "a 50/50 superposition.</li>" +
++        "<li>Now press <b>S</b> or <b>T</b> a few times: the arrow turns around the " +
++        "vertical axis. The phase changes, the bar does not.</li>" +
++        "<li>Press <b>H</b> again: where the arrow ends depends on that phase.</li>" +
++        "<li>Measure in your head: you get 0 with the chance in the bar, and the " +
++        "arrow then jumps to that pole. The demo itself never measures.</li></ol>" +
++        "<h4>What to notice</h4>" +
++        "<ul><li>Every gate is a rotation of the sphere.</li>" +
++        "<li>Phase is invisible in one measurement, but H turns it into a " +
++        "difference you can measure: interference.</li></ul>" +
++        "<details><summary>Explain the Bloch sphere</summary>" +
++        "<ul><li>A qubit's state is a point on the sphere: the north pole is |0\u27E9, " +
++        "the south pole |1\u27E9.</li>" +
++        "<li>The height sets the chances: on the equator, 0 and 1 are equally likely.</li>" +
++        "<li>The angle around the vertical axis is the phase. It does not change the " +
++        "chances, only what later gates do.</li>" +
++        "<li>Gates turn the sphere: <b>X</b> half a turn around the x axis (|0\u27E9 and " +
++        "|1\u27E9 swap); <b>H</b> half a turn around the axis between x and z (poles and " +
++        "equator swap); <b>S</b> a quarter and <b>T</b> an eighth of a turn around the " +
++        "vertical axis (phase only).</li></ul>" +
++        "More from IBM Quantum Learning: " +
++        "<a href=\"https://quantum.cloud.ibm.com/learning/en/courses/general-formulation-of-quantum-information/density-matrices/bloch-sphere\" " +
++        "target=\"_blank\" rel=\"noopener\">the Bloch sphere</a>, " +
++        "<a href=\"https://quantum.cloud.ibm.com/learning/en/courses/utility-scale-quantum-computing/bits-gates-and-circuits\" " +
++        "target=\"_blank\" rel=\"noopener\">gates on it</a> (needs the internet)." +
++        "</details>";
++
++    // open at the first visit, unless the screen is too small to show the
++    // demo beside it; afterwards as the user left it
++    var open = window.innerWidth >= 1200, stored = null;
++    try {
++        stored = window.localStorage.getItem(KEY);
++    } catch (e) { /* no storage */ }
++    if (stored) {
++        open = stored === "yes";
++    }
++    tips.open = open;
++    tips.addEventListener("toggle", function () {
++        try {
++            window.localStorage.setItem(KEY, tips.open ? "yes" : "no");
++        } catch (e) { /* ignore */ }
++    });
++    document.body.appendChild(tips);
++})();

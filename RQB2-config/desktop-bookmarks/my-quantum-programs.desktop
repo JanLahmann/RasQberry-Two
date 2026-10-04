@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=My Quantum Programs
-Comment=Write and run your own Qiskit and LED programs: JupyterLab in your folder ~/My-Quantum-Programs, with starter programs
+Comment=Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook
 Icon=/usr/share/icons/rasqberry/quantum_icon_circuit.svg
 Type=Application
 Categories=RasQberry;Development;

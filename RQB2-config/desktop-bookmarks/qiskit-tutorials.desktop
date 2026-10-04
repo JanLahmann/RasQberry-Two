@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Qiskit Tutorials on this Pi
+Comment=(beta) The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi
+Icon=/usr/share/icons/rasqberry/doqumentation-logo.svg
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh qiskit-tutorials
+Terminal=true
+StartupNotify=true
+Keywords=quantum;qiskit;tutorials;courses;guides;docker;jupyter;doqumentation;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_demo_run.sh
+NoDisplay=false

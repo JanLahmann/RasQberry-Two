@@ -195,7 +195,8 @@ import select
 # until the launcher sends SIGTERM (the whiptail "stop" dialog).
 _stdin_is_tty = sys.stdin.isatty()
 if _stdin_is_tty:
-    print("Press Enter to stop...")
+    # The stop rule every demo window shares (rq_stop_hint in rq_common.sh)
+    print("To stop the IBM LED demo: press Enter or Ctrl+C, or close this window.")
     print()
 
 try:

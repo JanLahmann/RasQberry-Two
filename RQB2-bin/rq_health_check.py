@@ -19,6 +19,9 @@ If a check fails ON PROBATION: records the failure on the CONFIG partition
 retried, and reboots. The tryboot flag only lasts one boot, so the firmware
 then starts the slot that worked (autoboot.txt [all]) - automatic rollback,
 no power cycle needed (R-054). Outside probation a failure is only reported.
+The notice's time= is this clock, or the time the switch was asked for
+(switch-requested) when this clock is behind that: early in a trial boot it
+may not be set yet (no RTC; see failure_time).
 
 The other halves of the rollback safety net:
 - panic=10 in both slots' cmdline.txt: a kernel that cannot start reboots
@@ -28,6 +31,11 @@ The other halves of the rollback safety net:
 - rasqberry-probation.timer runs this script with --deadline 15 minutes after
   boot: a probation boot that never got confirmed (hung start-up, emergency
   mode) is rolled back the same way
+
+Usage counts (rq_umami_event.py): before confirming, whether this is the first
+start of a newly written card and whether this trial start follows an update;
+at the end, "first start" and "update result" are queued and sent. Best
+effort: never changes the outcome and adds at most a few seconds at the end.
 
 Timeout: 10 minutes (configured in systemd service)
 """
@@ -45,9 +53,14 @@ BOOT_CONFIG_DIR = Path(os.environ.get('RQ_BOOT_CONFIG_DIR', '/boot/config'))
 DT_BOOTLOADER_DIR = Path(os.environ.get('RQ_DT_BOOTLOADER_DIR',
                                         '/proc/device-tree/chosen/bootloader'))
 FAILED_NOTICE = 'last-switch-failed'
+SWITCH_REQUEST = 'switch-requested'    # rq_slot_manager.sh switch-to: when, by a set clock
+# systemd-timesyncd creates it once the clock is synchronised (each boot: /run)
+TIME_SYNCED = Path(os.environ.get('RQ_TIME_SYNCED_FILE', '/run/systemd/timesync/synchronized'))
+TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 WATCHDOG_MARKER = Path(os.environ.get('RQ_WATCHDOG_MARKER',
                                       '/run/rasqberry/probation-watchdog'))
 SLOT_MANAGER = Path(os.environ.get('RQ_SLOT_MANAGER', '/usr/bin/rq_slot_manager.sh'))
+SLOT_STATUS = Path(os.environ.get('RQ_SLOT_STATUS', '/usr/bin/rq_slot_status.sh'))
 DISPLAY_MANAGER_TIMEOUT = 300      # seconds to wait for the desktop on probation
 DEADLINE_MINUTES = 15              # rasqberry-probation.timer OnBootSec
 
@@ -66,6 +79,14 @@ def _setup_logging() -> logging.Logger:
 
 
 logger = _setup_logging()
+
+# Anonymous usage counts: optional, never part of the check
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import rq_umami_event as usage_counts
+except Exception:  # noqa: BLE001 - a broken counter must not break the check
+    usage_counts = None
 
 
 def load_environment() -> dict:
@@ -357,6 +378,74 @@ def rollback_target_exists(config_dir: Path, slot: str) -> bool:
     return default is not None and default != slot_boot_partition(slot)
 
 
+def _read_kv(path: Path) -> dict:
+    """key=value lines of a small CONFIG file ({} if there is none)."""
+    kv = {}
+    for line in _read(path).splitlines():
+        key, sep, value = line.partition('=')
+        if sep:
+            kv[key.strip()] = value.strip()
+    return kv
+
+
+def now_epoch() -> float:
+    """This slot's clock (a function, so tests can set it)."""
+    return time.time()
+
+
+def switch_request(config_dir: Path, slot: str) -> dict:
+    """
+    switch-requested, which rq_slot_manager.sh switch-to writes with the
+    target-slot marker (slot=, time=, epoch=): when the switch to <slot> was
+    asked for, by the clock of the slot that asked.
+
+    Returns:
+        dict: {} if there is none, or it is about another slot
+    """
+    request = _read_kv(config_dir / SWITCH_REQUEST)
+    return request if request.get('slot') == slot else {}
+
+
+def _request_epoch(request: dict) -> Optional[float]:
+    try:
+        return float(request['epoch'])
+    except (KeyError, ValueError):
+        pass
+    try:
+        return time.mktime(time.strptime(request.get('time', ''), TIME_FORMAT))
+    except ValueError:
+        return None
+
+
+def failure_time(request: dict) -> Tuple[str, bool]:
+    """
+    When a switch failed, for time= in last-switch-failed ("When:").
+
+    The clock of a slot on its trial boot is often not set yet when the
+    health check runs: there is no RTC, and until NTP answers, fake-hwclock
+    has it at that slot's last shutdown - hours or weeks before (rig,
+    2026-10-04: 11:09 for a failure at 12:25). The slot that asked for the
+    switch had a set clock and recorded the request (switch-requested), and
+    a failure cannot come before its request. So: this clock when it is
+    synchronised or not behind the request, else the request time.
+
+    Args:
+        request (dict): switch_request() ({} when the switch was asked for
+            by a slot that does not record it)
+
+    Returns:
+        tuple: (time as "YYYY-MM-DD HH:MM:SS", True if this clock was behind
+        and the request time was taken)
+    """
+    now = now_epoch()
+    stamp = time.strftime(TIME_FORMAT, time.localtime(now))
+    asked = _request_epoch(request)
+    if asked is None or now >= asked or TIME_SYNCED.exists():
+        return stamp, False
+    # the request's own words: its slot's time zone is the one that shows it
+    return request.get('time') or time.strftime(TIME_FORMAT, time.localtime(asked)), True
+
+
 def record_failed_switch(config_dir: Path, slot: str, reason: str,
                          version: str = '') -> None:
     """
@@ -369,16 +458,31 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
         slot (str): the slot that failed
         reason (str): one line for the user
         version (str): the failed slot's /etc/rasqberry-version, if known
+            (else the version the update wrote, from slot-<X>-updated)
     """
-    lines = [f"slot={slot}", f"reason={reason}",
-             f"time={time.strftime('%Y-%m-%d %H:%M:%S')}"]
+    # rq_update_slot.sh leaves slot-<X>-updated when it has written the slot
+    # and the slot has not started well since: then this was an update ("The
+    # update of Slot X to <version> didn't work"), else a plain switch
+    # ("Switching to Slot X didn't work") - rq_slot_status.sh failure-notice
+    hint = _read_kv(config_dir / f"slot-{slot}-updated")
+    request = switch_request(config_dir, slot)
+    when, clock_behind = failure_time(request)
+    # time= is the failure's identity for the indicator, the login line and
+    # the usage counts: written once here, never changed afterwards
+    lines = [f"slot={slot}", f"reason={reason}", f"time={when}",
+             f"update={'yes' if (config_dir / f'slot-{slot}-updated').exists() else 'no'}"]
+    version = version or hint.get('version', '')
     if version:
         lines.append(f"version={version}")
+    if request.get('time'):
+        lines.append(f"requested={request['time']}")
+    if clock_behind:
+        lines.append(f"clock={time.strftime(TIME_FORMAT, time.localtime(now_epoch()))}")
     try:
         (config_dir / FAILED_NOTICE).write_text('\n'.join(lines) + '\n')
     except OSError as e:
         logger.warning(f"Could not write {config_dir / FAILED_NOTICE}: {e}")
-    for name in ('target-slot', 'switch-retries'):
+    for name in ('target-slot', 'switch-retries', SWITCH_REQUEST):
         try:
             (config_dir / name).unlink()
         except OSError:
@@ -453,7 +557,7 @@ def wait_for_display_manager(timeout: int = DISPLAY_MANAGER_TIMEOUT,
         if state == 'active':
             return True, "display manager active"
         if time.monotonic() >= deadline:
-            return False, f"desktop did not start within {timeout}s (display-manager: {state})"
+            return False, f"the desktop did not come up within {timeout} s (display-manager: {state})"
         time.sleep(poll)
 
 
@@ -534,10 +638,9 @@ def confirm_boot_slot() -> bool:
                 )
                 record_failed_switch(
                     BOOT_CONFIG_DIR, target_slot,
-                    f"Slot {target_slot} did not start (tried twice); "
-                    f"back on Slot {current_slot}")
+                    f"Slot {target_slot} was tried twice without success")
             else:
-                for name in ('target-slot', 'switch-retries', FAILED_NOTICE):
+                for name in ('target-slot', 'switch-retries', SWITCH_REQUEST, FAILED_NOTICE):
                     try:
                         (BOOT_CONFIG_DIR / name).unlink()
                     except OSError:
@@ -569,6 +672,22 @@ def confirm_boot_slot() -> bool:
     except Exception as e:
         logger.error(f"✗ Error confirming boot slot: {e}")
         return False
+
+
+def write_slot_status() -> None:
+    """
+    Refresh /run/rasqberry/slot-status for the taskbar indicator (#242): as
+    root it can say what the other slot holds. Never fails the health check.
+    """
+    if not SLOT_STATUS.exists():
+        return
+    try:
+        result = subprocess.run([str(SLOT_STATUS), 'write'], capture_output=True,
+                                text=True, timeout=60)
+        if result.returncode != 0:
+            logger.warning(f"Could not write the slot status: {result.stderr.strip()}")
+    except Exception as e:
+        logger.warning(f"Could not write the slot status: {e}")
 
 
 def report_status(success: bool, checks: dict):
@@ -629,6 +748,35 @@ def run_deadline() -> int:
     return 1
 
 
+def counts_started(probation: Optional[str]) -> dict:
+    """
+    Usage counts, before the slot is confirmed (confirming writes the CONFIG
+    markers that tell a new card from an updated slot, and removes the
+    update hint). Never raises.
+
+    Returns:
+        dict: for counts_finished()
+    """
+    if usage_counts is None:
+        return {}
+    try:
+        return usage_counts.boot_started(BOOT_CONFIG_DIR, probation)
+    except Exception as e:  # noqa: BLE001
+        logger.info(f"Usage counts skipped: {e}")
+        return {}
+
+
+def counts_finished(ctx: dict, confirmed: bool) -> None:
+    """Usage counts at the end: queue what this start decided, send the queue. Never raises."""
+    if usage_counts is None:
+        return
+    try:
+        usage_counts.boot_finished(ctx, BOOT_CONFIG_DIR, slot_from_root(current_root_device()),
+                                   confirmed)
+    except Exception as e:  # noqa: BLE001
+        logger.info(f"Usage counts skipped: {e}")
+
+
 def main():
     """
     Main health check routine.
@@ -642,6 +790,7 @@ def main():
     probation = probation_slot()
     if probation:
         logger.info(f"Slot {probation} is on its trial boot (tryboot): a failed check rolls back")
+    counts = counts_started(probation)
     logger.info("Starting health checks...")
 
     checks = {}
@@ -649,8 +798,8 @@ def main():
     def failed(reason: str):
         logger.error(f"✗ Health check FAILED: {reason}")
         report_status(False, checks)
-        if probation:
-            fail_probation(BOOT_CONFIG_DIR, probation, reason)
+        if not probation or fail_probation(BOOT_CONFIG_DIR, probation, reason) != 'rolled-back':
+            write_slot_status()
         sys.exit(1)
 
     # Load environment
@@ -692,7 +841,8 @@ def main():
 
     # Confirm boot slot
     logger.info("\nConfirming boot slot...")
-    if confirm_boot_slot():
+    confirmed = confirm_boot_slot()
+    if confirmed:
         logger.info("✓ Boot slot confirmed - no rollback will occur")
         disarm_probation_watchdog()
     else:
@@ -700,6 +850,8 @@ def main():
 
     # Report success
     report_status(True, checks)
+    write_slot_status()
+    counts_finished(counts, confirmed)
 
     logger.info("\n=== Health Check Complete: SUCCESS ===")
     sys.exit(0)

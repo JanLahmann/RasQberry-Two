@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.1
-Name=RasQberry Menu
-Comment=The RasQberry menu: demos, setup, updates, system info (sudo raspi-config, then 0 RasQberry)
+Name=RasQberry Configuration (raspi-config)
+Comment=raspi-config with the RasQberry menu (0 RasQberry): demos, setup, updates, system info
 Icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png
 Type=Application
 Categories=Settings;RasQberry;
-Exec=lxterminal -t "RasQberry Menu" -e "sudo raspi-config"
+Exec=lxterminal -t "RasQberry Configuration" -e "sudo raspi-config"
 Terminal=false
 StartupNotify=true
 Keywords=menu;raspi-config;settings;rasqberry;

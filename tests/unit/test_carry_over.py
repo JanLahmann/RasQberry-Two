@@ -112,6 +112,17 @@ def test_pull_env_preferences_but_not_other_keys(slots):
     assert "LED_LAYOUT=single" in env          # LED keys: rq_device_settings.sh's job
 
 
+def test_pull_keeps_usage_counts_off(tmp_path):
+    # A rig or development Pi (RQ_UMAMI=0) stays uncounted in the updated
+    # slot: the carry-over runs before its health check counts the update
+    old = _slot(tmp_path / "old", env_lines=("LED_LAYOUT=quad", "RQ_UMAMI=0"))
+    new = _slot(tmp_path / "new")
+    data = tmp_path / "data"
+    data.mkdir()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert "RQ_UMAMI=0" in (new / ENV.lstrip("/")).read_text().splitlines()
+
+
 def test_pull_of_identical_slot_carries_nothing(tmp_path):
     a = _slot(tmp_path / "a")
     b = _slot(tmp_path / "b")
@@ -273,11 +284,30 @@ def test_an_update_keeps_the_learners_programs(slots):
     assert not (on_data / "05_new_starter.py").exists()   # shipped, unchanged: stays in /usr/config
 
 
+def _learner_setup_ran(root):
+    stamp = root / ("." + HOME) / ".local/state/rasqberry/learner-setup/programs"
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text("2026-10-03T08:53:09+0100\n")
+
+
 def test_no_my_programs_link_without_the_folder(slots):
     # a learner who deleted the folder does not get an empty one back
     _, new, data = slots
+    _learner_setup_ran(new)
     _run(new, data, "link")
     assert not os.path.lexists(new / ("." + HOME) / "My-Quantum-Programs")
+
+
+def test_first_start_links_my_programs_before_the_learner_setup(slots):
+    # Item 27: on the first start the carry-over runs before the desktop
+    # login where the learner setup creates the folder; it is linked now,
+    # and the setup fills the folder on /data
+    _, new, data = slots
+    proc = _run(new, data, "link")
+    assert proc.returncode == 0, proc.stderr
+    link = new / ("." + HOME) / "My-Quantum-Programs"
+    assert os.readlink(link) == str(data / f"home/{USER}/My-Quantum-Programs")
+    assert (data / f"home/{USER}/My-Quantum-Programs").is_dir()
 
 
 def test_pull_brings_my_programs_from_a_slot_without_data(slots):

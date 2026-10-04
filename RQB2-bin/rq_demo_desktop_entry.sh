@@ -35,6 +35,8 @@ id=$(jq -r '.id // empty' "$MANIFEST")
 name=$(jq -r '.name // empty' "$MANIFEST")
 [ -n "$id" ] && [ -n "$name" ] || die "Manifest needs id and name: $MANIFEST"
 description=$(jq -r '.description // ""' "$MANIFEST")
+# a new or less-tested demo says so in its tooltip (item 36)
+[ -n "$(rq_demo_maturity "$id" "$MANIFEST")" ] && description="(beta) $description"
 terminal=$(jq -r 'if .desktop.terminal == false then "false" else "true" end' "$MANIFEST")
 keywords=$(jq -r '(.keywords // []) | join(";")' "$MANIFEST")
 icon_type=$(jq -r '.icon.type // "system"' "$MANIFEST")

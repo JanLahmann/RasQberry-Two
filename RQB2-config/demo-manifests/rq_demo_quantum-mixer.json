@@ -1,6 +1,6 @@
 {
   "id": "quantum-mixer",
-  "name": "Quantum-Mixer",
+  "name": "Quantum Mixer",
   "category": "visualization",
   "description": "Interactive quantum circuit builder and simulator (Docker container)",
   "keywords": [
@@ -30,7 +30,7 @@
       "docker_latest": "latest"
     },
     "download": {
-      "what": "Docker image from ghcr.io (built by RasQberry's CI)",
+      "what": "Docker image built by the quantum-mixer repository's CI",
       "download_mb": 900,
       "disk_mb": 2300,
       "time": "5-10 minutes"

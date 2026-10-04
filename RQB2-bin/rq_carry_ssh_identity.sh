@@ -12,8 +12,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   Nothing is baked into the published image: every device still generates
 #   its own keys on its first boot.
 #
-#   Carried over, and nothing else: /etc/ssh/ssh_host_* and the desktop
-#   user's ~/.ssh/authorized_keys.
+#   Carried over, and nothing else: /etc/ssh/ssh_host_*, the desktop
+#   user's ~/.ssh/authorized_keys, and a "PasswordAuthentication no" choice
+#   (Imager's "public-key only" writes it into sshd_config; a freshly written
+#   slot would allow password login again).
 #
 #   The stock regenerate_ssh_host_keys.service deletes all host keys on the
 #   first boot of a flashed image, unconditionally; it is masked in the target
@@ -55,6 +57,18 @@ if [ -n "$home" ] && [ -s "$src$home/.ssh/authorized_keys" ] && [ -d "$target$ho
         chown "$owner" "$target$home/.ssh" "$target$home/.ssh/authorized_keys"
     fi
     carried="${carried:+$carried and }authorized_keys"
+fi
+
+# The password-login choice. sshd keeps the first value it reads, and Debian's
+# sshd_config includes sshd_config.d/*.conf at its top, so drop-ins come first
+pw_auth=$(cat "$src"/etc/ssh/sshd_config.d/*.conf "$src/etc/ssh/sshd_config" 2>/dev/null \
+    | awk 'tolower($1) == "passwordauthentication" { print tolower($2); exit }' || true)
+if [ "$pw_auth" = "no" ] && [ -d "$target/etc/ssh" ]; then
+    mkdir -p "$target/etc/ssh/sshd_config.d"
+    printf '%s\n' "# Carried over by RasQberry's A/B update: password login stays off" \
+        "PasswordAuthentication no" > "$target/etc/ssh/sshd_config.d/00-rasqberry-carried.conf"
+    chmod 644 "$target/etc/ssh/sshd_config.d/00-rasqberry-carried.conf"
+    carried="${carried:+$carried and }password login off"
 fi
 
 echo "SSH identity carried over: ${carried:-nothing (no host keys or authorized_keys found)}"

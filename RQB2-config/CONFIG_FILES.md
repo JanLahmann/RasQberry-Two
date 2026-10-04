@@ -40,7 +40,8 @@ Classes:
 | `desktop-categories/` | default | |
 | `touch-mode/` | default | |
 | `venv-extras/` | default | installed into the user's RQB2 venv by `rq_learner_setup.sh` (`.pth` for `/usr/bin` modules and root runs without bytecode; Jupyter notebook setting) |
-| `my-quantum-programs/` | default | starter programs, copied once to `~/My-Quantum-Programs` by `rq_learner_setup.sh` |
+| `my-quantum-programs/` | default | starter notebooks and programs, copied once to `~/My-Quantum-Programs` by `rq_learner_setup.sh` (a starter new in a release is added once to an existing folder) |
+| `starter-notebooks.json` | default | pins of the starter notebooks copied from other projects (doQumentation's Hello World): repository, commit, SHA-256; `rq_starter_sync.py` checks and moves them |
 
 On A/B images the LED settings in `rasqberry_environment.env` (`LED_*`, `RASQ_LED_*`,
 except `*_INSTALLED`) and the user's custom `led-layouts.json` are also kept in

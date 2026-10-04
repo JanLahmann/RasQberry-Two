@@ -245,7 +245,51 @@ def test_starter_programs_never_overwrite_the_learners_files(home, tmp_path):
     os.symlink(on_data, h / "My-Quantum-Programs")
     _run(_SETUP, [], home)
     assert (on_data / "01_bell_state.py").read_text() == "# my version\n"
-    assert sorted(os.listdir(on_data)) == ["01_bell_state.py"]
+    # only the starter that is new since earlier releases joins the learner's file
+    assert sorted(os.listdir(on_data)) == ["01_bell_state.py", "Hello-World.ipynb"]
+
+
+def test_a_new_starter_reaches_a_folder_seeded_earlier_once(home):
+    # item 9: a folder seeded by an earlier release (stamp, no offered list)
+    # gets the Hello World notebook once; the learner's files stay as they are
+    h, _ = home
+    programs = h / "My-Quantum-Programs"
+    programs.mkdir()
+    (programs / "README.md").write_text("my notes\n")
+    (programs / "My-First-Circuit.ipynb").write_text("{}\n")
+    stamps = h / ".local" / "state" / "rasqberry" / "learner-setup"
+    stamps.mkdir(parents=True)
+    (stamps / "programs").write_text("2026-07-01\n")
+    _run(_SETUP, [], home)
+    assert sorted(os.listdir(programs)) == ["Hello-World.ipynb", "My-First-Circuit.ipynb", "README.md"]
+    assert (programs / "README.md").read_text() == "my notes\n"
+    (programs / "Hello-World.ipynb").unlink()
+    _run(_SETUP, [], home)
+    assert not (programs / "Hello-World.ipynb").exists(), "a starter the learner deleted must not come back"
+
+
+def test_hello_world_is_doqumentations_pinned_notebook():
+    import hashlib
+    pins = json.load(open(os.path.join(_CONFIG, "starter-notebooks.json")))["notebooks"]
+    entry = [e for e in pins if e["file"] == "Hello-World.ipynb"][0]
+    assert entry["repo_url"] == "https://github.com/JanLahmann/doQumentation"
+    assert len(entry["ref"]) == 40 and int(entry["ref"], 16) >= 0
+    data = open(os.path.join(_CONFIG, "my-quantum-programs", entry["file"]), "rb").read()
+    assert hashlib.sha256(data).hexdigest() == entry["sha256"], "run rq_starter_sync.py --update"
+    nb = json.loads(data)
+    assert any("QuantumCircuit(2)" in "".join(c["source"]) for c in nb["cells"])
+    # our edit: Run All must not save the placeholders over the learner's account
+    save = ["".join(c["source"]) for c in nb["cells"] if "save_account(" in "".join(c["source"])]
+    assert save and all('if token.startswith("<")' in code for code in save)
+    assert not any("Binder" in "".join(c["source"]) for c in nb["cells"])
+    proc = subprocess.run([sys.executable, os.path.join(_BIN, "rq_starter_sync.py")],
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def test_my_programs_opens_the_hello_world_notebook():
+    text = open(os.path.join(_BIN, "rq_my_programs.sh")).read()
+    assert 'START_PAGE="lab/tree/Hello-World.ipynb"' in text
 
 
 def test_starter_programs_wait_for_a_missing_data_partition(home, tmp_path):

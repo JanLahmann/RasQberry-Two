@@ -4,17 +4,24 @@ set -euo pipefail
 # ============================================================================
 # RasQberry: A/B Boot Slot Manager
 # ============================================================================
-# Description: Manage A/B boot slots for remote testing
-# Usage: rq_slot_manager.sh {status|summary|slot-content|confirm|switch-to|rollback|promote}
+# Description: Manage the two systems (Slot A, Slot B) of an A/B card
+# Usage: rq_slot_manager.sh {status|summary|slot-content|plan-update|confirm|switch-to|rollback}
+#
+# Update model (ping-pong, Jan 2026-10-04): an update always goes into the
+# slot that is NOT running (rq_update_slot.sh). Its trial start (tryboot) and
+# the health check make it the start slot; the other slot stays as the way
+# back (switch-to / rollback). Neither slot is special.
 #
 # Commands:
 #   status        - Show current slot, boot status and what each slot holds
 #   summary       - The same as key=value lines, for the menu and scripts
 #   slot-content  - What one slot holds: its version, or EMPTY/INCOMPLETE/...
+#   plan-update   - Where an update would go and what the guard says about it
 #   confirm       - Confirm current slot (prevent rollback)
-#   switch-to     - Switch to a specific slot (A or B) using tryboot
+#   switch-to     - Switch to a specific slot (A or B) using tryboot; leaves
+#                   target-slot, switch-retries and switch-requested (when it
+#                   was asked for, by this slot's clock) on /boot/config
 #   rollback      - Force rollback to previous slot
-#   promote       - Promote Slot B to Slot A (copy)
 #
 # switch-to and rollback refuse a slot that holds no system (exit code 25):
 # starting an empty slot hangs the Pi, and a rollback into one is permanent.
@@ -42,9 +49,8 @@ AUTOBOOT_TXT_FALLBACK="${BOOT_DIR}/autoboot.txt"
 CURRENT_SLOT_FILE_FALLBACK="${BOOT_DIR}/current-slot"
 SLOT_CONFIRMED_FILE_FALLBACK="${BOOT_DIR}/slot-confirmed"
 
-# Root of the running system (override: tests) and the promote log
+# Root of the running system (override: tests)
 RUNNING_ROOT="${RQ_RUNNING_ROOT:-/}"
-PROMOTE_LOG="${RQ_PROMOTE_LOG:-/var/log/rasqberry-promote.log}"
 
 RC_SLOT_EMPTY=25    # switch-to / rollback refused: the target holds no system
 
@@ -154,7 +160,7 @@ get_boot_partition() {
 #   SYSTEM      a system without a RasQberry version file
 #   EMPTY       no system: the 16MB placeholder, a freshly expanded slot (an
 #               empty filesystem), or a partition that cannot be mounted
-#   INCOMPLETE  an update or promote into this slot was interrupted
+#   INCOMPLETE  an update into this slot was interrupted
 #               (marker slot-<X>-incomplete, written by rq_update_slot.sh)
 #   UNKNOWN     cannot look: not root, and the slot is not mounted anywhere
 
@@ -230,13 +236,8 @@ require_slot_system() {
         warn "Slot ${slot} holds no usable system (${content}) - continuing because of --force"
         return 0
     fi
-    if [ "$slot" = "B" ]; then
-        how="Install a system into Slot B first:
-Software & Image Updates -> Slot Manager -> Install an update into Slot B."
-    else
-        how="Slot A gets a system when a tested Slot B is promoted:
-Software & Image Updates -> Slot Manager -> PROMOTE (while running Slot B)."
-    fi
+    how="Install a system into Slot ${slot} first: Software & Image Updates ->
+Slot Manager -> Install an update into the other system (Slot ${slot})."
     case "$content" in
         EMPTY)
             echo "ERROR: Slot ${slot} holds no system (it is empty), so the Pi cannot start from it.
@@ -263,19 +264,89 @@ default_boot_slot() {
     esac
 }
 
-unmount_slot_partition() {
-    # Unmount every mount of <device> (the desktop automounts the inactive
-    # slot, R-146); stop if one stays busy, before anything is written
-    local dev="$1" mnt
-    for mnt in $(findmnt -rn -o TARGET --source "$dev" 2>/dev/null || true); do
-        if umount "$mnt" 2>/dev/null; then
-            info "Unmounted ${dev} from ${mnt}"
-        fi
-    done
-    mnt=$(findmnt -rn -o TARGET --source "$dev" 2>/dev/null | head -1 || true)
-    if [ -n "$mnt" ]; then
-        die "${dev} is in use at ${mnt} and cannot be unmounted. Close any window or program that shows files there, then try again."
-    fi
+# ============================================================================
+# Planning an update: the target slot and Jan's guard (ping-pong)
+# ============================================================================
+# The guard keeps at least one slot at beta or stable. The release stream of
+# a version or release tag (the tags of rq_ab_releases.sh; a stable release is
+# tagged v1.2.3, its /etc/rasqberry-version says 1.2.3):
+#   development-*, dev-*      dev      rank 0
+#   beta-*                    beta     rank 1
+#   v1.2.3, 1.2.3, stable-*   stable   rank 2
+#   anything else             unknown  (ranks like dev, never counts as safe)
+# A downgrade installs a lower stream than the target slot holds, or an older
+# release of the same beta or stable stream (dev over dev never warns). The
+# target is the last safe slot when it holds beta or stable and the running
+# slot does not.
+
+version_stream() {
+    rq_release_channel "$1"     # rq_common.sh: the one shell copy of the rule
+}
+
+# The stream of a slot_content value: none for a slot without a system
+content_stream() {
+    case "$1" in
+        EMPTY|INCOMPLETE)  echo none ;;
+        SYSTEM|UNKNOWN|"") echo unknown ;;
+        *)                 version_stream "$1" ;;
+    esac
+}
+
+stream_rank() {
+    case "$1" in
+        stable) echo 2 ;;
+        beta)   echo 1 ;;
+        *)      echo 0 ;;
+    esac
+}
+
+is_safe_stream() {
+    [ "$1" = "beta" ] || [ "$1" = "stable" ]
+}
+
+stream_noun() {
+    case "$1" in
+        stable) echo "stable release" ;;
+        beta)   echo "beta release" ;;
+        dev)    echo "development build" ;;
+        *)      echo "system of unknown origin" ;;
+    esac
+}
+
+# True when release <a> is older than release <b> of the same stream: beta
+# tags compare by their date and time, stable ones by version number
+version_older() {
+    local a="$1" b="$2"
+    a=${a#beta-}; a=${a#stable-}; a=${a#v}
+    b=${b#beta-}; b=${b#stable-}; b=${b#v}
+    [ "$a" != "$b" ] || return 1
+    [ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | head -n 1)" = "$a" ]
+}
+
+# "<stream> <version>" for a slot_content value. Without a version the second
+# word says why: empty, unfinished, system (no version file), unknown
+holds_text() {
+    case "$1" in
+        EMPTY)      echo "none empty" ;;
+        INCOMPLETE) echo "none unfinished" ;;
+        SYSTEM)     echo "unknown system" ;;
+        UNKNOWN|"") echo "unknown unknown" ;;
+        *)          echo "$(version_stream "$1") $1" ;;
+    esac
+}
+
+# A slot_content value for people: "beta-2026-10-03-095636 (beta)"
+content_words() {
+    local stream
+    case "$1" in
+        EMPTY)      echo "empty (no system)" ;;
+        INCOMPLETE) echo "unfinished (an update was interrupted)" ;;
+        UNKNOWN|"") echo "unknown (run as root to look)" ;;
+        SYSTEM)     echo "a system without version information" ;;
+        *)
+            stream=$(version_stream "$1")
+            if [ "$stream" = "unknown" ]; then echo "$1"; else echo "$1 ($stream)"; fi ;;
+    esac
 }
 
 # ============================================================================
@@ -319,19 +390,13 @@ cmd_status() {
     # What each slot holds
     echo ""
     info "Slot Contents:"
-    local slot label content
+    local slot content notes
     for slot in A B; do
-        label="stable"
-        [ "$slot" = "B" ] && label="testing"
-        content=$(slot_content "$slot")
-        case "$content" in
-            EMPTY)      content="empty (no system)" ;;
-            INCOMPLETE) content="unfinished (an update or copy was interrupted)" ;;
-            UNKNOWN)    content="unknown (run as root to look)" ;;
-            SYSTEM)     content="a system without version information" ;;
-        esac
-        [ "$slot" = "$current_slot" ] && content="${content}  <- running"
-        info "  Slot ${slot} (${label}): ${content}"
+        content=$(content_words "$(slot_content "$slot")")
+        notes=""
+        [ "$slot" = "$current_slot" ] && notes="running"
+        [ "$slot" = "$next_slot" ] && notes="${notes:+$notes, }start slot"
+        info "  Slot ${slot}: ${content}${notes:+  <- ${notes}}"
     done
 
     # Slot partitions
@@ -364,11 +429,12 @@ cmd_status() {
             || warn "Slot B is still the 16MB placeholder (see docs/ab-boot.md)"
     fi
 
-    # A trial boot that failed and was rolled back (rq_health_check.py, R-054)
+    # A trial boot that failed and was rolled back (rq_health_check.py, R-054),
+    # in the words System Info and the taskbar indicator use (#242)
     if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
         echo ""
-        warn "Last slot switch FAILED and was rolled back:"
-        sed 's/^/    /' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
+        warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update or switch didn't work.")"
+        sed -n 's/^reason=/    Reason: /p; s/^time=/    When: /p' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
     # Boot files
@@ -435,6 +501,10 @@ cmd_confirm() {
         warn "Not in A/B boot mode, nothing to confirm"
         return 0
     fi
+
+    # The update written into this slot (rq_update_slot.sh) has started well:
+    # a later failed switch to it is a switch, not an update
+    rm -f "${BOOT_COMMON_DIR}/slot-${current_slot}-updated"
 
     if is_slot_confirmed; then
         info "Slot ${current_slot} is already confirmed"
@@ -581,6 +651,18 @@ EOF
     echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
     echo 0 > "${BOOT_COMMON_DIR}/switch-retries"
 
+    # When the switch was asked for, by this slot's clock: it is set (NTP),
+    # the trial slot's is often not yet when its health check runs - there is
+    # no RTC, and fake-hwclock starts it at that slot's last shutdown, which
+    # can be hours or weeks ago. A failed trial is dated by this (time= in
+    # last-switch-failed, rq_health_check.py). rq_update_slot.sh comes here
+    # too, right before its restart.
+    local requested_epoch requested_time
+    read -r requested_epoch requested_time <<< "$(date '+%s %Y-%m-%d %H:%M:%S')"
+    printf 'slot=%s\ntime=%s\nepoch=%s\n' "$target_slot" "$requested_time" "$requested_epoch" \
+        > "${BOOT_COMMON_DIR}/switch-requested" \
+        || warn "Could not write ${BOOT_COMMON_DIR}/switch-requested"
+
     info "Slot ${target_slot} configured for tryboot"
     info "Current slot (${current_slot}) remains default until new slot is confirmed"
 
@@ -631,7 +713,7 @@ EOF
     else
         info ""
         info "To boot into Slot ${target_slot} now: sudo reboot '0 tryboot'"
-        info "(or: sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Slot Manager -> TRYBOOT_${target_slot})"
+        info "(or: sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Slot Manager -> Switch to Slot ${target_slot})"
     fi
 }
 
@@ -701,206 +783,68 @@ EOF
     info "Reboot now: sudo reboot"
 }
 
-cmd_promote() {
-    # Promote Slot B (tested) to Slot A (stable)
-    #   --yes  skip the typed confirmation (the menu asks in its own dialog)
-    check_root
+cmd_plan_update() {
+    # plan-update <release-tag>: where an update goes and what the guard says,
+    # as key=value lines (RQB2_menu.sh and rq_update_slot.sh use them):
+    #   target=A|B                       the slot that is not running
+    #   running=A|B
+    #   target_holds=<stream> <version>  stream: dev|beta|stable|unknown|none;
+    #   running_holds=<stream> <version> version, or empty|unfinished|system
+    #   new=<stream> <release-tag>
+    #   downgrade=none|stream|older
+    #   last_safe_slot=yes|no
+    #   advice=<one line for the user>
+    [ $# -eq 1 ] && [ -n "$1" ] || die "Usage: $(basename "$0") plan-update <release-tag>"
+    local tag="$1" current target t_content r_content t_stream r_stream n_stream
+    local downgrade=none last_safe=no advice
 
-    local assume_yes=false
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --yes|-y) assume_yes=true ;;
-            *) die "Invalid argument: $1" ;;
-        esac
-        shift
-    done
+    current=$(get_current_slot)
+    case "$current" in
+        A|B) ;;
+        *) die "This card has no A/B layout, so there is no other slot to install into" ;;
+    esac
+    target=$(get_other_slot "$current")
+    t_content=$(slot_content "$target")
+    r_content=$(slot_content "$current")
+    [ "$t_content" != "UNKNOWN" ] || die "Cannot check what Slot ${target} holds: run this as root"
+    t_stream=$(content_stream "$t_content")
+    r_stream=$(content_stream "$r_content")
+    n_stream=$(version_stream "$tag")
 
-    local current_slot
-    current_slot=$(get_current_slot)
-
-    if [ "${current_slot}" = "SINGLE" ]; then
-        die "Not in A/B boot mode, cannot promote"
+    case "$t_stream" in
+        none|unknown) ;;
+        *)
+            if [ "$(stream_rank "$n_stream")" -lt "$(stream_rank "$t_stream")" ]; then
+                downgrade=stream
+            elif [ "$n_stream" = "$t_stream" ] && is_safe_stream "$n_stream" \
+                && version_older "$tag" "$t_content"; then
+                downgrade=older
+            fi ;;
+    esac
+    if is_safe_stream "$t_stream" && ! is_safe_stream "$r_stream"; then
+        last_safe=yes
     fi
 
-    # Must be running from Slot B to promote it
-    if [ "${current_slot}" != "B" ]; then
-        die "PROMOTE copies Slot B to Slot A, so it works only while Slot B is the running system. Currently running: Slot ${current_slot}"
+    if [ "$last_safe" = "yes" ]; then
+        advice="Slot ${target} holds the only beta or stable system on this card. Safer: switch to Slot ${target} first, then install into Slot ${current}."
+    elif [ "$downgrade" = "stream" ]; then
+        advice="Slot ${target} holds a $(stream_noun "$t_stream") (${t_content}); ${tag} is a $(stream_noun "$n_stream"), so this is a downgrade."
+    elif [ "$downgrade" = "older" ]; then
+        advice="${tag} is older than ${t_content} in Slot ${target}, so this is a downgrade."
+    elif [ "$t_stream" = "none" ]; then
+        advice="Slot ${target} holds no system yet. Slot ${current} stays as it is."
+    else
+        advice="Slot ${target} is replaced. Slot ${current} stays as it is, to go back to."
     fi
 
-    # Must be confirmed (passed health checks)
-    if ! is_slot_confirmed; then
-        die "Slot B is not confirmed yet. The health check confirms it shortly after a good start; or run: sudo rq_slot_manager.sh confirm"
-    fi
-
-    local version_a version_b
-    version_b=$(slot_content B)
-    version_a=$(slot_content A)
-
-    info "PROMOTE: copy the running system (Slot B, ${version_b})"
-    info "         to the stable Slot A (now: ${version_a})."
-    info "Slot A's current contents are replaced. This takes 10-15 minutes."
-
-    if [ "$assume_yes" != true ]; then
-        # The prompt goes to stderr: it is only visible in a terminal. Without
-        # one (output captured, no keyboard) it would wait invisibly (R-051).
-        [ -t 0 ] && [ -t 2 ] || die "promote asks for a typed confirmation: run it in a terminal, or pass --yes"
-        local response
-        read -r -p "Type 'PROMOTE' to confirm: " response
-        if [ "$response" != "PROMOTE" ]; then
-            info "Promotion cancelled"
-            return 0
-        fi
-    fi
-
-    # Get partition devices
-    local slot_a_part slot_b_part boot_a_part boot_b_part
-    slot_a_part=$(get_slot_partition A)
-    slot_b_part=$(get_slot_partition B)
-    boot_a_part=$(get_boot_partition A)
-    boot_b_part=$(get_boot_partition B)
-
-    # Slot A must not be in use elsewhere (desktop automount) while it is
-    # overwritten - stop now, before anything is written
-    unmount_slot_partition "$slot_a_part"
-    unmount_slot_partition "$boot_a_part"
-
-    : > "$PROMOTE_LOG" 2>/dev/null || PROMOTE_LOG=/dev/null
-    info "Step 1 of 2: copying the system, Slot B ($slot_b_part) -> Slot A ($slot_a_part)..."
-    info "(details: $PROMOTE_LOG)"
-
-    # Mount both system partitions
-    local mount_a="/mnt/slot_a_temp"
-    local mount_b="/mnt/slot_b_temp"
-
-    mkdir -p "$mount_a" "$mount_b"
-
-    mount "$slot_a_part" "$mount_a" || die "Failed to mount Slot A"
-    mount "$slot_b_part" "$mount_b" || { umount "$mount_a"; die "Failed to mount Slot B"; }
-
-    # From the first write until the copy has finished, Slot A holds no
-    # usable system: switch-to and rollback refuse it, and the Pi keeps
-    # starting from Slot B
-    echo "$(date -Iseconds) promote ${version_b}" > "${BOOT_COMMON_DIR}/slot-A-incomplete"
-    sync
-
-    # Copy using rsync. Progress on a terminal; the file list never goes to
-    # stdout (from the menu it used to be captured whole and overflowed the
-    # result box); errors and the summary go to the log.
-    local progress="--quiet"
-    [ -t 1 ] && progress="--info=progress2"
-    rsync -aAX --delete "$progress" --log-file="$PROMOTE_LOG" --log-file-format="" "$mount_b/" "$mount_a/" || {
-        umount "$mount_a" "$mount_b"
-        die "Failed to copy Slot B to Slot A (see $PROMOTE_LOG). The Pi keeps starting from Slot B."
-    }
-
-    # The copy carries Slot B's fstab - rewrite mounts for Slot A
-    info "Updating fstab for Slot A..."
-    local config_part data_part
-    config_part=$(ab_partition_by_number 1)
-    data_part=$(ab_partition_by_number 7)
-    cat > "$mount_a/etc/fstab" << EOF
-proc                        /proc           proc    defaults          0   0
-${config_part}              /boot/config    vfat    defaults          0   2
-${boot_a_part}              /boot/firmware  vfat    defaults          0   2
-${slot_a_part}              /               ext4    defaults,noatime  0   1
-${data_part}                /data           ext4    defaults,noatime,nofail  0   2
-EOF
-
-    umount "$mount_a" "$mount_b"
-    rmdir "$mount_a" "$mount_b"
-
-    # Sync the boot partition too - kernel and /lib/modules must match
-    info "Step 2 of 2: copying the boot files ($boot_b_part -> $boot_a_part)..."
-    local boot_mount_a="/mnt/boot_a_temp"
-    local boot_mount_b="/mnt/boot_b_temp"
-    mkdir -p "$boot_mount_a" "$boot_mount_b"
-
-    # Boot-B is normally mounted at /boot/firmware on a running Slot B; use bind-safe ro mount
-    mount -o ro "$boot_b_part" "$boot_mount_b" 2>/dev/null || boot_mount_b="/boot/firmware"
-    mount "$boot_a_part" "$boot_mount_a" || {
-        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
-        die "Failed to mount Slot A boot partition"
-    }
-
-    # VFAT supports neither ownership nor permissions - copy data+times only
-    rsync -rt --delete --log-file="$PROMOTE_LOG" --log-file-format="" "$boot_mount_b/" "$boot_mount_a/" || {
-        umount "$boot_mount_a"
-        [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
-        die "Failed to copy boot partition (see $PROMOTE_LOG). The Pi keeps starting from Slot B."
-    }
-
-    # The copied cmdline.txt points at Slot B's root - fix it for Slot A
-    if [ -f "$boot_mount_a/cmdline.txt" ]; then
-        sed -i "s|root=[^ ]*|root=${slot_a_part}|g" "$boot_mount_a/cmdline.txt"
-        info "cmdline.txt updated: root=${slot_a_part}"
-    fi
-
-    sync
-    umount "$boot_mount_a"
-    [ "$boot_mount_b" != "/boot/firmware" ] && umount "$boot_mount_b"
-    rmdir "$boot_mount_a" /mnt/boot_b_temp 2>/dev/null || true
-
-    info "Copy complete"
-
-    # Set Slot A as default boot with proper tryboot config
-    cat > "${AUTOBOOT_TXT}" << EOF
-[all]
-tryboot_a_b=1
-boot_partition=2
-boot_partition_fallback=3
-
-[tryboot]
-boot_partition=3
-boot_partition_fallback=2
-EOF
-
-    # Mark Slot A as confirmed
-    echo "$(date -Iseconds)" > "${SLOT_CONFIRMED_FILE}"
-    echo "A" >> "${SLOT_CONFIRMED_FILE}"
-    echo "A" > "${CURRENT_SLOT_FILE}"
-    rm -f "${BOOT_COMMON_DIR}/slot-A-incomplete"
-    sync
-
-    info "Slot B has been promoted: Slot A now holds ${version_b}."
-    info "The Pi starts from Slot A from the next restart on, and Slot B"
-    info "is then free for the next update."
-    info ""
-    info "Restart now to start Slot A: sudo reboot"
-}
-
-cmd_update_stable() {
-    # Update Slot A (stable) with a specific image
-    check_root
-
-    if [ $# -lt 2 ]; then
-        cat << EOF
-Usage: $0 update-stable <download_url> <release_tag>
-
-Updates Slot A (stable baseline) with a specific image.
-Requires explicit confirmation for safety.
-
-Example:
-  sudo $0 update-stable https://github.com/.../image.img.xz beta-2025-10-25
-
-EOF
-        exit 1
-    fi
-
-    local download_url="$1"
-    local release_tag="$2"
-
-    info "Calling update script to update Slot A..."
-    info "URL: $download_url"
-    info "Tag: $release_tag"
-
-    # Call rq_update_slot.sh with --slot A --confirm
-    local update_script="/usr/bin/rq_update_slot.sh"
-
-    if [ ! -x "$update_script" ]; then
-        die "Update script not found: $update_script"
-    fi
-
-    "$update_script" "$download_url" "$release_tag" --slot A --confirm
+    echo "target=${target}"
+    echo "running=${current}"
+    echo "target_holds=$(holds_text "$t_content")"
+    echo "running_holds=$(holds_text "$r_content")"
+    echo "new=${n_stream} ${tag}"
+    echo "downgrade=${downgrade}"
+    echo "last_safe_slot=${last_safe}"
+    echo "advice=${advice}"
 }
 
 # ============================================================================
@@ -911,19 +855,20 @@ usage() {
     cat << EOF
 Usage: $(basename "$0") <command> [options]
 
-Strategy: Slot A = STABLE (protected), Slot B = TESTING (updates go here)
+Updates go into the slot that is not running (rq_update_slot.sh). A good trial
+start makes it the start slot; the other slot stays as the way back.
 
 Commands:
     status                          Show current slot, boot status, slot contents
     summary                         The same as key=value lines (for scripts)
     slot-content {A|B}              What a slot holds: version, EMPTY, INCOMPLETE, ...
+    plan-update <release-tag>       Where an update would go, and its warnings
+                                    (key=value: target, downgrade, last_safe_slot, ...)
     confirm                         Confirm current slot (prevent rollback)
     switch-to {A|B} [--reboot] [--force]
                                     Boot specific slot on next reboot
     switch                          Switch to other slot (deprecated)
     rollback [--force]              Make the other slot the default (permanent)
-    promote [--yes]                 Promote Slot B (tested) → Slot A (stable)
-    update-stable <url> <tag>       Update Slot A with specific image
 
 switch-to and rollback refuse a slot that holds no system (exit code $RC_SLOT_EMPTY);
 --force skips that check.
@@ -935,18 +880,15 @@ Examples:
     # Confirm current boot (prevent rollback)
     sudo $(basename "$0") confirm
 
-    # Switch to specific slot for testing
+    # Try Slot B on its next start (trial start)
     sudo $(basename "$0") switch-to B
     sudo reboot '0 tryboot'
 
     # Switch and reboot in one command
     sudo $(basename "$0") switch-to B --reboot
 
-    # Promote tested Slot B to become new stable Slot A
-    sudo $(basename "$0") promote
-
-    # Manually update stable Slot A (requires confirmation)
-    sudo $(basename "$0") update-stable https://github.com/.../image.img.xz beta-2025-10-25
+    # What installing a release would do
+    sudo $(basename "$0") plan-update beta-2026-10-03-095636
 
 EOF
     exit 1
@@ -984,11 +926,8 @@ main() {
         rollback)
             cmd_rollback "$@"
             ;;
-        promote)
-            cmd_promote "$@"
-            ;;
-        update-stable)
-            cmd_update_stable "$@"
+        plan-update)
+            cmd_plan_update "$@"
             ;;
         -h|--help|help)
             usage

@@ -111,7 +111,7 @@ echo
 # Fullscreen like a kiosk (the app's own fullscreen request needs a click)
 if check_display && command -v chromium-browser >/dev/null 2>&1; then
     info "Opening the browser..."
-    run_as_user chromium-browser --password-store=basic --start-fullscreen "$JUPYTER_URL" >/dev/null 2>&1 &
+    rq_open_browser "$JUPYTER_URL" --start-fullscreen
 else
     rq_show_url "$JUPYTER_URL" "$PORT"
 fi
@@ -119,13 +119,5 @@ fi
 ################################################################################
 # Stop
 ################################################################################
-echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
-if [ -t 0 ]; then
-    echo "Press Enter to stop Qoffee-Maker..."
-    read -r || exit 0
-    info "Stopping Qoffee-Maker..."
-    rq_docker_stop "$CONTAINER_NAME" || true
-    info "Qoffee-Maker stopped."
-else
-    info "Qoffee-Maker keeps running in the background."
-fi
+# Enter, Ctrl+C or closing this window stops it (item 33)
+rq_docker_stop_with_window "$CONTAINER_NAME" "Qoffee-Maker"

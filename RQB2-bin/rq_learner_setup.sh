@@ -21,7 +21,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     with a data partition the folder lives on /data and ~/My-Quantum-Programs
 #     is a link to it (rq_carry_over.sh, Jan Q33c), so it survives updates; the
 #     starter files go where the link points. A file already there is never
-#     replaced.
+#     replaced. A starter added in a later release (the Hello World notebook)
+#     is copied into an existing folder once; one the learner deleted stays
+#     deleted.
 #
 #   Callers: the image build (stage 03-install-qiskit), the XDG autostart
 #   entry rasqberry-learner-setup.desktop (every desktop login, which covers
@@ -177,6 +179,33 @@ seed_programs() {
     _mark programs
 }
 
+# The starter files shipped before the offered-list existed: a folder seeded
+# by those releases already had the chance to keep or delete them.
+LEGACY_STARTERS="01_bell_state.py 02_ghz_histogram.py 03_led_hello.py 04_bell_on_leds.py My-First-Circuit.ipynb README.md"
+
+# Starter files that are new since the folder was seeded (item 9): copied once
+# into an existing ~/My-Quantum-Programs, never over a file of the same name.
+# programs.offered in the stamp directory lists what was offered already.
+offer_new_starters() {
+    local dest="${USER_HOME}/${PROGRAMS_DIRNAME}" list="$STAMP_DIR/programs.offered" src name
+    _done programs || return 0
+    [ -d "$dest/" ] && [ -d "$STARTER_DIR" ] || return 0
+    if [ ! -f "$list" ]; then
+        mkdir -p "$STAMP_DIR" || return 1
+        printf '%s\n' $LEGACY_STARTERS > "$list" || return 1
+    fi
+    for src in "$STARTER_DIR"/*; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src")
+        grep -qxF "$name" "$list" && continue
+        if [ ! -e "$dest/$name" ]; then
+            cp "$src" "$dest/$name" && chmod 644 "$dest/$name" || return 1
+            say "Added $name to ~/${PROGRAMS_DIRNAME}"
+        fi
+        echo "$name" >> "$list" || return 1
+    done
+}
+
 main() {
     case "${1:-}" in
         --venv-only)
@@ -203,6 +232,7 @@ main() {
     fi
     configure_geany || warn "Could not configure Geany"
     seed_programs || warn "Could not create ~/${PROGRAMS_DIRNAME}"
+    offer_new_starters || warn "Could not add the new starter files to ~/${PROGRAMS_DIRNAME}"
 }
 
 main "$@"

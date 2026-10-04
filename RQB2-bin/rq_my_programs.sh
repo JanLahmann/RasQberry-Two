@@ -5,7 +5,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # RasQberry: My Quantum Programs (JupyterLab in your own folder)
 # ============================================================================
 # Description: Opens JupyterLab in ~/My-Quantum-Programs, the learner's own
-#   folder with the starter programs (R-071). Unlike the demo launchers, which
+#   folder with the starter notebooks and programs (R-071), at the Hello
+#   World notebook (doQumentation's, item 9). Unlike the demo launchers, which
 #   start Jupyter inside a demo checkout, new notebooks land in a folder that
 #   belongs to the user. Creates the folder first if needed
 #   (rq_learner_setup.sh). Runs as the user; started as root it re-runs itself
@@ -16,10 +17,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
+# Anonymous usage count of this start, as the demo engine counts demos (it has
+# no manifest). Once: the re-run as the desktop user inherits RQ_DEMO_COUNTED.
+if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
+    export RQ_DEMO_COUNTED=my-quantum-programs
+    how=$(rq_demo_start_how)
+    rq_count_event demo-start my-quantum-programs ${how:+"$how"}
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
     user_name=$(get_user_name)
     [ "$user_name" != "root" ] || die "Run this as the desktop user, not as root"
-    exec sudo -u "$user_name" -H -- env DISPLAY="${DISPLAY:-:0}" "$0" "$@"
+    exec sudo -u "$user_name" -H -- env DISPLAY="${DISPLAY:-:0}" RQ_DEMO_COUNTED="$RQ_DEMO_COUNTED" "$0" "$@"
 fi
 
 load_rqb2_env
@@ -39,8 +48,13 @@ command -v jupyter-lab >/dev/null 2>&1 || \
     die "JupyterLab not found in the RasQberry Python environment (rq_venv_repair.sh --reset restores it)"
 
 JUPYTER_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
-START_PAGE="lab/tree/README.md"
-[ -f "$PROGRAMS_DIR/README.md" ] || START_PAGE="lab"
+# Jupyter first (item 9): open the Hello World notebook, else the guide
+START_PAGE="lab"
+if [ -f "$PROGRAMS_DIR/Hello-World.ipynb" ]; then
+    START_PAGE="lab/tree/Hello-World.ipynb"
+elif [ -f "$PROGRAMS_DIR/README.md" ]; then
+    START_PAGE="lab/tree/README.md"
+fi
 URL="http://localhost:${PORT}/${START_PAGE}?token=${JUPYTER_TOKEN}"
 
 cd "$PROGRAMS_DIR"
@@ -55,6 +69,8 @@ jupyter-lab \
 JUPYTER_PID=$!
 
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     if kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping JupyterLab..."
         kill "$JUPYTER_PID" 2>/dev/null || true
@@ -74,12 +90,7 @@ until curl -s "http://localhost:${PORT}/" >/dev/null 2>&1; do
 done
 
 if check_display || [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    # --password-store=basic as in the other Jupyter launchers: no keyring prompt.
-    if command -v chromium-browser >/dev/null 2>&1; then
-        chromium-browser --password-store=basic "$URL" >/dev/null 2>&1 &
-    else
-        open_browser "$URL" || true
-    fi
+    open_browser "$URL" || true
 fi
 
 echo ""
@@ -90,8 +101,5 @@ echo ""
 echo "Folder: $PROGRAMS_DIR"
 echo "URL:    $URL"
 echo ""
-echo "Your notebooks and programs are saved in this folder."
-echo "Press Ctrl+C (or close this window) to stop JupyterLab."
-echo ""
-
-wait "$JUPYTER_PID" 2>/dev/null || true
+echo "Start with Hello-World.ipynb. Your notebooks and programs are saved in this folder."
+rq_wait_for_stop "JupyterLab" "$JUPYTER_PID"

@@ -61,6 +61,14 @@ chmod 644 /etc/rasqberry-build.json 2>/dev/null || true
 # APT cache cleanup
 echo "Cleaning APT cache..."
 echo "  Package cache size before: $(du -sh /var/cache/apt/archives 2>/dev/null | cut -f1 || echo '0')"
+# No initramfs on any stream (feedback 37/41): if a later stage brought one
+# back to the boot partition, the firmware would load it at every start
+if ls /boot/firmware/initramfs* >/dev/null 2>&1 || grep -q '^auto_initramfs=' /boot/firmware/config.txt 2>/dev/null; then
+    echo "WARNING: initramfs on the boot partition again - removing it"
+    rm -f /boot/firmware/initramfs*
+    sed -i '/^auto_initramfs=/d; /^initramfs /d' /boot/firmware/config.txt 2>/dev/null || true
+fi
+
 if [ -f /etc/apt/apt.conf.d/01cache ]; then
     rm -f /etc/apt/apt.conf.d/01cache
 fi

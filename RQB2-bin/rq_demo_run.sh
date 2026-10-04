@@ -85,16 +85,16 @@ check_jq() {
 # Launch browser with URL
 #
 # The browser's own console chatter ("Opening in existing browser session.")
-# went to the terminal and was drawn over the raspi-config menu (R-137).
+# went to the terminal and was drawn over the raspi-config menu (R-137), so
+# rq_open_browser keeps it quiet. It also keeps the tab when this window
+# closes: a demo that only opens a website (Composer, Grok Bloch online) ends
+# at once, and in a window of its own that took the browser call with it.
 launch_browser() {
     local url="$1"
 
-    if command -v chromium-browser &>/dev/null; then
+    if _rq_find_browser >/dev/null; then
         info "Opening browser..."
-        run_as_user chromium-browser --password-store=basic "$url" >/dev/null 2>&1 &
-    elif command -v firefox &>/dev/null; then
-        info "Opening browser..."
-        run_as_user firefox "$url" >/dev/null 2>&1 &
+        rq_open_browser "$url"
     else
         info "No browser found. Please open manually: $url"
     fi
@@ -232,7 +232,9 @@ check_installed() {
 
     marker_file=$(get_field '.install.marker_file' '')
     working_dir=$(get_field '.entrypoint.working_dir' '')
-    preinstalled=$(get_bool '.install.preinstalled' 'false')
+    # variant-aware: a variant that only opens a website (grok-bloch's online
+    # version) needs nothing of the demo's download
+    preinstalled=$(demo_field '.install.preinstalled' 'false')
     installed_flag=$(get_field '.install.installed_flag' '')
 
     # If preinstalled, no check needed
@@ -362,8 +364,10 @@ install_demo() {
         # line-ending agnostic, so this is safe and keeps our patches robust to
         # upstream whitespace drift. Our patches are generated against the same
         # normalization (see RQB2-config/demo-patches/).
+        # (a file the patch creates is not there yet: skip it - as the loop's
+        # last command a failed test would stop the install under pipefail)
         grep '^+++ b/' "$PATCHES_DIR/$patch_file" | sed 's|^+++ b/||' | while IFS= read -r _pf; do
-            [ -f "$_pf" ] && sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"
+            if [ -f "$_pf" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"; fi
         done
         if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
             # Try with -3 for 3-way merge
@@ -615,15 +619,10 @@ run_jupyter() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available
-    if [ -t 0 ]; then
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping Jupyter server..."
-    else
-        info "Jupyter server running in background (PID: $JUPYTER_PID)"
-        wait "$JUPYTER_PID" 2>/dev/null || true
-    fi
+    # Enter, Ctrl+C or closing the window stops it (items 5, 33); without a
+    # terminal it runs until the server ends. The cleanup trap stops it.
+    [ -t 0 ] || info "Jupyter server running in background (PID: $JUPYTER_PID)"
+    rq_wait_for_stop "$DEMO_TITLE" "$JUPYTER_PID"
 }
 
 # Docker container launcher
@@ -735,17 +734,13 @@ run_docker() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available. Closing the window stops it too
-    # (cleanup), so the rule is the same as for every other demo (R-099).
-    if [ -t 0 ]; then
+    # Enter, Ctrl+C or closing the window stops it (cleanup), as for every
+    # other demo (R-099, item 33)
+    if [ -t 0 ] && [ -t 1 ]; then
         DOCKER_STOP_ON_EXIT=1
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping container..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-        DOCKER_STOP_ON_EXIT=0
+        rq_wait_for_stop "$DEMO_TITLE" --container "$CONTAINER_NAME"
     else
-        echo "To stop it: docker stop $CONTAINER_NAME"
+        info "$DEMO_TITLE keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
     fi
 }
 
@@ -844,15 +839,9 @@ run_web_static() {
     echo "============================================"
     echo
 
-    # Interactive wait if TTY available; otherwise wait on the server.
-    # Either way, the cleanup trap stops the http.server on exit.
-    if [ -t 0 ]; then
-        echo "Press Enter or close this window to stop $DEMO_TITLE."
-        read -r
-        info "Stopping static web server..."
-    else
-        wait "$HTTP_SERVER_PID" 2>/dev/null || true
-    fi
+    # Enter, Ctrl+C or closing the window; without a terminal, until the
+    # server ends. Either way, the cleanup trap stops the http.server on exit.
+    rq_wait_for_stop "$DEMO_TITLE" "$HTTP_SERVER_PID"
 }
 
 # Python script launcher
@@ -864,10 +853,11 @@ run_python() {
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
 
-    # Terminal demos run until stopped; say how (#104). LED demos re-run this
-    # launcher as root, so only that pass prints it.
+    # Terminal demos run until stopped; say how (#104). The demo has the
+    # keyboard, so Ctrl+C or closing the window (items 5, 33). LED demos re-run
+    # this launcher as root, so only that pass prints it.
     if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        echo "Press Ctrl+C or close this window to stop $DEMO_TITLE."
+        rq_stop_hint "$DEMO_TITLE" keys
         echo
     fi
 
@@ -929,6 +919,7 @@ run_python() {
         led_panel_ready || exit 0
         # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
         LED_DEMO_RAN=1
+        RQ_LED_RUN_START=$(date +%s)
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -1031,7 +1022,7 @@ delegate_launcher() {
     done < <(get_demo_args)
 
     info "Delegating to: $launcher${launcher_args[*]:+ ${launcher_args[*]}}"
-    exec "$launcher_path" "${launcher_args[@]}"
+    exec "$launcher_path" ${launcher_args[@]+"${launcher_args[@]}"}
 }
 
 # ============================================================================
@@ -1039,6 +1030,12 @@ delegate_launcher() {
 # ============================================================================
 
 cleanup() {
+    local rc=$?
+    # Run to the end: after a closed window every message fails to print, and
+    # with errexit the first one ended the cleanup before the LEDs were cleared;
+    # the hangup that follows a closed window must not cut it short either
+    set +e
+    trap '' HUP INT TERM
     debug "Running cleanup..."
 
     # Stop Jupyter if running
@@ -1075,7 +1072,8 @@ cleanup() {
     # A container this run waited on is stopped when its window closes; one
     # started without a terminal keeps running (stop it with docker stop).
     if [ "$DOCKER_STOP_ON_EXIT" = "1" ] && [ -n "$CONTAINER_NAME" ]; then
-        docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+        { info "Stopping $DEMO_TITLE..."; } 2>/dev/null || true
+        rq_docker_stop_detached "$CONTAINER_NAME"
     fi
 
     # An LED demo leaves its last frame on the panel when it is stopped with
@@ -1083,6 +1081,9 @@ cleanup() {
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
         led_clear_quietly
+        # The Pi 5's LED driver stalled during the demo (weak power supply,
+        # item 31)? Say so and offer a lower brightness - not to a closed window.
+        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
     fi
 }
 
@@ -1136,7 +1137,8 @@ drop_to_desktop_user() {
     local -a keep=()
     local v
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
-             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE; do
+             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     info "Starting as $user_name (only LED demos run as root)..."
@@ -1213,15 +1215,21 @@ main() {
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
     DEMO_TITLE="$demo_name"
-    # The window's title: the demo's name, not the command line (R-135)
-    [ -t 1 ] && printf '\033]0;%s\007' "$demo_name"
+    # The window's title: the demo's name, not the command line (R-135), or
+    # the title of the icon that started it (rq_hold_on_error.sh -t)
+    [ -t 1 ] && printf '\033]0;%s\007' "${RQ_WINDOW_TITLE:-$demo_name}"
+    unset RQ_WINDOW_TITLE
 
     echo
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
     echo
 
-    # Setup cleanup trap (HUP: the demo's window was closed)
-    trap cleanup EXIT INT TERM HUP
+    # Cleanup runs once, on exit; the signals end the run (HUP: the demo's
+    # window was closed)
+    trap cleanup EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The
@@ -1231,6 +1239,11 @@ main() {
         ensure_installed
         info "$demo_name is installed"
         exit 0
+    fi
+
+    # New or less-tested demos ask for feedback (item 36)
+    if [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then
+        rq_beta_notice "$DEMO_ID"
     fi
 
     # Check requirements
@@ -1245,6 +1258,17 @@ main() {
 
     # Ensure demo is installed (auto-install if possible)
     ensure_installed
+
+    # Anonymous usage count of this start, in the background. Once per start:
+    # an LED demo's re-run with sudo (run_python) and a launcher that runs the
+    # engine again inherit RQ_DEMO_COUNTED. The demo loop's endless restarts
+    # are not counted.
+    if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
+        export RQ_DEMO_COUNTED="$DEMO_ID"
+        local how
+        how=$(rq_demo_start_how)
+        [ "$how" = "loop" ] || rq_count_event demo-start "${DEMO_ID}${VARIANT:+:$VARIANT}" ${how:+"$how"}
+    fi
 
     # Dispatch based on entrypoint type
     # If a launcher is specified, it can be used as fallback for any type

@@ -6,7 +6,7 @@
 # Docker's per-container memory limits (--memory / --memory-swap) are SILENTLY
 # discarded by the Raspberry Pi kernel unless memory cgroups are enabled on the
 # kernel command line. Without them, only --cpus / --pids-limit take effect - so
-# the multi-user doQumentation ("Workshop Server") profiles (2/8/15 users) would
+# the multi-user doQumentation ("Workshop & Qiskit Server") profiles (2/8/15 users) would
 # have no memory/OOM protection. Add the two required parameters here.
 #
 # This runs host-side (edits ${ROOTFS_DIR}/boot/firmware/cmdline.txt) after the

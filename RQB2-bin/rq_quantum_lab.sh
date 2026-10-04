@@ -172,15 +172,6 @@ echo
 rq_show_url "$LAB_URL" "$PORT"
 
 ################################################################################
-# Interactive wait and cleanup (matches qoffee-maker.sh lifecycle)
+# Stop: Enter, Ctrl+C or closing this window (item 33; as qoffee-maker.sh)
 ################################################################################
-echo "To stop it later: RasQberry menu > Quantum Demos > Stop Docker demos."
-if [ -t 0 ]; then
-    echo "Press Enter to stop Quantum Lab (work outside my-work/ is lost)..."
-    read -r || exit 0
-    info "Stopping Quantum Lab..."
-    rq_docker_stop "$CONTAINER_NAME" || true
-    info "Quantum Lab stopped."
-else
-    info "Quantum Lab keeps running in the background."
-fi
+rq_docker_stop_with_window "$CONTAINER_NAME" "Quantum Lab"

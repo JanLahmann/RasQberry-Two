@@ -5,22 +5,27 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # RasQberry: Is a newer image available? (#139)
 # ============================================================================
 # Description: Compares this image (/etc/rasqberry-version) with the latest
-#   release of the same channel in rasqberry.org/RQB-releases.json:
-#     beta-*                  -> beta
-#     development-*, dev-*    -> dev
-#     anything else           -> stable
+#   release of the same channel in rasqberry.org/RQB-releases.json
+#   (rq_release_channel in rq_common.sh):
+#     beta-*                    -> beta
+#     development-*, dev-*      -> dev
+#     v1.2.3, 1.2.3, stable-*   -> stable
+#     anything else             -> no known channel: compared with dev
 #   Release tags end in YYYY-MM-DD-HHMMSS, which is what gets compared.
+#   A release withdrawn in rasqberry.org/RQB-release-controls.json is not
+#   offered (#242).
 #
 # Usage:
 #   rq_update_check.sh            check now, print the result
 #   rq_update_check.sh --refresh  check now, print the result and store it for
 #                                 --notice (root; daily timer and the menu's CHECK)
 #   rq_update_check.sh --notice   print one line if the stored result says an update exists
+#                                 (the login message uses rq_release_notice.py now, #242)
 #
 # Exit: 0 up to date (or nothing to compare), 10 newer image available, 1 error.
 #
 # Environment overrides (tests): RQ_VERSION_FILE, RQ_RELEASES_URL, RQ_RELEASES_FILE,
-#   RQ_UPDATE_STATE
+#   RQ_UPDATE_STATE, RQ_RELEASE_CONTROLS_FILE, RQ_RELEASE_CONTROLS_URL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -31,7 +36,7 @@ STATE_FILE="${RQ_UPDATE_STATE:-/var/lib/rasqberry/update-available}"
 
 stamp_of() { echo "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}' | tail -1; }
 
-channel_of() { rq_release_channel "$1"; }   # rq_common.sh
+channel_of() { rq_update_channel "$1"; }    # rq_common.sh: unknown follows dev
 
 fetch_releases() {
     if [ -n "${RQ_RELEASES_FILE:-}" ]; then
@@ -62,18 +67,40 @@ check() {
         echo "No $channel release is published yet."
         return 0
     fi
-    case "$current" in
-        dev-*) note=" (this image was built from a feature branch; comparing with the latest development release)" ;;
+    case "$(rq_release_channel "$current")" in
+        unknown) note=" (this image belongs to no release channel; comparing with the latest development release)" ;;
+        *) case "$current" in
+               dev-*) note=" (this image was built from a feature branch; comparing with the latest development release)" ;;
+           esac ;;
     esac
 
     cur_stamp=$(stamp_of "$current")
     new_stamp=$(stamp_of "$latest")
     printf '%-15s %s\n' "This image:" "$current"
     printf '%-15s %s\n' "Latest $channel:" "$latest$note"
+    # A development image follows the dev channel, but a newer beta is worth
+    # one line (H-34: CHECK said nothing about it). Not an install offer: the
+    # beta is another channel (Slot Manager -> Install an update -> Other).
+    local beta beta_stamp beta_line=""
+    if [ "$channel" = "dev" ]; then
+        beta=$(echo "$json" | jq -r '.streams.beta.tag // empty' 2>/dev/null || true)
+        beta_stamp=$(stamp_of "$beta")
+        if [ -n "$beta_stamp" ] && [ -n "$cur_stamp" ] && [[ "$beta_stamp" > "$cur_stamp" ]]; then
+            beta_line=$(printf '%-15s %s' "Newer beta:" "$beta (beta channel)")
+        fi
+    fi
     if [ -n "$cur_stamp" ] && [ -n "$new_stamp" ] && [[ "$new_stamp" > "$cur_stamp" ]]; then
+        [ -n "$beta_line" ] && echo "$beta_line"
+        local reason
+        if reason=$(rq_release_withdrawn "$latest"); then
+            echo "$latest was withdrawn: $reason"
+            echo "There is no newer image to install."
+            return 0
+        fi
         echo "A newer image is available."
         return 10
     fi
+    [ -n "$beta_line" ] && echo "$beta_line"
     echo "This image is up to date."
     return 0
 }
@@ -88,7 +115,7 @@ case "${1:-}" in
         echo "$out"
         mkdir -p "$(dirname "$STATE_FILE")"
         if [ "$rc" -eq 10 ]; then
-            echo "$out" | sed -n 's/^Latest [a-z]*: *//p' | cut -d' ' -f1 > "$STATE_FILE"
+            echo "$out" | sed -n 's/^Latest [a-z]*: *//p' | head -n 1 | cut -d' ' -f1 > "$STATE_FILE"
         elif [ "$rc" -eq 0 ]; then
             rm -f "$STATE_FILE"
         fi

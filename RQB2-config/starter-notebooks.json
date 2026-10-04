@@ -1,0 +1,24 @@
+{
+  "_doc": "Starter notebooks in my-quantum-programs/ that come from another project, pinned like the demos: each file is 'path' in 'repo_url' at commit 'ref' (upstream_sha256), with our 'edits' to single cells applied (sha256 of the copy we ship). The Hello World notebook is doQumentation's, so a learner meets the same first circuit on the Pi and on doqumentation.org; the edits keep its account cell from saving the placeholders over an IBM Quantum account already saved on the Pi. Check or move a pin with RQB2-bin/rq_starter_sync.py (development tool).",
+  "notebooks": [
+    {
+      "file": "Hello-World.ipynb",
+      "repo_url": "https://github.com/JanLahmann/doQumentation",
+      "ref": "73a12c964a463f85c976b5922b5bc0f47116f61e",
+      "path": "local-content/hello-world.ipynb",
+      "sha256": "997070d0bace831aaccb5d0b056c3e8841dab374c9f57517784039c8a33229bb",
+      "edits": [
+        {
+          "cell_contains": "in this Binder session",
+          "replace": "if you haven't saved your credentials yet in this Binder session, run the cell below.",
+          "with": "if you have not saved your IBM Quantum account on this Pi yet, run the cell below (or use the RasQberry menu: **IBM Quantum account** \u2192 **Save my API key**)."
+        },
+        {
+          "cell_contains": "QiskitRuntimeService.save_account(",
+          "source": "from qiskit_ibm_runtime import QiskitRuntimeService\n\ntoken = \"<your-api-key>\"\ninstance = \"<your-crn>\"\n\n# RasQberry: the placeholders never replace an account saved on this Pi\nif token.startswith(\"<\") or instance.startswith(\"<\"):\n    print(\"Put your API key and CRN in the two lines above first. Nothing was saved.\")\nelse:\n    QiskitRuntimeService.save_account(\n        channel=\"ibm_quantum_platform\",\n        token=token,\n        instance=instance,\n        set_as_default=True,\n        overwrite=True,\n    )\n    print(\"Saved. Your programs can now use QiskitRuntimeService().\")"
+        }
+      ],
+      "upstream_sha256": "7034ae814bf59d0f902a06dd2765da9f0f42cb80803b9e36404b9f6bddf8315a"
+    }
+  ]
+}

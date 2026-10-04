@@ -1,7 +1,8 @@
 """
 Tests for the automatic rollback in RQB2-bin/rq_health_check.py (B4, R-054):
 when is a boot "on probation", what a failed trial boot does, and the
-15-minute deadline.
+15-minute deadline. And when a failure happened: the trial slot's clock may
+not be set yet, so the time the switch was asked for dates it.
 
 The CONFIG partition and the device-tree properties are temp directories;
 nothing reboots (reboot_now is replaced).
@@ -10,6 +11,7 @@ nothing reboots (reboot_now is replaced).
 import importlib.util
 import os
 import stat
+import time
 
 import pytest
 
@@ -48,6 +50,8 @@ def hc(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "BOOT_CONFIG_DIR", config)
     monkeypatch.setattr(mod, "DT_BOOTLOADER_DIR", dt)
     monkeypatch.setattr(mod, "WATCHDOG_MARKER", tmp_path / "wd")
+    # the clock is not synchronised unless a test says so (CI hosts may be)
+    monkeypatch.setattr(mod, "TIME_SYNCED", tmp_path / "timesync-synchronized")
     mod.reboots = []
     monkeypatch.setattr(mod, "reboot_now", lambda: mod.reboots.append(True))
     mod.config, mod.dt = config, dt
@@ -132,6 +136,27 @@ def test_fail_probation_records_clears_and_reboots(hc):
     assert hc.reboots == [True]
 
 
+def test_a_failed_first_start_after_an_update_is_recorded_as_an_update(hc):
+    # rq_update_slot.sh left slot-B-updated: "The update of Slot B ... didn't work"
+    _switch_pending(hc.config, "B")
+    (hc.config / "slot-B-updated").write_text("version=beta-2026-10-15-101010\ntag=x\n")
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed")
+    notice = (hc.config / "last-switch-failed").read_text()
+    assert "update=yes\n" in notice
+    assert "version=beta-2026-10-15-101010\n" in notice       # from the hint
+    assert (hc.config / "slot-B-updated").exists()            # until a good start
+
+
+def test_a_failed_plain_switch_is_recorded_as_a_switch(hc):
+    # no hint: a switch to a slot that had started well before
+    _switch_pending(hc.config, "B")
+    (hc.config / "slot-A-updated").write_text("version=x\n")   # another slot's hint
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed", "development-2026-10-04-040217")
+    notice = (hc.config / "last-switch-failed").read_text()
+    assert "update=no\n" in notice
+    assert "version=development-2026-10-04-040217\n" in notice
+
+
 def test_fail_probation_never_reboots_into_itself(hc):
     _switch_pending(hc.config, "B", autoboot=AUTOBOOT_B_DEFAULT)
     assert hc.fail_probation(hc.config, "B", "x") == "no-rollback-target"
@@ -211,7 +236,8 @@ def test_exhausted_retry_leaves_a_notice_and_confirms_the_working_slot(hc, monke
     monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p5")
     assert hc.confirm_boot_slot() is True
     notice = (hc.config / "last-switch-failed").read_text()
-    assert "Slot B did not start (tried twice); back on Slot A" in notice
+    assert "reason=Slot B was tried twice without success\n" in notice
+    assert "update=no\n" in notice
     assert not (hc.config / "target-slot").exists()
 
 
@@ -224,3 +250,112 @@ def test_successful_switch_clears_an_old_notice(hc, monkeypatch, tmp_path):
     assert hc.confirm_boot_slot() is True
     assert not (hc.config / "last-switch-failed").exists()
     assert not (hc.config / "target-slot").exists()
+
+
+# ---------------------------------------------------------------------------
+# When it failed: the trial slot's clock may not be set yet (rig, 2026-10-04:
+# no RTC, fake-hwclock gave 11:09:06 for a failure at about 12:25)
+# ---------------------------------------------------------------------------
+
+FMT = "%Y-%m-%d %H:%M:%S"
+REQUESTED = "2026-10-04 12:24:10"
+REQUESTED_EPOCH = int(time.mktime(time.strptime(REQUESTED, FMT)))
+
+
+def _requested(config, slot="B", when=REQUESTED, epoch=True):
+    """switch-requested as rq_slot_manager.sh switch-to writes it."""
+    e = int(time.mktime(time.strptime(when, FMT)))
+    (config / "switch-requested").write_text(
+        f"slot={slot}\ntime={when}\n" + (f"epoch={e}\n" if epoch else ""))
+
+
+def _clock(hc, monkeypatch, epoch, synced=False):
+    monkeypatch.setattr(hc, "now_epoch", lambda: epoch)
+    if synced:
+        hc.TIME_SYNCED.write_text("")
+    return time.strftime(FMT, time.localtime(epoch))
+
+
+def _notice(hc):
+    return dict(line.split("=", 1)
+                for line in (hc.config / "last-switch-failed").read_text().splitlines())
+
+
+def test_a_clock_behind_the_request_dates_the_failure_by_the_request(hc, monkeypatch):
+    _switch_pending(hc.config, "B")
+    _requested(hc.config)
+    own = _clock(hc, monkeypatch, REQUESTED_EPOCH - 75 * 60)     # fake-hwclock: 11:09:10
+    assert hc.fail_probation(hc.config, "B", "virtual environment missing") == "rolled-back"
+    notice = _notice(hc)
+    assert notice["time"] == REQUESTED
+    assert notice["requested"] == REQUESTED
+    assert notice["clock"] == own                                 # kept for a closer look
+    assert notice["slot"] == "B" and notice["update"] == "no"
+    assert not (hc.config / "switch-requested").exists()          # cleared with target-slot
+
+
+def test_a_clock_after_the_request_dates_the_failure_itself(hc, monkeypatch):
+    # the normal case: NTP was quicker than the failure (or the 15-minute deadline)
+    _switch_pending(hc.config, "B")
+    _requested(hc.config)
+    own = _clock(hc, monkeypatch, REQUESTED_EPOCH + 95)
+    hc.record_failed_switch(hc.config, "B", "x")
+    notice = _notice(hc)
+    assert notice["time"] == own
+    assert notice["requested"] == REQUESTED
+    assert "clock" not in notice
+
+
+def test_a_synchronised_clock_is_trusted_over_the_request(hc, monkeypatch):
+    # the asking slot's clock was ahead (set by hand): a synchronised clock wins
+    _switch_pending(hc.config, "B")
+    _requested(hc.config)
+    own = _clock(hc, monkeypatch, REQUESTED_EPOCH - 3600, synced=True)
+    hc.record_failed_switch(hc.config, "B", "x")
+    assert _notice(hc)["time"] == own
+    assert "clock" not in _notice(hc)
+
+
+@pytest.mark.parametrize("setup", ["none", "other-slot"])
+def test_without_a_request_for_this_slot_the_clock_is_used(hc, monkeypatch, setup):
+    # none: the switch was asked for by an older system that does not record it
+    _switch_pending(hc.config, "B")
+    if setup == "other-slot":
+        _requested(hc.config, slot="A")
+    own = _clock(hc, monkeypatch, REQUESTED_EPOCH - 75 * 60)
+    hc.record_failed_switch(hc.config, "B", "x")
+    notice = _notice(hc)
+    assert notice["time"] == own
+    assert "requested" not in notice and "clock" not in notice
+
+
+def test_a_request_without_epoch_goes_by_its_time(hc, monkeypatch):
+    _switch_pending(hc.config, "B")
+    _requested(hc.config, epoch=False)
+    _clock(hc, monkeypatch, REQUESTED_EPOCH - 600)
+    hc.record_failed_switch(hc.config, "B", "x")
+    assert _notice(hc)["time"] == REQUESTED
+
+
+def test_the_working_slot_dates_an_exhausted_retry_by_the_request_too(hc, monkeypatch, tmp_path):
+    # Slot A records "tried twice" at its own early boot: fake-hwclock again
+    _switch_pending(hc.config, "B")
+    _requested(hc.config)
+    _clock(hc, monkeypatch, REQUESTED_EPOCH - 20)
+    monkeypatch.setattr(hc, "detect_ab_layout", lambda: (True, "ab"))
+    monkeypatch.setattr(hc, "SLOT_MANAGER", _fake_slot_manager(tmp_path))
+    monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p5")
+    assert hc.confirm_boot_slot() is True
+    assert _notice(hc)["time"] == REQUESTED
+    assert not (hc.config / "switch-requested").exists()
+
+
+def test_a_good_switch_clears_the_request(hc, monkeypatch, tmp_path):
+    _switch_pending(hc.config, "B")
+    _requested(hc.config)
+    monkeypatch.setattr(hc, "detect_ab_layout", lambda: (True, "ab"))
+    monkeypatch.setattr(hc, "SLOT_MANAGER", _fake_slot_manager(tmp_path))
+    monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p6")
+    assert hc.confirm_boot_slot() is True
+    assert not (hc.config / "switch-requested").exists()
+    assert not (hc.config / "last-switch-failed").exists()

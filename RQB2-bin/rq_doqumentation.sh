@@ -2,13 +2,19 @@
 set -euo pipefail
 
 ################################################################################
-# rq_doqumentation.sh - RasQberry doQumentation (Workshop Server) Launcher
+# rq_doqumentation.sh - RasQberry Workshop & Qiskit Server Launcher
 #
 # Description:
 #   Runs the doQumentation "jupyter-local" image in a Docker container: the
 #   IBM Quantum tutorials, guides and courses as a local website whose code
-#   cells run on a Qiskit Jupyter server on this Pi. One Pi serves the laptops
-#   of a class over the LAN (Jan, Q30).
+#   cells run on a Qiskit Jupyter server on this Pi.
+#
+#   Two ways to run it (Jan, 2026-10-03):
+#   - Workshop & Qiskit Server (default): one Pi serves the laptops of a class
+#     over the LAN (Jan, Q30). Participants picker, addresses, QR code.
+#   - Qiskit Tutorials on this Pi, --solo: just the person at this Pi. Bound
+#     to 127.0.0.1 only, the smallest memory profile, no picker or addresses;
+#     opens the browser, and stops with its window.
 #
 #   The image is pinned by digest per RasQberry release (manifest
 #   entrypoint.docker_image); "Update demos" can move it to a newer upstream
@@ -16,20 +22,23 @@ set -euo pipefail
 #   dialog with its size.
 #
 #   Re-opening attaches to a running server instead of restarting it (R-069,
-#   R-145): Keep (default) / Restart / Stop, and Cancel keeps it. Only the
+#   R-145): Keep (default) / Restart / Stop, and Cancel keeps it. A server
+#   running in the other mode can be restarted in the requested one. Only the
 #   window that started the server offers to stop it. Without a screen (SSH)
 #   it starts headless and prints the addresses (Jan, Q19).
 #
 # Container port model (jupyter-local target):
 #   - nginx :80  serves the site and proxies the Jupyter API (/api/,
 #                /terminals/), adding the token: participants need no token.
+#                Published on all addresses (workshop) or 127.0.0.1 (solo).
 #   - jupyter :8888  direct JupyterLab (token), published on 127.0.0.1 only,
 #                for the teacher on the Pi or over an ssh -L tunnel.
-#   CORS_ORIGIN lists localhost, the Pi's .local name and its LAN addresses,
-#   so code runs from every address a participant may use.
+#   CORS_ORIGIN lists localhost, and for a workshop the Pi's .local name and
+#   its LAN addresses, so code runs from every address a participant may use.
+#   The container's label org.rasqberry.mode says which mode it runs in.
 #
-# Usage: rq_doqumentation.sh
-#   DOQUMENTATION_PROFILE=2|8|15  skip the participants picker
+# Usage: rq_doqumentation.sh [--solo]
+#   DOQUMENTATION_PROFILE=2|8|15  skip the participants picker (workshop)
 #
 # doQumentation is part of the "Fun with Quantum" family and is not affiliated
 # with, endorsed by, or sponsored by IBM. Tutorial content is sourced from
@@ -41,8 +50,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
+WORKSHOP_NAME="Workshop & Qiskit Server"
+SOLO_NAME="Qiskit Tutorials on this Pi"
+MODE="workshop"
+case "${1:-}" in
+    --solo) MODE="solo" ;;
+    "") ;;
+    *) die "Usage: $(basename "$0") [--solo]" ;;
+esac
+mode_name() { if [ "$1" = "solo" ]; then echo "$SOLO_NAME"; else echo "$WORKSHOP_NAME"; fi; }
+NAME=$(mode_name "$MODE")
+
 echo
-echo "=== doQumentation (Workshop Server) ==="
+echo "=== $NAME ==="
 echo
 
 load_rqb2_env
@@ -81,6 +101,14 @@ container_token() {
         | sed -n 's/^JUPYTER_TOKEN=//p' | head -1 || true
 }
 
+# The mode the running container was started in (label; older ones: workshop)
+running_mode() {
+    local mode
+    mode=$(docker container inspect -f '{{index .Config.Labels "org.rasqberry.mode"}}' \
+        "$CONTAINER_NAME" 2>/dev/null || true)
+    [ "$mode" = "solo" ] && echo solo || echo workshop
+}
+
 # The addresses participants open, one per line
 participant_urls() {
     local port="$1" ip
@@ -90,11 +118,14 @@ participant_urls() {
     done
 }
 
+# Item 19: what the server means for this Pi, precise and calm
+TRUST_SHORT="Anyone on this network can open these addresses and run code on this Pi: use a network you trust, not public Wi-Fi. Restarting the server restores the original notebooks."
+
 # Print where everyone finds the server; LAB_URL only for this window
 print_addresses() {
     local port="$1" lab_url="$2" url
     echo
-    echo "Workshop Server (doQumentation) is running."
+    echo "$WORKSHOP_NAME is running."
     echo
     echo "Participants open one of these addresses (same network as this Pi):"
     participant_urls "$port" | while IFS= read -r url; do echo "    $url"; done
@@ -106,44 +137,88 @@ print_addresses() {
     echo "Teacher only - JupyterLab with every notebook (on this Pi or through ssh -L):"
     echo "    $lab_url"
     echo
-    echo "Trust: everyone on this network can run code on this server and change"
-    echo "the shared notebooks. Use it on a class network you trust, not on public"
-    echo "Wi-Fi. Notebooks idle for 10 minutes are stopped; work is not kept when"
-    echo "the server stops - participants download what they want to keep."
-    echo "The 'Open in Lab' button on the website does not work for participants yet."
+    echo "Please note:"
+    echo "- Anyone on this network can open these addresses and run code on this Pi."
+    echo "  Use it on a network you trust (a class or home network), not on public Wi-Fi."
+    echo "- Everyone works on the same notebooks. Restarting the server restores the"
+    echo "  original notebooks; participants download what they want to keep."
+    echo "- Code in a notebook left idle for 10 minutes stops; run its cells again."
+    echo "- The 'Open in Lab' button on the website does not work for participants yet."
     echo
+}
+
+# Print where the person at this Pi finds it (solo mode)
+print_local() {
+    local port="$1" lab_url="$2"
+    echo
+    echo "$SOLO_NAME is running: http://localhost:${port}/"
+    echo "Only this Pi can open it. Restarting it restores the original notebooks;"
+    echo "download what you want to keep."
+    echo
+    echo "JupyterLab with every notebook: $lab_url"
+    echo
+}
+
+# What a running server offers, by mode
+print_running() {
+    local mode="$1" site_port="$2" lab_url="$3"
+    if [ "$mode" = "solo" ]; then
+        print_local "$site_port" "$lab_url"
+    else
+        print_addresses "$site_port" "$lab_url"
+    fi
 }
 
 # ---------------------------------------------------------------------------
 # Already running? Attach instead of restarting it (R-069, R-145)
 # ---------------------------------------------------------------------------
 if rq_docker_running "$CONTAINER_NAME"; then
+    RUNNING_MODE=$(running_mode)
+    RUNNING_NAME=$(mode_name "$RUNNING_MODE")
     action="KEEP"
     if [ -t 0 ]; then
-        action=$(whiptail --title "Workshop Server is running" --default-item KEEP --menu \
-            "doQumentation is already running. Participants may be using it.\nRestart or Stop ends their sessions and loses unsaved work." \
-            14 74 3 \
-            KEEP    "Keep it running and show the addresses" \
-            RESTART "Restart it" \
-            STOP    "Stop it" 3>&1 1>&2 2>&3) || action="KEEP"
+        if [ "$RUNNING_MODE" = "$MODE" ]; then
+            [ "$MODE" = "solo" ] && keep_text="Keep it running and open it" \
+                || keep_text="Keep it running and show the addresses"
+            set -- KEEP "$keep_text" RESTART "Restart it" STOP "Stop it"
+            [ "$MODE" = "solo" ] && question="$NAME is already running." \
+                || question="$NAME is already running. Participants may be using it.\nRestart or Stop ends their sessions and loses unsaved work."
+            default="KEEP"
+        elif [ "$RUNNING_MODE" = "solo" ]; then
+            # Bound to this Pi only: participants cannot reach it
+            set -- RESTART "Restart it for the group (others on the network can join)" \
+                   KEEP    "Keep it for this Pi only and open it" \
+                   STOP    "Stop it"
+            question="$RUNNING_NAME is running, for this Pi only.\nOthers on the network can join after a restart."
+            default="RESTART"
+        else
+            set -- KEEP    "Open the running server on this Pi" \
+                   RESTART "Restart it for this Pi only (participants lose their sessions)" \
+                   STOP    "Stop it"
+            question="$RUNNING_NAME is running. Participants may be using it."
+            default="KEEP"
+        fi
+        action=$(whiptail --title "$RUNNING_NAME is running" --default-item "$default" --menu \
+            "$question" 14 78 3 "$@" 3>&1 1>&2 2>&3) || action="KEEP"
+        set --
     fi
     case "$action" in
         STOP)
-            info "Stopping the Workshop Server..."
+            info "Stopping $RUNNING_NAME..."
             rq_docker_stop "$CONTAINER_NAME" || warn "The container is still being removed."
-            info "Workshop Server stopped."
+            info "$RUNNING_NAME stopped."
             exit 0
             ;;
         RESTART)
-            info "Stopping the Workshop Server..."
+            info "Stopping $RUNNING_NAME..."
             rq_docker_stop "$CONTAINER_NAME" \
-                || die "The old Workshop Server container did not go away; try again in a minute."
+                || die "The old $RUNNING_NAME container did not go away; try again in a minute."
             ;;
         *)
             site_port=$(published_port 80/tcp)
             lab_port=$(published_port 8888/tcp)
-            [ -n "$site_port" ] || die "The running Workshop Server publishes no website port."
-            print_addresses "$site_port" "http://127.0.0.1:${lab_port:-?}/lab?token=$(container_token)"
+            [ -n "$site_port" ] || die "The running $RUNNING_NAME publishes no website port."
+            print_running "$RUNNING_MODE" "$site_port" "http://127.0.0.1:${lab_port:-?}/lab?token=$(container_token)"
             if [ "$(docker container inspect -f '{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null)" != "$DOCKER_IMAGE" ]; then
                 info "A different doQumentation version is selected; Restart the server to use it."
             fi
@@ -184,7 +259,10 @@ map_profile() {
 }
 
 PROFILE=""
-if [ -n "${DOQUMENTATION_PROFILE:-}" ]; then
+if [ "$MODE" = "solo" ]; then
+    # One person: the smallest profile, no picker
+    PROFILE="2"
+elif [ -n "${DOQUMENTATION_PROFILE:-}" ]; then
     if map_profile "$DOQUMENTATION_PROFILE"; then
         PROFILE="$DOQUMENTATION_PROFILE"
     else
@@ -198,7 +276,7 @@ if [ -z "$PROFILE" ] && [ -t 0 ]; then
     map_profile 8 && set -- "$@" 8  "Up to ~8 participants (most of this Pi)"
     map_profile 15 && set -- "$@" 15 "Up to ~15 participants (all of this Pi)"
     if [ $# -gt 2 ]; then
-        choice=$(whiptail --title "Workshop Server" --default-item 2 --menu \
+        choice=$(whiptail --title "$WORKSHOP_NAME" --default-item 2 --menu \
             "How many participants run code at the same time?\nThis Pi has $(( (MEM_TOTAL_MB + 500) / 1000 )) GB of memory." \
             14 64 3 "$@" 3>&1 1>&2 2>&3) || { info "Not started."; exit 0; }
         map_profile "$choice" && PROFILE="$choice"
@@ -206,9 +284,13 @@ if [ -z "$PROFILE" ] && [ -t 0 ]; then
 fi
 if [ -z "$PROFILE" ]; then
     PROFILE="2"
-    map_profile "$PROFILE"
 fi
-info "Up to ~${PROFILE_USERS} participants (memory ${MEM}, ${CPUS} CPUs)"
+map_profile "$PROFILE"
+if [ "$MODE" = "solo" ]; then
+    info "For you on this Pi (memory ${MEM}, ${CPUS} CPUs)"
+else
+    info "Up to ~${PROFILE_USERS} participants (memory ${MEM}, ${CPUS} CPUs)"
+fi
 
 # ---------------------------------------------------------------------------
 # Image: the pinned version, downloaded after the consent dialog
@@ -229,16 +311,22 @@ JUPYTER_TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n' || true)"
 [ -n "$JUPYTER_TOKEN" ] || JUPYTER_TOKEN="rasqberry-workshop"
 
 CORS_ORIGIN="http://localhost:${SITE_PORT},http://127.0.0.1:${SITE_PORT}"
-CORS_ORIGIN="${CORS_ORIGIN},http://$(hostname 2>/dev/null).local:${SITE_PORT}"
-for ip in $(lan_ips); do
-    CORS_ORIGIN="${CORS_ORIGIN},http://${ip}:${SITE_PORT}"
-done
+if [ "$MODE" = "solo" ]; then
+    SITE_PUBLISH="127.0.0.1:${SITE_PORT}:80"
+else
+    SITE_PUBLISH="${SITE_PORT}:80"
+    CORS_ORIGIN="${CORS_ORIGIN},http://$(hostname 2>/dev/null).local:${SITE_PORT}"
+    for ip in $(lan_ips); do
+        CORS_ORIGIN="${CORS_ORIGIN},http://${ip}:${SITE_PORT}"
+    done
+fi
 
-info "Starting the Workshop Server..."
+info "Starting $NAME..."
 if ! docker run -d \
     --name "$CONTAINER_NAME" \
     --label "org.rasqberry.demo=doqumentation" \
-    -p "${SITE_PORT}:80" \
+    --label "org.rasqberry.mode=$MODE" \
+    -p "$SITE_PUBLISH" \
     -p "127.0.0.1:${LAB_PORT}:8888" \
     --memory "$MEM" \
     --memory-swap "$MEMSWAP" \
@@ -246,8 +334,9 @@ if ! docker run -d \
     --pids-limit "$PIDS" \
     -e JUPYTER_TOKEN="$JUPYTER_TOKEN" \
     -e CORS_ORIGIN="$CORS_ORIGIN" \
+    -e MPLCONFIGDIR=/tmp/matplotlib \
     "$DOCKER_IMAGE" >/dev/null; then
-    rq_docker_fail "$CONTAINER_NAME" "The Workshop Server container did not start."
+    rq_docker_fail "$CONTAINER_NAME" "The $NAME container did not start."
 fi
 
 info "Waiting for the website..."
@@ -257,19 +346,19 @@ until curl -sf "$SITE_URL" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
     rq_docker_running "$CONTAINER_NAME" \
-        || rq_docker_fail "$CONTAINER_NAME" "The Workshop Server stopped while starting."
+        || rq_docker_fail "$CONTAINER_NAME" "$NAME stopped while starting."
     if [ "$WAIT_COUNT" -ge 60 ]; then
-        rq_docker_fail "$CONTAINER_NAME" "The Workshop Server did not answer within 60 seconds."
+        rq_docker_fail "$CONTAINER_NAME" "$NAME did not answer within 60 seconds."
     fi
 done
 
 LAB_URL="http://127.0.0.1:${LAB_PORT}/lab?token=${JUPYTER_TOKEN}"
-print_addresses "$SITE_PORT" "$LAB_URL"
+print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 
-if [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
-    show_msgbox "Workshop Server is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\nEveryone on this network can run code here and change the shared notebooks: use a class network you trust." \
-        16 70
+if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
+    show_msgbox "$WORKSHOP_NAME is running" \
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$TRUST_SHORT" \
+        17 74
 fi
 
 rq_show_url "$SITE_URL" "$SITE_PORT"
@@ -277,20 +366,27 @@ rq_show_url "$SITE_URL" "$SITE_PORT"
 # ---------------------------------------------------------------------------
 # This window started the server: only it offers to stop it (R-145)
 # ---------------------------------------------------------------------------
+if [ "$MODE" = "solo" ]; then
+    # Just you: the server goes with its window like every Docker demo
+    # (Enter, Ctrl+C or closing it; without a terminal it keeps running)
+    rq_docker_stop_with_window "$CONTAINER_NAME" "$NAME"
+    exit 0
+fi
+
 if [ -t 0 ]; then
     echo "Closing this window keeps the server running (RasQberry menu: Quantum"
-    echo "Demos > Stop Docker demos, or open doQumentation again to stop it)."
-    echo "Press Enter to stop the Workshop Server..."
+    echo "Demos > Stop Docker demos, or open $WORKSHOP_NAME again to stop it)."
+    echo "Press Enter to stop the $WORKSHOP_NAME..."
     read -r || exit 0
-    if command -v whiptail >/dev/null 2>&1 && ! whiptail --title "Stop the Workshop Server?" --defaultno \
+    if command -v whiptail >/dev/null 2>&1 && ! whiptail --title "Stop the $WORKSHOP_NAME?" --defaultno \
             --yes-button "Stop" --no-button "Keep running" --yesno \
-            "Participants lose code they have not saved.\n\nStop the Workshop Server now?" 10 60; then
-        info "The Workshop Server keeps running."
+            "Participants lose work they have not downloaded.\n\nStop the $WORKSHOP_NAME now?" 10 60; then
+        info "The $WORKSHOP_NAME keeps running."
         exit 0
     fi
-    info "Stopping the Workshop Server..."
+    info "Stopping the $WORKSHOP_NAME..."
     rq_docker_stop "$CONTAINER_NAME" || warn "The container is still being removed."
-    info "Workshop Server stopped."
+    info "$WORKSHOP_NAME stopped."
 else
-    info "The Workshop Server keeps running. Stop it with: docker stop $CONTAINER_NAME"
+    info "The $WORKSHOP_NAME keeps running. Stop it with: docker stop $CONTAINER_NAME"
 fi

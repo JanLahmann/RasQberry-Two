@@ -49,7 +49,7 @@ main() {
     }
 
     # Prompt for color
-    COLOR=$(whiptail --menu "Choose color:" 18 60 8 \
+    COLOR=$(whiptail --menu "Choose colour:" 18 60 8 \
             "white" "White" \
             "red" "Red" \
             "green" "Green" \
@@ -74,7 +74,9 @@ main() {
 
     # Create temporary Python script to display text
     TEMP_SCRIPT=$(mktemp)
-    trap "rm -f '$TEMP_SCRIPT'" EXIT
+    # A closed window or Ctrl+C clears the panel too (R-158)
+    rq_led_clear_on_exit
+    trap "_rq_led_on_exit; rm -f '$TEMP_SCRIPT'" EXIT
 
     cat > "$TEMP_SCRIPT" << 'PYTHON_EOF'
 #!/usr/bin/env python3
@@ -130,6 +132,7 @@ PYTHON_EOF
 
     # Execute display
     info "Displaying text on LED matrix..."
+    rq_stop_hint "the text display" keys
     # the helper lives in /tmp, so point Python at the RasQberry modules
     PYTHONPATH="${BIN_DIR:-/usr/bin}${PYTHONPATH:+:$PYTHONPATH}" python3 "$TEMP_SCRIPT" "$TEXT" "$MODE" "$COLOR" || die "Failed to display text"
 

@@ -25,6 +25,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -300,13 +301,24 @@ def test_console_demo_stopped_with_ctrl_c_is_not_an_error(menu_env):
     assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
 
 
-def test_led_demo_failing_while_the_dialog_is_up_is_reported(menu_env):
-    # dies after the 2-second check, while "Demo is running" is shown
+def test_led_demo_failing_while_it_waits_is_reported(menu_env):
+    # dies after the 2-second check, while the terminal waits for Enter
     _demo_script(menu_env.tmp, "sleep 3\necho 'late failure'\nexit 4\n")
     proc = menu_env(f'run_demo bg "T" "{menu_env.tmp}" sh demo.sh; echo "RC=$?"; echo "ERR=$RQ_LAST_DEMO_ERROR"',
-                    extra_env={"WT_RC_yesno": "1", "WT_SLEEP_yesno": "2"})
+                    stdin="")
     assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
     assert "late failure" in proc.stdout
+
+
+def test_led_demo_stops_with_enter_like_every_demo(menu_env):
+    # items 5, 33: no "Stop demo / Keep running" dialog, the same stop rule
+    _demo_script(menu_env.tmp, "sleep 30\n")
+    start = time.time()
+    proc = menu_env(f'run_demo bg "T" "{menu_env.tmp}" sh demo.sh; echo "RC=$?"', stdin="\n")
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "To stop T: press Enter or Ctrl+C, or close this window." in proc.stdout
+    assert time.time() - start < 15
+    assert not [c for c in menu_env.whiptail_calls() if "--yesno" in c]
 
 
 def test_led_demo_wrappers_return_the_demo_status(menu_env):

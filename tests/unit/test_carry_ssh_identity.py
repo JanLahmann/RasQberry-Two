@@ -83,3 +83,46 @@ def test_nothing_to_carry_leaves_the_target_alone(tmp_path):
 
 def test_missing_target_is_a_usage_error(tmp_path):
     assert _carry(tmp_path, tmp_path / "nope").returncode == 2
+
+
+def _sshd(base, main=None, dropin=None):
+    if main is not None:
+        (base / "etc/ssh/sshd_config").write_text(main)
+    if dropin is not None:
+        (base / "etc/ssh/sshd_config.d").mkdir(parents=True, exist_ok=True)
+        (base / "etc/ssh/sshd_config.d/50-imager.conf").write_text(dropin)
+
+
+CARRIED = "etc/ssh/sshd_config.d/00-rasqberry-carried.conf"
+
+
+@pytest.mark.parametrize("main,dropin", [
+    ("Include /etc/ssh/sshd_config.d/*.conf\n#PasswordAuthentication yes\nPasswordAuthentication no\n", None),
+    ("Include /etc/ssh/sshd_config.d/*.conf\n", "PasswordAuthentication no\n"),
+    ("Include /etc/ssh/sshd_config.d/*.conf\n  passwordauthentication   NO\n", None),
+])
+def test_password_login_off_is_carried_over(tmp_path, main, dropin):
+    # Imager's "public-key only": after an update password login stayed on
+    # (rig, fresh card, 2026-10-04)
+    src = _root(tmp_path / "src")
+    _sshd(src, main, dropin)
+    target = _root(tmp_path / "target")
+    proc = _carry(src, target)
+    assert proc.returncode == 0, proc.stderr
+    assert "PasswordAuthentication no" in (target / CARRIED).read_text()
+    assert "password login off" in proc.stdout
+
+
+@pytest.mark.parametrize("main,dropin", [
+    ("Include /etc/ssh/sshd_config.d/*.conf\n#PasswordAuthentication yes\n", None),
+    ("PasswordAuthentication yes\n", None),
+    ("PasswordAuthentication no\n", "PasswordAuthentication yes\n"),   # the drop-in is read first
+    (None, None),
+])
+def test_password_login_on_or_default_adds_nothing(tmp_path, main, dropin):
+    src = _root(tmp_path / "src")
+    _sshd(src, main, dropin)
+    target = _root(tmp_path / "target")
+    proc = _carry(src, target)
+    assert proc.returncode == 0, proc.stderr
+    assert not (target / CARRIED).exists()

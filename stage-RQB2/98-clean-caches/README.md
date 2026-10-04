@@ -13,6 +13,10 @@ files to make the image smaller.
   `/usr/config/rasqberry_environment.env`, OS name, Debian version, kernel
   versions in `/lib/modules`, and the Python and Qiskit versions of the first
   `/home/*/RasQberry-Two/venv/RQB2` found. A failure only prints a warning.
+- Removes an initramfs on the boot partition (and `auto_initramfs=` in
+  `config.txt`) should a stage after
+  [00-configure-initramfs](../00-configure-initramfs/README.md) have brought it
+  back, with a warning in the build log.
 - Removes `/etc/apt/apt.conf.d/01cache` and runs `apt-get clean`.
 - Deletes `__pycache__` directories and `*.pyc` files under `/usr` and `/home`.
 - Empties `/tmp` and `/var/tmp`.

@@ -21,6 +21,10 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars BIN_DIR
 
+# The demos it restarts again and again are not counted one by one (the
+# usage count in rq_demo_run.sh)
+export RQ_DEMO_HOW=loop
+
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"
 LIGHTS_OUT_TIME="${DEMO_LOOP_LIGHTS_OUT_TIME:-60}"
@@ -58,7 +62,7 @@ echo ""
 echo "Demo timings:"
 echo "  - IBM Logo: ${IBM_LOGO_TIME}s"
 echo "  - Quantum Lights Out: ${LIGHTS_OUT_TIME}s"
-echo "  - RasQberry Tie: ${RASQBERRY_TIE_TIME}s"
+echo "  - Quantum Raspberry Tie: ${RASQBERRY_TIE_TIME}s"
 echo "  - RasQ-LED: ${RASQ_LED_TIME}s"
 echo ""
 echo "=============================================="
@@ -164,7 +168,7 @@ while true; do
 
     # Demo 3: RasQberry Tie
     run_demo_with_controls \
-        "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
+        "[3/4] Quantum Raspberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
         "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" \
         "${RASQBERRY_TIE_TIME}"
     # Raspberry Tie also opens the SenseHAT emulator window

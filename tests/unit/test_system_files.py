@@ -1,10 +1,12 @@
 """
 Tests for RQB2-system/ and rq_install_system_files.sh (issue #294): one tree of
 system files, installed the same way by the image build and by the branch
-updater.
+updater. Among them the JupyterLab setting that stops the "official Jupyter
+news" question.
 """
 
 import glob
+import json
 import os
 import re
 import shutil
@@ -92,3 +94,45 @@ def test_firstboot_tasks_are_in_the_tree():
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", task], cwd=_ROOT,
                              capture_output=True, text=True)
     assert tracked.returncode == 0, "01-expand-filesystem.sh is not tracked by git"
+
+
+# ---------------------------------------------------------------------------
+# JupyterLab: no "Would you like to get notified about official Jupyter news?"
+# (My Quantum Programs, Quantum Paradoxes, IBM tutorials and courses). A
+# system-wide labconfig file: every JupyterLab 4 on the Pi reads it, whatever
+# venv it runs from, and a rebuilt venv keeps it.
+# ---------------------------------------------------------------------------
+
+_JUPYTER_OVERRIDES = "etc/jupyter/labconfig/default_setting_overrides.json"
+_NOTIFICATION = "@jupyterlab/apputils-extension:notification"
+
+
+def _overrides():
+    with open(os.path.join(_TREE, _JUPYTER_OVERRIDES)) as fh:
+        return json.load(fh)
+
+
+def test_jupyterlab_does_not_ask_about_news(tmp_path):
+    _install(tmp_path, "--build")
+    installed = json.loads((tmp_path / _JUPYTER_OVERRIDES).read_text())
+    assert installed == _overrides()
+    # "none" (JupyterLab's default) is what asks; no update check either
+    assert installed[_NOTIFICATION] == {"checkForUpdates": False, "fetchNews": "false"}
+
+
+def test_jupyterlab_override_fits_its_schema():
+    # runs where JupyterLab is installed (the Pi's venv); checked by hand with 4.6.4
+    jupyterlab = pytest.importorskip("jupyterlab")
+    path = os.path.join(os.path.dirname(jupyterlab.__file__), "schemas", "@jupyterlab",
+                        "apputils-extension", "notification.json")
+    if not os.path.isfile(path):
+        pytest.skip("this JupyterLab has no notification settings")
+    with open(path) as fh:
+        props = json.load(fh)["properties"]
+    for key, value in _overrides()[_NOTIFICATION].items():
+        assert key in props, key
+        allowed = [c["const"] for c in props[key].get("oneOf", [])] or props[key].get("enum")
+        if allowed:
+            assert value in allowed, key
+        else:
+            assert props[key]["type"] == "boolean" and isinstance(value, bool), key

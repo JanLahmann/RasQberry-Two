@@ -21,7 +21,7 @@
 #   - Process: cleanup_demo_processes, setup_cleanup_trap
 #   - Paths: get_demo_dir, ensure_demo_dir
 #   - Users: get_user_name, run_as_user
-#   - Browser: open_browser
+#   - Browser: rq_open_browser, rq_show_url, open_browser
 # ============================================================================
 
 # Prevent multiple sourcing
@@ -568,13 +568,20 @@ stop_led_holders() {
         while read -r pid _; do
             if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then left="$left $pid"; fi
         done <<< "$1"
-        [ -z "$left" ] && return 0
+        [ -z "$left" ] && break
         sleep 0.1
         waited=$((waited + 1))
     done
     # shellcheck disable=SC2086
-    kill -9 $left 2>/dev/null || true
-    sleep 0.5
+    [ -z "$left" ] || { kill -9 $left 2>/dev/null || true; sleep 0.5; }
+    # The stopped demo's launcher clears the panel as it ends (its exit trap)
+    # and holds it for a moment: wait for that. A clear started meanwhile
+    # failed with "GPIO busy" (Pi 5) or drew over it (Pi 4) - item 30.
+    waited=0
+    while [ -n "$(led_holders)" ] && [ "$waited" -lt 50 ]; do
+        sleep 0.2
+        waited=$((waited + 1))
+    done
 }
 
 # Before an LED demo: if another program holds the panel, name it and offer to
@@ -601,6 +608,21 @@ Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
     return 1
 }
 
+# Run a command so that it finishes even if this script is killed: when a
+# demo's window is closed, script(1) (rq_hold_on_error.sh) asks the demo to
+# stop and kills it 2 s later. A cleanup that took longer - stopping a
+# container, clearing the LEDs on a Pi 4 - was cut off (item 33). Waits for
+# the command as long as this script lives. Quiet: the terminal may be gone.
+# Usage: rq_run_detached COMMAND [ARGS...]
+rq_run_detached() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid -w "$@" </dev/null >/dev/null 2>&1 &
+        wait $! 2>/dev/null || true
+    else
+        "$@" </dev/null >/dev/null 2>&1 || true
+    fi
+}
+
 # Clear the panel and say nothing: for exit traps, where the terminal may
 # already be gone (a closed window) and any output would fail.
 led_clear_quietly() {
@@ -609,8 +631,133 @@ led_clear_quietly() {
     if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
         py="$venv/bin/python3"
     fi
-    PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" \
-        "$py" "$script" >/dev/null 2>&1 </dev/null || true
+    rq_run_detached env PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script"
+}
+
+# Stop and remove a container, to the end even if this script is killed
+# (see rq_run_detached)
+rq_docker_stop_detached() {
+    rq_run_detached bash -c '. "$1" && rq_docker_stop "$2"' _ "$_RQ_COMMON_DIR/rq_common.sh" "$1"
+}
+
+# After an LED demo: if the Pi 5's LED driver stalled during it (a power
+# supply too weak for the LEDs, item 31), say so and offer a lower brightness.
+# Only with a terminal to ask on.
+# Usage: rq_led_stall_check START_EPOCH
+rq_led_stall_check() {
+    [ -t 0 ] && [ -t 1 ] || return 0
+    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" 2>/dev/null || true
+}
+
+# An LED launcher clears the panel once when it ends, however it ends: Enter,
+# Ctrl+C, a closed window (HUP) or a stop from the menu (TERM). The signals
+# only end the script; the EXIT trap clears. A closed window (R-158) left the
+# panel lit when a launcher exec'd its demo or trapped only some signals.
+# Usage: rq_led_clear_on_exit
+rq_led_clear_on_exit() {
+    RQ_LED_RUN_START=$(date +%s)
+    trap '_rq_led_on_exit' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+}
+
+_rq_led_on_exit() {
+    local rc=$?
+    # A closed window ends script(1) too, and the hangup that follows must not
+    # cut this short
+    trap '' HUP INT TERM
+    led_clear_quietly
+    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+}
+
+# ----------------------------------------------------------------------------
+# Stopping a demo: one rule for all (items 5, 33)
+# ----------------------------------------------------------------------------
+# Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
+# the window - from a desktop icon and from the RasQberry menu (also over SSH).
+# A demo that reads the keyboard itself (a console game, a text prompt) stops
+# with Ctrl+C or by closing the window. Docker demos stop with their window
+# too; only the Workshop & Qiskit Server keeps running by design.
+
+# Usage: rq_stop_hint NAME [keys]
+rq_stop_hint() {
+    if [ "${2:-}" = "keys" ]; then
+        echo "To stop $1: press Ctrl+C or close this window."
+    else
+        echo "To stop $1: press Enter or Ctrl+C, or close this window."
+    fi
+}
+
+# Is process PID still there (not a zombie)? Works for children started
+# through sudo, where kill -0 fails with "not permitted".
+_rq_pid_alive() {
+    case "$(ps -o stat= -p "$1" 2>/dev/null)" in
+        ""|Z*) return 1 ;;
+    esac
+    return 0
+}
+
+# Show the stop hint and wait until Enter, or until the demo ends by itself
+# (PID, or the Docker container named after --container). Ctrl+C and a closed
+# window end the calling script through its traps. Without a terminal there
+# is nobody to press Enter: wait for the PID (if any) and return.
+# Usage: rq_wait_for_stop NAME [PID | --container CONTAINER]
+rq_wait_for_stop() {
+    local name="$1" pid="" container="" rc
+    case "${2:-}" in
+        --container) container="${3:-}" ;;
+        *) pid="${2:-}" ;;
+    esac
+    if ! [ -t 0 ]; then
+        if [ -n "$pid" ]; then wait "$pid" 2>/dev/null || true; fi
+        return 0
+    fi
+    echo
+    rq_stop_hint "$name"
+    while :; do
+        if [ -n "$pid" ]; then _rq_pid_alive "$pid" || return 0; fi
+        if [ -n "$container" ]; then rq_docker_running "$container" || return 0; fi
+        rc=0
+        read -r -t 2 _ || rc=$?
+        [ "$rc" -eq 0 ] && return 0      # Enter
+        [ "$rc" -gt 128 ] || return 0    # no more input
+    done
+}
+
+# A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
+# closing the window stops the container. All four used to keep running after
+# their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
+# running; RasQberry menu > Quantum Demos > Stop Docker demos stops it.
+# Usage: rq_docker_stop_with_window CONTAINER NAME
+rq_docker_stop_with_window() {
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
+        return 0
+    fi
+    RQ_WINDOW_CONTAINER="$1"
+    RQ_WINDOW_NAME="$2"
+    trap '_rq_window_container_stop' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    rq_wait_for_stop "$2" --container "$1"
+    _rq_window_container_stop
+    trap - EXIT HUP INT TERM
+}
+
+# Quietly where needed: after a closed window, writing to it fails.
+_rq_window_container_stop() {
+    [ -n "${RQ_WINDOW_CONTAINER:-}" ] || return 0
+    # The hangup that follows a closed window must not cut the stop short:
+    # the container was stopped but left behind
+    trap '' HUP INT TERM
+    local name="$RQ_WINDOW_CONTAINER"
+    RQ_WINDOW_CONTAINER=""
+    { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_docker_stop_detached "$name"
+    { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
 
 # ============================================================================
@@ -819,30 +966,80 @@ ensure_root() {
 # 11. BROWSER LAUNCHING
 # ============================================================================
 
-# Open URL in available browser
-# Usage: open_browser "http://localhost:8080"
-open_browser() {
-    local url="$1"
-    local browsers=("chromium-browser" "firefox" "google-chrome" "xdg-open")
+# Longest wait (seconds) for the browser command to hand its address over
+RQ_BROWSER_HANDOFF_WAIT="${RQ_BROWSER_HANDOFF_WAIT:-10}"
 
-    for browser in "${browsers[@]}"; do
-        if command -v "$browser" >/dev/null 2>&1; then
-            info "Opening browser: $browser"
-
-            # Run as user if we're root
-            if [ "$(whoami)" = "root" ]; then
-                local user_name
-                user_name=$(get_user_name)
-                su - "$user_name" -c "DISPLAY=${DISPLAY:-:0} $browser '$url' >/dev/null 2>&1 &" >/dev/null 2>&1 &
-            else
-                "$browser" "$url" &>/dev/null &
-            fi
-
+# The browser command on this Pi; fails if there is none
+_rq_find_browser() {
+    local b
+    for b in chromium-browser chromium firefox xdg-open; do
+        if command -v "$b" >/dev/null 2>&1; then
+            echo "$b"
             return 0
         fi
     done
+    return 1
+}
 
-    warn "No browser found. Please open manually: $url"
+# Open URL in the desktop user's browser, so that the tab outlives the demo
+# window that opened it. Extra arguments are Chromium flags
+# (--start-fullscreen). Prints nothing; returns 1 when there is no browser.
+#
+# A demo window is a terminal session (lxterminal; script(1) under
+# rq_hold_on_error.sh). A command started there with & stays in the
+# terminal's foreground process group, and the kernel sends that group SIGHUP
+# when the session leader ends - under rq_hold_on_error.sh, the demo itself -
+# and when the window closes. Composer and Grok Bloch online end right after
+# starting `chromium-browser URL`, so in a window of their own (an icon
+# running rq_demo_run.sh) the hangup killed it before it had handed the
+# address to the running Chromium: no tab. And a Chromium that a demo had
+# started itself (none was running) closed, all tabs, with the demo's window.
+# So the browser command gets a session of its own (setsid): no terminal, and
+# no process group that a closed window or a demo's cleanup reaches - those
+# still stop the demo's own server, LEDs and containers. This then waits until
+# the command has handed the address over and exited, at most
+# RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+# Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
+rq_open_browser() {
+    local url="$1" browser pid user_name ticks=0
+    local -a cmd
+    shift
+    browser=$(_rq_find_browser) || return 1
+    case "$browser" in
+        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
+        *)         cmd=("$browser" "$url") ;;
+    esac
+    # As the desktop user, as run_as_user does. sudo goes inside setsid: it
+    # passes the signals it gets on to the browser.
+    user_name=$(get_user_name)
+    if [ "$(id -u)" = "0" ] && [ "$user_name" != "root" ]; then
+        cmd=(sudo -u "$user_name" -H DISPLAY="${DISPLAY:-:0}" -- "${cmd[@]}")
+    fi
+    if command -v setsid >/dev/null 2>&1; then
+        # -w: should setsid have to fork (as a process group leader), $! still
+        # ends with the browser command
+        setsid -w "${cmd[@]}" </dev/null >/dev/null 2>&1 &
+    else
+        nohup "${cmd[@]}" </dev/null >/dev/null 2>&1 &
+    fi
+    pid=$!
+    while _rq_pid_alive "$pid" && [ "$ticks" -lt $((RQ_BROWSER_HANDOFF_WAIT * 5)) ]; do
+        sleep 0.2
+        ticks=$((ticks + 1))
+    done
+    _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    return 0
+}
+
+# Open URL in available browser (see rq_open_browser), or say where to go
+# Usage: open_browser "http://localhost:8080"
+open_browser() {
+    if _rq_find_browser >/dev/null; then
+        info "Opening the browser..."
+        rq_open_browser "$1"
+        return 0
+    fi
+    warn "No browser found. Please open manually: $1"
     return 1
 }
 
@@ -927,8 +1124,10 @@ rq_confirm_download() {
     local name="$1" dl="${2:-0}" disk="${3:-0}"
     shift 3 || true
     local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
+    local docker=0
     while [ $# -gt 0 ]; do
         case "$1" in
+            --docker) docker=1; shift ;;
             --what) what="$2"; shift 2 ;;
             --time) time="$2"; shift 2 ;;
             --path) path="$2"; shift 2 ;;
@@ -977,6 +1176,7 @@ rq_confirm_download() {
     [ -n "$what" ] && text="${text}What:      $what\n"
     text="${text}Download:  $dl_txt (needs the internet)\n"
     text="${text}Space:     $card_txt\n"
+    [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
     [ -n "$time" ] && text="${text}Time:      about $time\n"
     text="${text}Free:      $free_txt\n\n${question:-Download now?}"
 
@@ -1005,6 +1205,40 @@ rq_confirm_download() {
     fi
     RQ_CONSENT_MSG="$name was not downloaded."
     return 1
+}
+
+# Is / one slot of an A/B card? (RQ_TEST_AB=1/0 in tests)
+_rq_root_is_ab_slot() {
+    if [ -n "${RQ_TEST_AB:-}" ]; then [ "$RQ_TEST_AB" = 1 ]; return; fi
+    case "$(lsblk -no LABEL "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null)" in
+        SYSTEM-A|SYSTEM-B|system-a|system-b) return 0 ;;
+    esac
+    return 1
+}
+
+# Size of the root file system in whole GB (RQ_TEST_ROOT_GB in tests)
+_rq_root_size_gb() {
+    if [ -n "${RQ_TEST_ROOT_GB:-}" ]; then echo "$RQ_TEST_ROOT_GB"; return; fi
+    df -P -k / 2>/dev/null | awk 'NR == 2 { printf "%d\n", $2 / 1000000 }'
+}
+
+# Extra lines under "Space:" for a Docker demo (item 32): the images live in
+# the running system, so on an A/B card each slot keeps its own and an update
+# downloads them again; a 16 GB card fits one Docker demo.
+# Prints dialog text with literal \n, like the rest of the consent text.
+_rq_docker_space_note() {
+    local gb
+    if _rq_root_is_ab_slot; then
+        printf '%s' "           Docker images stay in this system's slot: after an\n"
+        printf '%s' "           update into the other slot they download again.\n"
+    fi
+    gb=$(_rq_root_size_gb)
+    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
+    if [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]; then
+        printf '%s' "           A 16 GB card has room for one Docker demo (not the\n"
+        printf '%s' "           Workshop & Qiskit Server).\n"
+    fi
+    return 0
 }
 
 # Echo the shipped manifest directory (installed or repo checkout)
@@ -1041,14 +1275,16 @@ rq_confirm_demo_install() {
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
     fi
+    local docker_opt=""
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        docker_opt="--docker"
         path="/var/lib/docker"
         [ -n "$what" ] || what="Docker image ($image)"
         [ -n "$url" ] || url=$(rq_image_registry_url "$image")
     fi
     [ -n "$url" ] || url="${repo:-https://github.com}"
     rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
-        --path "$path" --peak "$peak" --url "$url" || return $?
+        --path "$path" --peak "$peak" --url "$url" $docker_opt || return $?
     RQ_CONFIRMED_DEMO="$id"
     export RQ_CONFIRMED_DEMO
     return 0
@@ -1296,17 +1532,82 @@ get_ab_boot_partition() {
     esac
 }
 
-# Release channel of a version/tag, as RQB-releases.json names its streams
-# (rq_update_check.sh, rq_ab_releases.sh):
-#   beta-*                 -> beta
-#   development-*, dev-*   -> dev    (feature-branch builds follow development)
-#   anything else          -> stable (main releases are tagged v{version})
+# Before scripts that mount partitions (the slot update): mount prints
+# "(hint) your fstab has been modified, but systemd still uses the old
+# version" for EVERY mount when /etc/fstab is newer than systemd's last
+# reload - which happens when the clock was behind at start-up (no RTC battery,
+# NTP not there yet). One reload ends it (H-34: the hint appeared twice).
+rq_refresh_fstab_view() {
+    local loaded=/run/systemd/systemd-units-load
+    [ -e /etc/fstab ] && [ -e "$loaded" ] || return 0
+    if [ /etc/fstab -nt "$loaded" ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+    return 0
+}
+
+# Release channel (stream) of a version/tag, as RQB-releases.json names its
+# streams. The one shell copy of the rule: rq_slot_manager.sh plan-update
+# (Jan's guard), rq_slot_status.sh, rq_update_check.sh and rq_ab_releases.sh
+# use it; rq_release_notice.py has the Python copy, and
+# tests/unit/data/plan_update_cases.json tests both.
+#   beta-*                    -> beta
+#   development-*, dev-*      -> dev     (feature-branch builds follow development)
+#   v1.2.3, 1.2.3, stable-*   -> stable  (main releases are tagged v{version})
+#   anything else             -> unknown (never stable: it ranks like dev and
+#                                         takes its updates from dev)
 rq_release_channel() {
     case "$1" in
-        beta-*)                echo beta ;;
-        development-*|dev-*)   echo dev ;;
-        *)                     echo stable ;;
+        beta-*)                    echo beta ;;
+        development-*|dev-*)       echo dev ;;
+        v[0-9]*|[0-9]*|stable-*)   echo stable ;;
+        *)                         echo unknown ;;
     esac
+}
+
+# The channel an image takes its updates from: its own; an image of no known
+# channel (a version file of any other name, or none) follows dev
+rq_update_channel() {
+    local channel
+    channel=$(rq_release_channel "$1")
+    [ "$channel" = "unknown" ] && channel=dev
+    echo "$channel"
+}
+
+# Release controls (#242): rasqberry.org/RQB-release-controls.json maps a
+# release tag to {"notify_after", "rollout", "withdrawn", "reason"}. Only
+# "withdrawn" matters to the shell tools: the update check and the release
+# picker do not offer a withdrawn release. No file (404), no network or a
+# broken file all mean: nothing is withdrawn.
+# Environment (tests): RQ_RELEASE_CONTROLS_FILE, RQ_RELEASE_CONTROLS_URL; a
+# release list read from a file (RQ_RELEASES_FILE, RQ_GITHUB_RELEASES_FILE)
+# never goes online for the controls either
+rq_release_controls() {
+    local json=""
+    if [ -n "${RQ_RELEASE_CONTROLS_FILE:-}" ]; then
+        json=$(cat "$RQ_RELEASE_CONTROLS_FILE" 2>/dev/null || true)
+    elif [ -n "${RQ_RELEASES_FILE:-}${RQ_GITHUB_RELEASES_FILE:-}" ]; then
+        json='{}'
+    else
+        json=$(curl -fsSL --max-time 10 \
+            "${RQ_RELEASE_CONTROLS_URL:-https://rasqberry.org/RQB-release-controls.json}" 2>/dev/null || true)
+    fi
+    if printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+        printf '%s\n' "$json"
+    else
+        echo '{}'
+    fi
+}
+
+# rq_release_withdrawn TAG [CONTROLS_JSON]: prints the reason (or "no reason
+# given") and returns 0 when TAG was withdrawn, else returns 1
+rq_release_withdrawn() {
+    local json="${2:-}"
+    [ -n "$json" ] || json=$(rq_release_controls)
+    printf '%s' "$json" | jq -er --arg t "$1" '
+        (if (.releases | type) == "object" then .releases else . end)[$t]
+        | select(type == "object" and .withdrawn == true)
+        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null
 }
 
 # ============================================================================
@@ -1387,6 +1688,66 @@ rq_demo_set_version() {
         if [ -n "$chosen" ]; then printf '%s\t%s\t%s\t%s\n' "$key" "$pin" "$chosen" "$label"; fi
     } > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
     fix_root_ownership "$f" >/dev/null 2>&1 || true
+}
+
+# Where new and less-tested demos ask for feedback (a GitHub issue form)
+RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml"
+
+# Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
+# The variant's value wins, then the manifest's, then the catalogue entry's
+# (known-demos.json), so a catalogue demo installed before it was marked
+# shows it too.
+# Usage: [ -n "$(rq_demo_maturity ID [MANIFEST] [VARIANT])" ]
+rq_demo_maturity() {
+    local id="$1" variant="${3:-}" mf m="" registry
+    if mf=$(_rq_demo_mf "$id" "${2:-}") && [ -f "$mf" ]; then
+        [ -n "$variant" ] && m=$(jq -r --arg v "$variant" \
+            '.variants[]? | select(.id == $v) | .maturity // empty' "$mf" 2>/dev/null)
+        [ -n "$m" ] || m=$(jq -r '.maturity // empty' "$mf" 2>/dev/null)
+    fi
+    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    if [ -z "$m" ] && [ -f "$registry" ]; then
+        m=$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .maturity // empty' \
+            "$registry" 2>/dev/null)
+    fi
+    [ "$m" = "beta" ] && echo beta
+    return 0
+}
+
+# The invitation at the start of a beta demo.
+# Usage: rq_beta_notice DEMO_ID
+rq_beta_notice() {
+    echo "This demo is new - please try it and tell us what works and what doesn't."
+    echo "Your feedback helps a lot: ${RQ_FEEDBACK_URL}&demo=$1"
+    echo
+}
+
+# How a demo start came, for its usage count: RQ_DEMO_HOW from the caller
+# (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),
+# else the RasQberry menu when its error file is set (run_engine_demo), else
+# nothing (a terminal, SSH)
+rq_demo_start_how() {
+    if [ -n "${RQ_DEMO_HOW:-}" ]; then
+        echo "$RQ_DEMO_HOW"
+    elif [ -n "${RQ_ERROR_FILE:-}" ]; then
+        echo menu
+    fi
+}
+
+# Anonymous usage count for the project's statistics (rq_umami_event.py; no
+# IDs): in the background, so the caller never waits, and it never fails.
+# RQ_UMAMI=0 sends nothing (the rig tests set it).
+# Usage: rq_count_event demo-start ID[:VARIANT] [HOW]
+#        rq_count_event learning-path ID start|finish
+rq_count_event() {
+    local sender="$_RQ_COMMON_DIR/rq_umami_event.py"
+    [ "${RQ_UMAMI:-}" != "0" ] && [ -f "$sender" ] && command -v python3 >/dev/null 2>&1 || return 0
+    if command -v setsid >/dev/null 2>&1; then
+        ( PYTHONDONTWRITEBYTECODE=1 setsid python3 "$sender" "$@" </dev/null >/dev/null 2>&1 & ) 2>/dev/null || true
+    else
+        ( PYTHONDONTWRITEBYTECODE=1 python3 "$sender" "$@" </dev/null >/dev/null 2>&1 & ) 2>/dev/null || true
+    fi
+    return 0
 }
 
 # ============================================================================
@@ -1486,23 +1847,20 @@ rq_docker_drop_old() {
     return 0
 }
 
-# Open URL in the desktop user's browser - or, without a screen (an SSH
-# session), say how to reach it from another computer (Jan, Q19). PORT is the
+# Open URL in the desktop user's browser (rq_open_browser: the tab stays when
+# the demo's window closes) - or, without a screen (an SSH session), say how
+# to reach it from another computer (Jan, Q19). PORT is the
 # Pi-side port behind URL, for an ssh -L tunnel to a server on 127.0.0.1.
 # Usage: rq_show_url URL [PORT]
 rq_show_url() {
-    local url="$1" port="${2:-}" browser
+    local url="$1" port="${2:-}"
     if check_display; then
-        for browser in chromium-browser chromium firefox xdg-open; do
-            command -v "$browser" >/dev/null 2>&1 || continue
+        if _rq_find_browser >/dev/null; then
             info "Opening the browser..."
-            case "$browser" in
-                chromium*) run_as_user "$browser" --password-store=basic "$url" >/dev/null 2>&1 & ;;
-                *)         run_as_user "$browser" "$url" >/dev/null 2>&1 & ;;
-            esac
-            return 0
-        done
-        info "No browser found. Open this address: $url"
+            rq_open_browser "$url"
+        else
+            info "No browser found. Open this address: $url"
+        fi
         return 0
     fi
     echo

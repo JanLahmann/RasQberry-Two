@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Learning paths
+Comment=(beta) Short tours through the demos, for a stand, a lesson or learning to code: what to try and what to notice, step by step
+Icon=applications-science
+Type=Application
+Categories=RasQberry;Education;
+Exec=/usr/bin/rq_hold_on_error.sh -t "Learning paths" /usr/bin/rq_learning_paths.sh
+Terminal=true
+StartupNotify=true
+Keywords=learn;learning;path;tour;lesson;class;school;stand;quantum;demos;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_learning_paths.sh
+NoDisplay=false

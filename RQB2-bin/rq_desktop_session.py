@@ -50,13 +50,14 @@ HOMEPAGE = "https://rasqberry.org"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
 # The desktop's own launchers, in the order they are laid out (row by row).
-# Setup, the menu and the touch switch come first, the LED tools last.
+# Setup, the menu and the touch switch come first, then the learning paths
+# (a way into the demos), the LED tools last.
 ICON_ORDER = [
     "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
-    "composer", "grok-bloch", "grok-bloch-web", "quantum-fractals",
+    "learning-paths", "composer", "grok-bloch", "quantum-fractals",
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
-    "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
+    "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
     "ibm-quantum-courses", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"

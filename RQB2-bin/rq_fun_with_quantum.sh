@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ################################################################################
-# rq_fun_with_quantum.sh - RasQberry Fun-with-Quantum Demo Launcher
+# rq_fun_with_quantum.sh - RasQberry Fun with Quantum Demo Launcher
 #
 # Description:
-#   Launches the Fun-with-Quantum Jupyter notebooks for learning quantum
+#   Launches the Fun with Quantum Jupyter notebooks for learning quantum
 #   computing through interactive games and demonstrations.
 #   Includes RISE slideshow extension for presentation mode.
 #
@@ -42,6 +42,8 @@ JUPYTER_PID=""
 # Cleanup function
 ################################################################################
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     info "Cleaning up..."
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping Jupyter server..."
@@ -55,14 +57,17 @@ cleanup() {
 ################################################################################
 
 # Setup cleanup trap
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 # Without a screen (SSH) the server starts headless and the address and an
 # ssh -L tunnel command are printed instead of opening a browser (Jan, Q19)
 
 # Verify demo is installed
 if [ ! -f "$DEMO_DIR/$MARKER_FWQ" ]; then
-    die "Fun-with-Quantum not installed. Run 'rq_demo_run.sh fun-with-quantum' (installs on demand) or install via raspi-config."
+    die "Fun with Quantum is not installed. Run 'rq_demo_run.sh fun-with-quantum' (installs on demand) or install via raspi-config."
 fi
 
 # Activate virtual environment
@@ -109,6 +114,16 @@ cd "$DEMO_DIR"
 # 'identity_provider'") across the terminal on every launch. The server carried
 # on serving, yet the demo looked like it had crashed. Turn the extension off
 # for this server; RISE and the notebooks are unaffected.
+#
+# The server's own log ("notebook is not trusted", kernel messages) goes to a
+# file, not over this window (item 10). ws_ping_interval=0: notebook 6 hands
+# its ping settings in milliseconds to a Tornado that reads seconds and
+# warned "websocket_ping_timeout (90000) cannot be longer than the
+# websocket_ping_interval (30000)" whenever a notebook opened. Keep-alive
+# pings are not needed between the browser and 127.0.0.1.
+SERVER_LOG="$USER_HOME/.cache/rasqberry/fun-with-quantum-server.log"
+mkdir -p "$(dirname "$SERVER_LOG")" 2>/dev/null || true
+: > "$SERVER_LOG" 2>/dev/null || SERVER_LOG=/dev/null
 jupyter notebook \
     --no-browser \
     --port="$PORT" \
@@ -117,7 +132,8 @@ jupyter notebook \
     --NotebookApp.password='' \
     --NotebookApp.open_browser=False \
     --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
-    2>&1 &
+    --NotebookApp.tornado_settings="{'ws_ping_interval': 0}" \
+    >"$SERVER_LOG" 2>&1 &
 JUPYTER_PID=$!
 
 # Wait for Jupyter to start
@@ -126,43 +142,34 @@ sleep 3
 
 # Verify Jupyter is running
 if ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
-    die "Jupyter failed to start"
+    [ -s "$SERVER_LOG" ] && tail -5 "$SERVER_LOG"
+    die "Jupyter failed to start (log: $SERVER_LOG)"
 fi
 
+# The notebooks, as the demo menu lists them (the manifest's variants), so
+# this list cannot fall behind the demo again (item 10)
+notebook_list() {
+    local mf
+    mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" fun-with-quantum 2>/dev/null) || return 0
+    jq -r '.variants[]? | select((.args // [])[0] // "" | endswith(".ipynb"))
+           | "    - \(.name)  (\(.args[0]))"' "$mf" 2>/dev/null || true
+}
+
 echo
-echo "✓ Fun-with-Quantum is running!"
+echo "Fun with Quantum is running: $JUPYTER_URL"
 echo
-echo "  Jupyter URL: $JUPYTER_URL"
+echo "  Notebooks:"
+notebook_list
 echo
-echo "  Available notebooks:"
-echo "    - Quantum-Coin-Game.ipynb    (superposition & interference)"
-echo "    - GHZ-Game.ipynb             (entanglement)"
-echo "    - Hardys-Paradox.ipynb       (quantum logic)"
-echo "    - 3sat.ipynb                 (Grover's algorithm)"
-echo
-echo "  RISE Slideshow: Press Alt+R in any notebook"
+echo "  Slideshow (RISE): Alt+R in a notebook"
+echo "  Server log: $SERVER_LOG"
 echo
 
 # Try to open browser (its console output would be drawn over the
 # raspi-config menu, R-137)
 rq_show_url "$JUPYTER_URL" "$PORT"
 
-echo
-echo "============================================"
-echo "  Fun-with-Quantum is running"
-echo "============================================"
-echo
-
-# Only wait for input if we have a TTY (interactive session)
-if [ -t 0 ]; then
-    echo "Press Enter to stop the Jupyter server..."
-    read -r
-    info "Stopping Jupyter server..."
-else
-    # No TTY - keep running
-    info "Jupyter server running in background (PID: $JUPYTER_PID)"
-    info "Stop with: kill $JUPYTER_PID"
-    echo
-    # Wait for Jupyter process
-    wait "$JUPYTER_PID" 2>/dev/null || true
-fi
+# Enter, Ctrl+C or closing this window stops it (items 5, 33); without a
+# terminal it runs until the server ends. The cleanup trap stops the server.
+[ -t 0 ] || info "Jupyter server running in background (PID: $JUPYTER_PID). Stop with: kill $JUPYTER_PID"
+rq_wait_for_stop "Fun with Quantum" "$JUPYTER_PID"

@@ -441,6 +441,14 @@ validate_manifest() {
         errors=$((errors + 1))
     fi
 
+    # Validate maturity (top level and variants): stable or beta
+    local bad_maturity
+    bad_maturity=$(jq -r '[.maturity, (.variants[]?.maturity)] | map(select(. != null and . != "stable" and . != "beta")) | .[0] // empty' "$file" 2>/dev/null)
+    if [ -n "$bad_maturity" ]; then
+        print_fail "Invalid maturity: $bad_maturity (valid: stable, beta)"
+        errors=$((errors + 1))
+    fi
+
     # Check for duplicate IDs (will be checked globally)
 
     # Optional: Check referenced files exist

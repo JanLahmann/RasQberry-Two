@@ -105,6 +105,8 @@ info "JupyterLab ready!"
 # cleanup - Stop JupyterLab on exit
 ################################################################################
 cleanup() {
+    set +e   # a closed window cannot show messages: still stop the server
+    trap '' HUP INT TERM
     info "Stopping JupyterLab..."
     if [ -n "${JUPYTER_PID:-}" ]; then
         kill $JUPYTER_PID 2>/dev/null || true
@@ -134,8 +136,5 @@ echo ""
 echo "Content licensed under CC BY-SA 4.0 by IBM/Qiskit"
 echo "Source: https://github.com/Qiskit/documentation"
 echo ""
-echo "Press Ctrl+C to stop"
-echo ""
-
-wait $JUPYTER_PID 2>/dev/null || true
+rq_wait_for_stop "IBM Quantum Tutorials" "$JUPYTER_PID"
 cleanup

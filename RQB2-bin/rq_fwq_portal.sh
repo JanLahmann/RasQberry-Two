@@ -70,9 +70,4 @@ rq_show_url "$url" "$port"
 
 echo
 echo "Fun with Quantum website: $url (games in the browser work without the internet)"
-if [ -t 0 ]; then
-    echo "Press Enter or close this window to stop it."
-    read -r || true
-else
-    wait "$SERVER_PID" 2>/dev/null || true
-fi
+rq_wait_for_stop "the Fun with Quantum website" "$SERVER_PID"

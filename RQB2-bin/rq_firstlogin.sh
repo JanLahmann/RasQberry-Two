@@ -2,12 +2,14 @@
 # ============================================================================
 # RasQberry: the setup checklist
 # ============================================================================
-# Offers the setup steps that are still pending. It opens by itself ONCE per
-# user (Jan, Q12): at the first desktop login in its own terminal window, after
-# the IP address scroll has let go of the LED panel - or, for someone who only
-# ever logs in over SSH, at that first login. After that it opens only from the
-# "RasQberry Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry
-# -> Setup Checklist).
+# Offers the setup steps that are still pending. It opens by itself until a
+# person has answered it once (Jan, Q12; item 22): at a desktop login in its
+# own terminal window, after the IP address scroll has let go of the LED panel,
+# and at SSH logins. "Answered" means Run, Later or Esc was pressed - a window
+# on a desktop nobody looks at (monitor off, headless) does not count, so the
+# next SSH login still offers it. After that it opens only from the "RasQberry
+# Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
+# Checklist).
 #
 # Usage:
 #   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
@@ -45,7 +47,8 @@ ENV_FILE="/usr/config/rasqberry_environment.env"
 MENU_FILE="/usr/config/RQB2_menu.sh"
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"
-# Written when the checklist has opened by itself: it never does so again
+# Written when a person has answered the checklist that opened by itself: it
+# never opens by itself again (the name is kept for cards already in use)
 SHOWN_FILE="$STATE_DIR/setup-checklist-shown"
 # Before the once-only rule: optional steps already offered at a login
 OLD_OFFERED_FILE="$STATE_DIR/firstlogin-offered"
@@ -124,7 +127,7 @@ task_expand_pending() {
 }
 task_expand_label() {
     if [ "$(ab_mode)" = "single-pending" ]; then
-        printf 'Use the whole SD card (it is under 64GB: one system, no A/B updates)'
+        printf 'Use the whole SD card (it is under 64 GB: one system, no A/B updates)'
     else
         printf 'Prepare the SD card for A/B updates (second system, a few minutes)'
     fi
@@ -146,9 +149,15 @@ task_expand_run() {
 # ---------------------------------------------------------------------------
 task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
 task_abinfo_pending() { [ ! -e "$STATE_DIR/abinfo-read" ]; }
-task_abinfo_label()   { printf 'About this SD card: under 64GB, so ONE system and no A/B updates'; }
+task_abinfo_label()   { printf 'About this SD card: under 64 GB, so ONE system and no A/B updates'; }
 task_abinfo_run() {
-    whiptail --title "This SD card" --msgbox "$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)" 18 78
+    local text h
+    text=$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)
+    # sized to the text (one line per paragraph since item 24): whiptail
+    # shows H-6 lines
+    h=$(( $(printf '%s\n' "$text" | fold -s -w 70 | wc -l) + 6 ))
+    [ "$h" -gt "$(tput lines 2>/dev/null || echo 24)" ] && h=$(tput lines 2>/dev/null || echo 24)
+    whiptail --title "This SD card" --msgbox "$text" "$h" 74
     mkdir -p "$STATE_DIR" 2>/dev/null && touch "$STATE_DIR/abinfo-read" 2>/dev/null
     return 0
 }
@@ -413,8 +422,8 @@ if [ "$MODE" = "desktop" ]; then
         exit 0
     fi
     wait_for_ip_display
-    already_shown && exit 0     # opened in an SSH login in the meantime
-    mark_shown
+    already_shown && exit 0     # answered in an SSH login in the meantime
+    # Not marked here: only an answer counts (item 22). --now marks it.
     term=$(command -v lxterminal || command -v x-terminal-emulator) || exit 0
     exec "$term" -t "RasQberry Setup" -e \
         "bash -c '/usr/bin/rq_firstlogin.sh --now; echo; echo Press Enter to close this window...; read'"
@@ -442,11 +451,10 @@ REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 
 # Nothing to do: the login hook says nothing (it runs at a login); the window
 # the desktop opened says so instead of standing empty.
 if [ -z "$pending" ] && [ "$MODE" != "all" ]; then
-    [ "$MODE" = "login" ] && mark_shown
+    mark_shown
     [ "$MODE" = "now" ] && echo "All setup steps are done."
     exit 0
 fi
-[ "$MODE" = "login" ] && mark_shown
 
 # ---------------------------------------------------------------------------
 # Ask
@@ -476,9 +484,17 @@ height=$(( rows + lines + 8 ))
 max=$(tput lines 2>/dev/null || echo 24)
 [ "$max" -ge 12 ] 2>/dev/null || max=24
 [ "$height" -gt "$max" ] && height="$max"
+wt_rc=0
 choice=$(whiptail --title "RasQberry Two Setup" --notags --separate-output \
     --ok-button "Run" --cancel-button "Later" \
-    --checklist "$text" "$height" 78 "$rows" "${args[@]}" 3>&1 1>&2 2>&3) || choice=""
+    --checklist "$text" "$height" 78 "$rows" "${args[@]}" 3>&1 1>&2 2>&3) || wt_rc=$?
+# Run (0), Later (1) or Esc (255): a person answered. A window that was closed
+# or a session that ended (killed by a signal) did not (item 22).
+case "$wt_rc" in
+    0|1|255) [ "$MODE" = "all" ] || mark_shown ;;
+    *)       choice="" ;;
+esac
+[ "$wt_rc" -eq 0 ] || choice=""
 
 if [ -z "$choice" ]; then
     [ "$MODE" = "all" ] || echo "$REOPEN"

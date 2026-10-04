@@ -18,9 +18,11 @@ esac
 
 # Real terminal on both ends, once per shell, tool present.
 # One line when the daily check (rasqberry-update-check.timer) found a newer
-# image (#139); silent otherwise.
-if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_update_check.sh ]; then
-    /usr/bin/rq_update_check.sh --notice 2>/dev/null || true
+# release for this Pi (#139, #242): rq_release_notice.py writes it with the
+# rules of the desktop notice (grace period, staged rollout, withdrawn
+# releases, both slots); silent otherwise.
+if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -s /var/lib/rasqberry/update-notice ]; then
+    head -n 1 /var/lib/rasqberry/update-notice 2>/dev/null || true
 fi
 
 if [ -t 0 ] && [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_firstlogin.sh ]; then

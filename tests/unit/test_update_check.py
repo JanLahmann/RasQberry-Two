@@ -46,10 +46,19 @@ def _run(tmp_path, version, *args):
     ("beta-2025-12-30-211449", 10),          # older beta
     ("beta-2026-10-01-120000", 0),
     ("v1.0.0", 0),                           # stable channel, nothing published
+    ("1.0.0", 0),                            # VERSION on main has no "v": stable too
+    ("my-build-2026-09-11-000349", 10),      # no known channel: compared with dev
+    ("my-build-2026-10-02-000000", 0),
 ])
 def test_channel_and_date_comparison(tmp_path, version, rc):
     proc = _run(tmp_path, version)
     assert proc.returncode == rc, proc.stdout + proc.stderr
+
+
+def test_an_image_of_no_known_channel_is_never_called_stable(tmp_path):
+    out = _run(tmp_path, "my-build-2026-09-11-000349").stdout
+    assert "Latest dev:" in out and "belongs to no release channel" in out
+    assert "stable" not in out
 
 
 def test_feature_branch_build_is_explained(tmp_path):
@@ -89,3 +98,18 @@ def test_offline_says_so(tmp_path):
     assert proc.returncode == 1
     assert "Could not reach rasqberry.org" in proc.stdout
     assert "network" in proc.stdout
+
+
+def test_dev_image_mentions_a_newer_beta_in_one_line(tmp_path):
+    # H-34: CHECK on a development image said nothing about a newer beta
+    proc = _run(tmp_path, "development-2026-09-30-103242")
+    assert proc.returncode == 0
+    lines = [l for l in proc.stdout.splitlines() if "beta-2026-10-01-120000" in l]
+    assert len(lines) == 1 and lines[0].startswith("Newer beta:")
+    # not for a beta older than the image, and not on the beta channel itself
+    assert "Newer beta" not in _run(tmp_path, "beta-2025-12-30-211449").stdout
+
+
+def test_refresh_stores_only_the_own_channel(tmp_path):
+    assert _run(tmp_path, "development-2026-09-11-000349", "--refresh").returncode == 10
+    assert (tmp_path / "state").read_text().strip() == "development-2026-09-30-103242"

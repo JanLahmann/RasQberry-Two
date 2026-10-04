@@ -8,3 +8,8 @@ Type=oneshot
 # Exit 10 means "update available", which is not a failure
 SuccessExitStatus=10 1
 ExecStart=/usr/bin/rq_update_check.sh --refresh
+# The login line and the cache the desktop notice falls back to (#242); never fails the unit
+ExecStart=-/usr/bin/rq_release_notice.py --refresh --system
+# Anonymous usage counts (rq_umami_event.py): queued events, then "update
+# check" once a day; never fails the unit
+ExecStart=-/usr/bin/rq_umami_event.py daily

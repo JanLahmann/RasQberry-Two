@@ -1,0 +1,24 @@
+[Unit]
+Description=RasQberry: apply Raspberry Pi Imager's OS customisation (firstrun.sh)
+# Imager writes firstrun.sh to the first FAT partition: the boot partition of
+# the standard image, CONFIG on the A/B image. Without an initramfs (whose
+# imager_fixup Raspberry Pi OS uses) and on CONFIG it would never run.
+# rq_imager_firstrun.sh points it at /boot/firmware (moving it there from
+# CONFIG and restarting, on A/B); kernel-command-line.service runs it once.
+# A/B: on the first start of a newly written card only - a leftover found by
+# any later start (e.g. an updated slot's trial) is set aside, not applied.
+DefaultDependencies=no
+After=local-fs.target systemd-remount-fs.service
+Before=sysinit.target kernel-command-line.service rasqberry-firstboot.service rasqberry-ab-layout.service rasqberry-carry-over.service
+ConditionPathExists=|/boot/firmware/firstrun.sh
+ConditionPathExists=|/boot/config/firstrun.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rq_imager_firstrun.sh boot
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=sysinit.target
