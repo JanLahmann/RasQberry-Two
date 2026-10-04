@@ -38,6 +38,7 @@ import datetime
 import fcntl
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -80,6 +81,12 @@ def fetch(host, remote, local):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+# A demo that needs an IBM Quantum account fails like this when the Pi's saved
+# key is missing or invalid: that is the rig's set-up, not the image - WARN
+ACCOUNT_ERRORS = re.compile(r"InvalidAccountError|IBMNotAuthorizedError|AccountNotFoundError|"
+                            r"Unable to retrieve instances|API key could not be found")
+
+
 def parse_lines(text):
     """Parse 'VERDICT name | detail' lines into dicts."""
     out = []
@@ -87,7 +94,10 @@ def parse_lines(text):
         head, _, detail = line.partition(" | ")
         parts = head.split(None, 1)
         if len(parts) == 2 and parts[0] in ("PASS", "FAIL", "WARN", "INFO", "SKIP"):
-            out.append({"verdict": parts[0], "name": parts[1], "detail": detail.strip()})
+            verdict, detail = parts[0], detail.strip()
+            if verdict == "FAIL" and ACCOUNT_ERRORS.search(detail):
+                verdict, detail = "WARN", detail + " (needs a valid IBM Quantum account on this Pi)"
+            out.append({"verdict": verdict, "name": parts[1], "detail": detail})
     return out
 
 
@@ -365,6 +375,10 @@ DEMO_HINTS = {
     # title: text the page title must have. The Fun with Quantum website is a
     # web page (a script variant of a Jupyter demo), not a Jupyter UI
     "fun-with-quantum:website": {"web": {"title": "Fun with Quantum"}},
+    # the Workshop & Qiskit Server shows the participants' addresses and opens
+    # its page after Ok; a second Enter lands on its stop prompt (default:
+    # keep running), so the server stays up for the page check
+    "doqumentation": {"keys": r"25:\r 20:\r"},
 }
 
 # a first start installs the demo after the consent dialog: allow for it
