@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T17:27:58Z",
+  "generated": "2026-10-04T13:42:27Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,19 +8,19 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-03-095636",
-      "name": "rasqberry-beta-2026-10-03",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-03-095636/rasqberry-beta-2026-10-03.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-03-095636",
-      "release_date": "2026-10-03",
-      "image_download_size": 1665591352,
+      "tag": "beta-2026-10-04-143935",
+      "name": "rasqberry-beta-2026-10-04",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935",
+      "release_date": "2026-10-04",
+      "image_download_size": 1645458180,
       "extract_size": 9076473856,
-      "extract_sha256": "7486c54357ab83036815dcf99e78eb3c9c4ccf9c96f053259e0e7de04abbea7e",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-03-095636/rasqberry-beta-2026-10-03-ab.img.xz",
-      "ab_extract_sha256": "bd2f93e50bf1dc63818d52602c39eeda343951c560742235d948999e4bc241f6",
-      "ab_image_sha256": "575b10fe85fc4f9711eeace8578715f5c034abb91b9f1084947f8bd8dcd273e5",
+      "extract_sha256": "6e7642344407cd6904a4cf34c73409f33da2224cf89dda2a4de7a10c45229994",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04-ab.img.xz",
+      "ab_extract_sha256": "6a5c427bcad75f328b195a49c6217bb62abe8f9a9161f0ce09d779aa3575dbf7",
+      "ab_image_sha256": "38f912f8c0608c6104f2f16930c38b5d55336e0b748b45c0585a20c3a086117a",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1668588980,
+      "ab_image_download_size": 1663679844,
       "highlights": [
         "17 demos, each downloaded from a pinned, checked source on its first start",
         "LED setup wizard and a first-login setup checklist",
@@ -30,25 +30,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-03-094345",
-      "name": "rasqberry-development-2026-10-03-094345",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-03-094345",
-      "release_date": "2026-10-03 09:43",
-      "image_download_size": 2030552064,
-      "extract_size": 9034530816,
-      "extract_sha256": "e7a534f57099cbf67e4cb0227423284722ff8a3629ce0ddb11c03ad6c49ba5d3",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-03-094345/rasqberry-development-2026-10-03-094345-ab.img.xz",
-      "ab_extract_sha256": "988b047a7bdac9b2ada9e9af3b21a362a576f007ff120633466924241c1fedb8",
-      "ab_image_sha256": "57a831eb6fd3ce4d68066d11b2d9e9afb4cf25e4b8b4c2319b6257e5222f38cf",
+      "tag": "development-2026-10-04-140956",
+      "name": "rasqberry-development-2026-10-04-140956",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-140956/rasqberry-development-2026-10-04-140956.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-140956",
+      "release_date": "2026-10-04 14:09",
+      "image_download_size": 2009310048,
+      "extract_size": 9076473856,
+      "extract_sha256": "7ad57e9ed40558c114b36a42cf8fb13b49223988df633e47ac892321921da624",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-140956/rasqberry-development-2026-10-04-140956-ab.img.xz",
+      "ab_extract_sha256": "3871f7176138ec7c3ec14fcdbff396343693af668917a562c5cebebeceb4603d",
+      "ab_image_sha256": "3911ff93224b0f63cea96f30544fbec1a174466b3a4ee3c8ff38f8c9c4c02ade",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2066591656,
+      "ab_image_download_size": 2066732184,
       "highlights": [
-        "the Quantum-Mixer image is built in the quantum-mixer repository",
-        "Bump version to development-2026-10-03-094345",
-        "pin the Fun with Quantum website bundle (ea110b0, first published bundle)",
-        "pin the Fun with Quantum website separately from the notebooks",
-        "Fun with Quantum submenu with every game, the website offline and the family"
+        "JupyterLab no longer asks about Jupyter news",
+        "date a failed switch by its request when the trial clock is behind",
+        "Bump version to development-2026-10-04-140956",
+        "Merge remote-tracking branch 'origin/development' into development",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-04-111811"
       ]
     }
   }
