@@ -127,6 +127,7 @@ The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
 | Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |
 | System Info | Version, Python and Qiskit versions, A/B slot |
 | Advanced | Edit a RasQberry Two setting, refresh the demo list, update from a GitHub branch |
+| Shut Down Safely | Switches the LEDs off and shuts the Pi down; switch the power off when the Pi's green light stays off |
 
 **Software on the image** (exact versions on your Pi: **System Info**, or `rq_info.sh`):
 

@@ -137,6 +137,8 @@ Now, we need to connect these wires to the Pi’s GPIO on the female end and to 
 
 Connect the Red wire to Pin 2 (5V). Connect the White wire to Pin 6 (GND). Connect the Green wire to Pin 12 (GPIO 18 | CLK | PCM). Once finished, your wiring should look like this:
 
+**Power:** wired like this, the panel runs on what the Pi's power supply has left over. One LED draws up to about 60 mA at full white, so all 192 at full brightness would need more than 11 A. Keep the brightness at 0.4 or lower (the default), and use the official 27 W USB-C power supply for the Pi 5 (5.1 V, 5 A). On a weaker supply a bright demo makes the Pi 5's LEDs stop: RasQberry then says so and offers a lower [LED brightness](/03-quantum-computing-demos/led-display/#2-configuration). For a brighter panel, give it its own 5 V supply.
+
 ![Figure 12](/assembly-images/wall_assembly_12_NEW.JPG "Figure 12: Wiring the Raspberry Pi.")
 
 Now we need to connect the male ends to the LED panel. The male end has a bit of exposed wire, this can be carefully slotted into the input plug to achieve a connection:

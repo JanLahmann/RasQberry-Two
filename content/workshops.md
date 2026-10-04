@@ -19,6 +19,8 @@ The **Workshop & Qiskit Server** runs on one of your Pis and serves the
 participants' laptops over the local network: IBM Quantum tutorials and courses,
 with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
+Running code in the notebooks needs the internet for now: the pages load their
+code runner from the web.
 
 ## For a stand
 

@@ -114,7 +114,7 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
    at a time, so a demo left running holds it and the next one finds it busy.
    Stop the running demo (**Quantum Demos** → **Stop an LED demo still running,
    clear LEDs**), or reboot.
-2. Run the LED test: `rq_demo_run.sh led-demos`
+2. Run the LED test: `rq_demo_run.sh led-demos led-test`
 3. Check wiring and power supply. On a Pi 5, LEDs that stop after a while mean the
    power supply is too weak: RasQberry says so and offers a lower brightness. Use
    the official 27 W supply, or lower **LEDs** → **LED brightness**.

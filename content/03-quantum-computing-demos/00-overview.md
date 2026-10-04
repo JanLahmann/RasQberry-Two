@@ -24,8 +24,8 @@ good order for a stand, a lesson or your first program.
 | IBM Quantum Tutorials | Official IBM Quantum tutorials as local notebooks | display |
 | IBM Quantum Courses | Official IBM Quantum courses as local notebooks | display |
 | Quantum Lab (QuBins) | Local JupyterLab with the IBM Quantum Learning notebooks | display, network |
-| Workshop & Qiskit Server <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials and courses, with runnable Qiskit code, to a group's laptops (built on doQumentation) | network |
-| Qiskit Tutorials on this Pi <span className="beta-tag">beta</span> | The same tutorials and courses, just for you on this Pi | display |
+| Workshop & Qiskit Server <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials and courses, with runnable Qiskit code, to a group's laptops (built on doQumentation) | network; internet to run code (for now) |
+| Qiskit Tutorials on this Pi <span className="beta-tag">beta</span> | The same tutorials and courses, just for you on this Pi | display; internet to run code (for now) |
 | Quantum Mixer | Interactive circuit builder and simulator | display |
 | IBM Quantum Composer | IBM's online circuit composer | display, network, IBM Quantum account |
 
