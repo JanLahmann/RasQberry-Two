@@ -27,6 +27,21 @@ leadspace:
       alt: lead space background image
 ---
 
+{/* BETA BOX: announces beta-2026-10-04-143935. For a newer beta, update the release tag in the "What's new" link; when a stable release ships, reword or remove the box. */}
+<div className="callout callout--news">
+  <p><strong>New beta: the SD card stays in the Pi.</strong> With the new <a href="/02-software/03-ab-boot/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="ab-image">A/B image</a>, releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB card or larger, 128 GB recommended).</p>
+  <ul>
+    <li><strong>New demos:</strong> the Workshop &amp; Qiskit Server for a whole class, Qiskit Tutorials on this Pi, Quantum Lab and a demo catalogue.</li>
+    <li><strong><a href="/03-quantum-computing-demos/02-learning-paths/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="learning-paths">Learning paths</a>:</strong> short tours through the demos, with tips on where to go next.</li>
+    <li><strong>Taskbar badge:</strong> shows which system runs and tells you when a new release is out.</li>
+  </ul>
+  <p className="callout__actions">
+    <a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="imager">▶ Write RasQberry Two to your SD card</a>
+    <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a>
+    <a href="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=New%20beta" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="feedback">Tell us what you think</a>
+  </p>
+</div>
+
 RasQberry Two is a functional model of IBM Quantum System Two. It combines
 Qiskit, a Raspberry Pi and a 3D-printed model for teaching, meetups and demo
 booths. Its demos and serious games show superposition, interference and

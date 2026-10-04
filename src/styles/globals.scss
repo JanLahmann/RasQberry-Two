@@ -61,6 +61,53 @@ img {
   }
 }
 
+// News variant (homepage "New beta" box): the gradient edge, a list and a row of actions
+.callout--news {
+  position: relative;
+  border-left: 0;
+  padding-left: calc(1.25rem + 4px);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    border-radius: 8px 0 0 8px;
+    background: linear-gradient(180deg, $text-gradient-blue, $text-gradient-purple);
+  }
+
+  ul {
+    margin: 0 0 1rem;
+    padding-left: 1.25rem;
+    list-style: disc;
+  }
+
+  li {
+    margin-bottom: 0.25rem;
+    line-height: 1.5rem;
+  }
+
+  .callout__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    margin: 0;
+
+    a.cta-button {
+      text-align: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem 1rem 1rem calc(1rem + 4px);
+
+    .callout__actions a.cta-button {
+      padding: 0.75rem 1rem;
+    }
+  }
+}
+
 // Learning paths page (generated from learning-paths.json): one card per path
 .path-card {
   margin: 1.5rem 0;
