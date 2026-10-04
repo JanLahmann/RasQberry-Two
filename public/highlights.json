@@ -1,10 +1,11 @@
 {
   "stable": [],
   "beta": [
-    "Learning paths (beta): short tours through the demos for a stand, a lesson or your first program",
-    "Workshop & Qiskit Server (beta): one Pi serves the IBM Quantum tutorials to a class, with live Qiskit code",
-    "A/B image recommended: two systems from 64 GB for safe updates; Imager customisation on both images",
-    "17 demos, each pinned to a tested version, and every demo stops the same way",
-    "LED brightness menu, and help when a weak power supply stalls the Pi 5's LEDs"
+    "New A/B image: two systems on one card; an update goes into the other system, and the Pi falls back by itself if it doesn't work (64 GB+, 128 GB recommended)",
+    "Taskbar badge shows which system runs, and tells you when a new release is out, with what's new",
+    "New demos (beta): Workshop & Qiskit Server, Qiskit Tutorials on this Pi, Fun with Quantum website and family",
+    "Also new: Quantum Lab (QuBins), the Mermin-Peres game, My Quantum Programs, and a demo catalogue with traQmania and the SAP quantum demos",
+    "Learning paths (beta): guided tours through the demos, with tips on where to go next",
+    "Imager settings (Wi-Fi, SSH key, keyboard) work on both images; every demo is pinned to a tested version and stops the same way"
   ]
 }
