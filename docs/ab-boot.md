@@ -345,7 +345,7 @@ in `/var/lib/rasqberry/umami/queue` until a send works).
 | `RasQberry Two: update check` | version, stream, model, card, update | `rasqberry-update-check.service`, once per UTC day |
 | `RasQberry Two: update result` | from, to, result, reason | health check of the slot that runs after the trial |
 | `RasQberry Two: update notice` | action, tag | taskbar notice: **What's new** opened, **Install** clicked |
-| `RasQberry Two: demo start` | demo, how, version, model | `rq_demo_run.sh`, once per start (not the demo loop) |
+| `RasQberry Two: demo start` | demo, how, version, model | `rq_demo_run.sh` (every demo icon goes through it) and `rq_my_programs.sh`, once per start (not the demo loop) |
 | `RasQberry Two: learning path` | path, action | `rq_learning_paths.sh`: first step opened, path finished |
 | `RasQberry Two: LED stall` | model, brightness | `rq_led_utils.py`, at most once per start of the Pi |
 

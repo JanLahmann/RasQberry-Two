@@ -1722,6 +1722,18 @@ rq_beta_notice() {
     echo
 }
 
+# How a demo start came, for its usage count: RQ_DEMO_HOW from the caller
+# (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),
+# else the RasQberry menu when its error file is set (run_engine_demo), else
+# nothing (a terminal, SSH)
+rq_demo_start_how() {
+    if [ -n "${RQ_DEMO_HOW:-}" ]; then
+        echo "$RQ_DEMO_HOW"
+    elif [ -n "${RQ_ERROR_FILE:-}" ]; then
+        echo menu
+    fi
+}
+
 # Anonymous usage count for the project's statistics (rq_umami_event.py; no
 # IDs): in the background, so the caller never waits, and it never fails.
 # RQ_UMAMI=0 sends nothing (the rig tests set it).

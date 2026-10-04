@@ -11,7 +11,9 @@ cache) are temp files.
 import importlib.util
 import json
 import os
+import re
 import shutil
+import signal
 import socket
 import stat
 import subprocess
@@ -768,7 +770,8 @@ def _box(tmp_path):
     env_file.write_text(open(os.path.join(_CFG, "rasqberry_environment.env")).read())
     env_config = tmp_path / "env-config.sh"
     env_config.write_text(open(os.path.join(_CFG, "rasqberry_env-config.sh")).read()
-                          .replace("/usr/config/rasqberry_environment.env", str(env_file)))
+                          .replace("/usr/config/rasqberry_environment.env", str(env_file))
+                          .replace('USER_HOME="$(eval echo ~${SUDO_USER})"', f'USER_HOME="{home}"'))
     env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=str(home),
                RQ_CONFIG_FILE=str(env_config), RQ_ENV_FILE=str(env_file), DISPLAY=":0",
                XDG_CACHE_HOME=str(tmp_path / "cache"))
@@ -904,3 +907,250 @@ def test_no_led_stall_count_with_rq_umami_0(led, monkeypatch):
     _stall_writer(led, {"on": True})(None, b"\0" * 12)
     time.sleep(0.3)
     assert led.spawned == []
+
+
+# ---------------------------------------------------------------------------
+# Desktop icons that used to bypass the demo engine (Jan, 2026-10-04): they
+# run through it now, so they are counted like every demo
+# ---------------------------------------------------------------------------
+
+_BOOKMARKS = os.path.join(_CFG, "desktop-bookmarks")
+# icon -> (window title, the script it ran before, engine spec)
+ROUTED_ICONS = {
+    "led-ibm-demo.desktop": ("IBM LED Demo", "rq_led_ibm_demo.sh", "led-demos ibm-logo"),
+    "led-test.desktop": ("LED Test", "rq_led_test.sh", "led-demos led-test"),
+    "clear-leds.desktop": ("Clear All LEDs", "rq_clear_leds.sh", "led-demos clear-leds"),
+    "rasq-led.desktop": ("RasQ-LED Demo", "rq_rasq_led.sh", "rasq-led"),
+    "quantum-fractals.desktop": ("Quantum Fractals", "fractals.sh", "quantum-fractals"),
+}
+
+
+def _desktop(name):
+    entry = {}
+    for line in open(os.path.join(_BOOKMARKS, name)).read().splitlines():
+        if "=" in line and not line.startswith("["):
+            k, v = line.split("=", 1)
+            entry[k] = v
+    return entry
+
+
+def _manifest(demo_id):
+    with open(os.path.join(_CFG, "demo-manifests", f"rq_demo_{demo_id}.json")) as f:
+        return json.load(f)
+
+
+@pytest.mark.parametrize("icon", sorted(ROUTED_ICONS))
+def test_the_icon_runs_its_old_script_through_the_engine(icon):
+    title, script, spec = ROUTED_ICONS[icon]
+    entry = _desktop(icon)
+    assert entry["Exec"] == f'/usr/bin/rq_hold_on_error.sh -t "{title}" /usr/bin/rq_demo_run.sh {spec}'
+    assert entry["TryExec"] == "/usr/bin/rq_demo_run.sh" and entry["Terminal"] == "true"
+    demo_id, _, variant = spec.partition(" ")
+    m = _manifest(demo_id)
+    if variant:
+        [v] = [v for v in m["variants"] if v["id"] == variant]
+        launcher = v["entrypoint"]["launcher"]
+    else:
+        launcher = m["entrypoint"]["launcher"]
+    # the same script as before, which the engine starts with exec: its own
+    # stop hint, Ctrl+C and window-close handling stay as they were
+    assert launcher == script and os.path.exists(os.path.join(_BIN, script))
+    # built in: no consent dialog, no beta notice
+    assert m["install"]["preinstalled"] is True and not m.get("maturity")
+    assert not (variant and v.get("maturity"))
+
+
+def test_no_terminal_icon_bypasses_the_engine_when_its_demo_has_a_manifest():
+    launchers = {}
+    for name in os.listdir(os.path.join(_CFG, "demo-manifests")):
+        if name.startswith("rq_demo_") and "schema" not in name:
+            m = json.load(open(os.path.join(_CFG, "demo-manifests", name)))
+            for v in [m] + list(m.get("variants") or []):
+                launcher = (v.get("entrypoint") or {}).get("launcher")
+                if launcher:
+                    launchers[launcher] = m["id"]
+    for icon in sorted(os.listdir(_BOOKMARKS)):
+        words = _desktop(icon).get("Exec", "").split()
+        scripts = [os.path.basename(w) for w in words if w.startswith("/usr/bin/")]
+        for s in scripts:
+            assert s not in launchers, f"{icon} starts {s} directly; run it through rq_demo_run.sh"
+
+
+def _engine_bin(tmp_path, launchers):
+    """RQB2-bin and RQB2-config as links in tmp_path, with stub launchers that
+    record how they were started."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in os.listdir(_BIN):
+        if name not in launchers and not name.startswith("__"):
+            os.symlink(os.path.join(_BIN, name), bin_dir / name)
+    for name in launchers:
+        _exe(bin_dir / name, f'#!/bin/bash\necho "LAUNCHED {name} $* counted=${{RQ_DEMO_COUNTED:-}}"\n')
+    os.symlink(_CFG, tmp_path / "RQB2-config")
+    return bin_dir
+
+
+def _run_in_pty(argv, env, timeout=60):
+    """Run argv with stdout on a pseudo terminal (stdin not a terminal):
+    the window title escapes are printed then. Returns (exit code, output)."""
+    import pty
+    import select
+    pid, fd = pty.fork()
+    if pid == 0:  # pragma: no cover - child
+        os.dup2(os.open(os.devnull, os.O_RDONLY), 0)
+        os.execvpe(argv[0], argv, env)
+    out, end = b"", time.time() + timeout
+    while time.time() < end:
+        r, _, _ = select.select([fd], [], [], 0.2)
+        if r:
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                chunk = b""
+            if chunk:
+                out += chunk
+                continue
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done:
+            return os.waitstatus_to_exitcode(status), out.decode(errors="replace")
+    os.kill(pid, 9)
+    raise AssertionError(f"timed out: {out!r}")
+
+
+@needs_bash
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
+@pytest.mark.parametrize("icon", sorted(ROUTED_ICONS))
+def test_a_routed_icon_starts_its_script_counts_once_and_keeps_its_title(tmp_path, icon):
+    title, script, spec = ROUTED_ICONS[icon]
+    env, log, _ = _box(tmp_path)
+    bin_dir = _engine_bin(tmp_path, [script])
+    hold = os.path.join(_BIN, "rq_hold_on_error.sh")
+    rc, out = _run_in_pty(["bash", hold, "-t", title, str(bin_dir / "rq_demo_run.sh"), *spec.split()], env)
+    assert rc == 0, out
+    assert f"LAUNCHED {script}  counted={spec.split()[0]}" in out
+    # every title the window gets is the icon's (not "LED Demos")
+    titles = re.findall(r"\x1b\]0;([^\x07]*)\x07", out)
+    assert titles and set(titles) == {title}, titles
+    assert "Do you want to download" not in out and "This demo is new" not in out
+    assert _await(log).splitlines() == [f"demo-start {spec.replace(' ', ':')} desktop"]
+
+
+@needs_bash
+def test_the_title_goes_only_to_the_engine_not_to_a_chooser(tmp_path):
+    hold = open(os.path.join(_BIN, "rq_hold_on_error.sh")).read()
+    assert '[ "$(basename "$1")" = "rq_demo_run.sh" ] && export RQ_WINDOW_TITLE="$title"' in hold
+    engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
+    assert '"${RQ_WINDOW_TITLE:-$demo_name}"' in engine and "unset RQ_WINDOW_TITLE" in engine
+    stub = tmp_path / "chooser.sh"
+    _exe(stub, '#!/bin/sh\necho "title=${RQ_WINDOW_TITLE:-none}"\n')
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_hold_on_error.sh"), "-t", "Learning paths", str(stub)],
+                          capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=30,
+                          env=dict(os.environ, XDG_CACHE_HOME=str(tmp_path)))
+    assert proc.stdout.strip() == "title=none"
+
+
+@needs_bash
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
+def test_an_led_demo_re_run_with_sudo_is_counted_once(tmp_path):
+    # run_python re-runs the engine as root for the GPIO (sudo -E): that pass
+    # inherits RQ_DEMO_COUNTED and does not count again
+    env, log, _ = _box(tmp_path)
+    home = tmp_path / "home"
+    manifests = home / ".local/config/demo-manifests"
+    manifests.mkdir(parents=True)
+    (manifests / "rq_demo_test-led.json").write_text(json.dumps({
+        "id": "test-led", "name": "Test LED", "category": "led-demo",
+        "entrypoint": {"type": "python", "script": "demo.py", "working_dir": "test-led"},
+        "needs_hw": {"leds": True, "display": "none"}, "install": {"preinstalled": True}}))
+    demo = home / "RasQberry-Two/demos/test-led"
+    demo.mkdir(parents=True)
+    (demo / "demo.py").write_text('import os\nprint("RAN uid", os.environ.get("FAKE_UID"))\n')
+    venv = home / "RasQberry-Two/venv/RQB2/bin"
+    venv.mkdir(parents=True)
+    (venv / "activate").write_text("")
+    os.symlink(sys.executable, venv / "python3")
+    stubs = tmp_path / "stubs"
+    _exe(stubs / "id", '#!/bin/sh\n[ "$1" = "-u" ] && { echo "${FAKE_UID:-1000}"; exit 0; }\nexec /usr/bin/id "$@"\n')
+    _exe(stubs / "sudo", f'''#!/bin/sh
+echo "sudo counted=${{RQ_DEMO_COUNTED:-}}" >> "{tmp_path}/sudo.log"
+while [ "$1" = "-E" ] || [ "${{1#*=}}" != "$1" ]; do [ "$1" = "-E" ] || export "$1"; shift; done
+FAKE_UID=0 exec "$@"
+''')
+    env.update(RQ_DEMO_HOW="desktop", SUDO_USER=os.environ.get("USER", "rasqberry"))
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_run.sh"), "test-led"], env=env,
+                          capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL)
+    assert "RAN uid 0" in proc.stdout, proc.stdout + proc.stderr
+    assert (tmp_path / "sudo.log").read_text().splitlines()[0] == "sudo counted=test-led"
+    time.sleep(0.5)
+    assert _await(log).splitlines() == ["demo-start test-led desktop"]
+
+
+@needs_bash
+@pytest.mark.parametrize("extra,how", [({"RQ_DEMO_HOW": "desktop"}, "desktop"),
+                                       ({"RQ_ERROR_FILE": "/dev/null"}, "menu"),
+                                       ({"RQ_DEMO_HOW": "learning-path"}, "learning-path")])
+def test_my_quantum_programs_counts_its_start(tmp_path, extra, how):
+    env, log, _ = _box(tmp_path)
+    bin_dir = _engine_bin(tmp_path, ["rq_learner_setup.sh"])
+    env.update(extra)
+    # no JupyterLab here: it stops after the count
+    subprocess.run(["bash", str(bin_dir / "rq_my_programs.sh")], env=env, capture_output=True,
+                   text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert _await(log).splitlines() == [f"demo-start my-quantum-programs {how}"]
+
+
+@needs_bash
+def test_my_quantum_programs_from_root_counts_once(tmp_path):
+    # started as root (a learning path in raspi-config), it re-runs itself as
+    # the desktop user with a fresh environment: RQ_DEMO_COUNTED goes along
+    env, log, _ = _box(tmp_path)
+    stubs = tmp_path / "stubs"
+    _exe(stubs / "id", '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\nexec /usr/bin/id "$@"\n')
+    _exe(stubs / "sudo", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/sudo-args"\n')
+    env.update(RQ_DEMO_HOW="learning-path", SUDO_USER="rasqberry")
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_my_programs.sh")], env=env,
+                          capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 0, proc.stderr
+    assert "RQ_DEMO_COUNTED=my-quantum-programs" in (tmp_path / "sudo-args").read_text().split()
+    assert _await(log).splitlines() == ["demo-start my-quantum-programs learning-path"]
+
+
+@needs_bash
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
+def test_closing_a_routed_icons_window_still_stops_its_demo(tmp_path):
+    # C2: the engine starts the launcher with exec, so a closed window (the
+    # TERM rq_hold_on_error.sh sends) reaches the launcher's own traps, as
+    # when the icon started it directly
+    lifecycle = _load("test_demo_lifecycle_for_umami", os.path.join(_HERE, "test_demo_lifecycle.py"))
+    env, _, _ = _box(tmp_path)
+    marker = tmp_path / "stopped"
+    bin_dir = _engine_bin(tmp_path, [])
+    os.unlink(bin_dir / "rq_rasq_led.sh")
+    _exe(bin_dir / "rq_rasq_led.sh", f'#!/bin/bash\ntrap \'echo stopped > "{marker}"; exit 143\' TERM HUP\n'
+                                     'echo READY\nwhile :; do sleep 0.2; done\n')
+    _exe(tmp_path / "stubs" / "script", lifecycle._PTY_SCRIPT)
+    hold = os.path.join(_BIN, "rq_hold_on_error.sh")
+    p = lifecycle._Pty(f'exec bash "{hold}" -t "RasQ-LED Demo" "{bin_dir}/rq_demo_run.sh" rasq-led', env=env)
+    assert p.read_until("READY", 30), p.out
+    os.killpg(p.pid, signal.SIGHUP)          # the window is closed
+    assert p.wait() == 143
+    assert marker.read_text().strip() == "stopped"
+
+
+@needs_bash
+@pytest.mark.parametrize("args,log", [(["rasq-led"], "rasq-led"), (["led-demos", "ibm-logo"], "led-demos-ibm-logo"),
+                                      (["fun-with-quantum", "coin-game"], "fun-with-quantum-coin-game")])
+def test_an_icons_log_keeps_variants_apart_and_the_rig_finds_it(tmp_path, args, log):
+    stub = tmp_path / "rq_demo_run.sh"
+    _exe(stub, "#!/bin/sh\nexit 0\n")
+    subprocess.run(["bash", os.path.join(_BIN, "rq_hold_on_error.sh"), "-t", "T", str(stub), *args],
+                   capture_output=True, stdin=subprocess.DEVNULL, timeout=30,
+                   env=dict(os.environ, XDG_CACHE_HOME=str(tmp_path / "cache")))
+    hold = open(os.path.join(_BIN, "rq_hold_on_error.sh")).read()
+    assert 'name="$2${3:+-$3}"' in hold
+    # the rig's smoke test computes the same name to find the icon's window
+    smoke = open(os.path.join(_ROOT, "tests", "rig", "pi", "demo_smoke.sh")).read()
+    code = smoke.split("logname=$(python3 -c '", 1)[1].split("' \"$(sed", 1)[0]
+    exec_line = f'/usr/bin/rq_hold_on_error.sh -t "T" /usr/bin/rq_demo_run.sh {" ".join(args)}'
+    out = subprocess.run([sys.executable, "-c", code, exec_line], capture_output=True, text=True).stdout
+    assert out.strip() == log

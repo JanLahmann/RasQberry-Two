@@ -1022,7 +1022,7 @@ delegate_launcher() {
     done < <(get_demo_args)
 
     info "Delegating to: $launcher${launcher_args[*]:+ ${launcher_args[*]}}"
-    exec "$launcher_path" "${launcher_args[@]}"
+    exec "$launcher_path" ${launcher_args[@]+"${launcher_args[@]}"}
 }
 
 # ============================================================================
@@ -1145,18 +1145,6 @@ drop_to_desktop_user() {
     exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
 }
 
-# How this start came, for its usage count: RQ_DEMO_HOW from the caller
-# (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),
-# else the RasQberry menu when its error file is set (run_engine_demo), else
-# nothing (a terminal, SSH)
-demo_start_how() {
-    if [ -n "${RQ_DEMO_HOW:-}" ]; then
-        echo "$RQ_DEMO_HOW"
-    elif [ -n "${RQ_ERROR_FILE:-}" ]; then
-        echo menu
-    fi
-}
-
 main() {
     check_jq
     local -a orig_args=("$@")
@@ -1227,8 +1215,10 @@ main() {
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
     DEMO_TITLE="$demo_name"
-    # The window's title: the demo's name, not the command line (R-135)
-    [ -t 1 ] && printf '\033]0;%s\007' "$demo_name"
+    # The window's title: the demo's name, not the command line (R-135), or
+    # the title of the icon that started it (rq_hold_on_error.sh -t)
+    [ -t 1 ] && printf '\033]0;%s\007' "${RQ_WINDOW_TITLE:-$demo_name}"
+    unset RQ_WINDOW_TITLE
 
     echo
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
@@ -1276,7 +1266,7 @@ main() {
     if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
         export RQ_DEMO_COUNTED="$DEMO_ID"
         local how
-        how=$(demo_start_how)
+        how=$(rq_demo_start_how)
         [ "$how" = "loop" ] || rq_count_event demo-start "${DEMO_ID}${VARIANT:+:$VARIANT}" ${how:+"$how"}
     fi
 
