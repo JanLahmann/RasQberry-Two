@@ -105,13 +105,15 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 Not kept: other files in the home folder, installed demos, Docker images, added
 Python packages. Docker images stay in each slot (`/var/lib/docker` is part of
 the system): after an update the Docker demos download again, and their
-consent dialog says so. A slot of a 64 GB card holds all four; a 16 GB card has
-room for one (not the Workshop & Qiskit Server). The new image pulls from the old slot instead of the old
-updater pushing, so even the first update from an older release carries
-everything over. The password is carried over because otherwise an update would
-put the published default password back on a device whose owner changed it,
-with SSH and VNC on. Without a real DATA partition (standard image, or the
-placeholder) nothing is linked.
+consent dialog says so. All four take about 15 GB: a slot of a 64 GB card
+(28 GB) holds them, but then lacks the 15GiB an update stages on the running
+slot, which is why the website recommends 128 GB for all Docker demos. A 16 GB
+card has room for one (not the Workshop & Qiskit Server). The new image pulls
+from the old slot instead of the old updater pushing, so even the first update
+from an older release carries everything over. The password is carried over
+because otherwise an update would put the published default password back on a
+device whose owner changed it, with SSH and VNC on. Without a real DATA
+partition (standard image, or the placeholder) nothing is linked.
 
 ## Updating a slot
 

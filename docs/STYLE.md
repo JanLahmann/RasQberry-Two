@@ -16,6 +16,11 @@ icons, demo manifests and release notes.
   pastes one.
 - A demo has one name, its manifest `name`, used on the desktop icon, in the menu
   and on the website. Demo directories keep the upstream repository name.
+  doQumentation is only named as the project the **Workshop & Qiskit Server** is
+  built on.
+- A new or less-tested demo has `"maturity": "beta"` in its manifest: "(beta)" in
+  the menus and tooltips, a beta tag on the website, and a link to the demo
+  feedback form.
 - **Raspberry Pi Imager** (then **Imager**), **Pi 4**, **Pi 5**.
 
 ## Language
@@ -30,7 +35,7 @@ icons, demo manifests and release notes.
 ## Menu paths
 
 - Write them as `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** →
-  **Test LEDs**, with the label the user sees. Never an internal tag such as
+  **LEDs**, with the label the user sees. Never an internal tag such as
   `AB_BOOT`, `SLOTS` or `EXPAND`.
 - In whiptail text, which is plain ASCII, use `->`.
 
@@ -46,8 +51,9 @@ icons, demo manifests and release notes.
   the sizing helpers in `rq_common.sh`.
 - Never capture the output of a command that asks a question: the prompt is
   then invisible.
-- Stopping a demo is worded the same everywhere: "To stop, close the window or
-  press Ctrl+C."
+- Stopping a demo is worded the same everywhere (`rq_stop_hint`): "To stop
+  <demo>: press Enter or Ctrl+C, or close this window." A demo that uses the
+  keyboard leaves out Enter.
 - Colour is never the only cue: add a word, a position or a shape.
 
 ## Website
@@ -62,10 +68,10 @@ icons, demo manifests and release notes.
 
 | Term | Meaning |
 |---|---|
-| A/B image | Image with two systems (Slot A, Slot B) on cards of 64 GB or more |
+| A/B image | Image with two systems (Slot A, Slot B) on cards of 64 GB or more; one system on smaller cards |
 | Standard image | Image with one system |
 | Promote | Copy a tested Slot B to Slot A |
 | CONFIG drive | The first partition, readable on any computer; holds `autoboot.txt` |
-| Data partition | `/data` on the A/B image; keeps the Shared folder and settings across updates |
+| Data partition | `/data` on the A/B image; keeps `~/Shared`, `~/My-Quantum-Programs`, the IBM Quantum account and settings across updates |
 | Setup checklist | The steps offered at the first login (`rq_firstlogin.sh`) |
-| Demo catalogue | Reviewed third-party demos added with **Add demo from catalog** |
+| Demo catalogue | Reviewed third-party demos added with **Add demo from catalogue** |
