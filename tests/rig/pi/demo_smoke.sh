@@ -150,7 +150,7 @@ if [ -n "${RIG_KEYS:-}" ]; then
     ( for item in $RIG_KEYS; do sleep "${item%%:*}"; press "${item#*:}"; done ) &
 fi
 # answers by a dialog's text (RIG_ANSWERS="<text>|<keys>;..."): each is pressed
-# once, a second after its text first shows in the demo's log - for dialogs
+# once, two seconds after its text first shows in the demo's log - for dialogs
 # that come after a first-start download, when a timer would be long gone
 if [ -n "${RIG_ANSWERS:-}" ]; then
     ( IFS=';'; set -f; pending="$RIG_ANSWERS"
@@ -160,7 +160,7 @@ if [ -n "${RIG_ANSWERS:-}" ]; then
           for answer in $pending; do
               [ -n "$answer" ] || continue
               if grep -aqF -- "${answer%%|*}" "$log" 2>/dev/null; then
-                  sleep 1; press "${answer#*|}"
+                  sleep 2; press "${answer#*|}"   # 1 s was too early for whiptail
               else
                   next="$next$answer;"
               fi
