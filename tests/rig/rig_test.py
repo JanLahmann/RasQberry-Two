@@ -266,6 +266,10 @@ def update_slot(pi, tag):
     # a slot still on trial refuses updates (exit 28): wait for its health check
     if not wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600):
         raise RuntimeError("the running slot is not confirmed")
+    # the root partition before the update: the new slot is the other one
+    # (the same tag may already run here, so the version alone proves nothing)
+    _, before = ssh(host, "findmnt -no SOURCE /")
+    before = before.strip()
     ssh(host, f"mkdir -p {REMOTE_DIR}/ota", check=True)
     scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_slot_manager.sh",
                                                "rq_carry_ssh_identity.sh", "rq_common.sh")],
@@ -278,7 +282,8 @@ def update_slot(pi, tag):
               f"--allow-downgrade --force-replace-safe-slot "
               f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
     time.sleep(120)
-    if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version", 3600, interval=30):
+    if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
+                          f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30):
         raise RuntimeError("new slot did not come up with the release")
     # the health check confirms the new slot a minute or two after boot; the
     # service may not have started yet when the release first answers

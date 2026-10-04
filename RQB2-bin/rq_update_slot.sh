@@ -272,7 +272,8 @@ running_slot_settled() {
     # Overwriting the target then could leave the Pi without a working system.
     local running="$1" target="$2" autoboot="${BOOT_COMMON_DIR}/autoboot.txt" pending="" default=""
     [ -f "$autoboot" ] || return 0
-    pending=$(tr -d '[:space:]' < "${BOOT_COMMON_DIR}/target-slot" 2>/dev/null || true)
+    # braces: a missing file is normal, and its redirect error must not reach the screen
+    pending=$( { tr -d '[:space:]' < "${BOOT_COMMON_DIR}/target-slot"; } 2>/dev/null || true)
     case "$(awk '/^\[/ { sec = $0 } sec == "[all]" && /^boot_partition=/ { sub(/^boot_partition=/, ""); print; exit }' "$autoboot" 2>/dev/null)" in
         2) default="A" ;;
         3) default="B" ;;
