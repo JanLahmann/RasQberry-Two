@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T03:46:00Z",
+  "generated": "2026-10-04T07:22:09Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -30,25 +30,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-04-040217",
-      "name": "rasqberry-development-2026-10-04-040217",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-040217/rasqberry-development-2026-10-04-040217.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-040217",
-      "release_date": "2026-10-04 04:02",
-      "image_download_size": 2010301520,
+      "tag": "development-2026-10-04-090517",
+      "name": "rasqberry-development-2026-10-04-090517",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-090517/rasqberry-development-2026-10-04-090517.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-090517",
+      "release_date": "2026-10-04 09:05",
+      "image_download_size": 2008009756,
       "extract_size": 9076473856,
-      "extract_sha256": "6595adbdbeb97c4a6b284f4c907ef7abcadacd0ccfdbc6f91018fb8b79353239",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-040217/rasqberry-development-2026-10-04-040217-ab.img.xz",
-      "ab_extract_sha256": "e3c29406db2d170c3967b3ffc7d05469b827c0e9006e2b982ff4ef1bdf6f6d87",
-      "ab_image_sha256": "bc2bc38f6faec1e0b0055b626a4938f29b55ef40b655d60b12eb71c2d2a3ddd3",
+      "extract_sha256": "0e80d5152d976bed41c8637d61f2ebaf2994c45b80643b5a20c01a2ec8f301be",
+      "image_sha256": "bec4f8656286291f84b823076bd749041a660a1937736944a55c09dfc02057a6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-090517/rasqberry-development-2026-10-04-090517-ab.img.xz",
+      "ab_extract_sha256": "de5d99f0eb62b5be9c51add7abbd260d3bb5539209edcf2427b725d4f820560f",
+      "ab_image_sha256": "7a893f1cb8ab2c8672adee319d91339d5f28687e27c462f9c5127685b449f1e9",
+      "ab_image_download_size": 2067057872,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2067475156,
       "highlights": [
-        "release notes tightened for the beta; STYLE and ab-boot in step",
-        "Bump version to development-2026-10-04-040217",
-        "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-04-014357",
-        "menus, icons: one name per demo, LED panel, British spelling"
+        "release notes for the plain badge and the switch wording",
+        "ping-pong A/B updates, the guard, no promote",
+        "Bump version to development-2026-10-04-090517",
+        "System Info: \"Last switch:\" for a failed plain switch",
+        "a plain update badge on the standard image and one-system cards"
       ]
     }
   }
