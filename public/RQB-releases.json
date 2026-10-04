@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T00:03:42Z",
+  "generated": "2026-10-04T00:04:14Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -38,12 +38,11 @@
       "image_download_size": 2009954308,
       "extract_size": 9076473856,
       "extract_sha256": "5c7f814d97a3eae9f702c706499f7e978b0d72aedef345bc4389c560c7667cdf",
-      "image_sha256": "655d33378dd8991203c0508c684bbf423468bdc8ed51ac9e53edd2f52036748a",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-014357/rasqberry-development-2026-10-04-014357-ab.img.xz",
       "ab_extract_sha256": "e5356b27024fb9d5354a0d8dbec2727fa409a4e5b05609908af11ca784f832c9",
       "ab_image_sha256": "88b5290bd455ab504223fc3470290bfbe52abe94d366859748c62b894f49bc60",
-      "ab_image_download_size": 2066474164,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2066474164,
       "highlights": [
         "running the credentials notebook unedited keeps the saved account",
         "Bump version to development-2026-10-04-014357",
