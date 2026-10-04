@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T17:16:08Z",
+  "generated": "2026-10-04T17:16:56Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -22,11 +22,12 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 1663679844,
       "highlights": [
-        "17 demos, each downloaded from a pinned, checked source on its first start",
-        "LED setup wizard and a first-login setup checklist",
-        "Qiskit 2.5 with Qiskit Aer 0.17 and Qiskit IBM Runtime 0.50",
-        "Demo catalogue: add reviewed third-party demos such as traQmania and the SAP demos",
-        "Update notice at login, and System Info (rq_info.sh) for bug reports"
+        "New A/B image: the SD card stays in the Pi for good. New releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
+        "Taskbar badge shows which system runs, and tells you when a new release is out, with what's new",
+        "New demos (beta): Workshop & Qiskit Server, Qiskit Tutorials on this Pi, Fun with Quantum website and family",
+        "Also new: Quantum Lab (QuBins), the Mermin-Peres game, My Quantum Programs, and a demo catalogue with traQmania and the SAP quantum demos",
+        "Learning paths (beta): guided tours through the demos, with tips on where to go next",
+        "Imager settings (Wi-Fi, SSH key, keyboard) work on both images; every demo is pinned to a tested version and stops the same way"
       ]
     },
     "dev": {
@@ -38,12 +39,11 @@
       "image_download_size": 2007628668,
       "extract_size": 9076473856,
       "extract_sha256": "e53d05c29b0cae95ead2d17628a0135f2c9aff0c5f4660c46e09944efec0f7ef",
-      "image_sha256": "2e54b0f32aa3e0a21c6f69ac342b025c1b8b179829cb2e733128d3dc3db05262",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-184658/rasqberry-development-2026-10-04-184658-ab.img.xz",
       "ab_extract_sha256": "9c68b11ce179dfc44f97b394a8095f384511b6d52eeca06a609e65318205eae8",
       "ab_image_sha256": "000155f27925a722300ad67c58b78880b6dc2031b9a45df3027ac5c0652e24f1",
-      "ab_image_download_size": 2066617064,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2066617064,
       "highlights": [
         "QR code of the Workshop & Qiskit Server address",
         "bring Wi-Fi back when NetworkManager gave up at the first start",
