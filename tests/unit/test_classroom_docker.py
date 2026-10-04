@@ -252,6 +252,11 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
     assert "CORS_ORIGIN=http://localhost:8080" in run[0] and "http://192.168.1.5:8080" in run[0]
     assert "ssh -N -L 8080:127.0.0.1:8080 rasqberry@rasqberry.local" in proc.stdout
     assert "keeps running" in proc.stdout
+    # the menu's way to stop it, not a Docker command (R-094)
+    assert "Stop Docker demos" in proc.stdout + proc.stderr
+    assert "docker stop" not in proc.stdout + proc.stderr
+    # code runs only with the internet for now (R-068, doQumentation#964)
+    assert "Running code needs the internet for now" in proc.stdout
 
 
 @needs_bash
@@ -291,6 +296,7 @@ def test_solo_mode_is_for_this_pi_only(doq):
     assert "192.168.1.5" not in run[0] and "rasqberry.local" not in run[0]
     assert "Qiskit Tutorials on this Pi is running: http://localhost:8080/" in proc.stdout
     assert "Participants" not in proc.stdout
+    assert "needs the internet for now" in proc.stdout
 
 
 @needs_bash

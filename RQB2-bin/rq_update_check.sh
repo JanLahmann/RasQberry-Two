@@ -68,7 +68,7 @@ check() {
         return 0
     fi
     case "$(rq_release_channel "$current")" in
-        unknown) note=" (this image belongs to no release channel; comparing with the latest development release)" ;;
+        unknown) note=" (this image belongs to no release type; comparing with the latest development release)" ;;
         *) case "$current" in
                dev-*) note=" (this image was built from a feature branch; comparing with the latest development release)" ;;
            esac ;;

@@ -45,6 +45,7 @@ System
   rq_update_check.sh            is there a newer RasQberry Two image?
   rq_touch_mode.sh status       touch mode (enable | disable)
   sudo rq_slot_manager.sh status   A/B image: what is in Slot A and B
+  sudo poweroff                 shut down (menu: Shut Down Safely)
 EOF
 
 demos=""

@@ -57,7 +57,7 @@ def test_channel_and_date_comparison(tmp_path, version, rc):
 
 def test_an_image_of_no_known_channel_is_never_called_stable(tmp_path):
     out = _run(tmp_path, "my-build-2026-09-11-000349").stdout
-    assert "Latest dev:" in out and "belongs to no release channel" in out
+    assert "Latest dev:" in out and "belongs to no release type" in out
     assert "stable" not in out
 
 

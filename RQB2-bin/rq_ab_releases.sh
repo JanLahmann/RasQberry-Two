@@ -98,7 +98,7 @@ cmd_latest() {
     [ -n "$line" ] || fail 2 "The latest $channel release ($tag) has no A/B image."
     local reason
     if reason=$(rq_release_withdrawn "$tag"); then
-        fail 2 "The latest $channel release ($tag) was withdrawn: $reason. Choose another release under 'Other release or channel...'."
+        fail 2 "The latest $channel release ($tag) was withdrawn: $reason. Choose another release under 'Other release...'."
     fi
     echo "$line"
 }

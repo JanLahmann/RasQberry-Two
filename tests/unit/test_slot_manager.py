@@ -17,6 +17,7 @@ directory (RQ_BOOT_COMMON_DIR).
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -257,6 +258,17 @@ def test_status_lists_slot_contents(card):
     assert "Slot B: empty (no system)" in out
     assert "stable" not in out and "testing" not in out
     assert "Slot Status: CONFIRMED" in out          # the rig tests grep this
+
+
+def test_status_sizes_in_decimal_gb_with_slot_names(card):
+    # R-095: "26.0G" (GiB) next to SYSTEM-A/B partition labels
+    card["env"]["FAKE_SIZE_mmcblk0p5"] = str(26 * GB)
+    card["env"]["FAKE_SIZE_mmcblk07"] = str(16 * 1024 * 1024)   # the stub's data partition name
+    out = _run(card, "status").stdout
+    assert "Slot A (/dev/mmcblk0p5): 27.9 GB" in out
+    assert "Slot B (/dev/mmcblk0p6): 27.9 GB" in out
+    assert re.search(r"Data \(/dev/\S+\): 16 MB", out), out
+    assert "SYSTEM-" not in out and "G\n" not in out
 
 
 def test_status_unconfirmed_during_a_trial_says_where_the_next_start_goes(card):

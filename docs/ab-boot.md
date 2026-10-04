@@ -126,7 +126,7 @@ partition (standard image, or the placeholder) nothing is linked.
 
 Menu: **Software & Image Updates** → **Slot Manager** → **Install an update into
 the other system (Slot X)**. It runs the preflight first, offers the latest A/B
-image of the image's own channel (others behind **Other release or channel...**),
+image of the image's own release type (others behind **Other release...**),
 applies the guard below and runs the update in the terminal with its progress.
 From a shell:
 

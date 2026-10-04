@@ -35,7 +35,7 @@ def print_header():
     """Print the test header."""
     print()
     print("=" * 60)
-    print("  RasQberry LED Strip Test Utility")
+    print("  RasQberry LED Panel Test")
     print("=" * 60)
     print()
 
@@ -211,7 +211,7 @@ def run_continuous_test(num_leds, brightness, pixel_order, cycles=None):
 def main():
     """Parse arguments and run the chosen test."""
     parser = argparse.ArgumentParser(
-        description='RasQberry LED Strip Test Utility',
+        description='RasQberry LED Panel Test',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
