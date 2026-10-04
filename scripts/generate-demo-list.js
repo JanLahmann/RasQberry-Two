@@ -70,8 +70,8 @@ function needsOf(m) {
   if (m.needs_hw?.display === 'required') n.push('display');
   if (m.needs_hw?.network) n.push('network');
   else if (m.install && m.install.preinstalled === false) n.push('network on first start');
-  if (m.needs_ibm_token === 'required') n.push('IBM account');
-  else if (m.needs_ibm_token === 'prefer') n.push('IBM account optional');
+  if (m.needs_ibm_token === 'required') n.push('IBM Quantum account');
+  else if (m.needs_ibm_token === 'prefer') n.push('IBM Quantum account optional');
   return n;
 }
 
@@ -131,9 +131,13 @@ const CATEGORIES = [
   ['tool', 'Tools'],
 ];
 
+// A manifest hidden from both the menu and the desktop is not a demo of its
+// own (grok-bloch-web: the online version is now a variant of grok-bloch).
+const isShown = (m) => !(m.menu?.show === false && m.desktop?.show === false);
+
 function render(manifests) {
   const byCategory = {};
-  for (const m of manifests) (byCategory[m.category || 'other'] ||= []).push(m);
+  for (const m of manifests.filter(isShown)) (byCategory[m.category || 'other'] ||= []).push(m);
   for (const list of Object.values(byCategory)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
 
   const known = CATEGORIES.map(([c]) => c);
@@ -149,8 +153,9 @@ function render(manifests) {
 
 Start a demo from its desktop icon, from \`sudo raspi-config\` → **0 RasQberry** →
 **Quantum Demos**, or from a terminal with \`rq_demo_run.sh <id>\`. Demos marked
-"network on first start" download the first time you run them. An optional IBM
-account is only needed to run on real IBM hardware.
+"network on first start" download the first time you run them. An IBM Quantum
+account is only needed to run on real IBM hardware. Demos tagged beta are new:
+[tell us how they work](${FEEDBACK}).
 
 > This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
 > — the same files the image installs from, so it cannot fall out of step with
@@ -165,8 +170,9 @@ account is only needed to run on real IBM hardware.
     for (const m of byCategory[category]) {
       const page = pageFor(m.id);
       const name = page ? `[${m.name}](${page})` : m.name;
+      const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
       const needs = needsOf(m);
-      md += `| **${name}** | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
+      md += `| **${name}**${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
     }
     md += `\n`;
   }
@@ -269,7 +275,7 @@ ${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEED
   if (!manifests.length) throw new Error('no manifests found — refusing to write an empty list');
   if (!paths || !paths.length) throw new Error(`no paths in ${PATHS_FILE} — refusing to write an empty page`);
   const outputs = [
-    [OUT, render(manifests), `demo list matches the manifests (${manifests.length} demos)`],
+    [OUT, render(manifests), `demo list matches the manifests (${manifests.filter(isShown).length} demos)`],
     [PATHS_OUT, renderPaths(learning, manifests), `learning paths match ${PATHS_FILE} (${paths.length} paths)`],
   ];
 

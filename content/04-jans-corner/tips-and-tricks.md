@@ -30,7 +30,8 @@ panels and no seams. Cut between two columns and keep the end with the data
 input. The LED check in the setup checklist works with both kits.
 
 Use the official 27 W power supply for the Pi 5. On a weaker supply a bright
-panel can make the LEDs stop until the next restart.
+panel can make the LEDs stop: RasQberry then says so and offers a lower
+brightness (**LEDs** → **LED brightness**).
 
 ## The beta and the A/B image
 
@@ -38,8 +39,9 @@ panel can make the LEDs stop until the next restart.
   for all Docker demos.
 - **Updates:** install a new release into Slot B and try it. Make Slot B the
   stable system only once you are happy with it; until then Slot A is your way back.
-- **Keep your files in Shared:** that folder, your IBM Quantum account, Wi-Fi and
-  LED settings move with every update. The rest of your home folder stays in its slot.
+- **Keep your files in Shared or My-Quantum-Programs:** those folders, your IBM
+  Quantum account, Wi-Fi and LED settings move with every update. The rest of your
+  home folder stays in its slot.
 - **Docker demos belong to one system:** after an update they download again.
 - **Tell us how it goes:** the beta is tested on a Pi 5 and a Pi 4 on my desk, not
   in your classroom. Your feedback is highly appreciated:
@@ -75,7 +77,7 @@ This updates the scripts in `/usr/bin/`, the files in `/usr/config/` and the
 system files (systemd units, autostart entries). Device settings in
 `rasqberry_environment.env`, such as the LED layout, are kept: new keys arrive,
 existing values stay. The same function is in `sudo raspi-config` →
-**0 RasQberry** → **Advanced** → **Update from GitHub Branch**. Kernel, packages
+**0 RasQberry** → **Advanced** → **Update from a GitHub branch**. Kernel, packages
 and the partition layout need a new image or an A/B update.
 
 ### Building images

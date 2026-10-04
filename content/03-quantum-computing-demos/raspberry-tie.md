@@ -1,4 +1,4 @@
-# Raspberry Tie
+# Quantum Raspberry Tie
 
 ![Raspberry Tie](/qrtimages/New Logo Screen.png)
 
@@ -6,14 +6,14 @@ Run a quantum circuit — on a simulator or on real IBM Quantum hardware — and
 the measured qubits light up on the panel, laid out the way the qubits are
 actually arranged on the processor.
 
-**Needs:** the LED panel · a display · an IBM Quantum token for the `real` variant
+**Needs:** the LED panel · a display · an IBM Quantum account for the `real` variant
 **Start it with:** `rq_demo_run.sh quantum-raspberry-tie`
 
 ## Run it
 
-Double-click the **Raspberry Tie** icon on the desktop.
+Double-click the **Quantum Raspberry Tie** icon on the desktop.
 
-It is also under **Applications → RasQberry → Raspberry Tie**, or in
+It is also under **Applications → RasQberry → Quantum Raspberry Tie**, or in
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
 
 From a terminal you can pick the backend:
@@ -24,17 +24,12 @@ rq_demo_run.sh quantum-raspberry-tie noise      # simulator with a noise model
 rq_demo_run.sh quantum-raspberry-tie real       # real IBM Quantum hardware
 ```
 
-The `real` variant needs a network connection and an IBM Quantum token, and your
-job may sit in a queue before it runs.
+The `real` variant needs a network connection and your IBM Quantum account, and
+your job may sit in a queue before it runs.
 
-**Entering the token:** in the menu (**Quantum Demos** → **Quantum Raspberry-Tie**),
-picking a backend other than the local simulator asks for your token and saves it.
-From a terminal, save it once with:
-
-```bash
-source ~/RasQberry-Two/venv/RQB2/bin/activate
-python3 /usr/bin/rq_set_qiskit_ibm_token.py
-```
+**Your IBM Quantum account:** the `real` variant asks for your API key when none
+is saved, and saves it. Or save it once: `sudo raspi-config` → **0 RasQberry** →
+**IBM Quantum account** → **Save my API key**.
 
 ## What you'll see
 
@@ -58,7 +53,7 @@ Written and maintained by **Kevin Roche**. The upstream project documents the
 display modes, backends and options in full — start there rather than here:
 
 - **[KPRoche/quantum-raspberry-tie](https://github.com/KPRoche/quantum-raspberry-tie)** — the project and its documentation
-- [IBM Quantum Platform](https://quantum.cloud.ibm.com/) — for a token, if you want the `real` variant
+- [IBM Quantum Platform](https://quantum.cloud.ibm.com/) — for a free account and API key, if you want the `real` variant
 - [Bill of Materials](/01-3d-model/01-bill-of-materials/) · [Hardware Assembly Guide](/01-3d-model/02-hardware-assembly-guide/) — for the LED panel
 
 *See the [Demo List](/03-quantum-computing-demos/01-demo-list/) for everything else on the image.*

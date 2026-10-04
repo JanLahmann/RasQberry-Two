@@ -10,7 +10,7 @@ so a failed update never leaves you without a working Pi.
 | Card | What you get |
 |---|---|
 | **128 GB, A2/U3 (recommended)** | Two systems, each with room for all Docker demos, and a shared data partition (10% of the card) |
-| 64 GB | Two systems (about 26 GB each) and the shared data partition. Room for some Docker demos |
+| 64 GB | Two systems (about 28 GB each) and the shared data partition. Room for some Docker demos |
 | 16 GB or 32 GB | One system that uses the whole card (Docker demos need 32 GB). There are no updates in place: write a new card for each release |
 
 The standard image (**RasQberry Two Beta — single system**) is still published. It
@@ -39,16 +39,14 @@ automatically. To keep it as one system, create an empty file named
    The next update goes into Slot B again.
 
 Promoting replaces everything in Slot A, including the files in your home folder
-there. Keep anything you want to keep in the **Shared** folder.
+there. Keep anything you want to keep in **Shared** or **My-Quantum-Programs**.
 
 ## What an update keeps
 
-The shared data partition (`/data`) carries these into the new system:
-
-- the **Shared** folder in your home folder
+- the **Shared** and **My-Quantum-Programs** folders in your home folder
 - your IBM Quantum account (`~/.qiskit`)
-- Wi-Fi networks
-- LED panel settings
+- Wi-Fi networks and LED panel settings
+- your password, the Pi's name, time zone, language and keyboard
 - SSH keys, so remote logins keep working
 
 Each system has its own demos: after an update they download again on their

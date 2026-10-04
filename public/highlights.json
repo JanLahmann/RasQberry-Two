@@ -1,10 +1,10 @@
 {
   "stable": [],
   "beta": [
-    "17 demos, each downloaded from a pinned, checked source on its first start",
-    "LED setup wizard and a first-login setup checklist",
-    "Qiskit 2.5 with Qiskit Aer 0.17 and Qiskit IBM Runtime 0.50",
-    "Demo catalogue: add reviewed third-party demos such as traQmania and the SAP demos",
-    "Update notice at login, and System Info (rq_info.sh) for bug reports"
+    "Learning paths (beta): short tours through the demos for a stand, a lesson or your first program",
+    "Workshop & Qiskit Server (beta): one Pi serves the IBM Quantum tutorials to a class, with live Qiskit code",
+    "A/B image recommended: two systems from 64 GB for safe updates; Imager customisation on both images",
+    "17 demos, each pinned to a tested version, and every demo stops the same way",
+    "LED brightness menu, and help when a weak power supply stalls the Pi 5's LEDs"
   ]
 }

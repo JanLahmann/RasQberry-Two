@@ -5,12 +5,12 @@ or 5, keep it up to date, and what to do when something goes wrong.
 
 ## What you need
 
-- **Raspberry Pi 5** (2GB RAM is enough for most demos) or **Raspberry Pi 4B** (4GB RAM).
+- **Raspberry Pi 5** (2 GB RAM is enough for most demos) or **Raspberry Pi 4B** (4 GB RAM).
   The Pi 5 is recommended; the [hardware assembly guide](/01-3d-model/02-hardware-assembly-guide/) assumes one.
 - **MicroSD card:** 128 GB high-speed (A2, U3) recommended, 16 GB minimum
   (see below).
-- **Official power supply:** the 27W USB-C supply (5.1V, 5A) for the Pi 5, the 15W
-  USB-C supply for the Pi 4. Ordinary USB-C chargers give a Pi 5 only 3A, too
+- **Official power supply:** the 27 W USB-C supply (5.1 V, 5 A) for the Pi 5, the 15 W
+  USB-C supply for the Pi 4. Ordinary USB-C chargers give a Pi 5 only 3 A, too
   little with a bright LED panel. An active cooler for the Pi 5.
 - **Internet access:** most demos download the first time you start them.
 - Optional: the LED panel, a display, keyboard and mouse. Without a display you can
@@ -35,7 +35,7 @@ We publish it for at least one more release.
 | 16 GB | One system, without the Docker demos |
 
 A high-speed card (A2, U3) makes the desktop and the demos start faster. Docker demos (Qoffee-Maker,
-Quantum-Mixer, Quantum Lab, Workshop & Qiskit Server) take 2–4 GB each, per system.
+Quantum Mixer, Quantum Lab, Workshop & Qiskit Server) take 2–4 GB each, per system.
 
 ## Write the card
 
@@ -64,16 +64,16 @@ Imager can set these, so the Pi is ready without a screen:
 - **Remote access:** SSH is already on. To log in with a key, choose **Use public
   key authentication**; SSH then accepts only keys. This needs the **User** step.
 
-Leave **Hostname** empty. Leave **User** empty too, unless you add an SSH key: then
-enter the user name `rasqberry` and a password (it replaces `Qiskit1!`). Never
-enter another user name: RasQberry and its demos need `rasqberry`.
+**Hostname** is optional: the Pi is then `<name>.local` instead of
+`rasqberry.local`. Leave **User** empty, unless you add an SSH key: then enter
+the user name `rasqberry` and a password (it replaces `Qiskit1!`). Another user
+name is not used: the password and SSH key always go to `rasqberry`.
 
-{/* CONDITIONAL: Imager customisation on the A/B image. Delete this paragraph
-once the A/B image applies it and consolidate_json.py (main) keeps init_format
-for A/B entries (AB_IMAGER_CUSTOMISATION). */}
-The A/B image (**RasQberry Two Beta**) does not offer customisation yet: it asks
-for Wi-Fi on the first start. Without a screen, use an Ethernet cable, or
-**RasQberry Two Beta — single system**.
+{/* CONDITIONAL: Imager customisation on the A/B image. True from the beta that
+applies it, once AB_IMAGER_CUSTOMISATION is on in consolidate_json.py (main);
+until then Imager skips this step for the A/B image. */}
+Customisation works on both images. It applies at the first start of a newly
+written card only, not after an update.
 
 ### If the link does not open Imager
 
@@ -120,14 +120,16 @@ The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
 
 | Menu item | What it does |
 |---|---|
-| Quantum Demos | All demos, the LED tests, Download all demos, the demo catalogue |
-| Touch Mode Settings | Settings for touchscreens, with an on-screen keyboard |
-| Browser at login | Open rasqberry.org at desktop login, or not |
+| Quantum Demos | All demos, Learning paths, the LEDs, Download all demos, Update demos, the demo catalogue |
+| Setup Checklist | The first-start steps again |
+| Desktop Settings | Touch mode, and opening rasqberry.org at desktop login |
+| IBM Quantum account | Save, check or forget your API key |
+| Remote Access & Security | Password, SSH and VNC, the Pi's name |
 | Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |
 | System Info | Version, Python and Qiskit versions, A/B slot |
-| Advanced | Edit RasQberry settings, update from a GitHub branch, refresh the demo list |
+| Advanced | Edit a RasQberry Two setting, refresh the demo list, update from a GitHub branch |
 
-**Software on the image** (beta of 2026-09-30; exact versions on your Pi: **System Info**, or `rq_info.sh`):
+**Software on the image** (exact versions on your Pi: **System Info**, or `rq_info.sh`):
 
 | Component | Version |
 |-----------|---------|
@@ -169,12 +171,9 @@ SSH is on; VNC is switched on at the first start
 - **"Failed to run demo":** the message names the cause. The usual ones: no
   network on a demo's first start, or a display demo started over SSH (start it
   on the desktop or over VNC instead).
-- **Disk full:** the Docker demos (Qoffee-Maker, Quantum-Mixer, Quantum Lab,
+- **Disk full:** the Docker demos (Qoffee-Maker, Quantum Mixer, Quantum Lab,
   Workshop & Qiskit Server) take 2–4 GB each and need a card of 32 GB or more
   ([card sizes](#2-which-image)).
 - **LED panel stays dark:** see [LED troubleshooting](/03-quantum-computing-demos/led-display/).
-- **Known issue:** code cells in the Workshop & Qiskit Server fail, because the
-  current upstream doQumentation image has no Qiskit
-  ([doQumentation#958](https://github.com/JanLahmann/doQumentation/issues/958)).
 - **Still stuck?** [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
   and paste the output of `rq_info.sh --json`.

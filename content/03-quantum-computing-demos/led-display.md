@@ -1,11 +1,11 @@
 # LED Text & Logo Display
 
-Display custom text, logos, and visual effects on the RasQberry LED matrix.
+Display custom text, logos, and visual effects on the RasQberry LED panel.
 
 ## Overview
 
 The LED Display feature allows you to:
-- Display custom text with various colors and effects
+- Display custom text with various colours and effects
 - Show pre-built logos (IBM, RasQberry, custom)
 - Run animated text and color effect demos
 - Create your own logo images
@@ -19,7 +19,7 @@ upright. It handles the single 24×8 panel and the quad 4×12 panel, either way 
 other arrangements get a step-by-step walkthrough.
 
 Run it from `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** →
-**Test LEDs (setup wizard, tests, demos)** → **LED Setup Wizard**
+**LEDs** → **LED Setup Wizard**
 (or `sudo rq_led_setup_wizard.sh`). The first-login checklist offers a short
 version of the same check.
 
@@ -29,16 +29,16 @@ it is kept when you update the other slot.
 ## Accessing via raspi-config
 
 Run `sudo raspi-config` and navigate to:
-**0 RasQberry → Quantum Demos → Test LEDs → Text & Logo Display**
+**0 RasQberry → Quantum Demos → LEDs → Text & Logo Display**
 
 ### Available Options
 
 | Option | Description |
 |--------|-------------|
-| **Display Custom Text** | Enter text, choose mode (scroll/static/flash), and color |
+| **Display Custom Text** | Enter text, choose mode (scroll/static/flash), and colour |
 | **Display Logo from Library** | Select from pre-built logos with fade effects |
 | **Text Demos** | Scrolling welcome, status messages, alert flash |
-| **Color Effect Demos** | Rainbow scroll, rainbow cycle, color gradient |
+| **Colour Effect Demos** | Rainbow scroll, rainbow cycle, colour gradient |
 | **Logo Demos** | IBM logo, RasQberry logo, slideshow |
 
 ## Command Line Usage
@@ -53,7 +53,7 @@ rq_led_display_text.sh
 The script prompts for:
 - Text to display
 - Mode: scroll, static, or flash
-- Color: white, red, green, blue, yellow, cyan, magenta, orange
+- Colour: white, red, green, blue, yellow, cyan, magenta, orange
 
 ### Display Logos
 
@@ -83,12 +83,13 @@ enter the path to a PNG or JPG.
 ## Configuration
 
 LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
-`sudo raspi-config` → **0 RasQberry** → **Update Env File**:
+`sudo raspi-config` → **0 RasQberry** → **Advanced** → **Edit a RasQberry Two setting**:
 
 - `LED_LAYOUT` - panel layout, set by the LED Setup Wizard (default: `single-24x8`;
   also `quad-4x12`, `quad-2x2-12x4`, `triple-8x8`, `single-8x32`). The LED count
   and matrix size follow from the layout.
-- `LED_DEFAULT_BRIGHTNESS` - default brightness 0.0-1.0 (default: 0.4)
+- `LED_DEFAULT_BRIGHTNESS` - default brightness 0.0-1.0 (default: 0.4); easier:
+  **LEDs** → **LED brightness**
 - `LED_PIXEL_ORDER` - colour order of your LEDs (default: GRB)
 - `LED_GPIO_PIN` - data pin (default: 18)
 
@@ -102,19 +103,21 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
 - Run the LED Setup Wizard (see above) to set `LED_LAYOUT` for your panel.
 - Try shorter text for static mode (max ~4 characters visible)
 
-### Colors appear wrong
+### Colours appear wrong
 
 - Check `LED_PIXEL_ORDER` setting (RGB vs GRB)
-- Some LED strips use different color orderings
+- Some LEDs use a different colour order
 
 ### LEDs not turning on
 
 1. Make sure no other demo is still running. The panel is driven by one process
    at a time, so a demo left running holds it and the next one finds it busy.
-   Stop the running demo (**Quantum Demos** → **Stop last running demo and clear
-   LEDs**), or reboot.
+   Stop the running demo (**Quantum Demos** → **Stop an LED demo still running,
+   clear LEDs**), or reboot.
 2. Run the LED test: `rq_demo_run.sh led-demos`
-3. Check wiring and power supply
+3. Check wiring and power supply. On a Pi 5, LEDs that stop after a while mean the
+   power supply is too weak: RasQberry says so and offers a lower brightness. Use
+   the official 27 W supply, or lower **LEDs** → **LED brightness**.
 
 ### Turn off LEDs
 
@@ -124,7 +127,7 @@ source ~/RasQberry-Two/venv/RQB2/bin/activate
 python3 /usr/bin/turn_off_LEDs.py
 
 # Or via raspi-config menu
-# Quantum Demos → Test LEDs → Turn off all LEDs
+# Quantum Demos → LEDs → Turn off all LEDs
 ```
 
 ## For developers

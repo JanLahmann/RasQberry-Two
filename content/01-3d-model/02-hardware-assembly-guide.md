@@ -20,12 +20,12 @@ This assembly guide assumes that you have already printed out the 3D files for t
 
 In this section, we will be going through the initial setup process of the Raspberry Pi.
 
-Our first step is to install the RasQberry Two Operating System (OS). Instructions for installing the operating system can be found [here](/02-software/01-installation-overview).
+Our first step is to install the RasQberry Two Operating System (OS). Instructions for installing the operating system can be found [here](/02-software/01-installation-overview/).
 
 After you have finished flashing the OS image to the micro-SD card, you can insert it into the slot underneath the Pi as such:
 ![Figure 1](/assembly-images/mounting_location_sd_card.JPG "Figure 1: Mounting location for the Micro SD card.")
 
-Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts once on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`.
+Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`.
 
 The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. Once the panels are wired (below), you check them with the LED Setup Wizard.
 
@@ -164,7 +164,7 @@ Now it’s time to test the LEDs! Double-click the **RasQberry Setup** icon on t
 sudo rq_led_setup_wizard.sh
 ```
 
-(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `Test LEDs (setup wizard, tests, demos)` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
+(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LEDs` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
 
 If everything is wired up correctly, the IBM logo appears on the LED panel in the correct orientation. Verify that your result looks similar to this:
 
@@ -175,7 +175,7 @@ Finally, take the bottom two LED panels and slot them into the space in the wall
 ![Figure 18](/assembly-images/wall_assembly_18.JPG "Figure 18: Placing the bottom row of LED panels.")
 
 While making sure to preserve the LED orientation, slot the other two panels on top. You can rest the top row of the LEDs onto the black board of the bottom LEDs.
-To line up the columns, show the IBM logo again: `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `Test LEDs` → `IBM LED Demo`. Once you’re all done, it should look like this:
+To line up the columns, show the IBM logo again: `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LEDs` → `IBM LED Demo`. Once you’re all done, it should look like this:
 
 ![Figure 19](/assembly-images/wall_assembly_19.JPG "Figure 19: Both rows of LED panels lined up.")
 

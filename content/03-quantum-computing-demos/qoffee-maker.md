@@ -1,4 +1,4 @@
-# Qoffee Maker
+# Qoffee-Maker
 
 Build a quantum circuit, measure it, and get the drink the measurement chose.
 Each beverage is a bit pattern — 000, 001, 010 … — so ordering a cappuccino means
@@ -11,11 +11,11 @@ mechanics being what it is, you can shift the odds but never quite give an order
 
 ## Run it
 
-Double-click the **Qoffee Maker** icon on the desktop. It starts the Qoffee
+Double-click the **Qoffee-Maker** icon on the desktop. It starts the Qoffee
 container, opens `qoffee.ipynb`, and switches straight into the app view — you do
 not have to run any cells yourself.
 
-It is also under **Applications → RasQberry → Qoffee Maker**, or in
+It is also under **Applications → RasQberry → Qoffee-Maker**, or in
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
 
 The first launch pulls the Qoffee container image, so give it a few minutes and a

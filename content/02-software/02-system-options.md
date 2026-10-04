@@ -7,6 +7,11 @@ configuration tool. Open a terminal and run:
 sudo raspi-config
 ```
 
+The password, SSH, VNC and the Pi's name are also in **0 RasQberry** →
+**Remote Access & Security**. Raspberry Pi Imager can set Wi-Fi, the password and
+an SSH key before the first start
+([customisation](/02-software/01-installation-overview/#3-customisation)).
+
 ## Wi-Fi
 
 If the Pi has no network on the first start, the setup checklist offers to

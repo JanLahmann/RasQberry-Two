@@ -84,11 +84,13 @@ login is `rasqberry` with password `Qiskit1!`.
 
 ### First boot
 
-On the first desktop login a short setup checklist opens once. It offers only
-the steps that still need a decision from you:
+At the first desktop or SSH login a short setup checklist opens, until you
+answer it. It offers only the steps that still need a decision from you:
 
+- **Keyboard layout and time zone.** Set for the UK until you change them.
 - **Connect to Wi-Fi.** Only when the Pi has no network connection.
 - **Change the password.** Optional: keep the demo password for a booth.
+- **Name this RasQberry.** Useful when several kits share a network.
 - **Check the LED panel.** An IBM logo appears on the panel and you pick the
   colour in which it reads upright. That tells RasQberry how your panel is wired.
   No panel? Say so, and the LED demos use an on-screen view.
@@ -96,14 +98,15 @@ the steps that still need a decision from you:
 - **Turn on touch mode.** Only when a touchscreen is attached.
 
 On the [A/B image](/02-software/03-ab-boot/) the card is prepared for two systems
-during the first start, on cards of 64 GB or more.
+during the first start, on cards of 64 GB or more; a smaller card runs one system.
 
 To see the checklist again, double-click the **RasQberry Setup** icon on the
 desktop (or run `rq_firstlogin.sh --all`). Most steps are also in
 `sudo raspi-config` → **0 RasQberry**.
 
-Then try something: double-click a demo icon on the desktop, or pick one from the
-[demo list](/03-quantum-computing-demos/01-demo-list/).
+Then try something: double-click a demo icon on the desktop, pick one from the
+[demo list](/03-quantum-computing-demos/01-demo-list/), or follow a
+[learning path](/03-quantum-computing-demos/02-learning-paths/).
 
 **Your feedback is highly appreciated.** Tell us what works and what doesn't, or
 report a bug, in a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/issues).
@@ -111,7 +114,7 @@ report a bug, in a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/is
 ## Working with Qiskit
 
 Qiskit 2.x is pre-installed in the virtual environment `~/RasQberry-Two/venv/RQB2`; see
-[Installation Overview](02-software/01-installation-overview)
+[Installation Overview](/02-software/01-installation-overview/)
 for versions and how to activate it.
 
 ## Building the RasQberry 3D Model
@@ -123,7 +126,7 @@ STL files for the 3D-printed model are available in the [3D-model branch](https:
   <p className="media-caption">Exploded view showing all 3D-printed components</p>
 </div>
 
-For detailed assembly instructions, see the [Hardware Assembly Guide](01-3d-model/02-hardware-assembly-guide).
+For detailed assembly instructions, see the [Hardware Assembly Guide](/01-3d-model/02-hardware-assembly-guide/).
 
 ## Contributing
 
@@ -134,7 +137,7 @@ RasQberry Two is an open-source educational project. We welcome contributions:
 3. **Improve documentation** - Fix typos or add troubleshooting tips using the "Edit this page on GitHub" link on each page
 4. **Create quantum demos** - Build new interactive demonstrations
 
-**Get Started:** Visit our [Contributing Guide](05-contributing/) to learn more.
+**Get Started:** Visit our [Contributing Guide](/05-contributing/) to learn more.
 
 ## Stay Updated
 

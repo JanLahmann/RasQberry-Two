@@ -10,10 +10,13 @@ a single qubit.
 
 ## Run it
 
-Double-click the **Grok Bloch** icon on the desktop, and it opens in your browser.
+Double-click the **Grokking the Bloch Sphere** icon on the desktop, and it opens in
+your browser. This version works offline and has tips on what to try and a short
+explanation.
 
-It is also under **Applications → RasQberry → Grok Bloch**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
+It is also under **Applications → RasQberry → Grokking the Bloch Sphere**, or in
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**, which also offers the
+online version.
 
 ## Reading the sphere
 
