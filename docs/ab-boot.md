@@ -218,3 +218,63 @@ cat /etc/rasqberry-version                        # build marker of this slot
 
 `/etc/rpi-issue` records only the pi-gen commit and does not change between
 RasQberry builds: do not use it to tell images apart.
+
+## Taskbar indicator and update notices
+
+[`rq_slot_indicator.py`](../RQB2-bin/rq_slot_indicator.py) (autostart
+`rasqberry-slot-indicator.desktop`) puts a badge with the running slot's letter
+in the taskbar of an A/B card with two systems. It exits at once on the
+standard image and in single-system mode.
+
+| Badge | Meaning |
+|---|---|
+| green | confirmed: this slot is the start slot |
+| amber | a new system is being checked (trial start), or the other slot starts at the next restart |
+| red with "!" | the last update didn't work and the Pi went back; red until the menu has been opened once |
+| blue dot | a newer release is available for this Pi |
+
+Hover shows the slot, its state and version; a click or tap opens the menu:
+both slots, System Info, Software & Image Updates and **What's new in …**.
+That window says where the update goes (the slot that is not
+running), warns about a downgrade and, in bold, when the install would replace
+the only stable or beta system on the card (the rules of
+`rq_slot_manager.sh plan-update`). It never installs: its button opens
+Software & Image Updates. Two popups appear once each: a failed update (the
+same sentence as System Info, `rq_slot_manager.sh status` and the SSH login)
+and a new release. An SSH or console login shows the release as one line
+(`/var/lib/rasqberry/update-notice`, written by `rasqberry-update-check.timer`).
+
+Only root can look into the other slot, so the health check writes
+`/run/rasqberry/slot-status` at every start (`rq_slot_status.sh write`); the
+switch files on CONFIG are read live. The indicator's own state is in
+`~/.local/state/rasqberry/slot-indicator.json`.
+
+**Which releases a Pi hears about** ([`rq_release_notice.py`](../RQB2-bin/rq_release_notice.py)):
+it reads `RQB-releases.json`, `highlights.json` and the optional
+`RQB-release-controls.json` from rasqberry.org at login and once a day, and
+keeps the last good copy for offline use (`~/.cache/rasqberry`).
+
+- Streams rank dev < beta < stable. The running system hears about newer
+  releases of its own or a more stable stream (a dev system: development
+  builds, not feature-branch `dev-*` builds); the other slot too if it holds a
+  beta or stable system. A release either slot holds is not offered.
+- Grace period after a release: dev 0, beta 3, stable 7 days.
+- Staged rollout: a Pi takes part when `sha256(<serial>:<tag>) % 100` is below
+  `rollout`. The number is computed on the Pi from its serial number and the
+  release, and nothing is sent (`rq_release_notice.py --bucket <tag>` prints it).
+- A withdrawn release is never announced, and **Check for a newer image** and
+  the release picker do not offer it.
+
+`RQB-release-controls.json` sits next to `RQB-releases.json` on gh-pages. A
+missing file or entry means the defaults (`rollout` 100):
+
+```json
+{
+  "beta-2026-10-10-120000": {"notify_after": "2026-10-14T08:00:00Z", "rollout": 25},
+  "development-2026-10-09-010101": {"withdrawn": true, "reason": "the slot switch fails on the Pi 4"}
+}
+```
+
+Trials: `RQ_RELEASES_URL`, `RQ_RELEASE_CONTROLS_URL` and `RQ_HIGHLIGHTS_URL`
+take `file://` URLs, and `rq_slot_indicator.py --fake-failed` shows a made-up
+failure without writing anything.

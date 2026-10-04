@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RasQberry Slot Indicator
+Comment=Show the running A/B slot in the taskbar, and newer releases (exits at once on the standard image and on cards with one system)
+Exec=/usr/bin/rq_slot_indicator.py
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
