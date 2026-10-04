@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T12:27:57Z",
+  "generated": "2026-10-04T12:28:44Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -38,12 +38,11 @@
       "image_download_size": 2009310048,
       "extract_size": 9076473856,
       "extract_sha256": "7ad57e9ed40558c114b36a42cf8fb13b49223988df633e47ac892321921da624",
-      "image_sha256": "38457e6c5b953cf75879c523e57007aae156ac2d579ed68a75bb5c1594ac998b",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-140956/rasqberry-development-2026-10-04-140956-ab.img.xz",
       "ab_extract_sha256": "3871f7176138ec7c3ec14fcdbff396343693af668917a562c5cebebeceb4603d",
       "ab_image_sha256": "3911ff93224b0f63cea96f30544fbec1a174466b3a4ee3c8ff38f8c9c4c02ade",
-      "ab_image_download_size": 2066732184,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2066732184,
       "highlights": [
         "JupyterLab no longer asks about Jupyter news",
         "date a failed switch by its request when the trial clock is behind",
