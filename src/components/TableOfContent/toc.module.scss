@@ -8,6 +8,9 @@
     position: sticky;
     top: 4rem;
     width: 100%;
+    // sticky makes its own stacking context: without a z-index, positioned
+    // content later on the page (the beta box) paints over the open dropdown
+    z-index: 10;
 
     &__list {
         @include grid.breakpoint-down(lg) {
