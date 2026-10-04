@@ -258,8 +258,12 @@ RasQberry builds: do not use it to tell images apart.
 
 [`rq_slot_indicator.py`](../RQB2-bin/rq_slot_indicator.py) (autostart
 `rasqberry-slot-indicator.desktop`) puts a badge with the running slot's letter
-in the taskbar of an A/B card with two systems. It exits at once on the
-standard image and in single-system mode.
+in the taskbar of an A/B card with two systems. On the standard image and in
+single-system mode it stays out of the taskbar until a newer release is
+available (the same rules as below), then shows a grey "Q" badge with the dot:
+version, System Info, Software & Image Updates and **What's new in …**, whose
+window says to write the new image with Raspberry Pi Imager (no in-place
+update there). It leaves the taskbar again when nothing is new.
 
 | Badge | Meaning |
 |---|---|

@@ -1,7 +1,7 @@
 """
 Tests for RQB2-bin/rq_slot_indicator.py (#242): the taskbar badge's state,
-the tooltip and menu texts, the once-only notices, and that it stays away
-from the standard image and single-system cards.
+the tooltip and menu texts, the once-only notices, and the plain badge on
+the standard image and single-system cards (only while a release is new).
 
 Only the pure functions run here (no D-Bus, no panel); the CONFIG
 partition is a temp directory.
@@ -41,27 +41,86 @@ AUTOBOOT = {
 # Where it runs
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("status,run", [
-    ({"layout": "ab", "current": "B", "card_mode": "dual"}, True),
-    ({"layout": "ab", "current": "A", "card_mode": "dual-pending"}, True),   # B not set up yet
-    ({"layout": "ab", "current": "A", "card_mode": "single"}, False),        # card under 64 GB
-    ({"layout": "ab", "current": "A", "card_mode": "single-pending"}, False),
-    ({"layout": "single", "card_mode": "standard"}, False),                  # standard image
-    ({"layout": "ab", "current": "UNKNOWN", "card_mode": "dual"}, False),
-    ({}, False),                                                             # nothing known
+@pytest.mark.parametrize("status,mode,card", [
+    ({"layout": "ab", "current": "B", "card_mode": "dual"}, "ab", "ab"),
+    ({"layout": "ab", "current": "A", "card_mode": "dual-pending"}, "ab", "ab"),  # B not set up yet
+    ({"layout": "ab", "current": "A", "card_mode": "single"}, "plain", "single"),  # under 64 GB
+    ({"layout": "ab", "current": "A", "card_mode": "single-pending"}, "plain", "single"),
+    ({"layout": "single", "card_mode": "standard"}, "plain", "standard"),        # standard image
+    ({"layout": "ab", "current": "UNKNOWN", "card_mode": "dual"}, "plain", "standard"),
+    ({}, "plain", "standard"),                                                   # nothing known
 ])
-def test_runs_only_on_cards_with_two_systems(status, run):
-    assert ind.should_run(status) is run
+def test_slot_badge_only_on_cards_with_two_systems(status, mode, card):
+    assert ind.should_run(status) is (mode == "ab")
+    assert ind.indicator_mode(status) == mode
+    assert rn.device_from_status(status, BETA)["card"] == card
 
 
-def test_exits_at_once_on_a_standard_image(tmp_path):
-    status = tmp_path / "status"
-    status.write_text("layout=single\ncard_mode=standard\n")
-    env = dict(os.environ, RQ_SLOT_STATUS_FILE=str(status), XDG_STATE_HOME=str(tmp_path / "state"))
-    proc = subprocess.run(["python3", os.path.join(_BIN, "rq_slot_indicator.py")],
-                          env=env, capture_output=True, text=True, timeout=30)
-    assert proc.returncode == 0, proc.stderr
-    assert "not an A/B card with two systems" in (tmp_path / "state/rasqberry/slot-indicator.log").read_text()
+RELEASES_BETA = {"streams": {"beta": {"tag": BETA_NEW, "release_date": "2026-10-10",
+                                      "release_url": "https://x/beta"}}}
+
+
+def _plain(status, version=BETA, releases=RELEASES_BETA, controls=None,
+           now="2027-01-01", serial="s"):
+    device = rn.device_from_status(status, version)
+    advices = rn.advise(device, releases, controls or {}, serial, rn.parse_time(now))
+    return device, advices
+
+
+@pytest.mark.parametrize("status", [{"layout": "single", "card_mode": "standard"},
+                                    {"layout": "ab", "current": "A", "card_mode": "single"}])
+def test_plain_badge_only_while_a_release_is_new(status):
+    device, advices = _plain(status)
+    assert ind.wants_icon("plain", advices) is True
+    # up to date, withdrawn, in its grace period or outside the rollout: invisible
+    assert ind.wants_icon("plain", _plain(status, version=BETA_NEW)[1]) is False
+    assert ind.wants_icon("plain", _plain(status, controls={BETA_NEW: {"withdrawn": True}})[1]) is False
+    assert ind.wants_icon("plain", _plain(status, now="2026-10-11")[1]) is False
+    assert ind.wants_icon("plain", _plain(status, controls={BETA_NEW: {"rollout": 0}})[1]) is False
+    # the slot badge is always there
+    assert ind.wants_icon("ab", []) is True
+
+
+def test_plain_badge_tooltip_and_menu():
+    device, advices = _plain({"layout": "single", "card_mode": "standard"})
+    assert ind.plain_tooltip(BETA, advices, device) == (
+        "RasQberry", "Version: beta-2026-10-03-095636\nNew beta available: beta-2026-10-10-120000")
+    assert _texts(ind.plain_menu_items(BETA, advices, device)) == [
+        "Version: beta-2026-10-03-095636",
+        "New beta available: beta-2026-10-10-120000",
+        "---", "System Info…", "Software & Image Updates…",
+        "---", "What's new in beta-2026-10-10-120000…",
+    ]
+    ids = [i for i, _ in ind.plain_menu_items(BETA, advices, device)]
+    assert 11 in ids and 12 in ids and 100 in ids                  # the actions of menu_items
+
+
+@pytest.mark.parametrize("status,route", [
+    ({"layout": "single", "card_mode": "standard"},
+     "There is no A/B on this image, so an update is not installed in place: write the new "
+     "image to a card with Raspberry Pi Imager (rasqberry.org/latest/). Copy your notebooks "
+     "and ~/.qiskit first."),
+    ({"layout": "ab", "current": "A", "card_mode": "single"},
+     "This card is under 64 GB and runs one system, so an update is not installed in place: "
+     "write the new image to a card with Raspberry Pi Imager (rasqberry.org/latest/). Copy "
+     "your files (~/My-Quantum-Programs, ~/Shared, ~/.qiskit) first."),
+])
+def test_plain_whats_new_says_how_to_update_and_has_no_install(status, route):
+    device, advices = _plain(status)
+    text = ind.whats_new(advices[0], device, RELEASES_BETA, {})
+    assert text["route"] == route
+    assert text["install_label"] == "" and text["warning"] == "" and text["wait"] == ""
+
+
+def test_no_wait_without_slots():
+    info = ind.slot_info({"layout": "single", "card_mode": "standard"}, {"present": False}, BETA)
+    assert ind.update_wait(info) == ""
+
+
+def test_main_no_longer_leaves_where_there_are_no_slots():
+    text = open(os.path.join(_BIN, "rq_slot_indicator.py")).read()
+    main = text[text.index("def main(argv=None):"):]
+    assert "should_run" not in main and "not an A/B card" not in text
 
 
 # ---------------------------------------------------------------------------
@@ -435,3 +494,5 @@ def test_badge_renders_when_cairo_is_there():
     for state in ("ok", "checking", "pending", "failed"):
         w, h, data = ind.render_badge("B", state, dot=state == "ok")
         assert (w, h) == (64, 64) and len(data) == 64 * 64 * 4
+    w, h, data = ind.render_badge(ind.PLAIN_LETTER, "plain", dot=True)
+    assert (w, h) == (64, 64) and len(data) == 64 * 64 * 4

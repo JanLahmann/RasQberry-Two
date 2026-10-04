@@ -342,8 +342,13 @@ def test_warning_text(device, tag, stream, text, strong):
      "It goes into Slot A, the slot that is not running. After a good trial start, Slot A "
      "becomes the start slot and Slot B stays as the fallback."),
     (single(BETA_OLD),
-     "This Pi has one system: write the new image to a card (rasqberry.org/latest/). "
-     "Copy your notebooks and ~/.qiskit first."),
+     "There is no A/B on this image, so an update is not installed in place: write the new "
+     "image to a card with Raspberry Pi Imager (rasqberry.org/latest/). Copy your notebooks "
+     "and ~/.qiskit first."),
+    (dict(single(BETA_OLD), card="single"),
+     "This card is under 64 GB and runs one system, so an update is not installed in place: "
+     "write the new image to a card with Raspberry Pi Imager (rasqberry.org/latest/). Copy "
+     "your files (~/My-Quantum-Programs, ~/Shared, ~/.qiskit) first."),
 ])
 def test_route_text(device, text):
     assert rn.route_text(_advice(device, BETA_NEW, "beta"), device) == text

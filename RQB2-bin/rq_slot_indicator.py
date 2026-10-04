@@ -13,12 +13,18 @@ Hover: slot, state and version. Click or tap: a menu with both slots, System
 Info, Software & Image Updates and "What's new in <release>". It never
 installs anything: every action opens the RasQberry menu in a terminal.
 
+On the standard image and on a card with one system (an A/B image on a card
+under 64 GB) there are no slots: the indicator stays invisible until a newer
+release is available for this Pi (the same rules: stream, grace period,
+rollout, withdrawn), then shows a plain grey RasQberry badge "Q" with the
+dot, and the menu: version, System Info, Software & Image Updates, "What's
+new in <release>". It hides again (drops its tray name) when nothing is new.
+
 Two one-time notices use wf-panel-pi's own popup (the desktop has no
 notification server): a failed update (once per failure) and a new release
 (once per release).
 
 Runs as the desktop user from /etc/xdg/autostart/rasqberry-slot-indicator.desktop.
-Exits at once on the standard image and on a card with one system.
 
 Written with Gio D-Bus (org.kde.StatusNotifierItem + com.canonical.dbusmenu)
 and pycairo, no extra packages (spike: .local/spike-242). Facts from the
@@ -74,8 +80,10 @@ COLOURS = {
     "checking": (0xd9, 0x7e, 0x00),
     "pending": (0xd9, 0x7e, 0x00),
     "failed": (0xc6, 0x28, 0x28),
+    "plain": (0x5f, 0x63, 0x68),        # no slots: neutral grey
 }
 DOT = (0x1a, 0x73, 0xe8)
+PLAIN_LETTER = "Q"                      # RasQberry, not a slot letter
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +92,9 @@ DOT = (0x1a, 0x73, 0xe8)
 
 def should_run(status):
     """
-    Show the indicator? Only on an A/B card with two systems (or the second
-    not set up yet): not on the standard image, not in single-system mode.
+    The A/B badge (slot letter, state colours)? Only on an A/B card with two
+    systems (or the second not set up yet): not on the standard image, not
+    in single-system mode - there the plain badge (indicator_mode 'plain').
 
     Args:
         status (dict): slot-status / summary key=value pairs
@@ -96,6 +105,16 @@ def should_run(status):
     return (status.get("layout") == "ab"
             and status.get("current") in ("A", "B")
             and status.get("card_mode", "") not in ("single", "single-pending"))
+
+
+def indicator_mode(status):
+    """'ab' (the slot badge) or 'plain' (no slots: standard image, one system)."""
+    return "ab" if should_run(status) else "plain"
+
+
+def wants_icon(mode, advices):
+    """In the tray? The slot badge always; the plain badge only while a release is new."""
+    return mode == "ab" or bool(rn.updates(advices))
 
 
 def autoboot_default(text):
@@ -371,6 +390,8 @@ def update_wait(info):
         str: the sentence, '' when an update can go ahead
     """
     current, target, default = info["current"], info["target"], info["default"]
+    if current not in ("A", "B"):
+        return ""           # no slots: nothing to wait for
     if not info["confirmed"] and target == current:
         return (f"Slot {current}, the system you are running, is still on trial. "
                 f"Updates wait until the health check has confirmed it, a few minutes "
@@ -379,6 +400,43 @@ def update_wait(info):
         return (f"The next restart starts Slot {default}, not Slot {current} that is "
                 f"running now. Updates wait until then: restart first.")
     return ""
+
+
+def plain_tooltip(version, advices, device):
+    """(title, body) of the plain badge: no slots, a newer release."""
+    lines = [f"Version: {rn.version_text(version) or 'unknown'}"]
+    ups = rn.updates(advices)
+    if ups:
+        lines.append(rn.headline(ups[0], device))
+    return "RasQberry", "\n".join(lines)
+
+
+def plain_menu_items(version, advices, device):
+    """
+    The plain badge's menu: the version, the new releases, System Info,
+    Software & Image Updates and "What's new in <tag>" (the ids of
+    menu_items).
+    """
+    items = [(1, {"label": f"Version: {rn.version_text(version) or 'unknown'}",
+                  "enabled": False})]
+    next_id = 2
+    for a in advices:
+        if a["kind"] == "withdrawn":
+            text = "This release was withdrawn" + (f": {a['reason']}" if a["reason"] else "")
+            items.append((next_id, {"label": text, "enabled": False}))
+            next_id += 1
+    ups = rn.updates(advices)
+    for a in ups:
+        items.append((next_id, {"label": rn.headline(a, device), "enabled": False}))
+        next_id += 1
+    items.append((10, {"type": "separator"}))
+    items.append((11, {"label": "System Info…", "icon-name": "dialog-information"}))
+    items.append((12, {"label": "Software & Image Updates…"}))
+    if ups:
+        items.append((13, {"type": "separator"}))
+    for i, a in enumerate(ups):
+        items.append((100 + i, {"label": f"What's new in {a['tag']}…"}))
+    return items
 
 
 def whats_new(advice, device, releases, highlights, wait=""):
@@ -392,20 +450,20 @@ def whats_new(advice, device, releases, highlights, wait=""):
     Returns:
         dict: title, heading, meta (date and size), highlights (list),
         route, warning, strong (the warning is about the last beta/stable
-        system), wait, release_url, install_label ('' = no Install button)
+        system), wait, release_url, install_label ('' = no Install button:
+        while updates wait, and with one system, where the route says how
+        to write the new image instead)
     """
     entry = advice.get("entry") or {}
     meta = ", ".join(x for x in (rn.date_text(advice["tag"], entry), rn.size_text(entry)) if x)
     lines = rn.highlight_lines(advice["stream"], releases, highlights)
     warning, strong = rn.warning_text(advice, device)
     target = advice.get("target")
-    if wait:
-        install_label = ""
-    elif target:
+    if target and not wait:
         # the slot rq_slot_manager.sh plan-update targets: the one not running
         install_label = f"Install into Slot {target}…"
     else:
-        install_label = "Software & Image Updates…"
+        install_label = ""
     return {
         "title": f"What's new in {advice['tag']}",
         "heading": rn.headline(advice, device),
@@ -673,15 +731,24 @@ class SlotIndicator:
         self.monitors = []
 
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        self.name = f"org.kde.StatusNotifierItem-{os.getpid()}-1"
+        # In the tray only while wants_icon(): the plain badge comes and goes
+        # with a new release. Its item name is owned while it is shown; the
+        # tray drops an item whose name goes away.
+        self.mode = ""
+        self.shown = False
+        self.name = ""
+        self.name_id = 0
+        self.name_count = 0
+        self.watcher = False
         self.update_view(initial=True)
         sni = Gio.DBusNodeInfo.new_for_xml(SNI_XML).interfaces[0]
         menu = Gio.DBusNodeInfo.new_for_xml(MENU_XML).interfaces[0]
         self.bus.register_object(ITEM_PATH, sni, self._sni_call, self._sni_prop, None)
         self.bus.register_object(MENU_PATH, menu, self._menu_call, self._menu_prop, None)
-        Gio.bus_own_name_on_connection(self.bus, self.name, Gio.BusNameOwnerFlags.NONE, None, None)
+        self._show(wants_icon(self.mode, self.advices))
         Gio.bus_watch_name_on_connection(self.bus, "org.kde.StatusNotifierWatcher",
-                                         Gio.BusNameWatcherFlags.NONE, self._on_watcher, None)
+                                         Gio.BusNameWatcherFlags.NONE, self._on_watcher,
+                                         self._on_watcher_gone)
         Gio.bus_watch_name_on_connection(self.bus, "org.wayfire.wfpanel",
                                          Gio.BusNameWatcherFlags.NONE,
                                          self._on_panel, self._on_panel_gone)
@@ -710,25 +777,34 @@ class SlotIndicator:
     def update_view(self, initial=False):
         """Recompute everything; tell the panel what changed."""
         status, info = self.read_info()
-        if not status.get("layout"):
-            if not initial:
-                return      # status unreadable for a moment: keep what is shown
-        elif not should_run(status) and not initial:
-            log.info("no longer an A/B card with two systems - leaving the panel")
-            self.loop.quit()
-            return
+        if not status.get("layout") and not initial:
+            return      # status unreadable for a moment: keep what is shown
+        mode = indicator_mode(status)
+        if mode != self.mode:
+            log.info("mode: %s (layout=%s card_mode=%s)", mode, status.get("layout", "?"),
+                     status.get("card_mode", "?"))
+            self.mode = mode
         self.info = info
         self.data = rn.load_all([rn.user_cache_dir(), rn.system_cache_dir()])
-        self.device = device_for_advice(info)
+        if mode == "ab":
+            self.device = device_for_advice(info)
+        else:
+            self.device = rn.device_from_status(status, info["version"])
         self.advices = rn.advise(self.device, self.data["releases"], self.data["controls"],
                                  rn.device_serial(), rn.now_utc())
-        state, next_slot = badge_state(info, self.book.acked)
         dot = bool(rn.updates(self.advices))
-        title, body = tooltip(info, state, next_slot, self.advices, self.device)
-        items = menu_items(info, state, next_slot, self.advices, self.device)
-        view = (state, info["current"], dot, title, body)
+        if mode == "ab":
+            state, next_slot = badge_state(info, self.book.acked)
+            letter = info["current"] or "?"
+            title, body = tooltip(info, state, next_slot, self.advices, self.device)
+            items = menu_items(info, state, next_slot, self.advices, self.device)
+        else:
+            state, letter = "plain", PLAIN_LETTER
+            title, body = plain_tooltip(info["version"], self.advices, self.device)
+            items = plain_menu_items(info["version"], self.advices, self.device)
+        view = (state, letter, dot, title, body)
         if view != self.view:
-            w, h, pix = render_badge(info["current"] or "?", state, dot)
+            w, h, pix = render_badge(letter, state, dot)
             self.pixmap = self._pixmap_variant(w, h, pix)
             self.title, self.body = title, body
             if self.view is not None:
@@ -743,6 +819,8 @@ class SlotIndicator:
             if not initial:
                 self.bus.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
                                      self.GLib.Variant("(ui)", (self.menu_rev, 0)))
+        if not initial:
+            self._show(wants_icon(mode, self.advices))
         self._queue_notices()
 
     def _pixmap_variant(self, w, h, data):
@@ -803,7 +881,8 @@ class SlotIndicator:
 
     # -- notices (wf-panel-pi's popup) ---------------------------------------
     def _queue_notices(self):
-        if self.info.get("failure") and self.book.failure_to_announce(self.info["failure"]):
+        if (self.mode == "ab" and self.info.get("failure")
+                and self.book.failure_to_announce(self.info["failure"])):
             f = self.info
             self.notices.append(failure_text(f["failure"], f["current"], f["version"], f["contents"]))
             self.book.save()
@@ -845,12 +924,43 @@ class SlotIndicator:
         self.panel_present = False
 
     # -- SNI -------------------------------------------------------------------
+    def _show(self, on):
+        """
+        Into the tray or out of it. In: own a fresh item name and register
+        it with the tray. Out: release the name - the tray drops the item.
+        """
+        if on == self.shown:
+            return
+        Gio = self.Gio
+        if on:
+            self.name_count += 1
+            self.name = f"org.kde.StatusNotifierItem-{os.getpid()}-{self.name_count}"
+            self.name_id = Gio.bus_own_name_on_connection(self.bus, self.name,
+                                                          Gio.BusNameOwnerFlags.NONE, None, None)
+            self.shown = True
+            log.info("in the tray as %s", self.name)
+            if self.watcher:
+                self._register()
+        else:
+            Gio.bus_unown_name(self.name_id)
+            self.name_id = 0
+            self.shown = False
+            log.info("out of the tray (nothing new)")
+
+    def _register(self):
+        self.bus.call("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher",
+                      "org.kde.StatusNotifierWatcher", "RegisterStatusNotifierItem",
+                      self.GLib.Variant("(s)", (self.name,)), None,
+                      self.Gio.DBusCallFlags.NONE, -1, None, self._registered)
+
     def _on_watcher(self, conn, name, owner):
-        log.info("tray %s owned by %s - registering", name, owner)
-        conn.call("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher",
-                  "org.kde.StatusNotifierWatcher", "RegisterStatusNotifierItem",
-                  self.GLib.Variant("(s)", (self.name,)), None,
-                  self.Gio.DBusCallFlags.NONE, -1, None, self._registered)
+        log.info("tray %s owned by %s%s", name, owner, " - registering" if self.shown else "")
+        self.watcher = True
+        if self.shown:
+            self._register()
+
+    def _on_watcher_gone(self, conn, name):
+        self.watcher = False
 
     def _registered(self, conn, res):
         try:
@@ -978,7 +1088,7 @@ class SlotIndicator:
         if self.window is not None:
             self.window.destroy()
         text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"],
-                         wait=update_wait(self.info))
+                         wait=update_wait(self.info) if self.mode == "ab" else "")
         win = Gtk.Window(title=text["title"])
         win.set_default_size(480, -1)
         win.set_position(Gtk.WindowPosition.CENTER)
@@ -1049,7 +1159,8 @@ class SlotIndicator:
 
 
 def main(argv=None):
-    """Start the indicator (or exit at once where it does not belong)."""
+    """Start the indicator: the slot badge on an A/B card with two systems, else
+    the plain badge, invisible until a newer release is there."""
     p = argparse.ArgumentParser(description="RasQberry A/B slot indicator")
     p.add_argument("--fake-failed", action="store_true",
                    help="show a made-up failed update (trials; nothing is written)")
@@ -1067,11 +1178,6 @@ def main(argv=None):
     except OSError:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-    status = rn.read_slot_status()
-    if not should_run(status):
-        log.info("not an A/B card with two systems (layout=%s card_mode=%s) - exit",
-                 status.get("layout", "?"), status.get("card_mode", "?"))
-        return 0
     try:
         import cairo  # noqa: F401
         from gi.repository import Gio, GLib

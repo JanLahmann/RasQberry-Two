@@ -653,10 +653,20 @@ def warning_text(advice, device):
 
 
 def route_text(advice, device):
-    """Where the update goes; the updater does the rest."""
+    """
+    Where the update goes; the updater does the rest. With one system there
+    is no in-place update: the words of the Software & Image Updates menu
+    (do_check_for_update, rq_expand_ab.sh explain), short.
+    """
     target = advice.get("target")
     if not target:
-        return ("This Pi has one system: write the new image to a card "
+        if device.get("card") == "single":
+            return ("This card is under 64 GB and runs one system, so an update is not "
+                    "installed in place: write the new image to a card with Raspberry Pi "
+                    "Imager (rasqberry.org/latest/). Copy your files (~/My-Quantum-Programs, "
+                    "~/Shared, ~/.qiskit) first.")
+        return ("There is no A/B on this image, so an update is not installed in place: "
+                "write the new image to a card with Raspberry Pi Imager "
                 "(rasqberry.org/latest/). Copy your notebooks and ~/.qiskit first.")
     return (f"It goes into Slot {target}, the slot that is not running. After a good "
             f"trial start, Slot {target} becomes the start slot and Slot "
@@ -899,15 +909,18 @@ def read_slot_status(status_file=None, slot_manager=None):
 def device_from_status(status, version):
     """
     The device dict advise() needs, from the slot status and the running
-    version. Single-system cards and the standard image count as one system.
+    version. Single-system cards and the standard image count as one system;
+    'card' says which: 'ab', 'single' (an A/B image on a card under 64 GB)
+    or 'standard' (the standard image, or nothing known).
     """
-    ab = (status.get("layout") == "ab"
-          and status.get("card_mode", "") not in ("single", "single-pending")
-          and status.get("current") in ("A", "B"))
+    single = status.get("card_mode", "") in ("single", "single-pending")
+    ab = status.get("layout") == "ab" and not single and status.get("current") in ("A", "B")
     current = status.get("current") if ab else None
     other = other_slot(current)
     other_v = status.get(f"slot_{other.lower()}", "") if other else ""
-    return {"ab": ab, "current": current, "version": version, "other_version": other_v}
+    card = "ab" if ab else ("single" if status.get("layout") == "ab" and single else "standard")
+    return {"ab": ab, "current": current, "version": version, "other_version": other_v,
+            "card": card}
 
 
 def now_utc():
