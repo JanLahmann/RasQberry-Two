@@ -738,6 +738,52 @@ exit 0
     assert not any(c.startswith(("rm -f", "stop")) for c in calls.read_text().splitlines()[-3:])
 
 
+# --- the on-screen LED view closes with the demo (R-100) -------------------------
+
+def _fake_turn_off(tmp_path):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    args = tmp_path / "turn-off-args"
+    (bindir / "turn_off_LEDs.py").write_text(
+        f'import sys\nopen("{args}", "a").write(" ".join(sys.argv[1:]) + "\\n")\n')
+    return bindir, args
+
+
+@needs_bash
+@pytest.mark.parametrize("keep,expected", [("", "--close-window"), ("1", "")])
+def test_an_led_demo_end_closes_the_on_screen_view(tmp_path, keep, expected):
+    bindir, args = _fake_turn_off(tmp_path)
+    subprocess.run(["bash", "-c", f'. "{_COMMON}"; BIN_DIR="{bindir}"; '
+                                  'find_venv() { return 1; }; led_clear_quietly'],
+                   env=dict(os.environ, RQ_LED_KEEP_WINDOW=keep), check=True, timeout=30)
+    assert args.read_text() == expected + "\n"
+
+
+def test_demo_loop_keeps_one_view_and_closes_it_at_the_end():
+    loop = _read("rq_demo_loop.sh")
+    assert "export RQ_LED_KEEP_WINDOW=1" in loop
+    cleanup = loop[loop.index("cleanup() {"):loop.index("setup_cleanup_trap cleanup")]
+    assert "clear_leds --close-window" in cleanup
+
+
+def test_turn_off_close_window_reaps_only_with_the_flag(monkeypatch):
+    calls = []
+    fake = types.ModuleType("rq_led_utils")
+    fake.clear_all_leds = lambda: calls.append("clear")
+    fake.get_led_config = lambda: {}
+    fake.guard_pi5_led_writes = lambda: False
+    fake._wait_for_last_frame = lambda: None
+    fake.reap_virtual_led_gui = lambda: calls.append("reap")
+    monkeypatch.setitem(sys.modules, "rq_led_utils", fake)
+    spec = importlib.util.spec_from_file_location("turn_off_r100", os.path.join(_BIN, "turn_off_LEDs.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(sys, "argv", ["turn_off_LEDs.py"])
+    assert mod.main() == 0 and calls == ["clear"]
+    calls.clear()
+    monkeypatch.setattr(sys, "argv", ["turn_off_LEDs.py", "--close-window"])
+    assert mod.main() == 0 and calls == ["clear", "reap"]
+
 
 @needs_bash
 def test_catalogue_web_demo_stops_its_server_with_enter(box):
