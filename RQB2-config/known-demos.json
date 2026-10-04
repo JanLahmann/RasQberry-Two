@@ -5,7 +5,7 @@
       "id": "traqmania",
       "name": "traQmania",
       "summary": "quantum reinforcement-learning racing game (Docker)",
-      "provider": "Jan-R. Lahmann, who also makes RasQberry Two, as part of the Fun with Quantum family",
+      "provider": "the Fun with Quantum family",
       "maturity": "beta",
       "repo_url": "https://github.com/JanLahmann/traQmania.git",
       "ref": "8bd2db8c140c68482f1423215dfe542b0c25e57a",

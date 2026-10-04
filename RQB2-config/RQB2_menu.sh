@@ -2073,9 +2073,9 @@ ab_pick_image() {
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
         set -- "$ltag" "$note"
-        prompt="This system: ${current:-unknown} (release type: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
-        prompt="This system: ${current:-unknown} (release type: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
     set -- "$@" OTHER "Other release..."
 
@@ -2091,7 +2091,7 @@ ab_pick_other() {
     local channel="$1" current="$2" stream repo="" list lrc=0 choice line t d s note
     # The device's own channel is the default (Q6 is open: the others stay)
     stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other release" \
-        "Choose a release type. This system follows: ${channel}" \
+        "Choose a release stream. This system follows: ${channel}" \
         beta   "Beta releases" \
         dev    "Development builds (newest, less tested)" \
         stable "Stable releases" \
@@ -2163,7 +2163,7 @@ ab_guard() {
     case "$(ab_value "$plan" downgrade)" in
         stream)
             ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
-                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) is a less tested release type, so installing it is a downgrade.\n\nInstall it anyway?" \
+                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release stream, so installing it is a downgrade.\n\nInstall it anyway?" \
                 --defaultno || return 1
             opts="--allow-downgrade" ;;
         older)

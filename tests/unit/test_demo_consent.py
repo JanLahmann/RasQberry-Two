@@ -359,7 +359,7 @@ _ADD = os.path.join(_BIN, "rq_demo_add_external.sh")
 
 
 @pytest.mark.parametrize("demo_id,provider", [
-    ("traqmania", "Provided by Jan-R. Lahmann, who also makes RasQberry Two, as part of the Fun with Quantum family."),
+    ("traqmania", "Provided by the Fun with Quantum family."),
     ("sap-quantum-learning", "Provided by SAP."),
     ("sap-quantum-led", "Provided by SAP."),
 ])

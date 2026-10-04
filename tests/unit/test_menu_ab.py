@@ -259,7 +259,7 @@ def test_picker_other_channel_defaults_to_the_own_channel(tmp_path):
     assert proc.stdout.strip().endswith("/x-ab.img.xz|dev-x-2026-09-30-000000|2000000000|fed3")
     channel_menu = wt.split("=== whiptail")[2]
     assert "--default-item\nbeta\n" in channel_menu
-    assert "Choose a release type. This system follows: beta" in channel_menu
+    assert "Choose a release stream. This system follows: beta" in channel_menu
     assert "channel" not in wt
 
 
@@ -320,8 +320,8 @@ def test_no_warning_for_an_empty_target_or_dev_over_dev(tmp_path, plan):
 
 @pytest.mark.parametrize("downgrade,holds,picks,text", [
     ("stream", "beta beta-2026-10-03-095636", PICK_DEV,
-     "Slot B holds beta-2026-10-03-095636 (beta).\\ndevelopment-2026-10-01-083408 (dev) is a "
-     "less tested release type, so installing it is a downgrade."),
+     "Slot B holds beta-2026-10-03-095636 (beta).\\ndevelopment-2026-10-01-083408 (dev) comes from a "
+     "less tested release stream, so installing it is a downgrade."),
     ("older", "beta beta-2026-10-20-000000", ["beta-2026-10-15-101010"],
      "Slot B holds beta-2026-10-20-000000 (beta).\\nbeta-2026-10-15-101010 is older, "
      "so installing it is a downgrade."),

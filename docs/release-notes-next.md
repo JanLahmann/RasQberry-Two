@@ -12,11 +12,11 @@ only true for the standard image. -->
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
 - **On-screen LED view:** it now closes when the LED demo ends; the demo loop keeps one view until the loop stops.
 - **LED Demos from a terminal:** `rq_demo_run.sh led-demos` without a part shows the list of LED demos (without a terminal: the commands for each) instead of an error.
-- **Demo catalogue:** the install question says who provides each demo (traQmania: Jan-R. Lahmann, in the Fun with Quantum family; the SAP demos: SAP).
+- **Demo catalogue:** the install question says who provides each demo (traQmania: the Fun with Quantum family; the SAP demos: SAP).
 - **Catalogue web and Docker demos:** their desktop icons open a window, so the demo stops like the others (Enter, Ctrl+C or closing the window). SAP Quantum Learning used to keep running with no way to stop it.
 - **Catalogue Docker demos (traQmania):** when one stops right after it starts, its log is kept and its last lines are shown.
 - **Workshop & Qiskit Server:** the start text says that running code in the notebooks needs the internet for now.
-- **Plain words:** the update picker says "release type" instead of "channel"; the Slot Manager status shows sizes in GB and the names Slot A and Slot B; the LED settings say "LED panel" and "on-screen view"; a failed catalogue install and the Workshop & Qiskit Server no longer name pip or Docker commands.
+- **Plain words:** the update picker says "release stream" instead of "channel"; the Slot Manager status shows sizes in GB and the names Slot A and Slot B; the LED settings say "LED panel" and "on-screen view"; a failed catalogue install and the Workshop & Qiskit Server no longer name pip or Docker commands.
 
 ## What's new for you
 
