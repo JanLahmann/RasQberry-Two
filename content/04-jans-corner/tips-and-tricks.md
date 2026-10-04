@@ -37,8 +37,9 @@ brightness (**LEDs** → **LED brightness**).
 
 - **Card:** 128 GB, A2/U3. The A/B image then holds two systems, each with room
   for all Docker demos.
-- **Updates:** install a new release into Slot B and try it. Make Slot B the
-  stable system only once you are happy with it; until then Slot A is your way back.
+- **Updates:** a new release goes into the system you are not running; the
+  other one stays as your way back. Keep at least one beta (or stable) system on
+  the card when you try development builds.
 - **Keep your files in Shared or My-Quantum-Programs:** those folders, your IBM
   Quantum account, Wi-Fi and LED settings move with every update. The rest of your
   home folder stays in its slot.

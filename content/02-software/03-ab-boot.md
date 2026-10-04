@@ -2,8 +2,9 @@
 
 The A/B image is the recommended RasQberry Two image (**RasQberry Two Beta** in
 Raspberry Pi Imager). On a card of 64 GB or more it holds **two systems**, Slot A
-and Slot B. An update goes into Slot B while Slot A keeps the system that works,
-so a failed update never leaves you without a working Pi.
+and Slot B. An update goes into the system you are not running, while the
+running one stays as it is, so a failed update never leaves you without a
+working Pi.
 
 ## Card sizes
 
@@ -30,16 +31,18 @@ automatically. To keep it as one system, create an empty file named
 1. `sudo raspi-config` → **0 RasQberry** → **Software & Image Updates** →
    **Check for a newer image** tells you whether a new release is out. A
    terminal or SSH login also shows a one-line notice.
-2. **Slot Manager** → **Install an update into Slot B (testing)**. It downloads about
-   1.7 GB and takes 10–20 minutes, then the Pi restarts into Slot B.
-3. If Slot B starts properly, it is kept. If not, the Pi goes back to Slot A
-   by itself.
-4. Once you are happy with Slot B, **Slot Manager** → **Make Slot B the stable
-   system (copy B to A)** copies it to Slot A, which becomes your stable system again. Restart afterwards.
-   The next update goes into Slot B again.
+2. **Slot Manager** → **Install an update into the other system**. It downloads
+   about 1.7 GB and takes 10–20 minutes, then the Pi restarts into the new system.
+3. If the update works, the new system becomes the one the Pi starts from. If
+   it doesn't, the Pi goes back to the other one by itself.
 
-Promoting replaces everything in Slot A, including the files in your home folder
-there. Keep anything you want to keep in **Shared** or **My-Quantum-Programs**.
+Updates take turns between Slot A and Slot B. The slot you left keeps the
+previous system, so you can go back to it.
+
+RasQberry warns you before a downgrade (an older release, or a development
+build over a beta), and before it replaces your only beta or stable system.
+Then it suggests the safer way: switch to that system first and install the
+update into the other slot.
 
 ## What an update keeps
 
@@ -55,15 +58,15 @@ stay in the other slot: switch back to fetch them.
 
 ## Go back
 
-- **Use the other system:** **Slot Manager** → **Restart into Slot A** (or B).
-- **The Pi does not start after an update:** switch it off and on again. It
-  starts the previous system.
-- **It still does not start:** put the card in a computer and open the
+- **Use the other system:** **Slot Manager** → **Switch to Slot A** (or B).
+- **The screen stays black after an update:** switch the Pi off and on again.
+  It starts the previous system.
+- **Still nothing on the screen:** put the card in a computer and open the
   **CONFIG** drive. In `autoboot.txt`, under `[all]`, set `boot_partition=2`
   (Slot A), save, and put the card back.
 
-**System Info** in the RasQberry menu shows the version and the slot you are
-running.
+**System Info** in the RasQberry menu shows what each slot holds and which one
+you are running.
 
 ## Raspberry Pi 4
 
