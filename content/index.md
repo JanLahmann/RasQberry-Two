@@ -31,7 +31,7 @@ leadspace:
 <div className="callout callout--news">
   <p><strong>New beta: the SD card stays in the Pi.</strong> With the new <a href="/02-software/03-ab-boot/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="ab-image">A/B image</a>, releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB card or larger, 128 GB recommended).</p>
   <ul>
-    <li><strong>New demos:</strong> the Workshop &amp; Qiskit Server for a whole class, Qiskit Tutorials on this Pi, Quantum Lab and a demo catalogue.</li>
+    <li><strong>Several new demos and games:</strong> the Workshop &amp; Qiskit Server for a whole class, Qiskit Tutorials on this Pi, Quantum Lab, the Mermin-Peres game and a demo catalogue with traQmania.</li>
     <li><strong><a href="/03-quantum-computing-demos/02-learning-paths/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="learning-paths">Learning paths</a>:</strong> short tours through the demos, with tips on where to go next.</li>
     <li><strong>Taskbar badge:</strong> shows which system runs and tells you when a new release is out.</li>
   </ul>
