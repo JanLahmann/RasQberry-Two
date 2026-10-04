@@ -29,6 +29,11 @@ The other halves of the rollback safety net:
   boot: a probation boot that never got confirmed (hung start-up, emergency
   mode) is rolled back the same way
 
+Usage counts (rq_umami_event.py): before confirming, whether this is the first
+start of a newly written card and whether this trial start follows an update;
+at the end, "first start" and "update result" are queued and sent. Best
+effort: never changes the outcome and adds at most a few seconds at the end.
+
 Timeout: 10 minutes (configured in systemd service)
 """
 
@@ -67,6 +72,14 @@ def _setup_logging() -> logging.Logger:
 
 
 logger = _setup_logging()
+
+# Anonymous usage counts: optional, never part of the check
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import rq_umami_event as usage_counts
+except Exception:  # noqa: BLE001 - a broken counter must not break the check
+    usage_counts = None
 
 
 def load_environment() -> dict:
@@ -657,6 +670,35 @@ def run_deadline() -> int:
     return 1
 
 
+def counts_started(probation: Optional[str]) -> dict:
+    """
+    Usage counts, before the slot is confirmed (confirming writes the CONFIG
+    markers that tell a new card from an updated slot, and removes the
+    update hint). Never raises.
+
+    Returns:
+        dict: for counts_finished()
+    """
+    if usage_counts is None:
+        return {}
+    try:
+        return usage_counts.boot_started(BOOT_CONFIG_DIR, probation)
+    except Exception as e:  # noqa: BLE001
+        logger.info(f"Usage counts skipped: {e}")
+        return {}
+
+
+def counts_finished(ctx: dict, confirmed: bool) -> None:
+    """Usage counts at the end: queue what this start decided, send the queue. Never raises."""
+    if usage_counts is None:
+        return
+    try:
+        usage_counts.boot_finished(ctx, BOOT_CONFIG_DIR, slot_from_root(current_root_device()),
+                                   confirmed)
+    except Exception as e:  # noqa: BLE001
+        logger.info(f"Usage counts skipped: {e}")
+
+
 def main():
     """
     Main health check routine.
@@ -670,6 +712,7 @@ def main():
     probation = probation_slot()
     if probation:
         logger.info(f"Slot {probation} is on its trial boot (tryboot): a failed check rolls back")
+    counts = counts_started(probation)
     logger.info("Starting health checks...")
 
     checks = {}
@@ -720,7 +763,8 @@ def main():
 
     # Confirm boot slot
     logger.info("\nConfirming boot slot...")
-    if confirm_boot_slot():
+    confirmed = confirm_boot_slot()
+    if confirmed:
         logger.info("✓ Boot slot confirmed - no rollback will occur")
         disarm_probation_watchdog()
     else:
@@ -729,6 +773,7 @@ def main():
     # Report success
     report_status(True, checks)
     write_slot_status()
+    counts_finished(counts, confirmed)
 
     logger.info("\n=== Health Check Complete: SUCCESS ===")
     sys.exit(0)

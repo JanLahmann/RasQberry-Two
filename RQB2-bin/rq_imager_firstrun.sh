@@ -57,6 +57,9 @@ BOOT_DIR="${RQ_BOOT_DIR:-/boot}"
 PROC_CMDLINE="${RQ_PROC_CMDLINE:-/proc/cmdline}"
 LOG_FILE="${RQ_IMAGER_LOG:-/var/log/rasqberry-imager.log}"
 IGNORED_DIR="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-ignored"
+# This system started with Imager's customisation ("imager" in the first
+# start's usage count, rq_umami_event.py)
+APPLIED_MARK="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-customised"
 DT_TRYBOOT="${RQ_DT_BOOTLOADER_DIR:-/proc/device-tree/chosen/bootloader}/tryboot"
 USERCONF_WRAPPER="/usr/bin/rq_imager_userconf.sh"
 MARK="# RasQberry: patched by rq_imager_firstrun.sh"
@@ -195,6 +198,10 @@ ignore_leftovers() {
     restart_pi
 }
 
+mark_applied() {
+    { mkdir -p "$(dirname "$APPLIED_MARK")" && date '+%Y-%m-%d %H:%M:%S' > "$APPLIED_MARK"; } 2>/dev/null || true
+}
+
 # A/B: Imager wrote to CONFIG (partition 1), which the Pi does not boot from
 move_from_config() {
     local cfg_run="$CONFIG_DIR/firstrun.sh" regdom cmd
@@ -250,8 +257,10 @@ exec /bin/bash /boot/firmware/firstrun.sh
 EOF
         chmod 755 "$BOOT_DIR/firstrun.sh"
         log "Applying Imager's customisation in this start (/boot/firmware/firstrun.sh)"
+        mark_applied
     elif grep -q 'systemd\.run=' "$PROC_CMDLINE" 2>/dev/null; then
         log "Applying Imager's customisation in this start"
+        mark_applied
     elif ! grep -q 'systemd\.run=' "$FW_DIR/cmdline.txt" 2>/dev/null; then
         log "WARNING: $FW_DIR/firstrun.sh is there, but cmdline.txt does not run it - left alone"
     fi

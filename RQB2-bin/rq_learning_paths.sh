@@ -296,6 +296,9 @@ keep_going() {
 # return 1, so the step offers Start again.
 start_step() {
     clear 2>/dev/null || true
+    # the demo engine's usage count says where the start came from
+    local RQ_DEMO_HOW=learning-path
+    export RQ_DEMO_HOW
     if [ -n "$S_DEMO" ]; then
         if [ -n "$S_VARIANT" ]; then
             "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" && return 0
@@ -328,6 +331,10 @@ walk_path() {
     path_info "$i"
     s="${LAST_STEP[i]:-0}"
     default="start"
+    # Anonymous usage count: the path's first step opened
+    if [ "$s" -eq 0 ]; then
+        rq_count_event learning-path "$P_ID" start
+    fi
     while true; do
         step_info "$i" "$s"
         prompt=""
@@ -358,6 +365,7 @@ walk_path() {
                     default="start"
                 else
                     LAST_STEP[i]=0
+                    rq_count_event learning-path "$P_ID" finish
                     clear 2>/dev/null || true
                     echo "That was the last step of \"$P_TITLE\". Well done!"
                     echo

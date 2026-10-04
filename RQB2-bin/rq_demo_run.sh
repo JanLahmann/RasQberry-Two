@@ -1022,7 +1022,7 @@ delegate_launcher() {
     done < <(get_demo_args)
 
     info "Delegating to: $launcher${launcher_args[*]:+ ${launcher_args[*]}}"
-    exec "$launcher_path" "${launcher_args[@]}"
+    exec "$launcher_path" ${launcher_args[@]+"${launcher_args[@]}"}
 }
 
 # ============================================================================
@@ -1137,7 +1137,8 @@ drop_to_desktop_user() {
     local -a keep=()
     local v
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
-             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE; do
+             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     info "Starting as $user_name (only LED demos run as root)..."
@@ -1214,8 +1215,10 @@ main() {
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
     DEMO_TITLE="$demo_name"
-    # The window's title: the demo's name, not the command line (R-135)
-    [ -t 1 ] && printf '\033]0;%s\007' "$demo_name"
+    # The window's title: the demo's name, not the command line (R-135), or
+    # the title of the icon that started it (rq_hold_on_error.sh -t)
+    [ -t 1 ] && printf '\033]0;%s\007' "${RQ_WINDOW_TITLE:-$demo_name}"
+    unset RQ_WINDOW_TITLE
 
     echo
     echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
@@ -1255,6 +1258,17 @@ main() {
 
     # Ensure demo is installed (auto-install if possible)
     ensure_installed
+
+    # Anonymous usage count of this start, in the background. Once per start:
+    # an LED demo's re-run with sudo (run_python) and a launcher that runs the
+    # engine again inherit RQ_DEMO_COUNTED. The demo loop's endless restarts
+    # are not counted.
+    if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
+        export RQ_DEMO_COUNTED="$DEMO_ID"
+        local how
+        how=$(rq_demo_start_how)
+        [ "$how" = "loop" ] || rq_count_event demo-start "${DEMO_ID}${VARIANT:+:$VARIANT}" ${how:+"$how"}
+    fi
 
     # Dispatch based on entrypoint type
     # If a launcher is specified, it can be used as fallback for any type

@@ -17,10 +17,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
+# Anonymous usage count of this start, as the demo engine counts demos (it has
+# no manifest). Once: the re-run as the desktop user inherits RQ_DEMO_COUNTED.
+if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
+    export RQ_DEMO_COUNTED=my-quantum-programs
+    how=$(rq_demo_start_how)
+    rq_count_event demo-start my-quantum-programs ${how:+"$how"}
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
     user_name=$(get_user_name)
     [ "$user_name" != "root" ] || die "Run this as the desktop user, not as root"
-    exec sudo -u "$user_name" -H -- env DISPLAY="${DISPLAY:-:0}" "$0" "$@"
+    exec sudo -u "$user_name" -H -- env DISPLAY="${DISPLAY:-:0}" RQ_DEMO_COUNTED="$RQ_DEMO_COUNTED" "$0" "$@"
 fi
 
 load_rqb2_env

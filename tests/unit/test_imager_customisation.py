@@ -130,7 +130,9 @@ def test_standard_image_runs_firstrun_from_the_boot_partition(tmp_path):
     assert _boot(tmp_path).returncode == 0
     assert (fw / "firstrun.sh").read_text() == before
     # firstrun.sh restarts the Pi itself; nothing set aside on this image
-    assert not (tmp_path / "rebooted").exists() and not (tmp_path / "state").exists()
+    assert not (tmp_path / "rebooted").exists() and not (tmp_path / "state" / "imager-ignored").exists()
+    # the first start's usage count says the customisation was applied
+    assert (tmp_path / "state" / "imager-customised").exists()
 
 
 # A newly written A/B card: whatever the layout state (dual and single
@@ -155,11 +157,13 @@ def test_ab_image_moves_firstrun_from_config_and_restarts(tmp_path, layout):
     assert cmdline.rstrip().endswith("systemd.run=/boot/firmware/firstrun.sh "
                                      "systemd.run_success_action=reboot systemd.unit=kernel-command-line.target")
     assert "rq_imager_userconf.sh" in (fw / "firstrun.sh").read_text()
+    assert not (tmp_path / "state" / "imager-customised").exists()
     # the start after that runs it; nothing is moved or restarted again
     (tmp_path / "rebooted").unlink()
     (tmp_path / "proc_cmdline").write_text(cmdline)
     assert _boot(tmp_path).returncode == 0
     assert not (tmp_path / "rebooted").exists()
+    assert (tmp_path / "state" / "imager-customised").exists()
 
 
 def test_nothing_happens_without_customisation(tmp_path):
@@ -168,6 +172,7 @@ def test_nothing_happens_without_customisation(tmp_path):
     before = (fw / "cmdline.txt").read_text()
     assert _boot(tmp_path).returncode == 0
     assert (fw / "cmdline.txt").read_text() == before and not (boot / "firstrun.sh").exists()
+    assert not (tmp_path / "state" / "imager-customised").exists()
 
 
 # An A/B card that has run before, as the A/B code leaves CONFIG
@@ -201,6 +206,8 @@ def test_a_card_that_has_run_ignores_a_stale_config_firstrun(tmp_path, history, 
     assert "Not applied" in (tmp_path / "imager.log").read_text()
     # the A/B markers are not touched
     assert sorted(p.name for p in cfg.iterdir()) == sorted(["autoboot.txt", *history])
+    # an updated slot does not count as customised
+    assert not (tmp_path / "state" / "imager-customised").exists()
     # the next start finds nothing to do
     assert _boot(tmp_path).returncode == 0
     assert not (tmp_path / "rebooted").exists()

@@ -24,7 +24,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   written by convert-to-ab-boot-v3.sh, and this removes it):
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
-#     BROWSER_AUTOSTART and RQ_FIRSTLOGIN_DONE from rasqberry_environment.env,
+#     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE and RQ_UMAMI (usage counts off,
+#     on rig and development Pis) from rasqberry_environment.env,
 #     VNC switched off (Q17: the new system then does not switch it on),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
@@ -64,7 +65,7 @@ PROGRAMS=My-Quantum-Programs
 LEARNER_STAMP=.local/state/rasqberry/learner-setup/programs
 # The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
 STARTERS="$ROOT/usr/config/my-quantum-programs"
-ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE"
+ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI"
 # Live = changing the running system (hostname, locale-gen, nmcli), not a test root
 LIVE=true
 if [ -n "$ROOT" ] || [ "${RQ_CARRY_NO_LIVE:-0}" = "1" ]; then LIVE=false; fi

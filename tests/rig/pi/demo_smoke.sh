@@ -47,6 +47,9 @@ if [ "$type" = docker ] && [ "${RIG_ALLOW_DOCKER:-0}" != 1 ]; then
 fi
 
 export DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u)
+# rig starts are not counted (rq_umami_event.py; the harness also sets it in
+# the environment file, for the desktop icons)
+export RQ_UMAMI=0
 hpid=""; launched=""
 # Browser checks (webcheck.py) when the harness turned on Chromium's remote
 # debugging (RIG_CDP_PORT): note the open tabs, to find and close the demo's
@@ -101,14 +104,14 @@ if [ -n "${RIG_ICON:-}" ]; then
     off="${RIG_ICON_OFFSET:-60,67}"
     cx=$((ix + ${off%,*})); cy=$((iy + ${off#*,}))
     read -r sw sh < <(wlr-randr 2>/dev/null | awk '/current/{split($1,a,"x"); print a[1], a[2]; exit}')
-    # the log name rq_hold_on_error.sh uses: the demo id, else the command
+    # the log name rq_hold_on_error.sh uses: the demo id (-variant), else the command
     logname=$(python3 -c 'import os, shlex, sys
 w = shlex.split(sys.argv[1])
 if w and w[0].endswith("rq_hold_on_error.sh"):
     w = w[3:] if w[1:2] == ["-t"] else w[1:]
 n = os.path.basename(w[0]) if w else ""
 n = n[:-3] if n.endswith(".sh") else n
-print(w[1] if n == "rq_demo_run" and len(w) > 1 else n)' "$(sed -n 's/^Exec=//p' "$desk" | head -1)")
+print("-".join(w[1:3]) if n == "rq_demo_run" and len(w) > 1 else n)' "$(sed -n 's/^Exec=//p' "$desk" | head -1)")
     log="${XDG_CACHE_HOME:-$HOME/.cache}/rasqberry/$logname.log"
     sudo python3 "$out/mouse.py" dblclick "$cx" "$cy" "${sw:-1920}" "${sh:-1080}"
     spid=""

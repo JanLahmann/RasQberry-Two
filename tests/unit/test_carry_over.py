@@ -112,6 +112,17 @@ def test_pull_env_preferences_but_not_other_keys(slots):
     assert "LED_LAYOUT=single" in env          # LED keys: rq_device_settings.sh's job
 
 
+def test_pull_keeps_usage_counts_off(tmp_path):
+    # A rig or development Pi (RQ_UMAMI=0) stays uncounted in the updated
+    # slot: the carry-over runs before its health check counts the update
+    old = _slot(tmp_path / "old", env_lines=("LED_LAYOUT=quad", "RQ_UMAMI=0"))
+    new = _slot(tmp_path / "new")
+    data = tmp_path / "data"
+    data.mkdir()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert "RQ_UMAMI=0" in (new / ENV.lstrip("/")).read_text().splitlines()
+
+
 def test_pull_of_identical_slot_carries_nothing(tmp_path):
     a = _slot(tmp_path / "a")
     b = _slot(tmp_path / "b")

@@ -54,6 +54,12 @@ VENV_PY = "/home/*/RasQberry-Two/venv/RQB2/bin/python3"
 CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
 HOLDER_PID = f"{REMOTE_DIR}/led_fill.pid"
 CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
+# Rig runs stay out of the project's usage counts (rq_umami_event.py): RQ_UMAMI=0
+# in the Pi's environment file reaches demos started from the desktop icons too,
+# the health check and the timers, and an update carries it into the new slot
+ENV_FILE = "/usr/config/rasqberry_environment.env"
+NO_USAGE_COUNTS = (f"grep -qx RQ_UMAMI=0 {ENV_FILE} || {{ sudo sed -i '/^RQ_UMAMI=/d' {ENV_FILE} "
+                   f"&& echo RQ_UMAMI=0 | sudo tee -a {ENV_FILE} >/dev/null; }}")
 
 
 # ----------------------------------------------------------------------------
@@ -255,6 +261,12 @@ def lit_score(frame, baseline, crop):
 # ----------------------------------------------------------------------------
 # steps
 # ----------------------------------------------------------------------------
+def no_usage_counts(pi):
+    """Switch the usage counts off on this Pi (NO_USAGE_COUNTS)."""
+    if ssh(pi["host"], NO_USAGE_COUNTS, timeout=60)[0] != 0:
+        raise RuntimeError("could not set RQ_UMAMI=0 (usage counts off)")
+
+
 def update_slot(pi, tag):
     """OTA `tag` into the slot that is not running (ping-pong) with this
     repo's updater; the running slot stays as the way back."""
@@ -645,8 +657,10 @@ def main():
             section = {"pi": pi["name"], "rows": []}
             report.append(section)
             try:
+                no_usage_counts(pi)
                 if args.update:
                     update_slot(pi, args.update)
+                    no_usage_counts(pi)     # the new slot (carried over since this release)
                 section["rows"] += run_checks(pi)
                 if not args.checks_only:
                     every = list_demos(pi)

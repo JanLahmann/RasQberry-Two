@@ -891,7 +891,7 @@ LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
 LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
 
 _stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
-                'last_write': 0.0}
+                'last_write': 0.0, 'counted': False, 'brightness': None}
 
 
 def _record_led_stall(recovered):
@@ -910,6 +910,36 @@ def _record_led_stall(recovered):
         os.replace(tmp, path)
     except OSError:
         pass
+
+
+def _count_led_stall():
+    """
+    Anonymous usage count of the stall (rq_umami_event.py led-stall: model and
+    brightness, at most once per start of the Pi). Once per program here, and
+    started from a thread as a program of its own: the frame writer never
+    waits for it. RQ_UMAMI=0 sends nothing.
+    """
+    if _stall_state['counted'] or os.environ.get('RQ_UMAMI') == '0':
+        return
+    _stall_state['counted'] = True
+    sender = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rq_umami_event.py')
+    if not os.path.exists(sender):
+        return
+    level = _stall_state['brightness']
+    argv = [sys.executable or 'python3', sender, 'led-stall',
+            f"{level:.1f}" if isinstance(level, (int, float)) else '']
+
+    def spawn():
+        import subprocess
+        try:
+            subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True,
+                             env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
+        except Exception:  # noqa: BLE001 - a count never disturbs the LEDs
+            pass
+
+    import threading
+    threading.Thread(target=spawn, name='rq-led-stall-count', daemon=True).start()
 
 
 def _report_led_stall(message):
@@ -966,6 +996,7 @@ def _guarded_pi5_write(write, reopen):
             return
         recovered = reopen_and_write(pin, buf)
         _record_led_stall(recovered)
+        _count_led_stall()
         if recovered:
             _report_led_stall(
                 "LED panel: the LED driver stalled and was restarted. The power "
@@ -1051,6 +1082,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     """
     config = get_led_config()
     brightness = cap_brightness(brightness, config)
+    _stall_state['brightness'] = brightness     # for the stall's usage count
 
     # Compose output targets from the independent LED_PHYSICAL / LED_VIRTUAL /
     # LED_WEB flags (#231). LED_VIRTUAL_MIRROR is folded into these by
