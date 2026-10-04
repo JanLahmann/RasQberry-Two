@@ -1532,7 +1532,7 @@ get_ab_boot_partition() {
     esac
 }
 
-# Before scripts that mount partitions (slot update, PROMOTE): mount prints
+# Before scripts that mount partitions (the slot update): mount prints
 # "(hint) your fstab has been modified, but systemd still uses the old
 # version" for EVERY mount when /etc/fstab is newer than systemd's last
 # reload - which happens when the clock was behind at start-up (no RTC battery,

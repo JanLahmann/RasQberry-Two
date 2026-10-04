@@ -4,29 +4,35 @@ set -euo pipefail
 # ============================================================================
 # RasQberry: A/B Boot Slot Updater
 # ============================================================================
-# Description: Download and install new RasQberry image to boot slot
+# Description: Download a RasQberry A/B image and install it into the other slot
 # Usage: rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
-#                          [--confirm] [--allow-unverified]
+#                          [--allow-unverified] [--allow-downgrade]
+#                          [--force-replace-safe-slot]
 #        rq_update_slot.sh --preflight [--slot A|B]
 #
-# Strategy:
-#   Slot A: STABLE - Protected, only updated manually with --slot A --confirm,
-#           or by "rq_slot_manager.sh promote" (copies a tested Slot B to A)
-#   Slot B: TESTING - Default target, receives updates
+# Update model (ping-pong, Jan 2026-10-04): an update always goes into the
+# slot that is NOT running, A or B alike (--slot can only name that slot).
+#   1. Downloads the new image (.img.xz) and checks its SHA256
+#   2. Writes it into the other slot
+#   3. Restarts into it on trial (tryboot)
+# The health check confirms a good start, which makes the new slot the start
+# slot; otherwise the Pi goes back to the slot that was running. The old slot
+# stays as the way back (rq_slot_manager.sh switch-to / rollback).
 #
-# This script:
-#   1. Downloads the new image (.img.xz)
-#   2. Writes to target slot (default: Slot B)
-#   3. Configures tryboot to boot the new slot
-#   4. Reboots the system
-#
-# The health check service will validate the new boot and either confirm
-# or rollback to the stable slot.
+# Jan's guard: at least one slot keeps a beta or stable system.
+# rq_slot_manager.sh plan-update says what an update would replace. Installing
+# a lower release channel, or an older beta/stable release, than the slot
+# holds is a downgrade; replacing the only beta/stable system on the card
+# (the running slot holds none) is the last safe slot. In a terminal the
+# script asks (y/N for a downgrade, a typed REPLACE for the last safe slot);
+# without one it refuses unless --allow-downgrade / --force-replace-safe-slot
+# say so. The menu asks in its own dialogs and passes these options.
 #
 # --preflight runs only the checks that can refuse an update (target slot is
 # the running system, target not expanded, too little free space, another
-# update running), without downloading anything. The menu calls it BEFORE its
-# release picker, so a user is not walked through four dialogs to an error.
+# update running, running slot still on trial), without downloading anything.
+# The menu calls it BEFORE its release picker, so a user is not walked through
+# four dialogs to an error.
 # Exit codes (also used when a real update is refused):
 #   0  the target slot can be updated
 #   1  any other error
@@ -38,6 +44,12 @@ set -euo pipefail
 #   24 another update is already running
 #   25 no SHA256 for the image, so it cannot be verified (only installed with
 #      --allow-unverified)
+#   26 a downgrade (lower release channel, or an older beta/stable release)
+#      that was not confirmed (--allow-downgrade)
+#   27 the target holds the card's only beta or stable system, and replacing
+#      it was not confirmed (--force-replace-safe-slot)
+#   28 the running slot is still on trial, or the next restart starts the
+#      other slot: restart or wait first
 #
 # The image is always checked against a SHA256 before anything is written:
 # --sha256 (the menu passes the one its release list shows), else
@@ -57,8 +69,6 @@ SLOT_MANAGER="/usr/bin/rq_slot_manager.sh"
 LOG_FILE="${RQ_UPDATE_LOG:-/var/log/rasqberry-update-slot.log}"
 LOCK_FILE="${RQ_UPDATE_LOCK:-/run/lock/rasqberry-update-slot.lock}"
 BOOT_COMMON_DIR="${RQ_BOOT_COMMON_DIR:-/boot/config}"
-DEFAULT_TARGET_SLOT="B"  # Always update Slot B by default
-STABLE_SLOT="A"          # Slot A is the stable/protected slot
 MIN_FREE_KB=15728640     # 15GB: the .img.xz plus the ~12GB unpacked -ab image
 
 RC_TARGET_RUNNING=20
@@ -67,6 +77,9 @@ RC_NO_SPACE=22
 RC_NOT_AB=23
 RC_BUSY=24
 RC_UNVERIFIED=25
+RC_DOWNGRADE=26
+RC_LAST_SAFE_SLOT=27
+RC_NOT_SETTLED=28
 
 # Release manifest that carries per-release checksums (extract_sha256 = SHA256 of
 # the DECOMPRESSED .img). Used to verify integrity when no explicit --sha256 is
@@ -128,10 +141,8 @@ is_terminal() {
 }
 
 get_target_slot() {
-    # Determine which slot to write to
-    # Default: Slot B (testing slot)
-    # Can be overridden with --slot parameter
-    local requested_slot="${1:-$DEFAULT_TARGET_SLOT}"
+    # Check a --slot value (A or B); the preflight refuses the running slot
+    local requested_slot="${1:-}"
 
     case "$requested_slot" in
         A|B)
@@ -141,6 +152,24 @@ get_target_slot() {
             die "Invalid slot: $requested_slot (must be A or B)"
             ;;
     esac
+}
+
+other_slot() {
+    if [ "$1" = "A" ]; then echo "B"; else echo "A"; fi
+}
+
+default_target_slot() {
+    # The slot that is not running (ping-pong); B when the running slot is
+    # not one of the two (no A/B layout: resolve_target_partitions refuses)
+    local root
+    root=$(findmnt / -o source -n 2>/dev/null || true)
+    if [ -n "$root" ] && [ "$root" = "$(get_ab_system_partition A 2>/dev/null)" ]; then
+        echo "B"
+    elif [ -n "$root" ] && [ "$root" = "$(get_ab_system_partition B 2>/dev/null)" ]; then
+        echo "A"
+    else
+        echo "B"
+    fi
 }
 
 # Slot -> partition resolution comes from rq_common.sh:
@@ -186,23 +215,22 @@ preflight_checks() {
     # exit code (see the header) so the menu can explain what to do.
     local target_slot="$1" system_partition="$2" boot_partition="$3"
 
-    # Never flash the slot we are running from
-    local current_root
+    # Never flash the slot we are running from: updates go into the other one
+    local current_root running
+    running=$(other_slot "$target_slot")
     current_root=$(findmnt / -o source -n)
     if [ "$current_root" = "$system_partition" ]; then
-        if [ "$target_slot" = "$DEFAULT_TARGET_SLOT" ]; then
-            refuse "$RC_TARGET_RUNNING" "Slot $target_slot is the system you are running now, so it cannot be overwritten.
-Updates go into Slot B (testing). First make the running system the stable one
-(Slot Manager -> PROMOTE), or restart into Slot A (Slot Manager -> Restart into
-Slot A). Then install the update."
-        fi
-        refuse "$RC_TARGET_RUNNING" "Slot $target_slot is the system you are running now ($current_root), so it cannot be overwritten. Boot the other slot first."
+        refuse "$RC_TARGET_RUNNING" "Slot $target_slot is the system you are running now, so it cannot be overwritten.
+Updates go into the other system, Slot $running: leave out --slot, or use --slot $running."
     fi
     local current_boot
     current_boot=$(findmnt /boot/firmware -o source -n 2>/dev/null || echo "")
     if [ -n "$current_boot" ] && [ "$current_boot" = "$boot_partition" ]; then
         refuse "$RC_TARGET_RUNNING" "Slot $target_slot: $boot_partition is the active boot partition, so it cannot be overwritten."
     fi
+
+    # The running slot must be settled: on trial, the target is the way back
+    running_slot_settled "$running" "$target_slot"
 
     # Target partition must be expanded (factory Slot B is a 16MB placeholder)
     local part_size
@@ -234,6 +262,26 @@ sudo raspi-config -> 0 RasQberry -> Software & Image Updates -> Prepare the card
         refuse "$RC_NO_SPACE" "Not enough free space to stage the update: $((avail_kb / 1024 / 1024)) GB free, $((MIN_FREE_KB / 1024 / 1024)) GB needed
 (the download plus the unpacked image, in $DOWNLOAD_DIR).
 Delete Docker demo images or large files you no longer need, then try again."
+    fi
+}
+
+running_slot_settled() {
+    # Refuse (RC_NOT_SETTLED) while <running> is on trial - the health check
+    # has not confirmed it yet, and <target> is the way back - or while the
+    # next restart would start <target> (a rollback waiting for its restart).
+    # Overwriting the target then could leave the Pi without a working system.
+    local running="$1" target="$2" autoboot="${BOOT_COMMON_DIR}/autoboot.txt" pending="" default=""
+    [ -f "$autoboot" ] || return 0
+    pending=$(tr -d '[:space:]' < "${BOOT_COMMON_DIR}/target-slot" 2>/dev/null || true)
+    case "$(awk '/^\[/ { sec = $0 } sec == "[all]" && /^boot_partition=/ { sub(/^boot_partition=/, ""); print; exit }' "$autoboot" 2>/dev/null)" in
+        2) default="A" ;;
+        3) default="B" ;;
+    esac
+    if [ ! -f "${BOOT_COMMON_DIR}/slot-confirmed" ] && [ "$pending" = "$running" ]; then
+        refuse "$RC_NOT_SETTLED" "Slot $running, the system you are running, is still on trial: the health check makes it the start slot a few minutes after a good start. Until then Slot $target is the way back, so it is not overwritten. Try again in a few minutes."
+    fi
+    if [ -n "$default" ] && [ "$default" != "$running" ]; then
+        refuse "$RC_NOT_SETTLED" "The next restart starts Slot $default, not Slot $running that is running now. Restart first, then install the update."
     fi
 }
 
@@ -679,17 +727,18 @@ write_image_to_slot() {
 
     # Update fstab for v3 AB layout
     if [ -f "$tgt_root_mount/etc/fstab" ]; then
-        local root_part
-        root_part=$(findmnt / -o source -n)
-        local root_dev
-        root_dev=$(lsblk -no pkname "$root_part")
+        # CONFIG and DATA by the shared helper: mmcblk0p1 on an SD card,
+        # sda1 on USB (the old "/dev/<disk>p1" was wrong there)
+        local config_part data_part
+        config_part=$(ab_partition_by_number 1)
+        data_part=$(ab_partition_by_number 7)
 
         cat > "$tgt_root_mount/etc/fstab" << EOF
 proc                        /proc           proc    defaults          0   0
-/dev/${root_dev}p1          /boot/config    vfat    defaults          0   2
+${config_part}              /boot/config    vfat    defaults          0   2
 ${boot_partition}           /boot/firmware  vfat    defaults          0   2
 ${system_partition}         /               ext4    defaults,noatime  0   1
-/dev/${root_dev}p7          /data           ext4    defaults,noatime,nofail  0   2
+${data_part}                /data           ext4    defaults,noatime,nofail  0   2
 EOF
         log_only "fstab updated for Slot $target_slot"
     fi
@@ -769,10 +818,11 @@ configure_tryboot() {
 
 parse_arguments() {
     # Parse the optional arguments (after URL and tag, or after --preflight)
-    TARGET_SLOT="$DEFAULT_TARGET_SLOT"
-    REQUIRE_CONFIRM=false
+    TARGET_SLOT=$(default_target_slot)
     SHA256_SUM=""
     ALLOW_UNVERIFIED=false
+    ALLOW_DOWNGRADE=false
+    FORCE_REPLACE_SAFE=false
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -784,8 +834,12 @@ parse_arguments() {
                 SHA256_SUM="$2"
                 shift 2
                 ;;
-            --confirm)
-                REQUIRE_CONFIRM=true
+            --allow-downgrade)
+                ALLOW_DOWNGRADE=true
+                shift
+                ;;
+            --force-replace-safe-slot)
+                FORCE_REPLACE_SAFE=true
                 shift
                 ;;
             --allow-unverified)
@@ -800,25 +854,69 @@ parse_arguments() {
     done
 }
 
-confirm_stable_update() {
-    # Require explicit confirmation for Slot A (stable) updates
-    if [ "$TARGET_SLOT" = "$STABLE_SLOT" ]; then
-        if [ "$REQUIRE_CONFIRM" != "true" ]; then
-            die "Updating Slot $STABLE_SLOT (stable) requires --confirm flag for safety"
+# Value of <key> in plan-update output <plan>
+plan_value() {
+    printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
+}
+
+ask_in_terminal() {
+    [ -t 0 ] && [ -t 2 ]
+}
+
+enforce_update_guard() {
+    # Jan's guard (see the header): rq_slot_manager.sh plan-update says what
+    # installing <tag> would replace. Asks in a terminal; without one it
+    # refuses unless --allow-downgrade / --force-replace-safe-slot say so.
+    local tag="$1" planner plan target holds t_stream t_version r_holds r_stream r_version
+    local n_stream downgrade last_safe msg answer
+    planner="${SCRIPT_DIR}/rq_slot_manager.sh"
+    [ -x "$planner" ] || planner="$SLOT_MANAGER"
+    plan=$("${RQ_SLOT_PLANNER:-$planner}" plan-update "$tag" 2>&1) \
+        || die "Could not check what the update would replace (rq_slot_manager.sh plan-update): $plan"
+    log_only "plan-update: $(printf '%s' "$plan" | tr '\n' ';')"
+    target=$(plan_value "$plan" target)
+    [ "$target" = "$TARGET_SLOT" ] \
+        || die "The update would go into Slot $TARGET_SLOT, but the other system is Slot ${target:-?}. Nothing was changed."
+    holds=$(plan_value "$plan" target_holds)
+    t_stream=${holds%% *}; t_version=${holds#* }
+    r_holds=$(plan_value "$plan" running_holds)
+    r_stream=${r_holds%% *}; r_version=${r_holds#* }
+    n_stream=$(plan_value "$plan" new); n_stream=${n_stream%% *}
+    downgrade=$(plan_value "$plan" downgrade)
+    last_safe=$(plan_value "$plan" last_safe_slot)
+
+    case "$downgrade" in
+        stream) msg="Slot $target holds $t_version ($t_stream). $tag ($n_stream) comes from a less tested release channel, so installing it is a downgrade." ;;
+        older)  msg="Slot $target holds $t_version ($t_stream). $tag is older, so installing it is a downgrade." ;;
+        *)      msg="" ;;
+    esac
+    if [ -n "$msg" ] && [ "$ALLOW_DOWNGRADE" != true ]; then
+        if ask_in_terminal; then
+            warn "$msg"
+            read -r -p "Install it anyway? [y/N] " answer
+            case "$answer" in
+                y|Y|yes|Yes|YES) log_only "Downgrade confirmed in the terminal" ;;
+                *) refuse "$RC_DOWNGRADE" "Not installed: nothing was changed." ;;
+            esac
+        else
+            refuse "$RC_DOWNGRADE" "$msg Nothing was changed. To install it anyway: --allow-downgrade."
         fi
-        [ -t 0 ] || die "Updating Slot $STABLE_SLOT (stable) asks for a typed confirmation: run it in a terminal"
+    fi
 
-        warn "═══════════════════════════════════════════════════════"
-        warn "  WARNING: Updating STABLE Slot $STABLE_SLOT"
-        warn "═══════════════════════════════════════════════════════"
-        warn ""
-        warn "This will overwrite your stable/baseline image!"
-        warn "Make sure you have a backup or tested image."
-        warn ""
-
-        read -r -p "Type 'UPDATE STABLE' to confirm: " response
-        if [ "$response" != "UPDATE STABLE" ]; then
-            die "Stable slot update cancelled"
+    if [ "$last_safe" = "yes" ] && [ "$FORCE_REPLACE_SAFE" != true ]; then
+        msg="Slot $target holds $t_version ($t_stream), the only beta or stable system on this card: Slot $(other_slot "$target"), running now, holds $r_version ($r_stream). If the update of Slot $target doesn't work, no beta or stable system is left to go back to.
+Safer: switch to Slot $target first (sudo rq_slot_manager.sh switch-to $target --reboot), then install the update into Slot $(other_slot "$target")."
+        if ask_in_terminal; then
+            warn "$msg"
+            read -r -p "Type REPLACE to overwrite Slot $target anyway: " answer
+            if [ "$answer" = "REPLACE" ]; then
+                log_only "Replacing the last beta or stable system confirmed in the terminal"
+            else
+                refuse "$RC_LAST_SAFE_SLOT" "Not installed: nothing was changed."
+            fi
+        else
+            refuse "$RC_LAST_SAFE_SLOT" "$msg
+Nothing was changed. To overwrite it anyway: --force-replace-safe-slot."
         fi
     fi
 }
@@ -849,34 +947,33 @@ run_preflight() {
 
 usage() {
     cat << EOF
-Usage: $0 <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--confirm] [--allow-unverified]
+Usage: $0 <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--allow-unverified]
+          [--allow-downgrade] [--force-replace-safe-slot]
        $0 --preflight [--slot A|B]
+
+Installs an A/B image into the slot that is not running, then restarts into it
+on trial. A good start makes it the start slot; the other slot stays as the
+way back.
 
 Arguments:
   download_url    URL of the A/B image (-ab.img.xz) to install
   release_tag     Release tag/version identifier
 
 Options:
-  --slot A|B      Target slot (default: B, the testing slot)
+  --slot A|B      Target slot (default: the one not running; the running slot
+                  is refused)
   --sha256 <sum>  Expected SHA256 of the .img.xz (else RQB-releases.json, GitHub's
                   asset digest, then <url>.sha256; without one the update is refused)
   --allow-unverified  Install an image no SHA256 can be found for (experts only)
-  --confirm       Required when updating Slot A (stable)
+  --allow-downgrade   Install a lower release channel, or an older beta/stable
+                  release, than the target holds (else: asked, or exit 26)
+  --force-replace-safe-slot  Overwrite the card's only beta or stable system
+                  (else: a typed REPLACE, or exit 27)
   --preflight     Only check whether the slot can be updated (exit codes 20-24
-                  explain why not); downloads nothing
+                  and 28 explain why not); downloads nothing
 
-Slot Strategy:
-  Slot A (STABLE):  Protected baseline, requires --confirm; normally filled by
-                    'rq_slot_manager.sh promote' from a tested Slot B
-  Slot B (TESTING): Default target for updates; cannot be updated while it
-                    is the running system (promote or switch to Slot A first)
-
-Examples:
-  # Update Slot B (default)
-  $0 https://github.com/.../image-ab.img.xz beta-2025-10-25-123456
-
-  # Update stable Slot A (requires confirmation)
-  $0 https://github.com/.../image-ab.img.xz beta-2025-10-25-123456 --slot A --confirm
+Example:
+  sudo $0 https://github.com/.../image-ab.img.xz beta-2025-10-25-123456
 
 EOF
 }
@@ -932,8 +1029,8 @@ main() {
     # Safety guards: never the booted slot, size and free-space prechecks
     preflight_checks "$TARGET_SLOT" "$system_partition" "$boot_partition"
 
-    # Confirm if updating stable slot
-    confirm_stable_update
+    # Jan's guard: downgrades and the last beta or stable system (asks or refuses)
+    enforce_update_guard "$release_tag"
 
     # The checksum is found BEFORE the download: an image that cannot be
     # verified is refused without fetching 2 GB first

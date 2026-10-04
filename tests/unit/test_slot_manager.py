@@ -5,7 +5,10 @@ Tests for RQB2-bin/rq_slot_manager.sh (A/B slots, batch B2).
   placeholder, a freshly expanded slot, an interrupted update): starting it
   hangs the Pi, and a rollback into it is permanent.
 - R-118: status and summary say what each slot holds.
-- R-051: promote never waits on an invisible prompt.
+- Ping-pong (Jan, 2026-10-04): no slot is special, PROMOTE is gone, and
+  plan-update decides where an update goes and what Jan's guard says (keep at
+  least one slot at beta or stable): every stream combination, older releases,
+  empty targets, the last safe slot.
 
 A fake A/B card: findmnt/lsblk/id are stubbed on PATH, each slot's root is a
 temp directory reported as "already mounted", and /boot/config is a temp
@@ -121,7 +124,6 @@ def card(tmp_path):
         PATH=f"{bindir}:{os.environ['PATH']}",
         RQ_BOOT_COMMON_DIR=str(config),
         RQ_RUNNING_ROOT=str(slot_a),
-        RQ_PROMOTE_LOG=str(tmp_path / "promote.log"),
         FAKE_CALLS=str(tmp_path / "calls"),
         FAKE_ROOT="/dev/mmcblk0p5",
         FAKE_MNT_mmcblk0p5="/",
@@ -180,7 +182,7 @@ def test_an_empty_slot_is_refused(card, command):
     proc = _run(card, *command)
     assert proc.returncode == 25
     assert "holds no system" in proc.stderr
-    assert "Install an update into Slot B" in proc.stderr
+    assert "Install an update into the other system (Slot B)" in proc.stderr
     assert (card["config"] / "autoboot.txt").read_text() == before
     assert not (card["config"] / "target-slot").exists()
 
@@ -225,8 +227,9 @@ def test_a_slot_without_version_file_still_counts_as_a_system(card):
 
 def test_status_lists_slot_contents(card):
     out = _run(card, "status").stdout
-    assert "Slot A (stable): beta-2026-09-30-221656  <- running" in out
-    assert "Slot B (testing): empty (no system)" in out
+    assert "Slot A: beta-2026-09-30-221656 (beta)  <- running, start slot" in out
+    assert "Slot B: empty (no system)" in out
+    assert "stable" not in out and "testing" not in out
     assert "Slot Status: CONFIRMED" in out          # the rig tests grep this
 
 
@@ -256,33 +259,187 @@ def _on_slot_b(card):
     (card["config"] / "slot-confirmed").write_text("now\nB\n")
 
 
-def test_promote_without_a_terminal_never_waits_on_a_hidden_prompt(card):
+def test_status_on_slot_b_marks_it_running_and_start_slot(card):
     _on_slot_b(card)
-    proc = _run(card, "promote")      # stdin is /dev/null, output captured
+    (card["config"] / "autoboot.txt").write_text(
+        "[all]\ntryboot_a_b=1\nboot_partition=3\nboot_partition_fallback=2\n")
+    out = _run(card, "status").stdout
+    assert "Slot A: beta-2026-09-30-221656 (beta)\n" in out
+    assert "Slot B: beta-2026-10-15-101010 (beta)  <- running, start slot" in out
+
+
+# ---------------------------------------------------------------------------
+# PROMOTE is gone (Jan, 2026-10-04): no command, no help, no log
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("command", ["promote", "update-stable"])
+def test_promote_and_update_stable_are_gone(card, command):
+    _on_slot_b(card)
+    proc = _run(card, command, "--yes")
     assert proc.returncode == 1
-    assert "pass --yes" in proc.stderr
+    assert "Unknown command" in proc.stderr
     assert not (card["config"] / "slot-A-incomplete").exists()
 
 
-def test_promote_only_from_slot_b(card):
-    proc = _run(card, "promote", "--yes")
+def test_help_names_plan_update_and_no_promote(card):
+    out = _run(card, "--help").stdout
+    assert "plan-update" in out
+    assert "promote" not in out.lower() and "stable" not in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# plan-update: the target slot and Jan's guard
+# ---------------------------------------------------------------------------
+
+def _plan(card, tag, running=None, target=None, running_slot="A"):
+    """plan-update <tag> on a card running <running_slot>. <running> and
+    <target>: a version, "EMPTY", "INCOMPLETE" or "SYSTEM" (no version file)."""
+    tmp = card["tmp"]
+    roots = {}
+    for slot, content in ((running_slot, running), ("B" if running_slot == "A" else "A", target)):
+        root = tmp / f"plan-{slot}"
+        root.mkdir()
+        if content == "INCOMPLETE":
+            _system(root, "beta-2026-10-15-101010")
+            (card["config"] / f"slot-{slot}-incomplete").write_text("now x\n")
+        elif content == "SYSTEM":
+            _system(root)
+        elif content not in (None, "EMPTY"):
+            _system(root, content)
+        roots[slot] = root
+    other = "B" if running_slot == "A" else "A"
+    part = {"A": "mmcblk0p5", "B": "mmcblk0p6"}
+    card["env"].update({
+        "FAKE_ROOT": f"/dev/{part[running_slot]}",
+        "RQ_RUNNING_ROOT": str(roots[running_slot]),
+        f"FAKE_MNT_{part[running_slot]}": "/",
+        f"FAKE_MNT_{part[other]}": str(roots[other]),
+    })
+    proc = _run(card, "plan-update", tag)
+    assert proc.returncode == 0, proc.stderr
+    return dict(line.split("=", 1) for line in proc.stdout.splitlines())
+
+
+BETA_OLD = "beta-2026-09-30-221656"
+BETA = "beta-2026-10-03-095636"
+BETA_NEW = "beta-2026-10-15-101010"
+DEV = "development-2026-10-04-014357"
+DEV_NEW = "development-2026-10-05-010101"
+DEV_OLD = "dev-ab-pingpong-2026-09-01-000000"
+STABLE = "1.10.0"          # /etc/rasqberry-version of a main release
+STABLE_TAG_NEW = "v1.11.0"  # its release tags start with v
+STABLE_TAG_OLD = "v1.9.0"
+
+
+# (target holds, new tag) -> downgrade; the running slot holds a beta, so the
+# target is never the last safe slot here
+DOWNGRADES = [
+    # dev in the target: nothing is a downgrade, and dev over dev never warns
+    (DEV, DEV_NEW, "none"),
+    (DEV, DEV_OLD, "none"),
+    (DEV, BETA_NEW, "none"),
+    (DEV, STABLE_TAG_NEW, "none"),
+    # beta in the target
+    (BETA, DEV_NEW, "stream"),
+    (BETA, BETA_NEW, "none"),
+    (BETA, BETA, "none"),
+    (BETA, BETA_OLD, "older"),
+    (BETA, STABLE_TAG_NEW, "none"),
+    # stable in the target (version numbers, not text: 1.9 < 1.10 < 1.11)
+    (STABLE, DEV_NEW, "stream"),
+    (STABLE, BETA_NEW, "stream"),
+    (STABLE, STABLE_TAG_NEW, "none"),
+    (STABLE, "v1.10.0", "none"),
+    (STABLE, STABLE_TAG_OLD, "older"),
+    (STABLE, "stable-1.9.5", "older"),
+    # a tag of no known stream counts like dev
+    (BETA, "my-build-2026-10-10", "stream"),
+    (DEV, "my-build-2026-10-10", "none"),
+    # no system in the target: no warning
+    ("EMPTY", DEV_NEW, "none"),
+    ("INCOMPLETE", DEV_OLD, "none"),
+    ("SYSTEM", DEV_NEW, "none"),
+]
+
+
+@pytest.mark.parametrize("target,tag,downgrade", DOWNGRADES)
+def test_plan_update_downgrade(card, target, tag, downgrade):
+    plan = _plan(card, tag, running=BETA_NEW, target=target)
+    assert plan["target"] == "B" and plan["running"] == "A"
+    assert plan["downgrade"] == downgrade
+    assert plan["last_safe_slot"] == "no"
+    if downgrade != "none":
+        assert "downgrade" in plan["advice"]
+
+
+# (running holds, target holds) -> last_safe_slot, for a dev update
+LAST_SAFE = [
+    (DEV, BETA, "yes"),
+    (DEV, STABLE, "yes"),
+    ("SYSTEM", BETA, "yes"),        # no version: not a safe system
+    (DEV, DEV_OLD, "no"),
+    (BETA, BETA_OLD, "no"),
+    (STABLE, BETA, "no"),
+    (BETA, STABLE, "no"),
+    (DEV, "EMPTY", "no"),
+    (DEV, "INCOMPLETE", "no"),
+]
+
+
+@pytest.mark.parametrize("running,target,last_safe", LAST_SAFE)
+def test_plan_update_last_safe_slot(card, running, target, last_safe):
+    plan = _plan(card, DEV_NEW, running=running, target=target)
+    assert plan["last_safe_slot"] == last_safe
+    if last_safe == "yes":
+        assert plan["advice"] == ("Slot B holds the only beta or stable system on this card. "
+                                  "Safer: switch to Slot B first, then install into Slot A.")
+
+
+def test_plan_update_reports_what_both_slots_hold(card):
+    plan = _plan(card, DEV_NEW, running=DEV, target=BETA)
+    assert plan == {
+        "target": "B",
+        "running": "A",
+        "target_holds": f"beta {BETA}",
+        "running_holds": f"dev {DEV}",
+        "new": f"dev {DEV_NEW}",
+        "downgrade": "stream",
+        "last_safe_slot": "yes",
+        "advice": plan["advice"],
+    }
+
+
+@pytest.mark.parametrize("target,holds", [
+    ("EMPTY", "none empty"),
+    ("INCOMPLETE", "none unfinished"),
+    ("SYSTEM", "unknown system"),
+    (STABLE, "stable 1.10.0"),
+])
+def test_plan_update_target_holds(card, target, holds):
+    plan = _plan(card, BETA_NEW, running=BETA, target=target)
+    assert plan["target_holds"] == holds
+
+
+def test_plan_update_while_running_slot_b_targets_slot_a(card):
+    # ping-pong: Slot A is no different from Slot B
+    plan = _plan(card, DEV_NEW, running=DEV, target=BETA, running_slot="B")
+    assert plan["target"] == "A" and plan["running"] == "B"
+    assert plan["last_safe_slot"] == "yes"
+    assert plan["advice"].endswith("switch to Slot A first, then install into Slot B.")
+
+
+def test_plan_update_plain_advice(card):
+    assert _plan(card, BETA_NEW, running=BETA, target="EMPTY")["advice"] == \
+        "Slot B holds no system yet. Slot A stays as it is."
+
+
+def test_plan_update_needs_a_tag(card):
+    proc = _run(card, "plan-update")
+    assert proc.returncode == 1 and "Usage" in proc.stderr
+
+
+def test_plan_update_on_a_standard_image(card):
+    card["env"]["FAKE_P1_LABEL"] = "bootfs"
+    proc = _run(card, "plan-update", BETA)
     assert proc.returncode == 1
-    assert "only while Slot B is the running system" in proc.stderr
-
-
-def test_promote_needs_a_confirmed_slot_b(card):
-    _on_slot_b(card)
-    (card["config"] / "slot-confirmed").unlink()
-    proc = _run(card, "promote", "--yes")
-    assert proc.returncode == 1
-    assert "not confirmed yet" in proc.stderr
-
-
-def test_failed_promote_leaves_slot_a_usable(card):
-    # Slot A is busy (still mounted after umount): nothing may be written
-    _on_slot_b(card)
-    proc = _run(card, "promote", "--yes")
-    assert proc.returncode == 1
-    assert "cannot be unmounted" in proc.stderr
-    assert not (card["config"] / "slot-A-incomplete").exists()
-    assert _summary(card)["slot_a"] == "beta-2026-09-30-221656"
+    assert "no A/B layout" in proc.stderr
