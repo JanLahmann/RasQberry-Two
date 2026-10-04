@@ -1137,11 +1137,24 @@ drop_to_desktop_user() {
     local -a keep=()
     local v
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
-             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE; do
+             RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     info "Starting as $user_name (only LED demos run as root)..."
     exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
+}
+
+# How this start came, for its usage count: RQ_DEMO_HOW from the caller
+# (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),
+# else the RasQberry menu when its error file is set (run_engine_demo), else
+# nothing (a terminal, SSH)
+demo_start_how() {
+    if [ -n "${RQ_DEMO_HOW:-}" ]; then
+        echo "$RQ_DEMO_HOW"
+    elif [ -n "${RQ_ERROR_FILE:-}" ]; then
+        echo menu
+    fi
 }
 
 main() {
@@ -1255,6 +1268,17 @@ main() {
 
     # Ensure demo is installed (auto-install if possible)
     ensure_installed
+
+    # Anonymous usage count of this start, in the background. Once per start:
+    # an LED demo's re-run with sudo (run_python) and a launcher that runs the
+    # engine again inherit RQ_DEMO_COUNTED. The demo loop's endless restarts
+    # are not counted.
+    if [ -z "${RQ_DEMO_COUNTED:-}" ]; then
+        export RQ_DEMO_COUNTED="$DEMO_ID"
+        local how
+        how=$(demo_start_how)
+        [ "$how" = "loop" ] || rq_count_event demo-start "${DEMO_ID}${VARIANT:+:$VARIANT}" ${how:+"$how"}
+    fi
 
     # Dispatch based on entrypoint type
     # If a launcher is specified, it can be used as fallback for any type

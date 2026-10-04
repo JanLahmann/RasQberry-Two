@@ -74,6 +74,8 @@ UPDATES_CMD = ["lxterminal", "-t", "RasQberry: Software & Image Updates", "-e",
                "sudo raspi-config nonint do_ab_boot_menu"]
 SYSINFO_CMD = ["lxterminal", "-t", "RasQberry System Information", "-e",
                "sudo raspi-config nonint do_show_system_info"]
+# Anonymous usage count of a click in the update notice (runs on its own)
+USAGE_COUNT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_umami_event.py")
 
 COLOURS = {
     "ok": (0x24, 0x8a, 0x3d),
@@ -437,6 +439,14 @@ def plain_menu_items(version, advices, device):
     for i, a in enumerate(ups):
         items.append((100 + i, {"label": f"What's new in {a['tag']}…"}))
     return items
+
+
+def notice_count_argv(action, tag):
+    """
+    The command that counts a click in the update notice ("whats-new" or
+    "install"; rq_umami_event.py). Started on its own: the window never waits.
+    """
+    return [sys.executable or "python3", USAGE_COUNT, "update-notice", action, tag]
 
 
 def whats_new(advice, device, releases, highlights, wait=""):
@@ -1089,6 +1099,7 @@ class SlotIndicator:
             self.window.destroy()
         text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"],
                          wait=update_wait(self.info) if self.mode == "ab" else "")
+        self.spawn(notice_count_argv("whats-new", advice["tag"]))
         win = Gtk.Window(title=text["title"])
         win.set_default_size(480, -1)
         win.set_position(Gtk.WindowPosition.CENTER)
@@ -1137,6 +1148,7 @@ class SlotIndicator:
 
             def on_install(*_):
                 self.spawn(UPDATES_CMD)
+                self.spawn(notice_count_argv("install", advice["tag"]))
                 win.destroy()
 
             install.connect("clicked", on_install)

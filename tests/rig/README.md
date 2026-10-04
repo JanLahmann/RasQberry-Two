@@ -17,6 +17,10 @@ boot.
 - `cp rig.example.json rig.json` and fill in hosts, camera URL and each Pi's
   panel position in the camera frame (`panel_crop`, fractions of the frame).
   `rig.json` and `results/` are git-ignored.
+- Usage counts: each run first puts `RQ_UMAMI=0` into the Pi's
+  `/usr/config/rasqberry_environment.env`, so rig demo starts, health checks
+  and updates do not count in the project's Umami statistics. A freshly
+  flashed rig card counts its first start once, before the first run.
 
 ## Running
 

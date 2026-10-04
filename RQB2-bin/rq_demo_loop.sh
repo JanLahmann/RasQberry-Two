@@ -21,6 +21,10 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars BIN_DIR
 
+# The demos it restarts again and again are not counted one by one (the
+# usage count in rq_demo_run.sh)
+export RQ_DEMO_HOW=loop
+
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"
 LIGHTS_OUT_TIME="${DEMO_LOOP_LIGHTS_OUT_TIME:-60}"

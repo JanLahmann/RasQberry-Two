@@ -1722,6 +1722,22 @@ rq_beta_notice() {
     echo
 }
 
+# Anonymous usage count for the project's statistics (rq_umami_event.py; no
+# IDs): in the background, so the caller never waits, and it never fails.
+# RQ_UMAMI=0 sends nothing (the rig tests set it).
+# Usage: rq_count_event demo-start ID[:VARIANT] [HOW]
+#        rq_count_event learning-path ID start|finish
+rq_count_event() {
+    local sender="$_RQ_COMMON_DIR/rq_umami_event.py"
+    [ "${RQ_UMAMI:-}" != "0" ] && [ -f "$sender" ] && command -v python3 >/dev/null 2>&1 || return 0
+    if command -v setsid >/dev/null 2>&1; then
+        ( PYTHONDONTWRITEBYTECODE=1 setsid python3 "$sender" "$@" </dev/null >/dev/null 2>&1 & ) 2>/dev/null || true
+    else
+        ( PYTHONDONTWRITEBYTECODE=1 python3 "$sender" "$@" </dev/null >/dev/null 2>&1 & ) 2>/dev/null || true
+    fi
+    return 0
+}
+
 # ============================================================================
 # 17. DOCKER DEMO HELPERS (doQumentation, Quantum Lab, Qoffee-Maker, Mixer)
 # ============================================================================

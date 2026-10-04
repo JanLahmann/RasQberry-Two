@@ -27,6 +27,9 @@ case "${1:-}" in
         ;;
 esac
 
+# Desktop icons start here: for the demo engine's usage count (rq_demo_run.sh)
+export RQ_DEMO_HOW="${RQ_DEMO_HOW:-desktop}"
+
 # Log name: the demo id for the engine, else the command's name
 name=$(basename "$1" .sh)
 if [ "$name" = "rq_demo_run" ] && [ -n "${2:-}" ]; then

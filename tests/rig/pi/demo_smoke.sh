@@ -47,6 +47,9 @@ if [ "$type" = docker ] && [ "${RIG_ALLOW_DOCKER:-0}" != 1 ]; then
 fi
 
 export DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u)
+# rig starts are not counted (rq_umami_event.py; the harness also sets it in
+# the environment file, for the desktop icons)
+export RQ_UMAMI=0
 hpid=""; launched=""
 # Browser checks (webcheck.py) when the harness turned on Chromium's remote
 # debugging (RIG_CDP_PORT): note the open tabs, to find and close the demo's

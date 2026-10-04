@@ -328,3 +328,42 @@ missing file or entry means the defaults (`rollout` 100):
 Trials: `RQ_RELEASES_URL`, `RQ_RELEASE_CONTROLS_URL` and `RQ_HIGHLIGHTS_URL`
 take `file://` URLs, and `rq_slot_indicator.py --fake-failed` shows a made-up
 failure without writing anything.
+
+## Usage counts (Umami)
+
+The Pi sends anonymous counts to the Umami website that rasqberry.org uses
+([`rq_umami_event.py`](../RQB2-bin/rq_umami_event.py)), on the standard image
+too. There is no opt-in and no dialog. Each event has a fixed list of data keys;
+never a serial number, machine-id, hostname, IP address or user name. One POST
+to `https://cloud.umami.is/api/send` with a 3 s limit: it never blocks or fails
+its caller, and offline nothing is sent ("first start" and "update result" wait
+in `/var/lib/rasqberry/umami/queue` until a send works).
+
+| Event | Data | Sent by |
+|---|---|---|
+| `RasQberry Two: first start` | version, stream, model, card, imager | health check, at the first complete start of a newly written card |
+| `RasQberry Two: update check` | version, stream, model, card, update | `rasqberry-update-check.service`, once per UTC day |
+| `RasQberry Two: update result` | from, to, result, reason | health check of the slot that runs after the trial |
+| `RasQberry Two: update notice` | action, tag | taskbar notice: **What's new** opened, **Install** clicked |
+| `RasQberry Two: demo start` | demo, how, version, model | `rq_demo_run.sh`, once per start (not the demo loop) |
+| `RasQberry Two: learning path` | path, action | `rq_learning_paths.sh`: first step opened, path finished |
+| `RasQberry Two: LED stall` | model, brightness | `rq_led_utils.py`, at most once per start of the Pi |
+
+- New card: the health check decides before it confirms the slot. No
+  `target-slot`, `slot-confirmed` or `current-slot` on CONFIG (the markers
+  `rq_imager_firstrun.sh` uses) and no earlier health check on this system. A
+  slot written by an update is not a new card.
+- Update result: "worked" when the trial start of a slot with
+  `slot-<X>-updated` is confirmed; "didn't work" once per `last-switch-failed`
+  with `update=yes`, sent by the slot that runs again. Plain switches do not count.
+- Values: model `pi5-8gb`; card `ab-dual`, `ab-single`, `standard`; imager
+  `yes`/`no`; update `none`, `available`, `withdrawn-seen`; reason
+  `health-check`, `desktop-timeout`, `start-timeout`, `no-boot`; how `menu`,
+  `desktop`, `learning-path`. The page URL is `/pi/<event>`.
+- User agent `Mozilla/5.0 (X11; Linux aarch64) RasQberry/<version> (Raspberry Pi 5)`:
+  Umami drops what `isbot` calls a bot with HTTP 200 and `{"beep":"boop"}`, and
+  Python's own `Python-urllib/3.x` is one.
+- Off: `RQ_UMAMI=0` in the environment or in
+  `/usr/config/rasqberry_environment.env` (rig and development Pis; an update
+  carries it over, and `tests/rig` sets it). `rq_umami_event.py test` sends
+  `RasQberry Two: test event` and prints Umami's reply.

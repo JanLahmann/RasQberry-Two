@@ -68,5 +68,6 @@ only true for the standard image. -->
 **Problems and feedback**
 
 - Report problems in [Issues](https://github.com/JanLahmann/RasQberry-Two/issues) and paste the output of `rq_info.sh --json`.
+- The Pi reports anonymous counts (installs, update checks and results, update notice clicks, demo starts, learning paths, LED stalls) to the project's Umami statistics; no IDs are sent.
 
 Guides: [installation](https://rasqberry.org/02-software/01-installation-overview/) · [A/B image](https://rasqberry.org/02-software/03-ab-boot/) · [demos](https://rasqberry.org/03-quantum-computing-demos/00-overview/) · [learning paths](https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/)
