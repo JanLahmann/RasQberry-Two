@@ -694,3 +694,73 @@ def test_demos_open_the_browser_through_one_helper():
     for name in sorted(os.listdir(_BIN)):
         if name.endswith(".sh"):
             assert not direct.search(_read(name)), name
+
+
+# --- catalogue Docker demos keep their failure log (R-109) -----------------------
+
+@needs_bash
+def test_catalogue_docker_demo_keeps_its_log_when_it_stops_at_once(box):
+    # The engine's generic Docker path (traQmania) ran with --rm and then called
+    # docker logs: the container, and with it the reason, was already gone
+    stubs = box.tmp / "stubs"
+    calls = box.tmp / "docker.log"
+    _exe(stubs / "docker", f'''#!/bin/sh
+echo "$*" >> "{calls}"
+case "$1 $2" in
+    "container inspect") [ "$3" = "-f" ] && {{ echo false; exit 0; }}; exit 1 ;;
+    "image inspect"|"info "*) exit 0 ;;
+    "images -q") echo abc123 ;;
+    "run -d") echo cid ;;
+    "logs boom-demo") echo "boom: the game server could not start" ;;
+esac
+exit 0
+''')
+    _exe(stubs / "groups", "#!/bin/sh\necho rasqberry docker\n")
+    _exe(stubs / "ss", "#!/bin/sh\nexit 0\n")
+    home = box.tmp / "home"
+    mdir = home / ".local/config/demo-manifests"
+    mdir.mkdir(parents=True)
+    (mdir / "rq_demo_boom-demo.json").write_text(
+        '{"id": "boom-demo", "name": "Boom Demo", "entrypoint": {"type": "docker",'
+        ' "docker_image": "example/boom:1", "docker_port": 8000},'
+        ' "needs_hw": {"leds": false, "display": "none"}}')
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_run.sh"), "boom-demo"],
+                          env=box({"USER": "rasqberry", "RQ_ERROR_FILE": str(box.tmp / "err")}),
+                          capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    run = [c for c in calls.read_text().splitlines() if c.startswith("run ")]
+    assert len(run) == 1 and "--rm" not in run[0], run
+    assert "boom: the game server could not start" in proc.stdout
+    assert "Boom Demo stopped right after it started." in (box.tmp / "err").read_text()
+    saved = home / ".cache/rasqberry/boom-demo.log"
+    assert "could not start" in saved.read_text()
+    # the stopped container stays for docker logs; the next start removes it
+    assert not any(c.startswith(("rm -f", "stop")) for c in calls.read_text().splitlines()[-3:])
+
+
+
+@needs_bash
+def test_catalogue_web_demo_stops_its_server_with_enter(box):
+    # R-106: a web-static demo in its window stops like the shipped ones
+    port = 38000 + os.getpid() % 1000
+    home = box.tmp / "home"
+    (home / "RasQberry-Two/demos/webdemo").mkdir(parents=True)
+    (home / "RasQberry-Two/demos/webdemo/index.html").write_text("hi")
+    mdir = home / ".local/config/demo-manifests"
+    mdir.mkdir(parents=True)
+    (mdir / "rq_demo_webdemo.json").write_text(
+        '{"id": "webdemo", "name": "Web Demo", "entrypoint": {"type": "web-static",'
+        f' "working_dir": "webdemo", "port": {port}}},'
+        ' "needs_hw": {"leds": false, "display": "none"}}')
+    pattern = f"http.server {port}"
+    p = _Pty(f'exec bash "{_BIN}/rq_demo_run.sh" webdemo', env=box({"USER": "rasqberry"}))
+    try:
+        assert p.read_until("To stop Web Demo: press Enter or Ctrl+C, or close this window.", 30), \
+            p.out.decode(errors="replace")
+        assert subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode == 0
+        p.send("\r")
+        assert p.wait() == 0
+        time.sleep(0.5)
+        assert subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode != 0
+    finally:
+        subprocess.run(["pkill", "-f", pattern], capture_output=True)

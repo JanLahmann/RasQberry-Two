@@ -38,6 +38,12 @@ description=$(jq -r '.description // ""' "$MANIFEST")
 # a new or less-tested demo says so in its tooltip (item 36)
 [ -n "$(rq_demo_maturity "$id" "$MANIFEST")" ] && description="(beta) $description"
 terminal=$(jq -r 'if .desktop.terminal == false then "false" else "true" end' "$MANIFEST")
+# A demo that runs a server (web-static, docker) stops with its window, like
+# the shipped ones: Enter, Ctrl+C or closing it. Without a window the server
+# ran on with no way to stop it (R-106), whatever desktop.terminal said.
+case "$(jq -r '.entrypoint.type // ""' "$MANIFEST")" in
+    web-static|docker) terminal="true" ;;
+esac
 keywords=$(jq -r '(.keywords // []) | join(";")' "$MANIFEST")
 icon_type=$(jq -r '.icon.type // "system"' "$MANIFEST")
 icon_path=$(jq -r '.icon.path // "applications-science"' "$MANIFEST")

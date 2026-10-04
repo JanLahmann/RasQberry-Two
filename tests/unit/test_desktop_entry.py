@@ -105,3 +105,24 @@ def test_terminal_icon_keeps_its_window_open_on_failure(tmp_path):
     assert proc.returncode == 0
     assert _fields(out)["Exec"] == "/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh ext-demo"
     assert _fields(out)["TryExec"] == "/usr/bin/rq_demo_run.sh"
+
+
+@pytest.mark.parametrize("entrypoint", [
+    {"type": "web-static", "working_dir": "ext-demo", "serve_dir": "build", "port": 3000},
+    {"type": "docker", "working_dir": "ext-demo", "docker_image": "example/x:1", "docker_port": 8000},
+])
+def test_a_server_demo_gets_a_window_to_stop_it(tmp_path, entrypoint):
+    # R-106: SAP Quantum Learning asks for no terminal, so its icon left a web
+    # server running with no window to stop it
+    proc, out = _run(_manifest(entrypoint=entrypoint), tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    fields = _fields(out)
+    assert fields["Terminal"] == "true"
+    assert fields["Exec"] == "/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh ext-demo"
+
+
+def test_a_website_demo_without_a_server_may_skip_the_window(tmp_path):
+    m = _manifest(entrypoint={"type": "browser", "browser_url": "https://example.org/"})
+    proc, out = _run(m, tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert _fields(out)["Terminal"] == "false"
