@@ -22,11 +22,12 @@ Rules:
   - A release either slot already holds is not offered.
   - An update always goes into the slot that is not running (ping-pong): after
     its trial start it becomes the start slot, the other one the fallback.
-    The window warns, with the same rules as `rq_slot_manager.sh
-    plan-update`: a downgrade (a lower stream, or an older release of the
-    same stream, than the target slot holds), and above all overwriting the
-    last beta or stable system on the card (the target holds beta/stable and
-    the running slot does not).
+    The window warns, with the rules of `rq_slot_manager.sh plan-update`
+    (plan_update below is a copy; tests/unit/data/plan_update_cases.json
+    keeps the two the same): a downgrade (a lower stream, or an older beta
+    or stable release, than the target slot holds), and above all
+    overwriting the last beta or stable system on the card (the target
+    holds beta/stable and the running slot does not).
   - Staged rollout: a release is announced only after a grace period (dev 0,
     beta 3, stable 7 days after its release, or the control's notify_after),
     and only to the share of Pis given by "rollout" (0-100, default 100). A
@@ -73,7 +74,10 @@ VERSION_FILE = "/etc/rasqberry-version"
 SLOT_MANAGER = "/usr/bin/rq_slot_manager.sh"
 FETCH_TIMEOUT = 15
 
+# Release streams, as rq_slot_manager.sh plan-update ranks them; a version of
+# no known stream is "unknown": it ranks like dev and never counts as safe
 RANK = {"dev": 0, "beta": 1, "stable": 2}
+SAFE_STREAMS = ("beta", "stable")
 GRACE_DAYS = {"dev": 0, "beta": 3, "stable": 7}
 # "New <noun> available", "the <adjective> system in Slot B"
 NOUN = {"dev": "development build", "beta": "beta", "stable": "stable release"}
@@ -89,24 +93,44 @@ NOISE = re.compile(r"^(Bump version|Merge |Generate RQB-|Update RQB-)", re.I)
 # Versions, streams, times
 # ---------------------------------------------------------------------------
 
-def stream_of(version):
+def version_stream(version):
     """
-    Release stream of a version or tag, as rq_release_channel names them.
+    Release stream of a version or release tag - rq_slot_manager.sh
+    version_stream, the same patterns in the same order.
 
     Args:
-        version (str): e.g. 'beta-2026-10-03-095636', 'v1.0.0', 'EMPTY'
+        version (str): e.g. 'beta-2026-10-03-095636', 'v1.0.0', '1.0.0'
 
     Returns:
-        str or None: 'dev', 'beta', 'stable'; None for what is not a version
+        str: 'beta', 'dev', 'stable' or 'unknown'
     """
-    version = (version or "").strip()
-    if version in NOT_A_VERSION:
-        return None
+    version = version or ""
     if version.startswith("beta-"):
         return "beta"
     if version.startswith(("development-", "dev-")):
         return "dev"
-    return "stable"
+    if re.match(r"v[0-9]|[0-9]|stable-", version):
+        return "stable"
+    return "unknown"
+
+
+def stream_of(version):
+    """
+    Release stream of a version or tag (version_stream), None for what is
+    not a version (EMPTY, INCOMPLETE, UNKNOWN, SYSTEM, '').
+
+    Returns:
+        str or None: 'dev', 'beta', 'stable', 'unknown'
+    """
+    version = (version or "").strip()
+    if version in NOT_A_VERSION:
+        return None
+    return version_stream(version)
+
+
+def rank(stream):
+    """A stream's rank: dev 0 < beta 1 < stable 2; unknown ranks like dev."""
+    return RANK.get(stream, 0)
 
 
 def tag_time(tag):
@@ -194,54 +218,168 @@ def is_newer(tag, entry, version):
     return False
 
 
-def is_older(tag, entry, version):
+# ---------------------------------------------------------------------------
+# Jan's guard: a copy of rq_slot_manager.sh plan-update
+# ---------------------------------------------------------------------------
+# Keep every function here in step with its namesake in rq_slot_manager.sh;
+# tests/unit/data/plan_update_cases.json runs both.
+
+def _content(text):
+    """A slot's content as the shell sees it (tr -d '[:space:]')."""
+    return "".join((text or "").split())
+
+
+def content_stream(content):
+    """Stream of what a slot holds: 'none' without a system (content_stream)."""
+    if content in ("EMPTY", "INCOMPLETE"):
+        return "none"
+    if content in ("SYSTEM", "UNKNOWN", ""):
+        return "unknown"
+    return version_stream(content)
+
+
+def holds_text(content):
+    """'<stream> <version>', or why there is no version (holds_text)."""
+    words = {"EMPTY": "none empty", "INCOMPLETE": "none unfinished",
+             "SYSTEM": "unknown system", "UNKNOWN": "unknown unknown", "": "unknown unknown"}
+    return words.get(content) or f"{version_stream(content)} {content}"
+
+
+def _digit(c):
+    return "0" <= c <= "9"
+
+
+def _vercmp_order(s, pos):
+    # gnulib filevercmp's order(): '~' < the end < a digit < a letter < the rest
+    if pos == len(s):
+        return -1
+    c = s[pos]
+    if _digit(c):
+        return 0
+    if c.isascii() and c.isalpha():
+        return ord(c)
+    if c == "~":
+        return -2
+    return ord(c) + 256
+
+
+def _verrevcmp(a, b):
+    i = j = 0
+    while i < len(a) or j < len(b):
+        first_diff = 0
+        while (i < len(a) and not _digit(a[i])) or (j < len(b) and not _digit(b[j])):
+            ca, cb = _vercmp_order(a, i), _vercmp_order(b, j)
+            if ca != cb:
+                return ca - cb
+            i += 1
+            j += 1
+        while i < len(a) and a[i] == "0":
+            i += 1
+        while j < len(b) and b[j] == "0":
+            j += 1
+        while i < len(a) and j < len(b) and _digit(a[i]) and _digit(b[j]):
+            if not first_diff:
+                first_diff = ord(a[i]) - ord(b[j])
+            i += 1
+            j += 1
+        if i < len(a) and _digit(a[i]):
+            return 1
+        if j < len(b) and _digit(b[j]):
+            return -1
+        if first_diff:
+            return first_diff
+    return 0
+
+
+def _prefix_len(s):
+    # The part before a file suffix (\.[A-Za-z~][A-Za-z0-9~]*)*$
+    i = prefix = 0
+    while i < len(s):
+        i += 1
+        prefix = i
+        while (i + 1 < len(s) and s[i] == "."
+               and ((s[i + 1].isascii() and s[i + 1].isalpha()) or s[i + 1] == "~")):
+            i += 2
+            while i < len(s) and ((s[i].isascii() and s[i].isalnum()) or s[i] == "~"):
+                i += 1
+    return prefix
+
+
+def version_compare(a, b):
     """
-    Is release <tag> older than the installed <version>? The same
-    comparisons as is_newer; unsure means no.
+    `sort -V` order of two strings (GNU filevercmp, then plain text when
+    the versions are equal, like sort's last resort).
 
     Returns:
-        bool
+        int: < 0, 0 or > 0
     """
-    version = (version or "").strip()
-    if not tag or version in NOT_A_VERSION or tag == version:
-        return False
-    new_t, old_t = tag_time(tag), tag_time(version)
-    if new_t and old_t:
-        return new_t < old_t
-    new_v, old_v = semver(tag), semver(version)
-    if new_v and old_v:
-        return new_v < old_v
-    if old_t:
-        published = release_time(tag, entry)
-        return bool(published and published < old_t)
-    return False
+    if a == b:
+        return 0
+    if not a or not b:
+        return -1 if not a else 1
+    if a[0] == "." or b[0] == ".":
+        if b[0] != ".":
+            return -1
+        if a[0] != ".":
+            return 1
+    pa, pb = _prefix_len(a), _prefix_len(b)
+    result = _verrevcmp(a[:pa], b[:pb])
+    if not result and not (pa == len(a) and pb == len(b)):
+        result = _verrevcmp(a, b)
+    return result or (-1 if a < b else 1)
 
 
-def plan_update(tag, entry, target_content, running_version):
+def version_older(a, b):
     """
-    Jan's guard for installing <tag> into the slot that is not running - the
-    same rules as `rq_slot_manager.sh plan-update` (dev-ab-pingpong), kept
-    here so the indicator does not depend on it:
+    Is release <a> older than <b> of the same stream (version_older)? Beta
+    tags compare by their date and time, stable ones by version number.
+    """
+    def bare(v):
+        for prefix in ("beta-", "stable-", "v"):
+            if v.startswith(prefix):
+                v = v[len(prefix):]
+        return v
+    a, b = bare(a), bare(b)
+    return a != b and version_compare(a, b) < 0
+
+
+def plan_update(tag, target_content, running_content):
+    """
+    What installing <tag> into the slot that is not running would replace -
+    `rq_slot_manager.sh plan-update` without the slot letters and advice:
       downgrade       'stream' if the new stream ranks below the target's,
-                      'older' if the same stream and an older release, else 'none'
-      last_safe_slot  the target holds beta/stable and the running slot does not
+                      'older' if an older beta or stable release than the
+                      target's (dev over dev never warns), else 'none'
+      last_safe_slot  'yes' if the target holds beta/stable and the running
+                      slot does not
+    An empty, unfinished or unknown target gives no warning.
+
+    Args:
+        tag (str): the release tag
+        target_content, running_content (str): what each slot holds: a
+            version, EMPTY, INCOMPLETE, SYSTEM or UNKNOWN
 
     Returns:
-        dict: target_holds ((stream, version) or None), downgrade, last_safe_slot
+        dict: target_holds, running_holds, new, downgrade, last_safe_slot -
+        the strings plan-update prints
     """
-    target_stream = stream_of(target_content)
-    new_stream = stream_of(tag)
+    t_content, r_content = _content(target_content), _content(running_content)
+    t_stream, r_stream = content_stream(t_content), content_stream(r_content)
+    n_stream = version_stream(tag)
     downgrade = "none"
-    if target_stream and new_stream:
-        if RANK[new_stream] < RANK[target_stream]:
+    if t_stream not in ("none", "unknown"):
+        if rank(n_stream) < rank(t_stream):
             downgrade = "stream"
-        elif new_stream == target_stream and is_older(tag, entry, target_content):
+        elif (n_stream == t_stream and n_stream in SAFE_STREAMS
+              and version_older(tag, t_content)):
             downgrade = "older"
-    safe = ("beta", "stable")
+    last_safe = t_stream in SAFE_STREAMS and r_stream not in SAFE_STREAMS
     return {
-        "target_holds": (target_stream, target_content.strip()) if target_stream else None,
+        "target_holds": holds_text(t_content),
+        "running_holds": holds_text(r_content),
+        "new": f"{n_stream} {tag}",
         "downgrade": downgrade,
-        "last_safe_slot": target_stream in safe and stream_of(running_version) not in safe,
+        "last_safe_slot": "yes" if last_safe else "no",
     }
 
 
@@ -410,14 +548,14 @@ def advise(device, releases, controls, serial, now):
             continue
         if not eligible(stream, tag, entry, controls, serial, now)[0]:
             continue
-        for_running = bool(s_run) and RANK[stream] >= RANK[s_run] and is_newer(tag, entry, running_v)
-        for_other = (other is not None and s_other in ("beta", "stable")
-                     and RANK[stream] >= RANK[s_other] and is_newer(tag, entry, other_v))
+        for_running = bool(s_run) and RANK[stream] >= rank(s_run) and is_newer(tag, entry, running_v)
+        for_other = (other is not None and s_other in SAFE_STREAMS
+                     and RANK[stream] >= rank(s_other) and is_newer(tag, entry, other_v))
         if for_running or for_other:
             out.append({"kind": "update", "tag": tag, "stream": stream, "entry": entry,
                         "for_running": for_running, "other": other if for_other else None,
                         "target": other,
-                        "plan": plan_update(tag, entry, other_v, running_v) if other else None})
+                        "plan": plan_update(tag, other_v, running_v) if other else None})
     return out
 
 
@@ -491,13 +629,16 @@ def warning_text(advice, device):
     content = (device.get("other_version") or "").strip()
     if content in ("EMPTY", "INCOMPLETE"):
         return "", False
-    plan = advice.get("plan") or plan_update(advice["tag"], advice.get("entry"), content,
-                                             device.get("version"))
-    if not plan["target_holds"]:
-        return f"This replaces the system in Slot {target}. Your files on /data are kept.", False
-    stream, version = plan["target_holds"]
-    text = f"This replaces Slot {target}'s {ADJECTIVE[stream]} system ({version})"
-    if plan["last_safe_slot"]:
+    plan = advice.get("plan") or plan_update(advice["tag"], content, device.get("version"))
+    stream = stream_of(content)
+    strong = plan["last_safe_slot"] == "yes"
+    if stream in RANK:
+        text = f"This replaces Slot {target}'s {ADJECTIVE[stream]} system ({content})"
+    elif stream:
+        text = f"This replaces the system in Slot {target} ({content})"
+    else:
+        text = f"This replaces the system in Slot {target}"
+    if strong:
         text += ", the only stable or beta system on this card"
     text += "."
     noun = NOUN[advice["stream"]]
@@ -505,10 +646,10 @@ def warning_text(advice, device):
         text += f" That is a downgrade to a {noun}."
     elif plan["downgrade"] == "older":
         text += f" That is a downgrade to an older {noun}."
-    if plan["last_safe_slot"]:
+    if strong:
         text += (f" Safer: switch to Slot {target} first, then install into "
                  f"Slot {device.get('current')}.")
-    return text + " Your files on /data are kept.", plan["last_safe_slot"]
+    return text + " Your files on /data are kept.", strong
 
 
 def route_text(advice, device):

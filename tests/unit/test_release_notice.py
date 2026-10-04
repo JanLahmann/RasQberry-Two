@@ -13,6 +13,7 @@ import http.server
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -72,6 +73,8 @@ def kinds(advices):
     ("v1.0.0", "stable"),
     ("1.0.0", "stable"),                 # VERSION on main has no "v"
     ("stable-2026-12-01-000000", "stable"),
+    # no known stream: unknown, like rq_slot_manager.sh plan-update (not stable)
+    ("my-build-2026-10-10", "unknown"), ("main", "unknown"), ("version-1.0", "unknown"),
     ("EMPTY", None), ("INCOMPLETE", None), ("UNKNOWN", None), ("SYSTEM", None), ("", None),
 ])
 def test_stream_of(version, stream):
@@ -96,23 +99,22 @@ def test_release_time_is_the_later_of_date_and_tag():
     assert rn.release_time(STABLE, {}) is None
 
 
-@pytest.mark.parametrize("tag,entry,version,newer,older", [
-    (DEV_NEW, {}, DEV_OLD, True, False),
-    (DEV_OLD, {}, DEV_NEW, False, True),
-    (DEV_OLD, {}, DEV_OLD, False, False),
-    (BETA_NEW, {}, DEV_OLD, True, False),            # other stream, by build time
-    ("v1.1.0", {}, "v1.0.0", True, False),
-    ("v1.0.0", {}, "1.0.0", False, False),           # the same release
-    ("v0.9.0", {}, "1.0.0", False, True),
-    (STABLE, {"release_date": "2026-11-01"}, BETA_OLD, True, False),
-    (STABLE, {"release_date": "2026-01-01"}, BETA_OLD, False, True),
-    (STABLE, {}, BETA_OLD, False, False),            # no date: unsure means no
-    (BETA_NEW, {}, "UNKNOWN", False, False),
-    (BETA_NEW, {}, "", False, False),
+@pytest.mark.parametrize("tag,entry,version,newer", [
+    (DEV_NEW, {}, DEV_OLD, True),
+    (DEV_OLD, {}, DEV_NEW, False),
+    (DEV_OLD, {}, DEV_OLD, False),
+    (BETA_NEW, {}, DEV_OLD, True),            # other stream, by build time
+    ("v1.1.0", {}, "v1.0.0", True),
+    ("v1.0.0", {}, "1.0.0", False),           # the same release
+    ("v0.9.0", {}, "1.0.0", False),
+    (STABLE, {"release_date": "2026-11-01"}, BETA_OLD, True),
+    (STABLE, {"release_date": "2026-01-01"}, BETA_OLD, False),
+    (STABLE, {}, BETA_OLD, False),            # no date: unsure means no
+    (BETA_NEW, {}, "UNKNOWN", False),
+    (BETA_NEW, {}, "", False),
 ])
-def test_newer_and_older(tag, entry, version, newer, older):
+def test_newer(tag, entry, version, newer):
     assert rn.is_newer(tag, entry, version) is newer
-    assert rn.is_older(tag, entry, version) is older
 
 
 # ---------------------------------------------------------------------------
@@ -245,28 +247,52 @@ def test_grace_and_rollout_apply_to_both_slots():
 # The guard (same rules as rq_slot_manager.sh plan-update)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("tag,target,running,holds,downgrade,last_safe", [
-    (BETA_NEW, STABLE, BETA_OLD, ("stable", STABLE), "stream", False),
-    (DEV_NEW, BETA_OLD, DEV_OLD, ("beta", BETA_OLD), "stream", True),
-    (BETA_OLD, BETA_NEW, DEV_OLD, ("beta", BETA_NEW), "older", True),
-    (BETA_NEW, BETA_OLD, DEV_OLD, ("beta", BETA_OLD), "none", True),
-    (BETA_NEW, BETA_OLD, BETA_OLD, ("beta", BETA_OLD), "none", False),
-    (BETA_NEW, DEV_OLD, DEV_NEW, ("dev", DEV_OLD), "none", False),
-    (DEV_NEW, STABLE, DEV_OLD, ("stable", STABLE), "stream", True),
-    (DEV_NEW, STABLE, STABLE, ("stable", STABLE), "stream", False),
-    (BETA_NEW, "EMPTY", DEV_OLD, None, "none", False),
-    (BETA_NEW, "UNKNOWN", DEV_OLD, None, "none", False),
-])
-def test_plan_update(tag, target, running, holds, downgrade, last_safe):
-    plan = rn.plan_update(tag, {}, target, running)
-    assert plan == {"target_holds": holds, "downgrade": downgrade, "last_safe_slot": last_safe}
+# One table for both copies of the rules: rq_slot_manager.sh plan-update and
+# plan_update here - see the file's "about"
+with open(os.path.join(_HERE, "data", "plan_update_cases.json")) as _f:
+    PLAN_CASES = json.load(_f)["cases"]
+
+
+@pytest.mark.parametrize("case", PLAN_CASES, ids=[c["why"] for c in PLAN_CASES])
+def test_plan_update_shared_cases(case):
+    assert rn.plan_update(case["tag"], case["target"], case["running"]) == case["expect"]
+
+
+def test_plan_update_when_the_other_slot_cannot_be_read():
+    # as the desktop user the other slot may be UNKNOWN (plan-update itself
+    # needs root there): no warning
+    assert rn.plan_update(BETA_NEW, "UNKNOWN", DEV_OLD) == {
+        "target_holds": "unknown unknown", "running_holds": f"dev {DEV_OLD}",
+        "new": f"beta {BETA_NEW}", "downgrade": "none", "last_safe_slot": "no"}
+
+
+# Pairs for version_older, checked against `sort -V | head -n 1` - what
+# rq_slot_manager.sh version_older runs
+VERSION_PAIRS = [
+    ("1.9.0", "1.10.0"), ("1.2", "1.2.3"), ("1.10", "1.9.9"), ("1.0.0", "1.0.0-rc1"),
+    ("1.0.0", "1.0.0a"), ("1.02", "1.2"), ("2026-09-30-221656", "2026-10-03-095636"),
+    ("2026-10-03-095636", "2026-10-03-095637"), ("1.10.0", "2026-12-01-000000"),
+    ("1.0.0", "1.0.0"), ("v1.9.0", "1.10.0"), ("beta-2026-09-30-221656", "beta-2026-10-03-095636"),
+    ("stable-1.9.5", "1.10.0"), ("1.0.0~rc1", "1.0.0"), ("1.a", "1.b"), ("1.0.tar", "1.0"),
+]
+
+
+@pytest.mark.skipif(not shutil.which("sort"), reason="sort required")
+@pytest.mark.parametrize("a,b", VERSION_PAIRS)
+def test_version_older_matches_sort_v(a, b):
+    script = ('a=$1 b=$2; a=${a#beta-}; a=${a#stable-}; a=${a#v}; b=${b#beta-}; b=${b#stable-}; '
+              'b=${b#v}; [ "$a" != "$b" ] || exit 1; '
+              '[ "$(printf "%s\\n%s\\n" "$a" "$b" | sort -V | head -n 1)" = "$a" ]')
+    for x, y in ((a, b), (b, a)):
+        shell = subprocess.run(["bash", "-c", script, "-", x, y]).returncode == 0
+        assert rn.version_older(x, y) is shell, (x, y)
 
 
 def _advice(device, tag, stream, other=None, for_running=True):
     target = {"A": "B", "B": "A"}.get(device["current"]) if device["ab"] else None
     return {"kind": "update", "tag": tag, "stream": stream, "entry": {}, "for_running": for_running,
             "other": other, "target": target,
-            "plan": rn.plan_update(tag, {}, device["other_version"], device["version"]) if target else None}
+            "plan": rn.plan_update(tag, device["other_version"], device["version"]) if target else None}
 
 
 @pytest.mark.parametrize("device,tag,stream,text,strong", [
@@ -292,6 +318,14 @@ def _advice(device, tag, stream, other=None, for_running=True):
      "Your files on /data are kept.", False),
     (ab("A", BETA_OLD, "SYSTEM"), BETA_NEW, "beta",
      "This replaces the system in Slot B. Your files on /data are kept.", False),
+    # a system of no known stream: named, but not safe and no downgrade
+    (ab("A", DEV_OLD, "my-build-2026-10-10"), BETA_NEW, "beta",
+     "This replaces the system in Slot B (my-build-2026-10-10). Your files on /data are kept.",
+     False),
+    # dev over dev never warns, even an older build
+    (ab("A", BETA_OLD, DEV_NEW), DEV_OLD, "dev",
+     "This replaces Slot B's development system (development-2026-10-12-010101). "
+     "Your files on /data are kept.", False),
     (ab("A", BETA_OLD, "EMPTY"), BETA_NEW, "beta", "", False),
     (ab("A", BETA_OLD, "INCOMPLETE"), BETA_NEW, "beta", "", False),
     (single(BETA_OLD), BETA_NEW, "beta", "", False),

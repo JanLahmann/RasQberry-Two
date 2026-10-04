@@ -317,6 +317,44 @@ def test_whats_new_window_text():
         "No summary yet: see the release notes."]
 
 
+@pytest.mark.parametrize("status,live,wait", [
+    # settled: the update can go ahead
+    (_status(current="B"), _live(default="B"), ""),
+    # first start, not confirmed yet, no trial: rq_update_slot.sh goes ahead too
+    (_status(current="B"), _live(confirmed=False, default="B"), ""),
+    # a switch to the other slot was asked for: not exit 28 either
+    (_status(current="B"), _live(target="A", confirmed=False, default="B"), ""),
+    # on trial: Slot A is the way back (exit 28)
+    (_status(current="B"), _live(target="B", confirmed=False, default="A"),
+     "Slot B, the system you are running, is still on trial. Updates wait until the health "
+     "check has confirmed it, a few minutes after a good start."),
+    # a rollback waits for its restart (exit 28)
+    (_status(current="B"), _live(default="A"),
+     "The next restart starts Slot A, not Slot B that is running now. Updates wait until "
+     "then: restart first."),
+    # from the status snapshot when the CONFIG files cannot be read
+    (_status(current="A", confirmed="no", pending="A", default="B"), {"present": False},
+     "Slot A, the system you are running, is still on trial. Updates wait until the health "
+     "check has confirmed it, a few minutes after a good start."),
+])
+def test_update_wait_follows_exit_28(status, live, wait):
+    assert ind.update_wait(ind.slot_info(status, live, DEV)) == wait
+
+
+def test_whats_new_has_no_install_button_while_updates_wait():
+    releases = {"streams": {"beta": {"tag": BETA_NEW, "release_date": "2026-10-10"}}}
+    info = ind.slot_info(_status(current="B", a=BETA), _live(target="B", confirmed=False,
+                                                            default="A"), DEV)
+    device = ind.device_for_advice(info)
+    advice = rn.advise(device, releases, {}, "s", rn.parse_time("2027-01-01"))[0]
+    assert advice["target"] == "A"
+    text = ind.whats_new(advice, device, releases, {}, wait=ind.update_wait(info))
+    assert text["install_label"] == ""
+    assert text["wait"].startswith("Slot B, the system you are running, is still on trial.")
+    settled = ind.whats_new(advice, device, releases, {})
+    assert settled["install_label"] == "Install into Slot A…" and settled["wait"] == ""
+
+
 # ---------------------------------------------------------------------------
 # Once per failure, once per release
 # ---------------------------------------------------------------------------

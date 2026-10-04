@@ -151,7 +151,8 @@ From a shell:
 
 **The guard (Jan): at least one slot keeps a beta or stable system.** The
 stream comes from the version or tag: `development-*`/`dev-*` dev (rank 0),
-`beta-*` beta (1), `v1.2.3`/`1.2.3`/`stable-*` stable (2).
+`beta-*` beta (1), `v1.2.3`/`1.2.3`/`stable-*` stable (2); anything else is
+unknown: it ranks like dev and never counts as beta or stable.
 
 - **Downgrade:** a lower stream than the target holds, or an older release of
   the same beta or stable stream. Always a warning (default: Cancel).
@@ -269,8 +270,11 @@ both slots, System Info, Software & Image Updates and **What's new in …**.
 That window says where the update goes (the slot that is not
 running), warns about a downgrade and, in bold, when the install would replace
 the only stable or beta system on the card (the rules of
-`rq_slot_manager.sh plan-update`). It never installs: its button opens
-Software & Image Updates. Two popups appear once each: a failed update (the
+`rq_slot_manager.sh plan-update`, copied in `rq_release_notice.py`;
+`tests/unit/data/plan_update_cases.json` tests both). It never installs: its
+**Install into Slot X…** button opens Software & Image Updates. While the
+running slot is on trial, or the next restart starts the other slot (exit code
+28), the window says updates wait and has no Install button. Two popups appear once each: a failed update (the
 same sentence as System Info, `rq_slot_manager.sh status` and the SSH login)
 and a new release. An SSH or console login shows the release as one line
 (`/var/lib/rasqberry/update-notice`, written by `rasqberry-update-check.timer`).

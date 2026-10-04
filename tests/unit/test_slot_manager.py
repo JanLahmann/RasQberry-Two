@@ -15,6 +15,7 @@ temp directory reported as "already mounted", and /boot/config is a temp
 directory (RQ_BOOT_COMMON_DIR).
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -320,104 +321,27 @@ def _plan(card, tag, running=None, target=None, running_slot="A"):
     return dict(line.split("=", 1) for line in proc.stdout.splitlines())
 
 
-BETA_OLD = "beta-2026-09-30-221656"
 BETA = "beta-2026-10-03-095636"
 BETA_NEW = "beta-2026-10-15-101010"
 DEV = "development-2026-10-04-014357"
 DEV_NEW = "development-2026-10-05-010101"
-DEV_OLD = "dev-ab-pingpong-2026-09-01-000000"
-STABLE = "1.10.0"          # /etc/rasqberry-version of a main release
-STABLE_TAG_NEW = "v1.11.0"  # its release tags start with v
-STABLE_TAG_OLD = "v1.9.0"
+
+# One table for both copies of the rules: this script and rq_release_notice.py
+# (the taskbar indicator's warnings) - see the file's "about"
+with open(os.path.join(_HERE, "data", "plan_update_cases.json")) as _f:
+    PLAN_CASES = json.load(_f)["cases"]
 
 
-# (target holds, new tag) -> downgrade; the running slot holds a beta, so the
-# target is never the last safe slot here
-DOWNGRADES = [
-    # dev in the target: nothing is a downgrade, and dev over dev never warns
-    (DEV, DEV_NEW, "none"),
-    (DEV, DEV_OLD, "none"),
-    (DEV, BETA_NEW, "none"),
-    (DEV, STABLE_TAG_NEW, "none"),
-    # beta in the target
-    (BETA, DEV_NEW, "stream"),
-    (BETA, BETA_NEW, "none"),
-    (BETA, BETA, "none"),
-    (BETA, BETA_OLD, "older"),
-    (BETA, STABLE_TAG_NEW, "none"),
-    # stable in the target (version numbers, not text: 1.9 < 1.10 < 1.11)
-    (STABLE, DEV_NEW, "stream"),
-    (STABLE, BETA_NEW, "stream"),
-    (STABLE, STABLE_TAG_NEW, "none"),
-    (STABLE, "v1.10.0", "none"),
-    (STABLE, STABLE_TAG_OLD, "older"),
-    (STABLE, "stable-1.9.5", "older"),
-    # a tag of no known stream counts like dev
-    (BETA, "my-build-2026-10-10", "stream"),
-    (DEV, "my-build-2026-10-10", "none"),
-    # no system in the target: no warning
-    ("EMPTY", DEV_NEW, "none"),
-    ("INCOMPLETE", DEV_OLD, "none"),
-    ("SYSTEM", DEV_NEW, "none"),
-]
-
-
-@pytest.mark.parametrize("target,tag,downgrade", DOWNGRADES)
-def test_plan_update_downgrade(card, target, tag, downgrade):
-    plan = _plan(card, tag, running=BETA_NEW, target=target)
+@pytest.mark.parametrize("case", PLAN_CASES, ids=[c["why"] for c in PLAN_CASES])
+def test_plan_update_shared_cases(card, case):
+    plan = _plan(card, case["tag"], running=case["running"], target=case["target"])
     assert plan["target"] == "B" and plan["running"] == "A"
-    assert plan["downgrade"] == downgrade
-    assert plan["last_safe_slot"] == "no"
-    if downgrade != "none":
-        assert "downgrade" in plan["advice"]
-
-
-# (running holds, target holds) -> last_safe_slot, for a dev update
-LAST_SAFE = [
-    (DEV, BETA, "yes"),
-    (DEV, STABLE, "yes"),
-    ("SYSTEM", BETA, "yes"),        # no version: not a safe system
-    (DEV, DEV_OLD, "no"),
-    (BETA, BETA_OLD, "no"),
-    (STABLE, BETA, "no"),
-    (BETA, STABLE, "no"),
-    (DEV, "EMPTY", "no"),
-    (DEV, "INCOMPLETE", "no"),
-]
-
-
-@pytest.mark.parametrize("running,target,last_safe", LAST_SAFE)
-def test_plan_update_last_safe_slot(card, running, target, last_safe):
-    plan = _plan(card, DEV_NEW, running=running, target=target)
-    assert plan["last_safe_slot"] == last_safe
-    if last_safe == "yes":
+    assert {key: plan[key] for key in case["expect"]} == case["expect"]
+    if case["expect"]["last_safe_slot"] == "yes":
         assert plan["advice"] == ("Slot B holds the only beta or stable system on this card. "
                                   "Safer: switch to Slot B first, then install into Slot A.")
-
-
-def test_plan_update_reports_what_both_slots_hold(card):
-    plan = _plan(card, DEV_NEW, running=DEV, target=BETA)
-    assert plan == {
-        "target": "B",
-        "running": "A",
-        "target_holds": f"beta {BETA}",
-        "running_holds": f"dev {DEV}",
-        "new": f"dev {DEV_NEW}",
-        "downgrade": "stream",
-        "last_safe_slot": "yes",
-        "advice": plan["advice"],
-    }
-
-
-@pytest.mark.parametrize("target,holds", [
-    ("EMPTY", "none empty"),
-    ("INCOMPLETE", "none unfinished"),
-    ("SYSTEM", "unknown system"),
-    (STABLE, "stable 1.10.0"),
-])
-def test_plan_update_target_holds(card, target, holds):
-    plan = _plan(card, BETA_NEW, running=BETA, target=target)
-    assert plan["target_holds"] == holds
+    elif case["expect"]["downgrade"] != "none":
+        assert "downgrade" in plan["advice"]
 
 
 def test_plan_update_while_running_slot_b_targets_slot_a(card):

@@ -342,20 +342,52 @@ def menu_items(info, state, next_slot, advices, device):
     return items
 
 
-def whats_new(advice, device, releases, highlights):
+def update_wait(info):
+    """
+    Why an update has to wait, in the words of rq_update_slot.sh's exit
+    code 28 (running_slot_settled, the same two checks in the same order):
+    the running slot is still on trial (the other slot is the way back), or
+    the next restart starts the other slot (a rollback waiting for it).
+
+    Returns:
+        str: the sentence, '' when an update can go ahead
+    """
+    current, target, default = info["current"], info["target"], info["default"]
+    if not info["confirmed"] and target == current:
+        return (f"Slot {current}, the system you are running, is still on trial. "
+                f"Updates wait until the health check has confirmed it, a few minutes "
+                f"after a good start.")
+    if default in ("A", "B") and default != current:
+        return (f"The next restart starts Slot {default}, not Slot {current} that is "
+                f"running now. Updates wait until then: restart first.")
+    return ""
+
+
+def whats_new(advice, device, releases, highlights, wait=""):
     """
     The 'What's new' window's text.
+
+    Args:
+        wait (str): update_wait() - when set, the window says so and has no
+            Install button (install_label is '')
 
     Returns:
         dict: title, heading, meta (date and size), highlights (list),
         route, warning, strong (the warning is about the last beta/stable
-        system), release_url, install_label
+        system), wait, release_url, install_label ('' = no Install button)
     """
     entry = advice.get("entry") or {}
     meta = ", ".join(x for x in (rn.date_text(advice["tag"], entry), rn.size_text(entry)) if x)
     lines = rn.highlight_lines(advice["stream"], releases, highlights)
     warning, strong = rn.warning_text(advice, device)
     target = advice.get("target")
+    if wait:
+        install_label = ""
+    elif target:
+        # the slot rq_slot_manager.sh plan-update targets: the one not running
+        install_label = f"Install into Slot {target}…"
+    else:
+        install_label = "Software & Image Updates…"
     return {
         "title": f"What's new in {advice['tag']}",
         "heading": rn.headline(advice, device),
@@ -364,8 +396,9 @@ def whats_new(advice, device, releases, highlights):
         "route": rn.route_text(advice, device),
         "warning": warning,
         "strong": strong,
+        "wait": wait,
         "release_url": entry.get("release_url", ""),
-        "install_label": f"Install into Slot {target}…" if target else "Software & Image Updates…",
+        "install_label": install_label,
     }
 
 
@@ -926,7 +959,8 @@ class SlotIndicator:
         from gi.repository import Gtk
         if self.window is not None:
             self.window.destroy()
-        text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"])
+        text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"],
+                         wait=update_wait(self.info))
         win = Gtk.Window(title=text["title"])
         win.set_default_size(480, -1)
         win.set_position(Gtk.WindowPosition.CENTER)
@@ -960,6 +994,8 @@ class SlotIndicator:
         if text["warning"]:
             warning = _GLib.markup_escape_text(text["warning"])
             label(f"<b>{warning}</b>" if text["strong"] else warning, markup=True)
+        if text["wait"]:
+            label(f"<b>{_GLib.markup_escape_text(text['wait'])}</b>", markup=True)
         buttons = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
         buttons.set_layout(Gtk.ButtonBoxStyle.END)
         buttons.set_spacing(8)
@@ -968,14 +1004,15 @@ class SlotIndicator:
             notes = Gtk.Button(label="Release notes")
             notes.connect("clicked", lambda *_: self.open_url(text["release_url"]))
             buttons.add(notes)
-        install = Gtk.Button(label=text["install_label"])
+        if text["install_label"]:
+            install = Gtk.Button(label=text["install_label"])
 
-        def on_install(*_):
-            self.spawn(UPDATES_CMD)
-            win.destroy()
+            def on_install(*_):
+                self.spawn(UPDATES_CMD)
+                win.destroy()
 
-        install.connect("clicked", on_install)
-        buttons.add(install)
+            install.connect("clicked", on_install)
+            buttons.add(install)
         later = Gtk.Button(label="Later")
         later.connect("clicked", lambda *_: win.destroy())
         buttons.add(later)
