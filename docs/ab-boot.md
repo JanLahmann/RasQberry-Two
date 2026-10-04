@@ -284,7 +284,9 @@ the same sentence as System Info, `rq_slot_manager.sh status` and the SSH
 login. After an update (`slot-<X>-updated`, recorded as `update=yes` in
 `last-switch-failed`): "The update of Slot B to <version> didn't work, so Slot
 A (<version>) is running again." After a plain switch: "Switching to Slot B
-didn't work, so Slot A (<version>) is running again." An SSH or console login
+didn't work, so Slot A (<version>) is running again." The SSH and console
+login show it for 7 days, or until the taskbar menu was opened; System Info and
+the slot manager as long as `last-switch-failed` is there. A login also
 shows a new release as one line (`/var/lib/rasqberry/update-notice`, written
 by `rasqberry-update-check.timer`).
 

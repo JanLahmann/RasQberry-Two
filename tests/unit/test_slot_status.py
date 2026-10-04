@@ -111,6 +111,94 @@ def test_slot_manager_status_says_when_a_plain_switch_failed(card):
 
 
 # ---------------------------------------------------------------------------
+# The login line: 7 days, or until the taskbar menu was opened (Jan, 2026-10-04)
+# ---------------------------------------------------------------------------
+
+NOW = 1_800_000_000
+DAY = 86400
+
+
+def _login(tmp_path, age_days, acked=None, with_time=True, login=True):
+    """failure-notice [--login] for a notice <age_days> old; <acked>: the
+    failure_acked of a user's indicator state (None: no state file)."""
+    import time as _time
+    config = tmp_path / "config"
+    config.mkdir(exist_ok=True)
+    stamp = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(NOW - age_days * DAY))
+    notice = config / "last-switch-failed"
+    notice.write_text("slot=B\nreason=x\n" + (f"time={stamp}\n" if with_time else "")
+                      + "update=yes\nversion=beta-2026-10-15-101010\n")
+    os.utime(notice, (NOW - age_days * DAY, NOW - age_days * DAY))
+    homes = tmp_path / "home"
+    if acked is not None:
+        state = homes / "rasqberry" / ".local" / "state" / "rasqberry"
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "slot-indicator.json").write_text(json.dumps(
+            {"failures_noticed": [stamp], "failure_acked": stamp if acked == "this" else acked,
+             "releases_noticed": []}))
+    (tmp_path / "version").write_text("beta-2026-09-30-221656\n")
+    status = tmp_path / "slot-status"
+    status.write_text("layout=ab\ncurrent=A\nslot_a=beta-2026-09-30-221656\nslot_b=x\n")
+    env = dict(os.environ, RQ_BOOT_COMMON_DIR=str(config), RQ_SLOT_STATUS_FILE=str(status),
+               RQ_VERSION_FILE=str(tmp_path / "version"), RQ_HOMES_DIR=str(homes),
+               RQ_NOW_EPOCH=str(NOW))
+    args = ["failure-notice"] + (["--login"] if login else [])
+    proc = subprocess.run(["bash", _STATUS, *args], env=env, capture_output=True, text=True,
+                          timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip()
+
+
+SENTENCE = ("The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A "
+            "(beta-2026-09-30-221656) is running again.")
+
+
+@pytest.mark.parametrize("age_days,acked,shown", [
+    (0, None, True),
+    (6.9, None, True),
+    (7.1, None, False),                 # at most 7 days
+    (30, None, False),
+    (1, "this", False),                 # the taskbar menu was opened with this failure
+    (1, "2026-01-01 00:00:00", True),   # ... with an earlier failure: still shown
+    (8, "this", False),
+])
+def test_login_line_for_7_days_or_until_the_menu_was_opened(tmp_path, age_days, acked, shown):
+    assert _login(tmp_path, age_days, acked) == (SENTENCE if shown else "")
+
+
+def test_login_line_without_a_time_goes_by_the_file_date(tmp_path):
+    assert _login(tmp_path, 1, with_time=False) == SENTENCE
+    (tmp_path / "old").mkdir()
+    assert _login(tmp_path / "old", 9, with_time=False) == ""
+
+
+@pytest.mark.parametrize("age_days,acked", [(30, None), (1, "this")])
+def test_system_info_and_slot_manager_keep_the_sentence(tmp_path, age_days, acked):
+    assert _login(tmp_path, age_days, acked, login=False) == SENTENCE
+
+
+def test_motd_uses_the_login_rule():
+    text = open(os.path.join(_HERE, "..", "..", "RQB2-system", "etc", "update-motd.d",
+                             "20-rasqberry")).read()
+    assert "rq_slot_status.sh failure-notice --login" in text
+    for path in ("rq_info.sh", "rq_slot_manager.sh"):
+        assert "failure-notice --login" not in open(os.path.join(_BIN, path)).read(), path
+
+
+def test_the_indicator_keeps_the_failure_time_as_acked(tmp_path):
+    # the key failure-notice --login compares with
+    spec = importlib.util.spec_from_file_location("rq_slot_indicator",
+                                                  os.path.join(_BIN, "rq_slot_indicator.py"))
+    ind = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ind)
+    book = ind.NoticeBook(str(tmp_path))
+    assert book.ack({"slot": "B", "time": "2026-10-15 10:00:00", "reason": "x"}) is True
+    book.save()
+    data = json.loads((tmp_path / "slot-indicator.json").read_text())
+    assert data["failure_acked"] == "2026-10-15 10:00:00"
+
+
+# ---------------------------------------------------------------------------
 # The health check writes it at every start, and never fails because of it
 # ---------------------------------------------------------------------------
 

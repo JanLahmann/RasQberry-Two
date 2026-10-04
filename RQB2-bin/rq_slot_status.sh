@@ -28,10 +28,18 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #                   running again." Prints nothing without a notice. Quick:
 #                   never mounts anything. rq_slot_indicator.py words it the
 #                   same way (failure_text).
+#   failure-notice --login
+#                   The same sentence for the SSH and console login (motd),
+#                   but only for 7 days after the notice's time= (the file's
+#                   date without one), and only until the taskbar indicator's
+#                   menu was opened with this failure in it (failure_acked in
+#                   ~/.local/state/rasqberry/slot-indicator.json of any user
+#                   under /home) - whichever comes first. System Info and the
+#                   slot manager show it as long as the notice is there.
 #
-# Usage: rq_slot_status.sh write | failure-notice
+# Usage: rq_slot_status.sh write | failure-notice [--login]
 # Environment (tests): RQ_SLOT_STATUS_FILE, RQ_BOOT_COMMON_DIR, RQ_VERSION_FILE,
-#   RQ_SLOT_MANAGER
+#   RQ_SLOT_MANAGER, RQ_HOMES_DIR, RQ_NOW_EPOCH
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -40,6 +48,8 @@ STATUS_FILE="${RQ_SLOT_STATUS_FILE:-/run/rasqberry/slot-status}"
 CONFIG_DIR="${RQ_BOOT_COMMON_DIR:-/boot/config}"
 VERSION_FILE="${RQ_VERSION_FILE:-/etc/rasqberry-version}"
 MANAGER="${RQ_SLOT_MANAGER:-${SCRIPT_DIR}/rq_slot_manager.sh}"
+HOMES_DIR="${RQ_HOMES_DIR:-/home}"
+LOGIN_DAYS=7        # the login line stops this many days after the failure
 
 # Value of <key> in key=value <text>
 kv_of() {
@@ -111,9 +121,48 @@ cmd_write() {
     mv -f "$tmp" "$STATUS_FILE"
 }
 
+# Seconds since 1970 of a "YYYY-MM-DD HH:MM:SS" local time (the health
+# check's time=), '' if it is not one (GNU date, else BSD date for tests)
+epoch_of() {
+    printf '%s' "$1" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$' || return 0
+    date -d "$1" +%s 2>/dev/null || date -j -f '%Y-%m-%d %H:%M:%S' "$1" +%s 2>/dev/null || true
+}
+
+mtime_of() {
+    stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || true
+}
+
+# Was the taskbar indicator's menu opened with this failure in it?
+# rq_slot_indicator.py keeps the failure's time= as failure_acked.
+failure_acked() {
+    local key="$1" state
+    [ -n "$key" ] || return 1
+    for state in "$HOMES_DIR"/*/.local/state/rasqberry/slot-indicator.json; do
+        [ -r "$state" ] || continue
+        [ "$(jq -r '.failure_acked // empty' "$state" 2>/dev/null || true)" = "$key" ] && return 0
+    done
+    return 1
+}
+
+# Show the notice at a login? For LOGIN_DAYS days after it, and until seen
+login_wants() {
+    local file="$1" key when now
+    key=$(kv_file "$file" time)
+    when=$(epoch_of "$key")
+    [ -n "$when" ] || when=$(mtime_of "$file")
+    now="${RQ_NOW_EPOCH:-$(date +%s)}"
+    if [ -n "$when" ] && [ $((now - when)) -gt $((LOGIN_DAYS * 86400)) ]; then
+        return 1
+    fi
+    ! failure_acked "$key"
+}
+
 cmd_failure_notice() {
     local file="${CONFIG_DIR}/last-switch-failed" failed reason new current version head update
     [ -f "$file" ] || return 0
+    if [ "${1:-}" = "--login" ]; then
+        login_wants "$file" || return 0
+    fi
     failed=$(kv_file "$file" slot)
     reason=$(kv_file "$file" reason)
     new=$(kv_file "$file" version)
@@ -150,7 +199,7 @@ cmd_failure_notice() {
 
 case "${1:-}" in
     write)          cmd_write ;;
-    failure-notice) cmd_failure_notice ;;
+    failure-notice) cmd_failure_notice "${2:-}" ;;
     -h|--help)      sed -n '/^# Description:/,/^# Environment/p' "$0" | sed 's/^# \{0,1\}//' ;;
-    *)              echo "Usage: $(basename "$0") write | failure-notice" >&2; exit 1 ;;
+    *)              echo "Usage: $(basename "$0") write | failure-notice [--login]" >&2; exit 1 ;;
 esac
