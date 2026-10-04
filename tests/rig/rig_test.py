@@ -33,6 +33,7 @@ Needs on the Pis: nothing beyond the image (key login for the rig user).
 """
 
 import argparse
+import atexit
 import contextlib
 import datetime
 import fcntl
@@ -40,6 +41,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -142,6 +144,9 @@ class Camera:
              "-vf", "fps=1", "-update", "1", "-y", str(self.latest)],
             stdin=subprocess.DEVNULL,
         )
+        # an aborted or killed run must not leave the stream behind: stale
+        # readers hold RTSP sessions and garble later runs' frames
+        atexit.register(self.stop)
         for _ in range(40):
             if self.latest.exists() and self.latest.stat().st_size > 0:
                 return True
@@ -163,9 +168,13 @@ class Camera:
         raise RuntimeError("camera: could not read a complete frame")
 
     def stop(self):
-        """Stop ffmpeg."""
-        if self.proc:
+        """Stop ffmpeg (also at exit, and on SIGTERM/SIGHUP via main)."""
+        if self.proc and self.proc.poll() is None:
             self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
 
 
 class PanelLock:
@@ -628,6 +637,10 @@ def run_demos(pi, demos, section, args, camera, outdir, cfg):
 
 # ----------------------------------------------------------------------------
 def main():
+    # SIGTERM/SIGHUP (a killed or closed run) end through sys.exit, so the
+    # atexit handlers run and the camera stream stops
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, lambda *_: sys.exit(1))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(HERE / "rig.json"))
     ap.add_argument("--pi", help="comma-separated Pi names from rig.json (default: all)")
