@@ -2,7 +2,7 @@
   "id": "grok-bloch",
   "name": "Grokking the Bloch Sphere",
   "category": "visualization",
-  "description": "Interactive Bloch sphere visualization for understanding qubit states",
+  "description": "Interactive Bloch sphere visualisation for understanding qubit states",
   "keywords": [
     "quantum",
     "bloch",

@@ -2,7 +2,7 @@
   "id": "led-demos",
   "name": "LED Demos",
   "category": "led-demo",
-  "description": "Collection of LED matrix display demos and animations",
+  "description": "Tests, text, logos and colour effects on the LED panel",
   "keywords": ["led", "demo", "animation", "display", "matrix"],
 
   "entrypoint": {

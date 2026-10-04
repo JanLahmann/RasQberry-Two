@@ -49,7 +49,7 @@ main() {
     }
 
     # Prompt for color
-    COLOR=$(whiptail --menu "Choose color:" 18 60 8 \
+    COLOR=$(whiptail --menu "Choose colour:" 18 60 8 \
             "white" "White" \
             "red" "Red" \
             "green" "Green" \

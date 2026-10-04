@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=Clear All LEDs
-Comment=Turn off all NeoPixel LEDs
+Comment=Turn off all LEDs on the LED panel
 Icon=edit-clear-all
 Type=Application
 Categories=RasQberry;

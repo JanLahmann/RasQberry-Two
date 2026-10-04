@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=LED-Painter
-Comment=Paint images on a GUI canvas and display them on the LED array in real-time
+Comment=Paint images on a canvas and show them on the LED panel as you paint
 Icon=applications-graphics
 Type=Application
 Categories=RasQberry;

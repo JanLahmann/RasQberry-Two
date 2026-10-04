@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=LED Test
-Comment=Test and diagnose LED strip configuration with automated parameter scanning
+Comment=Test the LED panel and find its settings with an automatic scan
 Icon=/usr/share/icons/rasqberry/sensehat-icon.png
 Type=Application
 Categories=RasQberry;

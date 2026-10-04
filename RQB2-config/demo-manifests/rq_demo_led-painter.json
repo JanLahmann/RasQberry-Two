@@ -2,7 +2,7 @@
   "id": "led-painter",
   "name": "LED-Painter",
   "category": "tool",
-  "description": "Paint and draw on the LED matrix using a graphical interface",
+  "description": "Paint and draw on the LED panel from a graphical interface",
   "keywords": [
     "led",
     "paint",

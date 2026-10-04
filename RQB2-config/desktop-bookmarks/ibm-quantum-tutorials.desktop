@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=IBM Quantum Tutorials
-Comment=Official IBM Quantum tutorials covering algorithms, optimization, error mitigation (CC BY-SA 4.0)
+Comment=Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0)
 Icon=/usr/share/icons/rasqberry/qiskit-logo.png
 Type=Application
 Categories=RasQberry;

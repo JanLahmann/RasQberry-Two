@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=IBM Quantum Courses
-Comment=Structured IBM Quantum learning paths for quantum computing (CC BY-SA 4.0)
+Comment=Official IBM Quantum courses on quantum computing (CC BY-SA 4.0)
 Icon=/usr/share/icons/rasqberry/qiskit-logo.png
 Type=Application
 Categories=RasQberry;

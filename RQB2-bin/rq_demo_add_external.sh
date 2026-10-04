@@ -257,11 +257,11 @@ pick_demo_interactive() {
     done < <(registry_ids)
 
     if [ "$count" -eq 0 ]; then
-        show_msgbox "Add demo from catalog" "All registered external demos are already installed."
+        show_msgbox "Add demo from catalogue" "All registered external demos are already installed."
         return 1
     fi
 
-    show_menu "Add demo from catalog" "Select a demo to install:" "${args[@]}"
+    show_menu "Add demo from catalogue" "Select a demo to install:" "${args[@]}"
 }
 
 # ============================================================================
@@ -479,7 +479,7 @@ Install or update an external demo from the curated registry.
   (no args)          Interactive menu of registry demos not yet installed
   <id>               Install the demo with this registry id
   --update <id>      Re-fetch the current registry SHA for an installed demo
-  --remove <id>      Uninstall a catalog demo (also one withdrawn from the registry)
+  --remove <id>      Uninstall a catalogue demo (also one withdrawn from the registry)
   --list             List registry entries with install status
   --help, -h         Show this help
 EOF

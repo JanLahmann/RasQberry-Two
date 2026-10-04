@@ -1161,11 +1161,11 @@ do_led_demo_rainbow_scroll() {
 }
 
 do_led_demo_rainbow_static() {
-    run_led_demo bg "Rainbow Color Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
+    run_led_demo bg "Rainbow Colour Cycle" "$BIN_DIR" python3 demo_led_text_rainbow_static.py
 }
 
 do_led_demo_gradient() {
-    run_led_demo bg "Color Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
+    run_led_demo bg "Colour Gradient" "$BIN_DIR" python3 demo_led_text_gradient.py
 }
 
 do_led_demo_ibm_logo() {
@@ -1195,10 +1195,10 @@ do_led_display_menu() {
            SWEL    "Demo: Scrolling Welcome" \
            STAT    "Demo: Status Messages" \
            ALRT    "Demo: Alert Flash" \
-           "  "    "--- Color Effect Demos ---" \
+           "  "    "--- Colour Effect Demos ---" \
            RSCR    "Demo: Rainbow Scroll" \
-           RSTA    "Demo: Rainbow Color Cycle" \
-           GRAD    "Demo: Color Gradient" \
+           RSTA    "Demo: Rainbow Colour Cycle" \
+           GRAD    "Demo: Colour Gradient" \
            "   "   "--- Logo Demos ---" \
            IBML    "Demo: IBM Logo" \
            RQBL    "Demo: RasQberry Logo" \
@@ -1343,7 +1343,7 @@ do_select_qrt_option() {
             simulator|noise|real)
                 # the engine asks before a first download, then runs it
                 run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-raspberry-tie "$FUN" \
-                    || { handle_error "Raspberry Tie could not run."; continue; }
+                    || { handle_error "Quantum Raspberry Tie could not run."; continue; }
                 ;;
             *) break ;;
         esac
@@ -2524,7 +2524,7 @@ do_ibm_account_forget() {
         return 0
     fi
     whiptail --title "Forget IBM Quantum account" --defaultno --yesno \
-        "Delete the IBM Quantum account (API key) saved on this Pi?\n\nUse this before handing the Pi to the next person. Notebooks, Raspberry Tie and your own programs then need an API key again before they can use IBM Quantum computers." \
+        "Delete the IBM Quantum account (API key) saved on this Pi?\n\nUse this before handing the Pi to the next person. Notebooks, Quantum Raspberry Tie and your own programs then need an API key again before they can use IBM Quantum computers." \
         13 74 || return 0
     _ia_failed=""
     for _ia_f in $_ia_found; do

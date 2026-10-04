@@ -58,7 +58,7 @@ echo ""
 echo "Demo timings:"
 echo "  - IBM Logo: ${IBM_LOGO_TIME}s"
 echo "  - Quantum Lights Out: ${LIGHTS_OUT_TIME}s"
-echo "  - RasQberry Tie: ${RASQBERRY_TIE_TIME}s"
+echo "  - Quantum Raspberry Tie: ${RASQBERRY_TIE_TIME}s"
 echo "  - RasQ-LED: ${RASQ_LED_TIME}s"
 echo ""
 echo "=============================================="
@@ -164,7 +164,7 @@ while true; do
 
     # Demo 3: RasQberry Tie
     run_demo_with_controls \
-        "[3/4] RasQberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
+        "[3/4] Quantum Raspberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
         "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" \
         "${RASQBERRY_TIE_TIME}"
     # Raspberry Tie also opens the SenseHAT emulator window
