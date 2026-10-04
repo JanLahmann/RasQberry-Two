@@ -487,13 +487,19 @@ def test_a_finished_update_leaves_the_updated_hint(tmp_path):
     config = tmp_path / "config"
     config.mkdir()
     (config / "slot-B-updated").write_text("version=old\n")
+    # a do-nothing sync: the real one flushes the whole machine and can take
+    # minutes on a busy developer laptop
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "sync").write_text("#!/bin/sh\nexit 0\n")
+    (bindir / "sync").chmod(0o755)
     proc = subprocess.run(_source('''
         mark_slot_incomplete B beta-2026-10-15-101010
         [ -e "$RQ_BOOT_COMMON_DIR/slot-B-updated" ] && echo STALE
         mark_slot_updated B beta-2026-10-15-101010 beta-2026-10-15-101010
         clear_slot_incomplete B
-    '''), env=_env(tmp_path, RQ_BOOT_COMMON_DIR=str(config)), capture_output=True, text=True,
-        timeout=30)
+    '''), env=_env(tmp_path, RQ_BOOT_COMMON_DIR=str(config), PATH=f"{bindir}:{os.environ['PATH']}"),
+        capture_output=True, text=True, timeout=30)
     assert proc.returncode == 0, proc.stderr
     assert "STALE" not in proc.stdout                    # a new write starts afresh
     hint = (config / "slot-B-updated").read_text()
