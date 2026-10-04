@@ -10,6 +10,7 @@ only true for the standard image. -->
 - **Wi-Fi at the first start:** when the router turns the Pi away at first, the Pi now tries again by itself instead of staying offline until someone connects it by hand.
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
+- **Updates need much less free space:** an A/B update now unpacks the image straight into the other slot instead of into a 12 GB file first. It needs the download plus 0.5 GB free (about 2.5 GB) instead of 15 GB, so a 64 GB card with all Docker demos can update too.
 
 ## What's new for you
 

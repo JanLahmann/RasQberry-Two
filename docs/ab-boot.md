@@ -17,7 +17,7 @@ system as the way back. Neither slot is special.
 |---|---|---|---|---|---|
 | p1 | CONFIG | /boot/config | `autoboot.txt` and state files, shared by both slots | 512MB | same |
 | p2 | BOOT-A | /boot/firmware (on A) | Boot files, Slot A | 512MB | same |
-| p3 | boot-b | /boot/firmware (on B) | Boot files, Slot B | 512MB | same |
+| p3 | BOOT-B | /boot/firmware (on B) | Boot files, Slot B | 512MB | same |
 | p5 | SYSTEM-A | / (on A) | Root filesystem, Slot A | 10GiB | 45% (two systems), or the card minus DATA (one system) |
 | p6 | SYSTEM-B | / (on B) | Root filesystem, Slot B | 16MB placeholder | 45%, or still the placeholder (one system) |
 | p7 | DATA | /data | User data kept across updates | placeholder (~28MB) | 10% of the card |
@@ -113,9 +113,9 @@ Not kept: other files in the home folder, installed demos, Docker images, added
 Python packages. Docker images stay in each slot (`/var/lib/docker` is part of
 the system): after an update the Docker demos download again, and their
 consent dialog says so. All four take about 15 GB: a slot of a 64 GB card
-(28 GB) holds them, but then lacks the 15GiB an update stages on the running
-slot, which is why the website recommends 128 GB for all Docker demos. A 16 GB
-card has room for one (not the Workshop & Qiskit Server). The new image pulls
+(28 GB) holds them with about 6 GB to spare, enough for an update (the
+download plus 0.5 GB, see below). A 16 GB card has room for one (not the
+Workshop & Qiskit Server). The new image pulls
 from the old slot instead of the old updater pushing, so even the first update
 from an older release carries everything over. The password is carried over
 because otherwise an update would put the published default password back on a
@@ -143,16 +143,30 @@ From a shell:
   running, 25 no checksum, 26 an unconfirmed downgrade, 27 an unconfirmed
   overwrite of the last beta or stable system, 28 the running slot is still on
   trial (or a restart would start the other slot).
-- It stages the download in `/var/tmp/rasqberry-updates` on the running slot
-  and needs 15GiB free there.
-- It verifies the image against `ab_extract_sha256` (and `ab_image_sha256`) of
-  the release in [RQB-releases.json](https://rasqberry.org/RQB-releases.json).
-  These fields are written by `.github/scripts/consolidate_json.py` on main.
+- Four steps: download, check, unpack into the slot, switch. Only the
+  `.img.xz` is staged, in `/var/tmp/rasqberry-updates` on the running slot:
+  it needs the download's size plus 0.5 GB free there (`--preflight`, before
+  a release is picked, asks for 3.0 GB). The image is never unpacked to disk
+  (R-052): [`rq_stream_image.py`](../RQB2-bin/rq_stream_image.py) reads it
+  once through `xz -dc` and writes BOOT-A (p2) and SYSTEM-A (p5), found
+  through the MBR and the first EBR in the stream, straight to the target's
+  BOOT and SYSTEM partitions.
+- Before anything is written, the `.img.xz` is checked against its SHA256
+  (`--sha256`, `ab_image_sha256` in
+  [RQB-releases.json](https://rasqberry.org/RQB-releases.json), or GitHub's
+  asset digest), and a probe reads the start of the image (about 1.5 GB
+  unpacked) to check that both partitions fit. The SHA256 of the unpacked
+  image is computed while it is written and compared with `ab_extract_sha256`
+  at the end. The manifest fields are written by
+  `.github/scripts/consolidate_json.py` on main.
 - While it writes, `/boot/config/slot-<A|B>-incomplete` marks the slot as
-  unusable. A target that stays mounted stops the update.
-- It keeps `quiet splash` and adds `panic=10` to the new slot's `cmdline.txt`,
-  `nofail` to its `/data` line, copies the SSH identity and sets the carry-over
-  marker, then restarts into the new slot with tryboot.
+  unusable; a damaged download, a write error or a checksum mismatch leaves it
+  marked and nothing is switched. A target that stays mounted stops the
+  update; the running system's partitions are never written.
+- It labels the boot partition `BOOT-<A|B>`, keeps `quiet splash` and adds
+  `panic=10` to the new slot's `cmdline.txt`, `nofail` to its `/data` line,
+  copies the SSH identity and sets the carry-over marker, then restarts into
+  the new slot with tryboot.
 
 **The guard (Jan): at least one slot keeps a beta or stable system.** The
 stream comes from the version or tag: `development-*`/`dev-*` dev (rank 0),
