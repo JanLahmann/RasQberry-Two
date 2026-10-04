@@ -5,6 +5,12 @@ on main (or set RQB_AB_CUSTOMISATION=true). Until then Imager skips the
 customisation step for the A/B image, and the first bullet on Imager below is
 only true for the standard image. -->
 
+## Since beta-2026-10-04
+
+- **Wi-Fi at the first start:** when the router turns the Pi away at first, the Pi now tries again by itself instead of staying offline until someone connects it by hand.
+- **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
+- **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
+
 ## What's new for you
 
 **Which image and card**
