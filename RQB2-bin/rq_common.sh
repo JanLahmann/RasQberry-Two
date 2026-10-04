@@ -1595,7 +1595,9 @@ rq_release_controls() {
         json=$(curl -fsSL --max-time 10 \
             "${RQ_RELEASE_CONTROLS_URL:-https://rasqberry.org/RQB-release-controls.json}" 2>/dev/null || true)
     fi
-    if printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    # jq 1.6 (Raspberry Pi OS) reports success for EMPTY input even with -e,
+    # so a missing file (404, offline) must be caught before jq sees it
+    if [ -n "$json" ] && printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
         printf '%s\n' "$json"
     else
         echo '{}'
@@ -1605,12 +1607,17 @@ rq_release_controls() {
 # rq_release_withdrawn TAG [CONTROLS_JSON]: prints the reason (or "no reason
 # given") and returns 0 when TAG was withdrawn, else returns 1
 rq_release_withdrawn() {
-    local json="${2:-}"
+    local json="${2:-}" reason
     [ -n "$json" ] || json=$(rq_release_controls)
-    printf '%s' "$json" | jq -er --arg t "$1" '
+    [ -n "$json" ] || return 1
+    # decide on the printed reason, not jq's exit status: jq 1.6 says
+    # "success" for empty input even with -e
+    reason=$(printf '%s' "$json" | jq -r --arg t "$1" '
         (if (.releases | type) == "object" then .releases else . end)[$t]
         | select(type == "object" and .withdrawn == true)
-        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null
+        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null) || return 1
+    [ -n "$reason" ] || return 1
+    printf '%s\n' "$reason"
 }
 
 # ============================================================================
