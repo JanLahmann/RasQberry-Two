@@ -30,35 +30,6 @@ export default function RootLayout({
           data-website-id="97f347ac-e7ba-4be3-b26f-ab4b328bdbf2"
           data-domains="rasqberry.org"
         />
-        <Script
-          id="sender-net"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function (s, e, n, d, er) {
-                s['Sender'] = er;
-                s[er] = s[er] || function () {
-                  (s[er].q = s[er].q || []).push(arguments)
-                }, s[er].l = 1 * new Date();
-                var a = e.createElement(n),
-                    m = e.getElementsByTagName(n)[0];
-                a.async = 1;
-                a.src = d;
-                m.parentNode.insertBefore(a, m)
-              })(window, document, 'script', 'https://cdn.sender.net/accounts_resources/universal.js', 'sender');
-              sender('a1da5edc354454');
-
-              // Re-render form when details element opens (fixes Safari sizing issue)
-              document.addEventListener('toggle', function(e) {
-                if (e.target.tagName === 'DETAILS' && e.target.open) {
-                  if (typeof senderForms !== 'undefined') {
-                    setTimeout(function() { senderForms.render(); }, 100);
-                  }
-                }
-              }, true);
-            `,
-          }}
-        />
       </body>
     </html>
   );

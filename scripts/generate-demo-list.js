@@ -185,21 +185,36 @@ account is only needed to run on real IBM hardware. Demos tagged beta are new:
 // JSX or an expression are escaped.
 const esc = (t) => String(t).replace(/[\\`*_{}[\]<>]/g, (c) => `\\${c}`);
 
+// Links on the cards and the ladder count as Umami clicks (data-umami-event,
+// as in the site's footer; src/lib/umami.ts): the path they are on ("ladder"
+// for Where to go next) and where they go. JSX, as Markdown links cannot carry
+// attributes; external links open in a new tab, as the site's Markdown links do.
+const LP_EVENT = 'RasQberry Two: learning path click';
+const attr = (t) => String(t).replace(/"/g, "'");
+function trackedLink(text, url, path, to, title) {
+  const a = [`href="${attr(url)}"`];
+  if (title) a.push(`title="${attr(title)}"`);
+  if (/^https?:\/\//i.test(url)) a.push('target="_blank"', 'rel="noopener noreferrer"');
+  a.push(`data-umami-event="${LP_EVENT}"`, `data-umami-event-path="${attr(path)}"`, `data-umami-event-to="${attr(to)}"`);
+  return `<a ${a.join(' ')}>${esc(text)}</a>`;
+}
+
 // One step: where to start it, then what to try and what to notice. A demo
 // links to its page (or the demo list); a notebook inside a demo (a Fun with
 // Quantum game) names the demo it is in.
-function renderStep(step, i, byId) {
+function renderStep(step, i, byId, pathId) {
   let what;
   if (step.demo) {
     const m = byId[step.demo];
     if (!m) throw new Error(`learning path step "${step.name || step.demo}": no demo "${step.demo}" in the manifests`);
     const link = pageFor(m.id) || DEMO_LIST_URL;
     const name = step.name || m.name;
-    what = name === m.name ? `**[${esc(name)}](${link})**` : `**${esc(name)}** in [${esc(m.name)}](${link})`;
+    const a = trackedLink(m.name, link, pathId, link);
+    what = name === m.name ? `**${a}**` : `**${esc(name)}** in ${a}`;
   } else if (step.command) {
     what = `**${esc(step.name)}** (desktop icon on the Pi)`;
   } else {
-    what = `**[${esc(step.name)}](${step.url})** (online)`;
+    what = `**${trackedLink(step.name, step.url, pathId, step.url)}** (online)`;
   }
   return `${i + 1}. ${what}\n   - Try: ${esc(step.try)}\n   - Notice: ${esc(step.notice)}\n`;
 }
@@ -216,7 +231,7 @@ function renderNext(p, paths) {
     if (e.path && !target) throw new Error(`learning path ${p.id}: next path "${e.path}" does not exist`);
     const name = target ? target.title : e.name;
     const url = target ? h2Anchor(target.title) : siteUrl(e.url);
-    return `[${esc(name)}](${url} "${e.why.replace(/"/g, "'")}")`;
+    return trackedLink(name, url, p.id, target ? target.id : url, e.why);
   });
   return links.length ? `**Keep going:** ${links.join(' · ')}\n` : '';
 }
@@ -227,7 +242,7 @@ function renderLadder(ladder) {
   if (!ladder || !ladder.length) return '';
   let md = `\n## Where to go next\n\nFrom playing to building your own:\n\n`;
   ladder.forEach((r, i) => {
-    const links = r.links.map((l) => `[${esc(l.name)}](${siteUrl(l.url)})`).join(', ');
+    const links = r.links.map((l) => trackedLink(l.name, siteUrl(l.url), 'ladder', siteUrl(l.url))).join(', ');
     const notes = r.links.filter((l) => l.note).map((l) => ` ${esc(l.note)}`).join('');
     md += `${i + 1}. **${esc(r.rung)}.** ${esc(r.text)}: ${links}.${notes}\n`;
   });
@@ -259,7 +274,7 @@ ${esc(p.audience)} · about ${p.minutes} minutes${beta}
 
 ${esc(p.goal)}
 
-${p.steps.map((st, i) => renderStep(st, i, byId)).join('')}
+${p.steps.map((st, i) => renderStep(st, i, byId, p.id)).join('')}
 ${renderNext(p, paths)}
 ${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
 

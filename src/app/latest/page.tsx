@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { UMAMI, umamiAttrs } from '@/lib/umami';
 
 interface StreamData {
   tag: string | null;
@@ -224,7 +225,8 @@ export default function LatestPage() {
         Writing an image erases the card: copy your notebooks and <code>~/.qiskit</code> off it first.
       </p>
       <p style={{ marginBottom: '1rem' }}>
-        <a href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" style={{ ...buttonStyle, background: 'linear-gradient(45deg, #0f62fe, #9b5cff)', fontWeight: 600 }}>
+        <a href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" style={{ ...buttonStyle, background: 'linear-gradient(45deg, #0f62fe, #9b5cff)', fontWeight: 600 }}
+           {...umamiAttrs(UMAMI.imagerOpen, { where: 'latest', stream: releases?.streams.stable?.image_url ? 'stable' : 'beta' })}>
           ▶ Write RasQberry Two to your SD card
         </a>
       </p>
@@ -288,7 +290,8 @@ export default function LatestPage() {
                         </a>
                       );
                       const ab = data.ab_image_url ? (
-                        <a key="ab" href={data.ab_image_url} style={buttonStyle}>
+                        <a key="ab" href={data.ab_image_url} style={buttonStyle}
+                           {...umamiAttrs(UMAMI.imageDownload, { file: data.ab_image_url.split('/').pop() ?? '', stream, tag: data.tag ?? '' })}>
                           {AB_DEFAULT ? 'Recommended: A/B image' : 'A/B image'}{data.ab_image_download_size ? ' (' + formatSize(data.ab_image_download_size) + ')' : ''}
                         </a>
                       ) : null;

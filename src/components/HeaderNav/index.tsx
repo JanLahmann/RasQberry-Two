@@ -7,6 +7,7 @@ import styles from './header-nav.module.scss'
 import Link from "next/link"
 import { NotebookLMIcon } from "@/components/NotebookLMIcon"
 import { ClaudeIcon } from "@/components/ClaudeIcon"
+import { UMAMI, umamiAttrs } from "@/lib/umami"
 
 export type NavItem = {
     label: string
@@ -41,6 +42,7 @@ export function HeaderNav({ items }: Props) {
                             <HeaderGlobalAction
                                 aria-label="RasQberry Assistant - AI-powered help"
                                 tooltipAlignment="end"
+                                {...umamiAttrs(UMAMI.assistantOpen, { tool: "claude" })}
                                 onClick={() => window.open(process.env.NEXT_PUBLIC_CLAUDE_ARTIFACT_URL, '_blank')}
                             >
                                 <ClaudeIcon />
@@ -50,6 +52,7 @@ export function HeaderNav({ items }: Props) {
                             <HeaderGlobalAction
                                 aria-label="Ask AI - Search documentation with NotebookLM"
                                 tooltipAlignment="end"
+                                {...umamiAttrs(UMAMI.assistantOpen, { tool: "notebooklm" })}
                                 onClick={() => window.open(process.env.NEXT_PUBLIC_NOTEBOOKLM_URL, '_blank')}
                             >
                                 <NotebookLMIcon />

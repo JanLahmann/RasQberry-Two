@@ -19,6 +19,7 @@ import { H6 } from "@/components/Markdown/H6";
 import { Img } from "@/components/Markdown/Img";
 import { Blockquote } from "@/components/Markdown/Blockquote";
 import { EventsEmail, Qdc2025 } from "@/components/Events";
+import { linkEvent } from "@/lib/umami";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -45,12 +46,13 @@ export function compileMdPage(content: string) {
       table: ({ children }) => <Table>{children}</Table>,
       img: ({ src, alt, title }) => <Img src={src} alt={alt} title={title} />,
       blockquote: ({ children }) => <Blockquote>{children}</Blockquote>,
-      // External links (other sites) open in a new tab; links within rasqberry.org stay in place
+      // External links (other sites) open in a new tab; links within rasqberry.org stay in place.
+      // The demo feedback and workshop request forms count as Umami events (src/lib/umami.ts).
       a: ({ href, children, ...rest }) => {
         const external = typeof href === 'string' && /^https?:\/\//i.test(href) && !/^https?:\/\/(www\.)?rasqberry\.org(\/|$)/i.test(href)
         return external
-          ? <a href={href} target="_blank" rel="noopener noreferrer" {...rest}>{children}</a>
-          : <a href={href} {...rest}>{children}</a>
+          ? <a href={href} target="_blank" rel="noopener noreferrer" {...linkEvent(href)} {...rest}>{children}</a>
+          : <a href={href} {...linkEvent(href)} {...rest}>{children}</a>
       },
       // content/workshops.md; settings in src/data/events.ts
       EventsEmail,

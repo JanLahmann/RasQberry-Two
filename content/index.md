@@ -9,6 +9,10 @@ leadspace:
       label: Write RasQberry Two to your SD card
       url: "rpi-imager://open?repo=https://RasQberry.org/RQB-images.json"
       style: gradient
+      umami:
+        event: "RasQberry Two: imager open"
+        where: home-hero
+        stream: beta
     secondary:
       label: Get started
       url: /#2-getting-started
@@ -65,7 +69,7 @@ Already running RasQberry Two? Go to [First boot](/#3-first-boot).
 
 **1. Write the image.** Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer, then:
 
-<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json">▶ Write RasQberry Two to your SD card</a></p>
+<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: imager open" data-umami-event-where="home-getting-started" data-umami-event-stream="beta">▶ Write RasQberry Two to your SD card</a></p>
 <p className="cta-note">Opens Raspberry Pi Imager with the RasQberry images.</p>
 
 In Imager, confirm **Switch repository**, then choose your Pi under **Device**,

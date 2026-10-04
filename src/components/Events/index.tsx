@@ -1,9 +1,10 @@
 import { EVENTS_EMAIL, QDC_2025 } from "@/data/events";
+import { UMAMI, umamiAttrs } from "@/lib/umami";
 
 /** "Or e-mail ..." - renders nothing until EVENTS_EMAIL is a real address. */
 export function EventsEmail() {
   if (!EVENTS_EMAIL.includes("@")) return null;
-  return <p>Or e-mail <a href={`mailto:${EVENTS_EMAIL}`}>{EVENTS_EMAIL}</a>.</p>;
+  return <p>Or e-mail <a href={`mailto:${EVENTS_EMAIL}`} {...umamiAttrs(UMAMI.workshopContact, { via: "email" })}>{EVENTS_EMAIL}</a>.</p>;
 }
 
 /** Photos and the clip from the conference as one grid - renders nothing until QDC_2025 is filled in. */

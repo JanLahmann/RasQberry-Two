@@ -7,6 +7,7 @@ import styles from './lead-space.module.scss'
 import clsx from "clsx";
 import { Button, Column, Grid, Link } from "@/components/carbon-wrapper";
 import { icons } from "@/components/icons";
+import { umamiAttrs } from "@/lib/umami";
 
 interface CTA {
     label: string
@@ -15,6 +16,14 @@ interface CTA {
     target?: '_blank'
     // "gradient": the site-wide call-to-action button (a.cta-button), e.g. "Write RasQberry Two to your SD card"
     style?: 'gradient'
+    // Umami click event: { event: "RasQberry Two: ...", <key>: <value>, ... } (src/lib/umami.ts)
+    umami?: { event: string } & Record<string, string>
+}
+
+function ctaEvent(cta: CTA): Record<string, string> {
+    if (!cta.umami) return {};
+    const { event, ...data } = cta.umami;
+    return umamiAttrs(event, data);
 }
 
 export interface Props {
@@ -52,7 +61,7 @@ export function LeadSpace({ title, copy, cta, bg, size = 'tall', variant = 'ligh
                     {copy && <div dangerouslySetInnerHTML={{ __html: copy }}></div>}
                     {cta && (<div className={styles['lead-space__content__bottom__cta']}>
                         {cta.primary.style === 'gradient'
-                            ? <a className="cta-button" href={cta.primary.url} target={cta.primary.target || '_self'}>▶ {cta.primary.label}</a>
+                            ? <a className="cta-button" href={cta.primary.url} target={cta.primary.target || '_self'} {...ctaEvent(cta.primary)}>▶ {cta.primary.label}</a>
                             : <Link href={cta.primary.url} target={cta.primary.target || '_self'}>
                                 <Button renderIcon={primaryIcon}>
                                     {cta.primary.label}

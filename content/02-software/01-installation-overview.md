@@ -44,7 +44,7 @@ Quantum Mixer, Quantum Lab, Workshop & Qiskit Server) take 2–4 GB each, per sy
 With [Raspberry Pi Imager](https://www.raspberrypi.com/software/) 2.0.3 or newer
 installed:
 
-<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json">▶ Write RasQberry Two to your SD card</a></p>
+<p><a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: imager open" data-umami-event-where="installation" data-umami-event-stream="beta">▶ Write RasQberry Two to your SD card</a></p>
 <p className="cta-note">Opens Raspberry Pi Imager with the RasQberry images.</p>
 
 1. Let your browser open Imager, and confirm **Switch repository**.

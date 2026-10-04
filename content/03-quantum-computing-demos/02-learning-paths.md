@@ -16,17 +16,17 @@ Visitors at a stand · about 15 minutes · <span className="beta-tag">beta</span
 
 Light up the panel, see a qubit and lose a coin game to a quantum computer.
 
-1. **IBM LED Demo** in [LED Demos](/03-quantum-computing-demos/led-display/)
+1. **IBM LED Demo** in <a href="/03-quantum-computing-demos/led-display/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="/03-quantum-computing-demos/led-display/">LED Demos</a>
    - Try: Look at the model: the IBM logo lights up on the LED panel.
    - Notice: The LEDs are this quantum computer's display. Later steps show qubits on them.
-2. **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)**
+2. **<a href="/03-quantum-computing-demos/bloch-sphere/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="/03-quantum-computing-demos/bloch-sphere/">Grokking the Bloch Sphere</a>**
    - Try: Press H: the arrow moves from the top of the sphere to the equator.
    - Notice: On the equator the qubit is in a superposition: 0 and 1 are equally likely.
-3. **Quantum Coin Game** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
+3. **Quantum Coin Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Play heads or tails against a quantum computer: run each cell with Shift+Enter.
    - Notice: The quantum computer wins every game. Its trick is the H gate you just saw.
 
-**Keep going:** [Superposition & measurement](#2-superposition-measurement "Find out what the H gate did to the coin.") · [Fun with Quantum](https://fun-with-quantum.org "Play the quantum games at home, in your browser.") · [QAMPoser](https://qamposer.org "Build your own quantum circuits in the browser.")
+**Keep going:** <a href="#2-superposition-measurement" title="Find out what the H gate did to the coin." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="superposition-and-measurement">Superposition & measurement</a> · <a href="https://fun-with-quantum.org" title="Play the quantum games at home, in your browser." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="https://fun-with-quantum.org">Fun with Quantum</a> · <a href="https://qamposer.org" title="Build your own quantum circuits in the browser." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="https://qamposer.org">QAMPoser</a>
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/first-15-minutes).
 
@@ -40,17 +40,17 @@ A school lesson · about 45 minutes · <span className="beta-tag">beta</span>
 
 Learn what a superposition is and what a measurement does to it.
 
-1. **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)**
+1. **<a href="/03-quantum-computing-demos/bloch-sphere/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/bloch-sphere/">Grokking the Bloch Sphere</a>**
    - Try: Press H: the arrow lies on the equator. Press H again: it is back at the top.
    - Notice: The bar shows the chance of 0. A measurement gives 0 or 1, never both.
-2. **Quantum Coin Game** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
+2. **Quantum Coin Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Play the classical game first, then the quantum one with the H gate.
    - Notice: Two H gates bring the coin back to heads, whatever the other player did.
-3. **Hardy's paradox** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
+3. **Hardy's paradox** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Follow the quantum cars and run each cell with Shift+Enter.
    - Notice: Everyday logic fails: you cannot reason about a measurement that did not happen.
 
-**Keep going:** [Quantum mechanics module](https://doqumentation.org/learning/modules/quantum-mechanics "Lessons on superposition, measurement and uncertainty, with Qiskit code.") · [Basics of quantum information](https://doqumentation.org/learning/courses/basics-of-quantum-information "The full course: qubits, measurements and gates, at your own pace.") · [Entanglement](#2-entanglement "See what happens when two or three qubits share one state.")
+**Keep going:** <a href="https://doqumentation.org/learning/modules/quantum-mechanics" title="Lessons on superposition, measurement and uncertainty, with Qiskit code." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="https://doqumentation.org/learning/modules/quantum-mechanics">Quantum mechanics module</a> · <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information" title="The full course: qubits, measurements and gates, at your own pace." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information">Basics of quantum information</a> · <a href="#2-entanglement" title="See what happens when two or three qubits share one state." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="entanglement">Entanglement</a>
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/superposition-and-measurement).
 
@@ -64,17 +64,17 @@ Curious learners · about 40 minutes · <span className="beta-tag">beta</span>
 
 Win games that no classical team can win every time, with entangled qubits.
 
-1. **GHZ game** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
+1. **GHZ game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a strategy that always wins, then let the quantum team play.
    - Notice: No classical strategy wins every round. Three entangled qubits do.
-2. **Mermin-Peres magic square** in [Fun with Quantum](/03-quantum-computing-demos/01-demo-list/)
+2. **Mermin-Peres magic square** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a magic square that works, then run the quantum strategy for many rounds.
    - Notice: Alice's and Bob's answers are random, yet they always agree where they meet.
-3. **[RasQ-LED Demo](/03-quantum-computing-demos/01-demo-list/)**
+3. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">RasQ-LED Demo</a>**
    - Try: Choose 1 (no entanglement), then 2 (complete entanglement).
    - Notice: Without entanglement the LEDs are random. Entangled, they all show the same result.
 
-**Keep going:** [CHSH inequality tutorial](https://doqumentation.org/tutorials/chsh-inequality "Run a Bell test on a real quantum computer.") · [Entanglement in action](https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction "Teleportation, superdense coding and the CHSH game, step by step.") · [Your first program](#2-your-first-program "Write your own entangled circuit with Qiskit.")
+**Keep going:** <a href="https://doqumentation.org/tutorials/chsh-inequality" title="Run a Bell test on a real quantum computer." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/tutorials/chsh-inequality">CHSH inequality tutorial</a> · <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction" title="Teleportation, superdense coding and the CHSH game, step by step." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction">Entanglement in action</a> · <a href="#2-your-first-program" title="Write your own entangled circuit with Qiskit." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="your-first-program">Your first program</a>
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/entanglement).
 
@@ -91,14 +91,14 @@ Write and run a quantum circuit with Qiskit, then keep learning.
 1. **My Quantum Programs** (desktop icon on the Pi)
    - Try: Hello-World.ipynb opens: run its cells one by one with Shift+Enter.
    - Notice: Two entangled qubits: you measure 00 or 11, never 01 or 10.
-2. **[Qiskit Tutorials on this Pi](/03-quantum-computing-demos/01-demo-list/)**
+2. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Qiskit Tutorials on this Pi</a>**
    - Try: Open Tutorials, then Get started, and run the code on this Pi.
    - Notice: The same Qiskit as in Hello World, with guides and courses next to it.
-3. **[IBM Quantum Learning](https://quantum.cloud.ibm.com/learning)** (online)
+3. **<a href="https://quantum.cloud.ibm.com/learning" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://quantum.cloud.ibm.com/learning">IBM Quantum Learning</a>** (online)
    - Try: Take a free course, for example Basics of quantum information.
    - Notice: It needs the internet. With an IBM Quantum account your code runs on real quantum computers.
 
-**Keep going:** [Qiskit 101 hands-on](https://doqumentation.org/workshop/Qiskit%20101%20Hands-on "A workshop notebook: your first circuits, a quiz and a run on real hardware.") · [Fundamentals of quantum algorithms](https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms "Query algorithms, phase estimation, factoring and Grover's search.") · [CertiQ](https://certiq.dev "Free community prep for the Qiskit developer certification (unofficial, not by IBM).")
+**Keep going:** <a href="https://doqumentation.org/workshop/Qiskit%20101%20Hands-on" title="A workshop notebook: your first circuits, a quiz and a run on real hardware." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://doqumentation.org/workshop/Qiskit%20101%20Hands-on">Qiskit 101 hands-on</a> · <a href="https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms" title="Query algorithms, phase estimation, factoring and Grover's search." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://doqumentation.org/learning/courses/fundamentals-of-quantum-algorithms">Fundamentals of quantum algorithms</a> · <a href="https://certiq.dev" title="Free community prep for the Qiskit developer certification (unofficial, not by IBM)." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://certiq.dev">CertiQ</a>
 
 This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=learning-paths/your-first-program).
 
@@ -108,9 +108,9 @@ This path is new: [tell us how it went](https://github.com/JanLahmann/RasQberry-
 
 From playing to building your own:
 
-1. **Play.** Quantum games and circuits to try for yourself: [Fun with Quantum](https://fun-with-quantum.org), [QAMPoser](https://qamposer.org), [Entangible](https://entangible.org). Entangible builds a circuit from printed tiles and an iPad.
-2. **Understand.** Courses and modules on the ideas behind it: [Basics of quantum information](https://doqumentation.org/learning/courses/basics-of-quantum-information), [All courses and modules](https://doqumentation.org/learning).
-3. **Code.** Write and run your own Qiskit programs: [Hello World](https://doqumentation.org/tutorials/hello-world), [QuBins](https://qubins.org). QuBins has ready Qiskit environments: one click in Binder, or with Docker.
-4. **Real hardware.** Run your circuits on IBM quantum computers: [IBM Quantum](https://quantum.cloud.ibm.com). A free IBM Quantum account gives you time on real quantum computers.
-5. **Certify.** Prepare for the Qiskit v2.x Developer certification: [CertiQ](https://certiq.dev). CertiQ is free, machine-verified prep for IBM exam C1000-179. An unofficial community project, not affiliated with or endorsed by IBM.
-6. **Build & share.** Build a model, run a workshop, help translate: [RasQberry Two 3D model](/01-3d-model/01-bill-of-materials/), [Quantego, Qutie and more builds](https://fun-with-quantum.org/build/), [Workshops](/workshops/), [doQumentation translations](https://github.com/JanLahmann/doQumentation/blob/main/CONTRIBUTING-TRANSLATIONS.md).
+1. **Play.** Quantum games and circuits to try for yourself: <a href="https://fun-with-quantum.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://fun-with-quantum.org">Fun with Quantum</a>, <a href="https://qamposer.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://qamposer.org">QAMPoser</a>, <a href="https://entangible.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://entangible.org">Entangible</a>. Entangible builds a circuit from printed tiles and an iPad.
+2. **Understand.** Courses and modules on the ideas behind it: <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information">Basics of quantum information</a>, <a href="https://doqumentation.org/learning" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://doqumentation.org/learning">All courses and modules</a>.
+3. **Code.** Write and run your own Qiskit programs: <a href="https://doqumentation.org/tutorials/hello-world" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://doqumentation.org/tutorials/hello-world">Hello World</a>, <a href="https://qubins.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://qubins.org">QuBins</a>. QuBins has ready Qiskit environments: one click in Binder, or with Docker.
+4. **Real hardware.** Run your circuits on IBM quantum computers: <a href="https://quantum.cloud.ibm.com" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://quantum.cloud.ibm.com">IBM Quantum</a>. A free IBM Quantum account gives you time on real quantum computers.
+5. **Certify.** Prepare for the Qiskit v2.x Developer certification: <a href="https://certiq.dev" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://certiq.dev">CertiQ</a>. CertiQ is free, machine-verified prep for IBM exam C1000-179. An unofficial community project, not affiliated with or endorsed by IBM.
+6. **Build & share.** Build a model, run a workshop, help translate: <a href="/01-3d-model/01-bill-of-materials/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="/01-3d-model/01-bill-of-materials/">RasQberry Two 3D model</a>, <a href="https://fun-with-quantum.org/build/" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://fun-with-quantum.org/build/">Quantego, Qutie and more builds</a>, <a href="/workshops/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="/workshops/">Workshops</a>, <a href="https://github.com/JanLahmann/doQumentation/blob/main/CONTRIBUTING-TRANSLATIONS.md" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="ladder" data-umami-event-to="https://github.com/JanLahmann/doQumentation/blob/main/CONTRIBUTING-TRANSLATIONS.md">doQumentation translations</a>.
