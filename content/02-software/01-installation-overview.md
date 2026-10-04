@@ -91,7 +91,8 @@ written card only, not after an update.
   ```
 
 - **Download the image** from [rasqberry.org/latest/](/latest/) and write it with
-  Imager (**Choose OS** → **Use custom**).
+  Imager (**Choose OS** → **Use custom**). Imager then offers **no customisation**:
+  for Wi-Fi, SSH key or keyboard, use the link or the repository above.
 
 ## First start
 
