@@ -31,9 +31,11 @@ python3 tests/rig/rig_test.py --icons rasq-led.desktop,clear-leds.desktop
 python3 tests/rig/rig_test.py --no-web-check           # leave the desktop Chromium alone
 ```
 
-`--update TAG` switches each Pi to Slot A, installs the release's A/B image into
-Slot B with this checkout's `rq_update_slot.sh`, waits for the new slot and its
-health check, then tests it. Slot A is never written.
+`--update TAG` installs the release's A/B image into the slot that is not
+running (ping-pong) with this checkout's `rq_update_slot.sh`, waits for the new
+slot and its health check, then tests it. The running slot is never written; it
+stays as the way back. The guard's questions are answered yes
+(`--allow-downgrade --force-replace-safe-slot`): the operator chose the release.
 
 The report goes to `results/<timestamp>/report.md`, with a desktop screenshot per
 demo and, for LED demos, the camera frame. Exit status 1 if anything failed.

@@ -11,7 +11,13 @@ icons, demo manifests and release notes.
 - **LED panel** for the hardware (not LED array, matrix or strip). Without a
   panel: the **on-screen view** (`LED_VIRTUAL`) and the **browser view** (`LED_WEB`).
 - **A/B image** and **standard image**. Say **system** for what a slot holds:
-  "two systems on one card", "Slot A", "Slot B".
+  "two systems on one card", "Slot A", "Slot B". A slot has no role name (not
+  "stable", not "testing": those are release streams). Say what it holds and
+  whether it runs: "Slot A: beta-2026-10-03-095636 (beta) - running, start slot".
+- An update goes into **the other system** (the slot not running). When an
+  update fails, say what happened and what runs now: "The update of Slot B to
+  <version> didn't work, so Slot A (<version>) is running again." Never "didn't
+  start".
 - **IBM Quantum account** in user text; "token" or "API key" only where the user
   pastes one.
 - A demo has one name, its manifest `name`, used on the desktop icon, in the menu
@@ -70,7 +76,9 @@ icons, demo manifests and release notes.
 |---|---|
 | A/B image | Image with two systems (Slot A, Slot B) on cards of 64 GB or more; one system on smaller cards |
 | Standard image | Image with one system |
-| Promote | Copy a tested Slot B to Slot A |
+| Other system | The slot that is not running; every update goes there |
+| Start slot | The slot a normal start boots (`[all]` in `autoboot.txt`); a confirmed update becomes it |
+| Switch to Slot X | Restart into the other slot on trial; a good start makes it the start slot |
 | CONFIG drive | The first partition, readable on any computer; holds `autoboot.txt` |
 | Data partition | `/data` on the A/B image; keeps `~/Shared`, `~/My-Quantum-Programs`, the IBM Quantum account and settings across updates |
 | Setup checklist | The steps offered at the first login (`rq_firstlogin.sh`) |

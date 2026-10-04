@@ -6,8 +6,10 @@ command-line tools. The user guide is on the website:
 [rasqberry.org/02-software/03-ab-boot](https://rasqberry.org/02-software/03-ab-boot/).
 Validation history: [ab-boot-validation.md](ab-boot-validation.md).
 
-Update model: **Slot A is stable, Slot B is for testing.** Updates are written
-to Slot B, the Pi tries Slot B, and **promote** copies a tested Slot B to Slot A.
+Update model: **ping-pong.** An update always goes into the slot that is not
+running, A or B alike. The Pi tries it once (tryboot); when the health check
+confirms it, it becomes the **start slot**. The other slot keeps the previous
+system as the way back. Neither slot is special.
 
 ## Partition layout
 
@@ -118,19 +120,24 @@ partition (standard image, or the placeholder) nothing is linked.
 ## Updating a slot
 
 Menu: **Software & Image Updates** → **Slot Manager** → **Install an update into
-Slot B (testing)**. It runs the preflight first, offers the latest A/B image of
-the image's own channel (others behind **Other release or channel...**) and
-runs the update in the terminal with its progress. From a shell:
+the other system (Slot X)**. It runs the preflight first, offers the latest A/B
+image of the image's own channel (others behind **Other release or channel...**),
+applies the guard below and runs the update in the terminal with its progress.
+From a shell:
 
-    sudo rq_update_slot.sh --preflight                 # can Slot B be updated? (no download)
+    sudo rq_update_slot.sh --preflight                 # can the other slot be updated? (no download)
     rq_ab_releases.sh latest                           # newest A/B image of this channel
-    sudo rq_update_slot.sh <ab-image-url> <release-tag> --slot B
+    sudo rq_slot_manager.sh plan-update <release-tag>  # what it would replace, and the guard
+    sudo rq_update_slot.sh <ab-image-url> <release-tag>
 
 - Use the `-ab.img.xz` image; the standard image cannot fill a slot.
-- Refusals have their own exit codes: 20 the target is the running slot (running
-  Slot B: promote it or switch back to Slot A first), 21 the target is the
-  placeholder (card not prepared yet, or single-system mode; the message says
-  which), 22 not enough space, 23 no A/B layout, 24 another update running.
+- The target is always the slot that is not running; `--slot` can only name it.
+- Refusals have their own exit codes: 20 the target is the running slot, 21 the
+  target is the placeholder (card not prepared yet, or single-system mode; the
+  message says which), 22 not enough space, 23 no A/B layout, 24 another update
+  running, 25 no checksum, 26 an unconfirmed downgrade, 27 an unconfirmed
+  overwrite of the last beta or stable system, 28 the running slot is still on
+  trial (or a restart would start the other slot).
 - It stages the download in `/var/tmp/rasqberry-updates` on the running slot
   and needs 15GiB free there.
 - It verifies the image against `ab_extract_sha256` (and `ab_image_sha256`) of
@@ -140,7 +147,34 @@ runs the update in the terminal with its progress. From a shell:
   unusable. A target that stays mounted stops the update.
 - It keeps `quiet splash` and adds `panic=10` to the new slot's `cmdline.txt`,
   `nofail` to its `/data` line, copies the SSH identity and sets the carry-over
-  marker, then reboots into Slot B with tryboot.
+  marker, then restarts into the new slot with tryboot.
+
+**The guard (Jan): at least one slot keeps a beta or stable system.** The
+stream comes from the version or tag: `development-*`/`dev-*` dev (rank 0),
+`beta-*` beta (1), `v1.2.3`/`1.2.3`/`stable-*` stable (2).
+
+- **Downgrade:** a lower stream than the target holds, or an older release of
+  the same beta or stable stream. Always a warning (default: Cancel).
+- **Last safe slot:** the target holds beta or stable, the running slot does
+  not. A strong warning with a typed `REPLACE`; the menu offers the safer way
+  first: switch to the target slot, then install into the other one.
+- No warning for an empty target or a dev build over a dev build.
+
+`rq_slot_manager.sh plan-update <tag>` is the one place that decides; the menu
+and `rq_update_slot.sh` both use it. It prints key=value lines:
+
+    target=B
+    running=A
+    target_holds=beta beta-2026-10-03-095636      # <stream> <version>; none empty / none unfinished
+    running_holds=dev development-2026-10-04-014357
+    new=dev development-2026-10-05-010101
+    downgrade=stream                              # none | stream | older
+    last_safe_slot=yes                            # yes | no
+    advice=Slot B holds the only beta or stable system on this card. Safer: ...
+
+`rq_update_slot.sh` asks in a terminal (y/N, a typed `REPLACE`); without one it
+refuses (26, 27) unless `--allow-downgrade` / `--force-replace-safe-slot` say
+so. The menu asks in its own dialogs and passes these options.
 
 `rasqberry-update-poller.timer` (automatic updates of dev builds, for the rig)
 ships disabled.
@@ -177,22 +211,19 @@ slot:
   minutes after boot if the trial is still unconfirmed; systemd's hardware
   watchdog (15s, armed for the trial boot only) catches a kernel or PID 1 hang.
 
-A failed switch leaves `/boot/config/last-switch-failed`, which
-`rq_slot_manager.sh status` shows. `switch-to` and `rollback` refuse a slot that
+After a confirmed start, `confirm` writes `[all]` for the running slot, A or B:
+that slot is now the start slot. A failed switch leaves
+`/boot/config/last-switch-failed`, which `rq_slot_manager.sh status` shows. `switch-to` and `rollback` refuse a slot that
 holds no system (exit 25): the placeholder, a freshly expanded Slot B, or an
 interrupted write. Starting one halts the kernel; a rollback into one is
 permanent. `--force` skips the check.
 
-## Promote
+## Going back
 
-    sudo rq_slot_manager.sh promote
+The previous system stays in the other slot until the next update replaces it:
 
-Runs from Slot B only. It copies Slot B to Slot A (`rsync -aAX --delete`, so
-user files in Slot A are replaced; Slot A is marked incomplete during the copy),
-copies the boot partition and fixes `root=` in Slot A's `cmdline.txt`, then
-makes Slot A the default. In a terminal it asks for a typed `PROMOTE`; the menu
-asks in its own dialog and passes `--yes`. Reboot to start Slot A. The next
-update goes into Slot B again.
+    sudo rq_slot_manager.sh switch-to A --reboot      # try it once; a good start makes it the start slot
+    sudo rq_slot_manager.sh rollback && sudo reboot   # make it the start slot without a trial
 
 ## Recovery
 
@@ -207,12 +238,12 @@ set `boot_partition=2` under `[all]` in `autoboot.txt` (Slot A; `3` is Slot B).
 sudo rq_expand_ab.sh status                       # two systems, one, or not set up yet
 sudo rq_slot_manager.sh status                    # booted slot, slot contents, sizes, warnings
 sudo rq_slot_manager.sh summary                   # key=value for scripts (current, slot_a, slot_b, expanded, card_mode, ...)
-sudo rq_update_slot.sh --preflight                # can Slot B take an update?
-sudo rq_update_slot.sh <ab-image-url> <tag> --slot B   # write a system into Slot B
+sudo rq_update_slot.sh --preflight                # can the other slot take an update?
+sudo rq_slot_manager.sh plan-update <tag>         # what an update would replace (the guard)
+sudo rq_update_slot.sh <ab-image-url> <tag>       # write a system into the other slot
 sudo rq_slot_manager.sh switch-to B --reboot      # try Slot B (probation)
 sudo rq_slot_manager.sh confirm                   # keep the booted slot
 sudo rq_slot_manager.sh rollback && sudo reboot   # back to the other slot
-sudo rq_slot_manager.sh promote                   # Slot B -> Slot A
 cat /etc/rasqberry-version                        # build marker of this slot
 ```
 

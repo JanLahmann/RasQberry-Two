@@ -6,7 +6,7 @@ Runs from a machine on the rig's network (not in CI: the Pis and the camera
 are on a local LAN). For every Pi in rig.json it
 
   1. optionally installs a release into the other A/B slot and boots it
-     (--update TAG: switch to Slot A, OTA the release into Slot B),
+     (--update TAG: OTA the release into the slot that is not running),
   2. runs the system checks (tests/rig/pi/checks.sh),
   3. smoke-tests each demo the way a person does - desktop terminal, runs,
      Ctrl+C, nothing left behind (tests/rig/pi/demo_smoke.sh),
@@ -256,23 +256,26 @@ def lit_score(frame, baseline, crop):
 # steps
 # ----------------------------------------------------------------------------
 def update_slot(pi, tag):
-    """Switch to Slot A and OTA `tag` into Slot B with this repo's updater."""
+    """OTA `tag` into the slot that is not running (ping-pong) with this
+    repo's updater; the running slot stays as the way back."""
     host = pi["host"]
     rel = subprocess.run(["gh", "api", f"repos/JanLahmann/RasQberry-Two/releases/tags/{tag}",
                           "--jq", '.assets[]|select(.name|endswith("-ab.img.xz"))|.browser_download_url+" "+.digest'],
                          capture_output=True, text=True, check=True).stdout.split()
     url, digest = rel[0], rel[1].split(":", 1)[1]
-    print(f"  {pi['name']}: switching to Slot A")
-    ssh(host, "sudo rq_slot_manager.sh switch-to A --reboot >/dev/null 2>&1 || true", timeout=60)
-    time.sleep(30)
-    if not wait_for(host, "findmnt -no SOURCE / | grep -q p5", 600):
-        raise RuntimeError("Slot A did not come up")
+    # a slot still on trial refuses updates (exit 28): wait for its health check
+    if not wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600):
+        raise RuntimeError("the running slot is not confirmed")
     ssh(host, f"mkdir -p {REMOTE_DIR}/ota", check=True)
-    scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_carry_ssh_identity.sh", "rq_common.sh")],
+    scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_slot_manager.sh",
+                                               "rq_carry_ssh_identity.sh", "rq_common.sh")],
         f"{REMOTE_DIR}/ota/")
-    print(f"  {pi['name']}: installing {tag} into Slot B (15-25 min)")
+    print(f"  {pi['name']}: installing {tag} into the other slot (15-25 min)")
+    # The operator chose the release: the guard's questions (downgrade, last
+    # beta/stable slot) are answered yes, as nobody is at the Pi to type them
     ssh(host, f"chmod +x {REMOTE_DIR}/ota/*.sh; sudo setsid nohup {REMOTE_DIR}/ota/rq_update_slot.sh "
-              f"{shlex.quote(url)} {shlex.quote(tag)} --slot B --sha256 {digest} "
+              f"{shlex.quote(url)} {shlex.quote(tag)} --sha256 {digest} "
+              f"--allow-downgrade --force-replace-safe-slot "
               f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
     time.sleep(120)
     if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version", 3600, interval=30):
@@ -606,7 +609,7 @@ def main():
     ap.add_argument("--docker", action="store_true", help="also run docker demos")
     ap.add_argument("--no-camera", action="store_true")
     ap.add_argument("--checks-only", action="store_true")
-    ap.add_argument("--update", metavar="TAG", help="first install this release into Slot B (A/B images)")
+    ap.add_argument("--update", metavar="TAG", help="first install this release into the other slot (A/B images)")
     ap.add_argument("--no-web-check", action="store_true",
                     help="don't check web/Jupyter pages in the desktop Chromium (and don't restart it)")
     ap.add_argument("--icons", nargs="?", const=DEFAULT_ICONS, metavar="FILES",

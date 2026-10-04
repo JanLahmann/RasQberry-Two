@@ -9,7 +9,7 @@ only true for the standard image. -->
 
 **Which image and card**
 
-- **New default: the A/B image.** It holds two systems on one card: updates go into Slot B, and if the new system does not start, the Pi goes back to Slot A.
+- **New default: the A/B image.** It holds two systems on one card: an update goes into the one you are not running, and if the update doesn't work, the Pi goes back to the other one.
 - **Card:** 128 GB high-speed (A2/U3) recommended: two systems, each with room for all Docker demos. 64 GB: two systems. On a smaller card the A/B image runs as one system by itself, and a new release means writing a new card. The Docker demos need 32 GB. The standard image is still in Imager as "single system".
 - **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation now works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). It applies at the first start of a newly written card only, not after an update. Without customisation: login `rasqberry`, password `Qiskit1!`.
 
@@ -24,10 +24,10 @@ only true for the standard image. -->
 
 **Updating later (A/B image)**
 
-- **Software & Image Updates** → **Check for a newer image** → **Install now**, or **Slot Manager** → **Install an update into Slot B (testing)**: about 1.7 GB, 10–20 minutes, then the Pi restarts into Slot B. Every release in the list is checked against its SHA256 before anything is written.
-- When Slot B works, **Slot Manager** → **Make Slot B the stable system (copy B to A)** makes it your stable system again.
+- **Software & Image Updates** → **Check for a newer image** → **Install now**, or **Slot Manager** → **Install an update into the other system**: about 1.7 GB, 10–20 minutes, then the Pi restarts into it. Every release in the list is checked against its SHA256 before anything is written.
+- Updates take turns: each goes into the slot you are not running, Slot A or B, and becomes the start slot when it works. The other slot keeps the previous system. RasQberry warns before a downgrade and before it replaces your last beta or stable system.
 - **Kept:** your own programs (`~/My-Quantum-Programs`), the Shared folder, your IBM Quantum account (`~/.qiskit`), Wi-Fi networks and LED settings live on `/data`; your password, hostname, language, keyboard and SSH keys are copied to the new system. **Not kept:** installed demos, Docker demos included, download again; other files in your home folder stay in the other slot.
-- **Going back:** **Slot Manager** → **Restart into Slot A (stable)**. If a new system does not start properly, the Pi goes back to the old one by itself, at the latest after 15 minutes; if the screen stays black, switch it off and on. If it still does not start, set `boot_partition=2` under `[all]` in `autoboot.txt` on the CONFIG drive.
+- **Going back:** **Slot Manager** → **Switch to Slot A** (or B). If an update doesn't work, the Pi goes back to the previous system by itself, at the latest after 15 minutes; if the screen stays black, switch it off and on. If that does not help, set `boot_partition=2` (Slot A; `3` for Slot B) under `[all]` in `autoboot.txt` on the CONFIG drive.
 - **Standard image:** OS updates through the taskbar updater or `sudo apt full-upgrade`. A new RasQberry release means writing a new card: back up your notebooks and `~/.qiskit` first.
 
 **Coming from an earlier beta**
