@@ -211,7 +211,7 @@ def test_exhausted_retry_leaves_a_notice_and_confirms_the_working_slot(hc, monke
     monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p5")
     assert hc.confirm_boot_slot() is True
     notice = (hc.config / "last-switch-failed").read_text()
-    assert "Slot B did not start (tried twice); back on Slot A" in notice
+    assert "Slot B was tried twice without success; Slot A is running again" in notice
     assert not (hc.config / "target-slot").exists()
 
 

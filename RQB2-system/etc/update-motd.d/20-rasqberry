@@ -13,3 +13,8 @@ echo "RasQberry Two ${version}"
 echo "This Pi: ${name}${addr:+ (${addr})}"
 echo "Menu: sudo raspi-config, then 0 RasQberry.   All commands: rq_help"
 echo "Demos with a window need the desktop: a screen, or VNC."
+# A failed update (#242): the Pi went back to the other slot. One sentence,
+# folded to 80 columns; quick (it reads two small files).
+if [ -f /boot/config/last-switch-failed ] && [ -x /usr/bin/rq_slot_status.sh ]; then
+    /usr/bin/rq_slot_status.sh failure-notice 2>/dev/null | fold -s -w 80
+fi

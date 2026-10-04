@@ -19,6 +19,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     release of each stream). A release whose image has no checksum is not
 #     listed: it cannot be verified (H-34: older releases used to install
 #     unchecked).
+#   - A release withdrawn in rasqberry.org/RQB-release-controls.json is not
+#     offered (#242): "latest" says why, "list" leaves it out.
 #
 # Usage:
 #   rq_ab_releases.sh channel              this image's release channel: beta, dev or stable
@@ -37,7 +39,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   (the reason is printed on stderr, ready for a dialog)
 #
 # Environment overrides (tests): RQ_VERSION_FILE, RQ_RELEASES_URL,
-#   RQ_RELEASES_FILE, RQ_GITHUB_RELEASES_FILE, RQ_GITHUB_API
+#   RQ_RELEASES_FILE, RQ_GITHUB_RELEASES_FILE, RQ_GITHUB_API,
+#   RQ_RELEASE_CONTROLS_FILE, RQ_RELEASE_CONTROLS_URL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -92,6 +95,10 @@ cmd_latest() {
         | [.tag, .ab_image_url, ((.release_date // "") | .[0:10]),
            ((.ab_image_download_size // 0) | tostring), (.ab_image_sha256 // "")] | @tsv' 2>/dev/null || true)
     [ -n "$line" ] || fail 2 "The latest $channel release ($tag) has no A/B image."
+    local reason
+    if reason=$(rq_release_withdrawn "$tag"); then
+        fail 2 "The latest $channel release ($tag) was withdrawn: $reason. Choose another release under 'Other release or channel...'."
+    fi
     echo "$line"
 }
 
@@ -134,10 +141,14 @@ cmd_list() {
         esac
     fi
 
-    echo "$json" | jq -r --arg re "$regex" --argjson max "$MAX_LISTED" '
-        [ .[]
+    local controls
+    controls=$(rq_release_controls)
+    echo "$json" | jq -r --arg re "$regex" --argjson max "$MAX_LISTED" --argjson ctl "$controls" '
+        (if ($ctl.releases | type) == "object" then $ctl.releases else $ctl end) as $c
+        | [ .[]
           | select((.draft // false) | not)
           | select(.tag_name | test($re))
+          | select((($c[.tag_name] // {}) | if type == "object" then .withdrawn else false end) != true)
           | . as $r
           | ([ ($r.assets // [])[] | select(.name | endswith("-ab.img.xz")) ] | .[0]) as $a
           | select($a != null)
