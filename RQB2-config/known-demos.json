@@ -1,10 +1,11 @@
 {
-  "_doc": "Curated registry of external RasQberry demos. Each entry pins a third-party demo repository to a full 40-character commit SHA; adding or updating an entry is a reviewed RasQberry PR and is the trust anchor for external demos. Fields per entry: id (kebab-case, must match the demo's rqb-demo.json id and its repo directory name), repo_url (must be https://), ref (full 40-char commit SHA - never a branch or tag), manifest_path (path to the manifest inside the repo, usually rqb-demo.json), added (YYYY-MM-DD), note (optional curator note), name and summary (optional, shown in the catalogue picker), download (optional {download_mb, disk_mb}, shown before installing and on the first start), maturity (optional, \"beta\" for a new or less-tested demo: a (beta) tag in the menus and a feedback invitation at its start). Example entry: {\"id\": \"example-demo\", \"repo_url\": \"https://github.com/someuser/example-demo.git\", \"ref\": \"0000000000000000000000000000000000000000\", \"manifest_path\": \"rqb-demo.json\", \"added\": \"2026-07-12\", \"note\": \"curator note\"}. Install with: rq_demo_add_external.sh <id>. Update the pin with: rq_demo_add_external.sh --update <id>.",
+  "_doc": "Curated registry of external RasQberry demos. Each entry pins a third-party demo repository to a full 40-character commit SHA; adding or updating an entry is a reviewed RasQberry PR and is the trust anchor for external demos. Fields per entry: id (kebab-case, must match the demo's rqb-demo.json id and its repo directory name), repo_url (must be https://), ref (full 40-char commit SHA - never a branch or tag), manifest_path (path to the manifest inside the repo, usually rqb-demo.json), added (YYYY-MM-DD), note (optional curator note), name and summary (optional, shown in the catalogue picker), provider (optional, who provides and maintains the demo, shown in the install question as \"Provided by <provider>.\"; without it: an external contributor), download (optional {download_mb, disk_mb}, shown before installing and on the first start), maturity (optional, \"beta\" for a new or less-tested demo: a (beta) tag in the menus and a feedback invitation at its start). Example entry: {\"id\": \"example-demo\", \"repo_url\": \"https://github.com/someuser/example-demo.git\", \"ref\": \"0000000000000000000000000000000000000000\", \"manifest_path\": \"rqb-demo.json\", \"added\": \"2026-07-12\", \"note\": \"curator note\"}. Install with: rq_demo_add_external.sh <id>. Update the pin with: rq_demo_add_external.sh --update <id>.",
   "demos": [
     {
       "id": "traqmania",
       "name": "traQmania",
       "summary": "quantum reinforcement-learning racing game (Docker)",
+      "provider": "Jan-R. Lahmann, who also makes RasQberry Two, as part of the Fun with Quantum family",
       "maturity": "beta",
       "repo_url": "https://github.com/JanLahmann/traQmania.git",
       "ref": "8bd2db8c140c68482f1423215dfe542b0c25e57a",
@@ -20,6 +21,7 @@
       "id": "sap-quantum-learning",
       "name": "SAP Quantum Learning",
       "summary": "browser quiz and drag-and-drop circuit composer",
+      "provider": "SAP",
       "repo_url": "https://github.com/Sameer-kulkarni-sk/rasqberry-sap-demo.git",
       "ref": "609f5a94ae67e18a09dd77cf31f81afd6385a149",
       "manifest_path": "rqb-demo.json",
@@ -34,6 +36,7 @@
       "id": "sap-quantum-led",
       "name": "SAP Quantum LED",
       "summary": "SAP logo on the LED panel, coloured by a 3-qubit circuit",
+      "provider": "SAP",
       "repo_url": "https://github.com/Sameer-kulkarni-sk/sap-quantum-led.git",
       "ref": "d08c88bca686560091d6caf32d1dafa58e84f4f2",
       "manifest_path": "rqb-demo.json",
