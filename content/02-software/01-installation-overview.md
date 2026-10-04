@@ -69,9 +69,6 @@ Imager can set these, so the Pi is ready without a screen:
 the user name `rasqberry` and a password (it replaces `Qiskit1!`). Another user
 name is not used: the password and SSH key always go to `rasqberry`.
 
-{/* CONDITIONAL: Imager customisation on the A/B image. True from the beta that
-applies it, once AB_IMAGER_CUSTOMISATION is on in consolidate_json.py (main);
-until then Imager skips this step for the A/B image. */}
 Customisation works on both images. It applies at the first start of a newly
 written card only, not after an update.
 
