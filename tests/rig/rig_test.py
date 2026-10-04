@@ -292,7 +292,7 @@ def update_slot(pi, tag):
     _, before = ssh(host, "findmnt -no SOURCE /")
     before = before.strip()
     ssh(host, f"mkdir -p {REMOTE_DIR}/ota", check=True)
-    scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_slot_manager.sh",
+    scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_stream_image.py", "rq_slot_manager.sh",
                                                "rq_carry_ssh_identity.sh", "rq_common.sh")],
         f"{REMOTE_DIR}/ota/")
     print(f"  {pi['name']}: installing {tag} into the other slot (15-25 min)")
