@@ -32,8 +32,11 @@ standard image. A fresh Slot A has about 7.2GiB of its 10GiB in use.
 CONFIG also holds `ab-layout` (`pending` / `dual` / `single` / `resume-*`), the
 opt-out file `no-auto-expand` if someone made one, `slot-<A|B>-incomplete`
 while a slot is written, `slot-<A|B>-updated` from a finished update until
-that slot's first good start, and `last-switch-failed` after a rolled-back
-switch.
+that slot's first good start, `switch-requested` while a switch is pending,
+and `last-switch-failed` after a rolled-back switch. `switch-requested` is
+when the switch was asked for, by the running slot's clock: a trial slot's
+clock is often not set yet when its health check runs (no RTC), so a failure
+is dated by the request when the trial slot's clock is behind it.
 `/usr/config` is not shared: it lives on each slot's root.
 
 ## First boot

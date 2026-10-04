@@ -207,6 +207,21 @@ def test_a_slot_with_a_system_can_be_tried(card):
     assert not (card["config"] / "slot-confirmed").exists()
 
 
+def test_switch_to_records_when_it_was_asked_for(card):
+    # by this slot's clock: the health check dates a failed trial by it
+    import time
+    _system(card["b"], "beta-2026-10-15-101010")
+    before = int(time.time())
+    assert _run(card, "switch-to", "B").returncode == 0
+    after = int(time.time())
+    request = dict(line.split("=", 1)
+                   for line in (card["config"] / "switch-requested").read_text().splitlines())
+    assert request["slot"] == "B"
+    assert before <= int(request["epoch"]) <= after
+    assert request["time"] == time.strftime("%Y-%m-%d %H:%M:%S",
+                                            time.localtime(int(request["epoch"])))
+
+
 def test_force_skips_the_check(card):
     proc = _run(card, "switch-to", "B", "--force")
     assert proc.returncode == 0, proc.stderr

@@ -18,7 +18,9 @@ set -euo pipefail
 #   slot-content  - What one slot holds: its version, or EMPTY/INCOMPLETE/...
 #   plan-update   - Where an update would go and what the guard says about it
 #   confirm       - Confirm current slot (prevent rollback)
-#   switch-to     - Switch to a specific slot (A or B) using tryboot
+#   switch-to     - Switch to a specific slot (A or B) using tryboot; leaves
+#                   target-slot, switch-retries and switch-requested (when it
+#                   was asked for, by this slot's clock) on /boot/config
 #   rollback      - Force rollback to previous slot
 #
 # switch-to and rollback refuse a slot that holds no system (exit code 25):
@@ -648,6 +650,18 @@ EOF
     # (rq_tryboot_retry.sh re-issues the tryboot once if the flag is lost)
     echo "${target_slot}" > "${BOOT_COMMON_DIR}/target-slot"
     echo 0 > "${BOOT_COMMON_DIR}/switch-retries"
+
+    # When the switch was asked for, by this slot's clock: it is set (NTP),
+    # the trial slot's is often not yet when its health check runs - there is
+    # no RTC, and fake-hwclock starts it at that slot's last shutdown, which
+    # can be hours or weeks ago. A failed trial is dated by this (time= in
+    # last-switch-failed, rq_health_check.py). rq_update_slot.sh comes here
+    # too, right before its restart.
+    local requested_epoch requested_time
+    read -r requested_epoch requested_time <<< "$(date '+%s %Y-%m-%d %H:%M:%S')"
+    printf 'slot=%s\ntime=%s\nepoch=%s\n' "$target_slot" "$requested_time" "$requested_epoch" \
+        > "${BOOT_COMMON_DIR}/switch-requested" \
+        || warn "Could not write ${BOOT_COMMON_DIR}/switch-requested"
 
     info "Slot ${target_slot} configured for tryboot"
     info "Current slot (${current_slot}) remains default until new slot is confirmed"

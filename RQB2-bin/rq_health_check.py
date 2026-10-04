@@ -19,6 +19,9 @@ If a check fails ON PROBATION: records the failure on the CONFIG partition
 retried, and reboots. The tryboot flag only lasts one boot, so the firmware
 then starts the slot that worked (autoboot.txt [all]) - automatic rollback,
 no power cycle needed (R-054). Outside probation a failure is only reported.
+The notice's time= is this clock, or the time the switch was asked for
+(switch-requested) when this clock is behind that: early in a trial boot it
+may not be set yet (no RTC; see failure_time).
 
 The other halves of the rollback safety net:
 - panic=10 in both slots' cmdline.txt: a kernel that cannot start reboots
@@ -50,6 +53,10 @@ BOOT_CONFIG_DIR = Path(os.environ.get('RQ_BOOT_CONFIG_DIR', '/boot/config'))
 DT_BOOTLOADER_DIR = Path(os.environ.get('RQ_DT_BOOTLOADER_DIR',
                                         '/proc/device-tree/chosen/bootloader'))
 FAILED_NOTICE = 'last-switch-failed'
+SWITCH_REQUEST = 'switch-requested'    # rq_slot_manager.sh switch-to: when, by a set clock
+# systemd-timesyncd creates it once the clock is synchronised (each boot: /run)
+TIME_SYNCED = Path(os.environ.get('RQ_TIME_SYNCED_FILE', '/run/systemd/timesync/synchronized'))
+TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 WATCHDOG_MARKER = Path(os.environ.get('RQ_WATCHDOG_MARKER',
                                       '/run/rasqberry/probation-watchdog'))
 SLOT_MANAGER = Path(os.environ.get('RQ_SLOT_MANAGER', '/usr/bin/rq_slot_manager.sh'))
@@ -371,6 +378,74 @@ def rollback_target_exists(config_dir: Path, slot: str) -> bool:
     return default is not None and default != slot_boot_partition(slot)
 
 
+def _read_kv(path: Path) -> dict:
+    """key=value lines of a small CONFIG file ({} if there is none)."""
+    kv = {}
+    for line in _read(path).splitlines():
+        key, sep, value = line.partition('=')
+        if sep:
+            kv[key.strip()] = value.strip()
+    return kv
+
+
+def now_epoch() -> float:
+    """This slot's clock (a function, so tests can set it)."""
+    return time.time()
+
+
+def switch_request(config_dir: Path, slot: str) -> dict:
+    """
+    switch-requested, which rq_slot_manager.sh switch-to writes with the
+    target-slot marker (slot=, time=, epoch=): when the switch to <slot> was
+    asked for, by the clock of the slot that asked.
+
+    Returns:
+        dict: {} if there is none, or it is about another slot
+    """
+    request = _read_kv(config_dir / SWITCH_REQUEST)
+    return request if request.get('slot') == slot else {}
+
+
+def _request_epoch(request: dict) -> Optional[float]:
+    try:
+        return float(request['epoch'])
+    except (KeyError, ValueError):
+        pass
+    try:
+        return time.mktime(time.strptime(request.get('time', ''), TIME_FORMAT))
+    except ValueError:
+        return None
+
+
+def failure_time(request: dict) -> Tuple[str, bool]:
+    """
+    When a switch failed, for time= in last-switch-failed ("When:").
+
+    The clock of a slot on its trial boot is often not set yet when the
+    health check runs: there is no RTC, and until NTP answers, fake-hwclock
+    has it at that slot's last shutdown - hours or weeks before (rig,
+    2026-10-04: 11:09 for a failure at 12:25). The slot that asked for the
+    switch had a set clock and recorded the request (switch-requested), and
+    a failure cannot come before its request. So: this clock when it is
+    synchronised or not behind the request, else the request time.
+
+    Args:
+        request (dict): switch_request() ({} when the switch was asked for
+            by a slot that does not record it)
+
+    Returns:
+        tuple: (time as "YYYY-MM-DD HH:MM:SS", True if this clock was behind
+        and the request time was taken)
+    """
+    now = now_epoch()
+    stamp = time.strftime(TIME_FORMAT, time.localtime(now))
+    asked = _request_epoch(request)
+    if asked is None or now >= asked or TIME_SYNCED.exists():
+        return stamp, False
+    # the request's own words: its slot's time zone is the one that shows it
+    return request.get('time') or time.strftime(TIME_FORMAT, time.localtime(asked)), True
+
+
 def record_failed_switch(config_dir: Path, slot: str, reason: str,
                          version: str = '') -> None:
     """
@@ -389,22 +464,25 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
     # and the slot has not started well since: then this was an update ("The
     # update of Slot X to <version> didn't work"), else a plain switch
     # ("Switching to Slot X didn't work") - rq_slot_status.sh failure-notice
-    hint = {}
-    for line in _read(config_dir / f"slot-{slot}-updated").splitlines():
-        key, sep, value = line.partition('=')
-        if sep:
-            hint[key.strip()] = value.strip()
-    lines = [f"slot={slot}", f"reason={reason}",
-             f"time={time.strftime('%Y-%m-%d %H:%M:%S')}",
+    hint = _read_kv(config_dir / f"slot-{slot}-updated")
+    request = switch_request(config_dir, slot)
+    when, clock_behind = failure_time(request)
+    # time= is the failure's identity for the indicator, the login line and
+    # the usage counts: written once here, never changed afterwards
+    lines = [f"slot={slot}", f"reason={reason}", f"time={when}",
              f"update={'yes' if (config_dir / f'slot-{slot}-updated').exists() else 'no'}"]
     version = version or hint.get('version', '')
     if version:
         lines.append(f"version={version}")
+    if request.get('time'):
+        lines.append(f"requested={request['time']}")
+    if clock_behind:
+        lines.append(f"clock={time.strftime(TIME_FORMAT, time.localtime(now_epoch()))}")
     try:
         (config_dir / FAILED_NOTICE).write_text('\n'.join(lines) + '\n')
     except OSError as e:
         logger.warning(f"Could not write {config_dir / FAILED_NOTICE}: {e}")
-    for name in ('target-slot', 'switch-retries'):
+    for name in ('target-slot', 'switch-retries', SWITCH_REQUEST):
         try:
             (config_dir / name).unlink()
         except OSError:
@@ -562,7 +640,7 @@ def confirm_boot_slot() -> bool:
                     BOOT_CONFIG_DIR, target_slot,
                     f"Slot {target_slot} was tried twice without success")
             else:
-                for name in ('target-slot', 'switch-retries', FAILED_NOTICE):
+                for name in ('target-slot', 'switch-retries', SWITCH_REQUEST, FAILED_NOTICE):
                     try:
                         (BOOT_CONFIG_DIR / name).unlink()
                     except OSError:

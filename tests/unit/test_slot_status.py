@@ -110,6 +110,70 @@ def test_slot_manager_status_says_when_a_plain_switch_failed(card):
     assert "The update of" not in proc.stderr
 
 
+def test_a_failure_dated_by_the_request_reads_the_same_everywhere(card, hc, monkeypatch):
+    # rig, 2026-10-04: Slot B's clock said 11:09 at a failure at about 12:25.
+    # The notice now carries the request time as time= (plus requested= and
+    # clock=); "When:", the 7-day login line and the indicator's once-per-
+    # failure key all go by time=, which nothing rewrites later.
+    import time as _time
+    requested = "2026-10-04 12:24:10"
+    asked = int(_time.mktime(_time.strptime(requested, "%Y-%m-%d %H:%M:%S")))
+    config = card["config"]
+    _system(card["b"], "beta-2026-10-15-101010")
+    (config / "target-slot").write_text("B\n")
+    (config / "slot-B-updated").write_text("version=beta-2026-10-15-101010\n")
+    (config / "switch-requested").write_text(f"slot=B\ntime={requested}\nepoch={asked}\n")
+    monkeypatch.setattr(hc, "TIME_SYNCED", card["tmp"] / "not-synchronised")
+    monkeypatch.setattr(hc, "now_epoch", lambda: asked - 75 * 60)
+    hc.record_failed_switch(config, "B", "virtual environment missing", "beta-2026-10-15-101010")
+    notice = (config / "last-switch-failed").read_text()
+    assert f"time={requested}\n" in notice and "clock=" in notice
+
+    (card["tmp"] / "version").write_text("beta-2026-09-30-221656\n")
+    card["env"]["RQ_VERSION_FILE"] = str(card["tmp"] / "version")
+    card["env"]["RQ_SLOT_STATUS_FILE"] = str(card["tmp"] / "no-status")
+    proc = _manager(card, "status")
+    assert ("The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A "
+            "(beta-2026-09-30-221656) is running again.") in proc.stderr
+    assert proc.stderr.count("When: ") == 1 and f"When: {requested}" in proc.stderr
+
+    def login(days):
+        env = dict(card["env"], RQ_HOMES_DIR=str(card["tmp"] / "home"),
+                   RQ_NOW_EPOCH=str(asked + int(days * 86400)))
+        return subprocess.run(["bash", _STATUS, "failure-notice", "--login"], env=env,
+                              capture_output=True, text=True, timeout=30).stdout.strip()
+    assert login(6.9).startswith("The update of Slot B")
+    assert login(7.1) == ""
+
+    spec = importlib.util.spec_from_file_location("rq_slot_indicator",
+                                                  os.path.join(_BIN, "rq_slot_indicator.py"))
+    ind = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ind)
+    failure = ind.rn.read_kv(str(config / "last-switch-failed"))
+    assert ind.failure_key(failure) == requested
+    book = ind.NoticeBook(str(card["tmp"] / "state"))
+    assert book.failure_to_announce(failure) is True and book.ack(failure) is True
+    book.save()
+    again = ind.NoticeBook(str(card["tmp"] / "state"))
+    assert again.failure_to_announce(failure) is False and again.ack(failure) is False
+
+
+@pytest.mark.parametrize("extra", ["", "requested=2026-10-15 09:58:30\nclock=2026-10-15 08:44:56\n"])
+def test_old_and_new_notices_render_alike(card, extra):
+    # "": a notice from an older health check, without requested=/clock=
+    _system(card["b"], "beta-2026-10-15-101010")
+    (card["config"] / "last-switch-failed").write_text(
+        "slot=B\nreason=Qiskit check failed\ntime=2026-10-15 10:00:00\nupdate=no\n" + extra)
+    (card["tmp"] / "version").write_text("beta-2026-09-30-221656\n")
+    card["env"]["RQ_VERSION_FILE"] = str(card["tmp"] / "version")
+    card["env"]["RQ_SLOT_STATUS_FILE"] = str(card["tmp"] / "no-status")
+    proc = _manager(card, "status")
+    assert ("Switching to Slot B didn't work, so Slot A (beta-2026-09-30-221656) is running "
+            "again.") in proc.stderr
+    assert "Reason: Qiskit check failed" in proc.stderr
+    assert proc.stderr.count("When: ") == 1 and "When: 2026-10-15 10:00:00" in proc.stderr
+
+
 @pytest.mark.parametrize("update,label,sentence", [
     ("yes", "Last update:", "The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A "
                             "(beta-2026-09-30-221656) is running again."),
