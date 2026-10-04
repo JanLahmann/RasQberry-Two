@@ -22,8 +22,9 @@ The full parts list, including the 3D-printed case and LEDs, is in the
 ## Which image?
 
 Pick **RasQberry Two Beta**, the A/B image, whatever your card. From 64 GB it holds
-two systems, so updates install in place and you can always go back
-([A/B image](/02-software/03-ab-boot/)); on a smaller card it runs as one system.
+two systems: the card stays in the Pi for good, new releases install over the
+air, and you can always go back ([A/B image](/02-software/03-ab-boot/)); on a
+smaller card it runs as one system.
 **RasQberry Two Beta — single system** is the standard image, always one system.
 We publish it for at least one more release.
 

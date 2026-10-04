@@ -1,7 +1,7 @@
 {
   "stable": [],
   "beta": [
-    "New A/B image: two systems on one card; an update goes into the other system, and the Pi falls back by itself if it doesn't work (64 GB+, 128 GB recommended)",
+    "New A/B image: the SD card stays in the Pi for good. New releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
     "Taskbar badge shows which system runs, and tells you when a new release is out, with what's new",
     "New demos (beta): Workshop & Qiskit Server, Qiskit Tutorials on this Pi, Fun with Quantum website and family",
     "Also new: Quantum Lab (QuBins), the Mermin-Peres game, My Quantum Programs, and a demo catalogue with traQmania and the SAP quantum demos",

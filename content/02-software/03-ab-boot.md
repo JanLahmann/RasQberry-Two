@@ -2,9 +2,9 @@
 
 The A/B image is the recommended RasQberry Two image (**RasQberry Two Beta** in
 Raspberry Pi Imager). On a card of 64 GB or more it holds **two systems**, Slot A
-and Slot B. An update goes into the system you are not running, while the
-running one stays as it is, so a failed update never leaves you without a
-working Pi.
+and Slot B. **The SD card can stay in the Pi for good:** new releases install
+over the air, each into the system you are not running, while the running one
+stays as it is, so a failed update never leaves you without a working Pi.
 
 ## Card sizes
 
