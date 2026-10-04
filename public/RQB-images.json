@@ -14,6 +14,7 @@
       "image_download_size": 1663679844,
       "image_sha256": "38f912f8c0608c6104f2f16930c38b5d55336e0b748b45c0585a20c3a086117a",
       "release_date": "2026-10-04",
+      "init_format": "systemd",
       "devices": [
         "pi5-64bit",
         "pi4-64bit"
@@ -69,6 +70,7 @@
           "image_download_size": 2066732184,
           "image_sha256": "3911ff93224b0f63cea96f30544fbec1a174466b3a4ee3c8ff38f8c9c4c02ade",
           "release_date": "2026-10-04 14:09",
+          "init_format": "systemd",
           "devices": [
             "pi5-64bit",
             "pi4-64bit"
@@ -102,6 +104,7 @@
           "image_download_size": 2060993932,
           "image_sha256": "2d37bf397aa6715cbc7599e4ecb62cfed3a8d4fad16c58e921c6c6bb6ad46d6b",
           "release_date": "2026-10-01 08:12",
+          "init_format": "systemd",
           "devices": [
             "pi5-64bit",
             "pi4-64bit"
@@ -135,6 +138,7 @@
           "image_download_size": 2059919948,
           "image_sha256": "980f00a4c70c347e44c354ac64c430d37f2c2325f143b9a124a0d8bdce46ef42",
           "release_date": "2026-09-30 18:20",
+          "init_format": "systemd",
           "devices": [
             "pi5-64bit",
             "pi4-64bit"
@@ -168,6 +172,7 @@
           "image_download_size": 2059861672,
           "image_sha256": "a8e364aa3c028d98ddc37fe007b91e35121c58dce27af516c31417776328cd03",
           "release_date": "2026-09-30 13:00",
+          "init_format": "systemd",
           "devices": [
             "pi5-64bit",
             "pi4-64bit"
