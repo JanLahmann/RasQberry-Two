@@ -317,7 +317,9 @@ def list_demos(pi):
     (a variant's own type and launcher win: Fun with Quantum's website variant
     is a script that opens a page, its notebooks are Jupyter).
     """
-    _, out = ssh(pi["host"], "for f in /usr/config/demo-manifests/rq_demo_*.json; do "
+    # built-in demos, plus demos added from the catalogue (user manifests)
+    _, out = ssh(pi["host"], "for f in /usr/config/demo-manifests/rq_demo_*.json "
+                             "$HOME/.local/config/demo-manifests/*.json; do [ -f \"$f\" ] || continue; "
                              "jq -r 'select(.id) | . as $m | [$m.entrypoint.type, ($m.needs_hw.leds // false|tostring)] as $c "
                              "| if ([.variants[]?] | length) == 0 then [$m.id] + $c + [$m.entrypoint.launcher // \"\"] "
                              "else ($m.variants[] | [\"\\($m.id):\\(.id)\", (.entrypoint.type // $c[0]), $c[1]] "
@@ -461,6 +463,14 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     tag = demo_tag(demo)
     crop = pi.get("panel_crop")
     notes = ""
+    if demo.get("leds"):
+        # A Pi 5 LED stall offers "Lower to 0.2?" in the demo's terminal, and
+        # scripted Enter keys answer it with the default: restore the shipped
+        # brightness so later LED checks are judged at the same level
+        _, level = ssh(pi["host"], "rq_led_brightness.sh --show 2>/dev/null | sed -n 's/.*level=//p'")
+        if level.strip() and level.strip() != "normal":
+            ssh(pi["host"], "sudo rq_led_brightness.sh --set normal >/dev/null 2>&1")
+            notes += f" (brightness was {level.strip()}: reset to normal - a stall dialog answered?)"
 
     baseline = before = None
     holding = False
