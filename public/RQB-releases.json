@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-03T23:35:11Z",
+  "generated": "2026-10-04T00:03:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -30,25 +30,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-04-011708",
-      "name": "rasqberry-development-2026-10-04-011708",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-011708/rasqberry-development-2026-10-04-011708.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-011708",
-      "release_date": "2026-10-04 01:17",
-      "image_download_size": 2011420600,
+      "tag": "development-2026-10-04-014357",
+      "name": "rasqberry-development-2026-10-04-014357",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-014357/rasqberry-development-2026-10-04-014357.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-014357",
+      "release_date": "2026-10-04 01:43",
+      "image_download_size": 2009954308,
       "extract_size": 9076473856,
-      "extract_sha256": "6452e8b9cb1f291ccaa62160b044b4b86072e17747e3c07f5a137862271a7d3e",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-011708/rasqberry-development-2026-10-04-011708-ab.img.xz",
-      "ab_extract_sha256": "94debaf4123e91e67b66d4de739fe690c469614c4cb9c8deba46bf9c8ab7f463",
-      "ab_image_sha256": "6d1953013b2150de42ae6524dc7b101a3dbd5ccf13a05e03bce5cc728f2608b6",
+      "extract_sha256": "5c7f814d97a3eae9f702c706499f7e978b0d72aedef345bc4389c560c7667cdf",
+      "image_sha256": "655d33378dd8991203c0508c684bbf423468bdc8ed51ac9e53edd2f52036748a",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-014357/rasqberry-development-2026-10-04-014357-ab.img.xz",
+      "ab_extract_sha256": "e5356b27024fb9d5354a0d8dbec2727fa409a4e5b05609908af11ca784f832c9",
+      "ab_image_sha256": "88b5290bd455ab504223fc3470290bfbe52abe94d366859748c62b894f49bc60",
+      "ab_image_download_size": 2066474164,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2062926972,
       "highlights": [
-        "serve the local page with one thread per connection",
-        "a browser tab a demo opens outlives the demo's window",
-        "Bump version to development-2026-10-04-011708",
+        "running the credentials notebook unedited keeps the saved account",
+        "Bump version to development-2026-10-04-014357",
         "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-03-235019"
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-04-011708",
+        "never run credential code in the Jupyter check; restore ~/.qiskit"
       ]
     }
   }
