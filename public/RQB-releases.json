@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T20:03:54Z",
+  "generated": "2026-10-04T20:04:35Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2008417160,
       "extract_size": 9076473856,
       "extract_sha256": "27d0a1e9925f02ba130815feadbd904eef8e76c7a1d9a3a55cc77f5ec9b779b4",
-      "image_sha256": "ebd917fa64f551f8e889e273bca087dd6c1c1168c5ec535d80495cd00419948f",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-214348/rasqberry-development-2026-10-04-214348-ab.img.xz",
       "ab_extract_sha256": "7289e6794ea2d76983cf8ad92b375c07933a21461521308751a3a897269029d4",
       "ab_image_sha256": "cbf13cf8d651b65b2113dea9f9d8f198fc5161cea30a6f3438de3829d1578326",
-      "ab_image_download_size": 2066111112,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2066111112,
       "highlights": [
         "Workshop server needs internet to run code; plain words",
         "the on-screen LED view closes when the LED demo ends",
