@@ -125,6 +125,61 @@ def test_ip_scroll_is_upright_on_the_configured_panel(env_file, monkeypatch, lay
         assert strip.frames[0] != _expected_frame("10.0", "single-24x8", (1, 2, 3))
 
 
+def _display_ip():
+    import importlib
+    try:
+        return importlib.import_module("rq_display_ip")
+    except Exception as exc:  # pragma: no cover - LED libraries missing
+        pytest.skip(f"rq_display_ip not importable: {exc}")
+
+
+@pytest.mark.parametrize("verified", ["false", "skipped", None])
+def test_unverified_ip_scroll_alternates_the_kit_layouts(verified):
+    # A new card: single-24x8 until the checklist's LED step; on the quad kit
+    # every second pass must read right (rig, 2026-10-04)
+    ip = _display_ip()
+    config = {"led_layout": "single-24x8"}
+    if verified is not None:
+        config["layout_verified"] = verified
+    s, q = "single-24x8", "quad-4x12"
+    assert ip.pass_layouts(1, config) == [s, q, s, q]
+    assert ip.pass_layouts(3, config) == [s, q, s, q]
+    assert ip.pass_layouts(4, config) == [s, q, s, q]
+    assert ip.pass_layouts(5, config) == [s, q, s, q, s, q]
+    # configured quad (unverified): it comes first
+    assert ip.pass_layouts(2, dict(config, led_layout=q)) == [q, s, q, s]
+
+
+def test_verified_ip_scroll_uses_only_the_configured_layout():
+    ip = _display_ip()
+    for layout in ("single-24x8", "quad-4x12", "single-8x32"):
+        config = {"led_layout": layout, "layout_verified": "true"}
+        assert ip.pass_layouts(3, config) == [layout] * 3
+        assert ip.pass_layouts(0, config) == [layout]
+
+
+@pytest.mark.parametrize("verified", [False, True])
+def test_ip_scroll_switches_the_layout_per_pass_on_one_strip(env_file, monkeypatch, capsys, verified):
+    ip = _display_ip()
+    env_file("LED_LAYOUT=single-24x8\nLED_LAYOUT_VERIFIED=%s\n" % ("true" if verified else "false"))
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    config = lu.get_led_config()
+    assert config["layout_verified"] == ("true" if verified else "false")
+    strip = _Strip(192)
+    layouts = ip.scroll_text(strip, "10.0", config, wanted_seconds=60, speed=0)
+    per_pass = len(lu.create_text_bitmap("10.0")) + 24 + 1     # steps + the clear
+    assert len(strip.frames) == per_pass * len(layouts)
+    firsts = [strip.frames[i * per_pass] for i in range(len(layouts))]
+    if verified:
+        assert layouts == ["single-24x8"]
+        assert "alternating" not in capsys.readouterr().out
+    else:
+        assert layouts == ["single-24x8", "quad-4x12"] * 2
+        assert "alternating single-24x8 and quad-4x12" in capsys.readouterr().out
+    for frame, layout in zip(firsts, layouts):
+        assert frame == _expected_frame("10.0", layout, (0, 100, 255))
+
+
 def test_logo_display_follows_led_layout(env_file, monkeypatch):
     pytest.importorskip("PIL")
     import rq_led_logo

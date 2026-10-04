@@ -227,6 +227,9 @@ def get_led_config():
         # and 'y_flip' stay for existing callers and describe the same layout.
         'led_layout': layout_name,
         'layout': layout_name,
+        # 'true' once the setup checklist's LED step confirmed the layout;
+        # 'false' (a new card) or 'skipped' (no LED panel) otherwise
+        'layout_verified': str(config.get('LED_LAYOUT_VERIFIED', 'false')).strip().lower(),
         'matrix_width': matrix_width,
         'matrix_height': matrix_height,
         'y_flip': y_flip,
@@ -1393,18 +1396,25 @@ def map_xy_to_pixel_quad(x, y):
     return map_xy_to_pixel(x, y, layout='quad-2x2-12x4')
 
 
-def _text_canvas(config):
+def _text_canvas(config, name=None):
     """
     The configured layout (as a parsed dict, so the per-pixel mapping does not
     look it up again) and its width and height, for the text functions.
 
     Args:
         config (dict): Result of get_led_config().
+        name (str, optional): A registry layout to use instead of LED_LAYOUT
+            (the boot address scroll tries both kit layouts on a new card);
+            an unknown name falls back to LED_LAYOUT.
 
     Returns:
         tuple: (layout, width, height); layout is the parsed LED_LAYOUT
             definition, or its name if the registry does not know it.
     """
+    if name:
+        layout = get_layout(name)
+        if layout:
+            return layout, int(layout['width']), int(layout['height'])
     layout = get_layout(config['led_layout']) or config['led_layout']
     return layout, config['matrix_width'], config['matrix_height']
 
@@ -1512,7 +1522,7 @@ def create_text_bitmap(text):
     return columns
 
 
-def scroll_pass_columns(text, config=None):
+def scroll_pass_columns(text, config=None, layout=None):
     """
     How many scroll steps one full pass of TEXT takes on the configured panel
     (the text plus a blank panel at the end).
@@ -1520,17 +1530,18 @@ def scroll_pass_columns(text, config=None):
     Args:
         text (str): Text to scroll
         config (dict): get_led_config() result (read when not given)
+        layout (str, optional): Layout name instead of LED_LAYOUT
 
     Returns:
         int: Steps per pass; one step lasts about scroll_speed seconds.
     """
     config = config or get_led_config()
-    _layout, width, _height = _text_canvas(config)
+    _layout, width, _height = _text_canvas(config, layout)
     return len(create_text_bitmap(text)) + width
 
 
 def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, color=(0, 100, 255),
-                           passes=None):
+                           passes=None, layout=None):
     """
     Display scrolling text on LED matrix for specified duration.
 
@@ -1548,6 +1559,10 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
         color (tuple): RGB color tuple (0-255 per channel), default bright blue
         passes (int): If given, scroll the text exactly this many whole
             times instead of for duration_seconds (never stops mid-text)
+        layout (str, optional): Layout name for this call instead of
+            LED_LAYOUT, on the same strip (no new hardware set-up): the boot
+            address scroll alternates the kit layouts per pass until the
+            layout is verified
 
     Example:
         pixels = create_neopixel_strip(192, 'GRB', 0.3)
@@ -1557,7 +1572,7 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
 
     # Get configuration
     config = get_led_config()
-    layout, width, height = _text_canvas(config)
+    layout, width, height = _text_canvas(config, layout)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)
