@@ -375,10 +375,10 @@ DEMO_HINTS = {
     # title: text the page title must have. The Fun with Quantum website is a
     # web page (a script variant of a Jupyter demo), not a Jupyter UI
     "fun-with-quantum:website": {"web": {"title": "Fun with Quantum"}},
-    # the Workshop & Qiskit Server shows the participants' addresses and opens
-    # its page after Ok; a second Enter lands on its stop prompt (default:
-    # keep running), so the server stays up for the page check
-    "doqumentation": {"keys": r"25:\r 20:\r"},
+    # answers: "<dialog text>|<keys>;..." - pressed when the text shows. The
+    # Workshop & Qiskit Server asks how many participants, then shows their
+    # addresses and opens its page after Ok
+    "doqumentation": {"answers": r"How many participants|\r;Participants open (same|\r"},
 }
 
 # a first start installs the demo after the consent dialog: allow for it
@@ -424,6 +424,8 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     env = "RIG_ALLOW_DOCKER=1 " if docker else ""
     if hint.get("keys"):
         env += f"RIG_KEYS={shlex.quote(hint['keys'])} "
+    if hint.get("answers"):
+        env += f"RIG_ANSWERS={shlex.quote(hint['answers'])} "
     if pi.get("web_check"):
         env += f"RIG_CDP_PORT={CDP_PORT} "
         if hint.get("web"):
