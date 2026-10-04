@@ -154,11 +154,21 @@ FAILURE_CASES = [
      "version=development-2026-10-05-010101\n", "A", DEV, "development-2026-10-05-010101", DEV, "",
      "The update of Slot B to development-2026-10-05-010101 didn't work, so Slot A "
      "(development-2026-10-04-040217) is running again."),
-    # tryboot lost twice: no version= - what Slot A holds (root wrote the status)
-    ("slot=A\nreason=Slot A was tried twice without success; Slot B is running again\n"
-     "time=2026-10-04 05:00:00\n", "B", BETA, DEV, DEV, "",
+    # tryboot lost twice after an update: no version= - what Slot A holds (root wrote the status)
+    ("slot=A\nreason=Slot A was tried twice without success\n"
+     "time=2026-10-04 05:00:00\nupdate=yes\n", "B", BETA, DEV, DEV, "",
      "The update of Slot A to beta-2026-10-03-095636 didn't work, so Slot B "
      "(development-2026-10-04-040217) is running again."),
+    # a plain switch (no update wrote the slot): Jan's wording, no version of the target
+    ("slot=A\nreason=Slot A was tried twice without success\n"
+     "time=2026-10-04 05:00:00\nupdate=no\n", "B", BETA, DEV, DEV, "",
+     "Switching to Slot A didn't work, so Slot B (development-2026-10-04-040217) is running again."),
+    ("slot=B\nreason=Qiskit check failed\ntime=t\nupdate=no\nversion=" + BETA + "\n",
+     "A", DEV, BETA, DEV, "",
+     "Switching to Slot B didn't work, so Slot A (development-2026-10-04-040217) is running again."),
+    ("slot=B\nreason=the desktop did not come up within 300 s\ntime=t\nupdate=no\n",
+     "B", DEV, DEV, DEV, "",
+     "Switching to Slot B didn't work: the desktop did not come up within 300 s."),
     # the other slot was left unfinished: no version to name
     ("slot=A\nreason=x\ntime=t\n", "B", BETA, DEV, DEV, "A",
      "The update of Slot A didn't work, so Slot B (development-2026-10-04-040217) is running again."),
@@ -225,6 +235,11 @@ def test_tooltip_per_state():
     title, body = ind.tooltip(info, "failed", "", [], {})
     assert title == "RasQberry - Slot A (the update didn't work)"
     assert "so Slot A (development-2026-10-04-040217) is running again" in body
+    info["failure"] = dict(info["failure"], update="no")
+    title, body = ind.tooltip(info, "failed", "", [], {})
+    assert title == "RasQberry - Slot A (the switch didn't work)"
+    assert body.endswith("Switching to Slot B didn't work, so Slot A "
+                         "(development-2026-10-04-040217) is running again.")
 
 
 def test_menu_for_a_confirmed_slot():

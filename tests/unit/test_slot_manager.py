@@ -226,6 +226,16 @@ def test_a_slot_without_version_file_still_counts_as_a_system(card):
     assert _run(card, "switch-to", "B").returncode == 0
 
 
+def test_confirm_ends_the_update_hint_of_this_slot_only(card):
+    (card["config"] / "slot-confirmed").unlink()
+    (card["config"] / "slot-A-updated").write_text("version=x\n")
+    (card["config"] / "slot-B-updated").write_text("version=y\n")
+    proc = _run(card, "confirm")
+    assert proc.returncode == 0, proc.stderr
+    assert not (card["config"] / "slot-A-updated").exists()     # A started well
+    assert (card["config"] / "slot-B-updated").exists()
+
+
 def test_status_lists_slot_contents(card):
     out = _run(card, "status").stdout
     assert "Slot A: beta-2026-09-30-221656 (beta)  <- running, start slot" in out

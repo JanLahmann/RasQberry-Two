@@ -431,7 +431,7 @@ cmd_status() {
     # in the words System Info and the taskbar indicator use (#242)
     if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
         echo ""
-        warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update didn't work.")"
+        warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update or switch didn't work.")"
         sed -n 's/^reason=/    Reason: /p; s/^time=/    When: /p' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
@@ -499,6 +499,10 @@ cmd_confirm() {
         warn "Not in A/B boot mode, nothing to confirm"
         return 0
     fi
+
+    # The update written into this slot (rq_update_slot.sh) has started well:
+    # a later failed switch to it is a switch, not an update
+    rm -f "${BOOT_COMMON_DIR}/slot-${current_slot}-updated"
 
     if is_slot_confirmed; then
         info "Slot ${current_slot} is already confirmed"

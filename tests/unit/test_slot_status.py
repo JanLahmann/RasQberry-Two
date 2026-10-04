@@ -95,6 +95,21 @@ def test_slot_manager_status_uses_the_same_sentence(card):
     assert "FAILED and was rolled back" not in proc.stderr + proc.stdout
 
 
+def test_slot_manager_status_says_when_a_plain_switch_failed(card):
+    _system(card["b"], "beta-2026-10-15-101010")
+    (card["config"] / "last-switch-failed").write_text(
+        "slot=B\nreason=Slot B was tried twice without success\ntime=2026-10-15 10:00:00\n"
+        "update=no\n")
+    (card["tmp"] / "version").write_text("beta-2026-09-30-221656\n")
+    card["env"]["RQ_VERSION_FILE"] = str(card["tmp"] / "version")
+    card["env"]["RQ_SLOT_STATUS_FILE"] = str(card["tmp"] / "no-status")
+    proc = _manager(card, "status")
+    assert ("Switching to Slot B didn't work, so Slot A (beta-2026-09-30-221656) is running "
+            "again.") in proc.stderr
+    assert "Reason: Slot B was tried twice without success" in proc.stderr
+    assert "The update of" not in proc.stderr
+
+
 # ---------------------------------------------------------------------------
 # The health check writes it at every start, and never fails because of it
 # ---------------------------------------------------------------------------
@@ -123,7 +138,8 @@ def test_health_check_writes_the_slot_status(hc, tmp_path, monkeypatch):
 
 def test_health_check_reasons_name_the_slots():
     text = open(os.path.join(_BIN, "rq_health_check.py")).read()
-    assert "was tried twice without success; " in text
+    assert "was tried twice without success" in text
+    assert "is running again" not in text          # the sentence says that, not the reason
     assert "the desktop did not come up within" in text
 
 

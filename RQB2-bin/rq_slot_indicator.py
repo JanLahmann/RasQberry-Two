@@ -215,11 +215,22 @@ def _version_or_empty(content):
     return "" if (content or "") in rn.NOT_A_VERSION else content
 
 
+def failure_was_update(failure):
+    """
+    Did an update write the failed slot (update=yes, or a notice from an
+    older health check without update=), or was it a plain switch (update=no)?
+    """
+    return (failure.get("update") or "").strip() != "no"
+
+
 def failure_text(failure, current, version, contents):
     """
-    The one sentence about a failed update (Jan): it names both slots and
-    says the update "didn't work" - the new system may well have started and
-    then failed a check. The same wording as `rq_slot_status.sh failure-notice`.
+    The one sentence about a failed update or switch (Jan): it names both
+    slots and says it "didn't work" - the new system may well have started
+    and then failed a check. "The update of Slot B to <v>" when an update had
+    written the slot (update=yes, or no update= in an older notice), else
+    "Switching to Slot B". The same wording as `rq_slot_status.sh
+    failure-notice` (tests/unit/test_slot_indicator.py runs both).
 
     Args:
         failure (dict): last-switch-failed (slot, reason, time, version)
@@ -231,8 +242,11 @@ def failure_text(failure, current, version, contents):
     failed = failure.get("slot", "")
     if failed not in ("A", "B"):
         failed = rn.other_slot(current) or "B"
-    new = failure.get("version") or _version_or_empty(contents.get(failed, ""))
-    head = f"The update of Slot {failed} to {new}" if new else f"The update of Slot {failed}"
+    if not failure_was_update(failure):
+        head = f"Switching to Slot {failed}"
+    else:
+        new = failure.get("version") or _version_or_empty(contents.get(failed, ""))
+        head = f"The update of Slot {failed} to {new}" if new else f"The update of Slot {failed}"
     if failed == current:
         reason = (failure.get("reason") or "").strip()
         return f"{head} didn't work" + (f": {reason}." if reason else ".")
@@ -270,7 +284,11 @@ def tooltip(info, state, next_slot, advices, device):
     """
     (title, body) - wf-panel-pi shows 'title: body', a newline starts a line.
     """
-    label = "the update didn't work" if state == "failed" else STATE_LABEL[state]
+    if state == "failed":
+        label = ("the update didn't work" if failure_was_update(info["failure"])
+                 else "the switch didn't work")
+    else:
+        label = STATE_LABEL[state]
     title = f"RasQberry - Slot {info['current']} ({label})"
     lines = [f"Version: {rn.version_text(info['version']) or 'unknown'}"]
     if state == "failed":

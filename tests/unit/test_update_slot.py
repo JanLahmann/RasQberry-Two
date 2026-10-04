@@ -481,6 +481,33 @@ def test_a_plan_for_another_slot_stops_the_update(tmp_path):
     assert rc == 1 and "Nothing was changed" in out
 
 
+def test_a_finished_update_leaves_the_updated_hint(tmp_path):
+    # slot-<X>-updated tells the health check that a failed first start of
+    # this slot was an update, not a plain switch (Jan, 2026-10-04)
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "slot-B-updated").write_text("version=old\n")
+    proc = subprocess.run(_source('''
+        mark_slot_incomplete B beta-2026-10-15-101010
+        [ -e "$RQ_BOOT_COMMON_DIR/slot-B-updated" ] && echo STALE
+        mark_slot_updated B beta-2026-10-15-101010 beta-2026-10-15-101010
+        clear_slot_incomplete B
+    '''), env=_env(tmp_path, RQ_BOOT_COMMON_DIR=str(config)), capture_output=True, text=True,
+        timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    assert "STALE" not in proc.stdout                    # a new write starts afresh
+    hint = (config / "slot-B-updated").read_text()
+    assert "version=beta-2026-10-15-101010\n" in hint and "tag=beta-2026-10-15-101010\n" in hint
+    assert not (config / "slot-B-incomplete").exists()
+
+
+def test_the_hint_is_written_when_the_slot_is_complete():
+    text = open(_SCRIPT).read()
+    body = text[text.index("write_image_to_slot() {"):text.index("cleanup_download() {")]
+    assert body.index("mark_slot_incomplete ") < body.index("mark_slot_updated ")
+    assert body.index("mark_slot_updated ") < body.index('clear_slot_incomplete "$target_slot"')
+
+
 def test_the_guard_runs_before_the_download():
     text = open(_SCRIPT).read()
     main = text[text.index("main() {"):]

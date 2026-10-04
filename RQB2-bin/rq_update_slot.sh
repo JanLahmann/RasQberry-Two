@@ -484,12 +484,25 @@ mark_slot_incomplete() {
     # the update has finished: say so where both slots can see it
     local slot="$1" tag="$2"
     INCOMPLETE_SLOT="$slot"
+    rm -f "${BOOT_COMMON_DIR}/slot-${slot}-updated" 2>/dev/null || true
     if mkdir -p "$BOOT_COMMON_DIR" 2>/dev/null \
         && echo "$(date -Iseconds) $tag" > "${BOOT_COMMON_DIR}/slot-${slot}-incomplete" 2>/dev/null; then
         sync
     else
         warn "Could not write ${BOOT_COMMON_DIR}/slot-${slot}-incomplete"
     fi
+}
+
+mark_slot_updated() {
+    # <slot> now holds a system this update wrote, not started yet. If its
+    # first start fails, the health check records update=yes in
+    # last-switch-failed: "The update of Slot X to <version> didn't work"
+    # rather than "Switching to Slot X didn't work". rq_slot_manager.sh
+    # confirm removes it after a good start; the next update rewrites it.
+    local slot="$1" version="$2" tag="$3"
+    printf 'version=%s\ntag=%s\ntime=%s\n' "$version" "$tag" "$(date '+%Y-%m-%d %H:%M:%S')" \
+        > "${BOOT_COMMON_DIR}/slot-${slot}-updated" 2>/dev/null \
+        || warn "Could not write ${BOOT_COMMON_DIR}/slot-${slot}-updated"
 }
 
 clear_slot_incomplete() {
@@ -779,6 +792,7 @@ EOF
     rm -rf "$work_dir"
     WORK_DIR=""
 
+    mark_slot_updated "$target_slot" "${new_version:-$release_tag}" "$release_tag"
     clear_slot_incomplete "$target_slot"
     log_only "Image installation complete"
 }

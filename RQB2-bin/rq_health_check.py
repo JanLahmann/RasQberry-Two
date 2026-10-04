@@ -370,9 +370,21 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
         slot (str): the slot that failed
         reason (str): one line for the user
         version (str): the failed slot's /etc/rasqberry-version, if known
+            (else the version the update wrote, from slot-<X>-updated)
     """
+    # rq_update_slot.sh leaves slot-<X>-updated when it has written the slot
+    # and the slot has not started well since: then this was an update ("The
+    # update of Slot X to <version> didn't work"), else a plain switch
+    # ("Switching to Slot X didn't work") - rq_slot_status.sh failure-notice
+    hint = {}
+    for line in _read(config_dir / f"slot-{slot}-updated").splitlines():
+        key, sep, value = line.partition('=')
+        if sep:
+            hint[key.strip()] = value.strip()
     lines = [f"slot={slot}", f"reason={reason}",
-             f"time={time.strftime('%Y-%m-%d %H:%M:%S')}"]
+             f"time={time.strftime('%Y-%m-%d %H:%M:%S')}",
+             f"update={'yes' if (config_dir / f'slot-{slot}-updated').exists() else 'no'}"]
+    version = version or hint.get('version', '')
     if version:
         lines.append(f"version={version}")
     try:
@@ -535,8 +547,7 @@ def confirm_boot_slot() -> bool:
                 )
                 record_failed_switch(
                     BOOT_CONFIG_DIR, target_slot,
-                    f"Slot {target_slot} was tried twice without success; "
-                    f"Slot {current_slot} is running again")
+                    f"Slot {target_slot} was tried twice without success")
             else:
                 for name in ('target-slot', 'switch-retries', FAILED_NOTICE):
                     try:

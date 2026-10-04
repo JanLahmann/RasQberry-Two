@@ -132,6 +132,27 @@ def test_fail_probation_records_clears_and_reboots(hc):
     assert hc.reboots == [True]
 
 
+def test_a_failed_first_start_after_an_update_is_recorded_as_an_update(hc):
+    # rq_update_slot.sh left slot-B-updated: "The update of Slot B ... didn't work"
+    _switch_pending(hc.config, "B")
+    (hc.config / "slot-B-updated").write_text("version=beta-2026-10-15-101010\ntag=x\n")
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed")
+    notice = (hc.config / "last-switch-failed").read_text()
+    assert "update=yes\n" in notice
+    assert "version=beta-2026-10-15-101010\n" in notice       # from the hint
+    assert (hc.config / "slot-B-updated").exists()            # until a good start
+
+
+def test_a_failed_plain_switch_is_recorded_as_a_switch(hc):
+    # no hint: a switch to a slot that had started well before
+    _switch_pending(hc.config, "B")
+    (hc.config / "slot-A-updated").write_text("version=x\n")   # another slot's hint
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed", "development-2026-10-04-040217")
+    notice = (hc.config / "last-switch-failed").read_text()
+    assert "update=no\n" in notice
+    assert "version=development-2026-10-04-040217\n" in notice
+
+
 def test_fail_probation_never_reboots_into_itself(hc):
     _switch_pending(hc.config, "B", autoboot=AUTOBOOT_B_DEFAULT)
     assert hc.fail_probation(hc.config, "B", "x") == "no-rollback-target"
@@ -211,7 +232,8 @@ def test_exhausted_retry_leaves_a_notice_and_confirms_the_working_slot(hc, monke
     monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p5")
     assert hc.confirm_boot_slot() is True
     notice = (hc.config / "last-switch-failed").read_text()
-    assert "Slot B was tried twice without success; Slot A is running again" in notice
+    assert "reason=Slot B was tried twice without success\n" in notice
+    assert "update=no\n" in notice
     assert not (hc.config / "target-slot").exists()
 
 

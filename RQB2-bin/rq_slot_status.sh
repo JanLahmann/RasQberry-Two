@@ -17,12 +17,17 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #                   runs it at every start; /run is empty after a restart.
 #                   It is a snapshot: switch, confirm and rollback change
 #                   files on /boot/config, which the indicator reads live.
-#   failure-notice  The one sentence about a failed update, if
-#                   /boot/config/last-switch-failed is there, e.g.
+#   failure-notice  The one sentence about a failed update or switch, if
+#                   /boot/config/last-switch-failed is there:
 #                   "The update of Slot B to <version> didn't work, so Slot A
-#                   (<version>) is running again." Prints nothing otherwise.
-#                   Quick: never mounts anything. rq_slot_indicator.py words
-#                   it the same way (failure_text).
+#                   (<version>) is running again." when an update had written
+#                   Slot B (update=yes in the notice, from the slot-B-updated
+#                   hint rq_update_slot.sh leaves; a notice without update= is
+#                   from an older health check and counts as an update), else
+#                   "Switching to Slot B didn't work, so Slot A (<version>) is
+#                   running again." Prints nothing without a notice. Quick:
+#                   never mounts anything. rq_slot_indicator.py words it the
+#                   same way (failure_text).
 #
 # Usage: rq_slot_status.sh write | failure-notice
 # Environment (tests): RQ_SLOT_STATUS_FILE, RQ_BOOT_COMMON_DIR, RQ_VERSION_FILE,
@@ -107,7 +112,7 @@ cmd_write() {
 }
 
 cmd_failure_notice() {
-    local file="${CONFIG_DIR}/last-switch-failed" failed reason new current version head
+    local file="${CONFIG_DIR}/last-switch-failed" failed reason new current version head update
     [ -f "$file" ] || return 0
     failed=$(kv_file "$file" slot)
     reason=$(kv_file "$file" reason)
@@ -126,7 +131,12 @@ cmd_failure_notice() {
         fi
         case "$new" in EMPTY|INCOMPLETE|UNKNOWN|SYSTEM) new="" ;; esac
     fi
-    head="The update of Slot ${failed}${new:+ to $new}"
+    update=$(kv_file "$file" update)
+    if [ "$update" = "no" ]; then
+        head="Switching to Slot ${failed}"
+    else
+        head="The update of Slot ${failed}${new:+ to $new}"
+    fi
     if [ "$failed" = "$current" ]; then
         if [ -n "$reason" ]; then
             echo "${head} didn't work: ${reason}."

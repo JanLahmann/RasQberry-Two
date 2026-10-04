@@ -31,7 +31,9 @@ standard image. A fresh Slot A has about 7.2GiB of its 10GiB in use.
 
 CONFIG also holds `ab-layout` (`pending` / `dual` / `single` / `resume-*`), the
 opt-out file `no-auto-expand` if someone made one, `slot-<A|B>-incomplete`
-while a slot is written, and `last-switch-failed` after a rolled-back switch.
+while a slot is written, `slot-<A|B>-updated` from a finished update until
+that slot's first good start, and `last-switch-failed` after a rolled-back
+switch.
 `/usr/config` is not shared: it lives on each slot's root.
 
 ## First boot
@@ -263,7 +265,7 @@ standard image and in single-system mode.
 |---|---|
 | green | confirmed: this slot is the start slot |
 | amber | a new system is being checked (trial start), or the other slot starts at the next restart |
-| red with "!" | the last update didn't work and the Pi went back; red until the menu has been opened once |
+| red with "!" | the last update or switch didn't work and the Pi went back; red until the menu has been opened once |
 | blue dot | a newer release is available for this Pi |
 
 Hover shows the slot, its state and version; a click or tap opens the menu:
@@ -275,10 +277,16 @@ the only stable or beta system on the card (the rules of
 `tests/unit/data/plan_update_cases.json` tests both). It never installs: its
 **Install into Slot X…** button opens Software & Image Updates. While the
 running slot is on trial, or the next restart starts the other slot (exit code
-28), the window says updates wait and has no Install button. Two popups appear once each: a failed update (the
-same sentence as System Info, `rq_slot_manager.sh status` and the SSH login)
-and a new release. An SSH or console login shows the release as one line
-(`/var/lib/rasqberry/update-notice`, written by `rasqberry-update-check.timer`).
+28), the window says updates wait and has no Install button.
+
+Two popups appear once each: a new release, and a failed update or switch in
+the same sentence as System Info, `rq_slot_manager.sh status` and the SSH
+login. After an update (`slot-<X>-updated`, recorded as `update=yes` in
+`last-switch-failed`): "The update of Slot B to <version> didn't work, so Slot
+A (<version>) is running again." After a plain switch: "Switching to Slot B
+didn't work, so Slot A (<version>) is running again." An SSH or console login
+shows a new release as one line (`/var/lib/rasqberry/update-notice`, written
+by `rasqberry-update-check.timer`).
 
 Only root can look into the other slot, so the health check writes
 `/run/rasqberry/slot-status` at every start (`rq_slot_status.sh write`); the
