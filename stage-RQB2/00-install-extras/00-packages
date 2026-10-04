@@ -19,3 +19,6 @@ jq
 curl
 # partition management for A/B boot expansion (RQB2 menu)
 parted
+# the QR code of the Workshop & Qiskit Server address (rq_doqumentation.sh);
+# the image has only the library (libqrencode4), not the command
+qrencode

@@ -255,6 +255,30 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
 
 
 @needs_bash
+def test_qr_code_comes_last_and_fits_an_80x24_window(doq, tmp_path):
+    # qrencode is the command (package qrencode), not just the library: a
+    # version-2 code with margin 2 is 29 columns by 15 lines
+    qr = "\n".join(["#" * 29] * 15)
+    args = tmp_path / "qrencode.args"
+    _exe(tmp_path / "stubs" / "qrencode", f'#!/bin/sh\necho "$*" > "{args}"\nprintf "%s\\n" "{qr}"\n')
+    proc, _calls = doq(running=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert args.read_text().strip() == "-t ANSIUTF8 -m 2 http://192.168.1.5:8080/"
+    out = proc.stdout.splitlines()
+    caption = out.index("Participants can also scan this code: http://192.168.1.5:8080/")
+    # last, after the notes and the browser (or ssh -L) hint: the code and the
+    # lines after it fit a 24-line window
+    assert caption > max(i for i, line in enumerate(out) if "ssh -N -L" in line or "Open in Lab" in line)
+    assert len(out) - caption <= 20
+    assert all(len(line) <= 80 for line in out[caption:])
+    # a fresh start, too; not in solo mode
+    proc, _calls = doq(running=False)
+    assert "Participants can also scan this code" in proc.stdout
+    proc, _calls = doq(running=True, args=["--solo"], mode="solo")
+    assert "scan this code" not in proc.stdout
+
+
+@needs_bash
 def test_solo_mode_is_for_this_pi_only(doq):
     proc, calls = doq(running=False, args=["--solo"])
     assert proc.returncode == 0, proc.stdout + proc.stderr

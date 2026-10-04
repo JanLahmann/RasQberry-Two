@@ -121,6 +121,21 @@ participant_urls() {
 # Item 19: what the server means for this Pi, precise and calm
 TRUST_SHORT="Anyone on this network can open these addresses and run code on this Pi: use a network you trust, not public Wi-Fi. Restarting the server restores the original notebooks."
 
+# A QR code of the first LAN address, for phones and tablets: 29 columns by
+# 15 lines (margin 2). Shown last, just above the Enter prompt, so that it
+# fits an 80x24 window whole. Needs the qrencode command (package qrencode);
+# without it, or without a LAN address, nothing.
+print_qr() {
+    local url
+    command -v qrencode >/dev/null 2>&1 || return 0
+    url=$(participant_urls "$1" | sed -n 2p) || url=""
+    [ -n "$url" ] || return 0
+    echo
+    echo "Participants can also scan this code: $url"
+    qrencode -t ANSIUTF8 -m 2 "$url" 2>/dev/null || true
+    echo
+}
+
 # Print where everyone finds the server; LAB_URL only for this window
 print_addresses() {
     local port="$1" lab_url="$2" url
@@ -130,9 +145,6 @@ print_addresses() {
     echo "Participants open one of these addresses (same network as this Pi):"
     participant_urls "$port" | while IFS= read -r url; do echo "    $url"; done
     echo "On this Pi: http://localhost:${port}/"
-    if command -v qrencode >/dev/null 2>&1; then
-        qrencode -t ANSIUTF8 "$(participant_urls "$port" | sed -n 2p)" 2>/dev/null || true
-    fi
     echo
     echo "Teacher only - JupyterLab with every notebook (on this Pi or through ssh -L):"
     echo "    $lab_url"
@@ -223,6 +235,7 @@ if rq_docker_running "$CONTAINER_NAME"; then
                 info "A different doQumentation version is selected; Restart the server to use it."
             fi
             rq_show_url "http://127.0.0.1:${site_port}/" "$site_port"
+            if [ "$RUNNING_MODE" = "workshop" ]; then print_qr "$site_port"; fi
             if [ -t 0 ]; then
                 echo "This window did not start the server: closing it keeps the server running."
                 echo "Press Enter to close this window."
@@ -362,6 +375,7 @@ if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; 
 fi
 
 rq_show_url "$SITE_URL" "$SITE_PORT"
+if [ "$MODE" = "workshop" ]; then print_qr "$SITE_PORT"; fi
 
 # ---------------------------------------------------------------------------
 # This window started the server: only it offers to stop it (R-145)
