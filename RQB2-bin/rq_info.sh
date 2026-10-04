@@ -247,9 +247,13 @@ else
     esac
 fi
 
-# A failed update, in the words of the slot manager and the taskbar (#242)
+# A failed update or switch, in the words of the slot manager and the taskbar (#242)
 if [ "$image_type" = "A/B" ] && [ -x "$(dirname "$manager")/rq_slot_status.sh" ]; then
     failed_update=$("$(dirname "$manager")/rq_slot_status.sh" failure-notice 2>/dev/null || true)
-    [ -n "$failed_update" ] && echo "Last update:       $failed_update"
+    case "$failed_update" in
+        "")          ;;
+        Switching*)  echo "Last switch:       $failed_update" ;;
+        *)           echo "Last update:       $failed_update" ;;
+    esac
 fi
 exit 0

@@ -110,6 +110,27 @@ def test_slot_manager_status_says_when_a_plain_switch_failed(card):
     assert "The update of" not in proc.stderr
 
 
+@pytest.mark.parametrize("update,label,sentence", [
+    ("yes", "Last update:", "The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A "
+                            "(beta-2026-09-30-221656) is running again."),
+    ("no", "Last switch:", "Switching to Slot B didn't work, so Slot A (beta-2026-09-30-221656) "
+                           "is running again."),
+])
+def test_system_info_names_a_failed_update_or_switch(card, update, label, sentence):
+    _system(card["b"], "beta-2026-10-15-101010")
+    (card["config"] / "last-switch-failed").write_text(
+        f"slot=B\nreason=x\ntime=2026-10-15 10:00:00\nupdate={update}\n"
+        "version=beta-2026-10-15-101010\n")
+    (card["tmp"] / "version").write_text("beta-2026-09-30-221656\n")
+    env = dict(card["env"], RQ_VERSION_FILE=str(card["tmp"] / "version"),
+               RQ_SLOT_STATUS_FILE=str(card["tmp"] / "no-status"),
+               RQ_BUILD_JSON=str(card["tmp"] / "none.json"))
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_info.sh")], capture_output=True,
+                          text=True, env=env, stdin=subprocess.DEVNULL, timeout=60)
+    lines = [l for l in proc.stdout.splitlines() if l.startswith(("Last update:", "Last switch:"))]
+    assert lines == [f"{label:<19}{sentence}"], proc.stdout + proc.stderr
+
+
 # ---------------------------------------------------------------------------
 # The login line: 7 days, or until the taskbar menu was opened (Jan, 2026-10-04)
 # ---------------------------------------------------------------------------
