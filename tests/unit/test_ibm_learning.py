@@ -162,3 +162,11 @@ def test_welcome_and_readme_point_to_the_menu():
     readme = _read(_CFG, "my-quantum-programs", "README.md")
     assert "**IBM Quantum account** → **Save my API key**" in readme
     assert "begin with a notebook that saves the key" not in readme
+
+
+def test_tutorials_and_courses_open_their_own_workspace():
+    # one folder, two JupyterLabs: Courses opened with the tab Tutorials left
+    for name, demo, nb in (("rq_ibm_tutorials.sh", "ibm-tutorials", "WELCOME-tutorials.ipynb"),
+                           ("rq_ibm_courses.sh", "ibm-courses", "WELCOME-courses.ipynb")):
+        text = _read(_BIN, name)
+        assert f'/lab/workspaces/{demo}/tree/{nb}?token=' in text, name
