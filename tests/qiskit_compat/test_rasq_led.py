@@ -3,7 +3,8 @@ RasQ-LED (RQB2-bin/RasQ-LED.py) under the installed Qiskit, without LEDs.
 
 Builds and runs every entanglement pattern the demo loop shows and checks the
 physics (inside each entangled block all qubits agree), then runs one full
-cycle through RasQ-LED-display.py with frames going to a temp mmap file.
+cycle through the display functions of RasQ-LED-display.py (in-process, on
+one strip for the whole run) with frames going to a temp mmap file.
 """
 
 import importlib.util
@@ -40,7 +41,7 @@ def test_every_entanglement_pattern(rasq_led):
 
 
 def test_display_cycle_through_virtual_leds(rasq_led, led_env):
-    """run_circuit() end to end: simulate, then RasQ-LED-display.py writes the frame."""
+    """run_circuit() end to end: simulate, then the display functions write the frame."""
     rasq_led.display_timeout = 1
     assert rasq_led.run_circuit(rasq_led.n_qbit)
     assert led_env.mmap.exists() and led_env.mmap.stat().st_size > 0
