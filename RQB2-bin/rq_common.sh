@@ -608,6 +608,30 @@ Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
     return 1
 }
 
+# An LED layout id (LED_LAYOUT) in plain words, for what the person reads
+# (#29: "Saved: LED_LAYOUT = quad-4x12" was a variable name). The wizard names
+# a flipped kit layout <id>-flipy/-flipx/-rot180 and its own one custom-WxH.
+# Usage: rq_led_layout_name quad-4x12   ->  four 4x12 panels
+rq_led_layout_name() {
+    local id="$1" base turn=""
+    case "$id" in
+        *-flipy)  base="${id%-flipy}";  turn=", mounted upside down" ;;
+        *-flipx)  base="${id%-flipx}";  turn=", mounted mirrored" ;;
+        *-rot180) base="${id%-rot180}"; turn=", rotated 180°" ;;
+        *)        base="$id" ;;
+    esac
+    case "$base" in
+        single-24x8)   echo "one 24x8 panel$turn" ;;
+        quad-4x12)     echo "four 4x12 panels$turn" ;;
+        quad-2x2-12x4) echo "four 4x12 panels, mounted upside down" ;;
+        triple-8x8)    echo "three 8x8 panels$turn" ;;
+        single-8x32)   echo "one 32x8 panel$turn" ;;
+        custom-*)      echo "your own layout (${base#custom-})$turn" ;;
+        "")            echo "not set" ;;
+        *)             echo "$id" ;;
+    esac
+}
+
 # Run a command so that it finishes even if this script is killed: when a
 # demo's window is closed, script(1) (rq_hold_on_error.sh) asks the demo to
 # stop and kills it 2 s later. A cleanup that took longer - stopping a

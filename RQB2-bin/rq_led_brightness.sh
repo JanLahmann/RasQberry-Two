@@ -175,6 +175,13 @@ A brighter panel draws more current. If the panel stops with a weak power supply
         bright "Bright (0.6): needs the 27 W supply" \
         3>&1 1>&2 2>&3) || return 0
     set_level "$pick"
+    # One line to confirm (#29): the menu used to come straight back
+    local label
+    case "$pick" in
+        low) label="Low (0.2)" ;; medium) label="Medium (0.3)" ;;
+        normal) label="Normal (0.4)" ;; bright) label="Bright (0.6)" ;;
+    esac
+    show_msgbox "LED brightness" "Saved: ${label}. LED demos use it from their next start." 8 64
 }
 
 case "${1:-}" in

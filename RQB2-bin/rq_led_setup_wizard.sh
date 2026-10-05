@@ -71,7 +71,7 @@ WORKDIR="$(mktemp -d)"
 # Render errors go here, never to the terminal: the logo alternator runs in the
 # background while a whiptail question is on screen, and its warnings were
 # printed straight across the dialog.
-WIZ_LOG="/var/log/rasqberry-led-wizard.log"
+WIZ_LOG="${RQ_WIZ_LOG:-/var/log/rasqberry-led-wizard.log}"
 ANSWERS_FILE="${WORKDIR}/answers.json"
 
 # Render-hold state (fix F1, plan Sec 7): in the default LED_RENDER_MODE=direct
@@ -120,6 +120,7 @@ cleanup() {
     # word here the wizard appears to sit silently and then vanish.
     echo "Clearing the panel and finishing up..."
     stop_logo_alternator 2>/dev/null || true
+    stop_ip_scroll 2>/dev/null || true
     run_probe clear || true
     stop_render_hold
     reap_virtual_gui
@@ -480,24 +481,20 @@ EOF
 # Diagnostic-only mode: infer, compare against current config, report, no write.
 # ----------------------------------------------------------------------------
 run_diagnostic() {
-    local json inferred count current
+    local json inferred count
     if ! json=$(python3 "${INFER}" "${INFER_SRC_ARGS[@]}" --json 2>"${WORKDIR}/err"); then
         show_msgbox "Check Failed" "$(cat "${WORKDIR}/err")"
         return 1
     fi
     inferred=$(printf '%s' "${json}" | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' | head -1)
     count=$(printf '%s' "${json}" | sed -n 's/.*"count": *\([0-9]*\).*/\1/p' | head -1)
-    current="${LED_LAYOUT:-<unset>}"
 
     show_msgbox "LED Wiring Check" \
-"From what you saw:
-  layout : ${inferred}
-  LEDs   : ${count}
+"From what you saw: $(rq_led_layout_name "${inferred}") (${count} LEDs)
 
-Saved now:
-  LED_LAYOUT = ${current}
+Saved now: $(rq_led_layout_name "${LED_LAYOUT:-}")
 
-Nothing was changed. To save it, run the wizard again and choose the first option." 15 66
+Nothing was changed. To save it, run the wizard again and choose the first option." 14 66
 }
 
 # ----------------------------------------------------------------------------
@@ -532,19 +529,49 @@ $(cat "${WORKDIR}/err")"
     update_env_var "LED_LAYOUT" "${name}"
     mark_layout_verified
 
+    # The address scroll in the saved layout while the message is up: the
+    # person sees it readable now, not only at the next start (#29)
+    local plain scroll_note=""
+    plain=$(rq_led_layout_name "${name}")
+    start_ip_scroll && scroll_note="
+The panel shows this Pi's address once, in this layout."
     if [ "${status}" = "PRESET" ]; then
         show_msgbox "LED Panel Set Up" \
-"Saved: LED_LAYOUT = ${name}
-
-LED demos use it from their next start." 11 60
+"Saved: ${plain}
+${scroll_note}
+LED demos use it from their next start." 12 64
     else
         show_msgbox "LED Panel Set Up" \
 "No built-in layout matched, so yours was saved as a custom layout (in ~/.local/config/led-layouts.json):
 
-  LED_LAYOUT = ${name}
-
-LED demos use it from their next start." 13 66
+  ${plain}
+${scroll_note}
+LED demos use it from their next start." 14 66
     fi
+    stop_ip_scroll
+}
+
+# ----------------------------------------------------------------------------
+# One pass of the start-up address scroll (rq_display_ip.py --once) in the
+# layout just saved, in the background while the "Saved" message is up (#29).
+# It draws through the render-hold renderer like every probe, so it holds no
+# GPIO of its own; stop_ip_scroll ends it (bounded) and clears the panel, so
+# nothing is left on the panel or holding it for the next demo.
+# ----------------------------------------------------------------------------
+IP_SCROLL_PID=""
+start_ip_scroll() {
+    local disp="${SCRIPT_DIR}/rq_display_ip.py"
+    [ -f "${disp}" ] || return 1
+    python3 "${disp}" --once >>"${WIZ_LOG}" 2>&1 &
+    IP_SCROLL_PID=$!
+    return 0
+}
+stop_ip_scroll() {
+    local pid="${IP_SCROLL_PID}"
+    [ -n "${pid}" ] || return 0
+    IP_SCROLL_PID=""
+    kill_child_bounded "${pid}"
+    run_probe clear || true
 }
 
 # ----------------------------------------------------------------------------

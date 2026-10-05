@@ -1116,7 +1116,8 @@ run_led_demo() {
 }
 
 # "Turn off all LEDs" / "Clear LEDs": a program that still holds the panel is
-# named and, if the person agrees, stopped first. Says so when it fails.
+# named and, if the person agrees, stopped first. Says so when it fails, and
+# when it worked (#29: the menu came straight back without a word).
 do_led_clear() {
   _lc_h=$(_rq_led_holders)
   if [ -n "$_lc_h" ]; then
@@ -1129,7 +1130,8 @@ do_led_clear() {
     fi
     "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
   fi
-  do_led_off
+  do_led_off || return 1
+  whiptail --title "LEDs" --msgbox "All LEDs are off." 8 40
 }
 
 # -----------------------------------------------------------------------------

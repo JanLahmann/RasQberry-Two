@@ -438,3 +438,151 @@ def test_checklist_is_marked_only_after_an_answer():
     desktop = text[text.index('if [ "$MODE" = "desktop" ]; then'):text.index("# Collect what is pending")]
     assert "mark_shown\n    term=" not in desktop
     assert "0|1|255) [ \"$MODE\" = \"all\" ] || mark_shown" in text
+
+
+# ---------------------------------------------------------------------------
+# #29: plain words after the LED check, brightness and Clear LEDs; the address
+# scroll once in the saved layout
+# ---------------------------------------------------------------------------
+
+_COMMON = os.path.join(_BIN, "rq_common.sh")
+
+
+@pytest.mark.parametrize("layout,words", [
+    ("single-24x8", "one 24x8 panel"),
+    ("quad-4x12", "four 4x12 panels"),
+    ("quad-2x2-12x4", "four 4x12 panels, mounted upside down"),
+    ("triple-8x8", "three 8x8 panels"),
+    ("single-8x32", "one 32x8 panel"),
+    ("single-24x8-flipy", "one 24x8 panel, mounted upside down"),
+    ("quad-4x12-flipx", "four 4x12 panels, mounted mirrored"),
+    ("custom-24x8", "your own layout (24x8)"),
+])
+def test_layout_ids_have_plain_names(layout, words):
+    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_led_layout_name "$1"', "_", layout],
+                         capture_output=True, text=True).stdout.strip()
+    assert out == words
+
+
+def test_every_shipped_layout_has_a_plain_name():
+    import json
+    with open(os.path.join(_ROOT, "RQB2-config", "led-layouts.json")) as fh:
+        ids = [k for k in json.load(fh) if not k.startswith("_")]
+    for layout in ids:
+        out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_led_layout_name "$1"', "_", layout],
+                             capture_output=True, text=True).stdout.strip()
+        assert out != layout and "panel" in out, layout
+
+
+def _exec(path, text):
+    path.write_text(text)
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+
+@pytest.fixture
+def wizard(tmp_path):
+    """The LED wizard's functions (main not run) with stub python3/whiptail."""
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "calls.log"
+    wt = tmp_path / "wt.log"
+    _exec(stubs / "id", 'if [ "$1" = -u ]; then echo 0; else exec /usr/bin/id "$@"; fi\n')
+    _exec(stubs / "sudo", '[ "$1" = -n ] && shift\nexec "$@"\n')
+    _exec(stubs / "whiptail", f'{{ for a in "$@"; do printf "%s\\n" "$a"; done; echo @@; }} >> "{wt}"\n'
+                              'exit "${WT_RC:-0}"\n')
+    # python3: the infer step names the layout; the address scroll runs until stopped
+    _exec(stubs / "python3", f'''#!/bin/bash
+case "$1" in
+  *rq_led_wizard_infer.py) echo "PRESET ${{WIZ_LAYOUT:-quad-4x12}}" ;;
+  *rq_display_ip.py) echo "scroll $*" >> "{log}"; trap 'echo scroll-stopped >> "{log}"; exit 0' TERM
+                     sleep 30 & wait ;;
+  *rq_led_wizard_probe.py) echo "probe $*" >> "{log}" ;;
+  *) exec /usr/bin/env -i PATH=/usr/bin:/bin python3 "$@" ;;
+esac
+''')
+    env_file = tmp_path / "rasqberry_environment.env"
+    env_file.write_text(open(_ENV).read())
+    env_config = tmp_path / "env-config.sh"
+    env_config.write_text(open(os.path.join(_ROOT, "RQB2-config", "rasqberry_env-config.sh")).read()
+                          .replace("/usr/config/rasqberry_environment.env", str(env_file)))
+    body = open(os.path.join(_BIN, "rq_led_setup_wizard.sh")).read().replace('\nmain "$@"', "\n")
+    (tmp_path / "bin").mkdir()
+    shutil.copy(_COMMON, tmp_path / "bin" / "rq_common.sh")
+    (tmp_path / "bin" / "wizard.sh").write_text(body)
+    for name in ("rq_display_ip.py", "rq_led_wizard_infer.py", "rq_led_wizard_probe.py"):
+        (tmp_path / "bin" / name).write_text("# stub\n")
+
+    def run(code, extra=None):
+        env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_CONFIG_FILE=str(env_config),
+                   RQ_ENV_FILE=str(env_file), RQ_WIZ_LOG=str(tmp_path / "wizard.log"),
+                   HOME=str(tmp_path))
+        env.update(extra or {})
+        return subprocess.run(["bash", "-c", f'. "{tmp_path}/bin/wizard.sh"\n{code}'],
+                              capture_output=True, text=True, env=env, timeout=60)
+
+    run.log = log
+    run.wt = wt
+    run.env_file = env_file
+    return run
+
+
+def test_saved_says_the_kit_in_words_and_scrolls_the_address(wizard):
+    proc = wizard("INFER_SRC_ARGS=(--standard quad-4x12); run_setup; echo RC=$?")
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    dialog = wizard.wt.read_text()
+    assert "Saved: four 4x12 panels" in dialog
+    assert "LED_LAYOUT" not in dialog
+    assert "shows this Pi's address once" in dialog
+    calls = wizard.log.read_text().splitlines()
+    scroll = [i for i, c in enumerate(calls) if c.startswith("scroll")]
+    assert scroll and "--once" in calls[scroll[0]]
+    # stopped when the message is closed, and the panel cleared after that
+    stopped = calls.index("scroll-stopped")
+    assert any(c.startswith("probe") and "--pattern clear" in c for c in calls[stopped:])
+    assert _env_value(wizard.env_file, "LED_LAYOUT") == "quad-4x12"
+    assert _env_value(wizard.env_file, "LED_LAYOUT_VERIFIED") == "true"
+
+
+def test_wiring_check_names_the_kits_in_words(wizard):
+    code = ('python3() { echo \'{"name": "single-24x8", "count": 192}\'; }; '
+            'LED_LAYOUT=quad-4x12; INFER_SRC_ARGS=(--standard single-24x8); run_diagnostic')
+    wizard(code)
+    dialog = wizard.wt.read_text()
+    assert "From what you saw: one 24x8 panel (192 LEDs)" in dialog
+    assert "Saved now: four 4x12 panels" in dialog and "LED_LAYOUT" not in dialog
+
+
+def test_ip_scroll_once_is_one_pass_in_the_saved_layout(env_file, monkeypatch):
+    ip = _display_ip()
+    env_file("LED_LAYOUT=quad-4x12\nLED_LAYOUT_VERIFIED=true\n")
+    passes = []
+    monkeypatch.setattr(ip, "create_neopixel_strip", lambda *a, **k: _Strip(192))
+    monkeypatch.setattr(ip, "display_scrolling_text",
+                        lambda pixels, text, scroll_speed, passes=None, layout=None:
+                        passes_seen.append((passes, layout)))
+    passes_seen = passes
+    monkeypatch.setattr(ip, "get_ip_addresses", lambda: ["eth0: 10.0.0.7"])
+    monkeypatch.setattr(ip, "get_network_name", lambda: "rasq.local")
+    monkeypatch.setattr(ip, "record_shown", lambda a: pytest.fail("--once must not record"))
+    monkeypatch.setattr(sys, "argv", ["rq_display_ip.py", "--once"])
+    import signal
+    saved = signal.getsignal(signal.SIGTERM)
+    try:
+        ip.main()
+    finally:
+        signal.signal(signal.SIGTERM, saved)
+    assert passes == [(1, "quad-4x12")]
+
+
+def test_brightness_and_clear_say_saved(menu_env):
+    # Brightness: one line after choosing (rq_led_brightness.sh)
+    text = open(os.path.join(_BIN, "rq_led_brightness.sh")).read()
+    assert 'Saved: ${label}. LED demos use it from their next start.' in text
+    # Clear LEDs in the menu: one line when it worked, none when it failed
+    proc = menu_env("_rq_led_holders() { :; }; do_led_off() { return 0; }; do_led_clear; echo RC=$?")
+    assert "RC=0" in proc.stdout and "All LEDs are off." in _texts(menu_env)
+    proc = menu_env("_rq_led_holders() { :; }; do_led_off() { return 1; }; do_led_clear; echo RC=$?")
+    assert "RC=1" in proc.stdout
+    # The desktop icon's window stays long enough to read it
+    clear = open(os.path.join(_BIN, "rq_clear_leds.sh")).read()
+    assert 'sleep "${RQ_CLEAR_LEDS_PAUSE:-2}"' in clear
