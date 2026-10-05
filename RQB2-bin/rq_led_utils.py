@@ -918,14 +918,30 @@ def cap_brightness(brightness, config=None):
 #   skipped (the demo keeps its pace) and retried every few seconds. The person
 #   is told once, and a note in /var/tmp lets the launcher offer a lower
 #   brightness afterwards (rq_led_brightness.sh --after-stall).
+#
+# Hand-overs (#5): on the rig the stalls came where one program followed
+# another - the clear after every demo, Clear All LEDs, a demo stop. Two
+# things there:
+# - A program opened the PIO while the previous one still had it (the
+#   stopped demo's own clear next to Clear All's): "GPIO busy", a retry, or
+#   both on the panel at once. So a program waits until no other one has
+#   /dev/pio0 open before it opens it (_wait_for_free_pio).
+# - The first frame after the PIO opens timed out now and then (about one
+#   open in 60 on the rig, 0.1 s or minutes after the previous program);
+#   opening it again cured it at once. That is the driver starting, not a
+#   stall: it is recovered without a message or a note, so no stall dialog
+#   blames the power supply for it.
 
 LED_STALL_SECONDS = 0.5           # a 192-LED frame takes about 6 ms
 LED_STALL_RETRY_SECONDS = 10.0    # while stuck, try to reopen this often
 LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
+LED_HANDOVER_WAIT_SECONDS = 5.0   # longest wait for the previous program to let go
 LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
+PIO_DEVICE = "/dev/pio0"
 
 _stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
-                'last_write': 0.0, 'counted': False, 'brightness': None}
+                'last_write': 0.0, 'counted': False, 'brightness': None,
+                'opened': False}
 
 
 def _record_led_stall(recovered):
@@ -990,6 +1006,60 @@ def _wait_for_last_frame():
         time.sleep(left)
 
 
+def _pio_holders():
+    """
+    PIDs of the other processes that have the Pi 5 LED driver open.
+
+    Sees every process when run as root (the LED demos), otherwise the
+    person's own ones.
+
+    Returns:
+        list[int]: the PIDs, empty when the driver is free.
+    """
+    me = os.getpid()
+    held = []
+    try:
+        pids = [int(p) for p in os.listdir('/proc') if p.isdigit()]
+    except OSError:
+        return held
+    for pid in pids:
+        if pid == me:
+            continue
+        fd_dir = f'/proc/{pid}/fd'
+        try:
+            fds = os.listdir(fd_dir)
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink(f'{fd_dir}/{fd}') == PIO_DEVICE:
+                    held.append(pid)
+                    break
+            except OSError:
+                continue
+    return held
+
+
+def _wait_for_free_pio(timeout=None):
+    """
+    Wait until no other program has the Pi 5 LED driver open (#5).
+
+    Bounded (LED_HANDOVER_WAIT_SECONDS): a program that keeps the panel is
+    named by the launchers (led_panel_ready) and reported by the driver.
+
+    Returns:
+        bool: True when the driver is free.
+    """
+    if not os.path.exists(PIO_DEVICE):
+        return True
+    deadline = time.monotonic() + (LED_HANDOVER_WAIT_SECONDS if timeout is None else timeout)
+    while _pio_holders():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
 def _guarded_pi5_write(write, reopen):
     """
     Wrap the Pi 5 frame writer: notice stalls, reopen the driver, finish frames.
@@ -1024,11 +1094,19 @@ def _guarded_pi5_write(write, reopen):
                 state['stuck_since'] = None
                 print("LED panel: the LED driver works again.", file=sys.stderr)
             return
+        first = not state['opened']
+        state['opened'] = True
         if timed(pin, buf):
             if sys.is_finalizing():
                 _wait_for_last_frame()
             return
         recovered = reopen_and_write(pin, buf)
+        if first and recovered:
+            # The driver's start, not a stall (see above)
+            if os.environ.get('RQ_DEBUG') == '1':
+                print("LED panel: the LED driver's first frame timed out; "
+                      "opened it again", file=sys.stderr)
+            return
         _record_led_stall(recovered)
         _count_led_stall()
         if recovered:
@@ -1114,6 +1192,8 @@ def guard_pi5_led_writes():
         return False
     if getattr(current, '_rq_stall_guard', False):
         return True
+    # Before this program opens the PIO: the previous one lets go first
+    _wait_for_free_pio()
     neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
     import atexit
     atexit.register(_wait_for_last_frame)

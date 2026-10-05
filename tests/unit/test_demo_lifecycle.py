@@ -332,6 +332,64 @@ def test_a_stuck_driver_skips_writes_and_retries(monkeypatch, tmp_path, capsys):
     assert mod._stall_state["stuck_since"] is None
 
 
+def test_a_first_frame_timeout_is_recovered_quietly(monkeypatch, tmp_path, capsys):
+    """The driver's first frame after it opens timed out now and then on the
+    rig, whatever came before; reopening cured it. No message and no note:
+    no stall dialog blames the power supply for it (#5). A stall later on is
+    reported as before."""
+    mod, neo, calls = _load_led_utils(monkeypatch, tmp_path, [0.1, 0, 0, 0.1, 0])
+    buf = bytearray(576)
+    neo.neopixel_write("pin", buf)               # first frame: times out, reopened
+    assert calls["writes"] == [576, 580] and calls["freed"] == 1
+    assert not list(tmp_path.glob("stall-*"))
+    assert capsys.readouterr().err == ""
+    neo.neopixel_write("pin", buf)               # fine
+    neo.neopixel_write("pin", buf)               # a real stall
+    assert _note(tmp_path)["recovered"] == "yes"
+    assert "stalled and was restarted" in capsys.readouterr().err
+
+
+def test_a_program_waits_until_the_previous_one_let_go(monkeypatch, tmp_path):
+    """Before it opens the Pi 5 LED driver, a program waits until no other
+    one has it open (#5): the clear after a stopped demo, next to Clear All."""
+    spec = importlib.util.spec_from_file_location("rq_led_utils_c2w", os.path.join(_BIN, "rq_led_utils.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    dev = tmp_path / "pio0"
+    dev.write_text("")
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(dev))
+    holders = [[4711], [4711], []]
+    monkeypatch.setattr(mod, "_pio_holders", lambda: holders.pop(0) if len(holders) > 1 else holders[0])
+    assert mod._wait_for_free_pio(timeout=2) is True
+    assert holders == [[]]
+    monkeypatch.setattr(mod, "_pio_holders", lambda: [4711])     # never lets go
+    start = time.monotonic()
+    assert mod._wait_for_free_pio(timeout=0.2) is False
+    assert time.monotonic() - start < 1
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(tmp_path / "none"))   # no Pi 5
+    assert mod._wait_for_free_pio(timeout=0) is True
+
+
+@pytest.mark.skipif(not os.path.isdir("/proc/self/fd"), reason="needs /proc")
+def test_pio_holders_finds_a_process_with_the_driver_open(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("rq_led_utils_c2h", os.path.join(_BIN, "rq_led_utils.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    dev = tmp_path / "pio0"
+    dev.write_text("")
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(dev))
+    assert mod._pio_holders() == []
+    child = subprocess.Popen([sys.executable, "-c",
+                              f"f = open({str(dev)!r}); import time; print('ok', flush=True); time.sleep(30)"],
+                             stdout=subprocess.PIPE, text=True)
+    try:
+        assert child.stdout.readline().strip() == "ok"
+        assert mod._pio_holders() == [child.pid]
+    finally:
+        child.kill()
+        child.wait()
+
+
 def test_no_guard_on_a_pi4(monkeypatch, tmp_path):
     nw = types.ModuleType("neopixel_write")
     nw._neopixel = types.ModuleType("adafruit_blinka.microcontroller.bcm283x.neopixel")
