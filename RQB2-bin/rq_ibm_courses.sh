@@ -36,6 +36,9 @@ if [ ! -f "$DEMO_DIR/$MARKER_IBM_COURSES" ]; then
     die "IBM Quantum Courses not installed"
 fi
 
+# Only the notebooks and what they need, not the repository's own files (#18)
+rq_ibm_learning_tidy "$DEMO_DIR"
+
 info "Starting IBM Quantum Courses..."
 debug "Demo directory: $DEMO_DIR"
 debug "JupyterLab port: $PORT"
@@ -57,7 +60,9 @@ info "Using port: $PORT"
 
 # Generate token for security
 JUPYTER_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
-WELCOME_URL="http://localhost:${PORT}/lab/tree/WELCOME-courses.ipynb?token=${JUPYTER_TOKEN}"
+# Its own JupyterLab workspace: Tutorials and Courses share a folder, and
+# each opened with the tabs the other one left (#18)
+WELCOME_URL="http://localhost:${PORT}/lab/workspaces/ibm-courses/tree/WELCOME-courses.ipynb?token=${JUPYTER_TOKEN}"
 
 # Change to demo directory
 cd "$DEMO_DIR" || die "Failed to change to demo directory"

@@ -1,11 +1,11 @@
 {
   "id": "quantum-lights-out",
   "name": "Quantum Lights Out",
-  "category": "game",
-  "description": "Lights Out puzzle on the LED panel, solved by Grover's search",
+  "category": "visualization",
+  "description": "Watch Grover's search solve Lights Out puzzles on the LED panel, one after another",
   "keywords": [
     "quantum",
-    "game",
+    "grover",
     "puzzle",
     "lights",
     "qiskit",
@@ -23,9 +23,9 @@
     "marker_file": "lights_out.py",
     "patch_file": "quantum-lights-out.patch",
     "download": {
-      "what": "Lights Out game from GitHub",
+      "what": "Lights Out solver from GitHub",
       "download_mb": 1,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "installed_flag": "QUANTUM_LIGHTS_OUT_INSTALLED"
   },

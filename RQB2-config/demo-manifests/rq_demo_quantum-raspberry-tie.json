@@ -27,7 +27,7 @@
     "download": {
       "what": "Raspberry Tie program from GitHub",
       "download_mb": 24,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "installed_flag": "QUANTUM_RASPBERRY_TIE_INSTALLED"
   },

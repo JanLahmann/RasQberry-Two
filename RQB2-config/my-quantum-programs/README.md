@@ -73,10 +73,11 @@ and may change.
 
 ## Real quantum computers
 
-The programs here use simulators. To run on IBM Quantum hardware you need an
-IBM Quantum account and its API key. The **IBM Quantum Tutorials** (desktop
-icon) begin with a notebook that saves the key; after that your own programs
-can use `QiskitRuntimeService()` as the tutorials show.
+The programs here use simulators. To run on IBM Quantum hardware you need your
+own free IBM Quantum account and its API key. Save the key with the RasQberry
+menu: **IBM Quantum account** → **Save my API key** (it is checked first).
+After that your own programs can use `QiskitRuntimeService()` as the
+tutorials show.
 
 ## Extra Python packages
 

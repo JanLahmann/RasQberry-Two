@@ -315,12 +315,15 @@ clone_ibm_learning_content() {
     # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
     _ibm_ref="${GIT_REF_DEMO_IBM_LEARNING:-main}"
     [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+    # Only what the demos use (#18): in cone mode git also checks out every
+    # file at the top of the repository (package.json, tox.ini ...), and the
+    # notebooks' file browser showed those first. The same list as
+    # RQ_IBM_LEARNING_PATHS in rq_common.sh.
     if ! _rq_as_desktop_user sh -c '
         cd "$1" &&
         git init -q &&
         git remote add origin "$2" &&
-        git sparse-checkout init --cone &&
-        git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS &&
+        git sparse-checkout set --no-cone /docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS &&
         git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 fetch -q --depth=1 origin "$3" &&
         git checkout -q FETCH_HEAD' _ "$DEST" "$GIT_REPO_DEMO_IBM_LEARNING" "$_ibm_ref" \
         || ! _rq_ibm_content_ok "$DEST"; then
@@ -1323,7 +1326,8 @@ do_select_led_option() {
 do_select_qlo_option() {
     _qlo_last=""
     while true; do
-        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" "Options" \
+        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" \
+           "Grover's search solves Lights Out puzzles, one after another. Watch it on the LED panel, or as text in this window." \
            QLO  "Run Demo (LED panel)" \
            QLOC "Run Demo (console)") || break
         _qlo_last="$FUN"

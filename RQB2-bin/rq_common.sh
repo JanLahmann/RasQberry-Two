@@ -1299,6 +1299,21 @@ _rq_docker_space_note() {
     return 0
 }
 
+# The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
+# holds only what the demos use (#18). A checkout made before also held every
+# file at the top of the repository (package.json, tox.ini ...), which the
+# notebooks' file browser showed first: narrow it, with no download (the
+# files are in the clone). The same list as clone_ibm_learning_content in
+# RQB2_menu.sh.
+# Usage: rq_ibm_learning_tidy DIR
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+rq_ibm_learning_tidy() {
+    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
+    # shellcheck disable=SC2086  # one pattern per word
+    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    return 0
+}
+
 # Echo the shipped manifest directory (installed or repo checkout)
 rq_shipped_manifest_dir() {
     if [ "$_RQ_COMMON_DIR" = "/usr/bin" ]; then
@@ -1874,14 +1889,63 @@ rq_docker_fail() {
     die "$msg"
 }
 
-# Download an image, with Docker's own progress and, on failure, its own
-# reason instead of "check your internet connection" (R-038).
-# Usage: rq_docker_pull IMAGE "Name"
+# MB received so far on the network (not lo or Docker's own interfaces), for
+# a download's progress line. Empty when it cannot be told. RQ_NET_DIR: tests.
+# Usage: mb=$(rq_rx_mb)
+rq_rx_mb() {
+    local f n sum=0 any=""
+    for f in "${RQ_NET_DIR:-/sys/class/net}"/*/statistics/rx_bytes; do
+        [ -r "$f" ] || continue
+        n=${f%/statistics/rx_bytes}; n=${n##*/}
+        case "$n" in lo|docker*|br-*|veth*|virbr*) continue ;; esac
+        sum=$((sum + $(cat "$f" 2>/dev/null || echo 0)))
+        any=1
+    done
+    [ -z "$any" ] || echo $((sum / 1000000))
+}
+
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+_rq_pull_progress() {
+    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
+    rx0=$(rq_rx_mb) || rx0=""
+    while kill -0 "$parent" 2>/dev/null; do
+        got=""
+        if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+            got=$((now - rx0))
+            case "$mb" in
+                ''|*[!0-9]*|0) got="$got MB, " ;;
+                *) if [ "$got" -le "$mb" ]; then got="$got of about $mb MB, "; else got="$got MB, "; fi ;;
+            esac
+        fi
+        printf '\rDownloading %s ... %s%ds   ' "$name" "$got" $((SECONDS - start))
+        sleep 2
+    done
+}
+
+# Download an image. In a terminal one line shows the MB received so far
+# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# list of layers (#23); on failure Docker's own reason, not "check your
+# internet connection" (R-038).
+# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" err rc=0 why
-    info "Downloading $name: $image"
+    local image="$1" name="${2:-$1}" mb="${3:-}" err rc=0 why printer start
     err=$(mktemp)
-    docker pull "$image" 2> "$err" || rc=$?
+    if [ -t 1 ]; then
+        start=$SECONDS
+        # The line comes from a helper beside the pull, which stays in the
+        # foreground so that Ctrl+C stops it; the helper ends with this shell
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        printer=$!
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+        kill "$printer" 2>/dev/null || true
+        wait "$printer" 2>/dev/null || true
+        printf '\rDownloading %s ... %s                         \n' "$name" \
+            "$([ "$rc" -eq 0 ] && echo "done ($((SECONDS - start))s)" || echo failed)"
+    else
+        info "Downloading $name: $image"
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+    fi
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
     [ "$rc" -eq 0 ] && return 0
@@ -1912,6 +1976,22 @@ rq_docker_drop_old() {
     return 0
 }
 
+# The name other computers reach this Pi by: the one avahi announces. When
+# another device on the network has <hostname>.local already, avahi calls
+# this Pi <hostname>-2.local (R-063), and <hostname>.local reaches the other
+# one (#3). As rq_remote_access.sh mdns and rq_display_ip.py do.
+# Usage: name=$(rq_mdns_name)
+rq_mdns_name() {
+    local fqdn="" t=""
+    if command -v busctl >/dev/null 2>&1; then
+        command -v timeout >/dev/null 2>&1 && t="timeout 3"
+        fqdn=$($t busctl --system call org.freedesktop.Avahi / \
+            org.freedesktop.Avahi.Server GetHostNameFqdn 2>/dev/null) || fqdn=""
+        fqdn=$(printf '%s\n' "$fqdn" | sed -n 's/^s "\(.*\)"$/\1/p')
+    fi
+    echo "${fqdn:-$(hostname 2>/dev/null).local}"
+}
+
 # Open URL in the desktop user's browser (rq_open_browser: the tab stays when
 # the demo's window closes) - or, without a screen (an SSH session), say how
 # to reach it from another computer (Jan, Q19). PORT is the
@@ -1933,7 +2013,7 @@ rq_show_url() {
     if [ -n "$port" ]; then
         echo "To use the demo from your computer:"
         echo "  1. On your computer, run:"
-        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(rq_mdns_name)"
         echo "  2. Open in its browser:"
         echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
     else
