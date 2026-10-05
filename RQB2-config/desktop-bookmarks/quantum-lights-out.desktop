@@ -1,14 +1,14 @@
 [Desktop Entry]
 Version=1.1
 Name=Quantum Lights Out
-Comment=A quantum version of the classic Lights Out puzzle game using quantum circuits
+Comment=Watch Grover's search solve Lights Out puzzles on the LED panel
 Icon=applications-games
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh quantum-lights-out
 Terminal=true
 StartupNotify=true
-Keywords=quantum;game;puzzle;lights;qiskit;circuit;
+Keywords=quantum;grover;puzzle;lights;qiskit;circuit;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false

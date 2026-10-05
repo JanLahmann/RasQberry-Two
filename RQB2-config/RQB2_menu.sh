@@ -1308,7 +1308,8 @@ do_select_led_option() {
 do_select_qlo_option() {
     _qlo_last=""
     while true; do
-        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" "Options" \
+        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" \
+           "Grover's search solves Lights Out puzzles, one after another. Watch it on the LED panel, or as text in this window." \
            QLO  "Run Demo (LED panel)" \
            QLOC "Run Demo (console)") || break
         _qlo_last="$FUN"
