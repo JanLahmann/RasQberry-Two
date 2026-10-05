@@ -177,6 +177,36 @@ def test_keep_going_and_ladder_screens_fit_80x24():
         assert _lines(prompt, 74) + len(r["links"]) + 7 <= 24, r["rung"]
 
 
+# --- what the steps say matches what the demos do (user test 2026-10-04) ---------
+
+def test_first_program_avoids_the_chsh_tutorial():
+    # #1: Tutorials -> Get started holds only CHSH, which fails in Simulator
+    # Mode (upstream doQumentation); Hello World runs. Go back to Get started
+    # once doQumentation is fixed.
+    steps = [s for _, _, s in _steps() if s.get("demo") == "qiskit-tutorials"]
+    assert steps
+    for s in steps:
+        assert "Hello World" in s["try"] and "Get started" not in s["try"], s
+
+
+def test_rasq_led_step_matches_the_demo():
+    # #11: RasQ-LED asks nothing ("Choose 1, then 2"); it runs every block size
+    # by itself
+    src = open(os.path.join(_BIN, "RasQ-LED.py"), encoding="utf-8").read()
+    main = src[src.index("def main():"):]
+    assert "\n    demo_loop(" in main and "\n    interactive_mode()" not in main
+    steps = [s for _, _, s in _steps() if s.get("demo") == "rasq-led"]
+    assert steps
+    for s in steps:
+        assert "choose" not in s["try"].lower() and "watch" in s["try"].lower(), s
+
+
+def test_no_step_promises_what_the_later_steps_do_not_show():
+    # #30: "Later steps show qubits on them" (the LEDs) - none of them did
+    for p, i, s in _steps():
+        assert "later step" not in s["notice"].lower(), f"{p['id']} step {i + 1}"
+
+
 # --- where it is offered ----------------------------------------------------------
 
 def test_quantum_demos_menu_offers_the_paths_near_the_top():
