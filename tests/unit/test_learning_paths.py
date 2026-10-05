@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import textwrap
+import threading
 
 import pytest
 
@@ -165,7 +166,8 @@ def test_keep_going_and_ladder_screens_fit_80x24():
         prompt = f'Keep going after "{p["title"]}":'
         for e in p["next"]:
             prompt += f"\n\n{e.get('name') or titles[e['path']]}: {e['why']}"
-        assert _lines(prompt, 74) + len(p["next"]) + 1 + 7 <= 24, p["id"]
+        # + More ideas, + the feedback form
+        assert _lines(prompt, 74) + len(p["next"]) + 2 + 7 <= 24, p["id"]
     with open(_PATHS, encoding="utf-8") as fh:
         ladder = json.load(fh)["ladder"]
     assert 2 + len(ladder) + 7 <= 24
@@ -267,15 +269,20 @@ sys.stderr.write(reply)
 '''
 
 
-def _walk(tmp_path, replies, args=(), demo_rc=0):
-    """Run the chooser on a pty with a stub whiptail and stub demos."""
+def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False):
+    """Run the chooser on a pty with a stub whiptail and stub demos.
+
+    With tty_out, its output goes to the pty too (as in a terminal window)
+    and is returned as a fourth value; a stub demo sets its own window title.
+    """
     bin_dir = tmp_path / "RQB2-bin"
     bin_dir.mkdir()
     shutil.copy(_SCRIPT, bin_dir)
     shutil.copy(os.path.join(_BIN, "rq_common.sh"), bin_dir)
     log = tmp_path / "started.log"
     for tool in ("rq_demo_run.sh", "rq_my_programs.sh"):
-        (bin_dir / tool).write_text(f'#!/bin/sh\necho "{tool} $*" >> "{log}"\nexit {demo_rc}\n')
+        (bin_dir / tool).write_text(f'#!/bin/sh\nprintf \'\\033]0;LED Demos\\007\'\n'
+                                    f'echo "{tool} $*" >> "{log}"\nexit {demo_rc}\n')
         (bin_dir / tool).chmod(0o755)
     (tmp_path / "RQB2-config").mkdir()
     os.symlink(_MANIFESTS, tmp_path / "RQB2-config" / "demo-manifests")
@@ -290,12 +297,32 @@ def _walk(tmp_path, replies, args=(), demo_rc=0):
            "RQ_CONFIG_FILE": "/nonexistent", "WT_LOG": str(wt_log), "WT_QUEUE": str(queue)}
     master, slave = pty.openpty()
     os.write(master, b"\n" * 20)    # Enter for every "Press Enter" pause
-    proc = subprocess.run(["bash", str(bin_dir / "rq_learning_paths.sh"), *args],
-                          stdin=slave, capture_output=True, text=True, env=env, timeout=60)
-    os.close(slave)
+    out = []
+    if tty_out:
+        def read():
+            while True:
+                try:
+                    data = os.read(master, 4096)
+                except OSError:
+                    return
+                if not data:
+                    return
+                out.append(data)
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        proc = subprocess.run(["bash", str(bin_dir / "rq_learning_paths.sh"), *args],
+                              stdin=slave, stdout=slave, stderr=slave, env=env, timeout=60)
+        os.close(slave)
+        reader.join(5)
+    else:
+        proc = subprocess.run(["bash", str(bin_dir / "rq_learning_paths.sh"), *args],
+                              stdin=slave, capture_output=True, text=True, env=env, timeout=60)
+        os.close(slave)
     os.close(master)
     calls = [json.loads(line) for line in wt_log.read_text().splitlines()] if wt_log.exists() else []
     started = log.read_text().splitlines() if log.exists() else []
+    if tty_out:
+        return proc, calls, started, b"".join(out).decode("utf-8", "replace")
     return proc, calls, started
 
 
@@ -406,3 +433,35 @@ def test_where_to_go_next_from_the_list(tmp_path):
     assert _arg(calls[2], "--title") == "RasQberry: Play"
     assert "https://qamposer.org" in proc.stdout
     assert _arg(calls[4], "--title") == "RasQberry: Where to Go Next"
+
+
+
+@needs_bash
+def test_keep_going_opens_the_feedback_form(tmp_path):
+    # #30: the feedback address was plain text only; now it opens (on the
+    # desktop) or is shown alone (over SSH, as here)
+    replies = ["0", "next", "next", "next", "feedback", "ESC", "ESC"]
+    proc, calls, _ = _walk(tmp_path, replies)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    keep = calls[4]
+    assert _arg(keep, "--title") == "RasQberry: Keep Going"
+    assert "Tell us how it went (feedback form)" in keep
+    assert ("Open this address: https://github.com/JanLahmann/RasQberry-Two/issues/new"
+            "?template=demo-feedback.yml&demo=learning-paths/first-15-minutes") in proc.stdout
+
+
+@needs_bash
+def test_the_list_opens_the_feedback_form(tmp_path):
+    proc, _, _ = _walk(tmp_path, ["feedback", "ESC"])
+    assert proc.returncode == 0, proc.stderr
+    assert "Open this address: https://github.com/" in proc.stdout
+
+
+@needs_bash
+def test_the_window_title_comes_back_after_a_demo(tmp_path):
+    # #30: the window kept the title of the last demo ("LED Demos")
+    proc, _, started, out = _walk(tmp_path, ["0", "start", "ESC", "ESC"], tty_out=True)
+    assert proc.returncode == 0, out
+    assert started == ["rq_demo_run.sh led-demos ibm-logo"]
+    ours, theirs = "\033]0;Learning paths\007", "\033]0;LED Demos\007"
+    assert theirs in out and out.rindex(ours) > out.rindex(theirs), repr(out)
