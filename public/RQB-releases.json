@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T09:43:39Z",
+  "generated": "2026-10-05T09:44:14Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2008420696,
       "extract_size": 9076473856,
       "extract_sha256": "1119cff7e29d2b62ee779280b7237d314e95318f51da2a931884bcef12090f1f",
-      "image_sha256": "b37f6d85c3c1e00a4352ca2c858c888e4fb0114796180c2568c0c41c10c53e53",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-05-112519/rasqberry-development-2026-10-05-112519-ab.img.xz",
       "ab_extract_sha256": "1d6aae0d3479e14caba82b965ab4353a54d35d281852c8833c5c188088a3bff3",
       "ab_image_sha256": "81b0c18f973c7e3176dd4c90d61957b6a54b6a7d472183e4c308bca386f1de21",
-      "ab_image_download_size": 2068404016,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2068404016,
       "highlights": [
         "the homepage window stays next to the desktop icons",
         "the Demo Loop's choice of demos and timings stay after an update",
