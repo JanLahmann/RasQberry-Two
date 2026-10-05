@@ -417,8 +417,8 @@ exit "$rc"
 '''
 
 
-def _checklist(stubs, tmp_path, **extra):
-    _exe(tmp_path / "stubs" / "whiptail", _WT_CHECKLIST[len("#!/bin/sh\n"):])
+def _checklist(stubs, tmp_path, wt=_WT_CHECKLIST, **extra):
+    _exe(tmp_path / "stubs" / "whiptail", wt[len("#!/bin/sh\n"):])
     _exe(tmp_path / "stubs" / "dpkg-reconfigure", f'echo "dpkg-reconfigure $*" >> "{stubs.calls}"\n')
     kb = tmp_path / "keyboard"
     kb.write_text('XKBMODEL="pc105"\nXKBLAYOUT="gb"\n')
@@ -460,6 +460,72 @@ def test_name_step_keeps_the_name_on_cancel(stubs, tmp_path):
     assert proc.returncode == 0, proc.stderr
     assert "do_hostname" not in stubs.logged()
     assert (tmp_path / "home" / ".state" / "rasqberry" / "name-kept").exists()
+
+
+# The checklist's password step (#19): the menu's dialogs with Cancel, not a
+# raw passwd prompt
+_WT_CHECKLIST_PW = _WT_CHECKLIST.replace(
+    "--inputbox) kind=inputbox ;;", "--inputbox) kind=inputbox ;; --passwordbox) kind=passwordbox ;;").replace(
+    'eval "reply=', 'if [ "$kind" = passwordbox ]; then\n'
+    '  reply=$(head -n 1 "$PW_REPLIES"); sed -i.bak 1d "$PW_REPLIES"\n'
+    '  case "$reply" in ""|"<cancel>") exit 1 ;; "<empty>") exit 0 ;; esac\n'
+    '  printf "%s" "$reply" >&2; exit 0\nfi\neval "reply=', 1)
+
+
+def _password_step(stubs, tmp_path, replies, sshpw="yes", chpasswd_rc=0):
+    d = tmp_path / "stubs"
+    pw_hash = subprocess.run(["perl", "-e", 'print crypt("Qiskit1!", "ab")'],
+                             capture_output=True, text=True).stdout
+    _exe(d / "getent", f'echo "rasqberry:{pw_hash}:19000:0:99999:7:::"\n')
+    got = tmp_path / "chpasswd.in"
+    _exe(d / "chpasswd", f'echo "chpasswd $*" >> "{stubs.calls}"\ncat > "{got}"\n'
+                         f'[ {chpasswd_rc} -eq 0 ] || echo "chpasswd: pam_chauthtok() failed" >&2\n'
+                         f'exit {chpasswd_rc}\n')
+    _exe(d / "passwd", f'echo "passwd $*" >> "{stubs.calls}"\n')
+    ssh = tmp_path / "ssh"
+    (ssh / "sshd_config.d").mkdir(parents=True)
+    (ssh / "sshd_config").write_text(f"PasswordAuthentication {sshpw}\nKbdInteractiveAuthentication no\n")
+    answers = tmp_path / "pw-replies"
+    answers.write_text("".join(r + "\n" for r in replies))
+    proc = _checklist(stubs, tmp_path, wt=_WT_CHECKLIST_PW, WT_REPLY_checklist="password",
+                      WT_REPLY_menu="change", PW_REPLIES=str(answers),
+                      RQ_SSHD=str(tmp_path / "no-sshd"), RQ_SSHD_DIR=str(ssh))
+    texts = (tmp_path / "wt.log").read_text()
+    return proc, texts, (got.read_text() if got.exists() else None)
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+def test_checklist_password_step_uses_dialogs_and_chpasswd(stubs, tmp_path):
+    proc, texts, got = _password_step(stubs, tmp_path, [SECRET, SECRET])
+    assert proc.returncode == 0, proc.stderr
+    assert got == f"rasqberry:{SECRET}\n"
+    assert "chpasswd \n" in stubs.logged() and "passwd " not in stubs.logged().replace("chpasswd", "")
+    assert "--passwordbox" in texts and "Cancel keeps the current password." in texts
+    assert "Password changed. Use the new one for SSH, VNC and the login screen." in texts
+    assert SECRET not in texts and SECRET not in proc.stdout + proc.stderr
+    assert not (tmp_path / "home" / ".state" / "rasqberry" / "demo-password-kept").exists()
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+@pytest.mark.parametrize("replies", [["<cancel>"], [SECRET, "<cancel>"], ["<empty>", "<cancel>"],
+                                     [SECRET, "other", "<cancel>"]])
+def test_checklist_password_step_can_be_cancelled(stubs, tmp_path, replies):
+    proc, texts, got = _password_step(stubs, tmp_path, replies)
+    assert proc.returncode == 0, proc.stderr
+    assert "--passwordbox" in texts
+    assert got is None and "passwd" not in stubs.logged()
+    assert "Password changed" not in texts and SECRET not in texts
+    assert ("The password cannot be empty." in texts) == ("<empty>" in replies)
+    assert ("The two passwords are not the same." in texts) == ("other" in replies)
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+def test_checklist_password_step_with_key_only_ssh_and_a_failure(stubs, tmp_path):
+    proc, texts, _ = _password_step(stubs, tmp_path, [SECRET, SECRET], sshpw="no", chpasswd_rc=1)
+    assert proc.returncode == 0, proc.stderr
+    assert "It is used for VNC and the login screen." in texts and "for SSH" not in texts
+    assert "The password was not changed." in texts and "pam_chauthtok" in texts
+    assert "Password changed" not in texts and SECRET not in texts
 
 
 @pytest.mark.parametrize("verified,layout,label", [

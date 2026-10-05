@@ -228,20 +228,49 @@ At a booth or in a classroom you may want to keep it." 15 74 2 \
 "The demo password stays. To change it later: this checklist, the menu's Remote Access & Security, or passwd in a terminal." 9 70
             ;;
         change)
-            clear
-            echo "New password for $who: type it twice. Nothing is shown while you type."
-            echo
-            if sudo passwd "$who"; then
+            if change_password "$who"; then
                 rm -f "$PASSWORD_KEPT_FILE"
                 DEMO_PW=no
-                whiptail --title "Password" --msgbox \
-"Password changed. Use the new one for SSH, VNC and the login screen." 9 70
-            else
-                whiptail --title "Password" --msgbox "The password was not changed." 8 50
             fi
             ;;
     esac
     return 0
+}
+
+# Two password boxes with Cancel, then chpasswd, as the menu's Remote Access
+# does (do_change_password): a raw passwd prompt could not be left with Esc
+# or Ctrl+C (#19). The password goes to chpasswd on stdin from the builtin
+# printf: never an argument, never logged or shown. With key-only SSH it is
+# not for SSH. Returns 0 when the password was changed.
+change_password() {
+    local who="$1" new again err for="SSH, VNC and the login screen"
+    case "$("$BIN_DIR/rq_remote_access.sh" status 2>/dev/null)" in
+        *ssh_password=no*) for="VNC and the login screen" ;;
+    esac
+    while :; do
+        new=$(whiptail --title "Password" --passwordbox \
+"New password for $who. It is used for $for.
+
+Cancel keeps the current password." 11 72 3>&1 1>&2 2>&3) || return 1
+        if [ -z "$new" ]; then
+            whiptail --title "Password" --msgbox \
+                "The password cannot be empty. Type one, or choose Cancel." 8 64
+            continue
+        fi
+        again=$(whiptail --title "Password" --passwordbox \
+            "Type the new password again:" 9 72 3>&1 1>&2 2>&3) || return 1
+        [ "$new" = "$again" ] && break
+        whiptail --title "Password" --msgbox \
+            "The two passwords are not the same. Nothing was changed: try again, or choose Cancel." 9 64
+    done
+    if err=$(printf '%s:%s\n' "$who" "$new" | sudo -n chpasswd 2>&1); then
+        whiptail --title "Password" --msgbox "Password changed. Use the new one for $for." 8 72
+        return 0
+    fi
+    whiptail --title "Password" --msgbox "The password was not changed.
+
+$err" 12 72
+    return 1
 }
 
 # ---------------------------------------------------------------------------
