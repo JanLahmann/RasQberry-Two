@@ -440,6 +440,8 @@ opens in a Chromium window of its own, maximised (full screen with
 `--start-fullscreen`), and `rq_browser_tab.py` closes its tab once the demo's
 server has stopped. Call `rq_close_demo_tabs` in the stop path before the
 server goes: the tab then closes at once, without "Dead kernel" first.
+Open it before the stop line (`rq_wait_for_stop`, `rq_run_demo`): the line
+then adds that the terminal is in the taskbar (`RQ_BROWSER_BACK_HINT`).
 
 ```bash
 rq_open_browser "http://127.0.0.1:8899/" --start-fullscreen
