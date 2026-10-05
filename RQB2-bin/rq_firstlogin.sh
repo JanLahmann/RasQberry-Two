@@ -510,14 +510,13 @@ for sel in $choice; do
     ran=true
 done
 
-# Closing (R-088): where to start
+# Closing (R-088): where to start - the learning path for a first look,
+# as on the website (#30)
 if [ "$ran" = true ]; then
     whiptail --title "RasQberry Two Setup" --msgbox \
-"Done. Good first demos:
- - Quantum Lights Out: a puzzle game on the LED panel
- - Quantum Fractals: quantum pictures on the screen
+"Done. A good start: the learning path \"First 15 minutes\". It starts three demos for you and says what to try in each.
 
-Double-click their icons on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos.
+Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
 $REOPEN" 15 74
 fi
