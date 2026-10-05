@@ -786,6 +786,17 @@ _rq_wait_gone() {
     return 0
 }
 
+# Lines on a demo's error output that look like faults but are none (#27):
+# Qt finds the runtime directory "0770 instead of 0700" because Raspberry Pi
+# OS's VNC server gives it an ACL; the group has no access all the same.
+_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory '
+
+# Run a command without those lines on its error output; everything else
+# stays. Usage: rq_quiet_stderr COMMAND [ARGS...]
+rq_quiet_stderr() {
+    "$@" 2> >(grep -Ev --line-buffered "$_RQ_HARMLESS_STDERR" >&2)
+}
+
 # The demo program rq_run_demo runs (for the exit traps)
 RQ_DEMO_CHILD=""
 

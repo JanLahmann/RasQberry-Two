@@ -369,3 +369,98 @@ def test_lights_out_grid_line():
     ns = {}
     exec("import math\n" + src, ns)
     assert ns["grid_line"]([1, 1, 0, 0, 0, 0, 1, 0, 1]) == "■■□ □□□ ■□■"
+
+
+# --- terminal lines that looked like faults (#27) --------------------------------
+
+@needs_bash
+def test_quiet_stderr_drops_only_the_harmless_qt_line():
+    proc = subprocess.run(
+        ["bash", "-c", f'. "{_COMMON}"; rq_quiet_stderr sh -c \''
+         'echo "QStandardPaths: wrong permissions on runtime directory /run/user/1000, 0770 instead of 0700" >&2; '
+         'echo "Real error: no display" >&2; echo out; exit 5\'; echo "RC=$?"'],
+        capture_output=True, text=True, timeout=30)
+    assert "QStandardPaths" not in proc.stderr
+    assert "Real error: no display" in proc.stderr
+    assert proc.stdout.split() == ["out", "RC=5"]
+
+
+def test_painter_window_is_without_the_qt_runtime_line():
+    painter = _read("RQB2-bin", "rq_led_painter.sh")
+    assert 'rq_run_demo "$DEMO_NAME" rq_quiet_stderr ' in painter
+
+
+def test_fractals_draw_without_qt_and_without_a_line_per_picture():
+    sh = _read("RQB2-bin", "fractals.sh")
+    assert "run_as_user env MPLBACKEND=Agg" in sh
+    py = _read("RQB2-bin", "fractal_files", "fractals.py")
+    loop = py[py.index("for i in range(number_of_frames):"):]
+    # the numbers of every picture only with RQ_DEBUG=1
+    assert loop.index("if DEBUG:") < loop.index('print(f"Loop i = ')
+    assert 'print(f"\\rDrawing picture {i + 1} of {number_of_frames}...", end="", flush=True)' in loop
+    # closing the window while it draws stops it, without a traceback
+    assert "raise traceback.format_exc()" not in py
+    assert 'print("\\nThe Quantum Fractals window was closed.")\n        sys.exit(0)' in loop
+    # its pictures say how to stop it; the watch for a closed window is not busy
+    assert py.count("add_stop_hint(") == 3 and 'STOP_HINT = "To stop: close this window"' in py
+    assert loop.rstrip().endswith("time.sleep(1)")
+
+
+def test_jupyter_launchers_stop_without_a_killed_line():
+    for name in ("rq_quantum_paradoxes.sh", "rq_my_programs.sh"):
+        text = _read("RQB2-bin", name)
+        assert "kill -9" not in text, name
+        assert 'rq_stop_pid "$JUPYTER_PID" 10' in text, name
+
+
+_FAKE_PI4_DRIVER = '''
+import atexit, sys, types
+
+class SwigHandle:
+    """Like a SWIG pointer that owns memory SWIG has no destructor for."""
+    def __init__(self):
+        self.own = True
+    def disown(self):
+        self.own = False
+    def __del__(self):
+        if self.own:
+            print("swig/python detected a memory leak of type 'ws2811_t *', no destructor found.")
+
+backend = types.ModuleType("adafruit_blinka.microcontroller.bcm283x.neopixel")
+backend._led_strip = None
+
+def cleanup():                       # the library's own atexit cleanup
+    backend._led_strip = None
+
+def first_write():                   # neopixel_write() creates it and registers cleanup
+    backend._led_strip = SwigHandle()
+    atexit.register(cleanup)
+
+neopixel_write = types.ModuleType("neopixel_write")
+neopixel_write._neopixel = backend
+sys.modules["neopixel_write"] = neopixel_write
+sys.path.insert(0, sys.argv[1])
+import rq_led_utils
+first_write()
+if sys.argv[2] == "quiet":
+    rq_led_utils.quiet_pi4_driver_exit()
+    rq_led_utils.quiet_pi4_driver_exit()      # once is enough
+print("done")
+'''
+
+
+@pytest.mark.parametrize("mode,leak_line", [("quiet", False), ("plain", True)])
+def test_pi4_driver_exit_has_no_swig_leak_line(tmp_path, mode, leak_line):
+    script = tmp_path / "fake.py"
+    script.write_text(_FAKE_PI4_DRIVER)
+    out = subprocess.run([sys.executable, str(script), _BIN, mode],
+                         capture_output=True, text=True, timeout=60, cwd=str(tmp_path)).stdout
+    assert "done" in out
+    assert ("swig/python detected a memory leak" in out) == leak_line
+
+
+def test_real_strips_keep_the_pi4_exit_quiet():
+    utils = _read("RQB2-bin", "rq_led_utils.py")
+    # both places that open the physical strip, after their first frame
+    assert utils.count("pixels.show()\n            quiet_pi4_driver_exit()") == 1
+    assert utils.count("pixels.show()\n        quiet_pi4_driver_exit()") == 1

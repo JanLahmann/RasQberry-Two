@@ -73,9 +73,8 @@ cleanup() {
     trap '' HUP INT TERM
     if kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping JupyterLab..."
-        kill "$JUPYTER_PID" 2>/dev/null || true
-        sleep 1
-        kill -9 "$JUPYTER_PID" 2>/dev/null || true
+        # it stops its kernels first; a hard kill only if it hangs (#27)
+        rq_stop_pid "$JUPYTER_PID" 10
     fi
 }
 setup_cleanup_trap cleanup

@@ -1045,6 +1045,46 @@ def guard_pi5_led_writes():
     return True
 
 
+_pi4_exit_quiet = {'registered': False}
+
+
+def _disown_pi4_strip():
+    """
+    Hand the Pi 4 driver's ws2811_t back to the library's own cleanup.
+
+    The library (adafruit-blinka on rpi_ws281x) frees the structure at exit,
+    and SWIG then printed "swig/python detected a memory leak of type
+    'ws2811_t *', no destructor found." when the Python handle went: after
+    every RasQ-LED cycle and at the end of every LED demo on a Pi 4 (#27).
+    Nothing leaked; without ownership the handle goes quietly.
+    """
+    try:
+        import neopixel_write
+    except ImportError:
+        return
+    strip = getattr(getattr(neopixel_write, '_neopixel', None), '_led_strip', None)
+    disown = getattr(strip, 'disown', None)
+    if callable(disown):
+        try:
+            disown()
+        except Exception:  # noqa: BLE001 - only about a message at exit
+            pass
+
+
+def quiet_pi4_driver_exit():
+    """
+    Keep the Pi 4 LED driver's exit quiet (see _disown_pi4_strip).
+
+    Call after the first frame (show()): the library registers its cleanup
+    then, and atexit runs the last registered first, so this runs before it.
+    """
+    if _pi4_exit_quiet['registered']:
+        return
+    _pi4_exit_quiet['registered'] = True
+    import atexit
+    atexit.register(_disown_pi4_strip)
+
+
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
     """
     Factory function to create NeoPixel strip using PWM (Pi4), PIO (Pi5), or Virtual.
@@ -1141,6 +1181,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
             )
             real_pixels.fill((0, 0, 0))
             real_pixels.show()
+            quiet_pi4_driver_exit()
         except RuntimeError as e:
             raise _with_root_hint(e) from e
         return real_pixels
@@ -1203,6 +1244,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         # Initialize all LEDs to black
         pixels.fill((0, 0, 0))
         pixels.show()
+        quiet_pi4_driver_exit()
     except RuntimeError as e:
         raise _with_root_hint(e) from e
 

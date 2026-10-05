@@ -231,9 +231,10 @@ trap stop_renderer EXIT
 # Never run the Qt GUI as root: it cannot reach the user's Wayland compositor.
 # `env` sets the vars explicitly so they survive sudo's env_reset policy.
 # Closing the painter window, or Enter or Ctrl+C here, stops it (items 4, 8).
+# Without Qt's harmless "QStandardPaths: wrong permissions" line (#27).
 AS_USER=()
 [ "$(id -u)" -eq 0 ] && AS_USER=(sudo -u "$USER_NAME" -H --)
-rq_run_demo "$DEMO_NAME" ${AS_USER[@]+"${AS_USER[@]}"} env \
+rq_run_demo "$DEMO_NAME" rq_quiet_stderr ${AS_USER[@]+"${AS_USER[@]}"} env \
     LED_RENDER_MODE=service \
     WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" \
     XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$USER_UID}" \

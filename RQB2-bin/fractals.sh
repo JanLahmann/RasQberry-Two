@@ -85,8 +85,13 @@ done
 # It stops when its window is closed, or with Enter or Ctrl+C here (items 4,
 # 8); this window then closes too, or stays open with the error
 # (rq_hold_on_error.sh).
+#
+# MPLBACKEND=Agg: matplotlib only draws into image files here (the browser
+# window shows them). Its default Qt backend started a Qt application for
+# nothing, which printed "QStandardPaths: wrong permissions on runtime
+# directory" on every start (#27).
 EXIT_CODE=0
-rq_run_demo "Quantum Fractals" run_as_user "$VENV_PYTHON" fractals.py || EXIT_CODE=$?
+rq_run_demo "Quantum Fractals" run_as_user env MPLBACKEND=Agg "$VENV_PYTHON" fractals.py || EXIT_CODE=$?
 
 cd "$USER_HOME" || warn "Failed to return to home directory"
 
