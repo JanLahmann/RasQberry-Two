@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Quantum Lab (QuBins)
+Comment=Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)
+Icon=/usr/share/icons/rasqberry/qiskit-logo.png
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh quantum-lab
+Terminal=true
+StartupNotify=true
+Keywords=quantum;qiskit;jupyter;jupyterlab;qubins;course;docker;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_demo_run.sh
+NoDisplay=false

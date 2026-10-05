@@ -420,6 +420,15 @@ def test_quantum_lab_welcome_page():
     assert "/home/jovyan/my-work" in lab
 
 
+def test_quantum_lab_has_an_icon():
+    # #18: it was only in the RasQberry menu
+    text = open(os.path.join(_CFG, "desktop-bookmarks", "quantum-lab.desktop")).read()
+    assert "Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh quantum-lab\n" in text
+    sys.path.insert(0, _BIN)
+    import rq_desktop_session as ds  # noqa: E402
+    assert "quantum-lab" in ds.ICON_ORDER
+
+
 def test_demo_loop_cleanup_runs_once():
     loop = open(os.path.join(_BIN, "rq_demo_loop.sh")).read()
     body = loop[loop.index("cleanup() {"):]

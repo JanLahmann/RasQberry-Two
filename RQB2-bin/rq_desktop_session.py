@@ -58,7 +58,7 @@ ICON_ORDER = [
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "demo-loop", "clear-leds",
+    "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"
 MARGIN = 10                # first icon at x=y=10, as pcmanfm counts (below the panel)
