@@ -223,7 +223,7 @@ def apply_touch_css(touch, src=TOUCH_CSS, dst=None):
 # --------------------------------------------------------------------------
 # 3. Chromium placement
 # --------------------------------------------------------------------------
-_RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-chromium)(">\s*'
+_RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-chromium)"[^>]*(>\s*'
                    r'<action name="MoveTo" x="480" y="45"\s*/>)')
 
 
@@ -234,6 +234,12 @@ def set_chromium_rule(small, rc=None):
     The rule keeps the icons visible on a large screen; on a small one it put
     the window off-screen, and it would also move a maximised window. Off
     means a different identifier, so the rest of rc.xml stays as it is.
+    type="normal" matchOnce="true": it places only the browser's first window
+    (the homepage), not a demo's window opened next to it, which it moved
+    480 px to the right when that was maximised before it was shown (#4).
+    matchOnce counts every window, also a hidden one Chromium makes first
+    (labwc types it "dialog"), so without type="normal" the homepage itself
+    was not placed. Older rc.xml files get both here too.
 
     Args:
         small (bool): The screen is small.
@@ -249,7 +255,7 @@ def set_chromium_rule(small, rc=None):
     except OSError:
         return False
     want = "rasqberry-small-screen-chromium" if small else "chromium"
-    new = _RULE.sub(lambda m: m.group(1) + want + m.group(3), text)
+    new = _RULE.sub(lambda m: m.group(1) + want + '" type="normal" matchOnce="true"' + m.group(3), text)
     if new == text:
         return False
     with open(rc, "w", encoding="utf-8") as fh:

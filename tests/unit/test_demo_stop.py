@@ -689,6 +689,73 @@ def test_watch_leaves_a_tab_the_user_closed_and_gives_up_without_a_browser(monke
     assert bt.watch("http://127.0.0.1:8080/", [], "maximized") == 0
 
 
+class _FakeBrowser:
+    """The browser-wide DevTools connection, for set_window_state (#4)."""
+
+    def __init__(self, windows, states, fail=0):
+        self.windows = windows        # tab id -> window id
+        self.states = states          # what getWindowBounds reads, in turn
+        self.fail = fail              # first getWindowForTarget calls that fail
+        self.sets = []
+
+    def call(self, method, params=None):
+        if method == "Browser.getWindowForTarget":
+            if self.fail:
+                self.fail -= 1
+                raise RuntimeError("Browser window not found")
+            return {"windowId": self.windows[params["targetId"]]}
+        if method == "Browser.getWindowBounds":
+            return {"bounds": {"windowState": self.states.pop(0)}}
+        if method == "Browser.setWindowBounds":
+            self.sets.append((params["windowId"], params["bounds"]["windowState"]))
+            return {}
+        raise AssertionError(method)
+
+    def close(self):
+        pass
+
+
+def _window_state(monkeypatch, browser, tabs):
+    bt = _tab_module()
+    monkeypatch.setattr(bt.time, "sleep", lambda s: None)
+    monkeypatch.setattr(bt, "browser_devtools", lambda timeout=10.0: browser)
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: [{"id": t, "url": "x"} for t in tabs])
+    return bt
+
+
+def test_window_state_waits_for_the_window_and_checks_it_again(monkeypatch):
+    # A busy Pi 4 lists the tab before its window takes a state, and the
+    # window lost its maximised state: tried again, read back, set again
+    browser = _FakeBrowser({"HOME": 1, "DEMO": 2}, ["normal"], fail=3)
+    bt = _window_state(monkeypatch, browser, ["HOME", "DEMO"])
+    assert bt.set_window_state("DEMO", "maximized")
+    assert browser.sets == [(2, "maximized"), (2, "normal"), (2, "maximized")]
+
+
+def test_window_state_left_alone_when_it_holds(monkeypatch):
+    browser = _FakeBrowser({"HOME": 1, "DEMO": 2}, ["fullscreen"])
+    bt = _window_state(monkeypatch, browser, ["HOME", "DEMO"])
+    assert bt.set_window_state("DEMO", "fullscreen")
+    assert browser.sets == [(2, "fullscreen")]
+
+
+def test_the_only_window_is_laid_out_again_once_shown(monkeypatch):
+    # labwc's rule places the browser's first window next to the icons, also
+    # one maximised before it was shown: maximised but 480 px to the right
+    browser = _FakeBrowser({"DEMO": 2, "DEMO-2": 2}, ["maximized"])
+    bt = _window_state(monkeypatch, browser, ["DEMO", "DEMO-2"])
+    assert bt.set_window_state("DEMO", "maximized")
+    assert browser.sets == [(2, "maximized"), (2, "normal"), (2, "maximized")]
+
+
+def test_window_state_gives_up_without_a_window(monkeypatch):
+    browser = _FakeBrowser({"DEMO": 2}, [], fail=1000)
+    bt = _window_state(monkeypatch, browser, ["DEMO"])
+    monkeypatch.setattr(bt, "STATE_WAIT", 0)
+    assert not bt.set_window_state("DEMO", "maximized")
+    assert browser.sets == []
+
+
 def test_server_up_only_says_no_when_nothing_listens():
     import socket
     bt = _tab_module()

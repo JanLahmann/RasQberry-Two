@@ -161,15 +161,40 @@ _RC = '''<openbox_config>
 '''
 
 
+_RC_ONCE = _RC.replace('identifier="chromium">', 'identifier="chromium" type="normal" matchOnce="true">')
+
+
 def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     rc = tmp_path / "rc.xml"
-    rc.write_text(_RC)
+    rc.write_text(_RC_ONCE)
     assert ds.set_chromium_rule(True, str(rc))
-    assert 'identifier="rasqberry-small-screen-chromium"' in rc.read_text()
+    assert 'identifier="rasqberry-small-screen-chromium" type="normal" matchOnce="true">' in rc.read_text()
     assert not ds.set_chromium_rule(True, str(rc))
     assert ds.set_chromium_rule(False, str(rc))
-    assert rc.read_text() == _RC
+    assert rc.read_text() == _RC_ONCE
     assert not ds.set_chromium_rule(True, str(tmp_path / "missing.xml"))
+
+
+def test_chromium_rule_places_only_the_first_window(tmp_path):
+    # An older rc.xml moved every new browser window, also a demo's window
+    # maximised before it was shown: 480 px off to the right (#4). The hidden
+    # window Chromium makes first is no "normal" one, so the homepage counts
+    # as the first window.
+    rc = tmp_path / "rc.xml"
+    rc.write_text(_RC)
+    assert ds.set_chromium_rule(False, str(rc))
+    assert rc.read_text() == _RC_ONCE
+    assert not ds.set_chromium_rule(False, str(rc))
+
+
+def test_built_rc_xml_has_the_rule_the_login_helper_switches(tmp_path):
+    build = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    text = build.split('cat > "${SKEL_LABWC_DIR}/rc.xml" << \'EOF\'\n', 1)[1].split("\nEOF\n", 1)[0]
+    assert '<windowRule identifier="chromium" type="normal" matchOnce="true">' in text
+    rc = tmp_path / "rc.xml"
+    rc.write_text(text)
+    assert not ds.set_chromium_rule(False, str(rc))       # already as the helper wants it
+    assert ds.set_chromium_rule(True, str(rc))
 
 
 def test_chromium_crash_state_reset(tmp_path):
