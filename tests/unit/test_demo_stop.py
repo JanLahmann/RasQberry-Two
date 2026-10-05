@@ -410,6 +410,8 @@ def test_fractals_draw_without_qt_and_without_a_line_per_picture():
 
 def test_jupyter_launchers_stop_without_a_killed_line():
     for name, stop in (("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID" 10'),
+                       ("rq_ibm_tutorials.sh", 'rq_stop_pid "$JUPYTER_PID" 10'),
+                       ("rq_ibm_courses.sh", 'rq_stop_pid "$JUPYTER_PID" 10'),
                        ("rq_my_programs.sh", 'rq_stop_pid "$5" 10\' \\\n')):
         text = _read("RQB2-bin", name)
         assert "kill -9" not in text, name
@@ -559,7 +561,9 @@ def test_stop_paths_close_the_demo_tab_before_the_server_goes():
     assert cleanup.index("rq_close_demo_tabs") < cleanup.index('kill "$JUPYTER_PID"')
     for name, server in (("rq_fun_with_quantum.sh", 'kill "$JUPYTER_PID"'), ("rq_grok_bloch.sh", "kill $SERVER_PID"),
                          ("rq_fwq_portal.sh", 'kill "$SERVER_PID"'),
-                         ("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID"')):
+                         ("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID"'),
+                         ("rq_ibm_tutorials.sh", 'rq_stop_pid "$JUPYTER_PID"'),
+                         ("rq_ibm_courses.sh", 'rq_stop_pid "$JUPYTER_PID"')):
         text = _read("RQB2-bin", name)
         body = text[text.index("cleanup() {"):]
         assert body.index("rq_close_demo_tabs") < body.index(server), name
