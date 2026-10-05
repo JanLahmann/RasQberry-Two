@@ -409,10 +409,11 @@ def test_fractals_draw_without_qt_and_without_a_line_per_picture():
 
 
 def test_jupyter_launchers_stop_without_a_killed_line():
-    for name in ("rq_quantum_paradoxes.sh", "rq_my_programs.sh"):
+    for name, stop in (("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID" 10'),
+                       ("rq_my_programs.sh", 'rq_stop_pid "$5" 10\' \\\n')):
         text = _read("RQB2-bin", name)
         assert "kill -9" not in text, name
-        assert 'rq_stop_pid "$JUPYTER_PID" 10' in text, name
+        assert stop in text, name
 
 
 _FAKE_PI4_DRIVER = '''
