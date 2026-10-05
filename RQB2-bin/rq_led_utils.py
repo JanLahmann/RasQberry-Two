@@ -1041,7 +1041,41 @@ def guard_pi5_led_writes():
     neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
     import atexit
     atexit.register(_wait_for_last_frame)
+    _drain_on_stop_signals()
     return True
+
+
+def _end_after_last_frame(signum, _frame):
+    """Let the last frame go out, then end the way the signal would have."""
+    import signal
+    _wait_for_last_frame()
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+def _drain_on_stop_signals():
+    """
+    A stopped demo must not cut its last frame off either (#5).
+
+    The menu and the demo windows stop a demo with SIGTERM (a closed window:
+    SIGHUP). That ends Python at once, without its exit handlers, so the PIO
+    was closed in the middle of a frame: the kernel logged "DMA wait timed
+    out", and the next program on the panel - the clear that follows every
+    stop - found the driver stuck and reported a stall. A handler now lets the
+    frame out (at most LED_FRAME_DRAIN_SECONDS) and then ends the program with
+    the same signal. Only in the main thread, and only where the program has
+    no handler of its own.
+    """
+    import signal
+    import threading
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) == signal.SIG_DFL:
+                signal.signal(sig, _end_after_last_frame)
+        except (ValueError, OSError):
+            pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):

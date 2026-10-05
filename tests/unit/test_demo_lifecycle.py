@@ -273,8 +273,14 @@ def _load_led_utils(monkeypatch, tmp_path, write_seconds):
     mod.LED_STALL_SECONDS = 0.05
     mod.LED_STALL_RETRY_SECONDS = 0.2
     mod.LED_STALL_FILE_PREFIX = str(tmp_path / "stall-")
-    assert mod.guard_pi5_led_writes() is True
-    assert mod.guard_pi5_led_writes() is True          # idempotent
+    # the guard installs stop-signal handlers: keep pytest's own
+    saved = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        assert mod.guard_pi5_led_writes() is True
+        assert mod.guard_pi5_led_writes() is True      # idempotent
+    finally:
+        for s, h in saved.items():
+            signal.signal(s, h)
     return mod, neo, calls
 
 
@@ -446,6 +452,38 @@ def test_after_stall_without_vcgencmd_names_both(box):
     p.wait()
     dialog = box.wt_log.read_text()
     assert "power supply is too weak" in dialog and "too hot" in dialog
+
+
+def test_a_stopped_demo_lets_its_last_frame_out(tmp_path):
+    """SIGTERM (Enter in the menu, a stop from the demo loop) waits for the
+    frame, then ends the program with that signal (#5)."""
+    marker = tmp_path / "drained"
+    child = tmp_path / "child.py"
+    child.write_text(f"""
+import importlib.util, sys, time, types
+backend = types.ModuleType("adafruit_raspberry_pi5_neopixel_write")
+backend.free_pio = lambda: None
+nw = types.ModuleType("neopixel_write"); nw._neopixel = backend
+neo = types.ModuleType("neopixel"); neo.neopixel_write = lambda pin, buf: None
+sys.modules.update({{"neopixel": neo, "neopixel_write": nw,
+                     "adafruit_raspberry_pi5_neopixel_write": backend}})
+spec = importlib.util.spec_from_file_location("lu", {os.path.join(_BIN, "rq_led_utils.py")!r})
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+assert mod.guard_pi5_led_writes()
+real_wait = mod._wait_for_last_frame
+def wait():
+    real_wait()
+    open({str(marker)!r}, "w").write("yes")
+mod._wait_for_last_frame = wait
+neo.neopixel_write("pin", bytearray(576))
+print("READY", flush=True)
+time.sleep(30)
+""")
+    proc = subprocess.Popen([sys.executable, str(child)], stdout=subprocess.PIPE, text=True)
+    assert proc.stdout.readline().strip() == "READY"
+    proc.send_signal(signal.SIGTERM)
+    assert proc.wait(timeout=10) == -signal.SIGTERM
+    assert marker.read_text() == "yes"
 
 
 @needs_bash
