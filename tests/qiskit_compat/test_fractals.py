@@ -101,7 +101,9 @@ def test_fractals_demo_runs_headless(tmp_path):
     h.record_subprocess_warnings("fractals.py", proc.stderr)
     out = proc.stdout + proc.stderr
     assert proc.returncode == 0, f"fractals.py failed:\n{out[-4000:]}"
-    assert f"Loop i = {FRAMES - 1:>2}" in proc.stdout, out[-4000:]
+    # one line that counts the pictures (the per-frame numbers only with RQ_DEBUG=1)
+    assert f"Drawing picture {FRAMES} of {FRAMES}..." in proc.stdout, out[-4000:]
+    assert "Loop i = " not in proc.stdout
     images = tmp / "rasqberry-fractals-img"
     assert (images / "2cn2.png").stat().st_size > 0
     assert (images / f"1qubit_simulator_4animations_H_{FRAMES}.gif").stat().st_size > 0
