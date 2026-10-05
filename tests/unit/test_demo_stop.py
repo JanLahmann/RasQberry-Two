@@ -645,6 +645,36 @@ def test_watch_closes_the_tab_once_the_server_is_gone(monkeypatch):
     assert closed == ["http://127.0.0.1:8888/lab"]
 
 
+def test_watch_keeps_the_tab_of_a_server_still_starting(monkeypatch):
+    # A busy Pi 4 opened the port after the browser: refused before the first
+    # answer means "starting", not "stopped" (rig test: the tab closed at once)
+    bt = _tab_module()
+    monkeypatch.setattr(bt, "POLL", 0)
+    monkeypatch.setattr(bt.time, "sleep", lambda s: None)
+    tabs = [{"id": "NEW", "url": "http://127.0.0.1:8888/notebooks/x.ipynb"}]
+    up = iter([False, False, False, True, True, False, False])
+    seen, closed = [], []
+
+    def server_up(org):
+        state = next(up)
+        seen.append(state)
+        return state
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: list(tabs))
+    monkeypatch.setattr(bt, "server_up", server_up)
+    monkeypatch.setattr(bt, "set_window_state", lambda tid, st: None)
+    monkeypatch.setattr(bt, "close", lambda url: closed.append(url))
+    assert bt.watch("http://127.0.0.1:8888/notebooks/x.ipynb", [], "maximized") == 0
+    assert seen == [False, False, False, True, True, False, False]   # closed only after it was up
+    assert closed == ["http://127.0.0.1:8888/notebooks/x.ipynb"]
+
+
+def test_fun_with_quantum_opens_the_browser_only_once_jupyter_answers():
+    text = _read("RQB2-bin", "rq_fun_with_quantum.sh")
+    wait = text.index('while ! curl -s -o /dev/null "http://127.0.0.1:${PORT}/"')
+    assert wait < text.index('rq_show_url "$JUPYTER_URL"')
+    assert wait < text.index('echo "Fun with Quantum is running: $JUPYTER_URL"')
+
+
 def test_watch_leaves_a_tab_the_user_closed_and_gives_up_without_a_browser(monkeypatch):
     bt = _tab_module()
     monkeypatch.setattr(bt, "POLL", 0)

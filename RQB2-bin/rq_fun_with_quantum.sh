@@ -147,6 +147,18 @@ if ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
     die "Jupyter failed to start (log: $SERVER_LOG)"
 fi
 
+# Wait until it answers: on a busy Pi 4 the port opens a few seconds after
+# the 3 s above, and a browser opened before that shows "can't be reached"
+# (and its tab was taken for one whose demo had stopped). The loop returns
+# as soon as Jupyter answers, so the limit costs nothing.
+waited=0
+while ! curl -s -o /dev/null "http://127.0.0.1:${PORT}/" 2>/dev/null; do
+    kill -0 "$JUPYTER_PID" 2>/dev/null || { [ -s "$SERVER_LOG" ] && tail -5 "$SERVER_LOG"; die "Jupyter exited during startup (log: $SERVER_LOG)"; }
+    [ "$waited" -lt 60 ] || die "Jupyter did not answer within 60 seconds (log: $SERVER_LOG)"
+    sleep 1
+    waited=$((waited + 1))
+done
+
 # The notebooks, as the demo menu lists them (the manifest's variants), so
 # this list cannot fall behind the demo again (item 10)
 notebook_list() {

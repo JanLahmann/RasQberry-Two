@@ -400,6 +400,9 @@ def watch(url, before=(), state=""):
     if state:
         set_window_state(tab["id"], state)
     missed = no_browser = 0
+    # A server that has not answered yet is still starting (a busy Pi 4 can
+    # open the port after the browser): only one that was up can have stopped
+    seen_up = False
     while True:
         time.sleep(POLL)
         tabs = pages()
@@ -412,7 +415,10 @@ def watch(url, before=(), state=""):
         if not tabs_on(org, tabs):    # closed, or gone elsewhere
             return 0
         if server_up(org):
+            seen_up = True
             missed = 0
+            continue
+        if not seen_up:
             continue
         missed += 1
         if missed >= 2:               # stopped: no dead tab left behind
