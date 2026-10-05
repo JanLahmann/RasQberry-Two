@@ -25,7 +25,7 @@
     "download": {
       "what": "Lights Out solver from GitHub",
       "download_mb": 1,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "installed_flag": "QUANTUM_LIGHTS_OUT_INSTALLED"
   },

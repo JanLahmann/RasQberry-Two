@@ -25,7 +25,7 @@
     "download": {
       "what": "Bloch sphere web app from GitHub",
       "download_mb": 6,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "patch_file": "grok-bloch-help.patch"
   },

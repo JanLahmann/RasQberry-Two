@@ -1834,6 +1834,21 @@ rq_docker_fail() {
     die "$msg"
 }
 
+# MB received so far on the network (not lo or Docker's own interfaces), for
+# a download's progress line. Empty when it cannot be told. RQ_NET_DIR: tests.
+# Usage: mb=$(rq_rx_mb)
+rq_rx_mb() {
+    local f n sum=0 any=""
+    for f in "${RQ_NET_DIR:-/sys/class/net}"/*/statistics/rx_bytes; do
+        [ -r "$f" ] || continue
+        n=${f%/statistics/rx_bytes}; n=${n##*/}
+        case "$n" in lo|docker*|br-*|veth*|virbr*) continue ;; esac
+        sum=$((sum + $(cat "$f" 2>/dev/null || echo 0)))
+        any=1
+    done
+    [ -z "$any" ] || echo $((sum / 1000000))
+}
+
 # Download an image, with Docker's own progress and, on failure, its own
 # reason instead of "check your internet connection" (R-038).
 # Usage: rq_docker_pull IMAGE "Name"
