@@ -495,7 +495,8 @@ clear_leds() {
 # (the Pi 4 PWM driver maps both), /dev/spidev0.0 (the retired SPI driver).
 # Needs root to see other users' processes.
 
-# A short name for a holder's command line
+# A short name for a holder's command line: the demo's name as the menus
+# show it, not its script (#31: "rq_led_ibm_logo.py")
 _rq_led_holder_label() {
     case "$1" in
         *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
@@ -503,19 +504,49 @@ _rq_led_holder_label() {
         *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
         *lights_out.py*)         echo "Quantum Lights Out" ;;
         *QuantumRaspberryTie*)   echo "Quantum Raspberry Tie" ;;
-        *RasQ-LED*)              echo "RasQ-LED" ;;
+        *RasQ-LED*)              echo "RasQ-LED Demo" ;;
         *rq_demo_loop*)          echo "the demo loop" ;;
+        *rq_led_ibm_logo.py*|*rq_led_ibm_demo.sh*) echo "IBM LED Demo" ;;
+        *rq_led_simpletest.py*)  echo "Simple LED Demo" ;;
+        *rq_test_leds.py*)       echo "Quick LED Test" ;;
+        *rq_led_test.py*|*rq_led_test.sh*) echo "LED Test & Diagnostics" ;;
+        *demo_led_*|*rq_led_logo.py*|*rq_led_display_text*|*rq_led_display_logo*)
+                                 echo "Text & Logo Display" ;;
+        *LED_painter.py*|*rq_led_painter*) echo "LED-Painter" ;;
+        *turn_off_LEDs.py*)      echo "turning the LEDs off" ;;
         *)
-            # the script it runs, else the program
-            local word
+            # the script it runs: the demo whose manifest names it, else the
+            # script; else the program
+            local word name
             for word in $1; do
-                case "$word" in *.py|*.sh) basename "$word"; return 0 ;; esac
+                case "$word" in
+                    *.py|*.sh)
+                        name=$(_rq_demo_name_of_script "$(basename "$word")") || name=$(basename "$word")
+                        echo "$name"
+                        return 0 ;;
+                esac
             done
             # shellcheck disable=SC2086
             set -- $1
             basename "${1:-unknown}"
             ;;
     esac
+}
+
+# The name of the demo whose manifest runs SCRIPT (its entrypoint script or a
+# launcher, also a variant's): catalogue demos and demos added later
+_rq_demo_name_of_script() {
+    local script="$1" file name
+    command -v jq >/dev/null 2>&1 || return 1
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        name=$(jq -r --arg s "$script" '
+            if ([.entrypoint.script, .entrypoint.launcher,
+                 (.variants // [] | .[] | .entrypoint.launcher, .entrypoint.script)]
+                | index($s)) != null then .name else empty end' "$file" 2>/dev/null) || continue
+        [ -n "$name" ] && { echo "$name"; return 0; }
+    done < <(rq_list_manifests "$(rq_shipped_manifest_dir)" 2>/dev/null)
+    return 1
 }
 
 # The calling process and its parents: never a holder to stop

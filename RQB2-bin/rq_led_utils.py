@@ -1046,6 +1046,45 @@ def _guarded_pi5_write(write, reopen):
     return guarded
 
 
+def _lgpio_files_out_of_cwd():
+    """
+    Keep lgpio's notification FIFO out of the person's folders (#31).
+
+    Importing lgpio (the Pi 5 GPIO library under board/neopixel) creates a
+    FIFO ".lgd-nfy0" in its working directory - the current directory, so it
+    was left in ~/My-Quantum-Programs or wherever an LED program ran. Its
+    LG_WD setting would move it, but lgpio then changes the whole program's
+    current directory to it. So lgpio is imported once from a private temp
+    directory (it keeps that as its working directory), and the program's
+    current directory is restored straight away. Removed at exit. Does nothing
+    without lgpio, or when it is already imported.
+    """
+    if 'lgpio' in sys.modules:
+        return
+    import importlib.util
+    try:
+        if importlib.util.find_spec('lgpio') is None:
+            return
+        here = os.getcwd()
+    except (ImportError, ValueError, OSError):
+        return
+    import atexit
+    import shutil
+    import tempfile
+    try:
+        work = tempfile.mkdtemp(prefix='rq-lgpio-')
+    except OSError:
+        return
+    try:
+        os.chdir(work)
+        import lgpio  # noqa: F401 - imported here for its working directory
+    except Exception:  # noqa: BLE001 - board imports it again and reports
+        pass
+    finally:
+        os.chdir(here)
+    atexit.register(shutil.rmtree, work, True)
+
+
 def guard_pi5_led_writes():
     """
     Install the stall guard on the Pi 5 NeoPixel writer (idempotent).
@@ -1056,6 +1095,7 @@ def guard_pi5_led_writes():
     Returns:
         bool: True when the guard is in place.
     """
+    _lgpio_files_out_of_cwd()
     try:
         import neopixel
         import neopixel_write
@@ -1188,6 +1228,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         )
 
     def _make_real():
+        _lgpio_files_out_of_cwd()
         import board
         import neopixel
 
@@ -1237,6 +1278,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         print("Warning: no LED target set (physical/virtual/web); defaulting to physical",
               file=sys.stderr)
 
+    _lgpio_files_out_of_cwd()
     import board
     import neopixel
     guard_pi5_led_writes()

@@ -586,3 +586,49 @@ def test_brightness_and_clear_say_saved(menu_env):
     # The desktop icon's window stays long enough to read it
     clear = open(os.path.join(_BIN, "rq_clear_leds.sh")).read()
     assert 'sleep "${RQ_CLEAR_LEDS_PAUSE:-2}"' in clear
+
+
+# ---------------------------------------------------------------------------
+# #31: the LED-busy dialog names the demo; lgpio's FIFO stays out of the
+# person's folders
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("cmdline,name", [
+    ("/home/u/RasQberry-Two/venv/RQB2/bin/python3 /usr/bin/rq_led_ibm_logo.py", "IBM LED Demo"),
+    ("python3 RasQ-LED.py", "RasQ-LED Demo"),
+    ("python3 rq_led_simpletest.py", "Simple LED Demo"),
+    ("python3 rq_test_leds.py", "Quick LED Test"),
+    ("python3 /usr/bin/demo_led_text_scroll_welcome.py", "Text & Logo Display"),
+    ("python3 LED_painter.py", "LED-Painter"),
+    ("python3 /usr/bin/rq_display_ip.py --duration 60", "the IP address scroll at start-up"),
+    ("bash /usr/bin/fractals.sh", "Quantum Fractals"),         # from its manifest
+    ("python3 /tmp/my_own_program.py", "my_own_program.py"),
+])
+def test_led_holder_is_named_like_the_menu(cmdline, name):
+    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; _rq_led_holder_label "$1"', "_", cmdline],
+                         capture_output=True, text=True).stdout.strip()
+    assert out == name
+
+
+def test_lgpio_fifo_is_not_left_in_the_current_folder(tmp_path):
+    """A stand-in lgpio makes its FIFO in its working directory at import, as
+    the real one does; the person's folder stays clean and current."""
+    fake = tmp_path / "fake"
+    fake.mkdir()
+    (fake / "lgpio.py").write_text(
+        "import os\nopen(os.path.join(os.getcwd(), '.lgd-nfy0'), 'w').close()\n"
+        "WORK = os.getcwd()\n")
+    home = tmp_path / "My-Quantum-Programs"
+    home.mkdir()
+    code = ("import os, sys, rq_led_utils as lu\n"
+            "lu._lgpio_files_out_of_cwd()\n"
+            "import lgpio\n"
+            "print(os.getcwd()); print(lgpio.WORK)\n"
+            "lu._lgpio_files_out_of_cwd()\n")                # already imported: nothing
+    proc = subprocess.run([sys.executable, "-c", code], cwd=home, capture_output=True, text=True,
+                          env=dict(os.environ, PYTHONPATH=f"{fake}:{_BIN}"), timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    cwd, work = proc.stdout.split()
+    assert os.path.realpath(cwd) == os.path.realpath(home)
+    assert os.listdir(home) == []
+    assert not os.path.exists(work)                      # removed at exit
