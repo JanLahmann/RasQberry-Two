@@ -269,11 +269,12 @@ sys.stderr.write(reply)
 '''
 
 
-def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False):
+def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
     """Run the chooser on a pty with a stub whiptail and stub demos.
 
     With tty_out, its output goes to the pty too (as in a terminal window)
     and is returned as a fourth value; a stub demo sets its own window title.
+    With desktop, there is a screen and a stub browser.
     """
     bin_dir = tmp_path / "RQB2-bin"
     bin_dir.mkdir()
@@ -295,6 +296,10 @@ def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False):
     wt_log = tmp_path / "whiptail.log"
     env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(tmp_path),
            "RQ_CONFIG_FILE": "/nonexistent", "WT_LOG": str(wt_log), "WT_QUEUE": str(queue)}
+    if desktop:
+        (stubs / "chromium-browser").write_text(f'#!/bin/sh\necho "browser $*" >> "{log}"\n')
+        (stubs / "chromium-browser").chmod(0o755)
+        env["DISPLAY"] = ":0"
     master, slave = pty.openpty()
     os.write(master, b"\n" * 20)    # Enter for every "Press Enter" pause
     out = []
@@ -465,3 +470,23 @@ def test_the_window_title_comes_back_after_a_demo(tmp_path):
     assert started == ["rq_demo_run.sh led-demos ibm-logo"]
     ours, theirs = "\033]0;Learning paths\007", "\033]0;LED Demos\007"
     assert theirs in out and out.rindex(ours) > out.rindex(theirs), repr(out)
+
+
+@needs_bash
+def test_a_page_on_the_desktop_says_where_this_window_is(tmp_path):
+    # Chromium opens maximised over the learning path's window (#15)
+    hint = "The browser covers this window: to get back here, click it in the taskbar."
+    proc, _, started = _walk(tmp_path, ["feedback", "ESC"], desktop=True)
+    assert proc.returncode == 0, proc.stderr
+    assert any(line.startswith("browser ") and "demo=learning-paths" in line for line in started), started
+    assert hint in proc.stdout
+    # the third step of "Your first program" is a page
+    (tmp_path / "step").mkdir()
+    proc, _, started = _walk(tmp_path / "step", ["3", "next", "next", "start", "ESC", "ESC"], desktop=True)
+    assert proc.returncode == 0, proc.stderr
+    assert any("quantum.cloud.ibm.com/learning" in line for line in started), started
+    assert hint in proc.stdout
+    # over SSH no browser opens, and nothing is said about one
+    (tmp_path / "ssh").mkdir()
+    proc, _, _ = _walk(tmp_path / "ssh", ["feedback", "ESC"])
+    assert "Open this address:" in proc.stdout and hint not in proc.stdout

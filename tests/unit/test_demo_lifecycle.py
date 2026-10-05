@@ -114,6 +114,19 @@ def test_stop_hint_wording():
 
 
 @needs_bash
+def test_stop_hint_says_where_the_window_is_once_a_browser_covers_it():
+    # Chromium opens a demo maximised over its terminal (#15): the stop line
+    # says how to get back, only when this script opened such a window
+    out = subprocess.run(["bash", "-c", f'set -u; . "{_COMMON}"; _RQ_DEMO_TABS+=("http://127.0.0.1:8888/lab"); '
+                                        'rq_stop_hint "Quantum Lab"'],
+                         capture_output=True, text=True).stdout.splitlines()
+    assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
+                   "The browser covers this window: to get back here, click it in the taskbar."]
+    with open(os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb"), encoding="utf-8") as fh:
+        assert "press Enter in the window that started it (in the taskbar)" in fh.read()
+
+
+@needs_bash
 def test_wait_for_stop_ends_on_enter():
     p = _Pty(f'. "{_COMMON}"; sleep 300 & rq_wait_for_stop Demo $!; echo WAITED; kill $!')
     assert p.read_until("To stop Demo: press Enter or Ctrl+C")

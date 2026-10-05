@@ -750,7 +750,13 @@ rq_stop_hint() {
     else
         echo "To stop $1: press Enter or Ctrl+C, or close this window."
     fi
+    # The demo's browser window opened maximised over this one (#15)
+    [ -z "${_RQ_DEMO_TABS[*]:-}" ] || echo "$RQ_BROWSER_BACK_HINT"
 }
+
+# Chromium opens maximised (#15), over the window that started it: where
+# that window is now, under a stop line or a "Press Enter" line
+RQ_BROWSER_BACK_HINT="The browser covers this window: to get back here, click it in the taskbar."
 
 # Is process PID still there (not a zombie)? Works for children started
 # through sudo, where kill -0 fails with "not permitted".

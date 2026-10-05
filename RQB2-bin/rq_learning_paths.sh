@@ -205,6 +205,15 @@ feedback_notice() {
     echo "Your feedback helps a lot: ${FEEDBACK}${1:+/$1}"
 }
 
+# The browser opens maximised over this window (#15): say where it is now.
+# Only when a browser opened (not over SSH).
+back_hint() {
+    if check_display && _rq_find_browser >/dev/null; then
+        echo "$RQ_BROWSER_BACK_HINT"
+    fi
+    return 0
+}
+
 # The feedback form: in the browser on the desktop, its address over SSH
 # (a long address in a terminal is hard to use, #30)
 # Usage: open_feedback [PATH_ID]
@@ -212,6 +221,7 @@ open_feedback() {
     clear 2>/dev/null || true
     feedback_notice "${1:-}"
     rq_show_url "${FEEDBACK}${1:+/$1}"
+    back_hint
     pause "Press Enter to go back."
 }
 
@@ -228,6 +238,7 @@ open_page() {
     clear 2>/dev/null || true
     echo "$1: $2"
     rq_show_url "$2"
+    back_hint
     pause "Press Enter to go back."
 }
 
@@ -334,6 +345,7 @@ start_step() {
     else
         echo "$S_NAME: $S_URL"
         rq_show_url "$S_URL"
+        back_hint
         pause "Press Enter to go back to the learning path."
         return 0
     fi
