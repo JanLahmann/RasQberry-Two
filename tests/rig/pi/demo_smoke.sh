@@ -161,6 +161,7 @@ if [ -n "${RIG_ANSWERS:-}" ]; then
       while [ "$tries" -lt 900 ]; do
           tries=$((tries + 1))
           [ -n "$pending" ] || break
+          kill -0 "$spid" 2>/dev/null || break   # the demo has ended: nothing left to answer
           next=""
           for answer in $pending; do
               [ -n "$answer" ] || continue
