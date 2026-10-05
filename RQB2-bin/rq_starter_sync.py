@@ -10,10 +10,11 @@ doqumentation.org. rq_learner_setup.sh copies them into ~/My-Quantum-Programs;
 nothing on the Pi downloads them.
 
 "edits" change single cells of the upstream file, the way the demo patches
-change a pinned demo: a cell that contains a text gets a replacement inside it
-("replace"/"with") or a new source ("source"). upstream_sha256 is the file as
-published, sha256 the copy we ship. An edit that matches no cell fails, so an
-upstream change cannot slip past it.
+change a pinned demo: a cell that contains a text ("cell_contains"), or the
+cell with an id ("cell_id"), gets a replacement inside it ("replace"/"with")
+or a new source ("source"). upstream_sha256 is the file as published, sha256
+the copy we ship. An edit that matches no cell fails, so an upstream change
+cannot slip past it.
 
 Usage:
     rq_starter_sync.py             check the copies against their pins (offline)
@@ -121,8 +122,8 @@ def apply_edits(data, edits):
 
     Args:
         data (bytes): The upstream notebook.
-        edits (list): {"cell_contains", "replace", "with"} or
-            {"cell_contains", "source"} entries.
+        edits (list): {"cell_contains" or "cell_id", "replace", "with"} or
+            {"cell_contains" or "cell_id", "source"} entries.
 
     Returns:
         bytes: The edited notebook, written as Jupyter writes it.
@@ -134,9 +135,14 @@ def apply_edits(data, edits):
         return data
     nb = json.loads(data)
     for edit in edits:
-        cells = [c for c in nb["cells"] if edit["cell_contains"] in "".join(c["source"])]
-        if not cells:
-            raise ValueError("no cell contains %r" % edit["cell_contains"])
+        if "cell_id" in edit:
+            cells = [c for c in nb["cells"] if c.get("id") == edit["cell_id"]]
+            if not cells:
+                raise ValueError("no cell has the id %r" % edit["cell_id"])
+        else:
+            cells = [c for c in nb["cells"] if edit["cell_contains"] in "".join(c["source"])]
+            if not cells:
+                raise ValueError("no cell contains %r" % edit["cell_contains"])
         for cell in cells:
             if "source" in edit:
                 text = edit["source"]

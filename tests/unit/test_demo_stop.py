@@ -905,3 +905,38 @@ def test_my_programs_saves_on_ctrl_c_too(tmp_path):
         assert not _port_open(port)
     finally:
         subprocess.run(["pkill", "-f", f"http.server {port}"], capture_output=True)
+
+
+# --- Hello World without an IBM Quantum account (#25) ---------------------------
+
+def _starter_sync():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rq_starter_sync_t", os.path.join(_BIN, "rq_starter_sync.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_hello_world_real_hardware_cells_need_no_account_to_run():
+    nb = json.load(open(os.path.join(_CFG, "my-quantum-programs", "Hello-World.ipynb")))
+    cells = {c.get("id"): "".join(c["source"]) for c in nb["cells"]}
+    run = cells["option3-code"]
+    # guarded like the account cell (option3-save): a sentence, not a traceback
+    assert "except AccountNotFoundError:" in run and "service = None" in run
+    assert "RasQberry menu: IBM Quantum account > Save my API key" in run
+    assert run.index("except AccountNotFoundError:") < run.index("service.least_busy(")
+    assert "if service is not None:\n    display(plot_histogram(counts))" in cells["1o5retcxj0m"]
+    # the other histograms are untouched
+    assert cells["u3l93q05kx"].endswith("plot_histogram(counts)")
+    assert cells["d9rjc7de28k"] == "plot_histogram(counts)"
+    compile(run, "option3-code", "exec")
+
+
+def test_starter_edits_can_name_a_cell_by_id():
+    sync = _starter_sync()
+    nb = {"cells": [{"id": "a", "source": ["x = 1"]}, {"id": "b", "source": ["plot(x)"]},
+                    {"id": "c", "source": ["plot(x)"]}]}
+    out = json.loads(sync.apply_edits(json.dumps(nb).encode(), [{"cell_id": "c", "source": "y = 2\nplot(y)"}]))
+    assert [c["source"] for c in out["cells"]] == [["x = 1"], ["plot(x)"], ["y = 2\n", "plot(y)"]]
+    with pytest.raises(ValueError, match="no cell has the id 'zz'"):
+        sync.apply_edits(json.dumps(nb).encode(), [{"cell_id": "zz", "source": ""}])
