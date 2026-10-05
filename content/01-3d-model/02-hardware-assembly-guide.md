@@ -33,7 +33,7 @@ The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. 
 
 ### Mounting the fan
 
-Before we can wire up the Pi and integrate it into the Wall, it is recommended to mount the Pi 5 Active Cooler onto the board.
+Before we can wire up the Pi and integrate it into the Wall, it is recommended to mount the Pi 5 Active Cooler onto the board. Without it, the Pi gets hot during long demo runs (for example at a stand) and slows itself down.
 
 ![Figure 2](/assembly-images/fan_mounting_1.JPG "Figure 2: The Raspberry Pi 5 and the Active Cooler.")
 
