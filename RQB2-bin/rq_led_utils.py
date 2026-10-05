@@ -1056,8 +1056,11 @@ def _lgpio_files_out_of_cwd():
     LG_WD setting would move it, but lgpio then changes the whole program's
     current directory to it. So lgpio is imported once from a private temp
     directory (it keeps that as its working directory), and the program's
-    current directory is restored straight away. Removed at exit. Does nothing
-    without lgpio, or when it is already imported.
+    current directory is restored straight away. The directory is removed
+    right after the import: lgpio has opened its FIFO by then and keeps using
+    it, and a demo stopped by a signal skips exit handlers, which left a
+    root-owned /tmp/rq-lgpio-* folder behind at every LED run (#19). Does
+    nothing without lgpio, or when it is already imported.
     """
     if 'lgpio' in sys.modules:
         return
@@ -1068,7 +1071,6 @@ def _lgpio_files_out_of_cwd():
         here = os.getcwd()
     except (ImportError, ValueError, OSError):
         return
-    import atexit
     import shutil
     import tempfile
     try:
@@ -1085,7 +1087,7 @@ def _lgpio_files_out_of_cwd():
             os.chdir(here)
         except OSError:
             pass
-    atexit.register(shutil.rmtree, work, True)
+        shutil.rmtree(work, True)
 
 
 def guard_pi5_led_writes():

@@ -639,12 +639,14 @@ def test_lgpio_fifo_is_not_left_in_the_current_folder(tmp_path):
     code = ("import os, sys, rq_led_utils as lu\n"
             "lu._lgpio_files_out_of_cwd()\n"
             "import lgpio\n"
-            "print(os.getcwd()); print(lgpio.WORK)\n"
-            "lu._lgpio_files_out_of_cwd()\n")                # already imported: nothing
+            "print(os.getcwd(), lgpio.WORK, os.path.exists(lgpio.WORK), flush=True)\n"
+            "lu._lgpio_files_out_of_cwd()\n"                # already imported: nothing
+            "os.kill(os.getpid(), 15)\n")                   # a stop skips exit handlers
     proc = subprocess.run([sys.executable, "-c", code], cwd=home, capture_output=True, text=True,
                           env=dict(os.environ, PYTHONPATH=f"{fake}:{_BIN}"), timeout=30)
-    assert proc.returncode == 0, proc.stderr
-    cwd, work = proc.stdout.split()
+    assert proc.returncode == -15, proc.stderr
+    cwd, work, there = proc.stdout.split()
     assert os.path.realpath(cwd) == os.path.realpath(home)
     assert os.listdir(home) == []
-    assert not os.path.exists(work)                      # removed at exit
+    # gone right after the import, not only at a normal exit (#19)
+    assert there == "False" and not os.path.exists(work)
