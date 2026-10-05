@@ -149,6 +149,7 @@ class VirtualLEDMatrix:
 
         self._mmap = None
         self._mmap_file = None
+        self._last_frame = None
         self._total_size = MMAP_PIXEL_OFFSET + self.pixel_bytes
         self._init_mmap()
 
@@ -209,15 +210,23 @@ class VirtualLEDMatrix:
                 )
 
     def update_display(self):
-        """Read from mmap and update canvas LED colors."""
+        """
+        Read from mmap and update the canvas when the frame changed.
+
+        The dirty flag is left alone (#6). In service mode the LED renderer
+        consumes it, and while this window cleared it too, each frame went to
+        whichever of the two looked first: a picture shown once (LED-Painter,
+        the wizard's probes) reached the panel or this window, rarely both.
+        Comparing with the last frame shown needs no flag (the browser view
+        works the same way).
+        """
         if self._mmap is not None:
             try:
-                self._mmap.seek(MMAP_DIRTY_OFFSET)
-                dirty = self._mmap.read(1)
+                self._mmap.seek(MMAP_PIXEL_OFFSET)
+                pixel_data = self._mmap.read(self.pixel_bytes)
 
-                if dirty and dirty[0] == 1:
-                    pixel_data = self._mmap.read(self.pixel_bytes)
-
+                if pixel_data != self._last_frame:
+                    self._last_frame = pixel_data
                     for y in range(self.height):
                         for x in range(self.width):
                             pixel_index = self.map_xy_to_pixel(x, y)
@@ -233,10 +242,6 @@ class VirtualLEDMatrix:
                                 else:
                                     color = f"#{r:02x}{g:02x}{b:02x}"
                                 self.canvas.itemconfig(self.leds[y][x], fill=color)
-
-                    # Clear dirty flag
-                    self._mmap.seek(MMAP_DIRTY_OFFSET)
-                    self._mmap.write(b'\x00')
 
                     self.status_var.set("Receiving LED data...")
             except Exception as e:
