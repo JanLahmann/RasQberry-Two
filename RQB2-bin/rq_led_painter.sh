@@ -209,6 +209,17 @@ fi
 USER_NAME=$(get_user_name)
 USER_UID=$(id -u "$USER_NAME" 2>/dev/null || echo 1000)
 
+# Another program on the LED panel? Name it and offer to stop it, with the
+# dialog of the other LED demos (R-162): next to it the renderer cannot drive
+# the panel (#6). Only root sees the other programs, and the painter itself
+# runs as the desktop user.
+if [ "$(id -u)" -eq 0 ]; then
+    led_panel_ready || exit 0
+elif sudo -n true 2>/dev/null; then
+    sudo -n env LED_RENDER_MODE="${LED_RENDER_MODE:-direct}" \
+        bash -c '. "$1" && led_panel_ready' _ "$SCRIPT_DIR/rq_common.sh" || exit 0
+fi
+
 # Bring up the root GPIO writer, unless the system already runs in service mode
 # (a renderer is then already active and owns the strip - leave it alone).
 RENDERER_STARTED=0
@@ -216,10 +227,20 @@ if [ "${LED_RENDER_MODE:-direct}" != "service" ]; then
     if sudo systemctl start rasqberry-led-renderer 2>/dev/null; then
         RENDERER_STARTED=1
         debug "Started rasqberry-led-renderer for this painter session"
-    else
-        warn "Could not start the LED renderer - the GUI will run but the strip may stay dark"
     fi
 fi
+
+# Is the renderer still running a moment later? One that cannot open the
+# panel's driver stops at once (and systemd tries again every 2 s).
+renderer_running() {
+    for _ in 1 2; do
+        sleep 1
+        systemctl is-active --quiet rasqberry-led-renderer 2>/dev/null || return 1
+    done
+}
+# Without it the panel stayed dark and nothing said why (#6)
+renderer_running \
+    || echo "The LED panel stays dark: the LED renderer did not start (details: journalctl -u rasqberry-led-renderer)."
 
 stop_renderer() {
     [ "$RENDERER_STARTED" = "1" ] || return 0
