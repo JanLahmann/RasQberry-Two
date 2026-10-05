@@ -471,14 +471,13 @@ checkout_present() {
     fi
 }
 
-# Download the demo's Docker image (a docker demo with nothing else to install)
+# Download the demo's Docker image (a docker demo with nothing else to install).
+# One progress line, not Docker's list of layers (#23); a failed download
+# stops with Docker's reason (rq_docker_pull).
 install_docker_image() {
     local image="$1"
     docker_usable || die "Docker is not available, so $DEMO_ID cannot be downloaded (the image may be misbuilt)."
-    info "Downloading the Docker image $image. This takes several minutes..."
-    if ! docker pull "$image"; then
-        die "Could not download the Docker image $image. Check the internet connection and the free space, then try again."
-    fi
+    rq_docker_pull "$image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
 }
 
 # Ensure demo is installed; on its first start, ask (one dialog with size,
@@ -678,16 +677,12 @@ run_docker() {
     # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
     # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
     # are already present, so this pull is skipped entirely and their build
-    # path stays untouched. If a pull is attempted but fails (image not on a
-    # registry, offline, etc.) we fall back to the original "build it first"
-    # error. run_docker() uses plain info/die messages (no whiptail dialogs),
-    # so progress is reported with info.
+    # path stays untouched. The pull shows one progress line (#23); if it
+    # fails (image not on a registry, offline, no space) it stops with
+    # Docker's reason. run_docker() uses plain info/die messages (no whiptail
+    # dialogs).
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        info "Docker image not found locally: $docker_image"
-        info "Attempting to pull from registry (this may take a while)..."
-        if ! docker pull "$docker_image"; then
-            die "Docker image not found: $docker_image. Please build it first."
-        fi
+        rq_docker_pull "$docker_image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
     fi
 
     # Find an available HOST port. The container-side port stays at the

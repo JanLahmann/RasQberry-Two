@@ -295,6 +295,31 @@ def test_docker_demo_is_installed_when_its_image_is(box):
     assert box([_ENGINE, "quantum-mixer", "--is-installed"]).returncode == 1
 
 
+@pytest.mark.parametrize("rc", [0, 1])
+def test_docker_demo_first_start_pulls_through_the_progress_line(box, rc):
+    # #23: the engine's own pulls go through rq_docker_pull (one progress
+    # line, Docker's reason on failure), not a raw "docker pull"
+    log = box.tmp / "docker.log"
+    _exe(box.stubs / "docker",
+         f'#!/bin/sh\necho "$*" >> "{log}"\n'
+         'case "$1 $2" in "info "*) exit 0 ;; "image inspect") exit 1 ;; esac\n'
+         f'[ "$1" = pull ] && {{ [ {rc} -eq 0 ] || echo "Error response from daemon: manifest unknown" >&2; exit {rc}; }}\n'
+         'exit 0\n')
+    proc = box([_ENGINE, "quantum-lab", "--install-only"])
+    calls = log.read_text()
+    assert "pull -q ghcr.io/qubins/images@sha256:" in calls, calls
+    if rc == 0:
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "Downloading Quantum Lab" in proc.stdout + proc.stderr
+    else:
+        assert proc.returncode == 1
+        assert "manifest unknown" in proc.stderr and "manifest unknown" in box.err()
+    with open(_ENGINE) as fh:
+        engine = fh.read()
+    assert 'docker pull "' not in engine
+    assert engine.count("rq_docker_pull \"$") == 2
+
+
 # --- shared helpers ---------------------------------------------------------
 
 def test_env_write_failure_keeps_the_settings(box):
