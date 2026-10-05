@@ -258,6 +258,7 @@ set `boot_partition=2` under `[all]` in `autoboot.txt` (Slot A; `3` is Slot B).
 ```bash
 sudo rq_expand_ab.sh status                       # two systems, one, or not set up yet
 sudo rq_slot_manager.sh status                    # booted slot, slot contents, sizes, warnings
+sudo rq_slot_manager.sh status --plain            # the same in plain words (Slot Manager -> Show slot details)
 sudo rq_slot_manager.sh summary                   # key=value for scripts (current, slot_a, slot_b, expanded, card_mode, ...)
 sudo rq_update_slot.sh --preflight                # can the other slot take an update?
 sudo rq_slot_manager.sh plan-update <tag>         # what an update would replace (the guard)

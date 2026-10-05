@@ -537,6 +537,41 @@ def test_slot_manager_keeps_the_cursor_on_the_last_choice(tmp_path):
     assert "--default-item\nSTATUS\n" in menus[1]
 
 
+PLAIN_STATUS = "\n".join([
+    "Running now: Slot A, beta-2026-09-30-221656 (beta)",
+    "Other slot:  Slot B, beta-2026-10-15-101010 (beta)",
+    "",
+    "Slot A is confirmed: it started well and is the start slot.",
+    "Next restart: Slot A again.",
+    "",
+    "An update goes into Slot B and replaces what it holds. Slot A stays as it is, to go back to.",
+    "",
+    "The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A is running again.",
+    "Reason: the health check found no desktop after 10 minutes",
+    "",
+    "Technical details: sudo rq_slot_manager.sh status"])
+
+
+def test_slot_details_are_plain_and_fit_without_scrolling(tmp_path):
+    # User test #16: STATUS printed partitions and "autoboot.txt: EXISTS",
+    # and its scrolling box lost the right border over SSH
+    _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
+    _stub(tmp_path, "rq_slot_manager.sh", """\
+        #!/bin/sh
+        case "$1" in
+            status) echo "status $*" >> "$CALLS"; printf '%s\\n' "$PLAIN" ;;
+            *) printf '%s\\n' "$S" ;;
+        esac
+        """)
+    _, wt = _menu(tmp_path, 'do_slot_manager_menu', S=ON_B, PLAIN=PLAIN_STATUS,
+                  WT_ANSWERS=_answers(tmp_path, "menus", ["STATUS"]))
+    assert "--plain" in _calls(tmp_path)
+    box = [b for b in _boxes(wt) if "--msgbox" in b][0]
+    assert "Slot details" in box and "Next restart: Slot A again." in box
+    assert "--scrolltext" not in box
+    assert _check_fits(box) == 1
+
+
 def test_software_updates_menu_names_no_promote(tmp_path):
     _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
     _, wt = _menu(tmp_path, 'do_ab_boot_menu', WT_ANSWERS=_answers(tmp_path, "menus", []))

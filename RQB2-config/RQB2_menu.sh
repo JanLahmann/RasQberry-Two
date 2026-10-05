@@ -2357,8 +2357,9 @@ do_slot_manager_menu() {
             TRYBOOT_A) ab_restart_into A "$summary" ;;
             TRYBOOT_B) ab_restart_into B "$summary" ;;
             STATUS)
-                out=$("$BIN_DIR"/rq_slot_manager.sh status 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
-                ab_msgbox "A/B Boot Status" "$out"
+                # plain words that fit 80x24 (#16); `status` is for experts
+                out=$("$BIN_DIR"/rq_slot_manager.sh status --plain 2>&1 | sed 's/^INFO: //; s/^WARNING: //; s/^ERROR: //')
+                ab_msgbox "Slot details" "$out"
                 ;;
             CONFIRM)
                 out=$("$BIN_DIR"/rq_slot_manager.sh confirm 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
