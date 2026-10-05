@@ -1002,15 +1002,14 @@ def _guarded_pi5_write(write, reopen):
         _count_led_stall()
         if recovered:
             _report_led_stall(
-                "LED panel: the LED driver stalled and was restarted. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended).")
+                "LED panel: the LED driver stalled and was restarted. A power "
+                "supply too weak for the LEDs, or a Pi that is too hot, can cause this.")
         else:
             state['stuck_since'] = state['last_try'] = time.monotonic()
             _report_led_stall(
-                "LED panel stopped: the LED driver does not respond. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended). The demo goes on without the panel.")
+                "LED panel stopped: the LED driver does not respond. A power supply "
+                "too weak for the LEDs, or a Pi that is too hot, can cause this. "
+                "The demo goes on without the panel.")
 
     guarded._rq_stall_guard = True
     return guarded

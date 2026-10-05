@@ -410,6 +410,44 @@ def test_after_stall_asks_before_lowering(box):
     assert _env_value(box.env_file, "LED_MAX_BRIGHTNESS") == "0.2"
 
 
+# What the Pi reported decides the advice (#5): the rig's stalls came with only
+# the sticky soft-temperature bit, and a lower brightness did not help.
+@needs_bash
+@pytest.mark.parametrize("throttled,says,offers", [
+    ("0x80000", "got too hot", False),          # temperature limit earlier
+    ("0x8", "got too hot", False),              # temperature limit now
+    ("0x50005", "too little power", True),      # under-voltage now
+    ("0x10000", "too little power", True),      # under-voltage earlier
+    ("0x90000", "too little power, and it got too hot", True),
+    ("0x0", "no power or heat problem", False),
+])
+def test_after_stall_names_the_reported_cause(box, throttled, says, offers):
+    _exe(box.tmp / "stubs" / "vcgencmd", f'#!/bin/sh\necho "throttled={throttled}"\n')
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+             env=box({"WT_RC": "1", "PI_MODEL": "Pi5"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert says in dialog
+    assert ("Lower to 0.2" in dialog) == offers
+    assert ("power supply is too weak" in dialog) is False
+    if "hot" in says:
+        assert "Active Cooler" in dialog
+    if not offers:
+        assert "--msgbox" in dialog
+    assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"
+
+
+@needs_bash
+def test_after_stall_without_vcgencmd_names_both(box):
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+             env=box({"WT_RC": "1"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "power supply is too weak" in dialog and "too hot" in dialog
+
+
 @needs_bash
 def test_no_stall_no_question(box):
     (box.tmp / "stall-0").write_text("time=1000\nrecovered=yes\n")      # long ago

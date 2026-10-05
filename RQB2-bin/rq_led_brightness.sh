@@ -7,8 +7,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 # Description: Set how bright the LED panel may get. A brighter panel draws
 #   more current; on a power supply that is too weak the Pi 5's LED driver
 #   stalls and the panel stops (item 31). After a stall the launchers call
-#   --after-stall: it says what happened and offers a lower brightness. Nothing
-#   is lowered without asking, and this menu raises it again (Jan, 2026-10-03).
+#   --after-stall: it says what happened and, from what the Pi reports
+#   (get_throttled), whether power or heat is the likely cause; a lower
+#   brightness is offered only when power may be short (#5). Nothing is
+#   lowered without asking, and this menu raises it again (Jan, 2026-10-03).
 # Usage:
 #   rq_led_brightness.sh                      choose a level (whiptail menu)
 #   rq_led_brightness.sh --set LEVEL          set a level: low, medium, normal, bright
@@ -86,8 +88,36 @@ reset_pio_driver() {
     _rq_as_root sh -c 'echo "$1" > "$2/unbind" && echo "$1" > "$2/bind"' _ "$dev" "$drv" 2>/dev/null
 }
 
+# What the Pi itself reported (vcgencmd get_throttled, #5): power (an
+# under-voltage bit: 0x1 now, 0x10000 since start-up), heat (a temperature
+# bit: 0x2/0x4/0x8 now, 0x20000/0x40000/0x80000 since start-up), both or
+# none - or unknown when it cannot be read. The rig's stalls came with only
+# the sticky soft-temperature bit (0x80000) and a steady 5.03 V, and a lower
+# brightness did not help, so the power supply is blamed only for under-voltage.
+stall_cause() {
+    local t v power=0 heat=0
+    command -v vcgencmd >/dev/null 2>&1 || { echo unknown; return 0; }
+    t=$(vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p' | head -1)
+    case "$t" in 0x[0-9a-fA-F]*) v=$((t)) ;; *) echo unknown; return 0 ;; esac
+    (( v & 0x10001 )) && power=1
+    (( v & 0xE000E )) && heat=1
+    case "$power$heat" in
+        11) echo both ;; 10) echo power ;; 01) echo heat ;; *) echo none ;;
+    esac
+}
+
+# One line on cooling for this Pi (a Pi 5 has the Active Cooler)
+cooling_advice() {
+    if tr -d '\0' < /proc/device-tree/model 2>/dev/null | grep -q "Pi 5" \
+            || [ "${PI_MODEL:-}" = "Pi5" ]; then
+        echo "On a Pi 5, fit the Active Cooler and check that its fan runs."
+    else
+        echo "Give the Pi a heatsink and room for air."
+    fi
+}
+
 after_stall() {
-    local since="${1:-0}" found recovered text
+    local since="${1:-0}" found recovered text offer=1
     case "$since" in ''|*[!0-9]*) since=0 ;; esac
     found=$(newest_stall "$since") || return 0
     recovered="${found#* }"
@@ -98,18 +128,34 @@ after_stall() {
     else
         text="The LED panel stopped during the demo: its driver did not respond. If it stays dark, restart the Pi."
     fi
-    text="$text This happens when the power supply is too weak for the LEDs.\n\nUse the official Raspberry Pi 27 W power supply, or give the LED panel its own power.\n\nA lower brightness draws less current. Raise it again any time: RasQberry menu > LEDs > LED brightness."
+    case "$(stall_cause)" in
+        power)
+            text="$text The Pi reported too little power.\n\nUse the official Raspberry Pi 27 W power supply, or give the LED panel its own power." ;;
+        both)
+            text="$text The Pi reported too little power, and it got too hot.\n\nUse the official Raspberry Pi 27 W power supply, or give the LED panel its own power. $(cooling_advice)" ;;
+        heat)
+            offer=0
+            text="$text The Pi got too hot and slowed down (its power was fine).\n\n$(cooling_advice)" ;;
+        none)
+            offer=0
+            text="$text The Pi reported no power or heat problem.\n\nIf it happens again, check the power supply (the official 27 W one) and the cooling." ;;
+        *)
+            text="$text This happens when the power supply is too weak for the LEDs, or when the Pi is too hot.\n\nUse the official Raspberry Pi 27 W power supply, or give the LED panel its own power. $(cooling_advice)" ;;
+    esac
+    # A lower brightness only helps when the power may be short
+    [ "$(current_level)" = "low" ] && offer=0
+    [ "$offer" = 1 ] && text="$text\n\nA lower brightness draws less current. Raise it again any time: RasQberry menu > LEDs > LED brightness."
     if ! { [ -t 0 ] && [ -t 1 ]; } || ! command -v whiptail >/dev/null 2>&1; then
         warn "$(printf '%b' "$text" | tr '\n' ' ' | sed 's/  */ /g')"
         return 0
     fi
-    local cur="${LED_DEFAULT_BRIGHTNESS:-0.4}"
-    if [ "$(current_level)" = "low" ]; then
-        show_msgbox "LED panel stopped" "$text" 16 70
+    if [ "$offer" != 1 ]; then
+        show_msgbox "LED panel stopped" "$text" 12 70
         return 0
     fi
-    if whiptail --title "LED panel stopped" --yes-button "Lower to 0.2" --no-button "Keep $cur" \
-            --yesno "$(printf '%b' "$text")" 17 70; then
+    if whiptail --title "LED panel stopped" --yes-button "Lower to 0.2" \
+            --no-button "Keep ${LED_DEFAULT_BRIGHTNESS:-0.4}" \
+            --yesno "$(printf '%b' "$text")" "$(_rq_dialog_height "$text" 70 12)" 70; then
         set_level low
     fi
     return 0
