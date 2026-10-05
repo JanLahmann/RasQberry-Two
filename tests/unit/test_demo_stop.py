@@ -940,3 +940,17 @@ def test_starter_edits_can_name_a_cell_by_id():
     assert [c["source"] for c in out["cells"]] == [["x = 1"], ["plot(x)"], ["y = 2\n", "plot(y)"]]
     with pytest.raises(ValueError, match="no cell has the id 'zz'"):
         sync.apply_edits(json.dumps(nb).encode(), [{"cell_id": "zz", "source": ""}])
+
+
+def test_menu_lights_out_and_led_test_stop_like_their_icons():
+    menu = _read("RQB2-config", "RQB2_menu.sh")
+    qlo = menu[menu.index("run_qlo_demo() {"):]
+    qlo = qlo[:qlo.index("\n}\n")]
+    # the engine, as the icons: plain step lines and Enter stops it
+    assert 'run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out console' in qlo
+    assert 'run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out\n' in qlo
+    assert "lights_out.py" not in qlo
+    test = menu[menu.index("            test )"):]
+    test = test[:test.index(";;")]
+    assert 'run_engine_demo "$BIN_DIR/rq_demo_run.sh" led-demos led-test' in test
+    assert "_rq_pause" in test and "rq_led_test.sh" not in test
