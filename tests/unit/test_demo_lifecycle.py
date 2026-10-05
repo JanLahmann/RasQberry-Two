@@ -370,6 +370,8 @@ exit "${{WT_RC:-0}}"
 ''')
     _exe(stubs / "sudo", '#!/bin/sh\n[ "$1" = "-n" ] && shift\nexec "$@"\n')
     _exe(stubs / "curl", '#!/bin/sh\nexit 0\n')
+    # the kernel log: no under-voltage unless a test says so
+    _exe(stubs / "journalctl", f'#!/bin/sh\ncat "{tmp_path}/kernel.log" 2>/dev/null\nexit 0\n')
     home = tmp_path / "home"
     home.mkdir()
     env_file = tmp_path / "rasqberry_environment.env"
@@ -416,45 +418,85 @@ def test_brightness_levels_set_default_and_limit(box):
 
 @needs_bash
 def test_after_stall_asks_before_lowering(box):
+    _exe(box.tmp / "stubs" / "vcgencmd", '#!/bin/sh\necho "throttled=0x50005"\n')
     (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=no\n")
-    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x0',
              env=box({"WT_RC": "1"}))           # "Keep 0.4"
     p.wait()
     dialog = box.wt_log.read_text()
     assert "LED panel stopped" in dialog and "power supply" in dialog and "27 W" in dialog
     assert "Lower to 0.2" in dialog
     assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"   # kept
-    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}', env=box())
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x0', env=box())
     p.wait()
     assert _env_value(box.env_file, "LED_MAX_BRIGHTNESS") == "0.2"
 
 
-# What the Pi reported decides the advice (#5): the rig's stalls came with only
-# the sticky soft-temperature bit, and a lower brightness did not help.
+# What the Pi reported during the demo decides the advice (#5, #6): only bits
+# that are new since the demo started count (the rig's 0x50000 came from an
+# under-voltage 3.5 hours earlier). Heat is the soft temperature limit or a
+# capped ARM frequency; throttling alone (0x4, 0x40000) is neither. A lower
+# brightness is offered only for a new under-voltage.
 @needs_bash
-@pytest.mark.parametrize("throttled,says,offers", [
-    ("0x80000", "got too hot", False),          # temperature limit earlier
-    ("0x8", "got too hot", False),              # temperature limit now
-    ("0x50005", "too little power", True),      # under-voltage now
-    ("0x10000", "too little power", True),      # under-voltage earlier
-    ("0x90000", "too little power, and it got too hot", True),
-    ("0x0", "no power or heat problem", False),
+@pytest.mark.parametrize("start,throttled,says,offers", [
+    ("0x0", "0x80000", "got too hot", False),          # temperature limit
+    ("0x0", "0x8", "got too hot", False),              # temperature limit now
+    ("0x0", "0x20000", "got too hot", False),          # ARM frequency capped
+    ("0x0", "0x50005", "too little power", True),      # under-voltage now
+    ("0x0", "0x10000", "too little power", True),      # under-voltage during the demo
+    ("0x0", "0x90000", "too little power during the demo, and it got too hot", True),
+    ("0x50000", "0x50000", "", False),                 # the rig: bits from hours ago
+    ("0x0", "0x40000", "", False),                     # throttling alone
+    ("0x0", "0x0", "", False),
+    ("", "0x50000", "", False),                        # not read at the start
 ])
-def test_after_stall_names_the_reported_cause(box, throttled, says, offers):
+def test_after_stall_names_the_reported_cause(box, start, throttled, says, offers):
     _exe(box.tmp / "stubs" / "vcgencmd", f'#!/bin/sh\necho "throttled={throttled}"\n')
     (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
-    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} "{start}"',
              env=box({"WT_RC": "1", "PI_MODEL": "Pi5"}))
     p.wait()
     dialog = box.wt_log.read_text()
-    assert says in dialog
+    assert "The LED driver stalled during the demo and was restarted." in dialog
     assert ("Lower to 0.2" in dialog) == offers
     assert ("power supply is too weak" in dialog) is False
+    if says:
+        assert says in dialog
+    else:                                               # blames nothing
+        assert "power" not in dialog and "hot" not in dialog and "27 W" not in dialog
     if "hot" in says:
         assert "Active Cooler" in dialog
     if not offers:
         assert "--msgbox" in dialog
     assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"
+
+
+@needs_bash
+def test_after_stall_counts_an_undervoltage_the_kernel_logged(box):
+    """The sticky bit was set long before, but the kernel logged a new
+    under-voltage during the demo: that is power."""
+    _exe(box.tmp / "stubs" / "vcgencmd", '#!/bin/sh\necho "throttled=0x50000"\n')
+    (box.tmp / "kernel.log").write_text("hwmon hwmon2: Undervoltage detected!\n")
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x50000',
+             env=box({"WT_RC": "1"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "too little power" in dialog and "Lower to 0.2" in dialog
+
+
+@needs_bash
+def test_led_launchers_read_the_bits_when_a_demo_starts():
+    """The start reading goes to the stall check (#6)."""
+    common = _read("rq_common.sh")
+    on = common[common.index("rq_led_clear_on_exit() {"):common.index("_rq_led_on_exit() {")]
+    assert "RQ_LED_THROTTLED_START=$(rq_throttled)" in on
+    assert 'rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"' in common
+    run = _read("rq_demo_run.sh")
+    assert "RQ_LED_THROTTLED_START=$(rq_throttled)" in run
+    assert 'rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"' in run
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    assert '--after-stall "$_rld_start" "$_rld_thr"' in menu
 
 
 @needs_bash

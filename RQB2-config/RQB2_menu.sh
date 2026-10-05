@@ -1116,13 +1116,15 @@ _rq_led_ready() {
 run_led_demo() {
   _rq_led_ready || return 0
   _rld_start=$(date +%s)
+  # what the Pi reported before the demo: the stall check counts only new bits (#6)
+  _rld_thr=$(vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p')
   _RQ_LED_RUN=1
   run_demo "$@"
   _rld_rc=$?
   _RQ_LED_RUN=""
   _rld_err="${RQ_LAST_DEMO_ERROR:-}"
   do_led_off >/dev/null 2>&1
-  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" 2>/dev/null || :
+  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" "$_rld_thr" 2>/dev/null || :
   RQ_LAST_DEMO_ERROR="$_rld_err"
   return "$_rld_rc"
 }
