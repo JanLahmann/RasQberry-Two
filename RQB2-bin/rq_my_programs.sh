@@ -59,23 +59,36 @@ URL="http://localhost:${PORT}/${START_PAGE}?token=${JUPYTER_TOKEN}"
 
 cd "$PROGRAMS_DIR"
 info "Starting JupyterLab in $PROGRAMS_DIR ..."
+# expose_app_in_browser: the stop can save the open notebooks (#12)
 jupyter-lab \
     --no-browser \
     --port="$PORT" \
     --ip=127.0.0.1 \
     --ServerApp.token="$JUPYTER_TOKEN" \
     --ServerApp.password="" \
+    --LabApp.expose_app_in_browser=True \
     >/dev/null 2>&1 &
 JUPYTER_PID=$!
+
+# Stopping JupyterLab lost the edits it had not saved yet ("Saving failed",
+# #12). Before it stops, the notebooks open in the Pi's browser are saved
+# (rq_browser_tab.py, through Chromium's DevTools port).
+SAVED=""
+save_open_notebooks() {
+    python3 "$SCRIPT_DIR/rq_browser_tab.py" save "$URL" </dev/null >/dev/null 2>&1
+}
 
 cleanup() {
     set +e   # a closed window cannot show messages: still stop the server
     trap '' HUP INT TERM
     if kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping JupyterLab..."
-        rq_close_demo_tabs   # before the server goes: no dead tab (#9)
-        # it stops its kernels first; a hard kill only if it hangs (#27)
-        rq_stop_pid "$JUPYTER_PID" 10
+        # Ctrl+C or a closed window: save what is open, then close its tab
+        # (no dead tab, #9), then stop the server, which stops its kernels
+        # first (#27). Detached, so that a closed window does not cut it short.
+        rq_run_detached bash -c '. "$1"; [ -n "$2" ] || python3 "$3" save "$4"
+            python3 "$3" close "$4"; rq_stop_pid "$5" 10' \
+            _ "$SCRIPT_DIR/rq_common.sh" "$SAVED" "$SCRIPT_DIR/rq_browser_tab.py" "$URL" "$JUPYTER_PID"
     fi
 }
 setup_cleanup_trap cleanup
@@ -101,5 +114,17 @@ echo ""
 echo "Folder: $PROGRAMS_DIR"
 echo "URL:    $URL"
 echo ""
-echo "Start with Hello-World.ipynb. Your notebooks and programs are saved in this folder."
+echo "Start with Hello-World.ipynb. Your notebooks and programs are saved in this folder,"
+echo "and the open notebooks are saved when you stop JupyterLab here."
 rq_wait_for_stop "JupyterLab" "$JUPYTER_PID"
+
+# Enter: save first; if that is not possible, ask before the edits are lost
+if [ -t 0 ] && _rq_pid_alive "$JUPYTER_PID"; then
+    info "Saving the open notebooks..."
+    if ! save_open_notebooks; then
+        echo "The open notebooks could not be saved from here. Save them in the browser"
+        printf '(Ctrl+S), then press Enter to stop JupyterLab. '
+        read -r _ || true
+    fi
+    SAVED=1
+fi

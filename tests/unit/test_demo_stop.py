@@ -558,8 +558,7 @@ def test_stop_paths_close_the_demo_tab_before_the_server_goes():
     assert cleanup.index("rq_close_demo_tabs") < cleanup.index('kill "$JUPYTER_PID"')
     for name, server in (("rq_fun_with_quantum.sh", 'kill "$JUPYTER_PID"'), ("rq_grok_bloch.sh", "kill $SERVER_PID"),
                          ("rq_fwq_portal.sh", 'kill "$SERVER_PID"'),
-                         ("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID"'),
-                         ("rq_my_programs.sh", 'rq_stop_pid "$JUPYTER_PID"')):
+                         ("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID"')):
         text = _read("RQB2-bin", name)
         body = text[text.index("cleanup() {"):]
         assert body.index("rq_close_demo_tabs") < body.index(server), name
@@ -803,3 +802,106 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         web.kill()
         chrome.kill()
         chrome.wait(10)
+
+
+# --- My Quantum Programs saves before it stops (#12) -----------------------------
+
+def _mqp_box(tmp_path):
+    """rq_my_programs.sh with a stand-in JupyterLab (a plain web server) and a
+    stand-in rq_browser_tab.py that records what it was asked."""
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    _exe(stubs / "sudo", '#!/bin/sh\n[ "$1" = "-n" ] && shift\nexec "$@"\n')
+    _exe(stubs / "jupyter-lab", f'''#!/bin/sh
+for a in "$@"; do case "$a" in --port=*) port="${{a#--port=}}" ;; esac; done
+echo "$*" > "{tmp_path}/jupyter-args"
+exec "{sys.executable}" -m http.server "$port" --bind 127.0.0.1
+''')
+    home = tmp_path / "home"
+    (home / "RasQberry-Two/venv/RQB2/bin").mkdir(parents=True)
+    (home / "RasQberry-Two/venv/RQB2/bin/activate").write_text("")
+    env_file = tmp_path / "rasqberry_environment.env"
+    env_file.write_text(open(_ENV).read())
+    env_config = tmp_path / "env-config.sh"
+    env_config.write_text(open(_ENV_CONFIG).read()
+                          .replace("/usr/config/rasqberry_environment.env", str(env_file))
+                          .replace('USER_HOME="$(eval echo ~${SUDO_USER})"', f'USER_HOME="{home}"'))
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in os.listdir(_BIN):
+        if name not in ("rq_learner_setup.sh", "rq_browser_tab.py") and not name.startswith("__"):
+            os.symlink(os.path.join(_BIN, name), bin_dir / name)
+    _exe(bin_dir / "rq_learner_setup.sh", "#!/bin/sh\nexit 0\n")
+    (bin_dir / "rq_browser_tab.py").write_text(f'''import os, sys
+open("{tmp_path}/tab-calls", "a").write(sys.argv[1] + " " + sys.argv[2].split("?")[0] + "\\n")
+sys.exit(int(os.environ.get("SAVE_RC", "0")) if sys.argv[1] == "save" else 0)
+''')
+    port = 39000 + os.getpid() % 500
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=str(home), USER="rasqberry",
+               RQ_CONFIG_FILE=str(env_config), RQ_ENV_FILE=str(env_file), RQ_DEMO_COUNTED="test",
+               MY_PROGRAMS_JUPYTER_PORT=str(port))
+    for k in ("DISPLAY", "WAYLAND_DISPLAY", "SUDO_USER"):
+        env.pop(k, None)
+    return bin_dir, env, port
+
+
+def _port_open(port):
+    import socket
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=1).close()
+        return True
+    except OSError:
+        return False
+
+
+@needs_bash
+def test_my_programs_saves_the_open_notebooks_before_it_stops(tmp_path):
+    bin_dir, env, port = _mqp_box(tmp_path)
+    p = _Pty(f'exec bash "{bin_dir}/rq_my_programs.sh"', env=env)
+    try:
+        assert p.read_until(_STOP_LINE.format("JupyterLab"), 60), p.text()
+        assert "--LabApp.expose_app_in_browser=True" in (tmp_path / "jupyter-args").read_text()
+        assert "the open notebooks are saved when you stop JupyterLab here" in p.text()
+        p.send("\r")
+        assert p.wait(60) == 0, p.text()
+        url = f"http://localhost:{port}/lab"   # (no Hello World in this empty folder)
+        calls = _calls(tmp_path, 2)
+        # saved first, then its tab closed, then the server stopped - once each
+        assert calls[:2] == [f"save {url}", f"close {url}"] and len(calls) == 2, calls
+        assert not _port_open(port)
+        assert "could not be saved" not in p.text()
+    finally:
+        subprocess.run(["pkill", "-f", f"http.server {port}"], capture_output=True)
+
+
+@needs_bash
+def test_my_programs_asks_before_unsaved_edits_could_be_lost(tmp_path):
+    bin_dir, env, port = _mqp_box(tmp_path)
+    env["SAVE_RC"] = "2"                       # no DevTools port: nothing known
+    p = _Pty(f'exec bash "{bin_dir}/rq_my_programs.sh"', env=env)
+    try:
+        assert p.read_until(_STOP_LINE.format("JupyterLab"), 60), p.text()
+        p.send("\r")
+        assert p.read_until("then press Enter to stop JupyterLab.", 30), p.text()
+        time.sleep(0.5)
+        assert _port_open(port)                # still running while it asks
+        p.send("\r")
+        assert p.wait(60) == 0, p.text()
+        assert not _port_open(port)
+    finally:
+        subprocess.run(["pkill", "-f", f"http.server {port}"], capture_output=True)
+
+
+@needs_bash
+def test_my_programs_saves_on_ctrl_c_too(tmp_path):
+    bin_dir, env, port = _mqp_box(tmp_path)
+    p = _Pty(f'exec bash "{bin_dir}/rq_my_programs.sh"', env=env)
+    try:
+        assert p.read_until(_STOP_LINE.format("JupyterLab"), 60), p.text()
+        p.send("\x03")
+        p.wait(60)
+        url = f"http://localhost:{port}/lab"   # (no Hello World in this empty folder)
+        assert _calls(tmp_path, 2)[:2] == [f"save {url}", f"close {url}"]
+        assert not _port_open(port)
+    finally:
+        subprocess.run(["pkill", "-f", f"http.server {port}"], capture_output=True)
