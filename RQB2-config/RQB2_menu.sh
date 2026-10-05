@@ -1877,14 +1877,19 @@ ab_yesno() {
     fi
 }
 
-# ab_menu <title> <text> <tag> <item>... ; prints the chosen tag.
-# AB_MENU_DEFAULT=<tag> puts the cursor on that item.
+# ab_menu [--tags] <title> <text> <tag> <item>... ; prints the chosen tag.
+# AB_MENU_DEFAULT=<tag> puts the cursor on that item. The tags are internal
+# ids (UPDATE, TRYBOOT_B, ...), so they are hidden as in show_menu (user
+# test #16); --tags shows them where the tag IS the information (the list of
+# releases, whose tags are the release names).
 ab_menu() {
+    _ab_notags="--notags"
+    [ "$1" = "--tags" ] && { _ab_notags=""; shift; }
     _ab_title="$1"; _ab_text="$2"; shift 2
     _ab_n=$(($# / 2))
     _ab_w=$(ab_width)
     _ab_hh=$(ab_box_height "$_ab_text" "$_ab_w" $((_ab_n + 7)))
-    whiptail --title "$_ab_title" --default-item "${AB_MENU_DEFAULT:-}" \
+    whiptail --title "$_ab_title" $_ab_notags --default-item "${AB_MENU_DEFAULT:-}" \
         --menu "$_ab_text" "$_ab_hh" "$_ab_w" "$_ab_n" "$@" 3>&1 1>&2 2>&3
 }
 
@@ -2072,7 +2077,8 @@ ab_pick_image() {
         lsha=$(printf '%s\n' "$latest" | cut -f5)
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
-        set -- "$ltag" "$note"
+        # the tags are hidden: the release name goes into the item text
+        set -- "$ltag" "${ltag}  ${note}"
         prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
         prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
@@ -2134,7 +2140,7 @@ ab_pick_other() {
     done <<EOF
 $list
 EOF
-    choice=$(ab_menu "Choose a release" "A/B images of the ${stream} releases, newest first (only releases with a checksum):" "$@") || return 1
+    choice=$(ab_menu --tags "Choose a release" "A/B images of the ${stream} releases, newest first (only releases with a checksum):" "$@") || return 1
     line=$(printf '%s\n' "$list" | awk -F '\t' -v t="$choice" '$1 == t { print; exit }')
     [ -n "$line" ] || return 1
     echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)|$(printf '%s\n' "$line" | cut -f5)"
@@ -2310,7 +2316,7 @@ ab_rollback() {
 
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
-    local summary current other prompt FUN out last=""
+    local summary current other prompt FUN out last="" oth_ok
     while true; do
         summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
         if [ "$(ab_value "$summary" layout)" != "ab" ]; then
@@ -2326,15 +2332,21 @@ do_slot_manager_menu() {
 
         # Updates always go into the slot that is not running. On trial (or
         # with a rollback waiting) the other slot is still the start slot.
-        set -- UPDATE "Install an update into the other system (Slot ${other})" \
-            "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)" \
-            STATUS  "Show slot details"
+        # Switch and rollback only while the other slot holds a system
+        # (ab_has_system: what rq_slot_manager.sh refuses with exit 25), and
+        # confirm only when there is something to confirm (user test #16).
+        oth_ok=false
+        ab_has_system "$(ab_slot_content "$other" "$summary")" && oth_ok=true
+        set -- UPDATE "Install an update into the other system (Slot ${other})"
+        $oth_ok && set -- "$@" "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)"
+        set -- "$@" STATUS "Show slot details"
         if [ "$(ab_value "$summary" default)" = "$other" ]; then
-            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)" \
-                ROLLBACK "Go back to Slot ${other} (rollback)"
+            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)"
+            $oth_ok && set -- "$@" ROLLBACK "Go back to Slot ${other} (rollback)"
         else
-            set -- "$@" CONFIRM "Keep Slot ${current} as the start slot" \
-                ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
+            [ "$(ab_value "$summary" confirmed)" = "yes" ] \
+                || set -- "$@" CONFIRM "Keep Slot ${current} as the start slot"
+            $oth_ok && set -- "$@" ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
         fi
         # The cursor stays on the last choice (H-34: it jumped back to UPDATE)
         FUN=$(AB_MENU_DEFAULT="$last" ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" "$@") || break

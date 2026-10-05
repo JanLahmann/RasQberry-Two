@@ -243,6 +243,10 @@ def test_picker_offers_the_own_channel_first_and_returns_only_the_choice(tmp_pat
                            "beta-2026-10-15-101010/r-ab.img.xz|beta-2026-10-15-101010|1671527604|abc1\n")
     assert "latest beta, 2026-10-15, 1.7 GB (recommended)" in wt
     assert "Choose the release to install into Slot B:" in wt
+    # tags hidden (#16): the release name is in the item text, OTHER is not shown
+    menu = _boxes(wt)[0]
+    assert "--notags" in menu
+    assert "beta-2026-10-15-101010\nbeta-2026-10-15-101010  latest beta, 2026-10-15" in menu
     assert "Asking rasqberry.org" in proc.stderr
 
 
@@ -261,6 +265,9 @@ def test_picker_other_channel_defaults_to_the_own_channel(tmp_path):
     assert "--default-item\nbeta\n" in channel_menu
     assert "Choose a release stream. This system follows: beta" in channel_menu
     assert "channel" not in wt
+    # the list of releases keeps its tags: they are the release names
+    release_menu = wt.split("=== whiptail")[3]
+    assert "--notags" not in release_menu and "--notags" in channel_menu
 
 
 # ---------------------------------------------------------------------------
@@ -471,8 +478,9 @@ def test_slot_manager_on_slot_a(tmp_path):
     assert "Slot B: development-2026-10-04-014357 (dev)\\n" in first
     assert "UPDATE\nInstall an update into the other system (Slot B)\n" in first
     assert "TRYBOOT_B\nSwitch to Slot B (restart and try it)\n" in first
-    assert "CONFIRM\nKeep Slot A as the start slot\n" in first
     assert "ROLLBACK\nMake Slot B the start slot (rollback, no trial)\n" in first
+    # Slot A is confirmed and the start slot: nothing to confirm (user test #16)
+    assert "CONFIRM" not in first
     assert "PROMOTE" not in first and "(stable)" not in first and "testing" not in first
 
 
@@ -483,7 +491,32 @@ def test_slot_manager_on_slot_b_is_the_mirror_image(tmp_path):
     assert "UPDATE\nInstall an update into the other system (Slot A)\n" in first
     assert "TRYBOOT_A\nSwitch to Slot A (restart and try it)\n" in first
     assert "ROLLBACK\nMake Slot A the start slot (rollback, no trial)\n" in first
+    assert "CONFIRM" not in first
     assert "PROMOTE" not in first and "(stable)" not in first and "testing" not in first
+
+
+def test_slot_manager_hides_the_tags(tmp_path):
+    # UPDATE / TRYBOOT_B / STATUS are internal ids (user test #16)
+    for first in (_slot_manager(tmp_path, ON_A, "")[0], _slot_manager(tmp_path, ON_B, "")[0]):
+        assert "--notags" in first.split("--menu", 1)[0]
+
+
+@pytest.mark.parametrize("content", ["EMPTY", "INCOMPLETE", "UNKNOWN", ""])
+def test_slot_manager_offers_no_switch_into_a_slot_without_a_system(tmp_path, content):
+    # The user test saw "Switch to Slot B" and "rollback" with Slot B empty
+    # (#16): the menu offers only what rq_slot_manager.sh would not refuse
+    first = _slot_manager(tmp_path, ON_A.replace("slot_b=EMPTY", f"slot_b={content}"), "")[0]
+    items = first.split("--menu", 1)[1]
+    assert "UPDATE\nInstall an update into the other system (Slot B)\n" in items
+    assert "STATUS\nShow slot details\n" in items
+    assert "TRYBOOT" not in items and "ROLLBACK" not in items and "Switch to" not in items
+    assert "CONFIRM" not in items       # confirmed, start slot: nothing to confirm
+
+
+def test_slot_manager_offers_confirm_while_not_confirmed(tmp_path):
+    first = _slot_manager(tmp_path, ON_A.replace("confirmed=yes", "confirmed=no"), "")[0]
+    assert "CONFIRM\nKeep Slot A as the start slot\n" in first
+    assert "TRYBOOT" not in first and "ROLLBACK" not in first
 
 
 def test_slot_manager_on_trial_names_the_start_slot_right(tmp_path):
