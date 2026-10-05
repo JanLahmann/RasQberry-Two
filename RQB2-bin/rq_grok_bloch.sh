@@ -6,7 +6,8 @@ set -euo pipefail
 #
 # Description:
 #   Starts local HTTP server and opens the Bloch sphere demo in browser
-#   Interactive visualization of quantum states
+#   Interactive visualization of quantum states. Over SSH it prints the
+#   address and an ssh -L tunnel command instead.
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,25 +18,8 @@ rq_help_guard "$@"
 load_rqb2_env
 verify_env_vars USER_HOME REPO MARKER_GROK_BLOCH
 
-# Check for GUI/Desktop environment
-if ! check_display; then
-    echo ""
-    echo "=========================================="
-    echo "ERROR: Graphical Desktop Required"
-    echo "=========================================="
-    echo ""
-    echo "This demo requires a graphical desktop environment (GUI)."
-    echo "It cannot run from a terminal-only session."
-    echo ""
-    echo "To run this demo:"
-    echo "  1. Connect via VNC or use the desktop environment"
-    echo "  2. Open a terminal in the desktop"
-    echo "  3. Run this demo from there"
-    echo ""
-    echo "Or use the desktop launcher icon instead."
-    echo ""
-    die "No display available"
-fi
+# Without a screen (SSH) the server starts all the same and the address and
+# an ssh -L tunnel command are printed, as for the notebook demos (#17)
 
 DEMO_DIR="$USER_HOME/$REPO/demos/grok-bloch"
 PORT=8080
@@ -123,8 +107,6 @@ if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     die "Could not serve the demo on port $PORT"
 fi
 
-info "Opening in browser..."
-
 ################################################################################
 # cleanup - Stop server and remove temp files
 ################################################################################
@@ -154,7 +136,7 @@ setup_cleanup_trap cleanup
 # stops then).
 BROWSER_URL="http://localhost:$PORT"
 
-rq_open_browser "$BROWSER_URL" || info "Please open $BROWSER_URL in your web browser"
+rq_show_url "$BROWSER_URL" "$PORT"
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"
