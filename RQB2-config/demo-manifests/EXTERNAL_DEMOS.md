@@ -47,6 +47,9 @@ manifests (`rq_demo_schema.json`), with these constraints:
   dependencies cannot move them either (#285). A pip failure aborts the
   install.
 - `variants[]` for multiple modes (args-only variants preferred)
+- `entrypoint.keyboard: true` for a `python` program that asks questions in
+  its window. It then stops with Ctrl+C only; any other program also stops
+  with Enter, like every demo.
 
 **Demo API available at run time** (`python` entrypoints)
 

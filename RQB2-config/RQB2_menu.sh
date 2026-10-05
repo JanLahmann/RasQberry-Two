@@ -728,17 +728,13 @@ run_qlo_demo() {
     # a failure leaves its reason for handle_error
     do_qlo_install
     case $? in 0) ;; 2) return 0 ;; *) return 1 ;; esac
-    # Launch appropriate mode.
-    #
-    # The console variant IS played in the terminal, so it runs in the
-    # foreground. The default variant plays on the LEDs and its stdout is just
-    # noise - the solver's progress and Qiskit's deprecation warnings - so it
-    # goes to the log under the stop dialog.
-    # run_led_demo checks the panel is free and turns the LEDs off afterwards
+    # Through the demo engine, as from its desktop icon: one plain line per
+    # step in this window, and Enter or Ctrl+C stops it (#8, #13). The engine
+    # checks that the panel is free and clears it afterwards.
     if [ "$MODE" = "console" ]; then
-        run_led_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+        run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out console
     else
-        run_led_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out
     fi
 }
 
@@ -1292,7 +1288,10 @@ do_select_led_option() {
                 run_led_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
                 ;;
             test )
-                run_led_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
+                # one stop line (Enter or Ctrl+C), and its result stays readable
+                run_engine_demo "$BIN_DIR/rq_demo_run.sh" led-demos led-test \
+                    || { handle_error "LED test failed."; continue; }
+                _rq_pause
                 ;;
             simple )
                 run_led_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }

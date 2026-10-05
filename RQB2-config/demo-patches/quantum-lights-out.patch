@@ -1,5 +1,5 @@
 diff --git a/lights_out.py b/lights_out.py
-index 90f9fe8..9aa6435 100644
+index 90f9fe8..0c7b029 100644
 --- a/lights_out.py
 +++ b/lights_out.py
 @@ -1,4 +1,5 @@
@@ -59,7 +59,7 @@ index 90f9fe8..9aa6435 100644
  # Constants
  # Array containing the initial lights out grid values
  lights = [
-@@ -43,21 +82,7 @@ lights = [
+@@ -43,27 +82,25 @@ lights = [
  
  
  # Dictionary that corelates the grid index to an index on the LED array (Centered in the LED array)
@@ -81,7 +81,25 @@ index 90f9fe8..9aa6435 100644
  
  # Colors for Neopixel are in the form RGB
  OFF_COLOR = 0x111111  # Grey
-@@ -158,7 +183,9 @@ def compute_quantum_solution(lights):
+ ON_COLOR = 0x0000FF  # Blue Other colors: 0x007FFF for Violet, 45FF00 for Orange, DFFF00 for Golden Yellow
+ SELECTED_COLOR = 0x00FF00  # Green
+ 
++# RasQberry: one plain line per step in the window (#13), instead of Python
++# lists. The tiles by name, and the grid on one line, row by row.
++TILE_NAMES = ["top left", "top middle", "top right", "middle left", "centre",
++              "middle right", "bottom left", "bottom middle", "bottom right"]
++
++
++def grid_line(grid):
++    """The grid on one line, row by row: \u25A0 on, \u25A1 off."""
++    root = int(math.sqrt(len(grid)))
++    return " ".join("".join("\u25A0" if square else "\u25A1" for square in grid[r:r + root])
++                    for r in range(0, len(grid), root))
++
+ 
+ def compute_quantum_solution(lights):
+     """
+@@ -158,7 +195,9 @@ def compute_quantum_solution(lights):
  
      def lights_out_oracle(qc, tile, oracle, auxiliary):
          qc.x(tile[6:9])
@@ -92,7 +110,7 @@ index 90f9fe8..9aa6435 100644
          qc.x(tile[6:9])
  
      def diffusion(qc, flip):
-@@ -258,7 +285,7 @@ def visualize_lights_out_grid_to_console(grid, selected=None):
+@@ -258,7 +297,7 @@ def visualize_lights_out_grid_to_console(grid, selected=None):
      print("\n")
  
  
@@ -101,7 +119,7 @@ index 90f9fe8..9aa6435 100644
      """
      This function shows the lights-out grid on the LED arrray.
  
-@@ -277,17 +304,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
+@@ -277,17 +316,17 @@ def visualize_lights_out_grid_to_LED(grid, pixels, selected=None):
          LED_array_index_list = LED_array_indices[index]
          if selected != None and index == selected:
              for coord in LED_array_index_list:
@@ -123,7 +141,7 @@ index 90f9fe8..9aa6435 100644
      """
      This function receives the lights-out grid and
      the solution to the grid that was generated from the quantum circuit.
-@@ -310,16 +337,7 @@ def visualize_solution(grid, solution, args):
+@@ -310,16 +349,7 @@ def visualize_solution(grid, solution, args):
      delay = args.delay
      brightness = args.brightness
  
@@ -141,34 +159,53 @@ index 90f9fe8..9aa6435 100644
  
      # The square root of the length of the grid will be used to find the left and right columns later
      root = int(math.sqrt(len(grid)))
-@@ -341,7 +359,7 @@ def visualize_solution(grid, solution, args):
-     if console:
-         visualize_lights_out_grid_to_console(grid)
+@@ -338,19 +368,13 @@ def visualize_solution(grid, solution, args):
+             return square
  
+     # Visualize the grid the first time before operations
+-    if console:
+-        visualize_lights_out_grid_to_console(grid)
+-
 -    visualize_lights_out_grid_to_LED(grid, pixels)
 +    visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices)
      time.sleep(delay)
  
      for index, step in enumerate(solution):
-@@ -350,7 +368,7 @@ def visualize_solution(grid, solution, args):
-             if console:
-                 visualize_lights_out_grid_to_console(grid, index)
- 
+         if step == 1:
+             # Show grid before all squares have been flipped, include the square that is pressed
+-            if console:
+-                visualize_lights_out_grid_to_console(grid, index)
+-
 -            visualize_lights_out_grid_to_LED(grid, pixels, index)
 +            visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices, index)
              time.sleep(delay)
  
              # Flip the square itself
-@@ -392,7 +410,7 @@ def visualize_solution(grid, solution, args):
-             if console:
-                 visualize_lights_out_grid_to_console(grid)
+@@ -389,14 +413,20 @@ def visualize_solution(grid, solution, args):
+                     pass
+ 
+             # Show grid after all squares have been flipped
+-            if console:
+-                visualize_lights_out_grid_to_console(grid)
++            name = TILE_NAMES[index] if len(grid) == len(TILE_NAMES) else "tile %d" % (index + 1)
++            print(f"  Press {name + ':':<14} {grid_line(grid)}   {sum(grid)} on", flush=True)
  
 -            visualize_lights_out_grid_to_LED(grid, pixels)
 +            visualize_lights_out_grid_to_LED(grid, pixels, LED_array_indices)
  
              # Sleep so that the display doesn't change too fast
              time.sleep(delay)
-@@ -428,6 +446,12 @@ def parse_arguments():
+ 
++    if sum(grid) == 0:
++        print("  Solved: all lights are off.", flush=True)
++    else:
++        print("  Not solved: Grover's search is probabilistic and picked a wrong answer this time.",
++              flush=True)
++
+ 
+ def parse_arguments():
+     parser = argparse.ArgumentParser()
+@@ -428,23 +458,34 @@ def parse_arguments():
  def main(**kwargs):
      args = parse_arguments()
  
@@ -181,13 +218,31 @@ index 90f9fe8..9aa6435 100644
      # Turn off LEDs whenever the program is closed
      atexit.register(turn_off_LEDs)
  
-@@ -441,10 +465,10 @@ def main(**kwargs):
+     try:
++        print("Lights Out: pressing a tile switches it and its neighbours on or off.")
++        print("Grover's search finds which tiles to press to switch all lights off.")
++        print("The grid row by row: \u25A0 on, \u25A1 off.", flush=True)
++        puzzle = 0
+         while True:
+-            print("Starting Quantum Lights Out Solver!")
+-            print("Choosing random grid arrangement...")
++            puzzle += 1
+             lights_grid = choice(lights).copy()
+-            print("Grid chosen:", lights_grid)
+-            print("Computing quantum solution...")
++            print()
++            print(f"Puzzle {puzzle}: {grid_line(lights_grid)}   {sum(lights_grid)} on", flush=True)
++            print("  Grover's search is looking for the tiles to press...", flush=True)
              quantum_solution = compute_quantum_solution(lights_grid)
-             print("Quantum solution found!")
-             print("Visualizing solution...")
+-            print("Quantum solution found!")
+-            print("Visualizing solution...")
 -            visualize_solution(lights_grid, quantum_solution, args)
+-            print("\n")
++            presses = str(quantum_solution).count("1")
++            print(f"  Found: press {presses} tile{'s' if presses != 1 else ''}.", flush=True)
 +            visualize_solution(lights_grid, quantum_solution, args, pixels, LED_array_indices)
-             print("\n")
++    except KeyboardInterrupt:  # Ctrl+C when run without the demo window
++        print("\nStopped.")
      except Exception as e:
 -        print("An error occured: ", e)
 +        import traceback; print("An error occured: ", e); traceback.print_exc()

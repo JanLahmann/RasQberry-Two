@@ -143,8 +143,6 @@ def start_chromium(url, debug):
     cmd = ["/usr/bin/chromium"]
     if debug:
         cmd.append(f"--remote-debugging-port={PORT}")
-    if not os.path.exists(os.path.join(SESSION_ENV["XDG_RUNTIME_DIR"], "rasqberry-small-screen")):
-        cmd.append("--window-size=1070,1005")
     cmd.append(url)
     subprocess.Popen(cmd, env={**os.environ, **SESSION_ENV}, stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)

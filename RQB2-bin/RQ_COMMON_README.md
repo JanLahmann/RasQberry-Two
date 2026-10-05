@@ -346,6 +346,21 @@ setup_cleanup_trap cleanup
 # Now cleanup() runs on script exit or Ctrl+C
 ```
 
+#### `rq_run_demo NAME COMMAND [ARGS...]`
+Run a demo program that does not read Enter itself, so that Enter stops it
+like every demo (Ctrl+C and closing the window too). Prints the stop line;
+the program gets no keyboard input. Returns its exit status, or 0 when Enter
+stopped it. Exit traps call `rq_stop_demo_child` before clearing the LEDs.
+
+```bash
+rq_led_clear_on_exit
+rq_run_demo "the LED test" python3 "$BIN_DIR/rq_led_test.py"
+```
+
+#### `rq_stop_pid PID [SECONDS]`
+SIGTERM, then SIGKILL after SECONDS (default 5), for PID and what it started;
+no "Killed" line in the window.
+
 ---
 
 ### 9. Path & Directory Helpers
@@ -419,6 +434,12 @@ returns once the browser command has handed the address over (at most
 `RQ_BROWSER_HANDOFF_WAIT` seconds, default 10). Prints nothing; returns 1 when
 there is no browser. `rq_show_url` (with a message, or an SSH hint without a
 screen) and `open_browser` use it.
+
+A demo served on this Pi (`http://127.0.0.1:PORT`, `http://localhost:PORT`)
+opens in a Chromium window of its own, maximised (full screen with
+`--start-fullscreen`), and `rq_browser_tab.py` closes its tab once the demo's
+server has stopped. Call `rq_close_demo_tabs` in the stop path before the
+server goes: the tab then closes at once, without "Dead kernel" first.
 
 ```bash
 rq_open_browser "http://127.0.0.1:8899/" --start-fullscreen

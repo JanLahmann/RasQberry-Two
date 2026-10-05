@@ -699,8 +699,9 @@ def test_browser_runs_outside_the_window_session_and_hands_over_first(tmp_path):
     # neither a closed window (the session) nor a stop of the demo (its
     # process group) reaches the browser
     assert browser_sid != caller_sid and browser_pgid != caller_pgid
+    # a demo served on this Pi gets a window of its own (#15)
     assert (tmp_path / "browser-args").read_text().split() == [
-        "--password-store=basic", "--start-fullscreen", "http://127.0.0.1:8080/"]
+        "--password-store=basic", "--new-window", "--start-fullscreen", "http://127.0.0.1:8080/"]
 
 
 @needs_bash

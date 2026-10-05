@@ -1,8 +1,8 @@
 diff --git a/QuantumRaspberryTie.v8_0.py b/QuantumRaspberryTie.v8_0.py
-index 5ba805e..733aedf 100644
+index 5ba805e..5cbc5b0 100644
 --- a/QuantumRaspberryTie.v8_0.py
 +++ b/QuantumRaspberryTie.v8_0.py
-@@ -108,6 +108,27 @@
+@@ -108,6 +108,35 @@
  print("importing libraries...")
  print("       ....sys")
  import sys                             # used to check for passed filename
@@ -27,10 +27,18 @@ index 5ba805e..733aedf 100644
 +        pass
 +    os._exit(130)
 +_rq_signal.signal(_rq_signal.SIGINT, _rq_stop)
++# RasQberry: with an LED panel the qubits show there. The Sense HAT emulator
++# window, Raspberry Tie's stand-in when there is no Sense HAT, only covered
++# the terminal (#4); without a panel it stays the on-screen display.
++def _rq_led_panel():
++    try:
++        return bool(get_led_config().get('led_physical', True))
++    except Exception:
++        return True
  print("       ....os")
  import os                              # used to find script directory
  print("       ....platform")
-@@ -340,16 +361,42 @@ qubits = pixels
+@@ -340,16 +369,42 @@ qubits = pixels
  # scale lets us do a simple color rotation of hues and convert it to RGB in pixels
  
  # LED array indices to map to pixel list
@@ -83,7 +91,7 @@ index 5ba805e..733aedf 100644
  
  # LED array indices for 8x32 single array
  LED8x32_indices = {
-@@ -479,13 +526,19 @@ def resetrainbow(show=False):
+@@ -479,13 +534,19 @@ def resetrainbow(show=False):
         if not NoHat: hat.set_pixels(pixels)
         if DualDisplay and not NoHat: hat2.set_pixels(pixels)
  
@@ -104,7 +112,7 @@ index 5ba805e..733aedf 100644
  
          # Set the appropriate pixel to the RGB value
          neopixel_array[LED_index] = (red, green, blue)
-@@ -628,7 +681,7 @@ def blinky(time=20,experimentID=''):
+@@ -628,7 +689,7 @@ def blinky(time=20,experimentID=''):
            if not NoHat: hat.set_pixels(QKLogo)
            if DualDisplay and not NoHat: hat2.set_pixels(QKLogo)
            if UseNeo:
@@ -113,7 +121,18 @@ index 5ba805e..733aedf 100644
              if DualNEO and not NeoTiled: display_to_LEDs(pixels, matrix_map2)
        sleep(0.002)
        count+=1
-@@ -1125,32 +1178,42 @@ if UseNeo and IsRPi :
+@@ -1090,6 +1151,10 @@ if not UseEmulator and IsRPi:
+         UseEmulator = True
+         print("       ....trying SenseHat Emulator instead")
+ 
++if UseEmulator and not UseFaux and UseNeo and IsRPi and '-e' not in sys.argv and _rq_led_panel():
++    print("       ....no: the LED panel shows the qubits")
++    UseEmulator = False
++    NoHat = True
+ if UseEmulator:
+     print ("....importing SenseHat Emulator")
+     try:
+@@ -1125,32 +1190,42 @@ if UseNeo and IsRPi :
      print("importing neopixel library...")
      try:
          import board
@@ -173,7 +192,7 @@ index 5ba805e..733aedf 100644
      except Exception as e:
          print("Error initilizating Neopixel board: ", e)
  
-@@ -1201,7 +1264,7 @@ if not NoHat and not SenseHatEMU: orient()
+@@ -1201,7 +1276,7 @@ if not NoHat and not SenseHatEMU: orient()
  display=ibm_qx32
  if not NoHat: hat.set_pixels(Arrow)
  if UseNeo:

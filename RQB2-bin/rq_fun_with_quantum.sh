@@ -46,6 +46,7 @@ cleanup() {
     trap '' HUP INT TERM
     info "Cleaning up..."
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then
+        rq_close_demo_tabs   # before the server goes: no "Dead kernel" tab (#9)
         info "Stopping Jupyter server..."
         kill "$JUPYTER_PID" 2>/dev/null || true
         wait "$JUPYTER_PID" 2>/dev/null || true

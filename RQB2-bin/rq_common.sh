@@ -726,6 +726,8 @@ _rq_led_on_exit() {
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
+    # the demo first, or it draws on while the panel is cleared
+    rq_stop_demo_child
     led_clear_quietly
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
 }
@@ -735,9 +737,11 @@ _rq_led_on_exit() {
 # ----------------------------------------------------------------------------
 # Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
 # the window - from a desktop icon and from the RasQberry menu (also over SSH).
-# A demo that reads the keyboard itself (a console game, a text prompt) stops
-# with Ctrl+C or by closing the window. Docker demos stop with their window
-# too; only the Workshop & Qiskit Server keeps running by design.
+# A program that does not read Enter itself runs through rq_run_demo, which
+# reads it for it (items 4, 8). Only a demo that needs the keyboard (a text
+# prompt, e.g. Raspberry Tie asking for an IBM Quantum key) stops with Ctrl+C
+# or by closing the window. Docker demos stop with their window too; only the
+# Workshop & Qiskit Server keeps running by design.
 
 # Usage: rq_stop_hint NAME [keys]
 rq_stop_hint() {
@@ -784,6 +788,130 @@ rq_wait_for_stop() {
     done
 }
 
+# The processes PID started, and theirs (one per line)
+_rq_descendants() {
+    local c
+    for c in $(pgrep -P "$1" 2>/dev/null); do
+        echo "$c"
+        _rq_descendants "$c"
+    done
+}
+
+# Stop PID and what it started: SIGTERM (a Python demo then runs its own
+# cleanup, e.g. Fractals closes its browser window), SIGKILL after SECONDS
+# (default 5). Quiet: no "Killed jupyter-lab" line for a child of this shell
+# (#27). Usage: rq_stop_pid PID [SECONDS]
+rq_stop_pid() {
+    local pid="$1" secs="${2:-5}" kids k left
+    [ -n "$pid" ] || return 0
+    if _rq_pid_alive "$pid"; then
+        kids=$(_rq_descendants "$pid")
+        kill -TERM "$pid" 2>/dev/null || sudo -n kill -TERM "$pid" 2>/dev/null || true
+        _rq_wait_gone "$secs" "$pid"
+        # what it started and left behind (e.g. the program a shell function
+        # ran), then whatever does not stop
+        for k in $kids; do
+            _rq_pid_alive "$k" && { kill -TERM "$k" 2>/dev/null || sudo -n kill -TERM "$k" 2>/dev/null || true; }
+        done
+        # shellcheck disable=SC2086
+        _rq_wait_gone "$secs" $kids
+        left=""
+        for k in "$pid" $kids; do
+            _rq_pid_alive "$k" && left="$left $k"
+        done
+        # shellcheck disable=SC2086
+        [ -z "$left" ] || { kill -KILL $left || sudo -n kill -KILL $left; } 2>/dev/null || true
+    fi
+    { wait "$pid"; } 2>/dev/null || true
+}
+
+# Wait up to SECONDS until none of the PIDs runs any more
+_rq_wait_gone() {
+    local secs="$1" n=0 k busy
+    shift
+    while [ "$n" -lt $((secs * 10)) ]; do
+        busy=""
+        for k in "$@"; do
+            _rq_pid_alive "$k" && { busy=1; break; }
+        done
+        [ -n "$busy" ] || return 0
+        sleep 0.1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# Lines on a demo's error output that look like faults but are none (#27):
+# Qt finds the runtime directory "0770 instead of 0700" because Raspberry Pi
+# OS's VNC server gives it an ACL; the group has no access all the same.
+_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory '
+
+# Run a command without those lines on its error output; everything else
+# stays. Usage: rq_quiet_stderr COMMAND [ARGS...]
+rq_quiet_stderr() {
+    "$@" 2> >(grep -Ev --line-buffered "$_RQ_HARMLESS_STDERR" >&2)
+}
+
+# The demo program rq_run_demo runs (for the exit traps)
+RQ_DEMO_CHILD=""
+
+# Stop the program rq_run_demo started, if it still runs. For exit traps:
+# the demo first, then its LEDs, server or container.
+rq_stop_demo_child() {
+    [ -n "${RQ_DEMO_CHILD:-}" ] || return 0
+    local pid="$RQ_DEMO_CHILD"
+    RQ_DEMO_CHILD=""
+    rq_stop_pid "$pid"
+}
+
+# Run a demo program in this window so that Enter stops it as well as Ctrl+C
+# or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
+# Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
+# themselves: the program runs in the background with no keyboard (its input
+# is empty), and this window reads Enter. Prints the stop line first. Ctrl+C,
+# a closed window or a stop from the menu (INT, HUP, TERM) stop the program
+# and end the script with 130, 129 or 143, so its EXIT trap clears the LEDs
+# or stops the server. A background program ignores Ctrl+C itself, so a
+# Python demo ends without a KeyboardInterrupt traceback (#13). Without a
+# terminal (the demo loop, a menu run without a window) the program simply
+# runs. Returns its exit status, or 0 when Enter stopped it.
+# Usage: rq_run_demo NAME COMMAND [ARGS...]
+rq_run_demo() {
+    local name="$1" rc=0 old_hup old_int old_term
+    shift
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        "$@" || rc=$?
+        return "$rc"
+    fi
+    rq_stop_hint "$name"
+    echo
+    old_hup=$(trap -p HUP)
+    old_int=$(trap -p INT)
+    old_term=$(trap -p TERM)
+    trap 'rq_stop_demo_child; exit 129' HUP
+    trap 'rq_stop_demo_child; exit 130' INT
+    trap 'rq_stop_demo_child; exit 143' TERM
+    "$@" </dev/null &
+    RQ_DEMO_CHILD=$!
+    # until Enter (or no more input: Ctrl+D), or the program ends by itself
+    while _rq_pid_alive "$RQ_DEMO_CHILD"; do
+        rc=0
+        read -r -t 2 _ || rc=$?
+        [ "$rc" -gt 128 ] || break
+    done
+    rc=0
+    if _rq_pid_alive "$RQ_DEMO_CHILD"; then
+        rq_stop_demo_child               # Enter: stopped, not an error
+    else
+        { wait "$RQ_DEMO_CHILD"; } 2>/dev/null || rc=$?
+        RQ_DEMO_CHILD=""
+    fi
+    eval "${old_hup:-trap - HUP}"
+    eval "${old_int:-trap - INT}"
+    eval "${old_term:-trap - TERM}"
+    return "$rc"
+}
+
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
@@ -814,6 +942,7 @@ _rq_window_container_stop() {
     local name="$RQ_WINDOW_CONTAINER"
     RQ_WINDOW_CONTAINER=""
     { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_close_demo_tabs
     rq_docker_stop_detached "$name"
     { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
@@ -1057,15 +1186,32 @@ _rq_find_browser() {
 # still stop the demo's own server, LEDs and containers. This then waits until
 # the command has handed the address over and exited, at most
 # RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+#
+# A demo served on this Pi (http://127.0.0.1:PORT, http://localhost:PORT)
+# opens in a Chromium window of its own, on top of the demo's terminal and
+# maximised, or full screen with --start-fullscreen (#15; a running Chromium
+# ignores that flag, so rq_browser_tab.py sets it). Its tab closes when the
+# demo's server stops - at once through rq_close_demo_tabs, else as soon as
+# the server is gone - instead of staying behind with "Dead kernel" and
+# asking "Leave site?" when closed (#9). Websites (Composer) open as before.
 # Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
 rq_open_browser() {
-    local url="$1" browser pid user_name ticks=0
+    local url="$1" browser pid user_name ticks=0 before="" state=""
     local -a cmd
     shift
     browser=$(_rq_find_browser) || return 1
     case "$browser" in
-        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
-        *)         cmd=("$browser" "$url") ;;
+        chromium*)
+            if _rq_local_demo_url "$url"; then
+                before=$(_rq_browser_tab ids 2>/dev/null) || before=""
+                state=maximized
+                case " $* " in *" --start-fullscreen "*|*" --kiosk "*) state=fullscreen ;; esac
+                cmd=("$browser" --password-store=basic --new-window "$@" "$url")
+            else
+                cmd=("$browser" --password-store=basic "$@" "$url")
+            fi
+            ;;
+        *)  cmd=("$browser" "$url") ;;
     esac
     # As the desktop user, as run_as_user does. sudo goes inside setsid: it
     # passes the signals it gets on to the browser.
@@ -1086,7 +1232,49 @@ rq_open_browser() {
         ticks=$((ticks + 1))
     done
     _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    if [ -n "$state" ]; then
+        _RQ_DEMO_TABS+=("$url")
+        _rq_browser_tab_watch --before "$before" --window-state "$state" "$url"
+    fi
     return 0
+}
+
+# Is URL a demo served on this Pi (its tab is of no use once the demo stops)?
+_rq_local_demo_url() {
+    case "$1" in
+        http://127.0.0.1:[0-9]*|http://localhost:[0-9]*) return 0 ;;
+    esac
+    return 1
+}
+
+# The demo-tab helper (Chromium's DevTools port, 127.0.0.1 only)
+_rq_browser_tab() {
+    python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" "$@"
+}
+
+# Look after a demo's new tab in the background, in a session of its own: it
+# outlives the demo's window and closes the tab once the server has stopped
+_rq_browser_tab_watch() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    else
+        nohup python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    fi
+    disown "$!" 2>/dev/null || true
+}
+
+# The addresses of the demo tabs this script opened
+_RQ_DEMO_TABS=()
+
+# Close the tabs this script's demo opened, before its server stops, so they
+# do not show "Dead kernel" or "Connection failed" first (#9). Quiet, and
+# nothing without the DevTools port. Usage: rq_close_demo_tabs
+rq_close_demo_tabs() {
+    local u
+    for u in ${_RQ_DEMO_TABS[@]+"${_RQ_DEMO_TABS[@]}"}; do
+        _rq_browser_tab close "$u" </dev/null >/dev/null 2>&1 || true
+    done
+    _RQ_DEMO_TABS=()
 }
 
 # Open URL in available browser (see rq_open_browser), or say where to go
