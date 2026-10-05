@@ -145,3 +145,35 @@ def test_the_panel_is_released_before_the_program_ends(rasq):
     assert set(strip.pixels) == {(0, 0, 0)} and strip.released
     assert rasq._pixels is None
     rasq.release_leds()                                # nothing left: no error
+
+
+def test_demo_runs_until_stopped(rasq, monkeypatch, capsys):
+    """For a stand, RasQ-LED goes on until it is stopped (#21): no more
+    "Demo complete" after two cycles. Here Ctrl+C comes in the fifth cycle."""
+    per_cycle = len(rasq.get_factors(rasq.n_qbit))
+    runs = []
+
+    def run(factor):
+        runs.append(factor)
+        if len(runs) > 4 * per_cycle:
+            raise KeyboardInterrupt
+        return True
+    monkeypatch.setattr(rasq, "run_circuit", run)
+    monkeypatch.setattr(rasq.time, "sleep", lambda *_: None)
+    rasq.demo_loop()
+    out = capsys.readouterr().out
+    assert "--- Demo Cycle 5 ---" in out and "Demo complete" not in out
+    assert "/2" not in out
+
+
+def test_a_fixed_number_of_cycles_still_ends(rasq, monkeypatch, capsys):
+    monkeypatch.setattr(rasq, "run_circuit", lambda factor: True)
+    monkeypatch.setattr(rasq.time, "sleep", lambda *_: None)
+    rasq.demo_loop(1)
+    assert "Demo complete!" in capsys.readouterr().out
+
+
+def test_main_runs_until_stopped():
+    text = open(os.path.join(_BIN, "RasQ-LED.py"), encoding="utf-8").read()
+    main = text[text.index("def main():"):]
+    assert "demo_loop()" in main

@@ -305,11 +305,13 @@ Your choice: """
         except Exception as e:
             print(f"Error: {e}")
 
-def demo_loop(duration=2):
+def demo_loop(cycles=None):
     """Run automated demo showing all entanglement patterns
 
     Args:
-        duration: Number of complete cycles through all patterns
+        cycles: Number of complete cycles through all patterns. None (the
+            default): until stopped - Enter, Ctrl+C, a closed window, or the
+            demo loop when its time is up. A stand shows it for hours (#21).
     """
     import select
 
@@ -344,8 +346,10 @@ def demo_loop(duration=2):
     watch_stdin = sys.stdin is not None and sys.stdin.isatty()
 
     try:
-        for cycle in range(duration):
-            print(f"\n--- Demo Cycle {cycle + 1}/{duration} ---")
+        cycle = 0
+        while cycles is None or cycle < cycles:
+            cycle += 1
+            print(f"\n--- Demo Cycle {cycle} ---")
             factors = get_factors(n_qbit)
 
             for factor in factors:
@@ -385,9 +389,9 @@ def main():
     import signal
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
 
-    # Run in demo mode by default
+    # Run in demo mode by default, until stopped
     # Uncomment the next line to run interactive mode instead
-    demo_loop(2)
+    demo_loop()
 
     # For interactive mode, uncomment this line and comment the demo_loop line above:
     # interactive_mode()
