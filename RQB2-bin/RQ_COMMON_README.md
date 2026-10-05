@@ -435,6 +435,12 @@ returns once the browser command has handed the address over (at most
 there is no browser. `rq_show_url` (with a message, or an SSH hint without a
 screen) and `open_browser` use it.
 
+A demo served on this Pi (`http://127.0.0.1:PORT`, `http://localhost:PORT`)
+opens in a Chromium window of its own, maximised (full screen with
+`--start-fullscreen`), and `rq_browser_tab.py` closes its tab once the demo's
+server has stopped. Call `rq_close_demo_tabs` in the stop path before the
+server goes: the tab then closes at once, without "Dead kernel" first.
+
 ```bash
 rq_open_browser "http://127.0.0.1:8899/" --start-fullscreen
 open_browser "http://localhost:8080"    # says "Opening the browser..." or where to go

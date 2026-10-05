@@ -132,6 +132,7 @@ cleanup() {
     set +e   # a closed window cannot show messages: still stop the server
     trap '' HUP INT TERM
     info "Cleaning up..."
+    rq_close_demo_tabs   # its tab goes with it (#9)
     kill $SERVER_PID 2>/dev/null || true
     rm -f /tmp/grok_server.py
     exit 0
@@ -150,8 +151,8 @@ setup_cleanup_trap cleanup
 # opened showed connection refused - reliably, since Chromium is always already
 # up. An exiting launcher tells us nothing about whether the window closed, so
 # we serve until the user stops the demo instead. rq_open_browser waits only
-# for that hand-off, and the tab stays when this window closes (the server
-# stops then).
+# for that hand-off; the demo's window of the browser closes when the demo
+# stops (#9).
 BROWSER_URL="http://localhost:$PORT"
 
 rq_open_browser "$BROWSER_URL" || info "Please open $BROWSER_URL in your web browser"

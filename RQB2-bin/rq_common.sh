@@ -887,6 +887,7 @@ _rq_window_container_stop() {
     local name="$RQ_WINDOW_CONTAINER"
     RQ_WINDOW_CONTAINER=""
     { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_close_demo_tabs
     rq_docker_stop_detached "$name"
     { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
@@ -1130,15 +1131,32 @@ _rq_find_browser() {
 # still stop the demo's own server, LEDs and containers. This then waits until
 # the command has handed the address over and exited, at most
 # RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+#
+# A demo served on this Pi (http://127.0.0.1:PORT, http://localhost:PORT)
+# opens in a Chromium window of its own, on top of the demo's terminal and
+# maximised, or full screen with --start-fullscreen (#15; a running Chromium
+# ignores that flag, so rq_browser_tab.py sets it). Its tab closes when the
+# demo's server stops - at once through rq_close_demo_tabs, else as soon as
+# the server is gone - instead of staying behind with "Dead kernel" and
+# asking "Leave site?" when closed (#9). Websites (Composer) open as before.
 # Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
 rq_open_browser() {
-    local url="$1" browser pid user_name ticks=0
+    local url="$1" browser pid user_name ticks=0 before="" state=""
     local -a cmd
     shift
     browser=$(_rq_find_browser) || return 1
     case "$browser" in
-        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
-        *)         cmd=("$browser" "$url") ;;
+        chromium*)
+            if _rq_local_demo_url "$url"; then
+                before=$(_rq_browser_tab ids 2>/dev/null) || before=""
+                state=maximized
+                case " $* " in *" --start-fullscreen "*|*" --kiosk "*) state=fullscreen ;; esac
+                cmd=("$browser" --password-store=basic --new-window "$@" "$url")
+            else
+                cmd=("$browser" --password-store=basic "$@" "$url")
+            fi
+            ;;
+        *)  cmd=("$browser" "$url") ;;
     esac
     # As the desktop user, as run_as_user does. sudo goes inside setsid: it
     # passes the signals it gets on to the browser.
@@ -1159,7 +1177,49 @@ rq_open_browser() {
         ticks=$((ticks + 1))
     done
     _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    if [ -n "$state" ]; then
+        _RQ_DEMO_TABS+=("$url")
+        _rq_browser_tab_watch --before "$before" --window-state "$state" "$url"
+    fi
     return 0
+}
+
+# Is URL a demo served on this Pi (its tab is of no use once the demo stops)?
+_rq_local_demo_url() {
+    case "$1" in
+        http://127.0.0.1:[0-9]*|http://localhost:[0-9]*) return 0 ;;
+    esac
+    return 1
+}
+
+# The demo-tab helper (Chromium's DevTools port, 127.0.0.1 only)
+_rq_browser_tab() {
+    python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" "$@"
+}
+
+# Look after a demo's new tab in the background, in a session of its own: it
+# outlives the demo's window and closes the tab once the server has stopped
+_rq_browser_tab_watch() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    else
+        nohup python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    fi
+    disown "$!" 2>/dev/null || true
+}
+
+# The addresses of the demo tabs this script opened
+_RQ_DEMO_TABS=()
+
+# Close the tabs this script's demo opened, before its server stops, so they
+# do not show "Dead kernel" or "Connection failed" first (#9). Quiet, and
+# nothing without the DevTools port. Usage: rq_close_demo_tabs
+rq_close_demo_tabs() {
+    local u
+    for u in ${_RQ_DEMO_TABS[@]+"${_RQ_DEMO_TABS[@]}"}; do
+        _rq_browser_tab close "$u" </dev/null >/dev/null 2>&1 || true
+    done
+    _RQ_DEMO_TABS=()
 }
 
 # Open URL in available browser (see rq_open_browser), or say where to go

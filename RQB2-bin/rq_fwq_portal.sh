@@ -26,6 +26,7 @@ SERVER_PID=""
 
 cleanup() {
     if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        rq_close_demo_tabs   # its tab goes with it (#9)
         kill "$SERVER_PID" 2>/dev/null || true
     fi
 }

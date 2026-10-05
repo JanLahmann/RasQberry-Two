@@ -67,7 +67,7 @@ only true for the standard image. -->
 
 **Running demos**
 
-- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Stop Docker demos** stops any of them. A browser tab a demo opened stays open.
+- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Stop Docker demos** stops any of them. A demo that runs on the Pi opens in a browser window of its own, maximised (Qoffee-Maker full screen), which closes when the demo stops.
 - Website demos (Composer, Grokking the Bloch Sphere online, catalogue demos) open their tab from every icon.
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for the Workshop & Qiskit Server: the latest doQumentation build or one in between, with date, size and Qiskit version), or back.
 - Quantum Mixer downloads a ready image instead of building for 15–30 minutes. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).

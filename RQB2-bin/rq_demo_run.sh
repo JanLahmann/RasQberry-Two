@@ -1045,6 +1045,11 @@ cleanup() {
 
     # The demo program (rq_run_demo), before its LEDs are cleared
     rq_stop_demo_child
+    # Its browser tab, before the server goes (no "Dead kernel" left, #9);
+    # a container that keeps running (no window) keeps its tab
+    if [ -n "$JUPYTER_PID$HTTP_SERVER_PID" ] || [ "$DOCKER_STOP_ON_EXIT" = "1" ]; then
+        rq_close_demo_tabs
+    fi
 
     # Stop Jupyter if running
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then

@@ -466,3 +466,340 @@ def test_real_strips_keep_the_pi4_exit_quiet():
     # both places that open the physical strip, after their first frame
     assert utils.count("pixels.show()\n            quiet_pi4_driver_exit()") == 1
     assert utils.count("pixels.show()\n        quiet_pi4_driver_exit()") == 1
+
+
+# --- browser demos: own maximised window, no dead tab (#9, #15) -------------------
+
+def _tab_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rq_browser_tab_t", os.path.join(_BIN, "rq_browser_tab.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _browser_stubs(tmp_path):
+    """chromium-browser that hands over at once, and a python3 that records
+    what the demo-tab helper was asked (the real one for anything else)."""
+    stubs = tmp_path / "stubs"
+    stubs.mkdir(exist_ok=True)
+    _exe(stubs / "chromium-browser", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
+    _exe(stubs / "python3", f'''#!/bin/sh
+case "$1" in
+    *rq_browser_tab.py)
+        shift
+        echo "$*" >> "{tmp_path}/tab-calls"
+        [ "$1" = ids ] && echo "OLD1,OLD2"
+        exit 0 ;;
+esac
+exec "{sys.executable}" "$@"
+''')
+    if shutil.which("setsid") is None:
+        _exe(stubs / "setsid", f'''#!{sys.executable}
+import os, sys
+args = sys.argv[1:]
+while args[0].startswith("-"):
+    args.pop(0)
+os.execvp(args[0], args)
+''')
+    return stubs
+
+
+def _calls(tmp_path, n, timeout=10):
+    path = tmp_path / "tab-calls"
+    end = time.time() + timeout
+    while time.time() < end:
+        if path.exists() and len(path.read_text().splitlines()) >= n:
+            break
+        time.sleep(0.1)
+    return path.read_text().splitlines() if path.exists() else []
+
+
+@needs_bash
+@pytest.mark.parametrize("flags,state", [("", "maximized"), ("--start-fullscreen", "fullscreen")])
+def test_a_local_demo_opens_its_own_window_and_is_looked_after(tmp_path, flags, state):
+    stubs = _browser_stubs(tmp_path)
+    out = subprocess.run(
+        ["bash", "-c", f'. "{_COMMON}"; rq_open_browser http://127.0.0.1:8888/lab {flags}; '
+                       'echo "TABS=${_RQ_DEMO_TABS[*]}"; rq_close_demo_tabs; echo "LEFT=${#_RQ_DEMO_TABS[@]}"'],
+        env=dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}"),
+        capture_output=True, text=True, timeout=60).stdout
+    args = (tmp_path / "browser-args").read_text().split()
+    assert args[:2] == ["--password-store=basic", "--new-window"] and args[-1] == "http://127.0.0.1:8888/lab"
+    calls = _calls(tmp_path, 3)
+    assert calls[0] == "ids"
+    # the watcher knows the tabs that were open before, and the window state
+    assert f"watch --before OLD1,OLD2 --window-state {state} http://127.0.0.1:8888/lab" in calls
+    assert "close http://127.0.0.1:8888/lab" in calls
+    assert "TABS=http://127.0.0.1:8888/lab" in out and "LEFT=0" in out
+
+
+@needs_bash
+def test_a_website_opens_as_a_tab_as_before(tmp_path):
+    stubs = _browser_stubs(tmp_path)
+    subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_open_browser https://quantum.cloud.ibm.com/composer'],
+                   env=dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}"),
+                   capture_output=True, text=True, timeout=60, check=True)
+    assert (tmp_path / "browser-args").read_text().split() == [
+        "--password-store=basic", "https://quantum.cloud.ibm.com/composer"]
+    time.sleep(0.5)
+    assert not (tmp_path / "tab-calls").exists()
+
+
+def test_stop_paths_close_the_demo_tab_before_the_server_goes():
+    common = _read("RQB2-bin", "rq_common.sh")
+    stop = common[common.index("_rq_window_container_stop() {"):]
+    assert stop.index("rq_close_demo_tabs") < stop.index("rq_docker_stop_detached")
+    run = _read("RQB2-bin", "rq_demo_run.sh")
+    cleanup = run[run.index("cleanup() {"):]
+    # only when the demo really stops: a container without a window keeps its tab
+    assert 'if [ -n "$JUPYTER_PID$HTTP_SERVER_PID" ] || [ "$DOCKER_STOP_ON_EXIT" = "1" ]; then\n' \
+           '        rq_close_demo_tabs' in cleanup
+    assert cleanup.index("rq_close_demo_tabs") < cleanup.index('kill "$JUPYTER_PID"')
+    for name, server in (("rq_fun_with_quantum.sh", 'kill "$JUPYTER_PID"'), ("rq_grok_bloch.sh", "kill $SERVER_PID"),
+                         ("rq_fwq_portal.sh", 'kill "$SERVER_PID"'),
+                         ("rq_quantum_paradoxes.sh", 'rq_stop_pid "$JUPYTER_PID"'),
+                         ("rq_my_programs.sh", 'rq_stop_pid "$JUPYTER_PID"')):
+        text = _read("RQB2-bin", name)
+        body = text[text.index("cleanup() {"):]
+        assert body.index("rq_close_demo_tabs") < body.index(server), name
+
+
+def test_chromium_is_maximised_everywhere_with_a_local_devtools_port():
+    dash = shutil.which("dash") or shutil.which("sh")
+    out = subprocess.run([dash, "-ec", f'CHROMIUM_FLAGS=""; . "{os.path.join(_ROOT, "RQB2-system/etc/chromium.d/rasqberry")}"; '
+                          'echo "$CHROMIUM_FLAGS"'],
+                         capture_output=True, text=True, env=dict(os.environ, XDG_RUNTIME_DIR="/nonexistent")).stdout
+    assert "--start-maximized" in out.split()                 # no small-screen flag needed
+    assert "--remote-debugging-port=9222" in out.split()
+    # 127.0.0.1 only, and no web page may use it
+    assert "remote-allow-origins" not in out and "remote-debugging-address" not in out
+    tab = _read("RQB2-bin", "rq_browser_tab.py")
+    assert 'os.environ.get("RQ_BROWSER_CDP_PORT", "9222")' in tab
+
+
+def test_session_switches_the_icon_rule_off_and_starts_chromium_unsized(tmp_path, monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rq_desktop_session_t", os.path.join(_BIN, "rq_desktop_session.py"))
+    ds = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ds)
+    rules, started = [], []
+    monkeypatch.setattr(ds, "reset_chromium_exit", lambda: None)
+    monkeypatch.setattr(ds, "apply_touch_css", lambda touch: None)
+    monkeypatch.setattr(ds, "touch_mode_on", lambda: False)
+    monkeypatch.setattr(ds, "screen_size", lambda: (1920, 1080))     # a large screen
+    monkeypatch.setattr(ds, "set_small_screen_flag", lambda small: None)
+    monkeypatch.setattr(ds, "set_chromium_rule", lambda small: rules.append(small) or False)
+    monkeypatch.setattr(ds, "layout_desktop", lambda size, touch: False)
+    monkeypatch.setattr(ds, "online", lambda: True)
+    monkeypatch.setattr(ds, "env_value", lambda key, default="": default)
+    monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
+    monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
+    assert ds.main([]) == 0
+    assert rules == [True]                                    # off on a large screen too
+    assert started == [["/usr/bin/chromium", ds.HOMEPAGE]]   # no --window-size=1070,1005
+
+
+def test_first_login_saves_a_maximised_placement():
+    text = _read("RQB2-system", "usr", "local", "bin", "trust-rasqberry-desktop-files.sh")
+    assert "'maximized': True," in text and "'maximized': False," not in text
+
+
+# --- rq_browser_tab.py ---------------------------------------------------------------
+
+def test_origin_treats_localhost_as_the_loopback_address():
+    bt = _tab_module()
+    assert bt.origin("http://localhost:8893/lab/tree/x.ipynb?token=t") == "http://127.0.0.1:8893"
+    assert bt.origin("http://127.0.0.1:8893/") == "http://127.0.0.1:8893"
+    assert bt.origin("https://quantum.cloud.ibm.com/composer") == "https://quantum.cloud.ibm.com:443"
+    assert bt.origin("about:blank") == "" and bt.origin("chrome://newtab/") == ""
+
+
+def test_watch_closes_the_tab_once_the_server_is_gone(monkeypatch):
+    bt = _tab_module()
+    monkeypatch.setattr(bt, "POLL", 0)
+    monkeypatch.setattr(bt.time, "sleep", lambda s: None)
+    tabs = [{"id": "OLD", "url": "http://127.0.0.1:8888/tree"},       # open before: not ours
+            {"id": "NEW", "url": "http://localhost:8888/lab"}]
+    up = iter([True, True, False, False])
+    closed, states = [], []
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: list(tabs))
+    monkeypatch.setattr(bt, "server_up", lambda org: next(up))
+    monkeypatch.setattr(bt, "set_window_state", lambda tid, st: states.append((tid, st)))
+    monkeypatch.setattr(bt, "close", lambda url: closed.append(url))
+    assert bt.watch("http://127.0.0.1:8888/lab", ["OLD"], "fullscreen") == 0
+    assert states == [("NEW", "fullscreen")]
+    assert closed == ["http://127.0.0.1:8888/lab"]
+
+
+def test_watch_leaves_a_tab_the_user_closed_and_gives_up_without_a_browser(monkeypatch):
+    bt = _tab_module()
+    monkeypatch.setattr(bt, "POLL", 0)
+    monkeypatch.setattr(bt.time, "sleep", lambda s: None)
+    seen = iter([[{"id": "NEW", "url": "http://127.0.0.1:8080/"}], []])
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: next(seen))
+    monkeypatch.setattr(bt, "close", lambda url: pytest.fail("closed a tab"))
+    assert bt.watch("http://127.0.0.1:8080/", [], "") == 0
+    # no DevTools port at all: nothing to look after
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: None)
+    monkeypatch.setattr(bt, "FIND_WAIT", 0)
+    assert bt.watch("http://127.0.0.1:8080/", [], "maximized") == 0
+
+
+def test_server_up_only_says_no_when_nothing_listens():
+    import socket
+    bt = _tab_module()
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        assert bt.server_up("http://127.0.0.1:%d" % port)
+    finally:
+        srv.close()
+    assert not bt.server_up("http://127.0.0.1:%d" % port)
+
+
+def _fake_devtools_server(replies):
+    """A one-connection WebSocket server: checks the handshake (no Origin),
+    reads one masked text frame, answers with REPLIES (an event first)."""
+    import base64
+    import hashlib
+    import socket
+    import struct
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    got = {}
+
+    def frame(text):
+        data = text.encode()
+        n = len(data)
+        if n < 126:
+            return struct.pack("!BB", 0x81, n) + data
+        if n < 65536:
+            return struct.pack("!BBH", 0x81, 126, n) + data
+        return struct.pack("!BBQ", 0x81, 127, n) + data
+
+    def serve():
+        conn, _ = srv.accept()
+        head = b""
+        while b"\r\n\r\n" not in head:
+            head += conn.recv(4096)
+        got["head"] = head.decode()
+        key = [l.split(": ", 1)[1] for l in got["head"].split("\r\n") if l.startswith("Sec-WebSocket-Key")][0]
+        accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest())
+        conn.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                     b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n")
+        b1, b2 = conn.recv(2)
+        n = b2 & 0x7F
+        if n == 126:
+            n = struct.unpack("!H", conn.recv(2))[0]
+        mask = conn.recv(4)
+        data = b""
+        while len(data) < n:
+            data += conn.recv(n - len(data))
+        got["masked"] = bool(b2 & 0x80)
+        got["msg"] = json.loads(bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+        for r in replies(got["msg"]["id"]):
+            conn.sendall(frame(r))
+        conn.close()
+        srv.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    return "ws://127.0.0.1:%d/devtools/browser/x" % srv.getsockname()[1], got
+
+
+def test_devtools_client_speaks_websocket():
+    bt = _tab_module()
+    big = "x" * 70000          # an answer longer than 65535 bytes
+    url, got = _fake_devtools_server(lambda i: [
+        json.dumps({"method": "Target.targetCreated", "params": {}}),
+        json.dumps({"id": i, "result": {"windowId": 7, "pad": big}})])
+    dev = bt.DevTools(url, timeout=10)
+    try:
+        res = dev.call("Browser.getWindowForTarget", {"targetId": "T"})
+    finally:
+        dev.close()
+    assert res["windowId"] == 7 and len(res["pad"]) == 70000
+    assert got["masked"] and got["msg"]["method"] == "Browser.getWindowForTarget"
+    assert got["msg"]["params"] == {"targetId": "T"}
+    assert "Origin:" not in got["head"]          # Chromium refuses pages' origins
+
+
+def test_devtools_client_reports_an_error_answer():
+    bt = _tab_module()
+    url, _ = _fake_devtools_server(lambda i: [json.dumps({"id": i, "error": {"message": "No target"}})])
+    dev = bt.DevTools(url, timeout=10)
+    try:
+        with pytest.raises(RuntimeError, match="No target"):
+            dev.call("Browser.getWindowForTarget", {"targetId": "T"})
+    finally:
+        dev.close()
+
+
+def test_save_needs_the_devtools_port(monkeypatch):
+    bt = _tab_module()
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: None)
+    assert bt.save("http://127.0.0.1:8893/") == 2
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: [{"id": "A", "url": "http://127.0.0.1:9999/"}])
+    assert bt.save("http://127.0.0.1:8893/") == 0      # nothing open there: nothing to lose
+
+
+def _find_chrome():
+    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+        path = shutil.which(name)
+        if path:
+            return path
+    mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    return mac if os.path.exists(mac) else None
+
+
+@pytest.mark.skipif(_find_chrome() is None, reason="needs Chrome or Chromium")
+def test_with_a_real_browser_the_tab_is_saved_and_closed_without_asking(tmp_path):
+    # a page that would ask "Leave site?" and has a JupyterLab-like save command
+    www = tmp_path / "www"
+    www.mkdir()
+    (www / "index.html").write_text("""<!doctype html><title>demo</title><script>
+window.addEventListener('beforeunload', e => { e.preventDefault(); e.returnValue = ''; });
+window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
+  execute: async c => { await new Promise(r => setTimeout(r, 200)); document.title = 'SAVED'; }}};
+</script><p>demo</p>""")
+    import socket
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    web_port = s.getsockname()[1]
+    s.close()
+    web = subprocess.Popen([sys.executable, "-m", "http.server", str(web_port), "--bind", "127.0.0.1",
+                            "--directory", str(www)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    profile = tmp_path / "profile"
+    chrome = subprocess.Popen([_find_chrome(), "--headless=new", "--remote-debugging-port=0",
+                               f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
+                               "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        port_file = profile / "DevToolsActivePort"
+        end = time.time() + 30
+        while time.time() < end and not (port_file.exists() and port_file.read_text().strip()):
+            time.sleep(0.2)
+        cdp_port = port_file.read_text().split()[0]
+        env = dict(os.environ, RQ_BROWSER_CDP_PORT=cdp_port, RQ_BROWSER_POLL="0.3", RQ_BROWSER_FIND_WAIT="15")
+        tool = [sys.executable, os.path.join(_BIN, "rq_browser_tab.py")]
+        before = subprocess.run(tool + ["ids"], env=env, capture_output=True, text=True, timeout=30).stdout.strip()
+        url = f"http://localhost:{web_port}/index.html"
+        watcher = subprocess.Popen(tool + ["watch", "--before", before, "--window-state", "maximized", url], env=env)
+        bt = _tab_module()
+        bt.PORT = int(cdp_port)
+        bt.cdp(f"/json/new?{url}", method="PUT")
+        time.sleep(2)
+        assert subprocess.run(tool + ["save", url], env=env, timeout=60).returncode == 0
+        assert [t["title"] for t in bt.tabs_on(bt.origin(url), bt.pages())] == ["SAVED"]
+        web.terminate()                       # the demo stops
+        web.wait(10)
+        assert watcher.wait(30) == 0
+        assert bt.tabs_on(bt.origin(url), bt.pages()) == []     # closed, no "Leave site?"
+        assert [t["url"] for t in bt.pages()] == ["about:blank"]
+    finally:
+        web.kill()
+        chrome.kill()
+        chrome.wait(10)

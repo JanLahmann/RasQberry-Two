@@ -5,10 +5,15 @@
 # No keyring password dialog; no "Restore pages?" bubble after a power cut (R-154)
 CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic --disable-features=Keyring --hide-crash-restore-bubble"
 
-# Small screen (flag set at login by rq_desktop_session.py): open maximised (R-034)
-if [ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rasqberry-small-screen" ]; then
-  CHROMIUM_FLAGS="$CHROMIUM_FLAGS --start-maximized"
-fi
+# Maximised on every screen (#15): 1070x1005 next to the desktop icons on a
+# 1920x1080 screen left the demos cramped. Small screens had it already (R-034).
+CHROMIUM_FLAGS="$CHROMIUM_FLAGS --start-maximized"
+
+# The demo launchers look after the tab a demo opens (rq_browser_tab.py):
+# full screen for Qoffee-Maker, and closed when the demo stops instead of a
+# dead tab that asks "Leave site?" (#9). The DevTools port listens on
+# 127.0.0.1 only, and web pages cannot use it (no --remote-allow-origins).
+CHROMIUM_FLAGS="$CHROMIUM_FLAGS --remote-debugging-port=9222"
 
 # Touch mode (rq_touch_mode.sh)
 if grep -qx 'TOUCH_MODE=enabled' /var/lib/rasqberry/touch-mode.conf 2>/dev/null; then

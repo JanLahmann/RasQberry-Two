@@ -73,6 +73,7 @@ cleanup() {
     trap '' HUP INT TERM
     if kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping JupyterLab..."
+        rq_close_demo_tabs   # before the server goes: no dead tab (#9)
         # it stops its kernels first; a hard kill only if it hangs (#27)
         rq_stop_pid "$JUPYTER_PID" 10
     fi
