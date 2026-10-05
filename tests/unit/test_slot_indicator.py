@@ -301,6 +301,59 @@ def test_tooltip_per_state():
                          "(development-2026-10-04-040217) is running again.")
 
 
+def test_no_tooltip_while_the_menu_is_open():
+    # User test #31: the tooltip covered the menu's first lines
+    assert ind.tray_tooltip("RasQberry - Slot A (confirmed)", "Version: x", False) == (
+        "RasQberry - Slot A (confirmed)", "Version: x")
+    assert ind.tray_tooltip("RasQberry - Slot A (confirmed)", "Version: x", True) == ("", "")
+    # wf-panel-pi falls back to the Title property when the tooltip is
+    # empty: the item's Title must be empty, too
+    src = open(os.path.join(_BIN, "rq_slot_indicator.py")).read()
+    assert '"Title": GLib.Variant("s", "")' in src
+
+
+class _FakeTray:
+    """Just enough of SlotIndicator for the tooltip pause (no D-Bus)."""
+    def __init__(self):
+        self.tooltip_paused, self.tooltip_until = False, 0.0
+        self.signals, self.timeouts = [], []
+
+        class GLib:
+            @staticmethod
+            def timeout_add_seconds(secs, fn):
+                self.timeouts.append((secs, fn))
+        self.GLib = GLib
+
+    def _emit(self, name, params=None):
+        self.signals.append(name)
+
+    _pause_tooltip = ind.SlotIndicator._pause_tooltip
+    _resume_tooltip = ind.SlotIndicator._resume_tooltip
+
+
+def test_tooltip_pauses_while_the_menu_is_open_and_comes_back(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(ind.time, "monotonic", lambda: now[0])
+    tray = _FakeTray()
+    tray._pause_tooltip()                       # the menu opens (AboutToShow)
+    assert tray.tooltip_paused and tray.signals == ["NewToolTip"]
+    secs, back = tray.timeouts[-1]
+    assert secs == ind.MENU_TOOLTIP_PAUSE
+    now[0] += 10
+    tray._pause_tooltip()                       # opened again: no second signal
+    assert tray.signals == ["NewToolTip"]
+    now[0] += ind.MENU_TOOLTIP_PAUSE - 10
+    back()                                      # the first timer: too early now
+    assert tray.tooltip_paused
+    now[0] += 10
+    tray.timeouts[-1][1]()                      # the second timer: back
+    assert not tray.tooltip_paused and tray.signals == ["NewToolTip", "NewToolTip"]
+    # a click in the menu brings it back at once
+    tray._pause_tooltip()
+    tray._resume_tooltip(now=True)
+    assert not tray.tooltip_paused and tray.signals[-2:] == ["NewToolTip", "NewToolTip"]
+
+
 def test_menu_for_a_confirmed_slot():
     info = ind.slot_info(_status(current="B", a=BETA), _live(), DEV)
     state = ind.badge_state(info)

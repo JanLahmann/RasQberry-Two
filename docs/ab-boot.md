@@ -290,7 +290,8 @@ update there). It leaves the taskbar again when nothing is new.
 | red with "!" | the last update or switch didn't work and the Pi went back; red until the menu has been opened once |
 | blue dot | a newer release is available for this Pi |
 
-Hover shows the slot, its state and version; a click or tap opens the menu:
+Hover shows the slot, its state and version (not while the menu is open); a
+click or tap opens the menu:
 both slots, System Info, Software & Image Updates and **What's new in …**.
 That window says where the update goes (the slot that is not
 running), warns about a downgrade and, in bold, when the install would replace
