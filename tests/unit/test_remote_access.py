@@ -446,6 +446,21 @@ def test_name_step_keeps_the_name_on_cancel(stubs, tmp_path):
     assert (tmp_path / "home" / ".state" / "rasqberry" / "name-kept").exists()
 
 
+@pytest.mark.parametrize("verified,layout,label", [
+    ("true", "quad-4x12", "Run again: LED panel check (four 4x12 panels)"),
+    ("true", "single-24x8-flipy", "Run again: LED panel check (one 24x8 panel, mounted upside down)"),
+    ("skipped", "quad-4x12", "Run again: LED panel check (skipped: no panel)"),
+])
+def test_checklist_names_the_led_kit_in_words(stubs, tmp_path, verified, layout, label):
+    # #29: "LED panel check (quad-4x12)" showed the layout's id
+    env_file = tmp_path / "rasqberry_environment.env"
+    env_file.write_text(f"LED_LAYOUT={layout}\nLED_LAYOUT_VERIFIED={verified}\n")
+    proc = _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_ENV_FILE=str(env_file))
+    assert proc.returncode == 0, proc.stderr
+    args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
+    assert args[args.index("led") + 1] == label
+
+
 # ---------------------------------------------------------------------------
 # System Info (R-016, R-112)
 # ---------------------------------------------------------------------------

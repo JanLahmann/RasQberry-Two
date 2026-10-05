@@ -43,7 +43,7 @@
 
 set +u
 
-ENV_FILE="/usr/config/rasqberry_environment.env"
+ENV_FILE="${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}"
 MENU_FILE="/usr/config/RQB2_menu.sh"
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"
@@ -102,6 +102,8 @@ if [ "$MODE" != "desktop" ]; then
 fi
 
 env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n 1; }
+# An LED layout in plain words, "four 4x12 panels", not its id (#29)
+led_layout_name() { ( . "$BIN_DIR/rq_common.sh" && rq_led_layout_name "$1" ) 2>/dev/null || echo "$1"; }
 
 # ---------------------------------------------------------------------------
 # Task: set up the A/B card (B4: rq_expand_ab.sh decides what the card can do)
@@ -360,7 +362,7 @@ done_label() {
             if [ "$(env_value LED_LAYOUT_VERIFIED)" = "skipped" ]; then
                 echo "Run again: LED panel check (skipped: no panel)"
             else
-                echo "Run again: LED panel check ($(env_value LED_LAYOUT))"
+                echo "Run again: LED panel check ($(led_layout_name "$(env_value LED_LAYOUT)"))"
             fi ;;
         demos)    echo "Run again: download all demos (done)" ;;
         touch)    echo "Run again: touch mode (on)" ;;
