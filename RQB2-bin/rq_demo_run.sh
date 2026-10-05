@@ -845,20 +845,16 @@ run_web_static() {
 
 # Python script launcher
 run_python() {
-    local working_dir script launcher needs_leds demo_dir venv_python
+    local working_dir script launcher needs_leds keyboard demo_dir venv_python
 
     working_dir=$(demo_field '.entrypoint.working_dir' '')
     script=$(demo_field '.entrypoint.script' '')
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
-
-    # Terminal demos run until stopped; say how (#104). The demo has the
-    # keyboard, so Ctrl+C or closing the window (items 5, 33). LED demos re-run
-    # this launcher as root, so only that pass prints it.
-    if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        rq_stop_hint "$DEMO_TITLE" keys
-        echo
-    fi
+    # A demo that asks questions in its window (entrypoint.keyboard: Raspberry
+    # Tie on a real backend asks for an IBM Quantum key) keeps the keyboard and
+    # stops with Ctrl+C. Every other one stops with Enter too (items 4, 8).
+    keyboard=$(demo_field '.entrypoint.keyboard' 'false')
 
     # A dedicated launcher WINS when the manifest declares one: it exists
     # precisely because the demo needs pre-launch work the generic path cannot do
@@ -897,6 +893,15 @@ run_python() {
     # Change to demo directory
     cd "$demo_dir"
 
+    # How it runs in this window (LED demos re-run this launcher as root, so
+    # only that pass shows the stop line): rq_run_demo reads Enter for it;
+    # a demo that needs the keyboard runs in front, Ctrl+C stops it (#104)
+    local -a run=(rq_run_demo "$DEMO_TITLE")
+    if [ "$keyboard" = "true" ]; then
+        run=()
+        [ -t 1 ] && { rq_stop_hint "$DEMO_TITLE" keys; echo; }
+    fi
+
     # Put the demo API on sys.path. A demo runs from its own checkout, and
     # /usr/bin - where rq_led_utils.py ships - is not a Python path, so
     # "from rq_led_utils import get_led_config" fails there even though we ask
@@ -927,13 +932,14 @@ run_python() {
         # HOME: the desktop user's, from the menu (where sudo set /root) as from
         # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
         # user's own in ~/.qiskit on every path (Q26).
-        HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
+        ${run[@]+"${run[@]}"} env HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" \
+            PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
         # PYTHONPATH has to travel through env(1) rather than an export.
         info "Running Python script..."
-        run_as_user env PYTHONPATH="$demo_pythonpath" \
+        ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }
@@ -1036,6 +1042,9 @@ cleanup() {
     set +e
     trap '' HUP INT TERM
     debug "Running cleanup..."
+
+    # The demo program (rq_run_demo), before its LEDs are cleared
+    rq_stop_demo_child
 
     # Stop Jupyter if running
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then

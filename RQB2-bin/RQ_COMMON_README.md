@@ -346,6 +346,21 @@ setup_cleanup_trap cleanup
 # Now cleanup() runs on script exit or Ctrl+C
 ```
 
+#### `rq_run_demo NAME COMMAND [ARGS...]`
+Run a demo program that does not read Enter itself, so that Enter stops it
+like every demo (Ctrl+C and closing the window too). Prints the stop line;
+the program gets no keyboard input. Returns its exit status, or 0 when Enter
+stopped it. Exit traps call `rq_stop_demo_child` before clearing the LEDs.
+
+```bash
+rq_led_clear_on_exit
+rq_run_demo "the LED test" python3 "$BIN_DIR/rq_led_test.py"
+```
+
+#### `rq_stop_pid PID [SECONDS]`
+SIGTERM, then SIGKILL after SECONDS (default 5), for PID and what it started;
+no "Killed" line in the window.
+
 ---
 
 ### 9. Path & Directory Helpers

@@ -72,6 +72,9 @@
       "args": [
         "-b:least"
       ],
+      "entrypoint": {
+        "keyboard": true
+      },
       "needs_hw": {
         "network": true
       }

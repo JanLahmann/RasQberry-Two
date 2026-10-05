@@ -671,6 +671,8 @@ _rq_led_on_exit() {
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
+    # the demo first, or it draws on while the panel is cleared
+    rq_stop_demo_child
     led_clear_quietly
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
 }
@@ -680,9 +682,11 @@ _rq_led_on_exit() {
 # ----------------------------------------------------------------------------
 # Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
 # the window - from a desktop icon and from the RasQberry menu (also over SSH).
-# A demo that reads the keyboard itself (a console game, a text prompt) stops
-# with Ctrl+C or by closing the window. Docker demos stop with their window
-# too; only the Workshop & Qiskit Server keeps running by design.
+# A program that does not read Enter itself runs through rq_run_demo, which
+# reads it for it (items 4, 8). Only a demo that needs the keyboard (a text
+# prompt, e.g. Raspberry Tie asking for an IBM Quantum key) stops with Ctrl+C
+# or by closing the window. Docker demos stop with their window too; only the
+# Workshop & Qiskit Server keeps running by design.
 
 # Usage: rq_stop_hint NAME [keys]
 rq_stop_hint() {
@@ -727,6 +731,119 @@ rq_wait_for_stop() {
         [ "$rc" -eq 0 ] && return 0      # Enter
         [ "$rc" -gt 128 ] || return 0    # no more input
     done
+}
+
+# The processes PID started, and theirs (one per line)
+_rq_descendants() {
+    local c
+    for c in $(pgrep -P "$1" 2>/dev/null); do
+        echo "$c"
+        _rq_descendants "$c"
+    done
+}
+
+# Stop PID and what it started: SIGTERM (a Python demo then runs its own
+# cleanup, e.g. Fractals closes its browser window), SIGKILL after SECONDS
+# (default 5). Quiet: no "Killed jupyter-lab" line for a child of this shell
+# (#27). Usage: rq_stop_pid PID [SECONDS]
+rq_stop_pid() {
+    local pid="$1" secs="${2:-5}" kids k left
+    [ -n "$pid" ] || return 0
+    if _rq_pid_alive "$pid"; then
+        kids=$(_rq_descendants "$pid")
+        kill -TERM "$pid" 2>/dev/null || sudo -n kill -TERM "$pid" 2>/dev/null || true
+        _rq_wait_gone "$secs" "$pid"
+        # what it started and left behind (e.g. the program a shell function
+        # ran), then whatever does not stop
+        for k in $kids; do
+            _rq_pid_alive "$k" && { kill -TERM "$k" 2>/dev/null || sudo -n kill -TERM "$k" 2>/dev/null || true; }
+        done
+        # shellcheck disable=SC2086
+        _rq_wait_gone "$secs" $kids
+        left=""
+        for k in "$pid" $kids; do
+            _rq_pid_alive "$k" && left="$left $k"
+        done
+        # shellcheck disable=SC2086
+        [ -z "$left" ] || { kill -KILL $left || sudo -n kill -KILL $left; } 2>/dev/null || true
+    fi
+    { wait "$pid"; } 2>/dev/null || true
+}
+
+# Wait up to SECONDS until none of the PIDs runs any more
+_rq_wait_gone() {
+    local secs="$1" n=0 k busy
+    shift
+    while [ "$n" -lt $((secs * 10)) ]; do
+        busy=""
+        for k in "$@"; do
+            _rq_pid_alive "$k" && { busy=1; break; }
+        done
+        [ -n "$busy" ] || return 0
+        sleep 0.1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# The demo program rq_run_demo runs (for the exit traps)
+RQ_DEMO_CHILD=""
+
+# Stop the program rq_run_demo started, if it still runs. For exit traps:
+# the demo first, then its LEDs, server or container.
+rq_stop_demo_child() {
+    [ -n "${RQ_DEMO_CHILD:-}" ] || return 0
+    local pid="$RQ_DEMO_CHILD"
+    RQ_DEMO_CHILD=""
+    rq_stop_pid "$pid"
+}
+
+# Run a demo program in this window so that Enter stops it as well as Ctrl+C
+# or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
+# Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
+# themselves: the program runs in the background with no keyboard (its input
+# is empty), and this window reads Enter. Prints the stop line first. Ctrl+C,
+# a closed window or a stop from the menu (INT, HUP, TERM) stop the program
+# and end the script with 130, 129 or 143, so its EXIT trap clears the LEDs
+# or stops the server. A background program ignores Ctrl+C itself, so a
+# Python demo ends without a KeyboardInterrupt traceback (#13). Without a
+# terminal (the demo loop, a menu run without a window) the program simply
+# runs. Returns its exit status, or 0 when Enter stopped it.
+# Usage: rq_run_demo NAME COMMAND [ARGS...]
+rq_run_demo() {
+    local name="$1" rc=0 old_hup old_int old_term
+    shift
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        "$@" || rc=$?
+        return "$rc"
+    fi
+    rq_stop_hint "$name"
+    echo
+    old_hup=$(trap -p HUP)
+    old_int=$(trap -p INT)
+    old_term=$(trap -p TERM)
+    trap 'rq_stop_demo_child; exit 129' HUP
+    trap 'rq_stop_demo_child; exit 130' INT
+    trap 'rq_stop_demo_child; exit 143' TERM
+    "$@" </dev/null &
+    RQ_DEMO_CHILD=$!
+    # until Enter (or no more input: Ctrl+D), or the program ends by itself
+    while _rq_pid_alive "$RQ_DEMO_CHILD"; do
+        rc=0
+        read -r -t 2 _ || rc=$?
+        [ "$rc" -gt 128 ] || break
+    done
+    rc=0
+    if _rq_pid_alive "$RQ_DEMO_CHILD"; then
+        rq_stop_demo_child               # Enter: stopped, not an error
+    else
+        { wait "$RQ_DEMO_CHILD"; } 2>/dev/null || rc=$?
+        RQ_DEMO_CHILD=""
+    fi
+    eval "${old_hup:-trap - HUP}"
+    eval "${old_int:-trap - INT}"
+    eval "${old_term:-trap - TERM}"
+    return "$rc"
 }
 
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or

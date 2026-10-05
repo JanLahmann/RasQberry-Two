@@ -95,6 +95,11 @@
           "maximum": 65535,
           "description": "TCP port for the web-static http.server (1024-65535)"
         },
+        "keyboard": {
+          "type": "boolean",
+          "default": false,
+          "description": "python type: the program reads the keyboard itself (questions in its window). It then runs in front and stops with Ctrl+C or by closing the window. Otherwise its window reads Enter, which stops it like every other demo."
+        },
         "stop_on_exit": {
           "type": "array",
           "items": { "type": "string" },
