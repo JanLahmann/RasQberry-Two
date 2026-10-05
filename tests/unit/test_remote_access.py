@@ -327,6 +327,7 @@ def test_password_change_sets_it_through_chpasswd(menu_env):
     assert got == f"rasqberry:{SECRET}\n"
     assert calls == "chpasswd \n"               # no argument: the password came on stdin
     assert "--passwordbox" in texts and "Cancel keeps the current password." in texts
+    assert "New password for rasqberry. It is used for SSH, VNC and the login screen." in texts
     assert "Password changed. Use the new one for SSH, VNC and the login screen." in texts
     assert SECRET not in texts and SECRET not in proc.stdout + proc.stderr
 

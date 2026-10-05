@@ -2586,7 +2586,7 @@ do_change_password() {
     [ "${1:-}" = no ] && _cp_for="VNC and the login screen"
     while :; do
         _cp_new=$(whiptail --title "Change the password" --passwordbox \
-            "New password for ${_cp_user}, for ${_cp_for}.\n\nCancel keeps the current password." \
+            "New password for ${_cp_user}. It is used for ${_cp_for}.\n\nCancel keeps the current password." \
             11 72 3>&1 1>&2 2>&3) || { _cp_new=""; return 0; }
         if [ -z "$_cp_new" ]; then
             whiptail --title "Change the password" --msgbox \
