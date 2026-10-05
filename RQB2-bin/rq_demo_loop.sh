@@ -5,9 +5,16 @@ set -euo pipefail
 # rq_demo_loop.sh - RasQberry Continuous Demo Loop
 #
 # Description:
-#   Runs multiple demos in sequence for conference showcases
-#   Provides interactive controls for skipping/exiting demos
-#   Configurable timings via environment variables
+#   Runs LED demos one after another, for a stand (conference showcases).
+#   Provides interactive controls for skipping/exiting demos.
+#   Which demos it runs is a setting (DEMO_LOOP_DEMOS: "all", or a
+#   comma-separated list of ibm-logo, quantum-lights-out,
+#   quantum-raspberry-tie, rasq-led); the timings are DEMO_LOOP_*_TIME.
+#
+# Usage:
+#   rq_demo_loop.sh             run the chosen demos, again and again
+#   rq_demo_loop.sh --choose    choose the demos (a checklist; saved)
+#   rq_demo_loop.sh --demos     print the chosen demos' names
 ################################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,19 +28,107 @@ ensure_root "$@"
 load_rqb2_env
 verify_env_vars BIN_DIR
 
-# The demos it restarts again and again are not counted one by one (the
-# usage count in rq_demo_run.sh)
-export RQ_DEMO_HOW=loop
-# One on-screen LED view for all its demos: closing and reopening it at every
-# demo would take the keyboard focus from this window each time (R-100)
-export RQ_LED_KEEP_WINDOW=1
-
 # Default timings (in seconds) - can be overridden via environment variables
 IBM_LOGO_TIME="${DEMO_LOOP_IBM_LOGO_TIME:-15}"
 LIGHTS_OUT_TIME="${DEMO_LOOP_LIGHTS_OUT_TIME:-60}"
 RASQBERRY_TIE_TIME="${DEMO_LOOP_RASQBERRY_TIE_TIME:-60}"
 RASQ_LED_TIME="${DEMO_LOOP_RASQ_LED_TIME:-60}"
 PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
+
+################################################################################
+# The demos the loop can run, in loop order (Jan, 2026-10-05: choose which)
+################################################################################
+LOOP_IDS="ibm-logo quantum-lights-out quantum-raspberry-tie rasq-led"
+
+loop_name() {
+    case "$1" in
+        ibm-logo)              echo "IBM Logo" ;;
+        quantum-lights-out)    echo "Quantum Lights Out" ;;
+        quantum-raspberry-tie) echo "Quantum Raspberry Tie" ;;
+        rasq-led)              echo "RasQ-LED" ;;
+    esac
+}
+
+loop_time() {
+    case "$1" in
+        ibm-logo)              echo "$IBM_LOGO_TIME" ;;
+        quantum-lights-out)    echo "$LIGHTS_OUT_TIME" ;;
+        quantum-raspberry-tie) echo "$RASQBERRY_TIE_TIME" ;;
+        rasq-led)              echo "$RASQ_LED_TIME" ;;
+    esac
+}
+
+# The chosen demos' ids, in loop order. "all", nothing or nothing known: all.
+chosen_demos() {
+    local saved=",${DEMO_LOOP_DEMOS:-all}," id picked=""
+    saved="${saved// /}"
+    for id in $LOOP_IDS; do
+        case "$saved" in *",$id,"*) picked="$picked $id" ;; esac
+    done
+    picked="${picked# }"
+    echo "${picked:-$LOOP_IDS}"
+}
+
+# The chosen demos in words: "all demos" or their names
+chosen_words() {
+    local ids id words=""
+    ids=$(chosen_demos)
+    if [ "$ids" = "$LOOP_IDS" ]; then
+        echo "all demos"
+        return 0
+    fi
+    for id in $ids; do words="${words:+$words, }$(loop_name "$id")"; done
+    echo "$words"
+}
+
+# --choose: a checklist pre-ticked with the saved choice; "All demos" (or
+# every demo ticked) saves "all", the one-step way back
+choose_demos() {
+    local chosen id state items=() sel picked=""
+    chosen=" $(chosen_demos) "
+    for id in $LOOP_IDS; do
+        case "$chosen" in *" $id "*) state=ON ;; *) state=OFF ;; esac
+        items+=("$id" "$(loop_name "$id") ($(loop_time "$id") s)" "$state")
+    done
+    items+=(all "All demos (as shipped)" OFF)
+    sel=$(whiptail --title "Demo Loop" --notags --checklist \
+"Which demos should the loop show? Space ticks a demo, Enter saves." \
+        15 66 5 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
+    sel=" $(printf '%s' "$sel" | tr -d '"' | tr '\n\t' '  ') "
+    case "$sel" in
+        *" all "*) picked="all" ;;
+        *)
+            for id in $LOOP_IDS; do
+                case "$sel" in *" $id "*) picked="${picked:+$picked,}$id" ;; esac
+            done
+            [ "$picked" = "${LOOP_IDS// /,}" ] && picked="all" ;;
+    esac
+    if [ -z "$picked" ]; then
+        show_msgbox "Demo Loop" "Nothing was changed: choose at least one demo." 8 60
+        return 0
+    fi
+    update_env_var DEMO_LOOP_DEMOS "$picked" || die "Could not save the choice of demos."
+    show_msgbox "Demo Loop" "Saved. The loop shows: $(chosen_words)." 8 66
+}
+
+case "${1:-}" in
+    "")       ;;
+    --choose) choose_demos; exit 0 ;;
+    --demos)  chosen_words; exit 0 ;;
+    *)        die "Usage: rq_demo_loop.sh [--choose | --demos]" ;;
+esac
+
+LOOP_DEMOS=$(chosen_demos)
+# shellcheck disable=SC2086
+set -- $LOOP_DEMOS
+LOOP_COUNT_DEMOS=$#
+
+# The demos it restarts again and again are not counted one by one (the
+# usage count in rq_demo_run.sh)
+export RQ_DEMO_HOW=loop
+# One on-screen LED view for all its demos: closing and reopening it at every
+# demo would take the keyboard focus from this window each time (R-100)
+export RQ_LED_KEEP_WINDOW=1
 
 ################################################################################
 # cleanup - Stop all demos and turn off LEDs
@@ -63,10 +158,10 @@ echo "  RasQberry Continuous Demo Loop"
 echo "=============================================="
 echo ""
 echo "Demo timings:"
-echo "  - IBM Logo: ${IBM_LOGO_TIME}s"
-echo "  - Quantum Lights Out: ${LIGHTS_OUT_TIME}s"
-echo "  - Quantum Raspberry Tie: ${RASQBERRY_TIE_TIME}s"
-echo "  - RasQ-LED: ${RASQ_LED_TIME}s"
+for id in $LOOP_DEMOS; do
+    echo "  - $(loop_name "$id"): $(loop_time "$id")s"
+done
+echo "  (Choose the demos: RasQberry menu > Quantum Demos > Continuous Demo Loop)"
 echo ""
 echo "=============================================="
 echo "  Controls:"
@@ -129,11 +224,40 @@ run_demo_with_controls() {
     return 0
 }
 
+# One demo of the loop: run it, then stop what it left and clear the panel
+run_loop_demo() {   # <id> <number>
+    local id="$1" n="$2" t
+    t=$(loop_time "$id")
+    case "$id" in
+        ibm-logo)
+            run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] IBM Logo animation (${t}s)" \
+                "$BIN_DIR/rq_led_ibm_demo.sh" "$t" ;;
+        quantum-lights-out)
+            run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] Quantum Lights Out demo (${t}s)" \
+                "$BIN_DIR/rq_demo_run.sh quantum-lights-out" "$t"
+            cleanup_demo_processes "QuantumLightsOut" "lights_out.py"
+            clear_leds ;;
+        quantum-raspberry-tie)
+            run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] Quantum Raspberry Tie demo (${t}s)" \
+                "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" "$t"
+            # Raspberry Tie also opens the SenseHAT emulator window
+            cleanup_demo_processes "QuantumRaspberryTie" "sense_emu_gui"
+            clear_leds ;;
+        rasq-led)
+            run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] RasQ-LED quantum circuit demo (${t}s)" \
+                "$BIN_DIR/rq_rasq_led.sh" "$t"
+            cleanup_demo_processes "RasQ-LED"
+            clear_leds ;;
+    esac
+    sleep "${PAUSE_BETWEEN_DEMOS}"
+}
+
 ################################################################################
 # Install the demos first: installing inside a demo's time slot used up that
 # slot (on a fresh image the whole first loop showed installers, not demos)
 ################################################################################
 for demo in quantum-lights-out quantum-raspberry-tie; do
+    case " $LOOP_DEMOS " in *" $demo "*) ;; *) continue ;; esac
     if ! "$BIN_DIR/rq_demo_run.sh" "$demo" --is-installed >/dev/null 2>&1; then
         echo "Installing $demo before the loop starts..."
         "$BIN_DIR/rq_demo_run.sh" "$demo" --install-only || warn "Could not install $demo - it will be skipped"
@@ -142,7 +266,7 @@ done
 echo ""
 
 ################################################################################
-# Main demo loop
+# Main demo loop (RQ_DEMO_LOOP_ROUNDS: stop after that many rounds - tests)
 ################################################################################
 
 LOOP_COUNT=0
@@ -153,41 +277,15 @@ while true; do
     echo "Loop #${LOOP_COUNT} - $(date '+%H:%M:%S')"
     echo "========================================="
 
-    # Demo 1: IBM Logo
-    run_demo_with_controls \
-        "[1/4] IBM Logo animation (${IBM_LOGO_TIME}s)" \
-        "$BIN_DIR/rq_led_ibm_demo.sh" \
-        "${IBM_LOGO_TIME}"
-    sleep ${PAUSE_BETWEEN_DEMOS}
-
-    # Demo 2: Quantum Lights Out
-    run_demo_with_controls \
-        "[2/4] Quantum Lights Out demo (${LIGHTS_OUT_TIME}s)" \
-        "$BIN_DIR/rq_demo_run.sh quantum-lights-out" \
-        "${LIGHTS_OUT_TIME}"
-    cleanup_demo_processes "QuantumLightsOut" "lights_out.py"
-    clear_leds
-    sleep ${PAUSE_BETWEEN_DEMOS}
-
-    # Demo 3: RasQberry Tie
-    run_demo_with_controls \
-        "[3/4] Quantum Raspberry Tie demo (${RASQBERRY_TIE_TIME}s)" \
-        "$BIN_DIR/rq_demo_run.sh quantum-raspberry-tie" \
-        "${RASQBERRY_TIE_TIME}"
-    # Raspberry Tie also opens the SenseHAT emulator window
-    cleanup_demo_processes "QuantumRaspberryTie" "sense_emu_gui"
-    clear_leds
-    sleep ${PAUSE_BETWEEN_DEMOS}
-
-    # Demo 4: RasQ-LED
-    run_demo_with_controls \
-        "[4/4] RasQ-LED quantum circuit demo (${RASQ_LED_TIME}s)" \
-        "$BIN_DIR/rq_rasq_led.sh" \
-        "${RASQ_LED_TIME}"
-    cleanup_demo_processes "RasQ-LED"
-    clear_leds
-    sleep ${PAUSE_BETWEEN_DEMOS}
+    n=0
+    for id in $LOOP_DEMOS; do
+        n=$((n + 1))
+        run_loop_demo "$id" "$n"
+    done
 
     echo "Loop #${LOOP_COUNT} complete. Starting next loop..."
     echo ""
+    if [ "${RQ_DEMO_LOOP_ROUNDS:-0}" -gt 0 ] && [ "$LOOP_COUNT" -ge "${RQ_DEMO_LOOP_ROUNDS}" ]; then
+        cleanup
+    fi
 done

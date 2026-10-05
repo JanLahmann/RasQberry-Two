@@ -28,7 +28,7 @@ Demos
   rq_learning_paths.sh          learning paths: the demos step by step
   rq_download_all.sh            download all demos now
   rq_demo_remove.sh             remove a downloaded demo
-  sudo rq_demo_loop.sh          run demos one after another (booth)
+  sudo rq_demo_loop.sh          demos one after another (--choose: which)
 
 LED panel
   sudo rq_led_setup_wizard.sh   which panel, which way up

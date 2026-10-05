@@ -845,10 +845,23 @@ do_remove_demo() {
     return 1
 }
 
-# Run continuous demo loop for conference showcases
+# Run continuous demo loop for conference showcases. Which demos it shows can
+# be chosen (Jan, 2026-10-05); the Demo Loop icon starts the chosen ones.
 run_demo_loop() {
-    # Launch the demo loop script
-    "$BIN_DIR/rq_demo_loop.sh"
+    _dl_last=""
+    while true; do
+        _dl_now=$("$BIN_DIR/rq_demo_loop.sh" --demos 2>/dev/null) || _dl_now=""
+        _dl=$(show_menu ${_dl_last:+--default-item "$_dl_last"} "RasQberry: Demo Loop" \
+            "Shows LED demos one after another, for a stand.\nNow: ${_dl_now:-all demos}" \
+            START  "Start the demo loop" \
+            CHOOSE "Choose the demos") || return 0
+        _dl_last="$_dl"
+        case "$_dl" in
+            START)  "$BIN_DIR/rq_demo_loop.sh"; return $? ;;
+            CHOOSE) "$BIN_DIR/rq_demo_loop.sh" --choose ;;
+            *)      return 0 ;;
+        esac
+    done
 }
 
 # Add an external demo from the curated registry (known-demos.json).
