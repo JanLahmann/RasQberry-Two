@@ -109,10 +109,22 @@ running_mode() {
     [ "$mode" = "solo" ] && echo solo || echo workshop
 }
 
+# The name participants' laptops reach this Pi by: the one avahi announces.
+# With a second kit of the same name on the network, <hostname>.local is the
+# other Pi (#3).
+MDNS_NAME=$(rq_mdns_name)
+CONFIGURED_NAME="$(hostname 2>/dev/null).local"
+
+# One line when the configured name belongs to another device, else nothing
+name_note() {
+    [ "$MDNS_NAME" != "$CONFIGURED_NAME" ] || return 0
+    echo "Note: $CONFIGURED_NAME is another device on this network, so this Pi is $MDNS_NAME. To give it its own name: RasQberry menu > Remote Access & Security > Name."
+}
+
 # The addresses participants open, one per line
 participant_urls() {
     local port="$1" ip
-    echo "http://$(hostname 2>/dev/null).local:${port}/"
+    echo "http://${MDNS_NAME}:${port}/"
     for ip in $(lan_ips); do
         echo "http://${ip}:${port}/"
     done
@@ -148,6 +160,10 @@ print_addresses() {
     echo "Participants open one of these addresses (same network as this Pi):"
     participant_urls "$port" | while IFS= read -r url; do echo "    $url"; done
     echo "On this Pi: http://localhost:${port}/"
+    if [ -n "$(name_note)" ]; then
+        echo
+        name_note | fold -s -w 78
+    fi
     echo
     echo "Teacher only - JupyterLab with every notebook (on this Pi or through ssh -L):"
     echo "    $lab_url"
@@ -334,7 +350,8 @@ if [ "$MODE" = "solo" ]; then
     SITE_PUBLISH="127.0.0.1:${SITE_PORT}:80"
 else
     SITE_PUBLISH="${SITE_PORT}:80"
-    CORS_ORIGIN="${CORS_ORIGIN},http://$(hostname 2>/dev/null).local:${SITE_PORT}"
+    CORS_ORIGIN="${CORS_ORIGIN},http://${MDNS_NAME}:${SITE_PORT}"
+    [ "$MDNS_NAME" = "$CONFIGURED_NAME" ] || CORS_ORIGIN="${CORS_ORIGIN},http://${CONFIGURED_NAME}:${SITE_PORT}"
     for ip in $(lan_ips); do
         CORS_ORIGIN="${CORS_ORIGIN},http://${ip}:${SITE_PORT}"
     done
@@ -375,8 +392,9 @@ LAB_URL="http://127.0.0.1:${LAB_PORT}/lab?token=${JUPYTER_TOKEN}"
 print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 
 if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
+    note=$(name_note)
     show_msgbox "$WORKSHOP_NAME is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$TRUST_SHORT\n\n$INTERNET_NOTE" \
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
         17 74
 fi
 

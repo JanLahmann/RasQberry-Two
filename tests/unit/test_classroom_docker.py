@@ -260,6 +260,33 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
 
 
 @needs_bash
+def test_participants_get_the_name_avahi_announces(doq, tmp_path):
+    # #3: another kit held rasqberry.local, avahi named this Pi
+    # rasqberry-2.local - and the server handed out the other Pi's address
+    _exe(tmp_path / "stubs" / "busctl", "#!/bin/sh\necho 's \"rasqberry-2.local\"'\n")
+    proc, calls = doq(running=False)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "http://rasqberry-2.local:8080/" in proc.stdout
+    assert "http://rasqberry.local:8080/" not in proc.stdout
+    assert "ssh -N -L 8080:127.0.0.1:8080 rasqberry@rasqberry-2.local" in proc.stdout
+    note = " ".join(proc.stdout.split())
+    assert ("Note: rasqberry.local is another device on this network, so this Pi is "
+            "rasqberry-2.local.") in note and "Remote Access & Security > Name" in note
+    run = [c for c in calls.splitlines() if c.startswith("run ")][0]
+    assert "http://rasqberry-2.local:8080" in run and "http://rasqberry.local:8080" in run
+    # a running server, too
+    proc, _calls = doq(running=True)
+    assert "http://rasqberry-2.local:8080/" in proc.stdout and "Note: rasqberry.local" in proc.stdout
+
+
+@needs_bash
+def test_a_unique_name_needs_no_note(doq, tmp_path):
+    _exe(tmp_path / "stubs" / "busctl", "#!/bin/sh\necho 's \"rasqberry.local\"'\n")
+    proc, _calls = doq(running=False)
+    assert "http://rasqberry.local:8080/" in proc.stdout and "Note:" not in proc.stdout
+
+
+@needs_bash
 def test_qr_code_comes_last_and_fits_an_80x24_window(doq, tmp_path):
     # qrencode is the command (package qrencode), not just the library: a
     # version-2 code with margin 2 is 29 columns by 15 lines

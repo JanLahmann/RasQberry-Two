@@ -1872,6 +1872,22 @@ rq_docker_drop_old() {
     return 0
 }
 
+# The name other computers reach this Pi by: the one avahi announces. When
+# another device on the network has <hostname>.local already, avahi calls
+# this Pi <hostname>-2.local (R-063), and <hostname>.local reaches the other
+# one (#3). As rq_remote_access.sh mdns and rq_display_ip.py do.
+# Usage: name=$(rq_mdns_name)
+rq_mdns_name() {
+    local fqdn="" t=""
+    if command -v busctl >/dev/null 2>&1; then
+        command -v timeout >/dev/null 2>&1 && t="timeout 3"
+        fqdn=$($t busctl --system call org.freedesktop.Avahi / \
+            org.freedesktop.Avahi.Server GetHostNameFqdn 2>/dev/null) || fqdn=""
+        fqdn=$(printf '%s\n' "$fqdn" | sed -n 's/^s "\(.*\)"$/\1/p')
+    fi
+    echo "${fqdn:-$(hostname 2>/dev/null).local}"
+}
+
 # Open URL in the desktop user's browser (rq_open_browser: the tab stays when
 # the demo's window closes) - or, without a screen (an SSH session), say how
 # to reach it from another computer (Jan, Q19). PORT is the
@@ -1893,7 +1909,7 @@ rq_show_url() {
     if [ -n "$port" ]; then
         echo "To use the demo from your computer:"
         echo "  1. On your computer, run:"
-        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(rq_mdns_name)"
         echo "  2. Open in its browser:"
         echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
     else
