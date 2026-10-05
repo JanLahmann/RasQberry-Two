@@ -9,6 +9,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   only be known at runtime: image type, booted A/B slot, Pi model - and
 #   how to reach this Pi and how it is doing (R-016, R-112): name, address,
 #   power, temperature, memory and free space.
+# Environment (tests): RQ_BUILD_JSON, RQ_MODEL_FILE, RQ_THERMAL_FILE,
+#   RQ_SLOT_STATUS_FILE
 # Usage: rq_info.sh            human-readable
 #        rq_info.sh --json     build metadata plus runtime fields as JSON
 #        rq_info.sh --report   save this, disk space, demos and recent logs to
@@ -36,6 +38,13 @@ if [ "$(sval layout)" = "ab" ] || lsblk -no LABEL /dev/mmcblk0p1 2>/dev/null | g
     [ -n "$slot" ] || slot=$(cat /boot/config/current-slot 2>/dev/null || true)
     slot_a=$(sval slot_a)
     slot_b=$(sval slot_b)
+    # Without root the other slot cannot be looked into (UNKNOWN). Root wrote
+    # what it holds at start-up (rq_slot_status.sh write): use that, so this
+    # says "empty" like the menu and the taskbar badge (#31).
+    status_file="${RQ_SLOT_STATUS_FILE:-/run/rasqberry/slot-status}"
+    from_status() { [ -r "$status_file" ] && sed -n "s/^$1=//p" "$status_file" 2>/dev/null | head -1 || true; }
+    case "$slot_a" in UNKNOWN|"") slot_a=$(from_status slot_a) ;; esac
+    case "$slot_b" in UNKNOWN|"") slot_b=$(from_status slot_b) ;; esac
 fi
 describe() {
     case "$1" in
@@ -54,7 +63,8 @@ describe() {
 # (bits 20-22: 0 = 256 MB ... 5 = 8 GB, 6 = 16 GB), which says what the board
 # has rather than what the kernel can use (MemTotal is a little less).
 model=""
-[ -r /proc/device-tree/model ] && model=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
+model_file="${RQ_MODEL_FILE:-/proc/device-tree/model}"
+[ -r "$model_file" ] && model=$(tr -d '\0' < "$model_file" 2>/dev/null || true)
 [ -n "$model" ] || model=$(sed -n 's/^Model[[:space:]]*: *//p' /proc/cpuinfo 2>/dev/null | head -1 || true)
 [ -n "$model" ] || model=$(uname -m)
 board_ram() {
@@ -115,13 +125,30 @@ if [ -r /proc/device-tree/chosen/power/max_current ]; then
     fi
 fi
 temp_c=""
-if [ -r /sys/class/thermal/thermal_zone0/temp ]; then
-    temp_c=$(( $(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0) / 1000 ))
+thermal="${RQ_THERMAL_FILE:-/sys/class/thermal/thermal_zone0/temp}"
+if [ -r "$thermal" ]; then
+    temp_c=$(( $(cat "$thermal" 2>/dev/null || echo 0) / 1000 ))
 fi
+# Heat (#21): the soft temperature limit (bit 3 now, 19 since start-up); the
+# frequency cap and throttling bits (1, 2 / 17, 18) count as heat only without
+# under-voltage, which causes them too. "Since start-up" alone is not now.
 temp_note=""
+temp_advice=""
 case "$throttled" in
-    0x[0-9a-fA-F]*) (( throttled & 0x80008 )) && temp_note=" - too hot, slowed down" ;;
+    0x[0-9a-fA-F]*)
+        if (( throttled & 0x8 )) || { (( throttled & 0x6 )) && ! (( throttled & 0x1 )); }; then
+            temp_note=" - too hot now, slowed down"
+        elif (( throttled & 0x80000 )) || { (( throttled & 0x60000 )) && ! (( throttled & 0x10000 )); }; then
+            temp_note=" - was slowed down earlier because it got too hot"
+        fi ;;
 esac
+if [ -n "$temp_note" ]; then
+    case "$model" in
+        *"Pi 5"*) temp_advice="Fit the Active Cooler and check that its fan runs." ;;
+        *"Pi 4"*) temp_advice="Give it more air: a heatsink, or a case with vents." ;;
+        *)        temp_advice="Give it more air, or a heatsink or fan." ;;
+    esac
+fi
 mem_used=""; mem_total=""
 if [ -r /proc/meminfo ]; then
     mem_total=$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)
@@ -219,7 +246,10 @@ echo "Name:              $host_name (network: $mdns)"
 echo "Address:           ${addrs:-none - not connected}"
 echo "Hardware:          $hardware"
 echo "Power:             $(power_text "$throttled")$supply_note"
-[ -n "$temp_c" ] && echo "Temperature:       ${temp_c} °C$temp_note"
+if [ -n "$temp_c" ]; then
+    echo "Temperature:       ${temp_c} °C$temp_note"
+    [ -n "$temp_advice" ] && echo "                   $temp_advice"
+fi
 [ -n "$mem_total" ] && echo "Memory:            $(gb "$mem_used") of $(gb "$mem_total") in use"
 [ -n "$disk" ] && echo "Free space:        $(gb_disk "${disk% *}") of $(gb_disk "${disk#* }")"
 echo

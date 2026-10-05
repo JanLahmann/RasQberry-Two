@@ -119,6 +119,22 @@ def test_two_system_card_marks_the_default_slot(stubs, tmp_path):
     assert "stable" not in out and "testing" not in out
 
 
+def test_slot_b_without_root_says_empty_like_the_menu(stubs, tmp_path, monkeypatch):
+    """Not root: the summary cannot look into Slot B (UNKNOWN); the status root
+    wrote at start-up says what it holds, as the menu and the badge do (#31)."""
+    summary = "\n".join(["layout=ab", "current=A", "confirmed=yes", "default=A", "pending=",
+                         "slot_a=beta-2026-10-04-143935", "slot_b=UNKNOWN", "expanded=yes",
+                         "card_mode=dual"])
+    status = tmp_path / "slot-status"
+    status.write_text("# snapshot\nlayout=ab\ncurrent=A\nslot_a=beta-2026-10-04-143935\nslot_b=EMPTY\n")
+    monkeypatch.setenv("RQ_SLOT_STATUS_FILE", str(status))
+    out = _rq_info(stubs, tmp_path, summary).stdout
+    assert "Slot B:            empty (no system)" in out
+    status.unlink()                       # no status yet: still honest
+    out = _rq_info(stubs, tmp_path, summary).stdout
+    assert "Slot B:            unknown (run with sudo to look)" in out
+
+
 # --- item 40: the name avahi really uses ---------------------------------------
 
 def test_rename_reports_the_name_avahi_picked(stubs, tmp_path):
