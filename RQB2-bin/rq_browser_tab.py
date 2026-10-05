@@ -7,10 +7,10 @@ The desktop Chromium listens for the DevTools protocol on 127.0.0.1 only
 its own (rq_open_browser in rq_common.sh), and this helper looks after it:
 
 - watch: finds the demo's tab, makes its window maximised (or full screen,
-  Qoffee-Maker), and closes the tab once the demo's server has stopped. The
-  tab used to stay behind with "Dead kernel" or "Connection failed", and
-  closing it asked "Leave site?" (#9, #15). A tab closed through the
-  protocol does not ask.
+  Qoffee-Maker) and checks that again once the window is on screen (#4), and
+  closes the tab once the demo's server has stopped. The tab used to stay
+  behind with "Dead kernel" or "Connection failed", and closing it asked
+  "Leave site?" (#9, #15). A tab closed through the protocol does not ask.
 - close: closes a demo's tabs at once, before its server stops.
 - save: saves the open notebooks of a JupyterLab tab before it stops (#12).
 
@@ -45,6 +45,10 @@ PORT = int(os.environ.get("RQ_BROWSER_CDP_PORT", "9222"))
 FIND_WAIT = float(os.environ.get("RQ_BROWSER_FIND_WAIT", "30"))
 # Seconds between two looks at the demo's server
 POLL = float(os.environ.get("RQ_BROWSER_POLL", "1"))
+# How long watch keeps trying to set the window's state (a busy Pi 4 lists
+# the tab before its window can take one), and when it checks it again
+STATE_WAIT = float(os.environ.get("RQ_BROWSER_STATE_WAIT", "10"))
+SETTLE = float(os.environ.get("RQ_BROWSER_SETTLE", "1.5"))
 
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -267,9 +271,49 @@ def browser_devtools(timeout=10.0):
     return DevTools(version["webSocketDebuggerUrl"], timeout=timeout)
 
 
+def _request_state(dev, window, state):
+    """Ask for one window state; some changes go through the normal state first."""
+    try:
+        dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": state}})
+    except RuntimeError:
+        dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": "normal"}})
+        dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": state}})
+
+
+def only_window(dev, window):
+    """
+    Tell whether WINDOW is the browser's only window.
+
+    Args:
+        dev (DevTools): The browser-wide connection.
+        window (int): A window id.
+
+    Returns:
+        bool: True if every open tab is in it.
+    """
+    for tab in pages() or []:
+        try:
+            if dev.call("Browser.getWindowForTarget", {"targetId": tab["id"]})["windowId"] != window:
+                return False
+        except (RuntimeError, KeyError):
+            continue
+    return True
+
+
 def set_window_state(target_id, state):
     """
-    Maximise a tab's window, or make it full screen.
+    Maximise a tab's window, or make it full screen, and check it once it is on screen.
+
+    Demo windows were not always maximised (#4):
+    - A busy Pi 4 lists the tab before its window can take a state, and the
+      request was lost: it is tried again for STATE_WAIT seconds, and set
+      again if the window does not have it SETTLE seconds later.
+    - labwc's rule puts the browser's first window next to the desktop icons
+      (matchOnce, rc.xml). It moved a window maximised before it was first
+      shown as well: maximised, but 480 px to the right with its buttons
+      off-screen. When the demo's window is the browser's only one (Chromium
+      was not running, e.g. the homepage was closed), it goes through the
+      normal state once it is on screen, so labwc lays it out again.
 
     Args:
         target_id (str): The tab.
@@ -278,17 +322,27 @@ def set_window_state(target_id, state):
     Returns:
         bool: True if the browser did it.
     """
+    end = time.monotonic() + STATE_WAIT
+    dev = None
     try:
-        dev = browser_devtools()
-    except (OSError, ValueError, KeyError) as exc:
-        logger.debug("window state: %s", exc)
-        return False
-    try:
-        window = dev.call("Browser.getWindowForTarget", {"targetId": target_id})["windowId"]
-        try:
-            dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": state}})
-        except RuntimeError:
-            # some changes go through the normal state first
+        while True:
+            try:
+                dev = dev or browser_devtools()
+                window = dev.call("Browser.getWindowForTarget", {"targetId": target_id})["windowId"]
+                alone = only_window(dev, window)
+                _request_state(dev, window, state)
+                break
+            except (OSError, ValueError, KeyError, RuntimeError) as exc:
+                logger.debug("window state: %s", exc)
+                if dev is not None:
+                    dev.close()
+                    dev = None
+                if time.monotonic() >= end:
+                    return False
+                time.sleep(0.5)
+        time.sleep(SETTLE)
+        bounds = dev.call("Browser.getWindowBounds", {"windowId": window}).get("bounds", {})
+        if alone or bounds.get("windowState") != state:
             dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": "normal"}})
             dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": state}})
         return True
@@ -296,7 +350,8 @@ def set_window_state(target_id, state):
         logger.debug("window state: %s", exc)
         return False
     finally:
-        dev.close()
+        if dev is not None:
+            dev.close()
 
 
 # JupyterLab (window.jupyterapp, LabApp.expose_app_in_browser) or the classic

@@ -357,8 +357,10 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
   <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
     <!-- Chromium to the right of the desktop icons; rq_desktop_session.py
-         switches this rule off on small screens, where Chromium opens maximised -->
-    <windowRule identifier="chromium">
+         switches this rule off on small screens, where Chromium opens maximised.
+         type="normal" matchOnce="true": only the first browser window (the homepage),
+         not demo windows -->
+    <windowRule identifier="chromium" type="normal" matchOnce="true">
       <action name="MoveTo" x="480" y="45"/>
     </windowRule>
     <!-- The on-screen LED view in the bottom right corner, not over the demo's terminal -->
