@@ -102,3 +102,37 @@ def test_grid_cache_rebuilds_on_layout_change(frame_bus, monkeypatch):
     # Same bytes, different layout -> different decoded grids (cache keyed on layout)
     assert f1["layout"] != f2["layout"]
     assert f1["rows"] != f2["rows"]
+
+
+# --- #22: the label follows the frames, and WEB off stops the server ----------
+
+def test_page_label_is_not_the_window_status_global():
+    """A global `var status` is window.status (a string), so the label stayed
+    "Connecting..." while frames rendered (#22)."""
+    script = web.INDEX_HTML.split("<script>", 1)[1].split("</script>", 1)[0]
+    assert "var status " not in script and "var status=" not in script
+    assert "statusEl.textContent = w" in script
+
+
+def test_turning_web_off_stops_every_server(tmp_path, monkeypatch):
+    """Also a server without a pidfile (started by another user's demo or by
+    an older version) is stopped; other programs are left alone."""
+    import subprocess as sp
+    import time
+    srv = tmp_path / "rq_led_web.py"
+    srv.write_text("import time\ntime.sleep(60)\n")
+    other = tmp_path / "other.py"
+    other.write_text("import time\ntime.sleep(60)\n")
+    server = sp.Popen([sys.executable, str(srv)])
+    bystander = sp.Popen([sys.executable, str(other)])
+    monkeypatch.setattr(lu, "_VIRTUAL_WEB_PIDFILE", str(tmp_path / "web.pid"))
+    try:
+        time.sleep(0.3)
+        assert lu.stop_virtual_led_web() >= 1
+        assert server.wait(timeout=10) != 0
+        assert bystander.poll() is None
+    finally:
+        for p in (server, bystander):
+            if p.poll() is None:
+                p.kill()
+                p.wait()

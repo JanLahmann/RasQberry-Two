@@ -170,9 +170,11 @@ INDEX_HTML = """<!doctype html>
   <div id="status">Connecting...</div>
 </div>
 <script>
+  // Not "status": a global of that name is window.status, which turns the
+  // element into a string, so the label stayed "Connecting..." for ever (#22).
   var canvas = document.getElementById('c');
   var ctx = canvas.getContext('2d');
-  var status = document.getElementById('status');
+  var statusEl = document.getElementById('status');
   var OFF = '#2a2a2a';
 
   function draw(frame) {
@@ -193,17 +195,19 @@ INDEX_HTML = """<!doctype html>
         ctx.fill();
       }
     }
-    status.textContent = w + '\\u00d7' + h + '  \\u00b7  ' + frame.layout;
+    statusEl.textContent = w + '\\u00d7' + h + '  \\u00b7  ' + frame.layout;
   }
 
   function poll() {
     fetch('/frame', { cache: 'no-store' })
       .then(function (res) { return res.json(); })
       .then(function (frame) {
-        if (frame.waiting) { status.textContent = 'Waiting for LED data...'; }
+        if (frame.waiting) { statusEl.textContent = 'Waiting for LED data...'; }
         else { draw(frame); }
       })
-      .catch(function () { status.textContent = 'Disconnected - retrying...'; });
+      .catch(function () {
+        statusEl.textContent = 'Not connected: the browser view is off, or the Pi cannot be reached. Retrying...';
+      });
   }
 
   setInterval(poll, 100);

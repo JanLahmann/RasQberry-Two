@@ -815,6 +815,37 @@ def reap_virtual_led_web():
     _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
 
 
+def stop_virtual_led_web():
+    """
+    Stop every LED web view server: the browser view was turned off (#22).
+
+    Unlike reap_virtual_led_web() this also stops a server that has no
+    pidfile (started by an older version, by hand, or by another user's demo):
+    with LED_WEB off, nothing may go on serving the panel to the network.
+
+    Returns:
+        int: how many servers were asked to stop.
+    """
+    import signal
+    import subprocess
+    reap_virtual_led_web()
+    stopped = 0
+    try:
+        out = subprocess.run(['pgrep', '-f', r'rq_led_web\.py'],
+                             capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return stopped
+    for token in out.split():
+        try:
+            pid = int(token)
+            if pid != os.getpid() and _proc_pid_alive(pid, 'rq_led_web.py'):
+                os.kill(pid, signal.SIGTERM)
+                stopped += 1
+        except (ValueError, OSError):
+            continue
+    return stopped
+
+
 def _with_root_hint(error):
     """
     Add the way out to the Pi 4 driver's 'requires running with sudo' error.

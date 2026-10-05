@@ -1615,6 +1615,13 @@ do_led_output_menu() {
   [ "$new_virt" != "$cur_virt" ] && update_environment_file "LED_VIRTUAL" "$new_virt"
   [ "$new_web" != "$cur_web" ] && update_environment_file "LED_WEB" "$new_web"
 
+  # Off: stop the browser view now. It went on serving the panel to the
+  # network on its port after WEB was turned off (#22).
+  if [ "$new_web" != "true" ]; then
+    PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
+      'import rq_led_utils; rq_led_utils.stop_virtual_led_web()' 2>/dev/null || true
+  fi
+
   # When the browser view is on, start it now and show the URL so the user does
   # not have to launch a demo first just to discover the address.
   if [ "$new_web" = "true" ]; then

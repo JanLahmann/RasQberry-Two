@@ -174,6 +174,20 @@ def test_led_output_targets_two_ticks(menu_env):
     assert "At least one output target is required" not in texts
 
 
+def test_led_output_targets_web_off_stops_the_server(menu_env):
+    # #22: WEB off left rq_led_web.py serving the panel to the network
+    py_log = menu_env.tmp / "python.log"
+    stubs = menu_env.tmp / "stubs"
+    _write_exec(stubs / "python3", f'#!/bin/sh\necho "$@" >> "{py_log}"\n')
+    with open(menu_env.env_file, "a") as fh:
+        fh.write("LED_WEB=true\n")
+    proc = menu_env("do_led_output_menu; echo RC=$?",
+                    extra_env={"WT_REPLY_checklist": '"PHYSICAL" "VIRTUAL"'})
+    assert "RC=0" in proc.stdout, proc.stderr
+    assert _env_value(menu_env.env_file, "LED_WEB") == "false"
+    assert "stop_virtual_led_web" in py_log.read_text()
+
+
 def test_led_output_targets_use_the_style_names(menu_env):
     # R-095: "LED panel" and "on-screen view", not "LED strip" or "matrix"
     menu_env("do_led_output_menu", extra_env={"WT_REPLY_checklist": '"PHYSICAL"'})
