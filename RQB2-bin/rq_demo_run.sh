@@ -919,6 +919,7 @@ run_python() {
         # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
         LED_DEMO_RAN=1
         RQ_LED_RUN_START=$(date +%s)
+        RQ_LED_THROTTLED_START=$(rq_throttled)
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -1091,7 +1092,7 @@ cleanup() {
         led_clear_quietly
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
-        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
     fi
 }
 

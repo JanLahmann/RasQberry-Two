@@ -918,14 +918,30 @@ def cap_brightness(brightness, config=None):
 #   skipped (the demo keeps its pace) and retried every few seconds. The person
 #   is told once, and a note in /var/tmp lets the launcher offer a lower
 #   brightness afterwards (rq_led_brightness.sh --after-stall).
+#
+# Hand-overs (#5): on the rig the stalls came where one program followed
+# another - the clear after every demo, Clear All LEDs, a demo stop. Two
+# things there:
+# - A program opened the PIO while the previous one still had it (the
+#   stopped demo's own clear next to Clear All's): "GPIO busy", a retry, or
+#   both on the panel at once. So a program waits until no other one has
+#   /dev/pio0 open before it opens it (_wait_for_free_pio).
+# - The first frame after the PIO opens timed out now and then (about one
+#   open in 60 on the rig, 0.1 s or minutes after the previous program);
+#   opening it again cured it at once. That is the driver starting, not a
+#   stall: it is recovered without a message or a note, so no stall dialog
+#   blames the power supply for it.
 
 LED_STALL_SECONDS = 0.5           # a 192-LED frame takes about 6 ms
 LED_STALL_RETRY_SECONDS = 10.0    # while stuck, try to reopen this often
 LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
+LED_HANDOVER_WAIT_SECONDS = 5.0   # longest wait for the previous program to let go
 LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
+PIO_DEVICE = "/dev/pio0"
 
 _stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
-                'last_write': 0.0, 'counted': False, 'brightness': None}
+                'last_write': 0.0, 'counted': False, 'brightness': None,
+                'opened': False}
 
 
 def _record_led_stall(recovered):
@@ -990,6 +1006,60 @@ def _wait_for_last_frame():
         time.sleep(left)
 
 
+def _pio_holders():
+    """
+    PIDs of the other processes that have the Pi 5 LED driver open.
+
+    Sees every process when run as root (the LED demos), otherwise the
+    person's own ones.
+
+    Returns:
+        list[int]: the PIDs, empty when the driver is free.
+    """
+    me = os.getpid()
+    held = []
+    try:
+        pids = [int(p) for p in os.listdir('/proc') if p.isdigit()]
+    except OSError:
+        return held
+    for pid in pids:
+        if pid == me:
+            continue
+        fd_dir = f'/proc/{pid}/fd'
+        try:
+            fds = os.listdir(fd_dir)
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink(f'{fd_dir}/{fd}') == PIO_DEVICE:
+                    held.append(pid)
+                    break
+            except OSError:
+                continue
+    return held
+
+
+def _wait_for_free_pio(timeout=None):
+    """
+    Wait until no other program has the Pi 5 LED driver open (#5).
+
+    Bounded (LED_HANDOVER_WAIT_SECONDS): a program that keeps the panel is
+    named by the launchers (led_panel_ready) and reported by the driver.
+
+    Returns:
+        bool: True when the driver is free.
+    """
+    if not os.path.exists(PIO_DEVICE):
+        return True
+    deadline = time.monotonic() + (LED_HANDOVER_WAIT_SECONDS if timeout is None else timeout)
+    while _pio_holders():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
 def _guarded_pi5_write(write, reopen):
     """
     Wrap the Pi 5 frame writer: notice stalls, reopen the driver, finish frames.
@@ -1024,11 +1094,19 @@ def _guarded_pi5_write(write, reopen):
                 state['stuck_since'] = None
                 print("LED panel: the LED driver works again.", file=sys.stderr)
             return
+        first = not state['opened']
+        state['opened'] = True
         if timed(pin, buf):
             if sys.is_finalizing():
                 _wait_for_last_frame()
             return
         recovered = reopen_and_write(pin, buf)
+        if first and recovered:
+            # The driver's start, not a stall (see above)
+            if os.environ.get('RQ_DEBUG') == '1':
+                print("LED panel: the LED driver's first frame timed out; "
+                      "opened it again", file=sys.stderr)
+            return
         _record_led_stall(recovered)
         _count_led_stall()
         if recovered:
@@ -1056,8 +1134,11 @@ def _lgpio_files_out_of_cwd():
     LG_WD setting would move it, but lgpio then changes the whole program's
     current directory to it. So lgpio is imported once from a private temp
     directory (it keeps that as its working directory), and the program's
-    current directory is restored straight away. Removed at exit. Does nothing
-    without lgpio, or when it is already imported.
+    current directory is restored straight away. The directory is removed
+    right after the import: lgpio has opened its FIFO by then and keeps using
+    it, and a demo stopped by a signal skips exit handlers, which left a
+    root-owned /tmp/rq-lgpio-* folder behind at every LED run (#19). Does
+    nothing without lgpio, or when it is already imported.
     """
     if 'lgpio' in sys.modules:
         return
@@ -1068,7 +1149,6 @@ def _lgpio_files_out_of_cwd():
         here = os.getcwd()
     except (ImportError, ValueError, OSError):
         return
-    import atexit
     import shutil
     import tempfile
     try:
@@ -1085,7 +1165,7 @@ def _lgpio_files_out_of_cwd():
             os.chdir(here)
         except OSError:
             pass
-    atexit.register(shutil.rmtree, work, True)
+        shutil.rmtree(work, True)
 
 
 def guard_pi5_led_writes():
@@ -1112,6 +1192,8 @@ def guard_pi5_led_writes():
         return False
     if getattr(current, '_rq_stall_guard', False):
         return True
+    # Before this program opens the PIO: the previous one lets go first
+    _wait_for_free_pio()
     neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
     import atexit
     atexit.register(_wait_for_last_frame)
@@ -1150,6 +1232,107 @@ def _drain_on_stop_signals():
                 signal.signal(sig, _end_after_last_frame)
         except (ValueError, OSError):
             pass
+
+
+# ----------------------------------------------------------------------------
+# Pi 4 LED driver: a frame transfer left hanging by an earlier program (#1)
+# ----------------------------------------------------------------------------
+# The Pi 4 driver (rpi_ws281x) sends each frame by DMA into the PWM. When one
+# program switched the PWM off while another program's frame was still going
+# out, the DMA channel stayed busy for good, waiting for the stopped PWM. The
+# next program's driver start let the rest of that old transfer into the PWM,
+# and its own frames never reached the panel: it stayed dark for the whole
+# demo, with no error, and only the start after that worked (rig 2026-10-05:
+# DMA 10 busy, PWM off, after the LED check). A busy channel under a stopped
+# PWM can never finish, so it is reset before the driver starts.
+
+_PI4_DMA_OFFSET = 0x7000        # DMA channels 0-14, 0x100 apart
+_PI4_PWM_OFFSET = 0x20C000      # PWM0, the one GPIO18 uses
+_PI4_DMA_ACTIVE = 1 << 0
+_PI4_DMA_RESET = 1 << 31
+_PI4_PWM_ENABLED = (1 << 0) | (1 << 8)    # PWEN1, PWEN2
+_PI4_DMA_TO_PWM = 5             # TI PERMAP: the transfer feeds the PWM
+
+
+def _soc_peripheral_base():
+    """The SoC's peripheral address from the device tree (bcm_host's rule)."""
+    try:
+        with open('/proc/device-tree/soc/ranges', 'rb') as f:
+            raw = f.read(12)
+    except OSError:
+        return None
+    if len(raw) < 8:
+        return None
+    base = int.from_bytes(raw[4:8], 'big')
+    if base == 0 and len(raw) >= 12:
+        base = int.from_bytes(raw[8:12], 'big')
+    return base or None
+
+
+def recover_pi4_led_dma():
+    """
+    Reset a Pi 4 LED transfer an earlier program left hanging (see above).
+
+    Call before this program's first frame. Does nothing on other boards,
+    without root (the driver then says so itself), once this program's driver
+    runs, or while a frame really goes out (the PWM is on).
+
+    Returns:
+        bool: True when a hanging transfer was found and reset.
+    """
+    try:
+        import neopixel_write
+    except ImportError:
+        return False
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if not getattr(backend, '__name__', '').endswith('bcm283x.neopixel'):
+        return False
+    if getattr(backend, '_led_strip', None) is not None:
+        return False
+    channel = int(getattr(backend, 'LED_DMA_NUM', 10))
+    base = _soc_peripheral_base()
+    if base is None or not 0 <= channel <= 14:
+        return False
+    import ctypes
+    import mmap
+    try:
+        fd = os.open('/dev/mem', os.O_RDWR | os.O_SYNC)
+    except OSError:
+        return False
+    page = mmap.ALLOCATIONGRANULARITY
+    dma_at = base + _PI4_DMA_OFFSET + channel * 0x100
+    pwm_at = base + _PI4_PWM_OFFSET
+    try:
+        dma_map = mmap.mmap(fd, page, offset=dma_at & ~(page - 1))
+        pwm_map = mmap.mmap(fd, page, offset=pwm_at & ~(page - 1))
+    except (OSError, ValueError):
+        os.close(fd)
+        return False
+    os.close(fd)
+    dma_at &= page - 1
+    pwm_at &= page - 1
+    cs = None
+    try:
+        # 32-bit accesses, as the registers need
+        cs = ctypes.c_uint32.from_buffer(dma_map, dma_at)
+        ti = ctypes.c_uint32.from_buffer(dma_map, dma_at + 8).value
+        pwm_on = ctypes.c_uint32.from_buffer(pwm_map, pwm_at).value & _PI4_PWM_ENABLED
+        if not cs.value & _PI4_DMA_ACTIVE or (ti >> 16) & 0x1f != _PI4_DMA_TO_PWM or pwm_on:
+            return False
+        cs.value = _PI4_DMA_RESET
+        time.sleep(0.001)
+        if cs.value & _PI4_DMA_ACTIVE:
+            print("LED panel: the LED driver did not start cleanly, so the panel may "
+                  "stay dark. Restart the Pi if it does.", file=sys.stderr)
+            return False
+        if os.environ.get('RQ_DEBUG') == '1':
+            print(f"LED panel: reset DMA channel {channel}, left busy by an earlier "
+                  "program", file=sys.stderr)
+        return True
+    finally:
+        cs = None                   # mmap.close() refuses while it is in use
+        dma_map.close()
+        pwm_map.close()
 
 
 _pi4_exit_quiet = {'registered': False}
@@ -1276,6 +1459,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         import neopixel
 
         guard_pi5_led_writes()
+        recover_pi4_led_dma()
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
@@ -1326,6 +1510,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     import board
     import neopixel
     guard_pi5_led_writes()
+    recover_pi4_led_dma()
 
     # Get GPIO pin from config if not provided
     if gpio_pin is None:

@@ -16,6 +16,7 @@ Communication uses a memory-mapped file at /tmp/rasqberry_virtual_led2.mmap
 import mmap
 import os
 import struct
+import sys
 
 # Shared memory file location (v2: renamed so old GUIs and new writers can't
 # misread each other's incompatible formats).
@@ -372,5 +373,17 @@ class MirrorNeoPixel:
             self.virtual.deinit()
 
     def __del__(self):
-        """Destructor - clean up resources."""
-        self.deinit()
+        """
+        Destructor - clean up resources, but not while Python shuts down.
+
+        By then the LED library is partly gone: its writer was None, and
+        "Exception ignored in: MirrorNeoPixel.__del__ ... 'NoneType' object
+        is not callable" ended every RasQ-LED run (#8). A program releases
+        the panel itself (deinit); at exit the driver is closed anyway.
+        """
+        if sys.is_finalizing():
+            return
+        try:
+            self.deinit()
+        except Exception:  # noqa: BLE001 - a destructor must not raise
+            pass

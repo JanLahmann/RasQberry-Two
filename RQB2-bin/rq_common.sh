@@ -699,13 +699,21 @@ rq_docker_stop_detached() {
     rq_run_detached bash -c '. "$1" && rq_docker_stop "$2"' _ "$_RQ_COMMON_DIR/rq_common.sh" "$1"
 }
 
+# The Pi's throttling bits now (vcgencmd get_throttled, e.g. 0x50000), or
+# nothing when they cannot be read. Read when an LED demo starts, so that the
+# stall check after it counts only what is new (#6).
+rq_throttled() {
+    command -v vcgencmd >/dev/null 2>&1 || return 0
+    vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p' | head -1
+}
+
 # After an LED demo: if the Pi 5's LED driver stalled during it (a power
 # supply too weak for the LEDs, item 31), say so and offer a lower brightness.
 # Only with a terminal to ask on.
-# Usage: rq_led_stall_check START_EPOCH
+# Usage: rq_led_stall_check START_EPOCH [THROTTLED_AT_START]
 rq_led_stall_check() {
     [ -t 0 ] && [ -t 1 ] || return 0
-    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" 2>/dev/null || true
+    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" "${2:-}" 2>/dev/null || true
 }
 
 # An LED launcher clears the panel once when it ends, however it ends: Enter,
@@ -715,6 +723,7 @@ rq_led_stall_check() {
 # Usage: rq_led_clear_on_exit
 rq_led_clear_on_exit() {
     RQ_LED_RUN_START=$(date +%s)
+    RQ_LED_THROTTLED_START=$(rq_throttled)
     trap '_rq_led_on_exit' EXIT
     trap 'exit 129' HUP
     trap 'exit 130' INT
@@ -729,7 +738,7 @@ _rq_led_on_exit() {
     # the demo first, or it draws on while the panel is cleared
     rq_stop_demo_child
     led_clear_quietly
-    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
 }
 
 # ----------------------------------------------------------------------------

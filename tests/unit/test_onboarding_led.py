@@ -494,9 +494,10 @@ def wizard(tmp_path):
     _exec(stubs / "python3", f'''#!/bin/bash
 case "$1" in
   *rq_led_wizard_infer.py) echo "PRESET ${{WIZ_LAYOUT:-quad-4x12}}" ;;
-  *rq_display_ip.py) echo "scroll $*" >> "{log}"; trap 'echo scroll-stopped >> "{log}"; exit 0' TERM
+  *rq_display_ip.py) echo "scroll $* mode=${{LED_RENDER_MODE:-}}" >> "{log}"
+                     trap 'echo scroll-stopped >> "{log}"; exit 0' TERM
                      sleep 30 & wait ;;
-  *rq_led_wizard_probe.py) echo "probe $*" >> "{log}" ;;
+  *rq_led_wizard_probe.py) echo "probe $* mode=${{LED_RENDER_MODE:-}}" >> "{log}" ;;
   *) exec /usr/bin/env -i PATH=/usr/bin:/bin python3 "$@" ;;
 esac
 ''')
@@ -541,6 +542,21 @@ def test_saved_says_the_kit_in_words_and_scrolls_the_address(wizard):
     assert any(c.startswith("probe") and "--pattern clear" in c for c in calls[stopped:])
     assert _env_value(wizard.env_file, "LED_LAYOUT") == "quad-4x12"
     assert _env_value(wizard.env_file, "LED_LAYOUT_VERIFIED") == "true"
+
+
+def test_saved_scroll_and_clears_draw_through_the_render_hold(wizard):
+    """Saving reloads the env file, whose LED_RENDER_MODE is "direct". The
+    address scroll and the clears after it must still draw through the
+    wizard's renderer: on their own they opened the panel next to it, which
+    left the next LED demo dark on a Pi 4 (#1) and the scroll dark on a Pi 5
+    (#7)."""
+    assert _env_value(wizard.env_file, "LED_RENDER_MODE") == "direct"
+    proc = wizard("export LED_RENDER_MODE=service; HOLD_MODE=service\n"
+                  "INFER_SRC_ARGS=(--standard quad-4x12); run_setup; echo RC=$?")
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    drawing = [c for c in wizard.log.read_text().splitlines() if c.startswith(("scroll ", "probe "))]
+    assert any(c.startswith("scroll") for c in drawing)
+    assert all(c.endswith("mode=service") for c in drawing), drawing
 
 
 def test_wiring_check_names_the_kits_in_words(wizard):
@@ -623,12 +639,14 @@ def test_lgpio_fifo_is_not_left_in_the_current_folder(tmp_path):
     code = ("import os, sys, rq_led_utils as lu\n"
             "lu._lgpio_files_out_of_cwd()\n"
             "import lgpio\n"
-            "print(os.getcwd()); print(lgpio.WORK)\n"
-            "lu._lgpio_files_out_of_cwd()\n")                # already imported: nothing
+            "print(os.getcwd(), lgpio.WORK, os.path.exists(lgpio.WORK), flush=True)\n"
+            "lu._lgpio_files_out_of_cwd()\n"                # already imported: nothing
+            "os.kill(os.getpid(), 15)\n")                   # a stop skips exit handlers
     proc = subprocess.run([sys.executable, "-c", code], cwd=home, capture_output=True, text=True,
                           env=dict(os.environ, PYTHONPATH=f"{fake}:{_BIN}"), timeout=30)
-    assert proc.returncode == 0, proc.stderr
-    cwd, work = proc.stdout.split()
+    assert proc.returncode == -15, proc.stderr
+    cwd, work, there = proc.stdout.split()
     assert os.path.realpath(cwd) == os.path.realpath(home)
     assert os.listdir(home) == []
-    assert not os.path.exists(work)                      # removed at exit
+    # gone right after the import, not only at a normal exit (#19)
+    assert there == "False" and not os.path.exists(work)
