@@ -189,6 +189,46 @@ def test_status_reports_ssh_and_vnc(stubs, tmp_path):
     assert "ssh=off vnc=off" in _remote(stubs, "status").stdout
 
 
+# SSH key only (user test 2026-10-04, #31): Imager's "public-key only" turns
+# password login off, and Remote Access must not promise a password then
+_SSHD_CONFIG = ("Include /etc/ssh/sshd_config.d/*.conf\n#PasswordAuthentication yes\n"
+                "KbdInteractiveAuthentication no\nUsePAM yes\n")
+
+
+def _ssh_password(stubs, tmp_path, effective=None, dropin=None, main=_SSHD_CONFIG):
+    d = tmp_path / "ssh"
+    (d / "sshd_config.d").mkdir(parents=True, exist_ok=True)
+    (d / "sshd_config").write_text(main)
+    if dropin is not None:
+        (d / "sshd_config.d" / "00-rasqberry-carried.conf").write_text(dropin)
+    sshd = tmp_path / "sshd"
+    # sshd -T as root prints the effective settings; as a user it fails
+    _exe(sshd, f"printf '%s' '{effective}'\n" if effective else "exit 1\n")
+    out = _remote(stubs, "status", RQ_SSHD=str(sshd), RQ_SSHD_DIR=str(d)).stdout
+    return dict(f.split("=", 1) for f in out.split())["ssh_password"]
+
+
+@pytest.mark.parametrize("effective,expected", [
+    ("passwordauthentication no\nkbdinteractiveauthentication no\nusepam yes\n", "no"),
+    ("passwordauthentication yes\nkbdinteractiveauthentication no\nusepam yes\n", "yes"),
+    # keyboard-interactive with PAM asks for the password, too
+    ("passwordauthentication no\nkbdinteractiveauthentication yes\nusepam yes\n", "yes"),
+])
+def test_ssh_password_from_the_effective_settings(stubs, tmp_path, effective, expected):
+    assert _ssh_password(stubs, tmp_path, effective=effective) == expected
+
+
+@pytest.mark.parametrize("dropin,main,expected", [
+    (None, _SSHD_CONFIG, "yes"),                                    # the shipped default
+    ("PasswordAuthentication no\n", _SSHD_CONFIG, "no"),            # carried over (A/B update)
+    (None, _SSHD_CONFIG + "PasswordAuthentication no\n", "no"),     # Imager's sed
+    ("PasswordAuthentication yes\n", _SSHD_CONFIG + "PasswordAuthentication no\n", "yes"),  # first wins
+    (None, _SSHD_CONFIG + "Match User guest\n  PasswordAuthentication no\n", "yes"),       # conditional
+])
+def test_ssh_password_from_the_files_without_root(stubs, tmp_path, dropin, main, expected):
+    assert _ssh_password(stubs, tmp_path, dropin=dropin, main=main) == expected
+
+
 # ---------------------------------------------------------------------------
 # The menu: Remote Access & Security
 # ---------------------------------------------------------------------------
@@ -216,6 +256,30 @@ def test_remote_menu_shows_the_state_and_switches_vnc_off(menu_env):
     assert "VNC (the desktop on another computer): on" in texts
     assert "rasqberry-3.local" in texts
     assert "vnc off" in log.read_text()
+
+
+def test_remote_menu_says_key_only_when_ssh_takes_no_password(menu_env):
+    code = ('_rq_remote() { [ "$1" = status ] && '
+            'echo "ssh=on vnc=on name=rasqberry mdns=rasqberry.local ssh_password=no"; return 0; }; '
+            'do_toggle_remote ssh off no; do_remote_access_menu')
+    proc = menu_env(code, extra_env={"WT_RC_menu": "1", "WT_RC_yesno": "1"})
+    assert proc.returncode == 0, proc.stderr
+    texts = _texts(menu_env)
+    assert "SSH (log in from another computer): on, key only" in texts
+    assert "SSH accepts only computers whose key is saved on this Pi (no password)." in texts
+    assert "who knows the password can log in over VNC" in texts
+    assert "can log in over SSH and VNC" not in texts
+    assert "Only computers whose key is saved on this Pi can then log in (no password)." in texts
+
+
+def test_remote_menu_with_password_ssh_keeps_the_old_words(menu_env):
+    code = ('_rq_remote() { [ "$1" = status ] && '
+            'echo "ssh=on vnc=on name=rasqberry mdns=rasqberry.local ssh_password=yes"; return 0; }; '
+            'do_remote_access_menu')
+    menu_env(code, extra_env={"WT_RC_menu": "1"})
+    texts = _texts(menu_env)
+    assert "Anyone on the same network who knows the password can log in over SSH and VNC." in texts
+    assert "key only" not in texts
 
 
 def test_remote_menu_rename_validates_first(menu_env):

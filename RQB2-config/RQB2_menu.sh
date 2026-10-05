@@ -2569,7 +2569,8 @@ do_ibm_account_menu() {
 # -----------------------------------------------------------------------------
 _rq_remote() { "$BIN_DIR/rq_remote_access.sh" "$@"; }
 
-# One field of `rq_remote_access.sh status` (ssh=on vnc=off name=... mdns=...)
+# One field of `rq_remote_access.sh status` (ssh=on vnc=off name=... mdns=...
+# ssh_password=yes|no)
 _rq_remote_field() {
     printf '%s\n' "$1" | tr ' ' '\n' | sed -n "s/^$2=//p" | head -n 1
 }
@@ -2588,7 +2589,8 @@ do_change_password() {
     return 0
 }
 
-# Switch SSH or VNC on or off. $1 = ssh|vnc, $2 = its state now (on|off)
+# Switch SSH or VNC on or off. $1 = ssh|vnc, $2 = its state now (on|off),
+# $3 = ssh_password (no: SSH takes keys only)
 do_toggle_remote() {
     _tr_what="$1"; _tr_now="$2"
     if [ "$_tr_what" = ssh ]; then
@@ -2596,6 +2598,7 @@ do_toggle_remote() {
         _tr_off="Nobody can log in from another computer with SSH then."
         [ -n "${SSH_CONNECTION:-}" ] && _tr_off="$_tr_off\n\nYou are connected over SSH: this session stays open, but the next SSH login fails. Switching SSH on again then needs a screen and keyboard."
         _tr_on="Anyone on this network who knows the password can then log in."
+        [ "${3:-}" = no ] && _tr_on="Only computers whose key is saved on this Pi can then log in (no password)."
     else
         _tr_name="VNC"
         _tr_off="Nobody can see or use the desktop from another computer then. It stays off, also after a restart."
@@ -2651,16 +2654,24 @@ do_remote_access_menu() {
         _ra_vnc=$(_rq_remote_field "$_ra_status" vnc)
         _ra_name=$(_rq_remote_field "$_ra_status" name)
         _ra_mdns=$(_rq_remote_field "$_ra_status" mdns)
+        _ra_sshpw=$(_rq_remote_field "$_ra_status" ssh_password)
+        # Imager's "public-key only": SSH takes no password (user test #31)
+        _ra_text="Anyone on the same network who knows the password can log in over SSH and VNC."
+        _ra_keys=""
+        if [ "$_ra_sshpw" = no ]; then
+            _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). Anyone on the same network who knows the password can log in over VNC."
+            [ "$_ra_ssh" = on ] && _ra_keys=", key only"
+        fi
         FUN=$(show_menu ${_ra_last:+--default-item "$_ra_last"} "RasQberry: Remote Access & Security" \
-            "Anyone on the same network who knows the password can log in over SSH and VNC." \
+            "$_ra_text" \
             PASS "Change the password" \
-            SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}" \
+            SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}${_ra_keys}" \
             VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
             NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}") || break
         _ra_last="$FUN"
         case "$FUN" in
             PASS) do_change_password ;;
-            SSH)  do_toggle_remote ssh "$_ra_ssh" ;;
+            SSH)  do_toggle_remote ssh "$_ra_ssh" "$_ra_sshpw" ;;
             VNC)  do_toggle_remote vnc "$_ra_vnc" ;;
             NAME) do_name_this_rasqberry "$_ra_name" ;;
             *)    break ;;
