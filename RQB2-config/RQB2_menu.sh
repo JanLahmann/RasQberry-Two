@@ -2575,16 +2575,42 @@ _rq_remote_field() {
     printf '%s\n' "$1" | tr ' ' '\n' | sed -n "s/^$2=//p" | head -n 1
 }
 
+# Two password boxes with Cancel, then chpasswd (user test #19: the raw
+# passwd prompt could not be left with Esc or Ctrl+C). The password goes to
+# chpasswd on stdin from the shell's builtin printf: it is never an argument
+# (ps), never logged and never shown. $1 = ssh_password (no: SSH takes keys
+# only, so the password is not for SSH).
 do_change_password() {
     _cp_user="${SUDO_USER:-$USER}"
-    clear
-    echo "New password for $_cp_user: type it twice. Nothing is shown while you type."
-    echo
-    if passwd "$_cp_user"; then
-        whiptail --title "Password" --msgbox \
-            "Password changed. Use the new one for SSH, VNC and the login screen." 8 72
+    _cp_for="SSH, VNC and the login screen"
+    [ "${1:-}" = no ] && _cp_for="VNC and the login screen"
+    while :; do
+        _cp_new=$(whiptail --title "Change the password" --passwordbox \
+            "New password for ${_cp_user}, for ${_cp_for}.\n\nCancel keeps the current password." \
+            11 72 3>&1 1>&2 2>&3) || { _cp_new=""; return 0; }
+        if [ -z "$_cp_new" ]; then
+            whiptail --title "Change the password" --msgbox \
+                "The password cannot be empty. Type one, or choose Cancel." 8 64
+            continue
+        fi
+        _cp_again=$(whiptail --title "Change the password" --passwordbox \
+            "Type the new password again:" 9 72 3>&1 1>&2 2>&3) || { _cp_new=""; _cp_again=""; return 0; }
+        if [ "$_cp_new" != "$_cp_again" ]; then
+            _cp_new=""; _cp_again=""
+            whiptail --title "Change the password" --msgbox \
+                "The two passwords are not the same. Nothing was changed: try again, or choose Cancel." 9 64
+            continue
+        fi
+        break
+    done
+    _cp_err=$(printf '%s:%s\n' "$_cp_user" "$_cp_new" | chpasswd 2>&1)
+    _cp_rc=$?
+    _cp_new=""; _cp_again=""
+    if [ "$_cp_rc" -eq 0 ]; then
+        whiptail --title "Change the password" --msgbox \
+            "Password changed. Use the new one for ${_cp_for}." 8 72
     else
-        whiptail --title "Password" --msgbox "The password was not changed." 8 50
+        show_msgbox_fit "Change the password" "The password was not changed.\n\n${_cp_err}" 72
     fi
     return 0
 }
@@ -2670,7 +2696,7 @@ do_remote_access_menu() {
             NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}") || break
         _ra_last="$FUN"
         case "$FUN" in
-            PASS) do_change_password ;;
+            PASS) do_change_password "$_ra_sshpw" ;;
             SSH)  do_toggle_remote ssh "$_ra_ssh" "$_ra_sshpw" ;;
             VNC)  do_toggle_remote vnc "$_ra_vnc" ;;
             NAME) do_name_this_rasqberry "$_ra_name" ;;

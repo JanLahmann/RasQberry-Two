@@ -282,6 +282,96 @@ def test_remote_menu_with_password_ssh_keeps_the_old_words(menu_env):
     assert "key only" not in texts
 
 
+# "Change the password" (user test #19): password boxes with Cancel instead
+# of a raw passwd prompt that Esc and Ctrl+C could not leave
+_WT_PASSWORD = r'''#!/bin/sh
+kind=other
+for a in "$@"; do
+  case "$a" in --passwordbox) kind=passwordbox ;; --msgbox) kind=msgbox ;; esac
+done
+{ for a in "$@"; do printf '%s\n' "$a"; done; echo "@@"; } >> "$WT_LOG"
+if [ "$kind" = passwordbox ]; then
+  reply=$(head -n 1 "$PW_REPLIES")
+  sed -i.bak 1d "$PW_REPLIES"
+  case "$reply" in
+    ""|"<cancel>") exit 1 ;;
+    "<empty>") exit 0 ;;
+  esac
+  printf '%s' "$reply" >&2
+fi
+exit 0
+'''
+
+SECRET = "s3cret pass:x"
+
+
+def _change_password(menu_env, replies, sshpw="yes", chpasswd_rc=0):
+    stubs = menu_env.tmp / "stubs"
+    (stubs / "whiptail").write_text(_WT_PASSWORD)      # menu_env made it executable
+    got = menu_env.tmp / "chpasswd.in"
+    _exe(stubs / "chpasswd", f'echo "chpasswd $*" >> "{menu_env.tmp}/calls"\ncat > "{got}"\n'
+                             f'[ {chpasswd_rc} -eq 0 ] || echo "chpasswd: (user rasqberry) pam_chauthtok() failed" >&2\n'
+                             f'exit {chpasswd_rc}\n')
+    _exe(stubs / "passwd", f'echo "passwd $*" >> "{menu_env.tmp}/calls"\n')
+    answers = menu_env.tmp / "pw-replies"
+    answers.write_text("".join(r + "\n" for r in replies))
+    proc = menu_env(f"do_change_password {sshpw}",
+                    extra_env={"PW_REPLIES": str(answers), "SUDO_USER": "rasqberry"})
+    calls = (menu_env.tmp / "calls").read_text() if (menu_env.tmp / "calls").exists() else ""
+    return proc, _texts(menu_env), calls, (got.read_text() if got.exists() else None)
+
+
+def test_password_change_sets_it_through_chpasswd(menu_env):
+    proc, texts, calls, got = _change_password(menu_env, [SECRET, SECRET])
+    assert proc.returncode == 0, proc.stderr
+    assert got == f"rasqberry:{SECRET}\n"
+    assert calls == "chpasswd \n"               # no argument: the password came on stdin
+    assert "--passwordbox" in texts and "Cancel keeps the current password." in texts
+    assert "Password changed. Use the new one for SSH, VNC and the login screen." in texts
+    assert SECRET not in texts and SECRET not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize("replies", [["<cancel>"], [SECRET, "<cancel>"]])
+def test_password_change_can_be_cancelled(menu_env, replies):
+    proc, texts, calls, got = _change_password(menu_env, replies)
+    assert proc.returncode == 0, proc.stderr
+    assert calls == "" and got is None
+    assert "Password changed" not in texts
+
+
+def test_password_change_refuses_an_empty_password(menu_env):
+    _, texts, calls, _ = _change_password(menu_env, ["<empty>", "<cancel>"])
+    assert "The password cannot be empty." in texts
+    assert calls == ""
+
+
+def test_password_change_needs_the_same_password_twice(menu_env):
+    _, texts, calls, got = _change_password(menu_env, [SECRET, "other", "<cancel>"])
+    assert "The two passwords are not the same. Nothing was changed" in texts
+    assert calls == "" and got is None
+    # after a mismatch it asks again from the start
+    _, texts, calls, got = _change_password(menu_env, [SECRET, "other", SECRET, SECRET])
+    assert got == f"rasqberry:{SECRET}\n"
+
+
+def test_password_change_with_key_only_ssh(menu_env):
+    _, texts, _, _ = _change_password(menu_env, [SECRET, SECRET], sshpw="no")
+    assert "Password changed. Use the new one for VNC and the login screen." in texts
+    assert "for SSH" not in texts
+
+
+def test_password_change_that_fails_says_so(menu_env):
+    _, texts, _, _ = _change_password(menu_env, [SECRET, SECRET], chpasswd_rc=1)
+    assert "The password was not changed." in texts and "pam_chauthtok" in texts
+    assert "Password changed" not in texts and SECRET not in texts
+
+
+def test_password_change_never_runs_passwd():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    body = menu.split("do_change_password() {", 1)[1].split("\n}\n", 1)[0]
+    assert "passwd \"" not in body and "chpasswd" in body
+
+
 def test_remote_menu_rename_validates_first(menu_env):
     log = menu_env.tmp / "remote.log"
     code = (f'_rq_remote() {{ echo "$*" >> "{log}"; [ "$1" != check-name ]; }}; '
