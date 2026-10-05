@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T22:53:51Z",
+  "generated": "2026-10-05T22:54:34Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2011575044,
       "extract_size": 9076473856,
       "extract_sha256": "72f7f29a584e62b2199c64fab325e9dfd2129060556444eab27ac40b2ab3a265",
-      "image_sha256": "c912ff19ffd5872c07c447d354da534abae3e58468882ba09ac84ef4bde6bc0d",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-003602/rasqberry-development-2026-10-06-003602-ab.img.xz",
       "ab_extract_sha256": "15d9c5d055519a96305f3cdfd741685ee16b8db968f800bb985d5fc59ee072e4",
       "ab_image_sha256": "0ab8b98c2d8873e0bb361ea6e57322ea7b57eded2cb866968053c6ab4eec4bf1",
-      "ab_image_download_size": 2065606104,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2065606104,
       "highlights": [
         "the app mode starts once the kernel is ready",
         "demo windows open maximised, not shifted next to the icons",
