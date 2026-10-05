@@ -103,3 +103,56 @@ def test_soc_peripheral_base_reads_the_device_tree(tmp_path, monkeypatch):
     assert lu._soc_peripheral_base() == 0xFE000000
     ranges.write_bytes(bytes.fromhex("7e000000 3f000000 01000000"))            # Pi 3
     assert lu._soc_peripheral_base() == 0x3F000000
+
+
+# ----------------------------------------------------------------------------
+# #8: no traceback from the mirrored strip's destructor
+# ----------------------------------------------------------------------------
+
+class _Gone:
+    """A strip whose library is gone (Python's shutdown): deinit fails."""
+
+    n = 1
+
+    def deinit(self):
+        raise TypeError("'NoneType' object is not callable")
+
+
+def test_mirror_destructor_swallows_a_library_that_is_gone():
+    from rq_led_virtual import MirrorNeoPixel
+    mirror = MirrorNeoPixel(_Gone(), _Gone())
+    mirror.__del__()                                   # no exception
+
+
+def test_mirror_destructor_leaves_the_panel_alone_at_shutdown(monkeypatch):
+    from rq_led_virtual import MirrorNeoPixel
+    calls = []
+    real = types.SimpleNamespace(n=1, deinit=lambda: calls.append("real"))
+    virtual = types.SimpleNamespace(deinit=lambda: calls.append("virtual"))
+    mirror = MirrorNeoPixel(real, virtual)
+    monkeypatch.setattr(sys, "is_finalizing", lambda: True)
+    mirror.__del__()
+    assert calls == []
+    monkeypatch.setattr(sys, "is_finalizing", lambda: False)
+    mirror.__del__()
+    assert calls == ["real", "virtual"]
+
+
+def test_no_traceback_when_python_shuts_down_with_a_strip(tmp_path):
+    """The rig's case: a module-level strip whose writer is None by the time
+    its destructor runs."""
+    import subprocess
+    script = tmp_path / "demo.py"
+    script.write_text(
+        "import sys\n"
+        f"sys.path.insert(0, {os.path.join(_REPO_ROOT, 'RQB2-bin')!r})\n"
+        "from rq_led_virtual import MirrorNeoPixel\n"
+        "class Real:\n"
+        "    n = 1\n"
+        "    def deinit(self):\n"
+        "        writer()\n"
+        "writer = None\n"
+        "pixels = MirrorNeoPixel(Real(), Real())\n")
+    proc = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 0
+    assert "Traceback" not in proc.stderr and "Exception ignored" not in proc.stderr, proc.stderr

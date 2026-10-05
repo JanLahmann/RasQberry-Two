@@ -40,6 +40,9 @@ class _Strip:
     def show(self):
         self.shows += 1
 
+    def deinit(self):
+        self.released = True
+
 
 def _qiskit_stubs(monkeypatch, bits):
     """Just enough of qiskit / qiskit_aer / dotenv for RasQ-LED.py to import."""
@@ -129,4 +132,16 @@ def test_a_stop_signal_clears_the_panel():
     main = text[text.index("def main():"):]
     assert main.index("signal.SIGTERM") < main.index("demo_loop(")
     loop = text[text.index("def demo_loop("):text.index("def main():")]
-    assert "finally:\n        clear_leds()" in loop
+    assert "finally:\n        release_leds()" in loop
+
+
+def test_the_panel_is_released_before_the_program_ends(rasq):
+    """Cleared and released by the demo itself, not by the strip's destructor
+    at Python's shutdown, which printed a traceback at every end (#8)."""
+    assert rasq.run_circuit(1)
+    strip = rasq.opened[0]
+    strip.fill((255, 0, 0))
+    rasq.release_leds()
+    assert set(strip.pixels) == {(0, 0, 0)} and strip.released
+    assert rasq._pixels is None
+    rasq.release_leds()                                # nothing left: no error

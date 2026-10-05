@@ -219,6 +219,24 @@ def clear_leds():
     except Exception:
         pass
 
+
+def release_leds():
+    """
+    Clear the panel and let go of it before the program ends (#8).
+
+    Not left to Python's shutdown: by then the LED library is partly gone,
+    and the strip's destructor printed a traceback at the end of every run.
+    """
+    global _pixels
+    if _pixels is None:
+        return
+    clear_leds()
+    pixels, _pixels = _pixels, None
+    try:
+        pixels.deinit()
+    except Exception:
+        pass
+
 def run_circuit(entanglement_size):
     """Run a quantum circuit with specified entanglement and display result
 
@@ -274,7 +292,7 @@ Your choice: """
                     run_circuit(factor)
                     time.sleep(1)
             elif player_action == 'q':
-                clear_leds()
+                release_leds()
                 print("Goodbye!")
                 break
             else:
@@ -282,7 +300,7 @@ Your choice: """
 
         except KeyboardInterrupt:
             print("\nClearing LEDs and exiting...")
-            clear_leds()
+            release_leds()
             break
         except Exception as e:
             print(f"Error: {e}")
@@ -337,7 +355,6 @@ def demo_loop(duration=2):
                         watch_stdin = False  # terminal closed: keep running
                     else:
                         print("\nDemo stopped by user")
-                        clear_leds()
                         return
 
                 print(f"Entanglement block size: {factor}")
@@ -351,7 +368,7 @@ def demo_loop(duration=2):
     except KeyboardInterrupt:
         print("\nDemo interrupted by user")
     finally:
-        clear_leds()
+        release_leds()
 
 def main():
     """Main entry point"""
