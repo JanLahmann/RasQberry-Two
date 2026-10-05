@@ -151,3 +151,14 @@ def test_launchers_tidy_before_they_start():
         assert f'rq_ibm_learning_tidy "${var}"' in text, name
         start = "docker run" if var == "DOCS_DIR" else "jupyter-lab \\"
         assert text.index("rq_ibm_learning_tidy") < text.index(start), name
+
+
+def test_welcome_and_readme_point_to_the_menu():
+    menu = _read(_MENU)
+    assert 'IBMQ "IBM Quantum account"' in menu and 'SAVE   "Save my API key' in menu
+    welcome = _read(_BIN, "setup_ibm_tutorials.py")
+    assert "00-Save-Credentials" not in welcome
+    assert welcome.count("**IBM Quantum account** → **Save my API key**") == 2
+    readme = _read(_CFG, "my-quantum-programs", "README.md")
+    assert "**IBM Quantum account** → **Save my API key**" in readme
+    assert "begin with a notebook that saves the key" not in readme

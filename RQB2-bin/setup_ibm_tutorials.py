@@ -389,14 +389,10 @@ To run a tutorial, click on the link below or use the file browser on the left.
 
 ## Before you begin
 
-To run tutorials that access IBM Quantum systems, you need to create and save your credentials for the IBM Quantum platform first.
+Tutorials that use IBM Quantum computers need your own free IBM Quantum account:
 
-- Register & login to the IBM Quantum Platform: [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
-- Create a Quantum Instance (the Open Plan is free): [quantum.cloud.ibm.com/instances](https://quantum.cloud.ibm.com/instances)
-- Go to the dashboard [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) and
-  1. Get your instance CRN
-  2. Create an API key using the link on the dashboard
-- Save your credentials (CRN and API key) using the [00-Save-Credentials.ipynb](00-Save-Credentials.ipynb) notebook
+- Sign up at [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) (the Open Plan is free) and create an API key on the dashboard.
+- Save the key on this Pi with the RasQberry menu: **IBM Quantum account** → **Save my API key**. It is checked before it is saved.
 
 """
 
@@ -900,14 +896,10 @@ Each course contains multiple lessons organized in a structured learning path.
 
 ## Before you begin
 
-To run course notebooks that access IBM Quantum systems, you need to create and save your credentials for the IBM Quantum platform first.
+Course notebooks that use IBM Quantum computers need your own free IBM Quantum account:
 
-- Register & login to the IBM Quantum Platform: [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com)
-- Create a Quantum Instance (the Open Plan is free): [quantum.cloud.ibm.com/instances](https://quantum.cloud.ibm.com/instances)
-- Go to the dashboard [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) and
-  1. Get your instance CRN
-  2. Create an API key using the link on the dashboard
-- Save your credentials (CRN and API key) using the [00-Save-Credentials.ipynb](00-Save-Credentials.ipynb) notebook
+- Sign up at [quantum.cloud.ibm.com](https://quantum.cloud.ibm.com) (the Open Plan is free) and create an API key on the dashboard.
+- Save the key on this Pi with the RasQberry menu: **IBM Quantum account** → **Save my API key**. It is checked before it is saved.
 
 """
 
