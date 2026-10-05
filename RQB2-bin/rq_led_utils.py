@@ -1152,6 +1152,107 @@ def _drain_on_stop_signals():
             pass
 
 
+# ----------------------------------------------------------------------------
+# Pi 4 LED driver: a frame transfer left hanging by an earlier program (#1)
+# ----------------------------------------------------------------------------
+# The Pi 4 driver (rpi_ws281x) sends each frame by DMA into the PWM. When one
+# program switched the PWM off while another program's frame was still going
+# out, the DMA channel stayed busy for good, waiting for the stopped PWM. The
+# next program's driver start let the rest of that old transfer into the PWM,
+# and its own frames never reached the panel: it stayed dark for the whole
+# demo, with no error, and only the start after that worked (rig 2026-10-05:
+# DMA 10 busy, PWM off, after the LED check). A busy channel under a stopped
+# PWM can never finish, so it is reset before the driver starts.
+
+_PI4_DMA_OFFSET = 0x7000        # DMA channels 0-14, 0x100 apart
+_PI4_PWM_OFFSET = 0x20C000      # PWM0, the one GPIO18 uses
+_PI4_DMA_ACTIVE = 1 << 0
+_PI4_DMA_RESET = 1 << 31
+_PI4_PWM_ENABLED = (1 << 0) | (1 << 8)    # PWEN1, PWEN2
+_PI4_DMA_TO_PWM = 5             # TI PERMAP: the transfer feeds the PWM
+
+
+def _soc_peripheral_base():
+    """The SoC's peripheral address from the device tree (bcm_host's rule)."""
+    try:
+        with open('/proc/device-tree/soc/ranges', 'rb') as f:
+            raw = f.read(12)
+    except OSError:
+        return None
+    if len(raw) < 8:
+        return None
+    base = int.from_bytes(raw[4:8], 'big')
+    if base == 0 and len(raw) >= 12:
+        base = int.from_bytes(raw[8:12], 'big')
+    return base or None
+
+
+def recover_pi4_led_dma():
+    """
+    Reset a Pi 4 LED transfer an earlier program left hanging (see above).
+
+    Call before this program's first frame. Does nothing on other boards,
+    without root (the driver then says so itself), once this program's driver
+    runs, or while a frame really goes out (the PWM is on).
+
+    Returns:
+        bool: True when a hanging transfer was found and reset.
+    """
+    try:
+        import neopixel_write
+    except ImportError:
+        return False
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if not getattr(backend, '__name__', '').endswith('bcm283x.neopixel'):
+        return False
+    if getattr(backend, '_led_strip', None) is not None:
+        return False
+    channel = int(getattr(backend, 'LED_DMA_NUM', 10))
+    base = _soc_peripheral_base()
+    if base is None or not 0 <= channel <= 14:
+        return False
+    import ctypes
+    import mmap
+    try:
+        fd = os.open('/dev/mem', os.O_RDWR | os.O_SYNC)
+    except OSError:
+        return False
+    page = mmap.ALLOCATIONGRANULARITY
+    dma_at = base + _PI4_DMA_OFFSET + channel * 0x100
+    pwm_at = base + _PI4_PWM_OFFSET
+    try:
+        dma_map = mmap.mmap(fd, page, offset=dma_at & ~(page - 1))
+        pwm_map = mmap.mmap(fd, page, offset=pwm_at & ~(page - 1))
+    except (OSError, ValueError):
+        os.close(fd)
+        return False
+    os.close(fd)
+    dma_at &= page - 1
+    pwm_at &= page - 1
+    cs = None
+    try:
+        # 32-bit accesses, as the registers need
+        cs = ctypes.c_uint32.from_buffer(dma_map, dma_at)
+        ti = ctypes.c_uint32.from_buffer(dma_map, dma_at + 8).value
+        pwm_on = ctypes.c_uint32.from_buffer(pwm_map, pwm_at).value & _PI4_PWM_ENABLED
+        if not cs.value & _PI4_DMA_ACTIVE or (ti >> 16) & 0x1f != _PI4_DMA_TO_PWM or pwm_on:
+            return False
+        cs.value = _PI4_DMA_RESET
+        time.sleep(0.001)
+        if cs.value & _PI4_DMA_ACTIVE:
+            print("LED panel: the LED driver did not start cleanly, so the panel may "
+                  "stay dark. Restart the Pi if it does.", file=sys.stderr)
+            return False
+        if os.environ.get('RQ_DEBUG') == '1':
+            print(f"LED panel: reset DMA channel {channel}, left busy by an earlier "
+                  "program", file=sys.stderr)
+        return True
+    finally:
+        cs = None                   # mmap.close() refuses while it is in use
+        dma_map.close()
+        pwm_map.close()
+
+
 _pi4_exit_quiet = {'registered': False}
 
 
@@ -1276,6 +1377,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         import neopixel
 
         guard_pi5_led_writes()
+        recover_pi4_led_dma()
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
@@ -1326,6 +1428,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
     import board
     import neopixel
     guard_pi5_led_writes()
+    recover_pi4_led_dma()
 
     # Get GPIO pin from config if not provided
     if gpio_pin is None:
