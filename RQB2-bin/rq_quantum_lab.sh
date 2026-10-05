@@ -53,6 +53,23 @@ LAB_TOKEN="rasqberry"
 # rather than re-cloning inside the container.
 DOCS_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 
+# Set from here, so the QuBins image stays as published (#18, Jan):
+# - the lab opens on a short welcome page (read-only) instead of a bare
+#   launcher;
+# - no "Would you like to get notified about official Jupyter news?": the
+#   Pi's own JupyterLab setting (RQB2-system), read-only in the container.
+WELCOME_SRC="$(dirname "$(rq_shipped_manifest_dir)")/quantum-lab/WELCOME.ipynb"
+LAB_OVERRIDES="${RQ_LAB_OVERRIDES:-/etc/jupyter/labconfig/default_setting_overrides.json}"
+EXTRA_MOUNTS=()
+START_PAGE="lab"
+if [ -f "$WELCOME_SRC" ]; then
+    EXTRA_MOUNTS+=(-v "$WELCOME_SRC:/home/jovyan/WELCOME.ipynb:ro")
+    START_PAGE="lab/tree/WELCOME.ipynb"
+fi
+if [ -f "$LAB_OVERRIDES" ]; then
+    EXTRA_MOUNTS+=(-v "$LAB_OVERRIDES:/etc/jupyter/labconfig/default_setting_overrides.json:ro")
+fi
+
 ################################################################################
 # Prerequisites: Docker (mirrors qoffee-maker.sh)
 ################################################################################
@@ -131,13 +148,14 @@ if ! docker run -d \
     -e JUPYTER_TOKEN="$LAB_TOKEN" \
     -v "$DOCS_DIR":/home/jovyan/ibm-quantum-learning:ro \
     -v "$WORK_DIR":/home/jovyan/my-work \
+    ${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"} \
     "$DOCKER_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Quantum Lab container did not start."
 fi
 
 # Wait for JupyterLab to answer on the loopback port
 info "Waiting for JupyterLab to start..."
-LAB_URL="http://127.0.0.1:${PORT}/lab?token=${LAB_TOKEN}"
+LAB_URL="http://127.0.0.1:${PORT}/${START_PAGE}?token=${LAB_TOKEN}"
 # JupyterLab needs ~15 s to start on a Pi 4; the loop returns as soon as
 # it answers, so a generous limit costs nothing (rig test, #234)
 MAX_WAIT=60

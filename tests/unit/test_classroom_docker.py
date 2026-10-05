@@ -360,6 +360,66 @@ def test_quantum_lab_keeps_work_and_its_port():
     assert "--rm" not in lab
 
 
+_LAB_DOCKER = r'''#!/bin/sh
+echo "$*" >> "$DOCKER_LOG"
+case "$*" in
+  "container inspect -f {{.State.Running}} quantum-lab") echo true ;;
+  "container inspect quantum-lab") exit 1 ;;
+  run*) echo cid ;;
+  *) exit 0 ;;
+esac
+'''
+
+
+@needs_bash
+@pytest.mark.parametrize("overrides", [True, False])
+def test_quantum_lab_opens_its_welcome_page_without_the_news_question(tmp_path, overrides):
+    # #18 (Jan): set from our launcher, the QuBins image stays as published
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    _exe(stubs / "docker", _LAB_DOCKER)
+    _exe(stubs / "id", '#!/bin/sh\ncase "$1" in -u) echo 1000 ;; *) echo "rasqberry docker" ;; esac\n')
+    for tool in ("curl", "ss"):
+        _exe(stubs / tool, "#!/bin/sh\nexit 0\n")
+    home = tmp_path / "home"
+    docs = home / "RasQberry-Two" / "demos" / "ibm-quantum-learning"
+    docs.mkdir(parents=True)
+    (docs / "WELCOME-courses.ipynb").write_text("{}")
+    env_config = tmp_path / "env-config.sh"
+    env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nBIN_DIR="{_BIN}"\nSTD_VENV=RQB2\n')
+    lab_settings = tmp_path / "default_setting_overrides.json"
+    if overrides:
+        lab_settings.write_text("{}")
+    log = tmp_path / "docker.log"
+    env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
+           "RQ_CONFIG_FILE": str(env_config), "DOCKER_LOG": str(log),
+           "RQ_LAB_OVERRIDES": str(lab_settings)}
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_quantum_lab.sh")], capture_output=True,
+                          text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    run = [c for c in log.read_text().splitlines() if c.startswith("run ")]
+    assert len(run) == 1
+    welcome = os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb")
+    assert f"-v {welcome}:/home/jovyan/WELCOME.ipynb:ro" in run[0]
+    news = f"-v {lab_settings}:/etc/jupyter/labconfig/default_setting_overrides.json:ro"
+    assert (news in run[0]) == overrides
+    assert run[0].endswith(_manifest("quantum-lab")["entrypoint"]["docker_image"])
+    # the browser (here: the ssh -L hint) opens the welcome page
+    assert "http://localhost:8892/lab/tree/WELCOME.ipynb?token=rasqberry" in proc.stdout
+
+
+def test_quantum_lab_welcome_page():
+    nb = json.load(open(os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb"), encoding="utf-8"))
+    text = "".join("".join(c["source"]) for c in nb["cells"])
+    assert all(c["cell_type"] == "markdown" for c in nb["cells"])   # nothing to run or save
+    # the courses' own start page (the launcher installs it) and where work is kept
+    assert "(ibm-quantum-learning/WELCOME-courses.ipynb)" in text
+    assert "my-work" in text and "~/RasQberry-Two/work/quantum-lab" in text
+    lab = open(os.path.join(_BIN, "rq_quantum_lab.sh")).read()
+    assert "WORK_DIR=\"$USER_HOME/$REPO/work/quantum-lab\"" in lab
+    assert "/home/jovyan/my-work" in lab
+
+
 def test_demo_loop_cleanup_runs_once():
     loop = open(os.path.join(_BIN, "rq_demo_loop.sh")).read()
     body = loop[loop.index("cleanup() {"):]
