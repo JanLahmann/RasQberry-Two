@@ -205,3 +205,67 @@ def test_removal_without_a_terminal_asks_and_says_nothing(cat):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert len(cat.dialogs()) == n
 
+
+# --- one progress line instead of Docker's list of layers -------------------------
+
+_COMMON = os.path.join(_BIN, "rq_common.sh")
+
+
+def _pull(tmp_path, tty, rc=0):
+    stubs = tmp_path / "pull-stubs"
+    stubs.mkdir()
+    net = tmp_path / "net" / "eth0" / "statistics"
+    net.mkdir(parents=True)
+    (net / "rx_bytes").write_text("1000000000\n")
+    log = tmp_path / "pull.log"
+    # a pull that takes a moment and receives 120 MB; layer lines on stdout
+    # as Docker prints them without -q
+    _exe(stubs / "docker", f'#!/bin/sh\necho "$*" >> "{log}"\n'
+                           'case " $* " in *" -q "*) ;; *) echo "abc123: Pulling fs layer" ;; esac\n'
+                           f'echo 1120000000 > "{net}/rx_bytes"; sleep 3\n'
+                           f'[ {rc} -eq 0 ] || echo "Error response from daemon: manifest unknown" >&2\n'
+                           f'exit {rc}\n')
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_NET_DIR=str(tmp_path / "net"))
+    script = f'. "{_COMMON}"; rq_docker_pull ghcr.io/x/demo@sha256:1 "Demo X" 530; echo "rc=$?"'
+    if not tty:
+        proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env, timeout=60)
+        return proc.stdout + proc.stderr, log.read_text()
+    import pty
+    import threading
+    master, slave = pty.openpty()
+    out = []
+
+    def read():
+        while True:
+            try:
+                data = os.read(master, 4096)
+            except OSError:
+                return
+            if not data:
+                return
+            out.append(data)
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    subprocess.run(["bash", "-c", script], stdin=slave, stdout=slave, stderr=slave, env=env, timeout=60)
+    os.close(slave)
+    reader.join(5)
+    os.close(master)
+    return b"".join(out).decode("utf-8", "replace"), log.read_text()
+
+
+def test_pull_in_a_terminal_shows_one_line_with_the_megabytes(tmp_path):
+    out, calls = _pull(tmp_path, tty=True)
+    assert "pull -q ghcr.io/x/demo@sha256:1" in calls
+    assert "Pulling fs layer" not in out
+    assert "Downloading Demo X ... 120 of about 530 MB," in out, repr(out)
+    assert "Downloading Demo X ... done (" in out and "rc=0" in out
+
+
+def test_pull_without_a_terminal_is_quiet(tmp_path):
+    out, calls = _pull(tmp_path, tty=False)
+    assert "pull -q" in calls and "Pulling fs layer" not in out and "rc=0" in out
+
+
+def test_a_failed_pull_still_says_why(tmp_path):
+    out, _calls = _pull(tmp_path, tty=False, rc=1)
+    assert "The registry does not offer ghcr.io/x/demo@sha256:1" in out and "manifest unknown" in out

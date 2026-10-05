@@ -1849,14 +1849,48 @@ rq_rx_mb() {
     [ -z "$any" ] || echo $((sum / 1000000))
 }
 
-# Download an image, with Docker's own progress and, on failure, its own
-# reason instead of "check your internet connection" (R-038).
-# Usage: rq_docker_pull IMAGE "Name"
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+_rq_pull_progress() {
+    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
+    rx0=$(rq_rx_mb) || rx0=""
+    while kill -0 "$parent" 2>/dev/null; do
+        got=""
+        if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+            got=$((now - rx0))
+            case "$mb" in
+                ''|*[!0-9]*|0) got="$got MB, " ;;
+                *) if [ "$got" -le "$mb" ]; then got="$got of about $mb MB, "; else got="$got MB, "; fi ;;
+            esac
+        fi
+        printf '\rDownloading %s ... %s%ds   ' "$name" "$got" $((SECONDS - start))
+        sleep 2
+    done
+}
+
+# Download an image. In a terminal one line shows the MB received so far
+# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# list of layers (#23); on failure Docker's own reason, not "check your
+# internet connection" (R-038).
+# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" err rc=0 why
-    info "Downloading $name: $image"
+    local image="$1" name="${2:-$1}" mb="${3:-}" err rc=0 why printer start
     err=$(mktemp)
-    docker pull "$image" 2> "$err" || rc=$?
+    if [ -t 1 ]; then
+        start=$SECONDS
+        # The line comes from a helper beside the pull, which stays in the
+        # foreground so that Ctrl+C stops it; the helper ends with this shell
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        printer=$!
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+        kill "$printer" 2>/dev/null || true
+        wait "$printer" 2>/dev/null || true
+        printf '\rDownloading %s ... %s                         \n' "$name" \
+            "$([ "$rc" -eq 0 ] && echo "done ($((SECONDS - start))s)" || echo failed)"
+    else
+        info "Downloading $name: $image"
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+    fi
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
     [ "$rc" -eq 0 ] && return 0
