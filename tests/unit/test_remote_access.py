@@ -535,6 +535,19 @@ def test_login_message_points_to_the_menu_and_fits(stubs):
     assert max(len(line) for line in proc.stdout.splitlines()) <= 80
 
 
+def test_ssh_login_shows_no_misleading_last_login(tmp_path):
+    # User test #31: a fresh card said "Last login: <build time>" - the
+    # console autologin of the first start, before the clock was set. The
+    # build empties /var/log (pi-gen export-image), so a drop-in turns the
+    # line off; it is installed with the other system files (#294).
+    conf = os.path.join(_SYS, "etc", "ssh", "sshd_config.d", "10-rasqberry.conf")
+    lines = [l.strip() for l in open(conf) if l.strip() and not l.startswith("#")]
+    assert lines == ["PrintLastLog no"]
+    # it says nothing about password login: rq_carry_ssh_identity.sh and
+    # rq_remote_access.sh read the first PasswordAuthentication in the drop-ins
+    assert "passwordauthentication" not in open(conf).read().lower()
+
+
 def test_update_notice_fits_80_columns(tmp_path):
     from test_update_check import _run
     _run(tmp_path, "beta-2025-12-30-211449", "--refresh")
