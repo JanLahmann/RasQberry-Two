@@ -335,8 +335,10 @@ def test_raspberry_tie_skips_the_emulator_window_with_a_panel():
     added = "\n".join(l[1:] for l in patch.splitlines() if l.startswith("+") and not l.startswith("+++"))
     assert "def _rq_led_panel():" in added
     assert "get_led_config().get('led_physical', True)" in added
-    assert re.search(r"if UseEmulator and not \('-e' in sys.argv\) and _rq_led_panel\(\):\n"
-                     r".*\n    UseEmulator = False\n    NoHat = True", added)
+    # only for the GTK emulator window, with the panel in use; -e (emulator
+    # wanted) and -faux (the bundled no-window stand-in) stay as they were
+    assert re.search(r"if UseEmulator and not UseFaux and UseNeo and IsRPi and '-e' not in sys.argv "
+                     r"and _rq_led_panel\(\):\n.*\n    UseEmulator = False\n    NoHat = True", added)
 
 
 # --- Quantum Lights Out: one plain line per step (#13) ---------------------------

@@ -1,5 +1,5 @@
 diff --git a/QuantumRaspberryTie.v8_0.py b/QuantumRaspberryTie.v8_0.py
-index 5ba805e..a4c27d6 100644
+index 5ba805e..5cbc5b0 100644
 --- a/QuantumRaspberryTie.v8_0.py
 +++ b/QuantumRaspberryTie.v8_0.py
 @@ -108,6 +108,35 @@
@@ -125,7 +125,7 @@ index 5ba805e..a4c27d6 100644
          UseEmulator = True
          print("       ....trying SenseHat Emulator instead")
  
-+if UseEmulator and not ('-e' in sys.argv) and _rq_led_panel():
++if UseEmulator and not UseFaux and UseNeo and IsRPi and '-e' not in sys.argv and _rq_led_panel():
 +    print("       ....no: the LED panel shows the qubits")
 +    UseEmulator = False
 +    NoHat = True
