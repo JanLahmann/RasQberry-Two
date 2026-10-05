@@ -83,6 +83,16 @@ ANSWERS_FILE="${WORKDIR}/answers.json"
 # only while we own a renderer we started ourselves.
 RENDERER_PID=""
 
+# The mode every probe, logo and the address scroll draw in while the
+# render-hold is up (hold_env). Not the exported LED_RENDER_MODE alone: saving
+# a setting (update_env_var) reloads the env file, and its "direct" replaced
+# "service" while the renderer still held the panel. The address scroll after
+# "Saved" and the last clears then opened the panel themselves: on a Pi 5 the
+# scroll could not start (#7); on a Pi 4 two drivers shared the PWM, and the
+# one that stopped first left the other's DMA transfer hanging, so the next
+# LED demo stayed dark for its whole run (#1).
+HOLD_MODE=""
+
 # Answer variables (populated by the walkthrough)
 ARRANGEMENT=""
 PANEL_WIDTH=""
@@ -144,13 +154,13 @@ reap_virtual_gui() {
 # Render-hold (fix F1): keep the probe pattern lit across the whiptail prompt.
 #
 # start_render_hold launches the persistent renderer (the sole GPIO writer) and
-# exports LED_RENDER_MODE=service so every subsequent probe writes its frame to
-# the mmap instead of opening/closing GPIO itself. The renderer latches the last
-# frame, so the pattern stays lit while the operator answers the dialog.
+# sets HOLD_MODE=service so every subsequent probe (hold_env) writes its frame
+# to the mmap instead of opening/closing GPIO itself. The renderer latches the
+# last frame, so the pattern stays lit while the operator answers the dialog.
 #
 # Only needed when the system is in the default direct mode: if it is already in
 # service mode a renderer (systemd service) is already latching frames, so we
-# leave it alone. The override is a process-local env var - the root-owned env
+# leave it alone. The override lives in this process only - the root-owned env
 # file is never touched, so there is nothing persistent to restore on exit.
 # ----------------------------------------------------------------------------
 start_render_hold() {
@@ -172,8 +182,13 @@ start_render_hold() {
     fi
 
     # Route probes through the mmap so the renderer latches each frame.
-    export LED_RENDER_MODE=service
+    HOLD_MODE=service
     debug "Render-hold active: probe patterns stay lit across each prompt."
+}
+
+# Run a drawing child in the render-hold's mode (see HOLD_MODE)
+hold_env() {
+    LED_RENDER_MODE="${HOLD_MODE:-${LED_RENDER_MODE:-direct}}" "$@"
 }
 
 # Ask a child to stop, but never hang waiting for it: SIGTERM, give it a moment,
@@ -206,7 +221,7 @@ stop_render_hold() {
         kill_child_bounded "${RENDERER_PID}"
         RENDERER_PID=""
     fi
-    unset LED_RENDER_MODE 2>/dev/null || true
+    HOLD_MODE=""
 }
 
 # ----------------------------------------------------------------------------
@@ -216,7 +231,7 @@ stop_render_hold() {
 run_probe() {
     local pattern="$1"; shift || true
     local count="${UPPER_BOUND:-192}"
-    python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
+    hold_env python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
         --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
         || echo "$(date '+%F %T') probe pattern '${pattern}' failed to render" >> "${WIZ_LOG}"
 }
@@ -234,7 +249,7 @@ run_logo() {
     # A path is a custom layout the wizard has not saved yet (--layout-file)
     local src=(--layout "${layout}")
     case "${layout}" in /*) src=(--layout-file "${layout}") ;; esac
-    python3 "${PROBE}" --pattern logo "${src[@]}" --color "${color}" \
+    hold_env python3 "${PROBE}" --pattern logo "${src[@]}" --color "${color}" \
         --count "${count}" --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
         || echo "$(date '+%F %T') logo render failed for layout '${layout}'" >> "${WIZ_LOG}"
 }
@@ -562,7 +577,10 @@ IP_SCROLL_PID=""
 start_ip_scroll() {
     local disp="${SCRIPT_DIR}/rq_display_ip.py"
     [ -f "${disp}" ] || return 1
-    python3 "${disp}" --once >>"${WIZ_LOG}" 2>&1 &
+    # hold_env written out: a function in the background would be a subshell,
+    # and $! its PID, not the scroll's
+    LED_RENDER_MODE="${HOLD_MODE:-${LED_RENDER_MODE:-direct}}" \
+        python3 "${disp}" --once >>"${WIZ_LOG}" 2>&1 &
     IP_SCROLL_PID=$!
     return 0
 }
