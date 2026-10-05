@@ -845,10 +845,23 @@ do_remove_demo() {
     return 1
 }
 
-# Run continuous demo loop for conference showcases
+# Run continuous demo loop for conference showcases. Which demos it shows can
+# be chosen (Jan, 2026-10-05); the Demo Loop icon starts the chosen ones.
 run_demo_loop() {
-    # Launch the demo loop script
-    "$BIN_DIR/rq_demo_loop.sh"
+    _dl_last=""
+    while true; do
+        _dl_now=$("$BIN_DIR/rq_demo_loop.sh" --demos 2>/dev/null) || _dl_now=""
+        _dl=$(show_menu ${_dl_last:+--default-item "$_dl_last"} "RasQberry: Demo Loop" \
+            "Shows LED demos one after another, for a stand.\nNow: ${_dl_now:-all demos}" \
+            START  "Start the demo loop" \
+            CHOOSE "Choose the demos") || return 0
+        _dl_last="$_dl"
+        case "$_dl" in
+            START)  "$BIN_DIR/rq_demo_loop.sh"; return $? ;;
+            CHOOSE) "$BIN_DIR/rq_demo_loop.sh" --choose ;;
+            *)      return 0 ;;
+        esac
+    done
 }
 
 # Add an external demo from the curated registry (known-demos.json).
@@ -1116,7 +1129,8 @@ run_led_demo() {
 }
 
 # "Turn off all LEDs" / "Clear LEDs": a program that still holds the panel is
-# named and, if the person agrees, stopped first. Says so when it fails.
+# named and, if the person agrees, stopped first. Says so when it fails, and
+# when it worked (#29: the menu came straight back without a word).
 do_led_clear() {
   _lc_h=$(_rq_led_holders)
   if [ -n "$_lc_h" ]; then
@@ -1129,7 +1143,8 @@ do_led_clear() {
     fi
     "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
   fi
-  do_led_off
+  do_led_off || return 1
+  whiptail --title "LEDs" --msgbox "All LEDs are off." 8 40
 }
 
 # -----------------------------------------------------------------------------
@@ -1614,6 +1629,13 @@ do_led_output_menu() {
   [ "$new_phys" != "$cur_phys" ] && update_environment_file "LED_PHYSICAL" "$new_phys"
   [ "$new_virt" != "$cur_virt" ] && update_environment_file "LED_VIRTUAL" "$new_virt"
   [ "$new_web" != "$cur_web" ] && update_environment_file "LED_WEB" "$new_web"
+
+  # Off: stop the browser view now. It went on serving the panel to the
+  # network on its port after WEB was turned off (#22).
+  if [ "$new_web" != "true" ]; then
+    PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
+      'import rq_led_utils; rq_led_utils.stop_virtual_led_web()' 2>/dev/null || true
+  fi
 
   # When the browser view is on, start it now and show the URL so the user does
   # not have to launch a demo first just to discover the address.

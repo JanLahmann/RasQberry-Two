@@ -11,6 +11,8 @@ between the two kit layouts, so the address is readable on either kit.
 
 Usage:
     python3 rq_display_ip.py [--duration SECONDS] [--speed SPEED]
+    python3 rq_display_ip.py --once     one pass in the configured layout (the
+                                        LED panel check shows it after Saved)
 """
 
 import os
@@ -199,8 +201,18 @@ def main():
         default=0.3,
         help='LED brightness 0.0-1.0 (default: 0.3)'
     )
+    parser.add_argument(
+        '--once',
+        action='store_true',
+        help='Scroll once in the configured layout, then clear (LED panel check)'
+    )
 
     args = parser.parse_args()
+    if args.once:
+        # Stopped early (the person closed the message): end like Ctrl+C,
+        # through the exit handlers, so the LED driver is released cleanly
+        import signal
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
         # Get LED configuration using common utility
@@ -208,7 +220,8 @@ def main():
 
         # Get IP addresses
         addresses = get_ip_addresses()
-        record_shown(addresses)
+        if not args.once:
+            record_shown(addresses)
 
         if not addresses:
             print("No IP addresses found - device may not be connected to network yet")
@@ -227,6 +240,11 @@ def main():
             brightness=args.brightness
         )
 
+        if args.once:
+            display_scrolling_text(pixels, text, scroll_speed=args.speed, passes=1,
+                                   layout=config['led_layout'])
+            print("IP display completed (one pass)")
+            return
         num_ips = len(addresses) if addresses else 1  # At least 1 for "NO IP" message
         scroll_text(pixels, text, config, max(args.duration, num_ips * 60), args.speed)
         print("IP display completed")

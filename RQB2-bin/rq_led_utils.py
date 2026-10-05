@@ -815,6 +815,37 @@ def reap_virtual_led_web():
     _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
 
 
+def stop_virtual_led_web():
+    """
+    Stop every LED web view server: the browser view was turned off (#22).
+
+    Unlike reap_virtual_led_web() this also stops a server that has no
+    pidfile (started by an older version, by hand, or by another user's demo):
+    with LED_WEB off, nothing may go on serving the panel to the network.
+
+    Returns:
+        int: how many servers were asked to stop.
+    """
+    import signal
+    import subprocess
+    reap_virtual_led_web()
+    stopped = 0
+    try:
+        out = subprocess.run(['pgrep', '-f', r'rq_led_web\.py'],
+                             capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return stopped
+    for token in out.split():
+        try:
+            pid = int(token)
+            if pid != os.getpid() and _proc_pid_alive(pid, 'rq_led_web.py'):
+                os.kill(pid, signal.SIGTERM)
+                stopped += 1
+        except (ValueError, OSError):
+            continue
+    return stopped
+
+
 def _with_root_hint(error):
     """
     Add the way out to the Pi 4 driver's 'requires running with sudo' error.
@@ -1002,18 +1033,59 @@ def _guarded_pi5_write(write, reopen):
         _count_led_stall()
         if recovered:
             _report_led_stall(
-                "LED panel: the LED driver stalled and was restarted. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended).")
+                "LED panel: the LED driver stalled and was restarted. A power "
+                "supply too weak for the LEDs, or a Pi that is too hot, can cause this.")
         else:
             state['stuck_since'] = state['last_try'] = time.monotonic()
             _report_led_stall(
-                "LED panel stopped: the LED driver does not respond. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended). The demo goes on without the panel.")
+                "LED panel stopped: the LED driver does not respond. A power supply "
+                "too weak for the LEDs, or a Pi that is too hot, can cause this. "
+                "The demo goes on without the panel.")
 
     guarded._rq_stall_guard = True
     return guarded
+
+
+def _lgpio_files_out_of_cwd():
+    """
+    Keep lgpio's notification FIFO out of the person's folders (#31).
+
+    Importing lgpio (the Pi 5 GPIO library under board/neopixel) creates a
+    FIFO ".lgd-nfy0" in its working directory - the current directory, so it
+    was left in ~/My-Quantum-Programs or wherever an LED program ran. Its
+    LG_WD setting would move it, but lgpio then changes the whole program's
+    current directory to it. So lgpio is imported once from a private temp
+    directory (it keeps that as its working directory), and the program's
+    current directory is restored straight away. Removed at exit. Does nothing
+    without lgpio, or when it is already imported.
+    """
+    if 'lgpio' in sys.modules:
+        return
+    import importlib.util
+    try:
+        if importlib.util.find_spec('lgpio') is None:
+            return
+        here = os.getcwd()
+    except (ImportError, ValueError, OSError):
+        return
+    import atexit
+    import shutil
+    import tempfile
+    try:
+        work = tempfile.mkdtemp(prefix='rq-lgpio-')
+    except OSError:
+        return
+    try:
+        os.chdir(work)
+        import lgpio  # noqa: F401 - imported here for its working directory
+    except Exception:  # noqa: BLE001 - board imports it again and reports
+        pass
+    finally:
+        try:
+            os.chdir(here)
+        except OSError:
+            pass
+    atexit.register(shutil.rmtree, work, True)
 
 
 def guard_pi5_led_writes():
@@ -1026,6 +1098,7 @@ def guard_pi5_led_writes():
     Returns:
         bool: True when the guard is in place.
     """
+    _lgpio_files_out_of_cwd()
     try:
         import neopixel
         import neopixel_write
@@ -1042,7 +1115,41 @@ def guard_pi5_led_writes():
     neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
     import atexit
     atexit.register(_wait_for_last_frame)
+    _drain_on_stop_signals()
     return True
+
+
+def _end_after_last_frame(signum, _frame):
+    """Let the last frame go out, then end the way the signal would have."""
+    import signal
+    _wait_for_last_frame()
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+def _drain_on_stop_signals():
+    """
+    A stopped demo must not cut its last frame off either (#5).
+
+    The menu and the demo windows stop a demo with SIGTERM (a closed window:
+    SIGHUP). That ends Python at once, without its exit handlers, so the PIO
+    was closed in the middle of a frame: the kernel logged "DMA wait timed
+    out", and the next program on the panel - the clear that follows every
+    stop - found the driver stuck and reported a stall. A handler now lets the
+    frame out (at most LED_FRAME_DRAIN_SECONDS) and then ends the program with
+    the same signal. Only in the main thread, and only where the program has
+    no handler of its own.
+    """
+    import signal
+    import threading
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) == signal.SIG_DFL:
+                signal.signal(sig, _end_after_last_frame)
+        except (ValueError, OSError):
+            pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
@@ -1124,6 +1231,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         )
 
     def _make_real():
+        _lgpio_files_out_of_cwd()
         import board
         import neopixel
 
@@ -1173,6 +1281,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         print("Warning: no LED target set (physical/virtual/web); defaulting to physical",
               file=sys.stderr)
 
+    _lgpio_files_out_of_cwd()
     import board
     import neopixel
     guard_pi5_led_writes()

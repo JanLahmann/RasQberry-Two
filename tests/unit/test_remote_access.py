@@ -466,6 +466,37 @@ def test_system_info_decodes_the_power_state(stubs, tmp_path, throttled, text):
     assert "Address:" in proc.stdout
 
 
+# Heat (#21): the sticky "since start-up" bit alone is not "too hot now", and
+# each heat line comes with one line of advice for this Pi.
+@pytest.mark.parametrize("throttled,model,note,advice", [
+    ("0x80000", "Raspberry Pi 5 Model B Rev 1.0", "was slowed down earlier because it got too hot",
+     "Fit the Active Cooler and check that its fan runs."),
+    ("0x80008", "Raspberry Pi 5 Model B Rev 1.0", "too hot now, slowed down",
+     "Fit the Active Cooler and check that its fan runs."),
+    ("0x60006", "Raspberry Pi 4 Model B Rev 1.5", "too hot now, slowed down",
+     "Give it more air: a heatsink, or a case with vents."),
+    ("0x50005", "Raspberry Pi 4 Model B Rev 1.5", None, None),   # under-voltage, not heat
+    ("0x0", "Raspberry Pi 5 Model B Rev 1.0", None, None),
+])
+def test_system_info_temperature_now_or_earlier(stubs, tmp_path, throttled, model, note, advice):
+    _exe(tmp_path / "stubs" / "vcgencmd", f'echo "throttled={throttled}"\n')
+    (tmp_path / "model").write_text(model + "\0")
+    (tmp_path / "temp").write_text("77000\n")
+    env = dict(os.environ, PATH=stubs.path, RQ_BUILD_JSON=str(tmp_path / "none.json"),
+               RQ_MODEL_FILE=str(tmp_path / "model"), RQ_THERMAL_FILE=str(tmp_path / "temp"))
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_info.sh")], env=env,
+                          capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    lines = proc.stdout.splitlines()
+    i = next(n for n, line in enumerate(lines) if line.startswith("Temperature:"))
+    if note is None:
+        assert lines[i] == "Temperature:       77 °C"
+        assert not lines[i + 1].startswith(" ")
+    else:
+        assert lines[i] == f"Temperature:       77 °C - {note}"
+        assert lines[i + 1] == " " * 19 + advice
+
+
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
 def test_system_info_json_has_the_runtime_fields(stubs, tmp_path):
     _exe(tmp_path / "stubs" / "vcgencmd", 'echo "throttled=0x50000"\n')
