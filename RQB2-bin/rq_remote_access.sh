@@ -85,15 +85,8 @@ ssh_password() {
 
 current_name() { hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo unknown; }
 
-mdns_name() {
-    local fqdn=""
-    if command -v busctl >/dev/null 2>&1; then
-        fqdn=$(timeout 3 busctl --system call org.freedesktop.Avahi / \
-            org.freedesktop.Avahi.Server GetHostNameFqdn 2>/dev/null \
-            | sed -n 's/^s "\(.*\)"$/\1/p' || true)
-    fi
-    echo "${fqdn:-$(current_name).local}"
-}
+# The name avahi announces (rq_common.sh), as the Workshop server says it
+mdns_name() { rq_mdns_name; }
 
 addresses() {
     ip -4 -o addr show scope global 2>/dev/null \

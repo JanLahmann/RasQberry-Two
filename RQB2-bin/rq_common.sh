@@ -2167,7 +2167,7 @@ rq_docker_drop_old() {
 # The name other computers reach this Pi by: the one avahi announces. When
 # another device on the network has <hostname>.local already, avahi calls
 # this Pi <hostname>-2.local (R-063), and <hostname>.local reaches the other
-# one (#3). As rq_remote_access.sh mdns and rq_display_ip.py do.
+# one (#3). rq_remote_access.sh mdns uses it too; rq_display_ip.py does the same.
 # Usage: name=$(rq_mdns_name)
 rq_mdns_name() {
     local fqdn="" t=""

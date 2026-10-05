@@ -163,6 +163,22 @@ def test_rename_goes_through_raspi_config_and_restarts_avahi(stubs):
     assert "rasqberry-07" in proc.stdout
 
 
+def test_mdns_is_the_name_avahi_announces(stubs, tmp_path):
+    # the shared rq_mdns_name, as the Workshop server and rq_display_ip.py
+    assert _remote(stubs, "mdns", STUB_HOSTNAME="class7").stdout == "class7.local\n"
+    _exe(tmp_path / "stubs" / "busctl", 'echo "s \\"class7-3.local\\""\n')
+    assert _remote(stubs, "mdns", STUB_HOSTNAME="class7").stdout == "class7-3.local\n"
+    assert "mdns=class7-3.local" in _remote(stubs, "status", STUB_HOSTNAME="class7").stdout
+
+
+def test_rename_says_when_avahi_took_another_name(stubs, tmp_path):
+    _exe(tmp_path / "stubs" / "busctl", 'echo "s \\"rasqberry-07-2.local\\""\n')
+    proc = _remote(stubs, "name", "rasqberry-07", RQ_MDNS_WAIT="2")
+    assert proc.returncode == 0, proc.stderr
+    assert "rasqberry-07.local is taken on this network, so other computers reach it as " \
+           "rasqberry-07-2.local." in proc.stdout
+
+
 def test_bad_name_changes_nothing(stubs):
     assert _remote(stubs, "name", "Bad Name").returncode != 0
     assert "do_hostname" not in stubs.logged()
