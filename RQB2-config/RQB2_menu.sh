@@ -2062,7 +2062,7 @@ do_ab_boot_menu() {
 
 ab_pick_image() {
     local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
-    current=$(head -n 1 /etc/rasqberry-version 2>/dev/null | tr -d '[:space:]')
+    current=$(head -n 1 "${RQ_VERSION_FILE:-/etc/rasqberry-version}" 2>/dev/null | tr -d '[:space:]')
     channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
     # stdout is the result of this function: progress goes to stderr (the terminal)
     printf '\nAsking rasqberry.org for the latest %s release...\n' "$channel" >&2
@@ -2076,10 +2076,14 @@ ab_pick_image() {
         lsize=$(printf '%s\n' "$latest" | cut -f4)
         lsha=$(printf '%s\n' "$latest" | cut -f5)
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
-        [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        if [ "$ltag" = "$current" ]; then
+            # Nothing newer is out: say so first (user test #2)
+            note="the version you are running (a second copy)"
+            prompt="This system: ${current} (release stream: ${channel})\n\nYou have the newest ${channel} release: nothing newer is out yet.\n\nYou can still install the same release into Slot ${slot} (a second copy to go back to), or choose another one:"
+        fi
         # the tags are hidden: the release name goes into the item text
         set -- "$ltag" "${ltag}  ${note}"
-        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
     else
         prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi

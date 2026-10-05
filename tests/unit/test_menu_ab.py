@@ -250,6 +250,21 @@ def test_picker_offers_the_own_channel_first_and_returns_only_the_choice(tmp_pat
     assert "Asking rasqberry.org" in proc.stderr
 
 
+def test_picker_says_when_nothing_newer_is_out(tmp_path):
+    # User test #2: the running beta is the latest. The picker must say so
+    # plainly - never "withdrawn", never "recommended" for the same release
+    vf = tmp_path / "rasqberry-version"
+    vf.write_text("beta-2026-10-15-101010\n")
+    _, wt = _menu(tmp_path, 'ab_pick_image B', RQ_VERSION_FILE=str(vf),
+                  WT_ANSWERS=_answers(tmp_path, "menus", []))
+    menu = _boxes(wt)[0]
+    assert "You have the newest beta release: nothing newer is out yet." in menu
+    assert "install the same release into Slot B (a second copy to go back to)" in menu
+    assert "beta-2026-10-15-101010  the version you are running (a second copy)" in menu
+    assert "withdrawn" not in menu and "recommended" not in menu
+    assert _check_fits(wt) >= 1
+
+
 def test_picker_names_slot_a_when_slot_b_runs(tmp_path):
     _, wt = _menu(tmp_path, 'ab_pick_image A', WT_ANSWER="beta-2026-10-15-101010")
     assert "Install an update into Slot A" in wt and "install into Slot A:" in wt
