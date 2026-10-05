@@ -412,8 +412,10 @@ DEMO_HINTS = {
     "fun-with-quantum:website": {"web": {"title": "Fun with Quantum"}},
     # answers: "<dialog text>|<keys>;..." - pressed when the text shows. The
     # Workshop & Qiskit Server asks how many participants, then shows their
-    # addresses and opens its page after Ok
-    "doqumentation": {"answers": r"How many participants|\r;Participants open (same|\r"},
+    # addresses and opens its page after Ok. The address dialog comes only
+    # once the server answers (25-30 s on a Pi), so give it 75 s
+    "doqumentation": {"answers": r"How many participants|\r;Participants open (same|\r",
+                      "seconds": 75},
 }
 
 # a first start installs the demo after the consent dialog: allow for it

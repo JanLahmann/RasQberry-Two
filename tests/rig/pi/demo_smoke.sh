@@ -156,8 +156,10 @@ fi
 # once, two seconds after its text first shows in the demo's log - for dialogs
 # that come after a first-start download, when a timer would be long gone
 if [ -n "${RIG_ANSWERS:-}" ]; then
-    ( IFS=';'; set -f; pending="$RIG_ANSWERS"
-      for _ in $(seq 1 900); do
+    # (a counter, not $(seq ...): with IFS=';' that would be one word, one pass)
+    ( IFS=';'; set -f; pending="$RIG_ANSWERS"; tries=0
+      while [ "$tries" -lt 900 ]; do
+          tries=$((tries + 1))
           [ -n "$pending" ] || break
           next=""
           for answer in $pending; do
