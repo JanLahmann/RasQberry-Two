@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T16:41:31Z",
+  "generated": "2026-10-05T22:53:51Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-05-142632",
-      "name": "rasqberry-development-2026-10-05-142632",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-05-142632/rasqberry-development-2026-10-05-142632.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-05-142632",
-      "release_date": "2026-10-05 14:26",
-      "image_download_size": 2009041640,
+      "tag": "development-2026-10-06-003602",
+      "name": "rasqberry-development-2026-10-06-003602",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-003602/rasqberry-development-2026-10-06-003602.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-003602",
+      "release_date": "2026-10-06 00:36",
+      "image_download_size": 2011575044,
       "extract_size": 9076473856,
-      "extract_sha256": "3844bbc82079da5bd4a441f2b4abd28d8717e7a24f184833607533e0c18850d8",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-05-142632/rasqberry-development-2026-10-05-142632-ab.img.xz",
-      "ab_extract_sha256": "ed2ec7f76998303245a2f3d469ab5fa2d3699e984cd63a6838ea7fcad16fc0dc",
-      "ab_image_sha256": "887ed52afbcf8865dfc3a07db2bea0da8817d819a1b7d4d616495ae7983400e8",
+      "extract_sha256": "72f7f29a584e62b2199c64fab325e9dfd2129060556444eab27ac40b2ab3a265",
+      "image_sha256": "c912ff19ffd5872c07c447d354da534abae3e58468882ba09ac84ef4bde6bc0d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-003602/rasqberry-development-2026-10-06-003602-ab.img.xz",
+      "ab_extract_sha256": "15d9c5d055519a96305f3cdfd741685ee16b8db968f800bb985d5fc59ee072e4",
+      "ab_image_sha256": "0ab8b98c2d8873e0bb361ea6e57322ea7b57eded2cb866968053c6ab4eec4bf1",
+      "ab_image_download_size": 2065606104,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2066803372,
       "highlights": [
-        "a demo's tab is no longer closed while its server is still starting",
-        "Bump version to development-2026-10-05-142632",
-        "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-05-112519",
-        "stop answering dialogs once the demo has ended"
+        "the app mode starts once the kernel is ready",
+        "demo windows open maximised, not shifted next to the icons",
+        "the feedback links say they need a free GitHub account",
+        "\"Stop Docker demos\" finds the running demos and says what it did",
+        "Pi 5 programs wait for the LED driver; a first-frame timeout is no stall"
       ]
     }
   }
