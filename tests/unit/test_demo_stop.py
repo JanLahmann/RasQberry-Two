@@ -337,3 +337,35 @@ def test_raspberry_tie_skips_the_emulator_window_with_a_panel():
     assert "get_led_config().get('led_physical', True)" in added
     assert re.search(r"if UseEmulator and not \('-e' in sys.argv\) and _rq_led_panel\(\):\n"
                      r".*\n    UseEmulator = False\n    NoHat = True", added)
+
+
+# --- Quantum Lights Out: one plain line per step (#13) ---------------------------
+
+def _added(patch_name):
+    patch = _read("RQB2-config", "demo-patches", patch_name)
+    return "\n".join(l[1:] for l in patch.splitlines() if l.startswith("+") and not l.startswith("+++"))
+
+
+def test_lights_out_prints_one_plain_line_per_step():
+    patch = _read("RQB2-config", "demo-patches", "quantum-lights-out.patch")
+    added = _added("quantum-lights-out.patch")
+    removed = "\n".join(l[1:] for l in patch.splitlines() if l.startswith("-") and not l.startswith("---"))
+    # no Python lists in the window any more
+    assert 'print("Grid chosen:", lights_grid)' in removed
+    assert removed.count("visualize_lights_out_grid_to_console(grid") == 3
+    assert "visualize_lights_out_grid_to_console(" not in added
+    # each press is one line: the tile by name and the grid after it
+    assert 'print(f"  Press {name + \':\':<14} {grid_line(grid)}   {sum(grid)} on", flush=True)' in added
+    assert '"top left", "top middle", "top right"' in added
+    assert "Solved: all lights are off." in added
+    # Ctrl+C without the demo window ends without a traceback
+    assert "except KeyboardInterrupt:" in added
+
+
+def test_lights_out_grid_line():
+    added = _added("quantum-lights-out.patch")
+    src = added[added.index("def grid_line(grid):"):]
+    src = src[:src.index("\n\n")]
+    ns = {}
+    exec("import math\n" + src, ns)
+    assert ns["grid_line"]([1, 1, 0, 0, 0, 0, 1, 0, 1]) == "■■□ □□□ ■□■"
