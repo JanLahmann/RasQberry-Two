@@ -18,7 +18,7 @@ Light up the panel, see a qubit and lose a coin game to a quantum computer.
 
 1. **IBM LED Demo** in <a href="/03-quantum-computing-demos/led-display/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="/03-quantum-computing-demos/led-display/">LED Demos</a>
    - Try: Look at the model: the IBM logo lights up on the LED panel.
-   - Notice: The LEDs are this quantum computer's display. Later steps show qubits on them.
+   - Notice: The LEDs are the model's display: other demos, like RasQ-LED, show qubits on them.
 2. **<a href="/03-quantum-computing-demos/bloch-sphere/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="first-15-minutes" data-umami-event-to="/03-quantum-computing-demos/bloch-sphere/">Grokking the Bloch Sphere</a>**
    - Try: Press H: the arrow moves from the top of the sphere to the equator.
    - Notice: On the equator the qubit is in a superposition: 0 and 1 are equally likely.
@@ -71,8 +71,8 @@ Win games that no classical team can win every time, with entangled qubits.
    - Try: Look for a magic square that works, then run the quantum strategy for many rounds.
    - Notice: Alice's and Bob's answers are random, yet they always agree where they meet.
 3. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">RasQ-LED Demo</a>**
-   - Try: Choose 1 (no entanglement), then 2 (complete entanglement).
-   - Notice: Without entanglement the LEDs are random. Entangled, they all show the same result.
+   - Try: Just watch: it entangles blocks of 1, 2, 3 ... qubits, up to the whole panel, and measures.
+   - Notice: Block size 1: random colours. In an entangled block every LED shows the same: red or blue.
 
 **Keep going:** <a href="https://doqumentation.org/tutorials/chsh-inequality" title="Run a Bell test on a real quantum computer." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/tutorials/chsh-inequality">CHSH inequality tutorial</a> · <a href="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction" title="Teleportation, superdense coding and the CHSH game, step by step." target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="https://doqumentation.org/learning/courses/basics-of-quantum-information/entanglement-in-action/introduction">Entanglement in action</a> · <a href="#2-your-first-program" title="Write your own entangled circuit with Qiskit." data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="your-first-program">Your first program</a>
 
@@ -92,8 +92,8 @@ Write and run a quantum circuit with Qiskit, then keep learning.
    - Try: Hello-World.ipynb opens: run its cells one by one with Shift+Enter.
    - Notice: Two entangled qubits: you measure 00 or 11, never 01 or 10.
 2. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Qiskit Tutorials on this Pi</a>**
-   - Try: Open Tutorials, then Get started, and run the code on this Pi.
-   - Notice: The same Qiskit as in Hello World, with guides and courses next to it.
+   - Try: Open Tutorials, then Hello World, and click Run All: the code runs on this Pi.
+   - Notice: The circuit from step 1, explained step by step, with more tutorials and courses next to it.
 3. **<a href="https://quantum.cloud.ibm.com/learning" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://quantum.cloud.ibm.com/learning">IBM Quantum Learning</a>** (online)
    - Try: Take a free course, for example Basics of quantum information.
    - Notice: It needs the internet. With an IBM Quantum account your code runs on real quantum computers.
