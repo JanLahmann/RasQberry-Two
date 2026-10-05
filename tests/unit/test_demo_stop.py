@@ -569,20 +569,29 @@ def test_stop_paths_close_the_demo_tab_before_the_server_goes():
         assert body.index("rq_close_demo_tabs") < body.index(server), name
 
 
-def test_chromium_is_maximised_everywhere_with_a_local_devtools_port():
+def test_chromium_has_a_local_devtools_port_and_is_maximised_on_small_screens_only(tmp_path):
+    # The homepage window sits next to the desktop icons on a large screen, so
+    # they stay reachable; demo windows are maximised by rq_browser_tab.py (#15)
     dash = shutil.which("dash") or shutil.which("sh")
-    out = subprocess.run([dash, "-ec", f'CHROMIUM_FLAGS=""; . "{os.path.join(_ROOT, "RQB2-system/etc/chromium.d/rasqberry")}"; '
-                          'echo "$CHROMIUM_FLAGS"'],
-                         capture_output=True, text=True, env=dict(os.environ, XDG_RUNTIME_DIR="/nonexistent")).stdout
-    assert "--start-maximized" in out.split()                 # no small-screen flag needed
-    assert "--remote-debugging-port=9222" in out.split()
+    flags = os.path.join(_ROOT, "RQB2-system/etc/chromium.d/rasqberry")
+
+    def chromium_flags(runtime_dir):
+        return subprocess.run([dash, "-ec", f'CHROMIUM_FLAGS=""; . "{flags}"; echo "$CHROMIUM_FLAGS"'],
+                              capture_output=True, text=True,
+                              env=dict(os.environ, XDG_RUNTIME_DIR=str(runtime_dir))).stdout.split()
+
+    large = chromium_flags(tmp_path)
+    assert "--start-maximized" not in large
+    assert "--remote-debugging-port=9222" in large
+    (tmp_path / "rasqberry-small-screen").touch()
+    assert "--start-maximized" in chromium_flags(tmp_path)
     # 127.0.0.1 only, and no web page may use it
-    assert "remote-allow-origins" not in out and "remote-debugging-address" not in out
+    assert not [f for f in large if "remote-allow-origins" in f or "remote-debugging-address" in f]
     tab = _read("RQB2-bin", "rq_browser_tab.py")
     assert 'os.environ.get("RQ_BROWSER_CDP_PORT", "9222")' in tab
 
 
-def test_session_switches_the_icon_rule_off_and_starts_chromium_unsized(tmp_path, monkeypatch):
+def test_session_keeps_the_homepage_next_to_the_icons_on_a_large_screen(tmp_path, monkeypatch):
     import importlib.util
     spec = importlib.util.spec_from_file_location("rq_desktop_session_t", os.path.join(_BIN, "rq_desktop_session.py"))
     ds = importlib.util.module_from_spec(spec)
@@ -600,13 +609,13 @@ def test_session_switches_the_icon_rule_off_and_starts_chromium_unsized(tmp_path
     monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
     monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
     assert ds.main([]) == 0
-    assert rules == [True]                                    # off on a large screen too
-    assert started == [["/usr/bin/chromium", ds.HOMEPAGE]]   # no --window-size=1070,1005
+    assert rules == [False]                                   # the x=480 rule stays on
+    assert started == [["/usr/bin/chromium", "--window-size=1070,1005", ds.HOMEPAGE]]
 
 
-def test_first_login_saves_a_maximised_placement():
+def test_first_login_saves_the_placement_next_to_the_icons():
     text = _read("RQB2-system", "usr", "local", "bin", "trust-rasqberry-desktop-files.sh")
-    assert "'maximized': True," in text and "'maximized': False," not in text
+    assert "'maximized': False," in text and "'maximized': True," not in text
 
 
 # --- rq_browser_tab.py ---------------------------------------------------------------

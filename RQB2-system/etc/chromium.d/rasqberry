@@ -5,9 +5,12 @@
 # No keyring password dialog; no "Restore pages?" bubble after a power cut (R-154)
 CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic --disable-features=Keyring --hide-crash-restore-bubble"
 
-# Maximised on every screen (#15): 1070x1005 next to the desktop icons on a
-# 1920x1080 screen left the demos cramped. Small screens had it already (R-034).
-CHROMIUM_FLAGS="$CHROMIUM_FLAGS --start-maximized"
+# Small screen (flag set at login by rq_desktop_session.py): open maximised (R-034).
+# On larger screens the homepage window sits next to the desktop icons, so they
+# stay reachable; a demo's own window is maximised by rq_browser_tab.py (#15).
+if [ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rasqberry-small-screen" ]; then
+  CHROMIUM_FLAGS="$CHROMIUM_FLAGS --start-maximized"
+fi
 
 # The demo launchers look after the tab a demo opens (rq_browser_tab.py):
 # full screen for Qoffee-Maker, and closed when the demo stops instead of a

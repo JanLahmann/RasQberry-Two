@@ -78,9 +78,8 @@ sleep 1
 pcmanfm --desktop 2>> "$LOG_FILE" &
 echo "$(date): PCManFM desktop restarted" >> "$LOG_FILE"
 
-# Chromium opens maximised (#15; /etc/chromium.d/rasqberry adds
-# --start-maximized). The saved placement says so too, for a start without
-# the flag; its size is what "restore" goes back to.
+# Configure Chromium window size and position (centered on 1920x1080)
+# --window-size flag doesn't work on Wayland, so we set via preferences
 echo "$(date): Configuring Chromium window position..." >> "$LOG_FILE"
 CHROMIUM_PREFS_DIR="$HOME/.config/chromium/Default"
 CHROMIUM_PREFS="$CHROMIUM_PREFS_DIR/Preferences"
@@ -95,13 +94,13 @@ else:
     prefs = {}
 prefs.setdefault('browser', {})['window_placement'] = {
     'left': 480, 'top': 45, 'right': 1550, 'bottom': 1050,
-    'maximized': True,
+    'maximized': False,
     'work_area_left': 0, 'work_area_top': 36,
     'work_area_right': 1920, 'work_area_bottom': 1080
 }
 with open(prefs_file, 'w') as f:
     json.dump(prefs, f)
-print("Configured Chromium window: maximised")
+print("Configured Chromium window position (1070x1005 at 480,45)")
 CHROMEPY
 echo "$(date): Chromium window configured" >> "$LOG_FILE"
 
