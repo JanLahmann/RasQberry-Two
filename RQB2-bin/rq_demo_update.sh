@@ -246,8 +246,15 @@ while true; do
     set --
     while IFS=$'\t' read -r key name mf; do
         [ -n "$key" ] || continue
-        kind="notebooks"
-        case "$key" in *:image) kind="Docker image" ;; esac
+        # what an update brings: only the notebook demos are notebooks (#31)
+        case "$key" in
+            *:image) kind="Docker image" ;;
+            *) if [ "$(jq -r '.entrypoint.type // ""' "$mf")" = "jupyter" ]; then
+                   kind="notebooks"
+               else
+                   kind="program"
+               fi ;;
+        esac
         set -- "$@" "$key" "$name ($kind): $(state_text "$key" "$mf")"
     done < <(updatable)
     if [ $# -eq 0 ]; then

@@ -2,7 +2,8 @@
 User test 2026-10-04: texts outside the demos that must say what the demos
 really are - Quantum Lights Out is a self-running Grover solver, not a game to
 play (#13); the setup's last screen points to the First 15 minutes learning
-path (#30).
+path (#30); Update demos calls only notebooks "notebooks", and the Composer
+needs no account (#31).
 """
 
 import json
@@ -76,3 +77,39 @@ def test_setup_done_recommends_the_first_path():
         "Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
     lines = sum(max(1, -(-len(line) // 70)) for line in body.split("\n"))
     assert lines <= 15 - 7, body
+
+
+# --- #31: Update demos and the Composer ---------------------------------------------
+
+def test_composer_needs_no_account():
+    # it builds and simulates circuits without signing in; real hardware needs one
+    assert _manifest("composer")["needs_ibm_token"] == "prefer"
+
+
+def test_update_demos_calls_only_notebooks_notebooks(tmp_path):
+    import shutil
+    import stat
+    import subprocess
+    if shutil.which("bash") is None or shutil.which("jq") is None:
+        import pytest
+        pytest.skip("bash and jq are required")
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "wt.log"
+    wt = stubs / "whiptail"
+    wt.write_text(f'#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done >> "{log}"\nexit 1\n')
+    wt.chmod(wt.stat().st_mode | stat.S_IXUSR)
+    home = tmp_path / "home"
+    for wd in ("grok-bloch", "fun-with-quantum", "Quantum-Lights-Out"):
+        (home / "RasQberry-Two" / "demos" / wd / ".git").mkdir(parents=True)
+    env_config = tmp_path / "env-config.sh"
+    env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nBIN_DIR="{_BIN}"\nSTD_VENV=RQB2\n')
+    env = {"PATH": f"{stubs}:{os.environ['PATH']}",
+           "HOME": str(home), "RQ_CONFIG_FILE": str(env_config)}
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_update.sh")], capture_output=True,
+                          text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    items = log.read_text()
+    assert "Grokking the Bloch Sphere (program): release version" in items, items
+    assert "Quantum Lights Out (program): release version" in items
+    assert "Fun with Quantum (notebooks): release version" in items
