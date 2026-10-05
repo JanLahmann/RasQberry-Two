@@ -414,8 +414,13 @@ DEMO_HINTS = {
     # Workshop & Qiskit Server asks how many participants, then shows their
     # addresses and opens its page after Ok. The address dialog comes only
     # once the server answers (25-30 s on a Pi), so give it 75 s
+    # It keeps running when its window closes (by design): "cleanup" stops
+    # it before the check (a server left from an earlier run shows its
+    # keep/restart/stop menu instead) and after it.
     "doqumentation": {"answers": r"How many participants|\r;Participants open (same|\r",
-                      "seconds": 75},
+                      "seconds": 75,
+                      "cleanup": "for c in $(docker ps --format '{{.Names}}' | grep -x doqumentation); "
+                                 "do docker stop -t 15 \"$c\" >/dev/null; done; true"},
 }
 
 # a first start installs the demo after the consent dialog: allow for it
@@ -485,6 +490,8 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
 
     baseline = before = None
     holding = False
+    if hint.get("cleanup"):
+        ssh(pi["host"], hint["cleanup"], timeout=60)
     try:
         # a fresh baseline right before the demo: every panel off, now
         if camera and not hint.get("service"):
@@ -502,6 +509,8 @@ def _smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     finally:
         if holding:
             stop_holder(pi)   # always: it must never outlive the check
+        if hint.get("cleanup"):
+            ssh(pi["host"], hint["cleanup"], timeout=60)
 
 
 def start_holder(pi, camera, baseline, dest, hold):
@@ -545,10 +554,14 @@ def _run_and_judge(pi, demo, hint, seconds, camera, outdir, env, baseline, befor
     threshold = pi.get("lit_threshold", 0.006)
 
     def worker():
-        _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
-                     timeout=seconds + INSTALL_ALLOWANCE + 180)
-        parsed = parse_lines(out)
         name = f"icon:{demo['icon']}" if demo.get("icon") else f"demo:{demo['id']}"
+        try:
+            _, out = ssh(host, f"{env}bash {REMOTE_DIR}/demo_smoke.sh {shlex.quote(demo['id'])} {seconds} {REMOTE_DIR}",
+                         timeout=seconds + INSTALL_ALLOWANCE + 180)
+        except Exception as exc:  # noqa: BLE001 - one demo must not lose the whole report
+            result.update({"verdict": "FAIL", "name": name, "detail": f"harness: {type(exc).__name__}: {exc}"[:200]})
+            return
+        parsed = parse_lines(out)
         result.update(parsed[0] if parsed else {"verdict": "FAIL", "name": name, "detail": out.strip()[:200]})
 
     t = threading.Thread(target=worker)
