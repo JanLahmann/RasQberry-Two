@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T12:44:16Z",
+  "generated": "2026-10-05T12:44:59Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2009041640,
       "extract_size": 9076473856,
       "extract_sha256": "3844bbc82079da5bd4a441f2b4abd28d8717e7a24f184833607533e0c18850d8",
-      "image_sha256": "fb487e6dae0fc8e2c13fffffbc058ebaf01a4bcc9bd5f18148af2aa069e1584b",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-05-142632/rasqberry-development-2026-10-05-142632-ab.img.xz",
       "ab_extract_sha256": "ed2ec7f76998303245a2f3d469ab5fa2d3699e984cd63a6838ea7fcad16fc0dc",
       "ab_image_sha256": "887ed52afbcf8865dfc3a07db2bea0da8817d819a1b7d4d616495ae7983400e8",
-      "ab_image_download_size": 2066803372,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2066803372,
       "highlights": [
         "a demo's tab is no longer closed while its server is still starting",
         "Bump version to development-2026-10-05-142632",
