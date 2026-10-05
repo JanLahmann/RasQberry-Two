@@ -441,6 +441,45 @@ def test_the_hint_is_written_when_the_slot_is_complete():
     assert body.index("mark_slot_updated ") < body.index('clear_slot_incomplete "$target_slot"')
 
 
+def test_a_written_slot_refreshes_the_slot_status(tmp_path):
+    # /run/rasqberry/slot-status said what the slot held at start-up, so System
+    # Info, the menu and the taskbar badge showed the old system until the
+    # next restart
+    manager = tmp_path / "manager"
+    manager.write_text("#!/bin/sh\nprintf 'layout=ab\\ncurrent=A\\nslot_a=beta-2026-10-04-143935\\n"
+                       "slot_b=beta-2026-10-15-101010\\n'\n")
+    manager.chmod(0o755)
+    status = tmp_path / "run" / "slot-status"
+    status.parent.mkdir()
+    status.write_text("layout=ab\ncurrent=A\nslot_b=EMPTY\nother_version=EMPTY\n")
+    version = tmp_path / "version"
+    version.write_text("beta-2026-10-04-143935\n")
+    env = _env(tmp_path, RQ_SLOT_MANAGER=str(manager), RQ_SLOT_STATUS_FILE=str(status),
+               RQ_VERSION_FILE=str(version))
+    proc = subprocess.run(_source("refresh_slot_status; echo RC=$?"), env=env,
+                          capture_output=True, text=True, timeout=60)
+    assert "RC=0" in proc.stdout, proc.stderr
+    text = status.read_text()
+    assert "slot_b=beta-2026-10-15-101010\n" in text and "other_version=beta-2026-10-15-101010\n" in text
+    assert "stream_b=beta\n" in text
+
+    # a writer that fails does not fail the update
+    broken = tmp_path / "broken"
+    broken.write_text("#!/bin/sh\necho nope >&2\nexit 1\n")
+    broken.chmod(0o755)
+    proc = subprocess.run(_source("refresh_slot_status; echo RC=$?"),
+                          env=dict(env, RQ_SLOT_STATUS=str(broken)),
+                          capture_output=True, text=True, timeout=60)
+    assert "RC=0" in proc.stdout, proc.stderr
+    assert "Could not refresh the slot status" in (tmp_path / "update.log").read_text()
+
+
+def test_the_slot_status_is_refreshed_once_the_slot_is_complete():
+    text = open(_SCRIPT).read()
+    body = text[text.index("write_image_to_slot() {"):text.index("cleanup_download() {")]
+    assert body.index('clear_slot_incomplete "$target_slot"') < body.index("refresh_slot_status")
+
+
 def test_the_guard_runs_before_the_download():
     text = open(_SCRIPT).read()
     main = text[text.index("main() {"):]

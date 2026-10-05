@@ -14,7 +14,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #                   stable, unknown: rq_release_channel). As root the summary can look into the other slot,
 #                   which the desktop user cannot. Key=value lines, world-
 #                   readable, replaced in one step (rename). The health check
-#                   runs it at every start; /run is empty after a restart.
+#                   runs it at every start (/run is empty after a restart),
+#                   rq_update_slot.sh again once it has written the other slot.
 #                   It is a snapshot: switch, confirm and rollback change
 #                   files on /boot/config, which the indicator reads live.
 #   failure-notice  The one sentence about a failed update or switch, if

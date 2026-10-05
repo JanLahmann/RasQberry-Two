@@ -614,6 +614,18 @@ clear_slot_incomplete() {
     sync
 }
 
+refresh_slot_status() {
+    # /run/rasqberry/slot-status says what each slot held at start-up: System
+    # Info, the menu and the taskbar badge (which re-reads it when it changes)
+    # showed the old contents of the updated slot until the next restart.
+    # Write it again now that the slot holds the new system. Never fails the
+    # update.
+    local writer="${RQ_SLOT_STATUS:-${SCRIPT_DIR}/rq_slot_status.sh}" t=""
+    [ -x "$writer" ] || return 0
+    command -v timeout >/dev/null 2>&1 && t="timeout 60"
+    $t "$writer" write >> "$LOG_FILE" 2>&1 || log_only "Could not refresh the slot status"
+}
+
 cleanup_on_exit() {
     # EXIT trap: after a failure or an interrupt, remove what this run left
     # behind. (A successful run ends in exec, which does not run this.)
@@ -785,6 +797,7 @@ EOF
 
     mark_slot_updated "$target_slot" "${new_version:-$release_tag}" "$release_tag"
     clear_slot_incomplete "$target_slot"
+    refresh_slot_status
     log_only "Image installation complete"
 }
 
