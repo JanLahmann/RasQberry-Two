@@ -1,12 +1,12 @@
 {
-  "_doc": "Starter notebooks in my-quantum-programs/ that come from another project, pinned like the demos: each file is 'path' in 'repo_url' at commit 'ref' (upstream_sha256), with our 'edits' to single cells applied (sha256 of the copy we ship). The Hello World notebook is doQumentation's, so a learner meets the same first circuit on the Pi and on doqumentation.org; the edits keep its account cell from saving the placeholders over an IBM Quantum account already saved on the Pi. Check or move a pin with RQB2-bin/rq_starter_sync.py (development tool).",
+  "_doc": "Starter notebooks in my-quantum-programs/ that come from another project, pinned like the demos: each file is 'path' in 'repo_url' at commit 'ref' (upstream_sha256), with our 'edits' to single cells applied (sha256 of the copy we ship). The Hello World notebook is doQumentation's, so a learner meets the same first circuit on the Pi and on doqumentation.org; the edits keep its account cell from saving the placeholders over an IBM Quantum account already saved on the Pi, and its real-hardware cells say what to do when no account is saved instead of ending in an AccountNotFoundError (#25). Check or move a pin with RQB2-bin/rq_starter_sync.py (development tool).",
   "notebooks": [
     {
       "file": "Hello-World.ipynb",
       "repo_url": "https://github.com/JanLahmann/doQumentation",
       "ref": "73a12c964a463f85c976b5922b5bc0f47116f61e",
       "path": "local-content/hello-world.ipynb",
-      "sha256": "997070d0bace831aaccb5d0b056c3e8841dab374c9f57517784039c8a33229bb",
+      "sha256": "c945bf8126bba77ca5c7a56e9aa6649b2b6d6d8f8d09de220f25bade8efcd6be",
       "edits": [
         {
           "cell_contains": "in this Binder session",
@@ -16,6 +16,14 @@
         {
           "cell_contains": "QiskitRuntimeService.save_account(",
           "source": "from qiskit_ibm_runtime import QiskitRuntimeService\n\ntoken = \"<your-api-key>\"\ninstance = \"<your-crn>\"\n\n# RasQberry: the placeholders never replace an account saved on this Pi\nif token.startswith(\"<\") or instance.startswith(\"<\"):\n    print(\"Put your API key and CRN in the two lines above first. Nothing was saved.\")\nelse:\n    QiskitRuntimeService.save_account(\n        channel=\"ibm_quantum_platform\",\n        token=token,\n        instance=instance,\n        set_as_default=True,\n        overwrite=True,\n    )\n    print(\"Saved. Your programs can now use QiskitRuntimeService().\")"
+        },
+        {
+          "cell_id": "option3-code",
+          "source": "from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2\nfrom qiskit_ibm_runtime.accounts import AccountNotFoundError\nfrom qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager\n\n# RasQberry: without a saved account, say what to do instead of an error\ntry:\n    service = QiskitRuntimeService()\nexcept AccountNotFoundError:\n    service = None\n    print(\"No IBM Quantum account is saved on this Pi yet. Save yours first (the cell above,\")\n    print(\"or the RasQberry menu: IBM Quantum account > Save my API key), then run this cell again.\")\n\nif service is not None:\n    backend = service.least_busy(operational=True, simulator=False)\n    print(f\"Running on {backend.name}\")\n\n    pm = generate_preset_pass_manager(backend=backend, optimization_level=1)\n    isa_qc = pm.run(qc)\n\n    result = SamplerV2(mode=backend).run([isa_qc], shots=1024).result()\n    counts = result[0].data.meas.get_counts()\n    display(counts)"
+        },
+        {
+          "cell_id": "1o5retcxj0m",
+          "source": "# RasQberry: the histogram of the run on real hardware (none without an account)\nif service is not None:\n    display(plot_histogram(counts))"
         }
       ],
       "upstream_sha256": "7034ae814bf59d0f902a06dd2765da9f0f42cb80803b9e36404b9f6bddf8315a"

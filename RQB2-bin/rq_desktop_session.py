@@ -8,10 +8,11 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    after every later start (R-154).
 2. Touch mode: the GTK touch style is copied again, because labwc-pi deletes
    ~/.config/gtk-3.0/gtk.css at every session start (R-098).
-3. Small screens (narrower than 1600 or lower than 900 px: the 7-inch display,
-   720p): Chromium opens maximised instead of at x=480, which put most of the
-   window off-screen (R-034). The labwc rule that places Chromium next to the
-   icons is switched off, and /etc/chromium.d/rasqberry adds --start-maximized.
+3. Chromium opens maximised on every screen (/etc/chromium.d/rasqberry adds
+   --start-maximized). The labwc rule that placed it at x=480, next to the
+   icons, is switched off: on small screens (the 7-inch display, 720p) it put
+   most of the window off-screen (R-034), and on large ones the 1070x1005
+   window left the demos cramped (#15).
 4. Desktop icons are laid out for the screen and touch mode, RasQberry Setup
    first (R-008, R-035). Icons that do not fit go into a "More" folder. This
    happens only when the screen, touch mode or the set of icons changed, so
@@ -58,7 +59,7 @@ ICON_ORDER = [
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "demo-loop", "clear-leds",
+    "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"
 MARGIN = 10                # first icon at x=y=10, as pcmanfm counts (below the panel)
@@ -513,21 +514,20 @@ def online(url=HOMEPAGE, timeout=5):
         return False
 
 
-def start_browser(small):
+def start_browser(small=False):
     """
     Open rasqberry.org, or the offline page, unless BROWSER_AUTOSTART=false.
 
+    Chromium opens maximised on every screen (/etc/chromium.d/rasqberry, #15).
+
     Args:
-        small (bool): The screen is small (Chromium opens maximised then).
+        small (bool): The screen is small (no longer makes a difference).
     """
     if env_value("BROWSER_AUTOSTART", "true") == "false":
         return
     time.sleep(int(os.environ.get("RQ_BROWSER_DELAY", "10")))  # clock and network
     url = HOMEPAGE if online() else OFFLINE_PAGE
-    cmd = ["/usr/bin/chromium"]
-    if not small:
-        cmd.append("--window-size=1070,1005")
-    cmd.append(url)
+    cmd = ["/usr/bin/chromium", url]
     try:
         subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          start_new_session=True)
@@ -561,9 +561,10 @@ def main(argv):
     size = screen_size()
     small = bool(size and is_small(size))
     set_small_screen_flag(small)
+    # Chromium is maximised on every screen now (#15): the rule is off
+    if set_chromium_rule(True) and os.environ.get("LABWC_PID"):
+        run_quietly(["labwc", "--reconfigure"])
     if size:
-        if set_chromium_rule(small) and os.environ.get("LABWC_PID"):
-            run_quietly(["labwc", "--reconfigure"])
         if layout_desktop(size, touch):
             run_quietly(["pcmanfm", "--reconfigure"])
     if "--no-browser" not in argv:

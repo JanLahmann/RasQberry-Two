@@ -37,7 +37,7 @@
     "download": {
       "what": "Jupyter notebooks and website from GitHub",
       "download_mb": 30,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "post_install": "rq_fwq.py"
   },

@@ -205,12 +205,40 @@ feedback_notice() {
     echo "Your feedback helps a lot: ${FEEDBACK}${1:+/$1}"
 }
 
+# The browser opens maximised over this window (#15): say where it is now.
+# Only when a browser opened (not over SSH).
+back_hint() {
+    if check_display && _rq_find_browser >/dev/null; then
+        echo "$RQ_BROWSER_BACK_HINT"
+    fi
+    return 0
+}
+
+# The feedback form: in the browser on the desktop, its address over SSH
+# (a long address in a terminal is hard to use, #30)
+# Usage: open_feedback [PATH_ID]
+open_feedback() {
+    clear 2>/dev/null || true
+    feedback_notice "${1:-}"
+    rq_show_url "${FEEDBACK}${1:+/$1}"
+    back_hint
+    pause "Press Enter to go back."
+}
+
+# The window's title (R-135). A demo started from a step sets its own, so
+# it is set again when the demo is back (#30).
+set_title() {
+    [ -t 1 ] && printf '\033]0;%s\007' "Learning paths"
+    return 0
+}
+
 # Open a page: the browser on the desktop, the address over SSH
 # Usage: open_page NAME URL
 open_page() {
     clear 2>/dev/null || true
     echo "$1: $2"
     rq_show_url "$2"
+    back_hint
     pause "Press Enter to go back."
 }
 
@@ -269,12 +297,13 @@ keep_going() {
             set -- "$@" "n$e" "Open ${N_NAME[e]}"
         fi
     done
-    set -- "$@" more "More ideas: where to go next"
+    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (feedback form)"
     while true; do
         choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
         last="$choice"
         case "$choice" in
             more) show_ladder ;;
+            feedback) open_feedback "$P_ID" ;;
             n*)
                 e="${choice#n}"
                 if [ "${N_KIND[e]}" = path ]; then
@@ -316,6 +345,7 @@ start_step() {
     else
         echo "$S_NAME: $S_URL"
         rq_show_url "$S_URL"
+        back_hint
         pause "Press Enter to go back to the learning path."
         return 0
     fi
@@ -358,6 +388,7 @@ walk_path() {
         case "$choice" in
             start)
                 if start_step; then default="next"; else default="start"; fi
+                set_title
                 ;;
             next)
                 if [ $((s + 1)) -lt "$P_STEPS" ]; then
@@ -392,8 +423,7 @@ if [ "$MODE" = "--list" ] || ! command -v whiptail >/dev/null 2>&1 || [ ! -t 0 ]
     exit 0
 fi
 
-# The window's title (R-135)
-[ -t 1 ] && printf '\033]0;%s\007' "Learning paths"
+set_title
 
 # Ctrl+C stops the running demo and comes back here (a handler, not an
 # ignored signal: the demo must still get it)
@@ -420,11 +450,7 @@ while true; do
         "Select" "$CLOSE" "$last" "$@") || break
     last="$choice"
     case "$choice" in
-        feedback)
-            clear 2>/dev/null || true
-            feedback_notice
-            pause "Press Enter to go back to the learning paths."
-            ;;
+        feedback) open_feedback ;;
         ladder) show_ladder ;;
         *)
             # Keep going may lead from one path to the next (JUMP)

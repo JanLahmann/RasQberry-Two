@@ -95,6 +95,11 @@
           "maximum": 65535,
           "description": "TCP port for the web-static http.server (1024-65535)"
         },
+        "keyboard": {
+          "type": "boolean",
+          "default": false,
+          "description": "python type: the program reads the keyboard itself (questions in its window). It then runs in front and stops with Ctrl+C or by closing the window. Otherwise its window reads Enter, which stops it like every other demo."
+        },
         "stop_on_exit": {
           "type": "array",
           "items": { "type": "string" },
@@ -160,7 +165,7 @@
             "download_mb": {"type": "integer", "minimum": 0, "description": "Download size in MB (1 MB = 1,000,000 bytes)"},
             "disk_mb": {"type": "integer", "minimum": 0, "description": "Space on the SD card afterwards in MB (default: download_mb)"},
             "peak_mb": {"type": "integer", "minimum": 0, "description": "Extra space needed only while installing, e.g. a Docker build cache"},
-            "time": {"type": "string", "description": "Rough duration on a Pi, e.g. '1 minute', '10-20 minutes'"},
+            "time": {"type": "string", "description": "Rough duration on a Pi, measured (user test 2026-10-04: a home line), e.g. '10-30 seconds', '1 minute', '3-5 minutes'. Download all adds them up"},
             "url": {"type": "string", "description": "Checked for reachability before asking (default: repo_url, the Docker registry, else GitHub)"},
             "shares": {"type": "string", "description": "Demos with the same value share one download (counted once by 'Download all demos')"}
           }

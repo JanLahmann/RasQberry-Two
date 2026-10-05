@@ -114,6 +114,19 @@ def test_stop_hint_wording():
 
 
 @needs_bash
+def test_stop_hint_says_where_the_window_is_once_a_browser_covers_it():
+    # Chromium opens a demo maximised over its terminal (#15): the stop line
+    # says how to get back, only when this script opened such a window
+    out = subprocess.run(["bash", "-c", f'set -u; . "{_COMMON}"; _RQ_DEMO_TABS+=("http://127.0.0.1:8888/lab"); '
+                                        'rq_stop_hint "Quantum Lab"'],
+                         capture_output=True, text=True).stdout.splitlines()
+    assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
+                   "The browser covers this window: to get back here, click it in the taskbar."]
+    with open(os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb"), encoding="utf-8") as fh:
+        assert "press Enter in the window that started it (in the taskbar)" in fh.read()
+
+
+@needs_bash
 def test_wait_for_stop_ends_on_enter():
     p = _Pty(f'. "{_COMMON}"; sleep 300 & rq_wait_for_stop Demo $!; echo WAITED; kill $!')
     assert p.read_until("To stop Demo: press Enter or Ctrl+C")
@@ -273,8 +286,14 @@ def _load_led_utils(monkeypatch, tmp_path, write_seconds):
     mod.LED_STALL_SECONDS = 0.05
     mod.LED_STALL_RETRY_SECONDS = 0.2
     mod.LED_STALL_FILE_PREFIX = str(tmp_path / "stall-")
-    assert mod.guard_pi5_led_writes() is True
-    assert mod.guard_pi5_led_writes() is True          # idempotent
+    # the guard installs stop-signal handlers: keep pytest's own
+    saved = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        assert mod.guard_pi5_led_writes() is True
+        assert mod.guard_pi5_led_writes() is True      # idempotent
+    finally:
+        for s, h in saved.items():
+            signal.signal(s, h)
     return mod, neo, calls
 
 
@@ -408,6 +427,76 @@ def test_after_stall_asks_before_lowering(box):
     p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}', env=box())
     p.wait()
     assert _env_value(box.env_file, "LED_MAX_BRIGHTNESS") == "0.2"
+
+
+# What the Pi reported decides the advice (#5): the rig's stalls came with only
+# the sticky soft-temperature bit, and a lower brightness did not help.
+@needs_bash
+@pytest.mark.parametrize("throttled,says,offers", [
+    ("0x80000", "got too hot", False),          # temperature limit earlier
+    ("0x8", "got too hot", False),              # temperature limit now
+    ("0x50005", "too little power", True),      # under-voltage now
+    ("0x10000", "too little power", True),      # under-voltage earlier
+    ("0x90000", "too little power, and it got too hot", True),
+    ("0x0", "no power or heat problem", False),
+])
+def test_after_stall_names_the_reported_cause(box, throttled, says, offers):
+    _exe(box.tmp / "stubs" / "vcgencmd", f'#!/bin/sh\necho "throttled={throttled}"\n')
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+             env=box({"WT_RC": "1", "PI_MODEL": "Pi5"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert says in dialog
+    assert ("Lower to 0.2" in dialog) == offers
+    assert ("power supply is too weak" in dialog) is False
+    if "hot" in says:
+        assert "Active Cooler" in dialog
+    if not offers:
+        assert "--msgbox" in dialog
+    assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"
+
+
+@needs_bash
+def test_after_stall_without_vcgencmd_names_both(box):
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+             env=box({"WT_RC": "1"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "power supply is too weak" in dialog and "too hot" in dialog
+
+
+def test_a_stopped_demo_lets_its_last_frame_out(tmp_path):
+    """SIGTERM (Enter in the menu, a stop from the demo loop) waits for the
+    frame, then ends the program with that signal (#5)."""
+    marker = tmp_path / "drained"
+    child = tmp_path / "child.py"
+    child.write_text(f"""
+import importlib.util, sys, time, types
+backend = types.ModuleType("adafruit_raspberry_pi5_neopixel_write")
+backend.free_pio = lambda: None
+nw = types.ModuleType("neopixel_write"); nw._neopixel = backend
+neo = types.ModuleType("neopixel"); neo.neopixel_write = lambda pin, buf: None
+sys.modules.update({{"neopixel": neo, "neopixel_write": nw,
+                     "adafruit_raspberry_pi5_neopixel_write": backend}})
+spec = importlib.util.spec_from_file_location("lu", {os.path.join(_BIN, "rq_led_utils.py")!r})
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+assert mod.guard_pi5_led_writes()
+real_wait = mod._wait_for_last_frame
+def wait():
+    real_wait()
+    open({str(marker)!r}, "w").write("yes")
+mod._wait_for_last_frame = wait
+neo.neopixel_write("pin", bytearray(576))
+print("READY", flush=True)
+time.sleep(30)
+""")
+    proc = subprocess.Popen([sys.executable, str(child)], stdout=subprocess.PIPE, text=True)
+    assert proc.stdout.readline().strip() == "READY"
+    proc.send_signal(signal.SIGTERM)
+    assert proc.wait(timeout=10) == -signal.SIGTERM
+    assert marker.read_text() == "yes"
 
 
 @needs_bash
@@ -623,8 +712,9 @@ def test_browser_runs_outside_the_window_session_and_hands_over_first(tmp_path):
     # neither a closed window (the session) nor a stop of the demo (its
     # process group) reaches the browser
     assert browser_sid != caller_sid and browser_pgid != caller_pgid
+    # a demo served on this Pi gets a window of its own (#15)
     assert (tmp_path / "browser-args").read_text().split() == [
-        "--password-store=basic", "--start-fullscreen", "http://127.0.0.1:8080/"]
+        "--password-store=basic", "--new-window", "--start-fullscreen", "http://127.0.0.1:8080/"]
 
 
 @needs_bash

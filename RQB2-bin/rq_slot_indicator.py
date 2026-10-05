@@ -12,6 +12,8 @@ A small badge in the wf-panel-pi tray with the running slot's letter:
 Hover: slot, state and version. Click or tap: a menu with both slots, System
 Info, Software & Image Updates and "What's new in <release>". It never
 installs anything: every action opens the RasQberry menu in a terminal.
+While the menu is open there is no tooltip: it covered the menu's first
+lines (user test 2026-10-04, #31).
 
 On the standard image and on a card with one system (an A/B image on a card
 under 64 GB) there are no slots: the indicator stays invisible until a newer
@@ -66,6 +68,7 @@ FETCH_EVERY = 24 * 3600
 FETCH_RETRY = 30 * 60
 FIRST_FETCH_DELAY = 20
 NOTICE_GAP = 16                     # wf-panel-pi shows a notice for about 15 s
+MENU_TOOLTIP_PAUSE = 30             # no tooltip for this long after the menu opens
 ICON_SIZE = 64                      # one pixmap; the panel scales it to 32
 BUS_NAME = "org.rasqberry.SlotIndicator"
 ITEM_PATH = "/StatusNotifierItem"
@@ -322,6 +325,25 @@ def tooltip(info, state, next_slot, advices, device):
     if ups:
         lines.append(rn.headline(ups[0], device))
     return title, "\n".join(lines)
+
+
+def tray_tooltip(title, body, menu_open):
+    """
+    The ToolTip strings the tray gets: none while the menu is open, as
+    wf-panel-pi showed the tooltip over the menu's first lines (#31). With
+    both strings empty it would show the item's Title instead, so the Title
+    property is empty (wf-panel-pi reads it once, when the item appears, and
+    uses it for nothing else).
+
+    Args:
+        title (str): tooltip title
+        body (str): tooltip text
+        menu_open (bool): the menu was opened a moment ago
+
+    Returns:
+        tuple: (title, body)
+    """
+    return ("", "") if menu_open else (title, body)
 
 
 def split_sentence(text):
@@ -739,6 +761,8 @@ class SlotIndicator:
         self.window = None
         self.refresh_pending = False
         self.monitors = []
+        self.tooltip_paused = False         # the menu is open: no tooltip
+        self.tooltip_until = 0.0
 
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         # In the tray only while wants_icon(): the plain badge comes and goes
@@ -987,7 +1011,7 @@ class SlotIndicator:
         values = {
             "Category": GLib.Variant("s", "SystemServices"),
             "Id": GLib.Variant("s", "rasqberry-slot"),
-            "Title": GLib.Variant("s", self.title),
+            "Title": GLib.Variant("s", ""),         # see tray_tooltip
             "Status": GLib.Variant("s", "Active"),
             "WindowId": GLib.Variant("i", 0),
             "IconName": GLib.Variant("s", ""),
@@ -998,7 +1022,8 @@ class SlotIndicator:
             "AttentionIconName": GLib.Variant("s", ""),
             "AttentionIconPixmap": empty,
             "AttentionMovieName": GLib.Variant("s", ""),
-            "ToolTip": GLib.Variant("(sa(iiay)ss)", ("", [], self.title, self.body)),
+            "ToolTip": GLib.Variant("(sa(iiay)ss)",
+                                    ("", []) + tray_tooltip(self.title, self.body, self.tooltip_paused)),
             "ItemIsMenu": GLib.Variant("b", True),
             "Menu": GLib.Variant("o", MENU_PATH),
         }
@@ -1064,14 +1089,36 @@ class SlotIndicator:
             inv.return_value(None)
 
     def _menu_opened(self):
+        self._pause_tooltip()
         if self.info.get("failure") and self.book.ack(self.info["failure"]):
             log.info("failure seen in the menu")
             self.book.save()
             self.update_view()
         return False
 
+    def _pause_tooltip(self):
+        """
+        No tooltip while the menu is open (#31). The panel tells when the menu
+        opens (AboutToShow) but not when it closes, so the tooltip comes back
+        after a click in the menu or MENU_TOOLTIP_PAUSE seconds after the
+        last opening.
+        """
+        self.tooltip_until = time.monotonic() + MENU_TOOLTIP_PAUSE
+        if not self.tooltip_paused:
+            self.tooltip_paused = True
+            self._emit("NewToolTip")
+        self.GLib.timeout_add_seconds(MENU_TOOLTIP_PAUSE, self._resume_tooltip)
+
+    def _resume_tooltip(self, now=False):
+        """The tooltip again: after a click (now), or when the pause is over."""
+        if self.tooltip_paused and (now or time.monotonic() >= self.tooltip_until - 1):
+            self.tooltip_paused = False
+            self._emit("NewToolTip")
+        return False
+
     def _clicked(self, item_id):
         log.info("menu item %s", item_id)
+        self._resume_tooltip(now=True)
         if item_id == 11:
             self.spawn(SYSINFO_CMD)
         elif item_id == 12:

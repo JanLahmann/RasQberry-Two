@@ -471,14 +471,13 @@ checkout_present() {
     fi
 }
 
-# Download the demo's Docker image (a docker demo with nothing else to install)
+# Download the demo's Docker image (a docker demo with nothing else to install).
+# One progress line, not Docker's list of layers (#23); a failed download
+# stops with Docker's reason (rq_docker_pull).
 install_docker_image() {
     local image="$1"
     docker_usable || die "Docker is not available, so $DEMO_ID cannot be downloaded (the image may be misbuilt)."
-    info "Downloading the Docker image $image. This takes several minutes..."
-    if ! docker pull "$image"; then
-        die "Could not download the Docker image $image. Check the internet connection and the free space, then try again."
-    fi
+    rq_docker_pull "$image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
 }
 
 # Ensure demo is installed; on its first start, ask (one dialog with size,
@@ -678,16 +677,12 @@ run_docker() {
     # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
     # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
     # are already present, so this pull is skipped entirely and their build
-    # path stays untouched. If a pull is attempted but fails (image not on a
-    # registry, offline, etc.) we fall back to the original "build it first"
-    # error. run_docker() uses plain info/die messages (no whiptail dialogs),
-    # so progress is reported with info.
+    # path stays untouched. The pull shows one progress line (#23); if it
+    # fails (image not on a registry, offline, no space) it stops with
+    # Docker's reason. run_docker() uses plain info/die messages (no whiptail
+    # dialogs).
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        info "Docker image not found locally: $docker_image"
-        info "Attempting to pull from registry (this may take a while)..."
-        if ! docker pull "$docker_image"; then
-            die "Docker image not found: $docker_image. Please build it first."
-        fi
+        rq_docker_pull "$docker_image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
     fi
 
     # Find an available HOST port. The container-side port stays at the
@@ -845,20 +840,16 @@ run_web_static() {
 
 # Python script launcher
 run_python() {
-    local working_dir script launcher needs_leds demo_dir venv_python
+    local working_dir script launcher needs_leds keyboard demo_dir venv_python
 
     working_dir=$(demo_field '.entrypoint.working_dir' '')
     script=$(demo_field '.entrypoint.script' '')
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
-
-    # Terminal demos run until stopped; say how (#104). The demo has the
-    # keyboard, so Ctrl+C or closing the window (items 5, 33). LED demos re-run
-    # this launcher as root, so only that pass prints it.
-    if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        rq_stop_hint "$DEMO_TITLE" keys
-        echo
-    fi
+    # A demo that asks questions in its window (entrypoint.keyboard: Raspberry
+    # Tie on a real backend asks for an IBM Quantum key) keeps the keyboard and
+    # stops with Ctrl+C. Every other one stops with Enter too (items 4, 8).
+    keyboard=$(demo_field '.entrypoint.keyboard' 'false')
 
     # A dedicated launcher WINS when the manifest declares one: it exists
     # precisely because the demo needs pre-launch work the generic path cannot do
@@ -897,6 +888,15 @@ run_python() {
     # Change to demo directory
     cd "$demo_dir"
 
+    # How it runs in this window (LED demos re-run this launcher as root, so
+    # only that pass shows the stop line): rq_run_demo reads Enter for it;
+    # a demo that needs the keyboard runs in front, Ctrl+C stops it (#104)
+    local -a run=(rq_run_demo "$DEMO_TITLE")
+    if [ "$keyboard" = "true" ]; then
+        run=()
+        [ -t 1 ] && { rq_stop_hint "$DEMO_TITLE" keys; echo; }
+    fi
+
     # Put the demo API on sys.path. A demo runs from its own checkout, and
     # /usr/bin - where rq_led_utils.py ships - is not a Python path, so
     # "from rq_led_utils import get_led_config" fails there even though we ask
@@ -927,13 +927,14 @@ run_python() {
         # HOME: the desktop user's, from the menu (where sudo set /root) as from
         # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
         # user's own in ~/.qiskit on every path (Q26).
-        HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
+        ${run[@]+"${run[@]}"} env HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" \
+            PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
         # PYTHONPATH has to travel through env(1) rather than an export.
         info "Running Python script..."
-        run_as_user env PYTHONPATH="$demo_pythonpath" \
+        ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }
@@ -1036,6 +1037,14 @@ cleanup() {
     set +e
     trap '' HUP INT TERM
     debug "Running cleanup..."
+
+    # The demo program (rq_run_demo), before its LEDs are cleared
+    rq_stop_demo_child
+    # Its browser tab, before the server goes (no "Dead kernel" left, #9);
+    # a container that keeps running (no window) keeps its tab
+    if [ -n "$JUPYTER_PID$HTTP_SERVER_PID" ] || [ "$DOCKER_STOP_ON_EXIT" = "1" ]; then
+        rq_close_demo_tabs
+    fi
 
     # Stop Jupyter if running
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then

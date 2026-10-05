@@ -8,7 +8,8 @@ set -euo pipefail
 #   start without the internet later (a classroom, a booth). The list comes
 #   from the demo manifests, sizes included; the Docker demos are an opt-in
 #   second question with their total size (Jan, Q27). One status line per
-#   demo, the details go to a log.
+#   demo with the MB received so far, the small demos first; the details go
+#   to a log.
 # Usage: rq_download_all.sh                  ask, then download
 #        rq_download_all.sh --yes [--docker] no questions (--docker: Docker demos too)
 #        rq_download_all.sh --pending        exit 0 if a demo (Docker demos aside) is missing
@@ -91,9 +92,10 @@ collect_missing() {
 }
 
 # Totals over the entries whose DOCKER value is $1: sets T_DL T_DISK T_PEAK
-# T_TIME T_NAMES T_COUNT. Demos that share a download count once.
+# T_TIME ("about 2-4 minutes") T_NAMES T_COUNT. Demos that share a download
+# count once.
 totals() {
-    local want="$1" i seen=" " lo=0 hi=0 nums
+    local want="$1" i seen=" " lo=0 hi=0 nums unit lo_m hi_m
     T_DL=0; T_DISK=0; T_PEAK=0; T_NAMES=""; T_COUNT=0; T_TIME=""
     for i in "${!IDS[@]}"; do
         [ "${DOCKER[$i]}" = "$want" ] || continue
@@ -105,19 +107,40 @@ totals() {
         fi
         T_DL=$((T_DL + DL[i])); T_DISK=$((T_DISK + DISK[i]))
         [ "${PEAK[$i]}" -gt "$T_PEAK" ] && T_PEAK="${PEAK[$i]}"
-        # "1 minute" -> 1 1, "10-20 minutes" -> 10 20
+        # in seconds: "1 minute" -> 60 60, "3-5 minutes" -> 180 300,
+        # "10-30 seconds" -> 10 30
         nums=$(printf '%s' "${TIMES[$i]}" | tr -c '0-9' ' ')
         set -- $nums
         if [ $# -ge 1 ]; then
-            lo=$((lo + $1)); hi=$((hi + ${2:-$1}))
+            unit=60
+            case "${TIMES[$i]}" in *second*) unit=1 ;; esac
+            lo=$((lo + $1 * unit)); hi=$((hi + ${2:-$1} * unit))
         fi
     done
     if [ "$hi" -gt 0 ]; then
-        if [ "$hi" = 1 ]; then T_TIME="1 minute"
-        elif [ "$lo" = "$hi" ]; then T_TIME="$hi minutes"
-        else T_TIME="$lo-$hi minutes"; fi
+        lo_m=$(( (lo + 30) / 60 )); hi_m=$(( (hi + 59) / 60 ))
+        [ "$lo_m" -ge 1 ] || lo_m=1
+        if [ "$hi" -lt 60 ]; then T_TIME="under a minute"
+        elif [ "$hi_m" = 1 ]; then T_TIME="about 1 minute"
+        elif [ "$lo_m" = "$hi_m" ]; then T_TIME="about $hi_m minutes"
+        else T_TIME="about $lo_m-$hi_m minutes"; fi
     fi
     return 0
+}
+
+# "120 of about 900 MB, 45s" while demo INDEX downloads (RX0: rq_rx_mb at its
+# start): a 1.3 GB image takes minutes, and seconds alone looked stuck (#28)
+progress() {
+    local i="$1" rx0="$2" now got=""
+    if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+        got=$((now - rx0))
+        if [ "${DL[$i]}" -gt 0 ] && [ "$got" -le "${DL[$i]}" ]; then
+            got="$got of about ${DL[$i]} MB, "
+        else
+            got="$got MB, "
+        fi
+    fi
+    printf '%s%ds' "$got" $((SECONDS - start))
 }
 
 # ----------------------------------------------------------------------------
@@ -207,7 +230,7 @@ else
     if [ "$G_COUNT" -gt 0 ]; then
         text="Not on this Pi yet ($G_COUNT): $G_NAMES.\n\n"
         text="${text}Download:  about $(rq_fmt_mb "$G_DL") (needs the internet)\n"
-        [ -n "$G_TIME" ] && text="${text}Time:      about $G_TIME\n"
+        [ -n "$G_TIME" ] && text="${text}Time:      $G_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
         text="${text}Afterwards they start without the internet.\n\nDownload now?"
         ask "$TITLE" "$text" && WANT_GIT=yes
@@ -219,10 +242,16 @@ else
             text="The other demos are on this Pi. Download the Docker demos too? They are large:\n$D_NAMES.\n\n"
         fi
         text="${text}Download:  about $(rq_fmt_mb "$D_DL") (needs the internet)\n"
-        text="${text}Space:     about $(rq_fmt_mb "$D_DISK")"
+        # Docker images share parts: the sum of their sizes is the most they
+        # take (14.6 GB listed, about 10 GB used in the user test, #28)
+        if [ "$D_COUNT" -gt 1 ]; then
+            text="${text}Space:     up to $(rq_fmt_mb "$D_DISK") (the images share parts, so usually less)"
+        else
+            text="${text}Space:     about $(rq_fmt_mb "$D_DISK")"
+        fi
         [ "$D_PEAK" -gt 0 ] && text="${text} ($(rq_fmt_mb $((D_DISK + D_PEAK))) while installing)"
         text="${text}\n"
-        [ -n "$D_TIME" ] && text="${text}Time:      about $D_TIME\n"
+        [ -n "$D_TIME" ] && text="${text}Time:      $D_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
         text="${text}Without them, each Docker demo downloads on its first start."
         ask "Docker demos too?" "$text" --defaultno && WANT_DOCKER=yes
@@ -253,8 +282,12 @@ export RQ_AUTO_INSTALL=1 RQ_NO_MESSAGES=true
 
 ok=0
 failed=""
+# The small demos first, the Docker images after them, smallest first: the
+# first item was the 1.3 GB Workshop server, the rest waited (#28)
 todo=()
-for i in "${!IDS[@]}"; do
+for i in $(for i in "${!IDS[@]}"; do
+               printf '%s %s %s\n' "${DOCKER[$i]}" "${DL[$i]}" "$i"
+           done | sort -k1,1 -k2,2n -k3,3n | awk '{ print $3 }'); do
     if [ "${DOCKER[$i]}" = yes ]; then
         [ "$WANT_DOCKER" = yes ] && todo+=("$i")
     else
@@ -274,21 +307,22 @@ for i in ${todo[@]+"${todo[@]}"}; do
     label="[$k/$n] ${NAMES[$i]}"
     out=$(mktemp)
     start=$SECONDS
+    rx0=$(rq_rx_mb) || rx0=""
     "$ENGINE" "${IDS[$i]}" --install-only < /dev/null > "$out" 2>&1 &
     pid=$!
     while kill -0 "$pid" 2>/dev/null; do
-        printf '\r%s ... %ds ' "$label" $((SECONDS - start))
+        printf '\r%s ... %s   ' "$label" "$(progress "$i" "$rx0")"
         sleep 2
     done
     rc=0
     wait "$pid" || rc=$?
     cat "$out" >> "$LOG"
     if [ "$rc" -eq 0 ] && installed "" "$([ "${DOCKER[$i]}" = yes ] && echo docker)" "" "" "${IDS[$i]}"; then
-        printf '\r%s ... done (%ds)     \n' "$label" $((SECONDS - start))
+        printf '\r%s ... done (%ds)                         \n' "$label" $((SECONDS - start))
         ok=$((ok + 1))
     else
         reason=$(sed -n 's/^ERROR: //p' "$out" | tail -n 1)
-        printf '\r%s ... failed      \n' "$label"
+        printf '\r%s ... failed                              \n' "$label"
         failed="${failed}\n  ${NAMES[$i]}${reason:+: $reason}"
     fi
     rm -f "$out"

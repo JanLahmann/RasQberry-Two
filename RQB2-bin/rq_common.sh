@@ -495,7 +495,8 @@ clear_leds() {
 # (the Pi 4 PWM driver maps both), /dev/spidev0.0 (the retired SPI driver).
 # Needs root to see other users' processes.
 
-# A short name for a holder's command line
+# A short name for a holder's command line: the demo's name as the menus
+# show it, not its script (#31: "rq_led_ibm_logo.py")
 _rq_led_holder_label() {
     case "$1" in
         *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
@@ -503,19 +504,49 @@ _rq_led_holder_label() {
         *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
         *lights_out.py*)         echo "Quantum Lights Out" ;;
         *QuantumRaspberryTie*)   echo "Quantum Raspberry Tie" ;;
-        *RasQ-LED*)              echo "RasQ-LED" ;;
+        *RasQ-LED*)              echo "RasQ-LED Demo" ;;
         *rq_demo_loop*)          echo "the demo loop" ;;
+        *rq_led_ibm_logo.py*|*rq_led_ibm_demo.sh*) echo "IBM LED Demo" ;;
+        *rq_led_simpletest.py*)  echo "Simple LED Demo" ;;
+        *rq_test_leds.py*)       echo "Quick LED Test" ;;
+        *rq_led_test.py*|*rq_led_test.sh*) echo "LED Test & Diagnostics" ;;
+        *demo_led_*|*rq_led_logo.py*|*rq_led_display_text*|*rq_led_display_logo*)
+                                 echo "Text & Logo Display" ;;
+        *LED_painter.py*|*rq_led_painter*) echo "LED-Painter" ;;
+        *turn_off_LEDs.py*)      echo "turning the LEDs off" ;;
         *)
-            # the script it runs, else the program
-            local word
+            # the script it runs: the demo whose manifest names it, else the
+            # script; else the program
+            local word name
             for word in $1; do
-                case "$word" in *.py|*.sh) basename "$word"; return 0 ;; esac
+                case "$word" in
+                    *.py|*.sh)
+                        name=$(_rq_demo_name_of_script "$(basename "$word")") || name=$(basename "$word")
+                        echo "$name"
+                        return 0 ;;
+                esac
             done
             # shellcheck disable=SC2086
             set -- $1
             basename "${1:-unknown}"
             ;;
     esac
+}
+
+# The name of the demo whose manifest runs SCRIPT (its entrypoint script or a
+# launcher, also a variant's): catalogue demos and demos added later
+_rq_demo_name_of_script() {
+    local script="$1" file name
+    command -v jq >/dev/null 2>&1 || return 1
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        name=$(jq -r --arg s "$script" '
+            if ([.entrypoint.script, .entrypoint.launcher,
+                 (.variants // [] | .[] | .entrypoint.launcher, .entrypoint.script)]
+                | index($s)) != null then .name else empty end' "$file" 2>/dev/null) || continue
+        [ -n "$name" ] && { echo "$name"; return 0; }
+    done < <(rq_list_manifests "$(rq_shipped_manifest_dir)" 2>/dev/null)
+    return 1
 }
 
 # The calling process and its parents: never a holder to stop
@@ -608,6 +639,30 @@ Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
     return 1
 }
 
+# An LED layout id (LED_LAYOUT) in plain words, for what the person reads
+# (#29: "Saved: LED_LAYOUT = quad-4x12" was a variable name). The wizard names
+# a flipped kit layout <id>-flipy/-flipx/-rot180 and its own one custom-WxH.
+# Usage: rq_led_layout_name quad-4x12   ->  four 4x12 panels
+rq_led_layout_name() {
+    local id="$1" base turn=""
+    case "$id" in
+        *-flipy)  base="${id%-flipy}";  turn=", mounted upside down" ;;
+        *-flipx)  base="${id%-flipx}";  turn=", mounted mirrored" ;;
+        *-rot180) base="${id%-rot180}"; turn=", rotated 180°" ;;
+        *)        base="$id" ;;
+    esac
+    case "$base" in
+        single-24x8)   echo "one 24x8 panel$turn" ;;
+        quad-4x12)     echo "four 4x12 panels$turn" ;;
+        quad-2x2-12x4) echo "four 4x12 panels, mounted upside down" ;;
+        triple-8x8)    echo "three 8x8 panels$turn" ;;
+        single-8x32)   echo "one 32x8 panel$turn" ;;
+        custom-*)      echo "your own layout (${base#custom-})$turn" ;;
+        "")            echo "not set" ;;
+        *)             echo "$id" ;;
+    esac
+}
+
 # Run a command so that it finishes even if this script is killed: when a
 # demo's window is closed, script(1) (rq_hold_on_error.sh) asks the demo to
 # stop and kills it 2 s later. A cleanup that took longer - stopping a
@@ -671,6 +726,8 @@ _rq_led_on_exit() {
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
+    # the demo first, or it draws on while the panel is cleared
+    rq_stop_demo_child
     led_clear_quietly
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
 }
@@ -680,9 +737,11 @@ _rq_led_on_exit() {
 # ----------------------------------------------------------------------------
 # Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
 # the window - from a desktop icon and from the RasQberry menu (also over SSH).
-# A demo that reads the keyboard itself (a console game, a text prompt) stops
-# with Ctrl+C or by closing the window. Docker demos stop with their window
-# too; only the Workshop & Qiskit Server keeps running by design.
+# A program that does not read Enter itself runs through rq_run_demo, which
+# reads it for it (items 4, 8). Only a demo that needs the keyboard (a text
+# prompt, e.g. Raspberry Tie asking for an IBM Quantum key) stops with Ctrl+C
+# or by closing the window. Docker demos stop with their window too; only the
+# Workshop & Qiskit Server keeps running by design.
 
 # Usage: rq_stop_hint NAME [keys]
 rq_stop_hint() {
@@ -691,7 +750,13 @@ rq_stop_hint() {
     else
         echo "To stop $1: press Enter or Ctrl+C, or close this window."
     fi
+    # The demo's browser window opened maximised over this one (#15)
+    [ -z "${_RQ_DEMO_TABS[*]:-}" ] || echo "$RQ_BROWSER_BACK_HINT"
 }
+
+# Chromium opens maximised (#15), over the window that started it: where
+# that window is now, under a stop line or a "Press Enter" line
+RQ_BROWSER_BACK_HINT="The browser covers this window: to get back here, click it in the taskbar."
 
 # Is process PID still there (not a zombie)? Works for children started
 # through sudo, where kill -0 fails with "not permitted".
@@ -729,6 +794,130 @@ rq_wait_for_stop() {
     done
 }
 
+# The processes PID started, and theirs (one per line)
+_rq_descendants() {
+    local c
+    for c in $(pgrep -P "$1" 2>/dev/null); do
+        echo "$c"
+        _rq_descendants "$c"
+    done
+}
+
+# Stop PID and what it started: SIGTERM (a Python demo then runs its own
+# cleanup, e.g. Fractals closes its browser window), SIGKILL after SECONDS
+# (default 5). Quiet: no "Killed jupyter-lab" line for a child of this shell
+# (#27). Usage: rq_stop_pid PID [SECONDS]
+rq_stop_pid() {
+    local pid="$1" secs="${2:-5}" kids k left
+    [ -n "$pid" ] || return 0
+    if _rq_pid_alive "$pid"; then
+        kids=$(_rq_descendants "$pid")
+        kill -TERM "$pid" 2>/dev/null || sudo -n kill -TERM "$pid" 2>/dev/null || true
+        _rq_wait_gone "$secs" "$pid"
+        # what it started and left behind (e.g. the program a shell function
+        # ran), then whatever does not stop
+        for k in $kids; do
+            _rq_pid_alive "$k" && { kill -TERM "$k" 2>/dev/null || sudo -n kill -TERM "$k" 2>/dev/null || true; }
+        done
+        # shellcheck disable=SC2086
+        _rq_wait_gone "$secs" $kids
+        left=""
+        for k in "$pid" $kids; do
+            _rq_pid_alive "$k" && left="$left $k"
+        done
+        # shellcheck disable=SC2086
+        [ -z "$left" ] || { kill -KILL $left || sudo -n kill -KILL $left; } 2>/dev/null || true
+    fi
+    { wait "$pid"; } 2>/dev/null || true
+}
+
+# Wait up to SECONDS until none of the PIDs runs any more
+_rq_wait_gone() {
+    local secs="$1" n=0 k busy
+    shift
+    while [ "$n" -lt $((secs * 10)) ]; do
+        busy=""
+        for k in "$@"; do
+            _rq_pid_alive "$k" && { busy=1; break; }
+        done
+        [ -n "$busy" ] || return 0
+        sleep 0.1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# Lines on a demo's error output that look like faults but are none (#27):
+# Qt finds the runtime directory "0770 instead of 0700" because Raspberry Pi
+# OS's VNC server gives it an ACL; the group has no access all the same.
+_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory '
+
+# Run a command without those lines on its error output; everything else
+# stays. Usage: rq_quiet_stderr COMMAND [ARGS...]
+rq_quiet_stderr() {
+    "$@" 2> >(grep -Ev --line-buffered "$_RQ_HARMLESS_STDERR" >&2)
+}
+
+# The demo program rq_run_demo runs (for the exit traps)
+RQ_DEMO_CHILD=""
+
+# Stop the program rq_run_demo started, if it still runs. For exit traps:
+# the demo first, then its LEDs, server or container.
+rq_stop_demo_child() {
+    [ -n "${RQ_DEMO_CHILD:-}" ] || return 0
+    local pid="$RQ_DEMO_CHILD"
+    RQ_DEMO_CHILD=""
+    rq_stop_pid "$pid"
+}
+
+# Run a demo program in this window so that Enter stops it as well as Ctrl+C
+# or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
+# Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
+# themselves: the program runs in the background with no keyboard (its input
+# is empty), and this window reads Enter. Prints the stop line first. Ctrl+C,
+# a closed window or a stop from the menu (INT, HUP, TERM) stop the program
+# and end the script with 130, 129 or 143, so its EXIT trap clears the LEDs
+# or stops the server. A background program ignores Ctrl+C itself, so a
+# Python demo ends without a KeyboardInterrupt traceback (#13). Without a
+# terminal (the demo loop, a menu run without a window) the program simply
+# runs. Returns its exit status, or 0 when Enter stopped it.
+# Usage: rq_run_demo NAME COMMAND [ARGS...]
+rq_run_demo() {
+    local name="$1" rc=0 old_hup old_int old_term
+    shift
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        "$@" || rc=$?
+        return "$rc"
+    fi
+    rq_stop_hint "$name"
+    echo
+    old_hup=$(trap -p HUP)
+    old_int=$(trap -p INT)
+    old_term=$(trap -p TERM)
+    trap 'rq_stop_demo_child; exit 129' HUP
+    trap 'rq_stop_demo_child; exit 130' INT
+    trap 'rq_stop_demo_child; exit 143' TERM
+    "$@" </dev/null &
+    RQ_DEMO_CHILD=$!
+    # until Enter (or no more input: Ctrl+D), or the program ends by itself
+    while _rq_pid_alive "$RQ_DEMO_CHILD"; do
+        rc=0
+        read -r -t 2 _ || rc=$?
+        [ "$rc" -gt 128 ] || break
+    done
+    rc=0
+    if _rq_pid_alive "$RQ_DEMO_CHILD"; then
+        rq_stop_demo_child               # Enter: stopped, not an error
+    else
+        { wait "$RQ_DEMO_CHILD"; } 2>/dev/null || rc=$?
+        RQ_DEMO_CHILD=""
+    fi
+    eval "${old_hup:-trap - HUP}"
+    eval "${old_int:-trap - INT}"
+    eval "${old_term:-trap - TERM}"
+    return "$rc"
+}
+
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
@@ -759,6 +948,7 @@ _rq_window_container_stop() {
     local name="$RQ_WINDOW_CONTAINER"
     RQ_WINDOW_CONTAINER=""
     { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_close_demo_tabs
     rq_docker_stop_detached "$name"
     { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
@@ -1002,15 +1192,32 @@ _rq_find_browser() {
 # still stop the demo's own server, LEDs and containers. This then waits until
 # the command has handed the address over and exited, at most
 # RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+#
+# A demo served on this Pi (http://127.0.0.1:PORT, http://localhost:PORT)
+# opens in a Chromium window of its own, on top of the demo's terminal and
+# maximised, or full screen with --start-fullscreen (#15; a running Chromium
+# ignores that flag, so rq_browser_tab.py sets it). Its tab closes when the
+# demo's server stops - at once through rq_close_demo_tabs, else as soon as
+# the server is gone - instead of staying behind with "Dead kernel" and
+# asking "Leave site?" when closed (#9). Websites (Composer) open as before.
 # Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
 rq_open_browser() {
-    local url="$1" browser pid user_name ticks=0
+    local url="$1" browser pid user_name ticks=0 before="" state=""
     local -a cmd
     shift
     browser=$(_rq_find_browser) || return 1
     case "$browser" in
-        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
-        *)         cmd=("$browser" "$url") ;;
+        chromium*)
+            if _rq_local_demo_url "$url"; then
+                before=$(_rq_browser_tab ids 2>/dev/null) || before=""
+                state=maximized
+                case " $* " in *" --start-fullscreen "*|*" --kiosk "*) state=fullscreen ;; esac
+                cmd=("$browser" --password-store=basic --new-window "$@" "$url")
+            else
+                cmd=("$browser" --password-store=basic "$@" "$url")
+            fi
+            ;;
+        *)  cmd=("$browser" "$url") ;;
     esac
     # As the desktop user, as run_as_user does. sudo goes inside setsid: it
     # passes the signals it gets on to the browser.
@@ -1031,7 +1238,49 @@ rq_open_browser() {
         ticks=$((ticks + 1))
     done
     _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    if [ -n "$state" ]; then
+        _RQ_DEMO_TABS+=("$url")
+        _rq_browser_tab_watch --before "$before" --window-state "$state" "$url"
+    fi
     return 0
+}
+
+# Is URL a demo served on this Pi (its tab is of no use once the demo stops)?
+_rq_local_demo_url() {
+    case "$1" in
+        http://127.0.0.1:[0-9]*|http://localhost:[0-9]*) return 0 ;;
+    esac
+    return 1
+}
+
+# The demo-tab helper (Chromium's DevTools port, 127.0.0.1 only)
+_rq_browser_tab() {
+    python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" "$@"
+}
+
+# Look after a demo's new tab in the background, in a session of its own: it
+# outlives the demo's window and closes the tab once the server has stopped
+_rq_browser_tab_watch() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    else
+        nohup python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    fi
+    disown "$!" 2>/dev/null || true
+}
+
+# The addresses of the demo tabs this script opened
+_RQ_DEMO_TABS=()
+
+# Close the tabs this script's demo opened, before its server stops, so they
+# do not show "Dead kernel" or "Connection failed" first (#9). Quiet, and
+# nothing without the DevTools port. Usage: rq_close_demo_tabs
+rq_close_demo_tabs() {
+    local u
+    for u in ${_RQ_DEMO_TABS[@]+"${_RQ_DEMO_TABS[@]}"}; do
+        _rq_browser_tab close "$u" </dev/null >/dev/null 2>&1 || true
+    done
+    _RQ_DEMO_TABS=()
 }
 
 # Open URL in available browser (see rq_open_browser), or say where to go
@@ -1241,6 +1490,21 @@ _rq_docker_space_note() {
         printf '%s' "           A 16 GB card has room for one Docker demo (not the\n"
         printf '%s' "           Workshop & Qiskit Server).\n"
     fi
+    return 0
+}
+
+# The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
+# holds only what the demos use (#18). A checkout made before also held every
+# file at the top of the repository (package.json, tox.ini ...), which the
+# notebooks' file browser showed first: narrow it, with no download (the
+# files are in the clone). The same list as clone_ibm_learning_content in
+# RQB2_menu.sh.
+# Usage: rq_ibm_learning_tidy DIR
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+rq_ibm_learning_tidy() {
+    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
+    # shellcheck disable=SC2086  # one pattern per word
+    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
     return 0
 }
 
@@ -1819,14 +2083,63 @@ rq_docker_fail() {
     die "$msg"
 }
 
-# Download an image, with Docker's own progress and, on failure, its own
-# reason instead of "check your internet connection" (R-038).
-# Usage: rq_docker_pull IMAGE "Name"
+# MB received so far on the network (not lo or Docker's own interfaces), for
+# a download's progress line. Empty when it cannot be told. RQ_NET_DIR: tests.
+# Usage: mb=$(rq_rx_mb)
+rq_rx_mb() {
+    local f n sum=0 any=""
+    for f in "${RQ_NET_DIR:-/sys/class/net}"/*/statistics/rx_bytes; do
+        [ -r "$f" ] || continue
+        n=${f%/statistics/rx_bytes}; n=${n##*/}
+        case "$n" in lo|docker*|br-*|veth*|virbr*) continue ;; esac
+        sum=$((sum + $(cat "$f" 2>/dev/null || echo 0)))
+        any=1
+    done
+    [ -z "$any" ] || echo $((sum / 1000000))
+}
+
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+_rq_pull_progress() {
+    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
+    rx0=$(rq_rx_mb) || rx0=""
+    while kill -0 "$parent" 2>/dev/null; do
+        got=""
+        if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+            got=$((now - rx0))
+            case "$mb" in
+                ''|*[!0-9]*|0) got="$got MB, " ;;
+                *) if [ "$got" -le "$mb" ]; then got="$got of about $mb MB, "; else got="$got MB, "; fi ;;
+            esac
+        fi
+        printf '\rDownloading %s ... %s%ds   ' "$name" "$got" $((SECONDS - start))
+        sleep 2
+    done
+}
+
+# Download an image. In a terminal one line shows the MB received so far
+# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# list of layers (#23); on failure Docker's own reason, not "check your
+# internet connection" (R-038).
+# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" err rc=0 why
-    info "Downloading $name: $image"
+    local image="$1" name="${2:-$1}" mb="${3:-}" err rc=0 why printer start
     err=$(mktemp)
-    docker pull "$image" 2> "$err" || rc=$?
+    if [ -t 1 ]; then
+        start=$SECONDS
+        # The line comes from a helper beside the pull, which stays in the
+        # foreground so that Ctrl+C stops it; the helper ends with this shell
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        printer=$!
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+        kill "$printer" 2>/dev/null || true
+        wait "$printer" 2>/dev/null || true
+        printf '\rDownloading %s ... %s                         \n' "$name" \
+            "$([ "$rc" -eq 0 ] && echo "done ($((SECONDS - start))s)" || echo failed)"
+    else
+        info "Downloading $name: $image"
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+    fi
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
     [ "$rc" -eq 0 ] && return 0
@@ -1857,6 +2170,22 @@ rq_docker_drop_old() {
     return 0
 }
 
+# The name other computers reach this Pi by: the one avahi announces. When
+# another device on the network has <hostname>.local already, avahi calls
+# this Pi <hostname>-2.local (R-063), and <hostname>.local reaches the other
+# one (#3). rq_remote_access.sh mdns uses it too; rq_display_ip.py does the same.
+# Usage: name=$(rq_mdns_name)
+rq_mdns_name() {
+    local fqdn="" t=""
+    if command -v busctl >/dev/null 2>&1; then
+        command -v timeout >/dev/null 2>&1 && t="timeout 3"
+        fqdn=$($t busctl --system call org.freedesktop.Avahi / \
+            org.freedesktop.Avahi.Server GetHostNameFqdn 2>/dev/null) || fqdn=""
+        fqdn=$(printf '%s\n' "$fqdn" | sed -n 's/^s "\(.*\)"$/\1/p')
+    fi
+    echo "${fqdn:-$(hostname 2>/dev/null).local}"
+}
+
 # Open URL in the desktop user's browser (rq_open_browser: the tab stays when
 # the demo's window closes) - or, without a screen (an SSH session), say how
 # to reach it from another computer (Jan, Q19). PORT is the
@@ -1878,7 +2207,7 @@ rq_show_url() {
     if [ -n "$port" ]; then
         echo "To use the demo from your computer:"
         echo "  1. On your computer, run:"
-        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(rq_mdns_name)"
         echo "  2. Open in its browser:"
         echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
     else

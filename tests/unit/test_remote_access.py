@@ -163,6 +163,22 @@ def test_rename_goes_through_raspi_config_and_restarts_avahi(stubs):
     assert "rasqberry-07" in proc.stdout
 
 
+def test_mdns_is_the_name_avahi_announces(stubs, tmp_path):
+    # the shared rq_mdns_name, as the Workshop server and rq_display_ip.py
+    assert _remote(stubs, "mdns", STUB_HOSTNAME="class7").stdout == "class7.local\n"
+    _exe(tmp_path / "stubs" / "busctl", 'echo "s \\"class7-3.local\\""\n')
+    assert _remote(stubs, "mdns", STUB_HOSTNAME="class7").stdout == "class7-3.local\n"
+    assert "mdns=class7-3.local" in _remote(stubs, "status", STUB_HOSTNAME="class7").stdout
+
+
+def test_rename_says_when_avahi_took_another_name(stubs, tmp_path):
+    _exe(tmp_path / "stubs" / "busctl", 'echo "s \\"rasqberry-07-2.local\\""\n')
+    proc = _remote(stubs, "name", "rasqberry-07", RQ_MDNS_WAIT="2")
+    assert proc.returncode == 0, proc.stderr
+    assert "rasqberry-07.local is taken on this network, so other computers reach it as " \
+           "rasqberry-07-2.local." in proc.stdout
+
+
 def test_bad_name_changes_nothing(stubs):
     assert _remote(stubs, "name", "Bad Name").returncode != 0
     assert "do_hostname" not in stubs.logged()
@@ -187,6 +203,46 @@ def test_status_reports_ssh_and_vnc(stubs, tmp_path):
     proc = _remote(stubs, "status", STUB_ENABLED=str(flag))
     assert "ssh=on vnc=on name=rasqberry" in proc.stdout
     assert "ssh=off vnc=off" in _remote(stubs, "status").stdout
+
+
+# SSH key only (user test 2026-10-04, #31): Imager's "public-key only" turns
+# password login off, and Remote Access must not promise a password then
+_SSHD_CONFIG = ("Include /etc/ssh/sshd_config.d/*.conf\n#PasswordAuthentication yes\n"
+                "KbdInteractiveAuthentication no\nUsePAM yes\n")
+
+
+def _ssh_password(stubs, tmp_path, effective=None, dropin=None, main=_SSHD_CONFIG):
+    d = tmp_path / "ssh"
+    (d / "sshd_config.d").mkdir(parents=True, exist_ok=True)
+    (d / "sshd_config").write_text(main)
+    if dropin is not None:
+        (d / "sshd_config.d" / "00-rasqberry-carried.conf").write_text(dropin)
+    sshd = tmp_path / "sshd"
+    # sshd -T as root prints the effective settings; as a user it fails
+    _exe(sshd, f"printf '%s' '{effective}'\n" if effective else "exit 1\n")
+    out = _remote(stubs, "status", RQ_SSHD=str(sshd), RQ_SSHD_DIR=str(d)).stdout
+    return dict(f.split("=", 1) for f in out.split())["ssh_password"]
+
+
+@pytest.mark.parametrize("effective,expected", [
+    ("passwordauthentication no\nkbdinteractiveauthentication no\nusepam yes\n", "no"),
+    ("passwordauthentication yes\nkbdinteractiveauthentication no\nusepam yes\n", "yes"),
+    # keyboard-interactive with PAM asks for the password, too
+    ("passwordauthentication no\nkbdinteractiveauthentication yes\nusepam yes\n", "yes"),
+])
+def test_ssh_password_from_the_effective_settings(stubs, tmp_path, effective, expected):
+    assert _ssh_password(stubs, tmp_path, effective=effective) == expected
+
+
+@pytest.mark.parametrize("dropin,main,expected", [
+    (None, _SSHD_CONFIG, "yes"),                                    # the shipped default
+    ("PasswordAuthentication no\n", _SSHD_CONFIG, "no"),            # carried over (A/B update)
+    (None, _SSHD_CONFIG + "PasswordAuthentication no\n", "no"),     # Imager's sed
+    ("PasswordAuthentication yes\n", _SSHD_CONFIG + "PasswordAuthentication no\n", "yes"),  # first wins
+    (None, _SSHD_CONFIG + "Match User guest\n  PasswordAuthentication no\n", "yes"),       # conditional
+])
+def test_ssh_password_from_the_files_without_root(stubs, tmp_path, dropin, main, expected):
+    assert _ssh_password(stubs, tmp_path, dropin=dropin, main=main) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +274,121 @@ def test_remote_menu_shows_the_state_and_switches_vnc_off(menu_env):
     assert "vnc off" in log.read_text()
 
 
+def test_remote_menu_says_key_only_when_ssh_takes_no_password(menu_env):
+    code = ('_rq_remote() { [ "$1" = status ] && '
+            'echo "ssh=on vnc=on name=rasqberry mdns=rasqberry.local ssh_password=no"; return 0; }; '
+            'do_toggle_remote ssh off no; do_remote_access_menu')
+    proc = menu_env(code, extra_env={"WT_RC_menu": "1", "WT_RC_yesno": "1"})
+    assert proc.returncode == 0, proc.stderr
+    texts = _texts(menu_env)
+    assert "SSH (log in from another computer): on, key only" in texts
+    assert "SSH accepts only computers whose key is saved on this Pi (no password)." in texts
+    assert "who knows the password can log in over VNC" in texts
+    assert "can log in over SSH and VNC" not in texts
+    assert "Only computers whose key is saved on this Pi can then log in (no password)." in texts
+
+
+def test_remote_menu_with_password_ssh_keeps_the_old_words(menu_env):
+    code = ('_rq_remote() { [ "$1" = status ] && '
+            'echo "ssh=on vnc=on name=rasqberry mdns=rasqberry.local ssh_password=yes"; return 0; }; '
+            'do_remote_access_menu')
+    menu_env(code, extra_env={"WT_RC_menu": "1"})
+    texts = _texts(menu_env)
+    assert "Anyone on the same network who knows the password can log in over SSH and VNC." in texts
+    assert "key only" not in texts
+
+
+# "Change the password" (user test #19): password boxes with Cancel instead
+# of a raw passwd prompt that Esc and Ctrl+C could not leave
+_WT_PASSWORD = r'''#!/bin/sh
+kind=other
+for a in "$@"; do
+  case "$a" in --passwordbox) kind=passwordbox ;; --msgbox) kind=msgbox ;; esac
+done
+{ for a in "$@"; do printf '%s\n' "$a"; done; echo "@@"; } >> "$WT_LOG"
+if [ "$kind" = passwordbox ]; then
+  reply=$(head -n 1 "$PW_REPLIES")
+  sed -i.bak 1d "$PW_REPLIES"
+  case "$reply" in
+    ""|"<cancel>") exit 1 ;;
+    "<empty>") exit 0 ;;
+  esac
+  printf '%s' "$reply" >&2
+fi
+exit 0
+'''
+
+SECRET = "s3cret pass:x"
+
+
+def _change_password(menu_env, replies, sshpw="yes", chpasswd_rc=0):
+    stubs = menu_env.tmp / "stubs"
+    (stubs / "whiptail").write_text(_WT_PASSWORD)      # menu_env made it executable
+    got = menu_env.tmp / "chpasswd.in"
+    _exe(stubs / "chpasswd", f'echo "chpasswd $*" >> "{menu_env.tmp}/calls"\ncat > "{got}"\n'
+                             f'[ {chpasswd_rc} -eq 0 ] || echo "chpasswd: (user rasqberry) pam_chauthtok() failed" >&2\n'
+                             f'exit {chpasswd_rc}\n')
+    _exe(stubs / "passwd", f'echo "passwd $*" >> "{menu_env.tmp}/calls"\n')
+    answers = menu_env.tmp / "pw-replies"
+    answers.write_text("".join(r + "\n" for r in replies))
+    proc = menu_env(f"do_change_password {sshpw}",
+                    extra_env={"PW_REPLIES": str(answers), "SUDO_USER": "rasqberry"})
+    calls = (menu_env.tmp / "calls").read_text() if (menu_env.tmp / "calls").exists() else ""
+    return proc, _texts(menu_env), calls, (got.read_text() if got.exists() else None)
+
+
+def test_password_change_sets_it_through_chpasswd(menu_env):
+    proc, texts, calls, got = _change_password(menu_env, [SECRET, SECRET])
+    assert proc.returncode == 0, proc.stderr
+    assert got == f"rasqberry:{SECRET}\n"
+    assert calls == "chpasswd \n"               # no argument: the password came on stdin
+    assert "--passwordbox" in texts and "Cancel keeps the current password." in texts
+    assert "New password for rasqberry. It is used for SSH, VNC and the login screen." in texts
+    assert "Password changed. Use the new one for SSH, VNC and the login screen." in texts
+    assert SECRET not in texts and SECRET not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize("replies", [["<cancel>"], [SECRET, "<cancel>"]])
+def test_password_change_can_be_cancelled(menu_env, replies):
+    proc, texts, calls, got = _change_password(menu_env, replies)
+    assert proc.returncode == 0, proc.stderr
+    assert calls == "" and got is None
+    assert "Password changed" not in texts
+
+
+def test_password_change_refuses_an_empty_password(menu_env):
+    _, texts, calls, _ = _change_password(menu_env, ["<empty>", "<cancel>"])
+    assert "The password cannot be empty." in texts
+    assert calls == ""
+
+
+def test_password_change_needs_the_same_password_twice(menu_env):
+    _, texts, calls, got = _change_password(menu_env, [SECRET, "other", "<cancel>"])
+    assert "The two passwords are not the same. Nothing was changed" in texts
+    assert calls == "" and got is None
+    # after a mismatch it asks again from the start
+    _, texts, calls, got = _change_password(menu_env, [SECRET, "other", SECRET, SECRET])
+    assert got == f"rasqberry:{SECRET}\n"
+
+
+def test_password_change_with_key_only_ssh(menu_env):
+    _, texts, _, _ = _change_password(menu_env, [SECRET, SECRET], sshpw="no")
+    assert "Password changed. Use the new one for VNC and the login screen." in texts
+    assert "for SSH" not in texts
+
+
+def test_password_change_that_fails_says_so(menu_env):
+    _, texts, _, _ = _change_password(menu_env, [SECRET, SECRET], chpasswd_rc=1)
+    assert "The password was not changed." in texts and "pam_chauthtok" in texts
+    assert "Password changed" not in texts and SECRET not in texts
+
+
+def test_password_change_never_runs_passwd():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    body = menu.split("do_change_password() {", 1)[1].split("\n}\n", 1)[0]
+    assert "passwd \"" not in body and "chpasswd" in body
+
+
 def test_remote_menu_rename_validates_first(menu_env):
     log = menu_env.tmp / "remote.log"
     code = (f'_rq_remote() {{ echo "$*" >> "{log}"; [ "$1" != check-name ]; }}; '
@@ -246,8 +417,8 @@ exit "$rc"
 '''
 
 
-def _checklist(stubs, tmp_path, **extra):
-    _exe(tmp_path / "stubs" / "whiptail", _WT_CHECKLIST[len("#!/bin/sh\n"):])
+def _checklist(stubs, tmp_path, wt=_WT_CHECKLIST, **extra):
+    _exe(tmp_path / "stubs" / "whiptail", wt[len("#!/bin/sh\n"):])
     _exe(tmp_path / "stubs" / "dpkg-reconfigure", f'echo "dpkg-reconfigure $*" >> "{stubs.calls}"\n')
     kb = tmp_path / "keyboard"
     kb.write_text('XKBMODEL="pc105"\nXKBLAYOUT="gb"\n')
@@ -291,6 +462,87 @@ def test_name_step_keeps_the_name_on_cancel(stubs, tmp_path):
     assert (tmp_path / "home" / ".state" / "rasqberry" / "name-kept").exists()
 
 
+# The checklist's password step (#19): the menu's dialogs with Cancel, not a
+# raw passwd prompt
+_WT_CHECKLIST_PW = _WT_CHECKLIST.replace(
+    "--inputbox) kind=inputbox ;;", "--inputbox) kind=inputbox ;; --passwordbox) kind=passwordbox ;;").replace(
+    'eval "reply=', 'if [ "$kind" = passwordbox ]; then\n'
+    '  reply=$(head -n 1 "$PW_REPLIES"); sed -i.bak 1d "$PW_REPLIES"\n'
+    '  case "$reply" in ""|"<cancel>") exit 1 ;; "<empty>") exit 0 ;; esac\n'
+    '  printf "%s" "$reply" >&2; exit 0\nfi\neval "reply=', 1)
+
+
+def _password_step(stubs, tmp_path, replies, sshpw="yes", chpasswd_rc=0):
+    d = tmp_path / "stubs"
+    pw_hash = subprocess.run(["perl", "-e", 'print crypt("Qiskit1!", "ab")'],
+                             capture_output=True, text=True).stdout
+    _exe(d / "getent", f'echo "rasqberry:{pw_hash}:19000:0:99999:7:::"\n')
+    got = tmp_path / "chpasswd.in"
+    _exe(d / "chpasswd", f'echo "chpasswd $*" >> "{stubs.calls}"\ncat > "{got}"\n'
+                         f'[ {chpasswd_rc} -eq 0 ] || echo "chpasswd: pam_chauthtok() failed" >&2\n'
+                         f'exit {chpasswd_rc}\n')
+    _exe(d / "passwd", f'echo "passwd $*" >> "{stubs.calls}"\n')
+    ssh = tmp_path / "ssh"
+    (ssh / "sshd_config.d").mkdir(parents=True)
+    (ssh / "sshd_config").write_text(f"PasswordAuthentication {sshpw}\nKbdInteractiveAuthentication no\n")
+    answers = tmp_path / "pw-replies"
+    answers.write_text("".join(r + "\n" for r in replies))
+    proc = _checklist(stubs, tmp_path, wt=_WT_CHECKLIST_PW, WT_REPLY_checklist="password",
+                      WT_REPLY_menu="change", PW_REPLIES=str(answers),
+                      RQ_SSHD=str(tmp_path / "no-sshd"), RQ_SSHD_DIR=str(ssh))
+    texts = (tmp_path / "wt.log").read_text()
+    return proc, texts, (got.read_text() if got.exists() else None)
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+def test_checklist_password_step_uses_dialogs_and_chpasswd(stubs, tmp_path):
+    proc, texts, got = _password_step(stubs, tmp_path, [SECRET, SECRET])
+    assert proc.returncode == 0, proc.stderr
+    assert got == f"rasqberry:{SECRET}\n"
+    assert "chpasswd \n" in stubs.logged() and "passwd " not in stubs.logged().replace("chpasswd", "")
+    assert "--passwordbox" in texts and "Cancel keeps the current password." in texts
+    assert "Password changed. Use the new one for SSH, VNC and the login screen." in texts
+    assert SECRET not in texts and SECRET not in proc.stdout + proc.stderr
+    assert not (tmp_path / "home" / ".state" / "rasqberry" / "demo-password-kept").exists()
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+@pytest.mark.parametrize("replies", [["<cancel>"], [SECRET, "<cancel>"], ["<empty>", "<cancel>"],
+                                     [SECRET, "other", "<cancel>"]])
+def test_checklist_password_step_can_be_cancelled(stubs, tmp_path, replies):
+    proc, texts, got = _password_step(stubs, tmp_path, replies)
+    assert proc.returncode == 0, proc.stderr
+    assert "--passwordbox" in texts
+    assert got is None and "passwd" not in stubs.logged()
+    assert "Password changed" not in texts and SECRET not in texts
+    assert ("The password cannot be empty." in texts) == ("<empty>" in replies)
+    assert ("The two passwords are not the same." in texts) == ("other" in replies)
+
+
+@pytest.mark.skipif(shutil.which("perl") is None, reason="perl required")
+def test_checklist_password_step_with_key_only_ssh_and_a_failure(stubs, tmp_path):
+    proc, texts, _ = _password_step(stubs, tmp_path, [SECRET, SECRET], sshpw="no", chpasswd_rc=1)
+    assert proc.returncode == 0, proc.stderr
+    assert "It is used for VNC and the login screen." in texts and "for SSH" not in texts
+    assert "The password was not changed." in texts and "pam_chauthtok" in texts
+    assert "Password changed" not in texts and SECRET not in texts
+
+
+@pytest.mark.parametrize("verified,layout,label", [
+    ("true", "quad-4x12", "Run again: LED panel check (four 4x12 panels)"),
+    ("true", "single-24x8-flipy", "Run again: LED panel check (one 24x8 panel, mounted upside down)"),
+    ("skipped", "quad-4x12", "Run again: LED panel check (skipped: no panel)"),
+])
+def test_checklist_names_the_led_kit_in_words(stubs, tmp_path, verified, layout, label):
+    # #29: "LED panel check (quad-4x12)" showed the layout's id
+    env_file = tmp_path / "rasqberry_environment.env"
+    env_file.write_text(f"LED_LAYOUT={layout}\nLED_LAYOUT_VERIFIED={verified}\n")
+    proc = _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_ENV_FILE=str(env_file))
+    assert proc.returncode == 0, proc.stderr
+    args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
+    assert args[args.index("led") + 1] == label
+
+
 # ---------------------------------------------------------------------------
 # System Info (R-016, R-112)
 # ---------------------------------------------------------------------------
@@ -309,6 +561,37 @@ def test_system_info_decodes_the_power_state(stubs, tmp_path, throttled, text):
     assert text in proc.stdout
     assert proc.stdout.startswith("Name:              rasqberry")
     assert "Address:" in proc.stdout
+
+
+# Heat (#21): the sticky "since start-up" bit alone is not "too hot now", and
+# each heat line comes with one line of advice for this Pi.
+@pytest.mark.parametrize("throttled,model,note,advice", [
+    ("0x80000", "Raspberry Pi 5 Model B Rev 1.0", "was slowed down earlier because it got too hot",
+     "Fit the Active Cooler and check that its fan runs."),
+    ("0x80008", "Raspberry Pi 5 Model B Rev 1.0", "too hot now, slowed down",
+     "Fit the Active Cooler and check that its fan runs."),
+    ("0x60006", "Raspberry Pi 4 Model B Rev 1.5", "too hot now, slowed down",
+     "Give it more air: a heatsink, or a case with vents."),
+    ("0x50005", "Raspberry Pi 4 Model B Rev 1.5", None, None),   # under-voltage, not heat
+    ("0x0", "Raspberry Pi 5 Model B Rev 1.0", None, None),
+])
+def test_system_info_temperature_now_or_earlier(stubs, tmp_path, throttled, model, note, advice):
+    _exe(tmp_path / "stubs" / "vcgencmd", f'echo "throttled={throttled}"\n')
+    (tmp_path / "model").write_text(model + "\0")
+    (tmp_path / "temp").write_text("77000\n")
+    env = dict(os.environ, PATH=stubs.path, RQ_BUILD_JSON=str(tmp_path / "none.json"),
+               RQ_MODEL_FILE=str(tmp_path / "model"), RQ_THERMAL_FILE=str(tmp_path / "temp"))
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_info.sh")], env=env,
+                          capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    lines = proc.stdout.splitlines()
+    i = next(n for n, line in enumerate(lines) if line.startswith("Temperature:"))
+    if note is None:
+        assert lines[i] == "Temperature:       77 °C"
+        assert not lines[i + 1].startswith(" ")
+    else:
+        assert lines[i] == f"Temperature:       77 °C - {note}"
+        assert lines[i + 1] == " " * 19 + advice
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq required")
@@ -379,6 +662,19 @@ def test_login_message_points_to_the_menu_and_fits(stubs):
     assert proc.returncode == 0, proc.stderr
     assert "0 RasQberry" in proc.stdout and "rq_help" in proc.stdout
     assert max(len(line) for line in proc.stdout.splitlines()) <= 80
+
+
+def test_ssh_login_shows_no_misleading_last_login(tmp_path):
+    # User test #31: a fresh card said "Last login: <build time>" - the
+    # console autologin of the first start, before the clock was set. The
+    # build empties /var/log (pi-gen export-image), so a drop-in turns the
+    # line off; it is installed with the other system files (#294).
+    conf = os.path.join(_SYS, "etc", "ssh", "sshd_config.d", "10-rasqberry.conf")
+    lines = [l.strip() for l in open(conf) if l.strip() and not l.startswith("#")]
+    assert lines == ["PrintLastLog no"]
+    # it says nothing about password login: rq_carry_ssh_identity.sh and
+    # rq_remote_access.sh read the first PasswordAuthentication in the drop-ins
+    assert "passwordauthentication" not in open(conf).read().lower()
 
 
 def test_update_notice_fits_80_columns(tmp_path):

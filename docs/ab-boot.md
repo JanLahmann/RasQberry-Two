@@ -258,6 +258,7 @@ set `boot_partition=2` under `[all]` in `autoboot.txt` (Slot A; `3` is Slot B).
 ```bash
 sudo rq_expand_ab.sh status                       # two systems, one, or not set up yet
 sudo rq_slot_manager.sh status                    # booted slot, slot contents, sizes, warnings
+sudo rq_slot_manager.sh status --plain            # the same in plain words (Slot Manager -> Show slot details)
 sudo rq_slot_manager.sh summary                   # key=value for scripts (current, slot_a, slot_b, expanded, card_mode, ...)
 sudo rq_update_slot.sh --preflight                # can the other slot take an update?
 sudo rq_slot_manager.sh plan-update <tag>         # what an update would replace (the guard)
@@ -289,7 +290,8 @@ update there). It leaves the taskbar again when nothing is new.
 | red with "!" | the last update or switch didn't work and the Pi went back; red until the menu has been opened once |
 | blue dot | a newer release is available for this Pi |
 
-Hover shows the slot, its state and version; a click or tap opens the menu:
+Hover shows the slot, its state and version (not while the menu is open); a
+click or tap opens the menu:
 both slots, System Info, Software & Image Updates and **What's new in …**.
 That window says where the update goes (the slot that is not
 running), warns about a downgrade and, in bold, when the install would replace

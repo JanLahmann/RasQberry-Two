@@ -79,7 +79,20 @@ registry_ids() {
     jq -r '.demos[].id' "$REGISTRY_FILE"
 }
 
-# Picker text: "Name - summary" (cut to the menu width), else the curator
+# One menu line of at most MAX characters: whiptail cuts what is wider at
+# the right edge, so a longer text ends at a word, with "..." (#23)
+# Usage: fit_line TEXT [MAX]
+fit_line() {
+    local text="$1" max="${2:-66}"
+    if [ "${#text}" -le "$max" ]; then
+        printf '%s' "$text"
+    else
+        text="${text:0:$((max - 3))}"
+        printf '%s...' "${text% *}"
+    fi
+}
+
+# Picker text: "Name - summary" (one line of the menu), else the curator
 # note. The note is maintainer prose, cut mid-word, so the two SAP entries
 # looked the same (R-105).
 registry_label() {
@@ -88,7 +101,7 @@ registry_label() {
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
     [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
-    printf '%s' "${name:-$id}${summary:+ - $summary}" | cut -c1-66
+    fit_line "${name:-$id}${summary:+ - $summary}"
 }
 
 # Is a demo already installed (user manifest present)?
@@ -262,7 +275,9 @@ pick_demo_interactive() {
         return 1
     fi
 
-    show_menu "Add demo from catalogue" "Select a demo to install:" "${args[@]}"
+    # Without the ids in front, the text has the whole width (78 - 10)
+    whiptail --title "Add demo from catalogue" --notags --ok-button Select --cancel-button Back \
+        --menu "Select a demo to install:" 20 78 10 -- "${args[@]}" 3>&1 1>&2 2>&3
 }
 
 # ============================================================================
@@ -413,12 +428,24 @@ add_demo() {
 
     refresh_cache
 
+    local where="the Quantum Demos menu" m_image
+    [ -f "$USER_HOME/Desktop/rq-ext-${id}.desktop" ] && where="its desktop icon or the Quantum Demos menu"
+    m_image=""
+    [ "$(jq -r '.entrypoint.type // empty' "$manifest_file")" = "docker" ] \
+        && m_image=$(jq -r '.entrypoint.docker_image // empty' "$manifest_file")
     if [ "$mode" = "update" ]; then
         info "Demo '$id' updated to pinned commit ${ref:0:12}"
         show_msgbox "Demo updated" "External demo '$id' updated successfully.\n\nPinned commit: ${ref:0:12}"
+    elif [ -n "$m_image" ] && ! { command -v docker >/dev/null 2>&1 \
+            && docker image inspect "$m_image" >/dev/null 2>&1; }; then
+        # Its Docker image comes on the first start, after its own question:
+        # "installed successfully" and then a 530 MB download read like a
+        # second install (#23)
+        info "Demo '$id' registered; its Docker image downloads on its first start"
+        show_msgbox "Demo added" "Registered: ${name:-$id}. On its first start it downloads its Docker image${dl:+, about $(rq_fmt_mb "$dl")}.\n\nStart it from $where."
     else
         info "Demo '$id' installed successfully"
-        show_msgbox "Demo installed" "External demo '$id' installed successfully.\n\nLaunch it from the Quantum Demos menu."
+        show_msgbox "Demo added" "${name:-$id} is installed.\n\nStart it from $where."
     fi
     return 0
 }
@@ -440,7 +467,8 @@ remove_demo() {
         ""|.|..|*/*) die "Cannot determine the checkout directory for '$id' (got '$dir')" ;;
     esac
 
-    local image=""
+    local image="" name
+    name=$(jq -r '.name // .id // empty' "$manifest")
     [ "$(jq -r '.entrypoint.type // empty' "$manifest")" = "docker" ] \
         && image=$(jq -r '.entrypoint.docker_image // empty' "$manifest")
 
@@ -466,6 +494,10 @@ remove_demo() {
         fi
     fi
     info "Demo '$id' removed"
+    # Back in the menu without a word looked like nothing happened (#23)
+    if [ "${RQ_ASSUME_YES:-no}" != yes ] && [ -t 0 ] && [ -t 1 ]; then
+        show_msgbox "Demo removed" "${name:-$id} was removed. Free space now: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")")."
+    fi
     return 0
 }
 

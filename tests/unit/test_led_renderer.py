@@ -179,3 +179,42 @@ def test_open_mmap_creates_world_writable_file(mmap_file):
         assert (width, height, count) == (WIDTH, HEIGHT, COUNT)
     finally:
         renderer._close_mmap()
+
+
+# --- #6: the on-screen view shares frames with the renderer ----------------------
+
+def test_onscreen_view_leaves_the_frame_flag_to_the_renderer(tmp_path):
+    """The Tk view cleared the dirty flag too, so a picture shown once
+    (LED-Painter) went to the panel or the window, rarely both. It now
+    redraws on a changed frame and never touches the flag."""
+    import struct
+    import types
+    _mmap = mmap
+    pytest.importorskip("tkinter")
+    import rq_led_virtual_gui as gui
+    count = 4
+    path = tmp_path / "bus"
+    path.write_bytes(b"RQL1" + struct.pack("<HHH", 4, 1, count) + b"\x00" * 6 + b"\x01"
+                     + bytes([255, 0, 0] + [0, 0, 0] * 3))
+    fh = open(path, "r+b")
+    mm = _mmap.mmap(fh.fileno(), 17 + count * 3)
+    painted, errors = [], []
+    fake = types.SimpleNamespace(
+        _mmap=mm, _last_frame=None, pixel_bytes=count * 3, width=4, height=1,
+        leds=[[0, 1, 2, 3]], map_xy_to_pixel=lambda x, y: x,
+        canvas=types.SimpleNamespace(itemconfig=lambda item, fill: painted.append((item, fill))),
+        status_var=types.SimpleNamespace(set=lambda text: errors.append(text) if 'error' in text else None),
+        root=types.SimpleNamespace(after=lambda ms, fn: None), update_display=None)
+    gui.VirtualLEDMatrix.update_display(fake)
+    assert painted[0] == (0, "#ff0000")
+    assert path.read_bytes()[16] == 1                     # flag left for the renderer
+    painted.clear()
+    gui.VirtualLEDMatrix.update_display(fake)             # same frame: nothing to do
+    assert painted == []
+    mm.seek(17)
+    mm.write(bytes([0, 0, 255]))                          # a new frame
+    gui.VirtualLEDMatrix.update_display(fake)
+    assert painted[0] == (0, "#0000ff")
+    assert errors == []
+    mm.close()
+    fh.close()

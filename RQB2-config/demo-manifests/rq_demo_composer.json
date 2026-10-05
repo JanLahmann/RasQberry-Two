@@ -23,7 +23,7 @@
     "network": true,
     "display": "required"
   },
-  "needs_ibm_token": "required",
+  "needs_ibm_token": "prefer",
   "browser_based": true,
   "loop_ok": false,
   "timeout": 0,

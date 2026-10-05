@@ -404,3 +404,98 @@ def test_plan_update_on_a_standard_image(card):
     proc = _run(card, "plan-update", BETA)
     assert proc.returncode == 1
     assert "no A/B layout" in proc.stderr
+
+
+# ---------------------------------------------------------------------------
+# status --plain: the Slot Manager's "Show slot details" (user test
+# 2026-10-04, #16): plain words, and short enough for an 80x24 box without
+# scrolling (a scrolling whiptail box lost its right border over SSH)
+# ---------------------------------------------------------------------------
+
+def _plain(card):
+    proc = _run(card, "status", "--plain")
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout
+
+
+def _fits_a_box(text, width=76, rows=24):
+    lines = sum(max(1, len(textwrap.wrap(line, width - 4, break_on_hyphens=False)))
+                for line in text.rstrip("\n").split("\n"))
+    return lines + 7 <= rows
+
+
+def test_plain_status_says_what_runs_and_what_the_next_restart_does(card):
+    out = _plain(card)
+    assert "Running now: Slot A, beta-2026-09-30-221656 (beta)" in out
+    assert "Other slot:  Slot B, empty (no system)" in out
+    assert "Slot A is confirmed: it started well and is the start slot." in out
+    assert "Next restart: Slot A again." in out
+    assert "An update goes into Slot B. Slot A stays as it is, to go back to." in out
+    assert "sudo rq_slot_manager.sh status" in out
+    # no developer words
+    for word in ("/dev/", "autoboot", "CONFIRMED", "INFO:", "WARNING:", "Partition", "tryboot"):
+        assert word not in out, word
+    assert _fits_a_box(out)
+
+
+def test_plain_status_names_a_system_in_the_other_slot(card):
+    _system(card["b"], "beta-2026-10-15-101010")
+    out = _plain(card)
+    assert "Other slot:  Slot B, beta-2026-10-15-101010 (beta)" in out
+    assert "An update goes into Slot B and replaces what it holds." in out
+
+
+def test_plain_status_on_trial(card):
+    _on_slot_b(card)
+    (card["config"] / "slot-confirmed").unlink()
+    (card["config"] / "target-slot").write_text("B\n")     # autoboot: [all] still A
+    out = _plain(card)
+    assert "Running now: Slot B, beta-2026-10-15-101010 (beta)" in out
+    assert "Slot B is on trial: the health check confirms it a few minutes after a good start." in out
+    assert "Next restart: Slot B once it is confirmed, otherwise Slot A again." in out
+    assert "Updates wait until Slot B is confirmed." in out
+    assert _fits_a_box(out)
+
+
+def test_plain_status_after_a_rollback(card):
+    _system(card["b"], "beta-2026-10-15-101010")
+    assert _run(card, "rollback").returncode == 0
+    out = _plain(card)
+    assert "Slot B was made the start slot." in out
+    assert "Next restart: Slot B." in out
+    assert "Updates wait until then: restart first." in out
+
+
+def test_plain_status_with_a_switch_waiting(card):
+    _system(card["b"], "beta-2026-10-15-101010")
+    assert _run(card, "switch-to", "B").returncode == 0
+    out = _plain(card)
+    assert "A switch to Slot B is waiting: the next restart tries Slot B." in out
+
+
+def test_plain_status_not_confirmed_yet(card):
+    (card["config"] / "slot-confirmed").unlink()
+    out = _plain(card)
+    assert "Slot A is the start slot. The health check confirms it after a good start." in out
+    assert "Next restart: Slot A again." in out
+
+
+def test_plain_status_placeholder_slot(card):
+    card["env"]["FAKE_SIZE_mmcblk0p6"] = str(16 * 1024 * 1024)
+    out = _plain(card)
+    assert "Slot B is not set up yet" in out
+    assert "An update goes into" not in out
+
+
+def test_plain_status_with_a_failed_update_still_fits(card):
+    (card["config"] / "last-switch-failed").write_text(
+        "slot=B\nreason=the health check found no desktop after 10 minutes\n"
+        "time=2026-10-04 21:00:00\nversion=beta-2026-10-15-101010\nupdate=yes\n")
+    out = _plain(card)
+    assert "Reason: the health check found no desktop after 10 minutes" in out
+    assert _fits_a_box(out)
+
+
+def test_plain_status_on_a_standard_image(card):
+    card["env"]["FAKE_P1_LABEL"] = "bootfs"
+    assert "one system" in _plain(card)

@@ -156,7 +156,7 @@ update_image() {
             *) show_msgbox "$TITLE" "$RQ_CONSENT_MSG"; return 0 ;;
         esac
         rq_docker_access
-        ( rq_docker_pull "$target" "$name" ) || { show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0; }
+        ( rq_docker_pull "$target" "$name" "$dl" ) || { show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0; }
     fi
     if [ "$target" = "$rel" ]; then
         rq_demo_set_version "$key" "$rel" ""
@@ -246,8 +246,15 @@ while true; do
     set --
     while IFS=$'\t' read -r key name mf; do
         [ -n "$key" ] || continue
-        kind="notebooks"
-        case "$key" in *:image) kind="Docker image" ;; esac
+        # what an update brings: only the notebook demos are notebooks (#31)
+        case "$key" in
+            *:image) kind="Docker image" ;;
+            *) if [ "$(jq -r '.entrypoint.type // ""' "$mf")" = "jupyter" ]; then
+                   kind="notebooks"
+               else
+                   kind="program"
+               fi ;;
+        esac
         set -- "$@" "$key" "$name ($kind): $(state_text "$key" "$mf")"
     done < <(updatable)
     if [ $# -eq 0 ]; then

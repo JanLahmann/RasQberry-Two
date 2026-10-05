@@ -14,7 +14,7 @@
           "variant": "ibm-logo",
           "name": "IBM LED Demo",
           "try": "Look at the model: the IBM logo lights up on the LED panel.",
-          "notice": "The LEDs are this quantum computer's display. Later steps show qubits on them."
+          "notice": "The LEDs are the model's display: other demos, like RasQ-LED, show qubits on them."
         },
         {
           "demo": "grok-bloch",
@@ -117,8 +117,8 @@
         },
         {
           "demo": "rasq-led",
-          "try": "Choose 1 (no entanglement), then 2 (complete entanglement).",
-          "notice": "Without entanglement the LEDs are random. Entangled, they all show the same result."
+          "try": "Just watch: it entangles blocks of 1, 2, 3 ... qubits, up to the whole panel, and measures.",
+          "notice": "Block size 1: random colours. In an entangled block every LED shows the same: red or blue."
         }
       ],
       "next": [
@@ -154,8 +154,8 @@
         },
         {
           "demo": "qiskit-tutorials",
-          "try": "Open Tutorials, then Get started, and run the code on this Pi.",
-          "notice": "The same Qiskit as in Hello World, with guides and courses next to it."
+          "try": "Open Tutorials, then Hello World, and click Run All: the code runs on this Pi.",
+          "notice": "The circuit from step 1, explained step by step, with more tutorials and courses next to it."
         },
         {
           "url": "https://quantum.cloud.ibm.com/learning",

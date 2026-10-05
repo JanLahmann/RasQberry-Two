@@ -25,13 +25,13 @@
     "download": {
       "what": "Bloch sphere web app from GitHub",
       "download_mb": 6,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     },
     "patch_file": "grok-bloch-help.patch"
   },
   "needs_hw": {
     "leds": false,
-    "display": "required"
+    "display": "optional"
   },
   "needs_ibm_token": "none",
   "browser_based": true,
@@ -67,7 +67,8 @@
         "browser_url": "https://javafxpert.github.io/grok-bloch/"
       },
       "needs_hw": {
-        "network": true
+        "network": true,
+        "display": "required"
       },
       "install": {
         "preinstalled": true

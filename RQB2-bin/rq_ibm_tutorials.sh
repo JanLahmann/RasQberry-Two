@@ -36,6 +36,9 @@ if [ ! -f "$DEMO_DIR/$MARKER_IBM_TUTORIALS" ]; then
     die "IBM Quantum Tutorials not installed"
 fi
 
+# Only the notebooks and what they need, not the repository's own files (#18)
+rq_ibm_learning_tidy "$DEMO_DIR"
+
 info "Starting IBM Quantum Tutorials..."
 debug "Demo directory: $DEMO_DIR"
 debug "JupyterLab port: $PORT"
@@ -57,7 +60,9 @@ info "Using port: $PORT"
 
 # Generate token for security
 JUPYTER_TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
-WELCOME_URL="http://localhost:${PORT}/lab/tree/WELCOME-tutorials.ipynb?token=${JUPYTER_TOKEN}"
+# Its own JupyterLab workspace: Tutorials and Courses share a folder, and
+# each opened with the tabs the other one left (#18)
+WELCOME_URL="http://localhost:${PORT}/lab/workspaces/ibm-tutorials/tree/WELCOME-tutorials.ipynb?token=${JUPYTER_TOKEN}"
 
 # Change to demo directory
 cd "$DEMO_DIR" || die "Failed to change to demo directory"
@@ -108,11 +113,10 @@ cleanup() {
     set +e   # a closed window cannot show messages: still stop the server
     trap '' HUP INT TERM
     info "Stopping JupyterLab..."
-    if [ -n "${JUPYTER_PID:-}" ]; then
-        kill $JUPYTER_PID 2>/dev/null || true
-        sleep 1
-        kill -9 $JUPYTER_PID 2>/dev/null || true
-    fi
+    rq_close_demo_tabs   # before the server goes: no "Dead kernel" tab (#9)
+    # It stops its kernels first; a hard kill only if it hangs, and quietly:
+    # "Killed jupyter-lab" after a second looked like a fault (#27)
+    [ -n "${JUPYTER_PID:-}" ] && rq_stop_pid "$JUPYTER_PID" 10
     exit 0
 }
 

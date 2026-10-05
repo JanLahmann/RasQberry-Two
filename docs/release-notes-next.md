@@ -18,6 +18,20 @@ only true for the standard image. -->
 - **Catalogue Docker demos (traQmania):** when one stops right after it starts, its log is kept and its last lines are shown.
 - **Workshop & Qiskit Server:** the start text says that running code in the notebooks needs the internet for now.
 - **Plain words:** the update picker says "release stream" instead of "channel"; the Slot Manager status shows sizes in GB and the names Slot A and Slot B; the LED settings say "LED panel" and "on-screen view"; a failed catalogue install and the Workshop & Qiskit Server no longer name pip or Docker commands.
+- **Slot Manager:** it offers only what works (no switch or rollback while the other slot is empty) and shows no internal tags. **Slot details** says in plain words what each slot holds and what the next restart does, and fits the screen over SSH. When nothing newer is out, the update picker says "You have the newest beta release". After an update is written, System Info and the slot badge show the new system at once, and the badge's tooltip no longer covers its menu.
+- **Password:** changing it, in the menu or the setup checklist, uses two password boxes with Cancel instead of a prompt that Esc and Ctrl+C could not leave.
+- **Remote Access & Security:** says "key only" when SSH takes no password (Imager's public-key setting). SSH logins no longer show a misleading "Last login" line.
+- **LED panel stops (Pi 5):** the message names the cause the Pi reported: too little power, or too hot (with what helps: the Active Cooler and its fan). RasQ-LED keeps one LED driver open for the whole run instead of reopening it every few seconds.
+- **System Info:** says whether the Pi is too hot now or was slowed down earlier, with one line of advice, and "Slot B: empty" like the menu.
+- **LED settings:** the LED check says "Saved: four 4x12 panels" and scrolls the address once in that layout; the setup checklist names the kit the same way. LED brightness and **Turn off all LEDs** confirm in one line, the "LED panel in use" dialog names the demo, and turning the browser view off stops its server.
+- **LED-Painter:** a picture reaches both the panel and the on-screen view. Before it starts, another program on the panel is named, with the offer to stop it, and if the LED renderer does not start, one line says that the panel stays dark.
+- **Demo Loop:** choose which demos it shows (**Continuous Demo Loop** → **Choose the demos**); the Demo Loop icon shows the same ones.
+- **Learning paths:** the step texts match what the demos do ("Your first program" uses Hello World instead of the CHSH tutorial, which fails on the Pi for now). The window gets its title back after a demo, and "Tell us how it went" opens the feedback form. The setup checklist's last screen recommends "First 15 minutes".
+- **Browser demos:** the browser window covers the demo's terminal, so the stop line says how to get back to it (click it in the taskbar).
+- **Quantum Lab:** opens on a welcome page without the Jupyter news question, and has a desktop icon. **IBM Quantum Tutorials and Courses** show only the notebooks, each in its own workspace, and point to **IBM Quantum account** → **Save my API key**; they stop without a "Killed" line and close their tab.
+- **Workshop & Qiskit Server and `ssh -L` commands:** they use the name avahi announces, so with two Pis of the same name, participants reach this one. Grokking the Bloch Sphere also starts over SSH and prints an `ssh -L` command.
+- **Downloads:** Download all demos shows the MB received, fetches the small demos first and gives realistic times. A Docker demo's first start shows one progress line instead of Docker's list of layers.
+- **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
 
 ## What's new for you
 
@@ -67,7 +81,7 @@ only true for the standard image. -->
 
 **Running demos**
 
-- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Stop Docker demos** stops any of them. A browser tab a demo opened stays open.
+- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Stop Docker demos** stops any of them. A demo that runs on the Pi opens in a browser window of its own, maximised (Qoffee-Maker full screen), which closes when the demo stops.
 - Website demos (Composer, Grokking the Bloch Sphere online, catalogue demos) open their tab from every icon.
 - Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for the Workshop & Qiskit Server: the latest doQumentation build or one in between, with date, size and Qiskit version), or back.
 - Quantum Mixer downloads a ready image instead of building for 15–30 minutes. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
@@ -76,7 +90,7 @@ only true for the standard image. -->
 
 **LEDs and IBM Quantum account**
 
-- **LEDs** → **LED brightness**. If the Pi 5's LED panel stops because the power supply is too weak, RasQberry says so, restarts the LED driver and offers a lower brightness. Use the official 27 W power supply.
+- **LEDs** → **LED brightness**. If the Pi 5's LED panel stops, RasQberry says why (too little power, or too hot), restarts the LED driver and, for a weak power supply, offers a lower brightness. Use the official 27 W power supply and, for long runs, the Active Cooler.
 - **IBM Quantum account:** every demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com and use **IBM Quantum account** → **Save my API key**: the key is checked before it is saved. Running the credentials notebook of IBM Quantum Tutorials or Courses unedited no longer replaces a saved key.
 
 **Problems and feedback**
