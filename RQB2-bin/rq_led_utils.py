@@ -1081,7 +1081,10 @@ def _lgpio_files_out_of_cwd():
     except Exception:  # noqa: BLE001 - board imports it again and reports
         pass
     finally:
-        os.chdir(here)
+        try:
+            os.chdir(here)
+        except OSError:
+            pass
     atexit.register(shutil.rmtree, work, True)
 
 
