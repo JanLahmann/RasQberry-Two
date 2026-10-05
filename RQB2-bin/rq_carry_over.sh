@@ -24,8 +24,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   written by convert-to-ab-boot-v3.sh, and this removes it):
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
-#     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE and RQ_UMAMI (usage counts off,
-#     on rig and development Pis) from rasqberry_environment.env,
+#     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE, RQ_UMAMI (usage counts off,
+#     on rig and development Pis) and the Demo Loop's choice of demos and
+#     timings (DEMO_LOOP_*) from rasqberry_environment.env,
 #     VNC switched off (Q17: the new system then does not switch it on),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
@@ -65,7 +66,9 @@ PROGRAMS=My-Quantum-Programs
 LEARNER_STAMP=.local/state/rasqberry/learner-setup/programs
 # The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
 STARTERS="$ROOT/usr/config/my-quantum-programs"
-ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI"
+ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI DEMO_LOOP_DEMOS
+    DEMO_LOOP_IBM_LOGO_TIME DEMO_LOOP_LIGHTS_OUT_TIME DEMO_LOOP_RASQBERRY_TIE_TIME
+    DEMO_LOOP_RASQ_LED_TIME DEMO_LOOP_PAUSE"
 # Live = changing the running system (hostname, locale-gen, nmcli), not a test root
 LIVE=true
 if [ -n "$ROOT" ] || [ "${RQ_CARRY_NO_LIVE:-0}" = "1" ]; then LIVE=false; fi
@@ -383,7 +386,7 @@ cmd_pull() {
     pull_timezone "$other" && carried+=("time zone")
     pull_locale "$other" && carried+=("locale")
     copy_if_different "$other" /etc/default/keyboard && carried+=("keyboard layout")
-    pull_env_keys "$other" && carried+=("browser/checklist choices")
+    pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
     pull_vnc_off "$other" && carried+=("VNC off")
     if what=$(pull_old_slot_data "$other"); then
         carried+=("$what")

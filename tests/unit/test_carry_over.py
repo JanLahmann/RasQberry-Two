@@ -123,6 +123,22 @@ def test_pull_keeps_usage_counts_off(tmp_path):
     assert "RQ_UMAMI=0" in (new / ENV.lstrip("/")).read_text().splitlines()
 
 
+def test_pull_keeps_the_demo_loop_choice(tmp_path):
+    # The demos picked for the Demo Loop and its timings survive an update;
+    # a key the old slot lacks keeps the new image's value
+    old = _slot(tmp_path / "old", env_lines=("DEMO_LOOP_DEMOS=ibm-logo,rasq-led",
+                                             "DEMO_LOOP_PAUSE=5"))
+    new = _slot(tmp_path / "new", env_lines=("DEMO_LOOP_DEMOS=all", "DEMO_LOOP_PAUSE=2",
+                                             "DEMO_LOOP_RASQ_LED_TIME=60"))
+    data = tmp_path / "data"
+    data.mkdir()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    env = (new / ENV.lstrip("/")).read_text().splitlines()
+    assert "DEMO_LOOP_DEMOS=ibm-logo,rasq-led" in env and "DEMO_LOOP_DEMOS=all" not in env
+    assert "DEMO_LOOP_PAUSE=5" in env
+    assert "DEMO_LOOP_RASQ_LED_TIME=60" in env
+
+
 def test_pull_of_identical_slot_carries_nothing(tmp_path):
     a = _slot(tmp_path / "a")
     b = _slot(tmp_path / "b")
