@@ -157,7 +157,8 @@ list_paths() {
         done
     done
     echo
-    echo "Learning paths are new. Your feedback helps a lot: $FEEDBACK"
+    echo "Learning paths are new. Your feedback helps a lot (needs a free GitHub account):"
+    echo "  $FEEDBACK"
 }
 
 # ============================================================================
@@ -202,7 +203,7 @@ pause() {
 # The invitation every beta demo gives (rq_beta_notice), for the paths
 feedback_notice() {
     echo "Learning paths are new: please tell us what works and what doesn't."
-    echo "Your feedback helps a lot: ${FEEDBACK}${1:+/$1}"
+    echo "Your feedback helps a lot (needs a free GitHub account): ${FEEDBACK}${1:+/$1}"
 }
 
 # The browser opens maximised over this window (#15): say where it is now.
@@ -215,7 +216,8 @@ back_hint() {
 }
 
 # The feedback form: in the browser on the desktop, its address over SSH
-# (a long address in a terminal is hard to use, #30)
+# (a long address in a terminal is hard to use, #30). It is a GitHub issue
+# form, so the labels say it needs an account (#11).
 # Usage: open_feedback [PATH_ID]
 open_feedback() {
     clear 2>/dev/null || true
@@ -297,7 +299,7 @@ keep_going() {
             set -- "$@" "n$e" "Open ${N_NAME[e]}"
         fi
     done
-    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (feedback form)"
+    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (needs a free GitHub account)"
     while true; do
         choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
         last="$choice"
@@ -444,7 +446,7 @@ while true; do
         audience="$(printf '%s' "${P_AUDIENCE:0:1}" | tr '[:upper:]' '[:lower:]')${P_AUDIENCE:1}"
         set -- "$@" "$i" "$P_TITLE: $audience, $P_MINUTES min"
     done
-    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (feedback)"
+    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (needs a free GitHub account)"
     choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break

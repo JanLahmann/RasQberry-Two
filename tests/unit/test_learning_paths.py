@@ -450,7 +450,7 @@ def test_keep_going_opens_the_feedback_form(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     keep = calls[4]
     assert _arg(keep, "--title") == "RasQberry: Keep Going"
-    assert "Tell us how it went (feedback form)" in keep
+    assert "Tell us how it went (needs a free GitHub account)" in keep   # #11: no surprise
     assert ("Open this address: https://github.com/JanLahmann/RasQberry-Two/issues/new"
             "?template=demo-feedback.yml&demo=learning-paths/first-15-minutes") in proc.stdout
 
