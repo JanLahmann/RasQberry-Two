@@ -1244,6 +1244,21 @@ _rq_docker_space_note() {
     return 0
 }
 
+# The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
+# holds only what the demos use (#18). A checkout made before also held every
+# file at the top of the repository (package.json, tox.ini ...), which the
+# notebooks' file browser showed first: narrow it, with no download (the
+# files are in the clone). The same list as clone_ibm_learning_content in
+# RQB2_menu.sh.
+# Usage: rq_ibm_learning_tidy DIR
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+rq_ibm_learning_tidy() {
+    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
+    # shellcheck disable=SC2086  # one pattern per word
+    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    return 0
+}
+
 # Echo the shipped manifest directory (installed or repo checkout)
 rq_shipped_manifest_dir() {
     if [ "$_RQ_COMMON_DIR" = "/usr/bin" ]; then

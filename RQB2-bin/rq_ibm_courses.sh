@@ -36,6 +36,9 @@ if [ ! -f "$DEMO_DIR/$MARKER_IBM_COURSES" ]; then
     die "IBM Quantum Courses not installed"
 fi
 
+# Only the notebooks and what they need, not the repository's own files (#18)
+rq_ibm_learning_tidy "$DEMO_DIR"
+
 info "Starting IBM Quantum Courses..."
 debug "Demo directory: $DEMO_DIR"
 debug "JupyterLab port: $PORT"

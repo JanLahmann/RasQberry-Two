@@ -96,6 +96,8 @@ fi
 
 # Final sanity check before mounting
 [ -d "$DOCS_DIR" ] || die "IBM Quantum Learning content missing at $DOCS_DIR"
+# Only the notebooks and what they need, not the repository's own files (#18)
+rq_ibm_learning_tidy "$DOCS_DIR"
 
 ################################################################################
 # Docker container management
