@@ -16,7 +16,7 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "ghcr.io/qubins/images@sha256:a686b45167d42743c90bcd2e32ee10294de39528a5fe37b2651dcdfab3119884",
+    "docker_image": "ghcr.io/qubins/images@sha256:8eee3ec556aa033c43587984bd201f2c210048ed1c9c5d06ed1b5518086ff328",
     "docker_port": 8892,
     "launcher": "rq_quantum_lab.sh"
   },
