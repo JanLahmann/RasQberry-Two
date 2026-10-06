@@ -553,16 +553,22 @@ jobs:
       # the wheel install runs with --no-index on a cache hit, and the base
       # stages are a whole Bookworm rootfs. Caches saved on main are readable
       # from every branch, so the key, not the branch, has to keep them apart.
+      # The base-stage key also carries a hash of pi-gen-config as committed
+      # (taken here, before the workflow edits the file): stages 0-4 bake in
+      # its settings (user, password, sudo, locale, cloud-init), so a changed
+      # config must not reuse base stages built with the old one.
       - name: List available caches
         id: os-release
         run: |
           RELEASE=$(grep "^RELEASE=" pi-gen-config | cut -d'=' -f2)
           PYVER=$(grep "^TARGET_PYTHON_VERSION=" pi-gen-config | cut -d'=' -f2)
           [ -n "$RELEASE" ] && [ -n "$PYVER" ] || { echo "RELEASE / TARGET_PYTHON_VERSION missing in pi-gen-config"; exit 1; }
+          CONFIG_HASH=$(sha256sum pi-gen-config | cut -c1-12)
           echo "release=${RELEASE}" >> $GITHUB_OUTPUT
           echo "python=${PYVER}" >> $GITHUB_OUTPUT
+          echo "config_hash=${CONFIG_HASH}" >> $GITHUB_OUTPUT
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          echo "Base stages cache key: base-stages-${{ env.CACHE_VERSION }}-${RELEASE}"
+          echo "Base stages cache key: base-stages-${{ env.CACHE_VERSION }}-${RELEASE}-${CONFIG_HASH}"
           echo "Wheel cache key: wheels-arm64-py${PYVER}-<date>-<requirements hash>"
 
       # Determine caching strategy for this build
@@ -609,7 +615,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}-${{ steps.os-release.outputs.config_hash }}
 
       # Cache ARM64 wheel files for Qiskit installation
       # Stores actual .whl files for instant installation (no network queries)
@@ -969,7 +975,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}-${{ steps.os-release.outputs.config_hash }}
 
       # Show system resources before main build
       - name: show swap and memory status before build
