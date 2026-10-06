@@ -144,7 +144,9 @@ def test_build_layout_command(tmp_path):
     subprocess.run([sys.executable, os.path.join(_BIN, "rq_desktop_session.py"),
                     "--layout", "1920x1080", str(conf)], check=True)
     text = conf.read_text()
-    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=10\ntrusted=true\n")
+    # y counts from the top of the screen where the desktop's profile does (trixie)
+    y = 10 + ds.layout_top(False)
+    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
     assert text.count("trusted=true") == len(ds.ICON_ORDER)
 
 

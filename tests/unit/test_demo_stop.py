@@ -650,6 +650,7 @@ def test_session_keeps_the_homepage_next_to_the_icons_on_a_large_screen(tmp_path
     monkeypatch.setattr(ds, "set_small_screen_flag", lambda small: None)
     monkeypatch.setattr(ds, "set_chromium_rule", lambda small: rules.append(small) or False)
     monkeypatch.setattr(ds, "layout_desktop", lambda size, touch: False)
+    monkeypatch.setattr(ds, "ensure_quick_exec", lambda: False)
     monkeypatch.setattr(ds, "online", lambda: True)
     monkeypatch.setattr(ds, "env_value", lambda key, default="": default)
     monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))

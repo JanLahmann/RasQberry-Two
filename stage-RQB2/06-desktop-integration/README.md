@@ -20,8 +20,13 @@ settings that avoid password and "execute file" dialogs.
     `LXDE-pi` on bookworm, `default` on trixie, where `pcmanfm-pi` runs
     `pcmanfm --desktop`; font PibotoLt 12, or Nunito Sans Light 12 without
     Piboto) (wallpaper; icon positions for 1920x1080 with `trusted=true`, written by
-    `RQB2-bin/rq_desktop_session.py --layout`) and `~/.config/libfm/libfm.conf`
-    (`quick_exec=1`);
+    `RQB2-bin/rq_desktop_session.py --layout`; on trixie the y positions start
+    below the panel, as `pcmanfm-pi` counts them from the top of the screen),
+    `~/.config/libfm/libfm.conf` (`quick_exec=1`, read on bookworm) and
+    `~/.config/pcmanfm/<profile>/pcmanfm.conf` (a copy of the system one with
+    `quick_exec=1`, `rq_desktop_session.py --quick-exec`: trixie's `pcmanfm-pi`
+    reads the libfm settings only from there, and without it every desktop
+    icon asked "Execute File" first);
   - `RQB2-config/touch-mode/*` to `/usr/config/touch-mode/`, and
     `/var/lib/rasqberry/touch-mode.conf` with `TOUCH_MODE=disabled`;
   - runs `update-desktop-database` and `gtk-update-icon-cache`;
@@ -51,6 +56,7 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
 - `/usr/local/bin/trust-rasqberry-desktop-files.sh`
 - `/etc/xdg/autostart/rasqberry-browser.desktop`: `rq_desktop_session.py` at
   every login - Chromium's crash state reset, the touch-mode GTK style again,
+  `quick_exec=1` in the profile's `pcmanfm.conf` (homes made before it),
   on screens below 1600x900 the Chromium rule off and Chromium maximised, the
   icons laid out for the screen (a `More` folder for what does not fit), then
   Chromium with rasqberry.org, or `/usr/share/rasqberry/offline.html` without

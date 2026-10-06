@@ -198,6 +198,21 @@ EOF
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$LIBFM_CONFIG_DIR"
     echo "libfm configuration created with quick_exec=1"
 
+    # Trixie's pcmanfm-pi (profile "default") takes the libfm settings
+    # (quick_exec, big_icon_size) from the profile's pcmanfm.conf and no
+    # longer reads libfm.conf: without quick_exec=1 there every desktop icon
+    # asked "Execute File" first (T1, rig 2026-10-06). The person's
+    # pcmanfm.conf replaces the system one, so it starts as a copy of
+    # /etc/xdg/pcmanfm/<profile>/pcmanfm.conf. rq_desktop_session.py checks
+    # it again at every login (images and homes made before this).
+    python3 "${CLONE_DIR}/RQB2-bin/rq_desktop_session.py" --quick-exec "$USER_CONFIG_DIR/pcmanfm.conf" \
+        || echo "WARNING: could not set quick_exec in $USER_CONFIG_DIR/pcmanfm.conf"
+    if [ -f "$USER_CONFIG_DIR/pcmanfm.conf" ]; then
+        chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/pcmanfm.conf"
+        cp "$USER_CONFIG_DIR/pcmanfm.conf" "$SKEL_CONFIG_DIR/pcmanfm.conf"
+        echo "pcmanfm.conf (${PCMANFM_PROFILE}) created with quick_exec=1, also in /etc/skel"
+    fi
+
     # Also create libfm config for new users in /etc/skel
     SKEL_LIBFM_DIR="/etc/skel/.config/libfm"
     mkdir -p "$SKEL_LIBFM_DIR"
