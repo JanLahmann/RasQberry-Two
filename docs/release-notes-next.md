@@ -7,6 +7,7 @@ only true for the standard image. -->
 
 ## Since beta-2026-10-04
 
+- **Quantum Lab:** starts again. QuBins removed the image build this release pinned, so the first start failed with "The registry does not offer ...". It now uses QuBins 2.5-xl (Qiskit 2.5.2), and when a publisher removes a pinned build again, the Docker demos download the image's named tag instead and say so in one line.
 - **Wi-Fi at the first start:** when the router turns the Pi away at first, the Pi now tries again by itself instead of staying offline until someone connects it by hand.
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.

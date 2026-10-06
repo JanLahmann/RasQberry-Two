@@ -13,7 +13,10 @@ IMAGE_IN_USE is "ghcr.io/OWNER/NAME@sha256:..." (or ":TAG"). One line per
 version, newest first, tab-separated:
     REF  TAGS  DATE  DOWNLOAD_MB  NOTE  STATE
 REF is "ghcr.io/OWNER/NAME@sha256:<digest>", STATE is "newer" or "current"
-(the version in use, last). Only the Python standard library is used.
+(the version in use, last). When the registry no longer offers the version
+in use (its publisher pruned it), every version found is "newer", and the
+"current" line is IMAGE_IN_USE with "-" for tags, date and size and the note
+"no longer offered". Only the Python standard library is used.
 
 Exit codes: 0 listed (maybe nothing newer), 2 registry not reachable or an
 unexpected answer, 3 not a ghcr.io image.
@@ -140,9 +143,6 @@ def main():
         return 2
 
     current = facts.get(current_ref)
-    if not current:
-        print(f"The version in use was not found on ghcr.io: {args.image}", file=sys.stderr)
-        return 2
 
     # One line per image (tags that share a digest are listed together)
     versions = {}
@@ -153,11 +153,19 @@ def main():
         if not ref.startswith("sha256:"):
             entry["tags"].append(f"{ref} (latest)" if ref == args.latest else ref)
 
-    cur = versions[current["digest"]]
-    newer = [v for d, v in versions.items()
-             if d != current["digest"] and _order(v) > _order(cur)]
+    if current:
+        cur = versions[current["digest"]]
+        newer = [v for d, v in versions.items()
+                 if d != current["digest"] and _order(v) > _order(cur)]
+    else:
+        # pruned by its publisher: everything there is a way forward
+        cur = None
+        newer = list(versions.values())
     newer.sort(key=_order, reverse=True)
     for v, state in [(v, "newer") for v in newer] + [(cur, "current")]:
+        if v is None:
+            print("\t".join([args.image, "-", "-", "0", "no longer offered", "current"]))
+            continue
         print("\t".join([
             f"ghcr.io/{repo}@{v['digest']}",
             ", ".join(sorted(v["tags"], key=lambda t: "(latest)" not in t)) or "-",
@@ -171,12 +179,13 @@ def main():
 
 def _order(version):
     """
-    Sort key: build date, then the highest version number among its tags
-    (QuBins builds all its tags with one timestamp, so 2.5-xl and 2.4-xl tie).
+    Sort key: build day, then the highest version number among its tags
+    (QuBins builds all its tags in one run, seconds apart, so 2.5-xl and
+    2.4-xl tie on the day and 2.5-xl comes first).
     """
     numbers = [tuple(int(n) for n in re.findall(r"\d+", t.split("-")[0]))
                for t in version["tags"] if re.match(r"^\d+(\.\d+)*", t)]
-    return (version["created"], max(numbers, default=()))
+    return (version["created"][:10], max(numbers, default=()))
 
 
 def _safe(reg, ref, arch):
