@@ -446,6 +446,33 @@ def present_launchers(desktop):
     return found
 
 
+def pcmanfm_profile(autostart=None):
+    """
+    The pcmanfm profile the desktop runs with.
+
+    Bookworm's labwc autostart starts "pcmanfm --desktop --profile LXDE-pi";
+    trixie's starts pcmanfm-pi, which runs "pcmanfm --desktop": the "default"
+    profile. The user's own autostart wins over the system one.
+
+    Args:
+        autostart (list): labwc autostart files to read (tests).
+
+    Returns:
+        str: Profile name.
+    """
+    files = autostart or [os.path.join(HOME, ".config/labwc/autostart"), "/etc/xdg/labwc/autostart"]
+    for path in files:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if "pcmanfm" in text:
+            m = re.search(r"pcmanfm\b[^\n]*--profile[ =](\S+)", text)
+            return m.group(1).rstrip("&") if m else "default"
+    return "default"
+
+
 def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False):
     """
     Lay the icons out when the screen, touch mode or the icon set changed.
@@ -462,7 +489,7 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         bool: True if a new layout was written.
     """
     desktop = desktop or os.path.join(HOME, "Desktop")
-    conf = conf or os.path.join(HOME, ".config/pcmanfm/LXDE-pi/desktop-items-0.conf")
+    conf = conf or os.path.join(HOME, ".config/pcmanfm", pcmanfm_profile(), "desktop-items-0.conf")
     record = record or os.path.join(HOME, ".config/rasqberry/desktop-layout")
     names = present_launchers(desktop)
     icon = libfm_icon_size()

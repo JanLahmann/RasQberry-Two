@@ -15,8 +15,11 @@ settings that avoid password and "execute file" dialogs.
   - a fixed list of those launchers to `/etc/skel/Desktop/` and the first
     user's `~/Desktop/` (including `my-quantum-programs.desktop`, JupyterLab
     in `~/My-Quantum-Programs`);
-  - first user (copied to `/etc/skel`): `~/.config/pcmanfm/LXDE-pi/desktop-items-0.conf`
-    (wallpaper; icon positions for 1920x1080 with `trusted=true`, written by
+  - first user (copied to `/etc/skel`): `~/.config/pcmanfm/<profile>/desktop-items-0.conf`
+    (`<profile>`: the one `/etc/xdg/labwc/autostart` starts the desktop with,
+    `LXDE-pi` on bookworm, `default` on trixie, where `pcmanfm-pi` runs
+    `pcmanfm --desktop`; font PibotoLt 12, or Nunito Sans Light 12 without
+    Piboto) (wallpaper; icon positions for 1920x1080 with `trusted=true`, written by
     `RQB2-bin/rq_desktop_session.py --layout`) and `~/.config/libfm/libfm.conf`
     (`quick_exec=1`);
   - `RQB2-config/touch-mode/*` to `/usr/config/touch-mode/`, and
@@ -36,7 +39,8 @@ settings that avoid password and "execute file" dialogs.
   - disables GNOME Keyring: diverts its autostart entry and D-Bus service files
     to `*.disabled` (`dpkg-divert`, so a package update keeps them off) and
     masks its user units in `/etc/skel`;
-  - deletes the first user's `~/.config/pcmanfm/default` if present.
+  - deletes the first user's `~/.config/pcmanfm/default` if present and not the
+    desktop's profile (bookworm).
 
 ## Files
 

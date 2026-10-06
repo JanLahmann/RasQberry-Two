@@ -22,10 +22,19 @@ IMG_NAME=rasqberry
 #         rasqberry-{branch}-{date}-{time} (dev branches)
 
 # Base system
-RELEASE=bookworm
-# Python version on target system (Raspberry Pi OS bookworm uses 3.11)
-# Used by workflow to download compatible wheels for cache
-TARGET_PYTHON_VERSION=3.11
+# Raspberry Pi OS trixie (Debian 13), built with pi-gen's `arm64` branch (the
+# workflow clones it; `bookworm-arm64` was the Bookworm branch).
+RELEASE=trixie
+# Python version on target system (Raspberry Pi OS trixie uses 3.13; bookworm 3.11)
+# The workflow puts it in the wheel-cache key, so wheels built for another
+# Python are never restored (the install uses --no-index on a cache hit).
+TARGET_PYTHON_VERSION=3.13
+# No cloud-init (trixie's pi-gen default is 1): the image configures itself
+# with its own first-boot units and Raspberry Pi Imager's firstrun.sh
+# (init_format "systemd"), and netplan must not compete with NetworkManager.
+# With 0, pi-gen still installs the cloud-init and netplan packages
+# (stage2/04-cloud-init/00-packages), so the workflow also skips that substage.
+ENABLE_CLOUD_INIT=0
 # Compression format: xz (slow, small) or zstd (fast, slightly larger)
 # Workflow overrides this based on branch (dev=zstd, prod=xz)
 DEPLOY_COMPRESSION=xz

@@ -547,11 +547,23 @@ jobs:
       # CACHE CONFIGURATION
       # ========================================================================
       # Display what cache key we're looking for (debugging aid)
+      # The base-stage and wheel caches are keyed by the Raspberry Pi OS release
+      # and the target Python (RELEASE, TARGET_PYTHON_VERSION in pi-gen-config):
+      # a Bookworm (Python 3.11) cache must never seed a Trixie (3.13) build -
+      # the wheel install runs with --no-index on a cache hit, and the base
+      # stages are a whole Bookworm rootfs. Caches saved on main are readable
+      # from every branch, so the key, not the branch, has to keep them apart.
       - name: List available caches
+        id: os-release
         run: |
+          RELEASE=$(grep "^RELEASE=" pi-gen-config | cut -d'=' -f2)
+          PYVER=$(grep "^TARGET_PYTHON_VERSION=" pi-gen-config | cut -d'=' -f2)
+          [ -n "$RELEASE" ] && [ -n "$PYVER" ] || { echo "RELEASE / TARGET_PYTHON_VERSION missing in pi-gen-config"; exit 1; }
+          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
+          echo "python=${PYVER}" >> $GITHUB_OUTPUT
           echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          echo "Cache key pattern: stage4-v2-$(date +"%Y-%m")-bookworm-arm64"
-          # Note: Cache version defined in pi-gen-config (CACHE_VERSION)
+          echo "Base stages cache key: base-stages-${{ env.CACHE_VERSION }}-${RELEASE}"
+          echo "Wheel cache key: wheels-arm64-py${PYVER}-<date>-<requirements hash>"
 
       # Determine caching strategy for this build
       # Rules:
@@ -597,9 +609,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}
-          restore-keys: |
-            base-stages-${{ env.CACHE_VERSION }}-
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}
 
       # Cache ARM64 wheel files for Qiskit installation
       # Stores actual .whl files for instant installation (no network queries)
@@ -612,7 +622,7 @@ jobs:
         with:
           path: ~/wheel-cache
           # No restore-keys: require exact match to prevent stale cache on requirements change
-          key: wheels-arm64-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
+          key: wheels-arm64-py${{ steps.os-release.outputs.python }}-${{ steps.cache-date.outputs.cache_date }}-${{ hashFiles('RQB2-config/qiskit-requirements.txt') }}
 
       # ========================================================================
       # PI-GEN DEPENDENCIES
@@ -627,13 +637,17 @@ jobs:
           echo "Runner architecture: $ARCH"
 
           # Install pi-gen dependencies
-          # Note: qemu-user-static is required even on ARM64 because pi-gen's
-          # build.sh checks for it as a dependency (though it won't be used on ARM64)
+          # Note: pi-gen's dependency check wants the qemu-aarch64 command even on
+          # ARM64, where it is never used. The trixie pi-gen (`arm64` branch) checks
+          # for qemu-aarch64 (Ubuntu: qemu-user) and xxd; qemu-user-static stays
+          # for the x64 (emulated) runner, whose binfmt entries it registers.
           sudo apt-get install -y \
             coreutils \
             quilt \
             parted \
+            qemu-user \
             qemu-user-static \
+            xxd \
             debootstrap \
             zerofree \
             zip \
@@ -660,10 +674,13 @@ jobs:
           fi
 
       # Clone official Raspberry Pi image generator
+      # `arm64` is pi-gen's Raspberry Pi OS trixie 64-bit branch (there is no
+      # "trixie" branch); `bookworm-arm64` built the Bookworm images.
       - name: Clone pi-gen
         run: |
-          git clone --depth 1 --branch bookworm-arm64 https://github.com/RPi-Distro/pi-gen
+          git clone --depth 1 --branch arm64 https://github.com/RPi-Distro/pi-gen
           cd pi-gen
+          echo "pi-gen commit: $(git rev-parse HEAD)"
 
       # Optimize initramfs generation for dev builds
       - name: Apply deferred initramfs optimization
@@ -910,6 +927,13 @@ jobs:
           
           # Skip stage5 (desktop software - not needed)
           touch ./stage5/SKIP
+
+          # ENABLE_CLOUD_INIT=0 only leaves out the bootfs seed files; the
+          # substage would still install cloud-init and netplan. Skip all of it.
+          if grep -q "^ENABLE_CLOUD_INIT=0" config && [ -d ./stage2/04-cloud-init ]; then
+            touch ./stage2/04-cloud-init/SKIP
+            echo "Skipping stage2/04-cloud-init (ENABLE_CLOUD_INIT=0)"
+          fi
           
           # Run the build
           sudo ./build.sh
@@ -945,7 +969,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: base-stages-cache.tar.gz
-          key: base-stages-${{ env.CACHE_VERSION }}
+          key: base-stages-${{ env.CACHE_VERSION }}-${{ steps.os-release.outputs.release }}
 
       # Show system resources before main build
       - name: show swap and memory status before build

@@ -14,9 +14,10 @@ What broke raspi-config itself:
 The menu runs here under dash with stub whiptail/sudo/script/setsid, an env
 file in a temp dir (RQ_CONFIG_FILE) and no Raspberry Pi.
 
-The optional test at the end runs the REAL raspi-config (bookworm, the version
-the image ships) patched with raspi-config.diff, when RQ_TEST_RASPI_CONFIG
-points to a copy of it (the code-quality workflow downloads it).
+The optional test at the end runs the REAL raspi-config (trixie 20261026, the
+version the image ships, and bookworm 20250813 for images in the field) patched
+with raspi-config.diff, when RQ_TEST_RASPI_CONFIG points to a copy of it (the
+code-quality workflow downloads both).
 """
 
 import json

@@ -453,7 +453,7 @@ process group, and the hangup when the demo ends or its window closes kills it
 before the tab opens.
 ```bash
 # OLD
-run_as_user chromium-browser --password-store=basic "$URL" >/dev/null 2>&1 &
+run_as_user chromium --password-store=basic "$URL" >/dev/null 2>&1 &
 
 # NEW
 rq_open_browser "$URL"

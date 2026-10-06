@@ -1174,7 +1174,8 @@ RQ_BROWSER_HANDOFF_WAIT="${RQ_BROWSER_HANDOFF_WAIT:-10}"
 # The browser command on this Pi; fails if there is none
 _rq_find_browser() {
     local b
-    for b in chromium-browser chromium firefox xdg-open; do
+    # chromium first: trixie has no chromium-browser command (bookworm has both)
+    for b in chromium chromium-browser firefox xdg-open; do
         if command -v "$b" >/dev/null 2>&1; then
             echo "$b"
             return 0
@@ -1192,7 +1193,7 @@ _rq_find_browser() {
 # terminal's foreground process group, and the kernel sends that group SIGHUP
 # when the session leader ends - under rq_hold_on_error.sh, the demo itself -
 # and when the window closes. Composer and Grok Bloch online end right after
-# starting `chromium-browser URL`, so in a window of their own (an icon
+# starting `chromium URL`, so in a window of their own (an icon
 # running rq_demo_run.sh) the hangup killed it before it had handed the
 # address to the running Chromium: no tab. And a Chromium that a demo had
 # started itself (none was running) closed, all tabs, with the demo's window.

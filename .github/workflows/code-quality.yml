@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'   # the image's Python (trixie)
 
       - name: Install dependencies
         run: |
@@ -63,17 +63,24 @@ jobs:
         # it sets changes raspi-config (R-001: Hostname set to "" without a
         # dialog; R-017: "Network Proxy -> All" crashed). These tests run the
         # menu under dash, and the smoke test runs the raspi-config the image
-        # ships (bookworm 20250813 = RPi-Distro/raspi-config aabbd962) patched
-        # with raspi-config.diff.
+        # ships patched with raspi-config.diff: trixie 20261026 (RPi-Distro/
+        # raspi-config tag pios/20261026 = ec5b4721), and bookworm 20250813
+        # (aabbd962) for the Bookworm images in the field - one diff fits both.
         run: |
           python -m pip install --quiet pytest
-          curl -fsSL -o "$RUNNER_TEMP/raspi-config" \
-            https://raw.githubusercontent.com/RPi-Distro/raspi-config/aabbd96212484856e324eff82d519a5ff243cd9b/raspi-config
-          echo "a937107d3f5489ed954dd2299b936bd3a2322b3a9009ee2b2089fb6e1c3c2e51  $RUNNER_TEMP/raspi-config" | sha256sum -c -
-          RQ_TEST_RASPI_CONFIG="$RUNNER_TEMP/raspi-config" python -m pytest -q -rs \
-            tests/unit/test_raspi_config_menu.py tests/unit/test_raspi_config_patch.py \
-            tests/unit/test_demo_menu_cache.py tests/unit/test_env_merge.py \
-            tests/unit/test_demo_engine_user.py
+          for pin in \
+              "trixie ec5b4721fc7bffc0f71bc46393d7f620c5f60779 9b98ceebe45c394163bc60ff34a642a4aa7396cb051f37d0ea630776cbc82525" \
+              "bookworm aabbd96212484856e324eff82d519a5ff243cd9b a937107d3f5489ed954dd2299b936bd3a2322b3a9009ee2b2089fb6e1c3c2e51"; do
+            set -- $pin
+            echo "=== raspi-config $1 ($2) ==="
+            curl -fsSL -o "$RUNNER_TEMP/raspi-config-$1" \
+              "https://raw.githubusercontent.com/RPi-Distro/raspi-config/$2/raspi-config"
+            echo "$3  $RUNNER_TEMP/raspi-config-$1" | sha256sum -c -
+            RQ_TEST_RASPI_CONFIG="$RUNNER_TEMP/raspi-config-$1" python -m pytest -q -rs \
+              tests/unit/test_raspi_config_menu.py tests/unit/test_raspi_config_patch.py \
+              tests/unit/test_demo_menu_cache.py tests/unit/test_env_merge.py \
+              tests/unit/test_demo_engine_user.py
+          done
         continue-on-error: false
 
       - name: Check links between docs

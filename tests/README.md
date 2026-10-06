@@ -119,7 +119,7 @@ python3 -m pytest -q -W default::DeprecationWarning tests/qiskit_compat
 ```
 
 `compat_ci.py` also holds the install checks of the CI workflow
-(`check-latest`, `versions`, `wheels` for cp311 manylinux aarch64).
+(`check-latest`, `versions`, `wheels` for cp313 manylinux aarch64).
 
 **Workflow:** `.github/workflows/qiskit-compat.yml` runs `qiskit_compat/` and
 `paradoxes/` on pushes that touch our Qiskit code, its patches/pins or these

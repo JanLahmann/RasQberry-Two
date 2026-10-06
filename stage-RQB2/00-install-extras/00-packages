@@ -11,8 +11,11 @@ sense-emu-tools
 # 03-install-qiskit; the pip Qt wheels crash on the Pi 5 kernel (#302)
 python3-pyqt5
 python3-pyqt5.qtsvg
-chromium-browser
-chromium-chromedriver
+# Browser for the demos and the start page. trixie names (bookworm:
+# chromium-browser, chromium-chromedriver - now empty transitional packages,
+# and there is no chromium-browser command any more; use `chromium`)
+chromium
+chromium-driver
 libxcb-cursor-dev
 # utilities for A/B boot release picker
 jq

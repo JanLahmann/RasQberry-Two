@@ -109,7 +109,7 @@ echo "Qoffee-Maker is running: $JUPYTER_URL"
 echo "The app opens fullscreen; F11 leaves fullscreen."
 echo
 # Fullscreen like a kiosk (the app's own fullscreen request needs a click)
-if check_display && command -v chromium-browser >/dev/null 2>&1; then
+if check_display && command -v chromium >/dev/null 2>&1; then
     info "Opening the browser..."
     rq_open_browser "$JUPYTER_URL" --start-fullscreen
 else

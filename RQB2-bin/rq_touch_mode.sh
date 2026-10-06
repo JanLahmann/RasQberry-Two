@@ -42,7 +42,14 @@ DEFAULT_DOUBLE_CLICK_MS=400
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
 LIBFM_CONFIG="$USER_HOME/.config/libfm/libfm.conf"
 LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
-WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+# wf-panel-pi's user config: ~/.config/wf-panel-pi/wf-panel-pi.ini on trixie
+# (wf-panel-pi 1.x, defaults in /etc/xdg/wf-panel-pi/, read key by key),
+# ~/.config/wf-panel-pi.ini on bookworm
+if [ -f /etc/xdg/wf-panel-pi/wf-panel-pi.ini ] || [ -d "$USER_HOME/.config/wf-panel-pi" ]; then
+    WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi/wf-panel-pi.ini"
+else
+    WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+fi
 # Older versions wrote here; Pi OS's Chromium never read it (R-098). The
 # touch flag now comes from /etc/chromium.d/rasqberry.
 OLD_CHROMIUM_FLAGS="$USER_HOME/.config/chromium-flags.conf.d/touch.conf"
