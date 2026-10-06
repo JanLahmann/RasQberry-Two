@@ -36,6 +36,7 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server and `ssh -L` commands:** they use the name avahi announces, so with two Pis of the same name, participants reach this one. Grokking the Bloch Sphere also starts over SSH and prints an `ssh -L` command.
 - **Downloads:** Download all demos shows the MB received, fetches the small demos first and gives realistic times. A Docker demo's first start shows one progress line instead of Docker's list of layers.
 - **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
+- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to `rasqberry`, not to the name typed in Imager. If another name was typed, the first login says once that the user stays `rasqberry` and that Imager's password, SSH key, hostname and Wi-Fi are set.
 
 ## What's new for you
 
