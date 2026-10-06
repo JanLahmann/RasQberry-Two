@@ -1363,7 +1363,8 @@ def _disown_pi4_strip():
 
 def quiet_pi4_driver_exit():
     """
-    Keep the Pi 4 LED driver's exit quiet (see _disown_pi4_strip).
+    Keep the Pi 4 LED driver's exit quiet (see _disown_pi4_strip), and let a
+    stopped program give the driver's memory back (_free_pi4_driver_on_stop_signals).
 
     Call after the first frame (show()): the library registers its cleanup
     then, and atexit runs the last registered first, so this runs before it.
@@ -1373,6 +1374,61 @@ def quiet_pi4_driver_exit():
     _pi4_exit_quiet['registered'] = True
     import atexit
     atexit.register(_disown_pi4_strip)
+    _free_pi4_driver_on_stop_signals()
+
+
+def _end_after_pi4_cleanup(signum, _frame):
+    """Run the Pi 4 driver's cleanup, then end the way the signal would have."""
+    import signal
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            signal.signal(sig, signal.SIG_IGN)      # one cleanup, not two
+        except (ValueError, OSError):
+            pass
+    try:
+        import neopixel_write
+        cleanup = getattr(getattr(neopixel_write, '_neopixel', None), 'neopixel_cleanup', None)
+        if callable(cleanup):
+            cleanup()
+    except Exception:  # noqa: BLE001 - the program ends anyway
+        pass
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+def _free_pi4_driver_on_stop_signals():
+    """
+    A stopped Pi 4 LED program gives the driver's GPU memory back.
+
+    rpi_ws281x takes its frame buffer from the GPU's memory (the mailbox), and
+    only its cleanup (ws2811_fini, run at a normal exit) returns it: the
+    kernel does not when the program ends. The menu, the demo windows and the
+    Demo Loop stop a demo with SIGTERM (a closed window: SIGHUP), which ends
+    Python at once, so every stop kept about 8-12 KB: on the rig 54 of 56 MB
+    were left after a day of tests, and a Demo Loop running for days at a
+    stand would have run out within about a week. A handler now runs the
+    driver's cleanup and then ends the program with the same signal, as the
+    Pi 5 one does (_drain_on_stop_signals): no exception to be caught by a
+    demo, no wait for its threads. Only on a Pi 4 with the driver started,
+    in the main thread, and where the program has no handler of its own.
+    """
+    import signal
+    import threading
+    try:
+        import neopixel_write
+    except ImportError:
+        return
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if not getattr(backend, '__name__', '').endswith('bcm283x.neopixel'):
+        return
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) == signal.SIG_DFL:
+                signal.signal(sig, _end_after_pi4_cleanup)
+        except (ValueError, OSError):
+            pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):

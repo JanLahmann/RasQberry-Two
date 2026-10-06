@@ -164,3 +164,17 @@ detail, verdict WARN. The file's content is never printed.
 After each demo the tabs it opened are closed, and when the Pi is done its
 Chromium is restarted as the session starts it. `--no-web-check` skips all
 this.
+
+## Pi 5 LED driver: first-frame timeouts
+
+`rp1_pio_first_frame.py` measures how often the first frame after opening
+`/dev/pio0` times out ("rp1-pio ...: DMA wait timed out"), without RasQberry
+code: each round a fresh process opens the PIO, writes one frame and exits.
+Run it on the Pi 5 with nothing else on the panel (about 0.7 s per round):
+
+```bash
+cd /tmp && ~/RasQberry-Two/venv/RQB2/bin/python3 ~/rp1_pio_first_frame.py --rounds 600
+```
+
+Bookworm, kernel 6.12.109 (2026-10-06): 20 of 1200 rounds (1 in 60). Repeat on the
+Trixie image before reporting it upstream.

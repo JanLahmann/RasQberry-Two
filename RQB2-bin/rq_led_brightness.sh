@@ -136,10 +136,13 @@ cooling_advice() {
 
 after_stall() {
     local since="${1:-0}" start="${2:-}" found recovered text offer=0
+    local title="LED panel stopped"
     case "$since" in ''|*[!0-9]*) since=0 ;; esac
     found=$(newest_stall "$since") || return 0
     recovered="${found#* }"
     if [ "$recovered" = "yes" ]; then
+        # It went on during the demo: it did not stop
+        title="LED panel stalled briefly"
         text="The LED driver stalled during the demo and was restarted."
     elif reset_pio_driver; then
         text="The LED panel stopped during the demo: its driver did not respond, and it has been restarted now."
@@ -167,10 +170,10 @@ after_stall() {
         return 0
     fi
     if [ "$offer" != 1 ]; then
-        show_msgbox "LED panel stopped" "$text" 10 70
+        show_msgbox "$title" "$text" 10 70
         return 0
     fi
-    if whiptail --title "LED panel stopped" --yes-button "Lower to 0.2" \
+    if whiptail --title "$title" --yes-button "Lower to 0.2" \
             --no-button "Keep ${LED_DEFAULT_BRIGHTNESS:-0.4}" \
             --yesno "$(printf '%b' "$text")" "$(_rq_dialog_height "$text" 70 12)" 70; then
         set_level low
