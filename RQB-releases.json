@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-04T13:40:11Z",
+  "generated": "2026-10-06T20:18:24Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,48 +8,46 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-04-143935",
-      "name": "rasqberry-beta-2026-10-04-143935",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935",
-      "release_date": "2026-10-04",
-      "image_download_size": 1645458180,
+      "tag": "beta-2026-10-06-211827",
+      "name": "rasqberry-beta-2026-10-06-211827",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-06-211827",
+      "release_date": "2026-10-06",
+      "image_download_size": 1646121944,
       "extract_size": 9076473856,
-      "extract_sha256": "6e7642344407cd6904a4cf34c73409f33da2224cf89dda2a4de7a10c45229994",
-      "image_sha256": "9cbfafcd4ec4a3a4e1b4ba2610498e7aab1c949e0783a63846d9b831f45b5e2e",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04-ab.img.xz",
-      "ab_extract_sha256": "6a5c427bcad75f328b195a49c6217bb62abe8f9a9161f0ce09d779aa3575dbf7",
-      "ab_image_sha256": "38f912f8c0608c6104f2f16930c38b5d55336e0b748b45c0585a20c3a086117a",
-      "ab_image_download_size": 1663679844,
+      "extract_sha256": "e42f6de2f7c6452ac97fe0e58b6b4a602afd2f3502fe9542d5f77be7fd2e43d6",
+      "image_sha256": "66767b1acfb64e433d7c10e8023f85f9ca9dd01704f993a7719b7f2e807dd93b",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06-ab.img.xz",
+      "ab_extract_sha256": "68a079330a43f8533ef5c6ff449ec260b67f9cc26acd47d8cf70b25763ed18dd",
+      "ab_image_sha256": "eefbdc79ca265603031d5ba2397586e7e14a822f5cd61dbcfe6ee1caaaf142d5",
+      "ab_image_download_size": 1671714316,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to beta-2026-10-04-143935",
-        "Merge development into beta (beta round 5)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-04-140956",
-        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-10-03-095636",
-        "JupyterLab no longer asks about Jupyter news"
+        "Quantum Lab starts again - re-pin QuBins 2.5-xl (the pinned build was pruned)",
+        "Bump version to beta-2026-10-06-211827",
+        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-10-04-143935"
       ]
     },
     "dev": {
-      "tag": "development-2026-10-04-140956",
-      "name": "rasqberry-development-2026-10-04-140956",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-140956/rasqberry-development-2026-10-04-140956.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-04-140956",
-      "release_date": "2026-10-04 14:09",
-      "image_download_size": 2009310048,
+      "tag": "development-2026-10-06-210409",
+      "name": "rasqberry-development-2026-10-06-210409",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-210409",
+      "release_date": "2026-10-06 21:04",
+      "image_download_size": 2010610088,
       "extract_size": 9076473856,
-      "extract_sha256": "7ad57e9ed40558c114b36a42cf8fb13b49223988df633e47ac892321921da624",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-04-140956/rasqberry-development-2026-10-04-140956-ab.img.xz",
-      "ab_extract_sha256": "3871f7176138ec7c3ec14fcdbff396343693af668917a562c5cebebeceb4603d",
-      "ab_image_sha256": "3911ff93224b0f63cea96f30544fbec1a174466b3a4ee3c8ff38f8c9c4c02ade",
+      "extract_sha256": "94de6d54e51f3f6d40cd4b93c2dfe926674417dd89553648b2de910863f600d6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409-ab.img.xz",
+      "ab_extract_sha256": "f677a6c914683e697ab7f39ebd2c3c40bfbf7e6cd63cdd0f6e5a03ac20ba9bbe",
+      "ab_image_sha256": "c635d7cd9e96491af4a2d68744b2765235a02ebbdc592089250903375c709959",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2066732184,
+      "ab_image_download_size": 2065681208,
       "highlights": [
-        "JupyterLab no longer asks about Jupyter news",
-        "date a failed switch by its request when the trial clock is behind",
-        "Bump version to development-2026-10-04-140956",
-        "Merge remote-tracking branch 'origin/development' into development",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-04-111811"
+        "Quantum Lab starts again; pinned Docker digests fall back to a tag",
+        "daily check that every pinned Docker image is still offered",
+        "Bump version to development-2026-10-06-210409",
+        "Merge branch 'dev-qlab-pin' into development (Quantum Lab pin + Docker pin fallback)",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-06-163836"
       ]
     }
   }
