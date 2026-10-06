@@ -51,7 +51,7 @@ INIT_FORMAT = "systemd"
 # name typed in Imager; dev-imager-connect) has passed a rig test.
 RPI_CONNECT = False
 
-USER_NOTE = "Username is always rasqberry."
+USER_NOTE = "Username is always rasqberry; set your password in Imager."
 SINGLE = " — single system"
 # (branch, entry name), most stable first: the first stream with a release wins
 STREAMS = (("main", "RasQberry Two"), ("beta", "RasQberry Two Beta"))
