@@ -1,8 +1,50 @@
 {
-  "generated": "2026-10-06T15:18:18Z",
+  "generated": "2026-10-06T16:04:26Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 113,
+  "count": 115,
   "releases": [
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-171834/rasqberry-dev-trixie-2026-10-06-171834.img.xz",
+      "extract_size": 9495904256,
+      "extract_sha256": "806b30be75c85dce6742fd2e6e50e55f0964bacdcb5dfe360ba2403c83d7039c",
+      "image_download_size": 2144561292,
+      "image_sha256": "37d45d3e1b536a043af4b524c7849058d44d0d68745897bea84e8791f3027816",
+      "release_date": "2026-10-06 17:18",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-trixie-2026-10-06-171834",
+      "_branch": "dev-trixie",
+      "_published": "2026-10-06T15:19:17Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-171834/rasqberry-dev-trixie-2026-10-06-171834-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "8b6e45af3780d23f19b60dc1c0fd55edd384a66764e916a444dc000b622004dd",
+      "image_download_size": 1883192688,
+      "image_sha256": "b3803f15803248c78faab4e2e521541d6658f05fce161bcbd559667830c46e2c",
+      "release_date": "2026-10-06 17:18",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-trixie-2026-10-06-171834",
+      "_branch": "dev-trixie",
+      "_published": "2026-10-06T15:19:17Z"
+    },
     {
       "name": "RasQberry Two Dev (64-bit)",
       "description": "RasQberry development build with cutting-edge features (unstable)",
