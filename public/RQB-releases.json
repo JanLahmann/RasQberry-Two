@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T16:04:26Z",
+  "generated": "2026-10-06T17:40:57Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-06-163836",
-      "name": "rasqberry-development-2026-10-06-163836",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-163836/rasqberry-development-2026-10-06-163836.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-163836",
-      "release_date": "2026-10-06 16:38",
-      "image_download_size": 2009616508,
-      "extract_size": 9076473856,
-      "extract_sha256": "d447ed050d474ec6dd6798733134e05bec7c0f75db2646af47e6843562e7ead4",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-163836/rasqberry-development-2026-10-06-163836-ab.img.xz",
-      "ab_extract_sha256": "ebeb80206bb5139b581444014b6e68e0c68fcc435ec04925c3857d5812efd923",
-      "ab_image_sha256": "e50d199fb03e974f51ff5ef369d3c49ac40777b704110f1d397b5d7e62d06e3b",
+      "tag": "dev-trixie-2026-10-06-190843",
+      "name": "rasqberry-dev-trixie-2026-10-06-190843",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-190843/rasqberry-dev-trixie-2026-10-06-190843.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-190843",
+      "release_date": "2026-10-06 19:08",
+      "image_download_size": 2144413624,
+      "extract_size": 9495904256,
+      "extract_sha256": "7359381f05ce077cd841f2df24ba1c5ea5ef3e4ddc303500871e3eac5964daab",
+      "image_sha256": "4e32df76e51271d6a338988ebc82983bd48610c3dd20a3268d4273c9673d46b6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-190843/rasqberry-dev-trixie-2026-10-06-190843-ab.img.xz",
+      "ab_extract_sha256": "06952e09dbcdcf0b1cc26d5d54fdc0b476921126c73f4cc271a59b3382fe7300",
+      "ab_image_sha256": "2c76b1284089b39e9a65f4df922ebb4758166849b24719dfc5771ef7e7e3ebe4",
+      "ab_image_download_size": 1879738896,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2068248084,
       "highlights": [
-        "Raspberry Pi Connect from Imager goes to rasqberry",
-        "the stall dialog's title says whether the panel went on",
-        "a stopped Pi 4 LED program gives the driver's GPU memory back",
-        "Bump version to development-2026-10-06-163836",
-        "Merge branch 'dev-imager-connect' into development"
+        "link PyQt5_sip's dist-info into the venv",
+        "Bump version to dev-trixie-2026-10-06-190843",
+        "Merge remote-tracking branch 'origin/development' into dev-trixie",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-06-163836",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-trixie-2026-10-06-171834"
       ]
     }
   }
