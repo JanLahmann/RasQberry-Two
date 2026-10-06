@@ -52,6 +52,11 @@ FIRST_USER_NAME=rasqberry
 FIRST_USER_PASS="Qiskit1!"
 ENABLE_SSH=1
 DISABLE_FIRST_BOOT_USER_RENAME=1
+# Passwordless sudo for the first user, as Raspberry Pi OS bookworm had by
+# default (/etc/sudoers.d/010_pi-nopasswd). trixie's pi-gen defaults to 0
+# (sudo asks for the password); RasQberry's desktop tools rely on `sudo -n`
+# (LED demos, touch mode, slot indicator, updates, raspi-config icon).
+PASSWORDLESS_SUDO=1
 PUBKEY_ONLY_SSH=0
 
 # Build quality settings
