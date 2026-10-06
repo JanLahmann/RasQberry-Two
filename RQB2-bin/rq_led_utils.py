@@ -52,6 +52,40 @@ try:
 except ImportError:  # pragma: no cover - exercised only without python-dotenv
     dotenv_values = None
 
+
+def _plain_env_values(path):
+    """
+    Read KEY=value lines without python-dotenv.
+
+    The system Python on trixie has no dotenv. The on-screen LED view and the
+    browser view of a demo that runs as root were started with it and fell
+    back to the emergency defaults: they drew a quad-4x12 kit as one 24x8
+    panel (Pi 4 user test 2026-10-06). The env file is plain KEY=value.
+
+    Args:
+        path (str): Environment file.
+
+    Returns:
+        dict: KEY -> value (quotes and inline comments removed).
+    """
+    values = {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key.startswith("export "):
+                key = key[len("export "):].strip()
+            value = value.strip()
+            if value[:1] in ("'", '"') and value.endswith(value[:1]) and len(value) > 1:
+                value = value[1:-1]
+            elif " #" in value:
+                value = value.split(" #", 1)[0].rstrip()
+            values[key] = value
+    return values
+
 # System-wide environment file location
 ENV_FILE = "/usr/config/rasqberry_environment.env"
 
@@ -130,11 +164,7 @@ def _read_env_file():
     if _env_cache is not None and key == _env_cache_key:
         return _env_cache
 
-    if dotenv_values is None:
-        print("ERROR: python-dotenv not available, cannot read config")
-        print("Using emergency defaults")
-        config = EMERGENCY_DEFAULTS
-    elif not os.path.exists(ENV_FILE):
+    if not os.path.exists(ENV_FILE):
         print(f"ERROR: Config file not found: {ENV_FILE}")
         print("Using emergency defaults")
         config = EMERGENCY_DEFAULTS
@@ -144,7 +174,7 @@ def _read_env_file():
         config = EMERGENCY_DEFAULTS
     else:
         try:
-            config = dotenv_values(ENV_FILE)
+            config = (dotenv_values or _plain_env_values)(ENV_FILE)
         except Exception as e:
             print(f"ERROR: Failed to parse config: {e}")
             print("Using emergency defaults")
@@ -729,8 +759,11 @@ def _ensure_singleton(pidfile, lockfile, pattern, script_name,
         env = {**os.environ}
         if extra_env:
             env.update(extra_env)
+        # The same Python as this program (the RasQberry venv): a demo run
+        # as root has no venv on its PATH, and the system python3 lacks the
+        # venv's modules (Pi 4 user test 2026-10-06: wrong layout)
         proc = subprocess.Popen(
-            ['python3', script],
+            [sys.executable or 'python3', script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -931,17 +964,60 @@ def cap_brightness(brightness, config=None):
 #   opening it again cured it at once. That is the driver starting, not a
 #   stall: it is recovered without a message or a note, so no stall dialog
 #   blames the power supply for it.
+#
+# Frame pacing (Trixie, kernel 6.18): the kernel's PIO driver no longer
+# waits until a frame is out - the write returns as soon as the DMA is
+# started (6.12 blocked for it). The LED library still assumes the old
+# behaviour and starts the next frame 1 ms after the previous write
+# returned, i.e. while that frame is still going out. The two frames then
+# run together without the pause (> 280 us) that tells the LEDs "frame
+# complete", and the LEDs pass the new frame on down the chain: it is lost.
+# A frame written right after another one never showed - the first frame
+# after the driver opens (it opens with a black frame), and every frame of
+# RasQ-LED's LED-by-LED animation; the panel stayed dark (rig 2026-10-06).
+# So the next write waits until the previous frame is out plus the pause.
 
 LED_STALL_SECONDS = 0.5           # a 192-LED frame takes about 6 ms
 LED_STALL_RETRY_SECONDS = 10.0    # while stuck, try to reopen this often
 LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
 LED_HANDOVER_WAIT_SECONDS = 5.0   # longest wait for the previous program to let go
+LED_BYTE_SECONDS = 8 / 800000     # one byte at the LEDs' 800 kHz
+LED_LATCH_SECONDS = 0.001         # the pause that ends a frame (> 280 us), generous
 LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
 PIO_DEVICE = "/dev/pio0"
 
 _stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
                 'last_write': 0.0, 'counted': False, 'brightness': None,
-                'opened': False}
+                'opened': False, 'next_write': 0.0}
+
+
+def _frame_out_at(start, end, nbytes):
+    """
+    When the frame just written has gone out, so the next one may start.
+
+    A driver that waited for the frame (kernel 6.12) took about the frame's
+    time in the write; one that only started it (6.18) returned at once,
+    and the frame runs from then on.
+
+    Args:
+        start (float): monotonic time the write was called.
+        end (float): monotonic time it returned.
+        nbytes (int): frame size in bytes.
+
+    Returns:
+        float: monotonic time for the next write.
+    """
+    frame = nbytes * LED_BYTE_SECONDS
+    if end - start >= 0.5 * frame:
+        return end + LED_LATCH_SECONDS
+    return end + frame + LED_LATCH_SECONDS
+
+
+def _pace_frame():
+    """Wait until the previous frame is out (see "Frame pacing" above)."""
+    left = _stall_state['next_write'] - time.monotonic()
+    if left > 0:
+        time.sleep(left)
 
 
 def _record_led_stall(recovered):
@@ -1001,7 +1077,8 @@ def _report_led_stall(message):
 
 def _wait_for_last_frame():
     """Give the last frame time to go out before the PIO is closed."""
-    left = _stall_state['last_write'] + LED_FRAME_DRAIN_SECONDS - time.monotonic()
+    left = max(_stall_state['last_write'] + LED_FRAME_DRAIN_SECONDS,
+               _stall_state['next_write']) - time.monotonic()
     if left > 0:
         time.sleep(left)
 
@@ -1072,10 +1149,12 @@ def _guarded_pi5_write(write, reopen):
         callable: a neopixel_write replacement.
     """
     def timed(pin, buf):
+        _pace_frame()
         start = time.monotonic()
         write(pin, buf)
-        _stall_state['last_write'] = time.monotonic()
-        return _stall_state['last_write'] - start < LED_STALL_SECONDS
+        end = _stall_state['last_write'] = time.monotonic()
+        _stall_state['next_write'] = _frame_out_at(start, end, len(buf))
+        return end - start < LED_STALL_SECONDS
 
     def reopen_and_write(pin, buf):
         reopen()
