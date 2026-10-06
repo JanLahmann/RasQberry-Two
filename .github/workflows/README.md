@@ -8,7 +8,8 @@ nowhere else (#212).
 | Workflow | Lives on | Trigger | Notes |
 |---|---|---|---|
 | `link-check.yml` | main | weekly schedule, dispatch | checks gh-pages (built), development, beta, 3D-model |
-| `consolidate-json.yaml` | main | schedule, dispatch | script in `.github/scripts/consolidate_json.py`; writes to gh-pages |
+| `consolidate-json.yaml` | main | schedule, dispatch | script in `.github/scripts/consolidate_json.py`; writes to gh-pages, also `rpi-imager.json` (`rpi_imager_list.py`, schema and icon in `.github/imager/`) |
+| `imager-sublist.yml` | main | push/PR of the sublist generator, daily schedule, dispatch | unit tests of `rpi_imager_list.py`; daily check of the live `rpi-imager.json` (official Imager sublist) |
 | `family-dispatch-relay.yml` | main | repository_dispatch | relays Fun-with-Quantum updates to the site build |
 | `stl-analysis.yml` | main **and** 3D-model, identical | STL push/PR (3D-model copy), weekly schedule (main copy, audits 3D-model) | edit both together |
 | `paradox-notebooks.yml` | main **and** development, identical | push of the patch rules/test (development copy); weekly PyPI check (main copy) runs it when a new Qiskit x.y.0 came out | Quantum Paradoxes regression test (#181); edit both together |

@@ -1,0 +1,62 @@
+# ============================================================================
+# rpi-imager.json: the sublist for the official Raspberry Pi Imager
+# ============================================================================
+# unit: the generator (.github/scripts/rpi_imager_list.py) against Imager's
+#       schema, on every change to it.
+# live: the published https://rasqberry.org/rpi-imager.json, daily: Imager's
+#       schema, our rules, and that each image URL answers with its size.
+#       The official Imager list links to it, so it must never break.
+# consolidate-json.yaml builds and checks the file before writing it.
+# ============================================================================
+
+name: Imager sublist
+
+on:
+  push:
+    paths:
+      - '.github/scripts/rpi_imager_list.py'
+      - '.github/scripts/consolidate_json.py'
+      - '.github/scripts/tests/**'
+      - '.github/imager/**'
+      - '.github/workflows/imager-sublist.yml'
+  pull_request:
+    paths:
+      - '.github/scripts/rpi_imager_list.py'
+      - '.github/scripts/consolidate_json.py'
+      - '.github/scripts/tests/**'
+      - '.github/imager/**'
+      - '.github/workflows/imager-sublist.yml'
+  schedule:
+    - cron: '41 6 * * *'   # daily 06:41 UTC: the live check
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest jsonschema pillow
+      - run: python -m pytest -q .github/scripts/tests
+
+  live:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .github/imager
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install jsonschema
+      - name: Check https://rasqberry.org/rpi-imager.json
+        run: python .github/scripts/rpi_imager_list.py --check https://rasqberry.org/rpi-imager.json
