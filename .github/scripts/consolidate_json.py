@@ -9,6 +9,7 @@ because the inline script exceeded GitHub's 21000-character expression limit.
 import json
 import os
 import re
+import sys
 import urllib.request
 from pathlib import Path
 from datetime import datetime, timezone
@@ -92,7 +93,7 @@ def extract_timestamp(url):
     match = re.search(r'(\d{4}-\d{2}-\d{2}(?:-\d{6})?)$', filename)
     return match.group(1) if match else None
 
-json_dir = Path("/tmp/release-json")
+json_dir = Path(os.environ.get("RQB_RELEASE_JSON_DIR", "/tmp/release-json"))
 
 # First pass: group releases by branch and keep only the latest per branch
 branch_releases = {}  # branch -> (published_date, tag, json_file)
@@ -531,3 +532,18 @@ with open('public/RQB-images-all.json', 'w') as f:
     json.dump(all_images_json, f, indent=2)
 
 print(f"\n=== RQB-images-all.json: {len(all_releases)} entries ===")
+
+# ================================================================
+# rpi-imager.json: the sublist for the official Raspberry Pi Imager
+# ================================================================
+# Newest beta (later: stable) release only, checked against Imager's schema
+# and the image URLs before it is written. When that fails, the previous
+# rpi-imager.json stays; the files above are still committed, and the
+# workflow fails the run afterwards (sublist=failed).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import rpi_imager_list  # noqa: E402
+
+if not rpi_imager_list.write_sublist(json_dir, Path('public/rpi-imager.json')):
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write("sublist=failed\n")

@@ -1,0 +1,725 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "title": "Imager oslist.json schema",
+    "description": "oslist.json format.",
+    "default": {},
+    "examples": [
+        {
+            "imager": {
+                "latest_version": "1.6",
+                "url": "https://www.raspberrypi.org/software/",
+                "default_os": "Raspberry Pi OS (32-bit)",
+                "embedded_default_os": "Raspberry Pi OS (32-bit)",
+                "embedded_default_destination": "/dev/mmcblk0p1"
+            },
+            "os_list": [
+                {
+                    "name": "Raspberry Pi OS (32-bit)",
+                    "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Recommended)",
+                    "icon": "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                    "url": "https://downloads.raspberrypi.org/raspios_armhf/images/raspios_armhf-2022-01-28/2022-01-28-raspios-bullseye-armhf.zip",
+                    "extract_size": 4236247040,
+                    "extract_sha256": "ceb7d7489847ed811e7746fa779837f78fc06d43663148a696280e6a1cfe00e3",
+                    "image_download_size": 1306588543,
+                    "release_date": "2022-01-28",
+                    "init_format": "systemd"
+                },
+                {
+                    "name": "Ubuntu Server 21.10 (RPi 3/4/400)",
+                    "description": "64-bit server OS for arm64 architectures",
+                    "icon": "https://assets.ubuntu.com/v1/85a9de76-ubuntu-icon.svg",
+                    "url": "http://cdimage.ubuntu.com/releases/impish/release/ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz",
+                    "extract_size": 4068480000,
+                    "extract_sha256": "4cf06429e0367f0a59b890819d1792b0d816bc531fcb5bd092e441d8d6a942b9",
+                    "image_download_size": 921117368,
+                    "release_date": "2021-10-14",
+                    "website": "https://ubuntu.com/raspberry-pi/server",
+                    "init_format": "cloudinit"
+                },
+                {
+                    "name": "Bootloader",
+                    "description": "Restore the factory default settings and change boot priority",
+                    "icon": "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                    "subitems_url": "https://downloads.raspberrypi.org/eeprom_recovery.json",
+                    "website": "https://www.raspberrypi.org/"
+                },
+                {
+                    "name": "Raspberry Pi OS (other)",
+                    "description": "Other Raspberry Pi OS based images",
+                    "icon": "icons/cat_raspberry_pi_os.png",
+                    "subitems": [
+                        {
+                            "name": "Raspberry Pi OS (64-bit)",
+                            "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Compatible with Raspberry Pi 3/4/400)",
+                            "icon": "https://downloads.raspberrypi.org/raspios_arm64/Raspberry_Pi_OS_(64-bit).png",
+                            "url": "https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2022-01-28/2022-01-28-raspios-bullseye-arm64.zip",
+                            "extract_size": 4156555264,
+                            "extract_sha256": "6939d39cbbfbe85c68dae55f1b2375f17e21fe047b8dc1f84aa7d3c002047afb",
+                            "image_download_size": 1189750489,
+                            "release_date": "2022-01-28",
+                            "init_format": "systemd"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "required": [
+        "os_list"
+    ],
+    "properties": {
+        "imager": {
+            "$id": "#/properties/imager",
+            "type": "object",
+            "title": "Meta-data for the Imager program itself",
+            "description": "ONLY USED IN TOP-LEVEL OS_LIST.JSON. Not for Linux distributions linked by subitems url.",
+            "default": {},
+            "examples": [
+                {
+                    "latest_version": "1.6",
+                    "url": "https://www.raspberrypi.org/software/",
+                    "default_os": "Raspberry Pi OS (32-bit)",
+                    "embedded_default_os": "Raspberry Pi OS (32-bit)",
+                    "embedded_default_destination": "/dev/mmcblk0p1",
+                    "refresh_interval_minutes": 1440,
+                    "refresh_jitter_minutes": 60
+                }
+            ],
+            "required": [
+            ],
+            "properties": {
+                "latest_version": {
+                    "$id": "#/properties/imager/properties/latest_version",
+                    "type": "string",
+                    "title": "Latest imager version",
+                    "description": "If version mentioned here is newer than the Imager that is currently being run, user is prompted for update.",
+                    "default": "",
+                    "examples": [
+                        "1.6"
+                    ]
+                },
+                "refresh_interval_minutes": {
+                    "$id": "#/properties/imager/properties/refresh_interval_minutes",
+                    "type": "integer",
+                    "title": "Refresh interval in minutes",
+                    "description": "Optional. Instructs the Imager to periodically refresh the top-level OS list after this many minutes.",
+                    "default": 0,
+                    "examples": [
+                        1440
+                    ]
+                },
+                "refresh_jitter_minutes": {
+                    "$id": "#/properties/imager/properties/refresh_jitter_minutes",
+                    "type": "integer",
+                    "title": "Additional random jitter in minutes",
+                    "description": "Optional. A non-negative number of minutes used as an upper bound for a random extra delay added to the base refresh interval.",
+                    "default": 0,
+                    "examples": [
+                        60
+                    ]
+                },
+                "url": {
+                    "$id": "#/properties/imager/properties/url",
+                    "type": "string",
+                    "title": "Website to download new Imager version from",
+                    "description": "If user accepts the update, a browser is opened to this address.",
+                    "default": "",
+                    "examples": [
+                        "https://www.raspberrypi.org/software/"
+                    ]
+                },
+                "default_os": {
+                    "$id": "#/properties/imager/properties/default_os",
+                    "type": "string",
+                    "title": "default_os",
+                    "description": "Optional. If set this OS will be selected automatically, without the user having to press 'CHOOSE OS'",
+                    "default": "",
+                    "examples": [
+                        "Raspberry Pi OS (32-bit)"
+                    ]
+                },
+                "embedded_default_os": {
+                    "$id": "#/properties/imager/properties/embedded_default_os",
+                    "type": "string",
+                    "title": "embedded_default_os",
+                    "description": "Optional. Same as default_os but only applied if user is running the embedded Imager edition.",
+                    "default": "",
+                    "examples": [
+                        "Raspberry Pi OS (32-bit)"
+                    ]
+                },
+                "embedded_default_destination": {
+                    "$id": "#/properties/imager/properties/embedded_default_destination",
+                    "type": "string",
+                    "title": "The embedded_default_destination schema",
+                    "description": "Optional. If set and the user is running the embedded Imager edition, this device will be automatically selected as destination drive.",
+                    "default": "",
+                    "examples": [
+                        "/dev/mmcblk0p1"
+                    ]
+                },
+                "devices": {
+                    "$id": "#/properties/imager/properties/devices",
+                    "type": "array",
+                    "title": "The devices schema",
+                    "description": "Optional. Array of device definitions that can be selected by the user.",
+                    "default": [],
+                    "items": {
+                        "$id": "#/properties/imager/properties/devices/items",
+                        "type": "object",
+                        "title": "Device entry",
+                        "description": "An entry for a Raspberry Pi device.",
+                        "default": {},
+                        "examples": [
+                            {
+                                "name": "Raspberry Pi 4",
+                                "description": "4GB, 8GB and 2GB variants",
+                                "icon": "icons/pi4.png",
+                                "tags": ["pi4"],
+                                "matching_type": "exclusive",
+                                "architecture": "armv8",
+                                "capabilities": ["i2c", "spi", "onewire", "serial", "usb_otg"]
+                            }
+                        ],
+                        "required": [
+                            "name",
+                            "description",
+                            "tags"
+                        ],
+                        "properties": {
+                            "name": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/name",
+                                "type": "string",
+                                "title": "The name schema",
+                                "description": "Name of device as shown in the 'CHOOSE DEVICE' list.",
+                                "default": "",
+                                "examples": [
+                                    "Raspberry Pi 4"
+                                ]
+                            },
+                            "description": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/description",
+                                "type": "string",
+                                "title": "The description schema",
+                                "description": "Description of device as shown in the 'CHOOSE DEVICE' list.",
+                                "default": "",
+                                "examples": [
+                                    "4GB, 8GB and 2GB variants"
+                                ]
+                            },
+                            "icon": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/icon",
+                                "type": "string",
+                                "title": "The icon schema",
+                                "description": "Optional. Icon of the device as shown in the 'CHOOSE DEVICE' list.",
+                                "default": "",
+                                "examples": [
+                                    "icons/pi4.png"
+                                ]
+                            },
+                            "tags": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/tags",
+                                "type": "array",
+                                "title": "The tags schema",
+                                "description": "Array of strings representing device tags used for filtering OS lists.",
+                                "default": [],
+                                "examples": [
+                                    ["pi4"],
+                                    ["pi3", "pi3b"]
+                                ]
+                            },
+                            "matching_type": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/matching_type",
+                                "type": "string",
+                                "title": "The matching_type schema",
+                                "description": "Optional. Matching algorithm for device filtering. Defaults to 'exclusive'.",
+                                "default": "exclusive",
+                                "examples": [
+                                    "exclusive",
+                                    "inclusive"
+                                ]
+                            },
+                            "architecture": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/architecture",
+                                "type": "string",
+                                "title": "The architecture schema",
+                                "description": "Optional. Preferred architecture for this device (armel, armhf, armv8). When specified, OS items matching this architecture will be sorted to the top of sublists.",
+                                "default": "",
+                                "examples": [
+                                    "armhf",
+                                    "armv8",
+                                    "armel"
+                                ]
+                            },
+                            "capabilities": {
+                                "$id": "#/properties/imager/properties/devices/items/properties/capabilities",
+                                "type": "array",
+                                "title": "The capabilities schema",
+                                "description": "Optional. Array of strings representing hardware capabilities. Used to enable or disable features in the customization wizard. Supported hardware capabilities include: 'i2c' (enables I2C interface option), 'spi' (enables SPI interface option), 'onewire' (enables 1-Wire interface option), 'serial' (enables serial interface option), 'serial_on_console_only' (enables console-only mode for serial), 'usb_otg' (enables USB Gadget mode option).",
+                                "default": [],
+                                "examples": [
+                                    ["i2c", "spi", "onewire", "serial", "usb_otg"],
+                                    ["i2c", "spi", "serial"]
+                                ],
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "i2c",
+                                        "spi",
+                                        "onewire",
+                                        "serial",
+                                        "serial_on_console_only",
+                                        "usb_otg"
+                                    ]
+                                }
+                            }
+                        },
+                        "additionalProperties": true
+                    }
+                }
+            },
+            "additionalProperties": false 
+        },
+        "os_list": {
+            "$id": "#/properties/os_list",
+            "type": "array",
+            "title": "The os_list schema",
+            "description": "List of operating systems available.",
+            "default": [],
+            "examples": [
+                [
+                    {
+                        "name": "Raspberry Pi OS (32-bit)",
+                        "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Recommended)",
+                        "icon": "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                        "url": "https://downloads.raspberrypi.org/raspios_armhf/images/raspios_armhf-2022-01-28/2022-01-28-raspios-bullseye-armhf.zip",
+                        "extract_size": 4236247040,
+                        "extract_sha256": "ceb7d7489847ed811e7746fa779837f78fc06d43663148a696280e6a1cfe00e3",
+                        "image_download_size": 1306588543,
+                        "release_date": "2022-01-28",
+                        "init_format": "systemd"
+                    },
+                    {
+                        "name": "Ubuntu Server 21.10 (RPi 3/4/400)",
+                        "description": "64-bit server OS for arm64 architectures",
+                        "icon": "https://assets.ubuntu.com/v1/85a9de76-ubuntu-icon.svg",
+                        "url": "http://cdimage.ubuntu.com/releases/impish/release/ubuntu-21.10-preinstalled-server-arm64+raspi.img.xz",
+                        "extract_size": 4068480000,
+                        "extract_sha256": "4cf06429e0367f0a59b890819d1792b0d816bc531fcb5bd092e441d8d6a942b9",
+                        "image_download_size": 921117368,
+                        "release_date": "2021-10-14",
+                        "website": "https://ubuntu.com/raspberry-pi/server",
+                        "init_format": "cloudinit"
+                    }
+                ]
+            ],
+            "additionalItems": true,
+            "items": {
+                "$id": "#/properties/os_list/items",
+                "anyOf": [
+                    {
+                        "$id": "#/properties/os_list/items/anyOf/0",
+                        "type": "object",
+                        "title": "Operating system entry",
+                        "description": "An entry for an OS.",
+                        "default": {},
+                        "examples": [
+                            {
+                                "name": "Raspberry Pi OS (32-bit)",
+                                "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Recommended)",
+                                "icon": "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                                "url": "https://downloads.raspberrypi.org/raspios_armhf/images/raspios_armhf-2022-01-28/2022-01-28-raspios-bullseye-armhf.zip",
+                                "extract_size": 4236247040,
+                                "extract_sha256": "ceb7d7489847ed811e7746fa779837f78fc06d43663148a696280e6a1cfe00e3",
+                                "image_download_size": 1306588543,
+                                "release_date": "2022-01-28",
+                                "init_format": "systemd",
+                                "devices": ["pi1a"]
+                            }
+                        ],
+                        "required": [
+                            "name",
+                            "description",
+                            "icon",
+                            "url",
+                            "extract_size",
+                            "extract_sha256",
+                            "image_download_size",
+                            "release_date",
+                            "devices"
+                        ],
+                        "properties": {
+                            "name": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/name",
+                                "type": "string",
+                                "title": "The name schema",
+                                "description": "Name of operating system as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "Raspberry Pi OS (32-bit)"
+                                ]
+                            },
+                            "description": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/description",
+                                "type": "string",
+                                "title": "The description schema",
+                                "description": "Description of operating system as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "A port of Debian Bullseye with the Raspberry Pi Desktop (Recommended)"
+                                ]
+                            },
+                            "icon": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/icon",
+                                "type": "string",
+                                "title": "The icon schema",
+                                "description": "Icon of the operating system as shown in the 'CHOOSE OS' list",
+                                "default": "",
+                                "examples": [
+                                    "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png"
+                                ]
+                            },
+                            "url": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/url",
+                                "type": "string",
+                                "title": "The url schema",
+                                "description": "Download URL. Can be .zip, .gz, .xz (since Imager 1.7 also .zstd, but for compatibility with older versions, better not use it)",
+                                "default": "",
+                                "examples": [
+                                    "https://downloads.raspberrypi.org/raspios_armhf/images/raspios_armhf-2022-01-28/2022-01-28-raspios-bullseye-armhf.zip"
+                                ]
+                            },
+                            "extract_size": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/extract_size",
+                                "type": "integer",
+                                "title": "The extract_size schema",
+                                "description": "The size of the image after extraction. Used to check if the storage is large enough to accomdate the image.",
+                                "default": 0,
+                                "examples": [
+                                    4236247040
+                                ]
+                            },
+                            "extract_sha256": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/extract_sha256",
+                                "type": "string",
+                                "title": "The extract_sha256 schema",
+                                "description": "SHA256 of image after extraction. Must be correct or Imager will for security purposes abort and will not write the first MB of image (effectively invalidating parititon table)",
+                                "default": "",
+                                "examples": [
+                                    "ceb7d7489847ed811e7746fa779837f78fc06d43663148a696280e6a1cfe00e3"
+                                ]
+                            },
+                            "image_download_size": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/image_download_size",
+                                "type": "integer",
+                                "title": "The image_download_size schema",
+                                "description": "Size of the compressed image.",
+                                "default": 0,
+                                "examples": [
+                                    1306588543
+                                ]
+                            },
+                            "release_date": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/release_date",
+                                "type": "string",
+                                "title": "The release_date schema",
+                                "description": "Release date of OS image. Shown in 'CHOOSE OS' list",
+                                "default": "",
+                                "examples": [
+                                    "2022-01-28"
+                                ]
+                            },
+                            "init_format": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/init_format",
+                                "type": "string",
+                                "title": "The init_format schema",
+                                "description": "If set OS customisation steps will be shown. If 'init_format' is set to 'systemd', OS customization will be done by creating a firstrun.sh with shell commands on the SD card, and cmdline.txt will be modified to instruct systemd to execute /boot/firstrun.sh. THIS WILL ONLY WORK IF THE FAT PARTITION IS MOUNTED AT /boot in your /etc/fstab. If 'init_format' is set to 'cloudinit', a cloud-init 'user-data' file will be created on the FAT partition instead. If set to 'cloudinit-rpi', cloud-init will be used with Raspberry Pi specific module (cc_raspberry_pi) support. If set to 'rpi-preseed', an 'rpi-preseed.toml' file will be created on the FAT partition, applied on first boot by the rpi-preseed package. Use 'none' or empty string to explicitly disable customization.",
+                                "default": "",
+                                "examples": [
+                                    "systemd",
+                                    "cloudinit",
+                                    "cloudinit-rpi",
+                                    "rpi-preseed"
+                                ],
+                                "enum": [
+                                    "",
+                                    "systemd",
+                                    "cloudinit",
+                                    "cloudinit-rpi",
+                                    "rpi-preseed",
+                                    "none"
+                                ]
+                            },
+                            "devices": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/devices",
+                                "type": "array",
+                                "title": "The devices schema",
+                                "description": "Provides a JSON-format list of strings representing Raspberry Pi devices that are supported with this image",
+                                "default": "",
+                                "examples": [
+                                    "[\"pi1a\", \"pi1b\"]",
+                                    "[\"pi4\", \"pi5\"]",
+                                    "[\"cm3\", \"cm4\"]"
+                                ]
+                            },
+                            "website": {
+                                "$id": "#/properties/os_list/items/anyOf/1/properties/website",
+                                "type": "string",
+                                "title": "The website schema",
+                                "description": "Optional. If set a (I)nfo icon will be shown in the 'CHOOSE OS' list. Clicking it will cause a browser to be opened to the website listed.",
+                                "default": "",
+                                "examples": [
+                                    "https://ubuntu.com/raspberry-pi/server"
+                                ]
+                            },
+                            "architecture": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/architecture",
+                                "type": "string",
+                                "title": "The architecture schema",
+                                "description": "Optional. Specifies the architecture this OS expects (armel, armhf, armv8). Used for sorting when a device has expressed an architecture preference.",
+                                "default": "",
+                                "examples": [
+                                    "armhf",
+                                    "armv8",
+                                    "armel"
+                                ]
+                            },
+                            "capabilities": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/capabilities",
+                                "type": "array",
+                                "title": "The capabilities schema",
+                                "description": "Optional. Array of strings representing OS capabilities. Used to enable or disable features in the customization wizard. Supported OS capabilities include: 'rpi_connect' (enables Raspberry Pi Connect setup), 'secure_boot' (enables secure boot signing), 'passwordless_sudo' (enables passwordless sudo option in user setup), 'i2c' (enables I2C interface option), 'spi' (enables SPI interface option), 'onewire' (enables 1-Wire interface option), 'serial' (enables serial interface option), 'usb_otg' (enables USB Gadget mode option). Note: Interface capabilities (i2c, spi, onewire, serial, usb_otg) require both hardware and OS support - specify in both device and OS capabilities for them to be available.",
+                                "default": [],
+                                "examples": [
+                                    ["rpi_connect", "secure_boot", "i2c", "spi", "onewire", "serial", "usb_otg"],
+                                    ["secure_boot", "i2c", "spi"]
+                                ],
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "rpi_connect",
+                                        "secure_boot",
+                                        "passwordless_sudo",
+                                        "i2c",
+                                        "spi",
+                                        "onewire",
+                                        "serial",
+                                        "usb_otg"
+                                    ]
+                                }
+                            },
+                            "bmap_url": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/bmap_url",
+                                "type": "string",
+                                "title": "The bmap_url schema",
+                                "description": "Optional. URL of a .bmap (block map) file for this image. When provided and flashing via the fastboot protocol, unmapped blocks are skipped (DONT_CARE) instead of written, significantly reducing flash time. The bmap file is a small XML document listing which block ranges contain allocated data, as produced by bmaptool. Has no effect on normal SD card writes.",
+                                "default": "",
+                                "examples": [
+                                    "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-03-01/2026-03-01-raspios-trixie-arm64-lite.img.bmap"
+                                ]
+                            },
+                            "random": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/random",
+                                "type": "boolean",
+                                "title": "The random schema",
+                                "description": "Optional. If set to true, subitems arrays within this entry will be randomly shuffled (Fisher-Yates) when loaded. Useful for categories where a random selection is desired.",
+                                "default": false,
+                                "examples": [
+                                    true
+                                ]
+                            },
+                            "tooltip": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/tooltip",
+                                "type": "string",
+                                "title": "The tooltip schema",
+                                "description": "Optional. Tooltip text shown for this OS entry in the 'CHOOSE OS' list when the user hovers over it.",
+                                "default": "",
+                                "examples": [
+                                    "This is the recommended OS for beginners"
+                                ]
+                            },
+                            "enable_rpi_connect": {
+                                "$id": "#/properties/os_list/items/anyOf/0/properties/enable_rpi_connect",
+                                "type": "boolean",
+                                "title": "The enable_rpi_connect schema",
+                                "description": "Optional. If set to true, enables the Raspberry Pi Connect setup option in the OS customization wizard.",
+                                "default": false,
+                                "examples": [
+                                    true
+                                ]
+                            }
+                        },
+                        "additionalProperties": true
+                    },
+                    {
+                        "$id": "#/properties/os_list/items/anyOf/2",
+                        "type": "object",
+                        "title": "subitems_url linking to another .json file",
+                        "description": "Allows linking to subitems listed in an external .json file.",
+                        "default": {},
+                        "examples": [
+                            {
+                                "name": "Bootloader",
+                                "description": "Restore the factory default settings and change boot priority",
+                                "icon": "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png",
+                                "subitems_url": "https://downloads.raspberrypi.org/eeprom_recovery.json",
+                                "website": "https://www.raspberrypi.org/"
+                            }
+                        ],
+                        "required": [
+                            "name",
+                            "description",
+                            "subitems_url"
+                        ],
+                        "properties": {
+                            "name": {
+                                "$id": "#/properties/os_list/items/anyOf/2/properties/name",
+                                "type": "string",
+                                "title": "The name schema",
+                                "description": "Name as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "Bootloader"
+                                ]
+                            },
+                            "description": {
+                                "$id": "#/properties/os_list/items/anyOf/2/properties/description",
+                                "type": "string",
+                                "title": "The description schema",
+                                "description": "Description as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "Restore the factory default settings and change boot priority"
+                                ]
+                            },
+                            "icon": {
+                                "$id": "#/properties/os_list/items/anyOf/2/properties/icon",
+                                "type": "string",
+                                "title": "The icon schema",
+                                "description": "Icon as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "https://downloads.raspberrypi.org/raspios_armhf/Raspberry_Pi_OS_(32-bit).png"
+                                ]
+                            },
+                            "subitems_url": {
+                                "$id": "#/properties/os_list/items/anyOf/2/properties/subitems_url",
+                                "type": "string",
+                                "title": "The subitems_url schema",
+                                "description": "URL of the file with the subitems.",
+                                "default": "",
+                                "examples": [
+                                    "https://downloads.raspberrypi.org/eeprom_recovery.json"
+                                ]
+                            },
+                            "website": {
+                                "$id": "#/properties/os_list/items/anyOf/2/properties/website",
+                                "type": "string",
+                                "title": "The website schema",
+                                "description": "Optional. If set a (I)nfo icon will be shown in the 'CHOOSE OS' list. Clicking it will cause a browser to be opened to the website listed.",
+                                "default": "",
+                                "examples": [
+                                    "https://www.raspberrypi.org/"
+                                ]
+                            }
+                        },
+                        "additionalProperties": true
+                    },
+                    {
+                        "$id": "#/properties/os_list/items/anyOf/3",
+                        "type": "object",
+                        "title": "Inline subitems in same json file",
+                        "description": "List of subitems listed in the same .json file. AVOID USE DUE TO BUG WHEN NESTED SUBITEMS ARE USED IN IMAGER VERSIONS PRIOR TO 1.7",
+                        "default": {},
+                        "examples": [
+                            {
+                                "name": "Raspberry Pi OS (other)",
+                                "description": "Other Raspberry Pi OS based images",
+                                "icon": "icons/cat_raspberry_pi_os.png",
+                                "subitems": [
+                                    {
+                                        "name": "Raspberry Pi OS (64-bit)",
+                                        "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Compatible with Raspberry Pi 3/4/400)",
+                                        "icon": "https://downloads.raspberrypi.org/raspios_arm64/Raspberry_Pi_OS_(64-bit).png",
+                                        "url": "https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2022-01-28/2022-01-28-raspios-bullseye-arm64.zip",
+                                        "extract_size": 4156555264,
+                                        "extract_sha256": "6939d39cbbfbe85c68dae55f1b2375f17e21fe047b8dc1f84aa7d3c002047afb",
+                                        "image_download_size": 1189750489,
+                                        "release_date": "2022-01-28",
+                                        "init_format": "systemd"
+                                    }
+                                ]
+                            }
+                        ],
+                        "required": [
+                            "name",
+                            "description",
+                            "subitems"
+                        ],
+                        "properties": {
+                            "name": {
+                                "$id": "#/properties/os_list/items/anyOf/3/properties/name",
+                                "type": "string",
+                                "title": "The name schema",
+                                "description": "Name as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "Raspberry Pi OS (other)"
+                                ]
+                            },
+                            "description": {
+                                "$id": "#/properties/os_list/items/anyOf/3/properties/description",
+                                "type": "string",
+                                "title": "The description schema",
+                                "description": "Description as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "Other Raspberry Pi OS based images"
+                                ]
+                            },
+                            "icon": {
+                                "$id": "#/properties/os_list/items/anyOf/3/properties/icon",
+                                "type": "string",
+                                "title": "The icon schema",
+                                "description": "Icon as shown in the 'CHOOSE OS' list.",
+                                "default": "",
+                                "examples": [
+                                    "icons/cat_raspberry_pi_os.png"
+                                ]
+                            },
+                            "subitems": {
+                                "$id": "#/properties/os_list/items/anyOf/3/properties/subitems",
+                                "type": "array",
+                                "title": "The subitems schema",
+                                "description": "Inline subitems.",
+                                "default": [],
+                                "examples": [
+                                    [
+                                        {
+                                            "name": "Raspberry Pi OS (64-bit)",
+                                            "description": "A port of Debian Bullseye with the Raspberry Pi Desktop (Compatible with Raspberry Pi 3/4/400)",
+                                            "icon": "https://downloads.raspberrypi.org/raspios_arm64/Raspberry_Pi_OS_(64-bit).png",
+                                            "url": "https://downloads.raspberrypi.org/raspios_arm64/images/raspios_arm64-2022-01-28/2022-01-28-raspios-bullseye-arm64.zip",
+                                            "extract_size": 4156555264,
+                                            "extract_sha256": "6939d39cbbfbe85c68dae55f1b2375f17e21fe047b8dc1f84aa7d3c002047afb",
+                                            "image_download_size": 1189750489,
+                                            "release_date": "2022-01-28",
+                                            "init_format": "systemd"
+                                        }
+                                    ]
+                                ],
+                                "additionalItems": true,
+                                "items": {
+                                }
+                            }
+                        },
+                        "additionalProperties": true
+                    }
+                ]
+            }
+        }
+    },
+    "additionalProperties": false 
+}
