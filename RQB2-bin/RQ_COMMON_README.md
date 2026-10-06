@@ -635,7 +635,8 @@ rq_docker_access "$@"              # docker group, sg re-exec, docker answers
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     rq_require_demo_consent my-demo  # one dialog: size, time, free space
-    rq_docker_pull "$IMAGE" "My demo"
+    rq_demo_docker_pull my-demo "$IMAGE" "My demo"   # the fallback tag if the pin is gone
+    IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$IMAGE"      # older versions of the same image
 fi
 rq_docker_stop my-demo               # an earlier container, and wait until it is gone
@@ -649,6 +650,12 @@ Demo versions (section 16 of rq_common.sh): `rq_demo_image ID`,
 `rq_demo_ref ID`, `rq_demo_repo ID` give what a demo runs or installs;
 `rq_demo_set_version KEY RELEASE_PIN CHOSEN LABEL` records an "Update demos"
 choice in `demos/.demo-versions`, which holds while the release keeps that pin.
+A digest pin needs `entrypoint.docker_image_fallback`, a tag of the same image:
+when the registry no longer offers the digest (its publisher pruned it),
+`rq_demo_docker_pull` downloads the tag instead, says so in one line and
+records it like an "Update demos" choice. Other failures (offline, no space)
+stop as before. `tests/check_docker_pins.py` (daily workflow docker-pins.yml)
+checks that every pin and fallback is still offered.
 
 ### Example 4: Demo with Cleanup
 

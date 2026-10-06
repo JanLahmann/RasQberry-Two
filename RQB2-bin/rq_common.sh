@@ -2131,9 +2131,17 @@ _rq_pull_progress() {
 # ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
 # list of layers (#23); on failure Docker's own reason, not "check your
 # internet connection" (R-038).
-# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB]
+# FALLBACK (a tag of the same image, e.g. ghcr.io/qubins/images:2.5-xl): when
+# the registry no longer offers IMAGE itself ("manifest unknown": a digest its
+# publisher pruned, as QuBins did with Quantum Lab's pin in 2026-10), that tag
+# is downloaded instead, and one line says so. Every other failure (offline,
+# no space, access denied) stops here as before. RQ_DOCKER_PULLED names the
+# image that was downloaded: IMAGE, or FALLBACK.
+# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" mb="${3:-}" err rc=0 why printer start
+    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    RQ_DOCKER_PULLED=""
+    [ "$fallback" = "$image" ] && fallback=""
     err=$(mktemp)
     if [ -t 1 ]; then
         start=$SECONDS
@@ -2144,15 +2152,34 @@ rq_docker_pull() {
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
         kill "$printer" 2>/dev/null || true
         wait "$printer" 2>/dev/null || true
-        printf '\rDownloading %s ... %s                         \n' "$name" \
-            "$([ "$rc" -eq 0 ] && echo "done ($((SECONDS - start))s)" || echo failed)"
     else
         info "Downloading $name: $image"
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
     fi
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
-    [ "$rc" -eq 0 ] && return 0
+    # Not offered (any more): the only failure a fallback tag can help with
+    if [ "$rc" -ne 0 ]; then
+        case "$why" in
+            *"no space left"*) ;;
+            *"manifest unknown"*|*"not found"*) gone=1 ;;
+        esac
+    fi
+    if [ -n "$start" ]; then
+        if [ "$rc" -eq 0 ]; then result="done ($((SECONDS - start))s)"
+        elif [ -n "$gone" ] && [ -n "$fallback" ]; then result="not offered any more"
+        else result=failed; fi
+        printf '\rDownloading %s ... %s                         \n' "$name" "$result"
+    fi
+    if [ "$rc" -eq 0 ]; then
+        RQ_DOCKER_PULLED="$image"
+        return 0
+    fi
+    if [ -n "$gone" ] && [ -n "$fallback" ]; then
+        info "The registry no longer offers the tested version of $name; downloading ${fallback#*/} instead."
+        rq_docker_pull "$fallback" "$name" "$mb"
+        return 0
+    fi
     case "$why" in
         *"no space left"*)
             die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
@@ -2161,6 +2188,30 @@ rq_docker_pull() {
         *)
             die "Could not download $name: ${why:-docker pull failed}" ;;
     esac
+}
+
+# Download the Docker image of demo ID with rq_docker_pull, and the fallback
+# tag its manifest names (entrypoint.docker_image_fallback) when the registry
+# no longer offers the pinned digest. A fallback that was downloaded is
+# recorded as the version in use for this release pin, as "Update demos"
+# records a choice: the next start runs it (also offline), "Update demos"
+# shows it, and a newer release's pin replaces it. RQ_DOCKER_PULLED names the
+# image to run.
+# Usage: rq_demo_docker_pull ID IMAGE "Name" [DOWNLOAD_MB] [MANIFEST]
+rq_demo_docker_pull() {
+    local id="$1" image="$2" name="${3:-$1}" mb="${4:-}" mf="" fallback="" pin=""
+    mf=$(_rq_demo_mf "$id" "${5:-}") || mf=""
+    if [ -n "$mf" ] && [ -f "$mf" ]; then
+        fallback=$(jq -r '.entrypoint.docker_image_fallback // empty' "$mf" 2>/dev/null) || fallback=""
+        pin=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || pin=""
+    fi
+    rq_docker_pull "$image" "$name" "$mb" "$fallback"
+    if [ "$RQ_DOCKER_PULLED" != "$image" ] && [ -n "$pin" ]; then
+        rq_demo_set_version "$id:image" "$pin" "$RQ_DOCKER_PULLED" \
+            "${RQ_DOCKER_PULLED##*:} (the release version is no longer offered)" \
+            || warn "Could not record that $name uses ${RQ_DOCKER_PULLED#*/}."
+    fi
+    return 0
 }
 
 # After a new version is there, remove the other versions of the same image
