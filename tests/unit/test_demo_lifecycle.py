@@ -483,6 +483,7 @@ def test_after_stall_asks_before_lowering(box):
     p.wait()
     dialog = box.wt_log.read_text()
     assert "LED panel stopped" in dialog and "power supply" in dialog and "27 W" in dialog
+    assert "stalled briefly" not in dialog           # it did stop
     assert "Lower to 0.2" in dialog
     assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"   # kept
     p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x0', env=box())
@@ -516,6 +517,8 @@ def test_after_stall_names_the_reported_cause(box, start, throttled, says, offer
     p.wait()
     dialog = box.wt_log.read_text()
     assert "The LED driver stalled during the demo and was restarted." in dialog
+    # the title says what happened: it went on, it did not stop
+    assert "LED panel stalled briefly" in dialog and "LED panel stopped" not in dialog
     assert ("Lower to 0.2" in dialog) == offers
     assert ("power supply is too weak" in dialog) is False
     if says:
