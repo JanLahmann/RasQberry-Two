@@ -473,11 +473,13 @@ checkout_present() {
 
 # Download the demo's Docker image (a docker demo with nothing else to install).
 # One progress line, not Docker's list of layers (#23); a failed download
-# stops with Docker's reason (rq_docker_pull).
+# stops with Docker's reason (rq_docker_pull). A pinned digest the registry no
+# longer offers falls back to the manifest's docker_image_fallback tag.
 install_docker_image() {
     local image="$1"
     docker_usable || die "Docker is not available, so $DEMO_ID cannot be downloaded (the image may be misbuilt)."
-    rq_docker_pull "$image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
+    rq_demo_docker_pull "$DEMO_ID" "$image" "$DEMO_TITLE" \
+        "$(get_field '.install.download.download_mb' '')" "$MANIFEST_FILE"
 }
 
 # Ensure demo is installed; on its first start, ask (one dialog with size,
@@ -682,7 +684,9 @@ run_docker() {
     # Docker's reason. run_docker() uses plain info/die messages (no whiptail
     # dialogs).
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        rq_docker_pull "$docker_image" "$DEMO_TITLE" "$(get_field '.install.download.download_mb' '')"
+        rq_demo_docker_pull "$DEMO_ID" "$docker_image" "$DEMO_TITLE" \
+            "$(get_field '.install.download.download_mb' '')" "$MANIFEST_FILE"
+        docker_image="$RQ_DOCKER_PULLED"
     fi
 
     # Find an available HOST port. The container-side port stays at the

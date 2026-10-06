@@ -14,6 +14,7 @@
   "entrypoint": {
     "type": "docker",
     "docker_image": "ghcr.io/janlahmann/qoffee-maker@sha256:a6de3a8997c96e2b347c6d67fe317270d3e28ec99243163658e84b303cd990b7",
+    "docker_image_fallback": "ghcr.io/janlahmann/qoffee-maker:1.2.0",
     "docker_port": 8887,
     "launcher": "qoffee-maker.sh",
     "working_dir": "Qoffee-Maker"

@@ -20,6 +20,7 @@
   "entrypoint": {
     "type": "docker",
     "docker_image": "ghcr.io/janlahmann/doqumentation@sha256:3f5898ec735f0bc0c007843969f5901bade1de8e9cfa3aeff2806b87a2809f15",
+    "docker_image_fallback": "ghcr.io/janlahmann/doqumentation:jupyter",
     "docker_port": 8080,
     "launcher": "rq_doqumentation.sh"
   },

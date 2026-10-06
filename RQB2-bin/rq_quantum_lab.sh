@@ -111,10 +111,12 @@ if port_in_use "$PORT"; then
     warn "Port 8892 is taken; Quantum Lab uses $PORT this time."
 fi
 
-# The image (pinned), downloaded after the consent dialog
+# The image (pinned), downloaded after the consent dialog; the manifest's
+# fallback tag when QuBins no longer offers the pinned build
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     rq_require_demo_consent quantum-lab
-    rq_docker_pull "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    rq_demo_docker_pull quantum-lab "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
 

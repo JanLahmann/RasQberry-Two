@@ -317,7 +317,7 @@ def test_docker_demo_first_start_pulls_through_the_progress_line(box, rc):
     with open(_ENGINE) as fh:
         engine = fh.read()
     assert 'docker pull "' not in engine
-    assert engine.count("rq_docker_pull \"$") == 2
+    assert engine.count("rq_demo_docker_pull \"$DEMO_ID\"") == 2
 
 
 # --- shared helpers ---------------------------------------------------------

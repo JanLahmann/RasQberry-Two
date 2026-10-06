@@ -332,7 +332,8 @@ fi
 # ---------------------------------------------------------------------------
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     rq_require_demo_consent doqumentation
-    rq_docker_pull "$DOCKER_IMAGE" "doQumentation"
+    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "doQumentation"
+    DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
 
