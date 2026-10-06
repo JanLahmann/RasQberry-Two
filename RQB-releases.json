@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T17:40:57Z",
+  "generated": "2026-10-06T22:20:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,19 +8,19 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-04-143935",
-      "name": "rasqberry-beta-2026-10-04",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935",
-      "release_date": "2026-10-04",
-      "image_download_size": 1645458180,
+      "tag": "beta-2026-10-06-211827",
+      "name": "rasqberry-beta-2026-10-06",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-06-211827",
+      "release_date": "2026-10-06",
+      "image_download_size": 1646121944,
       "extract_size": 9076473856,
-      "extract_sha256": "6e7642344407cd6904a4cf34c73409f33da2224cf89dda2a4de7a10c45229994",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04-ab.img.xz",
-      "ab_extract_sha256": "6a5c427bcad75f328b195a49c6217bb62abe8f9a9161f0ce09d779aa3575dbf7",
-      "ab_image_sha256": "38f912f8c0608c6104f2f16930c38b5d55336e0b748b45c0585a20c3a086117a",
+      "extract_sha256": "e42f6de2f7c6452ac97fe0e58b6b4a602afd2f3502fe9542d5f77be7fd2e43d6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06-ab.img.xz",
+      "ab_extract_sha256": "68a079330a43f8533ef5c6ff449ec260b67f9cc26acd47d8cf70b25763ed18dd",
+      "ab_image_sha256": "eefbdc79ca265603031d5ba2397586e7e14a822f5cd61dbcfe6ee1caaaf142d5",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1663679844,
+      "ab_image_download_size": 1671714316,
       "highlights": [
         "New A/B image: the SD card stays in the Pi for good. New releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
         "Taskbar badge shows which system runs, and tells you when a new release is out, with what's new",
@@ -31,26 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "dev-trixie-2026-10-06-190843",
-      "name": "rasqberry-dev-trixie-2026-10-06-190843",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-190843/rasqberry-dev-trixie-2026-10-06-190843.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-190843",
-      "release_date": "2026-10-06 19:08",
-      "image_download_size": 2144413624,
+      "tag": "dev-trixie-2026-10-06-233817",
+      "name": "rasqberry-dev-trixie-2026-10-06-233817",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-233817/rasqberry-dev-trixie-2026-10-06-233817.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-233817",
+      "release_date": "2026-10-06 23:38",
+      "image_download_size": 2144264688,
       "extract_size": 9495904256,
-      "extract_sha256": "7359381f05ce077cd841f2df24ba1c5ea5ef3e4ddc303500871e3eac5964daab",
-      "image_sha256": "4e32df76e51271d6a338988ebc82983bd48610c3dd20a3268d4273c9673d46b6",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-190843/rasqberry-dev-trixie-2026-10-06-190843-ab.img.xz",
-      "ab_extract_sha256": "06952e09dbcdcf0b1cc26d5d54fdc0b476921126c73f4cc271a59b3382fe7300",
-      "ab_image_sha256": "2c76b1284089b39e9a65f4df922ebb4758166849b24719dfc5771ef7e7e3ebe4",
-      "ab_image_download_size": 1879738896,
+      "extract_sha256": "1f718913c594d900fff8d15e660a704f941570eb72ac4ae9f7732df04c52b964",
+      "image_sha256": "68ccfdda90dba9b5374a23bb76167b8f81ec1644dfa1f6f01586517414d07ee1",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-233817/rasqberry-dev-trixie-2026-10-06-233817-ab.img.xz",
+      "ab_extract_sha256": "6e1199a6050003e886174a570ba9f7ebe3308c6234f475be1a7bebca49f23f1e",
+      "ab_image_sha256": "5edef6ebc39e1bcda079694be96e10494afe25b484ae4a9c2ec1b21712e989a5",
+      "ab_image_download_size": 1878238616,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "link PyQt5_sip's dist-info into the venv",
-        "Bump version to dev-trixie-2026-10-06-190843",
-        "Merge remote-tracking branch 'origin/development' into dev-trixie",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-06-163836",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-trixie-2026-10-06-171834"
+        "closing the picture window stops the demo",
+        "\"Remove a demo\" lists every downloaded demo",
+        "Ctrl+C in a demo window no longer aborts bash",
+        "icons start without \"Execute File\"; icon grid fits Trixie",
+        "the on-screen LED view takes no keyboard focus"
       ]
     }
   }
