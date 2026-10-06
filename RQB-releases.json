@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T22:53:51Z",
+  "generated": "2026-10-06T14:59:08Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,26 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-06-003602",
-      "name": "rasqberry-development-2026-10-06-003602",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-003602/rasqberry-development-2026-10-06-003602.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-003602",
-      "release_date": "2026-10-06 00:36",
-      "image_download_size": 2011575044,
+      "tag": "development-2026-10-06-163836",
+      "name": "rasqberry-development-2026-10-06-163836",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-163836/rasqberry-development-2026-10-06-163836.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-163836",
+      "release_date": "2026-10-06 16:38",
+      "image_download_size": 2009616508,
       "extract_size": 9076473856,
-      "extract_sha256": "72f7f29a584e62b2199c64fab325e9dfd2129060556444eab27ac40b2ab3a265",
-      "image_sha256": "c912ff19ffd5872c07c447d354da534abae3e58468882ba09ac84ef4bde6bc0d",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-003602/rasqberry-development-2026-10-06-003602-ab.img.xz",
-      "ab_extract_sha256": "15d9c5d055519a96305f3cdfd741685ee16b8db968f800bb985d5fc59ee072e4",
-      "ab_image_sha256": "0ab8b98c2d8873e0bb361ea6e57322ea7b57eded2cb866968053c6ab4eec4bf1",
-      "ab_image_download_size": 2065606104,
+      "extract_sha256": "d447ed050d474ec6dd6798733134e05bec7c0f75db2646af47e6843562e7ead4",
+      "image_sha256": "e203f5a6e2ec48041f9a5ae4bf784c60cc2d1af4a9e78d533543dad81bd3e8e9",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-163836/rasqberry-development-2026-10-06-163836-ab.img.xz",
+      "ab_extract_sha256": "ebeb80206bb5139b581444014b6e68e0c68fcc435ec04925c3857d5812efd923",
+      "ab_image_sha256": "e50d199fb03e974f51ff5ef369d3c49ac40777b704110f1d397b5d7e62d06e3b",
+      "ab_image_download_size": 2068248084,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "the app mode starts once the kernel is ready",
-        "demo windows open maximised, not shifted next to the icons",
-        "the feedback links say they need a free GitHub account",
-        "\"Stop Docker demos\" finds the running demos and says what it did",
-        "Pi 5 programs wait for the LED driver; a first-frame timeout is no stall"
+        "Raspberry Pi Connect from Imager goes to rasqberry",
+        "the stall dialog's title says whether the panel went on",
+        "a stopped Pi 4 LED program gives the driver's GPU memory back",
+        "Bump version to development-2026-10-06-163836",
+        "Merge branch 'dev-imager-connect' into development"
       ]
     }
   }
