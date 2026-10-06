@@ -23,6 +23,8 @@ only true for the standard image. -->
 - **Remote Access & Security:** says "key only" when SSH takes no password (Imager's public-key setting). SSH logins no longer show a misleading "Last login" line.
 - **LED panel stops (Pi 5):** the message names only what the Pi reported during that demo: too little power (then it offers a lower brightness), too hot (with what helps: the Active Cooler and its fan), or neither. A demo now waits until the previous one has let go of the LED panel, and a hiccup on the very first frame is recovered without a message. RasQ-LED keeps one LED driver open for the whole run, runs until you stop it and ends without an error message.
 - **First LED demo after the LED check (Pi 4):** the panel no longer stays dark. The LED check left the LED hardware half-stopped; it now finishes cleanly, and LED programs reset it if needed. The address scroll after "Saved" shows on the Pi 5 too.
+- **LED stall message:** its title says what happened: "LED panel stalled briefly" when the panel went on after a restart, "LED panel stopped" only when it really stopped.
+- **Stopping an LED demo (Pi 4):** the LED driver now gives its graphics memory back. Each stop used to keep a little, so a Demo Loop running for days could run out.
 - **System Info:** says whether the Pi is too hot now or was slowed down earlier, with one line of advice, and "Slot B: empty" like the menu.
 - **LED settings:** the LED check says "Saved: four 4x12 panels" and scrolls the address once in that layout; the setup checklist names the kit the same way. LED brightness and **Turn off all LEDs** confirm in one line, the "LED panel in use" dialog names the demo, and turning the browser view off stops its server.
 - **LED-Painter:** a picture reaches both the panel and the on-screen view. Before it starts, another program on the panel is named, with the offer to stop it, and if the LED renderer does not start, one line says that the panel stays dark.
@@ -36,6 +38,7 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server and `ssh -L` commands:** they use the name avahi announces, so with two Pis of the same name, participants reach this one. Grokking the Bloch Sphere also starts over SSH and prints an `ssh -L` command.
 - **Downloads:** Download all demos shows the MB received, fetches the small demos first and gives realistic times. A Docker demo's first start shows one progress line instead of Docker's list of layers.
 - **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
+- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to `rasqberry`, not to the name typed in Imager. If another name was typed, the first login says once that the user stays `rasqberry` and that Imager's password, SSH key, hostname and Wi-Fi are set.
 
 ## What's new for you
 

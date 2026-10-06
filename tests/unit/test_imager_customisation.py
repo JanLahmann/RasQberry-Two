@@ -12,6 +12,7 @@ trial into the other slot and applied old settings (rig, 2026-10-03).
 """
 
 import os
+import re
 import shutil
 import subprocess
 
@@ -306,3 +307,244 @@ def test_first_boot_tasks_wait_for_the_customisation_start(tmp_path):
                           env=env, capture_output=True, text=True, timeout=30)
     assert proc.returncode == 0
     assert "next start" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# Raspberry Pi Connect: the token goes to rasqberry, not to the name typed in
+# Imager. The samples are firstrun.sh files from Imager's own generator
+# (customization_generator.cpp of 2.0.3, 2.0.11.1 and main, built against
+# Qt 6.10 with settings: hostname, user "jan" or none (key only: "pi"),
+# password hash, SSH key, Wi-Fi, keyboard, time zone, a Connect token).
+# 1.8.5 (OptionsPopup.qml, transcribed) has no Connect part.
+# ---------------------------------------------------------------------------
+
+_SAMPLES = os.path.join(_HERE, "data", "imager-firstrun")
+CONNECT_SAMPLES = ["imager-2.0.3-user.sh", "imager-2.0.3-keyonly.sh", "imager-2.0.11.1-user.sh",
+                   "imager-2.0.11.1-keyonly.sh", "imager-main-user.sh", "imager-main-keyonly.sh"]
+TOKEN = "rpuak_TESTTOKENaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+UID1000 = 'TARGET_USER=$(getent passwd 1000 | cut -d: -f1); [ -n "$TARGET_USER" ] || TARGET_USER=rasqberry'
+
+
+def _gnu_env(tmp_path):
+    env = dict(os.environ)
+    if GNU_SED:
+        d = tmp_path / "gnubin"
+        d.mkdir(exist_ok=True)
+        if not (d / "sed").exists():
+            os.symlink(GNU_SED, d / "sed")
+        env["PATH"] = f"{d}:{env['PATH']}"
+    return env
+
+
+def _patched(tmp_path, sample, times=1):
+    f = tmp_path / sample
+    shutil.copyfile(os.path.join(_SAMPLES, sample), f)
+    for _ in range(times):
+        proc = subprocess.run(["bash", _FIRSTRUN, "patch", str(f)], env=_gnu_env(tmp_path),
+                              capture_output=True, text=True, timeout=30)
+        assert proc.returncode == 0, proc.stderr
+    return f.read_text()
+
+
+def _connect_part(script):
+    lines = script.splitlines()
+    start = next(i for i, l in enumerate(lines) if l.startswith("TARGET_USER="))
+    end = next(i for i, l in enumerate(lines) if "start rpi-connect.service" in l)
+    return "\n".join(lines[start:end + 1]) + "\n"
+
+
+def _run_connect(tmp_path, part):
+    """Run a Connect part as the Pi would, with rasqberry as uid 1000.
+
+    Returns (home, log): rasqberry's home and the commands that need root.
+    """
+    home = tmp_path / "home" / "rasqberry"
+    home.mkdir(parents=True)
+    stubs, log = tmp_path / "connect-stubs", tmp_path / "connect.log"
+    stubs.mkdir()
+    bodies = {
+        # only rasqberry exists; "jan" or "pi" from Imager do not
+        "getent": f'case "$2" in 1000|rasqberry) echo "rasqberry:x:1000:1000:,,,:{home}:/bin/bash" ;; *) exit 2 ;; esac\n',
+        # install -o needs root: record it, make the directories under home
+        "install": f'echo "install $*" >> "{log}"\n'
+                   f'case " $* " in *" -d "*) for a in "$@"; do case "$a" in {tmp_path}/*) mkdir -p "$a" ;; esac; done ;; esac\n',
+    }
+    for name in ("chown", "loginctl", "systemctl", "sleep"):
+        bodies[name] = f'echo "{name} $*" >> "{log}"\n'
+    for name, body in bodies.items():
+        (stubs / name).write_text("#!/bin/sh\n" + body)
+        (stubs / name).chmod(0o755)
+    script = tmp_path / "connect.sh"
+    # the fallback home (/home/NAME) under tmp_path: /home is autofs on macOS
+    script.write_text("#!/bin/sh\nset +e\n" + part.replace('="/home/', f'="{tmp_path}/home/'))
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}")
+    subprocess.run(["sh", str(script)], env=env, capture_output=True, text=True, timeout=30)
+    return home, log.read_text()
+
+
+@needs_gnu_sed
+@pytest.mark.parametrize("sample", CONNECT_SAMPLES)
+def test_connect_goes_to_rasqberry(tmp_path, sample):
+    original = open(os.path.join(_SAMPLES, sample)).read()
+    typed = "jan" if "-user" in sample else "pi"
+    assert f'TARGET_USER="{typed}"' in original and f'TARGET_HOME="/home/{typed}"' in original
+    script = _patched(tmp_path, sample)
+    part = _connect_part(script)
+    assert part.splitlines()[0] == UID1000
+    assert 'then TARGET_HOME="/home/$TARGET_USER"; fi' in part
+    assert f'"{typed}"' not in part and f"/home/{typed}" not in part
+    # the rest of the Connect part is Imager's, line for line
+    orig_part = _connect_part(original).splitlines()
+    new_part = part.splitlines()
+    assert new_part[1] == orig_part[1] and new_part[3:] == orig_part[3:] and TOKEN in part
+    # still a valid script (Imager 2.x: #!/bin/sh), and patching twice changes nothing
+    assert subprocess.run(["sh", "-n", str(tmp_path / sample)]).returncode == 0
+    again, run = tmp_path / "again", tmp_path / "run"
+    again.mkdir()
+    run.mkdir()
+    assert _patched(again, sample, times=2) == script
+
+    # run it: the token, the user units and linger are rasqberry's
+    home, log = _run_connect(run, part)
+    key = home / ".config" / "com.raspberrypi.connect" / "auth.key"
+    assert key.read_text().strip() == TOKEN and (key.stat().st_mode & 0o777) == 0o600
+    wants = home / ".config" / "systemd" / "user"
+    assert os.path.islink(wants / "default.target.wants" / "rpi-connect.service")
+    assert os.path.islink(wants / "paths.target.wants" / "rpi-connect-signin.path")
+    assert os.path.islink(wants / "default.target.wants" / "rpi-connect-wayvnc.service")
+    assert "install -o rasqberry -m 700 -d" in log and "chown rasqberry:rasqberry" in log
+    assert "install -m 0644 /dev/null /var/lib/systemd/linger/rasqberry" in log
+    assert "loginctl enable-linger rasqberry" in log
+    assert "systemctl --quiet --user --machine rasqberry@.host start rpi-connect.service" in log
+    assert not re.search(rf"(?<![\w.]){typed}(?![\w.])", log)
+
+
+@pytest.mark.parametrize("sample", ["imager-2.0.11.1-user.sh"])
+def test_unpatched_connect_misses_the_user(tmp_path, sample):
+    # why the patch exists: Imager's own part puts the token under /home/jan,
+    # for a user that is not there
+    home, log = _run_connect(tmp_path, _connect_part(open(os.path.join(_SAMPLES, sample)).read()))
+    assert not (home / ".config" / "com.raspberrypi.connect").exists()
+    assert "install -o jan" in log and "linger/jan" in log and "--machine jan@.host" in log
+
+
+@needs_gnu_sed
+def test_imager_18_without_connect_is_patched_as_before(tmp_path):
+    sample = "imager-1.8.5-user.sh"
+    original = open(os.path.join(_SAMPLES, sample)).read()
+    script = _patched(tmp_path, sample)
+    assert "TARGET_USER" not in script
+    assert "/usr/bin/rq_imager_userconf.sh 'jan'" in script and "rm -f /boot/firmware/firstrun.sh" in script
+    # only the known substitutions and the mark
+    expected = (original.replace("/boot/firstrun.sh", "/boot/firmware/firstrun.sh")
+                .replace("/boot/cmdline.txt", "/boot/firmware/cmdline.txt")
+                .replace("/usr/lib/userconf-pi/userconf", "/usr/bin/rq_imager_userconf.sh")
+                .replace("#!/bin/bash\n", "#!/bin/bash\n# RasQberry: patched by rq_imager_firstrun.sh\n", 1))
+    assert script == expected
+    assert subprocess.run(["bash", "-n", str(tmp_path / sample)]).returncode == 0
+
+
+@needs_gnu_sed
+@pytest.mark.parametrize("sample", CONNECT_SAMPLES)
+def test_connect_patch_changes_nothing_else(tmp_path, sample):
+    original = open(os.path.join(_SAMPLES, sample)).read().splitlines()
+    script = _patched(tmp_path, sample).splitlines()
+    assert script[1] == "# RasQberry: patched by rq_imager_firstrun.sh"
+    del script[1]
+    changed = [(a, b) for a, b in zip(original, script) if a != b]
+    assert len(original) == len(script)
+    for a, b in changed:
+        assert (a.startswith("TARGET_USER=") or "TARGET_HOME=\"/home/" in a or "/boot/" in a
+                or "/usr/lib/userconf-pi/userconf" in a), (a, b)
+
+
+# ---------------------------------------------------------------------------
+# The note at the first login: another name was typed in Imager
+# ---------------------------------------------------------------------------
+
+NOTE = ("You chose the name jan in Imager. RasQberry always uses the name rasqberry; your password, "
+        "SSH key, hostname and Wi-Fi from Imager are set.")
+
+_WT = r'''#!/bin/sh
+{ for a in "$@"; do printf '%s\n' "$a"; done; echo "@@"; } >> "$WT_LOG"
+case " $* " in *" --msgbox "*) exit "${WT_RC_msgbox:-0}" ;; esac
+exit 1
+'''
+
+
+def _firstlogin(tmp_path, mode="--now", requested="jan", **extra):
+    stubs = tmp_path / "fl-stubs"
+    stubs.mkdir(exist_ok=True)
+    for name, body in (("whiptail", _WT[len("#!/bin/sh\n"):]), ("ps", "echo pts/0\n"),
+                       ("sudo", "exit 1\n"), ("systemctl", "exit 1\n")):
+        (stubs / name).write_text("#!/bin/sh\n" + body)
+        (stubs / name).chmod(0o755)
+    state = tmp_path / "var-lib-rasqberry"
+    state.mkdir(exist_ok=True)
+    if requested is not None:
+        (state / "imager-user-requested").write_text(requested + "\n")
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=str(home),
+               XDG_STATE_HOME=str(home / ".state"), RQ_IMAGER_STATE=str(state),
+               RQ_ENV_FILE=str(tmp_path / "no-env"), RQ_KEYBOARD_FILE=str(tmp_path / "no-keyboard"),
+               WT_LOG=str(tmp_path / "wt.log"), USER="rasqberry")
+    for k in ("DISPLAY", "WAYLAND_DISPLAY", "SSH_CONNECTION"):
+        env.pop(k, None)
+    env.update(extra)
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_firstlogin.sh"), mode], env=env,
+                          capture_output=True, text=True, timeout=60)
+    wt = tmp_path / "wt.log"
+    dialogs = wt.read_text().split("@@\n")[:-1] if wt.exists() else []
+    if wt.exists():
+        wt.unlink()
+    return proc, dialogs
+
+
+@pytest.mark.parametrize("mode", ["--now", "login"])
+def test_note_about_the_imager_user_name_once(tmp_path, mode):
+    proc, dialogs = _firstlogin(tmp_path, mode="" if mode == "login" else mode)
+    assert proc.returncode == 0, proc.stderr
+    # first the note, then the checklist
+    assert "--msgbox" in dialogs[0] and NOTE in dialogs[0]
+    assert any("--checklist" in d for d in dialogs[1:])
+    assert (tmp_path / "home" / ".state" / "rasqberry" / "imager-user-note-shown").exists()
+    # once
+    proc, dialogs = _firstlogin(tmp_path, mode="--now")
+    assert not any(NOTE in d for d in dialogs)
+
+
+@pytest.mark.parametrize("requested", [None, "rasqberry", ""])
+def test_no_note_without_another_name(tmp_path, requested):
+    proc, dialogs = _firstlogin(tmp_path, requested=requested)
+    assert proc.returncode == 0, proc.stderr
+    assert not any("Your user name" in d for d in dialogs)
+
+
+def test_note_comes_again_when_the_window_was_closed(tmp_path):
+    # a killed whiptail (window closed, session ended) is not "read"
+    _firstlogin(tmp_path, WT_RC_msgbox="143")
+    assert not (tmp_path / "home" / ".state" / "rasqberry" / "imager-user-note-shown").exists()
+    _, dialogs = _firstlogin(tmp_path)
+    assert NOTE in dialogs[0]
+
+
+def test_note_at_an_ssh_login_after_the_checklist(tmp_path):
+    shown = tmp_path / "home" / ".state" / "rasqberry" / "setup-checklist-shown"
+    shown.parent.mkdir(parents=True)
+    shown.write_text("answered\n")
+    proc, dialogs = _firstlogin(tmp_path, mode="")
+    assert proc.returncode == 0, proc.stderr
+    # only the note: the checklist was answered before
+    assert len(dialogs) == 1 and NOTE in dialogs[0]
+    _, dialogs = _firstlogin(tmp_path, mode="")
+    assert dialogs == []
+
+
+def test_desktop_opens_a_window_for_the_note(tmp_path):
+    # also when no checklist step is pending (decided in the text: the steps
+    # depend on the machine the tests run on)
+    text = open(os.path.join(_BIN, "rq_firstlogin.sh")).read()
+    desktop = text[text.index('if [ "$MODE" = "desktop" ]; then'):text.index("# Collect what is pending")]
+    assert 'if [ -z "$(pending_tasks)" ] && ! imager_note_pending; then' in desktop
+    assert desktop.count("already_shown && ! imager_note_pending && exit 0") == 2

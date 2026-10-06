@@ -464,6 +464,52 @@ def test_pi4_driver_exit_has_no_swig_leak_line(tmp_path, mode, leak_line):
     assert ("swig/python detected a memory leak" in out) == leak_line
 
 
+_FAKE_PI4_STOP = '''
+import signal, sys, time, types
+backend = types.ModuleType(sys.argv[2])
+backend._led_strip = object()
+
+def neopixel_cleanup():              # the library's cleanup: ws2811_fini gives the memory back
+    open(sys.argv[3], "a").write("freed\\n")
+    backend._led_strip = None
+
+backend.neopixel_cleanup = neopixel_cleanup
+neopixel_write = types.ModuleType("neopixel_write")
+neopixel_write._neopixel = backend
+sys.modules["neopixel_write"] = neopixel_write
+if sys.argv[4] == "own":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(7))
+sys.path.insert(0, sys.argv[1])
+import rq_led_utils
+rq_led_utils.quiet_pi4_driver_exit()
+print("READY", flush=True)
+time.sleep(30)
+'''
+
+
+@pytest.mark.parametrize("backend,sig,own,code,freed", [
+    ("adafruit_blinka.microcontroller.bcm283x.neopixel", signal.SIGTERM, "", -signal.SIGTERM, "freed\n"),
+    ("adafruit_blinka.microcontroller.bcm283x.neopixel", signal.SIGHUP, "", -signal.SIGHUP, "freed\n"),
+    ("adafruit_blinka.microcontroller.bcm283x.neopixel", signal.SIGTERM, "own", 7, ""),
+    ("adafruit_raspberry_pi5_neopixel_write", signal.SIGTERM, "", -signal.SIGTERM, ""),
+])
+def test_a_stopped_pi4_program_frees_the_driver_memory(tmp_path, backend, sig, own, code, freed):
+    """A Pi 4 LED program stopped with SIGTERM or SIGHUP runs the driver's
+    cleanup (ws2811_fini) once, so the GPU memory it took comes back, and
+    still ends with that signal. A program's own handler stays; the Pi 5 is
+    left alone."""
+    script = tmp_path / "fake.py"
+    script.write_text(_FAKE_PI4_STOP)
+    marker = tmp_path / "freed"
+    marker.write_text("")
+    proc = subprocess.Popen([sys.executable, str(script), _BIN, backend, str(marker), own],
+                            stdout=subprocess.PIPE, text=True, cwd=str(tmp_path))
+    assert proc.stdout.readline().strip() == "READY"
+    proc.send_signal(sig)
+    assert proc.wait(timeout=10) == code
+    assert marker.read_text() == freed
+
+
 def test_real_strips_keep_the_pi4_exit_quiet():
     utils = _read("RQB2-bin", "rq_led_utils.py")
     # both places that open the physical strip, after their first frame
