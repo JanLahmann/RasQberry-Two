@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T20:43:21Z",
+  "generated": "2026-10-06T22:20:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-06-210409",
-      "name": "rasqberry-development-2026-10-06-210409",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-210409",
-      "release_date": "2026-10-06 21:04",
-      "image_download_size": 2010610088,
-      "extract_size": 9076473856,
-      "extract_sha256": "94de6d54e51f3f6d40cd4b93c2dfe926674417dd89553648b2de910863f600d6",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409-ab.img.xz",
-      "ab_extract_sha256": "f677a6c914683e697ab7f39ebd2c3c40bfbf7e6cd63cdd0f6e5a03ac20ba9bbe",
-      "ab_image_sha256": "c635d7cd9e96491af4a2d68744b2765235a02ebbdc592089250903375c709959",
+      "tag": "dev-trixie-2026-10-06-233817",
+      "name": "rasqberry-dev-trixie-2026-10-06-233817",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-233817/rasqberry-dev-trixie-2026-10-06-233817.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-233817",
+      "release_date": "2026-10-06 23:38",
+      "image_download_size": 2144264688,
+      "extract_size": 9495904256,
+      "extract_sha256": "1f718913c594d900fff8d15e660a704f941570eb72ac4ae9f7732df04c52b964",
+      "image_sha256": "68ccfdda90dba9b5374a23bb76167b8f81ec1644dfa1f6f01586517414d07ee1",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-233817/rasqberry-dev-trixie-2026-10-06-233817-ab.img.xz",
+      "ab_extract_sha256": "6e1199a6050003e886174a570ba9f7ebe3308c6234f475be1a7bebca49f23f1e",
+      "ab_image_sha256": "5edef6ebc39e1bcda079694be96e10494afe25b484ae4a9c2ec1b21712e989a5",
+      "ab_image_download_size": 1878238616,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 2065681208,
       "highlights": [
-        "Quantum Lab starts again; pinned Docker digests fall back to a tag",
-        "daily check that every pinned Docker image is still offered",
-        "Bump version to development-2026-10-06-210409",
-        "Merge branch 'dev-qlab-pin' into development (Quantum Lab pin + Docker pin fallback)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-06-163836"
+        "closing the picture window stops the demo",
+        "\"Remove a demo\" lists every downloaded demo",
+        "Ctrl+C in a demo window no longer aborts bash",
+        "icons start without \"Execute File\"; icon grid fits Trixie",
+        "the on-screen LED view takes no keyboard focus"
       ]
     }
   }
