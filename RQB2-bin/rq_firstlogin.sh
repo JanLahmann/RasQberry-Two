@@ -11,6 +11,9 @@
 # Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
 # Checklist).
 #
+# Before it, once: a note when another user name was typed in Raspberry Pi
+# Imager (the user stays rasqberry).
+#
 # Usage:
 #   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
 #                               also sourced from .bashrc): once, not in desktop
@@ -68,10 +71,38 @@ already_shown() {
 mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
+# A note, once: another user name was typed in Raspberry Pi Imager
+# ---------------------------------------------------------------------------
+# The user stays rasqberry (rq_imager_userconf.sh); the name typed in Imager
+# is kept in imager-user-requested. Shown before the checklist, wherever the
+# checklist would open by itself, also when no step is pending.
+IMAGER_USER_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-user-requested"
+IMAGER_NOTE_FILE="$STATE_DIR/imager-user-note-shown"
+imager_user_requested() {
+    local wanted
+    wanted=$(head -n 1 "$IMAGER_USER_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
+    [ -n "$wanted" ] && [ "$wanted" != rasqberry ] || return 1
+    printf '%s' "$wanted"
+}
+imager_note_pending() { [ ! -e "$IMAGER_NOTE_FILE" ] && imager_user_requested >/dev/null; }
+show_imager_note() {
+    local wanted rc=0
+    imager_note_pending || return 0
+    wanted=$(imager_user_requested)
+    whiptail --title "Your user name" --msgbox \
+"You chose the name $wanted in Imager. RasQberry always uses the name rasqberry; your password, SSH key, hostname and Wi-Fi from Imager are set." 10 72 || rc=$?
+    # OK or Esc: read. A closed window or an ended session: next time again.
+    case "$rc" in
+        0|255) mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$IMAGER_NOTE_FILE" 2>/dev/null ;;
+    esac
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # Gates for the automatic modes (rules 1 and 2)
 # ---------------------------------------------------------------------------
 if [ "$MODE" = "login" ]; then
-    already_shown && exit 0
+    already_shown && ! imager_note_pending && exit 0
     # A terminal on the desktop: the desktop opens the checklist itself, in
     # its own window and after the IP scroll. Popping it into a terminal the
     # person opened for something else (the assembly guide's Ctrl+Alt+T for
@@ -447,17 +478,25 @@ wait_for_ip_display() {
 }
 
 if [ "$MODE" = "desktop" ]; then
-    already_shown && exit 0
-    if [ -z "$(pending_tasks)" ]; then
+    already_shown && ! imager_note_pending && exit 0
+    if [ -z "$(pending_tasks)" ] && ! imager_note_pending; then
         mark_shown
         exit 0
     fi
     wait_for_ip_display
-    already_shown && exit 0     # answered in an SSH login in the meantime
+    # answered in an SSH login in the meantime
+    already_shown && ! imager_note_pending && exit 0
     # Not marked here: only an answer counts (item 22). --now marks it.
     term=$(command -v lxterminal || command -v x-terminal-emulator) || exit 0
     exec "$term" -t "RasQberry Setup" -e \
         "bash -c '/usr/bin/rq_firstlogin.sh --now; echo; echo Press Enter to close this window...; read'"
+fi
+
+# The note about the user name first, once (not in --all). A login that
+# came only for the note (the checklist was answered before) ends after it.
+if [ "$MODE" != "all" ]; then
+    show_imager_note
+    [ "$MODE" = "login" ] && already_shown && exit 0
 fi
 
 # ---------------------------------------------------------------------------
