@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T15:17:23Z",
+  "generated": "2026-10-06T16:03:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,23 +31,24 @@
       ]
     },
     "dev": {
-      "tag": "dev-trixie-2026-10-06-164400",
-      "name": "rasqberry-dev-trixie-2026-10-06-164400",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-164400/rasqberry-dev-trixie-2026-10-06-164400.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-164400",
-      "release_date": "2026-10-06 16:44",
-      "image_download_size": 2144799984,
+      "tag": "dev-trixie-2026-10-06-171834",
+      "name": "rasqberry-dev-trixie-2026-10-06-171834",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-171834/rasqberry-dev-trixie-2026-10-06-171834.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-2026-10-06-171834",
+      "release_date": "2026-10-06 17:18",
+      "image_download_size": 2144561292,
       "extract_size": 9495904256,
-      "extract_sha256": "30b0fd8a340d9033e8fd90a9774bab6599f2a925925943325dcceab63d455584",
-      "image_sha256": "aee2e88d30ceef93c623e3ab980150888c03ed391728100efe6ddaa4ffcc3546",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-164400/rasqberry-dev-trixie-2026-10-06-164400-ab.img.xz",
-      "ab_extract_sha256": "385f1ae0b890066c11ff7896f9e1d17ca7d29ca992e335ccdd891b80192f1b6d",
-      "ab_image_sha256": "4aba218506045b4ea98f48833ed35f9f43ad2a0f5116cb2738188ecf0f38683d",
-      "ab_image_download_size": 1881904104,
+      "extract_sha256": "806b30be75c85dce6742fd2e6e50e55f0964bacdcb5dfe360ba2403c83d7039c",
+      "image_sha256": "37d45d3e1b536a043af4b524c7849058d44d0d68745897bea84e8791f3027816",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-2026-10-06-171834/rasqberry-dev-trixie-2026-10-06-171834-ab.img.xz",
+      "ab_extract_sha256": "8b6e45af3780d23f19b60dc1c0fd55edd384a66764e916a444dc000b622004dd",
+      "ab_image_sha256": "b3803f15803248c78faab4e2e521541d6658f05fce161bcbd559667830c46e2c",
+      "ab_image_download_size": 1883192688,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "create ~/.local before fixing its owner",
-        "Bump version to dev-trixie-2026-10-06-164400"
+        "key the base-stage cache by pi-gen-config too",
+        "Bump version to dev-trixie-2026-10-06-171834",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-trixie-2026-10-06-164400"
       ]
     }
   }
