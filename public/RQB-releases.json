@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T19:32:32Z",
+  "generated": "2026-10-06T19:33:13Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2010610088,
       "extract_size": 9076473856,
       "extract_sha256": "94de6d54e51f3f6d40cd4b93c2dfe926674417dd89553648b2de910863f600d6",
-      "image_sha256": "7b21a462d40d4a4cd8cb5b2ae9f58b308802ce3f054b859480a202ccc1b314d6",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409-ab.img.xz",
       "ab_extract_sha256": "f677a6c914683e697ab7f39ebd2c3c40bfbf7e6cd63cdd0f6e5a03ac20ba9bbe",
       "ab_image_sha256": "c635d7cd9e96491af4a2d68744b2765235a02ebbdc592089250903375c709959",
-      "ab_image_download_size": 2065681208,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 2065681208,
       "highlights": [
         "Quantum Lab starts again; pinned Docker digests fall back to a tag",
         "daily check that every pinned Docker image is still offered",
