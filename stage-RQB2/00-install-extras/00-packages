@@ -17,6 +17,10 @@ python3-pyqt5.qtsvg
 chromium
 chromium-driver
 libxcb-cursor-dev
+# to build the lgpio Python module from source for the venv: PyPI has no
+# cp313 wheel (trixie's Python), and its sdist needs SWIG and liblgpio
+swig
+liblgpio-dev
 # utilities for A/B boot release picker
 jq
 curl
