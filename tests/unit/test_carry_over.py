@@ -333,3 +333,96 @@ def test_pull_brings_my_programs_from_a_slot_without_data(slots):
     proc = _run(new, data, "pull", str(old))
     assert "own programs (~/My-Quantum-Programs)" in proc.stdout
     assert (data / f"home/{USER}/My-Quantum-Programs/mine.py").exists()
+
+
+# ---------------------------------------------------------------------------
+# The marks of what the user was already asked or told (user test 2026-10-07)
+# ---------------------------------------------------------------------------
+
+STATE = HOME + "/.local/state/rasqberry"
+MARKS = ("setup-checklist-shown", "firstlogin-offered", "imager-user-note-shown",
+         "abinfo-read", "demo-password-kept", "keyboard-timezone-set", "name-kept",
+         "firmware-info-read", "slot-indicator.json")
+
+
+def _state(root):
+    return root / ("." + STATE)
+
+
+def test_pull_carries_the_setup_checklist_marks(slots):
+    # An update into the other slot reopened the first-start checklist: the
+    # marks of the old slot come along
+    old, new, data = slots
+    st = _state(old)
+    st.mkdir(parents=True)
+    for name in MARKS:
+        (st / name).write_text(f"{name} 2026-10-01\n")
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    for name in MARKS:
+        assert (_state(new) / name).read_text() == f"{name} 2026-10-01\n"
+    assert "setup checklist and notices already seen" in proc.stdout
+
+
+def test_pull_user_state_keeps_per_slot_folders_and_logs(slots):
+    # learner-setup/ records this slot's own Thonny/Geany settings (made at
+    # build time); the indicator's log is no mark
+    old, new, data = slots
+    st = _state(old)
+    (st / "learner-setup").mkdir(parents=True)
+    (st / "learner-setup/programs").write_text("old\n")
+    (st / "slot-indicator.log").write_text("old log\n")
+    (st / "setup-checklist-shown").write_text("x\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (_state(new) / "setup-checklist-shown").exists()
+    assert not (_state(new) / "learner-setup").exists()
+    assert not (_state(new) / "slot-indicator.log").exists()
+
+
+def test_pull_user_state_never_overwrites(slots):
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "slot-indicator.json").write_text('{"old": 1}\n')
+    (_state(old) / "name-kept").write_text("old\n")
+    _state(new).mkdir(parents=True)
+    (_state(new) / "slot-indicator.json").write_text('{"new": 1}\n')
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (_state(new) / "slot-indicator.json").read_text() == '{"new": 1}\n'
+    assert (_state(new) / "name-kept").read_text() == "old\n"
+
+
+def test_pull_without_user_state_carries_none(slots):
+    old, new, data = slots
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert "setup checklist" not in proc.stdout
+    assert not _state(new).exists()
+
+
+def test_pull_user_state_also_without_a_data_partition(slots):
+    # The marks go into the slot's own home, not onto /data: a card on the
+    # placeholder DATA partition keeps them too
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "setup-checklist-shown").write_text("x\n")
+    proc = _run(new, data, "pull", str(old), RQ_CARRY_SKIP_MOUNT_CHECK="0")
+    assert proc.returncode == 0, proc.stderr
+    assert (_state(new) / "setup-checklist-shown").exists()
+
+
+def test_the_carried_marks_are_where_the_checklist_looks(slots):
+    # The path the carry-over copies is the one rq_firstlogin.sh and the slot
+    # indicator read: after the pull, the checklist counts as answered
+    import sys
+    sys.path.insert(0, os.path.join(_HERE, "..", "..", "RQB2-bin"))
+    import rq_slot_indicator as si
+    firstlogin = open(os.path.join(_HERE, "..", "..", "RQB2-bin", "rq_firstlogin.sh")).read()
+    assert 'STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"' in firstlogin
+    assert 'SHOWN_FILE="$STATE_DIR/setup-checklist-shown"' in firstlogin
+    assert "USER_STATE=.local/state/rasqberry\n" in open(_SCRIPT).read()
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "setup-checklist-shown").write_text("x\n")
+    assert not si.checklist_answered(str(_state(new)))
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert si.checklist_answered(str(_state(new)))

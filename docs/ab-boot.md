@@ -106,7 +106,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | `~/Shared`, `~/My-Quantum-Programs`, `~/.qiskit` (IBM Quantum account) | live on DATA (`/data/home/<user>/…`), symlinked from the home folder in both slots; a new slot's starter files do not overwrite the learner's |
 | Wi-Fi networks | live on DATA (`/data/rasqberry/system-connections`), bind-mounted over `/etc/NetworkManager/system-connections` |
 | LED panel settings | on DATA (`rq_device_settings.sh`) |
-| desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the checklist's "Don't ask again" | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
+| desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the marks in `~/.local/state/rasqberry/` (setup checklist answered, notices shown; its folders stay per slot) | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |
 
 Not kept: other files in the home folder, installed demos, Docker images, added
