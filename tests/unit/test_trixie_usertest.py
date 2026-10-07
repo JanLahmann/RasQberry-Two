@@ -5,7 +5,8 @@ Tests for the Trixie user test of 2026-10-06 (Pi 5, dev-trixie-2026-10-06-190843
   quick_exec from the profile's pcmanfm.conf, not from libfm.conf.
 - T2: the Pi 5 kernel (6.18) no longer waits for a frame in the PIO write, so a
   frame written right after another one was lost (RasQ-LED, SAP LED dark).
-- T3: the on-screen LED view takes no keyboard focus.
+- T3: the on-screen LED view takes no keyboard focus when it opens (and stays
+  in the taskbar; Enter, Escape or Ctrl+C in it stop the demo).
 - T4: Ctrl+C while a demo window waits ("read -t") ended in a bash abort.
 - T5: icon rows overlapped (pcmanfm-pi counts y from the top of the screen,
   taller labels), touch-mode labels ran under the browser, catalogue icons
@@ -247,12 +248,74 @@ def test_a_driver_that_waits_for_the_frame_only_adds_the_pause():
 
 # --- T3: the on-screen LED view takes no keyboard focus -------------------------------
 
-def test_the_led_view_never_takes_the_keyboard_focus():
+def test_the_led_view_opens_without_the_focus_but_stays_in_the_taskbar():
     text = _read("RQB2-bin", "rq_led_virtual_gui.py")
     # set right after the window is made, before mainloop maps it
     made = text.index("self.root = tk.Tk()")
-    focus = text.index('self.root.wm_focusmodel("active")')
-    assert made < focus < text.index("self.root.mainloop()")
+    setup = text.index("self._focus_on_open()")
+    assert made < setup < text.index("self.root.mainloop()")
+    body = text[text.index("def _focus_on_open(self):"):text.index("def on_map(")]
+    # ICCCM Globally Active: input=False plus WM_TAKE_FOCUS; labwc lists such a
+    # window in the taskbar only with the window type NORMAL
+    assert 'wm_focusmodel("active")' in body
+    assert 'attributes("-type", "normal")' in body
+    assert 'protocol("WM_TAKE_FOCUS"' in body
+
+
+def _gui():
+    pytest.importorskip("tkinter")
+    import rq_led_virtual_gui as gui
+    return gui
+
+
+def test_the_led_view_declines_the_focus_only_when_it_opens(monkeypatch):
+    import types
+    gui = _gui()
+    forced = []
+    view = types.SimpleNamespace(_mapped_at=None,
+                                 root=types.SimpleNamespace(focus_force=lambda: forced.append(1)))
+    gui.VirtualLEDMatrix.on_take_focus(view)               # before it is shown
+    view._mapped_at = 100.0
+    monkeypatch.setattr(gui.time, "monotonic", lambda: 100.2)
+    gui.VirtualLEDMatrix.on_take_focus(view)               # the offer on opening
+    assert forced == []
+    monkeypatch.setattr(gui.time, "monotonic", lambda: 130.0)
+    gui.VirtualLEDMatrix.on_take_focus(view)               # a click later on
+    assert forced == [1]
+
+
+def test_a_stop_key_in_the_led_view_is_ctrl_c_in_the_demo_window(monkeypatch):
+    gui = _gui()
+    # pid: [state, ppid, pgrp, session, tty_nr, tpgid]
+    procs = {
+        50: ["S", "40", "50", "50", "0", "-1"],     # demo started by the menu: own session
+        40: ["S", "30", "30", "30", "34817", "30"],  # the menu, in the terminal
+        60: ["S", "1", "60", "60", "0", "-1"],       # the LED renderer service
+        70: ["S", "65", "65", "65", "34818", "70"],  # a demo from its icon
+    }
+    stat = procs.get
+    assert gui.terminal_foreground_group(50, stat) == 30
+    assert gui.terminal_foreground_group(60, stat) is None
+    assert gui.terminal_foreground_group(70, stat) == 70
+    sent = []
+    monkeypatch.setattr(gui.os, "killpg", lambda pgrp, sig: sent.append((pgrp, sig)))
+    assert gui.stop_led_demo("bus", writers=lambda path: [50, 60, 70],
+                             group=lambda pid: gui.terminal_foreground_group(pid, stat))
+    assert sorted(sent) == [(30, signal.SIGINT), (70, signal.SIGINT)]
+    sent.clear()
+    assert not gui.stop_led_demo("bus", writers=lambda path: [60],
+                                 group=lambda pid: gui.terminal_foreground_group(pid, stat))
+    assert sent == []
+
+
+def test_led_writers_finds_the_processes_with_the_bus_mapped(tmp_path):
+    gui = _gui()
+    for pid, maps in ((11, "7f00-7f01 rw-s 00000000 00:1a 5   /tmp/bus\n"),
+                      (12, "7f00-7f01 r-xp 00000000 00:1a 6   /usr/lib/libc.so\n")):
+        (tmp_path / str(pid)).mkdir()
+        (tmp_path / str(pid) / "maps").write_text(maps)
+    (tmp_path / "self").mkdir()
+    assert gui.led_writers("/tmp/bus", proc=str(tmp_path)) == [11]
 
 
 # --- T4: Ctrl+C while a demo window waits ----------------------------------------------

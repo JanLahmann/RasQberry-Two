@@ -44,6 +44,7 @@ LED_SIZE = 20       # Diameter of each LED circle in pixels
 LED_GAP = 3         # Gap between LEDs
 PADDING = 10        # Padding around the matrix
 REFRESH_MS = 50     # GUI refresh rate (20 FPS)
+OPEN_FOCUS_GRACE_S = 1.5  # focus offers this soon after opening are declined
 BG_COLOR = "#1a1a1a"       # Dark background
 LED_OFF_COLOR = "#2a2a2a"  # Very dim gray for "off" LEDs
 
@@ -82,6 +83,93 @@ def wait_for_header(path, timeout=None):
         time.sleep(0.2)
 
 
+def _proc_stat(pid):
+    """
+    Fields of /proc/PID/stat after the command name.
+
+    Returns:
+        list: [state, ppid, pgrp, session, tty_nr, tpgid, ...], or None.
+    """
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().rsplit(")", 1)[1].split()
+    except (OSError, IndexError):
+        return None
+
+
+def led_writers(path, proc="/proc"):
+    """
+    PIDs of the other processes that have the LED frame bus mapped.
+
+    These are the demos drawing on the view (and the LED renderer service,
+    which has no terminal).
+    """
+    pids = []
+    me = os.getpid()
+    try:
+        entries = os.listdir(proc)
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.isdigit() or int(entry) == me:
+            continue
+        try:
+            with open(os.path.join(proc, entry, "maps")) as f:
+                if any(line.rstrip().endswith(path) for line in f):
+                    pids.append(int(entry))
+        except OSError:
+            continue
+    return pids
+
+
+def terminal_foreground_group(pid, stat=_proc_stat):
+    """
+    The foreground process group of the terminal PID runs in.
+
+    A demo started from the RasQberry menu runs in a session of its own
+    without a terminal: its parents are asked then.
+
+    Returns:
+        int: the process group, or None if no parent has a terminal.
+    """
+    seen = set()
+    while pid and pid > 1 and pid not in seen:
+        seen.add(pid)
+        fields = stat(pid)
+        if not fields or len(fields) < 6:
+            return None
+        tty_nr, tpgid = int(fields[4]), int(fields[5])
+        if tty_nr != 0:
+            return tpgid if tpgid > 0 else None
+        pid = int(fields[1])
+    return None
+
+
+def stop_led_demo(path, writers=led_writers, group=terminal_foreground_group):
+    """
+    Stop the LED demo drawing on the view, as Ctrl+C in its window does.
+
+    Ctrl+C sends SIGINT to the foreground process group of the window's
+    terminal; every demo window stops its demo on it (the demo itself, the
+    "press Enter or Ctrl+C" wait, the RasQberry menu's wait).
+
+    Returns:
+        bool: True if a demo was asked to stop.
+    """
+    import signal
+    groups = set()
+    for pid in writers(path):
+        pgrp = group(pid)
+        if pgrp:
+            groups.add(pgrp)
+    for pgrp in groups:
+        try:
+            os.killpg(pgrp, signal.SIGINT)
+        except OSError:
+            pass
+    return bool(groups)
+
+
 class VirtualLEDMatrix:
     """
     Tkinter GUI displaying a virtual LED matrix of arbitrary geometry.
@@ -102,13 +190,7 @@ class VirtualLEDMatrix:
             f"RasQberry Virtual LED Matrix - {width}x{height} ({layout_name})"
         )
         self.root.configure(bg=BG_COLOR)
-        # Never take the keyboard focus: the demo's terminal must keep it, so
-        # that "press Enter or Ctrl+C" works right after the view opens.
-        # "active" sets WM_HINTS input=False (and Tk sets no WM_TAKE_FOCUS),
-        # i.e. the ICCCM "No Input" model: labwc (Trixie, 0.20) maps such a
-        # window without focusing it; before, it focused every new window.
-        # Must be set before the window is first mapped (mainloop).
-        self.root.wm_focusmodel("active")
+        self._focus_on_open()
 
         # Dynamic sizing variables
         self.led_size = LED_SIZE
@@ -171,6 +253,51 @@ class VirtualLEDMatrix:
 
         self.root.after(REFRESH_MS, self.update_display)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        # Clicked and typed into anyway: Enter, Escape and Ctrl+C here stop
+        # the demo just as in its own window
+        for key in ("<Return>", "<KP_Enter>", "<Escape>", "<Control-c>"):
+            self.root.bind(key, self.on_stop_key)
+
+    def _focus_on_open(self):
+        """
+        Open without taking the keyboard focus, but stay a normal window.
+
+        The demo's window must keep the focus, so that "press Enter or
+        Ctrl+C" works right after this view opens. labwc (Trixie, 0.20)
+        focuses a new X window that asks for input (ICCCM Passive). The view
+        uses the ICCCM "Globally Active" model instead: WM_HINTS input=False
+        plus WM_TAKE_FOCUS. labwc then offers the focus (WM_TAKE_FOCUS) and
+        the view declines the offer that comes with opening and accepts
+        later ones: a click on the view or its taskbar entry. labwc lists a
+        Globally Active window in the taskbar only with the window type
+        NORMAL (Tk sets none by default); the "No Input" model (input=False
+        alone) had no taskbar entry, so a covered view could not be found.
+        Must be set before the window is first mapped (mainloop).
+        """
+        self._mapped_at = None
+        self.root.wm_focusmodel("active")
+        try:
+            self.root.attributes("-type", "normal")
+        except tk.TclError:
+            pass  # not X11
+        self.root.protocol("WM_TAKE_FOCUS", self.on_take_focus)
+        self.root.bind("<Map>", self.on_map, add="+")
+
+    def on_map(self, event):
+        """Note when the window first appeared."""
+        if event.widget is self.root and self._mapped_at is None:
+            self._mapped_at = time.monotonic()
+
+    def on_take_focus(self):
+        """The window manager offers the focus: take it, except on opening."""
+        if self._mapped_at is None or time.monotonic() - self._mapped_at < OPEN_FOCUS_GRACE_S:
+            return
+        self.root.focus_force()
+
+    def on_stop_key(self, event=None):
+        """Enter, Escape or Ctrl+C in the view: stop the demo."""
+        stopped = stop_led_demo(MMAP_FILE)
+        self.status_var.set("Stopping the demo..." if stopped else "No LED demo to stop")
 
     def _init_mmap(self):
         """Open the shared memory file for reading (must already exist)."""
