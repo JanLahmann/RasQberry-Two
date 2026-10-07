@@ -27,15 +27,16 @@ import time
 
 # Shared mapper + config (both live in RQB2-bin; /usr/bin when installed).
 try:
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, view_layout, view_rgb
 except ImportError:
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, view_layout, view_rgb
 
 # mmap transport v2 constants (must match rq_led_virtual.py)
 MMAP_FILE = "/tmp/rasqberry_virtual_led2.mmap"
 MMAP_MAGIC = b'RQL1'
 MMAP_HEADER_SIZE = 16
+MMAP_BRIGHTNESS_OFFSET = 10
 MMAP_DIRTY_OFFSET = 16
 MMAP_PIXEL_OFFSET = 17
 
@@ -44,6 +45,7 @@ LED_SIZE = 20       # Diameter of each LED circle in pixels
 LED_GAP = 3         # Gap between LEDs
 PADDING = 10        # Padding around the matrix
 REFRESH_MS = 50     # GUI refresh rate (20 FPS)
+LAYOUT_CHECK_TICKS = 10  # look at the layout every 10 refreshes (0.5 s)
 OPEN_FOCUS_GRACE_S = 1.5  # focus offers this soon after opening are declined
 BG_COLOR = "#1a1a1a"       # Dark background
 LED_OFF_COLOR = "#2a2a2a"  # Very dim gray for "off" LEDs
@@ -175,20 +177,22 @@ class VirtualLEDMatrix:
     Tkinter GUI displaying a virtual LED matrix of arbitrary geometry.
 
     Geometry comes from the mmap header; the (x, y) -> chain index mapping comes
-    from the shared rq_led_utils.map_xy_to_pixel for the configured layout.
+    from the shared rq_led_utils.map_xy_to_pixel for the layout the frames are
+    drawn in (rq_led_utils.view_layout: the configured one, or the one the LED
+    panel check is trying), looked at again while the window is open.
     """
 
-    def __init__(self, width, height, count, layout_name):
+    def __init__(self, width, height, count, layout, label=None):
         self.width = width
         self.height = height
         self.count = count
-        self.layout_name = layout_name
+        self.layout = layout
+        self.label = label or (layout if isinstance(layout, str) else 'custom')
         self.pixel_bytes = count * 3
+        self._ticks = 0
 
         self.root = tk.Tk()
-        self.root.title(
-            f"RasQberry Virtual LED Matrix - {width}x{height} ({layout_name})"
-        )
+        self._set_title()
         self.root.configure(bg=BG_COLOR)
         self._focus_on_open()
 
@@ -309,9 +313,32 @@ class VirtualLEDMatrix:
             self.status_var.set(f"Error: {e}")
             self._mmap = None
 
+    def _set_title(self):
+        """Window title with the geometry and the layout shown."""
+        self.root.title(
+            f"RasQberry Virtual LED Matrix - {self.width}x{self.height} ({self.label})"
+        )
+
+    def follow_layout(self):
+        """
+        Switch to the layout the frames are drawn in now.
+
+        The window used the layout configured when it opened: during the LED
+        panel check that was the default (single-24x8), also on the four-panel
+        kit, and after "Saved" the address scroll in the new layout came out
+        scrambled under the old one (Pi 4 user test 2026-10-07, F1).
+        """
+        layout, label = view_layout()
+        if layout == self.layout and label == self.label:
+            return False
+        self.layout, self.label = layout, label
+        self._set_title()
+        self._last_frame = None     # redraw the current frame in the new map
+        return True
+
     def map_xy_to_pixel(self, x, y):
         """Map (x, y) to a chain index using the shared mapper for this layout."""
-        return map_xy_to_pixel(x, y, layout=self.layout_name)
+        return map_xy_to_pixel(x, y, layout=self.layout)
 
     def on_resize(self, event):
         """Handle window resize - scale LEDs to fit."""
@@ -354,13 +381,20 @@ class VirtualLEDMatrix:
         Comparing with the last frame shown needs no flag (the browser view
         works the same way).
         """
+        self._ticks += 1
+        if self._ticks % LAYOUT_CHECK_TICKS == 0:
+            try:
+                self.follow_layout()
+            except Exception:
+                pass
         if self._mmap is not None:
             try:
+                level = self._mmap[MMAP_BRIGHTNESS_OFFSET]
                 self._mmap.seek(MMAP_PIXEL_OFFSET)
                 pixel_data = self._mmap.read(self.pixel_bytes)
 
-                if pixel_data != self._last_frame:
-                    self._last_frame = pixel_data
+                if (pixel_data, level) != self._last_frame:
+                    self._last_frame = (pixel_data, level)
                     for y in range(self.height):
                         for x in range(self.width):
                             pixel_index = self.map_xy_to_pixel(x, y)
@@ -368,9 +402,9 @@ class VirtualLEDMatrix:
                                 continue
                             offset = pixel_index * 3
                             if offset + 2 < len(pixel_data):
-                                r = pixel_data[offset]
-                                g = pixel_data[offset + 1]
-                                b = pixel_data[offset + 2]
+                                r, g, b = view_rgb(pixel_data[offset],
+                                                   pixel_data[offset + 1],
+                                                   pixel_data[offset + 2], level)
                                 if r == 0 and g == 0 and b == 0:
                                     color = LED_OFF_COLOR
                                 else:
@@ -415,18 +449,18 @@ def main():
         return
     width, height, count = geom
 
-    # Layout name for the shared mapper (geometry itself comes from the header).
+    # Layout for the shared mapper (geometry itself comes from the header).
     try:
-        layout_name = get_led_config().get('led_layout', 'single-24x8')
+        layout, label = view_layout()
     except Exception:
-        layout_name = 'single-24x8'
+        layout = label = 'single-24x8'
 
     print(f"Matrix size: {width}x{height} ({count} LEDs)")
-    print(f"Layout: {layout_name}")
+    print(f"Layout: {label}")
     print(f"Shared memory: {MMAP_FILE}")
     print()
 
-    app = VirtualLEDMatrix(width, height, count, layout_name)
+    app = VirtualLEDMatrix(width, height, count, layout, label)
     app.run()
 
 

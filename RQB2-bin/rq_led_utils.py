@@ -828,6 +828,102 @@ def reap_virtual_led_gui():
     _reap_singleton(_VIRTUAL_GUI_PIDFILE, _VIRTUAL_GUI_PATTERN)
 
 
+# On-screen views (the Tk window and the browser view) map the chain back to
+# (x, y) through a layout. Normally that is the configured one. The LED panel
+# check draws each candidate kit through its own layout before anything is
+# saved, so the view showed the configured layout's title over a scatter (Pi 4
+# user test 2026-10-07, F1). While the check runs it names the layout it draws
+# through in this file, with its own PID: a check that died leaves nothing
+# behind that counts.
+VIEW_LAYOUT_HINT = "/tmp/rasqberry_virtual_led_view_layout.json"
+
+
+def set_view_layout_hint(layout, owner_pid, label=None):
+    """Tell the on-screen views which layout the next frames are drawn in.
+
+    Args:
+        layout (str or dict): layout name or resolved layout dict.
+        owner_pid (int): the process the hint belongs to (the LED check).
+        label (str, optional): what the view's title shows for it.
+    """
+    if label is None:
+        label = layout if isinstance(layout, str) else layout.get('name', 'custom')
+    tmp = f"{VIEW_LAYOUT_HINT}.{os.getpid()}"
+    try:
+        with open(tmp, 'w') as f:
+            json.dump({'pid': int(owner_pid), 'layout': layout, 'label': label}, f)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, VIEW_LAYOUT_HINT)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def clear_view_layout_hint():
+    """Back to the configured layout in the on-screen views."""
+    try:
+        os.remove(VIEW_LAYOUT_HINT)
+    except OSError:
+        pass
+
+
+def _pid_exists(pid):
+    """True while `pid` runs (also a root process seen by a user: EPERM)."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def view_layout():
+    """The layout the on-screen views map frames through, and its title label.
+
+    Returns:
+        tuple: (layout, label); layout is a name or a resolved layout dict.
+    """
+    try:
+        with open(VIEW_LAYOUT_HINT) as f:
+            hint = json.load(f)
+        pid = int(hint.get('pid', 0))
+        if pid > 0 and hint.get('layout') and _pid_exists(pid):
+            return hint['layout'], str(hint.get('label') or 'custom')
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    try:
+        name = get_led_config().get('led_layout', _DEFAULT_LAYOUT_NAME)
+    except Exception:
+        name = _DEFAULT_LAYOUT_NAME
+    return name, name
+
+
+def view_rgb(r, g, b, level):
+    """A frame-bus colour as the on-screen views show it.
+
+    Writers store colours already dimmed to the LED brightness, and the LED
+    check draws at 15 %: its white IBM (38, 38, 38) was darker than the view's
+    "off" grey, so the window stayed dark while the panel was lit (Pi 5 user
+    test 2026-10-07, P3). The writer records its brightness in the frame-bus
+    header; the views undo it, so a lit LED looks lit.
+
+    Args:
+        r, g, b (int): the stored colour.
+        level (int): brightness from the header, 1-255; 0 = not recorded.
+
+    Returns:
+        tuple: (r, g, b) for the screen.
+    """
+    if not level or level >= 255:
+        return r, g, b
+    return tuple(min(255, (c * 255 + level // 2) // level) for c in (r, g, b))
+
+
 def _ensure_virtual_led_web_running():
     """Singleton-launch the LED web emulator (idempotent, race-safe).
 

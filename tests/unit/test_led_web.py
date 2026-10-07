@@ -50,7 +50,7 @@ def frame_bus(tmp_path, monkeypatch):
 
 def test_read_frame_waiting_when_no_bus(frame_bus, monkeypatch):
     """No file / bad magic / zero geometry all read as 'waiting'."""
-    monkeypatch.setattr(web, "_layout_name", lambda: "single-24x8")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("single-24x8", "single-24x8"))
     assert web.read_frame() == {"waiting": True}          # missing file
     frame_bus.write_bytes(b"XXXX" + b"\x00" * 20)          # bad magic
     assert web.read_frame() == {"waiting": True}
@@ -59,7 +59,7 @@ def test_read_frame_waiting_when_no_bus(frame_bus, monkeypatch):
 def test_read_frame_maps_chain_to_xy(frame_bus, monkeypatch):
     """Each logical (x, y) shows the colour written at its mapped chain index."""
     layout = "single-24x8"
-    monkeypatch.setattr(web, "_layout_name", lambda: layout)
+    monkeypatch.setattr(web, "_view_layout", lambda: (layout, layout))
 
     pixels = [(0, 0, 0)] * 192
     marks = {(0, 0): (255, 0, 0), (23, 7): (0, 255, 0), (5, 3): (0, 0, 255)}
@@ -77,7 +77,7 @@ def test_read_frame_maps_chain_to_xy(frame_bus, monkeypatch):
 def test_read_frame_follows_layout_geometry(frame_bus, monkeypatch):
     """The decode honours the header geometry AND the configured layout map."""
     layout = "quad-4x12"
-    monkeypatch.setattr(web, "_layout_name", lambda: layout)
+    monkeypatch.setattr(web, "_view_layout", lambda: (layout, layout))
 
     pixels = [(0, 0, 0)] * 192
     idx = lu.map_xy_to_pixel(12, 0, layout=layout)
@@ -95,9 +95,9 @@ def test_grid_cache_rebuilds_on_layout_change(frame_bus, monkeypatch):
     pixels[lu.map_xy_to_pixel(1, 0, layout="single-24x8")] = (1, 2, 3)
     _write_frame(frame_bus, 24, 8, pixels)
 
-    monkeypatch.setattr(web, "_layout_name", lambda: "single-24x8")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("single-24x8", "single-24x8"))
     f1 = web.read_frame()
-    monkeypatch.setattr(web, "_layout_name", lambda: "quad-4x12")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("quad-4x12", "quad-4x12"))
     f2 = web.read_frame()
     # Same bytes, different layout -> different decoded grids (cache keyed on layout)
     assert f1["layout"] != f2["layout"]
