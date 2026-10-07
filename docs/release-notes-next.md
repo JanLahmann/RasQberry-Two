@@ -41,6 +41,12 @@ only true for the standard image. -->
 - **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
 - **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to `rasqberry`, not to the name typed in Imager. If another name was typed, the first login says once that the user stays `rasqberry` and that Imager's password, SSH key, hostname and Wi-Fi are set.
 
+- **Firmware check:** at start-up the Pi looks at its bootloader firmware. When it is older than about six months and a newer one is available (or, on a Pi 5, its crypto service is missing), the desktop says so once and how to update with Raspberry Pi's own tools (`sudo rpi-eeprom-update -a`, then restart, or `sudo raspi-config` → Advanced Options → Bootloader Version). System Info and the setup checklist show it too. RasQberry never updates the firmware itself.
+- **Firmware updates on A/B cards:** Raspberry Pi's tools now put the update on the card's first partition (CONFIG), where the Pi 4 looks for it. Before, `sudo rpi-eeprom-update -a` on an A/B card put it into the running slot, where it can stop a Pi 4 from starting.
+- **Raspberry Pi Connect:** Remote Access & Security and System Info say whether Connect is on and signed in, and how to turn it on.
+- **SSH from a Mac:** no more "setlocale: cannot change locale" lines at login.
+- **Setup checklist:** the password step says the Pi "uses the published demo password", which is also right when that password was typed in Imager. System Info opened from the slot badge says "Press Enter to close this window".
+
 ## What's new for you
 
 **Which image and card**
@@ -103,6 +109,7 @@ only true for the standard image. -->
 
 **Problems and feedback**
 
+- **Raspberry Pi Connect from Imager doesn't sign in:** update the firmware (`sudo rpi-eeprom-update -a`, then restart; [Raspberry Pi's guide](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#update-the-bootloader-configuration)), then sign in with the Connect icon in the taskbar.
 - Report problems in [Issues](https://github.com/JanLahmann/RasQberry-Two/issues) and paste the output of `rq_info.sh --json`.
 - The Pi reports anonymous counts (installs, update checks and results, update notice clicks, demo starts, learning paths, LED stalls) to the project's Umami statistics; no IDs are sent.
 

@@ -99,6 +99,22 @@ if [ -x "$remote" ]; then
     addrs=$("$remote" address 2>/dev/null | awk '{ printf "%s%s (%s)", sep, $2, $1; sep = ", " }' || true)
 fi
 [ -n "$mdns" ] || mdns="$host_name.local"
+# Raspberry Pi Connect (P4): only where it is installed
+connect=""
+[ -x "$remote" ] && connect=$("$remote" connect 2>/dev/null || true)
+connect_text() {
+    case "$1" in
+        signed-in)  echo "on, signed in" ;;
+        signed-out) echo "on, not signed in - sign in with its taskbar icon" ;;
+        off)        echo "off" ;;
+        *)          echo "" ;;
+    esac
+}
+# The bootloader firmware (EEPROM), as rasqberry-firmware-check.service found it
+firmware="$here/rq_firmware.py"
+[ -x "$firmware" ] || firmware=/usr/bin/rq_firmware.py
+firmware_line=""
+[ -x "$firmware" ] && firmware_line=$("$firmware" line 2>/dev/null || true)
 
 # vcgencmd get_throttled: bit 0 under-voltage now, bit 16 since start-up,
 # bit 3 / 19 the temperature limit now / since start-up
@@ -213,9 +229,11 @@ if [ "${1:-}" = "--json" ]; then
         --arg hn "$host_name" --arg md "$mdns" --arg ip "$addrs" --arg th "$throttled" \
         --arg pw "$(power_text "$throttled")" --arg tc "$temp_c" \
         --arg mu "$mem_used" --arg mt "$mem_total" --arg df "$disk" \
+        --arg fw "$firmware_line" --arg rc "$connect" \
         '. + {image_type: $t, current_slot: $s, model: $m, ram: $r, running_kernel: $k,
               hostname: $hn, mdns_name: $md, addresses: $ip, throttled: $th, power: $pw,
               temperature_c: $tc, mem_used_kb: $mu, mem_total_kb: $mt,
+              firmware: $fw, pi_connect: $rc,
               root_free_kb: ($df | split(" ")[0] // ""), root_size_kb: ($df | split(" ")[1] // "")}
          + (if $t == "A/B" then {slot_a: $a, slot_b: $b} else {} end)'
     exit 0
@@ -244,7 +262,15 @@ deb=$(field debian_version)
 
 echo "Name:              $host_name (network: $mdns)"
 echo "Address:           ${addrs:-none - not connected}"
+[ -n "$(connect_text "$connect")" ] && echo "Pi Connect:        $(connect_text "$connect")"
 echo "Hardware:          $hardware"
+if [ -n "$firmware_line" ] && [ "$firmware_line" != unknown ]; then
+    echo "Firmware:          $firmware_line"
+    # Raspberry Pi's own tool; RasQberry never updates the firmware itself
+    case "$firmware_line" in
+        *"update available"*) echo "                   To update: sudo rpi-eeprom-update -a, then restart" ;;
+    esac
+fi
 echo "Power:             $(power_text "$throttled")$supply_note"
 if [ -n "$temp_c" ]; then
     echo "Temperature:       ${temp_c} °C$temp_note"

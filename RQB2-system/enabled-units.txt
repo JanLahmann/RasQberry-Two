@@ -20,3 +20,5 @@ rasqberry-update-check.timer
 rasqberry-wifi-watchdog.timer
 # Turns the LED panel off at shutdown (R-043)
 rasqberry-led-clear.service
+# Outdated bootloader firmware: System Info, checklist, one desktop notice
+rasqberry-firmware-check.service
