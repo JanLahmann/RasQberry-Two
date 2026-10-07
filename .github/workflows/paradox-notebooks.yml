@@ -55,7 +55,7 @@ jobs:
           ref: ${{ github.event_name == 'schedule' && 'development' || '' }}
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'   # the image's Python
+          python-version: '3.13'   # the image's Python (Trixie)
       - name: Install the Qiskit/Jupyter stack (latest, as the image does)
         run: |
           python -m pip install --upgrade pip
