@@ -94,7 +94,8 @@ convert_checkout() {
     convert_script=$(find_convert_script) || { warn "Conversion script not found (demo may use incompatible SPI drivers)"; return 1; }
     info "Converting to PWM/PIO drivers and PyQt5..."
     if python3 "$convert_script" "$DEMO_DIR" > /dev/null 2>&1 \
-        && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
+        && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null \
+        && grep -q "_rq_canvas_rect" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
         info "Converted to PWM/PIO drivers (Pi 4/Pi 5) and PyQt5"
         return 0
     fi
@@ -148,7 +149,10 @@ fetch_checkout() {
 check_and_install_demo() {
     link_system_pyqt5 || warn "PyQt5 not available in the venv - the painter window cannot open"
 
-    if [ -f "$DEMO_DIR/$MARKER" ] && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
+    # (and with the canvas below the menu bar: an older conversion is
+    # converted again, in place)
+    if [ -f "$DEMO_DIR/$MARKER" ] && grep -q "from PyQt5" "$DEMO_DIR/LED_painter.py" 2>/dev/null \
+            && grep -q "_rq_canvas_rect" "$DEMO_DIR/LED_painter.py" 2>/dev/null; then
         debug "LED Painter already installed (PyQt5)"
         return 0
     fi

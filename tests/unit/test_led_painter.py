@@ -48,7 +48,7 @@ def painter(tmp_path):
     home = tmp_path / "home"
     demo = home / "RasQberry-Two" / "demos" / "RasQberry-Two-LED-Painter"
     demo.mkdir(parents=True)
-    (demo / "LED_painter.py").write_text("from PyQt5 import QtWidgets\n")
+    (demo / "LED_painter.py").write_text("from PyQt5 import QtWidgets\n# _rq_canvas_rect\n")
     venv = home / "RasQberry-Two" / "venv" / "RQB2" / "bin"
     venv.mkdir(parents=True)
     (venv / "activate").write_text("")

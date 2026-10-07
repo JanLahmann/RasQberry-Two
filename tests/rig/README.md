@@ -128,6 +128,10 @@ icons: RasQ-LED (LED), Quantum Paradoxes (Jupyter), Qoffee-Maker (docker; runs
 only with `--docker`). Icons that start Chromium directly (Composer) are not
 supported.
 
+Keys for a page: `pi/keyboard.py` is the keyboard of the same kind (evdev
+codes, e.g. `57` Space, `29+46` Ctrl+C). wtype is fine for terminals, but
+Chromium reads its Space as Escape.
+
 ## Web and Jupyter checks
 
 A page that answers 200 can still be blank or broken. For browser, Jupyter and

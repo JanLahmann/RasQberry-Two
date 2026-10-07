@@ -200,7 +200,8 @@ def test_onscreen_view_leaves_the_frame_flag_to_the_renderer(tmp_path):
     mm = _mmap.mmap(fh.fileno(), 17 + count * 3)
     painted, errors = [], []
     fake = types.SimpleNamespace(
-        _mmap=mm, _last_frame=None, pixel_bytes=count * 3, width=4, height=1,
+        _mmap=mm, _last_frame=None, _ticks=0, follow_layout=lambda: False,
+        pixel_bytes=count * 3, width=4, height=1,
         leds=[[0, 1, 2, 3]], map_xy_to_pixel=lambda x, y: x,
         canvas=types.SimpleNamespace(itemconfig=lambda item, fill: painted.append((item, fill))),
         status_var=types.SimpleNamespace(set=lambda text: errors.append(text) if 'error' in text else None),

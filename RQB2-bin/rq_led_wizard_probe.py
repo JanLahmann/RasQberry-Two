@@ -36,6 +36,7 @@ Usage (one pattern per call):
 import argparse
 import json
 import logging
+import os
 import time
 
 logging.basicConfig(level=logging.INFO)
@@ -264,6 +265,36 @@ def render_logo(count, layout, color=(0, 0, 255), toggle_x=False, toggle_y=False
         _draw(True)
 
 
+def tell_views(pattern, layout, toggle_x=False, toggle_y=False):
+    """Let the on-screen views map this probe through its layout.
+
+    Only for the LED panel check, which names itself in RQ_LED_VIEW_OWNER: a
+    logo is drawn through a candidate layout, so the view shows it in that
+    layout (and says which in its title); every other pattern is raw chain
+    order, shown in the configured layout as usual.
+    """
+    owner = os.environ.get('RQ_LED_VIEW_OWNER', '')
+    if not owner.isdigit():
+        return
+    try:
+        import rq_led_utils
+    except ImportError:
+        return
+    if pattern != 'logo' or not layout:
+        rq_led_utils.clear_view_layout_hint()
+        return
+    eff = _effective_glyph_layout(layout, toggle_x, toggle_y)
+    if isinstance(layout, str):
+        label = layout
+    else:
+        label = layout.get('name', 'custom')
+    if toggle_y:
+        label += ', upside down'
+    if toggle_x:
+        label += ', mirrored'
+    rq_led_utils.set_view_layout_hint(eff, int(owner), label)
+
+
 def render_pattern(pattern, count, index=0, run=8, panel=64,
                    brightness=DEFAULT_PROBE_BRIGHTNESS):
     """
@@ -406,6 +437,11 @@ def main(argv=None):
             parser.error(f"--layout-file: {e}")
     if args.pattern in ('glyph', 'logo') and not args.layout:
         parser.error(f"--layout is required for the {args.pattern} pattern")
+
+    try:
+        tell_views(args.pattern, args.layout, args.flip_x, args.flip_y)
+    except Exception as e:  # the panel matters more than the view
+        logger.debug("view hint: %s", e)
 
     try:
         if args.pattern == 'glyph':

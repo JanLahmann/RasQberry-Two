@@ -609,7 +609,7 @@ _rq_demo_hangup() {
     sleep 1
     kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null
   fi
-  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off >/dev/null 2>&1
+  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off --close-window >/dev/null 2>&1
   exit 129
 }
 
@@ -650,7 +650,7 @@ stop_last_demo() {
     whiptail --title "Stop Demo" --msgbox "No demo is running." 8 50
     return 0
   fi
-  if do_led_off; then
+  if do_led_off --close-window; then
     whiptail --title "Stop Demo" --msgbox "Stopped. The LEDs are off." 8 50
   else
     whiptail --title "Stop Demo" --msgbox \
@@ -1075,10 +1075,13 @@ do_rqb_qiskit_menu() {
 # turn_off_LEDs.py exits 1 when the panel could not be cleared ("GPIO busy"
 # while another program holds it); its message is kept for handle_error, so a
 # failure is reported as one (R-148).
+# --close-window: the demo has ended, so the on-screen LED view it opened
+# closes too, as after a demo from a desktop icon (Pi 4 user test 2026-10-07
+# F6: the view stayed open after the Quick LED Test, also after raspi-config).
 do_led_off() {
   _lo_out=$(
     [ -f "$VENV_ACTIVATE" ] && . "$VENV_ACTIVATE"
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>&1
+    python3 "$BIN_DIR/turn_off_LEDs.py" "$@" 2>&1
   )
   _lo_rc=$?
   if [ "$_lo_rc" -ne 0 ]; then
@@ -1124,7 +1127,7 @@ run_led_demo() {
   _rld_rc=$?
   _RQ_LED_RUN=""
   _rld_err="${RQ_LAST_DEMO_ERROR:-}"
-  do_led_off >/dev/null 2>&1
+  do_led_off --close-window >/dev/null 2>&1
   "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" "$_rld_thr" 2>/dev/null || :
   RQ_LAST_DEMO_ERROR="$_rld_err"
   return "$_rld_rc"

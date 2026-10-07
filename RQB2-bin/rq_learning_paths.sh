@@ -331,11 +331,14 @@ start_step() {
     local RQ_DEMO_HOW=learning-path
     export RQ_DEMO_HOW
     if [ -n "$S_DEMO" ]; then
+        local rc=0
         if [ -n "$S_VARIANT" ]; then
-            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" && return 0
+            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" || rc=$?
         else
-            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" && return 0
+            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" || rc=$?
         fi
+        # finished, or stopped with Ctrl+C (130) / closed (129, 143)
+        case "$rc" in 0|129|130|143) return 0 ;; esac
     elif [ -n "$S_COMMAND" ]; then
         # only RasQberry's own tools next to this script
         case "$S_COMMAND" in

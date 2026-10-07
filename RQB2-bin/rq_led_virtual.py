@@ -39,11 +39,15 @@ def mmap_path():
 #   [4:6]   width  (uint16, little-endian)
 #   [6:8]   height (uint16, little-endian)
 #   [8:10]  count  (uint16, little-endian)
-#   [10:16] reserved (6 bytes, zero)
+#   [10]    brightness the writer dimmed the colours to (1-255; 0 = unknown).
+#           The on-screen views undo it (rq_led_utils.view_rgb); the renderer
+#           ignores it.
+#   [11:16] reserved (5 bytes, zero)
 #   [16]    dirty flag byte (0=clean, 1=dirty/updated)
 #   [17:..] pixel data (count x 3 bytes RGB)
 MMAP_MAGIC = b'RQL1'
 MMAP_HEADER_SIZE = 16
+MMAP_BRIGHTNESS_OFFSET = 10
 MMAP_DIRTY_SIZE = 1
 # Offsets
 MMAP_DIRTY_OFFSET = MMAP_HEADER_SIZE            # 16
@@ -159,12 +163,17 @@ class VirtualNeoPixel:
         if self._mmap is None:
             return
         header = MMAP_MAGIC + struct.pack(
-            '<HHH', self._width & 0xFFFF, self._height & 0xFFFF, self.n & 0xFFFF
+            '<HHHB', self._width & 0xFFFF, self._height & 0xFFFF, self.n & 0xFFFF,
+            self._brightness_level()
         )
         header += b'\x00' * (MMAP_HEADER_SIZE - len(header))  # reserved bytes
         self._mmap.seek(0)
         self._mmap.write(header)
         self._mmap.flush()
+
+    def _brightness_level(self):
+        """The brightness as the header byte (1-255)."""
+        return max(1, min(255, int(round(self._brightness * 255))))
 
     def __len__(self):
         """Return number of pixels."""
@@ -281,6 +290,7 @@ class VirtualNeoPixel:
     def brightness(self, value):
         """Set brightness (0.0-1.0)."""
         self._brightness = max(0.0, min(1.0, float(value)))
+        self._write_header()
 
     def deinit(self):
         """Clean up resources."""

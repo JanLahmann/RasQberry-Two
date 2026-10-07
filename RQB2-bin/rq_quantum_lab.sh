@@ -88,7 +88,15 @@ rq_docker_access "$@"
 # interrupted download left (R-056)
 if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
     info "IBM Quantum Learning content not found."
-    rq_require_demo_consent ibm-courses
+    # Quantum Lab's own question named them ("and the IBM course notebooks
+    # if missing"): no second question after the long image download, which
+    # kept someone who had walked away waiting (user test 2026-10-07, P6).
+    # The space and network checks still run.
+    if [ "${RQ_CONFIRMED_DEMO:-}" = "quantum-lab" ]; then
+        RQ_AUTO_INSTALL=1 rq_require_demo_consent ibm-courses
+    else
+        rq_require_demo_consent ibm-courses
+    fi
     info "Installing course notebooks (Qiskit/documentation)..."
     install_demo_raspiconfig do_ibm_courses_install \
         || die "Failed to install IBM Quantum Learning content"

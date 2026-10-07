@@ -852,6 +852,10 @@ verify_layout() {
 main() {
     activate_venv >/dev/null 2>&1 || warn "venv not active; probes may fail if hardware libs are missing"
 
+    # The on-screen LED view shows each logo in the layout it is drawn
+    # through, while this check runs (rq_led_wizard_probe.py tell_views)
+    export RQ_LED_VIEW_OWNER="$$"
+
     # The LED panel check (setup checklist, LED menu)
     if [ "${1:-}" = "--verify" ]; then
         verify_layout

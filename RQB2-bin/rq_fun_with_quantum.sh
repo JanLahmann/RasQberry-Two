@@ -122,6 +122,9 @@ cd "$DEMO_DIR"
 # warned "websocket_ping_timeout (90000) cannot be longer than the
 # websocket_ping_interval (30000)" whenever a notebook opened. Keep-alive
 # pings are not needed between the browser and 127.0.0.1.
+# show_banner=False: no "UPDATE: Read the migration plan to Notebook 7" bar
+# over the games - a note for developers, not for players (user test
+# 2026-10-07).
 SERVER_LOG="$USER_HOME/.cache/rasqberry/fun-with-quantum-server.log"
 mkdir -p "$(dirname "$SERVER_LOG")" 2>/dev/null || true
 : > "$SERVER_LOG" 2>/dev/null || SERVER_LOG=/dev/null
@@ -133,6 +136,7 @@ jupyter notebook \
     --NotebookApp.password='' \
     --NotebookApp.open_browser=False \
     --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
+    --NotebookApp.show_banner=False \
     --NotebookApp.tornado_settings="{'ws_ping_interval': 0}" \
     >"$SERVER_LOG" 2>&1 &
 JUPYTER_PID=$!

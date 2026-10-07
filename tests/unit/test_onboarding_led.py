@@ -601,7 +601,7 @@ def test_brightness_and_clear_say_saved(menu_env):
     assert "RC=1" in proc.stdout
     # The desktop icon's window stays long enough to read it
     clear = open(os.path.join(_BIN, "rq_clear_leds.sh")).read()
-    assert 'sleep "${RQ_CLEAR_LEDS_PAUSE:-2}"' in clear
+    assert 'read -r -t "${RQ_CLEAR_LEDS_PAUSE:-8}" _' in clear
 
 
 # ---------------------------------------------------------------------------
