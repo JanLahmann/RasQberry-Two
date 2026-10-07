@@ -213,10 +213,11 @@ def test_no_step_promises_what_the_later_steps_do_not_show():
 
 def test_quantum_demos_menu_offers_the_paths_near_the_top():
     menu = open(_MENU, encoding="utf-8").read()
-    start = menu.index('"RasQberry: Quantum Demos" "Select a demo or option"')
+    start = menu.index('"RasQberry: Quantum Demos" "Select a group of demos or an option"')
     items = menu[start:menu.index('"$@"', start)]
     assert 'PATHS "Learning paths (beta)' in items
-    assert items.index("PATHS") < items.index("LED ")
+    # first, before the demo groups ("$@")
+    assert re.findall(r'^\s+([A-Z]+) "', items, re.M) == ["PATHS"]
     assert 'run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu' in menu
     assert "PATHS) do_learning_paths" in menu
 

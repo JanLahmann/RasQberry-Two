@@ -296,9 +296,19 @@ def test_broken_cache_does_not_stop_raspi_config(menu_env):
 
 def test_good_cache_is_loaded(menu_env):
     cache = menu_env.tmp / "cache.sh"
-    cache.write_text("DEMO_MENU_ITEMS='\n\"a\" \"A\"\n'\ndispatch_demo_by_id() { echo \"run $1\"; }\nDEMO_COUNT=1\n")
+    cache.write_text("DEMO_MENU_ITEMS='\n\"a\" \"A\"\n'\ndispatch_demo_by_id() { echo \"run $1\"; }\nDEMO_COUNT=1\n"
+                     "demo_group_items() { return 1; }\n")
     proc = menu_env('echo "STATE=$_RQ_DEMO_CACHE_STATE"; dispatch_demo_by_id a', cache=cache)
     assert "STATE=ok" in proc.stdout and "run a" in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_cache_from_before_the_groups_is_loaded_and_marked_old(menu_env):
+    cache = menu_env.tmp / "cache.sh"
+    cache.write_text("DEMO_MENU_ITEMS='\n\"a\" \"A\"\n'\ndispatch_demo_by_id() { echo \"run $1\"; }\nDEMO_COUNT=1\n")
+    proc = menu_env('echo "STATE=$_RQ_DEMO_CACHE_STATE"; dispatch_demo_by_id a; demo_group_title learn',
+                    cache=cache)
+    assert "STATE=old" in proc.stdout and "run a" in proc.stdout, proc.stdout + proc.stderr
+    assert "Learn & code" in proc.stdout
 
 
 # --- R-028 / R-156 / R-102: run_demo ------------------------------------------

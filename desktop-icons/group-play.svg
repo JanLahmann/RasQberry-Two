@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Play</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#5a2a8a"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#8a46c9"/>
+  <rect x="21" y="27" width="22" height="22" rx="4" fill="#fff"/>
+  <circle cx="26.5" cy="32.5" r="2.4" fill="#8a46c9"/>
+  <circle cx="37.5" cy="32.5" r="2.4" fill="#8a46c9"/>
+  <circle cx="32" cy="38" r="2.4" fill="#8a46c9"/>
+  <circle cx="26.5" cy="43.5" r="2.4" fill="#8a46c9"/>
+  <circle cx="37.5" cy="43.5" r="2.4" fill="#8a46c9"/>
+</svg>

@@ -12,10 +12,14 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    720p): Chromium opens maximised instead of at x=480, which put most of the
    window off-screen (R-034). The labwc rule that places Chromium next to the
    icons is switched off, and /etc/chromium.d/rasqberry adds --start-maximized.
-4. Desktop icons start at a double-click (quick_exec, T1) and are laid out
-   for the screen and touch mode, RasQberry Setup first (R-008, R-035). Icons that do not fit go into a "More" folder. This
-   happens only when the screen, touch mode or the set of icons changed, so
-   icons the user moved stay where they are.
+4. Desktop icons start at a double-click (quick_exec, T1). The demos are
+   sorted into one folder per group (demo-groups.json: LED panel, Play, ...);
+   the desktop shows the system icons, a few starters (also in their folders)
+   and one icon per group, which opens its folder. They are laid out for the
+   screen and touch mode, RasQberry Setup first (R-008, R-035); on a screen
+   too small for all of them the starters go first. This happens only when
+   the screen, touch mode or the set of icons changed, so icons the user
+   moved stay where they are.
 5. Browser (BROWSER_AUTOSTART): rasqberry.org, or a local page that says what
    to do without internet (R-101, Q15).
 
@@ -24,6 +28,7 @@ Usage:
     rq_desktop_session.py --no-browser    steps 1-4 only
     rq_desktop_session.py --relayout      step 4 only (a catalogue demo's
                                           launcher came or went)
+    rq_desktop_session.py --open-group ID open a group's folder (its icon)
     rq_desktop_session.py --quick-exec [CONF]
                                           set quick_exec=1 in the profile's
                                           pcmanfm.conf (or CONF)
@@ -54,9 +59,9 @@ OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
 HOMEPAGE = "https://rasqberry.org"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
-# The desktop's own launchers, in the order they are laid out (row by row).
-# Setup, the menu and the touch switch come first, then the learning paths
-# (a way into the demos), the LED tools last.
+# Every launcher the image puts on the desktop (stage 06). Where each one
+# goes - loose on the desktop or into a group folder - and the order of the
+# loose ones come from demo-groups.json and the demo manifests.
 ICON_ORDER = [
     "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
     "learning-paths", "composer", "grok-bloch", "quantum-fractals",
@@ -75,6 +80,16 @@ ITEM_WIDTH = 120           # an icon's label is up to ~110 px wide
 # Catalogue demos put their launchers on the desktop as rq-ext-<id>.desktop:
 # they are laid out after RasQberry's own, in the same grid (T5)
 CATALOGUE_PREFIX = "rq-ext-"
+# Demo groups (demo-groups.json): a folder per group, out of sight, and a
+# launcher per group on the desktop that opens it. pcmanfm-pi shows no custom
+# icon for a folder (libfm reads no .directory file), so the desktop gets a
+# launcher with the group's own icon instead of the folder itself.
+GROUP_PREFIX = "rq-group-"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname(_HERE), "RQB2-config")
+GROUPS_FILE = os.path.join(CONFIG_DIR, "demo-manifests", "demo-groups.json")
+KNOWN_DEMOS = os.path.join(CONFIG_DIR, "known-demos.json")
+ICON_DIR = "/usr/share/icons/rasqberry"
 # pcmanfm profiles whose icon positions count from the top of the screen.
 # Trixie's pcmanfm-pi ("default" profile) places x/y on the whole screen, so
 # y=10 is under the panel and pcmanfm pushed the first row down onto the
@@ -527,9 +542,10 @@ def write_positions(conf, positions):
     sections = re.split(r"(?m)^(?=\[)", text)
     ours = {(n if n == MORE_DIR else n + ".desktop") for n in positions}
     ours |= {n + ".desktop" for n in ICON_ORDER} | {MORE_DIR}
-    # a removed catalogue demo's launcher leaves no stale entry either
+    # a removed catalogue demo's launcher, or one now in a group folder,
+    # leaves no stale entry either
     kept = [s for s in sections if s.strip() and s.split("]", 1)[0][1:] not in ours
-            and not s.startswith("[" + CATALOGUE_PREFIX)]
+            and not s.startswith("[" + CATALOGUE_PREFIX) and not s.startswith("[" + GROUP_PREFIX)]
     out = "".join(s if s.endswith("\n") else s + "\n" for s in kept)
     for name, (x, y) in positions.items():
         key = name if name == MORE_DIR else name + ".desktop"
@@ -570,24 +586,32 @@ def sort_into_more(desktop, overflow, names=None):
         pass
 
 
-def present_launchers(desktop):
+def present_launchers(desktop, root=None, groups=None):
     """
-    List RasQberry's launchers on the desktop or in its More folder.
+    List RasQberry's launchers on the desktop, in a group folder or in More.
 
     Args:
         desktop (str): ~/Desktop.
+        root (str): group_dir() (default: none, as before the groups).
+        groups (dict): load_groups() (its starters, system icons, launchers).
 
     Returns:
         list: Names in ICON_ORDER order, then catalogue launchers by name.
     """
-    found = []
-    for name in ICON_ORDER:
-        fname = name + ".desktop"
-        if os.path.exists(os.path.join(desktop, fname)) or \
-                os.path.exists(os.path.join(desktop, MORE_DIR, fname)):
-            found.append(name)
+    folders = [desktop, os.path.join(desktop, MORE_DIR)]
+    if root:
+        try:
+            folders += [os.path.join(root, d) for d in sorted(os.listdir(root))]
+        except OSError:
+            pass
+    known = list(ICON_ORDER)
+    if groups:
+        known += [n for n in groups["system"] + groups["starters"] + list(groups["launchers"])
+                  if n not in known]
+    found = [n for n in known
+             if any(os.path.exists(os.path.join(f, n + ".desktop")) for f in folders)]
     extra = set()
-    for folder in (desktop, os.path.join(desktop, MORE_DIR)):
+    for folder in folders:
         try:
             entries = os.listdir(folder)
         except OSError:
@@ -595,6 +619,368 @@ def present_launchers(desktop):
         extra |= {f[:-len(".desktop")] for f in entries
                   if f.startswith(CATALOGUE_PREFIX) and f.endswith(".desktop")}
     return found + sorted(extra)
+
+
+# --------------------------------------------------------------------------
+# 4a. Demo groups
+# --------------------------------------------------------------------------
+def _read_json(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def load_groups(path=None):
+    """
+    Read demo-groups.json.
+
+    Args:
+        path (str): The file (default: next to the shipped manifests).
+
+    Returns:
+        dict: groups (list of {id, title, icon, ...}), starters, system and
+        launchers; no groups when the file is missing or damaged (the desktop
+        is then laid out flat, as before the groups).
+    """
+    data = _read_json(path or GROUPS_FILE)
+    if not isinstance(data, dict):
+        data = {}
+    groups = [g for g in data.get("groups") or []
+              if isinstance(g, dict) and re.match(r"^[a-z0-9][a-z0-9-]*$", str(g.get("id", "")))
+              and g.get("title") and "/" not in g["title"]]
+    return {"groups": groups,
+            "starters": list(data.get("starters") or []),
+            "system": list(data.get("system") or []),
+            "launchers": dict(data.get("launchers") or {})}
+
+
+def manifest_dirs(home=None):
+    """
+    The manifest search path: shipped, then the user's (catalogue demos).
+
+    Args:
+        home (str): Home directory (tests).
+
+    Returns:
+        list: Directories.
+    """
+    return [os.path.join(CONFIG_DIR, "demo-manifests"),
+            os.path.join(home or HOME, ".local/config/demo-manifests")]
+
+
+def find_manifest(demo_id, dirs=None):
+    """
+    Read a demo's manifest (rq_demo_<id>.json; the shipped one wins).
+
+    Args:
+        demo_id (str): Demo id.
+        dirs (list): Manifest directories.
+
+    Returns:
+        dict: The manifest, or None.
+    """
+    for folder in dirs or manifest_dirs():
+        data = _read_json(os.path.join(folder, "rq_demo_%s.json" % demo_id))
+        if isinstance(data, dict):
+            return data
+    return None
+
+
+def demo_group(demo_id, groups, dirs=None, known=None):
+    """
+    The group of a demo, decided like rq_demo_group in rq_common.sh.
+
+    A catalogue demo's known-demos.json entry wins (it is curated), then the
+    manifest's "group", then a guess: an LED panel demo goes to led-panel, a
+    game or visualization to play, anything else to learn. A value that
+    demo-groups.json does not list counts as none.
+
+    Args:
+        demo_id (str): Demo id.
+        groups (dict): load_groups().
+        dirs (list): Manifest directories.
+        known (str): known-demos.json.
+
+    Returns:
+        str: Group id, or None without groups.
+    """
+    ids = [g["id"] for g in groups["groups"]]
+    if not ids:
+        return None
+    registry = _read_json(known or KNOWN_DEMOS) or {}
+    manifest = find_manifest(demo_id, dirs) or {}
+    candidates = [d.get("group") for d in registry.get("demos") or []
+                  if isinstance(d, dict) and d.get("id") == demo_id]
+    candidates.append(manifest.get("group"))
+    for group in candidates:
+        if group in ids:
+            return group
+    if (manifest.get("needs_hw") or {}).get("leds") is True:
+        guess = "led-panel"
+    elif manifest.get("category") in ("game", "visualization"):
+        guess = "play"
+    else:
+        guess = "learn"
+    return guess if guess in ids else ids[0]
+
+
+def launcher_demo(path):
+    """
+    The demo a launcher starts: rq_demo_run.sh/rq_demo_choose.sh <id> in Exec.
+
+    Args:
+        path (str): The .desktop file.
+
+    Returns:
+        str: Demo id, or None.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    m = re.search(r"^Exec=.*\brq_demo_(?:run|choose)\.sh\s+([a-z0-9][a-z0-9-]*)", text, re.M)
+    return m.group(1) if m else None
+
+
+def launcher_group(name, path, groups, dirs=None, known=None):
+    """
+    The group folder a launcher goes into.
+
+    Catalogue launchers (rq-ext-<id>) and launchers that start a demo take the
+    demo's group; demo-groups.json names the few without a manifest (Demo
+    Loop, My Quantum Programs). System icons have none.
+
+    Args:
+        name (str): Launcher name without ".desktop".
+        path (str): Its file.
+        groups (dict): load_groups().
+        dirs (list): Manifest directories.
+        known (str): known-demos.json.
+
+    Returns:
+        str: Group id, or None (stays on the desktop).
+    """
+    ids = [g["id"] for g in groups["groups"]]
+    if not ids or name in groups["system"]:
+        return None
+    if name.startswith(CATALOGUE_PREFIX):
+        return demo_group(name[len(CATALOGUE_PREFIX):], groups, dirs, known)
+    if name in groups["launchers"]:
+        group = groups["launchers"][name]
+        return group if group in ids else None
+    demo = launcher_demo(path)
+    if not demo and find_manifest(name, dirs):
+        demo = name
+    return demo_group(demo, groups, dirs, known) if demo else None
+
+
+def group_dir(home=None):
+    """
+    Where the group folders are (out of sight; their launchers open them).
+
+    Args:
+        home (str): Home directory (tests).
+
+    Returns:
+        str: ~/.local/share/rasqberry/desktop-groups.
+    """
+    return os.path.join(home or HOME, ".local/share/rasqberry/desktop-groups")
+
+
+def group_folder(group, root=None):
+    """
+    A group's folder: named by its title, which the folder window shows.
+
+    Args:
+        group (dict): One entry of load_groups()["groups"].
+        root (str): group_dir().
+
+    Returns:
+        str: Path.
+    """
+    return os.path.join(root or group_dir(), group["title"])
+
+
+def group_launcher_text(group, exe=None, icon_dir=ICON_DIR):
+    """
+    The desktop launcher of a group: its icon opens the group's folder.
+
+    Args:
+        group (dict): One entry of load_groups()["groups"].
+        exe (str): This script (default: where it is installed).
+        icon_dir (str): Where the group icons are installed.
+
+    Returns:
+        str: .desktop file content.
+    """
+    icon = os.path.join(icon_dir, group.get("icon") or "")
+    if not group.get("icon") or not os.path.isfile(icon):
+        icon = "folder"
+    lines = ["[Desktop Entry]", "Type=Application", "Name=%s" % group["title"]]
+    if group.get("description"):
+        lines.append("Comment=%s" % group["description"])
+    lines += ["Icon=%s" % icon,
+              "Exec=%s --open-group %s" % (exe or os.path.abspath(__file__), group["id"]),
+              "Terminal=false"]
+    return "\n".join(lines) + "\n"
+
+
+def ensure_group_launchers(desktop, groups, exe=None, icon_dir=ICON_DIR):
+    """
+    Write one launcher per group on the desktop; remove those of old groups.
+
+    Written as a hidden file and renamed into place: pcmanfm reads a launcher
+    once, when it appears, so it must appear complete.
+
+    Args:
+        desktop (str): ~/Desktop.
+        groups (dict): load_groups().
+        exe (str): This script (tests).
+        icon_dir (str): Group icons (tests).
+
+    Returns:
+        bool: True if a launcher was written or removed.
+    """
+    changed = False
+    wanted = set()
+    for group in groups["groups"]:
+        name = GROUP_PREFIX + group["id"] + ".desktop"
+        wanted.add(name)
+        path = os.path.join(desktop, name)
+        text = group_launcher_text(group, exe, icon_dir)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                if fh.read() == text:
+                    continue
+        except OSError:
+            pass
+        os.makedirs(desktop, exist_ok=True)
+        tmp = os.path.join(desktop, "." + name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(tmp, 0o755)
+        os.replace(tmp, path)
+        changed = True
+    try:
+        entries = os.listdir(desktop)
+    except OSError:
+        entries = []
+    for name in entries:
+        if name.startswith(GROUP_PREFIX) and name.endswith(".desktop") and name not in wanted:
+            os.remove(os.path.join(desktop, name))
+            changed = True
+    return changed
+
+
+def _launcher_copies(name, desktop, root):
+    """All copies of a launcher: on the desktop, in group folders, in More."""
+    fname = name + ".desktop"
+    places = [desktop]
+    try:
+        places += [os.path.join(root, d) for d in sorted(os.listdir(root))]
+    except OSError:
+        pass
+    places.append(os.path.join(desktop, MORE_DIR))
+    return [os.path.join(p, fname) for p in places if os.path.isfile(os.path.join(p, fname))]
+
+
+def sort_into_groups(desktop, assignment, on_desktop, groups, root=None):
+    """
+    Put each launcher into its group's folder, and on the desktop if it stays there.
+
+    A copy on the desktop (e.g. reinstalled) wins over the folder's. A
+    launcher that is no longer on the desktop is only in its folder; starters
+    are in both. Copies elsewhere (another group's folder, the More folder of
+    older desktops) are removed, and so are empty folders of old groups and
+    an empty More folder.
+
+    Args:
+        desktop (str): ~/Desktop.
+        assignment (dict): Launcher name -> group id (None: no folder).
+        on_desktop (set): Names that stay on the desktop.
+        groups (dict): load_groups().
+        root (str): group_dir().
+    """
+    root = root or group_dir()
+    folders = {g["id"]: group_folder(g, root) for g in groups["groups"]}
+    for folder in folders.values():
+        os.makedirs(folder, exist_ok=True)
+    for name, gid in assignment.items():
+        fname = name + ".desktop"
+        copies = _launcher_copies(name, desktop, root)
+        if not copies:
+            continue
+        on_desk = os.path.join(desktop, fname)
+        target = os.path.join(folders[gid], fname) if gid in folders else None
+        source = on_desk if on_desk in copies else (target if target in copies else copies[0])
+        if target and source != target:
+            shutil.copy2(source, target)
+        if name in on_desktop or not target:
+            if source != on_desk:
+                shutil.copy2(source, on_desk)
+        elif os.path.exists(on_desk):
+            os.remove(on_desk)
+        for path in copies:
+            if path not in (on_desk, target) and os.path.exists(path):
+                os.remove(path)
+    stale = [os.path.join(desktop, MORE_DIR)]
+    try:
+        stale += [os.path.join(root, d) for d in os.listdir(root)
+                  if os.path.join(root, d) not in folders.values()]
+    except OSError:
+        pass
+    for folder in stale:
+        try:
+            os.rmdir(folder)  # only when empty
+        except OSError:
+            pass
+
+
+def desktop_order(names, assignment, groups):
+    """
+    The icons left on the desktop, in their order: the system icons, the
+    starters, one per group, then any other launcher without a group.
+
+    Args:
+        names (list): Launchers present (present_launchers).
+        assignment (dict): Launcher name -> group id.
+        groups (dict): load_groups().
+
+    Returns:
+        list: Names (group launchers as rq-group-<id>).
+    """
+    present = set(names)
+    order = [n for n in groups["system"] if n in present]
+    order += [n for n in groups["starters"] if n in present and n not in order]
+    order += [GROUP_PREFIX + g["id"] for g in groups["groups"]]
+    order += [n for n in names if assignment.get(n) is None and n not in order]
+    return order
+
+
+def open_group(gid, groups=None, root=None):
+    """
+    Open a group's folder in a file manager window (the group icon's command).
+
+    Args:
+        gid (str): Group id.
+        groups (dict): load_groups().
+        root (str): group_dir().
+
+    Returns:
+        int: 1 for an unknown group; otherwise it does not return.
+    """
+    groups = groups or load_groups()
+    group = next((g for g in groups["groups"] if g["id"] == gid), None)
+    if not group:
+        logger.warning("unknown demo group: %s", gid)
+        return 1
+    folder = group_folder(group, root)
+    os.makedirs(folder, exist_ok=True)
+    os.execvp("pcmanfm", ["pcmanfm", folder])
+    return 0
 
 
 def pcmanfm_profile(autostart=None):
@@ -640,9 +1026,11 @@ def layout_top(touch, profile=None):
     return 0
 
 
-def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False):
+def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False,
+                   root=None, groups=None, dirs=None, known=None, exe=None, icon_dir=ICON_DIR):
     """
-    Lay the icons out when the screen, touch mode or the icon set changed.
+    Sort the launchers into their group folders and lay the desktop out, when
+    the screen, touch mode or the icon set changed.
 
     Args:
         size (tuple): (width, height).
@@ -651,31 +1039,58 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         conf (str): pcmanfm desktop-items-0.conf.
         record (str): File remembering what the last layout was made for.
         force (bool): Lay out even if nothing changed.
+        root (str): group_dir() (tests).
+        groups (dict): load_groups() (tests).
+        dirs (list): Manifest directories (tests).
+        known (str): known-demos.json (tests).
+        exe (str): This script, for the group launchers (tests).
+        icon_dir (str): Group icons (tests).
 
     Returns:
-        bool: True if a new layout was written.
+        bool: True if the desktop changed (pcmanfm must reload).
     """
     desktop = desktop or os.path.join(HOME, "Desktop")
+    # the home the desktop belongs to
+    root = root or group_dir(os.path.dirname(os.path.abspath(desktop)))
+    groups = groups if groups is not None else load_groups()
     profile = pcmanfm_profile()
     conf = conf or os.path.join(HOME, ".config/pcmanfm", profile, "desktop-items-0.conf")
     record = record or os.path.join(HOME, ".config/rasqberry/desktop-layout")
-    names = present_launchers(desktop)
+    changed = ensure_group_launchers(desktop, groups, exe, icon_dir) if groups["groups"] else False
+    names = present_launchers(desktop, root, groups)
+    assignment = {}
+    for name in names:
+        copies = _launcher_copies(name, desktop, root)
+        assignment[name] = launcher_group(name, copies[0] if copies else "", groups, dirs, known)
+    top = desktop_order(names, assignment, groups) if groups["groups"] else list(names)
     icon = libfm_icon_size()
     label = label_height(conf)
-    top = layout_top(touch, profile)
-    key = json.dumps({"screen": list(size), "touch": touch, "icon": icon, "icons": names,
-                      "label": label, "top": top})
+    offset = layout_top(touch, profile)
+    key = json.dumps({"screen": list(size), "touch": touch, "icon": icon, "icons": top,
+                      "groups": assignment, "label": label, "top": offset})
     try:
         with open(record, encoding="utf-8") as fh:
             if fh.read().strip() == key and not force:
-                return False
+                return changed
     except OSError:
         pass
     spacing = env_value("TOUCH_DESKTOP_GRID_SPACING", "140")
     grid = (int(spacing) if spacing.isdigit() else 140) if touch else None
-    positions, overflow = plan_layout(names, size[0], size[1], touch=touch, icon=icon, grid=grid,
-                                      label=label, top=top)
-    sort_into_more(desktop, overflow, names)
+
+    def plan(names_):
+        return plan_layout(names_, size[0], size[1], touch=touch, icon=icon, grid=grid,
+                           label=label, top=offset)
+
+    positions, overflow = plan(top)
+    # too small for all: the starters leave the desktop first (they are in
+    # their folders), the last one first
+    droppable = [n for n in reversed(groups["starters"]) if n in top and assignment.get(n)]
+    while overflow and droppable:
+        top.remove(droppable.pop(0))
+        positions, overflow = plan(top)
+    if groups["groups"]:
+        sort_into_groups(desktop, assignment, set(top), groups, root)
+    sort_into_more(desktop, overflow, top)
     if os.path.isdir(os.path.dirname(conf)):
         write_positions(conf, positions)
     os.makedirs(os.path.dirname(record), exist_ok=True)
@@ -758,10 +1173,18 @@ def main(argv):
     if argv[:1] == ["--layout"] and len(argv) >= 3:
         w, h = (int(v) for v in argv[1].split("x"))
         touch = "--touch" in argv
-        positions, _ = plan_layout(ICON_ORDER, w, h, touch=touch, label=label_height(argv[2]),
+        # the desktop the first login sorts the launchers into
+        groups = load_groups()
+        names = ICON_ORDER
+        if groups["groups"]:
+            names = desktop_order(list(dict.fromkeys(groups["system"] + groups["starters"])),
+                                  {}, groups)
+        positions, _ = plan_layout(names, w, h, touch=touch, label=label_height(argv[2]),
                                    top=layout_top(touch))
         write_positions(argv[2], positions)
         return 0
+    if argv[:1] == ["--open-group"] and len(argv) > 1:
+        return open_group(argv[1])
     if argv[:1] == ["--quick-exec"]:
         # the image build (CONF given) and the first login: no "Execute File"
         ensure_quick_exec(conf=argv[1] if len(argv) > 1 else None)

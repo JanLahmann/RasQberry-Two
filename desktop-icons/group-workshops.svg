@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Workshops &amp; events</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#123f8c"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#2c6fd6"/>
+  <circle cx="21" cy="34" r="3.6" fill="#fff"/>
+  <circle cx="43" cy="34" r="3.6" fill="#fff"/>
+  <path d="M14 49a7 6.5 0 0 1 14 0z M36 49a7 6.5 0 0 1 14 0z" fill="#fff"/>
+  <circle cx="32" cy="31.5" r="4.4" fill="#fff"/>
+  <path d="M23.5 49a8.5 8 0 0 1 17 0z" fill="#fff" stroke="#2c6fd6" stroke-width="1.5"/>
+</svg>

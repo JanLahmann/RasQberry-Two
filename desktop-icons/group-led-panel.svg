@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>LED panel</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#0b3a52"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#125e85"/>
+  <circle cx="16" cy="30" r="2.6" fill="#ff5c5c"/>
+  <circle cx="24" cy="30" r="2.6" fill="#ffd84d"/>
+  <circle cx="32" cy="30" r="2.6" fill="#5cff8a"/>
+  <circle cx="40" cy="30" r="2.6" fill="#5cc8ff"/>
+  <circle cx="48" cy="30" r="2.6" fill="#c77dff"/>
+  <circle cx="16" cy="38" r="2.6" fill="#ffd84d"/>
+  <circle cx="24" cy="38" r="2.6" fill="#5cff8a"/>
+  <circle cx="32" cy="38" r="2.6" fill="#5cc8ff"/>
+  <circle cx="40" cy="38" r="2.6" fill="#c77dff"/>
+  <circle cx="48" cy="38" r="2.6" fill="#ff5c5c"/>
+  <circle cx="16" cy="46" r="2.6" fill="#5cff8a"/>
+  <circle cx="24" cy="46" r="2.6" fill="#5cc8ff"/>
+  <circle cx="32" cy="46" r="2.6" fill="#c77dff"/>
+  <circle cx="40" cy="46" r="2.6" fill="#ff5c5c"/>
+  <circle cx="48" cy="46" r="2.6" fill="#ffd84d"/>
+</svg>

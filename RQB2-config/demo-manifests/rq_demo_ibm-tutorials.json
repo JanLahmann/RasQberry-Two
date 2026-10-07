@@ -2,6 +2,7 @@
   "id": "ibm-tutorials",
   "name": "IBM Quantum Tutorials",
   "category": "jupyter",
+  "group": "learn",
   "description": "Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0)",
   "keywords": [
     "quantum",
@@ -45,7 +46,7 @@
   },
   "menu": {
     "show": true,
-    "order": 120
+    "order": 40
   },
   "desktop": {
     "show": true,

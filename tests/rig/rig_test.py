@@ -315,7 +315,8 @@ def run_checks(pi):
     """Copy the Pi-side scripts and run the system checks."""
     host = pi["host"]
     ssh(host, f"mkdir -p {REMOTE_DIR}", check=True)
-    scp(host, [HERE / "pi" / f for f in ("checks.sh", "demo_smoke.sh", "led_fill.py", "mouse.py", "webcheck.py")], f"{REMOTE_DIR}/")
+    scp(host, [HERE / "pi" / f for f in ("checks.sh", "demo_smoke.sh", "led_fill.py", "mouse.py", "keyboard.py",
+                                         "webcheck.py")], f"{REMOTE_DIR}/")
     _, out = ssh(host, f"bash {REMOTE_DIR}/checks.sh", timeout=300)
     return parse_lines(out)
 
@@ -346,6 +347,8 @@ def list_demos(pi):
 # desktop icons --icons double-clicks by default: an LED demo, a Jupyter
 # demo and a docker demo (the docker one runs only with --docker)
 DEFAULT_ICONS = "rasq-led.desktop,quantum-paradoxes.desktop,qoffee-maker.desktop"
+# the demo group folders the desktop's group icons open (rq_desktop_session.py)
+GROUP_DIR = ".local/share/rasqberry/desktop-groups"
 
 
 def icon_demos(pi, icons, demos):
@@ -361,7 +364,10 @@ def icon_demos(pi, icons, demos):
     """
     out = []
     for icon in icons:
-        _, line = ssh(pi["host"], f"sed -n 's/^Exec=//p' ~/Desktop/{shlex.quote(icon)} | head -1")
+        # on the desktop, or in its demo group's folder (demo-groups.json)
+        q = shlex.quote(icon)
+        _, line = ssh(pi["host"], f"f=~/Desktop/{q}; [ -f \"$f\" ] || f=$(ls ~/{GROUP_DIR}/*/{q} 2>/dev/null | head -1); "
+                                  f"sed -n 's/^Exec=//p' \"$f\" | head -1")
         words = shlex.split(line.strip()) if line.strip() else []
         spec = None
         runner = [i for i, w in enumerate(words) if w.endswith("rq_demo_run.sh")]

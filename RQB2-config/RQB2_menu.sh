@@ -84,6 +84,12 @@ _rq_load_demo_cache() {
         _RQ_DEMO_CACHE_STATE=missing
     elif /bin/sh -n "$DEMO_MENU_CACHE" 2>/dev/null && . "$DEMO_MENU_CACHE"; then
         _RQ_DEMO_CACHE_STATE=ok
+        # a cache from before the demo groups: the groups' fixed entries
+        # still work, and the menu asks for a refresh
+        if ! command -v demo_group_items >/dev/null 2>&1; then
+            _RQ_DEMO_CACHE_STATE=old
+            _rq_demo_groups_fallback
+        fi
         return 0
     else
         _RQ_DEMO_CACHE_STATE=broken
@@ -91,7 +97,28 @@ _rq_load_demo_cache() {
     DEMO_MENU_ITEMS=""
     DEMO_COUNT=0
     dispatch_demo_by_id() { "$BIN_DIR/rq_demo_run.sh" "$1"; }
+    _rq_demo_groups_fallback
     return 1
+}
+
+# The demo groups without a usable cache (demo-groups.json has the same ids
+# and titles): each group's submenu then shows only its fixed entries.
+_rq_demo_groups_fallback() {
+    demo_group_list() {
+        printf '%s\n' '"led-panel" "LED panel"' '"play" "Play"' '"projects" "Big projects"' \
+            '"learn" "Learn & code"' '"workshops" "Workshops & events"'
+    }
+    demo_group_title() {
+        case "$1" in
+            led-panel) echo "LED panel" ;;
+            play)      echo "Play" ;;
+            projects)  echo "Big projects" ;;
+            learn)     echo "Learn & code" ;;
+            workshops) echo "Workshops & events" ;;
+            *) return 1 ;;
+        esac
+    }
+    demo_group_items() { return 1; }
 }
 _rq_load_demo_cache || :
 
@@ -671,7 +698,7 @@ _rq_explain_demo_error() {
         *"Failed to fetch pinned commit"*|*"Failed to clone"*|*"Could not resolve host"*|*"unable to access"*|*"Network is unreachable"*)
             _ex="The demo could not be downloaded. Check that the Pi is online (Wi-Fi or network cable) and try again." ;;
         *"No space left on device"*)
-            _ex="The SD card is full. Free some space (Quantum Demos > Remove a demo), then try again." ;;
+            _ex="The SD card is full. Free some space (Quantum Demos > Manage demos > Remove a demo), then try again." ;;
         *) _ex="" ;;
     esac
     if [ -n "$1" ]; then
@@ -1196,6 +1223,11 @@ do_led_demo_rasqberry_logo() {
     run_led_demo bg "RasQberry Logo" "$BIN_DIR" python3 demo_led_rasqberry_logo.py
 }
 
+# IBM LED Demo (also in the LED panel group and its desktop folder)
+do_led_ibm_demo() {
+    run_led_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py
+}
+
 do_led_demo_logo_slideshow() {
     run_led_demo bg "Logo Slideshow" "$BIN_DIR" python3 demo_led_logo_slideshow.py
 }
@@ -1303,7 +1335,7 @@ do_select_led_option() {
                 run_led_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
                 ;;
             IBM )
-                run_led_demo bg "IBM LED Demo" "$BIN_DIR" python3 rq_led_ibm_logo.py || { handle_error "IBM LED demo failed."; continue; }
+                do_led_ibm_demo || { handle_error "IBM LED demo failed."; continue; }
                 ;;
             check )
                 do_led_verify --again
@@ -1378,86 +1410,115 @@ do_select_qrt_option() {
 # 3f) Main Quantum Demo Menu
 # -----------------------------------------------------------------------------
 
-# Main quantum demo menu - FULLY GENERATED from the demo manifests.
-#
-# The demo list is built from the auto-generated cache (DEMO_MENU_ITEMS +
-# dispatch_demo_by_id, produced by rq_demo_generate_menu.sh from every manifest,
-# ordered by menu.order). Any newly installed or externally-added catalog demo
-# (e.g. traqmania) appears automatically - there is no curated hardcoded list to
-# keep in sync. Only demos that have their OWN multi-option submenu (or aren't
-# directly launchable) are excluded from the generated list and handled
-# explicitly: LED (setup wizard / tests), QLO (GUI vs console), QRT (backends);
-# led-demos has no launcher and lives under the LED submenu.
-_SUBMENU_DEMO_IDS="quantum-lights-out quantum-raspberry-tie led-demos"
-
+# Quantum Demos: the learning paths, one submenu per demo group, stopping an
+# LED demo and managing the demos. The groups and their demos come from the
+# cache (rq_demo_generate_menu.sh: demo-groups.json and each manifest's group,
+# by menu.order), so a catalogue demo (e.g. traQmania) appears in its group
+# without a change here. The same groups are the desktop's folders.
 do_quantum_demo_menu() {
   _qd_last=""
   while true; do
-    # Build the generated demo list, dropping the submenu-handled ids (so they
-    # don't appear twice). POSIX-safe: consume the original pairs and re-append
-    # the kept ones, tracking the original count so appended pairs aren't reread.
-    # NOTE: DEMO_MENU_ITEMS is emitted one "tag" "desc" pair per line; newlines
-    # are shell command separators, so collapse them to spaces before eval or
-    # `set --` gets zero args and every generated demo silently disappears.
-    eval "set -- $(printf '%s' "${DEMO_MENU_ITEMS:-}" | tr '\n' ' ')"
-    _pairs=$(( $# / 2 )); _i=0
-    while [ "$_i" -lt "$_pairs" ]; do
-      _tag="$1"; _desc="$2"; shift 2
-      case " $_SUBMENU_DEMO_IDS " in
-        *" $_tag "*) : ;;                       # skip: has its own submenu
-        *) set -- "$@" "$_tag" "$_desc" ;;      # keep
-      esac
-      _i=$(( _i + 1 ))
-    done
-
-    # The generated list could not be loaded (see _rq_load_demo_cache): say so
-    # once instead of quietly showing a short menu.
+    # The generated lists could not be loaded (see _rq_load_demo_cache): say
+    # so once instead of quietly showing short submenus.
     if [ "${_RQ_DEMO_CACHE_STATE:-ok}" != ok ] && [ -z "${_RQ_DEMO_CACHE_WARNED:-}" ]; then
         _RQ_DEMO_CACHE_WARNED=1
         whiptail --title "Demo list" --msgbox \
             "The list of demos could not be loaded, so only the fixed entries are shown.\n\nTo rebuild it: RasQberry -> Advanced -> Refresh the demo list." 11 70
     fi
 
+    # "tag" "text" pairs, one per line: newlines would end the eval'd command
+    eval "set -- $(demo_group_list 2>/dev/null | tr '\n' ' ')"
     FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
-       "RasQberry: Quantum Demos" "Select a demo or option" \
+       "RasQberry: Quantum Demos" "Select a group of demos or an option" \
        PATHS "Learning paths (beta): the demos step by step" \
-       LED  "LEDs: setup, tests and LED demos" \
-       QLO  "Quantum Lights Out (LED panel / console)" \
-       QRT  "Quantum Raspberry Tie (simulator or real quantum computer)" \
        "$@" \
-       DALL "Download all demos (one-time setup)" \
-       ADDX "Add demo from catalogue" \
-       REM  "Remove a demo (free space)" \
-       UPD  "Update demos (newer versions)" \
-       LOOP "Continuous Demo Loop (Conference)" \
-       STOP "Stop an LED demo still running, clear LEDs" \
-       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
+       STOP "Stop a running LED demo" \
+       MANAGE "Manage demos: download all, add, update, remove") || break
     _qd_last="$FUN"
     case "$FUN" in
-      PATHS) do_learning_paths         || { handle_error "Could not open the learning paths."; continue; } ;;
-      LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
-      QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
-      QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      DALL) do_download_all_demos      || continue ;;
-      ADDX) do_add_external_demo       || { handle_error "Failed to add demo from catalogue."; continue; } ;;
-      REM)  do_remove_demo             || { handle_error "Could not remove the demo."; continue; } ;;
-      LOOP) run_demo_loop
-            # 130/143: stopped with Ctrl+C - the loop's own emergency stop
-            case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;
-      STOP) stop_last_demo             || { handle_error "Failed to stop demo."; continue; } ;;
-      UPD)  do_update_demos            || { handle_error "Could not update the demo."; continue; } ;;
-      DSTP) do_stop_docker_demos       || continue ;;
-      "")   continue ;;
-      # Any other tag is a manifest demo id -> universal dispatch (via the
-      # cache), or its submenu of variants (menu.variant_menu).
-      *)    if _dv_items=$(demo_variant_items "$FUN" 2>/dev/null) && [ -n "$_dv_items" ]; then
-                do_demo_variant_menu "$FUN" "$_dv_items"
-            else
-                run_engine_demo dispatch_demo_by_id "$FUN" \
-                    || { handle_error "Could not run $(_rq_demo_label "$FUN")."; continue; }
-            fi ;;
+      PATHS) do_learning_paths  || { handle_error "Could not open the learning paths."; continue; } ;;
+      STOP)   stop_last_demo     || { handle_error "Failed to stop demo."; continue; } ;;
+      MANAGE) do_manage_demos_menu ;;
+      "")     continue ;;
+      *)      do_demo_group_menu "$FUN" ;;
     esac
   done
+}
+
+# One group's submenu: its demos from the cache (demo_group_items), with the
+# group's fixed entries around them. Tags in capitals are those entries;
+# lower-case tags are demo ids (manifest ids are lower case).
+#   do_demo_group_menu GROUP_ID
+do_demo_group_menu() {
+  _dg_id="$1"; _dg_last=""
+  _dg_title=$(demo_group_title "$_dg_id" 2>/dev/null) || _dg_title="$_dg_id"
+  while true; do
+    eval "set -- $(demo_group_items "$_dg_id" 2>/dev/null | tr '\n' ' ')"
+    case "$_dg_id" in
+      led-panel) set -- IBM "IBM LED Demo" "$@" \
+                     DISP  "Text & logos" \
+                     CLEAR "Clear All LEDs" \
+                     LEDS  "LED setup & tests (brightness, check, wizard)" ;;
+      learn)     set -- MYQ "My Quantum Programs (JupyterLab)" "$@" ;;
+      workshops) set -- "$@" LOOP "Demo Loop (LED demos one after another)" ;;
+    esac
+    if [ $# -eq 0 ]; then
+        whiptail --title "RasQberry: $_dg_title" --msgbox \
+            "No demos in this group yet.\n\nAdd one: Quantum Demos -> Manage demos -> Add demo from catalogue." 10 70
+        return 0
+    fi
+    FUN=$(show_menu ${_dg_last:+--default-item "$_dg_last"} \
+       "RasQberry: $_dg_title" "Select a demo" "$@") || break
+    _dg_last="$FUN"
+    case "$FUN" in
+      IBM)   do_led_ibm_demo     || { handle_error "IBM LED demo failed."; continue; } ;;
+      DISP)  do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
+      CLEAR) do_led_clear        || { handle_error "The LEDs could not be turned off."; continue; } ;;
+      LEDS)  do_select_led_option || { handle_error "Failed to open LED options."; continue; } ;;
+      MYQ)   run_engine_demo "$BIN_DIR/rq_my_programs.sh" \
+                 || { handle_error "Could not open My Quantum Programs."; continue; } ;;
+      LOOP)  run_demo_loop
+             # 130/143: stopped with Ctrl+C - the loop's own emergency stop
+             case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;
+      quantum-lights-out)    do_select_qlo_option || { handle_error "Failed to open QLO options."; continue; } ;;
+      quantum-raspberry-tie) do_select_qrt_option || { handle_error "Failed to open QRT options."; continue; } ;;
+      "")    continue ;;
+      # Any other tag is a manifest demo id -> universal dispatch (via the
+      # cache), or its submenu of variants (menu.variant_menu).
+      *)     if _dv_items=$(demo_variant_items "$FUN" 2>/dev/null) && [ -n "$_dv_items" ]; then
+                 do_demo_variant_menu "$FUN" "$_dv_items"
+             else
+                 run_engine_demo dispatch_demo_by_id "$FUN" \
+                     || { handle_error "Could not run $(_rq_demo_label "$FUN")."; continue; }
+             fi ;;
+    esac
+  done
+  return 0
+}
+
+# Manage demos: download, add, update and remove them, and stop the Docker
+# demos that keep running.
+do_manage_demos_menu() {
+  _md_last=""
+  while true; do
+    FUN=$(show_menu ${_md_last:+--default-item "$_md_last"} \
+       "RasQberry: Manage Demos" "Download, add, update or remove demos" \
+       DALL "Download all demos (one-time setup)" \
+       ADDX "Add demo from catalogue" \
+       UPD  "Update demos (newer versions)" \
+       REM  "Remove a demo (free space)" \
+       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
+    _md_last="$FUN"
+    case "$FUN" in
+      DALL) do_download_all_demos || continue ;;
+      ADDX) do_add_external_demo  || { handle_error "Failed to add demo from catalogue."; continue; } ;;
+      UPD)  do_update_demos       || { handle_error "Could not update the demo."; continue; } ;;
+      REM)  do_remove_demo        || { handle_error "Could not remove the demo."; continue; } ;;
+      DSTP) do_stop_docker_demos  || continue ;;
+      *)    break ;;
+    esac
+  done
+  return 0
 }
 
 # Learning paths (beta, #309): short tours through the demos for a stand, a

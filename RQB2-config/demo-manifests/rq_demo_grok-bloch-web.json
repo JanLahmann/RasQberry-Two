@@ -2,6 +2,7 @@
   "id": "grok-bloch-web",
   "name": "Grokking the Bloch Sphere (Web)",
   "category": "visualization",
+  "group": "learn",
   "description": "Interactive 3D visualization and exploration of the Bloch sphere for quantum computing education (online version)",
   "keywords": [
     "quantum",
@@ -35,7 +36,7 @@
   },
   "menu": {
     "show": false,
-    "order": 20
+    "order": 11
   },
   "desktop": {
     "show": false,

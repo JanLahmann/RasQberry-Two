@@ -2,6 +2,7 @@
   "id": "doqumentation",
   "name": "Workshop & Qiskit Server",
   "category": "education",
+  "group": "workshops",
   "description": "One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start)",
   "maturity": "beta",
   "keywords": [
@@ -52,7 +53,7 @@
   },
   "menu": {
     "show": true,
-    "order": 160
+    "order": 10
   },
   "desktop": {
     "show": true,

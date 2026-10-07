@@ -55,6 +55,8 @@ EXTERNAL=false   # --external: apply the hardened external-demo constraints
 # Required fields for validation
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
+# Demo groups: the ids in demo-groups.json next to the shipped manifests
+VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops"]'
 VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
 # Entrypoint types an external demo may declare (no legacy "script").
 EXTERNAL_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
@@ -457,6 +459,15 @@ validate_manifest() {
     # Validate display value
     if ! echo "$VALID_DISPLAY_VALUES" | jq -e "index(\"$display\")" > /dev/null 2>&1; then
         print_fail "Invalid display value: $display (valid: none, optional, required)"
+        errors=$((errors + 1))
+    fi
+
+    # Validate group (demo-groups.json): optional for catalogue manifests,
+    # which get one from known-demos.json or a guess
+    local group
+    group=$(jq -r '.group // ""' "$file")
+    if [ -n "$group" ] && ! echo "$VALID_GROUPS" | jq -e "index(\"$group\")" > /dev/null 2>&1; then
+        print_fail "Invalid group: $group (valid: $(echo "$VALID_GROUPS" | jq -r 'join(", ")'))"
         errors=$((errors + 1))
     fi
 

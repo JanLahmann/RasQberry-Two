@@ -416,7 +416,7 @@ fi
 
 if [ -t 0 ]; then
     echo "Closing this window keeps the server running (RasQberry menu: Quantum"
-    echo "Demos > Stop Docker demos, or open $WORKSHOP_NAME again to stop it)."
+    echo "Demos > Manage demos > Stop Docker demos, or open $WORKSHOP_NAME again)."
     echo "Press Enter to stop the $WORKSHOP_NAME..."
     # Wait for Enter, but end with the server: stopped from its icon (STOP)
     # or with Stop Docker demos, it left this window behind, which then
@@ -446,5 +446,5 @@ if [ -t 0 ]; then
     rq_docker_stop "$CONTAINER_NAME" || warn "The container is still being removed."
     info "$WORKSHOP_NAME stopped."
 else
-    info "The $WORKSHOP_NAME keeps running. To stop it: open it again, or RasQberry menu > Quantum Demos > Stop Docker demos."
+    info "The $WORKSHOP_NAME keeps running. To stop it: open it again, or RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos."
 fi

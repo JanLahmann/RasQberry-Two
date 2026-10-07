@@ -784,7 +784,7 @@ run_docker() {
         DOCKER_STOP_ON_EXIT=1
         rq_wait_for_stop "$DEMO_TITLE" --container "$CONTAINER_NAME"
     else
-        info "$DEMO_TITLE keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
+        info "$DEMO_TITLE keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos."
     fi
 }
 

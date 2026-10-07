@@ -420,7 +420,7 @@ def render_family_html(family, local_ids):
         "<h1>%s</h1>"
         '<p class="lead">Projects marked <b>On this Pi</b> run on this RasQberry Two, without '
         "the internet once downloaded. Start them from the RasQberry menu: Quantum Demos &rarr; "
-        "Fun with Quantum &rarr; Fun with Quantum family. The websites need the internet.</p>"
+        "Play &rarr; Fun with Quantum &rarr; Fun with Quantum family. The websites need the internet.</p>"
         "<ul>%s</ul></main></body></html>\n"
     ) % (esc(title), _CSS, esc(title), "\n".join(items))
 

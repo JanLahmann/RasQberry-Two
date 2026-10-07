@@ -144,7 +144,8 @@ def test_a_docker_demo_is_registered_with_what_its_first_start_downloads(cat):
     text = _msgbox(last)
     assert text.startswith("Registered: Dock Demo. On its first start it downloads its Docker image, "
                            "about 530 MB."), text
-    assert "Start it from the Quantum Demos menu." in text
+    # a game without a group in the registry: Play (its group, guessed)
+    assert "Start it from the RasQberry menu (Quantum Demos > Play)." in text
     assert "installed successfully" not in proc.stdout + proc.stderr + text
 
 

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Learn &amp; code</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#1e6b34"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#2fa04f"/>
+  <path d="M24 31l-7 7.5 7 7.5M40 31l7 7.5-7 7.5M35.5 29l-7 19" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
