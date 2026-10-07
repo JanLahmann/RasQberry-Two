@@ -272,3 +272,31 @@ def test_qoffee_kiosk_keeps_the_app_on_esc():
     out = json.loads(proc.stdout)
     assert out["removed"] == ["esc"]                 # no "Deactivate App Mode"
     assert "F11 leaves full screen" in out["hint"]
+
+
+# ---------------------------------------------------------------------------
+# 8. The Workshop server's first window goes with the server
+# ---------------------------------------------------------------------------
+
+def test_workshop_window_closes_when_the_server_is_stopped_elsewhere(tmp_path):
+    import subprocess
+    ver = subprocess.run(["bash", "-c", "echo ${BASH_VERSINFO[0]}"], capture_output=True,
+                         text=True).stdout.strip()
+    if int(ver or 0) < 4:
+        pytest.skip("bash 4+ needed (read -t timeouts return > 128)")
+    src = _read("rq_doqumentation.sh")
+    start = src.index("    # Wait for Enter, but end with the server")
+    block = src[start:src.index("    if command -v whiptail", start)]
+    script = (
+        'WORKSHOP_NAME="Workshop & Qiskit Server"; CONTAINER_NAME=doq\n'
+        f'rq_docker_running() {{ n=$(cat {tmp_path}/n 2>/dev/null || echo 0); '
+        f'echo $((n + 1)) > {tmp_path}/n; [ "$n" -lt 1 ]; }}\n'
+        'rq_read_deferred() { read "$@"; }\ninfo() { echo "$*"; }\nsleep() { :; }\n'
+        + block + 'echo "ASKED TO STOP"\n')
+    r, w = os.pipe()                               # stdin stays open: no Enter
+    proc = subprocess.Popen(["bash", "-c", script], stdin=r, stdout=subprocess.PIPE, text=True)
+    os.close(r)
+    out, _ = proc.communicate(timeout=20)
+    os.close(w)
+    assert proc.returncode == 0
+    assert "was stopped" in out and "ASKED TO STOP" not in out

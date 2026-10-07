@@ -416,7 +416,24 @@ if [ -t 0 ]; then
     echo "Closing this window keeps the server running (RasQberry menu: Quantum"
     echo "Demos > Stop Docker demos, or open $WORKSHOP_NAME again to stop it)."
     echo "Press Enter to stop the $WORKSHOP_NAME..."
-    read -r || exit 0
+    # Wait for Enter, but end with the server: stopped from its icon (STOP)
+    # or with Stop Docker demos, it left this window behind, which then
+    # offered to stop a server that was gone (Pi 4 user test 2026-10-07, F4)
+    while :; do
+        if ! rq_docker_running "$CONTAINER_NAME"; then
+            info "The $WORKSHOP_NAME was stopped."
+            sleep 3     # readable before the window closes
+            exit 0
+        fi
+        rc=0
+        rq_read_deferred -r -t 2 _ || rc=$?
+        [ "$rc" -eq 0 ] && break         # Enter
+        [ "$rc" -gt 128 ] || exit 0      # no more input
+    done
+    if ! rq_docker_running "$CONTAINER_NAME"; then
+        info "The $WORKSHOP_NAME was stopped."
+        exit 0
+    fi
     if command -v whiptail >/dev/null 2>&1 && ! whiptail --title "Stop the $WORKSHOP_NAME?" --defaultno \
             --yes-button "Stop" --no-button "Keep running" --yesno \
             "Participants lose work they have not downloaded.\n\nStop the $WORKSHOP_NAME now?" 10 60; then
