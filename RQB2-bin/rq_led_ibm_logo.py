@@ -199,18 +199,40 @@ if _stdin_is_tty:
     print("To stop the IBM LED demo: press Enter or Ctrl+C, or close this window.")
     print()
 
+
+
+def wait_or_enter(seconds):
+    """
+    Wait, but stop waiting as soon as Enter is pressed (interactive only).
+
+    Enter used to be checked once per 10 s cycle, after both pictures, so it
+    took 6-7 s to stop from the terminal (user test 2026-10-07, F5).
+
+    Args:
+        seconds (float): How long to show the current picture
+
+    Returns:
+        bool: True when Enter was pressed
+    """
+    if not _stdin_is_tty:
+        time.sleep(seconds)
+        return False
+    if select.select([sys.stdin], [], [], seconds)[0]:
+        sys.stdin.readline()
+        return True
+    return False
+
+
 try:
     while True:
         doibm(0)  # Solid colors: I=green, B=red, M=blue
         pixels.show()
-        time.sleep(DELAY)
+        if wait_or_enter(DELAY):
+            print("\nStopping demo...")
+            break
         doibm(1)  # Rainbow gradient based on rows
         pixels.show()
-        time.sleep(DELAY)
-
-        # Check for Enter key press (non-blocking) — only when interactive
-        if _stdin_is_tty and select.select([sys.stdin], [], [], 0)[0]:
-            sys.stdin.readline()
+        if wait_or_enter(DELAY):
             print("\nStopping demo...")
             break
 except KeyboardInterrupt:

@@ -8,7 +8,7 @@ Tests for feedback batch C2 (2026-10-03): how demos stop, LEDs and Docker.
 - the Pi 5 LED driver stall is noticed, the driver reopened and the person
   offered a lower brightness - never lowered silently (item 31);
 - the consent dialog of a Docker demo says that its image stays in the
-  running slot and what fits on a 16 GB card (item 32);
+  running slot, and no Docker demos on a 16 GB card (item 32);
 - Fun with Quantum lists its notebooks from the manifest (item 10);
 - a browser tab a demo opens outlives the demo's window, which still stops
   the demo (rig test 2026-10-04).
@@ -111,6 +111,19 @@ def test_stop_hint_wording():
                          capture_output=True, text=True).stdout.splitlines()
     assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
                    "To stop Lights Out: press Ctrl+C or close this window."]
+
+
+@needs_bash
+def test_stop_hint_says_where_the_window_is_once_a_browser_covers_it():
+    # Chromium opens a demo maximised over its terminal (#15): the stop line
+    # says how to get back, only when this script opened such a window
+    out = subprocess.run(["bash", "-c", f'set -u; . "{_COMMON}"; _RQ_DEMO_TABS+=("http://127.0.0.1:8888/lab"); '
+                                        'rq_stop_hint "Quantum Lab"'],
+                         capture_output=True, text=True).stdout.splitlines()
+    assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
+                   "The browser covers this window: to get back here, click it in the taskbar."]
+    with open(os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb"), encoding="utf-8") as fh:
+        assert "press Enter in the window that started it (in the taskbar)" in fh.read()
 
 
 @needs_bash
@@ -273,8 +286,14 @@ def _load_led_utils(monkeypatch, tmp_path, write_seconds):
     mod.LED_STALL_SECONDS = 0.05
     mod.LED_STALL_RETRY_SECONDS = 0.2
     mod.LED_STALL_FILE_PREFIX = str(tmp_path / "stall-")
-    assert mod.guard_pi5_led_writes() is True
-    assert mod.guard_pi5_led_writes() is True          # idempotent
+    # the guard installs stop-signal handlers: keep pytest's own
+    saved = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        assert mod.guard_pi5_led_writes() is True
+        assert mod.guard_pi5_led_writes() is True      # idempotent
+    finally:
+        for s, h in saved.items():
+            signal.signal(s, h)
     return mod, neo, calls
 
 
@@ -311,6 +330,64 @@ def test_a_stuck_driver_skips_writes_and_retries(monkeypatch, tmp_path, capsys):
     assert calls["freed"] == 2
     assert "works again" in capsys.readouterr().err
     assert mod._stall_state["stuck_since"] is None
+
+
+def test_a_first_frame_timeout_is_recovered_quietly(monkeypatch, tmp_path, capsys):
+    """The driver's first frame after it opens timed out now and then on the
+    rig, whatever came before; reopening cured it. No message and no note:
+    no stall dialog blames the power supply for it (#5). A stall later on is
+    reported as before."""
+    mod, neo, calls = _load_led_utils(monkeypatch, tmp_path, [0.1, 0, 0, 0.1, 0])
+    buf = bytearray(576)
+    neo.neopixel_write("pin", buf)               # first frame: times out, reopened
+    assert calls["writes"] == [576, 580] and calls["freed"] == 1
+    assert not list(tmp_path.glob("stall-*"))
+    assert capsys.readouterr().err == ""
+    neo.neopixel_write("pin", buf)               # fine
+    neo.neopixel_write("pin", buf)               # a real stall
+    assert _note(tmp_path)["recovered"] == "yes"
+    assert "stalled and was restarted" in capsys.readouterr().err
+
+
+def test_a_program_waits_until_the_previous_one_let_go(monkeypatch, tmp_path):
+    """Before it opens the Pi 5 LED driver, a program waits until no other
+    one has it open (#5): the clear after a stopped demo, next to Clear All."""
+    spec = importlib.util.spec_from_file_location("rq_led_utils_c2w", os.path.join(_BIN, "rq_led_utils.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    dev = tmp_path / "pio0"
+    dev.write_text("")
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(dev))
+    holders = [[4711], [4711], []]
+    monkeypatch.setattr(mod, "_pio_holders", lambda: holders.pop(0) if len(holders) > 1 else holders[0])
+    assert mod._wait_for_free_pio(timeout=2) is True
+    assert holders == [[]]
+    monkeypatch.setattr(mod, "_pio_holders", lambda: [4711])     # never lets go
+    start = time.monotonic()
+    assert mod._wait_for_free_pio(timeout=0.2) is False
+    assert time.monotonic() - start < 1
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(tmp_path / "none"))   # no Pi 5
+    assert mod._wait_for_free_pio(timeout=0) is True
+
+
+@pytest.mark.skipif(not os.path.isdir("/proc/self/fd"), reason="needs /proc")
+def test_pio_holders_finds_a_process_with_the_driver_open(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("rq_led_utils_c2h", os.path.join(_BIN, "rq_led_utils.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    dev = tmp_path / "pio0"
+    dev.write_text("")
+    monkeypatch.setattr(mod, "PIO_DEVICE", str(dev))
+    assert mod._pio_holders() == []
+    child = subprocess.Popen([sys.executable, "-c",
+                              f"f = open({str(dev)!r}); import time; print('ok', flush=True); time.sleep(30)"],
+                             stdout=subprocess.PIPE, text=True)
+    try:
+        assert child.stdout.readline().strip() == "ok"
+        assert mod._pio_holders() == [child.pid]
+    finally:
+        child.kill()
+        child.wait()
 
 
 def test_no_guard_on_a_pi4(monkeypatch, tmp_path):
@@ -351,6 +428,8 @@ exit "${{WT_RC:-0}}"
 ''')
     _exe(stubs / "sudo", '#!/bin/sh\n[ "$1" = "-n" ] && shift\nexec "$@"\n')
     _exe(stubs / "curl", '#!/bin/sh\nexit 0\n')
+    # the kernel log: no under-voltage unless a test says so
+    _exe(stubs / "journalctl", f'#!/bin/sh\ncat "{tmp_path}/kernel.log" 2>/dev/null\nexit 0\n')
     home = tmp_path / "home"
     home.mkdir()
     env_file = tmp_path / "rasqberry_environment.env"
@@ -397,17 +476,130 @@ def test_brightness_levels_set_default_and_limit(box):
 
 @needs_bash
 def test_after_stall_asks_before_lowering(box):
+    _exe(box.tmp / "stubs" / "vcgencmd", '#!/bin/sh\necho "throttled=0x50005"\n')
     (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=no\n")
-    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x0',
              env=box({"WT_RC": "1"}))           # "Keep 0.4"
     p.wait()
     dialog = box.wt_log.read_text()
     assert "LED panel stopped" in dialog and "power supply" in dialog and "27 W" in dialog
+    assert "stalled briefly" not in dialog           # it did stop
     assert "Lower to 0.2" in dialog
     assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"   # kept
-    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}', env=box())
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x0', env=box())
     p.wait()
     assert _env_value(box.env_file, "LED_MAX_BRIGHTNESS") == "0.2"
+
+
+# What the Pi reported during the demo decides the advice (#5, #6): only bits
+# that are new since the demo started count (the rig's 0x50000 came from an
+# under-voltage 3.5 hours earlier). Heat is the soft temperature limit or a
+# capped ARM frequency; throttling alone (0x4, 0x40000) is neither. A lower
+# brightness is offered only for a new under-voltage.
+@needs_bash
+@pytest.mark.parametrize("start,throttled,says,offers", [
+    ("0x0", "0x80000", "got too hot", False),          # temperature limit
+    ("0x0", "0x8", "got too hot", False),              # temperature limit now
+    ("0x0", "0x20000", "got too hot", False),          # ARM frequency capped
+    ("0x0", "0x50005", "too little power", True),      # under-voltage now
+    ("0x0", "0x10000", "too little power", True),      # under-voltage during the demo
+    ("0x0", "0x90000", "too little power during the demo, and it got too hot", True),
+    ("0x50000", "0x50000", "", False),                 # the rig: bits from hours ago
+    ("0x0", "0x40000", "", False),                     # throttling alone
+    ("0x0", "0x0", "", False),
+    ("", "0x50000", "", False),                        # not read at the start
+])
+def test_after_stall_names_the_reported_cause(box, start, throttled, says, offers):
+    _exe(box.tmp / "stubs" / "vcgencmd", f'#!/bin/sh\necho "throttled={throttled}"\n')
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} "{start}"',
+             env=box({"WT_RC": "1", "PI_MODEL": "Pi5"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "The LED driver stalled during the demo and was restarted." in dialog
+    # the title says what happened: it went on, it did not stop
+    assert "LED panel stalled briefly" in dialog and "LED panel stopped" not in dialog
+    assert ("Lower to 0.2" in dialog) == offers
+    assert ("power supply is too weak" in dialog) is False
+    if says:
+        assert says in dialog
+    else:                                               # blames nothing
+        assert "power" not in dialog and "hot" not in dialog and "27 W" not in dialog
+    if "hot" in says:
+        assert "Active Cooler" in dialog
+    if not offers:
+        assert "--msgbox" in dialog
+    assert _env_value(box.env_file, "LED_DEFAULT_BRIGHTNESS") == "0.4"
+
+
+@needs_bash
+def test_after_stall_counts_an_undervoltage_the_kernel_logged(box):
+    """The sticky bit was set long before, but the kernel logged a new
+    under-voltage during the demo: that is power."""
+    _exe(box.tmp / "stubs" / "vcgencmd", '#!/bin/sh\necho "throttled=0x50000"\n')
+    (box.tmp / "kernel.log").write_text("hwmon hwmon2: Undervoltage detected!\n")
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60} 0x50000',
+             env=box({"WT_RC": "1"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "too little power" in dialog and "Lower to 0.2" in dialog
+
+
+@needs_bash
+def test_led_launchers_read_the_bits_when_a_demo_starts():
+    """The start reading goes to the stall check (#6)."""
+    common = _read("rq_common.sh")
+    on = common[common.index("rq_led_clear_on_exit() {"):common.index("_rq_led_on_exit() {")]
+    assert "RQ_LED_THROTTLED_START=$(rq_throttled)" in on
+    assert 'rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"' in common
+    run = _read("rq_demo_run.sh")
+    assert "RQ_LED_THROTTLED_START=$(rq_throttled)" in run
+    assert 'rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"' in run
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    assert '--after-stall "$_rld_start" "$_rld_thr"' in menu
+
+
+@needs_bash
+def test_after_stall_without_vcgencmd_names_both(box):
+    (box.tmp / "stall-0").write_text(f"time={int(time.time())}\nrecovered=yes\n")
+    p = _Pty(f'bash "{_BRIGHTNESS}" --after-stall {int(time.time()) - 60}',
+             env=box({"WT_RC": "1"}))
+    p.wait()
+    dialog = box.wt_log.read_text()
+    assert "power supply is too weak" in dialog and "too hot" in dialog
+
+
+def test_a_stopped_demo_lets_its_last_frame_out(tmp_path):
+    """SIGTERM (Enter in the menu, a stop from the demo loop) waits for the
+    frame, then ends the program with that signal (#5)."""
+    marker = tmp_path / "drained"
+    child = tmp_path / "child.py"
+    child.write_text(f"""
+import importlib.util, sys, time, types
+backend = types.ModuleType("adafruit_raspberry_pi5_neopixel_write")
+backend.free_pio = lambda: None
+nw = types.ModuleType("neopixel_write"); nw._neopixel = backend
+neo = types.ModuleType("neopixel"); neo.neopixel_write = lambda pin, buf: None
+sys.modules.update({{"neopixel": neo, "neopixel_write": nw,
+                     "adafruit_raspberry_pi5_neopixel_write": backend}})
+spec = importlib.util.spec_from_file_location("lu", {os.path.join(_BIN, "rq_led_utils.py")!r})
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+assert mod.guard_pi5_led_writes()
+real_wait = mod._wait_for_last_frame
+def wait():
+    real_wait()
+    open({str(marker)!r}, "w").write("yes")
+mod._wait_for_last_frame = wait
+neo.neopixel_write("pin", bytearray(576))
+print("READY", flush=True)
+time.sleep(30)
+""")
+    proc = subprocess.Popen([sys.executable, str(child)], stdout=subprocess.PIPE, text=True)
+    assert proc.stdout.readline().strip() == "READY"
+    proc.send_signal(signal.SIGTERM)
+    assert proc.wait(timeout=10) == -signal.SIGTERM
+    assert marker.read_text() == "yes"
 
 
 @needs_bash
@@ -421,19 +613,35 @@ def test_no_stall_no_question(box):
 # --- Docker consent: per slot, 16 GB cards (item 32) -----------------------------
 
 @needs_bash
-@pytest.mark.parametrize("ab,gb,slot_note,small_note", [
-    ("1", "26", True, False), ("0", "14", False, True), ("0", "58", False, False)])
-def test_docker_consent_says_where_the_image_lives(box, ab, gb, slot_note, small_note):
+@pytest.mark.parametrize("ab,gb,mode,slot_note", [
+    ("1", "28", "dual", True),
+    ("1", "26", "single", False),     # an A/B card under 64 GB: one system, no other slot (F4)
+    ("0", "58", "standard", False),
+])
+def test_docker_consent_says_where_the_image_lives(box, ab, gb, mode, slot_note):
     tty = box.tmp / "tty"
     tty.write_text("")
     subprocess.run(["bash", "-c", f'. "{_COMMON}"; load_rqb2_env; rq_confirm_demo_install quantum-mixer'],
                    env=box({"RQ_TEST_AB": ab, "RQ_TEST_ROOT_GB": gb, "RQ_TEST_TTY": str(tty),
-                            "RQ_TEST_FREE_MB": "50000"}),
+                            "RQ_TEST_CARD_MODE": mode, "RQ_TEST_FREE_MB": "50000"}),
                    capture_output=True, text=True, timeout=60, start_new_session=True)
     text = box.wt_log.read_text()
     assert "quantum-mixer repository's CI" in text
     assert ("Docker images stay in this system's slot" in text) == slot_note
-    assert ("A 16 GB card has room for one Docker demo" in text) == small_note
+    assert "room for one Docker demo" not in text
+
+
+@needs_bash
+def test_docker_consent_on_a_small_card_is_a_note_not_a_question(box):
+    tty = box.tmp / "tty"
+    tty.write_text("")
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; load_rqb2_env; rc=0; '
+                           'rq_confirm_demo_install quantum-mixer || rc=$?; echo "rc=$rc"'],
+                          env=box({"RQ_TEST_AB": "0", "RQ_TEST_ROOT_GB": "14", "RQ_TEST_TTY": str(tty),
+                                   "RQ_TEST_FREE_MB": "50000"}),
+                          capture_output=True, text=True, timeout=60, start_new_session=True)
+    assert "rc=5" in proc.stdout, proc.stdout + proc.stderr
+    assert not box.wt_log.exists()
 
 
 # --- Fun with Quantum window (item 10) -------------------------------------------
@@ -623,8 +831,9 @@ def test_browser_runs_outside_the_window_session_and_hands_over_first(tmp_path):
     # neither a closed window (the session) nor a stop of the demo (its
     # process group) reaches the browser
     assert browser_sid != caller_sid and browser_pgid != caller_pgid
+    # a demo served on this Pi gets a window of its own (#15)
     assert (tmp_path / "browser-args").read_text().split() == [
-        "--password-store=basic", "--start-fullscreen", "http://127.0.0.1:8080/"]
+        "--password-store=basic", "--new-window", "--start-fullscreen", "http://127.0.0.1:8080/"]
 
 
 @needs_bash
@@ -694,3 +903,119 @@ def test_demos_open_the_browser_through_one_helper():
     for name in sorted(os.listdir(_BIN)):
         if name.endswith(".sh"):
             assert not direct.search(_read(name)), name
+
+
+# --- catalogue Docker demos keep their failure log (R-109) -----------------------
+
+@needs_bash
+def test_catalogue_docker_demo_keeps_its_log_when_it_stops_at_once(box):
+    # The engine's generic Docker path (traQmania) ran with --rm and then called
+    # docker logs: the container, and with it the reason, was already gone
+    stubs = box.tmp / "stubs"
+    calls = box.tmp / "docker.log"
+    _exe(stubs / "docker", f'''#!/bin/sh
+echo "$*" >> "{calls}"
+case "$1 $2" in
+    "container inspect") [ "$3" = "-f" ] && {{ echo false; exit 0; }}; exit 1 ;;
+    "image inspect"|"info "*) exit 0 ;;
+    "images -q") echo abc123 ;;
+    "run -d") echo cid ;;
+    "logs boom-demo") echo "boom: the game server could not start" ;;
+esac
+exit 0
+''')
+    _exe(stubs / "groups", "#!/bin/sh\necho rasqberry docker\n")
+    _exe(stubs / "ss", "#!/bin/sh\nexit 0\n")
+    home = box.tmp / "home"
+    mdir = home / ".local/config/demo-manifests"
+    mdir.mkdir(parents=True)
+    (mdir / "rq_demo_boom-demo.json").write_text(
+        '{"id": "boom-demo", "name": "Boom Demo", "entrypoint": {"type": "docker",'
+        ' "docker_image": "example/boom:1", "docker_port": 8000},'
+        ' "needs_hw": {"leds": false, "display": "none"}}')
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_run.sh"), "boom-demo"],
+                          env=box({"USER": "rasqberry", "RQ_ERROR_FILE": str(box.tmp / "err")}),
+                          capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    run = [c for c in calls.read_text().splitlines() if c.startswith("run ")]
+    assert len(run) == 1 and "--rm" not in run[0], run
+    assert "boom: the game server could not start" in proc.stdout
+    assert "Boom Demo stopped right after it started." in (box.tmp / "err").read_text()
+    saved = home / ".cache/rasqberry/boom-demo.log"
+    assert "could not start" in saved.read_text()
+    # the stopped container stays for docker logs; the next start removes it
+    assert not any(c.startswith(("rm -f", "stop")) for c in calls.read_text().splitlines()[-3:])
+
+
+# --- the on-screen LED view closes with the demo (R-100) -------------------------
+
+def _fake_turn_off(tmp_path):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    args = tmp_path / "turn-off-args"
+    (bindir / "turn_off_LEDs.py").write_text(
+        f'import sys\nopen("{args}", "a").write(" ".join(sys.argv[1:]) + "\\n")\n')
+    return bindir, args
+
+
+@needs_bash
+@pytest.mark.parametrize("keep,expected", [("", "--close-window"), ("1", "")])
+def test_an_led_demo_end_closes_the_on_screen_view(tmp_path, keep, expected):
+    bindir, args = _fake_turn_off(tmp_path)
+    subprocess.run(["bash", "-c", f'. "{_COMMON}"; BIN_DIR="{bindir}"; '
+                                  'find_venv() { return 1; }; led_clear_quietly'],
+                   env=dict(os.environ, RQ_LED_KEEP_WINDOW=keep), check=True, timeout=30)
+    assert args.read_text() == expected + "\n"
+
+
+def test_demo_loop_keeps_one_view_and_closes_it_at_the_end():
+    loop = _read("rq_demo_loop.sh")
+    assert "export RQ_LED_KEEP_WINDOW=1" in loop
+    cleanup = loop[loop.index("cleanup() {"):loop.index("setup_cleanup_trap cleanup")]
+    assert "clear_leds --close-window" in cleanup
+
+
+def test_turn_off_close_window_reaps_only_with_the_flag(monkeypatch):
+    calls = []
+    fake = types.ModuleType("rq_led_utils")
+    fake.clear_all_leds = lambda: calls.append("clear")
+    fake.get_led_config = lambda: {}
+    fake.guard_pi5_led_writes = lambda: False
+    fake._wait_for_last_frame = lambda: None
+    fake.reap_virtual_led_gui = lambda: calls.append("reap")
+    monkeypatch.setitem(sys.modules, "rq_led_utils", fake)
+    spec = importlib.util.spec_from_file_location("turn_off_r100", os.path.join(_BIN, "turn_off_LEDs.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(sys, "argv", ["turn_off_LEDs.py"])
+    assert mod.main() == 0 and calls == ["clear"]
+    calls.clear()
+    monkeypatch.setattr(sys, "argv", ["turn_off_LEDs.py", "--close-window"])
+    assert mod.main() == 0 and calls == ["clear", "reap"]
+
+
+@needs_bash
+def test_catalogue_web_demo_stops_its_server_with_enter(box):
+    # R-106: a web-static demo in its window stops like the shipped ones
+    port = 38000 + os.getpid() % 1000
+    home = box.tmp / "home"
+    (home / "RasQberry-Two/demos/webdemo").mkdir(parents=True)
+    (home / "RasQberry-Two/demos/webdemo/index.html").write_text("hi")
+    mdir = home / ".local/config/demo-manifests"
+    mdir.mkdir(parents=True)
+    (mdir / "rq_demo_webdemo.json").write_text(
+        '{"id": "webdemo", "name": "Web Demo", "entrypoint": {"type": "web-static",'
+        f' "working_dir": "webdemo", "port": {port}}},'
+        ' "needs_hw": {"leds": false, "display": "none"}}')
+    pattern = f"http.server {port}"
+    p = _Pty(f'exec bash "{_BIN}/rq_demo_run.sh" webdemo', env=box({"USER": "rasqberry"}))
+    try:
+        assert p.read_until("To stop Web Demo: press Enter or Ctrl+C, or close this window.", 30), \
+            p.out.decode(errors="replace")
+        assert subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode == 0
+        p.send("\r")
+        assert p.wait() == 0
+        time.sleep(0.5)
+        assert subprocess.run(["pgrep", "-f", pattern], capture_output=True).returncode != 0
+    finally:
+        subprocess.run(["pkill", "-f", pattern], capture_output=True)

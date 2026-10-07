@@ -79,6 +79,13 @@ LED_SCRIPT=$(find_led_script "turn_off_LEDs.py") || fail "turn_off_LEDs.py not f
 # One more try after a moment: a program that just ended may still hold it.
 if python3 "$LED_SCRIPT" || { sleep 1; python3 "$LED_SCRIPT"; }; then
     echo "All LEDs are off."
+    # The desktop icon's window closes when this ends: keep the line long
+    # enough to be read (#29: "Clear All LEDs runs silently"; 2 s were too
+    # short, user test 2026-10-07)
+    if [ "$MODE" = "ask" ] && [ -t 0 ] && [ -t 1 ]; then
+        echo "This window closes in a few seconds (Enter closes it now)."
+        read -r -t "${RQ_CLEAR_LEDS_PAUSE:-8}" _ || true
+    fi
 else
     fail "The LEDs could not be cleared (see the message above)."
 fi

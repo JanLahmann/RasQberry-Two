@@ -27,15 +27,16 @@ import time
 
 # Shared mapper + config (both live in RQB2-bin; /usr/bin when installed).
 try:
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, view_layout, view_rgb
 except ImportError:
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, view_layout, view_rgb
 
 # mmap transport v2 constants (must match rq_led_virtual.py)
 MMAP_FILE = "/tmp/rasqberry_virtual_led2.mmap"
 MMAP_MAGIC = b'RQL1'
 MMAP_HEADER_SIZE = 16
+MMAP_BRIGHTNESS_OFFSET = 10
 MMAP_DIRTY_OFFSET = 16
 MMAP_PIXEL_OFFSET = 17
 
@@ -44,6 +45,8 @@ LED_SIZE = 20       # Diameter of each LED circle in pixels
 LED_GAP = 3         # Gap between LEDs
 PADDING = 10        # Padding around the matrix
 REFRESH_MS = 50     # GUI refresh rate (20 FPS)
+LAYOUT_CHECK_TICKS = 10  # look at the layout every 10 refreshes (0.5 s)
+OPEN_FOCUS_GRACE_S = 1.5  # focus offers this soon after opening are declined
 BG_COLOR = "#1a1a1a"       # Dark background
 LED_OFF_COLOR = "#2a2a2a"  # Very dim gray for "off" LEDs
 
@@ -82,26 +85,116 @@ def wait_for_header(path, timeout=None):
         time.sleep(0.2)
 
 
+def _proc_stat(pid):
+    """
+    Fields of /proc/PID/stat after the command name.
+
+    Returns:
+        list: [state, ppid, pgrp, session, tty_nr, tpgid, ...], or None.
+    """
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().rsplit(")", 1)[1].split()
+    except (OSError, IndexError):
+        return None
+
+
+def led_writers(path, proc="/proc"):
+    """
+    PIDs of the other processes that have the LED frame bus mapped.
+
+    These are the demos drawing on the view (and the LED renderer service,
+    which has no terminal).
+    """
+    pids = []
+    me = os.getpid()
+    try:
+        entries = os.listdir(proc)
+    except OSError:
+        return pids
+    for entry in entries:
+        if not entry.isdigit() or int(entry) == me:
+            continue
+        try:
+            with open(os.path.join(proc, entry, "maps")) as f:
+                if any(line.rstrip().endswith(path) for line in f):
+                    pids.append(int(entry))
+        except OSError:
+            continue
+    return pids
+
+
+def terminal_foreground_group(pid, stat=_proc_stat):
+    """
+    The foreground process group of the terminal PID runs in.
+
+    A demo started from the RasQberry menu runs in a session of its own
+    without a terminal: its parents are asked then.
+
+    Returns:
+        int: the process group, or None if no parent has a terminal.
+    """
+    seen = set()
+    while pid and pid > 1 and pid not in seen:
+        seen.add(pid)
+        fields = stat(pid)
+        if not fields or len(fields) < 6:
+            return None
+        tty_nr, tpgid = int(fields[4]), int(fields[5])
+        if tty_nr != 0:
+            return tpgid if tpgid > 0 else None
+        pid = int(fields[1])
+    return None
+
+
+def stop_led_demo(path, writers=led_writers, group=terminal_foreground_group):
+    """
+    Stop the LED demo drawing on the view, as Ctrl+C in its window does.
+
+    Ctrl+C sends SIGINT to the foreground process group of the window's
+    terminal; every demo window stops its demo on it (the demo itself, the
+    "press Enter or Ctrl+C" wait, the RasQberry menu's wait).
+
+    Returns:
+        bool: True if a demo was asked to stop.
+    """
+    import signal
+    groups = set()
+    for pid in writers(path):
+        pgrp = group(pid)
+        if pgrp:
+            groups.add(pgrp)
+    for pgrp in groups:
+        try:
+            os.killpg(pgrp, signal.SIGINT)
+        except OSError:
+            pass
+    return bool(groups)
+
+
 class VirtualLEDMatrix:
     """
     Tkinter GUI displaying a virtual LED matrix of arbitrary geometry.
 
     Geometry comes from the mmap header; the (x, y) -> chain index mapping comes
-    from the shared rq_led_utils.map_xy_to_pixel for the configured layout.
+    from the shared rq_led_utils.map_xy_to_pixel for the layout the frames are
+    drawn in (rq_led_utils.view_layout: the configured one, or the one the LED
+    panel check is trying), looked at again while the window is open.
     """
 
-    def __init__(self, width, height, count, layout_name):
+    def __init__(self, width, height, count, layout, label=None):
         self.width = width
         self.height = height
         self.count = count
-        self.layout_name = layout_name
+        self.layout = layout
+        self.label = label or (layout if isinstance(layout, str) else 'custom')
         self.pixel_bytes = count * 3
+        self._ticks = 0
 
         self.root = tk.Tk()
-        self.root.title(
-            f"RasQberry Virtual LED Matrix - {width}x{height} ({layout_name})"
-        )
+        self._set_title()
         self.root.configure(bg=BG_COLOR)
+        self._focus_on_open()
 
         # Dynamic sizing variables
         self.led_size = LED_SIZE
@@ -149,6 +242,7 @@ class VirtualLEDMatrix:
 
         self._mmap = None
         self._mmap_file = None
+        self._last_frame = None
         self._total_size = MMAP_PIXEL_OFFSET + self.pixel_bytes
         self._init_mmap()
 
@@ -163,6 +257,57 @@ class VirtualLEDMatrix:
 
         self.root.after(REFRESH_MS, self.update_display)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        # Clicked and typed into anyway: Enter, Escape and Ctrl+C here stop
+        # the demo just as in its own window
+        for key in ("<Return>", "<KP_Enter>", "<Escape>", "<Control-c>"):
+            self.root.bind(key, self.on_stop_key)
+
+    def _focus_on_open(self):
+        """
+        Open without taking the keyboard focus, but stay a normal window.
+
+        The demo's window must keep the focus, so that "press Enter or
+        Ctrl+C" works right after this view opens. labwc (Trixie, 0.20)
+        focuses a new X window that asks for input (ICCCM Passive). The view
+        uses the ICCCM "Globally Active" model instead: WM_HINTS input=False
+        plus WM_TAKE_FOCUS. labwc then offers the focus (WM_TAKE_FOCUS) and
+        the view declines the offer that comes with opening and accepts
+        later ones: a click on the view or its taskbar entry. labwc lists a
+        Globally Active window in the taskbar only with the window type
+        NORMAL (Tk sets none by default); the "No Input" model (input=False
+        alone) had no taskbar entry, so a covered view could not be found.
+        Must be set before the window is first mapped (mainloop).
+        """
+        self._mapped_at = None
+        self.root.wm_focusmodel("active")
+        try:
+            self.root.attributes("-type", "normal")
+        except tk.TclError:
+            pass  # not X11
+        self.root.protocol("WM_TAKE_FOCUS", self.on_take_focus)
+        self.root.bind("<Map>", self.on_map, add="+")
+
+    def on_map(self, event):
+        """Note when the window first appeared."""
+        if event.widget is self.root and self._mapped_at is None:
+            self._mapped_at = time.monotonic()
+
+    def on_take_focus(self):
+        """The window manager offers the focus: take it, except on opening."""
+        if self._mapped_at is None or time.monotonic() - self._mapped_at < OPEN_FOCUS_GRACE_S:
+            return
+        self.root.focus_force()
+
+    def on_stop_key(self, event=None):
+        """Enter, Escape or Ctrl+C in the view: stop the demo.
+
+        With no LED demo left to stop, the keys close the view: they did
+        nothing there (Pi 4 user test 2026-10-07, F6).
+        """
+        if stop_led_demo(MMAP_FILE):
+            self.status_var.set("Stopping the demo...")
+        else:
+            self.on_close()
 
     def _init_mmap(self):
         """Open the shared memory file for reading (must already exist)."""
@@ -174,9 +319,32 @@ class VirtualLEDMatrix:
             self.status_var.set(f"Error: {e}")
             self._mmap = None
 
+    def _set_title(self):
+        """Window title with the geometry and the layout shown."""
+        self.root.title(
+            f"RasQberry Virtual LED Matrix - {self.width}x{self.height} ({self.label})"
+        )
+
+    def follow_layout(self):
+        """
+        Switch to the layout the frames are drawn in now.
+
+        The window used the layout configured when it opened: during the LED
+        panel check that was the default (single-24x8), also on the four-panel
+        kit, and after "Saved" the address scroll in the new layout came out
+        scrambled under the old one (Pi 4 user test 2026-10-07, F1).
+        """
+        layout, label = view_layout()
+        if layout == self.layout and label == self.label:
+            return False
+        self.layout, self.label = layout, label
+        self._set_title()
+        self._last_frame = None     # redraw the current frame in the new map
+        return True
+
     def map_xy_to_pixel(self, x, y):
         """Map (x, y) to a chain index using the shared mapper for this layout."""
-        return map_xy_to_pixel(x, y, layout=self.layout_name)
+        return map_xy_to_pixel(x, y, layout=self.layout)
 
     def on_resize(self, event):
         """Handle window resize - scale LEDs to fit."""
@@ -209,15 +377,30 @@ class VirtualLEDMatrix:
                 )
 
     def update_display(self):
-        """Read from mmap and update canvas LED colors."""
+        """
+        Read from mmap and update the canvas when the frame changed.
+
+        The dirty flag is left alone (#6). In service mode the LED renderer
+        consumes it, and while this window cleared it too, each frame went to
+        whichever of the two looked first: a picture shown once (LED-Painter,
+        the wizard's probes) reached the panel or this window, rarely both.
+        Comparing with the last frame shown needs no flag (the browser view
+        works the same way).
+        """
+        self._ticks += 1
+        if self._ticks % LAYOUT_CHECK_TICKS == 0:
+            try:
+                self.follow_layout()
+            except Exception:
+                pass
         if self._mmap is not None:
             try:
-                self._mmap.seek(MMAP_DIRTY_OFFSET)
-                dirty = self._mmap.read(1)
+                level = self._mmap[MMAP_BRIGHTNESS_OFFSET]
+                self._mmap.seek(MMAP_PIXEL_OFFSET)
+                pixel_data = self._mmap.read(self.pixel_bytes)
 
-                if dirty and dirty[0] == 1:
-                    pixel_data = self._mmap.read(self.pixel_bytes)
-
+                if (pixel_data, level) != self._last_frame:
+                    self._last_frame = (pixel_data, level)
                     for y in range(self.height):
                         for x in range(self.width):
                             pixel_index = self.map_xy_to_pixel(x, y)
@@ -225,18 +408,14 @@ class VirtualLEDMatrix:
                                 continue
                             offset = pixel_index * 3
                             if offset + 2 < len(pixel_data):
-                                r = pixel_data[offset]
-                                g = pixel_data[offset + 1]
-                                b = pixel_data[offset + 2]
+                                r, g, b = view_rgb(pixel_data[offset],
+                                                   pixel_data[offset + 1],
+                                                   pixel_data[offset + 2], level)
                                 if r == 0 and g == 0 and b == 0:
                                     color = LED_OFF_COLOR
                                 else:
                                     color = f"#{r:02x}{g:02x}{b:02x}"
                                 self.canvas.itemconfig(self.leds[y][x], fill=color)
-
-                    # Clear dirty flag
-                    self._mmap.seek(MMAP_DIRTY_OFFSET)
-                    self._mmap.write(b'\x00')
 
                     self.status_var.set("Receiving LED data...")
             except Exception as e:
@@ -276,18 +455,18 @@ def main():
         return
     width, height, count = geom
 
-    # Layout name for the shared mapper (geometry itself comes from the header).
+    # Layout for the shared mapper (geometry itself comes from the header).
     try:
-        layout_name = get_led_config().get('led_layout', 'single-24x8')
+        layout, label = view_layout()
     except Exception:
-        layout_name = 'single-24x8'
+        layout = label = 'single-24x8'
 
     print(f"Matrix size: {width}x{height} ({count} LEDs)")
-    print(f"Layout: {layout_name}")
+    print(f"Layout: {label}")
     print(f"Shared memory: {MMAP_FILE}")
     print()
 
-    app = VirtualLEDMatrix(width, height, count, layout_name)
+    app = VirtualLEDMatrix(width, height, count, layout, label)
     app.run()
 
 

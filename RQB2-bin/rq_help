@@ -28,7 +28,7 @@ Demos
   rq_learning_paths.sh          learning paths: the demos step by step
   rq_download_all.sh            download all demos now
   rq_demo_remove.sh             remove a downloaded demo
-  sudo rq_demo_loop.sh          run demos one after another (booth)
+  sudo rq_demo_loop.sh          demos one after another (--choose: which)
 
 LED panel
   sudo rq_led_setup_wizard.sh   which panel, which way up
@@ -45,6 +45,7 @@ System
   rq_update_check.sh            is there a newer RasQberry Two image?
   rq_touch_mode.sh status       touch mode (enable | disable)
   sudo rq_slot_manager.sh status   A/B image: what is in Slot A and B
+  sudo poweroff                 shut down (menu: Shut Down Safely)
 EOF
 
 demos=""

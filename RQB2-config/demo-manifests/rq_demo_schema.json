@@ -77,6 +77,10 @@
           "type": "string",
           "description": "Docker image, pinned per RasQberry release: name@sha256:<digest>, or name:<40-char source commit> for an image built by CI from a pinned source commit (the local fallback build tags the same name). 'Update demos' can move it (rq_demo_image)."
         },
+        "docker_image_fallback": {
+          "type": "string",
+          "description": "A tag of the same image (name:tag, never a digest), downloaded instead when the registry no longer offers the docker_image digest (its publisher pruned it); recorded as the version in use for that release pin (rq_demo_docker_pull). Required with a digest pin in shipped manifests."
+        },
         "docker_port": {
           "type": "integer",
           "description": "Port exposed by Docker container"
@@ -94,6 +98,11 @@
           "minimum": 1024,
           "maximum": 65535,
           "description": "TCP port for the web-static http.server (1024-65535)"
+        },
+        "keyboard": {
+          "type": "boolean",
+          "default": false,
+          "description": "python type: the program reads the keyboard itself (questions in its window). It then runs in front and stops with Ctrl+C or by closing the window. Otherwise its window reads Enter, which stops it like every other demo."
         },
         "stop_on_exit": {
           "type": "array",
@@ -160,7 +169,7 @@
             "download_mb": {"type": "integer", "minimum": 0, "description": "Download size in MB (1 MB = 1,000,000 bytes)"},
             "disk_mb": {"type": "integer", "minimum": 0, "description": "Space on the SD card afterwards in MB (default: download_mb)"},
             "peak_mb": {"type": "integer", "minimum": 0, "description": "Extra space needed only while installing, e.g. a Docker build cache"},
-            "time": {"type": "string", "description": "Rough duration on a Pi, e.g. '1 minute', '10-20 minutes'"},
+            "time": {"type": "string", "description": "Rough duration on a Pi, measured (user test 2026-10-04: a home line), e.g. '10-30 seconds', '1 minute', '3-5 minutes'. Download all adds them up"},
             "url": {"type": "string", "description": "Checked for reachability before asking (default: repo_url, the Docker registry, else GitHub)"},
             "shares": {"type": "string", "description": "Demos with the same value share one download (counted once by 'Download all demos')"}
           }

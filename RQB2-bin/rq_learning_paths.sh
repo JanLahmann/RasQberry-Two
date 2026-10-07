@@ -157,7 +157,8 @@ list_paths() {
         done
     done
     echo
-    echo "Learning paths are new. Your feedback helps a lot: $FEEDBACK"
+    echo "Learning paths are new. Your feedback helps a lot (needs a free GitHub account):"
+    echo "  $FEEDBACK"
 }
 
 # ============================================================================
@@ -202,7 +203,35 @@ pause() {
 # The invitation every beta demo gives (rq_beta_notice), for the paths
 feedback_notice() {
     echo "Learning paths are new: please tell us what works and what doesn't."
-    echo "Your feedback helps a lot: ${FEEDBACK}${1:+/$1}"
+    echo "Your feedback helps a lot (needs a free GitHub account): ${FEEDBACK}${1:+/$1}"
+}
+
+# The browser opens maximised over this window (#15): say where it is now.
+# Only when a browser opened (not over SSH).
+back_hint() {
+    if check_display && _rq_find_browser >/dev/null; then
+        echo "$RQ_BROWSER_BACK_HINT"
+    fi
+    return 0
+}
+
+# The feedback form: in the browser on the desktop, its address over SSH
+# (a long address in a terminal is hard to use, #30). It is a GitHub issue
+# form, so the labels say it needs an account (#11).
+# Usage: open_feedback [PATH_ID]
+open_feedback() {
+    clear 2>/dev/null || true
+    feedback_notice "${1:-}"
+    rq_show_url "${FEEDBACK}${1:+/$1}"
+    back_hint
+    pause "Press Enter to go back."
+}
+
+# The window's title (R-135). A demo started from a step sets its own, so
+# it is set again when the demo is back (#30).
+set_title() {
+    [ -t 1 ] && printf '\033]0;%s\007' "Learning paths"
+    return 0
 }
 
 # Open a page: the browser on the desktop, the address over SSH
@@ -211,6 +240,7 @@ open_page() {
     clear 2>/dev/null || true
     echo "$1: $2"
     rq_show_url "$2"
+    back_hint
     pause "Press Enter to go back."
 }
 
@@ -269,12 +299,13 @@ keep_going() {
             set -- "$@" "n$e" "Open ${N_NAME[e]}"
         fi
     done
-    set -- "$@" more "More ideas: where to go next"
+    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (needs a free GitHub account)"
     while true; do
         choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
         last="$choice"
         case "$choice" in
             more) show_ladder ;;
+            feedback) open_feedback "$P_ID" ;;
             n*)
                 e="${choice#n}"
                 if [ "${N_KIND[e]}" = path ]; then
@@ -300,11 +331,14 @@ start_step() {
     local RQ_DEMO_HOW=learning-path
     export RQ_DEMO_HOW
     if [ -n "$S_DEMO" ]; then
+        local rc=0
         if [ -n "$S_VARIANT" ]; then
-            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" && return 0
+            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" || rc=$?
         else
-            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" && return 0
+            "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" || rc=$?
         fi
+        # finished, or stopped with Ctrl+C (130) / closed (129, 143)
+        case "$rc" in 0|129|130|143) return 0 ;; esac
     elif [ -n "$S_COMMAND" ]; then
         # only RasQberry's own tools next to this script
         case "$S_COMMAND" in
@@ -316,6 +350,7 @@ start_step() {
     else
         echo "$S_NAME: $S_URL"
         rq_show_url "$S_URL"
+        back_hint
         pause "Press Enter to go back to the learning path."
         return 0
     fi
@@ -358,6 +393,7 @@ walk_path() {
         case "$choice" in
             start)
                 if start_step; then default="next"; else default="start"; fi
+                set_title
                 ;;
             next)
                 if [ $((s + 1)) -lt "$P_STEPS" ]; then
@@ -392,8 +428,7 @@ if [ "$MODE" = "--list" ] || ! command -v whiptail >/dev/null 2>&1 || [ ! -t 0 ]
     exit 0
 fi
 
-# The window's title (R-135)
-[ -t 1 ] && printf '\033]0;%s\007' "Learning paths"
+set_title
 
 # Ctrl+C stops the running demo and comes back here (a handler, not an
 # ignored signal: the demo must still get it)
@@ -414,17 +449,13 @@ while true; do
         audience="$(printf '%s' "${P_AUDIENCE:0:1}" | tr '[:upper:]' '[:lower:]')${P_AUDIENCE:1}"
         set -- "$@" "$i" "$P_TITLE: $audience, $P_MINUTES min"
     done
-    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (feedback)"
+    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (needs a free GitHub account)"
     choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break
     last="$choice"
     case "$choice" in
-        feedback)
-            clear 2>/dev/null || true
-            feedback_notice
-            pause "Press Enter to go back to the learning paths."
-            ;;
+        feedback) open_feedback ;;
         ladder) show_ladder ;;
         *)
             # Keep going may lead from one path to the next (JUMP)

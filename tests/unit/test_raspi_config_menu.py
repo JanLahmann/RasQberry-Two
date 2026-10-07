@@ -14,9 +14,10 @@ What broke raspi-config itself:
 The menu runs here under dash with stub whiptail/sudo/script/setsid, an env
 file in a temp dir (RQ_CONFIG_FILE) and no Raspberry Pi.
 
-The optional test at the end runs the REAL raspi-config (bookworm, the version
-the image ships) patched with raspi-config.diff, when RQ_TEST_RASPI_CONFIG
-points to a copy of it (the code-quality workflow downloads it).
+The optional test at the end runs the REAL raspi-config (trixie 20261026, the
+version the image ships, and bookworm 20250813 for images in the field) patched
+with raspi-config.diff, when RQ_TEST_RASPI_CONFIG points to a copy of it (the
+code-quality workflow downloads both).
 """
 
 import json
@@ -172,6 +173,28 @@ def test_led_output_targets_two_ticks(menu_env):
     assert _env_value(menu_env.env_file, "LED_WEB") == "true"
     texts = "\n".join("\n".join(c) for c in menu_env.whiptail_calls())
     assert "At least one output target is required" not in texts
+
+
+def test_led_output_targets_web_off_stops_the_server(menu_env):
+    # #22: WEB off left rq_led_web.py serving the panel to the network
+    py_log = menu_env.tmp / "python.log"
+    stubs = menu_env.tmp / "stubs"
+    _write_exec(stubs / "python3", f'#!/bin/sh\necho "$@" >> "{py_log}"\n')
+    with open(menu_env.env_file, "a") as fh:
+        fh.write("LED_WEB=true\n")
+    proc = menu_env("do_led_output_menu; echo RC=$?",
+                    extra_env={"WT_REPLY_checklist": '"PHYSICAL" "VIRTUAL"'})
+    assert "RC=0" in proc.stdout, proc.stderr
+    assert _env_value(menu_env.env_file, "LED_WEB") == "false"
+    assert "stop_virtual_led_web" in py_log.read_text()
+
+
+def test_led_output_targets_use_the_style_names(menu_env):
+    # R-095: "LED panel" and "on-screen view", not "LED strip" or "matrix"
+    menu_env("do_led_output_menu", extra_env={"WT_REPLY_checklist": '"PHYSICAL"'})
+    texts = "\n".join("\n".join(c) for c in menu_env.whiptail_calls())
+    assert "LED panel" in texts and "On-screen view" in texts
+    assert "strip" not in texts.lower() and "matrix" not in texts.lower()
 
 
 # --- R-001: raspi-config's globals survive every env reload ------------------

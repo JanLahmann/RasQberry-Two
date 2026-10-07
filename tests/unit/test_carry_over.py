@@ -123,6 +123,22 @@ def test_pull_keeps_usage_counts_off(tmp_path):
     assert "RQ_UMAMI=0" in (new / ENV.lstrip("/")).read_text().splitlines()
 
 
+def test_pull_keeps_the_demo_loop_choice(tmp_path):
+    # The demos picked for the Demo Loop and its timings survive an update;
+    # a key the old slot lacks keeps the new image's value
+    old = _slot(tmp_path / "old", env_lines=("DEMO_LOOP_DEMOS=ibm-logo,rasq-led",
+                                             "DEMO_LOOP_PAUSE=5"))
+    new = _slot(tmp_path / "new", env_lines=("DEMO_LOOP_DEMOS=all", "DEMO_LOOP_PAUSE=2",
+                                             "DEMO_LOOP_RASQ_LED_TIME=60"))
+    data = tmp_path / "data"
+    data.mkdir()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    env = (new / ENV.lstrip("/")).read_text().splitlines()
+    assert "DEMO_LOOP_DEMOS=ibm-logo,rasq-led" in env and "DEMO_LOOP_DEMOS=all" not in env
+    assert "DEMO_LOOP_PAUSE=5" in env
+    assert "DEMO_LOOP_RASQ_LED_TIME=60" in env
+
+
 def test_pull_of_identical_slot_carries_nothing(tmp_path):
     a = _slot(tmp_path / "a")
     b = _slot(tmp_path / "b")
@@ -232,7 +248,8 @@ def test_standard_image_is_left_alone(slots):
 def test_list_names_what_is_kept_and_lost(tmp_path):
     out = _run(tmp_path, tmp_path, "list").stdout
     for item in ("Shared", "~/.qiskit", "~/My-Quantum-Programs", "Wi-Fi", "LED",
-                 "password", "hostname", "SSH host keys", "installed demos"):
+                 "password", "hostname", "SSH host keys", "installed demos",
+                 "Raspberry Pi Connect"):
         assert item in out
 
 
@@ -317,3 +334,212 @@ def test_pull_brings_my_programs_from_a_slot_without_data(slots):
     proc = _run(new, data, "pull", str(old))
     assert "own programs (~/My-Quantum-Programs)" in proc.stdout
     assert (data / f"home/{USER}/My-Quantum-Programs/mine.py").exists()
+
+
+# ---------------------------------------------------------------------------
+# The marks of what the user was already asked or told (user test 2026-10-07)
+# ---------------------------------------------------------------------------
+
+STATE = HOME + "/.local/state/rasqberry"
+MARKS = ("setup-checklist-shown", "firstlogin-offered", "imager-user-note-shown",
+         "abinfo-read", "demo-password-kept", "keyboard-timezone-set", "name-kept",
+         "firmware-info-read", "slot-indicator.json")
+
+
+def _state(root):
+    return root / ("." + STATE)
+
+
+def test_pull_carries_the_setup_checklist_marks(slots):
+    # An update into the other slot reopened the first-start checklist: the
+    # marks of the old slot come along
+    old, new, data = slots
+    st = _state(old)
+    st.mkdir(parents=True)
+    for name in MARKS:
+        (st / name).write_text(f"{name} 2026-10-01\n")
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    for name in MARKS:
+        assert (_state(new) / name).read_text() == f"{name} 2026-10-01\n"
+    assert "setup checklist and notices already seen" in proc.stdout
+
+
+def test_pull_user_state_keeps_per_slot_folders_and_logs(slots):
+    # learner-setup/ records this slot's own Thonny/Geany settings (made at
+    # build time); the indicator's log is no mark
+    old, new, data = slots
+    st = _state(old)
+    (st / "learner-setup").mkdir(parents=True)
+    (st / "learner-setup/programs").write_text("old\n")
+    (st / "slot-indicator.log").write_text("old log\n")
+    (st / "setup-checklist-shown").write_text("x\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (_state(new) / "setup-checklist-shown").exists()
+    assert not (_state(new) / "learner-setup").exists()
+    assert not (_state(new) / "slot-indicator.log").exists()
+
+
+def test_pull_user_state_never_overwrites(slots):
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "slot-indicator.json").write_text('{"old": 1}\n')
+    (_state(old) / "name-kept").write_text("old\n")
+    _state(new).mkdir(parents=True)
+    (_state(new) / "slot-indicator.json").write_text('{"new": 1}\n')
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (_state(new) / "slot-indicator.json").read_text() == '{"new": 1}\n'
+    assert (_state(new) / "name-kept").read_text() == "old\n"
+
+
+def test_pull_without_user_state_carries_none(slots):
+    old, new, data = slots
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert "setup checklist" not in proc.stdout
+    assert not _state(new).exists()
+
+
+def test_pull_user_state_also_without_a_data_partition(slots):
+    # The marks go into the slot's own home, not onto /data: a card on the
+    # placeholder DATA partition keeps them too
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "setup-checklist-shown").write_text("x\n")
+    proc = _run(new, data, "pull", str(old), RQ_CARRY_SKIP_MOUNT_CHECK="0")
+    assert proc.returncode == 0, proc.stderr
+    assert (_state(new) / "setup-checklist-shown").exists()
+
+
+def test_the_carried_marks_are_where_the_checklist_looks(slots):
+    # The path the carry-over copies is the one rq_firstlogin.sh and the slot
+    # indicator read: after the pull, the checklist counts as answered
+    import sys
+    sys.path.insert(0, os.path.join(_HERE, "..", "..", "RQB2-bin"))
+    import rq_slot_indicator as si
+    firstlogin = open(os.path.join(_HERE, "..", "..", "RQB2-bin", "rq_firstlogin.sh")).read()
+    assert 'STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"' in firstlogin
+    assert 'SHOWN_FILE="$STATE_DIR/setup-checklist-shown"' in firstlogin
+    assert "USER_STATE=.local/state/rasqberry\n" in open(_SCRIPT).read()
+    old, new, data = slots
+    _state(old).mkdir(parents=True)
+    (_state(old) / "setup-checklist-shown").write_text("x\n")
+    assert not si.checklist_answered(str(_state(new)))
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert si.checklist_answered(str(_state(new)))
+
+
+# ---------------------------------------------------------------------------
+# Raspberry Pi Connect (user test 2026-10-07, R4; Jan: carry it over)
+# ---------------------------------------------------------------------------
+
+CONNECT_CFG = HOME.lstrip("/") + "/.config/com.raspberrypi.connect"
+UNITS = HOME.lstrip("/") + "/.config/systemd/user"
+# How Imager 2.x enables Connect (tests/unit/data/imager-firstrun) and how the
+# package's postinst / `rpi-connect on` does it
+IMAGER_LINKS = {"default.target.wants/rpi-connect.service": "rpi-connect.service",
+                "paths.target.wants/rpi-connect-signin.path": "rpi-connect-signin.path",
+                "default.target.wants/rpi-connect-wayvnc.service": "rpi-connect-wayvnc.service"}
+POSTINST_LINKS = {"default.target.wants/rpi-connect.service": "rpi-connect.service",
+                  "rpi-connect.service.wants/rpi-connect-wayvnc.service": "rpi-connect-wayvnc.service",
+                  "rpi-connect.service.wants/rpi-connect-signin.path": "rpi-connect-signin.path"}
+
+
+def _connect_installed(root):
+    (root / "usr/bin").mkdir(parents=True, exist_ok=True)
+    (root / "usr/bin/rpi-connect").write_text("#!/bin/sh\n")
+    (root / "usr/bin/rpi-connect").chmod(0o755)
+    units = root / "usr/lib/systemd/user"
+    units.mkdir(parents=True, exist_ok=True)
+    for name in ("rpi-connect.service", "rpi-connect-wayvnc.service", "rpi-connect-signin.path",
+                 "rpi-connect-signin.service"):
+        (units / name).write_text("[Unit]\n")
+
+
+def _connect_on(root, links=IMAGER_LINKS, signed_in=True, linger=True):
+    _connect_installed(root)
+    if signed_in:
+        cfg = root / CONNECT_CFG
+        cfg.mkdir(parents=True)
+        cfg.chmod(0o700)
+        (cfg / "state.json").write_text('{"signed_in": true}\n')
+        (cfg / "state.json").chmod(0o600)
+    for rel, unit in links.items():
+        link = root / UNITS / rel
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(f"/usr/lib/systemd/user/{unit}", link)
+    if linger:
+        (root / "var/lib/systemd/linger").mkdir(parents=True)
+        (root / "var/lib/systemd/linger" / USER).write_text("")
+
+
+@pytest.mark.parametrize("links", [IMAGER_LINKS, POSTINST_LINKS])
+def test_pull_carries_connect_signed_in_and_on(slots, links):
+    old, new, data = slots
+    _connect_on(old, links)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    cfg = new / CONNECT_CFG
+    assert (cfg / "state.json").read_text() == '{"signed_in": true}\n'
+    assert oct(cfg.stat().st_mode & 0o777) == "0o700"              # permissions kept
+    assert oct((cfg / "state.json").stat().st_mode & 0o777) == "0o600"
+    for rel, unit in links.items():                                  # the same units, enabled
+        assert os.readlink(new / UNITS / rel) == f"/usr/lib/systemd/user/{unit}"
+    assert (new / "var/lib/systemd/linger" / USER).exists()
+    assert "Raspberry Pi Connect (sign-in, switched on)" in proc.stdout
+    done = (new / "var/lib/rasqberry/carry-over.done").read_text()
+    assert "Raspberry Pi Connect" in done
+
+
+def test_pull_connect_off_carries_only_the_sign_in(slots):
+    # Signed in once, then switched off: it stays off on the new system
+    old, new, data = slots
+    _connect_on(old, links={}, linger=False)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert (new / CONNECT_CFG / "state.json").exists()
+    assert not (new / UNITS).exists()
+    assert not (new / "var/lib/systemd/linger").exists()
+    assert "Raspberry Pi Connect (sign-in)" in proc.stdout
+
+
+def test_pull_connect_only_where_the_new_system_has_it(slots):
+    old, new, data = slots
+    _connect_on(old)
+    proc = _run(new, data, "pull", str(old))          # new: rpi-connect not installed
+    assert proc.returncode == 0, proc.stderr
+    assert not (new / CONNECT_CFG).exists() and not (new / UNITS).exists()
+    assert not (new / "var/lib/systemd/linger").exists()
+    assert "Raspberry Pi Connect" not in proc.stdout
+
+
+def test_pull_connect_skips_units_the_new_system_lacks(slots):
+    old, new, data = slots
+    _connect_on(old, POSTINST_LINKS)
+    _connect_installed(new)
+    (new / "usr/lib/systemd/user/rpi-connect-wayvnc.service").unlink()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (new / UNITS / "default.target.wants/rpi-connect.service").is_symlink()
+    assert not os.path.lexists(new / UNITS / "rpi-connect.service.wants/rpi-connect-wayvnc.service")
+
+
+def test_pull_connect_never_overwrites(slots):
+    old, new, data = slots
+    _connect_on(old)
+    _connect_installed(new)
+    (new / CONNECT_CFG).mkdir(parents=True)
+    (new / CONNECT_CFG / "state.json").write_text("new\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (new / CONNECT_CFG / "state.json").read_text() == "new\n"
+
+
+def test_pull_without_connect_says_nothing(slots):
+    old, new, data = slots
+    _connect_installed(old)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert "Raspberry Pi Connect" not in proc.stdout
+    assert not (new / HOME.lstrip("/") / ".config").exists()

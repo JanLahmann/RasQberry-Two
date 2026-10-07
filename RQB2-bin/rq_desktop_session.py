@@ -12,8 +12,8 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    720p): Chromium opens maximised instead of at x=480, which put most of the
    window off-screen (R-034). The labwc rule that places Chromium next to the
    icons is switched off, and /etc/chromium.d/rasqberry adds --start-maximized.
-4. Desktop icons are laid out for the screen and touch mode, RasQberry Setup
-   first (R-008, R-035). Icons that do not fit go into a "More" folder. This
+4. Desktop icons start at a double-click (quick_exec, T1) and are laid out
+   for the screen and touch mode, RasQberry Setup first (R-008, R-035). Icons that do not fit go into a "More" folder. This
    happens only when the screen, touch mode or the set of icons changed, so
    icons the user moved stay where they are.
 5. Browser (BROWSER_AUTOSTART): rasqberry.org, or a local page that says what
@@ -22,6 +22,11 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
 Usage:
     rq_desktop_session.py                 everything (the autostart)
     rq_desktop_session.py --no-browser    steps 1-4 only
+    rq_desktop_session.py --relayout      step 4 only (a catalogue demo's
+                                          launcher came or went)
+    rq_desktop_session.py --quick-exec [CONF]
+                                          set quick_exec=1 in the profile's
+                                          pcmanfm.conf (or CONF)
     rq_desktop_session.py --screen        print the screen size (WxH)
     rq_desktop_session.py --layout WxH CONF [--touch]
                                           write the icon positions for a
@@ -58,13 +63,23 @@ ICON_ORDER = [
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "demo-loop", "clear-leds",
+    "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"
-MARGIN = 10                # first icon at x=y=10, as pcmanfm counts (below the panel)
+MARGIN = 10                # first icon at x=y=10 (bookworm: below the panel)
 CHROMIUM_X = 480           # where the labwc rule puts Chromium on large screens
 NORMAL_GRID = 110
-LABEL_HEIGHT = 40          # two lines of PibotoLt 12 under an icon
+LABEL_HEIGHT = 40          # two lines of PibotoLt 12 under an icon (bookworm)
+LABEL_HEIGHT_NUNITO = 54   # two lines of Nunito Sans Light 12 (trixie), measured
+ITEM_WIDTH = 120           # an icon's label is up to ~110 px wide
+# Catalogue demos put their launchers on the desktop as rq-ext-<id>.desktop:
+# they are laid out after RasQberry's own, in the same grid (T5)
+CATALOGUE_PREFIX = "rq-ext-"
+# pcmanfm profiles whose icon positions count from the top of the screen.
+# Trixie's pcmanfm-pi ("default" profile) places x/y on the whole screen, so
+# y=10 is under the panel and pcmanfm pushed the first row down onto the
+# second (T5). Bookworm's (LXDE-pi) counts below the panel.
+SCREEN_POSITION_PROFILES = ("default",)
 
 
 def env_value(key, default="", path=ENV_FILE):
@@ -223,7 +238,7 @@ def apply_touch_css(touch, src=TOUCH_CSS, dst=None):
 # --------------------------------------------------------------------------
 # 3. Chromium placement
 # --------------------------------------------------------------------------
-_RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-chromium)(">\s*'
+_RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-chromium)"[^>]*(>\s*'
                    r'<action name="MoveTo" x="480" y="45"\s*/>)')
 
 
@@ -234,6 +249,12 @@ def set_chromium_rule(small, rc=None):
     The rule keeps the icons visible on a large screen; on a small one it put
     the window off-screen, and it would also move a maximised window. Off
     means a different identifier, so the rest of rc.xml stays as it is.
+    type="normal" matchOnce="true": it places only the browser's first window
+    (the homepage), not a demo's window opened next to it, which it moved
+    480 px to the right when that was maximised before it was shown (#4).
+    matchOnce counts every window, also a hidden one Chromium makes first
+    (labwc types it "dialog"), so without type="normal" the homepage itself
+    was not placed. Older rc.xml files get both here too.
 
     Args:
         small (bool): The screen is small.
@@ -249,7 +270,7 @@ def set_chromium_rule(small, rc=None):
     except OSError:
         return False
     want = "rasqberry-small-screen-chromium" if small else "chromium"
-    new = _RULE.sub(lambda m: m.group(1) + want + m.group(3), text)
+    new = _RULE.sub(lambda m: m.group(1) + want + '" type="normal" matchOnce="true"' + m.group(3), text)
     if new == text:
         return False
     with open(rc, "w", encoding="utf-8") as fh:
@@ -279,26 +300,144 @@ def set_small_screen_flag(small, path=None):
 # --------------------------------------------------------------------------
 # 4. Desktop icons
 # --------------------------------------------------------------------------
-def libfm_icon_size(path=None):
+def pcmanfm_conf(profile=None, home=None):
     """
-    Read the desktop icon size (libfm big_icon_size; touch mode makes it 72).
+    The person's pcmanfm.conf for the profile the desktop runs with.
 
     Args:
-        path (str): ~/.config/libfm/libfm.conf.
+        profile (str): pcmanfm profile (default: the desktop's).
+        home (str): Home directory (tests).
+
+    Returns:
+        str: ~/.config/pcmanfm/<profile>/pcmanfm.conf.
+    """
+    return os.path.join(home or HOME, ".config/pcmanfm", profile or pcmanfm_profile(), "pcmanfm.conf")
+
+
+def _ini_value(text, key):
+    m = re.search(r"^%s=(.*)$" % re.escape(key), text, re.M)
+    return m.group(1).strip() if m else None
+
+
+def libfm_icon_size(path=None, libfm=None):
+    """
+    Read the desktop icon size (big_icon_size; touch mode makes it 72).
+
+    Trixie's pcmanfm-pi takes it from the profile's pcmanfm.conf and no
+    longer reads ~/.config/libfm/libfm.conf; bookworm's from libfm.conf.
+
+    Args:
+        path (str): The profile's pcmanfm.conf.
+        libfm (str): ~/.config/libfm/libfm.conf.
 
     Returns:
         int: Icon size in pixels (48 if unknown).
     """
-    path = path or os.path.join(HOME, ".config/libfm/libfm.conf")
+    for conf in (path or pcmanfm_conf(), libfm or os.path.join(HOME, ".config/libfm/libfm.conf")):
+        try:
+            with open(conf, encoding="utf-8") as fh:
+                value = _ini_value(fh.read(), "big_icon_size")
+        except OSError:
+            continue
+        if value and value.isdigit():
+            return int(value)
+    return 48
+
+
+def set_ini_value(text, section, key, value):
+    """
+    Set KEY=VALUE in SECTION of an ini text (the section is added if missing).
+
+    Args:
+        text (str): File content.
+        section (str): Section name without brackets.
+        key (str): Key.
+        value (str): Value.
+
+    Returns:
+        str: The new content.
+    """
+    lines = text.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.strip() == "[%s]" % section), None)
+    if start is None:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines += ["[%s]" % section, "%s=%s" % (key, value)]
+        return "\n".join(lines) + "\n"
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("[")), len(lines))
+    for i in range(start + 1, end):
+        if lines[i].split("=", 1)[0].strip() == key:
+            lines[i] = "%s=%s" % (key, value)
+            break
+    else:
+        lines.insert(start + 1, "%s=%s" % (key, value))
+    return "\n".join(lines) + "\n"
+
+
+def ensure_quick_exec(profile=None, conf=None, system_dir="/etc/xdg/pcmanfm"):
+    """
+    Desktop icons start at a double-click, without the "Execute File" question.
+
+    libfm asks "This text file ... seems to be an executable script. What do
+    you want to do with it?" unless quick_exec=1. Trixie's pcmanfm-pi reads
+    that from the profile's pcmanfm.conf only, not from libfm.conf where
+    the image set it for bookworm, so every icon asked (T1). The person's
+    pcmanfm.conf replaces the system one, so a new one starts as a copy of it.
+
+    Args:
+        profile (str): pcmanfm profile (default: the desktop's).
+        conf (str): The person's pcmanfm.conf (tests).
+        system_dir (str): /etc/xdg/pcmanfm (tests).
+
+    Returns:
+        bool: True if the file was written (pcmanfm must reload it).
+    """
+    profile = profile or pcmanfm_profile()
+    conf = conf or pcmanfm_conf(profile)
     try:
-        with open(path, encoding="utf-8") as fh:
-            m = re.search(r"^big_icon_size=(\d+)", fh.read(), re.M)
-            return int(m.group(1)) if m else 48
+        with open(conf, encoding="utf-8") as fh:
+            text = fh.read()
     except OSError:
-        return 48
+        try:
+            with open(os.path.join(system_dir, profile, "pcmanfm.conf"), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            text = ""
+    else:
+        if re.search(r"^quick_exec=1\s*$", text, re.M):
+            return False
+    new = set_ini_value(text, "config", "quick_exec", "1")
+    try:
+        os.makedirs(os.path.dirname(conf), exist_ok=True)
+        with open(conf, "w", encoding="utf-8") as fh:
+            fh.write(new)
+    except OSError as exc:
+        logger.warning("could not write %s: %s", conf, exc)
+        return False
+    return True
 
 
-def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=None):
+def label_height(conf=None):
+    """
+    Height of a two-line icon label in the desktop's font.
+
+    Args:
+        conf (str): desktop-items-0.conf (its [*] desktop_font).
+
+    Returns:
+        int: LABEL_HEIGHT for PibotoLt (bookworm), LABEL_HEIGHT_NUNITO else.
+    """
+    conf = conf or os.path.join(HOME, ".config/pcmanfm", pcmanfm_profile(), "desktop-items-0.conf")
+    try:
+        with open(conf, encoding="utf-8") as fh:
+            font = _ini_value(fh.read(), "desktop_font") or ""
+    except OSError:
+        font = ""
+    return LABEL_HEIGHT if "piboto" in font.lower() else LABEL_HEIGHT_NUNITO
+
+
+def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=None,
+                label=None, top=0):
     """
     Place the icons row by row on a WIDTHxHEIGHT screen.
 
@@ -315,6 +454,10 @@ def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=Non
         icon (int): Desktop icon size.
         grid (int): Grid spacing (default 110, touch 140).
         panel (int): Panel height (default 36, touch 64).
+        label (int): Height of a two-line label (default LABEL_HEIGHT).
+        top (int): Added to every y: the panel height where pcmanfm counts
+            from the top of the screen (trixie), 0 where it counts below
+            the panel.
 
     Returns:
         tuple: (positions, overflow): positions maps a name (or MORE_DIR) to
@@ -323,7 +466,7 @@ def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=Non
     panel = panel or (64 if touch else 36)
     min_grid = icon + 30
     grid = max(grid or (140 if touch else NORMAL_GRID), min_grid)
-    cell_h = icon + LABEL_HEIGHT
+    cell_h = icon + (label or LABEL_HEIGHT)
 
     def step_y(g):
         # rows never closer than icon + label: they would overlap
@@ -343,8 +486,10 @@ def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=Non
     if not is_small((width, height)):
         # left of Chromium (a tighter grid if need be), else as few columns
         # as possible
+        # the last column's labels end left of Chromium: they are wider
+        # than the icons (touch mode: they ran under the browser, T5)
         def cols_left(g):
-            return max(1, (CHROMIUM_X - MARGIN - (g - 10)) // g + 1)
+            return max(1, (CHROMIUM_X - MARGIN - max(g - 10, ITEM_WIDTH)) // g + 1)
         g = grid
         while len(names) > cols_left(g) * fit(g)[0] and g - 5 >= min_grid:
             g -= 5
@@ -361,7 +506,7 @@ def plan_layout(names, width, height, touch=False, icon=48, grid=None, panel=Non
         placed.append(MORE_DIR)
     positions = {}
     for i, name in enumerate(placed):
-        positions[name] = (MARGIN + (i % cols) * grid, MARGIN + (i // cols) * step_y(grid))
+        positions[name] = (MARGIN + (i % cols) * grid, top + MARGIN + (i // cols) * step_y(grid))
     return positions, overflow
 
 
@@ -382,7 +527,9 @@ def write_positions(conf, positions):
     sections = re.split(r"(?m)^(?=\[)", text)
     ours = {(n if n == MORE_DIR else n + ".desktop") for n in positions}
     ours |= {n + ".desktop" for n in ICON_ORDER} | {MORE_DIR}
-    kept = [s for s in sections if s.strip() and s.split("]", 1)[0][1:] not in ours]
+    # a removed catalogue demo's launcher leaves no stale entry either
+    kept = [s for s in sections if s.strip() and s.split("]", 1)[0][1:] not in ours
+            and not s.startswith("[" + CATALOGUE_PREFIX)]
     out = "".join(s if s.endswith("\n") else s + "\n" for s in kept)
     for name, (x, y) in positions.items():
         key = name if name == MORE_DIR else name + ".desktop"
@@ -391,21 +538,23 @@ def write_positions(conf, positions):
         fh.write(out)
 
 
-def sort_into_more(desktop, overflow):
+def sort_into_more(desktop, overflow, names=None):
     """
     Move the overflow launchers into Desktop/More and the rest back out.
 
-    Only RasQberry's own launchers (ICON_ORDER) are moved; a copy on the
-    desktop wins over one in the folder. An empty More folder is removed.
+    Only RasQberry's own launchers (ICON_ORDER) and catalogue launchers are
+    moved; a copy on the desktop wins over one in the folder. An empty More
+    folder is removed.
 
     Args:
         desktop (str): ~/Desktop.
         overflow (list): Names that go into the folder.
+        names (list): The launchers laid out (default ICON_ORDER).
     """
     more = os.path.join(desktop, MORE_DIR)
     if overflow:
         os.makedirs(more, exist_ok=True)
-    for name in ICON_ORDER:
+    for name in dict.fromkeys(list(names or ICON_ORDER) + list(overflow)):
         fname = name + ".desktop"
         on_desk, in_more = os.path.join(desktop, fname), os.path.join(more, fname)
         if name in overflow and os.path.exists(on_desk):
@@ -429,7 +578,7 @@ def present_launchers(desktop):
         desktop (str): ~/Desktop.
 
     Returns:
-        list: Names in ICON_ORDER order.
+        list: Names in ICON_ORDER order, then catalogue launchers by name.
     """
     found = []
     for name in ICON_ORDER:
@@ -437,7 +586,58 @@ def present_launchers(desktop):
         if os.path.exists(os.path.join(desktop, fname)) or \
                 os.path.exists(os.path.join(desktop, MORE_DIR, fname)):
             found.append(name)
-    return found
+    extra = set()
+    for folder in (desktop, os.path.join(desktop, MORE_DIR)):
+        try:
+            entries = os.listdir(folder)
+        except OSError:
+            continue
+        extra |= {f[:-len(".desktop")] for f in entries
+                  if f.startswith(CATALOGUE_PREFIX) and f.endswith(".desktop")}
+    return found + sorted(extra)
+
+
+def pcmanfm_profile(autostart=None):
+    """
+    The pcmanfm profile the desktop runs with.
+
+    Bookworm's labwc autostart starts "pcmanfm --desktop --profile LXDE-pi";
+    trixie's starts pcmanfm-pi, which runs "pcmanfm --desktop": the "default"
+    profile. The user's own autostart wins over the system one.
+
+    Args:
+        autostart (list): labwc autostart files to read (tests).
+
+    Returns:
+        str: Profile name.
+    """
+    files = autostart or [os.path.join(HOME, ".config/labwc/autostart"), "/etc/xdg/labwc/autostart"]
+    for path in files:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        if "pcmanfm" in text:
+            m = re.search(r"pcmanfm\b[^\n]*--profile[ =](\S+)", text)
+            return m.group(1).rstrip("&") if m else "default"
+    return "default"
+
+
+def layout_top(touch, profile=None):
+    """
+    What every icon's y gets added: the panel where pcmanfm counts from the top.
+
+    Args:
+        touch (bool): Touch mode (a taller panel).
+        profile (str): pcmanfm profile (default: the desktop's).
+
+    Returns:
+        int: Pixels.
+    """
+    if (profile or pcmanfm_profile()) in SCREEN_POSITION_PROFILES:
+        return 64 if touch else 36
+    return 0
 
 
 def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False):
@@ -456,11 +656,15 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         bool: True if a new layout was written.
     """
     desktop = desktop or os.path.join(HOME, "Desktop")
-    conf = conf or os.path.join(HOME, ".config/pcmanfm/LXDE-pi/desktop-items-0.conf")
+    profile = pcmanfm_profile()
+    conf = conf or os.path.join(HOME, ".config/pcmanfm", profile, "desktop-items-0.conf")
     record = record or os.path.join(HOME, ".config/rasqberry/desktop-layout")
     names = present_launchers(desktop)
     icon = libfm_icon_size()
-    key = json.dumps({"screen": list(size), "touch": touch, "icon": icon, "icons": names})
+    label = label_height(conf)
+    top = layout_top(touch, profile)
+    key = json.dumps({"screen": list(size), "touch": touch, "icon": icon, "icons": names,
+                      "label": label, "top": top})
     try:
         with open(record, encoding="utf-8") as fh:
             if fh.read().strip() == key and not force:
@@ -469,8 +673,9 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         pass
     spacing = env_value("TOUCH_DESKTOP_GRID_SPACING", "140")
     grid = (int(spacing) if spacing.isdigit() else 140) if touch else None
-    positions, overflow = plan_layout(names, size[0], size[1], touch=touch, icon=icon, grid=grid)
-    sort_into_more(desktop, overflow)
+    positions, overflow = plan_layout(names, size[0], size[1], touch=touch, icon=icon, grid=grid,
+                                      label=label, top=top)
+    sort_into_more(desktop, overflow, names)
     if os.path.isdir(os.path.dirname(conf)):
         write_positions(conf, positions)
     os.makedirs(os.path.dirname(record), exist_ok=True)
@@ -552,8 +757,20 @@ def main(argv):
         return 0 if size else 1
     if argv[:1] == ["--layout"] and len(argv) >= 3:
         w, h = (int(v) for v in argv[1].split("x"))
-        positions, _ = plan_layout(ICON_ORDER, w, h, touch="--touch" in argv)
+        touch = "--touch" in argv
+        positions, _ = plan_layout(ICON_ORDER, w, h, touch=touch, label=label_height(argv[2]),
+                                   top=layout_top(touch))
         write_positions(argv[2], positions)
+        return 0
+    if argv[:1] == ["--quick-exec"]:
+        # the image build (CONF given) and the first login: no "Execute File"
+        ensure_quick_exec(conf=argv[1] if len(argv) > 1 else None)
+        return 0
+    if argv[:1] == ["--relayout"]:
+        # a catalogue demo added or removed its launcher: into the grid now
+        size = screen_size()
+        if size and layout_desktop(size, touch_mode_on()):
+            run_quietly(["pcmanfm", "--reconfigure"])
         return 0
     reset_chromium_exit()
     touch = touch_mode_on()
@@ -561,11 +778,13 @@ def main(argv):
     size = screen_size()
     small = bool(size and is_small(size))
     set_small_screen_flag(small)
+    reload_pcmanfm = ensure_quick_exec()
     if size:
         if set_chromium_rule(small) and os.environ.get("LABWC_PID"):
             run_quietly(["labwc", "--reconfigure"])
-        if layout_desktop(size, touch):
-            run_quietly(["pcmanfm", "--reconfigure"])
+        reload_pcmanfm = layout_desktop(size, touch) or reload_pcmanfm
+    if reload_pcmanfm:
+        run_quietly(["pcmanfm", "--reconfigure"])
     if "--no-browser" not in argv:
         start_browser(small)
     return 0

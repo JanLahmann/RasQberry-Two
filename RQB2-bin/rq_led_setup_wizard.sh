@@ -71,7 +71,7 @@ WORKDIR="$(mktemp -d)"
 # Render errors go here, never to the terminal: the logo alternator runs in the
 # background while a whiptail question is on screen, and its warnings were
 # printed straight across the dialog.
-WIZ_LOG="/var/log/rasqberry-led-wizard.log"
+WIZ_LOG="${RQ_WIZ_LOG:-/var/log/rasqberry-led-wizard.log}"
 ANSWERS_FILE="${WORKDIR}/answers.json"
 
 # Render-hold state (fix F1, plan Sec 7): in the default LED_RENDER_MODE=direct
@@ -82,6 +82,16 @@ ANSWERS_FILE="${WORKDIR}/answers.json"
 # writes its frame to the mmap and the renderer latches it. RENDERER_PID is set
 # only while we own a renderer we started ourselves.
 RENDERER_PID=""
+
+# The mode every probe, logo and the address scroll draw in while the
+# render-hold is up (hold_env). Not the exported LED_RENDER_MODE alone: saving
+# a setting (update_env_var) reloads the env file, and its "direct" replaced
+# "service" while the renderer still held the panel. The address scroll after
+# "Saved" and the last clears then opened the panel themselves: on a Pi 5 the
+# scroll could not start (#7); on a Pi 4 two drivers shared the PWM, and the
+# one that stopped first left the other's DMA transfer hanging, so the next
+# LED demo stayed dark for its whole run (#1).
+HOLD_MODE=""
 
 # Answer variables (populated by the walkthrough)
 ARRANGEMENT=""
@@ -120,6 +130,7 @@ cleanup() {
     # word here the wizard appears to sit silently and then vanish.
     echo "Clearing the panel and finishing up..."
     stop_logo_alternator 2>/dev/null || true
+    stop_ip_scroll 2>/dev/null || true
     run_probe clear || true
     stop_render_hold
     reap_virtual_gui
@@ -143,13 +154,13 @@ reap_virtual_gui() {
 # Render-hold (fix F1): keep the probe pattern lit across the whiptail prompt.
 #
 # start_render_hold launches the persistent renderer (the sole GPIO writer) and
-# exports LED_RENDER_MODE=service so every subsequent probe writes its frame to
-# the mmap instead of opening/closing GPIO itself. The renderer latches the last
-# frame, so the pattern stays lit while the operator answers the dialog.
+# sets HOLD_MODE=service so every subsequent probe (hold_env) writes its frame
+# to the mmap instead of opening/closing GPIO itself. The renderer latches the
+# last frame, so the pattern stays lit while the operator answers the dialog.
 #
 # Only needed when the system is in the default direct mode: if it is already in
 # service mode a renderer (systemd service) is already latching frames, so we
-# leave it alone. The override is a process-local env var - the root-owned env
+# leave it alone. The override lives in this process only - the root-owned env
 # file is never touched, so there is nothing persistent to restore on exit.
 # ----------------------------------------------------------------------------
 start_render_hold() {
@@ -171,8 +182,13 @@ start_render_hold() {
     fi
 
     # Route probes through the mmap so the renderer latches each frame.
-    export LED_RENDER_MODE=service
+    HOLD_MODE=service
     debug "Render-hold active: probe patterns stay lit across each prompt."
+}
+
+# Run a drawing child in the render-hold's mode (see HOLD_MODE)
+hold_env() {
+    LED_RENDER_MODE="${HOLD_MODE:-${LED_RENDER_MODE:-direct}}" "$@"
 }
 
 # Ask a child to stop, but never hang waiting for it: SIGTERM, give it a moment,
@@ -205,7 +221,7 @@ stop_render_hold() {
         kill_child_bounded "${RENDERER_PID}"
         RENDERER_PID=""
     fi
-    unset LED_RENDER_MODE 2>/dev/null || true
+    HOLD_MODE=""
 }
 
 # ----------------------------------------------------------------------------
@@ -215,7 +231,7 @@ stop_render_hold() {
 run_probe() {
     local pattern="$1"; shift || true
     local count="${UPPER_BOUND:-192}"
-    python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
+    hold_env python3 "${PROBE}" --pattern "${pattern}" --count "${count}" \
         --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
         || echo "$(date '+%F %T') probe pattern '${pattern}' failed to render" >> "${WIZ_LOG}"
 }
@@ -233,7 +249,7 @@ run_logo() {
     # A path is a custom layout the wizard has not saved yet (--layout-file)
     local src=(--layout "${layout}")
     case "${layout}" in /*) src=(--layout-file "${layout}") ;; esac
-    python3 "${PROBE}" --pattern logo "${src[@]}" --color "${color}" \
+    hold_env python3 "${PROBE}" --pattern logo "${src[@]}" --color "${color}" \
         --count "${count}" --brightness "${PROBE_BRIGHTNESS}" "$@" 2>>"${WIZ_LOG}" \
         || echo "$(date '+%F %T') logo render failed for layout '${layout}'" >> "${WIZ_LOG}"
 }
@@ -480,24 +496,20 @@ EOF
 # Diagnostic-only mode: infer, compare against current config, report, no write.
 # ----------------------------------------------------------------------------
 run_diagnostic() {
-    local json inferred count current
+    local json inferred count
     if ! json=$(python3 "${INFER}" "${INFER_SRC_ARGS[@]}" --json 2>"${WORKDIR}/err"); then
         show_msgbox "Check Failed" "$(cat "${WORKDIR}/err")"
         return 1
     fi
     inferred=$(printf '%s' "${json}" | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' | head -1)
     count=$(printf '%s' "${json}" | sed -n 's/.*"count": *\([0-9]*\).*/\1/p' | head -1)
-    current="${LED_LAYOUT:-<unset>}"
 
     show_msgbox "LED Wiring Check" \
-"From what you saw:
-  layout : ${inferred}
-  LEDs   : ${count}
+"From what you saw: $(rq_led_layout_name "${inferred}") (${count} LEDs)
 
-Saved now:
-  LED_LAYOUT = ${current}
+Saved now: $(rq_led_layout_name "${LED_LAYOUT:-}")
 
-Nothing was changed. To save it, run the wizard again and choose the first option." 15 66
+Nothing was changed. To save it, run the wizard again and choose the first option." 14 66
 }
 
 # ----------------------------------------------------------------------------
@@ -532,19 +544,52 @@ $(cat "${WORKDIR}/err")"
     update_env_var "LED_LAYOUT" "${name}"
     mark_layout_verified
 
+    # The address scroll in the saved layout while the message is up: the
+    # person sees it readable now, not only at the next start (#29)
+    local plain scroll_note=""
+    plain=$(rq_led_layout_name "${name}")
+    start_ip_scroll && scroll_note="
+The panel shows this Pi's address once, in this layout."
     if [ "${status}" = "PRESET" ]; then
         show_msgbox "LED Panel Set Up" \
-"Saved: LED_LAYOUT = ${name}
-
-LED demos use it from their next start." 11 60
+"Saved: ${plain}
+${scroll_note}
+LED demos use it from their next start." 12 64
     else
         show_msgbox "LED Panel Set Up" \
 "No built-in layout matched, so yours was saved as a custom layout (in ~/.local/config/led-layouts.json):
 
-  LED_LAYOUT = ${name}
-
-LED demos use it from their next start." 13 66
+  ${plain}
+${scroll_note}
+LED demos use it from their next start." 14 66
     fi
+    stop_ip_scroll
+}
+
+# ----------------------------------------------------------------------------
+# One pass of the start-up address scroll (rq_display_ip.py --once) in the
+# layout just saved, in the background while the "Saved" message is up (#29).
+# It draws through the render-hold renderer like every probe, so it holds no
+# GPIO of its own; stop_ip_scroll ends it (bounded) and clears the panel, so
+# nothing is left on the panel or holding it for the next demo.
+# ----------------------------------------------------------------------------
+IP_SCROLL_PID=""
+start_ip_scroll() {
+    local disp="${SCRIPT_DIR}/rq_display_ip.py"
+    [ -f "${disp}" ] || return 1
+    # hold_env written out: a function in the background would be a subshell,
+    # and $! its PID, not the scroll's
+    LED_RENDER_MODE="${HOLD_MODE:-${LED_RENDER_MODE:-direct}}" \
+        python3 "${disp}" --once >>"${WIZ_LOG}" 2>&1 &
+    IP_SCROLL_PID=$!
+    return 0
+}
+stop_ip_scroll() {
+    local pid="${IP_SCROLL_PID}"
+    [ -n "${pid}" ] || return 0
+    IP_SCROLL_PID=""
+    kill_child_bounded "${pid}"
+    run_probe clear || true
 }
 
 # ----------------------------------------------------------------------------
@@ -806,6 +851,10 @@ verify_layout() {
 # ============================================================================
 main() {
     activate_venv >/dev/null 2>&1 || warn "venv not active; probes may fail if hardware libs are missing"
+
+    # The on-screen LED view shows each logo in the layout it is drawn
+    # through, while this check runs (rq_led_wizard_probe.py tell_views)
+    export RQ_LED_VIEW_OWNER="$$"
 
     # The LED panel check (setup checklist, LED menu)
     if [ "${1:-}" = "--verify" ]; then

@@ -226,6 +226,23 @@ docker_usable() {
     command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
 }
 
+# A Docker demo on a small card (16 GB; Docker demos need 32 GB or more): say
+# so first, as a note, and stop before anything is downloaded. It printed the
+# beta invitation, then "ERROR: Not enough free space ... remove demos" and a
+# bug-report line (user test 2026-10-07, S2). install.docker_image_of names
+# the demo whose image a launcher-only demo runs (Qiskit Tutorials on this Pi).
+stop_if_card_too_small() {
+    local src="$DEMO_ID" mf="$MANIFEST_FILE"
+    rq_small_card || return 0
+    src=$(get_field '.install.docker_image_of' "$DEMO_ID")
+    if [ "$src" != "$DEMO_ID" ]; then
+        mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$src") || return 0
+    fi
+    [ "$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null)" = docker ] || return 0
+    docker_usable || return 0      # (the launcher explains)
+    rq_stop_if_card_too_small "$DEMO_TITLE" "$(rq_demo_image "$src" "$mf")"
+}
+
 # Check if demo is installed
 check_installed() {
     local marker_file working_dir preinstalled installed_flag image
@@ -471,14 +488,38 @@ checkout_present() {
     fi
 }
 
-# Download the demo's Docker image (a docker demo with nothing else to install)
+# Download the demo's Docker image (a docker demo with nothing else to install).
+# One progress line, not Docker's list of layers (#23); a failed download
+# stops with Docker's reason (rq_docker_pull). A pinned digest the registry no
+# longer offers falls back to the manifest's docker_image_fallback tag.
 install_docker_image() {
     local image="$1"
     docker_usable || die "Docker is not available, so $DEMO_ID cannot be downloaded (the image may be misbuilt)."
-    info "Downloading the Docker image $image. This takes several minutes..."
-    if ! docker pull "$image"; then
-        die "Could not download the Docker image $image. Check the internet connection and the free space, then try again."
-    fi
+    rq_demo_docker_pull "$DEMO_ID" "$image" "$DEMO_TITLE" \
+        "$(get_field '.install.download.download_mb' '')" "$MANIFEST_FILE"
+}
+
+# The demo shares its download with another one (install.download.shares)
+# that is already on this Pi: print that demo's name. IBM Quantum Courses
+# asked to download what Tutorials had just fetched (Pi 4 user test
+# 2026-10-07, F5); only a welcome notebook is left to set up.
+shared_download_present() {
+    local shares mfdir
+    shares=$(get_field '.install.download.shares' '')
+    [ -n "$shares" ] || return 1
+    mfdir=$(dirname "$MANIFEST_FILE")
+    local name wd marker
+    while IFS=$'\t' read -r name wd marker; do
+        [ -n "$wd" ] && [ -n "$marker" ] || continue
+        if [ -f "$USER_HOME/$REPO/demos/$wd/$marker" ]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done < <(jq -r --arg s "$shares" --arg id "$DEMO_ID" \
+        'select(.install.download.shares == $s and .id != $id)
+         | [(.name // .id), (.entrypoint.working_dir // ""), (.install.marker_file // "")] | @tsv' \
+        "$mfdir"/*.json 2>/dev/null)
+    return 1
 }
 
 # Ensure demo is installed; on its first start, ask (one dialog with size,
@@ -489,7 +530,12 @@ ensure_installed() {
         return 0
     fi
 
-    rq_require_demo_consent "$DEMO_ID" "$MANIFEST_FILE"
+    local sharer
+    if sharer=$(shared_download_present); then
+        info "$DEMO_TITLE uses what was downloaded for $sharer: nothing to download."
+    else
+        rq_require_demo_consent "$DEMO_ID" "$MANIFEST_FILE"
+    fi
 
     # A demo whose setup cannot be expressed as "clone a repo" names its own
     # installer instead. The IBM learning pair is the live case: one shared
@@ -594,6 +640,7 @@ run_jupyter() {
         --NotebookApp.password='' \
         --NotebookApp.open_browser=False \
         --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
+        --NotebookApp.show_banner=False \
         2>&1 &
     JUPYTER_PID=$!
 
@@ -669,28 +716,23 @@ run_docker() {
 
     CONTAINER_NAME="$container_name"
 
-    # Stop any existing container
+    # Stop any existing container, and remove a stopped one an earlier run kept
+    # for its log
     info "Checking for existing containers..."
-    if docker ps -q --filter name="$CONTAINER_NAME" 2>/dev/null | grep -q .; then
-        info "Stopping existing container..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null || true
-    fi
-    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+    rq_docker_stop "$CONTAINER_NAME" 10 || true
 
     # Check if image exists locally; pull from the registry if it is absent.
     # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
     # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
     # are already present, so this pull is skipped entirely and their build
-    # path stays untouched. If a pull is attempted but fails (image not on a
-    # registry, offline, etc.) we fall back to the original "build it first"
-    # error. run_docker() uses plain info/die messages (no whiptail dialogs),
-    # so progress is reported with info.
+    # path stays untouched. The pull shows one progress line (#23); if it
+    # fails (image not on a registry, offline, no space) it stops with
+    # Docker's reason. run_docker() uses plain info/die messages (no whiptail
+    # dialogs).
     if ! docker images -q "$docker_image" 2>/dev/null | grep -q .; then
-        info "Docker image not found locally: $docker_image"
-        info "Attempting to pull from registry (this may take a while)..."
-        if ! docker pull "$docker_image"; then
-            die "Docker image not found: $docker_image. Please build it first."
-        fi
+        rq_demo_docker_pull "$DEMO_ID" "$docker_image" "$DEMO_TITLE" \
+            "$(get_field '.install.download.download_mb' '')" "$MANIFEST_FILE"
+        docker_image="$RQ_DOCKER_PULLED"
     fi
 
     # Find an available HOST port. The container-side port stays at the
@@ -699,26 +741,28 @@ run_docker() {
     local host_port
     host_port=$(find_available_port "$docker_port")
 
-    # Start container
+    # Start container. Without --rm: a container that stops right away keeps
+    # its log for rq_docker_fail, which --rm had already removed (R-109). Its
+    # window's stop and the next start remove it (rq_docker_stop).
     info "Starting container: $CONTAINER_NAME"
     if ! docker run -d \
         --name "$CONTAINER_NAME" \
-        --rm \
         --label "org.rasqberry.demo=$DEMO_ID" \
         -p "${host_port}:${docker_port}" \
-        "$docker_image"; then
-        die "Failed to start Docker container"
+        "$docker_image" >/dev/null; then
+        rq_docker_fail "$CONTAINER_NAME" "The $DEMO_TITLE container did not start."
     fi
+    # A window closed while it starts stops it too
+    if [ -t 0 ] && [ -t 1 ]; then DOCKER_STOP_ON_EXIT=1; fi
 
-    # Wait for container to start
+    # Give it a few seconds; a container that stops in them failed (its log
+    # is saved first)
     info "Waiting for container to start..."
-    sleep 5
-
-    # Verify container is running
-    if ! docker ps --filter name="$CONTAINER_NAME" --filter status=running | grep -q "$CONTAINER_NAME"; then
-        docker logs "$CONTAINER_NAME" 2>&1 | tail -20
-        die "Container failed to start"
-    fi
+    for _ in 1 2 3 4 5; do
+        sleep 1
+        rq_docker_running "$CONTAINER_NAME" \
+            || rq_docker_fail "$CONTAINER_NAME" "$DEMO_TITLE stopped right after it started."
+    done
 
     local url="http://127.0.0.1:${host_port}"
     echo
@@ -846,20 +890,16 @@ run_web_static() {
 
 # Python script launcher
 run_python() {
-    local working_dir script launcher needs_leds demo_dir venv_python
+    local working_dir script launcher needs_leds keyboard demo_dir venv_python
 
     working_dir=$(demo_field '.entrypoint.working_dir' '')
     script=$(demo_field '.entrypoint.script' '')
     launcher=$(demo_field '.entrypoint.launcher' '')
     needs_leds=$(demo_field '.needs_hw.leds' 'false')
-
-    # Terminal demos run until stopped; say how (#104). The demo has the
-    # keyboard, so Ctrl+C or closing the window (items 5, 33). LED demos re-run
-    # this launcher as root, so only that pass prints it.
-    if [ -t 1 ] && { [ "$needs_leds" != "true" ] || [ "$(id -u)" = "0" ]; }; then
-        rq_stop_hint "$DEMO_TITLE" keys
-        echo
-    fi
+    # A demo that asks questions in its window (entrypoint.keyboard: Raspberry
+    # Tie on a real backend asks for an IBM Quantum key) keeps the keyboard and
+    # stops with Ctrl+C. Every other one stops with Enter too (items 4, 8).
+    keyboard=$(demo_field '.entrypoint.keyboard' 'false')
 
     # A dedicated launcher WINS when the manifest declares one: it exists
     # precisely because the demo needs pre-launch work the generic path cannot do
@@ -898,6 +938,15 @@ run_python() {
     # Change to demo directory
     cd "$demo_dir"
 
+    # How it runs in this window (LED demos re-run this launcher as root, so
+    # only that pass shows the stop line): rq_run_demo reads Enter for it;
+    # a demo that needs the keyboard runs in front, Ctrl+C stops it (#104)
+    local -a run=(rq_run_demo "$DEMO_TITLE")
+    if [ "$keyboard" = "true" ]; then
+        run=()
+        [ -t 1 ] && { rq_stop_hint "$DEMO_TITLE" keys; echo; }
+    fi
+
     # Put the demo API on sys.path. A demo runs from its own checkout, and
     # /usr/bin - where rq_led_utils.py ships - is not a Python path, so
     # "from rq_led_utils import get_led_config" fails there even though we ask
@@ -920,6 +969,7 @@ run_python() {
         # Ctrl+C, a closed window: the panel is cleared in cleanup() (R-158)
         LED_DEMO_RAN=1
         RQ_LED_RUN_START=$(date +%s)
+        RQ_LED_THROTTLED_START=$(rq_throttled)
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -928,13 +978,14 @@ run_python() {
         # HOME: the desktop user's, from the menu (where sudo set /root) as from
         # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
         # user's own in ~/.qiskit on every path (Q26).
-        HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" PYTHONDONTWRITEBYTECODE=1 \
+        ${run[@]+"${run[@]}"} env HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" \
+            PYTHONDONTWRITEBYTECODE=1 \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
         # PYTHONPATH has to travel through env(1) rather than an export.
         info "Running Python script..."
-        run_as_user env PYTHONPATH="$demo_pythonpath" \
+        ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }
@@ -1038,6 +1089,14 @@ cleanup() {
     trap '' HUP INT TERM
     debug "Running cleanup..."
 
+    # The demo program (rq_run_demo), before its LEDs are cleared
+    rq_stop_demo_child
+    # Its browser tab, before the server goes (no "Dead kernel" left, #9);
+    # a container that keeps running (no window) keeps its tab
+    if [ -n "$JUPYTER_PID$HTTP_SERVER_PID" ] || [ "$DOCKER_STOP_ON_EXIT" = "1" ]; then
+        rq_close_demo_tabs
+    fi
+
     # Stop Jupyter if running
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then
         info "Stopping Jupyter server..."
@@ -1083,7 +1142,7 @@ cleanup() {
         led_clear_quietly
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
-        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+        [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
     fi
 }
 
@@ -1123,6 +1182,24 @@ Examples:
 Available demos can be found in: /usr/config/demo-manifests/
 
 EOF
+}
+
+# Does this demo only run as one of its variants? (variants, and no type or
+# launcher of its own)
+needs_a_variant() {
+    jq -e '(.variants // []) != []
+           and ((.entrypoint.type // "") == "" or .entrypoint.type == "script")
+           and ((.entrypoint.launcher // "") == "")' "$MANIFEST_FILE" >/dev/null 2>&1
+}
+
+# The demo's variants as commands, one per line after a ":" (for messages)
+variant_list() {
+    local name
+    name=$(basename "$0")
+    jq -e '(.variants // []) != []' "$MANIFEST_FILE" >/dev/null 2>&1 || return 0
+    printf ':\n'
+    jq -r --arg cmd "$name $DEMO_ID" '.variants[] | "  \($cmd) \(.id)\t(\(.name))"' \
+        "$MANIFEST_FILE" | expand -t 44
 }
 
 # Re-run this engine as the desktop user when it runs as root for a demo that
@@ -1187,7 +1264,7 @@ main() {
         local variant_exists
         variant_exists=$(jq -r ".variants[] | select(.id == \"$VARIANT\") | .id // null" "$MANIFEST_FILE" 2>/dev/null)
         if [ "$variant_exists" = "null" ] || [ -z "$variant_exists" ]; then
-            die "Unknown variant: $VARIANT"
+            die "Unknown variant: $VARIANT$(variant_list)"
         fi
     fi
 
@@ -1197,6 +1274,16 @@ main() {
     if [ "$IS_INSTALLED_CHECK" = "1" ]; then
         check_installed && exit 0
         exit 1
+    fi
+
+    # A demo that is only a set of variants (LED Demos) needs one to start.
+    # Without it, this stopped with "No entrypoint.type or entrypoint.launcher"
+    # (R-103): in a terminal, offer the list; otherwise name the variants.
+    if [ -z "$VARIANT" ] && [ "$INSTALL_ONLY" = "0" ] && needs_a_variant; then
+        if [ -t 0 ] && [ -t 1 ] && command -v whiptail >/dev/null 2>&1; then
+            exec "$SCRIPT_DIR/rq_demo_choose.sh" "$DEMO_ID"
+        fi
+        die "$(get_field '.name' "$DEMO_ID") has several parts. Start one of them$(variant_list)"
     fi
 
     # Demos that do not drive the LED panel run as the desktop user (Q26).
@@ -1230,6 +1317,9 @@ main() {
     trap 'exit 129' HUP
     trap 'exit 130' INT
     trap 'exit 143' TERM
+
+    # A Docker demo on a small card: a note, also for an install from the menu
+    stop_if_card_too_small
 
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The

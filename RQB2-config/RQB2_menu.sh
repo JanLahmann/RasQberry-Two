@@ -315,12 +315,15 @@ clone_ibm_learning_content() {
     # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
     _ibm_ref="${GIT_REF_DEMO_IBM_LEARNING:-main}"
     [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+    # Only what the demos use (#18): in cone mode git also checks out every
+    # file at the top of the repository (package.json, tox.ini ...), and the
+    # notebooks' file browser showed those first. The same list as
+    # RQ_IBM_LEARNING_PATHS in rq_common.sh.
     if ! _rq_as_desktop_user sh -c '
         cd "$1" &&
         git init -q &&
         git remote add origin "$2" &&
-        git sparse-checkout init --cone &&
-        git sparse-checkout set docs/tutorials docs/guides/hello-world.ipynb learning/courses LICENSE LICENSE-DOCS &&
+        git sparse-checkout set --no-cone /docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS &&
         git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 fetch -q --depth=1 origin "$3" &&
         git checkout -q FETCH_HEAD' _ "$DEST" "$GIT_REPO_DEMO_IBM_LEARNING" "$_ibm_ref" \
         || ! _rq_ibm_content_ok "$DEST"; then
@@ -606,7 +609,7 @@ _rq_demo_hangup() {
     sleep 1
     kill -KILL -"$LAST_DEMO_PGID" 2>/dev/null
   fi
-  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off >/dev/null 2>&1
+  [ -n "${_RQ_LED_RUN:-}" ] && do_led_off --close-window >/dev/null 2>&1
   exit 129
 }
 
@@ -647,7 +650,7 @@ stop_last_demo() {
     whiptail --title "Stop Demo" --msgbox "No demo is running." 8 50
     return 0
   fi
-  if do_led_off; then
+  if do_led_off --close-window; then
     whiptail --title "Stop Demo" --msgbox "Stopped. The LEDs are off." 8 50
   else
     whiptail --title "Stop Demo" --msgbox \
@@ -725,17 +728,13 @@ run_qlo_demo() {
     # a failure leaves its reason for handle_error
     do_qlo_install
     case $? in 0) ;; 2) return 0 ;; *) return 1 ;; esac
-    # Launch appropriate mode.
-    #
-    # The console variant IS played in the terminal, so it runs in the
-    # foreground. The default variant plays on the LEDs and its stdout is just
-    # noise - the solver's progress and Qiskit's deprecation warnings - so it
-    # goes to the log under the stop dialog.
-    # run_led_demo checks the panel is free and turns the LEDs off afterwards
+    # Through the demo engine, as from its desktop icon: one plain line per
+    # step in this window, and Enter or Ctrl+C stops it (#8, #13). The engine
+    # checks that the panel is free and clears it afterwards.
     if [ "$MODE" = "console" ]; then
-        run_led_demo "Quantum Lights Out Demo (console)" "$DEMO_DIR" python3 lights_out.py --console
+        run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out console
     else
-        run_led_demo bg "Quantum Lights Out Demo" "$DEMO_DIR" python3 lights_out.py
+        run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-lights-out
     fi
 }
 
@@ -746,8 +745,9 @@ run_grok_bloch_demo() {
 
 # Run grok-bloch web version (no installation needed)
 run_grok_bloch_web_demo() {
-    # Check if chromium-browser is available
-    if ! command -v chromium-browser >/dev/null 2>&1; then
+    # Check if Chromium is available (`chromium`: bookworm has it next to the
+    # chromium-browser link, trixie has only `chromium`)
+    if ! command -v chromium >/dev/null 2>&1; then
         whiptail --title "Browser Not Found" --msgbox \
             "Chromium browser is not installed.\n\nThe web version requires a web browser." \
             10 60
@@ -761,9 +761,9 @@ run_grok_bloch_web_demo() {
     # Launch browser with web version (as user if running as root)
     GROK_URL="https://javafxpert.github.io/grok-bloch/"
     if [ "$(whoami)" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
+        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
     else
-        chromium-browser --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
+        chromium --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
     fi
 }
 
@@ -845,10 +845,23 @@ do_remove_demo() {
     return 1
 }
 
-# Run continuous demo loop for conference showcases
+# Run continuous demo loop for conference showcases. Which demos it shows can
+# be chosen (Jan, 2026-10-05); the Demo Loop icon starts the chosen ones.
 run_demo_loop() {
-    # Launch the demo loop script
-    "$BIN_DIR/rq_demo_loop.sh"
+    _dl_last=""
+    while true; do
+        _dl_now=$("$BIN_DIR/rq_demo_loop.sh" --demos 2>/dev/null) || _dl_now=""
+        _dl=$(show_menu ${_dl_last:+--default-item "$_dl_last"} "RasQberry: Demo Loop" \
+            "Shows LED demos one after another, for a stand.\nNow: ${_dl_now:-all demos}" \
+            START  "Start the demo loop" \
+            CHOOSE "Choose the demos") || return 0
+        _dl_last="$_dl"
+        case "$_dl" in
+            START)  "$BIN_DIR/rq_demo_loop.sh"; return $? ;;
+            CHOOSE) "$BIN_DIR/rq_demo_loop.sh" --choose ;;
+            *)      return 0 ;;
+        esac
+    done
 }
 
 # Add an external demo from the curated registry (known-demos.json).
@@ -1062,10 +1075,13 @@ do_rqb_qiskit_menu() {
 # turn_off_LEDs.py exits 1 when the panel could not be cleared ("GPIO busy"
 # while another program holds it); its message is kept for handle_error, so a
 # failure is reported as one (R-148).
+# --close-window: the demo has ended, so the on-screen LED view it opened
+# closes too, as after a demo from a desktop icon (Pi 4 user test 2026-10-07
+# F6: the view stayed open after the Quick LED Test, also after raspi-config).
 do_led_off() {
   _lo_out=$(
     [ -f "$VENV_ACTIVATE" ] && . "$VENV_ACTIVATE"
-    python3 "$BIN_DIR/turn_off_LEDs.py" 2>&1
+    python3 "$BIN_DIR/turn_off_LEDs.py" "$@" 2>&1
   )
   _lo_rc=$?
   if [ "$_lo_rc" -ne 0 ]; then
@@ -1104,19 +1120,22 @@ _rq_led_ready() {
 run_led_demo() {
   _rq_led_ready || return 0
   _rld_start=$(date +%s)
+  # what the Pi reported before the demo: the stall check counts only new bits (#6)
+  _rld_thr=$(vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p')
   _RQ_LED_RUN=1
   run_demo "$@"
   _rld_rc=$?
   _RQ_LED_RUN=""
   _rld_err="${RQ_LAST_DEMO_ERROR:-}"
-  do_led_off >/dev/null 2>&1
-  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" 2>/dev/null || :
+  do_led_off --close-window >/dev/null 2>&1
+  "$BIN_DIR/rq_led_brightness.sh" --after-stall "$_rld_start" "$_rld_thr" 2>/dev/null || :
   RQ_LAST_DEMO_ERROR="$_rld_err"
   return "$_rld_rc"
 }
 
 # "Turn off all LEDs" / "Clear LEDs": a program that still holds the panel is
-# named and, if the person agrees, stopped first. Says so when it fails.
+# named and, if the person agrees, stopped first. Says so when it fails, and
+# when it worked (#29: the menu came straight back without a word).
 do_led_clear() {
   _lc_h=$(_rq_led_holders)
   if [ -n "$_lc_h" ]; then
@@ -1129,7 +1148,8 @@ do_led_clear() {
     fi
     "$BIN_DIR/rq_clear_leds.sh" --stop >/dev/null 2>&1
   fi
-  do_led_off
+  do_led_off || return 1
+  whiptail --title "LEDs" --msgbox "All LEDs are off." 8 40
 }
 
 # -----------------------------------------------------------------------------
@@ -1274,7 +1294,10 @@ do_select_led_option() {
                 run_led_demo bg "Quick LED Test" "$BIN_DIR" python3 rq_test_leds.py || { handle_error "Quick LED test failed."; continue; }
                 ;;
             test )
-                run_led_demo "LED Test" "$BIN_DIR" bash rq_led_test.sh || { handle_error "LED test failed."; continue; }
+                # one stop line (Enter or Ctrl+C), and its result stays readable
+                run_engine_demo "$BIN_DIR/rq_demo_run.sh" led-demos led-test \
+                    || { handle_error "LED test failed."; continue; }
+                _rq_pause
                 ;;
             simple )
                 run_led_demo bg "Simple LED Demo" "$BIN_DIR" python3 rq_led_simpletest.py || { handle_error "Simple LED demo failed."; continue; }
@@ -1308,7 +1331,8 @@ do_select_led_option() {
 do_select_qlo_option() {
     _qlo_last=""
     while true; do
-        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" "Options" \
+        FUN=$(show_menu ${_qlo_last:+--default-item "$_qlo_last"} "RasQberry: Quantum Lights Out" \
+           "Grover's search solves Lights Out puzzles, one after another. Watch it on the LED panel, or as text in this window." \
            QLO  "Run Demo (LED panel)" \
            QLOC "Run Demo (console)") || break
         _qlo_last="$FUN"
@@ -1477,6 +1501,8 @@ _rq_demo_label() {
 # Enter moved through the text instead of pressing Ok and the last line was
 # hidden) nor touches the right edge; Esc is not an error. Where the terminal
 # is too small for the box, the text is printed with a "press Enter" line.
+# $1 = window: opened from the taskbar badge in its own window, which Enter
+# closes (there is no menu to return to).
 do_show_system_info() {
   _si_text=""
   if [ -x /usr/bin/rq_info.sh ]; then
@@ -1500,7 +1526,11 @@ For a bug report: rq_info.sh --report (saves the logs to a file)"
   else
     clear
     printf '%s\n\n' "$_si_text"
-    printf 'Press Enter to return to the menu.'
+    if [ "${1:-}" = window ]; then
+      printf 'Press Enter to close this window.'
+    else
+      printf 'Press Enter to return to the menu.'
+    fi
     read -r _si_dummy </dev/tty
   fi
   return 0
@@ -1587,8 +1617,8 @@ do_led_output_menu() {
 
   SEL=$(whiptail --title "LED Output Targets" --checklist \
     "Choose where LED output appears.\nSpace toggles an item, Tab to <Ok>, Enter confirms." 12 74 3 \
-    PHYSICAL "Physical LED strip" "$(on_state "$cur_phys")" \
-    VIRTUAL  "On-screen virtual matrix (GUI window)" "$(on_state "$cur_virt")" \
+    PHYSICAL "LED panel" "$(on_state "$cur_phys")" \
+    VIRTUAL  "On-screen view (a window on the desktop)" "$(on_state "$cur_virt")" \
     WEB      "Browser view (http://<pi>:${web_port})" "$(on_state "$cur_web")" \
     3>&1 1>&2 2>&3) || return 0
 
@@ -1606,7 +1636,7 @@ do_led_output_menu() {
   # Guard against turning EVERYTHING off (no output anywhere) - keep the strip.
   if [ "$new_phys" = "false" ] && [ "$new_virt" = "false" ] && [ "$new_web" = "false" ]; then
     whiptail --title "LED Output Targets" --msgbox \
-      "At least one output target is required.\n\nKeeping the physical LED strip enabled." 9 66
+      "At least one output target is required.\n\nKeeping the LED panel switched on." 9 66
     new_phys="true"
   fi
 
@@ -1614,6 +1644,13 @@ do_led_output_menu() {
   [ "$new_phys" != "$cur_phys" ] && update_environment_file "LED_PHYSICAL" "$new_phys"
   [ "$new_virt" != "$cur_virt" ] && update_environment_file "LED_VIRTUAL" "$new_virt"
   [ "$new_web" != "$cur_web" ] && update_environment_file "LED_WEB" "$new_web"
+
+  # Off: stop the browser view now. It went on serving the panel to the
+  # network on its port after WEB was turned off (#22).
+  if [ "$new_web" != "true" ]; then
+    PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
+      'import rq_led_utils; rq_led_utils.stop_virtual_led_web()' 2>/dev/null || true
+  fi
 
   # When the browser view is on, start it now and show the URL so the user does
   # not have to launch a demo first just to discover the address.
@@ -1877,14 +1914,19 @@ ab_yesno() {
     fi
 }
 
-# ab_menu <title> <text> <tag> <item>... ; prints the chosen tag.
-# AB_MENU_DEFAULT=<tag> puts the cursor on that item.
+# ab_menu [--tags] <title> <text> <tag> <item>... ; prints the chosen tag.
+# AB_MENU_DEFAULT=<tag> puts the cursor on that item. The tags are internal
+# ids (UPDATE, TRYBOOT_B, ...), so they are hidden as in show_menu (user
+# test #16); --tags shows them where the tag IS the information (the list of
+# releases, whose tags are the release names).
 ab_menu() {
+    _ab_notags="--notags"
+    [ "$1" = "--tags" ] && { _ab_notags=""; shift; }
     _ab_title="$1"; _ab_text="$2"; shift 2
     _ab_n=$(($# / 2))
     _ab_w=$(ab_width)
     _ab_hh=$(ab_box_height "$_ab_text" "$_ab_w" $((_ab_n + 7)))
-    whiptail --title "$_ab_title" --default-item "${AB_MENU_DEFAULT:-}" \
+    whiptail --title "$_ab_title" $_ab_notags --default-item "${AB_MENU_DEFAULT:-}" \
         --menu "$_ab_text" "$_ab_hh" "$_ab_w" "$_ab_n" "$@" 3>&1 1>&2 2>&3
 }
 
@@ -2057,7 +2099,7 @@ do_ab_boot_menu() {
 
 ab_pick_image() {
     local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
-    current=$(head -n 1 /etc/rasqberry-version 2>/dev/null | tr -d '[:space:]')
+    current=$(head -n 1 "${RQ_VERSION_FILE:-/etc/rasqberry-version}" 2>/dev/null | tr -d '[:space:]')
     channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
     # stdout is the result of this function: progress goes to stderr (the terminal)
     printf '\nAsking rasqberry.org for the latest %s release...\n' "$channel" >&2
@@ -2071,13 +2113,18 @@ ab_pick_image() {
         lsize=$(printf '%s\n' "$latest" | cut -f4)
         lsha=$(printf '%s\n' "$latest" | cut -f5)
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
-        [ "$ltag" = "$current" ] && note="latest ${channel} (the version you are running)"
-        set -- "$ltag" "$note"
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        if [ "$ltag" = "$current" ]; then
+            # Nothing newer is out: say so first (user test #2)
+            note="the version you are running (a second copy)"
+            prompt="This system: ${current} (release stream: ${channel})\n\nYou have the newest ${channel} release: nothing newer is out yet.\n\nYou can still install the same release into Slot ${slot} (a second copy to go back to), or choose another one:"
+        fi
+        # the tags are hidden: the release name goes into the item text
+        set -- "$ltag" "${ltag}  ${note}"
     else
-        prompt="This system: ${current:-unknown} (channel: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
+        prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${latest}\n\nYou can still choose a release from GitHub:"
     fi
-    set -- "$@" OTHER "Other release or channel..."
+    set -- "$@" OTHER "Other release..."
 
     choice=$(ab_menu "Install an update into Slot ${slot}" "$prompt" "$@") || return 1
     if [ "$choice" = "OTHER" ]; then
@@ -2091,7 +2138,7 @@ ab_pick_other() {
     local channel="$1" current="$2" stream repo="" list lrc=0 choice line t d s note
     # The device's own channel is the default (Q6 is open: the others stay)
     stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other release" \
-        "Choose a release channel. This system follows: ${channel}" \
+        "Choose a release stream. This system follows: ${channel}" \
         beta   "Beta releases" \
         dev    "Development builds (newest, less tested)" \
         stable "Stable releases" \
@@ -2101,7 +2148,7 @@ ab_pick_other() {
             "GitHub repository (user/repository):" 10 60 \
             "${RQB_GIT_USER:-JanLahmann}/${REPO:-RasQberry-Two}" 3>&1 1>&2 2>&3) || return 1
         stream=$(AB_MENU_DEFAULT="$channel" ab_menu "Other repository" \
-            "Release channel in ${repo}:" \
+            "Release type in ${repo}:" \
             beta   "Beta releases" \
             dev    "Development builds (newest, less tested)" \
             stable "Stable releases") || return 1
@@ -2118,7 +2165,7 @@ ab_pick_other() {
         return 1
     fi
     if [ -z "$list" ]; then
-        ab_msgbox "Release list" "No A/B images found in the '${stream}' channel${repo:+ of $repo}."
+        ab_msgbox "Release list" "No A/B images found among the ${stream} releases${repo:+ of $repo}."
         return 1
     fi
 
@@ -2134,7 +2181,7 @@ ab_pick_other() {
     done <<EOF
 $list
 EOF
-    choice=$(ab_menu "Choose a release" "A/B images in the '${stream}' channel, newest first (only releases with a checksum):" "$@") || return 1
+    choice=$(ab_menu --tags "Choose a release" "A/B images of the ${stream} releases, newest first (only releases with a checksum):" "$@") || return 1
     line=$(printf '%s\n' "$list" | awk -F '\t' -v t="$choice" '$1 == t { print; exit }')
     [ -n "$line" ] || return 1
     echo "$(printf '%s\n' "$line" | cut -f2)|${choice}|$(printf '%s\n' "$line" | cut -f4)|$(printf '%s\n' "$line" | cut -f5)"
@@ -2163,7 +2210,7 @@ ab_guard() {
     case "$(ab_value "$plan" downgrade)" in
         stream)
             ab_yesno "This is a downgrade" "Install anyway" "Cancel" \
-                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release channel, so installing it is a downgrade.\n\nInstall it anyway?" \
+                "Slot ${target} holds ${t_ver}.\n${tag} (${new_s}) comes from a less tested release stream, so installing it is a downgrade.\n\nInstall it anyway?" \
                 --defaultno || return 1
             opts="--allow-downgrade" ;;
         older)
@@ -2310,7 +2357,7 @@ ab_rollback() {
 
 # A/B Boot Slot Manager Menu
 do_slot_manager_menu() {
-    local summary current other prompt FUN out last=""
+    local summary current other prompt FUN out last="" oth_ok
     while true; do
         summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
         if [ "$(ab_value "$summary" layout)" != "ab" ]; then
@@ -2326,15 +2373,21 @@ do_slot_manager_menu() {
 
         # Updates always go into the slot that is not running. On trial (or
         # with a rollback waiting) the other slot is still the start slot.
-        set -- UPDATE "Install an update into the other system (Slot ${other})" \
-            "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)" \
-            STATUS  "Show slot details"
+        # Switch and rollback only while the other slot holds a system
+        # (ab_has_system: what rq_slot_manager.sh refuses with exit 25), and
+        # confirm only when there is something to confirm (user test #16).
+        oth_ok=false
+        ab_has_system "$(ab_slot_content "$other" "$summary")" && oth_ok=true
+        set -- UPDATE "Install an update into the other system (Slot ${other})"
+        $oth_ok && set -- "$@" "TRYBOOT_${other}" "Switch to Slot ${other} (restart and try it)"
+        set -- "$@" STATUS "Show slot details"
         if [ "$(ab_value "$summary" default)" = "$other" ]; then
-            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)" \
-                ROLLBACK "Go back to Slot ${other} (rollback)"
+            set -- "$@" CONFIRM "Make Slot ${current} the start slot now (confirm)"
+            $oth_ok && set -- "$@" ROLLBACK "Go back to Slot ${other} (rollback)"
         else
-            set -- "$@" CONFIRM "Keep Slot ${current} as the start slot" \
-                ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
+            [ "$(ab_value "$summary" confirmed)" = "yes" ] \
+                || set -- "$@" CONFIRM "Keep Slot ${current} as the start slot"
+            $oth_ok && set -- "$@" ROLLBACK "Make Slot ${other} the start slot (rollback, no trial)"
         fi
         # The cursor stays on the last choice (H-34: it jumped back to UPDATE)
         FUN=$(AB_MENU_DEFAULT="$last" ab_menu "RasQberry: A/B Boot Slot Manager" "$prompt" "$@") || break
@@ -2345,8 +2398,9 @@ do_slot_manager_menu() {
             TRYBOOT_A) ab_restart_into A "$summary" ;;
             TRYBOOT_B) ab_restart_into B "$summary" ;;
             STATUS)
-                out=$("$BIN_DIR"/rq_slot_manager.sh status 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
-                ab_msgbox "A/B Boot Status" "$out"
+                # plain words that fit 80x24 (#16); `status` is for experts
+                out=$("$BIN_DIR"/rq_slot_manager.sh status --plain 2>&1 | sed 's/^INFO: //; s/^WARNING: //; s/^ERROR: //')
+                ab_msgbox "Slot details" "$out"
                 ;;
             CONFIRM)
                 out=$("$BIN_DIR"/rq_slot_manager.sh confirm 2>&1 | sed 's/^INFO: //; s/^WARNING: //')
@@ -2552,26 +2606,54 @@ do_ibm_account_menu() {
 # -----------------------------------------------------------------------------
 _rq_remote() { "$BIN_DIR/rq_remote_access.sh" "$@"; }
 
-# One field of `rq_remote_access.sh status` (ssh=on vnc=off name=... mdns=...)
+# One field of `rq_remote_access.sh status` (ssh=on vnc=off name=... mdns=...
+# ssh_password=yes|no)
 _rq_remote_field() {
     printf '%s\n' "$1" | tr ' ' '\n' | sed -n "s/^$2=//p" | head -n 1
 }
 
+# Two password boxes with Cancel, then chpasswd (user test #19: the raw
+# passwd prompt could not be left with Esc or Ctrl+C). The password goes to
+# chpasswd on stdin from the shell's builtin printf: it is never an argument
+# (ps), never logged and never shown. $1 = ssh_password (no: SSH takes keys
+# only, so the password is not for SSH).
 do_change_password() {
     _cp_user="${SUDO_USER:-$USER}"
-    clear
-    echo "New password for $_cp_user: type it twice. Nothing is shown while you type."
-    echo
-    if passwd "$_cp_user"; then
-        whiptail --title "Password" --msgbox \
-            "Password changed. Use the new one for SSH, VNC and the login screen." 8 72
+    _cp_for="SSH, VNC and the login screen"
+    [ "${1:-}" = no ] && _cp_for="VNC and the login screen"
+    while :; do
+        _cp_new=$(whiptail --title "Change the password" --passwordbox \
+            "New password for ${_cp_user}. It is used for ${_cp_for}.\n\nCancel keeps the current password." \
+            11 72 3>&1 1>&2 2>&3) || { _cp_new=""; return 0; }
+        if [ -z "$_cp_new" ]; then
+            whiptail --title "Change the password" --msgbox \
+                "The password cannot be empty. Type one, or choose Cancel." 8 64
+            continue
+        fi
+        _cp_again=$(whiptail --title "Change the password" --passwordbox \
+            "Type the new password again:" 9 72 3>&1 1>&2 2>&3) || { _cp_new=""; _cp_again=""; return 0; }
+        if [ "$_cp_new" != "$_cp_again" ]; then
+            _cp_new=""; _cp_again=""
+            whiptail --title "Change the password" --msgbox \
+                "The two passwords are not the same. Nothing was changed: try again, or choose Cancel." 9 64
+            continue
+        fi
+        break
+    done
+    _cp_err=$(printf '%s:%s\n' "$_cp_user" "$_cp_new" | chpasswd 2>&1)
+    _cp_rc=$?
+    _cp_new=""; _cp_again=""
+    if [ "$_cp_rc" -eq 0 ]; then
+        whiptail --title "Change the password" --msgbox \
+            "Password changed. Use the new one for ${_cp_for}." 8 72
     else
-        whiptail --title "Password" --msgbox "The password was not changed." 8 50
+        show_msgbox_fit "Change the password" "The password was not changed.\n\n${_cp_err}" 72
     fi
     return 0
 }
 
-# Switch SSH or VNC on or off. $1 = ssh|vnc, $2 = its state now (on|off)
+# Switch SSH or VNC on or off. $1 = ssh|vnc, $2 = its state now (on|off),
+# $3 = ssh_password (no: SSH takes keys only)
 do_toggle_remote() {
     _tr_what="$1"; _tr_now="$2"
     if [ "$_tr_what" = ssh ]; then
@@ -2579,13 +2661,16 @@ do_toggle_remote() {
         _tr_off="Nobody can log in from another computer with SSH then."
         [ -n "${SSH_CONNECTION:-}" ] && _tr_off="$_tr_off\n\nYou are connected over SSH: this session stays open, but the next SSH login fails. Switching SSH on again then needs a screen and keyboard."
         _tr_on="Anyone on this network who knows the password can then log in."
+        [ "${3:-}" = no ] && _tr_on="Only computers whose key is saved on this Pi can then log in (no password)."
     else
         _tr_name="VNC"
         _tr_off="Nobody can see or use the desktop from another computer then. It stays off, also after a restart."
         _tr_on="Anyone on this network who knows the password can then see and use the desktop."
     fi
     if [ "$_tr_now" = on ]; then
-        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" \
+        # Cancel is the default: Enter on a menu line someone only wanted to
+        # look at must not cut off SSH or VNC (user test 2026-10-07 F2)
+        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" --defaultno \
             --yesno "Switch $_tr_name off?\n\n$_tr_off" 13 72 || return 0
         _tr_new=off
     else
@@ -2598,6 +2683,39 @@ do_toggle_remote() {
     else
         show_msgbox_fit "$_tr_name" "Could not switch $_tr_name $_tr_new:\n\n$_tr_out" 72
     fi
+    return 0
+}
+
+# Raspberry Pi Connect (P4): its state in words, for the menu line; empty
+# when it is not installed. $1 = rq_remote_access.sh connect
+_rq_connect_words() {
+    case "$1" in
+        signed-in)  echo "on, signed in" ;;
+        signed-out) echo "on, not signed in" ;;
+        off)        echo "off" ;;
+        *)          echo "" ;;
+    esac
+}
+
+# What Connect is and how to switch it; read only (it runs per user, and its
+# own taskbar icon turns it on and signs in). $1 = rq_remote_access.sh connect
+do_connect_info() {
+    case "$1" in
+        signed-in)  _ci_now="Raspberry Pi Connect is on and signed in." ;;
+        signed-out) _ci_now="Raspberry Pi Connect is on but not signed in. Click its icon in the taskbar, then Sign In." ;;
+        *)          _ci_now="Raspberry Pi Connect is off. To turn it on: click its icon in the taskbar, then Turn On Raspberry Pi Connect, then Sign In (or in a terminal: rpi-connect on, then rpi-connect signin)." ;;
+    esac
+    # The firmware hint only where it can help: Connect not signed in and a
+    # firmware update due (rq_firmware.py due; user test 2026-10-07 R1)
+    _ci_fw=""
+    if [ "$1" != signed-in ] && "${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}" due >/dev/null 2>&1; then
+        _ci_fw="
+
+If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how."
+    fi
+    show_msgbox_fit "Raspberry Pi Connect" "$_ci_now
+
+With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).$_ci_fw" 72
     return 0
 }
 
@@ -2634,18 +2752,48 @@ do_remote_access_menu() {
         _ra_vnc=$(_rq_remote_field "$_ra_status" vnc)
         _ra_name=$(_rq_remote_field "$_ra_status" name)
         _ra_mdns=$(_rq_remote_field "$_ra_status" mdns)
+        _ra_sshpw=$(_rq_remote_field "$_ra_status" ssh_password)
+        _ra_conn=$(_rq_remote connect 2>/dev/null) || _ra_conn=""
+        _ra_connw=$(_rq_connect_words "$_ra_conn")
+        # The Connect line only where Connect is installed
+        set --
+        [ -n "$_ra_connw" ] && set -- CONNECT "Raspberry Pi Connect: $_ra_connw"
+        # Imager's "public-key only": SSH takes no password (user test #31)
+        _ra_text="Anyone on the same network who knows the password can log in over SSH and VNC."
+        _ra_keys=""
+        if [ "$_ra_sshpw" = no ]; then
+            _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). Anyone on the same network who knows the password can log in over VNC."
+            [ "$_ra_ssh" = on ] && _ra_keys=", key only"
+        fi
+        # Still the published demo password (no password set in Imager): say
+        # which of SSH and VNC accept it (user test 2026-10-07 F1)
+        _ra_pass="Change the password"
+        if [ "$(_rq_remote demo-password 2>/dev/null)" = yes ]; then
+            _ra_pass="Change the password (now: the published demo password)"
+            _ra_acc=""
+            [ "$_ra_ssh" = on ] && [ "$_ra_sshpw" != no ] && _ra_acc="SSH"
+            [ "$_ra_vnc" = on ] && _ra_acc="${_ra_acc:+$_ra_acc and }VNC"
+            case "$_ra_acc" in
+                "SSH and VNC") _ra_text="SSH and VNC accept the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                SSH) _ra_text="SSH accepts the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                VNC) _ra_text="VNC accepts the published demo password: anyone on the same network can see and use the desktop. Change the password, unless this Pi is for a booth or a classroom."
+                     [ "$_ra_sshpw" = no ] && [ "$_ra_ssh" = on ] && _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). $_ra_text" ;;
+                *) _ra_text="This Pi uses the published demo password. SSH and VNC do not accept it now (switched off, or keys only)." ;;
+            esac
+        fi
         FUN=$(show_menu ${_ra_last:+--default-item "$_ra_last"} "RasQberry: Remote Access & Security" \
-            "Anyone on the same network who knows the password can log in over SSH and VNC." \
-            PASS "Change the password" \
-            SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}" \
+            "$_ra_text" \
+            PASS "$_ra_pass" \
+            SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}${_ra_keys}" \
             VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
-            NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}") || break
+            NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}" "$@") || break
         _ra_last="$FUN"
         case "$FUN" in
-            PASS) do_change_password ;;
-            SSH)  do_toggle_remote ssh "$_ra_ssh" ;;
+            PASS) do_change_password "$_ra_sshpw" ;;
+            SSH)  do_toggle_remote ssh "$_ra_ssh" "$_ra_sshpw" ;;
             VNC)  do_toggle_remote vnc "$_ra_vnc" ;;
             NAME) do_name_this_rasqberry "$_ra_name" ;;
+            CONNECT) do_connect_info "$_ra_conn" ;;
             *)    break ;;
         esac
     done

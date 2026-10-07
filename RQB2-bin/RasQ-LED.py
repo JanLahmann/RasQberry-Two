@@ -5,7 +5,6 @@
 #
 # Usage: python3 RasQ-LED.py
 
-import subprocess
 import time
 import math
 import os
@@ -28,11 +27,6 @@ display_timeout = int(
         "RASQ_LED_DISPLAY_TIMEOUT", 3
     )
 )
-
-# Headroom allowed for the display script to start up (python + qiskit/board
-# imports + LED driver init) on top of the time it spends showing the pattern.
-# Measured ~1.9s on a Pi 5; a Pi 4's PWM init is considerably slower.
-DISPLAY_STARTUP_BUDGET_S = 15
 
 print(f"Configuration: {n_qbit} qubits, {LED_COUNT} LEDs on GPIO {LED_GPIO_PIN}")
 print(f"Display timeout: {display_timeout}s")
@@ -65,16 +59,13 @@ def find_display_script():
     """Find the RasQ-LED-display script in common locations"""
     script_locations = [
         # Same directory as this script
-        os.path.join(os.path.dirname(__file__), "RasQ-LED-display.py"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "RasQ-LED-display.py"),
         # System paths
         "/usr/bin/RasQ-LED-display.py",
-        # Legacy paths
-        "/home/pi/RasQberry/demos/bin/RasQ-LED-display.py"
     ]
 
     for script_path in script_locations:
         if os.path.exists(script_path):
-            print(f"Found display script: {script_path}")
             return script_path
 
     print("Error: Could not find RasQ-LED-display script")
@@ -82,6 +73,62 @@ def find_display_script():
     for path in script_locations:
         print(f"  {path}")
     return None
+
+
+# One LED driver for the whole run (#5). Every cycle used to start
+# RasQ-LED-display.py as a program of its own, so the LED driver was opened
+# and closed every few seconds ("Initialized 192 LEDs" each cycle). On the
+# Pi 5 rig most driver stalls ("rp1-pio ... DMA wait timed out") came from
+# this demo, and its final clear was killed by a 3 s timeout in the middle of
+# a frame. The display script's functions now run in this process, on one
+# strip that stays open until the demo ends.
+_display = None
+_pixels = None
+
+
+def get_display():
+    """
+    Load RasQ-LED-display.py as a module (its name has a hyphen).
+
+    Returns:
+        module or None: the display module, None when it cannot be found.
+    """
+    global _display
+    if _display is None:
+        path = find_display_script()
+        if path is None:
+            return None
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("rasq_led_display", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _display = module
+    return _display
+
+
+def get_strip():
+    """
+    Open the LED panel once and return it (None when it cannot be opened).
+
+    Returns:
+        LED strip object or None.
+    """
+    global _pixels
+    if _pixels is None:
+        display = get_display()
+        if display is None:
+            return None
+        from rq_led_utils import create_neopixel_strip
+        try:
+            _pixels = create_neopixel_strip(
+                display.NUM_PIXELS, display.pixel_order_str,
+                brightness=display.config['led_default_brightness'])
+        except Exception as e:
+            print(f"Error initializing LED panel: {e}")
+            return None
+        print(f"Initialized {display.NUM_PIXELS} LEDs ({display.config['pi_model']}, "
+              f"{display.pixel_order_str} pixel order, GPIO{display.config['led_gpio_pin']})")
+    return _pixels
 
 def init_circuit():
     """Initialize quantum circuit and measurement variables"""
@@ -147,60 +194,48 @@ def circ_execute():
         return False
 
 def call_display_on_strip(measurement_result):
-    """Call the LED display script to show the measurement result"""
-    display_script = find_display_script()
-    if not display_script:
+    """Show the measurement result on the LED panel for display_timeout seconds, then clear it"""
+    pixels = get_strip()
+    if pixels is None:
         return False
-
+    display = get_display()
+    measurement_result = measurement_result[:display.NUM_PIXELS]
     try:
-        # Note: PWM/PIO driver requires sudo for GPIO access
-        # Display script will handle sudo internally if needed
-        # Use configurable timeout (default 3s via RASQ_LED_DISPLAY_TIMEOUT)
-        #
-        # The buffer has to cover everything the display script does BESIDES
-        # showing the pattern: starting python, importing qiskit and board, and
-        # initialising the LED driver. That measured 1.85s on a Pi 5 (4.85s wall
-        # for -t 3), so the old 2s buffer left 0.15s of margin and a Pi 4 - whose
-        # PWM init is far slower - blew through it on EVERY cycle, printing
-        # "Display script timed out" each time even though the LEDs had lit.
-        # This is a safety net against a wedged script, not a performance
-        # target, so give it room.
-        subprocess_timeout = display_timeout + DISPLAY_STARTUP_BUDGET_S
-        result = subprocess.run([
-            sys.executable, display_script, measurement_result,
-            '-t', str(display_timeout)
-        ], capture_output=True, text=True, timeout=subprocess_timeout)
-
-        # Show output for debugging
-        if result.stdout:
-            print(result.stdout)
-
-        if result.returncode != 0:
-            print(f"Display script error (exit code {result.returncode}):")
-            if result.stderr:
-                print(result.stderr)
-            else:
-                print("(No error message provided)")
-            return False
-
+        display.display_on_strip(pixels, measurement_result)
+        print(f"Displayed {len(measurement_result)} qubits. Clearing in {display_timeout}s...")
+        time.sleep(display_timeout)
+        display.clear_strip(pixels)
         return True
-    except subprocess.TimeoutExpired:
-        print("Display script timed out")
-        return False
     except Exception as e:
-        print(f"Error calling display script: {e}")
+        print(f"Error displaying on the LED panel: {e}")
         return False
 
 def clear_leds():
-    """Clear all LEDs"""
-    display_script = find_display_script()
-    if display_script:
-        try:
-            subprocess.run([
-                sys.executable, display_script, "0", "-c"
-            ], capture_output=True, timeout=display_timeout)
-        except:
-            pass
+    """Clear all LEDs (only when the panel was opened)"""
+    if _pixels is None:
+        return
+    try:
+        get_display().clear_strip(_pixels)
+    except Exception:
+        pass
+
+
+def release_leds():
+    """
+    Clear the panel and let go of it before the program ends (#8).
+
+    Not left to Python's shutdown: by then the LED library is partly gone,
+    and the strip's destructor printed a traceback at the end of every run.
+    """
+    global _pixels
+    if _pixels is None:
+        return
+    clear_leds()
+    pixels, _pixels = _pixels, None
+    try:
+        pixels.deinit()
+    except Exception:
+        pass
 
 def run_circuit(entanglement_size):
     """Run a quantum circuit with specified entanglement and display result
@@ -257,7 +292,7 @@ Your choice: """
                     run_circuit(factor)
                     time.sleep(1)
             elif player_action == 'q':
-                clear_leds()
+                release_leds()
                 print("Goodbye!")
                 break
             else:
@@ -265,16 +300,18 @@ Your choice: """
 
         except KeyboardInterrupt:
             print("\nClearing LEDs and exiting...")
-            clear_leds()
+            release_leds()
             break
         except Exception as e:
             print(f"Error: {e}")
 
-def demo_loop(duration=2):
+def demo_loop(cycles=None):
     """Run automated demo showing all entanglement patterns
 
     Args:
-        duration: Number of complete cycles through all patterns
+        cycles: Number of complete cycles through all patterns. None (the
+            default): until stopped - Enter, Ctrl+C, a closed window, or the
+            demo loop when its time is up. A stand shows it for hours (#21).
     """
     import select
 
@@ -309,8 +346,10 @@ def demo_loop(duration=2):
     watch_stdin = sys.stdin is not None and sys.stdin.isatty()
 
     try:
-        for cycle in range(duration):
-            print(f"\n--- Demo Cycle {cycle + 1}/{duration} ---")
+        cycle = 0
+        while cycles is None or cycle < cycles:
+            cycle += 1
+            print(f"\n--- Demo Cycle {cycle} ---")
             factors = get_factors(n_qbit)
 
             for factor in factors:
@@ -320,7 +359,6 @@ def demo_loop(duration=2):
                         watch_stdin = False  # terminal closed: keep running
                     else:
                         print("\nDemo stopped by user")
-                        clear_leds()
                         return
 
                 print(f"Entanglement block size: {factor}")
@@ -334,7 +372,7 @@ def demo_loop(duration=2):
     except KeyboardInterrupt:
         print("\nDemo interrupted by user")
     finally:
-        clear_leds()
+        release_leds()
 
 def main():
     """Main entry point"""
@@ -342,13 +380,18 @@ def main():
     print("=" * 60)
 
     # Check if display script is available
-    if not find_display_script():
+    if get_display() is None:
         print("Cannot continue without display script")
         sys.exit(1)
 
-    # Run in demo mode by default
+    # A stop from the menu or the demo loop (SIGTERM) ends like Ctrl+C: the
+    # finally clause clears the panel before the driver is closed
+    import signal
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+
+    # Run in demo mode by default, until stopped
     # Uncomment the next line to run interactive mode instead
-    demo_loop(2)
+    demo_loop()
 
     # For interactive mode, uncomment this line and comment the demo_loop line above:
     # interactive_mode()

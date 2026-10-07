@@ -35,7 +35,7 @@ def print_header():
     """Print the test header."""
     print()
     print("=" * 60)
-    print("  RasQberry LED Strip Test Utility")
+    print("  RasQberry LED Panel Test")
     print("=" * 60)
     print()
 
@@ -151,8 +151,9 @@ def run_manual_test(num_leds, brightness, pixel_order):
     print(f"  Brightness: {int(brightness * 100)}%")
     print(f"  Pixel order: {pixel_order}")
     print()
-    print("Press Ctrl+C to skip a test or stop")
-    print()
+    if sys.stdin.isatty():  # run directly; a demo window says how to stop it
+        print("Press Ctrl+C to skip a test or stop")
+        print()
 
     pixels = make_strip(num_leds, brightness, pixel_order)
     try:
@@ -211,7 +212,7 @@ def run_continuous_test(num_leds, brightness, pixel_order, cycles=None):
 def main():
     """Parse arguments and run the chosen test."""
     parser = argparse.ArgumentParser(
-        description='RasQberry LED Strip Test Utility',
+        description='RasQberry LED Panel Test',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

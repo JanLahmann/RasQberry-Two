@@ -86,7 +86,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -99,7 +99,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -110,8 +110,22 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     # Set ownership for all desktop files
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP"
     
-    # Configure PCManFM for wallpaper and desktop appearance
-    USER_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/pcmanfm/LXDE-pi"
+    # Configure PCManFM for wallpaper and desktop appearance.
+    # The profile the desktop runs with: bookworm's labwc autostart starts
+    # "pcmanfm --desktop --profile LXDE-pi"; trixie's starts pcmanfm-pi, which
+    # runs "pcmanfm --desktop", i.e. the "default" profile. A config in the
+    # other profile's directory is never read.
+    PCMANFM_PROFILE=$(sed -n 's/.*pcmanfm .*--profile[ =]\([^ &]*\).*/\1/p' /etc/xdg/labwc/autostart 2>/dev/null | head -1)
+    PCMANFM_PROFILE="${PCMANFM_PROFILE:-default}"
+    echo "PCManFM desktop profile: ${PCMANFM_PROFILE}"
+    # Desktop font: PibotoLt (bookworm); trixie's theme uses Nunito Sans and
+    # may not install Piboto
+    if fc-list 2>/dev/null | grep -qi "PibotoLt"; then
+        DESKTOP_FONT="PibotoLt 12"
+    else
+        DESKTOP_FONT="Nunito Sans Light 12"
+    fi
+    USER_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/pcmanfm/${PCMANFM_PROFILE}"
     mkdir -p "$USER_CONFIG_DIR"
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config"
     
@@ -131,6 +145,7 @@ show_documents=0
 show_trash=0
 show_mounts=0
 EOF
+    sed -i "s/^desktop_font=.*/desktop_font=${DESKTOP_FONT}/" "$USER_CONFIG_DIR/desktop-items-0.conf"
     # Icon positions for a 1920x1080 screen, RasQberry Setup first. At every
     # login rq_desktop_session.py lays them out again for the actual screen
     # (small screens, touch mode) - R-008, R-035.
@@ -140,12 +155,12 @@ EOF
     chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/desktop-items-0.conf"
 
     # Also copy to /etc/skel so new users get the trusted desktop icons
-    SKEL_CONFIG_DIR="/etc/skel/.config/pcmanfm/LXDE-pi"
+    SKEL_CONFIG_DIR="/etc/skel/.config/pcmanfm/${PCMANFM_PROFILE}"
     mkdir -p "$SKEL_CONFIG_DIR"
     cp "$USER_CONFIG_DIR/desktop-items-0.conf" "$SKEL_CONFIG_DIR/desktop-items-0.conf"
     echo "Desktop configuration copied to /etc/skel for new users"
 
-    # Configure libfm to skip executable file dialog (Bookworm security feature)
+    # Configure libfm to skip executable file dialog (Bookworm and later security feature)
     # Setting quick_exec=1 prevents "Execute File" dialog for .desktop files
     LIBFM_CONFIG_DIR="/home/${FIRST_USER_NAME}/.config/libfm"
     mkdir -p "$LIBFM_CONFIG_DIR"
@@ -182,6 +197,21 @@ EOF
 
     chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$LIBFM_CONFIG_DIR"
     echo "libfm configuration created with quick_exec=1"
+
+    # Trixie's pcmanfm-pi (profile "default") takes the libfm settings
+    # (quick_exec, big_icon_size) from the profile's pcmanfm.conf and no
+    # longer reads libfm.conf: without quick_exec=1 there every desktop icon
+    # asked "Execute File" first (T1, rig 2026-10-06). The person's
+    # pcmanfm.conf replaces the system one, so it starts as a copy of
+    # /etc/xdg/pcmanfm/<profile>/pcmanfm.conf. rq_desktop_session.py checks
+    # it again at every login (images and homes made before this).
+    python3 "${CLONE_DIR}/RQB2-bin/rq_desktop_session.py" --quick-exec "$USER_CONFIG_DIR/pcmanfm.conf" \
+        || echo "WARNING: could not set quick_exec in $USER_CONFIG_DIR/pcmanfm.conf"
+    if [ -f "$USER_CONFIG_DIR/pcmanfm.conf" ]; then
+        chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_CONFIG_DIR/pcmanfm.conf"
+        cp "$USER_CONFIG_DIR/pcmanfm.conf" "$SKEL_CONFIG_DIR/pcmanfm.conf"
+        echo "pcmanfm.conf (${PCMANFM_PROFILE}) created with quick_exec=1, also in /etc/skel"
+    fi
 
     # Also create libfm config for new users in /etc/skel
     SKEL_LIBFM_DIR="/etc/skel/.config/libfm"
@@ -357,8 +387,10 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
   <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
     <!-- Chromium to the right of the desktop icons; rq_desktop_session.py
-         switches this rule off on small screens, where Chromium opens maximised -->
-    <windowRule identifier="chromium">
+         switches this rule off on small screens, where Chromium opens maximised.
+         type="normal" matchOnce="true": only the first browser window (the homepage),
+         not demo windows -->
+    <windowRule identifier="chromium" type="normal" matchOnce="true">
       <action name="MoveTo" x="480" y="45"/>
     </windowRule>
     <!-- The on-screen LED view in the bottom right corner, not over the demo's terminal -->
@@ -415,7 +447,9 @@ echo "Chromium and keyring configuration completed"
 # Clean up any PCManFM 'default' profile configs that might have been created during build
 # These can override the correct LXDE-pi profile configs and cause wallpaper/icon issues
 # (PCManFM on Wayland creates output-specific configs like desktop-items-HDMI-A-2.conf)
-if [ -n "${FIRST_USER_NAME}" ] && [ -d "/home/${FIRST_USER_NAME}/.config/pcmanfm/default" ]; then
+# Bookworm only: on trixie "default" IS the desktop's profile (written above).
+if [ -n "${FIRST_USER_NAME}" ] && [ "${PCMANFM_PROFILE:-LXDE-pi}" != "default" ] \
+        && [ -d "/home/${FIRST_USER_NAME}/.config/pcmanfm/default" ]; then
     echo "Cleaning up PCManFM default profile configs created during build..."
     rm -rf "/home/${FIRST_USER_NAME}/.config/pcmanfm/default"
 fi

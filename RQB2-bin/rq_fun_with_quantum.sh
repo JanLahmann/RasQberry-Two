@@ -46,6 +46,7 @@ cleanup() {
     trap '' HUP INT TERM
     info "Cleaning up..."
     if [ -n "$JUPYTER_PID" ] && kill -0 "$JUPYTER_PID" 2>/dev/null; then
+        rq_close_demo_tabs   # before the server goes: no "Dead kernel" tab (#9)
         info "Stopping Jupyter server..."
         kill "$JUPYTER_PID" 2>/dev/null || true
         wait "$JUPYTER_PID" 2>/dev/null || true
@@ -121,6 +122,9 @@ cd "$DEMO_DIR"
 # warned "websocket_ping_timeout (90000) cannot be longer than the
 # websocket_ping_interval (30000)" whenever a notebook opened. Keep-alive
 # pings are not needed between the browser and 127.0.0.1.
+# show_banner=False: no "UPDATE: Read the migration plan to Notebook 7" bar
+# over the games - a note for developers, not for players (user test
+# 2026-10-07).
 SERVER_LOG="$USER_HOME/.cache/rasqberry/fun-with-quantum-server.log"
 mkdir -p "$(dirname "$SERVER_LOG")" 2>/dev/null || true
 : > "$SERVER_LOG" 2>/dev/null || SERVER_LOG=/dev/null
@@ -132,6 +136,7 @@ jupyter notebook \
     --NotebookApp.password='' \
     --NotebookApp.open_browser=False \
     --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
+    --NotebookApp.show_banner=False \
     --NotebookApp.tornado_settings="{'ws_ping_interval': 0}" \
     >"$SERVER_LOG" 2>&1 &
 JUPYTER_PID=$!
@@ -145,6 +150,18 @@ if ! kill -0 "$JUPYTER_PID" 2>/dev/null; then
     [ -s "$SERVER_LOG" ] && tail -5 "$SERVER_LOG"
     die "Jupyter failed to start (log: $SERVER_LOG)"
 fi
+
+# Wait until it answers: on a busy Pi 4 the port opens a few seconds after
+# the 3 s above, and a browser opened before that shows "can't be reached"
+# (and its tab was taken for one whose demo had stopped). The loop returns
+# as soon as Jupyter answers, so the limit costs nothing.
+waited=0
+while ! curl -s -o /dev/null "http://127.0.0.1:${PORT}/" 2>/dev/null; do
+    kill -0 "$JUPYTER_PID" 2>/dev/null || { [ -s "$SERVER_LOG" ] && tail -5 "$SERVER_LOG"; die "Jupyter exited during startup (log: $SERVER_LOG)"; }
+    [ "$waited" -lt 60 ] || die "Jupyter did not answer within 60 seconds (log: $SERVER_LOG)"
+    sleep 1
+    waited=$((waited + 1))
+done
 
 # The notebooks, as the demo menu lists them (the manifest's variants), so
 # this list cannot fall behind the demo again (item 10)

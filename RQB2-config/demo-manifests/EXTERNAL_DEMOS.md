@@ -47,6 +47,9 @@ manifests (`rq_demo_schema.json`), with these constraints:
   dependencies cannot move them either (#285). A pip failure aborts the
   install.
 - `variants[]` for multiple modes (args-only variants preferred)
+- `entrypoint.keyboard: true` for a `python` program that asks questions in
+  its window. It then stops with Ctrl+C only; any other program also stops
+  with Enter, like every demo.
 
 **Demo API available at run time** (`python` entrypoints)
 
@@ -96,6 +99,7 @@ A thin registry in `RQB2-config/known-demos.json`:
       "ref": "a1b2c3d4e5f6...",
       "manifest_path": "rqb-demo.json",
       "added": "2026-07-12",
+      "provider": "Example Org",
       "note": "optional curator note"
     }
   ]
@@ -108,6 +112,9 @@ A thin registry in `RQB2-config/known-demos.json`:
   when upstream restructures (seen live 2026-07-12: quantum-raspberry-tie
   v7_1 → v8_0 rename broke install; patches died on upstream edits).
 - `repo_url` must be `https://` (no ssh/git protocols, no redirects followed).
+- `provider` (optional) names who provides and maintains the demo; the install
+  question says "Provided by <provider>." (without it: "an external
+  contributor").
 
 ## 3. Add flow (menu: "Add demo from catalogue")
 
@@ -117,12 +124,11 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
 1. Menu lists registry entries not yet installed
    (`rq_demo_add_external.sh` with no args → interactive whiptail picker;
    pass an `<id>` to install directly).
-2. **Third-party disclaimer** (install AND update, before anything is fetched
-   or removed): a dialog states the demo is provided by an external
-   contributor, is not part of the RasQberry project, that the team pins a
-   reviewed version but does not maintain the software and takes no
-   responsibility for its content, behavior, or security. Declining aborts
-   with nothing changed.
+2. **Who provides it** (install AND update, before anything is fetched or
+   removed): a dialog names the provider from the registry and the repository,
+   says that the team installs exactly the reviewed version and that the
+   demo's makers maintain it and answer for its content and security.
+   Declining aborts with nothing changed.
 3. On confirmation: shallow-fetch the pinned ref into
    `~/RasQberry-Two/demos/<repo-name>`
    (`git init && git fetch <url> <sha> && git checkout FETCH_HEAD`

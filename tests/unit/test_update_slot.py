@@ -1,13 +1,10 @@
 """
 Tests for RQB2-bin/rq_update_slot.sh (A/B slot update, batch B2).
 
-- R-002: decompressing on a terminal must leave the image byte-exact. The old
-  `xz -dcvT0 img.xz > raw 2>&1 | tee -a log` sent xz's progress (stderr) into
-  the image, so every update started from the menu or a terminal failed its
-  checksum. The tests run the real function under a pseudo-terminal, like the
-  menu does, and compare sha256.
 - The checksum fields: an -ab image is checked against the ab_* fields.
 - --preflight refusals and their exit codes (R-050, R-052).
+- Unpacking straight into the slot (R-052) and R-002's lesson (progress on a
+  terminal never reaches the slot): tests/unit/test_stream_image.py.
 - Ping-pong (Jan, 2026-10-04): the target is the slot that is not running, A
   or B alike; a slot on trial is not left without its way back (28); Jan's
   guard refuses an unconfirmed downgrade (26) or an overwrite of the last beta
@@ -17,7 +14,6 @@ The script is sourced (it only runs main when executed), and commands that
 need a real A/B card (findmnt, blockdev, df) are stubbed on PATH.
 """
 
-import hashlib
 import os
 import pty
 import select
@@ -36,41 +32,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _sha(path):
-    return hashlib.sha256(open(path, "rb").read()).hexdigest()
-
-
-def _image(tmp_path, size=3_000_000):
-    """A random 'image' and its .xz, as the release ships it."""
-    raw = tmp_path / "orig.img"
-    raw.write_bytes(os.urandom(size // 2) + bytes(size - size // 2))
-    subprocess.run(["xz", "-k", "-T0", str(raw)], check=True)
-    return raw, tmp_path / "orig.img.xz"
-
-
-def _run_on_pty(cmd, env, timeout=60):
-    """Run cmd with stdin/stdout/stderr on a pseudo-terminal (as in the menu);
-    returns (exit code, everything the terminal showed)."""
-    master, slave = pty.openpty()
-    proc = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
-    os.close(slave)
-    shown = b""
-    while True:
-        ready, _, _ = select.select([master], [], [], timeout)
-        if not ready:
-            proc.kill()
-            raise AssertionError("timed out; terminal so far: %r" % shown)
-        try:
-            chunk = os.read(master, 4096)
-        except OSError:  # EIO on Linux once the child closed the terminal
-            break
-        if not chunk:
-            break
-        shown += chunk
-    os.close(master)
-    return proc.wait(timeout=timeout), shown.decode(errors="replace")
-
-
 def _env(tmp_path, **extra):
     env = dict(os.environ, RQ_UPDATE_LOG=str(tmp_path / "update.log"), **extra)
     return env
@@ -78,51 +39,6 @@ def _env(tmp_path, **extra):
 
 def _source(snippet):
     return ["bash", "-c", f'. "{_SCRIPT}"\n' + textwrap.dedent(snippet)]
-
-
-def test_decompress_on_a_terminal_keeps_the_image_byte_exact(tmp_path):
-    raw, xz = _image(tmp_path)
-    out = tmp_path / "image.img"
-    rc, shown = _run_on_pty(
-        _source(f'decompress_image "{xz}" "{out}"'), _env(tmp_path))
-    assert rc == 0, shown
-    assert out.stat().st_size == raw.stat().st_size
-    assert _sha(out) == _sha(raw)
-    # xz -v reported to the terminal, not into the file
-    assert "orig.img.xz" in shown
-
-
-def test_the_old_pipeline_corrupted_the_image(tmp_path):
-    """The shipped line, for reference: on a terminal it appends xz's summary
-    to the image (H-18: +44 bytes on the Pi 5) - what the test above guards."""
-    raw, xz = _image(tmp_path)
-    out = tmp_path / "image.img"
-    log = tmp_path / "update.log"
-    rc, _ = _run_on_pty(
-        ["bash", "-c", f'xz -dcvT0 "{xz}" > "{out}" 2>&1 | tee -a "{log}"'], _env(tmp_path))
-    assert rc == 0
-    assert out.stat().st_size > raw.stat().st_size
-    assert _sha(out) != _sha(raw)
-
-
-def test_decompress_without_a_terminal_logs_quietly(tmp_path):
-    raw, xz = _image(tmp_path)
-    out = tmp_path / "image.img"
-    proc = subprocess.run(_source(f'decompress_image "{xz}" "{out}"'),
-                          capture_output=True, text=True, env=_env(tmp_path))
-    assert proc.returncode == 0, proc.stderr
-    assert _sha(out) == _sha(raw)
-    assert proc.stdout == "" and proc.stderr == ""
-
-
-def test_corrupt_download_fails_instead_of_writing_garbage(tmp_path):
-    _, xz = _image(tmp_path)
-    data = bytearray(xz.read_bytes())
-    data[len(data) // 2] ^= 0xFF
-    xz.write_bytes(bytes(data))
-    proc = subprocess.run(_source(f'decompress_image "{xz}" "{tmp_path / "image.img"}"'),
-                          capture_output=True, text=True, env=_env(tmp_path))
-    assert proc.returncode != 0
 
 
 @pytest.mark.parametrize("url,kind,field", [
@@ -230,9 +146,19 @@ def test_preflight_placeholder_slot_says_expand(tmp_path):
 
 
 def test_preflight_too_little_space_says_what_to_do(tmp_path):
-    proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 5 * 1024 * 1024)
+    # R-052: the image is unpacked straight into the slot, so only the
+    # download is staged - 3.0 GB while the release is not known yet
+    proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 2 * 1024 * 1024)
     assert proc.returncode == 22
-    assert "15 GB needed" in proc.stderr and "Delete" in proc.stderr
+    assert "3.0 GB needed" in proc.stderr and "the download plus 0.5 GB" in proc.stderr
+    assert "Delete" in proc.stderr
+
+
+def test_preflight_passes_with_6_gb_free(tmp_path):
+    # a 64 GB card with all four Docker demos (about 6 GB free) was refused
+    # when the update needed 15 GB
+    proc = _preflight(tmp_path, "/dev/mmcblk0p5", 26 * GB, 6 * 1024 * 1024)
+    assert proc.returncode == 0, proc.stderr
 
 
 def test_refusals_are_logged(tmp_path):
@@ -508,10 +434,50 @@ def test_a_finished_update_leaves_the_updated_hint(tmp_path):
 
 
 def test_the_hint_is_written_when_the_slot_is_complete():
+    # stream_into_slot marks the slot incomplete before its first write
     text = open(_SCRIPT).read()
     body = text[text.index("write_image_to_slot() {"):text.index("cleanup_download() {")]
-    assert body.index("mark_slot_incomplete ") < body.index("mark_slot_updated ")
+    assert body.index("stream_into_slot ") < body.index("mark_slot_updated ")
     assert body.index("mark_slot_updated ") < body.index('clear_slot_incomplete "$target_slot"')
+
+
+def test_a_written_slot_refreshes_the_slot_status(tmp_path):
+    # /run/rasqberry/slot-status said what the slot held at start-up, so System
+    # Info, the menu and the taskbar badge showed the old system until the
+    # next restart
+    manager = tmp_path / "manager"
+    manager.write_text("#!/bin/sh\nprintf 'layout=ab\\ncurrent=A\\nslot_a=beta-2026-10-04-143935\\n"
+                       "slot_b=beta-2026-10-15-101010\\n'\n")
+    manager.chmod(0o755)
+    status = tmp_path / "run" / "slot-status"
+    status.parent.mkdir()
+    status.write_text("layout=ab\ncurrent=A\nslot_b=EMPTY\nother_version=EMPTY\n")
+    version = tmp_path / "version"
+    version.write_text("beta-2026-10-04-143935\n")
+    env = _env(tmp_path, RQ_SLOT_MANAGER=str(manager), RQ_SLOT_STATUS_FILE=str(status),
+               RQ_VERSION_FILE=str(version))
+    proc = subprocess.run(_source("refresh_slot_status; echo RC=$?"), env=env,
+                          capture_output=True, text=True, timeout=60)
+    assert "RC=0" in proc.stdout, proc.stderr
+    text = status.read_text()
+    assert "slot_b=beta-2026-10-15-101010\n" in text and "other_version=beta-2026-10-15-101010\n" in text
+    assert "stream_b=beta\n" in text
+
+    # a writer that fails does not fail the update
+    broken = tmp_path / "broken"
+    broken.write_text("#!/bin/sh\necho nope >&2\nexit 1\n")
+    broken.chmod(0o755)
+    proc = subprocess.run(_source("refresh_slot_status; echo RC=$?"),
+                          env=dict(env, RQ_SLOT_STATUS=str(broken)),
+                          capture_output=True, text=True, timeout=60)
+    assert "RC=0" in proc.stdout, proc.stderr
+    assert "Could not refresh the slot status" in (tmp_path / "update.log").read_text()
+
+
+def test_the_slot_status_is_refreshed_once_the_slot_is_complete():
+    text = open(_SCRIPT).read()
+    body = text[text.index("write_image_to_slot() {"):text.index("cleanup_download() {")]
+    assert body.index('clear_slot_incomplete "$target_slot"') < body.index("refresh_slot_status")
 
 
 def test_the_guard_runs_before_the_download():

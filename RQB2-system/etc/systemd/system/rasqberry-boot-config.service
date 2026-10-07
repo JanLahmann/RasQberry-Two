@@ -2,7 +2,13 @@
 Description=RasQberry Boot Configuration Loader
 Documentation=https://github.com/JanLahmann/RasQberry-Two
 DefaultDependencies=no
-After=local-fs.target
+# After data.mount too: rq_device_settings.sh restores the LED settings from
+# /data (A/B cards). Its fstab line has nofail, so local-fs.target does not
+# wait for it, and on the first start of an updated slot (fsck of /data) the
+# restore ran before /data was there (user test 2026-10-07, R3). After= only
+# orders: a /data that fails to mount does not stop this unit, and on the
+# standard image (no /data in fstab, no data.mount) it does nothing.
+After=local-fs.target data.mount
 Before=basic.target sysinit.target
 
 [Service]

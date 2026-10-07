@@ -117,7 +117,8 @@ for section in ("run", "LocalCPython"):
 if not cp.get("run", "backend_name", fallback=""):
     cp.set("run", "backend_name", "LocalCPython")
 current = cp.get("LocalCPython", "executable", fallback="")
-if current in ("", "/usr/bin/python3", "/usr/bin/python3.11", "/usr/bin/python"):
+# the system Python (bookworm 3.11, trixie 3.13) is replaced by the venv
+if current in ("", "/usr/bin/python3", "/usr/bin/python3.11", "/usr/bin/python3.13", "/usr/bin/python"):
     cp.set("LocalCPython", "executable", python)
 with open(ini + ".rq-new", "w", encoding="utf-8") as fh:
     cp.write(fh)

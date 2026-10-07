@@ -27,7 +27,7 @@
     "download": {
       "what": "LED-Painter app from GitHub",
       "download_mb": 2,
-      "time": "1 minute"
+      "time": "10-30 seconds"
     }
   },
   "needs_hw": {

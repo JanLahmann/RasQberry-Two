@@ -8,7 +8,8 @@ set -euo pipefail
 #   start without the internet later (a classroom, a booth). The list comes
 #   from the demo manifests, sizes included; the Docker demos are an opt-in
 #   second question with their total size (Jan, Q27). One status line per
-#   demo, the details go to a log.
+#   demo with the MB received so far, the small demos first; the details go
+#   to a log.
 # Usage: rq_download_all.sh                  ask, then download
 #        rq_download_all.sh --yes [--docker] no questions (--docker: Docker demos too)
 #        rq_download_all.sh --pending        exit 0 if a demo (Docker demos aside) is missing
@@ -91,9 +92,10 @@ collect_missing() {
 }
 
 # Totals over the entries whose DOCKER value is $1: sets T_DL T_DISK T_PEAK
-# T_TIME T_NAMES T_COUNT. Demos that share a download count once.
+# T_TIME ("about 2-4 minutes") T_NAMES T_COUNT. Demos that share a download
+# count once.
 totals() {
-    local want="$1" i seen=" " lo=0 hi=0 nums
+    local want="$1" i seen=" " lo=0 hi=0 nums unit lo_m hi_m
     T_DL=0; T_DISK=0; T_PEAK=0; T_NAMES=""; T_COUNT=0; T_TIME=""
     for i in "${!IDS[@]}"; do
         [ "${DOCKER[$i]}" = "$want" ] || continue
@@ -105,19 +107,40 @@ totals() {
         fi
         T_DL=$((T_DL + DL[i])); T_DISK=$((T_DISK + DISK[i]))
         [ "${PEAK[$i]}" -gt "$T_PEAK" ] && T_PEAK="${PEAK[$i]}"
-        # "1 minute" -> 1 1, "10-20 minutes" -> 10 20
+        # in seconds: "1 minute" -> 60 60, "3-5 minutes" -> 180 300,
+        # "10-30 seconds" -> 10 30
         nums=$(printf '%s' "${TIMES[$i]}" | tr -c '0-9' ' ')
         set -- $nums
         if [ $# -ge 1 ]; then
-            lo=$((lo + $1)); hi=$((hi + ${2:-$1}))
+            unit=60
+            case "${TIMES[$i]}" in *second*) unit=1 ;; esac
+            lo=$((lo + $1 * unit)); hi=$((hi + ${2:-$1} * unit))
         fi
     done
     if [ "$hi" -gt 0 ]; then
-        if [ "$hi" = 1 ]; then T_TIME="1 minute"
-        elif [ "$lo" = "$hi" ]; then T_TIME="$hi minutes"
-        else T_TIME="$lo-$hi minutes"; fi
+        lo_m=$(( (lo + 30) / 60 )); hi_m=$(( (hi + 59) / 60 ))
+        [ "$lo_m" -ge 1 ] || lo_m=1
+        if [ "$hi" -lt 60 ]; then T_TIME="under a minute"
+        elif [ "$hi_m" = 1 ]; then T_TIME="about 1 minute"
+        elif [ "$lo_m" = "$hi_m" ]; then T_TIME="about $hi_m minutes"
+        else T_TIME="about $lo_m-$hi_m minutes"; fi
     fi
     return 0
+}
+
+# "120 of about 900 MB, 45s" while demo INDEX downloads (RX0: rq_rx_mb at its
+# start): a 1.3 GB image takes minutes, and seconds alone looked stuck (#28)
+progress() {
+    local i="$1" rx0="$2" now got=""
+    if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+        got=$((now - rx0))
+        if [ "${DL[$i]}" -gt 0 ] && [ "$got" -le "${DL[$i]}" ]; then
+            got="$got of about ${DL[$i]} MB, "
+        else
+            got="$got MB, "
+        fi
+    fi
+    printf '%s%ds' "$got" $((SECONDS - start))
 }
 
 # ----------------------------------------------------------------------------
@@ -178,6 +201,12 @@ fi
 
 DOCKER_AVAILABLE=no
 docker_ok && DOCKER_AVAILABLE=yes
+# A small card gets no Docker demos (they need 32 GB or more), the rest as usual
+SMALL_TXT=""
+if [ "$DOCKER_AVAILABLE" = yes ] && rq_small_card; then
+    DOCKER_AVAILABLE=no
+    SMALL_TXT="The Docker demos are left out: they need an SD card of 32 GB or more, and this card is $(_rq_card_size_gb) GB."
+fi
 collect_missing "$DOCKER_AVAILABLE"
 
 FREE=$(rq_free_mb "$USER_HOME")
@@ -188,13 +217,45 @@ fi
 
 totals no
 G_COUNT=$T_COUNT; G_DL=$T_DL; G_DISK=$T_DISK; G_TIME=$T_TIME; G_NAMES=$T_NAMES
+
+# Only the Docker demos that fit, smallest first, in what the small demos
+# leave free; the others are named, not offered. A 16 GB card offered all
+# four ("about 3.9 GB") and then refused everything, the small demos too
+# ("needs 15.6 GB", user test 2026-10-07, S2); now it offers none (above).
+NOFIT=""       # does not fit at all
+NOTWITH=""     # fits alone, not next to the ones offered
+if [ -n "${FREE:-}" ]; then
+    budget=$((FREE - RQ_SPACE_RESERVE_MB - G_DISK))
+    used=0
+    for i in $(for i in "${!IDS[@]}"; do
+                   [ "${DOCKER[$i]}" = yes ] && printf '%s %s\n' "${DISK[$i]}" "$i"
+               done | sort -n | awk '{ print $2 }'); do
+        if [ $((used + DISK[i] + PEAK[i])) -le "$budget" ]; then
+            used=$((used + DISK[i]))
+        else
+            if [ $((DISK[i] + PEAK[i])) -le "$budget" ]; then
+                NOTWITH="${NOTWITH:+$NOTWITH, }${NAMES[$i]}"
+            else
+                NOFIT="${NOFIT:+$NOFIT, }${NAMES[$i]}"
+            fi
+            DOCKER[$i]=nofit
+        fi
+    done
+fi
+NOFIT_TXT="$SMALL_TXT"
+[ -n "$NOFIT" ] && NOFIT_TXT="No room on this SD card for: $NOFIT."
+[ -n "$NOTWITH" ] && NOFIT_TXT="${NOFIT_TXT:+$NOFIT_TXT\n}Not as well, for lack of room: $NOTWITH (one of them fits instead: start it from its icon)."
 totals yes
 D_COUNT=$T_COUNT; D_DL=$T_DL; D_DISK=$T_DISK; D_PEAK=$T_PEAK; D_TIME=$T_TIME; D_NAMES=$T_NAMES
 
 if [ "$G_COUNT" -eq 0 ] && [ "$D_COUNT" -eq 0 ]; then
     note=""
     [ "$DOCKER_AVAILABLE" = yes ] || note="\n\n(Docker is not available, so the Docker demos were not checked.)"
-    tell "$TITLE" "All demos are on this Pi already.$note"
+    if [ -n "$NOFIT_TXT" ]; then
+        tell "$TITLE" "All demos that fit are on this Pi already.\n\n$NOFIT_TXT"
+    else
+        tell "$TITLE" "All demos are on this Pi already.$note"
+    fi
     exit 0
 fi
 
@@ -207,9 +268,11 @@ else
     if [ "$G_COUNT" -gt 0 ]; then
         text="Not on this Pi yet ($G_COUNT): $G_NAMES.\n\n"
         text="${text}Download:  about $(rq_fmt_mb "$G_DL") (needs the internet)\n"
-        [ -n "$G_TIME" ] && text="${text}Time:      about $G_TIME\n"
+        [ -n "$G_TIME" ] && text="${text}Time:      $G_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
-        text="${text}Afterwards they start without the internet.\n\nDownload now?"
+        text="${text}Afterwards they start without the internet."
+        [ "$D_COUNT" -eq 0 ] && [ -n "$NOFIT_TXT" ] && text="${text}\n\n$NOFIT_TXT"
+        text="${text}\n\nDownload now?"
         ask "$TITLE" "$text" && WANT_GIT=yes
     fi
     if [ "$D_COUNT" -gt 0 ]; then
@@ -219,11 +282,18 @@ else
             text="The other demos are on this Pi. Download the Docker demos too? They are large:\n$D_NAMES.\n\n"
         fi
         text="${text}Download:  about $(rq_fmt_mb "$D_DL") (needs the internet)\n"
-        text="${text}Space:     about $(rq_fmt_mb "$D_DISK")"
+        # Docker images share parts: the sum of their sizes is the most they
+        # take (14.6 GB listed, about 10 GB used in the user test, #28)
+        if [ "$D_COUNT" -gt 1 ]; then
+            text="${text}Space:     up to $(rq_fmt_mb "$D_DISK") (the images share parts, so usually less)"
+        else
+            text="${text}Space:     about $(rq_fmt_mb "$D_DISK")"
+        fi
         [ "$D_PEAK" -gt 0 ] && text="${text} ($(rq_fmt_mb $((D_DISK + D_PEAK))) while installing)"
         text="${text}\n"
-        [ -n "$D_TIME" ] && text="${text}Time:      about $D_TIME\n"
+        [ -n "$D_TIME" ] && text="${text}Time:      $D_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
+        [ -n "$NOFIT_TXT" ] && text="${text}$NOFIT_TXT\n\n"
         text="${text}Without them, each Docker demo downloads on its first start."
         ask "Docker demos too?" "$text" --defaultno && WANT_DOCKER=yes
     fi
@@ -235,6 +305,12 @@ fi
 need=$RQ_SPACE_RESERVE_MB
 [ "$WANT_GIT" = yes ] && need=$((need + G_DISK))
 [ "$WANT_DOCKER" = yes ] && need=$((need + D_DISK + D_PEAK))
+# (the small demos still come when the Docker demos are what does not fit)
+if [ -n "${FREE:-}" ] && [ "$FREE" -lt "$need" ] && [ "$WANT_DOCKER" = yes ] && [ "$WANT_GIT" = yes ] \
+        && [ "$FREE" -ge $((RQ_SPACE_RESERVE_MB + G_DISK)) ]; then
+    WANT_DOCKER=no
+    need=$((RQ_SPACE_RESERVE_MB + G_DISK))
+fi
 if [ -n "${FREE:-}" ] && [ "$FREE" -lt "$need" ]; then
     tell "$TITLE" "Not enough free space: this needs about $(rq_fmt_mb "$need") (with $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare), and $(rq_fmt_mb "$FREE") is free.\n\nRemove demos you do not use (Quantum Demos > Remove a demo), or leave out the Docker demos."
     exit 1
@@ -253,13 +329,16 @@ export RQ_AUTO_INSTALL=1 RQ_NO_MESSAGES=true
 
 ok=0
 failed=""
+# The small demos first, the Docker images after them, smallest first: the
+# first item was the 1.3 GB Workshop server, the rest waited (#28)
 todo=()
-for i in "${!IDS[@]}"; do
-    if [ "${DOCKER[$i]}" = yes ]; then
-        [ "$WANT_DOCKER" = yes ] && todo+=("$i")
-    else
-        [ "$WANT_GIT" = yes ] && todo+=("$i")
-    fi
+for i in $(for i in "${!IDS[@]}"; do
+               printf '%s %s %s\n' "${DOCKER[$i]}" "${DL[$i]}" "$i"
+           done | sort -k1,1 -k2,2n -k3,3n | awk '{ print $3 }'); do
+    case "${DOCKER[$i]}" in
+        yes) [ "$WANT_DOCKER" = yes ] && todo+=("$i") ;;
+        no)  [ "$WANT_GIT" = yes ] && todo+=("$i") ;;
+    esac
 done
 
 n=${#todo[@]}
@@ -274,21 +353,22 @@ for i in ${todo[@]+"${todo[@]}"}; do
     label="[$k/$n] ${NAMES[$i]}"
     out=$(mktemp)
     start=$SECONDS
+    rx0=$(rq_rx_mb) || rx0=""
     "$ENGINE" "${IDS[$i]}" --install-only < /dev/null > "$out" 2>&1 &
     pid=$!
     while kill -0 "$pid" 2>/dev/null; do
-        printf '\r%s ... %ds ' "$label" $((SECONDS - start))
+        printf '\r%s ... %s   ' "$label" "$(progress "$i" "$rx0")"
         sleep 2
     done
     rc=0
     wait "$pid" || rc=$?
     cat "$out" >> "$LOG"
     if [ "$rc" -eq 0 ] && installed "" "$([ "${DOCKER[$i]}" = yes ] && echo docker)" "" "" "${IDS[$i]}"; then
-        printf '\r%s ... done (%ds)     \n' "$label" $((SECONDS - start))
+        printf '\r%s ... done (%ds)                         \n' "$label" $((SECONDS - start))
         ok=$((ok + 1))
     else
         reason=$(sed -n 's/^ERROR: //p' "$out" | tail -n 1)
-        printf '\r%s ... failed      \n' "$label"
+        printf '\r%s ... failed                              \n' "$label"
         failed="${failed}\n  ${NAMES[$i]}${reason:+: $reason}"
     fi
     rm -f "$out"
@@ -303,5 +383,7 @@ fi
 if [ "$D_COUNT" -gt 0 ] && [ "$WANT_DOCKER" != yes ]; then
     summary="${summary}\n\nThe Docker demos download on their first start."
 fi
+[ -n "$NOFIT_TXT" ] && summary="${summary}\n\n$NOFIT_TXT"
+
 tell "$TITLE" "$summary"
 [ -z "$failed" ]

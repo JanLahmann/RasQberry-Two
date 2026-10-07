@@ -51,9 +51,15 @@ EOF
     # Method 3: Configure raspi-firmware for newer systems
     if [ -d /boot/firmware ] || [ -f /usr/lib/raspi-firmware/update ]; then
         mkdir -p /etc/default
+        # INITRAMFS=no: no initramfs copied to the boot partition (bookworm and
+        # trixie raspi-firmware). SKIP_INITRAMFS_GEN=yes (trixie's raspi-firmware,
+        # ignored by bookworm's): kernel installs and upgrades do not ask for an
+        # initramfs at all - the diversion below already makes that a no-op.
         cat > /etc/default/raspi-firmware <<'EOF'
 # Don't copy initramfs files to boot partition
 INITRAMFS=no
+# Don't generate an initramfs on kernel install/upgrade (trixie)
+SKIP_INITRAMFS_GEN=yes
 EOF
     fi
 

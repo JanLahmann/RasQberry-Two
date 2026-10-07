@@ -143,8 +143,6 @@ def start_chromium(url, debug):
     cmd = ["/usr/bin/chromium"]
     if debug:
         cmd.append(f"--remote-debugging-port={PORT}")
-    if not os.path.exists(os.path.join(SESSION_ENV["XDG_RUNTIME_DIR"], "rasqberry-small-screen")):
-        cmd.append("--window-size=1070,1005")
     cmd.append(url)
     subprocess.Popen(cmd, env={**os.environ, **SESSION_ENV}, stdin=subprocess.DEVNULL,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -421,8 +419,8 @@ class Jupyter:
         self.cookies = dict(cookies)
         self.seen, self.skipped = 0, []   # set by runnable_notebook
         self.notebook = urllib.parse.unquote(u.path[m.end() - 1:].lstrip("/")) if m else ""
-        if m and m.group(1) == "lab" and self.notebook.startswith("tree/"):
-            self.notebook = self.notebook[5:]
+        if m and m.group(1) == "lab":   # /lab/tree/x or /lab/workspaces/<name>/tree/x
+            self.notebook = re.sub(r"^(workspaces/[^/]+/)?tree/", "", self.notebook)
         if not self.notebook.endswith(".ipynb"):
             self.notebook = ""
         try:   # an _xsrf cookie for POST/DELETE, as the page gets one

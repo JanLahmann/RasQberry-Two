@@ -16,6 +16,10 @@ ExecStartPre=/bin/sleep 5
 ExecStart=/home/@USER@/@REPO@/venv/@VENV@/bin/python3 /usr/bin/rq_display_ip.py --duration 60 --speed 0.08 --brightness 0.3
 # Service runs once at boot
 RemainAfterExit=no
+# Stopped early ("Stop It" when a demo needs the panel, systemctl stop): a
+# oneshot counts SIGTERM as a failure by default, so the unit ended "failed"
+# and a plain kill restarted it (Restart=on-failure)
+SuccessExitStatus=SIGTERM
 StandardOutput=journal
 StandardError=journal
 

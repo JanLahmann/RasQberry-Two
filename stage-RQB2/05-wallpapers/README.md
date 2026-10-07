@@ -10,7 +10,9 @@ background.
 - Installs `files/RasQberry 2 Wallpaper 4K.png` to
   `${ROOTFS_DIR}/usr/share/rpd-wallpaper/`.
 - For `desktop-items-0.conf` and `desktop-items-1.conf` in
-  `${ROOTFS_DIR}/etc/xdg/pcmanfm/LXDE-pi/`: updates an existing file (wallpaper
+  `${ROOTFS_DIR}/etc/xdg/pcmanfm/LXDE-pi/` (the bookworm desktop's profile) and
+  `.../pcmanfm/default/` (trixie's `pcmanfm-pi` starts the desktop without
+  `--profile`): updates an existing file (wallpaper
   path, black text, white background and shadow, shadow offset 1) or creates a
   new one with `wallpaper_mode=fit`; the files are owned by root.
 

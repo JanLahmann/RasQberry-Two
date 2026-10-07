@@ -22,18 +22,22 @@ h.require("qiskit", "matplotlib", "selenium", "celluloid", "PIL")
 FRACTAL_DIR = os.path.join(h.BIN_DIR, "fractal_files")
 FRAMES = 3
 
-# Replaces fractal_webclient.py: a driver that loads nothing and reports its
-# window closed when the demo starts polling it, so fractals.py exits.
+# Replaces fractal_webclient.py: a driver that loads nothing; its window is
+# open until the animation is shown in it, then reported closed when the demo
+# polls it, so fractals.py exits.
 _FAKE_WEBCLIENT = '''
 from selenium.common.exceptions import NoSuchWindowException
 
 class _Driver:
+    showing = ""
     def get(self, url):
-        pass
+        self.showing = url
     def quit(self):
         pass
     def find_element(self, *args):
-        raise NoSuchWindowException("headless test: no browser window")
+        if self.showing.endswith(".gif"):
+            raise NoSuchWindowException("headless test: no browser window")
+        return object()
 
 class WebClient:
     def __init__(self, default_image_url):
@@ -101,7 +105,9 @@ def test_fractals_demo_runs_headless(tmp_path):
     h.record_subprocess_warnings("fractals.py", proc.stderr)
     out = proc.stdout + proc.stderr
     assert proc.returncode == 0, f"fractals.py failed:\n{out[-4000:]}"
-    assert f"Loop i = {FRAMES - 1:>2}" in proc.stdout, out[-4000:]
+    # one line that counts the pictures (the per-frame numbers only with RQ_DEBUG=1)
+    assert f"Drawing picture {FRAMES} of {FRAMES}..." in proc.stdout, out[-4000:]
+    assert "Loop i = " not in proc.stdout
     images = tmp / "rasqberry-fractals-img"
     assert (images / "2cn2.png").stat().st_size > 0
     assert (images / f"1qubit_simulator_4animations_H_{FRAMES}.gif").stat().st_size > 0

@@ -50,7 +50,7 @@ def frame_bus(tmp_path, monkeypatch):
 
 def test_read_frame_waiting_when_no_bus(frame_bus, monkeypatch):
     """No file / bad magic / zero geometry all read as 'waiting'."""
-    monkeypatch.setattr(web, "_layout_name", lambda: "single-24x8")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("single-24x8", "single-24x8"))
     assert web.read_frame() == {"waiting": True}          # missing file
     frame_bus.write_bytes(b"XXXX" + b"\x00" * 20)          # bad magic
     assert web.read_frame() == {"waiting": True}
@@ -59,7 +59,7 @@ def test_read_frame_waiting_when_no_bus(frame_bus, monkeypatch):
 def test_read_frame_maps_chain_to_xy(frame_bus, monkeypatch):
     """Each logical (x, y) shows the colour written at its mapped chain index."""
     layout = "single-24x8"
-    monkeypatch.setattr(web, "_layout_name", lambda: layout)
+    monkeypatch.setattr(web, "_view_layout", lambda: (layout, layout))
 
     pixels = [(0, 0, 0)] * 192
     marks = {(0, 0): (255, 0, 0), (23, 7): (0, 255, 0), (5, 3): (0, 0, 255)}
@@ -77,7 +77,7 @@ def test_read_frame_maps_chain_to_xy(frame_bus, monkeypatch):
 def test_read_frame_follows_layout_geometry(frame_bus, monkeypatch):
     """The decode honours the header geometry AND the configured layout map."""
     layout = "quad-4x12"
-    monkeypatch.setattr(web, "_layout_name", lambda: layout)
+    monkeypatch.setattr(web, "_view_layout", lambda: (layout, layout))
 
     pixels = [(0, 0, 0)] * 192
     idx = lu.map_xy_to_pixel(12, 0, layout=layout)
@@ -95,10 +95,44 @@ def test_grid_cache_rebuilds_on_layout_change(frame_bus, monkeypatch):
     pixels[lu.map_xy_to_pixel(1, 0, layout="single-24x8")] = (1, 2, 3)
     _write_frame(frame_bus, 24, 8, pixels)
 
-    monkeypatch.setattr(web, "_layout_name", lambda: "single-24x8")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("single-24x8", "single-24x8"))
     f1 = web.read_frame()
-    monkeypatch.setattr(web, "_layout_name", lambda: "quad-4x12")
+    monkeypatch.setattr(web, "_view_layout", lambda: ("quad-4x12", "quad-4x12"))
     f2 = web.read_frame()
     # Same bytes, different layout -> different decoded grids (cache keyed on layout)
     assert f1["layout"] != f2["layout"]
     assert f1["rows"] != f2["rows"]
+
+
+# --- #22: the label follows the frames, and WEB off stops the server ----------
+
+def test_page_label_is_not_the_window_status_global():
+    """A global `var status` is window.status (a string), so the label stayed
+    "Connecting..." while frames rendered (#22)."""
+    script = web.INDEX_HTML.split("<script>", 1)[1].split("</script>", 1)[0]
+    assert "var status " not in script and "var status=" not in script
+    assert "statusEl.textContent = w" in script
+
+
+def test_turning_web_off_stops_every_server(tmp_path, monkeypatch):
+    """Also a server without a pidfile (started by another user's demo or by
+    an older version) is stopped; other programs are left alone."""
+    import subprocess as sp
+    import time
+    srv = tmp_path / "rq_led_web.py"
+    srv.write_text("import time\ntime.sleep(60)\n")
+    other = tmp_path / "other.py"
+    other.write_text("import time\ntime.sleep(60)\n")
+    server = sp.Popen([sys.executable, str(srv)])
+    bystander = sp.Popen([sys.executable, str(other)])
+    monkeypatch.setattr(lu, "_VIRTUAL_WEB_PIDFILE", str(tmp_path / "web.pid"))
+    try:
+        time.sleep(0.3)
+        assert lu.stop_virtual_led_web() >= 1
+        assert server.wait(timeout=10) != 0
+        assert bystander.poll() is None
+    finally:
+        for p in (server, bystander):
+            if p.poll() is None:
+                p.kill()
+                p.wait()

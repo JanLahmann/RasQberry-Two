@@ -70,6 +70,13 @@ else
     echo "$(date): libfm config not found at $LIBFM_CONFIG" >> "$LOG_FILE"
 fi
 
+# Trixie: pcmanfm-pi reads quick_exec from its profile's pcmanfm.conf, not
+# from libfm.conf (T1); rq_desktop_session.py also checks it at every login
+if [ -x /usr/bin/rq_desktop_session.py ]; then
+    python3 /usr/bin/rq_desktop_session.py --quick-exec >> "$LOG_FILE" 2>&1 \
+        && echo "$(date): quick_exec=1 set in the pcmanfm profile's pcmanfm.conf" >> "$LOG_FILE"
+fi
+
 # Restart PCManFM desktop to pick up trusted icon and libfm settings
 # Without this, desktop icons won't respond to clicks until reboot
 echo "$(date): Restarting PCManFM desktop to apply settings..." >> "$LOG_FILE"

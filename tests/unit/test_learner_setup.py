@@ -35,8 +35,8 @@ pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash requi
 
 
 def _fake_venv(path, packages=()):
-    """A venv-shaped directory: bin/python3 and lib/python3.11/site-packages."""
-    site = path / "lib" / "python3.11" / "site-packages"
+    """A venv-shaped directory: bin/python3 and lib/python3.13/site-packages."""
+    site = path / "lib" / "python3.13" / "site-packages"
     site.mkdir(parents=True)
     (path / "bin").mkdir()
     python = path / "bin" / "python3"
@@ -131,7 +131,7 @@ def test_pth_in_a_real_venv(tmp_path):
 def test_venv_only_installs_the_extras_idempotently(home):
     venv = _venv(home[0])
     _run(_SETUP, ["--venv-only", str(venv)], home)
-    pth = venv / "lib" / "python3.11" / "site-packages" / "00-rasqberry.pth"
+    pth = venv / "lib" / "python3.13" / "site-packages" / "00-rasqberry.pth"
     nbconf = venv / "etc" / "jupyter" / "jupyter_notebook_config.d" / "zz-rasqberry.json"
     assert pth.read_text() == open(_PTH).read()
     assert json.loads(nbconf.read_text()) == {"NotebookApp": {"nbserver_extensions": {"jupyterlab": False}}}
@@ -144,7 +144,7 @@ def test_venv_only_installs_the_extras_idempotently(home):
 @pytest.mark.skipif(os.geteuid() == 0, reason="root can write anywhere")
 def test_venv_only_reports_a_failed_install(home):
     venv = _venv(home[0])
-    site = venv / "lib" / "python3.11" / "site-packages"
+    site = venv / "lib" / "python3.13" / "site-packages"
     site.chmod(0o555)
     try:
         proc = _run(_SETUP, ["--venv-only", str(venv)], home, check=False)

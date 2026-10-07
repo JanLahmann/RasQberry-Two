@@ -183,6 +183,31 @@ validate_pin_policy() {
                 print_fail "entrypoint.docker_image must be pinned by digest (name@sha256:...) or by a source-commit tag, got: '$image'"
                 errs=$((errs + 1))
             fi
+            # A digest disappears when its publisher prunes old builds: then a
+            # tag of the same image is downloaded instead (rq_demo_docker_pull)
+            local fallback img_repo
+            fallback=$(jq -r '.entrypoint.docker_image_fallback // empty' "$file")
+            img_repo="${image%%@*}"
+            [ "$img_repo" = "$image" ] && img_repo="${image%:*}"
+            if [ -z "$fallback" ]; then
+                case "$image" in *@sha256:*)
+                    print_fail "entrypoint.docker_image_fallback (a tag of $img_repo) is required with a digest pin"
+                    errs=$((errs + 1)) ;;
+                esac
+            else
+                case "$fallback" in
+                    *@*) img_repo="" ;;              # a digest is no fallback
+                    "$img_repo":?*) ;;
+                    *) img_repo="" ;;
+                esac
+                case "${fallback#"${img_repo}":}" in */*) img_repo="" ;; esac
+                if [ -n "$img_repo" ]; then
+                    print_pass "Docker fallback tag ${fallback##*:}"
+                else
+                    print_fail "entrypoint.docker_image_fallback must be a tag of the same image (NAME:TAG), got: '$fallback'"
+                    errs=$((errs + 1))
+                fi
+            fi
         fi
         if [ -n "$repo_url" ] && ! echo "$ref" | grep -qE '^[0-9a-fA-F]{40}$'; then
             print_fail "Shipped demos pin install.ref to a full 40-character commit SHA, got: '${ref:-none}'"

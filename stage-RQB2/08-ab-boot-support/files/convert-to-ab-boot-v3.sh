@@ -286,7 +286,11 @@ echo "  Original cmdline: $ORIG_CMDLINE"
 
 # Remove parameters we'll be updating or that are incompatible with AB boot
 # Note: init= is removed because standard firstboot script is incompatible with AB layout
-PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed \
+# Note: resize (trixie) is removed: it asks the initramfs to grow partition 2 at
+# the first start, and the A/B image has no initramfs and lays its card out
+# itself (rq_expand_ab.sh). 00-enable-serial-console strips it already; this
+# keeps an image built without that stage safe. Matched as a whole word only.
+PRESERVED_PARAMS=$(echo "$ORIG_CMDLINE" | sed -E 's/(^| )resize( |$)/ /g' | sed \
     -e 's/console=[^ ]*//g' \
     -e 's/root=[^ ]*//g' \
     -e 's/rootfstype=[^ ]*//g' \

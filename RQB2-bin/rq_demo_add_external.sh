@@ -79,7 +79,20 @@ registry_ids() {
     jq -r '.demos[].id' "$REGISTRY_FILE"
 }
 
-# Picker text: "Name - summary" (cut to the menu width), else the curator
+# One menu line of at most MAX characters: whiptail cuts what is wider at
+# the right edge, so a longer text ends at a word, with "..." (#23)
+# Usage: fit_line TEXT [MAX]
+fit_line() {
+    local text="$1" max="${2:-66}"
+    if [ "${#text}" -le "$max" ]; then
+        printf '%s' "$text"
+    else
+        text="${text:0:$((max - 3))}"
+        printf '%s...' "${text% *}"
+    fi
+}
+
+# Picker text: "Name - summary" (one line of the menu), else the curator
 # note. The note is maintainer prose, cut mid-word, so the two SAP entries
 # looked the same (R-105).
 registry_label() {
@@ -88,7 +101,7 @@ registry_label() {
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
     [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
-    printf '%s' "${name:-$id}${summary:+ - $summary}" | cut -c1-66
+    fit_line "${name:-$id}${summary:+ - $summary}"
 }
 
 # Is a demo already installed (user manifest present)?
@@ -124,7 +137,7 @@ chown_to_user() {
 # them. Returns non-zero, after showing the pip output, on any failure.
 install_pip_extras() {
     local id="$1" dest="$2"
-    local venv_path splitter work log rc
+    local venv_path splitter work log rc label
 
     if ! venv_path=$(find_venv "$STD_VENV"); then
         warn "Virtual environment not found - cannot install Python requirements"
@@ -169,7 +182,8 @@ install_pip_extras() {
     fi
 
     if [ "$rc" -ne 0 ]; then
-        show_msgbox "Requirements not installed" "pip failed for '$id' (exit $rc). The demo was NOT installed.\n\nLast lines:\n$(tail -n 10 "$log" | cut -c1-110)"
+        label=$(registry_field "$id" "name")
+        show_msgbox "Demo not installed" "The Python packages that ${label:-$id} needs could not be installed, so the demo was not installed. Check the internet connection and the free space, then try again.\n\nThe last lines of the installer:\n$(tail -n 10 "$log" | cut -c1-110)"
         rm -rf "$work"
         return 1
     fi
@@ -201,11 +215,30 @@ write_desktop_entry() {
     chown_to_user "$USER_HOME/Desktop"
     bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
     case "$rc" in
-        0) chown_to_user "$tmp"; mv -f "$tmp" "$out" ;;
+        0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; relayout_desktop ;;
         3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
         *) rm -f "$tmp"; warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
     esac
     return 0
+}
+
+# The desktop lays the launchers out in its grid at every login; a catalogue
+# launcher added or removed now joins it (or leaves a gap closed) at once,
+# instead of landing apart at the bottom left (T5). Only with a running
+# desktop; quiet and never fatal.
+relayout_desktop() {
+    local user uid run helper="$SCRIPT_DIR/rq_desktop_session.py"
+    [ -f "$helper" ] || return 0
+    user=$(stat -c %U "$USER_HOME" 2>/dev/null) || return 0
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    run="/run/user/$uid"
+    [ -S "$run/wayland-0" ] || return 0
+    if [ "$(id -u)" -eq 0 ] && [ "$user" != root ]; then
+        sudo -u "$user" -H env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 \
+            python3 "$helper" --relayout
+    else
+        env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 python3 "$helper" --relayout
+    fi >/dev/null 2>&1 || true
 }
 
 refresh_cache() {
@@ -261,7 +294,9 @@ pick_demo_interactive() {
         return 1
     fi
 
-    show_menu "Add demo from catalogue" "Select a demo to install:" "${args[@]}"
+    # Without the ids in front, the text has the whole width (78 - 10)
+    whiptail --title "Add demo from catalogue" --notags --ok-button Select --cancel-button Back \
+        --menu "Select a demo to install:" 20 78 10 -- "${args[@]}" 3>&1 1>&2 2>&3
 }
 
 # ============================================================================
@@ -297,19 +332,23 @@ add_demo() {
     # left behind; it blocked every later install (R-057). It is replaced
     # below, after the question.
 
-    # Third-party disclaimer, with what the install takes - must come before
+    # Who provides it, with what the install takes - must come before
     # anything destructive (in update mode the existing checkout is removed
-    # below)
-    local name summary dl disk size_txt=""
+    # below). The provider comes from the registry: Jan's own traQmania was
+    # "an external contributor ... NOT part of the RasQberry project" (R-163).
+    local name summary provider dl disk size_txt=""
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
+    provider=$(registry_field "$id" "provider")
     dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
     disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
-    if ! show_yesno "Third-party demo" \
-        "${name:-$id}${summary:+: $summary}\n\n${size_txt}'$id' is provided by an external contributor and is NOT part of the RasQberry project:\n\n$repo_url\n\nThe RasQberry team reviews and pins a specific version, but does not maintain this software and takes no responsibility for its content, behaviour, or security. Install at your own risk.\n\nContinue?"; then
-        info "Installation cancelled by user"
-        return 1
+    if ! show_yesno "Demo from the Catalogue" \
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\nInstall it?"; then
+        # "No" is an answer, not an error: it ended in "It stopped with an
+        # error" and an Error box (user test 2026-10-07, S3)
+        info "Nothing was installed."
+        return 0
     fi
     if [ -n "$disk" ] && [ "$(rq_free_mb "$USER_HOME")" -lt $((disk + RQ_SPACE_RESERVE_MB)) ]; then
         die "Not enough free space for '$id': it needs about $(rq_fmt_mb "$disk") plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
@@ -370,8 +409,8 @@ add_demo() {
         if ! show_yesno "LED demo - root privileges" \
             "The demo '$id' drives the LED hardware and will run with root privileges.\n\nInstall and allow it to run as root?"; then
             rm -rf "$dest"
-            info "Installation cancelled by user"
-            return 1
+            info "Nothing was installed."
+            return 0
         fi
     fi
 
@@ -410,12 +449,24 @@ add_demo() {
 
     refresh_cache
 
+    local where="the Quantum Demos menu" m_image
+    [ -f "$USER_HOME/Desktop/rq-ext-${id}.desktop" ] && where="its desktop icon or the Quantum Demos menu"
+    m_image=""
+    [ "$(jq -r '.entrypoint.type // empty' "$manifest_file")" = "docker" ] \
+        && m_image=$(jq -r '.entrypoint.docker_image // empty' "$manifest_file")
     if [ "$mode" = "update" ]; then
         info "Demo '$id' updated to pinned commit ${ref:0:12}"
         show_msgbox "Demo updated" "External demo '$id' updated successfully.\n\nPinned commit: ${ref:0:12}"
+    elif [ -n "$m_image" ] && ! { command -v docker >/dev/null 2>&1 \
+            && docker image inspect "$m_image" >/dev/null 2>&1; }; then
+        # Its Docker image comes on the first start, after its own question:
+        # "installed successfully" and then a 530 MB download read like a
+        # second install (#23)
+        info "Demo '$id' registered; its Docker image downloads on its first start"
+        show_msgbox "Demo added" "Registered: ${name:-$id}. On its first start it downloads its Docker image${dl:+, about $(rq_fmt_mb "$dl")}.\n\nStart it from $where."
     else
         info "Demo '$id' installed successfully"
-        show_msgbox "Demo installed" "External demo '$id' installed successfully.\n\nLaunch it from the Quantum Demos menu."
+        show_msgbox "Demo added" "${name:-$id} is installed.\n\nStart it from $where."
     fi
     return 0
 }
@@ -437,7 +488,8 @@ remove_demo() {
         ""|.|..|*/*) die "Cannot determine the checkout directory for '$id' (got '$dir')" ;;
     esac
 
-    local image=""
+    local image="" name
+    name=$(jq -r '.name // .id // empty' "$manifest")
     [ "$(jq -r '.entrypoint.type // empty' "$manifest")" = "docker" ] \
         && image=$(jq -r '.entrypoint.docker_image // empty' "$manifest")
 
@@ -445,7 +497,8 @@ remove_demo() {
         info "Removing checkout: $DEMOS_ROOT/$dir"
         rq_remove_tree "${DEMOS_ROOT:?}/$dir" || die "Could not remove $DEMOS_ROOT/$dir"
     fi
-    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop"
+    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop" "$USER_HOME/Desktop/More/rq-ext-${id}.desktop"
+    relayout_desktop
     refresh_cache
 
     # Its Docker image is most of the space (traQmania: 3.2 GB) and stayed
@@ -463,6 +516,10 @@ remove_demo() {
         fi
     fi
     info "Demo '$id' removed"
+    # Back in the menu without a word looked like nothing happened (#23)
+    if [ "${RQ_ASSUME_YES:-no}" != yes ] && [ -t 0 ] && [ -t 1 ]; then
+        show_msgbox "Demo removed" "${name:-$id} was removed. Free space now: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")")."
+    fi
     return 0
 }
 

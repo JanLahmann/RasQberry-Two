@@ -116,8 +116,20 @@ if [ -f "$CMDLINE_TXT" ]; then
         echo "   Splash boot enabled (quiet/splash/plymouth configured)"
     fi
 
-    # Clean up any double spaces
-    NEW_CMDLINE=$(echo "$NEW_CMDLINE" | sed 's/  */ /g')
+    # -------------------------------------------------------------------------
+    # trixie: no "resize"
+    # -------------------------------------------------------------------------
+    # pi-gen's trixie cmdline.txt ends in "resize": the initramfs grows the
+    # root partition on the first start (resize_early) and then drops the
+    # word. This image has no initramfs (SKIP_INITRAMFS=1), so nothing would
+    # act on it or remove it; the kernel would pass it to init at every start.
+    # The image grows its root itself (rasqberry-firstboot.d/
+    # 01-expand-filesystem.sh; A/B: rq_expand_ab.sh). The A/B conversion
+    # (convert-to-ab-boot-v3.sh step 9) strips it too.
+    NEW_CMDLINE=$(echo "$NEW_CMDLINE" | sed -E 's/(^| )resize( |$)/ /g')
+
+    # Clean up any double spaces (and the ends of the line)
+    NEW_CMDLINE=$(echo "$NEW_CMDLINE" | sed 's/  */ /g; s/^ //; s/ $//')
 
     # Write updated cmdline
     echo "$NEW_CMDLINE" > "$CMDLINE_TXT"

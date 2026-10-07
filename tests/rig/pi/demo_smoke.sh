@@ -96,7 +96,10 @@ if [ -n "${RIG_ICON:-}" ]; then
     # desktop layout; the icon command runs under rq_hold_on_error.sh, whose
     # script(1) copies the demo's output to ~/.cache/rasqberry/<name>.log.
     desk="$HOME/Desktop/$RIG_ICON"
+    # the desktop's pcmanfm profile: LXDE-pi (bookworm) or default (trixie)
     conf="$HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
+    grep -q -- "--profile LXDE-pi" /etc/xdg/labwc/autostart 2>/dev/null \
+        || conf="$HOME/.config/pcmanfm/default/desktop-items-0.conf"
     [ -f "$desk" ] || { echo "FAIL $label | no such desktop icon"; exit 0; }
     pos=$(awk -v s="[$RIG_ICON]" '$0==s{f=1;next} /^\[/{f=0} f&&/^x=/{x=substr($0,3)} f&&/^y=/{y=substr($0,3)} END{if(x!=""&&y!="")print x, y}' "$conf" 2>/dev/null)
     [ -n "$pos" ] || { echo "FAIL $label | no position in $conf"; exit 0; }
@@ -156,9 +159,12 @@ fi
 # once, two seconds after its text first shows in the demo's log - for dialogs
 # that come after a first-start download, when a timer would be long gone
 if [ -n "${RIG_ANSWERS:-}" ]; then
-    ( IFS=';'; set -f; pending="$RIG_ANSWERS"
-      for _ in $(seq 1 900); do
+    # (a counter, not $(seq ...): with IFS=';' that would be one word, one pass)
+    ( IFS=';'; set -f; pending="$RIG_ANSWERS"; tries=0
+      while [ "$tries" -lt 900 ]; do
+          tries=$((tries + 1))
           [ -n "$pending" ] || break
+          kill -0 "$spid" 2>/dev/null || break   # the demo has ended: nothing left to answer
           next=""
           for answer in $pending; do
               [ -n "$answer" ] || continue

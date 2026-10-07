@@ -24,9 +24,21 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   written by convert-to-ab-boot-v3.sh, and this removes it):
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
-#     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE and RQ_UMAMI (usage counts off,
-#     on rig and development Pis) from rasqberry_environment.env,
+#     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE, RQ_UMAMI (usage counts off,
+#     on rig and development Pis) and the Demo Loop's choice of demos and
+#     timings (DEMO_LOOP_*) from rasqberry_environment.env,
 #     VNC switched off (Q17: the new system then does not switch it on),
+#     the marks of what the desktop user was already asked or told
+#     (~/.local/state/rasqberry/*: the setup checklist was answered, the
+#     Imager note, password/name/keyboard answers, the firmware and slot
+#     indicator notices already shown) - else an update reopened the
+#     first-start checklist (user test 2026-10-06/07); its subfolders stay
+#     per slot (learner-setup/ = this slot's Thonny/Geany settings, made at
+#     build time),
+#     Raspberry Pi Connect (Jan, 2026-10-07: same board, same card): its
+#     sign-in (~/.config/com.raspberrypi.connect) and, where it was on,
+#     its user units and linger - else everyone who reaches the Pi only
+#     through Connect lost it with every update (user test 2026-10-07, R4),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
@@ -65,7 +77,12 @@ PROGRAMS=My-Quantum-Programs
 LEARNER_STAMP=.local/state/rasqberry/learner-setup/programs
 # The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
 STARTERS="$ROOT/usr/config/my-quantum-programs"
-ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI"
+# What the desktop user was already asked or told (rq_firstlogin.sh,
+# rq_slot_indicator.py): its files are copied, its folders are per slot
+USER_STATE=.local/state/rasqberry
+ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI DEMO_LOOP_DEMOS
+    DEMO_LOOP_IBM_LOGO_TIME DEMO_LOOP_LIGHTS_OUT_TIME DEMO_LOOP_RASQBERRY_TIE_TIME
+    DEMO_LOOP_RASQ_LED_TIME DEMO_LOOP_PAUSE"
 # Live = changing the running system (hostname, locale-gen, nmcli), not a test root
 LIVE=true
 if [ -n "$ROOT" ] || [ "${RQ_CARRY_NO_LIVE:-0}" = "1" ]; then LIVE=false; fi
@@ -338,6 +355,107 @@ pull_vnc_off() {
     cp -p "$other$marker" "$ROOT$marker"
 }
 
+pull_user_state() {
+    # The files in ~/.local/state/rasqberry of the other slot that this slot
+    # lacks (a freshly written slot has none; nothing here is overwritten).
+    # Files only: a folder there (learner-setup/) records this slot's own
+    # home-folder settings. No logs. Folders made here go to the user.
+    local other="$1" home src dst rel d f name n=0
+    home=$(desktop_home)
+    [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
+    src="$other$home/$USER_STATE"; dst="$ROOT$home/$USER_STATE"
+    [ -d "$src" ] && [ ! -L "$src" ] || return 1
+    rel=""
+    for d in ${USER_STATE//\// }; do
+        rel="${rel:+$rel/}$d"
+        if [ ! -d "$ROOT$home/$rel" ]; then
+            mkdir "$ROOT$home/$rel" || return 1
+            give_to_user "$ROOT$home/$rel"
+        fi
+    done
+    for f in "$src"/*; do
+        name=$(basename "$f")
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        case "$name" in *.log|*.log.*) continue ;; esac
+        [ -e "$dst/$name" ] || [ -L "$dst/$name" ] && continue
+        cp -p "$f" "$dst/$name" || continue
+        give_to_user "$dst/$name"
+        n=$((n + 1))
+    done
+    [ "$n" -gt 0 ]
+}
+
+# Make the folders of <rel> (relative to the home) that are missing, for the
+# desktop user
+make_user_dirs() {
+    local home="$1" rel="" d
+    for d in ${2//\// }; do
+        rel="${rel:+$rel/}$d"
+        if [ ! -d "$ROOT$home/$rel" ]; then
+            mkdir "$ROOT$home/$rel" || return 1
+            give_to_user "$ROOT$home/$rel"
+        fi
+    done
+}
+
+# Where the new slot has the user unit <name> (its path on the new system)
+user_unit_path() {
+    local d
+    for d in /usr/lib/systemd/user /lib/systemd/user /etc/systemd/user; do
+        [ -f "$ROOT$d/$1" ] && { echo "$d/$1"; return 0; }
+    done
+    return 1
+}
+
+pull_connect() {
+    # Raspberry Pi Connect runs per user, from the home folder, which each
+    # slot has its own of. Carried: the sign-in (~/.config/com.raspberrypi.connect,
+    # never overwritten) and - where Connect was on - the same user units,
+    # enabled the way systemctl --user enable and Imager do it (links in
+    # ~/.config/systemd/user/*.wants; this runs as root before any login, with
+    # no user bus), and linger, so it starts without a login. Only where the
+    # new system has Connect installed.
+    local other="$1" user home cfg=.config/com.raspberrypi.connect
+    local units=.config/systemd/user link name wants path on=false n=0 what=""
+    user=$(desktop_user); home=$(desktop_home)
+    [ -n "$user" ] && [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
+    [ -x "$ROOT/usr/bin/rpi-connect" ] || return 1
+    if [ -d "$other$home/$cfg" ] && [ ! -L "$other$home/$cfg" ] \
+        && [ ! -e "$ROOT$home/$cfg" ] && [ ! -L "$ROOT$home/$cfg" ]; then
+        make_user_dirs "$home" .config || return 1
+        chmod 700 "$ROOT$home/.config" 2>/dev/null || true
+        cp -a "$other$home/$cfg" "$ROOT$home/$cfg" || return 1
+        n=1
+        what="sign-in"
+    fi
+    for link in "$other$home/$units"/*.wants/rpi-connect*; do
+        [ -L "$link" ] || continue
+        case "$(basename "$link")" in rpi-connect.service|rpi-connect-lite.service) on=true ;; esac
+    done
+    if $on; then
+        for link in "$other$home/$units"/*.wants/rpi-connect*; do
+            [ -L "$link" ] || continue
+            name=$(basename "$link")
+            wants=$(basename "$(dirname "$link")")
+            path=$(user_unit_path "$name") || continue
+            [ -e "$ROOT$home/$units/$wants/$name" ] || [ -L "$ROOT$home/$units/$wants/$name" ] && continue
+            make_user_dirs "$home" "$units/$wants" || return 1
+            ln -s "$path" "$ROOT$home/$units/$wants/$name" || return 1
+            am_root && chown -h "$(stat -c %u:%g "$ROOT$home" 2>/dev/null || echo 1000:1000)" \
+                "$ROOT$home/$units/$wants/$name" 2>/dev/null || true
+            n=1
+        done
+        if [ -e "$other/var/lib/systemd/linger/$user" ] && [ ! -e "$ROOT/var/lib/systemd/linger/$user" ]; then
+            mkdir -p "$ROOT/var/lib/systemd/linger"
+            : > "$ROOT/var/lib/systemd/linger/$user"
+            n=1
+        fi
+    fi
+    [ "$n" -gt 0 ] || return 1
+    $on && what="${what:+$what, }switched on"
+    echo "Raspberry Pi Connect${what:+ ($what)}"
+}
+
 pull_old_slot_data() {
     # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
     # and Wi-Fi profiles
@@ -383,8 +501,12 @@ cmd_pull() {
     pull_timezone "$other" && carried+=("time zone")
     pull_locale "$other" && carried+=("locale")
     copy_if_different "$other" /etc/default/keyboard && carried+=("keyboard layout")
-    pull_env_keys "$other" && carried+=("browser/checklist choices")
+    pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
     pull_vnc_off "$other" && carried+=("VNC off")
+    pull_user_state "$other" && carried+=("setup checklist and notices already seen")
+    if what=$(pull_connect "$other"); then
+        carried+=("$what")
+    fi
     if what=$(pull_old_slot_data "$other"); then
         carried+=("$what")
     fi
@@ -448,8 +570,10 @@ Kept across an update, on the data partition (both systems use one copy):
 Copied from the old system when the new one starts for the first time:
   - your password, the hostname, time zone, language and keyboard layout
   - SSH host keys and authorized_keys
-  - "Browser at login" and the setup checklist's "Don't ask again"
+  - "Browser at login", and that the setup checklist and notices
+    were already shown (they do not open again)
   - VNC switched off
+  - Raspberry Pi Connect: its sign-in, and whether it is on
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
     or ~/My-Quantum-Programs

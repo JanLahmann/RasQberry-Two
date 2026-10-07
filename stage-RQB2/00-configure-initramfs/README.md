@@ -13,7 +13,8 @@ in the pi-gen config.
       deletes `/boot/initrd*`, `/boot/initramfs*` and `/boot/firmware/initramfs*`
       when `INITRD=No` (its `exit 0` ends only this hook; run-parts runs the
       others);
-    - writes `INITRAMFS=no` to `/etc/default/raspi-firmware` (if `/boot/firmware`
+    - writes `INITRAMFS=no` and `SKIP_INITRAMFS_GEN=yes` (trixie's raspi-firmware;
+      bookworm's ignores it) to `/etc/default/raspi-firmware` (if `/boot/firmware`
       or `/usr/lib/raspi-firmware/update` exists);
     - diverts `update-initramfs` and `mkinitramfs` (`dpkg-divert`, originals kept
       as `*.real`) and replaces them with no-op scripts;
@@ -38,6 +39,12 @@ in the pi-gen config.
   generate a real initramfs.
 - No stream builds an initramfs any more (`SKIP_INITRAMFS=1` everywhere); the
   unused `export-image/04-restore-initramfs` was removed (#301).
+- Raspberry Pi OS trixie moved more into the initramfs: growing the root
+  partition (the `resize` word pi-gen puts in `cmdline.txt`), the PARTUUID
+  change and `imager_fixup`. Without an initramfs none of it runs: the image
+  grows its root itself (`01-expand-filesystem.sh`, A/B: `rq_expand_ab.sh`),
+  keeps the PARTUUID of the build (as the A/B image always did), and
+  `00-enable-serial-console` / `convert-to-ab-boot-v3.sh` drop `resize`.
 - Raspberry Pi OS bookworm's initramfs carried one thing the image needs:
   `imager_fixup`, which makes Raspberry Pi Imager's OS customisation
   (`firstrun.sh`) run. Without an initramfs `rasqberry-imager-firstrun.service`

@@ -243,7 +243,26 @@ def test_picker_offers_the_own_channel_first_and_returns_only_the_choice(tmp_pat
                            "beta-2026-10-15-101010/r-ab.img.xz|beta-2026-10-15-101010|1671527604|abc1\n")
     assert "latest beta, 2026-10-15, 1.7 GB (recommended)" in wt
     assert "Choose the release to install into Slot B:" in wt
+    # tags hidden (#16): the release name is in the item text, OTHER is not shown
+    menu = _boxes(wt)[0]
+    assert "--notags" in menu
+    assert "beta-2026-10-15-101010\nbeta-2026-10-15-101010  latest beta, 2026-10-15" in menu
     assert "Asking rasqberry.org" in proc.stderr
+
+
+def test_picker_says_when_nothing_newer_is_out(tmp_path):
+    # User test #2: the running beta is the latest. The picker must say so
+    # plainly - never "withdrawn", never "recommended" for the same release
+    vf = tmp_path / "rasqberry-version"
+    vf.write_text("beta-2026-10-15-101010\n")
+    _, wt = _menu(tmp_path, 'ab_pick_image B', RQ_VERSION_FILE=str(vf),
+                  WT_ANSWERS=_answers(tmp_path, "menus", []))
+    menu = _boxes(wt)[0]
+    assert "You have the newest beta release: nothing newer is out yet." in menu
+    assert "install the same release into Slot B (a second copy to go back to)" in menu
+    assert "beta-2026-10-15-101010  the version you are running (a second copy)" in menu
+    assert "withdrawn" not in menu and "recommended" not in menu
+    assert _check_fits(wt) >= 1
 
 
 def test_picker_names_slot_a_when_slot_b_runs(tmp_path):
@@ -259,7 +278,11 @@ def test_picker_other_channel_defaults_to_the_own_channel(tmp_path):
     assert proc.stdout.strip().endswith("/x-ab.img.xz|dev-x-2026-09-30-000000|2000000000|fed3")
     channel_menu = wt.split("=== whiptail")[2]
     assert "--default-item\nbeta\n" in channel_menu
-    assert "This system follows: beta" in channel_menu
+    assert "Choose a release stream. This system follows: beta" in channel_menu
+    assert "channel" not in wt
+    # the list of releases keeps its tags: they are the release names
+    release_menu = wt.split("=== whiptail")[3]
+    assert "--notags" not in release_menu and "--notags" in channel_menu
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +343,7 @@ def test_no_warning_for_an_empty_target_or_dev_over_dev(tmp_path, plan):
 @pytest.mark.parametrize("downgrade,holds,picks,text", [
     ("stream", "beta beta-2026-10-03-095636", PICK_DEV,
      "Slot B holds beta-2026-10-03-095636 (beta).\\ndevelopment-2026-10-01-083408 (dev) comes from a "
-     "less tested release channel, so installing it is a downgrade."),
+     "less tested release stream, so installing it is a downgrade."),
     ("older", "beta beta-2026-10-20-000000", ["beta-2026-10-15-101010"],
      "Slot B holds beta-2026-10-20-000000 (beta).\\nbeta-2026-10-15-101010 is older, "
      "so installing it is a downgrade."),
@@ -470,8 +493,9 @@ def test_slot_manager_on_slot_a(tmp_path):
     assert "Slot B: development-2026-10-04-014357 (dev)\\n" in first
     assert "UPDATE\nInstall an update into the other system (Slot B)\n" in first
     assert "TRYBOOT_B\nSwitch to Slot B (restart and try it)\n" in first
-    assert "CONFIRM\nKeep Slot A as the start slot\n" in first
     assert "ROLLBACK\nMake Slot B the start slot (rollback, no trial)\n" in first
+    # Slot A is confirmed and the start slot: nothing to confirm (user test #16)
+    assert "CONFIRM" not in first
     assert "PROMOTE" not in first and "(stable)" not in first and "testing" not in first
 
 
@@ -482,7 +506,32 @@ def test_slot_manager_on_slot_b_is_the_mirror_image(tmp_path):
     assert "UPDATE\nInstall an update into the other system (Slot A)\n" in first
     assert "TRYBOOT_A\nSwitch to Slot A (restart and try it)\n" in first
     assert "ROLLBACK\nMake Slot A the start slot (rollback, no trial)\n" in first
+    assert "CONFIRM" not in first
     assert "PROMOTE" not in first and "(stable)" not in first and "testing" not in first
+
+
+def test_slot_manager_hides_the_tags(tmp_path):
+    # UPDATE / TRYBOOT_B / STATUS are internal ids (user test #16)
+    for first in (_slot_manager(tmp_path, ON_A, "")[0], _slot_manager(tmp_path, ON_B, "")[0]):
+        assert "--notags" in first.split("--menu", 1)[0]
+
+
+@pytest.mark.parametrize("content", ["EMPTY", "INCOMPLETE", "UNKNOWN", ""])
+def test_slot_manager_offers_no_switch_into_a_slot_without_a_system(tmp_path, content):
+    # The user test saw "Switch to Slot B" and "rollback" with Slot B empty
+    # (#16): the menu offers only what rq_slot_manager.sh would not refuse
+    first = _slot_manager(tmp_path, ON_A.replace("slot_b=EMPTY", f"slot_b={content}"), "")[0]
+    items = first.split("--menu", 1)[1]
+    assert "UPDATE\nInstall an update into the other system (Slot B)\n" in items
+    assert "STATUS\nShow slot details\n" in items
+    assert "TRYBOOT" not in items and "ROLLBACK" not in items and "Switch to" not in items
+    assert "CONFIRM" not in items       # confirmed, start slot: nothing to confirm
+
+
+def test_slot_manager_offers_confirm_while_not_confirmed(tmp_path):
+    first = _slot_manager(tmp_path, ON_A.replace("confirmed=yes", "confirmed=no"), "")[0]
+    assert "CONFIRM\nKeep Slot A as the start slot\n" in first
+    assert "TRYBOOT" not in first and "ROLLBACK" not in first
 
 
 def test_slot_manager_on_trial_names_the_start_slot_right(tmp_path):
@@ -501,6 +550,41 @@ def test_slot_manager_keeps_the_cursor_on_the_last_choice(tmp_path):
     menus = _slot_manager(tmp_path, ON_A, "STATUS\n")
     assert len(menus) >= 2
     assert "--default-item\nSTATUS\n" in menus[1]
+
+
+PLAIN_STATUS = "\n".join([
+    "Running now: Slot A, beta-2026-09-30-221656 (beta)",
+    "Other slot:  Slot B, beta-2026-10-15-101010 (beta)",
+    "",
+    "Slot A is confirmed: it started well and is the start slot.",
+    "Next restart: Slot A again.",
+    "",
+    "An update goes into Slot B and replaces what it holds. Slot A stays as it is, to go back to.",
+    "",
+    "The update of Slot B to beta-2026-10-15-101010 didn't work, so Slot A is running again.",
+    "Reason: the health check found no desktop after 10 minutes",
+    "",
+    "Technical details: sudo rq_slot_manager.sh status"])
+
+
+def test_slot_details_are_plain_and_fit_without_scrolling(tmp_path):
+    # User test #16: STATUS printed partitions and "autoboot.txt: EXISTS",
+    # and its scrolling box lost the right border over SSH
+    _stub(tmp_path, "rq_expand_ab.sh", EXPLAIN)
+    _stub(tmp_path, "rq_slot_manager.sh", """\
+        #!/bin/sh
+        case "$1" in
+            status) echo "status $*" >> "$CALLS"; printf '%s\\n' "$PLAIN" ;;
+            *) printf '%s\\n' "$S" ;;
+        esac
+        """)
+    _, wt = _menu(tmp_path, 'do_slot_manager_menu', S=ON_B, PLAIN=PLAIN_STATUS,
+                  WT_ANSWERS=_answers(tmp_path, "menus", ["STATUS"]))
+    assert "--plain" in _calls(tmp_path)
+    box = [b for b in _boxes(wt) if "--msgbox" in b][0]
+    assert "Slot details" in box and "Next restart: Slot A again." in box
+    assert "--scrolltext" not in box
+    assert _check_fits(box) == 1
 
 
 def test_software_updates_menu_names_no_promote(tmp_path):

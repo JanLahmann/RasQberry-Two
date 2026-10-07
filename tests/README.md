@@ -91,7 +91,7 @@ Qiskit besides the paradox notebooks:
 
 | Test | What runs |
 |---|---|
-| `test_rasq_led.py` | every RasQ-LED entanglement pattern (checks entangled blocks agree) + one cycle through `RasQ-LED-display.py` |
+| `test_rasq_led.py` | every RasQ-LED entanglement pattern (checks entangled blocks agree) + one cycle through the `RasQ-LED-display.py` functions (in-process) |
 | `test_fractals.py` | fractal statevectors, Julia sets, Bloch plot, then `fractals.py` for 3 frames (Agg backend, fake browser) |
 | `test_ibm_token.py` | `rq_set_qiskit_ibm_token.py` saves a dummy token with the installed qiskit-ibm-runtime (temp HOME, network blocked) |
 | `test_lights_out.py` | Quantum Lights Out at the pinned ref + our patch: the Grover solver must solve all 18 built-in puzzles |
@@ -119,7 +119,7 @@ python3 -m pytest -q -W default::DeprecationWarning tests/qiskit_compat
 ```
 
 `compat_ci.py` also holds the install checks of the CI workflow
-(`check-latest`, `versions`, `wheels` for cp311 manylinux aarch64).
+(`check-latest`, `versions`, `wheels` for cp313 manylinux aarch64).
 
 **Workflow:** `.github/workflows/qiskit-compat.yml` runs `qiskit_compat/` and
 `paradoxes/` on pushes that touch our Qiskit code, its patches/pins or these

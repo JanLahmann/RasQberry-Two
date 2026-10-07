@@ -1,0 +1,10 @@
+[Unit]
+Description=RasQberry: check every minute that Wi-Fi was not given up
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

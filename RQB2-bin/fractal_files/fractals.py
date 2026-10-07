@@ -13,6 +13,7 @@ from copy import deepcopy
 from io import BytesIO
 import traceback
 import timeit
+import time
 import signal
 import sys
 import tempfile
@@ -55,6 +56,16 @@ def _exit_on_signal(signum, _frame):
 
 signal.signal(signal.SIGTERM, _exit_on_signal)
 signal.signal(signal.SIGINT, _exit_on_signal)
+
+# The numbers of every picture only with RQ_DEBUG=1: they flooded the window (#27)
+DEBUG = os.environ.get("RQ_DEBUG") == "1"
+# Where it is seen: the demo's window covers the terminal with the stop line
+STOP_HINT = "To stop: close this window"
+
+
+def add_stop_hint(fig):
+    """Write the stop hint into the top right corner of a figure."""
+    fig.text(0.995, 0.98, STOP_HINT, ha="right", va="top", fontsize=13, color="grey")
 
 # |
 # | Global settings for the script
@@ -137,6 +148,7 @@ class QuantumFractalImages:
         # Save the GIF variables in class variables to keep the state for the lifetime of this class
         # in contrary to qf_images which requires the variables to be defined for each iteration
         self.gif_fig, self.gif_ax = plt.subplots(1, 4, figsize=(20, 5))
+        add_stop_hint(self.gif_fig)
         self.gif_cam = Camera(self.gif_fig)
 
     def qfi_julia_calculation(self, sv_custom: complex_, sv_list: ndarray[complex_]) -> None:
@@ -199,6 +211,7 @@ class QuantumFractalImages:
     def qfi_images(self) -> None:
         """Generate an image for each iteration of the Quantum Fractals"""
         img_fig, img_ax = plt.subplots(1, 4, figsize=(20, 5))
+        add_stop_hint(img_fig)
         # Secondly (b), generate the images based on the Julia set results
         timer['Image'] = timeit.default_timer()
 
@@ -249,42 +262,62 @@ for i in range(number_of_frames):
         QFI.qfi_animations()
         QFI.qfi_images()
 
-        # Console logging output:
-        complex_numb = round(ccc[0].real, 2) + round(ccc[0].imag, 2) * 1j
-        complex_amp1 = round(ccc[2][0].real, 2) + round(ccc[2][0].imag, 2) * 1j
-        complex_amp2 = round(ccc[2][1].real, 2) + round(ccc[2][1].imag, 2) * 1j
-        print(f"Loop i = {i:>2} | One complex no: ({complex_numb:>11.2f}) | "
-              f"Complex amplitude one: ({complex_amp1:>11.2f}) and two: ({complex_amp2:>11.2f}) | "
-              f"QuantumCircuit: {round(timer['QuantumCircuit'], 4):>6.4f} | "
-              f"Julia_calc: {round(timer['Julia_calculations'], 4):>6.4f} | "
-              f"Anim: {round(timer['Animation'], 4):>6.4f} | Img: {round(timer['Image'], 4):>6.4f} | "
-              f"Bloch: {round(timer['Bloch_data'], 4):>6.4f} |")
+        # Console logging output: one line that counts the pictures
+        if DEBUG:
+            complex_numb = round(ccc[0].real, 2) + round(ccc[0].imag, 2) * 1j
+            complex_amp1 = round(ccc[2][0].real, 2) + round(ccc[2][0].imag, 2) * 1j
+            complex_amp2 = round(ccc[2][1].real, 2) + round(ccc[2][1].imag, 2) * 1j
+            print(f"Loop i = {i:>2} | One complex no: ({complex_numb:>11.2f}) | "
+                  f"Complex amplitude one: ({complex_amp1:>11.2f}) and two: ({complex_amp2:>11.2f}) | "
+                  f"QuantumCircuit: {round(timer['QuantumCircuit'], 4):>6.4f} | "
+                  f"Julia_calc: {round(timer['Julia_calculations'], 4):>6.4f} | "
+                  f"Anim: {round(timer['Animation'], 4):>6.4f} | Img: {round(timer['Image'], 4):>6.4f} | "
+                  f"Bloch: {round(timer['Bloch_data'], 4):>6.4f} |")
+        else:
+            print(f"\rDrawing picture {i + 1} of {number_of_frames}...", end="", flush=True)
         acc_timer = {key: acc_timer[key] + val for key, val in timer.items()}
     except (NoSuchWindowException, WebDriverException):
-        print("Error, Browser window closed during generation of images")
-        raise traceback.format_exc()
+        # Closing the window stops the demo, also while it is still drawing
+        print("\nThe Quantum Fractals window was closed.")
+        sys.exit(0)
 
-# Print the accumulated time
-print("Accumulated time:", ", ".join([f"{key}: {value:.3f} seconds" for key, value in acc_timer.items()]))
+if DEBUG:
+    print("Accumulated time:", ", ".join([f"{key}: {value:.3f} seconds" for key, value in acc_timer.items()]))
+else:
+    print()
 
-# Quit the currently running driver and prepare for the animation
-driver.quit()
+# A window closed after the last picture was drawn (no picture follows that
+# would notice it) stops the demo too, as its "To stop: close this window"
+# says: before, the demo went on and opened the animation 10 s later (N3).
+try:
+    driver.find_element(By.TAG_NAME, 'body')
+except (NoSuchWindowException, WebDriverException):
+    print("The Quantum Fractals window was closed.")
+    sys.exit(0)
 
-print("\nStarting - Saving the current animation state in GIF")
+# The picture window stays open while the animation is put together (about
+# 10 s), and the animation then opens in it. It used to close here and a new
+# one opened later, so closing the picture window near the end did nothing
+# (N3); now closing it at any time stops the demo.
+print("Putting the pictures together into an animation...", flush=True)
 anim = QFI.gif_cam.animate(blit=True, interval=GIF_ms_intervals)
 anim.save(f'{temp_image_folder}/1qubit_simulator_4animations_H_{number_of_frames}.gif', writer='pillow')
 gif_url = f"{browser_file_path}/1qubit_simulator_4animations_H_{number_of_frames}.gif"
-print("Finished - Saving the current animation state in GIF")
+try:
+    driver.find_element(By.TAG_NAME, 'body')
+    driver.get(gif_url)
+except (NoSuchWindowException, WebDriverException):
+    print("The Quantum Fractals window was closed.")
+    driver.quit()
+    sys.exit(0)
+print("The animation runs in its window.", flush=True)
 
-# Define a fresh instance of the ChromeDriver to retrieve the image
-driver = WebClient(default_image_url).get_driver()  # ChromeDriver
-driver.get(gif_url)
-
-# check if the browser window is closed
+# check if the browser window is closed (once a second, not in a busy loop)
 while True:
     try:
         driver.find_element(By.TAG_NAME, 'body')
     except (NoSuchWindowException, WebDriverException):
-        print("Error, Browser window closed, quitting the program")
+        print("The Quantum Fractals window was closed.")
         driver.quit()
         sys.exit()
+    time.sleep(1)

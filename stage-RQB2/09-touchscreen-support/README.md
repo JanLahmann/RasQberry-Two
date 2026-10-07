@@ -8,7 +8,11 @@ the panel, in place of the default squeekboard.
 - `00-run-chroot.sh` (chroot):
   - `apt-get install -y wvkbd`;
   - renames `/etc/xdg/autostart/squeekboard.desktop` to `*.disabled`;
-  - adds `launcher_NNNNNN=virtual-keyboard.desktop` to
+  - trixie (wf-panel-pi 1.x, `/etc/xdg/wf-panel-pi/wf-panel-pi.ini` exists):
+    writes `[panel] launchers=<the system list> virtual-keyboard` to
+    `~/.config/wf-panel-pi/wf-panel-pi.ini` of `/etc/skel` and the first user,
+    if not present (the panel reads the rest from the system file);
+  - bookworm: adds `launcher_NNNNNN=virtual-keyboard.desktop` to
     `/etc/skel/.config/wf-panel-pi.ini` and the first user's
     `~/.config/wf-panel-pi.ini` if not present. A missing skel file is created
     with browser, file manager, terminal and keyboard launchers; a missing user

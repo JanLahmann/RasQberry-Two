@@ -355,3 +355,27 @@ def test_no_controls_file_means_nothing_is_withdrawn(tmp_path, monkeypatch):
     monkeypatch.setenv("RQ_RELEASE_CONTROLS_FILE", str(tmp_path / "missing.json"))
     latest = t._run(tmp_path, "beta-2025-12-30-211449", "latest")
     assert latest.returncode == 0, latest.stderr
+
+
+def test_no_controls_file_with_jq_16_means_nothing_is_withdrawn(tmp_path, monkeypatch):
+    # Raspberry Pi OS ships jq 1.6, which exits 0 on EMPTY input even with -e:
+    # with no controls file (404) the beta said "The latest beta release ...
+    # was withdrawn: ." (night user test, 2026-10-04). Emulate that jq here.
+    import shutil
+    import test_ab_releases as t
+    real_jq = shutil.which("jq")
+    assert real_jq
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "jq"
+    fake.write_text(f"""#!/bin/bash
+input=$(cat)
+[ -n "$input" ] || exit 0          # jq 1.6: no input, no output, success
+printf '%s' "$input" | exec {real_jq} "$@"
+""")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}:{os.environ['PATH']}")
+    monkeypatch.setenv("RQ_RELEASE_CONTROLS_FILE", str(tmp_path / "missing.json"))
+    latest = t._run(tmp_path, "beta-2025-12-30-211449", "latest")
+    assert latest.returncode == 0, latest.stderr
+    assert "withdrawn" not in latest.stderr

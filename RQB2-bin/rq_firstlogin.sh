@@ -11,6 +11,9 @@
 # Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
 # Checklist).
 #
+# Before it, once: a note when another user name was typed in Raspberry Pi
+# Imager (the user stays rasqberry).
+#
 # Usage:
 #   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
 #                               also sourced from .bashrc): once, not in desktop
@@ -43,10 +46,12 @@
 
 set +u
 
-ENV_FILE="/usr/config/rasqberry_environment.env"
+ENV_FILE="${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}"
 MENU_FILE="/usr/config/RQB2_menu.sh"
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"
+# Its files (not folders) are copied into the new system after an A/B update
+# (rq_carry_over.sh pull_user_state), so an update does not repeat the first start
 # Written when a person has answered the checklist that opened by itself: it
 # never opens by itself again (the name is kept for cards already in use)
 SHOWN_FILE="$STATE_DIR/setup-checklist-shown"
@@ -68,10 +73,38 @@ already_shown() {
 mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
+# A note, once: another user name was typed in Raspberry Pi Imager
+# ---------------------------------------------------------------------------
+# The user stays rasqberry (rq_imager_userconf.sh); the name typed in Imager
+# is kept in imager-user-requested. Shown before the checklist, wherever the
+# checklist would open by itself, also when no step is pending.
+IMAGER_USER_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-user-requested"
+IMAGER_NOTE_FILE="$STATE_DIR/imager-user-note-shown"
+imager_user_requested() {
+    local wanted
+    wanted=$(head -n 1 "$IMAGER_USER_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
+    [ -n "$wanted" ] && [ "$wanted" != rasqberry ] || return 1
+    printf '%s' "$wanted"
+}
+imager_note_pending() { [ ! -e "$IMAGER_NOTE_FILE" ] && imager_user_requested >/dev/null; }
+show_imager_note() {
+    local wanted rc=0
+    imager_note_pending || return 0
+    wanted=$(imager_user_requested)
+    whiptail --title "Your user name" --msgbox \
+"You chose the name $wanted in Imager. RasQberry always uses the name rasqberry; your password, SSH key, hostname and Wi-Fi from Imager are set." 10 72 || rc=$?
+    # OK or Esc: read. A closed window or an ended session: next time again.
+    case "$rc" in
+        0|255) mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$IMAGER_NOTE_FILE" 2>/dev/null ;;
+    esac
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # Gates for the automatic modes (rules 1 and 2)
 # ---------------------------------------------------------------------------
 if [ "$MODE" = "login" ]; then
-    already_shown && exit 0
+    already_shown && ! imager_note_pending && exit 0
     # A terminal on the desktop: the desktop opens the checklist itself, in
     # its own window and after the IP scroll. Popping it into a terminal the
     # person opened for something else (the assembly guide's Ctrl+Alt+T for
@@ -102,6 +135,8 @@ if [ "$MODE" != "desktop" ]; then
 fi
 
 env_value() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n 1; }
+# An LED layout in plain words, "four 4x12 panels", not its id (#29)
+led_layout_name() { ( . "$BIN_DIR/rq_common.sh" && rq_led_layout_name "$1" ) 2>/dev/null || echo "$1"; }
 
 # ---------------------------------------------------------------------------
 # Task: set up the A/B card (B4: rq_expand_ab.sh decides what the card can do)
@@ -213,7 +248,7 @@ task_password_run() {
     local choice who
     who="${USER:-$(id -un)}"
     choice=$(whiptail --title "Password" --notags --menu \
-"This RasQberry Two still has the demo password, which is printed on the website. Anyone on the same network can log in with it over SSH or VNC.
+"This RasQberry Two uses the published demo password: anyone can look it up on the website and log in with it over SSH or VNC from the same network.
 
 At a booth or in a classroom you may want to keep it." 15 74 2 \
         change "Change the password now (recommended)" \
@@ -226,19 +261,75 @@ At a booth or in a classroom you may want to keep it." 15 74 2 \
 "The demo password stays. To change it later: this checklist, the menu's Remote Access & Security, or passwd in a terminal." 9 70
             ;;
         change)
-            clear
-            echo "New password for $who: type it twice. Nothing is shown while you type."
-            echo
-            if sudo passwd "$who"; then
+            if change_password "$who"; then
                 rm -f "$PASSWORD_KEPT_FILE"
                 DEMO_PW=no
-                whiptail --title "Password" --msgbox \
-"Password changed. Use the new one for SSH, VNC and the login screen." 9 70
-            else
-                whiptail --title "Password" --msgbox "The password was not changed." 8 50
             fi
             ;;
     esac
+    return 0
+}
+
+# Two password boxes with Cancel, then chpasswd, as the menu's Remote Access
+# does (do_change_password): a raw passwd prompt could not be left with Esc
+# or Ctrl+C (#19). The password goes to chpasswd on stdin from the builtin
+# printf: never an argument, never logged or shown. With key-only SSH it is
+# not for SSH. Returns 0 when the password was changed.
+change_password() {
+    local who="$1" new again err for="SSH, VNC and the login screen"
+    case "$("$BIN_DIR/rq_remote_access.sh" status 2>/dev/null)" in
+        *ssh_password=no*) for="VNC and the login screen" ;;
+    esac
+    while :; do
+        new=$(whiptail --title "Password" --passwordbox \
+"New password for $who. It is used for $for.
+
+Cancel keeps the current password." 11 72 3>&1 1>&2 2>&3) || return 1
+        if [ -z "$new" ]; then
+            whiptail --title "Password" --msgbox \
+                "The password cannot be empty. Type one, or choose Cancel." 8 64
+            continue
+        fi
+        again=$(whiptail --title "Password" --passwordbox \
+            "Type the new password again:" 9 72 3>&1 1>&2 2>&3) || return 1
+        [ "$new" = "$again" ] && break
+        whiptail --title "Password" --msgbox \
+            "The two passwords are not the same. Nothing was changed: try again, or choose Cancel." 9 64
+    done
+    if err=$(printf '%s:%s\n' "$who" "$new" | sudo -n chpasswd 2>&1); then
+        whiptail --title "Password" --msgbox "Password changed. Use the new one for $for." 8 72
+        return 0
+    fi
+    whiptail --title "Password" --msgbox "The password was not changed.
+
+$err" 12 72
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Task (optional): about the bootloader firmware (EEPROM)
+# ---------------------------------------------------------------------------
+# rasqberry-firmware-check.service looks at start-up (rq_firmware.py): shown
+# while an update is available and the firmware is older than about six
+# months, or (Pi 5) its crypto service fails - which broke Raspberry Pi
+# Connect from Imager. It only says how to update with Raspberry Pi's own
+# tools: RasQberry never updates the firmware (Jan, 2026-10-07). Read once
+# per firmware version.
+FIRMWARE="${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}"
+FIRMWARE_READ_FILE="$STATE_DIR/firmware-info-read"
+task_firmware_applies() { [ -x "$FIRMWARE" ] && "$FIRMWARE" due >/dev/null 2>&1; }
+task_firmware_pending() { [ "$(cat "$FIRMWARE_READ_FILE" 2>/dev/null)" != "$("$FIRMWARE" line 2>/dev/null)" ]; }
+task_firmware_label() {
+    local date
+    date=$("$FIRMWARE" line 2>/dev/null | sed 's/ (.*//')
+    printf "About the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
+}
+task_firmware_run() {
+    local text h
+    text=$("$FIRMWARE" howto 2>/dev/null)
+    h=$(( $(printf '%s\n' "$text" | fold -s -w 70 | wc -l) + 6 ))
+    whiptail --title "Firmware" --msgbox "$text" "$h" 74
+    mkdir -p "$STATE_DIR" 2>/dev/null && "$FIRMWARE" line > "$FIRMWARE_READ_FILE" 2>/dev/null
     return 0
 }
 
@@ -320,8 +411,10 @@ Lowercase letters, digits and hyphens." 13 72 "$old" 3>&1 1>&2 2>&3) || new="$ol
 # ---------------------------------------------------------------------------
 # Task: connect to Wi-Fi (only when there is no network at all)
 # ---------------------------------------------------------------------------
-task_wifi_applies() { [ -d /sys/class/net/wlan0 ] && command -v nmtui >/dev/null 2>&1; }
+task_wifi_applies() { [ -d "${RQ_WLAN_DIR:-/sys/class/net/wlan0}" ] && command -v nmtui >/dev/null 2>&1; }
 task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
+# The interface the internet goes through: wlan0, eth0 ...
+net_dev() { ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n 1; }
 task_wifi_label()   { printf 'Connect to Wi-Fi (no network connection found)'; }
 task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 
@@ -350,7 +443,13 @@ task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable --restart; }
 # How a finished step reads in the --all list (R-134: "run again")
 done_label() {
     case "$1" in
-        wifi)     echo "Run again: Wi-Fi (connected)" ;;
+        wifi)
+            # Truthfully: a Pi on a network cable is not on Wi-Fi (F3)
+            case "$(net_dev)" in
+                wl*)         echo "Run again: Wi-Fi (connected)" ;;
+                eth*|en*)    echo "Set up Wi-Fi (the network is connected by cable now)" ;;
+                *)           echo "Set up Wi-Fi (connected to a network now)" ;;
+            esac ;;
         password) echo "Run again: password (keeping the demo password)" ;;
         locale)   echo "Run again: keyboard ($(kb_layout)) and time zone ($(time_zone))" ;;
         name)     echo "Run again: name ($(hostname 2>/dev/null))" ;;
@@ -360,9 +459,10 @@ done_label() {
             if [ "$(env_value LED_LAYOUT_VERIFIED)" = "skipped" ]; then
                 echo "Run again: LED panel check (skipped: no panel)"
             else
-                echo "Run again: LED panel check ($(env_value LED_LAYOUT))"
+                echo "Run again: LED panel check ($(led_layout_name "$(env_value LED_LAYOUT)"))"
             fi ;;
         demos)    echo "Run again: download all demos (done)" ;;
+        firmware) echo "Read again: about the Pi's firmware" ;;
         touch)    echo "Run again: touch mode (on)" ;;
         *)        echo "Run again: $1" ;;
     esac
@@ -371,10 +471,14 @@ done_label() {
 # Steps that are ticked when they are pending; the rest start unticked
 # (rule 3). Wi-Fi only shows up without any network, so it is ticked too.
 # The keyboard comes first: the Wi-Fi and the new password are typed on it.
-TICKED_TASKS="locale wifi expand led"
+# The password step shows up only while the account has the published demo
+# password (no password set in Imager): ticked, so a click-through Run
+# reaches its warning (Jan, user test 2026-10-07 F1). It still only asks:
+# Esc or Cancel there changes nothing.
+TICKED_TASKS="locale wifi password expand led"
 is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-TASKS="locale wifi password name expand abinfo led demos touch"
+TASKS="locale wifi password name expand abinfo led demos firmware touch"
 
 # Pending steps, one id per line
 pending_tasks() {
@@ -416,17 +520,25 @@ wait_for_ip_display() {
 }
 
 if [ "$MODE" = "desktop" ]; then
-    already_shown && exit 0
-    if [ -z "$(pending_tasks)" ]; then
+    already_shown && ! imager_note_pending && exit 0
+    if [ -z "$(pending_tasks)" ] && ! imager_note_pending; then
         mark_shown
         exit 0
     fi
     wait_for_ip_display
-    already_shown && exit 0     # answered in an SSH login in the meantime
+    # answered in an SSH login in the meantime
+    already_shown && ! imager_note_pending && exit 0
     # Not marked here: only an answer counts (item 22). --now marks it.
     term=$(command -v lxterminal || command -v x-terminal-emulator) || exit 0
     exec "$term" -t "RasQberry Setup" -e \
         "bash -c '/usr/bin/rq_firstlogin.sh --now; echo; echo Press Enter to close this window...; read'"
+fi
+
+# The note about the user name first, once (not in --all). A login that
+# came only for the note (the checklist was answered before) ends after it.
+if [ "$MODE" != "all" ]; then
+    show_imager_note
+    [ "$MODE" = "login" ] && already_shown && exit 0
 fi
 
 # ---------------------------------------------------------------------------
@@ -510,16 +622,23 @@ for sel in $choice; do
     ran=true
 done
 
-# Closing (R-088): where to start
+# Closing (R-088): where to start - the learning path for a first look,
+# as on the website (#30)
 if [ "$ran" = true ]; then
+    # While the demo password is in place, say so once more (F1)
+    pw_note="" pw_h=0
+    if task_password_applies; then
+        pw_note="
+
+This Pi uses the published demo password: change it with passwd or in the RasQberry menu (Remote Access & Security)."
+        pw_h=3
+    fi
     whiptail --title "RasQberry Two Setup" --msgbox \
-"Done. Good first demos:
- - Quantum Lights Out: a puzzle game on the LED panel
- - Quantum Fractals: quantum pictures on the screen
+"Done. A good start: the learning path \"First 15 minutes\". It starts three demos for you and says what to try in each.
 
-Double-click their icons on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos.
+Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
-$REOPEN" 15 74
+$REOPEN$pw_note" $((15 + pw_h)) 74
 fi
 if [ "$touch_chosen" = true ]; then
     task_touch_run || true

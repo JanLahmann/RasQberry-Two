@@ -17,6 +17,7 @@
   "entrypoint": {
     "type": "docker",
     "docker_image": "ghcr.io/qubins/images@sha256:8eee3ec556aa033c43587984bd201f2c210048ed1c9c5d06ed1b5518086ff328",
+    "docker_image_fallback": "ghcr.io/qubins/images:2.5-xl",
     "docker_port": 8892,
     "launcher": "rq_quantum_lab.sh"
   },
@@ -24,9 +25,9 @@
     "preinstalled": false,
     "download": {
       "what": "Docker image from ghcr.io (QuBins), and the IBM course notebooks if missing",
-      "download_mb": 880,
+      "download_mb": 890,
       "disk_mb": 4000,
-      "time": "5-10 minutes"
+      "time": "1-3 minutes"
     },
     "update": {
       "docker_tags": "^[0-9]+\\.[0-9]+-xl$",

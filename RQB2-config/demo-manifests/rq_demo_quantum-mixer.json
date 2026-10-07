@@ -33,7 +33,7 @@
       "what": "Docker image built by the quantum-mixer repository's CI",
       "download_mb": 900,
       "disk_mb": 2300,
-      "time": "5-10 minutes"
+      "time": "2-4 minutes"
     }
   },
   "needs_hw": {

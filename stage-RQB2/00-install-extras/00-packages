@@ -11,11 +11,21 @@ sense-emu-tools
 # 03-install-qiskit; the pip Qt wheels crash on the Pi 5 kernel (#302)
 python3-pyqt5
 python3-pyqt5.qtsvg
-chromium-browser
-chromium-chromedriver
+# Browser for the demos and the start page. trixie names (bookworm:
+# chromium-browser, chromium-chromedriver - now empty transitional packages,
+# and there is no chromium-browser command any more; use `chromium`)
+chromium
+chromium-driver
 libxcb-cursor-dev
+# to build the lgpio Python module from source for the venv: PyPI has no
+# cp313 wheel (trixie's Python), and its sdist needs SWIG and liblgpio
+swig
+liblgpio-dev
 # utilities for A/B boot release picker
 jq
 curl
 # partition management for A/B boot expansion (RQB2 menu)
 parted
+# the QR code of the Workshop & Qiskit Server address (rq_doqumentation.sh);
+# the image has only the library (libqrencode4), not the command
+qrencode

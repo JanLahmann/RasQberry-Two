@@ -52,6 +52,40 @@ try:
 except ImportError:  # pragma: no cover - exercised only without python-dotenv
     dotenv_values = None
 
+
+def _plain_env_values(path):
+    """
+    Read KEY=value lines without python-dotenv.
+
+    The system Python on trixie has no dotenv. The on-screen LED view and the
+    browser view of a demo that runs as root were started with it and fell
+    back to the emergency defaults: they drew a quad-4x12 kit as one 24x8
+    panel (Pi 4 user test 2026-10-06). The env file is plain KEY=value.
+
+    Args:
+        path (str): Environment file.
+
+    Returns:
+        dict: KEY -> value (quotes and inline comments removed).
+    """
+    values = {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key.startswith("export "):
+                key = key[len("export "):].strip()
+            value = value.strip()
+            if value[:1] in ("'", '"') and value.endswith(value[:1]) and len(value) > 1:
+                value = value[1:-1]
+            elif " #" in value:
+                value = value.split(" #", 1)[0].rstrip()
+            values[key] = value
+    return values
+
 # System-wide environment file location
 ENV_FILE = "/usr/config/rasqberry_environment.env"
 
@@ -130,11 +164,7 @@ def _read_env_file():
     if _env_cache is not None and key == _env_cache_key:
         return _env_cache
 
-    if dotenv_values is None:
-        print("ERROR: python-dotenv not available, cannot read config")
-        print("Using emergency defaults")
-        config = EMERGENCY_DEFAULTS
-    elif not os.path.exists(ENV_FILE):
+    if not os.path.exists(ENV_FILE):
         print(f"ERROR: Config file not found: {ENV_FILE}")
         print("Using emergency defaults")
         config = EMERGENCY_DEFAULTS
@@ -144,7 +174,7 @@ def _read_env_file():
         config = EMERGENCY_DEFAULTS
     else:
         try:
-            config = dotenv_values(ENV_FILE)
+            config = (dotenv_values or _plain_env_values)(ENV_FILE)
         except Exception as e:
             print(f"ERROR: Failed to parse config: {e}")
             print("Using emergency defaults")
@@ -227,6 +257,9 @@ def get_led_config():
         # and 'y_flip' stay for existing callers and describe the same layout.
         'led_layout': layout_name,
         'layout': layout_name,
+        # 'true' once the setup checklist's LED step confirmed the layout;
+        # 'false' (a new card) or 'skipped' (no LED panel) otherwise
+        'layout_verified': str(config.get('LED_LAYOUT_VERIFIED', 'false')).strip().lower(),
         'matrix_width': matrix_width,
         'matrix_height': matrix_height,
         'y_flip': y_flip,
@@ -726,8 +759,11 @@ def _ensure_singleton(pidfile, lockfile, pattern, script_name,
         env = {**os.environ}
         if extra_env:
             env.update(extra_env)
+        # The same Python as this program (the RasQberry venv): a demo run
+        # as root has no venv on its PATH, and the system python3 lacks the
+        # venv's modules (Pi 4 user test 2026-10-06: wrong layout)
         proc = subprocess.Popen(
-            ['python3', script],
+            [sys.executable or 'python3', script],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -792,6 +828,102 @@ def reap_virtual_led_gui():
     _reap_singleton(_VIRTUAL_GUI_PIDFILE, _VIRTUAL_GUI_PATTERN)
 
 
+# On-screen views (the Tk window and the browser view) map the chain back to
+# (x, y) through a layout. Normally that is the configured one. The LED panel
+# check draws each candidate kit through its own layout before anything is
+# saved, so the view showed the configured layout's title over a scatter (Pi 4
+# user test 2026-10-07, F1). While the check runs it names the layout it draws
+# through in this file, with its own PID: a check that died leaves nothing
+# behind that counts.
+VIEW_LAYOUT_HINT = "/tmp/rasqberry_virtual_led_view_layout.json"
+
+
+def set_view_layout_hint(layout, owner_pid, label=None):
+    """Tell the on-screen views which layout the next frames are drawn in.
+
+    Args:
+        layout (str or dict): layout name or resolved layout dict.
+        owner_pid (int): the process the hint belongs to (the LED check).
+        label (str, optional): what the view's title shows for it.
+    """
+    if label is None:
+        label = layout if isinstance(layout, str) else layout.get('name', 'custom')
+    tmp = f"{VIEW_LAYOUT_HINT}.{os.getpid()}"
+    try:
+        with open(tmp, 'w') as f:
+            json.dump({'pid': int(owner_pid), 'layout': layout, 'label': label}, f)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, VIEW_LAYOUT_HINT)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def clear_view_layout_hint():
+    """Back to the configured layout in the on-screen views."""
+    try:
+        os.remove(VIEW_LAYOUT_HINT)
+    except OSError:
+        pass
+
+
+def _pid_exists(pid):
+    """True while `pid` runs (also a root process seen by a user: EPERM)."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def view_layout():
+    """The layout the on-screen views map frames through, and its title label.
+
+    Returns:
+        tuple: (layout, label); layout is a name or a resolved layout dict.
+    """
+    try:
+        with open(VIEW_LAYOUT_HINT) as f:
+            hint = json.load(f)
+        pid = int(hint.get('pid', 0))
+        if pid > 0 and hint.get('layout') and _pid_exists(pid):
+            return hint['layout'], str(hint.get('label') or 'custom')
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    try:
+        name = get_led_config().get('led_layout', _DEFAULT_LAYOUT_NAME)
+    except Exception:
+        name = _DEFAULT_LAYOUT_NAME
+    return name, name
+
+
+def view_rgb(r, g, b, level):
+    """A frame-bus colour as the on-screen views show it.
+
+    Writers store colours already dimmed to the LED brightness, and the LED
+    check draws at 15 %: its white IBM (38, 38, 38) was darker than the view's
+    "off" grey, so the window stayed dark while the panel was lit (Pi 5 user
+    test 2026-10-07, P3). The writer records its brightness in the frame-bus
+    header; the views undo it, so a lit LED looks lit.
+
+    Args:
+        r, g, b (int): the stored colour.
+        level (int): brightness from the header, 1-255; 0 = not recorded.
+
+    Returns:
+        tuple: (r, g, b) for the screen.
+    """
+    if not level or level >= 255:
+        return r, g, b
+    return tuple(min(255, (c * 255 + level // 2) // level) for c in (r, g, b))
+
+
 def _ensure_virtual_led_web_running():
     """Singleton-launch the LED web emulator (idempotent, race-safe).
 
@@ -810,6 +942,37 @@ def _ensure_virtual_led_web_running():
 def reap_virtual_led_web():
     """Terminate the auto-launched LED web emulator and clear its pidfile."""
     _reap_singleton(_VIRTUAL_WEB_PIDFILE, _VIRTUAL_WEB_PATTERN)
+
+
+def stop_virtual_led_web():
+    """
+    Stop every LED web view server: the browser view was turned off (#22).
+
+    Unlike reap_virtual_led_web() this also stops a server that has no
+    pidfile (started by an older version, by hand, or by another user's demo):
+    with LED_WEB off, nothing may go on serving the panel to the network.
+
+    Returns:
+        int: how many servers were asked to stop.
+    """
+    import signal
+    import subprocess
+    reap_virtual_led_web()
+    stopped = 0
+    try:
+        out = subprocess.run(['pgrep', '-f', r'rq_led_web\.py'],
+                             capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return stopped
+    for token in out.split():
+        try:
+            pid = int(token)
+            if pid != os.getpid() and _proc_pid_alive(pid, 'rq_led_web.py'):
+                os.kill(pid, signal.SIGTERM)
+                stopped += 1
+        except (ValueError, OSError):
+            continue
+    return stopped
 
 
 def _with_root_hint(error):
@@ -884,14 +1047,73 @@ def cap_brightness(brightness, config=None):
 #   skipped (the demo keeps its pace) and retried every few seconds. The person
 #   is told once, and a note in /var/tmp lets the launcher offer a lower
 #   brightness afterwards (rq_led_brightness.sh --after-stall).
+#
+# Hand-overs (#5): on the rig the stalls came where one program followed
+# another - the clear after every demo, Clear All LEDs, a demo stop. Two
+# things there:
+# - A program opened the PIO while the previous one still had it (the
+#   stopped demo's own clear next to Clear All's): "GPIO busy", a retry, or
+#   both on the panel at once. So a program waits until no other one has
+#   /dev/pio0 open before it opens it (_wait_for_free_pio).
+# - The first frame after the PIO opens timed out now and then (about one
+#   open in 60 on the rig, 0.1 s or minutes after the previous program);
+#   opening it again cured it at once. That is the driver starting, not a
+#   stall: it is recovered without a message or a note, so no stall dialog
+#   blames the power supply for it.
+#
+# Frame pacing (Trixie, kernel 6.18): the kernel's PIO driver no longer
+# waits until a frame is out - the write returns as soon as the DMA is
+# started (6.12 blocked for it). The LED library still assumes the old
+# behaviour and starts the next frame 1 ms after the previous write
+# returned, i.e. while that frame is still going out. The two frames then
+# run together without the pause (> 280 us) that tells the LEDs "frame
+# complete", and the LEDs pass the new frame on down the chain: it is lost.
+# A frame written right after another one never showed - the first frame
+# after the driver opens (it opens with a black frame), and every frame of
+# RasQ-LED's LED-by-LED animation; the panel stayed dark (rig 2026-10-06).
+# So the next write waits until the previous frame is out plus the pause.
 
 LED_STALL_SECONDS = 0.5           # a 192-LED frame takes about 6 ms
 LED_STALL_RETRY_SECONDS = 10.0    # while stuck, try to reopen this often
 LED_FRAME_DRAIN_SECONDS = 0.02    # time for a frame (up to ~600 LEDs) to go out
+LED_HANDOVER_WAIT_SECONDS = 5.0   # longest wait for the previous program to let go
+LED_BYTE_SECONDS = 8 / 800000     # one byte at the LEDs' 800 kHz
+LED_LATCH_SECONDS = 0.001         # the pause that ends a frame (> 280 us), generous
 LED_STALL_FILE_PREFIX = "/var/tmp/rasqberry-led-stall-"
+PIO_DEVICE = "/dev/pio0"
 
 _stall_state = {'stuck_since': None, 'last_try': 0.0, 'reported': False,
-                'last_write': 0.0, 'counted': False, 'brightness': None}
+                'last_write': 0.0, 'counted': False, 'brightness': None,
+                'opened': False, 'next_write': 0.0}
+
+
+def _frame_out_at(start, end, nbytes):
+    """
+    When the frame just written has gone out, so the next one may start.
+
+    A driver that waited for the frame (kernel 6.12) took about the frame's
+    time in the write; one that only started it (6.18) returned at once,
+    and the frame runs from then on.
+
+    Args:
+        start (float): monotonic time the write was called.
+        end (float): monotonic time it returned.
+        nbytes (int): frame size in bytes.
+
+    Returns:
+        float: monotonic time for the next write.
+    """
+    frame = nbytes * LED_BYTE_SECONDS
+    if end - start >= 0.5 * frame:
+        return end + LED_LATCH_SECONDS
+    return end + frame + LED_LATCH_SECONDS
+
+
+def _pace_frame():
+    """Wait until the previous frame is out (see "Frame pacing" above)."""
+    left = _stall_state['next_write'] - time.monotonic()
+    if left > 0:
+        time.sleep(left)
 
 
 def _record_led_stall(recovered):
@@ -951,9 +1173,64 @@ def _report_led_stall(message):
 
 def _wait_for_last_frame():
     """Give the last frame time to go out before the PIO is closed."""
-    left = _stall_state['last_write'] + LED_FRAME_DRAIN_SECONDS - time.monotonic()
+    left = max(_stall_state['last_write'] + LED_FRAME_DRAIN_SECONDS,
+               _stall_state['next_write']) - time.monotonic()
     if left > 0:
         time.sleep(left)
+
+
+def _pio_holders():
+    """
+    PIDs of the other processes that have the Pi 5 LED driver open.
+
+    Sees every process when run as root (the LED demos), otherwise the
+    person's own ones.
+
+    Returns:
+        list[int]: the PIDs, empty when the driver is free.
+    """
+    me = os.getpid()
+    held = []
+    try:
+        pids = [int(p) for p in os.listdir('/proc') if p.isdigit()]
+    except OSError:
+        return held
+    for pid in pids:
+        if pid == me:
+            continue
+        fd_dir = f'/proc/{pid}/fd'
+        try:
+            fds = os.listdir(fd_dir)
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink(f'{fd_dir}/{fd}') == PIO_DEVICE:
+                    held.append(pid)
+                    break
+            except OSError:
+                continue
+    return held
+
+
+def _wait_for_free_pio(timeout=None):
+    """
+    Wait until no other program has the Pi 5 LED driver open (#5).
+
+    Bounded (LED_HANDOVER_WAIT_SECONDS): a program that keeps the panel is
+    named by the launchers (led_panel_ready) and reported by the driver.
+
+    Returns:
+        bool: True when the driver is free.
+    """
+    if not os.path.exists(PIO_DEVICE):
+        return True
+    deadline = time.monotonic() + (LED_HANDOVER_WAIT_SECONDS if timeout is None else timeout)
+    while _pio_holders():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+    return True
 
 
 def _guarded_pi5_write(write, reopen):
@@ -968,10 +1245,12 @@ def _guarded_pi5_write(write, reopen):
         callable: a neopixel_write replacement.
     """
     def timed(pin, buf):
+        _pace_frame()
         start = time.monotonic()
         write(pin, buf)
-        _stall_state['last_write'] = time.monotonic()
-        return _stall_state['last_write'] - start < LED_STALL_SECONDS
+        end = _stall_state['last_write'] = time.monotonic()
+        _stall_state['next_write'] = _frame_out_at(start, end, len(buf))
+        return end - start < LED_STALL_SECONDS
 
     def reopen_and_write(pin, buf):
         reopen()
@@ -990,27 +1269,78 @@ def _guarded_pi5_write(write, reopen):
                 state['stuck_since'] = None
                 print("LED panel: the LED driver works again.", file=sys.stderr)
             return
+        first = not state['opened']
+        state['opened'] = True
         if timed(pin, buf):
             if sys.is_finalizing():
                 _wait_for_last_frame()
             return
         recovered = reopen_and_write(pin, buf)
+        if first and recovered:
+            # The driver's start, not a stall (see above)
+            if os.environ.get('RQ_DEBUG') == '1':
+                print("LED panel: the LED driver's first frame timed out; "
+                      "opened it again", file=sys.stderr)
+            return
         _record_led_stall(recovered)
         _count_led_stall()
         if recovered:
             _report_led_stall(
-                "LED panel: the LED driver stalled and was restarted. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended).")
+                "LED panel: the LED driver stalled and was restarted. A power "
+                "supply too weak for the LEDs, or a Pi that is too hot, can cause this.")
         else:
             state['stuck_since'] = state['last_try'] = time.monotonic()
             _report_led_stall(
-                "LED panel stopped: the LED driver does not respond. The power "
-                "supply may be too weak for the LEDs (the official 27 W supply is "
-                "recommended). The demo goes on without the panel.")
+                "LED panel stopped: the LED driver does not respond. A power supply "
+                "too weak for the LEDs, or a Pi that is too hot, can cause this. "
+                "The demo goes on without the panel.")
 
     guarded._rq_stall_guard = True
     return guarded
+
+
+def _lgpio_files_out_of_cwd():
+    """
+    Keep lgpio's notification FIFO out of the person's folders (#31).
+
+    Importing lgpio (the Pi 5 GPIO library under board/neopixel) creates a
+    FIFO ".lgd-nfy0" in its working directory - the current directory, so it
+    was left in ~/My-Quantum-Programs or wherever an LED program ran. Its
+    LG_WD setting would move it, but lgpio then changes the whole program's
+    current directory to it. So lgpio is imported once from a private temp
+    directory (it keeps that as its working directory), and the program's
+    current directory is restored straight away. The directory is removed
+    right after the import: lgpio has opened its FIFO by then and keeps using
+    it, and a demo stopped by a signal skips exit handlers, which left a
+    root-owned /tmp/rq-lgpio-* folder behind at every LED run (#19). Does
+    nothing without lgpio, or when it is already imported.
+    """
+    if 'lgpio' in sys.modules:
+        return
+    import importlib.util
+    try:
+        if importlib.util.find_spec('lgpio') is None:
+            return
+        here = os.getcwd()
+    except (ImportError, ValueError, OSError):
+        return
+    import shutil
+    import tempfile
+    try:
+        work = tempfile.mkdtemp(prefix='rq-lgpio-')
+    except OSError:
+        return
+    try:
+        os.chdir(work)
+        import lgpio  # noqa: F401 - imported here for its working directory
+    except Exception:  # noqa: BLE001 - board imports it again and reports
+        pass
+    finally:
+        try:
+            os.chdir(here)
+        except OSError:
+            pass
+        shutil.rmtree(work, True)
 
 
 def guard_pi5_led_writes():
@@ -1023,6 +1353,7 @@ def guard_pi5_led_writes():
     Returns:
         bool: True when the guard is in place.
     """
+    _lgpio_files_out_of_cwd()
     try:
         import neopixel
         import neopixel_write
@@ -1036,10 +1367,243 @@ def guard_pi5_led_writes():
         return False
     if getattr(current, '_rq_stall_guard', False):
         return True
+    # Before this program opens the PIO: the previous one lets go first
+    _wait_for_free_pio()
     neopixel.neopixel_write = _guarded_pi5_write(current, backend.free_pio)
     import atexit
     atexit.register(_wait_for_last_frame)
+    _drain_on_stop_signals()
     return True
+
+
+def _end_after_last_frame(signum, _frame):
+    """Let the last frame go out, then end the way the signal would have."""
+    import signal
+    _wait_for_last_frame()
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+def _drain_on_stop_signals():
+    """
+    A stopped demo must not cut its last frame off either (#5).
+
+    The menu and the demo windows stop a demo with SIGTERM (a closed window:
+    SIGHUP). That ends Python at once, without its exit handlers, so the PIO
+    was closed in the middle of a frame: the kernel logged "DMA wait timed
+    out", and the next program on the panel - the clear that follows every
+    stop - found the driver stuck and reported a stall. A handler now lets the
+    frame out (at most LED_FRAME_DRAIN_SECONDS) and then ends the program with
+    the same signal. Only in the main thread, and only where the program has
+    no handler of its own.
+    """
+    import signal
+    import threading
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) == signal.SIG_DFL:
+                signal.signal(sig, _end_after_last_frame)
+        except (ValueError, OSError):
+            pass
+
+
+# ----------------------------------------------------------------------------
+# Pi 4 LED driver: a frame transfer left hanging by an earlier program (#1)
+# ----------------------------------------------------------------------------
+# The Pi 4 driver (rpi_ws281x) sends each frame by DMA into the PWM. When one
+# program switched the PWM off while another program's frame was still going
+# out, the DMA channel stayed busy for good, waiting for the stopped PWM. The
+# next program's driver start let the rest of that old transfer into the PWM,
+# and its own frames never reached the panel: it stayed dark for the whole
+# demo, with no error, and only the start after that worked (rig 2026-10-05:
+# DMA 10 busy, PWM off, after the LED check). A busy channel under a stopped
+# PWM can never finish, so it is reset before the driver starts.
+
+_PI4_DMA_OFFSET = 0x7000        # DMA channels 0-14, 0x100 apart
+_PI4_PWM_OFFSET = 0x20C000      # PWM0, the one GPIO18 uses
+_PI4_DMA_ACTIVE = 1 << 0
+_PI4_DMA_RESET = 1 << 31
+_PI4_PWM_ENABLED = (1 << 0) | (1 << 8)    # PWEN1, PWEN2
+_PI4_DMA_TO_PWM = 5             # TI PERMAP: the transfer feeds the PWM
+
+
+def _soc_peripheral_base():
+    """The SoC's peripheral address from the device tree (bcm_host's rule)."""
+    try:
+        with open('/proc/device-tree/soc/ranges', 'rb') as f:
+            raw = f.read(12)
+    except OSError:
+        return None
+    if len(raw) < 8:
+        return None
+    base = int.from_bytes(raw[4:8], 'big')
+    if base == 0 and len(raw) >= 12:
+        base = int.from_bytes(raw[8:12], 'big')
+    return base or None
+
+
+def recover_pi4_led_dma():
+    """
+    Reset a Pi 4 LED transfer an earlier program left hanging (see above).
+
+    Call before this program's first frame. Does nothing on other boards,
+    without root (the driver then says so itself), once this program's driver
+    runs, or while a frame really goes out (the PWM is on).
+
+    Returns:
+        bool: True when a hanging transfer was found and reset.
+    """
+    try:
+        import neopixel_write
+    except ImportError:
+        return False
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if not getattr(backend, '__name__', '').endswith('bcm283x.neopixel'):
+        return False
+    if getattr(backend, '_led_strip', None) is not None:
+        return False
+    channel = int(getattr(backend, 'LED_DMA_NUM', 10))
+    base = _soc_peripheral_base()
+    if base is None or not 0 <= channel <= 14:
+        return False
+    import ctypes
+    import mmap
+    try:
+        fd = os.open('/dev/mem', os.O_RDWR | os.O_SYNC)
+    except OSError:
+        return False
+    page = mmap.ALLOCATIONGRANULARITY
+    dma_at = base + _PI4_DMA_OFFSET + channel * 0x100
+    pwm_at = base + _PI4_PWM_OFFSET
+    try:
+        dma_map = mmap.mmap(fd, page, offset=dma_at & ~(page - 1))
+        pwm_map = mmap.mmap(fd, page, offset=pwm_at & ~(page - 1))
+    except (OSError, ValueError):
+        os.close(fd)
+        return False
+    os.close(fd)
+    dma_at &= page - 1
+    pwm_at &= page - 1
+    cs = None
+    try:
+        # 32-bit accesses, as the registers need
+        cs = ctypes.c_uint32.from_buffer(dma_map, dma_at)
+        ti = ctypes.c_uint32.from_buffer(dma_map, dma_at + 8).value
+        pwm_on = ctypes.c_uint32.from_buffer(pwm_map, pwm_at).value & _PI4_PWM_ENABLED
+        if not cs.value & _PI4_DMA_ACTIVE or (ti >> 16) & 0x1f != _PI4_DMA_TO_PWM or pwm_on:
+            return False
+        cs.value = _PI4_DMA_RESET
+        time.sleep(0.001)
+        if cs.value & _PI4_DMA_ACTIVE:
+            print("LED panel: the LED driver did not start cleanly, so the panel may "
+                  "stay dark. Restart the Pi if it does.", file=sys.stderr)
+            return False
+        if os.environ.get('RQ_DEBUG') == '1':
+            print(f"LED panel: reset DMA channel {channel}, left busy by an earlier "
+                  "program", file=sys.stderr)
+        return True
+    finally:
+        cs = None                   # mmap.close() refuses while it is in use
+        dma_map.close()
+        pwm_map.close()
+
+
+_pi4_exit_quiet = {'registered': False}
+
+
+def _disown_pi4_strip():
+    """
+    Hand the Pi 4 driver's ws2811_t back to the library's own cleanup.
+
+    The library (adafruit-blinka on rpi_ws281x) frees the structure at exit,
+    and SWIG then printed "swig/python detected a memory leak of type
+    'ws2811_t *', no destructor found." when the Python handle went: after
+    every RasQ-LED cycle and at the end of every LED demo on a Pi 4 (#27).
+    Nothing leaked; without ownership the handle goes quietly.
+    """
+    try:
+        import neopixel_write
+    except ImportError:
+        return
+    strip = getattr(getattr(neopixel_write, '_neopixel', None), '_led_strip', None)
+    disown = getattr(strip, 'disown', None)
+    if callable(disown):
+        try:
+            disown()
+        except Exception:  # noqa: BLE001 - only about a message at exit
+            pass
+
+
+def quiet_pi4_driver_exit():
+    """
+    Keep the Pi 4 LED driver's exit quiet (see _disown_pi4_strip), and let a
+    stopped program give the driver's memory back (_free_pi4_driver_on_stop_signals).
+
+    Call after the first frame (show()): the library registers its cleanup
+    then, and atexit runs the last registered first, so this runs before it.
+    """
+    if _pi4_exit_quiet['registered']:
+        return
+    _pi4_exit_quiet['registered'] = True
+    import atexit
+    atexit.register(_disown_pi4_strip)
+    _free_pi4_driver_on_stop_signals()
+
+
+def _end_after_pi4_cleanup(signum, _frame):
+    """Run the Pi 4 driver's cleanup, then end the way the signal would have."""
+    import signal
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            signal.signal(sig, signal.SIG_IGN)      # one cleanup, not two
+        except (ValueError, OSError):
+            pass
+    try:
+        import neopixel_write
+        cleanup = getattr(getattr(neopixel_write, '_neopixel', None), 'neopixel_cleanup', None)
+        if callable(cleanup):
+            cleanup()
+    except Exception:  # noqa: BLE001 - the program ends anyway
+        pass
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+
+def _free_pi4_driver_on_stop_signals():
+    """
+    A stopped Pi 4 LED program gives the driver's GPU memory back.
+
+    rpi_ws281x takes its frame buffer from the GPU's memory (the mailbox), and
+    only its cleanup (ws2811_fini, run at a normal exit) returns it: the
+    kernel does not when the program ends. The menu, the demo windows and the
+    Demo Loop stop a demo with SIGTERM (a closed window: SIGHUP), which ends
+    Python at once, so every stop kept about 8-12 KB: on the rig 54 of 56 MB
+    were left after a day of tests, and a Demo Loop running for days at a
+    stand would have run out within about a week. A handler now runs the
+    driver's cleanup and then ends the program with the same signal, as the
+    Pi 5 one does (_drain_on_stop_signals): no exception to be caught by a
+    demo, no wait for its threads. Only on a Pi 4 with the driver started,
+    in the main thread, and where the program has no handler of its own.
+    """
+    import signal
+    import threading
+    try:
+        import neopixel_write
+    except ImportError:
+        return
+    backend = getattr(neopixel_write, '_neopixel', None)
+    if not getattr(backend, '__name__', '').endswith('bcm283x.neopixel'):
+        return
+    if threading.current_thread() is not threading.main_thread():
+        return
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            if signal.getsignal(sig) == signal.SIG_DFL:
+                signal.signal(sig, _end_after_pi4_cleanup)
+        except (ValueError, OSError):
+            pass
 
 
 def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None):
@@ -1121,10 +1685,12 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         )
 
     def _make_real():
+        _lgpio_files_out_of_cwd()
         import board
         import neopixel
 
         guard_pi5_led_writes()
+        recover_pi4_led_dma()
         pin = config['led_gpio_pin'] if gpio_pin is None else gpio_pin
         gpio_board_pin = getattr(board, f'D{pin}')
         order = getattr(neopixel, pixel_order) if isinstance(pixel_order, str) else pixel_order
@@ -1138,6 +1704,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
             )
             real_pixels.fill((0, 0, 0))
             real_pixels.show()
+            quiet_pi4_driver_exit()
         except RuntimeError as e:
             raise _with_root_hint(e) from e
         return real_pixels
@@ -1170,9 +1737,11 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         print("Warning: no LED target set (physical/virtual/web); defaulting to physical",
               file=sys.stderr)
 
+    _lgpio_files_out_of_cwd()
     import board
     import neopixel
     guard_pi5_led_writes()
+    recover_pi4_led_dma()
 
     # Get GPIO pin from config if not provided
     if gpio_pin is None:
@@ -1200,6 +1769,7 @@ def create_neopixel_strip(num_pixels, pixel_order, brightness=0.1, gpio_pin=None
         # Initialize all LEDs to black
         pixels.fill((0, 0, 0))
         pixels.show()
+        quiet_pi4_driver_exit()
     except RuntimeError as e:
         raise _with_root_hint(e) from e
 
@@ -1393,18 +1963,25 @@ def map_xy_to_pixel_quad(x, y):
     return map_xy_to_pixel(x, y, layout='quad-2x2-12x4')
 
 
-def _text_canvas(config):
+def _text_canvas(config, name=None):
     """
     The configured layout (as a parsed dict, so the per-pixel mapping does not
     look it up again) and its width and height, for the text functions.
 
     Args:
         config (dict): Result of get_led_config().
+        name (str, optional): A registry layout to use instead of LED_LAYOUT
+            (the boot address scroll tries both kit layouts on a new card);
+            an unknown name falls back to LED_LAYOUT.
 
     Returns:
         tuple: (layout, width, height); layout is the parsed LED_LAYOUT
             definition, or its name if the registry does not know it.
     """
+    if name:
+        layout = get_layout(name)
+        if layout:
+            return layout, int(layout['width']), int(layout['height'])
     layout = get_layout(config['led_layout']) or config['led_layout']
     return layout, config['matrix_width'], config['matrix_height']
 
@@ -1512,7 +2089,7 @@ def create_text_bitmap(text):
     return columns
 
 
-def scroll_pass_columns(text, config=None):
+def scroll_pass_columns(text, config=None, layout=None):
     """
     How many scroll steps one full pass of TEXT takes on the configured panel
     (the text plus a blank panel at the end).
@@ -1520,17 +2097,18 @@ def scroll_pass_columns(text, config=None):
     Args:
         text (str): Text to scroll
         config (dict): get_led_config() result (read when not given)
+        layout (str, optional): Layout name instead of LED_LAYOUT
 
     Returns:
         int: Steps per pass; one step lasts about scroll_speed seconds.
     """
     config = config or get_led_config()
-    _layout, width, _height = _text_canvas(config)
+    _layout, width, _height = _text_canvas(config, layout)
     return len(create_text_bitmap(text)) + width
 
 
 def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, color=(0, 100, 255),
-                           passes=None):
+                           passes=None, layout=None):
     """
     Display scrolling text on LED matrix for specified duration.
 
@@ -1548,6 +2126,10 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
         color (tuple): RGB color tuple (0-255 per channel), default bright blue
         passes (int): If given, scroll the text exactly this many whole
             times instead of for duration_seconds (never stops mid-text)
+        layout (str, optional): Layout name for this call instead of
+            LED_LAYOUT, on the same strip (no new hardware set-up): the boot
+            address scroll alternates the kit layouts per pass until the
+            layout is verified
 
     Example:
         pixels = create_neopixel_strip(192, 'GRB', 0.3)
@@ -1557,7 +2139,7 @@ def display_scrolling_text(pixels, text, duration_seconds=30, scroll_speed=0.1, 
 
     # Get configuration
     config = get_led_config()
-    layout, width, height = _text_canvas(config)
+    layout, width, height = _text_canvas(config, layout)
 
     # Create text bitmap
     text_columns = create_text_bitmap(text)

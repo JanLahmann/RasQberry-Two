@@ -53,11 +53,31 @@ LAB_TOKEN="rasqberry"
 # rather than re-cloning inside the container.
 DOCS_DIR="$USER_HOME/$REPO/demos/ibm-quantum-learning"
 
+# Set from here, so the QuBins image stays as published (#18, Jan):
+# - the lab opens on a short welcome page (read-only) instead of a bare
+#   launcher;
+# - no "Would you like to get notified about official Jupyter news?": the
+#   Pi's own JupyterLab setting (RQB2-system), read-only in the container.
+WELCOME_SRC="$(dirname "$(rq_shipped_manifest_dir)")/quantum-lab/WELCOME.ipynb"
+LAB_OVERRIDES="${RQ_LAB_OVERRIDES:-/etc/jupyter/labconfig/default_setting_overrides.json}"
+EXTRA_MOUNTS=()
+START_PAGE="lab"
+if [ -f "$WELCOME_SRC" ]; then
+    EXTRA_MOUNTS+=(-v "$WELCOME_SRC:/home/jovyan/WELCOME.ipynb:ro")
+    START_PAGE="lab/tree/WELCOME.ipynb"
+fi
+if [ -f "$LAB_OVERRIDES" ]; then
+    EXTRA_MOUNTS+=(-v "$LAB_OVERRIDES:/etc/jupyter/labconfig/default_setting_overrides.json:ro")
+fi
+
 ################################################################################
 # Prerequisites: Docker (mirrors qoffee-maker.sh)
 ################################################################################
 
 rq_docker_access "$@"
+# A small card: a note before the course notebooks download (Docker demos
+# need 32 GB or more)
+rq_stop_if_card_too_small "Quantum Lab (QuBins)" "$DOCKER_IMAGE"
 
 ################################################################################
 # Ensure the IBM Quantum Learning course notebooks are present
@@ -71,7 +91,15 @@ rq_docker_access "$@"
 # interrupted download left (R-056)
 if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
     info "IBM Quantum Learning content not found."
-    rq_require_demo_consent ibm-courses
+    # Quantum Lab's own question named them ("and the IBM course notebooks
+    # if missing"): no second question after the long image download, which
+    # kept someone who had walked away waiting (user test 2026-10-07, P6).
+    # The space and network checks still run.
+    if [ "${RQ_CONFIRMED_DEMO:-}" = "quantum-lab" ]; then
+        RQ_AUTO_INSTALL=1 rq_require_demo_consent ibm-courses
+    else
+        rq_require_demo_consent ibm-courses
+    fi
     info "Installing course notebooks (Qiskit/documentation)..."
     install_demo_raspiconfig do_ibm_courses_install \
         || die "Failed to install IBM Quantum Learning content"
@@ -79,6 +107,8 @@ fi
 
 # Final sanity check before mounting
 [ -d "$DOCS_DIR" ] || die "IBM Quantum Learning content missing at $DOCS_DIR"
+# Only the notebooks and what they need, not the repository's own files (#18)
+rq_ibm_learning_tidy "$DOCS_DIR"
 
 ################################################################################
 # Docker container management
@@ -92,10 +122,12 @@ if port_in_use "$PORT"; then
     warn "Port 8892 is taken; Quantum Lab uses $PORT this time."
 fi
 
-# The image (pinned), downloaded after the consent dialog
+# The image (pinned), downloaded after the consent dialog; the manifest's
+# fallback tag when QuBins no longer offers the pinned build
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     rq_require_demo_consent quantum-lab
-    rq_docker_pull "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    rq_demo_docker_pull quantum-lab "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
 
@@ -131,13 +163,14 @@ if ! docker run -d \
     -e JUPYTER_TOKEN="$LAB_TOKEN" \
     -v "$DOCS_DIR":/home/jovyan/ibm-quantum-learning:ro \
     -v "$WORK_DIR":/home/jovyan/my-work \
+    ${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"} \
     "$DOCKER_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Quantum Lab container did not start."
 fi
 
 # Wait for JupyterLab to answer on the loopback port
 info "Waiting for JupyterLab to start..."
-LAB_URL="http://127.0.0.1:${PORT}/lab?token=${LAB_TOKEN}"
+LAB_URL="http://127.0.0.1:${PORT}/${START_PAGE}?token=${LAB_TOKEN}"
 # JupyterLab needs ~15 s to start on a Pi 4; the loop returns as soon as
 # it answers, so a generous limit costs nothing (rig test, #234)
 MAX_WAIT=60

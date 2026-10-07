@@ -28,7 +28,7 @@ def main():
     print()
 
     # Create NeoPixel strip
-    print("Initializing LED strip...")
+    print("Initializing LED panel...")
     pixels = create_neopixel_strip(
         config['led_count'],
         config['pixel_order'],

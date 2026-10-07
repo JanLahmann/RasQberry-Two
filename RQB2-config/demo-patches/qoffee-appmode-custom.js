@@ -14,17 +14,82 @@
  * marked "### APP"). The presenter therefore gets a ready-to-use kiosk without
  * clicking anything.
  *
- * The nbextension registers its action asynchronously, so we poll briefly for
- * it after notebook_loaded and fire exactly once. If the action never appears
- * (a different notebook, or the extension disabled) we give up after the
- * timeout and leave the normal notebook UI untouched.
+ * The nbextension registers its action asynchronously, so we poll for it
+ * after notebook_loaded and fire exactly once, when the kernel is ready too.
+ * If the action never appears (a different notebook, or the extension
+ * disabled) we give up after the timeout and leave the normal notebook UI
+ * untouched.
+ *
+ * It fires once the kernel is ready (#3 of the 2026-10-05 user test). The
+ * action restarts the kernel; fired while the kernel this page had just
+ * started was still starting, the restart interrupted it (KeyboardInterrupt
+ * in the container log on a Pi 4), and the widget manager lost the app's
+ * widgets ("Jupyter Widgets model not found"): the page showed the raw
+ * "AppBox(children=...)" text instead of the app, on a Pi 5 too.
  */
 require(['base/js/namespace', 'base/js/events'], function (Jupyter, events) {
     'use strict';
 
     var ACTION = 'simple-app:app-activate';
     var POLL_MS = 500;
-    var MAX_TRIES = 40; // ~20s for the extension to register its action
+    var MAX_TRIES = 240; // ~2 min: a Pi 4 starts the kernel slowly
+
+    var kernelStarted = false;
+    events.on('kernel_ready.Kernel', function () { kernelStarted = true; });
+
+    function kernelReady() {
+        var kernel = Jupyter.notebook && Jupyter.notebook.kernel;
+        return kernelStarted ||
+            !!(kernel && kernel.info_reply && kernel.info_reply.protocol_version);
+    }
+
+    function activate() {
+        try {
+            Jupyter.actions.call(ACTION);
+            console.log('[RasQberry] Qoffee app mode activated');
+        } catch (e) {
+            console.error('[RasQberry] Qoffee app-activate failed', e);
+        }
+        keepTheApp();
+    }
+
+    // Esc left the app: qoffeefrontend binds it to "Deactivate App Mode",
+    // which showed the raw notebook (code, a "docplex 32-bit" warning) and
+    // stayed full screen (Pi 4 user test 2026-10-07, F2). In the kiosk, Esc
+    // now only says how to get out.
+    function keepTheApp() {
+        var km = Jupyter.keyboard_manager;
+        if (km && km.command_shortcuts) {
+            try {
+                km.command_shortcuts.remove_shortcut('esc');
+            } catch (e) { /* not bound */ }
+        }
+        if (typeof document !== 'undefined') {
+            document.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape' || ev.keyCode === 27) {
+                    showHint();
+                }
+            });
+        }
+    }
+
+    var hintTimer = null;
+    function showHint() {
+        var el = document.getElementById('rasqberry-esc-hint');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'rasqberry-esc-hint';
+            el.style.cssText = 'position:fixed;left:50%;bottom:8%;transform:translateX(-50%);' +
+                'z-index:100000;background:rgba(0,0,0,0.85);color:#fff;font:20px sans-serif;' +
+                'padding:14px 22px;border-radius:8px;';
+            el.textContent = 'F11 leaves full screen. To stop Qoffee-Maker, ' +
+                'press Enter in its terminal window.';
+            document.body.appendChild(el);
+        }
+        el.style.display = 'block';
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { el.style.display = 'none'; }, 6000);
+    }
 
     function activateOnce() {
         var tries = 0;
@@ -32,18 +97,13 @@ require(['base/js/namespace', 'base/js/events'], function (Jupyter, events) {
             tries += 1;
             var ready = Jupyter.actions &&
                 typeof Jupyter.actions.exists === 'function' &&
-                Jupyter.actions.exists(ACTION);
+                Jupyter.actions.exists(ACTION) && kernelReady();
             if (ready) {
                 clearInterval(timer);
-                try {
-                    Jupyter.actions.call(ACTION);
-                    console.log('[RasQberry] Qoffee app mode activated');
-                } catch (e) {
-                    console.error('[RasQberry] Qoffee app-activate failed', e);
-                }
+                activate();
             } else if (tries >= MAX_TRIES) {
                 clearInterval(timer);
-                console.warn('[RasQberry] Qoffee app-activate action not found; ' +
+                console.warn('[RasQberry] Qoffee app-activate action or kernel not ready; ' +
                     'leaving the notebook UI as-is');
             }
         }, POLL_MS);

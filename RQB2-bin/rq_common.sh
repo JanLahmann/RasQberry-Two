@@ -462,8 +462,8 @@ find_led_script() {
     return 1
 }
 
-# Clear all LEDs
-# Usage: clear_leds
+# Clear all LEDs (--close-window: also close the on-screen view)
+# Usage: clear_leds [--close-window]
 clear_leds() {
     local led_script
 
@@ -479,7 +479,7 @@ clear_leds() {
         py="$venv/bin/python3"
     fi
     debug "Clearing LEDs using: $py $led_script"
-    "$py" "$led_script" 2>/dev/null || warn "Failed to clear LEDs"
+    "$py" "$led_script" "$@" 2>/dev/null || warn "Failed to clear LEDs"
 }
 
 # ----------------------------------------------------------------------------
@@ -495,7 +495,8 @@ clear_leds() {
 # (the Pi 4 PWM driver maps both), /dev/spidev0.0 (the retired SPI driver).
 # Needs root to see other users' processes.
 
-# A short name for a holder's command line
+# A short name for a holder's command line: the demo's name as the menus
+# show it, not its script (#31: "rq_led_ibm_logo.py")
 _rq_led_holder_label() {
     case "$1" in
         *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
@@ -503,19 +504,49 @@ _rq_led_holder_label() {
         *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
         *lights_out.py*)         echo "Quantum Lights Out" ;;
         *QuantumRaspberryTie*)   echo "Quantum Raspberry Tie" ;;
-        *RasQ-LED*)              echo "RasQ-LED" ;;
+        *RasQ-LED*)              echo "RasQ-LED Demo" ;;
         *rq_demo_loop*)          echo "the demo loop" ;;
+        *rq_led_ibm_logo.py*|*rq_led_ibm_demo.sh*) echo "IBM LED Demo" ;;
+        *rq_led_simpletest.py*)  echo "Simple LED Demo" ;;
+        *rq_test_leds.py*)       echo "Quick LED Test" ;;
+        *rq_led_test.py*|*rq_led_test.sh*) echo "LED Test & Diagnostics" ;;
+        *demo_led_*|*rq_led_logo.py*|*rq_led_display_text*|*rq_led_display_logo*)
+                                 echo "Text & Logo Display" ;;
+        *LED_painter.py*|*rq_led_painter*) echo "LED-Painter" ;;
+        *turn_off_LEDs.py*)      echo "turning the LEDs off" ;;
         *)
-            # the script it runs, else the program
-            local word
+            # the script it runs: the demo whose manifest names it, else the
+            # script; else the program
+            local word name
             for word in $1; do
-                case "$word" in *.py|*.sh) basename "$word"; return 0 ;; esac
+                case "$word" in
+                    *.py|*.sh)
+                        name=$(_rq_demo_name_of_script "$(basename "$word")") || name=$(basename "$word")
+                        echo "$name"
+                        return 0 ;;
+                esac
             done
             # shellcheck disable=SC2086
             set -- $1
             basename "${1:-unknown}"
             ;;
     esac
+}
+
+# The name of the demo whose manifest runs SCRIPT (its entrypoint script or a
+# launcher, also a variant's): catalogue demos and demos added later
+_rq_demo_name_of_script() {
+    local script="$1" file name
+    command -v jq >/dev/null 2>&1 || return 1
+    while IFS= read -r file; do
+        [ -n "$file" ] || continue
+        name=$(jq -r --arg s "$script" '
+            if ([.entrypoint.script, .entrypoint.launcher,
+                 (.variants // [] | .[] | .entrypoint.launcher, .entrypoint.script)]
+                | index($s)) != null then .name else empty end' "$file" 2>/dev/null) || continue
+        [ -n "$name" ] && { echo "$name"; return 0; }
+    done < <(rq_list_manifests "$(rq_shipped_manifest_dir)" 2>/dev/null)
+    return 1
 }
 
 # The calling process and its parents: never a holder to stop
@@ -608,6 +639,30 @@ Stop it and continue?" $(( $(echo "$holders" | wc -l) + 10 )) 70; then
     return 1
 }
 
+# An LED layout id (LED_LAYOUT) in plain words, for what the person reads
+# (#29: "Saved: LED_LAYOUT = quad-4x12" was a variable name). The wizard names
+# a flipped kit layout <id>-flipy/-flipx/-rot180 and its own one custom-WxH.
+# Usage: rq_led_layout_name quad-4x12   ->  four 4x12 panels
+rq_led_layout_name() {
+    local id="$1" base turn=""
+    case "$id" in
+        *-flipy)  base="${id%-flipy}";  turn=", mounted upside down" ;;
+        *-flipx)  base="${id%-flipx}";  turn=", mounted mirrored" ;;
+        *-rot180) base="${id%-rot180}"; turn=", rotated 180°" ;;
+        *)        base="$id" ;;
+    esac
+    case "$base" in
+        single-24x8)   echo "one 24x8 panel$turn" ;;
+        quad-4x12)     echo "four 4x12 panels$turn" ;;
+        quad-2x2-12x4) echo "four 4x12 panels, mounted upside down" ;;
+        triple-8x8)    echo "three 8x8 panels$turn" ;;
+        single-8x32)   echo "one 32x8 panel$turn" ;;
+        custom-*)      echo "your own layout (${base#custom-})$turn" ;;
+        "")            echo "not set" ;;
+        *)             echo "$id" ;;
+    esac
+}
+
 # Run a command so that it finishes even if this script is killed: when a
 # demo's window is closed, script(1) (rq_hold_on_error.sh) asks the demo to
 # stop and kills it 2 s later. A cleanup that took longer - stopping a
@@ -624,15 +679,18 @@ rq_run_detached() {
 }
 
 # Clear the panel and say nothing: for exit traps, where the terminal may
-# already be gone (a closed window) and any output would fail.
+# already be gone (a closed window) and any output would fail. The demo has
+# ended, so the on-screen LED view it opened closes too (R-100), unless
+# RQ_LED_KEEP_WINDOW=1: the demo loop keeps one view for all its demos.
 led_clear_quietly() {
-    local py="python3" venv script
+    local py="python3" venv script close="--close-window"
     script=$(find_led_script "turn_off_LEDs.py") || return 0
     if venv=$(find_venv 2>/dev/null) && [ -x "$venv/bin/python3" ]; then
         py="$venv/bin/python3"
     fi
+    [ "${RQ_LED_KEEP_WINDOW:-}" = "1" ] && close=""
     rq_run_detached env PYTHONDONTWRITEBYTECODE=1 \
-        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script"
+        PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script" ${close:+"$close"}
 }
 
 # Stop and remove a container, to the end even if this script is killed
@@ -641,13 +699,21 @@ rq_docker_stop_detached() {
     rq_run_detached bash -c '. "$1" && rq_docker_stop "$2"' _ "$_RQ_COMMON_DIR/rq_common.sh" "$1"
 }
 
+# The Pi's throttling bits now (vcgencmd get_throttled, e.g. 0x50000), or
+# nothing when they cannot be read. Read when an LED demo starts, so that the
+# stall check after it counts only what is new (#6).
+rq_throttled() {
+    command -v vcgencmd >/dev/null 2>&1 || return 0
+    vcgencmd get_throttled 2>/dev/null | sed -n 's/^throttled=//p' | head -1
+}
+
 # After an LED demo: if the Pi 5's LED driver stalled during it (a power
 # supply too weak for the LEDs, item 31), say so and offer a lower brightness.
 # Only with a terminal to ask on.
-# Usage: rq_led_stall_check START_EPOCH
+# Usage: rq_led_stall_check START_EPOCH [THROTTLED_AT_START]
 rq_led_stall_check() {
     [ -t 0 ] && [ -t 1 ] || return 0
-    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" 2>/dev/null || true
+    "$_RQ_COMMON_DIR/rq_led_brightness.sh" --after-stall "${1:-0}" "${2:-}" 2>/dev/null || true
 }
 
 # An LED launcher clears the panel once when it ends, however it ends: Enter,
@@ -657,6 +723,7 @@ rq_led_stall_check() {
 # Usage: rq_led_clear_on_exit
 rq_led_clear_on_exit() {
     RQ_LED_RUN_START=$(date +%s)
+    RQ_LED_THROTTLED_START=$(rq_throttled)
     trap '_rq_led_on_exit' EXIT
     trap 'exit 129' HUP
     trap 'exit 130' INT
@@ -668,8 +735,10 @@ _rq_led_on_exit() {
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
+    # the demo first, or it draws on while the panel is cleared
+    rq_stop_demo_child
     led_clear_quietly
-    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}"
+    [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
 }
 
 # ----------------------------------------------------------------------------
@@ -677,9 +746,11 @@ _rq_led_on_exit() {
 # ----------------------------------------------------------------------------
 # Every demo window stops its demo the same way: Enter or Ctrl+C, or closing
 # the window - from a desktop icon and from the RasQberry menu (also over SSH).
-# A demo that reads the keyboard itself (a console game, a text prompt) stops
-# with Ctrl+C or by closing the window. Docker demos stop with their window
-# too; only the Workshop & Qiskit Server keeps running by design.
+# A program that does not read Enter itself runs through rq_run_demo, which
+# reads it for it (items 4, 8). Only a demo that needs the keyboard (a text
+# prompt, e.g. Raspberry Tie asking for an IBM Quantum key) stops with Ctrl+C
+# or by closing the window. Docker demos stop with their window too; only the
+# Workshop & Qiskit Server keeps running by design.
 
 # Usage: rq_stop_hint NAME [keys]
 rq_stop_hint() {
@@ -688,7 +759,13 @@ rq_stop_hint() {
     else
         echo "To stop $1: press Enter or Ctrl+C, or close this window."
     fi
+    # The demo's browser window opened maximised over this one (#15)
+    [ -z "${_RQ_DEMO_TABS[*]:-}" ] || echo "$RQ_BROWSER_BACK_HINT"
 }
+
+# Chromium opens maximised (#15), over the window that started it: where
+# that window is now, under a stop line or a "Press Enter" line
+RQ_BROWSER_BACK_HINT="The browser covers this window: to get back here, click it in the taskbar."
 
 # Is process PID still there (not a zombie)? Works for children started
 # through sudo, where kill -0 fails with "not permitted".
@@ -697,6 +774,30 @@ _rq_pid_alive() {
         ""|Z*) return 1 ;;
     esac
     return 0
+}
+
+# A timed read that no stop signal interrupts with a long trap (Trixie, T4).
+# "read -t" arms an alarm and leaves by longjmp when it fires. A HUP, INT or
+# TERM trap runs INSIDE the waiting read; when that trap stops a demo or
+# clears the panel (seconds) and the alarm fires meanwhile, bash 5.2 jumps
+# out of the trap into a stale stack frame: "stack smashing detected" or
+# "longjmp causes uninitialized stack frame", exit 134 - about every second
+# Ctrl+C on the rig (QLO console, IBM Courses). So while it reads, the
+# signals only note themselves; after read has returned, the same signal is
+# sent again and the caller's own trap (or the default action) runs then,
+# outside the read. Takes read's options; returns read's status.
+# Usage: rq_read_deferred -r -t 2 VAR
+rq_read_deferred() {
+    local _rq_rd_sig="" _rq_rd_saved _rq_rd_rc=0
+    _rq_rd_saved=$(trap -p HUP INT TERM)
+    trap '_rq_rd_sig=HUP' HUP
+    trap '_rq_rd_sig=INT' INT
+    trap '_rq_rd_sig=TERM' TERM
+    read "$@" || _rq_rd_rc=$?
+    trap - HUP INT TERM
+    eval "$_rq_rd_saved"
+    [ -z "$_rq_rd_sig" ] || kill -s "$_rq_rd_sig" "${BASHPID:-$$}"
+    return "$_rq_rd_rc"
 }
 
 # Show the stop hint and wait until Enter, or until the demo ends by itself
@@ -720,10 +821,136 @@ rq_wait_for_stop() {
         if [ -n "$pid" ]; then _rq_pid_alive "$pid" || return 0; fi
         if [ -n "$container" ]; then rq_docker_running "$container" || return 0; fi
         rc=0
-        read -r -t 2 _ || rc=$?
+        rq_read_deferred -r -t 2 _ || rc=$?
         [ "$rc" -eq 0 ] && return 0      # Enter
         [ "$rc" -gt 128 ] || return 0    # no more input
     done
+}
+
+# The processes PID started, and theirs (one per line)
+_rq_descendants() {
+    local c
+    for c in $(pgrep -P "$1" 2>/dev/null); do
+        echo "$c"
+        _rq_descendants "$c"
+    done
+}
+
+# Stop PID and what it started: SIGTERM (a Python demo then runs its own
+# cleanup, e.g. Fractals closes its browser window), SIGKILL after SECONDS
+# (default 5). Quiet: no "Killed jupyter-lab" line for a child of this shell
+# (#27). Usage: rq_stop_pid PID [SECONDS]
+rq_stop_pid() {
+    local pid="$1" secs="${2:-5}" kids k left
+    [ -n "$pid" ] || return 0
+    if _rq_pid_alive "$pid"; then
+        kids=$(_rq_descendants "$pid")
+        kill -TERM "$pid" 2>/dev/null || sudo -n kill -TERM "$pid" 2>/dev/null || true
+        _rq_wait_gone "$secs" "$pid"
+        # what it started and left behind (e.g. the program a shell function
+        # ran), then whatever does not stop
+        for k in $kids; do
+            _rq_pid_alive "$k" && { kill -TERM "$k" 2>/dev/null || sudo -n kill -TERM "$k" 2>/dev/null || true; }
+        done
+        # shellcheck disable=SC2086
+        _rq_wait_gone "$secs" $kids
+        left=""
+        for k in "$pid" $kids; do
+            _rq_pid_alive "$k" && left="$left $k"
+        done
+        # shellcheck disable=SC2086
+        [ -z "$left" ] || { kill -KILL $left || sudo -n kill -KILL $left; } 2>/dev/null || true
+    fi
+    { wait "$pid"; } 2>/dev/null || true
+}
+
+# Wait up to SECONDS until none of the PIDs runs any more
+_rq_wait_gone() {
+    local secs="$1" n=0 k busy
+    shift
+    while [ "$n" -lt $((secs * 10)) ]; do
+        busy=""
+        for k in "$@"; do
+            _rq_pid_alive "$k" && { busy=1; break; }
+        done
+        [ -n "$busy" ] || return 0
+        sleep 0.1
+        n=$((n + 1))
+    done
+    return 0
+}
+
+# Lines on a demo's error output that look like faults but are none (#27):
+# Qt finds the runtime directory "0770 instead of 0700" because Raspberry Pi
+# OS's VNC server gives it an ACL; the group has no access all the same.
+# The Qt GTK theme's "GLib-GObject-CRITICAL ... g_object_unref" line at the
+# LED-Painter's start is harmless too (user test 2026-10-07).
+_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory |GLib-GObject-CRITICAL \*\*: [0-9:.]+: g_object_unref: assertion'
+
+# Run a command without those lines on its error output; everything else
+# stays. Usage: rq_quiet_stderr COMMAND [ARGS...]
+rq_quiet_stderr() {
+    "$@" 2> >(grep -Ev --line-buffered "$_RQ_HARMLESS_STDERR" >&2)
+}
+
+# The demo program rq_run_demo runs (for the exit traps)
+RQ_DEMO_CHILD=""
+
+# Stop the program rq_run_demo started, if it still runs. For exit traps:
+# the demo first, then its LEDs, server or container.
+rq_stop_demo_child() {
+    [ -n "${RQ_DEMO_CHILD:-}" ] || return 0
+    local pid="$RQ_DEMO_CHILD"
+    RQ_DEMO_CHILD=""
+    rq_stop_pid "$pid"
+}
+
+# Run a demo program in this window so that Enter stops it as well as Ctrl+C
+# or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
+# Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
+# themselves: the program runs in the background with no keyboard (its input
+# is empty), and this window reads Enter. Prints the stop line first. Ctrl+C,
+# a closed window or a stop from the menu (INT, HUP, TERM) stop the program
+# and end the script with 130, 129 or 143, so its EXIT trap clears the LEDs
+# or stops the server. A background program ignores Ctrl+C itself, so a
+# Python demo ends without a KeyboardInterrupt traceback (#13). Without a
+# terminal (the demo loop, a menu run without a window) the program simply
+# runs. Returns its exit status, or 0 when Enter stopped it.
+# Usage: rq_run_demo NAME COMMAND [ARGS...]
+rq_run_demo() {
+    local name="$1" rc=0 old_hup old_int old_term
+    shift
+    if ! { [ -t 0 ] && [ -t 1 ]; }; then
+        "$@" || rc=$?
+        return "$rc"
+    fi
+    rq_stop_hint "$name"
+    echo
+    old_hup=$(trap -p HUP)
+    old_int=$(trap -p INT)
+    old_term=$(trap -p TERM)
+    trap 'rq_stop_demo_child; exit 129' HUP
+    trap 'rq_stop_demo_child; exit 130' INT
+    trap 'rq_stop_demo_child; exit 143' TERM
+    "$@" </dev/null &
+    RQ_DEMO_CHILD=$!
+    # until Enter (or no more input: Ctrl+D), or the program ends by itself
+    while _rq_pid_alive "$RQ_DEMO_CHILD"; do
+        rc=0
+        rq_read_deferred -r -t 2 _ || rc=$?
+        [ "$rc" -gt 128 ] || break
+    done
+    rc=0
+    if _rq_pid_alive "$RQ_DEMO_CHILD"; then
+        rq_stop_demo_child               # Enter: stopped, not an error
+    else
+        { wait "$RQ_DEMO_CHILD"; } 2>/dev/null || rc=$?
+        RQ_DEMO_CHILD=""
+    fi
+    eval "${old_hup:-trap - HUP}"
+    eval "${old_int:-trap - INT}"
+    eval "${old_term:-trap - TERM}"
+    return "$rc"
 }
 
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
@@ -756,6 +983,7 @@ _rq_window_container_stop() {
     local name="$RQ_WINDOW_CONTAINER"
     RQ_WINDOW_CONTAINER=""
     { info "Stopping $RQ_WINDOW_NAME..."; } 2>/dev/null || true
+    rq_close_demo_tabs
     rq_docker_stop_detached "$name"
     { info "$RQ_WINDOW_NAME stopped."; } 2>/dev/null || true
 }
@@ -972,7 +1200,8 @@ RQ_BROWSER_HANDOFF_WAIT="${RQ_BROWSER_HANDOFF_WAIT:-10}"
 # The browser command on this Pi; fails if there is none
 _rq_find_browser() {
     local b
-    for b in chromium-browser chromium firefox xdg-open; do
+    # chromium first: trixie has no chromium-browser command (bookworm has both)
+    for b in chromium chromium-browser firefox xdg-open; do
         if command -v "$b" >/dev/null 2>&1; then
             echo "$b"
             return 0
@@ -990,7 +1219,7 @@ _rq_find_browser() {
 # terminal's foreground process group, and the kernel sends that group SIGHUP
 # when the session leader ends - under rq_hold_on_error.sh, the demo itself -
 # and when the window closes. Composer and Grok Bloch online end right after
-# starting `chromium-browser URL`, so in a window of their own (an icon
+# starting `chromium URL`, so in a window of their own (an icon
 # running rq_demo_run.sh) the hangup killed it before it had handed the
 # address to the running Chromium: no tab. And a Chromium that a demo had
 # started itself (none was running) closed, all tabs, with the demo's window.
@@ -999,15 +1228,32 @@ _rq_find_browser() {
 # still stop the demo's own server, LEDs and containers. This then waits until
 # the command has handed the address over and exited, at most
 # RQ_BROWSER_HANDOFF_WAIT seconds (a browser it had to start keeps running).
+#
+# A demo served on this Pi (http://127.0.0.1:PORT, http://localhost:PORT)
+# opens in a Chromium window of its own, on top of the demo's terminal and
+# maximised, or full screen with --start-fullscreen (#15; a running Chromium
+# ignores that flag, so rq_browser_tab.py sets it). Its tab closes when the
+# demo's server stops - at once through rq_close_demo_tabs, else as soon as
+# the server is gone - instead of staying behind with "Dead kernel" and
+# asking "Leave site?" when closed (#9). Websites (Composer) open as before.
 # Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
 rq_open_browser() {
-    local url="$1" browser pid user_name ticks=0
+    local url="$1" browser pid user_name ticks=0 before="" state=""
     local -a cmd
     shift
     browser=$(_rq_find_browser) || return 1
     case "$browser" in
-        chromium*) cmd=("$browser" --password-store=basic "$@" "$url") ;;
-        *)         cmd=("$browser" "$url") ;;
+        chromium*)
+            if _rq_local_demo_url "$url"; then
+                before=$(_rq_browser_tab ids 2>/dev/null) || before=""
+                state=maximized
+                case " $* " in *" --start-fullscreen "*|*" --kiosk "*) state=fullscreen ;; esac
+                cmd=("$browser" --password-store=basic --new-window "$@" "$url")
+            else
+                cmd=("$browser" --password-store=basic "$@" "$url")
+            fi
+            ;;
+        *)  cmd=("$browser" "$url") ;;
     esac
     # As the desktop user, as run_as_user does. sudo goes inside setsid: it
     # passes the signals it gets on to the browser.
@@ -1028,7 +1274,49 @@ rq_open_browser() {
         ticks=$((ticks + 1))
     done
     _rq_pid_alive "$pid" || wait "$pid" 2>/dev/null || true
+    if [ -n "$state" ]; then
+        _RQ_DEMO_TABS+=("$url")
+        _rq_browser_tab_watch --before "$before" --window-state "$state" "$url"
+    fi
     return 0
+}
+
+# Is URL a demo served on this Pi (its tab is of no use once the demo stops)?
+_rq_local_demo_url() {
+    case "$1" in
+        http://127.0.0.1:[0-9]*|http://localhost:[0-9]*) return 0 ;;
+    esac
+    return 1
+}
+
+# The demo-tab helper (Chromium's DevTools port, 127.0.0.1 only)
+_rq_browser_tab() {
+    python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" "$@"
+}
+
+# Look after a demo's new tab in the background, in a session of its own: it
+# outlives the demo's window and closes the tab once the server has stopped
+_rq_browser_tab_watch() {
+    if command -v setsid >/dev/null 2>&1; then
+        setsid python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    else
+        nohup python3 "$_RQ_COMMON_DIR/rq_browser_tab.py" watch "$@" </dev/null >/dev/null 2>&1 &
+    fi
+    disown "$!" 2>/dev/null || true
+}
+
+# The addresses of the demo tabs this script opened
+_RQ_DEMO_TABS=()
+
+# Close the tabs this script's demo opened, before its server stops, so they
+# do not show "Dead kernel" or "Connection failed" first (#9). Quiet, and
+# nothing without the DevTools port. Usage: rq_close_demo_tabs
+rq_close_demo_tabs() {
+    local u
+    for u in ${_RQ_DEMO_TABS[@]+"${_RQ_DEMO_TABS[@]}"}; do
+        _rq_browser_tab close "$u" </dev/null >/dev/null 2>&1 || true
+    done
+    _RQ_DEMO_TABS=()
 }
 
 # Open URL in available browser (see rq_open_browser), or say where to go
@@ -1101,6 +1389,66 @@ rq_reachable() {
     curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
 }
 
+# Is this a small card (the root file system under 20 GB: a 16 GB card)?
+# Docker demos need a card of 32 GB or more there (rasqberry.org: "16 GB:
+# one system, without the Docker demos"; Jan, 2026-10-07).
+rq_small_card() {
+    local gb
+    gb=$(_rq_root_size_gb)
+    case "$gb" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]
+}
+
+# Size of the SD card (the disk holding /) as printed on it: the next power
+# of two (a "16 GB" card holds 15.5 GB); from the root file system's size
+# where the disk cannot be read (and in tests)
+_rq_card_size_gb() {
+    local disk bytes="" gb n=1
+    if [ -z "${RQ_TEST_ROOT_GB:-}" ]; then
+        disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null | head -n 1)
+        bytes=$(lsblk -bdno SIZE "/dev/${disk:-none}" 2>/dev/null)
+    fi
+    case "$bytes" in
+        ''|*[!0-9]*) gb=$(_rq_root_size_gb) ;;
+        *) gb=$(( bytes / 1020000000 )) ;;
+    esac
+    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
+    while [ "$n" -lt "$gb" ]; do n=$((n * 2)); done
+    echo "$n"
+}
+
+# Is NAME a Docker demo this card is too small for? Sets RQ_CONSENT_MSG to a
+# plain note naming it (shown by rq_card_note). Callers check first that the
+# image is not here already: a card moved from another Pi runs what it has.
+# Usage: rq_card_too_small NAME
+rq_card_too_small() {
+    rq_small_card || return 1
+    RQ_CONSENT_MSG="$1 is a Docker demo. Docker demos need an SD card of 32 GB or more; this card is $(_rq_card_size_gb) GB.\n\nAll other demos work on this card."
+    return 0
+}
+
+# A Docker launcher's first step: on a small card, without IMAGE here, show
+# the note and end (exit 0) before anything is downloaded.
+# Usage: rq_stop_if_card_too_small NAME IMAGE
+rq_stop_if_card_too_small() {
+    [ -n "${2:-}" ] && docker image inspect "$2" >/dev/null 2>&1 && return 0
+    rq_card_too_small "$1" || return 0
+    rq_card_note
+    exit 0
+}
+
+# Show RQ_CONSENT_MSG as a note (a box on a terminal), not as an error
+rq_card_note() {
+    local title="${1:-Needs a bigger SD card}"
+    # (no box during "Download all demos", which asked already)
+    if [ "${RQ_AUTO_INSTALL:-0}" != 1 ] && command -v whiptail >/dev/null 2>&1 \
+            && { : < /dev/tty > /dev/tty; } 2>/dev/null; then
+        show_msgbox "$title" "$RQ_CONSENT_MSG" 10 70 < /dev/tty > /dev/tty 2>&1 || true
+    else
+        printf '%b\n' "$RQ_CONSENT_MSG"
+    fi
+}
+
 # Ask before a download. Shared by the demo engine, "Download all demos", the
 # Docker launchers and other one-off downloads (e.g. a newer Docker image).
 #
@@ -1116,7 +1464,8 @@ rq_reachable() {
 #     --question TEXT  last line (default "Download now?")
 #
 # DOWNLOAD_MB/DISK_MB 0 = unknown. Returns 0 to go ahead, 1 declined, 2 not
-# enough space, 3 source not reachable, 4 no terminal to ask on. For 1-4,
+# enough space, 3 source not reachable, 4 no terminal to ask on, 5 a Docker
+# demo (--docker) on a small card (rq_card_too_small). For 1-5,
 # RQ_CONSENT_MSG holds a sentence for the user. With RQ_AUTO_INSTALL=1 (the
 # caller has already asked, e.g. "Download all demos") there is no question,
 # but the space and network checks still run.
@@ -1143,6 +1492,7 @@ rq_confirm_download() {
     case "$disk" in ''|*[!0-9]*) disk=0 ;; esac
     case "$peak" in ''|*[!0-9]*) peak=0 ;; esac
     RQ_CONSENT_MSG=""
+    [ "$docker" = 1 ] && rq_card_too_small "$name" && return 5
 
     local free need space_txt
     free=$(rq_free_mb "$path")
@@ -1222,22 +1572,45 @@ _rq_root_size_gb() {
     df -P -k / 2>/dev/null | awk 'NR == 2 { printf "%d\n", $2 / 1000000 }'
 }
 
+# Does this card hold two systems (an A/B card of 64 GB or more)? A smaller
+# A/B card runs one system and has no "other slot" (rq_expand_ab.sh mode;
+# RQ_TEST_CARD_MODE in tests)
+_rq_card_has_two_systems() {
+    local mode
+    if [ -n "${RQ_TEST_CARD_MODE+x}" ]; then
+        mode="$RQ_TEST_CARD_MODE"
+    else
+        _rq_root_is_ab_slot || return 1
+        mode=$("$_RQ_COMMON_DIR/rq_expand_ab.sh" mode 2>/dev/null) || mode=""
+    fi
+    [ "$mode" = dual ]
+}
+
 # Extra lines under "Space:" for a Docker demo (item 32): the images live in
-# the running system, so on an A/B card each slot keeps its own and an update
-# downloads them again; a 16 GB card fits one Docker demo.
+# the running system, so on a card with two systems each slot keeps its own
+# and an update downloads them again. Not on a single-system card, which has
+# no other slot (user test 2026-10-07, F4).
 # Prints dialog text with literal \n, like the rest of the consent text.
 _rq_docker_space_note() {
-    local gb
-    if _rq_root_is_ab_slot; then
+    if _rq_card_has_two_systems; then
         printf '%s' "           Docker images stay in this system's slot: after an\n"
         printf '%s' "           update into the other slot they download again.\n"
     fi
-    gb=$(_rq_root_size_gb)
-    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
-    if [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]; then
-        printf '%s' "           A 16 GB card has room for one Docker demo (not the\n"
-        printf '%s' "           Workshop & Qiskit Server).\n"
-    fi
+    return 0
+}
+
+# The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
+# holds only what the demos use (#18). A checkout made before also held every
+# file at the top of the repository (package.json, tox.ini ...), which the
+# notebooks' file browser showed first: narrow it, with no download (the
+# files are in the clone). The same list as clone_ibm_learning_content in
+# RQB2_menu.sh.
+# Usage: rq_ibm_learning_tidy DIR
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+rq_ibm_learning_tidy() {
+    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
+    # shellcheck disable=SC2086  # one pattern per word
+    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
     return 0
 }
 
@@ -1265,6 +1638,9 @@ rq_confirm_demo_install() {
     local type="" image="" repo=""
     if [ -n "$mf" ] && [ -f "$mf" ]; then
         name=$(jq -r '.name // .id' "$mf" 2>/dev/null) || name="$id"
+        # a demo started under another name (Qiskit Tutorials on this Pi
+        # runs the Workshop server's image)
+        name="${RQ_CONSENT_NAME:-$name}"
         dl=$(jq -r '.install.download.download_mb // 0' "$mf" 2>/dev/null) || dl=0
         disk=$(jq -r '.install.download.disk_mb // .install.download.download_mb // 0' "$mf" 2>/dev/null) || disk=0
         peak=$(jq -r '.install.download.peak_mb // 0' "$mf" 2>/dev/null) || peak=0
@@ -1277,7 +1653,9 @@ rq_confirm_demo_install() {
     fi
     local docker_opt=""
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
-        docker_opt="--docker"
+        # (an image already here downloads nothing, also on a small card)
+        docker image inspect "$(rq_demo_image "$id" "$mf")" >/dev/null 2>&1 \
+            || docker_opt="--docker"
         path="/var/lib/docker"
         [ -n "$what" ] || what="Docker image ($image)"
         [ -n "$url" ] || url=$(rq_image_registry_url "$image")
@@ -1300,6 +1678,7 @@ rq_require_demo_consent() {
     case "$rc" in
         0) return 0 ;;
         1) info "${RQ_CONSENT_MSG:-Not downloaded.}"; exit 0 ;;
+        5) rq_card_note; exit 0 ;;     # a note, not an error (S2)
         *) die "${RQ_CONSENT_MSG:-The download was stopped.}" ;;
     esac
 }
@@ -1592,7 +1971,9 @@ rq_release_controls() {
         json=$(curl -fsSL --max-time 10 \
             "${RQ_RELEASE_CONTROLS_URL:-https://rasqberry.org/RQB-release-controls.json}" 2>/dev/null || true)
     fi
-    if printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    # jq 1.6 (Raspberry Pi OS) reports success for EMPTY input even with -e,
+    # so a missing file (404, offline) must be caught before jq sees it
+    if [ -n "$json" ] && printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1; then
         printf '%s\n' "$json"
     else
         echo '{}'
@@ -1602,12 +1983,17 @@ rq_release_controls() {
 # rq_release_withdrawn TAG [CONTROLS_JSON]: prints the reason (or "no reason
 # given") and returns 0 when TAG was withdrawn, else returns 1
 rq_release_withdrawn() {
-    local json="${2:-}"
+    local json="${2:-}" reason
     [ -n "$json" ] || json=$(rq_release_controls)
-    printf '%s' "$json" | jq -er --arg t "$1" '
+    [ -n "$json" ] || return 1
+    # decide on the printed reason, not jq's exit status: jq 1.6 says
+    # "success" for empty input even with -e
+    reason=$(printf '%s' "$json" | jq -r --arg t "$1" '
         (if (.releases | type) == "object" then .releases else . end)[$t]
         | select(type == "object" and .withdrawn == true)
-        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null
+        | (.reason // "" | if . == "" then "no reason given" else . end)' 2>/dev/null) || return 1
+    [ -n "$reason" ] || return 1
+    printf '%s\n' "$reason"
 }
 
 # ============================================================================
@@ -1718,7 +2104,7 @@ rq_demo_maturity() {
 # Usage: rq_beta_notice DEMO_ID
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
-    echo "Your feedback helps a lot: ${RQ_FEEDBACK_URL}&demo=$1"
+    echo "Your feedback helps a lot (needs a free GitHub account): ${RQ_FEEDBACK_URL}&demo=$1"
     echo
 }
 
@@ -1809,17 +2195,93 @@ rq_docker_fail() {
     die "$msg"
 }
 
-# Download an image, with Docker's own progress and, on failure, its own
-# reason instead of "check your internet connection" (R-038).
-# Usage: rq_docker_pull IMAGE "Name"
+# MB received so far on the network (not lo or Docker's own interfaces), for
+# a download's progress line. Empty when it cannot be told. RQ_NET_DIR: tests.
+# Usage: mb=$(rq_rx_mb)
+rq_rx_mb() {
+    local f n sum=0 any=""
+    for f in "${RQ_NET_DIR:-/sys/class/net}"/*/statistics/rx_bytes; do
+        [ -r "$f" ] || continue
+        n=${f%/statistics/rx_bytes}; n=${n##*/}
+        case "$n" in lo|docker*|br-*|veth*|virbr*) continue ;; esac
+        sum=$((sum + $(cat "$f" 2>/dev/null || echo 0)))
+        any=1
+    done
+    [ -z "$any" ] || echo $((sum / 1000000))
+}
+
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+_rq_pull_progress() {
+    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
+    rx0=$(rq_rx_mb) || rx0=""
+    while kill -0 "$parent" 2>/dev/null; do
+        got=""
+        if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
+            got=$((now - rx0))
+            case "$mb" in
+                ''|*[!0-9]*|0) got="$got MB, " ;;
+                *) if [ "$got" -le "$mb" ]; then got="$got of about $mb MB, "; else got="$got MB, "; fi ;;
+            esac
+        fi
+        printf '\rDownloading %s ... %s%ds   ' "$name" "$got" $((SECONDS - start))
+        sleep 2
+    done
+}
+
+# Download an image. In a terminal one line shows the MB received so far
+# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# list of layers (#23); on failure Docker's own reason, not "check your
+# internet connection" (R-038).
+# FALLBACK (a tag of the same image, e.g. ghcr.io/qubins/images:2.5-xl): when
+# the registry no longer offers IMAGE itself ("manifest unknown": a digest its
+# publisher pruned, as QuBins did with Quantum Lab's pin in 2026-10), that tag
+# is downloaded instead, and one line says so. Every other failure (offline,
+# no space, access denied) stops here as before. RQ_DOCKER_PULLED names the
+# image that was downloaded: IMAGE, or FALLBACK.
+# Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" err rc=0 why
-    info "Downloading $name: $image"
+    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    RQ_DOCKER_PULLED=""
+    [ "$fallback" = "$image" ] && fallback=""
     err=$(mktemp)
-    docker pull "$image" 2> "$err" || rc=$?
+    if [ -t 1 ]; then
+        start=$SECONDS
+        # The line comes from a helper beside the pull, which stays in the
+        # foreground so that Ctrl+C stops it; the helper ends with this shell
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        printer=$!
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+        kill "$printer" 2>/dev/null || true
+        wait "$printer" 2>/dev/null || true
+    else
+        info "Downloading $name: $image"
+        docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
+    fi
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
-    [ "$rc" -eq 0 ] && return 0
+    # Not offered (any more): the only failure a fallback tag can help with
+    if [ "$rc" -ne 0 ]; then
+        case "$why" in
+            *"no space left"*) ;;
+            *"manifest unknown"*|*"not found"*) gone=1 ;;
+        esac
+    fi
+    if [ -n "$start" ]; then
+        if [ "$rc" -eq 0 ]; then result="done ($((SECONDS - start))s)"
+        elif [ -n "$gone" ] && [ -n "$fallback" ]; then result="not offered any more"
+        else result=failed; fi
+        printf '\rDownloading %s ... %s                         \n' "$name" "$result"
+    fi
+    if [ "$rc" -eq 0 ]; then
+        RQ_DOCKER_PULLED="$image"
+        return 0
+    fi
+    if [ -n "$gone" ] && [ -n "$fallback" ]; then
+        info "The registry no longer offers the tested version of $name; downloading ${fallback#*/} instead."
+        rq_docker_pull "$fallback" "$name" "$mb"
+        return 0
+    fi
     case "$why" in
         *"no space left"*)
             die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
@@ -1828,6 +2290,30 @@ rq_docker_pull() {
         *)
             die "Could not download $name: ${why:-docker pull failed}" ;;
     esac
+}
+
+# Download the Docker image of demo ID with rq_docker_pull, and the fallback
+# tag its manifest names (entrypoint.docker_image_fallback) when the registry
+# no longer offers the pinned digest. A fallback that was downloaded is
+# recorded as the version in use for this release pin, as "Update demos"
+# records a choice: the next start runs it (also offline), "Update demos"
+# shows it, and a newer release's pin replaces it. RQ_DOCKER_PULLED names the
+# image to run.
+# Usage: rq_demo_docker_pull ID IMAGE "Name" [DOWNLOAD_MB] [MANIFEST]
+rq_demo_docker_pull() {
+    local id="$1" image="$2" name="${3:-$1}" mb="${4:-}" mf="" fallback="" pin=""
+    mf=$(_rq_demo_mf "$id" "${5:-}") || mf=""
+    if [ -n "$mf" ] && [ -f "$mf" ]; then
+        fallback=$(jq -r '.entrypoint.docker_image_fallback // empty' "$mf" 2>/dev/null) || fallback=""
+        pin=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || pin=""
+    fi
+    rq_docker_pull "$image" "$name" "$mb" "$fallback"
+    if [ "$RQ_DOCKER_PULLED" != "$image" ] && [ -n "$pin" ]; then
+        rq_demo_set_version "$id:image" "$pin" "$RQ_DOCKER_PULLED" \
+            "${RQ_DOCKER_PULLED##*:} (the release version is no longer offered)" \
+            || warn "Could not record that $name uses ${RQ_DOCKER_PULLED#*/}."
+    fi
+    return 0
 }
 
 # After a new version is there, remove the other versions of the same image
@@ -1845,6 +2331,22 @@ rq_docker_drop_old() {
             && info "Removed an older version of $repo"
     done
     return 0
+}
+
+# The name other computers reach this Pi by: the one avahi announces. When
+# another device on the network has <hostname>.local already, avahi calls
+# this Pi <hostname>-2.local (R-063), and <hostname>.local reaches the other
+# one (#3). rq_remote_access.sh mdns uses it too; rq_display_ip.py does the same.
+# Usage: name=$(rq_mdns_name)
+rq_mdns_name() {
+    local fqdn="" t=""
+    if command -v busctl >/dev/null 2>&1; then
+        command -v timeout >/dev/null 2>&1 && t="timeout 3"
+        fqdn=$($t busctl --system call org.freedesktop.Avahi / \
+            org.freedesktop.Avahi.Server GetHostNameFqdn 2>/dev/null) || fqdn=""
+        fqdn=$(printf '%s\n' "$fqdn" | sed -n 's/^s "\(.*\)"$/\1/p')
+    fi
+    echo "${fqdn:-$(hostname 2>/dev/null).local}"
 }
 
 # Open URL in the desktop user's browser (rq_open_browser: the tab stays when
@@ -1868,7 +2370,7 @@ rq_show_url() {
     if [ -n "$port" ]; then
         echo "To use the demo from your computer:"
         echo "  1. On your computer, run:"
-        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(hostname 2>/dev/null).local"
+        echo "       ssh -N -L ${port}:127.0.0.1:${port} $(get_user_name)@$(rq_mdns_name)"
         echo "  2. Open in its browser:"
         echo "       $(printf '%s' "$url" | sed 's#//127\.0\.0\.1:#//localhost:#')"
     else

@@ -10,6 +10,9 @@ a failure (R-148).
     turn_off_LEDs.py             clear through the configured outputs
     turn_off_LEDs.py --physical  only the LED panel, without the on-screen or
                                  browser view (used at shutdown)
+    turn_off_LEDs.py --close-window
+                                 also close the on-screen view an LED demo
+                                 opened (the end of a demo, R-100)
 """
 
 import os
@@ -19,7 +22,8 @@ import sys
 os.environ.setdefault('RQ_LED_NO_WINDOW', '1')
 
 from rq_led_utils import (clear_all_leds, get_led_config,  # noqa: E402
-                          guard_pi5_led_writes, _wait_for_last_frame)
+                          guard_pi5_led_writes, _wait_for_last_frame,
+                          reap_virtual_led_gui)
 
 
 def turn_off_LEDs():
@@ -71,6 +75,11 @@ def main():
     else:
         print("Turning off all LEDs...")
         ok = turn_off_LEDs()
+    if "--close-window" in sys.argv[1:]:
+        # The on-screen view starts detached, as root for an LED demo, and
+        # stayed open after the demo; the desktop user could not stop it
+        # (R-100). Only a view RasQberry started itself is closed.
+        reap_virtual_led_gui()
     if ok:
         print("Done!")
         return 0

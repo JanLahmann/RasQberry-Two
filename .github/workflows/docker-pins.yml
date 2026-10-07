@@ -1,0 +1,105 @@
+name: Docker pins
+
+# Every Docker demo is pinned per release by image digest (demo manifests,
+# entrypoint.docker_image). A publisher that prunes old builds takes the pin
+# away: QuBins did that to Quantum Lab's pin in 2026-10, and its first start
+# failed for everyone on that release. This checks that the registries still
+# offer every pinned image and fallback tag of the shipped manifests and the
+# catalogue's Docker demos (tests/check_docker_pins.py, anonymous HEAD
+# requests), on development and on beta (what the published beta ships).
+# When it runs:
+#   - on pushes that change a manifest, the catalogue or the check;
+#   - daily, and on request. Scheduled workflows only run from the default
+#     branch, so main needs an identical copy of this file. Edit both.
+# A failed daily run opens one issue (kept open until it is closed by hand).
+
+on:
+  push:
+    branches: ['development', 'beta', 'dev*']
+    paths:
+      - 'RQB2-config/demo-manifests/**'
+      - 'RQB2-config/known-demos.json'
+      - 'tests/check_docker_pins.py'
+      - '.github/workflows/docker-pins.yml'
+  schedule:
+    - cron: '41 5 * * *'   # daily 05:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: This branch
+        if: github.event_name == 'push'
+        uses: actions/checkout@v7
+        with:
+          path: pushed
+      - name: development
+        if: github.event_name != 'push'
+        uses: actions/checkout@v7
+        with:
+          ref: development
+          path: development
+      - name: beta (the published beta release)
+        if: github.event_name != 'push'
+        uses: actions/checkout@v7
+        with:
+          ref: beta
+          path: beta
+      - name: Ask the registries
+        run: |
+          if [ -d pushed ]; then roots=pushed; script=pushed; else roots="development beta"; script=development; fi
+          set +e
+          python3 "$script/tests/check_docker_pins.py" $roots | tee pins.txt
+          rc=${PIPESTATUS[0]}
+          { echo '### Docker pins'; echo; echo '```'; cat pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # 1: an image is gone. 2: a registry did not answer - a hiccup,
+          # not a reason to fail the daily run
+          if [ "$rc" -eq 2 ]; then echo "::warning::A registry could not be asked"; exit 0; fi
+          exit "$rc"
+      - name: Keep the result
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docker-pins
+          path: pins.txt
+
+  issue:
+    needs: check
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: "A pinned Docker image is no longer offered"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: docker-pins
+      - name: Open the issue (once while one is open)
+        run: |
+          existing=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+                     -q "[.[] | select(.title == env.TITLE)][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still failing: $RUN_URL"
+            exit 0
+          fi
+          {
+            echo "The daily check ([run]($RUN_URL)) found a Docker image that a demo manifest pins and its registry no longer offers. Users of that release fall back to the manifest's docker_image_fallback tag where there is one; without one the demo does not start."
+            echo
+            echo '```'
+            cat pins.txt
+            echo '```'
+            echo
+            echo "- [ ] Re-pin on development (RQB2-config/demo-manifests), with a fallback tag"
+            echo "- [ ] Beta/stable affected? Known-issue line with the workaround, fix in the next release"
+          } > body.md
+          gh issue create --title "$TITLE" --assignee JanLahmann --body-file body.md

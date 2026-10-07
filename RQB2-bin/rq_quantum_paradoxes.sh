@@ -146,11 +146,10 @@ cleanup() {
     set +e   # a closed window cannot show messages: still stop the server
     trap '' HUP INT TERM
     info "Stopping JupyterLab..."
-    if [ -n "${JUPYTER_PID:-}" ]; then
-        kill $JUPYTER_PID 2>/dev/null || true
-        sleep 1
-        kill -9 $JUPYTER_PID 2>/dev/null || true
-    fi
+    rq_close_demo_tabs   # before the server goes: no "Dead kernel" tab (#9)
+    # It stops its kernels first; a hard kill only if it hangs, and quietly:
+    # "Killed jupyter-lab" after a second looked like a fault (#27)
+    [ -n "${JUPYTER_PID:-}" ] && rq_stop_pid "$JUPYTER_PID" 10
     exit 0
 }
 

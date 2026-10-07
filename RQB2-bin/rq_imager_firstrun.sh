@@ -38,6 +38,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   environment and the desktop settings, which a rename would break. Imager's
 #   call to userconf goes to rq_imager_userconf.sh, which applies the password
 #   to rasqberry and logs a different requested name instead of renaming.
+#   Raspberry Pi Connect (Imager 2.x) is set up for rasqberry too, not for
+#   the name typed in Imager.
 #
 # Usage: rq_imager_firstrun.sh boot
 #        rq_imager_firstrun.sh patch FILE    (patch one firstrun.sh; tests)
@@ -87,6 +89,13 @@ patch_firstrun() {
     # Keep the user: userconf would rename uid 1000 (to "pi" when Imager has
     # an SSH key but no user name)
     sed -i "s|/usr/lib/userconf-pi/userconf|${USERCONF_WRAPPER}|g" "$f"
+    # Raspberry Pi Connect: Imager 2.x gives its sign-in token to the name
+    # typed in Imager ("pi" without one): TARGET_USER="NAME" and a
+    # TARGET_HOME="/home/NAME" fallback. That user does not exist here (see
+    # above), so the token and the user services go to uid 1000, rasqberry.
+    # Imager 1.8.x writes no Connect part: nothing to change.
+    sed -i -e 's@^TARGET_USER=.*$@TARGET_USER=$(getent passwd 1000 | cut -d: -f1); [ -n "$TARGET_USER" ] || TARGET_USER=rasqberry@' \
+           -e 's@^\(if \[ -z "\$TARGET_HOME" \] || \[ ! -d "\$TARGET_HOME" \]; then TARGET_HOME=\)".*"; fi$@\1"/home/$TARGET_USER"; fi@' "$f"
     if ! grep -qF "$MARK" "$f"; then
         # after the first line (#!/bin/sh or #!/bin/bash)
         sed -i "1a $MARK" "$f"

@@ -49,6 +49,9 @@ case "$2" in
   --is-installed) [ -e "$FAKE_DONE/$id" ]; exit ;;
   --install-only)
     echo "$id" >> "$FAKE_DONE/calls"
+    if [ "$id" = "${SLOW_ID:-}" ]; then
+      echo 50000000 > "$RQ_NET_DIR/wlan0/statistics/rx_bytes"; sleep 3
+    fi
     case " $FAIL_IDS " in *" $id "*) echo "ERROR: could not download $id"; exit 1 ;; esac
     touch "$FAKE_DONE/$id"
     wd=$(jq -r '.entrypoint.working_dir // empty' "$MANIFESTS/rq_demo_$id.json")
@@ -176,6 +179,50 @@ def test_docker_demos_when_chosen(box):
     assert set(box.installs()) == _GIT_DEMOS | _DOCKER_DEMOS
 
 
+def test_small_demos_first_and_docker_images_smallest_first(box):
+    # #28: the 1.3 GB Workshop server came first and the rest waited
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, ["--yes", "--docker"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = box.installs()
+    sizes = {d: _manifest(d)["install"]["download"]["download_mb"] for d in calls}
+    docker = [d for d in calls if d in _DOCKER_DEMOS]
+    assert set(calls[:len(_GIT_DEMOS)]) == _GIT_DEMOS and calls[len(_GIT_DEMOS):] == docker
+    assert [sizes[d] for d in docker] == sorted(sizes[d] for d in docker)
+    git = calls[:len(_GIT_DEMOS)]
+    assert [sizes[d] for d in git] == sorted(sizes[d] for d in git)
+
+
+def test_progress_shows_the_megabytes_received(box, tmp_path):
+    # #28: only seconds ("... 56s") looked stuck for minutes
+    net = tmp_path / "net"
+    for nic, rx in (("wlan0", 0), ("lo", 0), ("docker0", 0)):
+        (net / nic / "statistics").mkdir(parents=True)
+        (net / nic / "statistics" / "rx_bytes").write_text(f"{rx}\n")
+    proc = box(_DL, ["--yes"], extra={"RQ_NET_DIR": str(net), "SLOW_ID": "quantum-paradoxes"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    # 50 MB arrived, more than the 31 MB the manifest says
+    assert re.search(r"Quantum Paradoxes \.\.\. 50 MB, \ds", proc.stdout), proc.stdout
+    assert "Quantum Paradoxes ... done" in proc.stdout
+
+
+def test_progress_without_network_counters_shows_seconds(box):
+    proc = box(_DL, ["--yes"], extra={"RQ_NET_DIR": "/nonexistent", "SLOW_ID": ""})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "MB," not in proc.stdout and "done (" in proc.stdout
+
+
+def test_estimates_follow_the_measured_times(box):
+    # #28: 33-61 minutes and 14.6 GB were shown; 7-12 minutes and 10 GB it took
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, [], extra={"WT_RC_2": "1"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    first, docker = [_text(c) for c in box.dialogs() if "--yesno" in c]
+    assert "Time:      about 2-4 minutes" in first, first
+    assert "Time:      about 8-15 minutes" in docker, docker
+    assert "Space:     up to 14.6 GB (the images share parts, so usually less)" in docker, docker
+
+
 def test_not_enough_space_for_the_choice_is_refused(box):
     proc = box(_DL, ["--yes"], extra={"RQ_TEST_FREE_MB": "900"})
     assert proc.returncode == 1
@@ -223,6 +270,8 @@ def _manifest(demo_id):
 def test_every_download_states_its_size(demo_id):
     d = _manifest(demo_id)["install"]["download"]
     assert d["download_mb"] > 0 and d["what"] and d["time"]
+    # what Download all can add up: "10-30 seconds", "1 minute", "3-5 minutes"
+    assert re.fullmatch(r"\d+(-\d+)? (seconds|minutes?)", d["time"]), d["time"]
 
 
 def test_lights_out_and_raspberry_tie_have_flags():
@@ -303,3 +352,38 @@ def test_report_is_saved_in_the_home(tmp_path):
     assert len(files) == 1 and "Saved:" in proc.stdout
     text = open(tmp_path / files[0]).read()
     assert "===== System =====" in text and "===== Disk =====" in text
+
+
+def test_only_the_docker_demos_that_fit_are_offered(box):
+    # a nearly full bigger card: the Docker demos that fit in what the small
+    # demos leave are offered, the rest named (2026-10-07, S2)
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, [], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_ROOT_GB": "28"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = [c for c in box.dialogs() if "--yesno" in c]
+    docker = _text(calls[1])
+    offered, rest = docker.split("No room on this SD card for:")
+    assert "Quantum Mixer" in offered and "Workshop & Qiskit Server" not in offered
+    nofit, notwith = rest.split("Not as well, for lack of room:")
+    assert "Workshop & Qiskit Server" in nofit and "Quantum Lab" not in nofit
+    assert "Quantum Lab (QuBins)" in notwith and "Qoffee-Maker" in notwith
+    assert set(box.installs()) == _GIT_DEMOS | {"quantum-mixer"}
+    summary = _text(box.dialogs()[-1], "--msgbox")
+    assert "Downloaded: 9 of 9." in summary and "No room on this SD card" in summary
+
+
+@pytest.mark.parametrize("mode", [[], ["--yes", "--docker"]])
+def test_a_small_card_gets_no_docker_demos(box, mode):
+    # 16 GB: no Docker demos (they need 32 GB or more), the small ones still
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, mode, extra={"RQ_TEST_FREE_MB": "50000", "RQ_TEST_ROOT_GB": "14"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    why = "The Docker demos are left out: they need an SD card of 32 GB or more, and this card is 16 GB."
+    if not mode:
+        calls = [c for c in box.dialogs() if "--yesno" in c]
+        assert len(calls) == 1 and why in _text(calls[0])
+        assert "Docker demos too?" not in "\n".join(calls[0])
+        assert why in _text(box.dialogs()[-1], "--msgbox")
+    else:
+        assert why in proc.stdout
+    assert set(box.installs()) == _GIT_DEMOS

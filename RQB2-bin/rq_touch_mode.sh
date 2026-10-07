@@ -41,8 +41,29 @@ DEFAULT_DOUBLE_CLICK_MS=400
 
 GTK_CSS_DST="$USER_HOME/.config/gtk-3.0/gtk.css"
 LIBFM_CONFIG="$USER_HOME/.config/libfm/libfm.conf"
+# The desktop icon size: bookworm's pcmanfm reads it from libfm.conf,
+# trixie's pcmanfm-pi only from its profile's pcmanfm.conf ("default"; the
+# profile as in rq_desktop_session.py). Both are set.
+pcmanfm_profile() {
+    local f p
+    for f in "$USER_HOME/.config/labwc/autostart" /etc/xdg/labwc/autostart; do
+        [ -f "$f" ] && grep -q pcmanfm "$f" || continue
+        p=$(sed -n 's/.*pcmanfm .*--profile[ =]\([^ &]*\).*/\1/p' "$f" | head -1)
+        echo "${p:-default}"
+        return 0
+    done
+    echo default
+}
+PCMANFM_CONFIG="$USER_HOME/.config/pcmanfm/$(pcmanfm_profile)/pcmanfm.conf"
 LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
-WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+# wf-panel-pi's user config: ~/.config/wf-panel-pi/wf-panel-pi.ini on trixie
+# (wf-panel-pi 1.x, defaults in /etc/xdg/wf-panel-pi/, read key by key),
+# ~/.config/wf-panel-pi.ini on bookworm
+if [ -f /etc/xdg/wf-panel-pi/wf-panel-pi.ini ] || [ -d "$USER_HOME/.config/wf-panel-pi" ]; then
+    WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi/wf-panel-pi.ini"
+else
+    WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
+fi
 # Older versions wrote here; Pi OS's Chromium never read it (R-098). The
 # touch flag now comes from /etc/chromium.d/rasqberry.
 OLD_CHROMIUM_FLAGS="$USER_HOME/.config/chromium-flags.conf.d/touch.conf"
@@ -115,7 +136,7 @@ fix_owner() {
     [ "$(id -u)" -eq 0 ] && [ "$DESKTOP_USER" != "root" ] || return 0
     local p
     for p in "$USER_HOME/.config/gtk-3.0" "$USER_HOME/.config/libfm" \
-             "$USER_HOME/.config/lxterminal" "$WF_PANEL_CONFIG"; do
+             "$USER_HOME/.config/lxterminal" "$WF_PANEL_CONFIG" "$PCMANFM_CONFIG"; do
         if [ -e "$p" ]; then chown -R "$DESKTOP_USER:" "$p"; fi
     done
 }
@@ -130,6 +151,8 @@ enable_touch_mode() {
     set_ini "$WF_PANEL_CONFIG" panel icon_size "$TOUCH_PANEL_ICON_SIZE"
     backup_once "$LIBFM_CONFIG"
     set_ini "$LIBFM_CONFIG" ui big_icon_size "$TOUCH_DESKTOP_ICON_SIZE"
+    backup_once "$PCMANFM_CONFIG"
+    set_ini "$PCMANFM_CONFIG" ui big_icon_size "$TOUCH_DESKTOP_ICON_SIZE"
     h=$(screen_height)
     if [ -n "$h" ] && [ "$h" -lt 600 ]; then
         info "Terminal font unchanged (small screen)."
@@ -150,6 +173,7 @@ disable_touch_mode() {
     rm -f "$GTK_CSS_DST" "$OLD_CHROMIUM_FLAGS"
     restore_or_set "$WF_PANEL_CONFIG" panel icon_size "$DEFAULT_PANEL_ICON_SIZE"
     restore_or_set "$LIBFM_CONFIG" ui big_icon_size "$DEFAULT_DESKTOP_ICON_SIZE"
+    restore_or_set "$PCMANFM_CONFIG" ui big_icon_size "$DEFAULT_DESKTOP_ICON_SIZE"
     if [ -f "$LXTERMINAL_CONFIG.touch-backup" ]; then
         mv "$LXTERMINAL_CONFIG.touch-backup" "$LXTERMINAL_CONFIG"
     fi
@@ -217,7 +241,7 @@ show_status() {
     fi
     # (|| true: a missing file must not end the script under pipefail)
     panel=$(sed -n 's/^icon_size=//p' "$WF_PANEL_CONFIG" 2>/dev/null | head -1) || true
-    icons=$(sed -n 's/^big_icon_size=//p' "$LIBFM_CONFIG" 2>/dev/null | head -1) || true
+    icons=$(sed -n 's/^big_icon_size=//p' "$PCMANFM_CONFIG" "$LIBFM_CONFIG" 2>/dev/null | head -1) || true
     font=$(sed -n 's/^fontname=.* \([0-9][0-9]*\)$/\1/p' "$LXTERMINAL_CONFIG" 2>/dev/null | head -1) || true
     if [ "$state" = "enabled" ]; then echo "Touch Mode: ON"; else echo "Touch Mode: OFF"; fi
     echo

@@ -56,7 +56,8 @@ if [ ! -f "$DEMO_DIR/$NOTEBOOK" ] || [ ! -f "$ENV_FILE" ] \
         "$BIN_DIR/qoffee-setup.sh" || die "The Qoffee-Maker setup did not finish."
     fi
     if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-        rq_docker_pull "$DOCKER_IMAGE" "Qoffee-Maker"
+        rq_demo_docker_pull qoffee-maker "$DOCKER_IMAGE" "Qoffee-Maker"
+        DOCKER_IMAGE="$RQ_DOCKER_PULLED"
         rq_docker_drop_old "$DOCKER_IMAGE"
     fi
 fi
@@ -109,7 +110,7 @@ echo "Qoffee-Maker is running: $JUPYTER_URL"
 echo "The app opens fullscreen; F11 leaves fullscreen."
 echo
 # Fullscreen like a kiosk (the app's own fullscreen request needs a click)
-if check_display && command -v chromium-browser >/dev/null 2>&1; then
+if check_display && command -v chromium >/dev/null 2>&1; then
     info "Opening the browser..."
     rq_open_browser "$JUPYTER_URL" --start-fullscreen
 else

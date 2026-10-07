@@ -30,7 +30,7 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 cd "$USER_HOME" || cd /tmp
 
 # Launch LED test utility. Not exec: the EXIT trap clears the panel when the
-# window is closed (R-158).
+# window is closed (R-158). Enter stops it too (items 4, 8).
 rq_led_clear_on_exit
 info "Starting LED Test Utility..."
-python3 "$BIN_DIR/rq_led_test.py" "$@"
+rq_run_demo "the LED test" python3 "$BIN_DIR/rq_led_test.py" "$@"

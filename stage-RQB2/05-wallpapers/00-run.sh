@@ -14,14 +14,19 @@ WALLPAPER_NAME="RasQberry 2 Wallpaper 4K.png"
 # where Pi OS stores its collection of wallpapers
 SYS_WP_DIR="$ROOTFS_DIR/usr/share/rpd-wallpaper"
 
-# PCManFM global config directory
-PCMAN_CONF_DIR="$ROOTFS_DIR/etc/xdg/pcmanfm/LXDE-pi"
+# PCManFM global config directories, one per profile: bookworm starts the
+# desktop with --profile LXDE-pi, trixie (pcmanfm-pi) with the "default"
+# profile. Both are set, so the wallpaper is right on either release.
+PCMAN_PROFILES="LXDE-pi default"
 
 echo "=> Installing custom wallpaper to $SYS_WP_DIR"
-install -v -m 644 "$WALLPAPER_SRC" \
+# -D: create the directory if rpd-wallpaper is not installed
+install -v -D -m 644 "$WALLPAPER_SRC" \
   "$SYS_WP_DIR/$WALLPAPER_NAME"
 
-echo "=> Ensuring PCManFM global config dir exists"
+for PROFILE in $PCMAN_PROFILES; do
+PCMAN_CONF_DIR="$ROOTFS_DIR/etc/xdg/pcmanfm/$PROFILE"
+echo "=> Ensuring PCManFM global config dir exists ($PROFILE)"
 mkdir -p "$PCMAN_CONF_DIR"
 
 # for primary console (usually desktop-items-0) and HDMI (desktop-items-1)
@@ -69,6 +74,7 @@ EOF
   fi
   # make sure it's owned by root
   chown 0:0 "$TARGET"
+done
 done
 
 echo "=> Wallpaper stage complete"

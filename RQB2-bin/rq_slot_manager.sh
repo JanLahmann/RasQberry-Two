@@ -14,6 +14,8 @@ set -euo pipefail
 #
 # Commands:
 #   status        - Show current slot, boot status and what each slot holds
+#                   (--plain: what runs, what the next restart does, in plain
+#                   words - the Slot Manager's "Show slot details")
 #   summary       - The same as key=value lines, for the menu and scripts
 #   slot-content  - What one slot holds: its version, or EMPTY/INCOMPLETE/...
 #   plan-update   - Where an update would go and what the guard says about it
@@ -412,12 +414,14 @@ cmd_status() {
     part_a=$(get_slot_partition A)
     part_b=$(get_slot_partition B)
     part_data=$(ab_partition_by_number 7)
-    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk '{printf "%.1fG", $1/1024/1024/1024}')
-    info "  SYSTEM-A (${part_a}): ${size_a}"
-    info "  SYSTEM-B (${part_b}): ${size_b}"
-    info "  DATA (${part_data}):     ${size_data}"
+    # Decimal GB, as printed on the card (R-095); a placeholder in MB
+    local gb='{ if ($1 < 1e9) printf "%d MB", $1 / 1e6; else printf "%.1f GB", $1 / 1e9 }'
+    size_a=$(lsblk -bno SIZE "$part_a" 2>/dev/null | awk "$gb")
+    size_b=$(lsblk -bno SIZE "$part_b" 2>/dev/null | awk "$gb")
+    size_data=$(lsblk -bno SIZE "$part_data" 2>/dev/null | awk "$gb")
+    info "  Slot A (${part_a}): ${size_a}"
+    info "  Slot B (${part_b}): ${size_b}"
+    info "  Data (${part_data}): ${size_data}"
 
     # Placeholder Slot B: say what this card can do (not prepared yet, or a
     # small card running one system) - rq_expand_ab.sh decides (R-006)
@@ -444,6 +448,79 @@ cmd_status() {
     [ -f "${CURRENT_SLOT_FILE}" ] && info "  current-slot: $(cat "${CURRENT_SLOT_FILE}")" || warn "  current-slot: MISSING"
 
     echo ""
+}
+
+cmd_status_plain() {
+    # status --plain: the Slot Manager's "Show slot details" (RQB2_menu.sh).
+    # What runs, what the other slot holds, whether the running slot is
+    # confirmed and what the next restart does, in plain words. Short: the
+    # box must fit 80x24 without scrolling, as a scrolling whiptail box loses
+    # its right border over SSH (user test 2026-10-04, #16). `status` stays
+    # as it is: the rig tests read it.
+    local current other next confirmed=no pending="" c_other wait="" size_b notice
+    current=$(get_current_slot)
+    case "$current" in
+        A|B) ;;
+        SINGLE) echo "This card runs one system, so there are no slots to switch between."; return 0 ;;
+        *)      echo "Cannot tell which slot is running."; return 0 ;;
+    esac
+    other=$(get_other_slot "$current")
+    next=$(default_boot_slot)
+    is_slot_confirmed && confirmed=yes
+    [ -f "${BOOT_COMMON_DIR}/target-slot" ] \
+        && pending=$(tr -d '[:space:]' < "${BOOT_COMMON_DIR}/target-slot")
+    c_other=$(slot_content "$other")
+
+    echo "Running now: Slot ${current}, $(content_words "$(slot_content "$current")")"
+    echo "Other slot:  Slot ${other}, $(content_words "$c_other")"
+    echo ""
+    if [ "$confirmed" != yes ] && [ "$pending" = "$current" ]; then
+        echo "Slot ${current} is on trial: the health check confirms it a few minutes after a good start."
+        echo "Next restart: Slot ${current} once it is confirmed, otherwise Slot ${other} again."
+        wait="Updates wait until Slot ${current} is confirmed."
+    elif [ "$pending" = "$other" ]; then
+        echo "A switch to Slot ${other} is waiting: the next restart tries Slot ${other}."
+        echo "If it doesn't work, the Pi comes back to Slot ${current} by itself."
+        wait="Updates wait until then: restart first."
+    elif { [ "$next" = A ] || [ "$next" = B ]; } && [ "$next" != "$current" ]; then
+        echo "Slot ${next} was made the start slot."
+        echo "Next restart: Slot ${next}."
+        wait="Updates wait until then: restart first."
+    elif [ "$next" = "$current" ]; then
+        if [ "$confirmed" = yes ]; then
+            echo "Slot ${current} is confirmed: it started well and is the start slot."
+        else
+            echo "Slot ${current} is the start slot. The health check confirms it after a good start."
+        fi
+        echo "Next restart: Slot ${current} again."
+    else
+        echo "Next restart: unknown (the start setting cannot be read)."
+    fi
+
+    echo ""
+    size_b=$(lsblk -bno SIZE "$(get_slot_partition B)" 2>/dev/null | head -1 || true)
+    if [ "${size_b:-0}" -lt 4294967296 ] 2>/dev/null; then
+        echo "Slot B is not set up yet: see Software & Image Updates."
+    elif [ -n "$wait" ]; then
+        echo "$wait"
+    elif [ "$(content_stream "$c_other")" = "none" ]; then
+        echo "An update goes into Slot ${other}. Slot ${current} stays as it is, to go back to."
+    else
+        echo "An update goes into Slot ${other} and replaces what it holds. Slot ${current} stays as it is, to go back to."
+    fi
+
+    # A trial that failed and was rolled back (rq_health_check.py), in the
+    # words of System Info and the taskbar badge (#242)
+    if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
+        notice=$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || true)
+        [ -n "$notice" ] || notice="The last update or switch didn't work."
+        echo ""
+        echo "$notice"
+        sed -n 's/^reason=/Reason: /p' "${BOOT_COMMON_DIR}/last-switch-failed" | head -n 1
+    fi
+
+    echo ""
+    echo "Technical details: sudo rq_slot_manager.sh status"
 }
 
 cmd_summary() {
@@ -859,7 +936,8 @@ Updates go into the slot that is not running (rq_update_slot.sh). A good trial
 start makes it the start slot; the other slot stays as the way back.
 
 Commands:
-    status                          Show current slot, boot status, slot contents
+    status [--plain]                Show current slot, boot status, slot contents
+                                    (--plain: in plain words, for the menu)
     summary                         The same as key=value lines (for scripts)
     slot-content {A|B}              What a slot holds: version, EMPTY, INCOMPLETE, ...
     plan-update <release-tag>       Where an update would go, and its warnings
@@ -906,7 +984,7 @@ main() {
 
     case "${command}" in
         status)
-            cmd_status
+            if [ "${1:-}" = "--plain" ]; then cmd_status_plain; else cmd_status; fi
             ;;
         summary)
             cmd_summary

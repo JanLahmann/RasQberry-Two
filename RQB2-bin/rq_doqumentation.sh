@@ -109,10 +109,22 @@ running_mode() {
     [ "$mode" = "solo" ] && echo solo || echo workshop
 }
 
+# The name participants' laptops reach this Pi by: the one avahi announces.
+# With a second kit of the same name on the network, <hostname>.local is the
+# other Pi (#3).
+MDNS_NAME=$(rq_mdns_name)
+CONFIGURED_NAME="$(hostname 2>/dev/null).local"
+
+# One line when the configured name belongs to another device, else nothing
+name_note() {
+    [ "$MDNS_NAME" != "$CONFIGURED_NAME" ] || return 0
+    echo "Note: $CONFIGURED_NAME is another device on this network, so this Pi is $MDNS_NAME. To give it its own name: RasQberry menu > Remote Access & Security > Name."
+}
+
 # The addresses participants open, one per line
 participant_urls() {
     local port="$1" ip
-    echo "http://$(hostname 2>/dev/null).local:${port}/"
+    echo "http://${MDNS_NAME}:${port}/"
     for ip in $(lan_ips); do
         echo "http://${ip}:${port}/"
     done
@@ -120,6 +132,24 @@ participant_urls() {
 
 # Item 19: what the server means for this Pi, precise and calm
 TRUST_SHORT="Anyone on this network can open these addresses and run code on this Pi: use a network you trust, not public Wi-Fi. Restarting the server restores the original notebooks."
+# Running code needs the internet for now: the pages load their code runner
+# (thebelab) from unpkg.com (R-068, upstream JanLahmann/doQumentation#964)
+INTERNET_NOTE="Running code in the notebooks needs the internet for now: the pages load their code runner from the web."
+
+# A QR code of the first LAN address, for phones and tablets: 29 columns by
+# 15 lines (margin 2). Shown last, just above the Enter prompt, so that it
+# fits an 80x24 window whole. Needs the qrencode command (package qrencode);
+# without it, or without a LAN address, nothing.
+print_qr() {
+    local url
+    command -v qrencode >/dev/null 2>&1 || return 0
+    url=$(participant_urls "$1" | sed -n 2p) || url=""
+    [ -n "$url" ] || return 0
+    echo
+    echo "Participants can also scan this code: $url"
+    qrencode -t ANSIUTF8 -m 2 "$url" 2>/dev/null || true
+    echo
+}
 
 # Print where everyone finds the server; LAB_URL only for this window
 print_addresses() {
@@ -130,8 +160,9 @@ print_addresses() {
     echo "Participants open one of these addresses (same network as this Pi):"
     participant_urls "$port" | while IFS= read -r url; do echo "    $url"; done
     echo "On this Pi: http://localhost:${port}/"
-    if command -v qrencode >/dev/null 2>&1; then
-        qrencode -t ANSIUTF8 "$(participant_urls "$port" | sed -n 2p)" 2>/dev/null || true
+    if [ -n "$(name_note)" ]; then
+        echo
+        name_note | fold -s -w 78
     fi
     echo
     echo "Teacher only - JupyterLab with every notebook (on this Pi or through ssh -L):"
@@ -143,6 +174,8 @@ print_addresses() {
     echo "- Everyone works on the same notebooks. Restarting the server restores the"
     echo "  original notebooks; participants download what they want to keep."
     echo "- Code in a notebook left idle for 10 minutes stops; run its cells again."
+    echo "- Running code needs the internet for now: the pages load their code runner"
+    echo "  from the web."
     echo "- The 'Open in Lab' button on the website does not work for participants yet."
     echo
 }
@@ -154,6 +187,7 @@ print_local() {
     echo "$SOLO_NAME is running: http://localhost:${port}/"
     echo "Only this Pi can open it. Restarting it restores the original notebooks;"
     echo "download what you want to keep."
+    echo "$INTERNET_NOTE"
     echo
     echo "JupyterLab with every notebook: $lab_url"
     echo
@@ -223,6 +257,7 @@ if rq_docker_running "$CONTAINER_NAME"; then
                 info "A different doQumentation version is selected; Restart the server to use it."
             fi
             rq_show_url "http://127.0.0.1:${site_port}/" "$site_port"
+            if [ "$RUNNING_MODE" = "workshop" ]; then print_qr "$site_port"; fi
             if [ -t 0 ]; then
                 echo "This window did not start the server: closing it keeps the server running."
                 echo "Press Enter to close this window."
@@ -296,8 +331,11 @@ fi
 # Image: the pinned version, downloaded after the consent dialog
 # ---------------------------------------------------------------------------
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-    rq_require_demo_consent doqumentation
-    rq_docker_pull "$DOCKER_IMAGE" "doQumentation"
+    # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
+    # Server" in its download question and errors (user test 2026-10-07)
+    RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
+    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "doQumentation"
+    DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
 
@@ -315,7 +353,8 @@ if [ "$MODE" = "solo" ]; then
     SITE_PUBLISH="127.0.0.1:${SITE_PORT}:80"
 else
     SITE_PUBLISH="${SITE_PORT}:80"
-    CORS_ORIGIN="${CORS_ORIGIN},http://$(hostname 2>/dev/null).local:${SITE_PORT}"
+    CORS_ORIGIN="${CORS_ORIGIN},http://${MDNS_NAME}:${SITE_PORT}"
+    [ "$MDNS_NAME" = "$CONFIGURED_NAME" ] || CORS_ORIGIN="${CORS_ORIGIN},http://${CONFIGURED_NAME}:${SITE_PORT}"
     for ip in $(lan_ips); do
         CORS_ORIGIN="${CORS_ORIGIN},http://${ip}:${SITE_PORT}"
     done
@@ -356,12 +395,14 @@ LAB_URL="http://127.0.0.1:${LAB_PORT}/lab?token=${JUPYTER_TOKEN}"
 print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 
 if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
+    note=$(name_note)
     show_msgbox "$WORKSHOP_NAME is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$TRUST_SHORT" \
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
         17 74
 fi
 
 rq_show_url "$SITE_URL" "$SITE_PORT"
+if [ "$MODE" = "workshop" ]; then print_qr "$SITE_PORT"; fi
 
 # ---------------------------------------------------------------------------
 # This window started the server: only it offers to stop it (R-145)
@@ -377,7 +418,24 @@ if [ -t 0 ]; then
     echo "Closing this window keeps the server running (RasQberry menu: Quantum"
     echo "Demos > Stop Docker demos, or open $WORKSHOP_NAME again to stop it)."
     echo "Press Enter to stop the $WORKSHOP_NAME..."
-    read -r || exit 0
+    # Wait for Enter, but end with the server: stopped from its icon (STOP)
+    # or with Stop Docker demos, it left this window behind, which then
+    # offered to stop a server that was gone (Pi 4 user test 2026-10-07, F4)
+    while :; do
+        if ! rq_docker_running "$CONTAINER_NAME"; then
+            info "The $WORKSHOP_NAME was stopped."
+            sleep 3     # readable before the window closes
+            exit 0
+        fi
+        rc=0
+        rq_read_deferred -r -t 2 _ || rc=$?
+        [ "$rc" -eq 0 ] && break         # Enter
+        [ "$rc" -gt 128 ] || exit 0      # no more input
+    done
+    if ! rq_docker_running "$CONTAINER_NAME"; then
+        info "The $WORKSHOP_NAME was stopped."
+        exit 0
+    fi
     if command -v whiptail >/dev/null 2>&1 && ! whiptail --title "Stop the $WORKSHOP_NAME?" --defaultno \
             --yes-button "Stop" --no-button "Keep running" --yesno \
             "Participants lose work they have not downloaded.\n\nStop the $WORKSHOP_NAME now?" 10 60; then
@@ -388,5 +446,5 @@ if [ -t 0 ]; then
     rq_docker_stop "$CONTAINER_NAME" || warn "The container is still being removed."
     info "$WORKSHOP_NAME stopped."
 else
-    info "The $WORKSHOP_NAME keeps running. Stop it with: docker stop $CONTAINER_NAME"
+    info "The $WORKSHOP_NAME keeps running. To stop it: open it again, or RasQberry menu > Quantum Demos > Stop Docker demos."
 fi

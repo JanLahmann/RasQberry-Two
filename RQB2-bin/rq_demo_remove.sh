@@ -39,41 +39,70 @@ fields() {
            | join("\u001f")' "$1"
 }
 
-# MB a checkout takes (0 if absent)
+# MB a checkout takes (0 if absent), at least 1: Quantum Lights Out (250 KB)
+# was listed as "0 MB" and "frees about 0 MB" (user test 2026-10-07)
 dir_mb() {
     [ -n "$1" ] && [ -d "$DEMOS_ROOT/$1" ] || { echo 0; return 0; }
-    du -sk "$DEMOS_ROOT/$1" 2>/dev/null | awk '{ printf "%d\n", $1 * 1024 / 1000000 }'
+    du -sk "$DEMOS_ROOT/$1" 2>/dev/null \
+        | awk '{ n = $1 * 1024 / 1000000; printf "%d\n", (n < 1 ? 1 : n + 0.5) }'
 }
 
-# MB a Docker image takes (0 if absent)
+# MB a Docker image takes (0 if absent). Always one number and status 0: a
+# missing image made the pipeline fail under pipefail, the caller's
+# "|| echo 0" added a second 0, and "0 + 0\n0" ended the whole list at the
+# first Docker demo not downloaded (Quantum Lab, N2).
 image_mb() {
+    local bytes
     [ -n "$1" ] && [ "$DOCKER_OK" = yes ] || { echo 0; return 0; }
-    docker image inspect -f '{{.Size}}' "$1" 2>/dev/null \
-        | awk '{ printf "%d\n", $1 / 1000000 } END { if (NR == 0) print 0 }'
+    bytes=$(docker image inspect -f '{{.Size}}' "$1" 2>/dev/null) || bytes=0
+    case "$bytes" in ''|*[!0-9]*) bytes=0 ;; esac
+    echo $(( bytes / 1000000 ))
+}
+
+# MB a demo takes on the card: its checkout, and its image for a Docker demo
+# Usage: demo_mb TYPE WORKING_DIR IMAGE
+demo_mb() {
+    local mb
+    mb=$(dir_mb "$2")
+    [ "$1" = docker ] && mb=$(( mb + $(image_mb "$3") ))
+    echo "$mb"
 }
 
 # Downloaded demos: "id<TAB>MB<TAB>label" lines. Demos that share a download
-# (the IBM tutorials and courses) are one entry.
+# (the IBM tutorials and courses) are one entry. A demo whose lookup fails
+# is left out, not the rest of the list with it (N2: the list stopped at
+# Quantum Lab, and the catalogue demos after it could not be removed).
 list_downloaded() {
-    local mf id name type image wd flag shares pre mb seen=" " label other
+    local mf line shares seen=" "
     while IFS= read -r mf; do
         [ -n "$mf" ] || continue
-        IFS=$'\037' read -r id name type image wd flag shares pre <<< "$(fields "$mf")"
-        [ -n "$image" ] && image=$(rq_demo_image "$id" "$mf")   # the version in use
-        [ "$pre" = "true" ] && continue
+        line=$(downloaded_entry "$mf") || continue
+        [ -n "$line" ] || continue
+        shares=${line%%$'\t'*}
         if [ -n "$shares" ]; then
             case "$seen" in *" $shares "*) continue ;; esac
             seen="$seen$shares "
         fi
-        mb=$(( $(dir_mb "$wd") + $( [ "$type" = docker ] && image_mb "$image" || echo 0) ))
-        [ "$mb" -gt 0 ] || [ -d "$DEMOS_ROOT/${wd:-/nonexistent}" ] || continue
-        label="$name"
-        if [ -n "$shares" ]; then
-            other=$(sharing_names "$shares" "$id")
-            [ -n "$other" ] && label="$name + $other"
-        fi
-        printf '%s\t%s\t%s\n' "$id" "$mb" "$label"
+        printf '%s\n' "${line#*$'\t'}"
     done < <(rq_list_manifests "$SHIPPED_DIR" 2>/dev/null)
+}
+
+# One manifest: "shares<TAB>id<TAB>MB<TAB>label" when the demo is downloaded,
+# nothing otherwise
+downloaded_entry() {
+    local id name type image wd flag shares pre mb label other
+    IFS=$'\037' read -r id name type image wd flag shares pre <<< "$(fields "$1")"
+    [ -n "$id" ] || return 1
+    [ "$pre" = "true" ] && return 0
+    [ -n "$image" ] && image=$(rq_demo_image "$id" "$1")   # the version in use
+    mb=$(demo_mb "$type" "$wd" "$image") || return 1
+    [ "$mb" -gt 0 ] || [ -d "$DEMOS_ROOT/${wd:-/nonexistent}" ] || return 0
+    label="$name"
+    if [ -n "$shares" ]; then
+        other=$(sharing_names "$shares" "$id")
+        [ -n "$other" ] && label="$name + $other"
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$shares" "$id" "$mb" "$label"
 }
 
 # Names of the other demos with the same download
@@ -108,7 +137,7 @@ remove_demo() {
     fi
 
     [ "$pre" != "true" ] || die "$name is part of the system image and cannot be removed."
-    mb=$(( $(dir_mb "$wd") + $( [ "$type" = docker ] && image_mb "$image" || echo 0) ))
+    mb=$(demo_mb "$type" "$wd" "$image")
     [ "$mb" -gt 0 ] || [ -d "$DEMOS_ROOT/${wd:-/nonexistent}" ] || die "$name is not downloaded."
 
     local also=""

@@ -54,8 +54,16 @@ while true; do
         $(( rows + 8 )) 74 "$rows" "${ITEMS[@]}" 3>&1 1>&2 2>&3) || break
     last="$choice"
     clear 2>/dev/null || true
-    "$SCRIPT_DIR/rq_demo_run.sh" "$DEMO_ID" "$choice" || {
-        echo
-        read -rp "It stopped with an error (see above). Press Enter to go back to the list. " _ || true
-    }
+    rc=0
+    "$SCRIPT_DIR/rq_demo_run.sh" "$DEMO_ID" "$choice" || rc=$?
+    case "$rc" in
+        # finished, or stopped with Ctrl+C (130) / closed (129, 143): back
+        # to the list. Ctrl+C said "It stopped with an error" (Fun with
+        # Quantum, user tests 2026-10-05 and 2026-10-07).
+        0|129|130|143) ;;
+        *)
+            echo
+            read -rp "It stopped with an error (see above). Press Enter to go back to the list. " _ || true
+            ;;
+    esac
 done

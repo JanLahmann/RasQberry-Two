@@ -35,10 +35,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Shared mapper + config (both live in RQB2-bin; /usr/bin when installed).
 try:
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, get_led_config, view_layout, view_rgb
 except ImportError:
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from rq_led_utils import map_xy_to_pixel, get_led_config
+    from rq_led_utils import map_xy_to_pixel, get_led_config, view_layout, view_rgb
 
 # mmap transport v2 constants (must match rq_led_virtual.py)
 MMAP_MAGIC = b'RQL1'
@@ -54,12 +54,13 @@ def mmap_path():
     return os.environ.get("RQB2_LED_MMAP_PATH", "/tmp/rasqberry_virtual_led2.mmap")
 
 
-def _layout_name():
-    """Configured layout name for the shared mapper (geometry comes from header)."""
+def _view_layout():
+    """(layout, label) for the shared mapper (geometry comes from the header):
+    the configured layout, or the one the LED panel check is trying."""
     try:
-        return get_led_config().get('led_layout', 'single-24x8')
+        return view_layout()
     except Exception:
-        return 'single-24x8'
+        return 'single-24x8', 'single-24x8'
 
 
 def _resolve_port():
@@ -90,7 +91,7 @@ _grid_cache_key = None
 def _xy_grid(width, height, layout):
     """Return a height x width list of chain indices (or None) for this geometry."""
     global _grid_cache, _grid_cache_key
-    key = (width, height, layout)
+    key = (width, height, json.dumps(layout, sort_keys=True))
     if _grid_cache_key == key:
         return _grid_cache
     grid = [[map_xy_to_pixel(x, y, layout=layout) for x in range(width)]
@@ -129,7 +130,8 @@ def read_frame():
     if len(pixels) < count * 3:
         return {"waiting": True}
 
-    layout = _layout_name()
+    level = blob[10]    # writer's brightness (rq_led_utils.view_rgb)
+    layout, label = _view_layout()
     grid = _xy_grid(width, height, layout)
 
     rows = []
@@ -141,10 +143,10 @@ def read_frame():
                 row.append([0, 0, 0])
             else:
                 o = idx * 3
-                row.append([pixels[o], pixels[o + 1], pixels[o + 2]])
+                row.append(list(view_rgb(pixels[o], pixels[o + 1], pixels[o + 2], level)))
         rows.append(row)
 
-    return {"w": width, "h": height, "layout": layout, "rows": rows}
+    return {"w": width, "h": height, "layout": label, "rows": rows}
 
 
 # Self-contained page: a canvas that polls /frame and draws the matrix. No
@@ -170,9 +172,11 @@ INDEX_HTML = """<!doctype html>
   <div id="status">Connecting...</div>
 </div>
 <script>
+  // Not "status": a global of that name is window.status, which turns the
+  // element into a string, so the label stayed "Connecting..." for ever (#22).
   var canvas = document.getElementById('c');
   var ctx = canvas.getContext('2d');
-  var status = document.getElementById('status');
+  var statusEl = document.getElementById('status');
   var OFF = '#2a2a2a';
 
   function draw(frame) {
@@ -193,17 +197,19 @@ INDEX_HTML = """<!doctype html>
         ctx.fill();
       }
     }
-    status.textContent = w + '\\u00d7' + h + '  \\u00b7  ' + frame.layout;
+    statusEl.textContent = w + '\\u00d7' + h + '  \\u00b7  ' + frame.layout;
   }
 
   function poll() {
     fetch('/frame', { cache: 'no-store' })
       .then(function (res) { return res.json(); })
       .then(function (frame) {
-        if (frame.waiting) { status.textContent = 'Waiting for LED data...'; }
+        if (frame.waiting) { statusEl.textContent = 'Waiting for LED data...'; }
         else { draw(frame); }
       })
-      .catch(function () { status.textContent = 'Disconnected - retrying...'; });
+      .catch(function () {
+        statusEl.textContent = 'Not connected: the browser view is off, or the Pi cannot be reached. Retrying...';
+      });
   }
 
   setInterval(poll, 100);
