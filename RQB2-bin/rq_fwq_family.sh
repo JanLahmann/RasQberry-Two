@@ -22,7 +22,7 @@ FWQ_PY=(python3 "$SCRIPT_DIR/rq_fwq.py")
 TITLE="Fun with Quantum family"
 
 [ -f "$DEMO_DIR/family/family.json" ] \
-    || die "The Fun with Quantum family list is missing. Update Fun with Quantum (Quantum Demos > Update demos)."
+    || die "The Fun with Quantum family list is missing. Update Fun with Quantum (Quantum Demos > Manage demos > Update demos)."
 
 items=$("${FWQ_PY[@]}" family-menu --path "$DEMO_DIR") || die "Could not read the Fun with Quantum family list."
 declare -A ACTION=()

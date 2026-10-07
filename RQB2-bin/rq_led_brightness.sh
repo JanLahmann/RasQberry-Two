@@ -164,7 +164,7 @@ after_stall() {
     esac
     # A lower brightness only helps when the power was short
     [ "$(current_level)" = "low" ] && offer=0
-    [ "$offer" = 1 ] && text="$text\n\nA lower brightness draws less current. Raise it again any time: RasQberry menu > LEDs > LED brightness."
+    [ "$offer" = 1 ] && text="$text\n\nA lower brightness draws less current. Raise it again any time: RasQberry menu > Quantum Demos > LED panel > LED setup & tests > LED brightness."
     if ! { [ -t 0 ] && [ -t 1 ]; } || ! command -v whiptail >/dev/null 2>&1; then
         warn "$(printf '%b' "$text" | tr '\n' ' ' | sed 's/  */ /g')"
         return 0

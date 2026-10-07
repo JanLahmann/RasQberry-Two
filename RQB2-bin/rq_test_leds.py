@@ -68,7 +68,7 @@ def main():
         print(f"✗ Error creating NeoPixel object: {e}")
         print()
         print("Common issues:")
-        print("  - Start it from the RasQberry menu (LEDs > Quick LED Test) or with: rq_led_test.sh")
+        print("  - Start it from the RasQberry menu (Quantum Demos > LED panel > LED setup & tests > Quick LED Test) or with: rq_led_test.sh")
         print("  - Close any other LED demo first (only one program can drive the LEDs)")
         print(f"  - Check wiring to GPIO{GPIO_PIN}")
         print(f"  - Verify power supply is adequate for {NUM_PIXELS} LEDs")

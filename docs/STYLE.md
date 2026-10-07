@@ -41,7 +41,7 @@ icons, demo manifests and release notes.
 ## Menu paths
 
 - Write them as `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** →
-  **LEDs**, with the label the user sees. Never an internal tag such as
+  **LED panel**, with the label the user sees. Never an internal tag such as
   `AB_BOOT`, `SLOTS` or `EXPAND`.
 - In whiptail text, which is plain ASCII, use `->`.
 

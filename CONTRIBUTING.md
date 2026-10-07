@@ -209,42 +209,11 @@ chmod +x RQB2-bin/rq_myquantum.sh
 
 ### Step 4: Add Menu Entry
 
-Edit `RQB2-config/RQB2_menu.sh` to add your demo to the menu system.
-
-**Add a runner function** (around line 300-400):
-
-```bash
-# Run My Quantum Demo
-run_myquantum_demo() {
-    # Launch the demo using the dedicated launcher script
-    "$BIN_DIR/rq_myquantum.sh"
-}
-```
-
-**Add menu item** in `do_quantum_demo_menu()` function (around line 520):
-
-```bash
-do_quantum_demo_menu() {
-  while true; do
-    FUN=$(show_menu "RasQberry: Quantum Demos" "Select demo category" \
-       LED  "Test LEDs" \
-       QLO  "Quantum-Lights-Out Demo" \
-       QRT  "Quantum Raspberry-Tie" \
-       GRB  "Grok Bloch Sphere (Local)" \
-       MQD  "My Quantum Demo" \          # <-- Add this line
-       # ... other menu items ...
-       STOP "Stop last running demo and clear LEDs") || break
-    case "$FUN" in
-      LED)  do_select_led_option       || { handle_error "Failed to open LED options."; continue; } ;;
-      QLO)  do_select_qlo_option       || { handle_error "Failed to open QLO options."; continue; } ;;
-      QRT)  do_select_qrt_option       || { handle_error "Failed to open QRT options."; continue; } ;;
-      GRB)  run_grok_bloch_demo        || continue ;;
-      MQD)  run_myquantum_demo         || { handle_error "Failed to run My Quantum Demo."; continue; } ;;  # <-- Add this line
-      # ... other cases ...
-    esac
-  done
-}
-```
+No menu code is needed: the Quantum Demos menu is generated from the manifests
+(Step 6). The manifest's `group` puts the demo into one of the groups in
+`RQB2-config/demo-manifests/demo-groups.json` (LED panel, Play, Big projects,
+Learn & code, Workshops & events): a submenu of Quantum Demos and a desktop
+folder. `menu.order` sorts it within its group.
 
 ### Step 5: Create Desktop Launcher (Optional)
 
@@ -276,6 +245,7 @@ Create a manifest file to register your demo in the manifest system. This enable
   "id": "my-quantum-demo",
   "name": "My Quantum Demo",
   "category": "visualization",
+  "group": "play",
   "description": "Brief description of your demo (max 200 chars)",
   "keywords": ["quantum", "demo", "your-keywords"],
 
@@ -388,7 +358,7 @@ Explain what users will learn:
 1. Open terminal
 2. Run `sudo raspi-config`
 3. Select "0 RasQberry"
-4. Select "Quantum Demos"
+4. Select "Quantum Demos", then its group (e.g. "Play")
 5. Select "My Quantum Demo"
 
 ### From Desktop

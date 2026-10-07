@@ -161,7 +161,7 @@ echo "Demo timings:"
 for id in $LOOP_DEMOS; do
     echo "  - $(loop_name "$id"): $(loop_time "$id")s"
 done
-echo "  (Choose the demos: RasQberry menu > Quantum Demos > Continuous Demo Loop)"
+echo "  (Choose the demos: RasQberry menu > Quantum Demos > Workshops & events > Demo Loop)"
 echo ""
 echo "=============================================="
 echo "  Controls:"
