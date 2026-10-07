@@ -11,8 +11,8 @@
 # Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
 # Checklist).
 #
-# Before it, once: a note when another user name was typed in Raspberry Pi
-# Imager (the user stays rasqberry).
+# Before it, once: a note when the name typed in Raspberry Pi Imager could not
+# be given to the user (#319: rq_user_rename.sh, which says why).
 #
 # Usage:
 #   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
@@ -73,26 +73,30 @@ already_shown() {
 mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
 
 # ---------------------------------------------------------------------------
-# A note, once: another user name was typed in Raspberry Pi Imager
+# A note, once: the user name typed in Raspberry Pi Imager was not possible
 # ---------------------------------------------------------------------------
-# The user stays rasqberry (rq_imager_userconf.sh); the name typed in Imager
-# is kept in imager-user-requested. Shown before the checklist, wherever the
-# checklist would open by itself, also when no step is pending.
-IMAGER_USER_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-user-requested"
+# The first start gives the user the name typed in Imager (rq_imager_userconf.sh
+# -> rq_user_rename.sh; after an A/B update rq_carry_over.sh). When that did
+# not work, the user kept its name and rq_user_rename.sh left the wanted name
+# and the reason in user-rename-failed. Shown before the checklist, wherever
+# the checklist would open by itself, also when no step is pending.
+RENAME_FAILED_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/user-rename-failed"
 IMAGER_NOTE_FILE="$STATE_DIR/imager-user-note-shown"
 imager_user_requested() {
     local wanted
-    wanted=$(head -n 1 "$IMAGER_USER_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
-    [ -n "$wanted" ] && [ "$wanted" != rasqberry ] || return 1
+    wanted=$(head -n 1 "$RENAME_FAILED_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
+    [ -n "$wanted" ] && [ "$wanted" != "${USER:-$(id -un 2>/dev/null)}" ] || return 1
     printf '%s' "$wanted"
 }
 imager_note_pending() { [ ! -e "$IMAGER_NOTE_FILE" ] && imager_user_requested >/dev/null; }
 show_imager_note() {
-    local wanted rc=0
+    local wanted why me rc=0
     imager_note_pending || return 0
     wanted=$(imager_user_requested)
+    why=$(sed -n 2p "$RENAME_FAILED_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-160)
+    me="${USER:-$(id -un 2>/dev/null)}"
     whiptail --title "Your user name" --msgbox \
-"You chose the name $wanted in Imager. RasQberry always uses the name rasqberry; your password, SSH key, hostname and Wi-Fi from Imager are set." 10 72 || rc=$?
+"You chose the name $wanted in Imager, but this Pi could not use it${why:+ ($why)}. Your user name is ${me:-rasqberry}; your password, SSH key, hostname and Wi-Fi from Imager are set." 12 72 || rc=$?
     # OK or Esc: read. A closed window or an ended session: next time again.
     case "$rc" in
         0|255) mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$IMAGER_NOTE_FILE" 2>/dev/null ;;

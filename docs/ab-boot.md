@@ -73,7 +73,7 @@ while Slot A is mounted. The little on the placeholder DATA (LED settings) is
 copied aside and put back. Progress shows on the splash screen; the log is
 `/var/log/rasqberry-expand.log`.
 
-**Raspberry Pi Imager's OS customisation** (Wi-Fi, keyboard, SSH key, password)
+**Raspberry Pi Imager's OS customisation** (Wi-Fi, keyboard, SSH key, user name, password)
 lands on CONFIG, the first FAT partition, which the Pi does not boot from.
 `rasqberry-imager-firstrun.service` moves it to BOOT-A before the layout runs and
 restarts once; the next start applies it and restarts again
@@ -106,6 +106,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | `~/Shared`, `~/My-Quantum-Programs`, `~/.qiskit` (IBM Quantum account) | live on DATA (`/data/home/<user>/…`), symlinked from the home folder in both slots; a new slot's starter files do not overwrite the learner's |
 | Wi-Fi networks | live on DATA (`/data/rasqberry/system-connections`), bind-mounted over `/etc/NetworkManager/system-connections` |
 | LED panel settings | on DATA (`rq_device_settings.sh`) |
+| desktop user's name (#319: a fresh slot's `rasqberry` is renamed to the other slot's user, home `/home/<name>`, by `rq_user_rename.sh`; fallback `/data/rasqberry/desktop-user`) | first, before the rest, on the first start of a freshly written slot |
 | desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the marks in `~/.local/state/rasqberry/` (setup checklist answered, notices shown; its folders stay per slot) | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
 | Raspberry Pi Connect: its sign-in (`~/.config/com.raspberrypi.connect`) and, where it was on, its user units and linger | copied once, like the line above, where the new system has Connect installed |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |

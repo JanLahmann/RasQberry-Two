@@ -22,6 +22,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   COPIED ONCE from the other slot, on the first boot of a freshly written
 #   slot ("pull"; the image carries /var/lib/rasqberry/carry-over-pending,
 #   written by convert-to-ab-boot-v3.sh, and this removes it):
+#     the desktop user's name, first (#319: rq_user_rename.sh renames
+#     "rasqberry" and moves its home to /home/<name>; without the other
+#     system, the name in /data/rasqberry/desktop-user),
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
 #     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE, RQ_UMAMI (usage counts off,
@@ -56,7 +59,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # Environment overrides (tests): RQ_CARRY_ROOT (slot root, default /),
 #   RQ_CARRY_DATA (default /data), RQ_CARRY_CONFIG_DIR (default /boot/config),
-#   RQ_CARRY_USER, RQ_CARRY_HOME, RQ_CARRY_SKIP_MOUNT_CHECK=1,
+#   RQ_CARRY_USER, RQ_CARRY_HOME (fixed user: no renaming), RQ_CARRY_RENAME
+#   (rq_user_rename.sh), RQ_CARRY_SKIP_MOUNT_CHECK=1,
 #   RQ_CARRY_NO_BIND=1, RQ_CARRY_NO_LIVE=1 (no hostname/locale-gen/nmcli)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -91,12 +95,20 @@ say() { echo "carry-over: $*"; }
 
 desktop_user() {
     if [ -n "${RQ_CARRY_USER:-}" ]; then echo "$RQ_CARRY_USER"; return; fi
+    if [ -n "$ROOT" ]; then uid1000 "$ROOT" 1; return; fi
     getent passwd 1000 2>/dev/null | cut -d: -f1
 }
 desktop_home() {
     if [ -n "${RQ_CARRY_HOME:-}" ]; then echo "$RQ_CARRY_HOME"; return; fi
+    if [ -n "$ROOT" ]; then uid1000 "$ROOT" 6; return; fi
     getent passwd 1000 2>/dev/null | cut -d: -f6
 }
+# Field <2> (1 name, 6 home) of uid 1000 in the passwd file of root <1>
+uid1000() { awk -F: -v f="$2" '$3 == 1000 { print $f; exit }' "$1/etc/passwd" 2>/dev/null || true; }
+# The desktop user of the other slot (root <1>): its name and home can differ
+# from this slot's when the user was renamed (#319) and the rename here failed
+other_user() { local u; u=$(uid1000 "$1" 1); echo "${u:-$(desktop_user)}"; }
+other_home() { local h; h=$(uid1000 "$1" 6); echo "${h:-$(desktop_home)}"; }
 
 am_root() { [ "$(id -u)" = "0" ]; }
 
@@ -278,11 +290,11 @@ copy_if_different() {
 }
 
 pull_password() {
-    local other="$1" user hash lastchg cur tmp
-    user=$(desktop_user)
+    local other="$1" user ouser hash lastchg cur tmp
+    user=$(desktop_user); ouser=$(other_user "$other")
     [ -n "$user" ] && [ -f "$other/etc/shadow" ] && [ -f "$ROOT/etc/shadow" ] || return 1
-    hash=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' "$other/etc/shadow")
-    lastchg=$(awk -F: -v u="$user" '$1 == u { print $3; exit }' "$other/etc/shadow")
+    hash=$(awk -F: -v u="$ouser" '$1 == u { print $2; exit }' "$other/etc/shadow")
+    lastchg=$(awk -F: -v u="$ouser" '$1 == u { print $3; exit }' "$other/etc/shadow")
     cur=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' "$ROOT/etc/shadow")
     [ -n "$hash" ] || return 1
     grep -q "^${user}:" "$ROOT/etc/shadow" || return 1
@@ -363,7 +375,7 @@ pull_user_state() {
     local other="$1" home src dst rel d f name n=0
     home=$(desktop_home)
     [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
-    src="$other$home/$USER_STATE"; dst="$ROOT$home/$USER_STATE"
+    src="$other$(other_home "$other")/$USER_STATE"; dst="$ROOT$home/$USER_STATE"
     [ -d "$src" ] && [ ! -L "$src" ] || return 1
     rel=""
     for d in ${USER_STATE//\// }; do
@@ -415,25 +427,26 @@ pull_connect() {
     # ~/.config/systemd/user/*.wants; this runs as root before any login, with
     # no user bus), and linger, so it starts without a login. Only where the
     # new system has Connect installed.
-    local other="$1" user home cfg=.config/com.raspberrypi.connect
+    local other="$1" user home ouser ohome cfg=.config/com.raspberrypi.connect
     local units=.config/systemd/user link name wants path on=false n=0 what=""
     user=$(desktop_user); home=$(desktop_home)
+    ouser=$(other_user "$other"); ohome=$(other_home "$other")
     [ -n "$user" ] && [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
     [ -x "$ROOT/usr/bin/rpi-connect" ] || return 1
-    if [ -d "$other$home/$cfg" ] && [ ! -L "$other$home/$cfg" ] \
+    if [ -d "$other$ohome/$cfg" ] && [ ! -L "$other$ohome/$cfg" ] \
         && [ ! -e "$ROOT$home/$cfg" ] && [ ! -L "$ROOT$home/$cfg" ]; then
         make_user_dirs "$home" .config || return 1
         chmod 700 "$ROOT$home/.config" 2>/dev/null || true
-        cp -a "$other$home/$cfg" "$ROOT$home/$cfg" || return 1
+        cp -a "$other$ohome/$cfg" "$ROOT$home/$cfg" || return 1
         n=1
         what="sign-in"
     fi
-    for link in "$other$home/$units"/*.wants/rpi-connect*; do
+    for link in "$other$ohome/$units"/*.wants/rpi-connect*; do
         [ -L "$link" ] || continue
         case "$(basename "$link")" in rpi-connect.service|rpi-connect-lite.service) on=true ;; esac
     done
     if $on; then
-        for link in "$other$home/$units"/*.wants/rpi-connect*; do
+        for link in "$other$ohome/$units"/*.wants/rpi-connect*; do
             [ -L "$link" ] || continue
             name=$(basename "$link")
             wants=$(basename "$(dirname "$link")")
@@ -445,7 +458,7 @@ pull_connect() {
                 "$ROOT$home/$units/$wants/$name" 2>/dev/null || true
             n=1
         done
-        if [ -e "$other/var/lib/systemd/linger/$user" ] && [ ! -e "$ROOT/var/lib/systemd/linger/$user" ]; then
+        if [ -e "$other/var/lib/systemd/linger/$ouser" ] && [ ! -e "$ROOT/var/lib/systemd/linger/$user" ]; then
             mkdir -p "$ROOT/var/lib/systemd/linger"
             : > "$ROOT/var/lib/systemd/linger/$user"
             n=1
@@ -461,7 +474,7 @@ pull_old_slot_data() {
     # and Wi-Fi profiles
     local other="$1" user home carried=""
     data_is_real || return 1
-    user=$(desktop_user); home=$(desktop_home)
+    user=$(desktop_user); home=$(other_home "$other")
     if [ -n "$user" ] && [ -d "$other$home/.qiskit" ] && [ ! -L "$other$home/.qiskit" ] \
         && merge_dir "$other$home/.qiskit" "$DATA/home/$user/.qiskit"; then
         chmod 700 "$DATA/home/$user/.qiskit"
@@ -488,10 +501,44 @@ pull_old_slot_data() {
     echo "$carried"
 }
 
+# The user's name (#319): a freshly written slot comes with "rasqberry"; when
+# the other system's desktop user (uid 1000) has another name - typed in
+# Raspberry Pi Imager on the first start of the card - this system takes it
+# over before anything else: rq_user_rename.sh renames the user, moves the
+# home to /home/<name> and rewrites what names them. Without the other
+# system: the name kept on /data (rq_user_rename.sh writes it). A failed
+# rename leaves "rasqberry" and a note for the first login; the rest of the
+# carry-over still reads the other system's user.
+adopt_user_name() {
+    local other="${1:-}" want="" cur rename
+    [ -n "$other" ] && want=$(uid1000 "$other" 1)
+    if [ -z "$want" ] && data_is_real; then
+        want=$(head -n 1 "$DATA/rasqberry/desktop-user" 2>/dev/null | tr -cd 'a-z0-9_-' || true)
+    fi
+    cur=$(desktop_user)
+    [ -n "$want" ] && [ -n "$cur" ] && [ "$want" != "$cur" ] || return 1
+    [ -n "${RQ_CARRY_USER:-}" ] && return 1      # tests that fix the user
+    rename="${RQ_CARRY_RENAME:-$SCRIPT_DIR/rq_user_rename.sh}"
+    if [ ! -x "$rename" ]; then
+        warn "the other system's user is '$want', but this system cannot rename '$cur' (no rq_user_rename.sh)"
+        return 1
+    fi
+    if RQ_RENAME_ROOT="$ROOT" RQ_RENAME_DATA="$DATA" "$rename" apply "$want" \
+            --why "A/B update: the user name of the other system" >&2; then
+        echo "user name ($want)"
+        return 0
+    fi
+    warn "could not rename the user '$cur' to '$want' (see /var/log/rasqberry-user-rename.log) - it stays '$cur'"
+    return 1
+}
+
 cmd_pull() {
     local other="${1:-}"
     [ -n "$other" ] && [ -d "$other/etc" ] || { echo "Usage: $(basename "$0") pull <other-root>" >&2; return 2; }
     local carried=() what
+    if what=$(adopt_user_name "$other"); then
+        carried+=("$what")
+    fi
     if copy_if_different "$other" /etc/hostname; then
         copy_if_different "$other" /etc/hosts || true
         carried+=("hostname ($(tr -d '[:space:]' < "$ROOT/etc/hostname"))")
@@ -549,6 +596,7 @@ cmd_boot() {
                     cmd_pull "$mnt" || warn "carry-over from $dev incomplete"
                 else
                     say "first start of this system: the other slot holds no system - nothing to take over"
+                    adopt_user_name "" >/dev/null || true
                 fi
                 umount "$mnt" || umount -l "$mnt" || true
             fi
@@ -568,7 +616,7 @@ Kept across an update, on the data partition (both systems use one copy):
   - Wi-Fi networks
   - LED panel settings
 Copied from the old system when the new one starts for the first time:
-  - your password, the hostname, time zone, language and keyboard layout
+  - your user name, password, the hostname, time zone, language and keyboard layout
   - SSH host keys and authorized_keys
   - "Browser at login", and that the setup checklist and notices
     were already shown (they do not open again)

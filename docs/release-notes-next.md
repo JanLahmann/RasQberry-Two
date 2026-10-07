@@ -40,7 +40,8 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server and `ssh -L` commands:** they use the name avahi announces, so with two Pis of the same name, participants reach this one. Grokking the Bloch Sphere also starts over SSH and prints an `ssh -L` command.
 - **Downloads:** Download all demos shows the MB received, fetches the small demos first and gives realistic times. A Docker demo's first start shows one progress line instead of Docker's list of layers.
 - **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
-- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to `rasqberry`, not to the name typed in Imager. If another name was typed, the first login says once that the user stays `rasqberry` and that Imager's password, SSH key, hostname and Wi-Fi are set.
+- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to the Pi's user, also when Imager's user name could not be used.
+- **Your own user name (#319):** the user name typed in Imager becomes the login, with its home folder `/home/<name>`; the Python environment, autologin, sudo and the LED services move along. If the name cannot be used (e.g. it is taken by the system), the user stays `rasqberry` and the first login says why. After an A/B update the new system takes the name over before the first login.
 
 - **Firmware check:** at start-up the Pi looks at its bootloader firmware. When it is older than about six months and a newer one is available (or, on a Pi 5, its crypto service is missing), the desktop says so once and how to update with Raspberry Pi's own tools (`sudo rpi-eeprom-update -a`, then restart, or `sudo raspi-config` → Advanced Options → Bootloader Version). System Info and the setup checklist show it too. RasQberry never updates the firmware itself.
 - **Firmware updates on A/B cards:** Raspberry Pi's tools now put the update on the card's first partition (CONFIG), where the Pi 4 looks for it. Before, `sudo rpi-eeprom-update -a` on an A/B card put it into the running slot, where it can stop a Pi 4 from starting.
@@ -57,7 +58,7 @@ only true for the standard image. -->
 
 - **New default: the A/B image.** It holds two systems on one card: an update goes into the one you are not running, and if the update doesn't work, the Pi goes back to the other one.
 - **Card:** 128 GB high-speed (A2/U3) recommended: two systems, each with room for all Docker demos. 64 GB: two systems. On a smaller card the A/B image runs as one system by itself, and a new release means writing a new card. The Docker demos need 32 GB. The standard image is still in Imager as "single system".
-- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation now works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). It applies at the first start of a newly written card only, not after an update. Without customisation: login `rasqberry`, password `Qiskit1!`.
+- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation now works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. The user name you type becomes your login (home `/home/<name>`). It applies at the first start of a newly written card only; updates keep the name. Without customisation: login `rasqberry`, password `Qiskit1!`.
 
 **First start**
 

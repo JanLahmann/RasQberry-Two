@@ -784,6 +784,16 @@ EOF
     else
         warn "The new system has no rq_carry_over.sh: Wi-Fi, password and hostname are not carried over"
     fi
+    # A renamed user (#319): the new system takes the name over on its first
+    # start (rq_carry_over.sh -> rq_user_rename.sh). A release from before
+    # that keeps "rasqberry", with the image's default password.
+    local me tgt_user
+    me=$(getent passwd 1000 2>/dev/null | cut -d: -f1 || true)
+    tgt_user=$(awk -F: '$3 == 1000 { print $1; exit }' "$tgt_root_mount/etc/passwd" 2>/dev/null || true)
+    if [ -n "$me" ] && [ -n "$tgt_user" ] && [ "$me" != "$tgt_user" ] \
+        && [ ! -x "$tgt_root_mount/usr/bin/rq_user_rename.sh" ]; then
+        warn "The new system cannot use the user name '$me': it starts with the user '$tgt_user' and the published default password"
+    fi
 
     local new_version
     new_version=$(head -1 "$tgt_root_mount/etc/rasqberry-version" 2>/dev/null | tr -d '[:space:]' || true)
