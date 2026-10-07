@@ -129,3 +129,32 @@ def test_web_view_shows_the_check_layout_and_undoes_brightness(tmp_path, monkeyp
     frame = web.read_frame()
     assert frame["layout"] == "quad-4x12"
     assert frame["rows"][0][0] == [255, 255, 255]
+
+
+# ---------------------------------------------------------------------------
+# 2. Quick LED Test (LEDs menu): the view closes with the test
+# ---------------------------------------------------------------------------
+
+def test_menu_led_demos_close_their_view():
+    """run_led_demo blanked the panel but left the view open, also after
+    raspi-config ended (Pi 4 F6); icon demos close it (--close-window)."""
+    menu = open(os.path.join(_REPO_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    body = menu.split("run_led_demo() {", 1)[1].split("\n}\n", 1)[0]
+    assert "do_led_off --close-window" in body
+    assert 'python3 "$BIN_DIR/turn_off_LEDs.py" "$@"' in menu
+    hangup = menu.split("_rq_demo_hangup() {", 1)[1].split("\n}\n", 1)[0]
+    assert "do_led_off --close-window" in hangup
+
+
+def test_stop_keys_close_an_idle_view(monkeypatch):
+    pytest.importorskip("tkinter")
+    import rq_led_virtual_gui as gui
+    closed, status = [], []
+    fake = types.SimpleNamespace(on_close=lambda: closed.append(1),
+                                 status_var=types.SimpleNamespace(set=status.append))
+    monkeypatch.setattr(gui, "stop_led_demo", lambda path: False)
+    gui.VirtualLEDMatrix.on_stop_key(fake)
+    assert closed == [1]
+    monkeypatch.setattr(gui, "stop_led_demo", lambda path: True)
+    gui.VirtualLEDMatrix.on_stop_key(fake)
+    assert closed == [1] and status == ["Stopping the demo..."]

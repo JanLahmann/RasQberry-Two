@@ -299,9 +299,15 @@ class VirtualLEDMatrix:
         self.root.focus_force()
 
     def on_stop_key(self, event=None):
-        """Enter, Escape or Ctrl+C in the view: stop the demo."""
-        stopped = stop_led_demo(MMAP_FILE)
-        self.status_var.set("Stopping the demo..." if stopped else "No LED demo to stop")
+        """Enter, Escape or Ctrl+C in the view: stop the demo.
+
+        With no LED demo left to stop, the keys close the view: they did
+        nothing there (Pi 4 user test 2026-10-07, F6).
+        """
+        if stop_led_demo(MMAP_FILE):
+            self.status_var.set("Stopping the demo...")
+        else:
+            self.on_close()
 
     def _init_mmap(self):
         """Open the shared memory file for reading (must already exist)."""
