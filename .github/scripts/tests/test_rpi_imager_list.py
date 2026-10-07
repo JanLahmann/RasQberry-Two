@@ -113,8 +113,8 @@ def test_entry_fields(tmp_path):
         assert "image_type" not in e and "image_sha256" not in e
         # the user, never the password
         assert "Username is always rasqberry" in e["description"] and "Qiskit1!" not in e["description"]
-        # Connect after its rig test
-        assert "capabilities" not in e
+        # Connect: on since its rig test (2026-10-07)
+        assert e["capabilities"] == ["rpi_connect"]
 
 
 def test_rpi_connect_is_one_switch(tmp_path, monkeypatch):
