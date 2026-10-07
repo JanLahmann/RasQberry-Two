@@ -46,6 +46,9 @@ only true for the standard image. -->
 - **Raspberry Pi Connect:** Remote Access & Security and System Info say whether Connect is on and signed in, and how to turn it on.
 - **SSH from a Mac:** no more "setlocale: cannot change locale" lines at login.
 - **Setup checklist:** the password step says the Pi "uses the published demo password", which is also right when that password was typed in Imager. System Info opened from the slot badge says "Press Enter to close this window".
+- **Demo password:** while the Pi has the published demo password (no password set in Imager), the setup checklist's password step is ticked, and its last screen, the SSH login and Remote Access & Security say so (the latter also whether SSH and VNC accept it).
+- **After an A/B update:** the LED panel settings come back every time (they were lost when `/data` was mounted late), and Raspberry Pi Connect stays signed in and on.
+- **Small fixes:** "Switch SSH off?" defaults to Cancel; the Connect box mentions the firmware only when that can help; the firmware notice opens without a highlighted sentence; the checklist no longer says "Wi-Fi (connected)" on a Pi connected by cable; on a card with one system the Docker dialogs no longer mention "the other slot", and the SD-card note gives the size System Info shows; Enter stops the IBM LED Demo at once.
 
 ## What's new for you
 
