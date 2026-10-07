@@ -219,7 +219,7 @@ def test_estimates_follow_the_measured_times(box):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     first, docker = [_text(c) for c in box.dialogs() if "--yesno" in c]
     assert "Time:      about 2-4 minutes" in first, first
-    assert "Time:      about 7-13 minutes" in docker, docker
+    assert "Time:      about 8-15 minutes" in docker, docker
     assert "Space:     up to 14.6 GB (the images share parts, so usually less)" in docker, docker
 
 
