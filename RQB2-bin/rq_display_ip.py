@@ -179,6 +179,15 @@ def scroll_text(pixels, text, config, wanted_seconds, speed):
     return layouts
 
 
+def blank(pixels):
+    """Turn every LED off; best effort (the driver may be gone)."""
+    try:
+        pixels.fill((0, 0, 0))
+        pixels.show()
+    except Exception:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Display IP address(es) on LED matrix at boot'
@@ -208,11 +217,12 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.once:
-        # Stopped early (the person closed the message): end like Ctrl+C,
-        # through the exit handlers, so the LED driver is released cleanly
-        import signal
-        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    # Stopped early - "Stop It" when a demo needs the panel, systemctl stop,
+    # or (--once) the person closed the message: end like Ctrl+C, through the
+    # exit handlers, so the LED driver is released cleanly, and with exit 0
+    # (the boot unit ended "failed" on the signal)
+    import signal
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     try:
         # Get LED configuration using common utility
@@ -240,14 +250,19 @@ def main():
             brightness=args.brightness
         )
 
-        if args.once:
-            display_scrolling_text(pixels, text, scroll_speed=args.speed, passes=1,
-                                   layout=config['led_layout'])
-            print("IP display completed (one pass)")
-            return
-        num_ips = len(addresses) if addresses else 1  # At least 1 for "NO IP" message
-        scroll_text(pixels, text, config, max(args.duration, num_ips * 60), args.speed)
-        print("IP display completed")
+        try:
+            if args.once:
+                display_scrolling_text(pixels, text, scroll_speed=args.speed, passes=1,
+                                       layout=config['led_layout'])
+                print("IP display completed (one pass)")
+                return
+            num_ips = len(addresses) if addresses else 1  # At least 1 for "NO IP" message
+            scroll_text(pixels, text, config, max(args.duration, num_ips * 60), args.speed)
+            print("IP display completed")
+        except (KeyboardInterrupt, SystemExit):
+            # not a frozen half of the address on the panel
+            blank(pixels)
+            raise
 
     except KeyboardInterrupt:
         print("\nInterrupted by user")
