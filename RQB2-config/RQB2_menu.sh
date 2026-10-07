@@ -2705,11 +2705,17 @@ do_connect_info() {
         signed-out) _ci_now="Raspberry Pi Connect is on but not signed in. Click its icon in the taskbar, then Sign In." ;;
         *)          _ci_now="Raspberry Pi Connect is off. To turn it on: click its icon in the taskbar, then Turn On Raspberry Pi Connect, then Sign In (or in a terminal: rpi-connect on, then rpi-connect signin)." ;;
     esac
+    # The firmware hint only where it can help: Connect not signed in and a
+    # firmware update due (rq_firmware.py due; user test 2026-10-07 R1)
+    _ci_fw=""
+    if [ "$1" != signed-in ] && "${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}" due >/dev/null 2>&1; then
+        _ci_fw="
+
+If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how."
+    fi
     show_msgbox_fit "Raspberry Pi Connect" "$_ci_now
 
-With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).
-
-If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how." 72
+With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).$_ci_fw" 72
     return 0
 }
 

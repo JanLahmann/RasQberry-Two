@@ -173,3 +173,22 @@ def test_switch_on_keeps_its_default(menu_env):
     menu_env(code)
     call = next(c for c in menu_env.whiptail_calls() if "--yesno" in c)
     assert "--defaultno" not in call
+
+
+# ---------------------------------------------------------------------------
+# R1: the Connect box's firmware hint only where it can help
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("state,due,hint", [
+    ("signed-in", True, False), ("signed-in", False, False),
+    ("signed-out", True, True), ("signed-out", False, False),
+    ("off", True, True), ("off", False, False),
+])
+def test_connect_box_firmware_hint(menu_env, state, due, hint):
+    fake = menu_env.tmp / "rq_firmware.py"
+    _exe(fake, f'[ "$1" = due ] && exit {0 if due else 1}\nexit 0\n')
+    proc = menu_env(f"do_connect_info {state}", extra_env={"RQ_FIRMWARE": str(fake)})
+    assert proc.returncode == 0, proc.stderr
+    texts = _texts(menu_env)
+    assert "connect.raspberrypi.com" in texts
+    assert ("update the Pi's firmware" in texts) == hint
