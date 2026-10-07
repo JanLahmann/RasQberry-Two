@@ -35,6 +35,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     first-start checklist (user test 2026-10-06/07); its subfolders stay
 #     per slot (learner-setup/ = this slot's Thonny/Geany settings, made at
 #     build time),
+#     Raspberry Pi Connect (Jan, 2026-10-07: same board, same card): its
+#     sign-in (~/.config/com.raspberrypi.connect) and, where it was on,
+#     its user units and linger - else everyone who reaches the Pi only
+#     through Connect lost it with every update (user test 2026-10-07, R4),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
@@ -381,6 +385,77 @@ pull_user_state() {
     [ "$n" -gt 0 ]
 }
 
+# Make the folders of <rel> (relative to the home) that are missing, for the
+# desktop user
+make_user_dirs() {
+    local home="$1" rel="" d
+    for d in ${2//\// }; do
+        rel="${rel:+$rel/}$d"
+        if [ ! -d "$ROOT$home/$rel" ]; then
+            mkdir "$ROOT$home/$rel" || return 1
+            give_to_user "$ROOT$home/$rel"
+        fi
+    done
+}
+
+# Where the new slot has the user unit <name> (its path on the new system)
+user_unit_path() {
+    local d
+    for d in /usr/lib/systemd/user /lib/systemd/user /etc/systemd/user; do
+        [ -f "$ROOT$d/$1" ] && { echo "$d/$1"; return 0; }
+    done
+    return 1
+}
+
+pull_connect() {
+    # Raspberry Pi Connect runs per user, from the home folder, which each
+    # slot has its own of. Carried: the sign-in (~/.config/com.raspberrypi.connect,
+    # never overwritten) and - where Connect was on - the same user units,
+    # enabled the way systemctl --user enable and Imager do it (links in
+    # ~/.config/systemd/user/*.wants; this runs as root before any login, with
+    # no user bus), and linger, so it starts without a login. Only where the
+    # new system has Connect installed.
+    local other="$1" user home cfg=.config/com.raspberrypi.connect
+    local units=.config/systemd/user link name wants path on=false n=0 what=""
+    user=$(desktop_user); home=$(desktop_home)
+    [ -n "$user" ] && [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
+    [ -x "$ROOT/usr/bin/rpi-connect" ] || return 1
+    if [ -d "$other$home/$cfg" ] && [ ! -L "$other$home/$cfg" ] \
+        && [ ! -e "$ROOT$home/$cfg" ] && [ ! -L "$ROOT$home/$cfg" ]; then
+        make_user_dirs "$home" .config || return 1
+        chmod 700 "$ROOT$home/.config" 2>/dev/null || true
+        cp -a "$other$home/$cfg" "$ROOT$home/$cfg" || return 1
+        n=1
+        what="sign-in"
+    fi
+    for link in "$other$home/$units"/*.wants/rpi-connect*; do
+        [ -L "$link" ] || continue
+        case "$(basename "$link")" in rpi-connect.service|rpi-connect-lite.service) on=true ;; esac
+    done
+    if $on; then
+        for link in "$other$home/$units"/*.wants/rpi-connect*; do
+            [ -L "$link" ] || continue
+            name=$(basename "$link")
+            wants=$(basename "$(dirname "$link")")
+            path=$(user_unit_path "$name") || continue
+            [ -e "$ROOT$home/$units/$wants/$name" ] || [ -L "$ROOT$home/$units/$wants/$name" ] && continue
+            make_user_dirs "$home" "$units/$wants" || return 1
+            ln -s "$path" "$ROOT$home/$units/$wants/$name" || return 1
+            am_root && chown -h "$(stat -c %u:%g "$ROOT$home" 2>/dev/null || echo 1000:1000)" \
+                "$ROOT$home/$units/$wants/$name" 2>/dev/null || true
+            n=1
+        done
+        if [ -e "$other/var/lib/systemd/linger/$user" ] && [ ! -e "$ROOT/var/lib/systemd/linger/$user" ]; then
+            mkdir -p "$ROOT/var/lib/systemd/linger"
+            : > "$ROOT/var/lib/systemd/linger/$user"
+            n=1
+        fi
+    fi
+    [ "$n" -gt 0 ] || return 1
+    $on && what="${what:+$what, }switched on"
+    echo "Raspberry Pi Connect${what:+ ($what)}"
+}
+
 pull_old_slot_data() {
     # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
     # and Wi-Fi profiles
@@ -429,6 +504,9 @@ cmd_pull() {
     pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
     pull_vnc_off "$other" && carried+=("VNC off")
     pull_user_state "$other" && carried+=("setup checklist and notices already seen")
+    if what=$(pull_connect "$other"); then
+        carried+=("$what")
+    fi
     if what=$(pull_old_slot_data "$other"); then
         carried+=("$what")
     fi
@@ -495,6 +573,7 @@ Copied from the old system when the new one starts for the first time:
   - "Browser at login", and that the setup checklist and notices
     were already shown (they do not open again)
   - VNC switched off
+  - Raspberry Pi Connect: its sign-in, and whether it is on
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
     or ~/My-Quantum-Programs

@@ -248,7 +248,8 @@ def test_standard_image_is_left_alone(slots):
 def test_list_names_what_is_kept_and_lost(tmp_path):
     out = _run(tmp_path, tmp_path, "list").stdout
     for item in ("Shared", "~/.qiskit", "~/My-Quantum-Programs", "Wi-Fi", "LED",
-                 "password", "hostname", "SSH host keys", "installed demos"):
+                 "password", "hostname", "SSH host keys", "installed demos",
+                 "Raspberry Pi Connect"):
         assert item in out
 
 
@@ -426,3 +427,119 @@ def test_the_carried_marks_are_where_the_checklist_looks(slots):
     assert not si.checklist_answered(str(_state(new)))
     assert _run(new, data, "pull", str(old)).returncode == 0
     assert si.checklist_answered(str(_state(new)))
+
+
+# ---------------------------------------------------------------------------
+# Raspberry Pi Connect (user test 2026-10-07, R4; Jan: carry it over)
+# ---------------------------------------------------------------------------
+
+CONNECT_CFG = HOME.lstrip("/") + "/.config/com.raspberrypi.connect"
+UNITS = HOME.lstrip("/") + "/.config/systemd/user"
+# How Imager 2.x enables Connect (tests/unit/data/imager-firstrun) and how the
+# package's postinst / `rpi-connect on` does it
+IMAGER_LINKS = {"default.target.wants/rpi-connect.service": "rpi-connect.service",
+                "paths.target.wants/rpi-connect-signin.path": "rpi-connect-signin.path",
+                "default.target.wants/rpi-connect-wayvnc.service": "rpi-connect-wayvnc.service"}
+POSTINST_LINKS = {"default.target.wants/rpi-connect.service": "rpi-connect.service",
+                  "rpi-connect.service.wants/rpi-connect-wayvnc.service": "rpi-connect-wayvnc.service",
+                  "rpi-connect.service.wants/rpi-connect-signin.path": "rpi-connect-signin.path"}
+
+
+def _connect_installed(root):
+    (root / "usr/bin").mkdir(parents=True, exist_ok=True)
+    (root / "usr/bin/rpi-connect").write_text("#!/bin/sh\n")
+    (root / "usr/bin/rpi-connect").chmod(0o755)
+    units = root / "usr/lib/systemd/user"
+    units.mkdir(parents=True, exist_ok=True)
+    for name in ("rpi-connect.service", "rpi-connect-wayvnc.service", "rpi-connect-signin.path",
+                 "rpi-connect-signin.service"):
+        (units / name).write_text("[Unit]\n")
+
+
+def _connect_on(root, links=IMAGER_LINKS, signed_in=True, linger=True):
+    _connect_installed(root)
+    if signed_in:
+        cfg = root / CONNECT_CFG
+        cfg.mkdir(parents=True)
+        cfg.chmod(0o700)
+        (cfg / "state.json").write_text('{"signed_in": true}\n')
+        (cfg / "state.json").chmod(0o600)
+    for rel, unit in links.items():
+        link = root / UNITS / rel
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(f"/usr/lib/systemd/user/{unit}", link)
+    if linger:
+        (root / "var/lib/systemd/linger").mkdir(parents=True)
+        (root / "var/lib/systemd/linger" / USER).write_text("")
+
+
+@pytest.mark.parametrize("links", [IMAGER_LINKS, POSTINST_LINKS])
+def test_pull_carries_connect_signed_in_and_on(slots, links):
+    old, new, data = slots
+    _connect_on(old, links)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    cfg = new / CONNECT_CFG
+    assert (cfg / "state.json").read_text() == '{"signed_in": true}\n'
+    assert oct(cfg.stat().st_mode & 0o777) == "0o700"              # permissions kept
+    assert oct((cfg / "state.json").stat().st_mode & 0o777) == "0o600"
+    for rel, unit in links.items():                                  # the same units, enabled
+        assert os.readlink(new / UNITS / rel) == f"/usr/lib/systemd/user/{unit}"
+    assert (new / "var/lib/systemd/linger" / USER).exists()
+    assert "Raspberry Pi Connect (sign-in, switched on)" in proc.stdout
+    done = (new / "var/lib/rasqberry/carry-over.done").read_text()
+    assert "Raspberry Pi Connect" in done
+
+
+def test_pull_connect_off_carries_only_the_sign_in(slots):
+    # Signed in once, then switched off: it stays off on the new system
+    old, new, data = slots
+    _connect_on(old, links={}, linger=False)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert (new / CONNECT_CFG / "state.json").exists()
+    assert not (new / UNITS).exists()
+    assert not (new / "var/lib/systemd/linger").exists()
+    assert "Raspberry Pi Connect (sign-in)" in proc.stdout
+
+
+def test_pull_connect_only_where_the_new_system_has_it(slots):
+    old, new, data = slots
+    _connect_on(old)
+    proc = _run(new, data, "pull", str(old))          # new: rpi-connect not installed
+    assert proc.returncode == 0, proc.stderr
+    assert not (new / CONNECT_CFG).exists() and not (new / UNITS).exists()
+    assert not (new / "var/lib/systemd/linger").exists()
+    assert "Raspberry Pi Connect" not in proc.stdout
+
+
+def test_pull_connect_skips_units_the_new_system_lacks(slots):
+    old, new, data = slots
+    _connect_on(old, POSTINST_LINKS)
+    _connect_installed(new)
+    (new / "usr/lib/systemd/user/rpi-connect-wayvnc.service").unlink()
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (new / UNITS / "default.target.wants/rpi-connect.service").is_symlink()
+    assert not os.path.lexists(new / UNITS / "rpi-connect.service.wants/rpi-connect-wayvnc.service")
+
+
+def test_pull_connect_never_overwrites(slots):
+    old, new, data = slots
+    _connect_on(old)
+    _connect_installed(new)
+    (new / CONNECT_CFG).mkdir(parents=True)
+    (new / CONNECT_CFG / "state.json").write_text("new\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (new / CONNECT_CFG / "state.json").read_text() == "new\n"
+
+
+def test_pull_without_connect_says_nothing(slots):
+    old, new, data = slots
+    _connect_installed(old)
+    _connect_installed(new)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    assert "Raspberry Pi Connect" not in proc.stdout
+    assert not (new / HOME.lstrip("/") / ".config").exists()
