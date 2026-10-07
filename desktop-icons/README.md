@@ -12,6 +12,10 @@ This directory contains icons used for desktop bookmarks and shortcuts.
 - **License:** Unknown - IBM's terms not verified
 - **Notes:** This icon is IBM's official favicon for their Quantum Computing platform. Usage for educational/promotional purposes assumed but not confirmed. If copyright concerns arise, this should be replaced with a generic quantum/science icon or proper permission obtained from IBM.
 
+### group-*.svg
+- **Source:** made for RasQberry Two (2026-10), same licence as the repository
+- **Usage:** the desktop icons of the demo groups (`demo-groups.json`): LED panel, Play, Big projects, Learn & code, Workshops & events
+
 ## System Icons Used
 
 ### Grokking the Bloch Sphere bookmarks

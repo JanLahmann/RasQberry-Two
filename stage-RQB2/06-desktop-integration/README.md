@@ -58,7 +58,10 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
   every login - Chromium's crash state reset, the touch-mode GTK style again,
   `quick_exec=1` in the profile's `pcmanfm.conf` (homes made before it),
   on screens below 1600x900 the Chromium rule off and Chromium maximised, the
-  icons laid out for the screen (a `More` folder for what does not fit), then
+  demo launchers sorted into one folder per group (`demo-groups.json`; the
+  folders are in `~/.local/share/rasqberry/desktop-groups/`, and the desktop
+  gets one icon per group that opens its folder) and the desktop laid out for
+  the screen (system icons, starters, group icons), then
   Chromium with rasqberry.org, or `/usr/share/rasqberry/offline.html` without
   internet (`BROWSER_AUTOSTART`)
 - `/etc/chromium.d/rasqberry`: Chromium flags (no keyring, no "Restore pages?",
@@ -70,7 +73,11 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
 
 - The launcher list for the desktops is a regex in the script; a new
   `.desktop` file in `desktop-bookmarks/` appears on the desktop only if it is
-  added there and to `ICON_ORDER` in `RQB2-bin/rq_desktop_session.py`.
+  added there and to `ICON_ORDER` in `RQB2-bin/rq_desktop_session.py`. Its
+  folder is its demo's `group` (the demo id after `rq_demo_run.sh` in `Exec`,
+  or `launchers` in `demo-groups.json` for one without a manifest).
+- The icon positions written at build time are for the grouped desktop; the
+  first login sorts the launchers into their folders.
 - The per-user desktop, libfm and autostart setup is skipped if
   `FIRST_USER_NAME` is empty or `root`.
 - The `trust-rasqberry-desktop.desktop` autostart entry is written to

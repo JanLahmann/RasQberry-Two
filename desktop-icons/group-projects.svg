@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Big projects</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#9a4a00"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#e07a10"/>
+  <circle cx="32" cy="38.5" r="10.5" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="4.1 4.1"/>
+  <circle cx="32" cy="38.5" r="8" fill="#fff"/>
+  <circle cx="32" cy="38.5" r="3.2" fill="#e07a10"/>
+</svg>
