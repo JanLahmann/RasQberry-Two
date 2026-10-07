@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T14:59:09Z",
+  "generated": "2026-10-07T18:55:50Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-07-152527",
-      "name": "rasqberry-development-2026-10-07-152527",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-152527/rasqberry-development-2026-10-07-152527.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-152527",
-      "release_date": "2026-10-07 15:25",
-      "image_download_size": 2144211568,
+      "tag": "development-2026-10-07-201407",
+      "name": "rasqberry-development-2026-10-07-201407",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-201407/rasqberry-development-2026-10-07-201407.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-201407",
+      "release_date": "2026-10-07 20:14",
+      "image_download_size": 2144559660,
       "extract_size": 9495904256,
-      "extract_sha256": "c6dcc8d027eb240b62797323202cd7954c741b59e201cb7a13f31be38dd6d212",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-152527/rasqberry-development-2026-10-07-152527-ab.img.xz",
-      "ab_extract_sha256": "132b12ea4b868bf6f870b5d1ca68eff99be350900f7d07d0ce7c7f35890b3716",
-      "ab_image_sha256": "841bb59e3bafd1662dfed6bdbd0f3cc2ef2034a7b94642c1e00dcbdde009765b",
+      "extract_sha256": "ce59c80037755a491a5966b3b9803cbc3922c21b65cf0cc3c554e3dd840e636d",
+      "image_sha256": "6f998732ff026d2f2099553d43b8377674f61dcd9fc5b67fe9be21fed5cddbb6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-201407/rasqberry-development-2026-10-07-201407-ab.img.xz",
+      "ab_extract_sha256": "27a9e7398f54c5b8dc9408fb654d6721d3878b2770b5d238b6574c982bace50b",
+      "ab_image_sha256": "ffd1016fd7d8438f3d7b5b260713a5ba6229e29f2cf155a8f613710e500f9e5d",
+      "ab_image_download_size": 1880369868,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1880535332,
       "highlights": [
-        "Bump version to development-2026-10-07-152527",
-        "Merge dev-small-1007: copyable firmware command, no setup checklist again after an update",
-        "make the update command selectable and copyable",
-        "carry the setup checklist and notice marks over an A/B update",
-        "Bump version to dev-small-1007-2026-10-07-152457"
+        "Enter in the IBM LED demo's terminal stops it at once",
+        "no \"other slot\" note on a single-system card, one size per partition",
+        "name the network truthfully on a Pi connected by cable",
+        "firmware notice opens with nothing selected",
+        "Connect box gives the firmware hint only when it can help"
       ]
     }
   }
