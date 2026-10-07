@@ -158,3 +158,28 @@ def test_stop_keys_close_an_idle_view(monkeypatch):
     monkeypatch.setattr(gui, "stop_led_demo", lambda path: True)
     gui.VirtualLEDMatrix.on_stop_key(fake)
     assert closed == [1] and status == ["Stopping the demo..."]
+
+
+# ---------------------------------------------------------------------------
+# 4. No "Notebook 7" banner over the classic notebook demos
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("script", ["rq_fun_with_quantum.sh", "rq_demo_run.sh"])
+def test_classic_notebook_without_the_migration_banner(script):
+    assert "--NotebookApp.show_banner=False" in _read(script)
+
+
+# ---------------------------------------------------------------------------
+# 9. Ctrl+C in a demo started from a list is not an error
+# ---------------------------------------------------------------------------
+
+def test_chooser_takes_ctrl_c_as_a_stop():
+    src = _read("rq_demo_choose.sh")
+    loop = src.split('"$SCRIPT_DIR/rq_demo_run.sh" "$DEMO_ID" "$choice"', 1)[1]
+    assert "|| rc=$?" in loop and "0|129|130|143) ;;" in loop
+
+
+def test_learning_path_step_takes_ctrl_c_as_a_stop():
+    src = _read("rq_learning_paths.sh")
+    step = src.split("start_step() {", 1)[1].split("\n}\n", 1)[0]
+    assert "case \"$rc\" in 0|129|130|143) return 0 ;; esac" in step
