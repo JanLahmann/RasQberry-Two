@@ -21,9 +21,13 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   name NEW      (root) rename this Pi: hostname, /etc/hosts, avahi
 #   check-name N  exit 0 if N is a valid name: 1-63 lowercase letters, digits
 #                 and hyphens, not starting or ending with a hyphen
+#   connect       Raspberry Pi Connect: signed-in | signed-out | off |
+#                 missing (not installed). Read only: asks `rpi-connect
+#                 status` as the desktop user (also when run with sudo).
 #
 # Usage: rq_remote_access.sh <command> [argument]
-# Environment (tests): RQ_RASPI_CONFIG (default raspi-config),
+# Environment (tests): RQ_RPI_CONNECT (default rpi-connect),
+#   RQ_RASPI_CONFIG (default raspi-config),
 #   RQ_VNC_MARKER (default /var/lib/rasqberry/vnc-auto-enabled),
 #   RQ_SSHD (default /usr/sbin/sshd), RQ_SSHD_DIR (default /etc/ssh)
 
@@ -34,10 +38,11 @@ RASPI_CONFIG="${RQ_RASPI_CONFIG:-raspi-config}"
 VNC_MARKER="${RQ_VNC_MARKER:-/var/lib/rasqberry/vnc-auto-enabled}"
 SSHD="${RQ_SSHD:-/usr/sbin/sshd}"
 SSHD_DIR="${RQ_SSHD_DIR:-/etc/ssh}"
+RPI_CONNECT="${RQ_RPI_CONNECT:-rpi-connect}"
 
 usage() {
     cat <<'EOF'
-Usage: rq_remote_access.sh status | address | mdns
+Usage: rq_remote_access.sh status | address | mdns | connect
        sudo rq_remote_access.sh ssh on|off | vnc on|off | name NEW
 EOF
 }
@@ -83,6 +88,31 @@ ssh_password() {
     fi
 }
 
+# Raspberry Pi Connect runs per user: ask as the desktop user (uid 1000 when
+# root has no SUDO_USER), with that user's runtime dir
+connect_state() {
+    local who uid out t=""
+    command -v "$RPI_CONNECT" >/dev/null 2>&1 || { echo missing; return 0; }
+    command -v timeout >/dev/null 2>&1 && t="timeout 10"
+    if [ "$(id -u)" = 0 ] && [ -z "${RQ_RPI_CONNECT:-}" ]; then
+        who="${SUDO_USER:-}"
+        [ -n "$who" ] && [ "$who" != root ] || who=$(getent passwd 1000 | cut -d: -f1)
+        uid=$(id -u "$who" 2>/dev/null) || { echo off; return 0; }
+        out=$($t runuser -u "$who" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+              "$RPI_CONNECT" status 2>&1) || true
+    else
+        out=$($t "$RPI_CONNECT" status 2>&1) || true
+    fi
+    if printf '%s\n' "$out" | grep -qi '^signed in: *yes'; then
+        echo signed-in
+    elif printf '%s\n' "$out" | grep -qi '^signed in: *no'; then
+        echo signed-out
+    else
+        echo off        # "not running, run rpi-connect on" (rc 1)
+    fi
+    return 0
+}
+
 current_name() { hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo unknown; }
 
 # The name avahi announces (rq_common.sh), as the Workshop server says it
@@ -120,6 +150,8 @@ case "$cmd" in
         addresses ;;
     mdns)
         mdns_name ;;
+    connect)
+        connect_state ;;
     ssh)
         need_root ssh "$@"
         switch ssh "${1:-}" ;;

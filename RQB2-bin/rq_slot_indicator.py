@@ -24,7 +24,10 @@ new in <release>". It hides again (drops its tray name) when nothing is new.
 
 Two one-time notices use wf-panel-pi's own popup (the desktop has no
 notification server): a failed update (once per failure) and a new release
-(once per release).
+(once per release). A third, outdated bootloader firmware (rq_firmware.py,
+once per firmware version, after the setup checklist was answered), is a
+small window with Update now / Later; while it applies, the menu has
+"Update the firmware…" too.
 
 Runs as the desktop user from /etc/xdg/autostart/rasqberry-slot-indicator.desktop.
 
@@ -58,6 +61,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rq_release_notice as rn  # noqa: E402
+import rq_firmware as fw  # noqa: E402
 
 log = logging.getLogger("rq_slot_indicator")
 
@@ -73,10 +77,21 @@ ICON_SIZE = 64                      # one pixmap; the panel scales it to 32
 BUS_NAME = "org.rasqberry.SlotIndicator"
 ITEM_PATH = "/StatusNotifierItem"
 MENU_PATH = "/MenuBar"
+# wf-panel-pi's D-Bus name for its "notify" command: Bookworm, then Trixie
+# (renamed there; watching only the old name meant no popup at all on Trixie,
+# user test 2026-10-07)
+PANELS = {
+    "org.wayfire.wfpanel": ("/org/wayfire/wfpanel", "org.wayfire.wfpanel"),
+    "com.raspberrypi.wfpanelpi": ("/com/raspberrypi/wfpanelpi", "com.raspberrypi.wfpanelpi"),
+}
 UPDATES_CMD = ["lxterminal", "-t", "RasQberry: Software & Image Updates", "-e",
                "sudo raspi-config nonint do_ab_boot_menu"]
+# "window": Enter closes it; there is no menu to return to (user test 10-07 P7)
 SYSINFO_CMD = ["lxterminal", "-t", "RasQberry System Information", "-e",
-               "sudo raspi-config nonint do_show_system_info"]
+               "sudo raspi-config nonint do_show_system_info window"]
+FIRMWARE_CMD = ["lxterminal", "-t", "RasQberry: Firmware update", "-e",
+                "sudo /usr/bin/rq_firmware.py update"]
+FIRMWARE_ITEM = 14
 # Anonymous usage count of a click in the update notice (runs on its own)
 USAGE_COUNT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_umami_event.py")
 
@@ -510,6 +525,31 @@ def whats_new(advice, device, releases, highlights, wait=""):
     }
 
 
+def with_firmware(items, firmware):
+    """
+    The menu with "Update the firmware…" after Software & Image Updates while
+    the firmware update is due (rq_firmware.assess()['due']).
+    """
+    if not (firmware or {}).get("due"):
+        return items
+    out = []
+    for item in items:
+        out.append(item)
+        if item[0] == 12:
+            out.append((FIRMWARE_ITEM, {"label": "Update the firmware…"}))
+    return out
+
+
+def checklist_answered(directory=None):
+    """
+    The setup checklist was answered (rq_firstlogin.sh's marks): until then
+    the checklist offers the firmware update itself, so no second notice.
+    """
+    d = directory or state_dir()
+    return any(os.path.exists(os.path.join(d, n))
+               for n in ("setup-checklist-shown", "firstlogin-offered"))
+
+
 # ---------------------------------------------------------------------------
 # What was already said (once per failure, once per release)
 # ---------------------------------------------------------------------------
@@ -534,11 +574,13 @@ class NoticeBook:
         self.failures = [x for x in data.get("failures_noticed", []) if isinstance(x, str)]
         self.acked = data.get("failure_acked", "") if isinstance(data.get("failure_acked"), str) else ""
         self.releases = [x for x in data.get("releases_noticed", []) if isinstance(x, str)]
+        self.firmware = [x for x in data.get("firmware_noticed", []) if isinstance(x, str)]
 
     def save(self):
         """Write the book (best effort)."""
         data = {"failures_noticed": self.failures[-self.KEEP:], "failure_acked": self.acked,
-                "releases_noticed": self.releases[-self.KEEP:]}
+                "releases_noticed": self.releases[-self.KEEP:],
+                "firmware_noticed": self.firmware[-self.KEEP:]}
         try:
             rn._write_atomic(self.path, json.dumps(data, indent=1) + "\n", 0o600)
         except OSError as e:
@@ -561,6 +603,14 @@ class NoticeBook:
         for a in new:
             self.releases.append(a["tag"])
         return new
+
+    def firmware_to_announce(self, firmware):
+        """True once per firmware version (the running EEPROM's timestamp) while due."""
+        key = (firmware or {}).get("key", "")
+        if not (firmware or {}).get("due") or not key or key in self.firmware:
+            return False
+        self.firmware.append(key)
+        return True
 
     def ack(self, failure):
         """The menu was opened: the failure was seen. Returns True if that is news."""
@@ -754,6 +804,7 @@ class SlotIndicator:
         self.device = {}
         self.data = {"releases": None, "controls": {}, "highlights": {}}
         self.panel_present = False
+        self.panel = ""                     # the PANELS name that is there
         self.notices = []
         self.noticing = False
         self.fetching = False
@@ -763,6 +814,8 @@ class SlotIndicator:
         self.monitors = []
         self.tooltip_paused = False         # the menu is open: no tooltip
         self.tooltip_until = 0.0
+        self.firmware = {}
+        self.fw_window = None
 
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         # In the tray only while wants_icon(): the plain badge comes and goes
@@ -783,9 +836,9 @@ class SlotIndicator:
         Gio.bus_watch_name_on_connection(self.bus, "org.kde.StatusNotifierWatcher",
                                          Gio.BusNameWatcherFlags.NONE, self._on_watcher,
                                          self._on_watcher_gone)
-        Gio.bus_watch_name_on_connection(self.bus, "org.wayfire.wfpanel",
-                                         Gio.BusNameWatcherFlags.NONE,
-                                         self._on_panel, self._on_panel_gone)
+        for panel in PANELS:
+            Gio.bus_watch_name_on_connection(self.bus, panel, Gio.BusNameWatcherFlags.NONE,
+                                             self._on_panel, self._on_panel_gone)
         for path in (RUN_DIR, self.config_dir):
             try:
                 mon = Gio.File.new_for_path(path).monitor_directory(Gio.FileMonitorFlags.NONE, None)
@@ -819,6 +872,7 @@ class SlotIndicator:
                      status.get("card_mode", "?"))
             self.mode = mode
         self.info = info
+        self.firmware = fw.assess(fw.read_status(), time.time())
         self.data = rn.load_all([rn.user_cache_dir(), rn.system_cache_dir()])
         if mode == "ab":
             self.device = device_for_advice(info)
@@ -836,6 +890,7 @@ class SlotIndicator:
             state, letter = "plain", PLAIN_LETTER
             title, body = plain_tooltip(info["version"], self.advices, self.device)
             items = plain_menu_items(info["version"], self.advices, self.device)
+        items = with_firmware(items, self.firmware)
         view = (state, letter, dot, title, body)
         if view != self.view:
             w, h, pix = render_badge(letter, state, dot)
@@ -882,6 +937,7 @@ class SlotIndicator:
 
     def _tick(self):
         self.update_view()
+        self._firmware_notice()
         if not self.fetching and time.monotonic() >= self.next_fetch:
             self._start_fetch()
         return True
@@ -932,8 +988,9 @@ class SlotIndicator:
         text = self.notices.pop(0)
         log.info("notice: %s", text)
         # Fire and forget: wf-panel-pi never answers this call
-        self.bus.call("org.wayfire.wfpanel", "/org/wayfire/wfpanel", "org.wayfire.wfpanel",
-                      "command", self.GLib.Variant("(ss)", ("notify", text)), None,
+        path, iface = PANELS[self.panel]
+        self.bus.call(self.panel, path, iface, "command",
+                      self.GLib.Variant("(ss)", ("notify", text)), None,
                       self.Gio.DBusCallFlags.NO_AUTO_START, 2000, None, self._notified)
         self.noticing = True
         self.GLib.timeout_add_seconds(NOTICE_GAP, self._notice_done)
@@ -949,13 +1006,23 @@ class SlotIndicator:
         self._send_notices()
         return False
 
+    def _firmware_notice(self):
+        """Once per firmware version, on a desktop with its panel, after the checklist."""
+        if (self.panel_present and checklist_answered()
+                and self.book.firmware_to_announce(self.firmware)):
+            self.book.save()
+            log.info("firmware notice: %s", self.firmware)
+            self.show_firmware()
+
     def _on_panel(self, conn, name, owner):
         log.info("panel %s appeared (%s)", name, owner)
         self.panel_present = True
+        self.panel = name
         self.GLib.timeout_add_seconds(3, lambda: self._send_notices() and False)
 
     def _on_panel_gone(self, conn, name):
-        self.panel_present = False
+        if name == self.panel:
+            self.panel_present = False
 
     # -- SNI -------------------------------------------------------------------
     def _show(self, on):
@@ -1123,6 +1190,8 @@ class SlotIndicator:
             self.spawn(SYSINFO_CMD)
         elif item_id == 12:
             self.spawn(UPDATES_CMD)
+        elif item_id == FIRMWARE_ITEM:
+            self.show_firmware()
         elif item_id >= 100:
             ups = rn.updates(self.advices)
             if item_id - 100 < len(ups):
@@ -1210,6 +1279,51 @@ class SlotIndicator:
 
     def _window_closed(self, *_):
         self.window = None
+
+    # -- Firmware --------------------------------------------------------------
+    def show_firmware(self):
+        """The firmware notice: what and why, Update now (asks first) / Later."""
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk
+        if self.fw_window is not None:
+            self.fw_window.present()
+            return
+        win = Gtk.Window(title="Firmware update")
+        win.set_default_size(440, -1)
+        win.set_position(Gtk.WindowPosition.CENTER)
+        win.set_icon_name("system-software-update")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_border_width(16)
+        win.add(box)
+        lab = Gtk.Label()
+        lab.set_text(fw.notice_text(fw.read_status(), time.time()))
+        lab.set_line_wrap(True)
+        lab.set_max_width_chars(56)
+        lab.set_xalign(0)
+        box.pack_start(lab, False, False, 0)
+        buttons = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
+        buttons.set_layout(Gtk.ButtonBoxStyle.END)
+        buttons.set_spacing(8)
+        box.pack_end(buttons, False, False, 8)
+        now = Gtk.Button(label="Update now")
+
+        def on_update(*_):
+            self.spawn(FIRMWARE_CMD)
+            win.destroy()
+
+        now.connect("clicked", on_update)
+        buttons.add(now)
+        later = Gtk.Button(label="Later")
+        later.connect("clicked", lambda *_: win.destroy())
+        buttons.add(later)
+        win.connect("destroy", self._fw_window_closed)
+        self.fw_window = win
+        win.show_all()
+        later.grab_focus()
+
+    def _fw_window_closed(self, *_):
+        self.fw_window = None
 
     def open_url(self, url):
         """The release page in the browser, through rq_common.sh's rq_open_browser."""

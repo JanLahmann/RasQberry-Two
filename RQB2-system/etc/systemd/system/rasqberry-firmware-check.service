@@ -1,0 +1,18 @@
+[Unit]
+Description=RasQberry: is the bootloader firmware (EEPROM) outdated?
+Documentation=https://github.com/JanLahmann/RasQberry-Two
+# Reads the EEPROM and the local rpi-eeprom package only: no network, no clock
+# needed. Writes /run/rasqberry/firmware-status for System Info, the setup
+# checklist and the desktop notice. It never updates anything.
+After=local-fs.target rpi-eeprom-update.service
+ConditionPathExists=/usr/bin/rpi-eeprom-update
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/usr/bin/rq_firmware.py check --write
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

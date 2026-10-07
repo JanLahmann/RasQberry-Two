@@ -246,7 +246,7 @@ task_password_run() {
     local choice who
     who="${USER:-$(id -un)}"
     choice=$(whiptail --title "Password" --notags --menu \
-"This RasQberry Two still has the demo password, which is printed on the website. Anyone on the same network can log in with it over SSH or VNC.
+"This RasQberry Two uses the published demo password: anyone can look it up on the website and log in with it over SSH or VNC from the same network.
 
 At a booth or in a classroom you may want to keep it." 15 74 2 \
         change "Change the password now (recommended)" \
@@ -303,6 +303,24 @@ Cancel keeps the current password." 11 72 3>&1 1>&2 2>&3) || return 1
 $err" 12 72
     return 1
 }
+
+# ---------------------------------------------------------------------------
+# Task (optional): update the bootloader firmware (EEPROM)
+# ---------------------------------------------------------------------------
+# rasqberry-firmware-check.service looks at start-up (rq_firmware.py): shown
+# while an update is available and the firmware is older than about six
+# months, or (Pi 5) its crypto service fails - which broke Raspberry Pi
+# Connect from Imager. Offered only, never ticked; no restart from here: the
+# next restart finishes it.
+FIRMWARE="${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}"
+task_firmware_applies() { [ -x "$FIRMWARE" ] && "$FIRMWARE" due >/dev/null 2>&1; }
+task_firmware_pending() { return 0; }
+task_firmware_label() {
+    local date
+    date=$("$FIRMWARE" line 2>/dev/null | sed 's/ (.*//')
+    printf "Update the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
+}
+task_firmware_run() { sudo "$FIRMWARE" update --no-restart; }
 
 # ---------------------------------------------------------------------------
 # Task: keyboard layout and time zone (R-005)
@@ -436,7 +454,7 @@ done_label() {
 TICKED_TASKS="locale wifi expand led"
 is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
-TASKS="locale wifi password name expand abinfo led demos touch"
+TASKS="locale wifi password name expand abinfo led demos firmware touch"
 
 # Pending steps, one id per line
 pending_tasks() {

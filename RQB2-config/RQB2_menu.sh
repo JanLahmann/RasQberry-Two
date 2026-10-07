@@ -1498,6 +1498,8 @@ _rq_demo_label() {
 # Enter moved through the text instead of pressing Ok and the last line was
 # hidden) nor touches the right edge; Esc is not an error. Where the terminal
 # is too small for the box, the text is printed with a "press Enter" line.
+# $1 = window: opened from the taskbar badge in its own window, which Enter
+# closes (there is no menu to return to).
 do_show_system_info() {
   _si_text=""
   if [ -x /usr/bin/rq_info.sh ]; then
@@ -1521,7 +1523,11 @@ For a bug report: rq_info.sh --report (saves the logs to a file)"
   else
     clear
     printf '%s\n\n' "$_si_text"
-    printf 'Press Enter to return to the menu.'
+    if [ "${1:-}" = window ]; then
+      printf 'Press Enter to close this window.'
+    else
+      printf 'Press Enter to return to the menu.'
+    fi
     read -r _si_dummy </dev/tty
   fi
   return 0
@@ -2675,6 +2681,33 @@ do_toggle_remote() {
     return 0
 }
 
+# Raspberry Pi Connect (P4): its state in words, for the menu line; empty
+# when it is not installed. $1 = rq_remote_access.sh connect
+_rq_connect_words() {
+    case "$1" in
+        signed-in)  echo "on, signed in" ;;
+        signed-out) echo "on, not signed in" ;;
+        off)        echo "off" ;;
+        *)          echo "" ;;
+    esac
+}
+
+# What Connect is and how to switch it; read only (it runs per user, and its
+# own taskbar icon turns it on and signs in). $1 = rq_remote_access.sh connect
+do_connect_info() {
+    case "$1" in
+        signed-in)  _ci_now="Raspberry Pi Connect is on and signed in." ;;
+        signed-out) _ci_now="Raspberry Pi Connect is on but not signed in. Click its icon in the taskbar, then Sign In." ;;
+        *)          _ci_now="Raspberry Pi Connect is off. To turn it on: click its icon in the taskbar, then Turn On Raspberry Pi Connect, then Sign In (or in a terminal: rpi-connect on, then rpi-connect signin)." ;;
+    esac
+    show_msgbox_fit "Raspberry Pi Connect" "$_ci_now
+
+With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).
+
+If Connect from Imager does not sign in, update the Pi's firmware (System Info shows whether an update is available)." 72
+    return 0
+}
+
 # $1 = the name now
 do_name_this_rasqberry() {
     _nr_old="$1"
@@ -2709,6 +2742,11 @@ do_remote_access_menu() {
         _ra_name=$(_rq_remote_field "$_ra_status" name)
         _ra_mdns=$(_rq_remote_field "$_ra_status" mdns)
         _ra_sshpw=$(_rq_remote_field "$_ra_status" ssh_password)
+        _ra_conn=$(_rq_remote connect 2>/dev/null) || _ra_conn=""
+        _ra_connw=$(_rq_connect_words "$_ra_conn")
+        # The Connect line only where Connect is installed
+        set --
+        [ -n "$_ra_connw" ] && set -- CONNECT "Raspberry Pi Connect: $_ra_connw"
         # Imager's "public-key only": SSH takes no password (user test #31)
         _ra_text="Anyone on the same network who knows the password can log in over SSH and VNC."
         _ra_keys=""
@@ -2721,13 +2759,14 @@ do_remote_access_menu() {
             PASS "Change the password" \
             SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}${_ra_keys}" \
             VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
-            NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}") || break
+            NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}" "$@") || break
         _ra_last="$FUN"
         case "$FUN" in
             PASS) do_change_password "$_ra_sshpw" ;;
             SSH)  do_toggle_remote ssh "$_ra_ssh" "$_ra_sshpw" ;;
             VNC)  do_toggle_remote vnc "$_ra_vnc" ;;
             NAME) do_name_this_rasqberry "$_ra_name" ;;
+            CONNECT) do_connect_info "$_ra_conn" ;;
             *)    break ;;
         esac
     done
