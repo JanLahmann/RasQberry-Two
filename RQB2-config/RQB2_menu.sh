@@ -2668,7 +2668,9 @@ do_toggle_remote() {
         _tr_on="Anyone on this network who knows the password can then see and use the desktop."
     fi
     if [ "$_tr_now" = on ]; then
-        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" \
+        # Cancel is the default: Enter on a menu line someone only wanted to
+        # look at must not cut off SSH or VNC (user test 2026-10-07 F2)
+        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" --defaultno \
             --yesno "Switch $_tr_name off?\n\n$_tr_off" 13 72 || return 0
         _tr_new=off
     else

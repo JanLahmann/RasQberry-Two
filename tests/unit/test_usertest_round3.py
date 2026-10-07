@@ -151,3 +151,25 @@ def test_remote_access_with_an_own_password_is_as_before(menu_env):
     texts = _remote_menu(menu_env, "ssh=on vnc=on ssh_password=yes name=rasqberry mdns=rasqberry.local", "no")
     assert "Anyone on the same network who knows the password can log in over SSH and VNC." in texts
     assert "demo password" not in texts
+
+
+# ---------------------------------------------------------------------------
+# F2: "Switch SSH off?" defaults to Cancel
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("what", ["ssh", "vnc"])
+def test_switch_off_defaults_to_cancel(menu_env, what):
+    log = menu_env.tmp / "remote.log"
+    code = f'_rq_remote() {{ echo "$*" >> "{log}"; }}; do_toggle_remote {what} on yes'
+    proc = menu_env(code, extra_env={"WT_RC_yesno": "1"})
+    assert proc.returncode == 0, proc.stderr
+    call = next(c for c in menu_env.whiptail_calls() if "--yesno" in c)
+    assert "--defaultno" in call and "Switch off" in call
+    assert not log.exists()                                  # Cancel: nothing switched
+
+
+def test_switch_on_keeps_its_default(menu_env):
+    code = '_rq_remote() { echo "SSH is on."; }; do_toggle_remote ssh off yes'
+    menu_env(code)
+    call = next(c for c in menu_env.whiptail_calls() if "--yesno" in c)
+    assert "--defaultno" not in call
