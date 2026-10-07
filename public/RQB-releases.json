@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T05:18:35Z",
+  "generated": "2026-10-07T10:45:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-07-064619",
-      "name": "rasqberry-development-2026-10-07-064619",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-064619/rasqberry-development-2026-10-07-064619.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-064619",
-      "release_date": "2026-10-07 06:46",
-      "image_download_size": 2146564436,
+      "tag": "development-2026-10-07-120327",
+      "name": "rasqberry-development-2026-10-07-120327",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-120327/rasqberry-development-2026-10-07-120327.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-120327",
+      "release_date": "2026-10-07 12:03",
+      "image_download_size": 2144180368,
       "extract_size": 9495904256,
-      "extract_sha256": "6ae9fcad3bd215c9b77ec796d713676cc1912d736590b8456a407098af47bb3e",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-064619/rasqberry-development-2026-10-07-064619-ab.img.xz",
-      "ab_extract_sha256": "5eb9d530c422423ba7910b7a91182b45c5c39c3293a1787e9f38b631b2319812",
-      "ab_image_sha256": "0ae75d2fd41375053b015097743f398d64020e7231533a802cd201fe973188e3",
+      "extract_sha256": "d66f492b24bce5bdf8285e3e15659e68e65bedc5574fdba5c9b6aa68847652a2",
+      "image_sha256": "16c9caaf8e1e5c595e88548d4453ba53a756619a0905c470bcb93c098ca184dc",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-120327/rasqberry-development-2026-10-07-120327-ab.img.xz",
+      "ab_extract_sha256": "9476bd1a18b47ad6b4581fd8f4ad4e4ff7481bbe6c4d65d73fdf3170fb40ee28",
+      "ab_image_sha256": "d57117b9ce865aa392891fc5b74b461f2050cdefaa967170d952d5f961045a13",
+      "ab_image_download_size": 1877190984,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1879067760,
       "highlights": [
-        "Bump version to development-2026-10-07-064619",
-        "Merge dev-trixie-polish: LED view keeps the focus off and its taskbar entry, clean ip-display stop, Raspberry Tie frame pacing",
-        "Raspberry Tie paces its LED frames on the Pi 5",
-        "the boot address scroll ends cleanly when \"Stop It\" stops it",
-        "the LED view opens without the focus and keeps its taskbar entry"
+        "notify only; Raspberry Pi's EEPROM tools stage on CONFIG on A/B cards",
+        "Bump version to development-2026-10-07-120327",
+        "Merge dev-fresh-demos: fixes from the fresh-card user test 2026-10-07",
+        "Merge dev-fresh-sys: fixes from the fresh-card user test 2026-10-07",
+        "Download all tells \"no room at all\" from \"not as well\""
       ]
     }
   }
