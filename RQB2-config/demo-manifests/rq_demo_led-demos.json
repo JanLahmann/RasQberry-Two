@@ -2,6 +2,7 @@
   "id": "led-demos",
   "name": "LED Demos",
   "category": "led-demo",
+  "group": "led-panel",
   "description": "Tests, text, logos and colour effects on the LED panel",
   "keywords": ["led", "demo", "animation", "display", "matrix"],
 
@@ -30,7 +31,7 @@
   "menu": {
     "show": true,
     "parent": "led-menu",
-    "order": 90
+    "order": 10
   },
 
   "desktop": {

@@ -2,6 +2,7 @@
   "id": "led-painter",
   "name": "LED-Painter",
   "category": "tool",
+  "group": "led-panel",
   "description": "Paint and draw on the LED panel from a graphical interface",
   "keywords": [
     "led",
@@ -44,7 +45,7 @@
   },
   "menu": {
     "show": true,
-    "order": 70
+    "order": 50
   },
   "desktop": {
     "show": true,

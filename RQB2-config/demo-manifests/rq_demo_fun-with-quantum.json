@@ -2,6 +2,7 @@
   "id": "fun-with-quantum",
   "name": "Fun with Quantum",
   "category": "jupyter",
+  "group": "play",
   "description": "Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin-Peres magic square, 3-SAT with Grover), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects",
   "keywords": [
     "quantum",
@@ -55,7 +56,7 @@
   },
   "menu": {
     "show": true,
-    "order": 100,
+    "order": 10,
     "variant_menu": true
   },
   "desktop": {

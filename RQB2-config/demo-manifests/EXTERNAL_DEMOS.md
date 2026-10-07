@@ -119,7 +119,7 @@ A thin registry in `RQB2-config/known-demos.json`:
 ## 3. Add flow (menu: "Add demo from catalogue")
 
 Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
-"Add demo from catalogue" in the Quantum Demos menu).
+"Add demo from catalogue" in Quantum Demos > Manage demos).
 
 1. Menu lists registry entries not yet installed
    (`rq_demo_add_external.sh` with no args → interactive whiptail picker;

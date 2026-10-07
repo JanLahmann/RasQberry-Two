@@ -2,6 +2,7 @@
   "id": "quantum-lights-out",
   "name": "Quantum Lights Out",
   "category": "visualization",
+  "group": "led-panel",
   "description": "Watch Grover's search solve Lights Out puzzles on the LED panel, one after another",
   "keywords": [
     "quantum",
@@ -43,7 +44,7 @@
   },
   "menu": {
     "show": true,
-    "order": 40
+    "order": 30
   },
   "desktop": {
     "show": true,

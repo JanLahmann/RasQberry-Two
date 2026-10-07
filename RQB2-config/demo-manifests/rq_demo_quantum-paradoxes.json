@@ -2,6 +2,7 @@
   "id": "quantum-paradoxes",
   "name": "Quantum Paradoxes",
   "category": "jupyter",
+  "group": "play",
   "description": "Interactive Jupyter notebooks exploring quantum paradoxes and phenomena",
   "keywords": [
     "quantum",
@@ -44,7 +45,7 @@
   },
   "menu": {
     "show": true,
-    "order": 110
+    "order": 20
   },
   "desktop": {
     "show": true,

@@ -956,11 +956,11 @@ rq_run_demo() {
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
-# running; RasQberry menu > Quantum Demos > Stop Docker demos stops it.
+# running; RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos stops it.
 # Usage: rq_docker_stop_with_window CONTAINER NAME
 rq_docker_stop_with_window() {
     if ! { [ -t 0 ] && [ -t 1 ]; }; then
-        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
+        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos."
         return 0
     fi
     RQ_WINDOW_CONTAINER="$1"
@@ -1504,7 +1504,7 @@ rq_confirm_download() {
     local card_txt="$space_txt on the SD card"
     [ "$disk" -gt 0 ] || card_txt="unknown"
     if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
-        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Manage demos > Remove a demo) and try again."
         return 2
     fi
 
@@ -2100,6 +2100,33 @@ rq_demo_maturity() {
     return 0
 }
 
+# Group of a demo: its desktop folder and RasQberry menu submenu
+# (demo-groups.json). A catalogue demo's known-demos.json entry wins (it is
+# curated), then the manifest's "group", then a guess: an LED panel demo goes
+# to led-panel, a game or visualization to play, anything else to learn. A
+# value demo-groups.json does not list counts as none. rq_desktop_session.py
+# (demo_group) decides the same way for the desktop.
+# Usage: group=$(rq_demo_group ID [MANIFEST])
+rq_demo_group() {
+    local id="$1" dir mf="" registry groups
+    dir=$(rq_shipped_manifest_dir)
+    registry="$(dirname "$dir")/known-demos.json"
+    groups="$dir/demo-groups.json"
+    [ -f "$registry" ] || registry=/dev/null
+    [ -f "$groups" ] || groups=/dev/null
+    mf=$(_rq_demo_mf "$id" "${2:-}") && [ -f "$mf" ] || mf=/dev/null
+    jq -rn --arg id "$id" --slurpfile reg "$registry" --slurpfile grp "$groups" \
+        --slurpfile mf "$mf" '
+        ([$grp[0].groups[]?.id]) as $ids
+        | ($mf[0] // {}) as $m
+        | [($reg[0].demos[]? | select(.id == $id) | .group), $m.group]
+        | map(select(. as $g | $ids | any(. == $g)))
+        | if length > 0 then .[0]
+          elif $m.needs_hw.leds == true then "led-panel"
+          elif ($m.category == "game" or $m.category == "visualization") then "play"
+          else "learn" end' 2>/dev/null || echo learn
+}
+
 # The invitation at the start of a beta demo.
 # Usage: rq_beta_notice DEMO_ID
 rq_beta_notice() {
@@ -2284,7 +2311,7 @@ rq_docker_pull() {
     fi
     case "$why" in
         *"no space left"*)
-            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
+            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Manage demos > Remove a demo) and try again." ;;
         *"manifest unknown"*|*"not found"*|*"denied"*)
             die "The registry does not offer $image (any more): $why" ;;
         *)

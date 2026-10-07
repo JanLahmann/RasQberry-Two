@@ -2,6 +2,7 @@
   "id": "qiskit-tutorials",
   "name": "Qiskit Tutorials on this Pi",
   "category": "education",
+  "group": "learn",
   "description": "The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network",
   "maturity": "beta",
   "keywords": [
@@ -41,7 +42,7 @@
   },
   "menu": {
     "show": true,
-    "order": 158
+    "order": 20
   },
   "desktop": {
     "show": true,
