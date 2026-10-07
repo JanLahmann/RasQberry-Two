@@ -187,3 +187,43 @@ def test_without_shared_data_mount_both_commands_do_nothing(tmp_path):
     for cmd in ("save", "restore"):
         assert subprocess.run(["bash", _SCRIPT, cmd], env=env).returncode == 0
     assert not store.exists()
+
+
+# ---------------------------------------------------------------------------
+# R3 (user test 2026-10-07): the restore at boot waits for /data
+# ---------------------------------------------------------------------------
+
+_UNITS = os.path.join(_HERE, "..", "..", "RQB2-system", "etc", "systemd", "system")
+
+
+def _unit_values(name, key):
+    """Every value of key= in a unit file, split into words."""
+    out = []
+    with open(os.path.join(_UNITS, name)) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(key + "="):
+                out += line.split("=", 1)[1].split()
+    return out
+
+
+@pytest.mark.parametrize("unit", ["rasqberry-boot-config.service", "rasqberry-ab-layout.service",
+                                  "rasqberry-carry-over.service"])
+def test_units_that_read_data_at_boot_wait_for_it(unit):
+    # /data is "nofail" in fstab: local-fs.target does not wait for it, and on
+    # the first start of an updated slot (fsck) the restore ran before /data
+    # was mounted. Ordered on data.mount itself ...
+    assert "data.mount" in _unit_values(unit, "After")
+    # ... and only ordered: no Requires/BindsTo/RequiresMountsFor, so a /data
+    # that fails to mount does not stop the unit, and the standard image
+    # (no /data in fstab, so no data.mount) boots as before
+    for key in ("Requires", "BindsTo", "Requisite", "RequiresMountsFor"):
+        assert not [v for v in _unit_values(unit, key) if "data" in v], key
+
+
+def test_boot_config_runs_the_restore():
+    loader = os.path.join(_HERE, "..", "..", "RQB2-system", "usr", "local", "bin",
+                          "rasqberry-load-boot-config.sh")
+    assert "rq_device_settings.sh restore" in open(loader).read()
+    assert _unit_values("rasqberry-boot-config.service", "ExecStart") == \
+        ["/usr/local/bin/rasqberry-load-boot-config.sh"]
