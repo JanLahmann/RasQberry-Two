@@ -361,3 +361,112 @@ def test_catalogue_no_ends_quietly():
     assert "Installation cancelled by user" not in src
     no = src.split('Install it?"; then', 1)[1].split("fi", 1)[0]
     assert "return 0" in no
+
+
+# ---------------------------------------------------------------------------
+# 11. Polish: LED-Painter canvas, its GLib line
+# ---------------------------------------------------------------------------
+
+# The parts of upstream LED_painter.py (pinned commit 6a6a924) the fix edits
+_PAINTER = '''import sys
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QVBoxLayout,
+)
+from PySide6.QtGui import QImage, QPixmap, QPen, QAction, QPainter, QColor
+from PySide6.QtCore import Qt, QPoint
+
+from display_to_LEDs_from_file import display_to_LEDs
+from turn_off_LEDs import turn_off_LEDs
+
+
+class Window(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setGeometry(100, 100, 960, 320)
+        self.image = QImage(24, 8, QImage.Format_RGB32)
+        mainMenu = self.menuBar()
+        imageLabel = QLabel()
+        layout = QVBoxLayout()
+        layout.addWidget(imageLabel)
+        self.show()
+
+    def paintEvent(self, event):
+        canvasPainter = QPainter(self)
+        canvasPainter.drawImage(self.rect(), self.image, self.image.rect())
+
+    # Helper function to scale the mouse position from window size to canvas size (8x24)
+    def scalePosition(self, pos):
+        scaled_x = pos.x() / self.xScaleFactor
+        scaled_y = pos.y() / self.yScaleFactor
+
+        # Ensure the coordinates are within the bounds of the canvas
+        return QPoint(min(scaled_x, 31), min(scaled_y, 7))
+
+    def displayToLEDs(self):
+        turn_off_LEDs()
+
+
+def main():
+    atexit.register(turn_off_LEDs)
+    app = QApplication(sys.argv)
+    window = Window()
+    window.show()
+    sys.exit(app.exec())
+'''
+
+
+def test_painter_canvas_sits_below_the_menu_bar(tmp_path):
+    import ast
+    import importlib.util
+    import types
+    spec = importlib.util.spec_from_file_location(
+        "lp_convert", os.path.join(_REPO_ROOT, "RQB2-config", "demo-patches",
+                                   "led-painter-convert-to-pwm.py"))
+    conv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(conv)
+    (tmp_path / "LED_painter.py").write_text(_PAINTER)
+    assert conv.update_led_painter(str(tmp_path)) and conv.port_to_pyqt5(str(tmp_path))
+    assert conv.fix_canvas(str(tmp_path))
+    assert conv.fix_canvas(str(tmp_path))                  # again: no change
+    assert conv.update_led_painter(str(tmp_path))          # no second import line
+    src = (tmp_path / "LED_painter.py").read_text()
+    ast.parse(src)
+    assert src.count("from rq_led_utils import clear_all_leds") == 1
+    assert "drawImage(self._rq_canvas_rect()" in src and "self.resize(960, 320 + mainMenu" in src
+    # clicks map onto the canvas rect: a 960 x 320 canvas below a 30 px menu bar
+    ns = {}
+    body = src[src.index("    def scalePosition"):src.index("    def displayToLEDs")]
+
+    class QPoint:
+        def __init__(self, x, y):
+            self.xy = (x, y)
+
+    class QRect:
+        def __init__(self, x, y, w, h):
+            self.x, self.y, self.width, self.height = (lambda: x), (lambda: y), (lambda: w), (lambda: h)
+
+    exec("class W:\n" + body, {"QPoint": QPoint}, ns)
+    w = ns["W"]()
+    w.image = types.SimpleNamespace(width=lambda: 24, height=lambda: 8)
+    w._rq_canvas_rect = lambda: QRect(0, 30, 960, 320)
+    pos = lambda x, y: types.SimpleNamespace(x=lambda: x, y=lambda: y)
+    assert w.scalePosition(pos(0, 30)).xy == (0, 0)
+    assert w.scalePosition(pos(959, 349)).xy == (23, 7)
+    assert w.scalePosition(pos(5, 10)).xy == (0, 0)         # on the menu bar: clamped
+    assert w.scalePosition(pos(500, 30 + 40 * 3 + 1)).xy == (12, 3)
+
+
+def test_painter_is_converted_again_for_the_canvas_fix():
+    src = _read("rq_led_painter.sh")
+    assert src.count('grep -q "_rq_canvas_rect" "$DEMO_DIR/LED_painter.py"') == 2
+
+
+def test_glib_line_at_the_painter_start_is_filtered(tmp_path):
+    import subprocess
+    from test_demo_consent import _COMMON
+    line = ("(python3:29572): GLib-GObject-CRITICAL **: 11:06:47.155: g_object_unref: "
+            "assertion 'G_IS_OBJECT (object)' failed")
+    script = (f'. "{_COMMON}" >/dev/null 2>&1; rq_quiet_stderr sh -c '
+              f'"echo \\"{line}\\" >&2; echo real error >&2"; sleep 0.3')
+    err = subprocess.run(["bash", "-c", script], capture_output=True, text=True).stderr
+    assert "GLib-GObject-CRITICAL" not in err and "real error" in err

@@ -173,8 +173,10 @@ def update_led_painter(demo_dir):
             'import sys\n\n# Add /usr/bin to path for rq_led_utils\nsys.path.insert(0, \'/usr/bin\')'
         )
 
-    # Add import for clear_all_leds from shared module
-    if 'from turn_off_LEDs import turn_off_LEDs' in content:
+    # Add import for clear_all_leds from shared module (once: the conversion
+    # runs again on a converted checkout)
+    if ('from turn_off_LEDs import turn_off_LEDs' in content
+            and 'from rq_led_utils import clear_all_leds' not in content):
         content = content.replace(
             'from turn_off_LEDs import turn_off_LEDs',
             'from turn_off_LEDs import turn_off_LEDs\nfrom rq_led_utils import clear_all_leds'
@@ -251,6 +253,62 @@ def port_to_pyqt5(demo_dir):
     return True
 
 
+_RQ_SCALE_POSITION = """    def scalePosition(self, pos):
+        # RasQberry: clicks map to the canvas below the menu bar
+        r = self._rq_canvas_rect()
+        x = (pos.x() - r.x()) * self.image.width() // max(1, r.width())
+        y = (pos.y() - r.y()) * self.image.height() // max(1, r.height())
+        return QPoint(int(max(0, min(x, self.image.width() - 1))),
+                      int(max(0, min(y, self.image.height() - 1))))
+
+    def _rq_canvas_rect(self):
+        # RasQberry: the window below the menu bar
+        from PyQt5.QtCore import QRect
+        top = self.menuBar().height()
+        return QRect(0, top, self.width(), max(1, self.height() - top))
+
+"""
+
+
+def fix_canvas(demo_dir):
+    """
+    Draw the 24x8 canvas below the menu bar and map clicks to it.
+
+    Upstream draws the image over the whole window, under the menu bar, so
+    one row was hidden ("canvas cut off", user test 2026-10-07), and maps
+    clicks by the frame size (title bar and borders included), so a click
+    could land a row off. The window also grows by the menu bar's height,
+    so the cells stay square.
+
+    Returns:
+        bool: True when the file was fixed (or already was).
+    """
+    import re
+    file_path = os.path.join(demo_dir, 'LED_painter.py')
+    if not os.path.exists(file_path):
+        return False
+    with open(file_path) as f:
+        content = f.read()
+    if '_rq_canvas_rect' in content:
+        return True
+    content = content.replace(
+        'canvasPainter.drawImage(self.rect(), self.image, self.image.rect())',
+        'canvasPainter.drawImage(self._rq_canvas_rect(), self.image, self.image.rect())')
+    content, n = re.subn(r'    def scalePosition\(self, pos\):\n.*?(?=    def displayToLEDs)',
+                         lambda _m: _RQ_SCALE_POSITION, content, flags=re.S)
+    content = content.replace(
+        '        layout.addWidget(imageLabel)\n        self.show()',
+        '        layout.addWidget(imageLabel)\n'
+        '        self.resize(960, 320 + mainMenu.sizeHint().height())\n'
+        '        self.show()')
+    if n != 1 or 'self._rq_canvas_rect(), self.image' not in content \
+            or 'mainMenu.sizeHint' not in content:
+        raise RuntimeError('could not fix the painter canvas - upstream changed')
+    with open(file_path, 'w') as f:
+        f.write(content)
+    return True
+
+
 def update_requirements(demo_dir):
     """Update requirements.txt to use PWM/PIO drivers."""
     file_path = os.path.join(demo_dir, 'requirements.txt')
@@ -308,6 +366,8 @@ def main():
             print(f"✓ Updated LED_painter.py (uses shared module for atexit)")
             port_to_pyqt5(demo_dir)
             print(f"✓ Ported LED_painter.py to PyQt5")
+            fix_canvas(demo_dir)
+            print(f"✓ Canvas below the menu bar")
 
         # Update requirements.txt
         req_file = os.path.join(demo_dir, 'requirements.txt')

@@ -883,7 +883,9 @@ _rq_wait_gone() {
 # Lines on a demo's error output that look like faults but are none (#27):
 # Qt finds the runtime directory "0770 instead of 0700" because Raspberry Pi
 # OS's VNC server gives it an ACL; the group has no access all the same.
-_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory '
+# The Qt GTK theme's "GLib-GObject-CRITICAL ... g_object_unref" line at the
+# LED-Painter's start is harmless too (user test 2026-10-07).
+_RQ_HARMLESS_STDERR='^QStandardPaths: wrong permissions on runtime directory |GLib-GObject-CRITICAL \*\*: [0-9:.]+: g_object_unref: assertion'
 
 # Run a command without those lines on its error output; everything else
 # stays. Usage: rq_quiet_stderr COMMAND [ARGS...]
