@@ -28,6 +28,13 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     on rig and development Pis) and the Demo Loop's choice of demos and
 #     timings (DEMO_LOOP_*) from rasqberry_environment.env,
 #     VNC switched off (Q17: the new system then does not switch it on),
+#     the marks of what the desktop user was already asked or told
+#     (~/.local/state/rasqberry/*: the setup checklist was answered, the
+#     Imager note, password/name/keyboard answers, the firmware and slot
+#     indicator notices already shown) - else an update reopened the
+#     first-start checklist (user test 2026-10-06/07); its subfolders stay
+#     per slot (learner-setup/ = this slot's Thonny/Geany settings, made at
+#     build time),
 #     and - from a slot that predates /data - its ~/.qiskit, ~/My-Quantum-Programs
 #     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
@@ -66,6 +73,9 @@ PROGRAMS=My-Quantum-Programs
 LEARNER_STAMP=.local/state/rasqberry/learner-setup/programs
 # The starter files rq_learner_setup.sh copies into ~/My-Quantum-Programs
 STARTERS="$ROOT/usr/config/my-quantum-programs"
+# What the desktop user was already asked or told (rq_firstlogin.sh,
+# rq_slot_indicator.py): its files are copied, its folders are per slot
+USER_STATE=.local/state/rasqberry
 ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI DEMO_LOOP_DEMOS
     DEMO_LOOP_IBM_LOGO_TIME DEMO_LOOP_LIGHTS_OUT_TIME DEMO_LOOP_RASQBERRY_TIE_TIME
     DEMO_LOOP_RASQ_LED_TIME DEMO_LOOP_PAUSE"
@@ -341,6 +351,36 @@ pull_vnc_off() {
     cp -p "$other$marker" "$ROOT$marker"
 }
 
+pull_user_state() {
+    # The files in ~/.local/state/rasqberry of the other slot that this slot
+    # lacks (a freshly written slot has none; nothing here is overwritten).
+    # Files only: a folder there (learner-setup/) records this slot's own
+    # home-folder settings. No logs. Folders made here go to the user.
+    local other="$1" home src dst rel d f name n=0
+    home=$(desktop_home)
+    [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
+    src="$other$home/$USER_STATE"; dst="$ROOT$home/$USER_STATE"
+    [ -d "$src" ] && [ ! -L "$src" ] || return 1
+    rel=""
+    for d in ${USER_STATE//\// }; do
+        rel="${rel:+$rel/}$d"
+        if [ ! -d "$ROOT$home/$rel" ]; then
+            mkdir "$ROOT$home/$rel" || return 1
+            give_to_user "$ROOT$home/$rel"
+        fi
+    done
+    for f in "$src"/*; do
+        name=$(basename "$f")
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        case "$name" in *.log|*.log.*) continue ;; esac
+        [ -e "$dst/$name" ] || [ -L "$dst/$name" ] && continue
+        cp -p "$f" "$dst/$name" || continue
+        give_to_user "$dst/$name"
+        n=$((n + 1))
+    done
+    [ "$n" -gt 0 ]
+}
+
 pull_old_slot_data() {
     # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
     # and Wi-Fi profiles
@@ -388,6 +428,7 @@ cmd_pull() {
     copy_if_different "$other" /etc/default/keyboard && carried+=("keyboard layout")
     pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
     pull_vnc_off "$other" && carried+=("VNC off")
+    pull_user_state "$other" && carried+=("setup checklist and notices already seen")
     if what=$(pull_old_slot_data "$other"); then
         carried+=("$what")
     fi
@@ -451,7 +492,8 @@ Kept across an update, on the data partition (both systems use one copy):
 Copied from the old system when the new one starts for the first time:
   - your password, the hostname, time zone, language and keyboard layout
   - SSH host keys and authorized_keys
-  - "Browser at login" and the setup checklist's "Don't ask again"
+  - "Browser at login", and that the setup checklist and notices
+    were already shown (they do not open again)
   - VNC switched off
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared

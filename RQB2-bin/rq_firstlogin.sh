@@ -50,6 +50,8 @@ ENV_FILE="${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}"
 MENU_FILE="/usr/config/RQB2_menu.sh"
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/rasqberry"
+# Its files (not folders) are copied into the new system after an A/B update
+# (rq_carry_over.sh pull_user_state), so an update does not repeat the first start
 # Written when a person has answered the checklist that opened by itself: it
 # never opens by itself again (the name is kept for cards already in use)
 SHOWN_FILE="$STATE_DIR/setup-checklist-shown"

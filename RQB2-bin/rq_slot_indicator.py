@@ -26,8 +26,9 @@ Two one-time notices use wf-panel-pi's own popup (the desktop has no
 notification server): a failed update (once per failure) and a new release
 (once per release). A third, outdated bootloader firmware (rq_firmware.py,
 once per firmware version, after the setup checklist was answered), is a
-small window that says how to update with Raspberry Pi's own tools, with
-How to update (Raspberry Pi's guide) and OK. RasQberry never updates the
+small window that says how to update with Raspberry Pi's own tools (the
+command selectable, with Copy command), How to update (Raspberry Pi's
+guide) and OK. RasQberry never updates the
 firmware itself (Jan, 2026-10-07).
 
 Runs as the desktop user from /etc/xdg/autostart/rasqberry-slot-indicator.desktop.
@@ -55,6 +56,7 @@ import argparse
 import json
 import logging
 import os
+import shutil
 import signal
 import sys
 import threading
@@ -1265,7 +1267,9 @@ class SlotIndicator:
     def show_firmware(self):
         """
         The firmware notice: what and why, how to update with Raspberry Pi's
-        own tools; How to update opens Raspberry Pi's guide, OK closes it.
+        own tools - the command on a line of its own, selectable and with a
+        Copy command button (it could not be copied over VNC, user test
+        2026-10-07); How to update opens Raspberry Pi's guide, OK closes it.
         """
         import gi
         gi.require_version("Gtk", "3.0")
@@ -1280,13 +1284,36 @@ class SlotIndicator:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(16)
         win.add(box)
-        for text in (fw.notice_text(fw.read_status(), time.time()), fw.HOWTO):
+
+        def label(text, markup=False):
             lab = Gtk.Label()
-            lab.set_text(text)
+            if markup:
+                lab.set_markup(text)
+            else:
+                lab.set_text(text)
             lab.set_line_wrap(True)
             lab.set_max_width_chars(56)
             lab.set_xalign(0)
-            box.pack_start(lab, False, False, 0)
+            lab.set_selectable(True)
+            return lab
+
+        box.pack_start(label(fw.notice_text(fw.read_status(), time.time())), False, False, 0)
+        box.pack_start(label(fw.HOWTO_INTRO), False, False, 0)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.set_margin_start(16)
+        cmd = label(f"<tt><b>{fw.UPDATE_CMD}</b></tt>", markup=True)
+        cmd.set_line_wrap(False)
+        row.pack_start(cmd, True, True, 0)
+        copy = Gtk.Button(label="Copy command")
+
+        def on_copy(*_):
+            if self.copy_text(fw.UPDATE_CMD):
+                copy.set_label("Copied")
+
+        copy.connect("clicked", on_copy)
+        row.pack_start(copy, False, False, 0)
+        box.pack_start(row, False, False, 0)
+        box.pack_start(label(fw.HOWTO_OR), False, False, 0)
         buttons = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
         buttons.set_layout(Gtk.ButtonBoxStyle.END)
         buttons.set_spacing(8)
@@ -1300,7 +1327,32 @@ class SlotIndicator:
         win.connect("destroy", self._fw_window_closed)
         self.fw_window = win
         win.show_all()
-        ok.grab_focus()
+        ok.grab_focus()        # not a selectable label: GTK would select all its text
+
+    def copy_text(self, text):
+        """
+        Put text on the clipboard. GTK's clipboard lives as long as this
+        process (the indicator keeps running after the window closes); store()
+        hands it to a clipboard manager where there is one. On Wayland
+        wl-copy, where installed, also serves it on its own. Returns True when
+        it is on the clipboard.
+        """
+        ok = False
+        try:
+            import gi
+            gi.require_version("Gtk", "3.0")
+            gi.require_version("Gdk", "3.0")
+            from gi.repository import Gdk, Gtk
+            clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clip.set_text(text, -1)
+            clip.store()
+            ok = True
+        except Exception as e:      # no display, no Gtk: say so in the log
+            log.warning("cannot copy to the clipboard: %s", e)
+        if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy"):
+            self.spawn(["wl-copy", text])
+            ok = True
+        return ok
 
     def _fw_window_closed(self, *_):
         self.fw_window = None

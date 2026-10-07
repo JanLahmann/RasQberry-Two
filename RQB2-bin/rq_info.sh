@@ -268,7 +268,9 @@ if [ -n "$firmware_line" ] && [ "$firmware_line" != unknown ]; then
     echo "Firmware:          $firmware_line"
     # Raspberry Pi's own tool; RasQberry never updates the firmware itself
     case "$firmware_line" in
-        *"update available"*) echo "                   To update: sudo rpi-eeprom-update -a, then restart" ;;
+        *"update available"*)
+            echo "                   To update, run this, then restart:"
+            echo "                     sudo rpi-eeprom-update -a" ;;
     esac
 fi
 echo "Power:             $(power_text "$throttled")$supply_note"
