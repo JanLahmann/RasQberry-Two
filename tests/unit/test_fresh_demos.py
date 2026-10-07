@@ -211,3 +211,23 @@ def test_quantum_lab_asks_once_for_image_and_notebooks():
     lab = json.load(open(os.path.join(_REPO_ROOT, "RQB2-config", "demo-manifests",
                                       "rq_demo_quantum-lab.json")))
     assert "course notebooks" in lab["install"]["download"]["what"]
+
+
+# ---------------------------------------------------------------------------
+# 6. "Quantum Lights Out 0 MB" in Remove a demo
+# ---------------------------------------------------------------------------
+
+def test_a_small_checkout_is_at_least_1_mb(tmp_path):
+    import re
+    import subprocess
+    src = _read("rq_demo_remove.sh")
+    func = re.search(r"^dir_mb\(\) \{\n.*?^\}\n", src, re.M | re.S).group(0)
+    (tmp_path / "qlo").mkdir()
+    (tmp_path / "qlo" / "a.py").write_bytes(b"x" * 250_000)
+    (tmp_path / "big").mkdir()
+    (tmp_path / "big" / "b").write_bytes(b"x" * 3_500_000)
+    script = (f"DEMOS_ROOT={tmp_path}\n{func}\n"
+              'echo "$(dir_mb qlo) $(dir_mb big) $(dir_mb missing)"\n')
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout.split()
+    assert out[0] == "1" and out[2] == "0"
+    assert int(out[1]) in (4, 5)
