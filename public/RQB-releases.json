@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T18:56:34Z",
+  "generated": "2026-10-07T19:51:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-07-201407",
-      "name": "rasqberry-development-2026-10-07-201407",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-201407/rasqberry-development-2026-10-07-201407.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-201407",
-      "release_date": "2026-10-07 20:14",
-      "image_download_size": 2144559660,
+      "tag": "development-2026-10-07-212007",
+      "name": "rasqberry-development-2026-10-07-212007",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-212007/rasqberry-development-2026-10-07-212007.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-212007",
+      "release_date": "2026-10-07 21:20",
+      "image_download_size": 2144205872,
       "extract_size": 9495904256,
-      "extract_sha256": "ce59c80037755a491a5966b3b9803cbc3922c21b65cf0cc3c554e3dd840e636d",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-201407/rasqberry-development-2026-10-07-201407-ab.img.xz",
-      "ab_extract_sha256": "27a9e7398f54c5b8dc9408fb654d6721d3878b2770b5d238b6574c982bace50b",
-      "ab_image_sha256": "ffd1016fd7d8438f3d7b5b260713a5ba6229e29f2cf155a8f613710e500f9e5d",
+      "extract_sha256": "72388c4b438e9fa480a53503647aa4911f58bb4d33c3dfe67b9bf8e8d4e5a8a2",
+      "image_sha256": "764edaa899ce4c386e84defd1db145952160f056debc20f11d04bf39f361b514",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-212007/rasqberry-development-2026-10-07-212007-ab.img.xz",
+      "ab_extract_sha256": "5fdc6835a015cfd3f346f59d0ec9697fe47b2f965f1ee0cd17e0cba775a02f2d",
+      "ab_image_sha256": "4169b7e6b5b1782231106a2fbe7dbca2e4f618ddafba9d2370239e6629606547",
+      "ab_image_download_size": 1880929072,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1880369868,
       "highlights": [
-        "Enter in the IBM LED demo's terminal stops it at once",
-        "no \"other slot\" note on a single-system card, one size per partition",
-        "name the network truthfully on a Pi connected by cable",
-        "firmware notice opens with nothing selected",
-        "Connect box gives the firmware hint only when it can help"
+        "name the move to Raspberry Pi OS Trixie",
+        "Bump version to development-2026-10-07-212007",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-07-201407"
       ]
     }
   }
