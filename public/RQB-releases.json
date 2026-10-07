@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T10:45:10Z",
+  "generated": "2026-10-07T10:46:01Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2144180368,
       "extract_size": 9495904256,
       "extract_sha256": "d66f492b24bce5bdf8285e3e15659e68e65bedc5574fdba5c9b6aa68847652a2",
-      "image_sha256": "16c9caaf8e1e5c595e88548d4453ba53a756619a0905c470bcb93c098ca184dc",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-120327/rasqberry-development-2026-10-07-120327-ab.img.xz",
       "ab_extract_sha256": "9476bd1a18b47ad6b4581fd8f4ad4e4ff7481bbe6c4d65d73fdf3170fb40ee28",
       "ab_image_sha256": "d57117b9ce865aa392891fc5b74b461f2050cdefaa967170d952d5f961045a13",
-      "ab_image_download_size": 1877190984,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1877190984,
       "highlights": [
         "notify only; Raspberry Pi's EEPROM tools stage on CONFIG on A/B cards",
         "Bump version to development-2026-10-07-120327",
