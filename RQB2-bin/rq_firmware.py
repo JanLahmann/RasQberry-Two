@@ -55,8 +55,12 @@ MONTHS = ("January", "February", "March", "April", "May", "June", "July",
 # Raspberry Pi's guide: raspi-config's Bootloader Version, rpi-eeprom-update
 DOC_URL = ("https://www.raspberrypi.com/documentation/computers/raspberry-pi.html"
            "#update-the-bootloader-configuration")
-HOWTO = ("To update: in a terminal, sudo rpi-eeprom-update -a, then restart. "
-         "Or: sudo raspi-config, Advanced Options, Bootloader Version.")
+# The command on a line of its own, so it can be selected and copied (over
+# VNC, too); the desktop notice shows the three parts with a Copy button
+UPDATE_CMD = "sudo rpi-eeprom-update -a"
+HOWTO_INTRO = "To update, run this in a terminal, then restart:"
+HOWTO_OR = "Or: sudo raspi-config, Advanced Options, Bootloader Version."
+HOWTO = f"{HOWTO_INTRO}\n\n    {UPDATE_CMD}\n\n{HOWTO_OR}"
 
 
 # ---------------------------------------------------------------------------

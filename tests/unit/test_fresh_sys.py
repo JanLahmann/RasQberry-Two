@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
+import types
 
 import pytest
 
@@ -250,12 +251,126 @@ def test_rasqberry_never_updates_the_firmware():
     """Jan, 2026-10-07: notify only, point to Raspberry Pi's own tools."""
     for name in ("rq_firmware.py", "rq_slot_indicator.py", "rq_firstlogin.sh", "rq_info.sh"):
         code = open(os.path.join(_BIN, name)).read()
+        # the command is only text to show (UPDATE_CMD, System Info), never run
+        code = code.replace('UPDATE_CMD = "sudo rpi-eeprom-update -a"', "")
+        code = code.replace('echo "                     sudo rpi-eeprom-update -a"', "")
         assert "rpi-eeprom-update -a\"" not in code and "[EEPROM_UPDATE, \"-a\"]" not in code, name
         assert "Update now" not in code and "Update the firmware" not in code, name
+        assert "spawn([fw.UPDATE_CMD" not in code and "spawn(fw.UPDATE_CMD" not in code, name
     assert not hasattr(ind, "FIRMWARE_CMD") and not hasattr(fw, "update")
-    assert "sudo rpi-eeprom-update -a, then restart" in fw.HOWTO
+    assert fw.UPDATE_CMD == "sudo rpi-eeprom-update -a"
+    # the command on a line of its own (copyable), then restart
+    assert "\n    sudo rpi-eeprom-update -a\n" in fw.HOWTO
+    assert "then restart" in fw.HOWTO_INTRO and fw.HOWTO_INTRO in fw.HOWTO
     assert "Advanced Options, Bootloader Version" in fw.HOWTO
     assert fw.DOC_URL.endswith("raspberry-pi.html#update-the-bootloader-configuration")
+
+
+class _Widget:
+    """A stand-in for a Gtk widget: remembers what was set and connected."""
+
+    made = []
+
+    def __init__(self, kind, **kw):
+        self.kind, self.kw, self.calls, self.handlers, self.children = kind, kw, {}, {}, []
+        _Widget.made.append(self)
+
+    def __getattr__(self, name):
+        def call(*args):
+            self.calls.setdefault(name, []).append(args)
+            if name in ("add", "pack_start", "pack_end"):
+                self.children.append(args[0])
+        return call
+
+    def connect(self, signal, handler):
+        self.handlers[signal] = handler
+
+
+class _FakeGtk:
+    """Gtk for show_firmware: widgets are _Widgets, the clipboard a list."""
+    WindowPosition = Orientation = ButtonBoxStyle = types.SimpleNamespace(
+        CENTER=0, VERTICAL=0, HORIZONTAL=1, END=2)
+    clipboard = []
+
+    def __getattr__(self, name):
+        return lambda **kw: _Widget(name, **kw)
+
+    class Clipboard:
+        @staticmethod
+        def get(selection):
+            class _Clip:
+                def set_text(self, text, length):
+                    _FakeGtk.clipboard.append(("set_text", text, length))
+
+                def store(self):
+                    _FakeGtk.clipboard.append(("store",))
+            return _Clip()
+
+
+@pytest.fixture
+def fake_gtk(monkeypatch):
+    gtk = _FakeGtk()
+    repo = types.ModuleType("gi.repository")
+    repo.Gtk = gtk
+    repo.Gdk = types.SimpleNamespace(SELECTION_CLIPBOARD="CLIPBOARD")
+    gi = types.ModuleType("gi")
+    gi.require_version = lambda *a: None
+    gi.repository = repo
+    monkeypatch.setitem(sys.modules, "gi", gi)
+    monkeypatch.setitem(sys.modules, "gi.repository", repo)
+    _Widget.made = []
+    _FakeGtk.clipboard = []
+    return gtk
+
+
+def _notice_window(monkeypatch, tmp_path):
+    item = ind.SlotIndicator.__new__(ind.SlotIndicator)
+    item.fw_window = None
+    item.spawned = []
+    item.spawn = item.spawned.append
+    item.open_url = lambda url: item.spawned.append(["open", url])
+    monkeypatch.setattr(fw, "read_status", lambda: {})
+    item.show_firmware()
+    return item
+
+
+def _label_texts():
+    out = []
+    for w in _Widget.made:
+        if w.kind == "Label":
+            for name in ("set_text", "set_markup"):
+                out += [a[0] for a in w.calls.get(name, [])]
+    return out
+
+
+def test_firmware_notice_command_is_copyable(fake_gtk, monkeypatch, tmp_path):
+    """User test 2026-10-07: over VNC the command could not be copied."""
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    item = _notice_window(monkeypatch, tmp_path)
+    labels = [w for w in _Widget.made if w.kind == "Label"]
+    # every text can be selected; the command is a line of its own, monospace
+    assert labels and all(w.calls.get("set_selectable") == [(True,)] for w in labels)
+    texts = _label_texts()
+    assert "<tt><b>sudo rpi-eeprom-update -a</b></tt>" in texts
+    assert fw.HOWTO_INTRO in texts and fw.HOWTO_OR in texts
+    assert texts[0].startswith("The Pi's firmware is from")
+    buttons = {w.kw.get("label"): w for w in _Widget.made if w.kind == "Button"}
+    assert set(buttons) == {"Copy command", "How to update", "OK"}
+    buttons["Copy command"].handlers["clicked"]()
+    assert _FakeGtk.clipboard == [("set_text", "sudo rpi-eeprom-update -a", -1), ("store",)]
+    assert buttons["Copy command"].calls["set_label"] == [("Copied",)]
+    assert item.spawned == []                 # copying runs nothing
+    buttons["How to update"].handlers["clicked"]()
+    assert item.spawned == [["open", fw.DOC_URL]]
+
+
+def test_firmware_copy_uses_wl_copy_on_wayland(fake_gtk, monkeypatch, tmp_path):
+    # wl-copy, where installed, serves the text on its own as well
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-1")
+    monkeypatch.setattr(ind.shutil, "which", lambda name: "/usr/bin/" + name)
+    item = _notice_window(monkeypatch, tmp_path)
+    assert item.copy_text(fw.UPDATE_CMD) is True
+    assert item.spawned == [["wl-copy", "sudo rpi-eeprom-update -a"]]
 
 
 def test_howto_text(tmp_path):
@@ -404,7 +519,8 @@ def test_system_info_shows_firmware_and_connect(stubs, tmp_path):
     out = subprocess.run(["bash", str(bindir / "rq_info.sh")], env=env, capture_output=True,
                          text=True, timeout=30).stdout
     assert ("Firmware:          8 May 2025 (update available)\n"
-            "                   To update: sudo rpi-eeprom-update -a, then restart\n") in out
+            "                   To update, run this, then restart:\n"
+            "                     sudo rpi-eeprom-update -a\n") in out
     assert "Pi Connect:        on, signed in\n" in out
 
 
