@@ -5,7 +5,7 @@ Tests for the Trixie polish of 2026-10-07.
   the LED busy dialog's "Stop It" stopped it: a oneshot unit counts SIGTERM
   as a failure, and the script died of the signal, its last frame frozen.
 - Quantum Raspberry Tie on the Pi 5: frames written back to back ran
-  together (kernel 6.18 PIO), see test_qrt_pi5_pacing below.
+  together (kernel 6.18 PIO): its patch had no Pi 5 frame pacing.
 """
 
 import os
@@ -77,3 +77,32 @@ def test_a_stopped_ip_display_exits_0_with_the_panel_dark(monkeypatch):
         signal.signal(signal.SIGTERM, old)
     assert stop.value.code == 0
     assert strip.frames == [(0, 0, 0)]
+
+
+# --- Quantum Raspberry Tie paces its frames on the Pi 5 -----------------------------
+
+def _qrt_added_lines():
+    patch = _read("RQB2-config", "demo-patches", "quantum-raspberry-tie.patch")
+    return "\n".join(line[1:] for line in patch.splitlines()
+                     if line.startswith("+") and not line.startswith("+++"))
+
+
+def test_qrt_pi5_pacing():
+    # Raspberry Tie opens the panel itself (neopixel.NeoPixel), not through
+    # create_neopixel_strip, so it lacked the Pi 5 guard: on kernel 6.18 a
+    # frame written right after another one was lost (rig: QRT-style frames
+    # back to back left the panel dark; with the guard all of it lit)
+    added = _qrt_added_lines()
+    guard = added.index("guard_pi5_led_writes()")
+    assert guard < added.index("neopixel_array = neopixel.NeoPixel(")
+    # its Ctrl+C handler ends with os._exit, past the exit handlers: the black
+    # frame must go out first
+    stop = added[added.index("def _rq_stop"):added.index("_rq_signal.signal(")]
+    assert stop.index("neopixel_array.show()") < stop.index("_wait_for_last_frame()") \
+        < stop.index("os._exit(130)")
+
+
+def test_the_qrt_guard_names_exist_in_rq_led_utils():
+    utils = _read("RQB2-bin", "rq_led_utils.py")
+    assert "\ndef guard_pi5_led_writes(" in utils
+    assert "\ndef _wait_for_last_frame(" in utils

@@ -1,8 +1,8 @@
 diff --git a/QuantumRaspberryTie.v8_0.py b/QuantumRaspberryTie.v8_0.py
-index 5ba805e..5cbc5b0 100644
+index 5ba805e..a6a85c7 100644
 --- a/QuantumRaspberryTie.v8_0.py
 +++ b/QuantumRaspberryTie.v8_0.py
-@@ -108,6 +108,35 @@
+@@ -108,6 +108,38 @@
  print("importing libraries...")
  print("       ....sys")
  import sys                             # used to check for passed filename
@@ -23,6 +23,9 @@ index 5ba805e..5cbc5b0 100644
 +    try:  # and the LED panel, which kept its last pattern (R-158)
 +        neopixel_array.fill((0, 0, 0))
 +        neopixel_array.show()
++        # os._exit skips the exit handlers: let the frame out first (Pi 5)
++        from rq_led_utils import _wait_for_last_frame
++        _wait_for_last_frame()
 +    except Exception:
 +        pass
 +    os._exit(130)
@@ -38,7 +41,7 @@ index 5ba805e..5cbc5b0 100644
  print("       ....os")
  import os                              # used to find script directory
  print("       ....platform")
-@@ -340,16 +369,42 @@ qubits = pixels
+@@ -340,16 +372,42 @@ qubits = pixels
  # scale lets us do a simple color rotation of hues and convert it to RGB in pixels
  
  # LED array indices to map to pixel list
@@ -91,7 +94,7 @@ index 5ba805e..5cbc5b0 100644
  
  # LED array indices for 8x32 single array
  LED8x32_indices = {
-@@ -479,13 +534,19 @@ def resetrainbow(show=False):
+@@ -479,13 +537,19 @@ def resetrainbow(show=False):
         if not NoHat: hat.set_pixels(pixels)
         if DualDisplay and not NoHat: hat2.set_pixels(pixels)
  
@@ -112,7 +115,7 @@ index 5ba805e..5cbc5b0 100644
  
          # Set the appropriate pixel to the RGB value
          neopixel_array[LED_index] = (red, green, blue)
-@@ -628,7 +689,7 @@ def blinky(time=20,experimentID=''):
+@@ -628,7 +692,7 @@ def blinky(time=20,experimentID=''):
            if not NoHat: hat.set_pixels(QKLogo)
            if DualDisplay and not NoHat: hat2.set_pixels(QKLogo)
            if UseNeo:
@@ -121,7 +124,7 @@ index 5ba805e..5cbc5b0 100644
              if DualNEO and not NeoTiled: display_to_LEDs(pixels, matrix_map2)
        sleep(0.002)
        count+=1
-@@ -1090,6 +1151,10 @@ if not UseEmulator and IsRPi:
+@@ -1090,6 +1154,10 @@ if not UseEmulator and IsRPi:
          UseEmulator = True
          print("       ....trying SenseHat Emulator instead")
  
@@ -132,7 +135,7 @@ index 5ba805e..5cbc5b0 100644
  if UseEmulator:
      print ("....importing SenseHat Emulator")
      try:
-@@ -1125,32 +1190,42 @@ if UseNeo and IsRPi :
+@@ -1125,32 +1193,50 @@ if UseNeo and IsRPi :
      print("importing neopixel library...")
      try:
          import board
@@ -175,6 +178,14 @@ index 5ba805e..5cbc5b0 100644
 +
 +        # Neopixel initialization on GPIO (board.D<pin>); the neopixel
 +        # driver auto-selects the PWM/PIO backend for Pi 4 vs Pi 5.
++        # RasQberry: on a Pi 5 the shared guard paces the frames (kernel
++        # 6.18 returns before a frame is out; one written straight after it
++        # was lost) and restarts a stalled driver; nothing on a Pi 4
++        try:
++            from rq_led_utils import guard_pi5_led_writes
++            guard_pi5_led_writes()
++        except Exception as e:
++            print("LED frame pacing not available: ", e)
 +        gpio_pin = int(config.get("LED_GPIO_PIN", 18))
 +        gpio_board_pin = getattr(board, f"D{gpio_pin}")
 +        neopixel_array = neopixel.NeoPixel(
@@ -192,7 +203,7 @@ index 5ba805e..5cbc5b0 100644
      except Exception as e:
          print("Error initilizating Neopixel board: ", e)
  
-@@ -1201,7 +1276,7 @@ if not NoHat and not SenseHatEMU: orient()
+@@ -1201,7 +1287,7 @@ if not NoHat and not SenseHatEMU: orient()
  display=ibm_qx32
  if not NoHat: hat.set_pixels(Arrow)
  if UseNeo:
