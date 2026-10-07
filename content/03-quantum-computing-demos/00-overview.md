@@ -9,25 +9,19 @@ good order for a stand, a lesson or your first program.
 
 ## The demos at a glance
 
-| Demo | What it shows | Needs |
-|------|---------------|-------|
-| [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/) | Single-qubit states and gates on the Bloch sphere (local and web version) | display |
-| [Quantum Fractals](/03-quantum-computing-demos/fractals/) | Julia-set animations driven by a one-qubit circuit | display |
-| [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/) | Measurement and probabilities: a circuit picks your drink | display, network |
-| [Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/) | Grover's search solving the Lights Out puzzle | LED panel or on-screen view |
-| [Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/) | Measured qubits on the LEDs, from a simulator or real IBM hardware | LED panel or on-screen view, display |
-| RasQ-LED | Superposition and entanglement shown on the LED panel | LED panel or on-screen view |
-| [LED Demos](/03-quantum-computing-demos/led-display/) | LED tests, text, logos and colour effects | LED panel or on-screen view |
-| LED-Painter | Paint on the LED panel from a graphical interface | LED panel or on-screen view, display |
-| Fun with Quantum | Game notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, magic square, 3-SAT), the games in the browser and the Fun with Quantum family | display |
-| Quantum Paradoxes | Notebooks on quantum paradoxes and phenomena | display |
-| IBM Quantum Tutorials | Official IBM Quantum tutorials as local notebooks | display |
-| IBM Quantum Courses | Official IBM Quantum courses as local notebooks | display |
-| Quantum Lab (QuBins) | Local JupyterLab with the IBM Quantum Learning notebooks | display, network |
-| Workshop & Qiskit Server <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials and courses, with runnable Qiskit code, to a group's laptops (built on doQumentation) | network; internet to run code (for now) |
-| Qiskit Tutorials on this Pi <span className="beta-tag">beta</span> | The same tutorials and courses, just for you on this Pi | display; internet to run code (for now) |
-| Quantum Mixer | Interactive circuit builder and simulator | display |
-| IBM Quantum Composer | IBM's online circuit composer | display, network, IBM Quantum account |
+The demos come in five groups. Each is a folder on the desktop and a submenu of
+**Quantum Demos** in the RasQberry menu.
+
+| Group | What is in it |
+|-------|---------------|
+| **LED panel** | IBM LED Demo, RasQ-LED, [Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/), [Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/), LED-Painter, [text and logos](/03-quantum-computing-demos/led-display/) |
+| **Play** | Fun with Quantum games (Quantum Coin Game, GHZ game, Hardy's paradox, magic square, 3-SAT) and website, Quantum Paradoxes, [Quantum Fractals](/03-quantum-computing-demos/fractals/) |
+| **Big projects** | [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/), Quantum Mixer, traQmania |
+| **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), Qiskit Tutorials on this Pi, Quantum Lab (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
+| **Workshops & events** | Workshop & Qiskit Server, Demo Loop |
+
+A few starters sit loose on the desktop too: Learning paths, IBM LED Demo,
+Grokking the Bloch Sphere, Quantum Coin Game and My Quantum Programs.
 
 Only the LED demos, RasQ-LED and Quantum Fractals are on the card from the
 start. The others download on their first start, which needs a network
@@ -38,9 +32,9 @@ Demos tagged beta are new:
 
 ## Running demos
 
-1. **Desktop icons:** double-click the demo icon.
+1. **Desktop:** double-click a starter, or a group's folder and then the demo.
 2. **Desktop menu:** **Applications** → **RasQberry** → [Demo Name].
-3. **RasQberry menu:** `sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
+3. **RasQberry menu:** `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → the group.
 4. **Command line:** `rq_demo_run.sh <demo-id>`, e.g. `rq_demo_run.sh quantum-fractals`.
    The ids are on the [Demo List](/03-quantum-computing-demos/01-demo-list/).
 
@@ -53,8 +47,8 @@ Workshop & Qiskit Server keeps running until you stop it.
 
 LED demos open an on-screen view of the panel when no panel is connected. To
 watch the panel in a browser on any device in the network, switch on the web
-view in `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LEDs**
-→ **Output Targets**, then open `http://rasqberry.local:8098`.
+view in `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel**
+→ **LED setup & tests** → **Output Targets**, then open `http://rasqberry.local:8098`.
 
 ## IBM Quantum accounts
 
@@ -65,20 +59,23 @@ uses it.
 
 ## More in the Quantum Demos menu
 
-- **Download all demos (one-time setup):** installs every demo now instead of on
-  first use, before taking the Pi somewhere without a network.
 - **Learning paths (beta):** short tours through the demos
   ([on the website](/03-quantum-computing-demos/02-learning-paths/)).
-- **Add demo from catalogue:** installs reviewed third-party demos, each pinned to a
-  fixed commit (for example traQmania and the SAP demos). From a terminal:
-  `rq_demo_add_external.sh --list`, `rq_demo_add_external.sh <id>`,
-  `rq_demo_add_external.sh --remove <id>`.
-- **Continuous Demo Loop (Conference):** runs demos one after another, for a booth.
-- **Update demos:** moves a demo to a newer upstream version, or back.
-- **Stop an LED demo still running, clear LEDs:** frees the LED panel when a demo
-  is still holding it; the next LED demo cannot start until then.
-- **Stop Docker demos:** stops the Workshop & Qiskit Server, Quantum Lab,
-  Qoffee-Maker or Quantum Mixer.
+- **Stop a running LED demo:** frees the LED panel when a demo is still holding
+  it; the next LED demo cannot start until then.
+- **Manage demos:**
+  - **Download all demos (one-time setup):** installs every demo now instead of
+    on first use, before taking the Pi somewhere without a network.
+  - **Add demo from catalogue:** installs reviewed third-party demos, each pinned
+    to a fixed commit (for example traQmania and the SAP demos), into their
+    group. From a terminal: `rq_demo_add_external.sh --list`,
+    `rq_demo_add_external.sh <id>`, `rq_demo_add_external.sh --remove <id>`.
+  - **Update demos:** moves a demo to a newer upstream version, or back.
+  - **Remove a demo:** frees space; it downloads again when started.
+  - **Stop Docker demos:** stops the Workshop & Qiskit Server, Quantum Lab,
+    Qoffee-Maker or Quantum Mixer.
+- **Workshops & events** → **Demo Loop:** runs LED demos one after another, for a
+  booth.
 
 ## At a booth or in class
 

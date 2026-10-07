@@ -22,14 +22,14 @@ with the Qiskit code running on the Pi. It is based on
 Running code in the notebooks needs the internet for now: the pages load their
 code runner from the web.
 
-To start it, double-click **Workshop & Qiskit Server** on the desktop (or
-RasQberry → Quantum Demos). The Pi shows the address and a QR code for the
+To start it, double-click **Workshop & Qiskit Server** in the desktop folder
+**Workshops & events** (or RasQberry → Quantum Demos → Workshops & events). The Pi shows the address and a QR code for the
 participants; open the same entry again to stop it.
 
 ## For a stand
 
 Demos that draw visitors in, on a large monitor and on the model. The
-**Continuous Demo Loop** (RasQberry → Quantum Demos) runs them one after another
+**Demo Loop** (RasQberry → Quantum Demos → Workshops & events) runs them one after another
 without anyone at the keyboard; the learning path **First 15 minutes** is a good
 guided tour for visitors who stay.
 

@@ -15,7 +15,7 @@ your browser. This version works offline and has tips on what to try and a short
 explanation.
 
 It is also under **Applications → RasQberry → Grokking the Bloch Sphere**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**, which also offers the
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **Learn & code**, which also offers the
 online version.
 
 ## Reading the sphere

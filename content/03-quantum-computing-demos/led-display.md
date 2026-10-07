@@ -19,7 +19,7 @@ upright. It handles the single 24×8 panel and the quad 4×12 panel, either way 
 other arrangements get a step-by-step walkthrough.
 
 Run it from `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** →
-**LEDs** → **LED Setup Wizard**
+**LED panel** → **LED setup & tests** → **LED Setup Wizard**
 (or `sudo rq_led_setup_wizard.sh`). The first-login checklist offers a short
 version of the same check.
 
@@ -29,7 +29,7 @@ it is kept when you update the other slot.
 ## Accessing via raspi-config
 
 Run `sudo raspi-config` and navigate to:
-**0 RasQberry → Quantum Demos → LEDs → Text & Logo Display**
+**0 RasQberry → Quantum Demos → LED panel → Text & logos**
 
 ### Available Options
 
@@ -112,12 +112,11 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
 
 1. Make sure no other demo is still running. The panel is driven by one process
    at a time, so a demo left running holds it and the next one finds it busy.
-   Stop the running demo (**Quantum Demos** → **Stop an LED demo still running,
-   clear LEDs**), or reboot.
+   Stop the running demo (**Quantum Demos** → **Stop a running LED demo**), or reboot.
 2. Run the LED test: `rq_demo_run.sh led-demos led-test`
 3. Check wiring and power supply. On a Pi 5, LEDs that stop after a while mean the
    power supply is too weak: RasQberry says so and offers a lower brightness. Use
-   the official 27 W supply, or lower **LEDs** → **LED brightness**.
+   the official 27 W supply, or lower **LED panel** → **LED setup & tests** → **LED brightness**.
 
 ### Turn off LEDs
 
@@ -127,7 +126,7 @@ source ~/RasQberry-Two/venv/RQB2/bin/activate
 python3 /usr/bin/turn_off_LEDs.py
 
 # Or via raspi-config menu
-# Quantum Demos → LEDs → Turn off all LEDs
+# Quantum Demos → LED panel → Clear All LEDs
 ```
 
 ## For developers

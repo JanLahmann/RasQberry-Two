@@ -14,7 +14,7 @@ actually arranged on the processor.
 Double-click the **Quantum Raspberry Tie** icon on the desktop.
 
 It is also under **Applications → RasQberry → Quantum Raspberry Tie**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel**.
 
 From a terminal you can pick the backend:
 

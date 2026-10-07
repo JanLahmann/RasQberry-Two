@@ -166,7 +166,7 @@ Now it’s time to test the LEDs! Double-click the **RasQberry Setup** icon on t
 sudo rq_led_setup_wizard.sh
 ```
 
-(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LEDs` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
+(It is also in `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `LED setup & tests` → `LED Setup Wizard`.) The wizard shows an IBM logo in different colours; pick the colour in which the logo reads upright, and RasQberry stores your panel layout.
 
 If everything is wired up correctly, the IBM logo appears on the LED panel in the correct orientation. Verify that your result looks similar to this:
 
@@ -177,7 +177,7 @@ Finally, take the bottom two LED panels and slot them into the space in the wall
 ![Figure 18](/assembly-images/wall_assembly_18.JPG "Figure 18: Placing the bottom row of LED panels.")
 
 While making sure to preserve the LED orientation, slot the other two panels on top. You can rest the top row of the LEDs onto the black board of the bottom LEDs.
-To line up the columns, show the IBM logo again: `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LEDs` → `IBM LED Demo`. Once you’re all done, it should look like this:
+To line up the columns, show the IBM logo again: `sudo raspi-config` → `0 RasQberry` → `Quantum Demos` → `LED panel` → `IBM LED Demo`. Once you’re all done, it should look like this:
 
 ![Figure 19](/assembly-images/wall_assembly_19.JPG "Figure 19: Both rows of LED panels lined up.")
 

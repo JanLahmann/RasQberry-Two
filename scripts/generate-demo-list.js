@@ -9,8 +9,10 @@
  * they "will be made available".
  *
  * This writes content/03-quantum-computing-demos/01-demo-list.md from those
- * manifests. Prose stays hand-written in the per-demo pages - only the catalogue
- * is generated.
+ * manifests, one section per demo group (demo-groups.json next to them: the
+ * Pi's desktop folders and Quantum Demos submenus), with the catalogue demos
+ * (RQB2-config/known-demos.json) in their groups. Prose stays hand-written in
+ * the per-demo pages - only the catalogue is generated.
  *
  * It also writes 02-learning-paths.md from learning-paths.json, which sits next
  * to the manifests: the Pi's Learning paths chooser reads the same file, so the
@@ -38,8 +40,11 @@ const MANIFEST_DIR = 'RQB2-config/demo-manifests';
 const DEFAULT_REF = 'development';
 const OUT = path.join(__dirname, '..', 'content', '03-quantum-computing-demos', '01-demo-list.md');
 const PATHS_FILE = 'learning-paths.json';
+const GROUPS_FILE = 'demo-groups.json';
+const REGISTRY = 'RQB2-config/known-demos.json';
 const PATHS_OUT = path.join(path.dirname(OUT), '02-learning-paths.md');
 const DEMO_LIST_URL = '/03-quantum-computing-demos/01-demo-list/';
+const PATHS_URL = '/03-quantum-computing-demos/02-learning-paths/';
 // The demo feedback form, as the Pi's beta demos link it (rq_common.sh RQ_FEEDBACK_URL)
 const FEEDBACK = `https://github.com/${REPO}/issues/new?template=demo-feedback.yml`;
 
@@ -98,7 +103,13 @@ async function fetchSources() {
       .map((n) => JSON.parse(fs.readFileSync(path.join(dir, n), 'utf8')));
     const file = path.join(dir, PATHS_FILE);
     if (!fs.existsSync(file)) throw new Error(`${PATHS_FILE} not found in ${dir}`);
-    return { manifests, learning: JSON.parse(fs.readFileSync(file, 'utf8')) };
+    const optional = (f) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null);
+    return {
+      manifests,
+      learning: JSON.parse(fs.readFileSync(file, 'utf8')),
+      groups: optional(path.join(dir, GROUPS_FILE)),
+      registry: optional(path.join(local, REGISTRY)),
+    };
   }
   const api = `https://api.github.com/repos/${REPO}/contents/${MANIFEST_DIR}?ref=${ref}`;
   const res = await fetch(api, { headers: ghHeaders() });
@@ -116,7 +127,17 @@ async function fetchSources() {
   for (const f of files) if (isManifest(f.name)) manifests.push(await get(f));
   const pathsFile = files.find((f) => f.name === PATHS_FILE);
   if (!pathsFile) throw new Error(`${PATHS_FILE} not found on ${ref}: merge the learning paths there first`);
-  return { manifests, learning: await get(pathsFile) };
+  // The groups and the catalogue: without demo-groups.json (a branch from
+  // before the groups) the list keeps the category headings.
+  const groupsFile = files.find((f) => f.name === GROUPS_FILE);
+  const regRes = await fetch(`https://raw.githubusercontent.com/${REPO}/${ref}/${REGISTRY}`, { headers: ghHeaders() });
+  if (!regRes.ok && regRes.status !== 404) throw new Error(`fetch ${REGISTRY}: ${regRes.status}`);
+  return {
+    manifests,
+    learning: await get(pathsFile),
+    groups: groupsFile ? await get(groupsFile) : null,
+    registry: regRes.ok ? await regRes.json() : null,
+  };
 }
 
 // Headings and running order for the manifest `category` values. Anything not
@@ -135,7 +156,71 @@ const CATEGORIES = [
 // own (grok-bloch-web: the online version is now a variant of grok-bloch).
 const isShown = (m) => !(m.menu?.show === false && m.desktop?.show === false);
 
-function render(manifests) {
+// Catalogue demos (known-demos.json) as rows: added from the RasQberry menu
+// first, so their needs are the download; their group decides the section.
+function catalogueRows(registry) {
+  return (registry?.demos || []).map((d) => ({
+    id: d.id,
+    name: d.name || d.id,
+    group: d.group,
+    maturity: d.maturity,
+    description: `${d.summary ? d.summary[0].toUpperCase() + d.summary.slice(1) : ''}${d.provider ? ` (provided by ${d.provider})` : ''}`,
+    catalogue: true,
+    download: d.download?.download_mb,
+  }));
+}
+
+function row(m) {
+  const page = pageFor(m.id);
+  const name = page ? `[${m.name}](${page})` : m.name;
+  const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+  const needs = m.catalogue
+    ? [`add it first: **Manage demos** → **Add demo from catalogue**${m.download ? ` (${m.download < 1000 ? `${m.download} MB` : `${(m.download / 1000).toFixed(1)} GB`})` : ''}`]
+    : needsOf(m);
+  return `| **${name}**${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
+}
+
+const TABLE_HEAD = `| Demo | What it is | Needs | Start it with |\n|---|---|---|---|\n`;
+
+// One section per demo group, in the order of demo-groups.json: the Pi's
+// desktop folders and Quantum Demos submenus. Without the file, by category.
+function render(manifests, groups, registry) {
+  if (!groups?.groups?.length) return renderByCategory(manifests);
+  const ids = groups.groups.map((g) => g.id);
+  // a manifest without a valid group goes where the Pi's guess puts it
+  const guess = (m) => (m.needs_hw?.leds ? 'led-panel' : ['game', 'visualization'].includes(m.category) ? 'play' : 'learn');
+  const byGroup = Object.fromEntries(ids.map((g) => [g, []]));
+  for (const m of manifests.filter(isShown)) byGroup[ids.includes(m.group) ? m.group : guess(m)]?.push(m);
+  for (const list of Object.values(byGroup)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
+  for (const c of catalogueRows(registry)) byGroup[ids.includes(c.group) ? c.group : 'learn']?.push(c);
+
+  const first = (groups.starters || []).length ? `New here? Start with the [First 15 minutes](${PATHS_URL}${h2Anchor('First 15 minutes')}) learning path.\n\n` : '';
+  let md = `# Quantum Computing Demos in RasQberry Two
+
+The demos come in five groups: a folder on the desktop and a submenu of
+\`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** each. A terminal
+starts them with \`rq_demo_run.sh <id>\`. Demos marked "network on first start"
+download the first time you run them. An IBM Quantum account is only needed to
+run on real IBM hardware. Demos tagged beta are new:
+[tell us how they work](${FEEDBACK}).
+
+${first}> This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
+> — the same files the image installs from, so it cannot fall out of step with
+> what ships. To change an entry, edit its manifest; edits made here are
+> overwritten.
+
+`;
+  for (const g of groups.groups) {
+    if (!byGroup[g.id].length) continue;
+    md += `## ${g.title}\n\n${g.description ? `${g.description}\n\n` : ''}${TABLE_HEAD}`;
+    for (const m of byGroup[g.id]) md += row(m);
+    md += `\n`;
+  }
+  md += `---\n\n*Generated from the demo manifests in [\`${MANIFEST_DIR}\`](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR}) — the same files the image installs from.*\n`;
+  return md;
+}
+
+function renderByCategory(manifests) {
   const byCategory = {};
   for (const m of manifests.filter(isShown)) (byCategory[m.category || 'other'] ||= []).push(m);
   for (const list of Object.values(byCategory)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
@@ -285,12 +370,12 @@ ${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEED
 }
 
 (async () => {
-  const { manifests, learning } = await fetchSources();
+  const { manifests, learning, groups, registry } = await fetchSources();
   const paths = learning.paths;
   if (!manifests.length) throw new Error('no manifests found — refusing to write an empty list');
   if (!paths || !paths.length) throw new Error(`no paths in ${PATHS_FILE} — refusing to write an empty page`);
   const outputs = [
-    [OUT, render(manifests), `demo list matches the manifests (${manifests.filter(isShown).length} demos)`],
+    [OUT, render(manifests, groups, registry), `demo list matches the manifests (${manifests.filter(isShown).length} demos)`],
     [PATHS_OUT, renderPaths(learning, manifests), `learning paths match ${PATHS_FILE} (${paths.length} paths)`],
   ];
 

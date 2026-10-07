@@ -16,7 +16,7 @@ container, opens `qoffee.ipynb`, and switches straight into the app view — you
 not have to run any cells yourself.
 
 It is also under **Applications → RasQberry → Qoffee-Maker**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos**.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **Big projects**.
 
 The first launch pulls the Qoffee container image, so give it a few minutes and a
 decent connection. After that it starts quickly.
