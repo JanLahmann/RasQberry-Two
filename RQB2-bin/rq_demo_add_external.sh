@@ -345,8 +345,10 @@ add_demo() {
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
     if ! show_yesno "Demo from the Catalogue" \
         "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\nInstall it?"; then
-        info "Installation cancelled by user"
-        return 1
+        # "No" is an answer, not an error: it ended in "It stopped with an
+        # error" and an Error box (user test 2026-10-07, S3)
+        info "Nothing was installed."
+        return 0
     fi
     if [ -n "$disk" ] && [ "$(rq_free_mb "$USER_HOME")" -lt $((disk + RQ_SPACE_RESERVE_MB)) ]; then
         die "Not enough free space for '$id': it needs about $(rq_fmt_mb "$disk") plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
@@ -407,8 +409,8 @@ add_demo() {
         if ! show_yesno "LED demo - root privileges" \
             "The demo '$id' drives the LED hardware and will run with root privileges.\n\nInstall and allow it to run as root?"; then
             rm -rf "$dest"
-            info "Installation cancelled by user"
-            return 1
+            info "Nothing was installed."
+            return 0
         fi
     fi
 

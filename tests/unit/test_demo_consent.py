@@ -390,7 +390,7 @@ _ADD = os.path.join(_BIN, "rq_demo_add_external.sh")
 ])
 def test_catalogue_question_names_the_provider_from_the_registry(box, demo_id, provider):
     proc = box([_ADD, demo_id], extra={"WT_RC": "1"})       # "No": nothing installed
-    assert proc.returncode != 0
+    assert proc.returncode == 0                              # an answer, not an error
     text = "\n".join(box.dialogs()[0])
     assert provider in text
     assert "external contributor" not in text and "NOT part of" not in text

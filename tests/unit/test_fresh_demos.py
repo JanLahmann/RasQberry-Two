@@ -354,3 +354,10 @@ def test_the_engine_goes_on_where_it_fits(box):
 def test_qiskit_tutorials_names_itself_in_the_download_question():
     assert 'RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation' in _read("rq_doqumentation.sh")
     assert 'name="${RQ_CONSENT_NAME:-$name}"' in _read("rq_common.sh")
+
+
+def test_catalogue_no_ends_quietly():
+    src = _read("rq_demo_add_external.sh")
+    assert "Installation cancelled by user" not in src
+    no = src.split('Install it?"; then', 1)[1].split("fi", 1)[0]
+    assert "return 0" in no
