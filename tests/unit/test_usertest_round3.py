@@ -212,3 +212,49 @@ def test_checklist_names_the_network_truthfully(stubs, tmp_path, dev, label):
     assert proc.returncode == 0, proc.stderr
     args = _checklist_args(tmp_path)
     assert args[args.index("wifi") + 1] == label
+
+
+# ---------------------------------------------------------------------------
+# F5: Enter in the IBM LED demo's terminal stops it at once
+# ---------------------------------------------------------------------------
+
+_FAKE_LED_UTILS = '''
+def get_led_config():
+    return {"led_count": 192, "pixel_order": "GRB", "led_default_brightness": 0.1}
+
+class _Strip:
+    def __setitem__(self, i, c): pass
+    def fill(self, c): pass
+    def show(self): pass
+
+def create_neopixel_strip(*a, **k):
+    return _Strip()
+
+def map_xy_to_pixel(x, y):
+    return x * 8 + y
+'''
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pty")
+def test_ibm_demo_stops_on_enter_at_once(tmp_path):
+    import pty
+    import time
+    shutil.copy(os.path.join(_BIN, "rq_led_ibm_logo.py"), tmp_path)
+    (tmp_path / "rq_led_utils.py").write_text(_FAKE_LED_UTILS)
+    master, slave = pty.openpty()
+    proc = subprocess.Popen([sys.executable, str(tmp_path / "rq_led_ibm_logo.py")],
+                            stdin=slave, stdout=slave, stderr=slave, cwd=tmp_path)
+    os.close(slave)
+    try:
+        time.sleep(1.5)                       # inside the first 5 s picture
+        assert proc.poll() is None
+        start = time.monotonic()
+        os.write(master, b"\n")
+        proc.wait(timeout=10)
+        took = time.monotonic() - start
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        os.close(master)
+    assert proc.returncode == 0
+    assert took < 1.5, took                   # was up to 10 s (checked once per cycle)
