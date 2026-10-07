@@ -300,3 +300,57 @@ def test_workshop_window_closes_when_the_server_is_stopped_elsewhere(tmp_path):
     os.close(w)
     assert proc.returncode == 0
     assert "was stopped" in out and "ASKED TO STOP" not in out
+
+
+# ---------------------------------------------------------------------------
+# 10. Small cards: a Docker demo that can never fit is a note, not an error
+# ---------------------------------------------------------------------------
+
+def _common_run(box, code, extra=None):
+    from test_demo_consent import _COMMON
+    return box(None, extra=extra, script=f'. "{_COMMON}"; load_rqb2_env; {code}')
+
+
+def test_a_download_that_never_fits_says_so(box):
+    proc = _common_run(box, 'rc=0; rq_confirm_download "Workshop & Qiskit Server" 1300 5400 '
+                       '--path "$USER_HOME" || rc=$?; echo "rc=$rc"; printf "%b\\n" "$RQ_CONSENT_MSG"',
+                       extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+    assert "rc=5" in proc.stdout, proc.stdout + proc.stderr
+    assert "does not fit on this SD card" in proc.stdout and "32 GB or more" in proc.stdout
+    assert "Remove demos" not in proc.stdout and box.dialogs() == []
+
+
+def test_removing_demos_still_helps_when_they_take_the_room(box):
+    proc = _common_run(box, 'rc=0; rq_confirm_download "Quantum Lab" 890 4000 '
+                       '--path "$USER_HOME" || rc=$?; echo "rc=$rc"; echo "$RQ_CONSENT_MSG"',
+                       extra={"RQ_TEST_FREE_MB": "2000", "RQ_TEST_DOCKER_MB": "5200", "RQ_TEST_ROOT_GB": "14"})
+    assert "rc=2" in proc.stdout and "Remove demos you do not use" in proc.stdout
+
+
+def _docker_stub(box):
+    from test_demo_consent import _exe
+    _exe(box.stubs / "docker",
+         '#!/bin/sh\ncase "$1 $2" in "info "*) exit 0 ;; "image inspect") exit 1 ;; *) exit 1 ;; esac\n')
+
+
+@pytest.mark.parametrize("demo,name", [("doqumentation", "Workshop & Qiskit Server"),
+                                       ("qiskit-tutorials", "Qiskit Tutorials on this Pi")])
+def test_the_engine_stops_with_a_note_before_anything_else(box, demo, name):
+    _docker_stub(box)
+    proc = box([_ENGINE, demo], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"{name} does not fit on this SD card" in proc.stdout
+    assert "please try it" not in proc.stdout.lower()          # no beta invitation first
+    assert "ERROR" not in proc.stdout + proc.stderr and box.err() == ""
+
+
+def test_the_engine_goes_on_where_it_fits(box):
+    _docker_stub(box)
+    proc = box([_ENGINE, "doqumentation", "--is-installed"],
+               extra={"RQ_TEST_FREE_MB": "50000", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+    assert "does not fit" not in proc.stdout
+
+
+def test_qiskit_tutorials_names_itself_in_the_download_question():
+    assert 'RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation' in _read("rq_doqumentation.sh")
+    assert 'name="${RQ_CONSENT_NAME:-$name}"' in _read("rq_common.sh")

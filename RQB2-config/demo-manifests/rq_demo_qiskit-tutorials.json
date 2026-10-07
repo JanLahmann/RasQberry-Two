@@ -23,7 +23,8 @@
     ]
   },
   "install": {
-    "preinstalled": true
+    "preinstalled": true,
+    "docker_image_of": "doqumentation"
   },
   "needs_hw": {
     "leds": false,

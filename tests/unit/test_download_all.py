@@ -352,3 +352,19 @@ def test_report_is_saved_in_the_home(tmp_path):
     assert len(files) == 1 and "Saved:" in proc.stdout
     text = open(tmp_path / files[0]).read()
     assert "===== System =====" in text and "===== Disk =====" in text
+
+
+def test_only_the_docker_demos_that_fit_are_offered(box):
+    # a 16 GB card offered all four Docker demos ("about 3.9 GB") and then
+    # refused everything, the small demos too: "needs 15.6 GB" (2026-10-07, S2)
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, [], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = [c for c in box.dialogs() if "--yesno" in c]
+    docker = _text(calls[1])
+    offered, nofit = docker.split("No room on this SD card for:")
+    assert "Quantum Mixer" in offered and "Workshop & Qiskit Server" not in offered
+    assert "Workshop & Qiskit Server" in nofit
+    assert set(box.installs()) == _GIT_DEMOS | {"quantum-mixer"}
+    summary = _text(box.dialogs()[-1], "--msgbox")
+    assert "Downloaded: 9 of 9." in summary and "No room on this SD card" in summary

@@ -331,7 +331,9 @@ fi
 # Image: the pinned version, downloaded after the consent dialog
 # ---------------------------------------------------------------------------
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-    rq_require_demo_consent doqumentation
+    # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
+    # Server" in its download question and errors (user test 2026-10-07)
+    RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
     rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "doQumentation"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"

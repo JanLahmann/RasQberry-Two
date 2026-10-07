@@ -1387,6 +1387,65 @@ rq_reachable() {
     curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
 }
 
+# MB the Docker images take (0 without Docker). `docker system df` counts
+# the parts that images share once.
+_rq_docker_images_mb() {
+    local size
+    [ -n "${RQ_TEST_DOCKER_MB:-}" ] && { echo "$RQ_TEST_DOCKER_MB"; return 0; }
+    command -v docker >/dev/null 2>&1 || { echo 0; return 0; }
+    size=$(timeout 10 docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null \
+        | awk '$1 == "Images" { print $2 }')
+    awk -v s="$size" 'BEGIN {
+        n = s + 0; u = s; sub(/^[0-9.]+/, "", u)
+        if (u == "kB") n /= 1000; else if (u == "B") n = 0
+        else if (u == "GB") n *= 1000; else if (u == "TB") n *= 1000000
+        printf "%d\n", n }'
+}
+
+# The most room demos can have on this card, in MB: what is free on the file
+# system holding PATH, plus what the downloaded demos and Docker images take
+# (removing them frees it). Sets RQ_CARD_ROOM_MB.
+# Usage: rq_card_room_mb [PATH]
+rq_card_room_mb() {
+    local free demos imgs
+    free=$(rq_free_mb "${1:-${USER_HOME:-/}}")
+    case "$free" in ''|*[!0-9]*) free=0 ;; esac
+    demos=$(du -sk "${USER_HOME:-/nonexistent}/${REPO:-RasQberry-Two}/demos" 2>/dev/null \
+        | awk '{ printf "%d\n", $1 * 1024 / 1000000 }')
+    imgs=$(_rq_docker_images_mb)
+    RQ_CARD_ROOM_MB=$(( free + ${demos:-0} + ${imgs:-0} ))
+    echo "$RQ_CARD_ROOM_MB"
+}
+
+# Does a download of DISK_MB never fit on this card, not even with every
+# downloaded demo removed? (The Workshop & Qiskit Server on a 16 GB card:
+# "Remove demos you do not use" could not help, user test 2026-10-07, S2.)
+# Sets RQ_CONSENT_MSG to a plain note naming NAME.
+# Usage: rq_card_too_small NAME DISK_MB [PATH]
+rq_card_too_small() {
+    local name="$1" need=$(( ${2:-0} + RQ_SPACE_RESERVE_MB )) room gb
+    # only a small card (16 GB): on a bigger one, other files take the room
+    gb=$(_rq_root_size_gb)
+    case "$gb" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ] || return 1
+    room=$(rq_card_room_mb "${3:-}")
+    [ "$room" -lt "$need" ] || return 1
+    RQ_CONSENT_MSG="$name does not fit on this SD card: it needs about $(rq_fmt_mb "$need") (with $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare), and this card has room for about $(rq_fmt_mb "$room") of demos in all.\n\nIt needs a card of 32 GB or more. The other demos work on this card."
+    return 0
+}
+
+# Show RQ_CONSENT_MSG as a note (a box on a terminal), not as an error
+rq_card_note() {
+    local title="${1:-Needs a bigger SD card}"
+    # (no box during "Download all demos", which asked already)
+    if [ "${RQ_AUTO_INSTALL:-0}" != 1 ] && command -v whiptail >/dev/null 2>&1 \
+            && { : < /dev/tty > /dev/tty; } 2>/dev/null; then
+        show_msgbox "$title" "$RQ_CONSENT_MSG" 12 70 < /dev/tty > /dev/tty 2>&1 || true
+    else
+        printf '%b\n' "$RQ_CONSENT_MSG"
+    fi
+}
+
 # Ask before a download. Shared by the demo engine, "Download all demos", the
 # Docker launchers and other one-off downloads (e.g. a newer Docker image).
 #
@@ -1402,7 +1461,8 @@ rq_reachable() {
 #     --question TEXT  last line (default "Download now?")
 #
 # DOWNLOAD_MB/DISK_MB 0 = unknown. Returns 0 to go ahead, 1 declined, 2 not
-# enough space, 3 source not reachable, 4 no terminal to ask on. For 1-4,
+# enough space, 3 source not reachable, 4 no terminal to ask on, 5 never fits
+# on this card (rq_card_too_small). For 1-5,
 # RQ_CONSENT_MSG holds a sentence for the user. With RQ_AUTO_INSTALL=1 (the
 # caller has already asked, e.g. "Download all demos") there is no question,
 # but the space and network checks still run.
@@ -1440,6 +1500,7 @@ rq_confirm_download() {
     local card_txt="$space_txt on the SD card"
     [ "$disk" -gt 0 ] || card_txt="unknown"
     if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
+        rq_card_too_small "$name" $((disk + peak)) "$path" && return 5
         RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
         return 2
     fi
@@ -1566,6 +1627,9 @@ rq_confirm_demo_install() {
     local type="" image="" repo=""
     if [ -n "$mf" ] && [ -f "$mf" ]; then
         name=$(jq -r '.name // .id' "$mf" 2>/dev/null) || name="$id"
+        # a demo started under another name (Qiskit Tutorials on this Pi
+        # runs the Workshop server's image)
+        name="${RQ_CONSENT_NAME:-$name}"
         dl=$(jq -r '.install.download.download_mb // 0' "$mf" 2>/dev/null) || dl=0
         disk=$(jq -r '.install.download.disk_mb // .install.download.download_mb // 0' "$mf" 2>/dev/null) || disk=0
         peak=$(jq -r '.install.download.peak_mb // 0' "$mf" 2>/dev/null) || peak=0
@@ -1601,6 +1665,7 @@ rq_require_demo_consent() {
     case "$rc" in
         0) return 0 ;;
         1) info "${RQ_CONSENT_MSG:-Not downloaded.}"; exit 0 ;;
+        5) rq_card_note; exit 0 ;;     # a note, not an error (S2)
         *) die "${RQ_CONSENT_MSG:-The download was stopped.}" ;;
     esac
 }
