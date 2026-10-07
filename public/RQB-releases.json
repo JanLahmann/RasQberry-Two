@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T22:35:38Z",
+  "generated": "2026-10-07T22:36:35Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2144199380,
       "extract_size": 9495904256,
       "extract_sha256": "2f57a40612f5c38f8e5e6109ab8297091df547fccac431d8d0c2ae315c9a2881",
-      "image_sha256": "d1bb1a73136f982530b3aa9b45cc0dedfd3cc804ff1e3b7d8f2a038f7cbce6d8",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-235419/rasqberry-development-2026-10-07-235419-ab.img.xz",
       "ab_extract_sha256": "4ce4efc1fc714c4dead6fb20f4fc1d04ac17d45c940d08b285485057674cd87b",
       "ab_image_sha256": "f15b3369af006ede280202a4ce6f5e09dd474366b608a0aeb821dbc279ef5e48",
-      "ab_image_download_size": 1879999036,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1879999036,
       "highlights": [
         "Bump version to development-2026-10-07-235419",
         "Merge dev-demo-groups: demos in five groups on the desktop and in the menu",
