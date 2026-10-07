@@ -216,7 +216,8 @@ G_COUNT=$T_COUNT; G_DL=$T_DL; G_DISK=$T_DISK; G_TIME=$T_TIME; G_NAMES=$T_NAMES
 # leave free; the others are named, not offered. A 16 GB card offered all
 # four ("about 3.9 GB") and then refused everything, the small demos too
 # ("needs 15.6 GB", user test 2026-10-07, S2).
-NOFIT=""
+NOFIT=""       # does not fit at all
+NOTWITH=""     # fits alone, not next to the ones offered
 if [ -n "${FREE:-}" ]; then
     budget=$((FREE - RQ_SPACE_RESERVE_MB - G_DISK))
     used=0
@@ -226,13 +227,18 @@ if [ -n "${FREE:-}" ]; then
         if [ $((used + DISK[i] + PEAK[i])) -le "$budget" ]; then
             used=$((used + DISK[i]))
         else
-            NOFIT="${NOFIT:+$NOFIT, }${NAMES[$i]}"
+            if [ $((DISK[i] + PEAK[i])) -le "$budget" ]; then
+                NOTWITH="${NOTWITH:+$NOTWITH, }${NAMES[$i]}"
+            else
+                NOFIT="${NOFIT:+$NOFIT, }${NAMES[$i]}"
+            fi
             DOCKER[$i]=nofit
         fi
     done
 fi
 NOFIT_TXT=""
-[ -n "$NOFIT" ] && NOFIT_TXT="No room on this SD card for: $NOFIT (Docker demos)."
+[ -n "$NOFIT" ] && NOFIT_TXT="No room on this SD card for: $NOFIT."
+[ -n "$NOTWITH" ] && NOFIT_TXT="${NOFIT_TXT:+$NOFIT_TXT\n}Not as well, for lack of room: $NOTWITH (one of them fits instead: start it from its icon)."
 totals yes
 D_COUNT=$T_COUNT; D_DL=$T_DL; D_DISK=$T_DISK; D_PEAK=$T_PEAK; D_TIME=$T_TIME; D_NAMES=$T_NAMES
 

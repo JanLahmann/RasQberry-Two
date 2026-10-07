@@ -362,9 +362,11 @@ def test_only_the_docker_demos_that_fit_are_offered(box):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     calls = [c for c in box.dialogs() if "--yesno" in c]
     docker = _text(calls[1])
-    offered, nofit = docker.split("No room on this SD card for:")
+    offered, rest = docker.split("No room on this SD card for:")
     assert "Quantum Mixer" in offered and "Workshop & Qiskit Server" not in offered
-    assert "Workshop & Qiskit Server" in nofit
+    nofit, notwith = rest.split("Not as well, for lack of room:")
+    assert "Workshop & Qiskit Server" in nofit and "Quantum Lab" not in nofit
+    assert "Quantum Lab (QuBins)" in notwith and "Qoffee-Maker" in notwith
     assert set(box.installs()) == _GIT_DEMOS | {"quantum-mixer"}
     summary = _text(box.dialogs()[-1], "--msgbox")
     assert "Downloaded: 9 of 9." in summary and "No room on this SD card" in summary
