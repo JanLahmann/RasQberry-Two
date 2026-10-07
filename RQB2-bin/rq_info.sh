@@ -264,7 +264,13 @@ echo "Name:              $host_name (network: $mdns)"
 echo "Address:           ${addrs:-none - not connected}"
 [ -n "$(connect_text "$connect")" ] && echo "Pi Connect:        $(connect_text "$connect")"
 echo "Hardware:          $hardware"
-[ -n "$firmware_line" ] && [ "$firmware_line" != unknown ] && echo "Firmware:          $firmware_line"
+if [ -n "$firmware_line" ] && [ "$firmware_line" != unknown ]; then
+    echo "Firmware:          $firmware_line"
+    # Raspberry Pi's own tool; RasQberry never updates the firmware itself
+    case "$firmware_line" in
+        *"update available"*) echo "                   To update: sudo rpi-eeprom-update -a, then restart" ;;
+    esac
+fi
 echo "Power:             $(power_text "$throttled")$supply_note"
 if [ -n "$temp_c" ]; then
     echo "Temperature:       ${temp_c} °C$temp_note"

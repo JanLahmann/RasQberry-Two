@@ -26,8 +26,9 @@ Two one-time notices use wf-panel-pi's own popup (the desktop has no
 notification server): a failed update (once per failure) and a new release
 (once per release). A third, outdated bootloader firmware (rq_firmware.py,
 once per firmware version, after the setup checklist was answered), is a
-small window with Update now / Later; while it applies, the menu has
-"Update the firmware…" too.
+small window that says how to update with Raspberry Pi's own tools, with
+How to update (Raspberry Pi's guide) and OK. RasQberry never updates the
+firmware itself (Jan, 2026-10-07).
 
 Runs as the desktop user from /etc/xdg/autostart/rasqberry-slot-indicator.desktop.
 
@@ -89,9 +90,7 @@ UPDATES_CMD = ["lxterminal", "-t", "RasQberry: Software & Image Updates", "-e",
 # "window": Enter closes it; there is no menu to return to (user test 10-07 P7)
 SYSINFO_CMD = ["lxterminal", "-t", "RasQberry System Information", "-e",
                "sudo raspi-config nonint do_show_system_info window"]
-FIRMWARE_CMD = ["lxterminal", "-t", "RasQberry: Firmware update", "-e",
-                "sudo /usr/bin/rq_firmware.py update"]
-FIRMWARE_ITEM = 14
+
 # Anonymous usage count of a click in the update notice (runs on its own)
 USAGE_COUNT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_umami_event.py")
 
@@ -525,25 +524,10 @@ def whats_new(advice, device, releases, highlights, wait=""):
     }
 
 
-def with_firmware(items, firmware):
-    """
-    The menu with "Update the firmware…" after Software & Image Updates while
-    the firmware update is due (rq_firmware.assess()['due']).
-    """
-    if not (firmware or {}).get("due"):
-        return items
-    out = []
-    for item in items:
-        out.append(item)
-        if item[0] == 12:
-            out.append((FIRMWARE_ITEM, {"label": "Update the firmware…"}))
-    return out
-
-
 def checklist_answered(directory=None):
     """
     The setup checklist was answered (rq_firstlogin.sh's marks): until then
-    the checklist offers the firmware update itself, so no second notice.
+    the checklist mentions the firmware itself, so no second notice.
     """
     d = directory or state_dir()
     return any(os.path.exists(os.path.join(d, n))
@@ -890,7 +874,6 @@ class SlotIndicator:
             state, letter = "plain", PLAIN_LETTER
             title, body = plain_tooltip(info["version"], self.advices, self.device)
             items = plain_menu_items(info["version"], self.advices, self.device)
-        items = with_firmware(items, self.firmware)
         view = (state, letter, dot, title, body)
         if view != self.view:
             w, h, pix = render_badge(letter, state, dot)
@@ -1190,8 +1173,6 @@ class SlotIndicator:
             self.spawn(SYSINFO_CMD)
         elif item_id == 12:
             self.spawn(UPDATES_CMD)
-        elif item_id == FIRMWARE_ITEM:
-            self.show_firmware()
         elif item_id >= 100:
             ups = rn.updates(self.advices)
             if item_id - 100 < len(ups):
@@ -1282,45 +1263,44 @@ class SlotIndicator:
 
     # -- Firmware --------------------------------------------------------------
     def show_firmware(self):
-        """The firmware notice: what and why, Update now (asks first) / Later."""
+        """
+        The firmware notice: what and why, how to update with Raspberry Pi's
+        own tools; How to update opens Raspberry Pi's guide, OK closes it.
+        """
         import gi
         gi.require_version("Gtk", "3.0")
         from gi.repository import Gtk
         if self.fw_window is not None:
             self.fw_window.present()
             return
-        win = Gtk.Window(title="Firmware update")
+        win = Gtk.Window(title="Firmware update available")
         win.set_default_size(440, -1)
         win.set_position(Gtk.WindowPosition.CENTER)
-        win.set_icon_name("system-software-update")
+        win.set_icon_name("dialog-information")
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.set_border_width(16)
         win.add(box)
-        lab = Gtk.Label()
-        lab.set_text(fw.notice_text(fw.read_status(), time.time()))
-        lab.set_line_wrap(True)
-        lab.set_max_width_chars(56)
-        lab.set_xalign(0)
-        box.pack_start(lab, False, False, 0)
+        for text in (fw.notice_text(fw.read_status(), time.time()), fw.HOWTO):
+            lab = Gtk.Label()
+            lab.set_text(text)
+            lab.set_line_wrap(True)
+            lab.set_max_width_chars(56)
+            lab.set_xalign(0)
+            box.pack_start(lab, False, False, 0)
         buttons = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
         buttons.set_layout(Gtk.ButtonBoxStyle.END)
         buttons.set_spacing(8)
         box.pack_end(buttons, False, False, 8)
-        now = Gtk.Button(label="Update now")
-
-        def on_update(*_):
-            self.spawn(FIRMWARE_CMD)
-            win.destroy()
-
-        now.connect("clicked", on_update)
-        buttons.add(now)
-        later = Gtk.Button(label="Later")
-        later.connect("clicked", lambda *_: win.destroy())
-        buttons.add(later)
+        howto = Gtk.Button(label="How to update")
+        howto.connect("clicked", lambda *_: self.open_url(fw.DOC_URL))
+        buttons.add(howto)
+        ok = Gtk.Button(label="OK")
+        ok.connect("clicked", lambda *_: win.destroy())
+        buttons.add(ok)
         win.connect("destroy", self._fw_window_closed)
         self.fw_window = win
         win.show_all()
-        later.grab_focus()
+        ok.grab_focus()
 
     def _fw_window_closed(self, *_):
         self.fw_window = None

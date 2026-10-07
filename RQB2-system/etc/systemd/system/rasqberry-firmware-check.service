@@ -3,13 +3,18 @@ Description=RasQberry: is the bootloader firmware (EEPROM) outdated?
 Documentation=https://github.com/JanLahmann/RasQberry-Two
 # Reads the EEPROM and the local rpi-eeprom package only: no network, no clock
 # needed. Writes /run/rasqberry/firmware-status for System Info, the setup
-# checklist and the desktop notice. It never updates anything.
-After=local-fs.target rpi-eeprom-update.service
+# checklist and the desktop notice. It never updates the firmware.
+# On an A/B card it first sets BOOTFS=/boot/config for Raspberry Pi's own
+# EEPROM tools; Before= makes rpi-eeprom-update.service (and so the tools)
+# start after that and after /boot/config is mounted.
+After=local-fs.target
+Before=rpi-eeprom-update.service
 ConditionPathExists=/usr/bin/rpi-eeprom-update
 
 [Service]
 Type=oneshot
 Nice=10
+ExecStart=-/usr/bin/rq_firmware.py ab-bootfs
 ExecStart=/usr/bin/rq_firmware.py check --write
 StandardOutput=journal
 StandardError=journal

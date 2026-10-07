@@ -99,7 +99,6 @@ def test_model(compatible, model):
     (NOW - 30 * DAY, "yes", "ok", False),      # recent: no nagging
     (NOW - 30 * DAY, "yes", "fail", True),     # Pi 5 without the crypto service
     (OLD, "no", "na", False),                  # nothing newer to install
-    (OLD, "staged", "na", False),              # installed, waits for a restart
     (OLD, "unknown", "na", False),
 ])
 def test_when_the_update_is_offered(current, update, crypto, due):
@@ -111,7 +110,6 @@ def test_texts():
     pi4 = {"model": "pi4", "current_ts": str(OLD), "update": "yes", "crypto": "na"}
     assert fw.info_line(pi4, NOW) == "8 May 2025 (update available)"
     assert fw.info_line(dict(pi4, update="no"), NOW) == "8 May 2025 (up to date)"
-    assert "next restart" in fw.info_line(dict(pi4, update="staged"), NOW)
     assert fw.info_line({}, NOW) == "unknown"
     # Connect from Imager is the Pi 5's problem (its firmware is in the EEPROM)
     assert fw.notice_text(pi4, NOW) == ("The Pi's firmware is from 8 May 2025. "
@@ -121,10 +119,54 @@ def test_texts():
         "e.g. Raspberry Pi Connect from Imager.")
 
 
-def test_ab_card_updates_through_the_config_partition(tmp_path):
-    assert "BOOTFS" not in fw.eeprom_env({}, str(tmp_path))
-    (tmp_path / "autoboot.txt").write_text("[all]\nboot_partition=2\n")
-    assert fw.eeprom_env({"PATH": "/bin"}, str(tmp_path)) == {"PATH": "/bin", "BOOTFS": str(tmp_path)}
+@pytest.mark.parametrize("source,first", [
+    ("/dev/mmcblk0p1", True), ("/dev/sda1", True), ("/dev/nvme0n1p1", True),
+    ("/dev/mmcblk0p2", False), ("/dev/mmcblk0p11", False), ("/dev/sda11", False), ("", False),
+])
+def test_first_partition(source, first):
+    assert fw.is_first_partition(source) is first
+
+
+DEFAULTS = 'FIRMWARE_RELEASE_STATUS="default"\n'
+
+
+def test_with_bootfs_appends_once_and_keeps_the_rest():
+    new = fw.with_bootfs(DEFAULTS, "/boot/config")
+    assert new.startswith(DEFAULTS) and new.endswith("BOOTFS=/boot/config\n")
+    assert fw.with_bootfs(new, "/boot/config") is None                 # idempotent
+    assert fw.with_bootfs('FIRMWARE_RELEASE_STATUS="latest"', "/x").startswith(
+        'FIRMWARE_RELEASE_STATUS="latest"\n#')                         # no newline at the end
+    assert fw.with_bootfs(DEFAULTS + "BOOTFS=/mnt/boot\n", "/boot/config") is None   # someone's own
+    assert fw.with_bootfs("", "/boot/config").endswith("BOOTFS=/boot/config\n")
+
+
+def _bootfs(tmp_path, ab, source, text=DEFAULTS):
+    config = tmp_path / "config"
+    config.mkdir(exist_ok=True)
+    if ab:
+        (config / "autoboot.txt").write_text("[all]\ntryboot_a_b=1\nboot_partition=2\n")
+    defaults = tmp_path / "rpi-eeprom-update"
+    defaults.write_text(text)
+    env = dict(os.environ, RQ_BOOT_CONFIG_DIR=str(config), RQ_EEPROM_DEFAULTS=str(defaults),
+               RQ_BOOT_CONFIG_SOURCE=source)
+    proc = subprocess.run([sys.executable, _FW, "ab-bootfs"], env=env, capture_output=True,
+                          text=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    return defaults.read_text(), str(config)
+
+
+def test_ab_card_gets_bootfs_for_the_official_tools(tmp_path):
+    text, config = _bootfs(tmp_path, True, "/dev/mmcblk0p1")
+    assert text.startswith(DEFAULTS) and text.endswith(f"BOOTFS={config}\n")
+    again, _ = _bootfs(tmp_path, True, "/dev/mmcblk0p1", text)
+    assert again == text                                                  # idempotent
+
+
+@pytest.mark.parametrize("ab,source", [(False, "/dev/mmcblk0p1"),     # standard card
+                                       (True, "/dev/mmcblk0p2")])       # not the first partition
+def test_no_bootfs_elsewhere(tmp_path, ab, source):
+    text, _ = _bootfs(tmp_path, ab, source)
+    assert text == DEFAULTS
 
 
 # ---------------------------------------------------------------------------
@@ -173,8 +215,10 @@ def test_pi4_skips_the_crypto_check(tmp_path):
 
 def test_the_unit_is_enabled_and_never_updates():
     unit = open(os.path.join(_SYS, "etc/systemd/system/rasqberry-firmware-check.service")).read()
-    assert "ExecStart=/usr/bin/rq_firmware.py check --write" in unit
-    assert "-a" not in unit.split("ExecStart=", 1)[1].splitlines()[0]
+    starts = [line for line in unit.splitlines() if line.startswith("ExecStart=")]
+    assert starts == ["ExecStart=-/usr/bin/rq_firmware.py ab-bootfs",
+                      "ExecStart=/usr/bin/rq_firmware.py check --write"]
+    assert "Before=rpi-eeprom-update.service" in unit and "After=local-fs.target" in unit
     assert "network-online" not in unit
     assert "rasqberry-firmware-check.service" in open(os.path.join(_SYS, "enabled-units.txt")).read()
     assert os.access(_FW, os.X_OK)
@@ -202,12 +246,24 @@ def test_notice_waits_for_the_checklist(tmp_path):
     assert ind.checklist_answered(str(tmp_path)) is True
 
 
-def test_menu_offers_the_update_only_while_due():
-    items = ind.plain_menu_items("beta-2026-10-04-143935", [], {})
-    assert ind.with_firmware(items, {"due": False}) == items
-    ids = [i for i, _ in ind.with_firmware(items, {"due": True})]
-    assert ids[ids.index(12) + 1] == ind.FIRMWARE_ITEM
-    assert "rq_firmware.py update" in ind.FIRMWARE_CMD[-1]
+def test_rasqberry_never_updates_the_firmware():
+    """Jan, 2026-10-07: notify only, point to Raspberry Pi's own tools."""
+    for name in ("rq_firmware.py", "rq_slot_indicator.py", "rq_firstlogin.sh", "rq_info.sh"):
+        code = open(os.path.join(_BIN, name)).read()
+        assert "rpi-eeprom-update -a\"" not in code and "[EEPROM_UPDATE, \"-a\"]" not in code, name
+        assert "Update now" not in code and "Update the firmware" not in code, name
+    assert not hasattr(ind, "FIRMWARE_CMD") and not hasattr(fw, "update")
+    assert "sudo rpi-eeprom-update -a, then restart" in fw.HOWTO
+    assert "Advanced Options, Bootloader Version" in fw.HOWTO
+    assert fw.DOC_URL.endswith("raspberry-pi.html#update-the-bootloader-configuration")
+
+
+def test_howto_text(tmp_path):
+    env = _fw_env(tmp_path, model="pi5")
+    _fw(env, "check", "--write")
+    out = _fw(env, "howto").stdout
+    assert out.startswith("The Pi's firmware is from 8 May 2025.")
+    assert "Raspberry Pi Connect from Imager" in out and fw.HOWTO in out and fw.DOC_URL in out
 
 
 def test_notices_reach_the_trixie_panel_too():
@@ -241,30 +297,41 @@ def test_system_info_enter_line(menu_env, arg, text):
 
 def _fake_firmware(tmp_path, due):
     path = tmp_path / "rq_firmware.py"
-    _exe(path, 'case "$1" in\n'
+    _exe(path, 'echo "$1" >> "${FW_LOG:-/dev/null}"\ncase "$1" in\n'
                f'  due) {"echo notice; exit 0" if due else "exit 1"} ;;\n'
                '  line) echo "8 May 2025 (update available)" ;;\n'
-               '  update) echo "update $*" >> "$FW_LOG" ;;\n'
+               '  howto) echo "The Pi\'s firmware is from 8 May 2025. HOWTO" ;;\n'
                'esac\n')
     return path
 
 
-def test_checklist_offers_the_firmware_update_unticked(stubs, tmp_path):
+def test_checklist_mentions_the_firmware_unticked(stubs, tmp_path):
     proc = _checklist(stubs, tmp_path, WT_RC_checklist="1",
                       RQ_FIRMWARE=str(_fake_firmware(tmp_path, True)))
     assert proc.returncode == 0, proc.stderr
     args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
     i = args.index("firmware")
-    assert args[i + 1] == "Update the Pi's firmware (from 8 May 2025; a newer one is available)"
+    assert args[i + 1] == "About the Pi's firmware (from 8 May 2025; a newer one is available)"
     assert args[i + 2] == "OFF"
 
 
-def test_checklist_runs_the_update_without_a_restart(stubs, tmp_path):
+def test_checklist_firmware_step_only_explains(stubs, tmp_path):
+    fake = _fake_firmware(tmp_path, True)
     log = tmp_path / "fw.log"
-    proc = _checklist(stubs, tmp_path, WT_REPLY_checklist="firmware", FW_LOG=str(log),
-                      RQ_FIRMWARE=str(_fake_firmware(tmp_path, True)))
+    proc = _checklist(stubs, tmp_path, WT_REPLY_checklist="firmware", RQ_FIRMWARE=str(fake),
+                      FW_LOG=str(log))
     assert proc.returncode == 0, proc.stderr
-    assert log.read_text().strip() == "update update --no-restart"
+    assert set(log.read_text().split()) <= {"due", "line", "howto"}   # it only explains
+    calls = (tmp_path / "wt.log").read_text().split("@@")
+    box = next(c for c in calls if "--msgbox" in c and "HOWTO" in c)
+    assert "The Pi's firmware is from 8 May 2025." in box
+    read = tmp_path / "home" / ".state" / "rasqberry" / "firmware-info-read"
+    assert read.read_text().strip() == "8 May 2025 (update available)"
+    # read: the next list says "Read again", not a pending step
+    (tmp_path / "wt.log").unlink()
+    _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_FIRMWARE=str(fake))
+    args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
+    assert args[args.index("firmware") + 1] == "Read again: about the Pi's firmware"
 
 
 def test_checklist_without_an_outdated_firmware(stubs, tmp_path):
@@ -336,7 +403,8 @@ def test_system_info_shows_firmware_and_connect(stubs, tmp_path):
     env = dict(os.environ, PATH=stubs.path, RQ_BUILD_JSON=str(tmp_path / "none.json"))
     out = subprocess.run(["bash", str(bindir / "rq_info.sh")], env=env, capture_output=True,
                          text=True, timeout=30).stdout
-    assert "Firmware:          8 May 2025 (update available)\n" in out
+    assert ("Firmware:          8 May 2025 (update available)\n"
+            "                   To update: sudo rpi-eeprom-update -a, then restart\n") in out
     assert "Pi Connect:        on, signed in\n" in out
 
 

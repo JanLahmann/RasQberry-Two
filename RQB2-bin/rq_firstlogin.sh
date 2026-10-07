@@ -305,22 +305,31 @@ $err" 12 72
 }
 
 # ---------------------------------------------------------------------------
-# Task (optional): update the bootloader firmware (EEPROM)
+# Task (optional): about the bootloader firmware (EEPROM)
 # ---------------------------------------------------------------------------
 # rasqberry-firmware-check.service looks at start-up (rq_firmware.py): shown
 # while an update is available and the firmware is older than about six
 # months, or (Pi 5) its crypto service fails - which broke Raspberry Pi
-# Connect from Imager. Offered only, never ticked; no restart from here: the
-# next restart finishes it.
+# Connect from Imager. It only says how to update with Raspberry Pi's own
+# tools: RasQberry never updates the firmware (Jan, 2026-10-07). Read once
+# per firmware version.
 FIRMWARE="${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}"
+FIRMWARE_READ_FILE="$STATE_DIR/firmware-info-read"
 task_firmware_applies() { [ -x "$FIRMWARE" ] && "$FIRMWARE" due >/dev/null 2>&1; }
-task_firmware_pending() { return 0; }
+task_firmware_pending() { [ "$(cat "$FIRMWARE_READ_FILE" 2>/dev/null)" != "$("$FIRMWARE" line 2>/dev/null)" ]; }
 task_firmware_label() {
     local date
     date=$("$FIRMWARE" line 2>/dev/null | sed 's/ (.*//')
-    printf "Update the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
+    printf "About the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
 }
-task_firmware_run() { sudo "$FIRMWARE" update --no-restart; }
+task_firmware_run() {
+    local text h
+    text=$("$FIRMWARE" howto 2>/dev/null)
+    h=$(( $(printf '%s\n' "$text" | fold -s -w 70 | wc -l) + 6 ))
+    whiptail --title "Firmware" --msgbox "$text" "$h" 74
+    mkdir -p "$STATE_DIR" 2>/dev/null && "$FIRMWARE" line > "$FIRMWARE_READ_FILE" 2>/dev/null
+    return 0
+}
 
 # ---------------------------------------------------------------------------
 # Task: keyboard layout and time zone (R-005)
@@ -443,6 +452,7 @@ done_label() {
                 echo "Run again: LED panel check ($(led_layout_name "$(env_value LED_LAYOUT)"))"
             fi ;;
         demos)    echo "Run again: download all demos (done)" ;;
+        firmware) echo "Read again: about the Pi's firmware" ;;
         touch)    echo "Run again: touch mode (on)" ;;
         *)        echo "Run again: $1" ;;
     esac

@@ -2704,7 +2704,7 @@ do_connect_info() {
 
 With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).
 
-If Connect from Imager does not sign in, update the Pi's firmware (System Info shows whether an update is available)." 72
+If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how." 72
     return 0
 }
 

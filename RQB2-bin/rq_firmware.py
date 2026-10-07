@@ -5,7 +5,8 @@ RasQberry: is the Pi's bootloader firmware (EEPROM) outdated?
 An old EEPROM causes real problems: on a Pi 5 with the 2025-05-08 EEPROM the
 firmware crypto service was missing, so Raspberry Pi Connect from Imager could
 not sign in ("could not read device identity", user test 2026-10-07). This
-finds such a Pi and offers the update. It never updates on its own.
+finds such a Pi and says so. It never updates the firmware: it points to
+Raspberry Pi's own tools (Jan, 2026-10-07).
 
   check [--write]  look now (root): the EEPROM date, whether rpi-eeprom-update
                    has a newer one, on a Pi 5 whether the crypto service works
@@ -14,23 +15,27 @@ finds such a Pi and offers the update. It never updates on its own.
                    checklist and the desktop notice (rasqberry-firmware-check
                    .service runs this at start-up).
   line             one line for System Info: "8 May 2025 (update available)"
-  due              exit 0 when the update should be offered (and print the
+  due              exit 0 when an update should be suggested (and print the
                    notice text): an update is available and the firmware is
                    older than about six months, or the crypto service fails
-  update [--no-restart]
-                   (root, in a terminal) ask, run rpi-eeprom-update -a, then
-                   ask to restart. On an A/B card the bootloader reads the
-                   update from the CONFIG partition (the first one on the
-                   card), not from the slot's /boot/firmware, so BOOTFS points
-                   there. --no-restart (setup checklist): say that the next
-                   restart finishes it instead of asking.
+  howto            the notice text and how to update, for the checklist
+  ab-bootfs        (root, at start-up) on an A/B card, set BOOTFS=/boot/config
+                   in /etc/default/rpi-eeprom-update, so that Raspberry Pi's
+                   own tools (rpi-eeprom-update -a, raspi-config's Bootloader
+                   Version) stage the update on the card's first partition.
+                   The Pi 4 boot ROM loads recovery.bin from there only; one in
+                   a slot's boot partition stops the Pi from starting
+                   (raspberrypi/rpi-eeprom#499). Idempotent; a BOOTFS line that
+                   is there already is left alone; nothing on a standard card.
 
 Environment (tests): RQ_FIRMWARE_STATUS, RQ_DT_BOOTLOADER_DIR, RQ_DT_COMPATIBLE,
-  RQ_EEPROM_UPDATE, RQ_FW_CRYPTO, RQ_BOOT_CONFIG_DIR
+  RQ_EEPROM_UPDATE, RQ_FW_CRYPTO, RQ_BOOT_CONFIG_DIR, RQ_EEPROM_DEFAULTS,
+  RQ_BOOT_CONFIG_SOURCE
 """
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -42,10 +47,16 @@ DT_COMPATIBLE = os.environ.get("RQ_DT_COMPATIBLE") or "/proc/device-tree/compati
 EEPROM_UPDATE = os.environ.get("RQ_EEPROM_UPDATE") or "rpi-eeprom-update"
 FW_CRYPTO = os.environ.get("RQ_FW_CRYPTO") or "rpi-fw-crypto"
 BOOT_CONFIG = os.environ.get("RQ_BOOT_CONFIG_DIR") or "/boot/config"
+EEPROM_DEFAULTS = os.environ.get("RQ_EEPROM_DEFAULTS") or "/etc/default/rpi-eeprom-update"
 
 OLD_DAYS = 182          # "older than about six months"
 MONTHS = ("January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December")
+# Raspberry Pi's guide: raspi-config's Bootloader Version, rpi-eeprom-update
+DOC_URL = ("https://www.raspberrypi.com/documentation/computers/raspberry-pi.html"
+           "#update-the-bootloader-configuration")
+HOWTO = ("To update: in a terminal, sudo rpi-eeprom-update -a, then restart. "
+         "Or: sudo raspi-config, Advanced Options, Bootloader Version.")
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +126,8 @@ def assess(status, now):
         now (float): seconds since the epoch
 
     Returns:
-        dict: date (str), update ('yes'|'no'|'staged'|'unknown'), old (bool),
-        crypto ('ok'|'fail'|'na'), due (bool: offer the update), key (str:
+        dict: date (str), update ('yes'|'no'|'unknown'), old (bool),
+        crypto ('ok'|'fail'|'na'), due (bool: suggest the update), key (str:
         the firmware version the notice is about), connect (bool: say that it
         fixes Raspberry Pi Connect from Imager)
     """
@@ -138,8 +149,7 @@ def info_line(status, now):
     a = assess(status, now)
     if not a["date"]:
         return "unknown"
-    note = {"yes": "update available", "no": "up to date",
-            "staged": "update installed, finishes at the next restart"}.get(a["update"], "")
+    note = {"yes": "update available", "no": "up to date"}.get(a["update"], "")
     if a["crypto"] == "fail":
         note = (note + ", " if note else "") + "crypto service missing"
     return f"{a['date']} ({note})" if note else a["date"]
@@ -164,17 +174,26 @@ def status_lines(model, eeprom, crypto, checked):
             f"checked={int(checked)}"]
 
 
-def eeprom_env(environ, boot_config):
+def is_first_partition(source):
+    """/dev/mmcblk0p1, /dev/sda1, /dev/nvme0n1p1: partition 1 of its disk."""
+    return bool(re.search(r"(?:\dp1|[a-z]1)$", source or ""))
+
+
+def with_bootfs(text, bootfs):
     """
-    rpi-eeprom-update's environment: on an A/B card BOOTFS is the CONFIG
-    partition, the card's first, where the boot ROM looks for recovery.bin
-    (by default it would use the slot's /boot/firmware, which the ROM never
-    reads on a Pi 4).
+    /etc/default/rpi-eeprom-update with BOOTFS set, or None when nothing
+    changes: a BOOTFS line that is there already (ours or someone else's)
+    is left alone; every other line stays as it is.
     """
-    env = dict(environ)
-    if os.path.isfile(os.path.join(boot_config, "autoboot.txt")):
-        env["BOOTFS"] = boot_config
-    return env
+    for raw in (text or "").splitlines():
+        if re.match(r"\s*(export\s+)?BOOTFS=", raw):
+            return None
+    out = text or ""
+    if out and not out.endswith("\n"):
+        out += "\n"
+    return out + ("# RasQberry A/B card: the boot ROM loads recovery.bin only from the\n"
+                  "# card's first partition (CONFIG), not from a slot's /boot/firmware\n"
+                  f"BOOTFS={bootfs}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -195,15 +214,18 @@ def read_status(path=None):
     return out
 
 
-def write_status(lines, path=None):
-    """Write the status file atomically, readable by everyone."""
-    path = path or STATUS_FILE
+def _write_atomic(path, text, mode):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = f"{path}.tmp.{os.getpid()}"
     with open(tmp, "w") as f:
-        f.write("\n".join(lines) + "\n")
-    os.chmod(tmp, 0o644)
+        f.write(text)
+    os.chmod(tmp, mode)
     os.replace(tmp, path)
+
+
+def write_status(lines, path=None):
+    """Write the status file atomically, readable by everyone."""
+    _write_atomic(path or STATUS_FILE, "\n".join(lines) + "\n", 0o644)
 
 
 def _read_bytes(path):
@@ -254,67 +276,48 @@ def current_status():
     return status
 
 
-def _whiptail(*args):
-    return subprocess.call(["whiptail", *args])
+def config_source():
+    """The device mounted at the CONFIG mount point ('' if none)."""
+    if "RQ_BOOT_CONFIG_SOURCE" in os.environ:
+        return os.environ["RQ_BOOT_CONFIG_SOURCE"]
+    rc, out = _run(["findmnt", "-n", "-o", "SOURCE", "--mountpoint", BOOT_CONFIG], timeout=10)
+    return out.strip() if rc == 0 else ""
 
 
-def update(no_restart=False):
-    """The interactive update (root, in a terminal). Returns the exit code."""
-    if os.geteuid() != 0:
-        print("Run this with sudo: sudo rq_firmware.py update")
-        return 1
-    title = "Firmware update"
-    print("Looking for a firmware update...")
-    model, eeprom, crypto = check()
-    if eeprom["update"] != "yes":
-        write_status(status_lines(model, eeprom, crypto, time.time()))
-        _whiptail("--title", title, "--msgbox",
-                  f"The firmware is up to date ({date_text(eeprom['current_ts']) or 'unknown date'}).", "8", "64")
-        return 0
-    if _whiptail("--title", title, "--yes-button", "Update", "--no-button", "Cancel", "--defaultno", "--yesno",
-                 f"Update the Pi's firmware?\n\nNow: {date_text(eeprom['current_ts'])}\n"
-                 f"New: {date_text(eeprom['latest_ts'])}\n\n"
-                 "The firmware lives in a chip on the Pi, not on the SD card. The update "
-                 "finishes at the next restart: do not switch the Pi off during that restart.",
-                 "14", "72") != 0:
-        return 0
-    print("Updating the firmware...")
+def ab_bootfs():
+    """
+    BOOTFS=/boot/config for Raspberry Pi's EEPROM tools on an A/B card: the
+    CONFIG partition holds autoboot.txt and is the card's first partition.
+    Returns a short message (for the journal).
+    """
+    if not os.path.isfile(os.path.join(BOOT_CONFIG, "autoboot.txt")):
+        return "not an A/B card: nothing to do"
+    source = config_source()
+    if not is_first_partition(source):
+        return f"{BOOT_CONFIG} is not the card's first partition ({source or 'not mounted'}): nothing to do"
     try:
-        p = subprocess.run([EEPROM_UPDATE, "-a"], env=eeprom_env(os.environ, BOOT_CONFIG),
-                           capture_output=True, text=True, timeout=300)
-        rc, out = p.returncode, (p.stdout or "") + (p.stderr or "")
-    except (OSError, subprocess.SubprocessError) as e:
-        rc, out = 2, str(e)
-    print(out)
-    if rc != 0:
-        tail = "\n".join([line for line in out.splitlines() if line.strip()][-6:])
-        _whiptail("--title", title, "--msgbox",
-                  f"The firmware update did not work (exit {rc}):\n\n{tail}", "16", "76")
-        return rc
-    eeprom["update"] = "staged"
-    write_status(status_lines(model, eeprom, crypto, time.time()))
-    if no_restart:
-        _whiptail("--title", title, "--msgbox",
-                  "The new firmware is ready. It is installed at the next restart.", "8", "70")
-        return 0
-    if _whiptail("--title", title, "--yes-button", "Restart now", "--no-button", "Later", "--yesno",
-                 "The new firmware is ready. Restart now to install it?\n\n"
-                 "Save your work first. The restart may take a little longer than usual.",
-                 "11", "72") == 0:
-        subprocess.call(["systemctl", "reboot"])
-    return 0
+        with open(EEPROM_DEFAULTS) as f:
+            text = f.read()
+        mode = os.stat(EEPROM_DEFAULTS).st_mode & 0o777
+    except OSError:
+        text, mode = "", 0o644
+    new = with_bootfs(text, BOOT_CONFIG)
+    if new is None:
+        return f"{EEPROM_DEFAULTS} has a BOOTFS line already"
+    _write_atomic(EEPROM_DEFAULTS, new, mode)
+    return f"BOOTFS={BOOT_CONFIG} added to {EEPROM_DEFAULTS}"
 
 
 def main(argv=None):
-    """Command line: check, line, due, update."""
+    """Command line: check, line, due, howto, ab-bootfs."""
     p = argparse.ArgumentParser(description="RasQberry firmware (EEPROM) check")
     sub = p.add_subparsers(dest="cmd")
     c = sub.add_parser("check")
     c.add_argument("--write", action="store_true")
     sub.add_parser("line")
     sub.add_parser("due")
-    u = sub.add_parser("update")
-    u.add_argument("--no-restart", action="store_true")
+    sub.add_parser("howto")
+    sub.add_parser("ab-bootfs")
     args = p.parse_args(argv)
     if args.cmd == "check":
         model, eeprom, crypto = check()
@@ -329,14 +332,20 @@ def main(argv=None):
     if args.cmd == "line":
         print(info_line(current_status(), time.time()))
         return 0
-    if args.cmd == "due":
+    if args.cmd in ("due", "howto"):
         status = read_status()
-        if assess(status, time.time())["due"]:
+        due = assess(status, time.time())["due"]
+        if args.cmd == "howto":
+            print(notice_text(status, time.time()) + "\n\n" + HOWTO + "\n\nDetails: " + DOC_URL)
+        elif due:
             print(notice_text(status, time.time()))
-            return 0
-        return 1
-    if args.cmd == "update":
-        return update(args.no_restart)
+        return 0 if due else 1
+    if args.cmd == "ab-bootfs":
+        try:
+            print(ab_bootfs())
+        except OSError as e:
+            print(f"cannot set BOOTFS: {e}", file=sys.stderr)
+        return 0
     p.print_help()
     return 2
 
