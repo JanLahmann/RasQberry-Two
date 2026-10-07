@@ -39,11 +39,12 @@ fields() {
            | join("\u001f")' "$1"
 }
 
-# MB a checkout takes (0 if absent), rounded up: Quantum Lights Out (250 KB)
+# MB a checkout takes (0 if absent), at least 1: Quantum Lights Out (250 KB)
 # was listed as "0 MB" and "frees about 0 MB" (user test 2026-10-07)
 dir_mb() {
     [ -n "$1" ] && [ -d "$DEMOS_ROOT/$1" ] || { echo 0; return 0; }
-    du -sk "$DEMOS_ROOT/$1" 2>/dev/null | awk '{ printf "%d\n", ($1 * 1024 + 999999) / 1000000 }'
+    du -sk "$DEMOS_ROOT/$1" 2>/dev/null \
+        | awk '{ n = $1 * 1024 / 1000000; printf "%d\n", (n < 1 ? 1 : n + 0.5) }'
 }
 
 # MB a Docker image takes (0 if absent). Always one number and status 0: a
