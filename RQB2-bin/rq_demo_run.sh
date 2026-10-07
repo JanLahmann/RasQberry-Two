@@ -595,6 +595,7 @@ run_jupyter() {
         --NotebookApp.password='' \
         --NotebookApp.open_browser=False \
         --NotebookApp.nbserver_extensions="{'jupyterlab':False}" \
+        --NotebookApp.show_banner=False \
         2>&1 &
     JUPYTER_PID=$!
 
