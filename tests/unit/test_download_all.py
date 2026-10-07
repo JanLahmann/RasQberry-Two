@@ -355,10 +355,10 @@ def test_report_is_saved_in_the_home(tmp_path):
 
 
 def test_only_the_docker_demos_that_fit_are_offered(box):
-    # a 16 GB card offered all four Docker demos ("about 3.9 GB") and then
-    # refused everything, the small demos too: "needs 15.6 GB" (2026-10-07, S2)
+    # a nearly full bigger card: the Docker demos that fit in what the small
+    # demos leave are offered, the rest named (2026-10-07, S2)
     _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
-    proc = box(_DL, [], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+    proc = box(_DL, [], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_ROOT_GB": "28"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     calls = [c for c in box.dialogs() if "--yesno" in c]
     docker = _text(calls[1])
@@ -370,3 +370,20 @@ def test_only_the_docker_demos_that_fit_are_offered(box):
     assert set(box.installs()) == _GIT_DEMOS | {"quantum-mixer"}
     summary = _text(box.dialogs()[-1], "--msgbox")
     assert "Downloaded: 9 of 9." in summary and "No room on this SD card" in summary
+
+
+@pytest.mark.parametrize("mode", [[], ["--yes", "--docker"]])
+def test_a_small_card_gets_no_docker_demos(box, mode):
+    # 16 GB: no Docker demos (they need 32 GB or more), the small ones still
+    _exe(box.stubs / "docker", '#!/bin/sh\ncase "$1" in info) exit 0 ;; image) exit 1 ;; esac\nexit 1\n')
+    proc = box(_DL, mode, extra={"RQ_TEST_FREE_MB": "50000", "RQ_TEST_ROOT_GB": "14"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    why = "The Docker demos are left out: they need an SD card of 32 GB or more, and this card is 16 GB."
+    if not mode:
+        calls = [c for c in box.dialogs() if "--yesno" in c]
+        assert len(calls) == 1 and why in _text(calls[0])
+        assert "Docker demos too?" not in "\n".join(calls[0])
+        assert why in _text(box.dialogs()[-1], "--msgbox")
+    else:
+        assert why in proc.stdout
+    assert set(box.installs()) == _GIT_DEMOS

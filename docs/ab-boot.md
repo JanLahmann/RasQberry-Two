@@ -114,8 +114,8 @@ Python packages. Docker images stay in each slot (`/var/lib/docker` is part of
 the system): after an update the Docker demos download again, and their
 consent dialog says so. All four take about 15 GB: a slot of a 64 GB card
 (28 GB) holds them with about 6 GB to spare, enough for an update (the
-download plus 0.5 GB, see below). A 16 GB card has room for one (not the
-Workshop & Qiskit Server). The new image pulls
+download plus 0.5 GB, see below). Docker demos need a card of 32 GB or
+more: on a 16 GB card they stop with a note before downloading. The new image pulls
 from the old slot instead of the old updater pushing, so even the first update
 from an older release carries everything over. The password is carried over
 because otherwise an update would put the published default password back on a

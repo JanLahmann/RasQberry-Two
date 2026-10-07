@@ -303,52 +303,94 @@ def test_workshop_window_closes_when_the_server_is_stopped_elsewhere(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 10. Small cards: a Docker demo that can never fit is a note, not an error
+# 10. Small cards: no Docker demos on a 16 GB card, a note, not an error
+#     (Jan, 2026-10-07: as rasqberry.org says, they need 32 GB or more)
 # ---------------------------------------------------------------------------
+
+_SMALL = {"RQ_TEST_FREE_MB": "50000", "RQ_TEST_ROOT_GB": "14"}
+
 
 def _common_run(box, code, extra=None):
     from test_demo_consent import _COMMON
     return box(None, extra=extra, script=f'. "{_COMMON}"; load_rqb2_env; {code}')
 
 
-def test_a_download_that_never_fits_says_so(box):
-    proc = _common_run(box, 'rc=0; rq_confirm_download "Workshop & Qiskit Server" 1300 5400 '
+def test_a_docker_download_on_a_small_card_is_a_note(box):
+    # plenty of room does not matter: Docker demos need a 32 GB card
+    proc = _common_run(box, 'rc=0; rq_confirm_download "Quantum Mixer" 1200 2300 --docker '
                        '--path "$USER_HOME" || rc=$?; echo "rc=$rc"; printf "%b\\n" "$RQ_CONSENT_MSG"',
-                       extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+                       extra=_SMALL)
     assert "rc=5" in proc.stdout, proc.stdout + proc.stderr
-    assert "does not fit on this SD card" in proc.stdout and "32 GB or more" in proc.stdout
+    assert ("Quantum Mixer is a Docker demo. Docker demos need an SD card of 32 GB or more; "
+            "this card is 16 GB.") in proc.stdout
+    assert "All other demos work on this card." in proc.stdout
     assert "Remove demos" not in proc.stdout and box.dialogs() == []
 
 
-def test_removing_demos_still_helps_when_they_take_the_room(box):
-    proc = _common_run(box, 'rc=0; rq_confirm_download "Quantum Lab" 890 4000 '
+@pytest.mark.parametrize("args,gb,rc", [
+    ("--docker", "28", "2"),       # a bigger card: removing demos can help
+    ("", "14", "2")])              # a small demo on a full small card, likewise
+def test_removing_demos_still_helps_elsewhere(box, args, gb, rc):
+    proc = _common_run(box, f'rc=0; rq_confirm_download "Demo" 890 4000 {args} '
                        '--path "$USER_HOME" || rc=$?; echo "rc=$rc"; echo "$RQ_CONSENT_MSG"',
-                       extra={"RQ_TEST_FREE_MB": "2000", "RQ_TEST_DOCKER_MB": "5200", "RQ_TEST_ROOT_GB": "14"})
-    assert "rc=2" in proc.stdout and "Remove demos you do not use" in proc.stdout
+                       extra={"RQ_TEST_FREE_MB": "2000", "RQ_TEST_ROOT_GB": gb})
+    assert f"rc={rc}" in proc.stdout and "Remove demos you do not use" in proc.stdout
 
 
-def _docker_stub(box):
+def _docker_stub(box, have_image=False):
     from test_demo_consent import _exe
+    log = box.tmp / "docker.log"
     _exe(box.stubs / "docker",
-         '#!/bin/sh\ncase "$1 $2" in "info "*) exit 0 ;; "image inspect") exit 1 ;; *) exit 1 ;; esac\n')
+         f'#!/bin/sh\necho "$*" >> "{log}"\n'
+         f'case "$1 $2" in "info "*) exit 0 ;; "image inspect") exit {0 if have_image else 1} ;; esac\nexit 1\n')
+    return log
 
 
 @pytest.mark.parametrize("demo,name", [("doqumentation", "Workshop & Qiskit Server"),
-                                       ("qiskit-tutorials", "Qiskit Tutorials on this Pi")])
-def test_the_engine_stops_with_a_note_before_anything_else(box, demo, name):
-    _docker_stub(box)
-    proc = box([_ENGINE, demo], extra={"RQ_TEST_FREE_MB": "5900", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
+                                       ("qiskit-tutorials", "Qiskit Tutorials on this Pi"),
+                                       ("quantum-lab", "Quantum Lab (QuBins)"),
+                                       ("quantum-mixer", "Quantum Mixer"),
+                                       ("qoffee-maker", "Qoffee-Maker")])
+@pytest.mark.parametrize("install_only", [False, True])
+def test_the_engine_stops_with_a_note_before_anything_else(box, demo, name, install_only):
+    log = _docker_stub(box)
+    args = [_ENGINE, demo] + (["--install-only"] if install_only else [])
+    proc = box(args, extra=_SMALL)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert f"{name} does not fit on this SD card" in proc.stdout
+    assert f"{name} is a Docker demo. Docker demos need an SD card of 32 GB or more" in proc.stdout
     assert "please try it" not in proc.stdout.lower()          # no beta invitation first
     assert "ERROR" not in proc.stdout + proc.stderr and box.err() == ""
+    # nothing pulled, nothing asked
+    assert not any(line.startswith(("pull", "run")) for line in log.read_text().splitlines())
+    assert [c for c in box.dialogs() if "--yesno" in c] == []
 
 
-def test_the_engine_goes_on_where_it_fits(box):
-    _docker_stub(box)
-    proc = box([_ENGINE, "doqumentation", "--is-installed"],
-               extra={"RQ_TEST_FREE_MB": "50000", "RQ_TEST_DOCKER_MB": "0", "RQ_TEST_ROOT_GB": "14"})
-    assert "does not fit" not in proc.stdout
+@pytest.mark.parametrize("gb,have_image", [("14", True), ("28", False)])
+def test_the_engine_goes_on_with_the_image_here_or_on_a_bigger_card(box, gb, have_image):
+    _docker_stub(box, have_image)
+    proc = box([_ENGINE, "doqumentation", "--install-only"],
+               extra={"RQ_TEST_FREE_MB": "50000", "RQ_TEST_ROOT_GB": gb})
+    assert "is a Docker demo" not in proc.stdout
+
+
+def test_consent_with_the_image_here_is_not_refused_on_a_small_card(box):
+    _docker_stub(box, have_image=True)
+    proc = _common_run(box, 'rc=0; rq_confirm_demo_install qoffee-maker || rc=$?; echo "rc=$rc"',
+                       extra=_SMALL)
+    assert "rc=5" not in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_docker_launchers_stop_before_their_first_download():
+    # Quantum Lab fetched the course notebooks before its image question
+    lab = _read("rq_quantum_lab.sh")
+    assert lab.index("rq_stop_if_card_too_small") < lab.index("rq_require_demo_consent ibm-courses")
+    # the others ask (rq_require_demo_consent: --docker, a note on a small card) first
+    for f, demo in [("quantum-mixer.sh", "quantum-mixer"), ("qoffee-maker.sh", "qoffee-maker"),
+                    ("rq_doqumentation.sh", "doqumentation")]:
+        src = _read(f)
+        assert src.index(f"rq_require_demo_consent {demo}") < src.index("docker pull" if "docker pull" in src
+                                                                        else "rq_demo_docker_pull")
+    assert "room for one Docker demo" not in _read("rq_common.sh")
 
 
 def test_qiskit_tutorials_names_itself_in_the_download_question():

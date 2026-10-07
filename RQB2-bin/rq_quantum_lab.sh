@@ -75,6 +75,9 @@ fi
 ################################################################################
 
 rq_docker_access "$@"
+# A small card: a note before the course notebooks download (Docker demos
+# need 32 GB or more)
+rq_stop_if_card_too_small "Quantum Lab (QuBins)" "$DOCKER_IMAGE"
 
 ################################################################################
 # Ensure the IBM Quantum Learning course notebooks are present
