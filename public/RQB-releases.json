@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T12:20:25Z",
+  "generated": "2026-10-07T12:21:27Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2146314140,
       "extract_size": 9495904256,
       "extract_sha256": "a46571efd4eceefc37c2075f8c41cc360a83375c4ca08bed7c7a1465aacc28f6",
-      "image_sha256": "78d3097470d9d71cd5271a584e2fb5c8c5944e5d5fd482c52aac89305272f99d",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-134908/rasqberry-development-2026-10-07-134908-ab.img.xz",
       "ab_extract_sha256": "1c9f1667b2b70e1d640f8ad2b1515c37e794c52cfe746a850ee5b42ed1ad8fdd",
       "ab_image_sha256": "839352af20e338d659c9f98934d5353cfa1734c0259f578834b1e25630841690",
-      "ab_image_download_size": 1879768692,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1879768692,
       "highlights": [
         "Bump version to development-2026-10-07-134908",
         "Merge dev-strict-16gb: no Docker demos on a 16 GB card",
