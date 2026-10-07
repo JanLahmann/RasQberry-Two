@@ -2757,9 +2757,25 @@ do_remote_access_menu() {
             _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). Anyone on the same network who knows the password can log in over VNC."
             [ "$_ra_ssh" = on ] && _ra_keys=", key only"
         fi
+        # Still the published demo password (no password set in Imager): say
+        # which of SSH and VNC accept it (user test 2026-10-07 F1)
+        _ra_pass="Change the password"
+        if [ "$(_rq_remote demo-password 2>/dev/null)" = yes ]; then
+            _ra_pass="Change the password (now: the published demo password)"
+            _ra_acc=""
+            [ "$_ra_ssh" = on ] && [ "$_ra_sshpw" != no ] && _ra_acc="SSH"
+            [ "$_ra_vnc" = on ] && _ra_acc="${_ra_acc:+$_ra_acc and }VNC"
+            case "$_ra_acc" in
+                "SSH and VNC") _ra_text="SSH and VNC accept the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                SSH) _ra_text="SSH accepts the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                VNC) _ra_text="VNC accepts the published demo password: anyone on the same network can see and use the desktop. Change the password, unless this Pi is for a booth or a classroom."
+                     [ "$_ra_sshpw" = no ] && [ "$_ra_ssh" = on ] && _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). $_ra_text" ;;
+                *) _ra_text="This Pi uses the published demo password. SSH and VNC do not accept it now (switched off, or keys only)." ;;
+            esac
+        fi
         FUN=$(show_menu ${_ra_last:+--default-item "$_ra_last"} "RasQberry: Remote Access & Security" \
             "$_ra_text" \
-            PASS "Change the password" \
+            PASS "$_ra_pass" \
             SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}${_ra_keys}" \
             VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
             NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}" "$@") || break

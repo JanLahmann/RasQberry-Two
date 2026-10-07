@@ -463,7 +463,11 @@ done_label() {
 # Steps that are ticked when they are pending; the rest start unticked
 # (rule 3). Wi-Fi only shows up without any network, so it is ticked too.
 # The keyboard comes first: the Wi-Fi and the new password are typed on it.
-TICKED_TASKS="locale wifi expand led"
+# The password step shows up only while the account has the published demo
+# password (no password set in Imager): ticked, so a click-through Run
+# reaches its warning (Jan, user test 2026-10-07 F1). It still only asks:
+# Esc or Cancel there changes nothing.
+TICKED_TASKS="locale wifi password expand led"
 is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 TASKS="locale wifi password name expand abinfo led demos firmware touch"
@@ -613,12 +617,20 @@ done
 # Closing (R-088): where to start - the learning path for a first look,
 # as on the website (#30)
 if [ "$ran" = true ]; then
+    # While the demo password is in place, say so once more (F1)
+    pw_note="" pw_h=0
+    if task_password_applies; then
+        pw_note="
+
+This Pi uses the published demo password: change it with passwd or in the RasQberry menu (Remote Access & Security)."
+        pw_h=3
+    fi
     whiptail --title "RasQberry Two Setup" --msgbox \
 "Done. A good start: the learning path \"First 15 minutes\". It starts three demos for you and says what to try in each.
 
 Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
-$REOPEN" 15 74
+$REOPEN$pw_note" $((15 + pw_h)) 74
 fi
 if [ "$touch_chosen" = true ]; then
     task_touch_run || true

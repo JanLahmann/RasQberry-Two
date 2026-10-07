@@ -3,16 +3,22 @@
 # (R-090). pam_motd runs this as root at every login, so it must be quick.
 # Fits 80 columns.
 
+remote="${RQ_REMOTE_ACCESS:-/usr/bin/rq_remote_access.sh}"
 version=$(cat /etc/rasqberry-version 2>/dev/null || echo "")
-name=$(/usr/bin/rq_remote_access.sh mdns 2>/dev/null || true)
+name=$("$remote" mdns 2>/dev/null || true)
 [ -n "$name" ] || name="$(hostname).local"
-addr=$(/usr/bin/rq_remote_access.sh address 2>/dev/null | awk '{ printf "%s%s", sep, $2; sep = ", " }')
+addr=$("$remote" address 2>/dev/null | awk '{ printf "%s%s", sep, $2; sep = ", " }')
 
 echo
 echo "RasQberry Two ${version}"
 echo "This Pi: ${name}${addr:+ (${addr})}"
 echo "Menu: sudo raspi-config, then 0 RasQberry.   All commands: rq_help"
 echo "Demos with a window need the desktop: a screen, or VNC."
+# While the account has the published demo password (no password set in
+# Imager, user test 2026-10-07 F1): one line, as long as it lasts
+if [ "$("$remote" demo-password 2>/dev/null)" = yes ]; then
+    echo "This Pi uses the published demo password: change it with passwd or in the menu."
+fi
 # A failed update or switch (#242): the Pi went back to the other slot. One
 # sentence, folded to 80 columns, for 7 days or until the taskbar menu was
 # opened (--login); quick (it reads a few small files).

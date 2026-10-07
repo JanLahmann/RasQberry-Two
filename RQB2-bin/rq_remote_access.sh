@@ -24,6 +24,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   connect       Raspberry Pi Connect: signed-in | signed-out | off |
 #                 missing (not installed). Read only: asks `rpi-connect
 #                 status` as the desktop user (also when run with sudo).
+#   demo-password does the desktop user (uid 1000) still log in with the
+#                 published demo password? yes | no | unknown (not root and
+#                 no passwordless sudo, or no perl). Read only; the password
+#                 is compared through crypt(3), never shown.
 #
 # Usage: rq_remote_access.sh <command> [argument]
 # Environment (tests): RQ_RPI_CONNECT (default rpi-connect),
@@ -42,7 +46,7 @@ RPI_CONNECT="${RQ_RPI_CONNECT:-rpi-connect}"
 
 usage() {
     cat <<'EOF'
-Usage: rq_remote_access.sh status | address | mdns | connect
+Usage: rq_remote_access.sh status | address | mdns | connect | demo-password
        sudo rq_remote_access.sh ssh on|off | vnc on|off | name NEW
 EOF
 }
@@ -113,6 +117,36 @@ connect_state() {
     return 0
 }
 
+# The password every card starts with; it is on the website (R-013)
+DEMO_PASSWORD='Qiskit1!'
+
+# Is the desktop user's password the published one? Its shadow hash, as root
+# or through passwordless sudo, compared in perl, whose crypt() knows
+# yescrypt. A locked or empty account is not on the demo password.
+demo_password_state() {
+    local user hash
+    user="${RQ_DEMO_PW_USER:-$(getent passwd 1000 2>/dev/null | cut -d: -f1)}"
+    [ -n "$user" ] || { echo unknown; return 0; }
+    if [ "$(id -u)" = 0 ]; then
+        hash=$(getent shadow "$user" 2>/dev/null | cut -d: -f2) || hash=""
+    else
+        hash=$(sudo -n getent shadow "$user" 2>/dev/null | cut -d: -f2) || hash=""
+    fi
+    case "$hash" in
+        '')       echo unknown; return 0 ;;
+        '!'*|'*'*) echo no; return 0 ;;
+    esac
+    command -v perl >/dev/null 2>&1 || { echo unknown; return 0; }
+    if RQ_PW="$DEMO_PASSWORD" RQ_HASH="$hash" perl -e \
+        'my $c = crypt($ENV{RQ_PW}, $ENV{RQ_HASH}); exit((defined $c && $c eq $ENV{RQ_HASH}) ? 0 : 1)' \
+        2>/dev/null; then
+        echo yes
+    else
+        echo no
+    fi
+    return 0
+}
+
 current_name() { hostname 2>/dev/null || cat /etc/hostname 2>/dev/null || echo unknown; }
 
 # The name avahi announces (rq_common.sh), as the Workshop server says it
@@ -152,6 +186,8 @@ case "$cmd" in
         mdns_name ;;
     connect)
         connect_state ;;
+    demo-password)
+        demo_password_state ;;
     ssh)
         need_root ssh "$@"
         switch ssh "${1:-}" ;;
