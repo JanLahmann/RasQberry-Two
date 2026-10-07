@@ -231,3 +231,44 @@ def test_a_small_checkout_is_at_least_1_mb(tmp_path):
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout.split()
     assert out[0] == "1" and out[2] == "0"
     assert int(out[1]) in (4, 5)
+
+
+# ---------------------------------------------------------------------------
+# 7. Qoffee-Maker: Esc does not turn the kiosk into the raw notebook
+# ---------------------------------------------------------------------------
+
+_QOFFEE_JS = os.path.join(_REPO_ROOT, "RQB2-config", "demo-patches", "qoffee-appmode-custom.js")
+
+_QOFFEE_HARNESS = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const removed = [], listeners = {}, body = [];
+const Jupyter = {notebook: {notebook_name: 'qoffee.ipynb', _fully_loaded: true,
+                            kernel: {info_reply: {protocol_version: '5'}}},
+  keyboard_manager: {command_shortcuts: {remove_shortcut: k => removed.push(k)}},
+  actions: {exists: () => true, call: () => {}}};
+global.document = {
+  addEventListener: (ev, fn) => { listeners[ev] = fn; },
+  getElementById: () => body[0] || null,
+  createElement: () => ({style: {}}),
+  body: {appendChild: el => body.push(el)}};
+const timers = [];
+console.log = console.warn = console.error = () => {};
+new Function('require', 'setInterval', 'clearInterval', src)(
+  (deps, cb) => cb(Jupyter, {on: () => {}}), fn => timers.push(fn), () => {});
+timers.forEach(f => f());
+listeners.keydown({key: 'Escape', keyCode: 27});
+process.stdout.write(JSON.stringify({removed, hint: body.length ? body[0].textContent : ''}));
+"""
+
+
+def test_qoffee_kiosk_keeps_the_app_on_esc():
+    import shutil
+    import subprocess
+    if shutil.which("node") is None:
+        pytest.skip("node is required")
+    proc = subprocess.run(["node", "-e", _QOFFEE_HARNESS, _QOFFEE_JS], capture_output=True,
+                          text=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout)
+    assert out["removed"] == ["esc"]                 # no "Deactivate App Mode"
+    assert "F11 leaves full screen" in out["hint"]

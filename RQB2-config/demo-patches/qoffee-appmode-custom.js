@@ -50,6 +50,45 @@ require(['base/js/namespace', 'base/js/events'], function (Jupyter, events) {
         } catch (e) {
             console.error('[RasQberry] Qoffee app-activate failed', e);
         }
+        keepTheApp();
+    }
+
+    // Esc left the app: qoffeefrontend binds it to "Deactivate App Mode",
+    // which showed the raw notebook (code, a "docplex 32-bit" warning) and
+    // stayed full screen (Pi 4 user test 2026-10-07, F2). In the kiosk, Esc
+    // now only says how to get out.
+    function keepTheApp() {
+        var km = Jupyter.keyboard_manager;
+        if (km && km.command_shortcuts) {
+            try {
+                km.command_shortcuts.remove_shortcut('esc');
+            } catch (e) { /* not bound */ }
+        }
+        if (typeof document !== 'undefined') {
+            document.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape' || ev.keyCode === 27) {
+                    showHint();
+                }
+            });
+        }
+    }
+
+    var hintTimer = null;
+    function showHint() {
+        var el = document.getElementById('rasqberry-esc-hint');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'rasqberry-esc-hint';
+            el.style.cssText = 'position:fixed;left:50%;bottom:8%;transform:translateX(-50%);' +
+                'z-index:100000;background:rgba(0,0,0,0.85);color:#fff;font:20px sans-serif;' +
+                'padding:14px 22px;border-radius:8px;';
+            el.textContent = 'F11 leaves full screen. To stop Qoffee-Maker, ' +
+                'press Enter in its terminal window.';
+            document.body.appendChild(el);
+        }
+        el.style.display = 'block';
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { el.style.display = 'none'; }, 6000);
     }
 
     function activateOnce() {
