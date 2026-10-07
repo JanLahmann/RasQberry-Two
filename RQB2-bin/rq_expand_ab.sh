@@ -284,9 +284,31 @@ optout=$optout
 EOF
 }
 
+# What partition N offers for files, as df and System Info count it: its
+# file system's size where it is mounted, else <partition bytes>. The texts
+# then give one partition one size (user test 2026-10-07 F4: 26.7 GB here,
+# 26.1 GB in System Info). RQ_AB_FS<N>_BYTES in tests.
+fs_size() {
+    local var="RQ_AB_FS${1}_BYTES" m b=""
+    if [ -n "${!var:-}" ]; then echo "${!var}"; return 0; fi
+    m=$(mountpoints_of "$(part_dev "$1")" | head -1)
+    [ -n "$m" ] && b=$(df -B1 --output=size "$m" 2>/dev/null | tail -1 | tr -d ' ')
+    case "$b" in ''|*[!0-9]*) echo "$2" ;; *) echo "$b" ;; esac
+}
+
 cmd_explain() {
     collect_facts
-    explain_mode "$MODE" "$CARD" "$SLOT_A" "$SLOT_B" "$DATA" "${1:-}"
+    local a="$SLOT_A" b="$SLOT_B" d="$DATA"
+    case "$MODE" in
+        single|dual)
+            a=$(fs_size 5 "$SLOT_A"); b=$(fs_size 6 "$SLOT_B"); d=$(fs_size 7 "$DATA")
+            # The slot that is not mounted: as big as the running one when
+            # their partitions are (both are made the same way)
+            if [ "$SLOT_A" = "$SLOT_B" ]; then
+                if [ "$a" != "$SLOT_A" ]; then b="$a"; elif [ "$b" != "$SLOT_B" ]; then a="$b"; fi
+            fi ;;
+    esac
+    explain_mode "$MODE" "$CARD" "$a" "$b" "$d" "${1:-}"
 }
 
 # Which layout to make: an explicit --dual/--single wins, else the card decides

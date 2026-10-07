@@ -364,6 +364,17 @@ def test_firmware_notice_command_is_copyable(fake_gtk, monkeypatch, tmp_path):
     assert item.spawned == [["open", fw.DOC_URL]]
 
 
+def test_firmware_notice_opens_with_nothing_selected(fake_gtk, monkeypatch, tmp_path):
+    """User test 2026-10-07, R2: the first sentence opened highlighted."""
+    _notice_window(monkeypatch, tmp_path)
+    ok = next(w for w in _Widget.made if w.kind == "Button" and w.kw.get("label") == "OK")
+    win = next(w for w in _Widget.made if w.kind == "Window")
+    assert win.calls["set_focus"] == [(ok,)]                 # OK focused before it shows
+    assert "show_all" in win.calls and ok.calls["grab_focus"] == [()]
+    labels = [w for w in _Widget.made if w.kind == "Label"]
+    assert labels and all(w.calls.get("select_region") == [(0, 0)] for w in labels)
+
+
 def test_firmware_copy_uses_wl_copy_on_wayland(fake_gtk, monkeypatch, tmp_path):
     # wl-copy, where installed, serves the text on its own as well
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-1")

@@ -2668,7 +2668,9 @@ do_toggle_remote() {
         _tr_on="Anyone on this network who knows the password can then see and use the desktop."
     fi
     if [ "$_tr_now" = on ]; then
-        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" \
+        # Cancel is the default: Enter on a menu line someone only wanted to
+        # look at must not cut off SSH or VNC (user test 2026-10-07 F2)
+        whiptail --title "$_tr_name" --yes-button "Switch off" --no-button "Cancel" --defaultno \
             --yesno "Switch $_tr_name off?\n\n$_tr_off" 13 72 || return 0
         _tr_new=off
     else
@@ -2703,11 +2705,17 @@ do_connect_info() {
         signed-out) _ci_now="Raspberry Pi Connect is on but not signed in. Click its icon in the taskbar, then Sign In." ;;
         *)          _ci_now="Raspberry Pi Connect is off. To turn it on: click its icon in the taskbar, then Turn On Raspberry Pi Connect, then Sign In (or in a terminal: rpi-connect on, then rpi-connect signin)." ;;
     esac
+    # The firmware hint only where it can help: Connect not signed in and a
+    # firmware update due (rq_firmware.py due; user test 2026-10-07 R1)
+    _ci_fw=""
+    if [ "$1" != signed-in ] && "${RQ_FIRMWARE:-$BIN_DIR/rq_firmware.py}" due >/dev/null 2>&1; then
+        _ci_fw="
+
+If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how."
+    fi
     show_msgbox_fit "Raspberry Pi Connect" "$_ci_now
 
-With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).
-
-If Connect from Imager does not sign in, update the Pi's firmware: System Info shows whether an update is available and how." 72
+With Connect, you reach this Pi's desktop and a terminal from a browser anywhere: connect.raspberrypi.com (a free Raspberry Pi ID).$_ci_fw" 72
     return 0
 }
 
@@ -2757,9 +2765,25 @@ do_remote_access_menu() {
             _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). Anyone on the same network who knows the password can log in over VNC."
             [ "$_ra_ssh" = on ] && _ra_keys=", key only"
         fi
+        # Still the published demo password (no password set in Imager): say
+        # which of SSH and VNC accept it (user test 2026-10-07 F1)
+        _ra_pass="Change the password"
+        if [ "$(_rq_remote demo-password 2>/dev/null)" = yes ]; then
+            _ra_pass="Change the password (now: the published demo password)"
+            _ra_acc=""
+            [ "$_ra_ssh" = on ] && [ "$_ra_sshpw" != no ] && _ra_acc="SSH"
+            [ "$_ra_vnc" = on ] && _ra_acc="${_ra_acc:+$_ra_acc and }VNC"
+            case "$_ra_acc" in
+                "SSH and VNC") _ra_text="SSH and VNC accept the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                SSH) _ra_text="SSH accepts the published demo password: anyone on the same network can log in. Change the password, unless this Pi is for a booth or a classroom." ;;
+                VNC) _ra_text="VNC accepts the published demo password: anyone on the same network can see and use the desktop. Change the password, unless this Pi is for a booth or a classroom."
+                     [ "$_ra_sshpw" = no ] && [ "$_ra_ssh" = on ] && _ra_text="SSH accepts only computers whose key is saved on this Pi (no password). $_ra_text" ;;
+                *) _ra_text="This Pi uses the published demo password. SSH and VNC do not accept it now (switched off, or keys only)." ;;
+            esac
+        fi
         FUN=$(show_menu ${_ra_last:+--default-item "$_ra_last"} "RasQberry: Remote Access & Security" \
             "$_ra_text" \
-            PASS "Change the password" \
+            PASS "$_ra_pass" \
             SSH  "SSH (log in from another computer): ${_ra_ssh:-unknown}${_ra_keys}" \
             VNC  "VNC (the desktop on another computer): ${_ra_vnc:-unknown}" \
             NAME "Name: ${_ra_name:-unknown}${_ra_mdns:+ (network: $_ra_mdns)}" "$@") || break

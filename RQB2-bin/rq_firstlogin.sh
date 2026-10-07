@@ -411,8 +411,10 @@ Lowercase letters, digits and hyphens." 13 72 "$old" 3>&1 1>&2 2>&3) || new="$ol
 # ---------------------------------------------------------------------------
 # Task: connect to Wi-Fi (only when there is no network at all)
 # ---------------------------------------------------------------------------
-task_wifi_applies() { [ -d /sys/class/net/wlan0 ] && command -v nmtui >/dev/null 2>&1; }
+task_wifi_applies() { [ -d "${RQ_WLAN_DIR:-/sys/class/net/wlan0}" ] && command -v nmtui >/dev/null 2>&1; }
 task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
+# The interface the internet goes through: wlan0, eth0 ...
+net_dev() { ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n 1; }
 task_wifi_label()   { printf 'Connect to Wi-Fi (no network connection found)'; }
 task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 
@@ -441,7 +443,13 @@ task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable --restart; }
 # How a finished step reads in the --all list (R-134: "run again")
 done_label() {
     case "$1" in
-        wifi)     echo "Run again: Wi-Fi (connected)" ;;
+        wifi)
+            # Truthfully: a Pi on a network cable is not on Wi-Fi (F3)
+            case "$(net_dev)" in
+                wl*)         echo "Run again: Wi-Fi (connected)" ;;
+                eth*|en*)    echo "Set up Wi-Fi (the network is connected by cable now)" ;;
+                *)           echo "Set up Wi-Fi (connected to a network now)" ;;
+            esac ;;
         password) echo "Run again: password (keeping the demo password)" ;;
         locale)   echo "Run again: keyboard ($(kb_layout)) and time zone ($(time_zone))" ;;
         name)     echo "Run again: name ($(hostname 2>/dev/null))" ;;
@@ -463,7 +471,11 @@ done_label() {
 # Steps that are ticked when they are pending; the rest start unticked
 # (rule 3). Wi-Fi only shows up without any network, so it is ticked too.
 # The keyboard comes first: the Wi-Fi and the new password are typed on it.
-TICKED_TASKS="locale wifi expand led"
+# The password step shows up only while the account has the published demo
+# password (no password set in Imager): ticked, so a click-through Run
+# reaches its warning (Jan, user test 2026-10-07 F1). It still only asks:
+# Esc or Cancel there changes nothing.
+TICKED_TASKS="locale wifi password expand led"
 is_ticked() { case " $TICKED_TASKS " in *" $1 "*) return 0 ;; esac; return 1; }
 
 TASKS="locale wifi password name expand abinfo led demos firmware touch"
@@ -613,12 +625,20 @@ done
 # Closing (R-088): where to start - the learning path for a first look,
 # as on the website (#30)
 if [ "$ran" = true ]; then
+    # While the demo password is in place, say so once more (F1)
+    pw_note="" pw_h=0
+    if task_password_applies; then
+        pw_note="
+
+This Pi uses the published demo password: change it with passwd or in the RasQberry menu (Remote Access & Security)."
+        pw_h=3
+    fi
     whiptail --title "RasQberry Two Setup" --msgbox \
 "Done. A good start: the learning path \"First 15 minutes\". It starts three demos for you and says what to try in each.
 
 Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
-$REOPEN" 15 74
+$REOPEN$pw_note" $((15 + pw_h)) 74
 fi
 if [ "$touch_chosen" = true ]; then
     task_touch_run || true

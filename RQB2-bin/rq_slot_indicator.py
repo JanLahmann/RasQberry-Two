@@ -1285,8 +1285,11 @@ class SlotIndicator:
         box.set_border_width(16)
         win.add(box)
 
+        labels = []
+
         def label(text, markup=False):
             lab = Gtk.Label()
+            labels.append(lab)
             if markup:
                 lab.set_markup(text)
             else:
@@ -1326,8 +1329,17 @@ class SlotIndicator:
         buttons.add(ok)
         win.connect("destroy", self._fw_window_closed)
         self.fw_window = win
+        # OK has the focus from the start (Enter closes the window). Without
+        # it GTK focuses the first selectable label when the window is shown
+        # and selects all of its text, and that selection stayed highlighted
+        # after the focus moved on (user test 2026-10-07, R2): so focus OK
+        # before showing, and clear any selection after. The labels stay
+        # selectable with the mouse.
+        win.set_focus(ok)
         win.show_all()
-        ok.grab_focus()        # not a selectable label: GTK would select all its text
+        ok.grab_focus()
+        for lab in labels:
+            lab.select_region(0, 0)
 
     def copy_text(self, text):
         """

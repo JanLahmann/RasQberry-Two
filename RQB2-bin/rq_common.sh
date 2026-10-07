@@ -1572,12 +1572,27 @@ _rq_root_size_gb() {
     df -P -k / 2>/dev/null | awk 'NR == 2 { printf "%d\n", $2 / 1000000 }'
 }
 
+# Does this card hold two systems (an A/B card of 64 GB or more)? A smaller
+# A/B card runs one system and has no "other slot" (rq_expand_ab.sh mode;
+# RQ_TEST_CARD_MODE in tests)
+_rq_card_has_two_systems() {
+    local mode
+    if [ -n "${RQ_TEST_CARD_MODE+x}" ]; then
+        mode="$RQ_TEST_CARD_MODE"
+    else
+        _rq_root_is_ab_slot || return 1
+        mode=$("$_RQ_COMMON_DIR/rq_expand_ab.sh" mode 2>/dev/null) || mode=""
+    fi
+    [ "$mode" = dual ]
+}
+
 # Extra lines under "Space:" for a Docker demo (item 32): the images live in
-# the running system, so on an A/B card each slot keeps its own and an update
-# downloads them again.
+# the running system, so on a card with two systems each slot keeps its own
+# and an update downloads them again. Not on a single-system card, which has
+# no other slot (user test 2026-10-07, F4).
 # Prints dialog text with literal \n, like the rest of the consent text.
 _rq_docker_space_note() {
-    if _rq_root_is_ab_slot; then
+    if _rq_card_has_two_systems; then
         printf '%s' "           Docker images stay in this system's slot: after an\n"
         printf '%s' "           update into the other slot they download again.\n"
     fi

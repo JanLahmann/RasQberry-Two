@@ -7,7 +7,9 @@ Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot
 # partition says "pending" (convert-to-ab-boot-v3.sh) are touched; the
 # opt-out file /boot/config/no-auto-expand keeps the card as written.
 DefaultDependencies=no
-After=local-fs.target systemd-remount-fs.service
+# data.mount: /data has nofail in fstab, so local-fs.target does not wait
+# for it - order on it explicitly (a mount that fails does not stop this)
+After=local-fs.target systemd-remount-fs.service data.mount
 Before=sysinit.target rasqberry-boot-config.service rasqberry-carry-over.service
 ConditionPathExists=/boot/config/ab-layout
 
