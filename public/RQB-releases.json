@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T18:55:50Z",
+  "generated": "2026-10-07T18:56:34Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2144559660,
       "extract_size": 9495904256,
       "extract_sha256": "ce59c80037755a491a5966b3b9803cbc3922c21b65cf0cc3c554e3dd840e636d",
-      "image_sha256": "6f998732ff026d2f2099553d43b8377674f61dcd9fc5b67fe9be21fed5cddbb6",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-201407/rasqberry-development-2026-10-07-201407-ab.img.xz",
       "ab_extract_sha256": "27a9e7398f54c5b8dc9408fb654d6721d3878b2770b5d238b6574c982bace50b",
       "ab_image_sha256": "ffd1016fd7d8438f3d7b5b260713a5ba6229e29f2cf155a8f613710e500f9e5d",
-      "ab_image_download_size": 1880369868,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1880369868,
       "highlights": [
         "Enter in the IBM LED demo's terminal stops it at once",
         "no \"other slot\" note on a single-system card, one size per partition",
