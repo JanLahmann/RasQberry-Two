@@ -183,3 +183,31 @@ def test_learning_path_step_takes_ctrl_c_as_a_stop():
     src = _read("rq_learning_paths.sh")
     step = src.split("start_step() {", 1)[1].split("\n}\n", 1)[0]
     assert "case \"$rc\" in 0|129|130|143) return 0 ;; esac" in step
+
+
+# ---------------------------------------------------------------------------
+# 5. One question per download
+# ---------------------------------------------------------------------------
+
+from test_demo_consent import box, _ENGINE  # noqa: E402,F401  (fixture)
+
+
+def test_courses_do_not_ask_for_what_tutorials_downloaded(box):
+    d = box.home / "RasQberry-Two" / "demos" / "ibm-quantum-learning"
+    d.mkdir(parents=True)
+    proc = box([_ENGINE, "ibm-courses", "--install-only"], extra={"WT_RC": "1"})
+    assert len(box.dialogs()) == 1                       # nothing there: asks
+    (d / "WELCOME-tutorials.ipynb").write_text("{}")
+    proc = box([_ENGINE, "ibm-courses", "--install-only"], extra={"WT_RC": "1"})
+    assert len(box.dialogs()) == 1, proc.stdout          # no second question
+    assert "uses what was downloaded for IBM Quantum Tutorials" in proc.stdout
+
+
+def test_quantum_lab_asks_once_for_image_and_notebooks():
+    src = _read("rq_quantum_lab.sh")
+    block = src.split('info "IBM Quantum Learning content not found."', 1)[1].split("\nfi\n", 1)[0]
+    assert '[ "${RQ_CONFIRMED_DEMO:-}" = "quantum-lab" ]' in block
+    assert "RQ_AUTO_INSTALL=1 rq_require_demo_consent ibm-courses" in block
+    lab = json.load(open(os.path.join(_REPO_ROOT, "RQB2-config", "demo-manifests",
+                                      "rq_demo_quantum-lab.json")))
+    assert "course notebooks" in lab["install"]["download"]["what"]

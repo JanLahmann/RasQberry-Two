@@ -482,6 +482,29 @@ install_docker_image() {
         "$(get_field '.install.download.download_mb' '')" "$MANIFEST_FILE"
 }
 
+# The demo shares its download with another one (install.download.shares)
+# that is already on this Pi: print that demo's name. IBM Quantum Courses
+# asked to download what Tutorials had just fetched (Pi 4 user test
+# 2026-10-07, F5); only a welcome notebook is left to set up.
+shared_download_present() {
+    local shares mfdir
+    shares=$(get_field '.install.download.shares' '')
+    [ -n "$shares" ] || return 1
+    mfdir=$(dirname "$MANIFEST_FILE")
+    local name wd marker
+    while IFS=$'\t' read -r name wd marker; do
+        [ -n "$wd" ] && [ -n "$marker" ] || continue
+        if [ -f "$USER_HOME/$REPO/demos/$wd/$marker" ]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done < <(jq -r --arg s "$shares" --arg id "$DEMO_ID" \
+        'select(.install.download.shares == $s and .id != $id)
+         | [(.name // .id), (.entrypoint.working_dir // ""), (.install.marker_file // "")] | @tsv' \
+        "$mfdir"/*.json 2>/dev/null)
+    return 1
+}
+
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
@@ -490,7 +513,12 @@ ensure_installed() {
         return 0
     fi
 
-    rq_require_demo_consent "$DEMO_ID" "$MANIFEST_FILE"
+    local sharer
+    if sharer=$(shared_download_present); then
+        info "$DEMO_TITLE uses what was downloaded for $sharer: nothing to download."
+    else
+        rq_require_demo_consent "$DEMO_ID" "$MANIFEST_FILE"
+    fi
 
     # A demo whose setup cannot be expressed as "clone a repo" names its own
     # installer instead. The IBM learning pair is the live case: one shared
