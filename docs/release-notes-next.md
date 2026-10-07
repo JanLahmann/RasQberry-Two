@@ -7,6 +7,7 @@ only true for the standard image. -->
 
 ## Since beta-2026-10-04
 
+- **Raspberry Pi OS Trixie:** RasQberry Two now runs on Trixie (Debian 13, 64-bit) with Python 3.13, the new desktop (labwc and the new taskbar) and Chromium from Debian. Every demo, the LED drivers on the Pi 4 and Pi 5, and A/B updates from the Bookworm beta were tested on both Pis.
 - **Quantum Lab:** starts again. QuBins removed the image build this release pinned, so the first start failed with "The registry does not offer ...". It now uses QuBins 2.5-xl (Qiskit 2.5.2), and when a publisher removes a pinned build again, the Docker demos download the image's named tag instead and say so in one line.
 - **Wi-Fi at the first start:** when the router turns the Pi away at first, the Pi now tries again by itself instead of staying offline until someone connects it by hand.
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
