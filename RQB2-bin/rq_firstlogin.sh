@@ -411,8 +411,10 @@ Lowercase letters, digits and hyphens." 13 72 "$old" 3>&1 1>&2 2>&3) || new="$ol
 # ---------------------------------------------------------------------------
 # Task: connect to Wi-Fi (only when there is no network at all)
 # ---------------------------------------------------------------------------
-task_wifi_applies() { [ -d /sys/class/net/wlan0 ] && command -v nmtui >/dev/null 2>&1; }
+task_wifi_applies() { [ -d "${RQ_WLAN_DIR:-/sys/class/net/wlan0}" ] && command -v nmtui >/dev/null 2>&1; }
 task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
+# The interface the internet goes through: wlan0, eth0 ...
+net_dev() { ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n 1; }
 task_wifi_label()   { printf 'Connect to Wi-Fi (no network connection found)'; }
 task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 
@@ -441,7 +443,13 @@ task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable --restart; }
 # How a finished step reads in the --all list (R-134: "run again")
 done_label() {
     case "$1" in
-        wifi)     echo "Run again: Wi-Fi (connected)" ;;
+        wifi)
+            # Truthfully: a Pi on a network cable is not on Wi-Fi (F3)
+            case "$(net_dev)" in
+                wl*)         echo "Run again: Wi-Fi (connected)" ;;
+                eth*|en*)    echo "Set up Wi-Fi (the network is connected by cable now)" ;;
+                *)           echo "Set up Wi-Fi (connected to a network now)" ;;
+            esac ;;
         password) echo "Run again: password (keeping the demo password)" ;;
         locale)   echo "Run again: keyboard ($(kb_layout)) and time zone ($(time_zone))" ;;
         name)     echo "Run again: name ($(hostname 2>/dev/null))" ;;
