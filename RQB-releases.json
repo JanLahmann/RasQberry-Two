@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-06T19:32:32Z",
+  "generated": "2026-10-07T01:00:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,19 +8,19 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-04-143935",
-      "name": "rasqberry-beta-2026-10-04",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935",
-      "release_date": "2026-10-04",
-      "image_download_size": 1645458180,
+      "tag": "beta-2026-10-06-211827",
+      "name": "rasqberry-beta-2026-10-06",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-06-211827",
+      "release_date": "2026-10-06",
+      "image_download_size": 1646121944,
       "extract_size": 9076473856,
-      "extract_sha256": "6e7642344407cd6904a4cf34c73409f33da2224cf89dda2a4de7a10c45229994",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-04-143935/rasqberry-beta-2026-10-04-ab.img.xz",
-      "ab_extract_sha256": "6a5c427bcad75f328b195a49c6217bb62abe8f9a9161f0ce09d779aa3575dbf7",
-      "ab_image_sha256": "38f912f8c0608c6104f2f16930c38b5d55336e0b748b45c0585a20c3a086117a",
+      "extract_sha256": "e42f6de2f7c6452ac97fe0e58b6b4a602afd2f3502fe9542d5f77be7fd2e43d6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-06-211827/rasqberry-beta-2026-10-06-ab.img.xz",
+      "ab_extract_sha256": "68a079330a43f8533ef5c6ff449ec260b67f9cc26acd47d8cf70b25763ed18dd",
+      "ab_image_sha256": "eefbdc79ca265603031d5ba2397586e7e14a822f5cd61dbcfe6ee1caaaf142d5",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1663679844,
+      "ab_image_download_size": 1671714316,
       "highlights": [
         "New A/B image: the SD card stays in the Pi for good. New releases install over the air into the other system, and the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
         "Taskbar badge shows which system runs, and tells you when a new release is out, with what's new",
@@ -31,26 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-06-210409",
-      "name": "rasqberry-development-2026-10-06-210409",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-06-210409",
-      "release_date": "2026-10-06 21:04",
-      "image_download_size": 2010610088,
-      "extract_size": 9076473856,
-      "extract_sha256": "94de6d54e51f3f6d40cd4b93c2dfe926674417dd89553648b2de910863f600d6",
-      "image_sha256": "7b21a462d40d4a4cd8cb5b2ae9f58b308802ce3f054b859480a202ccc1b314d6",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-06-210409/rasqberry-development-2026-10-06-210409-ab.img.xz",
-      "ab_extract_sha256": "f677a6c914683e697ab7f39ebd2c3c40bfbf7e6cd63cdd0f6e5a03ac20ba9bbe",
-      "ab_image_sha256": "c635d7cd9e96491af4a2d68744b2765235a02ebbdc592089250903375c709959",
-      "ab_image_download_size": 2065681208,
+      "tag": "development-2026-10-07-022012",
+      "name": "rasqberry-development-2026-10-07-022012",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-022012/rasqberry-development-2026-10-07-022012.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-022012",
+      "release_date": "2026-10-07 02:20",
+      "image_download_size": 2146685208,
+      "extract_size": 9495904256,
+      "extract_sha256": "8f14aa622b244b290c0beef90ef8dd4ebcede46ec14f959497368c81119c0a3c",
+      "image_sha256": "c2f9c1f2acf710aa100c2923b6fc5e0265d4c1e86477e7574a1748513d15b71a",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-022012/rasqberry-development-2026-10-07-022012-ab.img.xz",
+      "ab_extract_sha256": "9a96f7e3b582740e0a30b312e4a385bc8c8fe86aae1e178da7f14507e0aeeaaf",
+      "ab_image_sha256": "4ee73efe154fd1b05be0203d0fb231cc55ce754981efdfee4a4c5caeb02b3d74",
+      "ab_image_download_size": 1880264712,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Quantum Lab starts again; pinned Docker digests fall back to a tag",
-        "daily check that every pinned Docker image is still offered",
-        "Bump version to development-2026-10-06-210409",
-        "Merge branch 'dev-qlab-pin' into development (Quantum Lab pin + Docker pin fallback)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-06-163836"
+        "Bump version to development-2026-10-07-022012",
+        "Merge branch 'dev-trixie' into development: Raspberry Pi OS Trixie",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-trixie-2026-10-06-233817",
+        "the headless run's window stays open until the animation",
+        "closing the picture window stops the demo"
       ]
     }
   }
