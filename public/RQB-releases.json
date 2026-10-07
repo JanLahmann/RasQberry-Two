@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T05:12:47Z",
+  "generated": "2026-10-07T05:13:42Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,20 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "dev-trixie-polish-2026-10-07-063417",
-      "name": "rasqberry-dev-trixie-polish-2026-10-07-063417",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-polish-2026-10-07-063417/rasqberry-dev-trixie-polish-2026-10-07-063417.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-trixie-polish-2026-10-07-063417",
-      "release_date": "2026-10-07 06:34",
-      "image_download_size": 2143993660,
+      "tag": "development-2026-10-07-022012",
+      "name": "rasqberry-development-2026-10-07-022012",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-022012/rasqberry-development-2026-10-07-022012.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-022012",
+      "release_date": "2026-10-07 02:20",
+      "image_download_size": 2146685208,
       "extract_size": 9495904256,
-      "extract_sha256": "cfa899fde7106a764b92dc88f7ffa586111db43b6226f3e8768d9fb17ae4a58b",
-      "image_sha256": "c4fe75b334850d9f20372970990febca3e8523afacb56b2d8a2da72f18cd9690",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-polish-2026-10-07-063417/rasqberry-dev-trixie-polish-2026-10-07-063417-ab.img.xz",
-      "ab_extract_sha256": "4aa0c4ffb24935688d15e6cf8ea217a736b20319e2c060d6d92b3892643ec929",
-      "ab_image_sha256": "5ff899f1764a8c9bac54e00ddc1b8b1d6e502e238333992409a3c0e359e32080",
-      "ab_image_download_size": 1882175392,
-      "ab_extract_size": 12398362624
+      "extract_sha256": "8f14aa622b244b290c0beef90ef8dd4ebcede46ec14f959497368c81119c0a3c",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-022012/rasqberry-development-2026-10-07-022012-ab.img.xz",
+      "ab_extract_sha256": "9a96f7e3b582740e0a30b312e4a385bc8c8fe86aae1e178da7f14507e0aeeaaf",
+      "ab_image_sha256": "4ee73efe154fd1b05be0203d0fb231cc55ce754981efdfee4a4c5caeb02b3d74",
+      "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1880264712,
+      "highlights": [
+        "Bump version to development-2026-10-07-022012",
+        "Merge branch 'dev-trixie' into development: Raspberry Pi OS Trixie",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-trixie-2026-10-06-233817",
+        "the headless run's window stays open until the animation",
+        "closing the picture window stops the demo"
+      ]
     }
   }
 }
