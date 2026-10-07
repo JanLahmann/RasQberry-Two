@@ -613,13 +613,17 @@ def test_no_stall_no_question(box):
 # --- Docker consent: per slot, 16 GB cards (item 32) -----------------------------
 
 @needs_bash
-@pytest.mark.parametrize("ab,gb,slot_note", [("1", "26", True), ("0", "58", False)])
-def test_docker_consent_says_where_the_image_lives(box, ab, gb, slot_note):
+@pytest.mark.parametrize("ab,gb,mode,slot_note", [
+    ("1", "28", "dual", True),
+    ("1", "26", "single", False),     # an A/B card under 64 GB: one system, no other slot (F4)
+    ("0", "58", "standard", False),
+])
+def test_docker_consent_says_where_the_image_lives(box, ab, gb, mode, slot_note):
     tty = box.tmp / "tty"
     tty.write_text("")
     subprocess.run(["bash", "-c", f'. "{_COMMON}"; load_rqb2_env; rq_confirm_demo_install quantum-mixer'],
                    env=box({"RQ_TEST_AB": ab, "RQ_TEST_ROOT_GB": gb, "RQ_TEST_TTY": str(tty),
-                            "RQ_TEST_FREE_MB": "50000"}),
+                            "RQ_TEST_CARD_MODE": mode, "RQ_TEST_FREE_MB": "50000"}),
                    capture_output=True, text=True, timeout=60, start_new_session=True)
     text = box.wt_log.read_text()
     assert "quantum-mixer repository's CI" in text

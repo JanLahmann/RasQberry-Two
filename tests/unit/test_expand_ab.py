@@ -283,3 +283,19 @@ def test_explain_is_one_line_per_paragraph():
     out = _run("explain", env=_facts(CARDS["32GB"], slot_a=25 * GIB)).stdout
     assert "This 32 GB card is smaller than 64 GB, so it runs ONE system: " in out
     assert "64GB" not in out and len(out.strip().splitlines()) <= 5
+
+
+def test_explain_gives_the_file_system_sizes_system_info_shows():
+    # User test 2026-10-07 F4: one partition read 26.7 GB here and 26.1 GB in
+    # System Info (df). Mounted partitions are now given as df counts them.
+    out = _run("explain", env=_facts(CARDS["32GB"], slot_a=26_700_000_000, data=3_000_000_000,
+                                     RQ_AB_FS5_BYTES=26_100_000_000,
+                                     RQ_AB_FS7_BYTES=2_900_000_000)).stdout
+    assert "runs ONE system: 26.1 GB, plus a 2.9 GB data partition" in out
+
+
+def test_explain_gives_both_slots_the_same_size():
+    # the running slot is mounted, the other is not: equal partitions, one size
+    out = _run("explain", env=_facts(CARDS["64GB"], slot_a=28_000_000_000, slot_b=28_000_000_000,
+                                     data=6_200_000_000, RQ_AB_FS6_BYTES=27_400_000_000)).stdout
+    assert "Slot A (27.4 GB) and Slot B (27.4 GB)" in out
