@@ -474,8 +474,14 @@ rq_require_demo_consent doqumentation
 rq_confirm_download "doQumentation" 1300 5400 --what "Docker image from ghcr.io" \
     --time "10-20 minutes" --path /var/lib/docker --url https://ghcr.io/v2/ \
     --intro "A newer doQumentation image is available." --question "Update now?"
-# 0 go ahead, 1 "Not now", 2 not enough space, 3 not reachable, 4 no terminal;
+# 0 go ahead, 1 "Not now", 2 not enough space, 3 not reachable, 4 no terminal,
+# 5 a Docker demo (--docker) on a small card (16 GB: Docker demos need 32 GB);
 # $RQ_CONSENT_MSG says why. RQ_AUTO_INSTALL=1: no question, checks still run.
+# rq_require_demo_consent shows 5 as a note (rq_card_note) and exits 0.
+
+# A launcher that downloads something else before its image: on a small card,
+# without the image here, a note and exit 0 before anything is downloaded
+rq_stop_if_card_too_small "My demo" "$IMAGE"
 
 rq_free_mb /var/lib/docker      # free MB (1 MB = 10^6 bytes); RQ_TEST_FREE_MB fakes it
 rq_fmt_mb 3900                  # "3.9 GB"

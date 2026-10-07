@@ -226,27 +226,21 @@ docker_usable() {
     command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1
 }
 
-# A Docker demo this card has no room for, not even with every other demo
-# removed (the Workshop & Qiskit Server on a 16 GB card): say so first, as a
-# note, and stop. It printed the beta invitation, then "ERROR: Not enough
-# free space ... remove demos" and a bug-report line (user test 2026-10-07,
-# S2). install.docker_image_of names the demo whose image a launcher-only
-# demo runs (Qiskit Tutorials on this Pi).
+# A Docker demo on a small card (16 GB; Docker demos need 32 GB or more): say
+# so first, as a note, and stop before anything is downloaded. It printed the
+# beta invitation, then "ERROR: Not enough free space ... remove demos" and a
+# bug-report line (user test 2026-10-07, S2). install.docker_image_of names
+# the demo whose image a launcher-only demo runs (Qiskit Tutorials on this Pi).
 stop_if_card_too_small() {
-    local src="$DEMO_ID" mf="$MANIFEST_FILE" image disk
+    local src="$DEMO_ID" mf="$MANIFEST_FILE"
+    rq_small_card || return 0
     src=$(get_field '.install.docker_image_of' "$DEMO_ID")
     if [ "$src" != "$DEMO_ID" ]; then
         mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$src") || return 0
     fi
     [ "$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null)" = docker ] || return 0
-    image=$(rq_demo_image "$src" "$mf")
-    [ -n "$image" ] && docker_usable || return 0
-    docker image inspect "$image" >/dev/null 2>&1 && return 0
-    disk=$(jq -r '.install.download.disk_mb // .install.download.download_mb // 0' "$mf" 2>/dev/null)
-    case "$disk" in ''|*[!0-9]*) return 0 ;; esac
-    rq_card_too_small "$DEMO_TITLE" "$disk" /var/lib/docker || return 0
-    rq_card_note "Needs a bigger SD card"
-    exit 0
+    docker_usable || return 0      # (the launcher explains)
+    rq_stop_if_card_too_small "$DEMO_TITLE" "$(rq_demo_image "$src" "$mf")"
 }
 
 # Check if demo is installed
@@ -1324,6 +1318,9 @@ main() {
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
+    # A Docker demo on a small card: a note, also for an install from the menu
+    stop_if_card_too_small
+
     # Install-only runs BEFORE check_requirements on purpose: installing a demo
     # only needs the network, not the hardware it will eventually run on. The
     # raspi-config menu installs from the console with no DISPLAY, and demanding
@@ -1333,8 +1330,6 @@ main() {
         info "$demo_name is installed"
         exit 0
     fi
-
-    stop_if_card_too_small
 
     # New or less-tested demos ask for feedback (item 36)
     if [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then

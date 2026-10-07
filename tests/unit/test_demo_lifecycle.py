@@ -8,7 +8,7 @@ Tests for feedback batch C2 (2026-10-03): how demos stop, LEDs and Docker.
 - the Pi 5 LED driver stall is noticed, the driver reopened and the person
   offered a lower brightness - never lowered silently (item 31);
 - the consent dialog of a Docker demo says that its image stays in the
-  running slot and what fits on a 16 GB card (item 32);
+  running slot, and no Docker demos on a 16 GB card (item 32);
 - Fun with Quantum lists its notebooks from the manifest (item 10);
 - a browser tab a demo opens outlives the demo's window, which still stops
   the demo (rig test 2026-10-04).
@@ -613,9 +613,8 @@ def test_no_stall_no_question(box):
 # --- Docker consent: per slot, 16 GB cards (item 32) -----------------------------
 
 @needs_bash
-@pytest.mark.parametrize("ab,gb,slot_note,small_note", [
-    ("1", "26", True, False), ("0", "14", False, True), ("0", "58", False, False)])
-def test_docker_consent_says_where_the_image_lives(box, ab, gb, slot_note, small_note):
+@pytest.mark.parametrize("ab,gb,slot_note", [("1", "26", True), ("0", "58", False)])
+def test_docker_consent_says_where_the_image_lives(box, ab, gb, slot_note):
     tty = box.tmp / "tty"
     tty.write_text("")
     subprocess.run(["bash", "-c", f'. "{_COMMON}"; load_rqb2_env; rq_confirm_demo_install quantum-mixer'],
@@ -625,7 +624,20 @@ def test_docker_consent_says_where_the_image_lives(box, ab, gb, slot_note, small
     text = box.wt_log.read_text()
     assert "quantum-mixer repository's CI" in text
     assert ("Docker images stay in this system's slot" in text) == slot_note
-    assert ("A 16 GB card has room for one Docker demo" in text) == small_note
+    assert "room for one Docker demo" not in text
+
+
+@needs_bash
+def test_docker_consent_on_a_small_card_is_a_note_not_a_question(box):
+    tty = box.tmp / "tty"
+    tty.write_text("")
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; load_rqb2_env; rc=0; '
+                           'rq_confirm_demo_install quantum-mixer || rc=$?; echo "rc=$rc"'],
+                          env=box({"RQ_TEST_AB": "0", "RQ_TEST_ROOT_GB": "14", "RQ_TEST_TTY": str(tty),
+                                   "RQ_TEST_FREE_MB": "50000"}),
+                          capture_output=True, text=True, timeout=60, start_new_session=True)
+    assert "rc=5" in proc.stdout, proc.stdout + proc.stderr
+    assert not box.wt_log.exists()
 
 
 # --- Fun with Quantum window (item 10) -------------------------------------------

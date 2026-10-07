@@ -201,6 +201,12 @@ fi
 
 DOCKER_AVAILABLE=no
 docker_ok && DOCKER_AVAILABLE=yes
+# A small card gets no Docker demos (they need 32 GB or more), the rest as usual
+SMALL_TXT=""
+if [ "$DOCKER_AVAILABLE" = yes ] && rq_small_card; then
+    DOCKER_AVAILABLE=no
+    SMALL_TXT="The Docker demos are left out: they need an SD card of 32 GB or more, and this card is $(_rq_card_size_gb) GB."
+fi
 collect_missing "$DOCKER_AVAILABLE"
 
 FREE=$(rq_free_mb "$USER_HOME")
@@ -215,7 +221,7 @@ G_COUNT=$T_COUNT; G_DL=$T_DL; G_DISK=$T_DISK; G_TIME=$T_TIME; G_NAMES=$T_NAMES
 # Only the Docker demos that fit, smallest first, in what the small demos
 # leave free; the others are named, not offered. A 16 GB card offered all
 # four ("about 3.9 GB") and then refused everything, the small demos too
-# ("needs 15.6 GB", user test 2026-10-07, S2).
+# ("needs 15.6 GB", user test 2026-10-07, S2); now it offers none (above).
 NOFIT=""       # does not fit at all
 NOTWITH=""     # fits alone, not next to the ones offered
 if [ -n "${FREE:-}" ]; then
@@ -236,7 +242,7 @@ if [ -n "${FREE:-}" ]; then
         fi
     done
 fi
-NOFIT_TXT=""
+NOFIT_TXT="$SMALL_TXT"
 [ -n "$NOFIT" ] && NOFIT_TXT="No room on this SD card for: $NOFIT."
 [ -n "$NOTWITH" ] && NOFIT_TXT="${NOFIT_TXT:+$NOFIT_TXT\n}Not as well, for lack of room: $NOTWITH (one of them fits instead: start it from its icon)."
 totals yes

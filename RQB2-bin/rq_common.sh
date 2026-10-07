@@ -1389,51 +1389,52 @@ rq_reachable() {
     curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
 }
 
-# MB the Docker images take (0 without Docker). `docker system df` counts
-# the parts that images share once.
-_rq_docker_images_mb() {
-    local size
-    [ -n "${RQ_TEST_DOCKER_MB:-}" ] && { echo "$RQ_TEST_DOCKER_MB"; return 0; }
-    command -v docker >/dev/null 2>&1 || { echo 0; return 0; }
-    size=$(timeout 10 docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null \
-        | awk '$1 == "Images" { print $2 }')
-    awk -v s="$size" 'BEGIN {
-        n = s + 0; u = s; sub(/^[0-9.]+/, "", u)
-        if (u == "kB") n /= 1000; else if (u == "B") n = 0
-        else if (u == "GB") n *= 1000; else if (u == "TB") n *= 1000000
-        printf "%d\n", n }'
-}
-
-# The most room demos can have on this card, in MB: what is free on the file
-# system holding PATH, plus what the downloaded demos and Docker images take
-# (removing them frees it). Sets RQ_CARD_ROOM_MB.
-# Usage: rq_card_room_mb [PATH]
-rq_card_room_mb() {
-    local free demos imgs
-    free=$(rq_free_mb "${1:-${USER_HOME:-/}}")
-    case "$free" in ''|*[!0-9]*) free=0 ;; esac
-    demos=$(du -sk "${USER_HOME:-/nonexistent}/${REPO:-RasQberry-Two}/demos" 2>/dev/null \
-        | awk '{ printf "%d\n", $1 * 1024 / 1000000 }')
-    imgs=$(_rq_docker_images_mb)
-    RQ_CARD_ROOM_MB=$(( free + ${demos:-0} + ${imgs:-0} ))
-    echo "$RQ_CARD_ROOM_MB"
-}
-
-# Does a download of DISK_MB never fit on this card, not even with every
-# downloaded demo removed? (The Workshop & Qiskit Server on a 16 GB card:
-# "Remove demos you do not use" could not help, user test 2026-10-07, S2.)
-# Sets RQ_CONSENT_MSG to a plain note naming NAME.
-# Usage: rq_card_too_small NAME DISK_MB [PATH]
-rq_card_too_small() {
-    local name="$1" need=$(( ${2:-0} + RQ_SPACE_RESERVE_MB )) room gb
-    # only a small card (16 GB): on a bigger one, other files take the room
+# Is this a small card (the root file system under 20 GB: a 16 GB card)?
+# Docker demos need a card of 32 GB or more there (rasqberry.org: "16 GB:
+# one system, without the Docker demos"; Jan, 2026-10-07).
+rq_small_card() {
+    local gb
     gb=$(_rq_root_size_gb)
     case "$gb" in ''|*[!0-9]*) return 1 ;; esac
-    [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ] || return 1
-    room=$(rq_card_room_mb "${3:-}")
-    [ "$room" -lt "$need" ] || return 1
-    RQ_CONSENT_MSG="$name does not fit on this SD card: it needs about $(rq_fmt_mb "$need") (with $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare), and this card has room for about $(rq_fmt_mb "$room") of demos in all.\n\nIt needs a card of 32 GB or more. The other demos work on this card."
+    [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]
+}
+
+# Size of the SD card (the disk holding /) as printed on it: the next power
+# of two (a "16 GB" card holds 15.5 GB); from the root file system's size
+# where the disk cannot be read (and in tests)
+_rq_card_size_gb() {
+    local disk bytes="" gb n=1
+    if [ -z "${RQ_TEST_ROOT_GB:-}" ]; then
+        disk=$(lsblk -no PKNAME "$(findmnt -no SOURCE / 2>/dev/null)" 2>/dev/null | head -n 1)
+        bytes=$(lsblk -bdno SIZE "/dev/${disk:-none}" 2>/dev/null)
+    fi
+    case "$bytes" in
+        ''|*[!0-9]*) gb=$(_rq_root_size_gb) ;;
+        *) gb=$(( bytes / 1020000000 )) ;;
+    esac
+    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
+    while [ "$n" -lt "$gb" ]; do n=$((n * 2)); done
+    echo "$n"
+}
+
+# Is NAME a Docker demo this card is too small for? Sets RQ_CONSENT_MSG to a
+# plain note naming it (shown by rq_card_note). Callers check first that the
+# image is not here already: a card moved from another Pi runs what it has.
+# Usage: rq_card_too_small NAME
+rq_card_too_small() {
+    rq_small_card || return 1
+    RQ_CONSENT_MSG="$1 is a Docker demo. Docker demos need an SD card of 32 GB or more; this card is $(_rq_card_size_gb) GB.\n\nAll other demos work on this card."
     return 0
+}
+
+# A Docker launcher's first step: on a small card, without IMAGE here, show
+# the note and end (exit 0) before anything is downloaded.
+# Usage: rq_stop_if_card_too_small NAME IMAGE
+rq_stop_if_card_too_small() {
+    [ -n "${2:-}" ] && docker image inspect "$2" >/dev/null 2>&1 && return 0
+    rq_card_too_small "$1" || return 0
+    rq_card_note
+    exit 0
 }
 
 # Show RQ_CONSENT_MSG as a note (a box on a terminal), not as an error
@@ -1442,7 +1443,7 @@ rq_card_note() {
     # (no box during "Download all demos", which asked already)
     if [ "${RQ_AUTO_INSTALL:-0}" != 1 ] && command -v whiptail >/dev/null 2>&1 \
             && { : < /dev/tty > /dev/tty; } 2>/dev/null; then
-        show_msgbox "$title" "$RQ_CONSENT_MSG" 12 70 < /dev/tty > /dev/tty 2>&1 || true
+        show_msgbox "$title" "$RQ_CONSENT_MSG" 10 70 < /dev/tty > /dev/tty 2>&1 || true
     else
         printf '%b\n' "$RQ_CONSENT_MSG"
     fi
@@ -1463,8 +1464,8 @@ rq_card_note() {
 #     --question TEXT  last line (default "Download now?")
 #
 # DOWNLOAD_MB/DISK_MB 0 = unknown. Returns 0 to go ahead, 1 declined, 2 not
-# enough space, 3 source not reachable, 4 no terminal to ask on, 5 never fits
-# on this card (rq_card_too_small). For 1-5,
+# enough space, 3 source not reachable, 4 no terminal to ask on, 5 a Docker
+# demo (--docker) on a small card (rq_card_too_small). For 1-5,
 # RQ_CONSENT_MSG holds a sentence for the user. With RQ_AUTO_INSTALL=1 (the
 # caller has already asked, e.g. "Download all demos") there is no question,
 # but the space and network checks still run.
@@ -1491,6 +1492,7 @@ rq_confirm_download() {
     case "$disk" in ''|*[!0-9]*) disk=0 ;; esac
     case "$peak" in ''|*[!0-9]*) peak=0 ;; esac
     RQ_CONSENT_MSG=""
+    [ "$docker" = 1 ] && rq_card_too_small "$name" && return 5
 
     local free need space_txt
     free=$(rq_free_mb "$path")
@@ -1502,7 +1504,6 @@ rq_confirm_download() {
     local card_txt="$space_txt on the SD card"
     [ "$disk" -gt 0 ] || card_txt="unknown"
     if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
-        rq_card_too_small "$name" $((disk + peak)) "$path" && return 5
         RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
         return 2
     fi
@@ -1573,19 +1574,12 @@ _rq_root_size_gb() {
 
 # Extra lines under "Space:" for a Docker demo (item 32): the images live in
 # the running system, so on an A/B card each slot keeps its own and an update
-# downloads them again; a 16 GB card fits one Docker demo.
+# downloads them again.
 # Prints dialog text with literal \n, like the rest of the consent text.
 _rq_docker_space_note() {
-    local gb
     if _rq_root_is_ab_slot; then
         printf '%s' "           Docker images stay in this system's slot: after an\n"
         printf '%s' "           update into the other slot they download again.\n"
-    fi
-    gb=$(_rq_root_size_gb)
-    case "$gb" in ''|*[!0-9]*) gb=0 ;; esac
-    if [ "$gb" -gt 0 ] && [ "$gb" -lt 20 ]; then
-        printf '%s' "           A 16 GB card has room for one Docker demo (not the\n"
-        printf '%s' "           Workshop & Qiskit Server).\n"
     fi
     return 0
 }
@@ -1644,7 +1638,9 @@ rq_confirm_demo_install() {
     fi
     local docker_opt=""
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
-        docker_opt="--docker"
+        # (an image already here downloads nothing, also on a small card)
+        docker image inspect "$(rq_demo_image "$id" "$mf")" >/dev/null 2>&1 \
+            || docker_opt="--docker"
         path="/var/lib/docker"
         [ -n "$what" ] || what="Docker image ($image)"
         [ -n "$url" ] || url=$(rq_image_registry_url "$image")
