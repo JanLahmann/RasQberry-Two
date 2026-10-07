@@ -2,19 +2,9 @@
 # Part of raspi-config https://github.com/RPi-Distro/raspi-config
 #
 # See LICENSE file for copyright and license details
+# shellcheck disable=SC2120
 
-# modification for RasQberry
-# Load environmend and methods
-RQB2_CONFDIR=.local/config # Attention: variable is defined in multiple files
-RQB2_menu=/home/$SUDO_USER/$RQB2_CONFDIR/RQB2_menu.sh
-if [ -e $RQB2_menu ] ; then
-  . $RQB2_menu
-else
-  echo "ERROR: $RQB2_menu does not exist !"
-fi  
-
-
-INTERACTIVE=True
+INTERACTIVE="${INTERACTIVE:-True}"
 ASK_TO_REBOOT=0
 BLACKLIST=/etc/modprobe.d/raspi-blacklist.conf
 
@@ -24,6 +14,15 @@ else
   FIRMWARE=
 fi
 CONFIG=/boot${FIRMWARE}/config.txt
+
+# modification for RasQberry
+# Load RQB2 menu from global config location
+RQB2_menu="/usr/config/RQB2_menu.sh"
+if [ -e "$RQB2_menu" ] ; then
+  . "$RQB2_menu"
+else
+  echo "ERROR: $RQB2_menu does not exist !"
+fi
 
 USER=${SUDO_USER:-$(who -m | awk '{ print $1 }')}
 if [ -z "$USER" ] && [ -n "$HOME" ]; then
@@ -36,7 +35,6 @@ fi
 INIT="$(ps --no-headers -o comm 1)"
 
 HOMEDIR="$(getent passwd "$USER" | cut -d: -f6)"
-WAYFIRE_FILE="$HOMEDIR/.config/wayfire.ini"
 LABWCENV_FILE="$HOMEDIR/.config/labwc/environment"
 LABWCAST_FILE="$HOMEDIR/.config/labwc/autostart"
 
@@ -67,7 +65,7 @@ else
   CMDLINE=/proc/cmdline
 fi
 
-# tests for Pi 1, 2 and 0 all test for specific boards...
+# tests for Pi 1, 2, 0, CM4, CM5, 500 and x00 all test for specific boards...
 
 is_pione() {
   if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
@@ -89,7 +87,28 @@ is_pizero() {
   return $?
 }
 
-# ...while tests for Pi 3 and 4 just test processor type, so will also find CM3, CM4, Zero 2 etc.
+is_cmfour() {
+  # matches CM4 only, not CM4S
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]14[0-9a-fA-F]$" /proc/cpuinfo
+  return $?
+}
+
+is_cmfive() {
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]1[8aA][0-9a-fA-F]$" /proc/cpuinfo
+  return $?
+}
+
+is_pi500() {
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]19[0-9a-fA-F]$" /proc/cpuinfo
+  return $?
+}
+
+is_pihundred() {
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]1[39][0-9a-fA-F]$" /proc/cpuinfo
+  return $?
+}
+
+# ...while tests for Pi 3, 4 and 5 just test processor type, so will also find CM3, CM4, Zero 2, 500, etc.
 
 is_pithree() {
   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F]2[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo
@@ -137,6 +156,14 @@ is_live() {
   return $?
 }
 
+get_is_live() {
+  if is_live; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
 is_ssh() {
   if pstree -p | grep -qE ".*sshd.*\($$\)"; then
     return 0
@@ -154,20 +181,13 @@ is_pulseaudio() {
   return $?
 }
 
-is_wayfire() {
-  pgrep wayfire > /dev/null
-  return $?
-}
-
 is_labwc() {
   pgrep labwc > /dev/null
   return $?
 }
 
 is_wayland() {
-  if is_wayfire; then
-    return 0
-  elif is_labwc; then
+  if is_labwc; then
     return 0
   else
     return 1
@@ -182,11 +202,35 @@ has_analog() {
   fi
 }
 
+has_composite_video() {
+  if is_pihundred || is_cmfive; then
+    return 1
+  else
+    return 0
+  fi
+}
+
+has_nvme() {
+  if is_pifive || is_cmfour; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 is_installed() {
   if [ "$(dpkg -l "$1" 2> /dev/null | tail -n 1 | cut -d ' ' -f 1)" != "ii" ]; then
     return 1
   else
     return 0
+  fi
+}
+
+get_installed() {
+  if is_installed $1; then
+    echo 1
+  else
+    echo 0
   fi
 }
 
@@ -336,60 +380,37 @@ EOF
 }
 
 set_config_var() {
-  lua - "$1" "$2" "$3" <<EOF > "$3.bak"
-local key=assert(arg[1])
-local value=assert(arg[2])
-local fn=assert(arg[3])
-local file=assert(io.open(fn))
-local made_change=false
-for line in file:lines() do
-  if line:match("^#?%s*"..key.."=.*$") then
-    line=key.."="..value
-    made_change=true
-  end
-  print(line)
-end
-
-if not made_change then
-  print(key.."="..value)
-end
-EOF
-mv "$3.bak" "$3"
+  awk -v key="$1" -v value="$2" '
+    $0 ~ "^#?[[:space:]]*" key "=" {
+      print key "=" value
+      made_change=1
+      next
+    }
+    { print }
+    END { if (!made_change) print key "=" value }
+  ' "$3" > "$3.bak" && mv "$3.bak" "$3"
 }
 
 clear_config_var() {
-  lua - "$1" "$2" <<EOF > "$2.bak"
-local key=assert(arg[1])
-local fn=assert(arg[2])
-local file=assert(io.open(fn))
-for line in file:lines() do
-  if line:match("^%s*"..key.."=.*$") then
-    line="#"..line
-  end
-  print(line)
-end
-EOF
-mv "$2.bak" "$2"
+  sed -i "s/^\([[:space:]]*$1=\)/#\1/" "$2"
 }
 
 get_config_var() {
-  lua - "$1" "$2" <<EOF
-local key=assert(arg[1])
-local fn=assert(arg[2])
-local file=assert(io.open(fn))
-local found=false
-for line in file:lines() do
-  local val = line:match("^%s*"..key.."=(.*)$")
-  if (val ~= nil) then
-    print(val)
-    found=true
-    break
-  end
-end
-if not found then
-   print(0)
-end
-EOF
+  awk -v key="$1" '
+    $0 ~ "^[[:space:]]*" key "=" {
+      sub("^[[:space:]]*" key "=", "")
+      print
+      found=1
+      exit
+    }
+    END { if (!found) print 0 }
+  ' "$2"
+}
+
+ensure_user_conf_dir() {
+  if [ ! -d "$HOMEDIR/.config" ]; then
+    install -d -o "$USER" -g "$USER" "$HOMEDIR/.config"
+  fi
 }
 
 get_overscan() {
@@ -501,15 +522,7 @@ do_overscan_kms() {
 }
 
 get_blanking() {
-  if is_wayfire; then
-    if ! grep -q dpms_timeout $WAYFIRE_FILE ; then
-      echo 1
-    elif ! grep -q "dpms_timeout.*-1" $WAYFIRE_FILE ; then
-      echo 0
-    else
-      echo 1
-    fi
-  elif is_labwc; then
+  if is_labwc; then
     if [ -e $LABWCAST_FILE ] && grep -q swayidle $LABWCAST_FILE ; then
       echo 0
     else
@@ -531,41 +544,7 @@ do_blanking() {
     DEFAULT=
     CURRENT=1
   fi
-  if is_wayfire; then
-    if [ "$INTERACTIVE" = True ]; then
-      whiptail --yesno "Would you like to enable screen blanking?" $DEFAULT 20 60 2
-      RET=$?
-    else
-      RET=$1
-    fi
-    if [ "$RET" -eq 0 ] ; then
-      if grep -q dpms_timeout $WAYFIRE_FILE ; then
-        sed -i 's/dpms_timeout.*/dpms_timeout=600/' $WAYFIRE_FILE
-      else
-        if grep -q "\[idle\]" $WAYFIRE_FILE ; then
-          sed -i 's/\[idle]/[idle]\ndpms_timeout=600/' $WAYFIRE_FILE
-        else
-          echo '\n[idle]' >> $WAYFIRE_FILE
-          echo 'dpms_timeout=600' >> $WAYFIRE_FILE
-        fi
-      fi
-      STATUS=enabled
-    elif [ "$RET" -eq 1 ]; then
-      if grep -q dpms_timeout $WAYFIRE_FILE ; then
-        sed -i 's/dpms_timeout.*/dpms_timeout=-1/' $WAYFIRE_FILE
-      else
-        if grep -q "\[idle\]" $WAYFIRE_FILE ; then
-          sed -i 's/\[idle]/[idle]\ndpms_timeout=-1/' $WAYFIRE_FILE
-        else
-          echo '\n[idle]' >> $WAYFIRE_FILE
-          echo 'dpms_timeout=-1' >> $WAYFIRE_FILE
-        fi
-      fi
-      STATUS=disabled
-    else
-      return "$RET"
-    fi
-  elif is_labwc; then
+  if is_labwc; then
     if [ "$INTERACTIVE" = True ]; then
       whiptail --yesno "Would you like to enable screen blanking?" $DEFAULT 20 60 2
       RET=$?
@@ -575,11 +554,21 @@ do_blanking() {
     if [ "$RET" -eq "$CURRENT" ]; then
       ASK_TO_REBOOT=1
     fi
+    ensure_user_conf_dir
+    mkdir -p "$HOMEDIR/.config/labwc/"
+    chown -R $USER:$USER "$HOMEDIR/.config/labwc/"
     if [ "$RET" -eq 0 ] ; then
       echo "swayidle -w timeout 600 'wlopm --off \\*' resume 'wlopm --on \\*' &" >> $LABWCAST_FILE
+      chown $USER:$USER $LABWCAST_FILE
+      echo "swayidle -w timeout 600 'wlopm --off \\*' resume 'wlopm --on \\*' &" >> /etc/xdg/labwc-greeter/autostart
       STATUS=enabled
     elif [ "$RET" -eq 1 ]; then
-      sed -i '/swayidle/d' $LABWCAST_FILE
+      if [ -e $LABWCAST_FILE ] ; then
+        sed -i '/swayidle/d' $LABWCAST_FILE
+      fi
+      if [ -e /etc/xdg/labwc-greeter/autostart ] ; then
+        sed -i '/swayidle/d' /etc/xdg/labwc-greeter/autostart
+      fi
       STATUS=disabled
     else
       return "$RET"
@@ -587,7 +576,7 @@ do_blanking() {
   else
     if [ "$INTERACTIVE" = True ]; then
       if [ "$(dpkg -l xscreensaver | tail -n 1 | cut -d ' ' -f 1)" = "ii" ]; then
-        whiptail --msgbox "Warning: xscreensaver is installed may override raspi-config settings" 20 60 2
+        whiptail --msgbox "Warning: xscreensaver is installed and may override raspi-config settings" 20 60 2
       fi
       whiptail --yesno "Would you like to enable screen blanking?" $DEFAULT 20 60 2
       RET=$?
@@ -621,79 +610,92 @@ do_change_pass() {
   whiptail --msgbox "Password changed successfully" 20 60 1
 }
 
-update_wayfire_keyboard() {
-  if ! is_wayfire ; then
-    return
-  fi
-  MODEL=$(grep XKBMODEL /etc/default/keyboard | cut -d= -f2 | tr -d '"')
-  LAYOUT=$(grep XKBLAYOUT /etc/default/keyboard | cut -d= -f2 | tr -d '"')
-  VARIANT=$(grep XKBVARIANT /etc/default/keyboard | cut -d= -f2 | tr -d '"')
-  OPTIONS=$(grep XKBOPTIONS /etc/default/keyboard | cut -d= -f2 | tr -d '"')
-  UFILE=$WAYFIRE_FILE
-  if [ ! -e $UFILE ] && [ -e /etc/wayfire/template.ini ] ; then
-    CONFIG_DIR="$(dirname "$UFILE")"
-    if ! [ -d "$CONFIG_DIR" ]; then
-      install -o "$USER" -g "$USER" -d "$CONFIG_DIR"
-    fi
-    cp /etc/wayfire/template.ini $UFILE
-    chown -R $USER:$USER $UFILE
-  fi
-  if [ -e $UFILE ] ; then
-    grep -q "\\[input\\]" $UFILE || printf "\n[input]" >> $UFILE
-    if grep -q xkb_model $UFILE ; then sed -i s/xkb_model.*/xkb_model=$MODEL/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_model=$MODEL/ $UFILE ; fi
-    if grep -q xkb_layout $UFILE ; then sed -i s/xkb_layout.*/xkb_layout=$LAYOUT/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_layout=$LAYOUT/ $UFILE ; fi
-    if grep -q xkb_variant $UFILE ; then sed -i s/xkb_variant.*/xkb_variant=$VARIANT/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_variant=$VARIANT/ $UFILE ; fi
-    if grep -q xkb_options $UFILE ; then sed -i s/xkb_options.*/xkb_options=$OPTIONS/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_options=$OPTIONS/ $UFILE ; fi
-  fi
-  UFILE="/usr/share/greeter.ini"
-  if [ ! -e $UFILE ] && [ -e /etc/wayfire/gtemplate.ini ] ; then
-    cp /etc/wayfire/gtemplate.ini $UFILE
-  fi
-  if [ -e $UFILE ] ; then
-    grep -q "\\[input\\]" $UFILE || printf "\n[input]" >> $UFILE
-    if grep -q xkb_model $UFILE ; then sed -i s/xkb_model.*/xkb_model=$MODEL/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_model=$MODEL/ $UFILE ; fi
-    if grep -q xkb_layout $UFILE ; then sed -i s/xkb_layout.*/xkb_layout=$LAYOUT/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_layout=$LAYOUT/ $UFILE ; fi
-    if grep -q xkb_variant $UFILE ; then sed -i s/xkb_variant.*/xkb_variant=$VARIANT/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_variant=$VARIANT/ $UFILE ; fi
-    if grep -q xkb_options $UFILE ; then sed -i s/xkb_options.*/xkb_options=$OPTIONS/ $UFILE ; else sed -i s/\\[input\\]/[input]\\nxkb_options=$OPTIONS/ $UFILE ; fi
-  fi
-}
-
 update_labwc_keyboard() {
-  if ! is_labwc ; then
-    return
-  fi
   MODEL=$(grep XKBMODEL /etc/default/keyboard | cut -d= -f2 | tr -d '"')
   LAYOUT=$(grep XKBLAYOUT /etc/default/keyboard | cut -d= -f2 | tr -d '"')
   VARIANT=$(grep XKBVARIANT /etc/default/keyboard | cut -d= -f2 | tr -d '"')
   OPTIONS=$(grep XKBOPTIONS /etc/default/keyboard | cut -d= -f2 | tr -d '"')
   UFILE=$LABWCENV_FILE
+  ensure_user_conf_dir
+  mkdir -p "$HOMEDIR/.config/labwc/"
+  chown -R $USER:$USER "$HOMEDIR/.config/labwc/"
+  if [ -e $UFILE ] ; then
+    if grep -q XKB_DEFAULT_MODEL $UFILE ; then sed -i s/XKB_DEFAULT_MODEL.*/XKB_DEFAULT_MODEL=$MODEL/ $UFILE ; else echo XKB_DEFAULT_MODEL=$MODEL >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_LAYOUT $UFILE ; then sed -i s/XKB_DEFAULT_LAYOUT.*/XKB_DEFAULT_LAYOUT=$LAYOUT/ $UFILE ; else echo XKB_DEFAULT_LAYOUT=$LAYOUT >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_VARIANT $UFILE ; then sed -i s/XKB_DEFAULT_VARIANT.*/XKB_DEFAULT_VARIANT=$VARIANT/ $UFILE ; else echo XKB_DEFAULT_VARIANT=$VARIANT >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_OPTIONS $UFILE ; then sed -i s/XKB_DEFAULT_OPTIONS.*/XKB_DEFAULT_OPTIONS=$OPTIONS/ $UFILE ; else echo XKB_DEFAULT_OPTIONS=$OPTIONS >> $UFILE ; fi
+  else
+    echo XKB_DEFAULT_MODEL=$MODEL >> $UFILE
+    echo XKB_DEFAULT_LAYOUT=$LAYOUT >> $UFILE
+    echo XKB_DEFAULT_VARIANT=$VARIANT >> $UFILE
+    echo XKB_DEFAULT_OPTIONS=$OPTIONS >> $UFILE
+  fi
+  chown $USER:$USER $UFILE
+  UFILE="/etc/xdg/labwc-greeter/environment"
   if [ ! -e $UFILE ] ; then
-    CONFIG_DIR="$(dirname "$UFILE")"
-    if ! [ -d "$CONFIG_DIR" ]; then
-      install -o "$USER" -g "$USER" -d "$CONFIG_DIR"
+    UFILE="/usr/share/labwc/environment"
+  fi
+  if [ -e $UFILE ] ; then
+    if grep -q XKB_DEFAULT_MODEL $UFILE ; then sed -i s/XKB_DEFAULT_MODEL.*/XKB_DEFAULT_MODEL=$MODEL/ $UFILE ; else echo XKB_DEFAULT_MODEL=$MODEL >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_LAYOUT $UFILE ; then sed -i s/XKB_DEFAULT_LAYOUT.*/XKB_DEFAULT_LAYOUT=$LAYOUT/ $UFILE ; else echo XKB_DEFAULT_LAYOUT=$LAYOUT >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_VARIANT $UFILE ; then sed -i s/XKB_DEFAULT_VARIANT.*/XKB_DEFAULT_VARIANT=$VARIANT/ $UFILE ; else echo XKB_DEFAULT_VARIANT=$VARIANT >> $UFILE ; fi
+    if grep -q XKB_DEFAULT_OPTIONS $UFILE ; then sed -i s/XKB_DEFAULT_OPTIONS.*/XKB_DEFAULT_OPTIONS=$OPTIONS/ $UFILE ; else echo XKB_DEFAULT_OPTIONS=$OPTIONS >> $UFILE ; fi
+  fi
+  if is_labwc ; then
+    kill -HUP `pgrep -x labwc`  # does the equivalent of labwc --reconfigure, but works as sudo...
+  fi
+}
+
+update_squeekboard() {
+  PREFIX=""
+  if [ -n "$SUDO_USER" ] ; then
+    PREFIX="sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus "
+  fi
+  LAYOUT1=$(grep XKBLAYOUT /etc/default/keyboard | cut -d= -f2 | tr -d '"' | cut -d, -f1)
+  VARIANT1=$(grep XKBVARIANT /etc/default/keyboard | cut -d= -f2 | tr -d '"' | cut -d, -f1)
+  LAYOUT2=$(grep XKBLAYOUT /etc/default/keyboard | cut -d= -f2 | tr -d '"' | cut -d, -f2 -s)
+  VARIANT2=$(grep XKBVARIANT /etc/default/keyboard | cut -d= -f2 | tr -d '"' | cut -d, -f2 -s)
+  GSET="[('xkb', '$LAYOUT1"
+  if [ -z "$VARIANT1" ] ; then
+    GSET=$GSET"')"
+  else
+    GSET=$GSET"+$VARIANT1')"
+  fi
+  if ! [ -z "$LAYOUT2" ] ; then
+    GSET=$GSET", ('xkb', '$LAYOUT2"
+    if [ -z "$VARIANT2" ] ; then
+      GSET=$GSET"')"
+    else
+      GSET=$GSET"+$VARIANT2')"
     fi
-    touch $UFILE
-    chown -R $USER:$USER $UFILE
   fi
-  if [ -e $UFILE ] ; then
-    if grep -q XKB_DEFAULT_MODEL $UFILE ; then sed -i s/XKB_DEFAULT_MODEL.*/XKB_DEFAULT_MODEL=$MODEL/ $UFILE ; else echo XKB_DEFAULT_MODEL=$MODEL >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_LAYOUT $UFILE ; then sed -i s/XKB_DEFAULT_LAYOUT.*/XKB_DEFAULT_LAYOUT=$LAYOUT/ $UFILE ; else echo XKB_DEFAULT_LAYOUT=$LAYOUT >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_VARIANT $UFILE ; then sed -i s/XKB_DEFAULT_VARIANT.*/XKB_DEFAULT_VARIANT=$VARIANT/ $UFILE ; else echo XKB_DEFAULT_VARIANT=$VARIANT >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_OPTIONS $UFILE ; then sed -i s/XKB_DEFAULT_OPTIONS.*/XKB_DEFAULT_OPTIONS=$OPTIONS/ $UFILE ; else echo XKB_DEFAULT_OPTIONS=$OPTIONS >> $UFILE ; fi
+  GSET=$GSET"]"
+  if ! [ -e /etc/dconf/profile/user ] ; then
+    mkdir -p "/etc/dconf/profile/"
+    echo "user-db:user\nsystem-db:local" >> /etc/dconf/profile/user
   fi
-  UFILE="/usr/share/labwc/environment"
-  if [ ! -e $UFILE ] ; then
-    CONFIG_DIR="$(dirname "$UFILE")"
-    mkdir -p "$CONFIG_DIR"
-    touch $UFILE
+  FILE=/etc/dconf/db/local.d/00_keyboard
+  if [ -e $FILE ] ; then
+    if grep -q "^sources" $FILE ; then
+      sed $FILE -i -e "s/^sources=.*/sources=$GSET/"
+    else
+      if grep -q "\[org/gnome/desktop/input-sources\]" $FILE ; then
+        sed $FILE -i -e "s#\[org/gnome/desktop/input-sources\]#\[org/gnome/desktop/input-sources\]\nsources=$GSET#" 
+      else
+        echo "[org/gnome/desktop/input-sources]\nsources=$GSET" >> $FILE
+      fi
+    fi
+  else
+    mkdir -p "/etc/dconf/db/local.d/"
+    echo "[org/gnome/desktop/input-sources]\nsources=$GSET" > $FILE
   fi
-  if [ -e $UFILE ] ; then
-    if grep -q XKB_DEFAULT_MODEL $UFILE ; then sed -i s/XKB_DEFAULT_MODEL.*/XKB_DEFAULT_MODEL=$MODEL/ $UFILE ; else echo XKB_DEFAULT_MODEL=$MODEL >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_LAYOUT $UFILE ; then sed -i s/XKB_DEFAULT_LAYOUT.*/XKB_DEFAULT_LAYOUT=$LAYOUT/ $UFILE ; else echo XKB_DEFAULT_LAYOUT=$LAYOUT >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_VARIANT $UFILE ; then sed -i s/XKB_DEFAULT_VARIANT.*/XKB_DEFAULT_VARIANT=$VARIANT/ $UFILE ; else echo XKB_DEFAULT_VARIANT=$VARIANT >> $UFILE ; fi
-    if grep -q XKB_DEFAULT_OPTIONS $UFILE ; then sed -i s/XKB_DEFAULT_OPTIONS.*/XKB_DEFAULT_OPTIONS=$OPTIONS/ $UFILE ; else echo XKB_DEFAULT_OPTIONS=$OPTIONS >> $UFILE ; fi
+  dconf update
+  if [ "$1" = restart ] ; then
+    if pgrep squeekboard > /dev/null ; then
+      pkill squeekboard
+      $PREFIX squeekboard > /dev/null 2> /dev/null &
+    fi
   fi
-  kill -HUP `pgrep labwc`  # does the equivalent of labwc --reconfigure, but works as sudo...
 }
 
 do_configure_keyboard() {
@@ -706,8 +708,8 @@ do_configure_keyboard() {
     sed -i /etc/default/keyboard -e "s/^XKBLAYOUT.*/XKBLAYOUT=\"$KEYMAP\"/"
     dpkg-reconfigure -f noninteractive keyboard-configuration
   fi
-  update_wayfire_keyboard
   update_labwc_keyboard
+  update_squeekboard restart
   if [ "$INIT" = "systemd" ]; then
     systemctl restart keyboard-setup
   fi
@@ -721,8 +723,8 @@ do_change_keyboard_rc_gui () {
   grep -q XKBLAYOUT /etc/default/keyboard && sed -i "s/XKBLAYOUT=.*/XKBLAYOUT=\"$2\"/g" /etc/default/keyboard || echo "XKBLAYOUT=\"$2\"" >> /etc/default/keyboard
   grep -q XKBVARIANT /etc/default/keyboard && sed -i "s/XKBVARIANT=.*/XKBVARIANT=\"$3\"/g" /etc/default/keyboard || echo "XKBVARIANT=\"$3\"" >> /etc/default/keyboard
   grep -q XKBOPTIONS /etc/default/keyboard && sed -i "s/XKBOPTIONS=.*/XKBOPTIONS=\"$4\"/g" /etc/default/keyboard || echo "XKBOPTIONS=\"$4\"" >> /etc/default/keyboard
-  update_wayfire_keyboard
   update_labwc_keyboard
+  update_squeekboard restart
   if ! is_wayland ; then
     invoke-rc.d keyboard-setup start
   fi
@@ -815,7 +817,7 @@ get_wifi_country() {
 
 do_wifi_country() {
   if [ "$INTERACTIVE" = True ]; then
-    value=$(sed '/^#/d' /usr/share/zoneinfo/iso3166.tab | tr '\t\n' '/')
+    value=$(hexdump -C /lib/firmware/regulatory.db | grep -oE '[A-Z]{2}' | sort -u | sed 's/^/^/;s/$/\t/' | grep -f- /usr/share/zoneinfo/iso3166.tab | tr '\t\n' '/')
     oIFS="$IFS"
     IFS="/"
     #shellcheck disable=2086
@@ -852,6 +854,9 @@ do_wifi_country() {
     nmcli radio wifi on
   elif hash rfkill 2> /dev/null; then
     rfkill unblock wifi
+    if [ -f /var/lib/NetworkManager/NetworkManager.state ]; then
+      sed -i 's/^WirelessEnabled=.*/WirelessEnabled=true/' /var/lib/NetworkManager/NetworkManager.state
+    fi
   fi
   if is_pi; then
     for filename in /var/lib/systemd/rfkill/*:wlan ; do
@@ -864,19 +869,27 @@ do_wifi_country() {
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "Wireless LAN country set to $REGDOMAIN" 20 60 1
   fi
-  if ! ischroot && pgrep wf-panel-pi > /dev/null; then
-    wfpanelctl netman cset
-  fi
-  if ! ischroot && pgrep lxpanel > /dev/null; then
-    lxpanelctl command netman cset
+  if ! ischroot; then
+    if pgrep -x wf-panel-pi > /dev/null; then
+      wfpanelctl netman cset
+    elif pgrep -x lxpanel-pi > /dev/null; then
+      lxpanelctl-pi command netman cset
+    elif pgrep -x lxpanel > /dev/null; then
+      lxpanelctl command netman cset
+    fi
   fi
 }
 
 get_hostname() {
-  tr -d " \t\n\r" < /etc/hostname
+  HOSTNAME_FILE="${MOCK_HOSTNAME_FILE:-/etc/hostname}"
+  # skip comments and empty lines, return first valid hostname with whitespace stripped
+  grep -v '^[[:space:]]*\(#\|$\)' "$HOSTNAME_FILE" | head -n1 | xargs
 }
 
 do_hostname() {
+  HOSTNAME_FILE="${MOCK_HOSTNAME_FILE:-/etc/hostname}"
+  HOSTS_FILE="${MOCK_HOSTS_FILE:-/etc/hosts}"
+
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
 Please note: RFCs mandate that a hostname's labels \
@@ -889,18 +902,24 @@ No other symbols, punctuation characters, or blank spaces are permitted.\
   CURRENT_HOSTNAME=$(get_hostname)
   if [ "$INTERACTIVE" = True ]; then
     NEW_HOSTNAME=$(whiptail --inputbox "Please enter a hostname" 20 60 "$CURRENT_HOSTNAME" 3>&1 1>&2 2>&3)
+    RET=$?
   else
     NEW_HOSTNAME="$1"
-    true
+    RET=0
   fi
-  if [ $? -eq 0 ]; then
-    if [ "$INIT" = "systemd" ] && systemctl -q is-active dbus && ! ischroot; then
-      hostnamectl set-hostname "$NEW_HOSTNAME" 2> /dev/null
-    else
-      echo "$NEW_HOSTNAME" > /etc/hostname
+  if [ $RET -eq 0 ]; then
+    if [ "$INIT" != "systemd" ] || \
+       ! systemctl -q is-active dbus || \
+       ischroot || \
+       ! hostnamectl hostname "$NEW_HOSTNAME" 2> /dev/null; then
+      echo "$NEW_HOSTNAME" > "$HOSTNAME_FILE"
     fi
-    sed -i "s/127\.0\.1\.1.*$CURRENT_HOSTNAME/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
-    ASK_TO_REBOOT=1
+    if [ -f "$HOSTS_FILE" ]; then
+      sed -i "s/^[[:space:]]*127\.0\.1\.1[[:space:]].*/127.0.1.1\t$NEW_HOSTNAME/" "$HOSTS_FILE"
+    fi
+    if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
+      ASK_TO_REBOOT=1
+    fi
   fi
 }
 
@@ -986,20 +1005,16 @@ clear_overclock () {
 }
 
 get_ssh() {
-  if service ssh status | grep -q inactive; then
-    echo 1
-  else
+  if systemctl -q is-enabled ssh; then
     echo 0
+  else
+    echo 1
   fi
 }
 
 do_ssh() {
-  if [ -e /var/log/regen_ssh_keys.log ] && ! grep -q "^finished" /var/log/regen_ssh_keys.log; then
-    whiptail --msgbox "Initial ssh key generation still running. Please wait and try again." 20 60 2
-    return 1
-  fi
   DEFAULT=--defaultno
-  if [ $(get_ssh) -eq 0 ]; then
+  if [ "$(get_ssh)" -eq 0 ]; then
     DEFAULT=
   fi
   if [ "$INTERACTIVE" = True ]; then
@@ -1010,17 +1025,17 @@ do_ssh() {
   else
     RET=$1
   fi
-  if [ $RET -eq 0 ]; then
+  if [ "$RET" -eq 0 ]; then
     ssh-keygen -A &&
     update-rc.d ssh enable &&
     invoke-rc.d ssh start &&
     STATUS=enabled
-  elif [ $RET -eq 1 ]; then
+  elif [ "$RET" -eq 1 ]; then
     update-rc.d ssh disable &&
     invoke-rc.d ssh stop &&
     STATUS=disabled
   else
-    return $RET
+    return "$RET"
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "The SSH server is $STATUS" 20 60 1
@@ -1127,39 +1142,66 @@ do_rpi_connect() {
   if [ -n "$SUDO_USER" ] ; then
     PREFIX="sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus "
   fi
-  DEFAULT=--defaultno
-  if [ $(get_rpi_connect) -eq 0 ]; then
-    DEFAULT=
-  fi
   APT_GET_FLAGS=""
   if [ "$INTERACTIVE" = True ]; then
-    whiptail --yesno "Would you like Raspberry Pi Connect to be enabled?" $DEFAULT 20 60 2
+    whiptail --yesno "Would you like to enable screen sharing over Raspberry Pi Connect?" --defaultno 20 60 2
     RET=$?
   else
     APT_GET_FLAGS="-y"
     RET=$1
   fi
+  rpi_connect_version="$(get_package_version rpi-connect)"
   if [ $RET -eq 0 ]; then
     if is_installed rpi-connect || apt-get install "$APT_GET_FLAGS" rpi-connect; then
-      systemctl --global -q enable rpi-connect.service
-      $PREFIX systemctl --global -q start rpi-connect.service
-      systemctl --global -q enable rpi-connect-wayvnc.service
-      $PREFIX systemctl --global -q start rpi-connect-wayvnc.service
-      STATUS=enabled
+      if dpkg --compare-versions "$rpi_connect_version" lt 1.3; then
+        $PREFIX systemctl --user -q enable rpi-connect.service rpi-connect-wayvnc.service
+        $PREFIX systemctl --user -q start rpi-connect.service rpi-connect-wayvnc.service
+      elif dpkg --compare-versions "$rpi_connect_version" lt 2.0; then
+        $PREFIX systemctl --user -q enable rpi-connect.service rpi-connect-wayvnc.service rpi-connect-wayvnc-watcher.path
+        $PREFIX systemctl --user -q start rpi-connect.service
+      else
+        $PREFIX rpi-connect on > /dev/null 2>&1
+      fi
+      STATUS="Screen sharing via Raspberry Pi Connect is enabled"
     else
       return 1
     fi
   elif [ $RET -eq 1 ]; then
-    systemctl --global -q disable rpi-connect-wayvnc.service
-    $PREFIX systemctl --global -q stop rpi-connect-wayvnc.service
-    systemctl --global -q disable rpi-connect.service
-    $PREFIX systemctl --global -q stop rpi-connect.service
-    STATUS=disabled
+    if [ "$INTERACTIVE" = True ]; then
+      whiptail --yesno "Would you like to enable remote shell access over Raspberry Pi Connect?" --defaultno 20 60 2
+      RET=$?
+    fi
+    if [ $RET -eq 0 ]; then
+      if is_installed rpi-connect || is_installed rpi-connect-lite || apt-get install "$APT_GET_FLAGS" rpi-connect-lite; then
+        if dpkg --compare-versions "$rpi_connect_version" lt 2.0; then
+          $PREFIX systemctl --user -q enable rpi-connect.service
+          $PREFIX systemctl --user -q start rpi-connect.service
+        else
+          $PREFIX rpi-connect on > /dev/null 2>&1
+        fi
+        STATUS="Remote shell access via Raspberry Pi Connect is enabled"
+      else
+        return 1
+      fi
+    elif [ $RET -eq 1 ]; then
+      if dpkg --compare-versions "$rpi_connect_version" lt 1.3; then
+        $PREFIX systemctl --user -q stop rpi-connect.service rpi-connect-wayvnc.service
+        $PREFIX systemctl --user -q disable rpi-connect-wayvnc.service rpi-connect.service
+      elif dpkg --compare-versions "$rpi_connect_version" lt 2.0; then
+        $PREFIX systemctl --user -q stop rpi-connect.service
+        $PREFIX systemctl --user -q disable rpi-connect.service rpi-connect-wayvnc.service rpi-connect-wayvnc-watcher.path
+      else
+        $PREFIX rpi-connect off > /dev/null 2>&1
+      fi
+      STATUS="Raspberry Pi Connect is disabled"
+    else
+      return $RET
+    fi
   else
     return $RET
   fi
   if [ "$INTERACTIVE" = True ]; then
-    whiptail --msgbox "Raspberry Pi Connect is $STATUS" 20 60 1
+    whiptail --msgbox "$STATUS" 20 60 1
   fi
 }
 
@@ -1481,6 +1523,22 @@ get_autologin() {
   fi
 }
 
+get_autologin_cli() {
+  if [ -e /etc/systemd/system/getty@tty1.service.d/autologin.conf ] ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+get_autologin_desktop() {
+  if grep -q "^autologin-user=" /etc/lightdm/lightdm.conf ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
 get_pi4video () {
   if grep -q "^hdmi_enable_4kp60=1" $CONFIG ; then
     echo 0
@@ -1534,13 +1592,24 @@ get_composite() {
 }
 
 do_composite() {
+  if ! has_composite_video; then
+    if [ "$INTERACTIVE" = True ]; then
+      whiptail --msgbox "This model of Raspberry Pi doesn't have composite video output" 20 60 1
+    fi
+    return 1
+  fi
   CURRENT=$(get_composite)
   DEFAULT=--defaultno
   if [ $CURRENT -eq 0 ]; then
     DEFAULT=
   fi
   if [ "$INTERACTIVE" = True ]; then
-    whiptail --yesno "Would you like composite video output to be enabled? Warning - this will disable the HDMI outputs." $DEFAULT 20 60 2
+    if is_pifive; then
+      QUESTION="Would you like composite video output to be enabled?"
+    else
+      QUESTION="Would you like composite video output to be enabled? Warning - this will disable the HDMI outputs."
+    fi
+    whiptail --yesno "$QUESTION" $DEFAULT 20 60 2
     RET=$?
   else
     RET=$1
@@ -1639,6 +1708,12 @@ get_fan_temp() {
 }
 
 do_fan() {
+  if is_pihundred; then
+    if [ "$INTERACTIVE" = True ]; then
+      whiptail --msgbox "This model of Raspberry Pi doesn't have a GPIO case fan" 20 60 1
+    fi
+    return 1
+  fi
   GNOW=$(get_fan_gpio)
   TNOW=$(get_fan_temp)
   if [ "$INTERACTIVE" = True ]; then
@@ -1723,7 +1798,7 @@ do_fan() {
 }
 
 get_browser() {
-  echo $(update-alternatives --display x-www-browser | grep currently | cut -d " " -f 7 | cut -d / -f 4)
+  echo $(LC_ALL=C update-alternatives --display x-www-browser | grep currently | cut -d " " -f 7 | cut -d / -f 4)
 }
 
 do_browser() {
@@ -1739,7 +1814,7 @@ do_browser() {
   fi
   if [ $? -eq 0 ]; then
     if [ "$RES" = "1" ] ; then
-      BROWSER="chromium-browser"
+      BROWSER="chromium"
       BSTRING="Chromium"
     elif [ "$RES" = "2" ] ; then
       BROWSER="firefox"
@@ -1755,6 +1830,158 @@ do_browser() {
       whiptail --msgbox "Default browser set to $BSTRING" 20 60 1
     fi
   fi
+}
+
+do_journald_storage() {
+  if [ "$INTERACTIVE" = True ]; then
+    RES=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Select Log Location" "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" \
+      "1" "Default" \
+      "2" "Volatile" \
+      "3" "Persistent" \
+      "4" "Auto" \
+      "5" "None" \
+      3>&1 1>&2 2>&3)
+  else
+    RES="$1"
+    true
+  fi
+  # shellcheck disable=SC2181
+  if [ $? -eq 0 ]; then
+    case $RES in
+      2) JSTRING="volatile"
+      ;;
+      3) JSTRING="persistent"
+      ;;
+      4) JSTRING="auto"
+      ;;
+      5) JSTRING="none"
+      ;;
+      *) JSTRING=""
+      ;;
+    esac
+
+    # Restore any previous configuration in base configuration file to
+    # commented-out systemd default as we now use drop-in configuration
+    sed -i -E 's/^(Storage)=.*/#\1=auto/' /etc/systemd/journald.conf 2>/dev/null || true
+
+    CONFIG_FILE="/etc/systemd/journald.conf.d/80-raspi-config-journal-storage.conf"
+
+    if [ -n "$JSTRING" ]; then
+      # Create directory if it doesn't exist
+      mkdir -p /etc/systemd/journald.conf.d
+      # Create config file with the setting
+      cat > "$CONFIG_FILE" << EOF
+# Created/managed by raspi-config
+
+[Journal]
+Storage=$JSTRING
+EOF
+    else
+      # Remove our config file if it exists
+      if [ -e "$CONFIG_FILE" ]; then
+        rm -f "$CONFIG_FILE"
+        # Try to remove directory if empty
+        rmdir --ignore-fail-on-non-empty /etc/systemd/journald.conf.d 2>/dev/null
+      fi
+    fi
+
+    if [ "$INTERACTIVE" = True ]; then
+      whiptail --msgbox "Logging location set to ${JSTRING:-default}" 20 60 1
+    fi
+  fi
+}
+
+do_boot_target(){
+  if [ "$INTERACTIVE" = True ]; then
+    BOOTOPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Boot Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      "B1 Console" "Text console" \
+      "B2 Desktop" "Desktop GUI" \
+      3>&1 1>&2 2>&3)
+  else
+    BOOTOPT=$1
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    case "$BOOTOPT" in # Handle default target
+      B1*) # Console
+        systemctl --quiet set-default multi-user.target
+        ;;
+      B2*) # Desktop
+        if [ -e /etc/init.d/lightdm ]; then
+          systemctl --quiet set-default graphical.target
+        else
+          whiptail --msgbox "Do 'sudo apt-get install lightdm' to allow configuration of boot to desktop" 20 60 2
+          return 1
+        fi
+        ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised boot option" 20 60 2
+        return 1
+        ;;
+    esac
+  fi
+  ASK_TO_REBOOT=1
+}
+
+do_autologin(){
+  if [ -z "$USER" ]; then
+    echo "Can't configure autologin: USER unset" >&2
+    return 0
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like to automatically log in to the console?" $DEFAULT 20 60 2
+    RET=$?
+  else
+    if [ $1 -eq 1 ] || [ $1 -eq 3 ] ; then
+      RET=0
+    else
+      RET=1
+    fi
+  fi
+  if [ $RET -eq 0 ] ; then
+        mkdir -p /etc/systemd/system/getty@tty1.service.d
+        cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+EOF
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+        if [ -f /etc/systemd/system/getty@tty1.service.d/autologin.conf ]; then
+          rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf
+          rmdir --ignore-fail-on-non-empty /etc/systemd/system/getty@tty1.service.d
+        fi
+    STATUS=disabled
+  else
+    return $RET
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Console autologin is $STATUS" 20 60 1
+    if [ $(get_boot_cli) -eq 0 ]; then
+      return 0
+    fi
+    whiptail --yesno "Would you like to automatically log in to the desktop?" $DEFAULT 20 60 2
+    RET=$?
+  else
+    if [ $1 -eq 2 ] || [ $1 -eq 3 ] ; then
+      RET=0
+    else
+      RET=1
+    fi
+  fi
+  if [ $RET -eq 0 ] ; then
+    sed /etc/lightdm/lightdm.conf -i -e "s/^\(#\|\)autologin-user=.*/autologin-user=$USER/"
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    sed /etc/lightdm/lightdm.conf -i -e "s/^autologin-user=.*/#autologin-user=/"
+    STATUS=disabled
+  else
+    return $RET
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Desktop autologin is $STATUS" 20 60 1
+  fi
+  ASK_TO_REBOOT=1
 }
 
 do_boot_behaviour() {
@@ -1792,12 +2019,20 @@ do_boot_behaviour() {
         if [ -z "${BOOTOPT%%B3*}" ]; then
           sed /etc/lightdm/lightdm.conf -i -e "s/^autologin-user=.*/#autologin-user=/"
         fi
-        rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf
+        if [ -f /etc/systemd/system/getty@tty1.service.d/autologin.conf ]; then
+          rm -f /etc/systemd/system/getty@tty1.service.d/autologin.conf
+          rmdir --ignore-fail-on-non-empty /etc/systemd/system/getty@tty1.service.d
+        fi
         ;;
       B2*|B4*) # Autologin enabled
+        if [ -z "$USER" ]; then
+          echo "Can't configure autologin: USER unset" >&2
+          return 0
+        fi
         if [ -z "${BOOTOPT%%B4*}" ]; then
           sed /etc/lightdm/lightdm.conf -i -e "s/^\(#\|\)autologin-user=.*/autologin-user=$USER/"
         fi
+        mkdir -p /etc/systemd/system/getty@tty1.service.d
         cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOF
 [Service]
 ExecStart=
@@ -1812,49 +2047,205 @@ EOF
   fi
 }
 
+get_bootloader_filename() {
+   CURDATE=$(date -d "$(vcgencmd bootloader_version |  head -n 1)" +%Y%m%d)
+   FILNAME=""
+   EEBASE=$(rpi-eeprom-update | grep RELEASE | sed 's/.*(//g' | sed 's/[^\/]*)//g')
+   if grep FIRMWARE_RELEASE_STATUS /etc/default/rpi-eeprom-update | egrep -Eq "stable|latest"; then
+      EEPATH="${EEBASE}/latest/pieeprom*.bin"
+   else
+      EEPATH="${EEBASE}/default/pieeprom*.bin"
+   fi
+   EXACT_MATCH=0
+   for filename in $(find $EEPATH -name "pieeprom*.bin" 2>/dev/null | sort); do
+      FILDATE=$(date -d "$(echo $filename | sed 's/.*\///g' | cut -d - -f 2- | cut -d . -f 1)" +%Y%m%d)
+      FILNAME=$filename
+      if [ $FILDATE -eq $CURDATE ]; then
+         EXACT_MATCH=1
+         break
+      fi
+   done
+   if [ $EXACT_MATCH != 1 ]; then
+      if [ "$INTERACTIVE" = True ]; then
+         whiptail --yesno "Current EEPROM version $(date -d $CURDATE +%Y-%m-%d) or newer not found.\n\nTry updating the rpi-eeprom APT package.\n\nInstall latest local $(basename $FILNAME) anyway?" 20 70 3
+         DEFAULTS=$?
+         if [ "$DEFAULTS" -ne 0 ]; then
+            FILNAME="none" # no
+         fi
+      fi
+   fi
+}
+
+do_network_install_ui() {
+  if [ "$INTERACTIVE" = True ]; then
+    BOOTOPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Bootloader network install UI" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      "B1 Always" "Always display the UI for a few seconds after power on." \
+      "B2 On demand" "Display the UI if the SHIFT key is pressed or if an error occurs." \
+      3>&1 1>&2 2>&3)
+  else
+    BOOTOPT=$1
+    true
+  fi
+
+  if [ $? -eq 0 ]; then
+    get_bootloader_filename
+    if [ "${FILNAME}" = "none" ]; then
+       if [ "$INTERACTIVE" = True ]; then
+          return 0
+       else
+          return 1
+       fi
+    fi
+    EECFG=$(mktemp)
+    rpi-eeprom-config > $EECFG
+    sed $EECFG -i -e "/NET_INSTALL_AT_POWER_ON/d"
+    case "$BOOTOPT" in
+      B1*)
+         echo "NET_INSTALL_AT_POWER_ON=1" >> $EECFG
+         ;;
+      B2*)
+         # NET_INSTALL_AT_POWER_ON default value is 0
+         true
+         ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised boot option" 20 60 2
+        return 1
+        ;;
+    esac
+    rpi-eeprom-config --apply $EECFG $FILNAME
+    ASK_TO_REBOOT=1
+  fi
+ }
+
+get_ab_firmware() {
+  SPIDEV="spi10"
+  if grep -q "^dtoverlay=no$SPIDEV" "$CONFIG" ; then
+    echo 0
+  else
+    echo 1
+  fi
+}
+
+do_ab_firmware() {
+  if ! is_pifive ; then
+    return 1
+  fi
+  SPIDEV="spi10"
+  if [ "$(get_ab_firmware)" -eq 0 ]; then
+    CURRENT="B1"
+  else
+    CURRENT="B2"
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    RET=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --default-item "$CURRENT" \
+      --menu "AB firmware updates" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      "B1" "Enable AB firmware updates (warning: Flashrom cannot be used for firmware updates)" \
+      "B2" "Disable AB firmware updates" \
+      3>&1 1>&2 2>&3)
+  else
+    RET=$1
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    case "$RET" in
+      B1*)
+        if [ "$CURRENT" = "B2" ]; then
+          ASK_TO_REBOOT=1
+        fi
+        sed -i -e "s/^#dtoverlay=no$SPIDEV.*/dtoverlay=no$SPIDEV/" "$CONFIG"
+        if ! grep -q "^dtoverlay=no$SPIDEV" "$CONFIG"; then
+          if ! tail -1 "$CONFIG" | grep -q "\\[all\\]" ; then
+            printf "[all]\n" >> "$CONFIG"
+          fi
+          printf 'dtoverlay=no%s\n' "$SPIDEV" >> "$CONFIG"
+        fi
+        STATUS=enabled
+        ;;
+      B2*)
+        if [ "$CURRENT" = "B1" ]; then
+          ASK_TO_REBOOT=1
+        fi
+        sed -i -e "s/^dtoverlay=no$SPIDEV.*/#dtoverlay=no$SPIDEV/" "$CONFIG"
+        STATUS=disabled
+        ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised option" 20 60 2
+        return 1
+        ;;
+    esac
+  else
+    return 0
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "AB firmware updates are $STATUS" 20 60 1
+  fi
+}
+
+# shellcheck disable=SC2120
+do_power_off_on_halt() {
+  if [ "$INTERACTIVE" = True ]; then
+    BOOTOPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Configure shutdown behaviour." "$WT_HEIGHT" "$WT_WIDTH" "$WT_MENU_HEIGHT" \
+      "B1 Full power off" "Switch off Pi power management (PMIC) outputs on Pi4 / Pi5 (recommended)." \
+      "B2 VPU sleep mode" "Compatibility mode for HATs (e.g. POE HAT) and GPIO power buttons (Pi4)." \
+      3>&1 1>&2 2>&3)
+  else
+    BOOTOPT=$1
+    true
+  fi
+
+  # shellcheck disable=SC2181
+  if [ $? -eq 0 ]; then
+    get_bootloader_filename
+    if [ "${FILNAME}" = "none" ]; then
+       if [ "$INTERACTIVE" = True ]; then
+          return 0
+       else
+          return 1
+       fi
+    fi
+    EECFG=$(mktemp)
+    rpi-eeprom-config > "$EECFG"
+    sed "$EECFG" -i -e "/POWER_OFF_ON_HALT/d"
+    sed "$EECFG" -i -e "/WAKE_ON_GPIO/d"
+    case "$BOOTOPT" in
+      B1*)
+         echo "POWER_OFF_ON_HALT=1" >> "$EECFG"
+         echo "WAKE_ON_GPIO=0" >> "$EECFG"
+         ;;
+      B2*)
+         echo "POWER_OFF_ON_HALT=0" >> "$EECFG"
+         echo "WAKE_ON_GPIO=1" >> "$EECFG"
+         true
+         ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised boot option" 20 60 2
+        return 1
+        ;;
+    esac
+    rpi-eeprom-config --apply "$EECFG" "$FILNAME"
+    ASK_TO_REBOOT=1
+  fi
+ }
+
 do_boot_order() {
   if [ "$INTERACTIVE" = True ]; then
     BOOTOPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Boot Device Order" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
       "B1 SD Card Boot " "Boot from SD Card before trying NVMe and then USB (RECOMMENDED)" \
       "B2 NVMe/USB Boot" "Boot from NVMe before trying USB and then SD Card" \
-      "B3 Network Boot " "Boot from Network unless override by SD Card" \
+      "B3 Network Boot " "Boot from Network unless overridden by SD Card" \
       3>&1 1>&2 2>&3)
   else
     BOOTOPT=$1
     true
   fi
   if [ $? -eq 0 ]; then
-    CURDATE=$(date -d "$(vcgencmd bootloader_version |  head -n 1)" +%Y%m%d)
-    FILNAME="none"
-    EEBASE=$(rpi-eeprom-update | grep RELEASE | sed 's/.*(//g' | sed 's/[^\/]*)//g')
-    if grep FIRMWARE_RELEASE_STATUS /etc/default/rpi-eeprom-update | egrep -Eq "stable|latest"; then
-      EEPATH="${EEBASE}/latest/pieeprom*.bin"
-    else
-      EEPATH="${EEBASE}/default/pieeprom*.bin"
-    fi
-    for filename in $(find $EEPATH -name "pieeprom*.bin" 2>/dev/null | sort); do
-      FILDATE=$(date -d "$(echo $filename | sed 's/.*\///g' | cut -d - -f 2- | cut -d . -f 1)" +%Y%m%d)
-      if [ $FILDATE -eq $CURDATE ]; then
-        FILNAME=$filename
-        break
-      elif [ "$FILDATE" ">" "$CURDATE" ]; then
-        # If there is no exact match then try an upgrade
-        FILNAME=$filename
-      fi
-    done
-    if [ "$FILNAME" = "none" ]; then
-      if [ "$INTERACTIVE" = True ]; then
-        whiptail --msgbox "Current EEPROM version $(date -d $CURDATE +%Y-%m-%d) or newer not found - aborting.\n\nTry updating the rpi-eeprom APT package." 20 70 2
-      fi
-      return 1
-    fi
     EECFG=$(mktemp)
     rpi-eeprom-config > $EECFG
     sed $EECFG -i -e "/SD_BOOT_MAX_RETRIES/d"
     sed $EECFG -i -e "/NET_BOOT_MAX_RETRIES/d"
     case "$BOOTOPT" in
       B1*)
-        if is_pifive; then
+        if has_nvme; then
            ORD=0xf461
         else
            ORD=0xf41
@@ -1867,7 +2258,7 @@ do_boot_order() {
         STATUS="SD Card"
         ;;
       B2*)
-        if is_pifive; then
+        if has_nvme; then
            ORD=0xf146
         else
            ORD=0xf14
@@ -1892,11 +2283,59 @@ do_boot_order() {
         return 1
         ;;
     esac
+    get_bootloader_filename
+    if [ "${FILNAME}" = "none" ]; then
+       if [ "$INTERACTIVE" = True ]; then
+          return 0
+       else
+          return 1
+       fi
+    fi
     rpi-eeprom-config --apply $EECFG $FILNAME
     ASK_TO_REBOOT=1
     if [ "$INTERACTIVE" = True ]; then
       whiptail --msgbox "$STATUS is default boot device" 20 60 1
     fi
+  fi
+}
+
+do_beta_mode() {
+  DVER=$(lsb_release -c | cut -f 2)
+
+  if [ "$INTERACTIVE" = True ]; then
+    BETAOPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Beta Access" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      "B1 Beta Software" "Use the beta repository and latest bootloader image" \
+      "B2 Release Software" "Use the release software repository" \
+      3>&1 1>&2 2>&3)
+  else
+    BETAOPT=$1
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    case "$BETAOPT" in
+      B1*)
+        if is_pifour || is_pifive ; then
+          sed /etc/default/rpi-eeprom-update -i -e "s/^FIRMWARE_RELEASE_STATUS.*/FIRMWARE_RELEASE_STATUS=\"latest\"/"
+        fi
+        cat > /etc/apt/sources.list.d/beta.list << EOF
+deb http://archive.raspberrypi.com/debian/ $DVER beta
+#deb-src http://archive.raspberrypi.com/debian/ $DVER beta
+EOF
+        BETA="Beta"
+        ;;
+      B2*)
+        rm -f /etc/apt/sources.list.d/beta.list
+        BETA="Release"
+        ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised option" 20 60 2
+        return 1
+        ;;
+    esac
+    if [ "$INTERACTIVE" = True ]; then
+         whiptail --msgbox "$BETA software enabled. Please use sudo apt update to refresh the repository." 20 60 2
+    fi
+     ASK_TO_REBOOT=1
   fi
 }
 
@@ -1933,26 +2372,19 @@ do_boot_rom() {
       DEFAULTS=$2
     fi
     if [ "$DEFAULTS" -eq 0 ]; then # yes
-      EEBASE=$(rpi-eeprom-update | grep RELEASE | sed 's/.*(//g' | sed 's/[^\/]*)//g')
-      if grep FIRMWARE_RELEASE_STATUS /etc/default/rpi-eeprom-update | egrep -Eq "stable|latest"; then
-        EEPATH="${EEBASE}/latest/"
-      else
-        EEPATH="${EEBASE}/default/"
+      get_bootloader_filename
+      if [ "${FILNAME}" = "none" ]; then
+         if [ "$INTERACTIVE" = True ]; then
+            return 0
+         else
+            return 1
+         fi
       fi
-      MATCH=".*/pieeprom-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].bin"
-      FILNAME="$(find "${EEPATH}" -maxdepth 1 -type f -regex "${MATCH}" | sort -r | head -n1)"
-      if [ -z "$FILNAME" ]; then
-        if [ "$INTERACTIVE" = True ]; then
-          whiptail --msgbox "No EEPROM bin file found - cannot reset to defaults,\n\nTry updating APT rpi-eeprom package and selecting the latest release." 20 60 2
-        fi
-      else
-        rpi-eeprom-update -d -f $FILNAME
-        if [ "$INTERACTIVE" = True ]; then
-          whiptail --msgbox "Bootloader reset to default configuration" 20 60 2
-        fi
+      rpi-eeprom-update -d -f $FILNAME
+      if [ "$INTERACTIVE" = True ]; then
+         whiptail --msgbox "Bootloader reset to default configuration" 20 60 2
       fi
     else
-      rpi-eeprom-update
       if [ "$INTERACTIVE" = True ]; then
         whiptail --msgbox "Bootloader not reset to defaults" 20 60 2
       fi
@@ -1969,7 +2401,9 @@ get_boot_splash() {
       echo 1
     fi
   else
-    if grep -q "GRUB_CMDLINE_LINUX_DEFAULT.*splash" /etc/default/grub ; then
+    if is_live ; then
+      echo 0
+    elif grep -q "GRUB_CMDLINE_LINUX_DEFAULT.*splash" /etc/default/grub ; then
       echo 0
     else
       echo 1
@@ -2027,48 +2461,6 @@ do_boot_splash() {
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "Splash screen at boot is $STATUS" 20 60 1
-  fi
-}
-
-get_rgpio() {
-  if test -e /etc/systemd/system/pigpiod.service.d/public.conf; then
-    echo 0
-  else
-    echo 1
-  fi
-}
-
-do_rgpio() {
-  DEFAULT=--defaultno
-  if [ $(get_rgpio) -eq 0 ]; then
-    DEFAULT=
-  fi
-  if [ "$INTERACTIVE" = True ]; then
-    whiptail --yesno "Would you like the GPIO server to be accessible over the network?" $DEFAULT 20 60 2
-    RET=$?
-  else
-    RET=$1
-  fi
-  if [ $RET -eq 0 ]; then
-    mkdir -p /etc/systemd/system/pigpiod.service.d/
-    cat > /etc/systemd/system/pigpiod.service.d/public.conf << EOF
-[Service]
-ExecStart=
-ExecStart=/usr/bin/pigpiod
-EOF
-    STATUS=enabled
-  elif [ $RET -eq 1 ]; then
-    rm -f /etc/systemd/system/pigpiod.service.d/public.conf
-    STATUS=disabled
-  else
-    return $RET
-  fi
-  systemctl daemon-reload
-  if systemctl -q is-enabled pigpiod ; then
-    systemctl restart pigpiod
-  fi
-  if [ "$INTERACTIVE" = True ]; then
-    whiptail --msgbox "Remote access to the GPIO server is $STATUS" 20 60 1
   fi
 }
 
@@ -2371,57 +2763,48 @@ do_glamor() {
 
 do_wayland() {
   if [ "$INTERACTIVE" = True ]; then
-    if [ -f /usr/bin/labwc ]; then
-      RET=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Wayland Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
-          "W1 X11" "Openbox window manager with X11 backend" \
-          "W2 Wayfire" "Wayfire window manager with Wayland backend" \
-          "W3 Labwc" "Labwc window manager with Wayland backend" \
-          3>&1 1>&2 2>&3)
-    else
-      RET=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Wayland Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
-          "W1 X11" "Openbox window manager with X11 backend" \
-          "W2 Wayfire" "Wayfire window manager with Wayland backend" \
-          3>&1 1>&2 2>&3)
-    fi
+    RET=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Wayland Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+        "W1 X11" "Openbox window manager with X11 backend" \
+        "W2 Labwc" "Labwc window manager with Wayland backend" \
+        3>&1 1>&2 2>&3)
   else
     RET=$1
     true
   fi
   if [ $? -eq 0 ]; then
+    if [ -f /usr/share/xsessions/rpd-x.desktop ] || [ -f /usr/share/wayland-sessions/rpd-labwc.desktop ]; then
+      XSESSION=rpd-x
+      WSESSION=rpd-labwc
+      XGSESSION=pi-greeter-x
+      WGSESSION=pi-greeter-labwc
+    else
+      XSESSION=LXDE-pi-x
+      WSESSION=LXDE-pi-labwc
+      XGSESSION=pi-greeter
+      WGSESSION=pi-greeter-labwc
+    fi
     case "$RET" in
       W1*)
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?user-session.*/user-session=LXDE-pi-x/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?autologin-session.*/autologin-session=LXDE-pi-x/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?greeter-session.*/greeter-session=pi-greeter/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?user-session.*/user-session=$XSESSION/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?autologin-session.*/autologin-session=$XSESSION/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?greeter-session.*/greeter-session=$XGSESSION/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-test.*/#fallback-test=/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-session.*/#fallback-session=/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-greeter.*/#fallback-greeter=/"
         if [ -e "/var/lib/AccountsService/users/$USER" ] ; then
-          sed "/var/lib/AccountsService/users/$USER" -i -e "s/XSession=.*/XSession=LXDE-pi-x/"
+          sed "/var/lib/AccountsService/users/$USER" -i -e "s/XSession=.*/XSession=$XSESSION/"
         fi
         STATUS="Openbox on X11"
         ;;
       W2*)
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?user-session.*/user-session=LXDE-pi-wayfire/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?autologin-session.*/autologin-session=LXDE-pi-wayfire/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?greeter-session.*/greeter-session=pi-greeter-wayfire/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?fallback-test.*/fallback-test=\/usr\/bin\/xfallback.sh/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?fallback-session.*/fallback-session=LXDE-pi-x/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?fallback-greeter.*/fallback-greeter=pi-greeter/"
-        if [ -e "/var/lib/AccountsService/users/$USER" ] ; then
-          sed "/var/lib/AccountsService/users/$USER" -i -e "s/XSession=.*/XSession=LXDE-pi-wayfire/"
-        fi
-        STATUS="Wayfire on Wayland"
-        ;;
-      W3*)
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?user-session.*/user-session=LXDE-pi-labwc/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?autologin-session.*/autologin-session=LXDE-pi-labwc/"
-        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?greeter-session.*/greeter-session=pi-greeter-labwc/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?user-session.*/user-session=$WSESSION/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?autologin-session.*/autologin-session=$WSESSION/"
+        sed /etc/lightdm/lightdm.conf -i -e "s/^#\\?greeter-session.*/greeter-session=$WGSESSION/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-test.*/#fallback-test=/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-session.*/#fallback-session=/"
         sed /etc/lightdm/lightdm.conf -i -e "s/^fallback-greeter.*/#fallback-greeter=/"
         if [ -e "/var/lib/AccountsService/users/$USER" ] ; then
-          sed "/var/lib/AccountsService/users/$USER" -i -e "s/XSession=.*/XSession=LXDE-pi-wayfire/"
+          sed "/var/lib/AccountsService/users/$USER" -i -e "s/XSession=.*/XSession=$WSESSION/"
         fi
         STATUS="Labwc on Wayland"
         ;;
@@ -2439,67 +2822,6 @@ do_wayland() {
   fi
 }
 
-do_audioconf() {
-  sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus systemctl --user -q is-enabled pipewire-pulse > /dev/null 2>&1
-  PPENABLED=$?
-  sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus systemctl --user -q is-enabled pulseaudio > /dev/null 2>&1
-  PAENABLED=$?
-  if [ "$INTERACTIVE" = True ]; then
-    DEFAULT=1
-    if [ "$PPENABLED" = 0 ] ; then
-      DEFAULT=2
-    fi
-    if ! is_installed pulseaudio && ! is_installed pipewire-pulse ; then
-      whiptail --msgbox "No audio systems installed" 20 60 1
-      RET=1
-    else
-      if is_installed pulseaudio ; then
-        OPTIONS="1 PulseAudio"
-      fi
-      if is_installed pipewire-pulse ; then
-        OPTIONS="$OPTIONS 2 Pipewire"
-      fi
-      #shellcheck disable=2086
-      PPOPT=$(whiptail --menu "Select the audio configuration to use" 20 60 10 $OPTIONS --default-item "$DEFAULT" 3>&1 1>&2 2>&3)
-      RET="$?"
-    fi
-  else
-    PPOPT="$1"
-    RET=0
-  fi
-  if [ "$RET" -ne 0 ] ; then
-    return
-  fi
-
-  if [ "$PPOPT" -eq 2 ] ; then # pipewire selected
-    systemctl --global -q disable pulseaudio
-    systemctl --global -q enable pipewire-pulse
-    systemctl --global -q enable wireplumber
-    if [ -e /usr/share/doc/pipewire/examples/alsa.conf.d/99-pipewire-default.conf ] ; then
-      cp /usr/share/doc/pipewire/examples/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d/
-    fi
-    AUDCON="Pipewire"
-    if [ "$PAENABLED" = 0 ] ; then
-      ASK_TO_REBOOT=1
-    fi
-  else # pulse selected
-    systemctl --global -q disable pipewire-pulse
-    systemctl --global -q disable wireplumber
-    systemctl --global -q enable pulseaudio
-    if [ -e /etc/alsa/conf.d/99-pipewire-default.conf ] ; then
-      rm /etc/alsa/conf.d/99-pipewire-default.conf
-    fi
-    AUDCON="PulseAudio"
-    if [ "$PPENABLED" = 0 ] ; then
-      ASK_TO_REBOOT=1
-    fi
-  fi
-
-  if [ "$INTERACTIVE" = True ]; then
-    whiptail --msgbox "$AUDCON is active" 20 60 1
-  fi
-}
-
 get_net_names() {
   if grep -q "net.ifnames=0" $CMDLINE || \
     ( [ "$(readlink -f /etc/systemd/network/99-default.link)" = "/dev/null" ] && \
@@ -2513,7 +2835,7 @@ get_net_names() {
 do_net_names () {
   DEFAULT=--defaultno
   CURRENT=0
-  if [ $(get_net_names) -eq 0 ]; then
+  if [ "$(get_net_names)" -eq 0 ]; then
     DEFAULT=
     CURRENT=1
   fi
@@ -2523,20 +2845,20 @@ do_net_names () {
   else
     RET=$1
   fi
-  if [ $RET -eq $CURRENT ]; then
+  if [ "$RET" -eq $CURRENT ]; then
     ASK_TO_REBOOT=1
   fi
-  if [ $RET -eq 0 ]; then
-    sed -i $CMDLINE -e "s/net.ifnames=0 *//"
+  if [ "$RET" -eq 0 ]; then
+    sed -i "$CMDLINE" -e "s/net.ifnames=0 *//"
     rm -f /etc/systemd/network/99-default.link
     rm -f /etc/systemd/network/73-usb-net-by-mac.link
     STATUS=enabled
-  elif [ $RET -eq 1 ]; then
+  elif [ "$RET" -eq 1 ]; then
     ln -sf /dev/null /etc/systemd/network/99-default.link
     ln -sf /dev/null /etc/systemd/network/73-usb-net-by-mac.link
     STATUS=disabled
   else
-    return $RET
+    return "$RET"
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "Predictable network interface names are $STATUS" 20 60 1
@@ -2553,24 +2875,8 @@ do_update() {
 
 do_audio() {
   if is_pulseaudio ; then
-    oIFS="$IFS"
-    if [ "$INTERACTIVE" = True ]; then
-      list=$(sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID LANG=C pactl list sinks | grep -e "Sink #" -e "alsa.card_name" | sed s/*//g | sed s/^[' '\\t]*//g | sed s/'Sink #'//g | sed s/'alsa.card_name = '//g | sed s/'bcm2835 '//g | sed s/\"//g | tr '\n' '/')
-      if [ -n "$list" ] ; then
-        IFS="/"
-        AUDIO_OUT=$(whiptail --menu "Choose the audio output" 20 60 10 ${list} 3>&1 1>&2 2>&3)
-      else
-        whiptail --msgbox "No internal audio devices found" 20 60 1
-        return 1
-      fi
-    else
-      AUDIO_OUT=$1
-      true
-    fi
-    if [ $? -eq 0 ]; then
-      sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID pactl set-default-sink $AUDIO_OUT
-    fi
-    IFS="$oIFS"
+    whiptail --msgbox "raspi-config cannot configure audio when PulseAudio or PipeWire are in use.\n\nThese can be controlled with the taskbar plugin." 20 60 1
+    return 0
   else
     if aplay -l | grep -q "bcm2835 ALSA"; then
       if [ "$INTERACTIVE" = True ]; then
@@ -2716,20 +3022,10 @@ do_resolution() {
 }
 
 get_vnc_resolution() {
-  if is_wayfire ; then
-    W=$(grep ^headless_width $WAYFIRE_FILE | grep -o "[0-9]*")
-    H=$(grep ^headless_height $WAYFIRE_FILE | grep -o "[0-9]*")
-    if [ -n "$W" ] && [ -n "$H" ] ; then
-      echo $W"x"$H
-    else
-      echo "1280x720"
-    fi
+  if [ -e /etc/xdg/autostart/vnc_xrandr.desktop ] ; then
+    grep fb /etc/xdg/autostart/vnc_xrandr.desktop | cut -f 15 -d ' '
   else
-    if [ -e /etc/xdg/autostart/vnc_xrandr.desktop ] ; then
-      grep fb /etc/xdg/autostart/vnc_xrandr.desktop | cut -f 15 -d ' '
-    else
-      echo ""
-    fi
+    echo ""
   fi
 }
 
@@ -2749,21 +3045,7 @@ do_vnc_resolution() {
   if [ $RET -eq 1 ]; then
     return 0
   elif [ $RET -eq 0 ]; then
-    if is_wayfire ; then
-      W=$(echo "$FUN" | cut -d x -f 1)
-      H=$(echo "$FUN" | cut -d x -f 2)
-      if grep -q ^headless_width $WAYFIRE_FILE ; then
-        sed -i "s/headless_width.*/headless_width = $W/" $WAYFIRE_FILE
-        sed -i "s/headless_height.*/headless_height = $H/" $WAYFIRE_FILE
-      else
-        if grep -q "\[output\]" $WAYFIRE_FILE ; then
-          sed -i "s/\[output]/[output]\nheadless_width = $W\nheadless_height = $H/" $WAYFIRE_FILE
-        else
-          printf '\n[output]\nheadless_width = %d\nheadless_height = %d\n' "$W" "$H" >> $WAYFIRE_FILE
-        fi
-      fi
-    else
-      cat > /etc/xdg/autostart/vnc_xrandr.desktop << EOF
+    cat > /etc/xdg/autostart/vnc_xrandr.desktop << EOF
 [Desktop Entry]
 Type=Application
 Name=vnc_xrandr
@@ -2771,7 +3053,6 @@ Comment=Set resolution for VNC
 NoDisplay=true
 Exec=sh -c "if ! (xrandr | grep -q -w connected) ; then /usr/bin/xrandr --fb $FUN ; fi"
 EOF
-    fi
     if [ "$INTERACTIVE" = True ]; then
       whiptail --msgbox "The resolution is set to $FUN" 20 60 1
       ASK_TO_REBOOT=1
@@ -2898,14 +3179,138 @@ do_wifi_ssid_passphrase() {
   else
     IFACE="$(list_wlan_interfaces | head -n 1)"
     if [ "$HIDDEN" -ne 0 ]; then
-      nmcli device wifi connect "$SSID" password "$PASSPHRASE" ifname "${IFACE}" hidden true | grep -q "activated"
+      LC_ALL=C nmcli device wifi connect "$SSID" password "$PASSPHRASE" ifname "${IFACE}" hidden true | grep -q "activated"
     else
-      nmcli device wifi connect "$SSID" password "$PASSPHRASE" ifname "${IFACE}" | grep -q "activated"
+      LC_ALL=C nmcli device wifi connect "$SSID" password "$PASSPHRASE" ifname "${IFACE}" | grep -q "activated"
     fi
     RET=$((RET + $?))
   fi
 
   return "$RET"
+}
+
+get_wifi_power_save() {
+  # Check if the configuration file exists (simpler approach)
+  if [ -f /etc/NetworkManager/conf.d/default-wifi-powersave-off.conf ]; then
+    echo 0  # Power saving is disabled
+  else
+    echo 1  # Power saving is enabled (default)
+  fi
+}
+
+# shellcheck disable=SC2120
+do_wifi_power_save() {
+  DEFAULT=
+  CURRENT=0
+  if [ "$(get_wifi_power_save)" -eq 0 ]; then
+    DEFAULT=--defaultno
+    CURRENT=1
+  fi
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like to enable WLAN power saving?\n\nNote: Disabling power saving may improve connection stability but increase power consumption." $DEFAULT 20 70 2
+    RET=$?
+  else
+    RET=$1
+  fi
+
+  # Create NetworkManager conf.d directory if it doesn't exist
+  mkdir -p /etc/NetworkManager/conf.d
+
+  if [ "$RET" -eq 0 ]; then
+    # Enable power saving - remove the configuration file
+    rm -f /etc/NetworkManager/conf.d/default-wifi-powersave-off.conf
+    STATUS="enabled"
+  elif [ "$RET" -eq 1 ]; then
+    # Disable power saving - create configuration file
+    cat > /etc/NetworkManager/conf.d/default-wifi-powersave-off.conf << EOF
+[connection]
+wifi.powersave = 2
+EOF
+    STATUS="disabled"
+  else
+    return "$RET"
+  fi
+
+  # Reload NetworkManager configuration for persistence
+  if systemctl -q is-active NetworkManager; then
+    systemctl reload NetworkManager 2>/dev/null || true
+  fi
+
+  # Apply the change immediately to current interface
+  IFACE="$(list_wlan_interfaces | head -n 1)"
+  if [ -n "$IFACE" ] && command -v iw >/dev/null 2>&1; then
+    if [ "$RET" -eq 0 ]; then
+      iw dev "$IFACE" set power_save on 2>/dev/null || true
+    else
+      iw dev "$IFACE" set power_save off 2>/dev/null || true
+    fi
+  fi
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "WLAN power saving is $STATUS\n\nThe change has been applied immediately and made persistent for future connections." 20 75 1
+  fi
+}
+
+get_link_local_fallback() {
+  # Check if the configuration file exists
+  if [ -f /etc/NetworkManager/conf.d/link-local.conf ]; then
+    echo 1  # Link-local fallback is enabled
+  else
+    echo 0  # Link-local fallback is disabled (default)
+  fi
+}
+
+# shellcheck disable=SC2120
+do_link_local_fallback() {
+  DEFAULT=--defaultno
+  CURRENT=$(get_link_local_fallback)
+  if [ "$CURRENT" -eq 1 ]; then
+    DEFAULT=
+  fi
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like to enable link-local fallback?\n\nNote: This assigns a 169.254.x.x address while no DHCP lease is available. DHCP is retried indefinitely instead of failing the connection, so other connection profiles for the interface will not be tried. Enable only if you understand this behavior." $DEFAULT 20 75 2
+    RET=$?
+  else
+    RET=$1
+  fi
+
+  if [ "$RET" -eq 0 ]; then
+    STATUS="enabled"
+  else
+    STATUS="disabled"
+  fi
+
+  # Only make changes if the setting is actually changing
+  # (or if an older configuration lacks the DHCP timeout)
+  if [ "$RET" -eq 0 ] && ! grep -qs '^ipv4.dhcp-timeout=' /etc/NetworkManager/conf.d/link-local.conf; then
+    # Enable link-local fallback. Without an infinite DHCP timeout,
+    # NetworkManager fails the connection when DHCP times out and tears
+    # down the link-local address with it. See
+    # https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/issues/1753
+    mkdir -p /etc/NetworkManager/conf.d
+    cat > /etc/NetworkManager/conf.d/link-local.conf << EOF
+# Created/managed by raspi-config
+[connection]
+ipv4.link-local=4
+ipv4.dhcp-timeout=2147483647
+EOF
+    ASK_TO_REBOOT=1
+  elif [ "$RET" -eq 1 ] && [ "$CURRENT" -eq 1 ]; then
+    # Disable link-local fallback
+    rm -f /etc/NetworkManager/conf.d/link-local.conf
+    ASK_TO_REBOOT=1
+  fi
+
+  # Reload NetworkManager configuration for persistence
+  if systemctl -q is-active NetworkManager; then
+    systemctl reload NetworkManager 2>/dev/null || true
+  fi
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Link-local fallback is $STATUS" 20 60 1
+  fi
 }
 
 do_finish() {
@@ -3277,9 +3682,190 @@ do_usb_current() {
   fi
 }
 
+get_squeekboard() {
+  if ! is_installed squeekboard ; then
+    echo 2
+  elif [ -e /etc/xdg/autostart/squeekboard.desktop ] ; then
+    if grep -q sbtest /etc/xdg/autostart/squeekboard.desktop ; then
+      echo 1
+    else
+      echo 0
+    fi
+  else
+    echo 2
+  fi
+}
+
+do_squeekboard() {
+  if [ "$INTERACTIVE" = True ]; then
+    OPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "On-screen Keyboard" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      "S1 Always On" "On-screen keyboard always enabled" \
+      "S2 Autodetect" "On-screen keyboard enabled if touch device found" \
+      "S3 Always Off" "On-screen keyboard disabled" \
+      3>&1 1>&2 2>&3)
+  else
+    OPT=$1
+    true
+  fi
+  GFILE="/etc/xdg/labwc-greeter/autostart"
+  if [ ! -e $GFILE ] ; then
+    GFILE="/usr/share/labwc/autostart"
+  fi
+  case "$OPT" in
+    S1*)
+      is_installed squeekboard || apt-get install -y squeekboard
+      cat > /etc/xdg/autostart/squeekboard.desktop << EOF
+[Desktop Entry]
+Name=Squeekboard
+Comment=Launch the on-screen keyboard
+Exec=/usr/bin/sbout
+Terminal=false
+Type=Application
+NoDisplay=true
+EOF
+      sed -i '/sbtest/d' $GFILE
+      if ! grep -q sbout $GFILE ; then
+        echo "/usr/bin/sbout &" >> $GFILE
+      fi
+      PREFIX=""
+      if [ -n "$SUDO_USER" ] ; then
+        PREFIX="sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus "
+      fi
+      $PREFIX sbout > /dev/null 2> /dev/null &
+      STATUS="enabled"
+      ;;
+    S2*)
+      is_installed squeekboard || apt-get install -y squeekboard
+      cat > /etc/xdg/autostart/squeekboard.desktop << EOF
+[Desktop Entry]
+Name=Squeekboard
+Comment=Launch the on-screen keyboard
+Exec=/usr/bin/sbtest
+Terminal=false
+Type=Application
+NoDisplay=true
+EOF
+      sed -i '/sbout/d' $GFILE
+      if ! grep -q sbtest $GFILE ; then
+        echo "/usr/bin/sbtest &" >> $GFILE
+      fi
+      PREFIX=""
+      if [ -n "$SUDO_USER" ] ; then
+        PREFIX="sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus "
+      fi
+      pkill squeekboard
+      $PREFIX sbtest > /dev/null 2> /dev/null &
+      STATUS="using autodetect"
+      ;;
+    S3*)
+      pkill squeekboard
+      rm -f /etc/xdg/autostart/squeekboard.desktop
+      sed -i '/sbout/d' $GFILE
+      sed -i '/sbtest/d' $GFILE
+      STATUS="disabled"
+      ;;
+    *)
+      return $OPT
+      ;;
+  esac
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "The onscreen keyboard is $STATUS" 20 60 1
+  fi
+}
+
+get_squeek_output (){
+  if [ -e /usr/share/squeekboard/output ] ; then
+    echo `grep SQUEEKBOARD_PREFERRED_OUTPUT /usr/share/squeekboard/output | cut -d = -f 2`
+  else
+    echo ""
+  fi
+}
+
+do_squeek_output() {
+  PREFIX=""
+  if [ -n "$SUDO_USER" ] ; then
+    PREFIX="sudo -u $USER XDG_RUNTIME_DIR=/run/user/$SUDO_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$SUDO_UID/bus "
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    menu=$($PREFIX wlr-randr | grep -v ^' ' | cut -d ' ' -f 1 | tr '\n' '/' | sed 's#/#//#g')
+    oIFS="$IFS"
+    IFS="/"
+    OPT=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Select where the on-screen keyboard is to be shown" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT \
+      ${menu} \
+      3>&1 1>&2 2>&3)
+    IFS="$oIFS"
+  else
+    OPT=$1
+    true
+  fi
+  mkdir -p /usr/share/squeekboard/
+  echo "#!/bin/sh\nexport SQUEEKBOARD_PREFERRED_OUTPUT=$OPT" > /usr/share/squeekboard/output
+  chmod a+x /usr/share/squeekboard/output
+  if pgrep sbtest > /dev/null ; then
+    pkill squeekboard
+    $PREFIX sbtest > /dev/null 2> /dev/null &
+  elif pgrep squeekboard > /dev/null ; then
+    pkill squeekboard
+    $PREFIX sbout > /dev/null 2> /dev/null &
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "The onscreen keyboard is on $OPT" 20 60 1
+  fi
+}
+
+get_sudo_pass() {
+  if sudo -l -n -U $USER 2> /dev/null | grep -q "(ALL) NOPASSWD: ALL" 2> /dev/null ; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+do_sudo_pass() {
+  PSFILE="/etc/sudoers.d/010_$USER-nopasswd"
+  GPSFILE="/etc/sudoers.d/010_pi-nopasswd"
+  CIFILE="/etc/sudoers.d/90-cloud-init-users"
+  DEFAULT=--defaultno
+  if [ "$(get_sudo_pass)" -eq 0 ]; then
+    DEFAULT=
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno \
+      "Would you like the admin (sudo) password to be enabled?" \
+      $DEFAULT 20 60 2
+    RET=$?
+  else
+    RET=$1
+  fi
+  if [ "$RET" -eq 0 ]; then
+    if [ -e $PSFILE ] ; then rm $PSFILE ; fi
+    if [ -e $GPSFILE ] ; then rm $GPSFILE ; fi
+    if [ -e $CIFILE ] ; then rm $CIFILE ; fi
+    STATUS=enabled
+  elif [ "$RET" -eq 1 ]; then
+    if [ -e $GPSFILE ] ; then rm $GPSFILE ; fi
+    if [ -e $CIFILE ] ; then rm $CIFILE ; fi
+      cat > $PSFILE << EOF
+$USER ALL=(ALL) NOPASSWD: ALL
+EOF
+    STATUS=disabled
+  else
+    return "$RET"
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "The admin password is $STATUS" 20 60 1
+  fi
+}
 
 nonint() {
   "$@"
+}
+
+batch() {
+  for cmd in "$@"
+  do
+    echo "$cmd" $($cmd)
+  done
 }
 
 #
@@ -3309,8 +3895,9 @@ do
     do_apply_os_config
     exit $?
     ;;
-  nonint)
+  nonint | batch)
     INTERACTIVE=False
+    #echo "$@"
     "$@"
     exit $?
     ;;
@@ -3346,25 +3933,30 @@ do_system_menu() {
       "S2 Audio" "Select audio out through HDMI or 3.5mm jack" \
       "S3 Password" "Change password for the '$USER' user" \
       "S4 Hostname" "Set name for this computer on a network" \
-      "S5 Boot / Auto Login" "Select boot into desktop or to command line" \
-      "S6 Splash Screen" "Choose graphical splash screen or text boot" \
-      "S7 Power LED" "Set behaviour of power LED" \
-      "S8 Browser" "Choose default web browser" \
+      "S5 Boot" "Select boot into desktop or to command line" \
+      "S6 Auto Login" "Enable auto login to desktop or to command line" \
+      "S7 Splash Screen" "Choose graphical splash screen or text boot" \
+      "S8 Power LED" "Set behaviour of power LED" \
+      "S9 Browser" "Choose default web browser" \
+      "S10 Admin Password" "Enable or disable sudo password" \
       3>&1 1>&2 2>&3)
   elif is_live ; then
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
       "S1 Wireless LAN" "Enter SSID and passphrase" \
       "S3 Password" "Change password for the '$USER' user" \
       "S4 Hostname" "Set name for this computer on a network" \
-      "S5 Boot / Auto Login" "Select boot into desktop or to command line" \
+      "S5 Boot" "Select boot into desktop or to command line" \
+      "S6 Auto Login" "Enable auto login to desktop or to command line" \
       3>&1 1>&2 2>&3)
   else
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "System Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
       "S1 Wireless LAN" "Enter SSID and passphrase" \
       "S3 Password" "Change password for the '$USER' user" \
       "S4 Hostname" "Set name for this computer on a network" \
-      "S5 Boot / Auto Login" "Select boot into desktop or to command line" \
-      "S6 Splash Screen" "Choose graphical splash screen or text boot" \
+      "S5 Boot" "Select boot into desktop or to command line" \
+      "S6 Auto Login" "Enable auto login to desktop or to command line" \
+      "S7 Splash Screen" "Choose graphical splash screen or text boot" \
+      "S10 Admin Password" "Enable or disable sudo password" \
       3>&1 1>&2 2>&3)
   fi
   RET=$?
@@ -3376,10 +3968,12 @@ do_system_menu() {
       S2\ *) do_audio ;;
       S3\ *) do_change_pass ;;
       S4\ *) do_hostname ;;
-      S5\ *) do_boot_behaviour ;;
-      S6\ *) do_boot_splash ;;
-      S7\ *) do_leds ;;
-      S8\ *) do_browser ;;
+      S5\ *) do_boot_target ;;
+      S6\ *) do_autologin ;;
+      S7\ *) do_boot_splash ;;
+      S8\ *) do_leds ;;
+      S9\ *) do_browser ;;
+      S10\ *) do_sudo_pass ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -3393,11 +3987,15 @@ do_display_menu() {
           "D2 Screen Blanking" "Enable/disable screen blanking" \
           "D4 Composite" "Enable/disable composite output" \
           "D5 4Kp60 HDMI" "Enable 4Kp60 resolution on HDMI0" \
+          "D6 Onscreen Keyboard" "Enable on-screen keyboard" \
+          "D7 Keyboard Output" "Select monitor used for on-screen keyboard" \
           3>&1 1>&2 2>&3)
       else
         FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Display Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
           "D2 Screen Blanking" "Enable/disable screen blanking" \
           "D4 Composite" "Enable/disable composite output" \
+          "D6 Onscreen Keyboard" "Enable on-screen keyboard" \
+          "D7 Keyboard Output" "Select monitor used for on-screen keyboard" \
           3>&1 1>&2 2>&3)
       fi
     else
@@ -3434,6 +4032,8 @@ do_display_menu() {
       D3\ *) do_vnc_resolution ;;
       D4\ *) do_composite ;;
       D5\ *) do_pi4video ;;
+      D6\ *) do_squeekboard ;;
+      D7\ *) do_squeek_output ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -3449,7 +4049,6 @@ do_interface_menu() {
       "I5 I2C" "Enable/disable automatic loading of I2C kernel module" \
       "I6 Serial Port" "Enable/disable shell messages on the serial connection" \
       "I7 1-Wire" "Enable/disable one-wire interface" \
-      "I8 Remote GPIO" "Enable/disable remote access to GPIO pins" \
       3>&1 1>&2 2>&3)
   else
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Interfacing Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
@@ -3468,7 +4067,6 @@ do_interface_menu() {
       I5\ *) do_i2c ;;
       I6\ *) if is_pifive ; then do_serial_pi5 ; else do_serial ; fi ;;
       I7\ *) do_onewire ;;
-      I8\ *) do_rgpio ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -3528,31 +4126,58 @@ do_internationalisation_menu() {
 }
 
 do_advanced_menu() {
-  if gpu_has_mmu ; then
+  if is_pifive ; then
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Advanced Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
       "A1 Expand Filesystem" "Ensures that all of the SD card is available" \
       "A2 Network Interface Names" "Enable/disable predictable network i/f names" \
       "A3 Network Proxy Settings" "Configure network proxy settings" \
-      "A4 Boot Order" "Choose SD, network, USB or NVMe device boot priority" \
-      "A5 Bootloader Version" "Select latest or factory default bootloader software" \
-      "A6 Wayland" "Switch between X and Wayland backends" \
-      "A7 Audio Config" "Set audio control system" \
+      "A4 Boot Order" "Choose boot device priority (SD/net/USB/NVMe)" \
+      "A5 Bootloader Version" "Selects the latest or the factory default bootloader" \
+      "A6 Beta Access" "Select beta or release software repository" \
+      "A7 Wayland" "Switch between X and Wayland backends" \
       "A8 PCIe Speed" "Set PCIe x1 port speed" \
+      "A9 Network Install UI" "Select display of bootloader network install UI" \
+      "A10 Shutdown Behaviour" "Configure shutdown behavior" \
+      "A11 Logging" "Set storage location for logs" \
+      "A12 WLAN Power Save" "Enable/disable WLAN power saving" \
+      "A13 Link-local Fallback" "Enable/disable link-local address fallback" \
+      "A14 AB Firmware" "Enable/disable AB firmware updates" \
+      3>&1 1>&2 2>&3)
+  elif is_pifour ; then
+    FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Advanced Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+      "A1 Expand Filesystem" "Ensures that all of the SD card is available" \
+      "A2 Network Interface Names" "Enable/disable predictable network i/f names" \
+      "A3 Network Proxy Settings" "Configure network proxy settings" \
+      "A4 Boot Order" "Choose boot device priority (SD/net/USB/NVMe)" \
+      "A5 Bootloader Version" "Selects the latest or the factory default bootloader" \
+      "A6 Beta Access" "Select beta or release software repository" \
+      "A7 Wayland" "Switch between X and Wayland backends" \
+      "A9 Network Install UI" "Select display of bootloader network install UI" \
+      "A10 Shutdown Behaviour" "Configure shutdown behavior" \
+      "A11 Logging" "Set storage location for logs" \
+      "A12 WLAN Power Save" "Enable/disable WLAN power saving" \
+      "A13 Link-local Fallback" "Enable/disable link-local address fallback" \
       3>&1 1>&2 2>&3)
   elif is_pi ; then
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Advanced Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
       "A1 Expand Filesystem" "Ensures that all of the SD card is available" \
       "A2 Network Interface Names" "Enable/disable predictable network i/f names" \
       "A3 Network Proxy Settings" "Configure network proxy settings" \
-      "A6 Wayland" "Switch between X and Wayland backends" \
-      "A7 Audio Config" "Set audio control system" \
+      "A6 Beta Access" "Select beta or release software repository" \
+      "A7 Wayland" "Switch between X and Wayland backends" \
+      "A11 Logging" "Set storage location for logs" \
+      "A12 WLAN Power Save" "Enable/disable WLAN power saving" \
+      "A13 Link-local Fallback" "Enable/disable link-local address fallback" \
       3>&1 1>&2 2>&3)
   else
     FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Advanced Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
       "A2 Network Interface Names" "Enable/disable predictable network i/f names" \
       "A3 Network Proxy Settings" "Configure network proxy settings" \
-      "A6 Wayland" "Switch between X and Wayland backends" \
-      "A7 Audio Config" "Set audio control system" \
+      "A6 Beta Access" "Select beta or release software repository" \
+      "A7 Wayland" "Switch between X and Wayland backends" \
+      "A11 Logging" "Set storage location for logs" \
+      "A12 WLAN Power Save" "Enable/disable WLAN power saving" \
+      "A13 Link-local Fallback" "Enable/disable link-local address fallback" \
       3>&1 1>&2 2>&3)
   fi
   RET=$?
@@ -3565,9 +4190,15 @@ do_advanced_menu() {
       A3\ *) do_proxy_menu ;;
       A4\ *) do_boot_order ;;
       A5\ *) do_boot_rom ;;
-      A6\ *) do_wayland ;;
-      A7\ *) do_audioconf ;;
+      A6\ *) do_beta_mode ;;
+      A7\ *) do_wayland ;;
       A8\ *) do_pci ;;
+      A9\ *) do_network_install_ui ;;
+      A10\ *) do_power_off_on_halt ;;
+      A11\ *) do_journald_storage ;;
+      A12\ *) do_wifi_power_save ;;
+      A13\ *) do_link_local_fallback ;;
+      A14\ *) do_ab_firmware ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -3645,6 +4276,7 @@ if [ "$INTERACTIVE" = True ]; then
     elif [ $RET -eq 0 ]; then
       case "$FUN" in
         0\ *) do_rasqberry_menu ;;
+        9\ *) do_rasqberry_about ;;
         1\ *) do_system_menu ;;
         2\ *) do_display_menu ;;
         3\ *) do_interface_menu ;;

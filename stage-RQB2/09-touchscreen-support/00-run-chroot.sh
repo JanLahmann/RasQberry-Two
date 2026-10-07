@@ -39,11 +39,39 @@ add_keyboard_to_panel() {
     fi
 }
 
+# trixie (wf-panel-pi 1.x): the user config is ~/.config/wf-panel-pi/wf-panel-pi.ini,
+# read key by key over /etc/xdg/wf-panel-pi/wf-panel-pi.ini, and the launchers
+# are one key, "launchers=" (desktop file names without .desktop). The system
+# list plus the keyboard toggle goes into the user file; everything else keeps
+# coming from the system file.
+SYS_PANEL_CONFIG="/etc/xdg/wf-panel-pi/wf-panel-pi.ini"
+if [ -f "$SYS_PANEL_CONFIG" ]; then
+    SYS_LAUNCHERS=$(sed -n 's/^launchers=//p' "$SYS_PANEL_CONFIG" | head -1)
+    case " $SYS_LAUNCHERS " in
+        *" virtual-keyboard "*) PANEL_LAUNCHERS="$SYS_LAUNCHERS" ;;
+        *) PANEL_LAUNCHERS="${SYS_LAUNCHERS:+$SYS_LAUNCHERS }virtual-keyboard" ;;
+    esac
+    for PANEL_HOME in /etc/skel ${FIRST_USER_NAME:+/home/${FIRST_USER_NAME}}; do
+        PANEL_CONFIG="${PANEL_HOME}/.config/wf-panel-pi/wf-panel-pi.ini"
+        if [ ! -f "$PANEL_CONFIG" ]; then
+            mkdir -p "$(dirname "$PANEL_CONFIG")"
+            printf '[panel]\nlaunchers=%s\n' "$PANEL_LAUNCHERS" > "$PANEL_CONFIG"
+            echo "Created panel config with keyboard: $PANEL_CONFIG"
+        fi
+    done
+    if [ -n "${FIRST_USER_NAME}" ]; then
+        chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config"
+    fi
+fi
+
+# bookworm (wf-panel-pi 0.x): ~/.config/wf-panel-pi.ini with launcher_NNNNNN lines
 # Add to skel for new users (create if missing)
 SKEL_PANEL_DIR="/etc/skel/.config"
 SKEL_PANEL_CONFIG="${SKEL_PANEL_DIR}/wf-panel-pi.ini"
 mkdir -p "$SKEL_PANEL_DIR"
-if [ ! -f "$SKEL_PANEL_CONFIG" ]; then
+if [ -f "$SYS_PANEL_CONFIG" ]; then
+    : # trixie: done above
+elif [ ! -f "$SKEL_PANEL_CONFIG" ]; then
     # Create default panel config with keyboard launcher
     cat > "$SKEL_PANEL_CONFIG" << 'EOF'
 [panel]
@@ -58,7 +86,7 @@ else
 fi
 
 # Add to first user's panel config (create if missing)
-if [ -n "${FIRST_USER_NAME}" ]; then
+if [ -n "${FIRST_USER_NAME}" ] && [ ! -f "$SYS_PANEL_CONFIG" ]; then
     USER_PANEL_DIR="/home/${FIRST_USER_NAME}/.config"
     USER_PANEL_CONFIG="${USER_PANEL_DIR}/wf-panel-pi.ini"
     mkdir -p "$USER_PANEL_DIR"

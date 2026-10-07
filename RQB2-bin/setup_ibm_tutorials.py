@@ -52,7 +52,7 @@ def create_notebook(cells: List[Dict]) -> Dict:
             },
             "language_info": {
                 "name": "python",
-                "version": "3.11.0"
+                "version": "3.13.5"
             }
         },
         "nbformat": 4,

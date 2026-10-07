@@ -776,6 +776,30 @@ _rq_pid_alive() {
     return 0
 }
 
+# A timed read that no stop signal interrupts with a long trap (Trixie, T4).
+# "read -t" arms an alarm and leaves by longjmp when it fires. A HUP, INT or
+# TERM trap runs INSIDE the waiting read; when that trap stops a demo or
+# clears the panel (seconds) and the alarm fires meanwhile, bash 5.2 jumps
+# out of the trap into a stale stack frame: "stack smashing detected" or
+# "longjmp causes uninitialized stack frame", exit 134 - about every second
+# Ctrl+C on the rig (QLO console, IBM Courses). So while it reads, the
+# signals only note themselves; after read has returned, the same signal is
+# sent again and the caller's own trap (or the default action) runs then,
+# outside the read. Takes read's options; returns read's status.
+# Usage: rq_read_deferred -r -t 2 VAR
+rq_read_deferred() {
+    local _rq_rd_sig="" _rq_rd_saved _rq_rd_rc=0
+    _rq_rd_saved=$(trap -p HUP INT TERM)
+    trap '_rq_rd_sig=HUP' HUP
+    trap '_rq_rd_sig=INT' INT
+    trap '_rq_rd_sig=TERM' TERM
+    read "$@" || _rq_rd_rc=$?
+    trap - HUP INT TERM
+    eval "$_rq_rd_saved"
+    [ -z "$_rq_rd_sig" ] || kill -s "$_rq_rd_sig" "${BASHPID:-$$}"
+    return "$_rq_rd_rc"
+}
+
 # Show the stop hint and wait until Enter, or until the demo ends by itself
 # (PID, or the Docker container named after --container). Ctrl+C and a closed
 # window end the calling script through its traps. Without a terminal there
@@ -797,7 +821,7 @@ rq_wait_for_stop() {
         if [ -n "$pid" ]; then _rq_pid_alive "$pid" || return 0; fi
         if [ -n "$container" ]; then rq_docker_running "$container" || return 0; fi
         rc=0
-        read -r -t 2 _ || rc=$?
+        rq_read_deferred -r -t 2 _ || rc=$?
         [ "$rc" -eq 0 ] && return 0      # Enter
         [ "$rc" -gt 128 ] || return 0    # no more input
     done
@@ -911,7 +935,7 @@ rq_run_demo() {
     # until Enter (or no more input: Ctrl+D), or the program ends by itself
     while _rq_pid_alive "$RQ_DEMO_CHILD"; do
         rc=0
-        read -r -t 2 _ || rc=$?
+        rq_read_deferred -r -t 2 _ || rc=$?
         [ "$rc" -gt 128 ] || break
     done
     rc=0
@@ -1174,7 +1198,8 @@ RQ_BROWSER_HANDOFF_WAIT="${RQ_BROWSER_HANDOFF_WAIT:-10}"
 # The browser command on this Pi; fails if there is none
 _rq_find_browser() {
     local b
-    for b in chromium-browser chromium firefox xdg-open; do
+    # chromium first: trixie has no chromium-browser command (bookworm has both)
+    for b in chromium chromium-browser firefox xdg-open; do
         if command -v "$b" >/dev/null 2>&1; then
             echo "$b"
             return 0
@@ -1192,7 +1217,7 @@ _rq_find_browser() {
 # terminal's foreground process group, and the kernel sends that group SIGHUP
 # when the session leader ends - under rq_hold_on_error.sh, the demo itself -
 # and when the window closes. Composer and Grok Bloch online end right after
-# starting `chromium-browser URL`, so in a window of their own (an icon
+# starting `chromium URL`, so in a window of their own (an icon
 # running rq_demo_run.sh) the hangup killed it before it had handed the
 # address to the running Chromium: no tab. And a Chromium that a demo had
 # started itself (none was running) closed, all tabs, with the demo's window.

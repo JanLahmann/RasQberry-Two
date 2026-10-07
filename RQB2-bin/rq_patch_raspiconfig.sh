@@ -17,10 +17,12 @@ set -euo pipefail
 # older version (without the About line) counts as partly patched and is
 # patched again from the copy `patch -b` kept.
 # The old check looked for the word "RasQberry" only, so a raspi-config the
-# diff no longer fits (trixie fails hunk 1 of 3) ended up with the menu item but
-# without the code behind it - and was reported as success (R-117). Now the
-# patch is tried with --dry-run first, nothing is changed unless all of it
-# applies, and the result is checked for all three markers.
+# diff no longer fits (trixie failed hunk 1 of 3 of the bookworm diff) ended up
+# with the menu item but without the code behind it - and was reported as
+# success (R-117). Now the patch is tried with --dry-run first, nothing is
+# changed unless all of it applies, and the result is checked for all markers.
+# raspi-config.diff is made against trixie's raspi-config (20261026) and
+# anchors on lines bookworm's (20250813) has too, so it fits both.
 #
 # Exit codes:
 #   0 = Success (patch applied or already applied)

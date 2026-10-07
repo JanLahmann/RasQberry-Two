@@ -144,7 +144,9 @@ def test_build_layout_command(tmp_path):
     subprocess.run([sys.executable, os.path.join(_BIN, "rq_desktop_session.py"),
                     "--layout", "1920x1080", str(conf)], check=True)
     text = conf.read_text()
-    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=10\ntrusted=true\n")
+    # y counts from the top of the screen where the desktop's profile does (trixie)
+    y = 10 + ds.layout_top(False)
+    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
     assert text.count("trusted=true") == len(ds.ICON_ORDER)
 
 
@@ -349,3 +351,21 @@ def test_status_is_plain_text_even_without_config_files(touch):
     assert "\x1b[" not in p.stdout and p.stdout.startswith("Touch Mode: OFF")
     assert touch("status", "--quiet").stdout == "disabled\n"
     assert touch("bogus").returncode == 1
+
+
+def test_pcmanfm_profile_follows_the_desktop_autostart(tmp_path):
+    # bookworm: the desktop runs with --profile LXDE-pi; trixie's pcmanfm-pi
+    # runs "pcmanfm --desktop", the "default" profile - icon positions written
+    # to the other profile's directory are never read
+    bookworm = tmp_path / "bookworm"
+    bookworm.write_text("/usr/bin/lwrespawn /usr/bin/pcmanfm --desktop --profile LXDE-pi &\n"
+                        "/usr/bin/lwrespawn /usr/bin/wf-panel-pi &\n")
+    trixie = tmp_path / "trixie"
+    trixie.write_text("/usr/bin/lwrespawn /usr/bin/pcmanfm-pi &\n/usr/bin/lwrespawn /usr/bin/wf-panel-pi &\n")
+    assert ds.pcmanfm_profile([str(bookworm)]) == "LXDE-pi"
+    assert ds.pcmanfm_profile([str(trixie)]) == "default"
+    # the user's autostart (read first) wins; files without pcmanfm are skipped
+    other = tmp_path / "user"
+    other.write_text("/usr/bin/kanshi &\n")
+    assert ds.pcmanfm_profile([str(other), str(bookworm)]) == "LXDE-pi"
+    assert ds.pcmanfm_profile([str(tmp_path / "missing")]) == "default"

@@ -215,11 +215,30 @@ write_desktop_entry() {
     chown_to_user "$USER_HOME/Desktop"
     bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
     case "$rc" in
-        0) chown_to_user "$tmp"; mv -f "$tmp" "$out" ;;
+        0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; relayout_desktop ;;
         3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
         *) rm -f "$tmp"; warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
     esac
     return 0
+}
+
+# The desktop lays the launchers out in its grid at every login; a catalogue
+# launcher added or removed now joins it (or leaves a gap closed) at once,
+# instead of landing apart at the bottom left (T5). Only with a running
+# desktop; quiet and never fatal.
+relayout_desktop() {
+    local user uid run helper="$SCRIPT_DIR/rq_desktop_session.py"
+    [ -f "$helper" ] || return 0
+    user=$(stat -c %U "$USER_HOME" 2>/dev/null) || return 0
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    run="/run/user/$uid"
+    [ -S "$run/wayland-0" ] || return 0
+    if [ "$(id -u)" -eq 0 ] && [ "$user" != root ]; then
+        sudo -u "$user" -H env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 \
+            python3 "$helper" --relayout
+    else
+        env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 python3 "$helper" --relayout
+    fi >/dev/null 2>&1 || true
 }
 
 refresh_cache() {
@@ -476,7 +495,8 @@ remove_demo() {
         info "Removing checkout: $DEMOS_ROOT/$dir"
         rq_remove_tree "${DEMOS_ROOT:?}/$dir" || die "Could not remove $DEMOS_ROOT/$dir"
     fi
-    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop"
+    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop" "$USER_HOME/Desktop/More/rq-ext-${id}.desktop"
+    relayout_desktop
     refresh_cache
 
     # Its Docker image is most of the space (traQmania: 3.2 GB) and stayed

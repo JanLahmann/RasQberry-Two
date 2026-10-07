@@ -53,7 +53,9 @@ done
 # PySide6/PyQt wheels from pip bundle a Qt that crashes with a bus error on the
 # Pi 5 kernel (16 KB pages), #302.
 ln -sfn /usr/lib/python3/dist-packages/PyQt5 "$VENV_SITE/PyQt5"
-for meta in /usr/lib/python3/dist-packages/PyQt5-*.dist-info /usr/lib/python3/dist-packages/PyQt5_sip-*.egg-info; do
+# (PyQt5_sip metadata: egg-info on bookworm, dist-info on trixie)
+for meta in /usr/lib/python3/dist-packages/PyQt5-*.dist-info /usr/lib/python3/dist-packages/PyQt5_sip-*.egg-info \
+            /usr/lib/python3/dist-packages/PyQt5_sip-*.dist-info; do
     [ -e "$meta" ] && ln -sf "$meta" "$VENV_SITE/"
 done
 

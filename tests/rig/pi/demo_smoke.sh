@@ -96,7 +96,10 @@ if [ -n "${RIG_ICON:-}" ]; then
     # desktop layout; the icon command runs under rq_hold_on_error.sh, whose
     # script(1) copies the demo's output to ~/.cache/rasqberry/<name>.log.
     desk="$HOME/Desktop/$RIG_ICON"
+    # the desktop's pcmanfm profile: LXDE-pi (bookworm) or default (trixie)
     conf="$HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
+    grep -q -- "--profile LXDE-pi" /etc/xdg/labwc/autostart 2>/dev/null \
+        || conf="$HOME/.config/pcmanfm/default/desktop-items-0.conf"
     [ -f "$desk" ] || { echo "FAIL $label | no such desktop icon"; exit 0; }
     pos=$(awk -v s="[$RIG_ICON]" '$0==s{f=1;next} /^\[/{f=0} f&&/^x=/{x=substr($0,3)} f&&/^y=/{y=substr($0,3)} END{if(x!=""&&y!="")print x, y}' "$conf" 2>/dev/null)
     [ -n "$pos" ] || { echo "FAIL $label | no position in $conf"; exit 0; }

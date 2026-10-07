@@ -4,8 +4,10 @@ patched into raspi-config completely or not at all.
 
 The raspi-config used here is rebuilt from the "before" side of
 raspi-config.diff (its context lines) with filler in between, so the test needs
-no network and no Raspberry Pi. A "trixie-like" variant changes the line hunk 1
-anchors on, as trixie's raspi-config does (INTERACTIVE="${INTERACTIVE:-True}").
+no network and no Raspberry Pi. A "changed" variant rewrites the lines hunk 1
+anchors on, as a new raspi-config release can (the bookworm diff anchored on
+INTERACTIVE=True, which trixie changed to INTERACTIVE="${INTERACTIVE:-True}";
+the diff now anchors on lines both releases share).
 """
 
 import os
@@ -48,15 +50,19 @@ def _original_hunks():
     return hunks
 
 
-def _fake_raspi_config(path, trixie=False):
+def _fake_raspi_config(path, changed=False):
     out = []
     for start, lines in _original_hunks():
         while len(out) < start - 1:
             out.append(f"# filler {len(out) + 1}")
         out.extend(lines)
     text = "\n".join(out) + "\n"
-    if trixie:
-        text = text.replace("INTERACTIVE=True\n", 'INTERACTIVE="${INTERACTIVE:-True}"\n')
+    if changed:
+        # a raspi-config release that rewrote the lines around hunk 1
+        for old, new in (("CONFIG=/boot${FIRMWARE}/config.txt\n", 'CONFIG="/boot${FIRMWARE}/config.txt"\n'),
+                         ("USER=${SUDO_USER:-", "USER=${RQ_SUDO_USER:-")):
+            assert old in text, old
+            text = text.replace(old, new)
     path.write_text(text)
     return text
 
@@ -84,7 +90,7 @@ def test_clean_file_gets_all_three_changes(tmp_path):
 
 def test_file_the_diff_does_not_fit_is_left_untouched(tmp_path):
     target = tmp_path / "raspi-config"
-    original = _fake_raspi_config(target, trixie=True)
+    original = _fake_raspi_config(target, changed=True)
     proc = _patch(target)
     assert proc.returncode != 0, "a half-fitting patch must not be reported as success"
     assert target.read_text() == original, "nothing may be applied when one hunk fails"

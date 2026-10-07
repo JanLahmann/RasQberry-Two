@@ -22,18 +22,22 @@ h.require("qiskit", "matplotlib", "selenium", "celluloid", "PIL")
 FRACTAL_DIR = os.path.join(h.BIN_DIR, "fractal_files")
 FRAMES = 3
 
-# Replaces fractal_webclient.py: a driver that loads nothing and reports its
-# window closed when the demo starts polling it, so fractals.py exits.
+# Replaces fractal_webclient.py: a driver that loads nothing; its window is
+# open until the animation is shown in it, then reported closed when the demo
+# polls it, so fractals.py exits.
 _FAKE_WEBCLIENT = '''
 from selenium.common.exceptions import NoSuchWindowException
 
 class _Driver:
+    showing = ""
     def get(self, url):
-        pass
+        self.showing = url
     def quit(self):
         pass
     def find_element(self, *args):
-        raise NoSuchWindowException("headless test: no browser window")
+        if self.showing.endswith(".gif"):
+            raise NoSuchWindowException("headless test: no browser window")
+        return object()
 
 class WebClient:
     def __init__(self, default_image_url):

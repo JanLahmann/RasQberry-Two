@@ -745,8 +745,9 @@ run_grok_bloch_demo() {
 
 # Run grok-bloch web version (no installation needed)
 run_grok_bloch_web_demo() {
-    # Check if chromium-browser is available
-    if ! command -v chromium-browser >/dev/null 2>&1; then
+    # Check if Chromium is available (`chromium`: bookworm has it next to the
+    # chromium-browser link, trixie has only `chromium`)
+    if ! command -v chromium >/dev/null 2>&1; then
         whiptail --title "Browser Not Found" --msgbox \
             "Chromium browser is not installed.\n\nThe web version requires a web browser." \
             10 60
@@ -760,9 +761,9 @@ run_grok_bloch_web_demo() {
     # Launch browser with web version (as user if running as root)
     GROK_URL="https://javafxpert.github.io/grok-bloch/"
     if [ "$(whoami)" = "root" ] && [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
-        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium-browser --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
+        su - "$SUDO_USER" -c "DISPLAY=${DISPLAY:-:0} chromium --password-store=basic '$GROK_URL' >/dev/null 2>&1 &"
     else
-        chromium-browser --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
+        chromium --password-store=basic "$GROK_URL" >/dev/null 2>&1 &
     fi
 }
 

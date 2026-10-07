@@ -13,7 +13,7 @@ reproduce that install off-Pi and check it:
                                     PyPI's latest (an add-on capping Qiskit makes
                                     pip resolve an older one silently)
     compat_ci.py versions           print a markdown version table
-    compat_ci.py wheels             check cp311 manylinux aarch64 wheels exist for
+    compat_ci.py wheels             check cp313 manylinux aarch64 wheels exist for
                                     the installed versions (the image is aarch64)
 
 Each command appends its markdown to $GITHUB_STEP_SUMMARY and to
@@ -59,10 +59,16 @@ REQUIRED_WHEELS = ["qiskit", "qiskit-aer"]
 OTHER_WHEELS = ["qiskit-ibm-runtime", "rustworkx", "qiskit-algorithms",
                 "qiskit-optimization", "qiskit-machine-learning", "qiskit-nature",
                 "qiskit-finance", "qiskit-experiments"]
-# Raspberry Pi OS bookworm ships glibc 2.36, so any manylinux_2_x up to that works.
+# The image's Python: Raspberry Pi OS trixie ships 3.13 (bookworm: 3.11), as
+# TARGET_PYTHON_VERSION in pi-gen-config.
+TARGET_PYTHON = "3.13"
+TARGET_CP = "cp" + TARGET_PYTHON.replace(".", "")
+# Raspberry Pi OS trixie ships glibc 2.41, so any manylinux_2_x up to that works.
 AARCH64_PLATFORMS = ["manylinux2014_aarch64", "manylinux_2_28_aarch64",
                      "manylinux_2_31_aarch64", "manylinux_2_34_aarch64",
-                     "manylinux_2_35_aarch64", "manylinux_2_36_aarch64"]
+                     "manylinux_2_35_aarch64", "manylinux_2_36_aarch64",
+                     "manylinux_2_38_aarch64", "manylinux_2_39_aarch64",
+                     "manylinux_2_41_aarch64"]
 VERSION_PACKAGES = ["qiskit", "qiskit-aer", "qiskit-ibm-runtime", "rustworkx",
                     "qiskit-algorithms", "qiskit-optimization", "qiskit-machine-learning",
                     "qiskit-nature", "qiskit-finance", "qiskit-experiments",
@@ -144,9 +150,9 @@ def cmd_versions():
 
 
 def _has_aarch64_wheel(name, version, dest):
-    """True if pip finds a cp311 manylinux aarch64 (or pure) wheel for name==version."""
+    """True if pip finds a TARGET_CP manylinux aarch64 (or pure) wheel for name==version."""
     cmd = [sys.executable, "-m", "pip", "download", "--quiet", "--no-deps",
-           "--only-binary", ":all:", "--python-version", "3.11",
+           "--only-binary", ":all:", "--python-version", TARGET_PYTHON,
            "--implementation", "cp", "--dest", dest]
     for plat in AARCH64_PLATFORMS:
         cmd += ["--platform", plat]
@@ -157,7 +163,7 @@ def _has_aarch64_wheel(name, version, dest):
 
 def cmd_wheels():
     failed = False
-    rows = ["| package | version | cp311 aarch64 wheel |", "|---|---|---|"]
+    rows = [f"| package | version | {TARGET_CP} aarch64 wheel |", "|---|---|---|"]
     with tempfile.TemporaryDirectory() as dest:
         for name in REQUIRED_WHEELS + OTHER_WHEELS:
             version = installed(name)
@@ -167,7 +173,7 @@ def cmd_wheels():
             rows.append(f"| {name} | {version or 'latest'} | {status} |")
             if not ok:
                 level = "error" if required else "warning"
-                print(f"::{level}::no cp311 manylinux aarch64 wheel for {name}=={version}: {err[0]}")
+                print(f"::{level}::no {TARGET_CP} manylinux aarch64 wheel for {name}=={version}: {err[0]}")
                 failed = failed or required
     _summary("\n".join(rows) + "\n")
     return 1 if failed else 0

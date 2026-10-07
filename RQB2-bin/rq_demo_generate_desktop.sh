@@ -133,8 +133,9 @@ generate_desktop_entry() {
     # or delegate, so the icon just opens the URL.
     local exec_cmd tryexec
     if [ -n "$browser_url" ] && [ -z "$launcher" ] && [ -z "$script" ]; then
-        exec_cmd="chromium-browser --password-store=basic $browser_url"
-        tryexec="chromium-browser"
+        # `chromium`: the only browser command on trixie (bookworm has both)
+        exec_cmd="chromium --password-store=basic $browser_url"
+        tryexec="chromium"
     else
         exec_cmd="/usr/bin/rq_demo_run.sh $id"
         tryexec="/usr/bin/rq_demo_run.sh"

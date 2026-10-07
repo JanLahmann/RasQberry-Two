@@ -197,8 +197,9 @@ run_demo_with_controls() {
     # Monitor for user input while demo runs
     local elapsed=0
     while kill -0 $DEMO_PID 2>/dev/null; do
-        # Check for keypress (non-blocking, 1 second timeout)
-        if read -t 1 -n 1 key 2>/dev/null; then
+        # Check for keypress (non-blocking, 1 second timeout). Ctrl+C runs
+        # the cleanup trap after the read, not inside it (rq_read_deferred)
+        if rq_read_deferred -t 1 -n 1 key 2>/dev/null; then
             case "$key" in
                 q|"")  # q or Enter
                     echo ""

@@ -126,7 +126,7 @@ setup_cleanup_trap cleanup
 # Try to open in browser.
 #
 # The demo's lifetime must NOT be tied to the browser command. Chromium is
-# single-instance and autostarts on this image, so `chromium-browser <url>`
+# single-instance and autostarts on this image, so `chromium <url>`
 # hands the URL to the running instance and exits at once ("Opening in
 # existing browser session."). Tying the demo to that command therefore
 # killed the server a second after the tab opened, and the tab it had just

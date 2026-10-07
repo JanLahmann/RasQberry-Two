@@ -102,6 +102,13 @@ class VirtualLEDMatrix:
             f"RasQberry Virtual LED Matrix - {width}x{height} ({layout_name})"
         )
         self.root.configure(bg=BG_COLOR)
+        # Never take the keyboard focus: the demo's terminal must keep it, so
+        # that "press Enter or Ctrl+C" works right after the view opens.
+        # "active" sets WM_HINTS input=False (and Tk sets no WM_TAKE_FOCUS),
+        # i.e. the ICCCM "No Input" model: labwc (Trixie, 0.20) maps such a
+        # window without focusing it; before, it focused every new window.
+        # Must be set before the window is first mapped (mainloop).
+        self.root.wm_focusmodel("active")
 
         # Dynamic sizing variables
         self.led_size = LED_SIZE

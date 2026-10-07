@@ -286,18 +286,31 @@ if DEBUG:
 else:
     print()
 
-# Quit the currently running driver and prepare for the animation
-driver.quit()
+# A window closed after the last picture was drawn (no picture follows that
+# would notice it) stops the demo too, as its "To stop: close this window"
+# says: before, the demo went on and opened the animation 10 s later (N3).
+try:
+    driver.find_element(By.TAG_NAME, 'body')
+except (NoSuchWindowException, WebDriverException):
+    print("The Quantum Fractals window was closed.")
+    sys.exit(0)
 
+# The picture window stays open while the animation is put together (about
+# 10 s), and the animation then opens in it. It used to close here and a new
+# one opened later, so closing the picture window near the end did nothing
+# (N3); now closing it at any time stops the demo.
 print("Putting the pictures together into an animation...", flush=True)
 anim = QFI.gif_cam.animate(blit=True, interval=GIF_ms_intervals)
 anim.save(f'{temp_image_folder}/1qubit_simulator_4animations_H_{number_of_frames}.gif', writer='pillow')
 gif_url = f"{browser_file_path}/1qubit_simulator_4animations_H_{number_of_frames}.gif"
+try:
+    driver.find_element(By.TAG_NAME, 'body')
+    driver.get(gif_url)
+except (NoSuchWindowException, WebDriverException):
+    print("The Quantum Fractals window was closed.")
+    driver.quit()
+    sys.exit(0)
 print("The animation runs in its window.", flush=True)
-
-# Define a fresh instance of the ChromeDriver to retrieve the image
-driver = WebClient(default_image_url).get_driver()  # ChromeDriver
-driver.get(gif_url)
 
 # check if the browser window is closed (once a second, not in a busy loop)
 while True:
