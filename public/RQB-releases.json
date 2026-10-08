@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T20:58:22Z",
+  "generated": "2026-10-08T21:04:44Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,22 +32,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-08-175639",
-      "name": "rasqberry-development-2026-10-08-175639",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-175639/rasqberry-development-2026-10-08-175639.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-175639",
-      "release_date": "2026-10-08 17:56",
-      "image_download_size": 2145306112,
+      "tag": "dev-next-b-2026-10-08-222238",
+      "name": "rasqberry-dev-next-b-2026-10-08-222238",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-next-b-2026-10-08-222238/rasqberry-dev-next-b-2026-10-08-222238.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-next-b-2026-10-08-222238",
+      "release_date": "2026-10-08 22:22",
+      "image_download_size": 2146257148,
       "extract_size": 9495904256,
-      "extract_sha256": "b59156665d0c668af49d60bc98874ffbfc815c6a6138e7fc291a130613cd8e68",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-175639/rasqberry-development-2026-10-08-175639-ab.img.xz",
-      "ab_extract_sha256": "3b4ee98c9e06367280a7c82cf9d726b980b00c0a629593334347c41e09161af7",
-      "ab_image_sha256": "f6e3c69b97997c527bd59469ad45acdecb87b586d4d9dec737817bfdb8003b4a",
-      "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1883085316,
-      "highlights": [
-        "Development build - see release notes for details"
-      ]
+      "extract_sha256": "0a00b7731166fc328be09068a47ff5046d5ce05675dbc769b08d5a8d724f08c6",
+      "image_sha256": "59e2f761aa75b34b761f29141d021c5c22e342fed65d687f4a9788eac8e9ea17",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-next-b-2026-10-08-222238/rasqberry-dev-next-b-2026-10-08-222238-ab.img.xz",
+      "ab_extract_sha256": "2c8eb29c0217b766514ff84f91c9d8f4a22ac502eeeb4a2249f8b972bf238723",
+      "ab_image_sha256": "dd23c89aa2282997e0338cc3807c4eaa8bea051ca3ba6688bc0e12daee8d95ee",
+      "ab_image_download_size": 1880407244,
+      "ab_extract_size": 12398362624
     }
   }
 }
