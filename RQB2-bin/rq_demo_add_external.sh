@@ -214,7 +214,10 @@ write_desktop_entry() {
     tmp="$USER_HOME/Desktop/.rq-ext-${id}.desktop.tmp"
     mkdir -p "$USER_HOME/Desktop"
     chown_to_user "$USER_HOME/Desktop"
-    bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
+    # Quiet: its "written: <file>" line named the hidden temp file (pre-beta
+    # check 2026-10-08), and the desktop then moves the icon into its group's
+    # folder; the closing message says where to start the demo
+    bash "$writer" "$manifest_file" "$tmp" "$dest" >/dev/null || rc=$?
     case "$rc" in
         0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; DESKTOP_ICON=1; relayout_desktop ;;
         3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
