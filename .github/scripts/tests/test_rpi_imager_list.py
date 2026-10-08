@@ -112,7 +112,7 @@ def test_entry_fields(tmp_path):
         assert e["icon"] == "https://rasqberry.org/imager/rasqberry-40.png"
         assert "image_type" not in e and "image_sha256" not in e
         # the user, never the password
-        assert "Username is always rasqberry" in e["description"] and "Qiskit1!" not in e["description"]
+        assert "Set your user name and password in Imager" in e["description"] and "Qiskit1!" not in e["description"]
         # Connect: on since its rig test (2026-10-07)
         assert e["capabilities"] == ["rpi_connect"]
 

@@ -12,7 +12,8 @@ RQB-images.json (our own --repo list):
 - two entries from that release: the A/B image (recommended) first, then the
   single-system image
 - no stock Raspberry Pi OS entry, no developer builds
-- the description names the user (always rasqberry) but not the password
+- the description asks for the user name and password in Imager, never names
+  the default password
 
 Imager drops an invalid entry silently, and a sublist that fails to load
 leaves an empty folder in the official list. So the list is checked against
@@ -51,7 +52,7 @@ INIT_FORMAT = "systemd"
 # Trixie beta; needs current Pi 5 firmware, which the image points out).
 RPI_CONNECT = True
 
-USER_NOTE = "Username is always rasqberry; set your password in Imager."
+USER_NOTE = "Set your user name and password in Imager."
 SINGLE = " — single system"
 # (branch, entry name), most stable first: the first stream with a release wins
 STREAMS = (("main", "RasQberry Two"), ("beta", "RasQberry Two Beta"))
