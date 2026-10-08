@@ -6,7 +6,7 @@
   "os_list": [
     {
       "name": "RasQberry Two Beta",
-      "description": "Recommended. Two systems with safe updates on 64 GB+ cards, one system on smaller ones. Best: 128 GB A2/U3. Pi 4/5. Login rasqberry / Qiskit1!",
+      "description": "Recommended. Two systems with safe updates on 64 GB+ cards, one system on smaller ones. Best: 128 GB A2/U3. Pi 4/5. Default login rasqberry / Qiskit1!",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-07-213933/rasqberry-beta-2026-10-07-ab.img.xz",
       "extract_size": 12398362624,
@@ -19,11 +19,14 @@
         "pi5-64bit",
         "pi4-64bit"
       ],
-      "website": "https://rasqberry.org"
+      "website": "https://rasqberry.org",
+      "capabilities": [
+        "rpi_connect"
+      ]
     },
     {
       "name": "RasQberry Two Beta \u2014 single system",
-      "description": "One system, no updates in place. 16 GB+ card, 32 GB+ for Docker demos. Pi 4/5. Login rasqberry / Qiskit1!",
+      "description": "One system, no updates in place. 16 GB+ card, 32 GB+ for Docker demos. Pi 4/5. Default login rasqberry / Qiskit1!",
       "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-07-213933/rasqberry-beta-2026-10-07.img.xz",
       "extract_size": 9495904256,
@@ -36,7 +39,10 @@
         "pi5-64bit",
         "pi4-64bit"
       ],
-      "website": "https://rasqberry.org"
+      "website": "https://rasqberry.org",
+      "capabilities": [
+        "rpi_connect"
+      ]
     },
     {
       "name": "RasQberry developer builds",
@@ -45,7 +51,7 @@
       "subitems": [
         {
           "name": "RasQberry Two Dev (development 2026-10-08-080053)",
-          "description": "Build from the development branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "Build from the development branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-080053/rasqberry-development-2026-10-08-080053.img.xz",
           "extract_size": 9495904256,
@@ -58,11 +64,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev A/B (development 2026-10-08-080053)",
-          "description": "A/B image from the development branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "A/B image from the development branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-080053/rasqberry-development-2026-10-08-080053-ab.img.xz",
           "extract_size": 12398362624,
@@ -75,11 +84,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev (dev-group-window 2026-10-08-070212)",
-          "description": "Build from the dev-group-window branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "Build from the dev-group-window branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-070212/rasqberry-dev-group-window-2026-10-08-070212.img.xz",
           "extract_size": 9495904256,
@@ -92,11 +104,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev A/B (dev-group-window 2026-10-08-070212)",
-          "description": "A/B image from the dev-group-window branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "A/B image from the dev-group-window branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-070212/rasqberry-dev-group-window-2026-10-08-070212-ab.img.xz",
           "extract_size": 12398362624,
@@ -109,11 +124,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev (dev-custom-user 2026-10-08-054619)",
-          "description": "Build from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "Build from the dev-custom-user branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619.img.xz",
           "extract_size": 9495904256,
@@ -126,11 +144,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev A/B (dev-custom-user 2026-10-08-054619)",
-          "description": "A/B image from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "A/B image from the dev-custom-user branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619-ab.img.xz",
           "extract_size": 12398362624,
@@ -143,11 +164,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev (dev-demo-groups 2026-10-07-233756)",
-          "description": "Build from the dev-demo-groups branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "Build from the dev-demo-groups branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demo-groups-2026-10-07-233756/rasqberry-dev-demo-groups-2026-10-07-233756.img.xz",
           "extract_size": 9495904256,
@@ -160,11 +184,14 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         },
         {
           "name": "RasQberry Two Dev A/B (dev-demo-groups 2026-10-07-233756)",
-          "description": "A/B image from the dev-demo-groups branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "description": "A/B image from the dev-demo-groups branch. Untested, for developers. Default login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
           "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-demo-groups-2026-10-07-233756/rasqberry-dev-demo-groups-2026-10-07-233756-ab.img.xz",
           "extract_size": 12398362624,
@@ -177,7 +204,10 @@
             "pi5-64bit",
             "pi4-64bit"
           ],
-          "website": "https://rasqberry.org"
+          "website": "https://rasqberry.org",
+          "capabilities": [
+            "rpi_connect"
+          ]
         }
       ]
     },
