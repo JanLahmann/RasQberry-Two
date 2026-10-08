@@ -22,7 +22,7 @@ from a terminal, e.g. on a Mac:
 
 All images are also on the [releases page](https://github.com/JanLahmann/RasQberry-Two/releases).
 
-**Login:** user `rasqberry`, password `Qiskit1!` (on the Pi, over SSH and VNC).
+**Default login:** user `rasqberry`, password `Qiskit1!` (on the Pi, over SSH and VNC). The user name and password set in Raspberry Pi Imager replace it.
 
 The image ships **Qiskit 2.x** in the virtual environment `RQB2`, active in every terminal:
 

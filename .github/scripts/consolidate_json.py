@@ -42,8 +42,14 @@ AB_IMAGER_CUSTOMISATION = os.environ.get("RQB_AB_CUSTOMISATION", "true").lower()
 DEV_BRANCHES_SHOWN = int(os.environ.get("RQB_DEV_BRANCHES_SHOWN", "3"))
 
 # Imager shows the description under the name: the login is the one thing a
-# user who never visits the website cannot find out.
-LOGIN = "Login rasqberry / Qiskit1!"
+# user who never visits the website cannot find out. It is the default: the
+# user name and password set in Imager replace it.
+LOGIN = "Default login rasqberry / Qiskit1!"
+
+# Raspberry Pi Connect in Imager's customisation: images from this date on
+# send Imager's Connect token to the right user (tested 2026-10-07). Older
+# builds would give it to a user that does not exist.
+CONNECT_SINCE = "2026-10-07"
 ICON = "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png"
 DEV_FOLDER_NAME = "RasQberry developer builds"
 SINGLE = " \u2014 single system"   # "RasQberry Two Beta — single system"
@@ -55,6 +61,10 @@ def imager_entry(entry, is_ab):
         entry.pop('init_format', None)
     else:
         entry.setdefault('init_format', 'systemd')
+    if 'init_format' in entry and str(entry.get('release_date', ''))[:10] >= CONNECT_SINCE:
+        caps = entry.setdefault('capabilities', [])
+        if 'rpi_connect' not in caps:
+            caps.append('rpi_connect')
     return entry
 
 print("=== Merging RQB-images.json files into hierarchical structure ===")
