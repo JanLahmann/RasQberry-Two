@@ -102,32 +102,64 @@ rq_docker_stop "$CONTAINER_NAME" || die "The previous Quantum Mixer container di
 PORT="${QUANTUM_MIXER_PORT:-$(find_available_port 8085)}"
 
 # Qoffee (the coffee-machine use case) logs in to Home Connect with OAuth and
-# needs HOMECONNECT_CLIENT_ID, _SECRET and _BASE_URL. Without them its login
-# answered "Internal Server Error" (oauthlib: "OAuth 2 MUST utilize https",
-# item 18). The credentials are the ones Qoffee-Maker uses (its settings
-# file); Qocktails and Ice need none.
+# needs HOMECONNECT_CLIENT_ID, _SECRET and _BASE_URL. Qocktails and Ice need
+# none. The account lives in the Mixer's own settings file (created here with
+# empty values); Qoffee-Maker's settings file still counts when it holds one.
+HC_FILE="$USER_HOME/.config/rasqberry/home-connect.env"
 QOFFEE_ENV="$USER_HOME/$REPO/demos/Qoffee-Maker/.env"
 hc_value() {
-    [ -f "$QOFFEE_ENV" ] || return 0
-    sed -n "s/^$1=//p" "$QOFFEE_ENV" | head -1 | tr -d "\"'" | tr -d '\r'
+    [ -f "$2" ] || return 0
+    sed -n "s/^$1=//p" "$2" | head -1 | tr -d "\"'" | tr -d '\r'
 }
-HC_ID=$(hc_value HOMECONNECT_CLIENT_ID)
-HC_SECRET=$(hc_value HOMECONNECT_CLIENT_SECRET)
-HC_URL=$(hc_value HOMECONNECT_API_URL)
-HC_ENV=()
-case "$HC_ID" in
-    ""|your_*) ;;
-    *)  HC_URL="${HC_URL:-https://simulator.home-connect.com/}"
-        HC_ENV=(-e "HOMECONNECT_CLIENT_ID=$HC_ID" -e "HOMECONNECT_CLIENT_SECRET=$HC_SECRET"
-                -e "HOMECONNECT_BASE_URL=${HC_URL%/}" -e "HOST_ADDRESS=http://127.0.0.1:${PORT}") ;;
-esac
+hc_configured() {
+    case "$(hc_value HOMECONNECT_CLIENT_ID "$1")" in ""|your_*) return 1 ;; esac
+}
+if [ ! -e "$HC_FILE" ]; then
+    owner=$(stat -c '%U' "$USER_HOME" 2>/dev/null || echo root)
+    if mkdir -p "$(dirname "$HC_FILE")" 2>/dev/null && cat > "$HC_FILE" 2>/dev/null <<HCEOF
+# Home Connect account for Quantum Mixer's QoffeeMaker (developer.home-connect.com).
+# Fill in your application's client ID and secret, then start Quantum Mixer again.
+HOMECONNECT_CLIENT_ID=
+HOMECONNECT_CLIENT_SECRET=
+# The simulator; for a real coffee machine: https://api.home-connect.com/
+HOMECONNECT_API_URL=https://simulator.home-connect.com/
+HCEOF
+    then
+        chmod 600 "$HC_FILE" 2>/dev/null || true
+        [ "$(id -u)" = 0 ] && chown -R "$owner:" "$(dirname "$HC_FILE")" 2>/dev/null || true
+    fi
+fi
+HC_SRC=""
+if hc_configured "$HC_FILE"; then HC_SRC="$HC_FILE"
+elif hc_configured "$QOFFEE_ENV"; then HC_SRC="$QOFFEE_ENV"
+fi
+HC_ENV=(-e "HOMECONNECT_SETUP_HINT=put its client ID and secret into $HC_FILE and start Quantum Mixer again.")
+if [ -n "$HC_SRC" ]; then
+    HC_URL=$(hc_value HOMECONNECT_API_URL "$HC_SRC")
+    HC_URL="${HC_URL:-https://simulator.home-connect.com/}"
+    HC_ENV+=(-e "HOMECONNECT_CLIENT_ID=$(hc_value HOMECONNECT_CLIENT_ID "$HC_SRC")"
+             -e "HOMECONNECT_CLIENT_SECRET=$(hc_value HOMECONNECT_CLIENT_SECRET "$HC_SRC")"
+             -e "HOMECONNECT_BASE_URL=${HC_URL%/}" -e "HOST_ADDRESS=http://127.0.0.1:${PORT}")
+fi
+
+# Without an account the pinned image answered the Qoffee login with a bare
+# "Internal Server Error" (oauthlib: "OAuth 2 MUST utilize https", item 18).
+# Its fixed use case (a page that says what is missing, and a measure-only
+# mode) is mounted over the image it was written for, until a newer image
+# carries the fix (Quantum-Mixer branch fix/qoffee-without-home-connect).
+QOFFEE_FIX="$(dirname "$RQ_ENV_FILE")/quantum-mixer/qoffee_usecase.py"
+QOFFEE_FIX_REF="fc0cb984508ce80b3d0c650669bc7f2b8bde72c3"
+HC_MOUNT=()
+if [ "${RUN_IMAGE##*:}" = "$QOFFEE_FIX_REF" ] && [ -f "$QOFFEE_FIX" ]; then
+    HC_MOUNT=(-v "$QOFFEE_FIX:/app/quantum_mixer_backend/usecases/qoffee/usecase.py:ro")
+fi
 
 info "Starting Quantum Mixer..."
 if ! docker run -d \
     --name "$CONTAINER_NAME" \
     --label "org.rasqberry.demo=quantum-mixer" \
     -p "127.0.0.1:${PORT}:8080" \
-    ${HC_ENV[@]+"${HC_ENV[@]}"} \
+    "${HC_ENV[@]}" ${HC_MOUNT[@]+"${HC_MOUNT[@]}"} \
     "$RUN_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Quantum Mixer container did not start."
 fi
@@ -143,13 +175,12 @@ done
 echo
 echo "Quantum Mixer is running: $MIXER_URL"
 echo "  Qocktails (quantum cocktail mixer), Ice and Qoffee (coffee machine)"
-if [ ${#HC_ENV[@]} -eq 0 ]; then
-    echo "  Qoffee needs a Home Connect account (developer.home-connect.com): put"
-    echo "  its client ID and secret into Qoffee-Maker's settings file"
-    echo "  $QOFFEE_ENV"
-    echo "  Until then the Qoffee login shows an error; the other two work."
+if [ -z "$HC_SRC" ]; then
+    echo "  Qoffee orders from a real coffee machine: it needs a Home Connect account"
+    echo "  (developer.home-connect.com) in $HC_FILE."
+    echo "  Without one it only shows the measured drink; the other two work fully."
 else
-    echo "  Qoffee logs in with the Home Connect account from Qoffee-Maker's settings;"
+    echo "  Qoffee logs in with the Home Connect account from $HC_SRC;"
     echo "  its redirect address must be registered there:"
     echo "  http://127.0.0.1:${PORT}/api/usecase/qoffee/auth/callback"
 fi
