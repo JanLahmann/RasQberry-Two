@@ -16,7 +16,10 @@
         "pi4-64bit"
       ],
       "architecture": "armv8",
-      "website": "https://rasqberry.org"
+      "website": "https://rasqberry.org",
+      "capabilities": [
+        "rpi_connect"
+      ]
     },
     {
       "name": "RasQberry Two Beta \u2014 single system",
@@ -34,7 +37,10 @@
         "pi4-64bit"
       ],
       "architecture": "armv8",
-      "website": "https://rasqberry.org"
+      "website": "https://rasqberry.org",
+      "capabilities": [
+        "rpi_connect"
+      ]
     }
   ]
 }
