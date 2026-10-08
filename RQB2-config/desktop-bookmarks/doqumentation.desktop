@@ -2,7 +2,7 @@
 Version=1.1
 Name=Workshop & Qiskit Server
 Comment=(beta) One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation)
-Icon=/usr/share/icons/rasqberry/doqumentation-logo.svg
+Icon=/usr/share/icons/rasqberry/workshop-server.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh doqumentation
