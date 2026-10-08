@@ -177,7 +177,8 @@ echo "Quantum Mixer is running: $MIXER_URL"
 echo "  Qocktails (quantum cocktail mixer), Ice and Qoffee (coffee machine)"
 if [ -z "$HC_SRC" ]; then
     echo "  Qoffee orders from a real coffee machine: it needs a Home Connect account"
-    echo "  (developer.home-connect.com) in $HC_FILE."
+    echo "  (developer.home-connect.com) in its settings file:"
+    echo "  $HC_FILE"
     echo "  Without one it only shows the measured drink; the other two work fully."
 else
     echo "  Qoffee logs in with the Home Connect account from $HC_SRC;"
