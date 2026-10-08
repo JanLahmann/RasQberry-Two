@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T08:30:17Z",
+  "generated": "2026-10-08T08:31:15Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2144137392,
       "extract_size": 9495904256,
       "extract_sha256": "723e438e1d65fb2b3ef331b26c9a217910bbc2ff48c4af5eed34aca3317b9a9c",
-      "image_sha256": "5ba4dbbee5953f7ee304b5fc8268d5ce914df8d00fbf6ae95f36216f620ebc30",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-095810/rasqberry-development-2026-10-08-095810-ab.img.xz",
       "ab_extract_sha256": "1fc0df8a54253be0cbe2966e4166a3fec38cd5d6178da371d7da3e76026a878b",
       "ab_image_sha256": "06b258a7fe88db4d0f69a6cdc13859c945b091263be22ac7b23b6311e79271b8",
-      "ab_image_download_size": 1884768940,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1884768940,
       "highlights": [
         "find the venv in uid 1000's home, not ~rasqberry",
         "Bump version to development-2026-10-08-095810",
