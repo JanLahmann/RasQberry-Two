@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T21:19:22Z",
+  "generated": "2026-10-08T04:27:57Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,20 +31,25 @@
       ]
     },
     "dev": {
-      "tag": "dev-custom-user-2026-10-07-223222",
-      "name": "rasqberry-dev-custom-user-2026-10-07-223222",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-07-223222/rasqberry-dev-custom-user-2026-10-07-223222.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-custom-user-2026-10-07-223222",
-      "release_date": "2026-10-07 22:32",
-      "image_download_size": 2144585480,
+      "tag": "dev-custom-user-2026-10-08-054619",
+      "name": "rasqberry-dev-custom-user-2026-10-08-054619",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-custom-user-2026-10-08-054619",
+      "release_date": "2026-10-08 05:46",
+      "image_download_size": 2146331396,
       "extract_size": 9495904256,
-      "extract_sha256": "e4813780d9c869b9c6b147ef6ea6c07e94d7a4ad0dd75b99e4185cbbb518178a",
-      "image_sha256": "a4cab9cd972a2bfe7027ca3e4f34b79def0e64f48d380fb2a033054c601b2e70",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-07-223222/rasqberry-dev-custom-user-2026-10-07-223222-ab.img.xz",
-      "ab_extract_sha256": "fb8305604f6539c87f8bb41ba3d9a1c527652622f026691488c4f56b948d9f9f",
-      "ab_image_sha256": "70bbc0460d388d62aeb51ea8d9451865f976e40e87fe7e42cac352a0a49ca37f",
-      "ab_image_download_size": 1882051596,
-      "ab_extract_size": 12398362624
+      "extract_sha256": "6ec99da0dc44bd98c9d9a2ea36020c2684563fbdbab9cd719915d7dac464ae53",
+      "image_sha256": "06c83a4963cc8d79d629d300a42f07f0232bb0886dbae658c670b39dc07a2a0b",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619-ab.img.xz",
+      "ab_extract_sha256": "dc2f94a9a729e228de245dface31fa9110b253d82e50771e5d47d9d51ba88599",
+      "ab_image_sha256": "2875a9abf507b98723675a785c3f95f0b33798fe6b9c6d97435331231ba4a281",
+      "ab_image_download_size": 1879622300,
+      "ab_extract_size": 12398362624,
+      "highlights": [
+        "block releases without own user names on a renamed card (#319)",
+        "Bump version to dev-custom-user-2026-10-08-054619",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-custom-user-2026-10-07-223222"
+      ]
     }
   }
 }
