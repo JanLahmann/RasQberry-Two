@@ -46,10 +46,10 @@ DEVICES = ["pi5-64bit", "pi4-64bit"]
 ARCHITECTURE = "armv8"
 INIT_FORMAT = "systemd"
 
-# Raspberry Pi Connect in Imager's customisation. Switch on only after the
-# image's Connect fix (firstrun.sh: the token goes to rasqberry, not to the
-# name typed in Imager; dev-imager-connect) has passed a rig test.
-RPI_CONNECT = False
+# Raspberry Pi Connect in Imager's customisation: the token goes to
+# rasqberry, not to the name typed in Imager (rig-tested 2026-10-07 on the
+# Trixie beta; needs current Pi 5 firmware, which the image points out).
+RPI_CONNECT = True
 
 USER_NOTE = "Username is always rasqberry; set your password in Imager."
 SINGLE = " — single system"
