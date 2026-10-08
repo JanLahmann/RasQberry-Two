@@ -965,6 +965,30 @@ rq_run_demo() {
     return "$rc"
 }
 
+# A launcher's first line ("=== Quantum Mixer ==="), unless the demo engine
+# started it and has printed the demo's name already (rq_demo_run.sh
+# delegate_launcher): one window showed it twice (pre-beta check 2026-10-08).
+# Usage: rq_demo_header NAME
+rq_demo_header() {
+    [ -z "${RQ_DEMO_HEADER_SHOWN:-}" ] || return 0
+    echo
+    echo "=== $1 ==="
+    echo
+}
+
+# Run a demo program in front (it reads Enter itself), without the stray
+# "Terminated" line when a stop from outside ends it. The Demo Loop's time
+# limit (timeout) and a closed window reach the whole process group - sudo
+# relays them into its pty - and this shell, which outlives the signal
+# through its trap, reported the program's end on its own error output
+# (pre-beta check 2026-10-08). The program's error output stays.
+# Usage: rq_run_in_front COMMAND [ARGS...]
+rq_run_in_front() {
+    local rc=0
+    { "$@" 2>&3 3>&-; } 3>&2 2>/dev/null || rc=$?
+    return "$rc"
+}
+
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps

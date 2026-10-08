@@ -1084,6 +1084,10 @@ FAKE_UID=0 exec "$@"
     proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_run.sh"), "test-led"], env=env,
                           capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL)
     assert "RAN uid 0" in proc.stdout, proc.stdout + proc.stderr
+    # the window's first line once, not again after sudo (pre-beta check
+    # 2026-10-08: SAP Quantum LED), and no sudo talk
+    assert proc.stdout.count("=== Test LED ===") == 1, proc.stdout
+    assert "Re-executing" not in proc.stdout + proc.stderr
     assert (tmp_path / "sudo.log").read_text().splitlines()[0] == "sudo counted=test-led"
     time.sleep(0.5)
     assert _await(log).splitlines() == ["demo-start test-led desktop"]

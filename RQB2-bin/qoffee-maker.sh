@@ -19,9 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-echo
-echo "=== Qoffee-Maker Demo ==="
-echo
+rq_demo_header "Qoffee-Maker Demo"
 
 load_rqb2_env
 verify_env_vars REPO USER_HOME BIN_DIR

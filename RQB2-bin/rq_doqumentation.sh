@@ -61,9 +61,7 @@ esac
 mode_name() { if [ "$1" = "solo" ]; then echo "$SOLO_NAME"; else echo "$WORKSHOP_NAME"; fi; }
 NAME=$(mode_name "$MODE")
 
-echo
-echo "=== $NAME ==="
-echo
+rq_demo_header "$NAME"
 
 load_rqb2_env
 verify_env_vars REPO USER_HOME BIN_DIR
@@ -334,7 +332,9 @@ if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
     # Server" in its download question and errors (user test 2026-10-07)
     RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
-    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "doQumentation"
+    # and its download line too: "Downloading Qiskit Tutorials on this Pi",
+    # not the image's name (pre-beta check 2026-10-08)
+    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "$NAME"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi

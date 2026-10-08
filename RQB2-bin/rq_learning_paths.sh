@@ -334,6 +334,10 @@ start_step() {
     export RQ_DEMO_HOW
     if [ -n "$S_DEMO" ]; then
         local rc=0
+        # The demo's window says what the step says: "IBM LED Demo", not
+        # its manifest's "LED Demos" (user test 2026-10-08, F4)
+        local RQ_WINDOW_TITLE="$S_NAME"
+        export RQ_WINDOW_TITLE
         if [ -n "$S_VARIANT" ]; then
             "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" || rc=$?
         else

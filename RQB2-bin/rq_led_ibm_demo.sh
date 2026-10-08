@@ -54,4 +54,4 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 # Run the script. It stops with Enter or Ctrl+C, and the window closes with
 # it (one Enter, not a second "close this window" prompt); an error keeps the
 # window open (rq_hold_on_error.sh).
-python3 "$LED_SCRIPT"
+rq_run_in_front python3 "$LED_SCRIPT"
