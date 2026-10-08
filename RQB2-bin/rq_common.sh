@@ -2204,8 +2204,8 @@ rq_demo_group() {
 # Usage: rq_beta_notice DEMO_ID
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
-    echo "Your feedback helps a lot (needs a free GitHub account): ${RQ_FEEDBACK_URL}&demo=$1"
-    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
+    echo "Feedback via GitHub (needs a free account): ${RQ_FEEDBACK_URL}&demo=$1"
+    echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
 
