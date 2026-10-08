@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T05:34:19Z",
+  "generated": "2026-10-08T06:35:56Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,25 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-07-235419",
-      "name": "rasqberry-development-2026-10-07-235419",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-235419/rasqberry-development-2026-10-07-235419.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-235419",
-      "release_date": "2026-10-07 23:54",
-      "image_download_size": 2144199380,
+      "tag": "development-2026-10-08-080053",
+      "name": "rasqberry-development-2026-10-08-080053",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-080053/rasqberry-development-2026-10-08-080053.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-080053",
+      "release_date": "2026-10-08 08:00",
+      "image_download_size": 2146311572,
       "extract_size": 9495904256,
-      "extract_sha256": "2f57a40612f5c38f8e5e6109ab8297091df547fccac431d8d0c2ae315c9a2881",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-235419/rasqberry-development-2026-10-07-235419-ab.img.xz",
-      "ab_extract_sha256": "4ce4efc1fc714c4dead6fb20f4fc1d04ac17d45c940d08b285485057674cd87b",
-      "ab_image_sha256": "f15b3369af006ede280202a4ce6f5e09dd474366b608a0aeb821dbc279ef5e48",
+      "extract_sha256": "81532416ba04bf467bc6f292c929309278072a06ff7b7896772e98ea9d1268f2",
+      "image_sha256": "9542d63228f22aab509b1255c59801dffb4c432dcafe98444010b2741040194a",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-080053/rasqberry-development-2026-10-08-080053-ab.img.xz",
+      "ab_extract_sha256": "e557efdf757365306f8a4c96c5bae3f85f9f1895e7e3be46268f96dca15a6214",
+      "ab_image_sha256": "2e9a24d1f9f1fd0cc9b4148e970092de6efeb4051addb1980418c847e87b1462",
+      "ab_image_download_size": 1879201804,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1879999036,
       "highlights": [
-        "Bump version to development-2026-10-07-235419",
-        "Merge dev-demo-groups: demos in five groups on the desktop and in the menu",
-        "name the new menu paths",
-        "demo group folders instead of 25 icons",
-        "Quantum Demos in groups, and Manage demos"
+        "Bump version to development-2026-10-08-080053",
+        "Merge dev-custom-user: the user name typed in Imager (#319)",
+        "Generate RQB-images.json and RQB-releases.json for dev release dev-custom-user-2026-10-08-054619",
+        "block releases without own user names on a renamed card (#319)",
+        "Bump version to dev-custom-user-2026-10-08-054619"
       ]
     }
   }
