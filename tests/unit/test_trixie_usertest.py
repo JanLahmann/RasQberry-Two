@@ -138,12 +138,14 @@ def test_build_layout_uses_the_desktop_profile_and_font(tmp_path, monkeypatch):
     monkeypatch.setattr(ds, "pcmanfm_profile", lambda autostart=None: "default")
     assert ds.main(["--layout", "1920x1080", str(conf)]) == 0
     text = conf.read_text()
-    assert "[rasqberry-setup.desktop]\nx=10\ny=46\ntrusted=true\n" in text
+    assert "[rasqberry-menu.desktop]\nx=10\ny=46\ntrusted=true\n" in text
     rows = sorted({int(y) for y in re.findall(r"^y=(\d+)", text, re.M)})
     assert rows[1] - rows[0] >= 48 + ds.LABEL_HEIGHT_NUNITO
 
 
-def test_catalogue_launchers_join_the_grid(tmp_path, monkeypatch):
+def test_catalogue_launchers_join_their_group(tmp_path, monkeypatch):
+    # T5, now with the demo groups: a catalogue launcher goes into its
+    # group's folder (SAP Quantum LED: Contributed demos), not onto the desktop
     desk, conf, rec = tmp_path / "Desktop", tmp_path / "d.conf", tmp_path / "rec"
     desk.mkdir()
     for n in ds.ICON_ORDER:
@@ -156,16 +158,20 @@ def test_catalogue_launchers_join_the_grid(tmp_path, monkeypatch):
     names = ds.present_launchers(str(desk))
     assert names == ds.ICON_ORDER + ["rq-ext-sap-quantum-led"]
     assert ds.layout_desktop((1920, 1080), False, desktop=str(desk), conf=str(conf), record=str(rec))
-    m = re.search(r"\[rq-ext-sap-quantum-led\.desktop\]\nx=(\d+)\ny=(\d+)", conf.read_text())
+    folder = tmp_path / ".local/share/rasqberry/desktop-groups/Contributed demos"
+    assert (folder / "rq-ext-sap-quantum-led.desktop").read_text() == "x"
+    assert not (desk / "rq-ext-sap-quantum-led.desktop").exists()
+    text = conf.read_text()
+    assert "[rq-ext-sap-quantum-led.desktop]" not in text and "[notes.desktop]" not in text
+    m = re.search(r"\[rq-group-contributed\.desktop\]\nx=(\d+)\ny=(\d+)", text)
     assert m and int(m.group(1)) + ds.ITEM_WIDTH <= ds.CHROMIUM_X
-    assert "[notes.desktop]" not in conf.read_text()
-    assert json.loads(rec.read_text())["icons"][-1] == "rq-ext-sap-quantum-led"
+    assert json.loads(rec.read_text())["groups"]["rq-ext-sap-quantum-led"] == "contributed"
 
 
 def test_adding_a_catalogue_demo_lays_the_desktop_out_again():
     text = _read("RQB2-bin", "rq_demo_add_external.sh")
-    assert 'mv -f "$tmp" "$out"; relayout_desktop' in text
-    assert re.search(r'rm -f "\$manifest" .*\n\s*relayout_desktop', text)
+    assert 'mv -f "$tmp" "$out"; DESKTOP_ICON=1; relayout_desktop' in text
+    assert re.search(r'rm -f "\$manifest" .*\\\n.*desktop-groups/\*/"rq-ext-\$\{id\}\.desktop"\n\s*relayout_desktop', text)
     assert "--relayout" in text
 
 

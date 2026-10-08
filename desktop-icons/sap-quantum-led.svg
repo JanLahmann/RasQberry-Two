@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>SAP Quantum LED</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0b3a52"/>
+  <g fill="#3fa9f5">
+    <circle cx="14" cy="22" r="2.6"/><circle cx="21" cy="22" r="2.6"/><circle cx="28" cy="22" r="2.6"/>
+    <circle cx="14" cy="29" r="2.6"/><circle cx="14" cy="36" r="2.6"/><circle cx="21" cy="36" r="2.6"/>
+    <circle cx="28" cy="36" r="2.6"/><circle cx="28" cy="43" r="2.6"/><circle cx="14" cy="50" r="2.6"/>
+    <circle cx="21" cy="50" r="2.6"/><circle cx="28" cy="50" r="2.6"/>
+  </g>
+  <g fill="#ffc933">
+    <circle cx="37" cy="22" r="2.6"/><circle cx="44" cy="22" r="2.6"/><circle cx="51" cy="22" r="2.6"/>
+    <circle cx="37" cy="29" r="2.6"/><circle cx="51" cy="29" r="2.6"/><circle cx="37" cy="36" r="2.6"/>
+    <circle cx="44" cy="36" r="2.6"/><circle cx="51" cy="36" r="2.6"/><circle cx="37" cy="43" r="2.6"/>
+    <circle cx="37" cy="50" r="2.6"/>
+  </g>
+  <circle cx="51" cy="50" r="2.6" fill="#ff5c8a"/>
+</svg>

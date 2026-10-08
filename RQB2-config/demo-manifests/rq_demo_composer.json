@@ -2,6 +2,7 @@
   "id": "composer",
   "name": "IBM Quantum Composer",
   "category": "education",
+  "group": "learn",
   "description": "Design and simulate quantum circuits in your web browser",
   "keywords": [
     "quantum",
@@ -33,7 +34,7 @@
   },
   "menu": {
     "show": true,
-    "order": 80
+    "order": 60
   },
   "desktop": {
     "show": true,

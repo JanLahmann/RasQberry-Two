@@ -9,6 +9,7 @@ only true for the standard image. -->
 
 - **Raspberry Pi OS Trixie:** RasQberry Two now runs on Trixie (Debian 13, 64-bit) with Python 3.13, the new desktop (labwc and the new taskbar) and Chromium from Debian. Every demo, the LED drivers on the Pi 4 and Pi 5, and A/B updates from the Bookworm beta were tested on both Pis.
 - **Quantum Lab:** starts again. QuBins removed the image build this release pinned, so the first start failed with "The registry does not offer ...". It now uses QuBins 2.5-xl (Qiskit 2.5.2), and when a publisher removes a pinned build again, the Docker demos download the image's named tag instead and say so in one line.
+- **Demos in groups:** the desktop shows six groups (LED panel, Play, Big projects, Learn & code, Workshops & events, Contributed demos) and a few demos to start with, instead of 25 icons. A group opens a small window with its demos; one click or tap starts one. Contributed demos holds the partner demos from the catalogue (the SAP demos) and offers adding one. The Touch Mode icon shows only when a touchscreen is connected (touch mode is also in the RasQberry menu under Desktop Settings). The RasQberry Setup icon is the last one and goes once the setup checklist is done, or with its new "Don't show again" entry; the checklist stays in the RasQberry menu. The RasQberry menu's **Quantum Demos** has the same groups, short hints such as [internet] or [32 GB], and **Manage demos** for download, add, update and remove.
 - **Wi-Fi at the first start:** when the router turns the Pi away at first, the Pi now tries again by itself instead of staying offline until someone connects it by hand.
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
@@ -30,17 +31,18 @@ only true for the standard image. -->
 - **System Info:** says whether the Pi is too hot now or was slowed down earlier, with one line of advice, and "Slot B: empty" like the menu.
 - **LED settings:** the LED check says "Saved: four 4x12 panels" and scrolls the address once in that layout; the setup checklist names the kit the same way. LED brightness and **Turn off all LEDs** confirm in one line, the "LED panel in use" dialog names the demo, and turning the browser view off stops its server.
 - **LED-Painter:** a picture reaches both the panel and the on-screen view. Before it starts, another program on the panel is named, with the offer to stop it, and if the LED renderer does not start, one line says that the panel stays dark.
-- **Demo Loop:** choose which demos it shows (**Continuous Demo Loop** → **Choose the demos**); the Demo Loop icon shows the same ones, and the choice stays after an update.
+- **Demo Loop:** choose which demos it shows (**Workshops & events** → **Demo Loop** → **Choose the demos**); the Demo Loop icon shows the same ones, and the choice stays after an update.
 - **Learning paths:** the step texts match what the demos do ("Your first program" uses Hello World instead of the CHSH tutorial, which fails on the Pi for now). The window gets its title back after a demo, and "Tell us how it went" opens the feedback form (it needs a free GitHub account). The setup checklist's last screen recommends "First 15 minutes".
 - **Browser demos:** the browser window covers the demo's terminal, so the stop line says how to get back to it (click it in the taskbar).
 - **Browser demo windows:** they open maximised every time. Some opened 480 px to the right with their buttons off-screen, or at the homepage's size.
-- **Stop Docker demos** (Quantum Demos): finds the running Workshop & Qiskit Server, Quantum Lab, Qoffee-Maker and Quantum Mixer, and says what it stopped. It used to return without a word.
+- **Stop Docker demos** (**Quantum Demos** → **Manage demos**): finds the running Workshop & Qiskit Server, Quantum Lab, Qoffee-Maker and Quantum Mixer, and says what it stopped. It used to return without a word.
 - **Qoffee-Maker:** shows the app instead of a line of raw text ("AppBox(...)").
 - **Quantum Lab:** opens on a welcome page without the Jupyter news question, and has a desktop icon. **IBM Quantum Tutorials and Courses** show only the notebooks, each in its own workspace, and point to **IBM Quantum account** → **Save my API key**; they stop without a "Killed" line and close their tab.
 - **Workshop & Qiskit Server and `ssh -L` commands:** they use the name avahi announces, so with two Pis of the same name, participants reach this one. Grokking the Bloch Sphere also starts over SSH and prints an `ssh -L` command.
 - **Downloads:** Download all demos shows the MB received, fetches the small demos first and gives realistic times. A Docker demo's first start shows one progress line instead of Docker's list of layers.
 - **Demo catalogue:** a Docker demo says "Registered" with the size it downloads on its first start, the descriptions fit the screen, and removing a demo says so. **Update demos** marks only notebook demos "(notebooks)", Composer no longer says it needs an account, and Quantum Lights Out is described as Grover's search solving the puzzles by itself.
-- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to `rasqberry`, not to the name typed in Imager. If another name was typed, the first login says once that the user stays `rasqberry` and that Imager's password, SSH key, hostname and Wi-Fi are set.
+- **Raspberry Pi Imager:** ready for Raspberry Pi Connect from Imager: its sign-in goes to the Pi's user, also when Imager's user name could not be used.
+- **Your own user name (#319):** the user name typed in Imager becomes the login, with its home folder `/home/<name>`; the Python environment, autologin, sudo and the LED services move along. If the name cannot be used (e.g. it is taken by the system), the user stays `rasqberry` and the first login says why. After an A/B update the new system takes the name over before the first login. Installing an older release that only knows `rasqberry` is blocked unless you type RASQBERRY.
 
 - **Firmware check:** at start-up the Pi looks at its bootloader firmware. When it is older than about six months and a newer one is available (or, on a Pi 5, its crypto service is missing), the desktop says so once and how to update with Raspberry Pi's own tools (`sudo rpi-eeprom-update -a`, then restart, or `sudo raspi-config` → Advanced Options → Bootloader Version). System Info and the setup checklist show it too. RasQberry never updates the firmware itself.
 - **Firmware updates on A/B cards:** Raspberry Pi's tools now put the update on the card's first partition (CONFIG), where the Pi 4 looks for it. Before, `sudo rpi-eeprom-update -a` on an A/B card put it into the running slot, where it can stop a Pi 4 from starting.
@@ -57,7 +59,7 @@ only true for the standard image. -->
 
 - **New default: the A/B image.** It holds two systems on one card: an update goes into the one you are not running, and if the update doesn't work, the Pi goes back to the other one.
 - **Card:** 128 GB high-speed (A2/U3) recommended: two systems, each with room for all Docker demos. 64 GB: two systems. On a smaller card the A/B image runs as one system by itself, and a new release means writing a new card. The Docker demos need 32 GB. The standard image is still in Imager as "single system".
-- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation now works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. Keep the user name `rasqberry` (another name is not used: the password and SSH key go to `rasqberry`). It applies at the first start of a newly written card only, not after an update. Without customisation: login `rasqberry`, password `Qiskit1!`.
+- **Raspberry Pi Imager:** pick **RasQberry Two Beta**. OS customisation now works on both images: Wi-Fi, keyboard and time zone, SSH key, password, hostname. The user name you type becomes your login (home `/home/<name>`). It applies at the first start of a newly written card only; updates keep the name. Without customisation: login `rasqberry`, password `Qiskit1!`.
 
 **First start**
 
@@ -99,16 +101,16 @@ only true for the standard image. -->
 
 **Running demos**
 
-- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Stop Docker demos** stops any of them. A demo that runs on the Pi opens in a browser window of its own, maximised (Qoffee-Maker full screen), which closes when the demo stops.
+- Every demo stops the same way: Enter or Ctrl+C in its window, or close the window (desktop icon, RasQberry menu, SSH). Docker demos stop with their window; the Workshop & Qiskit Server keeps running until you stop it. **Quantum Demos** → **Manage demos** → **Stop Docker demos** stops any of them. A demo that runs on the Pi opens in a browser window of its own, maximised (Qoffee-Maker full screen), which closes when the demo stops.
 - Website demos (Composer, Grokking the Bloch Sphere online, catalogue demos) open their tab from every icon.
-- Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Update demos** moves one demo to a newer upstream version (for the Workshop & Qiskit Server: the latest doQumentation build or one in between, with date, size and Qiskit version), or back.
+- Every demo is pinned to a tested version for this release (notebooks by commit, Docker images by digest). **Quantum Demos** → **Manage demos** → **Update demos** moves one demo to a newer upstream version (for the Workshop & Qiskit Server: the latest doQumentation build or one in between, with date, size and Qiskit version), or back.
 - Quantum Mixer downloads a ready image instead of building for 15–30 minutes. Quantum Lab keeps what you save in `my-work` (`~/RasQberry-Two/work/quantum-lab`).
 - Notebook demos also start over SSH and print an `ssh -L` command for your computer.
 - The desktop icon **RasQberry Configuration (raspi-config)** (was RasQberry Menu) opens raspi-config with **0 RasQberry**.
 
 **LEDs and IBM Quantum account**
 
-- **LEDs** → **LED brightness**. If the Pi 5's LED panel stops, RasQberry says why (too little power, or too hot), restarts the LED driver and, for a weak power supply, offers a lower brightness. Use the official 27 W power supply and, for long runs, the Active Cooler.
+- **LED panel** → **LED setup & tests** → **LED brightness**. If the Pi 5's LED panel stops, RasQberry says why (too little power, or too hot), restarts the LED driver and, for a weak power supply, offers a lower brightness. Use the official 27 W power supply and, for long runs, the Active Cooler.
 - **IBM Quantum account:** every demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com and use **IBM Quantum account** → **Save my API key**: the key is checked before it is saved. Running the credentials notebook of IBM Quantum Tutorials or Courses unedited no longer replaces a saved key.
 
 **Problems and feedback**

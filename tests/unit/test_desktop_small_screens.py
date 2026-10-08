@@ -1,6 +1,7 @@
 """
 Tests for B8 "desktop, small screens, touch": rq_desktop_session.py (screen
-size, icon layout, More folder, Chromium rule and crash state) and
+size, icon layout, More folder, Chromium rule and crash state; the demo
+group folders are in test_demo_groups.py) and
 rq_touch_mode.sh (asks before a restart, restarts lightdm instead of ending the
 session, no colour codes, files restored).
 """
@@ -130,7 +131,8 @@ def test_layout_only_when_something_changed(tmp_path, monkeypatch):
     monkeypatch.setattr(ds, "libfm_icon_size", lambda path=None: 48)
     args = dict(desktop=str(desk), conf=str(conf), record=str(rec))
     assert ds.layout_desktop((1920, 1080), False, **args)
-    conf.write_text(re.sub(r"(\[composer\.desktop\]\nx=)\d+", r"\g<1>900", conf.read_text()))
+    # (rasqberry-menu stays on the desktop; composer is in its group folder)
+    conf.write_text(re.sub(r"(\[rasqberry-menu\.desktop\]\nx=)\d+", r"\g<1>900", conf.read_text()))
     assert not ds.layout_desktop((1920, 1080), False, **args)
     assert "x=900" in conf.read_text()
     assert ds.layout_desktop((800, 480), False, **args)
@@ -146,8 +148,14 @@ def test_build_layout_command(tmp_path):
     text = conf.read_text()
     # y counts from the top of the screen where the desktop's profile does (trixie)
     y = 10 + ds.layout_top(False)
-    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
-    assert text.count("trusted=true") == len(ds.ICON_ORDER)
+    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-menu.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
+    # the grouped desktop: system icons, starters, one icon per group, and
+    # RasQberry Setup last
+    groups = ds.load_groups()
+    loose = len(groups["system"]) + len(groups["starters"]) + len(groups["groups"])
+    assert text.count("trusted=true") == loose == 14
+    assert re.findall(r"^\[(.+)\.desktop\]", text, re.M)[-1] == "rasqberry-setup"
+    assert "[rq-group-workshops.desktop]" in text and "[composer.desktop]" not in text
 
 
 # --- Chromium -------------------------------------------------------------------

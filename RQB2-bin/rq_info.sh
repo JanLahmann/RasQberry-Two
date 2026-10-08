@@ -216,7 +216,8 @@ if [ "${1:-}" = "--report" ]; then
             || sudo -n journalctl -b -p warning -n 100 --no-pager 2>/dev/null || echo "(not available)"
     } > "$out" 2>&1
     echo "Saved: $out"
-    echo "Attach it to a bug report (https://github.com/JanLahmann/RasQberry-Two/issues)."
+    echo "Attach it to a bug report (https://github.com/JanLahmann/RasQberry-Two/issues),"
+    echo "or e-mail it to info@rasqberry.org."
     echo "It holds no IBM Quantum key, but it shows this Pi's name, addresses and logs."
     exit 0
 fi

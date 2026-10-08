@@ -76,6 +76,53 @@ valid_cache_id() {
     return 0
 }
 
+# Text for the cache: the menu eval's the items inside double quotes, so
+# \ " $ ` are escaped (a name stays text and never runs), and the lists are
+# single-quoted, so ' is closed, escaped and reopened.
+cache_text() {
+    printf '%s' "$1" | sed 's/[\\"$`]/\\&/g' | sed "s/'/'\\\\''/g"
+}
+
+# What a demo needs, as short tags for its menu entry ("internet, 32 GB"):
+# the LED panel (outside the LED panel group, where all need it), internet,
+# an IBM Quantum account, a Docker demo's 32 GB SD card.
+# Usage: demo_needs MANIFEST GROUP
+demo_needs() {
+    jq -r --arg g "$2" '[
+        (if .needs_hw.leds == true and $g != "led-panel" then "LED panel" else empty end),
+        (if .needs_hw.network == true then "internet" else empty end),
+        (if .needs_ibm_token == "required" then "IBM account" else empty end),
+        (if .entrypoint.type == "docker" or (.install.docker_image_of // "") != ""
+         then "32 GB" else empty end)
+    ] | join(", ")' "$1" 2>/dev/null
+}
+
+# The groups (demo-groups.json next to the shipped manifests), in order:
+# id <TAB> title <TAB> catalogue (true/false) <TAB> menu line (last: it may be
+# empty, and read joins empty fields between tabs)
+GROUPS_FILE="$MANIFEST_DIR/demo-groups.json"
+list_groups() {
+    [ -f "$GROUPS_FILE" ] || return 0
+    jq -r '.groups[]? | [.id, .title, (.catalogue == true | tostring), (.menu // "")] | @tsv' \
+        "$GROUPS_FILE" 2>/dev/null
+}
+
+# A group's line in the Quantum Demos menu: its "menu" text names shipped demos
+# only; catalogue demos added to the group are named after it, so the line
+# never names a demo that is not there (user test 2026-10-08, F3). The
+# catalogue group: its demos, then "more from the catalogue".
+#   group_line MENU_TEXT CATALOGUE(true/false) "name, name"
+group_line() {
+    local text="$1" cat="$2" added="$3"
+    if [ -z "$added" ]; then
+        printf '%s' "$text"
+    elif [ "$cat" = true ]; then
+        printf '%s, more from the catalogue' "$added"
+    else
+        printf '%s' "${text:+$text, }$added"
+    fi
+}
+
 # Get all manifests sorted by menu order.
 # Reads across the manifest search path (shipped + user), shipped wins on id.
 get_sorted_manifests() {
@@ -95,17 +142,17 @@ get_sorted_manifests() {
 
 # List all demos in a table
 list_demos() {
-    echo "ID                        | Name                      | Category       | Order"
+    echo "ID                        | Name                      | Group          | Order"
     echo "--------------------------|---------------------------|----------------|------"
 
     get_sorted_manifests | while read -r file; do
-        local id name category order
+        local id name group order
         id=$(jq -r '.id' "$file")
         name=$(jq -r '.name' "$file")
-        category=$(jq -r '.category' "$file")
+        group=$(rq_demo_group "$id" "$file")
         order=$(jq -r '.menu.order // 50' "$file")
 
-        printf "%-25s | %-25s | %-14s | %s\n" "$id" "$name" "$category" "$order"
+        printf "%-25s | %-25s | %-14s | %s\n" "$id" "$name" "$group" "$order"
     done
 }
 
@@ -317,6 +364,80 @@ CACHE_HEADER
     echo "}" >> "$cache_file"
     echo "" >> "$cache_file"
 
+    # One pass over the manifests: group <TAB> id <TAB> menu text <TAB>
+    # name of a catalogue demo (not shipped), else empty
+    local grouped
+    grouped=$( (get_sorted_manifests | while read -r file; do
+        [ -z "$file" ] && continue
+        local id name g needs extra=""
+        id=$(jq -r '.id' "$file")
+        is_dispatchable "$file" || continue
+        valid_cache_id "$id" "$file" 2>/dev/null || continue
+        name=$(jq -r '.name' "$file")
+        [ -f "$MANIFEST_DIR/rq_demo_${id}.json" ] || extra="$name"
+        [ -n "$(rq_demo_maturity "$id" "$file")" ] && name="$name (beta)"
+        g=$(rq_demo_group "$id" "$file")
+        needs=$(demo_needs "$file" "$g")
+        [ -n "$needs" ] && name="$name [$needs]"
+        printf '%s\t%s\t%s\t%s\n' "$g" "$id" "$(printf '%s' "$name" | tr '\t' ' ')" \
+            "$(printf '%s' "$extra" | tr '\t' ' ')"
+    done) || true)
+
+    # Demo groups (demo-groups.json): the Quantum Demos menu shows one submenu
+    # per group, in this order; demo_group_items lists a group's demos
+    # ("tag" "name [needs]" pairs, by menu.order), escaped like DEMO_MENU_ITEMS.
+    # A demo's group: rq_demo_group (catalogue: known-demos.json or
+    # Contributed demos; shipped: manifest, else a guess).
+    echo "# Demo groups: \"id\" \"Title: what is in it\" pairs, in menu order" >> "$cache_file"
+    echo "demo_group_list() {" >> "$cache_file"
+    local gid gtitle gmenu gcat glist="" gitems gadded gline g id name extra
+    while IFS=$'\t' read -r gid gtitle gcat gmenu; do
+        valid_cache_id "$gid" "$GROUPS_FILE (group)" || continue
+        gadded=""
+        while IFS=$'\t' read -r g id name extra; do
+            [ "$g" = "$gid" ] && [ -n "$extra" ] && gadded="${gadded:+$gadded, }$extra"
+        done <<< "$grouped"
+        gline=$(group_line "$gmenu" "$gcat" "$gadded")
+        glist="$glist '\"$gid\" \"$(cache_text "$gtitle${gline:+: $gline}")\"'"
+    done < <(list_groups)
+    if [ -n "$glist" ]; then
+        echo "    printf '%s\\n'$glist" >> "$cache_file"
+    else
+        echo "    return 1" >> "$cache_file"
+    fi
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    echo "# Title of a group (submenu and folder name)" >> "$cache_file"
+    echo "demo_group_title() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+    while IFS=$'\t' read -r gid gtitle gcat gmenu; do
+        valid_cache_id "$gid" "$GROUPS_FILE (group)" 2>/dev/null || continue
+        echo "        \"$gid\") printf '%s\\n' '$(printf '%s' "$gtitle" | sed "s/'/'\\\\''/g")' ;;" >> "$cache_file"
+    done < <(list_groups)
+    echo "        *) return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
+    echo "# A group's demos (\"tag\" \"name [needs]\" pairs)" >> "$cache_file"
+    echo "# Usage: demo_group_items <group-id>" >> "$cache_file"
+    echo "demo_group_items() {" >> "$cache_file"
+    echo "    case \"\$1\" in" >> "$cache_file"
+    while IFS=$'\t' read -r gid gtitle gcat gmenu; do
+        valid_cache_id "$gid" "$GROUPS_FILE (group)" 2>/dev/null || continue
+        gitems=""
+        while IFS=$'\t' read -r g id name extra; do
+            [ "$g" = "$gid" ] || continue
+            gitems="$gitems '\"$id\" \"$(cache_text "$name")\"'"
+        done <<< "$grouped"
+        [ -n "$gitems" ] && echo "        \"$gid\") printf '%s\\n'$gitems ;;" >> "$cache_file"
+    done < <(list_groups)
+    echo "        *) return 1 ;;" >> "$cache_file"
+    echo "    esac" >> "$cache_file"
+    echo "}" >> "$cache_file"
+    echo "" >> "$cache_file"
+
     # Generate demo count by counting dispatch entries. Match ONLY the
     # dispatch_demo_by_id case lines (they run the launcher directly:
     # `"id") /usr/bin/rq_demo_run.sh ...`); the get_demo_launcher block has the
@@ -398,6 +519,8 @@ Cache File Usage:
   - DEMO_MENU_ITEMS: Menu entries for whiptail
   - dispatch_demo_by_id(): Function to run a demo by ID
   - get_demo_launcher(): Function to get launcher path for a demo ID
+  - demo_group_list(), demo_group_title(), demo_group_items(): the demo
+    groups (demo-groups.json) and each group's demos, for the submenus
   - DEMO_COUNT: Total number of demos with launchers
 
 EOF

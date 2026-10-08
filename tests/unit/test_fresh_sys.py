@@ -437,7 +437,7 @@ def test_checklist_mentions_the_firmware_unticked(stubs, tmp_path):
     assert proc.returncode == 0, proc.stderr
     args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
     i = args.index("firmware")
-    assert args[i + 1] == "About the Pi's firmware (from 8 May 2025; a newer one is available)"
+    assert args[i + 1] == "Pi firmware from 8 May 2025: a newer one is available"
     assert args[i + 2] == "OFF"
 
 
@@ -572,3 +572,19 @@ def test_locale_profile_is_installed_first():
     names = sorted(os.listdir(os.path.join(_SYS, "etc", "profile.d")))
     assert names[0] == "00-rq-locale.sh"
     assert not os.access(_LOCALE, os.X_OK)               # sourced, like the others
+
+
+def test_checklist_lines_fit_the_box():
+    # user test 2026-10-08, F6: a 67-character line ran up to the border of
+    # the 78-wide checklist; 64 leaves a margin like the one on the left
+    import re
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
+                            "RQB2-bin", "rq_firstlogin.sh")).read()
+    texts = [a or b for a, b in re.findall(
+        r"""_label\(\)\s*\{[^}]*?printf\s+(?:'([^']*)'|"([^"]*)")""", src)]
+    expand = src[src.index("task_expand_label()"):src.index("task_expand_run()")]
+    texts += re.findall(r"""printf '([^']*)'""", expand)
+    texts = [t.replace("%s", "30 September 2026") for t in texts]
+    assert len(texts) >= 10
+    for t in texts:
+        assert len(t) <= 64, t

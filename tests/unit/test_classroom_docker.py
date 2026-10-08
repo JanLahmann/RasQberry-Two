@@ -356,8 +356,8 @@ def test_solo_entry_runs_the_launcher_in_solo_mode():
     assert m["name"] == "Qiskit Tutorials on this Pi"
     assert m["entrypoint"] == {"launcher": "rq_doqumentation.sh", "args": ["--solo"]}
     assert _manifest("doqumentation")["name"] == "Workshop & Qiskit Server"
-    # next to each other in the menu
-    assert abs(m["menu"]["order"] - _manifest("doqumentation")["menu"]["order"]) <= 5
+    # the tutorials with Learn & code, the server with Workshops & events
+    assert m["group"] == "learn" and _manifest("doqumentation")["group"] == "workshops"
 
 
 # --- texts and small fixes ----------------------------------------------------

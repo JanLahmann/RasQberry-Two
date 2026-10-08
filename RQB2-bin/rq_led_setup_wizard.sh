@@ -654,7 +654,7 @@ no_light_help() {
  - data: GPIO${pin}${phys} to DIN, the input end of the panel
  - the plugs between the panels
 
-No panel? LED demos also show in a window on the desktop and in a web browser (Quantum Demos -> LEDs -> Output Targets)." \
+No panel? LED demos also show in a window on the desktop and in a web browser (Quantum Demos -> LED panel -> LED setup & tests -> Output Targets)." \
         "$@") || return 2
     case "${choice}" in
         again) return 0 ;;
@@ -662,7 +662,7 @@ No panel? LED demos also show in a window on the desktop and in a web browser (Q
     esac
     mark_layout_skipped
     show_msgbox "LED Panel Check Skipped" \
-"Nothing else was changed. When a panel is connected, run the check from the RasQberry Setup icon, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> LEDs -> Check the LED Panel." 11 66
+"Nothing else was changed. When a panel is connected, run the check from the RasQberry Setup icon, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> LED panel -> LED setup & tests -> Check the LED Panel." 11 66
     return 1
 }
 
@@ -841,7 +841,7 @@ verify_layout() {
     SKIPPED=false
     run_identification setup
     if [ "${SETUP_SAVED}" != true ] && [ "${SKIPPED}" != true ]; then
-        echo "The LED panel check is not done yet. It is under the RasQberry Setup icon."
+        echo "The LED panel check is not done yet. It is in the setup checklist (RasQberry Setup icon, or RasQberry Configuration -> Setup Checklist)."
     fi
     return 0
 }

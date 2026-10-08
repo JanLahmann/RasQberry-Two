@@ -213,10 +213,11 @@ def test_no_step_promises_what_the_later_steps_do_not_show():
 
 def test_quantum_demos_menu_offers_the_paths_near_the_top():
     menu = open(_MENU, encoding="utf-8").read()
-    start = menu.index('"RasQberry: Quantum Demos" "Select a demo or option"')
+    start = menu.index('"RasQberry: Quantum Demos" "Select a group of demos or an option"')
     items = menu[start:menu.index('"$@"', start)]
     assert 'PATHS "Learning paths (beta)' in items
-    assert items.index("PATHS") < items.index("LED ")
+    # first, before the demo groups ("$@")
+    assert re.findall(r'^\s+([A-Z]+) "', items, re.M) == ["PATHS"]
     assert 'run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu' in menu
     assert "PATHS) do_learning_paths" in menu
 
@@ -450,7 +451,7 @@ def test_keep_going_opens_the_feedback_form(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     keep = calls[4]
     assert _arg(keep, "--title") == "RasQberry: Keep Going"
-    assert "Tell us how it went (needs a free GitHub account)" in keep   # #11: no surprise
+    assert "Tell us how it went (GitHub or e-mail)" in keep   # #11: no surprise
     assert ("Open this address: https://github.com/JanLahmann/RasQberry-Two/issues/new"
             "?template=demo-feedback.yml&demo=learning-paths/first-15-minutes") in proc.stdout
 

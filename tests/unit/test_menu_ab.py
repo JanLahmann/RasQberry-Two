@@ -410,6 +410,46 @@ def test_anything_but_replace_changes_nothing(tmp_path, typed):
     assert _calls(tmp_path) == ""
 
 
+# A renamed user (#319): a release that only knows rasqberry needs a typed
+# RASQBERRY (rq_update_slot.sh then gets --force-old-release)
+OLD_RELEASE_PLAN = _plan() + "\nuser=jan\nuser_names=no"
+
+
+def test_an_old_release_for_a_renamed_user_needs_a_typed_rasqberry(tmp_path):
+    _, wt = _install(tmp_path, ON_A, OLD_RELEASE_PLAN, WT_INPUT="RASQBERRY")
+    box = [b for b in _boxes(wt) if "--inputbox" in b][0]
+    assert "This release does not know your user name" in box
+    assert "only knows the user rasqberry" in box
+    assert "not as jan" in box and "/home/jan" in box and "Raspberry Pi Connect" in box
+    assert "Type RASQBERRY to install it anyway:" in box
+    assert _calls(tmp_path).rstrip().endswith("--force-old-release")
+    assert _check_fits(wt) >= 1
+
+
+@pytest.mark.parametrize("typed", ["rasqberry", "yes", ""])
+def test_anything_but_rasqberry_installs_nothing(tmp_path, typed):
+    _, wt = _install(tmp_path, ON_A, OLD_RELEASE_PLAN, WT_INPUT=typed)
+    assert "Nothing was changed" in _boxes(wt)[-1]
+    assert _calls(tmp_path) == ""
+
+
+def test_an_unchecked_release_says_so(tmp_path):
+    _, wt = _install(tmp_path, ON_A, _plan() + "\nuser=jan\nuser_names=unknown", WT_INPUT="")
+    box = [b for b in _boxes(wt) if "--inputbox" in b][0]
+    assert "Could not check whether beta-2026-10-15-101010 knows user names" in box
+
+
+@pytest.mark.parametrize("extra", ["\nuser=jan\nuser_names=yes", "\nuser=rasqberry\nuser_names=n/a", ""])
+def test_no_user_name_question_otherwise(tmp_path, extra):
+    _, wt = _install(tmp_path, ON_A, _plan() + extra, WT_YESNO_RC="1")
+    assert "This release does not know your user name" not in wt
+
+
+def test_the_plan_gets_the_download_url():
+    text = open(_MENU).read()
+    assert 'rq_slot_manager.sh plan-update "$tag" "$url"' in text
+
+
 def test_a_slot_on_trial_explains_instead_of_installing(tmp_path):
     msg = "Slot A, the system you are running, is still on trial: try again in a few minutes."
     _, wt = _install(tmp_path, ON_A, _plan(), PRE_RC="28", PRE_MSG=msg)

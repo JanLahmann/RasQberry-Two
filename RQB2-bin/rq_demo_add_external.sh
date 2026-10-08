@@ -195,6 +195,7 @@ install_pip_extras() {
 # true (#287). Shipped demos keep their icons in desktop-bookmarks/.
 write_desktop_entry() {
     local id="$1" manifest_file="$2" dest="$3"
+    DESKTOP_ICON=0
     local writer out rc=0
 
     if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
@@ -215,7 +216,7 @@ write_desktop_entry() {
     chown_to_user "$USER_HOME/Desktop"
     bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
     case "$rc" in
-        0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; relayout_desktop ;;
+        0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; DESKTOP_ICON=1; relayout_desktop ;;
         3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
         *) rm -f "$tmp"; warn "Could not write desktop entry for '$id' (exit $rc)"; return 1 ;;
     esac
@@ -342,16 +343,21 @@ add_demo() {
     provider=$(registry_field "$id" "provider")
     dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
     disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
+    # An LED demo runs as root: said in this one question, not a second one
+    # that named the id (user test 2026-10-08, F5)
+    local reg_leds root_txt=""
+    reg_leds=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .leds // false' "$REGISTRY_FILE")
+    [ "$reg_leds" = true ] && root_txt="It drives the LED panel, so it runs with root privileges.\n\n"
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
     if ! show_yesno "Demo from the Catalogue" \
-        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\nInstall it?"; then
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\n${root_txt}Install it?"; then
         # "No" is an answer, not an error: it ended in "It stopped with an
         # error" and an Error box (user test 2026-10-07, S3)
         info "Nothing was installed."
         return 0
     fi
     if [ -n "$disk" ] && [ "$(rq_free_mb "$USER_HOME")" -lt $((disk + RQ_SPACE_RESERVE_MB)) ]; then
-        die "Not enough free space for '$id': it needs about $(rq_fmt_mb "$disk") plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+        die "Not enough free space for '$id': it needs about $(rq_fmt_mb "$disk") plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare. Remove demos you do not use (RasQberry menu: Quantum Demos > Manage demos > Remove a demo) and try again."
     fi
     rq_reachable "$repo_url" \
         || die "'$id' has to be downloaded, and github.com cannot be reached. Connect the Pi to the internet and try again."
@@ -404,10 +410,11 @@ add_demo() {
         die "install.marker_file '$m_marker' not found in checkout - refusing to install"
     fi
 
-    # LED demos run with root privileges - confirm explicitly
-    if [ "$m_leds" = "true" ]; then
+    # LED demos run with root privileges - confirm explicitly, unless the
+    # install question already said so (registry "leds")
+    if [ "$m_leds" = "true" ] && [ "$reg_leds" != true ]; then
         if ! show_yesno "LED demo - root privileges" \
-            "The demo '$id' drives the LED hardware and will run with root privileges.\n\nInstall and allow it to run as root?"; then
+            "${name:-$id} drives the LED panel and will run with root privileges.\n\nInstall it and let it run as root?"; then
             rm -rf "$dest"
             info "Nothing was installed."
             return 0
@@ -449,8 +456,15 @@ add_demo() {
 
     refresh_cache
 
-    local where="the Quantum Demos menu" m_image
-    [ -f "$USER_HOME/Desktop/rq-ext-${id}.desktop" ] && where="its desktop icon or the Quantum Demos menu"
+    # where it is: its group (demo-groups.json) in the menu and on the desktop
+    local where="the Quantum Demos menu" m_image group_title
+    group_title=$(jq -r --arg g "$(rq_demo_group "$id" "$USER_MANIFEST_DIR/rq_demo_${id}.json")" \
+        '.groups[]? | select(.id == $g) | .title' "$(rq_shipped_manifest_dir)/demo-groups.json" 2>/dev/null)
+    [ -n "$group_title" ] && where="the RasQberry menu (Quantum Demos > $group_title)"
+    if [ "${DESKTOP_ICON:-0}" = 1 ]; then
+        where="${group_title:+the $group_title folder on the desktop}"
+        where="${where:-its desktop icon} or the RasQberry menu (Quantum Demos${group_title:+ > $group_title})"
+    fi
     m_image=""
     [ "$(jq -r '.entrypoint.type // empty' "$manifest_file")" = "docker" ] \
         && m_image=$(jq -r '.entrypoint.docker_image // empty' "$manifest_file")
@@ -497,7 +511,10 @@ remove_demo() {
         info "Removing checkout: $DEMOS_ROOT/$dir"
         rq_remove_tree "${DEMOS_ROOT:?}/$dir" || die "Could not remove $DEMOS_ROOT/$dir"
     fi
-    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop" "$USER_HOME/Desktop/More/rq-ext-${id}.desktop"
+    # the launcher: on the desktop, in its group's folder (rq_desktop_session.py)
+    # or in the More folder of older desktops
+    rm -f "$manifest" "$USER_HOME/Desktop/rq-ext-${id}.desktop" "$USER_HOME/Desktop/More/rq-ext-${id}.desktop" \
+        "$USER_HOME"/.local/share/rasqberry/desktop-groups/*/"rq-ext-${id}.desktop"
     relayout_desktop
     refresh_cache
 

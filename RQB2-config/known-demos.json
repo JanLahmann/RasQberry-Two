@@ -1,8 +1,9 @@
 {
-  "_doc": "Curated registry of external RasQberry demos. Each entry pins a third-party demo repository to a full 40-character commit SHA; adding or updating an entry is a reviewed RasQberry PR and is the trust anchor for external demos. Fields per entry: id (kebab-case, must match the demo's rqb-demo.json id and its repo directory name), repo_url (must be https://), ref (full 40-char commit SHA - never a branch or tag), manifest_path (path to the manifest inside the repo, usually rqb-demo.json), added (YYYY-MM-DD), note (optional curator note), name and summary (optional, shown in the catalogue picker as one line, \"Name (beta) - summary\" in at most 66 characters), provider (optional, who provides and maintains the demo, shown in the install question as \"Provided by <provider>.\"; without it: an external contributor), download (optional {download_mb, disk_mb}, shown before installing and on the first start), maturity (optional, \"beta\" for a new or less-tested demo: a (beta) tag in the menus and a feedback invitation at its start). Example entry: {\"id\": \"example-demo\", \"repo_url\": \"https://github.com/someuser/example-demo.git\", \"ref\": \"0000000000000000000000000000000000000000\", \"manifest_path\": \"rqb-demo.json\", \"added\": \"2026-07-12\", \"note\": \"curator note\"}. Install with: rq_demo_add_external.sh <id>. Update the pin with: rq_demo_add_external.sh --update <id>.",
+  "_doc": "Curated registry of external RasQberry demos. Each entry pins a third-party demo repository to a full 40-character commit SHA; adding or updating an entry is a reviewed RasQberry PR and is the trust anchor for external demos. Fields per entry: id (kebab-case, must match the demo's rqb-demo.json id and its repo directory name), repo_url (must be https://), ref (full 40-char commit SHA - never a branch or tag), manifest_path (path to the manifest inside the repo, usually rqb-demo.json), added (YYYY-MM-DD), note (optional curator note), name and summary (optional, shown in the catalogue picker as one line, \"Name (beta) - summary\" in at most 66 characters), provider (optional, who provides and maintains the demo, shown in the install question as \"Provided by <provider>.\"; without it: an external contributor), download (optional {download_mb, disk_mb}, shown before installing and on the first start), maturity (optional, \"beta\" for a new or less-tested demo: a (beta) tag in the menus and a feedback invitation at its start), group (optional, a group id from demo-manifests/demo-groups.json: its desktop folder and menu submenu; without it a catalogue demo goes to Contributed demos, whatever its manifest says), icon (optional, a file in desktop-icons/ (installed to /usr/share/icons/rasqberry/) for its desktop icon, unless the demo brings its own picture (icon.type custom)), leds (optional, true for a demo that drives the LED panel: the install question then says that it runs with root privileges, and no second question follows; a demo whose manifest needs the LEDs without it is asked about separately), own_stop_hint (optional, the exact line the demo prints about stopping it, e.g. 'Ctrl+C to exit': left out of its window, which shows RasQberry's own stop line). Example entry: {\"id\": \"example-demo\", \"repo_url\": \"https://github.com/someuser/example-demo.git\", \"ref\": \"0000000000000000000000000000000000000000\", \"manifest_path\": \"rqb-demo.json\", \"added\": \"2026-07-12\", \"note\": \"curator note\"}. Install with: rq_demo_add_external.sh <id>. Update the pin with: rq_demo_add_external.sh --update <id>.",
   "demos": [
     {
       "id": "traqmania",
+      "group": "projects",
       "name": "traQmania",
       "summary": "quantum reinforcement-learning racing game",
       "provider": "the Fun with Quantum family",
@@ -19,6 +20,7 @@
     },
     {
       "id": "sap-quantum-learning",
+      "group": "contributed",
       "name": "SAP Quantum Learning",
       "summary": "browser quiz and circuit composer",
       "provider": "SAP",
@@ -34,7 +36,11 @@
     },
     {
       "id": "sap-quantum-led",
+      "group": "contributed",
       "name": "SAP Quantum LED",
+      "icon": "sap-quantum-led.svg",
+      "leds": true,
+      "own_stop_hint": "Ctrl+C to exit",
       "summary": "SAP logo on the LEDs, coloured by 3 qubits",
       "provider": "SAP",
       "repo_url": "https://github.com/Sameer-kulkarni-sk/sap-quantum-led.git",

@@ -312,7 +312,7 @@ if [ -n "${FREE:-}" ] && [ "$FREE" -lt "$need" ] && [ "$WANT_DOCKER" = yes ] && 
     need=$((RQ_SPACE_RESERVE_MB + G_DISK))
 fi
 if [ -n "${FREE:-}" ] && [ "$FREE" -lt "$need" ]; then
-    tell "$TITLE" "Not enough free space: this needs about $(rq_fmt_mb "$need") (with $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare), and $(rq_fmt_mb "$FREE") is free.\n\nRemove demos you do not use (Quantum Demos > Remove a demo), or leave out the Docker demos."
+    tell "$TITLE" "Not enough free space: this needs about $(rq_fmt_mb "$need") (with $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare), and $(rq_fmt_mb "$FREE") is free.\n\nRemove demos you do not use (Quantum Demos > Manage demos > Remove a demo), or leave out the Docker demos."
     exit 1
 fi
 

@@ -2,6 +2,7 @@
   "id": "qoffee-maker",
   "name": "Qoffee-Maker",
   "category": "visualization",
+  "group": "projects",
   "description": "Quantum-controlled coffee maker using Home Connect API (Docker container)",
   "keywords": [
     "quantum",
@@ -54,7 +55,7 @@
   },
   "menu": {
     "show": true,
-    "order": 140
+    "order": 10
   },
   "desktop": {
     "show": true,

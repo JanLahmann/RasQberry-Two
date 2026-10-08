@@ -2,6 +2,7 @@
   "id": "quantum-lab",
   "name": "Quantum Lab (QuBins)",
   "category": "education",
+  "group": "learn",
   "description": "Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container)",
   "keywords": [
     "quantum",
@@ -45,11 +46,11 @@
   "timeout": 0,
   "icon": {
     "type": "custom",
-    "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
+    "path": "/usr/share/icons/rasqberry/quantum-lab.svg"
   },
   "menu": {
     "show": true,
-    "order": 150
+    "order": 30
   },
   "desktop": {
     "show": true,

@@ -398,7 +398,9 @@ def menu_items(info, state, next_slot, advices, device):
             next_id += 1
         reason = (info["failure"].get("reason") or "").strip()
         if reason and info["failure"].get("slot") != info["current"]:
-            items.append((next_id, {"label": f"Reason: {reason}", "enabled": False}))
+            # (the reason starts lower case, for "didn't work: <reason>.")
+            items.append((next_id, {"label": f"Reason: {reason[:1].upper()}{reason[1:]}",
+                                    "enabled": False}))
             next_id += 1
     for a in advices:
         if a["kind"] == "withdrawn":

@@ -34,12 +34,13 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   Restarts never change the slot that runs (restart_pi): a plain restart
 #   during an A/B trial (tryboot) starts the default slot and ends the trial.
 #
-#   The user stays "rasqberry": its home holds the demos, the Python
-#   environment and the desktop settings, which a rename would break. Imager's
-#   call to userconf goes to rq_imager_userconf.sh, which applies the password
-#   to rasqberry and logs a different requested name instead of renaming.
-#   Raspberry Pi Connect (Imager 2.x) is set up for rasqberry too, not for
-#   the name typed in Imager.
+#   The user name: Imager's call to userconf goes to rq_imager_userconf.sh,
+#   which renames rasqberry to the name typed in Imager with
+#   rq_user_rename.sh (home /home/<name>, the venv's paths, autologin, sudo,
+#   services; #319) and then applies the password. When the rename is not
+#   possible the user stays rasqberry. Raspberry Pi Connect (Imager 2.x) is
+#   set up for uid 1000 - under the name it has by then, which comes later
+#   in firstrun.sh than the user part.
 #
 # Usage: rq_imager_firstrun.sh boot
 #        rq_imager_firstrun.sh patch FILE    (patch one firstrun.sh; tests)
@@ -86,13 +87,16 @@ patch_firstrun() {
     # it would run again at every start
     sed -i -e 's|/boot/firstrun\.sh|/boot/firmware/firstrun.sh|g' \
            -e 's|/boot/cmdline\.txt|/boot/firmware/cmdline.txt|g' "$f"
-    # Keep the user: userconf would rename uid 1000 (to "pi" when Imager has
-    # an SSH key but no user name)
+    # The user: our wrapper renames uid 1000 itself, with everything the
+    # image ties to its name and home (userconf only renames the account, and
+    # to "pi" when Imager has an SSH key but no user name)
     sed -i "s|/usr/lib/userconf-pi/userconf|${USERCONF_WRAPPER}|g" "$f"
     # Raspberry Pi Connect: Imager 2.x gives its sign-in token to the name
     # typed in Imager ("pi" without one): TARGET_USER="NAME" and a
-    # TARGET_HOME="/home/NAME" fallback. That user does not exist here (see
-    # above), so the token and the user services go to uid 1000, rasqberry.
+    # TARGET_HOME="/home/NAME" fallback. The user may have kept another name
+    # (no password typed, or the rename was not possible), so the token and
+    # the user services go to uid 1000 under the name it has when the Connect
+    # part runs - after the user part: the typed name once it was renamed.
     # Imager 1.8.x writes no Connect part: nothing to change.
     sed -i -e 's@^TARGET_USER=.*$@TARGET_USER=$(getent passwd 1000 | cut -d: -f1); [ -n "$TARGET_USER" ] || TARGET_USER=rasqberry@' \
            -e 's@^\(if \[ -z "\$TARGET_HOME" \] || \[ ! -d "\$TARGET_HOME" \]; then TARGET_HOME=\)".*"; fi$@\1"/home/$TARGET_USER"; fi@' "$f"

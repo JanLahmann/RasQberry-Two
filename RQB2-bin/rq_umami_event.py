@@ -461,7 +461,7 @@ def failure_reason(text):
         return "start-timeout"
     if "tried twice" in text or "without success" in text:
         return "no-boot"
-    if "virtual environment" in text or "qiskit" in text:
+    if "virtual environment" in text or "python setup" in text or "qiskit" in text:
         return "health-check"
     return "other"
 
@@ -499,7 +499,7 @@ def queue_update_results(ctx, config_dir, running_slot, confirmed):
         return
     queue_event("update result", {"from": version(), "to": _slot_version(notice.get("version")),
                                   "result": "didn't work",
-                                  "reason": failure_reason(notice.get("reason"))})
+                                  "reason": failure_reason(notice.get("detail") or notice.get("reason"))})
     _write(seen_path, "\n".join((seen + [key])[-QUEUE_MAX:]) + "\n")
 
 

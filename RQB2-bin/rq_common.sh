@@ -905,6 +905,18 @@ rq_stop_demo_child() {
     rq_stop_pid "$pid"
 }
 
+# Run COMMAND with one exact line of its output left out, line by line as it
+# comes (a catalogue demo's own stop line, when the window already shows ours).
+# Usage: rq_hide_line LINE COMMAND [ARGS...]
+rq_hide_line() {
+    local hide="$1" line
+    shift
+    "$@" | while IFS= read -r line || [ -n "$line" ]; do
+        [ "$line" = "$hide" ] || printf '%s\n' "$line"
+    done
+    return "${PIPESTATUS[0]}"
+}
+
 # Run a demo program in this window so that Enter stops it as well as Ctrl+C
 # or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
 # Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
@@ -956,11 +968,11 @@ rq_run_demo() {
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
-# running; RasQberry menu > Quantum Demos > Stop Docker demos stops it.
+# running; RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos stops it.
 # Usage: rq_docker_stop_with_window CONTAINER NAME
 rq_docker_stop_with_window() {
     if ! { [ -t 0 ] && [ -t 1 ]; }; then
-        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Stop Docker demos."
+        info "$2 keeps running in the background. To stop it: RasQberry menu > Quantum Demos > Manage demos > Stop Docker demos."
         return 0
     fi
     RQ_WINDOW_CONTAINER="$1"
@@ -1504,7 +1516,7 @@ rq_confirm_download() {
     local card_txt="$space_txt on the SD card"
     [ "$disk" -gt 0 ] || card_txt="unknown"
     if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
-        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Remove a demo) and try again."
+        RQ_CONSENT_MSG="Not enough free space for $name: it needs $space_txt plus $(rq_fmt_mb "$RQ_SPACE_RESERVE_MB") to spare, and $(rq_fmt_mb "$free") is free. Remove demos you do not use (RasQberry menu: Quantum Demos > Manage demos > Remove a demo) and try again."
         return 2
     fi
 
@@ -1953,6 +1965,33 @@ rq_update_channel() {
     echo "$channel"
 }
 
+# Own user names (#319, built from 2026-10-07 on): a release that has
+# rq_user_rename.sh takes over the user name of the system it updates (A/B
+# carry-over). An older one only knows the user "rasqberry". Prints yes, no
+# or unknown for release <tag>; <url> (its download) names the repository
+# (default JanLahmann/RasQberry-Two). A tag dated before 2026-10-07 is "no"
+# without asking; else the file is looked up at the release's git tag.
+# Environment (tests): RQ_RAW_BASE (https://raw.githubusercontent.com)
+RQ_USER_NAMES_SINCE="2026-10-07"
+rq_release_knows_user_names() {
+    local tag="$1" url="${2:-}" day repo code
+    [ -n "$tag" ] || { echo unknown; return 0; }
+    day=$(printf '%s' "$tag" | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
+    if [ -n "$day" ] && [[ "$day" < "$RQ_USER_NAMES_SINCE" ]]; then
+        echo no
+        return 0
+    fi
+    repo=$(printf '%s' "$url" | sed -nE 's#^https://github\.com/([^/]+/[^/]+)/releases/download/.*#\1#p')
+    repo="${repo:-JanLahmann/RasQberry-Two}"
+    code=$(curl -s -o /dev/null -I -L --max-time 15 -w '%{http_code}' \
+        "${RQ_RAW_BASE:-https://raw.githubusercontent.com}/$repo/$tag/RQB2-bin/rq_user_rename.sh" 2>/dev/null || true)
+    case "$code" in
+        200) echo yes ;;
+        404) echo no ;;
+        *)   echo unknown ;;
+    esac
+}
+
 # Release controls (#242): rasqberry.org/RQB-release-controls.json maps a
 # release tag to {"notify_after", "rollout", "withdrawn", "reason"}. Only
 # "withdrawn" matters to the shell tools: the update check and the release
@@ -2078,6 +2117,8 @@ rq_demo_set_version() {
 
 # Where new and less-tested demos ask for feedback (a GitHub issue form)
 RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml"
+# Feedback without a GitHub account (Jan, 2026-10-08)
+RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 
 # Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
 # The variant's value wins, then the manifest's, then the catalogue entry's
@@ -2100,11 +2141,47 @@ rq_demo_maturity() {
     return 0
 }
 
+# Group of a demo: its desktop folder and RasQberry menu submenu
+# (demo-groups.json). A catalogue demo (one in known-demos.json, or any
+# manifest that is not shipped) goes to its known-demos.json entry's group
+# (curated), else to the group marked "catalogue" (Contributed demos, Jan
+# 2026-10-08) - not to the group its own manifest names. A shipped demo goes
+# to its manifest's "group", else a guess: an LED panel demo to led-panel, a
+# game or visualization to play, anything else to learn. A value
+# demo-groups.json does not list counts as none. rq_desktop_session.py
+# (demo_group) decides the same way for the desktop.
+# Usage: group=$(rq_demo_group ID [MANIFEST])
+rq_demo_group() {
+    local id="$1" dir mf="" registry groups shipped=false
+    dir=$(rq_shipped_manifest_dir)
+    registry="$(dirname "$dir")/known-demos.json"
+    groups="$dir/demo-groups.json"
+    [ -f "$registry" ] || registry=/dev/null
+    [ -f "$groups" ] || groups=/dev/null
+    [ -f "$dir/rq_demo_${id}.json" ] && shipped=true
+    mf=$(_rq_demo_mf "$id" "${2:-}") && [ -f "$mf" ] || mf=/dev/null
+    [ "$mf" = /dev/null ] && shipped=true   # no manifest at all: nothing to go by
+    jq -rn --arg id "$id" --argjson shipped "$shipped" --slurpfile reg "$registry" \
+        --slurpfile grp "$groups" --slurpfile mf "$mf" '
+        ([$grp[0].groups[]?.id]) as $ids
+        | ([$grp[0].groups[]? | select(.catalogue == true) | .id] | .[0]) as $cat
+        | ($mf[0] // {}) as $m
+        | [$reg[0].demos[]? | select(.id == $id)] as $entry
+        | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
+        | if ($curated | length) > 0 then $curated[0]
+          elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
+          elif ($m.group as $g | $ids | any(. == $g)) then $m.group
+          elif $m.needs_hw.leds == true then "led-panel"
+          elif ($m.category == "game" or $m.category == "visualization") then "play"
+          else "learn" end' 2>/dev/null || echo learn
+}
+
 # The invitation at the start of a beta demo.
 # Usage: rq_beta_notice DEMO_ID
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
     echo "Your feedback helps a lot (needs a free GitHub account): ${RQ_FEEDBACK_URL}&demo=$1"
+    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
 
@@ -2284,7 +2361,7 @@ rq_docker_pull() {
     fi
     case "$why" in
         *"no space left"*)
-            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Remove a demo) and try again." ;;
+            die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Manage demos > Remove a demo) and try again." ;;
         *"manifest unknown"*|*"not found"*|*"denied"*)
             die "The registry does not offer $image (any more): $why" ;;
         *)

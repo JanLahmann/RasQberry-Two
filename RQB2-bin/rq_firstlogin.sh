@@ -11,8 +11,13 @@
 # Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
 # Checklist).
 #
-# Before it, once: a note when another user name was typed in Raspberry Pi
-# Imager (the user stays rasqberry).
+# The RasQberry Setup icon is temporary (Jan, 2026-10-08): once the checklist
+# is done - no step pending, or "Don't show again and remove the icon" ticked
+# - it writes setup-done and the desktop drops the icon (rq_desktop_session.py,
+# now and at every login). Only closing the list (Later, Esc) keeps the icon.
+#
+# Before it, once: a note when the name typed in Raspberry Pi Imager could not
+# be given to the user (#319: rq_user_rename.sh, which says why).
 #
 # Usage:
 #   rq_firstlogin.sh            login hook (/etc/profile.d/rasqberry-firstlogin.sh,
@@ -72,27 +77,46 @@ already_shown() {
 }
 mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
 
+# Done: the RasQberry Setup icon leaves the desktop (rq_desktop_session.py
+# reads this mark at every login; a running desktop is laid out again now)
+SETUP_DONE_FILE="$STATE_DIR/setup-done"
+setup_is_done() { [ -e "$SETUP_DONE_FILE" ]; }
+mark_setup_done() {
+    local run
+    setup_is_done && return 0
+    mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SETUP_DONE_FILE" 2>/dev/null || return 0
+    [ "$(id -u)" -eq 0 ] && return 0   # root has no desktop of its own
+    run="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    [ -S "$run/wayland-0" ] && [ -f "$BIN_DIR/rq_desktop_session.py" ] || return 0
+    env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 \
+        python3 "$BIN_DIR/rq_desktop_session.py" --relayout >/dev/null 2>&1 || true
+}
+
 # ---------------------------------------------------------------------------
-# A note, once: another user name was typed in Raspberry Pi Imager
+# A note, once: the user name typed in Raspberry Pi Imager was not possible
 # ---------------------------------------------------------------------------
-# The user stays rasqberry (rq_imager_userconf.sh); the name typed in Imager
-# is kept in imager-user-requested. Shown before the checklist, wherever the
-# checklist would open by itself, also when no step is pending.
-IMAGER_USER_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/imager-user-requested"
+# The first start gives the user the name typed in Imager (rq_imager_userconf.sh
+# -> rq_user_rename.sh; after an A/B update rq_carry_over.sh). When that did
+# not work, the user kept its name and rq_user_rename.sh left the wanted name
+# and the reason in user-rename-failed. Shown before the checklist, wherever
+# the checklist would open by itself, also when no step is pending.
+RENAME_FAILED_FILE="${RQ_IMAGER_STATE:-/var/lib/rasqberry}/user-rename-failed"
 IMAGER_NOTE_FILE="$STATE_DIR/imager-user-note-shown"
 imager_user_requested() {
     local wanted
-    wanted=$(head -n 1 "$IMAGER_USER_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
-    [ -n "$wanted" ] && [ "$wanted" != rasqberry ] || return 1
+    wanted=$(head -n 1 "$RENAME_FAILED_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-32)
+    [ -n "$wanted" ] && [ "$wanted" != "${USER:-$(id -un 2>/dev/null)}" ] || return 1
     printf '%s' "$wanted"
 }
 imager_note_pending() { [ ! -e "$IMAGER_NOTE_FILE" ] && imager_user_requested >/dev/null; }
 show_imager_note() {
-    local wanted rc=0
+    local wanted why me rc=0
     imager_note_pending || return 0
     wanted=$(imager_user_requested)
+    why=$(sed -n 2p "$RENAME_FAILED_FILE" 2>/dev/null | tr -cd '[:print:]' | cut -c 1-160)
+    me="${USER:-$(id -un 2>/dev/null)}"
     whiptail --title "Your user name" --msgbox \
-"You chose the name $wanted in Imager. RasQberry always uses the name rasqberry; your password, SSH key, hostname and Wi-Fi from Imager are set." 10 72 || rc=$?
+"You chose the name $wanted in Imager, but this Pi could not use it${why:+ ($why)}. Your user name is ${me:-rasqberry}; your password, SSH key, hostname and Wi-Fi from Imager are set." 12 72 || rc=$?
     # OK or Esc: read. A closed window or an ended session: next time again.
     case "$rc" in
         0|255) mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$IMAGER_NOTE_FILE" 2>/dev/null ;;
@@ -162,9 +186,9 @@ task_expand_pending() {
 }
 task_expand_label() {
     if [ "$(ab_mode)" = "single-pending" ]; then
-        printf 'Use the whole SD card (it is under 64 GB: one system, no A/B updates)'
+        printf 'Use the whole SD card (under 64 GB: one system, no A/B updates)'
     else
-        printf 'Prepare the SD card for A/B updates (second system, a few minutes)'
+        printf 'Prepare the SD card for A/B updates (second system, a few min)'
     fi
 }
 task_expand_run() {
@@ -184,7 +208,7 @@ task_expand_run() {
 # ---------------------------------------------------------------------------
 task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
 task_abinfo_pending() { [ ! -e "$STATE_DIR/abinfo-read" ]; }
-task_abinfo_label()   { printf 'About this SD card: under 64 GB, so ONE system and no A/B updates'; }
+task_abinfo_label()   { printf 'About this SD card: under 64 GB, ONE system, no A/B updates'; }
 task_abinfo_run() {
     local text h
     text=$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)
@@ -322,7 +346,7 @@ task_firmware_pending() { [ "$(cat "$FIRMWARE_READ_FILE" 2>/dev/null)" != "$("$F
 task_firmware_label() {
     local date
     date=$("$FIRMWARE" line 2>/dev/null | sed 's/ (.*//')
-    printf "About the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
+    printf "Pi firmware from %s: a newer one is available" "${date:-an older release}"
 }
 task_firmware_run() {
     local text h
@@ -426,7 +450,7 @@ task_demos_applies() { [ -x "$BIN_DIR/rq_download_all.sh" ]; }
 # the demos themselves: the *_INSTALLED flags never counted Lights Out and
 # Raspberry Tie, so the step stayed pending for good (R-087).
 task_demos_pending() { "$BIN_DIR/rq_download_all.sh" --pending; }
-task_demos_label()   { printf 'Download all demos now (otherwise each installs when first started)'; }
+task_demos_label()   { printf 'Download all demos now (or each one when first started)'; }
 task_demos_run()     { "$BIN_DIR/rq_download_all.sh"; }
 
 # ---------------------------------------------------------------------------
@@ -523,6 +547,7 @@ if [ "$MODE" = "desktop" ]; then
     already_shown && ! imager_note_pending && exit 0
     if [ -z "$(pending_tasks)" ] && ! imager_note_pending; then
         mark_shown
+        mark_setup_done
         exit 0
     fi
     wait_for_ip_display
@@ -558,12 +583,25 @@ for t in $TASKS; do
     fi
 done
 
-REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
+# Every step finished: done, the icon goes (also when the list was opened
+# from the icon or the menu)
+[ -z "$pending" ] && mark_setup_done
+
+if [ -e "$HOME/Desktop/rasqberry-setup.desktop" ]; then
+    REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
+else
+    REOPEN="Open this list again: RasQberry Configuration (icon, or sudo raspi-config) -> 0 RasQberry -> Setup Checklist."
+fi
+# The last entry while the icon is there: done with the checklist for good
+if ! setup_is_done && [ "$(id -u)" -ne 0 ]; then
+    args+=("noicon" "Don't show again and remove the RasQberry Setup icon" "OFF")
+fi
 
 # Nothing to do: the login hook says nothing (it runs at a login); the window
 # the desktop opened says so instead of standing empty.
 if [ -z "$pending" ] && [ "$MODE" != "all" ]; then
     mark_shown
+    mark_setup_done
     [ "$MODE" = "now" ] && echo "All setup steps are done."
     exit 0
 fi
@@ -615,12 +653,26 @@ fi
 
 ran=false
 touch_chosen=false
+noicon=false
 for sel in $choice; do
     # touch mode restarts the desktop, which closes this window: run it last
     if [ "$sel" = "touch" ]; then touch_chosen=true; continue; fi
+    if [ "$sel" = "noicon" ]; then noicon=true; continue; fi
     "task_${sel}_run" || true
     ran=true
 done
+
+# Done with the checklist: every step finished, or "Don't show again"
+gone="" gone_h=0
+if ! setup_is_done && { [ "$noicon" = true ] || [ -z "$(pending_tasks)" ]; }; then
+    mark_shown
+    mark_setup_done
+    gone="The RasQberry Setup icon is removed. This list stays in RasQberry Configuration -> 0 RasQberry -> Setup Checklist."
+    REOPEN="" gone_h=1
+fi
+if [ "$ran" = false ] && [ -n "$gone" ]; then
+    whiptail --title "RasQberry Two Setup" --msgbox "$gone" 9 74
+fi
 
 # Closing (R-088): where to start - the learning path for a first look,
 # as on the website (#30)
@@ -638,7 +690,7 @@ This Pi uses the published demo password: change it with passwd or in the RasQbe
 
 Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
-$REOPEN$pw_note" $((15 + pw_h)) 74
+$REOPEN$gone$pw_note" $((15 + pw_h + gone_h)) 74
 fi
 if [ "$touch_chosen" = true ]; then
     task_touch_run || true

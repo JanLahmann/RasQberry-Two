@@ -131,6 +131,8 @@ def card(tmp_path):
         FAKE_MNT_mmcblk0p5="/",
         FAKE_MNT_mmcblk0p6=str(slot_b),
         FAKE_SIZE_mmcblk0p6=str(26 * GB),
+        # the desktop user (#319): rasqberry, so plan-update never goes online
+        RQ_SM_DESKTOP_USER="rasqberry",
     )
     return {"env": env, "config": config, "a": slot_a, "b": slot_b, "tmp": tmp_path}
 
@@ -329,7 +331,7 @@ def test_help_names_plan_update_and_no_promote(card):
 # plan-update: the target slot and Jan's guard
 # ---------------------------------------------------------------------------
 
-def _plan(card, tag, running=None, target=None, running_slot="A"):
+def _plan(card, tag, running=None, target=None, running_slot="A", url=None):
     """plan-update <tag> on a card running <running_slot>. <running> and
     <target>: a version, "EMPTY", "INCOMPLETE" or "SYSTEM" (no version file)."""
     tmp = card["tmp"]
@@ -353,7 +355,7 @@ def _plan(card, tag, running=None, target=None, running_slot="A"):
         f"FAKE_MNT_{part[running_slot]}": "/",
         f"FAKE_MNT_{part[other]}": str(roots[other]),
     })
-    proc = _run(card, "plan-update", tag)
+    proc = _run(card, "plan-update", tag, *([url] if url else []))
     assert proc.returncode == 0, proc.stderr
     return dict(line.split("=", 1) for line in proc.stdout.splitlines())
 
@@ -492,10 +494,60 @@ def test_plain_status_with_a_failed_update_still_fits(card):
         "slot=B\nreason=the health check found no desktop after 10 minutes\n"
         "time=2026-10-04 21:00:00\nversion=beta-2026-10-15-101010\nupdate=yes\n")
     out = _plain(card)
-    assert "Reason: the health check found no desktop after 10 minutes" in out
+    assert "Reason: The health check found no desktop after 10 minutes" in out
     assert _fits_a_box(out)
 
 
 def test_plain_status_on_a_standard_image(card):
     card["env"]["FAKE_P1_LABEL"] = "bootfs"
     assert "one system" in _plain(card)
+
+
+# ---------------------------------------------------------------------------
+# plan-update: a renamed user and a release from before #319
+# ---------------------------------------------------------------------------
+
+def _curl_stub(card, code):
+    """curl answers <code> for the raw file and records the URL."""
+    body = f'#!/bin/sh\nfor a; do last="$a"; done\necho "$last" >> "{card['tmp']}/curl.urls"\nprintf {code}\n'
+    stub = card["tmp"] / "stubs" / "curl"
+    stub.write_text(body)
+    stub.chmod(0o755)
+
+
+@pytest.mark.parametrize("tag, code, expect", [
+    (BETA, "404", "no"),                                # dated before 2026-10-07: not asked
+    ("beta-2026-10-20-101010", "200", "yes"),
+    ("beta-2026-10-20-101010", "404", "no"),
+    ("beta-2026-10-20-101010", "000", "unknown"),       # offline
+])
+def test_plan_update_says_whether_the_release_knows_the_user_name(card, tag, code, expect):
+    card["env"]["RQ_SM_DESKTOP_USER"] = "jan"
+    _curl_stub(card, code)
+    plan = _plan(card, tag, running=BETA, target="EMPTY")
+    assert plan["user"] == "jan" and plan["user_names"] == expect
+    urls = card["tmp"] / "curl.urls"
+    if tag == BETA:
+        assert not urls.exists()
+    else:
+        assert urls.read_text().strip() == \
+            f"https://raw.githubusercontent.com/JanLahmann/RasQberry-Two/{tag}/RQB2-bin/rq_user_rename.sh"
+
+
+def test_plan_update_asks_the_repository_of_the_download(card):
+    card["env"]["RQ_SM_DESKTOP_USER"] = "jan"
+    _curl_stub(card, "200")
+    tag = "dev-x-2026-10-20-101010"
+    plan = _plan(card, tag, running=BETA, target="EMPTY",
+                 url=f"https://github.com/someone/fork/releases/download/{tag}/x-ab.img.xz")
+    assert plan["user_names"] == "yes"
+    assert (card["tmp"] / "curl.urls").read_text().strip() == \
+        f"https://raw.githubusercontent.com/someone/fork/{tag}/RQB2-bin/rq_user_rename.sh"
+
+
+def test_plan_update_for_rasqberry_does_not_ask(card):
+    _curl_stub(card, "404")
+    plan = _plan(card, "beta-2026-10-20-101010", running=BETA, target="EMPTY")
+    assert plan["user"] == "rasqberry" and plan["user_names"] == "n/a"
+    assert not (card["tmp"] / "curl.urls").exists()
+

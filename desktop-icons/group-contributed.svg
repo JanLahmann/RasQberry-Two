@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Contributed demos</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#7f1240"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#c2185b"/>
+  <rect x="23" y="31" width="17" height="17" rx="2" fill="#fff"/>
+  <circle cx="31.5" cy="30" r="4" fill="#fff"/>
+  <circle cx="41" cy="39.5" r="4" fill="#fff"/>
+  <circle cx="23" cy="39.5" r="3.4" fill="#c2185b"/>
+</svg>

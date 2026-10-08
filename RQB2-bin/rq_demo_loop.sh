@@ -119,9 +119,6 @@ case "${1:-}" in
 esac
 
 LOOP_DEMOS=$(chosen_demos)
-# shellcheck disable=SC2086
-set -- $LOOP_DEMOS
-LOOP_COUNT_DEMOS=$#
 
 # The demos it restarts again and again are not counted one by one (the
 # usage count in rq_demo_run.sh)
@@ -150,6 +147,75 @@ cleanup() {
 setup_cleanup_trap cleanup
 
 ################################################################################
+# Download the demos first: installing inside a demo's time slot used up that
+# slot (on a fresh image the whole first loop showed installers, not demos).
+# One question for all missing demos, not one per demo, and a line why
+# (user test 2026-10-08, F2); "Not now" runs the loop without them.
+################################################################################
+# The window keeps the loop's name: each demo the loop starts (rq_demo_run.sh)
+# would rename it to its own (F2)
+loop_title() {
+    RQ_WINDOW_TITLE="Demo Loop${1:+: $1}"
+    export RQ_WINDOW_TITLE
+    [ -t 1 ] && printf '\033]0;%s\007' "$RQ_WINDOW_TITLE"
+    return 0
+}
+loop_title
+
+# A size from a demo's manifest (install.download.<field>, MB)
+demo_mb() {   # <id> <field>
+    local mf
+    mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$1" 2>/dev/null) || { echo 0; return 0; }
+    jq -r ".install.download.$2 // .install.download.download_mb // 0" "$mf" 2>/dev/null || echo 0
+}
+
+drop_demo() {   # <id>: the loop runs without it
+    LOOP_DEMOS=$(printf '%s\n' $LOOP_DEMOS | { grep -vx "$1" || true; } | tr '\n' ' ')
+    LOOP_DEMOS="${LOOP_DEMOS% }"
+}
+
+missing=""
+for demo in quantum-lights-out quantum-raspberry-tie; do
+    case " $LOOP_DEMOS " in *" $demo "*) ;; *) continue ;; esac
+    "$BIN_DIR/rq_demo_run.sh" "$demo" --is-installed >/dev/null 2>&1 || missing="$missing $demo"
+done
+missing="${missing# }"
+if [ -n "$missing" ]; then
+    names="" dl=0 disk=0 verb="is"
+    [ "${missing#* }" = "$missing" ] || verb="are"
+    for demo in $missing; do
+        names="${names:+$names and }$(loop_name "$demo")"
+        dl=$((dl + $(demo_mb "$demo" download_mb)))
+        disk=$((disk + $(demo_mb "$demo" disk_mb)))
+    done
+    rc=0
+    rq_confirm_download "$names" "$dl" "$disk" --url "https://github.com" \
+        --what "Demo code from GitHub" \
+        --title "Demo Loop" \
+        --intro "The Demo Loop shows $names, which $verb not on this Pi yet." \
+        --question "Download now? (Not now: the loop runs without them.)" || rc=$?
+    if [ "$rc" = 0 ]; then
+        for demo in $missing; do
+            echo "Downloading $(loop_name "$demo") for the loop..."
+            if ! RQ_AUTO_INSTALL=1 "$BIN_DIR/rq_demo_run.sh" "$demo" --install-only; then
+                warn "Could not download $(loop_name "$demo"): the loop runs without it."
+                drop_demo "$demo"
+            fi
+        done
+    else
+        [ "$rc" = 1 ] || warn "${RQ_CONSENT_MSG:-The download was stopped.}"
+        for demo in $missing; do drop_demo "$demo"; done
+        info "The loop runs without $names."
+    fi
+    loop_title
+fi
+[ -n "$LOOP_DEMOS" ] || { info "No demo left to show."; exit 0; }
+# shellcheck disable=SC2086
+set -- $LOOP_DEMOS
+LOOP_COUNT_DEMOS=$#
+echo ""
+
+################################################################################
 # Display header and instructions
 ################################################################################
 
@@ -161,7 +227,7 @@ echo "Demo timings:"
 for id in $LOOP_DEMOS; do
     echo "  - $(loop_name "$id"): $(loop_time "$id")s"
 done
-echo "  (Choose the demos: RasQberry menu > Quantum Demos > Continuous Demo Loop)"
+echo "  (Choose: RasQberry menu > Quantum Demos > Workshops & events > Demo Loop)"
 echo ""
 echo "=============================================="
 echo "  Controls:"
@@ -229,6 +295,7 @@ run_demo_with_controls() {
 run_loop_demo() {   # <id> <number>
     local id="$1" n="$2" t
     t=$(loop_time "$id")
+    loop_title "$(loop_name "$id")"
     case "$id" in
         ibm-logo)
             run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] IBM Logo animation (${t}s)" \
@@ -252,19 +319,6 @@ run_loop_demo() {   # <id> <number>
     esac
     sleep "${PAUSE_BETWEEN_DEMOS}"
 }
-
-################################################################################
-# Install the demos first: installing inside a demo's time slot used up that
-# slot (on a fresh image the whole first loop showed installers, not demos)
-################################################################################
-for demo in quantum-lights-out quantum-raspberry-tie; do
-    case " $LOOP_DEMOS " in *" $demo "*) ;; *) continue ;; esac
-    if ! "$BIN_DIR/rq_demo_run.sh" "$demo" --is-installed >/dev/null 2>&1; then
-        echo "Installing $demo before the loop starts..."
-        "$BIN_DIR/rq_demo_run.sh" "$demo" --install-only || warn "Could not install $demo - it will be skipped"
-    fi
-done
-echo ""
 
 ################################################################################
 # Main demo loop (RQ_DEMO_LOOP_ROUNDS: stop after that many rounds - tests)

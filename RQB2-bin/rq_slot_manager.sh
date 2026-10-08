@@ -438,7 +438,9 @@ cmd_status() {
     if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
         echo ""
         warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update or switch didn't work.")"
-        sed -n 's/^reason=/    Reason: /p; s/^time=/    When: /p' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
+        awk '/^reason=/ { r = substr($0, 8); print "    Reason: " toupper(substr(r, 1, 1)) substr(r, 2) }
+             /^detail=/ { print "    Detail: " substr($0, 8) }
+             /^time=/   { print "    When: " substr($0, 6) }' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
     # Boot files
@@ -516,7 +518,8 @@ cmd_status_plain() {
         [ -n "$notice" ] || notice="The last update or switch didn't work."
         echo ""
         echo "$notice"
-        sed -n 's/^reason=/Reason: /p' "${BOOT_COMMON_DIR}/last-switch-failed" | head -n 1
+        awk '/^reason=/ { r = substr($0, 8); print "Reason: " toupper(substr(r, 1, 1)) substr(r, 2); exit }' \
+            "${BOOT_COMMON_DIR}/last-switch-failed"
     fi
 
     echo ""
@@ -871,9 +874,14 @@ cmd_plan_update() {
     #   downgrade=none|stream|older
     #   last_safe_slot=yes|no
     #   advice=<one line for the user>
-    [ $# -eq 1 ] && [ -n "$1" ] || die "Usage: $(basename "$0") plan-update <release-tag>"
-    local tag="$1" current target t_content r_content t_stream r_stream n_stream
-    local downgrade=none last_safe=no advice
+    #   user=<the desktop user (uid 1000)>
+    #   user_names=yes|no|unknown|n/a    does the release take a user name
+    #                                    other than rasqberry over (#319)?
+    #                                    n/a: the user is rasqberry
+    # <url>, the image's download, says which repository the release is from.
+    [ $# -ge 1 ] && [ -n "$1" ] || die "Usage: $(basename "$0") plan-update <release-tag> [<url>]"
+    local tag="$1" url="${2:-}" current target t_content r_content t_stream r_stream n_stream
+    local downgrade=none last_safe=no advice user user_names=n/a
 
     current=$(get_current_slot)
     case "$current" in
@@ -922,6 +930,14 @@ cmd_plan_update() {
     echo "downgrade=${downgrade}"
     echo "last_safe_slot=${last_safe}"
     echo "advice=${advice}"
+
+    # A renamed user (#319): an older release would start as rasqberry
+    user="${RQ_SM_DESKTOP_USER:-$(getent passwd 1000 2>/dev/null | cut -d: -f1 || true)}"
+    if [ -n "$user" ] && [ "$user" != "rasqberry" ]; then
+        user_names=$(rq_release_knows_user_names "$tag" "$url")
+    fi
+    echo "user=${user}"
+    echo "user_names=${user_names}"
 }
 
 # ============================================================================
@@ -940,7 +956,7 @@ Commands:
                                     (--plain: in plain words, for the menu)
     summary                         The same as key=value lines (for scripts)
     slot-content {A|B}              What a slot holds: version, EMPTY, INCOMPLETE, ...
-    plan-update <release-tag>       Where an update would go, and its warnings
+    plan-update <release-tag> [<url>]  Where an update would go, and its warnings
                                     (key=value: target, downgrade, last_safe_slot, ...)
     confirm                         Confirm current slot (prevent rollback)
     switch-to {A|B} [--reboot] [--force]

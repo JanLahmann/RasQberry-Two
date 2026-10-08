@@ -7,7 +7,7 @@ set -euo pipefail
 # Description: Download a RasQberry A/B image and install it into the other slot
 # Usage: rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
 #                          [--allow-unverified] [--allow-downgrade]
-#                          [--force-replace-safe-slot]
+#                          [--force-replace-safe-slot] [--force-old-release]
 #        rq_update_slot.sh --preflight [--slot A|B]
 #
 # Update model (ping-pong, Jan 2026-10-04): an update always goes into the
@@ -30,6 +30,14 @@ set -euo pipefail
 # script asks (y/N for a downgrade, a typed REPLACE for the last safe slot);
 # without one it refuses unless --allow-downgrade / --force-replace-safe-slot
 # say so. The menu asks in its own dialogs and passes these options.
+# A renamed desktop user (#319: the name typed in Raspberry Pi Imager): a
+# release from before that only knows the user "rasqberry" - the new system
+# would start as rasqberry with the default password, without the user's
+# home folder, SSH keys and Raspberry Pi Connect. Blocked unless confirmed: a
+# typed RASQBERRY in a terminal, else --force-old-release (exit 29). Checked
+# before the download (plan-update: user_names=no|unknown) and again in the
+# written slot (no rq_user_rename.sh: the slot stays marked incomplete and is
+# not started).
 #
 # --preflight runs only the checks that can refuse an update (target slot is
 # the running system, target not expanded, too little free space, another
@@ -55,6 +63,9 @@ set -euo pipefail
 #      it was not confirmed (--force-replace-safe-slot)
 #   28 the running slot is still on trial, or the next restart starts the
 #      other slot: restart or wait first
+#   29 the release only knows the user "rasqberry" (from before #319), or
+#      could not be checked, while this system's user has another name, and
+#      that was not confirmed (--force-old-release)
 #
 # The image is always checked against a SHA256 before anything is written:
 # --sha256 (the menu passes the one its release list shows), else
@@ -92,6 +103,7 @@ RC_UNVERIFIED=25
 RC_DOWNGRADE=26
 RC_LAST_SAFE_SLOT=27
 RC_NOT_SETTLED=28
+RC_OLD_RELEASE=29
 
 # Release manifest that carries per-release checksums (extract_sha256 = SHA256 of
 # the DECOMPRESSED .img). Used to verify integrity when no explicit --sha256 is
@@ -784,6 +796,21 @@ EOF
     else
         warn "The new system has no rq_carry_over.sh: Wi-Fi, password and hostname are not carried over"
     fi
+    # A renamed user (#319): the new system takes the name over on its first
+    # start (rq_carry_over.sh -> rq_user_rename.sh). A release from before
+    # that keeps "rasqberry", with the image's default password.
+    local me tgt_user
+    me=$(getent passwd 1000 2>/dev/null | cut -d: -f1 || true)
+    tgt_user=$(awk -F: '$3 == 1000 { print $1; exit }' "$tgt_root_mount/etc/passwd" 2>/dev/null || true)
+    local old_release=false
+    if [ -n "$me" ] && [ -n "$tgt_user" ] && [ "$me" != "$tgt_user" ] \
+        && [ ! -x "$tgt_root_mount/usr/bin/rq_user_rename.sh" ]; then
+        if [ "${FORCE_OLD_RELEASE:-false}" = true ]; then
+            warn "The new system cannot use the user name '$me': it starts with the user '$tgt_user' and the published default password (confirmed)"
+        else
+            old_release=true
+        fi
+    fi
 
     local new_version
     new_version=$(head -1 "$tgt_root_mount/etc/rasqberry-version" 2>/dev/null | tr -d '[:space:]' || true)
@@ -794,6 +821,13 @@ EOF
     umount "$tgt_root_mount"
     rm -rf "$work_dir"
     WORK_DIR=""
+
+    # The check before the download said yes, but the written system has no
+    # rq_user_rename.sh: not started - the slot stays marked incomplete
+    if [ "$old_release" = true ]; then
+        refuse "$RC_OLD_RELEASE" "$(old_release_text "${new_version:-$release_tag}" "$me" no)
+Slot $target_slot was written but is not started (it stays marked unfinished). The running system is unchanged. To install it anyway: --force-old-release."
+    fi
 
     mark_slot_updated "$target_slot" "${new_version:-$release_tag}" "$release_tag"
     clear_slot_incomplete "$target_slot"
@@ -841,6 +875,7 @@ parse_arguments() {
     ALLOW_UNVERIFIED=false
     ALLOW_DOWNGRADE=false
     FORCE_REPLACE_SAFE=false
+    FORCE_OLD_RELEASE=false
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -858,6 +893,10 @@ parse_arguments() {
                 ;;
             --force-replace-safe-slot)
                 FORCE_REPLACE_SAFE=true
+                shift
+                ;;
+            --force-old-release)
+                FORCE_OLD_RELEASE=true
                 shift
                 ;;
             --allow-unverified)
@@ -885,11 +924,11 @@ enforce_update_guard() {
     # Jan's guard (see the header): rq_slot_manager.sh plan-update says what
     # installing <tag> would replace. Asks in a terminal; without one it
     # refuses unless --allow-downgrade / --force-replace-safe-slot say so.
-    local tag="$1" planner plan target holds t_stream t_version r_holds r_stream r_version
-    local n_stream downgrade last_safe msg answer
+    local tag="$1" url="${2:-}" planner plan target holds t_stream t_version r_holds r_stream r_version
+    local n_stream downgrade last_safe msg answer user names
     planner="${SCRIPT_DIR}/rq_slot_manager.sh"
     [ -x "$planner" ] || planner="$SLOT_MANAGER"
-    plan=$("${RQ_SLOT_PLANNER:-$planner}" plan-update "$tag" 2>&1) \
+    plan=$("${RQ_SLOT_PLANNER:-$planner}" plan-update "$tag" ${url:+"$url"} 2>&1) \
         || die "Could not check what the update would replace (rq_slot_manager.sh plan-update): $plan"
     log_only "plan-update: $(printf '%s' "$plan" | tr '\n' ';')"
     target=$(plan_value "$plan" target)
@@ -937,6 +976,42 @@ Safer: switch to Slot $target first (sudo rq_slot_manager.sh switch-to $target -
 Nothing was changed. To overwrite it anyway: --force-replace-safe-slot."
         fi
     fi
+
+    # A renamed user (#319) and a release that only knows "rasqberry"
+    user=$(plan_value "$plan" user)
+    names=$(plan_value "$plan" user_names)
+    case "$names" in
+        no|unknown) ;;
+        *) return 0 ;;
+    esac
+    [ -n "$user" ] && [ "$user" != "rasqberry" ] && [ "$FORCE_OLD_RELEASE" != true ] || return 0
+    msg=$(old_release_text "$tag" "$user" "$names")
+    if ask_in_terminal; then
+        warn "$msg"
+        read -r -p "Type RASQBERRY to install it anyway: " answer
+        if [ "$answer" = "RASQBERRY" ]; then
+            log_only "Installing a release without own user names confirmed in the terminal"
+            FORCE_OLD_RELEASE=true
+        else
+            refuse "$RC_OLD_RELEASE" "Not installed: nothing was changed."
+        fi
+    else
+        refuse "$RC_OLD_RELEASE" "$msg
+Nothing was changed. To install it anyway: --force-old-release."
+    fi
+}
+
+# What goes wrong when release <tag> only knows the user rasqberry while this
+# system's user is <user> (#319); <names> is no or unknown
+old_release_text() {
+    local tag="$1" user="$2" names="$3" first
+    if [ "$names" = "no" ]; then
+        first="$tag is older than RasQberry's own user names: it only knows the user rasqberry."
+    else
+        first="Could not check whether $tag knows user names other than rasqberry (no connection to GitHub?). If it does not:"
+    fi
+    printf '%s\n%s' "$first" \
+"The new system would start with the user rasqberry and the published default password, not as $user: your password, your home folder /home/$user (its files and settings), your SSH keys and Raspberry Pi Connect would not be there. Your files on /data stay under /data/home/$user."
 }
 
 resolve_target_partitions() {
@@ -966,7 +1041,7 @@ run_preflight() {
 usage() {
     cat << EOF
 Usage: $0 <download_url> <release_tag> [--slot A|B] [--sha256 SUM] [--allow-unverified]
-          [--allow-downgrade] [--force-replace-safe-slot]
+          [--allow-downgrade] [--force-replace-safe-slot] [--force-old-release]
        $0 --preflight [--slot A|B]
 
 Installs an A/B image into the slot that is not running, then restarts into it
@@ -987,6 +1062,10 @@ Options:
                   release, than the target holds (else: asked, or exit 26)
   --force-replace-safe-slot  Overwrite the card's only beta or stable system
                   (else: a typed REPLACE, or exit 27)
+  --force-old-release  Install a release that only knows the user rasqberry
+                  (from before #319) although this system's user has another
+                  name: it starts as rasqberry with the default password
+                  (else: a typed RASQBERRY, or exit 29)
   --preflight     Only check whether the slot can be updated (exit codes 20-24
                   and 28 explain why not); downloads nothing. Needs
                   $(kb_as_gb "$(required_free_kb)") free in $DOWNLOAD_DIR (the download
@@ -1056,7 +1135,7 @@ main() {
     preflight_checks "$TARGET_SLOT" "$system_partition" "$boot_partition" "$download_bytes"
 
     # Jan's guard: downgrades and the last beta or stable system (asks or refuses)
-    enforce_update_guard "$release_tag"
+    enforce_update_guard "$release_tag" "$download_url"
 
     # The checksum is found BEFORE the download: an image that cannot be
     # verified is refused without fetching 2 GB first

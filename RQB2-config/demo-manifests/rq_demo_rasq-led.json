@@ -2,6 +2,7 @@
   "id": "rasq-led",
   "name": "RasQ-LED Demo",
   "category": "visualization",
+  "group": "led-panel",
   "description": "Circuits with superposition and entanglement, measured and shown on the LED panel",
   "keywords": [
     "quantum",
@@ -31,7 +32,7 @@
   },
   "menu": {
     "show": true,
-    "order": 60
+    "order": 20
   },
   "desktop": {
     "show": true,

@@ -298,7 +298,8 @@ def test_an_unconfirmed_start_slot_without_a_trial_can_be_updated(tmp_path):
 # --- Jan's guard: exit codes 26 and 27 ------------------------------------------
 
 def _plan_stub(tmp_path, downgrade="none", last_safe="no", target="B",
-               target_holds="beta beta-2026-10-03-095636", new="dev development-2026-10-05-010101"):
+               target_holds="beta beta-2026-10-03-095636", new="dev development-2026-10-05-010101",
+               user=None, user_names=None):
     stub = tmp_path / "planner"
     stub.write_text("#!/bin/sh\n"
                     "[ \"$1\" = plan-update ] || exit 9\n"
@@ -306,7 +307,8 @@ def _plan_stub(tmp_path, downgrade="none", last_safe="no", target="B",
                     f"echo 'target_holds={target_holds}'\n"
                     "echo 'running_holds=dev development-2026-10-04-014357'\n"
                     f"echo 'new={new}'\necho downgrade={downgrade}\n"
-                    f"echo last_safe_slot={last_safe}\necho advice=x\n")
+                    f"echo last_safe_slot={last_safe}\necho advice=x\n"
+                    + (f"echo user={user}\necho user_names={user_names}\n" if user else ""))
     stub.chmod(0o755)
     return stub
 
@@ -338,7 +340,7 @@ def _run_on_pty_with_input(cmd, env, text, timeout=30):
         if not chunk:
             break
         shown += chunk
-        if not sent and (b"[y/N]" in shown or b"anyway: " in shown):
+        if not sent and (b"[y/N]" in shown or b"anyway: " in shown):  # REPLACE, RASQBERRY
             os.write(master, text.encode() + b"\n")
             sent = True
     os.close(master)
@@ -400,6 +402,51 @@ def test_the_last_safe_slot_in_a_terminal_needs_a_typed_replace(tmp_path, answer
     code, shown = _guard(tmp_path, pty_input=answer, last_safe="yes")
     assert "Type REPLACE to overwrite Slot B anyway:" in shown
     assert code == rc
+
+
+# --- a renamed user (#319) and a release that only knows rasqberry: exit 29 ---
+
+@pytest.mark.parametrize("names, text", [
+    ("no", "is older than RasQberry's own user names: it only knows the user rasqberry."),
+    ("unknown", "Could not check whether development-2026-10-05-010101 knows user names"),
+])
+def test_an_old_release_for_a_renamed_user_is_refused_with_29(tmp_path, names, text):
+    rc, out = _guard(tmp_path, user="jan", user_names=names)
+    assert rc == 29 and "GUARD-PASSED" not in out
+    assert text in out
+    assert "start with the user rasqberry and the published default password, not as jan" in out
+    assert "/home/jan" in out and "Raspberry Pi Connect" in out
+    assert "--force-old-release" in out and "Nothing was changed" in out
+    assert "REFUSED (29)" in (tmp_path / "update.log").read_text()
+
+
+def test_force_old_release_lets_it_through(tmp_path):
+    rc, out = _guard(tmp_path, flags="--force-old-release", user="jan", user_names="no")
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+@pytest.mark.parametrize("user, names", [("jan", "yes"), ("rasqberry", "n/a"), (None, None)])
+def test_no_block_when_the_release_knows_the_name(tmp_path, user, names):
+    # a release with #319, the user rasqberry, or a planner from before #319
+    rc, out = _guard(tmp_path, user=user, user_names=names)
+    assert rc == 0 and "GUARD-PASSED" in out
+
+
+@pytest.mark.parametrize("answer,rc", [("RASQBERRY", 0), ("rasqberry", 29), ("y", 29)])
+def test_an_old_release_in_a_terminal_needs_a_typed_rasqberry(tmp_path, answer, rc):
+    code, shown = _guard(tmp_path, pty_input=answer, user="jan", user_names="no")
+    assert "Type RASQBERRY to install it anyway:" in shown
+    assert code == rc
+
+
+def test_the_written_slot_is_checked_again():
+    # plan-update said yes, the written system has no rq_user_rename.sh: the
+    # slot is not started and stays marked incomplete
+    text = open(_SCRIPT).read()
+    install = text[text.index("local old_release=false"):text.index("cleanup_download() {")]
+    refuse_at = install.index('refuse "$RC_OLD_RELEASE"')
+    assert refuse_at < install.index("clear_slot_incomplete") and refuse_at < install.index("mark_slot_updated")
+    assert 'enforce_update_guard "$release_tag" "$download_url"' in text
 
 
 def test_a_plan_for_another_slot_stops_the_update(tmp_path):

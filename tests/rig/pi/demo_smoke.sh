@@ -19,7 +19,9 @@
 # Env: RIG_ALLOW_DOCKER=1 also runs docker demos (large image pulls).
 #      RIG_KEYS="<delay>:<keys> ..." types keys into the demo (see below).
 #      RIG_ICON=<file.desktop> starts the demo by double-clicking its desktop
-#        icon with a real (uinput) mouse instead of a terminal command;
+#        icon with a real (uinput) mouse instead of a terminal command; a
+#        launcher in a demo group's folder by double-clicking the group's
+#        icon, typing its name in the group's window and pressing Enter;
 #        RIG_ICON_OFFSET="dx,dy" (default 60,67) is the icon's centre from
 #        its position in pcmanfm's desktop-items-0.conf.
 #      RIG_CDP_PORT=9222 checks web/Jupyter pages in the desktop Chromium
@@ -100,8 +102,16 @@ if [ -n "${RIG_ICON:-}" ]; then
     conf="$HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
     grep -q -- "--profile LXDE-pi" /etc/xdg/labwc/autostart 2>/dev/null \
         || conf="$HOME/.config/pcmanfm/default/desktop-items-0.conf"
-    [ -f "$desk" ] || { echo "FAIL $label | no such desktop icon"; exit 0; }
-    pos=$(awk -v s="[$RIG_ICON]" '$0==s{f=1;next} /^\[/{f=0} f&&/^x=/{x=substr($0,3)} f&&/^y=/{y=substr($0,3)} END{if(x!=""&&y!="")print x, y}' "$conf" 2>/dev/null)
+    # in a demo group's folder: its group's icon opens the group's window
+    click="$RIG_ICON"; group_icon=""
+    if [ ! -f "$desk" ]; then
+        desk=$(ls "$HOME"/.local/share/rasqberry/desktop-groups/*/"$RIG_ICON" 2>/dev/null | head -1)
+        [ -n "$desk" ] || { echo "FAIL $label | no such desktop icon"; exit 0; }
+        group_icon=$(grep -lxF "Name=$(basename "$(dirname "$desk")")" "$HOME"/Desktop/rq-group-*.desktop 2>/dev/null | head -1)
+        [ -n "$group_icon" ] || { echo "FAIL $label | no desktop icon for its group folder"; exit 0; }
+        click=$(basename "$group_icon")
+    fi
+    pos=$(awk -v s="[$click]" '$0==s{f=1;next} /^\[/{f=0} f&&/^x=/{x=substr($0,3)} f&&/^y=/{y=substr($0,3)} END{if(x!=""&&y!="")print x, y}' "$conf" 2>/dev/null)
     [ -n "$pos" ] || { echo "FAIL $label | no position in $conf"; exit 0; }
     read -r ix iy <<< "$pos"
     off="${RIG_ICON_OFFSET:-60,67}"
@@ -117,6 +127,23 @@ n = n[:-3] if n.endswith(".sh") else n
 print("-".join(w[1:3]) if n == "rq_demo_run" and len(w) > 1 else n)' "$(sed -n 's/^Exec=//p' "$desk" | head -1)")
     log="${XDG_CACHE_HOME:-$HOME/.cache}/rasqberry/$logname.log"
     sudo python3 "$out/mouse.py" dblclick "$cx" "$cy" "${sw:-1920}" "${sh:-1080}"
+    if [ -n "$group_icon" ]; then
+        # the group's window (rq_group_window.py): type the launcher's name
+        # (type-ahead selects it), Enter starts it and closes the window
+        sleep 3
+        keys=$(python3 -c 'import sys
+codes = dict(zip("1234567890", range(2, 12)))
+codes.update(zip("qwertyuiop", range(16, 26)), **dict(zip("asdfghjkl", range(30, 39))))
+codes.update(zip("zxcvbnm", range(44, 51)), **{" ": 57, "-": 12})
+out = []
+for ch in sys.argv[1].lower():
+    if ch not in codes:
+        break
+    out.append(str(codes[ch]))
+print(" ".join(out))' "$(sed -n 's/^Name=//p' "$desk" | head -1)")
+        sudo python3 "$out/keyboard.py" $keys sleep0.5 28
+        launched="via=$click "
+    fi
     spid=""
     for _ in $(seq 1 20); do
         spid=$(pgrep -n -f "^script -qefc .* ${log}\$")
@@ -130,7 +157,7 @@ print("-".join(w[1:3]) if n == "rq_demo_run" and len(w) > 1 else n)' "$(sed -n '
     fi
     hpid=$(ps -o ppid= -p "$spid" 2>/dev/null | tr -d ' ')   # rq_hold_on_error.sh
     tpid=""
-    launched="launched=dblclick@$cx,$cy "
+    launched="${launched}launched=dblclick@$cx,$cy "
 else
     rm -f "$log"
     cmd="rq_demo_run.sh $id${variant:+ $variant}"
