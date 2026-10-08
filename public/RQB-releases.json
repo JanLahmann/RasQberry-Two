@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T21:37:48Z",
+  "generated": "2026-10-08T21:38:56Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2145684072,
       "extract_size": 9495904256,
       "extract_sha256": "65a4bb125ea223b7970349cabfa41a2d11fcbae1045f795138f4991670c70338",
-      "image_sha256": "6cbbdf86f3dd69791a7e69bce2c16bee1f540e4f6a94ec146798e4f0c474310a",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-225511/rasqberry-development-2026-10-08-225511-ab.img.xz",
       "ab_extract_sha256": "5e818aebf68b5a4b22cfa84dc7d978b61db4e20b1f13c44bb2197ee2a2242e09",
       "ab_image_sha256": "8113e4071591effb02641921e5ac422ae92223c3498cc9194be3483bcddaf9b1",
-      "ab_image_download_size": 1880583884,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1880583884,
       "highlights": [
         "Bump version to development-2026-10-08-225511",
         "Merge dev-next-b: fixes from the beta tests of 2026-10-08",
