@@ -343,9 +343,14 @@ add_demo() {
     provider=$(registry_field "$id" "provider")
     dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
     disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
+    # An LED demo runs as root: said in this one question, not a second one
+    # that named the id (user test 2026-10-08, F5)
+    local reg_leds root_txt=""
+    reg_leds=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .leds // false' "$REGISTRY_FILE")
+    [ "$reg_leds" = true ] && root_txt="It drives the LED panel, so it runs with root privileges.\n\n"
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
     if ! show_yesno "Demo from the Catalogue" \
-        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\nInstall it?"; then
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\n${root_txt}Install it?"; then
         # "No" is an answer, not an error: it ended in "It stopped with an
         # error" and an Error box (user test 2026-10-07, S3)
         info "Nothing was installed."
@@ -405,10 +410,11 @@ add_demo() {
         die "install.marker_file '$m_marker' not found in checkout - refusing to install"
     fi
 
-    # LED demos run with root privileges - confirm explicitly
-    if [ "$m_leds" = "true" ]; then
+    # LED demos run with root privileges - confirm explicitly, unless the
+    # install question already said so (registry "leds")
+    if [ "$m_leds" = "true" ] && [ "$reg_leds" != true ]; then
         if ! show_yesno "LED demo - root privileges" \
-            "The demo '$id' drives the LED hardware and will run with root privileges.\n\nInstall and allow it to run as root?"; then
+            "${name:-$id} drives the LED panel and will run with root privileges.\n\nInstall it and let it run as root?"; then
             rm -rf "$dest"
             info "Nothing was installed."
             return 0

@@ -128,7 +128,58 @@ def cat(tmp_path):
 
     run.home = home
     run.dialogs = dialogs
+    run.root = root
+    run.repo = repo
     return run
+
+
+def _led_demo(cat, leds_in_registry):
+    """Turn the fixture's demo into an LED demo (python, needs_hw.leds)."""
+    m = _manifest()
+    m["entrypoint"] = {"type": "python", "script": "main.py", "working_dir": "dock-demo"}
+    m["needs_hw"] = {"leds": True, "display": "none"}
+    (cat.repo / "rqb-demo.json").write_text(json.dumps(m))
+    (cat.repo / "main.py").write_text("print('Ctrl+C to exit')\n")
+    reg_file = cat.root / "RQB2-config" / "known-demos.json"
+    reg = json.loads(reg_file.read_text())
+    reg["demos"][0].pop("download")
+    if leds_in_registry:
+        reg["demos"][0]["leds"] = True
+    reg_file.write_text(json.dumps(reg))
+
+
+def _yesnos(cat):
+    return [c for c in cat.dialogs() if "--yesno" in c]
+
+
+def test_an_led_demo_is_one_question_with_its_name(cat):
+    # user test 2026-10-08, F5: a second box asked about root, naming the id
+    _led_demo(cat, leds_in_registry=True)
+    proc = cat(["dock-demo"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    boxes = _yesnos(cat)
+    assert len(boxes) == 1
+    text = boxes[0][boxes[0].index("--yesno") + 1]
+    assert "It drives the LED panel, so it runs with root privileges." in text
+    assert text.startswith("Dock Demo")
+    assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
+
+
+def test_an_unannounced_led_demo_is_still_asked_about_root_by_name(cat):
+    _led_demo(cat, leds_in_registry=False)
+    proc = cat(["dock-demo"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    boxes = _yesnos(cat)
+    assert len(boxes) == 2
+    text = boxes[1][boxes[1].index("--yesno") + 1]
+    assert text.startswith("Dock Demo drives the LED panel and will run with root privileges.")
+    assert "'dock-demo'" not in text
+
+
+def test_the_shipped_led_demos_are_announced():
+    reg = json.load(open(os.path.join(_CFG, "known-demos.json")))
+    sap = [d for d in reg["demos"] if d["id"] == "sap-quantum-led"][0]
+    assert sap["leds"] is True and sap["own_stop_hint"] == "Ctrl+C to exit"
 
 
 def _msgbox(call):
@@ -270,3 +321,17 @@ def test_pull_without_a_terminal_is_quiet(tmp_path):
 def test_a_failed_pull_still_says_why(tmp_path):
     out, _calls = _pull(tmp_path, tty=False, rc=1)
     assert "The registry does not offer ghcr.io/x/demo@sha256:1" in out and "manifest unknown" in out
+
+
+def test_a_demos_own_stop_line_is_left_out():
+    # F5: our "To stop ..." line and the demo's own "Ctrl+C to exit"
+    common = os.path.join(_BIN, "rq_common.sh")
+    out = subprocess.run(["bash", "-c", f'. "{common}"; rq_hide_line "Ctrl+C to exit" '
+                          "printf 'SAP Quantum LED\\nCtrl+C to exit\\nlast'; echo rc=$?"],
+                         capture_output=True, text=True).stdout
+    assert out == "SAP Quantum LED\nlast\nrc=0\n"
+    rc = subprocess.run(["bash", "-c", f'. "{common}"; rq_hide_line x sh -c "exit 3"'],
+                        capture_output=True, text=True).returncode
+    assert rc == 3
+    engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
+    assert ".own_stop_hint" in engine and 'run+=(rq_hide_line "$own_hint")' in engine

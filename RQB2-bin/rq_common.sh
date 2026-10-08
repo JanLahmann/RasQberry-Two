@@ -905,6 +905,18 @@ rq_stop_demo_child() {
     rq_stop_pid "$pid"
 }
 
+# Run COMMAND with one exact line of its output left out, line by line as it
+# comes (a catalogue demo's own stop line, when the window already shows ours).
+# Usage: rq_hide_line LINE COMMAND [ARGS...]
+rq_hide_line() {
+    local hide="$1" line
+    shift
+    "$@" | while IFS= read -r line || [ -n "$line" ]; do
+        [ "$line" = "$hide" ] || printf '%s\n' "$line"
+    done
+    return "${PIPESTATUS[0]}"
+}
+
 # Run a demo program in this window so that Enter stops it as well as Ctrl+C
 # or closing the window (items 4, 8). Quantum Lights Out, Raspberry Tie,
 # Fractals, LED-Painter, LED Test and catalogue programs do not read Enter
