@@ -89,7 +89,7 @@ def test_password_step_is_ticked_with_the_demo_password(stubs, tmp_path):
     assert proc.returncode == 0, proc.stderr
     args = _checklist_args(tmp_path)
     i = args.index("password")
-    assert args[i + 1] == "Change the password, or keep the demo one (booth, class)"
+    assert args[i + 1] == "Change the password, or keep the demo one (booth, class) "   # + margin
     assert args[i + 2] == "ON"
     assert args[args.index("name") + 2] == "OFF"          # the other optional steps stay unticked
 
@@ -214,7 +214,7 @@ def test_checklist_names_the_network_truthfully(stubs, tmp_path, dev, wifi, labe
     proc = _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_WLAN_DIR=str(wlan))
     assert proc.returncode == 0, proc.stderr
     args = _checklist_args(tmp_path)
-    assert args[args.index("wifi") + 1] == label
+    assert args[args.index("wifi") + 1] == label + " "     # a margin in the list
 
 
 # ---------------------------------------------------------------------------

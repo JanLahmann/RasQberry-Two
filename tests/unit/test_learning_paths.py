@@ -284,7 +284,8 @@ def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
     log = tmp_path / "started.log"
     for tool in ("rq_demo_run.sh", "rq_my_programs.sh"):
         (bin_dir / tool).write_text(f'#!/bin/sh\nprintf \'\\033]0;LED Demos\\007\'\n'
-                                    f'echo "{tool} $*" >> "{log}"\nexit {demo_rc}\n')
+                                    f'echo "{tool} $*" >> "{log}"\n'
+                                    f'echo "${{RQ_WINDOW_TITLE:-}}" >> "{tmp_path}/titles.log"\nexit {demo_rc}\n')
         (bin_dir / tool).chmod(0o755)
     (tmp_path / "RQB2-config").mkdir()
     os.symlink(_MANIFESTS, tmp_path / "RQB2-config" / "demo-manifests")
@@ -477,7 +478,7 @@ def test_the_window_title_comes_back_after_a_demo(tmp_path):
 def test_a_page_on_the_desktop_says_where_this_window_is(tmp_path):
     # Chromium opens maximised over the learning path's window (#15)
     hint = "The browser covers this window: to get back here, click it in the taskbar."
-    proc, _, started = _walk(tmp_path, ["feedback", "ESC"], desktop=True)
+    proc, _, started = _walk(tmp_path, ["feedback", "github", "ESC"], desktop=True)
     assert proc.returncode == 0, proc.stderr
     assert any(line.startswith("browser ") and "demo=learning-paths" in line for line in started), started
     assert hint in proc.stdout
@@ -491,3 +492,38 @@ def test_a_page_on_the_desktop_says_where_this_window_is(tmp_path):
     (tmp_path / "ssh").mkdir()
     proc, _, _ = _walk(tmp_path / "ssh", ["feedback", "ESC"])
     assert "Open this address:" in proc.stdout and hint not in proc.stdout
+
+
+@needs_bash
+def test_feedback_on_the_desktop_asks_github_or_e_mail_first(tmp_path):
+    # fresh-card test 2026-10-08, F3: the browser opened on GitHub's sign-in
+    # page, and the e-mail line was hidden behind it. Now a small box first;
+    # only GitHub opens the browser.
+    proc, calls, started = _walk(tmp_path, ["feedback", "email", "ok", "ESC"], desktop=True)
+    assert proc.returncode == 0, proc.stderr
+    box = calls[1]
+    assert _arg(box, "--title") == "RasQberry: Feedback" and _arg(box, "--cancel-button") == "Back"
+    prompt = box[box.index("--menu") + 1]
+    assert "GitHub (needs an account)" in prompt and "info@rasqberry.org" in prompt
+    assert "Open GitHub" in box and "Show e-mail address" in box
+    mail = calls[2]
+    assert "--msgbox" in mail and "info@rasqberry.org" in mail[mail.index("--msgbox") + 1]
+    assert not any(line.startswith("browser ") for line in started), started
+    assert _arg(calls[3], "--title") == "RasQberry: Learning Paths (beta)"
+    # Back: nothing opens either
+    (tmp_path / "back").mkdir()
+    proc, calls, started = _walk(tmp_path / "back", ["feedback", "ESC", "ESC"], desktop=True)
+    assert proc.returncode == 0 and not started
+    assert _arg(calls[2], "--title") == "RasQberry: Learning Paths (beta)"
+
+
+@needs_bash
+def test_a_step_names_its_demo_window_as_the_step_does(tmp_path):
+    # fresh-card test 2026-10-08, F4: step 1 "IBM LED Demo" opened a window
+    # titled "LED Demos" (the manifest's name); the engine takes this title
+    proc, _, started = _walk(tmp_path, ["0", "start", "ESC", "ESC"])
+    assert proc.returncode == 0, proc.stderr
+    assert started == ["rq_demo_run.sh led-demos ibm-logo"]
+    assert (tmp_path / "titles.log").read_text().splitlines() == ["IBM LED Demo"]
+    engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
+    assert 'header="$RQ_WINDOW_TITLE"' in engine and '""|"Demo Loop"*) ;;' in engine

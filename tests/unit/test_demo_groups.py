@@ -471,10 +471,13 @@ def test_demos_in_one_group_window_have_their_own_icons():
             if line.startswith("Icon="):
                 icons[f[:-len(".desktop")]] = line.strip()[5:]
     pairs = [("qoffee-maker", "quantum-mixer"), ("quantum-lab", "ibm-quantum-tutorials"),
-             ("ibm-quantum-tutorials", "ibm-quantum-courses"), ("quantum-lab", "ibm-quantum-courses")]
+             ("ibm-quantum-tutorials", "ibm-quantum-courses"), ("quantum-lab", "ibm-quantum-courses"),
+             # fresh-card test 2026-10-08, F4: Grokking's atom, the circuit tile
+             ("quantum-paradoxes", "grok-bloch"), ("doqumentation", "qiskit-tutorials")]
     for a, b in pairs:
         assert icons[a] != icons[b], (a, b)
-    for name in ("quantum-mixer", "quantum-lab", "ibm-quantum-tutorials", "ibm-quantum-courses", "demo-loop"):
+    for name in ("quantum-mixer", "quantum-lab", "ibm-quantum-tutorials", "ibm-quantum-courses", "demo-loop",
+                 "quantum-paradoxes", "doqumentation"):
         path = icons[name]
         assert path.startswith("/usr/share/icons/rasqberry/"), name
         assert os.path.exists(os.path.join(_ROOT, "desktop-icons", os.path.basename(path))), name
@@ -482,3 +485,13 @@ def test_demos_in_one_group_window_have_their_own_icons():
     for d in reg["demos"]:
         if d.get("icon"):
             assert os.path.exists(os.path.join(_ROOT, "desktop-icons", d["icon"])), d["id"]
+
+
+def test_a_demos_icon_is_the_same_in_its_manifest_and_on_the_desktop():
+    # the group window and the menu read the bookmark, a regenerated entry the
+    # manifest: a new icon in one only came back in the other
+    bm = os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks")
+    for demo_id in ("quantum-paradoxes", "doqumentation", "qiskit-tutorials", "grok-bloch"):
+        m = json.load(open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", f"rq_demo_{demo_id}.json")))
+        icon = [line.strip()[5:] for line in open(os.path.join(bm, f"{demo_id}.desktop")) if line.startswith("Icon=")]
+        assert icon == [m["icon"]["path"]], demo_id

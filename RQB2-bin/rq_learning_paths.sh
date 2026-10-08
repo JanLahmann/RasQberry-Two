@@ -157,9 +157,9 @@ list_paths() {
         done
     done
     echo
-    echo "Learning paths are new. Your feedback helps a lot (needs a free GitHub account):"
+    echo "Learning paths are new. Feedback via GitHub (needs a free account):"
     echo "  $FEEDBACK"
-    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
+    echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # ============================================================================
@@ -204,8 +204,8 @@ pause() {
 # The invitation every beta demo gives (rq_beta_notice), for the paths
 feedback_notice() {
     echo "Learning paths are new: please tell us what works and what doesn't."
-    echo "Your feedback helps a lot (needs a free GitHub account): ${FEEDBACK}${1:+/$1}"
-    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
+    echo "Feedback via GitHub (needs a free account): ${FEEDBACK}${1:+/$1}"
+    echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # The browser opens maximised over this window (#15): say where it is now.
@@ -217,15 +217,38 @@ back_hint() {
     return 0
 }
 
-# The feedback form: in the browser on the desktop, its address over SSH
-# (a long address in a terminal is hard to use, #30). It is a GitHub issue
-# form, so the labels say it needs an account (#11).
+# Feedback: the GitHub issue form (it needs an account, #11) or an e-mail.
+# On the desktop a small box asks first, and only GitHub opens the browser:
+# a new owner without an account saw just GitHub's sign-in page, with the
+# e-mail line hidden behind it (user test 2026-10-08, F3). Over SSH both
+# are text (a long address in a terminal is hard to use, #30).
 # Usage: open_feedback [PATH_ID]
 open_feedback() {
+    local url="${FEEDBACK}${1:+/$1}" mail="${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}" choice
+    if check_display && _rq_find_browser >/dev/null; then
+        choice=$(lp_menu "RasQberry: Feedback" \
+            "Feedback via GitHub (needs an account) or e-mail $mail." \
+            "Select" "Back" "" github "Open GitHub" email "Show e-mail address") || return 0
+        case "$choice" in
+            github)
+                clear 2>/dev/null || true
+                echo "Feedback form on GitHub: $url"
+                rq_show_url "$url"
+                back_hint
+                pause "Press Enter to go back."
+                ;;
+            email)
+                whiptail --title "RasQberry: Feedback" --msgbox \
+"E-mail your feedback to $mail
+
+Please name the path or demo, and say what worked and what didn't." 11 72
+                ;;
+        esac
+        return 0
+    fi
     clear 2>/dev/null || true
     feedback_notice "${1:-}"
-    rq_show_url "${FEEDBACK}${1:+/$1}"
-    back_hint
+    rq_show_url "$url"
     pause "Press Enter to go back."
 }
 
@@ -334,6 +357,10 @@ start_step() {
     export RQ_DEMO_HOW
     if [ -n "$S_DEMO" ]; then
         local rc=0
+        # The demo's window says what the step says: "IBM LED Demo", not
+        # its manifest's "LED Demos" (user test 2026-10-08, F4)
+        local RQ_WINDOW_TITLE="$S_NAME"
+        export RQ_WINDOW_TITLE
         if [ -n "$S_VARIANT" ]; then
             "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" || rc=$?
         else

@@ -23,9 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-echo
-echo "=== Quantum Lab (QuBins) Demo ==="
-echo
+rq_demo_header "Quantum Lab (QuBins) Demo"
 
 # Load environment and verify required variables
 load_rqb2_env

@@ -52,7 +52,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 REMOTE_DIR = "/tmp/rigtest"
-VENV_PY = "/home/*/RasQberry-Two/venv/RQB2/bin/python3"
+# the rig user's (the ssh login, rig.json "host"/"user"): with a renamed user
+# a /home/* glob could also match the old home and run the wrong python
+VENV_PY = "$HOME/RasQberry-Two/venv/RQB2/bin/python3"
 CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
 HOLDER_PID = f"{REMOTE_DIR}/led_fill.pid"
 CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
@@ -67,6 +69,28 @@ NO_USAGE_COUNTS = (f"grep -qx RQ_UMAMI=0 {ENV_FILE} || {{ sudo sed -i '/^RQ_UMAM
 # ----------------------------------------------------------------------------
 # helpers
 # ----------------------------------------------------------------------------
+def rig_pi(pi):
+    """
+    One Pi of rig.json with its login user: "user", or the user in "host"
+    (user@address), else rasqberry (the image's default). Every command runs
+    over ssh as this user, the desktop user ($HOME, its uid's Wayland session),
+    so a renamed user (Imager, #319) only needs its name here.
+
+    Returns:
+        dict: the entry with "user" set and "host" as user@address.
+    """
+    pi = dict(pi)
+    user, addr = pi.get("user"), pi["host"]
+    if "@" in addr:
+        host_user, addr = addr.split("@", 1)
+        if user and user != host_user:
+            raise SystemExit(f"rig.json: {pi['name']}: user {user!r} but host {pi['host']!r}")
+        user = host_user
+    pi["user"] = user or "rasqberry"
+    pi["host"] = f"{pi['user']}@{addr}"
+    return pi
+
+
 def ssh(host, command, timeout=600, check=False):
     """Run a command on a Pi; returns (rc, stdout)."""
     proc = subprocess.run(
@@ -327,10 +351,13 @@ def list_demos(pi):
     (a variant's own type and launcher win: Fun with Quantum's website variant
     is a script that opens a page, its notebooks are Jupyter).
     """
-    # built-in demos, plus demos added from the catalogue (user manifests)
+    # built-in demos, plus demos added from the catalogue (user manifests).
+    # A demo that runs another's Docker image (install.docker_image_of: Qiskit
+    # Tutorials on this Pi) is a docker demo too: --docker only
     _, out = ssh(pi["host"], "for f in /usr/config/demo-manifests/rq_demo_*.json "
                              "$HOME/.local/config/demo-manifests/*.json; do [ -f \"$f\" ] || continue; "
-                             "jq -r 'select(.id) | . as $m | [$m.entrypoint.type, ($m.needs_hw.leds // false|tostring)] as $c "
+                             "jq -r 'select(.id) | . as $m | [(if ($m.install.docker_image_of // \"\") != \"\" "
+                             "then \"docker\" else $m.entrypoint.type end), ($m.needs_hw.leds // false|tostring)] as $c "
                              "| if ([.variants[]?] | length) == 0 then [$m.id] + $c + [$m.entrypoint.launcher // \"\"] "
                              "else ($m.variants[] | [\"\\($m.id):\\(.id)\", (.entrypoint.type // $c[0]), $c[1]] "
                              "+ [.entrypoint.launcher // $m.entrypoint.launcher // \"\"]) end | @tsv' \"$f\"; done")
@@ -679,7 +706,7 @@ def main():
     args = ap.parse_args()
 
     cfg = json.loads(Path(args.config).read_text())
-    pis = cfg["pis"]
+    pis = cfg["pis"] = [rig_pi(p) for p in cfg["pis"]]
     if args.pi:
         wanted = args.pi.split(",")
         pis = [p for p in pis if p["name"] in wanted]

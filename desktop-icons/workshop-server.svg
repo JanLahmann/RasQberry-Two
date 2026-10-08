@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Workshop &amp; Qiskit Server</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#005d5d"/>
+  <path d="M32 29v10M32 29L15 39M32 29l17 10" stroke="#9ef0f0" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="23" y="9" width="18" height="21" rx="2.5" fill="#fff"/>
+  <path d="M26.5 16h8M26.5 23h8" stroke="#005d5d" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="37.5" cy="16" r="1.4" fill="#24a148"/>
+  <circle cx="37.5" cy="23" r="1.4" fill="#24a148"/>
+  <g fill="#fff">
+    <rect x="8.5" y="39" width="13" height="9" rx="1.2"/><rect x="6.5" y="48.5" width="17" height="2.5" rx="1"/>
+    <rect x="25.5" y="39" width="13" height="9" rx="1.2"/><rect x="23.5" y="48.5" width="17" height="2.5" rx="1"/>
+    <rect x="42.5" y="39" width="13" height="9" rx="1.2"/><rect x="40.5" y="48.5" width="17" height="2.5" rx="1"/>
+  </g>
+</svg>

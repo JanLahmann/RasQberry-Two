@@ -643,6 +643,12 @@ if task_touch_applies 2>/dev/null; then
 No keyboard? The keyboard icon in the top bar opens one on the screen."
 fi
 rows=$(( ${#args[@]} / 3 ))
+# whiptail makes the list exactly as wide as its longest line, so that line
+# touched the list's edge however short it was (437edbee shortened it; user
+# test 2026-10-08, F4): a space after every line keeps a margin
+for ((li = 1; li < ${#args[@]}; li += 3)); do
+    args[li]="${args[li]} "
+done
 lines=$(printf '%s\n' "$text" | fold -s -w 72 | wc -l)
 height=$(( rows + lines + 8 ))
 max=$(tput lines 2>/dev/null || echo 24)

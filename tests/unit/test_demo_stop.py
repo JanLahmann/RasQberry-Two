@@ -1112,3 +1112,51 @@ def test_menu_lights_out_and_led_test_stop_like_their_icons():
     test = test[:test.index(";;")]
     assert 'run_engine_demo "$BIN_DIR/rq_demo_run.sh" led-demos led-test' in test
     assert "_rq_pause" in test and "rq_led_test.sh" not in test
+
+
+
+def _killed_in_front(run):
+    """A launcher (alive through its TERM trap) running a program in front;
+    its process group gets SIGTERM, as from timeout or sudo. Its stderr."""
+    proc = subprocess.Popen(["bash", "-c", f'. "{_COMMON}"; trap "exit 143" TERM; echo started; '
+                             f'{run} sh -c "echo program-error >&2; sleep 30"'],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                            text=True, start_new_session=True)
+    assert proc.stdout.readline().strip() == "started"
+    time.sleep(1)
+    os.killpg(proc.pid, signal.SIGTERM)
+    _, err = proc.communicate(timeout=30)
+    assert proc.returncode == 143
+    return err
+
+
+@needs_bash
+def test_a_program_in_front_ends_without_a_terminated_line():
+    # pre-beta check 2026-10-08: the Demo Loop's time limit reaches the IBM
+    # demo's whole process group, and the launcher printed "Terminated" for
+    # its python. The program's own error output stays.
+    plain = _killed_in_front("")
+    front = _killed_in_front("rq_run_in_front")
+    assert "program-error" in plain and "program-error" in front
+    assert "Terminated" in plain            # what the loop showed
+    assert "Terminated" not in front, front
+    for launcher in ("rq_led_ibm_demo.sh", "rq_rasq_led.sh"):
+        assert "\nrq_run_in_front python3 " in open(os.path.join(_BIN, launcher)).read(), launcher
+
+
+
+@needs_bash
+def test_a_launcher_started_by_the_engine_does_not_repeat_the_name():
+    # pre-beta check 2026-10-08: "=== Qiskit Tutorials on this Pi ===" twice
+    # (the engine's line, then the launcher's)
+    def header(extra):
+        return subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_demo_header "Quantum Mixer"'],
+                              capture_output=True, text=True, env={**os.environ, **extra}).stdout
+    assert "=== Quantum Mixer ===" in header({})
+    assert header({"RQ_DEMO_HEADER_SHOWN": "1"}) == ""
+    engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
+    assert "export RQ_DEMO_HEADER_SHOWN=1\n    exec \"$launcher_path\"" in engine
+    for launcher in ("qoffee-maker.sh", "quantum-mixer.sh", "rq_fun_with_quantum.sh", "rq_quantum_lab.sh",
+                     "rq_doqumentation.sh"):
+        text = open(os.path.join(_BIN, launcher)).read()
+        assert "rq_demo_header " in text and 'echo "=== ' not in text, launcher
