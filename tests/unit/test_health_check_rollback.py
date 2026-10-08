@@ -359,3 +359,22 @@ def test_a_good_switch_clears_the_request(hc, monkeypatch, tmp_path):
     assert hc.confirm_boot_slot() is True
     assert not (hc.config / "switch-requested").exists()
     assert not (hc.config / "last-switch-failed").exists()
+
+
+def test_user_home_follows_uid_1000_not_the_name():
+    """#319: a renamed desktop user (e.g. jan) must not fail the venv check."""
+    import importlib.util, pwd as _pwd, types
+    from pathlib import Path as _P
+    src = _P(__file__).resolve().parents[2] / "RQB2-bin" / "rq_health_check.py"
+    text = src.read_text()
+    assert "~rasqberry" not in text
+    spec = importlib.util.spec_from_file_location("rq_health_check_home", src)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    fake = types.SimpleNamespace(pw_dir="/home/jan")
+    orig = mod.pwd.getpwuid
+    mod.pwd.getpwuid = lambda uid: fake if uid == 1000 else orig(uid)
+    try:
+        assert mod.desktop_user_home() == "/home/jan"
+    finally:
+        mod.pwd.getpwuid = orig

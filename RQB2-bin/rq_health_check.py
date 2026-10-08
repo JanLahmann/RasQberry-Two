@@ -42,6 +42,7 @@ Timeout: 10 minutes (configured in systemd service)
 
 import logging
 import os
+import pwd
 import subprocess
 import sys
 import time
@@ -89,6 +90,19 @@ except Exception:  # noqa: BLE001 - a broken counter must not break the check
     usage_counts = None
 
 
+def desktop_user_home() -> str:
+    """
+    Home folder of the desktop user (uid 1000).
+
+    Returns:
+        str: its home, or /home/rasqberry when there is no uid 1000
+    """
+    try:
+        return pwd.getpwuid(1000).pw_dir
+    except KeyError:
+        return '/home/rasqberry'
+
+
 def load_environment() -> dict:
     """
     Load RasQberry environment configuration.
@@ -118,7 +132,9 @@ def load_environment() -> dict:
             logger.warning(f"Could not load environment config: {e}")
 
     # Set defaults
-    env.setdefault('USER_HOME', os.path.expanduser('~rasqberry'))
+    # The desktop user is uid 1000, whatever its name (#319: the name typed
+    # in Imager); env-config.sh does not export USER_HOME.
+    env.setdefault('USER_HOME', desktop_user_home())
     env.setdefault('REPO', 'RasQberry-Two')
     env.setdefault('STD_VENV', 'RQB2')
 
