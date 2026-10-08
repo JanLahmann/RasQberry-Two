@@ -159,6 +159,7 @@ list_paths() {
     echo
     echo "Learning paths are new. Your feedback helps a lot (needs a free GitHub account):"
     echo "  $FEEDBACK"
+    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # ============================================================================
@@ -204,6 +205,7 @@ pause() {
 feedback_notice() {
     echo "Learning paths are new: please tell us what works and what doesn't."
     echo "Your feedback helps a lot (needs a free GitHub account): ${FEEDBACK}${1:+/$1}"
+    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # The browser opens maximised over this window (#15): say where it is now.
@@ -299,7 +301,7 @@ keep_going() {
             set -- "$@" "n$e" "Open ${N_NAME[e]}"
         fi
     done
-    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (needs a free GitHub account)"
+    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (GitHub or e-mail)"
     while true; do
         choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
         last="$choice"
@@ -449,7 +451,7 @@ while true; do
         audience="$(printf '%s' "${P_AUDIENCE:0:1}" | tr '[:upper:]' '[:lower:]')${P_AUDIENCE:1}"
         set -- "$@" "$i" "$P_TITLE: $audience, $P_MINUTES min"
     done
-    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (needs a free GitHub account)"
+    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (GitHub or e-mail)"
     choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break

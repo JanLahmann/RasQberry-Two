@@ -2117,6 +2117,8 @@ rq_demo_set_version() {
 
 # Where new and less-tested demos ask for feedback (a GitHub issue form)
 RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml"
+# Feedback without a GitHub account (Jan, 2026-10-08)
+RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 
 # Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
 # The variant's value wins, then the manifest's, then the catalogue entry's
@@ -2179,6 +2181,7 @@ rq_demo_group() {
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
     echo "Your feedback helps a lot (needs a free GitHub account): ${RQ_FEEDBACK_URL}&demo=$1"
+    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
 
