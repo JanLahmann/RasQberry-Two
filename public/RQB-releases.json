@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T05:33:30Z",
+  "generated": "2026-10-08T05:34:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,24 +31,25 @@
       ]
     },
     "dev": {
-      "tag": "dev-group-window-2026-10-08-070212",
-      "name": "rasqberry-dev-group-window-2026-10-08-070212",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-070212/rasqberry-dev-group-window-2026-10-08-070212.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-group-window-2026-10-08-070212",
-      "release_date": "2026-10-08 07:02",
-      "image_download_size": 2145973636,
+      "tag": "development-2026-10-07-235419",
+      "name": "rasqberry-development-2026-10-07-235419",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-235419/rasqberry-development-2026-10-07-235419.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-07-235419",
+      "release_date": "2026-10-07 23:54",
+      "image_download_size": 2144199380,
       "extract_size": 9495904256,
-      "extract_sha256": "0442146120114dcc345e9471ccc2457c41021b0b8f0295106e0b9ed96592dfbe",
-      "image_sha256": "1cbe4827d937832fd3e203e2b768eb3d4374ab38327330635c0c3cc3475ea535",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-070212/rasqberry-dev-group-window-2026-10-08-070212-ab.img.xz",
-      "ab_extract_sha256": "778d814c0145ea189b5f6f0d2e649904b217f7365251b6b1e2aa309d4e6ddbea",
-      "ab_image_sha256": "d2bd62c8594416ec081786efc080703057c96ebfb45b75b2ef154be62f4bf5ff",
-      "ab_image_download_size": 1877807928,
+      "extract_sha256": "2f57a40612f5c38f8e5e6109ab8297091df547fccac431d8d0c2ae315c9a2881",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-07-235419/rasqberry-development-2026-10-07-235419-ab.img.xz",
+      "ab_extract_sha256": "4ce4efc1fc714c4dead6fb20f4fc1d04ac17d45c940d08b285485057674cd87b",
+      "ab_image_sha256": "f15b3369af006ede280202a4ce6f5e09dd474366b608a0aeb821dbc279ef5e48",
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1879999036,
       "highlights": [
-        "Contributed demos group; RasQberry Setup icon until the checklist is done",
-        "Bump version to dev-group-window-2026-10-08-070212",
-        "Generate RQB-images.json and RQB-releases.json for dev release dev-group-window-2026-10-08-061317"
+        "Bump version to development-2026-10-07-235419",
+        "Merge dev-demo-groups: demos in five groups on the desktop and in the menu",
+        "name the new menu paths",
+        "demo group folders instead of 25 icons",
+        "Quantum Demos in groups, and Manage demos"
       ]
     }
   }
