@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T17:21:19Z",
+  "generated": "2026-10-08T20:58:22Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -46,9 +46,7 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 1883085316,
       "highlights": [
-        "or e-mail info@rasqberry.org, no GitHub account needed",
-        "Bump version to development-2026-10-08-175639",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-08-161606"
+        "Development build - see release notes for details"
       ]
     }
   }
