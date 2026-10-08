@@ -109,6 +109,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | desktop user's name (#319: a fresh slot's `rasqberry` is renamed to the other slot's user, home `/home/<name>`, by `rq_user_rename.sh`; fallback `/data/rasqberry/desktop-user`) | first, before the rest, on the first start of a freshly written slot |
 | desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the marks in `~/.local/state/rasqberry/` (setup checklist answered, notices shown; its folders stay per slot) | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
 | Raspberry Pi Connect: its sign-in (`~/.config/com.raspberrypi.connect`) and, where it was on, its user units and linger | copied once, like the line above, where the new system has Connect installed |
+| Quantum Mixer's Home Connect settings (`~/.config/rasqberry/home-connect.env`, mode 600) | copied once, unread, like the line above |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |
 
 Not kept: other files in the home folder, installed demos, Docker images, added
@@ -323,6 +324,15 @@ login show it for 7 days, or until the taskbar menu was opened; System Info and
 the slot manager as long as `last-switch-failed` is there. A login also
 shows a new release as one line (`/var/lib/rasqberry/update-notice`, written
 by `rasqberry-update-check.timer`).
+
+**What's new.** The menu's update offer (Check for a newer image, and the
+release picker) shows the offered release's highlights. After an update, the
+first desktop login of the confirmed new system opens its "What's new" once
+(with a note that Raspberry Pi OS's own "Updates are available" is separate),
+and the first SSH login prints it, unless it was already seen as the offer
+(`~/.local/state/rasqberry/whats-new-due` and `whats-new-seen`). The badge menu
+keeps "What's new in this version…" while the release is the newest of its
+stream.
 
 Only root can look into the other slot, so the health check writes
 `/run/rasqberry/slot-status` at every start (`rq_slot_status.sh write`); the
