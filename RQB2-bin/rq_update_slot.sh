@@ -796,6 +796,18 @@ EOF
     else
         warn "The new system has no rq_carry_over.sh: Wi-Fi, password and hostname are not carried over"
     fi
+    # The clock: a new slot started at its build time until NTP answered (no
+    # RTC on a Pi 4, no fake-hwclock on Trixie), so its first logs and
+    # carry-over.done were hours off (user test 2026-10-08 F3). systemd sets
+    # the clock at boot to at least the time of timesyncd's clock file.
+    local clock_dir="$tgt_root_mount/var/lib/systemd/timesync"
+    if [ -d "$clock_dir" ]; then
+        if [ ! -e "$clock_dir/clock" ]; then
+            touch "$clock_dir/clock" 2>/dev/null \
+                && chown --reference="$clock_dir" "$clock_dir/clock" 2>/dev/null || true
+        fi
+        touch "$clock_dir/clock" 2>/dev/null || true
+    fi
     # A renamed user (#319): the new system takes the name over on its first
     # start (rq_carry_over.sh -> rq_user_rename.sh). A release from before
     # that keeps "rasqberry", with the image's default password.
