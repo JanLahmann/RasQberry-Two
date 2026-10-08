@@ -186,9 +186,9 @@ task_expand_pending() {
 }
 task_expand_label() {
     if [ "$(ab_mode)" = "single-pending" ]; then
-        printf 'Use the whole SD card (it is under 64 GB: one system, no A/B updates)'
+        printf 'Use the whole SD card (under 64 GB: one system, no A/B updates)'
     else
-        printf 'Prepare the SD card for A/B updates (second system, a few minutes)'
+        printf 'Prepare the SD card for A/B updates (second system, a few min)'
     fi
 }
 task_expand_run() {
@@ -208,7 +208,7 @@ task_expand_run() {
 # ---------------------------------------------------------------------------
 task_abinfo_applies() { [ "$(ab_mode)" = "single" ]; }
 task_abinfo_pending() { [ ! -e "$STATE_DIR/abinfo-read" ]; }
-task_abinfo_label()   { printf 'About this SD card: under 64 GB, so ONE system and no A/B updates'; }
+task_abinfo_label()   { printf 'About this SD card: under 64 GB, ONE system, no A/B updates'; }
 task_abinfo_run() {
     local text h
     text=$("$BIN_DIR/rq_expand_ab.sh" explain 2>&1)
@@ -346,7 +346,7 @@ task_firmware_pending() { [ "$(cat "$FIRMWARE_READ_FILE" 2>/dev/null)" != "$("$F
 task_firmware_label() {
     local date
     date=$("$FIRMWARE" line 2>/dev/null | sed 's/ (.*//')
-    printf "About the Pi's firmware (from %s; a newer one is available)" "${date:-an older release}"
+    printf "Pi firmware from %s: a newer one is available" "${date:-an older release}"
 }
 task_firmware_run() {
     local text h
@@ -450,7 +450,7 @@ task_demos_applies() { [ -x "$BIN_DIR/rq_download_all.sh" ]; }
 # the demos themselves: the *_INSTALLED flags never counted Lights Out and
 # Raspberry Tie, so the step stayed pending for good (R-087).
 task_demos_pending() { "$BIN_DIR/rq_download_all.sh" --pending; }
-task_demos_label()   { printf 'Download all demos now (otherwise each installs when first started)'; }
+task_demos_label()   { printf 'Download all demos now (or each one when first started)'; }
 task_demos_run()     { "$BIN_DIR/rq_download_all.sh"; }
 
 # ---------------------------------------------------------------------------
