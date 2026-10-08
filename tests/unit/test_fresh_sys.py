@@ -437,7 +437,7 @@ def test_checklist_mentions_the_firmware_unticked(stubs, tmp_path):
     assert proc.returncode == 0, proc.stderr
     args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
     i = args.index("firmware")
-    assert args[i + 1] == "Pi firmware from 8 May 2025: a newer one is available"
+    assert args[i + 1] == "Pi firmware from 8 May 2025: a newer one is available "   # + margin
     assert args[i + 2] == "OFF"
 
 
@@ -457,7 +457,7 @@ def test_checklist_firmware_step_only_explains(stubs, tmp_path):
     (tmp_path / "wt.log").unlink()
     _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_FIRMWARE=str(fake))
     args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
-    assert args[args.index("firmware") + 1] == "Read again: about the Pi's firmware"
+    assert args[args.index("firmware") + 1].rstrip() == "Read again: about the Pi's firmware"
 
 
 def test_checklist_without_an_outdated_firmware(stubs, tmp_path):
@@ -588,3 +588,6 @@ def test_checklist_lines_fit_the_box():
     assert len(texts) >= 10
     for t in texts:
         assert len(t) <= 64, t
+    # whiptail sizes the list to its longest line, which then touched the
+    # list's edge (fresh-card test 2026-10-08): every line gets a space
+    assert 'args[li]="${args[li]} "' in src
