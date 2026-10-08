@@ -144,7 +144,20 @@ def test_a_failed_first_start_after_an_update_is_recorded_as_an_update(hc):
     notice = (hc.config / "last-switch-failed").read_text()
     assert "update=yes\n" in notice
     assert "version=beta-2026-10-15-101010\n" in notice       # from the hint
-    assert (hc.config / "slot-B-updated").exists()            # until a good start
+    # the update's trial is over: a later switch-to B is a plain switch
+    assert not (hc.config / "slot-B-updated").exists()
+
+
+def test_a_plain_switch_after_a_failed_update_is_a_switch(hc):
+    # rig test 2026-10-08 (Pi 5): switch-to B after the failed update of B
+    # was recorded as update=yes
+    _switch_pending(hc.config, "B")
+    (hc.config / "slot-B-updated").write_text("version=beta-2026-10-15-101010\ntag=x\n")
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed")
+    _switch_pending(hc.config, "B")
+    hc.record_failed_switch(hc.config, "B", "Qiskit check failed", "beta-2026-10-15-101010")
+    notice = (hc.config / "last-switch-failed").read_text()
+    assert "update=no\n" in notice
 
 
 def test_a_failed_plain_switch_is_recorded_as_a_switch(hc):
@@ -201,7 +214,10 @@ def test_failed_check_on_probation_rolls_back(hc, monkeypatch):
         hc.main()
     assert exc.value.code == 1
     assert hc.reboots == [True]
-    assert "virtual environment missing" in (hc.config / "last-switch-failed").read_text()
+    notice = (hc.config / "last-switch-failed").read_text()
+    # plain words for Slot details and the tray, the technical one as detail=
+    assert "reason=the demos' Python setup is missing\n" in notice
+    assert "detail=virtual environment missing\n" in notice
 
 
 def test_failed_check_outside_probation_only_reports(hc, monkeypatch):

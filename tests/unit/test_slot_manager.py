@@ -494,7 +494,7 @@ def test_plain_status_with_a_failed_update_still_fits(card):
         "slot=B\nreason=the health check found no desktop after 10 minutes\n"
         "time=2026-10-04 21:00:00\nversion=beta-2026-10-15-101010\nupdate=yes\n")
     out = _plain(card)
-    assert "Reason: the health check found no desktop after 10 minutes" in out
+    assert "Reason: The health check found no desktop after 10 minutes" in out
     assert _fits_a_box(out)
 
 
