@@ -78,6 +78,40 @@
           "website": "https://rasqberry.org"
         },
         {
+          "name": "RasQberry Two Dev (dev-group-window 2026-10-08-061317)",
+          "description": "Build from the dev-group-window branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-061317/rasqberry-dev-group-window-2026-10-08-061317.img.xz",
+          "extract_size": 9495904256,
+          "extract_sha256": "b78d7f3d545e7dbc3db2e7acc7ea77c2c406b770d7e164ae0e62e4b0bb7e68a3",
+          "image_download_size": 2144214220,
+          "image_sha256": "ab6b142cd9048dd384e444df2f7df4ad48231b9efd66492634f5d821237e31ff",
+          "release_date": "2026-10-08 06:13",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev A/B (dev-group-window 2026-10-08-061317)",
+          "description": "A/B image from the dev-group-window branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-group-window-2026-10-08-061317/rasqberry-dev-group-window-2026-10-08-061317-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "7a206cc6fcf22ca471f48d271a3630bfc50e83dad3f43fd070511e67aed8dc56",
+          "image_download_size": 1878352756,
+          "image_sha256": "6c2b6b7ec5897af6c442c6c08c87b504ae015829027e50f4435040194d1ee43d",
+          "release_date": "2026-10-08 06:13",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-custom-user 2026-10-08-054619)",
           "description": "Build from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -138,40 +172,6 @@
           "image_download_size": 1880138144,
           "image_sha256": "8a50822abd2a1a7a76fdee64c6de7c0ea7512dee2cc70614ec7b56c9f82998bb",
           "release_date": "2026-10-07 23:37",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two Dev (dev-trixie-polish 2026-10-07-063417)",
-          "description": "Build from the dev-trixie-polish branch. Untested, for developers. Login rasqberry / Qiskit1!",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-polish-2026-10-07-063417/rasqberry-dev-trixie-polish-2026-10-07-063417.img.xz",
-          "extract_size": 9495904256,
-          "extract_sha256": "cfa899fde7106a764b92dc88f7ffa586111db43b6226f3e8768d9fb17ae4a58b",
-          "image_download_size": 2143993660,
-          "image_sha256": "c4fe75b334850d9f20372970990febca3e8523afacb56b2d8a2da72f18cd9690",
-          "release_date": "2026-10-07 06:34",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two Dev A/B (dev-trixie-polish 2026-10-07-063417)",
-          "description": "A/B image from the dev-trixie-polish branch. Untested, for developers. Login rasqberry / Qiskit1!",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-trixie-polish-2026-10-07-063417/rasqberry-dev-trixie-polish-2026-10-07-063417-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "4aa0c4ffb24935688d15e6cf8ea217a736b20319e2c060d6d92b3892643ec929",
-          "image_download_size": 1882175392,
-          "image_sha256": "5ff899f1764a8c9bac54e00ddc1b8b1d6e502e238333992409a3c0e359e32080",
-          "release_date": "2026-10-07 06:34",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
