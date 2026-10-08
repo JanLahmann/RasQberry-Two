@@ -543,3 +543,105 @@ def test_pull_without_connect_says_nothing(slots):
     assert proc.returncode == 0, proc.stderr
     assert "Raspberry Pi Connect" not in proc.stdout
     assert not (new / HOME.lstrip("/") / ".config").exists()
+
+
+# ---------------------------------------------------------------------------
+# User test 2026-10-08: Home Connect settings, "What's new" once, the clock
+# ---------------------------------------------------------------------------
+
+HC = ".config/rasqberry/home-connect.env"
+
+
+def _versions(old, new, old_v="beta-2026-10-07-213933", new_v="beta-2026-10-08-181349"):
+    (old / "etc/rasqberry-version").write_text(old_v + "\n")
+    (new / "etc/rasqberry-version").write_text(new_v + "\n")
+
+
+def test_pull_carries_the_home_connect_settings_unchanged(slots):
+    # Quantum Mixer's Home Connect account (F5): may hold a client secret -
+    # copied as it is, mode 600
+    old, new, data = slots
+    src = old / ("." + HOME) / HC
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"HOMECONNECT_CLIENT_ID=x\nHOMECONNECT_CLIENT_SECRET=y\n")
+    os.chmod(src, 0o600)
+    proc = _run(new, data, "pull", str(old))
+    assert proc.returncode == 0, proc.stderr
+    dst = new / ("." + HOME) / HC
+    assert dst.read_bytes() == src.read_bytes()
+    assert oct(dst.stat().st_mode & 0o777) == "0o600"
+    assert "Quantum Mixer's Home Connect settings" in proc.stdout
+
+
+def test_pull_home_connect_never_overwrites_and_needs_a_file(slots):
+    old, new, data = slots
+    proc = _run(new, data, "pull", str(old))
+    assert "Home Connect" not in proc.stdout and not (new / ("." + HOME) / HC).exists()
+    src, dst = old / ("." + HOME) / HC, new / ("." + HOME) / HC
+    for f, text in ((src, "old\n"), (dst, "new\n")):
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text)
+    proc = _run(new, data, "pull", str(old))
+    assert dst.read_text() == "new\n" and "Home Connect" not in proc.stdout
+
+
+def test_list_names_the_home_connect_settings(tmp_path):
+    assert "Home Connect" in _run(tmp_path, tmp_path, "list").stdout
+
+
+def test_pull_marks_whats_new_due_for_the_new_release(slots):
+    old, new, data = slots
+    _versions(old, new)
+    # a stale mark in the old slot is not copied over the new one
+    _state(old).mkdir(parents=True)
+    (_state(old) / "whats-new-due").write_text("version=beta-old\nfrom=x\n")
+    (_state(old) / "whats-new-seen").write_text("beta-2026-10-08-181349\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    due = (_state(new) / "whats-new-due").read_text()
+    assert due == "version=beta-2026-10-08-181349\nfrom=beta-2026-10-07-213933\n"
+    # what was seen as the update offer comes along (no second notice)
+    assert (_state(new) / "whats-new-seen").read_text() == "beta-2026-10-08-181349\n"
+
+
+def test_no_whats_new_for_a_second_copy_of_the_same_release(slots):
+    old, new, data = slots
+    _versions(old, new, new_v="beta-2026-10-07-213933")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert not (_state(new) / "whats-new-due").exists()
+
+
+def test_pull_takes_the_release_cache_along(slots):
+    # The menu's update offer fetched the release data in the old system:
+    # the new one can show its "What's new" at once, also offline
+    old, new, data = slots
+    cache = old / "var/cache/rasqberry"
+    cache.mkdir(parents=True)
+    for name in ("releases", "highlights", "releases.meta", "highlights.meta"):
+        (cache / f"{name}.json").write_text(f'{{"{name}": 1}}\n')
+    (new / "var/cache/rasqberry").mkdir(parents=True)
+    (new / "var/cache/rasqberry/highlights.json").write_text('{"newer": 1}\n')
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    assert (new / "var/cache/rasqberry/releases.json").read_text() == '{"releases": 1}\n'
+    assert (new / "var/cache/rasqberry/releases.meta.json").exists()
+    assert (new / "var/cache/rasqberry/highlights.json").read_text() == '{"newer": 1}\n'
+    assert not (new / "var/cache/rasqberry/controls.json").exists()
+
+
+@pytest.mark.parametrize("synced,text", [(True, "clock=synced"), (False, "clock=not synced yet (NTP)")])
+def test_carry_over_done_says_whether_the_clock_was_set(slots, tmp_path, synced, text):
+    # F3: a fresh slot runs on its build time until NTP answers
+    old, new, data = slots
+    flag = tmp_path / "synchronized"
+    if synced:
+        flag.write_text("")
+    assert _run(new, data, "pull", str(old), RQ_CARRY_TIMESYNC_FLAG=str(flag)).returncode == 0
+    assert text in (new / "var/lib/rasqberry/carry-over.done").read_text().splitlines()
+
+
+def test_the_clock_is_only_set_on_the_live_system():
+    # advance_clock: never in a test root, only forward, from timesyncd's file
+    text = open(_SCRIPT).read()
+    body = text.split("advance_clock() {", 1)[1].split("\n}\n", 1)[0]
+    assert "$LIVE || return 1" in body
+    assert '-gt "$now"' in body and 'date -s "@$saved"' in body
+    assert "/var/lib/systemd/timesync/clock" in body

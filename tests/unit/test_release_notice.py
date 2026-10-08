@@ -536,3 +536,143 @@ def test_bucket_command(tmp_path):
 def test_report_says_nothing_new_when_up_to_date(tmp_path):
     _cli(tmp_path, "--refresh", version=BETA_NEW)
     assert _cli(tmp_path, version=BETA_NEW).stdout.strip() == "Nothing new for this Pi."
+
+
+# ---------------------------------------------------------------------------
+# "What's new" in the menu's update offer and once after an update
+# (user test 2026-10-08 F1, F2)
+# ---------------------------------------------------------------------------
+
+LONG = ["Now on Raspberry Pi OS Trixie (Debian 13), with Python 3.13 and the current Qiskit",
+        "A/B image: the SD card stays in the Pi. New releases install over the air and keep "
+        "your settings, Wi-Fi, LED setup and Raspberry Pi Connect; the Pi falls back by itself "
+        "if one doesn't work (64 GB+, 128 GB recommended)",
+        "Raspberry Pi Imager: your password, Wi-Fi, SSH key, keyboard and Raspberry Pi Connect "
+        "are applied (the user name stays rasqberry)",
+        "Taskbar badge shows which system runs"]
+HIGHLIGHTS = {"beta": LONG, "dev": ["A dev change"]}
+
+
+def test_release_highlights_only_for_the_newest_of_its_stream():
+    assert rn.release_highlights(BETA_NEW, RELEASES, HIGHLIGHTS) == LONG
+    # an older beta: highlights.json describes the newest one, not it
+    assert rn.release_highlights(BETA_OLD, RELEASES, HIGHLIGHTS) == []
+    assert rn.release_highlights(BETA_NEW, None, HIGHLIGHTS) == []
+    # no curated lines: the release list's own, without commit noise
+    assert rn.release_highlights(BETA_NEW, RELEASES, {}) == ["From the release list"]
+
+
+@pytest.mark.parametrize("width,lines", [(71, 7), (71, 4), (56, 7), (40, 3)])
+def test_whats_new_fits_the_dialog(width, lines):
+    text = rn.whats_new_text(BETA_NEW, RELEASES, HIGHLIGHTS, width, lines)
+    rows = text.splitlines()
+    assert rows[0] == f"What's new in {BETA_NEW}:"
+    assert 2 <= len(rows) <= lines
+    assert all(len(r) <= width for r in rows)
+    # whole items only, each at most two lines; a cut one ends with an ellipsis
+    assert rows[1].startswith("- ")
+    assert all(r.startswith(("- ", "  ")) for r in rows[1:])
+
+
+def test_whats_new_is_empty_without_a_summary():
+    assert rn.whats_new_text(BETA_OLD, RELEASES, HIGHLIGHTS) == ""
+    assert rn.whats_new_text(BETA_NEW, RELEASES, HIGHLIGHTS, 71, 1) == ""
+
+
+def test_bullet_lines_cut_long_items():
+    out = rn.bullet_lines([LONG[1]], 60, 7, per_item=2)
+    assert len(out) == 2 and out[1].endswith("…") and len(out[1]) <= 60
+    assert rn.bullet_lines(["short"], 60, 7) == ["- short"]
+
+
+def test_seen_and_due(tmp_path):
+    d = str(tmp_path / "state")
+    assert rn.read_seen(d) == set()
+    rn.mark_seen(BETA_NEW, d)
+    rn.mark_seen(BETA_NEW, d)
+    assert (tmp_path / "state" / "whats-new-seen").read_text() == BETA_NEW + "\n"
+    due = tmp_path / "state" / "whats-new-due"
+    due.write_text(f"version={DEV_NEW}\nfrom={BETA_OLD}\n")
+    # on trial: not yet; confirmed: due, until finished
+    assert rn.post_update_due(d, DEV_NEW, False) is None and due.exists()
+    assert rn.post_update_due(d, DEV_NEW, True) == {"version": DEV_NEW, "from": BETA_OLD}
+    rn.finish_due(d, DEV_NEW)
+    assert not due.exists() and DEV_NEW in rn.read_seen(d)
+    # seen as the update offer already: never shown, the mark goes
+    due.write_text(f"version={BETA_NEW}\nfrom={BETA_OLD}\n")
+    assert rn.post_update_due(d, BETA_NEW, True) is None and not due.exists()
+    # a mark for another release (this slot runs something else): dropped
+    due.write_text(f"version={BETA_OLD}\nfrom=x\n")
+    assert rn.post_update_due(d, DEV_NEW, True) is None and not due.exists()
+
+
+def test_installed_lines_fit_the_login():
+    due = {"version": BETA_NEW, "from": BETA_OLD}
+    lines = rn.installed_lines(due, RELEASES, HIGHLIGHTS)
+    assert lines[0] == f"Updated to {BETA_NEW} (from {BETA_OLD}). What's new:"
+    assert len(lines) == 4 and all(len(x) <= 80 for x in lines)
+    assert lines[1].startswith("- Now on Raspberry Pi OS Trixie") and lines[1].endswith("…")
+    # no summary known: one line; no old version: no "from"
+    assert rn.installed_lines({"version": BETA_OLD, "from": ""}, RELEASES, HIGHLIGHTS) == [
+        f"Updated to {BETA_OLD}."]
+
+
+def _notice_cli(tmp_path, *args, version=BETA_OLD, confirmed=True):
+    (tmp_path / "releases.json").write_text(json.dumps(RELEASES))
+    (tmp_path / "highlights.json").write_text(json.dumps(HIGHLIGHTS))
+    (tmp_path / "version").write_text(version + "\n")
+    if confirmed:
+        (tmp_path / "slot-confirmed").write_text("x\n")
+    env = dict(os.environ,
+               RQ_RELEASES_URL=(tmp_path / "releases.json").as_uri(),
+               RQ_RELEASE_CONTROLS_URL=(tmp_path / "nothing.json").as_uri(),
+               RQ_HIGHLIGHTS_URL=(tmp_path / "highlights.json").as_uri(),
+               RQ_VERSION_FILE=str(tmp_path / "version"),
+               RQ_CONFIRMED_FILE=str(tmp_path / "slot-confirmed"),
+               RQ_SYSTEM_CACHE_DIR=str(tmp_path / "syscache"),
+               XDG_CACHE_HOME=str(tmp_path / "usercache"),
+               XDG_STATE_HOME=str(tmp_path / "state"))
+    env.pop("SUDO_UID", None)
+    return subprocess.run([sys.executable, _SCRIPT, *args], capture_output=True, text=True,
+                          env=env, timeout=60)
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="as a user")
+def test_cli_whats_new_for_the_menu_marks_it_seen(tmp_path):
+    proc = _notice_cli(tmp_path, "--whats-new", BETA_NEW, "--width", "71", "--lines", "7",
+                       "--refresh", "--mark-seen")
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.startswith(f"What's new in {BETA_NEW}:\n- Now on Raspberry Pi OS Trixie")
+    assert len(proc.stdout.splitlines()) <= 7
+    assert (tmp_path / "state/rasqberry/whats-new-seen").read_text() == BETA_NEW + "\n"
+    # a release without a summary: nothing printed, nothing marked
+    proc = _notice_cli(tmp_path, "--whats-new", BETA_OLD, "--mark-seen")
+    assert proc.stdout == ""
+    assert BETA_OLD not in (tmp_path / "state/rasqberry/whats-new-seen").read_text()
+    assert _notice_cli(tmp_path, "--whats-new").returncode == 1
+
+
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="as a user")
+def test_cli_installed_once_at_the_login(tmp_path):
+    state = tmp_path / "state/rasqberry"
+    state.mkdir(parents=True)
+    (state / "whats-new-due").write_text(f"version={BETA_NEW}\nfrom={BETA_OLD}\n")
+    _notice_cli(tmp_path, "--whats-new", BETA_OLD, "--refresh")     # fills the cache
+    # on trial: nothing yet
+    (tmp_path / "slot-confirmed").unlink()
+    assert _notice_cli(tmp_path, "--installed", "--mark-seen", version=BETA_NEW,
+                       confirmed=False).stdout == ""
+    assert (state / "whats-new-due").exists()
+    proc = _notice_cli(tmp_path, "--installed", "--mark-seen", version=BETA_NEW)
+    assert proc.stdout.splitlines()[0] == f"Updated to {BETA_NEW} (from {BETA_OLD}). What's new:"
+    assert not (state / "whats-new-due").exists()
+    assert _notice_cli(tmp_path, "--installed", "--mark-seen", version=BETA_NEW).stdout == ""
+
+
+def test_mark_seen_gives_new_folders_to_the_user(tmp_path, monkeypatch):
+    # The menu runs as root: folders it makes in the user's home are the user's
+    owners = []
+    monkeypatch.setattr(rn.os, "chown", lambda p, u, g: owners.append((os.path.relpath(p, tmp_path), u)))
+    rn.mark_seen(BETA_NEW, str(tmp_path / ".local/state/rasqberry"), 1000, 1000)
+    assert owners == [(".local", 1000), (".local/state", 1000), (".local/state/rasqberry", 1000),
+                      (".local/state/rasqberry/whats-new-seen", 1000)]

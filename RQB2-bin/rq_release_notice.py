@@ -43,11 +43,17 @@ Usage:
                                         and write the login line to /var/lib/rasqberry/update-notice
   rq_release_notice.py --line           the login line from the cached data (empty if none)
   rq_release_notice.py --bucket TAG     this Pi's rollout number (0-99) for TAG
+  rq_release_notice.py --whats-new TAG [--width N] [--lines N] [--refresh] [--mark-seen]
+                                        "What's new in TAG" for the menu's update offer
+                                        (empty if TAG has no summary); --mark-seen: the
+                                        desktop user saw it (no second notice after the update)
+  rq_release_notice.py --installed [--mark-seen]
+                                        the login lines once after an update (whats-new-due)
 
 Environment (tests, trials): RQ_RELEASES_URL, RQ_RELEASE_CONTROLS_URL,
   RQ_HIGHLIGHTS_URL (http(s):// or file://), RQ_SLOT_STATUS_FILE,
-  RQ_VERSION_FILE, RQ_NOTICE_FILE, RQ_SYSTEM_CACHE_DIR, RQ_SERIAL (bucket
-  tests), RQ_NOW (ISO time, tests).
+  RQ_VERSION_FILE, RQ_NOTICE_FILE, RQ_SYSTEM_CACHE_DIR, RQ_CONFIRMED_FILE,
+  RQ_SERIAL (bucket tests), RQ_NOW (ISO time, tests), XDG_STATE_HOME.
 """
 
 import hashlib
@@ -706,6 +712,192 @@ def highlight_lines(stream, releases, highlights, limit=6):
     return [h.strip() for h in lines[:limit]]
 
 
+def release_highlights(tag, releases, highlights, limit=6):
+    """
+    'What's new' lines of release <tag> - only while it is the newest of its
+    stream (highlights.json and the release list describe that release only).
+
+    Returns:
+        list of str (empty: no summary for this release)
+    """
+    stream = stream_of(tag)
+    head = heads(releases).get(stream)
+    if not head or head[0] != tag:
+        return []
+    return highlight_lines(stream, releases, highlights, limit)
+
+
+def _clip(text, width):
+    """<text> cut at a word to fit <width> columns, with an ellipsis."""
+    if len(text) <= width:
+        return text
+    cut = text[:width - 1].rstrip()
+    if " " in cut:
+        cut = cut[:cut.rindex(" ")].rstrip(" ,;:(")
+    return cut + "…"
+
+
+def bullet_lines(items, width, max_lines, per_item=2):
+    """
+    Items as '- ' bullets wrapped to <width> columns, each at most <per_item>
+    lines (cut with an ellipsis), all of them at most <max_lines> lines:
+    items that do not fit are left out. For 80x24 terminals and the login.
+
+    Returns:
+        list of str
+    """
+    import textwrap
+    out = []
+    for item in items:
+        wrapped = textwrap.wrap(item, width - 2) or [""]
+        if len(wrapped) > per_item:
+            rest = " ".join(wrapped[per_item - 1:])
+            wrapped = wrapped[:per_item - 1] + [_clip(rest, width - 2)]
+        if len(out) + len(wrapped) > max_lines:
+            break
+        out.extend(("- " if i == 0 else "  ") + line for i, line in enumerate(wrapped))
+    return out
+
+
+def whats_new_text(tag, releases, highlights, width=76, max_lines=7):
+    """
+    The menu's "What's new in <tag>:" block (heading + bullets, at most
+    <max_lines> lines in all), '' when the release has no summary.
+    """
+    lines = bullet_lines(release_highlights(tag, releases, highlights), width,
+                         max(1, max_lines - 1))
+    return "\n".join([f"What's new in {tag}:"] + lines) if lines else ""
+
+
+# ---------------------------------------------------------------------------
+# "What's new" after an update (once per release)
+# ---------------------------------------------------------------------------
+# rq_carry_over.sh writes <state>/whats-new-due on the first start of a slot
+# an update wrote ("version=<new>", "from=<old>"). The first desktop login
+# (the slot indicator's window) or SSH login (--installed) after the slot was
+# confirmed shows the release's "What's new" once. <state>/whats-new-seen
+# lists the releases whose "What's new" was already shown - as the menu's
+# update offer, the badge's window or here - so it is not shown twice (the
+# carry-over copies the file from the old system).
+
+SEEN_FILE = "whats-new-seen"
+DUE_FILE = "whats-new-due"
+CONFIRMED_FILE = "/boot/config/slot-confirmed"
+APT_NOTE = ("Raspberry Pi OS may also say \"Updates are available\": that is its own "
+            "software, separate from RasQberry's updates.")
+
+
+def desktop_state_dir():
+    """
+    ~/.local/state/rasqberry of the desktop user: the caller's own, or as
+    root (the menu) the one of the user who ran sudo, else of uid 1000.
+
+    Returns:
+        tuple: (directory, uid, gid) - uid/gid None when it is the caller's
+    """
+    if os.geteuid() != 0:
+        base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+        return os.path.join(base, "rasqberry"), None, None
+    import pwd
+    try:
+        uid = int(os.environ.get("SUDO_UID") or 1000)
+        user = pwd.getpwuid(uid if uid != 0 else 1000)
+    except (KeyError, ValueError):
+        return "", None, None
+    return (os.path.join(user.pw_dir, ".local", "state", "rasqberry"),
+            user.pw_uid, user.pw_gid)
+
+
+def read_seen(directory):
+    """The release tags whose "What's new" was shown (a set)."""
+    try:
+        with open(os.path.join(directory, SEEN_FILE)) as f:
+            return {line.strip() for line in f if line.strip()}
+    except OSError:
+        return set()
+
+
+def mark_seen(tag, directory, uid=None, gid=None, keep=20):
+    """Add <tag> to the seen list (best effort; owner uid/gid when root writes it)."""
+    if not tag or not directory:
+        return
+    path = os.path.join(directory, SEEN_FILE)
+    try:
+        with open(path) as f:
+            tags = [line.strip() for line in f if line.strip()]
+    except OSError:
+        tags = []
+    if tag in tags:
+        return
+    tags = (tags + [tag])[-keep:]
+    try:
+        # folders made here (as root) belong to the user, like the file
+        missing, d = [], directory
+        while d and not os.path.isdir(d):
+            missing.append(d)
+            d = os.path.dirname(d)
+        for d in reversed(missing):
+            os.mkdir(d)
+            if uid is not None:
+                os.chown(d, uid, gid)
+        _write_atomic(path, "\n".join(tags) + "\n")
+        if uid is not None:
+            os.chown(path, uid, gid)
+    except OSError as e:
+        log.info("cannot write %s: %s", path, e)
+
+
+def post_update_due(directory, version, confirmed):
+    """
+    Is the "What's new" of the running release due (first login after the
+    update that wrote this slot)? Not while the slot is on trial; never for
+    a release already seen (then the mark is removed).
+
+    Returns:
+        dict or None: version, from
+    """
+    path = os.path.join(directory, DUE_FILE)
+    due = read_kv(path)
+    if not due:
+        return None
+    if due.get("version") != version or version in read_seen(directory):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        return None
+    if not confirmed:
+        return None
+    return {"version": version, "from": due.get("from", "")}
+
+
+def finish_due(directory, version):
+    """It was shown: mark the release seen, remove the due mark."""
+    mark_seen(version, directory)
+    try:
+        os.unlink(os.path.join(directory, DUE_FILE))
+    except OSError:
+        pass
+
+
+def installed_lines(due, releases, highlights, width=LOGIN_WIDTH, items=3):
+    """
+    The login lines after an update: 'Updated to <new> (from <old>).' and,
+    when known, up to <items> highlights of one line each.
+
+    Returns:
+        list of str
+    """
+    head = f"Updated to {due['version']}"
+    if due.get("from") and due["from"] not in NOT_A_VERSION and due["from"] != "unknown":
+        head += f" (from {due['from']})"
+    news = release_highlights(due["version"], releases, highlights)[:items]
+    if not news:
+        return [head + "."]
+    first = [head + ". What's new:"] if len(head) + 13 <= width else [head + ".", "What's new:"]
+    return first + bullet_lines(news, width, items, per_item=1)
+
+
 # ---------------------------------------------------------------------------
 # Data: fetch with a cache, read the device
 # ---------------------------------------------------------------------------
@@ -955,6 +1147,55 @@ def _report(advices, device, data):
     return "\n".join(lines)
 
 
+def _option(argv, name, default):
+    """The integer after <name> in argv, else <default>."""
+    if name in argv:
+        i = argv.index(name)
+        try:
+            return int(argv[i + 1])
+        except (IndexError, ValueError):
+            pass
+    return default
+
+
+def _whats_new_cli(argv):
+    """--whats-new TAG [--width N] [--lines N] [--refresh] [--mark-seen]"""
+    tag = argv[0] if argv and not argv[0].startswith("--") else ""
+    if not tag:
+        print("Usage: rq_release_notice.py --whats-new TAG [--width N] [--lines N] "
+              "[--refresh] [--mark-seen]", file=sys.stderr)
+        return 1
+    # As root (the menu): the system cache, which the next slot takes over
+    cache = system_cache_dir() if os.geteuid() == 0 else user_cache_dir()
+    if "--refresh" in argv:
+        fetch_all(cache, now_utc())
+    data = load_all([user_cache_dir(), system_cache_dir()])
+    text = whats_new_text(tag, data["releases"], data["highlights"],
+                          _option(argv, "--width", 76), _option(argv, "--lines", 7))
+    if text:
+        print(text)
+        if "--mark-seen" in argv:
+            directory, uid, gid = desktop_state_dir()
+            mark_seen(tag, directory, uid, gid)
+    return 0
+
+
+def _installed_cli(argv):
+    """--installed [--mark-seen]: the login lines once after an update (quick: cache only)."""
+    directory = desktop_state_dir()[0]
+    version = read_first_line(os.environ.get("RQ_VERSION_FILE") or VERSION_FILE)
+    confirmed = os.path.exists(os.environ.get("RQ_CONFIRMED_FILE") or CONFIRMED_FILE)
+    due = post_update_due(directory, version, confirmed)
+    if not due:
+        return 0
+    data = load_all([user_cache_dir(), system_cache_dir()])
+    for line in installed_lines(due, data["releases"], data["highlights"]):
+        print(line)
+    if "--mark-seen" in argv:
+        finish_due(directory, version)
+    return 0
+
+
 def main(argv=None):
     """Command line; see the module docstring."""
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -968,6 +1209,10 @@ def main(argv=None):
             return 1
         print(rollout_bucket(device_serial(), argv[1]))
         return 0
+    if argv[:1] == ["--whats-new"]:
+        return _whats_new_cli(argv[1:])
+    if argv[:1] == ["--installed"]:
+        return _installed_cli(argv[1:])
     system = "--system" in argv
     cache = system_cache_dir() if system else user_cache_dir()
     if "--refresh" in argv:

@@ -71,6 +71,7 @@ WATCHDOG_MARKER = Path(os.environ.get('RQ_WATCHDOG_MARKER',
 SLOT_MANAGER = Path(os.environ.get('RQ_SLOT_MANAGER', '/usr/bin/rq_slot_manager.sh'))
 SLOT_STATUS = Path(os.environ.get('RQ_SLOT_STATUS', '/usr/bin/rq_slot_status.sh'))
 DISPLAY_MANAGER_TIMEOUT = 300      # seconds to wait for the desktop on probation
+CLOCK_SYNC_WAIT = float(os.environ.get('RQ_CLOCK_SYNC_WAIT', '20'))  # NTP, before slot-confirmed
 DEADLINE_MINUTES = 15              # rasqberry-probation.timer OnBootSec
 
 
@@ -626,6 +627,43 @@ def disarm_probation_watchdog() -> None:
             pass
 
 
+def wait_for_clock_sync(timeout: Optional[float] = None, active: Optional[bool] = None) -> bool:
+    """
+    A few seconds for NTP before the slot is confirmed: slot-confirmed keeps
+    the time, and a freshly written slot runs on its build time until NTP
+    answers (user test 2026-10-08 F3: the confirm came 7 s before the sync).
+    Only while systemd-timesyncd runs; bounded, so the confirm is never late
+    by more than <timeout>.
+
+    Args:
+        timeout (float): longest wait in seconds (None: CLOCK_SYNC_WAIT)
+        active (bool, optional): systemd-timesyncd runs (None: ask systemctl)
+
+    Returns:
+        bool: the clock is synchronised
+    """
+    if TIME_SYNCED.exists():
+        return True
+    timeout = CLOCK_SYNC_WAIT if timeout is None else timeout
+    if timeout <= 0:
+        return False
+    if active is None:
+        try:
+            active = subprocess.run(['systemctl', 'is-active', '--quiet', 'systemd-timesyncd'],
+                                    capture_output=True, timeout=5).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            active = False
+    if not active:
+        return False
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        time.sleep(1)
+        if TIME_SYNCED.exists():
+            return True
+    logger.info("Clock not synchronised yet (NTP): slot-confirmed has the start-up time")
+    return False
+
+
 def confirm_boot_slot() -> bool:
     """
     Confirm the current boot slot to prevent rollback.
@@ -683,6 +721,8 @@ def confirm_boot_slot() -> bool:
         except Exception as e:
             logger.warning(f"Could not verify target slot: {e}")
 
+    if not (BOOT_CONFIG_DIR / 'slot-confirmed').exists():
+        wait_for_clock_sync()
     try:
         result = subprocess.run(
             [str(slot_manager), 'confirm'],

@@ -52,6 +52,8 @@ def hc(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "WATCHDOG_MARKER", tmp_path / "wd")
     # the clock is not synchronised unless a test says so (CI hosts may be)
     monkeypatch.setattr(mod, "TIME_SYNCED", tmp_path / "timesync-synchronized")
+    # no wait for NTP before the confirm (wait_for_clock_sync has its own tests)
+    monkeypatch.setattr(mod, "CLOCK_SYNC_WAIT", 0)
     mod.reboots = []
     monkeypatch.setattr(mod, "reboot_now", lambda: mod.reboots.append(True))
     mod.config, mod.dt = config, dt
@@ -394,3 +396,29 @@ def test_user_home_follows_uid_1000_not_the_name():
         assert mod.desktop_user_home() == "/home/jan"
     finally:
         mod.pwd.getpwuid = orig
+
+
+def test_confirm_waits_for_ntp_a_little(hc, monkeypatch):
+    """slot-confirmed keeps the time: a short, bounded wait for NTP (user test 2026-10-08 F3)."""
+    naps = []
+
+    def nap(seconds):
+        naps.append(seconds)
+        if len(naps) == 3:
+            hc.TIME_SYNCED.write_text("")
+
+    monkeypatch.setattr(hc.time, "sleep", nap)
+    assert hc.wait_for_clock_sync(timeout=20, active=True) is True
+    assert len(naps) == 3
+    # synced already: no wait; timesyncd not running or no wait wanted: none either
+    naps.clear()
+    assert hc.wait_for_clock_sync(timeout=20, active=True) is True and naps == []
+    hc.TIME_SYNCED.unlink()
+    assert hc.wait_for_clock_sync(timeout=20, active=False) is False and naps == []
+    assert hc.wait_for_clock_sync(timeout=0, active=True) is False and naps == []
+    # bounded: gives up after the timeout
+    clock = [0.0]
+    monkeypatch.setattr(hc.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(hc.time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s))
+    assert hc.wait_for_clock_sync(timeout=5, active=True) is False
+    assert clock[0] == 5

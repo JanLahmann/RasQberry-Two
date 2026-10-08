@@ -38,6 +38,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     first-start checklist (user test 2026-10-06/07); its subfolders stay
 #     per slot (learner-setup/ = this slot's Thonny/Geany settings, made at
 #     build time),
+#     Quantum Mixer's Home Connect settings (~/.config/rasqberry/home-connect.env,
+#     may hold the account's client secret: copied as it is, mode 600),
 #     Raspberry Pi Connect (Jan, 2026-10-07: same board, same card): its
 #     sign-in (~/.config/com.raspberrypi.connect) and, where it was on,
 #     its user units and linger - else everyone who reaches the Pi only
@@ -46,6 +48,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     and Wi-Fi profiles.
 #   (SSH host keys and authorized_keys are copied at update time by
 #   rq_carry_ssh_identity.sh.)
+#   Also, not listed in carry-over.done: the release data cache
+#   (/var/cache/rasqberry, for the "What's new" once after the update:
+#   ~/.local/state/rasqberry/whats-new-due, rq_release_notice.py), and the
+#   clock - a new slot starts at its build time until NTP answers, so it
+#   starts at least at the other slot's last saved time (systemd-timesyncd's
+#   clock file; rq_update_slot.sh also stamps it when it writes the slot).
 #
 #   Pulling at first boot, not pushing at update time, means the NEW image
 #   decides what to take: the first update from an older release carries
@@ -388,7 +396,8 @@ pull_user_state() {
     for f in "$src"/*; do
         name=$(basename "$f")
         [ -f "$f" ] && [ ! -L "$f" ] || continue
-        case "$name" in *.log|*.log.*) continue ;; esac
+        # (whats-new-due belongs to the slot an update wrote)
+        case "$name" in *.log|*.log.*|whats-new-due) continue ;; esac
         [ -e "$dst/$name" ] || [ -L "$dst/$name" ] && continue
         cp -p "$f" "$dst/$name" || continue
         give_to_user "$dst/$name"
@@ -469,6 +478,79 @@ pull_connect() {
     echo "Raspberry Pi Connect${what:+ ($what)}"
 }
 
+pull_home_connect() {
+    # Quantum Mixer's Home Connect settings (quantum-mixer.sh): they may hold
+    # the account's client ID and secret. Copied unread, owner and mode kept
+    # (600); never over a file the new system already has.
+    local other="$1" home rel=.config/rasqberry src dst
+    home=$(desktop_home)
+    [ -n "$home" ] && [ -d "$ROOT$home" ] || return 1
+    src="$other$(other_home "$other")/$rel/home-connect.env"
+    dst="$ROOT$home/$rel/home-connect.env"
+    [ -f "$src" ] && [ ! -L "$src" ] || return 1
+    [ -e "$dst" ] || [ -L "$dst" ] && return 1
+    make_user_dirs "$home" "$rel" || return 1
+    (umask 077; cp -p "$src" "$dst") || return 1
+    chmod 600 "$dst"
+    give_to_user "$dst"
+}
+
+pull_release_cache() {
+    # The release list and "What's new" texts the old system had (the
+    # menu's update offer fetched them), so the new one can show its "What's
+    # new" at once, also offline. Never over newer data.
+    local other="$1" dir=/var/cache/rasqberry name n=0
+    [ -d "$other$dir" ] || return 1
+    for name in releases controls highlights; do
+        [ -f "$other$dir/$name.json" ] && [ ! -e "$ROOT$dir/$name.json" ] || continue
+        mkdir -p "$ROOT$dir"
+        cp -p "$other$dir/$name.json" "$ROOT$dir/$name.json" || continue
+        [ -f "$other$dir/$name.meta.json" ] && cp -p "$other$dir/$name.meta.json" "$ROOT$dir/$name.meta.json"
+        n=$((n + 1))
+    done
+    [ "$n" -gt 0 ]
+}
+
+write_whats_new_due() {
+    # The release's "What's new" is due once, at the first login after the
+    # update (rq_release_notice.py: post_update_due) - not for a second copy
+    # of the same release.
+    local other="$1" home new old due
+    home=$(desktop_home)
+    new=$(head -n 1 "$ROOT/etc/rasqberry-version" 2>/dev/null | tr -d '[:space:]')
+    old=$(head -n 1 "$other/etc/rasqberry-version" 2>/dev/null | tr -d '[:space:]')
+    [ -n "$home" ] && [ -d "$ROOT$home" ] && [ -n "$new" ] && [ "$new" != "$old" ] || return 1
+    make_user_dirs "$home" "$USER_STATE" || return 1
+    due="$ROOT$home/$USER_STATE/whats-new-due"
+    printf 'version=%s\nfrom=%s\n' "$new" "${old:-unknown}" > "$due" || return 1
+    give_to_user "$due"
+}
+
+advance_clock() {
+    # A freshly written slot starts at its build time (no RTC on a Pi 4,
+    # no fake-hwclock on Trixie) until NTP answers: times in logs and in
+    # carry-over.done were hours off (user test 2026-10-08 F3). Start at
+    # least at the other slot's last saved time (timesyncd's clock file, as
+    # systemd itself does at boot with this slot's own file).
+    local other="$1" clock=/var/lib/systemd/timesync/clock saved now
+    $LIVE || return 1
+    [ -f "$other$clock" ] || return 1
+    saved=$(stat -c %Y "$other$clock" 2>/dev/null) || return 1
+    now=$(date +%s)
+    [ "${saved:-0}" -gt "$now" ] || return 1
+    date -s "@$saved" >/dev/null 2>&1 || return 1
+    say "clock set forward to $(date -Iseconds) (the other system's last saved time)"
+}
+
+# Is the clock set by NTP yet? (systemd-timesyncd's flag file)
+clock_state() {
+    if [ -e "${RQ_CARRY_TIMESYNC_FLAG:-/run/systemd/timesync/synchronized}" ]; then
+        echo "synced"
+    else
+        echo "not synced yet (NTP)"
+    fi
+}
+
 pull_old_slot_data() {
     # From a slot that predates /data: its ~/.qiskit, ~/My-Quantum-Programs
     # and Wi-Fi profiles
@@ -536,6 +618,7 @@ cmd_pull() {
     local other="${1:-}"
     [ -n "$other" ] && [ -d "$other/etc" ] || { echo "Usage: $(basename "$0") pull <other-root>" >&2; return 2; }
     local carried=() what
+    advance_clock "$other" || true
     if what=$(adopt_user_name "$other"); then
         carried+=("$what")
     fi
@@ -551,6 +634,9 @@ cmd_pull() {
     pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
     pull_vnc_off "$other" && carried+=("VNC off")
     pull_user_state "$other" && carried+=("setup checklist and notices already seen")
+    pull_home_connect "$other" && carried+=("Quantum Mixer's Home Connect settings")
+    pull_release_cache "$other" || true
+    write_whats_new_due "$other" || true
     if what=$(pull_connect "$other"); then
         carried+=("$what")
     fi
@@ -565,6 +651,7 @@ cmd_pull() {
     mkdir -p "$(dirname "$DONE_FILE")"
     {
         echo "time=$(date -Iseconds)"
+        echo "clock=$(clock_state)"
         echo "from=$(cat "$other/etc/rasqberry-version" 2>/dev/null || echo unknown)"
         echo "carried=${summary}"
     } > "$DONE_FILE"
@@ -622,6 +709,7 @@ Copied from the old system when the new one starts for the first time:
     were already shown (they do not open again)
   - VNC switched off
   - Raspberry Pi Connect: its sign-in, and whether it is on
+  - Quantum Mixer's Home Connect settings
 Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
     or ~/My-Quantum-Programs

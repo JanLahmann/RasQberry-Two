@@ -699,3 +699,86 @@ def test_dialogs_fit_80x24(tmp_path, flow):
                                  "makes it the start slot a few minutes after a good start. Until then Slot B "
                                  "is the way back, so it is not overwritten. Try again in a few minutes.")
     assert _check_fits(wt) >= 1
+
+
+# ---------------------------------------------------------------------------
+# "What's new" in the update offer (user test 2026-10-08 F1)
+# ---------------------------------------------------------------------------
+
+NOTICE = """\
+    #!/bin/sh
+    # Stand-in for rq_release_notice.py --whats-new: records its arguments
+    echo "notice $*" >> "$CALLS"
+    [ "$1" = --whats-new ] || exit 0
+    echo "What's new in $2:"
+    echo "- Now on Raspberry Pi OS Trixie (Debian 13), with Python 3.13 and the"
+    echo "  current Qiskit"
+    echo "- A/B image: the SD card stays in the Pi. New releases install over the"
+    echo "  air and keep your settings, Wi-Fi, LED setup and Raspberry Pi…"
+    echo "- Raspberry Pi Imager: your password, Wi-Fi, SSH key, keyboard and"
+    echo "  Raspberry Pi Connect are applied (the user name stays rasqberry)"
+    """
+CHECK_OUT = """\
+    #!/bin/sh
+    echo 'This image:     beta-2026-09-30-221656'
+    echo 'Latest beta:    beta-2026-10-15-101010'
+    echo 'A newer image is available.'
+    exit 10
+    """
+
+
+def _height(box):
+    """A dialog's height: the line before its width (the last two arguments)."""
+    args = box.strip().splitlines()
+    return int(args[-2])
+
+
+def test_check_for_update_shows_whats_new_and_fits_80x24(tmp_path):
+    _stub(tmp_path, "rq_update_check.sh", CHECK_OUT)
+    _stub(tmp_path, "rq_release_notice.py", NOTICE)
+    _, wt = _menu(tmp_path, 'do_check_for_update', S=ON_A, WT_RC="1")
+    box = _boxes(wt)[-1]
+    assert "What's new in beta-2026-10-15-101010:" in box
+    assert "- Now on Raspberry Pi OS Trixie" in box
+    assert "Install it into Slot B, the other system, now?" in box
+    assert _height(box) <= 24
+    call = [c for c in _calls(tmp_path).splitlines() if "--whats-new" in c][0]
+    assert "--whats-new beta-2026-10-15-101010" in call
+    assert "--mark-seen" in call and "--refresh" in call
+    width = int(call.split("--width ")[1].split()[0])
+    lines = int(call.split("--lines ")[1].split()[0])
+    assert width <= 72 and 2 <= lines <= 7
+
+
+def test_whats_new_is_not_shown_twice_on_the_way_to_the_install(tmp_path):
+    # Install now -> the picker: the same release's "What's new" only once
+    _stub(tmp_path, "rq_update_check.sh", CHECK_OUT)
+    _stub(tmp_path, "rq_release_notice.py", NOTICE)
+    _, wt = _menu(tmp_path, 'do_check_for_update', S=ON_A, PLAN=_plan(),
+                  WT_YESNO_ANSWERS=_answers(tmp_path, "yesno", ["0", "1"]),
+                  WT_ANSWER="beta-2026-10-15-101010")
+    assert wt.count("What's new in beta-2026-10-15-101010:") == 1
+
+
+def test_picker_shows_whats_new_from_the_slot_manager(tmp_path):
+    _stub(tmp_path, "rq_release_notice.py", NOTICE)
+    _, wt = _menu(tmp_path, 'ab_pick_image B', WT_ANSWER="beta-2026-10-15-101010")
+    menu = _boxes(wt)[0]
+    assert "What's new in beta-2026-10-15-101010:" in menu
+    assert "Choose the release to install into Slot B:" in menu
+    args = menu.strip().splitlines()
+    text = [i for i, a in enumerate(args) if a.endswith("Choose the release to install into Slot B:")]
+    assert int(args[text[0] + 1]) <= 24
+
+
+def test_no_whats_new_without_a_summary_or_for_the_running_release(tmp_path):
+    _stub(tmp_path, "rq_release_notice.py", "#!/bin/sh\nexit 0\n")
+    _stub(tmp_path, "rq_update_check.sh", CHECK_OUT)
+    _, wt = _menu(tmp_path, 'do_check_for_update', S=ON_A, WT_RC="1")
+    assert "What's new" not in wt
+    vf = tmp_path / "rasqberry-version"
+    vf.write_text("beta-2026-10-15-101010\n")
+    _stub(tmp_path, "rq_release_notice.py", NOTICE)
+    _, wt = _menu(tmp_path, 'ab_pick_image B', RQ_VERSION_FILE=str(vf),
+                  WT_ANSWERS=_answers(tmp_path, "menus", []))
+    assert "What's new" not in wt

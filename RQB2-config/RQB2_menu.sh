@@ -2011,6 +2011,22 @@ ab_menu() {
         --menu "$_ab_text" "$_ab_hh" "$_ab_w" "$_ab_n" "$@" 3>&1 1>&2 2>&3
 }
 
+# "What's new in <tag>:" and a few short bullets for an update offer (the
+# highlights the taskbar notice shows), sized so the dialog still fits the
+# terminal (80x24 over SSH) next to <reserved> lines of other text; empty when
+# the release has no summary. Shown counts as seen: no second "What's new"
+# after the update (rq_release_notice.py --mark-seen).
+ab_whats_new() {
+    _ab_rows=$(tput lines 2>/dev/null || echo 24)
+    [ "$_ab_rows" -ge 12 ] 2>/dev/null || _ab_rows=24
+    _ab_lines=$((_ab_rows - 8 - ${2:-8}))
+    [ "$_ab_lines" -gt 7 ] && _ab_lines=7
+    [ "$_ab_lines" -ge 2 ] || return 0
+    [ -n "$1" ] && [ -x "$BIN_DIR/rq_release_notice.py" ] || return 0
+    "$BIN_DIR"/rq_release_notice.py --whats-new "$1" --width $(($(ab_width) - 5)) \
+        --lines "$_ab_lines" --refresh --mark-seen 2>/dev/null
+}
+
 ab_pause() {
     printf '\n%s' "${1:-Press Enter to return to the menu.}"
     read -r _ab_dummy < /dev/tty
@@ -2097,7 +2113,7 @@ ab_slot_line() {
 # -----------------------------------------------------------------------------
 
 do_check_for_update() {
-    local out rc=0 summary prc=0 current target
+    local out rc=0 summary prc=0 current target tag news
     # A plain line: an infobox would vanish at once
     printf '\nAsking rasqberry.org for the latest release...\n'
     out=$("$BIN_DIR"/rq_update_check.sh --refresh 2>&1) || rc=$?
@@ -2109,11 +2125,14 @@ do_check_for_update() {
         ab_msgbox "Check for updates" "Could not check for updates.\n\n$out"
         return 0
     fi
+    # The offered release and its "What's new" (user test 2026-10-08 F1)
+    tag=$(printf '%s\n' "$out" | sed -n 's/^Latest [a-z]*: *//p' | head -n 1 | cut -d' ' -f1)
 
     summary=$("$BIN_DIR"/rq_slot_manager.sh summary 2>/dev/null)
     if [ "$(ab_value "$summary" layout)" != "ab" ]; then
         # Standard image: no second slot - a new card is the way (R-045)
-        ab_msgbox "Update available" "$out\n\nTo install it, download it from rasqberry.org/latest/ and write it to a card.\n\nWriting a new image erases this card: copy your notebooks and your IBM Quantum account (~/.qiskit) first, or use a second card."
+        news=$(ab_whats_new "$tag" 11)
+        ab_msgbox "Update available" "$out${news:+\n\n$news}\n\nTo install it, download it from rasqberry.org/latest/ and write it to a card.\n\nWriting a new image erases this card: copy your notebooks and your IBM Quantum account (~/.qiskit) first, or use a second card."
         return 0
     fi
 
@@ -2124,9 +2143,13 @@ do_check_for_update() {
     fi
     current=$(ab_value "$summary" current)
     target=$(ab_other "$current")
+    news=$(ab_whats_new "$tag" 8)
     if ab_yesno "Update available" "Install now" "Later" \
-        "$out\n\nInstall it into Slot ${target}, the other system, now? Slot ${current}, the system you are running, stays as it is, so you can go back to it."; then
+        "$out${news:+\n\n$news}\n\nInstall it into Slot ${target}, the other system, now? Slot ${current}, the system you are running, stays as it is, so you can go back to it."; then
+        # the picker need not show the same "What's new" again
+        AB_WHATS_NEW_SHOWN="$tag"
         do_ab_install_update
+        AB_WHATS_NEW_SHOWN=""
     fi
     return 0
 }
@@ -2179,7 +2202,7 @@ do_ab_boot_menu() {
 # before it writes anything); returns 1 when the user cancels.
 
 ab_pick_image() {
-    local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice
+    local slot="${1:-B}" current channel latest lrc=0 ltag="" lurl="" ldate lsize="" lsha="" note prompt choice news
     current=$(head -n 1 "${RQ_VERSION_FILE:-/etc/rasqberry-version}" 2>/dev/null | tr -d '[:space:]')
     channel=$("$BIN_DIR"/rq_ab_releases.sh channel 2>/dev/null)
     # stdout is the result of this function: progress goes to stderr (the terminal)
@@ -2195,6 +2218,11 @@ ab_pick_image() {
         lsha=$(printf '%s\n' "$latest" | cut -f5)
         note="latest ${channel}, ${ldate}, $(ab_gb "$lsize") (recommended)"
         prompt="This system: ${current:-unknown} (release stream: ${channel})\n\nChoose the release to install into Slot ${slot}:"
+        # What's new in it, unless the update offer just showed it
+        if [ "$ltag" != "$current" ] && [ "$ltag" != "${AB_WHATS_NEW_SHOWN:-}" ]; then
+            news=$(ab_whats_new "$ltag" 6)
+            [ -n "$news" ] && prompt="This system: ${current:-unknown} (release stream: ${channel})\n\n${news}\n\nChoose the release to install into Slot ${slot}:"
+        fi
         if [ "$ltag" = "$current" ]; then
             # Nothing newer is out: say so first (user test #2)
             note="the version you are running (a second copy)"

@@ -19,6 +19,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 import argparse
 from pathlib import Path
 
@@ -160,7 +161,7 @@ def scroll_text(pixels, text, config, wanted_seconds, speed):
         speed (float): Seconds per scroll step
 
     Returns:
-        list: The layout of each pass, in order
+        list: The layout of each pass shown, in order
     """
     # About a minute per address, in whole passes: the text never stops
     # half-way, so the last pass can be read to its end (item 23). The
@@ -174,9 +175,25 @@ def scroll_text(pixels, text, config, wanted_seconds, speed):
               f"between passes, so every second pass reads right on either kit")
     print(f"Scrolling {len(layouts)} time(s), about {len(layouts) * pass_seconds:.0f}s "
           f"({pass_seconds:.0f}s per pass)")
+    # A pass takes longer than its steps' sleeps (drawing, a slow Pi 4) and
+    # the unverified alternation adds passes: the scroll ran 2.5 minutes and
+    # held up the setup checklist (pre-beta check 2026-10-08). So no new pass
+    # that would end more than half a pass after the wanted time - measured
+    # on the monotonic clock, which NTP's jump does not move - but always
+    # one pass in each layout.
+    minimum = len(set(layouts))
+    start = time.monotonic()
+    shown = []
     for layout in layouts:
+        if len(shown) >= minimum:
+            elapsed = time.monotonic() - start
+            per_pass = elapsed / len(shown)
+            if elapsed + per_pass > wanted_seconds + per_pass / 2:
+                break
         display_scrolling_text(pixels, text, scroll_speed=speed, passes=1, layout=layout)
-    return layouts
+        shown.append(layout)
+    print(f"Scrolled {len(shown)} time(s) in {time.monotonic() - start:.0f}s")
+    return shown
 
 
 def blank(pixels):

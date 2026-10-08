@@ -24,6 +24,16 @@ esac
 if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -s /var/lib/rasqberry/update-notice ]; then
     head -n 1 /var/lib/rasqberry/update-notice 2>/dev/null || true
 fi
+# Once after an update (rq_carry_over.sh left the mark): "Updated to <new>
+# (from <old>). What's new: ..." at the first SSH login after the health
+# check confirmed the new system - unless it was seen already (the menu's
+# update offer, the taskbar). The desktop shows it in a window instead; the
+# boot console's own autologin on tty1 is nobody (rq_firstlogin.sh rule 1).
+if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -n "${SSH_CONNECTION:-}" ] \
+    && [ -f "${HOME:-/nonexistent}/.local/state/rasqberry/whats-new-due" ] \
+    && [ -x /usr/bin/rq_release_notice.py ]; then
+    /usr/bin/rq_release_notice.py --installed --mark-seen 2>/dev/null || true
+fi
 
 if [ -t 0 ] && [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_firstlogin.sh ]; then
     export _RQ_FIRSTLOGIN_DONE=1
