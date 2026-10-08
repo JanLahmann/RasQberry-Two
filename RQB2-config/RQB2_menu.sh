@@ -1463,6 +1463,15 @@ do_demo_group_menu() {
                      CLEAR "Clear All LEDs" \
                      LEDS  "LED setup & tests (brightness, check, wizard)" ;;
       learn)     set -- MYQ "My Quantum Programs (JupyterLab)" "$@" ;;
+      # The Coin Game has its own icon in the Play window (a Fun with Quantum
+      # notebook, not a demo of its own): the same entry here, after Fun with
+      # Quantum (user test 2026-10-08, F3)
+      play)      if [ "${1:-}" = fun-with-quantum ]; then
+                     _dg_a="$1"; _dg_b="$2"; shift 2
+                     set -- "$_dg_a" "$_dg_b" COIN "Quantum Coin Game" "$@"
+                 else
+                     set -- "$@" COIN "Quantum Coin Game"
+                 fi ;;
       workshops) set -- "$@" LOOP "Demo Loop (LED demos one after another)" ;;
       # catalogue demos (Jan, 2026-10-08): shown also while empty, with the
       # way to add one
@@ -1486,6 +1495,8 @@ do_demo_group_menu() {
       ADDX)  do_add_external_demo || { handle_error "Failed to add demo from catalogue."; continue; } ;;
       MYQ)   run_engine_demo "$BIN_DIR/rq_my_programs.sh" \
                  || { handle_error "Could not open My Quantum Programs."; continue; } ;;
+      COIN)  run_engine_demo "$BIN_DIR/rq_demo_run.sh" fun-with-quantum coin-game \
+                 || { handle_error "Could not open the Quantum Coin Game."; continue; } ;;
       LOOP)  run_demo_loop
              # 130/143: stopped with Ctrl+C - the loop's own emergency stop
              case $? in 0|130|143) ;; *) handle_error "The demo loop stopped with an error."; continue ;; esac ;;

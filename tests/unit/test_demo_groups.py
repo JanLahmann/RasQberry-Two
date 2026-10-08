@@ -371,7 +371,8 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
     ("workshops", ["doqumentation"], ["LOOP"]),
-    ("play", ["fun-with-quantum"], ["quantum-fractals"]),
+    # the Coin Game, an icon of its own in the Play window, is here too (F3)
+    ("play", ["fun-with-quantum", "COIN", "quantum-paradoxes"], ["quantum-fractals"]),
 ])
 def test_a_group_submenu_has_its_fixed_entries(menu_env, tmp_path, group, first, last):  # noqa: F811
     sap = {"id": "sap-quantum-led", "name": "SAP Quantum LED", "category": "led-demo",
@@ -383,6 +384,34 @@ def test_a_group_submenu_has_its_fixed_entries(menu_env, tmp_path, group, first,
     tags = [t for t, _ in _menu_items(call)]
     assert tags[:len(first)] == first and tags[-len(last):] == last, tags
     assert len(tags) <= 11
+
+
+@needs_jq
+def test_group_lines_name_only_demos_that_are_there(tmp_path):
+    # user test 2026-10-08, F3: "Big projects: ... traQmania" while traQmania
+    # was not in the submenu; the Contributed line named SAP demos not added
+    lines = dict(_pairs(_cache(tmp_path), "demo_group_list"))
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
+    assert lines["contributed"] == "Contributed demos: add demos from the catalogue"
+    for line in lines.values():
+        assert "traQmania" not in line and "SAP" not in line
+    trq = {"id": "traqmania", "name": "traQmania", "category": "game",
+           "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
+           "menu": {"order": 80}}
+    sap = {"id": "sap-quantum-led", "name": "SAP Quantum LED", "category": "led-demo",
+           "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
+           "needs_hw": {"leds": True}, "menu": {"order": 72}}
+    lines = dict(_pairs(_cache(tmp_path / "added", [trq, sap]), "demo_group_list"))
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, traQmania"
+    assert lines["contributed"] == "Contributed demos: SAP Quantum LED, more from the catalogue"
+
+
+def test_the_coin_game_entry_starts_its_notebook():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    body = menu[menu.index("do_demo_group_menu() {"):]
+    assert 'COIN)  run_engine_demo "$BIN_DIR/rq_demo_run.sh" fun-with-quantum coin-game' in body
+    desk = open(os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks", "quantum-coin-game.desktop")).read()
+    assert "rq_demo_run.sh fun-with-quantum coin-game" in desk
 
 
 def test_without_a_cache_the_groups_still_show(menu_env):  # noqa: F811
