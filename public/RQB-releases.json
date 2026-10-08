@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T08:31:15Z",
+  "generated": "2026-10-08T14:48:46Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,23 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-08-095810",
-      "name": "rasqberry-development-2026-10-08-095810",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-095810/rasqberry-development-2026-10-08-095810.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-095810",
-      "release_date": "2026-10-08 09:58",
-      "image_download_size": 2144137392,
+      "tag": "development-2026-10-08-161606",
+      "name": "rasqberry-development-2026-10-08-161606",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-161606/rasqberry-development-2026-10-08-161606.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-161606",
+      "release_date": "2026-10-08 16:16",
+      "image_download_size": 2144875740,
       "extract_size": 9495904256,
-      "extract_sha256": "723e438e1d65fb2b3ef331b26c9a217910bbc2ff48c4af5eed34aca3317b9a9c",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-095810/rasqberry-development-2026-10-08-095810-ab.img.xz",
-      "ab_extract_sha256": "1fc0df8a54253be0cbe2966e4166a3fec38cd5d6178da371d7da3e76026a878b",
-      "ab_image_sha256": "06b258a7fe88db4d0f69a6cdc13859c945b091263be22ac7b23b6311e79271b8",
+      "extract_sha256": "8bca11b429ae6296b95426a3883c5bd6205ca4c0110f7ec6f8c61bcd7c42f914",
+      "image_sha256": "aedf204e98064cd2b1c9df3e0a1ec7a2399c0db88fbe9f439ffe629c9498c7c8",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-161606/rasqberry-development-2026-10-08-161606-ab.img.xz",
+      "ab_extract_sha256": "6afd2e423ef0a803ded9d3ddc7cfe7f4328e461935abd7d04d5caccd2b4570fa",
+      "ab_image_sha256": "baead8bdb6c0634aafc22a975587bc50f48e05d7e51b329ec4980fcd17ed8308",
+      "ab_image_download_size": 1878838208,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1884768940,
       "highlights": [
-        "find the venv in uid 1000's home, not ~rasqberry",
-        "Bump version to development-2026-10-08-095810",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-08-080053"
+        "the line on choosing the demos fits 80 columns",
+        "the settings file on a line of its own in the terminal hint",
+        "plain failure reasons; a switch after a failed update is a switch",
+        "every line fits the setup checklist with a margin",
+        "one install question for an LED demo, its name, one stop line"
       ]
     }
   }
