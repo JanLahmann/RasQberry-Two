@@ -63,6 +63,21 @@ if [ "$icon_type" = "custom" ]; then
     esac
 fi
 
+# A catalogue demo the RasQberry team drew an icon for (known-demos.json
+# "icon": a file in /usr/share/icons/rasqberry) shows it, unless the demo
+# brings its own picture (icon.type custom): a theme icon looked generic in
+# its group window (user test 2026-10-08, F4)
+if [ "$icon_type" != "custom" ]; then
+    icon_dir="${RQ_ICON_DIR:-/usr/share/icons/rasqberry}"
+    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    curated=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id) | .icon // empty][0] // empty' \
+        "$registry" 2>/dev/null) || curated=""
+    case "$curated" in
+        ""|*/*) ;;
+        *) [ -f "$icon_dir/$curated" ] && icon="$icon_dir/$curated" ;;
+    esac
+fi
+
 # In a terminal window the wrapper keeps the window open when the demo fails,
 # so its error can be read (R-029)
 exec_cmd="/usr/bin/rq_demo_run.sh $id"

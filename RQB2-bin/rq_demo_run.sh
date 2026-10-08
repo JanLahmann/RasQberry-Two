@@ -946,6 +946,20 @@ run_python() {
         run=()
         [ -t 1 ] && { rq_stop_hint "$DEMO_TITLE" keys; echo; }
     fi
+    # A catalogue demo that prints its own stop line ("Ctrl+C to exit",
+    # known-demos.json "own_stop_hint") shows only ours: two different stop
+    # lines in one window (user test 2026-10-08, F5). Its output goes through
+    # a filter then, so Python writes it unbuffered.
+    local own_hint=""
+    local -a py_env=()
+    if [ ${#run[@]} -gt 0 ] && [ -t 1 ]; then
+        own_hint=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(.id == $id) | .own_stop_hint // empty][0] // empty' \
+            "$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json" 2>/dev/null) || own_hint=""
+        if [ -n "$own_hint" ]; then
+            run+=(rq_hide_line "$own_hint")
+            py_env=(PYTHONUNBUFFERED=1)
+        fi
+    fi
 
     # Put the demo API on sys.path. A demo runs from its own checkout, and
     # /usr/bin - where rq_led_utils.py ships - is not a Python path, so
@@ -979,13 +993,13 @@ run_python() {
         # the desktop icon (sudo -E kept it), so the IBM Quantum account is the
         # user's own in ~/.qiskit on every path (Q26).
         ${run[@]+"${run[@]}"} env HOME="${ROOT_RUN_HOME:-$HOME}" PYTHONPATH="$demo_pythonpath" \
-            PYTHONDONTWRITEBYTECODE=1 \
+            PYTHONDONTWRITEBYTECODE=1 ${py_env[@]+"${py_env[@]}"} \
             "$venv_python" -W ignore::DeprecationWarning "$script" ${script_args[@]+"${script_args[@]}"}
     else
         # Regular Python script, run as user. sudo resets the environment, so
         # PYTHONPATH has to travel through env(1) rather than an export.
         info "Running Python script..."
-        ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" \
+        ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" ${py_env[@]+"${py_env[@]}"} \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
 }

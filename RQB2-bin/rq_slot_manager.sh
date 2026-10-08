@@ -438,7 +438,9 @@ cmd_status() {
     if [ -f "${BOOT_COMMON_DIR}/last-switch-failed" ]; then
         echo ""
         warn "$("${SCRIPT_DIR}/rq_slot_status.sh" failure-notice 2>/dev/null || echo "The last update or switch didn't work.")"
-        sed -n 's/^reason=/    Reason: /p; s/^time=/    When: /p' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
+        awk '/^reason=/ { r = substr($0, 8); print "    Reason: " toupper(substr(r, 1, 1)) substr(r, 2) }
+             /^detail=/ { print "    Detail: " substr($0, 8) }
+             /^time=/   { print "    When: " substr($0, 6) }' "${BOOT_COMMON_DIR}/last-switch-failed" >&2
     fi
 
     # Boot files
@@ -516,7 +518,8 @@ cmd_status_plain() {
         [ -n "$notice" ] || notice="The last update or switch didn't work."
         echo ""
         echo "$notice"
-        sed -n 's/^reason=/Reason: /p' "${BOOT_COMMON_DIR}/last-switch-failed" | head -n 1
+        awk '/^reason=/ { r = substr($0, 8); print "Reason: " toupper(substr(r, 1, 1)) substr(r, 2); exit }' \
+            "${BOOT_COMMON_DIR}/last-switch-failed"
     fi
 
     echo ""

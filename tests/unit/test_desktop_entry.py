@@ -126,3 +126,22 @@ def test_a_website_demo_without_a_server_may_skip_the_window(tmp_path):
     proc, out = _run(m, tmp_path)
     assert proc.returncode == 0, proc.stderr
     assert _fields(out)["Terminal"] == "false"
+
+
+def test_a_catalogue_demo_gets_its_curated_icon(tmp_path):
+    # user test 2026-10-08, F4: SAP Quantum LED showed a generic theme icon
+    icons = os.path.join(os.path.dirname(_WRITER), "..", "desktop-icons")
+    m = _manifest(id="sap-quantum-led", name="SAP Quantum LED")
+    mpath = tmp_path / "rqb-demo.json"
+    mpath.write_text(json.dumps(m))
+    out = tmp_path / "x.desktop"
+    env = dict(os.environ, RQ_ICON_DIR=icons)
+    proc = subprocess.run(["bash", _WRITER, str(mpath), str(out)], capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, proc.stderr
+    assert _fields(out)["Icon"] == os.path.join(icons, "sap-quantum-led.svg")
+    # a demo with its own picture keeps it
+    m["icon"] = {"type": "custom", "path": "logo.png"}
+    mpath.write_text(json.dumps(m))
+    proc = subprocess.run(["bash", _WRITER, str(mpath), str(out), "/demo"], capture_output=True,
+                          text=True, env=env)
+    assert _fields(out)["Icon"] == "/demo/logo.png"

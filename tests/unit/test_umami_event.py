@@ -451,6 +451,10 @@ def test_failure_reasons_match_the_health_check(pi):
                  "was tried twice without success"):
         assert text in source, text
     assert pi.failure_reason("virtual environment missing") == "health-check"
+    # the plain words Slot details show since 2026-10-08 keep the same codes
+    assert pi.failure_reason("the demos' Python setup is missing") == "health-check"
+    assert pi.failure_reason("Qiskit does not work in the demos' Python setup") == "health-check"
+    assert pi.failure_reason("the desktop did not come up") == "desktop-timeout"
     assert pi.failure_reason("Qiskit check failed (pip list timeout)") == "health-check"
     assert pi.failure_reason("the desktop did not come up within 300 s (display-manager: failed)") \
         == "desktop-timeout"

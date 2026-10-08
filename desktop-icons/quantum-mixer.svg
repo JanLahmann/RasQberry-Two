@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Quantum Mixer</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#e07a10"/>
+  <path d="M15 17h34L33.5 35v12h7.5v4H23v-4h7.5V35z" fill="#fff"/>
+  <circle cx="25.5" cy="22.5" r="3.2" fill="#e07a10"/>
+  <circle cx="33" cy="25" r="3.2" fill="#e07a10"/>
+  <circle cx="40" cy="21.5" r="3.2" fill="#e07a10"/>
+  <path d="M44 9l-6 10" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+</svg>

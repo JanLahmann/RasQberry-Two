@@ -55,6 +55,14 @@ DT_BOOTLOADER_DIR = Path(os.environ.get('RQ_DT_BOOTLOADER_DIR',
                                         '/proc/device-tree/chosen/bootloader'))
 FAILED_NOTICE = 'last-switch-failed'
 SWITCH_REQUEST = 'switch-requested'    # rq_slot_manager.sh switch-to: when, by a set clock
+
+# Why a trial start failed, as people read it (Slot details, the taskbar
+# indicator, the login line). The technical message goes to the log and to
+# detail= in last-switch-failed ("virtual environment missing" read as if the
+# venv were gone, rig test 2026-10-08).
+REASON_VENV = "the demos' Python setup is missing"
+REASON_QISKIT = "Qiskit does not work in the demos' Python setup"
+REASON_DESKTOP = "the desktop did not come up"
 # systemd-timesyncd creates it once the clock is synchronised (each boot: /run)
 TIME_SYNCED = Path(os.environ.get('RQ_TIME_SYNCED_FILE', '/run/systemd/timesync/synchronized'))
 TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -463,7 +471,7 @@ def failure_time(request: dict) -> Tuple[str, bool]:
 
 
 def record_failed_switch(config_dir: Path, slot: str, reason: str,
-                         version: str = '') -> None:
+                         version: str = '', detail: str = '') -> None:
     """
     Leave a notice on the CONFIG partition (both slots and a PC can read it;
     rq_slot_manager.sh status shows it) and clear the pending switch, so
@@ -475,6 +483,7 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
         reason (str): one line for the user
         version (str): the failed slot's /etc/rasqberry-version, if known
             (else the version the update wrote, from slot-<X>-updated)
+        detail (str): the technical message behind the reason, if any
     """
     # rq_update_slot.sh leaves slot-<X>-updated when it has written the slot
     # and the slot has not started well since: then this was an update ("The
@@ -485,8 +494,11 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
     when, clock_behind = failure_time(request)
     # time= is the failure's identity for the indicator, the login line and
     # the usage counts: written once here, never changed afterwards
+    updated = (config_dir / f'slot-{slot}-updated').exists()
     lines = [f"slot={slot}", f"reason={reason}", f"time={when}",
-             f"update={'yes' if (config_dir / f'slot-{slot}-updated').exists() else 'no'}"]
+             f"update={'yes' if updated else 'no'}"]
+    if detail:
+        lines.append(f"detail={detail}")
     version = version or hint.get('version', '')
     if version:
         lines.append(f"version={version}")
@@ -498,7 +510,13 @@ def record_failed_switch(config_dir: Path, slot: str, reason: str,
         (config_dir / FAILED_NOTICE).write_text('\n'.join(lines) + '\n')
     except OSError as e:
         logger.warning(f"Could not write {config_dir / FAILED_NOTICE}: {e}")
-    for name in ('target-slot', 'switch-retries', SWITCH_REQUEST):
+    # The update's one trial is over: a later switch to that slot is a plain
+    # switch, not the update again (a plain switch-to after a failed update
+    # was recorded as update=yes, rig test 2026-10-08)
+    names = ['target-slot', 'switch-retries', SWITCH_REQUEST]
+    if updated:
+        names.append(f'slot-{slot}-updated')
+    for name in names:
         try:
             (config_dir / name).unlink()
         except OSError:
@@ -514,7 +532,7 @@ def reboot_now() -> None:
     subprocess.run(['systemctl', 'reboot'], check=False)
 
 
-def fail_probation(config_dir: Path, slot: str, reason: str) -> str:
+def fail_probation(config_dir: Path, slot: str, reason: str, detail: str = '') -> str:
     """
     A slot on probation failed: record it and go back to the slot that worked.
 
@@ -527,13 +545,13 @@ def fail_probation(config_dir: Path, slot: str, reason: str) -> str:
         str: 'rolled-back' or 'no-rollback-target'
     """
     version = _read(Path('/etc/rasqberry-version'))
-    record_failed_switch(config_dir, slot, reason, version)
+    record_failed_switch(config_dir, slot, reason, version, detail)
     if not rollback_target_exists(config_dir, slot):
         logger.error("✗ autoboot.txt already starts this slot by default - "
                      "not rebooting (it would come straight back)")
         return 'no-rollback-target'
     other = 'B' if slot == 'A' else 'A'
-    logger.error(f"✗ Slot {slot} failed on its trial boot ({reason}). "
+    logger.error(f"✗ Slot {slot} failed on its trial boot ({detail or reason}). "
                  f"Rebooting into Slot {other}, the system that worked.")
     reboot_now()
     return 'rolled-back'
@@ -811,10 +829,11 @@ def main():
 
     checks = {}
 
-    def failed(reason: str):
-        logger.error(f"✗ Health check FAILED: {reason}")
+    def failed(reason: str, detail: str = ''):
+        logger.error(f"✗ Health check FAILED: {detail or reason}")
         report_status(False, checks)
-        if not probation or fail_probation(BOOT_CONFIG_DIR, probation, reason) != 'rolled-back':
+        if not probation or fail_probation(BOOT_CONFIG_DIR, probation, reason,
+                                           detail) != 'rolled-back':
             write_slot_status()
         sys.exit(1)
 
@@ -829,7 +848,7 @@ def main():
     success, message = check_venv_exists(env)
     checks['venv'] = (success, message)
     if not success:
-        failed("virtual environment missing")
+        failed(REASON_VENV, "virtual environment missing")
 
     venv_path = message
 
@@ -838,7 +857,7 @@ def main():
     success, message = check_qiskit_installed(venv_path)
     checks['qiskit'] = (success, message)
     if not success:
-        failed(f"Qiskit check failed ({message})")
+        failed(REASON_QISKIT, f"Qiskit check failed ({message})")
 
     # Check 3: the desktop came up (trial boots only)
     if probation:
@@ -846,7 +865,7 @@ def main():
         success, message = wait_for_display_manager()
         checks['desktop'] = (success, message)
         if not success:
-            failed(message)
+            failed(REASON_DESKTOP, message)
         logger.info(f"✓ {message}")
 
     # All checks passed

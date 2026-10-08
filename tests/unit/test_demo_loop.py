@@ -82,7 +82,65 @@ def loop(tmp_path):
     run.ran = ran
     run.wt = wt
     run.saved = saved_value
+    run.bindir = bindir
+    run.stubs = stubs
+    run.tmp = tmp_path
     return run
+
+
+def _not_installed(loop, *missing):
+    """rq_demo_run.sh stub: MISSING are not on this Pi; installs are logged."""
+    _exe(loop.bindir / "rq_demo_run.sh",
+         f'case "$2" in\n'
+         f'  --is-installed) case " {" ".join(missing)} " in *" $1 "*) exit 1 ;; esac; exit 0 ;;\n'
+         f'  --install-only) echo "install $1 auto=${{RQ_AUTO_INSTALL:-0}}" >> "{loop.ran}"; exit 0 ;;\n'
+         f'esac\necho "$1 title=$RQ_WINDOW_TITLE" >> "{loop.ran}"\n')
+    _exe(loop.stubs / "curl", "exit 0\n")
+    tty = loop.tmp / "tty"
+    tty.write_text("")
+    return {"RQ_TEST_TTY": str(tty), "RQ_TEST_FREE_MB": "50000"}
+
+
+def test_missing_loop_demos_are_one_question_with_the_reason(loop):
+    # user test 2026-10-08, F2: one box for both, saying why
+    extra = _not_installed(loop, "quantum-lights-out", "quantum-raspberry-tie")
+    proc = loop(saved="all", extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    boxes = [b for b in loop.wt.read_text().split("@@") if "--yesno" in b]
+    assert len(boxes) == 1
+    assert "The Demo Loop shows Quantum Lights Out and Quantum Raspberry Tie, which are not on this Pi yet." in boxes[0]
+    assert "about 25 MB" in boxes[0]
+    ran = loop.ran.read_text().splitlines()
+    # downloaded without asking again, before the loop starts
+    assert ran[:2] == ["install quantum-lights-out auto=1", "install quantum-raspberry-tie auto=1"]
+    assert "quantum-lights-out title=Demo Loop: Quantum Lights Out" in ran
+
+
+def test_not_now_runs_the_loop_without_them(loop):
+    extra = _not_installed(loop, "quantum-raspberry-tie")
+    extra["WT_RC"] = "1"
+    proc = loop(saved="all", extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Quantum Raspberry Tie, which is not on this Pi yet." in loop.wt.read_text()
+    ran = loop.ran.read_text()
+    assert "install" not in ran and "quantum-raspberry-tie" not in ran
+    assert "[3/3] RasQ-LED" in proc.stdout
+    plan = proc.stdout.split("Demo timings:", 1)[1].split("Controls:", 1)[0]
+    assert "Raspberry Tie" not in plan
+
+
+def test_nothing_left_ends_quietly(loop):
+    extra = _not_installed(loop, "quantum-lights-out")
+    extra["WT_RC"] = "1"
+    proc = loop(saved="quantum-lights-out", extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "No demo left to show" in proc.stdout + proc.stderr
+
+
+def test_the_window_keeps_the_loops_name():
+    text = open(_LOOP).read()
+    assert 'RQ_WINDOW_TITLE="Demo Loop${1:+: $1}"' in text
+    assert "export RQ_WINDOW_TITLE" in text
 
 
 def test_shipped_setting_is_all():

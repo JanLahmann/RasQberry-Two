@@ -46,7 +46,7 @@
   "timeout": 0,
   "icon": {
     "type": "custom",
-    "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
+    "path": "/usr/share/icons/rasqberry/quantum-lab.svg"
   },
   "menu": {
     "show": true,

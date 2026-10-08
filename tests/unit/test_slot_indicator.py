@@ -549,3 +549,12 @@ def test_badge_renders_when_cairo_is_there():
         assert (w, h) == (64, 64) and len(data) == 64 * 64 * 4
     w, h, data = ind.render_badge(ind.PLAIN_LETTER, "plain", dot=True)
     assert (w, h) == (64, 64) and len(data) == 64 * 64 * 4
+
+
+def test_the_reason_is_in_plain_words():
+    # rig test 2026-10-08: "Reason: virtual environment missing"
+    failed = dict(FAIL, slot="B", reason="the demos' Python setup is missing")
+    info = ind.slot_info(_status(current="A", a=DEV, b="development-2026-10-05-010101"),
+                         _live(target="B", confirmed=False, default="A", failed=failed), DEV)
+    texts = _texts(ind.menu_items(info, *ind.badge_state(info), [], ind.device_for_advice(info)))
+    assert "Reason: The demos' Python setup is missing" in texts
