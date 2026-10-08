@@ -318,15 +318,17 @@ fi
 # =============================================================================
 echo "Configuring Chromium browser settings..."
 
-# Create Chromium managed policy for homepage and settings
+# Create Chromium managed policy for homepage and settings. "?from=pi": the
+# site greets a Pi (start with First 15 minutes) instead of offering to write
+# the SD card that is already in it (fresh-card test 2026-10-08, F4)
 mkdir -p /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
 {
-  "HomepageLocation": "https://rasqberry.org",
+  "HomepageLocation": "https://rasqberry.org/?from=pi",
   "HomepageIsNewTabPage": false,
-  "NewTabPageLocation": "https://rasqberry.org",
+  "NewTabPageLocation": "https://rasqberry.org/?from=pi",
   "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://rasqberry.org"],
+  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi"],
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,

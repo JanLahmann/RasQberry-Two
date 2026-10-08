@@ -63,7 +63,10 @@ ENV_FILE = "/usr/config/rasqberry_environment.env"
 TOUCH_STATE = "/var/lib/rasqberry/touch-mode.conf"
 TOUCH_CSS = "/usr/config/touch-mode/gtk-touch.css"
 OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
-HOMEPAGE = "https://rasqberry.org"
+# "?from=pi": the site greets a Pi (start with First 15 minutes) instead of
+# offering to write the SD card that is already in it (fresh-card test
+# 2026-10-08, F4); the Chromium policy's home page says the same
+HOMEPAGE = "https://rasqberry.org/?from=pi"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
 # Every launcher the image puts on the desktop (stage 06). Where each one
