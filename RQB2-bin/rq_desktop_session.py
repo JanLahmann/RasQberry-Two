@@ -19,7 +19,11 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    screen and touch mode, RasQberry Setup first (R-008, R-035); on a screen
    too small for all of them the starters go first. This happens only when
    the screen, touch mode or the set of icons changed, so icons the user
-   moved stay where they are.
+   moved stay where they are. A group's icon opens its window
+   (rq_group_window.py): the group's demos as icons, not the raw folder.
+   The Touch Mode icon is on the desktop only while a touchscreen is
+   connected (udev: ID_INPUT_TOUCHSCREEN=1); without one it waits out of
+   sight (Desktop Settings in the RasQberry menu switch touch mode too).
 5. Browser (BROWSER_AUTOSTART): rasqberry.org, or a local page that says what
    to do without internet (R-101, Q15).
 
@@ -28,7 +32,8 @@ Usage:
     rq_desktop_session.py --no-browser    steps 1-4 only
     rq_desktop_session.py --relayout      step 4 only (a catalogue demo's
                                           launcher came or went)
-    rq_desktop_session.py --open-group ID open a group's folder (its icon)
+    rq_desktop_session.py --open-group ID open a group's window (its icon)
+    rq_desktop_session.py --touchscreen   exit 0 if a touchscreen is connected
     rq_desktop_session.py --quick-exec [CONF]
                                           set quick_exec=1 in the profile's
                                           pcmanfm.conf (or CONF)
@@ -95,6 +100,12 @@ ICON_DIR = "/usr/share/icons/rasqberry"
 # y=10 is under the panel and pcmanfm pushed the first row down onto the
 # second (T5). Bookworm's (LXDE-pi) counts below the panel.
 SCREEN_POSITION_PROFILES = ("default",)
+# Launchers on the desktop only while a touchscreen is connected; without one
+# they wait in HIDDEN_DIR (under the home) and come back with one (Jan,
+# 2026-10-08). udev marks a touchscreen's input device ID_INPUT_TOUCHSCREEN=1.
+TOUCHSCREEN_ONLY = ("touch-mode",)
+HIDDEN_DIR = ".local/share/rasqberry/desktop-hidden"
+UDEV_DATA = "/run/udev/data"
 
 
 def env_value(key, default="", path=ENV_FILE):
@@ -135,6 +146,37 @@ def touch_mode_on(path=TOUCH_STATE):
             return any(line.strip() == "TOUCH_MODE=enabled" for line in fh)
     except OSError:
         return False
+
+
+def has_touchscreen(udev_data=UDEV_DATA):
+    """
+    Tell whether a touchscreen is connected.
+
+    udev's input_id marks a touchscreen's input devices
+    ID_INPUT_TOUCHSCREEN=1 (libinput goes by the same mark); udev keeps each
+    device's properties in /run/udev/data (c13:<minor> for the event nodes,
+    +input:inputN for the devices), readable by everyone.
+
+    Args:
+        udev_data (str): udev's database directory (tests).
+
+    Returns:
+        bool: True if an input device is a touchscreen.
+    """
+    try:
+        names = os.listdir(udev_data)
+    except OSError:
+        return False
+    for name in names:
+        if not (name.startswith("c13:") or name.startswith("+input:")):
+            continue
+        try:
+            with open(os.path.join(udev_data, name), encoding="utf-8", errors="replace") as fh:
+                if re.search(r"^E:ID_INPUT_TOUCHSCREEN=1$", fh.read(), re.M):
+                    return True
+        except OSError:
+            continue
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -792,7 +834,8 @@ def group_dir(home=None):
 
 def group_folder(group, root=None):
     """
-    A group's folder: named by its title, which the folder window shows.
+    A group's folder: named by its title (the file manager shows it, the
+    group's window is titled the same).
 
     Args:
         group (dict): One entry of load_groups()["groups"].
@@ -806,7 +849,7 @@ def group_folder(group, root=None):
 
 def group_launcher_text(group, exe=None, icon_dir=ICON_DIR):
     """
-    The desktop launcher of a group: its icon opens the group's folder.
+    The desktop launcher of a group: its icon opens the group's window.
 
     Args:
         group (dict): One entry of load_groups()["groups"].
@@ -960,9 +1003,51 @@ def desktop_order(names, assignment, groups):
     return order
 
 
-def open_group(gid, groups=None, root=None):
+def place_touchscreen_launchers(desktop, touchscreen, hidden=None):
     """
-    Open a group's folder in a file manager window (the group icon's command).
+    Put the touchscreen-only launchers (Touch Mode) on the desktop or away.
+
+    Without a touchscreen they move to HIDDEN_DIR, with one they come back.
+    A launcher in neither place (the person deleted it) stays deleted.
+
+    Args:
+        desktop (str): ~/Desktop.
+        touchscreen (bool): A touchscreen is connected.
+        hidden (str): Where they wait (default: HIDDEN_DIR in the home the
+            desktop belongs to).
+
+    Returns:
+        bool: True if a launcher moved.
+    """
+    hidden = hidden or os.path.join(os.path.dirname(os.path.abspath(desktop)), HIDDEN_DIR)
+    changed = False
+    for name in TOUCHSCREEN_ONLY:
+        fname = name + ".desktop"
+        on_desk, away = os.path.join(desktop, fname), os.path.join(hidden, fname)
+        # (older small-screen desktops kept it in the More folder)
+        shown = [p for p in (on_desk, os.path.join(desktop, MORE_DIR, fname)) if os.path.exists(p)]
+        if touchscreen and not shown and os.path.exists(away):
+            os.replace(away, on_desk)
+            changed = True
+        elif not touchscreen and shown:
+            os.makedirs(hidden, exist_ok=True)
+            os.replace(shown[0], away)
+            for path in shown[1:]:
+                os.remove(path)
+            changed = True
+    return changed
+
+
+def group_window_script():
+    """rq_group_window.py next to this script, or None."""
+    path = os.path.join(_HERE, "rq_group_window.py")
+    return path if os.path.isfile(path) else None
+
+
+def open_group(gid, groups=None, root=None, window=None):
+    """
+    Open a group's window (the group icon's command): its demos as icons,
+    rq_group_window.py; without that script the folder in the file manager.
 
     Args:
         gid (str): Group id.
@@ -979,6 +1064,10 @@ def open_group(gid, groups=None, root=None):
         return 1
     folder = group_folder(group, root)
     os.makedirs(folder, exist_ok=True)
+    window = group_window_script() if window is None else window
+    if window:
+        # it opens the folder in pcmanfm itself when GTK is missing
+        os.execv(sys.executable, [sys.executable, window, gid])
     os.execvp("pcmanfm", ["pcmanfm", folder])
     return 0
 
@@ -1027,7 +1116,8 @@ def layout_top(touch, profile=None):
 
 
 def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False,
-                   root=None, groups=None, dirs=None, known=None, exe=None, icon_dir=ICON_DIR):
+                   root=None, groups=None, dirs=None, known=None, exe=None, icon_dir=ICON_DIR,
+                   touchscreen=None):
     """
     Sort the launchers into their group folders and lay the desktop out, when
     the screen, touch mode or the icon set changed.
@@ -1045,6 +1135,8 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         known (str): known-demos.json (tests).
         exe (str): This script, for the group launchers (tests).
         icon_dir (str): Group icons (tests).
+        touchscreen (bool): A touchscreen is connected (default: ask udev);
+            without one the Touch Mode icon leaves the desktop.
 
     Returns:
         bool: True if the desktop changed (pcmanfm must reload).
@@ -1057,6 +1149,8 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
     conf = conf or os.path.join(HOME, ".config/pcmanfm", profile, "desktop-items-0.conf")
     record = record or os.path.join(HOME, ".config/rasqberry/desktop-layout")
     changed = ensure_group_launchers(desktop, groups, exe, icon_dir) if groups["groups"] else False
+    touchscreen = has_touchscreen() if touchscreen is None else touchscreen
+    changed = place_touchscreen_launchers(desktop, touchscreen) or changed
     names = present_launchers(desktop, root, groups)
     assignment = {}
     for name in names:
@@ -1185,6 +1279,8 @@ def main(argv):
         return 0
     if argv[:1] == ["--open-group"] and len(argv) > 1:
         return open_group(argv[1])
+    if argv[:1] == ["--touchscreen"]:
+        return 0 if has_touchscreen() else 1
     if argv[:1] == ["--quick-exec"]:
         # the image build (CONF given) and the first login: no "Execute File"
         ensure_quick_exec(conf=argv[1] if len(argv) > 1 else None)

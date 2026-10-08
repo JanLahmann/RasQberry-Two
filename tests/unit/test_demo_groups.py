@@ -164,7 +164,9 @@ def _layout(home, desk, conf, size=(1920, 1080), touch=False, monkeypatch=None, 
                              record=str(home / "rec"), dirs=[_MANIFESTS],
                              known=os.path.join(_CFG, "known-demos.json"),
                              exe="/usr/bin/rq_desktop_session.py",
-                             icon_dir=os.path.join(_ROOT, "desktop-icons"))
+                             icon_dir=os.path.join(_ROOT, "desktop-icons"),
+                             # with a touchscreen: Touch Mode stays (test_group_window.py)
+                             touchscreen=True)
 
 
 def _folders(home):
@@ -225,10 +227,12 @@ def test_a_fresh_copy_on_the_desktop_wins_and_a_moved_demo_changes_folder(tmp_pa
 
 
 def test_open_group(monkeypatch, tmp_path):
+    # the group's window (rq_group_window.py); without it the folder in
+    # pcmanfm (more in test_group_window.py)
     calls = []
     monkeypatch.setattr(os, "execvp", lambda prog, args: calls.append(args))
     assert ds.open_group("nope", root=str(tmp_path)) == 1
-    ds.open_group("learn", root=str(tmp_path))
+    ds.open_group("learn", root=str(tmp_path), window="")
     assert calls == [["pcmanfm", str(tmp_path / "Learn & code")]]
     assert (tmp_path / "Learn & code").is_dir()
 

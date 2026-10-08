@@ -123,9 +123,9 @@ that labwc accelerates; the absolute pointer needs neither. The icon's
 position comes from pcmanfm's `desktop-items-0.conf`; its centre is x+60,
 y+67 (override per Pi with `"icon_offset": [dx, dy]` in rig.json).
 For a launcher in a demo group's folder (`~/.local/share/rasqberry/desktop-groups/`),
-it double-clicks the group's icon, types the launcher's name into the folder
-window (its type-ahead selects it), presses Enter and closes the folder window
-with Alt+F4 (`pi/keyboard.py`). The test
+it double-clicks the group's icon, types the launcher's name into the group's
+window (`rq_group_window.py`; its type-ahead selects it) and presses Enter,
+which starts it and closes the window (`pi/keyboard.py`). The test
 then finds the demo by the log `rq_hold_on_error.sh` writes
 (`~/.cache/rasqberry/<name>.log`) and stops it with Ctrl+C as before. Default
 icons: RasQ-LED (LED), Quantum Paradoxes (Jupyter), Qoffee-Maker (docker; runs
