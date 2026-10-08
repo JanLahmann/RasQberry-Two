@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T17:14:45Z",
+  "generated": "2026-10-08T17:21:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -23,8 +23,9 @@
       "ab_image_download_size": 1786100472,
       "highlights": [
         "Now on Raspberry Pi OS Trixie (Debian 13), with Python 3.13 and the current Qiskit",
+        "Demos sorted into groups on the desktop and in the menu: LED panel, Play, Big projects, Learn & code, Workshops & events, and Contributed demos",
+        "Raspberry Pi Imager: your own user name, password, Wi-Fi, SSH key, keyboard and Raspberry Pi Connect are applied",
         "A/B image: the SD card stays in the Pi. New releases install over the air and keep your settings, Wi-Fi, LED setup and Raspberry Pi Connect; the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
-        "Raspberry Pi Imager: your password, Wi-Fi, SSH key, keyboard and Raspberry Pi Connect are applied (the user name stays rasqberry)",
         "Taskbar badge shows which system runs, what's new in a release, and when the Pi's firmware is outdated",
         "Demos: Workshop & Qiskit Server, Qiskit Tutorials, Quantum Lab, Fun with Quantum, learning paths and a demo catalogue; each pinned to a tested version, and all stop the same way",
         "16 GB cards run every demo except the Docker ones (32 GB or more)"

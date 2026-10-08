@@ -2,7 +2,7 @@
   "os_list": [
     {
       "name": "RasQberry Two Beta",
-      "description": "Recommended. Two systems with safe updates on 64 GB+ cards, one system on smaller ones. Best: 128 GB A2/U3. Pi 4/5. Username is always rasqberry; set your password in Imager.",
+      "description": "Recommended. Two systems with safe updates on 64 GB+ cards, one system on smaller ones. Best: 128 GB A2/U3. Pi 4/5. Set your user name and password in Imager.",
       "icon": "https://rasqberry.org/imager/rasqberry-40.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08-ab.img.xz",
       "extract_size": 12398362624,
@@ -23,7 +23,7 @@
     },
     {
       "name": "RasQberry Two Beta \u2014 single system",
-      "description": "One system, no updates in place. 16 GB+ card, 32 GB+ for Docker demos. Pi 4/5. Username is always rasqberry; set your password in Imager.",
+      "description": "One system, no updates in place. 16 GB+ card, 32 GB+ for Docker demos. Pi 4/5. Set your user name and password in Imager.",
       "icon": "https://rasqberry.org/imager/rasqberry-40.png",
       "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08.img.xz",
       "extract_size": 9495904256,
