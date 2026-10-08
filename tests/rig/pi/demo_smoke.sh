@@ -21,7 +21,7 @@
 #      RIG_ICON=<file.desktop> starts the demo by double-clicking its desktop
 #        icon with a real (uinput) mouse instead of a terminal command; a
 #        launcher in a demo group's folder by double-clicking the group's
-#        icon, typing its name in the folder window and pressing Enter;
+#        icon, typing its name in the group's window and pressing Enter;
 #        RIG_ICON_OFFSET="dx,dy" (default 60,67) is the icon's centre from
 #        its position in pcmanfm's desktop-items-0.conf.
 #      RIG_CDP_PORT=9222 checks web/Jupyter pages in the desktop Chromium
@@ -102,7 +102,7 @@ if [ -n "${RIG_ICON:-}" ]; then
     conf="$HOME/.config/pcmanfm/LXDE-pi/desktop-items-0.conf"
     grep -q -- "--profile LXDE-pi" /etc/xdg/labwc/autostart 2>/dev/null \
         || conf="$HOME/.config/pcmanfm/default/desktop-items-0.conf"
-    # in a demo group's folder: its group's icon opens the folder window
+    # in a demo group's folder: its group's icon opens the group's window
     click="$RIG_ICON"; group_icon=""
     if [ ! -f "$desk" ]; then
         desk=$(ls "$HOME"/.local/share/rasqberry/desktop-groups/*/"$RIG_ICON" 2>/dev/null | head -1)
@@ -128,9 +128,8 @@ print("-".join(w[1:3]) if n == "rq_demo_run" and len(w) > 1 else n)' "$(sed -n '
     log="${XDG_CACHE_HOME:-$HOME/.cache}/rasqberry/$logname.log"
     sudo python3 "$out/mouse.py" dblclick "$cx" "$cy" "${sw:-1920}" "${sh:-1080}"
     if [ -n "$group_icon" ]; then
-        # the folder window: type the launcher's name (type-ahead selects it),
-        # Enter starts it, and Alt+F4 closes the folder window before the
-        # demo's window takes the focus
+        # the group's window (rq_group_window.py): type the launcher's name
+        # (type-ahead selects it), Enter starts it and closes the window
         sleep 3
         keys=$(python3 -c 'import sys
 codes = dict(zip("1234567890", range(2, 12)))
@@ -142,7 +141,7 @@ for ch in sys.argv[1].lower():
         break
     out.append(str(codes[ch]))
 print(" ".join(out))' "$(sed -n 's/^Name=//p' "$desk" | head -1)")
-        sudo python3 "$out/keyboard.py" $keys sleep0.5 28 56+62
+        sudo python3 "$out/keyboard.py" $keys sleep0.5 28
         launched="via=$click "
     fi
     spid=""

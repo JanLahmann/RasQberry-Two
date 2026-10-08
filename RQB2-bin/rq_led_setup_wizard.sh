@@ -841,7 +841,7 @@ verify_layout() {
     SKIPPED=false
     run_identification setup
     if [ "${SETUP_SAVED}" != true ] && [ "${SKIPPED}" != true ]; then
-        echo "The LED panel check is not done yet. It is under the RasQberry Setup icon."
+        echo "The LED panel check is not done yet. It is in the setup checklist (RasQberry Setup icon, or RasQberry Configuration -> Setup Checklist)."
     fi
     return 0
 }

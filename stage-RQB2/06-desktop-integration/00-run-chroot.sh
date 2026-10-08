@@ -146,7 +146,7 @@ show_trash=0
 show_mounts=0
 EOF
     sed -i "s/^desktop_font=.*/desktop_font=${DESKTOP_FONT}/" "$USER_CONFIG_DIR/desktop-items-0.conf"
-    # Icon positions for a 1920x1080 screen, RasQberry Setup first. At every
+    # Icon positions for a 1920x1080 screen, RasQberry Setup last. At every
     # login rq_desktop_session.py lays them out again for the actual screen
     # (small screens, touch mode) - R-008, R-035.
     python3 "${CLONE_DIR}/RQB2-bin/rq_desktop_session.py" --layout 1920x1080 "$USER_CONFIG_DIR/desktop-items-0.conf" \

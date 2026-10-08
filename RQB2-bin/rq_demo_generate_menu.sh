@@ -349,7 +349,8 @@ CACHE_HEADER
     # Demo groups (demo-groups.json): the Quantum Demos menu shows one submenu
     # per group, in this order; demo_group_items lists a group's demos
     # ("tag" "name [needs]" pairs, by menu.order), escaped like DEMO_MENU_ITEMS.
-    # A demo's group: rq_demo_group (known-demos.json, manifest, guess).
+    # A demo's group: rq_demo_group (catalogue: known-demos.json or
+    # Contributed demos; shipped: manifest, else a guess).
     echo "# Demo groups: \"id\" \"Title: what is in it\" pairs, in menu order" >> "$cache_file"
     echo "demo_group_list() {" >> "$cache_file"
     local gid gtitle gmenu glist="" gitems

@@ -56,7 +56,7 @@ EXTERNAL=false   # --external: apply the hardened external-demo constraints
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
 # Demo groups: the ids in demo-groups.json next to the shipped manifests
-VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops"]'
+VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops", "contributed"]'
 VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
 # Entrypoint types an external demo may declare (no legacy "script").
 EXTERNAL_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
@@ -463,7 +463,7 @@ validate_manifest() {
     fi
 
     # Validate group (demo-groups.json): optional for catalogue manifests,
-    # which get one from known-demos.json or a guess
+    # which go to their known-demos.json group or Contributed demos
     local group
     group=$(jq -r '.group // ""' "$file")
     if [ -n "$group" ] && ! echo "$VALID_GROUPS" | jq -e "index(\"$group\")" > /dev/null 2>&1; then

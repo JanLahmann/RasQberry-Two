@@ -106,7 +106,8 @@ _rq_load_demo_cache() {
 _rq_demo_groups_fallback() {
     demo_group_list() {
         printf '%s\n' '"led-panel" "LED panel"' '"play" "Play"' '"projects" "Big projects"' \
-            '"learn" "Learn & code"' '"workshops" "Workshops & events"'
+            '"learn" "Learn & code"' '"workshops" "Workshops & events"' \
+            '"contributed" "Contributed demos"'
     }
     demo_group_title() {
         case "$1" in
@@ -115,6 +116,7 @@ _rq_demo_groups_fallback() {
             projects)  echo "Big projects" ;;
             learn)     echo "Learn & code" ;;
             workshops) echo "Workshops & events" ;;
+            contributed) echo "Contributed demos" ;;
             *) return 1 ;;
         esac
     }
@@ -1454,6 +1456,7 @@ do_demo_group_menu() {
   _dg_title=$(demo_group_title "$_dg_id" 2>/dev/null) || _dg_title="$_dg_id"
   while true; do
     eval "set -- $(demo_group_items "$_dg_id" 2>/dev/null | tr '\n' ' ')"
+    _dg_text="Select a demo"
     case "$_dg_id" in
       led-panel) set -- IBM "IBM LED Demo" "$@" \
                      DISP  "Text & logos" \
@@ -1461,6 +1464,11 @@ do_demo_group_menu() {
                      LEDS  "LED setup & tests (brightness, check, wizard)" ;;
       learn)     set -- MYQ "My Quantum Programs (JupyterLab)" "$@" ;;
       workshops) set -- "$@" LOOP "Demo Loop (LED demos one after another)" ;;
+      # catalogue demos (Jan, 2026-10-08): shown also while empty, with the
+      # way to add one
+      contributed)
+                 [ $# -eq 0 ] && _dg_text="No demos from the catalogue yet. Add one:"
+                 set -- "$@" ADDX "Add demo from catalogue" ;;
     esac
     if [ $# -eq 0 ]; then
         whiptail --title "RasQberry: $_dg_title" --msgbox \
@@ -1468,13 +1476,14 @@ do_demo_group_menu() {
         return 0
     fi
     FUN=$(show_menu ${_dg_last:+--default-item "$_dg_last"} \
-       "RasQberry: $_dg_title" "Select a demo" "$@") || break
+       "RasQberry: $_dg_title" "$_dg_text" "$@") || break
     _dg_last="$FUN"
     case "$FUN" in
       IBM)   do_led_ibm_demo     || { handle_error "IBM LED demo failed."; continue; } ;;
       DISP)  do_led_display_menu || { handle_error "Failed to open text/logo display menu."; continue; } ;;
       CLEAR) do_led_clear        || { handle_error "The LEDs could not be turned off."; continue; } ;;
       LEDS)  do_select_led_option || { handle_error "Failed to open LED options."; continue; } ;;
+      ADDX)  do_add_external_demo || { handle_error "Failed to add demo from catalogue."; continue; } ;;
       MYQ)   run_engine_demo "$BIN_DIR/rq_my_programs.sh" \
                  || { handle_error "Could not open My Quantum Programs."; continue; } ;;
       LOOP)  run_demo_loop

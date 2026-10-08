@@ -138,14 +138,14 @@ def test_build_layout_uses_the_desktop_profile_and_font(tmp_path, monkeypatch):
     monkeypatch.setattr(ds, "pcmanfm_profile", lambda autostart=None: "default")
     assert ds.main(["--layout", "1920x1080", str(conf)]) == 0
     text = conf.read_text()
-    assert "[rasqberry-setup.desktop]\nx=10\ny=46\ntrusted=true\n" in text
+    assert "[rasqberry-menu.desktop]\nx=10\ny=46\ntrusted=true\n" in text
     rows = sorted({int(y) for y in re.findall(r"^y=(\d+)", text, re.M)})
     assert rows[1] - rows[0] >= 48 + ds.LABEL_HEIGHT_NUNITO
 
 
 def test_catalogue_launchers_join_their_group(tmp_path, monkeypatch):
     # T5, now with the demo groups: a catalogue launcher goes into its
-    # group's folder (SAP Quantum LED: LED panel), not onto the desktop
+    # group's folder (SAP Quantum LED: Contributed demos), not onto the desktop
     desk, conf, rec = tmp_path / "Desktop", tmp_path / "d.conf", tmp_path / "rec"
     desk.mkdir()
     for n in ds.ICON_ORDER:
@@ -158,14 +158,14 @@ def test_catalogue_launchers_join_their_group(tmp_path, monkeypatch):
     names = ds.present_launchers(str(desk))
     assert names == ds.ICON_ORDER + ["rq-ext-sap-quantum-led"]
     assert ds.layout_desktop((1920, 1080), False, desktop=str(desk), conf=str(conf), record=str(rec))
-    folder = tmp_path / ".local/share/rasqberry/desktop-groups/LED panel"
+    folder = tmp_path / ".local/share/rasqberry/desktop-groups/Contributed demos"
     assert (folder / "rq-ext-sap-quantum-led.desktop").read_text() == "x"
     assert not (desk / "rq-ext-sap-quantum-led.desktop").exists()
     text = conf.read_text()
     assert "[rq-ext-sap-quantum-led.desktop]" not in text and "[notes.desktop]" not in text
-    m = re.search(r"\[rq-group-led-panel\.desktop\]\nx=(\d+)\ny=(\d+)", text)
+    m = re.search(r"\[rq-group-contributed\.desktop\]\nx=(\d+)\ny=(\d+)", text)
     assert m and int(m.group(1)) + ds.ITEM_WIDTH <= ds.CHROMIUM_X
-    assert json.loads(rec.read_text())["groups"]["rq-ext-sap-quantum-led"] == "led-panel"
+    assert json.loads(rec.read_text())["groups"]["rq-ext-sap-quantum-led"] == "contributed"
 
 
 def test_adding_a_catalogue_demo_lays_the_desktop_out_again():
