@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T06:35:56Z",
+  "generated": "2026-10-08T06:36:54Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -39,12 +39,11 @@
       "image_download_size": 2146311572,
       "extract_size": 9495904256,
       "extract_sha256": "81532416ba04bf467bc6f292c929309278072a06ff7b7896772e98ea9d1268f2",
-      "image_sha256": "9542d63228f22aab509b1255c59801dffb4c432dcafe98444010b2741040194a",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-080053/rasqberry-development-2026-10-08-080053-ab.img.xz",
       "ab_extract_sha256": "e557efdf757365306f8a4c96c5bae3f85f9f1895e7e3be46268f96dca15a6214",
       "ab_image_sha256": "2e9a24d1f9f1fd0cc9b4148e970092de6efeb4051addb1980418c847e87b1462",
-      "ab_image_download_size": 1879201804,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1879201804,
       "highlights": [
         "Bump version to development-2026-10-08-080053",
         "Merge dev-custom-user: the user name typed in Imager (#319)",
