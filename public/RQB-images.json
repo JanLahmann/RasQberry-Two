@@ -78,6 +78,40 @@
           "website": "https://rasqberry.org"
         },
         {
+          "name": "RasQberry Two Dev (dev-custom-user 2026-10-08-054619)",
+          "description": "Build from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619.img.xz",
+          "extract_size": 9495904256,
+          "extract_sha256": "6ec99da0dc44bd98c9d9a2ea36020c2684563fbdbab9cd719915d7dac464ae53",
+          "image_download_size": 2146331396,
+          "image_sha256": "06c83a4963cc8d79d629d300a42f07f0232bb0886dbae658c670b39dc07a2a0b",
+          "release_date": "2026-10-08 05:46",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
+          "name": "RasQberry Two Dev A/B (dev-custom-user 2026-10-08-054619)",
+          "description": "A/B image from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
+          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-08-054619/rasqberry-dev-custom-user-2026-10-08-054619-ab.img.xz",
+          "extract_size": 12398362624,
+          "extract_sha256": "dc2f94a9a729e228de245dface31fa9110b253d82e50771e5d47d9d51ba88599",
+          "image_download_size": 1879622300,
+          "image_sha256": "2875a9abf507b98723675a785c3f95f0b33798fe6b9c6d97435331231ba4a281",
+          "release_date": "2026-10-08 05:46",
+          "init_format": "systemd",
+          "devices": [
+            "pi5-64bit",
+            "pi4-64bit"
+          ],
+          "website": "https://rasqberry.org"
+        },
+        {
           "name": "RasQberry Two Dev (dev-demo-groups 2026-10-07-233756)",
           "description": "Build from the dev-demo-groups branch. Untested, for developers. Login rasqberry / Qiskit1!",
           "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
@@ -104,40 +138,6 @@
           "image_download_size": 1880138144,
           "image_sha256": "8a50822abd2a1a7a76fdee64c6de7c0ea7512dee2cc70614ec7b56c9f82998bb",
           "release_date": "2026-10-07 23:37",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two Dev (dev-custom-user 2026-10-07-223222)",
-          "description": "Build from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-07-223222/rasqberry-dev-custom-user-2026-10-07-223222.img.xz",
-          "extract_size": 9495904256,
-          "extract_sha256": "e4813780d9c869b9c6b147ef6ea6c07e94d7a4ad0dd75b99e4185cbbb518178a",
-          "image_download_size": 2144585480,
-          "image_sha256": "a4cab9cd972a2bfe7027ca3e4f34b79def0e64f48d380fb2a033054c601b2e70",
-          "release_date": "2026-10-07 22:32",
-          "init_format": "systemd",
-          "devices": [
-            "pi5-64bit",
-            "pi4-64bit"
-          ],
-          "website": "https://rasqberry.org"
-        },
-        {
-          "name": "RasQberry Two Dev A/B (dev-custom-user 2026-10-07-223222)",
-          "description": "A/B image from the dev-custom-user branch. Untested, for developers. Login rasqberry / Qiskit1!",
-          "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
-          "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-custom-user-2026-10-07-223222/rasqberry-dev-custom-user-2026-10-07-223222-ab.img.xz",
-          "extract_size": 12398362624,
-          "extract_sha256": "fb8305604f6539c87f8bb41ba3d9a1c527652622f026691488c4f56b948d9f9f",
-          "image_download_size": 1882051596,
-          "image_sha256": "70bbc0460d388d62aeb51ea8d9451865f976e40e87fe7e42cac352a0a49ca37f",
-          "release_date": "2026-10-07 22:32",
           "init_format": "systemd",
           "devices": [
             "pi5-64bit",
