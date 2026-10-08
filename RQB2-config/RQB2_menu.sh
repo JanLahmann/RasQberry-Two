@@ -2263,11 +2263,13 @@ EOF
 
 # Jan's guard, from `rq_slot_manager.sh plan-update` output <plan>: warn before
 # a downgrade (default: Cancel) and before the last beta or stable system on
-# the card is replaced (typed REPLACE, with the safer way offered first).
+# the card is replaced (typed REPLACE, with the safer way offered first), and
+# before a release that only knows the user rasqberry while the user has
+# another name (#319; typed RASQBERRY).
 # Sets AB_GUARD_OPTS to the options for rq_update_slot.sh; returns 1 when the
 # user stops. (Not called in $( ): its dialogs must reach the screen.)
 ab_guard() {
-    local plan="$1" summary="$2" tag="$3" target running holds t_ver r_holds r_ver new_s choice typed opts=""
+    local plan="$1" summary="$2" tag="$3" target running holds t_ver r_holds r_ver new_s choice typed opts="" user first
     AB_GUARD_OPTS=""
     target=$(ab_value "$plan" target)
     running=$(ab_other "$target")
@@ -2308,6 +2310,27 @@ ab_guard() {
         fi
         opts="${opts:+$opts }--force-replace-safe-slot"
     fi
+
+    # A renamed user (#319): a release from before it only knows rasqberry
+    case "$(ab_value "$plan" user_names)" in
+        no|unknown)
+            user=$(ab_value "$plan" user)
+            if [ -n "$user" ] && [ "$user" != "rasqberry" ]; then
+                if [ "$(ab_value "$plan" user_names)" = "no" ]; then
+                    first="${tag} is older than RasQberry's own user names: it only knows the user rasqberry."
+                else
+                    first="Could not check whether ${tag} knows user names other than rasqberry (no connection to GitHub?). If it does not:"
+                fi
+                typed=$(whiptail --title "This release does not know your user name" --inputbox \
+                    "${first}\n\nThe new system would start with the user rasqberry and the published default password, not as ${user}: your password, your home folder /home/${user} (its files and settings), your SSH keys and Raspberry Pi Connect would not be there.\n\nBetter: choose a newer release.\n\nType RASQBERRY to install it anyway:" \
+                    20 "$(ab_width)" "" 3>&1 1>&2 2>&3) || return 1
+                if [ "$typed" != "RASQBERRY" ]; then
+                    ab_msgbox "Nothing was changed" "Slot ${target} still holds ${t_ver}."
+                    return 1
+                fi
+                opts="${opts:+$opts }--force-old-release"
+            fi ;;
+    esac
     AB_GUARD_OPTS="$opts"
     return 0
 }
@@ -2343,7 +2366,7 @@ do_ab_install_update() {
     fi
 
     # Jan's guard: what the update would replace
-    plan=$("$BIN_DIR"/rq_slot_manager.sh plan-update "$tag" 2>&1) || prc2=$?
+    plan=$("$BIN_DIR"/rq_slot_manager.sh plan-update "$tag" "$url" 2>&1) || prc2=$?
     if [ "$prc2" -ne 0 ] || [ -z "$(ab_value "$plan" target)" ]; then
         ab_msgbox "Cannot install an update now" "Could not check what the update would replace.\n\n$(printf '%s\n' "$plan" | sed 's/^ERROR: //')"
         return 0

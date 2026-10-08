@@ -1953,6 +1953,33 @@ rq_update_channel() {
     echo "$channel"
 }
 
+# Own user names (#319, built from 2026-10-07 on): a release that has
+# rq_user_rename.sh takes over the user name of the system it updates (A/B
+# carry-over). An older one only knows the user "rasqberry". Prints yes, no
+# or unknown for release <tag>; <url> (its download) names the repository
+# (default JanLahmann/RasQberry-Two). A tag dated before 2026-10-07 is "no"
+# without asking; else the file is looked up at the release's git tag.
+# Environment (tests): RQ_RAW_BASE (https://raw.githubusercontent.com)
+RQ_USER_NAMES_SINCE="2026-10-07"
+rq_release_knows_user_names() {
+    local tag="$1" url="${2:-}" day repo code
+    [ -n "$tag" ] || { echo unknown; return 0; }
+    day=$(printf '%s' "$tag" | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
+    if [ -n "$day" ] && [[ "$day" < "$RQ_USER_NAMES_SINCE" ]]; then
+        echo no
+        return 0
+    fi
+    repo=$(printf '%s' "$url" | sed -nE 's#^https://github\.com/([^/]+/[^/]+)/releases/download/.*#\1#p')
+    repo="${repo:-JanLahmann/RasQberry-Two}"
+    code=$(curl -s -o /dev/null -I -L --max-time 15 -w '%{http_code}' \
+        "${RQ_RAW_BASE:-https://raw.githubusercontent.com}/$repo/$tag/RQB2-bin/rq_user_rename.sh" 2>/dev/null || true)
+    case "$code" in
+        200) echo yes ;;
+        404) echo no ;;
+        *)   echo unknown ;;
+    esac
+}
+
 # Release controls (#242): rasqberry.org/RQB-release-controls.json maps a
 # release tag to {"notify_after", "rollout", "withdrawn", "reason"}. Only
 # "withdrawn" matters to the shell tools: the update check and the release

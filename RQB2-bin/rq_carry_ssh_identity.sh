@@ -32,6 +32,11 @@ target="${1:-}"
 [ -n "$target" ] && [ -d "$target/etc" ] || { echo "Usage: $(basename "$0") <mounted-target-root>" >&2; exit 2; }
 src="${RQ_SSH_SOURCE_ROOT:-}"
 home="${RQ_SSH_USER_HOME:-$(getent passwd 1000 2>/dev/null | cut -d: -f6)}"
+# The new slot's own desktop user: a fresh image has "rasqberry" while this
+# system's user may have been renamed (#319); its first start renames it, and
+# the keys move along with the home folder
+tgt_home=$(awk -F: '$3 == 1000 { print $6; exit }' "$target/etc/passwd" 2>/dev/null || true)
+tgt_home="${tgt_home:-$home}"
 carried=""
 
 # Host keys
@@ -47,14 +52,14 @@ if compgen -G "$src/etc/ssh/ssh_host_*_key" >/dev/null && [ -d "$target/etc/ssh"
 fi
 
 # The user's authorized_keys
-if [ -n "$home" ] && [ -s "$src$home/.ssh/authorized_keys" ] && [ -d "$target$home" ]; then
-    mkdir -p "$target$home/.ssh"
-    cp "$src$home/.ssh/authorized_keys" "$target$home/.ssh/authorized_keys"
-    chmod 700 "$target$home/.ssh"
-    chmod 600 "$target$home/.ssh/authorized_keys"
+if [ -n "$home" ] && [ -s "$src$home/.ssh/authorized_keys" ] && [ -d "$target$tgt_home" ]; then
+    mkdir -p "$target$tgt_home/.ssh"
+    cp "$src$home/.ssh/authorized_keys" "$target$tgt_home/.ssh/authorized_keys"
+    chmod 700 "$target$tgt_home/.ssh"
+    chmod 600 "$target$tgt_home/.ssh/authorized_keys"
     if [ "$(id -u)" = "0" ]; then
-        owner=$(stat -c %u:%g "$target$home")
-        chown "$owner" "$target$home/.ssh" "$target$home/.ssh/authorized_keys"
+        owner=$(stat -c %u:%g "$target$tgt_home")
+        chown "$owner" "$target$tgt_home/.ssh" "$target$tgt_home/.ssh/authorized_keys"
     fi
     carried="${carried:+$carried and }authorized_keys"
 fi

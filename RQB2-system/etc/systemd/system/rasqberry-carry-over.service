@@ -6,8 +6,12 @@ Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot
 # at every start, link ~/Shared and ~/.qiskit to /data and bind the
 # NetworkManager profiles from /data - before NetworkManager, ssh, avahi
 # and the desktop start. A/B cards only.
+# The first start of a new slot may also rename the desktop user (#319):
+# before logind, cron, any login or user manager, and the units that run the
+# venv by its path (the rename rewrites them).
 After=local-fs.target data.mount rasqberry-ab-layout.service
 Before=NetworkManager.service avahi-daemon.service ssh.service systemd-user-sessions.service display-manager.service rasqberry-health-check.service
+Before=systemd-logind.service cron.service getty@tty1.service user@1000.service rasqberry-ip-display.service rasqberry-led-renderer.service
 ConditionPathExists=/boot/config/autoboot.txt
 
 [Service]

@@ -4,7 +4,8 @@ firstrun.sh to the FIRST FAT partition and appends a systemd.run entry to its
 cmdline.txt. Raspberry Pi OS needs its initramfs (imager_fixup) to run it;
 RasQberry images have none, and on the A/B image the first FAT partition is
 CONFIG, which the Pi does not boot from. rq_imager_firstrun.sh handles both,
-and rq_imager_userconf.sh keeps the user "rasqberry".
+and rq_imager_userconf.sh gives the user the name typed in Imager (#319,
+rq_user_rename.sh) or keeps "rasqberry".
 
 On A/B it is for the first start of a newly written card only: a leftover
 CONFIG/firstrun.sh found by the first start of an updated slot restarted the
@@ -257,7 +258,7 @@ def test_a_restart_never_ends_a_tryboot_trial(tmp_path):
     assert (tmp_path / "rebooted").read_text() == "0 tryboot\n"
 
 
-def _userconf(tmp_path, *args, autologin=True):
+def _userconf(tmp_path, *args, autologin=True, rename_rc=0):
     calls = tmp_path / "userconf.calls"
     real = tmp_path / "userconf"
     real.write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\n')
@@ -266,28 +267,59 @@ def _userconf(tmp_path, *args, autologin=True):
     lightdm.write_text("[Seat:*]\n" + ("autologin-user=rasqberry\n" if autologin else "#autologin-user=\n"))
     stubs = tmp_path / "stubs"
     stubs.mkdir(exist_ok=True)
-    (stubs / "getent").write_text("#!/bin/sh\necho 'rasqberry:x:1000:1000::/home/rasqberry:/bin/bash'\n")
+    # uid 1000 as getent sees it; the rename stub changes it
+    pw = tmp_path / "passwd-1000"
+    pw.write_text("rasqberry:x:1000:1000::/home/rasqberry:/bin/bash\n")
+    (stubs / "getent").write_text(f'#!/bin/sh\ncat "{pw}"\n')
     (stubs / "getent").chmod(0o755)
+    renames = tmp_path / "rename.calls"
+    rename = tmp_path / "rq_user_rename.sh"
+    rename.write_text(f'#!/bin/sh\necho "$@" >> "{renames}"\n'
+                      f'[ {rename_rc} = 0 ] && echo "$2:x:1000:1000::/home/$2:/bin/bash" > "{pw}"\n'
+                      f'exit {rename_rc}\n')
+    rename.chmod(0o755)
     env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_USERCONF=str(real),
                RQ_LIGHTDM_CONF=str(lightdm), RQ_USERCONF_STATE=str(tmp_path / "userconf-pi"),
-               RQ_IMAGER_STATE=str(tmp_path / "state"), RQ_IMAGER_LOG=str(tmp_path / "imager.log"))
+               RQ_IMAGER_STATE=str(tmp_path / "state"), RQ_IMAGER_LOG=str(tmp_path / "imager.log"),
+               RQ_USER_RENAME=str(rename))
     proc = subprocess.run(["bash", _USERCONF, *args], env=env, capture_output=True, text=True, timeout=30)
-    return proc, (calls.read_text() if calls.exists() else "")
+    return proc, (calls.read_text() if calls.exists() else ""), \
+        (renames.read_text() if renames.exists() else "")
 
 
-def test_a_different_imager_user_name_keeps_rasqberry(tmp_path):
-    proc, calls = _userconf(tmp_path, "pi", "$5$hash")
+def test_a_typed_imager_user_name_renames_the_user(tmp_path):
+    # #319: the name typed in Imager becomes the user (rq_user_rename.sh), and
+    # userconf then only sets the password - for the new name
+    proc, calls, renames = _userconf(tmp_path, "jan", "$5$hash")
     assert proc.returncode == 0, proc.stderr
-    assert calls.strip() == "rasqberry $5$hash"
-    assert (tmp_path / "state" / "imager-user-requested").read_text().strip() == "pi"
+    assert renames.strip() == "apply jan --why Raspberry Pi Imager"
+    assert calls.strip() == "jan $5$hash"
+    assert (tmp_path / "state" / "imager-user-requested").read_text().strip() == "jan"
     # the desktop keeps logging in by itself (cancel-rename reads this flag)
     assert (tmp_path / "userconf-pi" / "autologin").exists()
 
 
-def test_the_rasqberry_name_is_just_a_password_change(tmp_path):
-    proc, calls = _userconf(tmp_path, "rasqberry", "$5$hash", autologin=False)
+def test_a_failed_rename_keeps_rasqberry(tmp_path):
+    proc, calls, renames = _userconf(tmp_path, "jan", "$5$hash", rename_rc=1)
     assert proc.returncode == 0, proc.stderr
+    assert renames.strip() == "apply jan --why Raspberry Pi Imager"
     assert calls.strip() == "rasqberry $5$hash"
+    assert "The user stays 'rasqberry'" in (tmp_path / "imager.log").read_text()
+
+
+def test_imagers_pi_without_a_password_is_no_typed_name(tmp_path):
+    # Imager sends "pi" and no password when only an SSH key is set
+    proc, calls, renames = _userconf(tmp_path, "pi", "")
+    assert proc.returncode == 0, proc.stderr
+    assert renames == ""
+    assert calls.strip() == "rasqberry"
+    assert not (tmp_path / "state" / "imager-user-requested").exists()
+
+
+def test_the_rasqberry_name_is_just_a_password_change(tmp_path):
+    proc, calls, renames = _userconf(tmp_path, "rasqberry", "$5$hash", autologin=False)
+    assert proc.returncode == 0, proc.stderr
+    assert calls.strip() == "rasqberry $5$hash" and renames == ""
     assert not (tmp_path / "state").exists() and not (tmp_path / "userconf-pi" / "autologin").exists()
 
 
@@ -310,8 +342,9 @@ def test_first_boot_tasks_wait_for_the_customisation_start(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Raspberry Pi Connect: the token goes to rasqberry, not to the name typed in
-# Imager. The samples are firstrun.sh files from Imager's own generator
+# Raspberry Pi Connect: the token goes to uid 1000 under its name when the
+# Connect part runs - the typed name once the user was renamed (#319), else
+# rasqberry - never blindly to the name typed in Imager. The samples are firstrun.sh files from Imager's own generator
 # (customization_generator.cpp of 2.0.3, 2.0.11.1 and main, built against
 # Qt 6.10 with settings: hostname, user "jan" or none (key only: "pi"),
 # password hash, SSH key, Wi-Fi, keyboard, time zone, a Connect token).
@@ -353,18 +386,18 @@ def _connect_part(script):
     return "\n".join(lines[start:end + 1]) + "\n"
 
 
-def _run_connect(tmp_path, part):
-    """Run a Connect part as the Pi would, with rasqberry as uid 1000.
+def _run_connect(tmp_path, part, user="rasqberry"):
+    """Run a Connect part as the Pi would, with USER as uid 1000.
 
-    Returns (home, log): rasqberry's home and the commands that need root.
+    Returns (home, log): the user's home and the commands that need root.
     """
-    home = tmp_path / "home" / "rasqberry"
+    home = tmp_path / "home" / user
     home.mkdir(parents=True)
     stubs, log = tmp_path / "connect-stubs", tmp_path / "connect.log"
     stubs.mkdir()
     bodies = {
-        # only rasqberry exists; "jan" or "pi" from Imager do not
-        "getent": f'case "$2" in 1000|rasqberry) echo "rasqberry:x:1000:1000:,,,:{home}:/bin/bash" ;; *) exit 2 ;; esac\n',
+        # only USER exists (rasqberry: "jan" or "pi" from Imager do not)
+        "getent": f'case "$2" in 1000|{user}) echo "{user}:x:1000:1000:,,,:{home}:/bin/bash" ;; *) exit 2 ;; esac\n',
         # install -o needs root: record it, make the directories under home
         "install": f'echo "install $*" >> "{log}"\n'
                    f'case " $* " in *" -d "*) for a in "$@"; do case "$a" in {tmp_path}/*) mkdir -p "$a" ;; esac; done ;; esac\n',
@@ -419,6 +452,20 @@ def test_connect_goes_to_rasqberry(tmp_path, sample):
     assert not re.search(rf"(?<![\w.]){typed}(?![\w.])", log)
 
 
+@needs_gnu_sed
+@pytest.mark.parametrize("sample", ["imager-2.0.11.1-user.sh", "imager-main-user.sh"])
+def test_connect_goes_to_the_renamed_user(tmp_path, sample):
+    # #319: rq_imager_userconf.sh renamed rasqberry to "jan" before the
+    # Connect part runs: the token and linger are jan's, at /home/jan
+    part = _connect_part(_patched(tmp_path, sample))
+    run = tmp_path / "run"
+    run.mkdir()
+    home, log = _run_connect(run, part, user="jan")
+    key = home / ".config" / "com.raspberrypi.connect" / "auth.key"
+    assert key.read_text().strip() == TOKEN
+    assert "linger/jan" in log and "--machine jan@.host" in log and "rasqberry" not in log
+
+
 @pytest.mark.parametrize("sample", ["imager-2.0.11.1-user.sh"])
 def test_unpatched_connect_misses_the_user(tmp_path, sample):
     # why the patch exists: Imager's own part puts the token under /home/jan,
@@ -462,8 +509,9 @@ def test_connect_patch_changes_nothing_else(tmp_path, sample):
 # The note at the first login: another name was typed in Imager
 # ---------------------------------------------------------------------------
 
-NOTE = ("You chose the name jan in Imager. RasQberry always uses the name rasqberry; your password, "
-        "SSH key, hostname and Wi-Fi from Imager are set.")
+NOTE = ("You chose the name jan in Imager, but this Pi could not use it ('jan' already exists on this "
+        "system (user or group)). Your user name is rasqberry; your password, SSH key, hostname and "
+        "Wi-Fi from Imager are set.")
 
 _WT = r'''#!/bin/sh
 { for a in "$@"; do printf '%s\n' "$a"; done; echo "@@"; } >> "$WT_LOG"
@@ -482,7 +530,9 @@ def _firstlogin(tmp_path, mode="--now", requested="jan", **extra):
     state = tmp_path / "var-lib-rasqberry"
     state.mkdir(exist_ok=True)
     if requested is not None:
-        (state / "imager-user-requested").write_text(requested + "\n")
+        # rq_user_rename.sh could not rename: the wanted name and why
+        (state / "user-rename-failed").write_text(
+            requested + "\n'" + requested + "' already exists on this system (user or group)\n")
     home = tmp_path / "home"
     home.mkdir(exist_ok=True)
     env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=str(home),

@@ -84,11 +84,18 @@ when a `firstrun.sh` is on `/boot/firmware` or `/boot/config`) runs
 - Both: points `firstrun.sh` at `/boot/firmware`, and gives the start that runs it a
   self-removing `/boot/firstrun.sh`. `kernel-command-line.service` runs it once; it
   removes itself and its `cmdline.txt` entries and restarts the Pi.
-- The user stays `rasqberry`: Imager's call to `userconf` goes to
-  `/usr/bin/rq_imager_userconf.sh`, which sets the password for `rasqberry` instead of
-  renaming the user (Imager renames to `pi` when it has an SSH key but no user name),
-  logs a different requested name (`/var/lib/rasqberry/imager-user-requested`,
-  `/var/log/rasqberry-imager.log`) and keeps the desktop autologin.
+- The user name (#319): Imager's call to `userconf` goes to
+  `/usr/bin/rq_imager_userconf.sh`. A name typed in Imager (with a password) is given
+  to the user by `/usr/bin/rq_user_rename.sh`: `rasqberry` becomes `<name>`, the home
+  moves to `/home/<name>`, and the paths and names the image holds are rewritten (the
+  RQB2 venv's scripts, the LED/IP units, desktop and console autologin, sudo, linger,
+  crontab, `/data/home/<name>` on A/B). Any failure undoes all of it: the user stays
+  `rasqberry`, and `/var/lib/rasqberry/user-rename-failed` makes the first login say
+  why. Imager's "pi" without a password (SSH key only) is not a typed name. Then
+  `userconf` sets the password for the user under its current name; the desktop
+  keeps logging in by itself. Logs: `/var/log/rasqberry-imager.log`,
+  `/var/log/rasqberry-user-rename.log`; `sudo rq_user_rename.sh plan <name>` shows
+  what a rename would change.
 
 The first-boot runner skips its tasks in that start (`systemd.run=` on the kernel
 command line): the root expansion's restart would cut `firstrun.sh` off.
@@ -108,7 +115,8 @@ for a new password that nobody headless can type (rig, 2026-10-04).
 /etc/xdg/autostart/rasqberry-enable-vnc.desktop             # VNC autostart
 /etc/systemd/system/rasqberry-firstboot.service             # Systemd service
 /etc/systemd/system/rasqberry-imager-firstrun.service       # Imager customisation
-/usr/bin/rq_imager_firstrun.sh, rq_imager_userconf.sh       # (from RQB2-bin)
+/usr/bin/rq_imager_firstrun.sh, rq_imager_userconf.sh,
+         rq_user_rename.sh                                  # (from RQB2-bin)
 /var/lib/rasqberry-firstboot/                               # Completion markers
 ```
 

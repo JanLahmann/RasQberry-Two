@@ -73,7 +73,7 @@ while Slot A is mounted. The little on the placeholder DATA (LED settings) is
 copied aside and put back. Progress shows on the splash screen; the log is
 `/var/log/rasqberry-expand.log`.
 
-**Raspberry Pi Imager's OS customisation** (Wi-Fi, keyboard, SSH key, password)
+**Raspberry Pi Imager's OS customisation** (Wi-Fi, keyboard, SSH key, user name, password)
 lands on CONFIG, the first FAT partition, which the Pi does not boot from.
 `rasqberry-imager-firstrun.service` moves it to BOOT-A before the layout runs and
 restarts once; the next start applies it and restarts again
@@ -106,6 +106,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | `~/Shared`, `~/My-Quantum-Programs`, `~/.qiskit` (IBM Quantum account) | live on DATA (`/data/home/<user>/…`), symlinked from the home folder in both slots; a new slot's starter files do not overwrite the learner's |
 | Wi-Fi networks | live on DATA (`/data/rasqberry/system-connections`), bind-mounted over `/etc/NetworkManager/system-connections` |
 | LED panel settings | on DATA (`rq_device_settings.sh`) |
+| desktop user's name (#319: a fresh slot's `rasqberry` is renamed to the other slot's user, home `/home/<name>`, by `rq_user_rename.sh`; fallback `/data/rasqberry/desktop-user`) | first, before the rest, on the first start of a freshly written slot |
 | desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the marks in `~/.local/state/rasqberry/` (setup checklist answered, notices shown; its folders stay per slot) | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
 | Raspberry Pi Connect: its sign-in (`~/.config/com.raspberrypi.connect`) and, where it was on, its user units and linger | copied once, like the line above, where the new system has Connect installed |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |
@@ -143,7 +144,8 @@ From a shell:
   message says which), 22 not enough space, 23 no A/B layout, 24 another update
   running, 25 no checksum, 26 an unconfirmed downgrade, 27 an unconfirmed
   overwrite of the last beta or stable system, 28 the running slot is still on
-  trial (or a restart would start the other slot).
+  trial (or a restart would start the other slot), 29 an unconfirmed release
+  that only knows the user `rasqberry` while the user has another name.
 - Four steps: download, check, unpack into the slot, switch. Only the
   `.img.xz` is staged, in `/var/tmp/rasqberry-updates` on the running slot:
   it needs the download's size plus 0.5 GB free there (`--preflight`, before
@@ -180,9 +182,15 @@ updates from dev (`rq_release_channel` in `rq_common.sh`).
 - **Last safe slot:** the target holds beta or stable, the running slot does
   not. A strong warning with a typed `REPLACE`; the menu offers the safer way
   first: switch to the target slot, then install into the other one.
+- **Older than own user names (#319):** the user has the name typed in Imager,
+  and the release is from before #319 (tag dated before 2026-10-07, or no
+  `RQB2-bin/rq_user_rename.sh` at its git tag; not checkable offline counts as
+  well). It would start as `rasqberry` with the default password, without the
+  user's home folder, SSH keys and Connect. Blocked: a typed `RASQBERRY`, or
+  `--force-old-release`; the written slot is checked again before it starts.
 - No warning for an empty target or a dev build over a dev build.
 
-`rq_slot_manager.sh plan-update <tag>` is the one place that decides; the menu
+`rq_slot_manager.sh plan-update <tag> [<url>]` is the one place that decides; the menu
 and `rq_update_slot.sh` both use it. It prints key=value lines:
 
     target=B
@@ -193,10 +201,12 @@ and `rq_update_slot.sh` both use it. It prints key=value lines:
     downgrade=stream                              # none | stream | older
     last_safe_slot=yes                            # yes | no
     advice=Slot B holds the only beta or stable system on this card. Safer: ...
+    user=jan                                      # the desktop user (uid 1000)
+    user_names=no                                 # yes | no | unknown | n/a (user is rasqberry)
 
-`rq_update_slot.sh` asks in a terminal (y/N, a typed `REPLACE`); without one it
-refuses (26, 27) unless `--allow-downgrade` / `--force-replace-safe-slot` say
-so. The menu asks in its own dialogs and passes these options.
+`rq_update_slot.sh` asks in a terminal (y/N, a typed `REPLACE` or `RASQBERRY`);
+without one it refuses (26, 27, 29) unless `--allow-downgrade` /
+`--force-replace-safe-slot` / `--force-old-release` say so. The menu asks in its own dialogs and passes these options.
 
 `rasqberry-update-poller.timer` (automatic updates of dev builds, for the rig)
 ships disabled.
