@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T15:01:53Z",
+  "generated": "2026-10-08T15:03:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -31,20 +31,26 @@
       ]
     },
     "dev": {
-      "tag": "dev-polish-1008-2026-10-08-161549",
-      "name": "rasqberry-dev-polish-1008-2026-10-08-161549",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-polish-1008-2026-10-08-161549/rasqberry-dev-polish-1008-2026-10-08-161549.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-polish-1008-2026-10-08-161549",
-      "release_date": "2026-10-08 16:15",
-      "image_download_size": 2145091340,
+      "tag": "development-2026-10-08-161606",
+      "name": "rasqberry-development-2026-10-08-161606",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-161606/rasqberry-development-2026-10-08-161606.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-161606",
+      "release_date": "2026-10-08 16:16",
+      "image_download_size": 2144875740,
       "extract_size": 9495904256,
-      "extract_sha256": "cc787b03b6c8c7d088dad6acfc3a79b5fbcc4ddf5d3c62571f240b772f8b38d5",
-      "image_sha256": "abdf414d56f860537d5db6fa84d3ab25f4be2a562b1b805b20a62f1e86d236ed",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-polish-1008-2026-10-08-161549/rasqberry-dev-polish-1008-2026-10-08-161549-ab.img.xz",
-      "ab_extract_sha256": "114b3d09919d06111b9cb6289f8e6ac93bd7fb4453531dae6b15d27fbdbf9718",
-      "ab_image_sha256": "6390b7a75caa86d8cb2ac1741fc77baccff88f37698d2574e894761534989041",
-      "ab_image_download_size": 1880286576,
-      "ab_extract_size": 12398362624
+      "extract_sha256": "8bca11b429ae6296b95426a3883c5bd6205ca4c0110f7ec6f8c61bcd7c42f914",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-161606/rasqberry-development-2026-10-08-161606-ab.img.xz",
+      "ab_extract_sha256": "6afd2e423ef0a803ded9d3ddc7cfe7f4328e461935abd7d04d5caccd2b4570fa",
+      "ab_image_sha256": "baead8bdb6c0634aafc22a975587bc50f48e05d7e51b329ec4980fcd17ed8308",
+      "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1878838208,
+      "highlights": [
+        "the line on choosing the demos fits 80 columns",
+        "the settings file on a line of its own in the terminal hint",
+        "plain failure reasons; a switch after a failed update is a switch",
+        "every line fits the setup checklist with a margin",
+        "one install question for an LED demo, its name, one stop line"
+      ]
     }
   }
 }

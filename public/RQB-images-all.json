@@ -1,7 +1,7 @@
 {
-  "generated": "2026-10-08T14:49:28Z",
+  "generated": "2026-10-08T15:03:05Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 159,
+  "count": 161,
   "releases": [
     {
       "name": "RasQberry Two Dev (64-bit)",
@@ -44,6 +44,48 @@
       "_release_tag": "development-2026-10-08-161606",
       "_branch": "development",
       "_published": "2026-10-08T14:16:54Z"
+    },
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-polish-1008-2026-10-08-161549/rasqberry-dev-polish-1008-2026-10-08-161549.img.xz",
+      "extract_size": 9495904256,
+      "extract_sha256": "cc787b03b6c8c7d088dad6acfc3a79b5fbcc4ddf5d3c62571f240b772f8b38d5",
+      "image_download_size": 2145091340,
+      "image_sha256": "abdf414d56f860537d5db6fa84d3ab25f4be2a562b1b805b20a62f1e86d236ed",
+      "release_date": "2026-10-08 16:15",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-polish-1008-2026-10-08-161549",
+      "_branch": "dev-polish-1008",
+      "_published": "2026-10-08T14:16:30Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-polish-1008-2026-10-08-161549/rasqberry-dev-polish-1008-2026-10-08-161549-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "114b3d09919d06111b9cb6289f8e6ac93bd7fb4453531dae6b15d27fbdbf9718",
+      "image_download_size": 1880286576,
+      "image_sha256": "6390b7a75caa86d8cb2ac1741fc77baccff88f37698d2574e894761534989041",
+      "release_date": "2026-10-08 16:15",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-polish-1008-2026-10-08-161549",
+      "_branch": "dev-polish-1008",
+      "_published": "2026-10-08T14:16:30Z"
     },
     {
       "name": "RasQberry Two Dev (64-bit)",
