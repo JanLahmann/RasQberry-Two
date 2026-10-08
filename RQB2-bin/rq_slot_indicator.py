@@ -31,6 +31,17 @@ command selectable, with Copy command), How to update (Raspberry Pi's
 guide) and OK. RasQberry never updates the
 firmware itself (Jan, 2026-10-07).
 
+Once after an update (whats-new-due, rq_release_notice.py), the first
+desktop login of the confirmed new system opens its "What's new" window,
+unless it was seen as the update offer; the menu keeps "What's new in this
+version…" while the release is the newest of its stream.
+
+The tray: the item registers again when the watcher or a tray host appears,
+and checks that the panel read it (TrayWatch), registering again with
+backoff; if the panel's tray took nothing for about a minute,
+wf-panel-pi is restarted once per session (lwrespawn starts it again: the
+fix that brought the badge back on a fresh Pi 5, user test 2026-10-08).
+
 Runs as the desktop user from /etc/xdg/autostart/rasqberry-slot-indicator.desktop.
 
 Written with Gio D-Bus (org.kde.StatusNotifierItem + com.canonical.dbusmenu)
@@ -371,13 +382,14 @@ def split_sentence(text):
     return [text]
 
 
-def menu_items(info, state, next_slot, advices, device):
+def menu_items(info, state, next_slot, advices, device, running_news=False):
     """
     The menu as (id, properties) pairs, top to bottom. Disabled lines first
     (what runs, what the other slot holds, a failure, updates), then actions.
     Properties are plain Python values: label (str), enabled (bool),
     type ('separator'), icon-name (str). Action ids: 11 System Info,
-    12 Software & Image Updates, 100+i What's new in update i.
+    12 Software & Image Updates, 14 What's new in this version (only with
+    running_news: its summary is known), 100+i What's new in update i.
     """
     items = []
     base, base_next = base_state(info)
@@ -414,6 +426,8 @@ def menu_items(info, state, next_slot, advices, device):
     items.append((10, {"type": "separator"}))
     items.append((11, {"label": "System Info…", "icon-name": "dialog-information"}))
     items.append((12, {"label": "Software & Image Updates…"}))
+    if running_news:
+        items.append((14, {"label": "What's new in this version…"}))
     if ups:
         items.append((13, {"type": "separator"}))
     for i, a in enumerate(ups):
@@ -526,6 +540,128 @@ def whats_new(advice, device, releases, highlights, wait=""):
         "release_url": entry.get("release_url", ""),
         "install_label": install_label,
     }
+
+
+RELEASES_PAGE = "https://github.com/JanLahmann/RasQberry-Two/releases/tag/"
+
+
+def installed_whats_new(due, info, releases, highlights):
+    """
+    The window once after an update (or from the menu): what's new in the
+    running release, where the old one is, and that Raspberry Pi OS's own
+    "Updates are available" notice is something else (user test 2026-10-08
+    F2, F4). The keys of whats_new(); no Install button.
+
+    Args:
+        due (dict): version (the running release), from (the release before,
+            '' if not known)
+    """
+    version = due["version"]
+    head = rn.heads(releases).get(rn.stream_of(version))
+    entry = head[1] if head and head[0] == version else {}
+    lines = rn.release_highlights(version, releases, highlights)
+    old, other = (due.get("from") or "").strip(), info.get("other", "")
+    route = ""
+    if old and old not in rn.NOT_A_VERSION and old != "unknown" and other:
+        route = f"Slot {other} keeps {old}, to go back to."
+    meta = rn.date_text(version, entry)
+    return {
+        "title": f"What's new in {version}",
+        "heading": f"Updated to {version}" if old else f"RasQberry Two {version}",
+        "meta": f"Released {meta}" if meta else "",
+        "highlights": lines or ["No summary for this release: see the release notes."],
+        "route": route,
+        "warning": "",
+        "strong": False,
+        "wait": "",
+        "note": rn.APT_NOTE if old else "",
+        "release_url": entry.get("release_url") or RELEASES_PAGE + version,
+        "install_label": "",
+    }
+
+
+# Is the badge in the tray? The panel reads the item's properties when it
+# adds it, and again after a NewIcon signal: a registration without such a
+# read means the tray did not take it (fresh Pi 5, user test 2026-10-08 F1:
+# wf-panel-pi's tray host was not registered, and only a panel restart
+# brought the badge). Seconds between checks while the tray shows nothing:
+TRAY_CHECK_DELAYS = (5, 10, 20, 40, 80, 160, 300)
+TRAY_FIRST_CHECK = 3
+TRAY_PING_WAIT = 3
+# Failed checks (about 50 s) before the panel is restarted - once per session
+PANEL_RESTART_AFTER = 4
+PANEL_RESTART_MARK = "rasqberry-panel-restarted"
+
+
+class TrayWatch:
+    """
+    Does the tray show the badge? Pure: the caller passes monotonic times.
+    check() says what to do next: 'ok', 'ping' (send NewIcon, check again),
+    'retry' (register again) or 'restart-panel' (once, after
+    PANEL_RESTART_AFTER failed checks in a row).
+    """
+
+    def __init__(self):
+        self.registered_at = None
+        self.last_read = None
+        self.ping_at = None
+        self.failures = 0
+        self.ok = False
+
+    def registered(self, now):
+        """The item was (re-)registered with the tray."""
+        self.registered_at = now
+        self.ping_at = None
+        self.ok = False
+
+    def read(self, now):
+        """Someone read the item's properties."""
+        self.last_read = now
+
+    def check(self, now):
+        """See the class docstring."""
+        since = self.ping_at if self.ping_at is not None else self.registered_at
+        if since is not None and self.last_read is not None and self.last_read >= since:
+            self.ok, self.failures, self.ping_at = True, 0, None
+            return "ok"
+        if self.ping_at is None:
+            self.ping_at = now
+            return "ping"
+        self.ping_at = None
+        self.failures += 1
+        return "restart-panel" if self.failures == PANEL_RESTART_AFTER else "retry"
+
+    def delay(self):
+        """Seconds until the next check after a failure (backoff)."""
+        return TRAY_CHECK_DELAYS[min(max(self.failures - 1, 0), len(TRAY_CHECK_DELAYS) - 1)]
+
+
+def panel_restart_target(pid, proc="/proc"):
+    """
+    The process to stop so the panel starts again by itself: wf-panel-pi
+    under lwrespawn (labwc's autostart restarts it a second later). None
+    for anything else - then nothing is stopped.
+
+    Args:
+        pid (int): the process that owns org.kde.StatusNotifierWatcher
+    """
+    def read(path):
+        try:
+            with open(path, "rb") as f:
+                return f.read().decode("utf-8", "replace")
+        except OSError:
+            return ""
+
+    if not pid or read(f"{proc}/{pid}/comm").strip() != "wf-panel-pi":
+        return None
+    stat = read(f"{proc}/{pid}/stat")
+    try:
+        ppid = int(stat.rsplit(")", 1)[1].split()[1])
+    except (IndexError, ValueError):
+        return None
+    if "lwrespawn" not in read(f"{proc}/{ppid}/cmdline"):
+        return None
+    return pid
 
 
 def checklist_answered(directory=None):
@@ -804,6 +940,12 @@ class SlotIndicator:
         self.tooltip_until = 0.0
         self.firmware = {}
         self.fw_window = None
+        self.tray = TrayWatch()             # does the tray show the badge?
+        self.tray_timer = 0
+        self.watcher_owner = ""
+        self.registered = set()             # (item name, tray owner) pairs registered
+        self.fetched_once = False           # the first release check is done
+        self.installed_done = False         # "What's new" after an update: shown
 
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         # In the tray only while wants_icon(): the plain badge comes and goes
@@ -824,6 +966,10 @@ class SlotIndicator:
         Gio.bus_watch_name_on_connection(self.bus, "org.kde.StatusNotifierWatcher",
                                          Gio.BusNameWatcherFlags.NONE, self._on_watcher,
                                          self._on_watcher_gone)
+        # A tray host that registers late (or again): register the item again
+        self.bus.signal_subscribe("org.kde.StatusNotifierWatcher", "org.kde.StatusNotifierWatcher",
+                                  "StatusNotifierHostRegistered", "/StatusNotifierWatcher", None,
+                                  Gio.DBusSignalFlags.NONE, self._on_host_registered)
         for panel in PANELS:
             Gio.bus_watch_name_on_connection(self.bus, panel, Gio.BusNameWatcherFlags.NONE,
                                              self._on_panel, self._on_panel_gone)
@@ -873,7 +1019,9 @@ class SlotIndicator:
             state, next_slot = badge_state(info, self.book.acked)
             letter = info["current"] or "?"
             title, body = tooltip(info, state, next_slot, self.advices, self.device)
-            items = menu_items(info, state, next_slot, self.advices, self.device)
+            news = bool(rn.release_highlights(info["version"], self.data["releases"],
+                                              self.data["highlights"]))
+            items = menu_items(info, state, next_slot, self.advices, self.device, news)
         else:
             state, letter = "plain", PLAIN_LETTER
             title, body = plain_tooltip(info["version"], self.advices, self.device)
@@ -925,6 +1073,7 @@ class SlotIndicator:
     def _tick(self):
         self.update_view()
         self._firmware_notice()
+        self._post_update_notice()
         if not self.fetching and time.monotonic() >= self.next_fetch:
             self._start_fetch()
         return True
@@ -951,9 +1100,11 @@ class SlotIndicator:
 
     def _fetched(self, ok):
         self.fetching = False
+        self.fetched_once = True
         self.next_fetch = time.monotonic() + (FETCH_EVERY if ok else FETCH_RETRY)
         log.info("release check: %s", "ok" if ok else "offline or failed (using the cache)")
         self.update_view()
+        self._post_update_notice()
         return False
 
     # -- notices (wf-panel-pi's popup) ---------------------------------------
@@ -1001,6 +1152,28 @@ class SlotIndicator:
             log.info("firmware notice: %s", self.firmware)
             self.show_firmware()
 
+    def _post_update_notice(self):
+        """
+        Once after an update: the new release's "What's new" (rq_carry_over.sh
+        left whats-new-due), on the first desktop login after the health check
+        confirmed the slot - not if it was seen as the update offer. Waits for
+        the first release check when the summary is not in the cache yet.
+        """
+        if (self.installed_done or self.mode != "ab" or not self.panel_present
+                or self.window is not None):
+            return
+        due = rn.post_update_due(state_dir(), self.info.get("version", ""),
+                                 self.info.get("confirmed", False))
+        if not due:
+            return
+        if not self.fetched_once and not rn.release_highlights(
+                due["version"], self.data["releases"], self.data["highlights"]):
+            return
+        self.installed_done = True
+        rn.finish_due(state_dir(), due["version"])
+        log.info("what's new after the update: %s (from %s)", due["version"], due["from"])
+        self.show_installed(due)
+
     def _on_panel(self, conn, name, owner):
         log.info("panel %s appeared (%s)", name, owner)
         self.panel_present = True
@@ -1033,22 +1206,126 @@ class SlotIndicator:
             Gio.bus_unown_name(self.name_id)
             self.name_id = 0
             self.shown = False
+            self._tray_check_in(0)
             log.info("out of the tray (nothing new)")
 
     def _register(self):
+        """
+        Register the item with the tray: each item name only once per tray.
+        wf-panel-pi watches the name once per registration and crashed
+        (map::at) when an item registered twice went away (rig 2026-10-08),
+        so registering again means a new name, and the old one is let go.
+        """
+        if (self.name, self.watcher_owner) in self.registered:
+            self._new_item_name()
+        self.registered.add((self.name, self.watcher_owner))
         self.bus.call("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher",
                       "org.kde.StatusNotifierWatcher", "RegisterStatusNotifierItem",
                       self.GLib.Variant("(s)", (self.name,)), None,
                       self.Gio.DBusCallFlags.NONE, -1, None, self._registered)
+        self.tray.registered(time.monotonic())
+        self._tray_check_in(TRAY_FIRST_CHECK)
+
+    def _new_item_name(self):
+        """Own a fresh item name, then release the old one (the tray drops that item)."""
+        old = self.name_id
+        self.name_count += 1
+        self.name = f"org.kde.StatusNotifierItem-{os.getpid()}-{self.name_count}"
+        self.name_id = self.Gio.bus_own_name_on_connection(
+            self.bus, self.name, self.Gio.BusNameOwnerFlags.NONE, None, None)
+        log.info("in the tray as %s (registering again)", self.name)
+        if old:
+            self.Gio.bus_unown_name(old)
 
     def _on_watcher(self, conn, name, owner):
         log.info("tray %s owned by %s%s", name, owner, " - registering" if self.shown else "")
         self.watcher = True
+        self.watcher_owner = owner
         if self.shown:
             self._register()
 
     def _on_watcher_gone(self, conn, name):
         self.watcher = False
+        self.watcher_owner = ""
+        self._tray_check_in(0)
+
+    def _on_host_registered(self, conn, sender, path, iface, signal, params):
+        # A tray host came (late, or again): does it show the badge? (it reads
+        # the registered items itself; registering again only if it does not)
+        log.info("tray host registered%s", " - checking the badge" if self.shown else "")
+        if self.shown and self.watcher:
+            self._tray_check_in(TRAY_FIRST_CHECK)
+
+    # -- does the tray show the badge? (TrayWatch) -------------------------------
+    def _tray_check_in(self, seconds):
+        """Check in <seconds> (0: no check), replacing a pending one."""
+        if self.tray_timer:
+            self.GLib.source_remove(self.tray_timer)
+            self.tray_timer = 0
+        if seconds:
+            self.tray_timer = self.GLib.timeout_add_seconds(seconds, self._tray_check)
+
+    def _tray_check(self):
+        self.tray_timer = 0
+        if not (self.shown and self.watcher):
+            return False
+        action = self.tray.check(time.monotonic())
+        if action == "ok":
+            log.info("the tray shows the badge")
+        elif action == "ping":
+            self._emit("NewIcon")       # the tray reads the icon again: a sign of life
+            self._tray_check_in(TRAY_PING_WAIT)
+        else:
+            log.warning("the tray does not show the badge (check %d; host registered: %s)",
+                        self.tray.failures, self._host_registered())
+            if action == "restart-panel" and self._restart_panel():
+                return False            # the new panel's tray: _on_watcher registers again
+            self._register()
+            self._tray_check_in(self.tray.delay())
+        return False
+
+    def _host_registered(self):
+        """The watcher's IsStatusNotifierHostRegistered ('?' if it cannot be read)."""
+        try:
+            reply = self.bus.call_sync(
+                "org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher",
+                "org.freedesktop.DBus.Properties", "Get",
+                self.GLib.Variant("(ss)", ("org.kde.StatusNotifierWatcher",
+                                           "IsStatusNotifierHostRegistered")),
+                None, self.Gio.DBusCallFlags.NONE, 2000, None)
+            return str(reply.unpack()[0])
+        except Exception:
+            return "?"
+
+    def _restart_panel(self):
+        """
+        Last resort, once per session: restart wf-panel-pi (lwrespawn starts it
+        again), whose tray took no item. Only that panel, only under lwrespawn.
+        """
+        mark = os.path.join(os.environ.get("XDG_RUNTIME_DIR") or "/tmp", PANEL_RESTART_MARK)
+        if os.path.exists(mark) or not self.watcher_owner:
+            return False
+        try:
+            reply = self.bus.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus",
+                                       "org.freedesktop.DBus", "GetConnectionUnixProcessID",
+                                       self.GLib.Variant("(s)", (self.watcher_owner,)), None,
+                                       self.Gio.DBusCallFlags.NONE, 2000, None)
+            pid = panel_restart_target(reply.unpack()[0])
+        except Exception as e:
+            log.info("cannot find the panel: %s", e)
+            return False
+        if not pid:
+            log.info("the tray is not wf-panel-pi under lwrespawn: not restarting it")
+            return False
+        try:
+            with open(mark, "w") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} pid {pid}\n")
+            os.kill(pid, signal.SIGTERM)
+        except OSError as e:
+            log.warning("cannot restart the panel: %s", e)
+            return False
+        log.warning("restarted the panel (wf-panel-pi, pid %s): its tray showed no badge", pid)
+        return True
 
     def _registered(self, conn, res):
         try:
@@ -1061,6 +1338,7 @@ class SlotIndicator:
 
     def _sni_prop(self, conn, sender, path, iface, prop):
         GLib = self.GLib
+        self.tray.read(time.monotonic())
         empty = GLib.Variant("a(iiay)", [])
         values = {
             "Category": GLib.Variant("s", "SystemServices"),
@@ -1177,6 +1455,8 @@ class SlotIndicator:
             self.spawn(SYSINFO_CMD)
         elif item_id == 12:
             self.spawn(UPDATES_CMD)
+        elif item_id == 14:
+            self.show_installed({"version": self.info.get("version", ""), "from": ""})
         elif item_id >= 100:
             ups = rn.updates(self.advices)
             if item_id - 100 < len(ups):
@@ -1193,14 +1473,30 @@ class SlotIndicator:
     # -- What's new ------------------------------------------------------------
     def show_whats_new(self, advice):
         """A small window: highlights, where it goes, Release notes / Install / Later."""
+        text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"],
+                         wait=update_wait(self.info) if self.mode == "ab" else "")
+        self.spawn(notice_count_argv("whats-new", advice["tag"]))
+        # seen: no second "What's new" for it after the update
+        rn.mark_seen(advice["tag"], state_dir())
+
+        def on_install():
+            self.spawn(UPDATES_CMD)
+            self.spawn(notice_count_argv("install", advice["tag"]))
+
+        self._news_window(text, on_install if text["install_label"] else None, "Later")
+
+    def show_installed(self, due):
+        """What's new in the running release (once after an update, or from the menu)."""
+        self._news_window(installed_whats_new(due, self.info, self.data["releases"],
+                                              self.data["highlights"]), None, "OK")
+
+    def _news_window(self, text, on_install, close_label):
+        """The window of whats_new() / installed_whats_new() text."""
         import gi
         gi.require_version("Gtk", "3.0")
         from gi.repository import Gtk
         if self.window is not None:
             self.window.destroy()
-        text = whats_new(advice, self.device, self.data["releases"], self.data["highlights"],
-                         wait=update_wait(self.info) if self.mode == "ab" else "")
-        self.spawn(notice_count_argv("whats-new", advice["tag"]))
         win = Gtk.Window(title=text["title"])
         win.set_default_size(480, -1)
         win.set_position(Gtk.WindowPosition.CENTER)
@@ -1218,6 +1514,9 @@ class SlotIndicator:
                 lab.set_text(s)
             lab.set_line_wrap(True)
             lab.set_max_width_chars(60)
+            # a fixed width: GTK sized the window for narrow labels and left
+            # a tall empty gap above the buttons (rig 2026-10-08)
+            lab.set_width_chars(60)
             lab.set_xalign(0)
             if dim:
                 lab.get_style_context().add_class("dim-label")
@@ -1230,12 +1529,15 @@ class SlotIndicator:
             label(text["meta"], dim=True)
         for line in text["highlights"]:
             label(f"•  {line}")
-        label(text["route"])
+        if text["route"]:
+            label(text["route"])
         if text["warning"]:
             warning = _GLib.markup_escape_text(text["warning"])
             label(f"<b>{warning}</b>" if text["strong"] else warning, markup=True)
         if text["wait"]:
             label(f"<b>{_GLib.markup_escape_text(text['wait'])}</b>", markup=True)
+        if text.get("note"):
+            label(text["note"], dim=True)
         buttons = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
         buttons.set_layout(Gtk.ButtonBoxStyle.END)
         buttons.set_spacing(8)
@@ -1244,23 +1546,22 @@ class SlotIndicator:
             notes = Gtk.Button(label="Release notes")
             notes.connect("clicked", lambda *_: self.open_url(text["release_url"]))
             buttons.add(notes)
-        if text["install_label"]:
+        if on_install:
             install = Gtk.Button(label=text["install_label"])
 
-            def on_install(*_):
-                self.spawn(UPDATES_CMD)
-                self.spawn(notice_count_argv("install", advice["tag"]))
+            def clicked(*_):
+                on_install()
                 win.destroy()
 
-            install.connect("clicked", on_install)
+            install.connect("clicked", clicked)
             buttons.add(install)
-        later = Gtk.Button(label="Later")
-        later.connect("clicked", lambda *_: win.destroy())
-        buttons.add(later)
+        close = Gtk.Button(label=close_label)
+        close.connect("clicked", lambda *_: win.destroy())
+        buttons.add(close)
         win.connect("destroy", self._window_closed)
         self.window = win
         win.show_all()
-        later.grab_focus()
+        close.grab_focus()
 
     def _window_closed(self, *_):
         self.window = None

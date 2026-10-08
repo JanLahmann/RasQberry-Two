@@ -558,3 +558,116 @@ def test_the_reason_is_in_plain_words():
                          _live(target="B", confirmed=False, default="A", failed=failed), DEV)
     texts = _texts(ind.menu_items(info, *ind.badge_state(info), [], ind.device_for_advice(info)))
     assert "Reason: The demos' Python setup is missing" in texts
+
+
+# ---------------------------------------------------------------------------
+# User test 2026-10-08: "What's new" after an update (F2, F4), the badge
+# missing after the first start (F1)
+# ---------------------------------------------------------------------------
+
+RELEASES_NEW = {"streams": {"beta": {"tag": BETA_NEW, "release_date": "2026-10-10",
+                                     "release_url": "https://x/beta"}}}
+
+
+def test_whats_new_after_the_update_window_text():
+    info = ind.slot_info(_status(current="B", a=BETA), _live(), BETA_NEW)
+    due = {"version": BETA_NEW, "from": BETA}
+    text = ind.installed_whats_new(due, info, RELEASES_NEW, {"beta": ["Line one"]})
+    assert text["title"] == f"What's new in {BETA_NEW}"
+    assert text["heading"] == f"Updated to {BETA_NEW}"
+    assert text["meta"] == "Released 10 October 2026"
+    assert text["highlights"] == ["Line one"]
+    assert text["route"] == f"Slot A keeps {BETA}, to go back to."
+    # Raspberry Pi OS's own update popup is something else (F4)
+    assert "Updates are available" in text["note"] and "separate" in text["note"]
+    assert text["install_label"] == "" and text["release_url"] == "https://x/beta"
+    # from the menu (no update just now): no route, no note; an older release
+    # has no summary and links its own release page
+    text = ind.installed_whats_new({"version": BETA, "from": ""}, info, RELEASES_NEW, {"beta": ["x"]})
+    assert text["heading"] == f"RasQberry Two {BETA}" and text["route"] == "" and text["note"] == ""
+    assert text["highlights"] == ["No summary for this release: see the release notes."]
+    assert text["release_url"].endswith("/releases/tag/" + BETA)
+
+
+def test_menu_offers_whats_new_in_this_version_only_with_a_summary():
+    info = ind.slot_info(_status(current="B", a=BETA), _live(), BETA_NEW)
+    state = ind.badge_state(info)
+    device = ind.device_for_advice(info)
+    assert 14 not in [i for i, _ in ind.menu_items(info, *state, [], device)]
+    items = ind.menu_items(info, *state, [], device, running_news=True)
+    assert (14, {"label": "What's new in this version…"}) in items
+    assert [i for i, p in items if p.get("enabled", True) and p.get("type") != "separator"] == [
+        11, 12, 14]
+
+
+def test_tray_watch_ok_when_the_panel_reads_the_item():
+    w = ind.TrayWatch()
+    w.registered(10.0)
+    w.read(10.2)                     # the tray took it: it read the icon
+    assert w.check(13.0) == "ok" and w.ok and w.failures == 0
+
+
+def test_tray_watch_pings_then_retries_with_backoff_then_restarts_the_panel_once():
+    w = ind.TrayWatch()
+    w.read(1.0)                      # something read the item before: does not count
+    w.registered(10.0)
+    actions, delays, t = [], [], 13.0
+    for _ in range(6):
+        action = w.check(t)
+        actions.append(action)
+        if action == "ping":
+            t += ind.TRAY_PING_WAIT
+        else:
+            delays.append(w.delay())
+            w.registered(t)          # registered again
+            t += w.delay()
+    assert actions == ["ping", "retry", "ping", "retry", "ping", "retry"]
+    assert delays == [5, 10, 20]
+    for _ in range(2):
+        w.check(t)
+    assert w.failures == ind.PANEL_RESTART_AFTER
+    # (the PANEL_RESTART_AFTER-th failure said 'restart-panel'; later ones retry)
+    w2 = ind.TrayWatch()
+    w2.registered(0.0)
+    seen = [w2.check(float(i)) for i in range(1, 2 * ind.PANEL_RESTART_AFTER + 3)]
+    assert seen.count("restart-panel") == 1
+    # a ping answered (the item already in the tray: re-registering reads nothing)
+    w3 = ind.TrayWatch()
+    w3.registered(0.0)
+    assert w3.check(3.0) == "ping"
+    w3.read(3.5)
+    assert w3.check(6.0) == "ok"
+
+
+def _proc(tmp_path, pid, comm, ppid, parent_cmd):
+    (tmp_path / str(pid)).mkdir()
+    (tmp_path / str(pid) / "comm").write_text(comm + "\n")
+    (tmp_path / str(pid) / "stat").write_text(f"{pid} ({comm}) S {ppid} {pid} {pid} 0 -1\n")
+    (tmp_path / str(ppid)).mkdir(exist_ok=True)
+    (tmp_path / str(ppid) / "cmdline").write_bytes(parent_cmd.replace(" ", "\0").encode() + b"\0")
+
+
+def test_panel_restart_only_for_wf_panel_pi_under_lwrespawn(tmp_path):
+    _proc(tmp_path, 3349, "wf-panel-pi", 3300, "/bin/sh /usr/bin/lwrespawn /usr/bin/wf-panel-pi")
+    assert ind.panel_restart_target(3349, str(tmp_path)) == 3349
+    _proc(tmp_path, 4000, "wf-panel-pi", 4001, "/usr/bin/labwc")           # nobody restarts it
+    assert ind.panel_restart_target(4000, str(tmp_path)) is None
+    _proc(tmp_path, 5000, "snixembed", 3300, "/bin/sh /usr/bin/lwrespawn /usr/bin/snixembed")
+    assert ind.panel_restart_target(5000, str(tmp_path)) is None
+    assert ind.panel_restart_target(0, str(tmp_path)) is None
+    assert ind.panel_restart_target(999, str(tmp_path)) is None
+
+
+def test_indicator_re_registers_and_checks_the_tray():
+    src = open(os.path.join(_BIN, "rq_slot_indicator.py")).read()
+    assert '"StatusNotifierHostRegistered"' in src            # a late or new tray host
+    assert "self.tray.read(time.monotonic())" in src         # in _sni_prop
+    assert 'self._emit("NewIcon")' in src                    # the ping
+    assert "PANEL_RESTART_MARK" in src and "os.kill(pid, signal.SIGTERM)" in src
+    # never the same item name twice with one tray: wf-panel-pi crashed (map::at)
+    # when such an item went away - registering again takes a new name
+    register = src.split("    def _register(self):", 1)[1].split("\n    def ", 1)[0]
+    assert "(self.name, self.watcher_owner) in self.registered" in register
+    assert "self._new_item_name()" in register
+    host = src.split("    def _on_host_registered(", 1)[1].split("\n    def ", 1)[0]
+    assert "self._register()" not in host
