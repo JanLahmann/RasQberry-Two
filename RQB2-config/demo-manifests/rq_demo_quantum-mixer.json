@@ -48,7 +48,7 @@
   "timeout": 0,
   "icon": {
     "type": "custom",
-    "path": "/usr/share/icons/rasqberry/QoffeeMug_vector-s.png"
+    "path": "/usr/share/icons/rasqberry/quantum-mixer.svg"
   },
   "menu": {
     "show": true,

@@ -16,6 +16,10 @@ This directory contains icons used for desktop bookmarks and shortcuts.
 - **Source:** made for RasQberry Two (2026-10), same licence as the repository
 - **Usage:** the desktop icons of the demo groups (`demo-groups.json`): LED panel, Play, Big projects, Learn & code, Workshops & events, Contributed demos
 
+### quantum-mixer.svg, quantum-lab.svg, ibm-tutorials.svg, ibm-courses.svg, demo-loop.svg, sap-quantum-led.svg
+- **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
+- **Usage:** demo icons that were shared or generic (Quantum Mixer had Qoffee-Maker's cup; Quantum Lab, IBM Quantum Tutorials and Courses the Qiskit logo; Demo Loop and SAP Quantum LED theme icons). SAP Quantum LED's comes from `known-demos.json` ("icon")
+
 ## System Icons Used
 
 ### Grokking the Bloch Sphere bookmarks

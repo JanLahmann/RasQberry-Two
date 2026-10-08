@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>IBM Quantum Tutorials</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#0f62fe"/>
+  <path d="M32 19c-5-4-12-5-19-4v30c7-1 14 0 19 4 5-4 12-5 19-4V15c-7-1-14 0-19 4z" fill="#fff"/>
+  <path d="M32 19v30" stroke="#0f62fe" stroke-width="2.5"/>
+  <path d="M18 23c3-.3 6 0 9 1M18 29c3-.3 6 0 9 1M18 35c3-.3 6 0 9 1M37 24c3-1 6-1.3 9-1M37 30c3-1 6-1.3 9-1M37 36c3-1 6-1.3 9-1" stroke="#0f62fe" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

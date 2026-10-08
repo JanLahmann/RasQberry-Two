@@ -460,3 +460,25 @@ def test_removing_a_catalogue_demo_also_clears_its_group_folder():
     text = open(os.path.join(_BIN, "rq_demo_add_external.sh")).read()
     assert '"$USER_HOME"/.local/share/rasqberry/desktop-groups/*/"rq-ext-${id}.desktop"' in text
     assert ds.group_dir("/home/x") == "/home/x/.local/share/rasqberry/desktop-groups"
+
+
+def test_demos_in_one_group_window_have_their_own_icons():
+    # user test 2026-10-08, F4: shared cups and globes, faint generic icons
+    bm = os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks")
+    icons = {}
+    for f in os.listdir(bm):
+        for line in open(os.path.join(bm, f)):
+            if line.startswith("Icon="):
+                icons[f[:-len(".desktop")]] = line.strip()[5:]
+    pairs = [("qoffee-maker", "quantum-mixer"), ("quantum-lab", "ibm-quantum-tutorials"),
+             ("ibm-quantum-tutorials", "ibm-quantum-courses"), ("quantum-lab", "ibm-quantum-courses")]
+    for a, b in pairs:
+        assert icons[a] != icons[b], (a, b)
+    for name in ("quantum-mixer", "quantum-lab", "ibm-quantum-tutorials", "ibm-quantum-courses", "demo-loop"):
+        path = icons[name]
+        assert path.startswith("/usr/share/icons/rasqberry/"), name
+        assert os.path.exists(os.path.join(_ROOT, "desktop-icons", os.path.basename(path))), name
+    reg = json.load(open(os.path.join(_ROOT, "RQB2-config", "known-demos.json")))
+    for d in reg["demos"]:
+        if d.get("icon"):
+            assert os.path.exists(os.path.join(_ROOT, "desktop-icons", d["icon"])), d["id"]

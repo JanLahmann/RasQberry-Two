@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>IBM Quantum Courses</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#6929c4"/>
+  <path d="M32 15L8 26l24 11 24-11z" fill="#fff"/>
+  <path d="M18 31v10c0 4 7 8 14 8s14-4 14-8V31l-14 6.5z" fill="#fff"/>
+  <path d="M50 28v13" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="50" cy="43" r="3" fill="#fff"/>
+</svg>
