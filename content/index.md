@@ -21,6 +21,28 @@ leadspace:
       url: https://github.com/JanLahmann/RasQberry-Two
       icon: logo-github
       target: _blank
+  pi:
+    copy: "<span class=\"text-gradient\">Welcome! RasQberry Two runs on this Pi.</span> Start with the learning path <strong>First 15 minutes</strong>: double-click <strong>Learning paths</strong> on the desktop."
+    cta:
+      primary:
+        label: First 15 minutes
+        url: /03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes
+        style: gradient
+        umami:
+          event: "RasQberry Two: pi welcome click"
+          target: first-15-minutes
+      secondary:
+        label: First boot
+        url: /#3-first-boot
+        umami:
+          event: "RasQberry Two: pi welcome click"
+          target: first-boot
+      tertiary:
+        label: All demos
+        url: /03-quantum-computing-demos/01-demo-list/
+        umami:
+          event: "RasQberry Two: pi welcome click"
+          target: demo-list
   bg:
     image:
       src: /Artwork/RQB2-Website.png
@@ -36,7 +58,7 @@ leadspace:
     <li><strong>Taskbar badge:</strong> shows which system runs and tells you when a new release is out.</li>
   </ul>
   <p className="callout__actions">
-    <a className="cta-button" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="imager">▶ Write RasQberry Two to your SD card</a>
+    <a className="cta-button not-pi" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="imager">▶ Write RasQberry Two to your SD card</a>
     <a href="https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-04-143935" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="release-notes">What's new</a>
     <a href="https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml&demo=New%20beta" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="feedback">Tell us what you think</a>
   </p>

@@ -13,6 +13,8 @@ export const UMAMI = {
   assistantOpen: 'RasQberry Two: assistant open',
   // Homepage "New beta" box (content/index.md), data: target (imager, release-notes, feedback, ab-image, learning-paths)
   betaBoxClick: 'RasQberry Two: beta box click',
+  // Homepage on a Pi (?from=pi): the welcome's links, data: target
+  piWelcomeClick: 'RasQberry Two: pi welcome click',
 } as const;
 
 /** The attributes for one event: data-umami-event plus one data-umami-event-<key> per value. */

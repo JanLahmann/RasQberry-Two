@@ -48,6 +48,23 @@ img {
   text-align: center;
 }
 
+// Shown only to a Pi, or only elsewhere: the Pi opens rasqberry.org/?from=pi
+// (layout.tsx marks the page), and its homepage greets it instead of offering
+// to write the SD card it already runs from
+.only-pi {
+  display: none;
+}
+
+html[data-from="pi"] {
+  .only-pi {
+    display: revert;
+  }
+
+  .not-pi {
+    display: none !important;
+  }
+}
+
 // Highlighted box with a button (homepage workshop invite)
 .callout {
   margin: 1.5rem 0;
