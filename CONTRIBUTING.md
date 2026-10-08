@@ -213,7 +213,9 @@ No menu code is needed: the Quantum Demos menu is generated from the manifests
 (Step 6). The manifest's `group` puts the demo into one of the groups in
 `RQB2-config/demo-manifests/demo-groups.json` (LED panel, Play, Big projects,
 Learn & code, Workshops & events): a submenu of Quantum Demos and a desktop
-folder. `menu.order` sorts it within its group.
+folder. `menu.order` sorts it within its group. A demo added from the
+catalogue goes to Contributed demos, unless its `known-demos.json` entry
+names another group.
 
 ### Step 5: Create Desktop Launcher (Optional)
 

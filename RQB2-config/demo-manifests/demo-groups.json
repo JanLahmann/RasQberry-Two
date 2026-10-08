@@ -1,5 +1,5 @@
 {
-  "_doc": "Demo groups: one desktop folder and one RasQberry menu submenu each (Quantum Demos), and one heading on the website's demo list. Read by rq_desktop_session.py (desktop), rq_demo_generate_menu.sh (menu cache) and scripts/generate-demo-list.js on gh-pages. A demo's group is the 'group' of its manifest; a catalogue demo's comes from its known-demos.json entry, else its manifest, else a guess (LED panel demos: led-panel; game or visualization: play; else learn). Fields: groups (in this order): id (a manifest's group value), title (folder and submenu name), menu (one line after the title in the menu), description (one line for the website), icon (file in desktop-icons/, installed to /usr/share/icons/rasqberry/). starters: launchers that are also loose on the desktop (they stay in their folders too; small screens drop them from the desktop first, last one first). system: loose launchers that are no demo. launchers: desktop launchers without a manifest and their group (null: loose only).",
+  "_doc": "Demo groups: one desktop folder and one RasQberry menu submenu each (Quantum Demos), and one heading on the website's demo list. Read by rq_desktop_session.py (desktop), rq_demo_generate_menu.sh (menu cache) and scripts/generate-demo-list.js on gh-pages. A demo's group is the 'group' of its manifest (else a guess: LED panel demos: led-panel; game or visualization: play; else learn); a catalogue demo (known-demos.json, or any manifest that is not shipped) goes to its known-demos.json entry's group, else to the group marked catalogue (Contributed demos). Fields: groups (in this order): id (a manifest's group value), title (folder and submenu name), menu (one line after the title in the menu), description (one line for the website), icon (file in desktop-icons/, installed to /usr/share/icons/rasqberry/), catalogue (true: catalogue demos go here by default; its window and submenu offer adding one). starters: launchers that are also loose on the desktop (they stay in their folders too; small screens drop them from the desktop first, last one first). system: loose launchers that are no demo. last: system launchers placed after all others (RasQberry Setup, removed once the setup checklist is done). launchers: desktop launchers without a manifest and their group (null: loose only).",
   "groups": [
     {
       "id": "led-panel",
@@ -35,10 +35,19 @@
       "menu": "Workshop & Qiskit Server, Demo Loop",
       "description": "For a class or a stand: a server for many laptops, and a loop of demos.",
       "icon": "group-workshops.svg"
+    },
+    {
+      "id": "contributed",
+      "title": "Contributed demos",
+      "menu": "SAP Quantum LED and Learning, from the catalogue",
+      "description": "Demos from other projects and partners. Add them with Manage demos > Add demo from catalogue.",
+      "icon": "group-contributed.svg",
+      "catalogue": true
     }
   ],
   "starters": ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"],
   "system": ["rasqberry-setup", "rasqberry-menu", "touch-mode"],
+  "last": ["rasqberry-setup"],
   "launchers": {
     "learning-paths": null,
     "my-quantum-programs": "learn",

@@ -38,19 +38,22 @@ import rq_desktop_session as ds  # noqa: E402
 needs_jq = pytest.mark.skipif(shutil.which("bash") is None or shutil.which("jq") is None,
                               reason="bash and jq are required")
 
-# Jan's groups (2026-10-07): desktop launcher -> folder
+# Jan's groups (2026-10-07; Contributed demos 2026-10-08): desktop launcher -> folder
 _TABLE = {
     "led-panel": {"led-ibm-demo", "rasq-led", "quantum-lights-out", "quantum-raspberry-tie",
-                  "led-painter", "clear-leds", "rq-ext-sap-quantum-led"},
+                  "led-painter", "clear-leds"},
     "play": {"fun-with-quantum", "quantum-coin-game", "quantum-paradoxes", "quantum-fractals"},
     "projects": {"qoffee-maker", "quantum-mixer", "rq-ext-traqmania"},
     "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials", "quantum-lab",
-              "ibm-quantum-tutorials", "ibm-quantum-courses", "composer",
-              "rq-ext-sap-quantum-learning"},
+              "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
     "workshops": {"doqumentation", "demo-loop"},
+    "contributed": {"rq-ext-sap-quantum-led", "rq-ext-sap-quantum-learning"},
 }
 _STARTERS = ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"]
 _SYSTEM = ["rasqberry-setup", "rasqberry-menu", "touch-mode"]
+# the desktop's order: RasQberry Setup last (temporary, Jan 2026-10-08)
+_DESK_ORDER = (["rasqberry-menu", "touch-mode"] + _STARTERS
+               + ["rq-group-%s" % g for g in _TABLE] + ["rasqberry-setup"])
 
 
 def _groups_json():
@@ -71,7 +74,9 @@ def _manifests():
 def test_groups_file_matches_schema_validator_and_menu_fallback():
     data = _groups_json()
     ids = [g["id"] for g in data["groups"]]
-    assert ids == ["led-panel", "play", "projects", "learn", "workshops"]
+    assert ids == ["led-panel", "play", "projects", "learn", "workshops", "contributed"]
+    # the catalogue demos' group, offered also while empty
+    assert [g["id"] for g in data["groups"] if g.get("catalogue")] == ["contributed"]
     schema = json.load(open(os.path.join(_MANIFESTS, "rq_demo_schema.json")))
     assert schema["properties"]["group"]["enum"] == ids
     validator = open(os.path.join(_BIN, "rq_demo_validate.sh")).read()
@@ -86,6 +91,7 @@ def test_groups_file_matches_schema_validator_and_menu_fallback():
         assert len(g["title"]) <= 20 and "/" not in g["title"]
         assert len(g["title"]) + 2 + len(g["menu"]) <= 70, g["id"]
     assert data["starters"] == _STARTERS and data["system"] == _SYSTEM
+    assert data["last"] == ["rasqberry-setup"]
 
 
 def test_every_shipped_manifest_and_catalogue_entry_has_a_valid_group():
@@ -93,8 +99,10 @@ def test_every_shipped_manifest_and_catalogue_entry_has_a_valid_group():
     for demo_id, m in _manifests().items():
         assert m.get("group") in ids, demo_id
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))
+    # traQmania is from the Fun with Quantum family: Big projects; the SAP
+    # demos come from a partner: Contributed demos (Jan, 2026-10-08)
     assert {d["id"]: d["group"] for d in registry["demos"]} == {
-        "traqmania": "projects", "sap-quantum-learning": "learn", "sap-quantum-led": "led-panel"}
+        "traqmania": "projects", "sap-quantum-learning": "contributed", "sap-quantum-led": "contributed"}
 
 
 def test_every_desktop_launcher_lands_where_jans_table_puts_it(tmp_path):
@@ -126,19 +134,20 @@ def test_shell_and_python_decide_the_same_group(demo_id):
 
 @needs_jq
 @pytest.mark.parametrize("manifest,group", [
-    ({"group": "bogus", "needs_hw": {"leds": True}}, "led-panel"),
-    ({"category": "game"}, "play"),
-    ({"category": "visualization"}, "play"),
-    ({"category": "jupyter"}, "learn"),
-    ({"group": "workshops", "category": "game"}, "workshops"),
+    ({"group": "bogus", "needs_hw": {"leds": True}}, "contributed"),
+    ({"category": "game"}, "contributed"),
+    ({"category": "jupyter"}, "contributed"),
+    # its own manifest does not choose: only the curated catalogue entry does
+    ({"group": "workshops", "category": "game"}, "contributed"),
 ])
-def test_a_catalogue_demo_without_a_group_gets_a_guess(tmp_path, manifest, group):
+def test_a_catalogue_demo_goes_to_contributed_demos(tmp_path, manifest, group):
     m = dict({"id": "x-demo", "name": "X", "category": "tool", "description": "t"}, **manifest)
     (tmp_path / "rq_demo_x-demo.json").write_text(json.dumps(m))
     sh = subprocess.run(["bash", "-c", '. "$1"; rq_demo_group x-demo "$2"', "_",
                          os.path.join(_BIN, "rq_common.sh"), str(tmp_path / "rq_demo_x-demo.json")],
                         capture_output=True, text=True).stdout.strip()
-    py = ds.demo_group("x-demo", ds.load_groups(), dirs=[str(tmp_path)],
+    # (the user's manifest directory after the shipped one)
+    py = ds.demo_group("x-demo", ds.load_groups(), dirs=[_MANIFESTS, str(tmp_path)],
                        known=os.path.join(_CFG, "known-demos.json"))
     assert sh == py == group
 
@@ -165,8 +174,9 @@ def _layout(home, desk, conf, size=(1920, 1080), touch=False, monkeypatch=None, 
                              known=os.path.join(_CFG, "known-demos.json"),
                              exe="/usr/bin/rq_desktop_session.py",
                              icon_dir=os.path.join(_ROOT, "desktop-icons"),
-                             # with a touchscreen: Touch Mode stays (test_group_window.py)
-                             touchscreen=True)
+                             # with a touchscreen and the setup not done: Touch Mode
+                             # and RasQberry Setup stay (test_group_window.py)
+                             touchscreen=True, setup=False)
 
 
 def _folders(home):
@@ -190,7 +200,7 @@ def test_launchers_go_into_their_folders_and_starters_stay(tmp_path, monkeypatch
     text = conf.read_text()
     assert "[More]" not in text and "[composer.desktop]" not in text
     order = re.findall(r"^\[(.+)\.desktop\]", text, re.M)
-    assert order == _SYSTEM + _STARTERS + ["rq-group-%s" % g for g in _TABLE]
+    assert order == _DESK_ORDER
     # nothing changed: no new layout
     assert not _layout(home, desk, conf, monkeypatch=monkeypatch)
 
@@ -206,9 +216,10 @@ def test_group_launcher_opens_its_folder_with_its_own_icon(tmp_path, monkeypatch
     assert os.access(desk / "rq-group-workshops.desktop", os.X_OK)
     # a group that is gone takes its icon along
     groups = ds.load_groups()
-    groups["groups"] = groups["groups"][:-1]
+    groups["groups"] = [g for g in groups["groups"] if g["id"] != "workshops"]
     assert ds.ensure_group_launchers(str(desk), groups)
     assert not (desk / "rq-group-workshops.desktop").exists()
+    assert (desk / "rq-group-contributed.desktop").exists()
 
 
 def test_a_fresh_copy_on_the_desktop_wins_and_a_moved_demo_changes_folder(tmp_path, monkeypatch):
@@ -254,10 +265,10 @@ def test_the_grouped_desktop_fits(w, h, touch, icon):
     # large screens - and no More folder any more
     groups = ds.load_groups()
     top = ds.desktop_order(_SYSTEM + _STARTERS, {}, groups)
-    assert len(top) == 13
+    assert len(top) == 14 and top == _DESK_ORDER
     label, offset = ds.LABEL_HEIGHT_NUNITO, ds.layout_top(touch, "default")
     pos, overflow = ds.plan_layout(top, w, h, touch=touch, icon=icon, label=label, top=offset)
-    assert not overflow and len(pos) == 13
+    assert not overflow and len(pos) == 14
     for x, y in pos.values():
         assert x + icon <= w and y + icon + label <= h
     if not ds.is_small((w, h)):
@@ -312,12 +323,12 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
            "needs_hw": {"leds": True}, "menu": {"order": 72}}
     cache = _cache(tmp_path, [sap])
     groups = _pairs(cache, "demo_group_list")
-    assert [g for g, _ in groups] == ["led-panel", "play", "projects", "learn", "workshops"]
+    assert [g for g, _ in groups] == ["led-panel", "play", "projects", "learn", "workshops", "contributed"]
     assert groups[0][1].startswith("LED panel: ")
     items = {g: _pairs(cache, "demo_group_items %s" % g) for g, _ in groups}
     assert [i for i, _ in items["led-panel"]] == ["rasq-led", "quantum-lights-out",
-                                                  "quantum-raspberry-tie", "led-painter",
-                                                  "sap-quantum-led"]
+                                                  "quantum-raspberry-tie", "led-painter"]
+    assert [i for i, _ in items["contributed"]] == ["sap-quantum-led"]
     assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-paradoxes", "quantum-fractals"]
     assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer"]
     assert [i for i, _ in items["learn"]] == ["grok-bloch", "qiskit-tutorials", "quantum-lab",
@@ -350,13 +361,14 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     assert call[call.index("--title") + 1] == "RasQberry: Quantum Demos"
     items = _menu_items(call)
     assert [t for t, _ in items] == ["PATHS", "led-panel", "play", "projects", "learn",
-                                     "workshops", "STOP", "MANAGE"]
+                                     "workshops", "contributed", "STOP", "MANAGE"]
     assert len(items) <= 11   # no scrolling (11 visible lines)
 
 
 @needs_jq
 @pytest.mark.parametrize("group,first,last", [
-    ("led-panel", ["IBM", "rasq-led"], ["sap-quantum-led", "DISP", "CLEAR", "LEDS"]),
+    ("led-panel", ["IBM", "rasq-led"], ["led-painter", "DISP", "CLEAR", "LEDS"]),
+    ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
     ("workshops", ["doqumentation"], ["LOOP"]),
     ("play", ["fun-with-quantum"], ["quantum-fractals"]),
@@ -378,7 +390,8 @@ def test_without_a_cache_the_groups_still_show(menu_env):  # noqa: F811
              extra_env={"WT_RC_menu": "1"})
     calls = menu_env.whiptail_calls()
     top = [t for t, _ in _menu_items(calls[0])]
-    assert top == ["PATHS", "led-panel", "play", "projects", "learn", "workshops", "STOP", "MANAGE"]
+    assert top == ["PATHS", "led-panel", "play", "projects", "learn", "workshops", "contributed",
+                   "STOP", "MANAGE"]
     assert [t for t, _ in _menu_items(calls[1])] == ["IBM", "DISP", "CLEAR", "LEDS"]
 
 

@@ -2101,27 +2101,35 @@ rq_demo_maturity() {
 }
 
 # Group of a demo: its desktop folder and RasQberry menu submenu
-# (demo-groups.json). A catalogue demo's known-demos.json entry wins (it is
-# curated), then the manifest's "group", then a guess: an LED panel demo goes
-# to led-panel, a game or visualization to play, anything else to learn. A
-# value demo-groups.json does not list counts as none. rq_desktop_session.py
+# (demo-groups.json). A catalogue demo (one in known-demos.json, or any
+# manifest that is not shipped) goes to its known-demos.json entry's group
+# (curated), else to the group marked "catalogue" (Contributed demos, Jan
+# 2026-10-08) - not to the group its own manifest names. A shipped demo goes
+# to its manifest's "group", else a guess: an LED panel demo to led-panel, a
+# game or visualization to play, anything else to learn. A value
+# demo-groups.json does not list counts as none. rq_desktop_session.py
 # (demo_group) decides the same way for the desktop.
 # Usage: group=$(rq_demo_group ID [MANIFEST])
 rq_demo_group() {
-    local id="$1" dir mf="" registry groups
+    local id="$1" dir mf="" registry groups shipped=false
     dir=$(rq_shipped_manifest_dir)
     registry="$(dirname "$dir")/known-demos.json"
     groups="$dir/demo-groups.json"
     [ -f "$registry" ] || registry=/dev/null
     [ -f "$groups" ] || groups=/dev/null
+    [ -f "$dir/rq_demo_${id}.json" ] && shipped=true
     mf=$(_rq_demo_mf "$id" "${2:-}") && [ -f "$mf" ] || mf=/dev/null
-    jq -rn --arg id "$id" --slurpfile reg "$registry" --slurpfile grp "$groups" \
-        --slurpfile mf "$mf" '
+    [ "$mf" = /dev/null ] && shipped=true   # no manifest at all: nothing to go by
+    jq -rn --arg id "$id" --argjson shipped "$shipped" --slurpfile reg "$registry" \
+        --slurpfile grp "$groups" --slurpfile mf "$mf" '
         ([$grp[0].groups[]?.id]) as $ids
+        | ([$grp[0].groups[]? | select(.catalogue == true) | .id] | .[0]) as $cat
         | ($mf[0] // {}) as $m
-        | [($reg[0].demos[]? | select(.id == $id) | .group), $m.group]
-        | map(select(. as $g | $ids | any(. == $g)))
-        | if length > 0 then .[0]
+        | [$reg[0].demos[]? | select(.id == $id)] as $entry
+        | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
+        | if ($curated | length) > 0 then $curated[0]
+          elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
+          elif ($m.group as $g | $ids | any(. == $g)) then $m.group
           elif $m.needs_hw.leds == true then "led-panel"
           elif ($m.category == "game" or $m.category == "visualization") then "play"
           else "learn" end' 2>/dev/null || echo learn

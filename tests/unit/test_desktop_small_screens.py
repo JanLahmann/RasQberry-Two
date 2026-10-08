@@ -148,11 +148,13 @@ def test_build_layout_command(tmp_path):
     text = conf.read_text()
     # y counts from the top of the screen where the desktop's profile does (trixie)
     y = 10 + ds.layout_top(False)
-    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-setup.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
-    # the grouped desktop: system icons, starters, one icon per group
+    assert text.startswith("[*]\nshow_mounts=0\n[rasqberry-menu.desktop]\nx=10\ny=%d\ntrusted=true\n" % y)
+    # the grouped desktop: system icons, starters, one icon per group, and
+    # RasQberry Setup last
     groups = ds.load_groups()
     loose = len(groups["system"]) + len(groups["starters"]) + len(groups["groups"])
-    assert text.count("trusted=true") == loose == 13
+    assert text.count("trusted=true") == loose == 14
+    assert re.findall(r"^\[(.+)\.desktop\]", text, re.M)[-1] == "rasqberry-setup"
     assert "[rq-group-workshops.desktop]" in text and "[composer.desktop]" not in text
 
 

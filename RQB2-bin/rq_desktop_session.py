@@ -16,7 +16,7 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    sorted into one folder per group (demo-groups.json: LED panel, Play, ...);
    the desktop shows the system icons, a few starters (also in their folders)
    and one icon per group, which opens its folder. They are laid out for the
-   screen and touch mode, RasQberry Setup first (R-008, R-035); on a screen
+   screen and touch mode, RasQberry Setup last (R-008, R-035); on a screen
    too small for all of them the starters go first. This happens only when
    the screen, touch mode or the set of icons changed, so icons the user
    moved stay where they are. A group's icon opens its window
@@ -24,6 +24,8 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    The Touch Mode icon is on the desktop only while a touchscreen is
    connected (udev: ID_INPUT_TOUCHSCREEN=1); without one it waits out of
    sight (Desktop Settings in the RasQberry menu switch touch mode too).
+   RasQberry Setup is the last icon, and goes once the setup checklist is
+   done (the menu keeps the checklist).
 5. Browser (BROWSER_AUTOSTART): rasqberry.org, or a local page that says what
    to do without internet (R-101, Q15).
 
@@ -105,6 +107,12 @@ SCREEN_POSITION_PROFILES = ("default",)
 # 2026-10-08). udev marks a touchscreen's input device ID_INPUT_TOUCHSCREEN=1.
 TOUCHSCREEN_ONLY = ("touch-mode",)
 HIDDEN_DIR = ".local/share/rasqberry/desktop-hidden"
+# RasQberry Setup is the last icon, and only until the setup checklist is
+# done (rq_firstlogin.sh writes this mark: no step pending, or "Don't show
+# again and remove the icon"); the checklist stays in the RasQberry menu
+# (Jan, 2026-10-08)
+SETUP_LAUNCHER = "rasqberry-setup"
+SETUP_DONE = ".local/state/rasqberry/setup-done"
 UDEV_DATA = "/run/udev/data"
 
 
@@ -695,6 +703,7 @@ def load_groups(path=None):
     return {"groups": groups,
             "starters": list(data.get("starters") or []),
             "system": list(data.get("system") or []),
+            "last": list(data.get("last") or []),
             "launchers": dict(data.get("launchers") or {})}
 
 
@@ -734,15 +743,18 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     """
     The group of a demo, decided like rq_demo_group in rq_common.sh.
 
-    A catalogue demo's known-demos.json entry wins (it is curated), then the
-    manifest's "group", then a guess: an LED panel demo goes to led-panel, a
-    game or visualization to play, anything else to learn. A value that
-    demo-groups.json does not list counts as none.
+    A catalogue demo (one in known-demos.json, or a manifest that is not
+    shipped) goes to its known-demos.json entry's group (it is curated), else
+    to the group marked "catalogue" (Contributed demos) - not to the group its
+    own manifest names. A shipped demo goes to its manifest's "group", else a
+    guess: an LED panel demo to led-panel, a game or visualization to play,
+    anything else to learn. A value demo-groups.json does not list counts as
+    none.
 
     Args:
         demo_id (str): Demo id.
         groups (dict): load_groups().
-        dirs (list): Manifest directories.
+        dirs (list): Manifest directories, the shipped one first.
         known (str): known-demos.json.
 
     Returns:
@@ -751,14 +763,20 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     ids = [g["id"] for g in groups["groups"]]
     if not ids:
         return None
+    dirs = dirs or manifest_dirs()
     registry = _read_json(known or KNOWN_DEMOS) or {}
-    manifest = find_manifest(demo_id, dirs) or {}
-    candidates = [d.get("group") for d in registry.get("demos") or []
-                  if isinstance(d, dict) and d.get("id") == demo_id]
-    candidates.append(manifest.get("group"))
-    for group in candidates:
+    manifest = find_manifest(demo_id, dirs)
+    entry = [d for d in registry.get("demos") or [] if isinstance(d, dict) and d.get("id") == demo_id]
+    for group in (d.get("group") for d in entry):
         if group in ids:
             return group
+    shipped = os.path.isfile(os.path.join(dirs[0], "rq_demo_%s.json" % demo_id)) or manifest is None
+    catalogue = next((g["id"] for g in groups["groups"] if g.get("catalogue") is True), None)
+    if (entry or not shipped) and catalogue:
+        return catalogue
+    manifest = manifest or {}
+    if manifest.get("group") in ids:
+        return manifest["group"]
     if (manifest.get("needs_hw") or {}).get("leds") is True:
         guess = "led-panel"
     elif manifest.get("category") in ("game", "visualization"):
@@ -985,7 +1003,8 @@ def sort_into_groups(desktop, assignment, on_desktop, groups, root=None):
 def desktop_order(names, assignment, groups):
     """
     The icons left on the desktop, in their order: the system icons, the
-    starters, one per group, then any other launcher without a group.
+    starters, one per group, any other launcher without a group, and last
+    the "last" ones (RasQberry Setup, a temporary icon).
 
     Args:
         names (list): Launchers present (present_launchers).
@@ -996,23 +1015,42 @@ def desktop_order(names, assignment, groups):
         list: Names (group launchers as rq-group-<id>).
     """
     present = set(names)
-    order = [n for n in groups["system"] if n in present]
-    order += [n for n in groups["starters"] if n in present and n not in order]
+    last = [n for n in groups.get("last", []) if n in present]
+    order = [n for n in groups["system"] if n in present and n not in last]
+    order += [n for n in groups["starters"] if n in present and n not in order + last]
     order += [GROUP_PREFIX + g["id"] for g in groups["groups"]]
-    order += [n for n in names if assignment.get(n) is None and n not in order]
-    return order
+    order += [n for n in names if assignment.get(n) is None and n not in order + last]
+    return order + last
 
 
-def place_touchscreen_launchers(desktop, touchscreen, hidden=None):
+def setup_done(home=None):
     """
-    Put the touchscreen-only launchers (Touch Mode) on the desktop or away.
+    Tell whether the setup checklist is done (its mark, rq_firstlogin.sh).
 
-    Without a touchscreen they move to HIDDEN_DIR, with one they come back.
-    A launcher in neither place (the person deleted it) stays deleted.
+    Args:
+        home (str): Home directory (default: this user's; XDG_STATE_HOME
+            counts there, as in the checklist).
+
+    Returns:
+        bool: True if the mark exists.
+    """
+    if home is None or os.path.abspath(home) == os.path.abspath(HOME):
+        state = os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local/state")
+        return os.path.exists(os.path.join(state, "rasqberry", "setup-done"))
+    return os.path.exists(os.path.join(home, SETUP_DONE))
+
+
+def place_conditional_launchers(desktop, shown, hidden=None):
+    """
+    Put launchers that come and go on the desktop, or away.
+
+    A launcher that should not show moves to HIDDEN_DIR; one that should
+    comes back from there. A launcher in neither place (the person deleted
+    it) stays deleted.
 
     Args:
         desktop (str): ~/Desktop.
-        touchscreen (bool): A touchscreen is connected.
+        shown (dict): Launcher name -> whether it belongs on the desktop.
         hidden (str): Where they wait (default: HIDDEN_DIR in the home the
             desktop belongs to).
 
@@ -1021,21 +1059,36 @@ def place_touchscreen_launchers(desktop, touchscreen, hidden=None):
     """
     hidden = hidden or os.path.join(os.path.dirname(os.path.abspath(desktop)), HIDDEN_DIR)
     changed = False
-    for name in TOUCHSCREEN_ONLY:
+    for name, show in shown.items():
         fname = name + ".desktop"
         on_desk, away = os.path.join(desktop, fname), os.path.join(hidden, fname)
         # (older small-screen desktops kept it in the More folder)
-        shown = [p for p in (on_desk, os.path.join(desktop, MORE_DIR, fname)) if os.path.exists(p)]
-        if touchscreen and not shown and os.path.exists(away):
+        present = [p for p in (on_desk, os.path.join(desktop, MORE_DIR, fname)) if os.path.exists(p)]
+        if show and not present and os.path.exists(away):
             os.replace(away, on_desk)
             changed = True
-        elif not touchscreen and shown:
+        elif not show and present:
             os.makedirs(hidden, exist_ok=True)
-            os.replace(shown[0], away)
-            for path in shown[1:]:
+            os.replace(present[0], away)
+            for path in present[1:]:
                 os.remove(path)
             changed = True
     return changed
+
+
+def place_touchscreen_launchers(desktop, touchscreen, hidden=None):
+    """
+    Put the touchscreen-only launchers (Touch Mode) on the desktop or away.
+
+    Args:
+        desktop (str): ~/Desktop.
+        touchscreen (bool): A touchscreen is connected.
+        hidden (str): Where they wait (tests).
+
+    Returns:
+        bool: True if a launcher moved.
+    """
+    return place_conditional_launchers(desktop, {n: touchscreen for n in TOUCHSCREEN_ONLY}, hidden)
 
 
 def group_window_script():
@@ -1117,7 +1170,7 @@ def layout_top(touch, profile=None):
 
 def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=False,
                    root=None, groups=None, dirs=None, known=None, exe=None, icon_dir=ICON_DIR,
-                   touchscreen=None):
+                   touchscreen=None, setup=None):
     """
     Sort the launchers into their group folders and lay the desktop out, when
     the screen, touch mode or the icon set changed.
@@ -1137,6 +1190,8 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
         icon_dir (str): Group icons (tests).
         touchscreen (bool): A touchscreen is connected (default: ask udev);
             without one the Touch Mode icon leaves the desktop.
+        setup (bool): The setup checklist is done (default: its mark); then
+            the RasQberry Setup icon leaves the desktop.
 
     Returns:
         bool: True if the desktop changed (pcmanfm must reload).
@@ -1150,7 +1205,11 @@ def layout_desktop(size, touch, desktop=None, conf=None, record=None, force=Fals
     record = record or os.path.join(HOME, ".config/rasqberry/desktop-layout")
     changed = ensure_group_launchers(desktop, groups, exe, icon_dir) if groups["groups"] else False
     touchscreen = has_touchscreen() if touchscreen is None else touchscreen
-    changed = place_touchscreen_launchers(desktop, touchscreen) or changed
+    home = os.path.dirname(os.path.abspath(desktop))
+    setup = setup_done(home) if setup is None else setup
+    shown = {n: touchscreen for n in TOUCHSCREEN_ONLY}
+    shown[SETUP_LAUNCHER] = not setup
+    changed = place_conditional_launchers(desktop, shown) or changed
     names = present_launchers(desktop, root, groups)
     assignment = {}
     for name in names:

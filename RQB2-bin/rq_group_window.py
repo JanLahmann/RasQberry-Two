@@ -25,6 +25,10 @@ settings stay as they are.
 - One window per group: clicking the group's icon again brings the open
   window back to the front (and reads the folder again).
 - Touch mode: bigger icons.
+- The group of catalogue demos (Contributed demos, "catalogue": true in
+  demo-groups.json) shows, also while it is empty, a button that adds one:
+  the catalogue picker of the RasQberry menu (Manage demos > Add demo from
+  catalogue) in a terminal.
 - Without GTK (or without a display) the folder opens in the file manager,
   as before.
 
@@ -291,6 +295,32 @@ def list_launchers(folder, dirs=None, which=shutil.which):
     return out
 
 
+ADD_SCRIPT = "/usr/bin/rq_demo_add_external.sh"
+
+
+def add_demo_launcher(terminal=None):
+    """
+    The "Add demo from catalogue" button as a launcher: the catalogue picker
+    in a terminal, as root like in the RasQberry menu (raspi-config runs it
+    with sudo; the script puts the new demo's icon into its group itself).
+
+    Args:
+        terminal (list): terminal_command().
+
+    Returns:
+        dict: Like one of list_launchers().
+    """
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_demo_add_external.sh")
+    if not os.path.isfile(script):
+        script = ADD_SCRIPT
+    # (the window title as the terminal escape: x-terminal-emulator has no
+    # common title option)
+    line = ("printf '\\033]0;Add demo from catalogue\\007'; sudo %s; echo; "
+            "read -r -p 'Press Enter to close this window...' _" % shlex.quote(script))
+    return {"id": "add-from-catalogue", "path": "", "name": "Add demo from catalogue", "comment": "",
+            "icon": "list-add", "argv": ["bash", "-c", line], "terminal": True, "cwd": ""}
+
+
 def launch(launcher, terminal=None, home=None, popen=subprocess.Popen):
     """
     Start a launcher as the desktop's double-click does.
@@ -483,6 +513,13 @@ class GroupWindow:
         self.scroll.set_propagate_natural_width(True)
         self.scroll.set_margin_top(12)
         box.pack_start(self.scroll, True, True, 0)
+        if self.group.get("catalogue"):
+            # catalogue demos: the way to add one, also while there is none
+            add = Gtk.Button(label="Add demo from catalogue...")
+            add.set_halign(Gtk.Align.START)
+            add.set_margin_top(10)
+            add.connect("clicked", lambda *_: self.start(add_demo_launcher(self.terminal)))
+            box.pack_end(add, False, False, 0)
         win.connect("key-press-event", self.on_key)
         self.window = win
         self.fill()
@@ -501,14 +538,21 @@ class GroupWindow:
             # at most 2/3 of the screen high; the grid scrolls beyond that
             self.scroll.set_max_content_height(max(200, size[1] * 2 // 3 - 120))
         if not self.launchers:
-            empty = Gtk.Label(label="No demos in this group yet.\nMore demos: RasQberry "
-                                    "Configuration > Quantum Demos > Manage demos.")
+            if self.group.get("catalogue"):
+                text = "No demos from the catalogue yet."
+            else:
+                text = ("No demos in this group yet.\nMore demos: RasQberry "
+                        "Configuration > Quantum Demos > Manage demos.")
+            empty = Gtk.Label(label=text, xalign=0)
             empty.set_justify(Gtk.Justification.CENTER)
             self.scroll.add(empty)
             self.flow = None
             return
         flow = Gtk.FlowBox()
         flow.set_homogeneous(True)
+        # its natural width, left-aligned like the title: one demo does not
+        # stretch over the whole window
+        flow.set_halign(Gtk.Align.START)
         flow.set_selection_mode(Gtk.SelectionMode.SINGLE)
         flow.set_activate_on_single_click(True)
         flow.set_min_children_per_line(cols)
@@ -558,7 +602,10 @@ class GroupWindow:
         self.window.present()
 
     def on_activated(self, _flow, child):
-        launcher = self.launchers[child.get_index()]
+        self.start(self.launchers[child.get_index()])
+
+    def start(self, launcher):
+        """Start a launcher; the window then closes, like a menu."""
         if launch(launcher, self.terminal):
             # like a menu: the window has done its job
             self.window.destroy()

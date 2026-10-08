@@ -11,6 +11,11 @@
 # Setup" desktop icon and the menu (sudo raspi-config -> 0 RasQberry -> Setup
 # Checklist).
 #
+# The RasQberry Setup icon is temporary (Jan, 2026-10-08): once the checklist
+# is done - no step pending, or "Don't show again and remove the icon" ticked
+# - it writes setup-done and the desktop drops the icon (rq_desktop_session.py,
+# now and at every login). Only closing the list (Later, Esc) keeps the icon.
+#
 # Before it, once: a note when another user name was typed in Raspberry Pi
 # Imager (the user stays rasqberry).
 #
@@ -71,6 +76,21 @@ already_shown() {
         || grep -q '^RQ_FIRSTLOGIN_DONE=true' "$ENV_FILE" 2>/dev/null
 }
 mark_shown() { mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SHOWN_FILE" 2>/dev/null; }
+
+# Done: the RasQberry Setup icon leaves the desktop (rq_desktop_session.py
+# reads this mark at every login; a running desktop is laid out again now)
+SETUP_DONE_FILE="$STATE_DIR/setup-done"
+setup_is_done() { [ -e "$SETUP_DONE_FILE" ]; }
+mark_setup_done() {
+    local run
+    setup_is_done && return 0
+    mkdir -p "$STATE_DIR" 2>/dev/null && date '+%F %T' > "$SETUP_DONE_FILE" 2>/dev/null || return 0
+    [ "$(id -u)" -eq 0 ] && return 0   # root has no desktop of its own
+    run="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    [ -S "$run/wayland-0" ] && [ -f "$BIN_DIR/rq_desktop_session.py" ] || return 0
+    env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY=wayland-0 \
+        python3 "$BIN_DIR/rq_desktop_session.py" --relayout >/dev/null 2>&1 || true
+}
 
 # ---------------------------------------------------------------------------
 # A note, once: another user name was typed in Raspberry Pi Imager
@@ -523,6 +543,7 @@ if [ "$MODE" = "desktop" ]; then
     already_shown && ! imager_note_pending && exit 0
     if [ -z "$(pending_tasks)" ] && ! imager_note_pending; then
         mark_shown
+        mark_setup_done
         exit 0
     fi
     wait_for_ip_display
@@ -558,12 +579,25 @@ for t in $TASKS; do
     fi
 done
 
-REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
+# Every step finished: done, the icon goes (also when the list was opened
+# from the icon or the menu)
+[ -z "$pending" ] && mark_setup_done
+
+if [ -e "$HOME/Desktop/rasqberry-setup.desktop" ]; then
+    REOPEN="Open this list again: the RasQberry Setup icon, or sudo raspi-config -> 0 RasQberry -> Setup Checklist."
+else
+    REOPEN="Open this list again: RasQberry Configuration (icon, or sudo raspi-config) -> 0 RasQberry -> Setup Checklist."
+fi
+# The last entry while the icon is there: done with the checklist for good
+if ! setup_is_done && [ "$(id -u)" -ne 0 ]; then
+    args+=("noicon" "Don't show again and remove the RasQberry Setup icon" "OFF")
+fi
 
 # Nothing to do: the login hook says nothing (it runs at a login); the window
 # the desktop opened says so instead of standing empty.
 if [ -z "$pending" ] && [ "$MODE" != "all" ]; then
     mark_shown
+    mark_setup_done
     [ "$MODE" = "now" ] && echo "All setup steps are done."
     exit 0
 fi
@@ -615,12 +649,26 @@ fi
 
 ran=false
 touch_chosen=false
+noicon=false
 for sel in $choice; do
     # touch mode restarts the desktop, which closes this window: run it last
     if [ "$sel" = "touch" ]; then touch_chosen=true; continue; fi
+    if [ "$sel" = "noicon" ]; then noicon=true; continue; fi
     "task_${sel}_run" || true
     ran=true
 done
+
+# Done with the checklist: every step finished, or "Don't show again"
+gone="" gone_h=0
+if ! setup_is_done && { [ "$noicon" = true ] || [ -z "$(pending_tasks)" ]; }; then
+    mark_shown
+    mark_setup_done
+    gone="The RasQberry Setup icon is removed. This list stays in RasQberry Configuration -> 0 RasQberry -> Setup Checklist."
+    REOPEN="" gone_h=1
+fi
+if [ "$ran" = false ] && [ -n "$gone" ]; then
+    whiptail --title "RasQberry Two Setup" --msgbox "$gone" 9 74
+fi
 
 # Closing (R-088): where to start - the learning path for a first look,
 # as on the website (#30)
@@ -638,7 +686,7 @@ This Pi uses the published demo password: change it with passwd or in the RasQbe
 
 Double-click the Learning paths icon on the desktop, or: sudo raspi-config -> 0 RasQberry -> Quantum Demos -> Learning paths.
 
-$REOPEN$pw_note" $((15 + pw_h)) 74
+$REOPEN$gone$pw_note" $((15 + pw_h + gone_h)) 74
 fi
 if [ "$touch_chosen" = true ]; then
     task_touch_run || true

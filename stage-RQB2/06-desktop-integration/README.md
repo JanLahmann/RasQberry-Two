@@ -63,8 +63,9 @@ No `files/` directory. These entries come from `RQB2-system/`, installed by
   gets one icon per group that opens the group's window, `rq_group_window.py`:
   the group's demos as icons; pcmanfm on the folder without GTK), the Touch
   Mode icon only while a touchscreen is connected (udev
-  `ID_INPUT_TOUCHSCREEN=1`), and the desktop laid out for
-  the screen (system icons, starters, group icons), then
+  `ID_INPUT_TOUCHSCREEN=1`), RasQberry Setup last and only until the setup
+  checklist is done (`~/.local/state/rasqberry/setup-done`), and the desktop
+  laid out for the screen (system icons, starters, group icons), then
   Chromium with rasqberry.org, or `/usr/share/rasqberry/offline.html` without
   internet (`BROWSER_AUTOSTART`)
 - `/etc/chromium.d/rasqberry`: Chromium flags (no keyring, no "Restore pages?",

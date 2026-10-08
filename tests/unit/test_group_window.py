@@ -211,7 +211,7 @@ def test_touch_mode_has_bigger_icons():
 
 def test_one_window_per_group():
     ids = {gw.app_id(g["id"]) for g in ds.load_groups()["groups"]}
-    assert len(ids) == 5
+    assert len(ids) == 6
     for app in ids:
         # a valid GApplication id: dot-separated elements of [A-Za-z0-9_]
         assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+", app)
@@ -329,13 +329,14 @@ def _desktop(tmp_path):
     return home, desk, conf
 
 
-def _layout(home, desk, conf, monkeypatch, touchscreen, size=(1920, 1080)):
+def _layout(home, desk, conf, monkeypatch, touchscreen, size=(1920, 1080), setup=None):
     monkeypatch.setattr(ds, "libfm_icon_size", lambda path=None, libfm=None: 48)
     monkeypatch.setattr(ds, "pcmanfm_profile", lambda autostart=None: "default")
     return ds.layout_desktop(size, False, desktop=str(desk), conf=str(conf), record=str(home / "rec"),
                              dirs=[_MANIFESTS], known=os.path.join(_CFG, "known-demos.json"),
                              exe="/usr/bin/rq_desktop_session.py",
-                             icon_dir=os.path.join(_ROOT, "desktop-icons"), touchscreen=touchscreen)
+                             icon_dir=os.path.join(_ROOT, "desktop-icons"), touchscreen=touchscreen,
+                             setup=setup)
 
 
 def _placed(conf):
@@ -350,19 +351,19 @@ def test_touch_mode_icon_only_with_a_touchscreen(tmp_path, monkeypatch):
     assert not (desk / "touch-mode.desktop").exists()
     assert (hidden / "touch-mode.desktop").exists()
     placed = _placed(conf)
-    assert len(placed) == 12 and "touch-mode" not in [n for n, _, _ in placed]
-    assert [n for n, _, _ in placed][:3] == ["rasqberry-setup", "rasqberry-menu", "learning-paths"]
+    assert len(placed) == 13 and "touch-mode" not in [n for n, _, _ in placed]
+    assert [n for n, _, _ in placed][:2] == ["rasqberry-menu", "learning-paths"]
     # not in a group folder either: it is no demo
     root = home / ".local/share/rasqberry/desktop-groups"
     assert not list(root.glob("*/touch-mode.desktop"))
     # nothing changed: no new layout
     assert not _layout(home, desk, conf, monkeypatch, touchscreen=False)
-    # a touchscreen connected: it comes back, third as before
+    # a touchscreen connected: it comes back, after RasQberry Configuration
     assert _layout(home, desk, conf, monkeypatch, touchscreen=True)
     assert (desk / "touch-mode.desktop").exists() and not (hidden / "touch-mode.desktop").exists()
     placed = _placed(conf)
-    assert len(placed) == 13 and placed[2][0] == "touch-mode"
-    assert json.loads((home / "rec").read_text())["icons"][2] == "touch-mode"
+    assert len(placed) == 14 and placed[1][0] == "touch-mode"
+    assert json.loads((home / "rec").read_text())["icons"][1] == "touch-mode"
 
 
 def test_a_deleted_touch_mode_icon_stays_deleted(tmp_path, monkeypatch):
@@ -390,16 +391,17 @@ def test_touch_mode_is_in_the_desktop_settings_menu():
 
 
 @pytest.mark.parametrize("gone", [("touch-mode",), ("touch-mode", "rasqberry-setup"),
-                                  ("touch-mode", "rasqberry-menu")])
+                                  ("touch-mode", "rasqberry-menu"), ("rasqberry-setup",)])
 @pytest.mark.parametrize("w,h,touch,icon", [(1920, 1080, False, 48), (1920, 1080, True, 72),
                                             (800, 480, False, 48), (800, 480, True, 72)])
 def test_the_layout_copes_with_fewer_system_icons(gone, w, h, touch, icon):
-    # Touch Mode without a touchscreen; Setup and Configuration may become one
-    # icon (Jan deciding): the icons close up, nothing overflows
+    # Touch Mode without a touchscreen, RasQberry Setup after the checklist,
+    # or Setup and Configuration as one icon (Jan deciding): the icons close
+    # up, nothing overflows
     groups = ds.load_groups()
     system = [n for n in groups["system"] if n not in gone]
     top = ds.desktop_order(system + groups["starters"], {}, groups)
-    assert len(top) == 13 - len(gone)
+    assert len(top) == 14 - len(gone)
     label, offset = ds.LABEL_HEIGHT_NUNITO, ds.layout_top(touch, "default")
     pos, overflow = ds.plan_layout(top, w, h, touch=touch, icon=icon, label=label, top=offset)
     assert not overflow and len(pos) == len(top)
@@ -407,3 +409,135 @@ def test_the_layout_copes_with_fewer_system_icons(gone, w, h, touch, icon):
     assert len(set(pos.values())) == len(top)
     for x, y in pos.values():
         assert x + icon <= w and y + icon + label <= h
+
+
+# --- Contributed demos (Jan, 2026-10-08) -------------------------------------------------
+
+def test_contributed_demos_window_offers_the_catalogue(tmp_path):
+    groups = ds.load_groups()
+    contributed = gw.find_group("contributed", groups)
+    assert contributed["title"] == "Contributed demos" and contributed["catalogue"] is True
+    assert not any(g.get("catalogue") for g in groups["groups"] if g["id"] != "contributed")
+    # empty at first: no launchers, the window shows a hint and the button
+    assert gw.list_launchers(str(tmp_path / "none")) == []
+    add = gw.add_demo_launcher(["x-terminal-emulator", "-e"])
+    argv = gw.launch_argv(add, ["x-terminal-emulator", "-e"])
+    assert argv[:4] == ["x-terminal-emulator", "-e", "bash", "-c"]
+    # the catalogue picker as root, like Manage demos > Add demo from catalogue
+    assert re.search(r"; sudo \S*rq_demo_add_external\.sh; echo; read ", argv[4])
+    assert argv[4].startswith("printf '\\033]0;Add demo from catalogue\\007'")
+    src = open(os.path.join(_BIN, "rq_group_window.py"), encoding="utf-8").read()
+    assert 'if self.group.get("catalogue"):' in src and "No demos from the catalogue yet." in src
+
+
+def test_contributed_demos_menu_offers_the_catalogue_also_when_empty():
+    menu = open(os.path.join(_CFG, "RQB2_menu.sh"), encoding="utf-8").read()
+    body = menu[menu.index("do_demo_group_menu() {"):]
+    body = body[:body.index("\n}\n")]
+    assert 'set -- "$@" ADDX "Add demo from catalogue"' in body
+    assert "No demos from the catalogue yet. Add one:" in body
+    assert "ADDX)  do_add_external_demo" in body
+
+
+# --- RasQberry Setup: last, and only until the checklist is done ------------------------------
+
+def test_setup_icon_is_last_and_leaves_when_the_checklist_is_done(tmp_path, monkeypatch):
+    home, desk, conf = _desktop(tmp_path)
+    assert _layout(home, desk, conf, monkeypatch, touchscreen=False)
+    placed = [n for n, _, _ in _placed(conf)]
+    assert placed[-1] == "rasqberry-setup" and len(placed) == 13
+    # the checklist's mark: the icon goes, nothing is left in its place
+    mark = home / ds.SETUP_DONE
+    mark.parent.mkdir(parents=True)
+    mark.write_text("2026-10-08\n")
+    assert _layout(home, desk, conf, monkeypatch, touchscreen=False)
+    placed = [n for n, _, _ in _placed(conf)]
+    assert "rasqberry-setup" not in placed and len(placed) == 12
+    assert not (desk / "rasqberry-setup.desktop").exists()
+    assert (home / ds.HIDDEN_DIR / "rasqberry-setup.desktop").exists()
+    assert not _layout(home, desk, conf, monkeypatch, touchscreen=False)
+    # the menu keeps the checklist; Configuration stays first
+    assert placed[0] == "rasqberry-menu"
+
+
+def test_setup_done_reads_the_checklists_mark(tmp_path, monkeypatch):
+    monkeypatch.setattr(ds, "HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    assert not ds.setup_done()
+    (tmp_path / ".local/state/rasqberry").mkdir(parents=True)
+    (tmp_path / ".local/state/rasqberry/setup-done").write_text("x")
+    assert ds.setup_done() and ds.setup_done(str(tmp_path))
+    # the checklist honours XDG_STATE_HOME: so does the desktop
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    assert not ds.setup_done()
+    # and both name the same file
+    text = open(os.path.join(_BIN, "rq_firstlogin.sh"), encoding="utf-8").read()
+    assert 'SETUP_DONE_FILE="$STATE_DIR/setup-done"' in text
+    assert ds.SETUP_DONE == ".local/state/rasqberry/setup-done"
+
+
+_WT = r"""#!/bin/sh
+{ for a in "$@"; do printf '%s\n' "$a"; done; echo "@@"; } >> "$WT_LOG"
+case " $* " in
+  *" --checklist "*) printf '%s' "$WT_CHOICE" >&2; exit "${WT_RC:-0}" ;;
+esac
+exit 0
+"""
+
+
+def _checklist(tmp_path, choice, rc="0", mode="--all"):
+    stubs = tmp_path / "stubs"
+    stubs.mkdir(exist_ok=True)
+    for name, body in (("whiptail", _WT), ("ps", "#!/bin/sh\necho pts/0\n"),
+                       ("sudo", "#!/bin/sh\nexit 1\n"), ("systemctl", "#!/bin/sh\nexit 1\n")):
+        (stubs / name).write_text(body)
+        (stubs / name).chmod(0o755)
+    home = tmp_path / "home"
+    (home / "Desktop").mkdir(parents=True, exist_ok=True)
+    shutil.copy(os.path.join(_BOOKMARKS, "rasqberry-setup.desktop"), home / "Desktop")
+    log = tmp_path / "wt.log"
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=str(home),
+               XDG_STATE_HOME=str(home / ".state"), XDG_RUNTIME_DIR=str(tmp_path / "run"),
+               RQ_IMAGER_STATE=str(tmp_path / "none"), RQ_ENV_FILE=str(tmp_path / "no-env"),
+               RQ_KEYBOARD_FILE=str(tmp_path / "no-keyboard"), WT_LOG=str(log),
+               WT_CHOICE=choice, WT_RC=rc, USER="rasqberry")
+    for k in ("DISPLAY", "WAYLAND_DISPLAY", "SSH_CONNECTION"):
+        env.pop(k, None)
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_firstlogin.sh"), mode], env=env,
+                          capture_output=True, text=True, timeout=120)
+    dialogs = log.read_text().split("@@\n")[:-1] if log.exists() else []
+    if log.exists():
+        log.unlink()
+    return proc, dialogs, home / ".state/rasqberry/setup-done"
+
+
+_needs_pending = pytest.mark.skipif(os.geteuid() == 0, reason="the option is not offered to root")
+
+
+@_needs_pending
+def test_checklist_offers_dont_show_again_and_removes_the_icon(tmp_path):
+    proc, dialogs, done = _checklist(tmp_path, "noicon")
+    assert proc.returncode == 0, proc.stderr
+    checklist = next(d for d in dialogs if "--checklist" in d)
+    if done.exists() and "noicon" not in checklist:
+        pytest.skip("no step pending on this machine: the checklist was done at once")
+    # the last entry of the list
+    assert checklist.rstrip("\n").split("\n")[-3:] == [
+        "noicon", "Don't show again and remove the RasQberry Setup icon", "OFF"]
+    assert done.exists()
+    assert any("The RasQberry Setup icon is removed" in d and "Setup Checklist" in d for d in dialogs)
+    # next time: no such entry any more, and the list names the menu
+    (tmp_path / "home/Desktop/rasqberry-setup.desktop").unlink()
+    _, dialogs, _ = _checklist(tmp_path, "", rc="1")
+    checklist = next(d for d in dialogs if "--checklist" in d)
+    assert "noicon" not in checklist
+
+
+@_needs_pending
+@pytest.mark.parametrize("rc", ["1", "255"])
+def test_only_closing_the_checklist_keeps_the_icon(tmp_path, rc):
+    proc, dialogs, done = _checklist(tmp_path, "", rc=rc, mode="--now")
+    assert proc.returncode == 0, proc.stderr
+    if not any("--checklist" in d for d in dialogs):
+        pytest.skip("no step pending on this machine")
+    assert not done.exists()
