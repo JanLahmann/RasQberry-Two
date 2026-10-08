@@ -16,12 +16,12 @@ account is only needed to run on real IBM hardware. Demos tagged beta are new:
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
 | **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** | Interactive Bloch sphere visualisation for understanding qubit states | network on first start | `grok-bloch` |
+| **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
+| **Quantum Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
+| **RasQ-LED Demo** | Circuits with superposition and entanglement, measured and shown on the LED panel | LED panel or on-screen view | `rasq-led` |
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 | **[Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/)** | Watch Grover's search solve Lights Out puzzles on the LED panel, one after another | LED panel or on-screen view, network on first start | `quantum-lights-out` |
 | **[Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/)** | Measured qubits on the LED panel, from a simulator or a real IBM quantum computer | LED panel or on-screen view, display, network on first start, IBM Quantum account optional | `quantum-raspberry-tie` |
-| **RasQ-LED Demo** | Circuits with superposition and entanglement, measured and shown on the LED panel | LED panel or on-screen view | `rasq-led` |
-| **Quantum Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
-| **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
 
 ## Notebooks to work through
 
@@ -36,10 +36,10 @@ account is only needed to run on real IBM hardware. Demos tagged beta are new:
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM Quantum account optional | `composer` |
-| **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network | `quantum-lab` |
-| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | IBM Quantum account optional | `qiskit-tutorials` |
 | **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, IBM Quantum account optional | `doqumentation` |
+| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | IBM Quantum account optional | `qiskit-tutorials` |
+| **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network | `quantum-lab` |
+| **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM Quantum account optional | `composer` |
 
 ## LED panel
 
