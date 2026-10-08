@@ -1,6 +1,6 @@
 # Quantum Computing Demos in RasQberry Two
 
-The demos come in five groups: a folder on the desktop and a submenu of
+The demos come in six groups: an icon on the desktop and a submenu of
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with `rq_demo_run.sh <id>`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to

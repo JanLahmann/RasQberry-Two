@@ -9,7 +9,7 @@ good order for a stand, a lesson or your first program.
 
 ## The demos at a glance
 
-The demos come in five groups. Each is a folder on the desktop and a submenu of
+The demos come in six groups. Each is an icon on the desktop and a submenu of
 **Quantum Demos** in the RasQberry menu.
 
 | Group | What is in it |
@@ -19,6 +19,7 @@ The demos come in five groups. Each is a folder on the desktop and a submenu of
 | **Big projects** | [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/), Quantum Mixer, traQmania |
 | **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), Qiskit Tutorials on this Pi, Quantum Lab (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
 | **Workshops & events** | Workshop & Qiskit Server, Demo Loop |
+| **Contributed demos** | Demos from partners, added from the catalogue: SAP Quantum LED, SAP Quantum Learning |
 
 A few starters sit loose on the desktop too: Learning paths, IBM LED Demo,
 Grokking the Bloch Sphere, Quantum Coin Game and My Quantum Programs.
@@ -67,8 +68,8 @@ uses it.
   - **Download all demos (one-time setup):** installs every demo now instead of
     on first use, before taking the Pi somewhere without a network.
   - **Add demo from catalogue:** installs reviewed third-party demos, each pinned
-    to a fixed commit (for example traQmania and the SAP demos), into their
-    group. From a terminal: `rq_demo_add_external.sh --list`,
+    to a fixed commit (for example traQmania and the SAP demos). Partner demos
+    go to Contributed demos, traQmania to Big projects. From a terminal: `rq_demo_add_external.sh --list`,
     `rq_demo_add_external.sh <id>`, `rq_demo_add_external.sh --remove <id>`.
   - **Update demos:** moves a demo to a newer upstream version, or back.
   - **Remove a demo:** frees space; it downloads again when started.

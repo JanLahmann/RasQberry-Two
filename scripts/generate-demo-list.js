@@ -184,6 +184,8 @@ const TABLE_HEAD = `| Demo | What it is | Needs | Start it with |\n|---|---|---|
 
 // One section per demo group, in the order of demo-groups.json: the Pi's
 // desktop folders and Quantum Demos submenus. Without the file, by category.
+const count = (n) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][n] || String(n);
+
 function render(manifests, groups, registry) {
   if (!groups?.groups?.length) return renderByCategory(manifests);
   const ids = groups.groups.map((g) => g.id);
@@ -192,12 +194,14 @@ function render(manifests, groups, registry) {
   const byGroup = Object.fromEntries(ids.map((g) => [g, []]));
   for (const m of manifests.filter(isShown)) byGroup[ids.includes(m.group) ? m.group : guess(m)]?.push(m);
   for (const list of Object.values(byGroup)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
-  for (const c of catalogueRows(registry)) byGroup[ids.includes(c.group) ? c.group : 'learn']?.push(c);
+  // a catalogue demo: its entry's group, else the catalogue group (Contributed demos)
+  const catalogueGroup = groups.groups.find((g) => g.catalogue)?.id || 'learn';
+  for (const c of catalogueRows(registry)) byGroup[ids.includes(c.group) ? c.group : catalogueGroup]?.push(c);
 
   const first = (groups.starters || []).length ? `New here? Start with the [First 15 minutes](${PATHS_URL}${h2Anchor('First 15 minutes')}) learning path.\n\n` : '';
   let md = `# Quantum Computing Demos in RasQberry Two
 
-The demos come in five groups: a folder on the desktop and a submenu of
+The demos come in ${count(groups.groups.length)} groups: an icon on the desktop and a submenu of
 \`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with \`rq_demo_run.sh <id>\`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to

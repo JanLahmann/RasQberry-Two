@@ -119,7 +119,7 @@ The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
 
 | Menu item | What it does |
 |---|---|
-| Quantum Demos | Learning paths, the demo groups (LED panel, Play, Big projects, Learn & code, Workshops & events), Manage demos (download all, catalogue, update, remove) |
+| Quantum Demos | Learning paths, the demo groups (LED panel, Play, Big projects, Learn & code, Workshops & events, Contributed demos), Manage demos (download all, catalogue, update, remove) |
 | Setup Checklist | The first-start steps again |
 | Desktop Settings | Touch mode, and opening rasqberry.org at desktop login |
 | IBM Quantum account | Save, check or forget your API key |
