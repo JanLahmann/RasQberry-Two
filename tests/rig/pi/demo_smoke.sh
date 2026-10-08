@@ -38,6 +38,9 @@ manifest=$(ls /usr/config/demo-manifests/rq_demo_"$id".json "$HOME"/.local/confi
 # a variant may start something else than its demo (Fun with Quantum: the
 # notebooks are Jupyter, the website variant is a script that opens a page)
 type=$(jq -r --arg v "$variant" '(if $v != "" then ([.variants[]? | select(.id == $v) | .entrypoint.type // empty] | first) else null end) // .entrypoint.type // "?"' "$manifest")
+# another demo's Docker image (install.docker_image_of: Qiskit Tutorials on
+# this Pi runs the Workshop server's): a docker demo, a 1.3 GB download
+[ -n "$(jq -r '.install.docker_image_of // empty' "$manifest")" ] && type=docker
 mapfile -t helpers < <(jq -r '.entrypoint.stop_on_exit[]? // empty' "$manifest")
 name="$id${variant:+-$variant}"
 label="demo:$spec"
