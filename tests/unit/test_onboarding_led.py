@@ -180,6 +180,33 @@ def test_ip_scroll_switches_the_layout_per_pass_on_one_strip(env_file, monkeypat
         assert frame == _expected_frame("10.0", layout, (0, 100, 255))
 
 
+@pytest.mark.parametrize("verified,seconds_per_pass,shown", [
+    # the Pi 4 case: 2 addresses (120 s wanted), a pass takes 40 s, not verified:
+    # 3 passes (2 min), not 4 (2 min 40 s)
+    (False, 40, 3),
+    (True, 40, 3),
+    # passes slower than planned: still one in each layout, then stop
+    (False, 200, 2),
+    (True, 200, 1),
+])
+def test_ip_scroll_ends_near_the_wanted_time(monkeypatch, verified, seconds_per_pass, shown):
+    ip = _display_ip()
+    clock = [1000.0]
+    monkeypatch.setattr(ip.time, "monotonic", lambda: clock[0])
+    done = []
+
+    def one_pass(pixels, text, scroll_speed, passes=1, layout=None):
+        clock[0] += seconds_per_pass
+        done.append(layout)
+
+    monkeypatch.setattr(ip, "display_scrolling_text", one_pass)
+    monkeypatch.setattr(ip, "scroll_pass_columns", lambda text, config: 300)     # 30 s planned
+    config = {"led_layout": "single-24x8", "layout_verified": "true" if verified else "false"}
+    layouts = ip.scroll_text(object(), "x", config, wanted_seconds=120, speed=0.1)
+    assert len(layouts) == shown == len(done)
+    assert len(set(layouts)) == (1 if verified else 2)
+
+
 def test_logo_display_follows_led_layout(env_file, monkeypatch):
     pytest.importorskip("PIL")
     import rq_led_logo
