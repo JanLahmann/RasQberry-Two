@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T09:00:47Z",
+  "generated": "2026-10-09T10:57:18Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,25 +32,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-09-102657",
-      "name": "rasqberry-development-2026-10-09-102657",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-102657/rasqberry-development-2026-10-09-102657.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-102657",
-      "release_date": "2026-10-09 10:26",
-      "image_download_size": 2146979624,
+      "tag": "development-2026-10-09-122452",
+      "name": "rasqberry-development-2026-10-09-122452",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-122452/rasqberry-development-2026-10-09-122452.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-122452",
+      "release_date": "2026-10-09 12:24",
+      "image_download_size": 2146558976,
       "extract_size": 9504292864,
-      "extract_sha256": "a328ea12580d56da054a3d2509e12f680ad5a68c75cb04e198a6831b80ccb5b7",
-      "image_sha256": "032e252cf4711f0b7f60e49206c175aec5bb307488de5cba8f0add374fc2e0c6",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-102657/rasqberry-development-2026-10-09-102657-ab.img.xz",
-      "ab_extract_sha256": "ffa50fd55228e10b27a2c84b51d18ca19f74e1a054ddd81d65ed58d31bff367f",
-      "ab_image_sha256": "cfada3e7677b8cbcd1dbec83f3d6d2d192bfb2125730ca1922487dacdd6d6f8d",
-      "ab_image_download_size": 1879779348,
+      "extract_sha256": "36b7b77f7ace8ac23ef640f97db30d163d2b7e55874c98671f27222cf78d6792",
+      "image_sha256": "241505689bc97c15acd8ac5eaf3e95e39beab647a01da7a5c0204c1dc8f422c5",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-122452/rasqberry-development-2026-10-09-122452-ab.img.xz",
+      "ab_extract_sha256": "c7884b17ebfd87a03fd301088acfe5b73efca0806ee85b77aaf6c9f73371914a",
+      "ab_image_sha256": "68f929a167fe3436d81c4633474211d61ed8d65804471cd374e95aeb3d44f857",
+      "ab_image_download_size": 1878089080,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-10-09-102657",
-        "Docker download: keep the \"Download stopped\" line readable",
-        "Health check: keep the switch markers until the slot is confirmed",
-        "a made connection counts as reachable"
+        "Bump version to development-2026-10-09-122452",
+        "Setup checklist: say that the Docker demos load on first start",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-09-102657"
       ]
     }
   }
