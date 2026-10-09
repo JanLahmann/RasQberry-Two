@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T22:31:30Z",
+  "generated": "2026-10-09T22:32:13Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2145792728,
       "extract_size": 9495904256,
       "extract_sha256": "a7f4dfbc541ac2686e85ffd2a04f2a0397fb0594e1cb89a5ced373b7d0eb0657",
-      "image_sha256": "e382df42ceda2cae1159ec1f32166b93a48cf6fa5eea479d9010edaa34fdaa9c",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-000029/rasqberry-development-2026-10-10-000029-ab.img.xz",
       "ab_extract_sha256": "4bdad7daa6c80813bec5bdc8a6264e26d11eadf843567644aac6df437be7a06c",
       "ab_image_sha256": "e12f47d405522c27a9124374d351995182799516829eda92827f6e16634bb172",
-      "ab_image_download_size": 1879738744,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1879738744,
       "highlights": [
         "Bump version to development-2026-10-10-000029",
         "Fun with Quantum: offline portal for the Pi, three more games, names as on the site"
