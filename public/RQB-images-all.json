@@ -1,7 +1,7 @@
 {
-  "generated": "2026-10-09T05:14:16Z",
+  "generated": "2026-10-09T05:33:41Z",
   "description": "All RasQberry image versions for development and testing",
-  "count": 173,
+  "count": 175,
   "releases": [
     {
       "name": "RasQberry Two Dev (64-bit)",
@@ -44,6 +44,48 @@
       "_release_tag": "development-2026-10-09-064009",
       "_branch": "development",
       "_published": "2026-10-09T04:40:55Z"
+    },
+    {
+      "name": "RasQberry Two Dev (64-bit)",
+      "description": "RasQberry development build with cutting-edge features (unstable)",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-mixer-ctrlc-2026-10-09-063937/rasqberry-dev-mixer-ctrlc-2026-10-09-063937.img.xz",
+      "extract_size": 9504292864,
+      "extract_sha256": "f41bd74d66e78b344c060faf9b70c5166a08ea3db412896aed172cfcaa727e6d",
+      "image_download_size": 1831358380,
+      "image_sha256": "42e327ffd9df94461f3f4a07bb7c064def1224e1da0f34da435a15ba43fe0a1d",
+      "release_date": "2026-10-09 06:39",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "standard",
+      "_release_tag": "dev-mixer-ctrlc-2026-10-09-063937",
+      "_branch": "dev-mixer-ctrlc",
+      "_published": "2026-10-09T04:40:18Z"
+    },
+    {
+      "name": "RasQberry Two Dev A/B (64-bit)",
+      "description": "RasQberry development build with A/B boot support",
+      "icon": "https://rasqberry.org/Artwork/RasQberry 2 Logo Cube 64x64.png",
+      "url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-mixer-ctrlc-2026-10-09-063937/rasqberry-dev-mixer-ctrlc-2026-10-09-063937-ab.img.xz",
+      "extract_size": 12398362624,
+      "extract_sha256": "a92ce94b910d49f9dc0d9521faead33914369007fed52ce55c4602d06a7ca774",
+      "image_download_size": 1879845980,
+      "image_sha256": "5e1c3532b8b37ba541a35640150ba08eac039c73bedd4b9b938cc3a71132cbeb",
+      "release_date": "2026-10-09 06:39",
+      "init_format": "systemd",
+      "devices": [
+        "pi5-64bit",
+        "pi4-64bit"
+      ],
+      "website": "https://rasqberry.org",
+      "image_type": "ab",
+      "_release_tag": "dev-mixer-ctrlc-2026-10-09-063937",
+      "_branch": "dev-mixer-ctrlc",
+      "_published": "2026-10-09T04:40:18Z"
     },
     {
       "name": "RasQberry Two Dev (64-bit)",
