@@ -395,9 +395,14 @@ cmd_status() {
         echo "Last run on this system: none yet"
     fi
     if [ -r "$LOG" ]; then
-        echo "Log of the last run ($LOG):"
-        awk '/ === after-update run for / && !/ finished: / { buf = "" } { buf = buf "  " $0 "\n" }
-             END { printf "%s", buf }' "$LOG"
+        local last
+        last=$(awk '/ === after-update run for / && !/ finished: / { buf = "" } { buf = buf "  " $0 "\n" }
+             END { printf "%s", buf }' "$LOG")
+        # No header over nothing (a run without scripts logs nothing; N1)
+        if [ -n "$last" ]; then
+            echo "Log of the last run ($LOG):"
+            printf '%s\n' "$last"
+        fi
     elif [ -e "$LOG" ]; then
         echo "Log: $LOG (sudo to read it)"
     fi
