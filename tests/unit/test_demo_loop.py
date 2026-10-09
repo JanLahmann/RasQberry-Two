@@ -337,3 +337,10 @@ def test_login_starts_the_loop_instead_of_the_browser(monkeypatch):
 def test_login_opens_the_browser_when_the_loop_is_off(monkeypatch):
     started = _session(monkeypatch, loop_on=False)
     assert len(started) == 1 and started[0][0] == "/usr/bin/chromium"
+
+
+def test_autologin_readme_promises_no_kiosk_mode():
+    # R-126: the build README advertised a "Kiosk Mode" that does not exist
+    text = open(os.path.join(_ROOT, "stage-RQB2", "03-desktop-autologin", "README.md")).read()
+    assert "**Kiosk Mode**" not in text
+    assert "Start the Demo Loop at login" in text

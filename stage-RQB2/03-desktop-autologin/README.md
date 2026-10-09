@@ -38,7 +38,7 @@ Raspberry Pi OS supports several boot behaviors:
 
 - **User-Friendly**: System ready to use immediately after boot
 - **Demo-Ready**: Perfect for educational/demonstration systems
-- **Kiosk Mode**: Suitable for dedicated quantum computing stations
+- **Stands**: with "Start the Demo Loop at login" (Demo Loop menu) a Pi shows demos again after a power cycle, without anyone at the keyboard. There is no kiosk mode (fullscreen, hidden cursor).
 - **No Credentials Needed**: Users don't need to know username/password
 
 ## Special Considerations
