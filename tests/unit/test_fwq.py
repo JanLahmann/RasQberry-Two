@@ -30,7 +30,8 @@ _SHA = "aa6474614ef1c07b18a4d7ce568eed228d71a273"
 
 # The game notebooks at the root of the pinned Fun-with-Quantum commit
 _NOTEBOOKS = {"Readme.ipynb", "Quantum-Coin-Game.ipynb", "GHZ-Game.ipynb",
-              "Hardys-Paradox.ipynb", "Mermin-Peres-Game.ipynb", "3sat.ipynb"}
+              "Hardys-Paradox.ipynb", "Mermin-Peres-Game.ipynb", "3sat.ipynb",
+              "CHSH-Game.ipynb", "Prisoners-Dilemma.ipynb", "GHZ-on-Real-Devices.ipynb"}
 
 
 def _manifest():
@@ -75,7 +76,7 @@ def test_menu_cache_lists_the_variants(tmp_path):
                          text=True).stdout.splitlines()
     pairs = dict(zip(out[0:-1:2], out[1:-1:2]))
     assert list(pairs) == [v["id"] for v in _manifest()["variants"]]
-    assert pairs["hardys-paradox"] == "Hardy's paradox"
+    assert pairs["hardys-paradox"] == "Hardy's Paradox"
     assert out[-1] == "none"   # demos without variant_menu start directly
 
 
@@ -93,7 +94,7 @@ def test_raspi_config_menu_opens_the_variant_submenu():
 def test_bundle_urls():
     url, sha_url = rq_fwq.bundle_urls(_SHA.upper())
     assert url == ("https://github.com/JanLahmann/Fun-with-Quantum/releases/download/"
-                   "portal-bundles/fwq-portal-%s.tar.gz" % _SHA)
+                   "portal-bundles/fwq-portal-offline-%s.tar.gz" % _SHA)
     assert sha_url == url + ".sha256"
     for bad in ("", "aa64746", _SHA + "0", "../" + _SHA[3:]):
         with pytest.raises(ValueError):

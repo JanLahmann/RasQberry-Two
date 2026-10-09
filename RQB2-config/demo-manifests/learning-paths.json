@@ -71,7 +71,7 @@
         {
           "demo": "fun-with-quantum",
           "variant": "hardys-paradox",
-          "name": "Hardy's paradox",
+          "name": "Hardy's Paradox",
           "try": "Follow the quantum cars and run each cell with Shift+Enter.",
           "notice": "Everyday logic fails: you cannot reason about a measurement that did not happen."
         }
@@ -104,14 +104,14 @@
         {
           "demo": "fun-with-quantum",
           "variant": "ghz-game",
-          "name": "GHZ game",
+          "name": "GHZ Game",
           "try": "Look for a strategy that always wins, then let the quantum team play.",
           "notice": "No classical strategy wins every round. Three entangled qubits do."
         },
         {
           "demo": "fun-with-quantum",
           "variant": "mermin-peres",
-          "name": "Mermin-Peres magic square",
+          "name": "Mermin–Peres Magic Square",
           "try": "Look for a magic square that works, then run the quantum strategy for many rounds.",
           "notice": "Alice's and Bob's answers are random, yet they always agree where they meet."
         },
