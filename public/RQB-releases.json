@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T10:57:18Z",
+  "generated": "2026-10-09T10:58:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -40,12 +40,11 @@
       "image_download_size": 2146558976,
       "extract_size": 9504292864,
       "extract_sha256": "36b7b77f7ace8ac23ef640f97db30d163d2b7e55874c98671f27222cf78d6792",
-      "image_sha256": "241505689bc97c15acd8ac5eaf3e95e39beab647a01da7a5c0204c1dc8f422c5",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-122452/rasqberry-development-2026-10-09-122452-ab.img.xz",
       "ab_extract_sha256": "c7884b17ebfd87a03fd301088acfe5b73efca0806ee85b77aaf6c9f73371914a",
       "ab_image_sha256": "68f929a167fe3436d81c4633474211d61ed8d65804471cd374e95aeb3d44f857",
-      "ab_image_download_size": 1878089080,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1878089080,
       "highlights": [
         "Bump version to development-2026-10-09-122452",
         "Setup checklist: say that the Docker demos load on first start",
