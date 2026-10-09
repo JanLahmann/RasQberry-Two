@@ -14,7 +14,8 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "ghcr.io/janlahmann/quantum-mixer:fc0cb984508ce80b3d0c650669bc7f2b8bde72c3",
+    "docker_image": "ghcr.io/janlahmann/quantum-mixer@sha256:e217ac0ebd40019d6b2296ff281443e1210920d158f94edd2e0f189946cbc835",
+    "docker_image_fallback": "ghcr.io/janlahmann/quantum-mixer:8a9cf328910c107cd167d16eaf12307b5505cea5",
     "docker_port": 8080,
     "launcher": "quantum-mixer.sh"
   },
@@ -24,7 +25,7 @@
     "installed_flag": "QUANTUM_MIXER_INSTALLED",
     "source": {
       "repo_url": "https://github.com/JanLahmann/quantum-mixer.git",
-      "ref": "fc0cb984508ce80b3d0c650669bc7f2b8bde72c3"
+      "ref": "8a9cf328910c107cd167d16eaf12307b5505cea5"
     },
     "update": {
       "docker_tags": "^[0-9a-f]{40}$",
