@@ -124,6 +124,20 @@ def test_touch_mode_starts_a_user_panel_file_on_trixie(trixie_touch):
 
 
 @needs_bash
+def test_touch_mode_fills_the_empty_panel_file_the_panel_writes(trixie_touch):
+    # wf-panel-pi writes an empty user file at every desktop start; Touch Mode
+    # still has to get its icon size in (rig check 2026-10-09, F1)
+    trixie_touch.panel.parent.mkdir(parents=True)
+    trixie_touch.panel.write_text("")
+    p = trixie_touch("enable")
+    assert p.returncode == 0, p.stderr
+    assert trixie_touch.panel.read_text() == "[panel]\nicon_size=48\n"
+    p = trixie_touch("disable")
+    assert p.returncode == 0, p.stderr
+    assert "icon_size=48" not in trixie_touch.panel.read_text()
+
+
+@needs_bash
 def test_touch_mode_status_names_the_keyboard_of_the_system(trixie_touch):
     out = trixie_touch("status").stdout
     assert "opens in text fields" in out and "keyboard icon in the top bar" in out

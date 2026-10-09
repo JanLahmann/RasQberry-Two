@@ -112,6 +112,11 @@ set_ini() {
         rewrite "$file" awk -v k="$key" -v v="$value" 'index($0, k "=") == 1 { $0 = k "=" v } { print }'
     elif grep -qF "[${section}]" "$file"; then
         rewrite "$file" awk -v s="[${section}]" -v k="$key" -v v="$value" '{ print } $0 == s { print k "=" v }'
+    else
+        # No such section: wf-panel-pi writes an empty user file at every
+        # desktop start, so the panel's icon size had nowhere to go (rig
+        # check 2026-10-09, F1)
+        rewrite "$file" awk -v s="[${section}]" -v k="$key" -v v="$value" '{ print } END { print s; print k "=" v }'
     fi
 }
 
