@@ -26,6 +26,11 @@ To start it, double-click **Workshop & Qiskit Server** in the desktop folder
 **Workshops & events** (or RasQberry → Quantum Demos → Workshops & events). The Pi shows the address and a QR code for the
 participants; open the same entry again to stop it.
 
+**Network:** the participants' devices must be on the same network as the Pi.
+Guest Wi-Fi and networks with client isolation block the connection between
+devices, so check this with the venue before the event. Participants join by
+opening the address or scanning the QR code the Pi shows.
+
 ## For a stand
 
 Demos that draw visitors in, on a large monitor and on the model. The
