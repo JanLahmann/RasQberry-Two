@@ -162,6 +162,8 @@ function catalogueRows(registry) {
   return (registry?.demos || []).map((d) => ({
     id: d.id,
     name: d.name || d.id,
+    // the name before a rename, so that its users recognise it
+    formerly: d.formerly,
     group: d.group,
     maturity: d.maturity,
     description: `${d.summary ? d.summary[0].toUpperCase() + d.summary.slice(1) : ''}${d.provider ? ` (provided by ${d.provider})` : ''}`,
@@ -174,10 +176,11 @@ function row(m) {
   const page = pageFor(m.id);
   const name = page ? `[${m.name}](${page})` : m.name;
   const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+  const formerly = m.formerly ? ` (formerly ${m.formerly})` : '';
   const needs = m.catalogue
     ? [`add it first: **Manage demos** → **Add demo from catalogue**${m.download ? ` (${m.download < 1000 ? `${m.download} MB` : `${(m.download / 1000).toFixed(1)} GB`})` : ''}`]
     : needsOf(m);
-  return `| **${name}**${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
+  return `| **${name}**${formerly}${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
 }
 
 const TABLE_HEAD = `| Demo | What it is | Needs | Start it with |\n|---|---|---|---|\n`;
