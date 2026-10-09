@@ -206,7 +206,7 @@ _FAMILY = {
         {"id": "qoffee-maker", "name": "Qoffee-Maker", "url": "https://qoffee-maker.org",
          "short": "Coffee", "tagline": "Order coffee with a quantum circuit"},
         {"id": "qubins", "name": "QuBins", "url": "javascript:alert(1)", "short": "Envs"},
-        {"id": "traqmania", "name": "traQmania", "url": "https://github.com/x", "short": "Racing",
+        {"id": "racetraq", "name": "racetraQ", "url": "https://github.com/x", "short": "Racing",
          "footer": False},
     ],
 }
@@ -216,7 +216,7 @@ _LOCAL = {"fun-with-quantum", "qoffee-maker", "quantum-lab", "grok-bloch"}
 def test_family_page_from_family_json():
     page = rq_fwq.render_family_html(_FAMILY, _LOCAL)
     assert "<title>Fun with Quantum family</title>" in page
-    assert "traQmania" not in page                       # footer: false = not shown yet
+    assert "racetraQ" not in page                       # footer: false = not shown yet
     assert "Quantum computers &lt;built&gt; from LEGO" in page
     assert "javascript:" not in page                     # only https links
     assert page.count("On this Pi</span>") == 3          # FwQ, Qoffee-Maker, QuBins
@@ -228,7 +228,7 @@ def test_family_page_from_family_json():
 def test_family_menu_starts_local_demos_and_opens_websites():
     items = rq_fwq.menu_items(_FAMILY, _LOCAL)
     tags = [t for t, _, _ in items]
-    assert tags[0] == "page" and "fun-with-quantum" not in tags and "traqmania" not in tags
+    assert tags[0] == "page" and "fun-with-quantum" not in tags and "racetraq" not in tags
     actions = {t: a for t, _, a in items}
     assert actions["qoffee-maker"] == "demo:qoffee-maker"
     assert actions["qubins"] == "demo:quantum-lab"

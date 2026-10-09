@@ -16,8 +16,8 @@
 # Trusted does NOT mean "internal": trust is about who controls the upstream
 # repository, which decides whether a pin is required. Whether a demo is internal
 # or external is a separate question about how it is distributed and installed.
-# traQmania, for example, is trusted (JanLahmann's) yet ships via the external
-# registry, which pins everything regardless.
+# racetraQ (formerly traQmania), for example, is trusted (JanLahmann's) yet
+# ships via the external registry, which pins everything regardless.
 #
 # Adding an owner here removes the pin requirement for its repos - only add
 # owners whose repositories the maintainers actually control.

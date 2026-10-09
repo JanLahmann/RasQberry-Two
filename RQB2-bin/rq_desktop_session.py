@@ -747,12 +747,13 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     The group of a demo, decided like rq_demo_group in rq_common.sh.
 
     A catalogue demo (one in known-demos.json, or a manifest that is not
-    shipped) goes to its known-demos.json entry's group (it is curated), else
-    to the group marked "catalogue" (Contributed demos) - not to the group its
-    own manifest names. A shipped demo goes to its manifest's "group", else a
-    guess: an LED panel demo to led-panel, a game or visualization to play,
-    anything else to learn. A value demo-groups.json does not list counts as
-    none.
+    shipped) goes to its known-demos.json entry's group (it is curated; an
+    install under an earlier name, listed in an entry's "replaces", goes to
+    that entry's group), else to the group marked "catalogue" (Contributed
+    demos) - not to the group its own manifest names. A shipped demo goes to
+    its manifest's "group", else a guess: an LED panel demo to led-panel, a
+    game or visualization to play, anything else to learn. A value
+    demo-groups.json does not list counts as none.
 
     Args:
         demo_id (str): Demo id.
@@ -769,7 +770,9 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     dirs = dirs or manifest_dirs()
     registry = _read_json(known or KNOWN_DEMOS) or {}
     manifest = find_manifest(demo_id, dirs)
-    entry = [d for d in registry.get("demos") or [] if isinstance(d, dict) and d.get("id") == demo_id]
+    demos = [d for d in registry.get("demos") or [] if isinstance(d, dict)]
+    entry = ([d for d in demos if d.get("id") == demo_id]
+             + [d for d in demos if demo_id in (d.get("replaces") or [])])
     for group in (d.get("group") for d in entry):
         if group in ids:
             return group

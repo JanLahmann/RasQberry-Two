@@ -2150,7 +2150,8 @@ RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 # Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
 # The variant's value wins, then the manifest's, then the catalogue entry's
 # (known-demos.json), so a catalogue demo installed before it was marked
-# shows it too.
+# shows it too - also one installed under an earlier name (the entry's
+# "replaces", e.g. traqmania for racetraq).
 # Usage: [ -n "$(rq_demo_maturity ID [MANIFEST] [VARIANT])" ]
 rq_demo_maturity() {
     local id="$1" variant="${3:-}" mf m="" registry
@@ -2161,7 +2162,8 @@ rq_demo_maturity() {
     fi
     registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
     if [ -z "$m" ] && [ -f "$registry" ]; then
-        m=$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .maturity // empty' \
+        m=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id)] + [.demos[]?
+            | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
             "$registry" 2>/dev/null)
     fi
     [ "$m" = "beta" ] && echo beta
@@ -2171,11 +2173,13 @@ rq_demo_maturity() {
 # Group of a demo: its desktop folder and RasQberry menu submenu
 # (demo-groups.json). A catalogue demo (one in known-demos.json, or any
 # manifest that is not shipped) goes to its known-demos.json entry's group
-# (curated), else to the group marked "catalogue" (Contributed demos, Jan
-# 2026-10-08) - not to the group its own manifest names. A shipped demo goes
-# to its manifest's "group", else a guess: an LED panel demo to led-panel, a
-# game or visualization to play, anything else to learn. A value
-# demo-groups.json does not list counts as none. rq_desktop_session.py
+# (curated; an install under an earlier name, listed in an entry's
+# "replaces", goes to that entry's group), else to the group marked
+# "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
+# manifest names. A shipped demo goes to its manifest's "group", else a
+# guess: an LED panel demo to led-panel, a game or visualization to play,
+# anything else to learn. A value demo-groups.json does not list counts as
+# none. rq_desktop_session.py
 # (demo_group) decides the same way for the desktop.
 # Usage: group=$(rq_demo_group ID [MANIFEST])
 rq_demo_group() {
@@ -2193,7 +2197,8 @@ rq_demo_group() {
         ([$grp[0].groups[]?.id]) as $ids
         | ([$grp[0].groups[]? | select(.catalogue == true) | .id] | .[0]) as $cat
         | ($mf[0] // {}) as $m
-        | [$reg[0].demos[]? | select(.id == $id)] as $entry
+        | ([$reg[0].demos[]? | select(.id == $id)]
+           + [$reg[0].demos[]? | select(any(.replaces[]?; . == $id))]) as $entry
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
         | if ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
@@ -2334,7 +2339,7 @@ _rq_pull_progress() {
 }
 
 # Download an image. In a terminal one line shows the MB received so far
-# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# ("Downloading racetraQ ... 120 of about 530 MB, 45s") instead of Docker's
 # list of layers (#23); on failure Docker's own reason, not "check your
 # internet connection" (R-038).
 # FALLBACK (a tag of the same image, e.g. ghcr.io/qubins/images:2.5-xl): when
