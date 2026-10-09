@@ -497,7 +497,7 @@ done_label() {
             else
                 echo "Run again: LED panel check ($(led_layout_name "$(env_value LED_LAYOUT)"))"
             fi ;;
-        demos)    echo "Run again: download all demos (done)" ;;
+        demos)    echo "Run again: download all demos (done; Docker demos load on first start)" ;;
         firmware) echo "Read again: about the Pi's firmware" ;;
         touch)    echo "Run again: touch mode (on)" ;;
         *)        echo "Run again: $1" ;;
