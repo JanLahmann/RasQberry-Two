@@ -637,10 +637,11 @@ else
 Space ticks or unticks a step, Enter runs the ticked ones.
 $REOPEN"
 fi
-# Touchscreen without a keyboard (R-089)
+# Touchscreen without a keyboard (R-089). On trixie Raspberry Pi OS's own
+# keyboard (squeekboard, stage 09) also opens by itself in this window.
 if task_touch_applies 2>/dev/null; then
     text="$text
-No keyboard? The keyboard icon in the top bar opens one on the screen."
+No keyboard? The keyboard icon in the top bar shows one on the screen."
 fi
 rows=$(( ${#args[@]} / 3 ))
 # whiptail makes the list exactly as wide as its longest line, so that line

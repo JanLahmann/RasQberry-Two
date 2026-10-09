@@ -246,8 +246,8 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
-# Note: Virtual keyboard (wvkbd) is installed separately in stage 09-touchscreen-support
-# and toggled manually via panel icon - no autostart needed
+# Note: the on-screen keyboard is set up in stage 09-touchscreen-support
+# (trixie: Raspberry Pi OS's squeekboard; bookworm: wvkbd with a panel launcher)
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
