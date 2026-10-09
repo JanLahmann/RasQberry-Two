@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T14:52:53Z",
+  "generated": "2026-10-09T15:38:11Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,23 +32,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-09-122452",
-      "name": "rasqberry-development-2026-10-09-122452",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-122452/rasqberry-development-2026-10-09-122452.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-122452",
-      "release_date": "2026-10-09 12:24",
-      "image_download_size": 2146558976,
-      "extract_size": 9504292864,
-      "extract_sha256": "36b7b77f7ace8ac23ef640f97db30d163d2b7e55874c98671f27222cf78d6792",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-122452/rasqberry-development-2026-10-09-122452-ab.img.xz",
-      "ab_extract_sha256": "c7884b17ebfd87a03fd301088acfe5b73efca0806ee85b77aaf6c9f73371914a",
-      "ab_image_sha256": "68f929a167fe3436d81c4633474211d61ed8d65804471cd374e95aeb3d44f857",
+      "tag": "development-2026-10-09-170515",
+      "name": "rasqberry-development-2026-10-09-170515",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-170515/rasqberry-development-2026-10-09-170515.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-170515",
+      "release_date": "2026-10-09 17:05",
+      "image_download_size": 2146682044,
+      "extract_size": 9495904256,
+      "extract_sha256": "c595435de52a2d9f79488f4fea452b4a3239869d9a04e9c4d3e625cde997405b",
+      "image_sha256": "1dd7e9ef677a1bd55a4b4a09adeb89722d35993047b0899e915c9d454f8fc9a6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-170515/rasqberry-development-2026-10-09-170515-ab.img.xz",
+      "ab_extract_sha256": "c6a21315f7b9fac1c1ffacac2315debf2ad4dd312e4d2b360adea88533077f7f",
+      "ab_image_sha256": "979b945d036a8dbb4985005894ed4ca3fb4474335ff961d96dbaec394ddbbe76",
+      "ab_image_download_size": 1879032864,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1878089080,
       "highlights": [
-        "Bump version to development-2026-10-09-122452",
-        "Setup checklist: say that the Docker demos load on first start",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-09-102657"
+        "Bump version to development-2026-10-09-170515",
+        "racetraQ pinned to v0.3.0 (#328)",
+        "Raspberry Pi OS's own on-screen keyboard again",
+        "Setup checklist: shorter Docker note, so the line fits the window"
       ]
     }
   }
