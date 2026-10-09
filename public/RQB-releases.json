@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T05:14:16Z",
+  "generated": "2026-10-09T05:32:47Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,26 +32,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-09-064009",
-      "name": "rasqberry-development-2026-10-09-064009",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-064009/rasqberry-development-2026-10-09-064009.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-064009",
-      "release_date": "2026-10-09 06:40",
-      "image_download_size": 2146676540,
+      "tag": "dev-mixer-ctrlc-2026-10-09-063937",
+      "name": "rasqberry-dev-mixer-ctrlc-2026-10-09-063937",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-mixer-ctrlc-2026-10-09-063937/rasqberry-dev-mixer-ctrlc-2026-10-09-063937.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-mixer-ctrlc-2026-10-09-063937",
+      "release_date": "2026-10-09 06:39",
+      "image_download_size": 1831358380,
       "extract_size": 9504292864,
-      "extract_sha256": "d57437d9a81e509880067c2fd3c4aa914b35089caa5642dcd387c8512a8fa166",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-064009/rasqberry-development-2026-10-09-064009-ab.img.xz",
-      "ab_extract_sha256": "83536470ee1e0143e8a01940a110c86185e693e54255efb8e2e56269155399ae",
-      "ab_image_sha256": "07d5b2b0db48d03bc0c13a6c480e1afc8f7c11264df317f913a7b5067afaf917",
-      "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1881723596,
-      "highlights": [
-        "Bump version to development-2026-10-09-064009",
-        "Merge dev-mixer-ctrlc: Mixer pinned to the image with the Qoffee page, Ctrl+C during a download is a stop",
-        "Ctrl+C during a download is a stop, not an error",
-        "pin the image with the Qoffee page, drop the overlay",
-        "Bump version to dev-mixer-ctrlc-2026-10-09-063937"
-      ]
+      "extract_sha256": "f41bd74d66e78b344c060faf9b70c5166a08ea3db412896aed172cfcaa727e6d",
+      "image_sha256": "42e327ffd9df94461f3f4a07bb7c064def1224e1da0f34da435a15ba43fe0a1d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-mixer-ctrlc-2026-10-09-063937/rasqberry-dev-mixer-ctrlc-2026-10-09-063937-ab.img.xz",
+      "ab_extract_sha256": "a92ce94b910d49f9dc0d9521faead33914369007fed52ce55c4602d06a7ca774",
+      "ab_image_sha256": "5e1c3532b8b37ba541a35640150ba08eac039c73bedd4b9b938cc3a71132cbeb",
+      "ab_image_download_size": 1879845980,
+      "ab_extract_size": 12398362624
     }
   }
 }
