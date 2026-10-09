@@ -714,6 +714,7 @@ Not kept (they stay in the old system):
   - other files in your home folder - put files you want to keep in ~/Shared
     or ~/My-Quantum-Programs
   - installed demos, Docker images and Python packages you added
+    (scripts in /data/rasqberry/after-update.d can install them again)
 EOF
 }
 

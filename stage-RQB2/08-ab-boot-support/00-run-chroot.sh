@@ -7,14 +7,15 @@ echo "=> Checking RasQberry A/B boot support"
 # RQB2-system/ by the same stage (#294). This stage only verifies them.
 missing=0
 for script in rq_health_check.py rq_slot_manager.sh rq_common.sh rq_update_slot.sh rq_tryboot_retry.sh \
-              rq_expand_ab.sh rq_carry_over.sh; do
+              rq_expand_ab.sh rq_carry_over.sh rq_after_update.sh; do
     if [ ! -f "/usr/bin/$script" ]; then
         echo "ERROR: /usr/bin/$script not found"
         missing=1
     fi
 done
 for unit in rasqberry-health-check.service rasqberry-tryboot-retry.service \
-            rasqberry-ab-layout.service rasqberry-carry-over.service rasqberry-probation.timer; do
+            rasqberry-ab-layout.service rasqberry-carry-over.service rasqberry-probation.timer \
+            rasqberry-after-update.service; do
     # the enablement symlink (no running systemd in the build chroot)
     ls /etc/systemd/system/*.wants/"$unit" >/dev/null 2>&1 || { echo "ERROR: $unit is not enabled"; missing=1; }
 done

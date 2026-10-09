@@ -1,0 +1,21 @@
+[Unit]
+Description=RasQberry: your own scripts after an A/B update (/data/rasqberry/after-update.d)
+Documentation=https://github.com/JanLahmann/RasQberry-Two/blob/main/docs/ab-boot.md
+# rq_after_update.sh run: once per release on each slot, as root, in name
+# order. Only after the health check has confirmed the slot (never on a
+# trial start, so a script can neither cause nor delay a rollback) and with
+# the network up. Type=exec: a long script does not hold up the start-up.
+# A/B cards with a real DATA partition only.
+After=rasqberry-health-check.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/boot/config/autoboot.txt
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/rq_after_update.sh run
+Nice=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

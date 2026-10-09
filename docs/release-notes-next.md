@@ -14,6 +14,7 @@ only true for the standard image. -->
 - **Workshop & Qiskit Server:** the participants' address now also shows as a QR code.
 - **LED panel:** until the setup checklist's LED check is answered, the address scroll at start-up alternates between the layouts of the two kits, so every second pass is readable on the four-panel kit too.
 - **Updates need much less free space:** an A/B update now unpacks the image straight into the other slot instead of into a 12 GB file first. It needs the download plus 0.5 GB free (about 2.5 GB) instead of 15 GB, so a 64 GB card with all Docker demos can update too.
+- **Your own extras after an update:** executable scripts in `/data/rasqberry/after-update.d/` (owned by root) run once after each A/B update, as root, so packages you added come back by themselves. `sudo rq_after_update.sh status` shows the last run; details in docs/ab-boot.md.
 - **On-screen LED view:** it now closes when the LED demo ends; the demo loop keeps one view until the loop stops.
 - **LED Demos from a terminal:** `rq_demo_run.sh led-demos` without a part shows the list of LED demos (without a terminal: the commands for each) instead of an error.
 - **racetraQ (formerly traQmania):** the quantum reinforcement-learning racing game is now called racetraQ (https://racetraq.org). On a Pi that has traQmania, **Add demo from catalogue** offers racetraQ, which replaces it: once racetraQ is installed, traQmania's files, menu entry, icon and Docker image are removed. Until then traQmania keeps working where it was.
