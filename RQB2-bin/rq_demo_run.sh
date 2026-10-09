@@ -547,8 +547,15 @@ ensure_installed() {
     installer=$(get_field '.install.installer' '')
     if [ -n "$installer" ]; then
         info "Installing via $installer ..."
-        install_demo_raspiconfig "$installer" \
-            || die "Installation failed for demo '$DEMO_ID' ($installer)"
+        local irc=0
+        install_demo_raspiconfig "$installer" || irc=$?
+        case "$irc" in
+            0) ;;
+            # stopped with Ctrl+C (a download, user test 2026-10-08) or a
+            # closed window: the installer said so, not an error
+            129|130|143) exit "$irc" ;;
+            *) die "Installation failed for demo '$DEMO_ID' ($installer)" ;;
+        esac
         return 0
     fi
 

@@ -156,7 +156,13 @@ update_image() {
             *) show_msgbox "$TITLE" "$RQ_CONSENT_MSG"; return 0 ;;
         esac
         rq_docker_access
-        ( rq_docker_pull "$target" "$name" "$dl" ) || { show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0; }
+        rc=0
+        ( rq_docker_pull "$target" "$name" "$dl" ) || rc=$?
+        case "$rc" in
+            0) ;;
+            130) show_msgbox "$TITLE" "Download stopped. $name keeps the version in use."; return 0 ;;
+            *) show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0 ;;
+        esac
     fi
     if [ "$target" = "$rel" ]; then
         rq_demo_set_version "$key" "$rel" ""

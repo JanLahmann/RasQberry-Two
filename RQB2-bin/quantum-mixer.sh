@@ -78,16 +78,23 @@ elif docker image inspect "$LOCAL_IMAGE" >/dev/null 2>&1; then
     RUN_IMAGE="$LOCAL_IMAGE"
 else
     rq_require_demo_consent quantum-mixer
-    info "Downloading Quantum Mixer: $DOCKER_IMAGE"
-    if docker pull "$DOCKER_IMAGE"; then
-        RUN_IMAGE="$DOCKER_IMAGE"
-    elif rq_reachable "https://ghcr.io/v2/"; then
-        warn "The prebuilt image is not available on ghcr.io."
-        build_locally
-        RUN_IMAGE="$LOCAL_IMAGE"
-    else
-        die "Could not download Quantum Mixer: ghcr.io cannot be reached. Connect the Pi to the internet and try again."
-    fi
+    # One progress line, the manifest's fallback tag when ghcr.io no longer
+    # offers the pinned build, Ctrl+C a quiet stop (130). In a subshell, so
+    # that a download that fails can still lead to the build on this Pi; the
+    # fallback tag, when it was taken, is the version in use (rq_demo_image).
+    rc=0
+    ( rq_demo_docker_pull quantum-mixer "$DOCKER_IMAGE" "Quantum Mixer" ) || rc=$?
+    case "$rc" in
+        0) RUN_IMAGE="$(rq_demo_image quantum-mixer)" ;;
+        129|130|143) exit "$rc" ;;
+        *)
+            rq_reachable "https://ghcr.io/v2/" \
+                || die "Could not download Quantum Mixer: ghcr.io cannot be reached. Connect the Pi to the internet and try again."
+            warn "The prebuilt image is not available on ghcr.io."
+            build_locally
+            RUN_IMAGE="$LOCAL_IMAGE"
+            ;;
+    esac
     rq_docker_drop_old "$RUN_IMAGE"
     update_env_var "QUANTUM_MIXER_INSTALLED" "true" >/dev/null 2>&1 || true
 fi
@@ -131,6 +138,9 @@ HC_SRC=""
 if hc_configured "$HC_FILE"; then HC_SRC="$HC_FILE"
 elif hc_configured "$QOFFEE_ENV"; then HC_SRC="$QOFFEE_ENV"
 fi
+# Without an account the image (quantum-mixer 8a9cf32 and later) answers the
+# Qoffee login with a page that says what is missing, ending with this hint,
+# and offers a measure-only mode; older images answered a bare 500 (item 18).
 HC_ENV=(-e "HOMECONNECT_SETUP_HINT=put its client ID and secret into $HC_FILE and start Quantum Mixer again.")
 if [ -n "$HC_SRC" ]; then
     HC_URL=$(hc_value HOMECONNECT_API_URL "$HC_SRC")
@@ -140,24 +150,12 @@ if [ -n "$HC_SRC" ]; then
              -e "HOMECONNECT_BASE_URL=${HC_URL%/}" -e "HOST_ADDRESS=http://127.0.0.1:${PORT}")
 fi
 
-# Without an account the pinned image answered the Qoffee login with a bare
-# "Internal Server Error" (oauthlib: "OAuth 2 MUST utilize https", item 18).
-# Its fixed use case (a page that says what is missing, and a measure-only
-# mode) is mounted over the image it was written for, until a newer image
-# carries the fix (Quantum-Mixer branch fix/qoffee-without-home-connect).
-QOFFEE_FIX="$(dirname "$RQ_ENV_FILE")/quantum-mixer/qoffee_usecase.py"
-QOFFEE_FIX_REF="fc0cb984508ce80b3d0c650669bc7f2b8bde72c3"
-HC_MOUNT=()
-if [ "${RUN_IMAGE##*:}" = "$QOFFEE_FIX_REF" ] && [ -f "$QOFFEE_FIX" ]; then
-    HC_MOUNT=(-v "$QOFFEE_FIX:/app/quantum_mixer_backend/usecases/qoffee/usecase.py:ro")
-fi
-
 info "Starting Quantum Mixer..."
 if ! docker run -d \
     --name "$CONTAINER_NAME" \
     --label "org.rasqberry.demo=quantum-mixer" \
     -p "127.0.0.1:${PORT}:8080" \
-    "${HC_ENV[@]}" ${HC_MOUNT[@]+"${HC_MOUNT[@]}"} \
+    "${HC_ENV[@]}" \
     "$RUN_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The Quantum Mixer container did not start."
 fi

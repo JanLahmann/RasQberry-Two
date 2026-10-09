@@ -41,7 +41,6 @@ Classes:
 | `touch-mode/` | default | |
 | `venv-extras/` | default | installed into the user's RQB2 venv by `rq_learner_setup.sh` (`.pth` for `/usr/bin` modules and root runs without bytecode; Jupyter notebook setting) |
 | `quantum-lab/` | default | Quantum Lab's start page (`WELCOME.ipynb`), mounted read-only into its container by `rq_quantum_lab.sh` |
-| `quantum-mixer/` | default | Quantum Mixer's fixed QoffeeMaker use case (a page instead of a 500 without a Home Connect account), mounted read-only over the pinned image by `quantum-mixer.sh` |
 | `my-quantum-programs/` | default | starter notebooks and programs, copied once to `~/My-Quantum-Programs` by `rq_learner_setup.sh` (a starter new in a release is added once to an existing folder) |
 | `starter-notebooks.json` | default | pins of the starter notebooks copied from other projects (doQumentation's Hello World): repository, commit, SHA-256; `rq_starter_sync.py` checks and moves them |
 

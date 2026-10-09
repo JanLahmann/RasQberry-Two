@@ -68,9 +68,12 @@ def test_every_downloaded_demo_is_pinned():
 
 
 def test_mixer_image_is_the_build_of_its_pinned_source():
-    # built by the quantum-mixer repository's CI, tagged with the commit
+    # built by the quantum-mixer repository's CI, tagged with the commit; the
+    # pin is that build's digest, the commit tag its fallback
     m = _manifest("quantum-mixer")
-    assert m["entrypoint"]["docker_image"] == \
+    assert re.fullmatch(r"ghcr\.io/janlahmann/quantum-mixer@sha256:[0-9a-f]{64}",
+                        m["entrypoint"]["docker_image"])
+    assert m["entrypoint"]["docker_image_fallback"] == \
         "ghcr.io/janlahmann/quantum-mixer:" + m["install"]["source"]["ref"]
 
 
