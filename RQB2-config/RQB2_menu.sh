@@ -1089,36 +1089,6 @@ check_environment_variable() {
 
 
 # -----------------------------------------------------------------------------
-# 3b) Qiskit Install Menu
-# -----------------------------------------------------------------------------
-
-# Install any version of Qiskit using consolidated script
-# $1 = version (latest, 1.0, 1.1)
-# $2 = silent (optional, suppresses whiptail popup)
-do_rqb_install_qiskit() {
-  sudo -u "$SUDO_USER" -H -- sh -c "$BIN_DIR/rq_install_qiskit.sh $1"
-  if { [ "$INTERACTIVE" = true ] || [ "$INTERACTIVE" = True ]; } && ! [ "$2" = silent ]; then
-    [ "$RQ_NO_MESSAGES" = false ] && whiptail --msgbox "Qiskit $1 installed" 20 60 1
-  fi
-}
-
-do_rqb_qiskit_menu() {
-    while true; do
-        FUN=$(show_menu "Qiskit Install" "Choose version to install" \
-           Qnew  "Install Qiskit (latest)" \
-           Q11   "Install Qiskit v1.1" \
-           Q10   "Install Qiskit v1.0") || break
-        case "$FUN" in
-            Q11)   do_rqb_install_qiskit 1.1 || { handle_error "Failed to install Qiskit v1.1."; continue; } ;;
-            Q10)   do_rqb_install_qiskit 1.0 || { handle_error "Failed to install Qiskit v1.0."; continue; } ;;
-            Qnew)  do_rqb_install_qiskit latest || { handle_error "Failed to install latest Qiskit."; continue; } ;;
-            *)      break ;;
-        esac
-    done
-}
-
-
-# -----------------------------------------------------------------------------
 # 3c) LED Demo Menu
 # -----------------------------------------------------------------------------
 
