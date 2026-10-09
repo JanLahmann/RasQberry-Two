@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T15:39:08Z",
+  "generated": "2026-10-09T20:23:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,25 +32,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-09-170515",
-      "name": "rasqberry-development-2026-10-09-170515",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-170515/rasqberry-development-2026-10-09-170515.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-170515",
-      "release_date": "2026-10-09 17:05",
-      "image_download_size": 2146682044,
+      "tag": "dev-qlab-1009-2026-10-09-213840",
+      "name": "rasqberry-dev-qlab-1009-2026-10-09-213840",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-qlab-1009-2026-10-09-213840/rasqberry-dev-qlab-1009-2026-10-09-213840.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/dev-qlab-1009-2026-10-09-213840",
+      "release_date": "2026-10-09 21:38",
+      "image_download_size": 2146028772,
       "extract_size": 9495904256,
-      "extract_sha256": "c595435de52a2d9f79488f4fea452b4a3239869d9a04e9c4d3e625cde997405b",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-170515/rasqberry-development-2026-10-09-170515-ab.img.xz",
-      "ab_extract_sha256": "c6a21315f7b9fac1c1ffacac2315debf2ad4dd312e4d2b360adea88533077f7f",
-      "ab_image_sha256": "979b945d036a8dbb4985005894ed4ca3fb4474335ff961d96dbaec394ddbbe76",
-      "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1879032864,
-      "highlights": [
-        "Bump version to development-2026-10-09-170515",
-        "racetraQ pinned to v0.3.0 (#328)",
-        "Raspberry Pi OS's own on-screen keyboard again",
-        "Setup checklist: shorter Docker note, so the line fits the window"
-      ]
+      "extract_sha256": "033361472d4da6a714fd11884e7238779ef62a625556bdaa5d42ef83c53faf7e",
+      "image_sha256": "7068134bcb7daa24304f35d4a6a2ce76f7e267cd09b300095b3e4f5fc7ae229b",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/dev-qlab-1009-2026-10-09-213840/rasqberry-dev-qlab-1009-2026-10-09-213840-ab.img.xz",
+      "ab_extract_sha256": "c8cb4138e262286a30acf445e2e3d0fa52665fd3253c21d44f4f288bb0698d28",
+      "ab_image_sha256": "9cd2375f5e7d851c2fdb835a84692d468303f2805d8182083fe1758b6296cd64",
+      "ab_image_download_size": 1881493680,
+      "ab_extract_size": 12398362624
     }
   }
 }
