@@ -9,12 +9,12 @@
       "provider": "the Fun with Quantum family",
       "maturity": "beta",
       "repo_url": "https://github.com/JanLahmann/racetraQ.git",
-      "ref": "e9a42e3b106ea41339905aaa36e9f149105d4246",
+      "ref": "ee17bc781a23acae1346e02b7b66df618dec6eb2",
       "manifest_path": "rqb-demo.json",
       "added": "2026-07-13",
       "replaces": ["traqmania"],
       "formerly": "traQmania",
-      "note": "Quantum reinforcement-learning racing demo (https://racetraq.org; docker image ghcr.io/janlahmann/racetraq, tags v0.2.2 and latest, public multi-arch incl. arm64; the manifest names it untagged, i.e. :latest). Renamed from traQmania on 2026-10-08 to keep clear of the Trackmania trademark: id, repository (JanLahmann/traQmania redirects) and image (ghcr.io/janlahmann/traqmania stays at its July build) all changed; replaces lists the old id, so a Pi with traQmania installed moves over. Pinned 2026-10-09 to the racetraQ v0.2.2 release commit (v0.2.0 and v0.2.1 published no image). download_mb is the arm64 v0.2.2 image measured on ghcr.io (581 MB compressed); disk_mb is an estimate, scaled from the traQmania image (510 MB compressed, 3.26 GB unpacked). First Fun-with-Quantum-family catalog entry.",
+      "note": "Quantum reinforcement-learning racing demo (https://racetraq.org; docker image ghcr.io/janlahmann/racetraq, tags v0.3.0 and latest, public multi-arch incl. arm64; the manifest names it untagged, i.e. :latest). Renamed from traQmania on 2026-10-08 to keep clear of the Trackmania trademark: id, repository (JanLahmann/traQmania redirects) and image (ghcr.io/janlahmann/traqmania stays at its July build) all changed; replaces lists the old id, so a Pi with traQmania installed moves over. Pinned 2026-10-09 to the racetraQ v0.3.0 release commit (Studio improvements, board moderation, a German UI, a learning path; v0.2.0 and v0.2.1 published no image). download_mb is the arm64 v0.3.0 image measured on ghcr.io (579 MB compressed); disk_mb is an estimate, scaled from the traQmania image (510 MB compressed, 3.26 GB unpacked). First Fun-with-Quantum-family catalog entry.",
       "download": {
         "download_mb": 600,
         "disk_mb": 3720
