@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=Demo Loop
-Comment=Continuous loop of quantum demos for conference showcases (IBM LED Demo, Quantum Lights Out, Quantum Raspberry Tie, RasQ-LED Demo)
+Comment=Quantum demos one after another, for a stand (LED demos and Quantum Fractals)
 Icon=/usr/share/icons/rasqberry/demo-loop.svg
 Type=Application
 Categories=RasQberry;

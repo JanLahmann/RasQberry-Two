@@ -506,11 +506,37 @@ def test_demos_in_one_group_window_have_their_own_icons():
             assert os.path.exists(os.path.join(_ROOT, "desktop-icons", d["icon"])), d["id"]
 
 
+def test_led_and_tie_demos_have_their_own_icons():
+    # R-097: three demos shared the SenseHAT picture, and Fractals had the
+    # Raspberry Tie icon
+    bm = os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks")
+    own = {"led-ibm-demo": "led-ibm-demo.svg", "led-test": "led-test.svg",
+           "quantum-raspberry-tie": "quantum-raspberry-tie.svg", "quantum-fractals": "quantum-fractals.svg"}
+    icons = {}
+    for f in sorted(os.listdir(bm)):
+        if f.endswith(".desktop"):
+            for line in open(os.path.join(bm, f)):
+                if line.startswith("Icon="):
+                    icons[f[:-len(".desktop")]] = line.strip()[5:]
+    for name, svg in own.items():
+        assert icons[name] == "/usr/share/icons/rasqberry/" + svg, name
+        path = os.path.join(_ROOT, "desktop-icons", svg)
+        assert os.path.exists(path), svg
+        text = open(path).read()
+        assert 'viewBox="0 0 64 64"' in text and "<title>" in text, svg
+    # no shipped entry uses the SenseHAT picture or the old Raspberry Tie icon
+    assert not [n for n, i in icons.items() if i.endswith(("sensehat-icon.png", "quantum_raspberry_tie_icon.svg"))]
+    # every icon of a shipped entry is used once (system theme icons aside)
+    own_icons = [i for i in icons.values() if i.startswith("/usr/share/icons/rasqberry/")]
+    assert len(own_icons) == len(set(own_icons)), sorted(own_icons)
+
+
 def test_a_demos_icon_is_the_same_in_its_manifest_and_on_the_desktop():
     # the group window and the menu read the bookmark, a regenerated entry the
     # manifest: a new icon in one only came back in the other
     bm = os.path.join(_ROOT, "RQB2-config", "desktop-bookmarks")
-    for demo_id in ("quantum-paradoxes", "doqumentation", "qiskit-tutorials", "grok-bloch"):
+    for demo_id in ("quantum-paradoxes", "doqumentation", "qiskit-tutorials", "grok-bloch",
+                    "quantum-raspberry-tie", "quantum-fractals"):
         m = json.load(open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", f"rq_demo_{demo_id}.json")))
         icon = [line.strip()[5:] for line in open(os.path.join(bm, f"{demo_id}.desktop")) if line.startswith("Icon=")]
         assert icon == [m["icon"]["path"]], demo_id

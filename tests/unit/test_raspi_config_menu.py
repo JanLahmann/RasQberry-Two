@@ -517,3 +517,12 @@ def test_quantum_demos_menu_offers_remove_and_download_all():
     # the Mixer installer no longer sets up Qoffee-Maker
     start = menu.index("do_quantum_mixer_install() {")
     assert "qoffee-setup.sh" not in menu[start:menu.index("\n}\n", start)]
+
+
+def test_no_dead_qiskit_version_menu():
+    # R-046: the unreachable "Qiskit Install" menu offered Qiskit 1.x, which
+    # breaks the Qiskit 2 demos; it and its helper are gone
+    menu = open(_MENU).read()
+    assert "do_rqb_qiskit_menu" not in menu
+    assert "do_rqb_install_qiskit" not in menu
+    assert "Install Qiskit v1.1" not in menu

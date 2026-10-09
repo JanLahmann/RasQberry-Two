@@ -2,7 +2,7 @@
 Version=1.1
 Name=LED Test
 Comment=Test the LED panel and find its settings with an automatic scan
-Icon=/usr/share/icons/rasqberry/sensehat-icon.png
+Icon=/usr/share/icons/rasqberry/led-test.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh -t "LED Test" /usr/bin/rq_demo_run.sh led-demos led-test

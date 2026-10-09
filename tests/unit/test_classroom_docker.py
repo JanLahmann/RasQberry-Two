@@ -355,8 +355,26 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
     # the menu's way to stop it, not a Docker command (R-094)
     assert "Stop Docker demos" in proc.stdout + proc.stderr
     assert "docker stop" not in proc.stdout + proc.stderr
-    # code runs only with the internet for now (R-068, doQumentation#964)
-    assert "Running code needs the internet for now" in proc.stdout
+    # the re-pinned image runs code offline (R-068, doQumentation#964): no
+    # "needs the internet" note; "Open in Lab" (404) and shells hidden (R-070)
+    assert "needs the internet" not in proc.stdout
+    assert "also without the internet" in proc.stdout
+    assert "Open in Lab" not in proc.stdout
+    assert "-e LAB_ENABLED=false" in run[0] and "-e ALLOW_TERMINALS=false" in run[0]
+
+
+@needs_bash
+def test_addresses_say_participants_need_the_same_network(doq):
+    # R-122: guest Wi-Fi or client isolation blocks participants
+    for running in (True, False):
+        proc, _calls = doq(running=running)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        out = " ".join(proc.stdout.split())
+        assert "Participants must be on the same network as this Pi." in out
+        assert "Guest Wi-Fi or Wi-Fi with client isolation" in out
+    # not for the person alone at this Pi
+    proc, _calls = doq(running=False, args=["--solo"])
+    assert "client isolation" not in proc.stdout
 
 
 @needs_bash
@@ -400,7 +418,7 @@ def test_qr_code_comes_last_and_fits_an_80x24_window(doq, tmp_path):
     caption = out.index("Participants can also scan this code: http://192.168.1.5:8080/")
     # last, after the notes and the browser (or ssh -L) hint: the code and the
     # lines after it fit a 24-line window
-    assert caption > max(i for i, line in enumerate(out) if "ssh -N -L" in line or "Open in Lab" in line)
+    assert caption > max(i for i, line in enumerate(out) if "ssh -N -L" in line)
     assert len(out) - caption <= 20
     assert all(len(line) <= 80 for line in out[caption:])
     # a fresh start, too; not in solo mode
@@ -423,7 +441,7 @@ def test_solo_mode_is_for_this_pi_only(doq):
     assert "192.168.1.5" not in run[0] and "rasqberry.local" not in run[0]
     assert "Qiskit Tutorials on this Pi is running: http://localhost:8080/" in proc.stdout
     assert "Participants" not in proc.stdout
-    assert "needs the internet for now" in proc.stdout
+    assert "also without the internet" in proc.stdout and "needs the internet for now" not in proc.stdout
 
 
 @needs_bash
