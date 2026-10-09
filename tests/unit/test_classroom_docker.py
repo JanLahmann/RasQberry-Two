@@ -533,6 +533,11 @@ def test_quantum_lab_opens_its_welcome_page_without_the_news_question(tmp_path, 
     assert run[0].endswith(_manifest("quantum-lab")["entrypoint"]["docker_image"])
     # the browser (here: the ssh -L hint) opens the welcome page
     assert "http://localhost:8892/lab/tree/WELCOME.ipynb?token=rasqberry" in proc.stdout
+    # the two tutorials QuBins' arm64 build cannot run are named, in 80 columns
+    note = [line for line in proc.stdout.splitlines() if "do not run on the Pi" in line]
+    assert len(note) == 1 and "gem-suite" in note[0] and "physics-tenpy" in note[0]
+    assert "nishimori-phase-transition and multi-product-formula" in proc.stdout
+    assert all(len(line) <= 80 for line in proc.stdout.splitlines() if "tutorial" in line)
 
 
 def test_quantum_lab_welcome_page():

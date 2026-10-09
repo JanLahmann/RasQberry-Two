@@ -194,6 +194,10 @@ echo
 echo "  Access via browser: $LAB_URL"
 echo
 echo "  Course notebooks: ibm-quantum-learning/ (read-only)"
+# QuBins leaves out gem-suite and physics-tenpy on arm64 (no aarch64
+# wheels), and these two tutorials import them
+echo "  Two tutorials do not run on the Pi (arm64 has no gem-suite, physics-tenpy):"
+echo "    nishimori-phase-transition and multi-product-formula"
 echo "  Save your own work in my-work/ - it is kept on the Pi in:"
 echo "    $WORK_DIR"
 echo "  Anything saved elsewhere in the lab is lost when it stops."
