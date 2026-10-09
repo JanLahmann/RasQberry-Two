@@ -291,6 +291,9 @@ else
         fi
         [ "$D_PEAK" -gt 0 ] && text="${text} ($(rq_fmt_mb $((D_DISK + D_PEAK))) while installing)"
         text="${text}\n"
+        # from the size, as each Docker demo's own question says it
+        # (rq_download_time_text; #28 measured 7-12 minutes on fast internet)
+        D_TIME=$(rq_download_time_text "$D_DL")
         [ -n "$D_TIME" ] && text="${text}Time:      $D_TIME\n"
         text="${text}Free:      $(rq_fmt_mb "${FREE:-0}")\n\n"
         [ -n "$NOFIT_TXT" ] && text="${text}$NOFIT_TXT\n\n"

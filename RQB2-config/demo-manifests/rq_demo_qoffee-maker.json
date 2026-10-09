@@ -37,7 +37,7 @@
       "what": "Docker image from ghcr.io and the Qoffee-Maker notebooks",
       "download_mb": 770,
       "disk_mb": 2900,
-      "time": "2-3 minutes"
+      "time": "2-13 minutes"
     }
   },
   "needs_hw": {

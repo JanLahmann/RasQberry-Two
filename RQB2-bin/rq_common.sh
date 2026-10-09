@@ -1414,6 +1414,46 @@ rq_image_registry_url() {
     echo "https://registry-1.docker.io/v2/"
 }
 
+# Every host a Docker image download needs, as URLs to check: the registry
+# and, for ghcr.io, the host its layers come from
+# (pkg-containers.githubusercontent.com). A school network that lets
+# ghcr.io through but blocks the layer host fails only mid-download.
+# Usage: rq_image_download_urls ghcr.io/qubins/images@sha256:...
+RQ_GHCR_LAYER_URL="${RQ_GHCR_LAYER_URL:-https://pkg-containers.githubusercontent.com/}"
+rq_image_download_urls() {
+    local reg
+    reg=$(rq_image_registry_url "$1")
+    echo "$reg"
+    [ "$reg" = "https://ghcr.io/v2/" ] && echo "$RQ_GHCR_LAYER_URL"
+    return 0
+}
+
+# The host of a URL: https://ghcr.io/v2/ -> ghcr.io
+_rq_url_host() {
+    local h="${1#*://}"
+    echo "${h%%/*}"
+}
+
+# Check URLs at the same time (each as rq_reachable: 10 s at most), and echo
+# the ones that cannot be reached, one per line.
+# Usage: blocked=$(rq_unreachable URL...)
+rq_unreachable() {
+    local dir u i=0 pids=()
+    [ $# -gt 0 ] || return 0
+    dir=$(mktemp -d) || return 0
+    for u in "$@"; do
+        ( rq_reachable "$u" || echo "$u" > "$dir/$i" ) &
+        pids+=($!)
+        i=$((i + 1))
+    done
+    wait "${pids[@]}" 2>/dev/null || true
+    for ((i = 0; i < $#; i++)); do
+        [ -f "$dir/$i" ] && cat "$dir/$i"
+    done
+    rm -rf "$dir"
+    return 0
+}
+
 # Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
 # timeouts, so a network that drops outside traffic fails in seconds instead
 # of hanging in git (R-166). A connection that was made counts too, even
@@ -1494,12 +1534,42 @@ rq_card_note() {
     fi
 }
 
+# How long a Docker image download takes, from its size: measured on a Pi 5
+# (Quantum Lab, 890 MB): 101 s on fast internet, unpacking included (about
+# 8 MB/s), and about 12 minutes on a 10 Mbit/s line (about 1.2 MB/s; slow
+# Wi-Fi: 1 MB/s). Rounded up to whole minutes. Echoes "FAST SLOW" minutes,
+# nothing for an unknown size.
+# Usage: read -r fast slow <<< "$(rq_download_minutes 890)"   # 2 15
+RQ_FAST_MB_S="${RQ_FAST_MB_S:-8}"
+RQ_SLOW_MB_S="${RQ_SLOW_MB_S:-1}"
+rq_download_minutes() {
+    local mb="${1:-0}"
+    case "$mb" in ''|*[!0-9]*|0) return 0 ;; esac
+    awk -v m="$mb" -v f="$RQ_FAST_MB_S" -v s="$RQ_SLOW_MB_S" '
+        function up(x) { return (x == int(x)) ? x : int(x) + 1 }
+        BEGIN { a = up(m / f / 60); b = up(m / s / 60)
+                if (a < 1) a = 1; if (b < a) b = a; printf "%d %d\n", a, b }'
+}
+
+# The consent box's time for a Docker image download of MB megabytes:
+# "about 2 min on fast internet, up to 15 min on slow Wi-Fi"
+# Usage: rq_download_time_text 890
+rq_download_time_text() {
+    local fast slow
+    read -r fast slow <<< "$(rq_download_minutes "${1:-0}")"
+    [ -n "$fast" ] || return 0
+    echo "about $fast min on fast internet, up to $slow min on slow Wi-Fi"
+}
+
 # Ask before a download. Shared by the demo engine, "Download all demos", the
 # Docker launchers and other one-off downloads (e.g. a newer Docker image).
 #
 #   rq_confirm_download NAME DOWNLOAD_MB DISK_MB [options]
 #     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
 #     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
+#     --image IMAGE    a Docker image download: the time comes from the size
+#                      (rq_download_time_text) instead of --time, and every
+#                      host the download needs is checked (rq_image_download_urls)
 #     --path DIR       where the data goes; free space is measured there
 #                      (default: $USER_HOME)
 #     --url URL        checked first with a short timeout
@@ -1518,10 +1588,11 @@ rq_confirm_download() {
     local name="$1" dl="${2:-0}" disk="${3:-0}"
     shift 3 || true
     local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
-    local docker=0
+    local docker=0 image=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --docker) docker=1; shift ;;
+            --image) image="$2"; shift 2 ;;
             --what) what="$2"; shift 2 ;;
             --time) time="$2"; shift 2 ;;
             --path) path="$2"; shift 2 ;;
@@ -1553,10 +1624,28 @@ rq_confirm_download() {
         return 2
     fi
 
-    if ! rq_reachable "$url"; then
-        local host="${url#*://}"
-        host="${host%%/*}"
-        RQ_CONSENT_MSG="$name has to be downloaded first, and ${host:-the internet} cannot be reached. Connect the Pi to the internet and try again."
+    # The image's hosts too: ghcr.io answers, but its layers come from
+    # pkg-containers.githubusercontent.com, which a school network may block
+    local urls=() u blocked="" hosts=""
+    [ -n "$url" ] && urls=("$url")
+    if [ -n "$image" ]; then
+        while IFS= read -r u; do
+            [ -n "$u" ] && [ "$u" != "$url" ] && urls+=("$u")
+        done < <(rq_image_download_urls "$image")
+    fi
+    blocked=$(rq_unreachable ${urls[@]+"${urls[@]}"})
+    if [ -n "$blocked" ]; then
+        for u in "${urls[@]}"; do
+            hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+        done
+        if [ "$(printf '%s\n' "$blocked" | wc -l)" -lt "${#urls[@]}" ]; then
+            # some answer: the Pi is online, and this network blocks the rest
+            RQ_CONSENT_MSG="This network blocks the download of $name: $(_rq_url_host "$(printf '%s\n' "$blocked" | head -1)") cannot be reached. The download needs $hosts (HTTPS): ask the network's administrator to allow them, or use another network."
+        elif [ "${#urls[@]}" -gt 1 ]; then
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $hosts cannot be reached. Connect the Pi to the internet and try again. If it is online, the network blocks the download: ask its administrator to allow $hosts (HTTPS)."
+        else
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $(_rq_url_host "${url:-the internet}") cannot be reached. Connect the Pi to the internet and try again."
+        fi
         return 3
     fi
 
@@ -1572,7 +1661,12 @@ rq_confirm_download() {
     text="${text}Download:  $dl_txt (needs the internet)\n"
     text="${text}Space:     $card_txt\n"
     [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
-    [ -n "$time" ] && text="${text}Time:      about $time\n"
+    local time_txt=""
+    [ -n "$time" ] && time_txt="about $time"
+    # a Docker image: from its size, fast and slow (Quantum Lab said "1-3
+    # minutes" and took 12 at 10 Mbit/s)
+    [ -n "$image" ] && [ "$dl" -gt 0 ] && time_txt=$(rq_download_time_text "$dl")
+    [ -n "$time_txt" ] && text="${text}Time:      $time_txt\n"
     text="${text}Free:      $free_txt\n\n${question:-Download now?}"
 
     # Ask on the terminal itself, so a caller that pipes our output (a log
@@ -1696,8 +1790,9 @@ rq_confirm_demo_install() {
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
     fi
-    local docker_opt=""
+    local docker_opt="" image_opt=()
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        image_opt=(--image "$image")
         # (an image already here downloads nothing, also on a small card)
         docker image inspect "$(rq_demo_image "$id" "$mf")" >/dev/null 2>&1 \
             || docker_opt="--docker"
@@ -1707,7 +1802,8 @@ rq_confirm_demo_install() {
     fi
     [ -n "$url" ] || url="${repo:-https://github.com}"
     rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
-        --path "$path" --peak "$peak" --url "$url" $docker_opt || return $?
+        --path "$path" --peak "$peak" --url "$url" $docker_opt \
+        ${image_opt[@]+"${image_opt[@]}"} || return $?
     RQ_CONFIRMED_DEMO="$id"
     export RQ_CONFIRMED_DEMO
     return 0
@@ -2429,6 +2525,12 @@ rq_docker_pull() {
             die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Manage demos > Remove a demo) and try again." ;;
         *"manifest unknown"*|*"not found"*|*"denied"*)
             die "The registry does not offer $image (any more): $why" ;;
+        *pkg-containers.githubusercontent.com*|*"i/o timeout"*|*"connection refused"*|*"connection reset"*|*"TLS handshake"*|*"no such host"*)
+            local hosts="" u
+            while IFS= read -r u; do
+                hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+            done < <(rq_image_download_urls "$image")
+            die "Could not download $name: the network stopped the download ($why). It needs $hosts (HTTPS): if this network blocks them, ask its administrator to allow them, or use another network." ;;
         *)
             die "Could not download $name: ${why:-docker pull failed}" ;;
     esac

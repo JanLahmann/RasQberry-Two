@@ -31,7 +31,7 @@
       "what": "Docker image from ghcr.io",
       "download_mb": 1300,
       "disk_mb": 5400,
-      "time": "3-5 minutes"
+      "time": "3-22 minutes"
     },
     "update": {
       "docker_tags": "^[0-9a-f]{7}-jupyter$",

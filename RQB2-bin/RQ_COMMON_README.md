@@ -472,9 +472,11 @@ rq_require_demo_consent doqumentation
 
 # Any other download (e.g. a newer Docker image); MB, 0 = unknown
 rq_confirm_download "doQumentation" 1300 5400 --what "Docker image from ghcr.io" \
-    --time "10-20 minutes" --path /var/lib/docker --url https://ghcr.io/v2/ \
+    --image ghcr.io/janlahmann/doqumentation:jupyter --path /var/lib/docker --url https://ghcr.io/v2/ \
     --intro "A newer doQumentation image is available." --question "Update now?"
 # 0 go ahead, 1 "Not now", 2 not enough space, 3 not reachable, 4 no terminal,
+# --image: the time line comes from the size (rq_download_time_text 1300:
+# "about 3 min on fast internet, up to 22 min on slow Wi-Fi"); else --time TEXT.
 # 5 a Docker demo (--docker) on a small card (16 GB: Docker demos need 32 GB);
 # $RQ_CONSENT_MSG says why. RQ_AUTO_INSTALL=1: no question, checks still run.
 # rq_require_demo_consent shows 5 as a note (rq_card_note) and exits 0.
@@ -485,6 +487,9 @@ rq_stop_if_card_too_small "My demo" "$IMAGE"
 
 rq_free_mb /var/lib/docker      # free MB (1 MB = 10^6 bytes); RQ_TEST_FREE_MB fakes it
 rq_fmt_mb 3900                  # "3.9 GB"
+rq_image_download_urls IMAGE    # hosts an image download needs: the registry, and for
+                                # ghcr.io pkg-containers.githubusercontent.com (its layers)
+rq_unreachable URL...           # the URLs that cannot be reached (checked at once, <=10 s)
 ```
 
 `ask_demo_install "name" "5MB" "500MB"` is the old name; it calls
