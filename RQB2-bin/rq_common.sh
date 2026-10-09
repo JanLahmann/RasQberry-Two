@@ -2394,6 +2394,12 @@ rq_docker_pull() {
     if [ "$rc" -ne 0 ] && { [ -n "$_rq_pull_stopped" ] || [ "$rc" -eq 130 ]; }; then
         [ -n "$start" ] && printf '\rDownloading %s ... stopped                         \n' "$name"
         echo "Download stopped. Nothing was installed; the next start asks again."
+        # A desktop icon's window closes at once on a stop (130): keep the
+        # line readable, as Clear All LEDs does (rig test 2026-10-09, F3)
+        if [ -t 0 ] && [ -t 1 ]; then
+            echo "This window closes in a few seconds (Enter closes it now)."
+            read -r -t "${RQ_PULL_STOP_PAUSE:-8}" _ || true
+        fi
         exit 130
     fi
     # Not offered (any more): the only failure a fallback tag can help with

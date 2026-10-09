@@ -661,7 +661,8 @@ when the registry no longer offers the digest (its publisher pruned it),
 `rq_demo_docker_pull` downloads the tag instead, says so in one line and
 records it like an "Update demos" choice. Other failures (offline, no space)
 stop as before. Ctrl+C during the download is a stop, not a failure: one line
-("Download stopped. Nothing was installed; the next start asks again.") and
+("Download stopped. Nothing was installed; the next start asks again.", held
+a few seconds in a terminal so the icon's window does not close at once) and
 exit 130, which the menu and the icon's window take quietly; a caller that
 pulls in a subshell passes 130 on. `tests/check_docker_pins.py` (daily workflow docker-pins.yml)
 checks that every pin and fallback is still offered.

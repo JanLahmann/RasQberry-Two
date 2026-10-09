@@ -29,6 +29,7 @@ _BIN = os.path.join(_ROOT, "RQB2-bin")
 _MIXER = os.path.join(_BIN, "quantum-mixer.sh")
 _HOLD = os.path.join(_BIN, "rq_hold_on_error.sh")
 _STOPPED = "Download stopped. Nothing was installed; the next start asks again."
+_HOLD_LINE = "This window closes in a few seconds (Enter closes it now)."
 
 
 def _mixer_manifest():
@@ -74,6 +75,7 @@ def test_ctrl_c_during_a_download_is_a_quiet_stop(box, how):
     assert proc.returncode == 130, out
     assert _STOPPED in proc.stdout, out
     assert "AFTER" not in out
+    assert _HOLD_LINE not in out          # no terminal: nothing to wait for
     assert "ERROR" not in out and "Could not download" not in out and "failed" not in out
     # no reason for the menu's error box, and no fallback after a stop
     assert box.err() == ""
@@ -98,7 +100,7 @@ def test_ctrl_c_in_a_terminal_ends_the_progress_line_with_stopped(box, tmp_path)
             out.append(data)
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
-    env = dict(os.environ, PATH=f"{box.stubs}:{os.environ['PATH']}")
+    env = dict(os.environ, PATH=f"{box.stubs}:{os.environ['PATH']}", RQ_PULL_STOP_PAUSE="1")
     proc = subprocess.run(["bash", "-c", f'. "{_BIN}/rq_common.sh"; rq_docker_pull ghcr.io/x/demo:1 "Demo X" 500'],
                           stdin=slave, stdout=slave, stderr=slave, env=env, timeout=60)
     os.close(slave)
@@ -108,6 +110,9 @@ def test_ctrl_c_in_a_terminal_ends_the_progress_line_with_stopped(box, tmp_path)
     assert proc.returncode == 130, text
     assert "Downloading Demo X ... stopped" in text and _STOPPED in text, repr(text)
     assert "failed" not in text
+    # the icon's window would close at once: the line stays a few seconds
+    # (rig test 2026-10-09, F3)
+    assert _HOLD_LINE in text.split(_STOPPED, 1)[1], repr(text)
 
 
 def test_a_callers_ctrl_c_trap_comes_back_after_the_pull(box):
