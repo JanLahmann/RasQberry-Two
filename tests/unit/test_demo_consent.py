@@ -245,6 +245,70 @@ def test_docker_manifest_time_matches_the_size(demo_id):
     assert d["time"] == f"{out[0]}-{out[1]} minutes"
 
 
+
+_LAB = "ghcr.io/qubins/images@sha256:" + "d" * 64
+
+
+def _curl_blocking(box, pattern):
+    """curl that fails (no connection) for URLs matching the shell PATTERN."""
+    _exe(box.stubs / "curl", '#!/bin/sh\nfor a in "$@"; do case "$a" in ' + pattern
+         + ') exit 7 ;; esac; done\nexit 0\n')
+
+
+def test_a_blocked_layer_host_is_named_with_both_hosts(box):
+    _curl_blocking(box, "*pkg-containers*")
+    proc = _common(box, f'rq_confirm_download Lab 890 4000 --image {_LAB} --url https://ghcr.io/v2/; '
+                        'echo "RC=$? $RQ_CONSENT_MSG"')
+    out = proc.stdout
+    assert "RC=3" in out, out + proc.stderr
+    assert "This network blocks the download of Lab" in out
+    assert "pkg-containers.githubusercontent.com cannot be reached" in out
+    assert "ghcr.io and pkg-containers.githubusercontent.com" in out
+    assert "administrator" in out
+    assert box.dialogs() == []
+
+
+def test_offline_names_both_hosts_for_an_image(box):
+    _curl_blocking(box, "http*")
+    proc = _common(box, f'rq_confirm_download Lab 890 4000 --image {_LAB} --url https://ghcr.io/v2/; '
+                        'echo "RC=$? $RQ_CONSENT_MSG"')
+    assert "RC=3 Lab has to be downloaded first, and ghcr.io and pkg-containers.githubusercontent.com " \
+           "cannot be reached. Connect the Pi to the internet" in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_demo_consent_checks_the_layer_host(box):
+    _curl_blocking(box, "*pkg-containers*")
+    proc = _common(box, 'rq_confirm_demo_install quantum-lab; echo "RC=$? $RQ_CONSENT_MSG"')
+    assert "RC=3 This network blocks the download of Quantum Lab (QuBins)" in proc.stdout, \
+        proc.stdout + proc.stderr
+
+
+
+def test_a_pull_stopped_by_the_network_names_both_hosts(box):
+    _exe(box.stubs / "docker", '#!/bin/sh\n[ "$1" = pull ] || exit 0\n'
+         'echo \'Error response from daemon: Get "https://pkg-containers.githubusercontent.com/ghcr1/blobs/x": '
+         'dial tcp 1.2.3.4:443: i/o timeout\' >&2\nexit 1\n')
+    proc = _common(box, f'rq_docker_pull {_LAB} Lab 890')
+    out = proc.stdout + proc.stderr + box.err()
+    assert proc.returncode != 0
+    assert "the network stopped the download" in out, out
+    assert "ghcr.io and pkg-containers.githubusercontent.com" in out
+
+def test_git_downloads_check_only_their_host(box):
+    log = box.tmp / "curl.log"
+    _exe(box.stubs / "curl", f'#!/bin/sh\necho "$*" >> "{log}"\nexit 0\n')
+    proc = _common(box, 'rq_confirm_download X 10 10 --url https://github.com; echo "RC=$?"')
+    assert "RC=0" in proc.stdout
+    assert "pkg-containers" not in log.read_text()
+
+
+def test_image_download_urls():
+    script = f'. "{_COMMON}"; rq_image_download_urls ghcr.io/a/b@sha256:x; echo --; ' \
+             f'rq_image_download_urls python:3.11'
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout.split()
+    assert out == ["https://ghcr.io/v2/", "https://pkg-containers.githubusercontent.com/", "--",
+                   "https://registry-1.docker.io/v2/"]
+
 def test_registry_url_of_an_image():
     script = f'. "{_COMMON}"; rq_image_registry_url ghcr.io/a/b:c; rq_image_registry_url python:3.11; ' \
              f'rq_image_registry_url localhost:5000/x'

@@ -1414,6 +1414,46 @@ rq_image_registry_url() {
     echo "https://registry-1.docker.io/v2/"
 }
 
+# Every host a Docker image download needs, as URLs to check: the registry
+# and, for ghcr.io, the host its layers come from
+# (pkg-containers.githubusercontent.com). A school network that lets
+# ghcr.io through but blocks the layer host fails only mid-download.
+# Usage: rq_image_download_urls ghcr.io/qubins/images@sha256:...
+RQ_GHCR_LAYER_URL="${RQ_GHCR_LAYER_URL:-https://pkg-containers.githubusercontent.com/}"
+rq_image_download_urls() {
+    local reg
+    reg=$(rq_image_registry_url "$1")
+    echo "$reg"
+    [ "$reg" = "https://ghcr.io/v2/" ] && echo "$RQ_GHCR_LAYER_URL"
+    return 0
+}
+
+# The host of a URL: https://ghcr.io/v2/ -> ghcr.io
+_rq_url_host() {
+    local h="${1#*://}"
+    echo "${h%%/*}"
+}
+
+# Check URLs at the same time (each as rq_reachable: 10 s at most), and echo
+# the ones that cannot be reached, one per line.
+# Usage: blocked=$(rq_unreachable URL...)
+rq_unreachable() {
+    local dir u i=0 pids=()
+    [ $# -gt 0 ] || return 0
+    dir=$(mktemp -d) || return 0
+    for u in "$@"; do
+        ( rq_reachable "$u" || echo "$u" > "$dir/$i" ) &
+        pids+=($!)
+        i=$((i + 1))
+    done
+    wait "${pids[@]}" 2>/dev/null || true
+    for ((i = 0; i < $#; i++)); do
+        [ -f "$dir/$i" ] && cat "$dir/$i"
+    done
+    rm -rf "$dir"
+    return 0
+}
+
 # Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
 # timeouts, so a network that drops outside traffic fails in seconds instead
 # of hanging in git (R-166). A connection that was made counts too, even
@@ -1528,7 +1568,8 @@ rq_download_time_text() {
 #     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
 #     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
 #     --image IMAGE    a Docker image download: the time comes from the size
-#                      (rq_download_time_text) instead of --time
+#                      (rq_download_time_text) instead of --time, and every
+#                      host the download needs is checked (rq_image_download_urls)
 #     --path DIR       where the data goes; free space is measured there
 #                      (default: $USER_HOME)
 #     --url URL        checked first with a short timeout
@@ -1583,10 +1624,28 @@ rq_confirm_download() {
         return 2
     fi
 
-    if ! rq_reachable "$url"; then
-        local host="${url#*://}"
-        host="${host%%/*}"
-        RQ_CONSENT_MSG="$name has to be downloaded first, and ${host:-the internet} cannot be reached. Connect the Pi to the internet and try again."
+    # The image's hosts too: ghcr.io answers, but its layers come from
+    # pkg-containers.githubusercontent.com, which a school network may block
+    local urls=() u blocked="" hosts=""
+    [ -n "$url" ] && urls=("$url")
+    if [ -n "$image" ]; then
+        while IFS= read -r u; do
+            [ -n "$u" ] && [ "$u" != "$url" ] && urls+=("$u")
+        done < <(rq_image_download_urls "$image")
+    fi
+    blocked=$(rq_unreachable ${urls[@]+"${urls[@]}"})
+    if [ -n "$blocked" ]; then
+        for u in "${urls[@]}"; do
+            hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+        done
+        if [ "$(printf '%s\n' "$blocked" | wc -l)" -lt "${#urls[@]}" ]; then
+            # some answer: the Pi is online, and this network blocks the rest
+            RQ_CONSENT_MSG="This network blocks the download of $name: $(_rq_url_host "$(printf '%s\n' "$blocked" | head -1)") cannot be reached. The download needs $hosts (HTTPS): ask the network's administrator to allow them, or use another network."
+        elif [ "${#urls[@]}" -gt 1 ]; then
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $hosts cannot be reached. Connect the Pi to the internet and try again. If it is online, the network blocks the download: ask its administrator to allow $hosts (HTTPS)."
+        else
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $(_rq_url_host "${url:-the internet}") cannot be reached. Connect the Pi to the internet and try again."
+        fi
         return 3
     fi
 
@@ -2466,6 +2525,12 @@ rq_docker_pull() {
             die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Manage demos > Remove a demo) and try again." ;;
         *"manifest unknown"*|*"not found"*|*"denied"*)
             die "The registry does not offer $image (any more): $why" ;;
+        *pkg-containers.githubusercontent.com*|*"i/o timeout"*|*"connection refused"*|*"connection reset"*|*"TLS handshake"*|*"no such host"*)
+            local hosts="" u
+            while IFS= read -r u; do
+                hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+            done < <(rq_image_download_urls "$image")
+            die "Could not download $name: the network stopped the download ($why). It needs $hosts (HTTPS): if this network blocks them, ask its administrator to allow them, or use another network." ;;
         *)
             die "Could not download $name: ${why:-docker pull failed}" ;;
     esac

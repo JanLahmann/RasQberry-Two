@@ -487,6 +487,9 @@ rq_stop_if_card_too_small "My demo" "$IMAGE"
 
 rq_free_mb /var/lib/docker      # free MB (1 MB = 10^6 bytes); RQ_TEST_FREE_MB fakes it
 rq_fmt_mb 3900                  # "3.9 GB"
+rq_image_download_urls IMAGE    # hosts an image download needs: the registry, and for
+                                # ghcr.io pkg-containers.githubusercontent.com (its layers)
+rq_unreachable URL...           # the URLs that cannot be reached (checked at once, <=10 s)
 ```
 
 `ask_demo_install "name" "5MB" "500MB"` is the old name; it calls
