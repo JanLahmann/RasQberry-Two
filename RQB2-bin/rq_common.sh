@@ -1765,13 +1765,16 @@ install_demo_raspiconfig() {
         return 1
     fi
 
-    # Call the install function directly
-    if ! "$install_func"; then
-        warn "Failed to run $install_func"
-        return 1
-    fi
-
-    return 0
+    # Call the install function directly. A stop (Ctrl+C 130, a closed
+    # window 129/143) comes back as it is: the caller ends quietly then.
+    local rc=0
+    "$install_func" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        129|130|143) return "$rc" ;;
+    esac
+    warn "Failed to run $install_func"
+    return 1
 }
 
 # ============================================================================
@@ -2340,12 +2343,24 @@ _rq_pull_progress() {
 # is downloaded instead, and one line says so. Every other failure (offline,
 # no space, access denied) stops here as before. RQ_DOCKER_PULLED names the
 # image that was downloaded: IMAGE, or FALLBACK.
+# Ctrl+C is the user's stop, not a failure: one line says so and the script
+# ends with 130, which the menu, the icon's window (rq_hold_on_error.sh) and
+# the group lists take as a stop - no error box, no bug-report text. It said
+# "Could not download ...: docker pull failed" and "stopped with an error"
+# (user test 2026-10-08). Docker keeps no half image: the next start finds
+# none and asks again.
 # Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
     local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    local old_int
     RQ_DOCKER_PULLED=""
     [ "$fallback" = "$image" ] && fallback=""
     err=$(mktemp)
+    # Ctrl+C reaches docker pull (in front) and this shell: note it here and
+    # act once the pull has ended (a caller's own INT trap comes back after)
+    old_int=$(trap -p INT)
+    _rq_pull_stopped=""
+    trap '_rq_pull_stopped=1' INT
     if [ -t 1 ]; then
         start=$SECONDS
         # The line comes from a helper beside the pull, which stays in the
@@ -2359,8 +2374,14 @@ rq_docker_pull() {
         info "Downloading $name: $image"
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
     fi
+    eval "${old_int:-trap - INT}"
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
+    if [ "$rc" -ne 0 ] && { [ -n "$_rq_pull_stopped" ] || [ "$rc" -eq 130 ]; }; then
+        [ -n "$start" ] && printf '\rDownloading %s ... stopped                         \n' "$name"
+        echo "Download stopped. Nothing was installed; the next start asks again."
+        exit 130
+    fi
     # Not offered (any more): the only failure a fallback tag can help with
     if [ "$rc" -ne 0 ]; then
         case "$why" in
