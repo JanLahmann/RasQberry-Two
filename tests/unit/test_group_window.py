@@ -114,7 +114,7 @@ def test_led_panel_window_lists_its_demos_in_menu_order(tmp_path):
         "rq-ext-sap-quantum-led", "led-painter", "clear-leds"]
     first = launchers[0]
     assert first["name"] == "IBM LED Demo" and first["terminal"] is True
-    assert first["icon"] == "/usr/share/icons/rasqberry/sensehat-icon.png"
+    assert first["icon"] == "/usr/share/icons/rasqberry/led-ibm-demo.svg"
     assert first["comment"] == "The IBM logo in colour on the LED panel"
 
 

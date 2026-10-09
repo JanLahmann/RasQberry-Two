@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Quantum Raspberry Tie</title>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#b0174f"/>
+  <path d="M16 18L32 32 16 46z M48 18L32 32 48 46z" fill="#e0457e"/>
+  <path d="M16 18v28M48 18v28M16 18l32 28M48 18L16 46" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="16" cy="18" r="6" fill="#fff"/>
+  <circle cx="48" cy="18" r="6" fill="#5cc8ff"/>
+  <circle cx="32" cy="32" r="7" fill="#fff"/>
+  <circle cx="16" cy="46" r="6" fill="#5cc8ff"/>
+  <circle cx="48" cy="46" r="6" fill="#fff"/>
+</svg>

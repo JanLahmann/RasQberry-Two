@@ -28,7 +28,7 @@
   "timeout": 0,
   "icon": {
     "type": "custom",
-    "path": "/usr/share/icons/rasqberry/quantum_raspberry_tie_icon.svg"
+    "path": "/usr/share/icons/rasqberry/quantum-fractals.svg"
   },
   "menu": {
     "show": true,
