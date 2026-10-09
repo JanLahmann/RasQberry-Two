@@ -136,6 +136,8 @@ TRUST_SHORT="Anyone on this network can open these addresses and run code on thi
 # The image serves its code runner (thebelab) and maths fonts itself since
 # doQumentation#964/#975, so code runs offline (R-068). Left online: IBM
 # Quantum computers, and formulas inside code output (MathJax from a CDN).
+# R-122: why participants may not get through although the address is right
+NETWORK_NOTE="Participants must be on the same network as this Pi. Guest Wi-Fi or Wi-Fi with client isolation (\"isolated\" networks) blocks them."
 INTERNET_NOTE="Code runs on this Pi, also without the internet; only IBM Quantum computers need it."
 
 # A QR code of the first LAN address, for phones and tablets: 29 columns by
@@ -171,6 +173,8 @@ print_addresses() {
     echo "    $lab_url"
     echo
     echo "Please note:"
+    echo "- Participants must be on the same network as this Pi. Guest Wi-Fi or Wi-Fi"
+    echo "  with client isolation (\"isolated\" networks) blocks them."
     echo "- Anyone on this network can open these addresses and run code on this Pi."
     echo "  Use it on a network you trust (a class or home network), not on public Wi-Fi."
     echo "- Everyone works on the same notebooks. Restarting the server restores the"
@@ -402,8 +406,8 @@ print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
     note=$(name_note)
     show_msgbox "$WORKSHOP_NAME is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
-        17 74
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$NETWORK_NOTE\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
+        20 74
 fi
 
 rq_show_url "$SITE_URL" "$SITE_PORT"

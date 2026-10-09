@@ -267,6 +267,20 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
 
 
 @needs_bash
+def test_addresses_say_participants_need_the_same_network(doq):
+    # R-122: guest Wi-Fi or client isolation blocks participants
+    for running in (True, False):
+        proc, _calls = doq(running=running)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        out = " ".join(proc.stdout.split())
+        assert "Participants must be on the same network as this Pi." in out
+        assert "Guest Wi-Fi or Wi-Fi with client isolation" in out
+    # not for the person alone at this Pi
+    proc, _calls = doq(running=False, args=["--solo"])
+    assert "client isolation" not in proc.stdout
+
+
+@needs_bash
 def test_participants_get_the_name_avahi_announces(doq, tmp_path):
     # #3: another kit held rasqberry.local, avahi named this Pi
     # rasqberry-2.local - and the server handed out the other Pi's address
