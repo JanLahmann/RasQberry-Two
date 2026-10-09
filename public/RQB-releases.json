@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-09T05:33:41Z",
+  "generated": "2026-10-09T09:00:47Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -32,25 +32,25 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-09-064009",
-      "name": "rasqberry-development-2026-10-09-064009",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-064009/rasqberry-development-2026-10-09-064009.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-064009",
-      "release_date": "2026-10-09 06:40",
-      "image_download_size": 2146676540,
+      "tag": "development-2026-10-09-102657",
+      "name": "rasqberry-development-2026-10-09-102657",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-102657/rasqberry-development-2026-10-09-102657.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-09-102657",
+      "release_date": "2026-10-09 10:26",
+      "image_download_size": 2146979624,
       "extract_size": 9504292864,
-      "extract_sha256": "d57437d9a81e509880067c2fd3c4aa914b35089caa5642dcd387c8512a8fa166",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-064009/rasqberry-development-2026-10-09-064009-ab.img.xz",
-      "ab_extract_sha256": "83536470ee1e0143e8a01940a110c86185e693e54255efb8e2e56269155399ae",
-      "ab_image_sha256": "07d5b2b0db48d03bc0c13a6c480e1afc8f7c11264df317f913a7b5067afaf917",
+      "extract_sha256": "a328ea12580d56da054a3d2509e12f680ad5a68c75cb04e198a6831b80ccb5b7",
+      "image_sha256": "032e252cf4711f0b7f60e49206c175aec5bb307488de5cba8f0add374fc2e0c6",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-09-102657/rasqberry-development-2026-10-09-102657-ab.img.xz",
+      "ab_extract_sha256": "ffa50fd55228e10b27a2c84b51d18ca19f74e1a054ddd81d65ed58d31bff367f",
+      "ab_image_sha256": "cfada3e7677b8cbcd1dbec83f3d6d2d192bfb2125730ca1922487dacdd6d6f8d",
+      "ab_image_download_size": 1879779348,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1881723596,
       "highlights": [
-        "Bump version to development-2026-10-09-064009",
-        "Merge dev-mixer-ctrlc: Mixer pinned to the image with the Qoffee page, Ctrl+C during a download is a stop",
-        "Ctrl+C during a download is a stop, not an error",
-        "pin the image with the Qoffee page, drop the overlay",
-        "Bump version to dev-mixer-ctrlc-2026-10-09-063937"
+        "Bump version to development-2026-10-09-102657",
+        "Docker download: keep the \"Download stopped\" line readable",
+        "Health check: keep the switch markers until the slot is confirmed",
+        "a made connection counts as reachable"
       ]
     }
   }
