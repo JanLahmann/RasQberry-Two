@@ -32,8 +32,9 @@
       "time": "2-15 minutes"
     },
     "update": {
-      "docker_tags": "^[0-9]+\\.[0-9]+-xl$",
-      "docker_latest": "latest-xl"
+      "docker_tags": "^[0-9]+\\.[0-9]+-xl(-[0-9]{8})?$",
+      "docker_latest": "latest-xl",
+      "docker_order": "version"
     }
   },
   "needs_hw": {

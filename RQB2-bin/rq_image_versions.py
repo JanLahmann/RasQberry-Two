@@ -8,6 +8,19 @@ the version in use, with its date, download size and Qiskit version.
 
 Usage:
     rq_image_versions.py IMAGE_IN_USE --tags REGEX [--latest TAG] [--arch arm64]
+                         [--order date|version]
+
+--order version (Quantum Lab): sorted by the Qiskit version the image holds
+(its org.qubins.qiskit.patch label, else the tag's major.minor), then by
+build time; "newer" means a higher Qiskit version, or the same one built
+later. The default, date, sorts by build day (the other images). A build
+time is the org.opencontainers.image.created label: QuBins' reproducible
+builds set the config's "created" to a fixed epoch.
+
+Snapshot tags ("2.5-xl-20261008": immutable, kept for 12 months) are
+preferred over moving tags ("2.5-xl", whose builds are pruned after a few
+days): a build that only a moving tag names is not offered when a snapshot
+holds the same version.
 
 IMAGE_IN_USE is "ghcr.io/OWNER/NAME@sha256:..." (or ":TAG"). One line per
 version, newest first, tab-separated:
@@ -37,6 +50,8 @@ ACCEPT = ", ".join([
     "application/vnd.docker.distribution.manifest.v2+json",
 ])
 TIMEOUT = 20
+# A dated snapshot tag, e.g. "2.5-xl-20261008"
+SNAPSHOT = re.compile(r"-(20\d{6})$")
 
 
 class Registry:
@@ -100,6 +115,14 @@ def describe(reg, ref, arch):
     labels = (config.get("config") or {}).get("Labels") or {}
     notes = []
     qiskit = labels.get("org.qubins.qiskit.patch") or labels.get("org.qubins.qiskit.version")
+    created = labels.get("org.opencontainers.image.created") or config.get("created") or ""
+    if created.startswith("1970"):  # a reproducible build's fixed epoch
+        created = ""
+    if not created:
+        snap = SNAPSHOT.search(ref)
+        if snap:
+            d = snap.group(1)
+            created = f"{d[:4]}-{d[4:6]}-{d[6:]}"
     if qiskit:
         notes.append(f"Qiskit {qiskit}")
     rev = labels.get("org.opencontainers.image.revision", "")
@@ -109,7 +132,8 @@ def describe(reg, ref, arch):
         notes.append(note_arch)
     return {
         "digest": digest,
-        "created": labels.get("org.opencontainers.image.created") or config.get("created") or "",
+        "created": created,
+        "qiskit": qiskit or "",
         "download_mb": sum(layer.get("size", 0) for layer in man.get("layers", [])) // 1000000,
         "note": ", ".join(notes),
     }
@@ -121,6 +145,8 @@ def main():
     parser.add_argument("--tags", required=True, help="regular expression for the version tags")
     parser.add_argument("--latest", default="", help="tag of the newest build, e.g. 'jupyter'")
     parser.add_argument("--arch", default="arm64")
+    parser.add_argument("--order", choices=["date", "version"], default="date",
+                        help="what 'newer' means: a later build, or a higher Qiskit version")
     args = parser.parse_args()
 
     m = re.match(r"^ghcr\.io/([^@:]+)(?:[@:](.+))?$", args.image)
@@ -153,22 +179,26 @@ def main():
         if not ref.startswith("sha256:"):
             entry["tags"].append(f"{ref} (latest)" if ref == args.latest else ref)
 
-    if current:
-        cur = versions[current["digest"]]
-        newer = [v for d, v in versions.items()
-                 if d != current["digest"] and _order(v) > _order(cur)]
+    def order(v):
+        return _order(v, args.order)
+
+    cur = versions.get(current["digest"]) if current else None
+    candidates = _prefer_snapshots([v for d, v in versions.items()
+                                    if not current or d != current["digest"]], cur)
+    if cur:
+        newer = [v for v in candidates if order(v) > order(cur)]
     else:
         # pruned by its publisher: everything there is a way forward
-        cur = None
-        newer = list(versions.values())
-    newer.sort(key=_order, reverse=True)
+        newer = candidates
+    newer.sort(key=order, reverse=True)
     for v, state in [(v, "newer") for v in newer] + [(cur, "current")]:
         if v is None:
             print("\t".join([args.image, "-", "-", "0", "no longer offered", "current"]))
             continue
         print("\t".join([
             f"ghcr.io/{repo}@{v['digest']}",
-            ", ".join(sorted(v["tags"], key=lambda t: "(latest)" not in t)) or "-",
+            ", ".join(sorted(v["tags"], key=lambda t: ("(latest)" not in t,
+                                                         not SNAPSHOT.search(t)))) or "-",
             v["created"][:10],
             str(v["download_mb"]),
             v["note"] or "-",
@@ -177,15 +207,45 @@ def main():
     return 0
 
 
-def _order(version):
-    """
-    Sort key: build day, then the highest version number among its tags
-    (QuBins builds all its tags in one run, seconds apart, so 2.5-xl and
-    2.4-xl tie on the day and 2.5-xl comes first).
-    """
+def _tag_version(version):
+    """The highest version number among its tags: (2, 5) for 2.5-xl-20261008."""
     numbers = [tuple(int(n) for n in re.findall(r"\d+", t.split("-")[0]))
                for t in version["tags"] if re.match(r"^\d+(\.\d+)*", t)]
-    return (version["created"][:10], max(numbers, default=()))
+    return max(numbers, default=())
+
+
+def _qiskit_version(version):
+    """The Qiskit version it holds: its label (2.5.2), else its tags' (2.5)."""
+    label = tuple(int(n) for n in re.findall(r"\d+", version.get("qiskit") or ""))
+    return label or _tag_version(version)
+
+
+def _order(version, by="date"):
+    """
+    Sort key. date: build day, then the highest version number among its
+    tags (QuBins builds all its tags in one run, seconds apart, so 2.5-xl and
+    2.4-xl tie on the day and 2.5-xl comes first). version: the Qiskit
+    version, then the build time, so Qiskit 2.4 is never "newer" than 2.5.2
+    because it was built later.
+    """
+    if by == "version":
+        return (_qiskit_version(version), version["created"])
+    return (version["created"][:10], _tag_version(version))
+
+
+def _is_snapshot(version):
+    return any(SNAPSHOT.search(t) for t in version["tags"])
+
+
+def _prefer_snapshots(versions, current=None):
+    """
+    Leave out a build that only moving tags name (2.5-xl, latest-xl) when a
+    snapshot - one of VERSIONS, or the CURRENT one in use - holds the same
+    Qiskit version: the snapshot stays offered for a year, the moving tag's
+    build only for days.
+    """
+    snapped = {_qiskit_version(v) for v in versions + [current] if v and _is_snapshot(v)}
+    return [v for v in versions if _is_snapshot(v) or _qiskit_version(v) not in snapped]
 
 
 def _safe(reg, ref, arch):

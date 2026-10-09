@@ -174,6 +174,103 @@ def test_versions_same_build_date_ordered_by_version(monkeypatch):
                                              ("2.4-xl", "current")]
 
 
+
+def _qfact(digest, created, qiskit, mb=890):
+    return {"digest": digest, "created": created, "download_mb": mb,
+            "note": f"Qiskit {qiskit}", "qiskit": qiskit}
+
+
+_QLAB = ["--tags", r"^[0-9]+\.[0-9]+-xl(-[0-9]{8})?$", "--latest", "latest-xl", "--order", "version"]
+
+
+def test_quantum_lab_versions_by_qiskit_not_build_date(monkeypatch):
+    """Qiskit 2.0-2.4 built a day after the 2.5.2 pin are not "newer"."""
+    pin = "ghcr.io/qubins/images@sha256:pin"
+    facts = {
+        "sha256:pin": _qfact("sha256:pin", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.5-xl-20261008": _qfact("sha256:pin", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.4-xl-20261008": _qfact("sha256:24s", "2026-10-08T11:05:30Z", "2.4.2"),
+        "2.4-xl": _qfact("sha256:24n", "2026-10-09T11:00:00Z", "2.4.2"),
+        "2.5-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "latest-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "2.6-xl-20261108": _qfact("sha256:26s", "2026-11-08T11:00:00Z", "2.6.0"),
+        "2.6-xl": _qfact("sha256:26n", "2026-11-09T11:00:00Z", "2.6.0"),
+        "2.7-xl": _qfact("sha256:27n", "2026-11-20T11:00:00Z", "2.7.0"),
+    }
+    tags = [t for t in facts if not t.startswith("sha256:")]
+    rc, rows = _run_versions(monkeypatch, facts, tags, [pin, *_QLAB])
+    assert rc == 0
+    # higher Qiskit first; the nightly 2.5-xl/2.6-xl (same Qiskit as a
+    # snapshot) are left out; 2.7 has only a moving tag, so it is offered
+    assert [(r[1], r[-1]) for r in rows] == [("2.7-xl", "newer"),
+                                             ("2.6-xl-20261108", "newer"),
+                                             ("2.5-xl-20261008", "current")]
+
+
+def test_quantum_lab_pin_gone_offers_snapshots_newest_qiskit_first(monkeypatch):
+    gone = "ghcr.io/qubins/images@sha256:" + "a" * 64
+    facts = {
+        "2.4-xl-20261008": _qfact("sha256:24s", "2026-10-08T11:05:30Z", "2.4.2"),
+        "2.5-xl-20261008": _qfact("sha256:25s", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.5-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "latest-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "2.3-xl": _qfact("sha256:23n", "2026-10-09T11:01:00Z", "2.3.1"),
+    }
+    rc, rows = _run_versions(monkeypatch, facts, [t for t in facts], [gone, *_QLAB])
+    assert rc == 0
+    assert [r[1] for r in rows[:-1]] == ["2.5-xl-20261008", "2.4-xl-20261008", "2.3-xl"]
+    assert rows[-1][-1] == "current" and rows[-1][4] == "no longer offered"
+
+
+def test_snapshot_tags_listed_before_moving_tags(monkeypatch):
+    facts = {"sha256:old": _qfact("sha256:old", "2026-09-01T00:00:00Z", "2.5.1"),
+             "2.5-xl": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2"),
+             "latest-xl": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2"),
+             "2.5-xl-20261008": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2")}
+    rc, rows = _run_versions(monkeypatch, facts, ["2.5-xl", "2.5-xl-20261008"],
+                             ["ghcr.io/qubins/images@sha256:old", *_QLAB])
+    assert rows[0][1] == "latest-xl (latest), 2.5-xl-20261008, 2.5-xl"
+
+
+def test_build_time_from_the_label_not_the_fixed_epoch(monkeypatch):
+    """Reproducible builds set the config's created to 1970: the label counts."""
+    mod = _versions_module()
+
+    class Reg:
+        def manifest(self, ref):
+            if ref == "idx":
+                return "sha256:idx", {"manifests": [
+                    {"digest": "sha256:arm", "platform": {"architecture": "arm64", "os": "linux"}}]}
+            return "sha256:arm", {"config": {"digest": "sha256:cfg"}, "layers": [{"size": 887889287}]}
+
+        def __init__(self, labels):
+            self.labels = labels
+
+        def blob(self, digest):
+            return {"created": "1970-01-01T00:00:00Z", "architecture": "arm64",
+                    "config": {"Labels": self.labels}}
+
+    info = mod.describe(Reg({"org.opencontainers.image.created": "2026-10-08T11:04:51Z",
+                             "org.qubins.qiskit.patch": "2.5.2"}), "idx", "arm64")
+    assert info["created"] == "2026-10-08T11:04:51Z" and info["qiskit"] == "2.5.2"
+    assert info["download_mb"] == 887 and info["note"] == "Qiskit 2.5.2"
+    # no label: never 1970; a snapshot tag gives the day
+    assert mod.describe(Reg({}), "idx", "arm64")["created"] == ""
+    reg = Reg({})
+    reg.manifest = lambda ref: Reg.manifest(reg, "idx" if ref == "2.5-xl-20261008" else ref)
+    assert mod.describe(reg, "2.5-xl-20261008", "arm64")["created"] == "2026-10-08"
+
+
+def test_quantum_lab_manifest_orders_by_version():
+    import json
+    import re
+    with open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", "rq_demo_quantum-lab.json")) as fh:
+        upd = json.load(fh)["install"]["update"]
+    assert upd["docker_order"] == "version"
+    for tag in ("2.5-xl", "2.5-xl-20261008"):
+        assert re.search(upd["docker_tags"], tag)
+    assert not re.search(upd["docker_tags"], "2.5-xl-arm64")
+
 def test_versions_refuses_other_registries(monkeypatch):
     rc, rows = _run_versions(monkeypatch, {}, [], ["docker.io/library/python:3", "--tags", "."])
     assert rc == 3 and rows == []
