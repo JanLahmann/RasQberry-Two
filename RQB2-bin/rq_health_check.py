@@ -692,6 +692,7 @@ def confirm_boot_slot() -> bool:
     # slot. Blindly confirming would mask a failed tryboot (system silently
     # kept running the old slot).
     target_file = BOOT_CONFIG_DIR / 'target-slot'
+    switch_done = False
     if target_file.exists():
         try:
             target_slot = target_file.read_text().strip()
@@ -712,17 +713,36 @@ def confirm_boot_slot() -> bool:
                     BOOT_CONFIG_DIR, target_slot,
                     f"Slot {target_slot} was tried twice without success")
             else:
-                for name in ('target-slot', 'switch-retries', SWITCH_REQUEST, FAILED_NOTICE):
-                    try:
-                        (BOOT_CONFIG_DIR / name).unlink()
-                    except OSError:
-                        pass
+                switch_done = True
                 logger.info(f"✓ Booted the requested target slot ({current_slot})")
         except Exception as e:
             logger.warning(f"Could not verify target slot: {e}")
 
-    if not (BOOT_CONFIG_DIR / 'slot-confirmed').exists():
-        wait_for_clock_sync()
+    try:
+        if not (BOOT_CONFIG_DIR / 'slot-confirmed').exists():
+            wait_for_clock_sync()
+        return _run_confirm(slot_manager)
+    finally:
+        # The switch markers go only now, after the confirm: until then the
+        # taskbar shows "being checked" (target-slot = this slot, not
+        # confirmed). Removed first, the up to 20 s wait for NTP showed
+        # "restart pending" (rig test 2026-10-09, F2). Removed whether the
+        # confirm worked or not, as before.
+        if switch_done:
+            for name in ('target-slot', 'switch-retries', SWITCH_REQUEST, FAILED_NOTICE):
+                try:
+                    (BOOT_CONFIG_DIR / name).unlink()
+                except OSError:
+                    pass
+
+
+def _run_confirm(slot_manager: Path) -> bool:
+    """
+    rq_slot_manager.sh confirm: slot-confirmed, and autoboot.txt starts this slot.
+
+    Returns:
+        bool: Success
+    """
     try:
         result = subprocess.run(
             [str(slot_manager), 'confirm'],
