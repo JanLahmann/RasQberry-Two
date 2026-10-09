@@ -11,7 +11,7 @@ body:
     attributes:
       label: Demo
       description: Its name (filled in when you came from the demo's link).
-      placeholder: e.g. Workshop & Qiskit Server, traQmania
+      placeholder: e.g. Workshop & Qiskit Server, racetraQ
     validations:
       required: true
   - type: dropdown
