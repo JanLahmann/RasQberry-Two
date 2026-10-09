@@ -163,6 +163,25 @@ def test_offline_is_refused_before_asking(box):
     assert box.dialogs() == []
 
 
+@pytest.mark.parametrize("rc,connect,reachable", [
+    (0, "0.015", True),
+    (28, "0.015000", True),      # connected, then the answer took too long (F1)
+    (28, "0.000000", False),     # the connection itself timed out: offline
+    (7, "0.000000", False),      # refused
+    (6, "0.000000", False),      # no DNS
+    (22, "0.015", False),        # any other failure
+])
+def test_reachable_counts_a_made_connection(box, rc, connect, reachable):
+    """rig test 2026-10-09, F1: github.com connected in 15 ms but kept the
+    HEAD request waiting for 10 s (curl 28); the Pi was online."""
+    (box.stubs / "curl").write_text(
+        f'#!/bin/sh\nprintf "%s" "$*" > "{box.tmp}/curl.args"\nprintf {connect}\nexit {rc}\n')
+    proc = _common(box, 'rq_reachable https://github.com/x/y && echo YES || echo NO')
+    assert proc.stdout.strip() == ("YES" if reachable else "NO"), proc.stdout + proc.stderr
+    args = (box.tmp / "curl.args").read_text()
+    assert "--connect-timeout 5" in args and "%{time_connect}" in args
+
+
 def test_auto_install_skips_the_question_but_not_the_space_check(box):
     proc = _common(box, 'rq_confirm_download X 10 10 --url ""; echo "RC=$?"',
                    extra={"RQ_AUTO_INSTALL": "1"})

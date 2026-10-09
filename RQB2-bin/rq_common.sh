@@ -1416,13 +1416,22 @@ rq_image_registry_url() {
 
 # Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
 # timeouts, so a network that drops outside traffic fails in seconds instead
-# of hanging in git (R-166). RQ_TEST_OFFLINE=1 makes every check fail.
+# of hanging in git (R-166). A connection that was made counts too, even
+# when the answer then takes longer than the limit: github.com sometimes
+# keeps a HEAD request waiting for 10 s although the Pi is online (rig test
+# 2026-10-09, F1). RQ_TEST_OFFLINE=1 makes every check fail.
 rq_reachable() {
-    local url="${1:-}"
+    local url="${1:-}" connect="" rc=0
     [ "${RQ_TEST_OFFLINE:-0}" = "1" ] && return 1
     [ -n "$url" ] || return 0
     command -v curl >/dev/null 2>&1 || return 0   # cannot tell; let the download try
-    curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
+    connect=$(curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 \
+        -w '%{time_connect}' "$url" 2>/dev/null) || rc=$?
+    [ "$rc" = 0 ] && return 0
+    # 28 = timed out; a connect time above zero means the server was there
+    [ "$rc" = 28 ] || return 1
+    case "$connect" in *[1-9]*) return 0 ;; esac
+    return 1
 }
 
 # Is this a small card (the root file system under 20 GB: a 16 GB card)?
