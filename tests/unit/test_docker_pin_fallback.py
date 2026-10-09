@@ -294,7 +294,7 @@ def _pins_module():
 @pytest.mark.parametrize("image, parts", [
     ("ghcr.io/qubins/images@sha256:abc", ("ghcr.io", "qubins/images", "sha256:abc")),
     ("ghcr.io/qubins/images:2.5-xl", ("ghcr.io", "qubins/images", "2.5-xl")),
-    ("ghcr.io/janlahmann/traqmania", ("ghcr.io", "janlahmann/traqmania", "latest")),
+    ("ghcr.io/janlahmann/racetraq", ("ghcr.io", "janlahmann/racetraq", "latest")),
     ("python:3.11", ("registry-1.docker.io", "library/python", "3.11")),
     ("someone/app", ("registry-1.docker.io", "someone/app", "latest")),
     ("localhost:5000/app:1", ("localhost:5000", "app", "1")),

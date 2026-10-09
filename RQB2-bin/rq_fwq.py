@@ -57,7 +57,7 @@ FAMILY_DEMOS = {
     "qoffee-maker": "qoffee-maker",
     "qubins": "quantum-lab",
     "doqumentation": "doqumentation",
-    "traqmania": "traqmania",
+    "racetraq": "racetraq",
 }
 THIS_PI = "rasqberry-two"
 

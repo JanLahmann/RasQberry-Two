@@ -1415,7 +1415,7 @@ do_select_qrt_option() {
 # Quantum Demos: the learning paths, one submenu per demo group, stopping an
 # LED demo and managing the demos. The groups and their demos come from the
 # cache (rq_demo_generate_menu.sh: demo-groups.json and each manifest's group,
-# by menu.order), so a catalogue demo (e.g. traQmania) appears in its group
+# by menu.order), so a catalogue demo (e.g. racetraQ) appears in its group
 # without a change here. The same groups are the desktop's folders.
 do_quantum_demo_menu() {
   _qd_last=""

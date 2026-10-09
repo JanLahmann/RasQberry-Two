@@ -115,6 +115,16 @@ A thin registry in `RQB2-config/known-demos.json`:
 - `provider` (optional) names who provides and maintains the demo; the install
   question says "Provided by <provider>." (without it: "an external
   contributor").
+- `replaces` (optional) lists the ids a demo had before a rename, e.g.
+  `"replaces": ["traqmania"]` on `racetraq`. The id, the repository directory
+  and the Docker image all change with a rename, so the old install is not
+  touched by the new entry. On a Pi that has an old id installed, the install
+  question says that the new demo replaces it, and once the new one is
+  installed the old one is removed (checkout, manifest, icon, container and
+  Docker image). `rq_demo_add_external.sh --update <old id>` (or `<old id>`
+  alone) installs the new one the same way, and the updater's report names
+  the command. Until it is moved, the old install keeps the entry's group and
+  maturity, so it stays where it was in the menu and on the desktop.
 
 ## 3. Add flow (menu: "Add demo from catalogue")
 

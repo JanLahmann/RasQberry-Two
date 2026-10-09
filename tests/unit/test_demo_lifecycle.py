@@ -909,7 +909,7 @@ def test_demos_open_the_browser_through_one_helper():
 
 @needs_bash
 def test_catalogue_docker_demo_keeps_its_log_when_it_stops_at_once(box):
-    # The engine's generic Docker path (traQmania) ran with --rm and then called
+    # The engine's generic Docker path (traQmania, now racetraQ) ran with --rm and then called
     # docker logs: the container, and with it the reason, was already gone
     stubs = box.tmp / "stubs"
     calls = box.tmp / "docker.log"

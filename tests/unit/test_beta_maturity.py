@@ -63,25 +63,28 @@ def test_the_new_demos_are_beta():
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))["demos"]
     beta = {d["id"] for d in registry if d.get("maturity") == "beta"}
     # the SAP demos are SAP's to call beta: we take them as they are (Jan)
-    assert "traqmania" in beta and not beta & {"sap-quantum-learning", "sap-quantum-led"}
+    assert "racetraq" in beta and not beta & {"sap-quantum-learning", "sap-quantum-led"}
 
 
 @needs_bash
 def test_maturity_lookup_and_the_catalogue_fallback(tmp_path):
-    # a catalogue demo installed before it was marked: its manifest has no field
+    # a catalogue demo installed before it was marked: its manifest has no field;
+    # and one installed under its earlier name (racetraQ "replaces" traqmania)
     user = tmp_path / "home" / ".local" / "config" / "demo-manifests"
     user.mkdir(parents=True)
+    (user / "rq_demo_racetraq.json").write_text(json.dumps({"id": "racetraq", "name": "racetraQ"}))
     (user / "rq_demo_traqmania.json").write_text(json.dumps({"id": "traqmania", "name": "traQmania"}))
     proc = _bash(f'. "{_COMMON}"; '
                  'echo "a=$(rq_demo_maturity doqumentation)"; '
-                 'echo "b=$(rq_demo_maturity traqmania)"; '
+                 'echo "b=$(rq_demo_maturity racetraq)"; '
+                 'echo "f=$(rq_demo_maturity traqmania)"; '
                  'echo "c=$(rq_demo_maturity fun-with-quantum "" website)"; '
                  'echo "d=$(rq_demo_maturity fun-with-quantum "" coin-game)"; '
                  'echo "e=$(rq_demo_maturity quantum-lights-out)"; '
                  'rq_beta_notice doqumentation', tmp_path)
     assert proc.returncode == 0, proc.stderr
     out = proc.stdout
-    assert "a=beta\nb=beta\nc=beta\nd=\ne=\n" in out
+    assert "a=beta\nb=beta\nf=beta\nc=beta\nd=\ne=\n" in out
     assert "This demo is new - please try it and tell us what works and what doesn't." in out
     assert "issues/new?template=demo-feedback.yml&demo=doqumentation" in out
 

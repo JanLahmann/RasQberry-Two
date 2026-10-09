@@ -288,10 +288,11 @@ regenerate_menu_cache() {
 }
 
 # Installed catalog demos keep their checkout; point out the ones whose pin
-# in the updated known-demos.json has moved.
+# in the updated known-demos.json has moved, and the ones installed under a
+# name the catalogue has since changed (an entry's "replaces").
 report_catalog_pins() {
     local registry="$TARGET_CONFIG/known-demos.json" home="${USER_HOME:-}"
-    local manifest id dir ref head
+    local manifest id dir ref head new
     # Run from raspi-config as root, USER_HOME can resolve to /root
     [ -d "$home/.local/config/demo-manifests" ] || home=$(getent passwd 1000 | cut -d: -f6)
     [ -f "$registry" ] && [ -n "$home" ] && command -v jq >/dev/null 2>&1 || return 0
@@ -301,6 +302,11 @@ report_catalog_pins() {
         dir=$(jq -r '.entrypoint.working_dir // empty' "$manifest")
         ref=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .ref // empty' "$registry")
         [ -n "$id" ] && [ -n "$dir" ] || continue
+        new=$(jq -r --arg id "$id" '[.demos[] | select(any(.replaces[]?; . == $id)) | .id][0] // empty' "$registry")
+        if [ -z "$ref" ] && [ -n "$new" ]; then
+            info "Catalog demo '$id' is now called '$new' - move it with: sudo rq_demo_add_external.sh --update $id"
+            continue
+        fi
         if [ -z "$ref" ]; then
             info "Catalog demo '$id' was withdrawn - remove with: sudo rq_demo_add_external.sh --remove $id"
             continue

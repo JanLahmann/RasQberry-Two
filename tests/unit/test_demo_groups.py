@@ -43,7 +43,7 @@ _TABLE = {
     "led-panel": {"led-ibm-demo", "rasq-led", "quantum-lights-out", "quantum-raspberry-tie",
                   "led-painter", "clear-leds"},
     "play": {"fun-with-quantum", "quantum-coin-game", "quantum-paradoxes", "quantum-fractals"},
-    "projects": {"qoffee-maker", "quantum-mixer", "rq-ext-traqmania"},
+    "projects": {"qoffee-maker", "quantum-mixer", "rq-ext-racetraq"},
     "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials", "quantum-lab",
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
     "workshops": {"doqumentation", "demo-loop"},
@@ -99,17 +99,17 @@ def test_every_shipped_manifest_and_catalogue_entry_has_a_valid_group():
     for demo_id, m in _manifests().items():
         assert m.get("group") in ids, demo_id
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))
-    # traQmania is from the Fun with Quantum family: Big projects; the SAP
-    # demos come from a partner: Contributed demos (Jan, 2026-10-08)
+    # racetraQ (formerly traQmania) is from the Fun with Quantum family: Big
+    # projects; the SAP demos come from a partner: Contributed demos (Jan, 2026-10-08)
     assert {d["id"]: d["group"] for d in registry["demos"]} == {
-        "traqmania": "projects", "sap-quantum-learning": "contributed", "sap-quantum-led": "contributed"}
+        "racetraq": "projects", "sap-quantum-learning": "contributed", "sap-quantum-led": "contributed"}
 
 
 def test_every_desktop_launcher_lands_where_jans_table_puts_it(tmp_path):
     groups = ds.load_groups()
     seen = {g: set() for g in _TABLE}
     loose = set()
-    for name in ds.ICON_ORDER + ["rq-ext-traqmania", "rq-ext-sap-quantum-learning",
+    for name in ds.ICON_ORDER + ["rq-ext-racetraq", "rq-ext-sap-quantum-learning",
                                  "rq-ext-sap-quantum-led"]:
         path = os.path.join(_BOOKMARKS, name + ".desktop")
         group = ds.launcher_group(name, path, groups, dirs=[_MANIFESTS],
@@ -121,7 +121,7 @@ def test_every_desktop_launcher_lands_where_jans_table_puts_it(tmp_path):
 
 @needs_jq
 @pytest.mark.parametrize("demo_id", ["rasq-led", "composer", "doqumentation", "led-demos",
-                                     "fun-with-quantum", "traqmania", "sap-quantum-led",
+                                     "fun-with-quantum", "racetraq", "traqmania", "sap-quantum-led",
                                      "sap-quantum-learning"])
 def test_shell_and_python_decide_the_same_group(demo_id):
     sh = subprocess.run(["bash", "-c", '. "$1"; rq_demo_group "$2"', "_",
@@ -190,7 +190,7 @@ def test_launchers_go_into_their_folders_and_starters_stay(tmp_path, monkeypatch
     (desk / "notes.txt").write_text("mine")
     assert _layout(home, desk, conf, monkeypatch=monkeypatch)
     titles = {g["id"]: g["title"] for g in ds.load_groups()["groups"]}
-    assert _folders(home) == {titles[g]: sorted(n for n in names if n != "rq-ext-traqmania"
+    assert _folders(home) == {titles[g]: sorted(n for n in names if n != "rq-ext-racetraq"
                                                   and n != "rq-ext-sap-quantum-learning")
                               for g, names in _TABLE.items()}
     on_desk = sorted(os.listdir(desk))
@@ -394,16 +394,35 @@ def test_group_lines_name_only_demos_that_are_there(tmp_path):
     assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
     assert lines["contributed"] == "Contributed demos: add demos from the catalogue"
     for line in lines.values():
-        assert "traQmania" not in line and "SAP" not in line
-    trq = {"id": "traqmania", "name": "traQmania", "category": "game",
+        assert "racetraQ" not in line and "SAP" not in line
+    trq = {"id": "racetraq", "name": "racetraQ", "category": "game",
            "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
            "menu": {"order": 80}}
     sap = {"id": "sap-quantum-led", "name": "SAP Quantum LED", "category": "led-demo",
            "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
            "needs_hw": {"leds": True}, "menu": {"order": 72}}
     lines = dict(_pairs(_cache(tmp_path / "added", [trq, sap]), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, traQmania"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, racetraQ"
     assert lines["contributed"] == "Contributed demos: SAP Quantum LED, more from the catalogue"
+
+
+@needs_jq
+def test_an_install_under_the_old_name_stays_in_big_projects(tmp_path):
+    # traQmania was renamed racetraQ (2026-10-08): a Pi that still has it
+    # installed as traqmania keeps it in Big projects (the racetraq entry
+    # "replaces" it), in the menu and on the desktop, until it is moved over
+    old = {"id": "traqmania", "name": "traQmania", "category": "game",
+           "description": "t", "entrypoint": {"type": "docker", "docker_image": "ghcr.io/janlahmann/traqmania",
+                                               "working_dir": "traQmania"},
+           "menu": {"order": 75}}
+    lines = dict(_pairs(_cache(tmp_path, [old]), "demo_group_list"))
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, traQmania"
+    assert "traQmania" not in lines["contributed"]
+    path = tmp_path / "rq-ext-traqmania.desktop"
+    path.write_text("[Desktop Entry]\nName=traQmania\n")
+    assert ds.launcher_group("rq-ext-traqmania", str(path), ds.load_groups(),
+                             dirs=[_MANIFESTS, str(tmp_path / "home/.local/config/demo-manifests")],
+                             known=os.path.join(_CFG, "known-demos.json")) == "projects"
 
 
 def test_the_coin_game_entry_starts_its_notebook():

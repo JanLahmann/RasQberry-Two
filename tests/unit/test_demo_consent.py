@@ -384,7 +384,7 @@ _ADD = os.path.join(_BIN, "rq_demo_add_external.sh")
 
 
 @pytest.mark.parametrize("demo_id,provider", [
-    ("traqmania", "Provided by the Fun with Quantum family."),
+    ("racetraq", "Provided by the Fun with Quantum family."),
     ("sap-quantum-learning", "Provided by SAP."),
     ("sap-quantum-led", "Provided by SAP."),
 ])
