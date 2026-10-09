@@ -46,7 +46,7 @@ Learn what a superposition is and what a measurement does to it.
 2. **Quantum Coin Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Play the classical game first, then the quantum one with the H gate.
    - Notice: Two H gates bring the coin back to heads, whatever the other player did.
-3. **Hardy's paradox** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
+3. **Hardy's Paradox** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="superposition-and-measurement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Follow the quantum cars and run each cell with Shift+Enter.
    - Notice: Everyday logic fails: you cannot reason about a measurement that did not happen.
 
@@ -64,10 +64,10 @@ Curious learners · about 40 minutes · <span className="beta-tag">beta</span>
 
 Win games that no classical team can win every time, with entangled qubits.
 
-1. **GHZ game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
+1. **GHZ Game** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a strategy that always wins, then let the quantum team play.
    - Notice: No classical strategy wins every round. Three entangled qubits do.
-2. **Mermin-Peres magic square** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
+2. **Mermin–Peres Magic Square** in <a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Fun with Quantum</a>
    - Try: Look for a magic square that works, then run the quantum strategy for many rounds.
    - Notice: Alice's and Bob's answers are random, yet they always agree where they meet.
 3. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="entanglement" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">RasQ-LED Demo</a>**

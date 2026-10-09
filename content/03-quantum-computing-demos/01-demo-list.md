@@ -32,7 +32,7 @@ Games and puzzles you play against or with a quantum computer.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin-Peres magic square, 3-SAT with Grover), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects | network on first start, IBM Quantum account optional | `fun-with-quantum` |
+| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects | network on first start, IBM Quantum account optional | `fun-with-quantum` |
 | **Quantum Paradoxes** | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 
