@@ -47,7 +47,7 @@ Run `sudo raspi-config` and navigate to:
 
 ```bash
 # Interactive text display
-rq_led_display_text.sh
+sudo rq_led_display_text.sh
 ```
 
 The script prompts for:
@@ -59,7 +59,7 @@ The script prompts for:
 
 ```bash
 # Interactive logo selection
-rq_led_display_logo.sh
+sudo rq_led_display_logo.sh
 ```
 
 Features:
@@ -121,63 +121,38 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
 ### Turn off LEDs
 
 ```bash
-# From command line
-source ~/RasQberry-Two/venv/RQB2/bin/activate
-python3 /usr/bin/turn_off_LEDs.py
-
-# Or via raspi-config menu
-# Quantum Demos → LED panel → Clear All LEDs
+sudo rq_clear_leds.sh          # --stop also stops a program that holds the panel
 ```
+
+Or use the desktop icon **Clear All LEDs**, or **Quantum Demos** → **LED panel** → **Clear All LEDs**.
 
 ## For developers
 
 ### Python API
 
-Display text:
+Four functions are the supported LED API; programs that use them keep working
+with later releases. Everything else in `rq_led_utils` is internal and may change.
 
 ```python
-from rq_led_utils import (
-    create_neopixel_strip,
-    display_scrolling_text,
-    display_static_text,
-    display_flashing_text,
-    get_led_config
-)
+from rq_led_utils import get_pixels, matrix_size, set_xy, clear_all_leds
 
-# Get configuration
-config = get_led_config()
-
-# Create LED strip
-pixels = create_neopixel_strip(
-    config['led_count'],
-    config['pixel_order'],
-    brightness=config['led_default_brightness']
-)
-
-# Display modes
-display_scrolling_text(pixels, "HELLO", duration_seconds=10, color=(255, 0, 0))
-display_static_text(pixels, "IBM", duration_seconds=5, color=(0, 255, 255))
-display_flashing_text(pixels, "ALERT", flash_count=5, color=(255, 255, 0))
-
-# Clean up
-pixels.fill((0, 0, 0))
-pixels.show()
+pixels = get_pixels(brightness=0.2)  # the LED strip (one shared object)
+width, height = matrix_size()        # (24, 8) on the RasQberry panels
+set_xy(pixels, 0, 0, (255, 0, 0))    # top-left LED red
+set_xy(pixels, width - 1, height - 1, (0, 0, 255))  # bottom-right blue
+pixels.show()                        # nothing changes before show()
+clear_all_leds()
 ```
 
-Display logos:
-
-```python
-from rq_led_logo import display_logo
-
-# Display logo with effects
-display_logo(
-    "path/to/logo.png",
-    duration=10,           # seconds
-    brightness=0.5,        # 0.0 to 1.0
-    fade_in=True,          # smooth fade in
-    fade_out=True          # smooth fade out
-)
-```
+- **Coordinates**: x runs from 0 (left) to width-1, y from 0 (top) to height-1.
+  `set_xy` maps them to the configured `LED_LAYOUT` (`single-24x8` or
+  `quad-4x12`, either way up), so the same program works on both kits.
+  Positions off the panel are ignored. Avoid `pixels[number]`: raw numbers
+  follow the wiring, not rows.
+- **Run it** with `rq_python my_program.py`. On a Pi 5, `python3` in the
+  RasQberry environment and Thonny work too; a Pi 4 needs `rq_python` (the LED
+  driver needs root). Never `sudo python3`.
+- Examples: `~/My-Quantum-Programs/03_led_hello.py` and `04_bell_on_leds.py`.
 
 ### Demo scripts
 
@@ -197,9 +172,5 @@ These are what the menu entries run:
 
 Example:
 ```bash
-# Activate virtual environment first
-source ~/RasQberry-Two/venv/RQB2/bin/activate
-
-# Run a demo
-python3 /usr/bin/demo_led_ibm_logo.py
+rq_python /usr/bin/demo_led_ibm_logo.py
 ```
