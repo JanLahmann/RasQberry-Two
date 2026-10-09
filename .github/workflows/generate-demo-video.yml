@@ -1,0 +1,56 @@
+# Workflow to rebuild the homepage demo loop (MP4/WebM + poster) from the screenshots
+#
+# Triggers when PNG files are added/modified in public/demo-screenshots/source/
+# Uses scripts/create_demo_video.sh (ffmpeg)
+#
+name: Generate Demo Video
+
+on:
+  push:
+    branches: ["gh-pages"]
+    paths:
+      - 'public/demo-screenshots/source/*.png'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  generate-video:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Generate demo loop videos and poster
+        run: scripts/create_demo_video.sh public/demo-screenshots/source public/demo-screenshots
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet public/demo-screenshots/rasqberry-demo* 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated videos
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/demo-screenshots/rasqberry-demo*
+          git commit -m "chore: regenerate demo screenshot videos"
+          git push
+
+      - name: Trigger deploy workflow
+        if: steps.check_changes.outputs.changed == 'true'
+        run: gh workflow run nextjs.yml --ref gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}

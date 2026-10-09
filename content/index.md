@@ -93,10 +93,11 @@ Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
     <p className="media-caption">Demo video showing RasQberry Two beta with quantum computing demos</p>
   </div>
   <div className="media-item">
-    <a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank" title="Click for slow-motion version (4s per frame)">
-      <img src="/demo-screenshots/rasqberry-demo-1000ms.gif" alt="RasQberry Demo Screenshots" className="media-image" loading="lazy" />
-    </a>
-    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualisation, quantum games, circuit composer, and fractal animations (<a href="/demo-screenshots/rasqberry-demo-4000ms.gif" target="_blank">slow-motion version</a>)</p>
+    <video autoPlay muted loop playsInline className="media-video" poster="/demo-screenshots/rasqberry-demo-poster.jpg" aria-label="RasQberry demo screenshots">
+      <source src="/demo-screenshots/rasqberry-demo.webm" type="video/webm" />
+      <source src="/demo-screenshots/rasqberry-demo.mp4" type="video/mp4" />
+    </video>
+    <p className="media-caption">Interactive quantum computing demos - Bloch sphere visualisation, quantum games, circuit composer, and fractal animations (<a href="/demo-screenshots/rasqberry-demo-slow.mp4" target="_blank">slow-motion version</a>)</p>
   </div>
 </div>
 
