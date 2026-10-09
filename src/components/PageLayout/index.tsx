@@ -25,16 +25,18 @@ interface Props {
     // The Markdown file behind the page, relative to content/ - a directory
     // route such as 05-contributing/ is served from 05-contributing/index.md.
     contentFile?: string
+    // false: no "Edit this page" link (e.g. the 404 page)
+    editLink?: boolean
 }
 
 // Generated pages: an edit on GitHub would be overwritten, so no edit link.
 const GENERATED_PAGES = ['03-quantum-computing-demos/01-demo-list.md']
 
-export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath, contentFile }: Props) {
+export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems = [], tableofcontent, pagePath, contentFile, editLink = true }: Props) {
     // Construct the GitHub edit URL
     const contentPath = contentFile || `${pagePath ? pagePath.join('/') : 'index'}.md`;
     const githubEditUrl = `https://github.com/JanLahmann/RasQberry-Two/edit/gh-pages/content/${contentPath}`;
-    const showEditLink = !GENERATED_PAGES.includes(contentPath);
+    const showEditLink = editLink && !GENERATED_PAGES.includes(contentPath);
 
     return <>
         {leadspace && <LeadSpace {...leadspace} />}
