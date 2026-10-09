@@ -207,6 +207,43 @@ def test_demo_consent_uses_the_manifest_and_asks_once(box):
     assert "Workshop & Qiskit Server is not on this Pi yet." in text
     assert "about 1.3 GB" in text and "5.4 GB on the SD card" in text
 
+    # a Docker image: the time from its size, fast and slow (not "3-5 minutes")
+    assert "Time:      about 3 min on fast internet, up to 22 min on slow Wi-Fi" in text
+
+
+@pytest.mark.parametrize("mb, text", [
+    (890, "about 2 min on fast internet, up to 15 min on slow Wi-Fi"),   # Quantum Lab (101 s / ~12 min measured)
+    (1300, "about 3 min on fast internet, up to 22 min on slow Wi-Fi"),  # doQumentation
+    (530, "about 2 min on fast internet, up to 9 min on slow Wi-Fi"),    # racetraQ
+    (40, "about 1 min on fast internet, up to 1 min on slow Wi-Fi"),
+    (0, ""),
+])
+def test_download_time_from_the_size(mb, text):
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_download_time_text {mb}'],
+                          capture_output=True, text=True)
+    assert proc.stdout.strip() == text, proc.stdout + proc.stderr
+
+
+def test_an_image_download_states_its_time_from_the_size(box):
+    proc = _common(box, 'rq_confirm_download "Lab" 890 4000 --time "1-3 minutes" '
+                        '--image ghcr.io/qubins/images:2.5-xl --url ""; echo "RC=$?"')
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    (call,) = box.dialogs()
+    text = call[call.index("--yesno") + 1]
+    assert "Time:      about 2 min on fast internet, up to 15 min on slow Wi-Fi" in text
+    assert "1-3 minutes" not in text
+
+
+@pytest.mark.parametrize("demo_id", ["quantum-lab", "doqumentation", "qoffee-maker", "quantum-mixer"])
+def test_docker_manifest_time_matches_the_size(demo_id):
+    """Download all adds the manifests' times up: they say the same as the box."""
+    import json
+    with open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", f"rq_demo_{demo_id}.json")) as fh:
+        d = json.load(fh)["install"]["download"]
+    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_download_minutes {d["download_mb"]}'],
+                         capture_output=True, text=True).stdout.split()
+    assert d["time"] == f"{out[0]}-{out[1]} minutes"
+
 
 def test_registry_url_of_an_image():
     script = f'. "{_COMMON}"; rq_image_registry_url ghcr.io/a/b:c; rq_image_registry_url python:3.11; ' \

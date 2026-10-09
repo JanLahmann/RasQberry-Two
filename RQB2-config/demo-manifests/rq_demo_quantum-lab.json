@@ -29,7 +29,7 @@
       "what": "Docker image from ghcr.io (QuBins), and the IBM course notebooks if missing",
       "download_mb": 890,
       "disk_mb": 4000,
-      "time": "1-3 minutes"
+      "time": "2-15 minutes"
     },
     "update": {
       "docker_tags": "^[0-9]+\\.[0-9]+-xl$",

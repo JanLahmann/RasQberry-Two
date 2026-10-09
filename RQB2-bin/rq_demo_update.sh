@@ -146,7 +146,7 @@ update_image() {
     if ! docker image inspect "$target" >/dev/null 2>&1; then
         rc=0
         rq_confirm_download "$name" "$dl" "$disk" --path /var/lib/docker \
-            --url "https://ghcr.io/v2/" --time "5-20 minutes" \
+            --url "https://ghcr.io/v2/" --image "$target" \
             --title "Update $name?" \
             --intro "$name: ${label:-the version this release ships}." \
             --question "Download it now? The version in use is removed afterwards." || rc=$?

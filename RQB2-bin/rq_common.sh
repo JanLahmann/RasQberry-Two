@@ -1494,12 +1494,41 @@ rq_card_note() {
     fi
 }
 
+# How long a Docker image download takes, from its size: measured on a Pi 5
+# (Quantum Lab, 890 MB): 101 s on fast internet, unpacking included (about
+# 8 MB/s), and about 12 minutes on a 10 Mbit/s line (about 1.2 MB/s; slow
+# Wi-Fi: 1 MB/s). Rounded up to whole minutes. Echoes "FAST SLOW" minutes,
+# nothing for an unknown size.
+# Usage: read -r fast slow <<< "$(rq_download_minutes 890)"   # 2 15
+RQ_FAST_MB_S="${RQ_FAST_MB_S:-8}"
+RQ_SLOW_MB_S="${RQ_SLOW_MB_S:-1}"
+rq_download_minutes() {
+    local mb="${1:-0}"
+    case "$mb" in ''|*[!0-9]*|0) return 0 ;; esac
+    awk -v m="$mb" -v f="$RQ_FAST_MB_S" -v s="$RQ_SLOW_MB_S" '
+        function up(x) { return (x == int(x)) ? x : int(x) + 1 }
+        BEGIN { a = up(m / f / 60); b = up(m / s / 60)
+                if (a < 1) a = 1; if (b < a) b = a; printf "%d %d\n", a, b }'
+}
+
+# The consent box's time for a Docker image download of MB megabytes:
+# "about 2 min on fast internet, up to 15 min on slow Wi-Fi"
+# Usage: rq_download_time_text 890
+rq_download_time_text() {
+    local fast slow
+    read -r fast slow <<< "$(rq_download_minutes "${1:-0}")"
+    [ -n "$fast" ] || return 0
+    echo "about $fast min on fast internet, up to $slow min on slow Wi-Fi"
+}
+
 # Ask before a download. Shared by the demo engine, "Download all demos", the
 # Docker launchers and other one-off downloads (e.g. a newer Docker image).
 #
 #   rq_confirm_download NAME DOWNLOAD_MB DISK_MB [options]
 #     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
 #     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
+#     --image IMAGE    a Docker image download: the time comes from the size
+#                      (rq_download_time_text) instead of --time
 #     --path DIR       where the data goes; free space is measured there
 #                      (default: $USER_HOME)
 #     --url URL        checked first with a short timeout
@@ -1518,10 +1547,11 @@ rq_confirm_download() {
     local name="$1" dl="${2:-0}" disk="${3:-0}"
     shift 3 || true
     local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
-    local docker=0
+    local docker=0 image=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --docker) docker=1; shift ;;
+            --image) image="$2"; shift 2 ;;
             --what) what="$2"; shift 2 ;;
             --time) time="$2"; shift 2 ;;
             --path) path="$2"; shift 2 ;;
@@ -1572,7 +1602,12 @@ rq_confirm_download() {
     text="${text}Download:  $dl_txt (needs the internet)\n"
     text="${text}Space:     $card_txt\n"
     [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
-    [ -n "$time" ] && text="${text}Time:      about $time\n"
+    local time_txt=""
+    [ -n "$time" ] && time_txt="about $time"
+    # a Docker image: from its size, fast and slow (Quantum Lab said "1-3
+    # minutes" and took 12 at 10 Mbit/s)
+    [ -n "$image" ] && [ "$dl" -gt 0 ] && time_txt=$(rq_download_time_text "$dl")
+    [ -n "$time_txt" ] && text="${text}Time:      $time_txt\n"
     text="${text}Free:      $free_txt\n\n${question:-Download now?}"
 
     # Ask on the terminal itself, so a caller that pipes our output (a log
@@ -1696,8 +1731,9 @@ rq_confirm_demo_install() {
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
     fi
-    local docker_opt=""
+    local docker_opt="" image_opt=()
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        image_opt=(--image "$image")
         # (an image already here downloads nothing, also on a small card)
         docker image inspect "$(rq_demo_image "$id" "$mf")" >/dev/null 2>&1 \
             || docker_opt="--docker"
@@ -1707,7 +1743,8 @@ rq_confirm_demo_install() {
     fi
     [ -n "$url" ] || url="${repo:-https://github.com}"
     rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
-        --path "$path" --peak "$peak" --url "$url" $docker_opt || return $?
+        --path "$path" --peak "$peak" --url "$url" $docker_opt \
+        ${image_opt[@]+"${image_opt[@]}"} || return $?
     RQ_CONFIRMED_DEMO="$id"
     export RQ_CONFIRMED_DEMO
     return 0
