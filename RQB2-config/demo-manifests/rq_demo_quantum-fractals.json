@@ -24,8 +24,8 @@
   },
   "needs_ibm_token": "none",
   "browser_based": true,
-  "loop_ok": false,
-  "timeout": 0,
+  "loop_ok": true,
+  "timeout": 90,
   "icon": {
     "type": "custom",
     "path": "/usr/share/icons/rasqberry/quantum-fractals.svg"

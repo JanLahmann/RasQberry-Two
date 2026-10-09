@@ -28,8 +28,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     the desktop user's password (the hash in /etc/shadow - never plain text),
 #     hostname (/etc/hostname, /etc/hosts), time zone, locale, keyboard layout,
 #     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE, RQ_UMAMI (usage counts off,
-#     on rig and development Pis) and the Demo Loop's choice of demos and
-#     timings (DEMO_LOOP_*) from rasqberry_environment.env,
+#     on rig and development Pis) and the Demo Loop's choice of demos,
+#     timings and start at login (DEMO_LOOP_*) from rasqberry_environment.env,
 #     VNC switched off (Q17: the new system then does not switch it on),
 #     the marks of what the desktop user was already asked or told
 #     (~/.local/state/rasqberry/*: the setup checklist was answered, the
@@ -94,7 +94,8 @@ STARTERS="$ROOT/usr/config/my-quantum-programs"
 USER_STATE=.local/state/rasqberry
 ENV_KEYS="BROWSER_AUTOSTART RQ_FIRSTLOGIN_DONE RQ_UMAMI DEMO_LOOP_DEMOS
     DEMO_LOOP_IBM_LOGO_TIME DEMO_LOOP_LIGHTS_OUT_TIME DEMO_LOOP_RASQBERRY_TIE_TIME
-    DEMO_LOOP_RASQ_LED_TIME DEMO_LOOP_PAUSE"
+    DEMO_LOOP_RASQ_LED_TIME DEMO_LOOP_QUANTUM_FRACTALS_TIME DEMO_LOOP_PAUSE
+    DEMO_LOOP_AT_LOGIN"
 # Live = changing the running system (hostname, locale-gen, nmcli), not a test root
 LIVE=true
 if [ -n "$ROOT" ] || [ "${RQ_CARRY_NO_LIVE:-0}" = "1" ]; then LIVE=false; fi

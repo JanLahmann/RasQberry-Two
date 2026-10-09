@@ -876,18 +876,42 @@ do_remove_demo() {
 
 # Run continuous demo loop for conference showcases. Which demos it shows can
 # be chosen (Jan, 2026-10-05); the Demo Loop icon starts the chosen ones.
+# "Start at login" (DEMO_LOOP_AT_LOGIN, off as shipped): the desktop login
+# starts the loop instead of the browser (rq_desktop_session.py, R-123).
+demo_loop_login_state() {
+    [ "$(sed -n 's/^DEMO_LOOP_AT_LOGIN=//p' "$ENV_FILE" 2>/dev/null | tail -1)" = "true" ] \
+        && echo "on" || echo "off"
+}
+
+do_toggle_demo_loop_login() {
+    local new=true
+    [ "$(demo_loop_login_state)" = "on" ] && new=false
+    # update_environment_file adds the key when the file does not have it yet
+    update_environment_file "DEMO_LOOP_AT_LOGIN" "$new" || return 0
+    if [ "$new" = true ]; then
+        whiptail --title "Demo Loop at login" --msgbox \
+            "The Demo Loop starts at the next desktop login, instead of the browser.\n\nTo stop it: press x in its window." 10 64
+    else
+        whiptail --title "Demo Loop at login" --msgbox \
+            "The Demo Loop no longer starts at login." 8 60
+    fi
+    return 0
+}
+
 run_demo_loop() {
     _dl_last=""
     while true; do
         _dl_now=$("$BIN_DIR/rq_demo_loop.sh" --demos 2>/dev/null) || _dl_now=""
         _dl=$(show_menu ${_dl_last:+--default-item "$_dl_last"} "RasQberry: Demo Loop" \
-            "Shows LED demos one after another, for a stand.\nNow: ${_dl_now:-all demos}" \
+            "Shows demos one after another, for a stand.\nNow: ${_dl_now:-all demos}" \
             START  "Start the demo loop" \
-            CHOOSE "Choose the demos") || return 0
+            CHOOSE "Choose the demos" \
+            LOGIN  "Start the Demo Loop at login: $(demo_loop_login_state)") || return 0
         _dl_last="$_dl"
         case "$_dl" in
             START)  "$BIN_DIR/rq_demo_loop.sh"; return $? ;;
             CHOOSE) "$BIN_DIR/rq_demo_loop.sh" --choose ;;
+            LOGIN)  do_toggle_demo_loop_login ;;
             *)      return 0 ;;
         esac
     done
@@ -1472,7 +1496,7 @@ do_demo_group_menu() {
                  else
                      set -- "$@" COIN "Quantum Coin Game"
                  fi ;;
-      workshops) set -- "$@" LOOP "Demo Loop (LED demos one after another)" ;;
+      workshops) set -- "$@" LOOP "Demo Loop (demos one after another)" ;;
       # catalogue demos (Jan, 2026-10-08): shown also while empty, with the
       # way to add one
       contributed)

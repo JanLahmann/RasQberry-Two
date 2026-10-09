@@ -301,7 +301,7 @@ Create a manifest file to register your demo in the manifest system. This enable
 | `needs_hw.leds` | No | Requires LED matrix (default: false) |
 | `needs_hw.display` | No | `none`, `optional`, or `required` |
 | `needs_ibm_token` | No | `none`, `prefer`, or `required` |
-| `loop_ok` | No | Safe for demo loop (default: true) |
+| `loop_ok` | No | Shown in the Demo Loop (default: false; script or python demos only, for `timeout` seconds) |
 
 **Validate your manifest:**
 
