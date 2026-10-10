@@ -43,7 +43,7 @@ _TABLE = {
     "led-panel": {"led-ibm-demo", "rasq-led", "quantum-lights-out", "quantum-raspberry-tie",
                   "led-painter", "clear-leds"},
     "play": {"fun-with-quantum", "quantum-coin-game", "quantum-paradoxes", "quantum-fractals"},
-    "projects": {"qoffee-maker", "quantum-mixer", "rq-ext-racetraq"},
+    "projects": {"qoffee-maker", "quantum-mixer", "entangible", "rq-ext-racetraq"},
     "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials", "quantum-lab",
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
     "workshops": {"doqumentation", "demo-loop"},
@@ -330,7 +330,7 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
                                                   "quantum-raspberry-tie", "led-painter"]
     assert [i for i, _ in items["contributed"]] == ["sap-quantum-led"]
     assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-paradoxes", "quantum-fractals"]
-    assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer"]
+    assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer", "entangible"]
     assert [i for i, _ in items["learn"]] == ["grok-bloch", "qiskit-tutorials", "quantum-lab",
                                               "ibm-tutorials", "ibm-courses", "composer"]
     assert [i for i, _ in items["workshops"]] == ["doqumentation"]
@@ -391,7 +391,7 @@ def test_group_lines_name_only_demos_that_are_there(tmp_path):
     # user test 2026-10-08, F3: "Big projects: ... traQmania" while traQmania
     # was not in the submenu; the Contributed line named SAP demos not added
     lines = dict(_pairs(_cache(tmp_path), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible"
     assert lines["contributed"] == "Contributed demos: add demos from the catalogue"
     for line in lines.values():
         assert "racetraQ" not in line and "SAP" not in line
@@ -402,7 +402,7 @@ def test_group_lines_name_only_demos_that_are_there(tmp_path):
            "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
            "needs_hw": {"leds": True}, "menu": {"order": 72}}
     lines = dict(_pairs(_cache(tmp_path / "added", [trq, sap]), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, racetraQ"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible, racetraQ"
     assert lines["contributed"] == "Contributed demos: SAP Quantum LED, more from the catalogue"
 
 
@@ -416,7 +416,7 @@ def test_an_install_under_the_old_name_stays_in_big_projects(tmp_path):
                                                "working_dir": "traQmania"},
            "menu": {"order": 75}}
     lines = dict(_pairs(_cache(tmp_path, [old]), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, traQmania"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible, traQmania"
     assert "traQmania" not in lines["contributed"]
     path = tmp_path / "rq-ext-traqmania.desktop"
     path.write_text("[Desktop Entry]\nName=traQmania\n")

@@ -24,6 +24,10 @@ This directory contains icons used for desktop bookmarks and shortcuts.
 - **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
 - **Usage:** Quantum Paradoxes (a cat in a box: it shared Grokking's atom) and the Workshop & Qiskit Server (one server, three laptops: it shared the circuit icon of Qiskit Tutorials on this Pi)
 
+### entangible.svg
+- **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
+- **Usage:** Entangible: a camera over a board with an H tile and a CNOT on two qubit wires
+
 ### led-ibm-demo.svg, led-test.svg, quantum-raspberry-tie.svg, quantum-fractals.svg
 - **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
 - **Usage:** demos that shared the SenseHAT picture (IBM LED Demo, LED Test, Quantum Raspberry Tie) or another demo's icon (Quantum Fractals had the Raspberry Tie one) (R-097):

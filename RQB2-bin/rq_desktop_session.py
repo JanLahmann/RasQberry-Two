@@ -78,7 +78,7 @@ ICON_ORDER = [
     "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
     "learning-paths", "composer", "grok-bloch", "quantum-fractals",
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
-    "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
+    "led-painter", "qoffee-maker", "quantum-mixer", "entangible", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
     "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
 ]

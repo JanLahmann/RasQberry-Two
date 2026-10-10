@@ -63,7 +63,7 @@ installed() {
 
 collect_missing() {
     local include_docker="$1" mf line id name pre type image repo installer wd marker
-    local dl disk peak shares time
+    local dl disk peak shares time all
     while IFS= read -r mf; do
         [ -n "$mf" ] || continue
         line=$(jq -r '[.id, (.name // .id), (.install.preinstalled // false | tostring),
@@ -73,10 +73,14 @@ collect_missing() {
                        (.install.download.download_mb // 0 | tostring),
                        (.install.download.disk_mb // .install.download.download_mb // 0 | tostring),
                        (.install.download.peak_mb // 0 | tostring),
-                       (.install.download.shares // ""), (.install.download.time // "")]
+                       (.install.download.shares // ""), (.install.download.time // ""),
+                       (if .install.download_all == false then "false" else "true" end)]
                       | join("\u001f")' "$mf" 2>/dev/null) || continue
-        IFS=$'\037' read -r id name pre type image repo installer wd marker dl disk peak shares time <<< "$line"
+        IFS=$'\037' read -r id name pre type image repo installer wd marker dl disk peak shares time all <<< "$line"
         [ "$pre" = "true" ] && continue
+        # Left out on purpose (install.download_all false): Entangible needs a
+        # camera and sets up a system service - it asks at its first start
+        [ "$all" = "false" ] && continue
         # Something to download: a repo, an installer, or a Docker image
         if [ -z "$repo$installer" ] && { [ "$type" != "docker" ] || [ -z "$image" ]; }; then
             continue
