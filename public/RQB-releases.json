@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-10T15:58:25Z",
+  "generated": "2026-10-10T15:59:32Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1841527404,
       "extract_size": 9512681472,
       "extract_sha256": "c52dd4265496555740173385b792feade1fbe83f28b75acec672fb097c199e35",
-      "image_sha256": "4ae8c18521d052174301bc4f647a1c28269f6f81b6739971d6f6bec751e40d91",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-171402/rasqberry-development-2026-10-10-171402-ab.img.xz",
       "ab_extract_sha256": "be9f650b1555213c74bcdb9904f7a9b33fda972b2fb77151b2f9a5ed5acc73dd",
       "ab_image_sha256": "a3e46d50ac0978e6d01b4c49c817d0bd027b304591f97da950af979eaae3e642",
-      "ab_image_download_size": 1887861364,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1887861364,
       "highlights": [
         "Bump version to development-2026-10-10-171402",
         "pin 107b4bb (kiosk with its own browser profile)",
