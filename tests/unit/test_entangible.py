@@ -33,7 +33,7 @@ _REMOVE = os.path.join(_BIN, "rq_demo_remove.sh")
 _DL = os.path.join(_BIN, "rq_download_all.sh")
 _ENV_CONFIG = os.path.join(_CFG, "rasqberry_env-config.sh")
 _ENV = os.path.join(_CFG, "rasqberry_environment.env")
-_PIN = "094616c73fbbf306ecab1dd0e9f6de8b9b42664d"
+_PIN = "107b4bb9f842fb0340d6a2439efbb1d8bc726066"
 _STOP_LINE = "To stop Entangible: press Enter or Ctrl+C, or close this window."
 
 pytestmark = pytest.mark.skipif(

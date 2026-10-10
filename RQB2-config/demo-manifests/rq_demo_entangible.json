@@ -22,7 +22,7 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/entangible.git",
-    "ref": "094616c73fbbf306ecab1dd0e9f6de8b9b42664d",
+    "ref": "107b4bb9f842fb0340d6a2439efbb1d8bc726066",
     "marker_file": "deploy/rasqberry/entangible",
     "post_install": "rq_entangible.sh",
     "pre_remove": "rq_entangible.sh",
