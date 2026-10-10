@@ -33,7 +33,7 @@ _REMOVE = os.path.join(_BIN, "rq_demo_remove.sh")
 _DL = os.path.join(_BIN, "rq_download_all.sh")
 _ENV_CONFIG = os.path.join(_CFG, "rasqberry_env-config.sh")
 _ENV = os.path.join(_CFG, "rasqberry_environment.env")
-_PIN = "613181b130e7a973788cfc14d4f40efcdfc368bc"
+_PIN = "094616c73fbbf306ecab1dd0e9f6de8b9b42664d"
 _STOP_LINE = "To stop Entangible: press Enter or Ctrl+C, or close this window."
 
 pytestmark = pytest.mark.skipif(
@@ -53,13 +53,20 @@ case "$1" in
     health=unknown; ready=null
     if [ "$run" = true ]; then health=$(get health ok); [ "$health" = ok ] && ready=$(get ready false); fi
     [ "$inst" = true ] && [ "$health" = unknown ] && health=down
-    printf '{"installed":%s,"running":%s,"version":"613181b","bundle":%s,"urls":{"kiosk":"https://localhost:8443/?kiosk&connect=1","visitor":"%s"},"source":"%s","ready":%s,"health":"%s"}\n' \
+    printf '{"installed":%s,"running":%s,"version":"094616c","bundle":%s,"urls":{"kiosk":"https://localhost:8443/?kiosk&connect=1","visitor":"%s"},"source":"%s","ready":%s,"health":"%s","enabled":false}\n' \
       "$inst" "$run" "$b" "$(get visitor https://192.168.1.23:8443/?connect=1)" "$(get source cv2:0)" "$ready" "$health"
     ;;
   install)
+    # --no-enable: installed, not started (and not at boot)
+    [ "$2" = "--no-enable" ] || { echo "install without --no-enable" >&2; exit 2; }
     rc=$(get install_rc 0)
-    if [ "$rc" = 0 ]; then echo true > "$S/installed"; echo true > "$S/running"; echo booth-v2 > "$S/bundle"; fi
+    if [ "$rc" = 0 ]; then echo true > "$S/installed"; echo booth-v2 > "$S/bundle"; fi
     exit "$rc" ;;
+  doctor)
+    echo "note: the service is running, so the 'port' row is expected to be x"
+    [ -f "$S/hint" ] && echo "hint: $(cat "$S/hint")"
+    echo "camera  x"
+    exit 1 ;;
   start)
     rc=$(get start_rc 0)
     [ "$rc" = 0 ] && echo true > "$S/running"
@@ -130,9 +137,11 @@ def ent(tmp_path):
                               env=env(extra), stdin=subprocess.DEVNULL, timeout=120,
                               start_new_session=True)
 
-    def calls():
+    def calls(all_=False):
+        """The calls that change something (status and doctor only read)."""
         f = state / "calls"
-        return [c for c in f.read_text().splitlines() if c != "status"] if f.exists() else []
+        lines = f.read_text().splitlines() if f.exists() else []
+        return lines if all_ else [c for c in lines if c not in ("status", "doctor")]
 
     def setup_done():
         """A finished install: service set up, bundle and stamp match."""
@@ -205,7 +214,7 @@ class _Pty:
 
 # --- the data ----------------------------------------------------------------------
 
-def test_manifest_is_an_internal_big_project_pinned_to_booth_v2():
+def test_manifest_is_an_internal_big_project_pinned_on_booth_v2():
     m = _manifest()
     assert m["id"] == "entangible" and m["name"] == "Entangible"
     assert m["group"] == "projects" and m["maturity"] == "beta"
@@ -257,7 +266,7 @@ def test_desktop_entry_icon_and_build_list():
 def test_path_mode_installs_and_records_the_setup(ent):
     proc = ent(["--path", str(ent.checkout)])
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert ent.calls() == ["install"]
+    assert ent.calls() == ["install --no-enable"]
     stamp = ent.home / ".cache" / "rasqberry" / "entangible.rasqberry"
     assert stamp.read_text().split()[1] == "booth-v2"
 
@@ -280,7 +289,7 @@ def test_start_ctrl_c_during_install_ends_with_130_and_starts_nothing(ent):
     (ent.state / "install_rc").write_text("130")
     proc = ent(extra={"RQ_CONFIRMED_DEMO": "entangible"})
     assert proc.returncode == 130, proc.stdout + proc.stderr
-    assert ent.calls() == ["install"]
+    assert ent.calls() == ["install --no-enable"]
 
 
 def test_start_failed_install_is_an_error_with_the_reason(ent):
@@ -310,7 +319,7 @@ def test_start_installs_again_when_the_setup_does_not_match(ent, why):
         (ent.state / "installed").write_text("false")       # e.g. after an A/B update
     proc = ent(extra={"RQ_CONFIRMED_DEMO": "entangible"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert ent.calls()[0] == "install"
+    assert ent.calls()[0] == "install --no-enable"
 
 
 def test_a_matching_setup_is_not_installed_again(ent):
@@ -350,7 +359,32 @@ def test_without_a_camera_it_starts_and_says_so(ent):
     proc = ent()
     assert proc.returncode == 0
     assert "Camera: none found (cv2:0)" in proc.stdout
-    assert "picamera2" in proc.stdout
+    assert "Connect a USB webcam or the Pi camera" in proc.stdout
+    assert "QAMPOSER_SOURCE" not in proc.stdout
+
+
+def test_a_camera_source_that_does_not_fit_shows_doctors_hint(ent):
+    ent.setup_done()
+    (ent.state / "ready").write_text("false")
+    hint = ("QAMPOSER_SOURCE=cv2:0, but this Pi has a Pi Camera Module - set "
+            "QAMPOSER_SOURCE=picamera2 in /etc/default/entangible, then: entangible restart")
+    (ent.state / "hint").write_text(hint)
+    proc = ent()
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "  " + hint in proc.stdout and "hint:" not in proc.stdout
+    assert "Connect a USB webcam" not in proc.stdout
+    assert "doctor" in ent.calls(all_=True)
+
+
+def test_install_is_on_demand_and_the_launcher_starts_the_service(ent):
+    # install --no-enable leaves the service stopped (and off at boot);
+    # status carries "enabled" as its last field
+    proc = ent(extra={"RQ_CONFIRMED_DEMO": "entangible"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert ent.calls() == ["install --no-enable", "start"]
+    assert "Entangible is running." in proc.stdout
+    src = open(_LAUNCHER).read()
+    assert "systemctl" not in src          # no disable workaround: --no-enable does it
 
 
 def test_without_a_network_no_qr_code(ent):
@@ -367,7 +401,7 @@ def test_a_status_that_is_no_json_counts_as_not_set_up(ent):
     proc = ent(extra={"RQ_CONFIRMED_DEMO": "entangible"})
     # installs, then the service never reports running: an error, and it is stopped
     assert proc.returncode == 1
-    assert ent.calls()[0] == "install" and ent.calls()[-1] == "stop"
+    assert ent.calls()[0] == "install --no-enable" and ent.calls()[-1] == "stop"
     assert "stopped while starting" in proc.stderr
 
 

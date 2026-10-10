@@ -12,6 +12,7 @@ set -euo pipefail
 #   launcher only calls that command (contract: docs/rasqberry-integration.md
 #   in github.com/JanLahmann/entangible, pinned in rq_demo_entangible.json).
 #
+#   The service is installed on demand (install --no-enable: not at boot).
 #   Start: (re)installs when the service is not set up or does not match the
 #   checkout (after an A/B update /home is new and the demo is downloaded
 #   again; the download cache on /data/rasqberry/cache/entangible makes that
@@ -77,7 +78,9 @@ ent_install() {
     local dir="$1" rc=0
     info "Setting up $NAME: its web app, a Python environment and the $UNIT service."
     info "This takes a few minutes; later starts are quick."
-    "$(ent_cmd "$dir")" install || rc=$?
+    # --no-enable: the service runs only while the demo is open (this
+    # launcher starts and stops it), not from every boot
+    "$(ent_cmd "$dir")" install --no-enable || rc=$?
     if [ "$rc" -eq 0 ]; then
         mkdir -p "$STATE_DIR" 2>/dev/null || true
         printf '%s %s\n' "$(checkout_commit "$dir")" "$(bundle_tag "$dir")" > "$STAMP" 2>/dev/null || true
@@ -219,8 +222,8 @@ if [ "$(st .running)" != "true" ]; then
         *) die "$(failure_text "$rc") Details: $LOG_FILE" ;;
     esac
 fi
-# Started here or already running (the service also starts with the Pi):
-# ending the demo stops it either way, like the Docker demos
+# Started here or already running (another window, a booth install that
+# starts at boot): ending the demo stops it either way, like the Docker demos
 STOP_SERVICE=1
 
 info "Waiting for $NAME to answer..."
@@ -241,13 +244,26 @@ KIOSK_URL=$(st .urls.kiosk)
 VISITOR_URL=$(st .urls.visitor)
 SOURCE=$(st .source)
 
+# The hint line of `entangible doctor` when the configured camera source does
+# not fit the cameras found (e.g. cv2:0 on a Pi with only a camera module)
+source_hint() {
+    local t=""
+    command -v timeout >/dev/null 2>&1 && t="timeout 20"
+    $t "$ENT" doctor 2>/dev/null </dev/null | sed -n 's/^hint: //p' | head -1 || true
+}
+
 # The camera, from status.ready (null: the service did not say)
 camera_text() {
+    local hint
     case "$(st .ready)" in
         true)  echo "Camera: connected ($SOURCE)." ;;
         false) echo "Camera: none found ($SOURCE). $NAME runs without one, but reads no tiles."
-               echo "  Connect a USB webcam, or set QAMPOSER_SOURCE=picamera2 in /etc/default/entangible"
-               echo "  for the Pi camera, then end $NAME and start it again." ;;
+               hint=$(source_hint)
+               if [ -n "$hint" ]; then
+                   echo "  $hint"
+               else
+                   echo "  Connect a USB webcam or the Pi camera, then end $NAME and start it again."
+               fi ;;
         *)     echo "Camera: unknown ($SOURCE)." ;;
     esac
 }
