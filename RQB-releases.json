@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T17:13:47Z",
+  "generated": "2026-10-10T04:38:39Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,46 +8,45 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-08-181349",
-      "name": "rasqberry-beta-2026-10-08-181349",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-08-181349",
-      "release_date": "2026-10-08",
-      "image_download_size": 1736257204,
+      "tag": "beta-2026-10-10-053754",
+      "name": "rasqberry-beta-2026-10-10-053754",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-10-053754",
+      "release_date": "2026-10-10",
+      "image_download_size": 1738274856,
       "extract_size": 9495904256,
-      "extract_sha256": "93cd0d8f3f0ea4a9da0637578b0b17ee8be457486dc91485d6f546f6c7b4ad48",
-      "image_sha256": "e7bce508bdee5d97282bf21e7c6aa72923618a92c3c7a2b6cc2f302f4b3e5781",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08-ab.img.xz",
-      "ab_extract_sha256": "8cc70947e15674fe0644b8ca806e6e365f0f06e33920709f84b3ccb89365693e",
-      "ab_image_sha256": "7355b46520ce64fca6893391def4a405f082b03bbf559668f39d897f164a7195",
-      "ab_image_download_size": 1786100472,
+      "extract_sha256": "de7836bf92aca334561ab7f5799374bcac84a668a24dbfbb958ba5a2fa2a4c09",
+      "image_sha256": "3c6fcad9b44fcadf8aa91796fc0dde73800d4063241896c796b94ac89d5c1b26",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10-ab.img.xz",
+      "ab_extract_sha256": "0f81f89a67693c47839ba720a04c44548dada23df993ac48aa2d2424b18866eb",
+      "ab_image_sha256": "883440991a77d3e93ef8ce965c8be59cc683725178a375b0559c73ac6e186f48",
+      "ab_image_download_size": 1790906568,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to beta-2026-10-08-181349",
-        "Merge development into beta: demo groups, your own user name, fixes from the fresh-card tests",
-        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-10-07-213933",
-        "or e-mail info@rasqberry.org, no GitHub account needed",
-        "Bump version to development-2026-10-08-175639"
+        "Bump version to beta-2026-10-10-053754",
+        "Merge development into beta: after-update hook, on-screen keyboard, Fun with Quantum offline, Workshop Server offline, Demo Loop at login",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-10-000029",
+        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-10-08-181349",
+        "Bump version to development-2026-10-10-000029"
       ]
     },
     "dev": {
-      "tag": "development-2026-10-08-175639",
-      "name": "rasqberry-development-2026-10-08-175639",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-175639/rasqberry-development-2026-10-08-175639.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-08-175639",
-      "release_date": "2026-10-08 17:56",
-      "image_download_size": 2145306112,
+      "tag": "development-2026-10-10-000029",
+      "name": "rasqberry-development-2026-10-10-000029",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-000029/rasqberry-development-2026-10-10-000029.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-10-000029",
+      "release_date": "2026-10-10 00:00",
+      "image_download_size": 2145792728,
       "extract_size": 9495904256,
-      "extract_sha256": "b59156665d0c668af49d60bc98874ffbfc815c6a6138e7fc291a130613cd8e68",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-08-175639/rasqberry-development-2026-10-08-175639-ab.img.xz",
-      "ab_extract_sha256": "3b4ee98c9e06367280a7c82cf9d726b980b00c0a629593334347c41e09161af7",
-      "ab_image_sha256": "f6e3c69b97997c527bd59469ad45acdecb87b586d4d9dec737817bfdb8003b4a",
+      "extract_sha256": "a7f4dfbc541ac2686e85ffd2a04f2a0397fb0594e1cb89a5ced373b7d0eb0657",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-000029/rasqberry-development-2026-10-10-000029-ab.img.xz",
+      "ab_extract_sha256": "4bdad7daa6c80813bec5bdc8a6264e26d11eadf843567644aac6df437be7a06c",
+      "ab_image_sha256": "e12f47d405522c27a9124374d351995182799516829eda92827f6e16634bb172",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1883085316,
+      "ab_image_download_size": 1879738744,
       "highlights": [
-        "or e-mail info@rasqberry.org, no GitHub account needed",
-        "Bump version to development-2026-10-08-175639",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-08-161606"
+        "Bump version to development-2026-10-10-000029",
+        "Fun with Quantum: offline portal for the Pi, three more games, names as on the site"
       ]
     }
   }
