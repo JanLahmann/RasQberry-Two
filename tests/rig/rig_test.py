@@ -440,6 +440,10 @@ DEMO_HINTS = {
     "grok-bloch:local": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
     "grok-bloch:web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
     "grok-bloch-web": {"web": {"wait": "canvas#renderCanvas", "click_at": [-140, 226]}},
+    # load: seconds to wait for the page to load (default 45; webcheck.py
+    # polls for the load event). IBM's Composer was still busy after 40 s on
+    # the 2 GB Pi 4 (dev-000029, N5): give it 120 s, and the check 180 s.
+    "composer": {"web": {"load": 120, "timeout": 180}},
     # title: text the page title must have. The Fun with Quantum website is a
     # web page (a script variant of a Jupyter demo), not a Jupyter UI
     "fun-with-quantum:website": {"web": {"title": "Fun with Quantum"}},

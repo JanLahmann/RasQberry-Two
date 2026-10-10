@@ -21,8 +21,10 @@ opened (as a person would), and the test can close the demo's tabs afterwards
 127.0.0.1 and ends with browser-restore.
 
 check prints one line, "web=<ok|info|warn|fail> <detail>":
-  - every page: it loads (load event, title or text, no failed document),
-    uncaught JavaScript errors while it loads are reported;
+  - every page: it loads (load event, title or text, no failed document;
+    polled for 45 s, HINT {"load": seconds} for slow pages; HINT {"timeout":
+    seconds} bounds the whole check), uncaught JavaScript errors while it
+    loads are reported;
   - web pages: the title has HINT {"title": text}, a key element (HINT
     {"wait": selector}) is there and a key control responds when clicked
     (HINT {"click": selector}; else the first visible button) - the page
@@ -644,7 +646,9 @@ def check(kind, before_file, url, hint):
     tab = Tab(target)
     worked = False   # a cell ran or a control responded
     try:
-        page = load_page(tab, min(deadline, time.time() + 45))
+        # HINT {"load": seconds}: a heavy external page (IBM's Composer on the
+        # 2 GB Pi 4 was still busy after 40 s) gets longer than 45 s to load
+        page = load_page(tab, min(deadline, time.time() + float(hint.get("load", 45))))
         title = (page.get("title") or "").strip()
         notes.insert(0, f"title='{title[:40]}'")
         if not page.get("loaded") or page.get("failed_document") or not (title or page.get("text")):
