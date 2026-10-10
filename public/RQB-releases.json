@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-10T03:49:05Z",
+  "generated": "2026-10-10T04:38:39Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -8,27 +8,26 @@
       "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases"
     },
     "beta": {
-      "tag": "beta-2026-10-08-181349",
-      "name": "rasqberry-beta-2026-10-08",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-08-181349",
-      "release_date": "2026-10-08",
-      "image_download_size": 1736257204,
+      "tag": "beta-2026-10-10-053754",
+      "name": "rasqberry-beta-2026-10-10-053754",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/beta-2026-10-10-053754",
+      "release_date": "2026-10-10",
+      "image_download_size": 1738274856,
       "extract_size": 9495904256,
-      "extract_sha256": "93cd0d8f3f0ea4a9da0637578b0b17ee8be457486dc91485d6f546f6c7b4ad48",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-08-181349/rasqberry-beta-2026-10-08-ab.img.xz",
-      "ab_extract_sha256": "8cc70947e15674fe0644b8ca806e6e365f0f06e33920709f84b3ccb89365693e",
-      "ab_image_sha256": "7355b46520ce64fca6893391def4a405f082b03bbf559668f39d897f164a7195",
+      "extract_sha256": "de7836bf92aca334561ab7f5799374bcac84a668a24dbfbb958ba5a2fa2a4c09",
+      "image_sha256": "3c6fcad9b44fcadf8aa91796fc0dde73800d4063241896c796b94ac89d5c1b26",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/beta-2026-10-10-053754/rasqberry-beta-2026-10-10-ab.img.xz",
+      "ab_extract_sha256": "0f81f89a67693c47839ba720a04c44548dada23df993ac48aa2d2424b18866eb",
+      "ab_image_sha256": "883440991a77d3e93ef8ce965c8be59cc683725178a375b0559c73ac6e186f48",
+      "ab_image_download_size": 1790906568,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1786100472,
       "highlights": [
-        "Now on Raspberry Pi OS Trixie (Debian 13), with Python 3.13 and the current Qiskit",
-        "Demos sorted into groups on the desktop and in the menu: LED panel, Play, Big projects, Learn & code, Workshops & events, and Contributed demos",
-        "Raspberry Pi Imager: your own user name, password, Wi-Fi, SSH key, keyboard and Raspberry Pi Connect are applied",
-        "A/B image: the SD card stays in the Pi. New releases install over the air and keep your settings, Wi-Fi, LED setup and Raspberry Pi Connect; the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
-        "Taskbar badge shows which system runs, what's new in a release, and when the Pi's firmware is outdated",
-        "Demos: Workshop & Qiskit Server, Qiskit Tutorials, Quantum Lab, Fun with Quantum, learning paths and a demo catalogue; each pinned to a tested version, and all stop the same way",
-        "16 GB cards run every demo except the Docker ones (32 GB or more)"
+        "Bump version to beta-2026-10-10-053754",
+        "Merge development into beta: after-update hook, on-screen keyboard, Fun with Quantum offline, Workshop Server offline, Demo Loop at login",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-10-000029",
+        "Generate RQB-images.json and RQB-releases.json for beta release beta-2026-10-08-181349",
+        "Bump version to development-2026-10-10-000029"
       ]
     },
     "dev": {
