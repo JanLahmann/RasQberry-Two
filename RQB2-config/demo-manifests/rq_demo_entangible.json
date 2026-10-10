@@ -1,0 +1,58 @@
+{
+  "id": "entangible",
+  "name": "Entangible",
+  "category": "visualization",
+  "group": "projects",
+  "maturity": "beta",
+  "description": "Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera",
+  "keywords": [
+    "quantum",
+    "circuit",
+    "composer",
+    "tangible",
+    "camera",
+    "booth",
+    "tiles",
+    "phone"
+  ],
+  "entrypoint": {
+    "working_dir": "entangible",
+    "launcher": "rq_entangible.sh"
+  },
+  "install": {
+    "preinstalled": false,
+    "repo_url": "https://github.com/JanLahmann/entangible.git",
+    "ref": "613181b130e7a973788cfc14d4f40efcdfc368bc",
+    "marker_file": "deploy/rasqberry/entangible",
+    "post_install": "rq_entangible.sh",
+    "pre_remove": "rq_entangible.sh",
+    "download_all": false,
+    "download": {
+      "what": "Entangible from GitHub: its web app, a Python environment (OpenCV) and a system service",
+      "download_mb": 100,
+      "disk_mb": 350,
+      "time": "3-10 minutes"
+    }
+  },
+  "needs_hw": {
+    "leds": false,
+    "network": false,
+    "display": "optional"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/entangible.svg"
+  },
+  "menu": {
+    "show": true,
+    "order": 30
+  },
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}
