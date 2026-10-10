@@ -44,6 +44,7 @@ Larger builds that show what quantum computing can drive.
 |---|---|---|---|
 | **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
 | **Quantum Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
+| **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
 | **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
 
 ## Learn & code
