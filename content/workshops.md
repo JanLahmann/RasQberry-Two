@@ -19,8 +19,8 @@ The **Workshop & Qiskit Server** runs on one of your Pis and serves the
 participants' laptops over the local network: IBM Quantum tutorials and courses,
 with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
-Running code in the notebooks needs the internet for now: the pages load their
-code runner from the web.
+The code runs on the Pi, also without the internet; only IBM Quantum computers
+need it.
 
 To start it, double-click **Workshop & Qiskit Server** in the desktop folder
 **Workshops & events** (or RasQberry → Quantum Demos → Workshops & events). The Pi shows the address and a QR code for the
@@ -35,7 +35,7 @@ opening the address or scanning the QR code the Pi shows.
 
 Demos that draw visitors in, on a large monitor and on the model. The
 **Demo Loop** (RasQberry → Quantum Demos → Workshops & events) runs them one after another
-without anyone at the keyboard; the learning path **First 15 minutes** is a good
+without anyone at the keyboard, and can start by itself at login; the learning path **First 15 minutes** is a good
 guided tour for visitors who stay.
 
 - **LED demos on the model**: circuits, logos and colour effects on the LED panel.

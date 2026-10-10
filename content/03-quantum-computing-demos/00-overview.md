@@ -75,8 +75,8 @@ uses it.
   - **Remove a demo:** frees space; it downloads again when started.
   - **Stop Docker demos:** stops the Workshop & Qiskit Server, Quantum Lab,
     Qoffee-Maker or Quantum Mixer.
-- **Workshops & events** → **Demo Loop:** runs LED demos one after another, for a
-  booth.
+- **Workshops & events** → **Demo Loop:** runs LED demos and Quantum Fractals one after
+  another, for a booth; it can start at login.
 
 ## At a booth or in class
 
