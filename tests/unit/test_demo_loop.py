@@ -5,6 +5,7 @@ The Demo Loop shows the demos the person chose (Jan, 2026-10-05).
   loop demos; anything unknown or empty means all.
 - rq_demo_loop.sh --choose: a checklist pre-ticked with the saved choice;
   "All demos" or every demo ticked saves "all"; nothing ticked saves nothing.
+  With "all" saved, "All demos" is ticked too and the demo ticks decide.
 - The loop runs only the chosen demos, in loop order; the menu offers
   "Start" and "Choose the demos" and says what is chosen.
 - R-123: shipped manifests with "loop_ok": true and a script or python
@@ -267,6 +268,23 @@ def test_choose_is_pre_ticked_and_saves_the_ticks(loop):
 def test_all_is_one_step_back(loop, reply):
     loop("--choose", saved="rasq-led", extra={"WT_REPLY": reply})
     assert loop.saved() == "all"
+
+
+def test_all_saved_ticks_all_demos_and_all(loop):
+    loop("--choose", saved="all", extra={"WT_REPLY": "", "WT_RC": "1"})
+    checklist = loop.wt.read_text().split("@@")[0].splitlines()
+    ticks = {checklist[i]: checklist[i + 2] for i, a in enumerate(checklist)
+             if a in ALL + ["all"] and i + 2 < len(checklist)}
+    assert set(ticks.values()) == {"ON"} and "all" in ticks
+
+
+@pytest.mark.parametrize("reply, saved", [
+    ('"ibm-logo" "rasq-led" "all"', "ibm-logo,rasq-led"),   # unticked demos count
+    ('"all"', "all"),                                          # only "All demos" left
+])
+def test_with_all_saved_the_demo_ticks_decide(loop, reply, saved):
+    loop("--choose", saved="all", extra={"WT_REPLY": reply})
+    assert loop.saved() == saved
 
 
 def test_nothing_ticked_or_cancel_changes_nothing(loop):

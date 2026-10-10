@@ -125,26 +125,30 @@ chosen_words() {
 }
 
 # --choose: a checklist pre-ticked with the saved choice; "All demos" (or
-# every demo ticked) saves "all", the one-step way back
+# every demo ticked) saves "all", the one-step way back. With "all" saved,
+# "All demos" is ticked too, and the demo ticks decide (unticking a demo
+# without unticking "All demos" still saves the rest).
 choose_demos() {
-    local chosen id state items=() sel picked=""
+    local chosen id state all_state=OFF items=() sel picked=""
     chosen=" $(chosen_demos) "
+    [ "$chosen" = " $LOOP_IDS " ] && all_state=ON
     for id in $LOOP_IDS; do
         case "$chosen" in *" $id "*) state=ON ;; *) state=OFF ;; esac
         items+=("$id" "$(loop_name "$id") ($(loop_time "$id") s)" "$state")
     done
-    items+=(all "All demos (as shipped)" OFF)
+    items+=(all "All demos (as shipped)" "$all_state")
     sel=$(whiptail --title "Demo Loop" --notags --checklist \
 "Which demos should the loop show? Space ticks a demo, Enter saves." \
         17 66 7 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
     sel=" $(printf '%s' "$sel" | tr -d '"' | tr '\n\t' '  ') "
-    case "$sel" in
-        *" all "*) picked="all" ;;
+    case "$all_state:$sel" in
+        OFF:*" all "*) picked="all" ;;
         *)
             for id in $LOOP_IDS; do
                 case "$sel" in *" $id "*) picked="${picked:+$picked,}$id" ;; esac
             done
-            [ "$picked" = "${LOOP_IDS// /,}" ] && picked="all" ;;
+            [ "$picked" = "${LOOP_IDS// /,}" ] && picked="all"
+            [ -z "$picked" ] && case "$sel" in *" all "*) picked="all" ;; esac ;;
     esac
     if [ -z "$picked" ]; then
         show_msgbox "Demo Loop" "Nothing was changed: choose at least one demo." 8 60
