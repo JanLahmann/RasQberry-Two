@@ -59,7 +59,8 @@ LXTERMINAL_CONFIG="$USER_HOME/.config/lxterminal/lxterminal.conf"
 # wf-panel-pi's user config: ~/.config/wf-panel-pi/wf-panel-pi.ini on trixie
 # (wf-panel-pi 1.x, defaults in /etc/xdg/wf-panel-pi/, read key by key),
 # ~/.config/wf-panel-pi.ini on bookworm
-if [ -f /etc/xdg/wf-panel-pi/wf-panel-pi.ini ] || [ -d "$USER_HOME/.config/wf-panel-pi" ]; then
+SYS_PANEL_CONFIG="${RQ_SYS_PANEL_CONFIG:-/etc/xdg/wf-panel-pi/wf-panel-pi.ini}"
+if [ -f "$SYS_PANEL_CONFIG" ] || [ -d "$USER_HOME/.config/wf-panel-pi" ]; then
     WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi/wf-panel-pi.ini"
 else
     WF_PANEL_CONFIG="$USER_HOME/.config/wf-panel-pi.ini"
@@ -111,6 +112,11 @@ set_ini() {
         rewrite "$file" awk -v k="$key" -v v="$value" 'index($0, k "=") == 1 { $0 = k "=" v } { print }'
     elif grep -qF "[${section}]" "$file"; then
         rewrite "$file" awk -v s="[${section}]" -v k="$key" -v v="$value" '{ print } $0 == s { print k "=" v }'
+    else
+        # No such section: wf-panel-pi writes an empty user file at every
+        # desktop start, so the panel's icon size had nowhere to go (rig
+        # check 2026-10-09, F1)
+        rewrite "$file" awk -v s="[${section}]" -v k="$key" -v v="$value" '{ print } END { print s; print k "=" v }'
     fi
 }
 
@@ -136,7 +142,8 @@ fix_owner() {
     [ "$(id -u)" -eq 0 ] && [ "$DESKTOP_USER" != "root" ] || return 0
     local p
     for p in "$USER_HOME/.config/gtk-3.0" "$USER_HOME/.config/libfm" \
-             "$USER_HOME/.config/lxterminal" "$WF_PANEL_CONFIG" "$PCMANFM_CONFIG"; do
+             "$USER_HOME/.config/lxterminal" "$USER_HOME/.config/wf-panel-pi" \
+             "$WF_PANEL_CONFIG" "$PCMANFM_CONFIG"; do
         if [ -e "$p" ]; then chown -R "$DESKTOP_USER:" "$p"; fi
     done
 }
@@ -146,6 +153,12 @@ enable_touch_mode() {
     if [ -f "$GTK_CSS_SRC" ]; then
         mkdir -p "$(dirname "$GTK_CSS_DST")"
         cp "$GTK_CSS_SRC" "$GTK_CSS_DST"   # again at every login: labwc-pi deletes it
+    fi
+    # trixie images have no user panel file (the panel reads the system one):
+    # start one, and its backup takes the panel back to the defaults
+    if [ ! -f "$WF_PANEL_CONFIG" ] && [ -f "$SYS_PANEL_CONFIG" ]; then
+        mkdir -p "$(dirname "$WF_PANEL_CONFIG")"
+        printf '[panel]\n' > "$WF_PANEL_CONFIG"
     fi
     backup_once "$WF_PANEL_CONFIG"
     set_ini "$WF_PANEL_CONFIG" panel icon_size "$TOUCH_PANEL_ICON_SIZE"
@@ -249,7 +262,11 @@ show_status() {
     echo "  Desktop icons:  ${icons:-48} px"
     echo "  Terminal font:  ${font:-10} pt"
     echo
-    echo "The keyboard icon in the top bar opens an on-screen keyboard."
+    if [ -f "$SYS_PANEL_CONFIG" ]; then   # trixie: squeekboard (stage 09)
+        echo "On-screen keyboard: opens in text fields, or with the keyboard icon in the top bar."
+    else
+        echo "The keyboard icon in the top bar opens an on-screen keyboard."
+    fi
 }
 
 usage() {

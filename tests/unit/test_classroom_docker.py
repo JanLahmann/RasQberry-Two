@@ -68,9 +68,12 @@ def test_every_downloaded_demo_is_pinned():
 
 
 def test_mixer_image_is_the_build_of_its_pinned_source():
-    # built by the quantum-mixer repository's CI, tagged with the commit
+    # built by the quantum-mixer repository's CI, tagged with the commit; the
+    # pin is that build's digest, the commit tag its fallback
     m = _manifest("quantum-mixer")
-    assert m["entrypoint"]["docker_image"] == \
+    assert re.fullmatch(r"ghcr\.io/janlahmann/quantum-mixer@sha256:[0-9a-f]{64}",
+                        m["entrypoint"]["docker_image"])
+    assert m["entrypoint"]["docker_image_fallback"] == \
         "ghcr.io/janlahmann/quantum-mixer:" + m["install"]["source"]["ref"]
 
 
@@ -171,6 +174,103 @@ def test_versions_same_build_date_ordered_by_version(monkeypatch):
                                              ("2.4-xl", "current")]
 
 
+
+def _qfact(digest, created, qiskit, mb=890):
+    return {"digest": digest, "created": created, "download_mb": mb,
+            "note": f"Qiskit {qiskit}", "qiskit": qiskit}
+
+
+_QLAB = ["--tags", r"^[0-9]+\.[0-9]+-xl(-[0-9]{8})?$", "--latest", "latest-xl", "--order", "version"]
+
+
+def test_quantum_lab_versions_by_qiskit_not_build_date(monkeypatch):
+    """Qiskit 2.0-2.4 built a day after the 2.5.2 pin are not "newer"."""
+    pin = "ghcr.io/qubins/images@sha256:pin"
+    facts = {
+        "sha256:pin": _qfact("sha256:pin", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.5-xl-20261008": _qfact("sha256:pin", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.4-xl-20261008": _qfact("sha256:24s", "2026-10-08T11:05:30Z", "2.4.2"),
+        "2.4-xl": _qfact("sha256:24n", "2026-10-09T11:00:00Z", "2.4.2"),
+        "2.5-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "latest-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "2.6-xl-20261108": _qfact("sha256:26s", "2026-11-08T11:00:00Z", "2.6.0"),
+        "2.6-xl": _qfact("sha256:26n", "2026-11-09T11:00:00Z", "2.6.0"),
+        "2.7-xl": _qfact("sha256:27n", "2026-11-20T11:00:00Z", "2.7.0"),
+    }
+    tags = [t for t in facts if not t.startswith("sha256:")]
+    rc, rows = _run_versions(monkeypatch, facts, tags, [pin, *_QLAB])
+    assert rc == 0
+    # higher Qiskit first; the nightly 2.5-xl/2.6-xl (same Qiskit as a
+    # snapshot) are left out; 2.7 has only a moving tag, so it is offered
+    assert [(r[1], r[-1]) for r in rows] == [("2.7-xl", "newer"),
+                                             ("2.6-xl-20261108", "newer"),
+                                             ("2.5-xl-20261008", "current")]
+
+
+def test_quantum_lab_pin_gone_offers_snapshots_newest_qiskit_first(monkeypatch):
+    gone = "ghcr.io/qubins/images@sha256:" + "a" * 64
+    facts = {
+        "2.4-xl-20261008": _qfact("sha256:24s", "2026-10-08T11:05:30Z", "2.4.2"),
+        "2.5-xl-20261008": _qfact("sha256:25s", "2026-10-08T11:04:51Z", "2.5.2"),
+        "2.5-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "latest-xl": _qfact("sha256:25n", "2026-10-09T11:00:00Z", "2.5.2"),
+        "2.3-xl": _qfact("sha256:23n", "2026-10-09T11:01:00Z", "2.3.1"),
+    }
+    rc, rows = _run_versions(monkeypatch, facts, [t for t in facts], [gone, *_QLAB])
+    assert rc == 0
+    assert [r[1] for r in rows[:-1]] == ["2.5-xl-20261008", "2.4-xl-20261008", "2.3-xl"]
+    assert rows[-1][-1] == "current" and rows[-1][4] == "no longer offered"
+
+
+def test_snapshot_tags_listed_before_moving_tags(monkeypatch):
+    facts = {"sha256:old": _qfact("sha256:old", "2026-09-01T00:00:00Z", "2.5.1"),
+             "2.5-xl": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2"),
+             "latest-xl": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2"),
+             "2.5-xl-20261008": _qfact("sha256:new", "2026-10-08T00:00:00Z", "2.5.2")}
+    rc, rows = _run_versions(monkeypatch, facts, ["2.5-xl", "2.5-xl-20261008"],
+                             ["ghcr.io/qubins/images@sha256:old", *_QLAB])
+    assert rows[0][1] == "latest-xl (latest), 2.5-xl-20261008, 2.5-xl"
+
+
+def test_build_time_from_the_label_not_the_fixed_epoch(monkeypatch):
+    """Reproducible builds set the config's created to 1970: the label counts."""
+    mod = _versions_module()
+
+    class Reg:
+        def manifest(self, ref):
+            if ref == "idx":
+                return "sha256:idx", {"manifests": [
+                    {"digest": "sha256:arm", "platform": {"architecture": "arm64", "os": "linux"}}]}
+            return "sha256:arm", {"config": {"digest": "sha256:cfg"}, "layers": [{"size": 887889287}]}
+
+        def __init__(self, labels):
+            self.labels = labels
+
+        def blob(self, digest):
+            return {"created": "1970-01-01T00:00:00Z", "architecture": "arm64",
+                    "config": {"Labels": self.labels}}
+
+    info = mod.describe(Reg({"org.opencontainers.image.created": "2026-10-08T11:04:51Z",
+                             "org.qubins.qiskit.patch": "2.5.2"}), "idx", "arm64")
+    assert info["created"] == "2026-10-08T11:04:51Z" and info["qiskit"] == "2.5.2"
+    assert info["download_mb"] == 887 and info["note"] == "Qiskit 2.5.2"
+    # no label: never 1970; a snapshot tag gives the day
+    assert mod.describe(Reg({}), "idx", "arm64")["created"] == ""
+    reg = Reg({})
+    reg.manifest = lambda ref: Reg.manifest(reg, "idx" if ref == "2.5-xl-20261008" else ref)
+    assert mod.describe(reg, "2.5-xl-20261008", "arm64")["created"] == "2026-10-08"
+
+
+def test_quantum_lab_manifest_orders_by_version():
+    import json
+    import re
+    with open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", "rq_demo_quantum-lab.json")) as fh:
+        upd = json.load(fh)["install"]["update"]
+    assert upd["docker_order"] == "version"
+    for tag in ("2.5-xl", "2.5-xl-20261008"):
+        assert re.search(upd["docker_tags"], tag)
+    assert not re.search(upd["docker_tags"], "2.5-xl-arm64")
+
 def test_versions_refuses_other_registries(monkeypatch):
     rc, rows = _run_versions(monkeypatch, {}, [], ["docker.io/library/python:3", "--tags", "."])
     assert rc == 3 and rows == []
@@ -255,8 +355,26 @@ def test_headless_start_prints_the_addresses_and_a_tunnel(doq):
     # the menu's way to stop it, not a Docker command (R-094)
     assert "Stop Docker demos" in proc.stdout + proc.stderr
     assert "docker stop" not in proc.stdout + proc.stderr
-    # code runs only with the internet for now (R-068, doQumentation#964)
-    assert "Running code needs the internet for now" in proc.stdout
+    # the re-pinned image runs code offline (R-068, doQumentation#964): no
+    # "needs the internet" note; "Open in Lab" (404) and shells hidden (R-070)
+    assert "needs the internet" not in proc.stdout
+    assert "also without the internet" in proc.stdout
+    assert "Open in Lab" not in proc.stdout
+    assert "-e LAB_ENABLED=false" in run[0] and "-e ALLOW_TERMINALS=false" in run[0]
+
+
+@needs_bash
+def test_addresses_say_participants_need_the_same_network(doq):
+    # R-122: guest Wi-Fi or client isolation blocks participants
+    for running in (True, False):
+        proc, _calls = doq(running=running)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        out = " ".join(proc.stdout.split())
+        assert "Participants must be on the same network as this Pi." in out
+        assert "Guest Wi-Fi or Wi-Fi with client isolation" in out
+    # not for the person alone at this Pi
+    proc, _calls = doq(running=False, args=["--solo"])
+    assert "client isolation" not in proc.stdout
 
 
 @needs_bash
@@ -300,7 +418,7 @@ def test_qr_code_comes_last_and_fits_an_80x24_window(doq, tmp_path):
     caption = out.index("Participants can also scan this code: http://192.168.1.5:8080/")
     # last, after the notes and the browser (or ssh -L) hint: the code and the
     # lines after it fit a 24-line window
-    assert caption > max(i for i, line in enumerate(out) if "ssh -N -L" in line or "Open in Lab" in line)
+    assert caption > max(i for i, line in enumerate(out) if "ssh -N -L" in line)
     assert len(out) - caption <= 20
     assert all(len(line) <= 80 for line in out[caption:])
     # a fresh start, too; not in solo mode
@@ -323,7 +441,7 @@ def test_solo_mode_is_for_this_pi_only(doq):
     assert "192.168.1.5" not in run[0] and "rasqberry.local" not in run[0]
     assert "Qiskit Tutorials on this Pi is running: http://localhost:8080/" in proc.stdout
     assert "Participants" not in proc.stdout
-    assert "needs the internet for now" in proc.stdout
+    assert "also without the internet" in proc.stdout and "needs the internet for now" not in proc.stdout
 
 
 @needs_bash
@@ -433,6 +551,11 @@ def test_quantum_lab_opens_its_welcome_page_without_the_news_question(tmp_path, 
     assert run[0].endswith(_manifest("quantum-lab")["entrypoint"]["docker_image"])
     # the browser (here: the ssh -L hint) opens the welcome page
     assert "http://localhost:8892/lab/tree/WELCOME.ipynb?token=rasqberry" in proc.stdout
+    # the two tutorials QuBins' arm64 build cannot run are named, in 80 columns
+    note = [line for line in proc.stdout.splitlines() if "do not run on the Pi" in line]
+    assert len(note) == 1 and "gem-suite" in note[0] and "physics-tenpy" in note[0]
+    assert "nishimori-phase-transition and multi-product-formula" in proc.stdout
+    assert all(len(line) <= 80 for line in proc.stdout.splitlines() if "tutorial" in line)
 
 
 def test_quantum_lab_welcome_page():

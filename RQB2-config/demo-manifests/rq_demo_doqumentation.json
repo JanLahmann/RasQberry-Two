@@ -20,7 +20,7 @@
   ],
   "entrypoint": {
     "type": "docker",
-    "docker_image": "ghcr.io/janlahmann/doqumentation@sha256:3f5898ec735f0bc0c007843969f5901bade1de8e9cfa3aeff2806b87a2809f15",
+    "docker_image": "ghcr.io/janlahmann/doqumentation@sha256:fbd1bfb422f4001876ecfac5a25ace87ffc0a8f8f4c05418de070a7545852573",
     "docker_image_fallback": "ghcr.io/janlahmann/doqumentation:jupyter",
     "docker_port": 8080,
     "launcher": "rq_doqumentation.sh"
@@ -31,7 +31,7 @@
       "what": "Docker image from ghcr.io",
       "download_mb": 1300,
       "disk_mb": 5400,
-      "time": "3-5 minutes"
+      "time": "3-22 minutes"
     },
     "update": {
       "docker_tags": "^[0-9a-f]{7}-jupyter$",
@@ -49,7 +49,7 @@
   "timeout": 0,
   "icon": {
     "type": "custom",
-    "path": "/usr/share/icons/rasqberry/qiskit-logo.png"
+    "path": "/usr/share/icons/rasqberry/workshop-server.svg"
   },
   "menu": {
     "show": true,

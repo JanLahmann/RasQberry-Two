@@ -13,6 +13,8 @@ rasqberry-health-check.service
 rasqberry-tryboot-retry.service
 rasqberry-ab-layout.service
 rasqberry-carry-over.service
+# the user's own scripts after an A/B update (/data/rasqberry/after-update.d)
+rasqberry-after-update.service
 rasqberry-probation.timer
 rasqberry-ip-display.service
 rasqberry-update-check.timer

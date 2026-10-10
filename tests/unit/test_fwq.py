@@ -30,7 +30,8 @@ _SHA = "aa6474614ef1c07b18a4d7ce568eed228d71a273"
 
 # The game notebooks at the root of the pinned Fun-with-Quantum commit
 _NOTEBOOKS = {"Readme.ipynb", "Quantum-Coin-Game.ipynb", "GHZ-Game.ipynb",
-              "Hardys-Paradox.ipynb", "Mermin-Peres-Game.ipynb", "3sat.ipynb"}
+              "Hardys-Paradox.ipynb", "Mermin-Peres-Game.ipynb", "3sat.ipynb",
+              "CHSH-Game.ipynb", "Prisoners-Dilemma.ipynb", "GHZ-on-Real-Devices.ipynb"}
 
 
 def _manifest():
@@ -75,7 +76,7 @@ def test_menu_cache_lists_the_variants(tmp_path):
                          text=True).stdout.splitlines()
     pairs = dict(zip(out[0:-1:2], out[1:-1:2]))
     assert list(pairs) == [v["id"] for v in _manifest()["variants"]]
-    assert pairs["hardys-paradox"] == "Hardy's paradox"
+    assert pairs["hardys-paradox"] == "Hardy's Paradox"
     assert out[-1] == "none"   # demos without variant_menu start directly
 
 
@@ -93,7 +94,7 @@ def test_raspi_config_menu_opens_the_variant_submenu():
 def test_bundle_urls():
     url, sha_url = rq_fwq.bundle_urls(_SHA.upper())
     assert url == ("https://github.com/JanLahmann/Fun-with-Quantum/releases/download/"
-                   "portal-bundles/fwq-portal-%s.tar.gz" % _SHA)
+                   "portal-bundles/fwq-portal-offline-%s.tar.gz" % _SHA)
     assert sha_url == url + ".sha256"
     for bad in ("", "aa64746", _SHA + "0", "../" + _SHA[3:]):
         with pytest.raises(ValueError):
@@ -206,7 +207,7 @@ _FAMILY = {
         {"id": "qoffee-maker", "name": "Qoffee-Maker", "url": "https://qoffee-maker.org",
          "short": "Coffee", "tagline": "Order coffee with a quantum circuit"},
         {"id": "qubins", "name": "QuBins", "url": "javascript:alert(1)", "short": "Envs"},
-        {"id": "traqmania", "name": "traQmania", "url": "https://github.com/x", "short": "Racing",
+        {"id": "racetraq", "name": "racetraQ", "url": "https://github.com/x", "short": "Racing",
          "footer": False},
     ],
 }
@@ -216,7 +217,7 @@ _LOCAL = {"fun-with-quantum", "qoffee-maker", "quantum-lab", "grok-bloch"}
 def test_family_page_from_family_json():
     page = rq_fwq.render_family_html(_FAMILY, _LOCAL)
     assert "<title>Fun with Quantum family</title>" in page
-    assert "traQmania" not in page                       # footer: false = not shown yet
+    assert "racetraQ" not in page                       # footer: false = not shown yet
     assert "Quantum computers &lt;built&gt; from LEGO" in page
     assert "javascript:" not in page                     # only https links
     assert page.count("On this Pi</span>") == 3          # FwQ, Qoffee-Maker, QuBins
@@ -228,7 +229,7 @@ def test_family_page_from_family_json():
 def test_family_menu_starts_local_demos_and_opens_websites():
     items = rq_fwq.menu_items(_FAMILY, _LOCAL)
     tags = [t for t, _, _ in items]
-    assert tags[0] == "page" and "fun-with-quantum" not in tags and "traqmania" not in tags
+    assert tags[0] == "page" and "fun-with-quantum" not in tags and "racetraq" not in tags
     actions = {t: a for t, _, a in items}
     assert actions["qoffee-maker"] == "demo:qoffee-maker"
     assert actions["qubins"] == "demo:quantum-lab"

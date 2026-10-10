@@ -965,6 +965,30 @@ rq_run_demo() {
     return "$rc"
 }
 
+# A launcher's first line ("=== Quantum Mixer ==="), unless the demo engine
+# started it and has printed the demo's name already (rq_demo_run.sh
+# delegate_launcher): one window showed it twice (pre-beta check 2026-10-08).
+# Usage: rq_demo_header NAME
+rq_demo_header() {
+    [ -z "${RQ_DEMO_HEADER_SHOWN:-}" ] || return 0
+    echo
+    echo "=== $1 ==="
+    echo
+}
+
+# Run a demo program in front (it reads Enter itself), without the stray
+# "Terminated" line when a stop from outside ends it. The Demo Loop's time
+# limit (timeout) and a closed window reach the whole process group - sudo
+# relays them into its pty - and this shell, which outlives the signal
+# through its trap, reported the program's end on its own error output
+# (pre-beta check 2026-10-08). The program's error output stays.
+# Usage: rq_run_in_front COMMAND [ARGS...]
+rq_run_in_front() {
+    local rc=0
+    { "$@" 2>&3 3>&-; } 3>&2 2>/dev/null || rc=$?
+    return "$rc"
+}
+
 # A Docker demo started in a window stops with it (item 33): Enter, Ctrl+C or
 # closing the window stops the container. All four used to keep running after
 # their windows were gone - on a 2 GB Pi 4 too. Without a terminal it keeps
@@ -1390,15 +1414,64 @@ rq_image_registry_url() {
     echo "https://registry-1.docker.io/v2/"
 }
 
+# Every host a Docker image download needs, as URLs to check: the registry
+# and, for ghcr.io, the host its layers come from
+# (pkg-containers.githubusercontent.com). A school network that lets
+# ghcr.io through but blocks the layer host fails only mid-download.
+# Usage: rq_image_download_urls ghcr.io/qubins/images@sha256:...
+RQ_GHCR_LAYER_URL="${RQ_GHCR_LAYER_URL:-https://pkg-containers.githubusercontent.com/}"
+rq_image_download_urls() {
+    local reg
+    reg=$(rq_image_registry_url "$1")
+    echo "$reg"
+    [ "$reg" = "https://ghcr.io/v2/" ] && echo "$RQ_GHCR_LAYER_URL"
+    return 0
+}
+
+# The host of a URL: https://ghcr.io/v2/ -> ghcr.io
+_rq_url_host() {
+    local h="${1#*://}"
+    echo "${h%%/*}"
+}
+
+# Check URLs at the same time (each as rq_reachable: 10 s at most), and echo
+# the ones that cannot be reached, one per line.
+# Usage: blocked=$(rq_unreachable URL...)
+rq_unreachable() {
+    local dir u i=0 pids=()
+    [ $# -gt 0 ] || return 0
+    dir=$(mktemp -d) || return 0
+    for u in "$@"; do
+        ( rq_reachable "$u" || echo "$u" > "$dir/$i" ) &
+        pids+=($!)
+        i=$((i + 1))
+    done
+    wait "${pids[@]}" 2>/dev/null || true
+    for ((i = 0; i < $#; i++)); do
+        [ -f "$dir/$i" ] && cat "$dir/$i"
+    done
+    rm -rf "$dir"
+    return 0
+}
+
 # Is URL reachable? Any HTTP answer counts (a registry answers 401). Short
 # timeouts, so a network that drops outside traffic fails in seconds instead
-# of hanging in git (R-166). RQ_TEST_OFFLINE=1 makes every check fail.
+# of hanging in git (R-166). A connection that was made counts too, even
+# when the answer then takes longer than the limit: github.com sometimes
+# keeps a HEAD request waiting for 10 s although the Pi is online (rig test
+# 2026-10-09, F1). RQ_TEST_OFFLINE=1 makes every check fail.
 rq_reachable() {
-    local url="${1:-}"
+    local url="${1:-}" connect="" rc=0
     [ "${RQ_TEST_OFFLINE:-0}" = "1" ] && return 1
     [ -n "$url" ] || return 0
     command -v curl >/dev/null 2>&1 || return 0   # cannot tell; let the download try
-    curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 "$url"
+    connect=$(curl -s -o /dev/null -I --connect-timeout 5 --max-time 10 \
+        -w '%{time_connect}' "$url" 2>/dev/null) || rc=$?
+    [ "$rc" = 0 ] && return 0
+    # 28 = timed out; a connect time above zero means the server was there
+    [ "$rc" = 28 ] || return 1
+    case "$connect" in *[1-9]*) return 0 ;; esac
+    return 1
 }
 
 # Is this a small card (the root file system under 20 GB: a 16 GB card)?
@@ -1461,12 +1534,42 @@ rq_card_note() {
     fi
 }
 
+# How long a Docker image download takes, from its size: measured on a Pi 5
+# (Quantum Lab, 890 MB): 101 s on fast internet, unpacking included (about
+# 8 MB/s), and about 12 minutes on a 10 Mbit/s line (about 1.2 MB/s; slow
+# Wi-Fi: 1 MB/s). Rounded up to whole minutes. Echoes "FAST SLOW" minutes,
+# nothing for an unknown size.
+# Usage: read -r fast slow <<< "$(rq_download_minutes 890)"   # 2 15
+RQ_FAST_MB_S="${RQ_FAST_MB_S:-8}"
+RQ_SLOW_MB_S="${RQ_SLOW_MB_S:-1}"
+rq_download_minutes() {
+    local mb="${1:-0}"
+    case "$mb" in ''|*[!0-9]*|0) return 0 ;; esac
+    awk -v m="$mb" -v f="$RQ_FAST_MB_S" -v s="$RQ_SLOW_MB_S" '
+        function up(x) { return (x == int(x)) ? x : int(x) + 1 }
+        BEGIN { a = up(m / f / 60); b = up(m / s / 60)
+                if (a < 1) a = 1; if (b < a) b = a; printf "%d %d\n", a, b }'
+}
+
+# The consent box's time for a Docker image download of MB megabytes:
+# "about 2 min on fast internet, up to 15 min on slow Wi-Fi"
+# Usage: rq_download_time_text 890
+rq_download_time_text() {
+    local fast slow
+    read -r fast slow <<< "$(rq_download_minutes "${1:-0}")"
+    [ -n "$fast" ] || return 0
+    echo "about $fast min on fast internet, up to $slow min on slow Wi-Fi"
+}
+
 # Ask before a download. Shared by the demo engine, "Download all demos", the
 # Docker launchers and other one-off downloads (e.g. a newer Docker image).
 #
 #   rq_confirm_download NAME DOWNLOAD_MB DISK_MB [options]
 #     --what TEXT      what is fetched, e.g. "Jupyter notebooks from GitHub"
 #     --time TEXT      rough duration, e.g. "1 minute", "10-15 minutes"
+#     --image IMAGE    a Docker image download: the time comes from the size
+#                      (rq_download_time_text) instead of --time, and every
+#                      host the download needs is checked (rq_image_download_urls)
 #     --path DIR       where the data goes; free space is measured there
 #                      (default: $USER_HOME)
 #     --url URL        checked first with a short timeout
@@ -1485,10 +1588,11 @@ rq_confirm_download() {
     local name="$1" dl="${2:-0}" disk="${3:-0}"
     shift 3 || true
     local what="" time="" path="${USER_HOME:-/}" url="" peak=0 title="" intro="" question=""
-    local docker=0
+    local docker=0 image=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --docker) docker=1; shift ;;
+            --image) image="$2"; shift 2 ;;
             --what) what="$2"; shift 2 ;;
             --time) time="$2"; shift 2 ;;
             --path) path="$2"; shift 2 ;;
@@ -1520,10 +1624,28 @@ rq_confirm_download() {
         return 2
     fi
 
-    if ! rq_reachable "$url"; then
-        local host="${url#*://}"
-        host="${host%%/*}"
-        RQ_CONSENT_MSG="$name has to be downloaded first, and ${host:-the internet} cannot be reached. Connect the Pi to the internet and try again."
+    # The image's hosts too: ghcr.io answers, but its layers come from
+    # pkg-containers.githubusercontent.com, which a school network may block
+    local urls=() u blocked="" hosts=""
+    [ -n "$url" ] && urls=("$url")
+    if [ -n "$image" ]; then
+        while IFS= read -r u; do
+            [ -n "$u" ] && [ "$u" != "$url" ] && urls+=("$u")
+        done < <(rq_image_download_urls "$image")
+    fi
+    blocked=$(rq_unreachable ${urls[@]+"${urls[@]}"})
+    if [ -n "$blocked" ]; then
+        for u in "${urls[@]}"; do
+            hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+        done
+        if [ "$(printf '%s\n' "$blocked" | wc -l)" -lt "${#urls[@]}" ]; then
+            # some answer: the Pi is online, and this network blocks the rest
+            RQ_CONSENT_MSG="This network blocks the download of $name: $(_rq_url_host "$(printf '%s\n' "$blocked" | head -1)") cannot be reached. The download needs $hosts (HTTPS): ask the network's administrator to allow them, or use another network."
+        elif [ "${#urls[@]}" -gt 1 ]; then
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $hosts cannot be reached. Connect the Pi to the internet and try again. If it is online, the network blocks the download: ask its administrator to allow $hosts (HTTPS)."
+        else
+            RQ_CONSENT_MSG="$name has to be downloaded first, and $(_rq_url_host "${url:-the internet}") cannot be reached. Connect the Pi to the internet and try again."
+        fi
         return 3
     fi
 
@@ -1539,7 +1661,12 @@ rq_confirm_download() {
     text="${text}Download:  $dl_txt (needs the internet)\n"
     text="${text}Space:     $card_txt\n"
     [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
-    [ -n "$time" ] && text="${text}Time:      about $time\n"
+    local time_txt=""
+    [ -n "$time" ] && time_txt="about $time"
+    # a Docker image: from its size, fast and slow (Quantum Lab said "1-3
+    # minutes" and took 12 at 10 Mbit/s)
+    [ -n "$image" ] && [ "$dl" -gt 0 ] && time_txt=$(rq_download_time_text "$dl")
+    [ -n "$time_txt" ] && text="${text}Time:      $time_txt\n"
     text="${text}Free:      $free_txt\n\n${question:-Download now?}"
 
     # Ask on the terminal itself, so a caller that pipes our output (a log
@@ -1663,8 +1790,9 @@ rq_confirm_demo_install() {
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
     fi
-    local docker_opt=""
+    local docker_opt="" image_opt=()
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
+        image_opt=(--image "$image")
         # (an image already here downloads nothing, also on a small card)
         docker image inspect "$(rq_demo_image "$id" "$mf")" >/dev/null 2>&1 \
             || docker_opt="--docker"
@@ -1674,7 +1802,8 @@ rq_confirm_demo_install() {
     fi
     [ -n "$url" ] || url="${repo:-https://github.com}"
     rq_confirm_download "$name" "$dl" "$disk" --what "$what" --time "$time" \
-        --path "$path" --peak "$peak" --url "$url" $docker_opt || return $?
+        --path "$path" --peak "$peak" --url "$url" $docker_opt \
+        ${image_opt[@]+"${image_opt[@]}"} || return $?
     RQ_CONFIRMED_DEMO="$id"
     export RQ_CONFIRMED_DEMO
     return 0
@@ -1741,13 +1870,16 @@ install_demo_raspiconfig() {
         return 1
     fi
 
-    # Call the install function directly
-    if ! "$install_func"; then
-        warn "Failed to run $install_func"
-        return 1
-    fi
-
-    return 0
+    # Call the install function directly. A stop (Ctrl+C 130, a closed
+    # window 129/143) comes back as it is: the caller ends quietly then.
+    local rc=0
+    "$install_func" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        129|130|143) return "$rc" ;;
+    esac
+    warn "Failed to run $install_func"
+    return 1
 }
 
 # ============================================================================
@@ -2123,7 +2255,8 @@ RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 # Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
 # The variant's value wins, then the manifest's, then the catalogue entry's
 # (known-demos.json), so a catalogue demo installed before it was marked
-# shows it too.
+# shows it too - also one installed under an earlier name (the entry's
+# "replaces", e.g. traqmania for racetraq).
 # Usage: [ -n "$(rq_demo_maturity ID [MANIFEST] [VARIANT])" ]
 rq_demo_maturity() {
     local id="$1" variant="${3:-}" mf m="" registry
@@ -2134,7 +2267,8 @@ rq_demo_maturity() {
     fi
     registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
     if [ -z "$m" ] && [ -f "$registry" ]; then
-        m=$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .maturity // empty' \
+        m=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id)] + [.demos[]?
+            | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
             "$registry" 2>/dev/null)
     fi
     [ "$m" = "beta" ] && echo beta
@@ -2144,11 +2278,13 @@ rq_demo_maturity() {
 # Group of a demo: its desktop folder and RasQberry menu submenu
 # (demo-groups.json). A catalogue demo (one in known-demos.json, or any
 # manifest that is not shipped) goes to its known-demos.json entry's group
-# (curated), else to the group marked "catalogue" (Contributed demos, Jan
-# 2026-10-08) - not to the group its own manifest names. A shipped demo goes
-# to its manifest's "group", else a guess: an LED panel demo to led-panel, a
-# game or visualization to play, anything else to learn. A value
-# demo-groups.json does not list counts as none. rq_desktop_session.py
+# (curated; an install under an earlier name, listed in an entry's
+# "replaces", goes to that entry's group), else to the group marked
+# "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
+# manifest names. A shipped demo goes to its manifest's "group", else a
+# guess: an LED panel demo to led-panel, a game or visualization to play,
+# anything else to learn. A value demo-groups.json does not list counts as
+# none. rq_desktop_session.py
 # (demo_group) decides the same way for the desktop.
 # Usage: group=$(rq_demo_group ID [MANIFEST])
 rq_demo_group() {
@@ -2166,7 +2302,8 @@ rq_demo_group() {
         ([$grp[0].groups[]?.id]) as $ids
         | ([$grp[0].groups[]? | select(.catalogue == true) | .id] | .[0]) as $cat
         | ($mf[0] // {}) as $m
-        | [$reg[0].demos[]? | select(.id == $id)] as $entry
+        | ([$reg[0].demos[]? | select(.id == $id)]
+           + [$reg[0].demos[]? | select(any(.replaces[]?; . == $id))]) as $entry
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
         | if ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
@@ -2180,8 +2317,8 @@ rq_demo_group() {
 # Usage: rq_beta_notice DEMO_ID
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
-    echo "Your feedback helps a lot (needs a free GitHub account): ${RQ_FEEDBACK_URL}&demo=$1"
-    echo "No GitHub account? E-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
+    echo "Feedback via GitHub (needs a free account): ${RQ_FEEDBACK_URL}&demo=$1"
+    echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
 
@@ -2307,7 +2444,7 @@ _rq_pull_progress() {
 }
 
 # Download an image. In a terminal one line shows the MB received so far
-# ("Downloading traQmania ... 120 of about 530 MB, 45s") instead of Docker's
+# ("Downloading racetraQ ... 120 of about 530 MB, 45s") instead of Docker's
 # list of layers (#23); on failure Docker's own reason, not "check your
 # internet connection" (R-038).
 # FALLBACK (a tag of the same image, e.g. ghcr.io/qubins/images:2.5-xl): when
@@ -2316,12 +2453,24 @@ _rq_pull_progress() {
 # is downloaded instead, and one line says so. Every other failure (offline,
 # no space, access denied) stops here as before. RQ_DOCKER_PULLED names the
 # image that was downloaded: IMAGE, or FALLBACK.
+# Ctrl+C is the user's stop, not a failure: one line says so and the script
+# ends with 130, which the menu, the icon's window (rq_hold_on_error.sh) and
+# the group lists take as a stop - no error box, no bug-report text. It said
+# "Could not download ...: docker pull failed" and "stopped with an error"
+# (user test 2026-10-08). Docker keeps no half image: the next start finds
+# none and asks again.
 # Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
     local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    local old_int
     RQ_DOCKER_PULLED=""
     [ "$fallback" = "$image" ] && fallback=""
     err=$(mktemp)
+    # Ctrl+C reaches docker pull (in front) and this shell: note it here and
+    # act once the pull has ended (a caller's own INT trap comes back after)
+    old_int=$(trap -p INT)
+    _rq_pull_stopped=""
+    trap '_rq_pull_stopped=1' INT
     if [ -t 1 ]; then
         start=$SECONDS
         # The line comes from a helper beside the pull, which stays in the
@@ -2335,8 +2484,20 @@ rq_docker_pull() {
         info "Downloading $name: $image"
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
     fi
+    eval "${old_int:-trap - INT}"
     why=$(grep -v '^[[:space:]]*$' "$err" | tail -2 | tr '\n' ' ') || why=""
     rm -f "$err"
+    if [ "$rc" -ne 0 ] && { [ -n "$_rq_pull_stopped" ] || [ "$rc" -eq 130 ]; }; then
+        [ -n "$start" ] && printf '\rDownloading %s ... stopped                         \n' "$name"
+        echo "Download stopped. Nothing was installed; the next start asks again."
+        # A desktop icon's window closes at once on a stop (130): keep the
+        # line readable, as Clear All LEDs does (rig test 2026-10-09, F3)
+        if [ -t 0 ] && [ -t 1 ]; then
+            echo "This window closes in a few seconds (Enter closes it now)."
+            read -r -t "${RQ_PULL_STOP_PAUSE:-8}" _ || true
+        fi
+        exit 130
+    fi
     # Not offered (any more): the only failure a fallback tag can help with
     if [ "$rc" -ne 0 ]; then
         case "$why" in
@@ -2364,6 +2525,12 @@ rq_docker_pull() {
             die "Not enough free space for $name. Remove demos you do not use (Quantum Demos > Manage demos > Remove a demo) and try again." ;;
         *"manifest unknown"*|*"not found"*|*"denied"*)
             die "The registry does not offer $image (any more): $why" ;;
+        *pkg-containers.githubusercontent.com*|*"i/o timeout"*|*"connection refused"*|*"connection reset"*|*"TLS handshake"*|*"no such host"*)
+            local hosts="" u
+            while IFS= read -r u; do
+                hosts="${hosts:+$hosts and }$(_rq_url_host "$u")"
+            done < <(rq_image_download_urls "$image")
+            die "Could not download $name: the network stopped the download ($why). It needs $hosts (HTTPS): if this network blocks them, ask its administrator to allow them, or use another network." ;;
         *)
             die "Could not download $name: ${why:-docker pull failed}" ;;
     esac

@@ -230,8 +230,8 @@ def test_the_shipped_catalogue_fits_one_line_each():
 @pytest.mark.parametrize("text,expected", [
     ("short", "short"),
     ("x" * 66, "x" * 66),
-    ("traQmania (beta) - quantum reinforcement-learning racing game in a container",
-     "traQmania (beta) - quantum reinforcement-learning racing game..."),
+    ("racetraQ (beta) - quantum reinforcement-learning racing game in a container",
+     "racetraQ (beta) - quantum reinforcement-learning racing game..."),
 ])
 def test_long_lines_end_at_a_word(text, expected):
     script = (f'eval "$(sed -n \'/^fit_line() {{/,/^}}/p\' "{_ADD}")"; fit_line "$1"')
@@ -335,3 +335,132 @@ def test_a_demos_own_stop_line_is_left_out():
     assert rc == 3
     engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
     assert ".own_stop_hint" in engine and 'run+=(rq_hide_line "$own_hint")' in engine
+
+
+# --- a renamed catalogue demo replaces its old install (traQmania -> racetraQ) ----
+
+_OLD_IMAGE = "ghcr.io/example/old-demo"
+
+
+def _old_install(cat):
+    """The registry entry "replaces" old-demo, which this Pi has installed."""
+    reg_file = cat.root / "RQB2-config" / "known-demos.json"
+    reg = json.loads(reg_file.read_text())
+    reg["demos"][0]["replaces"] = ["old-demo"]
+    reg_file.write_text(json.dumps(reg))
+    old = {"id": "old-demo", "name": "Old Demo", "category": "game", "description": "t",
+           "entrypoint": {"type": "docker", "working_dir": "Old-Demo", "docker_image": _OLD_IMAGE,
+                          "docker_port": 8000},
+           "install": {"repo_url": "https://github.com/example/Old-Demo.git", "marker_file": "rqb-demo.json"}}
+    manifests = cat.home / ".local/config/demo-manifests"
+    manifests.mkdir(parents=True, exist_ok=True)
+    (manifests / "rq_demo_old-demo.json").write_text(json.dumps(old))
+    checkout = cat.home / "RasQberry-Two/demos/Old-Demo"
+    checkout.mkdir(parents=True)
+    (checkout / "rqb-demo.json").write_text(json.dumps(old))
+    (cat.home / "Desktop/rq-ext-old-demo.desktop").write_text("[Desktop Entry]\nName=Old Demo\n")
+    return manifests, checkout
+
+
+def _old_is_gone(cat, manifests, checkout):
+    assert (manifests / "rq_demo_dock-demo.json").is_file()
+    assert not (manifests / "rq_demo_old-demo.json").exists()
+    assert not checkout.exists()
+    assert not (cat.home / "Desktop/rq-ext-old-demo.desktop").exists()
+    docker = (cat.root.parent / "docker.log").read_text().splitlines()
+    assert "rm -f old-demo" in docker                 # its container, kept for its log
+    assert "rmi " + _OLD_IMAGE in docker               # and its 3.2 GB image
+
+
+def test_installing_a_renamed_demo_replaces_the_old_install(cat):
+    manifests, checkout = _old_install(cat)
+    proc = cat(["dock-demo"], extra={"IMAGE_RC": "0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    box = _yesnos(cat)[0]
+    text = box[box.index("--yesno") + 1]
+    assert ("It replaces Old Demo, its earlier name on this Pi: that is removed once this is "
+            "installed (its files, menu entry, icon and Docker image).") in text
+    _old_is_gone(cat, manifests, checkout)
+    assert (cat.home / "RasQberry-Two/demos/dock-demo/rqb-demo.json").is_file()
+
+
+@pytest.mark.parametrize("args", [["--update", "old-demo"], ["old-demo"]])
+def test_the_old_id_moves_to_the_new_one(cat, args):
+    # the updater's report says: rq_demo_add_external.sh --update old-demo
+    manifests, checkout = _old_install(cat)
+    proc = cat(args, extra={"IMAGE_RC": "0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "'old-demo' is now called 'dock-demo' in the catalogue" in proc.stdout + proc.stderr
+    _old_is_gone(cat, manifests, checkout)
+
+
+def test_declining_the_new_demo_keeps_the_old_one(cat):
+    manifests, checkout = _old_install(cat)
+    proc = cat(["dock-demo"], extra={"WT_RC": "1"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (manifests / "rq_demo_old-demo.json").is_file() and checkout.is_dir()
+    assert (cat.home / "Desktop/rq-ext-old-demo.desktop").is_file()
+    assert not (manifests / "rq_demo_dock-demo.json").exists()
+
+
+def test_a_failed_install_keeps_the_old_one(cat):
+    manifests, checkout = _old_install(cat)
+    m = _manifest()
+    m["install"]["marker_file"] = "missing.txt"          # refused after the download
+    (cat.repo / "rqb-demo.json").write_text(json.dumps(m))
+    proc = cat(["dock-demo"])
+    assert proc.returncode != 0
+    assert (manifests / "rq_demo_old-demo.json").is_file() and checkout.is_dir()
+    assert not (manifests / "rq_demo_dock-demo.json").exists()
+
+
+def test_the_list_names_the_old_install(cat):
+    _old_install(cat)
+    proc = cat(["--list"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "[old name]  dock-demo (installed as old-demo - move it with: --update old-demo)" in proc.stdout
+
+
+def test_without_the_old_install_nothing_is_said_or_removed(cat):
+    reg_file = cat.root / "RQB2-config" / "known-demos.json"
+    reg = json.loads(reg_file.read_text())
+    reg["demos"][0]["replaces"] = ["old-demo"]
+    reg_file.write_text(json.dumps(reg))
+    proc = cat(["dock-demo"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    box = _yesnos(cat)[0]
+    assert "It replaces" not in box[box.index("--yesno") + 1]
+    assert "rmi" not in (cat.root.parent / "docker.log").read_text()
+
+
+def test_the_updater_names_the_move_for_an_old_install(tmp_path):
+    # rq_update_from_branch.sh: an installed id the new registry only lists in
+    # "replaces" was renamed, not withdrawn
+    home = tmp_path / "home"
+    manifests = home / ".local/config/demo-manifests"
+    manifests.mkdir(parents=True)
+    for i in ("traqmania", "gone-demo"):
+        (manifests / f"rq_demo_{i}.json").write_text(json.dumps(
+            {"id": i, "entrypoint": {"working_dir": i}}))
+    config = tmp_path / "config"
+    config.mkdir()
+    shutil.copy(os.path.join(_CFG, "known-demos.json"), config / "known-demos.json")
+    script = (f'eval "$(sed -n \'/^report_catalog_pins() {{/,/^}}/p\' '
+              f'"{os.path.join(_BIN, "rq_update_from_branch.sh")}")"; '
+              'info() { echo "$*"; }; report_catalog_pins')
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                         env=dict(os.environ, TARGET_CONFIG=str(config), USER_HOME=str(home))).stdout
+    assert ("Catalog demo 'traqmania' is now called 'racetraq' - move it with: "
+            "sudo rq_demo_add_external.sh --update traqmania") in out
+    assert "Catalog demo 'gone-demo' was withdrawn" in out
+
+
+def test_the_shipped_renames_point_at_old_ids_only():
+    registry = json.load(open(os.path.join(_CFG, "known-demos.json"), encoding="utf-8"))["demos"]
+    ids = {d["id"] for d in registry}
+    old = [o for d in registry for o in d.get("replaces", [])]
+    assert len(old) == len(set(old)) and not set(old) & ids
+    racetraq = [d for d in registry if d["id"] == "racetraq"][0]
+    assert racetraq["replaces"] == ["traqmania"] and racetraq["formerly"] == "traQmania"
+    assert racetraq["repo_url"] == "https://github.com/JanLahmann/racetraQ.git"
+    assert len(racetraq["ref"]) == 40

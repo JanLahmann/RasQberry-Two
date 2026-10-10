@@ -79,6 +79,35 @@ registry_ids() {
     jq -r '.demos[].id' "$REGISTRY_FILE"
 }
 
+# The registry id that took over an old id after a rename (an entry whose
+# "replaces" lists it), e.g. traqmania -> racetraq. Echoes empty if none.
+registry_successor() {
+    local old="$1"
+    jq -r --arg old "$old" \
+        '[.demos[] | select(any(.replaces[]?; . == $old)) | .id][0] // empty' "$REGISTRY_FILE"
+}
+
+# Old ids of an entry ("replaces") that are installed here (one per line)
+installed_predecessors() {
+    local id="$1" old
+    while IFS= read -r old; do
+        [ -n "$old" ] && [ "$old" != "$id" ] && is_installed "$old" && echo "$old"
+    done < <(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .replaces[]? // empty' "$REGISTRY_FILE")
+    return 0
+}
+
+# An id the registry no longer has but a renamed entry replaces: the new id
+# (with a line saying so), else the id as given
+resolve_id() {
+    local id="$1" new
+    if ! registry_has "$id" && new=$(registry_successor "$id") && [ -n "$new" ]; then
+        info "'$id' is now called '$new' in the catalogue" >&2
+        echo "$new"
+    else
+        echo "$id"
+    fi
+}
+
 # One menu line of at most MAX characters: whiptail cuts what is wider at
 # the right edge, so a longer text ends at a word, with "..." (#23)
 # Usage: fit_line TEXT [MAX]
@@ -214,7 +243,10 @@ write_desktop_entry() {
     tmp="$USER_HOME/Desktop/.rq-ext-${id}.desktop.tmp"
     mkdir -p "$USER_HOME/Desktop"
     chown_to_user "$USER_HOME/Desktop"
-    bash "$writer" "$manifest_file" "$tmp" "$dest" || rc=$?
+    # Quiet: its "written: <file>" line named the hidden temp file (pre-beta
+    # check 2026-10-08), and the desktop then moves the icon into its group's
+    # folder; the closing message says where to start the demo
+    bash "$writer" "$manifest_file" "$tmp" "$dest" >/dev/null || rc=$?
     case "$rc" in
         0) chown_to_user "$tmp"; mv -f "$tmp" "$out"; DESKTOP_ICON=1; relayout_desktop ;;
         3) rm -f "$tmp" "$out" ;;   # desktop.show false: make sure no stale icon remains
@@ -267,10 +299,14 @@ list_registry() {
         echo "(no external demos registered)"
         return 0
     fi
+    local old
     while IFS= read -r id; do
         [ -z "$id" ] && continue
+        old=$(installed_predecessors "$id" | head -n 1)
         if is_installed "$id"; then
             printf "  [installed] %s\n" "$id"
+        elif [ -n "$old" ]; then
+            printf "  [old name]  %s (installed as %s - move it with: --update %s)\n" "$id" "$old" "$old"
         else
             printf "  [available] %s\n" "$id"
         fi
@@ -335,8 +371,9 @@ add_demo() {
 
     # Who provides it, with what the install takes - must come before
     # anything destructive (in update mode the existing checkout is removed
-    # below). The provider comes from the registry: Jan's own traQmania was
-    # "an external contributor ... NOT part of the RasQberry project" (R-163).
+    # below). The provider comes from the registry: Jan's own traQmania (now
+    # racetraQ) was "an external contributor ... NOT part of the RasQberry
+    # project" (R-163).
     local name summary provider dl disk size_txt=""
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
@@ -348,9 +385,17 @@ add_demo() {
     local reg_leds root_txt=""
     reg_leds=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .leds // false' "$REGISTRY_FILE")
     [ "$reg_leds" = true ] && root_txt="It drives the LED panel, so it runs with root privileges.\n\n"
+    # A renamed demo replaces its old install (registry "replaces"): said in
+    # this question, and the old one goes once this one is installed
+    local replaced old old_names="" replace_txt=""
+    replaced=$(installed_predecessors "$id")
+    for old in $replaced; do
+        old_names="${old_names:+$old_names, }$(jq -r '.name // .id' "$USER_MANIFEST_DIR/rq_demo_${old}.json" 2>/dev/null || echo "$old")"
+    done
+    [ -n "$replaced" ] && replace_txt="It replaces ${old_names}, its earlier name on this Pi: that is removed once this is installed (its files, menu entry, icon and Docker image).\n\n"
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
     if ! show_yesno "Demo from the Catalogue" \
-        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\n${root_txt}Install it?"; then
+        "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\n${replace_txt}${root_txt}Install it?"; then
         # "No" is an answer, not an error: it ended in "It stopped with an
         # error" and an Error box (user test 2026-10-07, S3)
         info "Nothing was installed."
@@ -450,6 +495,20 @@ add_demo() {
     chown_to_user "$USER_HOME/.local/config"
     chown_to_user "$dest"
 
+    # Only now that the new one is installed: remove the old install of a
+    # renamed demo (checkout, manifest, icon, Docker image), so a Pi never
+    # keeps both. A failure here leaves the old one, never the install undone.
+    for old in $replaced; do
+        info "Removing '$old', the earlier name of '$id'..."
+        # its container (named by its id), running or kept for its log,
+        # would keep the old image from being removed
+        if command -v docker >/dev/null 2>&1; then
+            docker rm -f "$old" >/dev/null 2>&1 || true
+        fi
+        ( RQ_ASSUME_YES=yes RQ_ERROR_FILE="" remove_demo "$old" ) \
+            || warn "Could not remove '$old' - remove it with: rq_demo_add_external.sh --remove $old"
+    done
+
     # Desktop icon, when the manifest asks for one (#287). Non-fatal: the demo
     # is fully usable from the menu without it.
     write_desktop_entry "$id" "$manifest_file" "$dest" || true
@@ -518,7 +577,7 @@ remove_demo() {
     relayout_desktop
     refresh_cache
 
-    # Its Docker image is most of the space (traQmania: 3.2 GB) and stayed
+    # Its Docker image is most of the space (traQmania/racetraQ: 3.2 GB) and stayed
     # behind (R-160)
     if [ -n "$image" ] && command -v docker >/dev/null 2>&1 \
         && docker image inspect "$image" >/dev/null 2>&1; then
@@ -573,7 +632,14 @@ main() {
             ;;
         --update)
             [ -n "${2:-}" ] || die "--update requires a demo id"
-            add_demo "$2" update
+            # An old id of a renamed demo moves it to the new one
+            local new
+            new=$(resolve_id "$2")
+            if [ "$new" != "$2" ] && ! is_installed "$new"; then
+                add_demo "$new" install
+            else
+                add_demo "$new" update
+            fi
             ;;
         --remove)
             [ -n "${2:-}" ] || die "--remove requires a demo id"
@@ -589,7 +655,7 @@ main() {
             die "Unknown option: $1"
             ;;
         *)
-            add_demo "$1" install
+            add_demo "$(resolve_id "$1")" install
             ;;
     esac
 }

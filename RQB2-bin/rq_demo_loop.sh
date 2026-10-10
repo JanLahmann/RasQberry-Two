@@ -5,14 +5,25 @@ set -euo pipefail
 # rq_demo_loop.sh - RasQberry Continuous Demo Loop
 #
 # Description:
-#   Runs LED demos one after another, for a stand (conference showcases).
+#   Runs demos one after another, for a stand (conference showcases).
 #   Provides interactive controls for skipping/exiting demos.
 #   Which demos it runs is a setting (DEMO_LOOP_DEMOS: "all", or a
 #   comma-separated list of ibm-logo, quantum-lights-out,
-#   quantum-raspberry-tie, rasq-led); the timings are DEMO_LOOP_*_TIME.
+#   quantum-raspberry-tie, rasq-led and the other loop demos); the timings
+#   are DEMO_LOOP_*_TIME.
+#   Other loop demos (R-123): a shipped manifest with "loop_ok": true and a
+#   script or python entrypoint (no Docker, browser or notebook demo: the
+#   loop could not close those reliably). Its time is
+#   DEMO_LOOP_<ID>_TIME (e.g. DEMO_LOOP_QUANTUM_FRACTALS_TIME), else the
+#   manifest's "timeout", else 60 s. A demo that needs a screen is left out
+#   without one.
+#   DEMO_LOOP_AT_LOGIN=true starts the loop at desktop login
+#   (rq_desktop_session.py runs it with --at-login, instead of the browser).
 #
 # Usage:
 #   rq_demo_loop.sh             run the chosen demos, again and again
+#   rq_demo_loop.sh --at-login  the same, but asks nothing: demos not on
+#                               this Pi are left out
 #   rq_demo_loop.sh --choose    choose the demos (a checklist; saved)
 #   rq_demo_loop.sh --demos     print the chosen demos' names
 ################################################################################
@@ -38,7 +49,31 @@ PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
 ################################################################################
 # The demos the loop can run, in loop order (Jan, 2026-10-05: choose which)
 ################################################################################
-LOOP_IDS="ibm-logo quantum-lights-out quantum-raspberry-tie rasq-led"
+LED_LOOP_IDS="ibm-logo quantum-lights-out quantum-raspberry-tie rasq-led"
+
+# The other loop demos (R-123): shipped manifests with "loop_ok": true and a
+# script or python entrypoint, after the LED demos in menu order. One line
+# each: id <TAB> name <TAB> timeout <TAB> display
+EXTRA_LOOP=""
+if command -v jq >/dev/null 2>&1; then
+    EXTRA_LOOP=$(for mf in "$(rq_shipped_manifest_dir)"/rq_demo_*.json; do
+            [ -f "$mf" ] && cat "$mf"
+        done | jq -rs '[.[] | select(.loop_ok == true
+                    and (.entrypoint.type == "script" or .entrypoint.type == "python")
+                    and (.id | test("^[a-z0-9][a-z0-9-]*$"))
+                    and ([.id] | inside(["led-demos", "quantum-lights-out",
+                                         "quantum-raspberry-tie", "rasq-led"]) | not))]
+            | sort_by(.menu.order // 999, .id)[]
+            | [.id, .name, (.timeout // 0 | tostring), (.needs_hw.display // "")] | @tsv' \
+        2>/dev/null) || EXTRA_LOOP=""
+fi
+LOOP_IDS="$LED_LOOP_IDS"
+for _id in $(printf '%s\n' "$EXTRA_LOOP" | cut -f1); do LOOP_IDS="$LOOP_IDS $_id"; done
+
+# A field of an other loop demo's line: <id> <field number>
+extra_field() {
+    printf '%s\n' "$EXTRA_LOOP" | awk -F'\t' -v id="$1" -v f="$2" '$1 == id { print $f; exit }'
+}
 
 loop_name() {
     case "$1" in
@@ -46,15 +81,23 @@ loop_name() {
         quantum-lights-out)    echo "Quantum Lights Out" ;;
         quantum-raspberry-tie) echo "Quantum Raspberry Tie" ;;
         rasq-led)              echo "RasQ-LED" ;;
+        *)                     extra_field "$1" 2 ;;
     esac
 }
 
 loop_time() {
+    local var t
     case "$1" in
         ibm-logo)              echo "$IBM_LOGO_TIME" ;;
         quantum-lights-out)    echo "$LIGHTS_OUT_TIME" ;;
         quantum-raspberry-tie) echo "$RASQBERRY_TIE_TIME" ;;
         rasq-led)              echo "$RASQ_LED_TIME" ;;
+        *)
+            var="DEMO_LOOP_$(printf '%s' "$1" | tr 'a-z-' 'A-Z_')_TIME"
+            t="${!var:-}"
+            case "$t" in ''|*[!0-9]*|0) t=$(extra_field "$1" 3) ;; esac
+            case "$t" in ''|*[!0-9]*|0) t=60 ;; esac
+            echo "$t" ;;
     esac
 }
 
@@ -93,7 +136,7 @@ choose_demos() {
     items+=(all "All demos (as shipped)" OFF)
     sel=$(whiptail --title "Demo Loop" --notags --checklist \
 "Which demos should the loop show? Space ticks a demo, Enter saves." \
-        15 66 5 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
+        17 66 7 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
     sel=" $(printf '%s' "$sel" | tr -d '"' | tr '\n\t' '  ') "
     case "$sel" in
         *" all "*) picked="all" ;;
@@ -111,11 +154,13 @@ choose_demos() {
     show_msgbox "Demo Loop" "Saved. The loop shows: $(chosen_words)." 8 66
 }
 
+AT_LOGIN=false
 case "${1:-}" in
-    "")       ;;
-    --choose) choose_demos; exit 0 ;;
-    --demos)  chosen_words; exit 0 ;;
-    *)        die "Usage: rq_demo_loop.sh [--choose | --demos]" ;;
+    "")         ;;
+    --at-login) AT_LOGIN=true ;;
+    --choose)   choose_demos; exit 0 ;;
+    --demos)    chosen_words; exit 0 ;;
+    *)          die "Usage: rq_demo_loop.sh [--at-login | --choose | --demos]" ;;
 esac
 
 LOOP_DEMOS=$(chosen_demos)
@@ -136,7 +181,7 @@ cleanup() {
     echo ""
     info "Stopping demo loop..."
     # Kill any running demo processes
-    cleanup_demo_processes "QuantumLightsOut|lights_out.py|QuantumRaspberryTie|sense_emu_gui|RasQ-LED"
+    cleanup_demo_processes "QuantumLightsOut|lights_out.py|QuantumRaspberryTie|sense_emu_gui|RasQ-LED|fractals.py|fractals_chrome_"
     # Turn off all LEDs and close the on-screen view
     clear_leds --close-window
     info "Demo loop stopped"
@@ -174,12 +219,28 @@ drop_demo() {   # <id>: the loop runs without it
     LOOP_DEMOS="${LOOP_DEMOS% }"
 }
 
+# A demo that needs a screen, without one (e.g. started over SSH): left out
+for demo in $LOOP_DEMOS; do
+    if [ "$(extra_field "$demo" 4)" = "required" ] && ! check_display; then
+        info "$(loop_name "$demo") needs a screen: the loop runs without it."
+        drop_demo "$demo"
+    fi
+done
+
 missing=""
-for demo in quantum-lights-out quantum-raspberry-tie; do
-    case " $LOOP_DEMOS " in *" $demo "*) ;; *) continue ;; esac
+for demo in $LOOP_DEMOS; do
+    case "$demo" in ibm-logo|rasq-led) continue ;; esac
     "$BIN_DIR/rq_demo_run.sh" "$demo" --is-installed >/dev/null 2>&1 || missing="$missing $demo"
 done
 missing="${missing# }"
+if [ -n "$missing" ] && [ "$AT_LOGIN" = true ]; then
+    # at login nobody may be at the keyboard: no question, no download
+    for demo in $missing; do
+        info "$(loop_name "$demo") is not on this Pi: the loop runs without it."
+        drop_demo "$demo"
+    done
+    missing=""
+fi
 if [ -n "$missing" ]; then
     names="" dl=0 disk=0 verb="is"
     [ "${missing#* }" = "$missing" ] || verb="are"
@@ -316,6 +377,15 @@ run_loop_demo() {   # <id> <number>
                 "$BIN_DIR/rq_rasq_led.sh" "$t"
             cleanup_demo_processes "RasQ-LED"
             clear_leds ;;
+        *)
+            # an other loop demo (loop_ok): the time limit stops its process
+            # group; what it may leave behind is stopped here
+            run_demo_with_controls "[$n/$LOOP_COUNT_DEMOS] $(loop_name "$id") (${t}s)" \
+                "$BIN_DIR/rq_demo_run.sh $id" "$t"
+            case "$id" in
+                # its own Chromium profile (fractals_chrome_*), not the user's browser
+                quantum-fractals) cleanup_demo_processes "fractals.py" "fractals_chrome_" ;;
+            esac ;;
     esac
     sleep "${PAUSE_BETWEEN_DEMOS}"
 }

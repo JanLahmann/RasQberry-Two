@@ -163,6 +163,25 @@ def test_offline_is_refused_before_asking(box):
     assert box.dialogs() == []
 
 
+@pytest.mark.parametrize("rc,connect,reachable", [
+    (0, "0.015", True),
+    (28, "0.015000", True),      # connected, then the answer took too long (F1)
+    (28, "0.000000", False),     # the connection itself timed out: offline
+    (7, "0.000000", False),      # refused
+    (6, "0.000000", False),      # no DNS
+    (22, "0.015", False),        # any other failure
+])
+def test_reachable_counts_a_made_connection(box, rc, connect, reachable):
+    """rig test 2026-10-09, F1: github.com connected in 15 ms but kept the
+    HEAD request waiting for 10 s (curl 28); the Pi was online."""
+    (box.stubs / "curl").write_text(
+        f'#!/bin/sh\nprintf "%s" "$*" > "{box.tmp}/curl.args"\nprintf {connect}\nexit {rc}\n')
+    proc = _common(box, 'rq_reachable https://github.com/x/y && echo YES || echo NO')
+    assert proc.stdout.strip() == ("YES" if reachable else "NO"), proc.stdout + proc.stderr
+    args = (box.tmp / "curl.args").read_text()
+    assert "--connect-timeout 5" in args and "%{time_connect}" in args
+
+
 def test_auto_install_skips_the_question_but_not_the_space_check(box):
     proc = _common(box, 'rq_confirm_download X 10 10 --url ""; echo "RC=$?"',
                    extra={"RQ_AUTO_INSTALL": "1"})
@@ -188,6 +207,107 @@ def test_demo_consent_uses_the_manifest_and_asks_once(box):
     assert "Workshop & Qiskit Server is not on this Pi yet." in text
     assert "about 1.3 GB" in text and "5.4 GB on the SD card" in text
 
+    # a Docker image: the time from its size, fast and slow (not "3-5 minutes")
+    assert "Time:      about 3 min on fast internet, up to 22 min on slow Wi-Fi" in text
+
+
+@pytest.mark.parametrize("mb, text", [
+    (890, "about 2 min on fast internet, up to 15 min on slow Wi-Fi"),   # Quantum Lab (101 s / ~12 min measured)
+    (1300, "about 3 min on fast internet, up to 22 min on slow Wi-Fi"),  # doQumentation
+    (530, "about 2 min on fast internet, up to 9 min on slow Wi-Fi"),    # racetraQ
+    (40, "about 1 min on fast internet, up to 1 min on slow Wi-Fi"),
+    (0, ""),
+])
+def test_download_time_from_the_size(mb, text):
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_download_time_text {mb}'],
+                          capture_output=True, text=True)
+    assert proc.stdout.strip() == text, proc.stdout + proc.stderr
+
+
+def test_an_image_download_states_its_time_from_the_size(box):
+    proc = _common(box, 'rq_confirm_download "Lab" 890 4000 --time "1-3 minutes" '
+                        '--image ghcr.io/qubins/images:2.5-xl --url ""; echo "RC=$?"')
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    (call,) = box.dialogs()
+    text = call[call.index("--yesno") + 1]
+    assert "Time:      about 2 min on fast internet, up to 15 min on slow Wi-Fi" in text
+    assert "1-3 minutes" not in text
+
+
+@pytest.mark.parametrize("demo_id", ["quantum-lab", "doqumentation", "qoffee-maker", "quantum-mixer"])
+def test_docker_manifest_time_matches_the_size(demo_id):
+    """Download all adds the manifests' times up: they say the same as the box."""
+    import json
+    with open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", f"rq_demo_{demo_id}.json")) as fh:
+        d = json.load(fh)["install"]["download"]
+    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_download_minutes {d["download_mb"]}'],
+                         capture_output=True, text=True).stdout.split()
+    assert d["time"] == f"{out[0]}-{out[1]} minutes"
+
+
+
+_LAB = "ghcr.io/qubins/images@sha256:" + "d" * 64
+
+
+def _curl_blocking(box, pattern):
+    """curl that fails (no connection) for URLs matching the shell PATTERN."""
+    _exe(box.stubs / "curl", '#!/bin/sh\nfor a in "$@"; do case "$a" in ' + pattern
+         + ') exit 7 ;; esac; done\nexit 0\n')
+
+
+def test_a_blocked_layer_host_is_named_with_both_hosts(box):
+    _curl_blocking(box, "*pkg-containers*")
+    proc = _common(box, f'rq_confirm_download Lab 890 4000 --image {_LAB} --url https://ghcr.io/v2/; '
+                        'echo "RC=$? $RQ_CONSENT_MSG"')
+    out = proc.stdout
+    assert "RC=3" in out, out + proc.stderr
+    assert "This network blocks the download of Lab" in out
+    assert "pkg-containers.githubusercontent.com cannot be reached" in out
+    assert "ghcr.io and pkg-containers.githubusercontent.com" in out
+    assert "administrator" in out
+    assert box.dialogs() == []
+
+
+def test_offline_names_both_hosts_for_an_image(box):
+    _curl_blocking(box, "http*")
+    proc = _common(box, f'rq_confirm_download Lab 890 4000 --image {_LAB} --url https://ghcr.io/v2/; '
+                        'echo "RC=$? $RQ_CONSENT_MSG"')
+    assert "RC=3 Lab has to be downloaded first, and ghcr.io and pkg-containers.githubusercontent.com " \
+           "cannot be reached. Connect the Pi to the internet" in proc.stdout, proc.stdout + proc.stderr
+
+
+def test_demo_consent_checks_the_layer_host(box):
+    _curl_blocking(box, "*pkg-containers*")
+    proc = _common(box, 'rq_confirm_demo_install quantum-lab; echo "RC=$? $RQ_CONSENT_MSG"')
+    assert "RC=3 This network blocks the download of Quantum Lab (QuBins)" in proc.stdout, \
+        proc.stdout + proc.stderr
+
+
+
+def test_a_pull_stopped_by_the_network_names_both_hosts(box):
+    _exe(box.stubs / "docker", '#!/bin/sh\n[ "$1" = pull ] || exit 0\n'
+         'echo \'Error response from daemon: Get "https://pkg-containers.githubusercontent.com/ghcr1/blobs/x": '
+         'dial tcp 1.2.3.4:443: i/o timeout\' >&2\nexit 1\n')
+    proc = _common(box, f'rq_docker_pull {_LAB} Lab 890')
+    out = proc.stdout + proc.stderr + box.err()
+    assert proc.returncode != 0
+    assert "the network stopped the download" in out, out
+    assert "ghcr.io and pkg-containers.githubusercontent.com" in out
+
+def test_git_downloads_check_only_their_host(box):
+    log = box.tmp / "curl.log"
+    _exe(box.stubs / "curl", f'#!/bin/sh\necho "$*" >> "{log}"\nexit 0\n')
+    proc = _common(box, 'rq_confirm_download X 10 10 --url https://github.com; echo "RC=$?"')
+    assert "RC=0" in proc.stdout
+    assert "pkg-containers" not in log.read_text()
+
+
+def test_image_download_urls():
+    script = f'. "{_COMMON}"; rq_image_download_urls ghcr.io/a/b@sha256:x; echo --; ' \
+             f'rq_image_download_urls python:3.11'
+    out = subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout.split()
+    assert out == ["https://ghcr.io/v2/", "https://pkg-containers.githubusercontent.com/", "--",
+                   "https://registry-1.docker.io/v2/"]
 
 def test_registry_url_of_an_image():
     script = f'. "{_COMMON}"; rq_image_registry_url ghcr.io/a/b:c; rq_image_registry_url python:3.11; ' \
@@ -384,7 +504,7 @@ _ADD = os.path.join(_BIN, "rq_demo_add_external.sh")
 
 
 @pytest.mark.parametrize("demo_id,provider", [
-    ("traqmania", "Provided by the Fun with Quantum family."),
+    ("racetraq", "Provided by the Fun with Quantum family."),
     ("sap-quantum-learning", "Provided by SAP."),
     ("sap-quantum-led", "Provided by SAP."),
 ])

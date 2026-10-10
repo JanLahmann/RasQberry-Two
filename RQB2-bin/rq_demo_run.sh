@@ -547,8 +547,15 @@ ensure_installed() {
     installer=$(get_field '.install.installer' '')
     if [ -n "$installer" ]; then
         info "Installing via $installer ..."
-        install_demo_raspiconfig "$installer" \
-            || die "Installation failed for demo '$DEMO_ID' ($installer)"
+        local irc=0
+        install_demo_raspiconfig "$installer" || irc=$?
+        case "$irc" in
+            0) ;;
+            # stopped with Ctrl+C (a download, user test 2026-10-08) or a
+            # closed window: the installer said so, not an error
+            129|130|143) exit "$irc" ;;
+            *) die "Installation failed for demo '$DEMO_ID' ($installer)" ;;
+        esac
         return 0
     fi
 
@@ -972,9 +979,9 @@ run_python() {
     if [ "$needs_leds" = "true" ]; then
         # Re-exec with sudo if needed
         if [ "$(id -u)" != "0" ]; then
-            info "LED/GPIO operations require root access"
-            info "Re-executing with sudo..."
-            exec sudo -E DISPLAY="${DISPLAY:-:0}" "$0" "$DEMO_ID" "${VARIANT:-}"
+            # Technical detail: only with RQ_DEBUG=1 (R-133)
+            debug "LED/GPIO operations require root access; re-executing with sudo"
+            exec sudo -E RQ_DEMO_ROOT_PASS=1 DISPLAY="${DISPLAY:-:0}" "$0" "$DEMO_ID" "${VARIANT:-}"
         fi
 
         # Another program on the LED panel? On a Pi 4 both would draw at
@@ -1087,6 +1094,8 @@ delegate_launcher() {
     done < <(get_demo_args)
 
     info "Delegating to: $launcher${launcher_args[*]:+ ${launcher_args[*]}}"
+    # the window has the demo's name as its first line: not again (rq_demo_header)
+    export RQ_DEMO_HEADER_SHOWN=1
     exec "$launcher_path" ${launcher_args[@]+"${launcher_args[@]}"}
 }
 
@@ -1229,7 +1238,7 @@ drop_to_desktop_user() {
     local v
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
              RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
-             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI; do
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     info "Starting as $user_name (only LED demos run as root)..."
@@ -1316,14 +1325,26 @@ main() {
     demo_name=$(get_field '.name' "$DEMO_ID")
     entrypoint_type=$(demo_field '.entrypoint.type' '')
     DEMO_TITLE="$demo_name"
-    # The window's title: the demo's name, not the command line (R-135), or
-    # the title of the icon that started it (rq_hold_on_error.sh -t)
-    [ -t 1 ] && printf '\033]0;%s\007' "${RQ_WINDOW_TITLE:-$demo_name}"
+    # An LED demo's second pass, as root (run_python): the window has its
+    # title and first line already (SAP Quantum LED showed it twice)
+    local root_pass="${RQ_DEMO_ROOT_PASS:-}"
+    unset RQ_DEMO_ROOT_PASS
+    if [ -z "$root_pass" ]; then
+        # The window's title: the demo's name, not the command line (R-135),
+        # or the title of the icon or learning-path step that started it
+        # (rq_hold_on_error.sh -t): "IBM LED Demo", not "LED Demos". The
+        # first line says the same, but not the Demo Loop's own title.
+        local header="$demo_name${VARIANT:+ ($VARIANT)}"
+        case "${RQ_WINDOW_TITLE:-}" in
+            ""|"Demo Loop"*) ;;
+            *) header="$RQ_WINDOW_TITLE" ;;
+        esac
+        [ -t 1 ] && printf '\033]0;%s\007' "${RQ_WINDOW_TITLE:-$demo_name}"
+        echo
+        echo "=== $header ==="
+        echo
+    fi
     unset RQ_WINDOW_TITLE
-
-    echo
-    echo "=== $demo_name${VARIANT:+ ($VARIANT)} ==="
-    echo
 
     # Cleanup runs once, on exit; the signals end the run (HUP: the demo's
     # window was closed)
@@ -1345,8 +1366,8 @@ main() {
         exit 0
     fi
 
-    # New or less-tested demos ask for feedback (item 36)
-    if [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then
+    # New or less-tested demos ask for feedback (item 36), once per window
+    if [ -z "$root_pass" ] && [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then
         rq_beta_notice "$DEMO_ID"
     fi
 

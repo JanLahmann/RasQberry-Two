@@ -218,8 +218,10 @@ def test_estimates_follow_the_measured_times(box):
     proc = box(_DL, [], extra={"WT_RC_2": "1"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     first, docker = [_text(c) for c in box.dialogs() if "--yesno" in c]
-    assert "Time:      about 2-4 minutes" in first, first
-    assert "Time:      about 8-15 minutes" in docker, docker
+    # Grokking: 15-90 s, not 10-30 (download, patch, server: ~80 s on a Pi 5)
+    assert "Time:      about 2-5 minutes" in first, first
+    # from the size (3.9 GB): fast internet and slow Wi-Fi, as each Docker demo's box
+    assert "Time:      about 9 min on fast internet, up to 65 min on slow Wi-Fi" in docker, docker
     assert "Space:     up to 14.6 GB (the images share parts, so usually less)" in docker, docker
 
 

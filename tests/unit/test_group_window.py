@@ -114,7 +114,7 @@ def test_led_panel_window_lists_its_demos_in_menu_order(tmp_path):
         "rq-ext-sap-quantum-led", "led-painter", "clear-leds"]
     first = launchers[0]
     assert first["name"] == "IBM LED Demo" and first["terminal"] is True
-    assert first["icon"] == "/usr/share/icons/rasqberry/sensehat-icon.png"
+    assert first["icon"] == "/usr/share/icons/rasqberry/led-ibm-demo.svg"
     assert first["comment"] == "The IBM logo in colour on the LED panel"
 
 
@@ -522,7 +522,8 @@ def test_checklist_offers_dont_show_again_and_removes_the_icon(tmp_path):
     if done.exists() and "noicon" not in checklist:
         pytest.skip("no step pending on this machine: the checklist was done at once")
     # the last entry of the list
-    assert checklist.rstrip("\n").split("\n")[-3:] == [
+    # (each line ends in a space: a margin in the list, user test 2026-10-08)
+    assert [line.rstrip(" ") for line in checklist.rstrip("\n").split("\n")[-3:]] == [
         "noicon", "Don't show again and remove the RasQberry Setup icon", "OFF"]
     assert done.exists()
     assert any("The RasQberry Setup icon is removed" in d and "Setup Checklist" in d for d in dialogs)

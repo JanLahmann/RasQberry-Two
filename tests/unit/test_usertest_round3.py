@@ -89,7 +89,7 @@ def test_password_step_is_ticked_with_the_demo_password(stubs, tmp_path):
     assert proc.returncode == 0, proc.stderr
     args = _checklist_args(tmp_path)
     i = args.index("password")
-    assert args[i + 1] == "Change the password, or keep the demo one (booth, class)"
+    assert args[i + 1] == "Change the password, or keep the demo one (booth, class) "   # + margin
     assert args[i + 2] == "ON"
     assert args[args.index("name") + 2] == "OFF"          # the other optional steps stay unticked
 
@@ -198,20 +198,23 @@ def test_connect_box_firmware_hint(menu_env, state, due, hint):
 # F3: the checklist's Wi-Fi line on a Pi connected by cable
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("dev,label", [
-    ("eth0", "Set up Wi-Fi (the network is connected by cable now)"),
-    ("wlan0", "Run again: Wi-Fi (connected)"),
+@pytest.mark.parametrize("dev,wifi,label", [
+    ("eth0", "", "Set up Wi-Fi (the network is connected by cable now)"),
+    ("wlan0", "wifi:connected", "Run again: Wi-Fi (connected)"),
+    # cable and Imager's Wi-Fi both up: Wi-Fi is connected (user test 2026-10-08 F2)
+    ("eth0", "wifi:connected", "Run again: Wi-Fi (connected)"),
 ])
-def test_checklist_names_the_network_truthfully(stubs, tmp_path, dev, label):
+def test_checklist_names_the_network_truthfully(stubs, tmp_path, dev, wifi, label):
     d = tmp_path / "stubs"
     _exe(d / "ip", f'[ "$1 $2" = "route get" ] && echo "1.1.1.1 via 192.168.178.1 dev {dev} src 192.168.178.177 uid 1000"\nexit 0\n')
     _exe(d / "nmtui", "exit 0\n")
+    _exe(d / "nmcli", f'echo "ethernet:connected"\n{"echo " + wifi if wifi else ""}\nexit 0\n')
     wlan = tmp_path / "wlan0"
     wlan.mkdir()
     proc = _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_WLAN_DIR=str(wlan))
     assert proc.returncode == 0, proc.stderr
     args = _checklist_args(tmp_path)
-    assert args[args.index("wifi") + 1] == label
+    assert args[args.index("wifi") + 1] == label + " "     # a margin in the list
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 Version=1.1
 Name=IBM LED Demo
 Comment=The IBM logo in colour on the LED panel
-Icon=/usr/share/icons/rasqberry/sensehat-icon.png
+Icon=/usr/share/icons/rasqberry/led-ibm-demo.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh -t "IBM LED Demo" /usr/bin/rq_demo_run.sh led-demos ibm-logo

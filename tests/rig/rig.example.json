@@ -1,5 +1,5 @@
 {
-  "_doc": "Copy to rig.json (git-ignored) and fill in. host: ssh target with key login. panel_crop: the Pi's LED panel in the camera frame, as fractions [x1, y1, x2, y2]. lit_threshold: share of panel pixels that must light up for an LED demo to count as visible.",
+  "_doc": "Copy to rig.json (git-ignored) and fill in. host: ssh target with key login, as user@address - the desktop user (a name set in Imager, e.g. jan@...; or give \"user\" separately; default rasqberry). panel_crop: the Pi's LED panel in the camera frame, as fractions [x1, y1, x2, y2]. lit_threshold: share of panel pixels that must light up for an LED demo to count as visible.",
   "camera_url": "rtsp://<camera-ip>/live",
   "pis": [
     {"name": "pi5", "host": "rasqberry@<pi5-ip>", "panel_crop": [0.20, 0.12, 0.79, 0.49], "lit_threshold": 0.006},

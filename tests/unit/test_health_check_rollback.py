@@ -52,6 +52,8 @@ def hc(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "WATCHDOG_MARKER", tmp_path / "wd")
     # the clock is not synchronised unless a test says so (CI hosts may be)
     monkeypatch.setattr(mod, "TIME_SYNCED", tmp_path / "timesync-synchronized")
+    # no wait for NTP before the confirm (wait_for_clock_sync has its own tests)
+    monkeypatch.setattr(mod, "CLOCK_SYNC_WAIT", 0)
     mod.reboots = []
     monkeypatch.setattr(mod, "reboot_now", lambda: mod.reboots.append(True))
     mod.config, mod.dt = config, dt
@@ -268,6 +270,60 @@ def test_successful_switch_clears_an_old_notice(hc, monkeypatch, tmp_path):
     assert not (hc.config / "target-slot").exists()
 
 
+def _indicator():
+    spec = importlib.util.spec_from_file_location(
+        "rq_slot_indicator", os.path.join(_HERE, "..", "..", "RQB2-bin", "rq_slot_indicator.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _taskbar_state(ind, config, current):
+    live = ind.read_live(str(config))
+    return ind.base_state(ind.slot_info({"current": current}, live, "v"))
+
+
+@pytest.mark.parametrize("confirm_rc", [0, 1])
+def test_switch_markers_stay_until_the_confirm_ran(hc, monkeypatch, tmp_path, confirm_rc):
+    """Rig test 2026-10-09, F2: target-slot was removed before the wait for
+    NTP, and for up to 20 s the taskbar said "restart pending / Slot A starts
+    at the next restart". It stays until the confirm ran ("being checked"),
+    and goes afterwards whether the confirm worked or not (as before)."""
+    ind = _indicator()
+    _switch_pending(hc.config, "B")
+    (hc.config / "switch-requested").write_text("slot=B\n")
+    _tryboot(hc.dt, 1)
+    sm = tmp_path / "rq_slot_manager.sh"
+    # what rq_slot_manager.sh confirm writes, or a failure
+    sm.write_text(f'#!/bin/sh\n[ {confirm_rc} = 0 ] || exit 1\n'
+                  f'date > "{hc.config}/slot-confirmed"\n'
+                  f'printf "%s" "{AUTOBOOT_B_DEFAULT}" > "{hc.config}/autoboot.txt"\n')
+    sm.chmod(sm.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setattr(hc, "detect_ab_layout", lambda: (True, "ab"))
+    monkeypatch.setattr(hc, "SLOT_MANAGER", sm)
+    monkeypatch.setattr(hc, "current_root_device", lambda: "/dev/mmcblk0p6")
+    seen = []
+
+    def wait():
+        seen.append(((hc.config / "target-slot").exists(), hc.probation_slot(),
+                     _taskbar_state(ind, hc.config, "B")))
+        return False
+
+    monkeypatch.setattr(hc, "wait_for_clock_sync", wait)
+    assert hc.confirm_boot_slot() is (confirm_rc == 0)
+    # during the wait: still on trial (the 15-minute deadline still rolls
+    # back), and the taskbar says "being checked"
+    assert seen == [(True, "B", ("checking", ""))]
+    for name in ("target-slot", "switch-retries", "switch-requested"):
+        assert not (hc.config / name).exists(), name
+    if confirm_rc == 0:
+        assert _taskbar_state(ind, hc.config, "B") == ("ok", "")
+    else:
+        # not confirmed, autoboot.txt still starts Slot A: as before
+        assert _taskbar_state(ind, hc.config, "B") == ("pending", "A")
+        assert hc.probation_slot() is None
+
+
 # ---------------------------------------------------------------------------
 # When it failed: the trial slot's clock may not be set yet (rig, 2026-10-04:
 # no RTC, fake-hwclock gave 11:09:06 for a failure at about 12:25)
@@ -394,3 +450,29 @@ def test_user_home_follows_uid_1000_not_the_name():
         assert mod.desktop_user_home() == "/home/jan"
     finally:
         mod.pwd.getpwuid = orig
+
+
+def test_confirm_waits_for_ntp_a_little(hc, monkeypatch):
+    """slot-confirmed keeps the time: a short, bounded wait for NTP (user test 2026-10-08 F3)."""
+    naps = []
+
+    def nap(seconds):
+        naps.append(seconds)
+        if len(naps) == 3:
+            hc.TIME_SYNCED.write_text("")
+
+    monkeypatch.setattr(hc.time, "sleep", nap)
+    assert hc.wait_for_clock_sync(timeout=20, active=True) is True
+    assert len(naps) == 3
+    # synced already: no wait; timesyncd not running or no wait wanted: none either
+    naps.clear()
+    assert hc.wait_for_clock_sync(timeout=20, active=True) is True and naps == []
+    hc.TIME_SYNCED.unlink()
+    assert hc.wait_for_clock_sync(timeout=20, active=False) is False and naps == []
+    assert hc.wait_for_clock_sync(timeout=0, active=True) is False and naps == []
+    # bounded: gives up after the timeout
+    clock = [0.0]
+    monkeypatch.setattr(hc.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(hc.time, "sleep", lambda s: clock.__setitem__(0, clock[0] + s))
+    assert hc.wait_for_clock_sync(timeout=5, active=True) is False
+    assert clock[0] == 5

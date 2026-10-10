@@ -2,7 +2,7 @@
 Version=1.1
 Name=Quantum Paradoxes
 Comment=Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris
-Icon=/usr/share/icons/rasqberry/orbit-pi.png
+Icon=/usr/share/icons/rasqberry/quantum-paradoxes.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh quantum-paradoxes

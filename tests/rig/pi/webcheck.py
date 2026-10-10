@@ -55,7 +55,7 @@ import websocket
 PORT = int(os.environ.get("RIG_CDP_PORT", "9222"))
 CDP = f"http://127.0.0.1:{PORT}"
 STATE = os.path.join(os.environ.get("RIG_OUT", "/tmp/rigtest"), "browser.state")
-HOMEPAGE = "https://rasqberry.org"
+HOMEPAGE = "https://rasqberry.org/?from=pi"   # as rq_desktop_session.py opens it
 SESSION_ENV = {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0",
                "XDG_RUNTIME_DIR": f"/run/user/{os.getuid()}"}
 JUPYTER_PATH = re.compile(r"/(lab|tree|notebooks|doc|voila)(/|$|\?)")

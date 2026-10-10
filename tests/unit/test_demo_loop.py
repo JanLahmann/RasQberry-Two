@@ -7,6 +7,10 @@ The Demo Loop shows the demos the person chose (Jan, 2026-10-05).
   "All demos" or every demo ticked saves "all"; nothing ticked saves nothing.
 - The loop runs only the chosen demos, in loop order; the menu offers
   "Start" and "Choose the demos" and says what is chosen.
+- R-123: shipped manifests with "loop_ok": true and a script or python
+  entrypoint join the loop after the LED demos (Quantum Fractals); one that
+  needs a screen is left out without one. --at-login asks nothing, and the
+  menu switches "Start the Demo Loop at login" (DEMO_LOOP_AT_LOGIN).
 """
 
 import os
@@ -28,7 +32,8 @@ from test_raspi_config_menu import menu_env  # noqa: E402,F401
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required")
 
-ALL = ["ibm-logo", "quantum-lights-out", "quantum-raspberry-tie", "rasq-led"]
+LED = ["ibm-logo", "quantum-lights-out", "quantum-raspberry-tie", "rasq-led"]
+ALL = LED + ["quantum-fractals"]
 
 
 def _exe(path, text):
@@ -68,6 +73,7 @@ def loop(tmp_path):
                 fh.write(f"DEMO_LOOP_DEMOS={saved}\n")
         env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_CONFIG_FILE=str(env_config),
                    RQ_ENV_FILE=str(env_file), HOME=str(tmp_path), RQ_DEMO_LOOP_ROUNDS="1")
+        env.pop("DISPLAY", None)        # no screen unless a test gives one
         env.update(extra or {})
         return subprocess.run(["bash", _LOOP, *args], env=env, capture_output=True, text=True,
                               stdin=subprocess.PIPE, timeout=60)
@@ -85,6 +91,7 @@ def loop(tmp_path):
     run.bindir = bindir
     run.stubs = stubs
     run.tmp = tmp_path
+    run.env_file = env_file
     return run
 
 
@@ -153,6 +160,8 @@ def test_shipped_setting_is_all():
     ("", "all demos"),
     ("rasq-led,ibm-logo", "IBM Logo, RasQ-LED"),            # loop order, not saved order
     ("quantum-lights-out", "Quantum Lights Out"),
+    ("quantum-fractals,ibm-logo", "IBM Logo, Quantum Fractals"),
+    (",".join(LED), "IBM Logo, Quantum Lights Out, Quantum Raspberry Tie, RasQ-LED"),
     ("nonsense,also-not", "all demos"),
     (",".join(ALL), "all demos"),
 ])
@@ -173,11 +182,69 @@ def test_the_loop_runs_only_the_chosen_demos(loop):
 
 
 def test_all_runs_every_demo_in_order(loop):
-    proc = loop(saved="all")
+    proc = loop(saved="all", extra={"DISPLAY": ":0"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert loop.ran.read_text().split() == ["rq_led_ibm_demo.sh", "quantum-lights-out",
-                                            "quantum-raspberry-tie", "rq_rasq_led.sh"]
+                                            "quantum-raspberry-tie", "rq_rasq_led.sh",
+                                            "quantum-fractals"]
+    assert "[5/5] Quantum Fractals (90s)" in proc.stdout
+
+
+def test_a_demo_that_needs_a_screen_is_left_out_without_one(loop):
+    proc = loop(saved="all")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Quantum Fractals needs a screen: the loop runs without it." in proc.stdout + proc.stderr
+    assert "quantum-fractals" not in loop.ran.read_text()
     assert "[4/4]" in proc.stdout
+
+
+def test_the_time_of_a_loop_ok_demo_can_be_set(loop):
+    with open(loop.env_file, "a") as fh:
+        fh.write("DEMO_LOOP_QUANTUM_FRACTALS_TIME=45\n")
+    proc = loop(saved="quantum-fractals", extra={"DISPLAY": ":0"})
+    assert "[1/1] Quantum Fractals (45s)" in proc.stdout
+
+
+def test_only_shipped_script_demos_with_loop_ok_join():
+    # Docker, browser and notebook demos could not be closed reliably
+    import json
+    mdir = os.path.join(_CFG, "demo-manifests")
+    ok = []
+    for f in sorted(os.listdir(mdir)):
+        if f.startswith("rq_demo_") and f.endswith(".json"):
+            m = json.load(open(os.path.join(mdir, f)))
+            if m.get("loop_ok") is True:
+                ok.append(m["id"])
+                assert m["entrypoint"]["type"] in ("script", "python"), m["id"]
+                assert int(m.get("timeout", 0)) > 0, m["id"]
+    assert sorted(ok) == ["led-demos", "quantum-fractals", "quantum-lights-out",
+                          "quantum-raspberry-tie", "rasq-led"]
+    text = open(_LOOP).read()
+    assert '.entrypoint.type == "script" or .entrypoint.type == "python"' in text
+    # Fractals' own Chromium profile is stopped, not the user's browser
+    assert 'cleanup_demo_processes "fractals.py" "fractals_chrome_"' in text
+
+
+def test_at_login_asks_nothing_and_leaves_missing_demos_out(loop):
+    extra = _not_installed(loop, "quantum-lights-out")
+    proc = loop("--at-login", saved="all", extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not loop.wt.exists() or "--yesno" not in loop.wt.read_text()
+    out = proc.stdout + proc.stderr
+    assert "Quantum Lights Out is not on this Pi: the loop runs without it." in out
+    ran = loop.ran.read_text()
+    assert "install" not in ran and "quantum-lights-out" not in ran
+    assert "quantum-raspberry-tie" in ran
+
+
+def test_shipped_login_setting_is_off_and_carried_over():
+    env = open(os.path.join(_CFG, "rasqberry_environment.env")).read().splitlines()
+    assert "DEMO_LOOP_AT_LOGIN=false" in env
+    assert "DEMO_LOOP_QUANTUM_FRACTALS_TIME=90" in env
+    carry = open(os.path.join(_BIN, "rq_carry_over.sh")).read()
+    keys = carry.split('ENV_KEYS="', 1)[1].split('"', 1)[0].split()
+    for key in [line.split("=", 1)[0] for line in env if line.startswith("DEMO_LOOP_")]:
+        assert key in keys, key
 
 
 def test_choose_is_pre_ticked_and_saves_the_ticks(loop):
@@ -189,12 +256,14 @@ def test_choose_is_pre_ticked_and_saves_the_ticks(loop):
     ticks = {checklist[i]: checklist[i + 2] for i, a in enumerate(checklist)
              if a in ALL + ["all"] and i + 2 < len(checklist)}
     assert ticks == {"ibm-logo": "ON", "quantum-lights-out": "OFF",
-                     "quantum-raspberry-tie": "OFF", "rasq-led": "ON", "all": "OFF"}
+                     "quantum-raspberry-tie": "OFF", "rasq-led": "ON", "quantum-fractals": "OFF",
+                     "all": "OFF"}
     assert "The loop shows: Quantum Raspberry Tie, RasQ-LED." in loop.wt.read_text()
 
 
 @pytest.mark.parametrize("reply", ['"all"', '"ibm-logo" "all"',
-                                   '"ibm-logo" "quantum-lights-out" "quantum-raspberry-tie" "rasq-led"'])
+                                   '"ibm-logo" "quantum-lights-out" "quantum-raspberry-tie" "rasq-led" '
+                                   '"quantum-fractals"'])
 def test_all_is_one_step_back(loop, reply):
     loop("--choose", saved="rasq-led", extra={"WT_REPLY": reply})
     assert loop.saved() == "all"
@@ -222,4 +291,56 @@ def test_menu_offers_start_and_choose(menu_env):
     text = "\n".join(menu)
     assert "Now: IBM Logo, RasQ-LED" in text
     assert "Start the demo loop" in text and "Choose the demos" in text
+    assert "Start the Demo Loop at login: off" in text
     assert log.read_text().splitlines() == ["loop --demos", "loop "]
+
+
+def test_menu_switches_the_loop_at_login(menu_env):
+    from test_raspi_config_menu import _env_value
+    proc = menu_env('do_toggle_demo_loop_login; demo_loop_login_state; '
+                    'do_toggle_demo_loop_login; demo_loop_login_state')
+    assert proc.stdout.split()[-2:] == ["on", "off"], proc.stdout + proc.stderr
+    assert _env_value(menu_env.env_file, "DEMO_LOOP_AT_LOGIN") == "false"
+    boxes = "\n".join("\n".join(c) for c in menu_env.whiptail_calls())
+    assert "starts at the next desktop login, instead of the browser" in boxes
+
+
+def _session(monkeypatch, loop_on):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rq_desktop_session_loop",
+                                                  os.path.join(_BIN, "rq_desktop_session.py"))
+    ds = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ds)
+    started = []
+    for name, value in (("reset_chromium_exit", lambda: None), ("apply_touch_css", lambda touch: None),
+                        ("touch_mode_on", lambda: False), ("screen_size", lambda: (1920, 1080)),
+                        ("set_small_screen_flag", lambda small: None),
+                        ("set_chromium_rule", lambda small: False),
+                        ("layout_desktop", lambda size, touch: False), ("ensure_quick_exec", lambda: False),
+                        ("online", lambda: True)):
+        monkeypatch.setattr(ds, name, value)
+    monkeypatch.setattr(ds, "env_value", lambda key, default="": (
+        ("true" if loop_on else "false") if key == "DEMO_LOOP_AT_LOGIN" else default))
+    monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
+    monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
+    monkeypatch.setenv("RQ_LOOP_DELAY", "0")
+    assert ds.main([]) == 0
+    return started
+
+
+def test_login_starts_the_loop_instead_of_the_browser(monkeypatch):
+    started = _session(monkeypatch, loop_on=True)
+    assert started == [["x-terminal-emulator", "-e", "/usr/bin/rq_hold_on_error.sh", "-t", "Demo Loop",
+                        "/usr/bin/rq_demo_loop.sh", "--at-login"]]
+
+
+def test_login_opens_the_browser_when_the_loop_is_off(monkeypatch):
+    started = _session(monkeypatch, loop_on=False)
+    assert len(started) == 1 and started[0][0] == "/usr/bin/chromium"
+
+
+def test_autologin_readme_promises_no_kiosk_mode():
+    # R-126: the build README advertised a "Kiosk Mode" that does not exist
+    text = open(os.path.join(_ROOT, "stage-RQB2", "03-desktop-autologin", "README.md")).read()
+    assert "**Kiosk Mode**" not in text
+    assert "Start the Demo Loop at login" in text

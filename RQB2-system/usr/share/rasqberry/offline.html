@@ -18,14 +18,14 @@
 <ul>
   <li><b>Demos:</b> start them from the desktop icons. Demos you have already started once work offline; a first start needs internet to download the demo.</li>
   <li><b>Connect:</b> click the network icon at the top right and choose your Wi-Fi, or open the <b>RasQberry Setup</b> icon.</li>
-  <li><b>Then:</b> <a href="https://rasqberry.org">open rasqberry.org</a>. This page also does it by itself once the Pi is online.</li>
+  <li><b>Then:</b> <a href="https://rasqberry.org/?from=pi">open rasqberry.org</a>. This page also does it by itself once the Pi is online.</li>
 </ul>
 <p class="note">To stop the browser opening at login: <code>sudo raspi-config</code> &rarr; 0 RasQberry &rarr; Browser at login.</p>
 <script>
   // Go to rasqberry.org as soon as it answers
   setInterval(function () {
     fetch("https://rasqberry.org/", { mode: "no-cors", cache: "no-store" })
-      .then(function () { location.href = "https://rasqberry.org"; })
+      .then(function () { location.href = "https://rasqberry.org/?from=pi"; })
       .catch(function () {});
   }, 10000);
 </script>

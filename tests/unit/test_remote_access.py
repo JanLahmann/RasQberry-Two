@@ -540,7 +540,7 @@ def test_checklist_names_the_led_kit_in_words(stubs, tmp_path, verified, layout,
     proc = _checklist(stubs, tmp_path, WT_RC_checklist="1", RQ_ENV_FILE=str(env_file))
     assert proc.returncode == 0, proc.stderr
     args = (tmp_path / "wt.log").read_text().split("@@")[0].splitlines()
-    assert args[args.index("led") + 1] == label
+    assert args[args.index("led") + 1] == label + " "     # a margin in the list
 
 
 # ---------------------------------------------------------------------------

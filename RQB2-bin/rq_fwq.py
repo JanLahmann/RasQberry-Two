@@ -57,7 +57,7 @@ FAMILY_DEMOS = {
     "qoffee-maker": "qoffee-maker",
     "qubins": "quantum-lab",
     "doqumentation": "doqumentation",
-    "traqmania": "traqmania",
+    "racetraq": "racetraq",
 }
 THIS_PI = "rasqberry-two"
 
@@ -81,12 +81,13 @@ def bundle_name(commit):
         commit (str): Full 40-character commit SHA.
 
     Returns:
-        str: fwq-portal-<commit>.tar.gz
+        str: fwq-portal-offline-<commit>.tar.gz (the variant made for the
+        Pi: browser games first, "online" labels, no tracking)
     """
     commit = (commit or "").strip().lower()
     if not _SHA_RE.match(commit):
         raise ValueError("not a full commit SHA: %r" % commit)
-    return "fwq-portal-%s.tar.gz" % commit
+    return "fwq-portal-offline-%s.tar.gz" % commit
 
 
 def bundle_urls(commit, repo=REPO, tag=RELEASE_TAG):

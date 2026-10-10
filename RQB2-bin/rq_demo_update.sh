@@ -95,14 +95,15 @@ fi
 # Docker image
 # ----------------------------------------------------------------------------
 update_image() {
-    local key="$1" name="$2" mf="$3" id="${1%:*}" cur rel tags latest out rc=0
+    local key="$1" name="$2" mf="$3" id="${1%:*}" cur rel tags latest order out rc=0
     cur=$(current_pin "$key" "$mf")
     rel=$(release_pin "$key" "$mf")
     tags=$(jq -r '.install.update.docker_tags' "$mf")
     latest=$(jq -r '.install.update.docker_latest // ""' "$mf")
+    order=$(jq -r '.install.update.docker_order // "date"' "$mf")
 
     show_infobox "$TITLE" "Looking for newer versions of $name on ghcr.io..."
-    out=$(python3 "$BIN_DIR/rq_image_versions.py" "$cur" --tags "$tags" --latest "$latest" 2>&1) || rc=$?
+    out=$(python3 "$BIN_DIR/rq_image_versions.py" "$cur" --tags "$tags" --latest "$latest" --order "$order" 2>&1) || rc=$?
     if [ "$rc" -ne 0 ]; then
         show_msgbox "$TITLE" "The versions of $name could not be listed:\n\n$out"
         return 0
@@ -146,7 +147,7 @@ update_image() {
     if ! docker image inspect "$target" >/dev/null 2>&1; then
         rc=0
         rq_confirm_download "$name" "$dl" "$disk" --path /var/lib/docker \
-            --url "https://ghcr.io/v2/" --time "5-20 minutes" \
+            --url "https://ghcr.io/v2/" --image "$target" \
             --title "Update $name?" \
             --intro "$name: ${label:-the version this release ships}." \
             --question "Download it now? The version in use is removed afterwards." || rc=$?
@@ -156,7 +157,13 @@ update_image() {
             *) show_msgbox "$TITLE" "$RQ_CONSENT_MSG"; return 0 ;;
         esac
         rq_docker_access
-        ( rq_docker_pull "$target" "$name" "$dl" ) || { show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0; }
+        rc=0
+        ( rq_docker_pull "$target" "$name" "$dl" ) || rc=$?
+        case "$rc" in
+            0) ;;
+            130) show_msgbox "$TITLE" "Download stopped. $name keeps the version in use."; return 0 ;;
+            *) show_msgbox "$TITLE" "$name was not updated: the download failed."; return 0 ;;
+        esac
     fi
     if [ "$target" = "$rel" ]; then
         rq_demo_set_version "$key" "$rel" ""

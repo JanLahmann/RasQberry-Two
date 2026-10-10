@@ -246,8 +246,8 @@ echo "TOUCH_MODE=disabled" > /var/lib/rasqberry/touch-mode.conf
 chmod 644 /var/lib/rasqberry/touch-mode.conf
 echo "Created touch mode state directory"
 
-# Note: Virtual keyboard (wvkbd) is installed separately in stage 09-touchscreen-support
-# and toggled manually via panel icon - no autostart needed
+# Note: the on-screen keyboard is set up in stage 09-touchscreen-support
+# (trixie: Raspberry Pi OS's squeekboard; bookworm: wvkbd with a panel launcher)
 
 # Update desktop database to recognize custom categories
 echo "Updating desktop database..."
@@ -318,15 +318,17 @@ fi
 # =============================================================================
 echo "Configuring Chromium browser settings..."
 
-# Create Chromium managed policy for homepage and settings
+# Create Chromium managed policy for homepage and settings. "?from=pi": the
+# site greets a Pi (start with First 15 minutes) instead of offering to write
+# the SD card that is already in it (fresh-card test 2026-10-08, F4)
 mkdir -p /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
 {
-  "HomepageLocation": "https://rasqberry.org",
+  "HomepageLocation": "https://rasqberry.org/?from=pi",
   "HomepageIsNewTabPage": false,
-  "NewTabPageLocation": "https://rasqberry.org",
+  "NewTabPageLocation": "https://rasqberry.org/?from=pi",
   "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://rasqberry.org"],
+  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi"],
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,

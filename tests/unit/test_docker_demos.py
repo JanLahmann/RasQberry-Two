@@ -99,9 +99,9 @@ def test_list_finds_the_workshop_server_without_the_mixer(stop):
 
 
 def test_list_finds_containers_by_name_and_by_label(stop):
-    proc, _, _ = stop(["--list"], running=["quantum-lab", "traqmania"], labelled=["traqmania"])
+    proc, _, _ = stop(["--list"], running=["quantum-lab", "racetraq"], labelled=["racetraq"])
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.split() == ["quantum-lab", "traqmania"]
+    assert proc.stdout.split() == ["quantum-lab", "racetraq"]
 
 
 def test_stop_menu_says_when_nothing_runs(stop):

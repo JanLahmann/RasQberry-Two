@@ -82,6 +82,10 @@
           "type": "string",
           "description": "Docker image, pinned per RasQberry release: name@sha256:<digest>, or name:<40-char source commit> for an image built by CI from a pinned source commit (the local fallback build tags the same name). 'Update demos' can move it (rq_demo_image)."
         },
+        "docker_image_tag": {
+          "type": "string",
+          "description": "The publisher's tag for the docker_image digest (e.g. QuBins' monthly snapshot '2.5-xl-20261008', kept for 12 months), for people reading the manifest. Not used to download: the digest is the pin."
+        },
         "docker_image_fallback": {
           "type": "string",
           "description": "A tag of the same image (name:tag, never a digest), downloaded instead when the registry no longer offers the docker_image digest (its publisher pruned it); recorded as the version in use for that release pin (rq_demo_docker_pull). Required with a digest pin in shipped manifests."
@@ -193,7 +197,8 @@
           "description": "How 'Update demos' finds newer versions of the Docker image on ghcr.io",
           "properties": {
             "docker_tags": {"type": "string", "description": "Regular expression for the version tags, e.g. ^[0-9a-f]{7}-jupyter$"},
-            "docker_latest": {"type": "string", "description": "Tag of the newest build, e.g. jupyter"}
+            "docker_latest": {"type": "string", "description": "Tag of the newest build, e.g. jupyter"},
+            "docker_order": {"type": "string", "enum": ["date", "version"], "description": "What a newer version is: a later build (date, the default), or a higher Qiskit version (version: the org.qubins.qiskit.patch label, else the tag's major.minor; Quantum Lab). Snapshot tags (*-YYYYMMDD) are preferred over moving tags either way."}
           }
         },
         "installer": {

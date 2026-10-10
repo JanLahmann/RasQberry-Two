@@ -10,7 +10,8 @@ boot.
 ## Setup
 
 - Test Pis with key-based SSH login for the desktop user
-  (`ssh-copy-id rasqberry@<pi>`). A freshly flashed image needs this once; slot
+  (`ssh-copy-id rasqberry@<pi>`; a user named in Imager, e.g. `jan@<pi>`:
+  put that user into `host`, or as `"user"`). Everything runs as this user. A freshly flashed image needs this once; slot
   updates made with `rq_update_slot.sh` keep the key (#275).
 - Optional: an RTSP camera covering the LED panels.
 - This machine: `ssh`, `ffmpeg`, Python 3 with Pillow, and `gh` for `--update`.

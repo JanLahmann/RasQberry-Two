@@ -1,8 +1,27 @@
 #!/bin/bash -e
 #
 # Install touchscreen support (runs in CHROOT)
-# Files are already installed by 00-run.sh
+# Files are already installed by 01-deploy-files
 #
+# trixie: Raspberry Pi OS's own on-screen keyboard (squeekboard) stays as it
+# is. It pops up by itself in text fields, the Wi-Fi password popup included,
+# and the panel's keyboard icon (the squeek widget) shows or hides it;
+# raspi-config -> Display Options -> On-screen Keyboard switches it. wvkbd is
+# not installed: it only toggled from its panel launcher, and tapping that
+# closed the Wi-Fi password popup (user feedback, 2026-10).
+# bookworm: wvkbd with a toggle launcher in the panel, in place of squeekboard.
+
+# trixie (wf-panel-pi 1.x) has this file, bookworm (wf-panel-pi 0.x) not
+SYS_PANEL_CONFIG="/etc/xdg/wf-panel-pi/wf-panel-pi.ini"
+if [ -f "$SYS_PANEL_CONFIG" ]; then
+    echo "=== Touchscreen support: Raspberry Pi OS's on-screen keyboard (squeekboard) ==="
+    if [ -f /etc/xdg/autostart/squeekboard.desktop ]; then
+        echo "squeekboard autostart: $(sed -n 's/^Exec=//p' /etc/xdg/autostart/squeekboard.desktop | head -1)"
+    else
+        echo "Note: no /etc/xdg/autostart/squeekboard.desktop (raspi-config -> Display Options -> On-screen Keyboard)"
+    fi
+    exit 0
+fi
 
 echo "=== Installing Touchscreen Support (Virtual Keyboard) ==="
 
@@ -39,54 +58,27 @@ add_keyboard_to_panel() {
     fi
 }
 
-# trixie (wf-panel-pi 1.x): the user config is ~/.config/wf-panel-pi/wf-panel-pi.ini,
-# read key by key over /etc/xdg/wf-panel-pi/wf-panel-pi.ini, and the launchers
-# are one key, "launchers=" (desktop file names without .desktop). The system
-# list plus the keyboard toggle goes into the user file; everything else keeps
-# coming from the system file.
-SYS_PANEL_CONFIG="/etc/xdg/wf-panel-pi/wf-panel-pi.ini"
-if [ -f "$SYS_PANEL_CONFIG" ]; then
-    SYS_LAUNCHERS=$(sed -n 's/^launchers=//p' "$SYS_PANEL_CONFIG" | head -1)
-    case " $SYS_LAUNCHERS " in
-        *" virtual-keyboard "*) PANEL_LAUNCHERS="$SYS_LAUNCHERS" ;;
-        *) PANEL_LAUNCHERS="${SYS_LAUNCHERS:+$SYS_LAUNCHERS }virtual-keyboard" ;;
-    esac
-    for PANEL_HOME in /etc/skel ${FIRST_USER_NAME:+/home/${FIRST_USER_NAME}}; do
-        PANEL_CONFIG="${PANEL_HOME}/.config/wf-panel-pi/wf-panel-pi.ini"
-        if [ ! -f "$PANEL_CONFIG" ]; then
-            mkdir -p "$(dirname "$PANEL_CONFIG")"
-            printf '[panel]\nlaunchers=%s\n' "$PANEL_LAUNCHERS" > "$PANEL_CONFIG"
-            echo "Created panel config with keyboard: $PANEL_CONFIG"
-        fi
-    done
-    if [ -n "${FIRST_USER_NAME}" ]; then
-        chown -R "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "/home/${FIRST_USER_NAME}/.config"
-    fi
-fi
-
 # bookworm (wf-panel-pi 0.x): ~/.config/wf-panel-pi.ini with launcher_NNNNNN lines
 # Add to skel for new users (create if missing)
 SKEL_PANEL_DIR="/etc/skel/.config"
 SKEL_PANEL_CONFIG="${SKEL_PANEL_DIR}/wf-panel-pi.ini"
 mkdir -p "$SKEL_PANEL_DIR"
-if [ -f "$SYS_PANEL_CONFIG" ]; then
-    : # trixie: done above
-elif [ ! -f "$SKEL_PANEL_CONFIG" ]; then
+if [ ! -f "$SKEL_PANEL_CONFIG" ]; then
     # Create default panel config with keyboard launcher
-    cat > "$SKEL_PANEL_CONFIG" << 'EOF'
+    cat > "$SKEL_PANEL_CONFIG" << 'EOT'
 [panel]
 launcher_000001=lxde-x-www-browser.desktop
 launcher_000002=pcmanfm.desktop
 launcher_000003=lxterminal.desktop
 launcher_000004=virtual-keyboard.desktop
-EOF
+EOT
     echo "Created panel config with keyboard: $SKEL_PANEL_CONFIG"
 else
     add_keyboard_to_panel "$SKEL_PANEL_CONFIG"
 fi
 
 # Add to first user's panel config (create if missing)
-if [ -n "${FIRST_USER_NAME}" ] && [ ! -f "$SYS_PANEL_CONFIG" ]; then
+if [ -n "${FIRST_USER_NAME}" ]; then
     USER_PANEL_DIR="/home/${FIRST_USER_NAME}/.config"
     USER_PANEL_CONFIG="${USER_PANEL_DIR}/wf-panel-pi.ini"
     mkdir -p "$USER_PANEL_DIR"

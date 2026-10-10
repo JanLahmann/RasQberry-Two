@@ -1,6 +1,7 @@
 [Desktop Entry]
 Name=Toggle Keyboard
 Comment=Show/hide wvkbd virtual keyboard for touchscreens
+TryExec=wvkbd-mobintl
 Exec=/usr/local/bin/toggle-keyboard.sh
 Icon=input-keyboard
 Terminal=false

@@ -53,3 +53,18 @@ def test_doqumentation_manifest_validates():
     proc = subprocess.run([_VALIDATE, manifest], capture_output=True, text=True)
     output = proc.stdout + proc.stderr
     assert proc.returncode == 0, f"doqumentation manifest failed to validate:\n{output}"
+
+
+def test_quantum_lab_pins_a_monthly_snapshot():
+    """
+    Quantum Lab pins the digest of a QuBins monthly snapshot (kept 12
+    months), not a nightly build (pruned after a few days), and names it.
+    """
+    import json
+    import re
+    with open(os.path.join(_MANIFEST_DIR, "rq_demo_quantum-lab.json")) as fh:
+        ep = json.load(fh)["entrypoint"]
+    assert re.fullmatch(r"ghcr\.io/qubins/images@sha256:[0-9a-f]{64}", ep["docker_image"])
+    assert re.fullmatch(r"\d+\.\d+-xl-\d{8}", ep["docker_image_tag"]), ep["docker_image_tag"]
+    # the fallback is the moving tag of the same line (2.5-xl for 2.5-xl-2026...)
+    assert ep["docker_image_fallback"] == "ghcr.io/qubins/images:" + ep["docker_image_tag"].rsplit("-", 1)[0]

@@ -80,7 +80,7 @@ def test_remove_unknown_demo_fails(tmp_path):
 
 
 def test_remove_offers_to_delete_the_docker_image(tmp_path):
-    # R-160: traQmania's 3.2 GB image stayed behind
+    # R-160: traQmania's (now racetraQ) 3.2 GB image stayed behind
     m = {"id": "dock-demo", "entrypoint": {"type": "docker", "docker_image": "ghcr.io/x/dock:latest",
                                             "working_dir": "dock-demo"},
          "install": {"repo_url": "https://github.com/x/dock-demo.git"}}

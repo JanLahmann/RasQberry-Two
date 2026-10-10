@@ -8,10 +8,11 @@ workflow runs on the finished standard image (see [docs/ab-boot.md](../../docs/a
 ## What it does (`00-run-chroot.sh`, chroot)
 
 - Fails the build unless `rq_health_check.py`, `rq_slot_manager.sh`,
-  `rq_common.sh`, `rq_update_slot.sh`, `rq_tryboot_retry.sh`, `rq_expand_ab.sh`
-  and `rq_carry_over.sh` are in `/usr/bin` and `rasqberry-health-check.service`,
-  `rasqberry-tryboot-retry.service`, `rasqberry-ab-layout.service`,
-  `rasqberry-carry-over.service` and `rasqberry-probation.timer` are enabled.
+  `rq_common.sh`, `rq_update_slot.sh`, `rq_tryboot_retry.sh`, `rq_expand_ab.sh`,
+  `rq_carry_over.sh` and `rq_after_update.sh` are in `/usr/bin` and
+  `rasqberry-health-check.service`, `rasqberry-tryboot-retry.service`,
+  `rasqberry-ab-layout.service`, `rasqberry-carry-over.service`,
+  `rasqberry-after-update.service` and `rasqberry-probation.timer` are enabled.
 
 ## The A/B units (B4)
 
@@ -25,6 +26,7 @@ image they find no `/boot/config` and do nothing.
 | `rasqberry-tryboot-retry.service` | every start | re-issues a lost tryboot once; on the trial boot of a new slot arms systemd's 15 s hardware watchdog |
 | `rasqberry-health-check.service` | every start | confirms the slot; on a trial boot a failed check rolls back (reboot into the old slot) |
 | `rasqberry-probation.timer` | 15 min after every start | rolls back a trial boot that is still unconfirmed (survives emergency mode) |
+| `rasqberry-after-update.service` | every start, after the health check and the network | `rq_after_update.sh run`: once per release, on a confirmed slot, runs the user's scripts in `/data/rasqberry/after-update.d/` as root |
 
 ## Files
 

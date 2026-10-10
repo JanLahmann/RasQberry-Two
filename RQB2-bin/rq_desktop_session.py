@@ -27,7 +27,9 @@ Started by /etc/xdg/autostart/rasqberry-browser.desktop as the desktop user:
    RasQberry Setup is the last icon, and goes once the setup checklist is
    done (the menu keeps the checklist).
 5. Browser (BROWSER_AUTOSTART): rasqberry.org, or a local page that says what
-   to do without internet (R-101, Q15).
+   to do without internet (R-101, Q15). With DEMO_LOOP_AT_LOGIN=true (Demo
+   Loop menu, off as shipped) the Demo Loop starts in a terminal window
+   instead, for a stand (R-123).
 
 Usage:
     rq_desktop_session.py                 everything (the autostart)
@@ -63,7 +65,10 @@ ENV_FILE = "/usr/config/rasqberry_environment.env"
 TOUCH_STATE = "/var/lib/rasqberry/touch-mode.conf"
 TOUCH_CSS = "/usr/config/touch-mode/gtk-touch.css"
 OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
-HOMEPAGE = "https://rasqberry.org"
+# "?from=pi": the site greets a Pi (start with First 15 minutes) instead of
+# offering to write the SD card that is already in it (fresh-card test
+# 2026-10-08, F4); the Chromium policy's home page says the same
+HOMEPAGE = "https://rasqberry.org/?from=pi"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
 # Every launcher the image puts on the desktop (stage 06). Where each one
@@ -744,12 +749,13 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     The group of a demo, decided like rq_demo_group in rq_common.sh.
 
     A catalogue demo (one in known-demos.json, or a manifest that is not
-    shipped) goes to its known-demos.json entry's group (it is curated), else
-    to the group marked "catalogue" (Contributed demos) - not to the group its
-    own manifest names. A shipped demo goes to its manifest's "group", else a
-    guess: an LED panel demo to led-panel, a game or visualization to play,
-    anything else to learn. A value demo-groups.json does not list counts as
-    none.
+    shipped) goes to its known-demos.json entry's group (it is curated; an
+    install under an earlier name, listed in an entry's "replaces", goes to
+    that entry's group), else to the group marked "catalogue" (Contributed
+    demos) - not to the group its own manifest names. A shipped demo goes to
+    its manifest's "group", else a guess: an LED panel demo to led-panel, a
+    game or visualization to play, anything else to learn. A value
+    demo-groups.json does not list counts as none.
 
     Args:
         demo_id (str): Demo id.
@@ -766,7 +772,9 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     dirs = dirs or manifest_dirs()
     registry = _read_json(known or KNOWN_DEMOS) or {}
     manifest = find_manifest(demo_id, dirs)
-    entry = [d for d in registry.get("demos") or [] if isinstance(d, dict) and d.get("id") == demo_id]
+    demos = [d for d in registry.get("demos") or [] if isinstance(d, dict)]
+    entry = ([d for d in demos if d.get("id") == demo_id]
+             + [d for d in demos if demo_id in (d.get("replaces") or [])])
     for group in (d.get("group") for d in entry):
         if group in ids:
             return group
@@ -1308,6 +1316,36 @@ def start_browser(small):
         logger.warning("could not start Chromium: %s", exc)
 
 
+DEMO_LOOP_CMD = ["/usr/bin/rq_hold_on_error.sh", "-t", "Demo Loop",
+                 "/usr/bin/rq_demo_loop.sh", "--at-login"]
+
+
+def start_demo_loop(terminal=None):
+    """
+    Start the Demo Loop in a terminal window if DEMO_LOOP_AT_LOGIN=true.
+
+    The terminal is the one desktop launchers use (x-terminal-emulator -e).
+    The loop asks nothing at login: demos not on this Pi are left out.
+
+    Args:
+        terminal (list): Terminal command line before the loop's.
+
+    Returns:
+        bool: True if the loop was started (then the browser is not).
+    """
+    if env_value("DEMO_LOOP_AT_LOGIN", "false") != "true":
+        return False
+    time.sleep(int(os.environ.get("RQ_LOOP_DELAY", "10")))  # LED driver, desktop
+    cmd = list(terminal or ["x-terminal-emulator", "-e"]) + DEMO_LOOP_CMD
+    try:
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+    except OSError as exc:
+        logger.warning("could not start the Demo Loop: %s", exc)
+        return False
+    return True
+
+
 def main(argv):
     """
     Run the login steps.
@@ -1364,7 +1402,9 @@ def main(argv):
     if reload_pcmanfm:
         run_quietly(["pcmanfm", "--reconfigure"])
     if "--no-browser" not in argv:
-        start_browser(small)
+        # a stand: the Demo Loop instead of the browser (R-123)
+        if not start_demo_loop():
+            start_browser(small)
     return 0
 
 

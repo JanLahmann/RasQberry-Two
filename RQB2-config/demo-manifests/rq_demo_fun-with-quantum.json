@@ -3,7 +3,7 @@
   "name": "Fun with Quantum",
   "category": "jupyter",
   "group": "play",
-  "description": "Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin-Peres magic square, 3-SAT with Grover), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects",
+  "description": "Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects",
   "keywords": [
     "quantum",
     "jupyter",
@@ -30,9 +30,9 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
-    "ref": "aa6474614ef1c07b18a4d7ce568eed228d71a273",
-    "portal_ref": "fce37a055a77f712a942b2e479e68a2bca3188b1",
-    "portal_sha256": "285ae867ddb001085703fd376173ccbfbf2c7edda725a2387bc09d5fbab88991",
+    "ref": "8724eee6286baa4ee31b6b10e2a3e3c772ae8202",
+    "portal_ref": "8724eee6286baa4ee31b6b10e2a3e3c772ae8202",
+    "portal_sha256": "5106abe9fd53d0ae307109e9a988843bc98a64ca0f7060cdbfd1b803f93480e1",
     "marker_file": "Quantum-Coin-Game.ipynb",
     "installed_flag": "FUN_WITH_QUANTUM_INSTALLED",
     "download": {
@@ -88,7 +88,7 @@
     },
     {
       "id": "ghz-game",
-      "name": "GHZ game",
+      "name": "GHZ Game",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -99,7 +99,7 @@
     },
     {
       "id": "hardys-paradox",
-      "name": "Hardy's paradox",
+      "name": "Hardy's Paradox",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -110,7 +110,7 @@
     },
     {
       "id": "mermin-peres",
-      "name": "Mermin-Peres magic square",
+      "name": "Mermin–Peres Magic Square",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -121,13 +121,46 @@
     },
     {
       "id": "3-sat",
-      "name": "3-SAT with Grover",
+      "name": "3-SAT with Grover's Algorithm",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
       },
       "args": [
         "3sat.ipynb"
+      ]
+    },
+    {
+      "id": "chsh-game",
+      "name": "The CHSH Game",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "CHSH-Game.ipynb"
+      ]
+    },
+    {
+      "id": "prisoners-dilemma",
+      "name": "The Quantum Prisoner's Dilemma",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "Prisoners-Dilemma.ipynb"
+      ]
+    },
+    {
+      "id": "ghz-real-devices",
+      "name": "GHZ on Real Quantum Devices",
+      "entrypoint": {
+        "type": "jupyter",
+        "launcher": "rq_fun_with_quantum.sh"
+      },
+      "args": [
+        "GHZ-on-Real-Devices.ipynb"
       ]
     },
     {

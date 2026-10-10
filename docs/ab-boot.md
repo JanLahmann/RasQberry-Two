@@ -109,6 +109,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | desktop user's name (#319: a fresh slot's `rasqberry` is renamed to the other slot's user, home `/home/<name>`, by `rq_user_rename.sh`; fallback `/data/rasqberry/desktop-user`) | first, before the rest, on the first start of a freshly written slot |
 | desktop user's password (hash), hostname, time zone, locale, keyboard, "Browser at login", the marks in `~/.local/state/rasqberry/` (setup checklist answered, notices shown; its folders stay per slot) | copied once from the other slot on the first start of a freshly written slot (marker `/var/lib/rasqberry/carry-over-pending`) |
 | Raspberry Pi Connect: its sign-in (`~/.config/com.raspberrypi.connect`) and, where it was on, its user units and linger | copied once, like the line above, where the new system has Connect installed |
+| Quantum Mixer's Home Connect settings (`~/.config/rasqberry/home-connect.env`, mode 600) | copied once, unread, like the line above |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |
 
 Not kept: other files in the home folder, installed demos, Docker images, added
@@ -123,6 +124,36 @@ from an older release carries everything over. The password is carried over
 because otherwise an update would put the published default password back on a
 device whose owner changed it, with SSH and VNC on. Without a real DATA
 partition (standard image, or the placeholder) nothing is linked.
+
+### Your own steps after an update
+
+Packages you installed yourself are not in a new system. Executable scripts in
+`/data/rasqberry/after-update.d/` bring them back: each system runs them once
+per release, as root, in name order, after the health check has confirmed it
+(`rasqberry-after-update.service`, [`rq_after_update.sh`](../RQB2-bin/rq_after_update.sh)).
+Never on a trial start, so a script cannot cause or delay a rollback; going
+back to the other slot runs nothing (each slot keeps its marker,
+`/var/lib/rasqberry/after-update.done`).
+
+- The folder and each script must belong to root and must not be writable by
+  group or others, or they are skipped. Dotfiles, `*~` and `*.dpkg-*` are ignored.
+- Environment: `RQ_RELEASE`, `RQ_PREVIOUS_RELEASE`, `RQ_DESKTOP_USER`,
+  `RQ_DESKTOP_HOME`, `RQ_VENV`. Each script may take 30 minutes
+  (`TIMEOUT_MINUTES=60` in `/data/rasqberry/after-update.conf`); a failing one
+  does not stop the next.
+- Log: `/var/log/rasqberry/after-update.log`. `sudo rq_after_update.sh status`
+  shows the last run, `sudo rq_after_update.sh run --force` runs them again.
+
+```bash
+sudo mkdir -p /data/rasqberry/after-update.d
+sudo tee /data/rasqberry/after-update.d/10-my-extras >/dev/null <<'EOF'
+#!/bin/bash
+set -e
+apt-get update && apt-get install -y htop
+sudo -u "$RQ_DESKTOP_USER" "$RQ_VENV/bin/pip" install qiskit-nature
+EOF
+sudo chmod 755 /data/rasqberry/after-update.d/10-my-extras
+```
 
 ## Updating a slot
 
@@ -277,6 +308,7 @@ sudo rq_update_slot.sh <ab-image-url> <tag>       # write a system into the othe
 sudo rq_slot_manager.sh switch-to B --reboot      # try Slot B (probation)
 sudo rq_slot_manager.sh confirm                   # keep the booted slot
 sudo rq_slot_manager.sh rollback && sudo reboot   # back to the other slot
+sudo rq_after_update.sh status                    # your scripts after an update: the last run
 cat /etc/rasqberry-version                        # build marker of this slot
 ```
 
@@ -323,6 +355,15 @@ login show it for 7 days, or until the taskbar menu was opened; System Info and
 the slot manager as long as `last-switch-failed` is there. A login also
 shows a new release as one line (`/var/lib/rasqberry/update-notice`, written
 by `rasqberry-update-check.timer`).
+
+**What's new.** The menu's update offer (Check for a newer image, and the
+release picker) shows the offered release's highlights. After an update, the
+first desktop login of the confirmed new system opens its "What's new" once
+(with a note that Raspberry Pi OS's own "Updates are available" is separate),
+and the first SSH login prints it, unless it was already seen as the offer
+(`~/.local/state/rasqberry/whats-new-due` and `whats-new-seen`). The badge menu
+keeps "What's new in this version…" while the release is the newest of its
+stream.
 
 Only root can look into the other slot, so the health check writes
 `/run/rasqberry/slot-status` at every start (`rq_slot_status.sh write`); the

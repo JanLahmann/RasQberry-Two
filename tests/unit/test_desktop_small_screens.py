@@ -240,6 +240,18 @@ def test_autostart_runs_the_session_helper():
     assert ds.OFFLINE_PAGE == "file:///usr/share/rasqberry/offline.html" and os.path.exists(page)
 
 
+def test_the_pi_opens_the_site_as_a_pi():
+    # fresh-card test 2026-10-08, F4: the Pi's start page offered to write the
+    # SD card that is already in it; with ?from=pi the site greets the Pi
+    assert ds.HOMEPAGE == "https://rasqberry.org/?from=pi"
+    page = open(os.path.join(_ROOT, "RQB2-system", "usr", "share", "rasqberry", "offline.html")).read()
+    assert page.count('"https://rasqberry.org/?from=pi"') == 2
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    assert policy["HomepageLocation"] == policy["NewTabPageLocation"] == ds.HOMEPAGE
+    assert policy["RestoreOnStartupURLs"] == [ds.HOMEPAGE]
+
+
 # --- launchers -------------------------------------------------------------------
 
 def test_no_launcher_claims_file_types():

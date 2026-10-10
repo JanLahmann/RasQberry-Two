@@ -2,7 +2,9 @@
 Quantum Mixer without a Home Connect account (F1 of the 2026-10-08 Pi 4 test,
 item 18 of feedback-2026-10-03): its QoffeeMaker login answered a bare
 "Internal Server Error" and the hint named Qoffee-Maker's settings file, which
-is not there unless Qoffee-Maker was downloaded.
+is not there unless Qoffee-Maker was downloaded. The fix is in the Mixer image
+since quantum-mixer 8a9cf32 (its PR #3); the copy RasQberry mounted over the
+older image in the meantime is gone.
 
 quantum-mixer.sh runs against a stub docker that logs its arguments; no
 Raspberry Pi, network or Docker needed.
@@ -10,7 +12,6 @@ Raspberry Pi, network or Docker needed.
 
 import json
 import os
-import re
 import shutil
 import stat
 import subprocess
@@ -22,7 +23,7 @@ _ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
 _BIN = os.path.join(_ROOT, "RQB2-bin")
 _CFG = os.path.join(_ROOT, "RQB2-config")
 _MIXER = os.path.join(_BIN, "quantum-mixer.sh")
-_FIX = os.path.join(_CFG, "quantum-mixer", "qoffee_usecase.py")
+_FIXLESS_REF = "fc0cb984508ce80b3d0c650669bc7f2b8bde72c3"   # the image that answered a 500
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None or shutil.which("jq") is None,
                                 reason="bash and jq are required")
@@ -83,12 +84,7 @@ def mixer(tmp_path):
     return run
 
 
-def _pin_ref():
-    with open(os.path.join(_CFG, "demo-manifests", "rq_demo_quantum-mixer.json")) as f:
-        return json.load(f)["entrypoint"]["docker_image"].rsplit(":", 1)[1]
-
-
-def test_without_an_account_the_fixed_use_case_is_mounted_and_the_hint_names_a_real_file(mixer):
+def test_without_an_account_the_hint_names_a_real_file_and_nothing_is_mounted(mixer):
     p, args = mixer()
     assert p.returncode == 0, p.stdout + p.stderr
     hc = mixer.home / ".config" / "rasqberry" / "home-connect.env"
@@ -104,9 +100,8 @@ def test_without_an_account_the_fixed_use_case_is_mounted_and_the_hint_names_a_r
     hint = [a for a in args if a.startswith("HOMECONNECT_SETUP_HINT=")]
     assert hint and str(hc) in hint[0]
     assert not any(a.startswith("HOMECONNECT_CLIENT_ID=") for a in args)
-    # the pinned image gets the fixed Qoffee use case
-    mount = [a for a in args if a.endswith("/usecases/qoffee/usecase.py:ro")]
-    assert mount and mount[0].startswith(str(mixer.cfg / "quantum-mixer" / "qoffee_usecase.py") + ":")
+    # the image has the Qoffee page itself: nothing is mounted over it
+    assert "-v" not in args and not any(a.endswith(":ro") for a in args)
 
 
 def test_an_account_in_the_mixer_settings_file_is_used(mixer):
@@ -132,19 +127,16 @@ def test_qoffee_makers_settings_still_count(mixer):
     assert "HOMECONNECT_BASE_URL=https://api.home-connect.com" in args
 
 
-def test_the_fix_is_only_mounted_into_the_image_it_was_written_for():
+def test_the_pin_is_a_mixer_build_with_the_qoffee_page():
+    with open(os.path.join(_CFG, "demo-manifests", "rq_demo_quantum-mixer.json")) as f:
+        m = json.load(f)
+    ref = m["install"]["source"]["ref"]
+    assert ref != _FIXLESS_REF
+    ep = m["entrypoint"]
+    assert ep["docker_image"].startswith("ghcr.io/janlahmann/quantum-mixer@sha256:")
+    assert ep["docker_image_fallback"] == "ghcr.io/janlahmann/quantum-mixer:" + ref
+    # the temporary copy of the fixed use case and its mount are gone
+    assert not os.path.exists(os.path.join(_CFG, "quantum-mixer"))
     text = open(_MIXER).read()
-    ref = re.search(r'QOFFEE_FIX_REF="([0-9a-f]{40})"', text).group(1)
-    # bump both together: a newer image either carries the fix or needs a new copy
-    assert ref == _pin_ref()
-    assert '"${RUN_IMAGE##*:}" = "$QOFFEE_FIX_REF"' in text
-
-
-def test_the_fixed_use_case_shows_a_page_not_a_500():
-    src = open(_FIX).read()
-    assert "QoffeeMaker needs a Home Connect account" in src
-    assert "Try it without a coffee machine" in src
-    assert "self.configured" in src
-    # the measure-only mode: no login, no order button
-    assert "self.data.loginRequired = False" in src and "self.data.hasOrder = False" in src
-    compile(src, _FIX, "exec")
+    assert "QOFFEE_FIX" not in text and "usecase.py" not in text
+    assert "HOMECONNECT_SETUP_HINT=" in text

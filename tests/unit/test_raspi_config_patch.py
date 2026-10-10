@@ -123,3 +123,16 @@ def test_older_patch_without_the_about_line_is_upgraded(tmp_path):
     assert _markers(text) == list(_MARKERS)
     # the About line comes before raspi-config's own "9" case: first match wins
     assert text.index("do_rasqberry_about") < text.index("do_rasqberry_menu") + 200
+
+
+def test_main_menu_entry_says_what_is_inside(tmp_path):
+    # R-092: "Configure RasQberry-Two" said nothing; raspi-config's own
+    # entries name what they hold ("Configure system settings")
+    target = tmp_path / "raspi-config"
+    _fake_raspi_config(target)
+    assert _patch(target).returncode == 0
+    text = target.read_text()
+    assert '"0 RasQberry" "Quantum demos, LED panel and settings"' in text
+    assert "Configure RasQberry-Two" not in text
+    rqb2 = open(os.path.join(_ROOT, "RQB2-config", "raspi-config.rqb2.txt")).read()
+    assert '"0 RasQberry" "Quantum demos, LED panel and settings"' in rqb2

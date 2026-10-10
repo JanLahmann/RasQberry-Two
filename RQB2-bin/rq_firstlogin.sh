@@ -439,6 +439,14 @@ task_wifi_applies() { [ -d "${RQ_WLAN_DIR:-/sys/class/net/wlan0}" ] && command -
 task_wifi_pending() { ! ip route get 1.1.1.1 >/dev/null 2>&1; }
 # The interface the internet goes through: wlan0, eth0 ...
 net_dev() { ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n 1; }
+# Wi-Fi is up, whatever carries the default route (a cable may as well:
+# Imager's Wi-Fi on a Pi with a cable, user test 2026-10-08 F2)
+wifi_connected() {
+    if command -v nmcli >/dev/null 2>&1; then
+        nmcli -t -f TYPE,STATE device 2>/dev/null | grep -q '^wifi:connected' && return 0
+    fi
+    ip -o addr show scope global 2>/dev/null | awk '{ print $2 }' | grep -q '^wl'
+}
 task_wifi_label()   { printf 'Connect to Wi-Fi (no network connection found)'; }
 task_wifi_run()     { nmtui connect || sudo nmtui connect; }
 
@@ -468,12 +476,16 @@ task_touch_run()     { "$BIN_DIR/rq_touch_mode.sh" enable --restart; }
 done_label() {
     case "$1" in
         wifi)
-            # Truthfully: a Pi on a network cable is not on Wi-Fi (F3)
-            case "$(net_dev)" in
-                wl*)         echo "Run again: Wi-Fi (connected)" ;;
-                eth*|en*)    echo "Set up Wi-Fi (the network is connected by cable now)" ;;
-                *)           echo "Set up Wi-Fi (connected to a network now)" ;;
-            esac ;;
+            # Truthfully: a Pi on a network cable only is not on Wi-Fi (F3)
+            if wifi_connected; then
+                echo "Run again: Wi-Fi (connected)"
+            else
+                case "$(net_dev)" in
+                    wl*)         echo "Run again: Wi-Fi (connected)" ;;
+                    eth*|en*)    echo "Set up Wi-Fi (the network is connected by cable now)" ;;
+                    *)           echo "Set up Wi-Fi (connected to a network now)" ;;
+                esac
+            fi ;;
         password) echo "Run again: password (keeping the demo password)" ;;
         locale)   echo "Run again: keyboard ($(kb_layout)) and time zone ($(time_zone))" ;;
         name)     echo "Run again: name ($(hostname 2>/dev/null))" ;;
@@ -485,7 +497,7 @@ done_label() {
             else
                 echo "Run again: LED panel check ($(led_layout_name "$(env_value LED_LAYOUT)"))"
             fi ;;
-        demos)    echo "Run again: download all demos (done)" ;;
+        demos)    echo "Run again: download all demos (done; Docker demos at first start)" ;;
         firmware) echo "Read again: about the Pi's firmware" ;;
         touch)    echo "Run again: touch mode (on)" ;;
         *)        echo "Run again: $1" ;;
@@ -524,9 +536,11 @@ pending_tasks() {
 # and then holds the LED panel for a minute or more. The checklist's LED check
 # must not start under it (rule 2), so wait until the service has finished -
 # and at least a little, so the browser that opens 10 s after login does not
-# land on top of the checklist window.
+# land on top of the checklist window. At most 2 minutes: a scroll that runs
+# longer (the checklist came 3 minutes late on a Pi 4, pre-beta check
+# 2026-10-08) is offered "Stop It" by the LED check.
 wait_for_ip_display() {
-    local waited=0 limit="${RQ_FIRSTLOGIN_WAIT:-300}" state
+    local waited=0 limit="${RQ_FIRSTLOGIN_WAIT:-120}" state
     sleep "${RQ_FIRSTLOGIN_MIN_WAIT:-15}"
     command -v systemctl >/dev/null 2>&1 || return 0
     while [ "$waited" -lt "$limit" ]; do
@@ -623,12 +637,19 @@ else
 Space ticks or unticks a step, Enter runs the ticked ones.
 $REOPEN"
 fi
-# Touchscreen without a keyboard (R-089)
+# Touchscreen without a keyboard (R-089). On trixie Raspberry Pi OS's own
+# keyboard (squeekboard, stage 09) also opens by itself in this window.
 if task_touch_applies 2>/dev/null; then
     text="$text
-No keyboard? The keyboard icon in the top bar opens one on the screen."
+No keyboard? The keyboard icon in the top bar shows one on the screen."
 fi
 rows=$(( ${#args[@]} / 3 ))
+# whiptail makes the list exactly as wide as its longest line, so that line
+# touched the list's edge however short it was (437edbee shortened it; user
+# test 2026-10-08, F4): a space after every line keeps a margin
+for ((li = 1; li < ${#args[@]}; li += 3)); do
+    args[li]="${args[li]} "
+done
 lines=$(printf '%s\n' "$text" | fold -s -w 72 | wc -l)
 height=$(( rows + lines + 8 ))
 max=$(tput lines 2>/dev/null || echo 24)

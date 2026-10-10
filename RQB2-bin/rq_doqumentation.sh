@@ -28,9 +28,12 @@ set -euo pipefail
 #   it starts headless and prints the addresses (Jan, Q19).
 #
 # Container port model (jupyter-local target):
-#   - nginx :80  serves the site and proxies the Jupyter API (/api/,
-#                /terminals/), adding the token: participants need no token.
+#   - nginx :80  serves the site and proxies the Jupyter API (/api/),
+#                adding the token: participants need no token.
 #                Published on all addresses (workshop) or 127.0.0.1 (solo).
+#                LAB_ENABLED=false hides "Open in Lab" (nginx serves no /lab),
+#                ALLOW_TERMINALS=false refuses shells for participants
+#                (doQumentation#963, #980; set explicitly, R-070).
 #   - jupyter :8888  direct JupyterLab (token), published on 127.0.0.1 only,
 #                for the teacher on the Pi or over an ssh -L tunnel.
 #   CORS_ORIGIN lists localhost, and for a workshop the Pi's .local name and
@@ -61,9 +64,7 @@ esac
 mode_name() { if [ "$1" = "solo" ]; then echo "$SOLO_NAME"; else echo "$WORKSHOP_NAME"; fi; }
 NAME=$(mode_name "$MODE")
 
-echo
-echo "=== $NAME ==="
-echo
+rq_demo_header "$NAME"
 
 load_rqb2_env
 verify_env_vars REPO USER_HOME BIN_DIR
@@ -132,9 +133,12 @@ participant_urls() {
 
 # Item 19: what the server means for this Pi, precise and calm
 TRUST_SHORT="Anyone on this network can open these addresses and run code on this Pi: use a network you trust, not public Wi-Fi. Restarting the server restores the original notebooks."
-# Running code needs the internet for now: the pages load their code runner
-# (thebelab) from unpkg.com (R-068, upstream JanLahmann/doQumentation#964)
-INTERNET_NOTE="Running code in the notebooks needs the internet for now: the pages load their code runner from the web."
+# The image serves its code runner (thebelab) and maths fonts itself since
+# doQumentation#964/#975, so code runs offline (R-068). Left online: IBM
+# Quantum computers, and formulas inside code output (MathJax from a CDN).
+# R-122: why participants may not get through although the address is right
+NETWORK_NOTE="Participants must be on the same network as this Pi. Guest Wi-Fi or Wi-Fi with client isolation (\"isolated\" networks) blocks them."
+INTERNET_NOTE="Code runs on this Pi, also without the internet; only IBM Quantum computers need it."
 
 # A QR code of the first LAN address, for phones and tablets: 29 columns by
 # 15 lines (margin 2). Shown last, just above the Enter prompt, so that it
@@ -169,14 +173,15 @@ print_addresses() {
     echo "    $lab_url"
     echo
     echo "Please note:"
+    echo "- Participants must be on the same network as this Pi. Guest Wi-Fi or Wi-Fi"
+    echo "  with client isolation (\"isolated\" networks) blocks them."
     echo "- Anyone on this network can open these addresses and run code on this Pi."
     echo "  Use it on a network you trust (a class or home network), not on public Wi-Fi."
     echo "- Everyone works on the same notebooks. Restarting the server restores the"
     echo "  original notebooks; participants download what they want to keep."
     echo "- Code in a notebook left idle for 10 minutes stops; run its cells again."
-    echo "- Running code needs the internet for now: the pages load their code runner"
-    echo "  from the web."
-    echo "- The 'Open in Lab' button on the website does not work for participants yet."
+    echo "- Code runs on this Pi, also without the internet; only IBM Quantum"
+    echo "  computers need it."
     echo
 }
 
@@ -334,7 +339,9 @@ if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
     # Server" in its download question and errors (user test 2026-10-07)
     RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
-    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "doQumentation"
+    # and its download line too: "Downloading Qiskit Tutorials on this Pi",
+    # not the image's name (pre-beta check 2026-10-08)
+    rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "$NAME"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
@@ -374,6 +381,8 @@ if ! docker run -d \
     -e JUPYTER_TOKEN="$JUPYTER_TOKEN" \
     -e CORS_ORIGIN="$CORS_ORIGIN" \
     -e MPLCONFIGDIR=/tmp/matplotlib \
+    -e LAB_ENABLED=false \
+    -e ALLOW_TERMINALS=false \
     "$DOCKER_IMAGE" >/dev/null; then
     rq_docker_fail "$CONTAINER_NAME" "The $NAME container did not start."
 fi
@@ -397,8 +406,8 @@ print_running "$MODE" "$SITE_PORT" "$LAB_URL"
 if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; then
     note=$(name_note)
     show_msgbox "$WORKSHOP_NAME is running" \
-        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
-        17 74
+        "Participants open (same network as this Pi):\n\n$(participant_urls "$SITE_PORT" | sed 's/^/   /')\n\n$NETWORK_NOTE\n\n${note:+$note\n\n}$TRUST_SHORT\n\n$INTERNET_NOTE" \
+        20 74
 fi
 
 rq_show_url "$SITE_URL" "$SITE_PORT"
