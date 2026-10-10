@@ -662,7 +662,7 @@ def test_fun_with_quantum_notebook_list_matches_the_manifest():
                      '| "    - \\(.name)  (\\(.args[0]))"', mf],
         capture_output=True, text=True, check=True).stdout
     assert "(Mermin-Peres-Game.ipynb)" in out and "(Readme.ipynb)" in out
-    assert out.count("    - ") == 6
+    assert out.count("    - ") == 9
 
 
 # --- doQumentation: a writable matplotlib config (item 20) -----------------------
