@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-10T04:45:04Z",
+  "generated": "2026-10-10T04:45:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -22,13 +22,16 @@
       "ab_extract_size": 12398362624,
       "ab_image_download_size": 1790906568,
       "highlights": [
-        "Now on Raspberry Pi OS Trixie (Debian 13), with Python 3.13 and the current Qiskit",
-        "Demos sorted into groups on the desktop and in the menu: LED panel, Play, Big projects, Learn & code, Workshops & events, and Contributed demos",
-        "Raspberry Pi Imager: your own user name, password, Wi-Fi, SSH key, keyboard and Raspberry Pi Connect are applied",
-        "A/B image: the SD card stays in the Pi. New releases install over the air and keep your settings, Wi-Fi, LED setup and Raspberry Pi Connect; the Pi falls back by itself if one doesn't work (64 GB+, 128 GB recommended)",
-        "Taskbar badge shows which system runs, what's new in a release, and when the Pi's firmware is outdated",
-        "Demos: Workshop & Qiskit Server, Qiskit Tutorials, Quantum Lab, Fun with Quantum, learning paths and a demo catalogue; each pinned to a tested version, and all stop the same way",
-        "16 GB cards run every demo except the Docker ones (32 GB or more)"
+        "After an update, \"What's new\" opens once, and the update offer shows it before you install",
+        "Your own extras after an update: root-owned scripts in /data/rasqberry/after-update.d/ run once on the new system",
+        "Fun with Quantum works offline on the Pi, with three new games: The CHSH Game, The Quantum Prisoner's Dilemma and GHZ on Real Quantum Devices",
+        "Workshop Server: doQumentation code runs on the Pi, also without the internet",
+        "Demo Loop can start at login and now shows Quantum Fractals too",
+        "Touchscreens: Raspberry Pi OS's own on-screen keyboard is back and pops up in text fields, also for the Wi-Fi password",
+        "Updates keep more: Home Connect settings, the right clock, and the taskbar badge; the badge says \"being checked\" until the new system is confirmed",
+        "Feedback by GitHub or e-mail (info@rasqberry.org), no GitHub account needed",
+        "traQmania is now racetraQ (v0.3.0, with a German UI); an existing install moves over",
+        "Quantum Lab and Quantum Mixer start from tested images, downloads show realistic times, Ctrl+C during any Docker download stops cleanly, and fewer false \"no internet\" messages at a demo's first start"
       ]
     },
     "dev": {
@@ -40,12 +43,11 @@
       "image_download_size": 1840139288,
       "extract_size": 9512681472,
       "extract_sha256": "4e9049ded8b5762edd0fd7a893b223bd88b0e3f2f6756002504cf43453344790",
-      "image_sha256": "bd366a7e484c48a9b16e32f041b549367782e88808826dc8038a82f482be5764",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-060505/rasqberry-development-2026-10-10-060505-ab.img.xz",
       "ab_extract_sha256": "c6ce0136c9f135dfe9809c9348abd4473839ee62fa12d36206a38d5c3ac74c08",
       "ab_image_sha256": "4a719efea299dd09d3df3adb1ad040ef834f52d364cd86ec3f3470ffe486688e",
-      "ab_image_download_size": 1891376904,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1891376904,
       "highlights": [
         "Bump version to development-2026-10-10-060505",
         "the Fun with Quantum offline portal pin and nine notebooks",
