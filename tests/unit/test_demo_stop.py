@@ -657,7 +657,7 @@ def test_session_keeps_the_homepage_next_to_the_icons_on_a_large_screen(tmp_path
     monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
     assert ds.main([]) == 0
     assert rules == [False]                                   # the x=480 rule stays on
-    assert started == [["/usr/bin/chromium", "--window-size=1070,1005", ds.HOMEPAGE]]
+    assert started == [["/usr/bin/chromium", "--window-size=1070,1005", ds.start_url()]]
 
 
 def test_first_login_saves_the_placement_next_to_the_icons():
