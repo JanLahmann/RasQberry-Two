@@ -1,0 +1,94 @@
+# ============================================================================
+# Rebuild the website's 3D model
+# ============================================================================
+# When STLs change on this branch, regenerate the model for the 3D viewer on
+# rasqberry.org (public/3d-model/rasqberry-two.glb on gh-pages) with the
+# site's own script (gh-pages: scripts/build-3d-model.mjs, `npm run model`),
+# commit it to gh-pages only if it changed, and start the site deployment.
+#
+# The push to gh-pages retries with pull --rebase (as consolidate-json.yaml
+# does): other workflows write to gh-pages too. A push made with GITHUB_TOKEN
+# does not start other workflows, so the deployment is started explicitly.
+#
+# Manual runs: "Run workflow" in the Actions tab only lists workflows that
+# are on the default branch (main); a copy there runs the same job.
+# ============================================================================
+
+name: Rebuild the website 3D model
+
+on:
+  push:
+    branches: ["3D-model"]
+    paths:
+      - "3D Model/**.stl"
+      - "3D Model/**.STL"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write   # start the Pages deployment
+
+# One rebuild at a time; a newer one waits instead of racing on gh-pages
+concurrency:
+  group: model-glb
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    if: github.repository == 'JanLahmann/RasQberry-Two'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the STLs (3D-model)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || '3D-model' }}
+          path: stl
+
+      - name: Check out the website (gh-pages)
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build the GLB
+        working-directory: site
+        run: |
+          npm ci --no-audit --no-fund
+          npm run model -- "$GITHUB_WORKSPACE/stl/3D Model"
+
+      - name: Commit it to gh-pages if it changed
+        id: commit
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/3d-model/rasqberry-two.glb
+          if git diff --staged --quiet; then
+            echo "Model unchanged"
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "site: rebuild the 3D model from 3D-model $(git -C ../stl rev-parse --short=8 HEAD)"
+          for i in 1 2 3; do
+            if git push origin gh-pages; then
+              echo "changes=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed (attempt $i), pulling and retrying..."
+            git pull --rebase origin gh-pages
+          done
+          echo "Failed to push after 3 attempts"
+          exit 1
+
+      - name: Start the site deployment
+        if: steps.commit.outputs.changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run "Deploy Next.js site to Pages" --ref gh-pages -R "$GITHUB_REPOSITORY"
