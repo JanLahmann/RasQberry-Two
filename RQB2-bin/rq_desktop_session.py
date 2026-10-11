@@ -1298,7 +1298,8 @@ def online(url=HOMEPAGE, timeout=5):
 def start_url(version_file=VERSION_FILE, env_path=ENV_FILE):
     """
     The homepage with this Pi's facts for the RasQberry helper on the site:
-    the image build, the Pi model and the LED layout. Nothing that names the
+    the image build, the Pi model, the LED layout and whether the LED check
+    was done. Nothing that names the
     Pi or its person (no hostname, address or user name); a fact that can't
     be read or doesn't look right is left out.
 
@@ -1317,8 +1318,10 @@ def start_url(version_file=VERSION_FILE, env_path=ENV_FILE):
     facts = [
         ("v", version, r"[A-Za-z0-9_.+-]{1,60}"),
         ("model", env_value("PI_MODEL", path=env_path).lower(), r"pi[45]"),
-        ("led", "" if env_value("LED_LAYOUT_VERIFIED", path=env_path) == "skipped"
-         else env_value("LED_LAYOUT", path=env_path), r"[a-z0-9-]{1,30}"),
+        ("led", env_value("LED_LAYOUT", path=env_path), r"[a-z0-9-]{1,30}"),
+        # whether the LED check was done: the helper offers it first
+        ("ledcheck", env_value("LED_LAYOUT_VERIFIED", path=env_path) or "false",
+         r"true|false|skipped"),
     ]
     url = HOMEPAGE
     for key, value, pattern in facts:
