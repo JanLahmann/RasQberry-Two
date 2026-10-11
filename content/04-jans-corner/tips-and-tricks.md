@@ -31,7 +31,7 @@ input. The LED check in the setup checklist works with both kits.
 
 Use the official 27 W power supply for the Pi 5. On a weaker supply a bright
 panel can make the LEDs stop: RasQberry then says so and offers a lower
-brightness (**LEDs** → **LED brightness**).
+brightness (RasQberry menu → **Quantum Demos** → **LED panel** → **LED setup & tests** → **LED brightness**).
 
 ## The beta and the A/B image
 

@@ -20,7 +20,14 @@ You can contact any of us with questions, concerns or suggestions for changes to
 
 This assembly guide assumes that you have already printed out the 3D files for the Wall, Floor, Cryostat and the RTEs. If you haven't already downloaded and printed the STL files, they can be found [here](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model).
 
-**Tip:** Use the `*_repaired.stl` versions for best slicer compatibility.
+**Tip:** Use the `*_repaired.stl` version of a file where there is one, for best slicer compatibility.
+
+Variants, not needed for the standard build: `R2_Wall-Back+13` (the Pi's screw
+posts 13 mm higher), `R2_Wall-Back-SolidForStaticModels` (a closed back, without
+Pi posts, for a model without electronics), and floor tiles 1 and 2 in
+`floor/Sign Magnet Indent Version` (with indents for magnets to hold a sign).
+The folder `3D Model - modifications - Jan` holds experimental variants that this
+guide does not cover.
 
 ## Setting up the Raspberry Pi
 
@@ -31,7 +38,7 @@ Our first step is to install the RasQberry Two Operating System (OS). Instructio
 After you have finished flashing the OS image to the micro-SD card, you can insert it into the slot underneath the Pi as such:
 ![Figure 1](/assembly-images/mounting_location_sd_card.JPG "Figure 1: Mounting location for the Micro SD card.")
 
-Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`.
+Once the OS has been installed, plug in the USB-C Power Supply into the Pi, connect a micro HDMI cable from the Pi to your monitor and plug in a USB keyboard and mouse. The first start takes a few minutes and restarts on its own; then the desktop appears without a login. A short setup checklist opens: skip its LED step for now, because the panel is not wired yet. The login for SSH and VNC is `rasqberry` with password `Qiskit1!`, or the user set in Imager.
 
 The LEDs need no extra system setup: RasQberry drives them directly on GPIO 18. Once the panels are wired (below), you check them with the LED Setup Wizard.
 
@@ -84,7 +91,7 @@ The following 3D Files are used in this section:
 
 ### Gluing all the pieces together
 
-Depending on whether you printed the components for the wall yourself, and the size of your 3D printer, you might have needed to print the various parts of the Wall in two parts or even more. If you printed all of the components in one part, you can skip this step and move on to the section titled `Wiring up the LED Arrays`. For this guide, each major component of The Wall was split in two for easier printing. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
+The STL files print each Wall part in one piece, about 246 mm long, for a print bed of about 250 mm (or a bit less, placed diagonally): then skip to `Wiring up the LED Arrays`. On a smaller printer, split each part in two in your slicer and glue the halves as described here. For this guide, each major component of The Wall was split in two. Once they finished printing, they were cleaned up of any remaining supports and stringing material.
 
 ![Figure 2](/assembly-images/wall_assembly_2.JPG "Figure 2: Each sub-assembly of the Wall printed.")
 
@@ -278,7 +285,7 @@ The floor is the simplest component of the RasQberry Two model, it serves as a p
 
 The following 3D Files are used in this section:
 
-- R_2Floor-all.stl
+- R2_Floor-all.stl
 
   OR
 
