@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11T05:22:33Z",
+  "generated": "2026-10-11T05:23:32Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1841111748,
       "extract_size": 9512681472,
       "extract_sha256": "e84fdf829b9798cc94ec7aca1d4c566609349e811b1f8bcbc618de3524400b94",
-      "image_sha256": "28ff768ae0605fef2f7d6e06b2a7e2d91a84464b9f4a11bd0052bd337e9c9f49",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-063323/rasqberry-development-2026-10-11-063323-ab.img.xz",
       "ab_extract_sha256": "536dd0e04ee816bb3226a84a35db877a28b6d2026d08dca6c5c8f3d0af3089d8",
       "ab_image_sha256": "5ee835a3242d145b1b5d0284cdd1eb8a168c5bf56bf9cee83551cb681e150a13",
-      "ab_image_download_size": 1891463736,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1891463736,
       "highlights": [
         "fix stale stage, A/B validation and release-notes notes",
         "Bump version to development-2026-10-11-063323",
