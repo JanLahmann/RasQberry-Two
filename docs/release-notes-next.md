@@ -1,9 +1,7 @@
 <!-- Draft header for the next release (beta round 4). Paste it above the
 generated changelog in the GitHub release body; GitHub hides these comments.
-Release day: switch on AB_IMAGER_CUSTOMISATION in .github/scripts/consolidate_json.py
-on main (or set RQB_AB_CUSTOMISATION=true). Until then Imager skips the
-customisation step for the A/B image, and the first bullet on Imager below is
-only true for the standard image. -->
+AB_IMAGER_CUSTOMISATION is on (default true in .github/scripts/consolidate_json.py
+on main), so Imager offers customisation for the A/B image too. -->
 
 ## Since beta-2026-10-04
 
