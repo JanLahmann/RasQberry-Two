@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11T05:23:32Z",
+  "generated": "2026-10-11T07:08:08Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,23 +35,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-11-063323",
-      "name": "rasqberry-development-2026-10-11-063323",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-063323/rasqberry-development-2026-10-11-063323.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-11-063323",
-      "release_date": "2026-10-11 06:33",
-      "image_download_size": 1841111748,
+      "tag": "development-2026-10-11-082140",
+      "name": "rasqberry-development-2026-10-11-082140",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-082140/rasqberry-development-2026-10-11-082140.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-11-082140",
+      "release_date": "2026-10-11 08:21",
+      "image_download_size": 1840587124,
       "extract_size": 9512681472,
-      "extract_sha256": "e84fdf829b9798cc94ec7aca1d4c566609349e811b1f8bcbc618de3524400b94",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-063323/rasqberry-development-2026-10-11-063323-ab.img.xz",
-      "ab_extract_sha256": "536dd0e04ee816bb3226a84a35db877a28b6d2026d08dca6c5c8f3d0af3089d8",
-      "ab_image_sha256": "5ee835a3242d145b1b5d0284cdd1eb8a168c5bf56bf9cee83551cb681e150a13",
+      "extract_sha256": "934f8c62e0400c83657ce03c3cd675935bb43ecc9bd8a542aa2f5f157ac20ff1",
+      "image_sha256": "e0b52fefc6b56804c5077143135a3d420568186cbab4f3226ff7e2d3c79ea2f0",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-082140/rasqberry-development-2026-10-11-082140-ab.img.xz",
+      "ab_extract_sha256": "14e1f51a08315155d2261c7063a05fbabaa85665ddd72bdc0e428e8b0fcdad4e",
+      "ab_image_sha256": "ec5a6cf02626482122a9d4e431b870c714c2daad00ce2fc457ba01661e5c934a",
+      "ab_image_download_size": 1893564392,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1891463736,
       "highlights": [
-        "fix stale stage, A/B validation and release-notes notes",
-        "Bump version to development-2026-10-11-063323",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-10-171402"
+        "Bump version to development-2026-10-11-082140",
+        "Start page: LED layout also before the LED check, plus ledcheck",
+        "Start page: the Pi's build, model and LED layout for the RasQberry helper"
       ]
     }
   }
