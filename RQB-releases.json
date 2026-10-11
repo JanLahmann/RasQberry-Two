@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-10T15:58:25Z",
+  "generated": "2026-10-11T05:22:33Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,26 +35,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-10-171402",
-      "name": "rasqberry-development-2026-10-10-171402",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-171402/rasqberry-development-2026-10-10-171402.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-10-171402",
-      "release_date": "2026-10-10 17:14",
-      "image_download_size": 1841527404,
+      "tag": "development-2026-10-11-063323",
+      "name": "rasqberry-development-2026-10-11-063323",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-063323/rasqberry-development-2026-10-11-063323.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-11-063323",
+      "release_date": "2026-10-11 06:33",
+      "image_download_size": 1841111748,
       "extract_size": 9512681472,
-      "extract_sha256": "c52dd4265496555740173385b792feade1fbe83f28b75acec672fb097c199e35",
-      "image_sha256": "4ae8c18521d052174301bc4f647a1c28269f6f81b6739971d6f6bec751e40d91",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-10-171402/rasqberry-development-2026-10-10-171402-ab.img.xz",
-      "ab_extract_sha256": "be9f650b1555213c74bcdb9904f7a9b33fda972b2fb77151b2f9a5ed5acc73dd",
-      "ab_image_sha256": "a3e46d50ac0978e6d01b4c49c817d0bd027b304591f97da950af979eaae3e642",
-      "ab_image_download_size": 1887861364,
+      "extract_sha256": "e84fdf829b9798cc94ec7aca1d4c566609349e811b1f8bcbc618de3524400b94",
+      "image_sha256": "28ff768ae0605fef2f7d6e06b2a7e2d91a84464b9f4a11bd0052bd337e9c9f49",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-063323/rasqberry-development-2026-10-11-063323-ab.img.xz",
+      "ab_extract_sha256": "536dd0e04ee816bb3226a84a35db877a28b6d2026d08dca6c5c8f3d0af3089d8",
+      "ab_image_sha256": "5ee835a3242d145b1b5d0284cdd1eb8a168c5bf56bf9cee83551cb681e150a13",
+      "ab_image_download_size": 1891463736,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-10-10-171402",
-        "pin 107b4bb (kiosk with its own browser profile)",
-        "Merge dev-entangible: Entangible as a beta demo in Big projects",
-        "pin 094616c, install on demand, camera hint from doctor",
-        "tangible circuit composer as a Big projects demo (beta)"
+        "fix stale stage, A/B validation and release-notes notes",
+        "Bump version to development-2026-10-11-063323",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-10-171402"
       ]
     }
   }
