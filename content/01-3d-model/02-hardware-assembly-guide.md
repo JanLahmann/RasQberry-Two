@@ -2,6 +2,12 @@
 
 This section provides a step-by-step photographic guide on how to assemble the RasQberry Two Platform. The guide is divided into different sections based on the separate components of the 3D model, as well as a section detailing setup instructions for the Raspberry Pi. The three main components of the RasQberry Two platform are: The Wall, The Cryostat and The Floor.
 
+### Explore the model in 3D
+
+Turn, zoom and take apart the printed model: click a part for its name and STL file, or press **Assemble** to watch it come together.
+
+<ModelViewer />
+
 ### Contributors
 
 The following people have contributed to the development of the documentation:

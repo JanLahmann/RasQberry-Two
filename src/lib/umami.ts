@@ -15,6 +15,8 @@ export const UMAMI = {
   betaBoxClick: 'RasQberry Two: beta box click',
   // Homepage on a Pi (?from=pi): the welcome's links, data: target
   piWelcomeClick: 'RasQberry Two: pi welcome click',
+  // 3D model viewer (src/components/ModelViewer): the first interaction per page view, data: via (model, parts, explode, assemble, reset, fullscreen)
+  modelViewerOpen: 'RasQberry Two: 3d viewer open',
 } as const;
 
 /** The attributes for one event: data-umami-event plus one data-umami-event-<key> per value. */
@@ -43,4 +45,13 @@ export function linkEvent(href?: string): Record<string, string> {
     return umamiAttrs(UMAMI.workshopContact, { via: 'request-form' });
   }
   return {};
+}
+
+/** Sends one event from code (for things that are not a single click on a link or button); no-op without Umami. */
+export function umamiTrack(event: string, data: Record<string, string> = {}): void {
+  try {
+    (window as unknown as { umami?: { track: (e: string, d?: Record<string, string>) => void } }).umami?.track(event, data);
+  } catch {
+    /* tracking never breaks the page */
+  }
 }

@@ -10,7 +10,8 @@
     "validate": "node scripts/validate-content.js",
     "validate:external": "node scripts/validate-content.js --check-external",
     "demos": "node scripts/generate-demo-list.js",
-    "demos:check": "node scripts/generate-demo-list.js --check"
+    "demos:check": "node scripts/generate-demo-list.js --check",
+    "model": "node scripts/build-3d-model.mjs"
   },
   "dependencies": {
     "@carbon/ibmdotcom-styles": "^2.11.0",
@@ -38,15 +39,21 @@
     "remark-gfm": "^4.0.0",
     "remark-mdx-frontmatter": "^5.0.0",
     "remark-parse": "^11.0.0",
-    "remark-stringify": "^11.0.0"
+    "remark-stringify": "^11.0.0",
+    "three": "^0.169.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/three": "^0.169.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
+    "meshoptimizer": "^0.22.0",
     "typescript": "^5"
   }
 }

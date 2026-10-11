@@ -20,6 +20,7 @@ import { Img } from "@/components/Markdown/Img";
 import { Blockquote } from "@/components/Markdown/Blockquote";
 import { EventsEmail, Qdc2025 } from "@/components/Events";
 import { linkEvent } from "@/lib/umami";
+import { ModelViewer } from "@/components/ModelViewer";
 
 export function compileMdPage(content: string) {
   return compileMDX<FrontMatter>({
@@ -57,6 +58,8 @@ export function compileMdPage(content: string) {
       // content/workshops.md; settings in src/data/events.ts
       EventsEmail,
       Qdc2025,
+      // content/01-3d-model/02-hardware-assembly-guide.md
+      ModelViewer,
     },
   });
 }

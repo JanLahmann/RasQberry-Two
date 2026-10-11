@@ -4,6 +4,8 @@ This document contains all the information you need to purchase everything neede
 
 <p align='center'><img src='/Artwork/RasQberry2model.png' width="88%" height="88%"/></p>
 
+No printed model yet? [Explore it in 3D](/01-3d-model/02-hardware-assembly-guide#3-explore-the-model-in-3d) in the assembly guide.
+
 The **Required Components** section provides a handy list of every component needed for the basic model as well as any optional additions.
 
 The **Bill of Materials** section organises every component into an easy to read table with accompanying important information such as cost, quantity and purchase links.
