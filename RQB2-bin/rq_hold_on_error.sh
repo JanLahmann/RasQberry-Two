@@ -40,6 +40,12 @@ name=$(basename "$1" .sh)
 if [ "$name" = "rq_demo_run" ] && [ -n "${2:-}" ]; then
     name="$2${3:+-$3}"
 fi
+# A demo whose program keeps its own log under that name gets
+# "<id>-window.log": the window's copy truncated Entangible's log (rig test
+# 2026-10-11, F2)
+case "$name" in
+    entangible) name="$name-window" ;;
+esac
 log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/rasqberry"
 log="$log_dir/$name.log"
 
