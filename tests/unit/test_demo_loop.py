@@ -337,7 +337,7 @@ def _session(monkeypatch, loop_on):
                         ("layout_desktop", lambda size, touch: False), ("ensure_quick_exec", lambda: False),
                         ("online", lambda: True)):
         monkeypatch.setattr(ds, name, value)
-    monkeypatch.setattr(ds, "env_value", lambda key, default="": (
+    monkeypatch.setattr(ds, "env_value", lambda key, default="", **_: (
         ("true" if loop_on else "false") if key == "DEMO_LOOP_AT_LOGIN" else default))
     monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
     monkeypatch.setenv("RQ_BROWSER_DELAY", "0")

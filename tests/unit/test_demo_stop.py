@@ -652,7 +652,7 @@ def test_session_keeps_the_homepage_next_to_the_icons_on_a_large_screen(tmp_path
     monkeypatch.setattr(ds, "layout_desktop", lambda size, touch: False)
     monkeypatch.setattr(ds, "ensure_quick_exec", lambda: False)
     monkeypatch.setattr(ds, "online", lambda: True)
-    monkeypatch.setattr(ds, "env_value", lambda key, default="": default)
+    monkeypatch.setattr(ds, "env_value", lambda key, default="", **_: default)
     monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
     monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
     assert ds.main([]) == 0
