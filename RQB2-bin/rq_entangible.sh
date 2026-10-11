@@ -25,7 +25,9 @@ set -euo pipefail
 #        rq_entangible.sh --path DIR          set up a fresh checkout (install.post_install)
 #        rq_entangible.sh --remove --path DIR remove the service before the checkout goes
 #                                             (install.pre_remove)
-# Environment: ENTANGIBLE_START_WAIT  seconds to wait for the service (default 90)
+# Environment: ENTANGIBLE_START_WAIT    seconds to wait for the service (default 90)
+#              ENTANGIBLE_READY_SETTLE  seconds the camera state must hold (default 5)
+#              RQ_DATA_DIR              the DATA partition (default /data)
 #
 # Exit status: 0 ok, 130 stopped with Ctrl+C, anything else a failure.
 
@@ -37,6 +39,8 @@ NAME="Entangible"
 DEMO_ID="entangible"
 UNIT="entangible-host"
 START_WAIT="${ENTANGIBLE_START_WAIT:-90}"
+READY_SETTLE="${ENTANGIBLE_READY_SETTLE:-5}"
+DATA_DIR="${RQ_DATA_DIR:-/data}"
 
 load_rqb2_env
 verify_env_vars REPO USER_HOME
@@ -45,6 +49,8 @@ STATE_DIR="$USER_HOME/.cache/rasqberry"
 # What RasQberry set up last: "<checkout commit> <web bundle tag>"
 STAMP="$STATE_DIR/entangible.rasqberry"
 LOG_FILE="$STATE_DIR/entangible.log"          # Entangible's own log
+# (the window's transcript is entangible-window.log, rq_hold_on_error.sh)
+UV_MARK="$STATE_DIR/entangible.uv"             # uv was installed for Entangible
 BOOTH_PROFILE="$STATE_DIR/entangible-browser"  # the booth screen's browser profile
 
 # ----------------------------------------------------------------------------
@@ -72,10 +78,39 @@ failure_text() {
     esac
 }
 
+# Entangible's download cache on the DATA partition of an A/B card
+# (/data/rasqberry/cache/entangible): it survives an A/B update, so the
+# install afterwards needs no network. /data/rasqberry belongs to root
+# (rq_after_update.sh checks that), so the cache directory is made for the
+# desktop user here, with sudo. Without a DATA partition, or without sudo,
+# Entangible installs without a cache.
+prepare_cache() {
+    local dir="$DATA_DIR/rasqberry/cache/entangible" user
+    [ -d "$DATA_DIR/rasqberry" ] || return 0
+    [ -w "$dir" ] && return 0
+    user=$(get_user_name)
+    if [ "$(id -u)" = "0" ]; then
+        install -d -m 755 "$DATA_DIR/rasqberry/cache" 2>/dev/null \
+            && install -d -m 755 -o "$user" -g "$(id -gn "$user")" "$dir" 2>/dev/null && return 0
+    elif sudo -n install -d -m 755 "$DATA_DIR/rasqberry/cache" 2>/dev/null \
+            && sudo -n install -d -m 755 -o "$user" -g "$(id -gn)" "$dir" 2>/dev/null; then
+        return 0
+    fi
+    warn "No download cache for $NAME on $DATA_DIR: after a system update it downloads again."
+    return 0
+}
+
+# Is uv (Entangible's Python installer) here already, i.e. not Entangible's?
+have_uv() {
+    command -v uv >/dev/null 2>&1 || [ -x "$USER_HOME/.local/bin/uv" ]
+}
+
 # Run `entangible install` in checkout DIR; on success record what was set
 # up. Returns the command's exit code (130: stopped with Ctrl+C).
 ent_install() {
-    local dir="$1" rc=0
+    local dir="$1" rc=0 had_uv=yes
+    prepare_cache
+    have_uv || had_uv=""
     info "Setting up $NAME: its web app, a Python environment and the $UNIT service."
     info "This takes a few minutes; later starts are quick."
     # --no-enable: the service runs only while the demo is open (this
@@ -84,6 +119,8 @@ ent_install() {
     if [ "$rc" -eq 0 ]; then
         mkdir -p "$STATE_DIR" 2>/dev/null || true
         printf '%s %s\n' "$(checkout_commit "$dir")" "$(bundle_tag "$dir")" > "$STAMP" 2>/dev/null || true
+        # uv came with Entangible: Remove takes it away again (N3)
+        if [ -z "$had_uv" ] && have_uv; then : > "$UV_MARK" 2>/dev/null || true; fi
         return 0
     fi
     if [ "$rc" -eq 130 ]; then
@@ -112,8 +149,20 @@ case "${1:-}" in
             info "Removing the $UNIT service and $NAME's settings..."
             # --purge: also the settings, venv, web bundle and certificate.
             # The download cache on /data stays: it makes a later install quick.
-            "$(ent_cmd "$3")" uninstall --purge || warn "$NAME's own uninstall failed; removing its files anyway."
+            # Its "checkout is kept" lines are left out: Remove deletes the
+            # checkout right after this (N4).
+            rc=0
+            out=$("$(ent_cmd "$3")" uninstall --purge 2>&1) || rc=$?
+            printf '%s\n' "$out" | grep -v -E 'checkout .* is kept|kept: the checkout' || true
+            [ "$rc" -eq 0 ] || warn "$NAME's own uninstall failed (exit $rc); removing its files anyway."
         fi
+        # uv and its cache, when Entangible brought them (no other demo uses uv)
+        if [ -f "$UV_MARK" ]; then
+            rm -f "$USER_HOME/.local/bin/uv" "$USER_HOME/.local/bin/uvx" 2>/dev/null || true
+            rm -rf "$USER_HOME/.cache/uv" 2>/dev/null || true
+            rm -f "$UV_MARK" 2>/dev/null || true
+        fi
+        rmdir "$USER_HOME/.qamposer-physical" 2>/dev/null || true
         rm -f "$STAMP" 2>/dev/null || true
         rm -rf "$BOOTH_PROFILE" 2>/dev/null || true
         exit 0
@@ -240,6 +289,21 @@ while :; do
     sleep 1
 done
 
+# The camera state settles first: right after the start the service reports
+# a camera as connected for about 2 s, also when there is none (rig test
+# 2026-10-11, F1; Entangible E1). Watch it for READY_SETTLE seconds; once it
+# says false, that is the answer.
+settle_ready() {
+    local end=$((SECONDS + READY_SETTLE))
+    while [ "$SECONDS" -lt "$end" ]; do
+        [ "$(st .ready)" = "false" ] && return 0
+        sleep 1
+        ent_status
+    done
+    return 0
+}
+[ "$(st .ready)" = "null" ] || settle_ready
+
 KIOSK_URL=$(st .urls.kiosk)
 VISITOR_URL=$(st .urls.visitor)
 SOURCE=$(st .source)
@@ -342,7 +406,7 @@ if ! { [ -t 0 ] && [ -t 1 ]; }; then
 fi
 
 rq_stop_hint "$NAME"
-[ -z "$BOOTH_OPEN" ] || echo "The booth screen covers this window: to get back here, click it in the taskbar."
+[ -z "$BOOTH_OPEN" ] || echo "The booth screen covers this window: press F11 to leave full screen, then click this window in the taskbar."
 # Until Enter, or until the service is stopped elsewhere
 while :; do
     rc=0

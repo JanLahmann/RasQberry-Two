@@ -52,6 +52,10 @@ case "$1" in
     [ "$b" = null ] || b="\"$b\""
     health=unknown; ready=null
     if [ "$run" = true ]; then health=$(get health ok); [ "$health" = ok ] && ready=$(get ready false); fi
+    if [ "$health" = ok ] && [ -s "$S/ready_seq" ]; then
+      ready=$(head -1 "$S/ready_seq")
+      [ "$(wc -l < "$S/ready_seq")" -gt 1 ] && sed -i.bak 1d "$S/ready_seq"
+    fi
     [ "$inst" = true ] && [ "$health" = unknown ] && health=down
     printf '{"installed":%s,"running":%s,"version":"094616c","bundle":%s,"urls":{"kiosk":"https://localhost:8443/?kiosk&connect=1","visitor":"%s"},"source":"%s","ready":%s,"health":"%s","enabled":false}\n' \
       "$inst" "$run" "$b" "$(get visitor https://192.168.1.23:8443/?connect=1)" "$(get source cv2:0)" "$ready" "$health"
@@ -72,7 +76,11 @@ case "$1" in
     [ "$rc" = 0 ] && echo true > "$S/running"
     exit "$rc" ;;
   stop) echo false > "$S/running" ;;
-  uninstall) echo false > "$S/installed"; echo false > "$S/running"; rm -f "$S/bundle" ;;
+  uninstall)
+    echo "Uninstalling Entangible (checkout $PWD is kept)"
+    echo "    kept: the checkout, apt packages (shared), uv, ~/.qamposer-physical/*.toml, the log"
+    echo "removed: /etc/default/entangible"
+    echo false > "$S/installed"; echo false > "$S/running"; rm -f "$S/bundle" ;;
   *) exit 2 ;;
 esac
 '''
@@ -126,7 +134,8 @@ def ent(tmp_path):
             "RQ_CONFIG_FILE": str(env_config), "RQ_ENV_FILE": str(env_file),
             "RQ_TEST_TTY": str(tty), "RQ_TEST_FREE_MB": "50000",
             "ENT_STATE": str(state), "WT_LOG": str(tmp_path / "wt.log"),
-            "ENTANGIBLE_START_WAIT": "3", "RQ_UMAMI": "0",
+            "ENTANGIBLE_START_WAIT": "3", "ENTANGIBLE_READY_SETTLE": "1",
+            "RQ_DATA_DIR": str(tmp_path / "data"), "RQ_UMAMI": "0",
         }
         e.pop("DISPLAY", None)
         e.update(extra or {})
@@ -158,6 +167,7 @@ def ent(tmp_path):
     run.calls = calls
     run.setup_done = setup_done
     run.wt_log = tmp_path / "wt.log"
+    run.data = tmp_path / "data"
     return run
 
 
@@ -353,6 +363,25 @@ def test_without_a_terminal_it_shows_the_addresses_and_keeps_running(ent):
     assert "keeps running" in out and "stop" not in ent.calls()
 
 
+def test_a_camera_that_is_only_briefly_connected_counts_as_none(ent):
+    # rig test 2026-10-11, F1: ready is true for ~2 s after the start, also
+    # without a camera
+    ent.setup_done()
+    (ent.state / "ready_seq").write_text("true\ntrue\nfalse\n")
+    proc = ent(extra={"ENTANGIBLE_READY_SETTLE": "5"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Camera: none found (cv2:0)" in proc.stdout
+    assert "Camera: connected" not in proc.stdout
+
+
+def test_a_camera_that_stays_connected_is_connected(ent):
+    ent.setup_done()
+    (ent.state / "ready_seq").write_text("true\n")
+    proc = ent(extra={"ENTANGIBLE_READY_SETTLE": "2"})
+    assert proc.returncode == 0
+    assert "Camera: connected (cv2:0)." in proc.stdout
+
+
 def test_without_a_camera_it_starts_and_says_so(ent):
     ent.setup_done()
     (ent.state / "ready").write_text("false")
@@ -488,6 +517,63 @@ def test_remove_takes_the_service_away_before_the_checkout(ent):
     assert ent.calls() == ["uninstall --purge"]
     assert not ent.checkout.exists()
     assert not (ent.home / ".cache" / "rasqberry" / "entangible.rasqberry").exists()
+    # N4: no "checkout is kept" right before the checkout is removed
+    assert "is kept" not in proc.stdout and "kept: the checkout" not in proc.stdout
+    assert "removed: /etc/default/entangible" in proc.stdout
+
+
+def test_remove_takes_uv_only_when_entangible_brought_it(ent):
+    uv = ent.home / ".local" / "bin" / "uv"
+    cache = ent.home / ".cache" / "uv"
+    for marked in (True, False):
+        ent.setup_done()
+        uv.parent.mkdir(parents=True, exist_ok=True)
+        uv.write_text("")
+        cache.mkdir(parents=True, exist_ok=True)
+        mark = ent.home / ".cache" / "rasqberry" / "entangible.uv"
+        if marked:
+            mark.write_text("")
+        proc = ent(["--remove", "--path", str(ent.checkout)])
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert uv.exists() != marked and cache.exists() != marked and not mark.exists()
+
+
+def test_install_marks_uv_it_brought(ent, tmp_path):
+    # the stub install "installs" uv like Entangible's installer does
+    stub = ent.checkout / "deploy" / "rasqberry" / "entangible"
+    stub.write_text(stub.read_text().replace(
+        'echo booth-v2 > "$S/bundle"; fi',
+        'echo booth-v2 > "$S/bundle"; mkdir -p "$HOME/.local/bin"; : > "$HOME/.local/bin/uv"; '
+        'chmod +x "$HOME/.local/bin/uv"; fi'))
+    # a PATH without a uv of this machine (that one would not be Entangible's)
+    stubs = ent.env()["PATH"].split(":")[0]
+    path = ":".join([stubs, "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+    if shutil.which("jq", path=path) is None or shutil.which("uv", path=path):
+        pytest.skip("needs jq, and no uv, in the system directories")
+    assert ent(["--path", str(ent.checkout)], extra={"PATH": path}).returncode == 0
+    assert (ent.home / ".cache" / "rasqberry" / "entangible.uv").exists()
+
+
+def test_cache_on_data_is_made_for_the_user_before_install(ent):
+    import getpass
+    (ent.data / "rasqberry").mkdir(parents=True)
+    proc = ent(["--path", str(ent.checkout)], extra={"USER": getpass.getuser()})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    cache = ent.data / "rasqberry" / "cache" / "entangible"
+    assert cache.is_dir() and os.access(cache, os.W_OK)
+    assert cache.stat().st_uid == os.getuid()
+    assert "No download cache" not in proc.stderr
+
+
+def test_without_a_data_partition_no_cache_and_no_warning(ent):
+    proc = ent(["--path", str(ent.checkout)])
+    assert proc.returncode == 0
+    assert not ent.data.exists() and "No download cache" not in proc.stderr
+
+
+def test_window_transcript_does_not_overwrite_entangibles_log():
+    src = open(os.path.join(_BIN, "rq_hold_on_error.sh")).read()
+    assert 'entangible) name="$name-window"' in src
 
 
 def test_download_all_leaves_it_out(ent):
@@ -496,3 +582,9 @@ def test_download_all_leaves_it_out(ent):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     ids = {line.split("\t")[0] for line in proc.stdout.splitlines()}
     assert "entangible" not in ids and "grok-bloch" in ids
+
+
+def test_back_to_the_window_hint_works_in_full_screen():
+    # N2: the full-screen booth hides the taskbar: F11 first
+    src = open(_LAUNCHER).read()
+    assert "press F11 to leave full screen, then click this window in the taskbar" in src
