@@ -69,6 +69,7 @@ OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
 # offering to write the SD card that is already in it (fresh-card test
 # 2026-10-08, F4); the Chromium policy's home page says the same
 HOMEPAGE = "https://rasqberry.org/?from=pi"
+VERSION_FILE = "/etc/rasqberry-version"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
 # Every launcher the image puts on the desktop (stage 06). Where each one
@@ -1294,6 +1295,38 @@ def online(url=HOMEPAGE, timeout=5):
         return False
 
 
+def start_url(version_file=VERSION_FILE, env_path=ENV_FILE):
+    """
+    The homepage with this Pi's facts for the RasQberry helper on the site:
+    the image build, the Pi model and the LED layout. Nothing that names the
+    Pi or its person (no hostname, address or user name); a fact that can't
+    be read or doesn't look right is left out.
+
+    Args:
+        version_file (str): File with the image build.
+        env_path (str): RasQberry settings file.
+
+    Returns:
+        str: The URL.
+    """
+    try:
+        with open(version_file, encoding="utf-8") as handle:
+            version = handle.read().strip()
+    except OSError:
+        version = ""
+    facts = [
+        ("v", version, r"[A-Za-z0-9_.+-]{1,60}"),
+        ("model", env_value("PI_MODEL", path=env_path).lower(), r"pi[45]"),
+        ("led", "" if env_value("LED_LAYOUT_VERIFIED", path=env_path) == "skipped"
+         else env_value("LED_LAYOUT", path=env_path), r"[a-z0-9-]{1,30}"),
+    ]
+    url = HOMEPAGE
+    for key, value, pattern in facts:
+        if re.fullmatch(pattern, value):
+            url += "&%s=%s" % (key, value)
+    return url
+
+
 def start_browser(small):
     """
     Open rasqberry.org, or the offline page, unless BROWSER_AUTOSTART=false.
@@ -1304,7 +1337,7 @@ def start_browser(small):
     if env_value("BROWSER_AUTOSTART", "true") == "false":
         return
     time.sleep(int(os.environ.get("RQ_BROWSER_DELAY", "10")))  # clock and network
-    url = HOMEPAGE if online() else OFFLINE_PAGE
+    url = start_url() if online() else OFFLINE_PAGE
     cmd = ["/usr/bin/chromium"]
     if not small:
         cmd.append("--window-size=1070,1005")
