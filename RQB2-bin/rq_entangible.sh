@@ -150,10 +150,14 @@ case "${1:-}" in
             # --purge: also the settings, venv, web bundle and certificate.
             # The download cache on /data stays: it makes a later install quick.
             # Its "checkout is kept" lines are left out: Remove deletes the
-            # checkout right after this (N4).
+            # checkout right after this (N4). So are its "kept (shared ...) uv"
+            # lines (uv, ~/.cache/uv) when uv came with Entangible: it goes
+            # below. The line about the uv cache on /data stays: so does that.
             rc=0
             out=$("$(ent_cmd "$3")" uninstall --purge 2>&1) || rc=$?
-            printf '%s\n' "$out" | grep -v -E 'checkout .* is kept|kept: the checkout' || true
+            drop='checkout .* is kept|kept: the checkout'
+            [ -f "$UV_MARK" ] && drop="$drop|^ *kept \(shared[^)]*\) uv"
+            printf '%s\n' "$out" | grep -v -E "$drop" || true
             [ "$rc" -eq 0 ] || warn "$NAME's own uninstall failed (exit $rc); removing its files anyway."
         fi
         # uv and its cache, when Entangible brought them (no other demo uses uv)
@@ -161,6 +165,7 @@ case "${1:-}" in
             rm -f "$USER_HOME/.local/bin/uv" "$USER_HOME/.local/bin/uvx" 2>/dev/null || true
             rm -rf "$USER_HOME/.cache/uv" 2>/dev/null || true
             rm -f "$UV_MARK" 2>/dev/null || true
+            echo "    removed  uv (installed for $NAME)"
         fi
         rmdir "$USER_HOME/.qamposer-physical" 2>/dev/null || true
         rm -f "$STAMP" 2>/dev/null || true
@@ -359,11 +364,36 @@ echo
 camera_text
 echo
 
+# The screen size as "W,H" for --window-size (rq_desktop_session.py asks
+# the compositor, as the desktop user), or nothing
+booth_window_size() {
+    local size="" user_name
+    local -a run=()
+    user_name=$(get_user_name)
+    if [ "$(id -u)" = "0" ] && [ "$user_name" != "root" ]; then
+        run=(sudo -u "$user_name" -H XDG_RUNTIME_DIR="/run/user/$(id -u "$user_name")"
+             WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" --)
+    fi
+    size=$(${run[@]+"${run[@]}"} python3 "$SCRIPT_DIR/rq_desktop_session.py" --screen 2>/dev/null) || size=""
+    case "$size" in
+        [1-9]*x[1-9]*) echo "${size/x/,}" ;;
+    esac
+    return 0
+}
+
 # The booth screen: a browser of its own (its own profile), so that it
 # accepts the service's self-signed certificate (a running desktop Chromium
-# ignores new flags) and closes when the demo ends
+# ignores new flags) and closes when the demo ends.
+# Full screen over the whole screen: it often filled only the middle half,
+# on black, or sat 480 px to the right (rig recheck 2026-10-11). labwc's
+# rule for the homepage window (rc.xml: identifier "chromium", MoveTo
+# 480,45, matchOnce) also caught the booth window whenever no other Chromium
+# window was open, and Chromium came up at the size its profile remembered
+# (945 px wide). So the window gets a class of its own (no rule matches it)
+# and starts at 0,0 at the size of the screen. Not --kiosk: F11 still leaves
+# full screen.
 open_booth_screen() {
-    local browser user_name
+    local browser user_name size
     browser=$(command -v chromium || command -v chromium-browser || true)
     if [ -z "$browser" ]; then
         info "No browser found. Open the booth screen yourself: $KIOSK_URL"
@@ -372,7 +402,10 @@ open_booth_screen() {
     mkdir -p "$BOOTH_PROFILE" 2>/dev/null || true
     local -a cmd=("$browser" --user-data-dir="$BOOTH_PROFILE" --password-store=basic
                   --no-first-run --noerrdialogs --disable-session-crashed-bubble
-                  --ignore-certificate-errors --test-type --start-fullscreen "$KIOSK_URL")
+                  --ignore-certificate-errors --test-type --class=entangible-booth)
+    size=$(booth_window_size)
+    [ -z "$size" ] || cmd+=(--window-position=0,0 --window-size="$size")
+    cmd+=(--start-fullscreen "$KIOSK_URL")
     user_name=$(get_user_name)
     if [ "$(id -u)" = "0" ] && [ "$user_name" != "root" ]; then
         cmd=(sudo -u "$user_name" -H DISPLAY="${DISPLAY:-:0}" -- "${cmd[@]}")

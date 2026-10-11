@@ -33,7 +33,7 @@ _REMOVE = os.path.join(_BIN, "rq_demo_remove.sh")
 _DL = os.path.join(_BIN, "rq_download_all.sh")
 _ENV_CONFIG = os.path.join(_CFG, "rasqberry_env-config.sh")
 _ENV = os.path.join(_CFG, "rasqberry_environment.env")
-_PIN = "c329b2b9c66b61e169f8a4e63307bf3b0c53df96"
+_PIN = "e7105e9c92a284a42489b6d56779e84be51b9dcb"
 _STOP_LINE = "To stop Entangible: press Enter or Ctrl+C, or close this window."
 
 pytestmark = pytest.mark.skipif(
@@ -79,6 +79,9 @@ case "$1" in
   uninstall)
     echo "Uninstalling Entangible (checkout $PWD is kept)"
     echo "    kept: the checkout, apt packages (shared), uv, ~/.qamposer-physical/*.toml, the log"
+    echo "    kept (shared tool) uv; if nothing else uses it: rm -f $HOME/.local/bin/uv $HOME/.local/bin/uvx"
+    echo "    kept (shared) uv cache; if nothing else uses it: rm -rf $HOME/.cache/uv"
+    echo "    kept uv cache /data/rasqberry/cache/entangible/uv (part of the /data cache: --purge-cache removes it)"
     echo "removed: /etc/default/entangible"
     echo false > "$S/installed"; echo false > "$S/running"; rm -f "$S/bundle" ;;
   *) exit 2 ;;
@@ -111,6 +114,8 @@ def ent(tmp_path):
     _exe(stubs / "whiptail", _WHIPTAIL)
     _exe(stubs / "qrencode", '#!/bin/sh\necho "QR:$*"\n')
     _exe(stubs / "chromium", '#!/bin/sh\necho "$*" >> "$ENT_STATE/browser"\n')
+    _exe(stubs / "wlr-randr", '#!/bin/sh\nprintf "HDMI-A-1 \\"x\\"\\n  Enabled: yes\\n  Modes:\\n'
+         '    1920x1080 px, 60.000000 Hz (preferred, current)\\n"\n')
     home = tmp_path / "home"
     checkout = home / "RasQberry-Two" / "demos" / "entangible"
     (checkout / "deploy" / "rasqberry").mkdir(parents=True)
@@ -316,6 +321,31 @@ def test_first_start_asks_before_installing(ent):
     assert ent.calls() == []
     dialog = ent.wt_log.read_text()
     assert "Download Entangible?" in dialog and "100 MB" in dialog
+    assert "1-3 minutes" in dialog and "cache" not in dialog
+
+
+def test_with_a_warm_cache_on_data_the_question_says_less(ent):
+    # rig recheck 2026-10-11: after a Remove the bundle, uv and the wheels
+    # come from /data; only the checkout is downloaded
+    cached = _manifest()["install"]["download"]["cached"]
+    bundle = ent.data / cached["path"]
+    bundle.parent.mkdir(parents=True)
+    bundle.write_text("tar")
+    proc = ent(extra={"WT_RC": "1"})          # "Not now"
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    dialog = ent.wt_log.read_text()
+    assert "about 5 MB" in dialog and "100 MB" not in dialog
+    assert "half a minute (most of it from the cache on this card)" in dialog
+
+
+def test_the_cache_check_names_one_bundle_tag():
+    # web/<tag>/entangible-web-<tag>.tar.gz (Entangible's cache layout); the
+    # tag is the pin's deploy/rasqberry/BUNDLE_TAG: change both together
+    cached = _manifest()["install"]["download"]["cached"]
+    parts = cached["path"].split("/")
+    assert parts[:4] == ["rasqberry", "cache", "entangible", "web"]
+    assert parts[5] == "entangible-web-%s.tar.gz" % parts[4]
+    assert 0 < cached["download_mb"] < _manifest()["install"]["download"]["download_mb"]
 
 
 @pytest.mark.parametrize("why", ["bundle", "stamp", "uninstalled"])
@@ -454,6 +484,25 @@ def test_the_booth_screen_opens_in_a_browser_of_its_own(ent):
     args = browser.read_text()
     assert "--user-data-dir=" in args and "--ignore-certificate-errors" in args
     assert args.strip().endswith("https://localhost:8443/?kiosk&connect=1")
+    # the whole screen (rig recheck 2026-10-11: half of it, or 480 px off):
+    # a class no labwc rule matches, at 0,0 at the screen's size; F11 still
+    # leaves full screen (no --kiosk)
+    assert "--class=entangible-booth" in args and "--start-fullscreen" in args
+    assert "--window-position=0,0 --window-size=1920,1080" in args
+    assert "--kiosk" not in args
+
+
+def test_without_a_screen_size_the_booth_screen_still_opens_full_screen(ent):
+    ent.setup_done()
+    os.remove(os.path.join(ent.env()["PATH"].split(":")[0], "wlr-randr"))
+    proc = ent(extra={"DISPLAY": ":0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    deadline = time.time() + 5
+    browser = ent.state / "browser"
+    while not browser.exists() and time.time() < deadline:
+        time.sleep(0.1)
+    args = browser.read_text()
+    assert "--start-fullscreen" in args and "--window-size" not in args
 
 
 # --- stopping (Enter, Ctrl+C) --------------------------------------------------------
@@ -520,6 +569,8 @@ def test_remove_takes_the_service_away_before_the_checkout(ent):
     # N4: no "checkout is kept" right before the checkout is removed
     assert "is kept" not in proc.stdout and "kept: the checkout" not in proc.stdout
     assert "removed: /etc/default/entangible" in proc.stdout
+    # uv is not Entangible's here: its "kept" lines stay
+    assert "kept (shared tool) uv" in proc.stdout and "kept (shared) uv cache" in proc.stdout
 
 
 def test_remove_takes_uv_only_when_entangible_brought_it(ent):
@@ -536,6 +587,13 @@ def test_remove_takes_uv_only_when_entangible_brought_it(ent):
         proc = ent(["--remove", "--path", str(ent.checkout)])
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert uv.exists() != marked and cache.exists() != marked and not mark.exists()
+        # no "uv is kept, remove it yourself" right before it is removed
+        out = proc.stdout
+        assert ("kept (shared tool) uv" in out) != marked
+        assert ("kept (shared) uv cache" in out) != marked
+        assert ("removed  uv (installed for Entangible)" in out) == marked
+        # the /data cache stays, and says so
+        assert "kept uv cache /data/rasqberry/cache/entangible/uv" in out
 
 
 def test_install_marks_uv_it_brought(ent, tmp_path):

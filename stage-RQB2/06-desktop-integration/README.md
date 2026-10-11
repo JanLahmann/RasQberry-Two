@@ -39,7 +39,7 @@ settings that avoid password and "execute file" dialogs.
     (homepage rasqberry.org, bookmarks, no password manager); `chromium.desktop`
     stays as shipped (its flags are in `/etc/chromium.d/rasqberry`, see below);
   - labwc `rc.xml` (touch mouse emulation; Chromium at x=480 next to the icons;
-    the on-screen LED view in the bottom right corner) in
+    the on-screen LED view in the bottom right corner; "What's new" on the left) in
     `/etc/skel/.config/labwc/` and the first user's `~/.config/labwc/`;
   - disables GNOME Keyring: diverts its autostart entry and D-Bus service files
     to `*.disabled` (`dpkg-divert`, so a package update keeps them off) and

@@ -1789,6 +1789,14 @@ rq_confirm_demo_install() {
         type=$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null) || type=""
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
+        # Most of it is in a download cache on /data already (an A/B update, a
+        # Remove): the smaller download and time (install.download.cached)
+        local cached=""
+        cached=$(jq -r '.install.download.cached.path // empty' "$mf" 2>/dev/null) || cached=""
+        if [ -n "$cached" ] && [ -s "${RQ_DATA_DIR:-/data}/$cached" ]; then
+            dl=$(jq -r '.install.download.cached.download_mb // 0' "$mf" 2>/dev/null) || dl=0
+            time=$(jq -r '.install.download.cached.time // empty' "$mf" 2>/dev/null) || time=""
+        fi
     fi
     local docker_opt="" image_opt=()
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
