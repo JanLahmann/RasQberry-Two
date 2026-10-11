@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11T09:34:12Z",
+  "generated": "2026-10-11T09:35:09Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1841409292,
       "extract_size": 9512681472,
       "extract_sha256": "65e71fa8daacf9de95181f7c607d5df0126204db4a5008eba5562311a9d2cc84",
-      "image_sha256": "9ccccb24688afc4624cc39fed9602cab9cc1d5f7d587ee585955ad585bea7c28",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-11-104935/rasqberry-development-2026-10-11-104935-ab.img.xz",
       "ab_extract_sha256": "105754f1231e11a2c6c9daf00026179bf87736c3d1f730c8632d86bf9c858ab4",
       "ab_image_sha256": "f6e98d762622b4c8ee99f39c0fef09fe853b7179e00c873c47f9902fea364740",
-      "ab_image_download_size": 1890124816,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1890124816,
       "highlights": [
         "Bump version to development-2026-10-11-104935",
         "the homepage test expects the start URL with the Pi's facts",
