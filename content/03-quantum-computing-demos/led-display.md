@@ -89,7 +89,7 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
   also `quad-4x12`, `quad-2x2-12x4`, `triple-8x8`, `single-8x32`). The LED count
   and matrix size follow from the layout.
 - `LED_DEFAULT_BRIGHTNESS` - default brightness 0.0-1.0 (default: 0.4); easier:
-  **LEDs** → **LED brightness**
+  **Quantum Demos** → **LED panel** → **LED setup & tests** → **LED brightness**
 - `LED_PIXEL_ORDER` - colour order of your LEDs (default: GRB)
 - `LED_GPIO_PIN` - data pin (default: 18)
 
@@ -102,6 +102,12 @@ LED settings live in `/usr/config/rasqberry_environment.env`. Change them with
 
 - Run the LED Setup Wizard (see above) to set `LED_LAYOUT` for your panel.
 - Try shorter text for static mode (max ~4 characters visible)
+
+### LED settings come back after a restart
+
+The card's boot drive can hold `rasqberry_boot.env` (bootfs, or BOOT-A on the
+A/B image). Its `LED_` lines are applied at every start and override the menu
+and the wizard: put a `#` in front of a line, or change it there.
 
 ### Colours appear wrong
 

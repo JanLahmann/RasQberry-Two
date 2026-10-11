@@ -66,9 +66,11 @@ Imager can set these, so the Pi is ready without a screen:
   key authentication**; SSH then accepts only keys. This needs the **User** step.
 
 **Hostname** is optional: the Pi is then `<name>.local` instead of
-`rasqberry.local`. Leave **User** empty, unless you add an SSH key: then enter
-the user name `rasqberry` and a password (it replaces `Qiskit1!`). Another user
-name is not used: the password and SSH key always go to `rasqberry`.
+`rasqberry.local`. **User** is optional too: the name you enter becomes the
+login (home folder `/home/<name>`) and the password replaces `Qiskit1!`. If the
+name cannot be used (e.g. the system already uses it), the login stays
+`rasqberry` and the first login says why. Without **User**: `rasqberry` /
+`Qiskit1!`.
 
 Customisation works on both images. It applies at the first start of a newly
 written card only, not after an update.
@@ -97,7 +99,7 @@ written card only, not after an update.
 The first start takes a few minutes and the Pi restarts on its own: do not
 unplug it. Then the desktop opens, without a login, and a short setup checklist
 appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
-`rasqberry` with password `Qiskit1!`.
+`rasqberry` with password `Qiskit1!`, or the user set in Imager.
 
 ## Downloads
 
@@ -133,8 +135,8 @@ The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
 
 | Component | Version |
 |-----------|---------|
-| Raspberry Pi OS | Bookworm (Debian 12), 64-bit |
-| Python | 3.11 |
+| Raspberry Pi OS | Trixie (Debian 13), 64-bit |
+| Python | 3.13 |
 | Qiskit | 2.5 (Qiskit 2.x) |
 | Qiskit Aer | 0.17 |
 | Qiskit IBM Runtime | 0.50 |
