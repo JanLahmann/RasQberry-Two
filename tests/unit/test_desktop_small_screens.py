@@ -171,7 +171,13 @@ _RC = '''<openbox_config>
 '''
 
 
-_RC_ONCE = _RC.replace('identifier="chromium">', 'identifier="chromium" type="normal" matchOnce="true">')
+_NEWS = ('    <!-- "What\'s new" after an update: on the left, over the desktop icons, not\n'
+         '         over the homepage (rq_desktop_session.py: off on small screens) -->\n'
+         '    <windowRule title="What\'s new in *">\n'
+         '      <action name="MoveToEdge" direction="left" snapWindows="no"/>\n'
+         '    </windowRule>\n')
+_RC_ONCE = (_RC.replace('identifier="chromium">', 'identifier="chromium" type="normal" matchOnce="true">')
+            .replace("  </windowRules>", _NEWS + "  </windowRules>"))
 
 
 def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
@@ -179,6 +185,8 @@ def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     rc.write_text(_RC_ONCE)
     assert ds.set_chromium_rule(True, str(rc))
     assert 'identifier="rasqberry-small-screen-chromium" type="normal" matchOnce="true">' in rc.read_text()
+    # the "What's new" window stays centred on a small screen
+    assert '<windowRule title="rasqberry-small-screen-What\'s new in *">' in rc.read_text()
     assert not ds.set_chromium_rule(True, str(rc))
     assert ds.set_chromium_rule(False, str(rc))
     assert rc.read_text() == _RC_ONCE
@@ -197,10 +205,32 @@ def test_chromium_rule_places_only_the_first_window(tmp_path):
     assert not ds.set_chromium_rule(False, str(rc))
 
 
+def test_whats_new_rule_is_added_to_an_older_rc_xml(tmp_path):
+    # rig recheck 2026-10-11: the "What's new" window after an update covered
+    # the homepage's RasQberry helper (bottom right); on the left it does not
+    rc = tmp_path / "rc.xml"
+    rc.write_text(_RC_ONCE.replace(_NEWS, ""))
+    assert ds.set_chromium_rule(False, str(rc))
+    assert rc.read_text() == _RC_ONCE
+    assert rc.read_text().count("What's new") == 2       # comment + rule, once
+    no_rules = tmp_path / "plain.xml"
+    no_rules.write_text("<openbox_config/>\n")
+    assert not ds.set_chromium_rule(False, str(no_rules))
+
+
+def test_whats_new_rule_matches_the_window_title():
+    import fnmatch
+    src = open(os.path.join(_BIN, "rq_slot_indicator.py")).read()
+    assert "\"title\": f\"What's new in {advice['tag']}\"" in src
+    assert "\"title\": f\"What's new in {version}\"" in src
+    assert fnmatch.fnmatch("What's new in beta-2026-10-11-120000", ds.NEWS_TITLE)
+
+
 def test_built_rc_xml_has_the_rule_the_login_helper_switches(tmp_path):
     build = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     text = build.split('cat > "${SKEL_LABWC_DIR}/rc.xml" << \'EOF\'\n', 1)[1].split("\nEOF\n", 1)[0]
     assert '<windowRule identifier="chromium" type="normal" matchOnce="true">' in text
+    assert _NEWS in text
     rc = tmp_path / "rc.xml"
     rc.write_text(text)
     assert not ds.set_chromium_rule(False, str(rc))       # already as the helper wants it

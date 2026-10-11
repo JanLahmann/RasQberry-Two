@@ -400,6 +400,11 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
       <action name="MoveToEdge" direction="right" snapWindows="no"/>
       <action name="MoveToEdge" direction="down" snapWindows="no"/>
     </windowRule>
+    <!-- "What's new" after an update: on the left, over the desktop icons, not
+         over the homepage (rq_desktop_session.py: off on small screens) -->
+    <windowRule title="What's new in *">
+      <action name="MoveToEdge" direction="left" snapWindows="no"/>
+    </windowRule>
   </windowRules>
 </openbox_config>
 EOF

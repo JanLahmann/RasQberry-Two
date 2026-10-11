@@ -313,9 +313,44 @@ _RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-
                    r'<action name="MoveTo" x="480" y="45"\s*/>)')
 
 
+# The "What's new" window after an update (rq_slot_indicator.py) on the left,
+# over the desktop icons: centred, it covered the homepage's right half and
+# the RasQberry helper in its bottom right corner (rig recheck 2026-10-11).
+NEWS_TITLE = "What's new in *"
+_NEWS_RULE = ('    <!-- "What\'s new" after an update: on the left, over the desktop icons, not\n'
+              '         over the homepage (rq_desktop_session.py: off on small screens) -->\n'
+              '    <windowRule title="%s">\n'
+              '      <action name="MoveToEdge" direction="left" snapWindows="no"/>\n'
+              '    </windowRule>\n')
+_NEWS_RE = re.compile(r'(<windowRule title=")((?:rasqberry-small-screen-)?)' + re.escape(NEWS_TITLE) + '"')
+
+
+def _set_news_rule(text, small):
+    """
+    The "What's new" rule in rc.xml TEXT: added when missing, off on a small screen.
+
+    Args:
+        text (str): rc.xml.
+        small (bool): The screen is small (the window stays centred there).
+
+    Returns:
+        str: The new rc.xml text.
+    """
+    want = "rasqberry-small-screen-" if small else ""
+    if _NEWS_RE.search(text):
+        return _NEWS_RE.sub(lambda m: m.group(1) + want + NEWS_TITLE + '"', text)
+    end = re.search(r"^[ \t]*</windowRules>", text, re.M)
+    if not end:
+        return text
+    return text[:end.start()] + _NEWS_RULE % (want + NEWS_TITLE) + text[end.start():]
+
+
 def set_chromium_rule(small, rc=None):
     """
     Switch the labwc rule that puts Chromium at x=480 off on small screens.
+
+    The "What's new" window's rule (on the left, NEWS_TITLE) goes with it: it
+    is added to an rc.xml without it, and off on small screens too.
 
     The rule keeps the icons visible on a large screen; on a small one it put
     the window off-screen, and it would also move a maximised window. Off
@@ -342,6 +377,7 @@ def set_chromium_rule(small, rc=None):
         return False
     want = "rasqberry-small-screen-chromium" if small else "chromium"
     new = _RULE.sub(lambda m: m.group(1) + want + '" type="normal" matchOnce="true"' + m.group(3), text)
+    new = _set_news_rule(new, small)
     if new == text:
         return False
     with open(rc, "w", encoding="utf-8") as fh:
