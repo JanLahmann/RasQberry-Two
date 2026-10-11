@@ -41,6 +41,15 @@ export default function RootLayout({
           data-website-id="97f347ac-e7ba-4be3-b26f-ab4b328bdbf2"
           data-domains="rasqberry.org"
         />
+        {/* The RasQberry helper (Fun with Quantum's assistant): hidden until
+            the URL has ?assistant=1; "device" context on the Pi (?from=pi) */}
+        <Script
+          defer
+          src="https://fwq-assistant.jan-35c.workers.dev/widget.js"
+          data-site="rasqberry"
+          data-context="build"
+          data-context-pi="device"
+        />
       </body>
     </html>
   );
