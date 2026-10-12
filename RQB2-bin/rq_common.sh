@@ -564,7 +564,10 @@ _rq_led_self_chain() {
 led_holders() {
     local dev pids="" pid args self
     self=$(_rq_led_self_chain)
-    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0; do
+    # and the renderer's frame buffer: a program run as the user on a Pi 4
+    # draws through it and holds no device itself (rq_led_as_user)
+    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0 \
+               "${RQB2_LED_MMAP_PATH:-/tmp/rasqberry_virtual_led2.mmap}"; do
         [ -e "$dev" ] || continue
         pids="$pids $(fuser "$dev" 2>/dev/null || true)"
     done
@@ -573,6 +576,8 @@ led_holders() {
         case "$self" in *" $pid "*) continue ;; esac
         args=$(ps -o args= -p "$pid" 2>/dev/null) || continue
         [ -n "$args" ] || continue
+        # The on-screen LED view only shows the frames
+        case "$args" in *rq_led_virtual_gui.py*) continue ;; esac
         # In service mode the renderer IS the panel's driver, not a rival
         if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
             case "$args" in *rq_led_renderer.py*) continue ;; esac
@@ -693,6 +698,121 @@ led_clear_quietly() {
         PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script" ${close:+"$close"}
 }
 
+# ----------------------------------------------------------------------------
+# LED programs run as the desktop user, in a sandbox (Jan, 2026-10-12)
+# ----------------------------------------------------------------------------
+# Root does only what needs root, in RasQberry's own root-owned code: the
+# launcher checks the panel, starts the Pi 4's LED renderer, starts the demo
+# and clears the panel afterwards. The demo program - possibly a catalogue
+# demo from someone else's repository - runs as the desktop user in a
+# transient systemd unit that cannot gain root (NoNewPrivileges blocks sudo,
+# although the account may sudo), cannot reach Docker (root by another name),
+# sees the system read-only and cannot change what root or a later login runs
+# (the venv, ~/.local/config, shell start-up files, autostart). It keeps the
+# home, the desktop, the network and the user's sound (PipeWire).
+# The LEDs the rq_python way: on a Pi 5 the user drives the panel (/dev/pio0,
+# group gpio); on a Pi 4 the PWM driver needs root, so rasqberry-led-renderer
+# drives the strip and the program writes its frames to it
+# (LED_RENDER_MODE=service). RQ_LED_AS_ROOT=1, set by a person, runs a demo
+# as root as before, as a fallback; a manifest cannot ask for that.
+RQ_LED_RENDERER_UNIT="rasqberry-led-renderer.service"
+RQ_LED_RENDERER_STARTED=""
+RQ_LED_USER_MODE=""
+RQ_LED_DEMO_UNIT=""
+
+# Is this a launcher that should hand its LED program to the sandbox?
+_rq_led_sandboxed() {
+    [ "$(id -u)" = 0 ] && [ "${RQ_LED_AS_ROOT:-}" != 1 ] && [ "$(get_user_name)" != root ] \
+        && command -v systemd-run >/dev/null 2>&1
+}
+
+# Decide how the program reaches the panel, and start the renderer if it needs
+# it. In the launcher's own shell, not in a subshell (rq_run_demo), so that its
+# exit trap knows what to stop again.
+rq_led_user_prepare() {
+    RQ_LED_USER_MODE="direct"
+    _rq_led_sandboxed || return 0
+    RQ_LED_DEMO_UNIT="rasqberry-demo-$$"
+    if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
+        RQ_LED_USER_MODE="service"
+    elif [ "${LED_PHYSICAL:-true}" = "true" ] \
+         && ! sudo -u "$(get_user_name)" test -r /dev/pio0 -a -w /dev/pio0 2>/dev/null; then
+        RQ_LED_USER_MODE="service"
+    fi
+    [ "$RQ_LED_USER_MODE" = "service" ] || return 0
+    systemctl is-active --quiet "$RQ_LED_RENDERER_UNIT" 2>/dev/null && return 0
+    if systemctl start "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
+        RQ_LED_RENDERER_STARTED=1
+        sleep 1    # let the renderer open the frame buffer and the strip
+    else
+        warn "Could not start the LED renderer: the panel stays dark."
+    fi
+}
+
+# Run an LED program as the desktop user in the sandbox (as it is, when this
+# is not root). Call rq_led_user_prepare first. A bare "python3" is the venv's.
+# Usage: rq_led_as_user COMMAND [ARGS...]
+rq_led_as_user() {
+    if ! _rq_led_sandboxed; then
+        "$@"
+        return
+    fi
+    local user_name home uid cmd rt g groups="" io="--pipe"
+    user_name=$(get_user_name)
+    home=$(getent passwd "$user_name" | cut -d: -f6)
+    uid=$(id -u "$user_name")
+    # systemd-run starts from a clean environment: the program by its full
+    # path, and only what it needs passed on
+    cmd=$(command -v "$1" 2>/dev/null) || cmd="$1"
+    shift
+    rt=$(rq_audio_runtime_dir) || rt=""
+    # the device groups only: not sudo, adm or docker
+    for g in gpio spi i2c audio video render input dialout plugdev; do
+        id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups $g"
+    done
+    # a program that reads the keyboard gets the terminal (Raspberry Tie asks
+    # for an IBM Quantum key); rq_run_demo gives the others no input
+    [ -t 0 ] && [ -t 1 ] && io="--pty"
+    local -a props=(
+        -p NoNewPrivileges=yes -p RestrictSUIDSGID=yes
+        -p CapabilityBoundingSet= -p AmbientCapabilities=
+        -p ProtectSystem=strict -p "ReadWritePaths=$home /tmp"
+        -p "ReadOnlyPaths=-$home/${REPO:-RasQberry-Two}/venv -$home/.local/config -$home/.local/bin"
+        -p "ReadOnlyPaths=-$home/.bashrc -$home/.profile -$home/.bash_profile -$home/.config/autostart -$home/.ssh"
+        -p "InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -/run/containerd"
+        -p ProtectKernelTunables=yes -p ProtectKernelModules=yes -p ProtectKernelLogs=yes
+        -p ProtectControlGroups=yes -p ProtectClock=yes -p ProtectHostname=yes
+        -p LockPersonality=yes -p RestrictNamespaces=yes
+        -p "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK"
+        -p "SupplementaryGroups=${groups# }"
+    )
+    systemd-run --quiet --collect --wait "$io" --same-dir --unit="$RQ_LED_DEMO_UNIT" \
+        --uid="$uid" --gid="$(id -g "$user_name")" "${props[@]}" \
+        -E HOME="$home" -E USER="$user_name" -E LOGNAME="$user_name" \
+        -E PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
+        -E LANG="${LANG:-C.UTF-8}" -E TERM="${TERM:-xterm}" -E DISPLAY="${DISPLAY:-:0}" \
+        ${WAYLAND_DISPLAY:+-E WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+        -E XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+        -E LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
+        ${QT_API:+-E QT_API="$QT_API"} \
+        ${PYTHONPATH:+-E PYTHONPATH="$PYTHONPATH"} ${PYTHONUNBUFFERED:+-E PYTHONUNBUFFERED="$PYTHONUNBUFFERED"} \
+        -- "$cmd" "$@"
+}
+
+# After the program: stop its unit (a closed window may leave it running), then
+# the renderer rq_led_user_prepare started. On SIGTERM the renderer blanks the
+# panel before it exits; it holds the strip while it runs, so this comes
+# before clearing the panel.
+rq_led_renderer_stop() {
+    if [ -n "${RQ_LED_DEMO_UNIT:-}" ]; then
+        systemctl stop "$RQ_LED_DEMO_UNIT" >/dev/null 2>&1 || true
+        RQ_LED_DEMO_UNIT=""
+    fi
+    [ -n "${RQ_LED_RENDERER_STARTED:-}" ] || return 0
+    RQ_LED_RENDERER_STARTED=""
+    rq_run_detached systemctl stop "$RQ_LED_RENDERER_UNIT"
+}
+
 # Stop and remove a container, to the end even if this script is killed
 # (see rq_run_detached)
 rq_docker_stop_detached() {
@@ -737,6 +857,7 @@ _rq_led_on_exit() {
     trap '' HUP INT TERM
     # the demo first, or it draws on while the panel is cleared
     rq_stop_demo_child
+    rq_led_renderer_stop
     led_clear_quietly
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
 }
