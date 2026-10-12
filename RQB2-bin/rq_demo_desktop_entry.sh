@@ -69,7 +69,7 @@ fi
 # its group window (user test 2026-10-08, F4)
 if [ "$icon_type" != "custom" ]; then
     icon_dir="${RQ_ICON_DIR:-/usr/share/icons/rasqberry}"
-    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    registry=$(rq_catalogue_file)
     curated=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id) | .icon // empty][0] // empty' \
         "$registry" 2>/dev/null) || curated=""
     case "$curated" in

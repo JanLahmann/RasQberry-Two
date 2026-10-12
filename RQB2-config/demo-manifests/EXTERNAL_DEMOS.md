@@ -38,7 +38,11 @@ manifests (`rq_demo_schema.json`), with these constraints:
 - `entrypoint.command` — no arbitrary command strings
 
 **Recommended**
-- `needs_hw` declarations (leds/display/network) so requirement checks work
+- `needs_hw` declarations (leds/display/network/audio) so requirement checks work.
+  `audio`: `optional` or `required` for a demo that plays sound; the launcher
+  names the output in use (HDMI, USB or Bluetooth speaker) or says how to
+  connect one. Play through the default output (PipeWire/PulseAudio, or the
+  browser), never a fixed ALSA device. Its catalogue entry sets `min_engine: 2`.
 - `install.pip_requirements: true` with a `requirements.txt` carrying
   **pinned versions** (`package==x.y.z`). Only packages the RasQberry venv
   does not already have are installed; anything the image ships (qiskit,
@@ -125,6 +129,29 @@ A thin registry in `RQB2-config/known-demos.json`:
   alone) installs the new one the same way, and the updater's report names
   the command. Until it is moved, the old install keeps the entry's group and
   maturity, so it stays where it was in the menu and on the desktop.
+
+## 2b. The catalogue online (rq_catalogue.py)
+
+New demos and new pins reach Pis without an image update:
+
+- Merging a change of `known-demos.json` into development publishes it to
+  `https://rasqberry.org/known-demos.json` (workflow `catalogue-publish.yml`).
+  Raise `catalogue_version` by one with every change; CI refuses a changed
+  catalogue that does not.
+- Pis fetch it in the daily check (`rasqberry-update-check.service`) and when
+  the picker opens. Only from rasqberry.org (no redirect to another host), at
+  most 512 KB. It is kept in `/var/cache/rasqberry/known-demos.json` only if
+  every entry has a kebab-case id, an https URL and a full commit SHA, no id
+  is a shipped demo, and its version is higher than the image's and the
+  cached one's. Otherwise the last good copy stays.
+- `rq_catalogue_file` (rq_common.sh) and `rq_desktop_session.py` use the
+  newer of the image's and the cached copy.
+- `min_engine`: an entry that needs a newer RasQberry is listed as such and
+  cannot be installed (this image: `rq_catalogue.py --engine`).
+- The user hears about new demos (not in the image's catalogue, added in the
+  last 30 days), updates (an installed demo not at its pin), renames and
+  withdrawals: once as a taskbar notice, as actions in the RasQberry badge's
+  menu, as a login line, and as "New:" in the picker.
 
 ## 3. Add flow (menu: "Add demo from catalogue")
 
