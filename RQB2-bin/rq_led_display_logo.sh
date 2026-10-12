@@ -9,7 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-# Ensure running as root (PWM/PIO drivers require GPIO access)
+# Root for the panel check, the Pi 4 renderer and clearing; the LED program
+# itself runs as the user in a sandbox (rq_led_as_user)
 ensure_root "$@"
 
 # Load and verify environment
@@ -117,6 +118,8 @@ main() {
 
     # Create temporary Python script to display logo
     TEMP_SCRIPT=$(mktemp)
+    # root writes it, the user runs it (rq_led_as_user): readable, not writable
+    chmod 644 "$TEMP_SCRIPT"
     # A closed window or Ctrl+C clears the panel too (R-158)
     rq_led_clear_on_exit
     trap "_rq_led_on_exit; rm -f '$TEMP_SCRIPT'" EXIT
@@ -152,7 +155,8 @@ PYTHON_EOF
     info "Displaying logo on LED matrix..."
     rq_stop_hint "the logo display" keys
     # the helper lives in /tmp, so point Python at the RasQberry modules
-    PYTHONPATH="${BIN_DIR:-/usr/bin}${PYTHONPATH:+:$PYTHONPATH}" python3 "$TEMP_SCRIPT" "$CHOICE" "$DURATION" $FADE_EFFECTS || die "Failed to display logo"
+    rq_led_user_prepare
+    PYTHONPATH="${BIN_DIR:-/usr/bin}${PYTHONPATH:+:$PYTHONPATH}" rq_led_as_user python3 "$TEMP_SCRIPT" "$CHOICE" "$DURATION" $FADE_EFFECTS || die "Failed to display logo"
 
     info "Display complete!"
 }

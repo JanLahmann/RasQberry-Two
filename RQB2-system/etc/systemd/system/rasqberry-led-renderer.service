@@ -20,6 +20,33 @@ User=root
 # Root runs the user's venv python: write no __pycache__ into it, or a later
 # pip upgrade there fails on root-owned files (#285, R-059).
 Environment=PYTHONDONTWRITEBYTECODE=1
+# Root only for the strip: LED demos run as the user and write frames to the
+# mmap in /tmp; this reads them and drives the PWM hardware, nothing else.
+# CAP_SYS_RAWIO maps /dev/mem, CAP_DAC_READ_SEARCH reads the venv in the
+# user's home (mode 700), CAP_FOWNER makes a user-created mmap 0666. No
+# network, the system read-only, only the strip's devices (Pi 4 rig,
+# 2026-10-12).
+CapabilityBoundingSet=CAP_SYS_RAWIO CAP_DAC_READ_SEARCH CAP_FOWNER
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=closed
+DeviceAllow=/dev/mem rw
+DeviceAllow=/dev/gpiomem rw
+DeviceAllow=/dev/vcio rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
 StandardOutput=journal
 StandardError=journal
 

@@ -63,19 +63,52 @@ def test_launcher_warns_about_the_jack_with_leds():
     assert '[ -z "$ROOT_PASS" ] || audio_req=none' in block
 
 
-def test_led_demo_with_sound_runs_as_the_user():
+def test_led_demos_run_as_the_user_in_a_sandbox():
     run = open(_RUN).read()
-    py = run[run.index("run_python() {"):run.index("demo_plays_sound() {")]
-    # after the panel check, before the root run
-    assert py.index("led_panel_ready") < py.index("demo_plays_sound") < py.index("(as root)")
-    fn = run[run.index("run_led_demo_as_user() {"):run.index("stop_led_renderer() {")]
-    assert "run_as_user env LED_RENDER_MODE=" in fn
-    assert "XDG_RUNTIME_DIR" in fn
-    assert "mode=service" in fn and 'systemctl start "$LED_RENDERER_UNIT"' in fn
-    assert "/dev/pio0" in fn
+    py = run[run.index("run_python() {"):run.index("# ROOT RUNS AND THE USER'S HOME")]
+    # after the panel check, before the root fallback
+    assert py.index("led_panel_ready") < py.index("rq_led_as_user") < py.index("(as root)")
+    assert 'if [ "${RQ_LED_AS_ROOT:-}" != 1 ]; then' in py
+    common = open(_COMMON).read()
+    fn = common[common.index("rq_led_as_user() {"):common.index("rq_led_renderer_stop() {")]
+    for prop in ("NoNewPrivileges=yes", "ProtectSystem=strict", "CapabilityBoundingSet=",
+                 "/run/docker.sock", "RestrictSUIDSGID=yes", "/venv", ".local/config", ".bashrc"):
+        assert prop in fn, prop
+    assert "XDG_RUNTIME_DIR" in fn and "LED_RENDER_MODE=" in fn
+    # no sudo, adm or docker in the sandbox's groups
+    groups = fn[fn.index("for g in"):fn.index("; do", fn.index("for g in"))]
+    assert "sudo" not in groups and "docker" not in groups and "adm" not in groups
 
 
-def test_cleanup_stops_the_renderer_before_clearing():
+def test_a_manifest_cannot_ask_for_root():
+    run = open(_RUN).read()
+    assert "as_root" not in run.replace("RQ_LED_AS_ROOT", "")
+
+
+@pytest.mark.parametrize("launcher", ["rq_led_ibm_demo.sh", "rq_rasq_led.sh",
+                                      "rq_led_display_text.sh", "rq_led_display_logo.sh"])
+def test_led_launchers_hand_the_program_to_the_sandbox(launcher):
+    s = open(os.path.join(_BIN, launcher)).read()
+    assert s.index("rq_led_user_prepare") < s.index("rq_led_as_user python3")
+
+
+def test_root_pass_drops_the_users_python_paths():
+    run = open(_RUN).read()
+    assert "unset PYTHONPATH PYTHONHOME PYTHONSTARTUP" in run
+
+
+def test_renderer_unit_is_confined():
+    unit = open(os.path.join(_ROOT, "RQB2-system/etc/systemd/system/rasqberry-led-renderer.service")).read()
+    assert "CapabilityBoundingSet=CAP_SYS_RAWIO CAP_DAC_READ_SEARCH CAP_FOWNER" in unit
+    for line in ("NoNewPrivileges=yes", "ProtectSystem=strict", "PrivateNetwork=yes",
+                 "DevicePolicy=closed", "DeviceAllow=/dev/mem rw"):
+        assert line in unit, line
+
+
+def test_cleanup_stops_the_sandbox_and_renderer_before_clearing():
     run = open(_RUN).read()
     clean = run[run.index("cleanup() {"):]
-    assert clean.index("stop_led_renderer") < clean.index("led_clear_quietly")
+    assert clean.index("rq_led_renderer_stop") < clean.index("led_clear_quietly")
+    common = open(_COMMON).read()
+    on_exit = common[common.index("_rq_led_on_exit() {"):]
+    assert on_exit.index("rq_led_renderer_stop") < on_exit.index("led_clear_quietly")

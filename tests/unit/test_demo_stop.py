@@ -1141,7 +1141,7 @@ def test_a_program_in_front_ends_without_a_terminated_line():
     assert "Terminated" in plain            # what the loop showed
     assert "Terminated" not in front, front
     for launcher in ("rq_led_ibm_demo.sh", "rq_rasq_led.sh"):
-        assert "\nrq_run_in_front python3 " in open(os.path.join(_BIN, launcher)).read(), launcher
+        assert "\nrq_run_in_front rq_led_as_user python3 " in open(os.path.join(_BIN, launcher)).read(), launcher
 
 
 

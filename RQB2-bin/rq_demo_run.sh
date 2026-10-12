@@ -66,9 +66,6 @@ INSTALLING_DIR=""
 # Helper processes a demo starts that outlive it (manifest
 # .entrypoint.stop_on_exit, e.g. Raspberry Tie's SenseHAT emulator window, #104)
 STOP_ON_EXIT=()
-# The Pi 4's LED renderer, started for an LED demo with sound (run as the user)
-LED_RENDERER_UNIT="rasqberry-led-renderer.service"
-LED_RENDERER_STARTED=""
 # Set in an LED demo's second pass, as root (run_python)
 ROOT_PASS=""
 
@@ -330,6 +327,65 @@ check_installed() {
     return 0
 }
 
+# Apply a demo patch to its checkout, and note which patch it was
+# (.git/rq-patch.sha256) so that a changed patch reaches existing installs.
+# Upstream repos sometimes ship CRLF and/or trailing whitespace (e.g.
+# KPRoche/quantum-raspberry-tie v8_0), which makes an LF patch's context
+# fail to match and git apply reject every hunk. Normalize the files this
+# patch targets (strip CR + trailing whitespace) first - Python is line-ending
+# agnostic, so this is safe and keeps our patches robust to upstream
+# whitespace drift. Our patches are generated against the same normalization
+# (see RQB2-config/demo-patches/). A file the patch creates is not there yet.
+# Usage: apply_demo_patch DEMO_DIR PATCH
+apply_demo_patch() {
+    local dir="$1" patch="$2" f
+    (
+        cd "$dir" || exit 1
+        grep '^+++ b/' "$patch" | sed 's|^+++ b/||' | while IFS= read -r f; do
+            if [ -f "$f" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$f"; fi
+        done
+        git apply "$patch" 2>/dev/null || git apply -3 "$patch" 2>/dev/null || exit 1
+        [ -d .git ] && sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        exit 0
+    )
+}
+
+# An installed demo whose patch has changed since (a new image or update):
+# put the patched files back to the pinned upstream version and apply the
+# new patch. If that fails, the demo keeps the patch it had.
+refresh_demo_patch() {
+    local patch_file dir patch want have files
+    patch_file=$(get_field '.install.patch_file' '')
+    [ -n "$patch_file" ] || return 0
+    patch="$PATCHES_DIR/$patch_file"
+    dir="$USER_HOME/$REPO/demos/$(get_field '.entrypoint.working_dir' '')"
+    [ -f "$patch" ] && [ -d "$dir/.git" ] || return 0
+    want=$(sha256sum < "$patch" | cut -d' ' -f1)
+    have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
+    [ "$want" != "$have" ] || return 0
+    files=$(grep '^+++ b/' "$patch" | sed 's|^+++ b/||')
+    # a copy to fall back on
+    local keep
+    keep=$(mktemp -d) || return 0
+    ( cd "$dir" && printf '%s\n' "$files" | while IFS= read -r f; do
+          [ -f "$f" ] && mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
+      done; true )
+    if ( cd "$dir" && printf '%s\n' "$files" | xargs -r git checkout HEAD -- 2>/dev/null ) \
+       && apply_demo_patch "$dir" "$patch"; then
+        info "Updated the RasQberry changes to $DEMO_TITLE"
+    else
+        ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
+        warn "Could not update the RasQberry changes to $DEMO_TITLE: it runs as before."
+    fi
+    rm -rf "$keep"
+    if [ "$(id -u)" = "0" ]; then
+        local owner
+        owner=$(get_user_name)
+        [ "$owner" != "root" ] && chown -R "$owner:$owner" "$dir"
+    fi
+    return 0
+}
+
 # Install demo from manifest
 # Clones repo, applies patches, installs pip requirements
 install_demo() {
@@ -405,25 +461,9 @@ install_demo() {
             die "Patch file declared in the manifest but not found: $PATCHES_DIR/$patch_file (demo '$DEMO_ID')"
         fi
         info "Applying patch: $patch_file"
+        apply_demo_patch "$demo_dir" "$PATCHES_DIR/$patch_file" \
+            || die "Failed to apply patch '$patch_file' for demo '$DEMO_ID' (tried plain and 3-way git apply). Refusing to run the demo unpatched."
         cd "$demo_dir"
-        # Upstream repos sometimes ship CRLF and/or trailing whitespace (e.g.
-        # KPRoche/quantum-raspberry-tie v8_0), which makes an LF patch's context
-        # fail to match and git apply reject every hunk. Normalize the files this
-        # patch targets (strip CR + trailing whitespace) first — Python is
-        # line-ending agnostic, so this is safe and keeps our patches robust to
-        # upstream whitespace drift. Our patches are generated against the same
-        # normalization (see RQB2-config/demo-patches/).
-        # (a file the patch creates is not there yet: skip it - as the loop's
-        # last command a failed test would stop the install under pipefail)
-        grep '^+++ b/' "$PATCHES_DIR/$patch_file" | sed 's|^+++ b/||' | while IFS= read -r _pf; do
-            if [ -f "$_pf" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"; fi
-        done
-        if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
-            # Try with -3 for 3-way merge
-            if ! git apply -3 "$PATCHES_DIR/$patch_file" 2>/dev/null; then
-                die "Failed to apply patch '$patch_file' for demo '$DEMO_ID' (tried plain and 3-way git apply). Refusing to run the demo unpatched."
-            fi
-        fi
     fi
 
     # Install pip requirements if specified (as the user, into the user's venv)
@@ -559,6 +599,7 @@ shared_download_present() {
 ensure_installed() {
     if check_installed; then
         sync_installed_flag
+        refresh_demo_patch
         return 0
     fi
 
@@ -1023,8 +1064,12 @@ run_python() {
         LED_DEMO_RAN=1
         RQ_LED_RUN_START=$(date +%s)
         RQ_LED_THROTTLED_START=$(rq_throttled)
-        if demo_plays_sound; then
-            run_led_demo_as_user ${run[@]+"${run[@]}"} -- env PYTHONPATH="$demo_pythonpath" \
+        # The program as the desktop user, in a sandbox (rq_led_as_user);
+        # as root only when a person asks for it (RQ_LED_AS_ROOT=1)
+        if [ "${RQ_LED_AS_ROOT:-}" != 1 ]; then
+            rq_led_user_prepare
+            info "Running with LED support..."
+            ${run[@]+"${run[@]}"} rq_led_as_user env PYTHONPATH="$demo_pythonpath" \
                 ${py_env[@]+"${py_env[@]}"} "$venv_python" -W ignore::DeprecationWarning \
                 "$script" ${script_args[@]+"${script_args[@]}"}
             return
@@ -1049,57 +1094,11 @@ run_python() {
     fi
 }
 
-# Does the demo play sound (needs_hw.audio optional or required)?
-demo_plays_sound() {
-    case "$(demo_field '.needs_hw.audio' 'none')" in
-        optional|required) return 0 ;;
-    esac
-    return 1
-}
-
-# An LED demo that plays sound runs as the desktop user: root has no way into
-# the user's sound (PipeWire), so it played to nothing. Called in the root
-# pass, after the panel check. The LEDs the rq_python way: on a Pi 5 the user
-# drives the panel (/dev/pio0, group gpio); on a Pi 4 the PWM driver needs
-# root, so this starts rasqberry-led-renderer and the demo writes its frames
-# to it (LED_RENDER_MODE=service). cleanup() stops the renderer again, which
-# blanks the panel.
-# Usage: run_led_demo_as_user [RUNNER...] -- COMMAND [ARGS...]
-run_led_demo_as_user() {
-    local -a runner=()
-    while [ $# -gt 0 ] && [ "$1" != "--" ]; do runner+=("$1"); shift; done
-    shift
-    local user_name mode="direct" rt=""
-    user_name=$(get_user_name)
-    if [ "${LED_PHYSICAL:-true}" = "true" ] && ! run_as_user test -r /dev/pio0 -a -w /dev/pio0 2>/dev/null; then
-        mode=service
-        if ! systemctl is-active --quiet "$LED_RENDERER_UNIT" 2>/dev/null; then
-            if systemctl start "$LED_RENDERER_UNIT" 2>/dev/null; then
-                LED_RENDERER_STARTED=1
-                sleep 1    # let the renderer open the frame buffer and the strip
-            else
-                warn "Could not start the LED renderer: the panel stays dark."
-            fi
-        fi
-    fi
-    rt=$(rq_audio_runtime_dir) || rt=""
-    info "Running with LED support and sound (as $user_name)..."
-    ${runner[@]+"${runner[@]}"} run_as_user env LED_RENDER_MODE="$mode" \
-        ${rt:+XDG_RUNTIME_DIR="$rt"} ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} "$@"
-}
-
-# Stop the LED renderer an LED demo with sound started (run_led_demo_as_user).
-# On SIGTERM the renderer blanks the panel before it exits.
-stop_led_renderer() {
-    [ -n "${LED_RENDERER_STARTED:-}" ] || return 0
-    LED_RENDERER_STARTED=""
-    rq_run_detached systemctl stop "$LED_RENDERER_UNIT"
-}
-
 # ============================================================================
 # ROOT RUNS AND THE USER'S HOME
 # ============================================================================
-# LED demos run as root (GPIO), but with the desktop user's HOME, so they use
+# An LED demo run as root (only with RQ_LED_AS_ROOT=1; normally it runs as the
+# user, rq_led_as_user) gets the desktop user's HOME, so it uses
 # the user's IBM Quantum account in ~/.qiskit (Q26). Whatever root creates
 # there is the user's afterwards: qiskit-ibm-runtime creates
 # ~/.qiskit/qiskit-ibm.json on any account lookup, and one Raspberry Tie run on
@@ -1219,12 +1218,15 @@ cleanup() {
     fi
 
     # Helper windows/processes the demo started (only those that were not
-    # already running when it launched)
-    local pat
+    # already running when it launched). Only the desktop user's: the pattern
+    # comes from the manifest, which for a catalogue demo the user can edit,
+    # and root must not stop other programs by it.
+    local pat stop_user
+    stop_user=$(get_user_name)
     for pat in ${STOP_ON_EXIT[@]+"${STOP_ON_EXIT[@]}"}; do
-        if pgrep -f -- "$pat" >/dev/null 2>&1; then
+        if pgrep -u "$stop_user" -f -- "$pat" >/dev/null 2>&1; then
             info "Closing $pat..."
-            pkill -f -- "$pat" 2>/dev/null || sudo -n pkill -f -- "$pat" 2>/dev/null || true
+            pkill -u "$stop_user" -f -- "$pat" 2>/dev/null || true
         fi
     done
 
@@ -1247,8 +1249,8 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
-        # the renderer holds the strip while it runs: stop it first
-        stop_led_renderer
+        # the demo's sandbox and the renderer first: it holds the strip
+        rq_led_renderer_stop
         led_clear_quietly
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
@@ -1328,7 +1330,7 @@ drop_to_desktop_user() {
              RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
-    info "Starting as $user_name (only LED demos run as root)..."
+    info "Starting as $user_name..."
     exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
 }
 
@@ -1417,6 +1419,9 @@ main() {
     local root_pass="${RQ_DEMO_ROOT_PASS:-}"
     ROOT_PASS="$root_pass"
     unset RQ_DEMO_ROOT_PASS
+    # sudo -E kept the user's environment: root runs no Python or shell code
+    # it points to
+    [ -z "$root_pass" ] || unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE BASH_ENV ENV
     if [ -z "$root_pass" ]; then
         # The window's title: the demo's name, not the command line (R-135),
         # or the title of the icon or learning-path step that started it
@@ -1466,7 +1471,7 @@ main() {
     local pat
     while IFS= read -r pat; do
         [ -n "$pat" ] || continue
-        pgrep -f -- "$pat" >/dev/null 2>&1 || STOP_ON_EXIT+=("$pat")
+        pgrep -u "$(get_user_name)" -f -- "$pat" >/dev/null 2>&1 || STOP_ON_EXIT+=("$pat")
     done < <(jq -r '.entrypoint.stop_on_exit[]? // empty' "$MANIFEST_FILE" 2>/dev/null)
 
     # Ensure demo is installed (auto-install if possible)
