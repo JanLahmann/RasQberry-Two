@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-12T18:37:28Z",
+  "generated": "2026-10-12T21:13:32Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,26 +35,20 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-12-195215",
-      "name": "rasqberry-development-2026-10-12-195215",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-195215/rasqberry-development-2026-10-12-195215.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-12-195215",
-      "release_date": "2026-10-12 19:52",
-      "image_download_size": 1846361784,
+      "tag": "development-2026-10-12-222956",
+      "name": "rasqberry-development-2026-10-12-222956",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-222956/rasqberry-development-2026-10-12-222956.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-12-222956",
+      "release_date": "2026-10-12 22:29",
+      "image_download_size": 1845172244,
       "extract_size": 9512681472,
-      "extract_sha256": "d5991995623b945f050253e1734377e5098c7cd09878440aa368af601d4609dd",
-      "image_sha256": "122c90498929ee1fbe6ed4eba76e80305d29fa3b185d4a37e68ea42d5e6fcacb",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-195215/rasqberry-development-2026-10-12-195215-ab.img.xz",
-      "ab_extract_sha256": "ffa6edbfc12ea8b3709366ce7b431f84c5ae8605640ed3d9d6f8cbe1c5f54e66",
-      "ab_image_sha256": "5c7f2723a80253bd8d1e59904ac629726f4909f9f98f642cc333d8923a5c199c",
-      "ab_image_download_size": 1893909392,
-      "ab_extract_size": 12398362624,
-      "highlights": [
-        "Bump version to development-2026-10-12-195215",
-        "Merge led-as-user: LED demos run as the user in a sandbox, confined renderer",
-        "LED demos run as the user in a sandbox; the Pi 4 renderer is confined",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-12-165129"
-      ]
+      "extract_sha256": "3f10e561f8bc94cb7116cd73c8839c3b775cf764fc166c8ca4bd3a3862104100",
+      "image_sha256": "6056f31b19bcefca0dbd4f1a3636cff4408958165d2582a15654ebc22e96b6ad",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-222956/rasqberry-development-2026-10-12-222956-ab.img.xz",
+      "ab_extract_sha256": "6b9cb4b3bdfdb54ab11c53bcff14d048f6f783920b0a6fa8e75ace286e84c313",
+      "ab_image_sha256": "b13f88cb884a4500b152fb6af3a136970c2a65f1d1f071fefed0cc045139bd5f",
+      "ab_image_download_size": 1897224976,
+      "ab_extract_size": 12398362624
     }
   }
 }
