@@ -43,6 +43,10 @@ manifests (`rq_demo_schema.json`), with these constraints:
   names the output in use (HDMI, USB or Bluetooth speaker) or says how to
   connect one. Play through the default output (PipeWire/PulseAudio, or the
   browser), never a fixed ALSA device. Its catalogue entry sets `min_engine: 2`.
+  An LED demo with sound runs as the desktop user, not as root, so it must
+  draw through `rq_led_utils` (`get_pixels()`): on a Pi 4 that goes through the
+  LED renderer. A Pi 4's headphone jack goes silent once the LEDs are on; the
+  launcher warns when it is the output.
 - `install.pip_requirements: true` with a `requirements.txt` carrying
   **pinned versions** (`package==x.y.z`). Only packages the RasQberry venv
   does not already have are installed; anything the image ships (qiskit,

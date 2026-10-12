@@ -2348,24 +2348,53 @@ rq_beta_notice() {
     echo
 }
 
-# The sound output in use (PipeWire's default sink, e.g. "Built-in Audio
-# Digital Stereo (HDMI)" or a Bluetooth speaker's name), asked in the desktop
-# user's session. Returns 1 when there is none; 2 when it cannot be told (no
-# wpctl, no session: SSH without a desktop).
-rq_audio_output() {
-    local user uid run out
-    command -v wpctl >/dev/null 2>&1 || return 2
-    user=$(get_user_name)
-    uid=$(id -u "$user" 2>/dev/null) || return 2
-    run="/run/user/$uid"
-    [ -S "$run/pipewire-0" ] || return 2
-    if [ "$(id -u)" = "0" ] && [ "$user" != root ]; then
-        out=$(sudo -u "$user" env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null) || return 1
-    else
-        out=$(env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null) || return 1
+# The desktop user's session directory (/run/user/UID), when PipeWire runs
+# there. Programs that play sound need it as XDG_RUNTIME_DIR: sudo drops it.
+rq_audio_runtime_dir() {
+    local uid
+    uid=$(id -u "$(get_user_name)" 2>/dev/null) || return 1
+    [ -S "/run/user/$uid/pipewire-0" ] || return 1
+    echo "/run/user/$uid"
+}
+
+# PipeWire's description of the default sound output, asked in the desktop
+# user's session (RQ_WPCTL_INSPECT: a file to read instead, for tests).
+# Returns 1 when there is none; 2 when it cannot be told.
+_rq_audio_inspect() {
+    if [ -n "${RQ_WPCTL_INSPECT:-}" ]; then
+        [ -s "$RQ_WPCTL_INSPECT" ] || return 1
+        cat "$RQ_WPCTL_INSPECT"
+        return 0
     fi
+    local user run
+    command -v wpctl >/dev/null 2>&1 || return 2
+    run=$(rq_audio_runtime_dir) || return 2
+    user=$(get_user_name)
+    if [ "$(id -u)" = "0" ] && [ "$user" != root ]; then
+        sudo -u "$user" env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null || return 1
+    else
+        env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null || return 1
+    fi
+}
+
+# The sound output in use (PipeWire's default sink, e.g. "Built-in Audio
+# Digital Stereo (HDMI)" or a Bluetooth speaker's name). Returns 1 when there
+# is none; 2 when it cannot be told (no wpctl, no session: SSH without a
+# desktop).
+rq_audio_output() {
+    local out rc=0
+    out=$(_rq_audio_inspect) || rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
     out=$(printf '%s\n' "$out" | sed -n 's/.*node\.description = "\(.*\)"/\1/p' | head -n 1)
     echo "${out:-a sound output}"
+}
+
+# Is the sound output the headphone jack of a Pi 4 (or older)? That jack is
+# made with the PWM hardware the LED panel's driver uses on GPIO18: once the
+# LEDs have been on, the jack plays nothing until the Pi restarts (Pi 4 rig,
+# 2026-10-12).
+rq_audio_on_jack() {
+    _rq_audio_inspect 2>/dev/null | grep -q 'api\.alsa\.card\.name = "bcm2835 Headphones"'
 }
 
 # How to get sound, for demos that need it (needs_hw.audio)

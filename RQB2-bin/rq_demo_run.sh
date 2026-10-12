@@ -66,6 +66,11 @@ INSTALLING_DIR=""
 # Helper processes a demo starts that outlive it (manifest
 # .entrypoint.stop_on_exit, e.g. Raspberry Tie's SenseHAT emulator window, #104)
 STOP_ON_EXIT=()
+# The Pi 4's LED renderer, started for an LED demo with sound (run as the user)
+LED_RENDERER_UNIT="rasqberry-led-renderer.service"
+LED_RENDERER_STARTED=""
+# Set in an LED demo's second pass, as root (run_python)
+ROOT_PASS=""
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -207,12 +212,21 @@ check_requirements() {
     fi
 
     # Sound (needs_hw.audio): name the output in use; with none, say how to
-    # connect a speaker, and a demo that needs one waits for Enter
+    # connect a speaker, and a demo that needs one waits for Enter. Once per
+    # window: not again in an LED demo's second pass.
     local audio_req out rc=0
     audio_req=$(demo_field '.needs_hw.audio' 'none')
+    [ -z "$ROOT_PASS" ] || audio_req=none
     if [ "$audio_req" = "required" ] || [ "$audio_req" = "optional" ]; then
         out=$(rq_audio_output) || rc=$?
-        if [ "$rc" -eq 0 ]; then
+        if [ "$rc" -eq 0 ] && [ "$needs_leds" = "true" ] && rq_audio_on_jack; then
+            # Pi 4: the headphone jack and the LED panel share the PWM hardware
+            warn "Sound goes to the headphone jack, which uses the same hardware as the LED panel: once the LEDs are on, the sound stops until the Pi restarts."
+            echo "Use another output. $RQ_SPEAKER_HINT"
+            if [ -t 0 ] && [ -t 1 ]; then
+                read -r -p "Press Enter to start it anyway, Ctrl+C to stop. " _ || true
+            fi
+        elif [ "$rc" -eq 0 ]; then
             info "This demo plays sound. Sound goes to: $out (turn the speaker on and the volume up)."
         elif [ "$rc" -eq 1 ]; then
             echo "No sound output found. $RQ_SPEAKER_HINT"
@@ -1009,6 +1023,12 @@ run_python() {
         LED_DEMO_RAN=1
         RQ_LED_RUN_START=$(date +%s)
         RQ_LED_THROTTLED_START=$(rq_throttled)
+        if demo_plays_sound; then
+            run_led_demo_as_user ${run[@]+"${run[@]}"} -- env PYTHONPATH="$demo_pythonpath" \
+                ${py_env[@]+"${py_env[@]}"} "$venv_python" -W ignore::DeprecationWarning \
+                "$script" ${script_args[@]+"${script_args[@]}"}
+            return
+        fi
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -1027,6 +1047,53 @@ run_python() {
         ${run[@]+"${run[@]}"} run_as_user env PYTHONPATH="$demo_pythonpath" ${py_env[@]+"${py_env[@]}"} \
             "$venv_python" "$script" ${script_args[@]+"${script_args[@]}"}
     fi
+}
+
+# Does the demo play sound (needs_hw.audio optional or required)?
+demo_plays_sound() {
+    case "$(demo_field '.needs_hw.audio' 'none')" in
+        optional|required) return 0 ;;
+    esac
+    return 1
+}
+
+# An LED demo that plays sound runs as the desktop user: root has no way into
+# the user's sound (PipeWire), so it played to nothing. Called in the root
+# pass, after the panel check. The LEDs the rq_python way: on a Pi 5 the user
+# drives the panel (/dev/pio0, group gpio); on a Pi 4 the PWM driver needs
+# root, so this starts rasqberry-led-renderer and the demo writes its frames
+# to it (LED_RENDER_MODE=service). cleanup() stops the renderer again, which
+# blanks the panel.
+# Usage: run_led_demo_as_user [RUNNER...] -- COMMAND [ARGS...]
+run_led_demo_as_user() {
+    local -a runner=()
+    while [ $# -gt 0 ] && [ "$1" != "--" ]; do runner+=("$1"); shift; done
+    shift
+    local user_name mode="direct" rt=""
+    user_name=$(get_user_name)
+    if [ "${LED_PHYSICAL:-true}" = "true" ] && ! run_as_user test -r /dev/pio0 -a -w /dev/pio0 2>/dev/null; then
+        mode=service
+        if ! systemctl is-active --quiet "$LED_RENDERER_UNIT" 2>/dev/null; then
+            if systemctl start "$LED_RENDERER_UNIT" 2>/dev/null; then
+                LED_RENDERER_STARTED=1
+                sleep 1    # let the renderer open the frame buffer and the strip
+            else
+                warn "Could not start the LED renderer: the panel stays dark."
+            fi
+        fi
+    fi
+    rt=$(rq_audio_runtime_dir) || rt=""
+    info "Running with LED support and sound (as $user_name)..."
+    ${runner[@]+"${runner[@]}"} run_as_user env LED_RENDER_MODE="$mode" \
+        ${rt:+XDG_RUNTIME_DIR="$rt"} ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} "$@"
+}
+
+# Stop the LED renderer an LED demo with sound started (run_led_demo_as_user).
+# On SIGTERM the renderer blanks the panel before it exits.
+stop_led_renderer() {
+    [ -n "${LED_RENDERER_STARTED:-}" ] || return 0
+    LED_RENDERER_STARTED=""
+    rq_run_detached systemctl stop "$LED_RENDERER_UNIT"
 }
 
 # ============================================================================
@@ -1180,6 +1247,8 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
+        # the renderer holds the strip while it runs: stop it first
+        stop_led_renderer
         led_clear_quietly
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
@@ -1346,6 +1415,7 @@ main() {
     # An LED demo's second pass, as root (run_python): the window has its
     # title and first line already (SAP Quantum LED showed it twice)
     local root_pass="${RQ_DEMO_ROOT_PASS:-}"
+    ROOT_PASS="$root_pass"
     unset RQ_DEMO_ROOT_PASS
     if [ -z "$root_pass" ]; then
         # The window's title: the demo's name, not the command line (R-135),
