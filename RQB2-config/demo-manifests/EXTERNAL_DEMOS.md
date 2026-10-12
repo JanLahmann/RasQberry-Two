@@ -43,10 +43,10 @@ manifests (`rq_demo_schema.json`), with these constraints:
   names the output in use (HDMI, USB or Bluetooth speaker) or says how to
   connect one. Play through the default output (PipeWire/PulseAudio, or the
   browser), never a fixed ALSA device. Its catalogue entry sets `min_engine: 2`.
-  A Pi 4's headphone jack goes silent once the LEDs are on; the launcher
-  warns when it is the output.
+  A Pi 4's headphone jack can go silent with the LEDs on, until a restart;
+  the launcher warns when it is the output.
 - LED demos run as the desktop user in a sandbox, never as root: no `sudo`,
-  no Docker, the system read-only, and the venv, `~/.local/config`, shell
+  no Docker, no writing to the system, and the venv, `~/.local/config`, shell
   start-up files and autostart read-only. The home, the desktop, the network
   and sound work. Draw through `rq_led_utils` (`get_pixels()` or
   `create_neopixel_strip()`), never `neopixel.NeoPixel` directly: on a Pi 4

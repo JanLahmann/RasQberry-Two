@@ -71,9 +71,14 @@ def test_led_demos_run_as_the_user_in_a_sandbox():
     assert 'if [ "${RQ_LED_AS_ROOT:-}" != 1 ]; then' in py
     common = open(_COMMON).read()
     fn = common[common.index("rq_led_as_user() {"):common.index("rq_led_renderer_stop() {")]
-    for prop in ("NoNewPrivileges=yes", "ProtectSystem=strict", "CapabilityBoundingSet=",
-                 "/run/docker.sock", "RestrictSUIDSGID=yes", "/venv", ".local/config", ".bashrc"):
-        assert prop in fn, prop
+    # a child of the launcher (stop signals reach it), not a systemd unit
+    assert "systemd-run" not in fn
+    assert "unshare --mount --propagation private" in fn
+    for flag in ("--no-new-privs", "--bounding-set=-all", "--inh-caps=-all", "env -i"):
+        assert flag in fn, flag
+    for path in ("/venv", ".local/config", ".bashrc", ".ssh", ".config/autostart"):
+        assert path in fn, path
+    assert "remount,bind,ro" in common
     assert "XDG_RUNTIME_DIR" in fn and "LED_RENDER_MODE=" in fn
     # no sudo, adm or docker in the sandbox's groups
     groups = fn[fn.index("for g in"):fn.index("; do", fn.index("for g in"))]

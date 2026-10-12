@@ -704,12 +704,16 @@ led_clear_quietly() {
 # Root does only what needs root, in RasQberry's own root-owned code: the
 # launcher checks the panel, starts the Pi 4's LED renderer, starts the demo
 # and clears the panel afterwards. The demo program - possibly a catalogue
-# demo from someone else's repository - runs as the desktop user in a
-# transient systemd unit that cannot gain root (NoNewPrivileges blocks sudo,
-# although the account may sudo), cannot reach Docker (root by another name),
-# sees the system read-only and cannot change what root or a later login runs
-# (the venv, ~/.local/config, shell start-up files, autostart). It keeps the
-# home, the desktop, the network and the user's sound (PipeWire).
+# demo from someone else's repository - runs as the desktop user and cannot
+# gain root: no-new-privileges (sudo refuses, although the account may sudo),
+# no capabilities, and only the device groups (not sudo, adm or docker, so no
+# Docker, which is root by another name). In its own mount namespace the
+# venv, ~/.local/config and ~/.local/bin, the shell start-up files, autostart
+# and ~/.ssh are read-only: it cannot change what root or a later login runs.
+# It keeps the home, the desktop, the network and the user's sound (PipeWire).
+# It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
+# Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
+# launcher's process group) all reach it as before.
 # The LEDs the rq_python way: on a Pi 5 the user drives the panel (/dev/pio0,
 # group gpio); on a Pi 4 the PWM driver needs root, so rasqberry-led-renderer
 # drives the strip and the program writes its frames to it
@@ -718,12 +722,11 @@ led_clear_quietly() {
 RQ_LED_RENDERER_UNIT="rasqberry-led-renderer.service"
 RQ_LED_RENDERER_STARTED=""
 RQ_LED_USER_MODE=""
-RQ_LED_DEMO_UNIT=""
 
 # Is this a launcher that should hand its LED program to the sandbox?
 _rq_led_sandboxed() {
     [ "$(id -u)" = 0 ] && [ "${RQ_LED_AS_ROOT:-}" != 1 ] && [ "$(get_user_name)" != root ] \
-        && command -v systemd-run >/dev/null 2>&1
+        && command -v unshare >/dev/null 2>&1 && command -v setpriv >/dev/null 2>&1
 }
 
 # Decide how the program reaches the panel, and start the renderer if it needs
@@ -732,7 +735,6 @@ _rq_led_sandboxed() {
 rq_led_user_prepare() {
     RQ_LED_USER_MODE="direct"
     _rq_led_sandboxed || return 0
-    RQ_LED_DEMO_UNIT="rasqberry-demo-$$"
     if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
         RQ_LED_USER_MODE="service"
     elif [ "${LED_PHYSICAL:-true}" = "true" ] \
@@ -749,6 +751,15 @@ rq_led_user_prepare() {
     fi
 }
 
+# Made read-only in the sandbox's mount namespace: N PATH... then the command
+_RQ_LED_RO_MOUNTS='n=$1; shift
+for ((i = 0; i < n; i++)); do
+    p=$1; shift
+    [ -e "$p" ] || continue
+    mount --bind "$p" "$p" && mount -o remount,bind,ro "$p" || exit 97
+done
+exec "$@"'
+
 # Run an LED program as the desktop user in the sandbox (as it is, when this
 # is not root). Call rq_led_user_prepare first. A bare "python3" is the venv's.
 # Usage: rq_led_as_user COMMAND [ARGS...]
@@ -757,57 +768,43 @@ rq_led_as_user() {
         "$@"
         return
     fi
-    local user_name home uid cmd rt g groups="" io="--pipe"
+    local user_name home uid gid cmd rt g groups=""
     user_name=$(get_user_name)
     home=$(getent passwd "$user_name" | cut -d: -f6)
     uid=$(id -u "$user_name")
-    # systemd-run starts from a clean environment: the program by its full
-    # path, and only what it needs passed on
+    gid=$(id -g "$user_name")
+    # a clean environment: the program by its full path, and only what it
+    # needs passed on
     cmd=$(command -v "$1" 2>/dev/null) || cmd="$1"
     shift
     rt=$(rq_audio_runtime_dir) || rt=""
     # the device groups only: not sudo, adm or docker
     for g in gpio spi i2c audio video render input dialout plugdev; do
-        id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups $g"
+        id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups,$g"
     done
-    # a program that reads the keyboard gets the terminal (Raspberry Tie asks
-    # for an IBM Quantum key); rq_run_demo gives the others no input
-    [ -t 0 ] && [ -t 1 ] && io="--pty"
-    local -a props=(
-        -p NoNewPrivileges=yes -p RestrictSUIDSGID=yes
-        -p CapabilityBoundingSet= -p AmbientCapabilities=
-        -p ProtectSystem=strict -p "ReadWritePaths=$home /tmp"
-        -p "ReadOnlyPaths=-$home/${REPO:-RasQberry-Two}/venv -$home/.local/config -$home/.local/bin"
-        -p "ReadOnlyPaths=-$home/.bashrc -$home/.profile -$home/.bash_profile -$home/.config/autostart -$home/.ssh"
-        -p "InaccessiblePaths=-/run/docker.sock -/var/run/docker.sock -/run/containerd"
-        -p ProtectKernelTunables=yes -p ProtectKernelModules=yes -p ProtectKernelLogs=yes
-        -p ProtectControlGroups=yes -p ProtectClock=yes -p ProtectHostname=yes
-        -p LockPersonality=yes -p RestrictNamespaces=yes
-        -p "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK"
-        -p "SupplementaryGroups=${groups# }"
+    local -a ro=(
+        "$home/${REPO:-RasQberry-Two}/venv" "$home/.local/config" "$home/.local/bin"
+        "$home/.bashrc" "$home/.profile" "$home/.bash_profile"
+        "$home/.config/autostart" "$home/.ssh"
     )
-    systemd-run --quiet --collect --wait "$io" --same-dir --unit="$RQ_LED_DEMO_UNIT" \
-        --uid="$uid" --gid="$(id -g "$user_name")" "${props[@]}" \
-        -E HOME="$home" -E USER="$user_name" -E LOGNAME="$user_name" \
-        -E PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
-        -E LANG="${LANG:-C.UTF-8}" -E TERM="${TERM:-xterm}" -E DISPLAY="${DISPLAY:-:0}" \
-        ${WAYLAND_DISPLAY:+-E WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
-        -E XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
-        -E LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
-        ${QT_API:+-E QT_API="$QT_API"} \
-        ${PYTHONPATH:+-E PYTHONPATH="$PYTHONPATH"} ${PYTHONUNBUFFERED:+-E PYTHONUNBUFFERED="$PYTHONUNBUFFERED"} \
-        -- "$cmd" "$@"
+    unshare --mount --propagation private -- bash -c "$_RQ_LED_RO_MOUNTS" _ "${#ro[@]}" "${ro[@]}" \
+        setpriv --reuid="$uid" --regid="$gid" --groups="${groups#,}" \
+            --no-new-privs --bounding-set=-all --inh-caps=-all -- \
+        env -i HOME="$home" USER="$user_name" LOGNAME="$user_name" \
+            PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
+            LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}" DISPLAY="${DISPLAY:-:0}" \
+            ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+            XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+            LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
+            ${QT_API:+QT_API="$QT_API"} \
+            ${PYTHONPATH:+PYTHONPATH="$PYTHONPATH"} ${PYTHONUNBUFFERED:+PYTHONUNBUFFERED="$PYTHONUNBUFFERED"} \
+            "$cmd" "$@"
 }
 
-# After the program: stop its unit (a closed window may leave it running), then
-# the renderer rq_led_user_prepare started. On SIGTERM the renderer blanks the
-# panel before it exits; it holds the strip while it runs, so this comes
-# before clearing the panel.
+# After the program: stop the renderer rq_led_user_prepare started. On SIGTERM
+# it blanks the panel before it exits; it holds the strip while it runs, so
+# this comes before clearing the panel.
 rq_led_renderer_stop() {
-    if [ -n "${RQ_LED_DEMO_UNIT:-}" ]; then
-        systemctl stop "$RQ_LED_DEMO_UNIT" >/dev/null 2>&1 || true
-        RQ_LED_DEMO_UNIT=""
-    fi
     [ -n "${RQ_LED_RENDERER_STARTED:-}" ] || return 0
     RQ_LED_RENDERER_STARTED=""
     rq_run_detached systemctl stop "$RQ_LED_RENDERER_UNIT"
@@ -2511,9 +2508,9 @@ rq_audio_output() {
 }
 
 # Is the sound output the headphone jack of a Pi 4 (or older)? That jack is
-# made with the PWM hardware the LED panel's driver uses on GPIO18: once the
-# LEDs have been on, the jack plays nothing until the Pi restarts (Pi 4 rig,
-# 2026-10-12).
+# made with the PWM hardware the LED panel's driver uses on GPIO18: after sound
+# and LEDs ran together, the jack played nothing until the Pi restarted (Pi 4
+# rig, 2026-10-12).
 rq_audio_on_jack() {
     _rq_audio_inspect 2>/dev/null | grep -q 'api\.alsa\.card\.name = "bcm2835 Headphones"'
 }
