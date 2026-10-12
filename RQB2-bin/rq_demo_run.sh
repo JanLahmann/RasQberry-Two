@@ -218,7 +218,7 @@ check_requirements() {
         out=$(rq_audio_output) || rc=$?
         if [ "$rc" -eq 0 ] && [ "$needs_leds" = "true" ] && rq_audio_on_jack; then
             # Pi 4: the headphone jack and the LED panel share the PWM hardware
-            warn "Sound goes to the headphone jack, which uses the same hardware as the LED panel: once the LEDs are on, the sound stops until the Pi restarts."
+            warn "Sound goes to the headphone jack, which uses the same hardware as the LED panel: with the LEDs on, the sound can stop until the Pi restarts."
             echo "Use another output. $RQ_SPEAKER_HINT"
             if [ -t 0 ] && [ -t 1 ]; then
                 read -r -p "Press Enter to start it anyway, Ctrl+C to stop. " _ || true
@@ -1249,7 +1249,7 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
-        # the demo's sandbox and the renderer first: it holds the strip
+        # the renderer first: it holds the strip
         rq_led_renderer_stop
         led_clear_quietly
         # The Pi 5's LED driver stalled during the demo (weak power supply,
