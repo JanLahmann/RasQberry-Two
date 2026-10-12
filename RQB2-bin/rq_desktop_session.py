@@ -102,6 +102,16 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname(_HERE), "RQB2-config")
 GROUPS_FILE = os.path.join(CONFIG_DIR, "demo-manifests", "demo-groups.json")
 KNOWN_DEMOS = os.path.join(CONFIG_DIR, "known-demos.json")
+
+
+def known_demos_file():
+    """The catalogue in use: the image's, or the newer one from rasqberry.org (rq_catalogue.py)."""
+    try:
+        sys.path.insert(0, _HERE)
+        import rq_catalogue
+        return rq_catalogue.current(shipped=KNOWN_DEMOS)[1]
+    except Exception:       # never let the desktop fail over the catalogue
+        return KNOWN_DEMOS
 ICON_DIR = "/usr/share/icons/rasqberry"
 # pcmanfm profiles whose icon positions count from the top of the screen.
 # Trixie's pcmanfm-pi ("default" profile) places x/y on the whole screen, so
@@ -807,7 +817,7 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     if not ids:
         return None
     dirs = dirs or manifest_dirs()
-    registry = _read_json(known or KNOWN_DEMOS) or {}
+    registry = _read_json(known or known_demos_file()) or {}
     manifest = find_manifest(demo_id, dirs)
     demos = [d for d in registry.get("demos") or [] if isinstance(d, dict)]
     entry = ([d for d in demos if d.get("id") == demo_id]

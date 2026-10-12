@@ -34,14 +34,17 @@ verify_env_vars REPO USER_HOME
 # ----------------------------------------------------------------------------
 # Path resolution: installed (/usr/*) vs repo (dev)
 # ----------------------------------------------------------------------------
+# The catalogue: the image's, or the newer one from rasqberry.org
+# (rq_catalogue.py keeps it in /var/cache/rasqberry)
+REGISTRY_FILE=$(rq_catalogue_file)
+SHIPPED_REGISTRY="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+CATALOGUE="$SCRIPT_DIR/rq_catalogue.py"
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
-    REGISTRY_FILE="/usr/config/known-demos.json"
     CACHE_FILE="/usr/config/demo-menu-cache.sh"
     VALIDATOR="/usr/bin/rq_demo_validate.sh"
     GENERATOR="/usr/bin/rq_demo_generate_menu.sh"
 else
     _repo_root="$(dirname "$SCRIPT_DIR")"
-    REGISTRY_FILE="$_repo_root/RQB2-config/known-demos.json"
     CACHE_FILE="$_repo_root/RQB2-config/demo-menu-cache.sh"
     VALIDATOR="$SCRIPT_DIR/rq_demo_validate.sh"
     GENERATOR="$SCRIPT_DIR/rq_demo_generate_menu.sh"
@@ -121,6 +124,38 @@ fit_line() {
     fi
 }
 
+# The catalogue engine of this image (rq_catalogue.py ENGINE): an entry with a
+# higher "min_engine" needs a newer RasQberry
+catalogue_engine() {
+    python3 "$CATALOGUE" --engine 2>/dev/null || echo 2
+}
+
+needs_newer() {
+    local id="$1" me
+    me=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .min_engine // 1' "$REGISTRY_FILE")
+    [[ "$me" =~ ^[0-9]+$ ]] && [ "$me" -gt "${ENGINE:=$(catalogue_engine)}" ]
+}
+
+# Not in the image's own catalogue: it came with the catalogue from rasqberry.org
+is_new_entry() {
+    local id="$1"
+    [ "$REGISTRY_FILE" != "$SHIPPED_REGISTRY" ] || return 1
+    [ -z "$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .id' "$SHIPPED_REGISTRY" 2>/dev/null)" ]
+}
+
+# Fetch the current catalogue from rasqberry.org before the picker (quiet;
+# offline or refused: the catalogue in use stays). The cache is root's.
+refresh_catalogue() {
+    [ -f "$CATALOGUE" ] && command -v python3 >/dev/null 2>&1 || return 0
+    info "Checking rasqberry.org for new demos..."
+    if [ "$(id -u)" = "0" ]; then
+        python3 "$CATALOGUE" --refresh >/dev/null 2>&1
+    else
+        sudo -n python3 "$CATALOGUE" --refresh >/dev/null 2>&1
+    fi || true
+    REGISTRY_FILE=$(rq_catalogue_file)
+}
+
 # Picker text: "Name - summary" (one line of the menu), else the curator
 # note. The note is maintainer prose, cut mid-word, so the two SAP entries
 # looked the same (R-105).
@@ -130,6 +165,8 @@ registry_label() {
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
     [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
+    is_new_entry "$id" && name="New: ${name:-$id}"
+    needs_newer "$id" && summary="needs a newer RasQberry"
     fit_line "${name:-$id}${summary:+ - $summary}"
 }
 
@@ -346,6 +383,9 @@ add_demo() {
     local repo_url ref manifest_path repo_name dest manifest_file
 
     registry_has "$id" || die "Demo '$id' is not in the registry: $REGISTRY_FILE"
+    if needs_newer "$id"; then
+        die "'$id' needs a newer RasQberry. Update the system first (RasQberry menu: Software & Image Updates), then add the demo."
+    fi
 
     repo_url=$(registry_field "$id" "repo_url")
     ref=$(registry_field "$id" "ref")
@@ -647,6 +687,7 @@ main() {
             ;;
         "")
             local id
+            refresh_catalogue
             id=$(pick_demo_interactive) || exit 0
             [ -n "$id" ] || exit 0
             add_demo "$id" install

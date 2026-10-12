@@ -250,6 +250,12 @@
           "enum": ["none", "optional", "required"],
           "default": "none",
           "description": "Display requirement: none=headless OK, optional=prefers GUI, required=GUI mandatory"
+        },
+        "audio": {
+          "type": "string",
+          "enum": ["none", "optional", "required"],
+          "default": "none",
+          "description": "Sound output: none, optional (plays sound, works without), required (needs a speaker: Bluetooth, USB or a monitor with speakers). The launcher names the output in use before the start. Catalogue engine 2 (rq_catalogue.py): a catalogue entry for a demo that needs it sets min_engine 2"
         }
       }
     },

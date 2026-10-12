@@ -76,6 +76,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rq_release_notice as rn  # noqa: E402
 import rq_firmware as fw  # noqa: E402
+import rq_catalogue as cat  # noqa: E402
 
 log = logging.getLogger("rq_slot_indicator")
 
@@ -103,6 +104,13 @@ UPDATES_CMD = ["lxterminal", "-t", "RasQberry: Software & Image Updates", "-e",
 # "window": Enter closes it; there is no menu to return to (user test 10-07 P7)
 SYSINFO_CMD = ["lxterminal", "-t", "RasQberry System Information", "-e",
                "sudo raspi-config nonint do_show_system_info window"]
+
+# A catalogue demo: add, update, move or remove it (rq_demo_add_external.sh
+# asks its own questions; the window stays open when it fails)
+ADD_DEMO = "/usr/bin/rq_demo_add_external.sh"
+CATALOGUE_TITLE = "RasQberry: Demo catalogue"
+CATALOGUE_MAX = 5                       # catalogue lines in the menu
+CATALOGUE_ID = 200                      # menu ids 200+i: catalogue actions
 
 # Anonymous usage count of a click in the update notice (runs on its own)
 USAGE_COUNT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_umami_event.py")
@@ -144,9 +152,39 @@ def indicator_mode(status):
     return "ab" if should_run(status) else "plain"
 
 
-def wants_icon(mode, advices):
-    """In the tray? The slot badge always; the plain badge only while a release is new."""
-    return mode == "ab" or bool(rn.updates(advices))
+def wants_icon(mode, advices, news=()):
+    """
+    In the tray? The slot badge always; the plain badge only while a release
+    is new or the demo catalogue has news for this Pi.
+    """
+    return mode == "ab" or bool(rn.updates(advices)) or bool(news)
+
+
+def catalogue_news():
+    """What the demo catalogue brings for this user's demos (rq_catalogue.py); [] on any error."""
+    try:
+        base = cat._read_json(cat.shipped_file()) or {}
+        return cat.news(cat.current()[0], base, cat.installed())[:CATALOGUE_MAX]
+    except Exception as e:      # never let the badge fail over the catalogue
+        log.info("catalogue: %s", e)
+        return []
+
+
+def catalogue_items(news):
+    """The menu's catalogue section: a separator and one action per news item (ids 200+i)."""
+    if not news:
+        return []
+    items = [(20, {"type": "separator"}), (21, {"label": "Demo catalogue", "enabled": False})]
+    for i, n in enumerate(news):
+        items.append((CATALOGUE_ID + i, {"label": cat.menu_label(n)}))
+    return items
+
+
+def catalogue_argv(item, add_demo=ADD_DEMO):
+    """The terminal that acts on a news item; it waits for Enter only when the script fails."""
+    args = " ".join(cat.command(item))
+    shell = (f"sudo {add_demo} {args} || {{ echo; read -r -p 'Press Enter to close. ' _; }}")
+    return ["lxterminal", "-t", CATALOGUE_TITLE, "-e", "bash", "-c", shell]
 
 
 def autoboot_default(text):
@@ -699,12 +737,14 @@ class NoticeBook:
         self.acked = data.get("failure_acked", "") if isinstance(data.get("failure_acked"), str) else ""
         self.releases = [x for x in data.get("releases_noticed", []) if isinstance(x, str)]
         self.firmware = [x for x in data.get("firmware_noticed", []) if isinstance(x, str)]
+        self.catalogue = [x for x in data.get("catalogue_noticed", []) if isinstance(x, str)]
 
     def save(self):
         """Write the book (best effort)."""
         data = {"failures_noticed": self.failures[-self.KEEP:], "failure_acked": self.acked,
                 "releases_noticed": self.releases[-self.KEEP:],
-                "firmware_noticed": self.firmware[-self.KEEP:]}
+                "firmware_noticed": self.firmware[-self.KEEP:],
+                "catalogue_noticed": self.catalogue[-self.KEEP:]}
         try:
             rn._write_atomic(self.path, json.dumps(data, indent=1) + "\n", 0o600)
         except OSError as e:
@@ -726,6 +766,13 @@ class NoticeBook:
         new = [a for a in rn.updates(advices) if a["tag"] not in self.releases]
         for a in new:
             self.releases.append(a["tag"])
+        return new
+
+    def catalogue_to_announce(self, news):
+        """The catalogue news not announced yet; all of them count as announced from now on."""
+        new = [n for n in news if n["key"] not in self.catalogue]
+        for n in new:
+            self.catalogue.append(n["key"])
         return new
 
     def firmware_to_announce(self, firmware):
@@ -925,6 +972,7 @@ class SlotIndicator:
         self.view = None
         self.items = []
         self.advices = []
+        self.news = []                      # demo catalogue news (rq_catalogue.py)
         self.device = {}
         self.data = {"releases": None, "controls": {}, "highlights": {}}
         self.panel_present = False
@@ -962,7 +1010,7 @@ class SlotIndicator:
         menu = Gio.DBusNodeInfo.new_for_xml(MENU_XML).interfaces[0]
         self.bus.register_object(ITEM_PATH, sni, self._sni_call, self._sni_prop, None)
         self.bus.register_object(MENU_PATH, menu, self._menu_call, self._menu_prop, None)
-        self._show(wants_icon(self.mode, self.advices))
+        self._show(wants_icon(self.mode, self.advices, self.news))
         Gio.bus_watch_name_on_connection(self.bus, "org.kde.StatusNotifierWatcher",
                                          Gio.BusNameWatcherFlags.NONE, self._on_watcher,
                                          self._on_watcher_gone)
@@ -1014,7 +1062,8 @@ class SlotIndicator:
             self.device = rn.device_from_status(status, info["version"])
         self.advices = rn.advise(self.device, self.data["releases"], self.data["controls"],
                                  rn.device_serial(), rn.now_utc())
-        dot = bool(rn.updates(self.advices))
+        self.news = catalogue_news()
+        dot = bool(rn.updates(self.advices)) or bool(self.news)
         if mode == "ab":
             state, next_slot = badge_state(info, self.book.acked)
             letter = info["current"] or "?"
@@ -1026,6 +1075,10 @@ class SlotIndicator:
             state, letter = "plain", PLAIN_LETTER
             title, body = plain_tooltip(info["version"], self.advices, self.device)
             items = plain_menu_items(info["version"], self.advices, self.device)
+        if self.news:
+            body += "\n" + cat.menu_label(self.news[0]).rstrip("…") + (
+                f" (and {len(self.news) - 1} more)" if len(self.news) > 1 else "")
+            items = items + catalogue_items(self.news)
         view = (state, letter, dot, title, body)
         if view != self.view:
             w, h, pix = render_badge(letter, state, dot)
@@ -1044,7 +1097,7 @@ class SlotIndicator:
                 self.bus.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
                                      self.GLib.Variant("(ui)", (self.menu_rev, 0)))
         if not initial:
-            self._show(wants_icon(mode, self.advices))
+            self._show(wants_icon(mode, self.advices, self.news))
         self._queue_notices()
 
     def _pixmap_variant(self, w, h, data):
@@ -1117,6 +1170,10 @@ class SlotIndicator:
         new = self.book.releases_to_announce(self.advices)
         if new:
             self.notices.append(rn.popup_text(new[0], self.device))
+            self.book.save()
+        fresh = self.book.catalogue_to_announce(self.news)
+        if fresh:
+            self.notices.extend(cat.popup_text(n) for n in fresh[:2])
             self.book.save()
         self._send_notices()
 
@@ -1457,6 +1514,9 @@ class SlotIndicator:
             self.spawn(UPDATES_CMD)
         elif item_id == 14:
             self.show_installed({"version": self.info.get("version", ""), "from": ""})
+        elif item_id >= CATALOGUE_ID:
+            if item_id - CATALOGUE_ID < len(self.news):
+                self.spawn(catalogue_argv(self.news[item_id - CATALOGUE_ID]))
         elif item_id >= 100:
             ups = rn.updates(self.advices)
             if item_id - 100 < len(ups):

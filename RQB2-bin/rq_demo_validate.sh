@@ -461,6 +461,12 @@ validate_manifest() {
         print_fail "Invalid display value: $display (valid: none, optional, required)"
         errors=$((errors + 1))
     fi
+    local audio
+    audio=$(jq -r '.needs_hw.audio // "none"' "$file")
+    if ! echo "$VALID_DISPLAY_VALUES" | jq -e "index(\"$audio\")" > /dev/null 2>&1; then
+        print_fail "Invalid audio value: $audio (valid: none, optional, required)"
+        errors=$((errors + 1))
+    fi
 
     # Validate group (demo-groups.json): optional for catalogue manifests,
     # which go to their known-demos.json group or Contributed demos

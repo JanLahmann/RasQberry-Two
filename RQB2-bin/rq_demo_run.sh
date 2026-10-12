@@ -206,6 +206,24 @@ check_requirements() {
         debug "Demo requires LED hardware"
     fi
 
+    # Sound (needs_hw.audio): name the output in use; with none, say how to
+    # connect a speaker, and a demo that needs one waits for Enter
+    local audio_req out rc=0
+    audio_req=$(demo_field '.needs_hw.audio' 'none')
+    if [ "$audio_req" = "required" ] || [ "$audio_req" = "optional" ]; then
+        out=$(rq_audio_output) || rc=$?
+        if [ "$rc" -eq 0 ]; then
+            info "This demo plays sound. Sound goes to: $out (turn the speaker on and the volume up)."
+        elif [ "$rc" -eq 1 ]; then
+            echo "No sound output found. $RQ_SPEAKER_HINT"
+            if [ "$audio_req" = "required" ] && [ -t 0 ] && [ -t 1 ]; then
+                read -r -p "This demo needs sound. Press Enter to start it anyway, Ctrl+C to stop. " _ || true
+            fi
+        elif [ "$audio_req" = "required" ]; then
+            info "This demo needs sound: on the Pi's desktop, connect a speaker first. $RQ_SPEAKER_HINT"
+        fi
+    fi
+
     # Check network connectivity
     if [ "$needs_network" = "true" ]; then
         if ! ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
@@ -961,7 +979,7 @@ run_python() {
     local -a py_env=()
     if [ ${#run[@]} -gt 0 ] && [ -t 1 ]; then
         own_hint=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(.id == $id) | .own_stop_hint // empty][0] // empty' \
-            "$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json" 2>/dev/null) || own_hint=""
+            "$(rq_catalogue_file)" 2>/dev/null) || own_hint=""
         if [ -n "$own_hint" ]; then
             run+=(rq_hide_line "$own_hint")
             py_env=(PYTHONUNBUFFERED=1)

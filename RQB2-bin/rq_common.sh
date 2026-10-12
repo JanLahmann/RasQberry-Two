@@ -1762,6 +1762,24 @@ rq_shipped_manifest_dir() {
     fi
 }
 
+# The demo catalogue in use: the copy from rasqberry.org that rq_catalogue.py
+# checked and keeps in /var/cache/rasqberry, when its catalogue_version is
+# higher than the image's; else the image's known-demos.json.
+# rq_catalogue.py (current) decides the same way.
+rq_catalogue_file() {
+    local shipped cache="${RQ_CATALOGUE_CACHE_DIR:-/var/cache/rasqberry}/known-demos.json" sv cv
+    shipped="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    if [ -f "$cache" ] && command -v jq >/dev/null 2>&1; then
+        sv=$(jq -r '.catalogue_version // 0' "$shipped" 2>/dev/null) || sv=0
+        cv=$(jq -r '.catalogue_version // 0' "$cache" 2>/dev/null) || cv=0
+        if [[ "$cv" =~ ^[0-9]+$ ]] && [[ "$sv" =~ ^[0-9]+$ ]] && [ "$cv" -gt "$sv" ]; then
+            echo "$cache"
+            return 0
+        fi
+    fi
+    echo "$shipped"
+}
+
 # Ask for a demo's first install, with the sizes from its manifest
 # (install.download). Asks once per demo per run: a launcher the engine hands
 # over to does not ask again (RQ_CONFIRMED_DEMO).
@@ -2273,7 +2291,7 @@ rq_demo_maturity() {
             '.variants[]? | select(.id == $v) | .maturity // empty' "$mf" 2>/dev/null)
         [ -n "$m" ] || m=$(jq -r '.maturity // empty' "$mf" 2>/dev/null)
     fi
-    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    registry=$(rq_catalogue_file)
     if [ -z "$m" ] && [ -f "$registry" ]; then
         m=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id)] + [.demos[]?
             | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
@@ -2298,7 +2316,7 @@ rq_demo_maturity() {
 rq_demo_group() {
     local id="$1" dir mf="" registry groups shipped=false
     dir=$(rq_shipped_manifest_dir)
-    registry="$(dirname "$dir")/known-demos.json"
+    registry=$(rq_catalogue_file)
     groups="$dir/demo-groups.json"
     [ -f "$registry" ] || registry=/dev/null
     [ -f "$groups" ] || groups=/dev/null
@@ -2329,6 +2347,29 @@ rq_beta_notice() {
     echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
+
+# The sound output in use (PipeWire's default sink, e.g. "Built-in Audio
+# Digital Stereo (HDMI)" or a Bluetooth speaker's name), asked in the desktop
+# user's session. Returns 1 when there is none; 2 when it cannot be told (no
+# wpctl, no session: SSH without a desktop).
+rq_audio_output() {
+    local user uid run out
+    command -v wpctl >/dev/null 2>&1 || return 2
+    user=$(get_user_name)
+    uid=$(id -u "$user" 2>/dev/null) || return 2
+    run="/run/user/$uid"
+    [ -S "$run/pipewire-0" ] || return 2
+    if [ "$(id -u)" = "0" ] && [ "$user" != root ]; then
+        out=$(sudo -u "$user" env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null) || return 1
+    else
+        out=$(env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null) || return 1
+    fi
+    out=$(printf '%s\n' "$out" | sed -n 's/.*node\.description = "\(.*\)"/\1/p' | head -n 1)
+    echo "${out:-a sound output}"
+}
+
+# How to get sound, for demos that need it (needs_hw.audio)
+RQ_SPEAKER_HINT="Bluetooth speaker: click the Bluetooth icon at the top right > Add Device. Or a USB speaker, or a monitor with speakers. Right-click the volume icon to choose the output."
 
 # How a demo start came, for its usage count: RQ_DEMO_HOW from the caller
 # (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),

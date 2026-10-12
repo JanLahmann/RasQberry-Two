@@ -99,7 +99,10 @@ def cat(tmp_path):
     def run(args, extra=None, tty=False):
         env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
                "RQ_CONFIG_FILE": str(env_config), "RQ_TEST_FREE_MB": "50000",
-               "FAKE_REPO": str(repo), "WT_LOG": str(wt_log), "DOCKER_LOG": str(tmp_path / "docker.log")}
+               "FAKE_REPO": str(repo), "WT_LOG": str(wt_log), "DOCKER_LOG": str(tmp_path / "docker.log"),
+               # the picker asks rasqberry.org first: never from a test
+               "RQ_CATALOGUE_URL": "file:///nonexistent/known-demos.json",
+               "RQ_CATALOGUE_CACHE_DIR": str(tmp_path / "catalogue-cache")}
         env.update(extra or {})
         script = str(root / "RQB2-bin" / "rq_demo_add_external.sh")
         if tty:
@@ -464,3 +467,35 @@ def test_the_shipped_renames_point_at_old_ids_only():
     assert racetraq["replaces"] == ["traqmania"] and racetraq["formerly"] == "traQmania"
     assert racetraq["repo_url"] == "https://github.com/JanLahmann/racetraQ.git"
     assert len(racetraq["ref"]) == 40
+
+
+# --- the catalogue from rasqberry.org (rq_catalogue.py) ------------------------------
+
+def _online(cat, tmp_path, **extra):
+    """A newer catalogue in the cache, with one more demo."""
+    cache = tmp_path / "catalogue-cache"
+    cache.mkdir(exist_ok=True)
+    reg = json.loads((cat.root / "RQB2-config" / "known-demos.json").read_text())
+    reg["catalogue_version"] = 5
+    entry = dict(reg["demos"][0], id="sound-demo", name="Sound Demo", summary="plays a tune")
+    entry.update(extra)
+    reg["demos"].append(entry)
+    (cache / "known-demos.json").write_text(json.dumps(reg))
+
+
+def test_the_picker_marks_demos_from_the_online_catalogue(cat, tmp_path):
+    _online(cat, tmp_path)
+    cat([])
+    menu = [c for c in cat.dialogs() if "--menu" in c][0]
+    assert "New: Sound Demo - plays a tune" in menu
+    assert "Dock Demo - a racing game in a container" in menu
+
+
+def test_a_demo_for_a_newer_engine_is_not_installed(cat, tmp_path):
+    _online(cat, tmp_path, min_engine=99)
+    cat([])
+    menu = [c for c in cat.dialogs() if "--menu" in c][0]
+    assert "New: Sound Demo - needs a newer RasQberry" in menu
+    proc = cat(["sound-demo"])
+    assert proc.returncode != 0
+    assert "needs a newer RasQberry" in proc.stdout + proc.stderr
