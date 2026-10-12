@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-12T21:13:32Z",
+  "generated": "2026-10-12T21:14:41Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,17 @@
       "image_download_size": 1845172244,
       "extract_size": 9512681472,
       "extract_sha256": "3f10e561f8bc94cb7116cd73c8839c3b775cf764fc166c8ca4bd3a3862104100",
-      "image_sha256": "6056f31b19bcefca0dbd4f1a3636cff4408958165d2582a15654ebc22e96b6ad",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-222956/rasqberry-development-2026-10-12-222956-ab.img.xz",
       "ab_extract_sha256": "6b9cb4b3bdfdb54ab11c53bcff14d048f6f783920b0a6fa8e75ace286e84c313",
       "ab_image_sha256": "b13f88cb884a4500b152fb6af3a136970c2a65f1d1f071fefed0cc045139bd5f",
+      "ab_extract_size": 12398362624,
       "ab_image_download_size": 1897224976,
-      "ab_extract_size": 12398362624
+      "highlights": [
+        "Bump version to development-2026-10-12-222956",
+        "Merge led-sandbox-child: LED sandbox stays a child of the launcher",
+        "LED sandbox: a child of the launcher (unshare + setpriv), not a systemd unit",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-12-195215"
+      ]
     }
   }
 }
