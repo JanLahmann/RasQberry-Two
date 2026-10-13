@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13T04:47:51Z",
+  "generated": "2026-10-13T06:34:19Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-13-060619",
-      "name": "rasqberry-development-2026-10-13-060619",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-060619/rasqberry-development-2026-10-13-060619.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-13-060619",
-      "release_date": "2026-10-13 06:06",
-      "image_download_size": 1846446160,
+      "tag": "development-2026-10-13-075131",
+      "name": "rasqberry-development-2026-10-13-075131",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-075131/rasqberry-development-2026-10-13-075131.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-13-075131",
+      "release_date": "2026-10-13 07:51",
+      "image_download_size": 1846433932,
       "extract_size": 9512681472,
-      "extract_sha256": "84d34fff60d8f3d3d98816bd466a7b85c2883e1b49875d50f919311df5a19687",
-      "image_sha256": "68671a269b1d20bc8df36bebbab153a80d1c9dcc69f4a5e847f2f3a2466f190d",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-060619/rasqberry-development-2026-10-13-060619-ab.img.xz",
-      "ab_extract_sha256": "d35d1ad5c568cfa261329579440f11924ed057c8035faaa5bc3c4971d2321def",
-      "ab_image_sha256": "d07b9f40783330b51651cc8974f3994caad279edbe37feaedef3b47cd6968a21",
-      "ab_image_download_size": 1894826640,
+      "extract_sha256": "4336b0aff4978eed2875039f2ab18d4b9d10ac8a0b06ae8b1254545303218553",
+      "image_sha256": "fee15dfef08c319636cd39e9e1a61802b0bbddffe010285f2e296755e42c8408",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-075131/rasqberry-development-2026-10-13-075131-ab.img.xz",
+      "ab_extract_sha256": "1f58ce46fba2cc8613b2cf3a839db4baf3e0332b23e4160747c556e2fc54a472",
+      "ab_image_sha256": "f7e2bbb1b1c9b5119340a7533747a1fd2ecd5fdfede5c993daedba3ed8c63d57",
+      "ab_image_download_size": 1897174728,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Bump version to development-2026-10-13-060619",
-        "Contributor guide for catalogue demos; LED demos no longer announced as root",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-12-222956"
+        "Bump version to development-2026-10-13-075131",
+        "Sound delay calibration: every fifth tick and flash left out"
       ]
     }
   }
