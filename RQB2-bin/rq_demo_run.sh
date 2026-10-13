@@ -215,6 +215,10 @@ check_requirements() {
     audio_req=$(demo_field '.needs_hw.audio' 'none')
     [ -z "$ROOT_PASS" ] || audio_req=none
     if [ "$audio_req" = "required" ] || [ "$audio_req" = "optional" ]; then
+        # The sound delay setting, checked, for the demo (RQ_AUDIO_DELAY_MS)
+        export RQ_AUDIO_DELAY_MS
+        RQ_AUDIO_DELAY_MS=$(rq_audio_delay_ms)
+        [ "$RQ_AUDIO_DELAY_MS" -eq 0 ] || info "Sound delay: the LEDs wait $RQ_AUDIO_DELAY_MS ms for the speaker (RasQberry menu: Desktop Settings > Sound delay)."
         out=$(rq_audio_output) || rc=$?
         if [ "$rc" -eq 0 ] && [ "$needs_leds" = "true" ] && rq_audio_on_jack; then
             # Pi 4: the headphone jack and the LED panel share the PWM hardware

@@ -181,10 +181,10 @@ update_env_var() {
     fi
     _rq_as_root chown root:root "$RQ_ENV_FILE" 2>/dev/null || true
 
-    # LED settings also go to the store both A/B slots share (#290)
+    # Device settings also go to the store both A/B slots share (#290)
     case "$var_name" in
         *_INSTALLED) ;;
-        LED_*|RASQ_LED_*) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
+        LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
     esac
 
     # Reload environment
@@ -796,6 +796,7 @@ rq_led_as_user() {
             ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
             XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
             LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
+            RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)" \
             ${QT_API:+QT_API="$QT_API"} \
             ${PYTHONPATH:+PYTHONPATH="$PYTHONPATH"} ${PYTHONUNBUFFERED:+PYTHONUNBUFFERED="$PYTHONUNBUFFERED"} \
             "$cmd" "$@"
@@ -2513,6 +2514,18 @@ rq_audio_output() {
 # rig, 2026-10-12).
 rq_audio_on_jack() {
     _rq_audio_inspect 2>/dev/null | grep -q 'api\.alsa\.card\.name = "bcm2835 Headphones"'
+}
+
+# The sound delay setting (RQ_AUDIO_DELAY_MS, 0-2000 ms): how long a demo's
+# LEDs wait for the speaker, since a Bluetooth speaker plays 100-300 ms late.
+# Anything else (unset, not a number, out of range) is 0.
+rq_audio_delay_ms() {
+    local v="${RQ_AUDIO_DELAY_MS:-0}"
+    if [[ "$v" =~ ^[0-9]{1,4}$ ]] && [ "$((10#$v))" -le 2000 ]; then
+        echo "$((10#$v))"
+    else
+        echo 0
+    fi
 }
 
 # How to get sound, for demos that need it (needs_hw.audio)

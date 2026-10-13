@@ -6,6 +6,7 @@ user's PipeWire), with the LED renderer doing the root part on a Pi 4.
 """
 
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -117,3 +118,50 @@ def test_cleanup_stops_the_sandbox_and_renderer_before_clearing():
     common = open(_COMMON).read()
     on_exit = common[common.index("_rq_led_on_exit() {"):]
     assert on_exit.index("rq_led_renderer_stop") < on_exit.index("led_clear_quietly")
+
+
+# The sound delay (RQ_AUDIO_DELAY_MS): how long LEDs wait for a Bluetooth
+# speaker, one setting for every demo with sound (Jan, 2026-10-13)
+_MENU = os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")
+
+
+@pytest.mark.parametrize("value, ms", [
+    ("", "0"), ("250", "250"), ("0", "0"), ("2000", "2000"), ("0150", "150"),
+    ("2001", "0"), ("-5", "0"), ("abc", "0"), ("1.5", "0"), ("99999", "0"),
+])
+def test_audio_delay_is_checked(value, ms):
+    env = dict(os.environ, RQ_AUDIO_DELAY_MS=value)
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_audio_delay_ms'],
+                          capture_output=True, text=True, env=env)
+    assert proc.stdout.strip().splitlines()[-1] == ms, proc.stderr
+    # the menu (dash, without rq_common.sh) reads it the same way
+    menu = open(_MENU).read()
+    fns = menu[menu.index("_rq_audio_delay_ok() {"):menu.index("do_audio_delay() {")]
+    proc = subprocess.run([shutil.which("dash") or "/bin/sh", "-c", fns + "\naudio_delay_ms"],
+                          capture_output=True, text=True, env=env)
+    assert proc.stdout.strip() == ms, proc.stderr
+
+
+def test_audio_delay_reaches_the_demo_and_survives_updates():
+    common = open(_COMMON).read()
+    fn = common[common.index("rq_led_as_user() {"):common.index("rq_led_renderer_stop() {")]
+    # through the sandbox's env -i
+    assert 'RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)"' in fn
+    run = open(_RUN).read()
+    block = run[run.index("check_requirements() {"):run.index("demo_docker_image()")]
+    assert "export RQ_AUDIO_DELAY_MS" in block and "RQ_AUDIO_DELAY_MS=$(rq_audio_delay_ms)" in block
+    env = open(os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")).read()
+    assert "\nRQ_AUDIO_DELAY_MS=0\n" in env
+    # kept on /data for both A/B slots, like the LED settings
+    settings = open(os.path.join(_BIN, "rq_device_settings.sh")).read()
+    assert "RQ_AUDIO_DELAY_MS)='" in settings
+    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)" in common
+    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)" in open(_MENU).read()
+
+
+def test_audio_delay_is_in_desktop_settings():
+    menu = open(_MENU).read()
+    ds = menu[menu.index("do_desktop_settings_menu() {"):]
+    ds = ds[:ds.index("\n}\n")]
+    assert 'DELAY   "Sound delay (Bluetooth speaker): $(audio_delay_ms) ms"' in ds
+    assert "DELAY)   do_audio_delay" in ds

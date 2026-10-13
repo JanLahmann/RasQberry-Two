@@ -95,9 +95,20 @@ launcher names the output, or says how to connect a speaker.
 - **Pi 4 headphone jack:** it shares hardware with the LED panel. With the
   LEDs on, it can go silent until the Pi restarts. The launcher warns about
   this.
-- **Bluetooth delay:** Bluetooth speakers lag by 0.1–0.3 s. Offer a delay
-  setting (default 0), and take timing from the playback position rather than
-  from sleeps.
+- **Timing:** take the LED timing from the playback position, not from
+  sleeps, so the LEDs stay in step over a long demo.
+- **Sound delay:** Bluetooth speakers play 100–300 ms late. Users set the
+  delay once for all demos (RasQberry menu: Desktop Settings > Sound delay),
+  and the launcher passes it as `RQ_AUDIO_DELAY_MS` (whole milliseconds,
+  0–2000, default 0). Show the LEDs for the part that is being heard:
+
+  ```python
+  import os
+
+  delay = int(os.environ.get("RQ_AUDIO_DELAY_MS", "0")) / 1000  # seconds
+  heard = playback_position() - delay   # your player's position, in seconds
+  show_frame_for(heard)
+  ```
 
 ### 4. Test it on your Pi
 

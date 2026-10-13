@@ -48,7 +48,11 @@ manifests (`rq_demo_schema.json`), with these constraints:
   connect one. Play through the default output (PipeWire/PulseAudio, or the
   browser), never a fixed ALSA device. Its catalogue entry sets `min_engine: 2`.
   A Pi 4's headphone jack can go silent with the LEDs on, until a restart;
-  the launcher warns when it is the output.
+  the launcher warns when it is the output. The launcher passes the sound
+  delay the user set (menu: Desktop Settings > Sound delay; Bluetooth speakers
+  play 100-300 ms late) as `RQ_AUDIO_DELAY_MS`, whole milliseconds 0-2000:
+  the LEDs show the playback position minus that delay. One setting for all
+  demos, kept across A/B updates; demos don't add their own.
 - LED demos run as the desktop user in a sandbox, never as root: no `sudo`,
   no Docker, no writing to the system, and the venv, `~/.local/config`, shell
   start-up files and autostart read-only. The home, the desktop, the network

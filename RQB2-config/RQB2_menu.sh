@@ -1057,10 +1057,10 @@ update_environment_file () {
       "Could not save $1 to $ENV_FILE (is the SD card full?)." 9 78
     return 1
   fi
-  # LED settings also go to the store both A/B slots share (#290)
+  # Device settings also go to the store both A/B slots share (#290)
   case "$1" in
     *_INSTALLED) ;;
-    LED_*|RASQ_LED_*)
+    LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)
       if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
       else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
   esac
@@ -2608,21 +2608,51 @@ do_toggle_browser_autostart() {
     return 0
 }
 
-# Desktop settings: touch mode and the browser at login, off the main menu
-# (item 4)
+# The sound delay (RQ_AUDIO_DELAY_MS): how long the LEDs of a demo with sound
+# wait for the speaker. Bluetooth speakers play 100-300 ms late. POSIX sh
+# (dash): the same check as rq_audio_delay_ms in rq_common.sh.
+_rq_audio_delay_ok() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    [ "${#1}" -le 4 ] && [ "$(expr "$1" + 0)" -le 2000 ]
+}
+
+audio_delay_ms() {
+    if _rq_audio_delay_ok "${RQ_AUDIO_DELAY_MS:-}"; then expr "$RQ_AUDIO_DELAY_MS" + 0; else echo 0; fi
+}
+
+do_audio_delay() {
+    _ad_cur=$(audio_delay_ms)
+    _ad_new=$(whiptail --title "Sound delay" --inputbox \
+        "How many milliseconds should the LEDs wait for the speaker, in demos with sound?\n\nBluetooth speakers play 100-300 ms late; a wired or HDMI speaker needs 0. Start a demo with sound and raise the value until the LEDs and the voice match.\n\nMilliseconds (0-2000):" \
+        15 70 "$_ad_cur" 3>&1 1>&2 2>&3) || return 0
+    _ad_new=$(printf '%s' "$_ad_new" | tr -d ' ')
+    if ! _rq_audio_delay_ok "$_ad_new"; then
+        whiptail --title "Sound delay" --msgbox "Please enter a whole number from 0 to 2000. The sound delay stays at $_ad_cur ms." 8 70
+        return 0
+    fi
+    _ad_new=$(expr "$_ad_new" + 0)
+    update_environment_file "RQ_AUDIO_DELAY_MS" "$_ad_new" || return 0
+    whiptail --title "Sound delay" --msgbox "Sound delay: $_ad_new ms. It applies from the next start of a demo." 8 70
+    return 0
+}
+
+# Desktop settings: touch mode, the browser at login and the sound delay, off
+# the main menu (item 4)
 do_desktop_settings_menu() {
     _ds_last=""
     while true; do
         _ds_touch=$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null) || _ds_touch=""
         case "$_ds_touch" in enabled) _ds_touch=on ;; disabled|"") _ds_touch=off ;; esac
         FUN=$(show_menu ${_ds_last:+--default-item "$_ds_last"} "RasQberry: Desktop Settings" \
-            "How the desktop looks and what it opens at login." \
+            "How the desktop looks, what it opens at login, and sound." \
             TOUCH   "Touch mode (bigger icons and buttons): $_ds_touch" \
-            BROWSER "Browser at login (rasqberry.org): $(browser_autostart_state)") || break
+            BROWSER "Browser at login (rasqberry.org): $(browser_autostart_state)" \
+            DELAY   "Sound delay (Bluetooth speaker): $(audio_delay_ms) ms") || break
         _ds_last="$FUN"
         case "$FUN" in
             TOUCH)   do_touch_mode_menu          || continue ;;
             BROWSER) do_toggle_browser_autostart || continue ;;
+            DELAY)   do_audio_delay              || continue ;;
             *)       break ;;
         esac
     done
