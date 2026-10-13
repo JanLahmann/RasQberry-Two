@@ -181,7 +181,7 @@ def test_calibration_ticks_every_0_75_s_with_a_gap():
         start = beat * 36000
         loud = max(abs(x) for x in data[start:start + 300])
         assert (loud > 10000) is (beat < 4), beat
-        assert max(abs(x) for x in data[start + 1000:start + 36000]) == 0
+        assert max(abs(x) for x in data[start + 1500:start + 36000]) == 0
 
 
 def test_calibration_runs_sandboxed_and_saves():

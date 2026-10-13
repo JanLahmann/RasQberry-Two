@@ -259,15 +259,12 @@ gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update 
 
 # Main menu button (top left of the panel): the RasQberry icon, as for the
 # RasQberry menu category. wf-panel-pi draws the theme icon "start-here";
-# /usr/local/share/icons comes before /usr/share, so ours wins over the
-# theme's raspberry (PiXtrix on trixie, PiXflat on bookworm) and an OS update
-# does not overwrite it.
+# /usr/local/share/icons comes before /usr/share, so ours wins over PiXtrix's
+# raspberry and an OS update does not overwrite it.
 echo "Configuring main menu icon..."
 for icon_file in "${CLONE_DIR}"/desktop-icons/start-here/*.png; do
     size=$(basename "$icon_file" .png)
-    for theme in PiXtrix PiXflat; do
-        install -D -m 644 "$icon_file" "/usr/local/share/icons/${theme}/${size}x${size}/places/start-here.png"
-    done
+    install -D -m 644 "$icon_file" "/usr/local/share/icons/PiXtrix/${size}x${size}/places/start-here.png"
 done
 
 # Update menu cache for LXDE

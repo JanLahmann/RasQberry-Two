@@ -15,6 +15,7 @@ user's default sound output, like a demo's sound.
 
 import argparse
 import logging
+import math
 import os
 import select
 import shutil
@@ -49,9 +50,12 @@ def tick():
     Returns:
         bytes: raw little-endian samples, played again and again
     """
-    click_len = int(RATE * 0.006)
+    # 30 ms of a 1.5 kHz tone, fading out: loud and clear on a Bluetooth
+    # speaker (a 6 ms click was too quiet there)
+    click_len = int(RATE * 0.03)
     click = b"".join(
-        struct.pack("<h", int(26000 * (1 - i / click_len) * (1 if (i // 6) % 2 else -1)))
+        struct.pack("<h", int(30000 * (1 - i / click_len) ** 2
+                              * math.sin(2 * math.pi * 1500 * i / RATE)))
         for i in range(click_len))
     period = int(RATE * PERIOD)
     beat = click + b"\0\0" * (period - click_len)
