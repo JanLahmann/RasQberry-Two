@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13T04:47:51Z",
+  "generated": "2026-10-13T04:49:01Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1846446160,
       "extract_size": 9512681472,
       "extract_sha256": "84d34fff60d8f3d3d98816bd466a7b85c2883e1b49875d50f919311df5a19687",
-      "image_sha256": "68671a269b1d20bc8df36bebbab153a80d1c9dcc69f4a5e847f2f3a2466f190d",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-060619/rasqberry-development-2026-10-13-060619-ab.img.xz",
       "ab_extract_sha256": "d35d1ad5c568cfa261329579440f11924ed057c8035faaa5bc3c4971d2321def",
       "ab_image_sha256": "d07b9f40783330b51651cc8974f3994caad279edbe37feaedef3b47cd6968a21",
-      "ab_image_download_size": 1894826640,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1894826640,
       "highlights": [
         "Bump version to development-2026-10-13-060619",
         "Contributor guide for catalogue demos; LED demos no longer announced as root",
