@@ -3,7 +3,7 @@ set -euo pipefail
 # ============================================================================
 # RasQberry: Calibrate the sound delay with a tick and a flash
 # ============================================================================
-# Description: A tick sounds twice a second and the LED panel flashes with it.
+# Description: A tick sounds every 0.75 s and the LED panel flashes with it.
 #   The user changes the delay until both come together, and Enter saves it
 #   as RQ_AUDIO_DELAY_MS (the LEDs of demos with sound wait that long for a
 #   Bluetooth speaker). RasQberry menu: Desktop Settings > Sound delay.
