@@ -1666,6 +1666,8 @@ jobs:
           cat RQB-images.json
 
       - name: Generate RQB-releases.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # RQB-releases.json tracks the latest release per stream (stable/beta/dev)
           # This enables stable URLs for the latest release from each stream
@@ -1693,6 +1695,7 @@ jobs:
           # Use Python to update the JSON (handles JSON parsing properly)
           python3 << 'PYTHON_SCRIPT'
           import json
+          import os
           import re
           import urllib.request
           from datetime import datetime, timezone
@@ -1705,34 +1708,55 @@ jobs:
           tag = "${{ steps.version-type.outputs.tag }}"
           repo = "${{ github.repository }}"
 
-          # Fetch release body from GitHub API to extract highlights
-          highlights = []
-          try:
-              url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
-              req = urllib.request.Request(url, headers={
+          def api(path):
+              req = urllib.request.Request(f"https://api.github.com/repos/{repo}/{path}", headers={
                   "Accept": "application/vnd.github.v3+json",
-                  "User-Agent": "RasQberry-Workflow"
+                  "User-Agent": "RasQberry-Workflow",
+                  "Authorization": f"Bearer {os.environ.get('GH_TOKEN', '')}"
               })
               with urllib.request.urlopen(req, timeout=10) as response:
-                  release_data = json.loads(response.read().decode())
-                  body = release_data.get('body', '')
+                  return json.loads(response.read().decode())
 
-                  # Extract bullet points from release body (lines starting with - or *)
-                  # Take first 5 meaningful highlights
+          # Commit subjects that are not news (as NOISE in rq_release_notice.py)
+          noise = re.compile(r"^(Bump version|Merge |Generate RQB-|Update RQB-)", re.I)
+          highlights = []
+
+          # Dev: every change since the last PUBLISHED dev image (the tag in
+          # the live file), newest first. The release body only covers the
+          # commits since the previous release tag, which may be a cancelled
+          # build that never shipped - its changes then went missing from the
+          # Pi's "What's new".
+          prev = (data.get('streams', {}).get(stream) or {}).get('tag')
+          if stream == 'dev' and prev and prev != tag:
+              try:
+                  commits = api(f"compare/{prev}...{tag}").get('commits', [])
+                  for c in reversed(commits):
+                      subject = c['commit']['message'].split('\n', 1)[0].strip()
+                      if subject and not noise.match(subject) and subject not in highlights:
+                          highlights.append(subject)
+                  highlights = highlights[:8]
+                  print(f"{len(highlights)} highlights from the commits since {prev}")
+              except Exception as e:
+                  print(f"Could not compare {prev}...{tag}: {e}")
+                  highlights = []
+
+          # Otherwise: bullet points from the release body
+          if not highlights:
+              try:
+                  body = api(f"releases/tags/{tag}").get('body', '')
                   for line in body.split('\n'):
                       line = line.strip()
                       if line.startswith(('- ', '* ', '• ')):
-                          # Clean up the bullet point
                           highlight = re.sub(r'^[-*•]\s*', '', line).strip()
-                          # Skip links-only lines, empty lines, or very short items
-                          if highlight and len(highlight) > 10 and not highlight.startswith('http'):
+                          # Skip links-only lines, very short items and CI noise
+                          if (highlight and len(highlight) > 10 and not highlight.startswith('http')
+                                  and not noise.match(highlight)):
                               highlights.append(highlight)
                               if len(highlights) >= 5:
                                   break
-
-              print(f"Extracted {len(highlights)} highlights from release notes")
-          except Exception as e:
-              print(f"Could not fetch release highlights: {e}")
+                  print(f"Extracted {len(highlights)} highlights from release notes")
+              except Exception as e:
+                  print(f"Could not fetch release highlights: {e}")
 
           # Create the stream entry with all metadata
           # The image_url / extract_sha256 / image_sha256 here describe the
