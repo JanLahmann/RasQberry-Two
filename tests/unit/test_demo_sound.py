@@ -198,3 +198,11 @@ def test_calibration_runs_sandboxed_and_saves():
     fn = fn[:fn.index("\n}\n")]
     assert 'CAL "Calibrate: a tick and a flash' in fn
     assert '"$BIN_DIR/rq_audio_delay_calibrate.sh"' in fn
+
+
+def test_pi_is_not_a_bluetooth_speaker():
+    # a speaker that can also send sound must connect as the speaker
+    conf = open(os.path.join(os.path.dirname(_BIN), "RQB2-system", "etc", "wireplumber",
+                             "wireplumber.conf.d", "51-rasqberry-bt-speaker.conf")).read()
+    roles = conf[conf.index("bluez5.roles"):].split("]")[0]
+    assert "a2dp_source" in roles and "a2dp_sink" not in roles
