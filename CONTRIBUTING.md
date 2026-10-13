@@ -98,9 +98,10 @@ launcher names the output, or says how to connect a speaker.
 - **Timing:** take the LED timing from the playback position, not from
   sleeps, so the LEDs stay in step over a long demo.
 - **Sound delay:** Bluetooth speakers play 100–300 ms late. Users set the
-  delay once for all demos (RasQberry menu: Desktop Settings > Sound delay),
-  and the launcher passes it as `RQ_AUDIO_DELAY_MS` (whole milliseconds,
-  0–2000, default 0). Show the LEDs for the part that is being heard:
+  delay once for all demos (RasQberry menu: Desktop Settings > Sound delay,
+  where a tick and a flash help to find it), and the launcher passes it as
+  `RQ_AUDIO_DELAY_MS` (whole milliseconds, 0–2000, default 0). Show the LEDs
+  for the part that is being heard:
 
   ```python
   import os

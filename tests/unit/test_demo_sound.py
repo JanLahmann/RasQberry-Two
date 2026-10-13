@@ -165,3 +165,32 @@ def test_audio_delay_is_in_desktop_settings():
     ds = ds[:ds.index("\n}\n")]
     assert 'DELAY   "Sound delay (Bluetooth speaker): $(audio_delay_ms) ms"' in ds
     assert "DELAY)   do_audio_delay" in ds
+
+
+def test_calibration_ticks_twice_a_second():
+    # half a second, played in a loop: a click at its start, then silence
+    code = (f"import sys; sys.path.insert(0, {_BIN!r}); import rq_audio_delay_calibrate as c; "
+            "sys.stdout.buffer.write(c.tick())")
+    proc = subprocess.run(["python3", "-c", code], capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    import array
+    data = array.array("h", proc.stdout)
+    assert len(data) == 24000
+    assert max(abs(x) for x in data[:300]) > 10000
+    assert max(abs(x) for x in data[1000:]) == 0
+
+
+def test_calibration_runs_sandboxed_and_saves():
+    sh = open(os.path.join(_BIN, "rq_audio_delay_calibrate.sh")).read()
+    # the tick and flash run as the user in the LED sandbox, from the venv
+    assert sh.index("activate_venv") < sh.index("rq_led_user_prepare") < sh.index("rq_led_as_user python3")
+    assert "led_panel_ready || exit 0" in sh and "rq_led_clear_on_exit" in sh
+    # root saves the checked value; an error leaves the setting as it was
+    assert 'update_env_var RQ_AUDIO_DELAY_MS "$value"' in sh
+    assert "value=$(rq_audio_delay_ms)" in sh
+    assert "0|130) ;;" in sh
+    menu = open(_MENU).read()
+    fn = menu[menu.index("do_audio_delay() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    assert 'CAL "Calibrate: a tick and a flash' in fn
+    assert '"$BIN_DIR/rq_audio_delay_calibrate.sh"' in fn

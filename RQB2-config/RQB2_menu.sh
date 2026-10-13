@@ -2622,6 +2622,18 @@ audio_delay_ms() {
 
 do_audio_delay() {
     _ad_cur=$(audio_delay_ms)
+    _ad_how=$(show_menu "Sound delay" \
+        "Now: $_ad_cur ms. How long the LEDs of demos with sound wait for the speaker (Bluetooth speakers play 100-300 ms late)." \
+        CAL "Calibrate: a tick and a flash, adjust until they match" \
+        SET "Type the number of milliseconds") || return 0
+    if [ "$_ad_how" = CAL ]; then
+        clear
+        "$BIN_DIR/rq_audio_delay_calibrate.sh" || handle_error "The sound delay could not be calibrated."
+        _rq_load_env
+        printf '\nPress Enter to return to the menu.'
+        read -r _ad_x || :
+        return 0
+    fi
     _ad_new=$(whiptail --title "Sound delay" --inputbox \
         "How many milliseconds should the LEDs wait for the speaker, in demos with sound?\n\nBluetooth speakers play 100-300 ms late; a wired or HDMI speaker needs 0. Start a demo with sound and raise the value until the LEDs and the voice match.\n\nMilliseconds (0-2000):" \
         15 70 "$_ad_cur" 3>&1 1>&2 2>&3) || return 0
