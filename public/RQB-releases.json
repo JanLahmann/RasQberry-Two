@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13T06:34:19Z",
+  "generated": "2026-10-13T06:35:29Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1846433932,
       "extract_size": 9512681472,
       "extract_sha256": "4336b0aff4978eed2875039f2ab18d4b9d10ac8a0b06ae8b1254545303218553",
-      "image_sha256": "fee15dfef08c319636cd39e9e1a61802b0bbddffe010285f2e296755e42c8408",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-075131/rasqberry-development-2026-10-13-075131-ab.img.xz",
       "ab_extract_sha256": "1f58ce46fba2cc8613b2cf3a839db4baf3e0332b23e4160747c556e2fc54a472",
       "ab_image_sha256": "f7e2bbb1b1c9b5119340a7533747a1fd2ecd5fdfede5c993daedba3ed8c63d57",
-      "ab_image_download_size": 1897174728,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1897174728,
       "highlights": [
         "Bump version to development-2026-10-13-075131",
         "Sound delay calibration: every fifth tick and flash left out"
