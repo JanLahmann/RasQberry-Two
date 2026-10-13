@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-12T21:14:41Z",
+  "generated": "2026-10-13T04:47:51Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,24 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-12-222956",
-      "name": "rasqberry-development-2026-10-12-222956",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-222956/rasqberry-development-2026-10-12-222956.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-12-222956",
-      "release_date": "2026-10-12 22:29",
-      "image_download_size": 1845172244,
+      "tag": "development-2026-10-13-060619",
+      "name": "rasqberry-development-2026-10-13-060619",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-060619/rasqberry-development-2026-10-13-060619.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-13-060619",
+      "release_date": "2026-10-13 06:06",
+      "image_download_size": 1846446160,
       "extract_size": 9512681472,
-      "extract_sha256": "3f10e561f8bc94cb7116cd73c8839c3b775cf764fc166c8ca4bd3a3862104100",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-12-222956/rasqberry-development-2026-10-12-222956-ab.img.xz",
-      "ab_extract_sha256": "6b9cb4b3bdfdb54ab11c53bcff14d048f6f783920b0a6fa8e75ace286e84c313",
-      "ab_image_sha256": "b13f88cb884a4500b152fb6af3a136970c2a65f1d1f071fefed0cc045139bd5f",
+      "extract_sha256": "84d34fff60d8f3d3d98816bd466a7b85c2883e1b49875d50f919311df5a19687",
+      "image_sha256": "68671a269b1d20bc8df36bebbab153a80d1c9dcc69f4a5e847f2f3a2466f190d",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-060619/rasqberry-development-2026-10-13-060619-ab.img.xz",
+      "ab_extract_sha256": "d35d1ad5c568cfa261329579440f11924ed057c8035faaa5bc3c4971d2321def",
+      "ab_image_sha256": "d07b9f40783330b51651cc8974f3994caad279edbe37feaedef3b47cd6968a21",
+      "ab_image_download_size": 1894826640,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1897224976,
       "highlights": [
-        "Bump version to development-2026-10-12-222956",
-        "Merge led-sandbox-child: LED sandbox stays a child of the launcher",
-        "LED sandbox: a child of the launcher (unshare + setpriv), not a systemd unit",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-12-195215"
+        "Bump version to development-2026-10-13-060619",
+        "Contributor guide for catalogue demos; LED demos no longer announced as root",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-12-222956"
       ]
     }
   }
