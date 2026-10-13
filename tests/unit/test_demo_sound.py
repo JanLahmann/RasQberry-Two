@@ -167,17 +167,21 @@ def test_audio_delay_is_in_desktop_settings():
     assert "DELAY)   do_audio_delay" in ds
 
 
-def test_calibration_ticks_twice_a_second():
-    # half a second, played in a loop: a click at its start, then silence
+def test_calibration_ticks_twice_a_second_with_a_gap():
+    # 2.5 s in a loop: four clicks half a second apart, then a silent beat,
+    # so a delay a whole tick off shows (Jan, 2026-10-13)
     code = (f"import sys; sys.path.insert(0, {_BIN!r}); import rq_audio_delay_calibrate as c; "
             "sys.stdout.buffer.write(c.tick())")
     proc = subprocess.run(["python3", "-c", code], capture_output=True)
     assert proc.returncode == 0, proc.stderr
     import array
     data = array.array("h", proc.stdout)
-    assert len(data) == 24000
-    assert max(abs(x) for x in data[:300]) > 10000
-    assert max(abs(x) for x in data[1000:]) == 0
+    assert len(data) == 5 * 24000
+    for beat in range(5):
+        start = beat * 24000
+        loud = max(abs(x) for x in data[start:start + 300])
+        assert (loud > 10000) is (beat < 4), beat
+        assert max(abs(x) for x in data[start + 1000:start + 24000]) == 0
 
 
 def test_calibration_runs_sandboxed_and_saves():

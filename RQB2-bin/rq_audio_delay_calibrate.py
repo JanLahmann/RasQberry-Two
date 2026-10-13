@@ -3,8 +3,9 @@
 Calibrate the sound delay (RQ_AUDIO_DELAY_MS) with a tick and a flash.
 
 A tick sounds twice a second and the LED panel flashes with it, the flash
-moved by the delay. The user changes the delay until tick and flash come
-together: a Bluetooth speaker plays 100-300 ms late, so the flash has to
+moved by the delay; every fifth tick and flash is left out, so a delay that
+is a whole tick off shows as a flash without a tick. The user changes the
+delay until tick and flash, and their gaps, come together: a Bluetooth speaker plays 100-300 ms late, so the flash has to
 wait for it. Enter writes the value to --out; the launcher
 (rq_audio_delay_calibrate.sh) saves it.
 
@@ -33,16 +34,17 @@ logger = logging.getLogger(__name__)
 
 RATE = 48000
 PERIOD = 0.5          # two ticks a second
+BEATS = 5             # ... and the fifth of every five is left out
 FLASH = 0.08          # how long the panel lights, in seconds
-# A delay of one PERIOD looks the same as none, so the calibration stays
-# below it; Bluetooth speakers need 100-300 ms. Larger values: type them in.
-MAX_MS = 450
+# The gap makes delays up to BEATS * PERIOD (2.5 s) tell apart
+MAX_MS = 2000
 COLOUR = (0, 90, 255)
 
 
 def tick():
     """
-    One PERIOD of sound: a short click, then silence (mono, 16 bit, RATE).
+    One cycle of sound: BEATS periods, each a short click and silence, the
+    last one silent only (mono, 16 bit, RATE).
 
     Returns:
         bytes: raw little-endian samples, played again and again
@@ -51,7 +53,9 @@ def tick():
     click = b"".join(
         struct.pack("<h", int(26000 * (1 - i / click_len) * (1 if (i // 6) % 2 else -1)))
         for i in range(click_len))
-    return click + b"\0\0" * (int(RATE * PERIOD) - click_len)
+    period = int(RATE * PERIOD)
+    beat = click + b"\0\0" * (period - click_len)
+    return beat * (BEATS - 1) + b"\0\0" * period
 
 
 def player():
@@ -172,8 +176,10 @@ def calibrate(start, out):
     sound = tick()
 
     delay = max(0, min(MAX_MS, start))
-    print("A tick sounds twice a second and the LED panel flashes with it.")
-    print("Change the delay until you hear the tick when you see the flash.")
+    print("A tick sounds twice a second and the LED panel flashes with it;")
+    print("every fifth tick and flash is left out.")
+    print("Change the delay until you hear each tick when you see its flash,")
+    print("and the gap in the ticks comes with the gap in the flashes.")
     print("  Up/Down: 10 ms   Page Up/Page Down: 50 ms   Enter: save   Q: cancel")
     print()
 
@@ -199,9 +205,10 @@ def calibrate(start, out):
                 proc = start_ticks(cmd, sound)
                 t0 = time.monotonic()
             now = time.monotonic()
-            # where in the tick's period the flash should be
-            phase = (now - t0 - delay / 1000.0) % PERIOD
-            on = phase < FLASH
+            # where in the cycle the flash should be: the last beat is a gap
+            cycle = (now - t0 - delay / 1000.0) % (PERIOD * BEATS)
+            beat, phase = int(cycle // PERIOD), cycle % PERIOD
+            on = phase < FLASH and beat < BEATS - 1
             if on != lit:
                 pixels.fill(COLOUR if on else (0, 0, 0))
                 pixels.show()
