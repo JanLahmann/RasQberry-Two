@@ -420,11 +420,11 @@ add_demo() {
     provider=$(registry_field "$id" "provider")
     dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
     disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
-    # An LED demo runs as root: said in this one question, not a second one
-    # that named the id (user test 2026-10-08, F5)
+    # An LED demo runs as the user in a sandbox (rq_led_as_user), like every
+    # demo: the question says it drives the panel, and asks nothing more
     local reg_leds root_txt=""
     reg_leds=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .leds // false' "$REGISTRY_FILE")
-    [ "$reg_leds" = true ] && root_txt="It drives the LED panel, so it runs with root privileges.\n\n"
+    [ "$reg_leds" = true ] && root_txt="It drives the LED panel. Like every demo, it runs without administrator rights.\n\n"
     # A renamed demo replaces its old install (registry "replaces"): said in
     # this question, and the old one goes once this one is installed
     local replaced old old_names="" replace_txt=""
@@ -474,11 +474,10 @@ add_demo() {
     rm -f /tmp/rq_ext_validate.$$
 
     # Manifest id must match the registry id
-    local m_id m_wd m_marker m_leds
+    local m_id m_wd m_marker
     m_id=$(jq -r '.id // empty' "$manifest_file")
     m_wd=$(jq -r '.entrypoint.working_dir // empty' "$manifest_file")
     m_marker=$(jq -r '.install.marker_file // empty' "$manifest_file")
-    m_leds=$(jq -r '.needs_hw.leds // false' "$manifest_file")
 
     if [ "$m_id" != "$id" ]; then
         rm -rf "$dest"
@@ -493,17 +492,6 @@ add_demo() {
     if [ -z "$m_marker" ] || [ ! -e "$dest/$m_marker" ]; then
         rm -rf "$dest"
         die "install.marker_file '$m_marker' not found in checkout - refusing to install"
-    fi
-
-    # LED demos run with root privileges - confirm explicitly, unless the
-    # install question already said so (registry "leds")
-    if [ "$m_leds" = "true" ] && [ "$reg_leds" != true ]; then
-        if ! show_yesno "LED demo - root privileges" \
-            "${name:-$id} drives the LED panel and will run with root privileges.\n\nInstall it and let it run as root?"; then
-            rm -rf "$dest"
-            info "Nothing was installed."
-            return 0
-        fi
     fi
 
     # Install pip requirements as the user, if declared. Only packages the

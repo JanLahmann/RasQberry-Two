@@ -163,20 +163,21 @@ def test_an_led_demo_is_one_question_with_its_name(cat):
     boxes = _yesnos(cat)
     assert len(boxes) == 1
     text = boxes[0][boxes[0].index("--yesno") + 1]
-    assert "It drives the LED panel, so it runs with root privileges." in text
+    assert "It drives the LED panel. Like every demo, it runs without administrator rights." in text
+    assert "root" not in text
     assert text.startswith("Dock Demo")
     assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
 
 
-def test_an_unannounced_led_demo_is_still_asked_about_root_by_name(cat):
+def test_an_unannounced_led_demo_asks_nothing_about_root(cat):
+    # LED demos run as the user in a sandbox (rq_led_as_user): no root question
     _led_demo(cat, leds_in_registry=False)
     proc = cat(["dock-demo"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     boxes = _yesnos(cat)
-    assert len(boxes) == 2
-    text = boxes[1][boxes[1].index("--yesno") + 1]
-    assert text.startswith("Dock Demo drives the LED panel and will run with root privileges.")
-    assert "'dock-demo'" not in text
+    assert len(boxes) == 1
+    assert "root" not in boxes[0][boxes[0].index("--yesno") + 1]
+    assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
 
 
 def test_the_shipped_led_demos_are_announced():

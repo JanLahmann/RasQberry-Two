@@ -2,6 +2,10 @@
 
 Status: **IMPLEMENTED** (design approved 2026-07-12, implemented 2026-07-12)
 
+Demo authors: start with [CONTRIBUTING.md](../../CONTRIBUTING.md), which shows
+the manifest, LEDs, sound and testing in short. This file is the full
+specification.
+
 ## Goal
 
 Third-party demo repositories can be added to a RasQberry system through the
@@ -184,8 +188,8 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
    (`rq_demo_validate.sh --external`).
 5. Verify the manifest `id` matches the registry id, that
    `entrypoint.working_dir` equals the repo directory name, and that
-   `install.marker_file` exists in the checkout. If `needs_hw.leds` is true,
-   confirm with a dialog that warns the demo runs with root privileges.
+   `install.marker_file` exists in the checkout. An LED demo needs no extra
+   question: it runs as the user in a sandbox like every demo (§5).
 6. If `install.pip_requirements` is true: `rq_pip_extras.py` (run with the
    venv interpreter, as the user) splits `requirements.txt` into the
    distributions the venv lacks and a constraints file pinning everything it
@@ -255,7 +259,7 @@ forbidden from shipping. `web-static` closes that gap declaratively.
 - **No per-demo launcher** — the server command is fixed in `rq_demo_run.sh`;
   the manifest only supplies a directory and a port, both pattern-validated.
 - **Runs as the user** — `python3 -m http.server` is started via the
-  `run_as_user` path, never with root privileges (unlike LED demos).
+  `run_as_user` path, never with root privileges.
 - **No port takeover** — a busy port is a hard error, so a demo can never
   displace another service by declaring its port.
 
@@ -270,10 +274,16 @@ External manifests execute on a system where menu dispatch may run as root
 2. **Schema hardening** — patterns reject path traversal: `id`, `working_dir`,
    `script`, `marker_file` must match `^[A-Za-z0-9._-]+$`-class patterns with
    no `..`, no leading `/`, no whitespace.
-3. **Privilege rules** — same as internal: python+`needs_hw.leds` runs as
-   root (that is the point of LED demos — flag in the add-flow confirmation
-   dialog: "this demo drives LEDs and will run with root privileges");
-   everything else runs as the user.
+3. **Privilege rules** — same as internal: every demo runs as the desktop
+   user. A `python` demo with `needs_hw.leds` is started by a root launcher
+   (panel check, the Pi 4 LED renderer, clearing the panel), but the program
+   itself runs as the user in a sandbox (`rq_led_as_user`): no capabilities,
+   no new privileges, only the device groups (no `sudo`, no `docker`), and
+   the venv, `~/.local/config`, shell start-up files, autostart and `~/.ssh`
+   read-only. On a Pi 4 the frames go to `rasqberry-led-renderer.service`,
+   which runs as root with only the rights the LED driver needs.
+   `RQ_LED_AS_ROOT=1`, set by a person, is the only way back to root; a
+   manifest cannot ask for it.
 4. **Pinned dependencies** — pip installs go into the user venv as the user.
    Registry curation should prefer demos with pinned requirements. (Future
    option: per-demo venvs to isolate dependency conflicts.)
@@ -290,11 +300,11 @@ The registry itself is the trust anchor: adding an entry to
 - [x] SHA fetch helper in `rq_common.sh` (`fetch_pinned_repo <url> <sha> <dest>`)
 - [x] Manifest search path in the three readers (§4)
 - [x] Menu flow: list / add / update external demos (`rq_demo_add_external.sh`)
-- [x] Add-flow confirmation dialog incl. root warning for LED demos
+- [x] Add-flow confirmation dialog (provider, pinned version)
 - [x] `web-static` declarative entrypoint type (§4b)
-- [ ] "Remove external demo" menu action (deferred — remove the user manifest
-      and demo dir by hand for now)
-- [ ] Docs for demo authors (template repo with example `rqb-demo.json`)
+- [x] Remove a demo (`--remove`, menu: Manage demos > Remove a demo)
+- [x] Docs for demo authors ([CONTRIBUTING.md](../../CONTRIBUTING.md))
+- [x] LED demos run as the user in a sandbox (`rq_led_as_user`)
 
 ## 7. Migration perspective
 
