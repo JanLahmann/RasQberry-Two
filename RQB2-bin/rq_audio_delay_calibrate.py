@@ -2,11 +2,11 @@
 """
 Calibrate the sound delay (RQ_AUDIO_DELAY_MS) with a tick and a flash.
 
-A tick sounds every 0.75 s and the LED panel flashes with it, the flash
-moved by the delay; every fifth tick and flash is left out, so a delay that
-is a whole tick off shows as a flash without a tick. The user changes the
-delay until tick and flash, and their gaps, come together: a Bluetooth speaker plays 100-300 ms late, so the flash has to
-wait for it. Enter writes the value to --out; the launcher
+Four ticks in a quickening rhythm, then a pause, again and again; the LED
+panel flashes with each tick, the flash moved by the delay. The rhythm only
+lines up at the right delay, so a delay a tick or a block off cannot pass.
+The user changes the delay until tick and flash come together: a Bluetooth
+speaker plays 100-300 ms late, so the flash has to wait for it. Enter writes the value to --out; the launcher
 (rq_audio_delay_calibrate.sh) saves it.
 
 Runs as the desktop user (in the LED sandbox), so the tick goes to the
@@ -34,18 +34,18 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 RATE = 48000
-PERIOD = 0.75         # a tick every 0.75 s (0.5 s felt too fast)
-BEATS = 5             # ... and the fifth of every five is left out
+ONSETS = (0.0, 0.6, 1.05, 1.35)   # four ticks, the gaps shorter each time
+CYCLE = 2.6           # ... then a pause, and the block again
 FLASH = 0.08          # how long the panel lights, in seconds
-# The gap makes delays up to BEATS * PERIOD (3.75 s) tell apart
+# No two blocks look alike within CYCLE, so delays up to MAX_MS tell apart
 MAX_MS = 2000
 COLOUR = (0, 90, 255)
 
 
 def tick():
     """
-    One cycle of sound: BEATS periods, each a short click and silence, the
-    last one silent only (mono, 16 bit, RATE).
+    One cycle of sound: a tick at each of ONSETS, silence between and
+    after (mono, 16 bit, RATE).
 
     Returns:
         bytes: raw little-endian samples, played again and again
@@ -57,9 +57,12 @@ def tick():
         struct.pack("<h", int(30000 * (1 - i / click_len) ** 2
                               * math.sin(2 * math.pi * 1500 * i / RATE)))
         for i in range(click_len))
-    period = int(RATE * PERIOD)
-    beat = click + b"\0\0" * (period - click_len)
-    return beat * (BEATS - 1) + b"\0\0" * period
+    total = int(RATE * CYCLE)
+    out = bytearray(2 * total)
+    for onset in ONSETS:
+        start = 2 * int(RATE * onset)
+        out[start:start + len(click)] = click
+    return bytes(out)
 
 
 def player():
@@ -180,10 +183,10 @@ def calibrate(start, out):
     sound = tick()
 
     delay = max(0, min(MAX_MS, start))
-    print("A tick sounds every 0.75 seconds and the LED panel flashes with it;")
-    print("every fifth tick and flash is left out.")
+    print("Four ticks in a quickening rhythm, then a pause; the LED panel")
+    print("flashes with each tick.")
     print("Change the delay until you hear each tick when you see its flash,")
-    print("and the gap in the ticks comes with the gap in the flashes.")
+    print("and the rhythm of the ticks is the rhythm of the flashes.")
     print("  Up/Down: 10 ms   Page Up/Page Down: 50 ms   Enter: save   Q: cancel")
     print()
 
@@ -209,16 +212,16 @@ def calibrate(start, out):
                 proc = start_ticks(cmd, sound)
                 t0 = time.monotonic()
             now = time.monotonic()
-            # where in the cycle the flash should be: the last beat is a gap
-            cycle = (now - t0 - delay / 1000.0) % (PERIOD * BEATS)
-            beat, phase = int(cycle // PERIOD), cycle % PERIOD
-            on = phase < FLASH and beat < BEATS - 1
+            # where in the cycle the flash should be
+            cycle = (now - t0 - delay / 1000.0) % CYCLE
+            on = any(o <= cycle < o + FLASH for o in ONSETS)
+            # wait until the flash changes, or a key comes
+            edges = [e for o in ONSETS for e in (o, o + FLASH)] + [CYCLE]
+            wait = min(e for e in edges if e > cycle) - cycle
             if on != lit:
                 pixels.fill(COLOUR if on else (0, 0, 0))
                 pixels.show()
                 lit = on
-            # wait until the flash changes, or a key comes
-            wait = (FLASH - phase) if on else (PERIOD - phase)
             key = read_key(max(0.001, min(wait, 0.05)))
             if key in ("up", "down", "pgup", "pgdn"):
                 step = {"up": 10, "down": -10, "pgup": 50, "pgdn": -50}[key]

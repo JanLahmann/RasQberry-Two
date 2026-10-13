@@ -167,21 +167,22 @@ def test_audio_delay_is_in_desktop_settings():
     assert "DELAY)   do_audio_delay" in ds
 
 
-def test_calibration_ticks_every_0_75_s_with_a_gap():
-    # 3.75 s in a loop: four clicks 0.75 s apart, then a silent beat, so a
-    # delay a whole tick off shows (Jan, 2026-10-13; 0.5 s felt too fast)
+def test_calibration_ticks_in_a_quickening_block():
+    # 2.6 s in a loop: four ticks, each gap shorter (0.6, 0.45, 0.3 s), then
+    # a pause, so only the right delay lines the rhythm up (Jan, 2026-10-13)
     code = (f"import sys; sys.path.insert(0, {_BIN!r}); import rq_audio_delay_calibrate as c; "
             "sys.stdout.buffer.write(c.tick())")
     proc = subprocess.run(["python3", "-c", code], capture_output=True)
     assert proc.returncode == 0, proc.stderr
     import array
     data = array.array("h", proc.stdout)
-    assert len(data) == 5 * 36000
-    for beat in range(5):
-        start = beat * 36000
-        loud = max(abs(x) for x in data[start:start + 300])
-        assert (loud > 10000) is (beat < 4), beat
-        assert max(abs(x) for x in data[start + 1500:start + 36000]) == 0
+    assert len(data) == int(48000 * 2.6)
+    onsets = [int(48000 * t) for t in (0.0, 0.6, 1.05, 1.35)]
+    gaps = [b - a for a, b in zip(onsets, onsets[1:])]
+    assert gaps == sorted(gaps, reverse=True) and len(set(gaps)) == 3
+    for start, end in zip(onsets, onsets[1:] + [len(data)]):
+        assert max(abs(x) for x in data[start:start + 300]) > 10000
+        assert max(abs(x) for x in data[start + 1500:end]) == 0
 
 
 def test_calibration_runs_sandboxed_and_saves():
