@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-13T16:34:08Z",
+  "generated": "2026-10-13T16:35:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,12 +43,11 @@
       "image_download_size": 1849059360,
       "extract_size": 9512681472,
       "extract_sha256": "9d6f2a1cd6852e578e6e401280c1a0f4a3a5c263d171a969dbea1e67920a5488",
-      "image_sha256": "4c1b4228ff1b762fa23b6b1a1352a7509f6ea6e59128dc6fe810a59ea1df13dc",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-174526/rasqberry-development-2026-10-13-174526-ab.img.xz",
       "ab_extract_sha256": "22a8dc5e33fca7fe92804b3cd19a17ae0bd52a48ece8601f9a384306fc039f04",
       "ab_image_sha256": "4781a4dd9cba04e7cf1646af326c91e34256b76ef61780b988148e154a3b0541",
-      "ab_image_download_size": 1896231404,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1896231404,
       "highlights": [
         "Bump version to development-2026-10-13-174526",
         "Sound delay calibration: four ticks in a quickening rhythm",
