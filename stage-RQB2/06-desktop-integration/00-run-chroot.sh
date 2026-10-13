@@ -257,23 +257,18 @@ update-desktop-database /usr/share/applications || echo "Warning: Failed to upda
 echo "Updating icon cache..."
 gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
 
-# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
-echo "Configuring main panel menu icon..."
-PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
-if [ -f "$PANEL_CONFIG" ]; then
-    # Backup original panel config
-    cp "$PANEL_CONFIG" "${PANEL_CONFIG}.orig"
-
-    # Replace the menu icon in the panel configuration
-    # Look for the menu plugin section and change its icon
-    # The default uses "raspberrypi-logo" or similar
-    sed -i 's|icon=raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
-    sed -i 's|icon=/usr/share/pixmaps/raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
-
-    echo "Panel menu icon updated to RasQberry logo"
-else
-    echo "Warning: Panel config not found at $PANEL_CONFIG"
-fi
+# Main menu button (top left of the panel): the RasQberry icon, as for the
+# RasQberry menu category. wf-panel-pi draws the theme icon "start-here";
+# /usr/local/share/icons comes before /usr/share, so ours wins over the
+# theme's raspberry (PiXtrix on trixie, PiXflat on bookworm) and an OS update
+# does not overwrite it.
+echo "Configuring main menu icon..."
+for icon_file in "${CLONE_DIR}"/desktop-icons/start-here/*.png; do
+    size=$(basename "$icon_file" .png)
+    for theme in PiXtrix PiXflat; do
+        install -D -m 644 "$icon_file" "/usr/local/share/icons/${theme}/${size}x${size}/places/start-here.png"
+    done
+done
 
 # Update menu cache for LXDE
 echo "Updating menu cache..."
