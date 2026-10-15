@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-15T02:44:14Z",
+  "generated": "2026-10-15T05:21:39Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,23 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-13-192037",
-      "name": "rasqberry-development-2026-10-13-192037",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-192037/rasqberry-development-2026-10-13-192037.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-13-192037",
-      "release_date": "2026-10-13 19:20",
-      "image_download_size": 1848709460,
-      "extract_size": 9512681472,
-      "extract_sha256": "ff8da56c6442e6a7193ed553e8f1509ded5a91014abd7934ca8e8da05a504b2b",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-13-192037/rasqberry-development-2026-10-13-192037-ab.img.xz",
-      "ab_extract_sha256": "d57fa9ce3a7122b8404a002902ce818caa5c70db2e9e7a7a39e7f4f11a597edf",
-      "ab_image_sha256": "0a7025d44ece858ba3d6327f7aa794f1959b3694cbae4fc78980d74fc3d98f85",
+      "tag": "development-2026-10-15-063616",
+      "name": "rasqberry-development-2026-10-15-063616",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-063616/rasqberry-development-2026-10-15-063616.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-15-063616",
+      "release_date": "2026-10-15 06:36",
+      "image_download_size": 1856033952,
+      "extract_size": 9529458688,
+      "extract_sha256": "73e8bdbea5be570d2638bfbdc060442b6d21ebd923075494cdc3821e5d48f10a",
+      "image_sha256": "753a4e2cd270ba0e43b8538a9666fed90e96184e16d2c42b2baf2d3b3297eb17",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-063616/rasqberry-development-2026-10-15-063616-ab.img.xz",
+      "ab_extract_sha256": "b4b45cfdf570f32b98587612600e5a7ae9e6261f5c72f20f1d04232f462234da",
+      "ab_image_sha256": "3379ac87938d1dc47c13251d7204e143760d0f72c51202b073409951500a3ef5",
+      "ab_image_download_size": 1903235772,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1903767748,
       "highlights": [
-        "Bump version to development-2026-10-13-192037",
-        "What's new for dev builds: every change since the last published image",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-13-174526"
+        "Catalogue: racetraQ pinned to v0.3.2 (#334)"
       ]
     }
   }
