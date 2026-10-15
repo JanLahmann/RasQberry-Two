@@ -1,0 +1,14 @@
+[Unit]
+Description=RasQberry Wi-Fi hotspot (when HOTSPOT_AT_BOOT=yes)
+# Also takes rasqberry-hotspot.txt from the boot partition (settings put there
+# after flashing). The hotspot itself is a NetworkManager profile.
+After=NetworkManager.service rasqberry-boot-config.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_hotspot.sh boot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

@@ -11,7 +11,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   which both slots mount, and puts them back into a slot that lacks them.
 #
 #   Saved: LED_* and RASQ_LED_* keys (layout, verification, pin, brightness,
-#   outputs) and the sound delay (RQ_AUDIO_DELAY_MS) - but not *_INSTALLED
+#   outputs), the sound delay (RQ_AUDIO_DELAY_MS) and the hotspot settings
+#   (HOTSPOT_*) - but not *_INSTALLED
 #   flags, since installed software is per slot, nor the retired
 #   LED_MATRIX_* keys - plus the user's custom layouts
 #   (~/.local/config/led-layouts.json).
@@ -37,7 +38,7 @@ STORE_LAYOUTS="$STORE_DIR/led-layouts.json"
 # On the slot's own root, so a freshly flashed slot has none
 MARKER="${RQ_SETTINGS_MARKER:-/var/lib/rasqberry/device-settings.applied}"
 
-KEY_RE='^(LED_[A-Za-z0-9_]*|RASQ_LED_[A-Za-z0-9_]*|RQ_AUDIO_DELAY_MS)='
+KEY_RE='^(LED_[A-Za-z0-9_]*|RASQ_LED_[A-Za-z0-9_]*|RQ_AUDIO_DELAY_MS|HOTSPOT_[A-Z_]*)='
 # Not device settings: *_INSTALLED flags (per slot), and the retired
 # LED_MATRIX_* keys (Q22: LED_LAYOUT is the one layout setting) - an older
 # store must not put them back into a new slot.

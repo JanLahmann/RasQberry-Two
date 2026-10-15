@@ -1,0 +1,9 @@
+#!/bin/bash
+# RasQberry: when the hotspot goes down, its "no internet sharing" rule goes
+# too (rq_hotspot.sh sets it after starting the hotspot). NetworkManager runs
+# this as root with <interface> <action>; CONNECTION_ID names the profile.
+
+[ "${2:-}" = down ] || exit 0
+[ "${CONNECTION_ID:-}" = rasqberry-hotspot ] || exit 0
+nft delete table inet rasqberry_hotspot 2>/dev/null || true
+exit 0

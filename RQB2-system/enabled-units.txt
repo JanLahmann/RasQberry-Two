@@ -20,6 +20,8 @@ rasqberry-ip-display.service
 rasqberry-update-check.timer
 # Wi-Fi that NetworkManager gave up on at start (need-auth with a stored password)
 rasqberry-wifi-watchdog.timer
+# Wi-Fi hotspot at boot (HOTSPOT_AT_BOOT) and rasqberry-hotspot.txt on the boot partition
+rasqberry-hotspot.service
 # Turns the LED panel off at shutdown (R-043)
 rasqberry-led-clear.service
 # Outdated bootloader firmware: System Info, checklist, one desktop notice
