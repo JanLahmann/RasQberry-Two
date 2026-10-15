@@ -2756,6 +2756,7 @@ do_hotspot_menu() {
             "The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1." \
             STATE "Hotspot: $(hotspot_state)" \
             SHOW  "Show name, password and QR code to join" \
+            CARD  "Join card on the screen (to show or print)" \
             NAME  "Change name and password" \
             BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
             SHARE "Share this Pi's internet (cable or USB Wi-Fi): ${HOTSPOT_SHARE_INTERNET:-yes}" \
@@ -2764,6 +2765,8 @@ do_hotspot_menu() {
         case "$FUN" in
             STATE) do_hotspot_toggle ;;
             SHOW)  clear; "$BIN_DIR/rq_hotspot.sh" qr; _rq_hs_pause ;;
+            CARD)  "$BIN_DIR/rq_hotspot.sh" card >/dev/null 2>&1 \
+                       || whiptail --title "Wi-Fi hotspot" --msgbox "The join card could not be opened. \"Show name, password and QR code\" shows the same in this window." 9 70 ;;
             NAME)  do_hotspot_name ;;
             BOOT)  if [ "${HOTSPOT_AT_BOOT:-no}" = yes ]; then _rq_hs_set HOTSPOT_AT_BOOT no; else _rq_hs_set HOTSPOT_AT_BOOT yes; fi ;;
             SHARE) if [ "${HOTSPOT_SHARE_INTERNET:-yes}" = yes ]; then _rq_hs_set HOTSPOT_SHARE_INTERNET no; else _rq_hs_set HOTSPOT_SHARE_INTERNET yes; fi && _rq_hs_restart ;;

@@ -155,3 +155,17 @@ def test_landing_page_runs_only_with_the_hotspot():
     assert "DynamicUser=yes" in unit and "AmbientCapabilities=CAP_NET_BIND_SERVICE" in unit
     sh = open(_SCRIPT).read()
     assert 'portal on "$ssid"' in sh and "portal off" in sh and "address=/#/" in sh
+
+
+def test_join_card_escapes_and_has_both_codes(tmp_path):
+    import shutil
+    import pytest
+    if not shutil.which("qrencode"):
+        pytest.skip("qrencode not installed")
+    out = tmp_path / "card.html"
+    r = _bash(f"write_card 'Booth <1>' 'pa&ss word' '{out}'")
+    assert r.returncode == 0, r.stderr
+    card = out.read_text()
+    assert card.count("<svg") == 2
+    assert "Booth &lt;1&gt;" in card and "pa&amp;ss word" in card and "Booth <1>" not in card
+    assert "http://10.42.0.1" in card and "@page { size: A6" in card

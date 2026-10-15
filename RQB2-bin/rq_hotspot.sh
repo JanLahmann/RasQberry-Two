@@ -26,7 +26,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   flashing, from any computer) sets these before the first start; "boot"
 #   saves it and keeps no password on the card.
 #
-# Usage: rq_hotspot.sh on|off|status|qr|boot   (as root)
+# Usage: rq_hotspot.sh on|off|status|qr|card|boot   (as root)
+#   card: the join card (QR codes, name, password) in the browser, to show or print
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -320,6 +321,69 @@ cmd_qr() {
     show_join "$(setting HOTSPOT_SSID "$(default_ssid "${iface:-wlan0}")")" "$(hotspot_password)"
 }
 
+# The join card: Wi-Fi QR code, name, password and the landing page - on
+# the screen at a booth, or printed (one A6 card; the browser prints it)
+html_escape() {
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+}
+
+write_card() {
+    local ssid="$1" pw="$2" out="$3" wifi_svg url_svg
+    command -v qrencode >/dev/null 2>&1 || die "qrencode is missing (sudo apt install qrencode)."
+    wifi_svg=$(qrencode -t SVG -m 1 --svg-path -o - "$(qr_text "$ssid" "$pw")" | sed '1,/<svg/{/<svg/!d}')
+    url_svg=$(qrencode -t SVG -m 1 --svg-path -o - "http://$ADDRESS/" | sed '1,/<svg/{/<svg/!d}')
+    cat > "$out" <<CARD
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the RasQberry Wi-Fi</title>
+<style>
+@page { size: A6; margin: 8mm; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f4f4f4; color: #161616; font: 18px/1.4 system-ui, sans-serif; }
+.card { max-width: 420px; margin: 24px auto; background: #fff; border: 1px solid #c6c6c6; border-radius: 12px; padding: 24px; text-align: center; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.step { color: #525252; margin: 18px 0 8px; font-size: 16px; }
+.qr svg { width: 200px; height: 200px; }
+.qr.small svg { width: 120px; height: 120px; }
+.field { font-size: 15px; color: #525252; margin-top: 8px; }
+.value { font: 600 22px/1.3 ui-monospace, monospace; word-break: break-all; }
+.print { margin: 0 auto 24px; display: block; padding: 10px 18px; font-size: 16px; border-radius: 8px; border: 1px solid #8d8d8d; background: #fff; }
+@media print { body { background: #fff; } .card { margin: 0; border: none; } .print { display: none; } }
+</style></head>
+<body>
+<div class="card">
+  <h1>RasQberry Two</h1>
+  <div>Quantum computing demos on this Wi-Fi</div>
+  <div class="step">1. Scan to join the Wi-Fi</div>
+  <div class="qr">$wifi_svg</div>
+  <div class="field">Wi-Fi</div><div class="value">$(printf '%s' "$ssid" | html_escape)</div>
+  <div class="field">Password</div><div class="value">$(printf '%s' "$pw" | html_escape)</div>
+  <div class="step">2. Then open the demos</div>
+  <div class="qr small">$url_svg</div>
+  <div class="value">http://$ADDRESS</div>
+</div>
+<button class="print" onclick="window.print()">Print this card</button>
+</body></html>
+CARD
+}
+
+cmd_card() {
+    local iface ssid pw dir out user
+    iface=$(hotspot_interface)
+    ssid=$(setting HOTSPOT_SSID "$(default_ssid "${iface:-wlan0}")")
+    pw=$(hotspot_password)
+    user=$(get_user_name)
+    dir="${USER_HOME:-/home/$user}/.cache/rasqberry"
+    mkdir -p "$dir"
+    out="$dir/hotspot-card.html"
+    write_card "$ssid" "$pw" "$out"
+    chown "$user:" "$dir" "$out" 2>/dev/null || true
+    chmod 600 "$out"
+    info "Join card: $out"
+    rq_open_browser "file://$out" >/dev/null 2>&1 || info "Open it in the browser to show or print it."
+}
+
 cmd_boot() {
     apply_boot_file
     [ "$(setting HOTSPOT_AT_BOOT no)" = yes ] || exit 0
@@ -338,6 +402,7 @@ case "${1:-}" in
     off)    cmd_off ;;
     status) cmd_status ;;
     qr)     cmd_qr ;;
+    card)   cmd_card ;;
     boot)   cmd_boot ;;
-    *)      echo "Usage: $(basename "$0") on|off|status|qr|boot" >&2; exit 2 ;;
+    *)      echo "Usage: $(basename "$0") on|off|status|qr|card|boot" >&2; exit 2 ;;
 esac
