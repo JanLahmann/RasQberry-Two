@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-15T06:09:53Z",
+  "generated": "2026-10-15T06:10:55Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,14 +43,15 @@
       "image_download_size": 1855267548,
       "extract_size": 9529458688,
       "extract_sha256": "3de7a63a994758f08b95d276596885b0bf7aacab695783335e297a47efc5fde8",
-      "image_sha256": "560ab2b860bc4250d3e376b134fe0bca60e21648730febcda1572a3a3c2e3a38",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-072614/rasqberry-development-2026-10-15-072614-ab.img.xz",
       "ab_extract_sha256": "9d6b95ac4f1acefca0c23788d85caba543af0426ad4de4f3afb7aff12dc4ec4d",
       "ab_image_sha256": "81426a22b657585ce85c05752a19686bd385e91806280c6b61aea0ea7ca660fb",
-      "ab_image_download_size": 1906427832,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1906427832,
       "highlights": [
-        "Wi-Fi hotspot core: rq_hotspot.sh on NetworkManager"
+        "Bump version to development-2026-10-15-072614",
+        "Wi-Fi hotspot core: rq_hotspot.sh on NetworkManager",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-15-063616"
       ]
     }
   }
