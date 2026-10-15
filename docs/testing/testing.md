@@ -8,16 +8,16 @@ Testing runs by invitation. Would you like to help? Write to
 
 ## How it works
 
-- **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your
+- **Talk to Ket, our AI tester helper** (bottom right on this page). Tell Ket your Pi model, your
   hardware (LED panel, touchscreen, Bluetooth speaker) and which demos you like, and it
   suggests missions that fit. Sign in with a tester name or ID you choose freely (any
   name, it need not be your real one), so it can keep track of your missions. The tester
   passphrase you got from us unlocks it.
 - **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with
-  the [documentation](/) and the normal RasQberry helper on the Pi's start page, as any
-  user would. The tester helper does not help with the mission itself; it points you
-  there. Where the documentation or the helper leaves you stuck, that is a finding too.
-- **Report back to the tester helper:** what worked, what didn't, confusing words, slow
+  the [documentation](/) and Ket on the Pi's start page (the normal RasQberry helper), as any
+  user would. In tester mode, Ket does not help with the mission itself; it points you
+  there. Where the documentation or Ket leaves you stuck, that is a finding too.
+- **Report back to Ket:** what worked, what didn't, confusing words, slow
   steps, ideas. It writes it down for us, and we follow up on GitHub.
 
 Nearly everything is still an early beta that no person has tested yet: expect rough
@@ -29,7 +29,7 @@ edges. That is why we need you.
 
 Your messages are answered by Claude (Anthropic).
 What we keep, and for how long: your tester name or ID (chosen by you, please no e-mail
-address), your hardware and preferences, your conversations with the tester helper, the
+address), your hardware and preferences, your conversations with Ket, the
 findings you save, and which missions you started or finished. We keep them for 90 days,
 then delete them. The tester passphrase is checked but never stored. We use this only to
 find and fix problems in RasQberry; findings may become public GitHub issues, without
