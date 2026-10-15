@@ -22,6 +22,8 @@ rasqberry-update-check.timer
 rasqberry-wifi-watchdog.timer
 # Wi-Fi hotspot at boot (HOTSPOT_AT_BOOT) and rasqberry-hotspot.txt on the boot partition
 rasqberry-hotspot.service
+# a new Pi without a network: setup Wi-Fi with a page to join the user's Wi-Fi
+rasqberry-setup-hotspot.service
 # Turns the LED panel off at shutdown (R-043)
 rasqberry-led-clear.service
 # Outdated bootloader firmware: System Info, checklist, one desktop notice

@@ -228,6 +228,10 @@ def main():
         help='LED brightness 0.0-1.0 (default: 0.3)'
     )
     parser.add_argument(
+        '--text',
+        help='Scroll this text instead of the addresses (the setup hotspot: its name and password)'
+    )
+    parser.add_argument(
         '--once',
         action='store_true',
         help='Scroll once in the configured layout, then clear (LED panel check)'
@@ -246,11 +250,13 @@ def main():
         config = get_led_config()
 
         # Get IP addresses
-        addresses = get_ip_addresses()
-        if not args.once:
+        addresses = [] if args.text else get_ip_addresses()
+        if not args.once and not args.text:
             record_shown(addresses)
 
-        if not addresses:
+        if args.text:
+            text = args.text
+        elif not addresses:
             print("No IP addresses found - device may not be connected to network yet")
             # Display "NO IP" message
             text = "NO IP"

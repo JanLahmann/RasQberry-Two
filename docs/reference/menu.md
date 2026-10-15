@@ -124,6 +124,7 @@ Quantum demos, setup and settings for this RasQberry Two
 - **Wi-Fi Hotspot (booths and classrooms)** → menu "RasQberry: Wi-Fi Hotspot": The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1.
   - Hotspot: <on/off>
   - Show name, password and QR code to join
+  - Join card on the screen (to show or print)
   - Change name and password
   - Start at boot: <HOTSPOT_AT_BOOT>
   - Share this Pi's internet (cable or USB Wi-Fi): <HOTSPOT_SHARE_INTERNET>
