@@ -85,3 +85,16 @@ def test_boot_service_is_enabled():
     unit = open(os.path.join(_ROOT, "RQB2-system", "etc", "systemd", "system",
                              "rasqberry-hotspot.service")).read()
     assert "ExecStart=/usr/bin/rq_hotspot.sh boot" in unit
+
+
+def test_menu_has_the_hotspot():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    main = menu[menu.index("do_rasqberry_menu() {"):]
+    assert 'HOTSPOT "Wi-Fi Hotspot (booths and classrooms)"' in main
+    assert "HOTSPOT) do_hotspot_menu" in main
+    hs = menu[menu.index("do_hotspot_menu() {"):]
+    hs = hs[:hs.index("\n}\n")]
+    for item in ("STATE", "SHOW", "NAME", "BOOT", "SHARE", "BAND"):
+        assert f"\n            {item} " in hs, item
+    # settings go to /data like the LED ones
+    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*)" in menu

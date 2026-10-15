@@ -154,9 +154,9 @@ def test_audio_delay_reaches_the_demo_and_survives_updates():
     assert "\nRQ_AUDIO_DELAY_MS=0\n" in env
     # kept on /data for both A/B slots, like the LED settings
     settings = open(os.path.join(_BIN, "rq_device_settings.sh")).read()
-    assert "RQ_AUDIO_DELAY_MS)='" in settings
-    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)" in common
-    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)" in open(_MENU).read()
+    assert "|RQ_AUDIO_DELAY_MS|" in settings
+    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|" in common
+    assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|" in open(_MENU).read()
 
 
 def test_audio_delay_is_in_desktop_settings():

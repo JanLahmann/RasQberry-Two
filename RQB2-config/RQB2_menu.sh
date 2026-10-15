@@ -1060,7 +1060,7 @@ update_environment_file () {
   # Device settings also go to the store both A/B slots share (#290)
   case "$1" in
     *_INSTALLED) ;;
-    LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS)
+    LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*)
       if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
       else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
   esac
@@ -2672,6 +2672,107 @@ do_desktop_settings_menu() {
 }
 
 # -----------------------------------------------------------------------------
+# Wi-Fi hotspot (rq_hotspot.sh): the Pi's own Wi-Fi for booths and classrooms
+# -----------------------------------------------------------------------------
+hotspot_state() {
+    if nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx rasqberry-hotspot; then
+        echo on
+    else
+        echo off
+    fi
+}
+
+# _rq_hs_set KEY VALUE: save a hotspot setting (an empty value means the default)
+_rq_hs_set() {
+    _rq_env_write "$1" "$2" || {
+        whiptail --title "Wi-Fi hotspot" --msgbox "Could not save $1 (is the SD card full?)." 8 70
+        return 1
+    }
+    /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
+    _rq_load_env
+}
+
+# A changed setting applies at once while the hotspot runs (devices rejoin)
+_rq_hs_restart() {
+    [ "$(hotspot_state)" = on ] || return 0
+    "$BIN_DIR/rq_hotspot.sh" on >/dev/null 2>&1 \
+        || whiptail --title "Wi-Fi hotspot" --msgbox "The hotspot did not start again with the new setting. Try \"Hotspot\" off and on." 9 70
+}
+
+_rq_hs_pause() {
+    printf '\nPress Enter to return to the menu.'
+    read -r _hs_x || :
+}
+
+do_hotspot_toggle() {
+    if [ "$(hotspot_state)" = on ]; then
+        clear
+        "$BIN_DIR/rq_hotspot.sh" off
+        _rq_hs_pause
+        return 0
+    fi
+    # The onboard Wi-Fi is either hotspot or client: say what is lost
+    _hs_client=$(nmcli -t -f TYPE,STATE,CONNECTION device 2>/dev/null | awk -F: '$1 == "wifi" && $2 == "connected" { print $3; exit }')
+    _hs_wifis=$(nmcli -t -f TYPE device 2>/dev/null | grep -c '^wifi$')
+    if [ -n "$_hs_client" ] && [ "${_hs_wifis:-1}" -le 1 ]; then
+        whiptail --title "Wi-Fi hotspot" --yesno \
+            "The Wi-Fi leaves \"$_hs_client\" while the hotspot runs: one Wi-Fi cannot be both.\n\nIf you reach this Pi over that Wi-Fi (SSH, VNC, Connect), that connection ends. A network cable or a USB Wi-Fi adapter keeps the Pi online.\n\nStart the hotspot?" \
+            14 72 || return 0
+    fi
+    clear
+    "$BIN_DIR/rq_hotspot.sh" on || handle_error "The hotspot could not be started."
+    _rq_hs_pause
+}
+
+do_hotspot_name() {
+    _hs_name=$(whiptail --title "Wi-Fi hotspot" --inputbox \
+        "Name of the hotspot (up to 32 characters). Empty: RasQberry-XXXX, from this Pi's Wi-Fi address." \
+        10 70 "${HOTSPOT_SSID:-}" 3>&1 1>&2 2>&3) || return 0
+    if [ "$(printf '%s' "$_hs_name" | wc -c)" -gt 32 ]; then
+        whiptail --title "Wi-Fi hotspot" --msgbox "That name is longer than 32 characters; it stays as it was." 8 70
+        return 0
+    fi
+    _hs_pw=$(whiptail --title "Wi-Fi hotspot" --inputbox \
+        "Password (8 to 63 characters). Empty: a new random one." \
+        10 70 "${HOTSPOT_PASSWORD:-}" 3>&1 1>&2 2>&3) || return 0
+    if [ -n "$_hs_pw" ] && { [ "${#_hs_pw}" -lt 8 ] || [ "${#_hs_pw}" -gt 63 ]; }; then
+        whiptail --title "Wi-Fi hotspot" --msgbox "The password needs 8 to 63 characters; name and password stay as they were." 8 70
+        return 0
+    fi
+    _rq_hs_set HOTSPOT_SSID "$_hs_name" && _rq_hs_set HOTSPOT_PASSWORD "$_hs_pw" || return 0
+    _rq_hs_restart
+    clear
+    "$BIN_DIR/rq_hotspot.sh" qr
+    _rq_hs_pause
+}
+
+do_hotspot_menu() {
+    _hs_last=""
+    while true; do
+        case "${HOTSPOT_BAND:-a}" in bg) _hs_band="2.4 GHz" ;; *) _hs_band="5 GHz" ;; esac
+        FUN=$(show_menu ${_hs_last:+--default-item "$_hs_last"} "RasQberry: Wi-Fi Hotspot" \
+            "The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1." \
+            STATE "Hotspot: $(hotspot_state)" \
+            SHOW  "Show name, password and QR code to join" \
+            NAME  "Change name and password" \
+            BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
+            SHARE "Share this Pi's internet (cable or USB Wi-Fi): ${HOTSPOT_SHARE_INTERNET:-yes}" \
+            BAND  "Band: $_hs_band") || break
+        _hs_last="$FUN"
+        case "$FUN" in
+            STATE) do_hotspot_toggle ;;
+            SHOW)  clear; "$BIN_DIR/rq_hotspot.sh" qr; _rq_hs_pause ;;
+            NAME)  do_hotspot_name ;;
+            BOOT)  if [ "${HOTSPOT_AT_BOOT:-no}" = yes ]; then _rq_hs_set HOTSPOT_AT_BOOT no; else _rq_hs_set HOTSPOT_AT_BOOT yes; fi ;;
+            SHARE) if [ "${HOTSPOT_SHARE_INTERNET:-yes}" = yes ]; then _rq_hs_set HOTSPOT_SHARE_INTERNET no; else _rq_hs_set HOTSPOT_SHARE_INTERNET yes; fi && _rq_hs_restart ;;
+            BAND)  if [ "${HOTSPOT_BAND:-a}" = bg ]; then _rq_hs_set HOTSPOT_BAND a; else _rq_hs_set HOTSPOT_BAND bg; fi && _rq_hs_restart ;;
+            *)     break ;;
+        esac
+    done
+    return 0
+}
+
+# -----------------------------------------------------------------------------
 # IBM Quantum account
 # -----------------------------------------------------------------------------
 # The account lives in the desktop user's ~/.qiskit for every path - the menu,
@@ -3035,6 +3136,7 @@ do_rasqberry_menu() {
     set -- QD "Quantum Demos" SETUP "Setup Checklist" \
         DESKTOP "Desktop Settings (touch mode, browser at login)" \
         IBMQ "IBM Quantum account" REMOTE "Remote Access & Security" \
+        HOTSPOT "Wi-Fi Hotspot (booths and classrooms)" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \
         ADV "Advanced" OFF "Shut Down Safely"
     FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" \
@@ -3047,6 +3149,7 @@ do_rasqberry_menu() {
       DESKTOP) do_desktop_settings_menu       || continue ;;
       IBMQ)    do_ibm_account_menu            || continue ;;
       REMOTE)  do_remote_access_menu          || continue ;;
+      HOTSPOT) do_hotspot_menu                || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || continue ;;
       ADV)     do_rasqberry_advanced_menu     || continue ;;
