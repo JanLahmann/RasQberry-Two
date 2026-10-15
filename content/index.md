@@ -57,7 +57,7 @@ leadspace:
     <li><strong>Several new demos and games:</strong> the Workshop &amp; Qiskit Server for a whole class, Qiskit Tutorials on this Pi, Quantum Lab, the Mermin-Peres game and a demo catalogue with <a href="https://racetraq.org" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="racetraq">racetraQ</a>.</li>
     <li><strong><a href="/03-quantum-computing-demos/02-learning-paths/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="learning-paths">Learning paths</a>:</strong> short tours through the demos, with tips on where to go next.</li>
     <li><strong>Taskbar badge:</strong> shows which system runs and tells you when a new release is out.</li>
-    <li><strong>Help us test it:</strong> we're looking for testers who try RasQberry Two and its demos on their own Pi. Testers get our new AI tester helper: it suggests missions that fit their hardware and takes their feedback. <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a></li>
+    <li><strong>Help us test it:</strong> we're looking for testers who try RasQberry Two and its demos on their own Pi. Testers get Ket, our new AI tester helper: it suggests missions that fit their hardware and takes their feedback. <a href="/testing/" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="testing">Become a tester</a></li>
   </ul>
   <p className="callout__actions">
     <a className="cta-button not-pi" href="rpi-imager://open?repo=https://RasQberry.org/RQB-images.json" data-umami-event="RasQberry Two: beta box click" data-umami-event-target="imager">▶ Write RasQberry Two to your SD card</a>
