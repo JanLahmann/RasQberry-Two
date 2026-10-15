@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-15T08:24:38Z",
+  "generated": "2026-10-15T11:04:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,29 +35,26 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-15-094105",
-      "name": "rasqberry-development-2026-10-15-094105",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-094105/rasqberry-development-2026-10-15-094105.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-15-094105",
-      "release_date": "2026-10-15 09:41",
-      "image_download_size": 1855812048,
+      "tag": "development-2026-10-15-115921",
+      "name": "rasqberry-development-2026-10-15-115921",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-115921/rasqberry-development-2026-10-15-115921.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-15-115921",
+      "release_date": "2026-10-15 11:59",
+      "image_download_size": 1855914716,
       "extract_size": 9537847296,
-      "extract_sha256": "5f88ec12e0a45481fcba6658b5651b8a1eeb45f787eeb84406dbbc4d9223b287",
-      "image_sha256": "f747afec3f1af5d28b41ea43bf746e95af9b23549283910799fc554849753adb",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-094105/rasqberry-development-2026-10-15-094105-ab.img.xz",
-      "ab_extract_sha256": "7f821ce1ec076c30e804f52b00e573c275be0d2dda91a991b97056b9e45a9fcd",
-      "ab_image_sha256": "64710cef45afcf49615db8312985793d1171c3ad53e3439caf06974048b19e1b",
-      "ab_image_download_size": 1908153428,
+      "extract_sha256": "9695421c18f998e8b78e36d677c0f94b434ec94c3db6001f5010c4dc8ee669a2",
+      "image_sha256": "38568a20495b816f4e36d79b07fc60e40abfb6b8b2be188edae156ed69300021",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-115921/rasqberry-development-2026-10-15-115921-ab.img.xz",
+      "ab_extract_sha256": "1f2a2b88d647eb1666bf06fd20f936e3fc86c74b6bcd23eeca0b463d31b3fb7f",
+      "ab_image_sha256": "75d5b7a8f652f986f95c23edd098ce3cf4742fc210fed58fffaeab6d4b30e292",
+      "ab_image_download_size": 1903443036,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Tester page: MDX-safe privacy anchor",
-        "Tester missions: camera need for Entangible; page has the privacy anchor and the Claude note",
-        "Setup hotspot: first access to a new Pi without a network, headless too",
-        "Hotspot join card: QR codes, name and password, to show or print",
-        "Same names everywhere: Composer link, Raspberry Tie and Lights Out variants",
-        "rq_help: the hotspot line fits 80 columns",
-        "rq_help lists the hotspot and the sound delay calibration; reference docs refreshed",
-        "Reference pages generated from the code (docs/reference)"
+        "Tester page: test the latest beta or the latest development image",
+        "Tester page: the helper is called Ket",
+        "Tester page: how to offer help (info@rasqberry.org)",
+        "Boot config: empty settings keep their '='",
+        "Tester page: tester name chosen freely; no postponed line"
       ]
     }
   }
