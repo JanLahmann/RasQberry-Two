@@ -337,8 +337,9 @@ def page(data):
         "",
         "- **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your",
         "  hardware (LED panel, touchscreen, Bluetooth speaker) and which demos you like, and it",
-        "  suggests missions that fit. Choose your own tester name or ID, so it can keep track of",
-        "  your missions. The tester passphrase you got from us unlocks it.",
+        "  suggests missions that fit. Sign in with a tester name or ID you choose freely (any",
+        "  name, it need not be your real one), so it can keep track of your missions. The tester",
+        "  passphrase you got from us unlocks it.",
         "- **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with",
         "  the [documentation](/) and the normal RasQberry helper on the Pi's start page, as any",
         "  user would. The tester helper does not help with the mission itself; it points you",
@@ -378,7 +379,7 @@ def page(data):
         tail = f" *({'; '.join(extra)})*" if extra else ""
         beta = f" {BETA_NOTE}" if m.get("maturity") == "beta" else ""
         lines.append(f"- **{m['title']}**: {m['goal']}{beta}{tail}")
-    lines += ["", "Postponed to a later round: the Workshop & Qiskit Server (doQumentation).", ""]
+    lines += [""]
     return "\n".join(lines)
 
 

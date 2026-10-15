@@ -7,8 +7,9 @@ every function on their own Pis, so we find what breaks and what is hard to foll
 
 - **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your
   hardware (LED panel, touchscreen, Bluetooth speaker) and which demos you like, and it
-  suggests missions that fit. Choose your own tester name or ID, so it can keep track of
-  your missions. The tester passphrase you got from us unlocks it.
+  suggests missions that fit. Sign in with a tester name or ID you choose freely (any
+  name, it need not be your real one), so it can keep track of your missions. The tester
+  passphrase you got from us unlocks it.
 - **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with
   the [documentation](/) and the normal RasQberry helper on the Pi's start page, as any
   user would. The tester helper does not help with the mission itself; it points you
@@ -107,5 +108,3 @@ your name or ID. No IP address, no cookies.
 - **Quantum Lab (QuBins)**: Start the Quantum Lab and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
 - **SAP Quantum Learning**: Take the quiz and build a circuit in SAP Quantum Learning. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
 - **SAP Quantum LED**: Show the SAP logo on the LED panel, coloured by three qubits. Early beta, not yet tested by people: expect rough edges. *(needs: internet, LED panel)*
-
-Postponed to a later round: the Workshop & Qiskit Server (doQumentation).
