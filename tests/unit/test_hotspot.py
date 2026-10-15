@@ -119,3 +119,39 @@ def test_an_address_the_user_set_for_entangible_stays(tmp_path):
     assert env.read_text() == "QAMPOSER_ADVERTISE_HOST=booth.local\n"
     _bash("advertise off", e)
     assert env.read_text() == "QAMPOSER_ADVERTISE_HOST=booth.local\n"
+
+
+def _portal():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "rq_hotspot_portal", os.path.join(_ROOT, "RQB2-bin", "rq_hotspot_portal.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_landing_page_finds_ports_open_to_phones(tmp_path):
+    tcp = tmp_path / "tcp"
+    head = "  sl  local_address rem_address   st\n"
+    tcp.write_text(head +
+                   "   0: 00000000:1F90 00000000:0000 0A\n"     # 0.0.0.0:8080 listening
+                   "   1: 0100007F:22B8 00000000:0000 0A\n"     # 127.0.0.1:8888 - localhost only
+                   "   2: 01002A0A:20FB 00000000:0000 0A\n"     # 10.42.0.1:8443
+                   "   3: 00000000:0016 00000000:0000 0A\n"     # :22 SSH - not a demo
+                   "   4: 00000000:1F91 0100007F:1234 01\n")    # established, not listening
+    assert _portal().listening_ports((str(tcp),)) == [8080, 8443]
+
+
+def test_landing_page_escapes_titles():
+    page = _portal().render("10.42.0.1", "Booth <1>", [("<b>x</b>", "http://10.42.0.1:8080/")])
+    assert "&lt;b&gt;x&lt;/b&gt;" in page and "Booth &lt;1&gt;" in page and "<b>x" not in page
+
+
+def test_landing_page_runs_only_with_the_hotspot():
+    units = open(os.path.join(_ROOT, "RQB2-system", "enabled-units.txt")).read()
+    assert "rasqberry-hotspot-portal" not in units          # started by rq_hotspot.sh
+    unit = open(os.path.join(_ROOT, "RQB2-system", "etc", "systemd", "system",
+                             "rasqberry-hotspot-portal.service")).read()
+    assert "DynamicUser=yes" in unit and "AmbientCapabilities=CAP_NET_BIND_SERVICE" in unit
+    sh = open(_SCRIPT).read()
+    assert 'portal on "$ssid"' in sh and "portal off" in sh and "address=/#/" in sh

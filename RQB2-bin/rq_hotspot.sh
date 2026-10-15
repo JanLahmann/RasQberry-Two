@@ -184,6 +184,38 @@ advertise() {
 }
 
 # ---------------------------------------------------------------------------
+# Landing page (rq_hotspot_portal.py)
+# ---------------------------------------------------------------------------
+
+CAPTIVE_CONF="${RQ_HOTSPOT_CAPTIVE_CONF:-/etc/NetworkManager/dnsmasq-shared.d/rasqberry-hotspot-captive.conf}"
+
+# Without internet to share, every name points to the Pi: phones then find
+# the landing page by themselves on joining (and say "no internet"). Written
+# before the hotspot starts - NetworkManager's dnsmasq reads it then.
+captive_dns() {
+    local iface="$1" uplink
+    uplink=$(ip -4 route show default 2>/dev/null | awk -v i="$iface" '$0 !~ ("dev " i " ") { print; exit }')
+    if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && [ -n "$uplink" ]; then
+        rm -f "$CAPTIVE_CONF"
+    else
+        mkdir -p "$(dirname "$CAPTIVE_CONF")"
+        printf '# rq_hotspot.sh: no internet on the hotspot, so every name leads to the landing page\naddress=/#/%s\n' "$ADDRESS" > "$CAPTIVE_CONF"
+    fi
+}
+
+portal() {
+    if [ "$1" = on ]; then
+        mkdir -p /run/rasqberry
+        printf 'RQ_HOTSPOT_SSID=%s\n' "$2" > /run/rasqberry/hotspot-portal.env
+        systemctl restart rasqberry-hotspot-portal.service 2>/dev/null \
+            || warn "The landing page (http://$ADDRESS) did not start."
+    else
+        systemctl stop rasqberry-hotspot-portal.service 2>/dev/null || true
+        rm -f "$CAPTIVE_CONF" /run/rasqberry/hotspot-portal.env
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -226,6 +258,7 @@ cmd_on() {
     [ -n "$client" ] && [ -z "$quiet" ] && \
         info "$iface leaves the Wi-Fi \"$client\" while the hotspot runs (one radio cannot be both)."
 
+    captive_dns "$iface"
     nmcli connection delete "$PROFILE" >/dev/null 2>&1 || true
     nmcli connection add type wifi con-name "$PROFILE" ifname "$iface" ssid "$ssid" \
         connection.autoconnect no \
@@ -240,6 +273,7 @@ cmd_on() {
 
     share_rules "$iface"
     advertise on
+    portal on "$ssid"
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && ! nat_ready "$iface"; then
         # trixie-feedback#62: NAT missing - once more brings it
         nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
@@ -258,6 +292,7 @@ cmd_off() {
     fi
     nft delete table inet "$NFT_TABLE" 2>/dev/null || true
     advertise off
+    portal off
 }
 
 cmd_status() {
