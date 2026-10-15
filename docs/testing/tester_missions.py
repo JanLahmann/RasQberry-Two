@@ -5,10 +5,11 @@ Tester missions: one per demo and one per function of RasQberry Two.
 A mission names a goal, never the steps: testers use the user documentation
 and the RasQberry helper, so gaps in either show up as findings. The demo
 missions come from the demo manifests (shipped demos) and known-demos.json
-(catalogue demos), so a new demo gets a mission without anyone writing one.
+(catalogue demos), so a new demo gets a mission - and a group - without
+anyone writing one.
 
 Writes, next to this script:
-  tester-missions.json   the list, for the tester page and the helper bot
+  tester-missions.json   the list, for the tester page and the tester helper
   testing.md             the draft tester page for rasqberry.org/testing
                          (gh-pages: content/testing.md)
 
@@ -26,25 +27,52 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 MANIFESTS = os.path.join(ROOT, "RQB2-config", "demo-manifests")
 CATALOGUE = os.path.join(ROOT, "RQB2-config", "known-demos.json")
-GROUPS = os.path.join(MANIFESTS, "demo-groups.json")
 OUT_JSON = os.path.join(HERE, "tester-missions.json")
 OUT_PAGE = os.path.join(HERE, "testing.md")
 
-# Postponed for this round (Jan, 2026-10-15): doQumentation, and the
-# tutorials it serves on the Pi itself
-POSTPONED = {"doqumentation", "qiskit-tutorials"}
+# Postponed for this round (Jan, 2026-10-15)
+POSTPONED = {"doqumentation"}
+
+# The groups, in the page's order (Jan, 2026-10-15)
+GROUPS = [
+    ("core", "Core RasQberry"),
+    ("user", "RasQberry user"),
+    ("advanced", "RasQberry advanced configuration"),
+    ("led", "LED demos"),
+    ("big", "Big demos"),
+    ("fwq", "Fun with Quantum games"),
+    ("learn", "Learning and coding"),
+    ("other", "Demos from other projects"),
+]
+
+# Group rules for demos, in this order:
+#   other: a service from outside (IBM, SAP) - not "written by someone else".
+#          Catalogue entries name it in "provider"; the shipped manifests
+#          have no such field, so their outside services are listed here.
+#   led:   the demo drives the LED panel
+#   big:   the larger builds, listed
+#   fwq:   the parts of Fun with Quantum
+#   learn: the rest
+OUTSIDE_SERVICES = {"composer", "ibm-courses", "ibm-tutorials", "quantum-lab"}
+OWN_PROVIDERS = {"the Fun with Quantum family"}
+BIG_DEMOS = {"entangible", "racetraq", "qoffee-maker", "quantum-mixer"}
+
+# Beta for every mission, whatever the manifests say: no mission has been
+# tested by people yet, except these three (Jan, 2026-10-15)
+NOT_BETA = {"demo-grok-bloch-web", "demo-composer", "demo-ibm-courses"}
+BETA_NOTE = "Early beta, not yet tested by people: expect rough edges."
 
 # Goal sentences for the demos; a demo without one gets GENERIC_GOAL
 DEMO_GOALS = {
     "composer": "Build a circuit in the IBM Quantum Composer and simulate it.",
     "entangible": "Build a circuit with the printed gate tiles and let the camera read it.",
-    "fun-with-quantum": "Play the Fun with Quantum games in Jupyter.",
     "grok-bloch": "Move a qubit around the Bloch sphere and follow the gates.",
     "grok-bloch-web": "Explore the Bloch sphere in the web version.",
     "ibm-courses": "Open an IBM Quantum course and run its first code cells.",
     "ibm-tutorials": "Open an IBM Quantum tutorial and run its code cells.",
     "led-demos": "Try the LED demos: text, logos and colour effects on the LED panel.",
     "led-painter": "Paint a picture and show it on the LED panel.",
+    "qiskit-tutorials": "Work through the IBM Quantum tutorials, guides and courses on this Pi, with live code.",
     "qoffee-maker": "Order a coffee from a quantum computer, with or without a Home Connect machine.",
     "quantum-fractals": "Watch the fractals change with the state of a qubit.",
     "quantum-lab": "Start the Quantum Lab and run a notebook.",
@@ -81,67 +109,59 @@ PART_GOALS = {
 PART_NEEDS = {"fun-with-quantum": {"ghz-real-devices": ["internet", "ibm-account"],
                                    "family": ["internet"]}}
 
-# Note on the page for maturity "beta" (from the manifests, their variants,
-# known-demos.json and learning-paths.json)
-BETA_NOTE = "Early beta, not yet tested by people: expect rough edges."
-
-# Missions that are not one demo. Names as the user sees them (menu,
-# desktop, website). needs: what the tester must have.
+# Missions that are not one demo, in their group's order. Names as the user
+# sees them (menu, desktop, website). needs: what the tester must have.
 FUNCTIONS = [
-    # Setup
-    ("first-start", "Setup", "First start",
+    # core
+    ("first-start", "core", "First start",
      "Install RasQberry with Raspberry Pi Imager, with your own user name, password and Wi-Fi, and reach the desktop.",
      []),
-    ("setup-checklist", "Setup", "Setup Checklist",
+    ("setup-checklist", "core", "Setup Checklist",
      "Finish the Setup Checklist: every item done or skipped.", []),
-    ("led-setup", "Setup", "LED panel setup",
-     "Set up the LED panel: find its layout, check it, and set the brightness.", ["led-panel"]),
-    ("download-all", "Setup", "Download all demos",
-     "Download all demos, then start a few without internet.", ["internet"]),
-    # Using the Pi
-    ("desktop-groups", "Using the Pi", "Desktop folders and menu",
+    ("desktop-groups", "core", "Desktop folders and menu",
      "Find each demo through its desktop folder and through the RasQberry menu.", []),
-    ("led-views", "Using the Pi", "LED views without a panel",
-     "Watch an LED demo in the on-screen view and in the browser view.", []),
-    ("demo-loop", "Using the Pi", "Demo Loop",
-     "Run the Demo Loop with demos of your choice, and let it start at login.", []),
-    ("learning-paths", "Using the Pi", "Learning paths",
-     "Follow one learning path from start to end.", []),
-    ("my-programs", "Using the Pi", "My Quantum Programs",
-     "Write and run your own quantum program in My Quantum Programs.", []),
-    ("touch", "Using the Pi", "Touchscreen",
-     "Use the Pi by touch only: touch mode and the on-screen keyboard.", ["touchscreen"]),
-    ("sound", "Using the Pi", "Sound on a Bluetooth speaker",
-     "Pair a Bluetooth speaker, play a demo with sound and calibrate the sound delay.",
-     ["bluetooth-speaker", "led-panel"]),
-    ("help", "Using the Pi", "Help and feedback",
-     "Get help for a problem from the Pi: System Info, the helper and the website.", []),
-    # Demos from elsewhere
-    ("catalogue", "Demos from the catalogue", "Add, update and remove a demo",
-     "Add a demo from the catalogue, update it, and remove it again.", ["internet"]),
-    # Updates
-    ("ab-update", "Updates", "Update to a new release",
+    ("wifi", "core", "Wi-Fi",
+     "Join a Wi-Fi network, and see the Pi come back after the router restarts.", []),
+    ("ab-update", "core", "Update to a new release",
      "Install a newer release into the other system, start it, and go back to the old one.",
      ["internet", "ab-image"]),
-    ("whats-new", "Updates", "Slot icon and What's new",
+    ("whats-new", "core", "Slot icon and What's new",
      "Use the slot icon in the taskbar and read What's new after an update.", ["ab-image"]),
-    ("standard-update", "Updates", "Updates on the single-system image",
-     "Check for a newer image on the single-system image and follow what the Pi suggests.",
-     ["internet", "single-image"]),
-    # Connections
-    ("wifi", "Connections", "Wi-Fi",
-     "Join a Wi-Fi network, and see the Pi come back after the router restarts.", []),
-    ("remote", "Connections", "Remote access",
-     "Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect.", ["internet"]),
-    ("ibm-account", "Connections", "IBM Quantum account",
+    ("help", "core", "Help and feedback",
+     "Get help for a problem from the Pi: System Info, the helper and the website.", []),
+    # user
+    ("download-all", "user", "Download all demos",
+     "Download all demos, then start a few without internet.", ["internet"]),
+    ("demo-loop", "user", "Demo Loop",
+     "Run the Demo Loop with demos of your choice, and let it start at login.", []),
+    ("learning-paths", "user", "Learning paths",
+     "Follow one learning path from start to end.", []),
+    ("my-programs", "user", "My Quantum Programs",
+     "Write and run your own quantum program in My Quantum Programs.", []),
+    ("ibm-account", "user", "IBM Quantum account",
      "Save your IBM Quantum API key and run a demo on a real quantum computer.",
      ["internet", "ibm-account"]),
-    ("hotspot", "Connections", "Wi-Fi hotspot",
+    ("catalogue", "user", "Add, update and remove a demo",
+     "Add a demo from the catalogue, update it, and remove it again.", ["internet"]),
+    ("led-views", "user", "LED views without a panel",
+     "Watch an LED demo in the on-screen view and in the browser view.", []),
+    ("touch", "user", "Touchscreen",
+     "Use the Pi by touch only: touch mode and the on-screen keyboard.", ["touchscreen"]),
+    # advanced
+    ("led-setup", "advanced", "LED panel setup",
+     "Set up the LED panel: find its layout, check it, and set the brightness.", ["led-panel"]),
+    ("sound", "advanced", "Sound on a Bluetooth speaker",
+     "Pair a Bluetooth speaker, play a demo with sound and calibrate the sound delay.",
+     ["bluetooth-speaker", "led-panel"]),
+    ("remote", "advanced", "Remote access",
+     "Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect.", ["internet"]),
+    ("hotspot", "advanced", "Wi-Fi hotspot",
      "Let phones and laptops join the Pi's own Wi-Fi and open its demos.", [],
      "coming"),
+    ("standard-update", "advanced", "Updates on the single-system image",
+     "Check for a newer image on the single-system image and follow what the Pi suggests.",
+     ["internet", "single-image"]),
 ]
-
-AREA_ORDER = ["Setup", "Using the Pi", "Connections", "Updates", "Demos from the catalogue"]
 
 NEEDS_TEXT = {
     "led-panel": "LED panel",
@@ -152,7 +172,6 @@ NEEDS_TEXT = {
     "ab-image": "A/B image",
     "single-image": "single-system image",
     "display": "screen",
-    "docker": "space for Docker images",
 }
 
 
@@ -181,10 +200,27 @@ def demo_needs(manifest):
     return needs
 
 
-def learning_paths_beta():
-    """True while any learning path is marked beta (learning-paths.json)."""
-    data = json.load(open(os.path.join(MANIFESTS, "learning-paths.json")))
-    return any(p.get("maturity") == "beta" for p in data.get("paths", []))
+def demo_group(demo_id, manifest):
+    """
+    The group of a demo, by the rules above.
+
+    Args:
+        demo_id (str): the demo's id
+        manifest (dict): its manifest or catalogue entry
+
+    Returns:
+        str: a group id
+    """
+    provider = manifest.get("provider")
+    if demo_id in OUTSIDE_SERVICES or (provider and provider not in OWN_PROVIDERS):
+        return "other"
+    if "led-panel" in demo_needs(manifest):
+        return "led"
+    if demo_id in BIG_DEMOS:
+        return "big"
+    if demo_id in SPLIT_DEMOS:
+        return "fwq"
+    return "learn"
 
 
 def build():
@@ -192,9 +228,8 @@ def build():
     The mission list.
 
     Returns:
-        dict: {"_doc", "postponed", "missions": [...]}
+        dict: {"_doc", "groups", "needs_keys", "postponed", "missions": [...]}
     """
-    groups = {g["id"]: g["title"] for g in json.load(open(GROUPS))["groups"]}
     missions = []
     shipped = []
     for path in sorted(glob.glob(os.path.join(MANIFESTS, "rq_demo_*.json"))):
@@ -204,75 +239,69 @@ def build():
         if m["id"] in POSTPONED:
             continue
         shipped.append(m["id"])
-        area = "Demos: " + groups.get(m.get("group"), "Learn & code")
+        group = demo_group(m["id"], m)
         if m["id"] in SPLIT_DEMOS:
             for v in m.get("variants", []):
                 extra = [n for n in PART_NEEDS.get(m["id"], {}).get(v["id"], []) if n not in demo_needs(m)]
-                mission = {
+                missions.append({
                     "id": f"demo-{m['id']}-{v['id']}",
-                    "area": area,
+                    "group": group,
                     # "Fun with Quantum: GHZ Game", as the chooser shows it under its demo
                     "title": v["name"] if v["name"].startswith(m["name"]) else f"{m['name']}: {v['name']}",
                     "goal": PART_GOALS.get(m["id"], {}).get(v["id"], GENERIC_GOAL.format(name=v["name"])),
                     "needs": demo_needs(m) + extra,
                     "demo": m["id"],
                     "part": v["id"],
-                }
-                if (v.get("maturity") or m.get("maturity")) == "beta":
-                    mission["maturity"] = "beta"
-                missions.append(mission)
+                })
             continue
-        mission = {
+        missions.append({
             "id": "demo-" + m["id"],
-            "area": area,
+            "group": group,
             "title": m["name"],
             "goal": DEMO_GOALS.get(m["id"], GENERIC_GOAL.format(name=m["name"])),
             "needs": demo_needs(m),
             "demo": m["id"],
-        }
-        if m.get("maturity") == "beta":
-            mission["maturity"] = "beta"
-        missions.append(mission)
+        })
     for entry in json.load(open(CATALOGUE))["demos"]:
         if entry["id"] in POSTPONED or entry["id"] in shipped:
             continue
         name = entry.get("name") or entry["id"]
-        mission = {
+        missions.append({
             "id": "demo-" + entry["id"],
-            "area": "Demos: " + groups.get(entry.get("group"), "Contributed demos"),
+            "group": demo_group(entry["id"], entry),
             "title": name,
             "goal": DEMO_GOALS.get(entry["id"], GENERIC_GOAL.format(name=name)),
             "needs": ["internet"] + demo_needs(entry),
             "demo": entry["id"],
             "catalogue": True,
-        }
-        if entry.get("maturity") == "beta":
-            mission["maturity"] = "beta"
-        missions.append(mission)
+        })
     for item in FUNCTIONS:
-        mid, area, title, goal, needs = item[:5]
-        mission = {"id": mid, "area": area, "title": title, "goal": goal, "needs": list(needs)}
+        mid, group, title, goal, needs = item[:5]
+        mission = {"id": mid, "group": group, "title": title, "goal": goal, "needs": list(needs)}
         if len(item) > 5:
             mission["status"] = item[5]
-        if mid == "learning-paths" and learning_paths_beta():
-            mission["maturity"] = "beta"
         missions.append(mission)
 
-    demo_areas = ["Demos: " + groups[g] for g in groups]
-    order = AREA_ORDER[:1] + demo_areas + AREA_ORDER[1:]
-    fn_order = [f[0] for f in FUNCTIONS]
-    # areas in order; functions as listed (first start first), demos by name
-    missions.sort(key=lambda m: (order.index(m["area"]) if m["area"] in order else len(order),
-                                 fn_order.index(m["id"]) if m["id"] in fn_order else 0,
+    for m in missions:
+        if m["id"] not in NOT_BETA:
+            m["maturity"] = "beta"
+
+    order = [g for g, _ in GROUPS]
+    # groups in order; functions as listed (first start first), parts of a
+    # demo as its manifest lists them (Start here first), demos by name
+    listed = [f[0] for f in FUNCTIONS] + [m["id"] for m in missions if "part" in m]
+    missions.sort(key=lambda m: (order.index(m["group"]),
+                                 listed.index(m["id"]) if m["id"] in listed else 0,
                                  m["title"].lower()))
     return {
         "_doc": ("Tester missions, generated by docs/testing/tester_missions.py from the demo "
                  "manifests, known-demos.json and its list of functions. A mission names a goal, "
                  "never the steps: testers use the user documentation and the RasQberry helper. "
-                 "needs: what a tester must have, as keys of needs_keys, so the tester helper "
-                 "can match missions to a tester's setup; maturity beta: early beta, not yet "
-                 "tested by people; part: one part of a demo (a variant of its manifest); "
-                 "status coming: not in the images yet."),
+                 "group: one of groups; needs: what a tester must have, as keys of needs_keys, so "
+                 "the tester helper can match missions to a tester's setup; maturity beta: early "
+                 "beta, not yet tested by people; part: one part of a demo (a variant of its "
+                 "manifest); status coming: not in the images yet."),
+        "groups": [{"id": g, "title": t} for g, t in GROUPS],
         "needs_keys": NEEDS_TEXT,
         "postponed": sorted(POSTPONED),
         "missions": missions,
@@ -308,6 +337,9 @@ def page(data):
         "- **Report back to the tester helper:** what worked, what didn't, confusing words, slow",
         "  steps, ideas. It writes it down for us, and we follow up on GitHub.",
         "",
+        "Nearly everything is still an early beta that no person has tested yet: expect rough",
+        "edges. That is why we need you.",
+        "",
         "## What is recorded",
         "",
         "<!-- TODO (Jan): check the wording once the tester helper is set up. -->",
@@ -317,13 +349,14 @@ def page(data):
         "",
         "## Missions",
     ]
+    titles = dict(GROUPS)
     current = None
     for m in data["missions"]:
-        if m["area"] != current:
-            current = m["area"]
-            lines += ["", f"### {current}", ""]
-        needs = ", ".join(NEEDS_TEXT.get(n, n) for n in m["needs"])
+        if m["group"] != current:
+            current = m["group"]
+            lines += ["", f"### {titles[current]}", ""]
         extra = []
+        needs = ", ".join(NEEDS_TEXT.get(n, n) for n in m["needs"])
         if needs:
             extra.append(f"needs: {needs}")
         if m.get("status") == "coming":
@@ -331,8 +364,7 @@ def page(data):
         tail = f" *({'; '.join(extra)})*" if extra else ""
         beta = f" {BETA_NOTE}" if m.get("maturity") == "beta" else ""
         lines.append(f"- **{m['title']}**: {m['goal']}{beta}{tail}")
-    lines += ["", "Postponed to a later round: the Workshop & Qiskit Server and the Qiskit",
-              "Tutorials on this Pi (doQumentation).", ""]
+    lines += ["", "Postponed to a later round: the Workshop & Qiskit Server (doQumentation).", ""]
     return "\n".join(lines)
 
 

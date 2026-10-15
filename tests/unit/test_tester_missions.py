@@ -18,6 +18,10 @@ def _missions():
     return json.load(open(os.path.join(_DIR, "tester-missions.json")))
 
 
+def _by_id():
+    return {m["id"]: m for m in _missions()["missions"]}
+
+
 def test_files_are_up_to_date():
     proc = subprocess.run(["python3", _GEN, "--check"], capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
@@ -34,28 +38,54 @@ def test_every_demo_has_a_mission():
     catalogue = {d["id"] for d in json.load(open(os.path.join(_ROOT, "RQB2-config", "known-demos.json")))["demos"]}
     missing = sorted((shipped | catalogue) - postponed - covered)
     assert not missing, f"demos without a mission: {missing}"
-    # doQumentation waits for a later round (Jan, 2026-10-15)
-    assert {"doqumentation", "qiskit-tutorials"} <= postponed
+    # only doQumentation waits for a later round (Jan, 2026-10-15)
+    assert postponed == {"doqumentation"}
+    assert "demo-qiskit-tutorials" in _by_id()
 
 
 def test_fun_with_quantum_has_one_mission_per_part():
     manifest = json.load(open(os.path.join(_ROOT, "RQB2-config", "demo-manifests",
                                            "rq_demo_fun-with-quantum.json")))
-    parts = {m["part"] for m in _missions()["missions"] if m.get("demo") == "fun-with-quantum"}
-    assert parts == {v["id"] for v in manifest["variants"]}
-    assert "coin-game" in parts
+    parts = [m for m in _missions()["missions"] if m.get("demo") == "fun-with-quantum"]
+    assert [m["part"] for m in parts] == [v["id"] for v in manifest["variants"]]
+    assert all(m["group"] == "fwq" for m in parts)
 
 
-def test_beta_demos_are_marked():
-    data = _missions()
-    beta = {m["id"] for m in data["missions"] if m.get("maturity") == "beta"}
-    # from the manifests (and their variants), known-demos.json and learning-paths.json
-    for mid in ("demo-entangible", "demo-racetraq", "demo-fun-with-quantum-website",
-                "demo-fun-with-quantum-family", "learning-paths"):
-        assert mid in beta, mid
-    assert "demo-fun-with-quantum-coin-game" not in beta
+def test_everything_is_beta_but_three():
+    # no mission was tested by people yet, except these three (Jan, 2026-10-15)
+    not_beta = {mid for mid, m in _by_id().items() if m.get("maturity") != "beta"}
+    assert not_beta == {"demo-grok-bloch-web", "demo-composer", "demo-ibm-courses"}
     page = open(os.path.join(_DIR, "testing.md")).read()
-    assert page.count("Early beta, not yet tested by people") == len(beta)
+    assert page.count("Early beta, not yet tested by people") == len(_by_id()) - 3
+
+
+def test_every_mission_has_a_group_and_no_group_is_empty():
+    data = _missions()
+    groups = [g["id"] for g in data["groups"]]
+    assert groups == ["core", "user", "advanced", "led", "big", "fwq", "learn", "other"]
+    used = [m["group"] for m in data["missions"]]
+    assert set(used) <= set(groups)
+    for g in groups:
+        assert g in used, f"group {g} is empty"
+    # missions come group by group, in the groups' order
+    assert used == sorted(used, key=groups.index)
+
+
+def test_demo_groups_follow_the_rules():
+    m = _by_id()
+    # outside services (IBM, SAP) - also an LED demo of SAP's
+    for mid in ("demo-composer", "demo-ibm-courses", "demo-ibm-tutorials", "demo-quantum-lab",
+                "demo-sap-quantum-learning", "demo-sap-quantum-led"):
+        assert m[mid]["group"] == "other", mid
+    for mid in ("demo-led-demos", "demo-led-painter", "demo-quantum-lights-out",
+                "demo-quantum-raspberry-tie", "demo-rasq-led"):
+        assert m[mid]["group"] == "led", mid
+    for mid in ("demo-entangible", "demo-racetraq", "demo-qoffee-maker", "demo-quantum-mixer"):
+        assert m[mid]["group"] == "big", mid
+    for mid in ("demo-quantum-paradoxes", "demo-quantum-fractals", "demo-grok-bloch",
+                "demo-grok-bloch-web", "demo-qiskit-tutorials"):
+        assert m[mid]["group"] == "learn", mid
+    assert m["hotspot"]["group"] == "advanced" and m["hotspot"]["status"] == "coming"
 
 
 def test_missions_name_goals_not_steps():
@@ -67,11 +97,12 @@ def test_missions_name_goals_not_steps():
 
 
 def test_missions_are_unique_and_complete():
-    missions = _missions()["missions"]
-    ids = [m["id"] for m in missions]
+    data = _missions()
+    ids = [m["id"] for m in data["missions"]]
     assert len(ids) == len(set(ids))
-    for m in missions:
-        assert m["title"] and m["area"] and isinstance(m["needs"], list), m["id"]
+    for m in data["missions"]:
+        assert m["title"] and m["group"] and isinstance(m["needs"], list), m["id"]
+        assert set(m["needs"]) <= set(data["needs_keys"]), m["id"]
     for fn in ("first-start", "setup-checklist", "led-setup", "ab-update", "standard-update",
                "wifi", "sound", "catalogue", "desktop-groups", "touch", "remote", "whats-new",
                "ibm-account", "learning-paths", "my-programs", "help", "hotspot"):
