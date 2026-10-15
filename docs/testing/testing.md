@@ -19,7 +19,9 @@ every function on their own Pis, so we find what breaks and what is hard to foll
 Nearly everything is still an early beta that no person has tested yet: expect rough
 edges. That is why we need you.
 
-<h2 id="privacy">What is recorded</h2>
+<div id="privacy"></div>
+
+## What is recorded
 
 Your messages are answered by Claude (Anthropic).
 What we keep, and for how long: your tester name or ID (chosen by you, please no e-mail
