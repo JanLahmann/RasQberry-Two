@@ -21,7 +21,7 @@ Menu and setup
   rq_info.sh --report           a file to attach to a bug report
   rq_remote_access.sh status    SSH and VNC on or off, this Pi's name
   sudo rq_remote_access.sh ...  ssh on|off, vnc on|off, name NEW
-  sudo rq_hotspot.sh status     Wi-Fi hotspot (on | off | qr: name, password, QR)
+  sudo rq_hotspot.sh status     Wi-Fi hotspot (on | off | qr: how to join)
   passwd                        change your password
 
 Demos
