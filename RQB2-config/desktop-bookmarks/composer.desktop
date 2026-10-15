@@ -5,7 +5,7 @@ Comment=Design and simulate quantum circuits in your web browser
 Icon=/usr/share/icons/rasqberry/ibm-quantum.png
 Type=Application
 Categories=RasQberry;
-Exec=chromium --password-store=basic https://quantum.ibm.com/composer/
+Exec=chromium --password-store=basic https://quantum.cloud.ibm.com/composer
 Terminal=false
 StartupNotify=true
 Keywords=quantum;qiskit;composer;circuit;IBM;

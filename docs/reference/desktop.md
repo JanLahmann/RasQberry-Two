@@ -55,7 +55,7 @@ Larger builds that show what quantum computing can drive.
 Write quantum programs and work through tutorials and courses.
 
 - **My Quantum Programs**: Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook. Opens `rq_my_programs.sh`.
-- **IBM Quantum Composer**: Design and simulate quantum circuits in your web browser. Opens the browser at https://quantum.ibm.com/composer/.
+- **IBM Quantum Composer**: Design and simulate quantum circuits in your web browser. Opens the browser at https://quantum.cloud.ibm.com/composer.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
 - **Qiskit Tutorials on this Pi**: (beta) The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
 - **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.

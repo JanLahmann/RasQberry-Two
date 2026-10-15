@@ -14,7 +14,7 @@
   ],
   "entrypoint": {
     "type": "browser",
-    "browser_url": "https://quantum.ibm.com/composer/"
+    "browser_url": "https://quantum.cloud.ibm.com/composer"
   },
   "install": {
     "preinstalled": true

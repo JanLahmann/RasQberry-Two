@@ -28,17 +28,17 @@ Paint and draw on the LED panel from a graphical interface.
 Watch Grover's search solve Lights Out puzzles on the LED panel, one after another.
 
 - id `quantum-lights-out`; menu: Quantum Demos > LED panel > Quantum Lights Out; desktop: LED panel window; needs the LED panel (or its on-screen view); download about 1 MB on first start.
-  - variant `gui`: GUI Mode
-  - variant `console`: Console Mode
+  - variant `gui`: LED panel
+  - variant `console`: Console
 
 ### Quantum Raspberry Tie
 
 Measured qubits on the LED panel, from a simulator or a real IBM quantum computer.
 
 - id `quantum-raspberry-tie`; menu: Quantum Demos > LED panel > Quantum Raspberry Tie; desktop: LED panel window; needs the LED panel (or its on-screen view), a screen, an IBM Quantum account for real quantum computers (optional); download about 24 MB on first start.
-  - variant `simulator`: Aer Simulator
-  - variant `noise`: Noise Model
-  - variant `real`: Real Backend
+  - variant `simulator`: Local simulator (no account needed)
+  - variant `noise`: Local simulator with a noise model
+  - variant `real`: Real IBM Quantum computer (IBM Quantum account)
 
 ### RasQ-LED Demo
 
