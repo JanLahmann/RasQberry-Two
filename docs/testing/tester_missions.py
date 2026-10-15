@@ -172,6 +172,12 @@ NEEDS_TEXT = {
     "ab-image": "A/B image",
     "single-image": "single-system image",
     "display": "screen",
+    "camera": "camera (USB webcam or Pi camera)",
+}
+
+# Needs the manifests have no field for (yet)
+EXTRA_NEEDS = {
+    "entangible": ["camera"],    # its tiles are read by a camera (manifest description)
 }
 
 
@@ -197,6 +203,9 @@ def demo_needs(manifest):
         needs.append("bluetooth-speaker")
     if manifest.get("needs_ibm_token") == "require":
         needs.append("ibm-account")
+    for need in EXTRA_NEEDS.get(manifest.get("id", ""), []):
+        if need not in needs:
+            needs.append(need)
     return needs
 
 
@@ -329,7 +338,7 @@ def page(data):
         "- **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your",
         "  hardware (LED panel, touchscreen, Bluetooth speaker) and which demos you like, and it",
         "  suggests missions that fit. Choose your own tester name or ID, so it can keep track of",
-        "  your missions. The tester passphrase unlocks it: <!-- TODO: shared passphrase -->.",
+        "  your missions. The tester passphrase you got from us unlocks it.",
         "- **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with",
         "  the [documentation](/) and the normal RasQberry helper on the Pi's start page, as any",
         "  user would. The tester helper does not help with the mission itself; it points you",
@@ -340,8 +349,9 @@ def page(data):
         "Nearly everything is still an early beta that no person has tested yet: expect rough",
         "edges. That is why we need you.",
         "",
-        "## What is recorded",
+        '<h2 id="privacy">What is recorded</h2>',
         "",
+        "Your messages are answered by Claude (Anthropic).",
         "What we keep, and for how long: your tester name or ID (chosen by you, please no e-mail",
         "address), your hardware and preferences, your conversations with the tester helper, the",
         "findings you save, and which missions you started or finished. We keep them for 90 days,",

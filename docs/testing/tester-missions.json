@@ -42,7 +42,8 @@
     "ibm-account": "IBM Quantum account",
     "ab-image": "A/B image",
     "single-image": "single-system image",
-    "display": "screen"
+    "display": "screen",
+    "camera": "camera (USB webcam or Pi camera)"
   },
   "postponed": [
     "doqumentation"
@@ -295,7 +296,9 @@
       "group": "big",
       "title": "Entangible",
       "goal": "Build a circuit with the printed gate tiles and let the camera read it.",
-      "needs": [],
+      "needs": [
+        "camera"
+      ],
       "demo": "entangible",
       "maturity": "beta"
     },

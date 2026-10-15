@@ -8,7 +8,7 @@ every function on their own Pis, so we find what breaks and what is hard to foll
 - **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your
   hardware (LED panel, touchscreen, Bluetooth speaker) and which demos you like, and it
   suggests missions that fit. Choose your own tester name or ID, so it can keep track of
-  your missions. The tester passphrase unlocks it: <!-- TODO: shared passphrase -->.
+  your missions. The tester passphrase you got from us unlocks it.
 - **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with
   the [documentation](/) and the normal RasQberry helper on the Pi's start page, as any
   user would. The tester helper does not help with the mission itself; it points you
@@ -19,8 +19,9 @@ every function on their own Pis, so we find what breaks and what is hard to foll
 Nearly everything is still an early beta that no person has tested yet: expect rough
 edges. That is why we need you.
 
-## What is recorded
+<h2 id="privacy">What is recorded</h2>
 
+Your messages are answered by Claude (Anthropic).
 What we keep, and for how long: your tester name or ID (chosen by you, please no e-mail
 address), your hardware and preferences, your conversations with the tester helper, the
 findings you save, and which missions you started or finished. We keep them for 90 days,
@@ -69,7 +70,7 @@ your name or ID. No IP address, no cookies.
 
 ### Big demos
 
-- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it. Early beta, not yet tested by people: expect rough edges.
+- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it. Early beta, not yet tested by people: expect rough edges. *(needs: camera (USB webcam or Pi camera))*
 - **Qoffee-Maker**: Order a coffee from a quantum computer, with or without a Home Connect machine. Early beta, not yet tested by people: expect rough edges. *(needs: screen, internet)*
 - **Quantum Mixer**: Mix a colour with a quantum circuit. Early beta, not yet tested by people: expect rough edges. *(needs: screen)*
 - **racetraQ**: Race a car steered by a quantum agent and train your own. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
