@@ -3,6 +3,9 @@
 Thank you for helping us test RasQberry Two! About ten testers try every demo and
 every function on their own Pis, so we find what breaks and what is hard to follow.
 
+Testing runs by invitation. Would you like to help? Write to
+[info@rasqberry.org](mailto:info@rasqberry.org) and tell us which Pi and hardware you have.
+
 ## How it works
 
 - **Talk to the tester helper** (bottom right on this page). Tell it your Pi model, your
