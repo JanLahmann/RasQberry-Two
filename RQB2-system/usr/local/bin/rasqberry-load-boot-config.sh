@@ -194,10 +194,17 @@ merge_configs() {
 
     # Read global env again and apply overrides
     if [ -f "$GLOBAL_ENV" ]; then
-        while IFS='=' read -r line; do
+        # IFS= (not '='): with '=' as separator, read drops the trailing '=' of
+        # an empty setting ("HOTSPOT_SSID=" became "HOTSPOT_SSID", which the
+        # shell then ran as a command when the file was loaded)
+        while IFS= read -r line; do
             # Skip comments and empty lines
             [[ "$line" =~ ^[[:space:]]*# ]] && echo "$line" && continue
             [[ -z "$line" ]] && echo "$line" && continue
+            # A bare name is never valid here: an empty setting that lost its '='
+            if [[ "$line" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+                line="${line}="
+            fi
 
             # Extract key
             key=$(echo "$line" | cut -d'=' -f1)
