@@ -38,6 +38,26 @@ def test_every_demo_has_a_mission():
     assert {"doqumentation", "qiskit-tutorials"} <= postponed
 
 
+def test_fun_with_quantum_has_one_mission_per_part():
+    manifest = json.load(open(os.path.join(_ROOT, "RQB2-config", "demo-manifests",
+                                           "rq_demo_fun-with-quantum.json")))
+    parts = {m["part"] for m in _missions()["missions"] if m.get("demo") == "fun-with-quantum"}
+    assert parts == {v["id"] for v in manifest["variants"]}
+    assert "coin-game" in parts
+
+
+def test_beta_demos_are_marked():
+    data = _missions()
+    beta = {m["id"] for m in data["missions"] if m.get("maturity") == "beta"}
+    # from the manifests (and their variants), known-demos.json and learning-paths.json
+    for mid in ("demo-entangible", "demo-racetraq", "demo-fun-with-quantum-website",
+                "demo-fun-with-quantum-family", "learning-paths"):
+        assert mid in beta, mid
+    assert "demo-fun-with-quantum-coin-game" not in beta
+    page = open(os.path.join(_DIR, "testing.md")).read()
+    assert page.count("Early beta, not yet tested by people") == len(beta)
+
+
 def test_missions_name_goals_not_steps():
     for m in _missions()["missions"]:
         goal = m["goal"]

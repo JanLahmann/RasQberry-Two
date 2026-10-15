@@ -59,6 +59,32 @@ DEMO_GOALS = {
 }
 GENERIC_GOAL = "Start {name}, find out what it shows, and stop it again."
 
+# Demos with one mission per part: the variants of their manifest, named as
+# the menu and the variant chooser show them (Fun with Quantum: Jan,
+# 2026-10-15). The desktop entry "Quantum Coin Game" opens the coin-game part.
+SPLIT_DEMOS = {"fun-with-quantum"}
+PART_GOALS = {
+    "fun-with-quantum": {
+        "readme": "Find out what the Fun with Quantum games are about.",
+        "coin-game": "Play the Quantum Coin Game against a quantum computer.",
+        "ghz-game": "Play the GHZ Game and see how quantum players win.",
+        "hardys-paradox": "Work through Hardy's Paradox.",
+        "mermin-peres": "Play the Mermin–Peres Magic Square.",
+        "3-sat": "Solve a 3-SAT problem with Grover's algorithm.",
+        "chsh-game": "Play the CHSH Game.",
+        "prisoners-dilemma": "Play the Quantum Prisoner's Dilemma.",
+        "ghz-real-devices": "Run the GHZ experiment on a real quantum computer.",
+        "website": "Play the games in the browser on the Fun with Quantum website, also offline.",
+        "family": "Explore the other projects of the Fun with Quantum family.",
+    },
+}
+PART_NEEDS = {"fun-with-quantum": {"ghz-real-devices": ["internet", "ibm-account"],
+                                   "family": ["internet"]}}
+
+# Note on the page for maturity "beta" (from the manifests, their variants,
+# known-demos.json and learning-paths.json)
+BETA_NOTE = "Early beta, not yet tested by people: expect rough edges."
+
 # Missions that are not one demo. Names as the user sees them (menu,
 # desktop, website). needs: what the tester must have.
 FUNCTIONS = [
@@ -155,6 +181,12 @@ def demo_needs(manifest):
     return needs
 
 
+def learning_paths_beta():
+    """True while any learning path is marked beta (learning-paths.json)."""
+    data = json.load(open(os.path.join(MANIFESTS, "learning-paths.json")))
+    return any(p.get("maturity") == "beta" for p in data.get("paths", []))
+
+
 def build():
     """
     The mission list.
@@ -172,19 +204,40 @@ def build():
         if m["id"] in POSTPONED:
             continue
         shipped.append(m["id"])
-        missions.append({
+        area = "Demos: " + groups.get(m.get("group"), "Learn & code")
+        if m["id"] in SPLIT_DEMOS:
+            for v in m.get("variants", []):
+                extra = [n for n in PART_NEEDS.get(m["id"], {}).get(v["id"], []) if n not in demo_needs(m)]
+                mission = {
+                    "id": f"demo-{m['id']}-{v['id']}",
+                    "area": area,
+                    # "Fun with Quantum: GHZ Game", as the chooser shows it under its demo
+                    "title": v["name"] if v["name"].startswith(m["name"]) else f"{m['name']}: {v['name']}",
+                    "goal": PART_GOALS.get(m["id"], {}).get(v["id"], GENERIC_GOAL.format(name=v["name"])),
+                    "needs": demo_needs(m) + extra,
+                    "demo": m["id"],
+                    "part": v["id"],
+                }
+                if (v.get("maturity") or m.get("maturity")) == "beta":
+                    mission["maturity"] = "beta"
+                missions.append(mission)
+            continue
+        mission = {
             "id": "demo-" + m["id"],
-            "area": "Demos: " + groups.get(m.get("group"), "Learn & code"),
+            "area": area,
             "title": m["name"],
             "goal": DEMO_GOALS.get(m["id"], GENERIC_GOAL.format(name=m["name"])),
             "needs": demo_needs(m),
             "demo": m["id"],
-        })
+        }
+        if m.get("maturity") == "beta":
+            mission["maturity"] = "beta"
+        missions.append(mission)
     for entry in json.load(open(CATALOGUE))["demos"]:
         if entry["id"] in POSTPONED or entry["id"] in shipped:
             continue
         name = entry.get("name") or entry["id"]
-        missions.append({
+        mission = {
             "id": "demo-" + entry["id"],
             "area": "Demos: " + groups.get(entry.get("group"), "Contributed demos"),
             "title": name,
@@ -192,12 +245,17 @@ def build():
             "needs": ["internet"] + demo_needs(entry),
             "demo": entry["id"],
             "catalogue": True,
-        })
+        }
+        if entry.get("maturity") == "beta":
+            mission["maturity"] = "beta"
+        missions.append(mission)
     for item in FUNCTIONS:
         mid, area, title, goal, needs = item[:5]
         mission = {"id": mid, "area": area, "title": title, "goal": goal, "needs": list(needs)}
         if len(item) > 5:
             mission["status"] = item[5]
+        if mid == "learning-paths" and learning_paths_beta():
+            mission["maturity"] = "beta"
         missions.append(mission)
 
     demo_areas = ["Demos: " + groups[g] for g in groups]
@@ -212,7 +270,9 @@ def build():
                  "manifests, known-demos.json and its list of functions. A mission names a goal, "
                  "never the steps: testers use the user documentation and the RasQberry helper. "
                  "needs: what a tester must have, as keys of needs_keys, so the tester helper "
-                 "can match missions to a tester's setup; status coming: not in the images yet."),
+                 "can match missions to a tester's setup; maturity beta: early beta, not yet "
+                 "tested by people; part: one part of a demo (a variant of its manifest); "
+                 "status coming: not in the images yet."),
         "needs_keys": NEEDS_TEXT,
         "postponed": sorted(POSTPONED),
         "missions": missions,
@@ -269,7 +329,8 @@ def page(data):
         if m.get("status") == "coming":
             extra.append("coming soon")
         tail = f" *({'; '.join(extra)})*" if extra else ""
-        lines.append(f"- **{m['title']}**: {m['goal']}{tail}")
+        beta = f" {BETA_NOTE}" if m.get("maturity") == "beta" else ""
+        lines.append(f"- **{m['title']}**: {m['goal']}{beta}{tail}")
     lines += ["", "Postponed to a later round: the Workshop & Qiskit Server and the Qiskit",
               "Tutorials on this Pi (doQumentation).", ""]
     return "\n".join(lines)

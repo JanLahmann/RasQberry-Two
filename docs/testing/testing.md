@@ -42,16 +42,26 @@ Use any tester name you like; it does not need to be your real name.
 
 ### Demos: Play
 
-- **Fun with Quantum**: Play the Fun with Quantum games in Jupyter.
+- **Fun with Quantum family: related projects**: Explore the other projects of the Fun with Quantum family. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
+- **Fun with Quantum website: games in the browser**: Play the games in the browser on the Fun with Quantum website, also offline. Early beta, not yet tested by people: expect rough edges.
+- **Fun with Quantum: 3-SAT with Grover's Algorithm**: Solve a 3-SAT problem with Grover's algorithm.
+- **Fun with Quantum: GHZ Game**: Play the GHZ Game and see how quantum players win.
+- **Fun with Quantum: GHZ on Real Quantum Devices**: Run the GHZ experiment on a real quantum computer. *(needs: internet, IBM Quantum account)*
+- **Fun with Quantum: Hardy's Paradox**: Work through Hardy's Paradox.
+- **Fun with Quantum: Mermin–Peres Magic Square**: Play the Mermin–Peres Magic Square.
+- **Fun with Quantum: Quantum Coin Game**: Play the Quantum Coin Game against a quantum computer.
+- **Fun with Quantum: Start here: what the games are about**: Find out what the Fun with Quantum games are about.
+- **Fun with Quantum: The CHSH Game**: Play the CHSH Game.
+- **Fun with Quantum: The Quantum Prisoner's Dilemma**: Play the Quantum Prisoner's Dilemma.
 - **Quantum Fractals**: Watch the fractals change with the state of a qubit. *(needs: screen)*
 - **Quantum Paradoxes**: Work through one of the quantum paradox notebooks.
 
 ### Demos: Big projects
 
-- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it.
+- **Entangible**: Build a circuit with the printed gate tiles and let the camera read it. Early beta, not yet tested by people: expect rough edges.
 - **Qoffee-Maker**: Order a coffee from a quantum computer, with or without a Home Connect machine. *(needs: screen, internet)*
 - **Quantum Mixer**: Mix a colour with a quantum circuit. *(needs: screen)*
-- **racetraQ**: Race a car steered by a quantum agent and train your own. *(needs: internet)*
+- **racetraQ**: Race a car steered by a quantum agent and train your own. Early beta, not yet tested by people: expect rough edges. *(needs: internet)*
 
 ### Demos: Learn & code
 
@@ -72,7 +82,7 @@ Use any tester name you like; it does not need to be your real name.
 - **Desktop folders and menu**: Find each demo through its desktop folder and through the RasQberry menu.
 - **LED views without a panel**: Watch an LED demo in the on-screen view and in the browser view.
 - **Demo Loop**: Run the Demo Loop with demos of your choice, and let it start at login.
-- **Learning paths**: Follow one learning path from start to end.
+- **Learning paths**: Follow one learning path from start to end. Early beta, not yet tested by people: expect rough edges.
 - **My Quantum Programs**: Write and run your own quantum program in My Quantum Programs.
 - **Touchscreen**: Use the Pi by touch only: touch mode and the on-screen keyboard. *(needs: touchscreen)*
 - **Sound on a Bluetooth speaker**: Pair a Bluetooth speaker, play a demo with sound and calibrate the sound delay. *(needs: Bluetooth speaker, LED panel)*
