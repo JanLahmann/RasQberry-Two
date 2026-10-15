@@ -30,6 +30,8 @@ participants; open the same entry again to stop it.
 Guest Wi-Fi and networks with client isolation block the connection between
 devices, so check this with the venue before the event. Participants join by
 opening the address or scanning the QR code the Pi shows.
+Where that is not possible, let the Pi open its own
+[Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot).
 
 ## For a stand
 

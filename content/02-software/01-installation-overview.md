@@ -75,6 +75,29 @@ name cannot be used (e.g. the system already uses it), the login stays
 Customisation works on both images. It applies at the first start of a newly
 written card only, not after an update.
 
+### Without Wi-Fi, cable or screen
+
+If the Pi finds no network about two minutes after its first start, it opens
+its own Wi-Fi **RasQberry-Setup-XXXX** (password `rasqberry`); the LED panel
+scrolls the name. Join it with a phone or laptop: a page opens that lists the
+Wi-Fi networks nearby. Choose yours and enter its password; the Pi joins it, and
+the LED panel then shows its address. The setup Wi-Fi stops after 30 minutes
+without anyone on it, and never comes back once the Pi has had a network.
+
+### A booth hotspot from the first start
+
+To start the Pi as a hotspot for a booth or classroom (see
+[Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot)), put a file
+`rasqberry-hotspot.txt` on the card's boot partition after writing it:
+
+```
+HOTSPOT_AT_BOOT=yes
+HOTSPOT_SSID=RasQberry-Booth
+HOTSPOT_PASSWORD=choose-a-password
+```
+
+The Pi saves the settings at its first start and removes the password from the card.
+
 ### If the link does not open Imager
 
 - **Add the repository by hand.** In Imager: **App Options** (bottom left) →

@@ -25,6 +25,27 @@ usually within a few minutes.
 To see the Pi's IP address, run `hostname -I`, or look at **System Info** in
 **0 RasQberry**. The LED panel also scrolls it at start-up.
 
+## Wi-Fi hotspot
+
+For booths and classrooms, the Pi can open its own Wi-Fi: phones and laptops
+join it and reach the demos, also where the venue's Wi-Fi keeps devices apart.
+**0 RasQberry** → **Wi-Fi Hotspot**:
+
+- **Hotspot on/off.** The network is **RasQberry-XXXX** with its own password,
+  on 5 GHz (no trouble with Bluetooth speakers; 2.4 GHz for older devices is an
+  option).
+- **Join card:** a QR code to join, the name and password, and a second QR
+  code for the demos - on the screen, or printed.
+- Joining opens a page with the demos the Pi offers right now
+  (`http://10.42.0.1`).
+- **Share internet:** with a network cable (or a USB Wi-Fi adapter) the devices
+  on the hotspot reach the internet through the Pi.
+- **Start at boot**, e.g. for a booth without a screen.
+
+The Pi's own Wi-Fi is either the hotspot or connected to a network, not both: a
+cable or a USB Wi-Fi adapter keeps the Pi online while it runs the hotspot.
+Command line: `sudo rq_hotspot.sh on|off|status|card`.
+
 ## Remote access
 
 On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
