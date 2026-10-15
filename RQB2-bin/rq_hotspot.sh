@@ -154,6 +154,36 @@ nat_ready() {
 }
 
 # ---------------------------------------------------------------------------
+# Demos that show an address to phones
+# ---------------------------------------------------------------------------
+
+ENT_ENV="${RQ_HOTSPOT_ENTANGIBLE_ENV:-/etc/default/entangible}"
+ENT_MARK="# rq_hotspot.sh: phones on the hotspot use its address (removed when it stops)"
+
+# advertise on|off: Entangible prints the address phones open (QR codes, its
+# TLS certificate); without QAMPOSER_ADVERTISE_HOST it takes the default
+# route's, which a hotspot without internet does not have. A value the user
+# set stays; ours comes with a marker line and goes when the hotspot stops.
+advertise() {
+    [ -f "$ENT_ENV" ] || return 0
+    local tmp changed=""
+    tmp=$(mktemp)
+    awk -v m="$ENT_MARK" '$0 == m { skip = 1; next } skip { skip = 0; next } { print }' "$ENT_ENV" > "$tmp"
+    cmp -s "$tmp" "$ENT_ENV" || changed=1
+    if [ "$1" = on ] && ! grep -q '^[[:space:]]*QAMPOSER_ADVERTISE_HOST[[:space:]]*=' "$tmp"; then
+        printf '%s\nQAMPOSER_ADVERTISE_HOST=%s\n' "$ENT_MARK" "$ADDRESS" >> "$tmp"
+        changed=1
+    fi
+    if [ -n "$changed" ]; then
+        cat "$tmp" > "$ENT_ENV"
+        if systemctl is-active --quiet entangible-host.service 2>/dev/null; then
+            systemctl restart entangible-host.service 2>/dev/null || true
+        fi
+    fi
+    rm -f "$tmp"
+}
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -209,6 +239,7 @@ cmd_on() {
         || die "The hotspot did not start on $iface (band $band, channel $channel). See: journalctl -u NetworkManager -n 30"
 
     share_rules "$iface"
+    advertise on
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && ! nat_ready "$iface"; then
         # trixie-feedback#62: NAT missing - once more brings it
         nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
@@ -226,6 +257,7 @@ cmd_off() {
         info "The hotspot is not running."
     fi
     nft delete table inet "$NFT_TABLE" 2>/dev/null || true
+    advertise off
 }
 
 cmd_status() {

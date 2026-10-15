@@ -1735,6 +1735,8 @@ do_led_output_menu() {
     PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
       'import rq_led_utils; rq_led_utils._ensure_virtual_led_web_running()' 2>/dev/null || true
     lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    # devices on the Wi-Fi hotspot reach the Pi at its address
+    [ "$(hotspot_state)" = on ] && lan_ip=10.42.0.1
     [ -z "$lan_ip" ] && lan_ip="<pi-ip>"
     whiptail --title "LED Browser View" --msgbox \
       "Browser view enabled.\n\nOpen from any device on the network:\n  http://${lan_ip}:${web_port}\n\nThe view updates whenever an LED demo runs.\nRestart a running demo for target changes to take effect." \

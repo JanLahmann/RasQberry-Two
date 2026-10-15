@@ -98,3 +98,24 @@ def test_menu_has_the_hotspot():
         assert f"\n            {item} " in hs, item
     # settings go to /data like the LED ones
     assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*)" in menu
+
+
+def test_entangible_gets_the_hotspot_address_and_loses_it_again(tmp_path):
+    env = tmp_path / "entangible"
+    env.write_text("QAMPOSER_SOURCE=cv2:0\n# QAMPOSER_ADVERTISE_HOST=10.42.0.1\n")
+    e = {"RQ_HOTSPOT_ENTANGIBLE_ENV": str(env), "PATH": "/usr/bin:/bin"}
+    assert _bash("advertise on; advertise on", e).returncode == 0
+    lines = env.read_text().splitlines()
+    assert lines.count("QAMPOSER_ADVERTISE_HOST=10.42.0.1") == 1     # once, however often
+    assert _bash("advertise off", e).returncode == 0
+    assert env.read_text() == "QAMPOSER_SOURCE=cv2:0\n# QAMPOSER_ADVERTISE_HOST=10.42.0.1\n"
+
+
+def test_an_address_the_user_set_for_entangible_stays(tmp_path):
+    env = tmp_path / "entangible"
+    env.write_text("QAMPOSER_ADVERTISE_HOST=booth.local\n")
+    e = {"RQ_HOTSPOT_ENTANGIBLE_ENV": str(env), "PATH": "/usr/bin:/bin"}
+    _bash("advertise on", e)
+    assert env.read_text() == "QAMPOSER_ADVERTISE_HOST=booth.local\n"
+    _bash("advertise off", e)
+    assert env.read_text() == "QAMPOSER_ADVERTISE_HOST=booth.local\n"
