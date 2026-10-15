@@ -6,6 +6,18 @@ every function on their own Pis, so we find what breaks and what is hard to foll
 Testing runs by invitation. Would you like to help? Write to
 [info@rasqberry.org](mailto:info@rasqberry.org) and tell us which Pi and hardware you have.
 
+## Before you start: the right version
+
+Test the **latest beta** or the **latest development image**, nothing older:
+
+- **Latest beta:** in Raspberry Pi Imager, **RasQberry Two Beta**.
+- **Latest development image:** in Imager, **RasQberry developer builds** →
+  **RasQberry Two Dev (development …)** with the newest date. Other entries in that
+  folder are experiments; leave them out.
+
+The A/B image is best: it updates over the air, so you stay on the newest version.
+**System Info** in the RasQberry menu shows your version; tell Ket which one you use.
+
 ## How it works
 
 - **Talk to Ket, our AI tester helper** (bottom right on this page). Tell Ket your Pi model, your
