@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-15T05:22:29Z",
+  "generated": "2026-10-15T06:09:53Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,23 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-15-063616",
-      "name": "rasqberry-development-2026-10-15-063616",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-063616/rasqberry-development-2026-10-15-063616.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-15-063616",
-      "release_date": "2026-10-15 06:36",
-      "image_download_size": 1856033952,
+      "tag": "development-2026-10-15-072614",
+      "name": "rasqberry-development-2026-10-15-072614",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-072614/rasqberry-development-2026-10-15-072614.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-15-072614",
+      "release_date": "2026-10-15 07:26",
+      "image_download_size": 1855267548,
       "extract_size": 9529458688,
-      "extract_sha256": "73e8bdbea5be570d2638bfbdc060442b6d21ebd923075494cdc3821e5d48f10a",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-063616/rasqberry-development-2026-10-15-063616-ab.img.xz",
-      "ab_extract_sha256": "b4b45cfdf570f32b98587612600e5a7ae9e6261f5c72f20f1d04232f462234da",
-      "ab_image_sha256": "3379ac87938d1dc47c13251d7204e143760d0f72c51202b073409951500a3ef5",
+      "extract_sha256": "3de7a63a994758f08b95d276596885b0bf7aacab695783335e297a47efc5fde8",
+      "image_sha256": "560ab2b860bc4250d3e376b134fe0bca60e21648730febcda1572a3a3c2e3a38",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-15-072614/rasqberry-development-2026-10-15-072614-ab.img.xz",
+      "ab_extract_sha256": "9d6b95ac4f1acefca0c23788d85caba543af0426ad4de4f3afb7aff12dc4ec4d",
+      "ab_image_sha256": "81426a22b657585ce85c05752a19686bd385e91806280c6b61aea0ea7ca660fb",
+      "ab_image_download_size": 1906427832,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1903235772,
       "highlights": [
-        "Bump version to development-2026-10-15-063616",
-        "racetraQ pinned to v0.3.2 (#334)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-13-192037"
+        "Wi-Fi hotspot core: rq_hotspot.sh on NetworkManager"
       ]
     }
   }
