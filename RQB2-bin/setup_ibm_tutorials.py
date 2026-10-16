@@ -2,18 +2,24 @@
 """
 Setup script for IBM Quantum Tutorials and Courses.
 
-This script generates WELCOME notebooks with navigation links to tutorials and courses
-from the Qiskit documentation repository.
+This script makes the notebooks from the Qiskit documentation repository fit
+for Jupyter (--convert: front matter, pictures, notes, links) and generates
+WELCOME notebooks with navigation links to tutorials and courses.
 
 Content is licensed under CC BY-SA 4.0 by IBM/Qiskit.
 Source: https://github.com/Qiskit/documentation
 """
 
 import argparse
+import html
 import json
 import os
+import posixpath
 import re
+import stat
 import sys
+import textwrap
+import urllib.parse
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -919,6 +925,419 @@ Course notebooks that use IBM Quantum computers need your own free IBM Quantum a
 
 
 # ============================================================================
+# NOTEBOOK CONVERSION (the website's MDX -> Jupyter markdown)
+# ============================================================================
+# The notebooks are written for IBM's website (MDX): front matter, site paths
+# (/learning/images/..., /docs/guides/...), React components (<Admonition>,
+# <DefinitionTooltip>, <IBMVideo> ...) and pictures of outputs stored as
+# '<Image src=... />' text. Jupyter showed all of it raw, and no picture at
+# all (rig mission 2026-10-16). The pictures come with the download
+# (public/..., RQ_IBM_LEARNING_PATHS in rq_common.sh); this turns the rest into
+# Jupyter markdown, once per converter version (CONVERTED_MARKER). Code is
+# never changed: fenced blocks and inline code are set aside first.
+
+CONVERTED_MARKER = ".rasqberry-converted"
+CONVERTER_VERSION = "1"
+CONTENT_DIRS = ("docs", "learning")
+ONLINE_SITE = "https://quantum.cloud.ibm.com"
+VIDEO_URL = "https://video.ibm.com/recorded/{id}"
+IMAGE_PREFIXES = ("/learning/images/", "/docs/images/")
+ADMONITION_TITLES = {"note": "Note", "tip": "Tip", "info": "Info", "caution": "Caution",
+                     "danger": "Danger", "warning": "Warning"}
+
+_BLOCK = "\x00"     # a fenced code block set aside: its own line
+_INLINE = "\x01"    # an inline code span set aside
+_ATTRS = (r'(?P<attrs>(?:\s+[A-Za-z_][\w-]*'
+          r'(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|\{[^}]*\}))?)*)\s*')
+_ATTR_RE = re.compile(r'([A-Za-z_][\w-]*)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|'
+                      r'\{\s*"([^"]*)"\s*\}|\{\s*\'([^\']*)\'\s*\}|\{\s*`([^`]*)`\s*\}|\{([^}]*)\})')
+_NAME = r"[A-Z][A-Za-z0-9]+"
+# a component that holds no other component (converted innermost first)
+_LEAF_RE = re.compile(r"<(?P<name>" + _NAME + r")\b" + _ATTRS + r">"
+                      r"(?P<body>(?:(?!<" + _NAME + r"(?:\s|/?>)).)*?)</(?P=name)\s*>", re.S)
+_SELF_RE = re.compile(r"<(?P<name>" + _NAME + r")\b" + _ATTRS + r"/>")
+_FENCE_RE = re.compile(r"^([ \t]*)(`{3,}|~{3,})")
+_INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)\1(?!`)", re.S)
+_FRONT_MATTER_RE = re.compile(r"\A\s*---[ \t]*\n(.*?)\n---[ \t]*(?:\n|\Z)", re.S)
+_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}", re.S)
+_MD_LINK_RE = re.compile(r"(\]\(\s*)([^)\s]+)")
+_HTML_URL_RE = re.compile(r"(\s(?:href|src)\s*=\s*)([\"'])(/(?!/)[^\"']*)\2")
+_IMAGE_OUTPUT_RE = re.compile(r"\A\s*<Image\b" + _ATTRS + r"/?>\s*\Z", re.S)
+
+
+def _attrs(text: str) -> Dict[str, str]:
+    """A component's attributes: name="v", name='v' or name={"v"}."""
+    out = {}
+    for m in _ATTR_RE.finditer(text or ""):
+        values = [g for g in m.groups()[1:] if g is not None]
+        out[m.group(1)] = values[0] if values else ""
+    return out
+
+
+def _source_text(source) -> str:
+    """A cell's source (a list of lines or one string) as one string."""
+    return "".join(source) if isinstance(source, list) else (source or "")
+
+
+def _source_lines(text: str) -> List[str]:
+    """Back to the list of lines Jupyter writes."""
+    return text.splitlines(keepends=True)
+
+
+class _MarkdownConverter:
+    """Converts one notebook's markdown cells (one instance per notebook)."""
+
+    def __init__(self, nb_path: Path, base_path: Path, code_tags: Dict[str, int]):
+        self.nb_dir = nb_path.parent
+        self.base = base_path
+        self.code_tags = code_tags      # tag -> index of the code cell carrying it
+        self.cell_index = 0
+        self.store: List = []
+
+    # --- code is set aside, untouched -------------------------------------
+    def protect(self, text: str) -> str:
+        """Fenced code blocks and inline code spans -> placeholders."""
+        out, lines, i = [], text.split("\n"), 0
+        while i < len(lines):
+            m = _FENCE_RE.match(lines[i])
+            if not m:
+                out.append(lines[i])
+                i += 1
+                continue
+            indent, fence = m.group(1), m.group(2)
+            close = re.compile(r"^[ \t]*" + re.escape(fence[0]) + "{%d,}[ \t]*$" % len(fence))
+            j = i + 1
+            while j < len(lines) and not close.match(lines[j]):
+                j += 1
+            block = lines[i:j + 1]      # an unclosed fence runs to the end
+            self.store.append([ln[len(indent):] if ln.startswith(indent) else ln.lstrip(" \t")
+                               for ln in block])
+            out.append(f"{indent}{_BLOCK}{len(self.store) - 1}{_BLOCK}")
+            i = j + 1
+        text = "\n".join(out)
+
+        def inline(m):
+            self.store.append(m.group(0))
+            return f"{_INLINE}{len(self.store) - 1}{_INLINE}"
+        return _INLINE_CODE_RE.sub(inline, text)
+
+    def restore_inline(self, text: str) -> str:
+        """Inline code placeholders -> the code as written."""
+        return re.sub(_INLINE + r"(\d+)" + _INLINE, lambda m: self.store[int(m.group(1))], text)
+
+    def restore(self, text: str) -> str:
+        """All placeholders back; a code block takes its line's indentation."""
+        def block(m):
+            prefix = m.group(1)
+            return "\n".join(prefix + ln if ln else prefix.rstrip()
+                             for ln in self.store[int(m.group(2))])
+        text = re.sub(r"^([ \t]*)" + _BLOCK + r"(\d+)" + _BLOCK + r"[ \t]*$", block, text, flags=re.M)
+        # a block that did not end up on a line of its own (never seen)
+        text = re.sub(_BLOCK + r"(\d+)" + _BLOCK,
+                      lambda m: "\n" + "\n".join(self.store[int(m.group(1))]) + "\n", text)
+        return self.restore_inline(text)
+
+    def plain(self, value: str) -> str:
+        """An attribute value as plain text (for a tooltip): no code marks or math dollars."""
+        value = self.restore_inline(value).replace("`", "").replace("$", "").replace("*", "")
+        return " ".join(value.split())
+
+    def inline_html(self, value: str) -> str:
+        """An attribute value as HTML (a <summary>): `code` -> <code>."""
+        value = self.restore_inline(value)
+        parts = re.split(r"(`+)(.+?)\1", value)
+        out = []
+        for k in range(0, len(parts), 3):
+            out.append(html.escape(parts[k], quote=False))
+            if k + 2 < len(parts):
+                out.append("<code>" + html.escape(parts[k + 2], quote=False) + "</code>")
+        return "".join(out).strip()
+
+    # --- links and pictures ------------------------------------------------
+    def url(self, url: str) -> str:
+        """
+        A site path as a link that works here: a picture or notebook in this
+        download (relative), else the page on IBM's website. Other links stay.
+        """
+        if url.startswith(("#", "//")) or re.match(r"[A-Za-z][A-Za-z0-9+.-]*:", url):
+            return url
+        if not url.startswith("/"):
+            # relative, as on the website: fine if it is here, else the site's page
+            path, sep, frag = url.partition("#")
+            local = self.nb_dir / urllib.parse.unquote(path)
+            if not path or local.exists():
+                return url
+            if local.with_name(local.name + ".ipynb").is_file():
+                return path + ".ipynb" + sep + frag
+            site_dir = "/" + os.path.relpath(self.nb_dir, self.base).replace(os.sep, "/")
+            return ONLINE_SITE + posixpath.normpath(posixpath.join(site_dir, path)) + sep + frag
+        path, sep, frag = url.partition("#")
+        path = path.split("?", 1)[0]
+        rel = path.strip("/")
+        if path.startswith(IMAGE_PREFIXES):
+            local = self.base / "public" / rel
+        else:
+            local = self.base / (rel + ".ipynb") if rel else None
+        if local is not None and local.is_file():
+            relative = os.path.relpath(local, self.nb_dir).replace(os.sep, "/")
+            return urllib.parse.quote(relative, safe="/@-._~") + sep + frag
+        return ONLINE_SITE + url
+
+    def links(self, text: str) -> str:
+        """Markdown links and pictures, and HTML href/src, with site paths."""
+        text = _MD_LINK_RE.sub(lambda m: m.group(1) + self.url(m.group(2)), text)
+        return _HTML_URL_RE.sub(lambda m: m.group(1) + m.group(2) + self.url(m.group(3)) + m.group(2),
+                                text)
+
+    # --- components --------------------------------------------------------
+    def self_closing(self, m) -> str:
+        """<IBMVideo/>, <Image/>, <Card/>, <CodeCellPlaceholder/>; others go."""
+        name, a = m.group("name"), _attrs(m.group("attrs"))
+        if name == "IBMVideo" and a.get("id"):
+            title = self.plain(a.get("title", "")) or "Watch the video"
+            return f"**Video** (online): [{title}]({VIDEO_URL.format(id=a['id'])})"
+        if name == "Image" and a.get("src"):
+            alt = self.plain(a.get("alt", "")).replace("[", "(").replace("]", ")")
+            return f"![{alt}]({self.url(a['src'])})"
+        if name == "Card" and a.get("href"):
+            title = self.plain(a.get("title", "")) or a["href"]
+            desc = self.plain(a.get("description", ""))
+            return f"- [{title}]({self.url(a['href'])})" + (f": {desc}" if desc else "")
+        if name == "CodeCellPlaceholder":
+            where = self.code_tags.get(a.get("tag", ""))
+            if where is None:
+                return ""
+            return "*The code is in a code cell further %s in this notebook.*" % (
+                "down" if where > self.cell_index else "up")
+        return ""
+
+    def paired(self, m) -> str:
+        """A component with content, innermost first."""
+        name, a = m.group("name"), _attrs(m.group("attrs"))
+        body = textwrap.dedent(m.group("body").strip("\n")).strip()
+        if name == "DefinitionTooltip":
+            definition = self.plain(a.get("definition", ""))
+            if not definition:
+                return body
+            return f'<abbr title="{html.escape(definition, quote=True)}">{body}</abbr>'
+        if name in ("Admonition", "Figure"):
+            if name == "Admonition":
+                kind = a.get("type", "note")
+                title = a.get("title") or ADMONITION_TITLES.get(kind, kind.capitalize())
+            else:
+                title = a.get("title", "")
+            head = f"**{self.restore_inline(title).strip()}**\n\n" if title.strip() else ""
+            # an HTML blockquote, not "> " lines: Jupyter takes $$ math out
+            # before the markdown, and a "> " in a formula would show
+            return self.block(m, f"<blockquote>\n\n{head}{body}\n\n</blockquote>")
+        if name == "AccordionItem":
+            summary = self.inline_html(a.get("title", "")) or "Details"
+            return self.block(m, f"<details>\n<summary>{summary}</summary>\n\n{body}\n\n</details>")
+        if name == "TabItem":
+            label = self.restore_inline(a.get("label") or a.get("value") or "").strip()
+            return self.block(m, (f"**{label}**\n\n" if label else "") + body)
+        if name == "CodeAssistantAdmonition":
+            return ""
+        # Accordion, Tabs, CardGroup, LeftColoredBar ... and unknown ones:
+        # only their content
+        return self.block(m, body)
+
+    @staticmethod
+    def block(m, text: str) -> str:
+        """A block on lines of its own, indented like the tag's line (lists)."""
+        start = m.string.rfind("\n", 0, m.start()) + 1
+        indent = m.string[start:m.start()]
+        if indent.strip():
+            indent = ""
+        return "\n\n" + "\n".join(indent + ln if ln.strip() else "" for ln in text.split("\n")) + "\n\n"
+
+    def convert(self, text: str, index: int) -> str:
+        """One markdown cell."""
+        self.cell_index = index
+        self.store = []
+        protected = self.protect(text)
+        out = _COMMENT_RE.sub("", protected)
+        out = self.links(out)
+        out = _SELF_RE.sub(self.self_closing, out)
+        for _ in range(50):             # innermost first, as deep as they go
+            out, n = _LEAF_RE.subn(self.paired, out)
+            if not n:
+                break
+        if out == protected:
+            return text
+        out = re.sub(r"\n[ \t]*\n(?:[ \t]*\n)+", "\n\n", out).strip("\n")
+        return self.restore(out) + ("\n" if text.endswith("\n") else "")
+
+
+def front_matter(text: str) -> Tuple[str, Optional[str]]:
+    """Remove a leading '---' block; returns (text, its title)."""
+    m = _FRONT_MATTER_RE.match(text)
+    if not m:
+        return text, None
+    title = None
+    t = re.search(r"^title:\s*(.+?)\s*$", m.group(1), re.M)
+    if t:
+        title = t.group(1).strip().strip("\"'") or None
+    return text[m.end():].lstrip("\n"), title
+
+
+def convert_output(output: Dict, converter: _MarkdownConverter) -> bool:
+    """A picture of an output stored as '<Image src=... />' text -> the picture."""
+    data = output.get("data")
+    if not isinstance(data, dict) or set(data) != {"text/plain"}:
+        return False
+    m = _IMAGE_OUTPUT_RE.match(_source_text(data["text/plain"]))
+    if not m:
+        return False
+    a = _attrs(m.group("attrs"))
+    if not a.get("src"):
+        return False
+    alt = " ".join(a.get("alt", "").split()) or "Output of the previous code cell"
+    alt_md = alt.replace("[", "(").replace("]", ")")
+    output["data"] = {"text/markdown": [f"![{alt_md}]({converter.url(a['src'])})"],
+                      "text/plain": [alt]}
+    return True
+
+
+def convert_notebook(nb: Dict, nb_path: Path, base_path: Path) -> bool:
+    """
+    Make one notebook fit for Jupyter, in place.
+
+    Args:
+        nb (dict): The notebook (nbformat 4).
+        nb_path (Path): Where it lies (links are relative to it).
+        base_path (Path): The ibm-quantum-learning folder.
+
+    Returns:
+        bool: True if anything changed.
+    """
+    cells = nb.get("cells")
+    if not isinstance(cells, list):
+        return False
+    code_tags = {}
+    for i, cell in enumerate(cells):
+        if cell.get("cell_type") == "code":
+            for tag in (cell.get("metadata") or {}).get("tags") or []:
+                code_tags.setdefault(tag, i)
+    conv = _MarkdownConverter(nb_path, base_path, code_tags)
+    changed, title, first_md = False, None, None
+    for i, cell in enumerate(cells):
+        if cell.get("cell_type") == "markdown":
+            text = _source_text(cell.get("source"))
+            new = text
+            if first_md is None:
+                first_md = cell
+                new, title = front_matter(new)
+            new = conv.convert(new, i)
+            if new != text:
+                cell["source"] = _source_lines(new)
+                changed = True
+        elif cell.get("cell_type") == "code":
+            for output in cell.get("outputs") or []:
+                changed |= convert_output(output, conv)
+    # the website shows the front matter's title; a notebook without a heading
+    # of its own gets it as one (a "# comment" in a code block is no heading)
+    has_h1 = any(re.search(r"^#[ \t]+\S", conv.protect(_source_text(c.get("source"))), re.M)
+                 for c in cells if c.get("cell_type") == "markdown")
+    if title and first_md is not None and not has_h1:
+        first_md["source"] = _source_lines(f"# {title}\n\n" + _source_text(first_md["source"]))
+        changed = True
+    return normalize_cell_ids(nb) or changed
+
+
+def normalize_cell_ids(nb: Dict) -> bool:
+    """
+    Cell ids belong to nbformat 4.5. An older notebook that has them fails
+    Jupyter's validation ("Additional properties are not allowed ('id' ...)",
+    41 of the upstream notebooks): make it 4.5, every cell with a valid,
+    unique id.
+
+    Returns:
+        bool: True if anything changed.
+    """
+    cells = nb.get("cells") or []
+    if nb.get("nbformat") != 4 or nb.get("nbformat_minor", 0) >= 5 \
+            or not any("id" in c for c in cells):
+        return False
+    nb["nbformat_minor"] = 5
+    seen = set()
+    for i, cell in enumerate(cells):
+        cid = cell.get("id")
+        if not isinstance(cid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", cid) or cid in seen:
+            n = i
+            while f"rq-cell-{n}" in seen or any(c.get("id") == f"rq-cell-{n}" for c in cells):
+                n += len(cells)
+            cell["id"] = f"rq-cell-{n}"
+        seen.add(cell["id"])
+    return True
+
+
+def _write_like(path: Path, text: str) -> None:
+    """Replace a file's content, keeping its mode and (as root) its owner."""
+    st = path.stat()
+    tmp = path.with_name("." + path.name + ".rq-tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.chmod(tmp, stat.S_IMODE(st.st_mode))
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        os.chown(tmp, st.st_uid, st.st_gid)
+    os.replace(tmp, path)
+
+
+def convert_notebook_file(nb_path: Path, base_path: Path) -> bool:
+    """Convert one notebook file; a file that is no notebook stays as it is."""
+    with open(nb_path, encoding="utf-8") as fh:
+        try:
+            nb = json.load(fh)
+        except ValueError:
+            return False
+    if not isinstance(nb, dict) or not convert_notebook(nb, nb_path, base_path):
+        return False
+    _write_like(nb_path, json.dumps(nb, indent=1, ensure_ascii=False) + "\n")
+    return True
+
+
+def convert_learning_content(base_path: Path, force: bool = False) -> int:
+    """
+    Make every notebook of the download fit for Jupyter, once per converter version.
+
+    Args:
+        base_path (Path): The ibm-quantum-learning folder.
+        force (bool): Also when the marker says it was done.
+
+    Returns:
+        int: Notebooks changed.
+    """
+    marker = base_path / CONVERTED_MARKER
+    if not force:
+        try:
+            if marker.read_text(encoding="utf-8").strip() == CONVERTER_VERSION:
+                return 0
+        except OSError:
+            pass
+    notebooks = [p for d in CONTENT_DIRS for p in sorted((base_path / d).rglob("*.ipynb"))
+                 if ".ipynb_checkpoints" not in p.parts]
+    if not notebooks:
+        return 0
+    print("Preparing the IBM Quantum notebooks for Jupyter (pictures, notes, links)...")
+    changed = 0
+    for nb_path in notebooks:
+        try:
+            changed += convert_notebook_file(nb_path, base_path)
+        except (OSError, TypeError, AttributeError) as e:
+            print(f"Warning: could not convert {nb_path.relative_to(base_path)}: {e}")
+    try:
+        marker.write_text(CONVERTER_VERSION + "\n", encoding="utf-8")
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            st = base_path.stat()
+            os.chown(marker, st.st_uid, st.st_gid)
+    except OSError as e:
+        print(f"Warning: {e}")
+    print(f"Prepared {changed} of {len(notebooks)} notebooks.")
+    return changed
+
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
@@ -947,6 +1366,16 @@ def main():
         action="store_true",
         help="Generate both WELCOME notebooks"
     )
+    parser.add_argument(
+        "--convert",
+        action="store_true",
+        help="Only make the notebooks fit for Jupyter (once; the WELCOME options do it too)"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="With --convert: also when it was done before"
+    )
 
     args = parser.parse_args()
 
@@ -955,6 +1384,11 @@ def main():
     if not base_path.exists():
         print(f"Error: Path does not exist: {base_path}")
         sys.exit(1)
+
+    # The notebooks first: the WELCOME notebooks read their titles
+    convert_learning_content(base_path, force=args.force)
+    if args.convert and not (args.tutorials or args.courses or args.all):
+        sys.exit(0)
 
     # Default to --all if neither --tutorials nor --courses specified
     if not args.tutorials and not args.courses:

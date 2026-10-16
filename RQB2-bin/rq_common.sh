@@ -1858,17 +1858,23 @@ _rq_docker_space_note() {
 }
 
 # The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
-# holds only what the demos use (#18). A checkout made before also held every
-# file at the top of the repository (package.json, tox.ini ...), which the
-# notebooks' file browser showed first: narrow it, with no download (the
-# files are in the clone). The same list as clone_ibm_learning_content in
-# RQB2_menu.sh.
+# holds only what the demos use (#18): the notebooks, their pictures and the
+# licences. A checkout made before held every file at the top of the
+# repository (package.json, tox.ini ...), which the notebooks' file browser
+# showed first, or no pictures (rig mission 2026-10-16): bring it to this
+# list, with no download (the depth-1 clone holds every file). The same list
+# as clone_ibm_learning_content in RQB2_menu.sh. Then the notebooks are made
+# fit for Jupyter, once (setup_ibm_tutorials.py: front matter, pictures,
+# notes, links).
 # Usage: rq_ibm_learning_tidy DIR
-RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /public/learning/images/courses/ /public/docs/images/tutorials/ /public/docs/images/guides/hello-world/ /LICENSE /LICENSE-DOCS"
 rq_ibm_learning_tidy() {
-    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
-    # shellcheck disable=SC2086  # one pattern per word
-    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    [ -d "$1/.git" ] || return 0
+    if [ "$(git -C "$1" sparse-checkout list 2>/dev/null | tr '\n' ' ')" != "$RQ_IBM_LEARNING_PATHS " ]; then
+        # shellcheck disable=SC2086  # one pattern per word
+        git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    fi
+    python3 "$_RQ_COMMON_DIR/setup_ibm_tutorials.py" --convert --path "$1" || true
     return 0
 }
 
