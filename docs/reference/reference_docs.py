@@ -660,8 +660,12 @@ def desktop_md():
     for path in sorted(glob.glob(os.path.join(BOOKMARKS, "*.desktop"))):
         name = os.path.basename(path)[:-len(".desktop")]
         launchers[name] = (path, desktop_entry(path))
-    order = [n for n in sess.ICON_ORDER if n in launchers] + \
-        sorted(n for n in launchers if n not in sess.ICON_ORDER)
+    # The image puts the ICON_ORDER launchers on the desktop (the stage's list,
+    # test_every_desktop_launcher_has_a_place_in_the_layout); the others are
+    # only in the applications menu (rig mission 2026-10-16: LED Test was
+    # listed in the LED panel folder)
+    order = [n for n in sess.ICON_ORDER if n in launchers]
+    menu_only = sorted(n for n in launchers if n not in sess.ICON_ORDER)
 
     def row(name):
         path, e = launchers[name]
@@ -718,7 +722,11 @@ def desktop_md():
     if os.path.isdir(os.path.join(ROOT, "desktop-icons", "start-here")):
         lines.append("- **Main menu button** (top left of the taskbar): the RasQberry icon.")
     if os.path.exists(os.path.join(CONFIG, "desktop-categories", "rasqberry.directory")):
-        lines.append("- The applications menu has a **RasQberry** section with the demo launchers.")
+        line = "- The applications menu has a **RasQberry** section with the demo launchers."
+        if menu_only:
+            line += " Only there: " + ", ".join(
+                f"**{launchers[n][1].get('Name', n)}**" for n in menu_only) + "."
+        lines.append(line)
     for path in sorted(glob.glob(os.path.join(AUTOSTART, "*.desktop"))):
         e = desktop_entry(path)
         lines.append(f"- **{e.get('Name', '')}** (at login): {e.get('Comment', '').strip()}")

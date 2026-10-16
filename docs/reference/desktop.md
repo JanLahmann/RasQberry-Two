@@ -30,7 +30,6 @@ Demos on the LED panel, or in its on-screen view without a panel.
 - **Quantum Raspberry Tie**: Measured qubits on the LED panel, from a simulator or a real IBM quantum computer. Opens `rq_demo_run.sh quantum-raspberry-tie`.
 - **LED-Painter**: Paint images on a canvas and show them on the LED panel as you paint. Opens `rq_demo_run.sh led-painter`.
 - **Clear All LEDs**: Turn off all LEDs on the LED panel. Opens `rq_demo_run.sh led-demos clear-leds`.
-- **LED Test**: Test the LED panel and find its settings with an automatic scan. Opens `rq_demo_run.sh led-demos led-test`.
 
 ### Play
 
@@ -80,7 +79,7 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 ## Taskbar, main menu and login
 
 - **Main menu button** (top left of the taskbar): the RasQberry icon.
-- The applications menu has a **RasQberry** section with the demo launchers.
+- The applications menu has a **RasQberry** section with the demo launchers. Only there: **LED Test**.
 - **RasQberry Desktop Session** (at login): Fit the desktop to the screen, then open the browser (BROWSER_AUTOSTART)
 - **RasQberry VNC (first start)** (at login): Switch VNC on once, at the first desktop login
 - **RasQberry Learner Setup** (at login): Prepare ~/My-Quantum-Programs, Thonny and Geany for your own Qiskit programs (quick and idempotent)

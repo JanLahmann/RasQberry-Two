@@ -79,3 +79,12 @@ def test_rq_help_commands_are_all_there():
 def test_pages_fit_the_helpers_context():
     total = sum(os.path.getsize(p) for p in glob.glob(os.path.join(_REF, "*.md")))
     assert total < 120_000, total
+
+
+def test_folders_list_only_what_the_desktop_has():
+    # rig mission 2026-10-16: LED Test was listed in the LED panel folder,
+    # but the image puts only the ICON_ORDER launchers on the desktop
+    desktop = _page("desktop.md")
+    folders = desktop[desktop.index("## Group icons"):desktop.index("## Taskbar")]
+    assert "**LED Test**" not in folders
+    assert "Only there: **LED Test**." in desktop
