@@ -15,8 +15,10 @@ an SSH key before the first start
 ## Wi-Fi
 
 If the Pi has no network on the first start, the setup checklist offers to
-connect to Wi-Fi. Later: **1 System Options** → **S1 Wireless LAN**, then enter
-the network name (SSID) and the passphrase.
+connect to Wi-Fi. Later: the network icon in the taskbar, or **1 System Options** →
+**S1 Wireless LAN**, then enter the network name (SSID) and the passphrase. The Pi
+keeps its networks and reconnects by itself, also after the router restarts,
+usually within a few minutes.
 
 <img width="850" height="276" alt="raspi-config Wireless LAN" src="https://github.com/user-attachments/assets/d50544dc-3502-4824-a434-a74496b835dc" />
 
@@ -26,7 +28,8 @@ To see the Pi's IP address, run `hostname -I`, or look at **System Info** in
 ## Remote access
 
 On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
-address. The login is `rasqberry` with password `Qiskit1!` unless you changed it.
+address. The login is `rasqberry` with password `Qiskit1!`, or the user and
+password you set in Imager.
 
 ### SSH
 
@@ -36,7 +39,8 @@ SSH is on. From a terminal on your computer:
 ssh rasqberry@rasqberry.local
 ```
 
-Confirm the host key the first time, then enter the password.
+With your own user name from Imager: `ssh <user>@rasqberry.local`. Confirm the
+host key the first time, then enter the password.
 
 ### VNC (the desktop)
 
@@ -50,6 +54,23 @@ desktop, so give the Pi a minute after switching on.
 
 Display demos started over SSH have no screen to open on: start them on the
 desktop, locally or over VNC.
+
+### Raspberry Pi Connect
+
+The desktop and a terminal from a browser anywhere: click the Connect icon in the
+taskbar → **Turn On Raspberry Pi Connect** → **Sign In** (a free Raspberry Pi ID),
+then open [connect.raspberrypi.com](https://connect.raspberrypi.com). Imager can
+sign it in before the first start. Its state: **0 RasQberry** → **Remote Access &
+Security**.
+
+## Sound
+
+Sound plays over HDMI (a monitor with speakers) or a Bluetooth speaker. To pair
+one: the Bluetooth icon in the taskbar → **Add Device**; right-click the volume
+icon to choose the output. A Bluetooth speaker plays 100–300 ms late: on the
+development image, **0 RasQberry** → **Desktop Settings** → **Sound delay** →
+**Calibrate** plays ticks with flashes on the LED panel; adjust until they come
+together.
 
 ## Password
 

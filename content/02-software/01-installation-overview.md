@@ -116,16 +116,17 @@ appears (see [First boot](/#3-first-boot)). Over SSH and VNC the login is
 
 ## About the image
 
-The desktop has an icon for each demo. Everything else is in `sudo raspi-config`
-→ **0 RasQberry**:
+The desktop has a folder for each demo group. Everything else is in the RasQberry
+menu: double-click **RasQberry Configuration** on the desktop (or run
+`sudo raspi-config`), then **0 RasQberry**:
 
 | Menu item | What it does |
 |---|---|
 | Quantum Demos | Learning paths, the demo groups (LED panel, Play, Big projects, Learn & code, Workshops & events, Contributed demos), Manage demos (download all, catalogue, update, remove) |
 | Setup Checklist | The first-start steps again |
-| Desktop Settings | Touch mode, and opening rasqberry.org at desktop login |
+| Desktop Settings | Touch mode, opening rasqberry.org at desktop login, the sound delay for a Bluetooth speaker (development image) |
 | IBM Quantum account | Save, check or forget your API key |
-| Remote Access & Security | Password, SSH and VNC, the Pi's name |
+| Remote Access & Security | Password, SSH and VNC, the Pi's name, Raspberry Pi Connect |
 | Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |
 | System Info | Version, Python and Qiskit versions, A/B slot |
 | Advanced | Edit a RasQberry Two setting, refresh the demo list, update from a GitHub branch |
@@ -177,5 +178,7 @@ SSH is on; VNC is switched on at the first start
   Workshop & Qiskit Server) take 2–4 GB each and need a card of 32 GB or more
   ([card sizes](#2-which-image)).
 - **LED panel stays dark:** see [LED troubleshooting](/03-quantum-computing-demos/led-display/).
-- **Still stuck?** [Open an issue](https://github.com/JanLahmann/RasQberry-Two/issues)
-  and paste the output of `rq_info.sh --json`.
+- **Still stuck?** Run `rq_info.sh --report` (**System Info** names it too): it saves
+  a report file in your home folder. Attach it to a
+  [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/issues), or e-mail it
+  to info@rasqberry.org.

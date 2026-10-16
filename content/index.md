@@ -139,14 +139,21 @@ answer it. It offers only the steps that still need a decision from you:
   colour in which it reads upright. That tells RasQberry how your panel is wired.
   No panel? Say so, and the LED demos use an on-screen view.
 - **Download all demos.** Optional; otherwise each demo downloads on its first start.
-- **Turn on touch mode.** Only when a touchscreen is attached.
+- **Turn on touch mode.** Only when a touchscreen is attached: bigger icons,
+  buttons and menus, and icons open with one tap. Later: the **Touch Mode** icon,
+  or **0 RasQberry** → **Desktop Settings**. The keyboard icon in the taskbar shows
+  an on-screen keyboard; it also opens by itself in text fields.
+- **On some Pis:** setting up the SD card, and notes about a small card or the
+  Pi's firmware.
 
 On the [A/B image](/02-software/03-ab-boot/) the card is prepared for two systems
 during the first start, on cards of 64 GB or more; a smaller card runs one system.
 
-To see the checklist again, double-click the **RasQberry Setup** icon on the
-desktop (or run `rq_firstlogin.sh --all`). Most steps are also in
-`sudo raspi-config` → **0 RasQberry**.
+Every step can wait: leave it unticked, or choose **Later**; the **RasQberry Setup** icon
+on the desktop opens the list again. Done with it? Tick **Don't show again** (the
+last line): the icon goes, and the list stays in the RasQberry menu
+(**0 RasQberry** → **Setup Checklist**, or `rq_firstlogin.sh --all`). The icon
+also goes once every step is done.
 
 Then try something: double-click a demo icon on the desktop, pick one from the
 [demo list](/03-quantum-computing-demos/01-demo-list/), or follow a
@@ -157,9 +164,12 @@ report a bug, in a [GitHub issue](https://github.com/JanLahmann/RasQberry-Two/is
 
 ## Working with Qiskit
 
-Qiskit 2.x is pre-installed in the virtual environment `~/RasQberry-Two/venv/RQB2`; see
-[Installation Overview](/02-software/01-installation-overview/)
-for versions and how to activate it.
+Double-click **My Quantum Programs**: JupyterLab opens in your folder
+`~/My-Quantum-Programs` at Hello World, next to example programs.
+**File** → **New** → **Notebook** starts your own; keep it in that folder, which
+A/B updates keep. Python files run with `rq_python my_program.py` or in Thonny.
+Qiskit 2.x is in `~/RasQberry-Two/venv/RQB2`
+([versions](/02-software/01-installation-overview/)).
 
 ## Building the RasQberry 3D Model
 

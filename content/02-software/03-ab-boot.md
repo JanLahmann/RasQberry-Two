@@ -32,7 +32,9 @@ automatically. To keep it as one system, create an empty file named
    **Check for a newer image** tells you whether a new release is out. A
    terminal or SSH login also shows a one-line notice.
 2. **Slot Manager** → **Install an update into the other system**. It downloads
-   about 1.7 GB and takes 10–20 minutes, then the Pi restarts into the new system.
+   about 2 GB and takes 10–20 minutes, then the Pi restarts into the new system.
+   If nothing newer is out, it offers your release again as a second copy, and
+   **Other release...** for another one.
 3. If the update works, the new system becomes the one the Pi starts from. If
    it doesn't, the Pi goes back to the other one by itself.
 
@@ -73,6 +75,14 @@ you are running.
 The A/B image needs a recent bootloader. If a Pi 4 does not start from the
 card, update its bootloader with Raspberry Pi Imager (**Misc utility images** →
 **Bootloader** → **SD Card Boot**), then try again.
+
+## The slot badge
+
+The taskbar shows which system runs: **A** or **B**, green when confirmed, amber
+while a new system is on trial, a red **!** when an update failed and the Pi went
+back. A dot means a newer release is out (a new beta a few days after its
+release). Click the badge for both slots, **System Info**, **Software & Image
+Updates** and **What's new**. After an update, What's new opens once by itself.
 
 ## Details
 
