@@ -101,7 +101,7 @@ Quantum demos, setup and settings for this RasQberry Two
     - Remove a demo (free space)
     - Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)
 - Setup Checklist
-- **Desktop Settings (touch mode, browser at login)** → menu "RasQberry: Desktop Settings": How the desktop looks, what it opens at login, and sound.
+- **Desktop Settings (touch mode, browser at login, sound delay)** → menu "RasQberry: Desktop Settings": How the desktop looks, what it opens at login, and sound.
   - **Touch mode (bigger icons and buttons): <touch>** → menu "RasQberry: Touch Mode": Current: <current_status>
     - Enable Touch Mode
     - Disable Touch Mode

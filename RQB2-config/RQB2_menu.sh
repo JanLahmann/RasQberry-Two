@@ -3141,7 +3141,7 @@ do_rasqberry_menu() {
     # works on the standard image too; the A/B-only entries inside are hidden
     # there.
     set -- QD "Quantum Demos" SETUP "Setup Checklist" \
-        DESKTOP "Desktop Settings (touch mode, browser at login)" \
+        DESKTOP "Desktop Settings (touch mode, browser at login, sound delay)" \
         IBMQ "IBM Quantum account" REMOTE "Remote Access & Security" \
         HOTSPOT "Wi-Fi Hotspot (booths and classrooms)" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \

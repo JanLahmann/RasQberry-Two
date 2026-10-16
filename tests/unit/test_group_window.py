@@ -387,7 +387,7 @@ def test_touch_mode_is_in_the_desktop_settings_menu():
     settings = menu[menu.index("do_desktop_settings_menu() {"):]
     settings = settings[:settings.index("\n}\n")]
     assert 'TOUCH   "Touch mode (bigger icons and buttons)' in settings and "do_touch_mode_menu" in settings
-    assert 'DESKTOP "Desktop Settings (touch mode, browser at login)"' in menu
+    assert 'DESKTOP "Desktop Settings (touch mode, browser at login, sound delay)"' in menu
 
 
 @pytest.mark.parametrize("gone", [("touch-mode",), ("touch-mode", "rasqberry-setup"),
