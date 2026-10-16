@@ -23,19 +23,19 @@ def _files(tmp_path, version="beta-2026-10-10-053754\n", env=""):
 
 def test_all_facts(tmp_path):
     vf, ef = _files(tmp_path, env="PI_MODEL=Pi5\nLED_LAYOUT=quad-4x12\nLED_LAYOUT_VERIFIED=true\n")
-    assert ds.start_url(vf, ef) == ("https://rasqberry.org/?from=pi&v=beta-2026-10-10-053754"
+    assert ds.start_url(vf, ef) == ("https://rasqberry.org/?from=pi&assistant=1&v=beta-2026-10-10-053754"
                                     "&model=pi5&led=quad-4x12&ledcheck=true")
 
 
 def test_missing_facts_are_left_out(tmp_path):
     vf, ef = _files(tmp_path, version=None, env="")
-    assert ds.start_url(vf, ef) == "https://rasqberry.org/?from=pi&ledcheck=false"
+    assert ds.start_url(vf, ef) == "https://rasqberry.org/?from=pi&assistant=1&ledcheck=false"
 
 
 def test_odd_values_are_left_out_the_layout_stays_when_skipped(tmp_path):
     vf, ef = _files(tmp_path, version="dev build; rm -rf\n",
                     env="PI_MODEL=Pi3\nLED_LAYOUT=single-24x8\nLED_LAYOUT_VERIFIED=skipped\n")
-    assert ds.start_url(vf, ef) == "https://rasqberry.org/?from=pi&led=single-24x8&ledcheck=skipped"
+    assert ds.start_url(vf, ef) == "https://rasqberry.org/?from=pi&assistant=1&led=single-24x8&ledcheck=skipped"
 
 
 def test_fresh_card(tmp_path):

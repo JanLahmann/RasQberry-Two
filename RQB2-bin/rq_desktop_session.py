@@ -67,8 +67,10 @@ TOUCH_CSS = "/usr/config/touch-mode/gtk-touch.css"
 OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
 # "?from=pi": the site greets a Pi (start with First 15 minutes) instead of
 # offering to write the SD card that is already in it (fresh-card test
-# 2026-10-08, F4); the Chromium policy's home page says the same
-HOMEPAGE = "https://rasqberry.org/?from=pi"
+# 2026-10-08, F4); "assistant=1" shows Ket, the RasQberry helper, which
+# the site keeps for visitors from a Pi (Jan, 2026-10-16); the Chromium
+# policy's home page says the same
+HOMEPAGE = "https://rasqberry.org/?from=pi&assistant=1"
 VERSION_FILE = "/etc/rasqberry-version"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 

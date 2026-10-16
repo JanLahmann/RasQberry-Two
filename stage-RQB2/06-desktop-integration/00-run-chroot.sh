@@ -316,11 +316,11 @@ echo "Configuring Chromium browser settings..."
 mkdir -p /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
 {
-  "HomepageLocation": "https://rasqberry.org/?from=pi",
+  "HomepageLocation": "https://rasqberry.org/?from=pi&assistant=1",
   "HomepageIsNewTabPage": false,
-  "NewTabPageLocation": "https://rasqberry.org/?from=pi",
+  "NewTabPageLocation": "https://rasqberry.org/?from=pi&assistant=1",
   "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi"],
+  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi&assistant=1"],
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,
