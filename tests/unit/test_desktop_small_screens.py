@@ -282,6 +282,17 @@ def test_the_pi_opens_the_site_as_a_pi():
     assert policy["RestoreOnStartupURLs"] == [ds.HOMEPAGE]
 
 
+def test_the_bookmarks_lead_to_rasqberry_help():
+    # rig mission 2026-10-16: the bookmark bar's "Help" is Raspberry Pi OS's
+    # (raspberrypi.com documentation); Quantum Links starts with RasQberry's
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    marks = policy["ManagedBookmarks"]
+    assert marks[0] == {"toplevel_name": "Quantum Links"}
+    assert marks[1] == {"name": "RasQberry help",
+                        "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting"}
+
+
 # --- launchers -------------------------------------------------------------------
 
 def test_no_launcher_claims_file_types():

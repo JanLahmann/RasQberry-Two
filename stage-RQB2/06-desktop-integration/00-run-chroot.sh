@@ -328,6 +328,7 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "BookmarkBarEnabled": true,
   "ManagedBookmarks": [
     { "toplevel_name": "Quantum Links" },
+    { "name": "RasQberry help", "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting" },
     {
       "name": "Fun with Quantum family",
       "children": [
