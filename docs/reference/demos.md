@@ -93,7 +93,7 @@ Quantum-controlled coffee maker using Home Connect API (Docker container).
 
 ### Quantum Mixer
 
-Interactive quantum circuit builder and simulator (Docker container).
+Mix a cocktail, an ice cream or a coffee with a quantum circuit (Docker container).
 
 - id `quantum-mixer`; menu: Quantum Demos > Big projects > Quantum Mixer; desktop: Big projects window; needs a screen, a 32 GB card (Docker); download about 900 MB on first start.
 

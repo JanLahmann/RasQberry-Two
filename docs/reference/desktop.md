@@ -27,7 +27,7 @@ Demos on the LED panel, or in its on-screen view without a panel.
 - **IBM LED Demo**: The IBM logo in colour on the LED panel. Opens `rq_demo_run.sh led-demos ibm-logo`.
 - **Quantum Lights Out**: Watch Grover's search solve Lights Out puzzles on the LED panel. Opens `rq_demo_run.sh quantum-lights-out`.
 - **RasQ-LED Demo**: Quantum circuit demo with entanglement patterns on LEDs. Opens `rq_demo_run.sh rasq-led`.
-- **Quantum Raspberry Tie**: Interactive quantum computing demonstration with LED visualisation and musical accompaniment. Opens `rq_demo_run.sh quantum-raspberry-tie`.
+- **Quantum Raspberry Tie**: Measured qubits on the LED panel, from a simulator or a real IBM quantum computer. Opens `rq_demo_run.sh quantum-raspberry-tie`.
 - **LED-Painter**: Paint images on a canvas and show them on the LED panel as you paint. Opens `rq_demo_run.sh led-painter`.
 - **Clear All LEDs**: Turn off all LEDs on the LED panel. Opens `rq_demo_run.sh led-demos clear-leds`.
 - **LED Test**: Test the LED panel and find its settings with an automatic scan. Opens `rq_demo_run.sh led-demos led-test`.

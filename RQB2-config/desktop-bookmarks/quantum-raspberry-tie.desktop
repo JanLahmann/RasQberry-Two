@@ -1,14 +1,14 @@
 [Desktop Entry]
 Version=1.1
 Name=Quantum Raspberry Tie
-Comment=Interactive quantum computing demonstration with LED visualisation and musical accompaniment
+Comment=Measured qubits on the LED panel, from a simulator or a real IBM quantum computer
 Icon=/usr/share/icons/rasqberry/quantum-raspberry-tie.svg
 Type=Application
 Categories=RasQberry;
 Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh quantum-raspberry-tie
 Terminal=true
 StartupNotify=true
-Keywords=quantum;raspberry;tie;music;LED;visualization;qiskit;
+Keywords=quantum;raspberry;tie;LED;visualization;qiskit;
 X-GNOME-TextColor=#000000
 TryExec=/usr/bin/rq_demo_run.sh
 NoDisplay=false
