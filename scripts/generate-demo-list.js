@@ -68,13 +68,18 @@ function pageFor(id) {
 // What a demo needs, in the words a teacher plans with. LED demos fall back to
 // an on-screen view without a panel; an IBM account that is only "preferred"
 // is optional (the simulator is the default); a demo that is not on the card
-// needs the network once, for its first start.
+// needs the network once, for its first start. A Docker demo needs a card of
+// 32 GB or more, as the Pi's menu says ("32 GB"); one that uses another demo's
+// image (install.docker_image_of) downloads it on its first start, although
+// its manifest says preinstalled.
 function needsOf(m) {
   const n = [];
+  const docker = m.entrypoint?.type === 'docker' || Boolean(m.install?.docker_image_of);
   if (m.needs_hw?.leds) n.push('LED panel or on-screen view');
   if (m.needs_hw?.display === 'required') n.push('display');
   if (m.needs_hw?.network) n.push('network');
-  else if (m.install && m.install.preinstalled === false) n.push('network on first start');
+  else if (m.install && (m.install.preinstalled === false || m.install.docker_image_of)) n.push('network on first start');
+  if (docker) n.push('a 32 GB card');
   if (m.needs_ibm_token === 'required') n.push('IBM Quantum account');
   else if (m.needs_ibm_token === 'prefer') n.push('IBM Quantum account optional');
   return n;

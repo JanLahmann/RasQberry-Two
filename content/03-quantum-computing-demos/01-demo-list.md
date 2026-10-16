@@ -42,8 +42,8 @@ Larger builds that show what quantum computing can drive.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network | `qoffee-maker` |
-| **Quantum Mixer** | Interactive quantum circuit builder and simulator (Docker container) | display, network on first start | `quantum-mixer` |
+| **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network, a 32 GB card | `qoffee-maker` |
+| **Quantum Mixer** | Mix a cocktail, an ice cream or a coffee with a quantum circuit (Docker container) | display, network on first start, a 32 GB card | `quantum-mixer` |
 | **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
 | **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
 
@@ -54,8 +54,8 @@ Write quantum programs and work through tutorials and courses.
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
 | **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** | Interactive Bloch sphere visualisation for understanding qubit states | network on first start | `grok-bloch` |
-| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | IBM Quantum account optional | `qiskit-tutorials` |
-| **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network | `quantum-lab` |
+| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
+| **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network, a 32 GB card | `quantum-lab` |
 | **IBM Quantum Tutorials** | Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-tutorials` |
 | **IBM Quantum Courses** | Official IBM Quantum learning courses from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-courses` |
 | **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM Quantum account optional | `composer` |
@@ -66,7 +66,7 @@ For a class or a stand: a server for many laptops, and a loop of demos.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, IBM Quantum account optional | `doqumentation` |
+| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
 
 ## Contributed demos
 
