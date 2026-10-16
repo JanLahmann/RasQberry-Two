@@ -11,7 +11,8 @@ mechanics being what it is, you can shift the odds but never quite give an order
 
 ## Run it
 
-Double-click the **Qoffee-Maker** icon on the desktop. It starts the Qoffee
+Open the **Big projects** folder on the desktop and double-click **Qoffee-Maker**.
+It starts the Qoffee
 container, opens `qoffee.ipynb`, and switches straight into the app view — you do
 not have to run any cells yourself.
 
@@ -43,8 +44,12 @@ specific drink in the middle. That is where it gets interesting: superposition
 means your circuit sets *probabilities*, so you may need a few attempts — which is
 the point of the demo.
 
-With a real Home Connect coffee machine attached, the winning measurement actually
-brews it. Without one, everything works except the coffee.
+With a Home Connect coffee machine, the winning measurement actually brews it:
+register an application as in the
+[Qoffee-Maker README](https://github.com/JanLahmann/Qoffee-Maker#install-home-connect),
+then put its client ID and secret, and `HOMECONNECT_API_URL=https://api.home-connect.com/`,
+into `~/RasQberry-Two/demos/Qoffee-Maker/.env`. Without one, everything works
+except the coffee.
 
 ## Credits and documentation
 

@@ -130,7 +130,7 @@ and the wizard: put a `#` in front of a line, or change it there.
 sudo rq_clear_leds.sh          # --stop also stops a program that holds the panel
 ```
 
-Or use the desktop icon **Clear All LEDs**, or **Quantum Demos** → **LED panel** → **Clear All LEDs**.
+Or use **Clear All LEDs** in the **LED panel** folder on the desktop, or **Quantum Demos** → **LED panel** → **Clear All LEDs**.
 
 ## For developers
 

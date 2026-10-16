@@ -11,12 +11,13 @@ the solution played out on the LED panel.
 
 ## Run it
 
-Double-click the **Quantum Lights Out** icon on the desktop; the puzzle and its
-solution appear on the LED panel.
+Open the **LED panel** folder on the desktop and double-click **Quantum Lights
+Out**; the puzzle and its solution appear on the LED panel.
 
 It is also under **Applications → RasQberry → Quantum Lights Out**, or in
-`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel**. There is a
-console variant in the menu that plays in the terminal instead.
+`sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel** →
+**Quantum Lights Out**, where **Run Demo (console)** plays in the terminal instead
+(`rq_demo_run.sh quantum-lights-out console`).
 
 ## What you'll see
 

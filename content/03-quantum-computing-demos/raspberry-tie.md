@@ -11,7 +11,8 @@ actually arranged on the processor.
 
 ## Run it
 
-Double-click the **Quantum Raspberry Tie** icon on the desktop.
+Open the **LED panel** folder on the desktop and double-click **Quantum Raspberry
+Tie**.
 
 It is also under **Applications → RasQberry → Quantum Raspberry Tie**, or in
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** → **LED panel**.
