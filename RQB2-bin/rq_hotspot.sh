@@ -189,6 +189,7 @@ advertise() {
 # ---------------------------------------------------------------------------
 
 CAPTIVE_CONF="${RQ_HOTSPOT_CAPTIVE_CONF:-/etc/NetworkManager/dnsmasq-shared.d/rasqberry-hotspot-captive.conf}"
+PORTAL_ENV="${RQ_HOTSPOT_PORTAL_ENV:-/run/rasqberry/hotspot-portal.env}"
 
 # Without internet to share, every name points to the Pi: phones then find
 # the landing page by themselves on joining (and say "no internet"). Written
@@ -204,15 +205,25 @@ captive_dns() {
     fi
 }
 
+# portal on SSID IFACE | portal off
+# The page says whether this Wi-Fi reaches the internet: yes when names are
+# not all pointed to the Pi (captive_dns: sharing on and a way out) and the
+# NAT is there; the page itself checks the way out again at every visit
+# (rig mission 2026-10-16: it always said "no internet").
 portal() {
     if [ "$1" = on ]; then
-        mkdir -p /run/rasqberry
-        printf 'RQ_HOTSPOT_SSID=%s\n' "$2" > /run/rasqberry/hotspot-portal.env
+        local internet=no
+        if [ ! -f "$CAPTIVE_CONF" ] && nat_ready "${3:-}"; then
+            internet=yes
+        fi
+        mkdir -p "$(dirname "$PORTAL_ENV")"
+        printf 'RQ_HOTSPOT_SSID=%s\nRQ_HOTSPOT_INTERNET=%s\nRQ_HOTSPOT_IFACE=%s\n' \
+            "$2" "$internet" "${3:-}" > "$PORTAL_ENV"
         systemctl restart rasqberry-hotspot-portal.service 2>/dev/null \
             || warn "The landing page (http://$ADDRESS) did not start."
     else
         systemctl stop rasqberry-hotspot-portal.service 2>/dev/null || true
-        rm -f "$CAPTIVE_CONF" /run/rasqberry/hotspot-portal.env
+        rm -f "$CAPTIVE_CONF" "$PORTAL_ENV"
     fi
 }
 
@@ -274,13 +285,14 @@ cmd_on() {
 
     share_rules "$iface"
     advertise on
-    portal on "$ssid"
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && ! nat_ready "$iface"; then
         # trixie-feedback#62: NAT missing - once more brings it
         nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
         nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1 || true
         nat_ready "$iface" || warn "Internet sharing is on, but NetworkManager set up no NAT for $iface."
     fi
+    # after the NAT check: the page says whether there is internet
+    portal on "$ssid" "$iface"
     [ -n "$quiet" ] || { info "Hotspot on ($iface, $label, channel $channel)."; show_join "$ssid" "$pw"; }
 }
 

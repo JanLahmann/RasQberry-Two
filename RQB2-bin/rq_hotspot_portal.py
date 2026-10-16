@@ -10,7 +10,9 @@ the page's own <title> - so a new demo shows up without a list to keep.
 Without internet on the hotspot, DNS answers every name with 10.42.0.1
 (rq_hotspot.sh), and the phones' connectivity checks (Apple's
 hotspot-detect.html, Android's generate_204, Windows' connecttest.txt) get a
-redirect here: the phone opens this page by itself on joining.
+redirect here: the phone opens this page by itself on joining. The page says
+whether this Wi-Fi reaches the internet (RQ_HOTSPOT_INTERNET from
+rq_hotspot.sh, and a way out of the Pi right now).
 
 Usage: rq_hotspot_portal.py [--address 10.42.0.1] [--port 80]
 """
@@ -96,6 +98,51 @@ def page_title(port, timeout=1.5):
     return None
 
 
+def has_uplink(hotspot_iface="", route_file="/proc/net/route"):
+    """
+    Does the Pi have a way out: a default route over another interface than
+    the hotspot's (a network cable, a USB Wi-Fi adapter)?
+
+    Args:
+        hotspot_iface (str): the hotspot's interface (its routes do not count)
+        route_file (str): the kernel's IPv4 routing table
+
+    Returns:
+        bool: True with such a route
+    """
+    try:
+        with open(route_file) as f:
+            next(f)
+            for line in f:
+                parts = line.split()
+                if len(parts) < 8 or parts[0] == hotspot_iface:
+                    continue
+                # destination and mask 0.0.0.0, flag RTF_UP
+                if parts[1] == "00000000" and parts[7] == "00000000" and int(parts[3], 16) & 1:
+                    return True
+    except (OSError, StopIteration, ValueError):
+        return False
+    return False
+
+
+def reaches_internet(env=None, route_file="/proc/net/route"):
+    """
+    Does this Wi-Fi reach the internet: rq_hotspot.sh shares it (sharing on, a
+    way out at the start, the NAT there), and the way out is still there.
+
+    Args:
+        env (dict): the environment (default: os.environ)
+        route_file (str): the kernel's IPv4 routing table
+
+    Returns:
+        bool: True if phones on the hotspot reach the internet
+    """
+    env = os.environ if env is None else env
+    if env.get("RQ_HOTSPOT_INTERNET", "no") != "yes":
+        return False
+    return has_uplink(env.get("RQ_HOTSPOT_IFACE", ""), route_file)
+
+
 def offers(address):
     """
     The web pages demos serve right now.
@@ -113,14 +160,20 @@ def offers(address):
     return found
 
 
-def render(address, ssid, items):
-    """The landing page (HTML)."""
+def render(address, ssid, items, internet=False):
+    """The landing page (HTML); internet: this Wi-Fi reaches the internet."""
     rows = "\n".join(
         f'<li><a href="{html.escape(url)}">{html.escape(title)}</a>'
         f'<span>{html.escape(url)}</span></li>' for title, url in items)
     if not rows:
         rows = ('<li class="none">No demo is open to phones right now. Start one on the '
                 "RasQberry, e.g. Entangible or the LED browser view, then reload this page.</li>")
+    if internet:
+        note = ("This Wi-Fi also reaches the internet, through the RasQberry; the demos run on the "
+                'RasQberry itself. More about RasQberry: <a href="https://rasqberry.org/">rasqberry.org</a>')
+    else:
+        note = ("This Wi-Fi has no internet; the demos run on the RasQberry itself. "
+                "More about RasQberry: rasqberry.org")
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -132,6 +185,7 @@ body {{ margin:0; padding:24px 16px; font:17px/1.45 system-ui, sans-serif; backg
 main {{ max-width:560px; margin:0 auto; }}
 h1 {{ font-size:24px; margin:0 0 4px; }}
 p {{ color:var(--muted); margin:0 0 20px; }}
+p a {{ color:var(--accent); }}
 ul {{ list-style:none; padding:0; margin:0 0 24px; }}
 li {{ border-top:1px solid var(--line); padding:14px 0; }}
 li a {{ color:var(--accent); font-weight:600; text-decoration:none; display:block; }}
@@ -146,7 +200,7 @@ li.none {{ color:var(--muted); }}
 {rows}
 </ul>
 <a class="reload" href="/">Reload</a>
-<p style="margin-top:24px">This Wi-Fi has no internet; the demos run on the RasQberry itself. More about RasQberry: rasqberry.org</p>
+<p style="margin-top:24px">{note}</p>
 </main></body></html>"""
 
 
@@ -169,7 +223,7 @@ def make_handler(address, ssid):
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            body = render(address, ssid, offers(address)).encode("utf-8")
+            body = render(address, ssid, offers(address), reaches_internet()).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")

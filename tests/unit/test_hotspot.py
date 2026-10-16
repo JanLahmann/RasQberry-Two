@@ -169,3 +169,59 @@ def test_join_card_escapes_and_has_both_codes(tmp_path):
     assert card.count("<svg") == 2
     assert "Booth &lt;1&gt;" in card and "pa&amp;ss word" in card and "Booth <1>" not in card
     assert "http://10.42.0.1" in card and "@page { size: A6" in card
+
+
+# Rig mission 2026-10-16: the page always said "This Wi-Fi has no internet",
+# also with sharing on and a cable in the Pi
+_ROUTES_HEAD = "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n"
+
+
+def _routes(tmp_path, *lines):
+    f = tmp_path / "route"
+    f.write_text(_ROUTES_HEAD + "".join(lines))
+    return str(f)
+
+
+def test_landing_page_says_whether_the_wifi_reaches_the_internet():
+    portal = _portal()
+    off = portal.render("10.42.0.1", "Booth", [])
+    assert "This Wi-Fi has no internet" in off and "reaches the internet" not in off
+    on = portal.render("10.42.0.1", "Booth", [], internet=True)
+    assert "This Wi-Fi also reaches the internet" in on and "has no internet" not in on
+    assert '<a href="https://rasqberry.org/">rasqberry.org</a>' in on
+
+
+def test_internet_needs_sharing_and_a_way_out(tmp_path):
+    portal = _portal()
+    cable = _routes(tmp_path, "eth0\t00000000\t01B2A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n",
+                    "wlan0\t002A0A00\t00000000\t0001\t0\t0\t600\t00FFFFFF\t0\t0\t0\n")
+    shared = {"RQ_HOTSPOT_INTERNET": "yes", "RQ_HOTSPOT_IFACE": "wlan0"}
+    assert portal.reaches_internet(shared, cable)
+    assert not portal.reaches_internet({"RQ_HOTSPOT_INTERNET": "no", "RQ_HOTSPOT_IFACE": "wlan0"}, cable)
+    assert not portal.reaches_internet({}, cable)
+    # the cable is out: only the hotspot's own routes are left
+    hotspot_only = _routes(tmp_path, "wlan0\t00000000\t00000000\t0001\t0\t0\t600\t00000000\t0\t0\t0\n")
+    assert not portal.reaches_internet(shared, hotspot_only)
+    assert not portal.reaches_internet(shared, _routes(tmp_path))
+    assert not portal.reaches_internet(shared, str(tmp_path / "missing"))
+
+
+def test_hotspot_tells_the_page_whether_it_shares_internet(tmp_path):
+    env_file = tmp_path / "portal.env"
+    captive = tmp_path / "captive.conf"
+    e = {"RQ_HOTSPOT_PORTAL_ENV": str(env_file), "RQ_HOTSPOT_CAPTIVE_CONF": str(captive)}
+    stubs = "systemctl() { :; }; nat_ready() { [ \"$1\" = wlan0 ]; }; "
+    assert _bash(stubs + "portal on Booth wlan0", e).returncode == 0
+    assert env_file.read_text() == "RQ_HOTSPOT_SSID=Booth\nRQ_HOTSPOT_INTERNET=yes\nRQ_HOTSPOT_IFACE=wlan0\n"
+    captive.write_text("address=/#/10.42.0.1\n")      # no way out: every name leads to the page
+    _bash(stubs + "portal on Booth wlan0", e)
+    assert "RQ_HOTSPOT_INTERNET=no\n" in env_file.read_text()
+    captive.unlink()
+    _bash(stubs + "portal on Booth wlan1", e)             # no NAT for the hotspot
+    assert "RQ_HOTSPOT_INTERNET=no\n" in env_file.read_text()
+    _bash(stubs + "portal off", e)
+    assert not env_file.exists()
+    sh = open(_SCRIPT).read()
+    on = sh[sh.index("cmd_on() {"):]
+    on = on[:on.index("\n}\n")]
+    assert on.index("nat_ready") < on.index('portal on "$ssid" "$iface"')
