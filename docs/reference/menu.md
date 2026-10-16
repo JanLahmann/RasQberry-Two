@@ -110,7 +110,7 @@ Quantum demos, setup and settings for this RasQberry Two
   - **Sound delay (Bluetooth speaker): <ms> ms** → menu "Sound delay": Now: <cur> ms. How long the LEDs of demos with sound wait for the speaker (Bluetooth speakers play 100-300 ms late).
     - Calibrate: a tick and a flash, adjust until they match
     - Type the number of milliseconds
-- **IBM Quantum account** → menu "RasQberry: IBM Quantum account": Every demo runs on a simulator without an account. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com).
+- **IBM Quantum account** → menu "RasQberry: IBM Quantum account": The demos run on a simulator without an account; most IBM Quantum Tutorials need one. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com).
   - Save my API key (checked first)
   - Check the saved account
   - Show the saved account

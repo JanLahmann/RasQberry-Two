@@ -2810,7 +2810,7 @@ do_ibm_account_show() {
         fi
     done
     if [ -z "$_ia_text" ]; then
-        _ia_text="No IBM Quantum account is saved on this Pi.\n\nEvery demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com, create an API key and save it with \"Save my API key\"."
+        _ia_text="No IBM Quantum account is saved on this Pi.\n\nThe demos run on a simulator without one; most IBM Quantum Tutorials need one. For real quantum computers, create your own free account at quantum.cloud.ibm.com, create an API key and save it with \"Save my API key\"."
     else
         _ia_text="${_ia_text}The API key itself is not shown."
     fi
@@ -2857,7 +2857,7 @@ _rq_ibm_token_tool() {
 do_ibm_account_menu() {
     while true; do
         FUN=$(show_menu "RasQberry: IBM Quantum account" \
-            "Every demo runs on a simulator without an account. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com)." \
+            "The demos run on a simulator without an account; most IBM Quantum Tutorials need one. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com)." \
             SAVE   "Save my API key (checked first)" \
             CHECK  "Check the saved account" \
             SHOW   "Show the saved account" \
