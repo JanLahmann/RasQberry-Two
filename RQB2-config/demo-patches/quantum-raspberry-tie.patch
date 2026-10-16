@@ -1,5 +1,5 @@
 diff --git a/QuantumRaspberryTie.v8_0.py b/QuantumRaspberryTie.v8_0.py
-index 5ba805e..c795fe9 100644
+index 5ba805e..369a030 100644
 --- a/QuantumRaspberryTie.v8_0.py
 +++ b/QuantumRaspberryTie.v8_0.py
 @@ -108,6 +108,38 @@
@@ -204,3 +204,12 @@ index 5ba805e..c795fe9 100644
      if DualNEO: display_to_LEDs(Arrow, matrix_map2)
  
  if DualDisplay and not NoHat: hat2.set_pixels(Arrow)
+@@ -1379,7 +1452,7 @@ while Looping:
+                         running_timeout = False
+                         running_cancelled = False
+                         showlogo =  False
+-                        resuqdone = False
++                        qdone = False
+                         while not (qdone or running_timeout or running_cancelled):
+                             qdone = qjob.in_final_state() or qjob.cancelled()
+                             if not UseLocal:
