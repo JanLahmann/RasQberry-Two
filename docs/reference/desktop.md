@@ -28,7 +28,7 @@ Demos on the LED panel, or in its on-screen view without a panel.
 - **Quantum Lights Out**: Watch Grover's search solve Lights Out puzzles on the LED panel. Opens `rq_demo_run.sh quantum-lights-out`.
 - **RasQ-LED Demo**: Quantum circuit demo with entanglement patterns on LEDs. Opens `rq_demo_run.sh rasq-led`.
 - **Quantum Raspberry Tie**: Measured qubits on the LED panel, from a simulator or a real IBM quantum computer. Opens `rq_demo_run.sh quantum-raspberry-tie`.
-- **LED-Painter**: Paint images on a canvas and show them on the LED panel as you paint. Opens `rq_demo_run.sh led-painter`.
+- **LED-Painter**: Paint a picture on a canvas, then show it on the LED panel: Display > Display this image on the LEDs. Opens `rq_demo_run.sh led-painter`.
 - **Clear All LEDs**: Turn off all LEDs on the LED panel. Opens `rq_demo_run.sh led-demos clear-leds`.
 
 ### Play
