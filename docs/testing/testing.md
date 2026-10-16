@@ -12,10 +12,13 @@ Test the **latest beta** or the **latest development image**, nothing older:
 
 - **Latest beta:** in Raspberry Pi Imager, **RasQberry Two Beta**.
 - **Latest development image:** in Imager, **RasQberry developer builds** →
-  **RasQberry Two Dev (development …)** with the newest date. Other entries in that
-  folder are experiments; leave them out.
+  **RasQberry Two Dev A/B (development …)** with the newest date (**RasQberry Two Dev
+  (development …)** is its single-system image). Other entries in that folder are
+  experiments; leave them out.
 
-The A/B image is best: it updates over the air, so you stay on the newest version.
+The A/B image is best: on a card of 64 GB or more it updates over the air, so you stay
+on the newest version. Missions that need the development image test what is not in
+the beta yet.
 **System Info** in the RasQberry menu shows your version; tell Ket which one you use.
 
 ## How it works
@@ -27,13 +30,19 @@ The A/B image is best: it updates over the air, so you stay on the newest versio
   passphrase you got from us unlocks it.
 - **Do the mission on your own.** A mission is a goal, not a recipe. Find your way with
   the [documentation](/) and Ket on the Pi's start page (the normal RasQberry helper), as any
-  user would. In tester mode, Ket does not help with the mission itself; it points you
-  there. Where the documentation or Ket leaves you stuck, that is a finding too.
+  user would. On an image built before 16 October 2026, open
+  [rasqberry.org/?from=pi&assistant=1](https://rasqberry.org/?from=pi&assistant=1) once in
+  the Pi's browser: Ket then stays for that tab. In tester mode, Ket does not help with the
+  mission itself; it points you there. Where the documentation or Ket leaves you stuck,
+  that is a finding too.
 - **Report back to Ket:** what worked, what didn't, confusing words, slow
   steps, ideas. It writes it down for us, and we follow up on GitHub.
 
 Nearly everything is still an early beta that no person has tested yet: expect rough
 edges. That is why we need you.
+
+Most demos download on their first start: have internet then, or run **Download all
+demos** first.
 
 <div id="privacy"></div>
 
