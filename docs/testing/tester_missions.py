@@ -33,29 +33,32 @@ OUT_PAGE = os.path.join(HERE, "testing.md")
 # Postponed for this round (Jan, 2026-10-15)
 POSTPONED = {"doqumentation"}
 
-# The groups, in the page's order (Jan, 2026-10-15)
+# The groups, in the page's order (Jan, 2026-10-15). The demo groups are
+# named as the Pi's folders they match (mission sweep 2026-10-16), except
+# "other", which the Pi spreads over Learn & code and Contributed demos.
 GROUPS = [
     ("core", "Core RasQberry"),
     ("user", "RasQberry user"),
     ("advanced", "RasQberry advanced configuration"),
-    ("led", "LED demos"),
-    ("big", "Big demos"),
-    ("fwq", "Fun with Quantum games"),
-    ("learn", "Learning and coding"),
-    ("other", "Demos from other projects"),
+    ("led", "LED panel"),
+    ("big", "Big projects"),
+    ("fwq", "Play"),
+    ("learn", "Learn & code"),
+    ("other", "IBM and partner demos"),
 ]
 
 # Group rules for demos, in this order:
 #   other: a service from outside (IBM, SAP) - not "written by someone else".
 #          Catalogue entries name it in "provider"; the shipped manifests
 #          have no such field, so their outside services are listed here.
-#   led:   the demo drives the LED panel
-#   big:   the larger builds, listed
-#   fwq:   the parts of Fun with Quantum
-#   learn: the rest
+#   else:  the Pi's folder (the manifest's or catalogue entry's "group", see
+#          demo-groups.json): LED panel, Play (Fun with Quantum, paradoxes,
+#          fractals), Big projects, Learn & code; a catalogue entry without
+#          one goes to Contributed demos, as on the Pi
 OUTSIDE_SERVICES = {"composer", "ibm-courses", "ibm-tutorials", "quantum-lab"}
 OWN_PROVIDERS = {"the Fun with Quantum family"}
-BIG_DEMOS = {"entangible", "racetraq", "qoffee-maker", "quantum-mixer"}
+FOLDER_GROUPS = {"led-panel": "led", "play": "fwq", "projects": "big", "learn": "learn",
+                 "contributed": "other"}
 
 # Beta for every mission, whatever the manifests say: no mission has been
 # tested by people yet, except these three (Jan, 2026-10-15)
@@ -67,19 +70,20 @@ DEMO_GOALS = {
     "composer": "Build a circuit in the IBM Quantum Composer and simulate it.",
     "entangible": "Build a circuit with the printed gate tiles and let the camera read it.",
     "grok-bloch": "Move a qubit around the Bloch sphere and follow the gates.",
-    "grok-bloch-web": "Explore the Bloch sphere in the web version.",
+    "grok-bloch-web": "Open the online version from the Pi and move a qubit around the Bloch sphere.",
     "ibm-courses": "Open an IBM Quantum course and run its first code cells.",
     "ibm-tutorials": "Open an IBM Quantum tutorial and run its code cells.",
     "led-demos": "Try the LED demos: text, logos and colour effects on the LED panel.",
     "led-painter": "Paint a picture and show it on the LED panel.",
-    "qiskit-tutorials": "Work through the IBM Quantum tutorials, guides and courses on this Pi, with live code.",
+    "qiskit-tutorials": "Open a tutorial in Qiskit Tutorials on this Pi and run its code.",
     "qoffee-maker": "Order a coffee from a quantum computer, with or without a Home Connect machine.",
     "quantum-fractals": "Watch the fractals change with the state of a qubit.",
     "quantum-lab": "Start the Quantum Lab and run a notebook.",
     "quantum-lights-out": "Watch Grover's search solve Lights Out, on the LED panel and in the console.",
-    "quantum-mixer": "Mix a colour with a quantum circuit.",
+    "quantum-mixer": "Mix a cocktail, an ice cream or a coffee with a quantum circuit.",
     "quantum-paradoxes": "Work through one of the quantum paradox notebooks.",
-    "quantum-raspberry-tie": "Show measured qubits on the LED panel, from the simulator and from a real quantum computer.",
+    "quantum-raspberry-tie": ("Show measured qubits on the LED panel, from the simulator or, with an IBM Quantum "
+                              "account, a real quantum computer."),
     "rasq-led": "Show superposition and entanglement on the LED panel.",
     "racetraq": "Race a car steered by a quantum agent and train your own.",
     "sap-quantum-learning": "Take the quiz and build a circuit in SAP Quantum Learning.",
@@ -87,14 +91,21 @@ DEMO_GOALS = {
 }
 GENERIC_GOAL = "Start {name}, find out what it shows, and stop it again."
 
+# Titles where the manifest's name is not what the tester finds: the Pi
+# shows the online Bloch sphere only as "Online version" in the Grokking
+# submenu (its own manifest is hidden)
+DEMO_TITLES = {
+    "grok-bloch-web": "Grokking the Bloch Sphere: online version",
+}
+
 # Demos with one mission per part: the variants of their manifest, named as
 # the menu and the variant chooser show them (Fun with Quantum: Jan,
 # 2026-10-15). The desktop entry "Quantum Coin Game" opens the coin-game part.
 SPLIT_DEMOS = {"fun-with-quantum"}
 PART_GOALS = {
     "fun-with-quantum": {
-        "readme": "Find out what the Fun with Quantum games are about.",
-        "coin-game": "Play the Quantum Coin Game against a quantum computer.",
+        "readme": "Open the Fun with Quantum start page and pick a game from it.",
+        "coin-game": "Play the Quantum Coin Game, first classically, then with the quantum H move.",
         "ghz-game": "Play the GHZ Game and see how quantum players win.",
         "hardys-paradox": "Work through Hardy's Paradox.",
         "mermin-peres": "Play the Mermin–Peres Magic Square.",
@@ -108,6 +119,9 @@ PART_GOALS = {
 }
 PART_NEEDS = {"fun-with-quantum": {"ghz-real-devices": ["internet", "ibm-account"],
                                    "family": ["internet"]}}
+# Part titles where the variant's name does not fit a title ("Start here:
+# what the games are about": the notebook is a list of the games)
+PART_TITLES = {"fun-with-quantum": {"readme": "Fun with Quantum: start here"}}
 
 # Missions that are not one demo, in their group's order. Names as the user
 # sees them (menu, desktop, website). needs: what the tester must have.
@@ -117,16 +131,17 @@ FUNCTIONS = [
      "Install RasQberry with Raspberry Pi Imager, with your own user name, password and Wi-Fi, and reach the desktop.",
      []),
     ("setup-checklist", "core", "Setup Checklist",
-     "Finish the Setup Checklist: every item done or skipped.", []),
+     "Go through the Setup Checklist until its icon leaves the desktop: do each step, or skip it.", []),
     ("desktop-groups", "core", "Desktop folders and menu",
      "Find each demo through its desktop folder and through the RasQberry menu.", []),
     ("wifi", "core", "Wi-Fi",
      "Join a Wi-Fi network, and see the Pi come back after the router restarts.", []),
     ("ab-update", "core", "Update to a new release",
-     "Install a newer release into the other system, start it, and go back to the old one.",
+     "Install a release into the other system (a newer one, or the same again), start it, and go back.",
      ["internet", "ab-image"]),
     ("whats-new", "core", "Slot icon and What's new",
-     "Use the slot icon in the taskbar and read What's new after an update.", ["ab-image"]),
+     "Use the slot icon in the taskbar and read What's new after an update.",
+     ["internet", "ab-image"]),
     ("help", "core", "Help and feedback",
      "Get help for a problem from the Pi: System Info, the helper and the website.", []),
     # user
@@ -141,8 +156,8 @@ FUNCTIONS = [
     ("ibm-account", "user", "IBM Quantum account",
      "Save your IBM Quantum API key and run a demo on a real quantum computer.",
      ["internet", "ibm-account"]),
-    ("catalogue", "user", "Add, update and remove a demo",
-     "Add a demo from the catalogue, update it, and remove it again.", ["internet"]),
+    ("catalogue", "user", "Add and remove a demo",
+     "Add a demo from the catalogue, start it, and remove it again.", ["internet"]),
     ("led-views", "user", "LED views without a panel",
      "Watch an LED demo in the on-screen view and in the browser view.", []),
     ("touch", "user", "Touchscreen",
@@ -151,8 +166,8 @@ FUNCTIONS = [
     ("led-setup", "advanced", "LED panel setup",
      "Set up the LED panel: find its layout, check it, and set the brightness.", ["led-panel"]),
     ("sound", "advanced", "Sound on a Bluetooth speaker",
-     "Pair a Bluetooth speaker, play a demo with sound and calibrate the sound delay.",
-     ["bluetooth-speaker", "led-panel"]),
+     "Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together.",
+     ["bluetooth-speaker", "led-panel", "dev-image"]),
     ("remote", "advanced", "Remote access",
      "Reach the Pi from another computer: SSH, VNC and Raspberry Pi Connect.", ["internet"]),
     ("hotspot", "advanced", "Wi-Fi hotspot",
@@ -169,15 +184,22 @@ NEEDS_TEXT = {
     "bluetooth-speaker": "Bluetooth speaker",
     "internet": "internet",
     "ibm-account": "IBM Quantum account",
-    "ab-image": "A/B image",
+    "ab-image": "A/B image on a 64 GB card or larger",
     "single-image": "single-system image",
     "display": "screen",
     "camera": "camera (USB webcam or Pi camera)",
+    "big-card": "SD card of 32 GB or more",
+    "dev-image": "development image",
 }
 
-# Needs the manifests have no field for (yet)
+# Needs the manifests have no field for (yet). Catalogue demos: known-demos.json
+# has no needs, so they come from the demo's rqb-demo.json at the pinned commit.
 EXTRA_NEEDS = {
-    "entangible": ["camera"],    # its tiles are read by a camera (manifest description)
+    "entangible": ["camera", "dev-image"],  # tiles read by a camera; not in beta-2026-10-10
+    "racetraq": ["display", "big-card"],    # rqb-demo.json: display required, a Docker demo
+    "sap-quantum-learning": ["display"],    # rqb-demo.json: display required (web page)
+    # most tutorials, Hello world too, run on IBM hardware through the saved account
+    "ibm-tutorials": ["internet", "ibm-account"],
 }
 
 
@@ -201,21 +223,27 @@ def demo_needs(manifest):
         needs.append("internet")
     if hw.get("audio"):
         needs.append("bluetooth-speaker")
-    if manifest.get("needs_ibm_token") == "require":
+    if manifest.get("needs_ibm_token") == "required":
         needs.append("ibm-account")
+    # a Docker demo: the Pi stops it on a 16 GB card (rq_stop_if_card_too_small),
+    # the menu tags it "32 GB" (rq_demo_generate_menu.sh demo_needs)
+    entry = manifest.get("entrypoint") or {}
+    if entry.get("type") == "docker" or (manifest.get("install") or {}).get("docker_image_of"):
+        needs.append("big-card")
     for need in EXTRA_NEEDS.get(manifest.get("id", ""), []):
         if need not in needs:
             needs.append(need)
     return needs
 
 
-def demo_group(demo_id, manifest):
+def demo_group(demo_id, manifest, catalogue=False):
     """
     The group of a demo, by the rules above.
 
     Args:
         demo_id (str): the demo's id
         manifest (dict): its manifest or catalogue entry
+        catalogue (bool): a known-demos.json entry (no group: Contributed demos)
 
     Returns:
         str: a group id
@@ -223,13 +251,8 @@ def demo_group(demo_id, manifest):
     provider = manifest.get("provider")
     if demo_id in OUTSIDE_SERVICES or (provider and provider not in OWN_PROVIDERS):
         return "other"
-    if "led-panel" in demo_needs(manifest):
-        return "led"
-    if demo_id in BIG_DEMOS:
-        return "big"
-    if demo_id in SPLIT_DEMOS:
-        return "fwq"
-    return "learn"
+    folder = manifest.get("group") or ("contributed" if catalogue else "learn")
+    return FOLDER_GROUPS.get(folder, "learn")
 
 
 def build():
@@ -256,7 +279,8 @@ def build():
                     "id": f"demo-{m['id']}-{v['id']}",
                     "group": group,
                     # "Fun with Quantum: GHZ Game", as the chooser shows it under its demo
-                    "title": v["name"] if v["name"].startswith(m["name"]) else f"{m['name']}: {v['name']}",
+                    "title": PART_TITLES.get(m["id"], {}).get(v["id"]) or (
+                        v["name"] if v["name"].startswith(m["name"]) else f"{m['name']}: {v['name']}"),
                     "goal": PART_GOALS.get(m["id"], {}).get(v["id"], GENERIC_GOAL.format(name=v["name"])),
                     "needs": demo_needs(m) + extra,
                     "demo": m["id"],
@@ -266,7 +290,7 @@ def build():
         missions.append({
             "id": "demo-" + m["id"],
             "group": group,
-            "title": m["name"],
+            "title": DEMO_TITLES.get(m["id"], m["name"]),
             "goal": DEMO_GOALS.get(m["id"], GENERIC_GOAL.format(name=m["name"])),
             "needs": demo_needs(m),
             "demo": m["id"],
@@ -277,10 +301,10 @@ def build():
         name = entry.get("name") or entry["id"]
         missions.append({
             "id": "demo-" + entry["id"],
-            "group": demo_group(entry["id"], entry),
+            "group": demo_group(entry["id"], entry, catalogue=True),
             "title": name,
             "goal": DEMO_GOALS.get(entry["id"], GENERIC_GOAL.format(name=name)),
-            "needs": ["internet"] + demo_needs(entry),
+            "needs": ["internet"] + [n for n in demo_needs(entry) if n != "internet"],
             "demo": entry["id"],
             "catalogue": True,
         })
@@ -297,10 +321,11 @@ def build():
 
     order = [g for g, _ in GROUPS]
     # groups in order; functions as listed (first start first), parts of a
-    # demo as its manifest lists them (Start here first), demos by name
+    # demo as its manifest lists them (Start here first), then the other
+    # demos by name (in Play: Fun with Quantum first, as in the Pi's menu)
     listed = [f[0] for f in FUNCTIONS] + [m["id"] for m in missions if "part" in m]
     missions.sort(key=lambda m: (order.index(m["group"]),
-                                 listed.index(m["id"]) if m["id"] in listed else 0,
+                                 listed.index(m["id"]) if m["id"] in listed else len(listed),
                                  m["title"].lower()))
     return {
         "_doc": ("Tester missions, generated by docs/testing/tester_missions.py from the demo "

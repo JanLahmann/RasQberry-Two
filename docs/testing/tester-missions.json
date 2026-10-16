@@ -15,23 +15,23 @@
     },
     {
       "id": "led",
-      "title": "LED demos"
+      "title": "LED panel"
     },
     {
       "id": "big",
-      "title": "Big demos"
+      "title": "Big projects"
     },
     {
       "id": "fwq",
-      "title": "Fun with Quantum games"
+      "title": "Play"
     },
     {
       "id": "learn",
-      "title": "Learning and coding"
+      "title": "Learn & code"
     },
     {
       "id": "other",
-      "title": "Demos from other projects"
+      "title": "IBM and partner demos"
     }
   ],
   "needs_keys": {
@@ -40,10 +40,12 @@
     "bluetooth-speaker": "Bluetooth speaker",
     "internet": "internet",
     "ibm-account": "IBM Quantum account",
-    "ab-image": "A/B image",
+    "ab-image": "A/B image on a 64 GB card or larger",
     "single-image": "single-system image",
     "display": "screen",
-    "camera": "camera (USB webcam or Pi camera)"
+    "camera": "camera (USB webcam or Pi camera)",
+    "big-card": "SD card of 32 GB or more",
+    "dev-image": "development image"
   },
   "postponed": [
     "doqumentation"
@@ -61,7 +63,7 @@
       "id": "setup-checklist",
       "group": "core",
       "title": "Setup Checklist",
-      "goal": "Finish the Setup Checklist: every item done or skipped.",
+      "goal": "Go through the Setup Checklist until its icon leaves the desktop: do each step, or skip it.",
       "needs": [],
       "maturity": "beta"
     },
@@ -85,7 +87,7 @@
       "id": "ab-update",
       "group": "core",
       "title": "Update to a new release",
-      "goal": "Install a newer release into the other system, start it, and go back to the old one.",
+      "goal": "Install a release into the other system (a newer one, or the same again), start it, and go back.",
       "needs": [
         "internet",
         "ab-image"
@@ -98,6 +100,7 @@
       "title": "Slot icon and What's new",
       "goal": "Use the slot icon in the taskbar and read What's new after an update.",
       "needs": [
+        "internet",
         "ab-image"
       ],
       "maturity": "beta"
@@ -158,8 +161,8 @@
     {
       "id": "catalogue",
       "group": "user",
-      "title": "Add, update and remove a demo",
-      "goal": "Add a demo from the catalogue, update it, and remove it again.",
+      "title": "Add and remove a demo",
+      "goal": "Add a demo from the catalogue, start it, and remove it again.",
       "needs": [
         "internet"
       ],
@@ -197,10 +200,11 @@
       "id": "sound",
       "group": "advanced",
       "title": "Sound on a Bluetooth speaker",
-      "goal": "Pair a Bluetooth speaker, play a demo with sound and calibrate the sound delay.",
+      "goal": "Pair a Bluetooth speaker and calibrate the sound delay until tick and LED flash come together.",
       "needs": [
         "bluetooth-speaker",
-        "led-panel"
+        "led-panel",
+        "dev-image"
       ],
       "maturity": "beta"
     },
@@ -272,7 +276,7 @@
       "id": "demo-quantum-raspberry-tie",
       "group": "led",
       "title": "Quantum Raspberry Tie",
-      "goal": "Show measured qubits on the LED panel, from the simulator and from a real quantum computer.",
+      "goal": "Show measured qubits on the LED panel, from the simulator or, with an IBM Quantum account, a real quantum computer.",
       "needs": [
         "led-panel",
         "display"
@@ -297,7 +301,8 @@
       "title": "Entangible",
       "goal": "Build a circuit with the printed gate tiles and let the camera read it.",
       "needs": [
-        "camera"
+        "camera",
+        "dev-image"
       ],
       "demo": "entangible",
       "maturity": "beta"
@@ -309,7 +314,8 @@
       "goal": "Order a coffee from a quantum computer, with or without a Home Connect machine.",
       "needs": [
         "display",
-        "internet"
+        "internet",
+        "big-card"
       ],
       "demo": "qoffee-maker",
       "maturity": "beta"
@@ -318,9 +324,10 @@
       "id": "demo-quantum-mixer",
       "group": "big",
       "title": "Quantum Mixer",
-      "goal": "Mix a colour with a quantum circuit.",
+      "goal": "Mix a cocktail, an ice cream or a coffee with a quantum circuit.",
       "needs": [
-        "display"
+        "display",
+        "big-card"
       ],
       "demo": "quantum-mixer",
       "maturity": "beta"
@@ -331,7 +338,9 @@
       "title": "racetraQ",
       "goal": "Race a car steered by a quantum agent and train your own.",
       "needs": [
-        "internet"
+        "internet",
+        "display",
+        "big-card"
       ],
       "demo": "racetraq",
       "catalogue": true,
@@ -340,8 +349,8 @@
     {
       "id": "demo-fun-with-quantum-readme",
       "group": "fwq",
-      "title": "Fun with Quantum: Start here: what the games are about",
-      "goal": "Find out what the Fun with Quantum games are about.",
+      "title": "Fun with Quantum: start here",
+      "goal": "Open the Fun with Quantum start page and pick a game from it.",
       "needs": [],
       "demo": "fun-with-quantum",
       "part": "readme",
@@ -351,7 +360,7 @@
       "id": "demo-fun-with-quantum-coin-game",
       "group": "fwq",
       "title": "Fun with Quantum: Quantum Coin Game",
-      "goal": "Play the Quantum Coin Game against a quantum computer.",
+      "goal": "Play the Quantum Coin Game, first classically, then with the quantum H move.",
       "needs": [],
       "demo": "fun-with-quantum",
       "part": "coin-game",
@@ -453,6 +462,26 @@
       "maturity": "beta"
     },
     {
+      "id": "demo-quantum-fractals",
+      "group": "fwq",
+      "title": "Quantum Fractals",
+      "goal": "Watch the fractals change with the state of a qubit.",
+      "needs": [
+        "display"
+      ],
+      "demo": "quantum-fractals",
+      "maturity": "beta"
+    },
+    {
+      "id": "demo-quantum-paradoxes",
+      "group": "fwq",
+      "title": "Quantum Paradoxes",
+      "goal": "Work through one of the quantum paradox notebooks.",
+      "needs": [],
+      "demo": "quantum-paradoxes",
+      "maturity": "beta"
+    },
+    {
       "id": "demo-grok-bloch",
       "group": "learn",
       "title": "Grokking the Bloch Sphere",
@@ -464,8 +493,8 @@
     {
       "id": "demo-grok-bloch-web",
       "group": "learn",
-      "title": "Grokking the Bloch Sphere (Web)",
-      "goal": "Explore the Bloch sphere in the web version.",
+      "title": "Grokking the Bloch Sphere: online version",
+      "goal": "Open the online version from the Pi and move a qubit around the Bloch sphere.",
       "needs": [
         "display",
         "internet"
@@ -476,29 +505,11 @@
       "id": "demo-qiskit-tutorials",
       "group": "learn",
       "title": "Qiskit Tutorials on this Pi",
-      "goal": "Work through the IBM Quantum tutorials, guides and courses on this Pi, with live code.",
-      "needs": [],
-      "demo": "qiskit-tutorials",
-      "maturity": "beta"
-    },
-    {
-      "id": "demo-quantum-fractals",
-      "group": "learn",
-      "title": "Quantum Fractals",
-      "goal": "Watch the fractals change with the state of a qubit.",
+      "goal": "Open a tutorial in Qiskit Tutorials on this Pi and run its code.",
       "needs": [
-        "display"
+        "big-card"
       ],
-      "demo": "quantum-fractals",
-      "maturity": "beta"
-    },
-    {
-      "id": "demo-quantum-paradoxes",
-      "group": "learn",
-      "title": "Quantum Paradoxes",
-      "goal": "Work through one of the quantum paradox notebooks.",
-      "needs": [],
-      "demo": "quantum-paradoxes",
+      "demo": "qiskit-tutorials",
       "maturity": "beta"
     },
     {
@@ -525,7 +536,10 @@
       "group": "other",
       "title": "IBM Quantum Tutorials",
       "goal": "Open an IBM Quantum tutorial and run its code cells.",
-      "needs": [],
+      "needs": [
+        "internet",
+        "ibm-account"
+      ],
       "demo": "ibm-tutorials",
       "maturity": "beta"
     },
@@ -535,7 +549,8 @@
       "title": "Quantum Lab (QuBins)",
       "goal": "Start the Quantum Lab and run a notebook.",
       "needs": [
-        "internet"
+        "internet",
+        "big-card"
       ],
       "demo": "quantum-lab",
       "maturity": "beta"
@@ -546,7 +561,8 @@
       "title": "SAP Quantum Learning",
       "goal": "Take the quiz and build a circuit in SAP Quantum Learning.",
       "needs": [
-        "internet"
+        "internet",
+        "display"
       ],
       "demo": "sap-quantum-learning",
       "catalogue": true,

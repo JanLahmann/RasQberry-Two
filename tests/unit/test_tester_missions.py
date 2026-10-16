@@ -77,15 +77,47 @@ def test_demo_groups_follow_the_rules():
     for mid in ("demo-composer", "demo-ibm-courses", "demo-ibm-tutorials", "demo-quantum-lab",
                 "demo-sap-quantum-learning", "demo-sap-quantum-led"):
         assert m[mid]["group"] == "other", mid
+    # the rest as the Pi's folders (mission sweep 2026-10-16)
     for mid in ("demo-led-demos", "demo-led-painter", "demo-quantum-lights-out",
                 "demo-quantum-raspberry-tie", "demo-rasq-led"):
         assert m[mid]["group"] == "led", mid
     for mid in ("demo-entangible", "demo-racetraq", "demo-qoffee-maker", "demo-quantum-mixer"):
         assert m[mid]["group"] == "big", mid
-    for mid in ("demo-quantum-paradoxes", "demo-quantum-fractals", "demo-grok-bloch",
-                "demo-grok-bloch-web", "demo-qiskit-tutorials"):
+    for mid in ("demo-quantum-paradoxes", "demo-quantum-fractals"):
+        assert m[mid]["group"] == "fwq", mid
+    for mid in ("demo-grok-bloch", "demo-grok-bloch-web", "demo-qiskit-tutorials"):
         assert m[mid]["group"] == "learn", mid
     assert m["hotspot"]["group"] == "advanced" and m["hotspot"]["status"] == "coming"
+
+
+def test_group_titles_are_the_pis_folders():
+    folders = {g["title"] for g in json.load(open(os.path.join(
+        _ROOT, "RQB2-config", "demo-manifests", "demo-groups.json")))["groups"]}
+    titles = {g["id"]: g["title"] for g in _missions()["groups"]}
+    for gid in ("led", "big", "fwq", "learn"):
+        assert titles[gid] in folders, gid
+    # "other" spans two folders, so it must not sound like one of them
+    assert titles["other"] not in folders
+
+
+def test_needs_match_what_the_pi_asks_for():
+    m = _by_id()
+    # Docker demos: the Pi stops them on a 16 GB card and tags them "32 GB" in the menu
+    for mid in ("demo-qoffee-maker", "demo-quantum-mixer", "demo-quantum-lab",
+                "demo-qiskit-tutorials", "demo-racetraq"):
+        assert "big-card" in m[mid]["needs"], mid
+    for mid in ("demo-grok-bloch", "demo-quantum-fractals", "demo-entangible"):
+        assert "big-card" not in m[mid]["needs"], mid
+    # catalogue demos: from their rqb-demo.json at the pinned commit
+    assert "display" in m["demo-racetraq"]["needs"]
+    assert "display" in m["demo-sap-quantum-learning"]["needs"]
+    # most IBM tutorials, Hello world too, run on IBM hardware
+    assert {"internet", "ibm-account"} <= set(m["demo-ibm-tutorials"]["needs"])
+    # not in beta-2026-10-10: Entangible and the sound delay
+    assert "dev-image" in m["demo-entangible"]["needs"] and "dev-image" in m["sound"]["needs"]
+    assert "internet" in m["whats-new"]["needs"]
+    for mission in _missions()["missions"]:
+        assert len(mission["needs"]) == len(set(mission["needs"])), mission["id"]
 
 
 def test_missions_name_goals_not_steps():
