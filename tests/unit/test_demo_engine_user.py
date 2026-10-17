@@ -46,7 +46,7 @@ def engine(tmp_path):
                           .replace("/usr/config/rasqberry_environment.env", str(env_file))
                           .replace('USER_HOME="$(eval echo ~${SUDO_USER})"', f'USER_HOME="{home}"'))
 
-    def run(*args, display=None):
+    def run(*args, display=None, extra=None):
         err_file = tmp_path / "err.txt"
         env = {
             "PATH": f"{stubs}:{os.environ['PATH']}",
@@ -59,6 +59,7 @@ def engine(tmp_path):
         }
         if display:
             env["DISPLAY"] = display
+        env.update(extra or {})
         proc = subprocess.run(["bash", _ENGINE, *args], capture_output=True, text=True,
                               env=env, timeout=60)
         sudo = (tmp_path / "sudo.log").read_text().splitlines() if (tmp_path / "sudo.log").exists() else []
@@ -75,6 +76,40 @@ def test_non_led_demo_is_handed_to_the_desktop_user(engine):
     assert any(a.startswith("RQ_ERROR_FILE=") for a in sudo)
     i = sudo.index("--")
     assert sudo[i + 1].endswith("rq_demo_run.sh") and sudo[i + 2:] == ["fun-with-quantum", "readme"], sudo
+
+
+@pytest.fixture
+def wayland_session():
+    """A desktop user's runtime dir with the compositor's socket (/run/user/UID).
+    Short path: a Unix socket path has a length limit."""
+    import socket
+    import tempfile
+    base = tempfile.mkdtemp(prefix="rq-rt-", dir="/tmp")
+    os.mkdir(os.path.join(base, "0"))          # the id stub says uid 0
+    sock = socket.socket(socket.AF_UNIX)
+    sock.bind(os.path.join(base, "0", "wayland-0"))
+    yield base
+    sock.close()
+    shutil.rmtree(base, True)
+
+
+def test_the_wayland_session_goes_along_with_the_display(engine, wayland_session):
+    """From the menu (sudo drops WAYLAND_DISPLAY and XDG_RUNTIME_DIR) a demo ran
+    under Xwayland and could not ask for the screen size (review C5)."""
+    _, sudo, _ = engine("fun-with-quantum", "readme", display=":0",
+                        extra={"RQ_USER_RUNTIME_BASE": wayland_session})
+    i = sudo.index("--")
+    assert f"XDG_RUNTIME_DIR={wayland_session}/0" in sudo[:i]
+    assert "WAYLAND_DISPLAY=wayland-0" in sudo[:i]
+
+
+def test_no_wayland_session_without_a_display_or_a_compositor(engine, wayland_session, tmp_path):
+    _, sudo, _ = engine("fun-with-quantum", "readme",
+                        extra={"RQ_USER_RUNTIME_BASE": wayland_session})     # SSH login
+    assert not any(a.startswith(("XDG_RUNTIME_DIR=", "WAYLAND_DISPLAY=")) for a in sudo), sudo
+    _, sudo, _ = engine("fun-with-quantum", "readme", display=":0",
+                        extra={"RQ_USER_RUNTIME_BASE": str(tmp_path)})       # X11 session
+    assert not any(a.startswith(("XDG_RUNTIME_DIR=", "WAYLAND_DISPLAY=")) for a in sudo), sudo
 
 
 def test_install_only_flag_survives_the_hand_over(engine):

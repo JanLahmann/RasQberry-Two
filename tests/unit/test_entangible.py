@@ -393,6 +393,48 @@ def test_without_a_terminal_it_shows_the_addresses_and_keeps_running(ent):
     assert "keeps running" in out and "stop" not in ent.calls()
 
 
+# --- the hotspot's address for phones (review C1) ----------------------------------
+_HS_MARK = "# rq_hotspot.sh: phones on the hotspot use its address (removed when it stops)"
+
+
+def _hotspot(tmp_path, ent, on, text):
+    """nmcli lists the hotspot as active (or not); Entangible's settings file."""
+    stubs = tmp_path / "stubs"
+    _exe(stubs / "nmcli", "#!/bin/sh\n" + ("echo rasqberry-hotspot\n" if on else "")
+         + 'echo "Wired connection 1"\n')
+    _exe(stubs / "systemctl", f'#!/bin/sh\necho "systemctl $*" >> "{tmp_path / "systemctl.log"}"\n')
+    env_file = tmp_path / "entangible.default"
+    env_file.write_text(text)
+    return {"RQ_HOTSPOT_ENTANGIBLE_ENV": str(env_file)}, env_file
+
+
+def test_a_hotspot_that_ended_without_its_stop_no_longer_sends_phones_to_it(ent, tmp_path):
+    """Pi switched off with the hotspot on, next day on the school Wi-Fi."""
+    ent.setup_done()
+    extra, env_file = _hotspot(tmp_path, ent, False,
+                               f"QAMPOSER_PORT=8443\n{_HS_MARK}\nQAMPOSER_ADVERTISE_HOST=10.42.0.1\n")
+    proc = ent(extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert env_file.read_text() == "QAMPOSER_PORT=8443\n"
+    assert "start" in ent.calls()
+
+
+def test_a_hotspot_started_before_entangible_was_set_up_gets_its_address(ent, tmp_path):
+    ent.setup_done()
+    extra, env_file = _hotspot(tmp_path, ent, True, "QAMPOSER_PORT=8443\n")
+    proc = ent(extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert env_file.read_text() == f"QAMPOSER_PORT=8443\n{_HS_MARK}\nQAMPOSER_ADVERTISE_HOST=10.42.0.1\n"
+
+
+def test_an_address_set_by_hand_stays(ent, tmp_path):
+    ent.setup_done()
+    for on in (True, False):
+        extra, env_file = _hotspot(tmp_path, ent, on, "QAMPOSER_ADVERTISE_HOST=booth.local\n")
+        assert ent(extra=extra).returncode == 0
+        assert env_file.read_text() == "QAMPOSER_ADVERTISE_HOST=booth.local\n"
+
+
 def test_a_camera_that_is_only_briefly_connected_counts_as_none(ent):
     # rig test 2026-10-11, F1: ready is true for ~2 s after the start, also
     # without a camera

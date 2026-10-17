@@ -1253,9 +1253,9 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
-        # the renderer first: it holds the strip
-        rq_led_renderer_stop
-        led_clear_quietly
+        # the renderer first (it holds the strip), then the clear - unless
+        # another LED demo has taken the panel meanwhile
+        rq_led_release_panel
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
         [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
@@ -1321,6 +1321,9 @@ variant_list() {
 # Re-run this engine as the desktop user when it runs as root for a demo that
 # does not need the LED panel. Keeps the display (only if there is one, so the
 # "needs a screen" check still sees an SSH login) and the menu's error file.
+# With the display goes the desktop's Wayland session, which sudo drops: from
+# the menu a demo ran under Xwayland and could not ask the compositor for the
+# screen size (Entangible's booth screen filled half the screen, review C5).
 drop_to_desktop_user() {
     local user_name
     [ "$(id -u)" = "0" ] || return 0
@@ -1328,12 +1331,18 @@ drop_to_desktop_user() {
     user_name=$(get_user_name)
     [ "$user_name" != "root" ] || return 0
     local -a keep=()
-    local v
+    local v uid rt
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
              RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
              RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
+    uid=$(id -u "$user_name" 2>/dev/null) || uid=""
+    rt="${RQ_USER_RUNTIME_BASE:-/run/user}/$uid"
+    if [ -n "$uid" ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } \
+       && [ -S "$rt/${WAYLAND_DISPLAY:-wayland-0}" ]; then
+        keep+=("XDG_RUNTIME_DIR=$rt" "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}")
+    fi
     info "Starting as $user_name..."
     exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
 }

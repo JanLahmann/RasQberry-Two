@@ -114,10 +114,12 @@ def test_renderer_unit_is_confined():
 def test_cleanup_stops_the_sandbox_and_renderer_before_clearing():
     run = open(_RUN).read()
     clean = run[run.index("cleanup() {"):]
-    assert clean.index("rq_led_renderer_stop") < clean.index("led_clear_quietly")
+    assert "rq_led_release_panel" in clean
     common = open(_COMMON).read()
     on_exit = common[common.index("_rq_led_on_exit() {"):]
-    assert on_exit.index("rq_led_renderer_stop") < on_exit.index("led_clear_quietly")
+    assert "rq_led_release_panel" in on_exit
+    release = common[common.index("rq_led_release_panel() {"):]
+    assert release.index("rq_led_renderer_stop") < release.index("led_clear_quietly")
 
 
 # The sound delay (RQ_AUDIO_DELAY_MS): how long LEDs wait for a Bluetooth
@@ -199,6 +201,42 @@ def test_calibration_runs_sandboxed_and_saves():
     fn = fn[:fn.index("\n}\n")]
     assert 'CAL "Calibrate: a tick and a flash' in fn
     assert '"$BIN_DIR/rq_audio_delay_calibrate.sh"' in fn
+
+
+@pytest.mark.parametrize("rc, error", [(0, False), (130, False), (1, True)])
+def test_calibration_stopped_with_ctrl_c_is_no_error_in_the_menu(tmp_path, rc, error):
+    """Ctrl+C (exit 130) said "Cancelled", then the menu showed an error box (review C4)."""
+    menu = open(_MENU).read()
+    fn = menu[menu.index("do_audio_delay() {"):]
+    fn = fn[:fn.index("\n}\n") + 3]
+    (tmp_path / "rq_audio_delay_calibrate.sh").write_text(f"#!/bin/sh\nexit {rc}\n")
+    (tmp_path / "rq_audio_delay_calibrate.sh").chmod(0o755)
+    stubs = ('show_menu() { echo CAL; }\nclear() { :; }\n_rq_load_env() { :; }\n'
+             'audio_delay_ms() { echo 0; }\nhandle_error() { echo "ERROR: $1"; }\n')
+    proc = subprocess.run([shutil.which("dash") or "/bin/sh", "-c", stubs + fn + "do_audio_delay"],
+                          capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                          env=dict(os.environ, BIN_DIR=str(tmp_path)))
+    assert proc.returncode == 0, proc.stderr
+    assert ("ERROR: The sound delay could not be calibrated." in proc.stdout) == error
+
+
+def test_calibration_removes_its_result_file_on_ctrl_c(tmp_path):
+    """Ctrl+C ends the script through the INT trap, before its own clean-up."""
+    import re
+    sh = open(os.path.join(_BIN, "rq_audio_delay_calibrate.sh")).read()
+    trap = re.search(r"^trap '.*' EXIT$", sh, re.M).group(0)
+    marks = tmp_path / "marks"
+    script = (f'. "{_COMMON}"\n'
+              f'rq_led_release_panel() {{ echo release >> "{marks}"; }}\n'
+              f'rq_led_stall_check() {{ echo check >> "{marks}"; }}\n'
+              'rq_led_clear_on_exit\n'
+              f'result=$(mktemp "{tmp_path}/rq-audio-delay.XXXXXX")\n'
+              f'{trap}\n'
+              'kill -INT $$\nsleep 5\n')
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30)
+    assert proc.returncode == 130, proc.stderr
+    assert not list(tmp_path.glob("rq-audio-delay.*"))
+    assert marks.read_text().split() == ["release", "check"]
 
 
 def test_pi_is_not_a_bluetooth_speaker():

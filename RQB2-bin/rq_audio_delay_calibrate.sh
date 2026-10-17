@@ -39,8 +39,10 @@ echo
 led_panel_ready || exit 0
 rq_led_clear_on_exit
 
-# The value comes back in a file the user can write
+# The value comes back in a file the user can write. Removed however the
+# script ends: Ctrl+C ends it through rq_led_clear_on_exit's INT trap.
 result=$(mktemp /tmp/rq-audio-delay.XXXXXX)
+trap '_ad_rc=$?; rm -f "$result"; _rq_led_on_exit "$_ad_rc"' EXIT
 chown "$(get_user_name)" "$result" 2>/dev/null || true
 
 activate_venv || warn "Virtual environment not available, continuing anyway..."

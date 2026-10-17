@@ -120,6 +120,17 @@ def test_needs_match_what_the_pi_asks_for():
         assert len(mission["needs"]) == len(set(mission["needs"])), mission["id"]
 
 
+def test_only_a_demo_that_requires_sound_needs_a_speaker():
+    """"none" is the schema's default (review D7), "optional" works without."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tester_missions", _GEN)
+    tm = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tm)
+    for audio, needs in (("none", []), ("optional", []), ("required", ["bluetooth-speaker"])):
+        assert tm.demo_needs({"needs_hw": {"audio": audio}}) == needs, audio
+    assert tm.demo_needs({"needs_hw": {}}) == []
+
+
 def test_missions_name_goals_not_steps():
     for m in _missions()["missions"]:
         goal = m["goal"]

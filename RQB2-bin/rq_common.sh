@@ -722,6 +722,9 @@ led_clear_quietly() {
 RQ_LED_RENDERER_UNIT="rasqberry-led-renderer.service"
 RQ_LED_RENDERER_STARTED=""
 RQ_LED_USER_MODE=""
+# The mark of the launcher that started the renderer (rq_led_renderer_start)
+RQ_LED_RENDERER_OWNER="${RQ_LED_RENDERER_OWNER:-/run/rasqberry-led-renderer.owner}"
+_RQ_LED_LOCKS=0
 
 # Is this a launcher that should hand its LED program to the sandbox?
 _rq_led_sandboxed() {
@@ -742,13 +745,57 @@ rq_led_user_prepare() {
         RQ_LED_USER_MODE="service"
     fi
     [ "$RQ_LED_USER_MODE" = "service" ] || return 0
-    systemctl is-active --quiet "$RQ_LED_RENDERER_UNIT" 2>/dev/null && return 0
-    if systemctl start "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
-        RQ_LED_RENDERER_STARTED=1
-        sleep 1    # let the renderer open the frame buffer and the strip
-    else
+    if ! rq_led_renderer_start; then
         warn "Could not start the LED renderer: the panel stays dark."
+    elif [ -n "$RQ_LED_RENDERER_STARTED" ]; then
+        sleep 1    # let the renderer open the frame buffer and the strip
     fi
+}
+
+# The renderer is shared by all LED launchers. "Stop It" in a new demo's
+# launcher stops the old demo and the renderer and starts the renderer again;
+# the old demo's launcher notices up to 2 s later, and its cleanup then
+# stopped the new demo's renderer and cleared its panel (review C3). So the
+# launcher that starts the renderer leaves a mark (root only), stops it only
+# while the mark is still its own, and clears the panel only when no other
+# program holds it. Start, and stop plus clear, each run under one lock.
+_rq_led_lock() {
+    _RQ_LED_LOCKS=$((_RQ_LED_LOCKS + 1))
+    [ "$_RQ_LED_LOCKS" = 1 ] || return 0
+    command -v flock >/dev/null 2>&1 || return 0
+    { exec 8>>"$RQ_LED_RENDERER_OWNER.lock"; } 2>/dev/null || return 0
+    flock -w 20 8 2>/dev/null || true
+}
+
+_rq_led_unlock() {
+    _RQ_LED_LOCKS=$((_RQ_LED_LOCKS - 1))
+    [ "$_RQ_LED_LOCKS" -le 0 ] || return 0
+    _RQ_LED_LOCKS=0
+    { exec 8>&-; } 2>/dev/null || true
+}
+
+# Start the renderer for this launcher. One that runs already belongs to
+# another launcher (or is always on): it is left alone, also afterwards.
+# Returns 1 when it could not be started.
+rq_led_renderer_start() {
+    local token rc=0
+    local -a su=()
+    [ "$(id -u)" = 0 ] || su=(sudo)
+    _rq_led_lock
+    if ! systemctl is-active --quiet "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
+        if ${su[@]+"${su[@]}"} systemctl start "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
+            token="$$.$(date +%s)"
+            if [ "$(id -u)" = 0 ] && { printf '%s\n' "$token" > "$RQ_LED_RENDERER_OWNER"; } 2>/dev/null; then
+                RQ_LED_RENDERER_STARTED="$token"
+            else
+                RQ_LED_RENDERER_STARTED=1    # no mark: stopped at the end in any case
+            fi
+        else
+            rc=1
+        fi
+    fi
+    _rq_led_unlock
+    return "$rc"
 }
 
 # Made read-only in the sandbox's mount namespace: N PATH... then the command
@@ -802,13 +849,32 @@ rq_led_as_user() {
             "$cmd" "$@"
 }
 
-# After the program: stop the renderer rq_led_user_prepare started. On SIGTERM
-# it blanks the panel before it exits; it holds the strip while it runs, so
-# this comes before clearing the panel.
+# After the program: stop the renderer rq_led_renderer_start started, unless
+# another launcher has started it since. On SIGTERM it blanks the panel before
+# it exits; it holds the strip while it runs, so this comes before clearing
+# the panel.
 rq_led_renderer_stop() {
     [ -n "${RQ_LED_RENDERER_STARTED:-}" ] || return 0
+    local mine="$RQ_LED_RENDERER_STARTED"
+    local -a su=()
     RQ_LED_RENDERER_STARTED=""
-    rq_run_detached systemctl stop "$RQ_LED_RENDERER_UNIT"
+    [ "$(id -u)" = 0 ] || su=(sudo)
+    _rq_led_lock
+    if [ "$mine" = 1 ] || [ "$(cat "$RQ_LED_RENDERER_OWNER" 2>/dev/null)" = "$mine" ]; then
+        [ "$mine" = 1 ] || rm -f "$RQ_LED_RENDERER_OWNER"
+        rq_run_detached ${su[@]+"${su[@]}"} systemctl stop "$RQ_LED_RENDERER_UNIT"
+    fi
+    _rq_led_unlock
+}
+
+# After an LED program: stop the renderer this launcher started, then clear
+# the panel - unless another program holds it by now (a demo started with
+# "Stop It" while this one ended: its panel, its on-screen view).
+rq_led_release_panel() {
+    _rq_led_lock
+    rq_led_renderer_stop
+    [ -n "$(led_holders)" ] || led_clear_quietly
+    _rq_led_unlock
 }
 
 # Stop and remove a container, to the end even if this script is killed
@@ -848,15 +914,15 @@ rq_led_clear_on_exit() {
     trap 'exit 143' TERM
 }
 
+# Usage (an EXIT trap of its own): _rq_led_on_exit "$rc"
 _rq_led_on_exit() {
-    local rc=$?
+    local rc=${1:-$?}
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
     # the demo first, or it draws on while the panel is cleared
     rq_stop_demo_child
-    rq_led_renderer_stop
-    led_clear_quietly
+    rq_led_release_panel
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
 }
 

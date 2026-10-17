@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Adds two `@reboot` jobs to root's crontab (`00-run-chroot.sh`), idempotently:
+`00-run-chroot.sh` installs wifi-connect for the setup hotspot (section 3)
+and adds two `@reboot` jobs to root's crontab, idempotently:
 
 ```bash
 @reboot sleep 2; /usr/bin/rq_patch_raspiconfig.sh
@@ -32,6 +33,18 @@ sets `PI_MODEL` in `/usr/config/rasqberry_environment.env`:
 - `PI_MODEL=Pi4`: Raspberry Pi 4 (LED driver: PWM/DMA, rpi_ws281x)
 - `PI_MODEL=Pi5`: Raspberry Pi 5, and any other model (LED driver: PIO on RP1)
 
+## 3. wifi-connect (setup hotspot)
+
+Downloads [balena wifi-connect](https://github.com/balena-os/wifi-connect)
+(Apache-2.0), release `v4.11.90`, aarch64 build, and installs it as
+`/usr/local/sbin/wifi-connect`. `rq_setup_hotspot.sh` runs it on a new Pi
+without a network: the Pi opens a Wi-Fi whose page joins the user's Wi-Fi.
+The page is RasQberry's own, `/usr/share/rasqberry/setup-portal` (from
+RQB2-system).
+
+Pinned by version and SHA-256 (`WIFI_CONNECT_VERSION`, `WIFI_CONNECT_SHA256`
+in the script): a download that does not match stops the build.
+
 ## Troubleshooting
 
 - **No "0 RasQberry" in raspi-config:** run `sudo /usr/bin/rq_patch_raspiconfig.sh`;
@@ -40,3 +53,4 @@ sets `PI_MODEL` in `/usr/config/rasqberry_environment.env`:
 - **Wrong `PI_MODEL`:** compare `grep PI_MODEL /usr/config/rasqberry_environment.env`
   with `cat /proc/device-tree/model`; run `sudo /usr/bin/rq_detect_hardware.sh`.
 - **Jobs installed?** `sudo crontab -l | grep -E "rq_patch|rq_detect"`
+- **wifi-connect there?** `ls -l /usr/local/sbin/wifi-connect`
