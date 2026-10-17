@@ -401,6 +401,25 @@ def test_tray_menu_and_command():
     assert "sudo /usr/bin/rq_demo_add_external.sh --update d ||" in argv[-1]
 
 
+def test_a_click_acts_on_the_line_the_menu_showed():
+    # review B8: the news list is recomputed every minute; a stale menu line
+    # must not act on the item that now has its place
+    a = {"kind": "update", "id": "a", "name": "A", "ref": SHA_B, "key": "update:a:" + SHA_B}
+    b = {"kind": "withdrawn", "id": "b", "name": "B", "key": "withdrawn:b"}
+    assert ind.catalogue_pick([a, b], 0, [a, b]) == a
+    assert ind.catalogue_pick([a, b], 0, [b]) is None       # A was done in another window
+    assert ind.catalogue_pick([a, b], 1, [b]) == b
+    assert ind.catalogue_pick([a], 3, [a]) is None
+    text = open(os.path.join(_BIN, "rq_slot_indicator.py")).read()
+    assert "catalogue_pick(self.menu_news, item_id - CATALOGUE_ID, catalogue_news())" in text
+    assert "self.items = items\n            self.menu_news = list(self.news)" in text
+
+
+def test_the_terminal_command_is_quoted():
+    argv = ind.catalogue_argv({"kind": "withdrawn", "id": "x; reboot", "name": "X", "key": "k"})
+    assert "--remove 'x; reboot' ||" in argv[-1]
+
+
 def test_plain_badge_shows_for_catalogue_news():
     assert ind.wants_icon("plain", [], []) is False
     assert ind.wants_icon("plain", [], [{"kind": "new"}]) is True

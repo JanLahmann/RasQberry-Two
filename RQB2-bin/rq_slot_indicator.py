@@ -67,6 +67,7 @@ import argparse
 import json
 import logging
 import os
+import shlex
 import shutil
 import signal
 import sys
@@ -182,9 +183,30 @@ def catalogue_items(news):
 
 def catalogue_argv(item, add_demo=ADD_DEMO):
     """The terminal that acts on a news item; it waits for Enter only when the script fails."""
-    args = " ".join(cat.command(item))
+    args = " ".join(shlex.quote(a) for a in cat.command(item))
     shell = (f"sudo {add_demo} {args} || {{ echo; read -r -p 'Press Enter to close. ' _; }}")
     return ["lxterminal", "-t", CATALOGUE_TITLE, "-e", "bash", "-c", shell]
+
+
+def catalogue_pick(shown, index, now):
+    """
+    The news item a click on catalogue line INDEX acts on: the one the menu
+    showed, and only while it is still news. The list is recomputed every
+    minute, so a click on a menu built earlier acted on whatever item now had
+    that place - "Update A" could remove B (review B8).
+
+    Args:
+        shown (list): the news items the menu was built from
+        index (int): the clicked line (menu id - CATALOGUE_ID)
+        now (list): the news items now
+
+    Returns:
+        dict or None
+    """
+    if not 0 <= index < len(shown):
+        return None
+    item = shown[index]
+    return item if any(n.get("key") == item.get("key") for n in now) else None
 
 
 def autoboot_default(text):
@@ -973,6 +995,7 @@ class SlotIndicator:
         self.items = []
         self.advices = []
         self.news = []                      # demo catalogue news (rq_catalogue.py)
+        self.menu_news = []                 # the news the menu's catalogue lines show
         self.device = {}
         self.data = {"releases": None, "controls": {}, "highlights": {}}
         self.panel_present = False
@@ -1092,6 +1115,7 @@ class SlotIndicator:
             self.view = view
         if items != self.items:
             self.items = items
+            self.menu_news = list(self.news)
             self.menu_rev += 1
             if not initial:
                 self.bus.emit_signal(None, MENU_PATH, "com.canonical.dbusmenu", "LayoutUpdated",
@@ -1515,8 +1539,11 @@ class SlotIndicator:
         elif item_id == 14:
             self.show_installed({"version": self.info.get("version", ""), "from": ""})
         elif item_id >= CATALOGUE_ID:
-            if item_id - CATALOGUE_ID < len(self.news):
-                self.spawn(catalogue_argv(self.news[item_id - CATALOGUE_ID]))
+            item = catalogue_pick(self.menu_news, item_id - CATALOGUE_ID, catalogue_news())
+            if item:
+                self.spawn(catalogue_argv(item))
+            else:
+                log.info("catalogue: menu line %s is no longer news", item_id)
         elif item_id >= 100:
             ups = rn.updates(self.advices)
             if item_id - 100 < len(ups):
