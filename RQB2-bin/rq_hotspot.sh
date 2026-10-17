@@ -23,9 +23,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   Settings (rasqberry_environment.env, kept on /data across A/B updates):
 #     HOTSPOT_BAND            a (5 GHz, channel 36: no trouble with Bluetooth
 #                             speakers) or bg (2.4 GHz, channel 6, old devices)
-#     HOTSPOT_INTERFACE       auto: a USB Wi-Fi adapter if there is one, else
-#                             the onboard Wi-Fi (which then is the hotspot only:
-#                             one radio cannot be hotspot and client reliably)
+#     HOTSPOT_INTERFACE       auto: a radio that can be an access point, an
+#                             idle one first, a USB adapter before the onboard
+#                             Wi-Fi (which then is the hotspot only: one radio
+#                             cannot be hotspot and client reliably)
 #     HOTSPOT_SHARE_INTERNET  yes: devices on the hotspot reach the internet
 #                             through the Pi's other connection; no: the Pi only
 #     HOTSPOT_AT_BOOT         yes: the hotspot starts with the Pi
@@ -554,12 +555,17 @@ take_lock() {
 # shared connection had its DNS taken (review C1). On (also when started
 # outside this script): they are set; when the way out changed since the
 # start, the hotspot starts again, so its DNS fits (review A7).
+# What goes with the hotspot goes
+companions_off() {
+    rules_off
+    advertise off
+    portal off
+}
+
 cmd_sync() {
     local iface ssid
     if ! hotspot_active; then
-        rules_off
-        advertise off
-        portal off
+        companions_off
         return 0
     fi
     iface=$(profile_value connection.interface-name)
@@ -609,8 +615,10 @@ cmd_on() {
         ipv4.method shared ipv4.addresses "$ADDRESS/24" ipv6.method disabled >/dev/null \
         || die "The hotspot profile could not be made."
     chmod 600 "/etc/NetworkManager/system-connections/$PROFILE.nmconnection" 2>/dev/null || true
-    nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1 \
-        || die "The hotspot did not start on $iface (band $band, channel $channel). See: journalctl -u NetworkManager -n 30"
+    if ! nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1; then
+        companions_off      # the captive DNS written above must not stay
+        die "The hotspot did not start on $iface (band $band, channel $channel). See: journalctl -u NetworkManager -n 30"
+    fi
 
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && ! nat_ready "$iface"; then
         # trixie-feedback#62: NAT missing - once more brings it
@@ -618,7 +626,7 @@ cmd_on() {
         nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1 || true
         nat_ready "$iface" || warn "Internet sharing is on, but NetworkManager set up no NAT for $iface."
     fi
-    # after the NAT bounce: going down takes the rules away (91 hook)
+    # after the NAT bounce
     share_rules "$iface"
     advertise on
     # after the NAT check: the page says whether there is internet
@@ -633,9 +641,7 @@ cmd_off() {
     else
         info "The hotspot is not running."
     fi
-    rules_off
-    advertise off
-    portal off
+    companions_off
 }
 
 cmd_status() {
