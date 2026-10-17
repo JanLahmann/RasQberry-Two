@@ -456,3 +456,74 @@ def test_admin_setting_is_kept_and_in_the_menu():
     assert "ADMIN) do_hotspot_admin" in menu
     fn = menu[menu.index("do_hotspot_admin() {"):]
     assert "--defaultno --yesno" in fn[:fn.index("\n}\n")]
+
+
+# --- review C1, A7: what goes with the hotspot follows its real state --------------
+
+def _state_env(tmp_path):
+    ent = tmp_path / "entangible"
+    ent.write_text("QAMPOSER_SOURCE=cv2:0\n# rq_hotspot.sh: phones on the hotspot use its address "
+                   "(removed when it stops)\nQAMPOSER_ADVERTISE_HOST=10.42.0.1\n")
+    captive = tmp_path / "captive.conf"
+    captive.write_text("address=/#/10.42.0.1\n")
+    portal_env = tmp_path / "portal.env"
+    portal_env.write_text("RQ_HOTSPOT_SSID=\"Booth\"\n")
+    e = {"RQ_HOTSPOT_ENTANGIBLE_ENV": str(ent), "RQ_HOTSPOT_CAPTIVE_CONF": str(captive),
+         "RQ_HOTSPOT_PORTAL_ENV": str(portal_env), "RQ_HOTSPOT_BOOT_FILE": str(tmp_path / "none.txt"),
+         "RQ_HOTSPOT_LOCK": str(tmp_path / "lock")}
+    return ent, captive, portal_env, e
+
+
+def test_boot_without_the_hotspot_clears_what_an_earlier_one_left(tmp_path):
+    # an unclean end, then a reboot onto the school Wi-Fi: Entangible still
+    # showed phones https://10.42.0.1:8443 and the captive DNS stayed (review C1)
+    ent, captive, portal_env, e = _state_env(tmp_path)
+    stubs = "nmcli() { :; }; systemctl() { :; }; nft() { :; }; "
+    r = _bash(stubs + "cmd_boot", dict(e, HOTSPOT_AT_BOOT="no"))
+    assert r.returncode == 0, r.stderr
+    assert ent.read_text() == "QAMPOSER_SOURCE=cv2:0\n"
+    assert not captive.exists() and not portal_env.exists()
+
+
+def test_sync_restarts_the_hotspot_when_the_way_out_changed(tmp_path):
+    ent, captive, portal_env, e = _state_env(tmp_path)
+    log = tmp_path / "log"
+    stubs = (f'hotspot_active() {{ :; }}; profile_value() {{ case "$1" in *interface*) echo wlan0 ;; *) echo Booth ;; esac; }}; '
+             f'cmd_on() {{ echo "on $*" >> "{log}"; }}; share_rules() {{ echo "rules $*" >> "{log}"; }}; '
+             f'portal() {{ echo "portal $*" >> "{log}"; }}; ')
+    # a cable came in: sharing on, a default route over eth0, but all names still go to the Pi
+    route = 'ip() { echo "default via 192.168.1.1 dev eth0 proto dhcp"; }; '
+    assert _bash(stubs + route + "cmd_sync", dict(e, HOTSPOT_SHARE_INTERNET="yes")).returncode == 0
+    assert log.read_text() == "on quiet\n"
+    # nothing changed: rules, Entangible's address and the page, no restart
+    log.unlink()
+    ent.write_text("QAMPOSER_SOURCE=cv2:0\n")
+    assert _bash(stubs + "ip() { :; }; cmd_sync", dict(e, HOTSPOT_SHARE_INTERNET="yes")).returncode == 0
+    assert log.read_text() == "rules wlan0\nportal on Booth wlan0\n"
+    assert "QAMPOSER_ADVERTISE_HOST=10.42.0.1" in ent.read_text()
+
+
+def test_network_changes_bring_a_sync(tmp_path):
+    hook = os.path.join(_ROOT, "RQB2-system", "etc", "NetworkManager", "dispatcher.d",
+                        "91-rasqberry-hotspot")
+    log = tmp_path / "log"
+    stubs = tmp_path / "hookstubs"
+    stubs.mkdir()
+    (stubs / "systemd-run").write_text(f'#!/bin/sh\necho "$*" >> "{log}"\n')
+    (stubs / "systemd-run").chmod(0o755)
+    fake = tmp_path / "rq_hotspot.sh"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(0o755)
+    env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_HOTSPOT_BIN=str(fake))
+    for iface, action in (("eth0", "up"), ("wlan0", "down"), ("eth0", "dhcp4-change"),
+                          ("veth12", "up"), ("lo", "up")):
+        subprocess.run(["bash", hook, iface, action], env=env, capture_output=True, text=True)
+    calls = log.read_text().splitlines()
+    assert calls == [f"--no-block --quiet --collect {fake} sync"] * 2
+
+
+def test_on_off_boot_and_sync_take_turns():
+    sh = open(_SCRIPT).read()
+    assert 'on|off|boot|sync) take_lock "$1"' in sh and "flock -w" in sh
+    # rq_entangible.sh sources this script for these names (sync_hotspot_address)
+    assert _bash('declare -F advertise >/dev/null && [ "$PROFILE" = rasqberry-hotspot ]').returncode == 0

@@ -2775,13 +2775,15 @@ do_hotspot_name() {
 # on a public card, and the Pi may still have the demo password (review A2)
 do_hotspot_admin() {
     if [ "${HOTSPOT_ALLOW_ADMIN:-no}" = yes ]; then
-        _rq_hs_set HOTSPOT_ALLOW_ADMIN no && _rq_hs_restart
-        return 0
+        _rq_hs_set HOTSPOT_ALLOW_ADMIN no || return 0
+    else
+        whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
+            "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC.\n\nOnly with a password of your own on this Pi (RasQberry > Remote Access & Security), never with the demo password.\n\nAllow SSH and VNC from devices on the hotspot?" \
+            14 72 || return 0
+        _rq_hs_set HOTSPOT_ALLOW_ADMIN yes || return 0
     fi
-    whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
-        "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC.\n\nOnly with a password of your own on this Pi (RasQberry > Remote Access & Security), never with the demo password.\n\nAllow SSH and VNC from devices on the hotspot?" \
-        14 72 || return 0
-    _rq_hs_set HOTSPOT_ALLOW_ADMIN yes && _rq_hs_restart
+    # a running hotspot takes the new rule at once, without a restart
+    "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || :
 }
 
 do_hotspot_menu() {

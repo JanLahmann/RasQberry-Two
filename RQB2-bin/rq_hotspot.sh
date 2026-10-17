@@ -42,6 +42,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   set KEY...: save settings, one value per line on stdin, all or none
 #     (checked first; the reason goes to stderr) - the menu uses this
 #   migrate: move a name or password from the environment file into their own file
+#   sync: make the rest follow whether the hotspot runs - its firewall rules,
+#     Entangible's address, the landing page and its DNS (the NetworkManager
+#     hook 91-rasqberry-hotspot runs it on every network change)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -61,6 +64,9 @@ else
 fi
 # The A/B store of device settings: an older slot may have put the name there
 DEVICE_STORE="${RQ_SETTINGS_DIR:-/data/rasqberry}/device-settings.env"
+# on, off, boot and sync one at a time (the NetworkManager hook starts sync
+# for every change, also for those "on" itself brings)
+LOCK="${RQ_HOTSPOT_LOCK:-/run/rasqberry/hotspot.lock}"
 
 # ---------------------------------------------------------------------------
 # Settings
@@ -389,11 +395,17 @@ PORTAL_ENV="${RQ_HOTSPOT_PORTAL_ENV:-/run/rasqberry/hotspot-portal.env}"
 
 # Without internet to share, every name points to the Pi: phones then find
 # the landing page by themselves on joining (and say "no internet"). Written
-# before the hotspot starts - NetworkManager's dnsmasq reads it then.
+# before the hotspot starts - NetworkManager's dnsmasq reads it then; when
+# the way out changes later (a cable in or out), sync restarts the hotspot
+# (review A7).
+captive_wanted() {
+    local uplink
+    uplink=$(ip -4 route show default 2>/dev/null | awk -v i="$1" '$0 !~ ("dev " i " ") { print; exit }')
+    [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = no ] || [ -z "$uplink" ]
+}
+
 captive_dns() {
-    local iface="$1" uplink
-    uplink=$(ip -4 route show default 2>/dev/null | awk -v i="$iface" '$0 !~ ("dev " i " ") { print; exit }')
-    if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && [ -n "$uplink" ]; then
+    if ! captive_wanted "$1"; then
         rm -f "$CAPTIVE_CONF"
     else
         mkdir -p "$(dirname "$CAPTIVE_CONF")"
@@ -416,8 +428,15 @@ portal() {
         mkdir -p "$(dirname "$PORTAL_ENV")"
         # systemd's EnvironmentFile: the name in double quotes, with \ " ` $
         # escaped (a name may have any of them)
-        printf 'RQ_HOTSPOT_SSID="%s"\nRQ_HOTSPOT_INTERNET=%s\nRQ_HOTSPOT_IFACE=%s\n' \
-            "$(printf '%s' "$2" | sed 's/[\\"`$]/\\&/g')" "$internet" "${3:-}" > "$PORTAL_ENV"
+        local text
+        text=$(printf 'RQ_HOTSPOT_SSID="%s"\nRQ_HOTSPOT_INTERNET=%s\nRQ_HOTSPOT_IFACE=%s' \
+            "$(printf '%s' "$2" | sed 's/[\\"`$]/\\&/g')" "$internet" "${3:-}")
+        # unchanged and running (sync): no restart under a phone loading it
+        if [ "$text" = "$(cat "$PORTAL_ENV" 2>/dev/null)" ] \
+            && systemctl is-active --quiet rasqberry-hotspot-portal.service 2>/dev/null; then
+            return 0
+        fi
+        printf '%s\n' "$text" > "$PORTAL_ENV"
         systemctl restart rasqberry-hotspot-portal.service 2>/dev/null \
             || warn "The landing page (http://$ADDRESS) did not start."
     else
@@ -449,6 +468,56 @@ show_join() {
         echo "Scan to join:"
         qrencode -t ANSIUTF8 -m 2 "$(qr_text "$ssid" "$pw")" 2>/dev/null || true
     fi
+}
+
+# The hotspot runs (also while it is still coming up)
+hotspot_active() {
+    nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx "$PROFILE"
+}
+
+# profile_value FIELD: from the hotspot's NetworkManager profile
+profile_value() {
+    nmcli -g "$1" connection show "$PROFILE" 2>/dev/null || true
+}
+
+# One command at a time (on, off, boot, sync): wait for the one running -
+# on, off and boot then go ahead anyway; a sync that waited in vain is not
+# needed (the next change brings another)
+take_lock() {
+    command -v flock >/dev/null 2>&1 || return 0
+    mkdir -p "$(dirname "$LOCK")" 2>/dev/null || return 0
+    exec 9>"$LOCK" || return 0
+    flock -w 300 9 && return 0
+    [ "$1" != sync ] || exit 0
+    warn "Another hotspot command is still running; going ahead."
+}
+
+# sync: everything that goes with the hotspot follows whether it runs. Off
+# (stopped from the desktop's network menu, failed, the Pi restarted): its
+# rules, Entangible's address and the landing page with its DNS go - left
+# behind, phones on the next network were sent to 10.42.0.1 and any other
+# shared connection had its DNS taken (review C1). On (also when started
+# outside this script): they are set; when the way out changed since the
+# start, the hotspot starts again, so its DNS fits (review A7).
+cmd_sync() {
+    local iface ssid
+    if ! hotspot_active; then
+        rules_off
+        advertise off
+        portal off
+        return 0
+    fi
+    iface=$(profile_value connection.interface-name)
+    ssid=$(profile_value 802-11-wireless.ssid)
+    [ -n "$iface" ] || return 0
+    if captive_wanted "$iface"; then
+        [ -f "$CAPTIVE_CONF" ] || { info "Hotspot: no way out any more - starting again with the landing page for every name."; cmd_on quiet; return 0; }
+    else
+        [ ! -f "$CAPTIVE_CONF" ] || { info "Hotspot: a way out to share - starting again with the internet."; cmd_on quiet; return 0; }
+    fi
+    share_rules "$iface"
+    advertise on
+    portal on "$ssid" "$iface"
 }
 
 cmd_on() {
@@ -605,7 +674,11 @@ cmd_card() {
 
 cmd_boot() {
     apply_boot_file
-    [ "$(setting HOTSPOT_AT_BOOT no)" = yes ] || exit 0
+    if [ "$(setting HOTSPOT_AT_BOOT no)" != yes ]; then
+        # what an earlier hotspot left behind goes (review C1)
+        cmd_sync
+        return 0
+    fi
     cmd_on quiet
 }
 
@@ -645,13 +718,17 @@ migrate_secrets >&2 || { [ "${1:-}" != migrate ] || exit 1; }
 load_rqb2_env
 
 case "${1:-}" in
+    on|off|boot|sync) take_lock "$1" ;;
+esac
+case "${1:-}" in
     on)      cmd_on ;;
     off)     cmd_off ;;
     status)  cmd_status ;;
     qr)      cmd_qr ;;
     card)    cmd_card ;;
     boot)    cmd_boot ;;
+    sync)    cmd_sync ;;
     get)     cmd_get "${2:-}" ;;
     set)     shift; cmd_set "$@" ;;
-    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|get KEY|set KEY...|migrate" >&2; exit 2 ;;
+    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|sync|get KEY|set KEY...|migrate" >&2; exit 2 ;;
 esac
