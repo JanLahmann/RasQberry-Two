@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-17T08:26:42Z",
+  "generated": "2026-10-17T11:32:06Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,29 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-17-094155",
-      "name": "rasqberry-development-2026-10-17-094155",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-094155/rasqberry-development-2026-10-17-094155.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-17-094155",
-      "release_date": "2026-10-17 09:41",
-      "image_download_size": 1858151284,
+      "tag": "development-2026-10-17-124715",
+      "name": "rasqberry-development-2026-10-17-124715",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-124715/rasqberry-development-2026-10-17-124715.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-17-124715",
+      "release_date": "2026-10-17 12:47",
+      "image_download_size": 1857017016,
       "extract_size": 9529458688,
-      "extract_sha256": "75e0a85104c19b0518ab8e8b8159967e9abff74dd61b86e24968d641a4ea75f7",
-      "image_sha256": "daed4adac5c0af24c5d196232ce822708efe3cf1f0b09812f91ded92a65d6d97",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-094155/rasqberry-development-2026-10-17-094155-ab.img.xz",
-      "ab_extract_sha256": "d671b1b2470f71773d9c6ba7c892d2bc56d99348bfc68a17f23bbf907fa99ba3",
-      "ab_image_sha256": "0a8113cb5f06716b272341b28b94f9dec7e3898b2005d0393ecf6cb1573129e7",
-      "ab_image_download_size": 1906876728,
+      "extract_sha256": "7859b03917fee49d70cf4e5ec30d97bc1df6a6312ef519d32063c02f687535b8",
+      "image_sha256": "30b64805446fda76084e47474853f2cb317d7535a2f228ff2a7a8e73c415bc32",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-124715/rasqberry-development-2026-10-17-124715-ab.img.xz",
+      "ab_extract_sha256": "e993b859be984b3f0765e3ad3f72d44e12c8449d6e421260563356417dadb82d",
+      "ab_image_sha256": "02f1e59f184f302e418607271fabe9aded4d72fcbb4a336fa880e455989dfe2c",
+      "ab_image_download_size": 1905013276,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Catalogue: racetraQ v0.3.3 with its Docker image pinned by digest",
-        "Setup Wi-Fi: find a known Wi-Fi with accents or a colon in its name",
-        "Hotspot: a start that fails leaves no captive DNS behind",
-        "wifi-connect build step: ship its licence, retry the download",
-        "Hotspot: a password someone can see, the right radio, both boot partitions",
-        "Hotspot at boot: wait for the Wi-Fi, try three times, leave a way in",
-        "Hotspot: firewall, Entangible address and landing page follow its real state",
-        "Hotspot firewall: no SSH/VNC from visitors, Docker demos and sharing work"
+        "Hotspot: SSH and VNC from its devices once the default password is changed"
       ]
     }
   }
