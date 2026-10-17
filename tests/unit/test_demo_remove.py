@@ -33,7 +33,8 @@ def _home(tmp_path, manifest):
 
 
 def _remove(stub, demo_id):
-    env = dict(os.environ, RQ_CONFIG_FILE=str(stub))
+    # as rq_demo_remove.sh calls it, after its question (review B3: it asks first)
+    env = dict(os.environ, RQ_CONFIG_FILE=str(stub), RQ_REMOVE_CONFIRMED=demo_id)
     return subprocess.run(["bash", _SCRIPT, "--remove", demo_id], capture_output=True, text=True, env=env)
 
 

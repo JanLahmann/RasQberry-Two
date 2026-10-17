@@ -77,6 +77,11 @@ collect_missing() {
                        (if .install.download_all == false then "false" else "true" end)]
                       | join("\u001f")' "$mf" 2>/dev/null) || continue
         IFS=$'\037' read -r id name pre type image repo installer wd marker dl disk peak shares time all <<< "$line"
+        # sizes go into shell arithmetic: whole numbers only, from a
+        # catalogue demo's own manifest too (review B6)
+        case "$dl" in ''|*[!0-9]*) dl=0 ;; *) dl=$((10#$dl)) ;; esac
+        case "$disk" in ''|*[!0-9]*) disk=0 ;; *) disk=$((10#$disk)) ;; esac
+        case "$peak" in ''|*[!0-9]*) peak=0 ;; *) peak=$((10#$peak)) ;; esac
         [ "$pre" = "true" ] && continue
         # Left out on purpose (install.download_all false): Entangible needs a
         # camera and sets up a system service - it asks at its first start

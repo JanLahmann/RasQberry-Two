@@ -158,9 +158,15 @@ New demos and new pins reach Pis without an image update:
 - Pis fetch it in the daily check (`rasqberry-update-check.service`) and when
   the picker opens. Only from rasqberry.org (no redirect to another host), at
   most 512 KB. It is kept in `/var/cache/rasqberry/known-demos.json` only if
-  every entry has a kebab-case id, an https URL and a full commit SHA, no id
-  is a shipped demo, and its version is higher than the image's and the
-  cached one's. Otherwise the last good copy stays.
+  its version is higher than the image's and the cached one's; otherwise the
+  last good copy stays. Only the entries this image can take are kept: a
+  kebab-case id, an https URL ending in a plain directory name that no
+  shipped demo uses, a full commit SHA, whole numbers for the sizes and
+  one-line texts without control characters. Any other entry, an id that
+  appears twice and the id of a demo the image ships are left out (logged),
+  not the whole catalogue. CI (`--check`) refuses such entries, except the
+  shipped id: a demo that moves into the image keeps its catalogue entry, so
+  older images still have it (and do not call it withdrawn).
 - `rq_catalogue_file` (rq_common.sh) and `rq_desktop_session.py` use the
   newer of the image's and the cached copy.
 - `min_engine`: an entry that needs a newer RasQberry is listed as such and
@@ -168,7 +174,11 @@ New demos and new pins reach Pis without an image update:
 - The user hears about new demos (not in the image's catalogue, added in the
   last 30 days), updates (an installed demo not at its pin), renames and
   withdrawals: once as a taskbar notice, as actions in the RasQberry badge's
-  menu, as a login line, and as "New:" in the picker.
+  menu, as a login line, and as "New:" in the picker. Updates, renames and
+  withdrawals concern only demos the add-flow installed (it writes
+  `"x-rasqberry-catalogue": {"ref", "repo_url"}` into their manifest), never
+  a demo author's own test manifest (CONTRIBUTING.md). Removing one asks
+  first.
 
 ## 3. Add flow (menu: "Add demo from catalogue")
 

@@ -153,7 +153,8 @@ remove_demo() {
             show_yesno "Remove $name?" "Remove the catalogue demo $name (its files, icon and menu entry)?" \
                 || { info "Nothing removed."; return 0; }
         fi
-        RQ_ASSUME_YES="$assume_yes" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
+        # (asked here: the add-flow does not ask again, review B3)
+        RQ_ASSUME_YES="$assume_yes" RQ_REMOVE_CONFIRMED="$id" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
     fi
 
     [ "$pre" != "true" ] || die "$name is part of the system image and cannot be removed."
