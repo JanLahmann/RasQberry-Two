@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-17T11:32:06Z",
+  "generated": "2026-10-17T11:33:12Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,14 +43,16 @@
       "image_download_size": 1857017016,
       "extract_size": 9529458688,
       "extract_sha256": "7859b03917fee49d70cf4e5ec30d97bc1df6a6312ef519d32063c02f687535b8",
-      "image_sha256": "30b64805446fda76084e47474853f2cb317d7535a2f228ff2a7a8e73c415bc32",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-124715/rasqberry-development-2026-10-17-124715-ab.img.xz",
       "ab_extract_sha256": "e993b859be984b3f0765e3ad3f72d44e12c8449d6e421260563356417dadb82d",
       "ab_image_sha256": "02f1e59f184f302e418607271fabe9aded4d72fcbb4a336fa880e455989dfe2c",
-      "ab_image_download_size": 1905013276,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1905013276,
       "highlights": [
-        "Hotspot: SSH and VNC from its devices once the default password is changed"
+        "Bump version to development-2026-10-17-124715",
+        "Merge fix-admin-auto: SSH/VNC from the hotspot once the default password is changed",
+        "SSH and VNC from its devices once the default password is changed",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-17-094155"
       ]
     }
   }
