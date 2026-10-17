@@ -79,16 +79,19 @@ written card only, not after an update.
 
 If the Pi finds no network about two minutes after its first start, it opens
 its own Wi-Fi **RasQberry-Setup-XXXX** (password `rasqberry`); the LED panel
-scrolls the name. Join it with a phone or laptop: a page opens that lists the
-Wi-Fi networks nearby. Choose yours and enter its password; the Pi joins it, and
-the LED panel then shows its address. The setup Wi-Fi stops after 30 minutes
-without anyone on it, and never comes back once the Pi has had a network.
+scrolls its name and password. Join it with a phone or laptop: a page opens that
+lists the Wi-Fi networks nearby. Choose yours and enter its password; the Pi
+joins it, and the LED panel then shows its address. The setup Wi-Fi ends as soon
+as the Pi has a network (a cable, or a Wi-Fi it knows), after 30 minutes with
+nobody on it, and after an hour at the latest. It does not come back once the Pi
+has had a network.
 
 ### A booth hotspot from the first start
 
 To start the Pi as a hotspot for a booth or classroom (see
 [Wi-Fi hotspot](/02-software/02-system-options/#2-wi-fi-hotspot)), put a file
-`rasqberry-hotspot.txt` on the card's boot partition after writing it:
+`rasqberry-hotspot.txt` on the card's boot partition after writing it (on an
+A/B card: the partition named CONFIG, which a computer shows):
 
 ```
 HOTSPOT_AT_BOOT=yes
@@ -96,7 +99,13 @@ HOTSPOT_SSID=RasQberry-Booth
 HOTSPOT_PASSWORD=choose-a-password
 ```
 
-The Pi saves the settings at its first start and removes the password from the card.
+The password needs 8 to 63 characters: letters, digits, spaces and
+punctuation, without accents. Names and passwords may contain spaces and quotes.
+The Pi saves the settings at its first start and leaves the file as
+`rasqberry-hotspot.applied.txt`, without the password; a setting it did not take
+is listed there. Without a usable password, the Pi makes one and scrolls it on
+the LED panel at the start. If the hotspot does not start and the Pi has no
+network, the setup Wi-Fi opens instead.
 
 ### If the link does not open Imager
 
@@ -150,6 +159,7 @@ menu: double-click **RasQberry Configuration** on the desktop (or run
 | Desktop Settings | Touch mode, opening rasqberry.org at desktop login, the sound delay for a Bluetooth speaker (development image) |
 | IBM Quantum account | Save, check or forget your API key |
 | Remote Access & Security | Password, SSH and VNC, the Pi's name, Raspberry Pi Connect |
+| Wi-Fi Hotspot | The Pi's own Wi-Fi for a booth or class: on/off, join card, name and password, start at boot ([more](/02-software/02-system-options/#2-wi-fi-hotspot)) |
 | Software & Image Updates | Check for a newer image; on the A/B image also the Slot Manager |
 | System Info | Version, Python and Qiskit versions, A/B slot |
 | Advanced | Edit a RasQberry Two setting, refresh the demo list, update from a GitHub branch |

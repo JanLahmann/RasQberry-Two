@@ -36,15 +36,22 @@ join it and reach the demos, also where the venue's Wi-Fi keeps devices apart.
   option).
 - **Join card:** a QR code to join, the name and password, and a second QR
   code for the demos - on the screen, or printed.
-- Joining opens a page with the demos the Pi offers right now
-  (`http://10.42.0.1`).
+- Without internet on the hotspot, joining opens a page with the demos the Pi
+  offers right now. With internet, open `http://10.42.0.1` (the second QR code
+  on the join card).
 - **Share internet:** with a network cable (or a USB Wi-Fi adapter) the devices
-  on the hotspot reach the internet through the Pi.
-- **Start at boot**, e.g. for a booth without a screen.
+  on the hotspot reach the internet through the Pi. Off: devices reach only the
+  Pi and its demos.
+- **Start at boot**, e.g. for a booth without a screen
+  ([from the first start](/02-software/01-installation-overview/#3-a-booth-hotspot-from-the-first-start)).
+- **SSH and VNC from devices on the hotspot:** off by default, because the
+  password is on the join card. Switch it on only with a password of your own on
+  the Pi.
 
 The Pi's own Wi-Fi is either the hotspot or connected to a network, not both: a
-cable or a USB Wi-Fi adapter keeps the Pi online while it runs the hotspot.
-Command line: `sudo rq_hotspot.sh on|off|status|card`.
+cable or a USB Wi-Fi adapter keeps the Pi online while it runs the hotspot. It
+serves about 8 devices well; for a class, use a USB Wi-Fi adapter or a travel
+router. Command line: `sudo rq_hotspot.sh on|off|status|qr|card`.
 
 ## Remote access
 
