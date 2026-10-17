@@ -45,6 +45,12 @@ RQB2-system).
 Pinned by version and SHA-256 (`WIFI_CONNECT_VERSION`, `WIFI_CONNECT_SHA256`
 in the script): a download that does not match stops the build.
 
+- `curl` retries a failed download.
+- Its Apache-2.0 licence text ships as `/usr/share/doc/wifi-connect/copyright`
+  (from RQB2-system, with the version and checksum).
+- A new version: change `WIFI_CONNECT_VERSION` and `WIFI_CONNECT_SHA256`
+  together, and the version and checksum lines in that copyright file.
+
 ## Troubleshooting
 
 - **No "0 RasQberry" in raspi-config:** run `sudo /usr/bin/rq_patch_raspiconfig.sh`;

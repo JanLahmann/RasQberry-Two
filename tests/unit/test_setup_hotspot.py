@@ -266,3 +266,13 @@ def test_wifi_country_follows_the_time_zone_while_it_is_the_image_default(tmp_pa
     assert country("GB", "Europe/London") is None       # nothing to change
     assert country("00", "Europe/Berlin") == "DE"
     assert country("DE", "America/Chicago") is None     # a country someone chose stays
+
+
+def test_wifi_connect_ships_its_licence_and_the_download_retries():
+    # Apache-2.0 4a: the licence goes with the binary (review A16)
+    doc = open(os.path.join(_ROOT, "RQB2-system", "usr", "share", "doc", "wifi-connect", "copyright")).read()
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "02-system-integration", "00-run-chroot.sh")).read()
+    version = re.search(r"WIFI_CONNECT_VERSION=(v[\d.]+)", stage).group(1)
+    assert f"Version: {version}" in doc and "Apache License" in doc and "END OF TERMS AND CONDITIONS" in doc
+    assert re.search(r"WIFI_CONNECT_SHA256=([0-9a-f]{64})", stage).group(1) in doc
+    assert "curl -fsSL --retry" in stage
