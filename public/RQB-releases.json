@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-17T18:03:14Z",
+  "generated": "2026-10-17T18:04:26Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,14 @@
       "image_download_size": 1857508640,
       "extract_size": 9529458688,
       "extract_sha256": "69bd290271827a6c21aa1ea2844c508bf353822b9a218a861a80b91c2714403c",
-      "image_sha256": "b7594d0743409d645f594f487d889cf6e7f7c91c304413f49e03a8ff2d9d2b28",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-192138/rasqberry-development-2026-10-17-192138-ab.img.xz",
       "ab_extract_sha256": "fddc6ba4a63035121aaa35c7212fc3f6c0f32233fae434579567dadaffa33705",
       "ab_image_sha256": "e40562c8fc9caf0db060763f9460690ffab3cf553def5f4f18c74efa0dd05f60",
-      "ab_image_download_size": 1915269880,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1915269880,
       "highlights": [
-        "Settings: TP-Link Archer T2U Nano as the tested hotspot adapter",
-        "Hotspot off: say the Wi-Fi rejoins only when it ran the hotspot"
+        "Bump version to development-2026-10-17-192138",
+        "TP-Link Archer T2U Nano as the tested hotspot adapter"
       ]
     }
   }
