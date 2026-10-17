@@ -55,9 +55,10 @@ manifests (`rq_demo_schema.json`), with these constraints:
   the LEDs show the playback position minus that delay. One setting for all
   demos, kept across A/B updates; demos don't add their own.
 - LED demos run as the desktop user in a sandbox, never as root: no `sudo`,
-  no Docker, no writing to the system, and the venv, `~/.local/config`, shell
-  start-up files and autostart read-only. The home, the desktop, the network
-  and sound work. Draw through `rq_led_utils` (`get_pixels()` or
+  no Docker, no writing to the system, and the home read-only except the
+  demo's own folder, a cache (`XDG_CACHE_HOME`), `~/.qiskit` and the SenseHAT
+  emulator's settings. The desktop, the network and sound work. Draw through
+  `rq_led_utils` (`get_pixels()` or
   `create_neopixel_strip()`), never `neopixel.NeoPixel` directly: on a Pi 4
   the frames go to the root LED renderer.
 - `install.pip_requirements: true` with a `requirements.txt` carrying
@@ -294,9 +295,14 @@ External manifests execute on a system where menu dispatch may run as root
    (panel check, the Pi 4 LED renderer, clearing the panel), but the program
    itself runs as the user in a sandbox (`rq_led_as_user`): no capabilities,
    no new privileges, only the device groups (no `sudo`, no `docker`), and
-   the venv, `~/.local/config`, shell start-up files, autostart and `~/.ssh`
-   read-only. On a Pi 4 the frames go to `rasqberry-led-renderer.service`,
-   which runs as root with only the rights the LED driver needs.
+   the whole home read-only, so nothing a later login, terminal or root runs
+   can be changed or added (`rq_led_sandbox_mounts`). Writable: the demo's
+   own folder (its working directory), a cache of its own
+   (`XDG_CACHE_HOME`), `~/.qiskit`, `~/.config/sense_hat` and `~/.sensehat`.
+   Root never runs git in a checkout the user can write: a changed RasQberry
+   patch is applied as the user. On a Pi 4 the frames go to
+   `rasqberry-led-renderer.service`, which runs as root with only the rights
+   the LED driver needs.
    `RQ_LED_AS_ROOT=1`, set by a person, is the only way back to root; a
    manifest cannot ask for it.
 4. **Pinned dependencies** — pip installs go into the user venv as the user.

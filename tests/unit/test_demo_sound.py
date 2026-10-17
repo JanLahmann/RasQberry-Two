@@ -77,9 +77,9 @@ def test_led_demos_run_as_the_user_in_a_sandbox():
     assert "unshare --mount --propagation private" in fn
     for flag in ("--no-new-privs", "--bounding-set=-all", "--inh-caps=-all", "env -i"):
         assert flag in fn, flag
-    for path in ("/venv", ".local/config", ".bashrc", ".ssh", ".config/autostart"):
-        assert path in fn, path
-    assert "remount,bind,ro" in common
+    # the whole home read-only, a few folders writable (test_led_sandbox.py)
+    assert 'rq_led_sandbox_mounts "$home" "$PWD"' in fn
+    assert "remount,bind,ro" in common and "remount,bind,rw" in common
     assert "XDG_RUNTIME_DIR" in fn and "LED_RENDER_MODE=" in fn
     # no sudo, adm or docker in the sandbox's groups
     groups = fn[fn.index("for g in"):fn.index("; do", fn.index("for g in"))]

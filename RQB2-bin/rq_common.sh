@@ -708,9 +708,10 @@ led_clear_quietly() {
 # gain root: no-new-privileges (sudo refuses, although the account may sudo),
 # no capabilities, and only the device groups (not sudo, adm or docker, so no
 # Docker, which is root by another name). In its own mount namespace the
-# venv, ~/.local/config and ~/.local/bin, the shell start-up files, autostart
-# and ~/.ssh are read-only: it cannot change what root or a later login runs.
-# It keeps the home, the desktop, the network and the user's sound (PipeWire).
+# whole home is read-only (rq_led_sandbox_mounts), so it cannot change or add
+# what root or a later login runs; it writes only to its own folder and a few
+# others LED demos use. It keeps the desktop, the network and the user's
+# sound (PipeWire).
 # It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
 # Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
 # launcher's process group) all reach it as before.
@@ -751,12 +752,55 @@ rq_led_user_prepare() {
     fi
 }
 
-# Made read-only in the sandbox's mount namespace: N PATH... then the command
-_RQ_LED_RO_MOUNTS='n=$1; shift
+# The home in the LED sandbox (review B4, D2). Read-only as a whole: a list
+# of protected files guarded only the ones that existed, so a demo could
+# create ~/.bash_profile, ~/.bash_aliases, ~/.ssh/authorized_keys,
+# ~/.local/bin/sudo, an autostart entry or a systemd user unit, all run later
+# by the user, who may sudo; and the desktop launchers, labwc's settings,
+# other demos' code and ~/RasQberry-Two/demos/.demo-versions (the version root
+# installs) were writable too. Writable again, under it, only what LED demos
+# use: the demo's own folder (the working directory, when it is a demo's:
+# Raspberry Tie writes ./svg there), a cache of the sandbox's own
+# (XDG_CACHE_HOME: ~/.cache holds pip's downloads, which the user installs
+# later), the IBM Quantum account (~/.qiskit: Raspberry Tie on a real
+# backend) and the SenseHAT emulator's settings (~/.config/sense_hat,
+# ~/.sensehat: Raspberry Tie's window). On A/B cards ~/Shared, ~/.qiskit and
+# ~/My-Quantum-Programs lead to /data and stay writable.
+RQ_LED_SANDBOX_RW=(.cache/rasqberry-led-sandbox .qiskit .config/sense_hat .sensehat)
+
+# Print the sandbox's mounts in order, "ro PATH" then "rw PATH" lines.
+# Usage: rq_led_sandbox_mounts HOME [WORKING_DIR]
+rq_led_sandbox_mounts() {
+    local home="$1" cwd="${2:-}" demos own p
+    demos="$home/${REPO:-RasQberry-Two}/demos"
+    echo "ro $home"
+    for p in "${RQ_LED_SANDBOX_RW[@]}"; do
+        echo "rw $home/$p"
+    done
+    case "$cwd/" in
+        "$demos"/?*/)
+            own="${cwd#"$demos"/}"
+            own="${own%%/*}"
+            case "$own" in
+                .*) ;;
+                *) echo "rw $demos/$own" ;;
+            esac
+            ;;
+    esac
+}
+
+# Run as root in the sandbox's mount namespace: N, N arguments "ro PATH" or
+# "rw PATH" (rq_led_sandbox_mounts), then the command. A read-only mount that
+# fails stops the demo; a writable path that is not a directory of its own
+# (missing, a symlink) is left as it is.
+_RQ_LED_MOUNTS='n=$1; shift
 for ((i = 0; i < n; i++)); do
-    p=$1; shift
-    [ -e "$p" ] || continue
-    mount --bind "$p" "$p" && mount -o remount,bind,ro "$p" || exit 97
+    mode=${1%% *}; p=${1#* }; shift
+    case "$mode" in
+        ro) mount --bind "$p" "$p" && mount -o remount,bind,ro "$p" || exit 97 ;;
+        rw) [ -d "$p" ] && [ ! -L "$p" ] || continue
+            mount --bind "$p" "$p" && mount -o remount,bind,rw "$p" || exit 97 ;;
+    esac
 done
 exec "$@"'
 
@@ -782,19 +826,28 @@ rq_led_as_user() {
     for g in gpio spi i2c audio video render input dialout plugdev; do
         id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups,$g"
     done
-    local -a ro=(
-        "$home/${REPO:-RasQberry-Two}/venv" "$home/.local/config" "$home/.local/bin"
-        "$home/.bashrc" "$home/.profile" "$home/.bash_profile"
-        "$home/.config/autostart" "$home/.ssh"
-    )
-    unshare --mount --propagation private -- bash -c "$_RQ_LED_RO_MOUNTS" _ "${#ro[@]}" "${ro[@]}" \
-        setpriv --reuid="$uid" --regid="$gid" --groups="${groups#,}" \
+    # the writable folders exist before the home turns read-only (made by
+    # the user: root would follow a symlink in the user's home)
+    local p cache="$home/${RQ_LED_SANDBOX_RW[0]}"
+    for p in "${RQ_LED_SANDBOX_RW[@]}"; do
+        setpriv --reuid="$uid" --regid="$gid" --clear-groups -- mkdir -p "$home/$p" 2>/dev/null || true
+    done
+    local -a mounts=()
+    while IFS= read -r p; do
+        mounts+=("$p")
+    done < <(rq_led_sandbox_mounts "$home" "$PWD")
+    # (setpriv refuses an empty --groups= list)
+    local grp_opt="--clear-groups"
+    [ -z "$groups" ] || grp_opt="--groups=${groups#,}"
+    unshare --mount --propagation private -- bash -c "$_RQ_LED_MOUNTS" _ "${#mounts[@]}" "${mounts[@]}" \
+        setpriv --reuid="$uid" --regid="$gid" "$grp_opt" \
             --no-new-privs --bounding-set=-all --inh-caps=-all -- \
         env -i HOME="$home" USER="$user_name" LOGNAME="$user_name" \
             PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
             LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}" DISPLAY="${DISPLAY:-:0}" \
             ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
             XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+            XDG_CACHE_HOME="$cache" MPLCONFIGDIR="$cache/matplotlib" \
             LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
             RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)" \
             ${QT_API:+QT_API="$QT_API"} \
