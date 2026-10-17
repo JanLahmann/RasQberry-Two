@@ -144,14 +144,28 @@ ap_up() {
 }
 
 # The SSIDs of the Wi-Fi networks this Pi knows and joins by itself
+# (nmcli -g escapes ":" and "\\" with a backslash: undone here)
 known_ssids() {
     local uuid type auto
     while IFS=: read -r uuid type auto; do
         [ "$type" = 802-11-wireless ] && [ "$auto" = yes ] || continue
         case "$(nmcli -g 802-11-wireless.mode connection show uuid "$uuid" 2>/dev/null)" in
-            ""|infrastructure) nmcli -g 802-11-wireless.ssid connection show uuid "$uuid" 2>/dev/null || true ;;
+            ""|infrastructure)
+                nmcli -g 802-11-wireless.ssid connection show uuid "$uuid" 2>/dev/null \
+                    | sed 's/\\\(.\)/\1/g' || true ;;
         esac
     done < <(nmcli -t -f UUID,TYPE,AUTOCONNECT connection show 2>/dev/null || true)
+}
+
+# iw_escape SSID: the name as `iw scan` prints it - printable ASCII as is, a
+# space as is unless first or last, a backslash and every other byte (accents,
+# emoji) as \xNN; "Müller WLAN" never matched otherwise
+iw_escape() {
+    printf '%s' "$1" | od -An -tu1 -v | awk '{ for (i = 1; i <= NF; i++) b[n++] = $i }
+        END { for (i = 0; i < n; i++) { c = b[i] + 0
+                if (c > 32 && c < 127 && c != 92) printf "%c", c
+                else if (c == 32 && i != 0 && i != n - 1) printf " "
+                else printf "\\x%02x", c } }'
 }
 
 # Is a known Wi-Fi in range? One scan: the onboard radio scans in access
@@ -162,7 +176,7 @@ known_in_range() {
     [ -n "$known" ] || return 1
     seen=$(/usr/sbin/iw dev "$1" scan 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p') || return 1
     while IFS= read -r ssid; do
-        [ -n "$ssid" ] && grep -qxF -- "$ssid" <<< "$seen" && return 0
+        [ -n "$ssid" ] && grep -qxF -- "$(iw_escape "$ssid")" <<< "$seen" && return 0
     done <<< "$known"
     return 1
 }

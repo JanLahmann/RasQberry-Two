@@ -276,3 +276,25 @@ def test_wifi_connect_ships_its_licence_and_the_download_retries():
     assert f"Version: {version}" in doc and "Apache License" in doc and "END OF TERMS AND CONDITIONS" in doc
     assert re.search(r"WIFI_CONNECT_SHA256=([0-9a-f]{64})", stage).group(1) in doc
     assert "curl -fsSL --retry" in stage
+
+
+def test_known_wifi_with_accents_or_colons_is_found_in_the_scan(tmp_path):
+    # iw prints "Müller WLAN" as M\xc3\xbcller WLAN; nmcli -g escapes ":"
+    iw = tmp_path / "iw"
+    iw.write_text("#!/bin/sh\nprintf 'BSS 00:11(on wlan0)\\n\\tSSID: M\\\\xc3\\\\xbcller WLAN\\n"
+                  "BSS 00:12(on wlan0)\\n\\tSSID: Lab:2\\n'\n")
+    iw.chmod(0o755)
+    script = tmp_path / "setup.sh"
+    script.write_text(open(_SCRIPT).read().replace("/usr/sbin/iw", str(iw)).replace(
+        'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+        f'SCRIPT_DIR="{os.path.join(_ROOT, "RQB2-bin")}"'))
+
+    def found(ssid_g):
+        nm = (f"nmcli() {{ case \"$*\" in *UUID,TYPE*) echo 'u1:802-11-wireless:yes' ;; "
+              f"*mode*) echo infrastructure ;; *ssid*) printf '%s\\n' '{ssid_g}' ;; esac; }}; ")
+        r = subprocess.run(["bash", "-c", f'. "{script}"; {nm} known_in_range wlan0'],
+                           capture_output=True, text=True)
+        return r.returncode == 0
+    assert found("Müller WLAN")
+    assert found("Lab\\:2")                      # nmcli -g's escaping is undone
+    assert not found("Müller")
