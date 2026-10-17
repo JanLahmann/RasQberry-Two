@@ -340,6 +340,8 @@ check_installed() {
 # agnostic, so this is safe and keeps our patches robust to upstream
 # whitespace drift. Our patches are generated against the same normalization
 # (see RQB2-config/demo-patches/). A file the patch creates is not there yet.
+# git runs without the checkout's fsmonitor and hooks, and the note replaces
+# a symlink instead of writing through it (review B4).
 # Usage: apply_demo_patch DEMO_DIR PATCH
 apply_demo_patch() {
     local dir="$1" patch="$2" f
@@ -348,44 +350,91 @@ apply_demo_patch() {
         grep '^+++ b/' "$patch" | sed 's|^+++ b/||' | while IFS= read -r f; do
             if [ -f "$f" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$f"; fi
         done
-        git apply "$patch" 2>/dev/null || git apply -3 "$patch" 2>/dev/null || exit 1
-        [ -d .git ] && sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply "$patch" 2>/dev/null \
+            || git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply -3 "$patch" 2>/dev/null \
+            || exit 1
+        if [ -d .git ]; then
+            rm -f .git/rq-patch.sha256
+            sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        fi
         exit 0
     )
+}
+
+# Put the files a patch touches back to the checkout's pinned upstream
+# version and apply the patch again; if that fails, everything is put back as
+# it was. A file the patch creates is not in the pinned commit: it is removed
+# before, not checked out (Grok Bloch's rasqberry-help.js; the checkout of it
+# failed, so its refresh never worked, review B5). Runs as the checkout's
+# owner (refresh_demo_patch).
+# Usage: _rq_patch_refresh DEMO_DIR PATCH   (0: updated, 1: as it was)
+_rq_patch_refresh() {
+    local dir="$1" patch="$2" keep f ok=1 files
+    local -a git=(git -c core.fsmonitor=false -c core.hooksPath=/dev/null)
+    cd "$dir" || return 1
+    files=$(sed -n 's|^--- a/||p; s|^+++ b/||p' "$patch" | sort -u)
+    # a copy to fall back on
+    keep=$(mktemp -d) || return 1
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ -f "$f" ]; then
+            mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
+        fi
+    done <<< "$files"
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if "${git[@]}" cat-file -e "HEAD:$f" 2>/dev/null; then
+            "${git[@]}" checkout HEAD -- "$f" 2>/dev/null || ok=0
+        else
+            rm -f -- "$f"
+        fi
+    done <<< "$files"
+    if [ "$ok" = 1 ] && apply_demo_patch "$dir" "$patch"; then
+        rm -rf "$keep"
+        return 0
+    fi
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ ! -e "$keep/$f" ]; then rm -f -- "$f"; fi
+    done <<< "$files"
+    ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
+    rm -rf "$keep"
+    return 1
 }
 
 # An installed demo whose patch has changed since (a new image or update):
 # put the patched files back to the pinned upstream version and apply the
 # new patch. If that fails, the demo keeps the patch it had.
+# Root never runs git in the checkout: git honours the repository's own
+# .git/config, which the user (and an LED demo in its sandbox, in its own
+# folder) can write, and a command in it (core.fsmonitor, a hook) then ran
+# as root at the next start from the menu or the Demo Loop (review B4). Root
+# only hands the tree to the user (chown -R does not follow symlinks); the
+# refresh runs as the user.
 refresh_demo_patch() {
-    local patch_file dir patch want have files
+    local patch_file dir patch want have="" owner rc=0
     patch_file=$(get_field '.install.patch_file' '')
     [ -n "$patch_file" ] || return 0
     patch="$PATCHES_DIR/$patch_file"
     dir="$USER_HOME/$REPO/demos/$(get_field '.entrypoint.working_dir' '')"
     [ -f "$patch" ] && [ -d "$dir/.git" ] || return 0
     want=$(sha256sum < "$patch" | cut -d' ' -f1)
-    have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
+    [ -L "$dir/.git/rq-patch.sha256" ] || have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
     [ "$want" != "$have" ] || return 0
-    files=$(grep '^+++ b/' "$patch" | sed 's|^+++ b/||')
-    # a copy to fall back on
-    local keep
-    keep=$(mktemp -d) || return 0
-    ( cd "$dir" && printf '%s\n' "$files" | while IFS= read -r f; do
-          [ -f "$f" ] && mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
-      done; true )
-    if ( cd "$dir" && printf '%s\n' "$files" | xargs -r git checkout HEAD -- 2>/dev/null ) \
-       && apply_demo_patch "$dir" "$patch"; then
+    if [ "$(id -u)" = "0" ]; then
+        owner=$(get_user_name)
+        if [ "$owner" = "root" ]; then
+            debug "No desktop user: the RasQberry changes to $DEMO_TITLE stay as they are"
+            return 0
+        fi
+        chown -R "$owner:$owner" "$dir"
+        sudo -u "$owner" -H -- bash -c "$(declare -f apply_demo_patch _rq_patch_refresh)"'
+            _rq_patch_refresh "$1" "$2"' _ "$dir" "$patch" || rc=$?
+    else
+        ( _rq_patch_refresh "$dir" "$patch" ) || rc=$?
+    fi
+    if [ "$rc" = 0 ]; then
         info "Updated the RasQberry changes to $DEMO_TITLE"
     else
-        ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
         warn "Could not update the RasQberry changes to $DEMO_TITLE: it runs as before."
-    fi
-    rm -rf "$keep"
-    if [ "$(id -u)" = "0" ]; then
-        local owner
-        owner=$(get_user_name)
-        [ "$owner" != "root" ] && chown -R "$owner:$owner" "$dir"
     fi
     return 0
 }
