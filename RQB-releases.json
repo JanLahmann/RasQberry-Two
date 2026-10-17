@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-16T18:34:33Z",
+  "generated": "2026-10-17T06:09:01Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,28 +35,29 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-16-195022",
-      "name": "rasqberry-development-2026-10-16-195022",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-16-195022/rasqberry-development-2026-10-16-195022.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-16-195022",
-      "release_date": "2026-10-16 19:50",
-      "image_download_size": 1856108932,
-      "extract_size": 9537847296,
-      "extract_sha256": "93b460620984b63179545682d553c34f8c0121851c19e558b1f0970122f3402a",
-      "image_sha256": "a3fd7c7e4a14e06e04a26a3a230b9d4587efcb13835731ec36816177ecf83144",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-16-195022/rasqberry-development-2026-10-16-195022-ab.img.xz",
-      "ab_extract_sha256": "ccc7d66d661cb3dd0b892363d6420863c4583b890618092ff54c2f51e6100d51",
-      "ab_image_sha256": "f9056e7a29478b31a6461bac0e8b7b999219ec98744be706000bfb3359f78e50",
-      "ab_image_download_size": 1908319760,
+      "tag": "development-2026-10-17-072441",
+      "name": "rasqberry-development-2026-10-17-072441",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-072441/rasqberry-development-2026-10-17-072441.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-17-072441",
+      "release_date": "2026-10-17 07:24",
+      "image_download_size": 1857283828,
+      "extract_size": 9529458688,
+      "extract_sha256": "06577689aa64c78f2bb2f13113f66ef125ea577ac47f0cc18f9c40a95d29cbb5",
+      "image_sha256": "34a1966e298cae3967eccdc3326b62e965358a693aeef06bc21e18e859af3de0",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-072441/rasqberry-development-2026-10-17-072441-ab.img.xz",
+      "ab_extract_sha256": "843fd730bb47b46dab07cd71c1dc7109e5eb4d8c944596249815492355d1f591",
+      "ab_image_sha256": "ac03238eb66f1589499852c17431a4f6b13d61f217b872a5a650e4fd1880b379",
+      "ab_image_download_size": 1906119640,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Quantum Raspberry Tie: show every result, not only the first two",
-        "IBM Quantum account menu: most IBM tutorials need an account",
-        "Demo texts: Quantum Mixer, Raspberry Tie, Entangible as they are",
-        "Fun with Quantum family: Entangible starts the demo on the Pi",
-        "Tester missions: goals, needs and groups from the docs sweep",
-        "Tester page: Ket on older images, the Dev A/B image, first downloads",
-        "Pi start page shows Ket: open rasqberry.org/?from=pi&assistant=1"
+        "Test: the offline website bundle's new checksum",
+        "Fun with Quantum: offline website at ac17a8ba (preview-game fixes)",
+        "Fun with Quantum: notebooks at 2a68e308 (no validation dialog, Pi 4 timing hints)",
+        "Chromium: RasQberry help first in the Quantum Links bookmarks",
+        "Main menu: Desktop Settings names the sound delay",
+        "LED-Painter: the picture goes to the panel with Display, not as you paint",
+        "Reference: LED Test is in the applications menu, not the LED panel folder",
+        "Hotspot landing page: say when the Wi-Fi reaches the internet"
       ]
     }
   }
