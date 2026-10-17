@@ -60,7 +60,7 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 - `RQB_BUILD_COMMIT` = `(empty)`
 - `BROWSER_AUTOSTART` = `true`: Open Chromium with rasqberry.org at desktop login (#227). RasQberry -> Desktop: browser at login, or set to false here.
 - `RQ_AUDIO_DELAY_MS` = `0` **kept**: Sound delay in milliseconds (0-2000): how long LEDs in demos with sound wait for the speaker. Bluetooth speakers play 100-300 ms late. RasQberry -> Desktop Settings -> Sound delay. Demos read RQ_AUDIO_DELAY_MS.
-- `HOTSPOT_BAND` = `a` **kept**: Wi-Fi hotspot for booths and classrooms (rq_hotspot.sh on|off|status|qr). HOTSPOT_BAND a (5 GHz) or bg (2.4 GHz); HOTSPOT_INTERFACE auto (a USB Wi-Fi adapter first) or a device name; HOTSPOT_SHARE_INTERNET yes/no; HOTSPOT_AT_BOOT yes/no. Kept across A/B updates (/data). Name and password are not here: this file is loaded as shell code and anyone can read it. They are in a root-only file (sudo rq_hotspot.sh get HOTSPOT_SSID; set them in the menu or with rasqberry-hotspot.txt on the boot partition).
+- `HOTSPOT_BAND` = `a` **kept**: Wi-Fi hotspot for booths and classrooms (rq_hotspot.sh on|off|status|qr). HOTSPOT_BAND a (5 GHz) or bg (2.4 GHz); HOTSPOT_INTERFACE auto (a USB Wi-Fi adapter first; tested: TP-Link Archer T2U Nano) or a device name; HOTSPOT_SHARE_INTERNET yes/no; HOTSPOT_AT_BOOT yes/no. Kept across A/B updates (/data). Name and password are not here: this file is loaded as shell code and anyone can read it. They are in a root-only file (sudo rq_hotspot.sh get HOTSPOT_SSID; set them in the menu or with rasqberry-hotspot.txt on the boot partition).
 - `HOTSPOT_INTERFACE` = `auto` **kept**
 - `HOTSPOT_SHARE_INTERNET` = `yes` **kept**
 - `HOTSPOT_AT_BOOT` = `no` **kept**
