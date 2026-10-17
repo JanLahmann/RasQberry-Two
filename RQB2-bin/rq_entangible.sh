@@ -266,6 +266,30 @@ close_booth_screen() {
     pkill -f -- "--user-data-dir=$BOOTH_PROFILE" 2>/dev/null || true
 }
 
+# The address phones are sent to (QAMPOSER_ADVERTISE_HOST in
+# /etc/default/entangible): the hotspot's own while the hotspot runs, the
+# network's otherwise. rq_hotspot.sh sets it when it starts the hotspot and
+# takes it out when it stops it - but a hotspot that ended another way (the
+# Pi switched off, the taskbar's network menu) left it, and Entangible set
+# up after the hotspot started (or anew after an A/B update) did not get it:
+# phones on the school Wi-Fi were sent to 10.42.0.1 (review C1). So the
+# hotspot's own rule runs again here, from its real state; as root, the file
+# is root's. It restarts a running service when the address changes.
+sync_hotspot_address() {
+    local hs="$SCRIPT_DIR/rq_hotspot.sh"
+    local -a su=()
+    [ -r "$hs" ] && command -v nmcli >/dev/null 2>&1 || return 0
+    [ "$(id -u)" = "0" ] || su=(sudo -n)
+    # shellcheck disable=SC2016
+    ${su[@]+"${su[@]}"} bash -c '. "$1" || exit 0
+        if nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx "$PROFILE"; then
+            advertise on
+        else
+            advertise off
+        fi' _ "$hs" >/dev/null 2>&1 || true
+}
+sync_hotspot_address
+
 if [ "$(st .running)" != "true" ]; then
     info "Starting $NAME..."
     rc=0
