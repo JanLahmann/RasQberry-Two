@@ -527,3 +527,41 @@ def test_on_off_boot_and_sync_take_turns():
     assert 'on|off|boot|sync) take_lock "$1"' in sh and "flock -w" in sh
     # rq_entangible.sh sources this script for these names (sync_hotspot_address)
     assert _bash('declare -F advertise >/dev/null && [ "$PROFILE" = rasqberry-hotspot ]').returncode == 0
+
+
+# --- review A6, A8: start at boot ------------------------------------------------
+
+def test_no_wifi_device_gives_the_message_not_a_silent_exit():
+    # under set -e, `iface=$(hotspot_interface)` ended the script before the die
+    r = _bash("nmcli() { :; }; iface=$(hotspot_interface); echo \"after [$iface]\"")
+    assert r.returncode == 0 and "after []" in r.stdout
+    r = _bash("nmcli() { :; }; cmd_on quiet")
+    assert r.returncode == 1 and "No Wi-Fi device found" in r.stderr
+
+
+def test_boot_waits_for_the_wifi_and_tries_again(tmp_path):
+    _, _, _, e = _state_env(tmp_path)
+    tries = tmp_path / "tries"
+    checks = tmp_path / "checks"
+    # wlan0 is "unavailable" for three checks, then cmd_on fails twice and works
+    code = (f'nmcli() {{ case "$*" in *DEVICE,TYPE*) echo wlan0:wifi ;; *DEVICE,STATE*) '
+            f'echo x >> "{checks}"; [ "$(wc -l < "{checks}")" -gt 3 ] && echo wlan0:disconnected '
+            '|| echo wlan0:unavailable ;; esac; }; sleep() { :; }; '
+            f'cmd_on() {{ echo x >> "{tries}"; [ "$(wc -l < "{tries}")" -ge 3 ]; }}; '
+            'readlink() { echo /x/brcmfmac; }; cmd_boot')
+    r = _bash(code, dict(e, HOTSPOT_AT_BOOT="yes"))
+    assert r.returncode == 0, r.stderr
+    assert len(checks.read_text().split()) == 4                 # it waited for the device
+    assert len(tries.read_text().split()) == 3 and "try 2 of 3" in r.stderr
+
+
+def test_boot_that_fails_leaves_nothing_behind(tmp_path):
+    ent, captive, portal_env, e = _state_env(tmp_path)
+    code = ('nmcli() { :; }; sleep() { :; }; systemctl() { :; }; nft() { :; }; '
+            'hotspot_interface() { echo wlan0; }; cmd_on() { false; }; cmd_boot')
+    r = _bash(code, dict(e, HOTSPOT_AT_BOOT="yes", RQ_HOTSPOT_WIFI_WAIT="0"))
+    assert r.returncode == 1 and "setup Wi-Fi" in r.stderr
+    assert not captive.exists() and "10.42.0.1" not in ent.read_text()
+    unit = open(os.path.join(_ROOT, "RQB2-system", "etc", "systemd", "system",
+                             "rasqberry-hotspot.service")).read()
+    assert "network-online.target" in unit and "TimeoutStartSec=300" in unit

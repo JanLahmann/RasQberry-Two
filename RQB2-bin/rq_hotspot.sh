@@ -211,7 +211,9 @@ hotspot_interface() {
         driver=$(basename "$(readlink -f "/sys/class/net/$dev/device/driver" 2>/dev/null)" 2>/dev/null || true)
         if [ "$driver" = brcmfmac ]; then onboard="${onboard:-$dev}"; else echo "$dev"; return 0; fi
     done
-    [ -n "$onboard" ] && echo "$onboard"
+    # no device: empty, and success - under set -e the callers' message
+    # ("No Wi-Fi device found") never came, the script just ended (review A8)
+    [ -z "$onboard" ] || echo "$onboard"
 }
 
 # RasQberry-XXXX: the last four hex digits of the device's MAC address
@@ -672,14 +674,48 @@ cmd_card() {
     rq_open_browser "file://$out" >/dev/null 2>&1 || info "Open it in the browser to show or print it."
 }
 
+# wait_for_wifi SECONDS: until NetworkManager has a Wi-Fi device it can use.
+# At boot the unit could run before wlan0 was there, or while it was still
+# "unavailable" (wpa_supplicant not ready): "device is not available", and
+# no retry (review A6).
+wait_for_wifi() {
+    local waited=0 iface state
+    while :; do
+        iface=$(hotspot_interface)
+        if [ -n "$iface" ]; then
+            state=$(nmcli -t -f DEVICE,STATE device 2>/dev/null | awk -F: -v d="$iface" '$1 == d { print $2; exit }')
+            case "$state" in ""|unavailable|unmanaged) ;; *) return 0 ;; esac
+        fi
+        [ "$waited" -lt "$1" ] || return 1
+        sleep 2
+        waited=$((waited + 2))
+    done
+}
+
 cmd_boot() {
+    local try
     apply_boot_file
     if [ "$(setting HOTSPOT_AT_BOOT no)" != yes ]; then
         # what an earlier hotspot left behind goes (review C1)
         cmd_sync
         return 0
     fi
-    cmd_on quiet
+    wait_for_wifi "${RQ_HOTSPOT_WIFI_WAIT:-60}" \
+        || warn "Hotspot: no Wi-Fi device ready after ${RQ_HOTSPOT_WIFI_WAIT:-60} seconds; trying anyway."
+    for try in 1 2 3; do
+        # a subshell: cmd_on ends with die when it fails
+        if ( cmd_on quiet ); then
+            return 0
+        fi
+        [ "$try" = 3 ] && break
+        warn "Hotspot: did not start (try $try of 3); again in ${RQ_HOTSPOT_RETRY_WAIT:-10} seconds."
+        sleep "${RQ_HOTSPOT_RETRY_WAIT:-10}"
+    done
+    # nothing half-made stays; the Wi-Fi goes back to its known networks,
+    # and without a network the setup Wi-Fi opens (rq_setup_hotspot.sh)
+    nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
+    cmd_sync
+    die "The hotspot did not start at boot. Without a network, the setup Wi-Fi RasQberry-Setup-XXXX opens instead (password: rasqberry)."
 }
 
 # get KEY: the saved value ('' for the default)
