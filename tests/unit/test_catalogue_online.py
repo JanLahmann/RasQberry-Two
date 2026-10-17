@@ -62,18 +62,52 @@ def test_the_shipped_catalogue_is_one_a_pi_takes():
     (lambda d: d["demos"][0].update(repo_url="git@github.com:x/y.git"), "https://"),
     (lambda d: d["demos"][0].update(id="Bad_Id"), "kebab-case"),
     (lambda d: d["demos"].append(dict(d["demos"][0])), "twice"),
-    (lambda d: d["demos"][0].update(id="led-demos"), "image ships"),
     (lambda d: d["demos"][0].update(manifest_path="../../etc/passwd"), "inside the repository"),
     (lambda d: d["demos"][0].update(min_engine="2"), "min_engine"),
     (lambda d: d["demos"][0].update(replaces="old"), "replaces"),
     (lambda d: d.pop("catalogue_version"), "catalogue_version"),
     (lambda d: d.update(catalogue_version=True), "catalogue_version"),
+    # review B6: fields that reach root's shell code
+    (lambda d: d["demos"][0].update(download={"disk_mb": "BASH_VERSINFO[$(id)0]"}), "download.disk_mb"),
+    (lambda d: d["demos"][0].update(download={"download_mb": 3720.5}), "download.download_mb"),
+    (lambda d: d["demos"][0].update(download={"peak_mb": -1}), "download.peak_mb"),
+    (lambda d: d["demos"][0].update(repo_url="https://github.com/x/.git"), "plain directory name"),
+    (lambda d: d["demos"][0].update(repo_url="https://github.com/x/.."), "plain directory name"),
+    (lambda d: d["demos"][0].update(repo_url="https://github.com/x/Quantum-Lights-Out.git"),
+     "checkout of a demo the image ships"),
+    (lambda d: d["demos"].append(_entry("other", repo_url="https://github.com/y/new-demo")),
+     "same checkout directory"),
+    (lambda d: d["demos"][0].update(name="Demo\x1b]0;owned\x07"), "name is not a one-line text"),
+    (lambda d: d["demos"][0].update(summary="two\nlines"), "summary is not a one-line text"),
+    (lambda d: d["demos"][0].update(provider=["SAP"]), "provider is not a one-line text"),
+    (lambda d: d["demos"][0].update(icon="../../etc/x.svg"), "icon is not a file name"),
 ])
 def test_a_catalogue_with_a_problem_is_refused(change, problem):
+    # CI (--check) refuses it; a Pi leaves the entry out (below)
     data = _catalogue(3, _entry("new-demo"))
     change(data)
-    found = cat.problems(data, {"led-demos"})
+    found = cat.problems(data, {"led-demos"}, {"Quantum-Lights-Out"})
     assert any(problem in p for p in found), found
+
+
+def test_the_shipped_dirs_are_the_working_dirs_of_the_shipped_demos():
+    dirs = cat.shipped_dirs(os.path.join(_CFG, "demo-manifests"))
+    assert {"Quantum-Lights-Out", "quantum-raspberry-tie", "grok-bloch"} <= dirs
+
+
+@pytest.mark.parametrize("url, name", [
+    ("https://github.com/x/racetraQ.git", "racetraQ"), ("https://github.com/x/y/", "y"),
+    ("https://github.com/x/.git", ""), ("https://github.com/x/..", ".."),
+])
+def test_repo_dir_matches_the_shell(url, name):
+    assert cat.repo_dir(url) == name
+    script = f'eval "$(sed -n \'/^repo_dir_name() {{/,/^}}/p\' "{os.path.join(_BIN, "rq_demo_add_external.sh")}")"; repo_dir_name "$1"'
+    assert subprocess.run(["bash", "-c", script, "_", url], capture_output=True, text=True).stdout.strip() == name
+
+
+def test_texts_lose_their_control_characters():
+    assert cat.clean_text("Demo\x1b[2J\x07 X") == "Demo[2J X"
+    assert len(cat.clean_text("x" * 500)) == 80
 
 
 @pytest.fixture
@@ -116,13 +150,36 @@ def test_an_older_or_equal_catalogue_is_not_taken(pi, version):
 def test_a_bad_catalogue_keeps_the_last_good_one(pi):
     pi(_catalogue(3, _entry("new-demo")))
     cat.refresh()
-    pi(_catalogue(4, _entry("evil", ref="main")))
+    for bad in ("not json", json.dumps({"catalogue_version": 4, "demos": "x"}),
+                json.dumps({"demos": [_entry("newer")]})):
+        pi(bad)
+        assert cat.refresh()[0] == "rejected"
+        assert cat.current()[0]["catalogue_version"] == 3
+
+
+def test_one_bad_entry_is_left_out_not_the_catalogue(pi):
+    # review B7: a bad, a duplicate or a shipped id costs that entry only
+    pi(_catalogue(3, _entry("new-demo"), _entry("evil", ref="main"),
+                  _entry("twin"), _entry("twin", ref=SHA_B), _entry("led-demos")))
     status, text = cat.refresh()
-    assert status == "rejected" and "SHA" in text
-    assert cat.current()[0]["catalogue_version"] == 3
-    pi("not json")
-    assert cat.refresh()[0] == "rejected"
-    assert cat.current()[0]["catalogue_version"] == 3
+    assert status == "updated" and "4 entries left out" in text
+    data, path = cat.current()
+    assert [d["id"] for d in data["demos"]] == ["new-demo"]
+    # the file the shell reads (rq_catalogue_file) holds only what this Pi takes
+    assert [d["id"] for d in json.load(open(path))["demos"]] == ["new-demo"]
+
+
+def test_a_demo_that_moved_into_the_image_keeps_its_entry(tmp_path):
+    # a newer image ships "moved": its entry stays for older images, CI notes it
+    manifests = tmp_path / "manifests"
+    manifests.mkdir()
+    (manifests / "rq_demo_moved.json").write_text(json.dumps({"id": "moved", "entrypoint": {"working_dir": "moved"}}))
+    data = _catalogue(3, _entry("moved"), _entry("other"))
+    assert cat.problems(data, cat.shipped_ids(str(manifests)), cat.shipped_dirs(str(manifests))) == []
+    keep, bad, notes = cat.sort_entries(data, cat.shipped_ids(str(manifests)), cat.shipped_dirs(str(manifests)))
+    assert [d["id"] for d in keep] == ["other"] and bad == [] and "moved" in notes[0]
+    # an older image (without it) takes it, so it is not "withdrawn" there
+    assert [d["id"] for d in cat.sort_entries(data)[0]] == ["moved", "other"]
 
 
 def test_an_oversized_catalogue_is_refused(pi):
@@ -132,8 +189,11 @@ def test_an_oversized_catalogue_is_refused(pi):
 
 def test_a_cached_copy_that_went_bad_is_not_used(pi):
     pi.cache.mkdir()
-    (pi.cache / "known-demos.json").write_text(json.dumps(_catalogue(9, _entry("x", ref="main"))))
+    (pi.cache / "known-demos.json").write_text(json.dumps({"catalogue_version": 9, "demos": {}}))
     assert cat.current()[1] == str(pi.shipped)
+    (pi.cache / "known-demos.json").write_text(json.dumps(_catalogue(9, _entry("x", ref="main"), _entry("y"))))
+    data, path = cat.current()
+    assert path == str(pi.cache / "known-demos.json") and [d["id"] for d in data["demos"]] == ["y"]
 
 
 def test_after_an_image_update_a_newer_image_catalogue_wins(pi):
@@ -189,11 +249,15 @@ def test_ci_check_option(tmp_path):
     good.write_text(json.dumps(_catalogue(4, _entry("new-demo"))))
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps(_catalogue(4, _entry("new-demo", ref="main"))))
+    moved = tmp_path / "moved.json"
+    moved.write_text(json.dumps(_catalogue(4, _entry("new-demo"), _entry("led-demos"))))
     run = lambda f: subprocess.run(["python3", os.path.join(_BIN, "rq_catalogue.py"), "--check", str(f)],
                                    capture_output=True, text=True)
     assert run(good).returncode == 0
     out = run(bad)
     assert out.returncode == 1 and "full commit SHA" in out.stdout
+    out = run(moved)
+    assert out.returncode == 0 and "Note: led-demos: id of a demo the image ships" in out.stdout
 
 
 # --- the shell side picks the same file -----------------------------------------
@@ -219,19 +283,45 @@ def test_shell_uses_the_cache_only_when_it_is_newer(tmp_path):
 
 # --- what is new for this Pi ------------------------------------------------------
 
-def _install(home, did, head, name=None):
+def _install(home, did, head, name=None, mark=None, remote=False):
+    """A demo as the add-flow left it: a bare checkout at the pin (git init + fetch)."""
     mdir = home / ".local" / "config" / "demo-manifests"
     mdir.mkdir(parents=True, exist_ok=True)
-    (mdir / f"rq_demo_{did}.json").write_text(json.dumps(
-        {"id": did, "name": name or did.title(), "entrypoint": {"working_dir": did}}))
+    m = {"id": did, "name": name or did.title(), "entrypoint": {"working_dir": did}}
+    if mark:
+        m[cat.MARK] = mark
+    (mdir / f"rq_demo_{did}.json").write_text(json.dumps(m))
     git = home / "RasQberry-Two" / "demos" / did / ".git"
     git.mkdir(parents=True)
     (git / "HEAD").write_text(head + "\n")
+    (git / "config").write_text("[core]\n\trepositoryformatversion = 0\n"
+                                + ('[remote "origin"]\n\turl = https://github.com/me/x.git\n' if remote else ""))
 
 
 def test_installed_reads_the_checkouts_commit(tmp_path):
     _install(tmp_path, "demo-a", SHA_A)
-    assert cat.installed(home=str(tmp_path)) == {"demo-a": {"name": "Demo-A", "head": SHA_A}}
+    assert cat.installed(home=str(tmp_path)) == {"demo-a": {"name": "Demo-A", "head": SHA_A, "catalogue": True}}
+
+
+def test_a_demo_authors_own_manifest_is_never_withdrawn(tmp_path):
+    # review B3: CONTRIBUTING.md section 4 - a git clone and a hand-made manifest
+    _install(tmp_path, "my-quantum-demo", "ref: refs/heads/main", remote=True)
+    _install(tmp_path, "pinned-clone", SHA_A, remote=True)
+    _install(tmp_path, "marked", "ref: refs/heads/main", remote=True, mark={"ref": SHA_A})
+    _install(tmp_path, "old-add-flow", SHA_A)
+    have = cat.installed(home=str(tmp_path))
+    assert not have["my-quantum-demo"]["catalogue"] and not have["pinned-clone"]["catalogue"]
+    assert have["marked"]["catalogue"] and have["old-add-flow"]["catalogue"]
+    items = cat.news(_catalogue(2), _catalogue(1), have, TODAY)
+    assert sorted(i["id"] for i in items if i["kind"] == "withdrawn") == ["marked", "old-add-flow"]
+    # nor "updated": its checkout is the author's work
+    items = cat.news(_catalogue(2, _entry("my-quantum-demo", ref=SHA_B)), _catalogue(1), have, TODAY)
+    assert [i["id"] for i in items] == ["marked", "old-add-flow"]
+
+
+def test_an_id_that_is_no_command_word_is_ignored(tmp_path):
+    _install(tmp_path, "x; reboot", SHA_A)
+    assert cat.installed(home=str(tmp_path)) == {}
 
 
 TODAY = date(2026, 10, 12)
@@ -244,7 +334,7 @@ def test_news_kinds():
                      _entry("fresh", added="2026-10-10", provider="IBM"),
                      _entry("stale", added="2026-01-01"),
                      _entry("future", added="2026-10-10", min_engine=cat.ENGINE + 1))
-    have = {d: {"name": d.title(), "head": SHA_A} for d in ("same", "moved", "gone", "old-name")}
+    have = {d: {"name": d.title(), "head": SHA_A, "catalogue": True} for d in ("same", "moved", "gone", "old-name")}
     items = {i["kind"]: i for i in cat.news(now, base, have, TODAY)}
     assert set(items) == {"update", "renamed", "withdrawn", "new"}
     assert items["update"]["id"] == "moved" and items["update"]["ref"] == SHA_B
@@ -260,7 +350,7 @@ def test_what_came_with_the_image_is_not_new():
 
 def test_news_keys_differ_per_pin():
     base = _catalogue(1, _entry("d"))
-    have = {"d": {"name": "D", "head": SHA_A}}
+    have = {"d": {"name": "D", "head": SHA_A, "catalogue": True}}
     k1 = cat.news(_catalogue(2, _entry("d", ref=SHA_B)), base, have, TODAY)[0]["key"]
     k2 = cat.news(_catalogue(3, _entry("d", ref="c" * 40)), base, have, TODAY)[0]["key"]
     assert k1 != k2
