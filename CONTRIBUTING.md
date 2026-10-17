@@ -154,9 +154,12 @@ The full rules, including the catalogue fields and the security model, are in
 - **Python:** docstrings, and `logging` for errors.
 - **Text people read** (dialogs, menus, docs, the website): follow the
   [style guide](docs/STYLE.md).
-- **Tests:** `python3 -m pytest tests/unit` and `tests/test_basic_validation.sh`
-  run in CI. Add a unit test with a fix, and test on a Pi through the real
-  paths (menu, desktop icon), not only from a shell.
+- **Tests:** run `python3 -m pytest tests/unit` before a pull request. CI
+  runs `tests/test_basic_validation.sh`, the menu tests and the up-to-date
+  checks of the generated pages (`docs/testing/tester_missions.py --check`,
+  `docs/reference/reference_docs.py --check`), and the whole unit suite (for
+  now as advice only). Add a unit test with a fix, and test on a Pi through the
+  real paths (menu, desktop icon), not only from a shell.
 
 ## Issues
 
