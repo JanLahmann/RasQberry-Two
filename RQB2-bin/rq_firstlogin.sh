@@ -321,6 +321,9 @@ Cancel keeps the current password." 11 72 3>&1 1>&2 2>&3) || return 1
             "The two passwords are not the same. Nothing was changed: try again, or choose Cancel." 9 64
     done
     if err=$(printf '%s:%s\n' "$who" "$new" | sudo -n chpasswd 2>&1); then
+        new=""; again=""
+        # SSH and VNC from the hotspot follow the password (HOTSPOT_ALLOW_ADMIN=auto)
+        sudo -n "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || true
         whiptail --title "Password" --msgbox "Password changed. Use the new one for $for." 8 72
         return 0
     fi

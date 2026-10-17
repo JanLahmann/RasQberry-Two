@@ -255,3 +255,15 @@ def test_hotspot_name_and_password_stay_out_of_the_store(slots):
     b.run("restore")
     assert b.value("HOTSPOT_BAND") == "bg"
     assert b.value("HOTSPOT_SSID") is None and b.value("HOTSPOT_PASSWORD") is None
+
+
+def test_the_hotspot_admin_choice_follows_to_the_other_slot(slots):
+    # HOTSPOT_ALLOW_ADMIN auto|yes|no (Jan, 2026-10-17): a choice made on one
+    # slot is the other slot's too, over the new slot's shipped default
+    a, b = slots
+    for slot, value in ((a, "no"), (b, "auto")):
+        with open(slot.env_file, "a") as fh:
+            fh.write(f"HOTSPOT_ALLOW_ADMIN={value}\n")
+    a.run("save")
+    b.run("restore")
+    assert b.value("HOTSPOT_ALLOW_ADMIN") == "no"

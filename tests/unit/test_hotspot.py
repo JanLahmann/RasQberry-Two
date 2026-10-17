@@ -4,7 +4,10 @@ join QR code, and what the NetworkManager profile asks of the radio.
 """
 
 import os
+import shutil
 import subprocess
+
+import pytest
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _SCRIPT = os.path.join(_ROOT, "RQB2-bin", "rq_hotspot.sh")
@@ -25,6 +28,8 @@ def test_settings_are_checked():
         "HOTSPOT_SSID " + "x" * 33: 1, "HOTSPOT_SSID 'Booth 1'": 0,
         "HOTSPOT_INTERFACE auto": 0, "HOTSPOT_INTERFACE wlan1": 0,
         "HOTSPOT_INTERFACE 'wlan0;rm'": 1, "LED_COUNT 192": 1,
+        "HOTSPOT_ALLOW_ADMIN auto": 0, "HOTSPOT_ALLOW_ADMIN yes": 0,
+        "HOTSPOT_ALLOW_ADMIN no": 0, "HOTSPOT_ALLOW_ADMIN maybe": 1,
     }
     for args, rc in cases.items():
         assert _bash(f"valid_setting {args}").returncode == rc, args
@@ -392,11 +397,19 @@ def _rules(tmp_path, env=None, iptables_s=""):
 
 
 def test_ssh_and_vnc_from_the_hotspot_are_blocked_by_default(tmp_path):
-    ruleset, _ = _rules(tmp_path)
-    assert 'iifname "wlan0" tcp dport { 22, 5900 } drop' in ruleset
-    assert "hook input" in ruleset
-    ruleset, _ = _rules(tmp_path, {"HOTSPOT_ALLOW_ADMIN": "yes"})
+    drop = 'iifname "wlan0" tcp dport { 22, 5900 } drop'
+    # auto (the default) with the demo password still on the desktop user
+    demo = _accounts(tmp_path, {"rasqberry": YESCRYPT_DEMO})
+    ruleset, _ = _rules(tmp_path, demo)
+    assert drop in ruleset and "hook input" in ruleset
+    # auto when no account that can use sudo takes it: SSH and VNC pass
+    ruleset, _ = _rules(tmp_path, _accounts(tmp_path, {"rasqberry": "!"}))
+    assert "dport" not in ruleset and "hook input" in ruleset
+    ruleset, _ = _rules(tmp_path, dict(demo, HOTSPOT_ALLOW_ADMIN="yes"))
     assert "dport" not in ruleset
+    ruleset, _ = _rules(tmp_path, dict(_accounts(tmp_path, {"rasqberry": "!"}),
+                                       HOTSPOT_ALLOW_ADMIN="no"))
+    assert drop in ruleset
 
 
 def test_no_sharing_still_lets_phones_reach_docker_demos(tmp_path):
@@ -449,13 +462,180 @@ def test_forward_ok_reads_dockers_policy(tmp_path):
 
 def test_admin_setting_is_kept_and_in_the_menu():
     env = open(os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")).read()
-    assert "\nHOTSPOT_ALLOW_ADMIN=no\n" in env
-    assert _bash("valid_setting HOTSPOT_ALLOW_ADMIN yes").returncode == 0
-    assert _bash("valid_setting HOTSPOT_ALLOW_ADMIN maybe").returncode == 1
+    assert "\nHOTSPOT_ALLOW_ADMIN=auto\n" in env
     menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
     assert "ADMIN) do_hotspot_admin" in menu
     fn = menu[menu.index("do_hotspot_admin() {"):]
-    assert "--defaultno --yesno" in fn[:fn.index("\n}\n")]
+    fn = fn[:fn.index("\n}\n")]
+    # auto, no and yes to choose from; yes only after a warning, "no" first
+    for choice in ('auto "auto:', 'no   "no:', 'yes  "yes:'):
+        assert choice in fn, choice
+    assert "--defaultno --yesno" in fn
+    assert fn.index('= yes ]') < fn.index("--defaultno --yesno") < fn.index("_rq_hs_set HOTSPOT_ALLOW_ADMIN")
+    # the item says what auto does now, and why (rq_hotspot.sh admin)
+    label = menu[menu.index("_rq_hs_admin_label() {"):]
+    label = label[:label.index("\n}\n")]
+    assert 'rq_hotspot.sh" admin' in label
+    assert "auto: on (password changed)" in label
+    assert "auto: off - change the password to allow" in label
+    assert 'ADMIN "SSH/VNC from the hotspot: $(_rq_hs_admin_label)"' in menu
+
+
+# --- HOTSPOT_ALLOW_ADMIN=auto: no SSH/VNC while the default password is set ------
+# Hashes made with libxcrypt's crypt_gensalt/crypt (Raspberry Pi OS trixie)
+
+YESCRYPT_DEMO = "$y$j9T$qsNFdad7ujv5.MpTV4/vm.$FT3G55Gu8uBM4UFAJm1TkoPbA2eLhZQfitQUJA1tyhD"
+YESCRYPT_OTHER = "$y$j9T$qsNFdad7ujv5.MpTV4/vm.$FpDrX/5XyGcaUDqeBvrPuUqj9cvKyjXhRmnF0GzAWQB"
+SHA512_DEMO = ("$6$oscrnmyJJNcx7aPF$oz.lANPKgZHuFwYe6ba2x5.1IughekPCz8zrmrjy3mIU.dK2xeSt0SWL"
+               "WuSF8tCbHy8996PnTcL3wGS5d9Nif1")
+SHA512_OTHER = ("$6$oscrnmyJJNcx7aPF$xcoc1XDUebkFf5EQC7jT4Q3GaIbblsJsT3GkYEmPkSGDZe1Ai/A6ztEF9y"
+                "dwCQlQ0D7myxMUIMHApsWdQiuCD0")
+
+
+def _accounts(tmp_path, hashes, sudo="rasqberry,carol"):
+    """
+    passwd, group and shadow files: root, rasqberry (uid 1000), carol (group
+    sudo), adm2 (primary group sudo), bob (no sudo). HASHES: name -> hash
+    (others locked). The environment that points rq_hotspot.sh to them.
+    """
+    d = tmp_path / "accounts"
+    d.mkdir(exist_ok=True)
+    users = {"root": (0, 0), "rasqberry": (1000, 1000), "carol": (1001, 1001),
+             "adm2": (1002, 27), "bob": (1003, 1003)}
+    (d / "passwd").write_text("".join(f"{n}:x:{u}:{g}::/home/{n}:/bin/bash\n"
+                                      for n, (u, g) in users.items()))
+    (d / "group").write_text(f"root:x:0:\nsudo:x:27:{sudo}\nrasqberry:x:1000:\n")
+    (d / "shadow").write_text("".join(f"{n}:{hashes.get(n, '!')}:20000:0:99999:7:::\n"
+                                      for n in users))
+    return {"RQ_PASSWD_FILE": str(d / "passwd"), "RQ_GROUP_FILE": str(d / "group"),
+            "RQ_SHADOW_FILE": str(d / "shadow")}
+
+
+def _admin(env, before=""):
+    """admin_effect: (on|off, why)."""
+    r = _bash(before + "admin_effect", env)
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.splitlines()
+    assert len(lines) == 2, r.stdout
+    return lines[0], lines[1]
+
+
+def _crypt_knows(hash_):
+    """Does this machine's crypt(3) (through perl) know the hash's method?"""
+    if not shutil.which("perl"):
+        return False
+    r = subprocess.run(["bash", "-c", f'. "{_SCRIPT}"; printf \'%s\\n%s\\n\' "$DEMO_PASSWORD" '
+                        '"$RQ_TEST_HASH" | perl -e "$CRYPT_CHECK"'],
+                       capture_output=True, text=True, env=dict(os.environ, RQ_TEST_HASH=hash_))
+    return r.returncode in (0, 1)
+
+
+@pytest.mark.parametrize("demo,other", [(YESCRYPT_DEMO, YESCRYPT_OTHER), (SHA512_DEMO, SHA512_OTHER)],
+                         ids=["yescrypt", "sha512"])
+def test_auto_allows_ssh_and_vnc_once_the_password_is_changed(tmp_path, demo, other):
+    if not _crypt_knows(demo):
+        pytest.skip("this crypt(3) does not know the method (macOS); the Pi and Linux CI do")
+    assert _admin(_accounts(tmp_path, {"rasqberry": demo})) == \
+        ("off", "auto: the default password is still set for rasqberry")
+    assert _admin(_accounts(tmp_path, {"rasqberry": other})) == \
+        ("on", "auto: the default password has been changed")
+    # every account that can use sudo counts: group sudo, by its primary group too
+    assert _admin(_accounts(tmp_path, {"rasqberry": other, "carol": demo, "adm2": demo})) == \
+        ("off", "auto: the default password is still set for carol, adm2")
+    # one that cannot use sudo does not
+    assert _admin(_accounts(tmp_path, {"rasqberry": other, "bob": demo}))[0] == "on"
+
+
+def test_auto_counts_the_desktop_user_and_root_without_group_sudo(tmp_path):
+    # no crypt needed: a hash crypt cannot check counts as the default password
+    env = _accounts(tmp_path, {"rasqberry": "$9$unknown$method"}, sudo="")
+    assert _admin(env) == ("off", "auto: the password of rasqberry cannot be checked")
+    env = _accounts(tmp_path, {"root": "$9$unknown$method"}, sudo="")
+    assert _admin(env)[0] == "off"
+
+
+def test_locked_and_empty_passwords_are_not_the_default(tmp_path):
+    for locked in ("!", "!!", "*", "", "!" + YESCRYPT_DEMO, "*LK*"):
+        env = _accounts(tmp_path, {"root": locked, "rasqberry": locked, "carol": locked})
+        assert _admin(env) == ("on", "auto: the default password has been changed"), locked
+
+
+def test_auto_stays_on_the_safe_side(tmp_path):
+    env = _accounts(tmp_path, {"rasqberry": "!"})
+    # no shadow file
+    assert _admin(dict(env, RQ_SHADOW_FILE=str(tmp_path / "none"))) == \
+        ("off", "auto: the passwords cannot be read")
+    # no account files
+    assert _admin(dict(env, RQ_GROUP_FILE=str(tmp_path / "none")))[0] == "off"
+    # no perl
+    nobin = tmp_path / "nobin"
+    nobin.mkdir()
+    for tool in ("awk", "tr"):
+        os.symlink(shutil.which(tool), nobin / tool)
+    assert _admin(env, f'PATH="{nobin}"; ') == ("off", "auto: the passwords cannot be checked (no perl)")
+    # an unknown value is auto, yes and no override it
+    assert _admin(dict(env, HOTSPOT_ALLOW_ADMIN="maybe"))[0] == "on"
+    demo = _accounts(tmp_path, {"rasqberry": YESCRYPT_DEMO})
+    assert _admin(dict(demo, HOTSPOT_ALLOW_ADMIN="yes")) == ("on", "set to yes")
+    assert _admin(dict(env, HOTSPOT_ALLOW_ADMIN="no")) == ("off", "set to no")
+
+
+def test_password_and_hash_never_reach_a_command_line(tmp_path):
+    perl = shutil.which("perl")
+    if not perl:
+        pytest.skip("perl required")
+    log = tmp_path / "perl.log"
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    (shim / "perl").write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{log}"\nenv >> "{log}"\n'
+                               f'exec "{perl}" "$@"\n')
+    (shim / "perl").chmod(0o755)
+    env = dict(_accounts(tmp_path, {"rasqberry": YESCRYPT_DEMO, "carol": SHA512_OTHER}),
+               PATH=f"{shim}:{os.environ['PATH']}")
+    r = _bash("admin_effect", env)
+    seen = log.read_text()
+    assert "crypt(" in seen                      # perl ran, for each hash
+    for secret in ("Qiskit1!", "qsNFdad7ujv5", "oscrnmyJJNcx7aPF", "FT3G55Gu8", "xcoc1XDUeb"):
+        assert secret not in seen, secret
+        assert secret not in r.stdout + r.stderr, secret
+
+
+def test_status_and_menu_say_why(tmp_path):
+    sh = open(_SCRIPT).read()
+    status = sh[sh.index("cmd_status() {"):]
+    status = status[:status.index("\n}\n")]
+    assert "admin_effect" in status and "allowed (" in status and "blocked (" in status
+    assert "    admin)   admin_effect ;;" in sh
+    share = sh[sh.index("share_rules() {"):]
+    assert "if ! admin_allowed; then" in share[:share.index("\n}\n")]
+
+
+def test_a_password_change_in_the_menu_applies_to_the_hotspot():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    fn = menu[menu.index("do_change_password() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    ok = fn[fn.index('if [ "$_cp_rc" -eq 0 ]; then'):]
+    assert ok.index('rq_hotspot.sh" sync') < ok.index("else")
+    first = open(os.path.join(_ROOT, "RQB2-bin", "rq_firstlogin.sh")).read()
+    fn = first[first.index("change_password() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    assert fn.index("sudo -n chpasswd") < fn.index('sudo -n "$BIN_DIR/rq_hotspot.sh" sync') \
+        < fn.index("return 0")
+
+
+def test_boot_file_takes_auto(tmp_path):
+    boot = tmp_path / "rasqberry-hotspot.txt"
+    boot.write_text("HOTSPOT_ALLOW_ADMIN=auto\nHOTSPOT_AT_BOOT=maybe\n")
+    saved = tmp_path / "saved"
+    code = (f'update_env_var() {{ echo "$1=$2" >> "{saved}"; }}; load_rqb2_env() {{ :; }}; '
+            "apply_boot_file")
+    r = _bash(code, {"RQ_HOTSPOT_BOOT_FILE": str(boot),
+                     "RQ_HOTSPOT_CONFIG_FILE": str(tmp_path / "none"),
+                     "RQ_HOTSPOT_SECRETS": str(tmp_path / "hotspot.conf")})
+    assert r.returncode == 0, r.stderr
+    assert saved.read_text().splitlines() == ["HOTSPOT_ALLOW_ADMIN=auto"]
+    assert "auto, yes or no" not in (tmp_path / "rasqberry-hotspot.applied.txt").read_text()
+    assert _bash("setting_rule HOTSPOT_ALLOW_ADMIN").stdout.strip() == "HOTSPOT_ALLOW_ADMIN is auto, yes or no."
 
 
 # --- review C1, A7: what goes with the hotspot follows its real state --------------

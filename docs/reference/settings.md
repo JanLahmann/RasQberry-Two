@@ -64,7 +64,7 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 - `HOTSPOT_INTERFACE` = `auto` **kept**
 - `HOTSPOT_SHARE_INTERNET` = `yes` **kept**
 - `HOTSPOT_AT_BOOT` = `no` **kept**
-- `HOTSPOT_ALLOW_ADMIN` = `no` **kept**: no: devices on the hotspot cannot use SSH or VNC on this Pi - the hotspot's password is on a public card; yes: they can
+- `HOTSPOT_ALLOW_ADMIN` = `auto` **kept**: SSH and VNC from devices on the hotspot, whose password is on a public card. auto: only once no account that can use sudo has the published default password any more (checked at every start and sync); no: never; yes: always
 - `RQ_NO_MESSAGES` = `false`: Interactive mode settings (INTERACTIVE, ASK_TO_REBOOT and CONFIG used to be here. They are raspi-config's own variables, and loading them inside raspi-config broke its dialogs - R-001. Never add them back; rq_env_merge.py drops them from older files.)
 - `OS_VERSION` = `none`: OS version (set during build)
 
