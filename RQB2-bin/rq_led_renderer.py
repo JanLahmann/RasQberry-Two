@@ -9,8 +9,10 @@ frames into the same mmap through the library API - they never get root and
 never touch GPIO. The mmap is the universal frame bus: this physical renderer,
 the virtual GUI, and the future web view are all just consumers of one buffer.
 
-Enabled by LED_RENDER_MODE=service (rasqberry-led-renderer.service). In the
-default LED_RENDER_MODE=direct mode this service is not used.
+Runs as rasqberry-led-renderer.service: always with LED_RENDER_MODE=service;
+in the default LED_RENDER_MODE=direct only on a Pi 4, started for one run by
+the LED demo launchers, rq_python and LED-Painter (a Pi 5's programs drive the
+panel themselves, as the user).
 
 Brightness note: the writer (VirtualNeoPixel.show()) ALREADY applies the
 configured brightness to the RGB values before writing them into the mmap.

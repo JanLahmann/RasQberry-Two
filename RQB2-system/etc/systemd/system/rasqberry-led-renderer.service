@@ -11,11 +11,11 @@ Type=simple
 ExecStart=/home/@USER@/@REPO@/venv/@VENV@/bin/python3 /usr/bin/rq_led_renderer.py
 Restart=on-failure
 RestartSec=2
-# The ONLY component that touches GPIO. Demos run as the unprivileged user and
-# write frames to the mmap; this reads them and drives the physical strip.
-# While this service is active it HOLDS the strip: enable it together with
-# LED_RENDER_MODE=service, and disable it when switching back to direct mode,
-# or direct-mode demos fail with 'GPIO busy'.
+# Drives the strip for programs that run as the user and send their frames
+# to the mmap. Started for a run (LED_RENDER_MODE=direct, the default: on a
+# Pi 4 by the demo launchers, rq_python and LED-Painter), or enabled for good
+# with LED_RENDER_MODE=service. While it runs it HOLDS the strip: do not
+# enable it in direct mode, or other LED programs find the panel in use.
 User=root
 # Root runs the user's venv python: write no __pycache__ into it, or a later
 # pip upgrade there fails on root-owned files (#285, R-059).
