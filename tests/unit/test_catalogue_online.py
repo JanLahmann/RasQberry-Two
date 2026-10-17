@@ -458,6 +458,8 @@ def test_publish_workflow_checks_version_and_pushes_to_gh_pages():
     assert "rq_catalogue.py --check" in wf
     assert "public/known-demos.json" in wf
     assert "https://rasqberry.org/known-demos.json" in wf
+    # review B9: a manual run publishes development's catalogue only
+    assert "    if: github.ref == 'refs/heads/development'\n    runs-on: ubuntu-latest" in wf
 
 
 # --- sound (needs_hw.audio) -----------------------------------------------------------

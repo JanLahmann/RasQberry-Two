@@ -28,6 +28,9 @@ concurrency:
 
 jobs:
   publish:
+    # Only development's catalogue: a manual run on another branch would
+    # publish that branch's, without the merge (review B9)
+    if: github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     steps:
       - name: Check out development
