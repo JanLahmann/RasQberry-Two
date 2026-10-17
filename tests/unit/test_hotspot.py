@@ -100,7 +100,7 @@ def test_menu_has_the_hotspot():
     assert "HOTSPOT) do_hotspot_menu" in main
     hs = menu[menu.index("do_hotspot_menu() {"):]
     hs = hs[:hs.index("\n}\n")]
-    for item in ("STATE", "SHOW", "NAME", "BOOT", "SHARE", "BAND"):
+    for item in ("STATE", "SHOW", "NAME", "BOOT", "SHARE", "BAND", "ADMIN"):
         assert f"\n            {item} " in hs, item
     # settings go to /data like the LED ones
     assert "LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*)" in menu
@@ -216,7 +216,7 @@ def test_hotspot_tells_the_page_whether_it_shares_internet(tmp_path):
     env_file = tmp_path / "portal.env"
     captive = tmp_path / "captive.conf"
     e = {"RQ_HOTSPOT_PORTAL_ENV": str(env_file), "RQ_HOTSPOT_CAPTIVE_CONF": str(captive)}
-    stubs = "systemctl() { :; }; nat_ready() { [ \"$1\" = wlan0 ]; }; "
+    stubs = "systemctl() { :; }; forward_ok() { :; }; nat_ready() { [ \"$1\" = wlan0 ]; }; "
     assert _bash(stubs + "portal on Booth wlan0", e).returncode == 0
     assert env_file.read_text() == 'RQ_HOTSPOT_SSID="Booth"\nRQ_HOTSPOT_INTERNET=yes\nRQ_HOTSPOT_IFACE=wlan0\n'
     _bash(stubs + "portal on 'a\\b\"c`d$e' wlan0", e)          # systemd's EnvironmentFile quoting
@@ -365,3 +365,94 @@ def test_menu_hands_name_and_password_over_on_stdin():
     load = menu[menu.index("_rq_load_env() {"):]
     load = load[:load.index("\n}\n")]
     assert load.index("rq_hotspot.sh migrate") < load.index('. "$ENV_CONFIG_FILE"')
+
+
+# --- review A2-A4: the hotspot's firewall ---------------------------------------
+
+def _rules(tmp_path, env=None, iptables_s=""):
+    """share_rules wlan0 with nft and iptables stubbed: (nft ruleset, iptables calls)."""
+    nft_in = tmp_path / "nft.in"
+    ipt = tmp_path / "ipt.log"
+    for f in (nft_in, ipt):
+        if f.exists():
+            f.unlink()
+    stubs = tmp_path / "fwstubs"
+    stubs.mkdir(exist_ok=True)
+    (stubs / "nft").write_text(f'#!/bin/sh\n[ "$1" = -f ] && cat > "{nft_in}"\nexit 0\n')
+    (stubs / "iptables").write_text(
+        f'#!/bin/sh\necho "$*" >> "{ipt}"\n'
+        f'[ "$1 $2" = "-S DOCKER-USER" ] && printf "%b" "{iptables_s}"\nexit 0\n')
+    for f in ("nft", "iptables"):
+        (stubs / f).chmod(0o755)
+    e = dict(env or {}, PATH=f"{stubs}:{os.environ['PATH']}")
+    r = _bash("share_rules wlan0", e)
+    assert r.returncode == 0, r.stderr
+    return (nft_in.read_text() if nft_in.exists() else "",
+            ipt.read_text().splitlines() if ipt.exists() else [])
+
+
+def test_ssh_and_vnc_from_the_hotspot_are_blocked_by_default(tmp_path):
+    ruleset, _ = _rules(tmp_path)
+    assert 'iifname "wlan0" tcp dport { 22, 5900 } drop' in ruleset
+    assert "hook input" in ruleset
+    ruleset, _ = _rules(tmp_path, {"HOTSPOT_ALLOW_ADMIN": "yes"})
+    assert "dport" not in ruleset
+
+
+def test_no_sharing_still_lets_phones_reach_docker_demos(tmp_path):
+    ruleset, _ = _rules(tmp_path, {"HOTSPOT_SHARE_INTERNET": "no"})
+    fwd = ruleset[ruleset.index("chain forward"):]
+    # replies and DNAT'ed demo ports first, then the drops (review A3)
+    assert fwd.index("ct status dnat accept") < fwd.index('iifname "wlan0" drop')
+    assert fwd.index("ct state established,related accept") < fwd.index('oifname "wlan0" drop')
+    ruleset, _ = _rules(tmp_path, {"HOTSPOT_SHARE_INTERNET": "yes"})
+    assert "chain forward" not in ruleset
+
+
+def test_sharing_gets_past_dockers_forward_drop(tmp_path):
+    _, calls = _rules(tmp_path, {"HOTSPOT_SHARE_INTERNET": "yes"})
+    inserts = [c for c in calls if c.startswith("-I DOCKER-USER")]
+    assert "-N DOCKER-USER" in calls
+    assert len(inserts) == 4 and all("--comment rasqberry-hotspot" in c for c in inserts)
+    # the last insert is checked first: Docker's bridges stay under Docker's rules
+    assert "-o docker+" in inserts[-1] and "-j RETURN" in inserts[-1]
+    assert "-o br-+" in inserts[-2] and "-j RETURN" in inserts[-2]
+    assert "-i wlan0" in inserts[-3] and inserts[-3].endswith("-j ACCEPT")
+    assert "-o wlan0 -m conntrack --ctstate RELATED,ESTABLISHED" in inserts[0]
+    # sharing off: only the old rules go
+    _, calls = _rules(tmp_path, {"HOTSPOT_SHARE_INTERNET": "no"},
+                      iptables_s=r"-N DOCKER-USER\n-A DOCKER-USER -i wlan0 -m comment --comment rasqberry-hotspot -j ACCEPT\n-A DOCKER-USER -j RETURN\n")
+    assert not [c for c in calls if c.startswith("-I")]
+    assert "-D DOCKER-USER -i wlan0 -m comment --comment rasqberry-hotspot -j ACCEPT" in calls
+    assert "-D DOCKER-USER -j RETURN" not in calls                 # not ours
+
+
+def test_page_says_no_internet_while_the_firewall_drops_it(tmp_path):
+    env_file = tmp_path / "portal.env"
+    e = {"RQ_HOTSPOT_PORTAL_ENV": str(env_file), "RQ_HOTSPOT_CAPTIVE_CONF": str(tmp_path / "none")}
+    stubs = "systemctl() { :; }; nat_ready() { :; }; "
+    _bash(stubs + "forward_ok() { false; }; portal on Booth wlan0", e)
+    assert "RQ_HOTSPOT_INTERNET=no\n" in env_file.read_text()
+    _bash(stubs + "forward_ok() { :; }; portal on Booth wlan0", e)
+    assert "RQ_HOTSPOT_INTERNET=yes\n" in env_file.read_text()
+
+
+def test_forward_ok_reads_dockers_policy(tmp_path):
+    def ok(policy, accept):
+        stub = (f"iptables() {{ case \"$1 $2\" in '-S FORWARD') echo '-P FORWARD {policy}' ;; "
+                f"'-C DOCKER-USER') {accept} ;; esac; }}; ")
+        return _bash(stub + "forward_ok wlan0").returncode == 0
+    assert ok("ACCEPT", "false")                  # no Docker
+    assert not ok("DROP", "false")                # Docker, no accept for the hotspot
+    assert ok("DROP", "true")
+
+
+def test_admin_setting_is_kept_and_in_the_menu():
+    env = open(os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")).read()
+    assert "\nHOTSPOT_ALLOW_ADMIN=no\n" in env
+    assert _bash("valid_setting HOTSPOT_ALLOW_ADMIN yes").returncode == 0
+    assert _bash("valid_setting HOTSPOT_ALLOW_ADMIN maybe").returncode == 1
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    assert "ADMIN) do_hotspot_admin" in menu
+    fn = menu[menu.index("do_hotspot_admin() {"):]
+    assert "--defaultno --yesno" in fn[:fn.index("\n}\n")]

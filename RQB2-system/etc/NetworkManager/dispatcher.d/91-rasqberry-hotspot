@@ -6,4 +6,12 @@
 [ "${2:-}" = down ] || exit 0
 [ "${CONNECTION_ID:-}" = rasqberry-hotspot ] || exit 0
 nft delete table inet rasqberry_hotspot 2>/dev/null || true
+# and the accept rules for Docker's FORWARD DROP (internet sharing)
+if command -v iptables >/dev/null 2>&1; then
+    iptables -S DOCKER-USER 2>/dev/null | grep -F -- "--comment rasqberry-hotspot" | sed 's/^-A /-D /' \
+        | while IFS= read -r rule; do
+            read -ra args <<< "$rule"
+            iptables "${args[@]}" 2>/dev/null || true
+        done
+fi
 exit 0

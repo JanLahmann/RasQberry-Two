@@ -29,6 +29,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     HOTSPOT_SHARE_INTERNET  yes: devices on the hotspot reach the internet
 #                             through the Pi's other connection; no: the Pi only
 #     HOTSPOT_AT_BOOT         yes: the hotspot starts with the Pi
+#     HOTSPOT_ALLOW_ADMIN     no (default): devices on the hotspot cannot use
+#                             SSH or VNC on the Pi (its password is on a
+#                             public card); yes: they can
 #   A file rasqberry-hotspot.txt on the boot partition (put there after
 #   flashing, from any computer) sets these before the first start; "boot"
 #   saves it and keeps no password on the card.
@@ -47,7 +50,7 @@ PROFILE="rasqberry-hotspot"
 ADDRESS="10.42.0.1"
 NFT_TABLE="rasqberry_hotspot"
 BOOT_FILE="${RQ_HOTSPOT_BOOT_FILE:-/boot/firmware/rasqberry-hotspot.txt}"
-SETTINGS="HOTSPOT_SSID HOTSPOT_PASSWORD HOTSPOT_BAND HOTSPOT_INTERFACE HOTSPOT_SHARE_INTERNET HOTSPOT_AT_BOOT"
+SETTINGS="HOTSPOT_SSID HOTSPOT_PASSWORD HOTSPOT_BAND HOTSPOT_INTERFACE HOTSPOT_SHARE_INTERNET HOTSPOT_AT_BOOT HOTSPOT_ALLOW_ADMIN"
 SECRET_KEYS="HOTSPOT_SSID HOTSPOT_PASSWORD"
 if [ -n "${RQ_HOTSPOT_SECRETS:-}" ]; then
     SECRETS="$RQ_HOTSPOT_SECRETS"
@@ -85,7 +88,7 @@ valid_setting() {
                                && [ "$(count_bytes "$value" ' -~')" -eq "$(count_bytes "$value")" ]; } ;;
         HOTSPOT_BAND)      [ "$value" = a ] || [ "$value" = bg ] ;;
         HOTSPOT_INTERFACE) [ "$value" = auto ] || [[ "$value" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] ;;
-        HOTSPOT_SHARE_INTERNET|HOTSPOT_AT_BOOT) [ "$value" = yes ] || [ "$value" = no ] ;;
+        HOTSPOT_SHARE_INTERNET|HOTSPOT_AT_BOOT|HOTSPOT_ALLOW_ADMIN) [ "$value" = yes ] || [ "$value" = no ] ;;
         *) return 1 ;;
     esac
 }
@@ -261,23 +264,86 @@ apply_boot_file() {
 # Internet sharing
 # ---------------------------------------------------------------------------
 
-# share_rules IFACE: with HOTSPOT_SHARE_INTERNET=no, forwarding to and from
-# the hotspot is dropped (NetworkManager 1.52 has no ipv4.forwarding); with
-# yes, NetworkManager's NAT must be there (missing after boot: trixie-feedback#62)
+# share_rules IFACE: the hotspot's firewall, table inet rasqberry_hotspot
+# (gone with the hotspot: cmd_off, the NetworkManager hook, a reboot)
+#  - SSH (22) and VNC (5900) from devices on the hotspot are dropped, unless
+#    HOTSPOT_ALLOW_ADMIN=yes: its password is on a public card, and the Pi
+#    may still have the demo password with passwordless sudo (review A2).
+#  - HOTSPOT_SHARE_INTERNET=no: nothing passes between the hotspot and other
+#    networks (NetworkManager 1.52 has no ipv4.forwarding) - except replies
+#    and the demos' own ports: Docker reaches a published port by DNAT and
+#    forwarding, which the drop caught (A3).
+#  - yes: NetworkManager's NAT must be there (missing after boot:
+#    trixie-feedback#62), and Docker's FORWARD policy DROP must not catch the
+#    hotspot's traffic (docker_rules, A4).
 share_rules() {
     local iface="$1"
     nft delete table inet "$NFT_TABLE" 2>/dev/null || true
-    if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = no ]; then
-        nft -f - <<EOF
-table inet $NFT_TABLE {
-    chain forward {
-        type filter hook forward priority filter - 1; policy accept;
-        iifname "$iface" drop
-        oifname "$iface" drop
-    }
+    {
+        echo "table inet $NFT_TABLE {"
+        echo "    chain input {"
+        echo "        type filter hook input priority filter - 1; policy accept;"
+        if [ "$(setting HOTSPOT_ALLOW_ADMIN no)" != yes ]; then
+            echo "        iifname \"$iface\" tcp dport { 22, 5900 } drop"
+        fi
+        echo "    }"
+        if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = no ]; then
+            echo "    chain forward {"
+            echo "        type filter hook forward priority filter - 1; policy accept;"
+            echo "        ct state established,related accept"
+            echo "        ct status dnat accept"
+            echo "        iifname \"$iface\" drop"
+            echo "        oifname \"$iface\" drop"
+            echo "    }"
+        fi
+        echo "}"
+    } | nft -f - || warn "The hotspot's firewall rules could not be set (nft)."
+    docker_rules "$iface"
 }
-EOF
-    fi
+
+# Docker sets the iptables FORWARD policy to DROP when it starts, and a drop
+# in any chain wins over NetworkManager's sharing: devices on the hotspot got
+# no internet while Docker ran (review A4). With sharing on, the hotspot's
+# traffic gets an accept in DOCKER-USER, the chain Docker keeps for rules of
+# its users (made here when Docker has not started yet; Docker keeps it).
+# Traffic to Docker's own bridges still goes through Docker's rules: only
+# published ports, not every container port (RETURN, above the accept).
+DOCKER_MARK="rasqberry-hotspot"
+docker_rules() {
+    command -v iptables >/dev/null 2>&1 || return 0
+    docker_rules_off
+    [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] || return 0
+    local c=(-m comment --comment "$DOCKER_MARK")
+    iptables -N DOCKER-USER 2>/dev/null || true
+    # -I puts each rule on top: the last one is checked first
+    iptables -I DOCKER-USER -o "$1" -m conntrack --ctstate RELATED,ESTABLISHED "${c[@]}" -j ACCEPT \
+        && iptables -I DOCKER-USER -i "$1" "${c[@]}" -j ACCEPT \
+        && iptables -I DOCKER-USER -i "$1" -o br-+ "${c[@]}" -j RETURN \
+        && iptables -I DOCKER-USER -i "$1" -o docker+ "${c[@]}" -j RETURN \
+        || warn "Docker's firewall may block internet sharing (iptables DOCKER-USER)."
+}
+
+docker_rules_off() {
+    command -v iptables >/dev/null 2>&1 || return 0
+    local rule args
+    iptables -S DOCKER-USER 2>/dev/null | grep -F -- "--comment $DOCKER_MARK" | sed 's/^-A /-D /' \
+        | while IFS= read -r rule; do
+            read -ra args <<< "$rule"
+            iptables "${args[@]}" 2>/dev/null || true
+        done || true      # grep finds none: not an error (set -e, pipefail)
+}
+
+# Forwarding from IFACE is not dropped: no FORWARD policy DROP, or our accept
+forward_ok() {
+    command -v iptables >/dev/null 2>&1 || return 0
+    iptables -S FORWARD 2>/dev/null | grep -qx -- '-P FORWARD DROP' || return 0
+    iptables -C DOCKER-USER -i "$1" -m comment --comment "$DOCKER_MARK" -j ACCEPT 2>/dev/null
+}
+
+# All of the hotspot's rules go
+rules_off() {
+    nft delete table inet "$NFT_TABLE" 2>/dev/null || true
+    docker_rules_off
 }
 
 nat_ready() {
@@ -337,13 +403,14 @@ captive_dns() {
 
 # portal on SSID IFACE | portal off
 # The page says whether this Wi-Fi reaches the internet: yes when names are
-# not all pointed to the Pi (captive_dns: sharing on and a way out) and the
-# NAT is there; the page itself checks the way out again at every visit
-# (rig mission 2026-10-16: it always said "no internet").
+# not all pointed to the Pi (captive_dns: sharing on and a way out), the NAT
+# is there and no firewall drops the forwarding (Docker, review A4); the page
+# itself checks the way out again at every visit (rig mission 2026-10-16: it
+# always said "no internet").
 portal() {
     if [ "$1" = on ]; then
         local internet=no
-        if [ ! -f "$CAPTIVE_CONF" ] && nat_ready "${3:-}"; then
+        if [ ! -f "$CAPTIVE_CONF" ] && nat_ready "${3:-}" && forward_ok "${3:-}"; then
             internet=yes
         fi
         mkdir -p "$(dirname "$PORTAL_ENV")"
@@ -415,14 +482,15 @@ cmd_on() {
     nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1 \
         || die "The hotspot did not start on $iface (band $band, channel $channel). See: journalctl -u NetworkManager -n 30"
 
-    share_rules "$iface"
-    advertise on
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ] && ! nat_ready "$iface"; then
         # trixie-feedback#62: NAT missing - once more brings it
         nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
         nmcli --wait 30 connection up "$PROFILE" >/dev/null 2>&1 || true
         nat_ready "$iface" || warn "Internet sharing is on, but NetworkManager set up no NAT for $iface."
     fi
+    # after the NAT bounce: going down takes the rules away (91 hook)
+    share_rules "$iface"
+    advertise on
     # after the NAT check: the page says whether there is internet
     portal on "$ssid" "$iface"
     [ -n "$quiet" ] || { info "Hotspot on ($iface, $label, channel $channel)."; show_join "$ssid" "$pw"; }
@@ -435,7 +503,7 @@ cmd_off() {
     else
         info "The hotspot is not running."
     fi
-    nft delete table inet "$NFT_TABLE" 2>/dev/null || true
+    rules_off
     advertise off
     portal off
 }
@@ -452,9 +520,16 @@ cmd_status() {
     echo "Hotspot: on ($iface, $ssid, $(nmcli -g 802-11-wireless.band connection show "$PROFILE" | sed 's/^a$/5 GHz/;s/^bg$/2.4 GHz/'))"
     echo "Devices connected: ${clients:-0}"
     if [ "$(setting HOTSPOT_SHARE_INTERNET yes)" = yes ]; then
-        if nat_ready "$iface"; then echo "Internet sharing: on"; else echo "Internet sharing: on, but no NAT set up"; fi
+        if ! nat_ready "$iface"; then echo "Internet sharing: on, but no NAT set up"
+        elif ! forward_ok "$iface"; then echo "Internet sharing: on, but the firewall drops it"
+        else echo "Internet sharing: on"; fi
     else
         echo "Internet sharing: off"
+    fi
+    if [ "$(setting HOTSPOT_ALLOW_ADMIN no)" = yes ]; then
+        echo "SSH and VNC from devices on the hotspot: allowed"
+    else
+        echo "SSH and VNC from devices on the hotspot: blocked"
     fi
     echo "At boot: $(setting HOTSPOT_AT_BOOT no)"
 }

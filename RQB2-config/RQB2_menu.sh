@@ -2771,6 +2771,19 @@ do_hotspot_name() {
     _rq_hs_pause
 }
 
+# SSH and VNC from devices on the hotspot: off by default - its password is
+# on a public card, and the Pi may still have the demo password (review A2)
+do_hotspot_admin() {
+    if [ "${HOTSPOT_ALLOW_ADMIN:-no}" = yes ]; then
+        _rq_hs_set HOTSPOT_ALLOW_ADMIN no && _rq_hs_restart
+        return 0
+    fi
+    whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
+        "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC.\n\nOnly with a password of your own on this Pi (RasQberry > Remote Access & Security), never with the demo password.\n\nAllow SSH and VNC from devices on the hotspot?" \
+        14 72 || return 0
+    _rq_hs_set HOTSPOT_ALLOW_ADMIN yes && _rq_hs_restart
+}
+
 do_hotspot_menu() {
     _hs_last=""
     while true; do
@@ -2783,7 +2796,8 @@ do_hotspot_menu() {
             NAME  "Change name and password" \
             BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
             SHARE "Share this Pi's internet (cable or USB Wi-Fi): ${HOTSPOT_SHARE_INTERNET:-yes}" \
-            BAND  "Band: $_hs_band") || break
+            BAND  "Band: $_hs_band" \
+            ADMIN "SSH and VNC from devices on the hotspot: ${HOTSPOT_ALLOW_ADMIN:-no}") || break
         _hs_last="$FUN"
         case "$FUN" in
             STATE) do_hotspot_toggle ;;
@@ -2794,6 +2808,7 @@ do_hotspot_menu() {
             BOOT)  if [ "${HOTSPOT_AT_BOOT:-no}" = yes ]; then _rq_hs_set HOTSPOT_AT_BOOT no; else _rq_hs_set HOTSPOT_AT_BOOT yes; fi ;;
             SHARE) if [ "${HOTSPOT_SHARE_INTERNET:-yes}" = yes ]; then _rq_hs_set HOTSPOT_SHARE_INTERNET no; else _rq_hs_set HOTSPOT_SHARE_INTERNET yes; fi && _rq_hs_restart ;;
             BAND)  if [ "${HOTSPOT_BAND:-a}" = bg ]; then _rq_hs_set HOTSPOT_BAND a; else _rq_hs_set HOTSPOT_BAND bg; fi && _rq_hs_restart ;;
+            ADMIN) do_hotspot_admin ;;
             *)     break ;;
         esac
     done
