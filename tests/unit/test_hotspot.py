@@ -770,6 +770,18 @@ def test_auto_never_takes_the_uplink_adapter_when_another_radio_is_idle():
     assert _pick(r"eth0:ethernet:connected:x\n") == ""
 
 
+def test_off_says_the_wifi_rejoins_only_when_it_ran_the_hotspot():
+    def off(devices):
+        stub = (f"nmcli() {{ case \"$*\" in *--active*) echo rasqberry-hotspot ;; "
+                f"*device*) printf '%b' '{devices}' ;; esac; }}; companions_off() {{ :; }}; ")
+        r = _bash(stub + "cmd_off")
+        return r.stdout + r.stderr
+    # USB adapter ran it, the onboard Wi-Fi stayed on its network
+    assert "joins its usual" not in off(r"wifi:connected:home\nwifi:disconnected:\n")
+    # the only radio ran it
+    assert "joins its usual" in off(r"wifi:disconnected:\n")
+
+
 def test_join_card_shows_the_running_hotspot(tmp_path):
     code = ('hotspot_active() { :; }; '
             'nmcli() { case "$*" in *psk*) echo "pw-of-the-profile" ;; *ssid*) echo "Booth A" ;; esac; }; '

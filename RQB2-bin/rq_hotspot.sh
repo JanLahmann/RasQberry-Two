@@ -741,7 +741,13 @@ cmd_on() {
 cmd_off() {
     if nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx "$PROFILE"; then
         nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
-        info "Hotspot off. The Wi-Fi joins its usual network again."
+        # a second radio (USB adapter) ran it: the Pi's Wi-Fi never left
+        if nmcli -t -f TYPE,STATE,CONNECTION device 2>/dev/null \
+                | grep -v ":$PROFILE\$" | grep -q '^wifi:connected:'; then
+            info "Hotspot off."
+        else
+            info "Hotspot off. The Wi-Fi joins its usual network again."
+        fi
     else
         info "The hotspot is not running."
     fi
