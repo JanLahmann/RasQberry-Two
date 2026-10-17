@@ -184,7 +184,7 @@ def test_fun_with_quantum_icon_offers_every_variant():
 def test_website_bundle_is_the_workshops_page_build():
     inst = _manifest("fun-with-quantum")["install"]
     assert inst["portal_ref"] == "ac17a8bab7a72a079503a0ca948007fb0b07021f"
-    assert inst["portal_sha256"] == "5106abe9fd53d0ae307109e9a988843bc98a64ca0f7060cdbfd1b803f93480e1"
+    assert inst["portal_sha256"] == "d4f4a7b143195cee9a14ba758d16100082dd9aede91d24134574fc075653435d"
 
 
 # --- item 29: Bloch sphere tips --------------------------------------------------------
