@@ -11,11 +11,16 @@ it, so new demos and new pins reach a Pi without an image update (Jan,
 2026-10-12).
 
 Trust: only https://rasqberry.org/known-demos.json (no other host, also not
-after a redirect), at most MAX_BYTES. A copy is kept only if every entry has
-a kebab-case id, an https:// repo_url and a full 40-hex commit SHA, no id
-is a demo the image ships, and its catalogue_version is higher than the
-image's and the cached one's (no rollback to an older list). Otherwise the
-last good copy stays.
+after a redirect), at most MAX_BYTES. A copy is kept only if it is a JSON
+object with a demos list and its catalogue_version is higher than the
+image's and the cached one's (no rollback to an older list); otherwise the
+last good copy stays. An entry is taken only if it has a kebab-case id, an
+https:// repo_url whose last part is a plain directory name (not one a
+shipped demo uses), a full 40-hex commit SHA, whole numbers for its sizes
+and plain one-line texts; any other entry, one whose id appears twice, and
+one with the id of a demo this image ships, is left out (and logged), not
+the whole catalogue (review B6, B7). A demo that moves into the image keeps
+its entry, so older images still have it.
 
 Engine: an entry may need a newer RasQberry ("min_engine", an integer). This
 image's is ENGINE; such entries are listed as "needs a newer RasQberry" and
@@ -27,6 +32,10 @@ News (the tray notice, the login line, the menu):
   update     an installed catalogue demo whose checkout is not at the pin
   renamed    an installed demo whose id an entry "replaces"
   withdrawn  an installed catalogue demo that is no longer in the catalogue
+
+Only demos the add-flow installed count (MARK in their manifest, or the
+bare pinned checkout older add-flows left): a manifest written by hand to
+test a demo (CONTRIBUTING.md) is never "withdrawn" or "updated" (review B3).
 
 Usage:
   rq_catalogue.py --refresh [--system]   fetch and keep a newer catalogue (root:
@@ -72,6 +81,19 @@ _CONFIG = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 URL_RE = re.compile(r"^https://[A-Za-z0-9.-]+/[A-Za-z0-9._~/-]+$")
+# The checkout directory: the last part of repo_url without .git
+DIR_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+FILE_RE = DIR_RE
+# Control characters (C0, DEL, C1): a text with one could rewrite the terminal
+# at a login (the login line) or a notice
+CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# One-line texts of an entry, with their longest length
+TEXTS = {"name": 80, "summary": 200, "provider": 120, "note": 4000, "own_stop_hint": 120,
+         "formerly": 80, "maturity": 20, "added": 40}
+SIZES = ("download_mb", "disk_mb", "peak_mb")
+# Written into the manifest of a demo the add-flow installed
+# (rq_demo_add_external.sh): {"ref": ..., "repo_url": ...}
+MARK = "x-rasqberry-catalogue"
 
 
 # ---------------------------------------------------------------------------
@@ -159,52 +181,174 @@ def shipped_ids(directory=None):
     return out
 
 
-def problems(data, shipped=()):
-    """
-    Why a catalogue from the website must not be used.
+def shipped_dirs(directory=None):
+    """The checkout directories (entrypoint.working_dir) of the demos the image ships."""
+    directory = directory or manifest_dir()
+    out = set()
+    for did in shipped_ids(directory):
+        m = _read_json(os.path.join(directory, f"rq_demo_{did}.json"))
+        if not isinstance(m, dict):
+            continue
+        for part in [m] + [v for v in m.get("variants") or [] if isinstance(v, dict)]:
+            wd = (part.get("entrypoint") or {}).get("working_dir") if isinstance(part.get("entrypoint"), dict) else None
+            if isinstance(wd, str) and wd:
+                out.add(wd)
+    return out
 
-    Args:
-        data: the parsed JSON
-        shipped (set): ids of the demos the image ships
 
-    Returns:
-        list: one line per problem (empty: it may be used)
-    """
+def repo_dir(url):
+    """The directory a repo_url is checked out to (rq_demo_add_external.sh repo_dir_name)."""
+    base = url.rstrip("/").rsplit("/", 1)[-1]
+    return base[:-4] if base.endswith(".git") else base
+
+
+def clean_text(text, limit=80):
+    """A text for a terminal or a notice: no control characters, at most limit characters."""
+    text = CONTROL_RE.sub("", text if isinstance(text, str) else str(text or ""))
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def file_problems(data):
+    """Why a catalogue is not used at all (empty: it may be)."""
     if not isinstance(data, dict):
         return ["not a JSON object"]
     out = []
     if not version(data):
         out.append("catalogue_version is missing or not a positive integer")
-    demos = data.get("demos")
+    if not isinstance(data.get("demos"), list):
+        out.append("demos is not a list")
+    return out
+
+
+def entry_problems(d, label, taken_dirs=()):
+    """
+    Why one entry cannot be used (empty: it can).
+
+    Args:
+        d (dict): the entry
+        label (str): how the lines name it
+        taken_dirs (set): checkout directories the shipped demos use
+    """
+    out = []
+    did = d.get("id")
+    if not isinstance(did, str) or not ID_RE.match(did):
+        out.append(f"{label}: id is not kebab-case")
+    url = d.get("repo_url")
+    if not isinstance(url, str) or not URL_RE.match(url):
+        out.append(f"{label}: repo_url is not an https:// address")
+    elif not DIR_RE.match(repo_dir(url)):
+        out.append(f"{label}: repo_url does not end in a plain directory name")
+    elif repo_dir(url) in taken_dirs:
+        out.append(f"{label}: repo_url would replace the checkout of a demo the image ships")
+    if not isinstance(d.get("ref"), str) or not SHA_RE.match(d["ref"]):
+        out.append(f"{label}: ref is not a full commit SHA")
+    mp = d.get("manifest_path", "rqb-demo.json")
+    if not isinstance(mp, str) or mp.startswith("/") or ".." in mp.split("/") or not mp:
+        out.append(f"{label}: manifest_path is not a path inside the repository")
+    me = d.get("min_engine", 1)
+    if not isinstance(me, int) or isinstance(me, bool) or me < 1:
+        out.append(f"{label}: min_engine is not a positive integer")
+    rep = d.get("replaces", [])
+    if not isinstance(rep, list) or not all(isinstance(r, str) and ID_RE.match(r) for r in rep):
+        out.append(f"{label}: replaces is not a list of ids")
+    for key, limit in TEXTS.items():
+        v = d.get(key)
+        if v is None:
+            continue
+        if not isinstance(v, str) or len(v) > limit or CONTROL_RE.search(v):
+            out.append(f"{label}: {key} is not a one-line text of at most {limit} characters")
+    for key in ("group",):
+        if key in d and not (isinstance(d[key], str) and ID_RE.match(d[key])):
+            out.append(f"{label}: {key} is not an id")
+    if "icon" in d and not (isinstance(d["icon"], str) and FILE_RE.match(d["icon"])):
+        out.append(f"{label}: icon is not a file name")
+    if "leds" in d and not isinstance(d["leds"], bool):
+        out.append(f"{label}: leds is not true or false")
+    dl = d.get("download")
+    if dl is not None:
+        if not isinstance(dl, dict):
+            out.append(f"{label}: download is not an object")
+        else:
+            for key in SIZES:
+                v = dl.get(key)
+                if v is not None and (not isinstance(v, int) or isinstance(v, bool) or v < 0):
+                    out.append(f"{label}: download.{key} is not a whole number of MB")
+    return out
+
+
+def sort_entries(data, shipped=(), taken_dirs=()):
+    """
+    The entries of a catalogue a Pi takes, and why the others are left out.
+    One bad entry costs that entry, not the catalogue (review B7).
+
+    Args:
+        data (dict): a catalogue without file_problems()
+        shipped (set): ids of the demos the image ships: their entries are
+            left out here (a demo that moved into a newer image keeps its
+            entry for the older ones)
+        taken_dirs (set): checkout directories of the shipped demos
+
+    Returns:
+        tuple: (entries, problems, notes): problems are the lines CI refuses,
+        notes the shipped ids
+    """
+    demos = data.get("demos") if isinstance(data, dict) else None
     if not isinstance(demos, list):
-        return out + ["demos is not a list"]
-    seen = set()
+        return [], [], []
+    ids, dirs = {}, {}
+    for d in demos:
+        if isinstance(d, dict):
+            ids[d.get("id")] = ids.get(d.get("id"), 0) + 1
+            if isinstance(d.get("repo_url"), str):
+                dirs[repo_dir(d["repo_url"])] = dirs.get(repo_dir(d["repo_url"]), 0) + 1
+    keep, bad, notes = [], [], []
     for i, d in enumerate(demos):
         if not isinstance(d, dict):
-            out.append(f"entry {i}: not an object")
+            bad.append(f"entry {i}: not an object")
             continue
         did = d.get("id")
         label = did if isinstance(did, str) else f"entry {i}"
-        if not isinstance(did, str) or not ID_RE.match(did):
-            out.append(f"{label}: id is not kebab-case")
-        elif did in seen:
-            out.append(f"{label}: id appears twice")
+        # (a demo that moved into the image keeps its entry and directory)
+        found = entry_problems(d, label, () if did in shipped else taken_dirs)
+        if isinstance(did, str) and ids.get(did, 0) > 1:
+            found.append(f"{label}: id appears twice")
+        if isinstance(d.get("repo_url"), str) and dirs.get(repo_dir(d["repo_url"]), 0) > 1:
+            found.append(f"{label}: another entry uses the same checkout directory")
+        if found:
+            bad.extend(found)
         elif did in shipped:
-            out.append(f"{label}: id of a demo the image ships")
-        seen.add(did)
-        if not isinstance(d.get("repo_url"), str) or not URL_RE.match(d["repo_url"]):
-            out.append(f"{label}: repo_url is not an https:// address")
-        if not isinstance(d.get("ref"), str) or not SHA_RE.match(d["ref"]):
-            out.append(f"{label}: ref is not a full commit SHA")
-        mp = d.get("manifest_path", "rqb-demo.json")
-        if not isinstance(mp, str) or mp.startswith("/") or ".." in mp.split("/") or not mp:
-            out.append(f"{label}: manifest_path is not a path inside the repository")
-        me = d.get("min_engine", 1)
-        if not isinstance(me, int) or isinstance(me, bool) or me < 1:
-            out.append(f"{label}: min_engine is not a positive integer")
-        rep = d.get("replaces", [])
-        if not isinstance(rep, list) or not all(isinstance(r, str) and ID_RE.match(r) for r in rep):
-            out.append(f"{label}: replaces is not a list of ids")
+            notes.append(f"{label}: id of a demo the image ships (left out on this image)")
+        else:
+            keep.append(d)
+    return keep, bad, notes
+
+
+def problems(data, shipped=(), taken_dirs=()):
+    """
+    Everything wrong with a catalogue (CI --check): file_problems and the
+    entries a Pi would leave out for a fault of their own.
+
+    Returns:
+        list: one line per problem (empty: every entry may be used)
+    """
+    bad = file_problems(data)
+    if bad:
+        return bad
+    return sort_entries(data, shipped, taken_dirs)[1]
+
+
+def usable(data, manifests=None):
+    """
+    A copy of a catalogue with only the entries this image takes; None when
+    the file is not used at all. The lines on the left-out entries are logged.
+    """
+    if file_problems(data):
+        return None
+    keep, bad, notes = sort_entries(data, shipped_ids(manifests), shipped_dirs(manifests))
+    for line in bad + notes:
+        log.info("catalogue: left out %s", line)
+    out = dict(data)
+    out["demos"] = keep
     return out
 
 
@@ -232,9 +376,10 @@ def current(shipped=None, cache=None, manifests=None):
     if not isinstance(base, dict):
         base = {"demos": []}
     cached = _read_json(cache_path)
-    if (isinstance(cached, dict) and version(cached) > version(base)
-            and not problems(cached, shipped_ids(manifests))):
-        return cached, cache_path
+    if isinstance(cached, dict) and version(cached) > version(base):
+        sound = usable(cached, manifests)
+        if sound is not None:
+            return sound, cache_path
     return base, shipped
 
 
@@ -270,17 +415,20 @@ def refresh(cache=None, shipped=None, manifests=None, timeout=FETCH_TIMEOUT):
         data = json.loads(body.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
         return "rejected", "not JSON"
-    bad = problems(data, shipped_ids(manifests))
+    bad = file_problems(data)
     if bad:
         return "rejected", "; ".join(bad[:5])
     have, _ = current(shipped, cache, manifests)
     if version(data) <= version(have):
         return "unchanged", f"version {version(data)} (in use: {version(have)})"
+    # only the entries this image takes: the shell reads the file as it is
+    sound = usable(data, manifests)
+    left = len(data["demos"]) - len(sound["demos"])
     try:
-        _write_atomic(os.path.join(cache, CACHE_NAME), json.dumps(data, indent=1) + "\n")
+        _write_atomic(os.path.join(cache, CACHE_NAME), json.dumps(sound, indent=1) + "\n")
     except OSError as e:
         return "offline", f"cannot keep it: {e}"
-    return "updated", f"version {version(data)}"
+    return "updated", f"version {version(data)}" + (f", {left} entries left out" if left else "")
 
 
 # ---------------------------------------------------------------------------
@@ -305,10 +453,31 @@ def checkout_head(path):
     return head if SHA_RE.match(head) else ""
 
 
+def added_by_catalogue(manifest, checkout):
+    """
+    Did the add-flow install this demo? Its manifest has MARK; older
+    add-flows left only their bare pinned checkout (git init, fetch the pin,
+    detached: no remote). A hand-written test manifest (CONTRIBUTING.md,
+    a git clone with its origin) is neither.
+    """
+    if isinstance(manifest.get(MARK), dict):
+        return True
+    git = os.path.join(checkout, ".git")
+    try:
+        with open(os.path.join(git, "HEAD")) as f:
+            head = f.read().strip()
+        with open(os.path.join(git, "config")) as f:
+            config = f.read()
+    except OSError:
+        return False
+    return bool(SHA_RE.match(head)) and "[remote " not in config
+
+
 def installed(home=None, repo=None):
     """
-    The catalogue demos installed for the user: {id: {name, head}}.
-    The add-flow copies their manifests to ~/.local/config/demo-manifests.
+    The demos in the user's manifest directory: {id: {name, head, catalogue}}.
+    The add-flow copies the manifests of catalogue demos there (catalogue
+    True); a demo author's test manifest is there too (catalogue False).
     """
     home = home or user_home()
     repo = repo or os.environ.get("REPO") or "RasQberry-Two"
@@ -322,11 +491,15 @@ def installed(home=None, repo=None):
         if not (name.startswith("rq_demo_") and name.endswith(".json")):
             continue
         m = _read_json(os.path.join(directory, name))
-        if not isinstance(m, dict) or not isinstance(m.get("id"), str):
-            continue
-        wd = (m.get("entrypoint") or {}).get("working_dir") or ""
-        head = checkout_head(os.path.join(home, repo, "demos", wd)) if wd and "/" not in wd else ""
-        out[m["id"]] = {"name": m.get("name") or m["id"], "head": head}
+        if not isinstance(m, dict) or not isinstance(m.get("id"), str) or not ID_RE.match(m["id"]):
+            continue        # (its id goes into a command line: kebab-case only)
+        ep = m.get("entrypoint") if isinstance(m.get("entrypoint"), dict) else {}
+        wd = ep.get("working_dir") or ""
+        ok = isinstance(wd, str) and DIR_RE.match(wd)
+        checkout = os.path.join(home, repo, "demos", wd) if ok else ""
+        out[m["id"]] = {"name": clean_text(m.get("name") or m["id"]),
+                        "head": checkout_head(checkout) if ok else "",
+                        "catalogue": added_by_catalogue(m, checkout) if ok else isinstance(m.get(MARK), dict)}
     return out
 
 
@@ -360,21 +533,23 @@ def news(catalogue, base, have, today=None, engine=ENGINE):
     out = []
     replaced = set()
     for did, info in sorted(have.items()):
+        if not info.get("catalogue"):
+            continue        # not from the catalogue: a demo author's own manifest
         entry = by_id.get(did)
         if entry is None:
             succ = next((d for d in demos if did in (d.get("replaces") or [])), None)
             if succ is not None:
                 replaced.add(succ.get("id"))
                 if not needs_newer(succ, engine) and succ.get("id") not in have:
-                    out.append({"kind": "renamed", "id": did, "name": info["name"],
-                                "new": succ["id"], "new_name": succ.get("name") or succ["id"],
+                    out.append({"kind": "renamed", "id": did, "name": clean_text(info["name"]),
+                                "new": succ["id"], "new_name": clean_text(succ.get("name") or succ["id"]),
                                 "key": f"renamed:{did}:{succ['id']}"})
             elif did not in shipped_ids():
-                out.append({"kind": "withdrawn", "id": did, "name": info["name"],
+                out.append({"kind": "withdrawn", "id": did, "name": clean_text(info["name"]),
                             "key": f"withdrawn:{did}"})
             continue
         if info["head"] and info["head"] != entry.get("ref") and not needs_newer(entry, engine):
-            out.append({"kind": "update", "id": did, "name": entry.get("name") or info["name"],
+            out.append({"kind": "update", "id": did, "name": clean_text(entry.get("name") or info["name"]),
                         "ref": entry.get("ref"), "key": f"update:{did}:{entry.get('ref')}"})
     for d in demos:
         did = d.get("id")
@@ -385,8 +560,9 @@ def news(catalogue, base, have, today=None, engine=ENGINE):
         except ValueError:
             continue
         if 0 <= (today - added).days <= NEW_DAYS:
-            out.append({"kind": "new", "id": did, "name": d.get("name") or did,
-                        "provider": d.get("provider") or "", "summary": d.get("summary") or "",
+            out.append({"kind": "new", "id": did, "name": clean_text(d.get("name") or did),
+                        "provider": clean_text(d.get("provider") or "", 120),
+                        "summary": clean_text(d.get("summary") or "", 200),
                         "key": f"new:{did}"})
     return out
 
@@ -464,10 +640,12 @@ def main(argv=None):
     if argv[0] == "--check":
         # CI: would a Pi take this file? (--check FILE)
         data = _read_json(argv[1]) if len(argv) > 1 else None
-        bad = problems(data, shipped_ids())
+        bad = problems(data, shipped_ids(), shipped_dirs())
         for line in bad:
             print(line)
         if not bad:
+            for line in sort_entries(data, shipped_ids(), shipped_dirs())[2]:
+                print(f"Note: {line}")
             print(f"OK: catalogue_version {version(data)}, {len(data['demos'])} demos")
         return 1 if bad else 0
     if argv[0] == "--refresh":

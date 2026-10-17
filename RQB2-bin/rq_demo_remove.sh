@@ -48,6 +48,9 @@ fields() {
 run_pre_remove() {
     local script="$1" dir="$2" name="$3" path=""
     [ -n "$script" ] && [ -d "$dir" ] || return 0
+    case "$script" in
+        */*|.|..) warn "The removal step of $name is not a script name: $script"; return 0 ;;
+    esac
     if [ -f "$SCRIPT_DIR/$script" ]; then
         path="$SCRIPT_DIR/$script"
     elif [ -f "/usr/bin/$script" ]; then
@@ -153,7 +156,8 @@ remove_demo() {
             show_yesno "Remove $name?" "Remove the catalogue demo $name (its files, icon and menu entry)?" \
                 || { info "Nothing removed."; return 0; }
         fi
-        RQ_ASSUME_YES="$assume_yes" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
+        # (asked here: the add-flow does not ask again, review B3)
+        RQ_ASSUME_YES="$assume_yes" RQ_REMOVE_CONFIRMED="$id" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
     fi
 
     [ "$pre" != "true" ] || die "$name is part of the system image and cannot be removed."

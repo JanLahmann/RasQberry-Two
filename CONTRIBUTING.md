@@ -76,9 +76,11 @@ pixels.show()
 - **Brightness:** `get_pixels()` uses the brightness the user set. Don't raise
   it in code: scenes that light every LED draw the most power.
 - **No root:** LED demos run as the desktop user in a sandbox. They have the
-  home folder, the desktop, the network and sound. They have no `sudo` and no
-  Docker, and the system is read-only. On a Pi 4, `get_pixels()` sends the
-  frames to a small RasQberry service that drives the LEDs.
+  desktop, the network and sound. They have no `sudo` and no Docker, and the
+  system and the home folder are read-only: write into your demo's own
+  folder (the working directory) or `$XDG_CACHE_HOME`. On a Pi 4,
+  `get_pixels()` sends the frames to a small RasQberry service that drives
+  the LEDs.
 
 ### 3. Sound
 

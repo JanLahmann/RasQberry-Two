@@ -288,34 +288,26 @@ regenerate_menu_cache() {
 }
 
 # Installed catalog demos keep their checkout; point out the ones whose pin
-# in the updated known-demos.json has moved, and the ones installed under a
-# name the catalogue has since changed (an entry's "replaces").
+# has moved, the ones installed under a name the catalogue has since changed
+# (an entry's "replaces") and the withdrawn ones: the same list as the
+# taskbar badge and the login line (rq_catalogue.py --news: the newer of the
+# image's catalogue and the one from rasqberry.org, only demos the add-flow
+# installed). It read the image's known-demos.json alone, so a demo from a
+# newer online catalogue was called withdrawn (review B10).
 report_catalog_pins() {
-    local registry="$TARGET_CONFIG/known-demos.json" home="${USER_HOME:-}"
-    local manifest id dir ref head new
+    local home="${USER_HOME:-}" catalogue="${RQ_CATALOGUE_PY:-$TARGET_BIN/rq_catalogue.py}" line
     # Run from raspi-config as root, USER_HOME can resolve to /root
     [ -d "$home/.local/config/demo-manifests" ] || home=$(getent passwd 1000 | cut -d: -f6)
-    [ -f "$registry" ] && [ -n "$home" ] && command -v jq >/dev/null 2>&1 || return 0
-    for manifest in "$home"/.local/config/demo-manifests/rq_demo_*.json; do
-        [ -f "$manifest" ] || continue
-        id=$(jq -r '.id // empty' "$manifest")
-        dir=$(jq -r '.entrypoint.working_dir // empty' "$manifest")
-        ref=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .ref // empty' "$registry")
-        [ -n "$id" ] && [ -n "$dir" ] || continue
-        new=$(jq -r --arg id "$id" '[.demos[] | select(any(.replaces[]?; . == $id)) | .id][0] // empty' "$registry")
-        if [ -z "$ref" ] && [ -n "$new" ]; then
-            info "Catalog demo '$id' is now called '$new' - move it with: sudo rq_demo_add_external.sh --update $id"
-            continue
-        fi
-        if [ -z "$ref" ]; then
-            info "Catalog demo '$id' was withdrawn - remove with: sudo rq_demo_add_external.sh --remove $id"
-            continue
-        fi
-        head=$(git -C "$home/${REPO:-RasQberry-Two}/demos/$dir" rev-parse HEAD 2>/dev/null || true)
-        if [ -n "$head" ] && [ "$head" != "$ref" ]; then
-            info "Catalog demo '$id' has a new pin - update with: sudo rq_demo_add_external.sh --update $id"
-        fi
-    done
+    [ -f "$catalogue" ] && [ -n "$home" ] && command -v python3 >/dev/null 2>&1 \
+        && command -v jq >/dev/null 2>&1 || return 0
+    RQ_USER_HOME="$home" python3 "$catalogue" --news --json 2>/dev/null \
+        | jq -r --arg q "'" '.[]? |
+            if .kind == "update" then "Catalog demo \($q)\(.id)\($q) has a new pin - update with: sudo rq_demo_add_external.sh --update \(.id)"
+            elif .kind == "renamed" then "Catalog demo \($q)\(.id)\($q) is now called \($q)\(.new)\($q) - move it with: sudo rq_demo_add_external.sh --update \(.id)"
+            elif .kind == "withdrawn" then "Catalog demo \($q)\(.id)\($q) was withdrawn - remove with: sudo rq_demo_add_external.sh --remove \(.id)"
+            else empty end' 2>/dev/null \
+        | while IFS= read -r line; do info "$line"; done
+    return 0
 }
 
 # Boot scripts, systemd units, autostart entries etc. live in RQB2-system/ and

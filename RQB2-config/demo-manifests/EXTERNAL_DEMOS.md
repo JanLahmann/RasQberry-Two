@@ -55,9 +55,10 @@ manifests (`rq_demo_schema.json`), with these constraints:
   the LEDs show the playback position minus that delay. One setting for all
   demos, kept across A/B updates; demos don't add their own.
 - LED demos run as the desktop user in a sandbox, never as root: no `sudo`,
-  no Docker, no writing to the system, and the venv, `~/.local/config`, shell
-  start-up files and autostart read-only. The home, the desktop, the network
-  and sound work. Draw through `rq_led_utils` (`get_pixels()` or
+  no Docker, no writing to the system, and the home read-only except the
+  demo's own folder, a cache (`XDG_CACHE_HOME`), `~/.qiskit` and the SenseHAT
+  emulator's settings. The desktop, the network and sound work. Draw through
+  `rq_led_utils` (`get_pixels()` or
   `create_neopixel_strip()`), never `neopixel.NeoPixel` directly: on a Pi 4
   the frames go to the root LED renderer.
 - `install.pip_requirements: true` with a `requirements.txt` carrying
@@ -158,9 +159,15 @@ New demos and new pins reach Pis without an image update:
 - Pis fetch it in the daily check (`rasqberry-update-check.service`) and when
   the picker opens. Only from rasqberry.org (no redirect to another host), at
   most 512 KB. It is kept in `/var/cache/rasqberry/known-demos.json` only if
-  every entry has a kebab-case id, an https URL and a full commit SHA, no id
-  is a shipped demo, and its version is higher than the image's and the
-  cached one's. Otherwise the last good copy stays.
+  its version is higher than the image's and the cached one's; otherwise the
+  last good copy stays. Only the entries this image can take are kept: a
+  kebab-case id, an https URL ending in a plain directory name that no
+  shipped demo uses, a full commit SHA, whole numbers for the sizes and
+  one-line texts without control characters. Any other entry, an id that
+  appears twice and the id of a demo the image ships are left out (logged),
+  not the whole catalogue. CI (`--check`) refuses such entries, except the
+  shipped id: a demo that moves into the image keeps its catalogue entry, so
+  older images still have it (and do not call it withdrawn).
 - `rq_catalogue_file` (rq_common.sh) and `rq_desktop_session.py` use the
   newer of the image's and the cached copy.
 - `min_engine`: an entry that needs a newer RasQberry is listed as such and
@@ -168,7 +175,11 @@ New demos and new pins reach Pis without an image update:
 - The user hears about new demos (not in the image's catalogue, added in the
   last 30 days), updates (an installed demo not at its pin), renames and
   withdrawals: once as a taskbar notice, as actions in the RasQberry badge's
-  menu, as a login line, and as "New:" in the picker.
+  menu, as a login line, and as "New:" in the picker. Updates, renames and
+  withdrawals concern only demos the add-flow installed (it writes
+  `"x-rasqberry-catalogue": {"ref", "repo_url"}` into their manifest), never
+  a demo author's own test manifest (CONTRIBUTING.md). Removing one asks
+  first.
 
 ## 3. Add flow (menu: "Add demo from catalogue")
 
@@ -284,9 +295,14 @@ External manifests execute on a system where menu dispatch may run as root
    (panel check, the Pi 4 LED renderer, clearing the panel), but the program
    itself runs as the user in a sandbox (`rq_led_as_user`): no capabilities,
    no new privileges, only the device groups (no `sudo`, no `docker`), and
-   the venv, `~/.local/config`, shell start-up files, autostart and `~/.ssh`
-   read-only. On a Pi 4 the frames go to `rasqberry-led-renderer.service`,
-   which runs as root with only the rights the LED driver needs.
+   the whole home read-only, so nothing a later login, terminal or root runs
+   can be changed or added (`rq_led_sandbox_mounts`). Writable: the demo's
+   own folder (its working directory), a cache of its own
+   (`XDG_CACHE_HOME`), `~/.qiskit`, `~/.config/sense_hat` and `~/.sensehat`.
+   Root never runs git in a checkout the user can write: a changed RasQberry
+   patch is applied as the user. On a Pi 4 the frames go to
+   `rasqberry-led-renderer.service`, which runs as root with only the rights
+   the LED driver needs.
    `RQ_LED_AS_ROOT=1`, set by a person, is the only way back to root; a
    manifest cannot ask for it.
 4. **Pinned dependencies** — pip installs go into the user venv as the user.

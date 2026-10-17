@@ -340,6 +340,8 @@ check_installed() {
 # agnostic, so this is safe and keeps our patches robust to upstream
 # whitespace drift. Our patches are generated against the same normalization
 # (see RQB2-config/demo-patches/). A file the patch creates is not there yet.
+# git runs without the checkout's fsmonitor and hooks, and the note replaces
+# a symlink instead of writing through it (review B4).
 # Usage: apply_demo_patch DEMO_DIR PATCH
 apply_demo_patch() {
     local dir="$1" patch="$2" f
@@ -348,44 +350,91 @@ apply_demo_patch() {
         grep '^+++ b/' "$patch" | sed 's|^+++ b/||' | while IFS= read -r f; do
             if [ -f "$f" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$f"; fi
         done
-        git apply "$patch" 2>/dev/null || git apply -3 "$patch" 2>/dev/null || exit 1
-        [ -d .git ] && sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply "$patch" 2>/dev/null \
+            || git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply -3 "$patch" 2>/dev/null \
+            || exit 1
+        if [ -d .git ]; then
+            rm -f .git/rq-patch.sha256
+            sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        fi
         exit 0
     )
+}
+
+# Put the files a patch touches back to the checkout's pinned upstream
+# version and apply the patch again; if that fails, everything is put back as
+# it was. A file the patch creates is not in the pinned commit: it is removed
+# before, not checked out (Grok Bloch's rasqberry-help.js; the checkout of it
+# failed, so its refresh never worked, review B5). Runs as the checkout's
+# owner (refresh_demo_patch).
+# Usage: _rq_patch_refresh DEMO_DIR PATCH   (0: updated, 1: as it was)
+_rq_patch_refresh() {
+    local dir="$1" patch="$2" keep f ok=1 files
+    local -a git=(git -c core.fsmonitor=false -c core.hooksPath=/dev/null)
+    cd "$dir" || return 1
+    files=$(sed -n 's|^--- a/||p; s|^+++ b/||p' "$patch" | sort -u)
+    # a copy to fall back on
+    keep=$(mktemp -d) || return 1
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ -f "$f" ]; then
+            mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
+        fi
+    done <<< "$files"
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if "${git[@]}" cat-file -e "HEAD:$f" 2>/dev/null; then
+            "${git[@]}" checkout HEAD -- "$f" 2>/dev/null || ok=0
+        else
+            rm -f -- "$f"
+        fi
+    done <<< "$files"
+    if [ "$ok" = 1 ] && apply_demo_patch "$dir" "$patch"; then
+        rm -rf "$keep"
+        return 0
+    fi
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ ! -e "$keep/$f" ]; then rm -f -- "$f"; fi
+    done <<< "$files"
+    ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
+    rm -rf "$keep"
+    return 1
 }
 
 # An installed demo whose patch has changed since (a new image or update):
 # put the patched files back to the pinned upstream version and apply the
 # new patch. If that fails, the demo keeps the patch it had.
+# Root never runs git in the checkout: git honours the repository's own
+# .git/config, which the user (and an LED demo in its sandbox, in its own
+# folder) can write, and a command in it (core.fsmonitor, a hook) then ran
+# as root at the next start from the menu or the Demo Loop (review B4). Root
+# only hands the tree to the user (chown -R does not follow symlinks); the
+# refresh runs as the user.
 refresh_demo_patch() {
-    local patch_file dir patch want have files
+    local patch_file dir patch want have="" owner rc=0
     patch_file=$(get_field '.install.patch_file' '')
     [ -n "$patch_file" ] || return 0
     patch="$PATCHES_DIR/$patch_file"
     dir="$USER_HOME/$REPO/demos/$(get_field '.entrypoint.working_dir' '')"
     [ -f "$patch" ] && [ -d "$dir/.git" ] || return 0
     want=$(sha256sum < "$patch" | cut -d' ' -f1)
-    have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
+    [ -L "$dir/.git/rq-patch.sha256" ] || have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
     [ "$want" != "$have" ] || return 0
-    files=$(grep '^+++ b/' "$patch" | sed 's|^+++ b/||')
-    # a copy to fall back on
-    local keep
-    keep=$(mktemp -d) || return 0
-    ( cd "$dir" && printf '%s\n' "$files" | while IFS= read -r f; do
-          [ -f "$f" ] && mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
-      done; true )
-    if ( cd "$dir" && printf '%s\n' "$files" | xargs -r git checkout HEAD -- 2>/dev/null ) \
-       && apply_demo_patch "$dir" "$patch"; then
+    if [ "$(id -u)" = "0" ]; then
+        owner=$(get_user_name)
+        if [ "$owner" = "root" ]; then
+            debug "No desktop user: the RasQberry changes to $DEMO_TITLE stay as they are"
+            return 0
+        fi
+        chown -R "$owner:$owner" "$dir"
+        sudo -u "$owner" -H -- bash -c "$(declare -f apply_demo_patch _rq_patch_refresh)"'
+            _rq_patch_refresh "$1" "$2"' _ "$dir" "$patch" || rc=$?
+    else
+        ( _rq_patch_refresh "$dir" "$patch" ) || rc=$?
+    fi
+    if [ "$rc" = 0 ]; then
         info "Updated the RasQberry changes to $DEMO_TITLE"
     else
-        ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
         warn "Could not update the RasQberry changes to $DEMO_TITLE: it runs as before."
-    fi
-    rm -rf "$keep"
-    if [ "$(id -u)" = "0" ]; then
-        local owner
-        owner=$(get_user_name)
-        [ "$owner" != "root" ] && chown -R "$owner:$owner" "$dir"
     fi
     return 0
 }
@@ -503,6 +552,9 @@ install_demo() {
     # download and "Download all demos" leaves it ready offline, R-138).
     if [ -n "$post_install" ]; then
         local post_script="" venv_path
+        case "$post_install" in
+            */*|.|..) die "install.post_install is a script name, not a path: $post_install (demo '$DEMO_ID')" ;;
+        esac
         if [ -f "$SCRIPT_DIR/$post_install" ]; then
             post_script="$SCRIPT_DIR/$post_install"
         elif [ -f "/usr/bin/$post_install" ]; then
@@ -598,6 +650,33 @@ shared_download_present() {
     return 1
 }
 
+# A demo from the user's manifest directory whose files are not here. One
+# from the catalogue comes back the way it came: at the pin of the catalogue
+# in use, checked, its Python packages held at the venv's versions, through
+# rq_demo_add_external.sh (the question was asked already). A catalogue demo
+# is never cloned unpinned: a failed update used to leave its manifest
+# without a checkout, and its next start then cloned whatever upstream held
+# (review B1). One that was renamed or withdrawn is not downloaded at all.
+# Only a demo author's own manifest (CONTRIBUTING.md) is installed as before.
+install_user_demo() {
+    local registry succ
+    registry=$(rq_catalogue_file)
+    if jq -e --arg id "$DEMO_ID" 'any(.demos[]?; .id == $id)' "$registry" >/dev/null 2>&1; then
+        info "Installing $DEMO_TITLE from the demo catalogue..."
+        RQ_CONFIRMED_DEMO="$DEMO_ID" "$SCRIPT_DIR/rq_demo_add_external.sh" --update "$DEMO_ID" \
+            || die "$DEMO_TITLE could not be installed from the demo catalogue."
+        return 0
+    fi
+    succ=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(any(.replaces[]?; . == $id)) | .id][0] // empty' \
+        "$registry" 2>/dev/null) || succ=""
+    [ -z "$succ" ] || die "$DEMO_TITLE is now called '$succ' in the demo catalogue. Move to it with: sudo rq_demo_add_external.sh --update $DEMO_ID"
+    if jq -e '."x-rasqberry-catalogue" | type == "object"' "$MANIFEST_FILE" >/dev/null 2>&1; then
+        die "$DEMO_TITLE was removed from the demo catalogue, and its files are no longer on this Pi. Remove it with: sudo rq_demo_add_external.sh --remove $DEMO_ID"
+    fi
+    info "Installing..."
+    install_demo
+}
+
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
@@ -645,8 +724,12 @@ ensure_installed() {
 
     # (a catalogue Docker demo keeps its checkout when only the image is gone)
     if [ -n "$repo_url" ] && ! checkout_present; then
-        info "Installing..."
-        install_demo
+        if [ "$MANIFEST_FILE" != "$MANIFEST_DIR/rq_demo_${DEMO_ID}.json" ]; then
+            install_user_demo
+        else
+            info "Installing..."
+            install_demo
+        fi
     fi
     if [ -n "$image" ] && docker_usable && ! docker image inspect "$image" >/dev/null 2>&1; then
         install_docker_image "$image"
@@ -1160,6 +1243,11 @@ delegate_launcher() {
     if [ -z "$launcher" ]; then
         die "No launcher specified"
     fi
+    # A RasQberry script by its name, next to this one or in /usr/bin: never
+    # a path (a manifest in the user's directory is read by root, review D2)
+    case "$launcher" in
+        */*|.|..) die "A launcher is a script name, not a path: $launcher" ;;
+    esac
 
     # Find the launcher script
     local launcher_path=""
