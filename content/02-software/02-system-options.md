@@ -44,9 +44,9 @@ join it and reach the demos, also where the venue's Wi-Fi keeps devices apart.
   Pi and its demos.
 - **Start at boot**, e.g. for a booth without a screen
   ([from the first start](/02-software/01-installation-overview/#3-a-booth-hotspot-from-the-first-start)).
-- **SSH and VNC from devices on the hotspot:** off by default, because the
-  password is on the join card. Switch it on only with a password of your own on
-  the Pi.
+- **SSH and VNC from devices on the hotspot:** by default allowed only once the
+  Pi's default password has been changed (the hotspot's password is on the join
+  card). **no** blocks them always, **yes** allows them always.
 
 The Pi's own Wi-Fi is either the hotspot or connected to a network, not both: a
 cable or a USB Wi-Fi adapter keeps the Pi online while it runs the hotspot. It
