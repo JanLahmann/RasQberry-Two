@@ -79,7 +79,7 @@ def test_the_sandbox_gets_its_own_cache():
 
 _E2E = r'''
 set -u
-useradd -m -u 1000 ada >/dev/null 2>&1 || true
+id ada >/dev/null 2>&1 || useradd -m ada
 H=/home/ada
 su ada -c "mkdir -p $H/RasQberry-Two/demos/qlo $H/RasQberry-Two/demos/other $H/RasQberry-Two/venv; touch $H/.bashrc $H/.profile"
 . "$1"

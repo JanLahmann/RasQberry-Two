@@ -51,6 +51,9 @@ def _patch(repo, edit, help_text):
 @pytest.fixture
 def demo(tmp_path):
     """Grok-Bloch-like: a pinned checkout with the old patch applied, and a new patch."""
+    if os.geteuid() == 0:
+        # as root the refresh hands over to the desktop user (checked below and on the rig)
+        pytest.skip("runs the refresh as the user it is")
     home = tmp_path / "home"
     repo = home / "RasQberry-Two" / "demos" / "grok-bloch"
     repo.mkdir(parents=True)
