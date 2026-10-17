@@ -914,8 +914,9 @@ rq_led_clear_on_exit() {
     trap 'exit 143' TERM
 }
 
+# Usage (an EXIT trap of its own): _rq_led_on_exit "$rc"
 _rq_led_on_exit() {
-    local rc=$?
+    local rc=${1:-$?}
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM

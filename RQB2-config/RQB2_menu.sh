@@ -2630,7 +2630,11 @@ do_audio_delay() {
         SET "Type the number of milliseconds") || return 0
     if [ "$_ad_how" = CAL ]; then
         clear
-        "$BIN_DIR/rq_audio_delay_calibrate.sh" || handle_error "The sound delay could not be calibrated."
+        _ad_rc=0
+        "$BIN_DIR/rq_audio_delay_calibrate.sh" || _ad_rc=$?
+        # 130: stopped with Ctrl+C, the script said so - not an error
+        [ "$_ad_rc" = 0 ] || [ "$_ad_rc" = 130 ] \
+            || handle_error "The sound delay could not be calibrated."
         _rq_load_env
         printf '\nPress Enter to return to the menu.'
         read -r _ad_x || :
