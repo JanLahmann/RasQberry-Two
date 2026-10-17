@@ -221,7 +221,8 @@ def demo_needs(manifest):
         needs.append("display")
     if hw.get("network") is True:
         needs.append("internet")
-    if hw.get("audio"):
+    # "none" (the schema's default) and "optional" need no speaker
+    if hw.get("audio") == "required":
         needs.append("bluetooth-speaker")
     if manifest.get("needs_ibm_token") == "required":
         needs.append("ibm-account")
