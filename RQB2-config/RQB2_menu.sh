@@ -2734,10 +2734,13 @@ do_hotspot_toggle() {
         _rq_hs_pause
         return 0
     fi
-    # The onboard Wi-Fi is either hotspot or client: say what is lost
-    _hs_client=$(nmcli -t -f TYPE,STATE,CONNECTION device 2>/dev/null | awk -F: '$1 == "wifi" && $2 == "connected" { print $3; exit }')
-    _hs_wifis=$(nmcli -t -f TYPE device 2>/dev/null | grep -c '^wifi$')
-    if [ -n "$_hs_client" ] && [ "${_hs_wifis:-1}" -le 1 ]; then
+    # A radio is either hotspot or client: say what is lost when the one the
+    # hotspot takes is this Pi's Wi-Fi connection (rq_hotspot.sh picks an
+    # idle one when there are two)
+    _hs_dev=$("$BIN_DIR/rq_hotspot.sh" iface 2>/dev/null)
+    _hs_client=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null \
+        | awk -F: -v d="$_hs_dev" '$1 == d && $2 == "connected" && $3 != "rasqberry-hotspot" { print $3; exit }')
+    if [ -n "$_hs_client" ]; then
         whiptail --title "Wi-Fi hotspot" --yesno \
             "The Wi-Fi leaves \"$_hs_client\" while the hotspot runs: one Wi-Fi cannot be both.\n\nIf you reach this Pi over that Wi-Fi (SSH, VNC, Connect), that connection ends. A network cable or a USB Wi-Fi adapter keeps the Pi online.\n\nStart the hotspot?" \
             14 72 || return 0

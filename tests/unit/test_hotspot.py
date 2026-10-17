@@ -565,3 +565,87 @@ def test_boot_that_fails_leaves_nothing_behind(tmp_path):
     unit = open(os.path.join(_ROOT, "RQB2-system", "etc", "systemd", "system",
                              "rasqberry-hotspot.service")).read()
     assert "network-online.target" in unit and "TimeoutStartSec=300" in unit
+
+
+# --- review A11, A13, A14, A15 ------------------------------------------------------
+
+def _pick(devices, no_ap=""):
+    stub = (f"nmcli() {{ printf '%b' '{devices}'; }}; "
+            "readlink() { case \"$2\" in */wlan0/*) echo /drivers/brcmfmac ;; *) echo /drivers/mt7921u ;; esac; }; "
+            f"ap_capable() {{ [ \"$1\" != '{no_ap}' ]; }}; ")
+    return _bash(stub + "hotspot_interface").stdout.strip()
+
+
+def test_auto_never_takes_the_uplink_adapter_when_another_radio_is_idle():
+    # USB adapter idle: it is the hotspot (the onboard Wi-Fi stays the client)
+    assert _pick(r"wlan0:wifi:connected:home\nwlan1:wifi:disconnected:\n") == "wlan1"
+    # USB adapter is the Pi's Wi-Fi connection, the onboard radio idle (review A13)
+    assert _pick(r"wlan0:wifi:disconnected:\nwlan1:wifi:connected:home\n") == "wlan0"
+    # one radio only: it, as before (the menu warns)
+    assert _pick(r"wlan0:wifi:connected:home\n") == "wlan0"
+    # the running hotspot counts as idle: a restart keeps its radio
+    assert _pick(r"wlan0:wifi:connected:rasqberry-hotspot\nwlan1:wifi:connected:home\n") == "wlan0"
+    # an adapter that cannot be an access point is left out
+    assert _pick(r"wlan0:wifi:disconnected:\nwlan1:wifi:disconnected:\n", no_ap="wlan1") == "wlan0"
+    assert _pick(r"eth0:ethernet:connected:x\n") == ""
+
+
+def test_join_card_shows_the_running_hotspot(tmp_path):
+    code = ('hotspot_active() { :; }; '
+            'nmcli() { case "$*" in *psk*) echo "pw-of-the-profile" ;; *ssid*) echo "Booth A" ;; esac; }; '
+            'join_details')
+    assert _bash(code, {"RQ_HOTSPOT_SECRETS": str(tmp_path / "none")}).stdout == "Booth A\npw-of-the-profile\n"
+    sh = open(_SCRIPT).read()
+    on = sh[sh.index("cmd_on() {"):]
+    assert 'secret_set HOTSPOT_SSID "$ssid"' in on[:on.index("\n}\n")]   # the name is kept
+
+
+def test_boot_file_on_the_config_partition_is_read(tmp_path):
+    cfg = tmp_path / "config" / "rasqberry-hotspot.txt"
+    cfg.parent.mkdir()
+    cfg.write_text("HOTSPOT_AT_BOOT=yes\n")
+    saved = tmp_path / "saved"
+    code = f'update_env_var() {{ echo "$1=$2" >> "{saved}"; }}; load_rqb2_env() {{ :; }}; apply_boot_file'
+    r = _bash(code, {"RQ_HOTSPOT_BOOT_FILE": str(tmp_path / "fw" / "rasqberry-hotspot.txt"),
+                     "RQ_HOTSPOT_CONFIG_FILE": str(cfg), "RQ_HOTSPOT_SECRETS": str(tmp_path / "s")})
+    assert r.returncode == 0, r.stderr
+    assert saved.read_text() == "HOTSPOT_AT_BOOT=yes\n"
+    assert not cfg.exists() and (tmp_path / "config" / "rasqberry-hotspot.applied.txt").exists()
+
+
+def test_a_refused_password_is_listed_and_shown_at_the_start(tmp_path):
+    boot = tmp_path / "rasqberry-hotspot.txt"
+    boot.write_text("HOTSPOT_AT_BOOT=yes\nHOTSPOT_PASSWORD=short\n")
+    secrets = tmp_path / "hotspot.conf"
+    log = tmp_path / "log"
+    _, _, _, e = _state_env(tmp_path)
+    e.update(RQ_HOTSPOT_BOOT_FILE=str(boot), RQ_HOTSPOT_SECRETS=str(secrets), HOTSPOT_AT_BOOT="yes",
+             RQ_HOTSPOT_WIFI_WAIT="0")
+    code = ('update_env_var() { :; }; load_rqb2_env() { :; }; wait_for_wifi() { :; }; cmd_on() { :; }; '
+            'join_details() { printf "Booth\\nnew-pw-1234\\n"; }; '
+            f'rq_wifi_scroll() {{ echo "scroll $*" >> "{log}"; }}; cmd_boot')
+    r = _bash(code, e)
+    assert r.returncode == 0, r.stderr
+    applied = (tmp_path / "rasqberry-hotspot.applied.txt").read_text()
+    assert "short" not in applied
+    assert "# Not taken: HOTSPOT_PASSWORD. The password needs 8 to 63 characters" in applied
+    assert "LED panel scrolls it" in applied
+    # nobody knows the password: the LED panel and the journal say it once
+    assert "scroll rasqberry-hotspot-scroll 600 Wi-Fi Booth  ***  password new-pw-1234" in log.read_text()
+    assert "its password is new-pw-1234" in r.stdout
+    # a password that was taken: no scroll
+    log.unlink()
+    secrets.write_text("HOTSPOT_PASSWORD=known-password\n")
+    boot.write_text("HOTSPOT_AT_BOOT=yes\n")
+    assert _bash(code, e).returncode == 0 and not log.exists()
+
+
+def test_join_card_makes_the_cache_folders_the_users(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    code = ('join_details() { printf "Booth\\npw-12345678\\n"; }; write_card() { echo card > "$3"; }; '
+            'rq_open_browser() { :; }; cmd_card')
+    r = _bash(code, {"USER_HOME": str(home)})
+    assert r.returncode == 0, r.stderr
+    assert (home / ".cache").stat().st_mode & 0o777 == 0o700
+    assert (home / ".cache" / "rasqberry" / "hotspot-card.html").stat().st_mode & 0o777 == 0o600

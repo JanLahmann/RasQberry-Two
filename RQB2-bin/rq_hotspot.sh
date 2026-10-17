@@ -33,8 +33,9 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #                             SSH or VNC on the Pi (its password is on a
 #                             public card); yes: they can
 #   A file rasqberry-hotspot.txt on the boot partition (put there after
-#   flashing, from any computer) sets these before the first start; "boot"
-#   saves it and keeps no password on the card.
+#   flashing, from any computer; on an A/B card the CONFIG partition) sets
+#   these before the first start; "boot" saves it and keeps no password on
+#   the card. What it did not take is listed in rasqberry-hotspot.applied.txt.
 #
 # Usage: rq_hotspot.sh on|off|status|qr|card|boot   (as root)
 #   card: the join card (QR codes, name, password) in the browser, to show or print
@@ -45,6 +46,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   sync: make the rest follow whether the hotspot runs - its firewall rules,
 #     Entangible's address, the landing page and its DNS (the NetworkManager
 #     hook 91-rasqberry-hotspot runs it on every network change)
+#   iface: the Wi-Fi device the hotspot uses (or would use)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -53,6 +55,9 @@ PROFILE="rasqberry-hotspot"
 ADDRESS="10.42.0.1"
 NFT_TABLE="rasqberry_hotspot"
 BOOT_FILE="${RQ_HOTSPOT_BOOT_FILE:-/boot/firmware/rasqberry-hotspot.txt}"
+# A/B card: a computer shows the CONFIG partition first, and Imager writes
+# there - the file is read from there too (review A14)
+CONFIG_BOOT_FILE="${RQ_HOTSPOT_CONFIG_FILE:-/boot/config/rasqberry-hotspot.txt}"
 SETTINGS="HOTSPOT_SSID HOTSPOT_PASSWORD HOTSPOT_BAND HOTSPOT_INTERFACE HOTSPOT_SHARE_INTERNET HOTSPOT_AT_BOOT HOTSPOT_ALLOW_ADMIN"
 SECRET_KEYS="HOTSPOT_SSID HOTSPOT_PASSWORD"
 if [ -n "${RQ_HOTSPOT_SECRETS:-}" ]; then
@@ -201,19 +206,42 @@ migrate_secrets() {
     return 1
 }
 
-# The Wi-Fi device for the hotspot: HOTSPOT_INTERFACE, or (auto) a USB
-# adapter before the onboard Wi-Fi (brcmfmac)
+# Can DEV be an access point? (iw phy: "Supported interface modes: * AP";
+# unknown counts as yes)
+ap_capable() {
+    local phy info
+    phy=$(cat "/sys/class/net/$1/phy80211/name" 2>/dev/null) || return 0
+    info=$(/usr/sbin/iw phy "$phy" info 2>/dev/null) || return 0
+    grep -q 'Supported interface modes' <<< "$info" || return 0
+    awk '/Supported interface modes:/ { m = 1; next }
+         m && /^[[:space:]]+\* / { if ($2 == "AP") found = 1; next }
+         m { m = 0 }
+         END { exit !found }' <<< "$info"
+}
+
+# The Wi-Fi device for the hotspot: HOTSPOT_INTERFACE, or (auto) one that
+# can be an access point - an idle one first, a USB adapter before the
+# onboard Wi-Fi (brcmfmac). A radio that is this Pi's Wi-Fi connection only
+# when there is no other: "auto" took a USB adapter that was the Pi's way
+# out while the onboard radio sat idle (review A13).
 hotspot_interface() {
-    local wanted dev driver onboard=""
+    local wanted dev type state conn driver usb_idle="" onb_idle="" usb_busy="" onb_busy=""
     wanted=$(setting HOTSPOT_INTERFACE auto)
     if [ "$wanted" != auto ]; then echo "$wanted"; return 0; fi
-    for dev in $(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2 == "wifi" { print $1 }'); do
+    while IFS=: read -r dev type state conn; do
+        [ "$type" = wifi ] && [ -n "$dev" ] || continue
+        ap_capable "$dev" || continue
         driver=$(basename "$(readlink -f "/sys/class/net/$dev/device/driver" 2>/dev/null)" 2>/dev/null || true)
-        if [ "$driver" = brcmfmac ]; then onboard="${onboard:-$dev}"; else echo "$dev"; return 0; fi
-    done
+        if [ "$state" = connected ] && [ "$conn" != "$PROFILE" ]; then
+            if [ "$driver" = brcmfmac ]; then onb_busy=${onb_busy:-$dev}; else usb_busy=${usb_busy:-$dev}; fi
+        else
+            if [ "$driver" = brcmfmac ]; then onb_idle=${onb_idle:-$dev}; else usb_idle=${usb_idle:-$dev}; fi
+        fi
+    done < <(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>/dev/null || true)
+    dev=${usb_idle:-${onb_idle:-${onb_busy:-$usb_busy}}}
     # no device: empty, and success - under set -e the callers' message
     # ("No Wi-Fi device found") never came, the script just ended (review A8)
-    [ -z "$onboard" ] || echo "$onboard"
+    [ -z "$dev" ] || echo "$dev"
 }
 
 # RasQberry-XXXX: the last four hex digits of the device's MAC address
@@ -245,27 +273,52 @@ hotspot_password() {
 # ---------------------------------------------------------------------------
 
 # Save the settings from rasqberry-hotspot.txt, then keep the file without the
-# password (as rasqberry-hotspot.applied.txt), so it is applied once
+# password (as rasqberry-hotspot.applied.txt), so it is applied once. What
+# was not taken is listed at its end: a rejected password used to leave only
+# a journal line, and a headless booth with a password nobody knew (A11).
+PW_REJECTED=""
 apply_boot_file() {
-    [ -f "$BOOT_FILE" ] || return 0
-    local line key value applied="${BOOT_FILE%.txt}.applied.txt" n=0
+    local file any=""
+    for file in "$BOOT_FILE" "$CONFIG_BOOT_FILE"; do
+        [ -f "$file" ] || continue
+        apply_one_boot_file "$file"
+        any=1
+    done
+    [ -z "$any" ] || load_rqb2_env
+}
+
+apply_one_boot_file() {
+    local file="$1" line key value applied="${1%.txt}.applied.txt" n=0 notes=""
     while IFS= read -r line || [ -n "$line" ]; do
         line=${line%$'\r'}
         case "$line" in ""|\#*) continue ;; esac
         key=${line%%=*}; value=${line#*=}
         key=$(printf '%s' "$key" | tr -d '[:space:]')
         value=$(unquote "$value")
-        case " $SETTINGS " in *" $key "*) ;; *) warn "rasqberry-hotspot.txt: unknown setting $key"; continue ;; esac
+        case " $SETTINGS " in
+            *" $key "*) ;;
+            *) warn "rasqberry-hotspot.txt: unknown setting $key"
+               notes="$notes# Not taken: $key is not a hotspot setting.\n"
+               continue ;;
+        esac
         if valid_setting "$key" "$value"; then
             save_setting "$key" "$value" && n=$((n + 1))
         else
             warn "rasqberry-hotspot.txt: $key has a value that is not allowed; left as it was. $(setting_rule "$key")"
+            notes="$notes# Not taken: $key. $(setting_rule "$key")\n"
+            [ "$key" != HOTSPOT_PASSWORD ] || PW_REJECTED=1
         fi
-    done < "$BOOT_FILE"
-    sed -E 's/^([[:space:]]*HOTSPOT_PASSWORD[[:space:]]*=).*/# HOTSPOT_PASSWORD was saved on the Pi/' "$BOOT_FILE" > "$applied"
-    rm -f "$BOOT_FILE"
-    info "Hotspot: $n setting(s) taken from the boot partition."
-    load_rqb2_env
+    done < "$file"
+    {
+        sed -E 's/^([[:space:]]*HOTSPOT_PASSWORD[[:space:]]*=).*/# HOTSPOT_PASSWORD was saved on the Pi/' "$file"
+        if [ -n "$notes" ]; then
+            printf '\n'
+            printf '%b' "$notes"
+            [ -z "$PW_REJECTED" ] || echo "# The hotspot has another password: the LED panel scrolls it at the start, the RasQberry menu shows it (Wi-Fi Hotspot)."
+        fi
+    } > "$applied"
+    rm -f "$file"
+    info "Hotspot: $n setting(s) taken from $file."
 }
 
 # ---------------------------------------------------------------------------
@@ -530,7 +583,13 @@ cmd_on() {
     if [ -z "$country" ] || [ "$country" = 00 ]; then
         die "The Wi-Fi country is not set, so the Wi-Fi stays off. Set it first: sudo raspi-config > Localisation Options > WLAN Country."
     fi
-    ssid=$(setting HOTSPOT_SSID "$(default_ssid "$iface")")
+    ssid=$(setting HOTSPOT_SSID "")
+    if [ -z "$ssid" ]; then
+        # kept, as the password is: the name came from whichever radio was
+        # used, so a card printed with a USB adapter in did not fit later (A13)
+        ssid=$(default_ssid "$iface")
+        secret_set HOTSPOT_SSID "$ssid" || true
+    fi
     pw=$(hotspot_password)
     band=$(setting HOTSPOT_BAND a)
     if [ "$band" = a ]; then channel=36; label="5 GHz"; else channel=6; label="2.4 GHz"; fi
@@ -605,10 +664,23 @@ cmd_status() {
     echo "At boot: $(setting HOTSPOT_AT_BOOT no)"
 }
 
-cmd_qr() {
-    local iface
+# join_details: "SSID<newline>PASSWORD" - of the running hotspot when it
+# runs (the card always fits it), else of the settings
+join_details() {
+    local iface ssid pw
+    if hotspot_active; then
+        ssid=$(profile_value 802-11-wireless.ssid)
+        pw=$(nmcli -s -g 802-11-wireless-security.psk connection show "$PROFILE" 2>/dev/null || true)
+        if [ -n "$ssid" ] && [ -n "$pw" ]; then printf '%s\n%s\n' "$ssid" "$pw"; return 0; fi
+    fi
     iface=$(hotspot_interface)
-    show_join "$(setting HOTSPOT_SSID "$(default_ssid "${iface:-wlan0}")")" "$(hotspot_password)"
+    printf '%s\n%s\n' "$(setting HOTSPOT_SSID "$(default_ssid "${iface:-wlan0}")")" "$(hotspot_password)"
+}
+
+cmd_qr() {
+    local ssid pw
+    { IFS= read -r ssid; IFS= read -r pw; } < <(join_details)
+    show_join "$ssid" "$pw"
 }
 
 # The join card: Wi-Fi QR code, name, password and the landing page - on
@@ -659,19 +731,33 @@ CARD
 }
 
 cmd_card() {
-    local iface ssid pw dir out user
-    iface=$(hotspot_interface)
-    ssid=$(setting HOTSPOT_SSID "$(default_ssid "${iface:-wlan0}")")
-    pw=$(hotspot_password)
+    local ssid pw dir out user group home
+    { IFS= read -r ssid; IFS= read -r pw; } < <(join_details)
     user=$(get_user_name)
-    dir="${USER_HOME:-/home/$user}/.cache/rasqberry"
-    mkdir -p "$dir"
+    group=$(id -gn "$user" 2>/dev/null || echo "$user")
+    home="${USER_HOME:-/home/$user}"
+    dir="$home/.cache/rasqberry"
+    # the user's, both levels: a ~/.cache made here by root kept desktop
+    # apps from writing their cache (review A15)
+    [ -d "$home/.cache" ] || install -d -m 700 -o "$user" -g "$group" "$home/.cache" 2>/dev/null \
+        || mkdir -p "$home/.cache"
+    [ -d "$dir" ] || install -d -m 700 -o "$user" -g "$group" "$dir" 2>/dev/null || mkdir -p "$dir"
     out="$dir/hotspot-card.html"
     write_card "$ssid" "$pw" "$out"
-    chown "$user:" "$dir" "$out" 2>/dev/null || true
+    chown "$user:$group" "$out" 2>/dev/null || true
     chmod 600 "$out"
     info "Join card: $out"
     rq_open_browser "file://$out" >/dev/null 2>&1 || info "Open it in the browser to show or print it."
+}
+
+# A headless booth whose password nobody knows (made at this start, or the
+# one in rasqberry-hotspot.txt was refused): the LED panel scrolls name and
+# password for 10 minutes, and the journal has them once (review A11)
+show_unseen_password() {
+    local ssid pw
+    { IFS= read -r ssid; IFS= read -r pw; } < <(join_details)
+    info "Hotspot \"$ssid\" is on; its password is $pw (also in the RasQberry menu: Wi-Fi Hotspot)."
+    rq_wifi_scroll rasqberry-hotspot-scroll 600 "Wi-Fi $ssid  ***  password $pw  ***  http://$ADDRESS" || true
 }
 
 # wait_for_wifi SECONDS: until NetworkManager has a Wi-Fi device it can use.
@@ -702,9 +788,13 @@ cmd_boot() {
     fi
     wait_for_wifi "${RQ_HOTSPOT_WIFI_WAIT:-60}" \
         || warn "Hotspot: no Wi-Fi device ready after ${RQ_HOTSPOT_WIFI_WAIT:-60} seconds; trying anyway."
+    # nobody has seen the password yet: made now, or the card's was refused
+    local unseen="$PW_REJECTED"
+    [ -n "$(setting HOTSPOT_PASSWORD "")" ] || unseen=1
     for try in 1 2 3; do
         # a subshell: cmd_on ends with die when it fails
         if ( cmd_on quiet ); then
+            [ -z "$unseen" ] || show_unseen_password
             return 0
         fi
         [ "$try" = 3 ] && break
@@ -764,7 +854,8 @@ case "${1:-}" in
     card)    cmd_card ;;
     boot)    cmd_boot ;;
     sync)    cmd_sync ;;
+    iface)   hotspot_interface ;;
     get)     cmd_get "${2:-}" ;;
     set)     shift; cmd_set "$@" ;;
-    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|sync|get KEY|set KEY...|migrate" >&2; exit 2 ;;
+    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|sync|iface|get KEY|set KEY...|migrate" >&2; exit 2 ;;
 esac
