@@ -53,6 +53,10 @@ cable or a USB Wi-Fi adapter keeps the Pi online while it runs the hotspot. It
 serves about 8 devices well; for a class, use a USB Wi-Fi adapter or a travel
 router. Command line: `sudo rq_hotspot.sh on|off|status|qr|card`.
 
+Tested USB Wi-Fi adapter: **TP-Link Archer T2U Nano** (Pi 4 and Pi 5, no driver
+to install); the Pi uses it for the hotspot by itself. Adapters that need a
+driver from the maker (e.g. AIC8800 sticks) do not work.
+
 ## Remote access
 
 On most networks the Pi is reachable as `rasqberry.local`; otherwise use its IP
