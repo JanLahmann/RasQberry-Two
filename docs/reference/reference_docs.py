@@ -189,6 +189,7 @@ KNOWN_VALUES = {
     "audio_delay_ms": "ms",
     "browser_autostart_state": "on/off",
     "demo_loop_login_state": "on/off",
+    "_rq_hs_admin_label": "auto: on/off, yes or no",
 }
 
 
@@ -370,6 +371,9 @@ def parse_menu(name, body, menu_funcs):
     stmt = statement_at(body, call_line)
     call = next(c for c in MENU_CALLS if c in stmt)
     words = [w for w in tokens(call_text(stmt, call)) if w not in ("--tags", "--notags")]
+    # a plain --default-item TAG (where the cursor starts) is not the title
+    while len(words) > 1 and words[0] == "--default-item":
+        words = words[2:]
     if len(words) < 2:
         return None
     title, prompt = resolve(words[0], assigned), words[1]

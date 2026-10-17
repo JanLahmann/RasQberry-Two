@@ -129,7 +129,10 @@ Quantum demos, setup and settings for this RasQberry Two
   - Start at boot: <HOTSPOT_AT_BOOT>
   - Share this Pi's internet (cable or USB Wi-Fi): <HOTSPOT_SHARE_INTERNET>
   - Band: <band>
-  - SSH and VNC from devices on the hotspot: <HOTSPOT_ALLOW_ADMIN>
+  - **SSH/VNC from the hotspot: <auto: on/off, yes or no>** → menu "Wi-Fi hotspot: SSH and VNC": Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. <text>
+    - auto: only once the default password is changed (recommended)
+    - no: never
+    - yes: always, even with the default password
 - **Software & Image Updates** → menu "RasQberry: Software & Image Updates"
   - Check for a newer image
   - **Slot Manager (install updates, switch systems)** *(only when it applies)* → menu "RasQberry: A/B Boot Slot Manager"

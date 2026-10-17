@@ -59,10 +59,10 @@ get KEY: a saved setting (empty: the default)
 set KEY...: save settings, one value per line on stdin, all or none
   (checked first; the reason goes to stderr) - the menu uses this
 migrate: move a name or password from the environment file into their own file
-sync: make the rest follow whether the hotspot runs - its firewall rules,
-  Entangible's address, the landing page and its DNS (the NetworkManager
-  hook 91-rasqberry-hotspot runs it on every network change)
+sync: its firewall rules, Entangible's address, the landing page and its
+  DNS follow whether the hotspot runs (NetworkManager hook 91-rasqberry-hotspot)
 iface: the Wi-Fi device the hotspot uses (or would use)
+admin: may devices on the hotspot use SSH and VNC? on|off, then the reason
 ```
 
 ## Demos

@@ -2774,17 +2774,44 @@ do_hotspot_name() {
     _rq_hs_pause
 }
 
-# SSH and VNC from devices on the hotspot: off by default - its password is
-# on a public card, and the Pi may still have the demo password (review A2)
+# SSH and VNC from devices on the hotspot (review A2): its password is on a
+# public card. auto (the default; Jan, 2026-10-17) allows them only once no
+# account that can use sudo has the published default password any more
+# (rq_hotspot.sh admin: on|off, then why); no and yes override it.
+_rq_hs_admin_label() {
+    case "${HOTSPOT_ALLOW_ADMIN:-auto}" in
+        yes|no) printf '%s' "$HOTSPOT_ALLOW_ADMIN" ;;
+        *) if [ "$("$BIN_DIR/rq_hotspot.sh" admin 2>/dev/null | head -n 1)" = on ]; then
+               printf 'auto: on (password changed)'
+           else
+               printf 'auto: off - change the password to allow'
+           fi ;;
+    esac
+}
+
 do_hotspot_admin() {
-    if [ "${HOTSPOT_ALLOW_ADMIN:-no}" = yes ]; then
-        _rq_hs_set HOTSPOT_ALLOW_ADMIN no || return 0
+    _ha_now="${HOTSPOT_ALLOW_ADMIN:-auto}"
+    case "$_ha_now" in yes|no) ;; *) _ha_now=auto ;; esac
+    _ha_eff=$("$BIN_DIR/rq_hotspot.sh" admin 2>/dev/null) || _ha_eff=""
+    _ha_why=$(printf '%s\n' "$_ha_eff" | sed -n 2p)
+    if [ "$(printf '%s\n' "$_ha_eff" | head -n 1)" = on ]; then
+        _ha_text="Now: allowed (${_ha_why})."
     else
-        whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
-            "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC.\n\nOnly with a password of your own on this Pi (RasQberry > Remote Access & Security), never with the demo password.\n\nAllow SSH and VNC from devices on the hotspot?" \
-            14 72 || return 0
-        _rq_hs_set HOTSPOT_ALLOW_ADMIN yes || return 0
+        _ha_text="Now: blocked (${_ha_why:-unknown})."
+        [ "$_ha_now" = auto ] && _ha_text="$_ha_text\nChange the password (RasQberry > Remote Access & Security) to allow them."
     fi
+    _ha_new=$(show_menu --default-item "$_ha_now" "Wi-Fi hotspot: SSH and VNC" \
+        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try.\n\n$_ha_text" \
+        auto "auto: only once the default password is changed (recommended)" \
+        no   "no: never" \
+        yes  "yes: always, even with the default password") || return 0
+    [ "$_ha_new" != "$_ha_now" ] || return 0
+    if [ "$_ha_new" = yes ]; then
+        whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
+            "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC, even while it still has the published default password.\n\nauto allows them by itself once the password is changed (RasQberry > Remote Access & Security).\n\nAlways allow SSH and VNC from devices on the hotspot?" \
+            15 72 || return 0
+    fi
+    _rq_hs_set HOTSPOT_ALLOW_ADMIN "$_ha_new" || return 0
     # a running hotspot takes the new rule at once, without a restart
     "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || :
 }
@@ -2802,7 +2829,7 @@ do_hotspot_menu() {
             BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
             SHARE "Share this Pi's internet (cable or USB Wi-Fi): ${HOTSPOT_SHARE_INTERNET:-yes}" \
             BAND  "Band: $_hs_band" \
-            ADMIN "SSH and VNC from devices on the hotspot: ${HOTSPOT_ALLOW_ADMIN:-no}") || break
+            ADMIN "SSH/VNC from the hotspot: $(_rq_hs_admin_label)") || break
         _hs_last="$FUN"
         case "$FUN" in
             STATE) do_hotspot_toggle ;;
@@ -2961,6 +2988,8 @@ do_change_password() {
     _cp_rc=$?
     _cp_new=""; _cp_again=""
     if [ "$_cp_rc" -eq 0 ]; then
+        # SSH and VNC from the hotspot follow the password (HOTSPOT_ALLOW_ADMIN=auto)
+        "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || :
         whiptail --title "Change the password" --msgbox \
             "Password changed. Use the new one for ${_cp_for}." 8 72
     else

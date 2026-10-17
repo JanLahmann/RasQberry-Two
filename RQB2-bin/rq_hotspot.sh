@@ -30,9 +30,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     HOTSPOT_SHARE_INTERNET  yes: devices on the hotspot reach the internet
 #                             through the Pi's other connection; no: the Pi only
 #     HOTSPOT_AT_BOOT         yes: the hotspot starts with the Pi
-#     HOTSPOT_ALLOW_ADMIN     no (default): devices on the hotspot cannot use
-#                             SSH or VNC on the Pi (its password is on a
-#                             public card); yes: they can
+#     HOTSPOT_ALLOW_ADMIN     auto (default): devices on the hotspot can use
+#                             SSH and VNC on the Pi only once no account that
+#                             can use sudo (group sudo, the desktop user, root)
+#                             has the published default password any more -
+#                             the hotspot's password is on a public card;
+#                             no: never; yes: always
 #   A file rasqberry-hotspot.txt on the boot partition (put there after
 #   flashing, from any computer; on an A/B card the CONFIG partition) sets
 #   these before the first start; "boot" saves it and keeps no password on
@@ -44,10 +47,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   set KEY...: save settings, one value per line on stdin, all or none
 #     (checked first; the reason goes to stderr) - the menu uses this
 #   migrate: move a name or password from the environment file into their own file
-#   sync: make the rest follow whether the hotspot runs - its firewall rules,
-#     Entangible's address, the landing page and its DNS (the NetworkManager
-#     hook 91-rasqberry-hotspot runs it on every network change)
+#   sync: its firewall rules, Entangible's address, the landing page and its
+#     DNS follow whether the hotspot runs (NetworkManager hook 91-rasqberry-hotspot)
 #   iface: the Wi-Fi device the hotspot uses (or would use)
+#   admin: may devices on the hotspot use SSH and VNC? on|off, then the reason
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -73,6 +76,12 @@ DEVICE_STORE="${RQ_SETTINGS_DIR:-/data/rasqberry}/device-settings.env"
 # on, off, boot and sync one at a time (the NetworkManager hook starts sync
 # for every change, also for those "on" itself brings)
 LOCK="${RQ_HOTSPOT_LOCK:-/run/rasqberry/hotspot.lock}"
+# HOTSPOT_ALLOW_ADMIN=auto: the accounts, and their password hashes (tests)
+PASSWD_FILE="${RQ_PASSWD_FILE:-/etc/passwd}"
+GROUP_FILE="${RQ_GROUP_FILE:-/etc/group}"
+SHADOW_FILE="${RQ_SHADOW_FILE:-/etc/shadow}"
+# The password every card starts with; it is on the website (R-013)
+DEMO_PASSWORD='Qiskit1!'
 
 # ---------------------------------------------------------------------------
 # Settings
@@ -100,7 +109,8 @@ valid_setting() {
                                && [ "$(count_bytes "$value" ' -~')" -eq "$(count_bytes "$value")" ]; } ;;
         HOTSPOT_BAND)      [ "$value" = a ] || [ "$value" = bg ] ;;
         HOTSPOT_INTERFACE) [ "$value" = auto ] || [[ "$value" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] ;;
-        HOTSPOT_SHARE_INTERNET|HOTSPOT_AT_BOOT|HOTSPOT_ALLOW_ADMIN) [ "$value" = yes ] || [ "$value" = no ] ;;
+        HOTSPOT_SHARE_INTERNET|HOTSPOT_AT_BOOT) [ "$value" = yes ] || [ "$value" = no ] ;;
+        HOTSPOT_ALLOW_ADMIN) [ "$value" = auto ] || [ "$value" = yes ] || [ "$value" = no ] ;;
         *) return 1 ;;
     esac
 }
@@ -112,6 +122,7 @@ setting_rule() {
         HOTSPOT_PASSWORD) echo "The password needs 8 to 63 characters: letters, digits, spaces and punctuation, without accents or emoji (WPA2)." ;;
         HOTSPOT_BAND)     echo "The band is a (5 GHz) or bg (2.4 GHz)." ;;
         HOTSPOT_INTERFACE) echo "The Wi-Fi device is auto or a device name such as wlan1." ;;
+        HOTSPOT_ALLOW_ADMIN) echo "HOTSPOT_ALLOW_ADMIN is auto, yes or no." ;;
         HOTSPOT_*)        echo "$1 is yes or no." ;;
         *)                echo "$1 is not a hotspot setting." ;;
     esac
@@ -323,14 +334,107 @@ apply_one_boot_file() {
 }
 
 # ---------------------------------------------------------------------------
+# SSH and VNC from devices on the hotspot (HOTSPOT_ALLOW_ADMIN)
+# ---------------------------------------------------------------------------
+
+# admin_accounts: the accounts that can run anything as root - members of
+# the group sudo (also by their primary group), the desktop user (uid 1000),
+# root - one per line; fails when the account files cannot be read
+admin_accounts() {
+    local gid
+    [ -r "$PASSWD_FILE" ] && [ -r "$GROUP_FILE" ] || return 1
+    gid=$(awk -F: '$1 == "sudo" { print $3; exit }' "$GROUP_FILE")
+    {
+        echo root
+        awk -F: '$3 == 1000 { print $1; exit }' "$PASSWD_FILE"
+        awk -F: '$1 == "sudo" { print $4; exit }' "$GROUP_FILE" | tr ',' '\n'
+        [ -z "$gid" ] || awk -F: -v g="$gid" '$4 == g { print $1 }' "$PASSWD_FILE"
+    } | awk 'NF && !seen[$0]++'
+}
+
+# Reads a password and a hash on stdin - never in a command line, where ps
+# shows them - and compares through the system's crypt(3), which knows
+# yescrypt ($y$) and sha512 ($6$). Exit 0: the hash is of that password;
+# 1: it is not; 2: crypt does not know the hash's method (no result, a
+# failure token such as "*0", or one that does not start with the hash's
+# own settings - macOS answers anything with DES).
+CRYPT_CHECK='my $pw = <STDIN>; my $h = <STDIN>;
+exit 2 unless defined $pw && defined $h;
+chomp $pw; chomp $h;
+my $s = ($h =~ /^(.*\$)/) ? $1 : substr($h, 0, 2);
+my $c = crypt($pw, $h);
+exit 2 unless defined $c && length($c) > length($s) && index($c, $s) == 0;
+exit($c eq $h ? 0 : 1);'
+
+# admin_password_changed: 0 only when no account that can use sudo
+# (admin_accounts) takes the published default password any more. A locked
+# or empty hash (!, !!, *, '') does not take it. What cannot be told - no
+# perl, no /etc/shadow, a hash crypt does not know - counts as the default
+# password (the safe side). Says why not on stdout; never shows a password
+# or a hash.
+admin_password_changed() {
+    local accounts user hash rc still="" unknown=""
+    if ! accounts=$(admin_accounts); then
+        echo "the accounts cannot be read"; return 1
+    fi
+    [ -r "$SHADOW_FILE" ] || { echo "the passwords cannot be read"; return 1; }
+    command -v perl >/dev/null 2>&1 || { echo "the passwords cannot be checked (no perl)"; return 1; }
+    while IFS= read -r user; do
+        hash=$(awk -F: -v u="$user" '$1 == u { print $2; exit }' "$SHADOW_FILE") \
+            || { echo "the passwords cannot be read"; return 1; }
+        case "$hash" in ''|'!'*|'*'*) continue ;; esac
+        rc=0
+        printf '%s\n%s\n' "$DEMO_PASSWORD" "$hash" | perl -e "$CRYPT_CHECK" 2>/dev/null || rc=$?
+        case "$rc" in
+            1) ;;
+            0) still="${still:+$still, }$user" ;;
+            *) unknown="${unknown:+$unknown, }$user" ;;
+        esac
+    done <<< "$accounts"
+    hash=""
+    if [ -n "$still" ]; then
+        echo "the default password is still set for $still"
+    elif [ -n "$unknown" ]; then
+        echo "the password of $unknown cannot be checked"
+    else
+        return 0
+    fi
+    return 1
+}
+
+# admin_effect: may devices on the hotspot use SSH and VNC? Two lines: on or
+# off, then why. auto checks the passwords now: at every on, boot and sync,
+# and the menu's password change runs sync.
+admin_effect() {
+    local why
+    case "$(setting HOTSPOT_ALLOW_ADMIN auto)" in
+        yes) printf 'on\nset to yes\n' ;;
+        no)  printf 'off\nset to no\n' ;;
+        *)   if why=$(admin_password_changed); then
+                 printf 'on\nauto: the default password has been changed\n'
+             else
+                 printf 'off\nauto: %s\n' "$why"
+             fi ;;
+    esac
+}
+
+admin_allowed() {
+    local effect
+    effect=$(admin_effect)
+    [ "${effect%%$'\n'*}" = on ]
+}
+
+# ---------------------------------------------------------------------------
 # Internet sharing
 # ---------------------------------------------------------------------------
 
 # share_rules IFACE: the hotspot's firewall, table inet rasqberry_hotspot
 # (gone with the hotspot: cmd_off, the NetworkManager hook, a reboot)
-#  - SSH (22) and VNC (5900) from devices on the hotspot are dropped, unless
-#    HOTSPOT_ALLOW_ADMIN=yes: its password is on a public card, and the Pi
-#    may still have the demo password with passwordless sudo (review A2).
+#  - SSH (22) and VNC (5900) from devices on the hotspot are dropped unless
+#    admin_allowed: its password is on a public card, and the Pi may still
+#    have the demo password with passwordless sudo (review A2). auto (the
+#    default) lets them through once that password is changed (Jan,
+#    2026-10-17).
 #  - HOTSPOT_SHARE_INTERNET=no: nothing passes between the hotspot and other
 #    networks (NetworkManager 1.52 has no ipv4.forwarding) - except replies
 #    and the demos' own ports: Docker reaches a published port by DNAT and
@@ -345,7 +449,7 @@ share_rules() {
         echo "table inet $NFT_TABLE {"
         echo "    chain input {"
         echo "        type filter hook input priority filter - 1; policy accept;"
-        if [ "$(setting HOTSPOT_ALLOW_ADMIN no)" != yes ]; then
+        if ! admin_allowed; then
             echo "        iifname \"$iface\" tcp dport { 22, 5900 } drop"
         fi
         echo "    }"
@@ -645,7 +749,7 @@ cmd_off() {
 }
 
 cmd_status() {
-    local iface ssid clients
+    local iface ssid clients admin
     if ! nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx "$PROFILE"; then
         echo "Hotspot: off (at boot: $(setting HOTSPOT_AT_BOOT no))"
         return 0
@@ -662,10 +766,11 @@ cmd_status() {
     else
         echo "Internet sharing: off"
     fi
-    if [ "$(setting HOTSPOT_ALLOW_ADMIN no)" = yes ]; then
-        echo "SSH and VNC from devices on the hotspot: allowed"
+    admin=$(admin_effect)
+    if [ "${admin%%$'\n'*}" = on ]; then
+        echo "SSH and VNC from devices on the hotspot: allowed (${admin#*$'\n'})"
     else
-        echo "SSH and VNC from devices on the hotspot: blocked"
+        echo "SSH and VNC from devices on the hotspot: blocked (${admin#*$'\n'})"
     fi
     echo "At boot: $(setting HOTSPOT_AT_BOOT no)"
 }
@@ -861,7 +966,8 @@ case "${1:-}" in
     boot)    cmd_boot ;;
     sync)    cmd_sync ;;
     iface)   hotspot_interface ;;
+    admin)   admin_effect ;;
     get)     cmd_get "${2:-}" ;;
     set)     shift; cmd_set "$@" ;;
-    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|sync|iface|get KEY|set KEY...|migrate" >&2; exit 2 ;;
+    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|sync|iface|admin|get KEY|set KEY...|migrate" >&2; exit 2 ;;
 esac
