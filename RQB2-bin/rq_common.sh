@@ -153,8 +153,18 @@ update_env_var() {
     local var_value="$2"
     local env_dir tmp lines_before lines_after
     # Key and value come in through the environment, so no character in the
-    # value (/ | & \) is special (the menu's _rq_env_write does the same).
-    local prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+    # value (/ | & \) is special to awk (the menu's _rq_env_write does the
+    # same). The file is loaded as shell code - by every script and by
+    # raspi-config - so a value with a space, quote, $, ( or & is written in
+    # single quotes: unquoted, "Booth (Hall 3)" stopped raspi-config at every
+    # start (review D1). Plain values stay as they were.
+    local prog='function q(v,   out, i) {
+            if (v ~ "^[A-Za-z0-9_./:,@%+=-]*$") return v
+            out = "\047"
+            while ((i = index(v, "\047")) > 0) { out = out substr(v, 1, i - 1) "\047\"\047\"\047"; v = substr(v, i + 1) }
+            return out v "\047"
+        }
+        BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = q(ENVIRON["RQ_EW_VALUE"]); done = 0 }
         index($0, k "=") == 1 { print k "=" v; done = 1; next }
         { print }
         END { if (!done) print k "=" v }'
@@ -499,6 +509,7 @@ clear_leds() {
 # show it, not its script (#31: "rq_led_ibm_logo.py")
 _rq_led_holder_label() {
     case "$1" in
+        *rq_display_ip.py*--text*) echo "the Wi-Fi name and password scroll" ;;
         *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
         *rq_led_renderer.py*)    echo "the LED renderer service" ;;
         *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
@@ -618,6 +629,33 @@ stop_led_holders() {
         sleep 0.2
         waited=$((waited + 1))
     done
+}
+
+# rq_wifi_scroll UNIT SECONDS TEXT: scroll a Wi-Fi's name and password on the
+# LED panel (the setup Wi-Fi, a booth hotspot nobody knows the password of).
+# In a unit of its own: "Stop It" and Clear LEDs stop the scroll, not the
+# Wi-Fi's service (review A10: they stopped the setup Wi-Fi). The address
+# scroll at start-up gives way; a demo on the panel keeps it. The text goes
+# through a root-only file, not the command line (it may hold a password).
+# As root. Returns 1 when nothing scrolls.
+rq_wifi_scroll() {
+    local unit="$1" seconds="$2" text="$3" py file others
+    command -v systemd-run >/dev/null 2>&1 || return 1
+    others=$(led_holders 2>/dev/null | grep -v -e "IP address scroll" -e "Wi-Fi name and password" || true)
+    [ -z "$others" ] || return 1
+    systemctl stop rasqberry-ip-display.service "$unit.service" 2>/dev/null || true
+    file="${RQ_RUN_DIR:-/run/rasqberry}/$unit.txt"
+    ( umask 077; mkdir -p "$(dirname "$file")" && printf '%s' "$text" > "$file" ) || return 1
+    py="$(find_venv 2>/dev/null || true)/bin/python3"
+    [ -x "$py" ] || py=python3
+    systemd-run --quiet --collect --unit="$unit" --setenv=PYTHONDONTWRITEBYTECODE=1 \
+        "$py" /usr/bin/rq_display_ip.py --text-file "$file" --duration "$seconds" \
+        --speed 0.08 --brightness 0.3 >/dev/null 2>&1
+}
+
+rq_wifi_scroll_stop() {
+    systemctl stop "$1.service" 2>/dev/null || true
+    rm -f "${RQ_RUN_DIR:-/run/rasqberry}/$1.txt"
 }
 
 # Before an LED demo: if another program holds the panel, name it and offer to

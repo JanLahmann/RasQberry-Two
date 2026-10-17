@@ -232,12 +232,23 @@ def main():
         help='Scroll this text instead of the addresses (the setup hotspot: its name and password)'
     )
     parser.add_argument(
+        '--text-file',
+        help='Scroll the text in this file (a password stays out of the process list)'
+    )
+    parser.add_argument(
         '--once',
         action='store_true',
         help='Scroll once in the configured layout, then clear (LED panel check)'
     )
 
     args = parser.parse_args()
+    if args.text_file:
+        try:
+            with open(args.text_file, encoding="utf-8") as fh:
+                args.text = fh.read().strip() or None
+        except OSError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
     # Stopped early - "Stop It" when a demo needs the panel, systemctl stop,
     # or (--once) the person closed the message: end like Ctrl+C, through the
     # exit handlers, so the LED driver is released cleanly, and with exit 0

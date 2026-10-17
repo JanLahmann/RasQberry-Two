@@ -60,12 +60,11 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 - `RQB_BUILD_COMMIT` = `(empty)`
 - `BROWSER_AUTOSTART` = `true`: Open Chromium with rasqberry.org at desktop login (#227). RasQberry -> Desktop: browser at login, or set to false here.
 - `RQ_AUDIO_DELAY_MS` = `0` **kept**: Sound delay in milliseconds (0-2000): how long LEDs in demos with sound wait for the speaker. Bluetooth speakers play 100-300 ms late. RasQberry -> Desktop Settings -> Sound delay. Demos read RQ_AUDIO_DELAY_MS.
-- `HOTSPOT_SSID` = `(empty)` **kept**: Wi-Fi hotspot for booths and classrooms (rq_hotspot.sh on|off|status|qr). HOTSPOT_SSID empty: RasQberry-XXXX; HOTSPOT_PASSWORD empty: made at the first start. HOTSPOT_BAND a (5 GHz) or bg (2.4 GHz); HOTSPOT_INTERFACE auto (a USB Wi-Fi adapter first) or a device name; HOTSPOT_SHARE_INTERNET yes/no; HOTSPOT_AT_BOOT yes/no. Kept across A/B updates (/data).
-- `HOTSPOT_PASSWORD` = `(empty)` **kept**
-- `HOTSPOT_BAND` = `a` **kept**
+- `HOTSPOT_BAND` = `a` **kept**: Wi-Fi hotspot for booths and classrooms (rq_hotspot.sh on|off|status|qr). HOTSPOT_BAND a (5 GHz) or bg (2.4 GHz); HOTSPOT_INTERFACE auto (a USB Wi-Fi adapter first) or a device name; HOTSPOT_SHARE_INTERNET yes/no; HOTSPOT_AT_BOOT yes/no. Kept across A/B updates (/data). Name and password are not here: this file is loaded as shell code and anyone can read it. They are in a root-only file (sudo rq_hotspot.sh get HOTSPOT_SSID; set them in the menu or with rasqberry-hotspot.txt on the boot partition).
 - `HOTSPOT_INTERFACE` = `auto` **kept**
 - `HOTSPOT_SHARE_INTERNET` = `yes` **kept**
 - `HOTSPOT_AT_BOOT` = `no` **kept**
+- `HOTSPOT_ALLOW_ADMIN` = `no` **kept**: no: devices on the hotspot cannot use SSH or VNC on this Pi - the hotspot's password is on a public card; yes: they can
 - `RQ_NO_MESSAGES` = `false`: Interactive mode settings (INTERACTIVE, ASK_TO_REBOOT and CONFIG used to be here. They are raspi-config's own variables, and loading them inside raspi-config broke its dialogs - R-001. Never add them back; rq_env_merge.py drops them from older files.)
 - `OS_VERSION` = `none`: OS version (set during build)
 

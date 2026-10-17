@@ -456,7 +456,11 @@ def test_env_write_failure_keeps_the_settings(box):
 def test_env_write_keeps_special_characters_and_appends(box):
     proc = _common(box, 'update_env_var GIT_REF_X "a/b|c\\d"; update_env_var LED_LAYOUT quad-4x12; echo "RC=$?"')
     assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
-    assert _env_value(box.env_file, "GIT_REF_X") == "a/b|c\\d"
+    # in single quotes (review D1): loaded as shell code, "|" would start a pipe
+    assert _env_value(box.env_file, "GIT_REF_X") == "'a/b|c\\d'"
+    loaded = subprocess.run(["bash", "-c", f'. "{box.env_file}" 2>/dev/null; printf %s "$GIT_REF_X"'],
+                            capture_output=True, text=True)
+    assert loaded.stdout == "a/b|c\\d"
     assert _env_value(box.env_file, "LED_LAYOUT") == "quad-4x12"
 
 

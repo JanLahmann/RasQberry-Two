@@ -227,3 +227,31 @@ def test_boot_config_runs_the_restore():
     assert "rq_device_settings.sh restore" in open(loader).read()
     assert _unit_values("rasqberry-boot-config.service", "ExecStart") == \
         ["/usr/local/bin/rasqberry-load-boot-config.sh"]
+
+
+def test_a_backslash_in_a_value_survives_the_other_slot(slots):
+    # review D1: awk -v turned \t into a tab and \\ into one backslash
+    a, b = slots
+    a.set("LED_LAYOUT", r"'x\ty\\z'")
+    a.run("save")
+    b.run("restore")
+    assert b.value("LED_LAYOUT") == r"'x\ty\\z'"
+
+
+def test_hotspot_name_and_password_stay_out_of_the_store(slots):
+    # review D1/D5: they went into the store unquoted and world-readable; they
+    # have their own root-only file now (rq_hotspot.sh)
+    a, b = slots
+    with open(a.env_file, "a") as fh:
+        fh.write("HOTSPOT_SSID=Booth (Hall 3)\nHOTSPOT_PASSWORD=Quantum$$Fun\nHOTSPOT_BAND=bg\n")
+    a.run("save")
+    store = a.store / "device-settings.env"
+    text = store.read_text()
+    assert "HOTSPOT_BAND=bg" in text
+    assert "HOTSPOT_SSID" not in text and "HOTSPOT_PASSWORD" not in text
+    assert store.stat().st_mode & 0o777 == 0o600
+    # a store an older slot wrote, with them: they do not reach this slot's env file
+    store.write_text(text + "HOTSPOT_SSID=Booth (Hall 3)\nHOTSPOT_PASSWORD=Quantum$$Fun\n")
+    b.run("restore")
+    assert b.value("HOTSPOT_BAND") == "bg"
+    assert b.value("HOTSPOT_SSID") is None and b.value("HOTSPOT_PASSWORD") is None

@@ -9,7 +9,9 @@
 #     will show the address itself),
 #   - not for addresses it already showed,
 #   - not while a demo has the LED panel,
-#   - not when the service was switched off.
+#   - not when the service was switched off,
+#   - not for the setup Wi-Fi (rq_setup_hotspot.sh): it scrolls its own name
+#     and password, and two programs on the panel garbled both (review A10).
 # Environment (tests): RQ_IP_SHOWN, RQ_CLEAR_LEDS
 
 iface="${1:-}"
@@ -19,6 +21,8 @@ CLEAR_LEDS="${RQ_CLEAR_LEDS:-/usr/bin/rq_clear_leds.sh}"
 
 case "$action" in up|dhcp4-change) ;; *) exit 0 ;; esac
 case "$iface" in ""|lo|docker*|br-*|veth*) exit 0 ;; esac
+# wifi-connect names its access point after the Wi-Fi
+case "${CONNECTION_ID:-}" in RasQberry-Setup-*) exit 0 ;; esac
 [ -e "$SHOWN" ] || exit 0
 systemctl is-enabled --quiet rasqberry-ip-display.service 2>/dev/null || exit 0
 

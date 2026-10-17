@@ -129,6 +129,7 @@ Quantum demos, setup and settings for this RasQberry Two
   - Start at boot: <HOTSPOT_AT_BOOT>
   - Share this Pi's internet (cable or USB Wi-Fi): <HOTSPOT_SHARE_INTERNET>
   - Band: <band>
+  - SSH and VNC from devices on the hotspot: <HOTSPOT_ALLOW_ADMIN>
 - **Software & Image Updates** → menu "RasQberry: Software & Image Updates"
   - Check for a newer image
   - **Slot Manager (install updates, switch systems)** *(only when it applies)* → menu "RasQberry: A/B Boot Slot Manager"

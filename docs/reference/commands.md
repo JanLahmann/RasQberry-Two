@@ -55,6 +55,14 @@ The Pi opens its own Wi-Fi, so phones and laptops reach the demos where the venu
 ```
 rq_hotspot.sh on|off|status|qr|card|boot   (as root)
 card: the join card (QR codes, name, password) in the browser, to show or print
+get KEY: a saved setting (empty: the default)
+set KEY...: save settings, one value per line on stdin, all or none
+  (checked first; the reason goes to stderr) - the menu uses this
+migrate: move a name or password from the environment file into their own file
+sync: make the rest follow whether the hotspot runs - its firewall rules,
+  Entangible's address, the landing page and its DNS (the NetworkManager
+  hook 91-rasqberry-hotspot runs it on every network change)
+iface: the Wi-Fi device the hotspot uses (or would use)
 ```
 
 ## Demos
