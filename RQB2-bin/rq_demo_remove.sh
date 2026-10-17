@@ -48,6 +48,9 @@ fields() {
 run_pre_remove() {
     local script="$1" dir="$2" name="$3" path=""
     [ -n "$script" ] && [ -d "$dir" ] || return 0
+    case "$script" in
+        */*|.|..) warn "The removal step of $name is not a script name: $script"; return 0 ;;
+    esac
     if [ -f "$SCRIPT_DIR/$script" ]; then
         path="$SCRIPT_DIR/$script"
     elif [ -f "/usr/bin/$script" ]; then

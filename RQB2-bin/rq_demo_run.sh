@@ -503,6 +503,9 @@ install_demo() {
     # download and "Download all demos" leaves it ready offline, R-138).
     if [ -n "$post_install" ]; then
         local post_script="" venv_path
+        case "$post_install" in
+            */*|.|..) die "install.post_install is a script name, not a path: $post_install (demo '$DEMO_ID')" ;;
+        esac
         if [ -f "$SCRIPT_DIR/$post_install" ]; then
             post_script="$SCRIPT_DIR/$post_install"
         elif [ -f "/usr/bin/$post_install" ]; then
@@ -598,6 +601,33 @@ shared_download_present() {
     return 1
 }
 
+# A demo from the user's manifest directory whose files are not here. One
+# from the catalogue comes back the way it came: at the pin of the catalogue
+# in use, checked, its Python packages held at the venv's versions, through
+# rq_demo_add_external.sh (the question was asked already). A catalogue demo
+# is never cloned unpinned: a failed update used to leave its manifest
+# without a checkout, and its next start then cloned whatever upstream held
+# (review B1). One that was renamed or withdrawn is not downloaded at all.
+# Only a demo author's own manifest (CONTRIBUTING.md) is installed as before.
+install_user_demo() {
+    local registry succ
+    registry=$(rq_catalogue_file)
+    if jq -e --arg id "$DEMO_ID" 'any(.demos[]?; .id == $id)' "$registry" >/dev/null 2>&1; then
+        info "Installing $DEMO_TITLE from the demo catalogue..."
+        RQ_CONFIRMED_DEMO="$DEMO_ID" "$SCRIPT_DIR/rq_demo_add_external.sh" --update "$DEMO_ID" \
+            || die "$DEMO_TITLE could not be installed from the demo catalogue."
+        return 0
+    fi
+    succ=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(any(.replaces[]?; . == $id)) | .id][0] // empty' \
+        "$registry" 2>/dev/null) || succ=""
+    [ -z "$succ" ] || die "$DEMO_TITLE is now called '$succ' in the demo catalogue. Move to it with: sudo rq_demo_add_external.sh --update $DEMO_ID"
+    if jq -e '."x-rasqberry-catalogue" | type == "object"' "$MANIFEST_FILE" >/dev/null 2>&1; then
+        die "$DEMO_TITLE was removed from the demo catalogue, and its files are no longer on this Pi. Remove it with: sudo rq_demo_add_external.sh --remove $DEMO_ID"
+    fi
+    info "Installing..."
+    install_demo
+}
+
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
@@ -645,8 +675,12 @@ ensure_installed() {
 
     # (a catalogue Docker demo keeps its checkout when only the image is gone)
     if [ -n "$repo_url" ] && ! checkout_present; then
-        info "Installing..."
-        install_demo
+        if [ "$MANIFEST_FILE" != "$MANIFEST_DIR/rq_demo_${DEMO_ID}.json" ]; then
+            install_user_demo
+        else
+            info "Installing..."
+            install_demo
+        fi
     fi
     if [ -n "$image" ] && docker_usable && ! docker image inspect "$image" >/dev/null 2>&1; then
         install_docker_image "$image"
@@ -1160,6 +1194,11 @@ delegate_launcher() {
     if [ -z "$launcher" ]; then
         die "No launcher specified"
     fi
+    # A RasQberry script by its name, next to this one or in /usr/bin: never
+    # a path (a manifest in the user's directory is read by root, review D2)
+    case "$launcher" in
+        */*|.|..) die "A launcher is a script name, not a path: $launcher" ;;
+    esac
 
     # Find the launcher script
     local launcher_path=""
