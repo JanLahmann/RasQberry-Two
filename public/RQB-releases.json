@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-17T06:09:01Z",
+  "generated": "2026-10-17T06:10:16Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,21 +43,17 @@
       "image_download_size": 1857283828,
       "extract_size": 9529458688,
       "extract_sha256": "06577689aa64c78f2bb2f13113f66ef125ea577ac47f0cc18f9c40a95d29cbb5",
-      "image_sha256": "34a1966e298cae3967eccdc3326b62e965358a693aeef06bc21e18e859af3de0",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-072441/rasqberry-development-2026-10-17-072441-ab.img.xz",
       "ab_extract_sha256": "843fd730bb47b46dab07cd71c1dc7109e5eb4d8c944596249815492355d1f591",
       "ab_image_sha256": "ac03238eb66f1589499852c17431a4f6b13d61f217b872a5a650e4fd1880b379",
-      "ab_image_download_size": 1906119640,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1906119640,
       "highlights": [
-        "Test: the offline website bundle's new checksum",
+        "Bump version to development-2026-10-17-072441",
+        "the offline website bundle's new checksum",
         "Fun with Quantum: offline website at ac17a8ba (preview-game fixes)",
         "Fun with Quantum: notebooks at 2a68e308 (no validation dialog, Pi 4 timing hints)",
-        "Chromium: RasQberry help first in the Quantum Links bookmarks",
-        "Main menu: Desktop Settings names the sound delay",
-        "LED-Painter: the picture goes to the panel with Display, not as you paint",
-        "Reference: LED Test is in the applications menu, not the LED panel folder",
-        "Hotspot landing page: say when the Wi-Fi reaches the internet"
+        "RasQberry help first in the Quantum Links bookmarks"
       ]
     }
   }
