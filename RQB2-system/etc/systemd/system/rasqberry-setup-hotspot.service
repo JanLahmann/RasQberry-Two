@@ -1,15 +1,17 @@
 [Unit]
 Description=RasQberry setup hotspot (a new Pi without a network)
 # rq_setup_hotspot.sh waits about two minutes for a network; without one it
-# opens RasQberry-Setup-XXXX (balena wifi-connect). Never again once the Pi
-# had a network.
+# opens RasQberry-Setup-XXXX (balena wifi-connect) and ends it when there is a
+# network, after 30 minutes without anyone on it, or after an hour. Never
+# again once the Pi had a network.
 After=NetworkManager.service rasqberry-hotspot.service
 Wants=NetworkManager.service
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/rq_setup_hotspot.sh
-TimeoutStopSec=15
+# wifi-connect takes its access point down (up to 15 s), then the LED scroll
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
