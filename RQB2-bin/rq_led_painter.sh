@@ -226,12 +226,9 @@ fi
 
 # Bring up the root GPIO writer, unless the system already runs in service mode
 # (a renderer is then already active and owns the strip - leave it alone).
-RENDERER_STARTED=0
+# A renderer that runs already is left alone too (rq_led_renderer_start).
 if [ "${LED_RENDER_MODE:-direct}" != "service" ]; then
-    if sudo systemctl start rasqberry-led-renderer 2>/dev/null; then
-        RENDERER_STARTED=1
-        debug "Started rasqberry-led-renderer for this painter session"
-    fi
+    rq_led_renderer_start || true
 fi
 
 # Is the renderer still running a moment later? One that cannot open the
@@ -246,12 +243,10 @@ renderer_running() {
 renderer_running \
     || echo "The LED panel stays dark: the LED renderer did not start (details: journalctl -u rasqberry-led-renderer)."
 
-stop_renderer() {
-    [ "$RENDERER_STARTED" = "1" ] || return 0
-    # SIGTERM via systemd makes the renderer blank the strip before exiting.
-    sudo systemctl stop rasqberry-led-renderer 2>/dev/null || true
-}
-trap stop_renderer EXIT
+# SIGTERM via systemd makes the renderer blank the strip before exiting. Only
+# the one started here, and not one another LED demo has started since
+# ("Stop It" while the painter ended).
+trap rq_led_renderer_stop EXIT
 
 # Never run the Qt GUI as root: it cannot reach the user's Wayland compositor.
 # `env` sets the vars explicitly so they survive sudo's env_reset policy.

@@ -114,10 +114,12 @@ def test_renderer_unit_is_confined():
 def test_cleanup_stops_the_sandbox_and_renderer_before_clearing():
     run = open(_RUN).read()
     clean = run[run.index("cleanup() {"):]
-    assert clean.index("rq_led_renderer_stop") < clean.index("led_clear_quietly")
+    assert "rq_led_release_panel" in clean
     common = open(_COMMON).read()
     on_exit = common[common.index("_rq_led_on_exit() {"):]
-    assert on_exit.index("rq_led_renderer_stop") < on_exit.index("led_clear_quietly")
+    assert "rq_led_release_panel" in on_exit
+    release = common[common.index("rq_led_release_panel() {"):]
+    assert release.index("rq_led_renderer_stop") < release.index("led_clear_quietly")
 
 
 # The sound delay (RQ_AUDIO_DELAY_MS): how long LEDs wait for a Bluetooth

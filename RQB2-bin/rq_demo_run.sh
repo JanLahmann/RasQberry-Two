@@ -1253,9 +1253,9 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
-        # the renderer first: it holds the strip
-        rq_led_renderer_stop
-        led_clear_quietly
+        # the renderer first (it holds the strip), then the clear - unless
+        # another LED demo has taken the panel meanwhile
+        rq_led_release_panel
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
         [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
