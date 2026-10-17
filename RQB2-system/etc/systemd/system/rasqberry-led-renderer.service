@@ -34,9 +34,15 @@ ReadWritePaths=/tmp
 PrivateNetwork=yes
 RestrictAddressFamilies=AF_UNIX
 DevicePolicy=closed
+# Pi 4: the PWM/DMA strip driver (rpi_ws281x)
 DeviceAllow=/dev/mem rw
 DeviceAllow=/dev/gpiomem rw
 DeviceAllow=/dev/vcio rw
+# Pi 5: the GPIO chips (lgpio, opened by `import board`) and the RP1 PIO that
+# drives the strip; device groups as named in /proc/devices (Pi 5 rig,
+# 2026-10-16). A Pi 4 has no rp1-pio group, systemd skips it.
+DeviceAllow=char-gpiochip rw
+DeviceAllow=char-rp1-pio rw
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes

@@ -253,6 +253,14 @@ class LedRenderer:
 
     def create_strip(self):
         """Create the real NeoPixel strip directly (root, brightness 1.0)."""
+        # Pi 5: `import board` loads lgpio, which makes a FIFO in the working
+        # directory - "/" here, read-only for the service (ProtectSystem=
+        # strict), so the import failed. Import it from a temp dir first.
+        try:
+            from rq_led_utils import _lgpio_files_out_of_cwd
+            _lgpio_files_out_of_cwd()
+        except Exception:  # pragma: no cover - board reports what is missing
+            pass
         import board
         import neopixel
         try:  # Pi 5: notice and recover driver stalls (item 31); Pi 4: #1
