@@ -571,20 +571,33 @@ def test_the_updater_names_the_move_for_an_old_install(tmp_path):
     home = tmp_path / "home"
     manifests = home / ".local/config/demo-manifests"
     manifests.mkdir(parents=True)
-    for i in ("traqmania", "gone-demo"):
-        (manifests / f"rq_demo_{i}.json").write_text(json.dumps(
-            {"id": i, "entrypoint": {"working_dir": i}}))
-    config = tmp_path / "config"
-    config.mkdir()
-    shutil.copy(os.path.join(_CFG, "known-demos.json"), config / "known-demos.json")
+    for i in ("traqmania", "gone-demo", "my-own-demo"):
+        m = {"id": i, "entrypoint": {"working_dir": i}}
+        if i != "my-own-demo":          # (a demo author's own manifest: never "withdrawn")
+            m["x-rasqberry-catalogue"] = {"ref": _SHA, "repo_url": f"https://github.com/x/{i}.git"}
+        (manifests / f"rq_demo_{i}.json").write_text(json.dumps(m))
+    # review B10: the catalogue in use, also a newer one from rasqberry.org
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    reg = json.load(open(os.path.join(_CFG, "known-demos.json")))
+    reg["catalogue_version"] += 1
+    reg["demos"].append({"id": "online-demo", "repo_url": "https://github.com/x/online-demo.git",
+                         "ref": "b" * 40, "added": "2026-10-15"})
+    (cache / "known-demos.json").write_text(json.dumps(reg))
+    m = {"id": "online-demo", "entrypoint": {"working_dir": "online-demo"},
+         "x-rasqberry-catalogue": {"ref": "b" * 40, "repo_url": "https://github.com/x/online-demo.git"}}
+    (manifests / "rq_demo_online-demo.json").write_text(json.dumps(m))
     script = (f'eval "$(sed -n \'/^report_catalog_pins() {{/,/^}}/p\' '
               f'"{os.path.join(_BIN, "rq_update_from_branch.sh")}")"; '
               'info() { echo "$*"; }; report_catalog_pins')
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
-                         env=dict(os.environ, TARGET_CONFIG=str(config), USER_HOME=str(home))).stdout
+                         env=dict(os.environ, USER_HOME=str(home), RQ_CATALOGUE_CACHE_DIR=str(cache),
+                                  RQ_CATALOGUE_PY=os.path.join(_BIN, "rq_catalogue.py"))).stdout
     assert ("Catalog demo 'traqmania' is now called 'racetraq' - move it with: "
             "sudo rq_demo_add_external.sh --update traqmania") in out
-    assert "Catalog demo 'gone-demo' was withdrawn" in out
+    assert ("Catalog demo 'gone-demo' was withdrawn - remove with: "
+            "sudo rq_demo_add_external.sh --remove gone-demo") in out
+    assert "online-demo" not in out and "my-own-demo" not in out
 
 
 def test_the_shipped_renames_point_at_old_ids_only():
