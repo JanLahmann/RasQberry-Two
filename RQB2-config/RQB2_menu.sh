@@ -40,6 +40,13 @@ ENV_CONFIG_FILE="${RQ_CONFIG_FILE:-/usr/config/rasqberry_env-config.sh}"
 # whatever raspi-config had set - or not set - across every load.
 _rq_load_env() {
     [ -f "$ENV_CONFIG_FILE" ] || return 1
+    # A hotspot name or password in the env file, written there unquoted by
+    # an older version: "Booth (Hall 3)" stopped raspi-config right here at
+    # every start (review D1). They have their own file now; move them first.
+    if [ -x /usr/bin/rq_hotspot.sh ] && [ "$(id -u)" = 0 ] \
+        && grep -qE '^HOTSPOT_(SSID|PASSWORD)=.' "${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}" 2>/dev/null; then
+        /usr/bin/rq_hotspot.sh migrate >/dev/null 2>&1 || :
+    fi
     _rq_sv_int="${INTERACTIVE-_rq_unset_}"
     _rq_sv_atr="${ASK_TO_REBOOT-_rq_unset_}"
     _rq_sv_cfg="${CONFIG-_rq_unset_}"
@@ -1018,10 +1025,18 @@ do_select_environment_variable() {
 # 'a&b' became 'aLED_LAYOUT=...b' (R-093). awk takes the key and value
 # from the environment, so no character in them is special. The new file is
 # written next to the old one and renamed over it, so a full disk cannot leave
-# a half-written file behind.
+# a half-written file behind. raspi-config loads the file as shell code: a
+# value with a space, quote, $, ( or & goes in single quotes (review D1: an
+# unquoted "Booth (Hall 3)" stopped raspi-config at every start).
 _rq_env_write() {
     _ew_dir=$(dirname "$ENV_FILE")
-    _ew_prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+    _ew_prog='function q(v,   out, i) {
+            if (v ~ "^[A-Za-z0-9_./:,@%+=-]*$") return v
+            out = "\047"
+            while ((i = index(v, "\047")) > 0) { out = out substr(v, 1, i - 1) "\047\"\047\"\047"; v = substr(v, i + 1) }
+            return out v "\047"
+        }
+        BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = q(ENVIRON["RQ_EW_VALUE"]); done = 0 }
         index($0, k "=") == 1 { print k "=" v; done = 1; next }
         { print }
         END { if (!done) print k "=" v }'
@@ -2732,22 +2747,24 @@ do_hotspot_toggle() {
     _rq_hs_pause
 }
 
+# Name and password live in a root-only file of their own, not in the env
+# file (review D1/D5): rq_hotspot.sh reads them (get) and checks and saves
+# both or neither (set, the values on stdin - not in a command line that
+# every user could read)
 do_hotspot_name() {
     _hs_name=$(whiptail --title "Wi-Fi hotspot" --inputbox \
         "Name of the hotspot (up to 32 characters). Empty: RasQberry-XXXX, from this Pi's Wi-Fi address." \
-        10 70 "${HOTSPOT_SSID:-}" 3>&1 1>&2 2>&3) || return 0
-    if [ "$(printf '%s' "$_hs_name" | wc -c)" -gt 32 ]; then
-        whiptail --title "Wi-Fi hotspot" --msgbox "That name is longer than 32 characters; it stays as it was." 8 70
-        return 0
-    fi
+        10 70 "$("$BIN_DIR/rq_hotspot.sh" get HOTSPOT_SSID 2>/dev/null)" 3>&1 1>&2 2>&3) || return 0
     _hs_pw=$(whiptail --title "Wi-Fi hotspot" --inputbox \
-        "Password (8 to 63 characters). Empty: a new random one." \
-        10 70 "${HOTSPOT_PASSWORD:-}" 3>&1 1>&2 2>&3) || return 0
-    if [ -n "$_hs_pw" ] && { [ "${#_hs_pw}" -lt 8 ] || [ "${#_hs_pw}" -gt 63 ]; }; then
-        whiptail --title "Wi-Fi hotspot" --msgbox "The password needs 8 to 63 characters; name and password stay as they were." 8 70
+        "Password: 8 to 63 characters - letters, digits, spaces and punctuation, without accents. Empty: a new random one." \
+        10 70 "$("$BIN_DIR/rq_hotspot.sh" get HOTSPOT_PASSWORD 2>/dev/null)" 3>&1 1>&2 2>&3) || return 0
+    if ! _hs_err=$(printf '%s\n%s\n' "$_hs_name" "$_hs_pw" \
+            | "$BIN_DIR/rq_hotspot.sh" set HOTSPOT_SSID HOTSPOT_PASSWORD 2>&1 >/dev/null); then
+        _hs_pw=""
+        whiptail --title "Wi-Fi hotspot" --msgbox "${_hs_err##*ERROR: }\n\nName and password stay as they were." 10 70
         return 0
     fi
-    _rq_hs_set HOTSPOT_SSID "$_hs_name" && _rq_hs_set HOTSPOT_PASSWORD "$_hs_pw" || return 0
+    _hs_pw=""
     _rq_hs_restart
     clear
     "$BIN_DIR/rq_hotspot.sh" qr

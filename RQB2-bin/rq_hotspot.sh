@@ -11,9 +11,16 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   ipv4 shared (NetworkManager's own DHCP and DNS, address 10.42.0.1).
 #   The profile is made anew from the settings at every start.
 #
-#   Settings (rasqberry_environment.env, kept on /data across A/B updates):
+#   Name and password: a root-only file (mode 600), read as plain text and
+#     never loaded as shell code - /data/rasqberry/hotspot.conf where there
+#     is /data (both A/B slots share it), else /var/lib/rasqberry/hotspot.conf.
+#     They used to be in rasqberry_environment.env, which every script and
+#     raspi-config load as shell code and anyone can read: a name such as
+#     "Booth (Hall 3)" stopped raspi-config (review D1). "migrate" moves
+#     values found there into the file.
 #     HOTSPOT_SSID            empty: RasQberry-XXXX (end of the MAC address)
 #     HOTSPOT_PASSWORD        empty: a random one, made at the first start, kept
+#   Settings (rasqberry_environment.env, kept on /data across A/B updates):
 #     HOTSPOT_BAND            a (5 GHz, channel 36: no trouble with Bluetooth
 #                             speakers) or bg (2.4 GHz, channel 6, old devices)
 #     HOTSPOT_INTERFACE       auto: a USB Wi-Fi adapter if there is one, else
@@ -28,6 +35,10 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #
 # Usage: rq_hotspot.sh on|off|status|qr|card|boot   (as root)
 #   card: the join card (QR codes, name, password) in the browser, to show or print
+#   get KEY: a saved setting (empty: the default)
+#   set KEY...: save settings, one value per line on stdin, all or none
+#     (checked first; the reason goes to stderr) - the menu uses this
+#   migrate: move a name or password from the environment file into their own file
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -37,18 +48,41 @@ ADDRESS="10.42.0.1"
 NFT_TABLE="rasqberry_hotspot"
 BOOT_FILE="${RQ_HOTSPOT_BOOT_FILE:-/boot/firmware/rasqberry-hotspot.txt}"
 SETTINGS="HOTSPOT_SSID HOTSPOT_PASSWORD HOTSPOT_BAND HOTSPOT_INTERFACE HOTSPOT_SHARE_INTERNET HOTSPOT_AT_BOOT"
+SECRET_KEYS="HOTSPOT_SSID HOTSPOT_PASSWORD"
+if [ -n "${RQ_HOTSPOT_SECRETS:-}" ]; then
+    SECRETS="$RQ_HOTSPOT_SECRETS"
+elif mountpoint -q /data 2>/dev/null; then
+    SECRETS=/data/rasqberry/hotspot.conf
+else
+    SECRETS=/var/lib/rasqberry/hotspot.conf
+fi
+# The A/B store of device settings: an older slot may have put the name there
+DEVICE_STORE="${RQ_SETTINGS_DIR:-/data/rasqberry}/device-settings.env"
 
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
+# count_bytes TEXT [TR-SET]: bytes of TEXT (only those in TR-SET, if given)
+count_bytes() {
+    if [ -n "${2:-}" ]; then
+        printf '%s' "$1" | LC_ALL=C tr -dc "$2" | wc -c | tr -d ' '
+    else
+        printf '%s' "$1" | wc -c | tr -d ' '
+    fi
+}
+
 # valid_setting KEY VALUE: is VALUE allowed for KEY?
+# A name has 1-32 bytes (UTF-8 is fine) and no control characters; a WPA2
+# password 8-63 printable ASCII characters (spaces and punctuation are fine).
 valid_setting() {
     local value="$2"
     case "$1" in
-        HOTSPOT_SSID)      [ -z "$value" ] || [ "$(printf '%s' "$value" | wc -c)" -le 32 ] ;;
-        HOTSPOT_PASSWORD)  [ -z "$value" ] || { [ "${#value}" -ge 8 ] && [ "${#value}" -le 63 ] \
-                               && printf '%s' "$value" | LC_ALL=C grep -q '^[[:print:]]*$'; } ;;
+        HOTSPOT_SSID)      [ -z "$value" ] || { [ "$(count_bytes "$value")" -le 32 ] \
+                               && [ "$(count_bytes "$value" '\001-\037\177')" -eq 0 ]; } ;;
+        HOTSPOT_PASSWORD)  [ -z "$value" ] || { [ "$(count_bytes "$value")" -ge 8 ] \
+                               && [ "$(count_bytes "$value")" -le 63 ] \
+                               && [ "$(count_bytes "$value" ' -~')" -eq "$(count_bytes "$value")" ]; } ;;
         HOTSPOT_BAND)      [ "$value" = a ] || [ "$value" = bg ] ;;
         HOTSPOT_INTERFACE) [ "$value" = auto ] || [[ "$value" =~ ^[A-Za-z0-9_.-]{1,15}$ ]] ;;
         HOTSPOT_SHARE_INTERNET|HOTSPOT_AT_BOOT) [ "$value" = yes ] || [ "$value" = no ] ;;
@@ -56,10 +90,106 @@ valid_setting() {
     esac
 }
 
+# setting_rule KEY: what valid_setting asks for, in words
+setting_rule() {
+    case "$1" in
+        HOTSPOT_SSID)     echo "The name has up to 32 characters (fewer with accents or emoji)." ;;
+        HOTSPOT_PASSWORD) echo "The password needs 8 to 63 characters: letters, digits, spaces and punctuation, without accents or emoji (WPA2)." ;;
+        HOTSPOT_BAND)     echo "The band is a (5 GHz) or bg (2.4 GHz)." ;;
+        HOTSPOT_INTERFACE) echo "The Wi-Fi device is auto or a device name such as wlan1." ;;
+        HOTSPOT_*)        echo "$1 is yes or no." ;;
+        *)                echo "$1 is not a hotspot setting." ;;
+    esac
+}
+
+is_secret() { case " $SECRET_KEYS " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# secret_get KEY: the saved name or password ('' when there is none)
+secret_get() {
+    [ -f "$SECRETS" ] || return 0
+    awk -v k="$1=" 'index($0, k) == 1 { v = substr($0, length(k) + 1) } END { printf "%s", v }' "$SECRETS"
+}
+
+# secret_set KEY VALUE: save it (an empty VALUE removes it: the default)
+secret_set() {
+    local dir tmp
+    dir=$(dirname "$SECRETS")
+    (umask 077; mkdir -p "$dir") || return 1
+    tmp=$(umask 077; mktemp "$dir/.hotspot.XXXXXX") || return 1
+    if {
+        echo "# RasQberry Wi-Fi hotspot name and password (rq_hotspot.sh): plain text, never run as shell code."
+        if [ -f "$SECRETS" ]; then grep -v -e '^#' -e "^$1=" "$SECRETS" || true; fi
+        if [ -n "$2" ]; then printf '%s=%s\n' "$1" "$2"; fi
+    } > "$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$SECRETS"; then
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
+# save_setting KEY VALUE: name and password to their own file, the rest to
+# the environment file (and from there to /data)
+save_setting() {
+    if is_secret "$1"; then
+        secret_set "$1" "$2"
+    else
+        update_env_var "$1" "$2" >/dev/null
+    fi
+}
+
 # setting KEY DEFAULT: the saved value, or DEFAULT when it is missing or invalid
 setting() {
-    local value="${!1:-}"
+    local value
+    if is_secret "$1"; then value=$(secret_get "$1"); else value="${!1:-}"; fi
     if [ -n "$value" ] && valid_setting "$1" "$value"; then echo "$value"; else echo "$2"; fi
+}
+
+# unquote VALUE: without one pair of surrounding quotes ("x" or 'x')
+unquote() {
+    local v="$1"
+    if [ "${#v}" -ge 2 ]; then
+        case "$v" in
+            \"*\") v=${v#\"}; v=${v%\"} ;;
+            \'*\') v=${v#\'}; v=${v%\'} ;;
+        esac
+    fi
+    printf '%s' "$v"
+}
+
+# migrate: a name or password in the environment file (written there, as
+# typed, before they had their own file) moves to the file; the lines leave
+# the environment file, which then loads cleanly again. A fresh A/B slot finds
+# them in the /data store an older slot wrote. Runs at every boot, before
+# anything loads the environment (rasqberry-load-boot-config.sh).
+migrate_secrets() {
+    local env="$RQ_ENV_FILE" key line value tmp first=""
+    [ -f "$env" ] || return 0
+    # the /data store only before the file exists: later, a missing key is
+    # the user's choice (the default), not something to fetch again
+    [ -f "$SECRETS" ] || first=1
+    for key in $SECRET_KEYS; do
+        [ -z "$(secret_get "$key")" ] || continue
+        line=$(grep -a "^$key=" "$env" 2>/dev/null | tail -n 1 || true)
+        if [ -z "${line#*=}" ] && [ -n "$first" ] && [ -f "$DEVICE_STORE" ]; then
+            line=$(grep -a "^$key=" "$DEVICE_STORE" 2>/dev/null | tail -n 1 || true)
+        fi
+        value=$(unquote "${line#*=}")
+        [ -n "$value" ] || continue
+        if valid_setting "$key" "$value"; then
+            secret_set "$key" "$value" && info "Hotspot: $key moved to $SECRETS."
+        else
+            warn "Hotspot: the saved $key is not allowed and was dropped. $(setting_rule "$key")"
+        fi
+    done
+    grep -qE '^HOTSPOT_(SSID|PASSWORD)=' "$env" || return 0
+    tmp=$(mktemp "$(dirname "$env")/.rasqberry_environment.XXXXXX") || return 1
+    if grep -vE '^HOTSPOT_(SSID|PASSWORD)=' "$env" > "$tmp" && [ -s "$tmp" ] \
+        && chmod 644 "$tmp" && mv -f "$tmp" "$env"; then
+        return 0
+    fi
+    rm -f "$tmp"
+    warn "Hotspot: could not take the name and password out of $env."
+    return 1
 }
 
 # The Wi-Fi device for the hotspot: HOTSPOT_INTERFACE, or (auto) a USB
@@ -94,7 +224,7 @@ hotspot_password() {
     pw=$(setting HOTSPOT_PASSWORD "")
     if [ -z "$pw" ]; then
         pw=$(new_password)
-        update_env_var HOTSPOT_PASSWORD "$pw" >/dev/null || warn "The new hotspot password could not be saved; it changes at the next start."
+        secret_set HOTSPOT_PASSWORD "$pw" || warn "The new hotspot password could not be saved; it changes at the next start."
     fi
     echo "$pw"
 }
@@ -113,12 +243,12 @@ apply_boot_file() {
         case "$line" in ""|\#*) continue ;; esac
         key=${line%%=*}; value=${line#*=}
         key=$(printf '%s' "$key" | tr -d '[:space:]')
-        value=${value%\"}; value=${value#\"}
+        value=$(unquote "$value")
         case " $SETTINGS " in *" $key "*) ;; *) warn "rasqberry-hotspot.txt: unknown setting $key"; continue ;; esac
         if valid_setting "$key" "$value"; then
-            update_env_var "$key" "$value" >/dev/null && n=$((n + 1))
+            save_setting "$key" "$value" && n=$((n + 1))
         else
-            warn "rasqberry-hotspot.txt: $key has a value that is not allowed; left as it was"
+            warn "rasqberry-hotspot.txt: $key has a value that is not allowed; left as it was. $(setting_rule "$key")"
         fi
     done < "$BOOT_FILE"
     sed -E 's/^([[:space:]]*HOTSPOT_PASSWORD[[:space:]]*=).*/# HOTSPOT_PASSWORD was saved on the Pi/' "$BOOT_FILE" > "$applied"
@@ -217,8 +347,10 @@ portal() {
             internet=yes
         fi
         mkdir -p "$(dirname "$PORTAL_ENV")"
-        printf 'RQ_HOTSPOT_SSID=%s\nRQ_HOTSPOT_INTERNET=%s\nRQ_HOTSPOT_IFACE=%s\n' \
-            "$2" "$internet" "${3:-}" > "$PORTAL_ENV"
+        # systemd's EnvironmentFile: the name in double quotes, with \ " ` $
+        # escaped (a name may have any of them)
+        printf 'RQ_HOTSPOT_SSID="%s"\nRQ_HOTSPOT_INTERNET=%s\nRQ_HOTSPOT_IFACE=%s\n' \
+            "$(printf '%s' "$2" | sed 's/[\\"`$]/\\&/g')" "$internet" "${3:-}" > "$PORTAL_ENV"
         systemctl restart rasqberry-hotspot-portal.service 2>/dev/null \
             || warn "The landing page (http://$ADDRESS) did not start."
     else
@@ -402,19 +534,49 @@ cmd_boot() {
     cmd_on quiet
 }
 
+# get KEY: the saved value ('' for the default)
+cmd_get() {
+    case " $SETTINGS " in *" ${1:-} "*) ;; *) die "Not a hotspot setting: ${1:-}" ;; esac
+    if is_secret "$1"; then secret_get "$1"; else printf '%s' "${!1:-}"; fi
+    echo
+}
+
+# set KEY...: one value per line on stdin (not in the arguments, where every
+# user could read a password); all are checked before any is saved
+cmd_set() {
+    local key value values=() i=0
+    [ "$#" -gt 0 ] || die "Usage: $(basename "$0") set KEY... (values on stdin, one per line)"
+    for key in "$@"; do
+        case " $SETTINGS " in *" $key "*) ;; *) die "Not a hotspot setting: $key" ;; esac
+        IFS= read -r value || [ -n "$value" ] || value=""
+        value=${value%$'\r'}
+        valid_setting "$key" "$value" || die "$(setting_rule "$key")"
+        values+=("$value")
+    done
+    for key in "$@"; do
+        save_setting "$key" "${values[$i]}" || die "Could not save $key (is the SD card full?)."
+        i=$((i + 1))
+    done
+}
+
 # Sourced (tests): the functions only
 [[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
 
 rq_help_guard "$@"
 ensure_root "$@"
+# before the environment is loaded: a name or password there may not load
+migrate_secrets >&2 || { [ "${1:-}" != migrate ] || exit 1; }
+[ "${1:-}" != migrate ] || exit 0
 load_rqb2_env
 
 case "${1:-}" in
-    on)     cmd_on ;;
-    off)    cmd_off ;;
-    status) cmd_status ;;
-    qr)     cmd_qr ;;
-    card)   cmd_card ;;
-    boot)   cmd_boot ;;
-    *)      echo "Usage: $(basename "$0") on|off|status|qr|card|boot" >&2; exit 2 ;;
+    on)      cmd_on ;;
+    off)     cmd_off ;;
+    status)  cmd_status ;;
+    qr)      cmd_qr ;;
+    card)    cmd_card ;;
+    boot)    cmd_boot ;;
+    get)     cmd_get "${2:-}" ;;
+    set)     shift; cmd_set "$@" ;;
+    *)       echo "Usage: $(basename "$0") on|off|status|qr|card|boot|get KEY|set KEY...|migrate" >&2; exit 2 ;;
 esac

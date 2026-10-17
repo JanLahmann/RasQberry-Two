@@ -153,8 +153,18 @@ update_env_var() {
     local var_value="$2"
     local env_dir tmp lines_before lines_after
     # Key and value come in through the environment, so no character in the
-    # value (/ | & \) is special (the menu's _rq_env_write does the same).
-    local prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+    # value (/ | & \) is special to awk (the menu's _rq_env_write does the
+    # same). The file is loaded as shell code - by every script and by
+    # raspi-config - so a value with a space, quote, $, ( or & is written in
+    # single quotes: unquoted, "Booth (Hall 3)" stopped raspi-config at every
+    # start (review D1). Plain values stay as they were.
+    local prog='function q(v,   out, i) {
+            if (v ~ "^[A-Za-z0-9_./:,@%+=-]*$") return v
+            out = "\047"
+            while ((i = index(v, "\047")) > 0) { out = out substr(v, 1, i - 1) "\047\"\047\"\047"; v = substr(v, i + 1) }
+            return out v "\047"
+        }
+        BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = q(ENVIRON["RQ_EW_VALUE"]); done = 0 }
         index($0, k "=") == 1 { print k "=" v; done = 1; next }
         { print }
         END { if (!done) print k "=" v }'

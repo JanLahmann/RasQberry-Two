@@ -246,6 +246,14 @@ main() {
         cp "$GLOBAL_ENV" "${GLOBAL_ENV}.original"
     fi
 
+    # The hotspot's name and password have their own root-only file: move
+    # them out of the environment file (and out of an older slot's /data
+    # store), where an older version wrote them unquoted - "Booth (Hall 3)"
+    # stopped raspi-config (review D1). First, before anything loads the file.
+    if [ -x /usr/bin/rq_hotspot.sh ]; then
+        /usr/bin/rq_hotspot.sh migrate || error "hotspot name/password migration failed"
+    fi
+
     # A freshly flashed A/B slot starts with the shipped defaults: put back
     # the LED settings saved on the shared /data partition (#290). The boot
     # partition's rasqberry_boot.env below still overrides them.

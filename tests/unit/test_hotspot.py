@@ -44,13 +44,17 @@ def test_join_qr_escapes_special_characters():
 def test_boot_file_is_applied_once_without_the_password(tmp_path):
     boot = tmp_path / "rasqberry-hotspot.txt"
     boot.write_text("# booth\r\nHOTSPOT_AT_BOOT=yes\r\nHOTSPOT_PASSWORD=\"secret-pass\"\r\n"
-                    "HOTSPOT_BAND=ac\r\nHOTSPOT_FOO=1\r\n")
+                    "HOTSPOT_SSID='Jan's Booth (Hall 3)'\r\nHOTSPOT_BAND=ac\r\nHOTSPOT_FOO=1\r\n")
     saved = tmp_path / "saved"
+    secrets = tmp_path / "hotspot.conf"
     code = (f'update_env_var() {{ echo "$1=$2" >> "{saved}"; }}; load_rqb2_env() {{ :; }}; '
             "apply_boot_file")
-    r = _bash(code, {"RQ_HOTSPOT_BOOT_FILE": str(boot)})
+    r = _bash(code, {"RQ_HOTSPOT_BOOT_FILE": str(boot), "RQ_HOTSPOT_SECRETS": str(secrets)})
     assert r.returncode == 0, r.stderr
-    assert saved.read_text().splitlines() == ["HOTSPOT_AT_BOOT=yes", "HOTSPOT_PASSWORD=secret-pass"]
+    # name and password go to their own file, never into the env file (review D1)
+    assert saved.read_text().splitlines() == ["HOTSPOT_AT_BOOT=yes"]
+    assert _secret(secrets, "HOTSPOT_PASSWORD") == "secret-pass"
+    assert _secret(secrets, "HOTSPOT_SSID") == "Jan's Booth (Hall 3)"
     assert not boot.exists()
     applied = (tmp_path / "rasqberry-hotspot.applied.txt").read_text()
     assert "secret-pass" not in applied and "HOTSPOT_AT_BOOT=yes" in applied
@@ -71,8 +75,10 @@ def test_profile_fits_the_onboard_radio_and_trixie():
 def test_settings_have_defaults_and_survive_updates():
     env = open(os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")).read()
     for line in ("HOTSPOT_BAND=a", "HOTSPOT_INTERFACE=auto", "HOTSPOT_SHARE_INTERNET=yes",
-                 "HOTSPOT_AT_BOOT=no", "HOTSPOT_SSID=", "HOTSPOT_PASSWORD="):
+                 "HOTSPOT_AT_BOOT=no"):
         assert "\n" + line + "\n" in env, line
+    # name and password: not in this file, which is loaded as shell code (review D1)
+    assert "\nHOTSPOT_SSID=" not in env and "\nHOTSPOT_PASSWORD=" not in env
     ds = open(os.path.join(_ROOT, "RQB2-bin", "rq_device_settings.sh")).read()
     assert "HOTSPOT_[A-Z_]*" in ds
     common = open(os.path.join(_ROOT, "RQB2-bin", "rq_common.sh")).read()
@@ -212,7 +218,9 @@ def test_hotspot_tells_the_page_whether_it_shares_internet(tmp_path):
     e = {"RQ_HOTSPOT_PORTAL_ENV": str(env_file), "RQ_HOTSPOT_CAPTIVE_CONF": str(captive)}
     stubs = "systemctl() { :; }; nat_ready() { [ \"$1\" = wlan0 ]; }; "
     assert _bash(stubs + "portal on Booth wlan0", e).returncode == 0
-    assert env_file.read_text() == "RQ_HOTSPOT_SSID=Booth\nRQ_HOTSPOT_INTERNET=yes\nRQ_HOTSPOT_IFACE=wlan0\n"
+    assert env_file.read_text() == 'RQ_HOTSPOT_SSID="Booth"\nRQ_HOTSPOT_INTERNET=yes\nRQ_HOTSPOT_IFACE=wlan0\n'
+    _bash(stubs + "portal on 'a\\b\"c`d$e' wlan0", e)          # systemd's EnvironmentFile quoting
+    assert env_file.read_text().startswith('RQ_HOTSPOT_SSID="a\\\\b\\"c\\`d\\$e"\n')
     captive.write_text("address=/#/10.42.0.1\n")      # no way out: every name leads to the page
     _bash(stubs + "portal on Booth wlan0", e)
     assert "RQ_HOTSPOT_INTERNET=no\n" in env_file.read_text()
@@ -225,3 +233,135 @@ def test_hotspot_tells_the_page_whether_it_shares_internet(tmp_path):
     on = sh[sh.index("cmd_on() {"):]
     on = on[:on.index("\n}\n")]
     assert on.index("nat_ready") < on.index('portal on "$ssid" "$iface"')
+
+
+# --- review D1/D5: name and password in a root-only file, never run as shell code
+
+def _secret(path, key):
+    value = None
+    for line in path.read_text().splitlines():
+        if line.startswith(key + "="):
+            value = line.split("=", 1)[1]
+    return value
+
+
+_NASTY_NAMES = ["Booth (Hall 3)", "Jan's Booth", "Physics Lab", "Quantum$$Fun", 'a"b`c`$(id);x',
+                "back\\slash\\t", "Grüße 2026", "  spaced  ", "x" * 32]
+_NASTY_PASSWORDS = ["Quantum$$Fun", "pa ss'w\"o(r)d$x;", "\\t\\\\x12345", "`reboot` $(id)", "a" * 63]
+
+
+def _env_copy(tmp_path):
+    env = tmp_path / "rasqberry_environment.env"
+    env.write_text(open(os.path.join(_ROOT, "RQB2-config", "rasqberry_environment.env")).read())
+    return env
+
+
+def _loads_cleanly(env):
+    """The env file loads in dash (raspi-config) and bash without an error."""
+    for sh in ("dash", "bash"):
+        r = subprocess.run([sh, "-c", f'. "{env}"; echo "LOADED $HOTSPOT_AT_BOOT $OS_VERSION"'],
+                           capture_output=True, text=True)
+        assert r.returncode == 0 and "LOADED no none" in r.stdout and not r.stderr, (sh, r.stderr)
+
+
+def test_nasty_names_and_passwords_round_trip(tmp_path):
+    env = _env_copy(tmp_path)
+    before = env.read_text()
+    secrets = tmp_path / "data" / "hotspot.conf"
+    e = {"RQ_HOTSPOT_SECRETS": str(secrets), "RQ_ENV_FILE": str(env)}
+    for name, pw in zip(_NASTY_NAMES, _NASTY_PASSWORDS * 2):
+        r = subprocess.run(["bash", "-c", f'. "{_SCRIPT}"; cmd_set HOTSPOT_SSID HOTSPOT_PASSWORD'],
+                           input=f"{name}\n{pw}\n", capture_output=True, text=True,
+                           env=dict(os.environ, **e))
+        assert r.returncode == 0, (name, r.stderr)
+        got = _bash("secret_get HOTSPOT_SSID; echo '|'; setting HOTSPOT_PASSWORD x", e).stdout
+        assert got == f"{name}|\n{pw}\n", (name, pw, got)
+        assert secrets.stat().st_mode & 0o777 == 0o600
+    assert env.read_text() == before                    # the env file is not touched
+    _loads_cleanly(env)
+
+
+def test_a_rejected_value_saves_neither(tmp_path):
+    secrets = tmp_path / "hotspot.conf"
+    e = dict(os.environ, RQ_HOTSPOT_SECRETS=str(secrets))
+    for name, pw, rule in (("New name", "Grüße-2026", "without accents"),     # review A11
+                           ("New name", "short", "8 to 63"),
+                           ("x" * 33, "long enough", "32 characters")):
+        r = subprocess.run(["bash", "-c", f'. "{_SCRIPT}"; cmd_set HOTSPOT_SSID HOTSPOT_PASSWORD'],
+                           input=f"{name}\n{pw}\n", capture_output=True, text=True, env=e)
+        assert r.returncode == 1 and rule in r.stderr, r.stderr
+        assert not secrets.exists()
+    assert _bash("valid_setting HOTSPOT_SSID $'a\\nb'").returncode == 1        # no control characters
+    assert _bash("valid_setting HOTSPOT_PASSWORD $'abcdefgh\\nxyz'").returncode == 1
+
+
+def test_old_env_lines_move_to_their_own_file(tmp_path):
+    # written unquoted by the previous version: dash stopped at "(" (raspi-config died),
+    # the apostrophe swallowed the lines after it
+    for name in ("Booth (Hall 3)", "Jan's Booth"):
+        env = _env_copy(tmp_path)
+        env.write_text(env.read_text().replace(
+            "HOTSPOT_BAND=a\n", f"HOTSPOT_SSID={name}\nHOTSPOT_PASSWORD=Quantum$$Fun\nHOTSPOT_BAND=a\n"))
+        secrets = tmp_path / f"hotspot-{len(name)}.conf"
+        r = _bash("migrate_secrets", {"RQ_HOTSPOT_SECRETS": str(secrets), "RQ_ENV_FILE": str(env)})
+        assert r.returncode == 0, r.stderr
+        assert _secret(secrets, "HOTSPOT_SSID") == name
+        assert _secret(secrets, "HOTSPOT_PASSWORD") == "Quantum$$Fun"
+        assert "\nHOTSPOT_SSID=" not in env.read_text() and "HOTSPOT_PASSWORD=" not in env.read_text()
+        assert "\nHOTSPOT_BAND=a\n" in env.read_text()
+        _loads_cleanly(env)
+
+
+def test_a_fresh_slot_takes_them_from_an_older_store_once(tmp_path):
+    env = _env_copy(tmp_path)
+    store = tmp_path / "store"
+    store.mkdir()
+    (store / "device-settings.env").write_text("HOTSPOT_SSID=Old Booth\nHOTSPOT_PASSWORD=old-password\n")
+    secrets = tmp_path / "hotspot.conf"
+    e = {"RQ_HOTSPOT_SECRETS": str(secrets), "RQ_ENV_FILE": str(env), "RQ_SETTINGS_DIR": str(store)}
+    assert _bash("migrate_secrets", e).returncode == 0
+    assert _secret(secrets, "HOTSPOT_SSID") == "Old Booth"
+    # the user then picks the default name: the store's old one does not come back
+    assert _bash("printf 'x\\n' >/dev/null; secret_set HOTSPOT_SSID ''; migrate_secrets", e).returncode == 0
+    assert _secret(secrets, "HOTSPOT_SSID") is None
+    assert _secret(secrets, "HOTSPOT_PASSWORD") == "old-password"
+
+
+def test_env_writers_quote_what_the_shell_would_run(tmp_path):
+    # defence in depth: any value written by update_env_var loads as written
+    env = _env_copy(tmp_path)
+    conf = tmp_path / "env-config.sh"
+    conf.write_text("REPO=RasQberry-Two USER_HOME=/nonexistent\n")
+    for value in _NASTY_NAMES + ["https://example.org/a&b.git", "plain-1.2", ""]:
+        r = _bash('update_env_var RQ_TEST_KEY "$V" >/dev/null', {
+            "RQ_ENV_FILE": str(env), "RQ_CONFIG_FILE": str(conf), "V": value,
+            "PATH": f"{_stub_dir(tmp_path)}:{os.environ['PATH']}"})
+        assert r.returncode == 0, r.stderr
+        for sh in ("dash", "bash"):
+            got = subprocess.run([sh, "-c", f'. "{env}"; printf %s "$RQ_TEST_KEY"'],
+                                 capture_output=True, text=True)
+            assert got.stdout == value and not got.stderr, (sh, value, got.stderr)
+    assert "\nRQ_TEST_KEY=\n" in env.read_text()             # plain values stay unquoted
+
+
+def _stub_dir(tmp_path):
+    """sudo runs the command as this user (the test is not root)."""
+    stubs = tmp_path / "stubs"
+    if not stubs.exists():
+        stubs.mkdir()
+        (stubs / "sudo").write_text('#!/bin/sh\nexec "$@"\n')
+        (stubs / "sudo").chmod(0o755)
+    return stubs
+
+
+def test_menu_hands_name_and_password_over_on_stdin():
+    menu = open(os.path.join(_ROOT, "RQB2-config", "RQB2_menu.sh")).read()
+    fn = menu[menu.index("do_hotspot_name() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    assert 'rq_hotspot.sh" set HOTSPOT_SSID HOTSPOT_PASSWORD' in fn and "printf '%s\\n%s\\n'" in fn
+    assert "_rq_hs_set HOTSPOT_SSID" not in menu and "_rq_hs_set HOTSPOT_PASSWORD" not in menu
+    assert "${HOTSPOT_PASSWORD" not in menu
+    # raspi-config moves old lines out before it loads the file
+    load = menu[menu.index("_rq_load_env() {"):]
+    load = load[:load.index("\n}\n")]
+    assert load.index("rq_hotspot.sh migrate") < load.index('. "$ENV_CONFIG_FILE"')
