@@ -2,6 +2,10 @@
 
 Status: **IMPLEMENTED** (design approved 2026-07-12, implemented 2026-07-12)
 
+Demo authors: start with [CONTRIBUTING.md](../../CONTRIBUTING.md), which shows
+the manifest, LEDs, sound and testing in short. This file is the full
+specification.
+
 ## Goal
 
 Third-party demo repositories can be added to a RasQberry system through the
@@ -38,7 +42,25 @@ manifests (`rq_demo_schema.json`), with these constraints:
 - `entrypoint.command` — no arbitrary command strings
 
 **Recommended**
-- `needs_hw` declarations (leds/display/network) so requirement checks work
+- `needs_hw` declarations (leds/display/network/audio) so requirement checks work.
+  `audio`: `optional` or `required` for a demo that plays sound; the launcher
+  names the output in use (HDMI, USB or Bluetooth speaker) or says how to
+  connect one. Play through the default output (PipeWire/PulseAudio, or the
+  browser), never a fixed ALSA device. Its catalogue entry sets `min_engine: 2`.
+  A Pi 4's headphone jack can go silent with the LEDs on, until a restart;
+  the launcher warns when it is the output. The launcher passes the sound
+  delay the user set (menu: Desktop Settings > Sound delay, typed in or found
+  with a tick and a flash, `rq_audio_delay_calibrate.sh`; Bluetooth speakers
+  play 100-300 ms late) as `RQ_AUDIO_DELAY_MS`, whole milliseconds 0-2000:
+  the LEDs show the playback position minus that delay. One setting for all
+  demos, kept across A/B updates; demos don't add their own.
+- LED demos run as the desktop user in a sandbox, never as root: no `sudo`,
+  no Docker, no writing to the system, and the home read-only except the
+  demo's own folder, a cache (`XDG_CACHE_HOME`), `~/.qiskit` and the SenseHAT
+  emulator's settings. The desktop, the network and sound work. Draw through
+  `rq_led_utils` (`get_pixels()` or
+  `create_neopixel_strip()`), never `neopixel.NeoPixel` directly: on a Pi 4
+  the frames go to the root LED renderer.
 - `install.pip_requirements: true` with a `requirements.txt` carrying
   **pinned versions** (`package==x.y.z`). Only packages the RasQberry venv
   does not already have are installed; anything the image ships (qiskit,
@@ -126,6 +148,39 @@ A thin registry in `RQB2-config/known-demos.json`:
   the command. Until it is moved, the old install keeps the entry's group and
   maturity, so it stays where it was in the menu and on the desktop.
 
+## 2b. The catalogue online (rq_catalogue.py)
+
+New demos and new pins reach Pis without an image update:
+
+- Merging a change of `known-demos.json` into development publishes it to
+  `https://rasqberry.org/known-demos.json` (workflow `catalogue-publish.yml`).
+  Raise `catalogue_version` by one with every change; CI refuses a changed
+  catalogue that does not.
+- Pis fetch it in the daily check (`rasqberry-update-check.service`) and when
+  the picker opens. Only from rasqberry.org (no redirect to another host), at
+  most 512 KB. It is kept in `/var/cache/rasqberry/known-demos.json` only if
+  its version is higher than the image's and the cached one's; otherwise the
+  last good copy stays. Only the entries this image can take are kept: a
+  kebab-case id, an https URL ending in a plain directory name that no
+  shipped demo uses, a full commit SHA, whole numbers for the sizes and
+  one-line texts without control characters. Any other entry, an id that
+  appears twice and the id of a demo the image ships are left out (logged),
+  not the whole catalogue. CI (`--check`) refuses such entries, except the
+  shipped id: a demo that moves into the image keeps its catalogue entry, so
+  older images still have it (and do not call it withdrawn).
+- `rq_catalogue_file` (rq_common.sh) and `rq_desktop_session.py` use the
+  newer of the image's and the cached copy.
+- `min_engine`: an entry that needs a newer RasQberry is listed as such and
+  cannot be installed (this image: `rq_catalogue.py --engine`).
+- The user hears about new demos (not in the image's catalogue, added in the
+  last 30 days), updates (an installed demo not at its pin), renames and
+  withdrawals: once as a taskbar notice, as actions in the RasQberry badge's
+  menu, as a login line, and as "New:" in the picker. Updates, renames and
+  withdrawals concern only demos the add-flow installed (it writes
+  `"x-rasqberry-catalogue": {"ref", "repo_url"}` into their manifest), never
+  a demo author's own test manifest (CONTRIBUTING.md). Removing one asks
+  first.
+
 ## 3. Add flow (menu: "Add demo from catalogue")
 
 Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
@@ -149,8 +204,8 @@ Implemented by **`rq_demo_add_external.sh`** (wired into `RQB2_menu.sh`, entry
    (`rq_demo_validate.sh --external`).
 5. Verify the manifest `id` matches the registry id, that
    `entrypoint.working_dir` equals the repo directory name, and that
-   `install.marker_file` exists in the checkout. If `needs_hw.leds` is true,
-   confirm with a dialog that warns the demo runs with root privileges.
+   `install.marker_file` exists in the checkout. An LED demo needs no extra
+   question: it runs as the user in a sandbox like every demo (§5).
 6. If `install.pip_requirements` is true: `rq_pip_extras.py` (run with the
    venv interpreter, as the user) splits `requirements.txt` into the
    distributions the venv lacks and a constraints file pinning everything it
@@ -220,7 +275,7 @@ forbidden from shipping. `web-static` closes that gap declaratively.
 - **No per-demo launcher** — the server command is fixed in `rq_demo_run.sh`;
   the manifest only supplies a directory and a port, both pattern-validated.
 - **Runs as the user** — `python3 -m http.server` is started via the
-  `run_as_user` path, never with root privileges (unlike LED demos).
+  `run_as_user` path, never with root privileges.
 - **No port takeover** — a busy port is a hard error, so a demo can never
   displace another service by declaring its port.
 
@@ -235,10 +290,21 @@ External manifests execute on a system where menu dispatch may run as root
 2. **Schema hardening** — patterns reject path traversal: `id`, `working_dir`,
    `script`, `marker_file` must match `^[A-Za-z0-9._-]+$`-class patterns with
    no `..`, no leading `/`, no whitespace.
-3. **Privilege rules** — same as internal: python+`needs_hw.leds` runs as
-   root (that is the point of LED demos — flag in the add-flow confirmation
-   dialog: "this demo drives LEDs and will run with root privileges");
-   everything else runs as the user.
+3. **Privilege rules** — same as internal: every demo runs as the desktop
+   user. A `python` demo with `needs_hw.leds` is started by a root launcher
+   (panel check, the Pi 4 LED renderer, clearing the panel), but the program
+   itself runs as the user in a sandbox (`rq_led_as_user`): no capabilities,
+   no new privileges, only the device groups (no `sudo`, no `docker`), and
+   the whole home read-only, so nothing a later login, terminal or root runs
+   can be changed or added (`rq_led_sandbox_mounts`). Writable: the demo's
+   own folder (its working directory), a cache of its own
+   (`XDG_CACHE_HOME`), `~/.qiskit`, `~/.config/sense_hat` and `~/.sensehat`.
+   Root never runs git in a checkout the user can write: a changed RasQberry
+   patch is applied as the user. On a Pi 4 the frames go to
+   `rasqberry-led-renderer.service`, which runs as root with only the rights
+   the LED driver needs.
+   `RQ_LED_AS_ROOT=1`, set by a person, is the only way back to root; a
+   manifest cannot ask for it.
 4. **Pinned dependencies** — pip installs go into the user venv as the user.
    Registry curation should prefer demos with pinned requirements. (Future
    option: per-demo venvs to isolate dependency conflicts.)
@@ -255,11 +321,11 @@ The registry itself is the trust anchor: adding an entry to
 - [x] SHA fetch helper in `rq_common.sh` (`fetch_pinned_repo <url> <sha> <dest>`)
 - [x] Manifest search path in the three readers (§4)
 - [x] Menu flow: list / add / update external demos (`rq_demo_add_external.sh`)
-- [x] Add-flow confirmation dialog incl. root warning for LED demos
+- [x] Add-flow confirmation dialog (provider, pinned version)
 - [x] `web-static` declarative entrypoint type (§4b)
-- [ ] "Remove external demo" menu action (deferred — remove the user manifest
-      and demo dir by hand for now)
-- [ ] Docs for demo authors (template repo with example `rqb-demo.json`)
+- [x] Remove a demo (`--remove`, menu: Manage demos > Remove a demo)
+- [x] Docs for demo authors ([CONTRIBUTING.md](../../CONTRIBUTING.md))
+- [x] LED demos run as the user in a sandbox (`rq_led_as_user`)
 
 ## 7. Migration perspective
 

@@ -11,9 +11,12 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   which both slots mount, and puts them back into a slot that lacks them.
 #
 #   Saved: LED_* and RASQ_LED_* keys (layout, verification, pin, brightness,
-#   outputs) - but not *_INSTALLED flags, since installed software is per
-#   slot, nor the retired LED_MATRIX_* keys - plus the user's custom layouts
-#   (~/.local/config/led-layouts.json).
+#   outputs), the sound delay (RQ_AUDIO_DELAY_MS) and the hotspot settings
+#   (HOTSPOT_*) - but not *_INSTALLED
+#   flags, since installed software is per slot, nor the retired
+#   LED_MATRIX_* keys, nor the hotspot's name and password (they have their
+#   own root-only file on /data, rq_hotspot.sh) - plus the user's custom
+#   layouts (~/.local/config/led-layouts.json).
 #
 #   Restore runs at boot (rasqberry-load-boot-config.sh) and only applies the
 #   saved copy when this slot has never applied it, or when it was saved
@@ -36,11 +39,14 @@ STORE_LAYOUTS="$STORE_DIR/led-layouts.json"
 # On the slot's own root, so a freshly flashed slot has none
 MARKER="${RQ_SETTINGS_MARKER:-/var/lib/rasqberry/device-settings.applied}"
 
-KEY_RE='^(LED_|RASQ_LED_)[A-Za-z0-9_]*='
+KEY_RE='^(LED_[A-Za-z0-9_]*|RASQ_LED_[A-Za-z0-9_]*|RQ_AUDIO_DELAY_MS|HOTSPOT_[A-Z_]*)='
 # Not device settings: *_INSTALLED flags (per slot), and the retired
 # LED_MATRIX_* keys (Q22: LED_LAYOUT is the one layout setting) - an older
-# store must not put them back into a new slot.
-SKIP_RE='^([A-Za-z0-9_]*_INSTALLED|LED_MATRIX_[A-Za-z0-9_]*)='
+# store must not put them back into a new slot. Nor the hotspot's name and
+# password: an older slot wrote them here unquoted ("Booth (Hall 3)" then
+# stopped raspi-config, review D1); rq_hotspot.sh migrate takes them from an
+# old store into their own file.
+SKIP_RE='^([A-Za-z0-9_]*_INSTALLED|LED_MATRIX_[A-Za-z0-9_]*|HOTSPOT_SSID|HOTSPOT_PASSWORD)='
 
 log() {
     if command -v logger >/dev/null 2>&1; then
@@ -69,6 +75,8 @@ do_save() {
 
     mkdir -p "$STORE_DIR"
     local tmp="$STORE_ENV.tmp.$$"
+    # root only: an older store held the hotspot password (review D5)
+    ( umask 077; : > "$tmp" )
     {
         echo "# RasQberry device settings, shared by both A/B slots."
         echo "# Written by rq_device_settings.sh save; restored into a fresh slot at boot."
@@ -106,9 +114,12 @@ do_restore() {
         if grep -qxF -- "$line" "$tmp"; then
             continue
         elif grep -q "^${key}=" "$tmp"; then
-            # Replace the (last) assignment in place, keeping the file layout
-            awk -v k="$key" -v l="$line" 'BEGIN{n=0} $0 ~ "^"k"=" {last=NR} {a[NR]=$0}
-                END{for(i=1;i<=NR;i++) print (i==last ? l : a[i])}' "$tmp" > "$tmp.new"
+            # Replace the (last) assignment in place, keeping the file layout.
+            # The line comes in through the environment: awk -v turned a \t
+            # or \\ in a value into a tab or one backslash (review D1).
+            RQ_DS_KEY="$key" RQ_DS_LINE="$line" awk 'BEGIN { k = ENVIRON["RQ_DS_KEY"]; l = ENVIRON["RQ_DS_LINE"] }
+                index($0, k "=") == 1 { last = NR } { a[NR] = $0 }
+                END { for (i = 1; i <= NR; i++) print (i == last ? l : a[i]) }' "$tmp" > "$tmp.new"
             mv -f "$tmp.new" "$tmp"
         else
             echo "$line" >> "$tmp"

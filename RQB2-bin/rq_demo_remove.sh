@@ -31,12 +31,35 @@ DOCKER_OK=no
 docker_ok && DOCKER_OK=yes
 
 # Fields of a manifest, separated by \037:
-# id name type image working_dir installed_flag shares preinstalled
+# id name type image working_dir installed_flag shares preinstalled pre_remove
 fields() {
     jq -r '[.id, (.name // .id), (.entrypoint.type // ""), (.entrypoint.docker_image // ""),
             (.entrypoint.working_dir // ""), (.install.installed_flag // ""),
-            (.install.download.shares // ""), (.install.preinstalled // false | tostring)]
+            (.install.download.shares // ""), (.install.preinstalled // false | tostring),
+            (.install.pre_remove // "")]
            | join("\u001f")' "$1"
+}
+
+# A demo whose install set up more than its checkout (Entangible: a system
+# service) takes that away first: install.pre_remove names a RasQberry script,
+# run as "<script> --remove --path <checkout>". A failure is reported and the
+# checkout goes all the same.
+# Usage: run_pre_remove SCRIPT DIR NAME
+run_pre_remove() {
+    local script="$1" dir="$2" name="$3" path=""
+    [ -n "$script" ] && [ -d "$dir" ] || return 0
+    case "$script" in
+        */*|.|..) warn "The removal step of $name is not a script name: $script"; return 0 ;;
+    esac
+    if [ -f "$SCRIPT_DIR/$script" ]; then
+        path="$SCRIPT_DIR/$script"
+    elif [ -f "/usr/bin/$script" ]; then
+        path="/usr/bin/$script"
+    else
+        warn "The removal step of $name was not found: $script"
+        return 0
+    fi
+    run_as_user bash "$path" --remove --path "$dir" || warn "The removal step of $name failed."
 }
 
 # MB a checkout takes (0 if absent), at least 1: Quantum Lights Out (250 KB)
@@ -90,8 +113,8 @@ list_downloaded() {
 # One manifest: "shares<TAB>id<TAB>MB<TAB>label" when the demo is downloaded,
 # nothing otherwise
 downloaded_entry() {
-    local id name type image wd flag shares pre mb label other
-    IFS=$'\037' read -r id name type image wd flag shares pre <<< "$(fields "$1")"
+    local id name type image wd flag shares pre pre_remove mb label other
+    IFS=$'\037' read -r id name type image wd flag shares pre pre_remove <<< "$(fields "$1")"
     [ -n "$id" ] || return 1
     [ "$pre" = "true" ] && return 0
     [ -n "$image" ] && image=$(rq_demo_image "$id" "$1")   # the version in use
@@ -122,10 +145,10 @@ is_catalog() {
 }
 
 remove_demo() {
-    local id="$1" assume_yes="$2" mf id_ name type image wd flag shares pre mb
+    local id="$1" assume_yes="$2" mf id_ name type image wd flag shares pre pre_remove mb
     mf=$(rq_find_manifest "$SHIPPED_DIR" "$id") || die "Unknown demo: $id"
 
-    IFS=$'\037' read -r id_ name type image wd flag shares pre <<< "$(fields "$mf")"
+    IFS=$'\037' read -r id_ name type image wd flag shares pre pre_remove <<< "$(fields "$mf")"
     [ -n "$image" ] && image=$(rq_demo_image "$id" "$mf")   # the version in use
 
     if is_catalog "$id"; then
@@ -133,7 +156,8 @@ remove_demo() {
             show_yesno "Remove $name?" "Remove the catalogue demo $name (its files, icon and menu entry)?" \
                 || { info "Nothing removed."; return 0; }
         fi
-        RQ_ASSUME_YES="$assume_yes" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
+        # (asked here: the add-flow does not ask again, review B3)
+        RQ_ASSUME_YES="$assume_yes" RQ_REMOVE_CONFIRMED="$id" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"
     fi
 
     [ "$pre" != "true" ] || die "$name is part of the system image and cannot be removed."
@@ -151,6 +175,7 @@ remove_demo() {
     # and is small: it stays, only its image goes.
     if [ -n "$wd" ] && [ -d "$DEMOS_ROOT/$wd" ]; then
         case "$wd" in */*|.|..) die "Unexpected demo directory: $wd" ;; esac
+        run_pre_remove "$pre_remove" "$DEMOS_ROOT/$wd" "$name"
         if [ "$type" = docker ] && [ -f "$DEMOS_ROOT/$wd/.env" ]; then
             info "Keeping $DEMOS_ROOT/$wd (it holds your settings)"
         else

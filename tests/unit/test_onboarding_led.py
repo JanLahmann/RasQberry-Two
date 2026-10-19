@@ -677,3 +677,24 @@ def test_lgpio_fifo_is_not_left_in_the_current_folder(tmp_path):
     assert os.listdir(home) == []
     # gone right after the import, not only at a normal exit (#19)
     assert there == "False" and not os.path.exists(work)
+
+
+@pytest.mark.skipif(_bash4() is None, reason="bash 4+ required (declare -A)")
+def test_boot_config_keeps_empty_settings_and_mends_broken_ones(tmp_path):
+    # read with IFS='=' dropped the '=' of empty settings ("HOTSPOT_SSID="
+    # became "HOTSPOT_SSID", run as a command when the file was loaded)
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "systemd-cat").write_text("#!/bin/sh\ncat >/dev/null\n")
+    os.chmod(stubs / "systemd-cat", 0o755)
+    env = tmp_path / "env"
+    env.write_text("# comment\nHOTSPOT_SSID=\nHOTSPOT_PASSWORD\nLED_LAYOUT=single-24x8\nX=a=b\n")
+    boot = tmp_path / "boot.env"
+    boot.write_text("LED_LAYOUT=quad-4x12\n")
+    run_env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_BOOT_CONFIG=str(boot),
+                   RQ_ENV_FILE=str(env), RQ_BOOT_TEMP_ENV=str(tmp_path / "tmp.env"))
+    script = os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-load-boot-config.sh")
+    proc = subprocess.run([_bash4(), script], env=run_env, capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    assert env.read_text().splitlines() == [
+        "# comment", "HOTSPOT_SSID=", "HOTSPOT_PASSWORD=", "LED_LAYOUT=quad-4x12", "X=a=b"]

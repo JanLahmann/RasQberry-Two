@@ -68,8 +68,15 @@ def painter(tmp_path):
     _exe(stubs / "sudo", '#!/bin/bash\n[ "$1" = -n ] && shift\nargs=()\n'
                          'for a in "$@"; do case "$a" in */rq_common.sh) a="$FAKE_COMMON" ;; esac; args+=("$a"); done\n'
                          'exec "${args[@]}"\n')
+    # active once started (STUB_ACTIVE: what is-active says regardless)
+    state = tmp_path / "renderer.active"
     _exe(stubs / "systemctl", f'#!/bin/sh\necho "systemctl $*" >> "{log}"\n'
-                              'case "$1" in is-active) exit "${STUB_ACTIVE:-0}" ;; esac\nexit 0\n')
+                              'case "$1" in\n'
+                              '  is-active) [ -n "${STUB_ACTIVE:-}" ] && exit "$STUB_ACTIVE"\n'
+                              f'             [ -f "{state}" ]; exit $? ;;\n'
+                              f'  start) touch "{state}" ;;\n'
+                              f'  stop) rm -f "{state}" ;;\n'
+                              'esac\nexit 0\n')
     _exe(stubs / "whiptail", f'#!/bin/sh\necho "whiptail $*" >> "{log}"\nexit "${{WT_RC:-0}}"\n')
     env = {
         "PATH": f"{stubs}:{os.environ['PATH']}",
@@ -117,6 +124,25 @@ def test_free_panel_and_a_running_renderer_start_quietly(painter):
     assert "systemctl is-active --quiet rasqberry-led-renderer" in calls
     assert calls.index("systemctl start") < calls.index("painter LED_painter.py")
     assert "stays dark" not in out and "in use" not in out and "whiptail" not in calls
+
+
+def test_the_painter_stops_the_renderer_it_started(painter):
+    env, log = painter
+    proc, out = _run(env)
+    assert proc.returncode == 0, out
+    calls = log.read_text()
+    assert calls.index("painter LED_painter.py") < calls.index("systemctl stop rasqberry-led-renderer")
+
+
+def test_a_renderer_that_runs_already_is_left_running(painter, tmp_path):
+    """Another LED demo's renderer (review C3): neither started nor stopped."""
+    env, log = painter
+    (tmp_path / "renderer.active").touch()
+    proc, out = _run(env)
+    assert proc.returncode == 0, out
+    calls = log.read_text()
+    assert "painter LED_painter.py" in calls
+    assert "systemctl start" not in calls and "systemctl stop" not in calls
 
 
 def test_a_renderer_that_did_not_start_is_said_in_one_line(painter):

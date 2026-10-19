@@ -1,5 +1,5 @@
 diff --git a/QuantumRaspberryTie.v8_0.py b/QuantumRaspberryTie.v8_0.py
-index 5ba805e..a6a85c7 100644
+index 5ba805e..369a030 100644
 --- a/QuantumRaspberryTie.v8_0.py
 +++ b/QuantumRaspberryTie.v8_0.py
 @@ -108,6 +108,38 @@
@@ -135,7 +135,7 @@ index 5ba805e..a6a85c7 100644
  if UseEmulator:
      print ("....importing SenseHat Emulator")
      try:
-@@ -1125,32 +1193,50 @@ if UseNeo and IsRPi :
+@@ -1125,32 +1193,37 @@ if UseNeo and IsRPi :
      print("importing neopixel library...")
      try:
          import board
@@ -159,6 +159,13 @@ index 5ba805e..a6a85c7 100644
 -
 -        neopixel_array = neopixel.NeoPixel_SPI(
 -            spi,
+-            NUM_PIXELS,
+-            pixel_order=PIXEL_ORDER,
+-            brightness=BRIGHTNESS,
+-            auto_write=False,
+-        )
+-        #neopixel_array.clear()
+-        #neopixel_array.show()
 +        # Load LED configuration from the RasQberry environment file
 +        import os
 +        env_file = "/usr/config/rasqberry_environment.env"
@@ -176,34 +183,19 @@ index 5ba805e..a6a85c7 100644
 +        PIXEL_ORDER = getattr(neopixel, pixel_order_str, neopixel.GRB)
 +        BRIGHTNESS = float(config.get("LED_DEFAULT_BRIGHTNESS", 0.10))
 +
-+        # Neopixel initialization on GPIO (board.D<pin>); the neopixel
-+        # driver auto-selects the PWM/PIO backend for Pi 4 vs Pi 5.
-+        # RasQberry: on a Pi 5 the shared guard paces the frames (kernel
-+        # 6.18 returns before a frame is out; one written straight after it
-+        # was lost) and restarts a stalled driver; nothing on a Pi 4
-+        try:
-+            from rq_led_utils import guard_pi5_led_writes
-+            guard_pi5_led_writes()
-+        except Exception as e:
-+            print("LED frame pacing not available: ", e)
-+        gpio_pin = int(config.get("LED_GPIO_PIN", 18))
-+        gpio_board_pin = getattr(board, f"D{gpio_pin}")
-+        neopixel_array = neopixel.NeoPixel(
-+            gpio_board_pin,
-             NUM_PIXELS,
-             pixel_order=PIXEL_ORDER,
-             brightness=BRIGHTNESS,
-             auto_write=False,
-         )
--        #neopixel_array.clear()
--        #neopixel_array.show()
++        # RasQberry: the strip comes from rq_led_utils, like every LED demo.
++        # The demo runs as the user: on a Pi 5 it drives the panel itself
++        # (with the shared frame pacing), on a Pi 4 it hands its frames to
++        # the root LED renderer (LED_RENDER_MODE=service).
++        from rq_led_utils import create_neopixel_strip
++        neopixel_array = create_neopixel_strip(NUM_PIXELS, PIXEL_ORDER, brightness=BRIGHTNESS)
 +        # Initialize all pixels to black
 +        neopixel_array.fill((0, 0, 0))
 +        neopixel_array.show()
      except Exception as e:
          print("Error initilizating Neopixel board: ", e)
  
-@@ -1201,7 +1287,7 @@ if not NoHat and not SenseHatEMU: orient()
+@@ -1201,7 +1274,7 @@ if not NoHat and not SenseHatEMU: orient()
  display=ibm_qx32
  if not NoHat: hat.set_pixels(Arrow)
  if UseNeo:
@@ -212,3 +204,12 @@ index 5ba805e..a6a85c7 100644
      if DualNEO: display_to_LEDs(Arrow, matrix_map2)
  
  if DualDisplay and not NoHat: hat2.set_pixels(Arrow)
+@@ -1379,7 +1452,7 @@ while Looping:
+                         running_timeout = False
+                         running_cancelled = False
+                         showlogo =  False
+-                        resuqdone = False
++                        qdone = False
+                         while not (qdone or running_timeout or running_cancelled):
+                             qdone = qjob.in_final_state() or qjob.cancelled()
+                             if not UseLocal:

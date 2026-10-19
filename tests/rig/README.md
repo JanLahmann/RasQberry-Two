@@ -144,8 +144,9 @@ docker demos the test restarts the desktop Chromium with remote debugging
 (127.0.0.1 only, same profile and page), and `pi/webcheck.py` checks the tab
 the demo opened:
 
-- every page: it loads (load event, a title or text); uncaught JavaScript
-  errors are reported;
+- every page: it loads (load event, a title or text; polled for 45 s, or
+  `load` seconds for a slow page: Composer gets 120 s for the 2 GB Pi 4);
+  uncaught JavaScript errors are reported;
 - web pages: a key control responds to a real click - the page changes or
   navigates. `DEMO_HINTS[...]["web"]` names text the title must have
   (`title`), the element to wait for and the control (`click`), or a point in

@@ -24,6 +24,14 @@ esac
 if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -s /var/lib/rasqberry/update-notice ]; then
     head -n 1 /var/lib/rasqberry/update-notice 2>/dev/null || true
 fi
+# One line when the demo catalogue from rasqberry.org brought something for
+# this Pi (rq_catalogue.py): new demos, updates of installed ones. The daily
+# check leaves the file; the line is worked out again here (no network), so
+# a demo updated since then is not named.
+if [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -s /var/lib/rasqberry/catalogue-notice ] \
+    && [ -x /usr/bin/rq_catalogue.py ]; then
+    /usr/bin/rq_catalogue.py --line 2>/dev/null || true
+fi
 # Once after an update (rq_carry_over.sh left the mark): "Updated to <new>
 # (from <old>). What's new: ..." at the first SSH login after the health
 # check confirmed the new system - unless it was seen already (the menu's

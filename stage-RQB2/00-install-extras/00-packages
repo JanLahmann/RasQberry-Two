@@ -29,3 +29,6 @@ parted
 # the QR code of the Workshop & Qiskit Server address (rq_doqumentation.sh);
 # the image has only the library (libqrencode4), not the command
 qrencode
+# colour emoji for web pages, e.g. the game cards of the offline Fun with
+# Quantum portal (without it they show empty boxes)
+fonts-noto-color-emoji

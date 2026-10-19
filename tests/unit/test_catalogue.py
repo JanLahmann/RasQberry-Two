@@ -37,10 +37,12 @@ _WHIPTAIL = r'''#!/bin/sh
 exit "${WT_RC:-0}"
 '''
 
-# git init / fetch do nothing; checkout copies the "repository"
+# git init / fetch do nothing (FETCH_RC: a fetch that fails); checkout copies
+# the "repository"
 _GIT = r'''#!/bin/sh
 case "$1" in
   init) mkdir -p .git ;;
+  fetch|-c) exit "${FETCH_RC:-0}" ;;
   checkout) cp -R "$FAKE_REPO"/. . ;;
 esac
 exit 0
@@ -99,7 +101,10 @@ def cat(tmp_path):
     def run(args, extra=None, tty=False):
         env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
                "RQ_CONFIG_FILE": str(env_config), "RQ_TEST_FREE_MB": "50000",
-               "FAKE_REPO": str(repo), "WT_LOG": str(wt_log), "DOCKER_LOG": str(tmp_path / "docker.log")}
+               "FAKE_REPO": str(repo), "WT_LOG": str(wt_log), "DOCKER_LOG": str(tmp_path / "docker.log"),
+               # the picker asks rasqberry.org first: never from a test
+               "RQ_CATALOGUE_URL": "file:///nonexistent/known-demos.json",
+               "RQ_CATALOGUE_CACHE_DIR": str(tmp_path / "catalogue-cache")}
         env.update(extra or {})
         script = str(root / "RQB2-bin" / "rq_demo_add_external.sh")
         if tty:
@@ -160,20 +165,21 @@ def test_an_led_demo_is_one_question_with_its_name(cat):
     boxes = _yesnos(cat)
     assert len(boxes) == 1
     text = boxes[0][boxes[0].index("--yesno") + 1]
-    assert "It drives the LED panel, so it runs with root privileges." in text
+    assert "It drives the LED panel. Like every demo, it runs without administrator rights." in text
+    assert "root" not in text
     assert text.startswith("Dock Demo")
     assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
 
 
-def test_an_unannounced_led_demo_is_still_asked_about_root_by_name(cat):
+def test_an_unannounced_led_demo_asks_nothing_about_root(cat):
+    # LED demos run as the user in a sandbox (rq_led_as_user): no root question
     _led_demo(cat, leds_in_registry=False)
     proc = cat(["dock-demo"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     boxes = _yesnos(cat)
-    assert len(boxes) == 2
-    text = boxes[1][boxes[1].index("--yesno") + 1]
-    assert text.startswith("Dock Demo drives the LED panel and will run with root privileges.")
-    assert "'dock-demo'" not in text
+    assert len(boxes) == 1
+    assert "root" not in boxes[0][boxes[0].index("--yesno") + 1]
+    assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
 
 
 def test_the_shipped_led_demos_are_announced():
@@ -250,12 +256,138 @@ def test_removal_says_it_is_done(cat):
     assert not (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").exists()
 
 
-def test_removal_without_a_terminal_asks_and_says_nothing(cat):
+def test_removal_asks_first(cat):
+    # review B3: it deletes a checkout, perhaps a demo author's own clone
+    cat(["dock-demo"], extra={"IMAGE_RC": "0"})
+    mf = cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json"
+    checkout = cat.home / "RasQberry-Two/demos/dock-demo"
+    proc = cat(["--remove", "dock-demo"], extra={"IMAGE_RC": "1", "WT_RC": "1"}, tty=True)
+    assert proc.returncode == 0
+    box = _yesnos(cat)[-1]
+    assert _arg(box, "--title") == "Remove Dock Demo?"
+    assert f"its files in {cat.home}/RasQberry-Two/demos/dock-demo" in box[box.index("--yesno") + 1]
+    assert mf.is_file() and checkout.is_dir()
+
+
+def test_removal_without_a_terminal_removes_nothing(cat):
     cat(["dock-demo"], extra={"IMAGE_RC": "0"})
     n = len(cat.dialogs())
     proc = cat(["--remove", "dock-demo"], extra={"IMAGE_RC": "1"})
-    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert proc.returncode != 0 and "only after a question" in proc.stdout + proc.stderr
     assert len(cat.dialogs()) == n
+    assert (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").is_file()
+    assert (cat.home / "RasQberry-Two/demos/dock-demo").is_dir()
+    # the caller asked already (rq_demo_remove.sh) or decided (a renamed demo)
+    for extra in ({"RQ_REMOVE_CONFIRMED": "dock-demo"}, {"RQ_ASSUME_YES": "yes"}):
+        cat(["dock-demo"], extra={"IMAGE_RC": "0"})
+        proc = cat(["--remove", "dock-demo"], extra=dict(extra, IMAGE_RC="1"))
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert not [c for c in cat.dialogs() if _arg(c, "--title").startswith("Remove")]
+        assert not (cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json").exists()
+
+
+def test_the_remove_script_asks_once():
+    text = open(os.path.join(_BIN, "rq_demo_remove.sh")).read()
+    assert 'RQ_REMOVE_CONFIRMED="$id" exec "$SCRIPT_DIR/rq_demo_add_external.sh" --remove "$id"' in text
+
+
+# --- review B1: a failed update keeps the demo; B3: the install is marked --------------
+
+def _checkout(cat):
+    return cat.home / "RasQberry-Two/demos/dock-demo"
+
+
+def _user_manifest(cat):
+    return cat.home / ".local/config/demo-manifests/rq_demo_dock-demo.json"
+
+
+def test_the_install_is_marked_with_its_pin(cat):
+    proc = cat(["dock-demo"], extra={"IMAGE_RC": "0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    m = json.loads(_user_manifest(cat).read_text())
+    assert m["x-rasqberry-catalogue"] == {"ref": _SHA, "repo_url": "https://github.com/example/dock-demo.git"}
+    assert m["install"]["download"] == {"download_mb": 530, "disk_mb": 3260}
+    assert not list((cat.home / "RasQberry-Two/demos").glob(".rq-*"))
+
+
+@pytest.mark.parametrize("failure", ["fetch", "marker", "id"])
+def test_a_failed_update_keeps_the_installed_version(cat, failure):
+    assert cat(["dock-demo"], extra={"IMAGE_RC": "0"}).returncode == 0
+    (_checkout(cat) / "mine.txt").write_text("the version in use")
+    before = _user_manifest(cat).read_text()
+    extra = {"IMAGE_RC": "0"}
+    m = _manifest()
+    if failure == "fetch":
+        extra["FETCH_RC"] = "1"                         # the Wi-Fi drops
+    elif failure == "marker":
+        m["install"]["marker_file"] = "missing.txt"     # the new pin fails the checks
+    else:
+        m["id"] = "other-demo"
+    (cat.repo / "rqb-demo.json").write_text(json.dumps(m))
+    proc = cat(["--update", "dock-demo"], extra=extra)
+    assert proc.returncode != 0
+    assert (_checkout(cat) / "mine.txt").read_text() == "the version in use"
+    assert _user_manifest(cat).read_text() == before
+    assert not list((cat.home / "RasQberry-Two/demos").glob(".rq-*"))
+
+
+def test_an_update_replaces_the_checkout_when_all_is_good(cat):
+    assert cat(["dock-demo"], extra={"IMAGE_RC": "0"}).returncode == 0
+    (_checkout(cat) / "old.txt").write_text("old")
+    (cat.repo / "new.txt").write_text("new")
+    proc = cat(["--update", "dock-demo"], extra={"IMAGE_RC": "0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (_checkout(cat) / "new.txt").is_file() and not (_checkout(cat) / "old.txt").exists()
+    assert not list((cat.home / "RasQberry-Two/demos").glob(".rq-*"))
+
+
+def test_the_first_start_does_not_ask_again(cat):
+    # rq_demo_run.sh sends a catalogue demo whose files are gone here, after
+    # its own question (RQ_CONFIRMED_DEMO): no second question, no closing box
+    proc = cat(["--update", "dock-demo"], extra={"IMAGE_RC": "0", "RQ_CONFIRMED_DEMO": "dock-demo"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert cat.dialogs() == []
+    assert _user_manifest(cat).is_file()
+
+
+# --- review B6: what the catalogue says reaches root's shell code -----------------------
+
+def _registry(cat, **change):
+    reg_file = cat.root / "RQB2-config" / "known-demos.json"
+    reg = json.loads(reg_file.read_text())
+    reg["demos"][0].update(change)
+    reg_file.write_text(json.dumps(reg))
+
+
+@pytest.mark.parametrize("url", ["https://github.com/example/.git", "https://github.com/example/.."])
+def test_a_repo_url_that_names_no_directory_is_refused_first(cat, url):
+    demos = cat.home / "RasQberry-Two/demos"
+    (demos / "other").mkdir(parents=True)
+    _registry(cat, repo_url=url)
+    proc = cat(["dock-demo"])
+    assert proc.returncode != 0 and "plain directory name" in proc.stdout + proc.stderr
+    assert (demos / "other").is_dir() and cat.dialogs() == []
+
+
+def test_the_checkout_of_a_shipped_demo_is_not_replaced(cat):
+    _registry(cat, repo_url="https://github.com/evil/Quantum-Lights-Out.git")
+    proc = cat(["dock-demo"])
+    assert proc.returncode != 0 and "belongs to another demo" in proc.stdout + proc.stderr
+
+
+def test_sizes_are_numbers_not_shell_code(cat, tmp_path):
+    flag = tmp_path / "PWNED"
+    _registry(cat, download={"download_mb": 5, "disk_mb": f"BASH_VERSINFO[$(touch {flag})0]"})
+    proc = cat(["dock-demo"], extra={"IMAGE_RC": "0"})
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not flag.exists()
+
+
+def test_download_all_reads_sizes_as_numbers(tmp_path):
+    text = open(os.path.join(_BIN, "rq_download_all.sh")).read()
+    block = text[text.index("collect_missing() {"):text.index("totals() {")]
+    for v in ("dl", "disk", "peak"):
+        assert f'case "${v}" in \'\'|*[!0-9]*) {v}=0 ;; *) {v}=$((10#${v})) ;; esac' in block
 
 
 # --- one progress line instead of Docker's list of layers -------------------------
@@ -439,20 +571,33 @@ def test_the_updater_names_the_move_for_an_old_install(tmp_path):
     home = tmp_path / "home"
     manifests = home / ".local/config/demo-manifests"
     manifests.mkdir(parents=True)
-    for i in ("traqmania", "gone-demo"):
-        (manifests / f"rq_demo_{i}.json").write_text(json.dumps(
-            {"id": i, "entrypoint": {"working_dir": i}}))
-    config = tmp_path / "config"
-    config.mkdir()
-    shutil.copy(os.path.join(_CFG, "known-demos.json"), config / "known-demos.json")
+    for i in ("traqmania", "gone-demo", "my-own-demo"):
+        m = {"id": i, "entrypoint": {"working_dir": i}}
+        if i != "my-own-demo":          # (a demo author's own manifest: never "withdrawn")
+            m["x-rasqberry-catalogue"] = {"ref": _SHA, "repo_url": f"https://github.com/x/{i}.git"}
+        (manifests / f"rq_demo_{i}.json").write_text(json.dumps(m))
+    # review B10: the catalogue in use, also a newer one from rasqberry.org
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    reg = json.load(open(os.path.join(_CFG, "known-demos.json")))
+    reg["catalogue_version"] += 1
+    reg["demos"].append({"id": "online-demo", "repo_url": "https://github.com/x/online-demo.git",
+                         "ref": "b" * 40, "added": "2026-10-15"})
+    (cache / "known-demos.json").write_text(json.dumps(reg))
+    m = {"id": "online-demo", "entrypoint": {"working_dir": "online-demo"},
+         "x-rasqberry-catalogue": {"ref": "b" * 40, "repo_url": "https://github.com/x/online-demo.git"}}
+    (manifests / "rq_demo_online-demo.json").write_text(json.dumps(m))
     script = (f'eval "$(sed -n \'/^report_catalog_pins() {{/,/^}}/p\' '
               f'"{os.path.join(_BIN, "rq_update_from_branch.sh")}")"; '
               'info() { echo "$*"; }; report_catalog_pins')
     out = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
-                         env=dict(os.environ, TARGET_CONFIG=str(config), USER_HOME=str(home))).stdout
+                         env=dict(os.environ, USER_HOME=str(home), RQ_CATALOGUE_CACHE_DIR=str(cache),
+                                  RQ_CATALOGUE_PY=os.path.join(_BIN, "rq_catalogue.py"))).stdout
     assert ("Catalog demo 'traqmania' is now called 'racetraq' - move it with: "
             "sudo rq_demo_add_external.sh --update traqmania") in out
-    assert "Catalog demo 'gone-demo' was withdrawn" in out
+    assert ("Catalog demo 'gone-demo' was withdrawn - remove with: "
+            "sudo rq_demo_add_external.sh --remove gone-demo") in out
+    assert "online-demo" not in out and "my-own-demo" not in out
 
 
 def test_the_shipped_renames_point_at_old_ids_only():
@@ -464,3 +609,35 @@ def test_the_shipped_renames_point_at_old_ids_only():
     assert racetraq["replaces"] == ["traqmania"] and racetraq["formerly"] == "traQmania"
     assert racetraq["repo_url"] == "https://github.com/JanLahmann/racetraQ.git"
     assert len(racetraq["ref"]) == 40
+
+
+# --- the catalogue from rasqberry.org (rq_catalogue.py) ------------------------------
+
+def _online(cat, tmp_path, **extra):
+    """A newer catalogue in the cache, with one more demo."""
+    cache = tmp_path / "catalogue-cache"
+    cache.mkdir(exist_ok=True)
+    reg = json.loads((cat.root / "RQB2-config" / "known-demos.json").read_text())
+    reg["catalogue_version"] = 5
+    entry = dict(reg["demos"][0], id="sound-demo", name="Sound Demo", summary="plays a tune")
+    entry.update(extra)
+    reg["demos"].append(entry)
+    (cache / "known-demos.json").write_text(json.dumps(reg))
+
+
+def test_the_picker_marks_demos_from_the_online_catalogue(cat, tmp_path):
+    _online(cat, tmp_path)
+    cat([])
+    menu = [c for c in cat.dialogs() if "--menu" in c][0]
+    assert "New: Sound Demo - plays a tune" in menu
+    assert "Dock Demo - a racing game in a container" in menu
+
+
+def test_a_demo_for_a_newer_engine_is_not_installed(cat, tmp_path):
+    _online(cat, tmp_path, min_engine=99)
+    cat([])
+    menu = [c for c in cat.dialogs() if "--menu" in c][0]
+    assert "New: Sound Demo - needs a newer RasQberry" in menu
+    proc = cat(["sound-demo"])
+    assert proc.returncode != 0
+    assert "needs a newer RasQberry" in proc.stdout + proc.stderr

@@ -170,7 +170,7 @@ def test_a_click_runs_what_the_desktop_double_click_runs(tmp_path):
     assert gw.launch(launchers["composer"], ["x-terminal-emulator", "-e"], home=home, popen=popen)
     assert calls[0][0] == ["x-terminal-emulator", "-e", "/usr/bin/rq_hold_on_error.sh", "-t", "IBM LED Demo",
                            "/usr/bin/rq_demo_run.sh", "led-demos", "ibm-logo"]
-    assert calls[1][0] == ["chromium", "--password-store=basic", "https://quantum.ibm.com/composer/"]
+    assert calls[1][0] == ["chromium", "--password-store=basic", "https://quantum.cloud.ibm.com/composer"]
     for _, kw in calls:
         # the window's environment (the desktop's), the home folder, and a
         # session of its own: it outlives the window, which closes next
@@ -387,7 +387,7 @@ def test_touch_mode_is_in_the_desktop_settings_menu():
     settings = menu[menu.index("do_desktop_settings_menu() {"):]
     settings = settings[:settings.index("\n}\n")]
     assert 'TOUCH   "Touch mode (bigger icons and buttons)' in settings and "do_touch_mode_menu" in settings
-    assert 'DESKTOP "Desktop Settings (touch mode, browser at login)"' in menu
+    assert 'DESKTOP "Desktop Settings (touch mode, browser at login, sound delay)"' in menu
 
 
 @pytest.mark.parametrize("gone", [("touch-mode",), ("touch-mode", "rasqberry-setup"),

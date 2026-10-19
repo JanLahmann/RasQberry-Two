@@ -13,7 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-# Ensure running as root (PWM/PIO drivers require GPIO access)
+# Root for the panel check, the Pi 4 renderer and clearing; the LED program
+# itself runs as the user in a sandbox (rq_led_as_user)
 ensure_root "$@"
 
 # Load environment and verify required variables
@@ -54,4 +55,5 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 # Run the script. It stops with Enter or Ctrl+C, and the window closes with
 # it (one Enter, not a second "close this window" prompt); an error keeps the
 # window open (rq_hold_on_error.sh).
-rq_run_in_front python3 "$LED_SCRIPT"
+rq_led_user_prepare
+rq_run_in_front rq_led_as_user python3 "$LED_SCRIPT"

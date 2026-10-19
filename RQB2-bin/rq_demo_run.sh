@@ -66,6 +66,8 @@ INSTALLING_DIR=""
 # Helper processes a demo starts that outlive it (manifest
 # .entrypoint.stop_on_exit, e.g. Raspberry Tie's SenseHAT emulator window, #104)
 STOP_ON_EXIT=()
+# Set in an LED demo's second pass, as root (run_python)
+ROOT_PASS=""
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -206,6 +208,37 @@ check_requirements() {
         debug "Demo requires LED hardware"
     fi
 
+    # Sound (needs_hw.audio): name the output in use; with none, say how to
+    # connect a speaker, and a demo that needs one waits for Enter. Once per
+    # window: not again in an LED demo's second pass.
+    local audio_req out rc=0
+    audio_req=$(demo_field '.needs_hw.audio' 'none')
+    [ -z "$ROOT_PASS" ] || audio_req=none
+    if [ "$audio_req" = "required" ] || [ "$audio_req" = "optional" ]; then
+        # The sound delay setting, checked, for the demo (RQ_AUDIO_DELAY_MS)
+        export RQ_AUDIO_DELAY_MS
+        RQ_AUDIO_DELAY_MS=$(rq_audio_delay_ms)
+        [ "$RQ_AUDIO_DELAY_MS" -eq 0 ] || info "Sound delay: the LEDs wait $RQ_AUDIO_DELAY_MS ms for the speaker (RasQberry menu: Desktop Settings > Sound delay)."
+        out=$(rq_audio_output) || rc=$?
+        if [ "$rc" -eq 0 ] && [ "$needs_leds" = "true" ] && rq_audio_on_jack; then
+            # Pi 4: the headphone jack and the LED panel share the PWM hardware
+            warn "Sound goes to the headphone jack, which uses the same hardware as the LED panel: with the LEDs on, the sound can stop until the Pi restarts."
+            echo "Use another output. $RQ_SPEAKER_HINT"
+            if [ -t 0 ] && [ -t 1 ]; then
+                read -r -p "Press Enter to start it anyway, Ctrl+C to stop. " _ || true
+            fi
+        elif [ "$rc" -eq 0 ]; then
+            info "This demo plays sound. Sound goes to: $out (turn the speaker on and the volume up)."
+        elif [ "$rc" -eq 1 ]; then
+            echo "No sound output found. $RQ_SPEAKER_HINT"
+            if [ "$audio_req" = "required" ] && [ -t 0 ] && [ -t 1 ]; then
+                read -r -p "This demo needs sound. Press Enter to start it anyway, Ctrl+C to stop. " _ || true
+            fi
+        elif [ "$audio_req" = "required" ]; then
+            info "This demo needs sound: on the Pi's desktop, connect a speaker first. $RQ_SPEAKER_HINT"
+        fi
+    fi
+
     # Check network connectivity
     if [ "$needs_network" = "true" ]; then
         if ! ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
@@ -298,6 +331,114 @@ check_installed() {
     return 0
 }
 
+# Apply a demo patch to its checkout, and note which patch it was
+# (.git/rq-patch.sha256) so that a changed patch reaches existing installs.
+# Upstream repos sometimes ship CRLF and/or trailing whitespace (e.g.
+# KPRoche/quantum-raspberry-tie v8_0), which makes an LF patch's context
+# fail to match and git apply reject every hunk. Normalize the files this
+# patch targets (strip CR + trailing whitespace) first - Python is line-ending
+# agnostic, so this is safe and keeps our patches robust to upstream
+# whitespace drift. Our patches are generated against the same normalization
+# (see RQB2-config/demo-patches/). A file the patch creates is not there yet.
+# git runs without the checkout's fsmonitor and hooks, and the note replaces
+# a symlink instead of writing through it (review B4).
+# Usage: apply_demo_patch DEMO_DIR PATCH
+apply_demo_patch() {
+    local dir="$1" patch="$2" f
+    (
+        cd "$dir" || exit 1
+        grep '^+++ b/' "$patch" | sed 's|^+++ b/||' | while IFS= read -r f; do
+            if [ -f "$f" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$f"; fi
+        done
+        git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply "$patch" 2>/dev/null \
+            || git -c core.fsmonitor=false -c core.hooksPath=/dev/null apply -3 "$patch" 2>/dev/null \
+            || exit 1
+        if [ -d .git ]; then
+            rm -f .git/rq-patch.sha256
+            sha256sum < "$patch" | cut -d' ' -f1 > .git/rq-patch.sha256
+        fi
+        exit 0
+    )
+}
+
+# Put the files a patch touches back to the checkout's pinned upstream
+# version and apply the patch again; if that fails, everything is put back as
+# it was. A file the patch creates is not in the pinned commit: it is removed
+# before, not checked out (Grok Bloch's rasqberry-help.js; the checkout of it
+# failed, so its refresh never worked, review B5). Runs as the checkout's
+# owner (refresh_demo_patch).
+# Usage: _rq_patch_refresh DEMO_DIR PATCH   (0: updated, 1: as it was)
+_rq_patch_refresh() {
+    local dir="$1" patch="$2" keep f ok=1 files
+    local -a git=(git -c core.fsmonitor=false -c core.hooksPath=/dev/null)
+    cd "$dir" || return 1
+    files=$(sed -n 's|^--- a/||p; s|^+++ b/||p' "$patch" | sort -u)
+    # a copy to fall back on
+    keep=$(mktemp -d) || return 1
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ -f "$f" ]; then
+            mkdir -p "$keep/$(dirname "$f")" && cp -p "$f" "$keep/$f"
+        fi
+    done <<< "$files"
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        if "${git[@]}" cat-file -e "HEAD:$f" 2>/dev/null; then
+            "${git[@]}" checkout HEAD -- "$f" 2>/dev/null || ok=0
+        else
+            rm -f -- "$f"
+        fi
+    done <<< "$files"
+    if [ "$ok" = 1 ] && apply_demo_patch "$dir" "$patch"; then
+        rm -rf "$keep"
+        return 0
+    fi
+    while IFS= read -r f; do
+        if [ -n "$f" ] && [ ! -e "$keep/$f" ]; then rm -f -- "$f"; fi
+    done <<< "$files"
+    ( cd "$keep" && find . -type f -exec cp -p {} "$dir/{}" \; )
+    rm -rf "$keep"
+    return 1
+}
+
+# An installed demo whose patch has changed since (a new image or update):
+# put the patched files back to the pinned upstream version and apply the
+# new patch. If that fails, the demo keeps the patch it had.
+# Root never runs git in the checkout: git honours the repository's own
+# .git/config, which the user (and an LED demo in its sandbox, in its own
+# folder) can write, and a command in it (core.fsmonitor, a hook) then ran
+# as root at the next start from the menu or the Demo Loop (review B4). Root
+# only hands the tree to the user (chown -R does not follow symlinks); the
+# refresh runs as the user.
+refresh_demo_patch() {
+    local patch_file dir patch want have="" owner rc=0
+    patch_file=$(get_field '.install.patch_file' '')
+    [ -n "$patch_file" ] || return 0
+    patch="$PATCHES_DIR/$patch_file"
+    dir="$USER_HOME/$REPO/demos/$(get_field '.entrypoint.working_dir' '')"
+    [ -f "$patch" ] && [ -d "$dir/.git" ] || return 0
+    want=$(sha256sum < "$patch" | cut -d' ' -f1)
+    [ -L "$dir/.git/rq-patch.sha256" ] || have=$(cat "$dir/.git/rq-patch.sha256" 2>/dev/null || true)
+    [ "$want" != "$have" ] || return 0
+    if [ "$(id -u)" = "0" ]; then
+        owner=$(get_user_name)
+        if [ "$owner" = "root" ]; then
+            debug "No desktop user: the RasQberry changes to $DEMO_TITLE stay as they are"
+            return 0
+        fi
+        chown -R "$owner:$owner" "$dir"
+        sudo -u "$owner" -H -- bash -c "$(declare -f apply_demo_patch _rq_patch_refresh)"'
+            _rq_patch_refresh "$1" "$2"' _ "$dir" "$patch" || rc=$?
+    else
+        ( _rq_patch_refresh "$dir" "$patch" ) || rc=$?
+    fi
+    if [ "$rc" = 0 ]; then
+        info "Updated the RasQberry changes to $DEMO_TITLE"
+    else
+        warn "Could not update the RasQberry changes to $DEMO_TITLE: it runs as before."
+    fi
+    return 0
+}
+
 # Install demo from manifest
 # Clones repo, applies patches, installs pip requirements
 install_demo() {
@@ -373,25 +514,9 @@ install_demo() {
             die "Patch file declared in the manifest but not found: $PATCHES_DIR/$patch_file (demo '$DEMO_ID')"
         fi
         info "Applying patch: $patch_file"
+        apply_demo_patch "$demo_dir" "$PATCHES_DIR/$patch_file" \
+            || die "Failed to apply patch '$patch_file' for demo '$DEMO_ID' (tried plain and 3-way git apply). Refusing to run the demo unpatched."
         cd "$demo_dir"
-        # Upstream repos sometimes ship CRLF and/or trailing whitespace (e.g.
-        # KPRoche/quantum-raspberry-tie v8_0), which makes an LF patch's context
-        # fail to match and git apply reject every hunk. Normalize the files this
-        # patch targets (strip CR + trailing whitespace) first — Python is
-        # line-ending agnostic, so this is safe and keeps our patches robust to
-        # upstream whitespace drift. Our patches are generated against the same
-        # normalization (see RQB2-config/demo-patches/).
-        # (a file the patch creates is not there yet: skip it - as the loop's
-        # last command a failed test would stop the install under pipefail)
-        grep '^+++ b/' "$PATCHES_DIR/$patch_file" | sed 's|^+++ b/||' | while IFS= read -r _pf; do
-            if [ -f "$_pf" ]; then sed -i 's/\r$//; s/[[:blank:]]*$//' "$_pf"; fi
-        done
-        if ! git apply "$PATCHES_DIR/$patch_file" 2>/dev/null; then
-            # Try with -3 for 3-way merge
-            if ! git apply -3 "$PATCHES_DIR/$patch_file" 2>/dev/null; then
-                die "Failed to apply patch '$patch_file' for demo '$DEMO_ID' (tried plain and 3-way git apply). Refusing to run the demo unpatched."
-            fi
-        fi
     fi
 
     # Install pip requirements if specified (as the user, into the user's venv)
@@ -427,6 +552,9 @@ install_demo() {
     # download and "Download all demos" leaves it ready offline, R-138).
     if [ -n "$post_install" ]; then
         local post_script="" venv_path
+        case "$post_install" in
+            */*|.|..) die "install.post_install is a script name, not a path: $post_install (demo '$DEMO_ID')" ;;
+        esac
         if [ -f "$SCRIPT_DIR/$post_install" ]; then
             post_script="$SCRIPT_DIR/$post_install"
         elif [ -f "/usr/bin/$post_install" ]; then
@@ -522,11 +650,39 @@ shared_download_present() {
     return 1
 }
 
+# A demo from the user's manifest directory whose files are not here. One
+# from the catalogue comes back the way it came: at the pin of the catalogue
+# in use, checked, its Python packages held at the venv's versions, through
+# rq_demo_add_external.sh (the question was asked already). A catalogue demo
+# is never cloned unpinned: a failed update used to leave its manifest
+# without a checkout, and its next start then cloned whatever upstream held
+# (review B1). One that was renamed or withdrawn is not downloaded at all.
+# Only a demo author's own manifest (CONTRIBUTING.md) is installed as before.
+install_user_demo() {
+    local registry succ
+    registry=$(rq_catalogue_file)
+    if jq -e --arg id "$DEMO_ID" 'any(.demos[]?; .id == $id)' "$registry" >/dev/null 2>&1; then
+        info "Installing $DEMO_TITLE from the demo catalogue..."
+        RQ_CONFIRMED_DEMO="$DEMO_ID" "$SCRIPT_DIR/rq_demo_add_external.sh" --update "$DEMO_ID" \
+            || die "$DEMO_TITLE could not be installed from the demo catalogue."
+        return 0
+    fi
+    succ=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(any(.replaces[]?; . == $id)) | .id][0] // empty' \
+        "$registry" 2>/dev/null) || succ=""
+    [ -z "$succ" ] || die "$DEMO_TITLE is now called '$succ' in the demo catalogue. Move to it with: sudo rq_demo_add_external.sh --update $DEMO_ID"
+    if jq -e '."x-rasqberry-catalogue" | type == "object"' "$MANIFEST_FILE" >/dev/null 2>&1; then
+        die "$DEMO_TITLE was removed from the demo catalogue, and its files are no longer on this Pi. Remove it with: sudo rq_demo_add_external.sh --remove $DEMO_ID"
+    fi
+    info "Installing..."
+    install_demo
+}
+
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
     if check_installed; then
         sync_installed_flag
+        refresh_demo_patch
         return 0
     fi
 
@@ -568,8 +724,12 @@ ensure_installed() {
 
     # (a catalogue Docker demo keeps its checkout when only the image is gone)
     if [ -n "$repo_url" ] && ! checkout_present; then
-        info "Installing..."
-        install_demo
+        if [ "$MANIFEST_FILE" != "$MANIFEST_DIR/rq_demo_${DEMO_ID}.json" ]; then
+            install_user_demo
+        else
+            info "Installing..."
+            install_demo
+        fi
     fi
     if [ -n "$image" ] && docker_usable && ! docker image inspect "$image" >/dev/null 2>&1; then
         install_docker_image "$image"
@@ -961,7 +1121,7 @@ run_python() {
     local -a py_env=()
     if [ ${#run[@]} -gt 0 ] && [ -t 1 ]; then
         own_hint=$(jq -r --arg id "$DEMO_ID" '[.demos[]? | select(.id == $id) | .own_stop_hint // empty][0] // empty' \
-            "$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json" 2>/dev/null) || own_hint=""
+            "$(rq_catalogue_file)" 2>/dev/null) || own_hint=""
         if [ -n "$own_hint" ]; then
             run+=(rq_hide_line "$own_hint")
             py_env=(PYTHONUNBUFFERED=1)
@@ -991,6 +1151,16 @@ run_python() {
         LED_DEMO_RAN=1
         RQ_LED_RUN_START=$(date +%s)
         RQ_LED_THROTTLED_START=$(rq_throttled)
+        # The program as the desktop user, in a sandbox (rq_led_as_user);
+        # as root only when a person asks for it (RQ_LED_AS_ROOT=1)
+        if [ "${RQ_LED_AS_ROOT:-}" != 1 ]; then
+            rq_led_user_prepare
+            info "Running with LED support..."
+            ${run[@]+"${run[@]}"} rq_led_as_user env PYTHONPATH="$demo_pythonpath" \
+                ${py_env[@]+"${py_env[@]}"} "$venv_python" -W ignore::DeprecationWarning \
+                "$script" ${script_args[@]+"${script_args[@]}"}
+            return
+        fi
         info "Running with LED support (as root)..."
         prepare_user_home_for_root_run
         # PYTHONDONTWRITEBYTECODE: this is the user's venv. A root run that
@@ -1014,7 +1184,8 @@ run_python() {
 # ============================================================================
 # ROOT RUNS AND THE USER'S HOME
 # ============================================================================
-# LED demos run as root (GPIO), but with the desktop user's HOME, so they use
+# An LED demo run as root (only with RQ_LED_AS_ROOT=1; normally it runs as the
+# user, rq_led_as_user) gets the desktop user's HOME, so it uses
 # the user's IBM Quantum account in ~/.qiskit (Q26). Whatever root creates
 # there is the user's afterwards: qiskit-ibm-runtime creates
 # ~/.qiskit/qiskit-ibm.json on any account lookup, and one Raspberry Tie run on
@@ -1072,6 +1243,11 @@ delegate_launcher() {
     if [ -z "$launcher" ]; then
         die "No launcher specified"
     fi
+    # A RasQberry script by its name, next to this one or in /usr/bin: never
+    # a path (a manifest in the user's directory is read by root, review D2)
+    case "$launcher" in
+        */*|.|..) die "A launcher is a script name, not a path: $launcher" ;;
+    esac
 
     # Find the launcher script
     local launcher_path=""
@@ -1134,12 +1310,15 @@ cleanup() {
     fi
 
     # Helper windows/processes the demo started (only those that were not
-    # already running when it launched)
-    local pat
+    # already running when it launched). Only the desktop user's: the pattern
+    # comes from the manifest, which for a catalogue demo the user can edit,
+    # and root must not stop other programs by it.
+    local pat stop_user
+    stop_user=$(get_user_name)
     for pat in ${STOP_ON_EXIT[@]+"${STOP_ON_EXIT[@]}"}; do
-        if pgrep -f -- "$pat" >/dev/null 2>&1; then
+        if pgrep -u "$stop_user" -f -- "$pat" >/dev/null 2>&1; then
             info "Closing $pat..."
-            pkill -f -- "$pat" 2>/dev/null || sudo -n pkill -f -- "$pat" 2>/dev/null || true
+            pkill -u "$stop_user" -f -- "$pat" 2>/dev/null || true
         fi
     done
 
@@ -1162,7 +1341,9 @@ cleanup() {
     # Ctrl+C or its window is closed (R-158). Quietly: the terminal may be gone.
     if [ -n "${LED_DEMO_RAN:-}" ]; then
         LED_DEMO_RAN=""
-        led_clear_quietly
+        # the renderer first (it holds the strip), then the clear - unless
+        # another LED demo has taken the panel meanwhile
+        rq_led_release_panel
         # The Pi 5's LED driver stalled during the demo (weak power supply,
         # item 31)? Say so and offer a lower brightness - not to a closed window.
         [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
@@ -1228,6 +1409,9 @@ variant_list() {
 # Re-run this engine as the desktop user when it runs as root for a demo that
 # does not need the LED panel. Keeps the display (only if there is one, so the
 # "needs a screen" check still sees an SSH login) and the menu's error file.
+# With the display goes the desktop's Wayland session, which sudo drops: from
+# the menu a demo ran under Xwayland and could not ask the compositor for the
+# screen size (Entangible's booth screen filled half the screen, review C5).
 drop_to_desktop_user() {
     local user_name
     [ "$(id -u)" = "0" ] || return 0
@@ -1235,13 +1419,19 @@ drop_to_desktop_user() {
     user_name=$(get_user_name)
     [ "$user_name" != "root" ] || return 0
     local -a keep=()
-    local v
+    local v uid rt
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
              RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
              RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
-    info "Starting as $user_name (only LED demos run as root)..."
+    uid=$(id -u "$user_name" 2>/dev/null) || uid=""
+    rt="${RQ_USER_RUNTIME_BASE:-/run/user}/$uid"
+    if [ -n "$uid" ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } \
+       && [ -S "$rt/${WAYLAND_DISPLAY:-wayland-0}" ]; then
+        keep+=("XDG_RUNTIME_DIR=$rt" "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}")
+    fi
+    info "Starting as $user_name..."
     exec sudo -u "$user_name" -H ${keep[@]+"${keep[@]}"} -- "$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")" "$@"
 }
 
@@ -1328,7 +1518,11 @@ main() {
     # An LED demo's second pass, as root (run_python): the window has its
     # title and first line already (SAP Quantum LED showed it twice)
     local root_pass="${RQ_DEMO_ROOT_PASS:-}"
+    ROOT_PASS="$root_pass"
     unset RQ_DEMO_ROOT_PASS
+    # sudo -E kept the user's environment: root runs no Python or shell code
+    # it points to
+    [ -z "$root_pass" ] || unset PYTHONPATH PYTHONHOME PYTHONSTARTUP PYTHONUSERBASE BASH_ENV ENV
     if [ -z "$root_pass" ]; then
         # The window's title: the demo's name, not the command line (R-135),
         # or the title of the icon or learning-path step that started it
@@ -1378,7 +1572,7 @@ main() {
     local pat
     while IFS= read -r pat; do
         [ -n "$pat" ] || continue
-        pgrep -f -- "$pat" >/dev/null 2>&1 || STOP_ON_EXIT+=("$pat")
+        pgrep -u "$(get_user_name)" -f -- "$pat" >/dev/null 2>&1 || STOP_ON_EXIT+=("$pat")
     done < <(jq -r '.entrypoint.stop_on_exit[]? // empty' "$MANIFEST_FILE" 2>/dev/null)
 
     # Ensure demo is installed (auto-install if possible)

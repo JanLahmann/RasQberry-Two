@@ -29,7 +29,7 @@ def _texts(menu_env):
 def test_main_menu_has_desktop_settings_and_a_real_prompt(menu_env):
     menu_env("do_rasqberry_menu", extra_env={"WT_RC_menu": "1"})
     (call,) = menu_env.whiptail_calls()
-    assert "Desktop Settings (touch mode, browser at login)" in call
+    assert "Desktop Settings (touch mode, browser at login, sound delay)" in call
     assert not any(a.startswith("Browser at login") for a in call)
     assert "System Options" not in call
     assert "Quantum demos, setup and settings for this RasQberry Two" in call

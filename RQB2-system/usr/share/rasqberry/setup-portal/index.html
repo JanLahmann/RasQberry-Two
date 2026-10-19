@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RasQberry Two setup</title>
+<!-- The setup hotspot's page (rq_setup_hotspot.sh), served by balena
+     wifi-connect: GET /networks lists the Wi-Fi networks in range,
+     POST /connect {ssid, identity, passphrase} joins one. -->
+<style>
+:root { --bg:#fff; --fg:#161616; --muted:#6f6f6f; --accent:#0f62fe; --line:#e0e0e0; --field:#f4f4f4; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#161616; --fg:#f4f4f4; --muted:#a8a8a8; --accent:#78a9ff; --line:#393939; --field:#262626; }
+}
+* { box-sizing: border-box; }
+body { margin:0; padding:24px 16px; font:17px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+main { max-width:480px; margin:0 auto; }
+h1 { font-size:24px; margin:0 0 6px; }
+p { color:var(--muted); margin:0 0 18px; }
+label { display:block; font-weight:600; margin:16px 0 6px; }
+select, input { width:100%; font:inherit; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--fg); }
+button { margin-top:22px; width:100%; font:inherit; font-weight:600; padding:13px; border:0; border-radius:8px; background:var(--accent); color:#fff; }
+.hidden { display:none; }
+.note { font-size:15px; margin-top:22px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set up your RasQberry Two</h1>
+  <p>Choose the Wi-Fi this RasQberry should join. It then leaves this setup Wi-Fi, and its LED panel shows its new address.</p>
+  <form id="form">
+    <label for="ssid">Wi-Fi network</label>
+    <select id="ssid" required><option value="">Looking for networks…</option></select>
+    <div id="identity-row" class="hidden">
+      <label for="identity">User name (enterprise Wi-Fi)</label>
+      <input id="identity" autocomplete="username">
+    </div>
+    <div id="pass-row">
+      <label for="passphrase">Password</label>
+      <input id="passphrase" type="password" autocomplete="current-password">
+    </div>
+    <button type="submit">Connect</button>
+  </form>
+  <div id="done" class="hidden">
+    <h1>Connecting…</h1>
+    <p>Your RasQberry is joining <strong id="done-ssid"></strong>. Join that Wi-Fi with this phone or computer too; the RasQberry's LED panel scrolls its address.</p>
+    <p>If the password was wrong, the setup Wi-Fi comes back in a minute: join it again and retry.</p>
+  </div>
+  <p class="note">Setup Wi-Fi password: rasqberry. More help: rasqberry.org</p>
+</main>
+<script>
+const sel = document.getElementById('ssid');
+let networks = [];
+function security(name) { const n = networks.find(x => x.ssid === name); return n ? n.security : 'wpa'; }
+function update() {
+  const s = security(sel.value);
+  document.getElementById('identity-row').classList.toggle('hidden', s !== 'enterprise');
+  document.getElementById('pass-row').classList.toggle('hidden', s === 'none');
+}
+fetch('/networks').then(r => r.json()).then(list => {
+  networks = list;
+  sel.innerHTML = '';
+  if (!list.length) { sel.innerHTML = '<option value="">No Wi-Fi found nearby</option>'; return; }
+  for (const n of list) {
+    const o = document.createElement('option');
+    o.value = n.ssid; o.textContent = n.ssid + (n.security === 'none' ? ' (open)' : '');
+    sel.appendChild(o);
+  }
+  update();
+}).catch(() => { sel.innerHTML = '<option value="">Could not list the networks: reload this page</option>'; });
+sel.addEventListener('change', update);
+document.getElementById('form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!sel.value) return;
+  const body = { ssid: sel.value, identity: document.getElementById('identity').value,
+                 passphrase: document.getElementById('passphrase').value };
+  fetch('/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  document.getElementById('form').classList.add('hidden');
+  document.getElementById('done-ssid').textContent = sel.value;
+  document.getElementById('done').classList.remove('hidden');
+});
+</script>
+</body>
+</html>

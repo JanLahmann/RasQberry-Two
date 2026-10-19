@@ -11,15 +11,48 @@ Type=simple
 ExecStart=/home/@USER@/@REPO@/venv/@VENV@/bin/python3 /usr/bin/rq_led_renderer.py
 Restart=on-failure
 RestartSec=2
-# The ONLY component that touches GPIO. Demos run as the unprivileged user and
-# write frames to the mmap; this reads them and drives the physical strip.
-# While this service is active it HOLDS the strip: enable it together with
-# LED_RENDER_MODE=service, and disable it when switching back to direct mode,
-# or direct-mode demos fail with 'GPIO busy'.
+# Drives the strip for programs that run as the user and send their frames
+# to the mmap. Started for a run (LED_RENDER_MODE=direct, the default: on a
+# Pi 4 by the demo launchers, rq_python and LED-Painter), or enabled for good
+# with LED_RENDER_MODE=service. While it runs it HOLDS the strip: do not
+# enable it in direct mode, or other LED programs find the panel in use.
 User=root
 # Root runs the user's venv python: write no __pycache__ into it, or a later
 # pip upgrade there fails on root-owned files (#285, R-059).
 Environment=PYTHONDONTWRITEBYTECODE=1
+# Root only for the strip: LED demos run as the user and write frames to the
+# mmap in /tmp; this reads them and drives the PWM hardware, nothing else.
+# CAP_SYS_RAWIO maps /dev/mem, CAP_DAC_READ_SEARCH reads the venv in the
+# user's home (mode 700), CAP_FOWNER makes a user-created mmap 0666. No
+# network, the system read-only, only the strip's devices (Pi 4 rig,
+# 2026-10-12).
+CapabilityBoundingSet=CAP_SYS_RAWIO CAP_DAC_READ_SEARCH CAP_FOWNER
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=closed
+# Pi 4: the PWM/DMA strip driver (rpi_ws281x)
+DeviceAllow=/dev/mem rw
+DeviceAllow=/dev/gpiomem rw
+DeviceAllow=/dev/vcio rw
+# Pi 5: the GPIO chips (lgpio, opened by `import board`) and the RP1 PIO that
+# drives the strip; device groups as named in /proc/devices (Pi 5 rig,
+# 2026-10-16). A Pi 4 has no rp1-pio group, systemd skips it.
+DeviceAllow=char-gpiochip rw
+DeviceAllow=char-rp1-pio rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
 StandardOutput=journal
 StandardError=journal
 

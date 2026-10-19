@@ -53,14 +53,14 @@
   "variants": [
     {
       "id": "gui",
-      "name": "GUI Mode",
+      "name": "LED panel",
       "needs_hw": {
         "display": "required"
       }
     },
     {
       "id": "console",
-      "name": "Console Mode",
+      "name": "Console",
       "args": [
         "--console"
       ],

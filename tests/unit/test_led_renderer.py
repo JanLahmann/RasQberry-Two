@@ -219,3 +219,47 @@ def test_onscreen_view_leaves_the_frame_flag_to_the_renderer(tmp_path):
     assert errors == []
     mm.close()
     fh.close()
+
+
+# --- Pi 5: the confined renderer could not open the panel (review C2) ----------
+
+def test_create_strip_imports_lgpio_out_of_the_working_directory(monkeypatch):
+    """Under the service the working directory is "/", read-only
+    (ProtectSystem=strict): lgpio, loaded by `import board` on a Pi 5, failed
+    to make its FIFO there. lgpio is imported from a temp dir before board."""
+    import rq_led_utils
+    calls = []
+
+    class _Stop(Exception):
+        pass
+
+    class _BoardFinder:
+        def find_spec(self, name, path=None, target=None):
+            if name == "board":
+                calls.append("import board")
+                raise _Stop()
+            return None
+
+    monkeypatch.setattr(rq_led_utils, "_lgpio_files_out_of_cwd",
+                        lambda: calls.append("lgpio out of cwd"))
+    monkeypatch.delitem(sys.modules, "board", raising=False)
+    monkeypatch.setattr(sys, "meta_path", [_BoardFinder()] + sys.meta_path)
+    renderer = rr.LedRenderer.__new__(rr.LedRenderer)
+    renderer.config = {}
+    with pytest.raises(_Stop):
+        renderer.create_strip()
+    assert calls == ["lgpio out of cwd", "import board"]
+
+
+def test_renderer_unit_allows_the_pi5_panel_devices():
+    """The Pi 5 panel needs the GPIO chip (lgpio) and the RP1 PIO; the unit
+    allowed only the Pi 4 devices (rig 2026-10-16: 'can not open gpiochip',
+    then 'Failed to open PIO device')."""
+    unit = open(os.path.join(_REPO_ROOT, "RQB2-system/etc/systemd/system/"
+                                         "rasqberry-led-renderer.service")).read()
+    lines = unit.splitlines()
+    for allow in ("DeviceAllow=char-gpiochip rw", "DeviceAllow=char-rp1-pio rw",
+                  "DeviceAllow=/dev/mem rw", "DeviceAllow=/dev/gpiomem rw",
+                  "DeviceAllow=/dev/vcio rw"):
+        assert allow in lines, allow
+    assert "DevicePolicy=closed" in lines

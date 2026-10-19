@@ -7,7 +7,9 @@ The on-screen keyboard for touchscreens.
 - `00-run-chroot.sh` (chroot):
   - trixie (`/etc/xdg/wf-panel-pi/wf-panel-pi.ini` exists): nothing to change.
     Raspberry Pi OS's own keyboard, squeekboard, stays on (autostart
-    `/usr/bin/sbtest`: only with a touchscreen). It opens by itself in text
+    `/usr/bin/sbtest`: only with a touchscreen). It starts only when a
+    touchscreen is present at login: one plugged in later needs a new login
+    or a reboot. It opens by itself in text
     fields, the Wi-Fi password popup included, and the panel's keyboard icon
     (`squeek` widget) shows or hides it. raspi-config -> Display Options ->
     On-screen Keyboard switches it. wvkbd and its launcher are not installed:

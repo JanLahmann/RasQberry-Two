@@ -1,0 +1,155 @@
+<!-- Generated from the code by docs/reference/reference_docs.py; do not edit. -->
+
+# The RasQberry menu
+
+Open it from the desktop icon **RasQberry Configuration (raspi-config)**, or in a terminal with `sudo raspi-config` and then **0 RasQberry**. The menu runs inside raspi-config, as root. Arrow keys move, Enter selects, Esc or *Back* goes back.
+
+Values in <angle brackets> change with the Pi's state (for example <on/off>). Entries marked *(only when it applies)* appear only on some Pis, for example only on an A/B image or only while Raspberry Pi Connect is installed.
+
+## RasQberry: Main Menu
+
+Quantum demos, setup and settings for this RasQberry Two
+
+- **Quantum Demos** → menu "RasQberry: Quantum Demos": Select a group of demos or an option
+  - Learning paths (beta): the demos step by step
+  - **Demo groups**
+    - **LED panel**: IBM logo, RasQ-LED, Lights Out, Raspberry Tie, painter → menu "RasQberry: LED panel"
+      - IBM LED Demo
+      - **Text & logos** → menu "RasQberry: LED Text & Logo Display": Display Options
+        - Display Custom Text
+        - Display Logo from Library
+        - *Text Demos*
+        - Demo: Scrolling Welcome
+        - Demo: Status Messages
+        - Demo: Alert Flash
+        - *Colour Effect Demos*
+        - Demo: Rainbow Scroll
+        - Demo: Rainbow Colour Cycle
+        - Demo: Colour Gradient
+        - *Logo Demos*
+        - Demo: IBM Logo
+        - Demo: RasQberry Logo
+        - Demo: Logo Slideshow
+        - Clear LEDs
+      - Clear All LEDs
+      - **LED setup & tests (brightness, check, wizard)** → menu "RasQberry: LEDs": LED options
+        - Turn off all LEDs
+        - LED brightness (weak power supply?)
+        - **Text & Logo Display** → menu "RasQberry: LED Text & Logo Display" (as above)
+        - Quick LED Test (6 colours)
+        - LED Test & Diagnostics
+        - Simple LED Demo
+        - IBM LED Demo
+        - Check the LED Panel (which kit, which way up)
+        - Output Targets (panel / on-screen / browser)
+        - LED Setup Wizard (other panels, wiring check)
+      - RasQ-LED Demo
+      - **Quantum Lights Out** → menu "RasQberry: Quantum Lights Out": Grover's search solves Lights Out puzzles, one after another. Watch it on the LED panel, or as text in this window.
+        - Run Demo (LED panel)
+        - Run Demo (console)
+      - **Quantum Raspberry Tie** → menu "RasQberry: Quantum Raspberry Tie": Where should the circuit run?
+        - Local simulator (no account needed)
+        - Local simulator with a noise model
+        - Real IBM Quantum computer (IBM Quantum account)
+      - LED-Painter
+    - **Play**: Fun with Quantum games, paradoxes, fractals → menu "RasQberry: Play"
+      - **Fun with Quantum** → menu "RasQberry: Fun with Quantum": Select an entry
+        - Start here: what the games are about
+        - Quantum Coin Game
+        - GHZ Game
+        - Hardy's Paradox
+        - Mermin–Peres Magic Square
+        - 3-SAT with Grover's Algorithm
+        - The CHSH Game
+        - The Quantum Prisoner's Dilemma
+        - GHZ on Real Quantum Devices
+        - Fun with Quantum website: games in the browser (beta)
+        - Fun with Quantum family: related projects (beta)
+      - Quantum Coin Game
+      - Quantum Paradoxes
+      - Quantum Fractals
+    - **Big projects**: Qoffee-Maker, Quantum Mixer, Entangible → menu "RasQberry: Big projects"
+      - Qoffee-Maker [internet, 32 GB]
+      - Quantum Mixer [32 GB]
+      - Entangible (beta)
+      - racetraQ (beta) *(catalogue demo: shown once added)*
+    - **Learn & code**: your programs, Bloch sphere, tutorials, courses → menu "RasQberry: Learn & code"
+      - My Quantum Programs (JupyterLab)
+      - **Grokking the Bloch Sphere** → menu "RasQberry: Grokking the Bloch Sphere": Select an entry
+        - On this Pi (works offline, with tips)
+        - Online version (javafxpert.github.io)
+      - Qiskit Tutorials on this Pi (beta) [32 GB]
+      - Quantum Lab (QuBins) [internet, 32 GB]
+      - IBM Quantum Tutorials
+      - IBM Quantum Courses
+      - IBM Quantum Composer [internet]
+    - **Workshops & events**: Workshop & Qiskit Server, Demo Loop → menu "RasQberry: Workshops & events"
+      - Workshop & Qiskit Server (beta) [internet, 32 GB]
+      - **Demo Loop (demos one after another)** → menu "RasQberry: Demo Loop": Shows demos one after another, for a stand. Now: <now>
+        - Start the demo loop
+        - Choose the demos
+        - Start the Demo Loop at login: <on/off>
+    - **Contributed demos**: add demos from the catalogue → menu "RasQberry: Contributed demos"
+      - SAP Quantum Learning *(catalogue demo: shown once added)*
+      - SAP Quantum LED *(catalogue demo: shown once added)*
+      - Add demo from catalogue
+  - Stop a running LED demo
+  - **Manage demos: download all, add, update, remove** → menu "RasQberry: Manage Demos": Download, add, update or remove demos
+    - Download all demos (one-time setup)
+    - Add demo from catalogue
+    - Update demos (newer versions)
+    - Remove a demo (free space)
+    - Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)
+- Setup Checklist
+- **Desktop Settings (touch mode, browser at login, sound delay)** → menu "RasQberry: Desktop Settings": How the desktop looks, what it opens at login, and sound.
+  - **Touch mode (bigger icons and buttons): <touch>** → menu "RasQberry: Touch Mode": Current: <current_status>
+    - Enable Touch Mode
+    - Disable Touch Mode
+    - Show Current Settings
+  - Browser at login (rasqberry.org): <on/off>
+  - **Sound delay (Bluetooth speaker): <ms> ms** → menu "Sound delay": Now: <cur> ms. How long the LEDs of demos with sound wait for the speaker (Bluetooth speakers play 100-300 ms late).
+    - Calibrate: a tick and a flash, adjust until they match
+    - Type the number of milliseconds
+- **IBM Quantum account** → menu "RasQberry: IBM Quantum account": The demos run on a simulator without an account; most IBM Quantum Tutorials need one. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com).
+  - Save my API key (checked first)
+  - Check the saved account
+  - Show the saved account
+  - Forget the saved account
+- **Remote Access & Security** → menu "RasQberry: Remote Access & Security"
+  - Change the password
+  - SSH (log in from another computer): <ssh>
+  - VNC (the desktop on another computer): <vnc>
+  - Name: <name>
+  - Raspberry Pi Connect: <connw> *(only when it applies)*
+- **Wi-Fi Hotspot (booths and classrooms)** → menu "RasQberry: Wi-Fi Hotspot": The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1.
+  - Hotspot: <on/off>
+  - Show name, password and QR code to join
+  - Join card on the screen (to show or print)
+  - Change name and password
+  - Start at boot: <HOTSPOT_AT_BOOT>
+  - Share this Pi's internet (cable or USB Wi-Fi): <HOTSPOT_SHARE_INTERNET>
+  - Band: <band>
+  - **SSH/VNC from the hotspot: <auto: on/off, yes or no>** → menu "Wi-Fi hotspot: SSH and VNC": Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try. <text>
+    - auto: only once the default password is changed (recommended)
+    - no: never
+    - yes: always, even with the default password
+- **Software & Image Updates** → menu "RasQberry: Software & Image Updates"
+  - Check for a newer image
+  - **Slot Manager (install updates, switch systems)** *(only when it applies)* → menu "RasQberry: A/B Boot Slot Manager"
+    - Install an update into the other system (Slot <other>)
+    - Switch to Slot <other> (restart and try it) *(only when it applies)*
+    - Show slot details
+    - Make Slot <current> the start slot now (confirm) *(only when it applies)*
+    - Go back to Slot <other> (rollback) *(only when it applies)*
+    - Keep Slot <current> as the start slot *(only when it applies)*
+    - Make Slot <other> the start slot (rollback, no trial) *(only when it applies)*
+  - Prepare the card for A/B updates (64 GB or larger card) *(only when it applies)*
+  - Use the whole card (one system) *(only when it applies)*
+  - Why there are no A/B updates on this card *(only when it applies)*
+- System Info
+- **Advanced** → menu "RasQberry: Advanced": Tools for experts. Changes here can stop demos from working.
+  - **Edit a RasQberry Two setting (settings file)** → menu "Advanced: RasQberry Two settings": Pick a setting to change. Wrong values can stop demos or the LEDs from working.
+    - *(its entries are made when it opens)*
+  - Refresh the demo list
+  - Update from a GitHub branch
+- Shut Down Safely

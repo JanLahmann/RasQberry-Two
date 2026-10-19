@@ -58,6 +58,7 @@ FAMILY_DEMOS = {
     "qubins": "quantum-lab",
     "doqumentation": "doqumentation",
     "racetraq": "racetraq",
+    "entangible": "entangible",
 }
 THIS_PI = "rasqberry-two"
 

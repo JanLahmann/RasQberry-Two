@@ -2,8 +2,9 @@
 """
 RasQberry: anonymous usage counts for the project's Umami statistics.
 
-The Pi sends four events to the Umami website that rasqberry.org already uses
-(names "RasQberry Two: <what happened>", as on the website):
+The Pi sends these events to the Umami website that rasqberry.org already uses,
+under the hostname device.rasqberry.org, so the website's numbers show only
+website visitors (names "RasQberry Two: <what happened>", as on the website):
 
   RasQberry Two: first start    version, stream, model, card, imager
       once per newly written card, at its first complete start (health check)
@@ -80,7 +81,7 @@ log = logging.getLogger("rq_umami_event")
 
 ENDPOINT = "https://cloud.umami.is/api/send"
 WEBSITE_ID = "97f347ac-e7ba-4be3-b26f-ab4b328bdbf2"
-HOSTNAME = "rasqberry.org"
+HOSTNAME = "device.rasqberry.org"
 PREFIX = "RasQberry Two: "
 TIMEOUT = 3
 FLUSH_SECONDS = 12

@@ -226,6 +226,18 @@ def test_family_page_from_family_json():
     assert "http://" not in page and "<script" not in page and "<link" not in page
 
 
+def test_family_demos_are_shipped_or_catalogue_demos():
+    # every family member RasQberry ships or offers starts its demo, not its
+    # website (Entangible was missing: mission sweep 2026-10-16)
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    mdir = os.path.join(root, "RQB2-config", "demo-manifests")
+    ids = {json.load(open(os.path.join(mdir, f)))["id"] for f in os.listdir(mdir)
+           if f.startswith("rq_demo_") and f != "rq_demo_schema.json"}
+    ids |= {d["id"] for d in json.load(open(os.path.join(root, "RQB2-config", "known-demos.json")))["demos"]}
+    assert set(rq_fwq.FAMILY_DEMOS.values()) <= ids
+    assert rq_fwq.FAMILY_DEMOS["entangible"] == "entangible"
+
+
 def test_family_menu_starts_local_demos_and_opens_websites():
     items = rq_fwq.menu_items(_FAMILY, _LOCAL)
     tags = [t for t, _, _ in items]

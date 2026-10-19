@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Name=LED-Painter
-Comment=Paint images on a canvas and show them on the LED panel as you paint
+Comment=Paint a picture on a canvas, then show it on the LED panel: Display > Display this image on the LEDs
 Icon=applications-graphics
 Type=Application
 Categories=RasQberry;

@@ -82,8 +82,11 @@ rq_docker_access "$@"
 lan_ips() {
     local ip
     if command -v ip >/dev/null 2>&1; then
+        # the Wi-Fi hotspot's address first: its devices are the ones that
+        # need it (rq_hotspot.sh, 10.42.0.1)
         ip -4 -o addr show scope global 2>/dev/null \
-            | awk '$2 !~ /^(docker|br-|veth|virbr)/ { sub(/\/.*/, "", $4); print $4 }' || true
+            | awk '$2 !~ /^(docker|br-|veth|virbr)/ { sub(/\/.*/, "", $4); print $4 }' \
+            | awk '$0 == "10.42.0.1" { print; next } { rest = rest $0 "\n" } END { printf "%s", rest }' || true
         return 0
     fi
     for ip in $(hostname -I 2>/dev/null || true); do

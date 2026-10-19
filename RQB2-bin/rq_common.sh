@@ -153,8 +153,18 @@ update_env_var() {
     local var_value="$2"
     local env_dir tmp lines_before lines_after
     # Key and value come in through the environment, so no character in the
-    # value (/ | & \) is special (the menu's _rq_env_write does the same).
-    local prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+    # value (/ | & \) is special to awk (the menu's _rq_env_write does the
+    # same). The file is loaded as shell code - by every script and by
+    # raspi-config - so a value with a space, quote, $, ( or & is written in
+    # single quotes: unquoted, "Booth (Hall 3)" stopped raspi-config at every
+    # start (review D1). Plain values stay as they were.
+    local prog='function q(v,   out, i) {
+            if (v ~ "^[A-Za-z0-9_./:,@%+=-]*$") return v
+            out = "\047"
+            while ((i = index(v, "\047")) > 0) { out = out substr(v, 1, i - 1) "\047\"\047\"\047"; v = substr(v, i + 1) }
+            return out v "\047"
+        }
+        BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = q(ENVIRON["RQ_EW_VALUE"]); done = 0 }
         index($0, k "=") == 1 { print k "=" v; done = 1; next }
         { print }
         END { if (!done) print k "=" v }'
@@ -181,10 +191,10 @@ update_env_var() {
     fi
     _rq_as_root chown root:root "$RQ_ENV_FILE" 2>/dev/null || true
 
-    # LED settings also go to the store both A/B slots share (#290)
+    # Device settings also go to the store both A/B slots share (#290)
     case "$var_name" in
         *_INSTALLED) ;;
-        LED_*|RASQ_LED_*) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
+        LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*) sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true ;;
     esac
 
     # Reload environment
@@ -499,6 +509,7 @@ clear_leds() {
 # show it, not its script (#31: "rq_led_ibm_logo.py")
 _rq_led_holder_label() {
     case "$1" in
+        *rq_display_ip.py*--text*) echo "the Wi-Fi name and password scroll" ;;
         *rq_display_ip.py*)      echo "the IP address scroll at start-up" ;;
         *rq_led_renderer.py*)    echo "the LED renderer service" ;;
         *rq_led_wizard_probe.py*|*rq_led_setup_wizard*) echo "the LED setup wizard" ;;
@@ -564,7 +575,10 @@ _rq_led_self_chain() {
 led_holders() {
     local dev pids="" pid args self
     self=$(_rq_led_self_chain)
-    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0; do
+    # and the renderer's frame buffer: a program run as the user on a Pi 4
+    # draws through it and holds no device itself (rq_led_as_user)
+    for dev in /dev/pio0 /dev/gpiochip* /dev/gpiomem /dev/mem /dev/spidev0.0 \
+               "${RQB2_LED_MMAP_PATH:-/tmp/rasqberry_virtual_led2.mmap}"; do
         [ -e "$dev" ] || continue
         pids="$pids $(fuser "$dev" 2>/dev/null || true)"
     done
@@ -573,6 +587,8 @@ led_holders() {
         case "$self" in *" $pid "*) continue ;; esac
         args=$(ps -o args= -p "$pid" 2>/dev/null) || continue
         [ -n "$args" ] || continue
+        # The on-screen LED view only shows the frames
+        case "$args" in *rq_led_virtual_gui.py*) continue ;; esac
         # In service mode the renderer IS the panel's driver, not a rival
         if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
             case "$args" in *rq_led_renderer.py*) continue ;; esac
@@ -613,6 +629,33 @@ stop_led_holders() {
         sleep 0.2
         waited=$((waited + 1))
     done
+}
+
+# rq_wifi_scroll UNIT SECONDS TEXT: scroll a Wi-Fi's name and password on the
+# LED panel (the setup Wi-Fi, a booth hotspot nobody knows the password of).
+# In a unit of its own: "Stop It" and Clear LEDs stop the scroll, not the
+# Wi-Fi's service (review A10: they stopped the setup Wi-Fi). The address
+# scroll at start-up gives way; a demo on the panel keeps it. The text goes
+# through a root-only file, not the command line (it may hold a password).
+# As root. Returns 1 when nothing scrolls.
+rq_wifi_scroll() {
+    local unit="$1" seconds="$2" text="$3" py file others
+    command -v systemd-run >/dev/null 2>&1 || return 1
+    others=$(led_holders 2>/dev/null | grep -v -e "IP address scroll" -e "Wi-Fi name and password" || true)
+    [ -z "$others" ] || return 1
+    systemctl stop rasqberry-ip-display.service "$unit.service" 2>/dev/null || true
+    file="${RQ_RUN_DIR:-/run/rasqberry}/$unit.txt"
+    ( umask 077; mkdir -p "$(dirname "$file")" && printf '%s' "$text" > "$file" ) || return 1
+    py="$(find_venv 2>/dev/null || true)/bin/python3"
+    [ -x "$py" ] || py=python3
+    systemd-run --quiet --collect --unit="$unit" --setenv=PYTHONDONTWRITEBYTECODE=1 \
+        "$py" /usr/bin/rq_display_ip.py --text-file "$file" --duration "$seconds" \
+        --speed 0.08 --brightness 0.3 >/dev/null 2>&1
+}
+
+rq_wifi_scroll_stop() {
+    systemctl stop "$1.service" 2>/dev/null || true
+    rm -f "${RQ_RUN_DIR:-/run/rasqberry}/$1.txt"
 }
 
 # Before an LED demo: if another program holds the panel, name it and offer to
@@ -693,6 +736,238 @@ led_clear_quietly() {
         PYTHONPATH="$(dirname "$script")${PYTHONPATH:+:$PYTHONPATH}" "$py" "$script" ${close:+"$close"}
 }
 
+# ----------------------------------------------------------------------------
+# LED programs run as the desktop user, in a sandbox (Jan, 2026-10-12)
+# ----------------------------------------------------------------------------
+# Root does only what needs root, in RasQberry's own root-owned code: the
+# launcher checks the panel, starts the Pi 4's LED renderer, starts the demo
+# and clears the panel afterwards. The demo program - possibly a catalogue
+# demo from someone else's repository - runs as the desktop user and cannot
+# gain root: no-new-privileges (sudo refuses, although the account may sudo),
+# no capabilities, and only the device groups (not sudo, adm or docker, so no
+# Docker, which is root by another name). In its own mount namespace the
+# whole home is read-only (rq_led_sandbox_mounts), so it cannot change or add
+# what root or a later login runs; it writes only to its own folder and a few
+# others LED demos use. It keeps the desktop, the network and the user's
+# sound (PipeWire).
+# It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
+# Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
+# launcher's process group) all reach it as before.
+# The LEDs the rq_python way: on a Pi 5 the user drives the panel (/dev/pio0,
+# group gpio); on a Pi 4 the PWM driver needs root, so rasqberry-led-renderer
+# drives the strip and the program writes its frames to it
+# (LED_RENDER_MODE=service). RQ_LED_AS_ROOT=1, set by a person, runs a demo
+# as root as before, as a fallback; a manifest cannot ask for that.
+RQ_LED_RENDERER_UNIT="rasqberry-led-renderer.service"
+RQ_LED_RENDERER_STARTED=""
+RQ_LED_USER_MODE=""
+# The mark of the launcher that started the renderer (rq_led_renderer_start)
+RQ_LED_RENDERER_OWNER="${RQ_LED_RENDERER_OWNER:-/run/rasqberry-led-renderer.owner}"
+_RQ_LED_LOCKS=0
+
+# Is this a launcher that should hand its LED program to the sandbox?
+_rq_led_sandboxed() {
+    [ "$(id -u)" = 0 ] && [ "${RQ_LED_AS_ROOT:-}" != 1 ] && [ "$(get_user_name)" != root ] \
+        && command -v unshare >/dev/null 2>&1 && command -v setpriv >/dev/null 2>&1
+}
+
+# Decide how the program reaches the panel, and start the renderer if it needs
+# it. In the launcher's own shell, not in a subshell (rq_run_demo), so that its
+# exit trap knows what to stop again.
+rq_led_user_prepare() {
+    RQ_LED_USER_MODE="direct"
+    _rq_led_sandboxed || return 0
+    if [ "${LED_RENDER_MODE:-direct}" = "service" ]; then
+        RQ_LED_USER_MODE="service"
+    elif [ "${LED_PHYSICAL:-true}" = "true" ] \
+         && ! sudo -u "$(get_user_name)" test -r /dev/pio0 -a -w /dev/pio0 2>/dev/null; then
+        RQ_LED_USER_MODE="service"
+    fi
+    [ "$RQ_LED_USER_MODE" = "service" ] || return 0
+    if ! rq_led_renderer_start; then
+        warn "Could not start the LED renderer: the panel stays dark."
+    elif [ -n "$RQ_LED_RENDERER_STARTED" ]; then
+        sleep 1    # let the renderer open the frame buffer and the strip
+    fi
+}
+
+# The renderer is shared by all LED launchers. "Stop It" in a new demo's
+# launcher stops the old demo and the renderer and starts the renderer again;
+# the old demo's launcher notices up to 2 s later, and its cleanup then
+# stopped the new demo's renderer and cleared its panel (review C3). So the
+# launcher that starts the renderer leaves a mark (root only), stops it only
+# while the mark is still its own, and clears the panel only when no other
+# program holds it. Start, and stop plus clear, each run under one lock.
+_rq_led_lock() {
+    _RQ_LED_LOCKS=$((_RQ_LED_LOCKS + 1))
+    [ "$_RQ_LED_LOCKS" = 1 ] || return 0
+    command -v flock >/dev/null 2>&1 || return 0
+    { exec 8>>"$RQ_LED_RENDERER_OWNER.lock"; } 2>/dev/null || return 0
+    flock -w 20 8 2>/dev/null || true
+}
+
+_rq_led_unlock() {
+    _RQ_LED_LOCKS=$((_RQ_LED_LOCKS - 1))
+    [ "$_RQ_LED_LOCKS" -le 0 ] || return 0
+    _RQ_LED_LOCKS=0
+    { exec 8>&-; } 2>/dev/null || true
+}
+
+# Start the renderer for this launcher. One that runs already belongs to
+# another launcher (or is always on): it is left alone, also afterwards.
+# Returns 1 when it could not be started.
+rq_led_renderer_start() {
+    local token rc=0
+    local -a su=()
+    [ "$(id -u)" = 0 ] || su=(sudo)
+    _rq_led_lock
+    if ! systemctl is-active --quiet "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
+        if ${su[@]+"${su[@]}"} systemctl start "$RQ_LED_RENDERER_UNIT" 2>/dev/null; then
+            token="$$.$(date +%s)"
+            if [ "$(id -u)" = 0 ] && { printf '%s\n' "$token" > "$RQ_LED_RENDERER_OWNER"; } 2>/dev/null; then
+                RQ_LED_RENDERER_STARTED="$token"
+            else
+                RQ_LED_RENDERER_STARTED=1    # no mark: stopped at the end in any case
+            fi
+        else
+            rc=1
+        fi
+    fi
+    _rq_led_unlock
+    return "$rc"
+}
+
+# The home in the LED sandbox (review B4, D2). Read-only as a whole: a list
+# of protected files guarded only the ones that existed, so a demo could
+# create ~/.bash_profile, ~/.bash_aliases, ~/.ssh/authorized_keys,
+# ~/.local/bin/sudo, an autostart entry or a systemd user unit, all run later
+# by the user, who may sudo; and the desktop launchers, labwc's settings,
+# other demos' code and ~/RasQberry-Two/demos/.demo-versions (the version root
+# installs) were writable too. Writable again, under it, only what LED demos
+# use: the demo's own folder (the working directory, when it is a demo's:
+# Raspberry Tie writes ./svg there), a cache of the sandbox's own
+# (XDG_CACHE_HOME: ~/.cache holds pip's downloads, which the user installs
+# later), the IBM Quantum account (~/.qiskit: Raspberry Tie on a real
+# backend) and the SenseHAT emulator's settings (~/.config/sense_hat,
+# ~/.sensehat: Raspberry Tie's window). On A/B cards ~/Shared, ~/.qiskit and
+# ~/My-Quantum-Programs lead to /data and stay writable.
+RQ_LED_SANDBOX_RW=(.cache/rasqberry-led-sandbox .qiskit .config/sense_hat .sensehat)
+
+# Print the sandbox's mounts in order, "ro PATH" then "rw PATH" lines.
+# Usage: rq_led_sandbox_mounts HOME [WORKING_DIR]
+rq_led_sandbox_mounts() {
+    local home="$1" cwd="${2:-}" demos own p
+    demos="$home/${REPO:-RasQberry-Two}/demos"
+    echo "ro $home"
+    for p in "${RQ_LED_SANDBOX_RW[@]}"; do
+        echo "rw $home/$p"
+    done
+    case "$cwd/" in
+        "$demos"/?*/)
+            own="${cwd#"$demos"/}"
+            own="${own%%/*}"
+            case "$own" in
+                .*) ;;
+                *) echo "rw $demos/$own" ;;
+            esac
+            ;;
+    esac
+}
+
+# Run as root in the sandbox's mount namespace: N, N arguments "ro PATH" or
+# "rw PATH" (rq_led_sandbox_mounts), then the command. A read-only mount that
+# fails stops the demo; a writable path that is not a directory of its own
+# (missing, a symlink) is left as it is.
+_RQ_LED_MOUNTS='n=$1; shift
+for ((i = 0; i < n; i++)); do
+    mode=${1%% *}; p=${1#* }; shift
+    case "$mode" in
+        ro) mount --bind "$p" "$p" && mount -o remount,bind,ro "$p" || exit 97 ;;
+        rw) [ -d "$p" ] && [ ! -L "$p" ] || continue
+            mount --bind "$p" "$p" && mount -o remount,bind,rw "$p" || exit 97 ;;
+    esac
+done
+exec "$@"'
+
+# Run an LED program as the desktop user in the sandbox (as it is, when this
+# is not root). Call rq_led_user_prepare first. A bare "python3" is the venv's.
+# Usage: rq_led_as_user COMMAND [ARGS...]
+rq_led_as_user() {
+    if ! _rq_led_sandboxed; then
+        "$@"
+        return
+    fi
+    local user_name home uid gid cmd rt g groups=""
+    user_name=$(get_user_name)
+    home=$(getent passwd "$user_name" | cut -d: -f6)
+    uid=$(id -u "$user_name")
+    gid=$(id -g "$user_name")
+    # a clean environment: the program by its full path, and only what it
+    # needs passed on
+    cmd=$(command -v "$1" 2>/dev/null) || cmd="$1"
+    shift
+    rt=$(rq_audio_runtime_dir) || rt=""
+    # the device groups only: not sudo, adm or docker
+    for g in gpio spi i2c audio video render input dialout plugdev; do
+        id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups,$g"
+    done
+    # the writable folders exist before the home turns read-only (made by
+    # the user: root would follow a symlink in the user's home)
+    local p cache="$home/${RQ_LED_SANDBOX_RW[0]}"
+    for p in "${RQ_LED_SANDBOX_RW[@]}"; do
+        setpriv --reuid="$uid" --regid="$gid" --clear-groups -- mkdir -p "$home/$p" 2>/dev/null || true
+    done
+    local -a mounts=()
+    while IFS= read -r p; do
+        mounts+=("$p")
+    done < <(rq_led_sandbox_mounts "$home" "$PWD")
+    # (setpriv refuses an empty --groups= list)
+    local grp_opt="--clear-groups"
+    [ -z "$groups" ] || grp_opt="--groups=${groups#,}"
+    unshare --mount --propagation private -- bash -c "$_RQ_LED_MOUNTS" _ "${#mounts[@]}" "${mounts[@]}" \
+        setpriv --reuid="$uid" --regid="$gid" "$grp_opt" \
+            --no-new-privs --bounding-set=-all --inh-caps=-all -- \
+        env -i HOME="$home" USER="$user_name" LOGNAME="$user_name" \
+            PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
+            LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}" DISPLAY="${DISPLAY:-:0}" \
+            ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+            XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+            XDG_CACHE_HOME="$cache" MPLCONFIGDIR="$cache/matplotlib" \
+            LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
+            RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)" \
+            ${QT_API:+QT_API="$QT_API"} \
+            ${PYTHONPATH:+PYTHONPATH="$PYTHONPATH"} ${PYTHONUNBUFFERED:+PYTHONUNBUFFERED="$PYTHONUNBUFFERED"} \
+            "$cmd" "$@"
+}
+
+# After the program: stop the renderer rq_led_renderer_start started, unless
+# another launcher has started it since. On SIGTERM it blanks the panel before
+# it exits; it holds the strip while it runs, so this comes before clearing
+# the panel.
+rq_led_renderer_stop() {
+    [ -n "${RQ_LED_RENDERER_STARTED:-}" ] || return 0
+    local mine="$RQ_LED_RENDERER_STARTED"
+    local -a su=()
+    RQ_LED_RENDERER_STARTED=""
+    [ "$(id -u)" = 0 ] || su=(sudo)
+    _rq_led_lock
+    if [ "$mine" = 1 ] || [ "$(cat "$RQ_LED_RENDERER_OWNER" 2>/dev/null)" = "$mine" ]; then
+        [ "$mine" = 1 ] || rm -f "$RQ_LED_RENDERER_OWNER"
+        rq_run_detached ${su[@]+"${su[@]}"} systemctl stop "$RQ_LED_RENDERER_UNIT"
+    fi
+    _rq_led_unlock
+}
+
+# After an LED program: stop the renderer this launcher started, then clear
+# the panel - unless another program holds it by now (a demo started with
+# "Stop It" while this one ended: its panel, its on-screen view).
+rq_led_release_panel() {
+    _rq_led_lock
+    rq_led_renderer_stop
+    [ -n "$(led_holders)" ] || led_clear_quietly
+    _rq_led_unlock
+}
+
 # Stop and remove a container, to the end even if this script is killed
 # (see rq_run_detached)
 rq_docker_stop_detached() {
@@ -730,14 +1005,15 @@ rq_led_clear_on_exit() {
     trap 'exit 143' TERM
 }
 
+# Usage (an EXIT trap of its own): _rq_led_on_exit "$rc"
 _rq_led_on_exit() {
-    local rc=$?
+    local rc=${1:-$?}
     # A closed window ends script(1) too, and the hangup that follows must not
     # cut this short
     trap '' HUP INT TERM
     # the demo first, or it draws on while the panel is cleared
     rq_stop_demo_child
-    led_clear_quietly
+    rq_led_release_panel
     [ "$rc" = 129 ] || rq_led_stall_check "${RQ_LED_RUN_START:-0}" "${RQ_LED_THROTTLED_START:-}"
 }
 
@@ -1739,17 +2015,23 @@ _rq_docker_space_note() {
 }
 
 # The IBM Quantum content (Qiskit/documentation, demos/ibm-quantum-learning)
-# holds only what the demos use (#18). A checkout made before also held every
-# file at the top of the repository (package.json, tox.ini ...), which the
-# notebooks' file browser showed first: narrow it, with no download (the
-# files are in the clone). The same list as clone_ibm_learning_content in
-# RQB2_menu.sh.
+# holds only what the demos use (#18): the notebooks, their pictures and the
+# licences. A checkout made before held every file at the top of the
+# repository (package.json, tox.ini ...), which the notebooks' file browser
+# showed first, or no pictures (rig mission 2026-10-16): bring it to this
+# list, with no download (the depth-1 clone holds every file). The same list
+# as clone_ibm_learning_content in RQB2_menu.sh. Then the notebooks are made
+# fit for Jupyter, once (setup_ibm_tutorials.py: front matter, pictures,
+# notes, links).
 # Usage: rq_ibm_learning_tidy DIR
-RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS"
+RQ_IBM_LEARNING_PATHS="/docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /public/learning/images/courses/ /public/docs/images/tutorials/ /public/docs/images/guides/hello-world/ /LICENSE /LICENSE-DOCS"
 rq_ibm_learning_tidy() {
-    [ -f "$1/package.json" ] && [ -d "$1/.git" ] || return 0
-    # shellcheck disable=SC2086  # one pattern per word
-    git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    [ -d "$1/.git" ] || return 0
+    if [ "$(git -C "$1" sparse-checkout list 2>/dev/null | tr '\n' ' ')" != "$RQ_IBM_LEARNING_PATHS " ]; then
+        # shellcheck disable=SC2086  # one pattern per word
+        git -C "$1" sparse-checkout set --no-cone $RQ_IBM_LEARNING_PATHS >/dev/null 2>&1 || true
+    fi
+    python3 "$_RQ_COMMON_DIR/setup_ibm_tutorials.py" --convert --path "$1" || true
     return 0
 }
 
@@ -1760,6 +2042,24 @@ rq_shipped_manifest_dir() {
     else
         echo "$(dirname "$_RQ_COMMON_DIR")/RQB2-config/demo-manifests"
     fi
+}
+
+# The demo catalogue in use: the copy from rasqberry.org that rq_catalogue.py
+# checked and keeps in /var/cache/rasqberry, when its catalogue_version is
+# higher than the image's; else the image's known-demos.json.
+# rq_catalogue.py (current) decides the same way.
+rq_catalogue_file() {
+    local shipped cache="${RQ_CATALOGUE_CACHE_DIR:-/var/cache/rasqberry}/known-demos.json" sv cv
+    shipped="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    if [ -f "$cache" ] && command -v jq >/dev/null 2>&1; then
+        sv=$(jq -r '.catalogue_version // 0' "$shipped" 2>/dev/null) || sv=0
+        cv=$(jq -r '.catalogue_version // 0' "$cache" 2>/dev/null) || cv=0
+        if [[ "$cv" =~ ^[0-9]+$ ]] && [[ "$sv" =~ ^[0-9]+$ ]] && [ "$cv" -gt "$sv" ]; then
+            echo "$cache"
+            return 0
+        fi
+    fi
+    echo "$shipped"
 }
 
 # Ask for a demo's first install, with the sizes from its manifest
@@ -1789,6 +2089,14 @@ rq_confirm_demo_install() {
         type=$(jq -r '.entrypoint.type // empty' "$mf" 2>/dev/null) || type=""
         image=$(jq -r '.entrypoint.docker_image // empty' "$mf" 2>/dev/null) || image=""
         repo=$(jq -r '.install.repo_url // empty' "$mf" 2>/dev/null) || repo=""
+        # Most of it is in a download cache on /data already (an A/B update, a
+        # Remove): the smaller download and time (install.download.cached)
+        local cached=""
+        cached=$(jq -r '.install.download.cached.path // empty' "$mf" 2>/dev/null) || cached=""
+        if [ -n "$cached" ] && [ -s "${RQ_DATA_DIR:-/data}/$cached" ]; then
+            dl=$(jq -r '.install.download.cached.download_mb // 0' "$mf" 2>/dev/null) || dl=0
+            time=$(jq -r '.install.download.cached.time // empty' "$mf" 2>/dev/null) || time=""
+        fi
     fi
     local docker_opt="" image_opt=()
     if [ "$type" = "docker" ] && [ -n "$image" ]; then
@@ -2265,7 +2573,7 @@ rq_demo_maturity() {
             '.variants[]? | select(.id == $v) | .maturity // empty' "$mf" 2>/dev/null)
         [ -n "$m" ] || m=$(jq -r '.maturity // empty' "$mf" 2>/dev/null)
     fi
-    registry="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+    registry=$(rq_catalogue_file)
     if [ -z "$m" ] && [ -f "$registry" ]; then
         m=$(jq -r --arg id "$id" '[.demos[]? | select(.id == $id)] + [.demos[]?
             | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
@@ -2290,7 +2598,7 @@ rq_demo_maturity() {
 rq_demo_group() {
     local id="$1" dir mf="" registry groups shipped=false
     dir=$(rq_shipped_manifest_dir)
-    registry="$(dirname "$dir")/known-demos.json"
+    registry=$(rq_catalogue_file)
     groups="$dir/demo-groups.json"
     [ -f "$registry" ] || registry=/dev/null
     [ -f "$groups" ] || groups=/dev/null
@@ -2321,6 +2629,70 @@ rq_beta_notice() {
     echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
 }
+
+# The desktop user's session directory (/run/user/UID), when PipeWire runs
+# there. Programs that play sound need it as XDG_RUNTIME_DIR: sudo drops it.
+rq_audio_runtime_dir() {
+    local uid
+    uid=$(id -u "$(get_user_name)" 2>/dev/null) || return 1
+    [ -S "/run/user/$uid/pipewire-0" ] || return 1
+    echo "/run/user/$uid"
+}
+
+# PipeWire's description of the default sound output, asked in the desktop
+# user's session (RQ_WPCTL_INSPECT: a file to read instead, for tests).
+# Returns 1 when there is none; 2 when it cannot be told.
+_rq_audio_inspect() {
+    if [ -n "${RQ_WPCTL_INSPECT:-}" ]; then
+        [ -s "$RQ_WPCTL_INSPECT" ] || return 1
+        cat "$RQ_WPCTL_INSPECT"
+        return 0
+    fi
+    local user run
+    command -v wpctl >/dev/null 2>&1 || return 2
+    run=$(rq_audio_runtime_dir) || return 2
+    user=$(get_user_name)
+    if [ "$(id -u)" = "0" ] && [ "$user" != root ]; then
+        sudo -u "$user" env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null || return 1
+    else
+        env XDG_RUNTIME_DIR="$run" wpctl inspect @DEFAULT_AUDIO_SINK@ 2>/dev/null || return 1
+    fi
+}
+
+# The sound output in use (PipeWire's default sink, e.g. "Built-in Audio
+# Digital Stereo (HDMI)" or a Bluetooth speaker's name). Returns 1 when there
+# is none; 2 when it cannot be told (no wpctl, no session: SSH without a
+# desktop).
+rq_audio_output() {
+    local out rc=0
+    out=$(_rq_audio_inspect) || rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
+    out=$(printf '%s\n' "$out" | sed -n 's/.*node\.description = "\(.*\)"/\1/p' | head -n 1)
+    echo "${out:-a sound output}"
+}
+
+# Is the sound output the headphone jack of a Pi 4 (or older)? That jack is
+# made with the PWM hardware the LED panel's driver uses on GPIO18: after sound
+# and LEDs ran together, the jack played nothing until the Pi restarted (Pi 4
+# rig, 2026-10-12).
+rq_audio_on_jack() {
+    _rq_audio_inspect 2>/dev/null | grep -q 'api\.alsa\.card\.name = "bcm2835 Headphones"'
+}
+
+# The sound delay setting (RQ_AUDIO_DELAY_MS, 0-2000 ms): how long a demo's
+# LEDs wait for the speaker, since a Bluetooth speaker plays 100-300 ms late.
+# Anything else (unset, not a number, out of range) is 0.
+rq_audio_delay_ms() {
+    local v="${RQ_AUDIO_DELAY_MS:-0}"
+    if [[ "$v" =~ ^[0-9]{1,4}$ ]] && [ "$((10#$v))" -le 2000 ]; then
+        echo "$((10#$v))"
+    else
+        echo 0
+    fi
+}
+
+# How to get sound, for demos that need it (needs_hw.audio)
+RQ_SPEAKER_HINT="Bluetooth speaker: click the Bluetooth icon at the top right > Add Device. Or a USB speaker, or a monitor with speakers. Right-click the volume icon to choose the output."
 
 # How a demo start came, for its usage count: RQ_DEMO_HOW from the caller
 # (rq_hold_on_error.sh for desktop icons, rq_learning_paths.sh, the demo loop),

@@ -34,14 +34,17 @@ verify_env_vars REPO USER_HOME
 # ----------------------------------------------------------------------------
 # Path resolution: installed (/usr/*) vs repo (dev)
 # ----------------------------------------------------------------------------
+# The catalogue: the image's, or the newer one from rasqberry.org
+# (rq_catalogue.py keeps it in /var/cache/rasqberry)
+REGISTRY_FILE=$(rq_catalogue_file)
+SHIPPED_REGISTRY="$(dirname "$(rq_shipped_manifest_dir)")/known-demos.json"
+CATALOGUE="$SCRIPT_DIR/rq_catalogue.py"
 if [ "$SCRIPT_DIR" = "/usr/bin" ]; then
-    REGISTRY_FILE="/usr/config/known-demos.json"
     CACHE_FILE="/usr/config/demo-menu-cache.sh"
     VALIDATOR="/usr/bin/rq_demo_validate.sh"
     GENERATOR="/usr/bin/rq_demo_generate_menu.sh"
 else
     _repo_root="$(dirname "$SCRIPT_DIR")"
-    REGISTRY_FILE="$_repo_root/RQB2-config/known-demos.json"
     CACHE_FILE="$_repo_root/RQB2-config/demo-menu-cache.sh"
     VALIDATOR="$SCRIPT_DIR/rq_demo_validate.sh"
     GENERATOR="$SCRIPT_DIR/rq_demo_generate_menu.sh"
@@ -121,6 +124,38 @@ fit_line() {
     fi
 }
 
+# The catalogue engine of this image (rq_catalogue.py ENGINE): an entry with a
+# higher "min_engine" needs a newer RasQberry
+catalogue_engine() {
+    python3 "$CATALOGUE" --engine 2>/dev/null || echo 2
+}
+
+needs_newer() {
+    local id="$1" me
+    me=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .min_engine // 1' "$REGISTRY_FILE")
+    [[ "$me" =~ ^[0-9]+$ ]] && [ "$me" -gt "${ENGINE:=$(catalogue_engine)}" ]
+}
+
+# Not in the image's own catalogue: it came with the catalogue from rasqberry.org
+is_new_entry() {
+    local id="$1"
+    [ "$REGISTRY_FILE" != "$SHIPPED_REGISTRY" ] || return 1
+    [ -z "$(jq -r --arg id "$id" '.demos[]? | select(.id == $id) | .id' "$SHIPPED_REGISTRY" 2>/dev/null)" ]
+}
+
+# Fetch the current catalogue from rasqberry.org before the picker (quiet;
+# offline or refused: the catalogue in use stays). The cache is root's.
+refresh_catalogue() {
+    [ -f "$CATALOGUE" ] && command -v python3 >/dev/null 2>&1 || return 0
+    info "Checking rasqberry.org for new demos..."
+    if [ "$(id -u)" = "0" ]; then
+        python3 "$CATALOGUE" --refresh >/dev/null 2>&1
+    else
+        sudo -n python3 "$CATALOGUE" --refresh >/dev/null 2>&1
+    fi || true
+    REGISTRY_FILE=$(rq_catalogue_file)
+}
+
 # Picker text: "Name - summary" (one line of the menu), else the curator
 # note. The note is maintainer prose, cut mid-word, so the two SAP entries
 # looked the same (R-105).
@@ -130,6 +165,8 @@ registry_label() {
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
     [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
+    is_new_entry "$id" && name="New: ${name:-$id}"
+    needs_newer "$id" && summary="needs a newer RasQberry"
     fit_line "${name:-$id}${summary:+ - $summary}"
 }
 
@@ -144,6 +181,33 @@ repo_dir_name() {
     local url="$1" base
     base=$(basename "$url")
     echo "${base%.git}"
+}
+
+# Is this the checkout directory of another demo, shipped or installed?
+# (one checkout cannot be two demos: installing this one would replace it)
+# Usage: dir_of_another_demo DIR ID [IDS THAT DO NOT COUNT...]
+dir_of_another_demo() {
+    local name="$1" mf
+    shift
+    local skip
+    skip=$(printf '%s\n' "$@" | jq -R . | jq -s -c .)
+    for mf in "$(rq_shipped_manifest_dir)"/rq_demo_*.json "$USER_MANIFEST_DIR"/rq_demo_*.json; do
+        [ -f "$mf" ] || continue
+        jq -e --arg d "$name" --argjson skip "$skip" \
+            '(.id as $i | all($skip[]; . != $i))
+             and ((.entrypoint.working_dir // "") == $d or any(.variants[]?; (.entrypoint.working_dir // "") == $d))' \
+            "$mf" >/dev/null 2>&1 && return 0
+    done
+    return 1
+}
+
+# A size in MB from the catalogue or a manifest: whole numbers only (it goes
+# into shell arithmetic, review B6); anything else is "unknown"
+mb_or_empty() {
+    case "$1" in
+        ''|*[!0-9]*) echo "" ;;
+        *) echo "$((10#$1))" ;;
+    esac
 }
 
 # Chown a path tree to the target user when running as root
@@ -346,6 +410,9 @@ add_demo() {
     local repo_url ref manifest_path repo_name dest manifest_file
 
     registry_has "$id" || die "Demo '$id' is not in the registry: $REGISTRY_FILE"
+    if needs_newer "$id"; then
+        die "'$id' needs a newer RasQberry. Update the system first (RasQberry menu: Software & Image Updates), then add the demo."
+    fi
 
     repo_url=$(registry_field "$id" "repo_url")
     ref=$(registry_field "$id" "ref")
@@ -360,6 +427,11 @@ add_demo() {
     esac
 
     repo_name=$(repo_dir_name "$repo_url")
+    # A plain directory below DEMOS_ROOT: ".../.git" named DEMOS_ROOT itself,
+    # and ".." its parent (review B6)
+    case "$repo_name" in
+        ""|.*|*[!A-Za-z0-9._-]*) die "Registry entry '$id': repo_url does not end in a plain directory name: $repo_url" ;;
+    esac
     dest="$DEMOS_ROOT/$repo_name"
 
     if [ "$mode" = "install" ] && is_installed "$id"; then
@@ -378,13 +450,13 @@ add_demo() {
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
     provider=$(registry_field "$id" "provider")
-    dl=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")
-    disk=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")
-    # An LED demo runs as root: said in this one question, not a second one
-    # that named the id (user test 2026-10-08, F5)
+    dl=$(mb_or_empty "$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.download_mb // empty' "$REGISTRY_FILE")")
+    disk=$(mb_or_empty "$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .download.disk_mb // empty' "$REGISTRY_FILE")")
+    # An LED demo runs as the user in a sandbox (rq_led_as_user), like every
+    # demo: the question says it drives the panel, and asks nothing more
     local reg_leds root_txt=""
     reg_leds=$(jq -r --arg id "$id" '.demos[] | select(.id == $id) | .leds // false' "$REGISTRY_FILE")
-    [ "$reg_leds" = true ] && root_txt="It drives the LED panel, so it runs with root privileges.\n\n"
+    [ "$reg_leds" = true ] && root_txt="It drives the LED panel. Like every demo, it runs without administrator rights.\n\n"
     # A renamed demo replaces its old install (registry "replaces"): said in
     # this question, and the old one goes once this one is installed
     local replaced old old_names="" replace_txt=""
@@ -393,8 +465,14 @@ add_demo() {
         old_names="${old_names:+$old_names, }$(jq -r '.name // .id' "$USER_MANIFEST_DIR/rq_demo_${old}.json" 2>/dev/null || echo "$old")"
     done
     [ -n "$replaced" ] && replace_txt="It replaces ${old_names}, its earlier name on this Pi: that is removed once this is installed (its files, menu entry, icon and Docker image).\n\n"
+    # One checkout cannot be two demos (its earlier name aside)
+    if dir_of_another_demo "$repo_name" "$id" $replaced; then
+        die "Registry entry '$id': its checkout directory '$repo_name' belongs to another demo"
+    fi
     [ -n "$dl" ] && size_txt="Download: about $(rq_fmt_mb "$dl")${disk:+, $(rq_fmt_mb "$disk") on the SD card} (needs the internet). Free: $(rq_fmt_mb "$(rq_free_mb "$USER_HOME")").\n\n"
-    if ! show_yesno "Demo from the Catalogue" \
+    # The demo's first start (rq_demo_run.sh) has asked already when it sends
+    # a catalogue demo whose files are gone here (RQ_CONFIRMED_DEMO)
+    if [ "${RQ_CONFIRMED_DEMO:-}" != "$id" ] && ! show_yesno "Demo from the Catalogue" \
         "${name:-$id}${summary:+: $summary}\n\n${size_txt}Provided by ${provider:-an external contributor}. From its own repository:\n$repo_url\n\nThe RasQberry team has reviewed this version and installs exactly it. Its makers maintain the demo and answer for its content and security.\n\n${replace_txt}${root_txt}Install it?"; then
         # "No" is an answer, not an error: it ended in "It stopped with an
         # error" and an Error box (user test 2026-10-07, S3)
@@ -407,63 +485,52 @@ add_demo() {
     rq_reachable "$repo_url" \
         || die "'$id' has to be downloaded, and github.com cannot be reached. Connect the Pi to the internet and try again."
 
-    # Fresh checkout for both install and update (explicit, never git pull)
-    if [ -e "$dest" ]; then
-        info "Removing previous checkout: $dest"
-        rq_remove_tree "$dest" || die "Cannot remove the previous checkout: $dest"
-    fi
-
+    # The new version is fetched and checked next to the checkout (explicit,
+    # never git pull), and replaces it only when everything has worked: a
+    # failed update (no network, a pin that fails the checks, pip) used to
+    # leave the demo without its files, and its next start then cloned the
+    # unpinned upstream (review B1)
     mkdir -p "$DEMOS_ROOT"
     chown_to_user "$DEMOS_ROOT"
+    local work="$DEMOS_ROOT/.rq-new-$repo_name"
+    rq_remove_tree "$work" || die "Cannot remove an earlier, unfinished download: $work"
 
     info "Fetching '$id' at pinned commit ${ref:0:12}..."
-    fetch_pinned_repo "$repo_url" "$ref" "$dest" \
+    fetch_pinned_repo "$repo_url" "$ref" "$work" \
         || die "Could not download '$id' from $repo_url. Check the internet connection and try again."
 
-    manifest_file="$dest/$manifest_path"
-    [ -f "$manifest_file" ] || { rm -rf "$dest"; die "Manifest not found in checkout: $manifest_path"; }
+    manifest_file="$work/$manifest_path"
+    [ -f "$manifest_file" ] || { rq_remove_tree "$work"; die "Manifest not found in checkout: $manifest_path"; }
 
     # Validate with the hardened external constraints
     info "Validating manifest against external constraints..."
     if ! "$VALIDATOR" --external "$manifest_file" >/tmp/rq_ext_validate.$$ 2>&1; then
         cat /tmp/rq_ext_validate.$$ >&2 || true
         rm -f /tmp/rq_ext_validate.$$
-        rm -rf "$dest"
+        rq_remove_tree "$work"
         die "Manifest failed external validation - demo '$id' not installed"
     fi
     rm -f /tmp/rq_ext_validate.$$
 
     # Manifest id must match the registry id
-    local m_id m_wd m_marker m_leds
+    local m_id m_wd m_marker
     m_id=$(jq -r '.id // empty' "$manifest_file")
     m_wd=$(jq -r '.entrypoint.working_dir // empty' "$manifest_file")
     m_marker=$(jq -r '.install.marker_file // empty' "$manifest_file")
-    m_leds=$(jq -r '.needs_hw.leds // false' "$manifest_file")
 
     if [ "$m_id" != "$id" ]; then
-        rm -rf "$dest"
+        rq_remove_tree "$work"
         die "Manifest id '$m_id' does not match registry id '$id'"
     fi
     # working_dir must equal the repo directory name
     if [ "$m_wd" != "$repo_name" ]; then
-        rm -rf "$dest"
+        rq_remove_tree "$work"
         die "entrypoint.working_dir '$m_wd' must equal the repo directory name '$repo_name'"
     fi
     # marker_file must exist in the checkout (proves integrity)
-    if [ -z "$m_marker" ] || [ ! -e "$dest/$m_marker" ]; then
-        rm -rf "$dest"
+    if [ -z "$m_marker" ] || [ ! -e "$work/$m_marker" ]; then
+        rq_remove_tree "$work"
         die "install.marker_file '$m_marker' not found in checkout - refusing to install"
-    fi
-
-    # LED demos run with root privileges - confirm explicitly, unless the
-    # install question already said so (registry "leds")
-    if [ "$m_leds" = "true" ] && [ "$reg_leds" != true ]; then
-        if ! show_yesno "LED demo - root privileges" \
-            "${name:-$id} drives the LED panel and will run with root privileges.\n\nInstall it and let it run as root?"; then
-            rm -rf "$dest"
-            info "Nothing was installed."
-            return 0
-        fi
     fi
 
     # Install pip requirements as the user, if declared. Only packages the
@@ -471,26 +538,45 @@ add_demo() {
     # installed version, and a failure fails the whole install (#285).
     local pip_req
     pip_req=$(jq -r '.install.pip_requirements // false' "$manifest_file")
-    if [ "$pip_req" = "true" ] && [ -f "$dest/requirements.txt" ]; then
-        if ! install_pip_extras "$id" "$dest"; then
-            rm -rf "$dest"
+    if [ "$pip_req" = "true" ] && [ -f "$work/requirements.txt" ]; then
+        if ! install_pip_extras "$id" "$work"; then
+            rq_remove_tree "$work"
             die "Python requirements for '$id' could not be installed - demo not installed"
         fi
     fi
+
+    # Everything worked: the new checkout takes the old one's place
+    local old_tree=""
+    if [ -e "$dest" ]; then
+        info "Replacing the previous checkout: $dest"
+        old_tree="$DEMOS_ROOT/.rq-old-$repo_name"
+        rq_remove_tree "$old_tree" || die "Cannot remove an earlier copy: $old_tree"
+        mv "$dest" "$old_tree" || { rq_remove_tree "$work"; die "Cannot replace the previous checkout: $dest"; }
+    fi
+    if ! mv "$work" "$dest"; then
+        [ -n "$old_tree" ] && mv "$old_tree" "$dest"
+        rq_remove_tree "$work"
+        die "Cannot put the new checkout in place: $dest"
+    fi
+    [ -z "$old_tree" ] || rq_remove_tree "$old_tree" || warn "Could not remove the previous checkout: $old_tree"
+    manifest_file="$dest/$manifest_path"
 
     # Copy the manifest into the user manifest directory (never /usr/config).
     # Created as the user: run as root from the menu, mkdir -p made
     # ~/.local/config root-owned, and user tools then failed there (R-161).
     run_as_user mkdir -p "$USER_MANIFEST_DIR" 2>/dev/null || mkdir -p "$USER_MANIFEST_DIR"
-    # The registry's sizes go with it, for the first start's consent dialog
-    local reg_download
+    # The registry's sizes go with it, for the first start's consent dialog.
+    # It is marked as installed from the catalogue, with its pin: only such
+    # demos are offered updates or called withdrawn (rq_catalogue.py MARK),
+    # never a demo author's own test manifest (review B3).
+    local reg_download user_mf="$USER_MANIFEST_DIR/rq_demo_${id}.json"
     reg_download=$(jq -c --arg id "$id" '.demos[] | select(.id == $id) | .download // empty' "$REGISTRY_FILE")
-    if [ -n "$reg_download" ]; then
-        jq --argjson d "$reg_download" '.install.download = (.install.download // $d)' "$manifest_file" \
-            > "$USER_MANIFEST_DIR/rq_demo_${id}.json"
-    else
-        cp "$manifest_file" "$USER_MANIFEST_DIR/rq_demo_${id}.json"
-    fi
+    [ -n "$reg_download" ] || reg_download="null"
+    jq --argjson d "$reg_download" --arg ref "$ref" --arg url "$repo_url" \
+        '(if $d != null then .install.download = (.install.download // $d) else . end)
+         | ."x-rasqberry-catalogue" = {ref: $ref, repo_url: $url}' \
+        "$manifest_file" > "$user_mf.tmp" && mv -f "$user_mf.tmp" "$user_mf" \
+        || { rm -f "$user_mf.tmp"; die "Could not write the manifest of '$id': $user_mf"; }
     chown_to_user "$USER_MANIFEST_DIR"
     chown_to_user "$USER_HOME/.local/config"
     chown_to_user "$dest"
@@ -527,7 +613,9 @@ add_demo() {
     m_image=""
     [ "$(jq -r '.entrypoint.type // empty' "$manifest_file")" = "docker" ] \
         && m_image=$(jq -r '.entrypoint.docker_image // empty' "$manifest_file")
-    if [ "$mode" = "update" ]; then
+    if [ "$mode" = "update" ] && [ "${RQ_CONFIRMED_DEMO:-}" = "$id" ]; then
+        info "Demo '$id' installed at pinned commit ${ref:0:12}"   # (its first start goes on)
+    elif [ "$mode" = "update" ]; then
         info "Demo '$id' updated to pinned commit ${ref:0:12}"
         show_msgbox "Demo updated" "External demo '$id' updated successfully.\n\nPinned commit: ${ref:0:12}"
     elif [ -n "$m_image" ] && ! { command -v docker >/dev/null 2>&1 \
@@ -562,9 +650,23 @@ remove_demo() {
     esac
 
     local image="" name
-    name=$(jq -r '.name // .id // empty' "$manifest")
+    name=$(jq -r '.name // .id // empty' "$manifest" | tr -d '[:cntrl:]')
     [ "$(jq -r '.entrypoint.type // empty' "$manifest")" = "docker" ] \
         && image=$(jq -r '.entrypoint.docker_image // empty' "$manifest")
+
+    # It deletes a checkout, perhaps a demo author's own clone with work in
+    # it (CONTRIBUTING.md): only after a question, in a terminal (review B3).
+    # RQ_ASSUME_YES=yes: the caller decided (a renamed demo's old install);
+    # RQ_REMOVE_CONFIRMED=<id>: the caller asked (rq_demo_remove.sh).
+    if [ "${RQ_ASSUME_YES:-no}" != yes ] && [ "${RQ_REMOVE_CONFIRMED:-}" != "$id" ]; then
+        [ -t 0 ] || die "Not removed: '$id' is removed only after a question. Run it in a terminal."
+        local what="its menu entry and icon"
+        [ -d "$DEMOS_ROOT/$dir" ] && what="its files in $DEMOS_ROOT/$dir, menu entry and icon"
+        if ! show_yesno "Remove ${name:-$id}?" "Remove ${name:-$id} ($what)?\n\nAnything changed in that folder is lost."; then
+            info "Nothing removed."
+            return 0
+        fi
+    fi
 
     if [ -d "$DEMOS_ROOT/$dir" ]; then
         info "Removing checkout: $DEMOS_ROOT/$dir"
@@ -647,6 +749,7 @@ main() {
             ;;
         "")
             local id
+            refresh_catalogue
             id=$(pick_demo_interactive) || exit 0
             [ -n "$id" ] || exit 0
             add_demo "$id" install

@@ -3,7 +3,7 @@
   "name": "Quantum Mixer",
   "category": "visualization",
   "group": "projects",
-  "description": "Interactive quantum circuit builder and simulator (Docker container)",
+  "description": "Mix a cocktail, an ice cream or a coffee with a quantum circuit (Docker container)",
   "keywords": [
     "quantum",
     "mixer",

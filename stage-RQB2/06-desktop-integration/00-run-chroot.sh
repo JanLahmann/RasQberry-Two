@@ -86,7 +86,7 @@ mkdir -p /etc/skel/Desktop
 
 # Copy desktop files to skel for new users
 for desktop_file in /usr/share/applications/*.desktop; do
-    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+    if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|entangible|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
         cp "$desktop_file" /etc/skel/Desktop/
         chmod 755 "/etc/skel/Desktop/$(basename "$desktop_file")"
         echo "Added to new user template: $(basename "$desktop_file")"
@@ -99,7 +99,7 @@ if [ -n "${FIRST_USER_NAME}" ] && [ "${FIRST_USER_NAME}" != "root" ]; then
     mkdir -p "$USER_DESKTOP"
     
     for desktop_file in /usr/share/applications/*.desktop; do
-        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
+        if [ -f "$desktop_file" ] && [[ "$(basename "$desktop_file")" =~ ^(composer|grok-bloch|quantum-fractals|quantum-lights-out|quantum-raspberry-tie|qoffee-maker|quantum-mixer|entangible|led-ibm-demo|led-painter|clear-leds|rasq-led|demo-loop|fun-with-quantum|quantum-coin-game|quantum-paradoxes|touch-mode|rasqberry-setup|rasqberry-menu|ibm-quantum-tutorials|ibm-quantum-courses|quantum-lab|qiskit-tutorials|doqumentation|my-quantum-programs|learning-paths)\.desktop$ ]]; then
             cp "$desktop_file" "$USER_DESKTOP/"
             chown "${FIRST_USER_NAME}:${FIRST_USER_NAME}" "$USER_DESKTOP/$(basename "$desktop_file")"
             chmod 755 "$USER_DESKTOP/$(basename "$desktop_file")"
@@ -257,23 +257,15 @@ update-desktop-database /usr/share/applications || echo "Warning: Failed to upda
 echo "Updating icon cache..."
 gtk-update-icon-cache -f -t /usr/share/icons || echo "Warning: Failed to update icon cache"
 
-# Customize LXPanel main menu icon (Raspberry Pi icon in top-left corner)
-echo "Configuring main panel menu icon..."
-PANEL_CONFIG="/etc/xdg/lxpanel/LXDE-pi/panels/panel"
-if [ -f "$PANEL_CONFIG" ]; then
-    # Backup original panel config
-    cp "$PANEL_CONFIG" "${PANEL_CONFIG}.orig"
-
-    # Replace the menu icon in the panel configuration
-    # Look for the menu plugin section and change its icon
-    # The default uses "raspberrypi-logo" or similar
-    sed -i 's|icon=raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
-    sed -i 's|icon=/usr/share/pixmaps/raspberrypi.*|icon=/usr/share/icons/rasqberry/rasqberry-menu-icon.png|g' "$PANEL_CONFIG"
-
-    echo "Panel menu icon updated to RasQberry logo"
-else
-    echo "Warning: Panel config not found at $PANEL_CONFIG"
-fi
+# Main menu button (top left of the panel): the RasQberry icon, as for the
+# RasQberry menu category. wf-panel-pi draws the theme icon "start-here";
+# /usr/local/share/icons comes before /usr/share, so ours wins over PiXtrix's
+# raspberry and an OS update does not overwrite it.
+echo "Configuring main menu icon..."
+for icon_file in "${CLONE_DIR}"/desktop-icons/start-here/*.png; do
+    size=$(basename "$icon_file" .png)
+    install -D -m 644 "$icon_file" "/usr/local/share/icons/PiXtrix/${size}x${size}/places/start-here.png"
+done
 
 # Update menu cache for LXDE
 echo "Updating menu cache..."
@@ -324,11 +316,11 @@ echo "Configuring Chromium browser settings..."
 mkdir -p /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
 {
-  "HomepageLocation": "https://rasqberry.org/?from=pi",
+  "HomepageLocation": "https://rasqberry.org/?from=pi&assistant=1",
   "HomepageIsNewTabPage": false,
-  "NewTabPageLocation": "https://rasqberry.org/?from=pi",
+  "NewTabPageLocation": "https://rasqberry.org/?from=pi&assistant=1",
   "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi"],
+  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi&assistant=1"],
   "PasswordManagerEnabled": false,
   "ShowHomeButton": true,
   "PromotionalTabsEnabled": false,
@@ -336,6 +328,7 @@ cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
   "BookmarkBarEnabled": true,
   "ManagedBookmarks": [
     { "toplevel_name": "Quantum Links" },
+    { "name": "RasQberry help", "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting" },
     {
       "name": "Fun with Quantum family",
       "children": [
@@ -399,6 +392,11 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
     <windowRule title="RasQberry Virtual LED*">
       <action name="MoveToEdge" direction="right" snapWindows="no"/>
       <action name="MoveToEdge" direction="down" snapWindows="no"/>
+    </windowRule>
+    <!-- "What's new" after an update: on the left, over the desktop icons, not
+         over the homepage (rq_desktop_session.py: off on small screens) -->
+    <windowRule title="What's new in *">
+      <action name="MoveToEdge" direction="left" snapWindows="no"/>
     </windowRule>
   </windowRules>
 </openbox_config>
