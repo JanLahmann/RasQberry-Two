@@ -403,7 +403,8 @@ failure without writing anything.
 
 ## Usage counts (Umami)
 
-The Pi sends anonymous counts to the Umami website that rasqberry.org uses
+The Pi sends anonymous counts to the Umami website that rasqberry.org uses,
+under the hostname `device.rasqberry.org` so they stay apart from website visits
 ([`rq_umami_event.py`](../RQB2-bin/rq_umami_event.py)), on the standard image
 too. There is no opt-in and no dialog. Each event has a fixed list of data keys;
 never a serial number, machine-id, hostname, IP address or user name. One POST
