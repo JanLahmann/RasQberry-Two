@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-19T09:24:28Z",
+  "generated": "2026-10-19T09:25:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,14 +43,15 @@
       "image_download_size": 1856049536,
       "extract_size": 9529458688,
       "extract_sha256": "21ea8140f8e89eff1b419dcd22f51195c5f19ffb49f59344bd3ace4190d0c2f3",
-      "image_sha256": "69e752599a1ee84c3d70804e6a36c01b9547a26df91a90d3afc384fcc8a65500",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-19-103854/rasqberry-development-2026-10-19-103854-ab.img.xz",
       "ab_extract_sha256": "b4749cef4882bd1759bcecb21dd7ae614acf95de54bd57fee012e16e6a8c1ef6",
       "ab_image_sha256": "da200411354eab98439bc4d5af05d11cf6124cf0bc6f20ac2f6bdaf6eda970a2",
-      "ab_image_download_size": 1904342740,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1904342740,
       "highlights": [
-        "Usage counts: send the Pi's events as device.rasqberry.org"
+        "Bump version to development-2026-10-19-103854",
+        "Usage counts: send the Pi's events as device.rasqberry.org",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-17-192138"
       ]
     }
   }
