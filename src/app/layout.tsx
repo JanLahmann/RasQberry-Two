@@ -24,6 +24,20 @@ const FROM_PI = `try{var q=new URLSearchParams(location.search);` +
   `if(q.get("from")==="pi")sessionStorage.setItem("rq-from","pi");` +
   `if(sessionStorage.getItem("rq-from")==="pi")document.documentElement.setAttribute("data-from","pi")}catch(e){}`;
 
+// Fun with Quantum's standard tracker filter (every family site): ?notrack
+// keeps this browser out of the counts (?track undoes it), and headless
+// browsers and bots send nothing (no backslashes in this string: the
+// build turned "\\b" into a backspace). Pages opened on a Pi (?from=pi, see above)
+// count as device.rasqberry.org, like the Pi's own events
+// (rq_umami_event.py), so rasqberry.org shows only website visitors.
+const UMAMI_FILTER = `(function(){try{var q=location.search;` +
+  `if(/[?&]notrack(?=$|[&=])/.test(q))localStorage.setItem('umami.disabled','1');` +
+  `if(/[?&]track(?=$|[&=])/.test(q))localStorage.removeItem('umami.disabled')}catch(e){}` +
+  `window.fwqUmamiBeforeSend=function(t,p){var n=navigator;` +
+  `if(n.webdriver||/HeadlessChrome|bot|crawl|spider|Lighthouse|PageSpeed/i.test(n.userAgent))return false;` +
+  `try{if(sessionStorage.getItem("rq-from")==="pi"&&p)p.hostname="device.rasqberry.org"}catch(e){}` +
+  `return p}})();`;
+
 export default function RootLayout({
   children
 }: Readonly<Props>) {
@@ -31,6 +45,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: FROM_PI }} />
+        <script dangerouslySetInnerHTML={{ __html: UMAMI_FILTER }} />
       </head>
       <body className={plex.className}>
         {children}
@@ -40,6 +55,7 @@ export default function RootLayout({
           src="https://cloud.umami.is/script.js"
           data-website-id="97f347ac-e7ba-4be3-b26f-ab4b328bdbf2"
           data-domains="rasqberry.org"
+          data-before-send="fwqUmamiBeforeSend"
         />
         {/* The RasQberry helper (Fun with Quantum's assistant): hidden until
             the URL has ?assistant=1; "device" context on the Pi (?from=pi) */}

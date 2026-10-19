@@ -60,22 +60,27 @@ export default function RedirectClient({ stream }: RedirectClientProps) {
         setStatus('redirecting');
 
         // Umami `RasQberry Two: image download` event (Fun with Quantum v2 naming): the redirect IS the download.
-        // Best-effort; a short delay lets the tracker's request leave before navigation.
-        try {
-          const umami = (window as unknown as { umami?: { track: (name: string, data?: Record<string, string>) => void } }).umami;
-          umami?.track('RasQberry Two: image download', {
-            file: streamData.image_url.split('/').pop() ?? '',
-            stream,
-            tag: streamData.tag,
-          });
-        } catch {
-          /* analytics is best-effort */
-        }
+        // The tracker loads after the page (defer), and this runs right after the fetch: wait for it up to
+        // 2 s (without it nearly no download was counted), send, then leave after a short delay. Best-effort.
         const imageUrl = streamData.image_url;
-        setTimeout(() => {
-          // Redirect to the image URL
-          window.location.href = imageUrl;
-        }, 300);
+        const event = { file: imageUrl.split('/').pop() ?? '', stream, tag: streamData.tag };
+        const started = Date.now();
+        const sendThenGo = () => {
+          const umami = (window as unknown as { umami?: { track: (name: string, data?: Record<string, string>) => void } }).umami;
+          if (!umami && Date.now() - started < 2000) {
+            setTimeout(sendThenGo, 100);
+            return;
+          }
+          try {
+            umami?.track('RasQberry Two: image download', event);
+          } catch {
+            /* analytics is best-effort */
+          }
+          setTimeout(() => {
+            window.location.href = imageUrl;
+          }, 300);
+        };
+        sendThenGo();
       } catch (err) {
         setStatus('error');
         setError(err instanceof Error ? err.message : 'Unknown error');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { UMAMI, umamiAttrs } from '@/lib/umami';
+import { UMAMI, umamiAttrs, releaseEvent } from '@/lib/umami';
 
 interface StreamData {
   tag: string | null;
@@ -297,7 +297,7 @@ export default function LatestPage() {
                       ) : null;
                       return AB_DEFAULT ? [ab, standard] : [standard, ab];
                     })()}
-                    <a href={data.release_url} style={{ ...buttonStyle, backgroundColor: '#393939' }}>
+                    <a href={data.release_url} style={{ ...buttonStyle, backgroundColor: '#393939' }} {...releaseEvent(data.release_url)}>
                       Release Notes
                     </a>
                   </>
