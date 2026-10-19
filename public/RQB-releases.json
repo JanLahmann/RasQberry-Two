@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-19T02:46:50Z",
+  "generated": "2026-10-19T09:24:28Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,22 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-17-192138",
-      "name": "rasqberry-development-2026-10-17-192138",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-192138/rasqberry-development-2026-10-17-192138.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-17-192138",
-      "release_date": "2026-10-17 19:21",
-      "image_download_size": 1857508640,
+      "tag": "development-2026-10-19-103854",
+      "name": "rasqberry-development-2026-10-19-103854",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-19-103854/rasqberry-development-2026-10-19-103854.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-19-103854",
+      "release_date": "2026-10-19 10:38",
+      "image_download_size": 1856049536,
       "extract_size": 9529458688,
-      "extract_sha256": "69bd290271827a6c21aa1ea2844c508bf353822b9a218a861a80b91c2714403c",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-17-192138/rasqberry-development-2026-10-17-192138-ab.img.xz",
-      "ab_extract_sha256": "fddc6ba4a63035121aaa35c7212fc3f6c0f32233fae434579567dadaffa33705",
-      "ab_image_sha256": "e40562c8fc9caf0db060763f9460690ffab3cf553def5f4f18c74efa0dd05f60",
+      "extract_sha256": "21ea8140f8e89eff1b419dcd22f51195c5f19ffb49f59344bd3ace4190d0c2f3",
+      "image_sha256": "69e752599a1ee84c3d70804e6a36c01b9547a26df91a90d3afc384fcc8a65500",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-19-103854/rasqberry-development-2026-10-19-103854-ab.img.xz",
+      "ab_extract_sha256": "b4749cef4882bd1759bcecb21dd7ae614acf95de54bd57fee012e16e6a8c1ef6",
+      "ab_image_sha256": "da200411354eab98439bc4d5af05d11cf6124cf0bc6f20ac2f6bdaf6eda970a2",
+      "ab_image_download_size": 1904342740,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1915269880,
       "highlights": [
-        "Bump version to development-2026-10-17-192138",
-        "TP-Link Archer T2U Nano as the tested hotspot adapter"
+        "Usage counts: send the Pi's events as device.rasqberry.org"
       ]
     }
   }
