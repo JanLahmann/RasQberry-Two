@@ -17,6 +17,8 @@ export const UMAMI = {
   piWelcomeClick: 'RasQberry Two: pi welcome click',
   // 3D model viewer (src/components/ModelViewer): the first interaction per page view, data: via (model, parts, explode, assemble, reset, fullscreen)
   modelViewerOpen: 'RasQberry Two: 3d viewer open',
+  // A link to a GitHub release or one of its files, data: tag, file (if a file)
+  releaseClick: 'RasQberry Two: release click',
 } as const;
 
 /** The attributes for one event: data-umami-event plus one data-umami-event-<key> per value. */
@@ -28,7 +30,8 @@ export function umamiAttrs(event: string, data: Record<string, string> = {}): Re
 
 /**
  * Markdown links that count, wherever a page has them: the demo feedback form
- * (data: the demo, from its demo= parameter) and the workshop request form.
+ * (data: the demo, from its demo= parameter), the workshop request form and
+ * GitHub release links (releaseEvent).
  */
 export function linkEvent(href?: string): Record<string, string> {
   if (!href) return {};
@@ -44,7 +47,19 @@ export function linkEvent(href?: string): Record<string, string> {
   if (href.includes('template=workshop-request.yml')) {
     return umamiAttrs(UMAMI.workshopContact, { via: 'request-form' });
   }
-  return {};
+  return releaseEvent(href);
+}
+
+/**
+ * A link to RasQberry Two's GitHub releases: the list, one release
+ * (tag), or one of its files (tag, file). Links with their own event keep it.
+ */
+export function releaseEvent(href: string): Record<string, string> {
+  const m = href.match(/github\.com\/JanLahmann\/RasQberry-Two\/releases(?:\/(?:tag|download)\/([^/?#]+)(?:\/([^/?#]+))?)?/i);
+  if (!m) return {};
+  const data: Record<string, string> = { tag: m[1] || 'all' };
+  if (m[2]) data.file = m[2];
+  return umamiAttrs(UMAMI.releaseClick, data);
 }
 
 /** Sends one event from code (for things that are not a single click on a link or button); no-op without Umami. */
