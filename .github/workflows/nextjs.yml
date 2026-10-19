@@ -36,6 +36,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # full history (no file contents) for the sitemap's lastmod dates
+          fetch-depth: 0
+          filter: blob:none
       - name: Detect package manager
         id: detect-package-manager
         run: |
@@ -123,3 +127,13 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Tell Bing, Yandex & co. which pages changed (Fun with Quantum's shared
+  # IndexNow job; the key is public by design, public/<key>.txt)
+  indexnow:
+    needs: deploy
+    if: github.ref == 'refs/heads/gh-pages'
+    uses: JanLahmann/Fun-with-Quantum/.github/workflows/indexnow.yml@master
+    with:
+      site: https://rasqberry.org
+      key: c8ec5aead7873fde01becdd0624880fc

@@ -3,13 +3,22 @@ import { IBM_Plex_Sans } from "next/font/google";
 import Script from "next/script";
 
 import "@/styles/globals.scss";
+import { OG_IMAGE } from "@/utils/pageMeta";
 import { Footer } from "@/components/Footer";
 
 const plex = IBM_Plex_Sans({ weight: ['100', '200', '300', '400', '500', '600', '700'], subsets: ["latin"] });
 
+// Defaults; content pages set their own title, description and canonical
 export const metadata: Metadata = {
-  title: "RasQberry Two",
-  description: "Exploring Quantum Computing and Qiskit with a Raspberry Pi and a 3D Printer",
+  metadataBase: new URL("https://rasqberry.org"),
+  title: { default: "RasQberry Two", template: "%s" },
+  description: "Build a functional model of a quantum computer at home: a 3D-printed IBM Quantum System Two with a Raspberry Pi, LEDs, Qiskit and quantum demos.",
+  openGraph: {
+    type: "website",
+    siteName: "RasQberry Two",
+    images: [OG_IMAGE],
+  },
+  twitter: { card: "summary_large_image", images: [OG_IMAGE.url] },
 };
 
 interface Props {

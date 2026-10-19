@@ -1,4 +1,11 @@
+import type { Metadata } from 'next';
 import RedirectClient from './RedirectClient';
+
+// Redirects to the image file: nothing to index
+export const metadata: Metadata = {
+  title: 'Downloading RasQberry Two',
+  robots: { index: false },
+};
 
 interface PageProps {
   params: {

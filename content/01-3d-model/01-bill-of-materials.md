@@ -2,7 +2,7 @@
 
 This document contains all the information you need to purchase everything needed to assemble the RasQberry Two Platform. When fully assembled, you will have a functional and detailed model like this one!
 
-<p align='center'><img src='/Artwork/RasQberry2model.png' width="88%" height="88%"/></p>
+<p align='center'><img src='/Artwork/RasQberry2model.webp' loading='lazy' width="88%" height="88%"/></p>
 
 No printed model yet? [Explore it in 3D](/01-3d-model/02-hardware-assembly-guide#3-explore-the-model-in-3d) in the assembly guide.
 

@@ -8,6 +8,9 @@ import { HeaderNav, NavItem } from "@/components/HeaderNav";
 import { Edit } from '@carbon/icons-react';
 
 export interface FrontMatter {
+    // <title> and meta description; default: the first heading and paragraph
+    title?: string
+    description?: string
     leadspace?: LeadSpaceProps,
     tableOfContent?: {
         disabled?: boolean

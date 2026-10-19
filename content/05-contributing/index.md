@@ -1,3 +1,6 @@
+---
+description: "How to contribute to RasQberry Two, the open-source quantum computing project: test and report issues, share ideas, improve the docs, create demos."
+---
 # Contributing to RasQberry
 
 We welcome contributions to this quantum computing education project!

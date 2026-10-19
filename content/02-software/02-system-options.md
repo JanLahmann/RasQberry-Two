@@ -1,3 +1,6 @@
+---
+description: "RasQberry Two system settings: Wi-Fi, remote access with SSH, VNC or Raspberry Pi Connect, sound over HDMI or Bluetooth, and the password."
+---
 # System Options
 
 Wi-Fi, remote access and the password are set in the standard Raspberry Pi
