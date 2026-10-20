@@ -954,6 +954,9 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         time.sleep(2)
         assert subprocess.run(tool + ["save", url], env=env, timeout=60).returncode == 0
         assert [t["title"] for t in bt.tabs_on(bt.origin(url), bt.pages())] == ["SAVED"]
+        # the watcher stops a tab only once it has seen the server up (a busy
+        # Pi opens it late): give it a few polls on a loaded runner
+        time.sleep(3)
         web.terminate()                       # the demo stops
         web.wait(10)
         assert watcher.wait(30) == 0
