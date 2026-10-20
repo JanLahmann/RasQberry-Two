@@ -766,7 +766,7 @@ def test_rq_count_event_with_rq_umami_0_starts_nothing(tmp_path):
 def _box(tmp_path):
     """Environment for the demo engine: env file and env-config in tmp, stubs."""
     stubs, log = _python_stub(tmp_path)
-    _exe(stubs / "chromium-browser", "#!/bin/sh\nexit 0\n")
+    _exe(stubs / "chromium", "#!/bin/sh\nexit 0\n")
     _exe(stubs / "ping", "#!/bin/sh\nexit 0\n")
     home = tmp_path / "home"
     home.mkdir()

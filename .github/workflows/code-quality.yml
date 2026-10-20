@@ -289,7 +289,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq dash psmisc
-          python -m pip install --quiet pytest
+          python -m pip install --quiet pytest pytest-timeout
 
       - name: Generated pages are up to date
         # The tester page and the reference docs are generated from the code:
@@ -301,5 +301,8 @@ jobs:
       - name: Whole unit suite (advisory)
         # Advisory until it has passed on Linux once (it was run on macOS so
         # far); then drop continue-on-error. About 20 minutes.
+        # A hung test fails after 5 minutes with its traceback, and the step
+        # stops after 35, so the job still ends with a log.
         continue-on-error: true
-        run: python -m pytest tests/unit -q -rs -p no:cacheprovider
+        timeout-minutes: 35
+        run: python -m pytest tests/unit -q -rs -p no:cacheprovider --timeout=300 --timeout-method=thread
