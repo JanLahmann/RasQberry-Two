@@ -323,14 +323,19 @@ run_demo_with_controls() {
 
     # Clear any buffered input from stdin before monitoring
     # This prevents accidental immediate skip when launched from desktop icons
-    while read -t 0; do read -t 0.1 -n 1000; done 2>/dev/null
+    # (at the end of input bash 5 says there is input, and the read fails)
+    while read -t 0; do read -t 0.1 -n 1000 || break; done 2>/dev/null
 
     # Monitor for user input while demo runs
     local elapsed=0
     while kill -0 $DEMO_PID 2>/dev/null; do
         # Check for keypress (non-blocking, 1 second timeout). Ctrl+C runs
         # the cleanup trap after the read, not inside it (rq_read_deferred)
-        if rq_read_deferred -t 1 -n 1 key 2>/dev/null; then
+        local rc=0
+        rq_read_deferred -t 1 -n 1 key 2>/dev/null || rc=$?
+        # no input at all (not a timeout): wait instead of spinning
+        if [ "$rc" -gt 0 ] && [ "$rc" -le 128 ]; then sleep 1; fi
+        if [ "$rc" = 0 ]; then
             case "$key" in
                 q|"")  # q or Enter
                     echo ""

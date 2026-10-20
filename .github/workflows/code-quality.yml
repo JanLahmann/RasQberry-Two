@@ -298,11 +298,8 @@ jobs:
           python docs/testing/tester_missions.py --check
           python docs/reference/reference_docs.py --check
 
-      - name: Whole unit suite (advisory)
-        # Advisory until it has passed on Linux once (it was run on macOS so
-        # far); then drop continue-on-error. About 20 minutes.
-        # A hung test fails after 5 minutes with its traceback, and the step
-        # stops after 35, so the job still ends with a log.
-        continue-on-error: true
+      - name: Whole unit suite
+        # About 10 minutes. A hung test fails after 5 minutes with its
+        # traceback, and the step stops after 35, so the job ends with a log.
         timeout-minutes: 35
         run: python -m pytest tests/unit -q -rs -p no:cacheprovider --timeout=300 --timeout-method=thread

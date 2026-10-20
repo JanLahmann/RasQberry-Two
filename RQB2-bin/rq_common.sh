@@ -2796,11 +2796,12 @@ rq_rx_mb() {
     [ -z "$any" ] || echo $((sum / 1000000))
 }
 
-# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
-# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs.
+# RX0: rq_rx_mb before the pull (read by the caller: a background job may
+# start after the first megabytes are in)
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT RX0 &
 _rq_pull_progress() {
-    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
-    rx0=$(rq_rx_mb) || rx0=""
+    local name="$1" mb="$2" parent="$3" rx0="$4" start=$SECONDS now got
     while kill -0 "$parent" 2>/dev/null; do
         got=""
         if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
@@ -2833,7 +2834,7 @@ _rq_pull_progress() {
 # none and asks again.
 # Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result rx0
     local old_int
     RQ_DOCKER_PULLED=""
     [ "$fallback" = "$image" ] && fallback=""
@@ -2847,7 +2848,8 @@ rq_docker_pull() {
         start=$SECONDS
         # The line comes from a helper beside the pull, which stays in the
         # foreground so that Ctrl+C stops it; the helper ends with this shell
-        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        rx0=$(rq_rx_mb) || rx0=""
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" "$rx0" &
         printer=$!
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
         kill "$printer" 2>/dev/null || true
