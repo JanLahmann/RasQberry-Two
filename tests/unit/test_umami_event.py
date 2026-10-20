@@ -1080,7 +1080,8 @@ echo "sudo counted=${{RQ_DEMO_COUNTED:-}}" >> "{tmp_path}/sudo.log"
 while [ "$1" = "-E" ] || [ "${{1#*=}}" != "$1" ]; do [ "$1" = "-E" ] || export "$1"; shift; done
 FAKE_UID=0 exec "$@"
 ''')
-    env.update(RQ_DEMO_HOW="desktop", SUDO_USER=os.environ.get("USER", "rasqberry"))
+    # root is only faked here: on Linux the LED sandbox (unshare) needs a real one
+    env.update(RQ_DEMO_HOW="desktop", SUDO_USER=os.environ.get("USER", "rasqberry"), RQ_LED_AS_ROOT="1")
     proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_run.sh"), "test-led"], env=env,
                           capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL)
     assert "RAN uid 0" in proc.stdout, proc.stdout + proc.stderr
