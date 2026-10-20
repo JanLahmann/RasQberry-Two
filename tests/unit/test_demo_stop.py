@@ -235,10 +235,10 @@ def test_launchers_without_their_own_enter_use_the_runner():
 def test_exit_traps_stop_the_demo_before_the_leds_are_cleared():
     common = _read("RQB2-bin", "rq_common.sh")
     led_exit = common[common.index("_rq_led_on_exit() {"):]
-    assert led_exit.index("rq_stop_demo_child") < led_exit.index("led_clear_quietly")
+    assert led_exit.index("rq_stop_demo_child") < led_exit.index("rq_led_release_panel")
     run = _read("RQB2-bin", "rq_demo_run.sh")
     cleanup = run[run.index("cleanup() {"):]
-    assert cleanup.index("rq_stop_demo_child") < cleanup.index("led_clear_quietly")
+    assert cleanup.index("rq_stop_demo_child") < cleanup.index("rq_led_release_panel")
 
 
 def test_only_raspberry_tie_on_a_real_backend_keeps_the_keyboard():
@@ -652,12 +652,12 @@ def test_session_keeps_the_homepage_next_to_the_icons_on_a_large_screen(tmp_path
     monkeypatch.setattr(ds, "layout_desktop", lambda size, touch: False)
     monkeypatch.setattr(ds, "ensure_quick_exec", lambda: False)
     monkeypatch.setattr(ds, "online", lambda: True)
-    monkeypatch.setattr(ds, "env_value", lambda key, default="": default)
+    monkeypatch.setattr(ds, "env_value", lambda key, default="", **_: default)
     monkeypatch.setattr(ds.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
     monkeypatch.setenv("RQ_BROWSER_DELAY", "0")
     assert ds.main([]) == 0
     assert rules == [False]                                   # the x=480 rule stays on
-    assert started == [["/usr/bin/chromium", "--window-size=1070,1005", ds.HOMEPAGE]]
+    assert started == [["/usr/bin/chromium", "--window-size=1070,1005", ds.start_url()]]
 
 
 def test_first_login_saves_the_placement_next_to_the_icons():
@@ -1141,7 +1141,7 @@ def test_a_program_in_front_ends_without_a_terminated_line():
     assert "Terminated" in plain            # what the loop showed
     assert "Terminated" not in front, front
     for launcher in ("rq_led_ibm_demo.sh", "rq_rasq_led.sh"):
-        assert "\nrq_run_in_front python3 " in open(os.path.join(_BIN, launcher)).read(), launcher
+        assert "\nrq_run_in_front rq_led_as_user python3 " in open(os.path.join(_BIN, launcher)).read(), launcher
 
 
 
@@ -1160,3 +1160,88 @@ def test_a_launcher_started_by_the_engine_does_not_repeat_the_name():
                      "rq_doqumentation.sh"):
         text = open(os.path.join(_BIN, launcher)).read()
         assert "rq_demo_header " in text and 'echo "=== ' not in text, launcher
+
+
+# --- "Stop It" while the stopped LED demo's launcher ends (review C3) -------------
+# The new demo's launcher stops the old demo and the renderer and starts the
+# renderer again; the old launcher's cleanup comes up to 2 s later. It stopped
+# the new demo's renderer and cleared its panel (Pi 4: dark for the whole run).
+
+@pytest.fixture
+def renderer(tmp_path):
+    """Stub systemctl (with state) and a root id; returns (env, log, state, owner)."""
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "calls.log"
+    state = tmp_path / "renderer.active"
+    _exe(stubs / "systemctl", f'#!/bin/sh\necho "systemctl $*" >> "{log}"\n'
+                              'case "$1" in\n'
+                              f'  is-active) [ -f "{state}" ]; exit $? ;;\n'
+                              f'  start) touch "{state}" ;;\n'
+                              f'  stop) rm -f "{state}" ;;\n'
+                              'esac\nexit 0\n')
+    real_id = shutil.which("id")
+    _exe(stubs / "id", f'#!/bin/sh\n[ "$*" = "-u" ] && {{ echo 0; exit 0; }}\nexec "{real_id}" "$@"\n')
+    owner = tmp_path / "renderer.owner"
+    env = {"PATH": f"{stubs}:{os.environ['PATH']}", "RQ_LED_RENDERER_OWNER": str(owner)}
+    return env, log, state, owner
+
+
+def _launcher(tmp_path, env, body):
+    """Run BODY after rq_common.sh, with the panel's holders read from a file."""
+    holders = tmp_path / "holders"
+    script = (f'. "{_COMMON}"\n'
+              f'led_holders() {{ cat "{holders}" 2>/dev/null || true; }}\n'
+              f'led_clear_quietly() {{ echo clear >> "{tmp_path / "calls.log"}"; }}\n'
+              + body)
+    return subprocess.run(["bash", "-c", script], env=dict(os.environ, **env),
+                          capture_output=True, text=True, timeout=30)
+
+
+@needs_bash
+def test_a_launcher_stops_its_renderer_and_clears(tmp_path, renderer):
+    env, log, state, owner = renderer
+    proc = _launcher(tmp_path, env, 'rq_led_renderer_start\n'
+                                    'echo "token=$RQ_LED_RENDERER_STARTED"\n'
+                                    'rq_led_release_panel\n')
+    assert proc.returncode == 0, proc.stderr
+    assert re.search(r"token=\d+\.\d+", proc.stdout)
+    calls = log.read_text().splitlines()
+    assert calls.index("systemctl start rasqberry-led-renderer.service") \
+        < calls.index("systemctl stop rasqberry-led-renderer.service") < calls.index("clear")
+    assert not state.exists() and not owner.exists()
+
+
+@needs_bash
+def test_the_stopped_demos_launcher_leaves_the_new_demos_renderer_and_panel(tmp_path, renderer):
+    env, log, state, owner = renderer
+    # B: "Stop It" stopped A's program and the renderer, started its own
+    # renderer, and its demo holds the panel
+    other = (f'bash -c \'. "{_COMMON}"; systemctl stop rasqberry-led-renderer.service; '
+             'rq_led_renderer_start; echo "$RQ_LED_RENDERER_STARTED" > "$1"\' _ '
+             f'"{tmp_path / "b.token"}"\n'
+             f'echo "4242 IBM LED Demo" > "{tmp_path / "holders"}"\n')
+    proc = _launcher(tmp_path, env, 'rq_led_renderer_start\n' + other + 'rq_led_release_panel\n')
+    assert proc.returncode == 0, proc.stderr
+    calls = log.read_text().splitlines()
+    assert calls.count("systemctl start rasqberry-led-renderer.service") == 2
+    after_b = calls[len(calls) - 1 - calls[::-1].index("systemctl start rasqberry-led-renderer.service"):]
+    assert "systemctl stop rasqberry-led-renderer.service" not in after_b
+    assert "clear" not in calls
+    assert state.exists()
+    assert owner.read_text() == (tmp_path / "b.token").read_text()
+
+
+@needs_bash
+def test_a_renderer_that_ran_already_is_left_running(tmp_path, renderer):
+    env, log, state, owner = renderer
+    state.touch()                     # always on, or another launcher's
+    proc = _launcher(tmp_path, env, 'rq_led_renderer_start\n'
+                                    'echo "token=$RQ_LED_RENDERER_STARTED"\n'
+                                    'rq_led_release_panel\n')
+    assert proc.returncode == 0, proc.stderr
+    assert "token=\n" in proc.stdout
+    calls = log.read_text().splitlines()
+    assert "systemctl start rasqberry-led-renderer.service" not in calls
+    assert "systemctl stop rasqberry-led-renderer.service" not in calls
+    assert state.exists() and not owner.exists()

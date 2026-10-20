@@ -13,7 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-# Ensure running as root (PWM/PIO LED drivers require GPIO access)
+# Root for the panel check, the Pi 4 renderer and clearing; the LED program
+# itself runs as the user in a sandbox (rq_led_as_user)
 ensure_root "$@"
 
 # Load environment and verify required variables
@@ -30,4 +31,5 @@ activate_venv || warn "Virtual environment not available, continuing anyway..."
 info "Starting RasQ-LED Quantum Circuit Demo..."
 # Not exec: the EXIT trap clears the panel when the window is closed (R-158)
 rq_led_clear_on_exit
-rq_run_in_front python3 "$BIN_DIR/RasQ-LED.py"
+rq_led_user_prepare
+rq_run_in_front rq_led_as_user python3 "$BIN_DIR/RasQ-LED.py"

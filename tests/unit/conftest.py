@@ -17,3 +17,8 @@ os.environ["RQ_UMAMI_URL"] = "http://127.0.0.1:9/no-real-umami-in-tests"
 # Tests of the helper itself use a browser they start.
 os.environ["RQ_BROWSER_CDP_PORT"] = "9"
 os.environ["RQ_BROWSER_FIND_WAIT"] = "1"
+
+# No test may fetch the real demo catalogue (rq_catalogue.py) or read a
+# catalogue cached on this machine
+os.environ["RQ_CATALOGUE_URL"] = "http://127.0.0.1:9/no-real-catalogue-in-tests"
+os.environ["RQ_CATALOGUE_CACHE_DIR"] = "/nonexistent/rq-catalogue-cache"

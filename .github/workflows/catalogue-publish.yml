@@ -1,0 +1,94 @@
+# Publish the demo catalogue to the website: https://rasqberry.org/known-demos.json
+#
+# Pis fetch it once a day (rq_catalogue.py) and use it when its
+# catalogue_version is higher than their image's, so new catalogue demos and
+# new pins reach them without an image update. Merging a change of
+# RQB2-config/known-demos.json into development publishes it.
+#
+# Checks first: the file must be one a Pi takes (rq_catalogue.py --check), and
+# a changed catalogue must have a higher catalogue_version than the published
+# one (a Pi ignores a list that is not newer).
+
+name: Publish demo catalogue
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'RQB2-config/known-demos.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: catalogue-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Only development's catalogue: a manual run on another branch would
+    # publish that branch's, without the merge (review B9)
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out development
+        uses: actions/checkout@v7
+        with:
+          path: dev
+
+      - name: Check the catalogue
+        id: check
+        run: |
+          python3 dev/RQB2-bin/rq_catalogue.py --check dev/RQB2-config/known-demos.json
+          new=$(jq -r '.catalogue_version' dev/RQB2-config/known-demos.json)
+          code=$(curl -s -o published.json -w '%{http_code}' https://rasqberry.org/known-demos.json || true)
+          if [ "$code" = "200" ] && jq empty published.json 2>/dev/null; then
+            old=$(jq -r '.catalogue_version // 0' published.json)
+          else
+            old=0
+          fi
+          echo "development: $new, published: $old"
+          if [ "$code" = "200" ] && cmp -s <(jq -S . dev/RQB2-config/known-demos.json) <(jq -S . published.json 2>/dev/null); then
+            echo "Already published"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "$new" -gt "$old" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::known-demos.json changed, but its catalogue_version ($new) is not higher than the published one ($old): raise it by one"
+            exit 1
+          fi
+
+      - name: Check out gh-pages
+        if: steps.check.outputs.publish == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: Commit to gh-pages
+        if: steps.check.outputs.publish == 'true'
+        working-directory: site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp ../dev/RQB2-config/known-demos.json public/known-demos.json
+          git add public/known-demos.json
+          if git diff --staged --quiet; then
+            echo "No change on gh-pages"
+            exit 0
+          fi
+          git commit -m "Demo catalogue $(jq -r .catalogue_version public/known-demos.json) from development ${GITHUB_SHA::8}"
+          for i in 1 2 3; do
+            git push origin gh-pages && exit 0
+            echo "Push failed (attempt $i), pulling and retrying..."
+            git pull --rebase origin gh-pages
+          done
+          exit 1
+
+      - name: Deploy the website
+        if: steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "Deploy Next.js site to Pages" --ref gh-pages --repo "$GITHUB_REPOSITORY"

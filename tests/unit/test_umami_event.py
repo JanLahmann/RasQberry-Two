@@ -178,7 +178,7 @@ def test_payload_shape(pi):
                                             "card": "standard", "imager": "no",
                                             "serial": SERIAL, "hostname": PI_HOSTNAME})
     assert body == {"type": "event", "payload": {
-        "website": "97f347ac-e7ba-4be3-b26f-ab4b328bdbf2", "hostname": "rasqberry.org",
+        "website": "97f347ac-e7ba-4be3-b26f-ab4b328bdbf2", "hostname": "device.rasqberry.org",
         "url": "/pi/first-start", "name": "RasQberry Two: first start", "language": "en",
         "data": {"version": BETA, "stream": "beta", "model": "pi5-8gb", "card": "standard",
                  "imager": "no"}}}
@@ -277,7 +277,7 @@ def test_no_identifiers_in_any_event(pi, monkeypatch):
     for r in pi.umami.requests:
         payload = r["body"]["payload"]
         assert set(r["body"]) == {"type", "payload"} and set(payload) == PAYLOAD_KEYS
-        assert payload["hostname"] == "rasqberry.org"
+        assert payload["hostname"] == "device.rasqberry.org"
         event = payload["name"].split(": ", 1)[1]
         assert set(payload["data"]) <= set(pi.DATA_KEYS[event])
         assert not FORBIDDEN_KEYS & set(keys(r["body"]))

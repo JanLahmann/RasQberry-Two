@@ -153,6 +153,11 @@ The validation suite runs automatically on GitHub Actions for:
 - Does NOT fail the build
 - Provides improvement suggestions
 
+#### Unit tests (job `unit-tests`)
+- The generated tester page and reference docs must be up to date
+  (`tester_missions.py --check`, `reference_docs.py --check`): required
+- The whole `tests/unit` suite: advisory until it has passed on Linux once
+
 ### Running Locally
 
 Before pushing code, run the full validation suite:

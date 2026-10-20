@@ -1,0 +1,23 @@
+#!/bin/bash
+# RasQberry: the Wi-Fi hotspot's companions follow the network (rq_hotspot.sh)
+#
+# NetworkManager runs this as root with <interface> <action> after a change.
+# "rq_hotspot.sh sync" looks at the real state: the hotspot's firewall rules,
+# Entangible's address, the landing page and its DNS go when the hotspot went
+# down by any way (the desktop's network menu, a failure) - left behind they
+# sent phones on the next network to 10.42.0.1 (review C1) - and come when it
+# came up; a cable plugged in or pulled while it runs restarts it, so its DNS
+# fits (review A7).
+#
+# Not here and now: sync waits for an "on" or "off" still running (a lock),
+# and their own up/down events come here too. A transient unit, so the
+# dispatcher is not held up.
+
+HOTSPOT="${RQ_HOTSPOT_BIN:-/usr/bin/rq_hotspot.sh}"   # (tests)
+
+case "${2:-}" in up|down) ;; *) exit 0 ;; esac
+case "${1:-}" in lo|veth*) exit 0 ;; esac
+[ -x "$HOTSPOT" ] || exit 0
+systemd-run --no-block --quiet --collect "$HOTSPOT" sync >/dev/null 2>&1 \
+    || "$HOTSPOT" sync >/dev/null 2>&1 || true
+exit 0

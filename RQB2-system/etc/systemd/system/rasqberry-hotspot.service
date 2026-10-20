@@ -1,0 +1,18 @@
+[Unit]
+Description=RasQberry Wi-Fi hotspot (when HOTSPOT_AT_BOOT=yes)
+# Also takes rasqberry-hotspot.txt from the boot partition (settings put there
+# after flashing). The hotspot itself is a NetworkManager profile.
+# After network-online: a cable's address is there, so the hotspot shares it
+# instead of sending every name to its landing page (review A7). rq_hotspot.sh
+# waits for the Wi-Fi device and tries three times (review A6).
+After=NetworkManager.service rasqberry-boot-config.service network-online.target
+Wants=NetworkManager.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rq_hotspot.sh boot
+RemainAfterExit=no
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

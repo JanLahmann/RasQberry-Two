@@ -1,8 +1,9 @@
 # AB Boot Validation Results
 
-> This is the validation record. For how to set up and use A/B boot - starting
-> with the partition expansion that a freshly flashed image **requires** - see
-> [ab-boot.md](ab-boot.md).
+> This is the validation record of 2025-12-31. For how to set up and use A/B
+> boot see [ab-boot.md](ab-boot.md). The manual expansion below was needed then;
+> current images lay out the card by themselves at the first start (ab-boot.md,
+> "First boot").
 
 ## Validation Complete (2025-12-31)
 
@@ -65,8 +66,9 @@ When populating Slot B, use the **AB image** (`-ab.img.xz`), not the standard im
 # Check status
 sudo rq_slot_manager.sh status
 
-# Expand partitions (first time on 64GB+ SD)
-sudo raspi-config  # -> RasQberry -> AB_BOOT -> EXPAND
+# Expand partitions by hand (only cards written from images before the
+# automatic layout, or with no-auto-expand on CONFIG)
+sudo rq_expand_ab.sh apply --yes
 
 # Populate Slot B with AB image
 sudo rq_update_slot.sh <ab-image-url> <release-tag>

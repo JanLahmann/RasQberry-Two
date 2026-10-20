@@ -18,7 +18,7 @@
     {
       "id": "projects",
       "title": "Big projects",
-      "menu": "Qoffee-Maker, Quantum Mixer",
+      "menu": "Qoffee-Maker, Quantum Mixer, Entangible",
       "description": "Larger builds that show what quantum computing can drive.",
       "icon": "group-projects.svg"
     },

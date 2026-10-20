@@ -111,6 +111,7 @@ makes the Pi yours (`rq_carry_over.sh list` prints it):
 | Raspberry Pi Connect: its sign-in (`~/.config/com.raspberrypi.connect`) and, where it was on, its user units and linger | copied once, like the line above, where the new system has Connect installed |
 | Quantum Mixer's Home Connect settings (`~/.config/rasqberry/home-connect.env`, mode 600) | copied once, unread, like the line above |
 | SSH host keys, `authorized_keys` | copied at update time (`rq_carry_ssh_identity.sh`) |
+| Entangible's downloads (web app, Python packages, uv) | cached on DATA (`/data/rasqberry/cache/entangible`, owned by the desktop user, made by its launcher), so its install after an update needs no network; the demo itself is downloaded again |
 
 Not kept: other files in the home folder, installed demos, Docker images, added
 Python packages. Docker images stay in each slot (`/var/lib/docker` is part of
@@ -402,7 +403,8 @@ failure without writing anything.
 
 ## Usage counts (Umami)
 
-The Pi sends anonymous counts to the Umami website that rasqberry.org uses
+The Pi sends anonymous counts to the Umami website that rasqberry.org uses,
+under the hostname `device.rasqberry.org` so they stay apart from website visits
 ([`rq_umami_event.py`](../RQB2-bin/rq_umami_event.py)), on the standard image
 too. There is no opt-in and no dialog. Each event has a fixed list of data keys;
 never a serial number, machine-id, hostname, IP address or user name. One POST

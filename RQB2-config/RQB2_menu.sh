@@ -40,6 +40,13 @@ ENV_CONFIG_FILE="${RQ_CONFIG_FILE:-/usr/config/rasqberry_env-config.sh}"
 # whatever raspi-config had set - or not set - across every load.
 _rq_load_env() {
     [ -f "$ENV_CONFIG_FILE" ] || return 1
+    # A hotspot name or password in the env file, written there unquoted by
+    # an older version: "Booth (Hall 3)" stopped raspi-config right here at
+    # every start (review D1). They have their own file now; move them first.
+    if [ -x /usr/bin/rq_hotspot.sh ] && [ "$(id -u)" = 0 ] \
+        && grep -qE '^HOTSPOT_(SSID|PASSWORD)=.' "${RQ_ENV_FILE:-/usr/config/rasqberry_environment.env}" 2>/dev/null; then
+        /usr/bin/rq_hotspot.sh migrate >/dev/null 2>&1 || :
+    fi
     _rq_sv_int="${INTERACTIVE-_rq_unset_}"
     _rq_sv_atr="${ASK_TO_REBOOT-_rq_unset_}"
     _rq_sv_cfg="${CONFIG-_rq_unset_}"
@@ -346,13 +353,15 @@ clone_ibm_learning_content() {
     [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
     # Only what the demos use (#18): in cone mode git also checks out every
     # file at the top of the repository (package.json, tox.ini ...), and the
-    # notebooks' file browser showed those first. The same list as
+    # notebooks' file browser showed those first. The pictures come along
+    # (public/...: in the download anyway, ~70 MB on the card); the WELCOME
+    # step makes the notebooks show them. The same list as
     # RQ_IBM_LEARNING_PATHS in rq_common.sh.
     if ! _rq_as_desktop_user sh -c '
         cd "$1" &&
         git init -q &&
         git remote add origin "$2" &&
-        git sparse-checkout set --no-cone /docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /LICENSE /LICENSE-DOCS &&
+        git sparse-checkout set --no-cone /docs/tutorials/ /docs/guides/hello-world.ipynb /learning/courses/ /public/learning/images/courses/ /public/docs/images/tutorials/ /public/docs/images/guides/hello-world/ /LICENSE /LICENSE-DOCS &&
         git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 fetch -q --depth=1 origin "$3" &&
         git checkout -q FETCH_HEAD' _ "$DEST" "$GIT_REPO_DEMO_IBM_LEARNING" "$_ibm_ref" \
         || ! _rq_ibm_content_ok "$DEST"; then
@@ -1016,10 +1025,18 @@ do_select_environment_variable() {
 # 'a&b' became 'aLED_LAYOUT=...b' (R-093). awk takes the key and value
 # from the environment, so no character in them is special. The new file is
 # written next to the old one and renamed over it, so a full disk cannot leave
-# a half-written file behind.
+# a half-written file behind. raspi-config loads the file as shell code: a
+# value with a space, quote, $, ( or & goes in single quotes (review D1: an
+# unquoted "Booth (Hall 3)" stopped raspi-config at every start).
 _rq_env_write() {
     _ew_dir=$(dirname "$ENV_FILE")
-    _ew_prog='BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = ENVIRON["RQ_EW_VALUE"]; done = 0 }
+    _ew_prog='function q(v,   out, i) {
+            if (v ~ "^[A-Za-z0-9_./:,@%+=-]*$") return v
+            out = "\047"
+            while ((i = index(v, "\047")) > 0) { out = out substr(v, 1, i - 1) "\047\"\047\"\047"; v = substr(v, i + 1) }
+            return out v "\047"
+        }
+        BEGIN { k = ENVIRON["RQ_EW_KEY"]; v = q(ENVIRON["RQ_EW_VALUE"]); done = 0 }
         index($0, k "=") == 1 { print k "=" v; done = 1; next }
         { print }
         END { if (!done) print k "=" v }'
@@ -1057,10 +1074,10 @@ update_environment_file () {
       "Could not save $1 to $ENV_FILE (is the SD card full?)." 9 78
     return 1
   fi
-  # LED settings also go to the store both A/B slots share (#290)
+  # Device settings also go to the store both A/B slots share (#290)
   case "$1" in
     *_INSTALLED) ;;
-    LED_*|RASQ_LED_*)
+    LED_*|RASQ_LED_*|RQ_AUDIO_DELAY_MS|HOTSPOT_*)
       if [ "$(id -u)" = "0" ]; then /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
       else sudo /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true; fi ;;
   esac
@@ -1735,6 +1752,8 @@ do_led_output_menu() {
     PYTHONPATH="${BIN_DIR}:${PYTHONPATH:-}" python3 -c \
       'import rq_led_utils; rq_led_utils._ensure_virtual_led_web_running()' 2>/dev/null || true
     lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    # devices on the Wi-Fi hotspot reach the Pi at its address
+    [ "$(hotspot_state)" = on ] && lan_ip=10.42.0.1
     [ -z "$lan_ip" ] && lan_ip="<pi-ip>"
     whiptail --title "LED Browser View" --msgbox \
       "Browser view enabled.\n\nOpen from any device on the network:\n  http://${lan_ip}:${web_port}\n\nThe view updates whenever an LED demo runs.\nRestart a running demo for target changes to take effect." \
@@ -2608,22 +2627,221 @@ do_toggle_browser_autostart() {
     return 0
 }
 
-# Desktop settings: touch mode and the browser at login, off the main menu
-# (item 4)
+# The sound delay (RQ_AUDIO_DELAY_MS): how long the LEDs of a demo with sound
+# wait for the speaker. Bluetooth speakers play 100-300 ms late. POSIX sh
+# (dash): the same check as rq_audio_delay_ms in rq_common.sh.
+_rq_audio_delay_ok() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    [ "${#1}" -le 4 ] && [ "$(expr "$1" + 0)" -le 2000 ]
+}
+
+audio_delay_ms() {
+    if _rq_audio_delay_ok "${RQ_AUDIO_DELAY_MS:-}"; then expr "$RQ_AUDIO_DELAY_MS" + 0; else echo 0; fi
+}
+
+do_audio_delay() {
+    _ad_cur=$(audio_delay_ms)
+    _ad_how=$(show_menu "Sound delay" \
+        "Now: $_ad_cur ms. How long the LEDs of demos with sound wait for the speaker (Bluetooth speakers play 100-300 ms late)." \
+        CAL "Calibrate: a tick and a flash, adjust until they match" \
+        SET "Type the number of milliseconds") || return 0
+    if [ "$_ad_how" = CAL ]; then
+        clear
+        _ad_rc=0
+        "$BIN_DIR/rq_audio_delay_calibrate.sh" || _ad_rc=$?
+        # 130: stopped with Ctrl+C, the script said so - not an error
+        [ "$_ad_rc" = 0 ] || [ "$_ad_rc" = 130 ] \
+            || handle_error "The sound delay could not be calibrated."
+        _rq_load_env
+        printf '\nPress Enter to return to the menu.'
+        read -r _ad_x || :
+        return 0
+    fi
+    _ad_new=$(whiptail --title "Sound delay" --inputbox \
+        "How many milliseconds should the LEDs wait for the speaker, in demos with sound?\n\nBluetooth speakers play 100-300 ms late; a wired or HDMI speaker needs 0. Start a demo with sound and raise the value until the LEDs and the voice match.\n\nMilliseconds (0-2000):" \
+        15 70 "$_ad_cur" 3>&1 1>&2 2>&3) || return 0
+    _ad_new=$(printf '%s' "$_ad_new" | tr -d ' ')
+    if ! _rq_audio_delay_ok "$_ad_new"; then
+        whiptail --title "Sound delay" --msgbox "Please enter a whole number from 0 to 2000. The sound delay stays at $_ad_cur ms." 8 70
+        return 0
+    fi
+    _ad_new=$(expr "$_ad_new" + 0)
+    update_environment_file "RQ_AUDIO_DELAY_MS" "$_ad_new" || return 0
+    whiptail --title "Sound delay" --msgbox "Sound delay: $_ad_new ms. It applies from the next start of a demo." 8 70
+    return 0
+}
+
+# Desktop settings: touch mode, the browser at login and the sound delay, off
+# the main menu (item 4)
 do_desktop_settings_menu() {
     _ds_last=""
     while true; do
         _ds_touch=$("$BIN_DIR/rq_touch_mode.sh" status --quiet 2>/dev/null) || _ds_touch=""
         case "$_ds_touch" in enabled) _ds_touch=on ;; disabled|"") _ds_touch=off ;; esac
         FUN=$(show_menu ${_ds_last:+--default-item "$_ds_last"} "RasQberry: Desktop Settings" \
-            "How the desktop looks and what it opens at login." \
+            "How the desktop looks, what it opens at login, and sound." \
             TOUCH   "Touch mode (bigger icons and buttons): $_ds_touch" \
-            BROWSER "Browser at login (rasqberry.org): $(browser_autostart_state)") || break
+            BROWSER "Browser at login (rasqberry.org): $(browser_autostart_state)" \
+            DELAY   "Sound delay (Bluetooth speaker): $(audio_delay_ms) ms") || break
         _ds_last="$FUN"
         case "$FUN" in
             TOUCH)   do_touch_mode_menu          || continue ;;
             BROWSER) do_toggle_browser_autostart || continue ;;
+            DELAY)   do_audio_delay              || continue ;;
             *)       break ;;
+        esac
+    done
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+# Wi-Fi hotspot (rq_hotspot.sh): the Pi's own Wi-Fi for booths and classrooms
+# -----------------------------------------------------------------------------
+hotspot_state() {
+    if nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx rasqberry-hotspot; then
+        echo on
+    else
+        echo off
+    fi
+}
+
+# _rq_hs_set KEY VALUE: save a hotspot setting (an empty value means the default)
+_rq_hs_set() {
+    _rq_env_write "$1" "$2" || {
+        whiptail --title "Wi-Fi hotspot" --msgbox "Could not save $1 (is the SD card full?)." 8 70
+        return 1
+    }
+    /usr/bin/rq_device_settings.sh save >/dev/null 2>&1 || true
+    _rq_load_env
+}
+
+# A changed setting applies at once while the hotspot runs (devices rejoin)
+_rq_hs_restart() {
+    [ "$(hotspot_state)" = on ] || return 0
+    "$BIN_DIR/rq_hotspot.sh" on >/dev/null 2>&1 \
+        || whiptail --title "Wi-Fi hotspot" --msgbox "The hotspot did not start again with the new setting. Try \"Hotspot\" off and on." 9 70
+}
+
+_rq_hs_pause() {
+    printf '\nPress Enter to return to the menu.'
+    read -r _hs_x || :
+}
+
+do_hotspot_toggle() {
+    if [ "$(hotspot_state)" = on ]; then
+        clear
+        "$BIN_DIR/rq_hotspot.sh" off
+        _rq_hs_pause
+        return 0
+    fi
+    # A radio is either hotspot or client: say what is lost when the one the
+    # hotspot takes is this Pi's Wi-Fi connection (rq_hotspot.sh picks an
+    # idle one when there are two)
+    _hs_dev=$("$BIN_DIR/rq_hotspot.sh" iface 2>/dev/null)
+    _hs_client=$(nmcli -t -f DEVICE,STATE,CONNECTION device 2>/dev/null \
+        | awk -F: -v d="$_hs_dev" '$1 == d && $2 == "connected" && $3 != "rasqberry-hotspot" { print $3; exit }')
+    if [ -n "$_hs_client" ]; then
+        whiptail --title "Wi-Fi hotspot" --yesno \
+            "The Wi-Fi leaves \"$_hs_client\" while the hotspot runs: one Wi-Fi cannot be both.\n\nIf you reach this Pi over that Wi-Fi (SSH, VNC, Connect), that connection ends. A network cable or a USB Wi-Fi adapter keeps the Pi online.\n\nStart the hotspot?" \
+            14 72 || return 0
+    fi
+    clear
+    "$BIN_DIR/rq_hotspot.sh" on || handle_error "The hotspot could not be started."
+    _rq_hs_pause
+}
+
+# Name and password live in a root-only file of their own, not in the env
+# file (review D1/D5): rq_hotspot.sh reads them (get) and checks and saves
+# both or neither (set, the values on stdin - not in a command line that
+# every user could read)
+do_hotspot_name() {
+    _hs_name=$(whiptail --title "Wi-Fi hotspot" --inputbox \
+        "Name of the hotspot (up to 32 characters). Empty: RasQberry-XXXX, from this Pi's Wi-Fi address." \
+        10 70 "$("$BIN_DIR/rq_hotspot.sh" get HOTSPOT_SSID 2>/dev/null)" 3>&1 1>&2 2>&3) || return 0
+    _hs_pw=$(whiptail --title "Wi-Fi hotspot" --inputbox \
+        "Password: 8 to 63 characters - letters, digits, spaces and punctuation, without accents. Empty: a new random one." \
+        10 70 "$("$BIN_DIR/rq_hotspot.sh" get HOTSPOT_PASSWORD 2>/dev/null)" 3>&1 1>&2 2>&3) || return 0
+    if ! _hs_err=$(printf '%s\n%s\n' "$_hs_name" "$_hs_pw" \
+            | "$BIN_DIR/rq_hotspot.sh" set HOTSPOT_SSID HOTSPOT_PASSWORD 2>&1 >/dev/null); then
+        _hs_pw=""
+        whiptail --title "Wi-Fi hotspot" --msgbox "${_hs_err##*ERROR: }\n\nName and password stay as they were." 10 70
+        return 0
+    fi
+    _hs_pw=""
+    _rq_hs_restart
+    clear
+    "$BIN_DIR/rq_hotspot.sh" qr
+    _rq_hs_pause
+}
+
+# SSH and VNC from devices on the hotspot (review A2): its password is on a
+# public card. auto (the default; Jan, 2026-10-17) allows them only once no
+# account that can use sudo has the published default password any more
+# (rq_hotspot.sh admin: on|off, then why); no and yes override it.
+_rq_hs_admin_label() {
+    case "${HOTSPOT_ALLOW_ADMIN:-auto}" in
+        yes|no) printf '%s' "$HOTSPOT_ALLOW_ADMIN" ;;
+        *) if [ "$("$BIN_DIR/rq_hotspot.sh" admin 2>/dev/null | head -n 1)" = on ]; then
+               printf 'auto: on (password changed)'
+           else
+               printf 'auto: off - change the password to allow'
+           fi ;;
+    esac
+}
+
+do_hotspot_admin() {
+    _ha_now="${HOTSPOT_ALLOW_ADMIN:-auto}"
+    case "$_ha_now" in yes|no) ;; *) _ha_now=auto ;; esac
+    _ha_eff=$("$BIN_DIR/rq_hotspot.sh" admin 2>/dev/null) || _ha_eff=""
+    _ha_why=$(printf '%s\n' "$_ha_eff" | sed -n 2p)
+    if [ "$(printf '%s\n' "$_ha_eff" | head -n 1)" = on ]; then
+        _ha_text="Now: allowed (${_ha_why})."
+    else
+        _ha_text="Now: blocked (${_ha_why:-unknown})."
+        [ "$_ha_now" = auto ] && _ha_text="$_ha_text\nChange the password (RasQberry > Remote Access & Security) to allow them."
+    fi
+    _ha_new=$(show_menu --default-item "$_ha_now" "Wi-Fi hotspot: SSH and VNC" \
+        "Can devices on the hotspot log in to this Pi over SSH and VNC? The hotspot's password is on the join card: anyone who joins can try.\n\n$_ha_text" \
+        auto "auto: only once the default password is changed (recommended)" \
+        no   "no: never" \
+        yes  "yes: always, even with the default password") || return 0
+    [ "$_ha_new" != "$_ha_now" ] || return 0
+    if [ "$_ha_new" = yes ]; then
+        whiptail --title "Wi-Fi hotspot" --defaultno --yesno \
+            "Anyone who joins the hotspot - its password is on the join card - can then try to log in to this Pi over SSH or VNC, even while it still has the published default password.\n\nauto allows them by itself once the password is changed (RasQberry > Remote Access & Security).\n\nAlways allow SSH and VNC from devices on the hotspot?" \
+            15 72 || return 0
+    fi
+    _rq_hs_set HOTSPOT_ALLOW_ADMIN "$_ha_new" || return 0
+    # a running hotspot takes the new rule at once, without a restart
+    "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || :
+}
+
+do_hotspot_menu() {
+    _hs_last=""
+    while true; do
+        case "${HOTSPOT_BAND:-a}" in bg) _hs_band="2.4 GHz" ;; *) _hs_band="5 GHz" ;; esac
+        FUN=$(show_menu ${_hs_last:+--default-item "$_hs_last"} "RasQberry: Wi-Fi Hotspot" \
+            "The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1." \
+            STATE "Hotspot: $(hotspot_state)" \
+            SHOW  "Show name, password and QR code to join" \
+            CARD  "Join card on the screen (to show or print)" \
+            NAME  "Change name and password" \
+            BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
+            SHARE "Share this Pi's internet (cable or USB Wi-Fi): ${HOTSPOT_SHARE_INTERNET:-yes}" \
+            BAND  "Band: $_hs_band" \
+            ADMIN "SSH/VNC from the hotspot: $(_rq_hs_admin_label)") || break
+        _hs_last="$FUN"
+        case "$FUN" in
+            STATE) do_hotspot_toggle ;;
+            SHOW)  clear; "$BIN_DIR/rq_hotspot.sh" qr; _rq_hs_pause ;;
+            CARD)  "$BIN_DIR/rq_hotspot.sh" card >/dev/null 2>&1 \
+                       || whiptail --title "Wi-Fi hotspot" --msgbox "The join card could not be opened. \"Show name, password and QR code\" shows the same in this window." 9 70 ;;
+            NAME)  do_hotspot_name ;;
+            BOOT)  if [ "${HOTSPOT_AT_BOOT:-no}" = yes ]; then _rq_hs_set HOTSPOT_AT_BOOT no; else _rq_hs_set HOTSPOT_AT_BOOT yes; fi ;;
+            SHARE) if [ "${HOTSPOT_SHARE_INTERNET:-yes}" = yes ]; then _rq_hs_set HOTSPOT_SHARE_INTERNET no; else _rq_hs_set HOTSPOT_SHARE_INTERNET yes; fi && _rq_hs_restart ;;
+            BAND)  if [ "${HOTSPOT_BAND:-a}" = bg ]; then _rq_hs_set HOTSPOT_BAND a; else _rq_hs_set HOTSPOT_BAND bg; fi && _rq_hs_restart ;;
+            ADMIN) do_hotspot_admin ;;
+            *)     break ;;
         esac
     done
     return 0
@@ -2662,7 +2880,7 @@ do_ibm_account_show() {
         fi
     done
     if [ -z "$_ia_text" ]; then
-        _ia_text="No IBM Quantum account is saved on this Pi.\n\nEvery demo runs on a simulator without one. For real quantum computers, create your own free account at quantum.cloud.ibm.com, create an API key and save it with \"Save my API key\"."
+        _ia_text="No IBM Quantum account is saved on this Pi.\n\nThe demos run on a simulator without one; most IBM Quantum Tutorials need one. For real quantum computers, create your own free account at quantum.cloud.ibm.com, create an API key and save it with \"Save my API key\"."
     else
         _ia_text="${_ia_text}The API key itself is not shown."
     fi
@@ -2709,7 +2927,7 @@ _rq_ibm_token_tool() {
 do_ibm_account_menu() {
     while true; do
         FUN=$(show_menu "RasQberry: IBM Quantum account" \
-            "Every demo runs on a simulator without an account. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com)." \
+            "The demos run on a simulator without an account; most IBM Quantum Tutorials need one. For real IBM Quantum computers, each student uses their own free account (quantum.cloud.ibm.com)." \
             SAVE   "Save my API key (checked first)" \
             CHECK  "Check the saved account" \
             SHOW   "Show the saved account" \
@@ -2770,6 +2988,8 @@ do_change_password() {
     _cp_rc=$?
     _cp_new=""; _cp_again=""
     if [ "$_cp_rc" -eq 0 ]; then
+        # SSH and VNC from the hotspot follow the password (HOTSPOT_ALLOW_ADMIN=auto)
+        "$BIN_DIR/rq_hotspot.sh" sync >/dev/null 2>&1 || :
         whiptail --title "Change the password" --msgbox \
             "Password changed. Use the new one for ${_cp_for}." 8 72
     else
@@ -2991,8 +3211,9 @@ do_rasqberry_menu() {
     # works on the standard image too; the A/B-only entries inside are hidden
     # there.
     set -- QD "Quantum Demos" SETUP "Setup Checklist" \
-        DESKTOP "Desktop Settings (touch mode, browser at login)" \
+        DESKTOP "Desktop Settings (touch mode, browser at login, sound delay)" \
         IBMQ "IBM Quantum account" REMOTE "Remote Access & Security" \
+        HOTSPOT "Wi-Fi Hotspot (booths and classrooms)" \
         AB_BOOT "Software & Image Updates" INFO "System Info" \
         ADV "Advanced" OFF "Shut Down Safely"
     FUN=$(show_menu ${_main_last:+--default-item "$_main_last"} "RasQberry: Main Menu" \
@@ -3005,6 +3226,7 @@ do_rasqberry_menu() {
       DESKTOP) do_desktop_settings_menu       || continue ;;
       IBMQ)    do_ibm_account_menu            || continue ;;
       REMOTE)  do_remote_access_menu          || continue ;;
+      HOTSPOT) do_hotspot_menu                || continue ;;
       AB_BOOT) do_ab_boot_menu                || continue ;;
       INFO)    do_show_system_info            || continue ;;
       ADV)     do_rasqberry_advanced_menu     || continue ;;

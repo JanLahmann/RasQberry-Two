@@ -30,9 +30,9 @@
   "install": {
     "preinstalled": false,
     "repo_url": "https://github.com/JanLahmann/fun-with-quantum.git",
-    "ref": "8724eee6286baa4ee31b6b10e2a3e3c772ae8202",
-    "portal_ref": "8724eee6286baa4ee31b6b10e2a3e3c772ae8202",
-    "portal_sha256": "5106abe9fd53d0ae307109e9a988843bc98a64ca0f7060cdbfd1b803f93480e1",
+    "ref": "2a68e308bcc4997fc5fd7421efeb3ad144b41bc9",
+    "portal_ref": "ac17a8bab7a72a079503a0ca948007fb0b07021f",
+    "portal_sha256": "d4f4a7b143195cee9a14ba758d16100082dd9aede91d24134574fc075653435d",
     "marker_file": "Quantum-Coin-Game.ipynb",
     "installed_flag": "FUN_WITH_QUANTUM_INSTALLED",
     "download": {

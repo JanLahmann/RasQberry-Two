@@ -88,13 +88,18 @@ def _qrt_added_lines():
 
 
 def test_qrt_pi5_pacing():
-    # Raspberry Tie opens the panel itself (neopixel.NeoPixel), not through
-    # create_neopixel_strip, so it lacked the Pi 5 guard: on kernel 6.18 a
-    # frame written right after another one was lost (rig: QRT-style frames
-    # back to back left the panel dark; with the guard all of it lit)
+    # Raspberry Tie used to open the panel itself (neopixel.NeoPixel) and
+    # lacked the Pi 5 guard: on kernel 6.18 a frame written right after
+    # another one was lost. It now takes its strip from create_neopixel_strip
+    # (it runs as the user, Pi 4 frames go to the renderer), which applies
+    # the guard itself.
     added = _qrt_added_lines()
-    guard = added.index("guard_pi5_led_writes()")
-    assert guard < added.index("neopixel_array = neopixel.NeoPixel(")
+    assert "neopixel_array = create_neopixel_strip(" in added
+    assert "neopixel.NeoPixel(" not in added
+    utils = open(os.path.join(_BIN, "rq_led_utils.py")).read()
+    factory = utils[utils.index("def create_neopixel_strip("):]
+    factory = factory[:factory.index("\ndef ")]
+    assert "guard_pi5_led_writes()" in factory
     # its Ctrl+C handler ends with os._exit, past the exit handlers: the black
     # frame must go out first
     stop = added[added.index("def _rq_stop"):added.index("_rq_signal.signal(")]

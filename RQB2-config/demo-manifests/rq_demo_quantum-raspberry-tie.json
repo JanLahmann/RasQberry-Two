@@ -55,21 +55,21 @@
   "variants": [
     {
       "id": "simulator",
-      "name": "Aer Simulator",
+      "name": "Local simulator (no account needed)",
       "args": [
         "-local"
       ]
     },
     {
       "id": "noise",
-      "name": "Noise Model",
+      "name": "Local simulator with a noise model",
       "args": [
         "-nois"
       ]
     },
     {
       "id": "real",
-      "name": "Real Backend",
+      "name": "Real IBM Quantum computer (IBM Quantum account)",
       "args": [
         "-b:least"
       ],

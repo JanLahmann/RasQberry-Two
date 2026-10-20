@@ -194,10 +194,17 @@ merge_configs() {
 
     # Read global env again and apply overrides
     if [ -f "$GLOBAL_ENV" ]; then
-        while IFS='=' read -r line; do
+        # IFS= (not '='): with '=' as separator, read drops the trailing '=' of
+        # an empty setting ("HOTSPOT_SSID=" became "HOTSPOT_SSID", which the
+        # shell then ran as a command when the file was loaded)
+        while IFS= read -r line; do
             # Skip comments and empty lines
             [[ "$line" =~ ^[[:space:]]*# ]] && echo "$line" && continue
             [[ -z "$line" ]] && echo "$line" && continue
+            # A bare name is never valid here: an empty setting that lost its '='
+            if [[ "$line" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+                line="${line}="
+            fi
 
             # Extract key
             key=$(echo "$line" | cut -d'=' -f1)
@@ -237,6 +244,14 @@ main() {
     if [ ! -f "${GLOBAL_ENV}.original" ]; then
         log "Creating original backup: ${GLOBAL_ENV}.original"
         cp "$GLOBAL_ENV" "${GLOBAL_ENV}.original"
+    fi
+
+    # The hotspot's name and password have their own root-only file: move
+    # them out of the environment file (and out of an older slot's /data
+    # store), where an older version wrote them unquoted - "Booth (Hall 3)"
+    # stopped raspi-config (review D1). First, before anything loads the file.
+    if [ -x /usr/bin/rq_hotspot.sh ]; then
+        /usr/bin/rq_hotspot.sh migrate || error "hotspot name/password migration failed"
     fi
 
     # A freshly flashed A/B slot starts with the shipped defaults: put back

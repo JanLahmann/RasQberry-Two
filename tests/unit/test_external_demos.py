@@ -259,3 +259,88 @@ def test_search_path_degrades_to_shipped_only_without_user_home(tmp_path):
     assert proc.returncode == 0
     listed = [ln for ln in proc.stdout.splitlines() if ln.strip()]
     assert listed == [shipped_file]
+
+
+# ---------------------------------------------------------------------------
+# Review B1: a demo from the user's manifest directory whose files are gone
+# is never cloned unpinned (rq_demo_run.sh install_user_demo)
+# ---------------------------------------------------------------------------
+
+_RUN = os.path.join(_BIN, "rq_demo_run.sh")
+_SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _engine_install(tmp_path, manifest, catalogue_demos):
+    """install_user_demo with a catalogue in use, a stub add-flow and a stub install_demo."""
+    cache = tmp_path / "cache"
+    cache.mkdir(exist_ok=True)
+    (cache / "known-demos.json").write_text(json.dumps({"catalogue_version": 999, "demos": catalogue_demos}))
+    mf = tmp_path / "rq_demo_my-demo.json"
+    mf.write_text(json.dumps(manifest))
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    log = tmp_path / "calls.log"
+    add = bin_dir / "rq_demo_add_external.sh"
+    add.write_text(f'#!/bin/bash\necho "add-flow $* confirmed=$RQ_CONFIRMED_DEMO" >> "{log}"\n')
+    add.chmod(0o755)
+    script = (f'. "{_COMMON}"\n'
+              f'eval "$(sed -n \'/^install_user_demo() {{/,/^}}/p\' "{_RUN}")"\n'
+              f'install_demo() {{ echo "install_demo ref=$(rq_demo_ref my-demo "$MANIFEST_FILE")" >> "{log}"; }}\n'
+              'install_user_demo\n')
+    env = dict(os.environ, RQ_CATALOGUE_CACHE_DIR=str(cache), DEMO_ID="my-demo", DEMO_TITLE="My Demo",
+               MANIFEST_FILE=str(mf), SCRIPT_DIR=str(bin_dir), USER_HOME=str(tmp_path / "home"))
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
+    return proc, (log.read_text() if log.exists() else "")
+
+
+def _user_manifest(**install):
+    m = {"id": "my-demo", "name": "My Demo", "entrypoint": {"type": "python", "working_dir": "my-demo"},
+         "install": dict({"repo_url": "https://github.com/me/my-demo.git", "marker_file": "main.py"}, **install)}
+    return m
+
+
+def test_a_catalogue_demo_comes_back_through_the_add_flow(tmp_path):
+    entry = {"id": "my-demo", "repo_url": "https://github.com/me/my-demo.git", "ref": _SHA}
+    proc, calls = _engine_install(tmp_path, _user_manifest(), [entry])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert calls == "add-flow --update my-demo confirmed=my-demo\n"
+
+
+def test_a_withdrawn_or_renamed_demo_is_not_cloned(tmp_path):
+    m = _user_manifest()
+    m["x-rasqberry-catalogue"] = {"ref": _SHA, "repo_url": m["install"]["repo_url"]}
+    proc, calls = _engine_install(tmp_path, m, [])
+    assert proc.returncode != 0 and "was removed from the demo catalogue" in proc.stdout + proc.stderr
+    assert calls == ""
+    succ = {"id": "new-name", "repo_url": "https://github.com/me/new-name.git", "ref": _SHA,
+            "replaces": ["my-demo"]}
+    proc, calls = _engine_install(tmp_path, m, [succ])
+    assert proc.returncode != 0 and "is now called 'new-name'" in proc.stdout + proc.stderr
+    assert calls == ""
+
+
+def test_a_demo_authors_own_manifest_installs_as_before(tmp_path):
+    # CONTRIBUTING.md: not from the catalogue (no mark, an id it does not know)
+    proc, calls = _engine_install(tmp_path, _user_manifest(ref=_SHA), [])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert calls == f"install_demo ref={_SHA}\n"
+
+
+def test_only_the_shipped_manifests_take_the_old_install_path():
+    text = open(_RUN).read()
+    fn = text[text.index("ensure_installed() {"):text.index("# TYPE-SPECIFIC LAUNCHERS")]
+    assert ('if [ "$MANIFEST_FILE" != "$MANIFEST_DIR/rq_demo_${DEMO_ID}.json" ]; then\n'
+            '            install_user_demo') in fn
+
+
+@pytest.mark.parametrize("launcher", ["../../home/x/evil.sh", "/tmp/evil.sh", ".."])
+def test_a_launcher_is_a_script_name_not_a_path(tmp_path, launcher):
+    # review D2: root reads manifests from the user's directory
+    script = (f'. "{_COMMON}"\n'
+              f'eval "$(sed -n \'/^delegate_launcher() {{/,/^}}/p\' "{_RUN}")"\n'
+              f'SCRIPT_DIR="{tmp_path}"\ndelegate_launcher "$1"\n')
+    proc = subprocess.run(["bash", "-c", script, "_", launcher], capture_output=True, text=True)
+    assert proc.returncode != 0 and "not a path" in proc.stdout + proc.stderr
+    text = open(_RUN).read()
+    post = text[text.index('if [ -n "$post_install" ]; then'):]
+    assert "*/*|.|..) die \"install.post_install is a script name" in post[:600]

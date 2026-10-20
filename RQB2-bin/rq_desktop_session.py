@@ -67,8 +67,11 @@ TOUCH_CSS = "/usr/config/touch-mode/gtk-touch.css"
 OFFLINE_PAGE = "file:///usr/share/rasqberry/offline.html"
 # "?from=pi": the site greets a Pi (start with First 15 minutes) instead of
 # offering to write the SD card that is already in it (fresh-card test
-# 2026-10-08, F4); the Chromium policy's home page says the same
-HOMEPAGE = "https://rasqberry.org/?from=pi"
+# 2026-10-08, F4); "assistant=1" shows Ket, the RasQberry helper, which
+# the site keeps for visitors from a Pi (Jan, 2026-10-16); the Chromium
+# policy's home page says the same
+HOMEPAGE = "https://rasqberry.org/?from=pi&assistant=1"
+VERSION_FILE = "/etc/rasqberry-version"
 SMALL_WIDTH, SMALL_HEIGHT = 1600, 900
 
 # Every launcher the image puts on the desktop (stage 06). Where each one
@@ -78,7 +81,7 @@ ICON_ORDER = [
     "rasqberry-setup", "rasqberry-menu", "my-quantum-programs", "touch-mode",
     "learning-paths", "composer", "grok-bloch", "quantum-fractals",
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
-    "led-painter", "qoffee-maker", "quantum-mixer", "quantum-paradoxes",
+    "led-painter", "qoffee-maker", "quantum-mixer", "entangible", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
     "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
 ]
@@ -101,6 +104,16 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = "/usr/config" if _HERE == "/usr/bin" else os.path.join(os.path.dirname(_HERE), "RQB2-config")
 GROUPS_FILE = os.path.join(CONFIG_DIR, "demo-manifests", "demo-groups.json")
 KNOWN_DEMOS = os.path.join(CONFIG_DIR, "known-demos.json")
+
+
+def known_demos_file():
+    """The catalogue in use: the image's, or the newer one from rasqberry.org (rq_catalogue.py)."""
+    try:
+        sys.path.insert(0, _HERE)
+        import rq_catalogue
+        return rq_catalogue.current(shipped=KNOWN_DEMOS)[1]
+    except Exception:       # never let the desktop fail over the catalogue
+        return KNOWN_DEMOS
 ICON_DIR = "/usr/share/icons/rasqberry"
 # pcmanfm profiles whose icon positions count from the top of the screen.
 # Trixie's pcmanfm-pi ("default" profile) places x/y on the whole screen, so
@@ -312,9 +325,44 @@ _RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-
                    r'<action name="MoveTo" x="480" y="45"\s*/>)')
 
 
+# The "What's new" window after an update (rq_slot_indicator.py) on the left,
+# over the desktop icons: centred, it covered the homepage's right half and
+# the RasQberry helper in its bottom right corner (rig recheck 2026-10-11).
+NEWS_TITLE = "What's new in *"
+_NEWS_RULE = ('    <!-- "What\'s new" after an update: on the left, over the desktop icons, not\n'
+              '         over the homepage (rq_desktop_session.py: off on small screens) -->\n'
+              '    <windowRule title="%s">\n'
+              '      <action name="MoveToEdge" direction="left" snapWindows="no"/>\n'
+              '    </windowRule>\n')
+_NEWS_RE = re.compile(r'(<windowRule title=")((?:rasqberry-small-screen-)?)' + re.escape(NEWS_TITLE) + '"')
+
+
+def _set_news_rule(text, small):
+    """
+    The "What's new" rule in rc.xml TEXT: added when missing, off on a small screen.
+
+    Args:
+        text (str): rc.xml.
+        small (bool): The screen is small (the window stays centred there).
+
+    Returns:
+        str: The new rc.xml text.
+    """
+    want = "rasqberry-small-screen-" if small else ""
+    if _NEWS_RE.search(text):
+        return _NEWS_RE.sub(lambda m: m.group(1) + want + NEWS_TITLE + '"', text)
+    end = re.search(r"^[ \t]*</windowRules>", text, re.M)
+    if not end:
+        return text
+    return text[:end.start()] + _NEWS_RULE % (want + NEWS_TITLE) + text[end.start():]
+
+
 def set_chromium_rule(small, rc=None):
     """
     Switch the labwc rule that puts Chromium at x=480 off on small screens.
+
+    The "What's new" window's rule (on the left, NEWS_TITLE) goes with it: it
+    is added to an rc.xml without it, and off on small screens too.
 
     The rule keeps the icons visible on a large screen; on a small one it put
     the window off-screen, and it would also move a maximised window. Off
@@ -341,6 +389,7 @@ def set_chromium_rule(small, rc=None):
         return False
     want = "rasqberry-small-screen-chromium" if small else "chromium"
     new = _RULE.sub(lambda m: m.group(1) + want + '" type="normal" matchOnce="true"' + m.group(3), text)
+    new = _set_news_rule(new, small)
     if new == text:
         return False
     with open(rc, "w", encoding="utf-8") as fh:
@@ -770,7 +819,7 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     if not ids:
         return None
     dirs = dirs or manifest_dirs()
-    registry = _read_json(known or KNOWN_DEMOS) or {}
+    registry = _read_json(known or known_demos_file()) or {}
     manifest = find_manifest(demo_id, dirs)
     demos = [d for d in registry.get("demos") or [] if isinstance(d, dict)]
     entry = ([d for d in demos if d.get("id") == demo_id]
@@ -1294,6 +1343,41 @@ def online(url=HOMEPAGE, timeout=5):
         return False
 
 
+def start_url(version_file=VERSION_FILE, env_path=ENV_FILE):
+    """
+    The homepage with this Pi's facts for the RasQberry helper on the site:
+    the image build, the Pi model, the LED layout and whether the LED check
+    was done. Nothing that names the
+    Pi or its person (no hostname, address or user name); a fact that can't
+    be read or doesn't look right is left out.
+
+    Args:
+        version_file (str): File with the image build.
+        env_path (str): RasQberry settings file.
+
+    Returns:
+        str: The URL.
+    """
+    try:
+        with open(version_file, encoding="utf-8") as handle:
+            version = handle.read().strip()
+    except OSError:
+        version = ""
+    facts = [
+        ("v", version, r"[A-Za-z0-9_.+-]{1,60}"),
+        ("model", env_value("PI_MODEL", path=env_path).lower(), r"pi[45]"),
+        ("led", env_value("LED_LAYOUT", path=env_path), r"[a-z0-9-]{1,30}"),
+        # whether the LED check was done: the helper offers it first
+        ("ledcheck", env_value("LED_LAYOUT_VERIFIED", path=env_path) or "false",
+         r"true|false|skipped"),
+    ]
+    url = HOMEPAGE
+    for key, value, pattern in facts:
+        if re.fullmatch(pattern, value):
+            url += "&%s=%s" % (key, value)
+    return url
+
+
 def start_browser(small):
     """
     Open rasqberry.org, or the offline page, unless BROWSER_AUTOSTART=false.
@@ -1304,7 +1388,7 @@ def start_browser(small):
     if env_value("BROWSER_AUTOSTART", "true") == "false":
         return
     time.sleep(int(os.environ.get("RQ_BROWSER_DELAY", "10")))  # clock and network
-    url = HOMEPAGE if online() else OFFLINE_PAGE
+    url = start_url() if online() else OFFLINE_PAGE
     cmd = ["/usr/bin/chromium"]
     if not small:
         cmd.append("--window-size=1070,1005")

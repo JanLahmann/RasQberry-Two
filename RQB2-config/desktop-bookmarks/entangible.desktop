@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=Entangible
+Comment=(beta) Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera
+Icon=/usr/share/icons/rasqberry/entangible.svg
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh entangible
+Terminal=true
+StartupNotify=true
+Keywords=quantum;circuit;composer;tangible;camera;booth;tiles;phone;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_demo_run.sh
+NoDisplay=false
