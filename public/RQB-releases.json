@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-20T02:58:02Z",
+  "generated": "2026-10-20T08:45:06Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,23 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-19-103854",
-      "name": "rasqberry-development-2026-10-19-103854",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-19-103854/rasqberry-development-2026-10-19-103854.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-19-103854",
-      "release_date": "2026-10-19 10:38",
-      "image_download_size": 1856049536,
-      "extract_size": 9529458688,
-      "extract_sha256": "21ea8140f8e89eff1b419dcd22f51195c5f19ffb49f59344bd3ace4190d0c2f3",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-19-103854/rasqberry-development-2026-10-19-103854-ab.img.xz",
-      "ab_extract_sha256": "b4749cef4882bd1759bcecb21dd7ae614acf95de54bd57fee012e16e6a8c1ef6",
-      "ab_image_sha256": "da200411354eab98439bc4d5af05d11cf6124cf0bc6f20ac2f6bdaf6eda970a2",
+      "tag": "development-2026-10-20-095846",
+      "name": "rasqberry-development-2026-10-20-095846",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-20-095846/rasqberry-development-2026-10-20-095846.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-20-095846",
+      "release_date": "2026-10-20 09:58",
+      "image_download_size": 1857888052,
+      "extract_size": 9537847296,
+      "extract_sha256": "76c350b9ea420e31446f23628eda25a1aac9624aaaa06220660668b09be80f44",
+      "image_sha256": "640383855b28cf64aa9437d76f0f09436ad6c6411d4e0622be9edc814a2e6c0f",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-20-095846/rasqberry-development-2026-10-20-095846-ab.img.xz",
+      "ab_extract_sha256": "529195bf97609bf271ba68971f0f1fd0113912929071b35e15c26dc0e6a24269",
+      "ab_image_sha256": "8975e533d05840eaa4326550f37ca7f20f2101f881fa73a4c4ba5cac8c46dad4",
+      "ab_image_download_size": 1904885552,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1904342740,
       "highlights": [
-        "Bump version to development-2026-10-19-103854",
-        "Usage counts: send the Pi's events as device.rasqberry.org",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-17-192138"
+        "The unit suite passes on Linux (#340)",
+        "CI: per-test timeout for the whole unit suite (job was cancelled after 45 min) (#339)"
       ]
     }
   }
