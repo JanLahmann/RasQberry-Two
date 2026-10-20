@@ -786,7 +786,7 @@ _IDS = f'"{sys.executable}" -c "import os; print(os.getsid(0), os.getpgid(0))"'
 
 
 def _browser(tmp_path, stays=False):
-    """chromium-browser that takes a second to hand its address to the running
+    """chromium that takes a second to hand its address to the running
     browser and then exits, as the real one does - or, with stays, one that
     keeps running (no Chromium was running yet). Records its session, process
     group and arguments."""
@@ -794,7 +794,7 @@ def _browser(tmp_path, stays=False):
     stubs.mkdir(exist_ok=True)
     tail = (f'echo $$ > "{tmp_path}/browser-pid"\nexec sleep 60\n' if stays else
             f'sleep 1\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
-    _exe(stubs / "chromium-browser", f'#!/bin/sh\n{_IDS} > "{tmp_path}/browser-ids"\n{tail}')
+    _exe(stubs / "chromium", f'#!/bin/sh\n{_IDS} > "{tmp_path}/browser-ids"\n{tail}')
     if shutil.which("setsid") is None:
         _exe(stubs / "setsid", _SETSID)
     return stubs
@@ -847,7 +847,7 @@ def test_browser_from_root_goes_to_the_user_outside_the_window_session(tmp_path)
              env={"PATH": f"{stubs}:{os.environ['PATH']}", "SUDO_USER": "rasqberry", "DISPLAY": ":0"})
     assert p.wait() == 0
     assert (tmp_path / "sudo-args").read_text().split() == [
-        "-u", "rasqberry", "-H", "DISPLAY=:0", "--", "chromium-browser", "--password-store=basic", "http://x/"]
+        "-u", "rasqberry", "-H", "DISPLAY=:0", "--", "chromium", "--password-store=basic", "http://x/"]
     # sudo passes signals on to the browser: it must be outside the session too
     assert _ids(tmp_path / "sudo-ids")[0] != _ids(tmp_path / "caller-ids")[0]
 
@@ -883,7 +883,11 @@ def test_closing_a_demo_window_stops_the_demo_not_its_browser(tmp_path):
     p = _Pty(f'exec bash "{os.path.join(_BIN, "rq_hold_on_error.sh")}" "{demo}"',
              env={"PATH": f"{stubs}:{os.environ['PATH']}", "XDG_CACHE_HOME": str(tmp_path)})
     assert p.read_until("READY", 20)
-    browser = int(_await_file(tmp_path / "browser-pid"))
+    # no pid (another browser ran): int(False) is 0, and kill(0) below would
+    # kill the test run's whole process group
+    pid = _await_file(tmp_path / "browser-pid")
+    assert pid, "the stub browser did not start"
+    browser = int(pid)
     try:
         os.killpg(p.pid, signal.SIGHUP)          # the window is closed
         assert p.wait() == 143

@@ -301,9 +301,8 @@ jobs:
       - name: Whole unit suite (advisory)
         # Advisory until it has passed on Linux once (it was run on macOS so
         # far); then drop continue-on-error. About 20 minutes.
-        # Since 2026-10-17 a test hangs on Linux and the job's 45 minutes ran
-        # out (cancelled, no log): each test now fails after 5 minutes with
-        # its traceback, and the step stops after 35, so the job ends green.
+        # A hung test fails after 5 minutes with its traceback, and the step
+        # stops after 35, so the job still ends with a log.
         continue-on-error: true
         timeout-minutes: 35
         run: python -m pytest tests/unit -q -rs -p no:cacheprovider --timeout=300 --timeout-method=thread

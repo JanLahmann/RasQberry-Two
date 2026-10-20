@@ -528,11 +528,11 @@ def _tab_module():
 
 
 def _browser_stubs(tmp_path):
-    """chromium-browser that hands over at once, and a python3 that records
+    """chromium that hands over at once, and a python3 that records
     what the demo-tab helper was asked (the real one for anything else)."""
     stubs = tmp_path / "stubs"
     stubs.mkdir(exist_ok=True)
-    _exe(stubs / "chromium-browser", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
+    _exe(stubs / "chromium", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
     _exe(stubs / "python3", f'''#!/bin/sh
 case "$1" in
     *rq_browser_tab.py)
