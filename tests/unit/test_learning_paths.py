@@ -228,7 +228,7 @@ def test_desktop_icon_opens_the_chooser():
         if "=" in line:
             key, value = line.rstrip("\n").split("=", 1)
             entry.setdefault(key, value)
-    assert entry["Name"] == "Learning paths"
+    assert entry["Name"] == "Learning paths (beta)"
     assert entry["Comment"].startswith("(beta) ")
     assert entry["Exec"] == '/usr/bin/rq_hold_on_error.sh -t "Learning paths" /usr/bin/rq_learning_paths.sh'
     assert entry["Terminal"] == "true" and "RasQberry" in entry["Categories"]

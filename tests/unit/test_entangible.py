@@ -266,7 +266,7 @@ def test_schema_knows_the_new_install_fields():
 def test_desktop_entry_icon_and_build_list():
     entry = open(os.path.join(_CFG, "desktop-bookmarks", "entangible.desktop")).read()
     assert "Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh entangible\n" in entry
-    assert "Name=Entangible\n" in entry and "Comment=(beta) " in entry
+    assert "Name=Entangible (beta)\n" in entry and "Comment=(beta) " in entry
     assert "Icon=/usr/share/icons/rasqberry/entangible.svg\n" in entry
     assert os.path.isfile(os.path.join(_ROOT, "desktop-icons", "entangible.svg"))
     stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
