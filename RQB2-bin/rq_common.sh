@@ -2621,13 +2621,49 @@ rq_demo_group() {
           else "learn" end' 2>/dev/null || echo learn
 }
 
-# The invitation at the start of a beta demo.
-# Usage: rq_beta_notice DEMO_ID
+# A small notification of the taskbar (wf-panel-pi), best effort: nothing
+# without a desktop session, gdbus or the panel. As root it goes to the
+# desktop user's session. In the background: it never holds up the caller.
+# RQ_NOTIFY_LOG: a file it writes to instead (tests).
+# Usage: rq_desktop_notify TITLE BODY [ICON]
+rq_desktop_notify() {
+    local title="$1" body="$2" icon="${3:-applications-science}" user uid bus
+    local -a cmd
+    if [ -n "${RQ_NOTIFY_LOG:-}" ]; then
+        printf '%s\t%s\n' "$title" "$body" >> "$RQ_NOTIFY_LOG"
+        return 0
+    fi
+    command -v gdbus >/dev/null 2>&1 || return 0
+    user=$(get_user_name)
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    bus="/run/user/$uid/bus"
+    [ -S "$bus" ] || return 0
+    cmd=(env "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus" timeout 5 gdbus call --session
+         --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications
+         --method org.freedesktop.Notifications.Notify
+         RasQberry 0 "$icon" "$title" "$body" "[]" "{}" 10000)
+    if [ "$(id -u)" = 0 ] && [ "$user" != root ]; then
+        cmd=(sudo -n -u "$user" -- "${cmd[@]}")
+    elif [ "$(id -u)" != "$uid" ]; then
+        return 0
+    fi
+    ("${cmd[@]}" </dev/null >/dev/null 2>&1 &)
+    return 0
+}
+
+# The invitation at the start of a beta demo, at every start (Jan,
+# 2026-10-23): in its window, and as a notification on the desktop, where a
+# browser or full-screen demo hides that window. Not in the Demo Loop,
+# which starts its demos again and again.
+# Usage: rq_beta_notice DEMO_ID [NAME]
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
     echo "Feedback via GitHub (needs a free account): ${RQ_FEEDBACK_URL}&demo=$1"
     echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
+    [ "${RQ_DEMO_HOW:-}" = loop ] && return 0
+    rq_desktop_notify "${2:-$1} is in beta" \
+        "Some things may not work yet. Feedback: ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # The desktop user's session directory (/run/user/UID), when PipeWire runs

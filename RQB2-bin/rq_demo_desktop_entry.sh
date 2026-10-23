@@ -35,8 +35,11 @@ id=$(jq -r '.id // empty' "$MANIFEST")
 name=$(jq -r '.name // empty' "$MANIFEST")
 [ -n "$id" ] && [ -n "$name" ] || die "Manifest needs id and name: $MANIFEST"
 description=$(jq -r '.description // ""' "$MANIFEST")
-# a new or less-tested demo says so in its tooltip (item 36)
-[ -n "$(rq_demo_maturity "$id" "$MANIFEST")" ] && description="(beta) $description"
+# a new or less-tested demo says so on its icon and in its tooltip (item 36)
+if [ -n "$(rq_demo_maturity "$id" "$MANIFEST")" ]; then
+    case "$name" in *"(beta)"*) ;; *) name="$name (beta)" ;; esac
+    description="(beta) $description"
+fi
 terminal=$(jq -r 'if .desktop.terminal == false then "false" else "true" end' "$MANIFEST")
 # A demo that runs a server (web-static, docker) stops with its window, like
 # the shipped ones: Enter, Ctrl+C or closing it. Without a window the server

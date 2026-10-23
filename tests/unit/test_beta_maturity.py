@@ -90,6 +90,56 @@ def test_maturity_lookup_and_the_catalogue_fallback(tmp_path):
 
 
 @needs_bash
+def test_a_beta_start_also_notifies_the_desktop_but_not_in_the_demo_loop(tmp_path):
+    # at every start (Jan, 2026-10-23): a browser or full-screen demo hides the
+    # window with the invitation, the taskbar's notification does not
+    log = tmp_path / "notify.log"
+    env = dict(os.environ, USER_HOME=str(tmp_path / "home"), RQ_NOTIFY_LOG=str(log),
+               RQ_CONFIG_FILE=str(tmp_path / "no-such-config.sh"))
+    script = f'. "{_COMMON}"; rq_beta_notice entangible Entangible; rq_beta_notice entangible Entangible'
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, proc.stderr
+    assert log.read_text().splitlines() == [
+        "Entangible is in beta\tSome things may not work yet. Feedback: info@rasqberry.org"] * 2
+    log.unlink()
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                          env=dict(env, RQ_DEMO_HOW="loop"))
+    assert proc.returncode == 0 and "This demo is new" in proc.stdout
+    assert not log.exists()
+
+
+@needs_bash
+def test_a_notification_without_a_desktop_is_skipped_quietly(tmp_path):
+    # over SSH, at the console or without gdbus: no error, no delay
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "gdbus").write_text(f'#!/bin/sh\necho "$@" > "{tmp_path}/called"\n')
+    (stubs / "gdbus").chmod(0o755)
+    env = dict(os.environ, USER_HOME=str(tmp_path / "home"), PATH=f"{stubs}:{os.environ['PATH']}",
+               RQ_CONFIG_FILE=str(tmp_path / "no-such-config.sh"), SUDO_USER="nobody-here-xyz")
+    proc = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_desktop_notify T B; echo rc=$?'],
+                          capture_output=True, text=True, env=env, timeout=10)
+    assert proc.stdout.strip() == "rc=0" and proc.stderr == ""
+    assert not (tmp_path / "called").exists()
+
+
+@needs_bash
+def test_a_catalogue_icon_of_a_beta_demo_says_beta_once(tmp_path):
+    for name in ("racetraQ", "racetraQ (beta)"):
+        mf = tmp_path / "rq_demo_racetraq.json"
+        mf.write_text(json.dumps({"id": "racetraq", "name": name, "description": "Race",
+                                  "maturity": "beta"}))
+        out = tmp_path / "racetraq.desktop"
+        proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_desktop_entry.sh"), str(mf), str(out)],
+                              capture_output=True, text=True,
+                              env=dict(os.environ, USER_HOME=str(tmp_path / "home"),
+                                       RQ_CONFIG_FILE=str(tmp_path / "no-such-config.sh")))
+        assert proc.returncode == 0, proc.stderr
+        lines = out.read_text().splitlines()
+        assert "Name=racetraQ (beta)" in lines and "Comment=(beta) Race" in lines
+
+
+@needs_bash
 def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
     cache = tmp_path / "cache.sh"
     env = dict(os.environ, USER_HOME=str(tmp_path / "home"),
@@ -134,7 +184,7 @@ def test_catalogue_picker_and_desktop_entries_show_beta():
     add = open(os.path.join(_BIN, "rq_demo_add_external.sh")).read()
     assert '[ "$(registry_field "$id" "maturity")" = "beta" ]' in add
     entry = open(os.path.join(_BIN, "rq_demo_desktop_entry.sh")).read()
-    assert 'description="(beta) $description"' in entry
+    assert 'description="(beta) $description"' in entry and 'name="$name (beta)"' in entry
     run = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
     assert 'rq_beta_notice "$DEMO_ID"' in run
 
@@ -167,7 +217,10 @@ def test_an_icon_has_its_demos_name():
         m = re.fullmatch(r"/usr/bin/rq_hold_on_error\.sh (?:-t \"[^\"]+\" )?"
                          r"/usr/bin/rq_demo_(?:run|choose)\.sh ([a-z0-9-]+)", entry.get("Exec", ""))
         if m:
-            assert entry["Name"] == _manifest(m.group(1))["name"], name
+            # a beta demo says so on its icon too, not only in the tooltip (Jan, 2026-10-23)
+            manifest = _manifest(m.group(1))
+            beta = " (beta)" if manifest.get("maturity") == "beta" else ""
+            assert entry["Name"] == manifest["name"] + beta, name
     assert _desktop("led-ibm-demo.desktop")["Name"] == "IBM LED Demo"
     assert _desktop("quantum-mixer.desktop")["Name"] == "Quantum Mixer"
 
