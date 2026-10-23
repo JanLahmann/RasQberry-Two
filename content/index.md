@@ -86,7 +86,7 @@ Raspberry Pi 5, Qiskit 2.x, more demos and a menu in raspi-config.
 
 <div className="media-grid">
   <div className="media-item">
-    <img src="/Artwork/RasQberry2model.webp" loading="lazy" alt="RasQberry Two 3D Model" className="media-image" />
+    <img src="/Artwork/RasQberry2model.webp" width="581" height="545" loading="lazy" alt="RasQberry Two 3D Model" className="media-image" />
     <p className="media-caption">3D-printed model inspired by IBM Quantum System Two</p>
   </div>
   <div className="media-item">
@@ -178,7 +178,7 @@ Qiskit 2.x is in `~/RasQberry-Two/venv/RQB2`
 STL files for the 3D-printed model are available in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model). The model consists of several printed parts that assemble together to create the complete RasQberry Two enclosure.
 
 <div className="centered-media">
-  <img src="/Artwork/RasQberry2exploded.webp" loading="lazy" alt="RasQberry Two Exploded View" className="media-image" />
+  <img src="/Artwork/RasQberry2exploded.webp" width="1200" height="822" loading="lazy" alt="RasQberry Two Exploded View" className="media-image" />
   <p className="media-caption">Exploded view showing all 3D-printed components</p>
 </div>
 

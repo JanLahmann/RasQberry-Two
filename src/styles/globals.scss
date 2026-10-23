@@ -32,6 +32,7 @@ img {
 .media-image,
 .media-video {
   width: 100%;
+  height: auto; // the width/height attributes reserve the space (no layout shift)
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
@@ -148,8 +149,9 @@ html[data-from="pi"] {
   padding: 0 0.5rem;
   font-size: 0.75rem;
   line-height: 1.25rem;
-  color: $text-gradient-purple;
-  border: 1px solid $text-gradient-purple;
+  // Carbon purple 70: 7.7:1 on white (the gradient purple #9b5cff was 3.9:1)
+  color: #6929c4;
+  border: 1px solid #6929c4;
   border-radius: 1rem;
 }
 

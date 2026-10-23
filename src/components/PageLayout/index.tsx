@@ -44,7 +44,7 @@ export function PageLayout({ children, frontmatter: { leadspace } = {}, navItems
     return <>
         {leadspace && <LeadSpace {...leadspace} />}
         <HeaderNav items={navItems} />
-        <Grid className={styles['page-layout__main']}>
+        <Grid as="main" id="main-content" className={styles['page-layout__main']}>
             <Column sm="100%">
                 <Grid>
                     {tableofcontent && tableofcontent.items.length > 0 && <>

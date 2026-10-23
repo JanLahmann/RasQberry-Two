@@ -61,10 +61,11 @@ export function HeaderNav({ items }: Props) {
                     </HeaderGlobalBar>
                     <SideNav aria-label="Side navigation" expanded={isSideNavExpanded} isPersistent={false} onSideNavBlur={onClickSideNavExpand} inert={undefined}>
                         <SideNavItems>
-                            <HeaderSideNavItems>
+                            {/* Carbon's HeaderSideNavItems is a <ul>: inside SideNavItems' <ul> it needs an <li> */}
+                            <li><HeaderSideNavItems>
                                 {getMenuItem({ label: 'Home', url: '/', children: [] })}
                                 {items.map(getMenuItem)}
-                            </HeaderSideNavItems>
+                            </HeaderSideNavItems></li>
                         </SideNavItems>
                     </SideNav>
                 </Header >

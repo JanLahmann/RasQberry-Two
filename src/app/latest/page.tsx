@@ -212,7 +212,7 @@ export default function LatestPage() {
   };
 
   return (
-    <div style={{
+    <main style={{
       maxWidth: '800px',
       margin: '0 auto',
       padding: '2rem',
@@ -440,6 +440,6 @@ export default function LatestPage() {
         {' | '}
         <a href="/RQB-releases.json">View releases JSON</a>
       </p>
-    </div>
+    </main>
   );
 }
