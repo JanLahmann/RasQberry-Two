@@ -57,3 +57,40 @@ def test_reset_without_terminal_needs_yes(home, tmp_path):
     proc = _run(_REPAIR, ["--reset"], home, extra_env={"RQ_VENV_TEMPLATE": str(template)}, check=False)
     assert proc.returncode != 0
     assert (_venv(home[0]) / "lib" / "python3.13" / "site-packages" / "qiskit-1.0.dist-info").is_dir()
+
+
+def test_reset_with_python_313s_activate(home, tmp_path):
+    # H-44 (rig, 2026-10-23): Python 3.13 writes the path indented, as
+    # "export VIRTUAL_ENV=/path" next to a cygpath line. The reset ended after
+    # the copy (exit 1), left the template's path in pip and jupyter-lab (no
+    # interpreter for any user but the first) and listed no added packages.
+    h, _ = home
+    template = _fake_venv(tmp_path / "template-home" / "RasQberry-Two" / "venv" / "RQB2",
+                          packages=["qiskit"])
+    (template / "bin" / "activate").write_text(
+        'if [ "${OSTYPE:-}" = "cygwin" ] || [ "${OSTYPE:-}" = "msys" ] ; then\n'
+        f'    VIRTUAL_ENV=$(cygpath {template})\n'
+        '    export VIRTUAL_ENV\n'
+        'else\n'
+        '    # use the path as-is\n'
+        f'    export VIRTUAL_ENV={template}\n'
+        'fi\n')
+    (_venv(h) / "lib" / "python3.13" / "site-packages" / "cowsay-6.1.dist-info").mkdir()
+    proc = _run(_REPAIR, ["--reset", "--yes"], home, extra_env={"RQ_VENV_TEMPLATE": str(template)})
+    venv = _venv(h)
+    assert proc.returncode == 0
+    assert (venv / "bin" / "jupyter").read_text().startswith(f"#!{venv}/bin/python3")
+    assert f"export VIRTUAL_ENV={venv}\n" in (venv / "bin" / "activate").read_text()
+    assert "cowsay" in proc.stdout and "Fresh RasQberry Python environment ready" in proc.stdout
+
+
+def test_fix_ownership_removes_what_an_interrupted_pip_run_left(home):
+    # H-44: a reinstall that failed on root-owned files left ~etuptools and
+    # ~kg_resources; every pip run then warned "Ignoring invalid distribution"
+    site = _venv(home[0]) / "lib" / "python3.13" / "site-packages"
+    for name in ("~etuptools", "~etuptools-75.5.0.dist-info", "~kg_resources"):
+        (site / name).mkdir()
+    proc = _run(_REPAIR, ["--fix-ownership", "--yes"], home)
+    assert not list(site.glob("~*"))
+    assert "Removed what an interrupted pip run left: ~etuptools" in proc.stdout
+    assert (site / "qiskit-1.0.dist-info").is_dir()
