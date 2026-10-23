@@ -177,6 +177,14 @@ function catalogueRows(registry) {
   }));
 }
 
+// A stable demo with beta variants (Fun with Quantum: its website and family)
+// names them, as the Pi tags each of them in its chooser
+function betaParts(m) {
+  if (m.maturity === 'beta') return '';
+  const parts = (m.variants || []).filter((v) => v.maturity === 'beta').map((v) => v.name.split(':')[0]);
+  return parts.length ? ` <span className="beta-tag">beta</span>: ${parts.join(', ')}` : '';
+}
+
 function row(m) {
   const page = pageFor(m.id);
   const name = page ? `[${m.name}](${page})` : m.name;
@@ -185,7 +193,7 @@ function row(m) {
   const needs = m.catalogue
     ? [`add it first: **Manage demos** → **Add demo from catalogue**${m.download ? ` (${m.download < 1000 ? `${m.download} MB` : `${(m.download / 1000).toFixed(1)} GB`})` : ''}`]
     : needsOf(m);
-  return `| **${name}**${formerly}${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
+  return `| **${name}**${formerly}${beta} | ${m.description || ''}${betaParts(m)} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
 }
 
 const TABLE_HEAD = `| Demo | What it is | Needs | Start it with |\n|---|---|---|---|\n`;
@@ -213,7 +221,8 @@ The demos come in ${count(groups.groups.length)} groups: an icon on the desktop 
 \`sudo raspi-config\` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with \`rq_demo_run.sh <id>\`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are new:
+run on real IBM hardware. Demos tagged beta are new and some things may not work yet. On the Pi they say
+"(beta)" on their icon and when they start:
 [tell us how they work](${FEEDBACK}).
 
 ${first}> This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
@@ -251,7 +260,8 @@ function renderByCategory(manifests) {
 Start a demo from its desktop icon, from \`sudo raspi-config\` → **0 RasQberry** →
 **Quantum Demos**, or from a terminal with \`rq_demo_run.sh <id>\`. Demos marked
 "network on first start" download the first time you run them. An IBM Quantum
-account is only needed to run on real IBM hardware. Demos tagged beta are new:
+account is only needed to run on real IBM hardware. Demos tagged beta are new and some things may not
+work yet. On the Pi they say "(beta)" on their icon and when they start:
 [tell us how they work](${FEEDBACK}).
 
 > This page is generated from the [demo manifests](https://github.com/${REPO}/tree/${ref}/${MANIFEST_DIR})
@@ -269,7 +279,7 @@ account is only needed to run on real IBM hardware. Demos tagged beta are new:
       const name = page ? `[${m.name}](${page})` : m.name;
       const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
       const needs = needsOf(m);
-      md += `| **${name}**${beta} | ${m.description || ''} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
+      md += `| **${name}**${beta} | ${m.description || ''}${betaParts(m)} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
     }
     md += `\n`;
   }
