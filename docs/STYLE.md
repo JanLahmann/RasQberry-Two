@@ -24,9 +24,9 @@ icons, demo manifests and release notes.
   and on the website. Demo directories keep the upstream repository name.
   doQumentation is only named as the project the **Workshop & Qiskit Server** is
   built on.
-- A new or less-tested demo has `"maturity": "beta"` in its manifest: "(beta)" in
-  the menus and tooltips, a beta tag on the website, and a link to the demo
-  feedback form.
+- A new or less-tested demo has `"maturity": "beta"` in its manifest: "(beta)" on
+  its desktop icon, in the menus and tooltips, a beta tag on the website, and at
+  every start a link to the demo feedback form and a desktop notification.
 - **Raspberry Pi Imager** (then **Imager**), **Pi 4**, **Pi 5**.
 
 ## Language

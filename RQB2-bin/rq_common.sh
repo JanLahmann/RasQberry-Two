@@ -2621,13 +2621,49 @@ rq_demo_group() {
           else "learn" end' 2>/dev/null || echo learn
 }
 
-# The invitation at the start of a beta demo.
-# Usage: rq_beta_notice DEMO_ID
+# A small notification of the taskbar (wf-panel-pi), best effort: nothing
+# without a desktop session, gdbus or the panel. As root it goes to the
+# desktop user's session. In the background: it never holds up the caller.
+# RQ_NOTIFY_LOG: a file it writes to instead (tests).
+# Usage: rq_desktop_notify TITLE BODY [ICON]
+rq_desktop_notify() {
+    local title="$1" body="$2" icon="${3:-applications-science}" user uid bus
+    local -a cmd
+    if [ -n "${RQ_NOTIFY_LOG:-}" ]; then
+        printf '%s\t%s\n' "$title" "$body" >> "$RQ_NOTIFY_LOG"
+        return 0
+    fi
+    command -v gdbus >/dev/null 2>&1 || return 0
+    user=$(get_user_name)
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    bus="/run/user/$uid/bus"
+    [ -S "$bus" ] || return 0
+    cmd=(env "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus" timeout 5 gdbus call --session
+         --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications
+         --method org.freedesktop.Notifications.Notify
+         RasQberry 0 "$icon" "$title" "$body" "[]" "{}" 10000)
+    if [ "$(id -u)" = 0 ] && [ "$user" != root ]; then
+        cmd=(sudo -n -u "$user" -- "${cmd[@]}")
+    elif [ "$(id -u)" != "$uid" ]; then
+        return 0
+    fi
+    ("${cmd[@]}" </dev/null >/dev/null 2>&1 &)
+    return 0
+}
+
+# The invitation at the start of a beta demo, at every start (Jan,
+# 2026-10-23): in its window, and as a notification on the desktop, where a
+# browser or full-screen demo hides that window. Not in the Demo Loop,
+# which starts its demos again and again.
+# Usage: rq_beta_notice DEMO_ID [NAME]
 rq_beta_notice() {
     echo "This demo is new - please try it and tell us what works and what doesn't."
     echo "Feedback via GitHub (needs a free account): ${RQ_FEEDBACK_URL}&demo=$1"
     echo "or e-mail ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
     echo
+    [ "${RQ_DEMO_HOW:-}" = loop ] && return 0
+    rq_desktop_notify "${2:-$1} is in beta" \
+        "Some things may not work yet. Feedback: ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}"
 }
 
 # The desktop user's session directory (/run/user/UID), when PipeWire runs
@@ -2796,11 +2832,12 @@ rq_rx_mb() {
     [ -z "$any" ] || echo $((sum / 1000000))
 }
 
-# The progress line of rq_docker_pull, every 2 s while shell PARENT runs
-# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT &
+# The progress line of rq_docker_pull, every 2 s while shell PARENT runs.
+# RX0: rq_rx_mb before the pull (read by the caller: a background job may
+# start after the first megabytes are in)
+# Usage: _rq_pull_progress NAME DOWNLOAD_MB PARENT RX0 &
 _rq_pull_progress() {
-    local name="$1" mb="$2" parent="$3" start=$SECONDS rx0 now got
-    rx0=$(rq_rx_mb) || rx0=""
+    local name="$1" mb="$2" parent="$3" rx0="$4" start=$SECONDS now got
     while kill -0 "$parent" 2>/dev/null; do
         got=""
         if [ -n "$rx0" ] && now=$(rq_rx_mb) && [ -n "$now" ]; then
@@ -2833,7 +2870,7 @@ _rq_pull_progress() {
 # none and asks again.
 # Usage: rq_docker_pull IMAGE "Name" [DOWNLOAD_MB] [FALLBACK]
 rq_docker_pull() {
-    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result
+    local image="$1" name="${2:-$1}" mb="${3:-}" fallback="${4:-}" err rc=0 why printer start="" gone="" result rx0
     local old_int
     RQ_DOCKER_PULLED=""
     [ "$fallback" = "$image" ] && fallback=""
@@ -2847,7 +2884,8 @@ rq_docker_pull() {
         start=$SECONDS
         # The line comes from a helper beside the pull, which stays in the
         # foreground so that Ctrl+C stops it; the helper ends with this shell
-        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" &
+        rx0=$(rq_rx_mb) || rx0=""
+        _rq_pull_progress "$name" "$mb" "${BASHPID:-$$}" "$rx0" &
         printer=$!
         docker pull -q "$image" > /dev/null 2> "$err" || rc=$?
         kill "$printer" 2>/dev/null || true

@@ -528,11 +528,11 @@ def _tab_module():
 
 
 def _browser_stubs(tmp_path):
-    """chromium-browser that hands over at once, and a python3 that records
+    """chromium that hands over at once, and a python3 that records
     what the demo-tab helper was asked (the real one for anything else)."""
     stubs = tmp_path / "stubs"
     stubs.mkdir(exist_ok=True)
-    _exe(stubs / "chromium-browser", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
+    _exe(stubs / "chromium", f'#!/bin/sh\nprintf "%s\\n" "$@" > "{tmp_path}/browser-args"\n')
     _exe(stubs / "python3", f'''#!/bin/sh
 case "$1" in
     *rq_browser_tab.py)
@@ -905,7 +905,8 @@ def test_save_needs_the_devtools_port(monkeypatch):
 
 
 def _find_chrome():
-    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+    # Chrome first: Ubuntu's chromium is a snap, which cannot use a profile in /tmp
+    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
         path = shutil.which(name)
         if path:
             return path
@@ -931,7 +932,9 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
     web = subprocess.Popen([sys.executable, "-m", "http.server", str(web_port), "--bind", "127.0.0.1",
                             "--directory", str(www)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     profile = tmp_path / "profile"
-    chrome = subprocess.Popen([_find_chrome(), "--headless=new", "--remote-debugging-port=0",
+    # CI (Ubuntu 24.04) allows no user namespaces: Chrome's sandbox cannot start
+    sandbox = ["--no-sandbox"] if os.environ.get("CI") else []
+    chrome = subprocess.Popen([_find_chrome(), "--headless=new", "--remote-debugging-port=0", *sandbox,
                                f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
                                "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -951,6 +954,9 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         time.sleep(2)
         assert subprocess.run(tool + ["save", url], env=env, timeout=60).returncode == 0
         assert [t["title"] for t in bt.tabs_on(bt.origin(url), bt.pages())] == ["SAVED"]
+        # the watcher stops a tab only once it has seen the server up (a busy
+        # Pi opens it late): give it a few polls on a loaded runner
+        time.sleep(3)
         web.terminate()                       # the demo stops
         web.wait(10)
         assert watcher.wait(30) == 0
