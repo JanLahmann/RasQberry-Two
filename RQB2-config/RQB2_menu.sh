@@ -1897,8 +1897,13 @@ do_update_from_branch() {
     update_output=$("$BIN_DIR/rq_update_from_branch.sh" --repo "$repo" --branch "$branch" 2>&1) || update_result=$?
 
     if [ "${update_result:-0}" -eq 0 ]; then
+        # What the update changed, in the updater's words: "Changed: ..." or
+        # "Already up to date: ..." (H-42: it said "updated" when nothing was)
+        local update_summary
+        update_summary=$(printf '%s\n' "$update_output" | grep -oE '(Changed|Already up to date): .*' | head -n 1)
+        [ -n "$update_summary" ] || update_summary="Scripts and config files updated."
         whiptail --title "Update Complete" --msgbox \
-            "Update completed successfully!\n\nRepository: $repo\nBranch: $branch\n\nChanges applied:\n  - Scripts updated in /usr/bin/\n  - Config files updated in /usr/config/\n  - Environment reloaded\n\nYou may need to exit and re-enter raspi-config\nfor menu changes to take effect." \
+            "Update completed successfully!\n\nRepository: $repo\nBranch: $branch\n\n$update_summary\nYour settings are kept.\n\nYou may need to exit and re-enter raspi-config\nfor menu changes to take effect." \
             18 70
     else
         # The cause is at the end of the output: show that part (R-115)
