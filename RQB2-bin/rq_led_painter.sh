@@ -108,15 +108,19 @@ install_requirements() {
     info "Installing Python dependencies (this may take several minutes)..."
     [ -d "$USER_HOME/$REPO/venv/$STD_VENV" ] \
         || die "Virtual environment not found at $USER_HOME/$REPO/venv/$STD_VENV"
-    local venv_pip="$USER_HOME/$REPO/venv/$STD_VENV/bin/pip3" pip_exit=0
+    local venv="$USER_HOME/$REPO/venv/$STD_VENV" pip_exit=0
     [ -f "$DEMO_DIR/requirements.txt" ] || return 0
-    if [ "$(id -u)" -eq 0 ]; then
-        "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
-    elif sudo -n true 2>/dev/null; then
-        sudo "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
-    else
-        "$venv_pip" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
+    # As the venv's owner, never as root: root-owned files in the user's venv
+    # make the user's next pip install fail with "Permission denied" (#285,
+    # R-059). The rig check H-44 (2026-10-23) found 971 root-owned files of
+    # setuptools, which this file pins, after the first LED-Painter install.
+    # Files an earlier install left root-owned go back to the user first.
+    if [ "$(id -u)" -eq 0 ] && [ -n "$(find "$venv" -user root -print -quit 2>/dev/null)" ]; then
+        local owner
+        owner=$(get_user_name)
+        [ "$owner" = root ] || chown -R "$owner:$owner" "$venv"
     fi
+    run_as_user "$venv/bin/pip3" install -r "$DEMO_DIR/requirements.txt" || pip_exit=$?
     [ "$pip_exit" -eq 0 ] || die "Failed to install Python dependencies"
 }
 

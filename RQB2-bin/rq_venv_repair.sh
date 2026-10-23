@@ -98,10 +98,26 @@ fix_ownership() {
     count=$(root_owned_count "$VENV")
     if [ "$count" = "0" ]; then
         info "No root-owned files in $VENV"
-        return 0
+    else
+        info "Giving $count root-owned file(s) in $VENV back to $USER_NAME"
+        sudo chown -R "$USER_NAME:$USER_NAME" "$VENV" || die "chown failed (needs sudo rights)"
     fi
-    info "Giving $count root-owned file(s) in $VENV back to $USER_NAME"
-    sudo chown -R "$USER_NAME:$USER_NAME" "$VENV" || die "chown failed (needs sudo rights)"
+    remove_pip_leftovers
+}
+
+# pip renames a package it replaces to ~ackage first. A run that failed
+# half-way ("Permission denied") leaves those behind, and every later pip run
+# warns "Ignoring invalid distribution ~ackage" (H-44, rig 2026-10-23).
+remove_pip_leftovers() {
+    local site d names=""
+    site=$(find "$VENV/lib" -maxdepth 2 -type d -name site-packages 2>/dev/null | head -1)
+    [ -n "$site" ] || return 0
+    for d in "$site"/~*; do
+        [ -e "$d" ] || continue
+        names="$names ${d##*/}"
+        rm -rf "$d" || sudo rm -rf "$d"
+    done
+    [ -z "$names" ] || info "Removed what an interrupted pip run left:$names. Reinstall that package: pip install --force-reinstall <name>"
 }
 
 # Package names (dist-info/egg-info) in a site-packages directory.
@@ -156,13 +172,18 @@ reset_venv() {
     # The template was built at the first user's path. Scripts in bin/ (pip,
     # jupyter, activate, ...) carry that path; point them at this venv.
     local old
-    old=$(grep -m1 '^VIRTUAL_ENV=' "$TEMPLATE/bin/activate" 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+    # Python 3.13's activate sets it indented, as "export VIRTUAL_ENV=/path"
+    # (and a cygpath line for Windows). The old pattern '^VIRTUAL_ENV=' found
+    # nothing, set -e ended the reset here, and bin/ kept the template's path:
+    # pip and jupyter-lab of any user but the first had no interpreter (H-44)
+    old=$(grep -m1 -E '^[[:space:]]*(export[[:space:]]+)?VIRTUAL_ENV=[^$]' "$TEMPLATE/bin/activate" 2>/dev/null \
+        | sed -E 's/^[[:space:]]*(export[[:space:]]+)?VIRTUAL_ENV=//' | tr -d "\"'") || old=""
     if [ -n "$old" ] && [ "$old" != "$VENV" ]; then
         grep -rlI -F "$old" "$VENV/bin" "$VENV/pyvenv.cfg" 2>/dev/null \
             | while IFS= read -r file; do
                 as_user sh -c 'sed "s|$1|$2|g" "$3" > "$3.rq-new" && cat "$3.rq-new" > "$3" && rm -f "$3.rq-new"' \
                     sh "$old" "$VENV" "$file"
-            done
+            done || true    # no file to rewrite is no error (set -o pipefail)
     fi
 
     as_user "${SCRIPT_DIR}/rq_learner_setup.sh" --venv-only "$VENV" >/dev/null \
