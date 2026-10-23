@@ -674,9 +674,12 @@ def desktop_md():
     def row(name):
         path, e = launchers[name]
         comment = e.get("Comment", "").strip()
+        title = e.get("Name", name)
+        if title.endswith(" (beta)"):        # said once, on the name
+            comment = comment.removeprefix("(beta) ")
         if comment and comment[-1] not in ".!?":
             comment += "."
-        return f"- **{e.get('Name', name)}**: {comment} Opens {what_it_opens(e.get('Exec', ''))}."
+        return f"- **{title}**: {comment} Opens {what_it_opens(e.get('Exec', ''))}."
 
     lines = [HEADER + "# The desktop",
              "",
@@ -710,7 +713,8 @@ def desktop_md():
         cats = [d for d in catalogue_demos()
                 if (d.get("group") if d.get("group") in group_titles() else catalogue_group()) == g["id"]]
         for d in cats:
-            lines.append(f"- **{d.get('name', d['id'])}** *(catalogue demo: its icon comes when it "
+            beta = " (beta)" if d.get("maturity") == "beta" else ""
+            lines.append(f"- **{d.get('name', d['id'])}{beta}** *(catalogue demo: its icon comes when it "
                          f"is added)*: {d.get('summary', '')}")
         if g.get("catalogue"):
             lines.append("- Demos added from the catalogue land here unless the catalogue names "

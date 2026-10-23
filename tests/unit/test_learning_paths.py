@@ -228,7 +228,7 @@ def test_desktop_icon_opens_the_chooser():
         if "=" in line:
             key, value = line.rstrip("\n").split("=", 1)
             entry.setdefault(key, value)
-    assert entry["Name"] == "Learning paths"
+    assert entry["Name"] == "Learning paths (beta)"
     assert entry["Comment"].startswith("(beta) ")
     assert entry["Exec"] == '/usr/bin/rq_hold_on_error.sh -t "Learning paths" /usr/bin/rq_learning_paths.sh'
     assert entry["Terminal"] == "true" and "RasQberry" in entry["Categories"]
@@ -299,8 +299,8 @@ def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
     env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(tmp_path),
            "RQ_CONFIG_FILE": "/nonexistent", "WT_LOG": str(wt_log), "WT_QUEUE": str(queue)}
     if desktop:
-        (stubs / "chromium-browser").write_text(f'#!/bin/sh\necho "browser $*" >> "{log}"\n')
-        (stubs / "chromium-browser").chmod(0o755)
+        (stubs / "chromium").write_text(f'#!/bin/sh\necho "browser $*" >> "{log}"\n')
+        (stubs / "chromium").chmod(0o755)
         env["DISPLAY"] = ":0"
     master, slave = pty.openpty()
     os.write(master, b"\n" * 20)    # Enter for every "Press Enter" pause

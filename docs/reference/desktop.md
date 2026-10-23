@@ -12,7 +12,7 @@ The desktop shows a few system icons, some starter demos, and one icon per demo 
 
 Starters (also in their group windows):
 
-- **Learning paths**: (beta) Short tours through the demos, for a stand, a lesson or learning to code: what to try and what to notice, step by step. Opens `rq_learning_paths.sh`.
+- **Learning paths (beta)**: Short tours through the demos, for a stand, a lesson or learning to code: what to try and what to notice, step by step. Opens `rq_learning_paths.sh`.
 - **IBM LED Demo**: The IBM logo in colour on the LED panel. Opens `rq_demo_run.sh led-demos ibm-logo`.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
 - **Quantum Coin Game**: Interactive demonstration of quantum superposition and interference using a coin flip game. Opens `rq_demo_run.sh fun-with-quantum coin-game`.
@@ -46,8 +46,8 @@ Larger builds that show what quantum computing can drive.
 
 - **Qoffee-Maker**: Quantum-controlled coffee maker using Home Connect API and Docker. Opens `rq_demo_run.sh qoffee-maker`.
 - **Quantum Mixer**: Quantum beverage mixer - Qocktails, Qoffee, and Ice demos. Opens `rq_demo_run.sh quantum-mixer`.
-- **Entangible**: (beta) Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera. Opens `rq_demo_run.sh entangible`.
-- **racetraQ** *(catalogue demo: its icon comes when it is added)*: quantum reinforcement-learning racing game
+- **Entangible (beta)**: Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera. Opens `rq_demo_run.sh entangible`.
+- **racetraQ (beta)** *(catalogue demo: its icon comes when it is added)*: quantum reinforcement-learning racing game
 
 ### Learn & code
 
@@ -56,7 +56,7 @@ Write quantum programs and work through tutorials and courses.
 - **My Quantum Programs**: Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook. Opens `rq_my_programs.sh`.
 - **IBM Quantum Composer**: Design and simulate quantum circuits in your web browser. Opens the browser at https://quantum.cloud.ibm.com/composer.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
-- **Qiskit Tutorials on this Pi**: (beta) The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
+- **Qiskit Tutorials on this Pi (beta)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
 - **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.
 - **IBM Quantum Courses**: Official IBM Quantum courses on quantum computing (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-courses`.
 - **Quantum Lab (QuBins)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
@@ -65,7 +65,7 @@ Write quantum programs and work through tutorials and courses.
 
 For a class or a stand: a server for many laptops, and a loop of demos.
 
-- **Workshop & Qiskit Server**: (beta) One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
+- **Workshop & Qiskit Server (beta)**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
 - **Demo Loop**: Quantum demos one after another, for a stand (LED demos and Quantum Fractals). Opens `rq_demo_loop.sh`.
 
 ### Contributed demos

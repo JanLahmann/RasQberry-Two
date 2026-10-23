@@ -1562,7 +1562,12 @@ main() {
 
     # New or less-tested demos ask for feedback (item 36), once per window
     if [ -z "$root_pass" ] && [ -n "$(rq_demo_maturity "$DEMO_ID" "$MANIFEST_FILE" "${VARIANT:-}")" ]; then
-        rq_beta_notice "$DEMO_ID"
+        local beta_name="$demo_name"
+        if [ -n "${VARIANT:-}" ]; then
+            beta_name=$(jq -r --arg v "$VARIANT" '.variants[]? | select(.id == $v) | .name // empty' \
+                "$MANIFEST_FILE" 2>/dev/null) || beta_name=""
+        fi
+        rq_beta_notice "$DEMO_ID" "${beta_name:-$demo_name}"
     fi
 
     # Check requirements
