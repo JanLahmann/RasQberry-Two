@@ -178,6 +178,26 @@ restore_backup() {
     info "Restored the scripts and configuration saved on $(basename "$backup_dir" | sed 's/^rasqberry-backup-//')."
 }
 
+# How many scripts and config files the branch changes (new or different),
+# for the summary: an update that changes nothing says so (H-42). The env
+# file is merged and the menu cache rebuilt, so they do not count.
+count_changes() {
+    local src="$1" f rel
+    CHANGED_BIN=0
+    CHANGED_CFG=0
+    for f in "$src"/RQB2-bin/*; do
+        [ -f "$f" ] || continue
+        cmp -s "$f" "$TARGET_BIN/$(basename "$f")" || CHANGED_BIN=$((CHANGED_BIN + 1))
+    done
+    while IFS= read -r -d '' f; do
+        rel=${f#"$src/RQB2-config/"}
+        case "$rel" in
+            rasqberry_environment.env|demo-menu-cache.sh|rasqberry-firstlogin.profile.sh|rasqberry-led-verify.profile.sh) continue ;;
+        esac
+        cmp -s "$f" "$TARGET_CONFIG/$rel" || CHANGED_CFG=$((CHANGED_CFG + 1))
+    done < <(find "$src/RQB2-config" -type f -print0 2>/dev/null)
+}
+
 copy_bin_files() {
     local source_dir="$1/RQB2-bin"
 
@@ -499,6 +519,7 @@ main() {
     fi
 
     # Copy files
+    count_changes "$WORK_DIR"
     copy_bin_files "$WORK_DIR"
     copy_config_files "$WORK_DIR"
 
@@ -519,14 +540,15 @@ main() {
     info ""
     info "Updated from: https://github.com/$repo (branch: $branch)"
     info ""
-    info "Changes applied:"
-    info "  - Scripts updated in $TARGET_BIN/"
-    info "  - Config files updated in $TARGET_CONFIG/"
-    info "  - Boot scripts, services and autostart entries updated"
-    info "  - Environment reloaded"
-    info ""
-    info "Note: You may need to restart raspi-config or reboot for"
-    info "all changes to take effect in the menu system."
+    if [ "$CHANGED_BIN" -eq 0 ] && [ "$CHANGED_CFG" -eq 0 ]; then
+        info "Already up to date: no script or config file differs from this branch."
+    else
+        info "Changed: $CHANGED_BIN script(s) in $TARGET_BIN/, $CHANGED_CFG config file(s) in $TARGET_CONFIG/"
+        info ""
+        info "Note: You may need to restart raspi-config or reboot for"
+        info "all changes to take effect in the menu system."
+    fi
+    info "Your settings are kept; boot scripts and services are up to date."
 }
 
 main "$@"

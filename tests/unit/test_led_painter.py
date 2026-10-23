@@ -177,3 +177,15 @@ def test_in_a_window_cancel_leaves_the_other_program_and_does_not_start(painter)
     calls = log.read_text()
     assert "LED Panel in Use" in calls
     assert "stopped" not in calls and "systemctl start" not in calls and "painter" not in calls
+
+
+def test_requirements_go_into_the_venv_as_its_owner():
+    # H-44 (rig, 2026-10-23): installed as root, LED-Painter's pinned setuptools
+    # left 971 root-owned files in the user's venv; the user's next pip install
+    # then fails with "Permission denied" (#285, R-059)
+    text = open(os.path.join(_BIN, "rq_led_painter.sh")).read()
+    fn = text[text.index("install_requirements() {"):]
+    fn = fn[:fn.index("\n}\n")]
+    assert 'run_as_user "$venv/bin/pip3" install -r "$DEMO_DIR/requirements.txt"' in fn
+    assert 'sudo "$venv_pip"' not in fn and '"$venv_pip" install' not in fn
+    assert 'chown -R "$owner:$owner" "$venv"' in fn
