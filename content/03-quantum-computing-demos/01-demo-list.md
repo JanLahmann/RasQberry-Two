@@ -4,7 +4,8 @@ The demos come in six groups: an icon on the desktop and a submenu of
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with `rq_demo_run.sh <id>`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
-run on real IBM hardware. Demos tagged beta are new:
+run on real IBM hardware. Demos tagged beta are new and some things may not work yet. On the Pi they say
+"(beta)" on their icon and when they start:
 [tell us how they work](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml).
 
 New here? Start with the [First 15 minutes](/03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes) learning path.
@@ -32,7 +33,7 @@ Games and puzzles you play against or with a quantum computer.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects | network on first start, IBM Quantum account optional | `fun-with-quantum` |
+| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline) <span className="beta-tag">beta</span>, and the Fun with Quantum family of projects <span className="beta-tag">beta</span> | network on first start, IBM Quantum account optional | `fun-with-quantum` |
 | **Quantum Paradoxes** | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 
