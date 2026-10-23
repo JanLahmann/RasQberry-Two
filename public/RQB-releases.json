@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-23T18:10:10Z",
+  "generated": "2026-10-23T18:11:06Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,16 @@
       "image_download_size": 1859384508,
       "extract_size": 9546235904,
       "extract_sha256": "0f28116fdbe8d0c39f07d18d85f327c0aa9339ed3f9bbadf51a7a07af8eaacd0",
-      "image_sha256": "e6f1ed58d7a25b6ad24426b53e6d55a2283d092c591b514f7813032da4c26c0b",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-193035/rasqberry-development-2026-10-23-193035-ab.img.xz",
       "ab_extract_sha256": "f93e3d6617e402eecb340e70a0c1a91c0f8a4be8a67ce43f8291f6fc12f48cc5",
       "ab_image_sha256": "2f71aed78228401cca6e5179ee498387bf10470b2892c734d79d2bce135ecf88",
-      "ab_image_download_size": 1906597336,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1906597336,
       "highlights": [
+        "Bump version to development-2026-10-23-193035",
         "Update from branch: say what changed, or that nothing did (#346)",
-        "Venv: LED-Painter installs as the user; the reset works with Python 3.13 (#347)"
+        "LED-Painter installs as the user; the reset works with Python 3.13 (#347)",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-23-075001"
       ]
     }
   }
