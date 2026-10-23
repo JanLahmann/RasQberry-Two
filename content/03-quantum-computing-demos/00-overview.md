@@ -29,7 +29,8 @@ start. The others download on their first start, which needs a network
 connection; Docker demos (Qoffee-Maker, Quantum Mixer, Quantum Lab, Qiskit
 Tutorials on this Pi, Workshop & Qiskit Server) take 2–4 GB each and need a card
 of 32 GB or more.
-Demos tagged beta are new:
+Demos tagged beta are new and some things may not work yet. On the Pi they say
+"(beta)" on their icon and when they start:
 [tell us how they work](https://github.com/JanLahmann/RasQberry-Two/issues/new?template=demo-feedback.yml).
 
 ## Running demos
