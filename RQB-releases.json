@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-23T06:40:57Z",
+  "generated": "2026-10-23T18:10:10Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,22 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-23-075001",
-      "name": "rasqberry-development-2026-10-23-075001",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-075001/rasqberry-development-2026-10-23-075001.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-23-075001",
-      "release_date": "2026-10-23 07:50",
-      "image_download_size": 1858055912,
+      "tag": "development-2026-10-23-193035",
+      "name": "rasqberry-development-2026-10-23-193035",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-193035/rasqberry-development-2026-10-23-193035.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-23-193035",
+      "release_date": "2026-10-23 19:30",
+      "image_download_size": 1859384508,
       "extract_size": 9546235904,
-      "extract_sha256": "cb84a3b026ea861700d1dcdef7699b5f967a9471f7ea641160a6306f0b066222",
-      "image_sha256": "d477bcf2d7dd7d59f6157699da0e243cff66f27f625c6392c15a9e98f0d54ea8",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-075001/rasqberry-development-2026-10-23-075001-ab.img.xz",
-      "ab_extract_sha256": "7fe512ec8a01757301bf0def7bd6b52a7c7aa4e849cd206866e1f7529d20b289",
-      "ab_image_sha256": "c4a47d92f48e0a362730dc865b762d1ec3b608e0c6aea3e3427e3b352fd85bb9",
-      "ab_image_download_size": 1914993432,
+      "extract_sha256": "0f28116fdbe8d0c39f07d18d85f327c0aa9339ed3f9bbadf51a7a07af8eaacd0",
+      "image_sha256": "e6f1ed58d7a25b6ad24426b53e6d55a2283d092c591b514f7813032da4c26c0b",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-193035/rasqberry-development-2026-10-23-193035-ab.img.xz",
+      "ab_extract_sha256": "f93e3d6617e402eecb340e70a0c1a91c0f8a4be8a67ce43f8291f6fc12f48cc5",
+      "ab_image_sha256": "2f71aed78228401cca6e5179ee498387bf10470b2892c734d79d2bce135ecf88",
+      "ab_image_download_size": 1906597336,
       "ab_extract_size": 12398362624,
       "highlights": [
-        "Beta demos say so on their icon and at every start (#341)"
+        "Update from branch: say what changed, or that nothing did (#346)",
+        "Venv: LED-Painter installs as the user; the reset works with Python 3.13 (#347)"
       ]
     }
   }
