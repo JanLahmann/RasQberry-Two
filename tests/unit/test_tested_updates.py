@@ -207,4 +207,4 @@ def test_an_updated_checkout_stays_the_users():
     text = open(os.path.join(_BIN, "rq_demo_update.sh")).read()
     assert 'case "/$f" in */__pycache__/*) continue ;; esac' in text
     assert 'chown -R "$(get_user_name):" "$demo_dir"' in text
-    assert "tested: " not in text.split("shown_label() {")[1].split("}")[0].replace('"${1#tested: }"', "")
+    assert 'local l="${1#tested: }"' in text and "$(shown_label \"$label\")" in text
