@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-23T19:42:50Z",
+  "generated": "2026-10-24T08:11:36Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,22 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-23-193035",
-      "name": "rasqberry-development-2026-10-23-193035",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-193035/rasqberry-development-2026-10-23-193035.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-23-193035",
-      "release_date": "2026-10-23 19:30",
-      "image_download_size": 1859384508,
+      "tag": "development-2026-10-24-092032",
+      "name": "rasqberry-development-2026-10-24-092032",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-092032/rasqberry-development-2026-10-24-092032.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-24-092032",
+      "release_date": "2026-10-24 09:20",
+      "image_download_size": 1861627664,
       "extract_size": 9546235904,
-      "extract_sha256": "0f28116fdbe8d0c39f07d18d85f327c0aa9339ed3f9bbadf51a7a07af8eaacd0",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-23-193035/rasqberry-development-2026-10-23-193035-ab.img.xz",
-      "ab_extract_sha256": "f93e3d6617e402eecb340e70a0c1a91c0f8a4be8a67ce43f8291f6fc12f48cc5",
-      "ab_image_sha256": "2f71aed78228401cca6e5179ee498387bf10470b2892c734d79d2bce135ecf88",
+      "extract_sha256": "434fa55e41127a18effb761c9511d0de1d8653055ec721722afe5a3b03f47d32",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-092032/rasqberry-development-2026-10-24-092032-ab.img.xz",
+      "ab_extract_sha256": "14a2d829d942dd3c7ea86fa31fb8815e889fcada7e941e33d6ab0c99d3aee3c7",
+      "ab_image_sha256": "db46c0ac67d97af455b671ab7d1aaf8ffebd16082a914c09253e5bd027bc91f0",
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1906597336,
+      "ab_image_download_size": 1908417400,
       "highlights": [
-        "Bump version to development-2026-10-23-193035",
-        "Update from branch: say what changed, or that nothing did (#346)",
-        "LED-Painter installs as the user; the reset works with Python 3.13 (#347)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-23-075001"
+        "Bump version to development-2026-10-24-092032",
+        "Qiskit Live (was Quantum Lab); Fun with Quantum games beta (#352)"
       ]
     }
   }
