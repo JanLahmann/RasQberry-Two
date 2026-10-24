@@ -208,11 +208,14 @@ function render(manifests, groups, registry) {
   // a manifest without a valid group goes where the Pi's guess puts it
   const guess = (m) => (m.needs_hw?.leds ? 'led-panel' : ['game', 'visualization'].includes(m.category) ? 'play' : 'learn');
   const byGroup = Object.fromEntries(ids.map((g) => [g, []]));
-  for (const m of manifests.filter(isShown)) byGroup[ids.includes(m.group) ? m.group : guess(m)]?.push(m);
+  // a beta demo: the group marked beta, whatever group it names (Jan, 2026-10-24), as on the Pi
+  const betaGroup = groups.groups.find((g) => g.beta)?.id;
+  const inBeta = (d) => betaGroup && d.maturity === 'beta';
+  for (const m of manifests.filter(isShown)) byGroup[inBeta(m) ? betaGroup : ids.includes(m.group) ? m.group : guess(m)]?.push(m);
   for (const list of Object.values(byGroup)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
   // a catalogue demo: its entry's group, else the catalogue group (Contributed demos)
   const catalogueGroup = groups.groups.find((g) => g.catalogue)?.id || 'learn';
-  for (const c of catalogueRows(registry)) byGroup[ids.includes(c.group) ? c.group : catalogueGroup]?.push(c);
+  for (const c of catalogueRows(registry)) byGroup[inBeta(c) ? betaGroup : ids.includes(c.group) ? c.group : catalogueGroup]?.push(c);
 
   const first = (groups.starters || []).length ? `New here? Start with the [First 15 minutes](${PATHS_URL}${h2Anchor('First 15 minutes')}) learning path.\n\n` : '';
   let md = `# Quantum Computing Demos in RasQberry Two

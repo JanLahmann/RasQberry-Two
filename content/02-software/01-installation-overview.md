@@ -36,7 +36,7 @@ We publish it for at least one more release.
 | 16 GB | One system, without the Docker demos |
 
 A high-speed card (A2, U3) makes the desktop and the demos start faster. Docker demos (Qoffee-Maker,
-Quantum Mixer, Quantum Lab, Workshop & Qiskit Server) take 2–4 GB each, per system.
+Quantum Mixer, Qiskit Live, Workshop & Qiskit Server) take 2–4 GB each, per system.
 
 ## Write the card
 
@@ -174,7 +174,7 @@ SSH is on; VNC is switched on at the first start
 - **"Failed to run demo":** the message names the cause. The usual ones: no
   network on a demo's first start, or a display demo started over SSH (start it
   on the desktop or over VNC instead).
-- **Disk full:** the Docker demos (Qoffee-Maker, Quantum Mixer, Quantum Lab,
+- **Disk full:** the Docker demos (Qoffee-Maker, Quantum Mixer, Qiskit Live,
   Workshop & Qiskit Server) take 2–4 GB each and need a card of 32 GB or more
   ([card sizes](#2-which-image)).
 - **LED panel stays dark:** see [LED troubleshooting](/03-quantum-computing-demos/led-display/).

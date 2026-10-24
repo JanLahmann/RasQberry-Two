@@ -17,7 +17,7 @@ The demos come in six groups. Each is an icon on the desktop and a submenu of
 | **LED panel** | IBM LED Demo, RasQ-LED, [Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/), [Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/), LED-Painter, [text and logos](/03-quantum-computing-demos/led-display/) |
 | **Play** | Fun with Quantum (eight games, from the Quantum Coin Game to GHZ on real devices, its website and family), Quantum Paradoxes, [Quantum Fractals](/03-quantum-computing-demos/fractals/) |
 | **Big projects** | [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/), Quantum Mixer, [Entangible](#2-entangible), [racetraQ](https://racetraq.org) |
-| **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), Qiskit Tutorials on this Pi, Quantum Lab (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
+| **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), Qiskit Tutorials on this Pi, Qiskit Live (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
 | **Workshops & events** | Workshop & Qiskit Server, Demo Loop |
 | **Contributed demos** | Demos from partners, added from the catalogue: SAP Quantum LED, SAP Quantum Learning |
 
@@ -26,7 +26,7 @@ Grokking the Bloch Sphere, Quantum Coin Game and My Quantum Programs.
 
 Only the LED demos, RasQ-LED and Quantum Fractals are on the card from the
 start. The others download on their first start, which needs a network
-connection; Docker demos (Qoffee-Maker, Quantum Mixer, Quantum Lab, Qiskit
+connection; Docker demos (Qoffee-Maker, Quantum Mixer, Qiskit Live, Qiskit
 Tutorials on this Pi, Workshop & Qiskit Server) take 2–4 GB each and need a card
 of 32 GB or more.
 Demos tagged beta are new and some things may not work yet. On the Pi they say
@@ -95,7 +95,7 @@ warn about the certificate once (tap **Advanced**, then **Proceed**).
     `rq_demo_add_external.sh --update <id>`.
   - **Remove a demo:** frees space; it downloads again when started (a catalogue
     demo is uninstalled: add it again from the catalogue).
-  - **Stop Docker demos:** stops the Workshop & Qiskit Server, Quantum Lab,
+  - **Stop Docker demos:** stops the Workshop & Qiskit Server, Qiskit Live,
     Qoffee-Maker or Quantum Mixer.
 - **Workshops & events** → **Demo Loop:** LED demos and Quantum Fractals one after
   another, for a booth: **Choose the demos**, **Start the demo loop** (Enter skips

@@ -129,7 +129,7 @@ your name or ID. No IP address, no cookies.
 - **IBM Quantum Composer**: Build a circuit in the IBM Quantum Composer and simulate it. *(needs: screen, internet)*
 - **IBM Quantum Courses**: Open an IBM Quantum course and run its first code cells.
 - **IBM Quantum Tutorials**: Open an IBM Quantum tutorial and run its code cells. Early beta, not yet tested by people: expect rough edges. *(needs: internet, IBM Quantum account)*
-- **Quantum Lab (QuBins)**: Start the Quantum Lab and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more)*
+- **Qiskit Live (QuBins)**: Start Qiskit Live and run a notebook. Early beta, not yet tested by people: expect rough edges. *(needs: internet, SD card of 32 GB or more)*
 - **SAP Quantum Learning**: Take the quiz and build a circuit in SAP Quantum Learning. Early beta, not yet tested by people: expect rough edges. *(needs: internet, screen)*
 - **SAP Quantum LED**: Show the SAP logo on the LED panel, coloured by three qubits. Early beta, not yet tested by people: expect rough edges. *(needs: internet, LED panel)*
 
