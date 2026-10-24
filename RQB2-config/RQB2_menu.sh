@@ -309,7 +309,7 @@ run_quantum_paradoxes_demo() {
 # The demo engine asks before this runs (the consent dialog names the licence).
 # A download that was interrupted or failed offline used to leave a .git with
 # no commit; every retry then took it for "cloned", reported success and set
-# the installed flag, and IBM Tutorials, IBM Courses and the Quantum Lab stayed
+# the installed flag, and IBM Tutorials, IBM Courses and the Qiskit Live stayed
 # broken until someone ran rm -rf (R-056). The checkout counts only with a
 # commit and the content; anything else is removed and fetched again, and a
 # failure leaves nothing behind.
@@ -837,7 +837,7 @@ run_quantum_mixer_demo() {
     run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-mixer
 }
 
-# Stop the Docker demos that are running (doQumentation, Quantum Lab,
+# Stop the Docker demos that are running (doQumentation, Qiskit Live,
 # Qoffee-Maker, Quantum-Mixer, catalogue demos): closing their window keeps
 # them running, and only Qoffee and the Mixer had a stop entry (R-110).
 do_stop_docker_demos() {
@@ -1538,7 +1538,7 @@ do_manage_demos_menu() {
        ADDX "Add demo from catalogue" \
        UPD  "Update demos (newer versions)" \
        REM  "Remove a demo (free space)" \
-       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
+       DSTP "Stop Docker demos (Workshop & Qiskit Server, Qiskit Live...)") || break
     _md_last="$FUN"
     case "$FUN" in
       DALL) do_download_all_demos || continue ;;
