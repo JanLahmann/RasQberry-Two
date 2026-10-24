@@ -10,7 +10,7 @@ run on real IBM hardware. Demos tagged beta are new and some things may not work
 
 New here? Start with the [First 15 minutes](/03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes) learning path.
 
-> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/beta-group/RQB2-config/demo-manifests)
+> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests)
 > — the same files the image installs from, so it cannot fall out of step with
 > what ships. To change an entry, edit its manifest; edits made here are
 > overwritten.
@@ -33,7 +33,7 @@ Games and puzzles you play against or with a quantum computer.
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
-| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects <span className="beta-tag">beta</span>: Fun with Quantum website, Fun with Quantum family | network on first start, IBM Quantum account optional | `fun-with-quantum` |
+| **Fun with Quantum** | Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox, Mermin–Peres magic square, 3-SAT with Grover, CHSH game, quantum prisoner's dilemma, GHZ on real devices), the Fun with Quantum website with browser versions of the games (works offline), and the Fun with Quantum family of projects <span className="beta-tag">beta</span>: Start here, Quantum Coin Game, GHZ Game, Hardy's Paradox, Mermin–Peres Magic Square, 3-SAT with Grover's Algorithm, The CHSH Game, The Quantum Prisoner's Dilemma, GHZ on Real Quantum Devices, Fun with Quantum website, Fun with Quantum family | network on first start, IBM Quantum account optional | `fun-with-quantum` |
 | **Quantum Paradoxes** | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
 | **[Quantum Fractals](/03-quantum-computing-demos/fractals/)** | Julia-set fractals that change with the state of one qubit, in the browser | display | `quantum-fractals` |
 
@@ -80,4 +80,4 @@ New and experimental demos: some things may not work yet. Try them and tell us w
 
 ---
 
-*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/beta-group/RQB2-config/demo-manifests) — the same files the image installs from.*
+*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests) — the same files the image installs from.*
