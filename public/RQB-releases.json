@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-24T08:11:36Z",
+  "generated": "2026-10-24T09:46:43Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,22 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-24-092032",
-      "name": "rasqberry-development-2026-10-24-092032",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-092032/rasqberry-development-2026-10-24-092032.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-24-092032",
-      "release_date": "2026-10-24 09:20",
-      "image_download_size": 1861627664,
+      "tag": "development-2026-10-24-105954",
+      "name": "rasqberry-development-2026-10-24-105954",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-105954/rasqberry-development-2026-10-24-105954.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-24-105954",
+      "release_date": "2026-10-24 10:59",
+      "image_download_size": 1860596752,
       "extract_size": 9546235904,
-      "extract_sha256": "434fa55e41127a18effb761c9511d0de1d8653055ec721722afe5a3b03f47d32",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-092032/rasqberry-development-2026-10-24-092032-ab.img.xz",
-      "ab_extract_sha256": "14a2d829d942dd3c7ea86fa31fb8815e889fcada7e941e33d6ab0c99d3aee3c7",
-      "ab_image_sha256": "db46c0ac67d97af455b671ab7d1aaf8ffebd16082a914c09253e5bd027bc91f0",
+      "extract_sha256": "3b0236080515dc94b8f21936bbc17d859442076948cb2fa0960fa9f39a64f97d",
+      "image_sha256": "f0badf460d09102c5537826726a195d9ea748f3769a10514edb5549ebf881045",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-105954/rasqberry-development-2026-10-24-105954-ab.img.xz",
+      "ab_extract_sha256": "2c28cec1d94e54f786d32aef08f4fa2e6ee93652784d7b849d8e71ed86633ef4",
+      "ab_image_sha256": "9ea0c8e5b812a5809b1d6b1956865bb246c805eec9de12627e441ec12f2adbc2",
+      "ab_image_download_size": 1912329440,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1908417400,
       "highlights": [
-        "Bump version to development-2026-10-24-092032",
-        "Qiskit Live (was Quantum Lab); Fun with Quantum games beta (#352)"
+        "Beta demos get their own desktop folder and menu section (#350)",
+        "IBM Quantum Courses and Tutorials: pin in the manifests, updatable (#354)"
       ]
     }
   }
