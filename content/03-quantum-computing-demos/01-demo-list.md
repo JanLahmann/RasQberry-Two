@@ -1,6 +1,6 @@
 # Quantum Computing Demos in RasQberry Two
 
-The demos come in six groups: an icon on the desktop and a submenu of
+The demos come in seven groups: an icon on the desktop and a submenu of
 `sudo raspi-config` → **0 RasQberry** → **Quantum Demos** each. A terminal
 starts them with `rq_demo_run.sh <id>`. Demos marked "network on first start"
 download the first time you run them. An IBM Quantum account is only needed to
@@ -10,7 +10,7 @@ run on real IBM hardware. Demos tagged beta are new and some things may not work
 
 New here? Start with the [First 15 minutes](/03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes) learning path.
 
-> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests)
+> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/beta-group/RQB2-config/demo-manifests)
 > — the same files the image installs from, so it cannot fall out of step with
 > what ships. To change an entry, edit its manifest; edits made here are
 > overwritten.
@@ -45,8 +45,6 @@ Larger builds that show what quantum computing can drive.
 |---|---|---|---|
 | **[Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/)** | Quantum-controlled coffee maker using Home Connect API (Docker container) | display, network, a 32 GB card | `qoffee-maker` |
 | **Quantum Mixer** | Mix a cocktail, an ice cream or a coffee with a quantum circuit (Docker container) | display, network on first start, a 32 GB card | `quantum-mixer` |
-| **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
-| **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
 
 ## Learn & code
 
@@ -55,19 +53,10 @@ Write quantum programs and work through tutorials and courses.
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
 | **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** | Interactive Bloch sphere visualisation for understanding qubit states | network on first start | `grok-bloch` |
-| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
 | **Quantum Lab (QuBins)** | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network, a 32 GB card | `quantum-lab` |
 | **IBM Quantum Tutorials** | Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-tutorials` |
 | **IBM Quantum Courses** | Official IBM Quantum learning courses from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-courses` |
 | **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM Quantum account optional | `composer` |
-
-## Workshops & events
-
-For a class or a stand: a server for many laptops, and a loop of demos.
-
-| Demo | What it is | Needs | Start it with |
-|---|---|---|---|
-| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
 
 ## Contributed demos
 
@@ -78,6 +67,17 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 | **SAP Quantum Learning** | Browser quiz and circuit composer (provided by SAP) | add it first: **Manage demos** → **Add demo from catalogue** (2 MB) | `sap-quantum-learning` |
 | **SAP Quantum LED** | SAP logo on the LEDs, coloured by 3 qubits (provided by SAP) | add it first: **Manage demos** → **Add demo from catalogue** (1 MB) | `sap-quantum-led` |
 
+## Beta: try & tell us
+
+New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
+
+| Demo | What it is | Needs | Start it with |
+|---|---|---|---|
+| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
+| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
+| **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
+| **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
+
 ---
 
-*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests) — the same files the image installs from.*
+*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/beta-group/RQB2-config/demo-manifests) — the same files the image installs from.*
