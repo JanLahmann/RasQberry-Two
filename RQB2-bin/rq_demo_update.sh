@@ -146,6 +146,12 @@ update_image() {
     apply_image "$key" "$name" "$mf" "$target" "$label" "$dl"
 }
 
+# A version's label for the user ("tested: " marks it for rq_catalogue.py only)
+shown_label() {   # LABEL
+    local l="${1#tested: }"
+    echo "${l:-the version this release ships}"
+}
+
 # Move a Docker demo to TARGET (download it first, after the usual dialog)
 apply_image() {   # KEY NAME MANIFEST TARGET LABEL DOWNLOAD_MB
     local key="$1" name="$2" mf="$3" target="$4" label="$5" dl="${6:-0}" rel disk=0 rc
@@ -181,7 +187,7 @@ apply_image() {   # KEY NAME MANIFEST TARGET LABEL DOWNLOAD_MB
         rq_demo_set_version "$key" "$rel" "$target" "$label"
     fi
     rq_docker_drop_old "$target"
-    show_msgbox "$TITLE" "$name now uses: ${label:-the version this release ships}.\n\nIt is used the next time $name starts (a running one keeps its version until then)."
+    show_msgbox "$TITLE" "$name now uses: $(shown_label "$label").\n\nIt is used the next time $name starts (a running one keeps its version until then)."
     return 0
 }
 
@@ -249,15 +255,21 @@ apply_ref() {     # KEY NAME MANIFEST TARGET LABEL
     # The engine installs the chosen commit with the demo's patch and setup
     # steps (no second download dialog)
     if RQ_CONFIRMED_DEMO="$id" "$BIN_DIR/rq_demo_run.sh" "$id" --install-only; then
-        # Files the user added (own notebooks, a settings file) come along
+        # Files the user added (own notebooks, a settings file) come along;
+        # Python's caches do not (rig check 2026-10-24: copied as root, a
+        # root-owned GHZGame/__pycache__ blocked removing the checkout)
         ( cd "$backup" && git ls-files --others -z 2>/dev/null ) \
             | while IFS= read -r -d '' f; do
+                case "/$f" in */__pycache__/*) continue ;; esac
                 [ -e "$demo_dir/$f" ] && continue
                 mkdir -p "$demo_dir/$(dirname "$f")"
                 cp -p "$backup/$f" "$demo_dir/$f"
             done
-        fix_root_ownership "$demo_dir" >/dev/null 2>&1 || true
-        show_msgbox "$TITLE" "$name is now at ${label:-the version this release ships}.\n\nThe earlier copy is kept in:\n$backup"
+        # the whole tree, not only a root-owned top (fix_root_ownership)
+        if [ "$(id -u)" = "0" ] && [ "$(get_user_name)" != "root" ]; then
+            chown -R "$(get_user_name):" "$demo_dir" 2>/dev/null || true
+        fi
+        show_msgbox "$TITLE" "$name is now at $(shown_label "$label").\n\nThe earlier copy is kept in:\n$backup"
     else
         rc=$?
         rq_remove_tree "$demo_dir" || true

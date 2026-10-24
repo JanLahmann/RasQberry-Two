@@ -199,3 +199,12 @@ def test_the_update_script_dispatches_after_its_functions():
     for fn in ("apply_tested() {", "apply_image() {", "apply_ref() {", "updatable() {"):
         assert text.index(fn) < call, fn
     assert '"tested: $label"' in text and cat.TESTED_LABEL == "tested: "
+
+
+def test_an_updated_checkout_stays_the_users():
+    # rig check 2026-10-24: the user's files were copied as root, and a
+    # root-owned GHZGame/__pycache__ blocked the next update or removal
+    text = open(os.path.join(_BIN, "rq_demo_update.sh")).read()
+    assert 'case "/$f" in */__pycache__/*) continue ;; esac' in text
+    assert 'chown -R "$(get_user_name):" "$demo_dir"' in text
+    assert "tested: " not in text.split("shown_label() {")[1].split("}")[0].replace('"${1#tested: }"', "")
