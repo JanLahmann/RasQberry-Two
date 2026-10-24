@@ -272,8 +272,10 @@ def test_desktop_entry_icon_and_build_list():
     stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     assert stage.count("|entangible|") == 2
     groups = json.load(open(os.path.join(_MANIFESTS, "demo-groups.json")))
+    # its manifest names Big projects; while it is beta it sits in Beta (Jan, 2026-10-24)
     projects = [g for g in groups["groups"] if g["id"] == "projects"][0]
-    assert "Entangible" in projects["menu"]
+    assert "Entangible" not in projects["menu"]
+    assert [g["id"] for g in groups["groups"] if g.get("beta")] == ["beta"]
 
 
 # --- install (post_install) and exit codes -------------------------------------------

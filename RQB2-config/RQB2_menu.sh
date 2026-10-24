@@ -114,7 +114,7 @@ _rq_demo_groups_fallback() {
     demo_group_list() {
         printf '%s\n' '"led-panel" "LED panel"' '"play" "Play"' '"projects" "Big projects"' \
             '"learn" "Learn & code"' '"workshops" "Workshops & events"' \
-            '"contributed" "Contributed demos"'
+            '"contributed" "Contributed demos"' '"beta" "Beta: try & tell us"'
     }
     demo_group_title() {
         case "$1" in
@@ -124,6 +124,7 @@ _rq_demo_groups_fallback() {
             learn)     echo "Learn & code" ;;
             workshops) echo "Workshops & events" ;;
             contributed) echo "Contributed demos" ;;
+            beta)      echo "Beta: try & tell us" ;;
             *) return 1 ;;
         esac
     }
@@ -1489,10 +1490,16 @@ do_demo_group_menu() {
       contributed)
                  [ $# -eq 0 ] && _dg_text="No demos from the catalogue yet. Add one:"
                  set -- "$@" ADDX "Add demo from catalogue" ;;
+      # every beta demo, whatever group it names (Jan, 2026-10-24)
+      beta)      _dg_text="Not finished yet: try them, tell us at ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}" ;;
     esac
     if [ $# -eq 0 ]; then
-        whiptail --title "RasQberry: $_dg_title" --msgbox \
-            "No demos in this group yet.\n\nAdd one: Quantum Demos -> Manage demos -> Add demo from catalogue." 10 70
+        if [ "$_dg_id" = beta ]; then
+            whiptail --title "RasQberry: $_dg_title" --msgbox "No beta demos right now: every demo is ready." 8 70
+        else
+            whiptail --title "RasQberry: $_dg_title" --msgbox \
+                "No demos in this group yet.\n\nAdd one: Quantum Demos -> Manage demos -> Add demo from catalogue." 10 70
+        fi
         return 0
     fi
     FUN=$(show_menu ${_dg_last:+--default-item "$_dg_last"} \

@@ -21,8 +21,8 @@
     },
     "group": {
       "type": "string",
-      "enum": ["led-panel", "play", "projects", "learn", "workshops", "contributed"],
-      "description": "Desktop folder, RasQberry menu submenu and website heading (demo-groups.json). Shipped demos only; without it, a guess from needs_hw.leds and category. A catalogue demo goes to its known-demos.json entry's group, else to Contributed demos"
+      "enum": ["led-panel", "play", "projects", "learn", "workshops", "contributed", "beta"],
+      "description": "Desktop folder, RasQberry menu submenu and website heading (demo-groups.json). Shipped demos only; without it, a guess from needs_hw.leds and category. A catalogue demo goes to its known-demos.json entry's group, else to Contributed demos. A beta demo (maturity) goes to Beta, whatever it names here"
     },
     "description": {
       "type": "string",

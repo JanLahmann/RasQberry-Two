@@ -56,7 +56,7 @@ EXTERNAL=false   # --external: apply the hardened external-demo constraints
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
 # Demo groups: the ids in demo-groups.json next to the shipped manifests
-VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops", "contributed"]'
+VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops", "contributed", "beta"]'
 VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
 # Entrypoint types an external demo may declare (no legacy "script").
 EXTERNAL_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
