@@ -2589,7 +2589,9 @@ rq_demo_maturity() {
 # (curated; an install under an earlier name, listed in an entry's
 # "replaces", goes to that entry's group), else to the group marked
 # "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
-# manifest names. A shipped demo goes to its manifest's "group", else a
+# manifest names. A beta demo (maturity "beta": its manifest's, else its
+# catalogue entry's) goes to the group marked "beta", before anything else:
+# it says clearly what is not ready yet (Jan, 2026-10-24). A shipped demo goes to its manifest's "group", else a
 # guess: an LED panel demo to led-panel, a game or visualization to play,
 # anything else to learn. A value demo-groups.json does not list counts as
 # none. rq_desktop_session.py
@@ -2613,7 +2615,10 @@ rq_demo_group() {
         | ([$reg[0].demos[]? | select(.id == $id)]
            + [$reg[0].demos[]? | select(any(.replaces[]?; . == $id))]) as $entry
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
-        | if ($curated | length) > 0 then $curated[0]
+        | ([$grp[0].groups[]? | select(.beta == true) | .id] | .[0]) as $beta
+        | ($m.maturity // ([$entry[].maturity | select(. != null)] | .[0])) as $maturity
+        | if $beta != null and $maturity == "beta" then $beta
+          elif ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
           elif ($m.group as $g | $ids | any(. == $g)) then $m.group
           elif $m.needs_hw.leds == true then "led-panel"

@@ -153,7 +153,7 @@ def test_build_layout_command(tmp_path):
     # RasQberry Setup last
     groups = ds.load_groups()
     loose = len(groups["system"]) + len(groups["starters"]) + len(groups["groups"])
-    assert text.count("trusted=true") == loose == 14
+    assert text.count("trusted=true") == loose == 15
     assert re.findall(r"^\[(.+)\.desktop\]", text, re.M)[-1] == "rasqberry-setup"
     assert "[rq-group-workshops.desktop]" in text and "[composer.desktop]" not in text
 

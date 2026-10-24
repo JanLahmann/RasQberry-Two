@@ -211,7 +211,7 @@ def test_touch_mode_has_bigger_icons():
 
 def test_one_window_per_group():
     ids = {gw.app_id(g["id"]) for g in ds.load_groups()["groups"]}
-    assert len(ids) == 6
+    assert len(ids) == 7
     for app in ids:
         # a valid GApplication id: dot-separated elements of [A-Za-z0-9_]
         assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+", app)
@@ -351,7 +351,7 @@ def test_touch_mode_icon_only_with_a_touchscreen(tmp_path, monkeypatch):
     assert not (desk / "touch-mode.desktop").exists()
     assert (hidden / "touch-mode.desktop").exists()
     placed = _placed(conf)
-    assert len(placed) == 13 and "touch-mode" not in [n for n, _, _ in placed]
+    assert len(placed) == 14 and "touch-mode" not in [n for n, _, _ in placed]
     assert [n for n, _, _ in placed][:2] == ["rasqberry-menu", "learning-paths"]
     # not in a group folder either: it is no demo
     root = home / ".local/share/rasqberry/desktop-groups"
@@ -362,7 +362,7 @@ def test_touch_mode_icon_only_with_a_touchscreen(tmp_path, monkeypatch):
     assert _layout(home, desk, conf, monkeypatch, touchscreen=True)
     assert (desk / "touch-mode.desktop").exists() and not (hidden / "touch-mode.desktop").exists()
     placed = _placed(conf)
-    assert len(placed) == 14 and placed[1][0] == "touch-mode"
+    assert len(placed) == 15 and placed[1][0] == "touch-mode"
     assert json.loads((home / "rec").read_text())["icons"][1] == "touch-mode"
 
 
@@ -401,7 +401,7 @@ def test_the_layout_copes_with_fewer_system_icons(gone, w, h, touch, icon):
     groups = ds.load_groups()
     system = [n for n in groups["system"] if n not in gone]
     top = ds.desktop_order(system + groups["starters"], {}, groups)
-    assert len(top) == 14 - len(gone)
+    assert len(top) == 15 - len(gone)
     label, offset = ds.LABEL_HEIGHT_NUNITO, ds.layout_top(touch, "default")
     pos, overflow = ds.plan_layout(top, w, h, touch=touch, icon=icon, label=label, top=offset)
     assert not overflow and len(pos) == len(top)
@@ -445,14 +445,14 @@ def test_setup_icon_is_last_and_leaves_when_the_checklist_is_done(tmp_path, monk
     home, desk, conf = _desktop(tmp_path)
     assert _layout(home, desk, conf, monkeypatch, touchscreen=False)
     placed = [n for n, _, _ in _placed(conf)]
-    assert placed[-1] == "rasqberry-setup" and len(placed) == 13
+    assert placed[-1] == "rasqberry-setup" and len(placed) == 14
     # the checklist's mark: the icon goes, nothing is left in its place
     mark = home / ds.SETUP_DONE
     mark.parent.mkdir(parents=True)
     mark.write_text("2026-10-08\n")
     assert _layout(home, desk, conf, monkeypatch, touchscreen=False)
     placed = [n for n, _, _ in _placed(conf)]
-    assert "rasqberry-setup" not in placed and len(placed) == 12
+    assert "rasqberry-setup" not in placed and len(placed) == 13
     assert not (desk / "rasqberry-setup.desktop").exists()
     assert (home / ds.HIDDEN_DIR / "rasqberry-setup.desktop").exists()
     assert not _layout(home, desk, conf, monkeypatch, touchscreen=False)

@@ -38,16 +38,18 @@ import rq_desktop_session as ds  # noqa: E402
 needs_jq = pytest.mark.skipif(shutil.which("bash") is None or shutil.which("jq") is None,
                               reason="bash and jq are required")
 
-# Jan's groups (2026-10-07; Contributed demos 2026-10-08): desktop launcher -> folder
+# Jan's groups (2026-10-07; Contributed demos 2026-10-08; Beta 2026-10-24: every
+# beta demo, whatever group it names): desktop launcher -> folder
 _TABLE = {
     "led-panel": {"led-ibm-demo", "rasq-led", "quantum-lights-out", "quantum-raspberry-tie",
                   "led-painter", "clear-leds"},
     "play": {"fun-with-quantum", "quantum-coin-game", "quantum-paradoxes", "quantum-fractals"},
-    "projects": {"qoffee-maker", "quantum-mixer", "entangible", "rq-ext-racetraq"},
-    "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials", "quantum-lab",
+    "projects": {"qoffee-maker", "quantum-mixer"},
+    "learn": {"my-quantum-programs", "grok-bloch", "quantum-lab",
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
-    "workshops": {"doqumentation", "demo-loop"},
+    "workshops": {"demo-loop"},
     "contributed": {"rq-ext-sap-quantum-led", "rq-ext-sap-quantum-learning"},
+    "beta": {"entangible", "doqumentation", "qiskit-tutorials", "rq-ext-racetraq"},
 }
 _STARTERS = ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"]
 _SYSTEM = ["rasqberry-setup", "rasqberry-menu", "touch-mode"]
@@ -74,7 +76,7 @@ def _manifests():
 def test_groups_file_matches_schema_validator_and_menu_fallback():
     data = _groups_json()
     ids = [g["id"] for g in data["groups"]]
-    assert ids == ["led-panel", "play", "projects", "learn", "workshops", "contributed"]
+    assert ids == ["led-panel", "play", "projects", "learn", "workshops", "contributed", "beta"]
     # the catalogue demos' group, offered also while empty
     assert [g["id"] for g in data["groups"] if g.get("catalogue")] == ["contributed"]
     schema = json.load(open(os.path.join(_MANIFESTS, "rq_demo_schema.json")))
@@ -265,10 +267,10 @@ def test_the_grouped_desktop_fits(w, h, touch, icon):
     # large screens - and no More folder any more
     groups = ds.load_groups()
     top = ds.desktop_order(_SYSTEM + _STARTERS, {}, groups)
-    assert len(top) == 14 and top == _DESK_ORDER
+    assert len(top) == 15 and top == _DESK_ORDER
     label, offset = ds.LABEL_HEIGHT_NUNITO, ds.layout_top(touch, "default")
     pos, overflow = ds.plan_layout(top, w, h, touch=touch, icon=icon, label=label, top=offset)
-    assert not overflow and len(pos) == 14
+    assert not overflow and len(pos) == 15
     for x, y in pos.values():
         assert x + icon <= w and y + icon + label <= h
     if not ds.is_small((w, h)):
@@ -323,17 +325,20 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
            "needs_hw": {"leds": True}, "menu": {"order": 72}}
     cache = _cache(tmp_path, [sap])
     groups = _pairs(cache, "demo_group_list")
-    assert [g for g, _ in groups] == ["led-panel", "play", "projects", "learn", "workshops", "contributed"]
+    assert [g for g, _ in groups] == ["led-panel", "play", "projects", "learn", "workshops", "contributed",
+                                      "beta"]
     assert groups[0][1].startswith("LED panel: ")
     items = {g: _pairs(cache, "demo_group_items %s" % g) for g, _ in groups}
     assert [i for i, _ in items["led-panel"]] == ["rasq-led", "quantum-lights-out",
                                                   "quantum-raspberry-tie", "led-painter"]
     assert [i for i, _ in items["contributed"]] == ["sap-quantum-led"]
     assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-paradoxes", "quantum-fractals"]
-    assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer", "entangible"]
-    assert [i for i, _ in items["learn"]] == ["grok-bloch", "qiskit-tutorials", "quantum-lab",
+    assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer"]
+    assert [i for i, _ in items["learn"]] == ["grok-bloch", "quantum-lab",
                                               "ibm-tutorials", "ibm-courses", "composer"]
-    assert [i for i, _ in items["workshops"]] == ["doqumentation"]
+    assert [i for i, _ in items["workshops"]] == []
+    # every beta demo, whatever group it names (Jan, 2026-10-24)
+    assert [i for i, _ in items["beta"]] == ["doqumentation", "qiskit-tutorials", "entangible"]
     names = dict(sum(items.values(), []))
     assert names["qoffee-maker"] == "Qoffee-Maker [internet, 32 GB]"
     assert names["composer"] == "IBM Quantum Composer [internet]"   # works without an account (#31)
@@ -361,7 +366,7 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     assert call[call.index("--title") + 1] == "RasQberry: Quantum Demos"
     items = _menu_items(call)
     assert [t for t, _ in items] == ["PATHS", "led-panel", "play", "projects", "learn",
-                                     "workshops", "contributed", "STOP", "MANAGE"]
+                                     "workshops", "contributed", "beta", "STOP", "MANAGE"]
     assert len(items) <= 11   # no scrolling (11 visible lines)
 
 
@@ -370,7 +375,8 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     ("led-panel", ["IBM", "rasq-led"], ["led-painter", "DISP", "CLEAR", "LEDS"]),
     ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
-    ("workshops", ["doqumentation"], ["LOOP"]),
+    ("workshops", ["LOOP"], ["LOOP"]),
+    ("beta", ["doqumentation"], ["entangible"]),
     # the Coin Game, an icon of its own in the Play window, is here too (F3)
     ("play", ["fun-with-quantum", "COIN", "quantum-paradoxes"], ["quantum-fractals"]),
 ])
@@ -391,8 +397,9 @@ def test_group_lines_name_only_demos_that_are_there(tmp_path):
     # user test 2026-10-08, F3: "Big projects: ... traQmania" while traQmania
     # was not in the submenu; the Contributed line named SAP demos not added
     lines = dict(_pairs(_cache(tmp_path), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
     assert lines["contributed"] == "Contributed demos: add demos from the catalogue"
+    assert lines["beta"] == "Beta: try & tell us: new demos that may not work yet"
     for line in lines.values():
         assert "racetraQ" not in line and "SAP" not in line
     trq = {"id": "racetraq", "name": "racetraQ", "category": "game",
@@ -402,27 +409,31 @@ def test_group_lines_name_only_demos_that_are_there(tmp_path):
            "description": "t", "entrypoint": {"type": "python", "script": "x.py"},
            "needs_hw": {"leds": True}, "menu": {"order": 72}}
     lines = dict(_pairs(_cache(tmp_path / "added", [trq, sap]), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible, racetraQ"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
+    # racetraQ is beta (its catalogue entry): in Beta, named on its line
+    assert lines["beta"] == "Beta: try & tell us: new demos that may not work yet, racetraQ"
     assert lines["contributed"] == "Contributed demos: SAP Quantum LED, more from the catalogue"
 
 
 @needs_jq
-def test_an_install_under_the_old_name_stays_in_big_projects(tmp_path):
+def test_an_install_under_the_old_name_goes_where_racetraq_goes(tmp_path):
     # traQmania was renamed racetraQ (2026-10-08): a Pi that still has it
-    # installed as traqmania keeps it in Big projects (the racetraq entry
-    # "replaces" it), in the menu and on the desktop, until it is moved over
+    # installed as traqmania keeps it with racetraQ (the racetraq entry
+    # "replaces" it) - in Beta, as racetraQ is beta - in the menu and on the
+    # desktop, until it is moved over
     old = {"id": "traqmania", "name": "traQmania", "category": "game",
            "description": "t", "entrypoint": {"type": "docker", "docker_image": "ghcr.io/janlahmann/traqmania",
                                                "working_dir": "traQmania"},
            "menu": {"order": 75}}
     lines = dict(_pairs(_cache(tmp_path, [old]), "demo_group_list"))
-    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer, Entangible, traQmania"
+    assert lines["projects"] == "Big projects: Qoffee-Maker, Quantum Mixer"
+    assert lines["beta"] == "Beta: try & tell us: new demos that may not work yet, traQmania"
     assert "traQmania" not in lines["contributed"]
     path = tmp_path / "rq-ext-traqmania.desktop"
     path.write_text("[Desktop Entry]\nName=traQmania\n")
     assert ds.launcher_group("rq-ext-traqmania", str(path), ds.load_groups(),
                              dirs=[_MANIFESTS, str(tmp_path / "home/.local/config/demo-manifests")],
-                             known=os.path.join(_CFG, "known-demos.json")) == "projects"
+                             known=os.path.join(_CFG, "known-demos.json")) == "beta"
 
 
 def test_the_coin_game_entry_starts_its_notebook():
@@ -438,7 +449,7 @@ def test_without_a_cache_the_groups_still_show(menu_env):  # noqa: F811
              extra_env={"WT_RC_menu": "1"})
     calls = menu_env.whiptail_calls()
     top = [t for t, _ in _menu_items(calls[0])]
-    assert top == ["PATHS", "led-panel", "play", "projects", "learn", "workshops", "contributed",
+    assert top == ["PATHS", "led-panel", "play", "projects", "learn", "workshops", "contributed", "beta",
                    "STOP", "MANAGE"]
     assert [t for t, _ in _menu_items(calls[1])] == ["IBM", "DISP", "CLEAR", "LEDS"]
 
@@ -540,3 +551,25 @@ def test_a_demos_icon_is_the_same_in_its_manifest_and_on_the_desktop():
         m = json.load(open(os.path.join(_ROOT, "RQB2-config", "demo-manifests", f"rq_demo_{demo_id}.json")))
         icon = [line.strip()[5:] for line in open(os.path.join(bm, f"{demo_id}.desktop")) if line.startswith("Icon=")]
         assert icon == [m["icon"]["path"]], demo_id
+
+
+@needs_jq
+@pytest.mark.parametrize("maturity,group", [("beta", "beta"), ("stable", "projects"), (None, "projects")])
+def test_a_beta_demo_is_in_beta_and_goes_back_when_it_is_ready(tmp_path, maturity, group):
+    # Jan (2026-10-24): beta demos in a folder and menu section of their own,
+    # whatever group they name; ready again, a demo is back in its own group
+    shipped = tmp_path / "shipped"
+    shutil.copytree(_MANIFESTS, shipped)
+    m = {"id": "new-thing", "name": "New Thing", "group": "projects", "category": "game",
+         "entrypoint": {"type": "script", "launcher": "x.sh"}}
+    if maturity:
+        m["maturity"] = maturity
+    (shipped / "rq_demo_new-thing.json").write_text(json.dumps(m))
+    known = os.path.join(_CFG, "known-demos.json")
+    assert ds.demo_group("new-thing", ds.load_groups(str(shipped / "demo-groups.json")),
+                         dirs=[str(shipped)], known=known) == group
+    sh = subprocess.run(["bash", "-c", f'. "{os.path.join(_BIN, "rq_common.sh")}"; rq_shipped_manifest_dir() {{ echo "{shipped}"; }}; '
+                         f'rq_catalogue_file() {{ echo "{known}"; }}; rq_demo_group new-thing'],
+                        capture_output=True, text=True,
+                        env=dict(os.environ, RQ_CONFIG_FILE="/nonexistent", USER_HOME=str(tmp_path)))
+    assert sh.stdout.strip() == group, sh.stderr

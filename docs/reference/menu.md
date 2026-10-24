@@ -68,23 +68,19 @@ Quantum demos, setup and settings for this RasQberry Two
       - Quantum Coin Game
       - Quantum Paradoxes
       - Quantum Fractals
-    - **Big projects**: Qoffee-Maker, Quantum Mixer, Entangible → menu "RasQberry: Big projects"
+    - **Big projects**: Qoffee-Maker, Quantum Mixer → menu "RasQberry: Big projects"
       - Qoffee-Maker [internet, 32 GB]
       - Quantum Mixer [32 GB]
-      - Entangible (beta)
-      - racetraQ (beta) *(catalogue demo: shown once added)*
     - **Learn & code**: your programs, Bloch sphere, tutorials, courses → menu "RasQberry: Learn & code"
       - My Quantum Programs (JupyterLab)
       - **Grokking the Bloch Sphere** → menu "RasQberry: Grokking the Bloch Sphere": Select an entry
         - On this Pi (works offline, with tips)
         - Online version (javafxpert.github.io)
-      - Qiskit Tutorials on this Pi (beta) [32 GB]
       - Qiskit Live (QuBins) [internet, 32 GB]
       - IBM Quantum Tutorials
       - IBM Quantum Courses
       - IBM Quantum Composer [internet]
-    - **Workshops & events**: Workshop & Qiskit Server, Demo Loop → menu "RasQberry: Workshops & events"
-      - Workshop & Qiskit Server (beta) [internet, 32 GB]
+    - **Workshops & events**: Demo Loop → menu "RasQberry: Workshops & events"
       - **Demo Loop (demos one after another)** → menu "RasQberry: Demo Loop": Shows demos one after another, for a stand. Now: <now>
         - Start the demo loop
         - Choose the demos
@@ -93,6 +89,11 @@ Quantum demos, setup and settings for this RasQberry Two
       - SAP Quantum Learning *(catalogue demo: shown once added)*
       - SAP Quantum LED *(catalogue demo: shown once added)*
       - Add demo from catalogue
+    - **Beta: try & tell us**: new demos that may not work yet → menu "RasQberry: Beta: try & tell us"
+      - Workshop & Qiskit Server (beta) [internet, 32 GB]
+      - Qiskit Tutorials on this Pi (beta) [32 GB]
+      - Entangible (beta)
+      - racetraQ (beta) *(catalogue demo: shown once added)*
   - Stop a running LED demo
   - **Manage demos: download all, add, update, remove** → menu "RasQberry: Manage Demos": Download, add, update or remove demos
     - Download all demos (one-time setup)

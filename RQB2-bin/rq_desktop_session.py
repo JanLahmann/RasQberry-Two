@@ -801,7 +801,9 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     shipped) goes to its known-demos.json entry's group (it is curated; an
     install under an earlier name, listed in an entry's "replaces", goes to
     that entry's group), else to the group marked "catalogue" (Contributed
-    demos) - not to the group its own manifest names. A shipped demo goes to
+    demos) - not to the group its own manifest names. A beta demo (its
+    manifest's maturity, else its entry's) goes to the group marked beta
+    before all that. A shipped demo goes to
     its manifest's "group", else a guess: an LED panel demo to led-panel, a
     game or visualization to play, anything else to learn. A value
     demo-groups.json does not list counts as none.
@@ -824,6 +826,13 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     demos = [d for d in registry.get("demos") or [] if isinstance(d, dict)]
     entry = ([d for d in demos if d.get("id") == demo_id]
              + [d for d in demos if demo_id in (d.get("replaces") or [])])
+    # A beta demo goes to the group marked beta, before anything else: it says
+    # clearly what is not ready yet (Jan, 2026-10-24)
+    beta = next((g["id"] for g in groups["groups"] if g.get("beta") is True), None)
+    maturity = (manifest or {}).get("maturity") or next(
+        (d.get("maturity") for d in entry if d.get("maturity")), None)
+    if beta and maturity == "beta":
+        return beta
     for group in (d.get("group") for d in entry):
         if group in ids:
             return group
