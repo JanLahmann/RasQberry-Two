@@ -19,7 +19,7 @@ KNOWN_NAMES="doqumentation quantum-lab qoffee quantum-mixer"
 label_of() {
     case "$1" in
         doqumentation) echo "Workshop & Qiskit Server / Qiskit Tutorials" ;;
-        quantum-lab)   echo "Quantum Lab (QuBins)" ;;
+        quantum-lab)   echo "Qiskit Live (QuBins)" ;;
         qoffee)        echo "Qoffee-Maker" ;;
         quantum-mixer) echo "Quantum Mixer" ;;
         *)             echo "$1" ;;

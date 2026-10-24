@@ -294,7 +294,7 @@ check_installed() {
 
     # A Docker demo is there when its image is. Its flag (if any) says nothing
     # once the image was removed to free space, and doQumentation and the
-    # Quantum Lab have no flag at all: they pulled ~1 GB on first start
+    # Qiskit Live have no flag at all: they pulled ~1 GB on first start
     # without asking (R-030).
     image=$(demo_docker_image)
     if [ -n "$image" ] && docker_usable; then
@@ -889,7 +889,7 @@ run_docker() {
     rq_docker_stop "$CONTAINER_NAME" 10 || true
 
     # Check if image exists locally; pull from the registry if it is absent.
-    # Registry-backed demos (e.g. the QuBins Quantum Lab) ship no local image
+    # Registry-backed demos (e.g. the QuBins Qiskit Live) ship no local image
     # and must be pulled on first run. Locally-built images (e.g. quantum-mixer)
     # are already present, so this pull is skipped entirely and their build
     # path stays untouched. The pull shows one progress line (#23); if it

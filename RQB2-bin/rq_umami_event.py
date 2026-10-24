@@ -339,7 +339,9 @@ def queue_event(event, data, now=None):
     qdir = _queue_dir()
     os.makedirs(qdir, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "-", event.lower())
-    name = f"{now.strftime('%Y%m%dT%H%M%S')}-{time.monotonic_ns() % 10**9:09d}-{slug}.json"
+    # the whole monotonic clock: "% 10**9" wrapped within a second, and the
+    # names no longer sorted oldest first (CI 2026-10-24: the wrong one went)
+    name = f"{now.strftime('%Y%m%dT%H%M%S')}-{time.monotonic_ns():020d}-{slug}.json"
     _write(os.path.join(qdir, name),
            json.dumps({"event": event, "data": data, "queued": now.isoformat()}))
     for old in sorted(os.listdir(qdir))[:-QUEUE_MAX]:

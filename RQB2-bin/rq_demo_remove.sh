@@ -73,7 +73,7 @@ dir_mb() {
 # MB a Docker image takes (0 if absent). Always one number and status 0: a
 # missing image made the pipeline fail under pipefail, the caller's
 # "|| echo 0" added a second 0, and "0 + 0\n0" ended the whole list at the
-# first Docker demo not downloaded (Quantum Lab, N2).
+# first Docker demo not downloaded (Qiskit Live, N2).
 image_mb() {
     local bytes
     [ -n "$1" ] && [ "$DOCKER_OK" = yes ] || { echo 0; return 0; }
@@ -94,7 +94,7 @@ demo_mb() {
 # Downloaded demos: "id<TAB>MB<TAB>label" lines. Demos that share a download
 # (the IBM tutorials and courses) are one entry. A demo whose lookup fails
 # is left out, not the rest of the list with it (N2: the list stopped at
-# Quantum Lab, and the catalogue demos after it could not be removed).
+# Qiskit Live, and the catalogue demos after it could not be removed).
 list_downloaded() {
     local mf line shares seen=" "
     while IFS= read -r mf; do

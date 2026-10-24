@@ -546,8 +546,8 @@
     {
       "id": "demo-quantum-lab",
       "group": "other",
-      "title": "Quantum Lab (QuBins)",
-      "goal": "Start the Quantum Lab and run a notebook.",
+      "title": "Qiskit Live (QuBins)",
+      "goal": "Start the Qiskit Live and run a notebook.",
       "needs": [
         "internet",
         "big-card"

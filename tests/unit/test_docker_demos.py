@@ -117,11 +117,11 @@ def test_stop_menu_stops_the_chosen_ones_and_says_so(stop):
                                choice='"doqumentation" "quantum-lab" "quantum-mixer"')
     assert proc.returncode == 0, proc.stderr
     checklist = [line for line in calls.splitlines() if "--checklist" in line][0]
-    for label in ("Workshop & Qiskit Server", "Quantum Lab (QuBins)", "Quantum Mixer"):
+    for label in ("Workshop & Qiskit Server", "Qiskit Live (QuBins)", "Quantum Mixer"):
         assert label in checklist
     for name in names:
         assert f"stop {name}" in docker
-    assert ("Stopped: Workshop & Qiskit Server / Qiskit Tutorials, Quantum Lab (QuBins), "
+    assert ("Stopped: Workshop & Qiskit Server / Qiskit Tutorials, Qiskit Live (QuBins), "
             "Quantum Mixer.") in _msgbox(calls)
 
 

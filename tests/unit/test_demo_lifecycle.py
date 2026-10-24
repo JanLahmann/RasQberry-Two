@@ -106,10 +106,10 @@ class _Pty:
 
 @needs_bash
 def test_stop_hint_wording():
-    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_stop_hint "Quantum Lab"; '
+    out = subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_stop_hint "Qiskit Live"; '
                                         'rq_stop_hint "Lights Out" keys'],
                          capture_output=True, text=True).stdout.splitlines()
-    assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
+    assert out == ["To stop Qiskit Live: press Enter or Ctrl+C, or close this window.",
                    "To stop Lights Out: press Ctrl+C or close this window."]
 
 
@@ -118,9 +118,9 @@ def test_stop_hint_says_where_the_window_is_once_a_browser_covers_it():
     # Chromium opens a demo maximised over its terminal (#15): the stop line
     # says how to get back, only when this script opened such a window
     out = subprocess.run(["bash", "-c", f'set -u; . "{_COMMON}"; _RQ_DEMO_TABS+=("http://127.0.0.1:8888/lab"); '
-                                        'rq_stop_hint "Quantum Lab"'],
+                                        'rq_stop_hint "Qiskit Live"'],
                          capture_output=True, text=True).stdout.splitlines()
-    assert out == ["To stop Quantum Lab: press Enter or Ctrl+C, or close this window.",
+    assert out == ["To stop Qiskit Live: press Enter or Ctrl+C, or close this window.",
                    "The browser covers this window: to get back here, click it in the taskbar."]
     with open(os.path.join(_CFG, "quantum-lab", "WELCOME.ipynb"), encoding="utf-8") as fh:
         assert "press Enter in the window that started it (in the taskbar)" in fh.read()
