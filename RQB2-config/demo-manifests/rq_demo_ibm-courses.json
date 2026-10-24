@@ -23,6 +23,10 @@
     "preinstalled": false,
     "marker_file": "WELCOME-courses.ipynb",
     "installer": "do_ibm_courses_install",
+    "source": {
+      "repo_url": "https://github.com/Qiskit/documentation.git",
+      "ref": "b1126b46e4faa9113a6dd68356feb09f1b53a48c"
+    },
     "installed_flag": "IBM_COURSES_INSTALLED",
     "download": {
       "what": "IBM Quantum tutorials and courses from GitHub (Qiskit/documentation, CC BY-SA 4.0)",

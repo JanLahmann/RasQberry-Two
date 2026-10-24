@@ -752,7 +752,26 @@ def tested_for(catalogue, did, kind, manifests=None, home=None, repo=None, has_i
             return None
     elif not has_image(cur):
         return None
-    return dict(entry, name=clean_text(m.get("name") or did), current=cur, release=rel)
+    return dict(entry, name=clean_text(shared_name(m, manifests)), current=cur, release=rel)
+
+
+def shared_name(manifest, manifests=None):
+    """
+    A demo's name, joined with the other shipped demos that share its checkout
+    (the IBM pair: "IBM Quantum Courses and IBM Quantum Tutorials"), as
+    Update demos names it.
+    """
+    names = [manifest.get("name") or manifest.get("id")]
+    ep = manifest.get("entrypoint") if isinstance(manifest.get("entrypoint"), dict) else {}
+    wd = ep.get("working_dir")
+    if wd:
+        directory = manifests or manifest_dir()
+        for other in sorted(shipped_ids(directory)):
+            o = _read_json(os.path.join(directory, f"rq_demo_{other}.json"))
+            oep = o.get("entrypoint") if isinstance(o, dict) and isinstance(o.get("entrypoint"), dict) else {}
+            if other != manifest.get("id") and oep.get("working_dir") == wd:
+                names.append(o.get("name") or other)
+    return " and ".join(str(n) for n in names)
 
 
 def tested_news(catalogue, manifests=None, home=None, repo=None, has_image=docker_has):
