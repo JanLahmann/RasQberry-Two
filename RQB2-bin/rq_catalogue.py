@@ -32,6 +32,20 @@ News (the tray notice, the login line, the menu):
   update     an installed catalogue demo whose checkout is not at the pin
   renamed    an installed demo whose id an entry "replaces"
   withdrawn  an installed catalogue demo that is no longer in the catalogue
+  tested     a demo the image ships has a newer tested version
+             ("tested_updates"; rq_demo_update.sh --tested installs it)
+
+Tested updates (Jan, 2026-10-24): an entry of "tested_updates" moves a demo
+the image ships to a newer pin we tested on the Pi 4 and Pi 5, without an
+image update: {"id", "kind": "image" | "ref", "pin", "from": [release
+pins], "label", "note", "added", "download_mb"}. It is offered only on a Pi
+whose release pin is in "from", where the demo is downloaded and still on
+its release version or an earlier tested update (not on a version chosen by
+hand under Update demos), and only from the same source: an image pin must
+be a digest of the image the release uses, a ref a full commit SHA (the
+repository is the release's). A newer release ships its own pins, and those
+win (rq_demo_set_version keeps a choice only for the release pin it
+replaced).
 
 Only demos the add-flow installed count (MARK in their manifest, or the
 bare pinned checkout older add-flows left): a manifest written by hand to
@@ -44,6 +58,8 @@ Usage:
   rq_catalogue.py --news [--json]        what is new for this user's demos
   rq_catalogue.py --line                 the login line (empty if nothing)
   rq_catalogue.py --engine               this image's catalogue engine
+  rq_catalogue.py --tested ID:KIND       the tested update for this Pi:
+                                         "PIN<TAB>LABEL<TAB>DOWNLOAD_MB" (none: exit 1)
   rq_catalogue.py --check FILE           would a Pi take FILE? (CI)
 
 Environment (tests, trials): RQ_CATALOGUE_URL (http(s):// or file://; its host
@@ -56,6 +72,7 @@ import json
 import logging
 import os
 import pwd
+import subprocess
 import re
 import sys
 import tempfile
@@ -73,6 +90,11 @@ FETCH_TIMEOUT = 15
 NEW_DAYS = 30
 CACHE_NAME = "known-demos.json"
 NOTICE_FILE = "/var/lib/rasqberry/catalogue-notice"
+# The label rq_demo_update.sh --tested records in demos/.demo-versions: a
+# version chosen by hand has none, and gets no tested-update notice
+TESTED_LABEL = "tested: "
+TESTED_TEXTS = {"label": 60, "note": 200, "added": 40}
+IMAGE_RE = re.compile(r"^([a-z0-9][a-z0-9._/-]{0,199})@sha256:[0-9a-f]{64}$")
 LOGIN_WIDTH = 80
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -334,7 +356,7 @@ def problems(data, shipped=(), taken_dirs=()):
     bad = file_problems(data)
     if bad:
         return bad
-    return sort_entries(data, shipped, taken_dirs)[1]
+    return sort_entries(data, shipped, taken_dirs)[1] + sort_tested(data)[1]
 
 
 def usable(data, manifests=None):
@@ -345,10 +367,12 @@ def usable(data, manifests=None):
     if file_problems(data):
         return None
     keep, bad, notes = sort_entries(data, shipped_ids(manifests), shipped_dirs(manifests))
-    for line in bad + notes:
+    tested, bad_tested = sort_tested(data, manifests)
+    for line in bad + bad_tested + notes:
         log.info("catalogue: left out %s", line)
     out = dict(data)
     out["demos"] = keep
+    out["tested_updates"] = tested
     return out
 
 
@@ -356,6 +380,107 @@ def needs_newer(entry, engine=ENGINE):
     """Does this entry need a newer RasQberry than this image?"""
     me = entry.get("min_engine", 1)
     return isinstance(me, int) and me > engine
+
+
+def release_pin(manifest, kind):
+    """A shipped demo's release pin of KIND ('image' or 'ref'), '' if it has none."""
+    if not isinstance(manifest, dict):
+        return ""
+    if kind == "image":
+        ep = manifest.get("entrypoint") if isinstance(manifest.get("entrypoint"), dict) else {}
+        v = ep.get("docker_image")
+    else:
+        inst = manifest.get("install") if isinstance(manifest.get("install"), dict) else {}
+        src = inst.get("source") if isinstance(inst.get("source"), dict) else {}
+        v = inst.get("ref") or src.get("ref")
+    return v if isinstance(v, str) else ""
+
+
+def _pin_problem(pin, kind, repo):
+    """Why PIN cannot be a KIND pin of the image REPO ('' if it can)."""
+    if not isinstance(pin, str):
+        return "is not a text"
+    if kind == "ref":
+        return "" if SHA_RE.match(pin) else "is not a full commit SHA"
+    m = IMAGE_RE.match(pin)
+    if not m:
+        return "is not an image digest (repository@sha256:...)"
+    return "" if m.group(1) == repo else f"is not an image of {repo}"
+
+
+def tested_problems(t, label, manifests=None):
+    """
+    Why one tested update cannot be used on this image (empty: it can).
+
+    Args:
+        t (dict): the entry of "tested_updates"
+        label (str): how the lines name it
+        manifests (str): the image's manifest directory
+    """
+    did, kind = t.get("id"), t.get("kind")
+    if not isinstance(did, str) or not ID_RE.match(did):
+        return [f"{label}: id is not kebab-case"]
+    if kind not in ("image", "ref"):
+        return [f"{label}: kind is not image or ref"]
+    m = _read_json(os.path.join(manifests or manifest_dir(), f"rq_demo_{did}.json"))
+    rel = release_pin(m, kind)
+    if not rel:
+        return [f"{label}: not a demo this image ships with a {kind} pin"]
+    repo = rel.split("@", 1)[0] if kind == "image" else ""
+    out = []
+    why = _pin_problem(t.get("pin"), kind, repo)
+    if why:
+        out.append(f"{label}: pin {why}")
+    frm = t.get("from")
+    if not isinstance(frm, list) or not frm:
+        out.append(f"{label}: from is not a list of release pins")
+    else:
+        for f in frm:
+            why = _pin_problem(f, kind, repo)
+            if why:
+                out.append(f"{label}: from {why}")
+                break
+    for key, limit in TESTED_TEXTS.items():
+        v = t.get(key)
+        if v is None and key != "label":
+            continue
+        if not isinstance(v, str) or not v or len(v) > limit or CONTROL_RE.search(v):
+            out.append(f"{label}: {key} is not a one-line text of at most {limit} characters")
+    dl = t.get("download_mb")
+    if dl is not None and (not isinstance(dl, int) or isinstance(dl, bool) or dl < 0):
+        out.append(f"{label}: download_mb is not a whole number of MB")
+    return out
+
+
+def sort_tested(data, manifests=None):
+    """
+    The tested updates a Pi with this image takes, and the lines on the
+    others. An update for a demo this image does not ship (or ships without
+    that kind of pin) is left out without a problem: it is for another image.
+
+    Returns:
+        tuple: (entries, problems)
+    """
+    items = data.get("tested_updates", []) if isinstance(data, dict) else []
+    if not isinstance(items, list):
+        return [], ["tested_updates is not a list"]
+    keep, bad, seen = [], [], set()
+    for i, t in enumerate(items):
+        if not isinstance(t, dict):
+            bad.append(f"tested_updates {i}: not an object")
+            continue
+        label = f"tested_updates {t.get('id')}:{t.get('kind')}"
+        found = tested_problems(t, label, manifests)
+        if (t.get("id"), t.get("kind")) in seen:
+            found.append(f"{label}: appears twice")
+        seen.add((t.get("id"), t.get("kind")))
+        if found and "not a demo this image ships" in found[0]:
+            continue
+        if found:
+            bad.extend(found)
+        else:
+            keep.append(t)
+    return keep, bad
 
 
 # ---------------------------------------------------------------------------
@@ -567,6 +692,113 @@ def news(catalogue, base, have, today=None, engine=ENGINE):
     return out
 
 
+def demo_versions(home=None, repo=None):
+    """demos/.demo-versions (rq_common.sh): {key: (release pin, chosen, label)}."""
+    home = home or user_home()
+    repo = repo or os.environ.get("REPO") or "RasQberry-Two"
+    out = {}
+    try:
+        with open(os.path.join(home, repo, "demos", ".demo-versions"), encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) >= 3 and parts[2]:
+                    out[parts[0]] = (parts[1], parts[2], parts[3] if len(parts) > 3 else "")
+    except OSError:
+        pass
+    return out
+
+
+def docker_has(image):
+    """Is IMAGE downloaded? False when Docker cannot be asked (no access, not running)."""
+    try:
+        return subprocess.run(["docker", "image", "inspect", "-f", "{{.Id}}", image],
+                              capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def tested_for(catalogue, did, kind, manifests=None, home=None, repo=None, has_image=docker_has):
+    """
+    The tested update of one demo for this Pi, or None.
+
+    Returns:
+        dict: the entry, plus "name", "current" (the version in use) and
+        "release" (the release pin)
+    """
+    entry = next((t for t in catalogue.get("tested_updates") or []
+                  if isinstance(t, dict) and t.get("id") == did and t.get("kind") == kind), None)
+    if entry is None or tested_problems(entry, did, manifests):
+        return None
+    m = _read_json(os.path.join(manifests or manifest_dir(), f"rq_demo_{did}.json"))
+    rel = release_pin(m, kind)
+    if rel not in entry["from"]:
+        return None
+    chosen = demo_versions(home, repo).get(f"{did}:{kind}")
+    cur = rel
+    if chosen and chosen[0] == rel:
+        if not chosen[2].startswith(TESTED_LABEL):
+            return None     # a version chosen by hand: the user's call
+        cur = chosen[1]
+    if cur == entry["pin"]:
+        return None
+    # downloaded: the checkout, or the image in use
+    if kind == "ref":
+        ep = m.get("entrypoint") if isinstance(m.get("entrypoint"), dict) else {}
+        wd = ep.get("working_dir") or ""
+        home = home or user_home()
+        repo = repo or os.environ.get("REPO") or "RasQberry-Two"
+        if not (isinstance(wd, str) and DIR_RE.match(wd)
+                and os.path.isdir(os.path.join(home, repo, "demos", wd, ".git"))):
+            return None
+    elif not has_image(cur):
+        return None
+    return dict(entry, name=clean_text(shared_name(m, manifests)), current=cur, release=rel)
+
+
+def shared_name(manifest, manifests=None):
+    """
+    A demo's name, joined with the other shipped demos that share its checkout
+    (the IBM pair: "IBM Quantum Courses and IBM Quantum Tutorials"), as
+    Update demos names it.
+    """
+    names = [manifest.get("name") or manifest.get("id")]
+    ep = manifest.get("entrypoint") if isinstance(manifest.get("entrypoint"), dict) else {}
+    wd = ep.get("working_dir")
+    if wd:
+        directory = manifests or manifest_dir()
+        for other in sorted(shipped_ids(directory)):
+            o = _read_json(os.path.join(directory, f"rq_demo_{other}.json"))
+            oep = o.get("entrypoint") if isinstance(o, dict) and isinstance(o.get("entrypoint"), dict) else {}
+            if other != manifest.get("id") and oep.get("working_dir") == wd:
+                names.append(o.get("name") or other)
+    return " and ".join(str(n) for n in names)
+
+
+def tested_news(catalogue, manifests=None, home=None, repo=None, has_image=docker_has):
+    """The tested updates for this Pi's downloaded demos (news items, kind 'tested')."""
+    out = []
+    seen = set()
+    for t in catalogue.get("tested_updates") or []:
+        if not isinstance(t, dict) or (t.get("id"), t.get("kind")) in seen:
+            continue
+        seen.add((t.get("id"), t.get("kind")))
+        hit = tested_for(catalogue, t.get("id"), t.get("kind"), manifests, home, repo, has_image)
+        if hit:
+            out.append({"kind": "tested", "id": hit["id"], "name": hit["name"],
+                        "update": hit["kind"], "label": clean_text(hit["label"], 60),
+                        "key": f"tested:{hit['id']}:{hit['kind']}:{hit['pin']}"})
+    return out
+
+
+def all_news(catalogue=None, base=None):
+    """news() and tested_news() for this user: what the badge, the notice and the login line show."""
+    if catalogue is None:
+        catalogue = current()[0]
+    if base is None:
+        base = _read_json(shipped_file()) or {}
+    return news(catalogue, base, installed()) + tested_news(catalogue)
+
+
 def popup_text(item):
     """The one-time desktop notice for one news item."""
     k, name = item["kind"], item["name"]
@@ -576,6 +808,9 @@ def popup_text(item):
                 f"badge in the taskbar, or the RasQberry menu (Quantum Demos > Manage demos).")
     if k == "update":
         return f"An update for {name} is available. Install it from the RasQberry badge in the taskbar."
+    if k == "tested":
+        return (f"A tested update for {name} is available ({item['label']}). Install it from "
+                f"the RasQberry badge in the taskbar.")
     if k == "renamed":
         return (f"{name} is now called {item['new_name']}. Move to it from the RasQberry "
                 f"badge in the taskbar.")
@@ -588,16 +823,23 @@ def menu_label(item):
     k, name = item["kind"], item["name"]
     if k == "new":
         return f"New demo: {name}…"
-    if k == "update":
+    if k in ("update", "tested"):
         return f"Update {name}…"
     if k == "renamed":
         return f"Move {name} to {item['new_name']}…"
     return f"Remove {name} (withdrawn)…"
 
 
+def program(item):
+    """The script that acts on a news item."""
+    return "rq_demo_update.sh" if item["kind"] == "tested" else "rq_demo_add_external.sh"
+
+
 def command(item):
-    """The rq_demo_add_external.sh arguments that act on a news item."""
+    """The arguments of program(item) that act on a news item."""
     k = item["kind"]
+    if k == "tested":
+        return ["--tested", f"{item['id']}:{item['update']}"]
     if k == "new":
         return [item["id"]]
     if k in ("update", "renamed"):
@@ -615,8 +857,8 @@ def login_line(items, width=LOGIN_WIDTH):
     if new:
         parts.append("New in the demo catalogue: " + ", ".join(new) + ".")
     if act:
-        parts.append(f"{len(act)} catalogue demo{'s' if len(act) > 1 else ''} to update: "
-                     + ", ".join(f"rq_demo_add_external.sh {' '.join(command(i))}" for i in act))
+        parts.append(f"{len(act)} demo{'s' if len(act) > 1 else ''} to update: "
+                     + ", ".join(f"sudo {program(i)} {' '.join(command(i))}" for i in act))
     line = " ".join(parts)
     if new and not act:
         line += " RasQberry menu: Quantum Demos > Manage demos."
@@ -652,9 +894,7 @@ def main(argv=None):
         status, text = refresh()
         print(f"Demo catalogue: {status} ({text})")
         if "--system" in argv:
-            base = _read_json(shipped_file()) or {}
-            cat, _ = current()
-            line = login_line(news(cat, base, installed()))
+            line = login_line(all_news())
             notice = os.environ.get("RQ_CATALOGUE_NOTICE") or NOTICE_FILE
             try:
                 if line:
@@ -668,8 +908,15 @@ def main(argv=None):
     if argv[0] == "--path":
         print(path)
         return 0
+    if argv[0] == "--tested":
+        did, _, kind = (argv[1] if len(argv) > 1 else "").partition(":")
+        hit = tested_for(cat, did, kind, has_image=lambda image: True)
+        if not hit:
+            return 1
+        print(f"{hit['pin']}\t{clean_text(hit['label'], 60)}\t{hit.get('download_mb', 0)}")
+        return 0
     if argv[0] in ("--news", "--line"):
-        items = news(cat, _read_json(shipped_file()) or {}, installed())
+        items = all_news(cat)
         if argv[0] == "--line":
             line = login_line(items)
             if line:

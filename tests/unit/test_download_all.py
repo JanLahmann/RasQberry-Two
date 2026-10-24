@@ -336,7 +336,7 @@ def test_remove_takes_the_docker_image(box, tmp_path):
     _exe(box.stubs / "docker", f'#!/bin/sh\necho "$*" >> "{log}"\n'
          'case "$1 $2" in "info "*) exit 0 ;; "image inspect") case " $* " in *" -f "*) echo 3910000000 ;; esac; exit 0 ;; esac\nexit 0\n')
     proc = box(_REMOVE, ["--list"])
-    assert "quantum-lab\t3910\tQuantum Lab (QuBins)" in proc.stdout, proc.stdout + proc.stderr
+    assert "quantum-lab\t3910\tQiskit Live (QuBins)" in proc.stdout, proc.stdout + proc.stderr
     proc = box(_REMOVE, ["quantum-lab", "--yes"])
     assert proc.returncode == 0, proc.stdout + proc.stderr
     # the pinned image (by digest, Jan Q8)
@@ -367,8 +367,8 @@ def test_only_the_docker_demos_that_fit_are_offered(box):
     offered, rest = docker.split("No room on this SD card for:")
     assert "Quantum Mixer" in offered and "Workshop & Qiskit Server" not in offered
     nofit, notwith = rest.split("Not as well, for lack of room:")
-    assert "Workshop & Qiskit Server" in nofit and "Quantum Lab" not in nofit
-    assert "Quantum Lab (QuBins)" in notwith and "Qoffee-Maker" in notwith
+    assert "Workshop & Qiskit Server" in nofit and "Qiskit Live" not in nofit
+    assert "Qiskit Live (QuBins)" in notwith and "Qoffee-Maker" in notwith
     assert set(box.installs()) == _GIT_DEMOS | {"quantum-mixer"}
     summary = _text(box.dialogs()[-1], "--msgbox")
     assert "Downloaded: 9 of 9." in summary and "No room on this SD card" in summary

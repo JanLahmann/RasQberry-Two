@@ -76,7 +76,7 @@ def test_menu_cache_lists_the_variants(tmp_path):
                          text=True).stdout.splitlines()
     pairs = dict(zip(out[0:-1:2], out[1:-1:2]))
     assert list(pairs) == [v["id"] for v in _manifest()["variants"]]
-    assert pairs["hardys-paradox"] == "Hardy's Paradox"
+    assert pairs["hardys-paradox"] == "Hardy's Paradox (beta)"   # the games are beta (Jan, 2026-10-24)
     assert out[-1] == "none"   # demos without variant_menu start directly
 
 

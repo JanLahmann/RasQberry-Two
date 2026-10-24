@@ -78,7 +78,7 @@ DEMO_GOALS = {
     "qiskit-tutorials": "Open a tutorial in Qiskit Tutorials on this Pi and run its code.",
     "qoffee-maker": "Order a coffee from a quantum computer, with or without a Home Connect machine.",
     "quantum-fractals": "Watch the fractals change with the state of a qubit.",
-    "quantum-lab": "Start the Quantum Lab and run a notebook.",
+    "quantum-lab": "Start the Qiskit Live and run a notebook.",
     "quantum-lights-out": "Watch Grover's search solve Lights Out, on the LED panel and in the console.",
     "quantum-mixer": "Mix a cocktail, an ice cream or a coffee with a quantum circuit.",
     "quantum-paradoxes": "Work through one of the quantum paradox notebooks.",

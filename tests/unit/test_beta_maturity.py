@@ -59,7 +59,8 @@ def test_the_new_demos_are_beta():
     assert _manifest("doqumentation")["maturity"] == "beta"
     assert _manifest("qiskit-tutorials")["maturity"] == "beta"
     fwq = {v["id"]: v.get("maturity") for v in _manifest("fun-with-quantum")["variants"]}
-    assert fwq["website"] == fwq["family"] == "beta" and fwq["coin-game"] is None
+    # every part of Fun with Quantum is beta, but it stays in Play (Jan, 2026-10-24)
+    assert set(fwq.values()) == {"beta"} and "maturity" not in _manifest("fun-with-quantum")
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))["demos"]
     beta = {d["id"] for d in registry if d.get("maturity") == "beta"}
     # the SAP demos are SAP's to call beta: we take them as they are (Jan)
@@ -79,7 +80,7 @@ def test_maturity_lookup_and_the_catalogue_fallback(tmp_path):
                  'echo "b=$(rq_demo_maturity racetraq)"; '
                  'echo "f=$(rq_demo_maturity traqmania)"; '
                  'echo "c=$(rq_demo_maturity fun-with-quantum "" website)"; '
-                 'echo "d=$(rq_demo_maturity fun-with-quantum "" coin-game)"; '
+                 'echo "d=$(rq_demo_maturity quantum-raspberry-tie "" simulator)"; '
                  'echo "e=$(rq_demo_maturity quantum-lights-out)"; '
                  'rq_beta_notice doqumentation', tmp_path)
     assert proc.returncode == 0, proc.stderr
@@ -151,7 +152,8 @@ def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
     assert '"doqumentation" "Workshop & Qiskit Server (beta)"' in text
     assert '"qiskit-tutorials" "Qiskit Tutorials on this Pi (beta)"' in text
     assert '"Fun with Quantum website: games in the browser (beta)"' in text
-    assert '"coin-game" "Quantum Coin Game"' in text
+    assert '"coin-game" "Quantum Coin Game (beta)"' in text
+    assert '"quantum-fractals" "Quantum Fractals"' in text
     # item 8: one Bloch sphere entry, the online version is its variant
     assert '"grok-bloch-web"' not in text.split("dispatch_demo_by_id")[0]
     assert '"grok-bloch") printf' in text and '"web" "Online version' in text

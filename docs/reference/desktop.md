@@ -56,7 +56,7 @@ Write quantum programs and work through tutorials and courses.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
 - **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.
 - **IBM Quantum Courses**: Official IBM Quantum courses on quantum computing (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-courses`.
-- **Quantum Lab (QuBins)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
+- **Qiskit Live (QuBins)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
 
 ### Workshops & events
 

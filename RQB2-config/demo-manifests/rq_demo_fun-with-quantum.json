@@ -67,6 +67,7 @@
     {
       "id": "readme",
       "name": "Start here: what the games are about",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -78,6 +79,7 @@
     {
       "id": "coin-game",
       "name": "Quantum Coin Game",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -89,6 +91,7 @@
     {
       "id": "ghz-game",
       "name": "GHZ Game",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -100,6 +103,7 @@
     {
       "id": "hardys-paradox",
       "name": "Hardy's Paradox",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -111,6 +115,7 @@
     {
       "id": "mermin-peres",
       "name": "Mermin–Peres Magic Square",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -122,6 +127,7 @@
     {
       "id": "3-sat",
       "name": "3-SAT with Grover's Algorithm",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -133,6 +139,7 @@
     {
       "id": "chsh-game",
       "name": "The CHSH Game",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -144,6 +151,7 @@
     {
       "id": "prisoners-dilemma",
       "name": "The Quantum Prisoner's Dilemma",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -155,6 +163,7 @@
     {
       "id": "ghz-real-devices",
       "name": "GHZ on Real Quantum Devices",
+      "maturity": "beta",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"

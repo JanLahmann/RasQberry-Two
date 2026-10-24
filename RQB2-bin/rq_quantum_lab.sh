@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ################################################################################
-# rq_quantum_lab.sh - RasQberry Quantum Lab (QuBins) Demo Launcher
+# rq_quantum_lab.sh - RasQberry Qiskit Live (QuBins) Demo Launcher
 #
 # Description:
 #   Runs a local JupyterLab quantum environment in a Docker container using the
@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
 rq_help_guard "$@"
 
-rq_demo_header "Quantum Lab (QuBins) Demo"
+rq_demo_header "Qiskit Live (QuBins) Demo"
 
 # Load environment and verify required variables
 load_rqb2_env
@@ -75,7 +75,7 @@ fi
 rq_docker_access "$@"
 # A small card: a note before the course notebooks download (Docker demos
 # need 32 GB or more)
-rq_stop_if_card_too_small "Quantum Lab (QuBins)" "$DOCKER_IMAGE"
+rq_stop_if_card_too_small "Qiskit Live (QuBins)" "$DOCKER_IMAGE"
 
 ################################################################################
 # Ensure the IBM Quantum Learning course notebooks are present
@@ -89,7 +89,7 @@ rq_stop_if_card_too_small "Quantum Lab (QuBins)" "$DOCKER_IMAGE"
 # interrupted download left (R-056)
 if [ ! -f "$DOCS_DIR/${MARKER_IBM_COURSES:-WELCOME-courses.ipynb}" ]; then
     info "IBM Quantum Learning content not found."
-    # Quantum Lab's own question named them ("and the IBM course notebooks
+    # Qiskit Live's own question named them ("and the IBM course notebooks
     # if missing"): no second question after the long image download, which
     # kept someone who had walked away waiting (user test 2026-10-07, P6).
     # The space and network checks still run.
@@ -112,19 +112,19 @@ rq_ibm_learning_tidy "$DOCS_DIR"
 # Docker container management
 ################################################################################
 
-# Replace an earlier Quantum Lab container, and wait until it is gone
+# Replace an earlier Qiskit Live container, and wait until it is gone
 rq_docker_stop "$CONTAINER_NAME" \
-    || die "The previous Quantum Lab container did not go away; try again in a minute."
+    || die "The previous Qiskit Live container did not go away; try again in a minute."
 if port_in_use "$PORT"; then
     PORT=$(find_available_port $((PORT + 1)))
-    warn "Port 8892 is taken; Quantum Lab uses $PORT this time."
+    warn "Port 8892 is taken; Qiskit Live uses $PORT this time."
 fi
 
 # The image (pinned), downloaded after the consent dialog; the manifest's
 # fallback tag when QuBins no longer offers the pinned build
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     rq_require_demo_consent quantum-lab
-    rq_demo_docker_pull quantum-lab "$DOCKER_IMAGE" "Quantum Lab (QuBins)"
+    rq_demo_docker_pull quantum-lab "$DOCKER_IMAGE" "Qiskit Live (QuBins)"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"
     rq_docker_drop_old "$DOCKER_IMAGE"
 fi
@@ -153,7 +153,7 @@ fix_root_ownership "$USER_HOME/$REPO/work" >/dev/null 2>&1 || true
 # else in the container is gone when it stops.
 ################################################################################
 echo
-info "Starting Quantum Lab container..."
+info "Starting Qiskit Live container..."
 if ! docker run -d \
     --name "$CONTAINER_NAME" \
     --label "org.rasqberry.demo=quantum-lab" \
@@ -163,7 +163,7 @@ if ! docker run -d \
     -v "$WORK_DIR":/home/jovyan/my-work \
     ${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"} \
     "$DOCKER_IMAGE" >/dev/null; then
-    rq_docker_fail "$CONTAINER_NAME" "The Quantum Lab container did not start."
+    rq_docker_fail "$CONTAINER_NAME" "The Qiskit Live container did not start."
 fi
 
 # Wait for JupyterLab to answer on the loopback port
@@ -177,7 +177,7 @@ until curl -sf "http://127.0.0.1:${PORT}/lab" >/dev/null 2>&1; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
     rq_docker_running "$CONTAINER_NAME" \
-        || rq_docker_fail "$CONTAINER_NAME" "Quantum Lab stopped while starting."
+        || rq_docker_fail "$CONTAINER_NAME" "Qiskit Live stopped while starting."
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
         rq_docker_fail "$CONTAINER_NAME" "JupyterLab did not answer within ${MAX_WAIT} seconds."
     fi
@@ -189,7 +189,7 @@ info "JupyterLab ready!"
 # Browser launch
 ################################################################################
 echo
-echo "✓ Quantum Lab is running!"
+echo "✓ Qiskit Live is running!"
 echo
 echo "  Access via browser: $LAB_URL"
 echo
@@ -209,4 +209,4 @@ rq_show_url "$LAB_URL" "$PORT"
 ################################################################################
 # Stop: Enter, Ctrl+C or closing this window (item 33; as qoffee-maker.sh)
 ################################################################################
-rq_docker_stop_with_window "$CONTAINER_NAME" "Quantum Lab"
+rq_docker_stop_with_window "$CONTAINER_NAME" "Qiskit Live"

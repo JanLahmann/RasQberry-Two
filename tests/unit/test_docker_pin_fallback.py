@@ -1,7 +1,7 @@
 """
 A pinned Docker image that its registry no longer offers (2026-10-06).
 
-QuBins prunes old builds, and Quantum Lab's pin (a digest) went with them:
+QuBins prunes old builds, and Qiskit Live's pin (a digest) went with them:
 its first start failed with "The registry does not offer ghcr.io/qubins/
 images@sha256:... (any more)". Now:
 

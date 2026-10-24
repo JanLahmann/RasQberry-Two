@@ -2,7 +2,7 @@ name: Docker pins
 
 # Every Docker demo is pinned per release by image digest (demo manifests,
 # entrypoint.docker_image). A publisher that prunes old builds takes the pin
-# away: QuBins did that to Quantum Lab's pin in 2026-10, and its first start
+# away: QuBins did that to Qiskit Live's pin in 2026-10, and its first start
 # failed for everyone on that release. This checks that the registries still
 # offer every pinned image and fallback tag of the shipped manifests and the
 # catalogue's Docker demos (tests/check_docker_pins.py, anonymous HEAD

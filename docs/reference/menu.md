@@ -54,15 +54,15 @@ Quantum demos, setup and settings for this RasQberry Two
       - LED-Painter
     - **Play**: Fun with Quantum games, paradoxes, fractals → menu "RasQberry: Play"
       - **Fun with Quantum** → menu "RasQberry: Fun with Quantum": Select an entry
-        - Start here: what the games are about
-        - Quantum Coin Game
-        - GHZ Game
-        - Hardy's Paradox
-        - Mermin–Peres Magic Square
-        - 3-SAT with Grover's Algorithm
-        - The CHSH Game
-        - The Quantum Prisoner's Dilemma
-        - GHZ on Real Quantum Devices
+        - Start here: what the games are about (beta)
+        - Quantum Coin Game (beta)
+        - GHZ Game (beta)
+        - Hardy's Paradox (beta)
+        - Mermin–Peres Magic Square (beta)
+        - 3-SAT with Grover's Algorithm (beta)
+        - The CHSH Game (beta)
+        - The Quantum Prisoner's Dilemma (beta)
+        - GHZ on Real Quantum Devices (beta)
         - Fun with Quantum website: games in the browser (beta)
         - Fun with Quantum family: related projects (beta)
       - Quantum Coin Game
@@ -76,7 +76,7 @@ Quantum demos, setup and settings for this RasQberry Two
       - **Grokking the Bloch Sphere** → menu "RasQberry: Grokking the Bloch Sphere": Select an entry
         - On this Pi (works offline, with tips)
         - Online version (javafxpert.github.io)
-      - Quantum Lab (QuBins) [internet, 32 GB]
+      - Qiskit Live (QuBins) [internet, 32 GB]
       - IBM Quantum Tutorials
       - IBM Quantum Courses
       - IBM Quantum Composer [internet]
@@ -100,7 +100,7 @@ Quantum demos, setup and settings for this RasQberry Two
     - Add demo from catalogue
     - Update demos (newer versions)
     - Remove a demo (free space)
-    - Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)
+    - Stop Docker demos (Workshop & Qiskit Server, Qiskit Live...)
 - Setup Checklist
 - **Desktop Settings (touch mode, browser at login, sound delay)** → menu "RasQberry: Desktop Settings": How the desktop looks, what it opens at login, and sound.
   - **Touch mode (bigger icons and buttons): <touch>** → menu "RasQberry: Touch Mode": Current: <current_status>
