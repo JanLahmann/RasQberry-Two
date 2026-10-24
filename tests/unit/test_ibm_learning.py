@@ -265,3 +265,13 @@ def test_update_demos_lists_the_pair_once(tmp_path):
     items = log.read_text().splitlines()
     assert "ibm-courses:ref" in items and "ibm-tutorials:ref" not in items
     assert "IBM Quantum Courses and IBM Quantum Tutorials (notebooks): release version" in items
+
+
+def test_the_tested_update_notice_names_both():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rq_catalogue", os.path.join(_BIN, "rq_catalogue.py"))
+    cat = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cat)
+    mdir = os.path.join(_CFG, "demo-manifests")
+    assert cat.shared_name(_manifest("ibm-courses"), mdir) == "IBM Quantum Courses and IBM Quantum Tutorials"
+    assert cat.shared_name(_manifest("grok-bloch"), mdir) == _manifest("grok-bloch")["name"]
