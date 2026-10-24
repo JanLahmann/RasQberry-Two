@@ -31,9 +31,11 @@ DOCKER_OK=no
 command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && DOCKER_OK=yes
 
 # Updatable pins of downloaded demos: "KEY<TAB>NAME<TAB>MANIFEST" lines,
-# KEY = ID:image or ID:ref
+# KEY = ID:image or ID:ref. Demos that share one checkout (the IBM pair:
+# ibm-quantum-learning) are one line under the first one's id, named after
+# all of them: one version for both.
 updatable() {
-    local mf id name type image ref wd
+    local mf id name type image ref wd other seen=" "
     while IFS= read -r mf; do
         [ -n "$mf" ] || continue
         id=$(jq -r '.id' "$mf")
@@ -49,9 +51,24 @@ updatable() {
         fi
         ref=$(rq_demo_ref "$id" "$mf")
         wd=$(jq -r '.entrypoint.working_dir // ""' "$mf")
-        if [ -n "$ref" ] && [ -n "$wd" ] && [ -d "$USER_HOME/$REPO/demos/$wd/.git" ]; then
+        if [ -n "$ref" ] && [ -n "$wd" ] && [ "${seen#* "$wd" }" = "$seen" ] \
+                && [ -d "$USER_HOME/$REPO/demos/$wd/.git" ]; then
+            seen="$seen$wd "
+            for other in $(sharers "$wd" "$id"); do
+                name="$name and $(jq -r '.name // .id' "$(rq_find_manifest "$SHIPPED" "$other")")"
+            done
             printf '%s:ref\t%s\t%s\n' "$id" "$name" "$mf"
         fi
+    done < <(rq_list_manifests "$SHIPPED" 2>/dev/null)
+}
+
+# The other shipped demos with the checkout WD (their ids, one per line)
+sharers() {       # WD ID
+    local mf
+    while IFS= read -r mf; do
+        [ -n "$mf" ] || continue
+        jq -r --arg wd "$1" --arg id "$2" \
+            'select(.entrypoint.working_dir == $wd and .id != $id) | .id' "$mf" 2>/dev/null
     done < <(rq_list_manifests "$SHIPPED" 2>/dev/null)
 }
 
@@ -254,7 +271,16 @@ apply_ref() {     # KEY NAME MANIFEST TARGET LABEL
 
     # The engine installs the chosen commit with the demo's patch and setup
     # steps (no second download dialog)
-    if RQ_CONFIRMED_DEMO="$id" "$BIN_DIR/rq_demo_run.sh" "$id" --install-only; then
+    local ok=1 other
+    RQ_CONFIRMED_DEMO="$id" "$BIN_DIR/rq_demo_run.sh" "$id" --install-only || ok=0
+    # a demo sharing the checkout sets up its part again (the IBM Tutorials'
+    # welcome page), with nothing to download
+    if [ "$ok" = 1 ]; then
+        for other in $(sharers "$wd" "$id"); do
+            RQ_CONFIRMED_DEMO="$other" "$BIN_DIR/rq_demo_run.sh" "$other" --install-only || ok=0
+        done
+    fi
+    if [ "$ok" = 1 ]; then
         # Files the user added (own notebooks, a settings file) come along;
         # Python's caches do not (rig check 2026-10-24: copied as root, a
         # root-owned GHZGame/__pycache__ blocked removing the checkout)
@@ -271,11 +297,10 @@ apply_ref() {     # KEY NAME MANIFEST TARGET LABEL
         fi
         show_msgbox "$TITLE" "$name is now at $(shown_label "$label").\n\nThe earlier copy is kept in:\n$backup"
     else
-        rc=$?
         rq_remove_tree "$demo_dir" || true
         mv "$backup" "$demo_dir"
         rq_demo_set_version "$key" "$rel" "$( [ "$cur" = "$rel" ] || echo "$cur")" "$(rq_demo_chosen_label "$key" || true)"
-        show_msgbox "$TITLE" "$name could not be updated (error $rc), so the version in use was put back."
+        show_msgbox "$TITLE" "$name could not be updated, so the version in use was put back."
     fi
 }
 

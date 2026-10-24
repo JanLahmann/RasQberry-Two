@@ -348,9 +348,21 @@ clone_ibm_learning_content() {
     # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
     # third-party repo (we do not own it) that changes constantly, so following
     # main makes installs irreproducible and lets an upstream change alter the
-    # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
-    _ibm_ref="${GIT_REF_DEMO_IBM_LEARNING:-main}"
-    [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+    # shipped content underneath us. The pin is install.source.ref of the IBM
+    # Quantum Courses manifest (the pair shares one download, and Update demos
+    # and tested updates move it under that demo's name): rq_demo_ref gives it,
+    # or the newer version chosen; under dash (raspi-config) rq_common.sh is not
+    # loaded, so the manifest is read directly.
+    _ibm_ref=""
+    if command -v rq_demo_ref >/dev/null 2>&1; then
+        _ibm_ref=$(rq_demo_ref ibm-courses 2>/dev/null) || _ibm_ref=""
+    fi
+    [ -n "$_ibm_ref" ] || _ibm_ref=$(jq -r '.install.source.ref // empty' \
+        "${RQ_SHIPPED_MANIFESTS:-/usr/config/demo-manifests}/rq_demo_ibm-courses.json" 2>/dev/null) || _ibm_ref=""
+    if [ -z "$_ibm_ref" ]; then
+        _ibm_ref=main
+        echo "WARNING: no pinned commit for the IBM Quantum content - falling back to main (unpinned)"
+    fi
     # Only what the demos use (#18): in cone mode git also checks out every
     # file at the top of the repository (package.json, tox.ini ...), and the
     # notebooks' file browser showed those first. The pictures come along

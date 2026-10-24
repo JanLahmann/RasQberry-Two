@@ -213,3 +213,55 @@ def test_tutorials_and_courses_open_their_own_workspace():
                            ("rq_ibm_courses.sh", "ibm-courses", "WELCOME-courses.ipynb")):
         text = _read(_BIN, name)
         assert f'/lab/workspaces/{demo}/tree/{nb}?token=' in text, name
+
+
+# --- the pin lives in the manifests (Jan, 2026-10-24) ---------------------------
+
+def _manifest(did):
+    return json.load(open(os.path.join(_CFG, "demo-manifests", f"rq_demo_{did}.json")))
+
+
+def test_the_pair_shares_one_pin_in_its_manifests():
+    c, t = _manifest("ibm-courses"), _manifest("ibm-tutorials")
+    assert c["install"]["source"] == t["install"]["source"]
+    assert re.fullmatch(r"[0-9a-f]{40}", c["install"]["source"]["ref"])
+    assert c["entrypoint"]["working_dir"] == t["entrypoint"]["working_dir"] == "ibm-quantum-learning"
+    # one place: no second pin in the environment file
+    assert "GIT_REF_DEMO_IBM_LEARNING=" not in _read(_CFG, "rasqberry_environment.env")
+
+
+def _menu_ref(tmp_path, prelude=""):
+    menu = _read(_MENU)
+    body = re.search(r"^    _ibm_ref=\"\"\n.*?\(unpinned\)\"\n    fi\n", menu, re.S | re.M).group(0)
+    script = f'{prelude}\nf() {{\n{body}    echo "$_ibm_ref"\n}}\nf'
+    env = dict(os.environ, RQ_SHIPPED_MANIFESTS=os.path.join(_CFG, "demo-manifests"))
+    return subprocess.run(["sh", "-c", script], capture_output=True, text=True, env=env).stdout.strip()
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq is required")
+def test_the_download_takes_the_pin_or_the_version_chosen(tmp_path):
+    pin = _manifest("ibm-courses")["install"]["source"]["ref"]
+    assert _menu_ref(tmp_path) == pin                       # under dash: the manifest
+    assert _menu_ref(tmp_path, 'rq_demo_ref() { echo ' + "c" * 40 + '; }') == "c" * 40
+
+
+@pytest.mark.skipif(shutil.which("jq") is None or shutil.which("bash") is None,
+                    reason="bash and jq are required")
+def test_update_demos_lists_the_pair_once(tmp_path):
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    log = tmp_path / "wt.log"
+    wt = stubs / "whiptail"
+    wt.write_text(f'#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done >> "{log}"\nexit 1\n')
+    wt.chmod(0o755)
+    home = tmp_path / "home"
+    (home / "RasQberry-Two" / "demos" / "ibm-quantum-learning" / ".git").mkdir(parents=True)
+    env_config = tmp_path / "env-config.sh"
+    env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nBIN_DIR="{_BIN}"\nSTD_VENV=RQB2\n')
+    env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "RQ_CONFIG_FILE": str(env_config)}
+    proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_update.sh")], capture_output=True,
+                          text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    items = log.read_text().splitlines()
+    assert "ibm-courses:ref" in items and "ibm-tutorials:ref" not in items
+    assert "IBM Quantum Courses and IBM Quantum Tutorials (notebooks): release version" in items
