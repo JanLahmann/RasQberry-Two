@@ -324,6 +324,7 @@ report_catalog_pins() {
         | jq -r --arg q "'" '.[]? |
             if .kind == "update" then "Catalog demo \($q)\(.id)\($q) has a new pin - update with: sudo rq_demo_add_external.sh --update \(.id)"
             elif .kind == "renamed" then "Catalog demo \($q)\(.id)\($q) is now called \($q)\(.new)\($q) - move it with: sudo rq_demo_add_external.sh --update \(.id)"
+            elif .kind == "tested" then "Demo \($q)\(.id)\($q) has a tested update (\(.label)) - install with: sudo rq_demo_update.sh --tested \(.id):\(.update)"
             elif .kind == "withdrawn" then "Catalog demo \($q)\(.id)\($q) was withdrawn - remove with: sudo rq_demo_add_external.sh --remove \(.id)"
             else empty end' 2>/dev/null \
         | while IFS= read -r line; do info "$line"; done
