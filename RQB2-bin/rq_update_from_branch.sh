@@ -82,7 +82,7 @@ detect_current_repo() {
                 repo=$(echo "$origin_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?$|\1|')
                 # Remove .git suffix if present
                 repo="${repo%.git}"
-                log_message "Detected repository from git config: $repo"
+                log_message "Detected repository from git config: $repo" >&2
             fi
         fi
     fi
@@ -93,14 +93,14 @@ detect_current_repo() {
         local git_repo="${REPO:-}"
         if [ -n "$git_user" ] && [ -n "$git_repo" ]; then
             repo="${git_user}/${git_repo}"
-            log_message "Using repository from environment: $repo"
+            log_message "Using repository from environment: $repo" >&2
         fi
     fi
 
     # Method 3: Default fallback
     if [ -z "$repo" ]; then
         repo="$DEFAULT_REPO"
-        log_message "Using default repository: $repo"
+        log_message "Using default repository: $repo" >&2
     fi
 
     echo "$repo"
@@ -324,6 +324,7 @@ report_catalog_pins() {
         | jq -r --arg q "'" '.[]? |
             if .kind == "update" then "Catalog demo \($q)\(.id)\($q) has a new pin - update with: sudo rq_demo_add_external.sh --update \(.id)"
             elif .kind == "renamed" then "Catalog demo \($q)\(.id)\($q) is now called \($q)\(.new)\($q) - move it with: sudo rq_demo_add_external.sh --update \(.id)"
+            elif .kind == "tested" then "Demo \($q)\(.id)\($q) has a tested update (\(.label)) - install with: sudo rq_demo_update.sh --tested \(.id):\(.update)"
             elif .kind == "withdrawn" then "Catalog demo \($q)\(.id)\($q) was withdrawn - remove with: sudo rq_demo_add_external.sh --remove \(.id)"
             else empty end' 2>/dev/null \
         | while IFS= read -r line; do info "$line"; done

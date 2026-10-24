@@ -67,3 +67,20 @@ def test_the_summary_and_the_menu_box_say_it():
     menu = open(_MENU).read()
     assert "grep -oE '(Changed|Already up to date): .*'" in menu
     assert "Scripts updated in /usr/bin/" not in menu
+
+
+@pytest.mark.parametrize("env, want", [
+    ({}, "JanLahmann/RasQberry-Two"),
+    ({"RQB_GIT_USER": "someone", "REPO": "RasQberry-Two"}, "someone/RasQberry-Two"),
+])
+def test_the_repository_is_only_the_name_not_its_log_line(tmp_path, env, want):
+    # rig check 2026-10-24: the log line went into the clone URL
+    # ("https://github.com/[2026-10-24 08:20:13] Using default repository: ...")
+    text = open(_UPDATER).read()
+    fns = "".join(re.search(rf"^{n}\(\) \{{.*?^\}}\n", text, re.S | re.M).group(0)
+                  for n in ("log_message", "detect_current_repo"))
+    script = (f'LOG_FILE=/dev/null; DEFAULT_REPO=JanLahmann/RasQberry-Two; USER_HOME="{tmp_path}"\n'
+              f'{fns}r=$(detect_current_repo 2>/dev/null); echo "$r"')
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                          env=dict({"PATH": os.environ["PATH"]}, **env))
+    assert proc.stdout == want + "\n"
