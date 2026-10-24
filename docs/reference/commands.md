@@ -287,7 +287,7 @@ rq_demo_add_external.sh --list          # list registry entries + status
 Every demo is pinned per RasQberry release (a git commit or a Docker image digest, Jan Q8/Q32).
 
 ```
-rq_demo_update.sh [--list]
+rq_demo_update.sh [--list | --tested ID:KIND]
 ```
 
 ### rq_demo_validate.sh

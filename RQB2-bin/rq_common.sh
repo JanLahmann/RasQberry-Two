@@ -1811,7 +1811,7 @@ rq_card_note() {
 }
 
 # How long a Docker image download takes, from its size: measured on a Pi 5
-# (Quantum Lab, 890 MB): 101 s on fast internet, unpacking included (about
+# (Qiskit Live, 890 MB): 101 s on fast internet, unpacking included (about
 # 8 MB/s), and about 12 minutes on a 10 Mbit/s line (about 1.2 MB/s; slow
 # Wi-Fi: 1 MB/s). Rounded up to whole minutes. Echoes "FAST SLOW" minutes,
 # nothing for an unknown size.
@@ -1939,7 +1939,7 @@ rq_confirm_download() {
     [ "$docker" = 1 ] && text="${text}$(_rq_docker_space_note)"
     local time_txt=""
     [ -n "$time" ] && time_txt="about $time"
-    # a Docker image: from its size, fast and slow (Quantum Lab said "1-3
+    # a Docker image: from its size, fast and slow (Qiskit Live said "1-3
     # minutes" and took 12 at 10 Mbit/s)
     [ -n "$image" ] && [ "$dl" -gt 0 ] && time_txt=$(rq_download_time_text "$dl")
     [ -n "$time_txt" ] && text="${text}Time:      $time_txt\n"
@@ -2589,7 +2589,9 @@ rq_demo_maturity() {
 # (curated; an install under an earlier name, listed in an entry's
 # "replaces", goes to that entry's group), else to the group marked
 # "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
-# manifest names. A shipped demo goes to its manifest's "group", else a
+# manifest names. A beta demo (maturity "beta": its manifest's, else its
+# catalogue entry's) goes to the group marked "beta", before anything else:
+# it says clearly what is not ready yet (Jan, 2026-10-24). A shipped demo goes to its manifest's "group", else a
 # guess: an LED panel demo to led-panel, a game or visualization to play,
 # anything else to learn. A value demo-groups.json does not list counts as
 # none. rq_desktop_session.py
@@ -2613,7 +2615,10 @@ rq_demo_group() {
         | ([$reg[0].demos[]? | select(.id == $id)]
            + [$reg[0].demos[]? | select(any(.replaces[]?; . == $id))]) as $entry
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
-        | if ($curated | length) > 0 then $curated[0]
+        | ([$grp[0].groups[]? | select(.beta == true) | .id] | .[0]) as $beta
+        | ($m.maturity // ([$entry[].maturity | select(. != null)] | .[0])) as $maturity
+        | if $beta != null and $maturity == "beta" then $beta
+          elif ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
           elif ($m.group as $g | $ids | any(. == $g)) then $m.group
           elif $m.needs_hw.leds == true then "led-panel"
@@ -2759,7 +2764,7 @@ rq_count_event() {
 }
 
 # ============================================================================
-# 17. DOCKER DEMO HELPERS (doQumentation, Quantum Lab, Qoffee-Maker, Mixer)
+# 17. DOCKER DEMO HELPERS (doQumentation, Qiskit Live, Qoffee-Maker, Mixer)
 # ============================================================================
 
 # Make docker usable in this script. The user is in the docker group from the
@@ -2858,7 +2863,7 @@ _rq_pull_progress() {
 # internet connection" (R-038).
 # FALLBACK (a tag of the same image, e.g. ghcr.io/qubins/images:2.5-xl): when
 # the registry no longer offers IMAGE itself ("manifest unknown": a digest its
-# publisher pruned, as QuBins did with Quantum Lab's pin in 2026-10), that tag
+# publisher pruned, as QuBins did with Qiskit Live's pin in 2026-10), that tag
 # is downloaded instead, and one line says so. Every other failure (offline,
 # no space, access denied) stops here as before. RQ_DOCKER_PULLED names the
 # image that was downloaded: IMAGE, or FALLBACK.

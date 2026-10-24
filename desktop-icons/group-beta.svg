@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Beta: try and tell us</title>
+  <path d="M4 14a4 4 0 0 1 4-4h15l6 6h27a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#8e6a00"/>
+  <rect x="4" y="21" width="56" height="35" rx="4" fill="#f1c21b"/>
+  <path d="M27 26h10M29 26v8l-8 14a2 2 0 0 0 1.7 3h18.6a2 2 0 0 0 1.7-3l-8-14v-8" fill="none" stroke="#161616" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M24.5 43h15l3.2 5.5H21.3z" fill="#161616"/>
+</svg>

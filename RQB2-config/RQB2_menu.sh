@@ -114,7 +114,7 @@ _rq_demo_groups_fallback() {
     demo_group_list() {
         printf '%s\n' '"led-panel" "LED panel"' '"play" "Play"' '"projects" "Big projects"' \
             '"learn" "Learn & code"' '"workshops" "Workshops & events"' \
-            '"contributed" "Contributed demos"'
+            '"contributed" "Contributed demos"' '"beta" "Beta: try & tell us"'
     }
     demo_group_title() {
         case "$1" in
@@ -124,6 +124,7 @@ _rq_demo_groups_fallback() {
             learn)     echo "Learn & code" ;;
             workshops) echo "Workshops & events" ;;
             contributed) echo "Contributed demos" ;;
+            beta)      echo "Beta: try & tell us" ;;
             *) return 1 ;;
         esac
     }
@@ -309,7 +310,7 @@ run_quantum_paradoxes_demo() {
 # The demo engine asks before this runs (the consent dialog names the licence).
 # A download that was interrupted or failed offline used to leave a .git with
 # no commit; every retry then took it for "cloned", reported success and set
-# the installed flag, and IBM Tutorials, IBM Courses and the Quantum Lab stayed
+# the installed flag, and IBM Tutorials, IBM Courses and the Qiskit Live stayed
 # broken until someone ran rm -rf (R-056). The checkout counts only with a
 # commit and the content; anything else is removed and fetched again, and a
 # failure leaves nothing behind.
@@ -348,9 +349,21 @@ clone_ibm_learning_content() {
     # Pin to a reviewed commit instead of tracking main. Qiskit/documentation is a
     # third-party repo (we do not own it) that changes constantly, so following
     # main makes installs irreproducible and lets an upstream change alter the
-    # shipped content underneath us. Bump GIT_REF_DEMO_IBM_LEARNING deliberately.
-    _ibm_ref="${GIT_REF_DEMO_IBM_LEARNING:-main}"
-    [ -n "${GIT_REF_DEMO_IBM_LEARNING:-}" ] || echo "WARNING: GIT_REF_DEMO_IBM_LEARNING unset - falling back to main (unpinned)"
+    # shipped content underneath us. The pin is install.source.ref of the IBM
+    # Quantum Courses manifest (the pair shares one download, and Update demos
+    # and tested updates move it under that demo's name): rq_demo_ref gives it,
+    # or the newer version chosen; under dash (raspi-config) rq_common.sh is not
+    # loaded, so the manifest is read directly.
+    _ibm_ref=""
+    if command -v rq_demo_ref >/dev/null 2>&1; then
+        _ibm_ref=$(rq_demo_ref ibm-courses 2>/dev/null) || _ibm_ref=""
+    fi
+    [ -n "$_ibm_ref" ] || _ibm_ref=$(jq -r '.install.source.ref // empty' \
+        "${RQ_SHIPPED_MANIFESTS:-/usr/config/demo-manifests}/rq_demo_ibm-courses.json" 2>/dev/null) || _ibm_ref=""
+    if [ -z "$_ibm_ref" ]; then
+        _ibm_ref=main
+        echo "WARNING: no pinned commit for the IBM Quantum content - falling back to main (unpinned)"
+    fi
     # Only what the demos use (#18): in cone mode git also checks out every
     # file at the top of the repository (package.json, tox.ini ...), and the
     # notebooks' file browser showed those first. The pictures come along
@@ -837,7 +850,7 @@ run_quantum_mixer_demo() {
     run_engine_demo "$BIN_DIR/rq_demo_run.sh" quantum-mixer
 }
 
-# Stop the Docker demos that are running (doQumentation, Quantum Lab,
+# Stop the Docker demos that are running (doQumentation, Qiskit Live,
 # Qoffee-Maker, Quantum-Mixer, catalogue demos): closing their window keeps
 # them running, and only Qoffee and the Mixer had a stop entry (R-110).
 do_stop_docker_demos() {
@@ -1489,10 +1502,16 @@ do_demo_group_menu() {
       contributed)
                  [ $# -eq 0 ] && _dg_text="No demos from the catalogue yet. Add one:"
                  set -- "$@" ADDX "Add demo from catalogue" ;;
+      # every beta demo, whatever group it names (Jan, 2026-10-24)
+      beta)      _dg_text="Not finished yet: try them, tell us at ${RQ_FEEDBACK_EMAIL:-info@rasqberry.org}" ;;
     esac
     if [ $# -eq 0 ]; then
-        whiptail --title "RasQberry: $_dg_title" --msgbox \
-            "No demos in this group yet.\n\nAdd one: Quantum Demos -> Manage demos -> Add demo from catalogue." 10 70
+        if [ "$_dg_id" = beta ]; then
+            whiptail --title "RasQberry: $_dg_title" --msgbox "No beta demos right now: every demo is ready." 8 70
+        else
+            whiptail --title "RasQberry: $_dg_title" --msgbox \
+                "No demos in this group yet.\n\nAdd one: Quantum Demos -> Manage demos -> Add demo from catalogue." 10 70
+        fi
         return 0
     fi
     FUN=$(show_menu ${_dg_last:+--default-item "$_dg_last"} \
@@ -1538,7 +1557,7 @@ do_manage_demos_menu() {
        ADDX "Add demo from catalogue" \
        UPD  "Update demos (newer versions)" \
        REM  "Remove a demo (free space)" \
-       DSTP "Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)") || break
+       DSTP "Stop Docker demos (Workshop & Qiskit Server, Qiskit Live...)") || break
     _md_last="$FUN"
     case "$FUN" in
       DALL) do_download_all_demos || continue ;;

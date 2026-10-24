@@ -13,7 +13,10 @@ set -euo pipefail
 #     earlier copy, with any changes made to it, is kept next to it).
 #   "Back to the release version" undoes it. A newer RasQberry release
 #   brings its own tested pins, and those win.
-# Usage: rq_demo_update.sh [--list]
+#   --tested ID:image|ID:ref installs the tested update the demo catalogue
+#   offers for this Pi (rq_catalogue.py, "tested_updates"; the taskbar badge
+#   runs it).
+# Usage: rq_demo_update.sh [--list | --tested ID:KIND]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -28,9 +31,11 @@ DOCKER_OK=no
 command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && DOCKER_OK=yes
 
 # Updatable pins of downloaded demos: "KEY<TAB>NAME<TAB>MANIFEST" lines,
-# KEY = ID:image or ID:ref
+# KEY = ID:image or ID:ref. Demos that share one checkout (the IBM pair:
+# ibm-quantum-learning) are one line under the first one's id, named after
+# all of them: one version for both.
 updatable() {
-    local mf id name type image ref wd
+    local mf id name type image ref wd other seen=" "
     while IFS= read -r mf; do
         [ -n "$mf" ] || continue
         id=$(jq -r '.id' "$mf")
@@ -46,9 +51,24 @@ updatable() {
         fi
         ref=$(rq_demo_ref "$id" "$mf")
         wd=$(jq -r '.entrypoint.working_dir // ""' "$mf")
-        if [ -n "$ref" ] && [ -n "$wd" ] && [ -d "$USER_HOME/$REPO/demos/$wd/.git" ]; then
+        if [ -n "$ref" ] && [ -n "$wd" ] && [ "${seen#* "$wd" }" = "$seen" ] \
+                && [ -d "$USER_HOME/$REPO/demos/$wd/.git" ]; then
+            seen="$seen$wd "
+            for other in $(sharers "$wd" "$id"); do
+                name="$name and $(jq -r '.name // .id' "$(rq_find_manifest "$SHIPPED" "$other")")"
+            done
             printf '%s:ref\t%s\t%s\n' "$id" "$name" "$mf"
         fi
+    done < <(rq_list_manifests "$SHIPPED" 2>/dev/null)
+}
+
+# The other shipped demos with the checkout WD (their ids, one per line)
+sharers() {       # WD ID
+    local mf
+    while IFS= read -r mf; do
+        [ -n "$mf" ] || continue
+        jq -r --arg wd "$1" --arg id "$2" \
+            'select(.entrypoint.working_dir == $wd and .id != $id) | .id' "$mf" 2>/dev/null
     done < <(rq_list_manifests "$SHIPPED" 2>/dev/null)
 }
 
@@ -130,7 +150,7 @@ update_image() {
         "In use: $cur_line\nNewest first. The new version is used from the next start." \
         20 78 10 "$@" 3>&1 1>&2 2>&3) || return 0
 
-    local target="$choice" label="" dl=0 disk=0
+    local target="$choice" label="" dl=0
     if [ "$choice" = "RELEASE" ]; then
         target="$rel"
         label=""
@@ -139,10 +159,23 @@ update_image() {
         IFS=$'\t' read -r ref t date mb note state <<< "$line"
         label="$t, $date"
         dl="$mb"
-        disk=$(jq -r --argjson dl "$mb" \
-            '(.install.download.disk_mb // 0) as $d | (.install.download.download_mb // 0) as $m
-             | if $m > 0 then ($dl * $d / $m | floor) else $dl end' "$mf")
     fi
+    apply_image "$key" "$name" "$mf" "$target" "$label" "$dl"
+}
+
+# A version's label for the user ("tested: " marks it for rq_catalogue.py only)
+shown_label() {   # LABEL
+    local l="${1#tested: }"
+    echo "${l:-the version this release ships}"
+}
+
+# Move a Docker demo to TARGET (download it first, after the usual dialog)
+apply_image() {   # KEY NAME MANIFEST TARGET LABEL DOWNLOAD_MB
+    local key="$1" name="$2" mf="$3" target="$4" label="$5" dl="${6:-0}" rel disk=0 rc
+    rel=$(release_pin "$key" "$mf")
+    [ "$dl" -gt 0 ] 2>/dev/null && disk=$(jq -r --argjson dl "$dl" \
+        '(.install.download.disk_mb // 0) as $d | (.install.download.download_mb // 0) as $m
+         | if $m > 0 then ($dl * $d / $m | floor) else $dl end' "$mf")
 
     if ! docker image inspect "$target" >/dev/null 2>&1; then
         rc=0
@@ -171,7 +204,8 @@ update_image() {
         rq_demo_set_version "$key" "$rel" "$target" "$label"
     fi
     rq_docker_drop_old "$target"
-    show_msgbox "$TITLE" "$name now uses: ${label:-the version this release ships}.\n\nIt is used the next time $name starts (a running one keeps its version until then)."
+    show_msgbox "$TITLE" "$name now uses: $(shown_label "$label").\n\nIt is used the next time $name starts (a running one keeps its version until then)."
+    return 0
 }
 
 # ----------------------------------------------------------------------------
@@ -215,6 +249,16 @@ update_ref() {
     else
         target="$choice"; label="${choice:0:7}"
     fi
+    apply_ref "$key" "$name" "$mf" "$target" "$label"
+}
+
+# Move a notebook or program demo to commit TARGET (the earlier copy is kept)
+apply_ref() {     # KEY NAME MANIFEST TARGET LABEL
+    local key="$1" name="$2" mf="$3" target="$4" label="$5" id="${1%:*}" cur rel wd demo_dir rc=0
+    cur=$(current_pin "$key" "$mf")
+    rel=$(release_pin "$key" "$mf")
+    wd=$(jq -r '.entrypoint.working_dir' "$mf")
+    demo_dir="$USER_HOME/$REPO/demos/$wd"
 
     local backup="$demo_dir.before-update"
     rq_remove_tree "$backup" || { show_msgbox "$TITLE" "An old copy is in the way: $backup"; return 0; }
@@ -227,28 +271,74 @@ update_ref() {
 
     # The engine installs the chosen commit with the demo's patch and setup
     # steps (no second download dialog)
-    if RQ_CONFIRMED_DEMO="$id" "$BIN_DIR/rq_demo_run.sh" "$id" --install-only; then
-        # Files the user added (own notebooks, a settings file) come along
+    local ok=1 other
+    RQ_CONFIRMED_DEMO="$id" "$BIN_DIR/rq_demo_run.sh" "$id" --install-only || ok=0
+    # a demo sharing the checkout sets up its part again (the IBM Tutorials'
+    # welcome page), with nothing to download
+    if [ "$ok" = 1 ]; then
+        for other in $(sharers "$wd" "$id"); do
+            RQ_CONFIRMED_DEMO="$other" "$BIN_DIR/rq_demo_run.sh" "$other" --install-only || ok=0
+        done
+    fi
+    if [ "$ok" = 1 ]; then
+        # Files the user added (own notebooks, a settings file) come along;
+        # Python's caches do not (rig check 2026-10-24: copied as root, a
+        # root-owned GHZGame/__pycache__ blocked removing the checkout)
         ( cd "$backup" && git ls-files --others -z 2>/dev/null ) \
             | while IFS= read -r -d '' f; do
+                case "/$f" in */__pycache__/*) continue ;; esac
                 [ -e "$demo_dir/$f" ] && continue
                 mkdir -p "$demo_dir/$(dirname "$f")"
                 cp -p "$backup/$f" "$demo_dir/$f"
             done
-        fix_root_ownership "$demo_dir" >/dev/null 2>&1 || true
-        show_msgbox "$TITLE" "$name is now at ${label:-the version this release ships}.\n\nThe earlier copy is kept in:\n$backup"
+        # the whole tree, not only a root-owned top (fix_root_ownership)
+        if [ "$(id -u)" = "0" ] && [ "$(get_user_name)" != "root" ]; then
+            chown -R "$(get_user_name):" "$demo_dir" 2>/dev/null || true
+        fi
+        show_msgbox "$TITLE" "$name is now at $(shown_label "$label").\n\nThe earlier copy is kept in:\n$backup"
     else
-        rc=$?
         rq_remove_tree "$demo_dir" || true
         mv "$backup" "$demo_dir"
         rq_demo_set_version "$key" "$rel" "$( [ "$cur" = "$rel" ] || echo "$cur")" "$(rq_demo_chosen_label "$key" || true)"
-        show_msgbox "$TITLE" "$name could not be updated (error $rc), so the version in use was put back."
+        show_msgbox "$TITLE" "$name could not be updated, so the version in use was put back."
     fi
 }
 
 # ----------------------------------------------------------------------------
-# Menu
+# A tested update from the demo catalogue (--tested ID:KIND)
 # ----------------------------------------------------------------------------
+apply_tested() {  # ID:KIND
+    local key="$1" line name mf pin label dl
+    [[ "$key" =~ ^[a-z0-9][a-z0-9-]*:(image|ref)$ ]] || die "Usage: rq_demo_update.sh --tested ID:image|ID:ref"
+    line=$(updatable | awk -F'\t' -v k="$key" '$1 == k')
+    if [ -z "$line" ]; then
+        show_msgbox "$TITLE" "${key%:*} is not downloaded here, so there is nothing to update.\n\nStart it once to download it; the taskbar then offers the update."
+        return 0
+    fi
+    IFS=$'\t' read -r key name mf <<< "$line"
+    if ! line=$(RQ_USER_HOME="$USER_HOME" python3 "$BIN_DIR/rq_catalogue.py" --tested "$key"); then
+        show_msgbox "$TITLE" "There is no tested update for $name on this RasQberry (any more): it is up to date, or a version was chosen under Update demos."
+        return 0
+    fi
+    IFS=$'\t' read -r pin label dl <<< "$line"
+    [ "${dl:-0}" -gt 0 ] 2>/dev/null || dl=$(jq -r '.install.download.download_mb // 0' "$mf")
+    case "$key" in
+        *:image)
+            apply_image "$key" "$name" "$mf" "$pin" "tested: $label" "${dl:-0}" ;;
+        *:ref)
+            show_yesno "Update $name?" "A tested update for $name is available: $label.\n\nYour changes to its files are kept in a copy next to it, and Update demos can take it back to the version this release ships.\n\nUpdate now?" || return 0
+            apply_ref "$key" "$name" "$mf" "$pin" "tested: $label" ;;
+    esac
+}
+
+# ----------------------------------------------------------------------------
+# Menu (or --tested)
+# ----------------------------------------------------------------------------
+if [ "${1:-}" = "--tested" ]; then
+    apply_tested "${2:-}"
+    exit $?
+fi
+
 while true; do
     set --
     while IFS=$'\t' read -r key name mf; do

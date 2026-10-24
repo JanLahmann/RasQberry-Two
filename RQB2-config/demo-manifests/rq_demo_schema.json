@@ -21,8 +21,8 @@
     },
     "group": {
       "type": "string",
-      "enum": ["led-panel", "play", "projects", "learn", "workshops", "contributed"],
-      "description": "Desktop folder, RasQberry menu submenu and website heading (demo-groups.json). Shipped demos only; without it, a guess from needs_hw.leds and category. A catalogue demo goes to its known-demos.json entry's group, else to Contributed demos"
+      "enum": ["led-panel", "play", "projects", "learn", "workshops", "contributed", "beta"],
+      "description": "Desktop folder, RasQberry menu submenu and website heading (demo-groups.json). Shipped demos only; without it, a guess from needs_hw.leds and category. A catalogue demo goes to its known-demos.json entry's group, else to Contributed demos. A beta demo (maturity) goes to Beta, whatever it names here"
     },
     "description": {
       "type": "string",
@@ -217,7 +217,7 @@
           "properties": {
             "docker_tags": {"type": "string", "description": "Regular expression for the version tags, e.g. ^[0-9a-f]{7}-jupyter$"},
             "docker_latest": {"type": "string", "description": "Tag of the newest build, e.g. jupyter"},
-            "docker_order": {"type": "string", "enum": ["date", "version"], "description": "What a newer version is: a later build (date, the default), or a higher Qiskit version (version: the org.qubins.qiskit.patch label, else the tag's major.minor; Quantum Lab). Snapshot tags (*-YYYYMMDD) are preferred over moving tags either way."}
+            "docker_order": {"type": "string", "enum": ["date", "version"], "description": "What a newer version is: a later build (date, the default), or a higher Qiskit version (version: the org.qubins.qiskit.patch label, else the tag's major.minor; Qiskit Live). Snapshot tags (*-YYYYMMDD) are preferred over moving tags either way."}
           }
         },
         "installer": {

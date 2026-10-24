@@ -10,7 +10,7 @@ Usage:
     rq_image_versions.py IMAGE_IN_USE --tags REGEX [--latest TAG] [--arch arm64]
                          [--order date|version]
 
---order version (Quantum Lab): sorted by the Qiskit version the image holds
+--order version (Qiskit Live): sorted by the Qiskit version the image holds
 (its org.qubins.qiskit.patch label, else the tag's major.minor), then by
 build time; "newer" means a higher Qiskit version, or the same one built
 later. The default, date, sorts by build day (the other images). A build

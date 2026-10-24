@@ -348,7 +348,7 @@ def _docker_stub(box, have_image=False):
 
 @pytest.mark.parametrize("demo,name", [("doqumentation", "Workshop & Qiskit Server"),
                                        ("qiskit-tutorials", "Qiskit Tutorials on this Pi"),
-                                       ("quantum-lab", "Quantum Lab (QuBins)"),
+                                       ("quantum-lab", "Qiskit Live (QuBins)"),
                                        ("quantum-mixer", "Quantum Mixer"),
                                        ("qoffee-maker", "Qoffee-Maker")])
 @pytest.mark.parametrize("install_only", [False, True])
@@ -381,7 +381,7 @@ def test_consent_with_the_image_here_is_not_refused_on_a_small_card(box):
 
 
 def test_docker_launchers_stop_before_their_first_download():
-    # Quantum Lab fetched the course notebooks before its image question
+    # Qiskit Live fetched the course notebooks before its image question
     lab = _read("rq_quantum_lab.sh")
     assert lab.index("rq_stop_if_card_too_small") < lab.index("rq_require_demo_consent ibm-courses")
     # the others ask (rq_require_demo_consent: --docker, a note on a small card) first

@@ -3,7 +3,7 @@
 Check that the registries still offer every Docker image our demos pin.
 
 A digest pin disappears when its publisher prunes old builds: QuBins did
-that to Quantum Lab's pin in 2026-10, and its first start failed with "The
+that to Qiskit Live's pin in 2026-10, and its first start failed with "The
 registry does not offer ghcr.io/qubins/images@sha256:... (any more)". This
 check asks the registry for each image the demo manifests name (the pin and
 its docker_image_fallback tag) and for the Docker demos of the catalogue

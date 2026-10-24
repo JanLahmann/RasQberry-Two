@@ -109,6 +109,8 @@ SYSINFO_CMD = ["lxterminal", "-t", "RasQberry System Information", "-e",
 # A catalogue demo: add, update, move or remove it (rq_demo_add_external.sh
 # asks its own questions; the window stays open when it fails)
 ADD_DEMO = "/usr/bin/rq_demo_add_external.sh"
+# A tested update of a demo the image ships (rq_demo_update.sh --tested)
+UPDATE_DEMO = "/usr/bin/rq_demo_update.sh"
 CATALOGUE_TITLE = "RasQberry: Demo catalogue"
 CATALOGUE_MAX = 5                       # catalogue lines in the menu
 CATALOGUE_ID = 200                      # menu ids 200+i: catalogue actions
@@ -165,7 +167,7 @@ def catalogue_news():
     """What the demo catalogue brings for this user's demos (rq_catalogue.py); [] on any error."""
     try:
         base = cat._read_json(cat.shipped_file()) or {}
-        return cat.news(cat.current()[0], base, cat.installed())[:CATALOGUE_MAX]
+        return cat.all_news(cat.current()[0], base)[:CATALOGUE_MAX]
     except Exception as e:      # never let the badge fail over the catalogue
         log.info("catalogue: %s", e)
         return []
@@ -181,10 +183,11 @@ def catalogue_items(news):
     return items
 
 
-def catalogue_argv(item, add_demo=ADD_DEMO):
+def catalogue_argv(item, add_demo=ADD_DEMO, update_demo=UPDATE_DEMO):
     """The terminal that acts on a news item; it waits for Enter only when the script fails."""
     args = " ".join(shlex.quote(a) for a in cat.command(item))
-    shell = (f"sudo {add_demo} {args} || {{ echo; read -r -p 'Press Enter to close. ' _; }}")
+    script = update_demo if cat.program(item) == "rq_demo_update.sh" else add_demo
+    shell = (f"sudo {script} {args} || {{ echo; read -r -p 'Press Enter to close. ' _; }}")
     return ["lxterminal", "-t", CATALOGUE_TITLE, "-e", "bash", "-c", shell]
 
 

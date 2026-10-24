@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <title>Quantum Lab</title>
+  <title>Qiskit Live</title>
   <rect x="4" y="4" width="56" height="56" rx="12" fill="#1e6b34"/>
   <rect x="14" y="12" width="36" height="40" rx="3" fill="#fff"/>
   <path d="M19 20h5M19 32h5M19 44h5" stroke="#2fa04f" stroke-width="3" stroke-linecap="round"/>
