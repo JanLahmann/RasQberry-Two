@@ -1,6 +1,6 @@
 """
 "Remove a demo" listed only the demos before the first Docker demo whose image
-is not on the Pi (Quantum Lab; user tests 2026-10-06, N2): the size lookup
+is not on the Pi (Qiskit Live; user tests 2026-10-06, N2): the size lookup
 printed "0" twice and the list ended in an arithmetic error.
 """
 

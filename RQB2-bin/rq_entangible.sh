@@ -183,7 +183,7 @@ rq_demo_header "$NAME"
 
 DEMO_DIR=$(get_demo_dir "$DEMO_ID")
 ENT=$(ent_cmd "$DEMO_DIR")
-[ -x "$ENT" ] || die "$NAME is not downloaded. Start it from its desktop icon or RasQberry menu > Quantum Demos > Big projects, which ask before downloading."
+[ -x "$ENT" ] || die "$NAME is not downloaded. Start it from its desktop icon or the RasQberry menu > Quantum Demos > Beta: try & tell us, which ask before downloading."
 
 # The checkout is the version this release pins (or the one chosen under
 # Update demos)? A different one still runs.

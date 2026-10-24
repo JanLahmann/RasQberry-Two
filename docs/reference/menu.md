@@ -54,37 +54,33 @@ Quantum demos, setup and settings for this RasQberry Two
       - LED-Painter
     - **Play**: Fun with Quantum games, paradoxes, fractals → menu "RasQberry: Play"
       - **Fun with Quantum** → menu "RasQberry: Fun with Quantum": Select an entry
-        - Start here: what the games are about
-        - Quantum Coin Game
-        - GHZ Game
-        - Hardy's Paradox
-        - Mermin–Peres Magic Square
-        - 3-SAT with Grover's Algorithm
-        - The CHSH Game
-        - The Quantum Prisoner's Dilemma
-        - GHZ on Real Quantum Devices
+        - Start here: what the games are about (beta)
+        - Quantum Coin Game (beta)
+        - GHZ Game (beta)
+        - Hardy's Paradox (beta)
+        - Mermin–Peres Magic Square (beta)
+        - 3-SAT with Grover's Algorithm (beta)
+        - The CHSH Game (beta)
+        - The Quantum Prisoner's Dilemma (beta)
+        - GHZ on Real Quantum Devices (beta)
         - Fun with Quantum website: games in the browser (beta)
         - Fun with Quantum family: related projects (beta)
       - Quantum Coin Game
       - Quantum Paradoxes
       - Quantum Fractals
-    - **Big projects**: Qoffee-Maker, Quantum Mixer, Entangible → menu "RasQberry: Big projects"
+    - **Big projects**: Qoffee-Maker, Quantum Mixer → menu "RasQberry: Big projects"
       - Qoffee-Maker [internet, 32 GB]
       - Quantum Mixer [32 GB]
-      - Entangible (beta)
-      - racetraQ (beta) *(catalogue demo: shown once added)*
     - **Learn & code**: your programs, Bloch sphere, tutorials, courses → menu "RasQberry: Learn & code"
       - My Quantum Programs (JupyterLab)
       - **Grokking the Bloch Sphere** → menu "RasQberry: Grokking the Bloch Sphere": Select an entry
         - On this Pi (works offline, with tips)
         - Online version (javafxpert.github.io)
-      - Qiskit Tutorials on this Pi (beta) [32 GB]
-      - Quantum Lab (QuBins) [internet, 32 GB]
+      - Qiskit Live (QuBins) [internet, 32 GB]
       - IBM Quantum Tutorials
       - IBM Quantum Courses
       - IBM Quantum Composer [internet]
-    - **Workshops & events**: Workshop & Qiskit Server, Demo Loop → menu "RasQberry: Workshops & events"
-      - Workshop & Qiskit Server (beta) [internet, 32 GB]
+    - **Workshops & events**: Demo Loop → menu "RasQberry: Workshops & events"
       - **Demo Loop (demos one after another)** → menu "RasQberry: Demo Loop": Shows demos one after another, for a stand. Now: <now>
         - Start the demo loop
         - Choose the demos
@@ -93,13 +89,18 @@ Quantum demos, setup and settings for this RasQberry Two
       - SAP Quantum Learning *(catalogue demo: shown once added)*
       - SAP Quantum LED *(catalogue demo: shown once added)*
       - Add demo from catalogue
+    - **Beta: try & tell us**: new demos that may not work yet → menu "RasQberry: Beta: try & tell us"
+      - Workshop & Qiskit Server (beta) [internet, 32 GB]
+      - Qiskit Tutorials on this Pi (beta) [32 GB]
+      - Entangible (beta)
+      - racetraQ (beta) *(catalogue demo: shown once added)*
   - Stop a running LED demo
   - **Manage demos: download all, add, update, remove** → menu "RasQberry: Manage Demos": Download, add, update or remove demos
     - Download all demos (one-time setup)
     - Add demo from catalogue
     - Update demos (newer versions)
     - Remove a demo (free space)
-    - Stop Docker demos (Workshop & Qiskit Server, Quantum Lab...)
+    - Stop Docker demos (Workshop & Qiskit Server, Qiskit Live...)
 - Setup Checklist
 - **Desktop Settings (touch mode, browser at login, sound delay)** → menu "RasQberry: Desktop Settings": How the desktop looks, what it opens at login, and sound.
   - **Touch mode (bigger icons and buttons): <touch>** → menu "RasQberry: Touch Mode": Current: <current_status>

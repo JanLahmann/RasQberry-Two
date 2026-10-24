@@ -76,6 +76,10 @@ _FILE_CODES = ("%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%v", "%m")
 # --------------------------------------------------------------------------
 # Launchers
 # --------------------------------------------------------------------------
+
+# Where beta demos ask for feedback (rq_common.sh RQ_FEEDBACK_EMAIL)
+BETA_FEEDBACK = "info@rasqberry.org"
+
 def _unescape(value):
     """Undo the Desktop Entry string escapes (\\s \\n \\t \\r \\\\)."""
     out, i = [], 0
@@ -507,6 +511,14 @@ class GroupWindow:
             desc.set_max_width_chars(48)
             desc.get_style_context().add_class("dim-label")
             box.pack_start(desc, False, False, 0)
+        if self.group.get("beta"):
+            # every beta demo, whatever group it names (Jan, 2026-10-24): say
+            # where the feedback goes, the point of trying them
+            note = Gtk.Label(xalign=0)
+            note.set_markup("Feedback: <b>%s</b>" % self.GLib.markup_escape_text(BETA_FEEDBACK))
+            note.set_line_wrap(True)
+            note.set_max_width_chars(48)
+            box.pack_start(note, False, False, 0)
         self.scroll = Gtk.ScrolledWindow()
         self.scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.scroll.set_propagate_natural_height(True)
@@ -540,6 +552,8 @@ class GroupWindow:
         if not self.launchers:
             if self.group.get("catalogue"):
                 text = "No demos from the catalogue yet."
+            elif self.group.get("beta"):
+                text = "No beta demos right now: every demo is ready."
             else:
                 text = ("No demos in this group yet.\nMore demos: RasQberry "
                         "Configuration > Quantum Demos > Manage demos.")

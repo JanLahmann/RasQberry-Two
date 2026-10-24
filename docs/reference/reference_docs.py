@@ -99,6 +99,15 @@ def catalogue_group():
     return next((g["id"] for g in groups_data()["groups"] if g.get("catalogue") is True), None)
 
 
+def catalogue_demo_group(entry):
+    """A catalogue entry's group, as rq_demo_group: Beta when it is beta, else
+    its curated group, else the catalogue group."""
+    beta = next((g["id"] for g in groups_data()["groups"] if g.get("beta")), None)
+    if beta and entry.get("maturity") == "beta":
+        return beta
+    return entry["group"] if entry.get("group") in group_titles() else catalogue_group()
+
+
 def demo_needs_tags(manifest, group):
     """
     The short needs a demo's menu entry shows ("internet, 32 GB"), as
@@ -136,10 +145,14 @@ def menu_label(manifest, group):
 
 def demo_group(demo_id, manifest):
     """
-    A shipped demo's group, as rq_demo_group: its manifest's group, else a
-    guess (LED panel demos: led-panel; game or visualization: play; else learn).
+    A shipped demo's group, as rq_demo_group: Beta for a beta demo (Jan,
+    2026-10-24), else its manifest's group, else a guess (LED panel demos:
+    led-panel; game or visualization: play; else learn).
     """
     ids = list(group_titles())
+    beta = next((g["id"] for g in groups_data()["groups"] if g.get("beta")), None)
+    if beta and manifest.get("maturity") == "beta":
+        return beta
     if manifest.get("group") in ids:
         return manifest["group"]
     if (manifest.get("needs_hw") or {}).get("leds") is True:
@@ -538,7 +551,7 @@ def menu_md():
         if not demos:
             entries += [("fixed", t, l) for t, l in f["after_first"]]
         cats = [d for d in catalogue_demos()
-                if (d.get("group") if d.get("group") in titles else catalogue_group()) == gid]
+                if catalogue_demo_group(d) == gid]
         for d in cats:
             label = d.get("name", d["id"]) + (" (beta)" if d.get("maturity") else "")
             entries.append(("catalogue", d["id"], label))
@@ -711,7 +724,7 @@ def desktop_md():
         for n in members:
             lines.append(row(n))
         cats = [d for d in catalogue_demos()
-                if (d.get("group") if d.get("group") in group_titles() else catalogue_group()) == g["id"]]
+                if catalogue_demo_group(d) == g["id"]]
         for d in cats:
             beta = " (beta)" if d.get("maturity") == "beta" else ""
             lines.append(f"- **{d.get('name', d['id'])}{beta}** *(catalogue demo: its icon comes when it "
@@ -1054,7 +1067,7 @@ def demos_md():
         ids = [d for d, data in sorted(mans.items(), key=lambda kv: kv[1][0]["name"].lower())
                if demo_group(d, data[0]) == gid]
         cats = [d for d in catalogue_demos()
-                if (d.get("group") if d.get("group") in titles else catalogue_group()) == gid]
+                if catalogue_demo_group(d) == gid]
         if not ids and not cats:
             continue
         lines += [f"## {g['title']}", ""]

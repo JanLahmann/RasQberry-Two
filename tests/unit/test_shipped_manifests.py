@@ -38,7 +38,7 @@ def test_all_shipped_manifests_validate():
 
 
 def test_quantum_lab_manifest_validates():
-    """The Quantum Lab (QuBins) manifest validates individually."""
+    """The Qiskit Live (QuBins) manifest validates individually."""
     manifest = os.path.join(_MANIFEST_DIR, "rq_demo_quantum-lab.json")
     assert os.path.isfile(manifest), "quantum-lab manifest is missing"
     proc = subprocess.run([_VALIDATE, manifest], capture_output=True, text=True)
@@ -57,7 +57,7 @@ def test_doqumentation_manifest_validates():
 
 def test_quantum_lab_pins_a_monthly_snapshot():
     """
-    Quantum Lab pins the digest of a QuBins monthly snapshot (kept 12
+    Qiskit Live pins the digest of a QuBins monthly snapshot (kept 12
     months), not a nightly build (pruned after a few days), and names it.
     """
     import json

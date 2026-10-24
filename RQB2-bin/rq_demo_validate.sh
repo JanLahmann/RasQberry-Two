@@ -56,7 +56,7 @@ EXTERNAL=false   # --external: apply the hardened external-demo constraints
 REQUIRED_FIELDS='["id", "name", "category", "description", "entrypoint"]'
 VALID_CATEGORIES='["game", "visualization", "education", "jupyter", "led-demo", "tool"]'
 # Demo groups: the ids in demo-groups.json next to the shipped manifests
-VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops", "contributed"]'
+VALID_GROUPS='["led-panel", "play", "projects", "learn", "workshops", "contributed", "beta"]'
 VALID_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
 # Entrypoint types an external demo may declare (no legacy "script").
 EXTERNAL_ENTRYPOINT_TYPES='["python", "jupyter", "docker", "browser", "web-static"]'
@@ -142,8 +142,8 @@ is_trusted_owner() {
 #
 # Demos whose install is delegated (install.installer) are exempt here: they do
 # not clone via the engine, so there is no repo_url for this rule to pin. The
-# installer they name is responsible for its own pinning - the IBM pair pins via
-# GIT_REF_DEMO_IBM_LEARNING.
+# installer they name is responsible for its own pinning - the IBM pair pins its
+# shared download in install.source (checked below).
 #
 # External manifests (--external) are exempt from the *missing* pin: the manifest
 # lives inside the very repo it would pin, so it can never carry its own commit

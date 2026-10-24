@@ -212,7 +212,7 @@ def test_demo_consent_uses_the_manifest_and_asks_once(box):
 
 
 @pytest.mark.parametrize("mb, text", [
-    (890, "about 2 min on fast internet, up to 15 min on slow Wi-Fi"),   # Quantum Lab (101 s / ~12 min measured)
+    (890, "about 2 min on fast internet, up to 15 min on slow Wi-Fi"),   # Qiskit Live (101 s / ~12 min measured)
     (1300, "about 3 min on fast internet, up to 22 min on slow Wi-Fi"),  # doQumentation
     (530, "about 2 min on fast internet, up to 9 min on slow Wi-Fi"),    # racetraQ
     (40, "about 1 min on fast internet, up to 1 min on slow Wi-Fi"),
@@ -279,7 +279,7 @@ def test_offline_names_both_hosts_for_an_image(box):
 def test_demo_consent_checks_the_layer_host(box):
     _curl_blocking(box, "*pkg-containers*")
     proc = _common(box, 'rq_confirm_demo_install quantum-lab; echo "RC=$? $RQ_CONSENT_MSG"')
-    assert "RC=3 This network blocks the download of Quantum Lab (QuBins)" in proc.stdout, \
+    assert "RC=3 This network blocks the download of Qiskit Live (QuBins)" in proc.stdout, \
         proc.stdout + proc.stderr
 
 
@@ -430,7 +430,7 @@ def test_docker_demo_first_start_pulls_through_the_progress_line(box, rc):
     assert "pull -q ghcr.io/qubins/images@sha256:" in calls, calls
     if rc == 0:
         assert proc.returncode == 0, proc.stdout + proc.stderr
-        assert "Downloading Quantum Lab" in proc.stdout + proc.stderr
+        assert "Downloading Qiskit Live" in proc.stdout + proc.stderr
     else:
         assert proc.returncode == 1
         assert "manifest unknown" in proc.stderr and "manifest unknown" in box.err()

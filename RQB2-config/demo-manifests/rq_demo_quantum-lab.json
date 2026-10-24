@@ -1,6 +1,6 @@
 {
   "id": "quantum-lab",
-  "name": "Quantum Lab (QuBins)",
+  "name": "Qiskit Live (QuBins)",
   "category": "education",
   "group": "learn",
   "description": "Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container)",

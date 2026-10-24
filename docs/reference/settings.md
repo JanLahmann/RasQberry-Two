@@ -92,8 +92,7 @@ RasQberry's settings live in `/usr/config/rasqberry_environment.env` (shipped de
 - `MARKER_PARADOXES` = `WELCOME.ipynb`
 - `PARADOXES_JUPYTER_PORT` = `8891`
 - `GIT_REPO_DEMO_IBM_LEARNING` = `https://github.com/Qiskit/documentation.git`: IBM Quantum Tutorials & Courses (from Qiskit documentation - CC BY-SA 4.0)
-- `GIT_REF_DEMO_IBM_LEARNING` = `b1126b46e4faa9113a6dd68356feb09f1b53a48c`: Pinned commit for the IBM learning content (Qiskit/documentation is third-party and changes constantly). Bump deliberately after re-verifying the sparse paths.
-- `MARKER_IBM_TUTORIALS` = `WELCOME-tutorials.ipynb`
+- `MARKER_IBM_TUTORIALS` = `WELCOME-tutorials.ipynb`: (its pinned commit: install.source.ref in demo-manifests/rq_demo_ibm-courses.json)
 - `MARKER_IBM_COURSES` = `WELCOME-courses.ipynb`
 - `IBM_TUTORIALS_JUPYTER_PORT` = `8889`
 - `IBM_COURSES_JUPYTER_PORT` = `8890`
