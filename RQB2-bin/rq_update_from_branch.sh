@@ -82,7 +82,7 @@ detect_current_repo() {
                 repo=$(echo "$origin_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/]+)(\.git)?$|\1|')
                 # Remove .git suffix if present
                 repo="${repo%.git}"
-                log_message "Detected repository from git config: $repo"
+                log_message "Detected repository from git config: $repo" >&2
             fi
         fi
     fi
@@ -93,14 +93,14 @@ detect_current_repo() {
         local git_repo="${REPO:-}"
         if [ -n "$git_user" ] && [ -n "$git_repo" ]; then
             repo="${git_user}/${git_repo}"
-            log_message "Using repository from environment: $repo"
+            log_message "Using repository from environment: $repo" >&2
         fi
     fi
 
     # Method 3: Default fallback
     if [ -z "$repo" ]; then
         repo="$DEFAULT_REPO"
-        log_message "Using default repository: $repo"
+        log_message "Using default repository: $repo" >&2
     fi
 
     echo "$repo"
