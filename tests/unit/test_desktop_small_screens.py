@@ -176,15 +176,22 @@ _NEWS = ('    <!-- "What\'s new" after an update: on the left, over the desktop 
          '    <windowRule title="What\'s new in *">\n'
          '      <action name="MoveToEdge" direction="left" snapWindows="no"/>\n'
          '    </windowRule>\n')
-_RC_ONCE = (_RC.replace('identifier="chromium">', 'identifier="chromium" type="normal" matchOnce="true">')
-            .replace("  </windowRules>", _NEWS + "  </windowRules>"))
+_RULE_NEW = ('<windowRule identifier="chromium" type="normal">\n'
+             '      <action name="If">\n'
+             '        <query maximized="none"/>\n'
+             '        <then><action name="MoveTo" x="480" y="45"/></then>\n'
+             '      </action>\n'
+             '    </windowRule>')
+_RC_ONCE = (_RC[:_RC.index('<windowRule identifier="chromium">')] + _RULE_NEW
+            + _RC[_RC.index("</windowRule>", _RC.index('identifier="chromium"')) + len("</windowRule>"):])
+_RC_ONCE = _RC_ONCE.replace("  </windowRules>", _NEWS + "  </windowRules>")
 
 
 def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     rc = tmp_path / "rc.xml"
     rc.write_text(_RC_ONCE)
     assert ds.set_chromium_rule(True, str(rc))
-    assert 'identifier="rasqberry-small-screen-chromium" type="normal" matchOnce="true">' in rc.read_text()
+    assert 'identifier="rasqberry-small-screen-chromium" type="normal">' in rc.read_text()
     # the "What's new" window stays centred on a small screen
     assert '<windowRule title="rasqberry-small-screen-What\'s new in *">' in rc.read_text()
     assert not ds.set_chromium_rule(True, str(rc))
@@ -193,16 +200,21 @@ def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     assert not ds.set_chromium_rule(True, str(tmp_path / "missing.xml"))
 
 
-def test_chromium_rule_places_only_the_first_window(tmp_path):
+def test_chromium_rule_places_windows_that_are_not_maximised(tmp_path):
     # An older rc.xml moved every new browser window, also a demo's window
-    # maximised before it was shown: 480 px off to the right (#4). The hidden
-    # window Chromium makes first is no "normal" one, so the homepage counts
-    # as the first window.
-    rc = tmp_path / "rc.xml"
-    rc.write_text(_RC)
-    assert ds.set_chromium_rule(False, str(rc))
-    assert rc.read_text() == _RC_ONCE
-    assert not ds.set_chromium_rule(False, str(rc))
+    # maximised before it was shown: 480 px off to the right (#4). Then only
+    # the first window (matchOnce), which left a demo's window of the usual
+    # size at x=0 under the icons (rig test 2026-10-26). Now every window that
+    # is not maximised when it appears; both older rules are replaced.
+    once = _RC_ONCE.replace(_RULE_NEW, '<windowRule identifier="chromium" type="normal" matchOnce="true">\n'
+                            '      <action name="MoveTo" x="480" y="45"/>\n    </windowRule>')
+    for old in (_RC.replace("  </windowRules>", _NEWS + "  </windowRules>"), once):
+        rc = tmp_path / "rc.xml"
+        rc.write_text(old)
+        assert ds.set_chromium_rule(False, str(rc))
+        assert rc.read_text() == _RC_ONCE
+        assert not ds.set_chromium_rule(False, str(rc))
+    assert "matchOnce" not in _RC_ONCE and '<query maximized="none"/>' in _RC_ONCE
 
 
 def test_whats_new_rule_is_added_to_an_older_rc_xml(tmp_path):
@@ -229,7 +241,7 @@ def test_whats_new_rule_matches_the_window_title():
 def test_built_rc_xml_has_the_rule_the_login_helper_switches(tmp_path):
     build = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     text = build.split('cat > "${SKEL_LABWC_DIR}/rc.xml" << \'EOF\'\n', 1)[1].split("\nEOF\n", 1)[0]
-    assert '<windowRule identifier="chromium" type="normal" matchOnce="true">' in text
+    assert _RULE_NEW in text
     assert _NEWS in text
     rc = tmp_path / "rc.xml"
     rc.write_text(text)

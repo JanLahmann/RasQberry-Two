@@ -771,9 +771,11 @@ class _FakeBrowser:
                 raise RuntimeError("Browser window not found")
             return {"windowId": self.windows[params["targetId"]]}
         if method == "Browser.getWindowBounds":
-            return {"bounds": {"windowState": self.states.pop(0)}}
+            state = self.states.pop(0)
+            return {"bounds": state if isinstance(state, dict) else {"windowState": state}}
         if method == "Browser.setWindowBounds":
-            self.sets.append((params["windowId"], params["bounds"]["windowState"]))
+            b = params["bounds"]
+            self.sets.append((params["windowId"], b.get("windowState") or b))
             return {}
         raise AssertionError(method)
 
@@ -812,6 +814,34 @@ def test_the_only_window_is_laid_out_again_once_shown(monkeypatch):
     bt = _window_state(monkeypatch, browser, ["DEMO", "DEMO-2"])
     assert bt.set_window_state("DEMO", "maximized")
     assert browser.sets == [(2, "maximized"), (2, "normal"), (2, "maximized")]
+
+
+def test_a_normal_window_fits_the_screen_right_of_the_icons(monkeypatch):
+    # rig test 2026-10-26: Grok Bloch's "normal" window had the whole screen's
+    # width, the Coin Game's ran past the right edge from x=480
+    bt = _tab_module()
+    assert bt.normal_bounds((1920, 1080)) == {"left": 480, "top": 45, "width": 1280, "height": 860}
+    assert bt.normal_bounds((1366, 768)) == {"left": 480, "top": 45, "width": 866, "height": 703}
+    assert bt.normal_bounds((1024, 600)) is None and bt.normal_bounds(None) is None
+    full = {"windowState": "normal", "width": 1920, "height": 1040}
+    browser = _FakeBrowser({"HOME": 1, "DEMO": 2}, [full])
+    bt = _window_state(monkeypatch, browser, ["HOME", "DEMO"])
+    want = bt.normal_bounds((1920, 1080))
+    assert bt.set_window_state("DEMO", "normal", want)
+    # set, read back (Chromium kept its own size), set again
+    assert browser.sets == [(2, "normal"), (2, want), (2, want)]
+
+
+def test_watch_sizes_a_normal_window_from_the_page(monkeypatch):
+    bt = _tab_module()
+    got = []
+    monkeypatch.setattr(bt, "find_new_tab", lambda org, before: {"id": "DEMO"})
+    monkeypatch.setattr(bt, "screen_size", lambda tab: (1920, 1080))
+    monkeypatch.setattr(bt, "set_window_state", lambda tid, state, bounds=None: got.append((tid, state, bounds)))
+    monkeypatch.setattr(bt, "pages", lambda timeout=2.0: None)
+    monkeypatch.setattr(bt.time, "sleep", lambda s: None)
+    bt.watch("http://127.0.0.1:8888/", [], "normal")
+    assert got == [("DEMO", "normal", {"left": 480, "top": 45, "width": 1280, "height": 860})]
 
 
 def test_window_state_gives_up_without_a_window(monkeypatch):

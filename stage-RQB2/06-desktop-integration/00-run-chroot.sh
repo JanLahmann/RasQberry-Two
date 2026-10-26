@@ -364,12 +364,15 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
   <!-- Enable mouse emulation for all USB/HDMI touch screens (enables double-tap) -->
   <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
-    <!-- Chromium to the right of the desktop icons; rq_desktop_session.py
+    <!-- Chromium windows to the right of the desktop icons; rq_desktop_session.py
          switches this rule off on small screens, where Chromium opens maximised.
-         type="normal" matchOnce="true": only the first browser window (the homepage),
-         not demo windows -->
-    <windowRule identifier="chromium" type="normal" matchOnce="true">
-      <action name="MoveTo" x="480" y="45"/>
+         type="normal": not the hidden window Chromium makes first; only a window
+         that is not maximised when it appears (a maximised one moved 480 px off) -->
+    <windowRule identifier="chromium" type="normal">
+      <action name="If">
+        <query maximized="none"/>
+        <then><action name="MoveTo" x="480" y="45"/></then>
+      </action>
     </windowRule>
     <!-- The on-screen LED view in the bottom right corner, not over the demo's terminal -->
     <windowRule title="RasQberry Virtual LED*">
