@@ -91,7 +91,7 @@ Write and run a quantum circuit with Qiskit, then keep learning.
 1. **My Quantum Programs** (desktop icon on the Pi)
    - Try: Hello-World.ipynb opens: run its cells one by one with Shift+Enter.
    - Notice: Two entangled qubits: you measure 00 or 11, never 01 or 10.
-2. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">Qiskit Tutorials on this Pi</a>**
+2. **<a href="/03-quantum-computing-demos/01-demo-list/" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="/03-quantum-computing-demos/01-demo-list/">doQumentation (IBM Quantum Learning on this Pi)</a>**
    - Try: Open Tutorials, then Hello World, and click Run All: the code runs on this Pi.
    - Notice: The circuit from step 1, explained step by step, with more tutorials and courses next to it.
 3. **<a href="https://quantum.cloud.ibm.com/learning" target="_blank" rel="noopener noreferrer" data-umami-event="RasQberry Two: learning path click" data-umami-event-path="your-first-program" data-umami-event-to="https://quantum.cloud.ibm.com/learning">IBM Quantum Learning</a>** (online)
