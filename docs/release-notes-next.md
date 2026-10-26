@@ -63,6 +63,7 @@ on main), so Imager offers customisation for the A/B image too. -->
 - **Browser bookmarks:** Quantum Links has rasqberry.org, the learning paths, the demo list, Fun with Quantum and an IBM Quantum folder (IBM Quantum Platform, Learning, Qiskit documentation, ibm.com/quantum, Qiskit, IBM Quantum Network, blog). Raspberry Pi OS's own bookmarks are no longer added on a new card.
 - **Update demos:** a first entry "Check all for newer versions" lists only the demos with a newer or tested version. The lists fit an 80-column window and show no internal names; a version shows its date, a short id, its size and "release" or "tested".
 - **Learning paths** is in the RasQberry section of the app menu (no longer under Education).
+- **IBM Quantum Learning in the learning paths:** **Continue with IBM Quantum Learning** (in the list and after every path) opens one of IBM Quantum's six learning paths online. The new path **IBM: Introduction to quantum** (from IBM Quantum Learning, about 26 hours) opens each of its six steps in doQumentation on the Pi, or online at IBM Quantum when doQumentation is not downloaded.
 - **Grok Bloch and the Fun with Quantum notebooks** open in a browser window of the usual size instead of a maximised one (still maximised on a small screen).
 - **LED demos from the menu:** the logs of the last five starts are kept (`/tmp/rqb-demo.log`, `.1` to `.5`), each with the LED targets it started with, and System Info includes them.
 
