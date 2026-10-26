@@ -159,6 +159,12 @@ The IBM Quantum tutorials, guides and courses as a website just for you, with li
 
 - id `qiskit-tutorials`; menu: Quantum Demos > Beta: try & tell us > Qiskit Tutorials on this Pi; desktop: Beta: try & tell us window; needs an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker).
 
+### QuBins *(beta)*
+
+JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work.
+
+- id `qubins`; menu: Quantum Demos > Beta: try & tell us > QuBins; desktop: Beta: try & tell us window; needs internet, a 32 GB card (Docker); download about 890 MB on first start.
+
 ### Workshop & Qiskit Server *(beta)*
 
 One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start).

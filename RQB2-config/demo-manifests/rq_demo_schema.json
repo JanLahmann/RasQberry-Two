@@ -90,6 +90,11 @@
           "type": "string",
           "description": "A tag of the same image (name:tag, never a digest), downloaded instead when the registry no longer offers the docker_image digest (its publisher pruned it); recorded as the version in use for that release pin (rq_demo_docker_pull). Required with a digest pin in shipped manifests."
         },
+        "docker_image_choice": {
+          "type": "boolean",
+          "default": false,
+          "description": "true: the demo's launcher asks at each start which image to run (QuBins), and downloads it after that choice. The demo engine then does not download docker_image before the launcher; docker_image stays the tested default, and the image chosen is recorded as the version in use (as 'Update demos' does)."
+        },
         "docker_port": {
           "type": "integer",
           "description": "Port exposed by Docker container"

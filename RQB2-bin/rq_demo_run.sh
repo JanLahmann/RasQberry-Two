@@ -680,6 +680,14 @@ install_user_demo() {
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
+    # A demo whose launcher asks which image to run (QuBins:
+    # entrypoint.docker_image_choice) downloads after that choice, not the
+    # tested default here first. An install-only run (Manage demos) takes
+    # the tested default.
+    if [ "${INSTALL_ONLY:-0}" != "1" ] \
+            && [ "$(get_bool '.entrypoint.docker_image_choice')" = "true" ]; then
+        return 0
+    fi
     if check_installed; then
         sync_installed_flag
         refresh_demo_patch
