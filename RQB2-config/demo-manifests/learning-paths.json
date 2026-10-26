@@ -187,7 +187,7 @@
       "title": "IBM: Introduction to quantum",
       "audience": "Newcomers with time to learn",
       "minutes": 1560,
-      "goal": "Learn key terms, applications and starter skills, on this Pi where you can.",
+      "goal": "Learn key terms, applications and starter skills, on the Pi where you can.",
       "credit": "From IBM Quantum Learning: its Introduction to quantum learning path.",
       "credit_url": "https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum",
       "maturity": "beta",
