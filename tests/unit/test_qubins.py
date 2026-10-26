@@ -340,6 +340,9 @@ def test_reset_from_the_start_dialog(box):
     proc = box([_LAUNCHER], extra=env)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert mine.read_text() == "{}"
+    # no technical tags (LAST, quantum-paradoxes ...) in any menu or checklist
+    lists = [c for c in box.dialogs() if "--menu" in c or "--checklist" in c]
+    assert len(lists) == 3 and all("--notags" in c for c in lists)
     texts = ["\n".join(c) for c in box.dialogs()]
     assert any("--yesno" in t and "All your changes in these notebooks are lost" in t for t in texts)
     assert any("--msgbox" in t and "Back to the original: Quantum Paradoxes" in t for t in texts)
@@ -415,6 +418,7 @@ def test_choose_download_and_start_then_start_with_last_settings(box):
     assert proc.returncode == 0, out
     menus = [c for c in box.dialogs() if "--menu" in c or "--checklist" in c]
     image_menu, content = menus
+    assert "--notags" in image_menu and "--notags" in content
     # the tested image first and marked; the in-use one preselected
     assert image_menu[image_menu.index("--default-item") + 1] == "1"
     start = image_menu.index("--menu") + 5

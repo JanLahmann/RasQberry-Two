@@ -105,7 +105,7 @@ reset_dialog() {
     for c in $(echo "$have" | tr ',' ' '); do
         items+=("$c" "$(content_name "$c")" OFF)
     done
-    picked=$(whiptail --title "$TITLE: reset notebooks" --checklist \
+    picked=$(whiptail --notags --title "$TITLE: reset notebooks" --checklist \
         "Which notebooks go back to the original? (Space: select)\nYour changes in them are lost. my-work is not touched." \
         14 76 4 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
     picked=$(echo "$picked" | tr -d '"' | tr ' ' ',' | sed 's/^,*//; s/,*$//')
@@ -143,7 +143,7 @@ if [ -n "$LAST_LINE" ]; then
     IMAGE="$IN_USE"
     CHOOSE=0
     while can_ask; do
-        pick=$(whiptail --title "$TITLE (beta)" --menu \
+        pick=$(whiptail --notags --title "$TITLE (beta)" --menu \
             "Start QuBins:" 13 76 3 \
             "LAST" "Start with last settings: $LABEL, $(content_names "$CONTENT")" \
             "CHOOSE" "Choose the image and the content" \
@@ -194,7 +194,7 @@ if [ "$CHOOSE" = 1 ]; then
 
     prompt="Which Qiskit version? xl: for tutorials and courses (the usual pick). small: core Qiskit only."
     [ "$list_rc" -eq 2 ] && prompt="$prompt\nOffline: only the images known from earlier."
-    pick=$(whiptail --title "$TITLE: image" --default-item "$default_item" --menu \
+    pick=$(whiptail --notags --title "$TITLE: image" --default-item "$default_item" --menu \
         "$prompt" 20 76 10 "${items[@]}" 3>&1 1>&2 2>&3) || exit 0
     i=$((pick - 1))
     IMAGE="${refs[$i]}"
@@ -222,7 +222,7 @@ if [ "$CHOOSE" = 1 ]; then
         case ",$CONTENT," in *",$c,"*) state=ON ;; esac
         checks+=("$c" "$(content_name "$c") ($what)" "$state")
     done
-    picked=$(whiptail --title "$TITLE: content" --checklist \
+    picked=$(whiptail --notags --title "$TITLE: content" --checklist \
         "What goes into the lab? (Space: select)\nYour my-work folder is always there. Choose nothing for only my-work.\nYou can change the notebooks: your changes are kept." \
         16 76 4 "${checks[@]}" 3>&1 1>&2 2>&3) || exit 0
     CONTENT=$(echo "$picked" | tr -d '"' | tr ' ' ',' | sed 's/^,*//; s/,*$//')
