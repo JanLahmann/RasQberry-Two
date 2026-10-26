@@ -110,6 +110,6 @@ def test_update_demos_calls_only_notebooks_notebooks(tmp_path):
                           text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     items = log.read_text()
-    assert "Grokking the Bloch Sphere (program): release version" in items, items
-    assert "Quantum Lights Out (program): release version" in items
-    assert "Fun with Quantum (notebooks): release version" in items
+    assert "Grokking the Bloch Sphere (program): as released" in items, items
+    assert "Quantum Lights Out (program): as released" in items
+    assert "Fun with Quantum (notebooks): as released" in items

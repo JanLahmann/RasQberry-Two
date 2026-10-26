@@ -310,48 +310,31 @@ fi
 # =============================================================================
 echo "Configuring Chromium browser settings..."
 
-# Create Chromium managed policy for homepage and settings. "?from=pi": the
-# site greets a Pi (start with First 15 minutes) instead of offering to write
-# the SD card that is already in it (fresh-card test 2026-10-08, F4)
-mkdir -p /etc/chromium/policies/managed
-cat > /etc/chromium/policies/managed/rasqberry.json << 'EOF'
-{
-  "HomepageLocation": "https://rasqberry.org/?from=pi&assistant=1",
-  "HomepageIsNewTabPage": false,
-  "NewTabPageLocation": "https://rasqberry.org/?from=pi&assistant=1",
-  "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi&assistant=1"],
-  "PasswordManagerEnabled": false,
-  "ShowHomeButton": true,
-  "PromotionalTabsEnabled": false,
-  "WelcomePagesEnabled": false,
-  "BookmarkBarEnabled": true,
-  "ManagedBookmarks": [
-    { "toplevel_name": "Quantum Links" },
-    { "name": "RasQberry help", "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting" },
-    {
-      "name": "Fun with Quantum family",
-      "children": [
-        { "name": "Fun with Quantum", "url": "https://fun-with-quantum.org" },
-        { "name": "RasQberry One", "url": "https://rasqberry.one" },
-        { "name": "Quantego", "url": "https://quantego.org" },
-        { "name": "Qutie", "url": "https://qutie.org" },
-        { "name": "doQumentation", "url": "https://doqumentation.org" },
-        { "name": "QuBins", "url": "https://qubins.org" },
-        { "name": "QAMPoser games", "url": "https://qamposer.org" }
-      ]
-    },
-    {
-      "name": "IBM Quantum",
-      "children": [
-        { "name": "IBM Quantum Learning", "url": "https://quantum.cloud.ibm.com/learning" }
-      ]
-    }
-  ]
-}
+# The managed policy (homepage, Quantum Links bookmarks, no password manager)
+# is RQB2-system/etc/chromium/policies/managed/rasqberry.json, installed by
+# rq_install_system_files.sh in 01-deploy-files, so "Update from GitHub
+# Branch" refreshes it too. "?from=pi": the site greets a Pi (start with
+# First 15 minutes) instead of offering to write the SD card that is already
+# in it (fresh-card test 2026-10-08, F4).
+
+# Raspberry Pi OS's own bookmarks (Getting Started, Help, Projects, Safety
+# Info): rpi-chromium-mods ships them in /etc/chromium/bookmarks.html, which
+# its initial_preferences imports into each new profile. An empty file in its
+# place; dpkg-divert, so a package update does not bring them back (user test
+# 2026-10-26).
+if [ -e /etc/chromium/bookmarks.html ] && ! dpkg-divert --list /etc/chromium/bookmarks.html | grep -q .; then
+    dpkg-divert --local --rename --divert /etc/chromium/bookmarks.html.rpi --add /etc/chromium/bookmarks.html
+fi
+mkdir -p /etc/chromium
+cat > /etc/chromium/bookmarks.html << 'EOF'
+<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+</DL><p>
 EOF
-chmod 644 /etc/chromium/policies/managed/rasqberry.json
-echo "Created Chromium policy for RasQberry homepage"
+chmod 644 /etc/chromium/bookmarks.html
 
 # Chromium flags (no keyring dialog, no "Restore pages?", maximised on small
 # screens, touch mode) are in /etc/chromium.d/rasqberry from RQB2-system/, so
@@ -381,12 +364,15 @@ cat > "${SKEL_LABWC_DIR}/rc.xml" << 'EOF'
   <!-- Enable mouse emulation for all USB/HDMI touch screens (enables double-tap) -->
   <touch deviceName="" mouseEmulation="yes" />
   <windowRules>
-    <!-- Chromium to the right of the desktop icons; rq_desktop_session.py
+    <!-- Chromium windows to the right of the desktop icons; rq_desktop_session.py
          switches this rule off on small screens, where Chromium opens maximised.
-         type="normal" matchOnce="true": only the first browser window (the homepage),
-         not demo windows -->
-    <windowRule identifier="chromium" type="normal" matchOnce="true">
-      <action name="MoveTo" x="480" y="45"/>
+         type="normal": not the hidden window Chromium makes first; only a window
+         that is not maximised when it appears (a maximised one moved 480 px off) -->
+    <windowRule identifier="chromium" type="normal">
+      <action name="If">
+        <query maximized="none"/>
+        <then><action name="MoveTo" x="480" y="45"/></then>
+      </action>
     </windowRule>
     <!-- The on-screen LED view in the bottom right corner, not over the demo's terminal -->
     <windowRule title="RasQberry Virtual LED*">

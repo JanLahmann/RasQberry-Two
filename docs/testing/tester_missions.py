@@ -75,7 +75,7 @@ DEMO_GOALS = {
     "ibm-tutorials": "Open an IBM Quantum tutorial and run its code cells.",
     "led-demos": "Try the LED demos: text, logos and colour effects on the LED panel.",
     "led-painter": "Paint a picture and show it on the LED panel.",
-    "qiskit-tutorials": "Open a tutorial in Qiskit Tutorials on this Pi and run its code.",
+    "qiskit-tutorials": "Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code.",
     "qoffee-maker": "Order a coffee from a quantum computer, with or without a Home Connect machine.",
     "quantum-fractals": "Watch the fractals change with the state of a qubit.",
     "quantum-lab": "Start the Qiskit Live and run a notebook.",

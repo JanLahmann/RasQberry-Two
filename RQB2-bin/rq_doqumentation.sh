@@ -12,7 +12,7 @@ set -euo pipefail
 #   Two ways to run it (Jan, 2026-10-03):
 #   - Workshop & Qiskit Server (default): one Pi serves the laptops of a class
 #     over the LAN (Jan, Q30). Participants picker, addresses, QR code.
-#   - Qiskit Tutorials on this Pi, --solo: just the person at this Pi. Bound
+#   - doQumentation (IBM Quantum Learning on this Pi), --solo: just the person at this Pi. Bound
 #     to 127.0.0.1 only, the smallest memory profile, no picker or addresses;
 #     opens the browser, and stops with its window.
 #
@@ -54,7 +54,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rq_help_guard "$@"
 
 WORKSHOP_NAME="Workshop & Qiskit Server"
-SOLO_NAME="Qiskit Tutorials on this Pi"
+SOLO_NAME="doQumentation (IBM Quantum Learning on this Pi)"
 MODE="workshop"
 case "${1:-}" in
     --solo) MODE="solo" ;;
@@ -339,10 +339,10 @@ fi
 # Image: the pinned version, downloaded after the consent dialog
 # ---------------------------------------------------------------------------
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-    # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
+    # named as started: the single-user mode said "Workshop & Qiskit
     # Server" in its download question and errors (user test 2026-10-07)
     RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
-    # and its download line too: "Downloading Qiskit Tutorials on this Pi",
+    # and its download line too: "Downloading <its name>",
     # not the image's name (pre-beta check 2026-10-08)
     rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "$NAME"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"

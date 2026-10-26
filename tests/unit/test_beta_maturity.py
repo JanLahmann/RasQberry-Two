@@ -150,7 +150,7 @@ def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
     assert proc.returncode == 0, proc.stderr
     text = cache.read_text()
     assert '"doqumentation" "Workshop & Qiskit Server (beta)"' in text
-    assert '"qiskit-tutorials" "Qiskit Tutorials on this Pi (beta)"' in text
+    assert '"qiskit-tutorials" "doQumentation (IBM Quantum Learning on this Pi) (beta)"' in text
     assert '"Fun with Quantum website: games in the browser (beta)"' in text
     assert '"coin-game" "Quantum Coin Game (beta)"' in text
     assert '"quantum-fractals" "Quantum Fractals"' in text

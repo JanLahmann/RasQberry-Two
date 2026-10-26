@@ -206,7 +206,7 @@ if [ "${1:-}" = "--report" ]; then
         section "Settings (secrets removed)"
         grep -vE '^[[:space:]]*#|^[[:space:]]*$' /usr/config/rasqberry_environment.env 2>/dev/null \
             | grep -viE 'token|key|secret|password|passwd' || true
-        for f in "$HOME"/.cache/rasqberry/*.log /tmp/rqb-demo.log /var/log/rasqberry-*.log; do
+        for f in "$HOME"/.cache/rasqberry/*.log /tmp/rqb-demo.log /tmp/rqb-demo.log.[1-5] /var/log/rasqberry-*.log; do
             [ -e "$f" ] || continue
             section "Log: $f (last lines)"
             readable "$f" 80

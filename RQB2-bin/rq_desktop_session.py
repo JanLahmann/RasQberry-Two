@@ -321,8 +321,19 @@ def apply_touch_css(touch, src=TOUCH_CSS, dst=None):
 # --------------------------------------------------------------------------
 # 3. Chromium placement
 # --------------------------------------------------------------------------
-_RULE = re.compile(r'(<windowRule identifier=")(chromium|rasqberry-small-screen-chromium)"[^>]*(>\s*'
-                   r'<action name="MoveTo" x="480" y="45"\s*/>)')
+# The rule that puts Chromium at x=480 (any of its versions): matchOnce
+# placed only the first window, so a demo's window of the usual size lay at
+# x=0 under the icons (rig test 2026-10-26); now every window that is not
+# maximised when it appears
+_RULE = re.compile(r'<windowRule identifier="(?:chromium|rasqberry-small-screen-chromium)"[^>]*>'
+                   r'(?:(?!</windowRule>).)*?<action name="MoveTo" x="480" y="45"\s*/>'
+                   r'.*?</windowRule>', re.S)
+_RULE_TEXT = ('<windowRule identifier="%s" type="normal">\n'
+              '      <action name="If">\n'
+              '        <query maximized="none"/>\n'
+              '        <then><action name="MoveTo" x="480" y="45"/></then>\n'
+              '      </action>\n'
+              '    </windowRule>')
 
 
 # The "What's new" window after an update (rq_slot_indicator.py) on the left,
@@ -365,14 +376,12 @@ def set_chromium_rule(small, rc=None):
     is added to an rc.xml without it, and off on small screens too.
 
     The rule keeps the icons visible on a large screen; on a small one it put
-    the window off-screen, and it would also move a maximised window. Off
-    means a different identifier, so the rest of rc.xml stays as it is.
-    type="normal" matchOnce="true": it places only the browser's first window
-    (the homepage), not a demo's window opened next to it, which it moved
-    480 px to the right when that was maximised before it was shown (#4).
-    matchOnce counts every window, also a hidden one Chromium makes first
-    (labwc types it "dialog"), so without type="normal" the homepage itself
-    was not placed. Older rc.xml files get both here too.
+    the window off-screen. Off means a different identifier, so the rest of
+    rc.xml stays as it is. type="normal": not the hidden window Chromium makes
+    first (labwc types it "dialog"). It moves only a window that is not
+    maximised when it appears: one maximised before it was shown ended up
+    480 px to the right (#4). Older rc.xml files (matchOnce="true", which left
+    a demo's window of the usual size under the icons) get the new rule here.
 
     Args:
         small (bool): The screen is small.
@@ -388,7 +397,7 @@ def set_chromium_rule(small, rc=None):
     except OSError:
         return False
     want = "rasqberry-small-screen-chromium" if small else "chromium"
-    new = _RULE.sub(lambda m: m.group(1) + want + '" type="normal" matchOnce="true"' + m.group(3), text)
+    new = _RULE.sub(lambda m: _RULE_TEXT % want, text)
     new = _set_news_rule(new, small)
     if new == text:
         return False

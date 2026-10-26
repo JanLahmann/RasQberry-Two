@@ -200,7 +200,7 @@ def test_docker_launchers_stop_with_their_window():
         assert "rq_docker_stop_with_window" in text, name
         assert "To stop it later" not in text, name
     # the Workshop & Qiskit Server keeps running by design; only its
-    # single-user mode (Qiskit Tutorials on this Pi) stops with its window
+    # single-user mode (doQumentation (IBM Quantum Learning on this Pi)) stops with its window
     doq = _read("rq_doqumentation.sh")
     assert doq.count("rq_docker_stop_with_window") == 1
     solo = doq[doq.index('if [ "$MODE" = "solo" ]; then\n    # Just you'):]

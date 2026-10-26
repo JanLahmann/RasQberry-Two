@@ -619,14 +619,32 @@ qr_text() {
     printf 'WIFI:T:WPA;S:%s;P:%s;;' "$(printf '%s' "$1" | sed -E "$esc")" "$(printf '%s' "$2" | sed -E "$esc")"
 }
 
+# Both steps, side by side when they fit 80 columns (the Wi-Fi code is the
+# taller one): with internet shared, phones show no captive page, so the
+# demos page needs its own code (user test 2026-10-26)
 show_join() {
-    local ssid="$1" pw="$2"
+    local ssid="$1" pw="$2" wifi url cols
     echo "Wi-Fi:    $ssid"
     echo "Password: $pw"
-    echo "Address:  http://$ADDRESS"
-    if command -v qrencode >/dev/null 2>&1; then
-        echo "Scan to join:"
-        qrencode -t ANSIUTF8 -m 2 "$(qr_text "$ssid" "$pw")" 2>/dev/null || true
+    if ! command -v qrencode >/dev/null 2>&1; then
+        echo "1. Join the Wi-Fi"
+        echo "2. Open the demos page: http://$ADDRESS"
+        return 0
+    fi
+    wifi=$(qrencode -t ANSIUTF8 -m 2 "$(qr_text "$ssid" "$pw")" 2>/dev/null) || wifi=""
+    url=$(qrencode -t ANSIUTF8 -m 2 "http://$ADDRESS/" 2>/dev/null) || url=""
+    # columns of the Wi-Fi code: two ASCII characters per module
+    cols=$(qrencode -t ASCII -m 2 "$(qr_text "$ssid" "$pw")" 2>/dev/null | awk 'NR == 1 { print int(length($0) / 2) }')
+    if [ -n "$cols" ] && [ "$cols" -le 50 ] \
+        && [ "$(printf '%s\n' "$url" | wc -l)" -le "$(printf '%s\n' "$wifi" | wc -l)" ]; then
+        printf "%-$((cols + 3))s%s\n" "1. Join the Wi-Fi" "2. Open the demos page:"
+        printf "%-$((cols + 3))s%s\n" "" "http://$ADDRESS"
+        paste -d '\t' <(printf '%s\n' "$wifi") <(printf '%s\n' "$url") | sed 's/\t/   /'
+    else
+        echo "1. Join the Wi-Fi"
+        printf '%s\n' "$wifi"
+        echo "2. Open the demos page: http://$ADDRESS"
+        printf '%s\n' "$url"
     fi
 }
 
@@ -834,11 +852,11 @@ h1 { font-size: 24px; margin: 0 0 4px; }
 <div class="card">
   <h1>RasQberry Two</h1>
   <div>Quantum computing demos on this Wi-Fi</div>
-  <div class="step">1. Scan to join the Wi-Fi</div>
+  <div class="step">1. Join the Wi-Fi</div>
   <div class="qr">$wifi_svg</div>
   <div class="field">Wi-Fi</div><div class="value">$(printf '%s' "$ssid" | html_escape)</div>
   <div class="field">Password</div><div class="value">$(printf '%s' "$pw" | html_escape)</div>
-  <div class="step">2. Then open the demos</div>
+  <div class="step">2. Open the demos page</div>
   <div class="qr small">$url_svg</div>
   <div class="value">http://$ADDRESS</div>
 </div>

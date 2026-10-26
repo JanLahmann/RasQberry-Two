@@ -137,7 +137,8 @@ setup_cleanup_trap cleanup
 # stops (#9).
 BROWSER_URL="http://localhost:$PORT"
 
-rq_show_url "$BROWSER_URL" "$PORT"
+# a window of the usual size: the sphere needs no whole screen (user test 2026-10-26)
+RQ_BROWSER_WINDOW=normal rq_show_url "$BROWSER_URL" "$PORT"
 
 echo ""
 echo "Grok Bloch Sphere Demo is running!"

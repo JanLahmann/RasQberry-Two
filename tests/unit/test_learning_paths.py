@@ -231,7 +231,9 @@ def test_desktop_icon_opens_the_chooser():
     assert entry["Name"] == "Learning paths (beta)"
     assert entry["Comment"].startswith("(beta) ")
     assert entry["Exec"] == '/usr/bin/rq_hold_on_error.sh -t "Learning paths" /usr/bin/rq_learning_paths.sh'
-    assert entry["Terminal"] == "true" and "RasQberry" in entry["Categories"]
+    assert entry["Terminal"] == "true"
+    # in the RasQberry section of the app menu only, not Education (user test 2026-10-26)
+    assert entry["Categories"] == "RasQberry;"
     stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     assert stage.count("|learning-paths)") == 2
     import sys
