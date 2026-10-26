@@ -66,7 +66,14 @@ def test_paths_have_every_field_and_unique_ids():
         assert _ID.match(p["id"]), p["id"]
         for key in ("title", "audience", "goal"):
             assert isinstance(p.get(key), str) and p[key].strip(), (p["id"], key)
-        assert isinstance(p.get("minutes"), int) and 5 <= p["minutes"] <= 180, p["id"]
+        # our own paths are short tours; one taken from IBM keeps IBM's length
+        longest = 3000 if p.get("credit") else 180
+        assert isinstance(p.get("minutes"), int) and 5 <= p["minutes"] <= longest, p["id"]
+        if p.get("credit"):
+            assert p["credit"].isascii() and len(p["credit"]) <= 100, p["id"]
+            assert p["credit_url"].startswith("https://"), p["id"]
+        else:
+            assert "credit_url" not in p, p["id"]
         assert p.get("maturity") == "beta", p["id"]
         assert 2 <= len(p.get("steps", [])) <= 6, p["id"]
 
@@ -91,6 +98,13 @@ def test_every_step_starts_something_that_exists():
             assert os.path.isfile(tool) and os.access(tool, os.X_OK), f"{where}: {tool}"
         if "url" in s:
             assert s["url"].startswith("https://"), where
+        # a page in doQumentation on this Pi, the same material online, its time
+        if any(k in s for k in ("page", "online", "time")):
+            assert s.get("demo") == "qiskit-tutorials", f"{where}: page/online/time are for doQumentation"
+            assert re.fullmatch(r"/[a-z0-9][a-z0-9/_-]*", s["page"]), where
+            # the launcher takes only this form (rq_doqumentation.sh)
+            assert s["online"].startswith("https://quantum.cloud.ibm.com/"), where
+            assert re.fullmatch(r"\d+(\.\d+)? hours?", s["time"]), where
 
 
 def test_hints_are_short_plain_ascii():
@@ -153,11 +167,16 @@ def _lines(text, width):
 def test_step_screens_fit_80x24():
     # the prompt (goal on the first step, the step, try, notice) + 3 items +
     # whiptail's frame; rq_learning_paths.sh shrinks the list beyond that
+    # (+ the credit of a path from IBM, the step's time, and Open online)
     for p, i, s in _steps():
         name = s.get("name") or _manifests()[s["demo"]]["name"]
-        prompt = (p["goal"] + "\n\n" if i == 0 else "") + \
+        if s.get("time"):
+            name += f" ({s['time']})"
+        head = p["goal"] + "\n\n" + (p["credit"] + "\n\n" if p.get("credit") else "")
+        prompt = (head if i == 0 else "") + \
             f"Step {i + 1} of {len(p['steps'])}: {name}\n\nTry: {s['try']}\nNotice: {s['notice']}"
-        assert _lines(prompt, 74) + 3 + 7 <= 24, f"{p['id']} step {i + 1}"
+        items = 4 if s.get("online") else 3
+        assert _lines(prompt, 74) + items + 7 <= 24, f"{p['id']} step {i + 1}"
 
 
 def test_keep_going_and_ladder_screens_fit_80x24():
@@ -166,8 +185,8 @@ def test_keep_going_and_ladder_screens_fit_80x24():
         prompt = f'Keep going after "{p["title"]}":'
         for e in p["next"]:
             prompt += f"\n\n{e.get('name') or titles[e['path']]}: {e['why']}"
-        # + More ideas, + the feedback form
-        assert _lines(prompt, 74) + len(p["next"]) + 2 + 7 <= 24, p["id"]
+        # + IBM Quantum Learning, + More ideas, + the feedback form
+        assert _lines(prompt, 74) + len(p["next"]) + 3 + 7 <= 24, p["id"]
     with open(_PATHS, encoding="utf-8") as fh:
         ladder = json.load(fh)["ladder"]
     assert 2 + len(ladder) + 7 <= 24
@@ -185,7 +204,9 @@ def test_first_program_avoids_the_chsh_tutorial():
     # #1: Tutorials -> Get started holds only CHSH, which fails in Simulator
     # Mode (upstream doQumentation); Hello World runs. Go back to Get started
     # once doQumentation is fixed.
-    steps = [s for _, _, s in _steps() if s.get("demo") == "qiskit-tutorials"]
+    # (IBM: Introduction to quantum opens its own pages and keeps IBM's CHSH
+    # step; its notice says that it fails in Simulator mode)
+    steps = [s for _, _, s in _steps() if s.get("demo") == "qiskit-tutorials" and "page" not in s]
     assert steps
     for s in steps:
         assert "Hello World" in s["try"] and "Get started" not in s["try"], s
@@ -272,12 +293,15 @@ sys.stderr.write(reply)
 '''
 
 
-def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
+def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False, docker_image=False):
     """Run the chooser on a pty with a stub whiptail and stub demos.
 
     With tty_out, its output goes to the pty too (as in a terminal window)
-    and is returned as a fourth value; a stub demo sets its own window title.
+    and is returned as a fourth value; a stub demo sets its own window title
+    and logs the page it was asked to open (pages.log).
     With desktop, there is a screen and a stub browser.
+    With docker_image, a stub docker has every image (doQumentation is
+    downloaded); without, it has none.
     """
     bin_dir = tmp_path / "RQB2-bin"
     bin_dir.mkdir()
@@ -287,7 +311,8 @@ def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
     for tool in ("rq_demo_run.sh", "rq_my_programs.sh"):
         (bin_dir / tool).write_text(f'#!/bin/sh\nprintf \'\\033]0;LED Demos\\007\'\n'
                                     f'echo "{tool} $*" >> "{log}"\n'
-                                    f'echo "${{RQ_WINDOW_TITLE:-}}" >> "{tmp_path}/titles.log"\nexit {demo_rc}\n')
+                                    f'echo "${{RQ_WINDOW_TITLE:-}}" >> "{tmp_path}/titles.log"\n'
+                                    f'echo "${{RQ_DEMO_PAGE:-}}" >> "{tmp_path}/pages.log"\nexit {demo_rc}\n')
         (bin_dir / tool).chmod(0o755)
     (tmp_path / "RQB2-config").mkdir()
     os.symlink(_MANIFESTS, tmp_path / "RQB2-config" / "demo-manifests")
@@ -295,6 +320,8 @@ def _walk(tmp_path, replies, args=(), demo_rc=0, tty_out=False, desktop=False):
     stubs.mkdir()
     (stubs / "whiptail").write_text(_WHIPTAIL)
     (stubs / "whiptail").chmod(0o755)
+    (stubs / "docker").write_text(f"#!/bin/sh\nexit {0 if docker_image else 1}\n")
+    (stubs / "docker").chmod(0o755)
     queue = tmp_path / "queue"
     queue.write_text("\n".join(replies) + "\n")
     wt_log = tmp_path / "whiptail.log"
@@ -529,3 +556,242 @@ def test_a_step_names_its_demo_window_as_the_step_does(tmp_path):
     assert (tmp_path / "titles.log").read_text().splitlines() == ["IBM LED Demo"]
     engine = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
     assert 'header="$RQ_WINDOW_TITLE"' in engine and '""|"Demo Loop"*) ;;' in engine
+
+
+
+# --- IBM Quantum Learning ----------------------------------------------------------
+
+_IBM = "https://quantum.cloud.ibm.com"
+# IBM's "Multi-resource learning paths" (quantum.cloud.ibm.com/learning/en,
+# 2026-10-26); .github/workflows/ibm-learning-paths.yml compares them weekly
+_IBM_SLUGS = ["introduction-to-quantum", "optimization", "data-science",
+              "physics-and-chemistry", "quantum-algorithm-development", "qise"]
+# IBM's "Introduction to quantum learning path": its materials, in its order,
+# with its times
+_IBM_INTRO = [
+    ("/docs/en/guides/quick-start", "1 hour"),
+    ("/docs/en/guides/hello-world", "0.5 hours"),
+    ("/docs/en/guides/composer", "0.5 hours"),
+    ("/learning/en/courses/quantum-computing-in-practice", "8 hours"),
+    ("/learning/en/courses/basics-of-quantum-information", "15 hours"),
+    ("/docs/en/tutorials/chsh-inequality", "1 hour"),
+]
+
+
+def _ibm():
+    with open(_PATHS, encoding="utf-8") as fh:
+        return json.load(fh)["ibm_learning"]
+
+
+def test_ibm_learning_lists_ibms_six_paths():
+    ibm = _ibm()
+    assert ibm["title"] == "Continue with IBM Quantum Learning"
+    assert ibm["url"] == _IBM + "/learning/en"
+    assert ibm["text"].isascii() and len(ibm["text"]) <= 160
+    assert [p["slug"] for p in ibm["paths"]] == _IBM_SLUGS
+    for p in ibm["paths"]:
+        assert p["url"] == f"{_IBM}/learning/en?modal={p['slug']}", p
+        assert p["name"].isascii() and p["text"].isascii(), p
+        # one menu line on the Pi: "Name: text"
+        assert len(p["name"]) + 2 + len(p["text"]) <= 70, p
+
+
+def test_ibm_learning_screen_fits_80x24():
+    ibm = _ibm()
+    prompt = ibm["text"] + "\n\nPick one to open it (needs the internet)."
+    assert _lines(prompt, 74) + len(ibm["paths"]) + 1 + 7 <= 24
+    # the list of paths: every path, IBM Quantum Learning, the ladder, feedback
+    assert 2 + len(_paths()) + 3 + 7 <= 24
+
+
+def test_ibm_introduction_to_quantum_follows_ibm():
+    p = next(p for p in _paths() if p["id"] == "ibm-introduction-to-quantum")
+    assert p["minutes"] == 26 * 60
+    assert "From IBM Quantum Learning" in p["credit"]
+    assert p["credit_url"] == f"{_IBM}/learning/en?modal=introduction-to-quantum"
+    assert [(s["online"], s["time"]) for s in p["steps"]] == [(_IBM + u, t) for u, t in _IBM_INTRO]
+    # each opens the same page in doQumentation on this Pi (same paths as
+    # doqumentation.org: /guides/..., /tutorials/..., /learning/courses/...)
+    for s in p["steps"]:
+        assert s["demo"] == "qiskit-tutorials" and "variant" not in s
+        local = s["online"][len(_IBM):].replace("/docs/en/", "/").replace("/learning/en/", "/learning/")
+        assert s["page"] == local, s
+    # it ends at IBM's own path online
+    assert any(e.get("url") == p["credit_url"] for e in p["next"])
+
+
+def test_doqumentation_opens_the_page_a_step_names():
+    src = open(os.path.join(_BIN, "rq_doqumentation.sh"), encoding="utf-8").read()
+    assert 'PAGE="${RQ_DEMO_PAGE:-}"' in src
+    assert '[[ "$PAGE" =~ ^/[a-z0-9][a-z0-9/_-]*$ ]] || PAGE=""' in src
+    assert 'rq_show_url "${SITE_URL}${PAGE}" "$SITE_PORT"' in src
+    # also when it is already running
+    assert 'rq_show_url "http://127.0.0.1:${site_port}/${PAGE}" "$site_port"' in src
+
+
+@needs_bash
+@pytest.mark.parametrize("page,expected", [
+    ("/guides/quick-start", "guides/quick-start"),
+    ("/learning/courses/basics-of-quantum-information", "learning/courses/basics-of-quantum-information"),
+    ("", ""), ("guides/x", ""), ("/../etc/passwd", ""), ("/a?b=1", ""), ("//evil.example", ""),
+])
+def test_doqumentation_page_is_a_plain_path(page, expected):
+    src = open(os.path.join(_BIN, "rq_doqumentation.sh"), encoding="utf-8").read()
+    block = src[src.index('PAGE="${RQ_DEMO_PAGE:-}"'):src.index('PAGE="${PAGE#/}"') + len('PAGE="${PAGE#/}"')]
+    out = subprocess.run(["bash", "-c", block + '\nprintf %s "$PAGE"'], capture_output=True, text=True,
+                         env=dict(os.environ, RQ_DEMO_PAGE=page))
+    assert out.stdout == expected
+
+
+@needs_bash
+def test_the_list_offers_ibm_quantum_learning(tmp_path):
+    proc, calls, started = _walk(tmp_path, ["ibm", "i2", "all", "ESC", "ESC"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Continue with IBM Quantum Learning (online)" in calls[0]
+    assert "IBM: Introduction to quantum: newcomers with time to learn, 26 hours" in calls[0]
+    box = calls[1]
+    assert _arg(box, "--title") == "RasQberry: IBM Quantum Learning"
+    assert _arg(box, "--cancel-button") == "Back"
+    for p in _ibm()["paths"]:
+        assert f"{p['name']}: {p['text']}" in box
+    # no screen here: the addresses are printed
+    assert f"{_IBM}/learning/en?modal=data-science" in proc.stdout
+    assert f"Open this address: {_IBM}/learning/en\n" in proc.stdout
+    assert not started
+
+
+@needs_bash
+def test_keep_going_offers_ibm_quantum_learning(tmp_path):
+    replies = ["0", "next", "next", "next", "ibm", "i0", "ESC", "ESC", "ESC"]
+    proc, calls, _ = _walk(tmp_path, replies)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    keep = calls[4]
+    assert _arg(keep, "--title") == "RasQberry: Keep Going"
+    assert "Continue with IBM Quantum Learning (online)" in keep
+    assert _arg(calls[5], "--title") == "RasQberry: IBM Quantum Learning"
+    assert f"{_IBM}/learning/en?modal=introduction-to-quantum" in proc.stdout
+
+
+def _ibm_path_index():
+    return str([p["id"] for p in _paths()].index("ibm-introduction-to-quantum"))
+
+
+@needs_bash
+def test_ibm_path_opens_its_page_in_doqumentation(tmp_path):
+    # downloaded: "on this Pi" first, with the page
+    proc, calls, started = _walk(tmp_path, [_ibm_path_index(), "start", "next", "ESC", "ESC"],
+                                 docker_image=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    step = calls[1]
+    prompt = step[step.index("--menu") + 1]
+    assert "From IBM Quantum Learning" in prompt and "Step 1 of 6: Quickstart (1 hour)" in prompt
+    assert "Open on this Pi (doQumentation)" in step and "Open online at IBM Quantum" in step
+    assert _arg(step, "--default-item") == "start"
+    assert started == ["rq_demo_run.sh qiskit-tutorials"]
+    assert (tmp_path / "pages.log").read_text().splitlines() == ["/guides/quick-start"]
+    assert (tmp_path / "titles.log").read_text().splitlines() == ["Quickstart"]
+    assert _arg(calls[2], "--default-item") == "next"
+    step2 = calls[3][calls[3].index("--menu") + 1]
+    assert "Step 2 of 6: Run your first circuit on hardware (0.5 hours)" in step2
+
+
+@needs_bash
+def test_ibm_path_goes_online_when_doqumentation_is_not_here(tmp_path):
+    # not downloaded: online first; on this Pi still offers the download
+    proc, calls, started = _walk(tmp_path, [_ibm_path_index(), "online", "next", "ESC", "ESC"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _arg(calls[1], "--default-item") == "online"
+    assert "Open on this Pi (doQumentation)" in calls[1]
+    assert not started
+    assert f"Open this address: {_IBM}/docs/en/guides/quick-start" in proc.stdout
+    assert _arg(calls[2], "--default-item") == "next"
+    assert _arg(calls[3], "--default-item") == "online"
+
+
+@needs_bash
+def test_ibm_path_offers_online_when_doqumentation_fails(tmp_path):
+    proc, calls, started = _walk(tmp_path, [_ibm_path_index(), "start", "ESC", "ESC"],
+                                 demo_rc=1, docker_image=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert started == ["rq_demo_run.sh qiskit-tutorials"]
+    assert _arg(calls[2], "--default-item") == "online"
+
+
+@needs_bash
+def test_list_prints_ibm_quantum_learning():
+    env = dict(os.environ, RQ_CONFIG_FILE="/nonexistent")
+    out = subprocess.run(["bash", _SCRIPT, "--list"], capture_output=True, text=True, env=env).stdout
+    assert "IBM: Introduction to quantum (beta) - Newcomers with time to learn, about 26 hours" in out
+    assert "From IBM Quantum Learning" in out
+    assert f"On this Pi in doQumentation, or online: {_IBM}/docs/en/guides/quick-start" in out
+    assert "Continue with IBM Quantum Learning (https://quantum.cloud.ibm.com/learning/en):" in out
+    for slug in _IBM_SLUGS:
+        assert f"{_IBM}/learning/en?modal={slug}" in out
+
+
+# --- tests/check_ibm_learning_paths.py (no network) ----------------------------------
+
+def _checker():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "check_ibm_learning_paths", os.path.join(_ROOT, "tests", "check_ibm_learning_paths.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _page(slugs):
+    # as IBM's page has them: a link and the same in its script data
+    return "".join(f'<a href="?modal={s}">x</a><script>"href":"?modal={s}"</script>' for s in slugs)
+
+
+def test_checker_reads_the_slugs_from_the_page():
+    chk = _checker()
+    assert chk.slugs_on_page(_page(_IBM_SLUGS)) == _IBM_SLUGS
+    assert chk.our_slugs(_PATHS) == _IBM_SLUGS
+    assert chk.compare(_IBM_SLUGS, _IBM_SLUGS) == []
+    lines = chk.compare(_IBM_SLUGS, _IBM_SLUGS[1:] + ["quantum-safe"])
+    assert lines == ["New on IBM's page: quantum-safe", "No longer on IBM's page: introduction-to-quantum"]
+
+
+class _Resp:
+    def __init__(self, body):
+        self.body = body.encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+@pytest.mark.parametrize("page,expect", [
+    (_page(_IBM_SLUGS), "OK: the 6 learning paths match"),
+    (_page(_IBM_SLUGS + ["quantum-safe"]), "::warning title=IBM learning paths::New on IBM's page: quantum-safe"),
+    ("<html></html>", "links no learning paths"),
+    (None, "Could not read"),
+])
+def test_checker_reports_and_never_fails(monkeypatch, tmp_path, capsys, page, expect):
+    chk = _checker()
+
+    def fake(req, timeout):
+        if page is None:
+            raise OSError("offline")
+        return _Resp(page)
+    monkeypatch.setattr(chk.urllib.request, "urlopen", fake)
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    assert chk.main(["x", _PATHS]) == 0
+    assert expect in capsys.readouterr().out
+    assert summary.read_text().strip()
+
+
+def test_weekly_workflow_runs_the_check():
+    wf = open(os.path.join(_ROOT, ".github", "workflows", "ibm-learning-paths.yml"), encoding="utf-8").read()
+    assert "schedule:" in wf and "workflow_dispatch:" in wf
+    assert "python3 tests/check_ibm_learning_paths.py" in wf
+    # main's copy checks out development
+    assert "'development'" in wf

@@ -360,6 +360,7 @@ RasQberry Workshop & Qiskit Server Launcher
 ```
 rq_doqumentation.sh [--solo]
 DOQUMENTATION_PROFILE=2|8|15  skip the participants picker (workshop)
+RQ_DEMO_PAGE=/guides/quick-start  open that page, not the start page
 ```
 
 ### rq_entangible.sh

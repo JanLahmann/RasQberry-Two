@@ -12,7 +12,11 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   learning-paths.json next to the demo manifests; the website's Learning
 #   paths page is made from the same file. After the last step, Keep going
 #   offers what to do next (another path or a page), and Where to go next
-#   lists six steps from playing to building your own. Opened from the
+#   lists six steps from playing to building your own. Continue with IBM
+#   Quantum Learning lists IBM Quantum's own learning paths and opens one in
+#   the browser. A path taken from IBM ("IBM: Introduction to quantum") opens
+#   its steps in doQumentation on this Pi, or online at IBM Quantum when
+#   doQumentation is not downloaded or does not start. Opened from the
 #   RasQberry menu (Quantum Demos -> Learning paths) and from the Learning
 #   paths icon.
 # Usage: rq_learning_paths.sh           choose a path
@@ -50,13 +54,22 @@ US=$'\x1f'   # field separator for jq output (never in the texts)
 
 path_count() { jq -r '.paths | length' "$PATHS_FILE"; }
 
-# One path: id, title, audience, minutes, goal, number of steps
-# Usage: path_info INDEX  -> sets P_ID P_TITLE P_AUDIENCE P_MINUTES P_GOAL P_STEPS
+# One path: id, title, audience, minutes, goal, number of steps, and the
+# credit of a path taken from someone else (empty for RasQberry's own)
+# Usage: path_info INDEX
+#   -> sets P_ID P_TITLE P_AUDIENCE P_MINUTES P_GOAL P_STEPS P_CREDIT P_CREDIT_URL
 path_info() {
-    IFS="$US" read -r P_ID P_TITLE P_AUDIENCE P_MINUTES P_GOAL P_STEPS < <(
+    IFS="$US" read -r P_ID P_TITLE P_AUDIENCE P_MINUTES P_GOAL P_STEPS P_CREDIT P_CREDIT_URL < <(
         jq -r --argjson i "$1" '.paths[$i]
-            | [.id, .title, .audience, (.minutes | tostring), .goal, (.steps | length | tostring)]
+            | [.id, .title, .audience, (.minutes | tostring), .goal, (.steps | length | tostring),
+               (.credit // ""), (.credit_url // "")]
             | join("\u001f")' "$PATHS_FILE")
+}
+
+# How long a path takes: "15 min", or "26 hours" for a long one
+# Usage: duration MINUTES
+duration() {
+    if [ "$1" -ge 120 ]; then echo "$(( ($1 + 30) / 60 )) hours"; else echo "$1 min"; fi
 }
 
 # The name a demo has everywhere (docs/STYLE.md): its manifest's
@@ -68,13 +81,15 @@ demo_name() {
     echo "$1"
 }
 
-# One step of a path
+# One step of a path. S_PAGE (a page in doQumentation on this Pi), S_ONLINE
+# (the same material on the web) and S_TIME (its source's estimate) are set
+# for a step taken from IBM Quantum Learning only.
 # Usage: step_info PATH_INDEX STEP_INDEX
-#   -> sets S_DEMO S_VARIANT S_COMMAND S_URL S_NAME S_TRY S_NOTICE
+#   -> sets S_DEMO S_VARIANT S_COMMAND S_URL S_NAME S_TRY S_NOTICE S_PAGE S_ONLINE S_TIME
 step_info() {
-    IFS="$US" read -r S_DEMO S_VARIANT S_COMMAND S_URL S_NAME S_TRY S_NOTICE < <(
+    IFS="$US" read -r S_DEMO S_VARIANT S_COMMAND S_URL S_NAME S_TRY S_NOTICE S_PAGE S_ONLINE S_TIME < <(
         jq -r --argjson i "$1" --argjson s "$2" '.paths[$i].steps[$s]
-            | [.demo, .variant, .command, .url, .name, .try, .notice]
+            | [.demo, .variant, .command, .url, .name, .try, .notice, .page, .online, .time]
             | map(. // "") | join("\u001f")' "$PATHS_FILE")
     if [ -z "$S_NAME" ]; then
         if [ -n "$S_DEMO" ]; then S_NAME=$(demo_name "$S_DEMO"); else S_NAME="${S_COMMAND:-$S_URL}"; fi
@@ -95,6 +110,33 @@ next_info() {
                                         ($all[] | select(.id == $p) | .title), .why])
           else ["url", .url, .name, .why] end
         | join("\u001f")' "$PATHS_FILE")
+}
+
+# Continue with IBM Quantum Learning: IBM Quantum's own learning paths
+# Usage: ibm_info -> sets I_TITLE I_TEXT I_URL, and I_NAME I_PTEXT I_PURL per path
+ibm_info() {
+    local name text url
+    I_NAME=(); I_PTEXT=(); I_PURL=()
+    IFS="$US" read -r I_TITLE I_TEXT I_URL < <(jq -r '.ibm_learning // {}
+        | [(.title // ""), (.text // ""), (.url // "")] | join("\u001f")' "$PATHS_FILE")
+    while IFS="$US" read -r name text url; do
+        [ -n "$name" ] || continue
+        I_NAME+=("$name"); I_PTEXT+=("$text"); I_PURL+=("$url")
+    done < <(jq -r '.ibm_learning.paths[]? | [.name, .text, .url] | join("\u001f")' "$PATHS_FILE")
+}
+
+# Can a step open on this Pi without a download? A demo that runs another
+# demo's Docker image (doQumentation: install.docker_image_of) needs that
+# image; anything else is on the Pi.
+# Usage: offline_ready DEMO_ID
+offline_ready() {
+    local mf src image
+    mf=$(rq_find_manifest "$(rq_shipped_manifest_dir)" "$1" 2>/dev/null) || return 1
+    src=$(jq -r '.install.docker_image_of // empty' "$mf" 2>/dev/null)
+    [ -n "$src" ] || return 0
+    image=$(rq_demo_image "$src")
+    [ -n "$image" ] && command -v docker >/dev/null 2>&1 \
+        && docker image inspect "$image" >/dev/null 2>&1
 }
 
 # The rungs of Where to go next. Usage: ladder_info -> sets L_RUNG L_TEXT
@@ -127,11 +169,13 @@ list_paths() {
     n=$(path_count)
     for ((i = 0; i < n; i++)); do
         path_info "$i"
-        echo "$P_TITLE (beta) - $P_AUDIENCE, about $P_MINUTES minutes"
+        echo "$P_TITLE (beta) - $P_AUDIENCE, about $(duration "$P_MINUTES")"
         echo "  $P_GOAL"
+        [ -z "$P_CREDIT" ] || echo "  $P_CREDIT ($P_CREDIT_URL)"
         for ((s = 0; s < P_STEPS; s++)); do
             step_info "$i" "$s"
-            echo "  $((s + 1)). $S_NAME"
+            echo "  $((s + 1)). $S_NAME${S_TIME:+ ($S_TIME)}"
+            [ -z "$S_PAGE" ] || echo "     On this Pi in $(demo_name "$S_DEMO" | sed 's/ (.*//'), or online: $S_ONLINE"
             echo "     Try: $S_TRY"
             echo "     Notice: $S_NOTICE"
         done
@@ -146,6 +190,16 @@ list_paths() {
         done
         echo
     done
+    ibm_info
+    if [ "${#I_NAME[@]}" -gt 0 ]; then
+        echo "$I_TITLE ($I_URL):"
+        echo "  $I_TEXT"
+        for ((s = 0; s < ${#I_NAME[@]}; s++)); do
+            echo "  - ${I_NAME[s]}: ${I_PTEXT[s]}"
+            echo "    ${I_PURL[s]}"
+        done
+        echo
+    fi
     echo "Where to go next:"
     ladder_info
     for ((i = 0; i < ${#L_RUNG[@]}; i++)); do
@@ -308,6 +362,31 @@ show_ladder() {
     done
 }
 
+# Continue with IBM Quantum Learning: IBM Quantum's learning paths; one
+# opens in the browser (online).
+show_ibm() {
+    local k choice last=""
+    ibm_info
+    [ "${#I_NAME[@]}" -gt 0 ] || return 0
+    while true; do
+        set --
+        for ((k = 0; k < ${#I_NAME[@]}; k++)); do
+            set -- "$@" "i$k" "${I_NAME[k]}: ${I_PTEXT[k]}"
+        done
+        set -- "$@" all "All of IBM Quantum Learning"
+        choice=$(lp_menu "RasQberry: IBM Quantum Learning" \
+            "$I_TEXT"$'\n\n'"Pick one to open it (needs the internet)." \
+            "Open" "Back" "$last" "$@") || return 0
+        last="$choice"
+        if [ "$choice" = all ]; then
+            open_page "IBM Quantum Learning" "$I_URL"
+        else
+            k="${choice#i}"
+            open_page "IBM Quantum Learning: ${I_NAME[k]}" "${I_PURL[k]}"
+        fi
+    done
+}
+
 # Keep going after path INDEX: its next entries (another path or a page)
 # and Where to go next. Picking a path sets JUMP to it and returns.
 keep_going() {
@@ -324,11 +403,13 @@ keep_going() {
             set -- "$@" "n$e" "Open ${N_NAME[e]}"
         fi
     done
-    set -- "$@" more "More ideas: where to go next" feedback "Tell us how it went (GitHub or e-mail)"
+    set -- "$@" ibm "Continue with IBM Quantum Learning (online)" \
+        more "More ideas: where to go next" feedback "Tell us how it went (GitHub or e-mail)"
     while true; do
         choice=$(lp_menu "RasQberry: Keep Going" "$prompt" "Select" "Done" "$last" "$@") || return 0
         last="$choice"
         case "$choice" in
+            ibm) show_ibm ;;
             more) show_ladder ;;
             feedback) open_feedback "$P_ID" ;;
             n*)
@@ -361,6 +442,9 @@ start_step() {
         # its manifest's "LED Demos" (user test 2026-10-08, F4)
         local RQ_WINDOW_TITLE="$S_NAME"
         export RQ_WINDOW_TITLE
+        # The page to open in doQumentation (rq_doqumentation.sh)
+        local RQ_DEMO_PAGE="$S_PAGE"
+        export RQ_DEMO_PAGE
         if [ -n "$S_VARIANT" ]; then
             "$SCRIPT_DIR/rq_demo_run.sh" "$S_DEMO" "$S_VARIANT" || rc=$?
         else
@@ -391,7 +475,7 @@ start_step() {
 # remembered while this window is open); Finish after the last step says so,
 # invites feedback and offers Keep going (which may set JUMP to another path).
 walk_path() {
-    local i="$1" s default choice prompt start next back
+    local i="$1" s default choice prompt start next back ready_for=""
     path_info "$i"
     s="${LAST_STEP[i]:-0}"
     default="start"
@@ -402,15 +486,28 @@ walk_path() {
     while true; do
         step_info "$i" "$s"
         prompt=""
-        [ "$s" -eq 0 ] && prompt="$P_GOAL"$'\n\n'
-        prompt+="Step $((s + 1)) of $P_STEPS: $S_NAME"$'\n\n'"Try: $S_TRY"$'\n'"Notice: $S_NOTICE"
+        if [ "$s" -eq 0 ]; then
+            prompt="$P_GOAL"$'\n\n'
+            [ -z "$P_CREDIT" ] || prompt+="$P_CREDIT"$'\n\n'
+        fi
+        prompt+="Step $((s + 1)) of $P_STEPS: $S_NAME${S_TIME:+ ($S_TIME)}"$'\n\n'"Try: $S_TRY"$'\n'"Notice: $S_NOTICE"
         if [ -n "$S_URL" ]; then start="Open $S_NAME"; else start="Start $S_NAME"; fi
+        if [ -n "$S_ONLINE" ]; then
+            start="Open on this Pi (doQumentation)"
+            # not downloaded yet: online first (on this Pi still offers the download)
+            if [ "$default" = start ] && [ "$ready_for" != "$s" ]; then
+                ready_for=$s
+                offline_ready "$S_DEMO" || default="online"
+            fi
+        fi
         if [ $((s + 1)) -lt "$P_STEPS" ]; then
             next="Next step: $(step_info "$i" $((s + 1)); echo "$S_NAME")"
         else
             next="Finish this path"
         fi
-        set -- start "$start" next "$next"
+        set -- start "$start"
+        [ -z "$S_ONLINE" ] || set -- "$@" online "Open online at IBM Quantum"
+        set -- "$@" next "$next"
         if [ "$s" -gt 0 ]; then
             back="Back to step $s: $(step_info "$i" $((s - 1)); echo "$S_NAME")"
             set -- "$@" back "$back"
@@ -421,13 +518,25 @@ walk_path() {
         }
         case "$choice" in
             start)
-                if start_step; then default="next"; else default="start"; fi
+                if start_step; then
+                    default="next"
+                elif [ -n "$S_ONLINE" ]; then
+                    default="online"   # it did not start: the same page online
+                else
+                    default="start"
+                fi
+                set_title
+                ;;
+            online)
+                open_page "$S_NAME" "$S_ONLINE"
+                default="next"
                 set_title
                 ;;
             next)
                 if [ $((s + 1)) -lt "$P_STEPS" ]; then
                     s=$((s + 1))
                     default="start"
+                    ready_for=""
                 else
                     LAST_STEP[i]=0
                     rq_count_event learning-path "$P_ID" finish
@@ -443,6 +552,7 @@ walk_path() {
             back)
                 s=$((s - 1))
                 default="start"
+                ready_for=""
                 ;;
         esac
     done
@@ -476,9 +586,9 @@ while true; do
         path_info "$i"
         # "First 15 minutes: visitors at a stand, 15 min"
         audience="$(printf '%s' "${P_AUDIENCE:0:1}" | tr '[:upper:]' '[:lower:]')${P_AUDIENCE:1}"
-        set -- "$@" "$i" "$P_TITLE: $audience, $P_MINUTES min"
+        set -- "$@" "$i" "$P_TITLE: $audience, $(duration "$P_MINUTES")"
     done
-    set -- "$@" ladder "Where to go next" feedback "Tell us how it went (GitHub or e-mail)"
+    set -- "$@" ibm "Continue with IBM Quantum Learning (online)" ladder "Where to go next" feedback "Tell us how it went (GitHub or e-mail)"
     choice=$(lp_menu "RasQberry: Learning Paths (beta)" \
         "Short tours through the demos. Each step says what to try and what to notice, and starts the demo for you." \
         "Select" "$CLOSE" "$last" "$@") || break
@@ -486,6 +596,7 @@ while true; do
     case "$choice" in
         feedback) open_feedback ;;
         ladder) show_ladder ;;
+        ibm) show_ibm ;;
         *)
             # Keep going may lead from one path to the next (JUMP)
             JUMP="$choice"
