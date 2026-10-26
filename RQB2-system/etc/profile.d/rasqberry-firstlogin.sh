@@ -45,5 +45,8 @@ fi
 
 if [ -t 0 ] && [ -t 1 ] && [ -z "${_RQ_FIRSTLOGIN_DONE:-}" ] && [ -x /usr/bin/rq_firstlogin.sh ]; then
     export _RQ_FIRSTLOGIN_DONE=1
-    /usr/bin/rq_firstlogin.sh </dev/tty >/dev/tty 2>&1 || true
+    # No </dev/tty: sudo (the LED check) then saw no terminal on stdin, left
+    # it in line mode, and the arrow keys showed up in the dialog as ^[[B
+    # instead of moving it (user test 2026-10-26). Both are a terminal here.
+    /usr/bin/rq_firstlogin.sh || true
 fi

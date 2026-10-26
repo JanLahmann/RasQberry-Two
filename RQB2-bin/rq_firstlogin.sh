@@ -140,10 +140,10 @@ fi
 
 # Ask ps for the CONTROLLING terminal, not `tty` for stdin's.
 #
-# The hooks call us as `rq_firstlogin.sh </dev/tty >/dev/tty 2>&1`, and with
-# stdin redirected from /dev/tty, `tty` reports the literal string "/dev/tty" -
-# which matches no /dev/pts/* test. So a `tty`-based gate swallowed every real
-# login while passing every direct invocation it was tested with. ps reads the
+# The hooks once called us with stdin from /dev/tty, and then `tty` reports
+# the literal string "/dev/tty" - which matches no /dev/pts/* test. So a
+# `tty`-based gate swallowed every real login while passing every direct
+# invocation it was tested with. ps reads the
 # controlling terminal off the process itself: "pts/N" over ssh or a desktop
 # terminal, "tty1" on the boot console, however stdin happens to be plumbed.
 # --all is only ever started by a person (icon, menu), on any terminal.
