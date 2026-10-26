@@ -317,7 +317,7 @@ def set_window_state(target_id, state):
 
     Args:
         target_id (str): The tab.
-        state (str): "maximized" or "fullscreen".
+        state (str): "maximized", "fullscreen" or "normal".
 
     Returns:
         bool: True if the browser did it.
@@ -443,7 +443,9 @@ def watch(url, before=(), state=""):
     Args:
         url (str): The address the demo opened.
         before (iterable): Ids of the tabs open before.
-        state (str): Window state to set ("maximized", "fullscreen", "").
+        state (str): Window state to set ("maximized", "fullscreen", "normal"
+            - a window of its usual size, also when the browser's last one
+            was maximised -, or "" to leave it).
 
     Returns:
         int: 0 (also when there is nothing to do).
@@ -496,7 +498,7 @@ def main(argv=None):
     sub.add_parser("ids")
     w = sub.add_parser("watch")
     w.add_argument("--before", default="")
-    w.add_argument("--window-state", default="", choices=["", "maximized", "fullscreen"])
+    w.add_argument("--window-state", default="", choices=["", "maximized", "fullscreen", "normal"])
     w.add_argument("url")
     for name in ("close", "save"):
         sub.add_parser(name).add_argument("url")

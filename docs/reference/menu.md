@@ -91,7 +91,7 @@ Quantum demos, setup and settings for this RasQberry Two
       - Add demo from catalogue
     - **Beta: try & tell us**: new demos that may not work yet → menu "RasQberry: Beta: try & tell us"
       - Workshop & Qiskit Server (beta) [internet, 32 GB]
-      - Qiskit Tutorials on this Pi (beta) [32 GB]
+      - doQumentation (IBM Quantum Learning on this Pi) (beta) [32 GB]
       - Entangible (beta)
       - racetraQ (beta) *(catalogue demo: shown once added)*
   - Stop a running LED demo
@@ -124,7 +124,7 @@ Quantum demos, setup and settings for this RasQberry Two
   - Raspberry Pi Connect: <connw> *(only when it applies)*
 - **Wi-Fi Hotspot (booths and classrooms)** → menu "RasQberry: Wi-Fi Hotspot": The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1.
   - Hotspot: <on/off>
-  - Show name, password and QR code to join
+  - Show name, password and QR codes
   - Join card on the screen (to show or print)
   - Change name and password
   - Start at boot: <HOTSPOT_AT_BOOT>

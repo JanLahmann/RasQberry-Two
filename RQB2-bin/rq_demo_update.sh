@@ -55,11 +55,23 @@ updatable() {
                 && [ -d "$USER_HOME/$REPO/demos/$wd/.git" ]; then
             seen="$seen$wd "
             for other in $(sharers "$wd" "$id"); do
-                name="$name and $(jq -r '.name // .id' "$(rq_find_manifest "$SHIPPED" "$other")")"
+                name=$(join_names "$name" "$(jq -r '.name // .id' "$(rq_find_manifest "$SHIPPED" "$other")")")
             done
             printf '%s:ref\t%s\t%s\n' "$id" "$name" "$mf"
         fi
     done < <(rq_list_manifests "$SHIPPED" 2>/dev/null)
+}
+
+# "A and B" without the words they start with twice: "IBM Quantum Courses
+# and Tutorials" (it was cut off at 80 columns, user test 2026-10-26)
+join_names() {    # A B
+    local a="$1" b="$2" rest_a rest_b
+    rest_a="$a"; rest_b="$b"
+    while [[ "$rest_a" == *" "* ]] && [[ "$rest_b" == *" "* ]] \
+            && [ "${rest_a%% *}" = "${rest_b%% *}" ]; do
+        rest_a="${rest_a#* }"; rest_b="${rest_b#* }"
+    done
+    echo "$a and $rest_b"
 }
 
 # The other shipped demos with the checkout WD (their ids, one per line)
@@ -92,16 +104,97 @@ current_pin() {   # KEY MANIFEST
     esac
 }
 
+# A version's label for the user ("tested: " marks it for rq_catalogue.py only)
+shown_label() {   # LABEL
+    local l="${1#tested: }"
+    echo "${l:-the version this release ships}"
+}
+
 state_text() {    # KEY MANIFEST
     local cur
     cur=$(current_pin "$1" "$2")
     if [ "$cur" = "$(release_pin "$1" "$2")" ]; then
-        echo "release version"
+        echo "as released"
     elif [ "$cur" = "$(_rq_demo_chosen "$1" "$(release_pin "$1" "$2")" || true)" ]; then
-        echo "newer: $(rq_demo_chosen_label "$1" || echo chosen)"
+        echo "newer: $(shown_label "$(rq_demo_chosen_label "$1" || echo chosen)")"
     else
         echo "other version (${cur:0:7})"
     fi
+}
+
+# --- menu texts (user test 2026-10-26: technical tags, full SHAs and digests
+# glued to the date, texts cut off at 80 columns) ---------------------------
+
+# A menu line that fits an 80-column window (whiptail --notags, 78 wide)
+fit() {           # TEXT [MAX]
+    local t="$1" n="${2:-68}"
+    if [ "${#t}" -gt "$n" ]; then printf '%s...\n' "${t:0:$((n - 3))}"; else printf '%s\n' "$t"; fi
+}
+
+# A short name for an image version: a tag such as 2.5-xl-20261008, else
+# the first 7 characters of a commit tag or of the digest
+short_id() {      # TAGS IMAGE_REF
+    local t hex="" d
+    local -a tags=()
+    IFS=',' read -ra tags <<< "$1"
+    for t in ${tags[@]+"${tags[@]}"}; do
+        t="${t# }"
+        case "$t" in -|""|*"(latest)") continue ;; esac
+        if [[ "$t" =~ ^[0-9a-f]{12,}$ ]]; then
+            [ -n "$hex" ] || hex="${t:0:7}"
+            continue
+        fi
+        echo "$t"
+        return 0
+    done
+    [ -n "$hex" ] && { echo "$hex"; return 0; }
+    d="${2##*sha256:}"
+    echo "${d:0:7}"
+}
+
+# One version in a picker: date, short id, size, marks, what is in it
+version_item() { # DATE SHORT_ID MB MARKS NOTE
+    local text="$1  $2"
+    [ "${3:-0}" -gt 0 ] 2>/dev/null && text="$text  ~$3 MB"
+    [ -n "$4" ] && text="$text  $4"
+    [ -n "$5" ] && [ "$5" != "-" ] && text="$text  $5"
+    fit "$text"
+}
+# --- end of menu texts ---
+
+# The tested version the demo catalogue offers for KEY (nothing if none)
+tested_pin() {    # KEY
+    RQ_USER_HOME="$USER_HOME" python3 "$BIN_DIR/rq_catalogue.py" --tested "$1" 2>/dev/null | cut -f1 || true
+}
+
+# The versions of an image on ghcr.io (rq_image_versions.py lines)
+image_versions() { # KEY MANIFEST
+    local tags latest order
+    tags=$(jq -r '.install.update.docker_tags' "$2")
+    latest=$(jq -r '.install.update.docker_latest // ""' "$2")
+    order=$(jq -r '.install.update.docker_order // "date"' "$2")
+    python3 "$BIN_DIR/rq_image_versions.py" "$(current_pin "$1" "$2")" --tags "$tags" --latest "$latest" --order "$order" 2>&1
+}
+
+# What is newer for a demo, in a few words; status 1 when nothing is
+newer_text() {    # KEY MANIFEST
+    local key="$1" mf="$2" cur tested what="" out head
+    cur=$(current_pin "$key" "$mf")
+    tested=$(tested_pin "$key")
+    case "$key" in
+        *:image)
+            if out=$(image_versions "$key" "$mf"); then
+                what=$(awk -F'\t' '$6 == "newer" { print "newer version from " $3; exit }' <<< "$out")
+            fi ;;
+        *:ref)
+            head=$(git ls-remote "$(rq_demo_repo "${key%:*}" "$mf")" HEAD 2>/dev/null | cut -f1) || head=""
+            [ -n "$head" ] && [ "$head" != "$cur" ] && what="newer version on GitHub" ;;
+    esac
+    if [ -n "$tested" ] && [ "$tested" != "$cur" ]; then
+        what="${what:+$what, }tested update"
+    fi
+    [ -n "$what" ] || return 1
+    echo "$what"
 }
 
 if [ "${1:-}" = "--list" ]; then
@@ -115,29 +208,34 @@ fi
 # Docker image
 # ----------------------------------------------------------------------------
 update_image() {
-    local key="$1" name="$2" mf="$3" id="${1%:*}" cur rel tags latest order out rc=0
+    local key="$1" name="$2" mf="$3" id="${1%:*}" cur rel tested out rc=0
     cur=$(current_pin "$key" "$mf")
     rel=$(release_pin "$key" "$mf")
-    tags=$(jq -r '.install.update.docker_tags' "$mf")
-    latest=$(jq -r '.install.update.docker_latest // ""' "$mf")
-    order=$(jq -r '.install.update.docker_order // "date"' "$mf")
+    tested=$(tested_pin "$key")
 
     show_infobox "$TITLE" "Looking for newer versions of $name on ghcr.io..."
-    out=$(python3 "$BIN_DIR/rq_image_versions.py" "$cur" --tags "$tags" --latest "$latest" --order "$order" 2>&1) || rc=$?
+    out=$(image_versions "$key" "$mf") || rc=$?
     if [ "$rc" -ne 0 ]; then
         show_msgbox "$TITLE" "The versions of $name could not be listed:\n\n$out"
         return 0
     fi
 
+    # whiptail --notags: numbers as tags, the image refs in a list
     set --
-    local line ref t date mb note state cur_line=""
+    local -a refs=()
+    local line ref t date mb note state marks cur_line="" i=0
     while IFS=$'\t' read -r ref t date mb note state; do
         [ -n "$ref" ] || continue
+        marks=""
+        [ "$ref" = "$rel" ] && marks="release"
+        [ -n "$tested" ] && [ "$ref" = "$tested" ] && marks="${marks:+$marks, }tested"
         if [ "$state" = current ]; then
-            cur_line="$date  $t  ($note)"
+            cur_line=$(version_item "$date" "$(short_id "$t" "$ref")" 0 "$marks" "$note")
             continue
         fi
-        set -- "$@" "$ref" "$date  ${t}  ~${mb} MB  ${note}"
+        i=$((i + 1))
+        refs[i]="$ref"
+        set -- "$@" "$i" "$(version_item "$date" "$(short_id "$t" "$ref")" "$mb" "$marks" "$note")"
     done <<< "$out"
     [ "$cur" != "$rel" ] && set -- "$@" "RELEASE" "Back to the version this release ships"
     if [ $# -eq 0 ]; then
@@ -146,27 +244,22 @@ update_image() {
     fi
 
     local choice
-    choice=$(whiptail --title "$TITLE: $name" --menu \
-        "In use: $cur_line\nNewest first. The new version is used from the next start." \
+    choice=$(whiptail --title "$TITLE: $name" --notags --menu \
+        "In use: $cur_line\nNewest first. The one you choose is downloaded and used from the next start." \
         20 78 10 "$@" 3>&1 1>&2 2>&3) || return 0
 
-    local target="$choice" label="" dl=0
+    local target label="" dl=0
     if [ "$choice" = "RELEASE" ]; then
         target="$rel"
-        label=""
     else
-        line=$(grep -F "$choice" <<< "$out" | head -1)
+        target="${refs[choice]}"
+        line=$(awk -F'\t' -v r="$target" '$1 == r' <<< "$out" | head -1)
         IFS=$'\t' read -r ref t date mb note state <<< "$line"
-        label="$t, $date"
+        label="$(short_id "$t" "$ref"), $date"
+        [ "$target" = "$tested" ] && label="tested: $label"
         dl="$mb"
     fi
     apply_image "$key" "$name" "$mf" "$target" "$label" "$dl"
-}
-
-# A version's label for the user ("tested: " marks it for rq_catalogue.py only)
-shown_label() {   # LABEL
-    local l="${1#tested: }"
-    echo "${l:-the version this release ships}"
 }
 
 # Move a Docker demo to TARGET (download it first, after the usual dialog)
@@ -223,31 +316,45 @@ update_ref() {
     head=$(git ls-remote "$url" HEAD 2>/dev/null | cut -f1) || head=""
     [ -n "$head" ] || { show_msgbox "$TITLE" "GitHub cannot be reached, so $name cannot be updated now."; return 0; }
 
-    # The newer commits, newest first (GitHub API; without it only the newest)
+    # The newer commits, newest first (GitHub API; without it only the
+    # newest), numbered for whiptail --notags
     set --
+    local -a shas=()
+    local i=0 tested marks cur_marks=""
+    tested=$(tested_pin "$key")
     slug=$(printf '%s' "$url" | sed -n 's#^https://github.com/\([^/]*/[^/.]*\).*#\1#p')
     if [ "$head" != "$cur" ] && [ -n "$slug" ]; then
         api=$(curl -s --max-time 15 "https://api.github.com/repos/$slug/compare/$cur...$head" 2>/dev/null) || api=""
         while IFS=$'\t' read -r sha date msg; do
-            [ -n "$sha" ] && set -- "$@" "$sha" "${date:0:10}  ${sha:0:7}  ${msg:0:50}"
+            [ -n "$sha" ] || continue
+            marks=""
+            [ -n "$tested" ] && [ "$sha" = "$tested" ] && marks="tested"
+            i=$((i + 1))
+            shas[i]="$sha"
+            set -- "$@" "$i" "$(version_item "${date:0:10}" "${sha:0:7}" 0 "$marks" "$msg")"
         done < <(jq -r '.commits // [] | reverse | .[:10][]
                  | [.sha, .commit.committer.date, (.commit.message | split("\n")[0])] | @tsv' <<< "$api" 2>/dev/null)
-        [ $# -gt 0 ] || set -- "$head" "Newest version (${head:0:7})"
+        if [ $# -eq 0 ]; then
+            shas[1]="$head"
+            set -- 1 "Newest version (${head:0:7})"
+        fi
     fi
     [ "$cur" != "$rel" ] && set -- "$@" "RELEASE" "Back to the version this release ships"
+    [ "$cur" = "$rel" ] && cur_marks=", release"
     if [ $# -eq 0 ]; then
-        show_msgbox "$TITLE" "$name is up to date (${cur:0:7})."
+        show_msgbox "$TITLE" "$name is up to date (${cur:0:7}$cur_marks)."
         return 0
     fi
 
     local choice target label
-    choice=$(whiptail --title "$TITLE: $name" --menu \
-        "In use: ${cur:0:7}. Newest first.\nYour changes to its files are kept in a copy next to it." \
+    choice=$(whiptail --title "$TITLE: $name" --notags --menu \
+        "In use: ${cur:0:7}$cur_marks. Newest first.\nThe one you choose is installed now; your changes are kept in a copy." \
         20 78 10 "$@" 3>&1 1>&2 2>&3) || return 0
     if [ "$choice" = "RELEASE" ]; then
         target="$rel"; label=""
     else
-        target="$choice"; label="${choice:0:7}"
+        target="${shas[choice]}"; label="${target:0:7}"
+        [ "$target" = "$tested" ] && label="tested: $label"
     fi
     apply_ref "$key" "$name" "$mf" "$target" "$label"
 }
@@ -339,32 +446,70 @@ if [ "${1:-}" = "--tested" ]; then
     exit $?
 fi
 
-while true; do
+# Choose a demo by its menu number (KEY<TAB>NAME<TAB>MANIFEST lines in $1)
+open_picker() {   # LINE
+    local key name mf
+    IFS=$'\t' read -r key name mf <<< "$1"
+    case "$key" in
+        *:image) update_image "$key" "$name" "$mf" ;;
+        *:ref)   update_ref "$key" "$name" "$mf" ;;
+    esac
+}
+
+# "Check all for newer versions": only the demos with a newer or tested one
+check_all() {
+    local key name mf what pick i=0
+    local -a lines=()
+    show_infobox "$TITLE" "Looking for newer versions of the downloaded demos..."
     set --
+    while IFS=$'\t' read -r key name mf; do
+        [ -n "$key" ] || continue
+        what=$(newer_text "$key" "$mf") || continue
+        i=$((i + 1))
+        lines[i]="$key"$'\t'"$name"$'\t'"$mf"
+        set -- "$@" "$i" "$(fit "$name: $what")"
+    done < <(updatable)
+    if [ $# -eq 0 ]; then
+        show_msgbox "$TITLE" "All downloaded demos have the newest version."
+        return 0
+    fi
+    pick=$(whiptail --title "$TITLE" --notags --menu \
+        "These demos have a newer or tested version. Choose one to see its versions." \
+        20 78 10 "$@" 3>&1 1>&2 2>&3) || return 0
+    open_picker "${lines[pick]}"
+}
+
+while true; do
+    set -- CHECK "Check all for newer versions"
+    lines=()
+    i=0
     while IFS=$'\t' read -r key name mf; do
         [ -n "$key" ] || continue
         # what an update brings: only the notebook demos are notebooks (#31)
         case "$key" in
-            *:image) kind="Docker image" ;;
+            *:image) kind="Docker" ;;
             *) if [ "$(jq -r '.entrypoint.type // ""' "$mf")" = "jupyter" ]; then
                    kind="notebooks"
                else
                    kind="program"
                fi ;;
         esac
-        set -- "$@" "$key" "$name ($kind): $(state_text "$key" "$mf")"
+        state=$(fit "$(state_text "$key" "$mf")" 30)
+        i=$((i + 1))
+        lines[i]="$key"$'\t'"$name"$'\t'"$mf"
+        # the name gives way, the state stays whole
+        set -- "$@" "$i" "$(fit "$name" $((66 - ${#kind} - ${#state} - 5))) ($kind): $state"
     done < <(updatable)
-    if [ $# -eq 0 ]; then
+    if [ "$i" -eq 0 ]; then
         show_msgbox "$TITLE" "No downloaded demo can be updated.\n\nDemos are downloaded the first time they start."
         exit 0
     fi
-    pick=$(whiptail --title "$TITLE" --menu \
-        "Each RasQberry Two release pins tested demo versions. Choose a demo to look for a newer version." \
+    pick=$(whiptail --title "$TITLE" --notags --menu \
+        "Each RasQberry release ships tested demo versions. Check all, or choose a demo to see its versions." \
         20 78 10 "$@" 3>&1 1>&2 2>&3) || exit 0
-    line=$(updatable | awk -F'\t' -v k="$pick" '$1 == k')
-    IFS=$'\t' read -r key name mf <<< "$line"
-    case "$key" in
-        *:image) update_image "$key" "$name" "$mf" ;;
-        *:ref)   update_ref "$key" "$name" "$mf" ;;
-    esac
+    if [ "$pick" = CHECK ]; then
+        check_all
+    else
+        open_picker "${lines[pick]}"
+    fi
 done

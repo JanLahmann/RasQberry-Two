@@ -1548,6 +1548,9 @@ _rq_find_browser() {
 # demo's server stops - at once through rq_close_demo_tabs, else as soon as
 # the server is gone - instead of staying behind with "Dead kernel" and
 # asking "Leave site?" when closed (#9). Websites (Composer) open as before.
+# RQ_BROWSER_WINDOW=normal: a window of the usual size instead, for a demo
+# that needs no whole screen (Grok Bloch, the Fun with Quantum notebooks; user
+# test 2026-10-26) - maximised all the same on a small screen.
 # Usage: rq_open_browser URL [CHROMIUM_FLAGS...]
 rq_open_browser() {
     local url="$1" browser pid user_name ticks=0 before="" state=""
@@ -1559,6 +1562,7 @@ rq_open_browser() {
             if _rq_local_demo_url "$url"; then
                 before=$(_rq_browser_tab ids 2>/dev/null) || before=""
                 state=maximized
+                [ "${RQ_BROWSER_WINDOW:-}" = normal ] && ! _rq_small_screen && state=normal
                 case " $* " in *" --start-fullscreen "*|*" --kiosk "*) state=fullscreen ;; esac
                 cmd=("$browser" --password-store=basic --new-window "$@" "$url")
             else
@@ -1591,6 +1595,14 @@ rq_open_browser() {
         _rq_browser_tab_watch --before "$before" --window-state "$state" "$url"
     fi
     return 0
+}
+
+# Is the desktop on a small screen (flag set at login by rq_desktop_session.py,
+# also read by /etc/chromium.d/rasqberry)?
+_rq_small_screen() {
+    local uid
+    uid=$(id -u "$(get_user_name)" 2>/dev/null) || return 1
+    [ -e "${RQ_SMALL_SCREEN_FLAG:-/run/user/$uid/rasqberry-small-screen}" ]
 }
 
 # Is URL a demo served on this Pi (its tab is of no use once the demo stops)?
@@ -2077,7 +2089,7 @@ rq_confirm_demo_install() {
     local type="" image="" repo=""
     if [ -n "$mf" ] && [ -f "$mf" ]; then
         name=$(jq -r '.name // .id' "$mf" 2>/dev/null) || name="$id"
-        # a demo started under another name (Qiskit Tutorials on this Pi
+        # a demo started under another name (doQumentation on this Pi
         # runs the Workshop server's image)
         name="${RQ_CONSENT_NAME:-$name}"
         dl=$(jq -r '.install.download.download_mb // 0' "$mf" 2>/dev/null) || dl=0

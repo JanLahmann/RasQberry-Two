@@ -270,14 +270,22 @@ def test_autostart_runs_the_session_helper():
     assert ds.OFFLINE_PAGE == "file:///usr/share/rasqberry/offline.html" and os.path.exists(page)
 
 
+_POLICY = os.path.join(_ROOT, "RQB2-system", "etc", "chromium", "policies", "managed", "rasqberry.json")
+
+
+def _policy():
+    """Chromium's managed policy, as installed by rq_install_system_files.sh."""
+    with open(_POLICY) as f:
+        return json.load(f)
+
+
 def test_the_pi_opens_the_site_as_a_pi():
     # fresh-card test 2026-10-08, F4: the Pi's start page offered to write the
     # SD card that is already in it; with ?from=pi the site greets the Pi
     assert ds.HOMEPAGE == "https://rasqberry.org/?from=pi&assistant=1"
     page = open(os.path.join(_ROOT, "RQB2-system", "usr", "share", "rasqberry", "offline.html")).read()
     assert page.count('"https://rasqberry.org/?from=pi&assistant=1"') == 2
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    policy = _policy()
     assert policy["HomepageLocation"] == policy["NewTabPageLocation"] == ds.HOMEPAGE
     assert policy["RestoreOnStartupURLs"] == [ds.HOMEPAGE]
 
@@ -285,12 +293,36 @@ def test_the_pi_opens_the_site_as_a_pi():
 def test_the_bookmarks_lead_to_rasqberry_help():
     # rig mission 2026-10-16: the bookmark bar's "Help" is Raspberry Pi OS's
     # (raspberrypi.com documentation); Quantum Links starts with RasQberry's
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    policy = _policy()
     marks = policy["ManagedBookmarks"]
     assert marks[0] == {"toplevel_name": "Quantum Links"}
     assert marks[1] == {"name": "RasQberry help",
                         "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting"}
+
+
+def test_bookmarks_are_ours_not_raspberry_pi_os_ones():
+    # user test 2026-10-26: Getting Started, Help, Projects and Safety Info
+    # (rpi-chromium-mods' /etc/chromium/bookmarks.html) sat next to Quantum
+    # Links; ours and IBM's instead
+    def urls(items):
+        for item in items:
+            yield from urls(item.get("children", []))
+            if "url" in item:
+                yield item["url"]
+    found = set(urls(_policy()["ManagedBookmarks"]))
+    for url in ("https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/",
+                "https://rasqberry.org/03-quantum-computing-demos/01-demo-list/",
+                "https://fun-with-quantum.org", "https://quantum.cloud.ibm.com",
+                "https://quantum.cloud.ibm.com/learning", "https://quantum.cloud.ibm.com/docs",
+                "https://www.ibm.com/quantum", "https://www.ibm.com/quantum/qiskit",
+                "https://www.ibm.com/quantum/ibm-quantum-network", "https://www.ibm.com/quantum/blog"):
+        assert url in found, url
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    assert "--divert /etc/chromium/bookmarks.html.rpi --add /etc/chromium/bookmarks.html" in stage
+    empty = stage.split("cat > /etc/chromium/bookmarks.html << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0]
+    assert "<A " not in empty and "NETSCAPE-Bookmark-file-1" in empty
+    # one policy, from RQB2-system (a branch update refreshes it)
+    assert "policies/managed/rasqberry.json << " not in stage
 
 
 # --- launchers -------------------------------------------------------------------

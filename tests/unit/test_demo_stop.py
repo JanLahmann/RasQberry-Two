@@ -584,6 +584,25 @@ def test_a_local_demo_opens_its_own_window_and_is_looked_after(tmp_path, flags, 
 
 
 @needs_bash
+@pytest.mark.parametrize("small,state", [(False, "normal"), (True, "maximized")])
+def test_a_demo_can_ask_for_a_normal_window(tmp_path, small, state):
+    # user test 2026-10-26: Grok Bloch and the Fun with Quantum notebooks
+    # need no whole screen; on a small screen they are maximised all the same
+    stubs = _browser_stubs(tmp_path)
+    flag = tmp_path / "small"
+    if small:
+        flag.write_text("")
+    subprocess.run(["bash", "-c", f'. "{_COMMON}"; RQ_BROWSER_WINDOW=normal rq_open_browser http://127.0.0.1:8888/lab'],
+                   env=dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", RQ_SMALL_SCREEN_FLAG=str(flag)),
+                   capture_output=True, text=True, timeout=60)
+    calls = _calls(tmp_path, 2)
+    assert f"watch --before OLD1,OLD2 --window-state {state} http://127.0.0.1:8888/lab" in calls, calls
+    for script in ("rq_grok_bloch.sh", "rq_fun_with_quantum.sh"):
+        assert "RQ_BROWSER_WINDOW=normal rq_show_url" in _read("RQB2-bin", script)
+    assert '"normal"]' in _read("RQB2-bin", "rq_browser_tab.py")
+
+
+@needs_bash
 def test_a_website_opens_as_a_tab_as_before(tmp_path):
     stubs = _browser_stubs(tmp_path)
     subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_open_browser https://quantum.cloud.ibm.com/composer'],
@@ -1153,7 +1172,7 @@ def test_a_program_in_front_ends_without_a_terminated_line():
 
 @needs_bash
 def test_a_launcher_started_by_the_engine_does_not_repeat_the_name():
-    # pre-beta check 2026-10-08: "=== Qiskit Tutorials on this Pi ===" twice
+    # pre-beta check 2026-10-08: the demo name twice
     # (the engine's line, then the launcher's)
     def header(extra):
         return subprocess.run(["bash", "-c", f'. "{_COMMON}"; rq_demo_header "Quantum Mixer"'],

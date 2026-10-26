@@ -147,17 +147,17 @@ Sap logo on the leds, coloured by 3 qubits.
 
 ## Beta: try & tell us
 
+### doQumentation (IBM Quantum Learning on this Pi) *(beta)*
+
+The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network.
+
+- id `qiskit-tutorials`; menu: Quantum Demos > Beta: try & tell us > doQumentation (IBM Quantum Learning on this Pi); desktop: Beta: try & tell us window; needs an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker).
+
 ### Entangible *(beta)*
 
 Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera.
 
 - id `entangible`; menu: Quantum Demos > Beta: try & tell us > Entangible; desktop: Beta: try & tell us window; needs a camera; download about 100 MB on first start.
-
-### Qiskit Tutorials on this Pi *(beta)*
-
-The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network.
-
-- id `qiskit-tutorials`; menu: Quantum Demos > Beta: try & tell us > Qiskit Tutorials on this Pi; desktop: Beta: try & tell us window; needs an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker).
 
 ### Workshop & Qiskit Server *(beta)*
 
