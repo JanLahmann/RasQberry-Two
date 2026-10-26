@@ -43,7 +43,8 @@ def _hits(pattern):
 
 
 def test_promote_is_gone():
-    assert _hits(r"\bpromot") == []
+    # (Chromium's PromotionalTabsEnabled policy is not about slots)
+    assert _hits(r"\bpromot(?!ionaltabs)") == []
 
 
 def test_no_typed_update_stable_confirmation():
