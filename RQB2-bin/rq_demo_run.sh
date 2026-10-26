@@ -1430,7 +1430,7 @@ drop_to_desktop_user() {
     local v uid rt
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
              RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
-             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE RQ_DEMO_PAGE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     uid=$(id -u "$user_name" 2>/dev/null) || uid=""

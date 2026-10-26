@@ -225,6 +225,22 @@ if rq_docker_running "$CONTAINER_NAME"; then
     RUNNING_MODE=$(running_mode)
     RUNNING_NAME=$(mode_name "$RUNNING_MODE")
     action="KEEP"
+    # A page from a learning path step: open it on the running server, in
+    # whichever mode, without asking (restarting a Workshop server would end
+    # participants' sessions). It printed the participants' addresses and
+    # looked like the wrong demo had started (rig test 2026-10-26).
+    if [ -n "$PAGE" ]; then
+        site_port=$(published_port 80/tcp)
+        [ -n "$site_port" ] || die "The running $RUNNING_NAME publishes no website port."
+        info "$RUNNING_NAME is already running: opening /${PAGE} on it."
+        rq_show_url "http://127.0.0.1:${site_port}/${PAGE}" "$site_port"
+        if [ -t 0 ]; then
+            echo "This window did not start it: closing it keeps $RUNNING_NAME running."
+            echo "Press Enter to go back."
+            read -r || true
+        fi
+        exit 0
+    fi
     if [ -t 0 ]; then
         if [ "$RUNNING_MODE" = "$MODE" ]; then
             [ "$MODE" = "solo" ] && keep_text="Keep it running and open it" \

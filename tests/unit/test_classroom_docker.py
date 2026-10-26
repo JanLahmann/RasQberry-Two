@@ -314,11 +314,11 @@ def doq(tmp_path):
     env_config.write_text(f'USER_HOME="{home}"\nREPO=RasQberry-Two\nBIN_DIR="{_BIN}"\nSTD_VENV=RQB2\n')
     log = tmp_path / "docker.log"
 
-    def run(running, args=(), mode=""):
+    def run(running, args=(), mode="", **extra):
         env = {"PATH": f"{stubs}:{os.environ['PATH']}", "HOME": str(home), "USER": "rasqberry",
                "RQ_CONFIG_FILE": str(env_config), "DOCKER_LOG": str(log),
                "RUNNING": "1" if running else "", "CONTAINER_MODE": mode,
-               "PINNED": _manifest("doqumentation")["entrypoint"]["docker_image"]}
+               "PINNED": _manifest("doqumentation")["entrypoint"]["docker_image"], **extra}
         proc = subprocess.run(["bash", os.path.join(_BIN, "rq_doqumentation.sh"), *args],
                               capture_output=True, text=True, env=env, timeout=120,
                               stdin=subprocess.DEVNULL)
@@ -583,3 +583,53 @@ def test_demo_loop_cleanup_runs_once():
     loop = open(os.path.join(_BIN, "rq_demo_loop.sh")).read()
     body = loop[loop.index("cleanup() {"):]
     assert body.index("trap - EXIT INT TERM") < body.index("Demo loop stopped")
+
+
+# --- doQumentation from a learning path step: its page (RQ_DEMO_PAGE) ---------
+
+def _desktop(tmp_path):
+    """A screen and a stub browser that logs what it opens."""
+    log = tmp_path / "browser.log"
+    _exe(tmp_path / "stubs" / "chromium", f'#!/bin/sh\necho "$*" >> "{log}"\n')
+    return log, {"DISPLAY": ":0", "RQ_BROWSER_HANDOFF_WAIT": "2", "RQ_DEMO_PAGE": "/guides/quick-start"}
+
+
+@needs_bash
+def test_learning_path_page_starts_solo_on_that_page(doq, tmp_path):
+    # rig test 2026-10-26: the step must open the one-person doQumentation
+    # on its page, not the Workshop & Qiskit Server's start page
+    log, env = _desktop(tmp_path)
+    proc, calls = doq(running=False, args=["--solo"], **env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    run = [c for c in calls.splitlines() if c.startswith("run ")]
+    assert len(run) == 1 and "org.rasqberry.mode=solo" in run[0]
+    assert "-p 127.0.0.1:8080:80" in run[0]
+    opened = log.read_text()
+    assert "http://127.0.0.1:8080/guides/quick-start" in opened, opened
+    assert "Participants" not in proc.stdout
+
+
+@pytest.mark.parametrize("mode", ["workshop", "solo"])
+@needs_bash
+def test_learning_path_page_opens_on_a_running_server(doq, tmp_path, mode):
+    # a server already running (e.g. the Workshop & Qiskit Server for a
+    # class): the page opens on it, nothing is asked, stopped or restarted,
+    # and the participants' addresses are not printed
+    log, env = _desktop(tmp_path)
+    proc, calls = doq(running=True, args=["--solo"], mode=mode, **env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not re.search(r"^(stop|rm|run) ", calls, re.M), calls
+    assert "http://127.0.0.1:8080/guides/quick-start" in log.read_text()
+    assert "opening /guides/quick-start on it" in proc.stdout + proc.stderr
+    assert "Participants" not in proc.stdout and "scan this code" not in proc.stdout
+
+
+@needs_bash
+def test_the_page_reaches_doqumentation_through_the_engine():
+    # the engine runs doQumentation for qiskit-tutorials as rq_doqumentation.sh
+    # --solo, and keeps the page when it drops from root (the RasQberry menu)
+    # to the desktop user
+    assert _manifest("qiskit-tutorials")["entrypoint"] == {"launcher": "rq_doqumentation.sh", "args": ["--solo"]}
+    engine = open(os.path.join(_BIN, "rq_demo_run.sh"), encoding="utf-8").read()
+    keep = engine.split("drop_to_desktop_user() {", 1)[1].split("; do", 1)[0]
+    assert "RQ_DEMO_PAGE" in keep and "RQ_WINDOW_TITLE" in keep
