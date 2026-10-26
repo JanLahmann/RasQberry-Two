@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-26T13:40:48Z",
+  "generated": "2026-10-26T13:42:04Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,14 @@
       "image_download_size": 1861217272,
       "extract_size": 9563013120,
       "extract_sha256": "fea041569e9630cf5e1306387b29f6fb676c955076e88d3d8de918af07e9d4bb",
-      "image_sha256": "daead67bcbb6f946a2b884dd4719abdb6ca315b81c13ad10aa93f193fe851f1e",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-26-135307/rasqberry-development-2026-10-26-135307-ab.img.xz",
       "ab_extract_sha256": "bb1777f7d2e3d00a48d95ba3622b830d3d9509efb6e7d41d22030880271a2463",
       "ab_image_sha256": "387a0164492d24ddf0ae9ee7b76a393e5503a185d2d30d62df89cb0c0dcfcd02",
-      "ab_image_download_size": 1912419268,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1912419268,
       "highlights": [
-        "User test 2026-10-26: hotspot QR, LED browser view, naming, bookmarks, Update demos, window sizes (#358)",
-        "QuBins demo (beta): choose the image and the content (#356)"
+        "Bump version to development-2026-10-26-135307",
+        "User test 2026-10-26: hotspot QR, LED browser view, naming, bookmarks, Update demos, window sizes (#358)"
       ]
     }
   }
