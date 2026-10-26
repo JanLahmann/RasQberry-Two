@@ -182,7 +182,8 @@ echo
 
 # Try to open browser (its console output would be drawn over the
 # raspi-config menu, R-137)
-rq_show_url "$JUPYTER_URL" "$PORT"
+# a window of the usual size: a notebook needs no whole screen (user test 2026-10-26)
+RQ_BROWSER_WINDOW=normal rq_show_url "$JUPYTER_URL" "$PORT"
 
 # Enter, Ctrl+C or closing this window stops it (items 5, 33); without a
 # terminal it runs until the server ends. The cleanup trap stops the server.

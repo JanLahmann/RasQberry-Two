@@ -347,7 +347,7 @@ def _docker_stub(box, have_image=False):
 
 
 @pytest.mark.parametrize("demo,name", [("doqumentation", "Workshop & Qiskit Server"),
-                                       ("qiskit-tutorials", "Qiskit Tutorials on this Pi"),
+                                       ("qiskit-tutorials", "doQumentation (IBM Quantum Learning on this Pi)"),
                                        ("quantum-lab", "Qiskit Live (QuBins)"),
                                        ("quantum-mixer", "Quantum Mixer"),
                                        ("qoffee-maker", "Qoffee-Maker")])

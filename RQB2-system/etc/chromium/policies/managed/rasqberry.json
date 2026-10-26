@@ -1,0 +1,43 @@
+{
+  "HomepageLocation": "https://rasqberry.org/?from=pi&assistant=1",
+  "HomepageIsNewTabPage": false,
+  "NewTabPageLocation": "https://rasqberry.org/?from=pi&assistant=1",
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["https://rasqberry.org/?from=pi&assistant=1"],
+  "PasswordManagerEnabled": false,
+  "ShowHomeButton": true,
+  "PromotionalTabsEnabled": false,
+  "WelcomePagesEnabled": false,
+  "BookmarkBarEnabled": true,
+  "ManagedBookmarks": [
+    { "toplevel_name": "Quantum Links" },
+    { "name": "RasQberry help", "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting" },
+    { "name": "RasQberry", "url": "https://rasqberry.org/?from=pi" },
+    { "name": "Learning paths", "url": "https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/" },
+    { "name": "Demo list", "url": "https://rasqberry.org/03-quantum-computing-demos/01-demo-list/" },
+    { "name": "Fun with Quantum", "url": "https://fun-with-quantum.org" },
+    {
+      "name": "Fun with Quantum family",
+      "children": [
+        { "name": "RasQberry One", "url": "https://rasqberry.one" },
+        { "name": "Quantego", "url": "https://quantego.org" },
+        { "name": "Qutie", "url": "https://qutie.org" },
+        { "name": "doQumentation", "url": "https://doqumentation.org" },
+        { "name": "QuBins", "url": "https://qubins.org" },
+        { "name": "QAMPoser games", "url": "https://qamposer.org" }
+      ]
+    },
+    {
+      "name": "IBM Quantum",
+      "children": [
+        { "name": "IBM Quantum Platform", "url": "https://quantum.cloud.ibm.com" },
+        { "name": "IBM Quantum Learning", "url": "https://quantum.cloud.ibm.com/learning" },
+        { "name": "Qiskit documentation", "url": "https://quantum.cloud.ibm.com/docs" },
+        { "name": "IBM Quantum", "url": "https://www.ibm.com/quantum" },
+        { "name": "Qiskit", "url": "https://www.ibm.com/quantum/qiskit" },
+        { "name": "IBM Quantum Network", "url": "https://www.ibm.com/quantum/ibm-quantum-network" },
+        { "name": "IBM Quantum blog", "url": "https://www.ibm.com/quantum/blog" }
+      ]
+    }
+  ]
+}

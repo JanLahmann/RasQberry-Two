@@ -35,8 +35,9 @@ settings that avoid password and "execute file" dialogs.
   - `/etc/skel/.config/autostart/trust-rasqberry-desktop.desktop`, which runs
     `/usr/local/bin/trust-rasqberry-desktop-files.sh` at first login;
   - deletes the clone;
-  - Chromium: managed policy `/etc/chromium/policies/managed/rasqberry.json`
-    (homepage rasqberry.org, bookmarks, no password manager); `chromium.desktop`
+  - Chromium: Raspberry Pi OS's default bookmarks off (`/etc/chromium/bookmarks.html`
+    diverted, empty); the managed policy (homepage, Quantum Links, no password
+    manager) comes from `RQB2-system/etc/chromium/policies/managed/`; `chromium.desktop`
     stays as shipped (its flags are in `/etc/chromium.d/rasqberry`, see below);
   - labwc `rc.xml` (touch mouse emulation; Chromium at x=480 next to the icons;
     the on-screen LED view in the bottom right corner; "What's new" on the left) in

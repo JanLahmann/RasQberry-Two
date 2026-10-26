@@ -680,6 +680,14 @@ install_user_demo() {
 # Ensure demo is installed; on its first start, ask (one dialog with size,
 # time and free space, Jan's Q27) and install it.
 ensure_installed() {
+    # A demo whose launcher asks which image to run (QuBins:
+    # entrypoint.docker_image_choice) downloads after that choice, not the
+    # tested default here first. An install-only run (Manage demos) takes
+    # the tested default.
+    if [ "${INSTALL_ONLY:-0}" != "1" ] \
+            && [ "$(get_bool '.entrypoint.docker_image_choice')" = "true" ]; then
+        return 0
+    fi
     if check_installed; then
         sync_installed_flag
         refresh_demo_patch
@@ -1422,7 +1430,7 @@ drop_to_desktop_user() {
     local v uid rt
     for v in DISPLAY RQ_ERROR_FILE RQ_AUTO_INSTALL RQ_NO_MESSAGES RQ_DEBUG \
              RQ_CONFIRMED_DEMO RQ_SPACE_RESERVE_MB RQ_TEST_FREE_MB RQ_TEST_OFFLINE \
-             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE; do
+             RQ_DEMO_HOW RQ_DEMO_COUNTED RQ_UMAMI RQ_WINDOW_TITLE RQ_DEMO_PAGE; do
         [ -n "${!v:-}" ] && keep+=("$v=${!v}")
     done
     uid=$(id -u "$user_name" 2>/dev/null) || uid=""

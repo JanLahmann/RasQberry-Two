@@ -176,15 +176,22 @@ _NEWS = ('    <!-- "What\'s new" after an update: on the left, over the desktop 
          '    <windowRule title="What\'s new in *">\n'
          '      <action name="MoveToEdge" direction="left" snapWindows="no"/>\n'
          '    </windowRule>\n')
-_RC_ONCE = (_RC.replace('identifier="chromium">', 'identifier="chromium" type="normal" matchOnce="true">')
-            .replace("  </windowRules>", _NEWS + "  </windowRules>"))
+_RULE_NEW = ('<windowRule identifier="chromium" type="normal">\n'
+             '      <action name="If">\n'
+             '        <query maximized="none"/>\n'
+             '        <then><action name="MoveTo" x="480" y="45"/></then>\n'
+             '      </action>\n'
+             '    </windowRule>')
+_RC_ONCE = (_RC[:_RC.index('<windowRule identifier="chromium">')] + _RULE_NEW
+            + _RC[_RC.index("</windowRule>", _RC.index('identifier="chromium"')) + len("</windowRule>"):])
+_RC_ONCE = _RC_ONCE.replace("  </windowRules>", _NEWS + "  </windowRules>")
 
 
 def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     rc = tmp_path / "rc.xml"
     rc.write_text(_RC_ONCE)
     assert ds.set_chromium_rule(True, str(rc))
-    assert 'identifier="rasqberry-small-screen-chromium" type="normal" matchOnce="true">' in rc.read_text()
+    assert 'identifier="rasqberry-small-screen-chromium" type="normal">' in rc.read_text()
     # the "What's new" window stays centred on a small screen
     assert '<windowRule title="rasqberry-small-screen-What\'s new in *">' in rc.read_text()
     assert not ds.set_chromium_rule(True, str(rc))
@@ -193,16 +200,21 @@ def test_chromium_rule_off_on_small_screens_and_back(tmp_path):
     assert not ds.set_chromium_rule(True, str(tmp_path / "missing.xml"))
 
 
-def test_chromium_rule_places_only_the_first_window(tmp_path):
+def test_chromium_rule_places_windows_that_are_not_maximised(tmp_path):
     # An older rc.xml moved every new browser window, also a demo's window
-    # maximised before it was shown: 480 px off to the right (#4). The hidden
-    # window Chromium makes first is no "normal" one, so the homepage counts
-    # as the first window.
-    rc = tmp_path / "rc.xml"
-    rc.write_text(_RC)
-    assert ds.set_chromium_rule(False, str(rc))
-    assert rc.read_text() == _RC_ONCE
-    assert not ds.set_chromium_rule(False, str(rc))
+    # maximised before it was shown: 480 px off to the right (#4). Then only
+    # the first window (matchOnce), which left a demo's window of the usual
+    # size at x=0 under the icons (rig test 2026-10-26). Now every window that
+    # is not maximised when it appears; both older rules are replaced.
+    once = _RC_ONCE.replace(_RULE_NEW, '<windowRule identifier="chromium" type="normal" matchOnce="true">\n'
+                            '      <action name="MoveTo" x="480" y="45"/>\n    </windowRule>')
+    for old in (_RC.replace("  </windowRules>", _NEWS + "  </windowRules>"), once):
+        rc = tmp_path / "rc.xml"
+        rc.write_text(old)
+        assert ds.set_chromium_rule(False, str(rc))
+        assert rc.read_text() == _RC_ONCE
+        assert not ds.set_chromium_rule(False, str(rc))
+    assert "matchOnce" not in _RC_ONCE and '<query maximized="none"/>' in _RC_ONCE
 
 
 def test_whats_new_rule_is_added_to_an_older_rc_xml(tmp_path):
@@ -229,7 +241,7 @@ def test_whats_new_rule_matches_the_window_title():
 def test_built_rc_xml_has_the_rule_the_login_helper_switches(tmp_path):
     build = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
     text = build.split('cat > "${SKEL_LABWC_DIR}/rc.xml" << \'EOF\'\n', 1)[1].split("\nEOF\n", 1)[0]
-    assert '<windowRule identifier="chromium" type="normal" matchOnce="true">' in text
+    assert _RULE_NEW in text
     assert _NEWS in text
     rc = tmp_path / "rc.xml"
     rc.write_text(text)
@@ -270,14 +282,22 @@ def test_autostart_runs_the_session_helper():
     assert ds.OFFLINE_PAGE == "file:///usr/share/rasqberry/offline.html" and os.path.exists(page)
 
 
+_POLICY = os.path.join(_ROOT, "RQB2-system", "etc", "chromium", "policies", "managed", "rasqberry.json")
+
+
+def _policy():
+    """Chromium's managed policy, as installed by rq_install_system_files.sh."""
+    with open(_POLICY) as f:
+        return json.load(f)
+
+
 def test_the_pi_opens_the_site_as_a_pi():
     # fresh-card test 2026-10-08, F4: the Pi's start page offered to write the
     # SD card that is already in it; with ?from=pi the site greets the Pi
     assert ds.HOMEPAGE == "https://rasqberry.org/?from=pi&assistant=1"
     page = open(os.path.join(_ROOT, "RQB2-system", "usr", "share", "rasqberry", "offline.html")).read()
     assert page.count('"https://rasqberry.org/?from=pi&assistant=1"') == 2
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    policy = _policy()
     assert policy["HomepageLocation"] == policy["NewTabPageLocation"] == ds.HOMEPAGE
     assert policy["RestoreOnStartupURLs"] == [ds.HOMEPAGE]
 
@@ -285,12 +305,36 @@ def test_the_pi_opens_the_site_as_a_pi():
 def test_the_bookmarks_lead_to_rasqberry_help():
     # rig mission 2026-10-16: the bookmark bar's "Help" is Raspberry Pi OS's
     # (raspberrypi.com documentation); Quantum Links starts with RasQberry's
-    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
-    policy = json.loads(stage.split("rasqberry.json << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0])
+    policy = _policy()
     marks = policy["ManagedBookmarks"]
     assert marks[0] == {"toplevel_name": "Quantum Links"}
     assert marks[1] == {"name": "RasQberry help",
                         "url": "https://rasqberry.org/02-software/01-installation-overview/#2-troubleshooting"}
+
+
+def test_bookmarks_are_ours_not_raspberry_pi_os_ones():
+    # user test 2026-10-26: Getting Started, Help, Projects and Safety Info
+    # (rpi-chromium-mods' /etc/chromium/bookmarks.html) sat next to Quantum
+    # Links; ours and IBM's instead
+    def urls(items):
+        for item in items:
+            yield from urls(item.get("children", []))
+            if "url" in item:
+                yield item["url"]
+    found = set(urls(_policy()["ManagedBookmarks"]))
+    for url in ("https://rasqberry.org/03-quantum-computing-demos/02-learning-paths/",
+                "https://rasqberry.org/03-quantum-computing-demos/01-demo-list/",
+                "https://fun-with-quantum.org", "https://quantum.cloud.ibm.com",
+                "https://quantum.cloud.ibm.com/learning", "https://quantum.cloud.ibm.com/docs",
+                "https://www.ibm.com/quantum", "https://www.ibm.com/quantum/qiskit",
+                "https://www.ibm.com/quantum/ibm-quantum-network", "https://www.ibm.com/quantum/blog"):
+        assert url in found, url
+    stage = open(os.path.join(_ROOT, "stage-RQB2", "06-desktop-integration", "00-run-chroot.sh")).read()
+    assert "--divert /etc/chromium/bookmarks.html.rpi --add /etc/chromium/bookmarks.html" in stage
+    empty = stage.split("cat > /etc/chromium/bookmarks.html << 'EOF'\n", 1)[1].split("\nEOF\n", 1)[0]
+    assert "<A " not in empty and "NETSCAPE-Bookmark-file-1" in empty
+    # one policy, from RQB2-system (a branch update refreshes it)
+    assert "policies/managed/rasqberry.json << " not in stage
 
 
 # --- launchers -------------------------------------------------------------------

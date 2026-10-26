@@ -437,7 +437,8 @@ screen) and `open_browser` use it.
 
 A demo served on this Pi (`http://127.0.0.1:PORT`, `http://localhost:PORT`)
 opens in a Chromium window of its own, maximised (full screen with
-`--start-fullscreen`), and `rq_browser_tab.py` closes its tab once the demo's
+`--start-fullscreen`; with `RQ_BROWSER_WINDOW=normal` a window of the usual
+size, except on a small screen), and `rq_browser_tab.py` closes its tab once the demo's
 server has stopped. Call `rq_close_demo_tabs` in the stop path before the
 server goes: the tab then closes at once, without "Dead kernel" first.
 Open it before the stop line (`rq_wait_for_stop`, `rq_run_demo`): the line

@@ -1,0 +1,642 @@
+{
+ "_doc": "ghcr.io answers for ghcr.io/qubins/images (shaped like the real ones, 2026-10): tags/list, manifests by tag or digest (digest = Docker-Content-Digest), config blobs. Read by rq_qubins.py with RQ_QUBINS_REGISTRY_FILE (tests).",
+ "tags": [
+  "2.6-xl-20261020",
+  "2.6-small-20261020",
+  "2.5-xl-20261008",
+  "2.5-xl-20260908",
+  "2.5-small-20261008",
+  "2.4-xl-20261008",
+  "2.4-small-20261008",
+  "2.3-xl-20261008",
+  "2.3-small-20261008",
+  "2.2-xl-20261008",
+  "2.6-xl",
+  "2.6-small",
+  "2.6-xxl",
+  "2.6-xxl-20261020",
+  "2.6-xl-arm64",
+  "2.6-xl-amd64",
+  "latest",
+  "latest-xl",
+  "latest-small",
+  "2.1-xl-rise",
+  "2.1-xl-rise-20261008",
+  "1.4-xl",
+  "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sig"
+ ],
+ "manifests": {
+  "2.6-xl-20261020": {
+   "digest": "sha256:61b0e4a5cbdd6cac82fa6b0172aa4d76b63a7d621e5e3bbf1025c64bd74c5b78",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:f6ee77082a90d4c4ac33b33451d73a9ecc8e4c8c03cf9d8ed96d15f1a2b73e41",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:dc718963db859fff01bcb71bab98afabbc85ffdbc5d43579f39d37b81d509e68",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:9210bd9a5c18519a8f694b5b754c4145ba635aaea93d3112e15c3b6897918233",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:9210bd9a5c18519a8f694b5b754c4145ba635aaea93d3112e15c3b6897918233": {
+   "digest": "sha256:9210bd9a5c18519a8f694b5b754c4145ba635aaea93d3112e15c3b6897918233",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:4500acdf08b8b77413317118c119733fd6678242f303dcd8327131a39c5396f2"
+    },
+    "layers": [
+     {
+      "size": 600000000
+     },
+     {
+      "size": 407000000
+     }
+    ]
+   }
+  },
+  "2.6-small-20261020": {
+   "digest": "sha256:459eb73a294c3e141ffc2aac41a15fef5642f46c62c5ee175e6a2a2e8616977a",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:b4709ca94afa3ce22526c2a7d3f2765bb933bd84c61ae419cadb910f2d8faebd",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:95023d1eeb179f9a4d54ab4bc84eee55972e2df1177590d8983818800989ebce",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:049f578eedee412d1fe53b2d86c3a6b5f9af1aff353e33d293cf902c45d925df",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:049f578eedee412d1fe53b2d86c3a6b5f9af1aff353e33d293cf902c45d925df": {
+   "digest": "sha256:049f578eedee412d1fe53b2d86c3a6b5f9af1aff353e33d293cf902c45d925df",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:04864378c10ff44d5a8adefa98cddc7589eb4426afb186927cb23fce333f2b02"
+    },
+    "layers": [
+     {
+      "size": 300000000
+     },
+     {
+      "size": 144000000
+     }
+    ]
+   }
+  },
+  "2.5-xl-20261008": {
+   "digest": "sha256:dd8f4f727fe450c9a13c8eb1404e5c471274f28f91be8bdf1fac14436ff33a48",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:22dc8fe0c4f97c217366699c5c46039302c7108fc2693486632f8ecc329357e0",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:11e319d96f7b9f30e465c0e7013a3fefe3c0f395efdc49c1987caf2c018c49a1",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:c2369f13a815b1a35ae5e772dcd29b401eb938608227554a46d304bbe63eccb2",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:c2369f13a815b1a35ae5e772dcd29b401eb938608227554a46d304bbe63eccb2": {
+   "digest": "sha256:c2369f13a815b1a35ae5e772dcd29b401eb938608227554a46d304bbe63eccb2",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:52bcfe4818251af71bf5e54737a739629ab7ccceb97d336a1e11ac94054b239e"
+    },
+    "layers": [
+     {
+      "size": 500000000
+     },
+     {
+      "size": 387000000
+     }
+    ]
+   }
+  },
+  "2.5-xl-20260908": {
+   "digest": "sha256:303d7e3ac47727f01ca56aeeb21a9e6b331256f90a978d1414a31d9ae6e036cb",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:8265381464c22df89df6061666c906aad7a0561203c17f3c214f8e72556da205",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:42d1158f30f58a7c9cef3393a92459b84937e6efc33f46f18e29fc9cf38a9744",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:58662c12c1f2661c181c681722ab55fa7b5f688c958ccd4af25029cd1ea30112",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:58662c12c1f2661c181c681722ab55fa7b5f688c958ccd4af25029cd1ea30112": {
+   "digest": "sha256:58662c12c1f2661c181c681722ab55fa7b5f688c958ccd4af25029cd1ea30112",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:244330194aa8a2cdfac238328d6bd13bf3d494eed1910053f4a247e6028a4d3c"
+    },
+    "layers": [
+     {
+      "size": 500000000
+     },
+     {
+      "size": 380000000
+     }
+    ]
+   }
+  },
+  "2.5-small-20261008": {
+   "digest": "sha256:14940d40ecfd812d84af27d7d1246abd2cbf0a722b249634a5c3005cd86be3fa",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:4c40f06ced66dee974e2862d97db6ad012518979a4d12fae07e989b06323d0e7",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:39bff4eb13b82b21725af90e2de02dc543198a90aa5bfb13cd0d970f63b46987",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:f44adeba2e7131cf0f6bcd2c888abae77341e9488c91ef835e8050fa1b7d5428",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:f44adeba2e7131cf0f6bcd2c888abae77341e9488c91ef835e8050fa1b7d5428": {
+   "digest": "sha256:f44adeba2e7131cf0f6bcd2c888abae77341e9488c91ef835e8050fa1b7d5428",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:0d86c47f7a17131ee274d4e18e8291aa9efae991a29fbaa95cbcdb58c36ea33c"
+    },
+    "layers": [
+     {
+      "size": 300000000
+     },
+     {
+      "size": 123000000
+     }
+    ]
+   }
+  },
+  "2.4-xl-20261008": {
+   "digest": "sha256:013967ea4358846063840cb73225d4c6251c92f0a04f4c3851bc44499646288b",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:6553c14a177efd802ac2bc75ec7567919e92b2fe99b131cbd280332f36a338e7",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:6fa2dc60aff6570c35bad2850971a24bec5f3241ba6a5c169187270e19abc083",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:c3b3450cb2388656ab8e270fee3f3660eacfb120360a966d812b6825e1eefd54",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:c3b3450cb2388656ab8e270fee3f3660eacfb120360a966d812b6825e1eefd54": {
+   "digest": "sha256:c3b3450cb2388656ab8e270fee3f3660eacfb120360a966d812b6825e1eefd54",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:4ff535f5db6af6ba384f5c7d602c2871839181f249c966b4fd2017a7b9d60bbf"
+    },
+    "layers": [
+     {
+      "size": 600000000
+     },
+     {
+      "size": 413000000
+     }
+    ]
+   }
+  },
+  "2.4-small-20261008": {
+   "digest": "sha256:9190683037108e28a9abe6a7cfe7aa762537cf1a1fda7567c4f7a8f1c42367c0",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:40d047aa58ffe759befd9cbedf4f3222a4872d1d2a7e281e1ec6f24086d024e0",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:ba9ee7c25fb8c2630930db0758160d569730181e4f433b42640f93e5bf4158bc",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:ac30a9c153c4bf1f3105c913bf507dd263ea8d6b4bc014042ab0be208e472e42",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:ac30a9c153c4bf1f3105c913bf507dd263ea8d6b4bc014042ab0be208e472e42": {
+   "digest": "sha256:ac30a9c153c4bf1f3105c913bf507dd263ea8d6b4bc014042ab0be208e472e42",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:31d02aa2bcb7e120e3b966edaf9969800fcffa64548d44e6702b61c99a9072c0"
+    },
+    "layers": [
+     {
+      "size": 300000000
+     },
+     {
+      "size": 122000000
+     }
+    ]
+   }
+  },
+  "2.3-xl-20261008": {
+   "digest": "sha256:09b3b9d95035d06cac34d801c875efe0890c7e7c5b21e03f93f2eed68c68d12c",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:bd922378d204d83097d7bf68350fd4a9222b808245e51ccf9247382f5dd1342f",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:ec9088212b98b97cd298d5588dd303f8fb6111b934c167236a13e70470e4718b",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:7f7c61b56bbffd58421a0f7058546a8a507c22fce66073817f8f629bc7c266ca",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:7f7c61b56bbffd58421a0f7058546a8a507c22fce66073817f8f629bc7c266ca": {
+   "digest": "sha256:7f7c61b56bbffd58421a0f7058546a8a507c22fce66073817f8f629bc7c266ca",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:da1a45a2e7b0cbb06fecfa871397fbc8aea4e6a740aac66d16677a329e243900"
+    },
+    "layers": [
+     {
+      "size": 600000000
+     },
+     {
+      "size": 410000000
+     }
+    ]
+   }
+  },
+  "2.3-small-20261008": {
+   "digest": "sha256:719dadb9feb36a0ab43c04aeab3082f8393ea66b8f49927b57c30b8f26fbf2bd",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:7061db1629b4375b8ab0660ff20f41707260028bffa021c4035d20f9050f59c7",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:3d0eebfa286cce4f08e4dfc7ee825573e01fd7a24ed2648e353a5390b9300178",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:b2bea39e79aee1edb823b44816560c6c673790b249d857f7183656d22337f1b1",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:b2bea39e79aee1edb823b44816560c6c673790b249d857f7183656d22337f1b1": {
+   "digest": "sha256:b2bea39e79aee1edb823b44816560c6c673790b249d857f7183656d22337f1b1",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:7be3963c8fc99b53243003432a086f0f2cbe159984ddba7e48ba564a573de1c7"
+    },
+    "layers": [
+     {
+      "size": 300000000
+     },
+     {
+      "size": 121000000
+     }
+    ]
+   }
+  },
+  "2.2-xl-20261008": {
+   "digest": "sha256:edfa6a2d6106e7d7f7ff82e7a5406b41bcdce85390fff3b23b1cedaeff62b58e",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+     {
+      "digest": "sha256:7f7cffb081748b33f59d7c4315d2a65251efc693e5d6d227a03a1bdd097e19eb",
+      "platform": {
+       "architecture": "amd64",
+       "os": "linux"
+      }
+     },
+     {
+      "digest": "sha256:e39e4c3252809bc38c242bb827a51d9ea3828cbe0384a081225989cc119d031e",
+      "platform": {
+       "architecture": "unknown",
+       "os": "unknown"
+      }
+     },
+     {
+      "digest": "sha256:05b611eab41a1b55f0c3feef74c230af58530d5a2e499916969d310c1a637e91",
+      "platform": {
+       "architecture": "arm64",
+       "os": "linux"
+      }
+     }
+    ]
+   }
+  },
+  "sha256:05b611eab41a1b55f0c3feef74c230af58530d5a2e499916969d310c1a637e91": {
+   "digest": "sha256:05b611eab41a1b55f0c3feef74c230af58530d5a2e499916969d310c1a637e91",
+   "body": {
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "config": {
+     "digest": "sha256:36d78ba8e23e4cb298990adb950d9a2e06ceb74a3f489278a9a161fa4767632f"
+    },
+    "layers": [
+     {
+      "size": 600000000
+     },
+     {
+      "size": 400000000
+     }
+    ]
+   }
+  }
+ },
+ "blobs": {
+  "sha256:4500acdf08b8b77413317118c119733fd6678242f303dcd8327131a39c5396f2": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-20T09:09:23Z",
+     "org.opencontainers.image.title": "QuBins 2.6-xl",
+     "org.opencontainers.image.version": "2.6.0",
+     "org.qubins.qiskit.patch": "2.6.0"
+    }
+   }
+  },
+  "sha256:04864378c10ff44d5a8adefa98cddc7589eb4426afb186927cb23fce333f2b02": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-20T09:08:00Z",
+     "org.opencontainers.image.title": "QuBins 2.6-small",
+     "org.opencontainers.image.version": "2.6.0",
+     "org.qubins.qiskit.patch": "2.6.0"
+    }
+   }
+  },
+  "sha256:52bcfe4818251af71bf5e54737a739629ab7ccceb97d336a1e11ac94054b239e": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:04:51Z",
+     "org.opencontainers.image.title": "QuBins 2.5-xl",
+     "org.opencontainers.image.version": "2.5.2",
+     "org.qubins.qiskit.patch": "2.5.2"
+    }
+   }
+  },
+  "sha256:244330194aa8a2cdfac238328d6bd13bf3d494eed1910053f4a247e6028a4d3c": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-09-08T11:04:51Z",
+     "org.opencontainers.image.title": "QuBins 2.5-xl",
+     "org.opencontainers.image.version": "2.5.1",
+     "org.qubins.qiskit.patch": "2.5.1"
+    }
+   }
+  },
+  "sha256:0d86c47f7a17131ee274d4e18e8291aa9efae991a29fbaa95cbcdb58c36ea33c": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:05:05Z",
+     "org.opencontainers.image.title": "QuBins 2.5-small",
+     "org.opencontainers.image.version": "2.5.2",
+     "org.qubins.qiskit.patch": "2.5.2"
+    }
+   }
+  },
+  "sha256:4ff535f5db6af6ba384f5c7d602c2871839181f249c966b4fd2017a7b9d60bbf": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:04:00Z",
+     "org.opencontainers.image.title": "QuBins 2.4-xl",
+     "org.opencontainers.image.version": "2.4.2",
+     "org.qubins.qiskit.patch": "2.4.2"
+    }
+   }
+  },
+  "sha256:31d02aa2bcb7e120e3b966edaf9969800fcffa64548d44e6702b61c99a9072c0": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:03:00Z",
+     "org.opencontainers.image.title": "QuBins 2.4-small",
+     "org.opencontainers.image.version": "2.4.2",
+     "org.qubins.qiskit.patch": "2.4.2"
+    }
+   }
+  },
+  "sha256:da1a45a2e7b0cbb06fecfa871397fbc8aea4e6a740aac66d16677a329e243900": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:02:00Z",
+     "org.opencontainers.image.title": "QuBins 2.3-xl",
+     "org.opencontainers.image.version": "2.3.1",
+     "org.qubins.qiskit.patch": "2.3.1"
+    }
+   }
+  },
+  "sha256:7be3963c8fc99b53243003432a086f0f2cbe159984ddba7e48ba564a573de1c7": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:01:00Z",
+     "org.opencontainers.image.title": "QuBins 2.3-small",
+     "org.opencontainers.image.version": "2.3.1",
+     "org.qubins.qiskit.patch": "2.3.1"
+    }
+   }
+  },
+  "sha256:36d78ba8e23e4cb298990adb950d9a2e06ceb74a3f489278a9a161fa4767632f": {
+   "architecture": "arm64",
+   "os": "linux",
+   "created": "1970-01-01T00:00:00Z",
+   "config": {
+    "Labels": {
+     "org.opencontainers.image.created": "2026-10-08T11:00:00Z",
+     "org.opencontainers.image.title": "QuBins 2.2-xl",
+     "org.opencontainers.image.version": "2.2.3",
+     "org.qubins.qiskit.patch": "2.2.3"
+    }
+   }
+  }
+ }
+}

@@ -300,7 +300,63 @@ def only_window(dev, window):
     return True
 
 
-def set_window_state(target_id, state):
+# A demo window of the usual size (RQ_BROWSER_WINDOW=normal): at most this
+# big, to the right of the desktop icons (labwc's chromium rule puts it at
+# x=480, y=45), and fully on the screen (rig test 2026-10-26: Chromium gave it
+# the whole screen's width, from x=0, or from x=480 past the right edge)
+NORMAL_SIZE = (1280, 860)
+NORMAL_PLACE = (480, 45)
+EDGE = 20
+
+
+def normal_bounds(screen):
+    """
+    Bounds for a demo window of the usual size on SCREEN.
+
+    Args:
+        screen (tuple): (width, height) of the screen, or None.
+
+    Returns:
+        dict: left, top, width, height for Browser.setWindowBounds, or None
+        when the screen is unknown or too small (then it stays as it is).
+    """
+    if not screen:
+        return None
+    sw, sh = screen
+    left, top = NORMAL_PLACE
+    width = min(NORMAL_SIZE[0], sw - left - EDGE)
+    height = min(NORMAL_SIZE[1], sh - top - EDGE)
+    if width < 640 or height < 400:
+        return None
+    return {"left": left, "top": top, "width": width, "height": height}
+
+
+def screen_size(tab):
+    """
+    The screen's size as the demo's page sees it.
+
+    Args:
+        tab (dict): The tab (/json/list entry with webSocketDebuggerUrl).
+
+    Returns:
+        tuple: (width, height), or None.
+    """
+    page = None
+    try:
+        page = DevTools(tab["webSocketDebuggerUrl"])
+        res = page.call("Runtime.evaluate", {"expression": "[screen.width, screen.height]",
+                                             "returnByValue": True})
+        w, h = res["result"]["value"]
+        return int(w), int(h)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        logger.debug("screen size: %s", exc)
+        return None
+    finally:
+        if page is not None:
+            page.close()
+
+
+def set_window_state(target_id, state, bounds=None):
     """
     Maximise a tab's window, or make it full screen, and check it once it is on screen.
 
@@ -308,16 +364,19 @@ def set_window_state(target_id, state):
     - A busy Pi 4 lists the tab before its window can take a state, and the
       request was lost: it is tried again for STATE_WAIT seconds, and set
       again if the window does not have it SETTLE seconds later.
-    - labwc's rule puts the browser's first window next to the desktop icons
-      (matchOnce, rc.xml). It moved a window maximised before it was first
-      shown as well: maximised, but 480 px to the right with its buttons
+    - labwc's rule puts browser windows next to the desktop icons (rc.xml;
+      now only one not maximised when it appears). It moved a window
+      maximised before it was first shown as well: maximised, but 480 px to the right with its buttons
       off-screen. When the demo's window is the browser's only one (Chromium
       was not running, e.g. the homepage was closed), it goes through the
       normal state once it is on screen, so labwc lays it out again.
 
     Args:
         target_id (str): The tab.
-        state (str): "maximized" or "fullscreen".
+        state (str): "maximized", "fullscreen" or "normal".
+        bounds (dict): For "normal": its size and place (normal_bounds).
+            Under Wayland the browser cannot place a window; labwc's rule
+            does, and the size still applies.
 
     Returns:
         bool: True if the browser did it.
@@ -331,6 +390,8 @@ def set_window_state(target_id, state):
                 window = dev.call("Browser.getWindowForTarget", {"targetId": target_id})["windowId"]
                 alone = only_window(dev, window)
                 _request_state(dev, window, state)
+                if bounds:
+                    dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": bounds})
                 break
             except (OSError, ValueError, KeyError, RuntimeError) as exc:
                 logger.debug("window state: %s", exc)
@@ -341,10 +402,12 @@ def set_window_state(target_id, state):
                     return False
                 time.sleep(0.5)
         time.sleep(SETTLE)
-        bounds = dev.call("Browser.getWindowBounds", {"windowId": window}).get("bounds", {})
-        if alone or bounds.get("windowState") != state:
+        now = dev.call("Browser.getWindowBounds", {"windowId": window}).get("bounds", {})
+        if alone or now.get("windowState") != state:
             dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": "normal"}})
             dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": {"windowState": state}})
+        if bounds and (now.get("width"), now.get("height")) != (bounds["width"], bounds["height"]):
+            dev.call("Browser.setWindowBounds", {"windowId": window, "bounds": bounds})
         return True
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         logger.debug("window state: %s", exc)
@@ -443,7 +506,9 @@ def watch(url, before=(), state=""):
     Args:
         url (str): The address the demo opened.
         before (iterable): Ids of the tabs open before.
-        state (str): Window state to set ("maximized", "fullscreen", "").
+        state (str): Window state to set ("maximized", "fullscreen", "normal"
+            - a window of its usual size, also when the browser's last one
+            was maximised -, or "" to leave it).
 
     Returns:
         int: 0 (also when there is nothing to do).
@@ -452,7 +517,9 @@ def watch(url, before=(), state=""):
     tab = find_new_tab(org, set(before))
     if tab is None:
         return 0
-    if state:
+    if state == "normal":
+        set_window_state(tab["id"], state, normal_bounds(screen_size(tab)))
+    elif state:
         set_window_state(tab["id"], state)
     missed = no_browser = 0
     # A server that has not answered yet is still starting (a busy Pi 4 can
@@ -496,7 +563,7 @@ def main(argv=None):
     sub.add_parser("ids")
     w = sub.add_parser("watch")
     w.add_argument("--before", default="")
-    w.add_argument("--window-state", default="", choices=["", "maximized", "fullscreen"])
+    w.add_argument("--window-state", default="", choices=["", "maximized", "fullscreen", "normal"])
     w.add_argument("url")
     for name in ("close", "save"):
         sub.add_parser(name).add_argument("url")

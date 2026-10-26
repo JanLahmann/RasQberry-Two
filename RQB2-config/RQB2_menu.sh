@@ -486,10 +486,24 @@ _rq_log_tail() {
     _lt=$(sed 's/\r//g; s/\x1b\[[0-9;]*[a-zA-Z]//g' "$1" 2>/dev/null \
         | grep -v '^[[:space:]]*$' \
         | grep -vE '^[[:space:]]*(File "|\^+[[:space:]]*$|~+[[:space:]]*$)' \
-        | grep -vE '^Script (started|done) on ' \
+        | grep -vE '^Script (started|done) on |^=== .* ===$' \
         | tail -n 5)
     [ -z "$_lt" ] && _lt="It stopped with status $2 and printed nothing."
     printf '%s' "$_lt"
+}
+
+# Keep the logs of the last starts: each start wrote over the one before, so
+# a demo that failed once and then worked left no trace (user test
+# 2026-10-26: IBM LED Demo dark on its first start). LOG.1 is the previous
+# start, up to LOG.5.
+_rq_demo_log_rotate() {
+    _lr_i=5
+    while [ "$_lr_i" -gt 1 ]; do
+        [ -e "$1.$((_lr_i - 1))" ] && mv -f "$1.$((_lr_i - 1))" "$1.$_lr_i" 2>/dev/null
+        _lr_i=$((_lr_i - 1))
+    done
+    [ -e "$1" ] && mv -f "$1" "$1.1" 2>/dev/null
+    return 0
 }
 
 # Wait for Enter before the menu redraws over what a demo printed.
@@ -543,6 +557,7 @@ run_demo() {
   # Both modes keep a copy of the output in DEMO_LOG so that if the demo dies we
   # can tell the user WHY.
   DEMO_LOG="${RQ_DEMO_LOG:-/tmp/rqb-demo.log}"
+  _rq_demo_log_rotate "$DEMO_LOG"
 
   # A closed window (HUP) stops the demo and clears the LEDs too
   trap '_rq_demo_hangup' HUP
@@ -582,7 +597,11 @@ run_demo() {
   # otherwise a background demo's output (and LED library messages) prints
   # over the "Demo is running" whiptail dialog and corrupts the TUI. It runs in
   # its own session so we can kill the full process group.
-  ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >"$DEMO_LOG" 2>&1 ) &
+  # which demo, when, and the LED targets it started with
+  _rd_led=""
+  [ -n "${_RQ_LED_RUN:-}" ] && _rd_led=" (LED panel ${LED_PHYSICAL:-true}, on-screen ${LED_VIRTUAL:-false}, browser ${LED_WEB:-false}, ${LED_RENDER_MODE:-direct})"
+  printf '=== %s, %s%s ===\n' "$DEMO_TITLE" "$(date '+%F %T')" "$_rd_led" > "$DEMO_LOG" 2>/dev/null
+  ( trap '' INT; cd "$DEMO_DIR" && exec setsid sh -c "$CMD" < /dev/null >>"$DEMO_LOG" 2>&1 ) &
   DEMO_PID=$!
   LAST_DEMO_PGID="$DEMO_PID"
 
@@ -2847,7 +2866,7 @@ do_hotspot_menu() {
         FUN=$(show_menu ${_hs_last:+--default-item "$_hs_last"} "RasQberry: Wi-Fi Hotspot" \
             "The Pi's own Wi-Fi, for booths and classrooms: phones and laptops join it and reach the demos at http://10.42.0.1." \
             STATE "Hotspot: $(hotspot_state)" \
-            SHOW  "Show name, password and QR code to join" \
+            SHOW  "Show name, password and QR codes" \
             CARD  "Join card on the screen (to show or print)" \
             NAME  "Change name and password" \
             BOOT  "Start at boot: ${HOTSPOT_AT_BOOT:-no}" \
@@ -2859,7 +2878,7 @@ do_hotspot_menu() {
             STATE) do_hotspot_toggle ;;
             SHOW)  clear; "$BIN_DIR/rq_hotspot.sh" qr; _rq_hs_pause ;;
             CARD)  "$BIN_DIR/rq_hotspot.sh" card >/dev/null 2>&1 \
-                       || whiptail --title "Wi-Fi hotspot" --msgbox "The join card could not be opened. \"Show name, password and QR code\" shows the same in this window." 9 70 ;;
+                       || whiptail --title "Wi-Fi hotspot" --msgbox "The join card could not be opened. \"Show name, password and QR codes\" shows the same in this window." 9 70 ;;
             NAME)  do_hotspot_name ;;
             BOOT)  if [ "${HOTSPOT_AT_BOOT:-no}" = yes ]; then _rq_hs_set HOTSPOT_AT_BOOT no; else _rq_hs_set HOTSPOT_AT_BOOT yes; fi ;;
             SHARE) if [ "${HOTSPOT_SHARE_INTERNET:-yes}" = yes ]; then _rq_hs_set HOTSPOT_SHARE_INTERNET no; else _rq_hs_set HOTSPOT_SHARE_INTERNET yes; fi && _rq_hs_restart ;;

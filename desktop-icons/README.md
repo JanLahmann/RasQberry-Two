@@ -22,7 +22,11 @@ This directory contains icons used for desktop bookmarks and shortcuts.
 
 ### quantum-paradoxes.svg, workshop-server.svg
 - **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
-- **Usage:** Quantum Paradoxes (a cat in a box: it shared Grokking's atom) and the Workshop & Qiskit Server (one server, three laptops: it shared the circuit icon of Qiskit Tutorials on this Pi)
+- **Usage:** Quantum Paradoxes (a cat in a box: it shared Grokking's atom) and the Workshop & Qiskit Server (one server, three laptops: it shared the circuit icon of doQumentation (IBM Quantum Learning on this Pi))
+
+### qubins.svg
+- **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos
+- **Usage:** QuBins (beta): four bins, one of them chosen
 
 ### entangible.svg
 - **Source:** made for RasQberry Two (2026-10), same licence as the repository; no third-party logos

@@ -263,8 +263,8 @@ def test_update_demos_lists_the_pair_once(tmp_path):
                           text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     items = log.read_text().splitlines()
-    assert "ibm-courses:ref" in items and "ibm-tutorials:ref" not in items
-    assert "IBM Quantum Courses and IBM Quantum Tutorials (notebooks): release version" in items
+    assert sum("IBM Quantum Tutorials" in i or "and Tutorials" in i for i in items) == 1
+    assert "IBM Quantum Courses and Tutorials (notebooks): as released" in items
 
 
 def test_the_tested_update_notice_names_both():

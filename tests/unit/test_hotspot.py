@@ -182,6 +182,37 @@ def test_join_card_escapes_and_has_both_codes(tmp_path):
     assert "http://10.42.0.1" in card and "@page { size: A6" in card
 
 
+def _fake_qrencode(tmp_path):
+    """A qrencode stand-in: a 6-line code for the Wi-Fi, 3 lines for the URL."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "qrencode"
+    fake.write_text('#!/bin/bash\nfor a; do last="$a"; done\n'
+                    'case "$last" in WIFI:*) n=6 ;; *) n=3 ;; esac\n'
+                    'case "$*" in *ASCII*) printf "%040d\\n" 0; exit ;; esac\n'
+                    'for i in $(seq $n); do echo "${last:0:4}-$i"; done\n')
+    fake.chmod(0o755)
+    return {"PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+
+def test_terminal_shows_both_numbered_steps(tmp_path):
+    # User test 2026-10-26: with internet shared, phones get no captive
+    # page, so the terminal shows the demos page's code too
+    r = _bash("show_join Booth pw-12345678", _fake_qrencode(tmp_path))
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.splitlines()
+    assert lines[2].startswith("1. Join the Wi-Fi") and "2. Open the demos page:" in lines[2]
+    assert lines[3].strip() == "http://10.42.0.1"
+    # side by side: Wi-Fi code left, page code right
+    assert lines[4] == "WIFI-1   http-1" and lines[9] == "WIFI-6   "
+
+
+def test_terminal_steps_without_qrencode():
+    r = _bash("command() { [ \"$2\" != qrencode ] && builtin command \"$@\"; }; show_join Booth pw-12345678")
+    assert "1. Join the Wi-Fi" in r.stdout
+    assert "2. Open the demos page: http://10.42.0.1" in r.stdout
+
+
 # Rig mission 2026-10-16: the page always said "This Wi-Fi has no internet",
 # also with sharing on and a cable in the Pi
 _ROUTES_HEAD = "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n"
