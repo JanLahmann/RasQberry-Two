@@ -388,6 +388,34 @@ except Exception as e:
 
 # Note: Pi Imager has built-in "Use custom" option, no need to add our own
 
+# The devices for Imager's first step. Imager 2 takes the device list from the
+# repository it loaded, not from its own: without one, a RasQberry link opened
+# on an empty "Select your Raspberry Pi device" page with NEXT greyed out.
+# Raspberry Pi's own entries for the Pi 5 and Pi 4 (names, icons, the tags our
+# images carry), with a copy here for when their list cannot be fetched.
+FALLBACK_DEVICES = [
+    {"name": "Raspberry Pi 5", "tags": ["pi5-64bit", "pi5-32bit"],
+     "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_5.png",
+     "description": "Raspberry Pi 5, 500 / 500+, and Compute Module 5",
+     "matching_type": "exclusive", "capabilities": []},
+    {"name": "Raspberry Pi 4", "tags": ["pi4-64bit", "pi4-32bit"], "default": False,
+     "icon": "https://downloads.raspberrypi.com/imager/icons/RPi_4.png",
+     "description": "Raspberry Pi 4 Model B, 400, and Compute Module 4 / 4S",
+     "matching_type": "inclusive", "capabilities": []},
+]
+devices = []
+try:
+    with open('/tmp/rpi-official.json', 'r') as f:
+        official_devices = json.load(f).get('imager', {}).get('devices', [])
+    wanted = {d["name"] for d in FALLBACK_DEVICES}
+    devices = [d for d in official_devices if d.get("name") in wanted]
+except Exception as e:
+    print(f"\n⚠ Could not read Raspberry Pi's device list: {e}")
+if len(devices) != len(FALLBACK_DEVICES):
+    devices = FALLBACK_DEVICES
+consolidated["imager"]["devices"] = devices
+print(f"\n✓ Imager devices: {', '.join(d['name'] for d in devices)}")
+
 # Write consolidated JSON to public folder (where website serves from)
 with open('public/RQB-images.json', 'w') as f:
     json.dump(consolidated, f, indent=2)
