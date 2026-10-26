@@ -93,6 +93,7 @@ Quantum demos, setup and settings for this RasQberry Two
       - Workshop & Qiskit Server (beta) [internet, 32 GB]
       - doQumentation (IBM Quantum Learning on this Pi) (beta) [32 GB]
       - Entangible (beta)
+      - QuBins (beta) [internet, 32 GB]
       - racetraQ (beta) *(catalogue demo: shown once added)*
   - Stop a running LED demo
   - **Manage demos: download all, add, update, remove** → menu "RasQberry: Manage Demos": Download, add, update or remove demos

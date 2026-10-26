@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.1
+Name=QuBins (beta)
+Comment=(beta) JupyterLab with the Qiskit version and the notebooks you choose (Docker, downloaded on first start)
+Icon=/usr/share/icons/rasqberry/qubins.svg
+Type=Application
+Categories=RasQberry;
+Exec=/usr/bin/rq_hold_on_error.sh /usr/bin/rq_demo_run.sh qubins
+Terminal=true
+StartupNotify=true
+Keywords=quantum;qiskit;jupyter;jupyterlab;qubins;tutorial;course;docker;
+X-GNOME-TextColor=#000000
+TryExec=/usr/bin/rq_demo_run.sh
+NoDisplay=false

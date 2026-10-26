@@ -513,6 +513,18 @@
       "demo": "grok-bloch-web"
     },
     {
+      "id": "demo-qubins",
+      "group": "learn",
+      "title": "QuBins",
+      "goal": "Choose a Qiskit version and the notebooks, start QuBins and run a notebook.",
+      "needs": [
+        "internet",
+        "big-card"
+      ],
+      "demo": "qubins",
+      "maturity": "beta"
+    },
+    {
       "id": "demo-composer",
       "group": "other",
       "title": "IBM Quantum Composer",

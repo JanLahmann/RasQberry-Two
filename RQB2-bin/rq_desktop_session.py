@@ -83,7 +83,7 @@ ICON_ORDER = [
     "led-ibm-demo", "quantum-lights-out", "rasq-led", "quantum-raspberry-tie",
     "led-painter", "qoffee-maker", "quantum-mixer", "entangible", "quantum-paradoxes",
     "qiskit-tutorials", "doqumentation", "fun-with-quantum", "quantum-coin-game", "ibm-quantum-tutorials",
-    "ibm-quantum-courses", "quantum-lab", "demo-loop", "clear-leds",
+    "ibm-quantum-courses", "quantum-lab", "qubins", "demo-loop", "clear-leds",
 ]
 MORE_DIR = "More"
 MARGIN = 10                # first icon at x=y=10 (bookworm: below the panel)
