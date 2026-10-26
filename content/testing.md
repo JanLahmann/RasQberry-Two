@@ -122,7 +122,7 @@ your name or ID. No IP address, no cookies.
 
 - **Grokking the Bloch Sphere**: Move a qubit around the Bloch sphere and follow the gates. Early beta, not yet tested by people: expect rough edges.
 - **Grokking the Bloch Sphere: online version**: Open the online version from the Pi and move a qubit around the Bloch sphere. *(needs: screen, internet)*
-- **Qiskit Tutorials on this Pi**: Open a tutorial in Qiskit Tutorials on this Pi and run its code. Early beta, not yet tested by people: expect rough edges. *(needs: SD card of 32 GB or more)*
+- **doQumentation (IBM Quantum Learning on this Pi)**: Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code. Early beta, not yet tested by people: expect rough edges. *(needs: SD card of 32 GB or more)*
 
 ### IBM and partner demos
 
