@@ -13,7 +13,11 @@ set -euo pipefail
 #      (one shared download), Quantum Paradoxes, Fun with Quantum - or
 #      nothing extra. my-work (writable, kept on the Pi) is always there.
 #   Missing content is downloaded through the demo engine (its usual
-#   question with the size), the image after its own question. The choices
+#   question with the size), the image after its own question. The lab gets
+#   the user's own, editable copy of each chosen notebook folder
+#   (~/RasQberry-Two/work/qubins, made on first use and kept), with the
+#   untouched originals read-only in originals/; "Reset notebooks to the
+#   original" in the first dialog makes a copy again. The choices
 #   are kept: the next start offers "Start with last settings" first. The
 #   image chosen is also recorded as the version in use (.demo-versions), so
 #   Update demos and Remove a demo see it.
@@ -45,10 +49,14 @@ PORT="${QUBINS_PORT:-8894}"
 # Shared with Qiskit Live, which QuBins is to replace: nothing to move then
 WORK_DIR="$USER_HOME/$REPO/work/quantum-lab"
 DEMOS_DIR="$USER_HOME/$REPO/demos"
+# The user's editable copies of the notebooks (never my-work)
+COPIES_DIR="$USER_HOME/$REPO/work/qubins"
 STATE_FILE="${XDG_STATE_HOME:-$USER_HOME/.local/state}/rasqberry/qubins.json"
 CACHE_FILE="$USER_HOME/.cache/rasqberry/qubins-images.json"
 WELCOME_SRC="$(dirname "$(rq_shipped_manifest_dir)")/qubins/WELCOME.ipynb"
 LAB_OVERRIDES="${RQ_LAB_OVERRIDES:-/etc/jupyter/labconfig/default_setting_overrides.json}"
+# Hides the image's own empty "work" folder next to my-work
+HIDE_WORK_HOOK="$(dirname "$(rq_shipped_manifest_dir)")/qubins/hide-work.sh"
 # See rq_quantum_lab.sh: a known token in the URL; the port is loopback only
 LAB_TOKEN="rasqberry"
 CONTENT_IDS="ibm-tutorials ibm-courses quantum-paradoxes fun-with-quantum"
@@ -84,6 +92,34 @@ installed() {
     "$SCRIPT_DIR/rq_demo_run.sh" "$1" --is-installed >/dev/null 2>&1
 }
 
+# "Reset notebooks to the original": choose which content, confirm, copy
+# again. Nothing of the changes in that content is kept; my-work is never
+# touched.
+reset_dialog() {
+    local have c picked items=()
+    have=$(python3 "$HELPER" copies --copies "$COPIES_DIR" 2>/dev/null) || have=""
+    if [ -z "$have" ]; then
+        show_msgbox "$TITLE: reset notebooks" "There are no notebooks to reset yet." || true
+        return 0
+    fi
+    for c in $(echo "$have" | tr ',' ' '); do
+        items+=("$c" "$(content_name "$c")" OFF)
+    done
+    picked=$(whiptail --title "$TITLE: reset notebooks" --checklist \
+        "Which notebooks go back to the original? (Space: select)\nYour changes in them are lost. my-work is not touched." \
+        14 76 4 "${items[@]}" 3>&1 1>&2 2>&3) || return 0
+    picked=$(echo "$picked" | tr -d '"' | tr ' ' ',' | sed 's/^,*//; s/,*$//')
+    [ -n "$picked" ] || return 0
+    show_yesno "$TITLE: reset notebooks" \
+        "Reset $(content_names "$picked") to the original?\n\nAll your changes in these notebooks are lost. my-work is not touched." \
+        || return 0
+    if python3 "$HELPER" reset --content "$picked" --demos "$DEMOS_DIR" --copies "$COPIES_DIR" >/dev/null; then
+        show_msgbox "$TITLE: reset notebooks" "Back to the original: $(content_names "$picked")." || true
+    else
+        show_msgbox "$TITLE: reset notebooks" "The reset did not work." || true
+    fi
+}
+
 # The digests of the QuBins images on this Pi, space-separated
 local_digests() {
     docker images --digests --format '{{.Digest}}' ghcr.io/qubins/images 2>/dev/null \
@@ -106,14 +142,19 @@ if [ -n "$LAST_LINE" ]; then
     fi
     IMAGE="$IN_USE"
     CHOOSE=0
-    if can_ask; then
+    while can_ask; do
         pick=$(whiptail --title "$TITLE (beta)" --menu \
-            "Start QuBins:" 12 76 2 \
+            "Start QuBins:" 13 76 3 \
             "LAST" "Start with last settings: $LABEL, $(content_names "$CONTENT")" \
             "CHOOSE" "Choose the image and the content" \
+            "RESET" "Reset notebooks to the original" \
             3>&1 1>&2 2>&3) || exit 0
-        [ "$pick" = "LAST" ] || CHOOSE=1
-    fi
+        case "$pick" in
+            LAST) break ;;
+            CHOOSE) CHOOSE=1; break ;;
+            RESET) reset_dialog ;;
+        esac
+    done
 fi
 
 if [ "$CHOOSE" = 1 ] && ! can_ask; then
@@ -182,7 +223,7 @@ if [ "$CHOOSE" = 1 ]; then
         checks+=("$c" "$(content_name "$c") ($what)" "$state")
     done
     picked=$(whiptail --title "$TITLE: content" --checklist \
-        "What goes into the lab? (Space: select)\nYour my-work folder is always there. Choose nothing for only my-work.\nThe notebooks are read-only in the lab." \
+        "What goes into the lab? (Space: select)\nYour my-work folder is always there. Choose nothing for only my-work.\nYou can change the notebooks: your changes are kept." \
         16 76 4 "${checks[@]}" 3>&1 1>&2 2>&3) || exit 0
     CONTENT=$(echo "$picked" | tr -d '"' | tr ' ' ',' | sed 's/^,*//; s/,*$//')
 fi
@@ -209,6 +250,16 @@ CONTENT="$kept"
 case ",$CONTENT," in
     *,ibm-*) rq_ibm_learning_tidy "$DEMOS_DIR/ibm-quantum-learning" ;;
 esac
+# The user's copies: made on first use, kept afterwards (a newer original is
+# named once)
+if [ -n "$CONTENT" ]; then
+    mkdir -p "$COPIES_DIR"
+    notes=$(python3 "$HELPER" prepare --content "$CONTENT" --demos "$DEMOS_DIR" --copies "$COPIES_DIR") \
+        || die "Could not make your copies of the notebooks in $COPIES_DIR."
+    while IFS= read -r note; do
+        [ -n "$note" ] && info "$note"
+    done <<< "$notes"
+fi
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     [ "$MB" -gt 0 ] 2>/dev/null || MB="$PIN_MB"
@@ -268,7 +319,8 @@ MOUNTS=()
 while IFS= read -r arg; do
     [ -n "$arg" ] && MOUNTS+=("$arg")
 done < <(python3 "$HELPER" mounts --content "$CONTENT" --demos "$DEMOS_DIR" --work "$WORK_DIR" \
-    --welcome "$WELCOME_SRC" --overrides "$LAB_OVERRIDES")
+    --welcome "$WELCOME_SRC" --overrides "$LAB_OVERRIDES" --copies "$COPIES_DIR" \
+    --hook "$HIDE_WORK_HOOK")
 START_PAGE="lab"
 [ -f "$WELCOME_SRC" ] && START_PAGE="lab/tree/WELCOME.ipynb"
 
@@ -303,7 +355,9 @@ echo "✓ QuBins is running: $LABEL"
 echo
 echo "  Access via browser: $LAB_URL"
 if [ -n "$CONTENT" ]; then
-    echo "  In the lab: $(content_names "$CONTENT") (read-only), and my-work"
+    echo "  In the lab: $(content_names "$CONTENT"), and my-work"
+    echo "  The notebooks are your own copies (kept in $COPIES_DIR);"
+    echo "  originals/ has the untouched ones. Reset: the QuBins start dialog."
 fi
 echo "  Save your own work in my-work/ - it is kept on the Pi in:"
 echo "    $WORK_DIR"

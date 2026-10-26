@@ -22,13 +22,26 @@ This helper does the parts that are easier to test in Python:
             Without the registry the cached list (any age) is used, else
             only the tested image (and the one in use); exit status 2 then.
   mounts    the docker run -v arguments for the chosen content, one per
-            line: my-work (writable, always), the welcome page and the Pi's
-            JupyterLab settings (read-only), and each chosen notebook
-            collection read-only, at the same place under /home/jovyan as
-            under ~/RasQberry-Two/demos, so the notebooks' relative links
-            and pictures work. The IBM tutorials and courses come from one
-            checkout (ibm-quantum-learning): only the chosen part is mounted.
-            Content that is not on the Pi is left out (a note on stderr).
+            line: my-work (writable, always), the welcome page, the Pi's
+            JupyterLab settings and a start hook that hides the image's own
+            empty "work" folder (read-only), and each chosen notebook
+            collection at the same place under /home/jovyan as under
+            ~/RasQberry-Two/demos, so the notebooks' relative links and
+            pictures work: the user's own copy (writable, from --copies),
+            with the untouched original read-only under originals/; pictures
+            and the licence stay the originals, read-only. The IBM tutorials
+            and courses come from one checkout (ibm-quantum-learning): only
+            the chosen part is mounted. Content that is not on the Pi is
+            left out (a note on stderr).
+  prepare   make the user's copies of the chosen content in --copies
+            (~/RasQberry-Two/work/qubins), on first use: notebooks and other
+            text files copied, anything else hard-linked to the original (no
+            space). A copy is never overwritten: when the original is newer
+            (Update demos), one note says so, once.
+  reset     back to the original: the copies of the given content are made
+            again; nothing of the user's changes in them is kept. my-work is
+            never touched.
+  copies    the content ids that have a copy (for the Reset dialog).
   last      the last choices (a JSON state file): "IMAGE<TAB>LABEL<TAB>CONTENT"
             with CONTENT comma-separated demo ids; exit 1 when there are none.
   remember  write the last choices.
@@ -49,6 +62,9 @@ import concurrent.futures
 import json
 import os
 import re
+import shutil
+import stat
+import subprocess
 import sys
 import time
 import urllib.error
@@ -65,25 +81,35 @@ VARIANTS = ("xl", "small")
 REQUEST_TIMEOUT = 8
 
 CONTAINER_HOME = "/home/jovyan"
+ORIGINALS = "originals"
+HIDE_WORK_HOOK = "/usr/local/bin/before-notebook.d/90-rasqberry-hide-work.sh"
 IBM_DIR = "ibm-quantum-learning"
-# What each content choice mounts, relative to the demos folder
+# What each content choice brings, relative to the demos folder: "copy"
+# becomes the user's own, editable copy; "assets" (pictures, licence) stay
+# the originals, read-only
 CONTENT = {
-    "ibm-tutorials": [
-        f"{IBM_DIR}/WELCOME-tutorials.ipynb",
-        f"{IBM_DIR}/docs/tutorials",
-        f"{IBM_DIR}/docs/guides",
-        f"{IBM_DIR}/public/docs/images",
-    ],
-    "ibm-courses": [
-        f"{IBM_DIR}/WELCOME-courses.ipynb",
-        f"{IBM_DIR}/learning/courses",
-        f"{IBM_DIR}/public/learning/images/courses",
-    ],
-    "quantum-paradoxes": ["quantum-paradoxes"],
-    "fun-with-quantum": ["fun-with-quantum"],
+    "ibm-tutorials": {
+        "copy": [f"{IBM_DIR}/WELCOME-tutorials.ipynb", f"{IBM_DIR}/docs/tutorials",
+                 f"{IBM_DIR}/docs/guides"],
+        "assets": [f"{IBM_DIR}/public/docs/images"],
+    },
+    "ibm-courses": {
+        "copy": [f"{IBM_DIR}/WELCOME-courses.ipynb", f"{IBM_DIR}/learning/courses"],
+        "assets": [f"{IBM_DIR}/public/learning/images/courses"],
+    },
+    "quantum-paradoxes": {"copy": ["quantum-paradoxes"], "assets": []},
+    "fun-with-quantum": {"copy": ["fun-with-quantum"], "assets": []},
 }
-# With either IBM part: the licence and the credentials notebook
-IBM_SHARED = [f"{IBM_DIR}/LICENSE-DOCS", f"{IBM_DIR}/00-Save-Credentials.ipynb"]
+# With either IBM part: the credentials notebook (copied once, never reset)
+# and the licence
+IBM_SHARED = {"copy": [f"{IBM_DIR}/00-Save-Credentials.ipynb"],
+              "assets": [f"{IBM_DIR}/LICENSE-DOCS"]}
+# Copied (the user edits them); any other file is hard-linked to the
+# original (no space taken) or, on another file system, copied too
+TEXT_SUFFIXES = {".ipynb", ".md", ".txt", ".py", ".json", ".csv", ".yaml", ".yml", ".qasm",
+                 ".tex", ".rst", ".cfg", ".toml", ".ini", ".html", ".js", ".css", ""}
+SKIP_NAMES = {".git", ".rasqberry-converted", "__pycache__", ".ipynb_checkpoints"}
+COPIES_STATE = ".qubins-copies.json"
 
 
 # ---------------------------------------------------------------------------
@@ -300,14 +326,32 @@ def cmd_images(args):
 
 def parse_content(text):
     """Known content ids from a comma/space-separated list, in a fixed order."""
+    if isinstance(text, (list, tuple)):
+        text = ",".join(text)
     want = set(re.split(r"[,\s]+", (text or "").strip())) - {""}
     return [c for c in CONTENT if c in want]
 
 
-def mount_args(content, demos_dir, work_dir, welcome="", overrides="", exists=os.path.exists):
+def _content_paths(c):
+    """(copy paths, asset paths) of content C, the IBM shared files included."""
+    copy, assets = list(CONTENT[c]["copy"]), list(CONTENT[c]["assets"])
+    if c.startswith("ibm-"):
+        copy += IBM_SHARED["copy"]
+        assets += IBM_SHARED["assets"]
+    return copy, assets
+
+
+def mount_args(content, demos_dir, work_dir, welcome="", overrides="", copies="", hook="",
+               exists=os.path.exists):
     """
     The docker run -v arguments (a flat list: "-v", "SRC:DST[:ro]", ...)
     and the notes about content that is not on this Pi.
+
+    With COPIES (the folder of the user's copies, ~/RasQberry-Two/work/qubins)
+    each chosen notebook folder is the user's copy, writable, at the same
+    place as in the demos folder, and the untouched original is read-only
+    in originals/; without it, the originals are mounted read-only. HOOK:
+    a start hook of the image that hides its own empty "work" folder.
     """
     args = ["-v", f"{work_dir}:{CONTAINER_HOME}/my-work"]
     notes = []
@@ -315,32 +359,199 @@ def mount_args(content, demos_dir, work_dir, welcome="", overrides="", exists=os
         args += ["-v", f"{welcome}:{CONTAINER_HOME}/WELCOME.ipynb:ro"]
     if overrides and exists(overrides):
         args += ["-v", f"{overrides}:/etc/jupyter/labconfig/default_setting_overrides.json:ro"]
-    chosen = parse_content(",".join(content) if isinstance(content, (list, tuple)) else content)
-    paths = []
+    if hook and exists(hook):
+        args += ["-v", f"{hook}:{HIDE_WORK_HOOK}:ro"]
+    chosen = parse_content(content)
+    seen = set()
     for c in chosen:
-        if not exists(os.path.join(demos_dir, CONTENT[c][0])):
+        if not exists(os.path.join(demos_dir, CONTENT[c]["copy"][0])):
             notes.append(f"{c} is not on this Pi: left out")
             continue
-        paths += CONTENT[c]
-        if c.startswith("ibm-"):
-            paths += IBM_SHARED
-    seen = set()
-    for rel in paths:
-        if rel in seen:
-            continue
-        seen.add(rel)
-        src = os.path.join(demos_dir, rel)
-        if exists(src):
-            args += ["-v", f"{src}:{CONTAINER_HOME}/{rel}:ro"]
+        copy, assets = _content_paths(c)
+        for rel in copy + assets:
+            if rel in seen:
+                continue
+            seen.add(rel)
+            src = os.path.join(demos_dir, rel)
+            if not exists(src):
+                continue
+            mine = os.path.join(copies, rel) if copies else ""
+            if rel in copy and mine and exists(mine):
+                args += ["-v", f"{mine}:{CONTAINER_HOME}/{rel}"]
+                args += ["-v", f"{src}:{CONTAINER_HOME}/{ORIGINALS}/{rel}:ro"]
+            else:
+                args += ["-v", f"{src}:{CONTAINER_HOME}/{rel}:ro"]
     return args, notes
 
 
 def cmd_mounts(args):
-    out, notes = mount_args(args.content, args.demos, args.work, args.welcome, args.overrides)
+    out, notes = mount_args(args.content, args.demos, args.work, args.welcome, args.overrides,
+                            args.copies, args.hook)
     for n in notes:
         print(n, file=sys.stderr)
     for a in out:
         print(a)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# the user's copies: prepare / reset / copies
+# ---------------------------------------------------------------------------
+
+def content_version(c, demos_dir):
+    """
+    The version of C's original: the commit of its checkout (and the
+    notebook converter's mark, which changes the IBM notebooks in place).
+    Empty when it cannot be told.
+    """
+    root = os.path.join(demos_dir, CONTENT[c]["copy"][0].split("/")[0])
+    parts = []
+    if os.path.isdir(os.path.join(root, ".git")):
+        try:
+            head = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True,
+                                  text=True, timeout=20)
+            if head.returncode == 0:
+                parts.append(head.stdout.strip())
+        except (OSError, subprocess.SubprocessError):
+            pass
+    try:
+        with open(os.path.join(root, ".rasqberry-converted"), encoding="utf-8") as fh:
+            parts.append("converted " + fh.read().strip())
+    except OSError:
+        pass
+    return " ".join(parts)
+
+
+def _copy_file(src, dst):
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if os.path.splitext(src)[1].lower() not in TEXT_SUFFIXES:
+        try:
+            os.link(src, dst)
+            return
+        except OSError:
+            pass
+    shutil.copy2(src, dst)
+    os.chmod(dst, os.stat(dst).st_mode | stat.S_IWUSR)
+
+
+def copy_tree(src, dst):
+    """SRC (a file or folder) to DST: text files copied, the rest hard-linked."""
+    if os.path.isfile(src):
+        _copy_file(src, dst)
+        return
+    for here, dirs, files in os.walk(src):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_NAMES)
+        rel = os.path.relpath(here, src)
+        target = os.path.normpath(os.path.join(dst, rel))
+        os.makedirs(target, exist_ok=True)
+        for f in sorted(files):
+            if f not in SKIP_NAMES:
+                _copy_file(os.path.join(here, f), os.path.join(target, f))
+
+
+def _remove(path):
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path)
+    elif os.path.lexists(path):
+        os.unlink(path)
+
+
+def _load_copies(copies):
+    try:
+        with open(os.path.join(copies, COPIES_STATE), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_copies(copies, data):
+    os.makedirs(copies, exist_ok=True)
+    path = os.path.join(copies, COPIES_STATE)
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+
+
+def _name(c):
+    return {"ibm-tutorials": "IBM Quantum Tutorials", "ibm-courses": "IBM Quantum Courses",
+            "quantum-paradoxes": "Quantum Paradoxes", "fun-with-quantum": "Fun with Quantum"}.get(c, c)
+
+
+def prepare(content, demos_dir, copies):
+    """
+    Make the user's copies of the chosen content: on first use from the
+    original; a copy that is there is never overwritten (a file or folder
+    missing from it is added). When the original is newer than the copy
+    (Update demos moved it), one note says so, once. Returns the notes.
+    """
+    state = _load_copies(copies)
+    notes = []
+    for c in parse_content(content):
+        if not os.path.exists(os.path.join(demos_dir, CONTENT[c]["copy"][0])):
+            continue
+        copy, _ = _content_paths(c)
+        version = content_version(c, demos_dir)
+        for rel in copy:
+            src, dst = os.path.join(demos_dir, rel), os.path.join(copies, rel)
+            if os.path.exists(src) and not os.path.lexists(dst):
+                copy_tree(src, dst)
+        entry = state.get(c)
+        if not isinstance(entry, dict):
+            state[c] = {"version": version}
+        elif version and entry.get("version") != version and entry.get("noticed") != version:
+            notes.append(f"{_name(c)}: a newer original is in originals/. Your copy is kept; "
+                         "Reset notebooks (in the QuBins start dialog) gives the new one.")
+            entry["noticed"] = version
+    _save_copies(copies, state)
+    return notes
+
+
+def reset(content, demos_dir, copies):
+    """
+    Back to the original: the user's copy of each content is removed and
+    made again (nothing of the changes in it is kept). The credentials
+    notebook shared by the IBM parts and my-work are not touched.
+    Returns the names reset.
+    """
+    state = _load_copies(copies)
+    done = []
+    for c in parse_content(content):
+        if not os.path.exists(os.path.join(demos_dir, CONTENT[c]["copy"][0])):
+            continue
+        for rel in CONTENT[c]["copy"]:
+            src, dst = os.path.join(demos_dir, rel), os.path.join(copies, rel)
+            _remove(dst)
+            if os.path.exists(src):
+                copy_tree(src, dst)
+        state[c] = {"version": content_version(c, demos_dir)}
+        done.append(_name(c))
+    _save_copies(copies, state)
+    return done
+
+
+def copied(copies):
+    """The content ids with a copy, in the fixed order."""
+    state = _load_copies(copies)
+    return [c for c in CONTENT if c in state and any(
+        os.path.lexists(os.path.join(copies, rel)) for rel in CONTENT[c]["copy"])]
+
+
+def cmd_prepare(args):
+    for n in prepare(args.content, args.demos, args.copies):
+        print(n)
+    return 0
+
+
+def cmd_reset(args):
+    for n in reset(args.content, args.demos, args.copies):
+        print(n)
+    return 0
+
+
+def cmd_copies(args):
+    print(",".join(copied(args.copies)))
     return 0
 
 
@@ -417,7 +628,21 @@ def main(argv=None):
     p.add_argument("--work", required=True, help="the my-work folder")
     p.add_argument("--welcome", default="", help="the welcome notebook")
     p.add_argument("--overrides", default="", help="JupyterLab default_setting_overrides.json")
+    p.add_argument("--copies", default="", help="the folder of the user's copies (work/qubins)")
+    p.add_argument("--hook", default="", help="the start hook that hides the image's work folder")
     p.set_defaults(func=cmd_mounts)
+
+    for name, func, text in (("prepare", cmd_prepare, "make the copies of the chosen content"),
+                             ("reset", cmd_reset, "reset the copies of the content to the original")):
+        p = sub.add_parser(name, help=text)
+        p.add_argument("--content", default="", help="comma-separated content ids")
+        p.add_argument("--demos", required=True, help="the demos folder")
+        p.add_argument("--copies", required=True, help="the folder of the user's copies")
+        p.set_defaults(func=func)
+
+    p = sub.add_parser("copies", help="the content ids with a copy, comma-separated")
+    p.add_argument("--copies", required=True)
+    p.set_defaults(func=cmd_copies)
 
     p = sub.add_parser("last", help="print the last choices")
     p.add_argument("--state", required=True)

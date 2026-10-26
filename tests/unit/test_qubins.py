@@ -17,6 +17,7 @@ xl or small) and the notebooks to put into the lab.
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -206,6 +207,144 @@ def test_mounts_nothing_extra_and_missing_content(tmp_path):
     assert notes == ["fun-with-quantum is not on this Pi: left out"]
 
 
+def test_mounts_with_copies(tmp_path):
+    demos = _demos(tmp_path)
+    copies = tmp_path / "copies"
+    hook = tmp_path / "hide-work.sh"
+    hook.write_text("rmdir /home/jovyan/work 2>/dev/null || true\n")
+    qb.prepare("quantum-paradoxes", str(demos), str(copies))
+    args, _ = qb.mount_args(["quantum-paradoxes", "ibm-courses"], str(demos), "/w", copies=str(copies),
+                            hook=str(hook))
+    vols = _pairs(args)
+    assert f"{hook}:/usr/local/bin/before-notebook.d/90-rasqberry-hide-work.sh:ro" in vols
+    assert f"{copies}/quantum-paradoxes:/home/jovyan/quantum-paradoxes" in vols
+    assert f"{demos}/quantum-paradoxes:/home/jovyan/originals/quantum-paradoxes:ro" in vols
+    # no copy of the courses (not prepared): the originals, read-only, as before
+    assert (f"{demos}/ibm-quantum-learning/learning/courses:"
+            "/home/jovyan/ibm-quantum-learning/learning/courses:ro") in vols
+
+
+# --- the user's copies: prepare / reset ----------------------------------------
+
+def _original(tmp_path):
+    demos = _demos(tmp_path)
+    nb = demos / "ibm-quantum-learning" / "learning" / "courses" / "basics" / "lesson.ipynb"
+    nb.parent.mkdir(parents=True)
+    nb.write_text('{"original": 1}')
+    pic = nb.parent / "figure.png"
+    pic.write_bytes(b"\x89PNG" + b"0" * 4000)
+    (demos / "ibm-quantum-learning" / "00-Save-Credentials.ipynb").write_text("{}")
+    git = demos / "ibm-quantum-learning" / ".git"
+    git.mkdir()
+    (git / "HEAD").write_text("not a real repository\n")
+    (demos / "ibm-quantum-learning" / ".rasqberry-converted").write_text("1")
+    par = demos / "quantum-paradoxes"
+    (par / "WELCOME.ipynb").write_text('{"p": 1}')
+    (par / ".git").mkdir()
+    return demos, nb, pic
+
+
+def test_prepare_copies_text_links_the_rest_and_keeps_changes(tmp_path):
+    demos, nb, pic = _original(tmp_path)
+    copies = tmp_path / "work" / "qubins"
+    assert qb.prepare("ibm-courses", str(demos), str(copies)) == []
+    mine = copies / "ibm-quantum-learning" / "learning" / "courses" / "basics" / "lesson.ipynb"
+    assert mine.read_text() == '{"original": 1}'
+    assert os.stat(mine).st_ino != os.stat(nb).st_ino               # a real copy: editable
+    assert os.stat(mine.parent / "figure.png").st_ino == os.stat(pic).st_ino   # no space
+    assert (copies / "ibm-quantum-learning" / "WELCOME-courses.ipynb").exists()
+    assert (copies / "ibm-quantum-learning" / "00-Save-Credentials.ipynb").exists()
+    # only the chosen part, no repository files
+    assert not (copies / "ibm-quantum-learning" / "docs").exists()
+    assert not (copies / "ibm-quantum-learning" / ".git").exists()
+    assert qb.copied(str(copies)) == ["ibm-courses"]
+    # the user's change survives the next start
+    mine.write_text('{"mine": 1}')
+    assert qb.prepare("ibm-courses", str(demos), str(copies)) == []
+    assert mine.read_text() == '{"mine": 1}' and nb.read_text() == '{"original": 1}'
+    # a folder the user deleted comes back
+    shutil.rmtree(copies / "ibm-quantum-learning" / "learning" / "courses")
+    qb.prepare("ibm-courses", str(demos), str(copies))
+    assert mine.read_text() == '{"original": 1}'
+
+
+def test_a_newer_original_is_named_once_and_the_copy_kept(tmp_path):
+    demos, nb, _ = _original(tmp_path)
+    copies = tmp_path / "work" / "qubins"
+    qb.prepare("ibm-courses,quantum-paradoxes", str(demos), str(copies))
+    mine = copies / "ibm-quantum-learning" / "learning" / "courses" / "basics" / "lesson.ipynb"
+    mine.write_text('{"mine": 1}')
+    # Update demos moves the checkout (here: the converter's mark changes)
+    nb.write_text('{"original": 2}')
+    (demos / "ibm-quantum-learning" / ".rasqberry-converted").write_text("2")
+    notes = qb.prepare("ibm-courses,quantum-paradoxes", str(demos), str(copies))
+    assert len(notes) == 1 and notes[0].startswith("IBM Quantum Courses: a newer original is in originals/")
+    assert "Reset" in notes[0]
+    assert mine.read_text() == '{"mine": 1}'
+    assert qb.prepare("ibm-courses", str(demos), str(copies)) == []      # said once
+    # Reset gives the new one, and the note is not repeated
+    assert qb.reset("ibm-courses", str(demos), str(copies)) == ["IBM Quantum Courses"]
+    assert mine.read_text() == '{"original": 2}'
+    assert qb.prepare("ibm-courses", str(demos), str(copies)) == []
+
+
+def test_reset_only_the_chosen_content_never_my_work(tmp_path):
+    demos, nb, _ = _original(tmp_path)
+    work = tmp_path / "work"
+    copies = work / "qubins"
+    my_work = work / "quantum-lab"
+    my_work.mkdir(parents=True)
+    (my_work / "mine.ipynb").write_text("{}")
+    qb.prepare("ibm-courses,quantum-paradoxes", str(demos), str(copies))
+    lesson = copies / "ibm-quantum-learning" / "learning" / "courses" / "basics" / "lesson.ipynb"
+    extra = lesson.parent / "my-notes.ipynb"
+    lesson.write_text("changed")
+    extra.write_text("new")
+    par = copies / "quantum-paradoxes" / "WELCOME.ipynb"
+    par.write_text("changed")
+    cred = copies / "ibm-quantum-learning" / "00-Save-Credentials.ipynb"
+    cred.write_text("my key cell")
+    assert qb.reset("ibm-courses", str(demos), str(copies)) == ["IBM Quantum Courses"]
+    # nothing of the changes in that content is kept
+    assert lesson.read_text() == '{"original": 1}' and not extra.exists()
+    # the rest is untouched
+    assert par.read_text() == "changed"
+    assert cred.read_text() == "my key cell"
+    assert (my_work / "mine.ipynb").exists()
+    assert nb.read_text() == '{"original": 1}'
+
+
+def test_prepare_reset_and_copies_from_the_command_line(tmp_path):
+    demos, _, _ = _original(tmp_path)
+    copies = tmp_path / "copies"
+    run = lambda *a: subprocess.run([sys.executable, _HELPER, *a], capture_output=True,  # noqa: E731
+                                    text=True, timeout=30)
+    assert run("copies", "--copies", str(copies)).stdout == "\n"
+    proc = run("prepare", "--content", "quantum-paradoxes,fun-with-quantum", "--demos", str(demos),
+               "--copies", str(copies))
+    assert proc.returncode == 0 and proc.stdout == "", proc.stderr
+    assert run("copies", "--copies", str(copies)).stdout == "quantum-paradoxes\n"
+    proc = run("reset", "--content", "quantum-paradoxes", "--demos", str(demos), "--copies", str(copies))
+    assert proc.stdout == "Quantum Paradoxes\n"
+
+
+def test_reset_from_the_start_dialog(box):
+    env = _rig(box, ["2", '"quantum-paradoxes"'])
+    assert box([_LAUNCHER], extra=env).returncode == 0
+    mine = box.home / "RasQberry-Two" / "work" / "qubins" / "quantum-paradoxes" / "WELCOME.ipynb"
+    mine.write_text("changed")
+    # RESET, choose Quantum Paradoxes, confirm; back in the first dialog: LAST
+    (box.tmp / "answers").write_text('RESET\n"quantum-paradoxes"\nLAST\n')
+    (box.tmp / "wt_n").write_text("0")
+    (box.tmp / "wt.log").write_text("")
+    proc = box([_LAUNCHER], extra=env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert mine.read_text() == "{}"
+    texts = ["\n".join(c) for c in box.dialogs()]
+    assert any("--yesno" in t and "All your changes in these notebooks are lost" in t for t in texts)
+    assert any("--msgbox" in t and "Back to the original: Quantum Paradoxes" in t for t in texts)
+
+
 # --- the launcher, end to end with stubs ---------------------------------------
 
 _DOCKER = r'''#!/bin/sh
@@ -293,9 +432,20 @@ def test_choose_download_and_start_then_start_with_last_settings(box):
     (run,) = [c for c in calls if c.startswith("run ")]
     home = box.home / "RasQberry-Two"
     assert f"-v {home}/work/quantum-lab:/home/jovyan/my-work " in run
-    assert f"{home}/demos/ibm-quantum-learning/learning/courses:/home/jovyan/ibm-quantum-learning/learning/courses:ro" in run
-    assert f"{home}/demos/quantum-paradoxes:/home/jovyan/quantum-paradoxes:ro" in run
+    # the user's copies, writable; the originals read-only next to them
+    copies = f"{home}/work/qubins"
+    assert f"-v {copies}/ibm-quantum-learning/learning/courses:/home/jovyan/ibm-quantum-learning/learning/courses " in run
+    assert (f"{home}/demos/ibm-quantum-learning/learning/courses:"
+            "/home/jovyan/originals/ibm-quantum-learning/learning/courses:ro") in run
+    assert f"-v {copies}/quantum-paradoxes:/home/jovyan/quantum-paradoxes " in run
+    assert f"{home}/demos/quantum-paradoxes:/home/jovyan/originals/quantum-paradoxes:ro" in run
+    # pictures stay the originals, read-only, where the notebooks look for them
+    assert (f"{home}/demos/ibm-quantum-learning/public/learning/images/courses:"
+            "/home/jovyan/ibm-quantum-learning/public/learning/images/courses:ro") in run
+    assert (home / "work/qubins/quantum-paradoxes/WELCOME.ipynb").exists()
     assert "docs/tutorials" not in run
+    # the image's own empty work folder is removed by a start hook
+    assert f"{_CFG}/qubins/hide-work.sh:/usr/local/bin/before-notebook.d/90-rasqberry-hide-work.sh:ro" in run
     assert f"{_CFG}/qubins/WELCOME.ipynb:/home/jovyan/WELCOME.ipynb:ro" in run
     assert "-p 127.0.0.1:8894:8888" in run and "--label org.rasqberry.demo=qubins" in run
     assert run.endswith(six)
@@ -314,7 +464,7 @@ def test_choose_download_and_start_then_start_with_last_settings(box):
     proc = box([_LAUNCHER], extra=env)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     (menu,) = box.dialogs()
-    assert "LAST" in menu
+    assert "LAST" in menu and "Reset notebooks to the original" in menu
     assert "Start with last settings: 2.6-xl-20261020, IBM Quantum Courses, Quantum Paradoxes" in menu
     calls = _docker_calls(box)
     assert not [c for c in calls if c.startswith("pull")]
