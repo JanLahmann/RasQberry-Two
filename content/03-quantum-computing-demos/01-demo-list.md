@@ -74,8 +74,9 @@ New and experimental demos: some things may not work yet. Try them and tell us w
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
 | **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
-| **Qiskit Tutorials on this Pi** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
+| **doQumentation (IBM Quantum Learning on this Pi)** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
 | **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
+| **QuBins** <span className="beta-tag">beta</span> | JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work | network, a 32 GB card | `qubins` |
 | **racetraQ** (formerly traQmania) <span className="beta-tag">beta</span> | Quantum reinforcement-learning racing game (provided by the Fun with Quantum family) | add it first: **Manage demos** → **Add demo from catalogue** (600 MB) | `racetraq` |
 
 ---

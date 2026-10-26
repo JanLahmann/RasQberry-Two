@@ -17,7 +17,7 @@ The demos come in six groups. Each is an icon on the desktop and a submenu of
 | **LED panel** | IBM LED Demo, RasQ-LED, [Quantum Lights Out](/03-quantum-computing-demos/quantum-lights-out/), [Quantum Raspberry Tie](/03-quantum-computing-demos/raspberry-tie/), LED-Painter, [text and logos](/03-quantum-computing-demos/led-display/) |
 | **Play** | Fun with Quantum (eight games, from the Quantum Coin Game to GHZ on real devices, its website and family), Quantum Paradoxes, [Quantum Fractals](/03-quantum-computing-demos/fractals/) |
 | **Big projects** | [Qoffee-Maker](/03-quantum-computing-demos/qoffee-maker/), Quantum Mixer, [Entangible](#2-entangible), [racetraQ](https://racetraq.org) |
-| **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), Qiskit Tutorials on this Pi, Qiskit Live (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
+| **Learn & code** | My Quantum Programs, [Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/), doQumentation (IBM Quantum Learning on this Pi), Qiskit Live (QuBins), IBM Quantum Tutorials and Courses, IBM Quantum Composer |
 | **Workshops & events** | Workshop & Qiskit Server, Demo Loop |
 | **Contributed demos** | Demos from partners, added from the catalogue: SAP Quantum LED, SAP Quantum Learning |
 
