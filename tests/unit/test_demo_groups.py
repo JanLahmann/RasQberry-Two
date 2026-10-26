@@ -49,7 +49,7 @@ _TABLE = {
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
     "workshops": {"demo-loop"},
     "contributed": {"rq-ext-sap-quantum-led", "rq-ext-sap-quantum-learning"},
-    "beta": {"entangible", "doqumentation", "qiskit-tutorials", "rq-ext-racetraq"},
+    "beta": {"entangible", "doqumentation", "qiskit-tutorials", "qubins", "rq-ext-racetraq"},
 }
 _STARTERS = ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"]
 _SYSTEM = ["rasqberry-setup", "rasqberry-menu", "touch-mode"]
@@ -338,7 +338,7 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
                                               "ibm-tutorials", "ibm-courses", "composer"]
     assert [i for i, _ in items["workshops"]] == []
     # every beta demo, whatever group it names (Jan, 2026-10-24)
-    assert [i for i, _ in items["beta"]] == ["doqumentation", "qiskit-tutorials", "entangible"]
+    assert [i for i, _ in items["beta"]] == ["doqumentation", "qiskit-tutorials", "entangible", "qubins"]
     names = dict(sum(items.values(), []))
     assert names["qoffee-maker"] == "Qoffee-Maker [internet, 32 GB]"
     assert names["composer"] == "IBM Quantum Composer [internet]"   # works without an account (#31)
@@ -376,7 +376,7 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
     ("workshops", ["LOOP"], ["LOOP"]),
-    ("beta", ["doqumentation"], ["entangible"]),
+    ("beta", ["doqumentation"], ["qubins"]),
     # the Coin Game, an icon of its own in the Play window, is here too (F3)
     ("play", ["fun-with-quantum", "COIN", "quantum-paradoxes"], ["quantum-fractals"]),
 ])

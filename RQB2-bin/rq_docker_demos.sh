@@ -14,12 +14,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rq_help_guard "$@"
 
 # Containers of the shipped launchers (older ones carry no label)
-KNOWN_NAMES="doqumentation quantum-lab qoffee quantum-mixer"
+KNOWN_NAMES="doqumentation quantum-lab qubins qoffee quantum-mixer"
 
 label_of() {
     case "$1" in
         doqumentation) echo "Workshop & Qiskit Server / Qiskit Tutorials" ;;
         quantum-lab)   echo "Qiskit Live (QuBins)" ;;
+        qubins)        echo "QuBins" ;;
         qoffee)        echo "Qoffee-Maker" ;;
         quantum-mixer) echo "Quantum Mixer" ;;
         *)             echo "$1" ;;

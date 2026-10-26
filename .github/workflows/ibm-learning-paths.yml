@@ -1,0 +1,38 @@
+name: IBM learning paths
+
+# learning-paths.json lists IBM Quantum's learning paths (ibm_learning:
+# Continue with IBM Quantum Learning, on the Pi and the website). IBM
+# publishes no data file for them, so once a week this compares their slugs
+# (the "?modal=<slug>" links on https://quantum.cloud.ibm.com/learning/en)
+# with ours: tests/check_ibm_learning_paths.py. The paths' materials load in
+# the browser and cannot be fetched without one, so only the slugs are
+# compared. A difference is reported in the job log and summary (a warning);
+# the job does not fail and opens nothing.
+# Scheduled workflows only run from the default branch, so main needs an
+# identical copy of this file, which checks out development. Edit both.
+
+on:
+  push:
+    branches: ['development', 'dev*']
+    paths:
+      - 'RQB2-config/demo-manifests/learning-paths.json'
+      - 'tests/check_ibm_learning_paths.py'
+      - '.github/workflows/ibm-learning-paths.yml'
+  schedule:
+    - cron: '23 6 * * 1'   # Mondays 06:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # main's copy holds no code: the paths are on development
+          ref: ${{ github.event_name == 'push' && github.ref || 'development' }}
+      - name: Compare the slugs with IBM's Learning page
+        run: python3 tests/check_ibm_learning_paths.py

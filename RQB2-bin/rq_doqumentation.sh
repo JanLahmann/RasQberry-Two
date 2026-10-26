@@ -12,7 +12,7 @@ set -euo pipefail
 #   Two ways to run it (Jan, 2026-10-03):
 #   - Workshop & Qiskit Server (default): one Pi serves the laptops of a class
 #     over the LAN (Jan, Q30). Participants picker, addresses, QR code.
-#   - Qiskit Tutorials on this Pi, --solo: just the person at this Pi. Bound
+#   - doQumentation (IBM Quantum Learning on this Pi), --solo: just the person at this Pi. Bound
 #     to 127.0.0.1 only, the smallest memory profile, no picker or addresses;
 #     opens the browser, and stops with its window.
 #
@@ -42,6 +42,7 @@ set -euo pipefail
 #
 # Usage: rq_doqumentation.sh [--solo]
 #   DOQUMENTATION_PROFILE=2|8|15  skip the participants picker (workshop)
+#   RQ_DEMO_PAGE=/guides/quick-start  open that page, not the start page
 #
 # doQumentation is part of the "Fun with Quantum" family and is not affiliated
 # with, endorsed by, or sponsored by IBM. Tutorial content is sourced from
@@ -54,7 +55,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rq_help_guard "$@"
 
 WORKSHOP_NAME="Workshop & Qiskit Server"
-SOLO_NAME="Qiskit Tutorials on this Pi"
+SOLO_NAME="doQumentation (IBM Quantum Learning on this Pi)"
 MODE="workshop"
 case "${1:-}" in
     --solo) MODE="solo" ;;
@@ -62,6 +63,12 @@ case "${1:-}" in
     *) die "Usage: $(basename "$0") [--solo]" ;;
 esac
 mode_name() { if [ "$1" = "solo" ]; then echo "$SOLO_NAME"; else echo "$WORKSHOP_NAME"; fi; }
+# The page to open instead of the start page: RQ_DEMO_PAGE, set by a
+# learning path step (rq_learning_paths.sh), e.g. /guides/quick-start. The
+# site serves the same paths as doqumentation.org. Only a plain path.
+PAGE="${RQ_DEMO_PAGE:-}"
+[[ "$PAGE" =~ ^/[a-z0-9][a-z0-9/_-]*$ ]] || PAGE=""
+PAGE="${PAGE#/}"
 NAME=$(mode_name "$MODE")
 
 rq_demo_header "$NAME"
@@ -218,6 +225,22 @@ if rq_docker_running "$CONTAINER_NAME"; then
     RUNNING_MODE=$(running_mode)
     RUNNING_NAME=$(mode_name "$RUNNING_MODE")
     action="KEEP"
+    # A page from a learning path step: open it on the running server, in
+    # whichever mode, without asking (restarting a Workshop server would end
+    # participants' sessions). It printed the participants' addresses and
+    # looked like the wrong demo had started (rig test 2026-10-26).
+    if [ -n "$PAGE" ]; then
+        site_port=$(published_port 80/tcp)
+        [ -n "$site_port" ] || die "The running $RUNNING_NAME publishes no website port."
+        info "$RUNNING_NAME is already running: opening /${PAGE} on it."
+        rq_show_url "http://127.0.0.1:${site_port}/${PAGE}" "$site_port"
+        if [ -t 0 ]; then
+            echo "This window did not start it: closing it keeps $RUNNING_NAME running."
+            echo "Press Enter to go back."
+            read -r || true
+        fi
+        exit 0
+    fi
     if [ -t 0 ]; then
         if [ "$RUNNING_MODE" = "$MODE" ]; then
             [ "$MODE" = "solo" ] && keep_text="Keep it running and open it" \
@@ -264,7 +287,7 @@ if rq_docker_running "$CONTAINER_NAME"; then
             if [ "$(docker container inspect -f '{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null)" != "$DOCKER_IMAGE" ]; then
                 info "A different doQumentation version is selected; Restart the server to use it."
             fi
-            rq_show_url "http://127.0.0.1:${site_port}/" "$site_port"
+            rq_show_url "http://127.0.0.1:${site_port}/${PAGE}" "$site_port"
             if [ "$RUNNING_MODE" = "workshop" ]; then print_qr "$site_port"; fi
             if [ -t 0 ]; then
                 echo "This window did not start the server: closing it keeps the server running."
@@ -339,10 +362,10 @@ fi
 # Image: the pinned version, downloaded after the consent dialog
 # ---------------------------------------------------------------------------
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-    # named as started: Qiskit Tutorials on this Pi said "Workshop & Qiskit
+    # named as started: the single-user mode said "Workshop & Qiskit
     # Server" in its download question and errors (user test 2026-10-07)
     RQ_CONSENT_NAME="$NAME" rq_require_demo_consent doqumentation
-    # and its download line too: "Downloading Qiskit Tutorials on this Pi",
+    # and its download line too: "Downloading <its name>",
     # not the image's name (pre-beta check 2026-10-08)
     rq_demo_docker_pull doqumentation "$DOCKER_IMAGE" "$NAME"
     DOCKER_IMAGE="$RQ_DOCKER_PULLED"
@@ -413,7 +436,7 @@ if [ "$MODE" = "workshop" ] && [ -t 0 ] && command -v whiptail >/dev/null 2>&1; 
         20 74
 fi
 
-rq_show_url "$SITE_URL" "$SITE_PORT"
+rq_show_url "${SITE_URL}${PAGE}" "$SITE_PORT"
 if [ "$MODE" = "workshop" ]; then print_qr "$SITE_PORT"; fi
 
 # ---------------------------------------------------------------------------

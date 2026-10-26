@@ -1,5 +1,5 @@
 {
-  "_doc": "Learning paths (issue #309): short tours through the demos for one audience, read by the Pi (rq_learning_paths.sh: raspi-config -> Quantum Demos -> Learning paths, and the desktop icon) and by the website (scripts/generate-demo-list.js on gh-pages writes the Learning paths page). Fields per path: id (a-z, 0-9, -), title, audience, minutes, goal (one line), maturity (\"beta\" while new), steps (2-6). A step names what to start: demo (a manifest id, with an optional variant id), or command (an rq_*.sh tool in /usr/bin, for My Quantum Programs), or url (an outside page); name (optional for a demo, which then uses its manifest name; required for command and url); try and notice (one short line each, plain ASCII: whiptail shows them). next (2-3 entries, shown as Keep going after the last step): name, url and why (one short line), or path (the id of another path) and why. ladder (Where to go next, six rungs): rung, text (one short line) and links (1-4, each name and url, with an optional note: a sentence that names it). tests/unit/test_learning_paths.py checks all of this.",
+  "_doc": "Learning paths (issue #309): short tours through the demos for one audience, read by the Pi (rq_learning_paths.sh: raspi-config -> Quantum Demos -> Learning paths, and the desktop icon) and by the website (scripts/generate-demo-list.js on gh-pages writes the Learning paths page). Fields per path: id (a-z, 0-9, -), title, audience, minutes, goal (one line), maturity (\"beta\" while new), steps (2-6), and for a path taken from someone else credit (one line) and credit_url. A step names what to start: demo (a manifest id, with an optional variant id), or command (an rq_*.sh tool in /usr/bin, for My Quantum Programs), or url (an outside page); name (optional for a demo, which then uses its manifest name; required for command and url); try and notice (one short line each, plain ASCII: whiptail shows them). A step in doQumentation on this Pi (demo qiskit-tutorials) may name page (its path there, e.g. /guides/quick-start), online (the same material on the web, offered when doQumentation is not downloaded or does not start) and time (the source's estimate, e.g. \"1 hour\"). ibm_learning (Continue with IBM Quantum Learning: title, text, url, and paths with slug, name, text and url) lists IBM Quantum's learning paths; the Pi offers it in the list and in Keep going, and the website as its own section; .github/workflows/ibm-learning-paths.yml compares the slugs with IBM's page weekly. next (2-3 entries, shown as Keep going after the last step): name, url and why (one short line), or path (the id of another path) and why. ladder (Where to go next, six rungs): rung, text (one short line) and links (1-4, each name and url, with an optional note: a sentence that names it). tests/unit/test_learning_paths.py checks all of this.",
   "paths": [
     {
       "id": "first-15-minutes",
@@ -181,8 +181,128 @@
           "why": "Free community prep for the Qiskit developer certification (unofficial, not by IBM)."
         }
       ]
+    },
+    {
+      "id": "ibm-introduction-to-quantum",
+      "title": "IBM: Introduction to quantum",
+      "audience": "Newcomers with time to learn",
+      "minutes": 1560,
+      "goal": "Learn key terms, applications and starter skills, on the Pi where you can.",
+      "credit": "From IBM Quantum Learning: its Introduction to quantum learning path.",
+      "credit_url": "https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum",
+      "maturity": "beta",
+      "steps": [
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/guides/quick-start",
+          "online": "https://quantum.cloud.ibm.com/docs/en/guides/quick-start",
+          "name": "Quickstart",
+          "time": "1 hour",
+          "try": "Skip Install Qiskit (it is on this Pi): build the circuit and run its cells.",
+          "notice": "A few lines of code build a circuit, draw it and show its results."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/guides/hello-world",
+          "online": "https://quantum.cloud.ibm.com/docs/en/guides/hello-world",
+          "name": "Run your first circuit on hardware",
+          "time": "0.5 hours",
+          "try": "Follow its four steps: map, optimize, execute, analyze. Hardware needs an IBM Quantum account.",
+          "notice": "The same four steps run every Qiskit program, from two qubits to over a hundred."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/guides/composer",
+          "online": "https://quantum.cloud.ibm.com/docs/en/guides/composer",
+          "name": "IBM Quantum Composer",
+          "time": "0.5 hours",
+          "try": "Read the guide, then build a circuit in the Composer (online, IBM Quantum account).",
+          "notice": "The Composer draws circuits by drag and drop and shows their Qiskit code."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/learning/courses/quantum-computing-in-practice",
+          "online": "https://quantum.cloud.ibm.com/learning/en/courses/quantum-computing-in-practice",
+          "name": "Quantum computing in practice",
+          "time": "8 hours",
+          "try": "Seven lessons: start with the introduction, one lesson at a time.",
+          "notice": "What quantum computers can do today, and how a problem gets onto one."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/learning/courses/basics-of-quantum-information",
+          "online": "https://quantum.cloud.ibm.com/learning/en/courses/basics-of-quantum-information",
+          "name": "Basics of quantum information",
+          "time": "15 hours",
+          "try": "Start with Single systems. Take your time: each lesson builds on the last.",
+          "notice": "The ideas behind every other step: qubits, measurements, gates, entanglement."
+        },
+        {
+          "demo": "qiskit-tutorials",
+          "page": "/tutorials/chsh-inequality",
+          "online": "https://quantum.cloud.ibm.com/docs/en/tutorials/chsh-inequality",
+          "name": "CHSH inequality",
+          "time": "1 hour",
+          "try": "Run it on real hardware with an IBM Quantum account.",
+          "notice": "Entangled qubits break a limit no classical system can. It fails in Simulator mode for now."
+        }
+      ],
+      "next": [
+        {
+          "name": "Introduction to quantum at IBM",
+          "url": "https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum",
+          "why": "The same path online: earn its badge with an IBM Quantum account."
+        },
+        {
+          "path": "your-first-program",
+          "why": "Write your own circuits on this Pi."
+        }
+      ]
     }
   ],
+  "ibm_learning": {
+    "title": "Continue with IBM Quantum Learning",
+    "text": "IBM Quantum's learning paths: documentation, courses and tutorials in one sequence, online and free. Most have a beginner and an intermediate level.",
+    "url": "https://quantum.cloud.ibm.com/learning/en",
+    "paths": [
+      {
+        "slug": "introduction-to-quantum",
+        "name": "Introduction to quantum",
+        "text": "Key terms, applications and starter skills.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=introduction-to-quantum"
+      },
+      {
+        "slug": "optimization",
+        "name": "Optimization",
+        "text": "Quantum approaches to optimization problems.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=optimization"
+      },
+      {
+        "slug": "data-science",
+        "name": "Data science",
+        "text": "Quantum computing for data science.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=data-science"
+      },
+      {
+        "slug": "physics-and-chemistry",
+        "name": "Physics and chemistry",
+        "text": "Molecules, materials and physical systems.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=physics-and-chemistry"
+      },
+      {
+        "slug": "quantum-algorithm-development",
+        "name": "Quantum algorithm development",
+        "text": "Design and study quantum algorithms.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=quantum-algorithm-development"
+      },
+      {
+        "slug": "qise",
+        "name": "QISE",
+        "text": "Quantum information science and engineering.",
+        "url": "https://quantum.cloud.ibm.com/learning/en?modal=qise"
+      }
+    ]
+  },
   "ladder": [
     {
       "rung": "Play",

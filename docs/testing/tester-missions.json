@@ -482,6 +482,17 @@
       "maturity": "beta"
     },
     {
+      "id": "demo-qiskit-tutorials",
+      "group": "learn",
+      "title": "doQumentation (IBM Quantum Learning on this Pi)",
+      "goal": "Open a tutorial in doQumentation (IBM Quantum Learning on this Pi) and run its code.",
+      "needs": [
+        "big-card"
+      ],
+      "demo": "qiskit-tutorials",
+      "maturity": "beta"
+    },
+    {
       "id": "demo-grok-bloch",
       "group": "learn",
       "title": "Grokking the Bloch Sphere",
@@ -502,14 +513,15 @@
       "demo": "grok-bloch-web"
     },
     {
-      "id": "demo-qiskit-tutorials",
+      "id": "demo-qubins",
       "group": "learn",
-      "title": "Qiskit Tutorials on this Pi",
-      "goal": "Open a tutorial in Qiskit Tutorials on this Pi and run its code.",
+      "title": "QuBins",
+      "goal": "Choose a Qiskit version and the notebooks, start QuBins and run a notebook.",
       "needs": [
+        "internet",
         "big-card"
       ],
-      "demo": "qiskit-tutorials",
+      "demo": "qubins",
       "maturity": "beta"
     },
     {

@@ -77,8 +77,9 @@ Demos from other projects and partners. Add them with Manage demos > Add demo fr
 New and experimental demos: some things may not work yet. Try them and tell us what works and what doesn't.
 
 - **Entangible (beta)**: Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera. Opens `rq_demo_run.sh entangible`.
-- **Qiskit Tutorials on this Pi (beta)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
+- **doQumentation (IBM Quantum Learning on this Pi) (beta)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
 - **Workshop & Qiskit Server (beta)**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
+- **QuBins (beta)**: JupyterLab with the Qiskit version and the notebooks you choose (Docker, downloaded on first start). Opens `rq_demo_run.sh qubins`.
 - **racetraQ (beta)** *(catalogue demo: its icon comes when it is added)*: quantum reinforcement-learning racing game
 
 ## Taskbar, main menu and login

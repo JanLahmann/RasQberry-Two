@@ -347,6 +347,22 @@ def test_led_demo_failing_while_it_waits_is_reported(menu_env):
     assert "late failure" in proc.stdout
 
 
+def test_demo_logs_of_earlier_starts_are_kept(menu_env):
+    # user test 2026-10-26: a failed first start left no trace, the next
+    # start wrote over its log
+    log = menu_env.tmp / "demo.log"
+    for i in range(7):
+        _demo_script(menu_env.tmp, f"echo 'start {i}'\n")
+        proc = menu_env(f'_RQ_LED_RUN=1; LED_WEB=true; run_demo bg "T{i}" "{menu_env.tmp}" sh demo.sh; echo "RC=$?"',
+                        stdin="")
+        assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    text = log.read_text()
+    assert text.startswith("=== T6, ") and "browser true" in text and "start 6" in text
+    assert "start 5" in (menu_env.tmp / "demo.log.1").read_text()
+    assert "start 1" in (menu_env.tmp / "demo.log.5").read_text()
+    assert not (menu_env.tmp / "demo.log.6").exists()
+
+
 def test_led_demo_stops_with_enter_like_every_demo(menu_env):
     # items 5, 33: no "Stop demo / Keep running" dialog, the same stop rule
     _demo_script(menu_env.tmp, "sleep 30\n")

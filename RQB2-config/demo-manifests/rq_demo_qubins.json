@@ -1,0 +1,65 @@
+{
+  "id": "qubins",
+  "name": "QuBins",
+  "category": "education",
+  "group": "learn",
+  "maturity": "beta",
+  "description": "JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work",
+  "keywords": [
+    "quantum",
+    "jupyter",
+    "jupyterlab",
+    "qiskit",
+    "docker",
+    "qubins",
+    "ibm",
+    "tutorial",
+    "course",
+    "education"
+  ],
+  "entrypoint": {
+    "type": "docker",
+    "docker_image": "ghcr.io/qubins/images@sha256:dd8f4f727fe450c9a13c8eb1404e5c471274f28f91be8bdf1fac14436ff33a48",
+    "docker_image_tag": "2.5-xl-20261008",
+    "docker_image_fallback": "ghcr.io/qubins/images:2.5-xl",
+    "docker_image_choice": true,
+    "docker_port": 8894,
+    "launcher": "rq_qubins.sh"
+  },
+  "install": {
+    "preinstalled": false,
+    "download_all": false,
+    "download": {
+      "what": "A QuBins Docker image from ghcr.io (you choose which), and the notebooks you choose",
+      "download_mb": 890,
+      "disk_mb": 4000,
+      "time": "2-15 minutes"
+    },
+    "update": {
+      "docker_tags": "^[0-9]+\\.[0-9]+-(xl|small)(-[0-9]{8})?$",
+      "docker_latest": "latest-xl",
+      "docker_order": "version"
+    }
+  },
+  "needs_hw": {
+    "leds": false,
+    "network": true,
+    "display": "optional"
+  },
+  "needs_ibm_token": "none",
+  "browser_based": true,
+  "loop_ok": false,
+  "timeout": 0,
+  "icon": {
+    "type": "custom",
+    "path": "/usr/share/icons/rasqberry/qubins.svg"
+  },
+  "menu": {
+    "show": true,
+    "order": 35
+  },
+  "desktop": {
+    "show": true,
+    "terminal": true
+  }
+}

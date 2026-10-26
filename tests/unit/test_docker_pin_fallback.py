@@ -340,10 +340,11 @@ def test_pin_check_tells_offered_gone_and_no_answer():
 
 
 def test_pin_check_reads_the_shipped_manifests():
-    images = dict(_pins_module().manifest_images(_ROOT))
+    # (QuBins pins the same image as Qiskit Live: both are listed)
+    images = list(_pins_module().manifest_images(_ROOT))
     lab = json.load(open(os.path.join(_MANIFESTS, "rq_demo_quantum-lab.json")))["entrypoint"]
-    assert images[lab["docker_image"]] == "quantum-lab docker_image"
-    assert images[lab["docker_image_fallback"]] == "quantum-lab docker_image_fallback"
+    assert (lab["docker_image"], "quantum-lab docker_image") in images
+    assert (lab["docker_image_fallback"], "quantum-lab docker_image_fallback") in images
 
 
 def _online():
