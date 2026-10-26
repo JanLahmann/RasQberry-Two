@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-26T11:29:05Z",
+  "generated": "2026-10-26T13:40:48Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,22 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-24-105954",
-      "name": "rasqberry-development-2026-10-24-105954",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-105954/rasqberry-development-2026-10-24-105954.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-24-105954",
-      "release_date": "2026-10-24 10:59",
-      "image_download_size": 1860596752,
-      "extract_size": 9546235904,
-      "extract_sha256": "3b0236080515dc94b8f21936bbc17d859442076948cb2fa0960fa9f39a64f97d",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-24-105954/rasqberry-development-2026-10-24-105954-ab.img.xz",
-      "ab_extract_sha256": "2c28cec1d94e54f786d32aef08f4fa2e6ee93652784d7b849d8e71ed86633ef4",
-      "ab_image_sha256": "9ea0c8e5b812a5809b1d6b1956865bb246c805eec9de12627e441ec12f2adbc2",
+      "tag": "development-2026-10-26-135307",
+      "name": "rasqberry-development-2026-10-26-135307",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-26-135307/rasqberry-development-2026-10-26-135307.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-26-135307",
+      "release_date": "2026-10-26 13:53",
+      "image_download_size": 1861217272,
+      "extract_size": 9563013120,
+      "extract_sha256": "fea041569e9630cf5e1306387b29f6fb676c955076e88d3d8de918af07e9d4bb",
+      "image_sha256": "daead67bcbb6f946a2b884dd4719abdb6ca315b81c13ad10aa93f193fe851f1e",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-26-135307/rasqberry-development-2026-10-26-135307-ab.img.xz",
+      "ab_extract_sha256": "bb1777f7d2e3d00a48d95ba3622b830d3d9509efb6e7d41d22030880271a2463",
+      "ab_image_sha256": "387a0164492d24ddf0ae9ee7b76a393e5503a185d2d30d62df89cb0c0dcfcd02",
+      "ab_image_download_size": 1912419268,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1912329440,
       "highlights": [
-        "Bump version to development-2026-10-24-105954",
-        "Beta demos get their own desktop folder and menu section (#350)"
+        "User test 2026-10-26: hotspot QR, LED browser view, naming, bookmarks, Update demos, window sizes (#358)",
+        "QuBins demo (beta): choose the image and the content (#356)"
       ]
     }
   }
