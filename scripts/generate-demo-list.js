@@ -16,8 +16,9 @@
  *
  * It also writes 02-learning-paths.md from learning-paths.json, which sits next
  * to the manifests: the Pi's Learning paths chooser reads the same file, so the
- * website and the Pi show the same paths, their Keep going links and the
- * Where to go next ladder (issue #309).
+ * website and the Pi show the same paths, their Keep going links, Continue
+ * with IBM Quantum Learning (ibm_learning) and the Where to go next ladder
+ * (issue #309).
  *
  *   node scripts/generate-demo-list.js            # write both files
  *   node scripts/generate-demo-list.js --check    # fail if one is out of date (CI)
@@ -321,6 +322,12 @@ function renderStep(step, i, byId, pathId) {
     const name = step.name || m.name;
     const a = trackedLink(m.name, link, pathId, link);
     what = name === m.name ? `**${a}**` : `**${esc(name)}** in ${a}`;
+    // A step from IBM Quantum Learning: its page in doQumentation on the Pi,
+    // or the same material online, with its source's time
+    if (step.page) {
+      const local = trackedLink(m.name.replace(/ \(.*\)$/, ''), link, pathId, link);
+      what = `**${esc(step.name)}** (${esc(step.time)}): in ${local} on the Pi, or ${trackedLink('online at IBM Quantum', step.online, pathId, step.online)}`;
+    }
   } else if (step.command) {
     what = `**${esc(step.name)}** (desktop icon on the Pi)`;
   } else {
@@ -334,8 +341,9 @@ const h2Anchor = (title) => `#${`2 ${title}`.replace(/[^a-zA-Z0-9]/g, ' ').repla
 // rasqberry.org pages as site links, so the build's link check covers them
 const siteUrl = (url) => url.replace(/^https:\/\/rasqberry\.org(?=\/)/, '');
 
-// Keep going: the path's next entries on one line, the reason on hover
-function renderNext(p, paths) {
+// Keep going: the path's next entries on one line, the reason on hover, and
+// Continue with IBM Quantum Learning (as on the Pi)
+function renderNext(p, paths, ibm) {
   const links = (p.next || []).map((e) => {
     const target = e.path ? paths.find((q) => q.id === e.path) : null;
     if (e.path && !target) throw new Error(`learning path ${p.id}: next path "${e.path}" does not exist`);
@@ -343,8 +351,22 @@ function renderNext(p, paths) {
     const url = target ? h2Anchor(target.title) : siteUrl(e.url);
     return trackedLink(name, url, p.id, target ? target.id : url, e.why);
   });
+  if (ibm) links.push(trackedLink('IBM Quantum Learning', h2Anchor(ibm.title), p.id, 'ibm-learning', ibm.title));
   return links.length ? `**Keep going:** ${links.join(' · ')}\n` : '';
 }
+
+// Continue with IBM Quantum Learning: IBM Quantum's learning paths, online
+function renderIbm(ibm) {
+  if (!ibm || !(ibm.paths || []).length) return '';
+  let md = `\n## ${esc(ibm.title)}\n\n${esc(ibm.text)} On the Pi: **${esc(ibm.title)}** in the Learning paths.\n\n`;
+  for (const p of ibm.paths) {
+    md += `- **${trackedLink(p.name, p.url, 'ibm-learning', p.url)}**: ${esc(p.text)}\n`;
+  }
+  return md + `\nAll of them: ${trackedLink('IBM Quantum Learning', ibm.url, 'ibm-learning', ibm.url)}.\n`;
+}
+
+// How long a path takes: "45 minutes", or "26 hours" for a long one
+const duration = (m) => (m >= 120 ? `${Math.round(m / 60)} hours` : `${m} minutes`);
 
 // Where to go next: one line per rung, its links, and the notes (sentences
 // that name their link, e.g. CertiQ's: a community project, not IBM's)
@@ -380,18 +402,18 @@ try and what to notice. On the Pi, open the **Learning paths** icon or
 
 ## ${esc(p.title)}
 
-${esc(p.audience)} · about ${p.minutes} minutes${beta}
+${esc(p.audience)} · about ${duration(p.minutes)}${beta}
 
 ${esc(p.goal)}
-
+${p.credit ? `\n${trackedLink(p.credit, p.credit_url, p.id, p.credit_url)}\n` : ''}
 ${p.steps.map((st, i) => renderStep(st, i, byId, p.id)).join('')}
-${renderNext(p, paths)}
+${renderNext(p, paths, learning.ibm_learning)}
 ${p.maturity === 'beta' ? 'This path is new: ' : ''}[tell us how it went](${FEEDBACK}&demo=learning-paths/${p.id}).
 
 </div>
 `;
   }
-  return md + renderLadder(learning.ladder);
+  return md + renderIbm(learning.ibm_learning) + renderLadder(learning.ladder);
 }
 
 (async () => {
