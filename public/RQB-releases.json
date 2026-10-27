@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-27T05:40:21Z",
+  "generated": "2026-10-27T05:40:49Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,15 +43,16 @@
       "image_download_size": 1860998560,
       "extract_size": 9554624512,
       "extract_sha256": "d687050fd0ca716d22f8a15bb9027077accf389d12ca8aabcacea813a1b726d4",
-      "image_sha256": "f8ad53b3e6de0f865a9e0becca39a7ad4feee608313c06f23c45ff5eb859b677",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-27-055208/rasqberry-development-2026-10-27-055208-ab.img.xz",
       "ab_extract_sha256": "be348243f9cee94a6c0ac330f3de48c6d7cfb034fc8091757a53c1e28a53a3f3",
       "ab_image_sha256": "180ac387907d8199281afc9148cfa274270cdb82d892a9a293aef8ea76636aad",
-      "ab_image_download_size": 1911629132,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1911629132,
       "highlights": [
-        "fix(desktop): My Quantum Programs only in the RasQberry menu (#365)",
-        "fix(firstlogin): arrow keys work in the LED check started at SSH login (#364)"
+        "My Quantum Programs only in the RasQberry menu (#365)",
+        "arrow keys work in the LED check started at SSH login (#364)",
+        "Bump version to development-2026-10-27-055208",
+        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-26-165828"
       ]
     }
   }
