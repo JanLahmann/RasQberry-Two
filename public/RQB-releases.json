@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-27T03:15:43Z",
+  "generated": "2026-10-27T05:40:21Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,23 +35,23 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-26-165828",
-      "name": "rasqberry-development-2026-10-26-165828",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-26-165828/rasqberry-development-2026-10-26-165828.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-26-165828",
-      "release_date": "2026-10-26 16:58",
-      "image_download_size": 1861959056,
-      "extract_size": 9563013120,
-      "extract_sha256": "282266a0d611fb94c4d05a8d95003f7b0a886336f1a21d1e6e4ad39dffc6b569",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-26-165828/rasqberry-development-2026-10-26-165828-ab.img.xz",
-      "ab_extract_sha256": "31aa8776498cecc01a7c75dceb5884b9c0c62c82d8ae8ef7a5bcf85a048e0002",
-      "ab_image_sha256": "01c066359a46de0620d35770af3c3e54e3b31fd4ee186c06d00dfc264c3782cd",
+      "tag": "development-2026-10-27-055208",
+      "name": "rasqberry-development-2026-10-27-055208",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-27-055208/rasqberry-development-2026-10-27-055208.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-27-055208",
+      "release_date": "2026-10-27 05:52",
+      "image_download_size": 1860998560,
+      "extract_size": 9554624512,
+      "extract_sha256": "d687050fd0ca716d22f8a15bb9027077accf389d12ca8aabcacea813a1b726d4",
+      "image_sha256": "f8ad53b3e6de0f865a9e0becca39a7ad4feee608313c06f23c45ff5eb859b677",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-27-055208/rasqberry-development-2026-10-27-055208-ab.img.xz",
+      "ab_extract_sha256": "be348243f9cee94a6c0ac330f3de48c6d7cfb034fc8091757a53c1e28a53a3f3",
+      "ab_image_sha256": "180ac387907d8199281afc9148cfa274270cdb82d892a9a293aef8ea76636aad",
+      "ab_image_download_size": 1911629132,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1908171312,
       "highlights": [
-        "Bump version to development-2026-10-26-165828",
-        "Learning paths: IBM Quantum Learning paths and 'IBM: Introduction to quantum' (#360)",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-26-135307"
+        "fix(desktop): My Quantum Programs only in the RasQberry menu (#365)",
+        "fix(firstlogin): arrow keys work in the LED check started at SSH login (#364)"
       ]
     }
   }
