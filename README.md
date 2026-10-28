@@ -38,6 +38,7 @@ pip list | grep qiskit
 - **Source code:** the [`development`](https://github.com/JanLahmann/RasQberry-Two/tree/development) branch (work in progress) and [`beta`](https://github.com/JanLahmann/RasQberry-Two/tree/beta) (the current beta). The images are built from these; the scripts on `main` are older and not used by the images.
 - **Demos:** [demo list](https://rasqberry.org/03-quantum-computing-demos/01-demo-list/).
 - **3D model:** STL files in the [3D-model branch](https://github.com/JanLahmann/RasQberry-Two/tree/3D-model); [bill of materials](https://rasqberry.org/01-3d-model/01-bill-of-materials/) and [assembly guide](https://rasqberry.org/01-3d-model/02-hardware-assembly-guide/) on the website.
+- **Workshops:** [workshops & events](https://rasqberry.org/workshops/); a class offline from one Pi: [doQumentation offline workshop guide](https://doqumentation.org/workshop-offline).
 - **Help and bugs:** [issues](https://github.com/JanLahmann/RasQberry-Two/issues) (paste the output of `rq_info.sh --json`) and [discussions](https://github.com/JanLahmann/RasQberry-Two/discussions).
 
 ---
