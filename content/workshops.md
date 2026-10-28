@@ -21,6 +21,8 @@ with the Qiskit code running on the Pi. It is based on
 [doQumentation](https://doqumentation.org). We help you size it for your group.
 The code runs on the Pi, also without the internet; only IBM Quantum computers
 need it.
+How to run a whole class offline from one Pi: the
+[doQumentation offline workshop guide](https://doqumentation.org/workshop-offline).
 
 To start it, double-click **Workshop & Qiskit Server** in the desktop folder
 **Workshops & events** (or RasQberry → Quantum Demos → Workshops & events). The Pi shows the address and a QR code for the
