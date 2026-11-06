@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Shared helpers for the RasQberry parametric (build123d) models.
 
-Used by wall_model.py (rebuild of the SketchUp wall) and union/union_model.py
-(IBM modular cryogenic cell). Keep this module free of model-specific
+Used by wall_model.py (rebuild of the SketchUp wall) and rte/narrow_server.py
+(narrow RTE server). Keep this module free of model-specific
 parameters: everything here takes its numbers as arguments.
 
 All dimensions in mm.  Requires: build123d (pip install build123d)

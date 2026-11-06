@@ -1,4 +1,17 @@
-# Parametric wall model (Base / Back / Lid)
+# Parametric (code-CAD) models
+
+RasQberry parts rebuilt as code (build123d) from the SketchUp STLs, so they
+can be changed by editing numbers instead of meshes:
+
+- **the wall** (Base / Back / Lid) with a split version for small printers,
+  described below;
+- **[`rte/`](rte/README.md) — the narrow RTE server** (jrl02 variant): 10 x 47
+  hole grid in both side walls, cups and ribs inside, all values in one
+  `PARAMS` dict;
+- `rqb_cad.py` — the shared helper library (export to STL/STEP/3MF, dovetail
+  split, rounded boxes, magnet pockets, solid checks).
+
+## The wall (Base / Back / Lid)
 
 This folder contains a parametric, code-based rebuild of the three wall
 parts of the RasQberry Two 3D model:
