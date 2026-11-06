@@ -75,10 +75,11 @@ def section_polys(mesh, axis, level, plane):
             continue
         p = Polygon(np.round(line[:, plane], 4))
         if not p.is_valid:
-            p = p.buffer(0)
-        if p.is_empty or p.area < 1e-4:
-            continue
-        rings.append(p)
+            p = p.buffer(0)  # may split a self-touching ring into pieces
+        for q in getattr(p, "geoms", [p]):
+            if q.is_empty or q.area < 1e-4:
+                continue
+            rings.append(Polygon(q.exterior.coords))
     rings.sort(key=lambda p: -p.area)
     used = [False] * len(rings)
     out = []
