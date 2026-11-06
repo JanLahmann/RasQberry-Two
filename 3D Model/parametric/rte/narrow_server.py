@@ -27,11 +27,13 @@ from build123d import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import rqb_params  # noqa: E402
 from rqb_cad import bbox_size, check_solid, export_all  # noqa: E402
 
 PARAMS = dict(
     # outer box
-    width=38.1, depth=23.25, height=93.3,
+    width=rqb_params.RTE_WIDTH, depth=rqb_params.RTE_DEPTH,
+    height=rqb_params.BODY_HEIGHT,
     edge_chamfer=0.5,            # the four vertical edges
     floor=3.0,                   # floor thickness
     # cavity (front wall 1.8 mm, back wall 2.7 mm, side walls 2.2 mm)
@@ -163,9 +165,7 @@ def main():
     vol = check_solid(part, "NarrowServerSingle")
     print("size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(part), vol))
     export_all(part, "RQB2-R2_NarrowServerSingle-jrl02.parametric", a.outdir,
-               formats=tuple(a.formats.split(",")),
-               # coarser than the default: ~20 segments per hole, as in SketchUp
-               stl_tolerance=0.01, stl_angular_tolerance=0.35)
+               formats=tuple(a.formats.split(",")))
 
 
 if __name__ == "__main__":

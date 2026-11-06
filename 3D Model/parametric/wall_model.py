@@ -21,6 +21,7 @@ from pathlib import Path
 
 from build123d import Circle, Plane, Polygon, Pos, Rot, extrude
 
+import rqb_params
 from rqb_cad import export_all, split_part
 
 # ---------------------------------------------------------------------------
@@ -65,10 +66,11 @@ CARVE = {
     ],
 }
 
-CLEARANCE = 0.15   # per-side clearance between dovetail key and pocket
-KEY_DEPTH = 9.0    # how far a key reaches into the neighbouring segment
-KEY_NECK = 7.0     # key width at the cut plane
-KEY_END = 12.0     # key width at its wide (locking) end
+# shared fit and dovetail values (rqb_params.py)
+CLEARANCE = rqb_params.CLEARANCE                 # per-side key/pocket clearance
+KEY_DEPTH = rqb_params.DOVETAIL["key_depth"]     # reach into the neighbour
+KEY_NECK = rqb_params.DOVETAIL["key_neck"]       # key width at the cut plane
+KEY_END = rqb_params.DOVETAIL["key_end"]         # width at the locking end
 
 # Dovetail key positions per part. "plate": horizontal plate, trapezoid in
 # the XY plane extruded over z0..z1 (assembles by dropping vertically).

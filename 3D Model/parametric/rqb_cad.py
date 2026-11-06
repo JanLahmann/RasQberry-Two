@@ -9,6 +9,8 @@ All dimensions in mm.  Requires: build123d (pip install build123d)
 """
 from pathlib import Path
 
+import rqb_params
+
 from build123d import (
     Box, Color, Compound, Cylinder, Location, Mesher, Plane, Polygon, Pos,
     RectangleRounded, Rot, Shape, Solid, export_step, export_stl, extrude,
@@ -147,9 +149,16 @@ def _bare(shape):
 
 
 def export_all(solid, stem, outdir, formats=("stl", "step", "3mf"), color=None,
-               stl_tolerance=0.001, stl_angular_tolerance=0.1, quiet=False):
+               stl_tolerance=None, stl_angular_tolerance=None, quiet=False):
     """Write <outdir>/<stem>.stl / .step / .3mf. `color` (build123d Color)
-    is stored in the 3MF when given."""
+    is stored in the 3MF when given. Tolerances default to
+    rqb_params.EXPORT; rqb_params.SCALE is applied to the solid."""
+    if stl_tolerance is None:
+        stl_tolerance = rqb_params.EXPORT["stl_tolerance"]
+    if stl_angular_tolerance is None:
+        stl_angular_tolerance = rqb_params.EXPORT["stl_angular_tolerance"]
+    if rqb_params.SCALE != 1.0:
+        solid = solid.scale(rqb_params.SCALE)
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     if color is not None:
