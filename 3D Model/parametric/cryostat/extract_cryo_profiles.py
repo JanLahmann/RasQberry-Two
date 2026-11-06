@@ -17,6 +17,8 @@ solids from it.
 Usage:
     git show "origin/3D-model:3D Model/cryostat/R2_ChandelierSingle.stl" > /tmp/src/R2_ChandelierSingle.stl
     git show "origin/3D-model:3D Model/cryostat/R2_CryoLid-Simple.stl"   > /tmp/src/R2_CryoLid-Simple.stl
+    git show "origin/3D-model:3D Model/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl" > /tmp/src/R2_CryoStandaloneGamma.stl
+    git show "origin/3D-model:3D Model/3D Model - modifications - Jan/October 2025/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl" > /tmp/src/RQB2-R2_CryoStandaloneGamma-jrl04.stl
     python3 extract_cryo_profiles.py /tmp/src
 """
 import json
@@ -87,11 +89,51 @@ def chandelier(path):
             "stem": outline(stem, 3.0), "column": outline(column, 20.0)}
 
 
+# Gamma shell: layers (z0, z1, sample height). The sample heights avoid the
+# cups (z 13-31, 53-71) and the hinge holes (z 8.2-11.4, 73.2-76.4); those
+# are rebuilt from numbers. The two V-grooves round the outside (z 2-3 and
+# 84.8-85.8) are captured in 0.1 mm layers (step error <= 0.05 mm).
+# The SketchUp mesh is broken (open faces) between z 2.0 and 2.5; those
+# layers are cut from the Gamma body in Jan's Tinkercad export instead
+# (RQB2-R2_CryoStandaloneGamma-jrl04.stl, which repaired it; same frame
+# within 0.005 mm).
+REPAIR_Z = (2.0, 2.5)
+def _fine(z0, z1, n=10):
+    h = (z1 - z0) / n
+    return [(round(z0 + i * h, 3), round(z0 + (i + 1) * h, 3), round(z0 + (i + 0.5) * h, 3))
+            for i in range(n)]
+
+
+GAMMA_BANDS = ([(0.0, 2.0, 1.0)] + _fine(2.0, 3.0) + [(3.0, 5.0, 4.0), (5.0, 82.8, 45.0),
+               (82.8, 84.8, 83.8)] + _fine(84.8, 85.8) + [(85.8, 91.3, 88.0), (91.3, 93.3, 92.3)])
+
+
+def gamma_shell(path, repair_path):
+    mesh = trimesh.load(path)
+    shift = mesh.bounds[0].copy()
+    mesh.apply_translation(-shift)
+    repair = max(trimesh.load(repair_path).split(only_watertight=False), key=lambda b: b.volume)
+    repair.apply_translation(-repair.bounds[0])
+    bands = []
+    for z0, z1, zs in GAMMA_BANDS:
+        src = repair if REPAIR_Z[0] <= zs <= REPAIR_Z[1] else mesh
+        polys = section_polys(src, 2, zs, (0, 1))
+        bands.append({"z0": z0, "z1": z1, "polys": [
+            {"ext": ring_to_json(p.exterior.coords),
+             "holes": [ring_to_json(h.exterior.coords) for h in holes]}
+            for p, holes in polys]})
+    return {"source": Path(path).name, "source_bounds_min": np.round(shift, 3).tolist(),
+            "axis": 2, "plane": [0, 1], "size": np.round(mesh.extents, 3).tolist(),
+            "bands": bands}
+
+
 def main():
     src = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
     data = {"snap_mm": SNAP,
             "R2_CryoLid-Simple": extract(src / "R2_CryoLid-Simple.stl"),
-            "R2_ChandelierSingle": chandelier(src / "R2_ChandelierSingle.stl")}
+            "R2_ChandelierSingle": chandelier(src / "R2_ChandelierSingle.stl"),
+            "R2_CryoStandaloneGamma": gamma_shell(src / "R2_CryoStandaloneGamma.stl",
+                                                  src / "RQB2-R2_CryoStandaloneGamma-jrl04.stl")}
     out = Path(__file__).parent / "cryo_profiles.json"
     out.write_text(json.dumps(data, separators=(",", ":")))
     print(f"wrote {out}")

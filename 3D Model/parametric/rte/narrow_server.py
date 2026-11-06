@@ -113,6 +113,27 @@ def rib(p, y_plate, sign, zc):
     return cyl & keep
 
 
+def mount_insert(p=PARAMS, trim_lo=0.0, trim_hi=0.0):
+    """One mounting plate with its cups and ribs, as a separate solid.
+
+    Back face on y = 0, cups growing towards +y, centred on x = 0, standing on
+    the floor (z from p["floor"] to p["plate_top"], as inside the server).
+    trim_lo / trim_hi cut that much off the -x / +x end (plate, cups and
+    all). Also used by ../cryostat/cryostat_model.py (Jan's Gamma jrl04).
+    """
+    ph, pt, fl = p["plate_half"], p["plate_thick"], p["floor"]
+    part = _box(-ph, ph, 0.0, pt, fl, p["plate_top"])
+    for z in p["cup_z"]:
+        part += cup(p, pt - 0.01, +1, z)
+    for z in p["rib_z"]:
+        part += rib(p, pt - 0.01, +1, z)
+    if trim_lo > 0:
+        part -= _box(-ph - 1, -ph + trim_lo, -1, 10, fl - 1, p["plate_top"] + 1)
+    if trim_hi > 0:
+        part -= _box(ph - trim_hi, ph + 1, -1, 10, fl - 1, p["plate_top"] + 1)
+    return part
+
+
 def build(p=PARAMS):
     H, fl = p["height"], p["floor"]
     body = extrude(outline(p), H)
