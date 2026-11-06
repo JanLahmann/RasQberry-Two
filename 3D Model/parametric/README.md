@@ -8,6 +8,9 @@ can be changed by editing numbers instead of meshes:
 - **[`rte/`](rte/README.md) — the narrow RTE server** (jrl02 variant): 10 x 47
   hole grid in both side walls, cups and ribs inside, all values in one
   `PARAMS` dict;
+- **Jan's variants** (October 2025, Tinkercad): `R2_Wall-Base-jrl01-2` and its
+  no-floor version are built by `wall_model.py` as variants of the base
+  (`VARIANTS`); `wall_panel.py` builds `RQB2-WallPanel-jrl02-2`;
 - `rqb_cad.py` — the shared helper library (export to STL/STEP/3MF, dovetail
   split, rounded boxes, magnet pockets, solid checks).
 

@@ -100,6 +100,27 @@ KEYS = {
     ],
 }
 
+# Variants: a measured part plus a few edits, in the part's own coordinates
+# (x from the left edge, as in wall_profiles.json).
+#   add_prisms: (x0, x1, [(y, z), ...]) a y/z polygon extruded from x0 to x1,
+#               fused onto the part
+#   closed_bottom: fill the openings in the floor plate (band starting at z 0)
+# The jrl variants are Jan's Tinkercad edits of the base (October 2025,
+# "3D Model - modifications - Jan"); the edit was found by a boolean
+# difference of his STL against the original. mesh_volume_mm3 = his mesh
+# (inflated by overlapping bodies Tinkercad leaves inside the part).
+# jrl01: the sloped underside on the seam centre thickened by 1 mm over 6 mm
+# width (slope z = 69.52 + 3 (y - 13) lowered to 68.52 + 3 (y - 13)). The
+# strip reaches 1.1 mm up into the solid so its top edge does not coincide
+# with the existing edge at (y 15, z 75.52) - that meshes into a leaky STL.
+JRL01_RAISE = (119.86, 125.86, [(13.0, 68.52), (15.0, 74.52), (15.0, 75.62), (13.0, 70.62)])
+VARIANTS = {
+    "R2_Wall-Base-jrl01-2": dict(base="R2_Wall-Base", add_prisms=[JRL01_RAISE],
+                                 mesh_volume_mm3=106853.3),
+    "R2_Wall-Base-jrl01-2-nofloor": dict(base="R2_Wall-Base", add_prisms=[JRL01_RAISE],
+                                         closed_bottom=True, mesh_volume_mm3=126653.3),
+}
+
 PROFILES = Path(__file__).parent / "wall_profiles.json"
 OUTDIR = Path(__file__).parent / "output"
 
@@ -126,15 +147,16 @@ def ring_sketch(ring, snap, flip_v):
     return Polygon(*pts, align=None)
 
 
-def build_part(data, snap, flip_v=False):
+def build_part(data, snap, flip_v=False, closed_bottom=False):
     """Union of one extrusion per measured cross-section band."""
     solids = []
     for band in data["bands"]:
         z0, z1 = band["z0"], band["z1"]
         for poly in band["polys"]:
             face = ring_sketch(poly["ext"], snap, flip_v)
-            for hole in poly["holes"]:
-                face -= ring_sketch(hole, snap, flip_v)
+            if not (closed_bottom and z0 == 0.0):  # closed: keep the floor solid
+                for hole in poly["holes"]:
+                    face -= ring_sketch(hole, snap, flip_v)
             solids.append(extrude(Plane.XY.offset(z0) * face, z1 - z0))
     part = solids[0]
     for s in solids[1:]:
@@ -150,24 +172,32 @@ def main():
     OUTDIR.mkdir(exist_ok=True)
     profiles = json.load(open(PROFILES))
     snap = profiles["snap_mm"]
-    for name, data in profiles["parts"].items():
+    jobs = [(name, data, {}) for name, data in profiles["parts"].items()]
+    jobs += [(name, profiles["parts"][v["base"]], v) for name, v in VARIANTS.items()]
+    for name, data, variant in jobs:
         print(f"=== {name} ===")
         # The back panel's profiles are measured in the (x, z) plane and its
         # bands run along y; build it flipped and rotate into position so the
         # final solid matches the original part's orientation and chirality.
         is_back = data["axis"] == 1
-        part = build_part(data, snap, flip_v=is_back)
+        part = build_part(data, snap, flip_v=is_back,
+                          closed_bottom=variant.get("closed_bottom", False))
         if is_back:
             part = Rot(X=-90) * part
-        vol_ref = data["mesh_volume_mm3"]
+        for x0, x1, yz in variant.get("add_prisms", []):
+            pln = Plane(origin=(x0, 0, 0), x_dir=(0, 1, 0), z_dir=(1, 0, 0))
+            part = (part + extrude(pln * Polygon(*yz, align=None), x1 - x0)).clean()
+        vol_ref = variant.get("mesh_volume_mm3", data["mesh_volume_mm3"])
         vol = part.volume
         print(f"  volume {vol / 1000:.2f} cm3 "
               f"(original mesh {vol_ref / 1000:.2f} cm3, "
               f"diff {abs(vol - vol_ref) / vol_ref * 100:.2f}%)")
         export_all(part, f"{name}.parametric", OUTDIR)
-        if CUTS.get(name):
-            segs = split_part(part, data["size"], CUTS[name], KEYS[name],
-                              CARVE.get(name, []), clearance=CLEARANCE,
+        # variants are split like their base part
+        base = variant.get("base", name)
+        if CUTS.get(base):
+            segs = split_part(part, data["size"], CUTS[base], KEYS[base],
+                              CARVE.get(base, []), clearance=CLEARANCE,
                               key_depth=KEY_DEPTH, key_neck=KEY_NECK, key_end=KEY_END)
             for seg, label in zip(segs, "ABCDEFGH"):
                 bb = seg.bounding_box()
