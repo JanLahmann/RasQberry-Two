@@ -20,7 +20,7 @@ The lid's cross-sections and the chandelier's two free-form outlines (stem,
 column) come from cryo_profiles.json (see extract_cryo_profiles.py); the rest
 is built from the numbers in CHANDELIER below.
 
-Usage:  python cryostat_model.py [--outdir DIR]
+Usage:  python cryostat_model.py [--outdir ROOT] [--only NAME,...]   (default ../output)
 """
 import argparse
 import json
@@ -32,9 +32,10 @@ from build123d import (Circle, Cylinder, Plane, Polygon, Pos, Rectangle, Rot,
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-from rqb_cad import bbox_size, check_solid, export_all  # noqa: E402
+from rqb_cad import bbox_size, check_solid, export_part  # noqa: E402
+sys.path.insert(0, str(HERE.parent / "wall"))
 from wall_model import build_part, ring_sketch  # noqa: E402
-sys.path.insert(0, str(HERE.parent / "rte"))
+sys.path.insert(0, str(HERE.parent / "RTE"))
 from narrow_server import mount_insert  # noqa: E402
 
 PROFILES = HERE / "cryo_profiles.json"
@@ -116,7 +117,7 @@ GAMMA = dict(
 )
 
 # Jan's variants of Gamma (October 2025, Tinkercad): the cups replaced by the
-# RTE mounting plate (rte/narrow_server.py mount_insert) on all five walls;
+# RTE mounting plate (RTE/narrow_server.py mount_insert) on all five walls;
 # on the two front walls the plate is cut 3 mm shorter on the door side.
 # "no-floor" also closes the floor opening with a 3 mm disc.
 GAMMA_VARIANTS = {
@@ -211,7 +212,7 @@ def gamma(prof, cups=False, inserts=False, floor_disc=False, g=GAMMA):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", default=str(HERE / "output"))
+    ap.add_argument("--outdir", help="output root (default ../output)")
     ap.add_argument("--only", help="comma-separated part names")
     a = ap.parse_args()
     prof = json.loads(PROFILES.read_text())
@@ -226,7 +227,7 @@ def main():
         part = make()
         vol = check_solid(part, name)
         print("%s: %.2f x %.2f x %.2f mm, volume %.0f mm3" % (name, *bbox_size(part), vol))
-        export_all(part, f"{name}.parametric", a.outdir)
+        export_part(part, name, root=a.outdir)
 
 
 if __name__ == "__main__":

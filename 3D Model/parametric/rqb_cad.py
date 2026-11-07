@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Shared helpers for the RasQberry parametric (build123d) models.
 
-Used by wall_model.py (rebuild of the SketchUp wall) and rte/narrow_server.py
-(narrow RTE server). Keep this module free of model-specific
-parameters: everything here takes its numbers as arguments.
+Used by the part scripts in wall/, RTE/ and cryostat/. Keep this module
+free of model-specific parameters: everything here takes its numbers as
+arguments. The one exception is PARTS: where each rebuilt part is written.
 
 All dimensions in mm.  Requires: build123d (pip install build123d)
 """
@@ -15,6 +15,41 @@ from build123d import (
     Box, Color, Compound, Cylinder, Location, Mesher, Plane, Polygon, Pos,
     RectangleRounded, Rot, Shape, Solid, export_step, export_stl, extrude,
 )
+
+# ---------------------------------------------------------------------------
+# Output layout
+# ---------------------------------------------------------------------------
+
+# output/ mirrors `3D Model/` on the 3D-model branch: every rebuilt part is
+# written under the same folder and file name as the STL it replaces, so the
+# whole tree can be copied over the originals.
+OUTPUT = Path(__file__).resolve().parent / "output"
+_JAN = "3D Model - modifications - Jan/October 2025"
+PARTS = {
+    "R2_Wall-Base": "wall/R2_Wall-Base",
+    "R2_Wall-Back": "wall/R2_Wall-Back",
+    "R2_Wall-Lid": "wall/R2_Wall-Lid",
+    "R2_ChandelierSingle": "cryostat/R2_ChandelierSingle",
+    "R2_CryoLid-Simple": "cryostat/R2_CryoLid-Simple",
+    "R2_CryoStandaloneGamma": "cryostat/Standalone Version/R2_CryoStandaloneGamma",
+    # Jan's modifications
+    "R2_Wall-Base-jrl01-2": f"{_JAN}/wall/R2_Wall-Base-jrl01-2",
+    "R2_Wall-Base-jrl01-2-nofloor": f"{_JAN} - no-floor/wall/R2_Wall-Base-jrl01-2",
+    "RQB2-WallPanel-jrl02-2": f"{_JAN}/wall/RQB2-WallPanel-jrl02-2",
+    "RQB2-R2_NarrowServerSingle-jrl02": f"{_JAN}/RTE/RQB2-R2_NarrowServerSingle-jrl02",
+    "RQB2-Cryostat-jrl01": f"{_JAN}/cryostat/RQB2-Cryostat-jrl01",
+    "RQB2-R2_CryoStandaloneGamma-jrl04": f"{_JAN}/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04",
+    "RQB2-R2_CryoStandaloneGamma-jrl04-nofloor":
+        f"{_JAN} - no-floor/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04",
+}
+
+
+def export_part(solid, name, suffix="", root=None, **kw):
+    """Export part `name` (a key of PARTS) to its place under output/
+    (or under `root`). `suffix` is added to the file name, e.g. ".split-A"."""
+    rel = Path(PARTS[name])
+    export_all(solid, rel.name + suffix, Path(root or OUTPUT) / rel.parent, **kw)
+
 
 # ---------------------------------------------------------------------------
 # 2D / primitive helpers

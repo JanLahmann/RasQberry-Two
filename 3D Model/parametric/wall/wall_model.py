@@ -8,21 +8,24 @@ a parametric "split" feature: each part can be cut into segments joined by
 printable dovetail (puzzle) keys, so the 245.7 mm wide wall fits on
 printers with beds smaller than the one-piece part.
 
-Outputs (written to ./output):
-    R2_Wall-<part>.parametric.stl / .step / .3mf          one-piece
-    R2_Wall-<part>.split-A.* / .split-B.*                 split segments
+Outputs (written to ../output/wall/ and, for Jan's variants, to
+../output/3D Model - modifications - Jan/...; see rqb_cad.PARTS):
+    <part>.stl / .step / .3mf             one-piece
+    <part>.split-A.* / .split-B.*         split segments
 
 All dimensions in mm.
 
 Requires: build123d  (pip install build123d); shared helpers in rqb_cad.py
 """
 import json
+import sys
 from pathlib import Path
 
 from build123d import Circle, Plane, Polygon, Pos, Rot, extrude
 
-import rqb_params
-from rqb_cad import export_all, split_part
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import rqb_params  # noqa: E402
+from rqb_cad import export_part, split_part  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Parameters
@@ -122,7 +125,6 @@ VARIANTS = {
 }
 
 PROFILES = Path(__file__).parent / "wall_profiles.json"
-OUTDIR = Path(__file__).parent / "output"
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +171,6 @@ def build_part(data, snap, flip_v=False, closed_bottom=False):
 # ---------------------------------------------------------------------------
 
 def main():
-    OUTDIR.mkdir(exist_ok=True)
     profiles = json.load(open(PROFILES))
     snap = profiles["snap_mm"]
     jobs = [(name, data, {}) for name, data in profiles["parts"].items()]
@@ -192,7 +193,7 @@ def main():
         print(f"  volume {vol / 1000:.2f} cm3 "
               f"(original mesh {vol_ref / 1000:.2f} cm3, "
               f"diff {abs(vol - vol_ref) / vol_ref * 100:.2f}%)")
-        export_all(part, f"{name}.parametric", OUTDIR)
+        export_part(part, name)
         # variants are split like their base part
         base = variant.get("base", name)
         if CUTS.get(base):
@@ -204,7 +205,7 @@ def main():
                 print(f"  segment {label}: "
                       f"{bb.max.X - bb.min.X:.1f} x {bb.max.Y - bb.min.Y:.1f}"
                       f" x {bb.max.Z - bb.min.Z:.1f} mm")
-                export_all(seg, f"{name}.split-{label}", OUTDIR)
+                export_part(seg, name, f".split-{label}")
 
 
 if __name__ == "__main__":

@@ -2,11 +2,12 @@
 
 `narrow_server.py` rebuilds
 `3D Model/3D Model - modifications - Jan/October 2025/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`
-(SketchUp, mesh only) as a CAD solid and exports STL / STEP / 3MF to `output/`.
+(SketchUp, mesh only) as a CAD solid and exports STL / STEP / 3MF to
+`../output/3D Model - modifications - Jan/October 2025/RTE/`.
 
 ```bash
 cd "3D Model/parametric/rte"
-../.venv-cad/bin/python narrow_server.py      # ~2 min, writes output/*.parametric.*
+../.venv-cad/bin/python narrow_server.py      # ~2 min
 ```
 
 ## What it is

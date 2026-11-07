@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure the prismatic cryostat parts (chandelier, lid) into profiles.
 
-The lid is one clean body and is captured like the wall (../extract_profiles.py):
+The lid is one clean body and is captured like the wall (../wall/extract_profiles.py):
 a stack of constant cross-sections ("bands").
 
 The chandelier is exported by SketchUp as several overlapping, partly open
@@ -30,7 +30,7 @@ import trimesh
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "wall"))
 from extract_profiles import LEVEL_MERGE, SNAP, ring_to_json, section_polys  # noqa: E402
 
 

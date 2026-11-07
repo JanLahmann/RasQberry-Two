@@ -15,7 +15,7 @@ cup-shaped cradles and two half-round ribs each.
 Coordinates: x = width (side walls with the holes at x = +/-), y = depth
 (front at -y), z = up; the box stands on z = 0, centred on x = y = 0.
 
-Usage:  python narrow_server.py [--outdir DIR] [--formats stl,step,3mf]
+Usage:  python narrow_server.py [--outdir ROOT] [--formats stl,step,3mf]
 """
 import argparse
 import sys
@@ -28,7 +28,7 @@ from build123d import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import rqb_params  # noqa: E402
-from rqb_cad import bbox_size, check_solid, export_all  # noqa: E402
+from rqb_cad import bbox_size, check_solid, export_part  # noqa: E402
 
 PARAMS = dict(
     # outer box
@@ -179,13 +179,13 @@ def build(p=PARAMS):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--outdir", default=str(Path(__file__).parent / "output"))
+    ap.add_argument("--outdir", help="output root (default ../output)")
     ap.add_argument("--formats", default="stl,step,3mf")
     a = ap.parse_args()
     part = build()
     vol = check_solid(part, "NarrowServerSingle")
     print("size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(part), vol))
-    export_all(part, "RQB2-R2_NarrowServerSingle-jrl02.parametric", a.outdir,
+    export_part(part, "RQB2-R2_NarrowServerSingle-jrl02", root=a.outdir,
                formats=tuple(a.formats.split(",")))
 
 
