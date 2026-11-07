@@ -46,6 +46,14 @@ screw, and the other standalone cryostat and server versions.
 From the bill of materials (`FILAMENTS` in `rqb_cad.py`, assigned in
 `build_print.py`): wall black (matte preferred), floor white / rock white,
 cryostat and RTE silk silver, chandeliers silk gold, lids transparent.
+A multi-colour 3MF (jrl01) is one object with one part per colour; each part
+carries its filament name and an extruder number (PrusaSlicer's 3MF
+metadata, also read by Bambu Studio and OrcaSlicer). Checked in PrusaSlicer
+2.9: every 3MF loads as a manifold object, jrl01 with 4 parts.
+
+Three copied originals have open edges in the SketchUp mesh itself (their
+`_repaired` copies too): `R2_NarrowYCryoConjoined`, `R2_CryoStandaloneBeta`,
+`R2_ServerStandalone`. Slicers repair them on load; a rebuild would fix them.
 
 ## Regenerating
 

@@ -57,15 +57,29 @@ def filament(rel):
     return next(f for test, f in FILAMENT if test(rel))
 
 
+def stl_mesh(stl):
+    """(vertices, triangles) as in the STL; only exactly coinciding vertices
+    are merged (trimesh's own processing also drops faces, which opened
+    edges in R2_Floor-all)."""
+    m = trimesh.load(stl, force="mesh", process=False)
+    index, verts, remap = {}, [], []
+    for v in m.vertices.round(5).tolist():
+        key = tuple(v)
+        if key not in index:
+            index[key] = len(verts)
+            verts.append(key)
+        remap.append(index[key])
+    faces = [tuple(remap[i] for i in f) for f in m.faces.tolist()]
+    return verts, [f for f in faces if len(set(f)) == 3]
+
+
 def write_all_3mf():
     n = 0
     for stl in sorted(OUTPUT.rglob("*.stl")):
         if stl.stem in MULTICOLOUR:
             continue
         rel = stl.relative_to(OUTPUT)
-        m = trimesh.load(stl, force="mesh")
-        write_3mf(stl.with_name(stl.stem + ".3mf"),
-                  [(stl.stem, filament(rel), (m.vertices.tolist(), m.faces.tolist()))])
+        write_3mf(stl.with_name(stl.stem + ".3mf"), [(stl.stem, filament(rel), stl_mesh(stl))])
         n += 1
     return n
 

@@ -263,37 +263,67 @@ def shape_mesh(shape, tolerance=None, angular_tolerance=None):
     tol = tolerance or rqb_params.EXPORT["stl_tolerance"]
     ang = angular_tolerance or rqb_params.EXPORT["stl_angular_tolerance"]
     verts, tris = shape.tessellate(tol, ang)
-    return [(v.X, v.Y, v.Z) for v in verts], [tuple(t) for t in tris]
+    # tessellate() repeats the vertices on shared face edges; merge them so
+    # the mesh is closed (slicers check for a manifold mesh)
+    index, out, remap = {}, [], []
+    for v in verts:
+        key = (round(v.X, 5), round(v.Y, 5), round(v.Z, 5))
+        if key not in index:
+            index[key] = len(out)
+            out.append((v.X, v.Y, v.Z))
+        remap.append(index[key])
+    faces = [tuple(remap[i] for i in t) for t in tris]
+    return out, [f for f in faces if len(set(f)) == 3]
 
 
 def write_3mf(path, bodies):
-    """3MF with one object per body; bodies: [(name, filament, (vertices,
-    triangles))]. Each object gets the filament as its material (name and
-    display colour), so slicers show "silk silver" etc. and multi-material
-    slicers can map one filament per body."""
+    """3MF with ONE object; bodies: [(name, filament, (vertices, triangles))].
+
+    Several bodies become the parts of that object, each with its filament
+    as material (name + display colour, on its triangles) and, for
+    PrusaSlicer / Bambu Studio / OrcaSlicer, as a named part with its own
+    extruder (Metadata/Slic3r_PE_model.config; filaments numbered in order
+    of first use). Plain 3MF readers see one multi-colour mesh."""
     import zipfile
     from xml.sax.saxutils import quoteattr
     names = list(dict.fromkeys(f for _, f, _ in bodies))
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<model unit="millimeter" xml:lang="en-US" '
-           'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
+           'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+           'xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">',
+           '<metadata name="slic3rpe:Version3mf">1</metadata>',
            '<resources>', '<basematerials id="1">']
     out += [f'<base name={quoteattr(n)} displaycolor="{FILAMENTS[n]}FF"/>' for n in names]
     out.append('</basematerials>')
-    for i, (name, filament, (verts, tris)) in enumerate(bodies):
-        out.append(f'<object id="{i + 2}" type="model" name={quoteattr(name)} '
-                   f'pid="1" pindex="{names.index(filament)}"><mesh><vertices>')
+    stem = Path(path).stem
+    out.append(f'<object id="2" type="model" name={quoteattr(stem)} pid="1" '
+               f'pindex="{names.index(bodies[0][1])}"><mesh><vertices>')
+    base = 0
+    for _, _, (verts, _) in bodies:
         out += [f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in verts]
-        out.append('</vertices><triangles>')
-        out += [f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tris]
-        out.append('</triangles></mesh></object>')
-    out += ['</resources>', '<build>']
-    out += [f'<item objectid="{i + 2}"/>' for i in range(len(bodies))]
-    out += ['</build>', '</model>']
+    out.append('</vertices><triangles>')
+    config = ['<?xml version="1.0" encoding="UTF-8"?>', '<config>',
+              '<object id="2" instances_count="1">',
+              f'<metadata type="object" key="name" value={quoteattr(stem)}/>']
+    first = 0
+    for name, filament, (verts, tris) in bodies:
+        k = names.index(filament)
+        out += [f'<triangle v1="{a + base}" v2="{b + base}" v3="{c + base}" pid="1" p1="{k}"/>'
+                for a, b, c in tris]
+        config += [f'<volume firstid="{first}" lastid="{first + len(tris) - 1}">',
+                   f'<metadata type="volume" key="name" value={quoteattr(name)}/>',
+                   f'<metadata type="volume" key="extruder" value="{k + 1}"/>',
+                   '</volume>']
+        base += len(verts)
+        first += len(tris)
+    config += ['</object>', '</config>']
+    out += ['</triangles></mesh></object>', '</resources>',
+            '<build><item objectid="2"/></build>', '</model>']
     types = ('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/'
              'package/2006/content-types"><Default Extension="rels" ContentType="application/'
              'vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" '
-             'ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>')
+             'ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
+             '<Default Extension="config" ContentType="text/xml"/></Types>')
     rels = ('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.'
             'openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/'
             '3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/'
@@ -302,3 +332,4 @@ def write_3mf(path, bodies):
         z.writestr("[Content_Types].xml", types)
         z.writestr("_rels/.rels", rels)
         z.writestr("3D/3dmodel.model", "\n".join(out))
+        z.writestr("Metadata/Slic3r_PE_model.config", "\n".join(config))
