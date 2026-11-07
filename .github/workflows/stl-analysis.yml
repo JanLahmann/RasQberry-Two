@@ -3,17 +3,17 @@ name: STL Mesh Analysis and Repair
 on:
   # Auto-analyze and repair on push
   push:
-    paths:
-      - "**.stl"
-      - "**.STL"
+    paths:  # the originals; print/ is generated (3D Model/cad)
+      - "3D Model/originals/**.stl"
+      - "3D Model/originals/**.STL"
     branches-ignore:
       - main  # Don't auto-commit to main
 
   # Analyze and block on PR
   pull_request:
     paths:
-      - "**.stl"
-      - "**.STL"
+      - "3D Model/originals/**.stl"
+      - "3D Model/originals/**.STL"
 
   # Manual trigger with mode selection
   workflow_dispatch:
@@ -88,7 +88,7 @@ jobs:
         run: |
           python .github/scripts/stl_analyzer.py \
             --mode "${{ steps.mode.outputs.mode }}" \
-            --target "${{ inputs.target_path || '3D Model' }}" \
+            --target "${{ inputs.target_path || '3D Model/originals' }}" \
             --output-dir "./stl-reports" \
             --suffix "_repaired"
         continue-on-error: true
@@ -121,7 +121,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Add any new repaired files
-          git add "3D Model/**/*_repaired.stl" 2>/dev/null || true
+          git add "3D Model/originals/**/*_repaired.stl" 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No repairs needed - all files are healthy"
@@ -144,7 +144,7 @@ jobs:
         if: steps.mode.outputs.mode == 'repair-and-pr' && github.event_name == 'workflow_dispatch'
         run: |
           # Check if there are files to commit
-          git add "3D Model/**/*_repaired.stl" 2>/dev/null || true
+          git add "3D Model/originals/**/*_repaired.stl" 2>/dev/null || true
 
           if git diff --staged --quiet; then
             echo "No repairs needed - all files are healthy"

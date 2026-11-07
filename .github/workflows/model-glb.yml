@@ -20,8 +20,8 @@ on:
   push:
     branches: ["3D-model"]
     paths:
-      - "3D Model/**.stl"
-      - "3D Model/**.STL"
+      - "3D Model/originals/**.stl"
+      - "3D Model/originals/**.STL"
   workflow_dispatch:
 
 permissions:
@@ -61,7 +61,7 @@ jobs:
         working-directory: site
         run: |
           npm ci --no-audit --no-fund
-          npm run model -- "$GITHUB_WORKSPACE/stl/3D Model"
+          npm run model -- "$GITHUB_WORKSPACE/stl/3D Model/originals"
 
       - name: Commit it to gh-pages if it changed
         id: commit
