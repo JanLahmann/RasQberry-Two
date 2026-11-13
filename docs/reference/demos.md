@@ -38,7 +38,7 @@ Measured qubits on the LED panel, from a simulator or a real IBM quantum compute
 - id `quantum-raspberry-tie`; menu: Quantum Demos > LED panel > Quantum Raspberry Tie; desktop: LED panel window; needs the LED panel (or its on-screen view), a screen, an IBM Quantum account for real quantum computers (optional); download about 24 MB on first start.
   - variant `simulator`: Local simulator (no account needed)
   - variant `noise`: Local simulator with a noise model
-  - variant `real`: Real IBM Quantum computer (IBM Quantum account)
+  - variant `real`: Real IBM Quantum computer (IBM Quantum account) *(beta)*
 
 ### RasQ-LED Demo
 
@@ -54,7 +54,7 @@ Quantum games as Jupyter notebooks (Quantum Coin Game, GHZ game, Hardy's paradox
 
 - id `fun-with-quantum`; menu: Quantum Demos > Play > Fun with Quantum; desktop: Play window; needs an IBM Quantum account for real quantum computers (optional); download about 30 MB on first start.
   - variant `readme`: Start here: what the games are about *(beta)*
-  - variant `coin-game`: Quantum Coin Game *(beta)*
+  - variant `coin-game`: Quantum Coin Game
   - variant `ghz-game`: GHZ Game *(beta)*
   - variant `hardys-paradox`: Hardy's Paradox *(beta)*
   - variant `mermin-peres`: Mermin–Peres Magic Square *(beta)*
@@ -71,12 +71,6 @@ Julia-set fractals that change with the state of one qubit, in the browser.
 
 - id `quantum-fractals`; menu: Quantum Demos > Play > Quantum Fractals; desktop: Play window; needs a screen.
 
-### Quantum Paradoxes
-
-Interactive Jupyter notebooks exploring quantum paradoxes and phenomena.
-
-- id `quantum-paradoxes`; menu: Quantum Demos > Play > Quantum Paradoxes; desktop: Play window; needs an IBM Quantum account for real quantum computers (optional); download about 31 MB on first start.
-
 ## Big projects
 
 ### Qoffee-Maker
@@ -92,6 +86,12 @@ Mix a cocktail, an ice cream or a coffee with a quantum circuit (Docker containe
 - id `quantum-mixer`; menu: Quantum Demos > Big projects > Quantum Mixer; desktop: Big projects window; needs a screen, a 32 GB card (Docker); download about 900 MB on first start.
 
 ## Learn & code
+
+### doQumentation (IBM Quantum Learning on this Pi)
+
+The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network.
+
+- id `qiskit-tutorials`; menu: Quantum Demos > Learn & code > doQumentation (IBM Quantum Learning on this Pi); desktop: Learn & code window; needs an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker).
 
 ### Grokking the Bloch Sphere
 
@@ -125,11 +125,13 @@ Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0).
 
 - id `ibm-tutorials`; menu: Quantum Demos > Learn & code > IBM Quantum Tutorials; desktop: Learn & code window; needs an IBM Quantum account for real quantum computers (optional); download about 80 MB on first start.
 
-### Qiskit Live (QuBins)
+## Workshops & events
 
-Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container).
+### Workshop & Qiskit Server
 
-- id `quantum-lab`; menu: Quantum Demos > Learn & code > Qiskit Live (QuBins); desktop: Learn & code window; needs internet, a 32 GB card (Docker); download about 890 MB on first start.
+One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start).
+
+- id `doqumentation`; menu: Quantum Demos > Workshops & events > Workshop & Qiskit Server; desktop: Workshops & events window; needs internet, an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker); download about 1300 MB on first start.
 
 ## Contributed demos
 
@@ -147,29 +149,29 @@ Sap logo on the leds, coloured by 3 qubits.
 
 ## Beta: try & tell us
 
-### doQumentation (IBM Quantum Learning on this Pi) *(beta)*
-
-The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network.
-
-- id `qiskit-tutorials`; menu: Quantum Demos > Beta: try & tell us > doQumentation (IBM Quantum Learning on this Pi); desktop: Beta: try & tell us window; needs an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker).
-
 ### Entangible *(beta)*
 
 Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera.
 
 - id `entangible`; menu: Quantum Demos > Beta: try & tell us > Entangible; desktop: Beta: try & tell us window; needs a camera; download about 100 MB on first start.
 
+### Qiskit Live (QuBins) *(beta)*
+
+Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container).
+
+- id `quantum-lab`; menu: Quantum Demos > Beta: try & tell us > Qiskit Live (QuBins); desktop: Beta: try & tell us window; needs internet, a 32 GB card (Docker); download about 890 MB on first start.
+
+### Quantum Paradoxes *(beta)*
+
+Interactive Jupyter notebooks exploring quantum paradoxes and phenomena.
+
+- id `quantum-paradoxes`; menu: Quantum Demos > Beta: try & tell us > Quantum Paradoxes; desktop: Beta: try & tell us window; needs an IBM Quantum account for real quantum computers (optional); download about 31 MB on first start.
+
 ### QuBins *(beta)*
 
 JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work.
 
 - id `qubins`; menu: Quantum Demos > Beta: try & tell us > QuBins; desktop: Beta: try & tell us window; needs internet, a 32 GB card (Docker); download about 890 MB on first start.
-
-### Workshop & Qiskit Server *(beta)*
-
-One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start).
-
-- id `doqumentation`; menu: Quantum Demos > Beta: try & tell us > Workshop & Qiskit Server; desktop: Beta: try & tell us window; needs internet, an IBM Quantum account for real quantum computers (optional), a 32 GB card (Docker); download about 1300 MB on first start.
 
 ### racetraQ *(beta)*
 

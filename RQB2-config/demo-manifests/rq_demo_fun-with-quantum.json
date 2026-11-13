@@ -67,7 +67,7 @@
     {
       "id": "readme",
       "name": "Start here: what the games are about",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -91,7 +91,7 @@
     {
       "id": "ghz-game",
       "name": "GHZ Game",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -103,7 +103,7 @@
     {
       "id": "hardys-paradox",
       "name": "Hardy's Paradox",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -115,7 +115,7 @@
     {
       "id": "mermin-peres",
       "name": "Mermin–Peres Magic Square",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -127,7 +127,7 @@
     {
       "id": "3-sat",
       "name": "3-SAT with Grover's Algorithm",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -139,7 +139,7 @@
     {
       "id": "chsh-game",
       "name": "The CHSH Game",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -151,7 +151,7 @@
     {
       "id": "prisoners-dilemma",
       "name": "The Quantum Prisoner's Dilemma",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -163,7 +163,7 @@
     {
       "id": "ghz-real-devices",
       "name": "GHZ on Real Quantum Devices",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "jupyter",
         "launcher": "rq_fun_with_quantum.sh"
@@ -175,7 +175,7 @@
     {
       "id": "website",
       "name": "Fun with Quantum website: games in the browser",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "script",
         "launcher": "rq_fwq_portal.sh"
@@ -185,7 +185,7 @@
     {
       "id": "family",
       "name": "Fun with Quantum family: related projects",
-      "maturity": "beta",
+      "maturity": "dev",
       "entrypoint": {
         "type": "script",
         "launcher": "rq_fwq_family.sh"

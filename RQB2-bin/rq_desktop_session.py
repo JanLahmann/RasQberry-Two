@@ -838,9 +838,10 @@ def demo_group(demo_id, groups, dirs=None, known=None):
     # A beta demo goes to the group marked beta, before anything else: it says
     # clearly what is not ready yet (Jan, 2026-10-24)
     beta = next((g["id"] for g in groups["groups"] if g.get("beta") is True), None)
+    # "beta demo" here is one marked demo level dev (rq_demo_level.py)
     maturity = (manifest or {}).get("maturity") or next(
         (d.get("maturity") for d in entry if d.get("maturity")), None)
-    if beta and maturity == "beta":
+    if beta and maturity == "dev":
         return beta
     for group in (d.get("group") for d in entry):
         if group in ids:

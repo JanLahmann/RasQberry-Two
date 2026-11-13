@@ -80,16 +80,17 @@ def test_image_level_from_env_and_default(monkeypatch, tmp_path):
     assert lvl.image_level() == "dev"
 
 
-def test_dev_image_keeps_all_and_marks_only_dev(tree):
+def test_dev_image_keeps_all_and_writes_the_levels(tree):
     lvl.apply(str(tree), "dev")
     assert _ids(tree) == ["games", "new", "old", "ready", "trial"]
     m = tree / "demo-manifests"
-    assert _read(str(m / "rq_demo_new.json"))["maturity"] == "beta"
-    assert "maturity" not in _read(str(m / "rq_demo_trial.json"))
-    assert "maturity" not in _read(str(m / "rq_demo_ready.json"))
+    assert _read(str(m / "rq_demo_new.json"))["maturity"] == "dev"
+    assert _read(str(m / "rq_demo_trial.json"))["maturity"] == "beta"
+    assert _read(str(m / "rq_demo_old.json"))["maturity"] == "prod"
     games = _read(str(m / "rq_demo_games.json"))
+    assert games["maturity"] == "dev"
     assert [(v["id"], v.get("maturity")) for v in games["variants"]] == \
-        [("coin", None), ("chsh", None), ("ghz", "beta")]
+        [("coin", "prod"), ("chsh", "beta"), ("ghz", "dev")]
     assert len(os.listdir(str(tree / "desktop-bookmarks"))) == 7
 
 
@@ -98,10 +99,13 @@ def test_beta_image(tree):
     assert _ids(tree) == ["games", "old", "ready", "trial"]
     assert kept["games"] == {"coin", "chsh"}
     m = tree / "demo-manifests"
+    # nothing left at level dev: nothing is marked '(beta)' in a beta image
     for demo in _ids(tree):
         data = _read(str(m / ("rq_demo_%s.json" % demo)))
-        assert "maturity" not in data
-        assert all("maturity" not in v for v in data.get("variants", []))
+        assert data["maturity"] in ("beta", "prod"), demo
+        assert all(v["maturity"] in ("beta", "prod") for v in data.get("variants", []))
+    # a dev demo kept for its variants gets their best level
+    assert _read(str(m / "rq_demo_games.json"))["maturity"] == "prod"
     assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == \
         ["cat-prod", "cat-beta"]
     paths = _read(str(m / "learning-paths.json"))["paths"]

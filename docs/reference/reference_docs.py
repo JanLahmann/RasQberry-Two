@@ -103,7 +103,7 @@ def catalogue_demo_group(entry):
     """A catalogue entry's group, as rq_demo_group: Beta when it is beta, else
     its curated group, else the catalogue group."""
     beta = next((g["id"] for g in groups_data()["groups"] if g.get("beta")), None)
-    if beta and entry.get("maturity") == "beta":
+    if beta and entry.get("maturity") == "dev":
         return beta
     return entry["group"] if entry.get("group") in group_titles() else catalogue_group()
 
@@ -137,7 +137,7 @@ def demo_needs_tags(manifest, group):
 def menu_label(manifest, group):
     """A demo's entry in its group menu: name, (beta), [needs]."""
     label = manifest["name"]
-    if manifest.get("maturity"):
+    if manifest.get("maturity") == "dev":   # demo level dev (rq_demo_level.py)
         label += " (beta)"
     tags = demo_needs_tags(manifest, group)
     return label + (f" [{tags}]" if tags else "")
@@ -151,7 +151,7 @@ def demo_group(demo_id, manifest):
     """
     ids = list(group_titles())
     beta = next((g["id"] for g in groups_data()["groups"] if g.get("beta")), None)
-    if beta and manifest.get("maturity") == "beta":
+    if beta and manifest.get("maturity") == "dev":
         return beta
     if manifest.get("group") in ids:
         return manifest["group"]
@@ -553,7 +553,7 @@ def menu_md():
         cats = [d for d in catalogue_demos()
                 if catalogue_demo_group(d) == gid]
         for d in cats:
-            label = d.get("name", d["id"]) + (" (beta)" if d.get("maturity") else "")
+            label = d.get("name", d["id"]) + (" (beta)" if d.get("maturity") == "dev" else "")
             entries.append(("catalogue", d["id"], label))
         entries += [("fixed", t, l) for t, l in f["after"]]
         for kind, tag, label in entries:
@@ -578,7 +578,8 @@ def menu_md():
                 lines.append(f"{pad}- **{label}** → menu \"{title}\""
                              + (f": {variant_menu.prompt}" if variant_menu and variant_menu.prompt else ""))
                 for v in variants:
-                    vlabel = v.get("name", v.get("id")) + (" (beta)" if v.get("maturity") else "")
+                    vlabel = v.get("name", v.get("id")) + (
+                        " (beta)" if (v.get("maturity") or data.get("maturity")) == "dev" else "")
                     lines.append(f"{pad}  - {vlabel}")
             else:
                 lines.append(f"{pad}- {label}")
@@ -726,7 +727,7 @@ def desktop_md():
         cats = [d for d in catalogue_demos()
                 if catalogue_demo_group(d) == g["id"]]
         for d in cats:
-            beta = " (beta)" if d.get("maturity") == "beta" else ""
+            beta = " (beta)" if d.get("maturity") == "dev" else ""
             lines.append(f"- **{d.get('name', d['id'])}{beta}** *(catalogue demo: its icon comes when it "
                          f"is added)*: {d.get('summary', '')}")
         if g.get("catalogue"):
@@ -1073,7 +1074,7 @@ def demos_md():
         lines += [f"## {g['title']}", ""]
         for demo_id in ids:
             m = mans[demo_id][0]
-            beta = " *(beta)*" if m.get("maturity") else ""
+            beta = " *(beta)*" if m.get("maturity") == "dev" else ""
             lines.append(f"### {m['name']}{beta}")
             lines.append("")
             lines.append(m.get("description", "").rstrip(".") + ".")
@@ -1094,11 +1095,11 @@ def demos_md():
                 facts.append(f"download about {dl['download_mb']} MB on first start")
             lines.append("- " + "; ".join(facts) + ".")
             for v in m.get("variants") or []:
-                vb = " *(beta)*" if v.get("maturity") else ""
+                vb = " *(beta)*" if (v.get("maturity") or m.get("maturity")) == "dev" else ""
                 lines.append(f"  - variant `{v.get('id')}`: {v.get('name')}{vb}")
             lines.append("")
         for d in cats:
-            beta = " *(beta)*" if d.get("maturity") else ""
+            beta = " *(beta)*" if d.get("maturity") == "dev" else ""
             lines.append(f"### {d.get('name', d['id'])}{beta}")
             lines.append("")
             facts = [f"id `{d['id']}`", "from the catalogue: add it with Quantum Demos > Manage "

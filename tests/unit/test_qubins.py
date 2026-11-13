@@ -511,7 +511,7 @@ def test_manifest_is_valid_beta_and_pinned_like_qiskit_live():
                           capture_output=True, text=True, timeout=60)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     m, lab = _manifest("qubins"), _manifest("quantum-lab")
-    assert m["maturity"] == "beta"
+    assert m["maturity"] == "dev"   # demo level (Jan, 2026-11-13)
     ep = m["entrypoint"]
     assert ep["type"] == "docker" and ep["launcher"] == "rq_qubins.sh" and ep["docker_image_choice"] is True
     # the tested default is a monthly snapshot pinned by digest, as Qiskit Live's

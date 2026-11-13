@@ -164,7 +164,8 @@ registry_label() {
     name=$(registry_field "$id" "name")
     summary=$(registry_field "$id" "summary")
     [ -n "$summary" ] || summary=$(registry_field "$id" "note")
-    [ "$(registry_field "$id" "maturity")" = "beta" ] && name="${name:-$id} (beta)"
+    # marked demo level dev: only development images list these
+    [ "$(registry_field "$id" "maturity")" = "dev" ] && name="${name:-$id} (beta)"
     is_new_entry "$id" && name="New: ${name:-$id}"
     needs_newer "$id" && summary="needs a newer RasQberry"
     fit_line "${name:-$id}${summary:+ - $summary}"

@@ -75,5 +75,6 @@
         "preinstalled": true
       }
     }
-  ]
+  ],
+  "maturity": "beta"
 }

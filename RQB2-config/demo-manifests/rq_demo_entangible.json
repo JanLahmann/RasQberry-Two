@@ -3,7 +3,7 @@
   "name": "Entangible",
   "category": "visualization",
   "group": "projects",
-  "maturity": "beta",
+  "maturity": "dev",
   "description": "Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera",
   "keywords": [
     "quantum",

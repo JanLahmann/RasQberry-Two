@@ -37,5 +37,6 @@
   "desktop": {
     "show": true,
     "terminal": true
-  }
+  },
+  "maturity": "beta"
 }

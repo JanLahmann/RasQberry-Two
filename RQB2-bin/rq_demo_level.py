@@ -18,9 +18,12 @@ before RQB2-config is deployed, and after "Update from GitHub Branch":
   - drops the manifests, variants and catalogue entries below the level;
   - drops the learning-path steps of dropped demos (and paths left empty);
   - drops desktop-bookmarks/ launchers that start a dropped demo or variant;
-  - rewrites "maturity" to what the Pi shows: "beta" (the '(beta)' mark and
-    the "Beta: try & tell us" group) only for a dev demo in a dev image,
-    nothing otherwise. The rest of RasQberry reads only that.
+  - writes each kept demo's and variant's level into it (a demo kept for a
+    variant gets that variant's level).
+
+On the Pi a dev demo is the one marked '(beta)', in the "Beta: try & tell
+us" group and asking for feedback (rq_demo_maturity in rq_common.sh), so
+only development images show the mark.
 
 Usage:
     rq_demo_level.py apply CONFIG_DIR [LEVEL]   (LEVEL: default the image's)
@@ -111,17 +114,9 @@ def _save(path, data):
         f.write("\n")
 
 
-def _mark(item, level, image):
-    # What the Pi shows: "beta" only for a dev demo in a dev image
-    if image == "dev" and level == "dev":
-        item["maturity"] = "beta"
-    else:
-        item.pop("maturity", None)
-
-
 def trim_manifests(manifest_dir, image):
     """
-    Drop the manifests and variants below the image level, mark the rest.
+    Drop the manifests and variants below the image level.
 
     Args:
         manifest_dir (str): demo-manifests/.
@@ -145,29 +140,32 @@ def trim_manifests(manifest_dir, image):
             for variant in variants:
                 vlevel = level_of(variant.get("maturity"), level)
                 if ships(vlevel, image):
-                    _mark(variant, vlevel, image)
+                    variant["maturity"] = vlevel
                     keep.append(variant)
-            # a demo with variants ships while one of them does
+            # a demo with variants ships while one of them does, at the
+            # level of its best one (else a beta image would mark it dev)
             if not keep:
                 os.remove(path)
                 dropped.add(demo_id)
                 continue
             data["variants"] = keep
             kept[demo_id] = {v.get("id") for v in keep}
+            if not ships(level, image):
+                level = max((v["maturity"] for v in keep), key=LEVELS.index)
         elif ships(level, image):
             kept[demo_id] = None
         else:
             os.remove(path)
             dropped.add(demo_id)
             continue
-        _mark(data, level, image)
+        data["maturity"] = level
         _save(path, data)
     return kept, dropped
 
 
 def trim_catalogue(path, image):
     """
-    Drop the catalogue entries below the image level, mark the rest.
+    Drop the catalogue entries below the image level.
 
     Args:
         path (str): known-demos.json.
@@ -178,9 +176,7 @@ def trim_catalogue(path, image):
     data = _load(path)
     demos = []
     for entry in data.get("demos") or []:
-        level = level_of(entry.get("maturity"))
-        if ships(level, image):
-            _mark(entry, level, image)
+        if ships(level_of(entry.get("maturity")), image):
             demos.append(entry)
     data["demos"] = demos
     _save(path, data)

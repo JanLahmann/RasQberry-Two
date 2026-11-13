@@ -55,16 +55,22 @@ def _bash(script, tmp_path, *args):
 
 # --- item 36: beta ---------------------------------------------------------------
 
-def test_the_new_demos_are_beta():
-    assert _manifest("doqumentation")["maturity"] == "beta"
-    assert _manifest("qiskit-tutorials")["maturity"] == "beta"
+def test_demo_levels_jan_2026_11_13():
+    # demo levels (rq_demo_level.py): what goes into the beta image (Jan, 2026-11-13)
+    for demo in ("doqumentation", "qiskit-tutorials", "ibm-courses", "ibm-tutorials",
+                 "quantum-lights-out", "led-demos", "led-painter"):
+        assert _manifest(demo)["maturity"] == "beta", demo
+    for demo in ("quantum-lab", "qubins", "quantum-paradoxes", "entangible"):
+        assert _manifest(demo)["maturity"] == "dev", demo
     fwq = {v["id"]: v.get("maturity") for v in _manifest("fun-with-quantum")["variants"]}
-    # every part of Fun with Quantum is beta, but it stays in Play (Jan, 2026-10-24)
-    assert set(fwq.values()) == {"beta"} and "maturity" not in _manifest("fun-with-quantum")
+    # only the Coin Game goes into the beta; Fun with Quantum stays in Play (Jan, 2026-10-24)
+    assert fwq.pop("coin-game") == "beta" and set(fwq.values()) == {"dev"}
+    assert "maturity" not in _manifest("fun-with-quantum")
+    tie = {v["id"]: v.get("maturity") for v in _manifest("quantum-raspberry-tie")["variants"]}
+    assert tie["real"] == "dev"
     registry = json.load(open(os.path.join(_CFG, "known-demos.json")))["demos"]
-    beta = {d["id"] for d in registry if d.get("maturity") == "beta"}
-    # the SAP demos are SAP's to call beta: we take them as they are (Jan)
-    assert "racetraq" in beta and not beta & {"sap-quantum-learning", "sap-quantum-led"}
+    levels = {d["id"]: d.get("maturity") for d in registry}
+    assert levels == {"racetraq": "dev", "sap-quantum-learning": "beta", "sap-quantum-led": "beta"}
 
 
 @needs_bash
@@ -85,7 +91,8 @@ def test_maturity_lookup_and_the_catalogue_fallback(tmp_path):
                  'rq_beta_notice doqumentation', tmp_path)
     assert proc.returncode == 0, proc.stderr
     out = proc.stdout
-    assert "a=beta\nb=beta\nf=beta\nc=beta\nd=\ne=\n" in out
+    # marked: demo level dev (racetraQ, the website variant); doQumentation is beta
+    assert "a=\nb=beta\nf=beta\nc=beta\nd=\ne=\n" in out
     assert "This demo is new - please try it and tell us what works and what doesn't." in out
     assert "issues/new?template=demo-feedback.yml&demo=doqumentation" in out
 
@@ -129,7 +136,7 @@ def test_a_catalogue_icon_of_a_beta_demo_says_beta_once(tmp_path):
     for name in ("racetraQ", "racetraQ (beta)"):
         mf = tmp_path / "rq_demo_racetraq.json"
         mf.write_text(json.dumps({"id": "racetraq", "name": name, "description": "Race",
-                                  "maturity": "beta"}))
+                                  "maturity": "dev"}))
         out = tmp_path / "racetraq.desktop"
         proc = subprocess.run(["bash", os.path.join(_BIN, "rq_demo_desktop_entry.sh"), str(mf), str(out)],
                               capture_output=True, text=True,
@@ -149,10 +156,12 @@ def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
                            str(cache)], capture_output=True, text=True, env=env)
     assert proc.returncode == 0, proc.stderr
     text = cache.read_text()
-    assert '"doqumentation" "Workshop & Qiskit Server (beta)"' in text
-    assert '"qiskit-tutorials" "doQumentation (IBM Quantum Learning on this Pi) (beta)"' in text
+    # marked: demo level dev only (beta demos are what the beta image ships)
+    assert '"doqumentation" "Workshop & Qiskit Server"' in text
+    assert '"qiskit-tutorials" "doQumentation (IBM Quantum Learning on this Pi)"' in text
     assert '"Fun with Quantum website: games in the browser (beta)"' in text
-    assert '"coin-game" "Quantum Coin Game (beta)"' in text
+    assert '"coin-game" "Quantum Coin Game"' in text
+    assert '"qubins" "QuBins (beta)' in text
     assert '"quantum-fractals" "Quantum Fractals"' in text
     # item 8: one Bloch sphere entry, the online version is its variant
     assert '"grok-bloch-web"' not in text.split("dispatch_demo_by_id")[0]
@@ -178,13 +187,13 @@ def test_beta_icons_say_so_in_their_tooltip():
                          entry.get("Exec", ""))
         if not m:
             continue
-        beta = _manifest(m.group(1)).get("maturity") == "beta"
+        beta = _manifest(m.group(1)).get("maturity") == "dev"
         assert entry["Comment"].startswith("(beta) ") == beta, name
 
 
 def test_catalogue_picker_and_desktop_entries_show_beta():
     add = open(os.path.join(_BIN, "rq_demo_add_external.sh")).read()
-    assert '[ "$(registry_field "$id" "maturity")" = "beta" ]' in add
+    assert '[ "$(registry_field "$id" "maturity")" = "dev" ]' in add
     entry = open(os.path.join(_BIN, "rq_demo_desktop_entry.sh")).read()
     assert 'description="(beta) $description"' in entry and 'name="$name (beta)"' in entry
     run = open(os.path.join(_BIN, "rq_demo_run.sh")).read()
@@ -221,7 +230,7 @@ def test_an_icon_has_its_demos_name():
         if m:
             # a beta demo says so on its icon too, not only in the tooltip (Jan, 2026-10-23)
             manifest = _manifest(m.group(1))
-            beta = " (beta)" if manifest.get("maturity") == "beta" else ""
+            beta = " (beta)" if manifest.get("maturity") == "dev" else ""
             assert entry["Name"] == manifest["name"] + beta, name
     assert _desktop("led-ibm-demo.desktop")["Name"] == "IBM LED Demo"
     assert _desktop("quantum-mixer.desktop")["Name"] == "Quantum Mixer"

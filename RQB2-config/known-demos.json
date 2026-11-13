@@ -9,7 +9,7 @@
       "name": "racetraQ",
       "summary": "quantum reinforcement-learning racing game",
       "provider": "the Fun with Quantum family",
-      "maturity": "beta",
+      "maturity": "dev",
       "repo_url": "https://github.com/JanLahmann/racetraQ.git",
       "ref": "1d20b16bf969c2c807cacf0f687c33355ed9ee60",
       "manifest_path": "rqb-demo.json",
@@ -38,7 +38,8 @@
       "download": {
         "download_mb": 2,
         "disk_mb": 2
-      }
+      },
+      "maturity": "beta"
     },
     {
       "id": "sap-quantum-led",
@@ -57,7 +58,8 @@
       "download": {
         "download_mb": 1,
         "disk_mb": 1
-      }
+      },
+      "maturity": "beta"
     }
   ],
   "tested_updates": []

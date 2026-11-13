@@ -57,5 +57,6 @@
   "desktop": {
     "show": true,
     "terminal": true
-  }
+  },
+  "maturity": "dev"
 }

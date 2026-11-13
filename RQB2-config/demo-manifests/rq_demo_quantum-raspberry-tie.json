@@ -78,7 +78,9 @@
       },
       "needs_hw": {
         "network": true
-      }
+      },
+      "maturity": "dev"
     }
-  ]
+  ],
+  "maturity": "beta"
 }
