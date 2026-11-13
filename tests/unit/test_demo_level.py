@@ -42,7 +42,8 @@ def tree(tmp_path):
     _write(str(m / "learning-paths.json"), {"paths": [
         {"id": "a", "steps": [{"demo": "ready"}, {"demo": "new"}, {"command": "x"}],
          "next": [{"path": "b"}, {"url": "https://example.org"}]},
-        {"id": "b", "steps": [{"demo": "games", "variant": "ghz"}]}]})
+        {"id": "b", "steps": [{"demo": "games", "variant": "ghz"}, {"demo": "trial"}]}]})
+    _write(str(m / "demo-groups.json"), {"groups": [{"id": "play"}, {"id": "beta", "beta": True}]})
     _write(str(cfg / "known-demos.json"), {"demos": [
         {"id": "cat-prod", "maturity": "prod"}, {"id": "cat-beta", "maturity": "beta"},
         {"id": "cat-none"}]})
@@ -92,6 +93,8 @@ def test_dev_image_keeps_all_and_writes_the_levels(tree):
     assert [(v["id"], v.get("maturity")) for v in games["variants"]] == \
         [("coin", "prod"), ("chsh", "beta"), ("ghz", "dev")]
     assert len(os.listdir(str(tree / "desktop-bookmarks"))) == 7
+    assert [g["id"] for g in _read(str(m / "demo-groups.json"))["groups"]] == ["play", "beta"]
+    assert len(_read(str(m / "learning-paths.json"))["paths"]) == 2
 
 
 def test_beta_image(tree):
@@ -108,8 +111,10 @@ def test_beta_image(tree):
     assert _read(str(m / "rq_demo_games.json"))["maturity"] == "prod"
     assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == \
         ["cat-prod", "cat-beta"]
+    # path b is left with one step: no tour, dropped (and its "next" link)
     paths = _read(str(m / "learning-paths.json"))["paths"]
     assert [p["id"] for p in paths] == ["a"]
+    assert [g["id"] for g in _read(str(m / "demo-groups.json"))["groups"]] == ["play"]
     assert paths[0]["steps"] == [{"demo": "ready"}, {"command": "x"}]
     assert paths[0]["next"] == [{"url": "https://example.org"}]
     assert sorted(os.listdir(str(tree / "desktop-bookmarks"))) == \

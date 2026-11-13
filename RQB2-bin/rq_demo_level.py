@@ -16,7 +16,10 @@ else: dev; the build can override it) and is stored in /etc/rasqberry-demo-level
 "apply" trims a RQB2-config tree to one level. It runs in the image build
 before RQB2-config is deployed, and after "Update from GitHub Branch":
   - drops the manifests, variants and catalogue entries below the level;
-  - drops the learning-path steps of dropped demos (and paths left empty);
+  - drops the learning-path steps of dropped demos (and paths left with
+    fewer than two steps);
+  - drops the Beta group (demo-groups.json) from beta and prod images: it
+    holds the dev demos only;
   - drops desktop-bookmarks/ launchers that start a dropped demo or variant;
   - writes each kept demo's and variant's level into it (a demo kept for a
     variant gets that variant's level).
@@ -40,6 +43,7 @@ import sys
 LEVELS = ("dev", "beta", "prod")
 ALIASES = {"stable": "prod"}
 LEVEL_FILE = "/etc/rasqberry-demo-level"
+MIN_STEPS = 2                   # learning-paths.json: steps (2-6)
 # A launcher's Exec: rq_demo_run.sh ID [VARIANT] or rq_demo_choose.sh ID
 _EXEC = re.compile(r"rq_demo_(?:run|choose)\.sh\s+([a-z0-9][a-z0-9-]*)(?:\s+([a-z0-9][a-z0-9-]*))?")
 
@@ -194,7 +198,8 @@ def _step_kept(step, kept):
 
 def trim_learning_paths(path, kept):
     """
-    Drop the steps of dropped demos, and the paths left without a step.
+    Drop the steps of dropped demos, and the paths left with fewer than
+    MIN_STEPS steps (a tour of one step is no tour).
 
     Args:
         path (str): learning-paths.json.
@@ -206,13 +211,29 @@ def trim_learning_paths(path, kept):
     paths = []
     for p in data.get("paths") or []:
         p["steps"] = [s for s in p.get("steps") or [] if _step_kept(s, kept)]
-        if p["steps"]:
+        if len(p["steps"]) >= MIN_STEPS:
             paths.append(p)
     ids = {p.get("id") for p in paths}
     for p in paths:
         if isinstance(p.get("next"), list):
             p["next"] = [n for n in p["next"] if not n.get("path") or n["path"] in ids]
     data["paths"] = paths
+    _save(path, data)
+
+
+def trim_groups(path, image):
+    """
+    Drop the Beta group from a beta or prod image: it holds the dev demos,
+    which only development images ship, so it would be an empty folder.
+
+    Args:
+        path (str): demo-groups.json.
+        image (str): The image's level.
+    """
+    if image == "dev" or not os.path.isfile(path):
+        return
+    data = _load(path)
+    data["groups"] = [g for g in data.get("groups") or [] if g.get("beta") is not True]
     _save(path, data)
 
 
@@ -270,6 +291,7 @@ def apply(config_dir, image):
     kept, dropped = trim_manifests(manifests, image)
     trim_catalogue(os.path.join(config_dir, "known-demos.json"), image)
     trim_learning_paths(os.path.join(manifests, "learning-paths.json"), kept)
+    trim_groups(os.path.join(manifests, "demo-groups.json"), image)
     trim_bookmarks(os.path.join(config_dir, "desktop-bookmarks"), kept, dropped)
     return kept
 
