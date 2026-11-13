@@ -1009,6 +1009,10 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         web.terminate()                       # the demo stops
         web.wait(10)
         assert watcher.wait(30) == 0
+        # Chrome drops a closed tab from its list a moment later (a loaded runner)
+        end = time.time() + 10
+        while bt.tabs_on(bt.origin(url), bt.pages()) and time.time() < end:
+            time.sleep(0.3)
         assert bt.tabs_on(bt.origin(url), bt.pages()) == []     # closed, no "Leave site?"
         assert [t["url"] for t in bt.pages()] == ["about:blank"]
     finally:
