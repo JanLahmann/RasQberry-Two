@@ -178,18 +178,18 @@ function catalogueRows(registry) {
   }));
 }
 
-// A stable demo with beta variants (Fun with Quantum: its website and family)
-// names them, as the Pi tags each of them in its chooser
+// A demo with dev variants (Fun with Quantum) names them, as the Pi tags
+// each of them in its chooser
 function betaParts(m) {
-  if (m.maturity === 'beta') return '';
-  const parts = (m.variants || []).filter((v) => v.maturity === 'beta').map((v) => v.name.split(':')[0]);
+  if (m.maturity === 'dev') return '';
+  const parts = (m.variants || []).filter((v) => (v.maturity || m.maturity) === 'dev').map((v) => v.name.split(':')[0]);
   return parts.length ? ` <span className="beta-tag">beta</span>: ${parts.join(', ')}` : '';
 }
 
 function row(m) {
   const page = pageFor(m.id);
   const name = page ? `[${m.name}](${page})` : m.name;
-  const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+  const beta = m.maturity === 'dev' ? ' <span className="beta-tag">beta</span>' : '';
   const formerly = m.formerly ? ` (formerly ${m.formerly})` : '';
   const needs = m.catalogue
     ? [`add it first: **Manage demos** → **Add demo from catalogue**${m.download ? ` (${m.download < 1000 ? `${m.download} MB` : `${(m.download / 1000).toFixed(1)} GB`})` : ''}`]
@@ -209,9 +209,9 @@ function render(manifests, groups, registry) {
   // a manifest without a valid group goes where the Pi's guess puts it
   const guess = (m) => (m.needs_hw?.leds ? 'led-panel' : ['game', 'visualization'].includes(m.category) ? 'play' : 'learn');
   const byGroup = Object.fromEntries(ids.map((g) => [g, []]));
-  // a beta demo: the group marked beta, whatever group it names (Jan, 2026-10-24), as on the Pi
+  // a dev demo (tagged beta, Jan 2026-11-13): the group marked beta, whatever group it names, as on the Pi
   const betaGroup = groups.groups.find((g) => g.beta)?.id;
-  const inBeta = (d) => betaGroup && d.maturity === 'beta';
+  const inBeta = (d) => betaGroup && d.maturity === 'dev';
   for (const m of manifests.filter(isShown)) byGroup[inBeta(m) ? betaGroup : ids.includes(m.group) ? m.group : guess(m)]?.push(m);
   for (const list of Object.values(byGroup)) list.sort((a, b) => (a.menu?.order ?? 99) - (b.menu?.order ?? 99));
   // a catalogue demo: its entry's group, else the catalogue group (Contributed demos)
@@ -281,7 +281,7 @@ work yet. On the Pi they say "(beta)" on their icon and when they start:
     for (const m of byCategory[category]) {
       const page = pageFor(m.id);
       const name = page ? `[${m.name}](${page})` : m.name;
-      const beta = m.maturity === 'beta' ? ' <span className="beta-tag">beta</span>' : '';
+      const beta = m.maturity === 'dev' ? ' <span className="beta-tag">beta</span>' : '';
       const needs = needsOf(m);
       md += `| **${name}**${beta} | ${m.description || ''}${betaParts(m)} | ${needs.length ? needs.join(', ') : '—'} | \`${m.id}\` |\n`;
     }
