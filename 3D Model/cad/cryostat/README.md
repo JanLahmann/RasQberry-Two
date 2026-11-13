@@ -16,6 +16,7 @@ part they modify:
 | `RQB2-R2_CryoStandaloneGamma-jrl04-no-floor.*` | `… October 2025 - no-floor/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl` | ≤ 0.65 mm |
 | `R2_NewDoor.*` (`new_door.py`) | `originals/cryostat/R2_NewDoor.stl` | ≤ 0.05 mm |
 | `R2_ScrewOctopusAlignment2.*` (`screw_octopus.py`) | `originals/cryostat/R2_ScrewOctopusAlignment2.stl` | ≤ 0.24 mm (p99 0.13) |
+| `R2_NarrowYCryoConjoined.*` (`narrow_y_conjoined.py`) | `originals/cryostat/R2_NarrowYCryoConjoined.stl` | p99 0.34 mm, max 1.0 mm (see below) |
 
 ```bash
 cd "3D Model/cad/cryostat"
@@ -23,6 +24,7 @@ python3 extract_cryo_profiles.py <dir with the original STLs>  # only to re-meas
 python3 cryostat_model.py                                      # -> print/cryostat/
 python3 new_door.py
 python3 screw_octopus.py
+python3 narrow_y_conjoined.py                                  # ~3 min
 ```
 
 - **Lid:** hexagonal, 76.2 x 66.0 x 20.7 mm, with three sockets on the
@@ -78,3 +80,26 @@ z 8.5 and a threaded tube up to z 15, Ø 19.9 mm hole through. The thread is
 drawn as in SketchUp: a circle (r 12.28) 0.70 mm off the axis, turning once
 per 2 mm (one start, anticlockwise upwards). Centred on the hub (the
 original sits at x −39.96, y −6.31). All numbers in `PARAMS`.
+
+### Conjoined cryostat (`narrow_y_conjoined.py`)
+
+`R2_NarrowYCryoConjoined` (157 x 136 x 93.3 mm; in SketchUp 568k triangles
+in 113 overlapping bodies, not watertight) is the Gamma body without cups,
+with a double server (`RTE/server_standalone.py`) as an arm on the back wall
+and on both front walls, like a Y. Each arm stands 0.2 mm off the wall
+(filled) and opens into the cryostat: the arm's inner end wall and the
+cryostat wall are cut away over the server cavity width. On the two front
+walls the opening stops 10 mm from the wall centre on the door side, so the
+door-frame post and the wall behind it stay. Each arm keeps its two cups on
+the outer end wall. Centred on the cryostat (door towards -y).
+
+Comparison (surface samples both ways, the original's hidden inner faces
+left out): median 0.002 mm, 99 % within 0.34 mm; up to 1.0 mm at the
+door-frame posts where the front arms join and at the floor edge at
+z ≈ 2 (where the SketchUp Gamma mesh is broken, see Gamma above).
+
+The STL (840k triangles, 42 MB) needs one clean-up step: where an arm meets
+the cryostat's 0.1 mm groove layers, OCCT meshes slivers narrower than
+0.1 µm, which leave a few open edges. The script merges vertices closer
+than 0.1 µm and drops the collapsed triangles, so the STL is closed (the
+solid itself is valid).

@@ -33,17 +33,17 @@ versions without floor end in `-no-floor` (in `originals/` they are in
   `RQB2-WallPanel-jrl02-2`.
 - **[`floor/`](floor/README.md)**: the six floor tiles, the two magnet
   versions and `R2_Floor-all`.
-- **[`RTE/`](RTE/README.md)**: Jan's server `RQB2-R2_NarrowServerSingle-jrl02`
-  and the lid `R2_NarrowServerSingleLid`, with the fit adjustable per axis.
+- **[`RTE/`](RTE/README.md)**: the server `R2_NarrowServerSingle`
+  (`--variant original`), Jan's `RQB2-R2_NarrowServerSingle-jrl02`,
+  `R2_ServerStandalone` (two servers back to back) and the lid `R2_NarrowServerSingleLid`, with the fit adjustable per axis.
 - **[`cryostat/`](cryostat/README.md)**: `R2_CryoLid-Simple`,
   `R2_ChandelierSingle`, `R2_CryoStandaloneGamma` and `-Beta`, `R2_NewDoor`,
-  the octopus alignment screw; Jan's
+  the octopus alignment screw, `R2_NarrowYCryoConjoined`; Jan's
   `RQB2-Cryostat-jrl01` (lid with chandeliers, two-colour 3MF) and
   `RQB2-R2_CryoStandaloneGamma-jrl04` (+ no-floor).
 
-Not rebuilt yet (copied from `originals/`): the original
-`R2_NarrowServerSingle`, `R2_ServerStandalone` and
-`R2_NarrowYCryoConjoined` (in progress).
+Every STL in `print/` is now rebuilt from code; `build_print.py` copies an
+original only for a part that has no script yet.
 
 ## 3MF colours
 
@@ -66,8 +66,10 @@ pip install build123d trimesh lxml shapely numpy
 cd "3D Model/cad"
 (cd wall && python3 wall_model.py && python3 wall_panel.py && python3 screw_nut.py)
 (cd floor && python3 floor_model.py)
-(cd RTE && python3 narrow_server.py && python3 rte_lid.py)     # server ~2 min
-(cd cryostat && python3 cryostat_model.py && python3 new_door.py && python3 screw_octopus.py)
+(cd RTE && python3 narrow_server.py && python3 narrow_server.py --variant original \
+          && python3 server_standalone.py && python3 rte_lid.py)     # servers ~2 min each
+(cd cryostat && python3 cryostat_model.py && python3 new_door.py && python3 screw_octopus.py \
+               && python3 narrow_y_conjoined.py)
 python3 build_print.py                  # copies + 3MFs, always last
 ```
 

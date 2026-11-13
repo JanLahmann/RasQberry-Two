@@ -1,16 +1,25 @@
-# RTE narrow server and lid (parametric rebuild)
+# RTE servers and lid (parametric rebuild)
 
 - `narrow_server.py` rebuilds Jan's server
   `originals/3D Model - modifications - Jan/October 2025/RTE/RQB2-R2_NarrowServerSingle-jrl02.stl`
-  (SketchUp, mesh only) as a CAD solid.
+  (SketchUp, mesh only) as a CAD solid; with `--variant original` the
+  original server `originals/RTE/R2_NarrowServerSingle.stl` (see
+  "Original server" below).
+- `server_standalone.py` rebuilds
+  `originals/cryostat/Standalone Version/R2_ServerStandalone.stl`: two
+  original servers joined front to front.
 - `rte_lid.py` rebuilds `originals/RTE/R2_NarrowServerSingleLid.stl`
   (≤ 0.35 mm) and makes its fit adjustable (see "Lid" below).
 
-Both write STL / STEP to `print/RTE/`.
+They write STL / STEP to `print/RTE/` (the original server also to
+`print/cryostat/Standalone Version/`, where the same file sits; the double
+server goes there too).
 
 ```bash
 cd "3D Model/cad/RTE"
-python3 narrow_server.py      # ~2 min
+python3 narrow_server.py                     # jrl02, ~2 min
+python3 narrow_server.py --variant original  # the original server
+python3 server_standalone.py
 python3 rte_lid.py            # --clearance 0.4,0.2 for a tighter fit in y
 ```
 
@@ -63,3 +72,37 @@ distances from 15,000 sample points):
   about 0.1 mm;
 - one stray mesh fragment at the edge of the left-side hole field in the
   original is not reproduced.
+
+## Original server (`--variant original`)
+
+The SketchUp original (94k triangles in 5 overlapping bodies, not
+watertight) has the same shell as jrl02, but a different inside:
+
+- no mounting plates and no ribs;
+- two cups on the back wall only, standing straight on the wall: concentric
+  arcs R 10 / R 8, 4 mm straight above the centre, ring 2.0 mm, face 1.2 mm,
+  at z 23.0 and 63.3; behind each cup an R 8 pocket 0.5 mm deep in the wall
+  (the same cups as on the Gamma cryostat walls);
+- Ø 1.2 mm ventilation holes (jrl02: 1.18), front panel 0.21 mm deep
+  (jrl02: 0.19).
+
+All of it is the `VARIANTS["original"]` entry in `narrow_server.py`.
+Comparison (surface samples, both ways): the rebuild lies within 0.11 mm of
+the original (99 % within 0.03 mm); every point of the original's outside
+is within 0.1 mm of the rebuild. The only original surfaces further away
+are faces hidden inside the solid, where SketchUp's bodies overlap.
+
+## Double server (`server_standalone.py`)
+
+`R2_ServerStandalone` is two original servers standing front to front,
+0.2 mm apart, with both front walls cut away over the cavity width, so they
+share one 33.7 x 41.3 mm cavity: 38.1 x 46.7 x 93.3 mm, cups on the two
+outer walls, ventilation holes on both long sides. A 0.2 mm filler joins the
+side walls and floors; the V notch where the chamfered corners meet stays.
+In the original it stands rotated by 30 deg next to the cryostat; the print
+file is axis-aligned and centred.
+
+Comparison: the original's outside lies within 0.3 mm of the rebuild (99 %
+within 0.1 mm). One difference on purpose: the SketchUp file has no floor
+slab, only a single face at z = 0 (no top face at z = 3), so as a mesh it is
+open there. The rebuild keeps the servers' 3 mm floor.

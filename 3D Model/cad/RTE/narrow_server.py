@@ -15,7 +15,7 @@ cup-shaped cradles and two half-round ribs each.
 Coordinates: x = width (side walls with the holes at x = +/-), y = depth
 (front at -y), z = up; the box stands on z = 0, centred on x = y = 0.
 
-Usage:  python narrow_server.py [--outdir ROOT] [--formats stl,step,3mf]
+Usage:  python narrow_server.py [--variant jrl02|original] [--outdir ROOT] [--formats stl,step]
 """
 import argparse
 import sys
@@ -60,7 +60,34 @@ PARAMS = dict(
     cup_ring=2.02, cup_face=1.23,  # depth of the U ring and the D face
     # half-round ribs on each plate
     rib_z=(29.64, 69.64), rib_half=7.5, rib_chord=2.0, rib_height=0.75,
+    # which inner walls carry plate, cups and ribs (Jan's jrl02: both)
+    mount_walls=("front", "back"), plates=True, ribs=True,
+    cup_pocket=None,             # (radius, depth) of a disc cut into the wall behind each cup
+    open_front=False,            # front wall cut away over the cavity width (paired servers)
 )
+
+# The original R2_NarrowServerSingle (SketchUp) differs from jrl02 only
+# inside: no plates and no ribs, two cups on the back wall only, standing
+# straight on the wall, with concentric arcs (R 10 / R 8) and an R 8 pocket
+# 0.5 mm deep in the wall behind each cup; slightly bigger holes and a
+# slightly deeper front panel.
+VARIANTS = {
+    "jrl02": dict(name="RQB2-R2_NarrowServerSingle-jrl02"),
+    "original": dict(
+        name="R2_NarrowServerSingle",
+        mount_walls=("back",), plates=False, ribs=False,
+        cup_z=(23.0, 63.3), cup_r_out=10.0, cup_r_in=8.0, cup_in_dz=0.0,
+        cup_arm=4.0, cup_ring=2.0, cup_face=1.2, cup_pocket=(8.0, 0.5),
+        hole_dia=1.2, panel_front=dict(half=17.05, depth=0.21),
+    ),
+}
+
+
+def variant(name):
+    """PARAMS with a variant's changes applied."""
+    p = dict(PARAMS)
+    p.update({k: v for k, v in VARIANTS[name].items() if k != "name"})
+    return p
 
 
 def _box(x0, x1, y0, y1, z0, z1):
@@ -154,6 +181,8 @@ def build(p=PARAMS):
     body -= _box(cx[0], cx[1], cy[0], cy[1], fl, H + 1)
     sx, sy = p["socket_x"], p["socket_y"]
     body -= _box(sx[0], sx[1], sy[0], sy[1], p["cavity_top"], H + 1)
+    if p["open_front"]:
+        body -= _box(cx[0], cx[1], -hy - 1, cy[0] + 0.01, fl, H + 1)
 
     # ventilation holes: one grid, extruded through each side wall only
     yc, zc = p["hole_centre"]
@@ -166,14 +195,23 @@ def build(p=PARAMS):
         body -= extrude(pln * sk, hi - lo + 0.2)
 
     # plates, cups and ribs (front plate grows +y, back plate grows -y)
-    ph, pt, ptop = p["plate_half"], p["plate_thick"], p["plate_top"]
-    for wall_y, sign in ((cy[0], +1), (cy[1], -1)):
+    ph, ptop = p["plate_half"], p["plate_top"]
+    pt = p["plate_thick"] if p["plates"] else 0.0
+    walls = {"front": (cy[0], +1), "back": (cy[1], -1)}
+    for wall_y, sign in (walls[w] for w in p["mount_walls"]):
         face_y = wall_y + sign * pt
-        body += _box(-ph, ph, *sorted((wall_y - sign * 0.01, face_y)), fl - 0.01, ptop)
+        if p["plates"]:
+            body += _box(-ph, ph, *sorted((wall_y - sign * 0.01, face_y)), fl - 0.01, ptop)
+        if p["cup_pocket"]:
+            r, d = p["cup_pocket"]
+            for z in p["cup_z"]:
+                pln = Plane(origin=(0, wall_y + sign * 0.01, z), x_dir=(1, 0, 0), z_dir=(0, -sign, 0))
+                body -= extrude(pln * Circle(r), d + 0.01)
         for z in p["cup_z"]:
             body += cup(p, face_y - sign * 0.01, sign, z)
-        for z in p["rib_z"]:
-            body += rib(p, face_y - sign * 0.01, sign, z)
+        if p["ribs"]:
+            for z in p["rib_z"]:
+                body += rib(p, face_y - sign * 0.01, sign, z)
     return body
 
 
@@ -181,12 +219,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--outdir", help="output root (default ../../print)")
     ap.add_argument("--formats", default="stl,step")
+    ap.add_argument("--variant", choices=sorted(VARIANTS), default="jrl02")
     a = ap.parse_args()
-    part = build()
+    part = build(variant(a.variant))
     vol = check_solid(part, "NarrowServerSingle")
     print("size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(part), vol))
-    export_part(part, "RQB2-R2_NarrowServerSingle-jrl02", root=a.outdir,
-               formats=tuple(a.formats.split(",")))
+    names = [VARIANTS[a.variant]["name"]]
+    if a.variant == "original":   # the same part in the standalone set
+        names.append("R2_NarrowServerSingle-standalone")
+    for name in names:
+        export_part(part, name, root=a.outdir, formats=tuple(a.formats.split(",")))
 
 
 if __name__ == "__main__":
