@@ -2572,8 +2572,12 @@ RQ_FEEDBACK_URL="https://github.com/JanLahmann/RasQberry-Two/issues/new?template
 # Feedback without a GitHub account (Jan, 2026-10-08)
 RQ_FEEDBACK_EMAIL="info@rasqberry.org"
 
-# Echo "beta" for a new or less-tested demo (field "maturity"), else nothing.
-# The variant's value wins, then the manifest's, then the catalogue entry's
+# Echo "beta" for a new or less-tested demo, else nothing: one marked demo
+# level dev (field "maturity", rq_demo_level.py; a demo without the field
+# ships only in development images too, but is not marked). Only development
+# images ship dev demos, so only they show the mark, the Beta group and the
+# feedback invitation. The variant's value wins, then the manifest's, then
+# the catalogue entry's
 # (known-demos.json), so a catalogue demo installed before it was marked
 # shows it too - also one installed under an earlier name (the entry's
 # "replaces", e.g. traqmania for racetraq).
@@ -2591,7 +2595,7 @@ rq_demo_maturity() {
             | select(any(.replaces[]?; . == $id))] | .[0].maturity // empty' \
             "$registry" 2>/dev/null)
     fi
-    [ "$m" = "beta" ] && echo beta
+    [ "$m" = dev ] && echo beta
     return 0
 }
 
@@ -2602,7 +2606,7 @@ rq_demo_maturity() {
 # "replaces", goes to that entry's group), else to the group marked
 # "catalogue" (Contributed demos, Jan 2026-10-08) - not to the group its own
 # manifest names. A beta demo (maturity "beta": its manifest's, else its
-# catalogue entry's) goes to the group marked "beta", before anything else:
+# catalogue entry's: demo level dev) goes to the group marked "beta", before anything else:
 # it says clearly what is not ready yet (Jan, 2026-10-24). A shipped demo goes to its manifest's "group", else a
 # guess: an LED panel demo to led-panel, a game or visualization to play,
 # anything else to learn. A value demo-groups.json does not list counts as
@@ -2629,7 +2633,7 @@ rq_demo_group() {
         | ([$entry[].group] | map(select(. as $g | $ids | any(. == $g)))) as $curated
         | ([$grp[0].groups[]? | select(.beta == true) | .id] | .[0]) as $beta
         | ($m.maturity // ([$entry[].maturity | select(. != null)] | .[0])) as $maturity
-        | if $beta != null and $maturity == "beta" then $beta
+        | if $beta != null and $maturity == "dev" then $beta
           elif ($curated | length) > 0 then $curated[0]
           elif (($entry | length) > 0 or ($shipped | not)) and $cat != null then $cat
           elif ($m.group as $g | $ids | any(. == $g)) then $m.group

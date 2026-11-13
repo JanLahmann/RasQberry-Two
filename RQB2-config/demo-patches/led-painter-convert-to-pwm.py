@@ -16,6 +16,7 @@ a singleton NeoPixel object to prevent GPIO conflicts on Pi 5.
 
 import sys
 import os
+import re
 
 
 DISPLAY_TO_LEDS_MODULE = '''# Standard
@@ -323,6 +324,10 @@ def update_requirements(demo_dir):
         if line.strip().lower().startswith(('pyside6', 'shiboken6')):
             # GUI runs on the system PyQt5 instead (#302)
             new_lines.append(f'# {line.strip()}  (replaced by system PyQt5, RasQberry #302)\n')
+        elif re.match(r'\s*(setuptools|pip|wheel)\s*([=<>!~;]|$)', line, re.I):
+            # The painter does not need them, and its pin (setuptools==75.5.0)
+            # downgraded them in the shared RQB2 venv (rig check 2026-10-16)
+            new_lines.append(f'# {line.strip()}  (kept as the venv has it, RasQberry)\n')
         elif 'adafruit-circuitpython-neopixel-spi' in line:
             # Comment out SPI driver and add PWM/PIO drivers
             new_lines.append(f'# {line}')

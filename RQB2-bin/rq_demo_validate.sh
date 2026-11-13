@@ -483,11 +483,13 @@ validate_manifest() {
         errors=$((errors + 1))
     fi
 
-    # Validate maturity (top level and variants): stable or beta
+    # Validate maturity (top level and variants): the demo level dev, beta or
+    # prod (rq_demo_level.py; stable is the old name of prod). Without one a
+    # demo is dev: it ships in development images only.
     local bad_maturity
-    bad_maturity=$(jq -r '[.maturity, (.variants[]?.maturity)] | map(select(. != null and . != "stable" and . != "beta")) | .[0] // empty' "$file" 2>/dev/null)
+    bad_maturity=$(jq -r '[.maturity, (.variants[]?.maturity)] | map(select(. != null and . != "dev" and . != "beta" and . != "prod" and . != "stable")) | .[0] // empty' "$file" 2>/dev/null)
     if [ -n "$bad_maturity" ]; then
-        print_fail "Invalid maturity: $bad_maturity (valid: stable, beta)"
+        print_fail "Invalid maturity: $bad_maturity (valid: dev, beta, prod)"
         errors=$((errors + 1))
     fi
 

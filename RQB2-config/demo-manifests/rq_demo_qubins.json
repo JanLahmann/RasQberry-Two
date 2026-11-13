@@ -3,7 +3,7 @@
   "name": "QuBins",
   "category": "education",
   "group": "learn",
-  "maturity": "beta",
+  "maturity": "dev",
   "description": "JupyterLab with the Qiskit version you choose (QuBins Docker images), and the notebooks you choose: IBM Quantum Tutorials and Courses, Quantum Paradoxes, Fun with Quantum, or only your own work",
   "keywords": [
     "quantum",

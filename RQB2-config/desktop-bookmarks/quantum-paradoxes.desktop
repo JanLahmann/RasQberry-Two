@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
-Name=Quantum Paradoxes
-Comment=Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris
+Name=Quantum Paradoxes (beta)
+Comment=(beta) Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris
 Icon=/usr/share/icons/rasqberry/quantum-paradoxes.svg
 Type=Application
 Categories=RasQberry;

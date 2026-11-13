@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
-Name=Qiskit Live (QuBins)
-Comment=Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)
+Name=Qiskit Live (QuBins) (beta)
+Comment=(beta) Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start)
 Icon=/usr/share/icons/rasqberry/quantum-lab.svg
 Type=Application
 Categories=RasQberry;

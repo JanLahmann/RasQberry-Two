@@ -232,7 +232,7 @@ class _Pty:
 def test_manifest_is_an_internal_big_project_pinned_on_booth_v2():
     m = _manifest()
     assert m["id"] == "entangible" and m["name"] == "Entangible"
-    assert m["group"] == "projects" and m["maturity"] == "beta"
+    assert m["group"] == "projects" and m["maturity"] == "dev"   # demo level (Jan, 2026-11-13)
     assert m["entrypoint"] == {"working_dir": "entangible", "launcher": "rq_entangible.sh"}
     inst = m["install"]
     assert inst["repo_url"] == "https://github.com/JanLahmann/entangible.git"

@@ -489,3 +489,15 @@ def test_launcher_names_the_sound_output():
     common = open(_COMMON).read()
     assert "wpctl inspect @DEFAULT_AUDIO_SINK@" in common
     assert "Add Device" in common
+
+
+def test_an_image_takes_only_the_entries_of_its_level():
+    # the online copy lists every level (demo levels, Jan 2026-11-13)
+    entries = [_entry("cat-dev", maturity="dev"), _entry("cat-none"),
+               _entry("cat-beta", maturity="beta"), _entry("cat-prod", maturity="prod")]
+    keep, out = cat.below_level(entries, "beta")
+    assert [e["id"] for e in keep] == ["cat-beta", "cat-prod"]
+    assert len(out) == 2
+    assert [e["id"] for e in cat.below_level(entries, "dev")[0]] == \
+        ["cat-dev", "cat-none", "cat-beta", "cat-prod"]
+    assert [e["id"] for e in cat.below_level(entries, "prod")[0]] == ["cat-prod"]

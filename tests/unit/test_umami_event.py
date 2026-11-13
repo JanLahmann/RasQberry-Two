@@ -960,8 +960,8 @@ def test_the_icon_runs_its_old_script_through_the_engine(icon):
     # stop hint, Ctrl+C and window-close handling stay as they were
     assert launcher == script and os.path.exists(os.path.join(_BIN, script))
     # built in: no consent dialog, no beta notice
-    assert m["install"]["preinstalled"] is True and not m.get("maturity")
-    assert not (variant and v.get("maturity"))
+    assert m["install"]["preinstalled"] is True and m.get("maturity") != "dev"
+    assert not (variant and v.get("maturity") == "dev")
 
 
 def test_no_terminal_icon_bypasses_the_engine_when_its_demo_has_a_manifest():

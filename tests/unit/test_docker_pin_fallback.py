@@ -366,3 +366,17 @@ def test_every_pinned_image_is_still_offered():
     if rc == 2:
         pytest.skip("a registry did not answer:\n" + out)
     assert rc == 0, out
+
+
+def test_a_known_blocked_registry_is_reported_until_its_date(tmp_path):
+    import datetime
+    known = tmp_path / "blocked.json"
+    known.write_text(json.dumps({"blocked": [
+        {"prefix": "ghcr.io/qubins/", "reason": "flagged", "until": "2026-11-27"}]}))
+    mod = _pins_module()
+    day = datetime.date(2026, 11, 13)
+    assert mod.known_blocked("ghcr.io/qubins/images:2.5-xl", str(known), day)["reason"] == "flagged"
+    assert mod.known_blocked("ghcr.io/janlahmann/doqumentation:x", str(known), day) is None
+    # after its date the image fails the check again
+    assert mod.known_blocked("ghcr.io/qubins/images:2.5-xl", str(known), datetime.date(2026, 11, 28)) is None
+    assert mod.known_blocked("ghcr.io/qubins/images:2.5-xl", str(tmp_path / "missing.json"), day) is None

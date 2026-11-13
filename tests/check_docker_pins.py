@@ -14,13 +14,15 @@ Usage:
     python3 tests/check_docker_pins.py [REPO_ROOT ...] [--no-catalogue]
 
 One line per image: "ok", "GONE" (the registry answers 404 / manifest
-unknown) or "ERROR" (no answer). Exit codes: 0 all offered, 1 an image is
+unknown), "BLOCKED" (gone, but listed in docker_pins_known_blocked.json
+until a date: a registry outage we know about) or "ERROR" (no answer). Exit codes: 0 all offered, 1 an image is
 gone, 2 a registry could not be asked. Anonymous HEAD requests only
 (ghcr.io, Docker Hub and other registries with the standard token flow);
 only the Python standard library is used.
 """
 
 import argparse
+import datetime
 import glob
 import json
 import os
@@ -36,6 +38,35 @@ ACCEPT = ", ".join([
     "application/vnd.docker.distribution.manifest.v2+json",
 ])
 TIMEOUT = 20
+KNOWN_BLOCKED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docker_pins_known_blocked.json")
+
+
+def known_blocked(image, path=KNOWN_BLOCKED, today=None):
+    """
+    The entry of docker_pins_known_blocked.json that covers IMAGE today.
+
+    Args:
+        image (str): the image reference
+        path (str): the list (tests)
+        today (datetime.date): the date (tests)
+
+    Returns:
+        dict or None: the entry (prefix, reason, until), None when none is current
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            entries = json.load(fh).get("blocked") or []
+    except (OSError, ValueError):
+        return None
+    today = today or datetime.date.today()
+    for entry in entries:
+        try:
+            until = datetime.date.fromisoformat(entry["until"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if image.startswith(entry.get("prefix") or "\0") and today <= until:
+            return entry
+    return None
 
 
 def parse_image(image):
@@ -209,6 +240,10 @@ def main(argv=None):
             if image not in seen:
                 seen[image] = offered(image)
             state = seen[image]
+            blocked = known_blocked(image) if state == "gone" else None
+            if blocked:
+                print(f"BLOCKED  {label}: {image} (known until {blocked['until']}: {blocked.get('reason', '')})")
+                continue
             mark = {"ok": "ok   ", "gone": "GONE "}.get(state, "ERROR")
             print(f"{mark}  {label}: {image}" + ("" if state in ("ok", "gone") else f" ({state})"))
             gone += state == "gone"

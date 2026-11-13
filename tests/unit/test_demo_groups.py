@@ -43,13 +43,14 @@ needs_jq = pytest.mark.skipif(shutil.which("bash") is None or shutil.which("jq")
 _TABLE = {
     "led-panel": {"led-ibm-demo", "rasq-led", "quantum-lights-out", "quantum-raspberry-tie",
                   "led-painter", "clear-leds"},
-    "play": {"fun-with-quantum", "quantum-coin-game", "quantum-paradoxes", "quantum-fractals"},
+    "play": {"fun-with-quantum", "quantum-coin-game", "quantum-fractals"},
     "projects": {"qoffee-maker", "quantum-mixer"},
-    "learn": {"my-quantum-programs", "grok-bloch", "quantum-lab",
+    "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials",
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
-    "workshops": {"demo-loop"},
+    "workshops": {"demo-loop", "doqumentation"},
     "contributed": {"rq-ext-sap-quantum-led", "rq-ext-sap-quantum-learning"},
-    "beta": {"entangible", "doqumentation", "qiskit-tutorials", "qubins", "rq-ext-racetraq"},
+    # demo level dev (Jan, 2026-11-13): only development images ship these
+    "beta": {"entangible", "quantum-lab", "quantum-paradoxes", "qubins", "rq-ext-racetraq"},
 }
 _STARTERS = ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"]
 _SYSTEM = ["rasqberry-setup", "rasqberry-menu", "touch-mode"]
@@ -332,17 +333,18 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
     assert [i for i, _ in items["led-panel"]] == ["rasq-led", "quantum-lights-out",
                                                   "quantum-raspberry-tie", "led-painter"]
     assert [i for i, _ in items["contributed"]] == ["sap-quantum-led"]
-    assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-paradoxes", "quantum-fractals"]
+    assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-fractals"]
     assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer"]
-    assert [i for i, _ in items["learn"]] == ["grok-bloch", "quantum-lab",
+    assert [i for i, _ in items["learn"]] == ["grok-bloch", "qiskit-tutorials",
                                               "ibm-tutorials", "ibm-courses", "composer"]
-    assert [i for i, _ in items["workshops"]] == []
-    # every beta demo, whatever group it names (Jan, 2026-10-24)
-    assert [i for i, _ in items["beta"]] == ["doqumentation", "qiskit-tutorials", "entangible", "qubins"]
+    assert [i for i, _ in items["workshops"]] == ["doqumentation"]
+    # every demo at level dev, whatever group it names (Jan, 2026-10-24, 2026-11-13)
+    assert [i for i, _ in items["beta"]] == ["quantum-paradoxes", "entangible", "quantum-lab", "qubins"]
     names = dict(sum(items.values(), []))
     assert names["qoffee-maker"] == "Qoffee-Maker [internet, 32 GB]"
     assert names["composer"] == "IBM Quantum Composer [internet]"   # works without an account (#31)
-    assert names["doqumentation"] == "Workshop & Qiskit Server (beta) [internet, 32 GB]"
+    assert names["doqumentation"] == "Workshop & Qiskit Server [internet, 32 GB]"
+    assert names["qubins"].startswith("QuBins (beta) [internet")
     assert names["rasq-led"] == "RasQ-LED Demo"      # no [LED panel] inside its own group
     subprocess.run([_SH, "-c", '. "$1"; demo_group_title learn', "sh", str(cache)])
     title = subprocess.run([_SH, "-c", '. "$1"; demo_group_title learn', "sh", str(cache)],
@@ -375,10 +377,10 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     ("led-panel", ["IBM", "rasq-led"], ["led-painter", "DISP", "CLEAR", "LEDS"]),
     ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
-    ("workshops", ["LOOP"], ["LOOP"]),
-    ("beta", ["doqumentation"], ["qubins"]),
+    ("workshops", ["doqumentation"], ["LOOP"]),
+    ("beta", ["quantum-paradoxes"], ["qubins"]),
     # the Coin Game, an icon of its own in the Play window, is here too (F3)
-    ("play", ["fun-with-quantum", "COIN", "quantum-paradoxes"], ["quantum-fractals"]),
+    ("play", ["fun-with-quantum", "COIN", "quantum-fractals"], ["quantum-fractals"]),
 ])
 def test_a_group_submenu_has_its_fixed_entries(menu_env, tmp_path, group, first, last):  # noqa: F811
     sap = {"id": "sap-quantum-led", "name": "SAP Quantum LED", "category": "led-demo",
@@ -554,7 +556,8 @@ def test_a_demos_icon_is_the_same_in_its_manifest_and_on_the_desktop():
 
 
 @needs_jq
-@pytest.mark.parametrize("maturity,group", [("beta", "beta"), ("stable", "projects"), (None, "projects")])
+@pytest.mark.parametrize("maturity,group", [("dev", "beta"), ("beta", "projects"), ("prod", "projects"),
+                                            ("stable", "projects"), (None, "projects")])
 def test_a_beta_demo_is_in_beta_and_goes_back_when_it_is_ready(tmp_path, maturity, group):
     # Jan (2026-10-24): beta demos in a folder and menu section of their own,
     # whatever group they name; ready again, a demo is back in its own group

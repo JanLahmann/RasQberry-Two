@@ -68,5 +68,6 @@
         "display": "none"
       }
     }
-  ]
+  ],
+  "maturity": "beta"
 }

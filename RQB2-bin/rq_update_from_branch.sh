@@ -222,6 +222,16 @@ copy_bin_files() {
     log_message "Copied $count files to $TARGET_BIN"
 }
 
+# Trim the branch's RQB2-config to this image's demo level
+# (/etc/rasqberry-demo-level), with the branch's own rq_demo_level.py
+trim_demo_levels() {
+    local tool="$1/RQB2-bin/rq_demo_level.py"
+    [ -f "$tool" ] || tool="$TARGET_BIN/rq_demo_level.py"
+    [ -f "$tool" ] || return 0
+    python3 "$tool" apply "$1/RQB2-config" 2>&1 | tee -a "$LOG_FILE" \
+        || warn "Could not apply the demo level - all demos of the branch are kept"
+}
+
 copy_config_files() {
     local source_dir="$1/RQB2-config"
 
@@ -518,6 +528,10 @@ main() {
     if [ "$skip_backup" != true ]; then
         backup_current
     fi
+
+    # Only the demos of this image's level (rq_demo_level.py): a beta image
+    # does not get the branch's dev demos
+    trim_demo_levels "$WORK_DIR"
 
     # Copy files
     count_changes "$WORK_DIR"

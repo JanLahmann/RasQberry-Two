@@ -50,6 +50,20 @@ PAUSE_BETWEEN_DEMOS="${DEMO_LOOP_PAUSE:-2}"
 # The demos the loop can run, in loop order (Jan, 2026-10-05: choose which)
 ################################################################################
 LED_LOOP_IDS="ibm-logo quantum-lights-out quantum-raspberry-tie rasq-led"
+# Only the ones this image ships (demo levels, rq_demo_level.py): ibm-logo is
+# a variant of led-demos
+_led_ids=""
+for _id in $LED_LOOP_IDS; do
+    if [ "$_id" = ibm-logo ]; then
+        _mf="$(rq_shipped_manifest_dir)/rq_demo_led-demos.json"
+        [ -f "$_mf" ] && jq -e '[.variants[]?.id] | index("ibm-logo")' "$_mf" >/dev/null 2>&1 \
+            && _led_ids="$_led_ids $_id"
+    elif [ -f "$(rq_shipped_manifest_dir)/rq_demo_${_id}.json" ]; then
+        _led_ids="$_led_ids $_id"
+    fi
+done
+LED_LOOP_IDS="${_led_ids# }"
+unset _led_ids _id _mf
 
 # The other loop demos (R-123): shipped manifests with "loop_ok": true and a
 # script or python entrypoint, after the LED demos in menu order. One line
