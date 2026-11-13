@@ -994,6 +994,7 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         if not (port_file.exists() and port_file.read_text().strip()):
             # a loaded CI runner sometimes starts headless Chrome too late:
             # that says nothing about the tab handling under test
+            assert chrome.poll() is None, f"Chrome exited at start (rc={chrome.returncode})"
             pytest.skip("headless Chrome did not start within 30 s")
         cdp_port = port_file.read_text().split()[0]
         env = dict(os.environ, RQ_BROWSER_CDP_PORT=cdp_port, RQ_BROWSER_POLL="0.3", RQ_BROWSER_FIND_WAIT="15")
