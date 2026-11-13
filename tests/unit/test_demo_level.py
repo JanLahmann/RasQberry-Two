@@ -150,3 +150,30 @@ def test_real_config_trims_cleanly(tmp_path):
     for level in ("prod", "beta", "dev"):
         assert lvl.main(["apply", str(cfg), level]) == 0
         assert os.path.isfile(str(cfg / "demo-manifests" / "rq_demo_schema.json"))
+
+
+def test_beta_image_turns_online_steps_into_web_steps_and_unmarks_launchers(tmp_path):
+    cfg = tmp_path / "RQB2-config"
+    m = cfg / "demo-manifests"
+    _write(str(m / "rq_demo_docs.json"), {"id": "docs", "maturity": "dev"})
+    _write(str(m / "rq_demo_ready.json"), {"id": "ready", "maturity": "beta"})
+    _write(str(m / "learning-paths.json"), {"paths": [{"id": "p", "steps": [
+        {"demo": "docs", "name": "Quickstart", "page": "/q", "online": "https://example.org/q", "try": "t"},
+        {"demo": "docs"},
+        {"demo": "ready"}]}]})
+    b = cfg / "desktop-bookmarks"
+    _write(str(b / "paths.desktop"),
+           "[Desktop Entry]\nName=Learning paths (beta)\nComment=(beta) Short tours\nExec=/usr/bin/rq_learning_paths.sh\n")
+    lvl.apply(str(cfg), "beta")
+    steps = _read(str(m / "learning-paths.json"))["paths"][0]["steps"]
+    assert steps == [{"name": "Quickstart", "try": "t", "url": "https://example.org/q"}, {"demo": "ready"}]
+    text = (b / "paths.desktop").read_text()
+    assert "Name=Learning paths\n" in text and "Comment=Short tours\n" in text
+
+
+def test_dev_image_keeps_the_beta_marks(tmp_path):
+    b = tmp_path / "RQB2-config" / "desktop-bookmarks"
+    _write(str(tmp_path / "RQB2-config" / "demo-manifests" / "rq_demo_x.json"), {"id": "x"})
+    _write(str(b / "paths.desktop"), "[Desktop Entry]\nName=Learning paths (beta)\n")
+    lvl.apply(str(tmp_path / "RQB2-config"), "dev")
+    assert "Name=Learning paths (beta)" in (b / "paths.desktop").read_text()

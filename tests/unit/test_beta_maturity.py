@@ -57,9 +57,12 @@ def _bash(script, tmp_path, *args):
 
 def test_demo_levels_jan_2026_11_13():
     # demo levels (rq_demo_level.py): what goes into the beta image (Jan, 2026-11-13)
-    for demo in ("doqumentation", "qiskit-tutorials", "ibm-courses", "ibm-tutorials",
+    for demo in ("ibm-courses", "ibm-tutorials",
                  "quantum-lights-out", "led-demos", "led-painter"):
         assert _manifest(demo)["maturity"] == "beta", demo
+    # Jan, review inbox 2026-11-13: both doQumentation demos are dev
+    for demo in ("doqumentation", "qiskit-tutorials"):
+        assert _manifest(demo)["maturity"] == "dev", demo
     for demo in ("quantum-lab", "qubins", "quantum-paradoxes", "entangible"):
         assert _manifest(demo)["maturity"] == "dev", demo
     fwq = {v["id"]: v.get("maturity") for v in _manifest("fun-with-quantum")["variants"]}
@@ -91,8 +94,8 @@ def test_maturity_lookup_and_the_catalogue_fallback(tmp_path):
                  'rq_beta_notice doqumentation', tmp_path)
     assert proc.returncode == 0, proc.stderr
     out = proc.stdout
-    # marked: demo level dev (racetraQ, the website variant); doQumentation is beta
-    assert "a=\nb=beta\nf=beta\nc=beta\nd=\ne=\n" in out
+    # marked: demo level dev (doQumentation, racetraQ, the website variant)
+    assert "a=beta\nb=beta\nf=beta\nc=beta\nd=\ne=\n" in out
     assert "This demo is new - please try it and tell us what works and what doesn't." in out
     assert "issues/new?template=demo-feedback.yml&demo=doqumentation" in out
 
@@ -157,8 +160,8 @@ def test_menu_cache_tags_beta_and_hides_menu_show_false(tmp_path):
     assert proc.returncode == 0, proc.stderr
     text = cache.read_text()
     # marked: demo level dev only (beta demos are what the beta image ships)
-    assert '"doqumentation" "Workshop & Qiskit Server"' in text
-    assert '"qiskit-tutorials" "doQumentation (IBM Quantum Learning on this Pi)"' in text
+    assert '"doqumentation" "Workshop & Qiskit Server (beta)' in text
+    assert '"qiskit-tutorials" "doQumentation (IBM Quantum Learning on this Pi) (beta)' in text
     assert '"Fun with Quantum website: games in the browser (beta)"' in text
     assert '"coin-game" "Quantum Coin Game"' in text
     assert '"qubins" "QuBins (beta)' in text

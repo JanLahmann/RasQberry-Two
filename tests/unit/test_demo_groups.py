@@ -45,12 +45,14 @@ _TABLE = {
                   "led-painter", "clear-leds"},
     "play": {"fun-with-quantum", "quantum-coin-game", "quantum-fractals"},
     "projects": {"qoffee-maker", "quantum-mixer"},
-    "learn": {"my-quantum-programs", "grok-bloch", "qiskit-tutorials",
+    "learn": {"my-quantum-programs", "grok-bloch",
               "ibm-quantum-tutorials", "ibm-quantum-courses", "composer"},
-    "workshops": {"demo-loop", "doqumentation"},
+    "workshops": {"demo-loop"},
     "contributed": {"rq-ext-sap-quantum-led", "rq-ext-sap-quantum-learning"},
-    # demo level dev (Jan, 2026-11-13): only development images ship these
-    "beta": {"entangible", "quantum-lab", "quantum-paradoxes", "qubins", "rq-ext-racetraq"},
+    # demo level dev (Jan, 2026-11-13; doQumentation both: review inbox): only
+    # development images ship these
+    "beta": {"entangible", "quantum-lab", "quantum-paradoxes", "qubins", "rq-ext-racetraq",
+             "qiskit-tutorials", "doqumentation"},
 }
 _STARTERS = ["learning-paths", "led-ibm-demo", "grok-bloch", "quantum-coin-game", "my-quantum-programs"]
 _SYSTEM = ["rasqberry-setup", "rasqberry-menu", "touch-mode"]
@@ -335,15 +337,16 @@ def test_cache_lists_the_groups_and_their_demos_with_needs(tmp_path):
     assert [i for i, _ in items["contributed"]] == ["sap-quantum-led"]
     assert [i for i, _ in items["play"]] == ["fun-with-quantum", "quantum-fractals"]
     assert [i for i, _ in items["projects"]] == ["qoffee-maker", "quantum-mixer"]
-    assert [i for i, _ in items["learn"]] == ["grok-bloch", "qiskit-tutorials",
+    assert [i for i, _ in items["learn"]] == ["grok-bloch",
                                               "ibm-tutorials", "ibm-courses", "composer"]
-    assert [i for i, _ in items["workshops"]] == ["doqumentation"]
+    assert [i for i, _ in items["workshops"]] == []
     # every demo at level dev, whatever group it names (Jan, 2026-10-24, 2026-11-13)
-    assert [i for i, _ in items["beta"]] == ["quantum-paradoxes", "entangible", "quantum-lab", "qubins"]
+    assert [i for i, _ in items["beta"]] == ["doqumentation", "qiskit-tutorials", "quantum-paradoxes",
+                                             "entangible", "quantum-lab", "qubins"]
     names = dict(sum(items.values(), []))
     assert names["qoffee-maker"] == "Qoffee-Maker [internet, 32 GB]"
     assert names["composer"] == "IBM Quantum Composer [internet]"   # works without an account (#31)
-    assert names["doqumentation"] == "Workshop & Qiskit Server [internet, 32 GB]"
+    assert names["doqumentation"] == "Workshop & Qiskit Server (beta) [internet, 32 GB]"
     assert names["qubins"].startswith("QuBins (beta) [internet")
     assert names["rasq-led"] == "RasQ-LED Demo"      # no [LED panel] inside its own group
     subprocess.run([_SH, "-c", '. "$1"; demo_group_title learn', "sh", str(cache)])
@@ -377,8 +380,8 @@ def test_quantum_demos_shows_paths_groups_stop_and_manage(menu_env, tmp_path):  
     ("led-panel", ["IBM", "rasq-led"], ["led-painter", "DISP", "CLEAR", "LEDS"]),
     ("contributed", ["sap-quantum-led"], ["ADDX"]),
     ("learn", ["MYQ", "grok-bloch"], ["composer"]),
-    ("workshops", ["doqumentation"], ["LOOP"]),
-    ("beta", ["quantum-paradoxes"], ["qubins"]),
+    ("workshops", ["LOOP"], ["LOOP"]),
+    ("beta", ["doqumentation", "qiskit-tutorials", "quantum-paradoxes"], ["qubins"]),
     # the Coin Game, an icon of its own in the Play window, is here too (F3)
     ("play", ["fun-with-quantum", "COIN", "quantum-fractals"], ["quantum-fractals"]),
 ])
