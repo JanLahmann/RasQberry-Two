@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-13T15:50:27Z",
+  "generated": "2026-11-13T17:53:33Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -35,24 +35,27 @@
       ]
     },
     "dev": {
-      "tag": "development-2026-10-27-055208",
-      "name": "rasqberry-development-2026-10-27-055208",
-      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-27-055208/rasqberry-development-2026-10-27-055208.img.xz",
-      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-10-27-055208",
-      "release_date": "2026-10-27 05:52",
-      "image_download_size": 1860998560,
-      "extract_size": 9554624512,
-      "extract_sha256": "d687050fd0ca716d22f8a15bb9027077accf389d12ca8aabcacea813a1b726d4",
-      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-10-27-055208/rasqberry-development-2026-10-27-055208-ab.img.xz",
-      "ab_extract_sha256": "be348243f9cee94a6c0ac330f3de48c6d7cfb034fc8091757a53c1e28a53a3f3",
-      "ab_image_sha256": "180ac387907d8199281afc9148cfa274270cdb82d892a9a293aef8ea76636aad",
+      "tag": "development-2026-11-13-175314",
+      "name": "rasqberry-development-2026-11-13-175314",
+      "image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-13-175314/rasqberry-development-2026-11-13-175314.img.xz",
+      "release_url": "https://github.com/JanLahmann/RasQberry-Two/releases/tag/development-2026-11-13-175314",
+      "release_date": "2026-11-13 17:53",
+      "image_download_size": 1861979260,
+      "extract_size": 9604956160,
+      "extract_sha256": "fe603f54eefef500f86d94af09fd3ce3fff9503efd84c1cf1e53288782689e90",
+      "image_sha256": "3363951b5baadabbb3cdf07daefdb48c8af2a5437a3043a62623732e621a0a2e",
+      "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-13-175314/rasqberry-development-2026-11-13-175314-ab.img.xz",
+      "ab_extract_sha256": "30dfcc91a25c6b14716fcf5bb2fd1b89362c06038eff7d1915be52c5b5ce3d96",
+      "ab_image_sha256": "d95e35ca5c5bfc5dd2879984d4a84b68c2af008f61cea87763725b133036540d",
+      "ab_image_download_size": 1910814108,
       "ab_extract_size": 12398362624,
-      "ab_image_download_size": 1911629132,
       "highlights": [
-        "My Quantum Programs only in the RasQberry menu (#365)",
-        "arrow keys work in the LED check started at SSH login (#364)",
-        "Bump version to development-2026-10-27-055208",
-        "Generate RQB-images.json and RQB-releases.json for dev release development-2026-10-26-165828"
+        "test(stop): wait for Chrome to drop the closed tab; keep development's VERSION and release files",
+        "fix(demos): keep a missing level missing; filter the online catalogue by level",
+        "ci(pins): report a known registry block as BLOCKED until its date",
+        "fix(demos): beta/prod images drop the empty Beta group and one-step learning paths",
+        "feat(demos): set the demo levels for the beta; a dev demo is the one marked (beta)",
+        "feat(demos): demo levels dev / beta / prod decide which demos an image ships"
       ]
     }
   }
