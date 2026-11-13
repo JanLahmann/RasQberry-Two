@@ -11,15 +11,18 @@ part they modify:
 | `R2_ChandelierSingle.*` | `originals/cryostat/R2_ChandelierSingle.stl` | ≤ 0.05 mm |
 | `RQB2-Cryostat-jrl01.*` | `originals/3D Model - modifications - Jan/October 2025/cryostat/RQB2-Cryostat-jrl01.stl` | ≤ 0.34 mm (see below) |
 | `R2_CryoStandaloneGamma.*` | `originals/cryostat/Standalone Version/R2_CryoStandaloneGamma.stl` | shell ≤ 0.05 mm (p99), cups ≤ 1.8 mm (centred, see below) |
+| `R2_CryoStandaloneBeta.*` | `originals/cryostat/Standalone Version/R2_CryoStandaloneBeta.stl` | shell ≤ 0.02 mm (p99), cups ≤ 1.7 mm (centred, as Gamma) |
 | `RQB2-R2_CryoStandaloneGamma-jrl04.*` | `… modifications - Jan/October 2025/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl` | ≤ 0.65 mm (inserts centred) |
 | `RQB2-R2_CryoStandaloneGamma-jrl04-no-floor.*` | `… October 2025 - no-floor/cryostat/RQB2-R2_CryoStandaloneGamma-jrl04.stl` | ≤ 0.65 mm |
 | `R2_NewDoor.*` (`new_door.py`) | `originals/cryostat/R2_NewDoor.stl` | ≤ 0.05 mm |
+| `R2_ScrewOctopusAlignment2.*` (`screw_octopus.py`) | `originals/cryostat/R2_ScrewOctopusAlignment2.stl` | ≤ 0.24 mm (p99 0.13) |
 
 ```bash
 cd "3D Model/cad/cryostat"
 python3 extract_cryo_profiles.py <dir with the original STLs>  # only to re-measure
 python3 cryostat_model.py                                      # -> print/cryostat/
 python3 new_door.py
+python3 screw_octopus.py
 ```
 
 - **Lid:** hexagonal, 76.2 x 66.0 x 20.7 mm, with three sockets on the
@@ -62,3 +65,16 @@ python3 new_door.py
   floor opening with a Ø 42 x 3 mm disc.
 
 ![Jan's jrl04 vs rebuild](compare_gamma_jrl04.png)
+
+- **Beta:** the Gamma body with cups on three walls only: the back and the
+  two front walls (`cup_walls` in `GAMMA_VARIANTS`). The SketchUp file is an
+  open mesh (10 open edges); the rebuild is closed.
+
+### Octopus alignment screw (`screw_octopus.py`)
+
+A hexagonal hub (31.7 mm across the flats) with three 36 mm arms at 120 deg
+(a 1 mm strip with two outward-leaning rails), a smaller hexagon up to
+z 8.5 and a threaded tube up to z 15, Ø 19.9 mm hole through. The thread is
+drawn as in SketchUp: a circle (r 12.28) 0.70 mm off the axis, turning once
+per 2 mm (one start, anticlockwise upwards). Centred on the hub (the
+original sits at x −39.96, y −6.31). All numbers in `PARAMS`.

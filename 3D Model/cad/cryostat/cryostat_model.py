@@ -132,6 +132,9 @@ GAMMA = dict(
 # "no-floor" also closes the floor opening with a 3 mm disc.
 GAMMA_VARIANTS = {
     "R2_CryoStandaloneGamma": dict(cups=True),
+    # Beta: the same body with cups on three walls only, the back and the
+    # two front walls (the two rear side walls are plain)
+    "R2_CryoStandaloneBeta": dict(cups=True, cup_walls=(90, -30, -150)),
     "RQB2-R2_CryoStandaloneGamma-jrl04": dict(inserts=True),
     "RQB2-R2_CryoStandaloneGamma-jrl04-nofloor": dict(inserts=True, floor_disc=True),
 }
@@ -188,7 +191,9 @@ def _snap_to_hexagon(d, snap, g, tol=0.03):
     return d
 
 
-def gamma(prof, cups=False, inserts=False, floor_disc=False, g=GAMMA):
+def gamma(prof, cups=False, inserts=False, floor_disc=False, cup_walls=None, g=GAMMA):
+    """Gamma body; `cup_walls` (outward normals, deg) limits the cups to
+    those walls (default: all five)."""
     d = _snap_to_hexagon(prof["R2_CryoStandaloneGamma"], prof["snap_mm"], g)
     sx, sy, _ = d["size"]
     body = Pos(-sx / 2, -sy / 2, 0) * build_part(d, prof["snap_mm"])
@@ -200,7 +205,7 @@ def gamma(prof, cups=False, inserts=False, floor_disc=False, g=GAMMA):
             body -= pin
     for th in g["walls"]:
         rot = Rot(0, 0, th - 90)                # back wall (90 deg) -> this wall
-        if cups:
+        if cups and (cup_walls is None or th in cup_walls):
             for zc in g["cup_z"]:
                 add, recess = _gamma_cup(g, zc)
                 body = body - rot * recess + rot * add

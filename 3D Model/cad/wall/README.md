@@ -9,6 +9,7 @@ parts of the RasQberry Two 3D model:
 | Back | `originals/wall/R2_Wall-Back.stl` | 245.3 x 9.7 x 80.5 |
 | Back+13 | `originals/wall/R2_Wall-Back+13.stl` (variant of Back) | 245.3 x 9.7 x 80.5 |
 | Lid | `originals/wall/R2_Wall-Lid.stl` | 245.7 x 60.0 x 98.7 |
+| Back, solid | `originals/wall/R2_Wall-Back-SolidForStaticModels.stl` | 245.3 x 9.7 x 80.5 |
 
 The originals were modelled in SketchUp and are only available as STL
 meshes. This rebuild turns them into true CAD solids and addresses two
@@ -45,6 +46,11 @@ long-standing wishes:
     frame round the left opening move up 13 mm. The recess at the top edge,
     where the upper boss now sits, is filled. Same deviation as the Back.
   - Jan's base `R2_Wall-Base-jrl01-2` and its `-no-floor` version.
+- `R2_Wall-Back-SolidForStaticModels` (the back without openings and screw
+  bosses, for display models) is measured from its own STL, like the three
+  main parts, and printed in one piece (no split). Its 45 deg side chamfer
+  and sloped tabs are sampled in 0.5 mm layers (extra `levels` in
+  `extract_profiles.py`): ≤ 0.35 mm (p99 0.13), volume 0.00 % off.
 - Output: `print/wall/` (one-piece `<part>.*` and split
   `<part>.split-A.*`, `<part>.split-B.*`). `--only NAME,...` builds single
   parts.
@@ -56,7 +62,7 @@ pip install build123d trimesh shapely rtree numpy
 
 # fetch the original STLs (only needed to re-run the measurement)
 mkdir -p /tmp/wall-src
-for f in R2_Wall-Base R2_Wall-Back R2_Wall-Lid; do
+for f in R2_Wall-Base R2_Wall-Back R2_Wall-Lid R2_Wall-Back-SolidForStaticModels; do
   cp "../../originals/wall/$f.stl" /tmp/wall-src/
 done
 python3 extract_profiles.py /tmp/wall-src   # -> wall_profiles.json
@@ -125,6 +131,21 @@ and are intended to be glued (the lid's 1.35 mm key plate in particular
 relies on glue). The joints of Base/Lid vs. Back end up laterally offset
 in the assembled wall, which stiffens the result. Print orientation is
 the same as for the original parts; no supports needed.
+
+## Screw and nut (`screw_nut.py`)
+
+`R2_Screw` (hollow screw with a hex head, Ø 20 bore) and `R2_Hex_Nut`. The
+thread is SketchUp's simple kind, kept so both still match: a Ø 24.64
+circle set 0.53 mm off the axis that turns once per 2 mm (`thread_r`,
+`thread_ecc`, `pitch`). The nut's bore is the same shape with
+`nut_clearance` (0.355 mm) more all round; `--clearance` changes it for a
+tighter or looser fit. Rebuild vs original: screw ≤ 0.21 mm; nut ≤ 0.33 mm,
+because its thread is now centred in the hex (it was 0.3 mm off). Both are
+written centred on their axis, standing on z = 0.
+
+```bash
+python3 screw_nut.py                 # --clearance 0.25 for a tighter nut
+```
 
 ## Notes / possible next steps
 

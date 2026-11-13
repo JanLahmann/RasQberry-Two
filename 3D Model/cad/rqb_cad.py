@@ -35,6 +35,19 @@ PARTS = {
     "R2_CryoLid-Simple": "cryostat/R2_CryoLid-Simple",
     "R2_NewDoor": "cryostat/R2_NewDoor",
     "R2_CryoStandaloneGamma": "cryostat/Standalone Version/R2_CryoStandaloneGamma",
+    "R2_CryoStandaloneBeta": "cryostat/Standalone Version/R2_CryoStandaloneBeta",
+    "R2_NarrowServerSingle": "RTE/R2_NarrowServerSingle",
+    "R2_NarrowServerSingle-standalone": "cryostat/Standalone Version/R2_NarrowServerSingle",
+    "R2_ServerStandalone": "cryostat/Standalone Version/R2_ServerStandalone",
+    "R2_NarrowYCryoConjoined": "cryostat/R2_NarrowYCryoConjoined",
+    "R2_ScrewOctopusAlignment2": "cryostat/R2_ScrewOctopusAlignment2",
+    "R2_Wall-Back-SolidForStaticModels": "wall/R2_Wall-Back-SolidForStaticModels",
+    "R2_Screw": "wall/R2_Screw",
+    "R2_Hex_Nut": "wall/R2_Hex_Nut",
+    **{f"R2_Floor-{t}": f"floor/R2_Floor-{t}"
+       for t in ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s", "all")},
+    **{f"R2_Floor-{t}": f"floor/Sign Magnet Indent Version/R2_Floor-{t}"
+       for t in ("Tile1Mag", "Tile2Mag")},
     # Jan's modifications (originals: 3D Model - modifications - Jan/October 2025[ - no-floor])
     "R2_Wall-Base-jrl01-2": "wall/R2_Wall-Base-jrl01-2",
     "R2_Wall-Base-jrl01-2-nofloor": "wall/R2_Wall-Base-jrl01-2-no-floor",

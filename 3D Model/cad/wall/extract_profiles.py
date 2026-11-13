@@ -32,6 +32,13 @@ PARTS = {
     "R2_Wall-Base.stl": {"axis": 2, "plane": (0, 1)},
     "R2_Wall-Back.stl": {"axis": 1, "plane": (0, 2)},
     "R2_Wall-Lid.stl": {"axis": 2, "plane": (0, 1)},
+    # the back without openings and bosses, for display models. Few
+    # vertex levels cut its sloped faces (the 45 deg side chamfer over
+    # y 6.7..9.7, the tabs over y 2.2..5.7), so extra levels sample them
+    # in 0.5 mm steps (max 0.25 mm off)
+    "R2_Wall-Back-SolidForStaticModels.stl": {
+        "axis": 1, "plane": (0, 2),
+        "levels": (2.7, 3.2, 3.7, 4.2, 4.7, 5.2, 7.2, 7.7, 8.2, 8.7, 9.2)},
 }
 
 SNAP = 0.01          # snap grid for vertex coordinates [mm]
@@ -98,11 +105,11 @@ def section_polys(mesh, axis, level, plane):
     return out
 
 
-def extract(path, axis, plane):
+def extract(path, axis, plane, levels=()):
     mesh = trimesh.load(path)
     shift = mesh.bounds[0].copy()
     mesh.apply_translation(-shift)
-    levels = np.unique(np.round(mesh.vertices[:, axis], 3))
+    levels = np.unique(np.concatenate([np.round(mesh.vertices[:, axis], 3), levels]))
     merged = [float(levels[0])]
     for lv in levels[1:]:
         if lv - merged[-1] > LEVEL_MERGE:
@@ -140,7 +147,7 @@ def main():
         if not path.exists():
             print(f"WARNING: {path} not found, skipping")
             continue
-        part = extract(path, cfg["axis"], cfg["plane"])
+        part = extract(path, cfg["axis"], cfg["plane"], cfg.get("levels", ()))
         data["parts"][fname.replace(".stl", "")] = part
         print(f"{fname}: {len(part['bands'])} bands, "
               f"size {part['size']}, volume {part['mesh_volume_mm3'] / 1000:.1f} cm3")
