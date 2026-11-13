@@ -31,9 +31,9 @@
     },
     "maturity": {
       "type": "string",
-      "enum": ["stable", "beta"],
-      "default": "stable",
-      "description": "beta: a new or less-tested demo. Shown as '(beta)' in the RasQberry menu, the catalogue and the desktop tooltip; its start invites feedback (demo-feedback issue form). Variants may set it too."
+      "enum": ["dev", "beta", "prod", "stable"],
+      "default": "dev",
+      "description": "Demo level (rq_demo_level.py): dev ships only in development images, beta in development and beta images, prod in every image (stable: old name of prod). Without it a demo is dev; a variant without it takes its demo's. The image build rewrites it to what the Pi shows: 'beta' (the '(beta)' mark, the Beta group, the feedback invitation) for a dev demo in a development image, nothing otherwise."
     },
     "keywords": {
       "type": "array",
@@ -358,8 +358,8 @@
           },
           "maturity": {
             "type": "string",
-            "enum": ["stable", "beta"],
-            "description": "As the top-level maturity, for this variant only"
+            "enum": ["dev", "beta", "prod", "stable"],
+            "description": "As the top-level maturity, for this variant only (without it: the demo's level)"
           },
           "args": {
             "type": "array",

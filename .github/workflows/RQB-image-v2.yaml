@@ -132,6 +132,16 @@ on:
           - default
           - verbose
           - splash
+      demo_level:
+        description: 'Demos in the image (default=by branch: main prod, beta beta, else dev; beta = test a beta selection on a dev build)'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - dev
+          - beta
+          - prod
       runner_type:
         description: 'Runner architecture (default=arm64 native, x64=QEMU emulated)'
         required: false
@@ -852,6 +862,12 @@ jobs:
 
           sed -i "s|^CONSOLE_TYPE=.*|CONSOLE_TYPE=${CONSOLE_TYPE}|" pi-gen-config
           sed -i "s|^BOOT_VERBOSITY=.*|BOOT_VERBOSITY=${BOOT_VERBOSITY}|" pi-gen-config
+          DEMO_LEVEL_INPUT="${{ inputs.demo_level }}"
+          case "$DEMO_LEVEL_INPUT" in
+            # appended, not committed in pi-gen-config: its hash keys the stage cache
+            dev|beta|prod) echo "RQB_DEMO_LEVEL=${DEMO_LEVEL_INPUT}" >> pi-gen-config ;;
+          esac
+          echo "Demo level: ${DEMO_LEVEL_INPUT:-default} (default: by branch)"
           echo "Console configuration: CONSOLE_TYPE=${CONSOLE_TYPE}, BOOT_VERBOSITY=${BOOT_VERBOSITY}"
 
           # Set custom IMG_FILENAME based on VERSION file

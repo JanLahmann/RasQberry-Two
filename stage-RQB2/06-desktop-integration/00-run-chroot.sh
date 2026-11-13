@@ -30,6 +30,8 @@ if [ ! -d "${CLONE_DIR}" ]; then
 else
     echo "Repository already exists at ${CLONE_DIR}"
 fi
+# Only the launchers of the demos this image ships (demo levels, stage 01)
+python3 /usr/bin/rq_demo_level.py apply ${CLONE_DIR}/RQB2-config
 
 echo "Installing desktop bookmarks for user: ${FIRST_USER_NAME}"
 

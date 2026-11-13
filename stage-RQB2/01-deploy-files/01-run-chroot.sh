@@ -72,6 +72,19 @@ fi
 chmod -R 755 ${CLONE_DIR}/RQB2-bin
 chmod -R 755 ${CLONE_DIR}/RQB2-config
 
+# Demo levels (Jan, 2026-11-13): a dev demo ships only in development images,
+# a beta demo in development and beta images, a prod demo everywhere (field
+# "maturity", rq_demo_level.py). The image's level comes from its branch unless
+# the build sets RQB_DEMO_LEVEL; it is kept for "Update from GitHub Branch".
+DEMO_LEVEL="${RQB_DEMO_LEVEL:-}"
+case "$DEMO_LEVEL" in
+    dev|beta|prod) ;;
+    *) DEMO_LEVEL=$(python3 ${CLONE_DIR}/RQB2-bin/rq_demo_level.py for-branch "${GIT_BRANCH}") ;;
+esac
+echo "$DEMO_LEVEL" > /etc/rasqberry-demo-level
+chmod 644 /etc/rasqberry-demo-level
+python3 ${CLONE_DIR}/RQB2-bin/rq_demo_level.py apply ${CLONE_DIR}/RQB2-config "$DEMO_LEVEL"
+
 # Copy files to system directories (global, not user-specific)
 cp -r ${CLONE_DIR}/RQB2-bin/* /usr/bin
 cp -r ${CLONE_DIR}/RQB2-config/* /usr/config

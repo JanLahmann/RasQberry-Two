@@ -1,0 +1,130 @@
+"""Demo levels (rq_demo_level.py): dev / beta / prod images ship the right demos."""
+
+import importlib.util
+import json
+import os
+import shutil
+
+import pytest
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_spec = importlib.util.spec_from_file_location(
+    "rq_demo_level", os.path.join(_ROOT, "RQB2-bin", "rq_demo_level.py"))
+lvl = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(lvl)
+
+
+def _write(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        if isinstance(data, str):
+            f.write(data)
+        else:
+            json.dump(data, f)
+
+
+def _read(path):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def tree(tmp_path):
+    cfg = tmp_path / "RQB2-config"
+    m = cfg / "demo-manifests"
+    _write(str(m / "rq_demo_schema.json"), {"title": "schema"})
+    _write(str(m / "rq_demo_ready.json"), {"id": "ready", "maturity": "prod"})
+    _write(str(m / "rq_demo_old.json"), {"id": "old", "maturity": "stable"})
+    _write(str(m / "rq_demo_trial.json"), {"id": "trial", "maturity": "beta"})
+    _write(str(m / "rq_demo_new.json"), {"id": "new"})
+    _write(str(m / "rq_demo_games.json"), {"id": "games", "maturity": "dev", "variants": [
+        {"id": "coin", "maturity": "prod"}, {"id": "chsh", "maturity": "beta"}, {"id": "ghz"}]})
+    _write(str(m / "learning-paths.json"), {"paths": [
+        {"id": "a", "steps": [{"demo": "ready"}, {"demo": "new"}, {"command": "x"}],
+         "next": [{"path": "b"}, {"url": "https://example.org"}]},
+        {"id": "b", "steps": [{"demo": "games", "variant": "ghz"}]}]})
+    _write(str(cfg / "known-demos.json"), {"demos": [
+        {"id": "cat-prod", "maturity": "prod"}, {"id": "cat-beta", "maturity": "beta"},
+        {"id": "cat-none"}]})
+    b = cfg / "desktop-bookmarks"
+    _write(str(b / "ready.desktop"), "[Desktop Entry]\nExec=/usr/bin/rq_demo_run.sh ready\n")
+    _write(str(b / "new.desktop"), "[Desktop Entry]\nExec=/usr/bin/rq_demo_run.sh new\n")
+    _write(str(b / "coin.desktop"), "[Desktop Entry]\nExec=rq_demo_run.sh games coin\n")
+    _write(str(b / "ghz.desktop"), "[Desktop Entry]\nExec=rq_demo_run.sh games ghz\n")
+    _write(str(b / "pick.desktop"), "[Desktop Entry]\nExec=rq_demo_choose.sh games\n")
+    _write(str(b / "trial.desktop"), "[Desktop Entry]\nExec=chromium https://example.org\n")
+    _write(str(b / "menu.desktop"), "[Desktop Entry]\nExec=/usr/bin/rq_menu.sh\n")
+    return cfg
+
+
+def _ids(cfg):
+    m = cfg / "demo-manifests"
+    return sorted(f[len("rq_demo_"):-5] for f in os.listdir(str(m))
+                  if f.startswith("rq_demo_") and f != "rq_demo_schema.json")
+
+
+def test_levels_and_defaults():
+    assert lvl.level_of(None) == "dev"
+    assert lvl.level_of("stable") == "prod"
+    assert lvl.level_of("bogus") == "dev"
+    assert lvl.level_of(None, "beta") == "beta"
+    assert [lvl.for_branch(b) for b in ("main", "beta", "development", "dev-x")] == \
+        ["prod", "beta", "dev", "dev"]
+
+
+def test_image_level_from_env_and_default(monkeypatch, tmp_path):
+    monkeypatch.setenv("RQ_DEMO_LEVEL", "beta")
+    assert lvl.image_level() == "beta"
+    monkeypatch.delenv("RQ_DEMO_LEVEL")
+    monkeypatch.setattr(lvl, "LEVEL_FILE", str(tmp_path / "missing"))
+    assert lvl.image_level() == "dev"
+
+
+def test_dev_image_keeps_all_and_marks_only_dev(tree):
+    lvl.apply(str(tree), "dev")
+    assert _ids(tree) == ["games", "new", "old", "ready", "trial"]
+    m = tree / "demo-manifests"
+    assert _read(str(m / "rq_demo_new.json"))["maturity"] == "beta"
+    assert "maturity" not in _read(str(m / "rq_demo_trial.json"))
+    assert "maturity" not in _read(str(m / "rq_demo_ready.json"))
+    games = _read(str(m / "rq_demo_games.json"))
+    assert [(v["id"], v.get("maturity")) for v in games["variants"]] == \
+        [("coin", None), ("chsh", None), ("ghz", "beta")]
+    assert len(os.listdir(str(tree / "desktop-bookmarks"))) == 7
+
+
+def test_beta_image(tree):
+    kept = lvl.apply(str(tree), "beta")
+    assert _ids(tree) == ["games", "old", "ready", "trial"]
+    assert kept["games"] == {"coin", "chsh"}
+    m = tree / "demo-manifests"
+    for demo in _ids(tree):
+        data = _read(str(m / ("rq_demo_%s.json" % demo)))
+        assert "maturity" not in data
+        assert all("maturity" not in v for v in data.get("variants", []))
+    assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == \
+        ["cat-prod", "cat-beta"]
+    paths = _read(str(m / "learning-paths.json"))["paths"]
+    assert [p["id"] for p in paths] == ["a"]
+    assert paths[0]["steps"] == [{"demo": "ready"}, {"command": "x"}]
+    assert paths[0]["next"] == [{"url": "https://example.org"}]
+    assert sorted(os.listdir(str(tree / "desktop-bookmarks"))) == \
+        ["coin.desktop", "menu.desktop", "pick.desktop", "ready.desktop", "trial.desktop"]
+
+
+def test_prod_image(tree):
+    lvl.apply(str(tree), "prod")
+    assert _ids(tree) == ["games", "old", "ready"]
+    assert [v["id"] for v in _read(str(tree / "demo-manifests" / "rq_demo_games.json"))["variants"]] \
+        == ["coin"]
+    assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == ["cat-prod"]
+    # a web launcher named after a dropped demo goes too
+    assert not (tree / "desktop-bookmarks" / "trial.desktop").exists()
+
+
+def test_real_config_trims_cleanly(tmp_path):
+    cfg = tmp_path / "RQB2-config"
+    shutil.copytree(os.path.join(_ROOT, "RQB2-config"), str(cfg))
+    for level in ("prod", "beta", "dev"):
+        assert lvl.main(["apply", str(cfg), level]) == 0
+        assert os.path.isfile(str(cfg / "demo-manifests" / "rq_demo_schema.json"))
