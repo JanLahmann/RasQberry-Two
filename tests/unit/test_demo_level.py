@@ -85,13 +85,14 @@ def test_dev_image_keeps_all_and_writes_the_levels(tree):
     lvl.apply(str(tree), "dev")
     assert _ids(tree) == ["games", "new", "old", "ready", "trial"]
     m = tree / "demo-manifests"
-    assert _read(str(m / "rq_demo_new.json"))["maturity"] == "dev"
+    # a missing level stays missing: the Pi marks only an explicit dev
+    assert "maturity" not in _read(str(m / "rq_demo_new.json"))
     assert _read(str(m / "rq_demo_trial.json"))["maturity"] == "beta"
-    assert _read(str(m / "rq_demo_old.json"))["maturity"] == "prod"
+    assert _read(str(m / "rq_demo_old.json"))["maturity"] == "stable"
     games = _read(str(m / "rq_demo_games.json"))
     assert games["maturity"] == "dev"
     assert [(v["id"], v.get("maturity")) for v in games["variants"]] == \
-        [("coin", "prod"), ("chsh", "beta"), ("ghz", "dev")]
+        [("coin", "prod"), ("chsh", "beta"), ("ghz", None)]
     assert len(os.listdir(str(tree / "desktop-bookmarks"))) == 7
     assert [g["id"] for g in _read(str(m / "demo-groups.json"))["groups"]] == ["play", "beta"]
     assert len(_read(str(m / "learning-paths.json"))["paths"]) == 2
@@ -105,8 +106,8 @@ def test_beta_image(tree):
     # nothing left at level dev: nothing is marked '(beta)' in a beta image
     for demo in _ids(tree):
         data = _read(str(m / ("rq_demo_%s.json" % demo)))
-        assert data["maturity"] in ("beta", "prod"), demo
-        assert all(v["maturity"] in ("beta", "prod") for v in data.get("variants", []))
+        assert data["maturity"] in ("beta", "prod", "stable"), demo
+        assert all(v.get("maturity", data["maturity"]) != "dev" for v in data.get("variants", []))
     # a dev demo kept for its variants gets their best level
     assert _read(str(m / "rq_demo_games.json"))["maturity"] == "prod"
     assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == \
@@ -129,6 +130,18 @@ def test_prod_image(tree):
     assert [d["id"] for d in _read(str(tree / "known-demos.json"))["demos"]] == ["cat-prod"]
     # a web launcher named after a dropped demo goes too
     assert not (tree / "desktop-bookmarks" / "trial.desktop").exists()
+
+
+def test_unlabelled_demo_with_labelled_variants(tmp_path):
+    # Fun with Quantum: no level of its own, dev and beta variants
+    m = tmp_path / "RQB2-config" / "demo-manifests"
+    _write(str(m / "rq_demo_fwq.json"), {"id": "fwq", "variants": [
+        {"id": "coin", "maturity": "beta"}, {"id": "chsh", "maturity": "dev"}]})
+    lvl.apply(str(tmp_path / "RQB2-config"), "dev")
+    assert "maturity" not in _read(str(m / "rq_demo_fwq.json"))      # stays in Play, unmarked
+    lvl.apply(str(tmp_path / "RQB2-config"), "beta")
+    data = _read(str(m / "rq_demo_fwq.json"))
+    assert data["maturity"] == "beta" and [v["id"] for v in data["variants"]] == ["coin"]
 
 
 def test_real_config_trims_cleanly(tmp_path):

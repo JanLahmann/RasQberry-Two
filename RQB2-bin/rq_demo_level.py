@@ -21,8 +21,8 @@ before RQB2-config is deployed, and after "Update from GitHub Branch":
   - drops the Beta group (demo-groups.json) from beta and prod images: it
     holds the dev demos only;
   - drops desktop-bookmarks/ launchers that start a dropped demo or variant;
-  - writes each kept demo's and variant's level into it (a demo kept for a
-    variant gets that variant's level).
+  - a demo below the level kept for a variant gets that variant's level
+    (else nothing is rewritten: a missing level stays missing).
 
 On the Pi a dev demo is the one marked '(beta)', in the "Beta: try & tell
 us" group and asking for feedback (rq_demo_maturity in rq_common.sh), so
@@ -144,7 +144,6 @@ def trim_manifests(manifest_dir, image):
             for variant in variants:
                 vlevel = level_of(variant.get("maturity"), level)
                 if ships(vlevel, image):
-                    variant["maturity"] = vlevel
                     keep.append(variant)
             # a demo with variants ships while one of them does, at the
             # level of its best one (else a beta image would mark it dev)
@@ -155,14 +154,18 @@ def trim_manifests(manifest_dir, image):
             data["variants"] = keep
             kept[demo_id] = {v.get("id") for v in keep}
             if not ships(level, image):
-                level = max((v["maturity"] for v in keep), key=LEVELS.index)
+                # its best variant's level, else a beta image would show it as dev
+                data["maturity"] = max((level_of(v.get("maturity"), level) for v in keep),
+                                       key=LEVELS.index)
         elif ships(level, image):
             kept[demo_id] = None
         else:
             os.remove(path)
             dropped.add(demo_id)
             continue
-        data["maturity"] = level
+        # A missing level stays missing: the Pi marks only an explicit dev
+        # (Fun with Quantum has none and stays in Play), and a variant
+        # without one reads its demo's.
         _save(path, data)
     return kept, dropped
 

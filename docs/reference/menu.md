@@ -52,7 +52,7 @@ Quantum demos, setup and settings for this RasQberry Two
         - Local simulator with a noise model
         - Real IBM Quantum computer (IBM Quantum account)
       - LED-Painter
-    - **Play**: Fun with Quantum games, paradoxes, fractals → menu "RasQberry: Play"
+    - **Play**: Quantum games and fractals → menu "RasQberry: Play"
       - **Fun with Quantum** → menu "RasQberry: Fun with Quantum": Select an entry
         - Start here: what the games are about (beta)
         - Quantum Coin Game

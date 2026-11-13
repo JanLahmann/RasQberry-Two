@@ -359,7 +359,41 @@ def problems(data, shipped=(), taken_dirs=()):
     return sort_entries(data, shipped, taken_dirs)[1] + sort_tested(data)[1]
 
 
-def usable(data, manifests=None):
+def _demo_levels():
+    """rq_demo_level.py next to this file (None when it is missing)."""
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rq_demo_level.py")
+    if not os.path.isfile(path):
+        return None
+    spec = importlib.util.spec_from_file_location("rq_demo_level", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def below_level(entries, image=None):
+    """
+    Split catalogue entries by the image's demo level (rq_demo_level.py): the
+    online catalogue lists every level, a beta or prod image takes only its own.
+
+    Returns:
+        tuple: (kept entries, lines on the left-out ones)
+    """
+    lvl = _demo_levels()
+    if lvl is None:
+        return entries, []
+    image = image or lvl.image_level()
+    keep, out = [], []
+    for e in entries:
+        level = lvl.level_of(e.get("maturity") if isinstance(e, dict) else None)
+        if lvl.ships(level, image):
+            keep.append(e)
+        else:
+            out.append(f"{e.get('id') if isinstance(e, dict) else e}: level {level}, this image is {image}")
+    return keep, out
+
+
+def usable(data, manifests=None, image=None):
     """
     A copy of a catalogue with only the entries this image takes; None when
     the file is not used at all. The lines on the left-out entries are logged.
@@ -367,6 +401,8 @@ def usable(data, manifests=None):
     if file_problems(data):
         return None
     keep, bad, notes = sort_entries(data, shipped_ids(manifests), shipped_dirs(manifests))
+    keep, low = below_level(keep, image)
+    notes = notes + low
     tested, bad_tested = sort_tested(data, manifests)
     for line in bad + bad_tested + notes:
         log.info("catalogue: left out %s", line)
