@@ -20,7 +20,9 @@ before RQB2-config is deployed, and after "Update from GitHub Branch":
     fewer than two steps);
   - drops the Beta group (demo-groups.json) from beta and prod images: it
     holds the dev demos only;
-  - drops desktop-bookmarks/ launchers that start a dropped demo or variant;
+  - drops desktop-bookmarks/ launchers that start a dropped demo or variant,
+    and in beta and prod images takes "(beta)" out of the others (Learning
+    paths);
   - a demo below the level kept for a variant gets that variant's level
     (else nothing is rewritten: a missing level stays missing).
 
@@ -199,10 +201,23 @@ def _step_kept(step, kept):
     return not variant or kept[demo] is None or variant in kept[demo]
 
 
+def _web_step(step):
+    """
+    A step in a dropped demo that names the same material online (doQumentation:
+    page and online) becomes a web step, as on a Pi without the demo; None else.
+    """
+    if not (step.get("online") and step.get("name")):
+        return None
+    web = {k: v for k, v in step.items() if k not in ("demo", "variant", "page", "online", "time")}
+    web["url"] = step["online"]
+    return web
+
+
 def trim_learning_paths(path, kept):
     """
-    Drop the steps of dropped demos, and the paths left with fewer than
-    MIN_STEPS steps (a tour of one step is no tour).
+    Drop the steps of dropped demos (a step with its material online becomes
+    a web step), and the paths left with fewer than MIN_STEPS steps (a tour
+    of one step is no tour).
 
     Args:
         path (str): learning-paths.json.
@@ -213,7 +228,8 @@ def trim_learning_paths(path, kept):
     data = _load(path)
     paths = []
     for p in data.get("paths") or []:
-        p["steps"] = [s for s in p.get("steps") or [] if _step_kept(s, kept)]
+        p["steps"] = [_web_step(s) if not _step_kept(s, kept) else s for s in p.get("steps") or []]
+        p["steps"] = [s for s in p["steps"] if s and _step_kept(s, kept)]
         if len(p["steps"]) >= MIN_STEPS:
             paths.append(p)
     ids = {p.get("id") for p in paths}
@@ -264,7 +280,7 @@ def bookmark_kept(path, kept):
     return True
 
 
-def trim_bookmarks(bookmark_dir, kept, dropped):
+def trim_bookmarks(bookmark_dir, kept, dropped, unmark=False):
     """
     Drop the launchers of dropped demos and variants: the ones that start
     one, and the ones named after one (a web link like composer.desktop).
@@ -273,10 +289,27 @@ def trim_bookmarks(bookmark_dir, kept, dropped):
         bookmark_dir (str): desktop-bookmarks/.
         kept (dict): trim_manifests()[0].
         dropped (set): trim_manifests()[1].
+        unmark (bool): take '(beta)' out of the kept ones (beta and prod
+            images: nothing there is at level dev, Jan 2026-11-13).
     """
     for path in glob.glob(os.path.join(bookmark_dir, "*.desktop")):
         if os.path.basename(path)[:-len(".desktop")] in dropped or not bookmark_kept(path, kept):
             os.remove(path)
+        elif unmark:
+            _unmark(path)
+
+
+def _unmark(path):
+    """Take the '(beta)' mark out of a launcher's Name and Comment."""
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    out = []
+    for line in lines:
+        if line.startswith(("Name=", "Comment=")):
+            line = re.sub(r"\s*\(beta\)", "", re.sub(r"^(\w+)=\(beta\)\s*", r"\1=", line))
+        out.append(line)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out))
 
 
 def apply(config_dir, image):
@@ -295,7 +328,7 @@ def apply(config_dir, image):
     trim_catalogue(os.path.join(config_dir, "known-demos.json"), image)
     trim_learning_paths(os.path.join(manifests, "learning-paths.json"), kept)
     trim_groups(os.path.join(manifests, "demo-groups.json"), image)
-    trim_bookmarks(os.path.join(config_dir, "desktop-bookmarks"), kept, dropped)
+    trim_bookmarks(os.path.join(config_dir, "desktop-bookmarks"), kept, dropped, unmark=image != "dev")
     return kept
 
 

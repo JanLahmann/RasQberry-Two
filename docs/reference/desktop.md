@@ -53,7 +53,6 @@ Write quantum programs and work through tutorials and courses.
 - **My Quantum Programs**: Your own quantum notebooks: JupyterLab in your folder ~/My-Quantum-Programs, starting with the Hello World notebook. Opens `rq_my_programs.sh`.
 - **IBM Quantum Composer**: Design and simulate quantum circuits in your web browser. Opens the browser at https://quantum.cloud.ibm.com/composer.
 - **Grokking the Bloch Sphere**: One qubit as an arrow on a sphere: apply gates and watch the state turn (works offline, with tips on what to try). Opens `rq_demo_run.sh grok-bloch`.
-- **doQumentation (IBM Quantum Learning on this Pi)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
 - **IBM Quantum Tutorials**: Official IBM Quantum tutorials covering algorithms, optimisation, error mitigation (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-tutorials`.
 - **IBM Quantum Courses**: Official IBM Quantum courses on quantum computing (CC BY-SA 4.0). Opens `rq_demo_run.sh ibm-courses`.
 
@@ -61,7 +60,6 @@ Write quantum programs and work through tutorials and courses.
 
 For a class or a stand: a loop of demos.
 
-- **Workshop & Qiskit Server**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
 - **Demo Loop**: Quantum demos one after another, for a stand (LED demos and Quantum Fractals). Opens `rq_demo_loop.sh`.
 
 ### Contributed demos
@@ -78,6 +76,8 @@ New and experimental demos: some things may not work yet. Try them and tell us w
 
 - **Entangible (beta)**: Build quantum circuits with printed gate tiles: a camera reads them, the screen and visitors' phones show the circuit live. Needs a USB webcam or the Pi camera. Opens `rq_demo_run.sh entangible`.
 - **Quantum Paradoxes (beta)**: Interactive Jupyter notebooks exploring quantum mechanics paradoxes by Maria Violaris. Opens `rq_demo_run.sh quantum-paradoxes`.
+- **doQumentation (IBM Quantum Learning on this Pi) (beta)**: The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. Opens `rq_demo_run.sh qiskit-tutorials`.
+- **Workshop & Qiskit Server (beta)**: One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi (doQumentation). Opens `rq_demo_run.sh doqumentation`.
 - **Qiskit Live (QuBins) (beta)**: Your own JupyterLab with Qiskit and the IBM Quantum course notebooks (Docker, downloaded on first start). Opens `rq_demo_run.sh quantum-lab`.
 - **QuBins (beta)**: JupyterLab with the Qiskit version and the notebooks you choose (Docker, downloaded on first start). Opens `rq_demo_run.sh qubins`.
 - **racetraQ (beta)** *(catalogue demo: its icon comes when it is added)*: quantum reinforcement-learning racing game

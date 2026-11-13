@@ -236,7 +236,7 @@ def test_quantum_demos_menu_offers_the_paths_near_the_top():
     menu = open(_MENU, encoding="utf-8").read()
     start = menu.index('"RasQberry: Quantum Demos" "Select a group of demos or an option"')
     items = menu[start:menu.index('"$@"', start)]
-    assert 'PATHS "Learning paths (beta)' in items
+    assert 'PATHS "Learning paths${_lp_mark}' in items
     # first, before the demo groups ("$@")
     assert re.findall(r'^\s+([A-Z]+) "', items, re.M) == ["PATHS"]
     assert 'run_engine_demo "$BIN_DIR/rq_learning_paths.sh" --menu' in menu
