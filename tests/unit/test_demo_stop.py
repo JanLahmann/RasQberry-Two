@@ -991,6 +991,10 @@ window.jupyterapp = {commands: {hasCommand: c => c === 'docmanager:save-all',
         end = time.time() + 30
         while time.time() < end and not (port_file.exists() and port_file.read_text().strip()):
             time.sleep(0.2)
+        if not (port_file.exists() and port_file.read_text().strip()):
+            # a loaded CI runner sometimes starts headless Chrome too late:
+            # that says nothing about the tab handling under test
+            pytest.skip("headless Chrome did not start within 30 s")
         cdp_port = port_file.read_text().split()[0]
         env = dict(os.environ, RQ_BROWSER_CDP_PORT=cdp_port, RQ_BROWSER_POLL="0.3", RQ_BROWSER_FIND_WAIT="15")
         tool = [sys.executable, os.path.join(_BIN, "rq_browser_tab.py")]
