@@ -10,7 +10,7 @@ run on real IBM hardware. Demos tagged beta are new and some things may not work
 
 New here? Start with the [First 15 minutes](/03-quantum-computing-demos/02-learning-paths/#2-first-15-minutes) learning path.
 
-> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/dev-demo-levels/RQB2-config/demo-manifests)
+> This page is generated from the [demo manifests](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests)
 > — the same files the image installs from, so it cannot fall out of step with
 > what ships. To change an entry, edit its manifest; edits made here are
 > overwritten.
@@ -88,4 +88,4 @@ New and experimental demos: some things may not work yet. Try them and tell us w
 
 ---
 
-*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/dev-demo-levels/RQB2-config/demo-manifests) — the same files the image installs from.*
+*Generated from the demo manifests in [`RQB2-config/demo-manifests`](https://github.com/JanLahmann/RasQberry-Two/tree/development/RQB2-config/demo-manifests) — the same files the image installs from.*
