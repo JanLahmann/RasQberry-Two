@@ -1473,9 +1473,14 @@ do_quantum_demo_menu() {
 
     # "tag" "text" pairs, one per line: newlines would end the eval'd command
     eval "set -- $(demo_group_list 2>/dev/null | tr '\n' ' ')"
+    # "(beta)" only on a development image (demo levels, rq_demo_level.py)
+    _lp_mark=" (beta)"
+    if [ -f /etc/rasqberry-demo-level ] && [ "$(cat /etc/rasqberry-demo-level 2>/dev/null)" != dev ]; then
+        _lp_mark=""
+    fi
     FUN=$(show_menu ${_qd_last:+--default-item "$_qd_last"} \
        "RasQberry: Quantum Demos" "Select a group of demos or an option" \
-       PATHS "Learning paths (beta): the demos step by step" \
+       PATHS "Learning paths${_lp_mark}: the demos step by step" \
        "$@" \
        STOP "Stop a running LED demo" \
        MANAGE "Manage demos: download all, add, update, remove") || break

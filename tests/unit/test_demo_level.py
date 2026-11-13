@@ -158,7 +158,8 @@ def test_beta_image_turns_online_steps_into_web_steps_and_unmarks_launchers(tmp_
     _write(str(m / "rq_demo_docs.json"), {"id": "docs", "maturity": "dev"})
     _write(str(m / "rq_demo_ready.json"), {"id": "ready", "maturity": "beta"})
     _write(str(m / "learning-paths.json"), {"paths": [{"id": "p", "steps": [
-        {"demo": "docs", "name": "Quickstart", "page": "/q", "online": "https://example.org/q", "try": "t"},
+        {"demo": "docs", "name": "Quickstart", "page": "/q", "online": "https://example.org/q", "try": "t",
+         "time": "1 hour"},
         {"demo": "docs"},
         {"demo": "ready"}]}]})
     b = cfg / "desktop-bookmarks"

@@ -198,7 +198,7 @@
           "online": "https://quantum.cloud.ibm.com/docs/en/guides/quick-start",
           "name": "Quickstart",
           "time": "1 hour",
-          "try": "Skip Install Qiskit (it is on this Pi): build the circuit and run its cells.",
+          "try": "Build the circuit and run it (on this Pi, Qiskit is already installed).",
           "notice": "A few lines of code build a circuit, draw it and show its results."
         },
         {

@@ -208,7 +208,7 @@ def _web_step(step):
     """
     if not (step.get("online") and step.get("name")):
         return None
-    web = {k: v for k, v in step.items() if k not in ("demo", "variant", "page", "online")}
+    web = {k: v for k, v in step.items() if k not in ("demo", "variant", "page", "online", "time")}
     web["url"] = step["online"]
     return web
 

@@ -11,7 +11,7 @@ Values in <angle brackets> change with the Pi's state (for example <on/off>). En
 Quantum demos, setup and settings for this RasQberry Two
 
 - **Quantum Demos** → menu "RasQberry: Quantum Demos": Select a group of demos or an option
-  - Learning paths (beta): the demos step by step
+  - Learning paths${_lp_mark}: the demos step by step
   - **Demo groups**
     - **LED panel**: IBM logo, RasQ-LED, Lights Out, Raspberry Tie, painter → menu "RasQberry: LED panel"
       - IBM LED Demo
