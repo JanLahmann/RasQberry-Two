@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-13T17:53:33Z",
+  "generated": "2026-11-13T17:54:05Z",
   "streams": {
     "stable": {
       "tag": null,
@@ -43,19 +43,17 @@
       "image_download_size": 1861979260,
       "extract_size": 9604956160,
       "extract_sha256": "fe603f54eefef500f86d94af09fd3ce3fff9503efd84c1cf1e53288782689e90",
-      "image_sha256": "3363951b5baadabbb3cdf07daefdb48c8af2a5437a3043a62623732e621a0a2e",
       "ab_image_url": "https://github.com/JanLahmann/RasQberry-Two/releases/download/development-2026-11-13-175314/rasqberry-development-2026-11-13-175314-ab.img.xz",
       "ab_extract_sha256": "30dfcc91a25c6b14716fcf5bb2fd1b89362c06038eff7d1915be52c5b5ce3d96",
       "ab_image_sha256": "d95e35ca5c5bfc5dd2879984d4a84b68c2af008f61cea87763725b133036540d",
-      "ab_image_download_size": 1910814108,
       "ab_extract_size": 12398362624,
+      "ab_image_download_size": 1910814108,
       "highlights": [
-        "test(stop): wait for Chrome to drop the closed tab; keep development's VERSION and release files",
-        "fix(demos): keep a missing level missing; filter the online catalogue by level",
-        "ci(pins): report a known registry block as BLOCKED until its date",
-        "fix(demos): beta/prod images drop the empty Beta group and one-step learning paths",
-        "feat(demos): set the demo levels for the beta; a dev demo is the one marked (beta)",
-        "feat(demos): demo levels dev / beta / prod decide which demos an image ships"
+        "keep a missing level missing; filter the online catalogue by level",
+        "report a known registry block as BLOCKED until its date",
+        "Bump version to development-2026-11-13-175314",
+        "Merge pull request #371 from JanLahmann/dev-demo-levels",
+        "wait for Chrome to drop the closed tab; keep development's VERSION and release files"
       ]
     }
   }
