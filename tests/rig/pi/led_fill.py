@@ -8,6 +8,7 @@ modules), through the same rq_led_utils path the demos use:
     sudo <venv>/bin/python led_fill.py 0 60 0     # dim green
     sudo <venv>/bin/python led_fill.py 0 0 0      # off
     sudo <venv>/bin/python led_fill.py --hold 300 --pidfile F 0 60 0
+    sudo <venv>/bin/python led_fill.py --corners --hold 60 60 60 60
 
 Without --hold the light may not outlive the helper: the LED drivers clean up
 at exit (Pi 4 ws281x, Pi 5 on newer images). --hold keeps the panel lit and
@@ -17,7 +18,12 @@ that leaves the panel lit - the hard case for "Clear LEDs").
 
 The rig test lights the panel before "Clear LEDs" (so the demo has something
 to switch off and a holder to stop) and uses fills to find each Pi's panel in
-the camera frame. Exit status 1 if the panel could not be written.
+the camera frame. --corners lights only a block in each corner of the
+logical matrix (3x3 at the origin, 2x2 elsewhere), mapped through the Pi's
+configured LED layout: on the camera the blocks sit in the panel's corners,
+the big one top left, only if that layout matches the wiring (a wrong layout
+put Lights Out's grid in one corner). --expect NAME also reports whether NAME
+maps the same. Exit status 1 if the panel could not be written.
 """
 
 import os
@@ -28,7 +34,7 @@ import time
 os.environ.setdefault("RQ_LED_NO_WINDOW", "1")   # the physical panel only
 sys.path.insert(0, "/usr/bin")                     # rq_led_utils lives there
 
-USAGE = "usage: led_fill.py [--hold SECONDS] [--pidfile FILE] R G B"
+USAGE = "usage: led_fill.py [--corners [--expect LAYOUT]] [--hold SECONDS] [--pidfile FILE] R G B"
 
 
 def parse(argv):
@@ -39,11 +45,16 @@ def parse(argv):
         argv (list): arguments without the program name.
 
     Returns:
-        tuple: (colour tuple, hold seconds or None, pidfile or None)
+        tuple: (color tuple, hold seconds or None, pidfile or None, corners, expected layout)
     """
-    hold = pidfile = None
+    hold = pidfile = expect = None
+    corners = False
     while argv and argv[0].startswith("--"):
-        if argv[0] == "--hold" and len(argv) > 1:
+        if argv[0] == "--corners":
+            corners, argv = True, argv[1:]
+        elif argv[0] == "--expect" and len(argv) > 1:
+            expect, argv = argv[1], argv[2:]
+        elif argv[0] == "--hold" and len(argv) > 1:
             hold, argv = float(argv[1]), argv[2:]
         elif argv[0] == "--pidfile" and len(argv) > 1:
             pidfile, argv = argv[1], argv[2:]
@@ -55,19 +66,56 @@ def parse(argv):
         sys.exit(USAGE)
     if len(color) != 3:
         sys.exit(USAGE)
-    return color, hold, pidfile
+    return color, hold, pidfile, corners, expect
+
+
+def light_corners(rq_led_utils, pixels, color, expect=None):
+    """
+    Light a block in each corner of the configured layout's matrix: 3x3 at the
+    origin (0, 0), 2x2 in the other corners, so a mirrored or upside-down
+    layout shows on the camera too.
+
+    Args:
+        expect (str): layout name the rig expects; compared by mapping, so a
+            differently named but identical layout counts as the same.
+
+    Returns:
+        str: "layout NAME" as rq_led_utils resolves it (what demos use), plus
+            ", matches EXPECT: yes|no" when expect is given.
+    """
+    layout = rq_led_utils.get_layout()
+    if not layout:
+        raise RuntimeError("no LED layout resolved")
+    w, h = rq_led_utils.matrix_size(layout)
+    pixels.fill((0, 0, 0))
+    for xs, ys in (((0, 1, 2), (0, 1, 2)), ((w - 2, w - 1), (0, 1)),
+                   ((0, 1), (h - 2, h - 1)), ((w - 2, w - 1), (h - 2, h - 1))):
+        for x in xs:
+            for y in ys:
+                rq_led_utils.set_xy(pixels, x, y, color, layout)
+    report = f"layout {layout['name']}"
+    if expect:
+        other = rq_led_utils.get_layout(expect)
+        same = bool(other) and rq_led_utils.matrix_size(other) == (w, h) and all(
+            rq_led_utils.map_xy_to_pixel(x, y, layout) == rq_led_utils.map_xy_to_pixel(x, y, other)
+            for x in range(w) for y in range(h))
+        report += f", matches {expect}: {'yes' if same else 'no'}"
+    return report
 
 
 def main():
     """Fill the panel with the colour given as R G B arguments."""
-    color, hold, pidfile = parse(sys.argv[1:])
+    color, hold, pidfile, corners, expect = parse(sys.argv[1:])
     import rq_led_utils
     # images before RQ_LED_NO_WINDOW: don't start the on-screen view either
     if hasattr(rq_led_utils, "_ensure_virtual_led_gui_running"):
         rq_led_utils._ensure_virtual_led_gui_running = lambda *a, **k: None
     try:
         pixels = rq_led_utils.get_pixels()
-        pixels.fill(color)
+        if corners:
+            print(f"led_fill: corners, {light_corners(rq_led_utils, pixels, color, expect)}", flush=True)
+        else:
+            pixels.fill(color)
         pixels.show()
         # Pi 5: let the frame out before exiting (older images: just wait)
         getattr(rq_led_utils, "_wait_for_last_frame", lambda: time.sleep(0.3))()
