@@ -37,6 +37,7 @@ Needs on the Pis: nothing beyond the image (key login for the rig user).
 import argparse
 import atexit
 import contextlib
+import csv
 import datetime
 import fcntl
 import hashlib
@@ -51,6 +52,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -70,6 +72,9 @@ CACHE_KEEP = 3                             # releases kept in the cache
 OWN_DOWNLOADS = Path.home() / ".local" / "share" / "rasqberry-rig" / "own-image-downloads.csv"
 PI_IMAGE_DIR = "/var/tmp/rigtest-image"    # the copy on the Pi (rq_update_slot.sh --image-file)
 UPDATE_LOG = "/var/log/rasqberry-update-slot.log"
+REAL_PATH = "real-path-test"               # OWN_DOWNLOADS purposes: a real user's update,
+RIG_UPDATE = "rig-update"                  # the cache's download
+REAL_PATH_DONE = OWN_DOWNLOADS.with_name("real-path-done.txt")   # releases whose real-path update came up
 CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
 # Rig runs stay out of the project's usage counts (rq_umami_event.py): RQ_UMAMI=0
 # in the Pi's environment file reaches demos started from the desktop icons too,
@@ -405,7 +410,7 @@ def file_sha256(path):
         return hashlib.file_digest(fh, "sha256").hexdigest()
 
 
-def log_own_download(tag, name, size):
+def log_own_download(tag, name, size, purpose=RIG_UPDATE):
     """One row in OWN_DOWNLOADS: a GitHub download of ours, for the stats to subtract."""
     new = not OWN_DOWNLOADS.exists()
     OWN_DOWNLOADS.parent.mkdir(parents=True, exist_ok=True)
@@ -413,7 +418,16 @@ def log_own_download(tag, name, size):
         if new:
             log.write("date_utc,tag,asset,bytes,purpose\n")
         when = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        log.write(f"{when},{tag},{name},{size},rig-update\n")
+        log.write(f"{when},{tag},{name},{size},{purpose}\n")
+
+
+def release_assets(tag):
+    """The release's assets on GitHub: {name: {name, size, digest, url}}."""
+    assets = json.loads(subprocess.run(
+        ["gh", "api", f"repos/{GITHUB_REPO}/releases/tags/{tag}", "--jq",
+         "[.assets[]|{name, size, digest, url: .browser_download_url}]"],
+        capture_output=True, text=True, check=True).stdout)
+    return {a["name"]: a for a in assets}
 
 
 def cached_image(tag):
@@ -424,10 +438,7 @@ def cached_image(tag):
     Returns:
         tuple: (Path of the .img.xz, its SHA256, its GitHub URL)
     """
-    assets = json.loads(subprocess.run(
-        ["gh", "api", f"repos/{GITHUB_REPO}/releases/tags/{tag}", "--jq",
-         '[.assets[]|select(.name|endswith("-ab.img.xz"))|{name, size, digest, url: .browser_download_url}]'],
-        capture_output=True, text=True, check=True).stdout)
+    assets = [a for a in release_assets(tag).values() if a["name"].endswith("-ab.img.xz")]
     if len(assets) != 1 or not (assets[0].get("digest") or "").startswith("sha256:"):
         raise RuntimeError(f"release {tag}: no single A/B image with a SHA256 on GitHub")
     a = assets[0]
@@ -454,12 +465,80 @@ def cached_image(tag):
     return path, sha, a["url"]
 
 
+def real_path_tested(tag):
+    """True once a real-path update of `tag` came up on some Pi (REAL_PATH_DONE)."""
+    return REAL_PATH_DONE.exists() and tag in REAL_PATH_DONE.read_text().split()
+
+
+def latest_on_pi(pi):
+    """
+    What the Pi's own release lookup offers, as the menu's release picker
+    gets it (rq_ab_releases.sh latest: rasqberry.org's manifest).
+
+    Returns:
+        dict: tag, url, date, size, sha256 (may be empty); or error: the Pi's message
+    """
+    rc, out = ssh(pi["host"], "rq_ab_releases.sh latest 2>&1", timeout=120)
+    fields = out.split("\n", 1)[0].split("\t")
+    if rc != 0 or len(fields) < 5:
+        return {"error": out.strip()[-200:] or f"exit {rc}"}
+    return dict(zip(("tag", "url", "date", "size", "sha256"), fields))
+
+
+def check_imager_entry(tag):
+    """
+    The Imager lists on rasqberry.org (RQB-images.json, rpi-imager.json)
+    against GitHub for this release's images: URL, size and SHA256.
+
+    Returns:
+        dict: a report row
+    """
+    try:
+        assets = release_assets(tag)
+        docs = {}
+        for listing in ("RQB-images.json", "rpi-imager.json"):
+            with urllib.request.urlopen(f"https://rasqberry.org/{listing}", timeout=30) as r:
+                docs[listing] = json.load(r)
+    except Exception as exc:   # a report row, never a stopped update
+        return {"verdict": "FAIL", "name": "imager-lists", "detail": f"could not check: {exc}"}
+    errors, seen = [], 0
+    for listing, doc in docs.items():
+        entries, todo = [], list(doc.get("os_list", []))
+        while todo:                                   # dev images sit in a sub-list
+            e = todo.pop()
+            todo += e.get("subitems", [])
+            entries.append(e)
+        for entry in entries:
+            url = entry.get("url", "")
+            if f"/{tag}/" not in url:
+                continue
+            seen += 1
+            name = url.rsplit("/", 1)[-1]
+            asset = assets.get(name)
+            sha = entry.get("image_download_sha256") or entry.get("image_sha256")   # as rpi_imager_list._entry
+            if not asset:
+                errors.append(f"{listing}: {url} is no asset of {tag}")
+            elif entry.get("image_download_size") != asset["size"] or f"sha256:{sha}" != asset["digest"]:
+                errors.append(f"{listing}: {name} size/SHA256 differ from GitHub (or no SHA256)")
+            elif not re.fullmatch(r"[0-9a-f]{64}", entry.get("extract_sha256") or "") or not entry.get("extract_size"):
+                errors.append(f"{listing}: {name} has no extract_sha256/extract_size (Imager checks the card with them)")
+    if errors:
+        return {"verdict": "FAIL", "name": "imager-lists", "detail": "; ".join(errors)}
+    if not seen:
+        return {"verdict": "INFO", "name": "imager-lists", "detail": f"{tag} is in neither Imager list (not the newest of its stream)"}
+    return {"verdict": "PASS", "name": "imager-lists", "detail": f"{seen} entries for {tag}: URL, size and SHA256 as on GitHub"}
+
+
 def update_slot(pi, tag):
-    """OTA `tag` into the slot that is not running (ping-pong) with this
-    repo's updater; the running slot stays as the way back. The image comes
-    from this machine's cache, copied to the Pi (--image-file)."""
+    """
+    OTA `tag` ("latest": what the Pi offers) into the other slot. The first
+    update to a release the Pi offers goes the real user's way; later ones
+    use the cache (README).
+
+    Returns:
+        list: report rows about the path taken
+    """
     host = pi["host"]
-    image, digest, url = cached_image(tag)
     # a slot still on trial refuses updates (exit 28): wait for its health check
     if not wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600):
         raise RuntimeError("the running slot is not confirmed")
@@ -467,32 +546,80 @@ def update_slot(pi, tag):
     # (the same tag may already run here, so the version alone proves nothing)
     _, before = ssh(host, "findmnt -no SOURCE /")
     before = before.strip()
+    offer = latest_on_pi(pi)
+    if tag == "latest":
+        tag = offer.get("tag") or ""
+        if not tag:
+            raise RuntimeError(f"the Pi's own lookup (rq_ab_releases.sh latest) offered nothing: {offer.get('error')}")
+    done = real_path_tested(tag)
+    real = offer.get("tag") == tag and not done
+    if real:
+        name = offer["url"].rsplit("/", 1)[-1]
+        rows = [{"verdict": "INFO", "name": "update-path",
+                 "detail": f"real: the Pi's own lookup offered {tag}; its updater downloads {name} from GitHub"},
+                check_imager_entry(tag)]
+    else:
+        rows = [{"verdict": "INFO" if done else "WARN", "name": "update-path",
+                 "detail": "cached (real path done before)" if done else
+                           f"cached: {tag} has had no real-path update yet (it must be the release the Pi offers)"}]
+    try:
+        if real:
+            # as the menu does: plan-update names the target slot; the image's own
+            # updater, its guard deciding as for a user without a terminal
+            _, plan = ssh(host, f"sudo rq_slot_manager.sh plan-update {shlex.quote(tag)} {shlex.quote(offer['url'])}",
+                          timeout=120)
+            target = re.search(r"^target=([AB])$", plan, re.M)
+            if not target:
+                raise RuntimeError(f"plan-update named no target slot: {plan.strip()[-200:]}")
+            log_own_download(tag, name, offer["size"], REAL_PATH)   # first: GitHub counts a broken-off one too
+            sha = f"--sha256 {offer['sha256']}" if offer["sha256"] else ""
+            print(f"  {pi['name']}: installing {tag} the real user's way (download on the Pi, 15-30 min)")
+            _run_update(host, tag, before, f"/usr/bin/rq_update_slot.sh {shlex.quote(offer['url'])} {shlex.quote(tag)} "
+                                           f"--slot {target.group(1)} {sha}")
+        else:
+            _update_cached(host, pi["name"], tag, before)
+        wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600)
+    except Exception as exc:
+        exc.rows = rows   # the report still says which way it went
+        raise
+    if real:
+        REAL_PATH_DONE.parent.mkdir(parents=True, exist_ok=True)
+        with REAL_PATH_DONE.open("a") as f:
+            f.write(tag + "\n")
+    return rows
+
+
+def _update_cached(host, name, tag, before):
+    """The cached way: this checkout's updater, the image from IMAGE_CACHE (--image-file)."""
+    image, digest, url = cached_image(tag)
     ssh(host, f"mkdir -p {REMOTE_DIR}/ota {PI_IMAGE_DIR}", check=True)
     scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_stream_image.py", "rq_slot_manager.sh",
                                                "rq_carry_ssh_identity.sh", "rq_common.sh")],
         f"{REMOTE_DIR}/ota/")
-    print(f"  {pi['name']}: installing {tag} into the other slot (15-25 min)")
+    print(f"  {name}: installing {tag} into the other slot (15-25 min)")
     remote_image = f"{PI_IMAGE_DIR}/{image.name}"
     try:
         scp(host, [image], remote_image, timeout=1800)
         # The operator chose the release: the guard's questions (downgrade, last
         # beta/stable slot) are answered yes, as nobody is at the Pi to type them.
-        # "seen": the update log's lines so far, so only this run's failure counts.
-        _, seen = ssh(host, f"chmod +x {REMOTE_DIR}/ota/*.sh; sudo wc -l < {UPDATE_LOG} 2>/dev/null || echo 0; "
-                            f"sudo setsid nohup {REMOTE_DIR}/ota/rq_update_slot.sh "
-                            f"{shlex.quote(url)} {shlex.quote(tag)} --sha256 {digest} --image-file {remote_image} "
-                            f"--allow-downgrade --force-replace-safe-slot "
-                            f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
-        if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
-                              f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30,
-                        fail_cmd=f"sudo tail -n +{int(seen.split()[0]) + 1} {UPDATE_LOG} | grep -q 'Update stopped' "
-                                 f"&& tail -5 {REMOTE_DIR}/ota.log"):
-            raise RuntimeError("new slot did not come up with the release")
+        _run_update(host, tag, before, f"{REMOTE_DIR}/ota/rq_update_slot.sh {shlex.quote(url)} {shlex.quote(tag)} "
+                                       f"--sha256 {digest} --image-file {remote_image} "
+                                       f"--allow-downgrade --force-replace-safe-slot",
+                    setup=f"chmod +x {REMOTE_DIR}/ota/*.sh")
     finally:
         ssh(host, f"sudo rm -rf {PI_IMAGE_DIR}", timeout=60)   # left over only if the update failed
-    # the health check confirms the new slot a minute or two after boot; the
-    # service may not have started yet when the release first answers
-    wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600)
+
+
+def _run_update(host, tag, before, cmd, setup="true"):
+    """Start `cmd` (an rq_update_slot.sh call) on the Pi and wait for the new slot to run `tag`."""
+    # "seen": the update log's lines so far, so only this run's failure counts
+    _, seen = ssh(host, f"mkdir -p {REMOTE_DIR}; {setup}; sudo wc -l < {UPDATE_LOG} 2>/dev/null || echo 0; "
+                        f"sudo setsid nohup {cmd} </dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
+    if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
+                          f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30,
+                    fail_cmd=f"sudo tail -n +{int(seen.split()[0]) + 1} {UPDATE_LOG} | grep -q 'Update stopped' "
+                             f"&& tail -5 {REMOTE_DIR}/ota.log"):
+        raise RuntimeError("new slot did not come up with the release")
 
 
 def run_checks(pi):
@@ -1109,7 +1236,8 @@ def main():
     ap.add_argument("--docker", action="store_true", help="also run docker demos")
     ap.add_argument("--no-camera", action="store_true")
     ap.add_argument("--checks-only", action="store_true")
-    ap.add_argument("--update", metavar="TAG", help="first install this release into the other slot (A/B images)")
+    ap.add_argument("--update", metavar="TAG", help="TAG or 'latest' (what the Pi offers): first install it into "
+                                                 "the other slot (A/B images; see the README)")
     ap.add_argument("--no-web-check", action="store_true",
                     help="don't check web/Jupyter pages in the desktop Chromium (and don't restart it)")
     ap.add_argument("--icons", nargs="?", const=DEFAULT_ICONS, metavar="FILES",
@@ -1142,7 +1270,7 @@ def main():
             try:
                 no_usage_counts(pi)
                 if args.update:
-                    update_slot(pi, args.update)
+                    section["rows"] += update_slot(pi, args.update)
                     no_usage_counts(pi)     # the new slot (carried over since this release)
                 section["rows"] += run_checks(pi)
                 if not args.checks_only:
@@ -1173,6 +1301,7 @@ def main():
                         if pi["web_check"]:
                             browser_debug(pi, False)
             except Exception as exc:  # keep going with the next Pi
+                section["rows"] += getattr(exc, "rows", [])
                 section["rows"].append({"verdict": "FAIL", "name": "run", "detail": str(exc)})
             for r in section["rows"]:
                 print(f"   {r['verdict']:<4} {r['name']:<34} {r['detail']}")
