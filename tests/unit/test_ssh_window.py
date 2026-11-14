@@ -146,3 +146,34 @@ def test_a_rejected_config_keeps_the_window_closed():
     reload = sh[sh.index("reload_sshd() {"):]
     reload = reload[:reload.index("\n}\n")]
     assert "write_dropin closed" in reload and "remove_dropin" not in reload
+
+
+def _enable_vnc(tmp_path, updated):
+    """Run rasqberry-enable-vnc.sh with the published password still set."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    state = tmp_path / "vnc-state"
+    stubs = {
+        "sudo": '[ "$1" = -n ] && shift; exec "$@"',
+        "logger": "exit 0",
+        "raspi-config": f'case "$2" in get_vnc) cat {state} 2>/dev/null || echo 1;; do_vnc) echo 0 > {state};; esac',
+        "window": "exit 1",  # vnc-allowed: no
+    }
+    for name, body in stubs.items():
+        f = bin_dir / name
+        f.write_text("#!/bin/bash\n" + body + "\n")
+        f.chmod(0o755)
+    done = tmp_path / "carry-over.done"
+    if updated:
+        done.write_text("from=A\n")
+    env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", RQ_VNC_MARKER=str(tmp_path / "marker"),
+               RQ_SSH_WINDOW=str(bin_dir / "window"), RQ_CARRY_DONE=str(done), RQ_VNC_WAIT="0")
+    script = os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")
+    subprocess.run(["bash", script], env=env, check=True)
+    return state.exists()
+
+
+def test_vnc_stays_off_on_a_new_card_but_stays_on_after_an_update(tmp_path):
+    for name, updated in (("new", False), ("updated", True)):
+        (tmp_path / name).mkdir()
+        assert _enable_vnc(tmp_path / name, updated) == updated
