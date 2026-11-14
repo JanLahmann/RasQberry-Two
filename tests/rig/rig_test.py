@@ -10,7 +10,9 @@ are on a local LAN). For every Pi in rig.json it
   2. runs the system checks (tests/rig/pi/checks.sh),
   3. smoke-tests each demo the way a person does - desktop terminal, runs,
      Ctrl+C, nothing left behind (tests/rig/pi/demo_smoke.sh),
-  4. for LED demos, checks with the camera that the Pi's panel actually lights,
+  4. for LED demos, first checks the Pi's LED layout against rig.json and that
+     its panel_crop still frames the panel (a corner pattern on the camera),
+     then checks that each demo actually lights the panel,
   5. for web/Jupyter/docker demos, checks the page in the demo's own Chromium
      tab (tests/rig/pi/webcheck.py): it renders, a control responds, a
      notebook's first safe code cell runs - never one that touches the IBM
@@ -270,6 +272,18 @@ def fresh_baseline(pis, camera, dest):
     return camera.grab(dest), failed
 
 
+LIT_DELTA = 40   # grey levels brighter than the baseline: "clearly lit"
+
+
+def lit_diff(frame, baseline, crop):
+    """The crop of the frame minus the baseline, as a greyscale image."""
+    from PIL import Image, ImageChops
+    a, b = Image.open(frame).convert("L"), Image.open(baseline).convert("L")
+    w, h = a.size
+    box = tuple(int(v * (w if i % 2 == 0 else h)) for i, v in enumerate(crop))
+    return ImageChops.subtract(a.crop(box), b.crop(box))
+
+
 def lit_score(frame, baseline, crop):
     """
     How much brighter the panel region is than with the LEDs off.
@@ -281,14 +295,8 @@ def lit_score(frame, baseline, crop):
     Returns:
         float: share of pixels in the crop that got clearly brighter (0..1).
     """
-    from PIL import Image, ImageChops
-    a, b = Image.open(frame).convert("L"), Image.open(baseline).convert("L")
-    w, h = a.size
-    box = tuple(int(v * (w if i % 2 == 0 else h)) for i, v in enumerate(crop))
-    diff = ImageChops.subtract(a.crop(box), b.crop(box))
-    hist = diff.histogram()
-    bright = sum(hist[40:])
-    return bright / max(1, sum(hist))
+    hist = lit_diff(frame, baseline, crop).histogram()
+    return sum(hist[LIT_DELTA:]) / max(1, sum(hist))
 
 
 # ----------------------------------------------------------------------------
@@ -491,7 +499,7 @@ def smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     A camera-judged LED demo holds PANEL_LOCK for its whole run, so no other
     Pi (thread or harness process) lights its panel in the shared view.
     """
-    judged = bool(camera and demo["leds"] and pi.get("panel_crop"))
+    judged = bool(camera and demo["leds"] and pi.get("panel_crop") and pi.get("led_setup_ok", True))
     with PANEL_LOCK if judged else contextlib.nullcontext():
         return _smoke_demo(pi, demo, seconds, camera if judged else None, outdir, all_pis, docker)
 
@@ -559,15 +567,110 @@ def start_holder(pi, camera, baseline, dest, hold):
         float: the lit score of the last frame (below the threshold: the
             panel never lit).
     """
-    ssh(pi["host"], f"sudo rm -f {HOLDER_PID}; sudo setsid nohup {VENV_PY} {REMOTE_DIR}/led_fill.py "
-                    f"--hold {int(hold)} --pidfile {HOLDER_PID} 0 60 0 >{REMOTE_DIR}/led_fill.log 2>&1 </dev/null &",
-        timeout=60)
+    launch_holder(pi, hold, "0 60 0")
     score, end = 0.0, time.time() + 20
     while time.time() < end:
         score = lit_score(camera.grab(dest), baseline, pi["panel_crop"])
         if score >= pi.get("lit_threshold", 0.006):
             break
     return score
+
+
+def launch_holder(pi, hold, pattern):
+    """Start led_fill.py --hold on the Pi with `pattern` (its other arguments)."""
+    ssh(pi["host"], f"sudo rm -f {HOLDER_PID}; sudo setsid nohup {VENV_PY} {REMOTE_DIR}/led_fill.py "
+                    f"--hold {int(hold)} --pidfile {HOLDER_PID} {pattern} >{REMOTE_DIR}/led_fill.log 2>&1 </dev/null &",
+        timeout=60)
+
+
+# The corner pattern, judged inside panel_crop (fractions of the crop): each
+# corner block must light its own quarter's outer part; the band between them
+# (MIDDLE_X / MIDDLE_Y) must stay mostly dark.
+MIDDLE_X, MIDDLE_Y = (0.3, 0.7), (0.4, 0.6)
+CORNER_MIN_SHARE = 0.05    # of the lit pixels, in each corner
+MIDDLE_MAX_SHARE = 0.2     # of the lit pixels, between the corners
+MIN_LIT_PIXELS = 20        # at the 96x32 sampling below: "the pattern is out"
+
+
+def corners_in_crop(frame, baseline, crop):
+    """
+    Judge the corner pattern against panel_crop.
+
+    A stale crop misses a corner; a layout that doesn't match the wiring puts
+    the blocks elsewhere (Lights Out's grid sat in one corner). Reflections on
+    the table are outside the crop and don't count.
+
+    Returns:
+        tuple: (True/False/None for "nothing lit yet", str: what the camera saw)
+    """
+    w, h = 96, 32   # about 4 samples per LED of a 24x8 panel
+    diff = lit_diff(frame, baseline, crop).resize((w, h)).getdata()
+    lit = [(i % w / w, i // w / h) for i, v in enumerate(diff) if v >= LIT_DELTA]
+    if len(lit) < MIN_LIT_PIXELS:
+        return None, f"almost nothing lit inside the crop ({len(lit)} samples)"
+    corners = [[0, 0], [0, 0]]   # [bottom][right]
+    middle = 0
+    for fx, fy in lit:
+        if MIDDLE_X[0] < fx < MIDDLE_X[1] or MIDDLE_Y[0] < fy < MIDDLE_Y[1]:
+            middle += 1
+        else:
+            corners[fy >= 0.5][fx >= 0.5] += 1
+    dark = [f"{('top', 'bottom')[r]}-{('left', 'right')[c]}"
+            for r in (0, 1) for c in (0, 1) if corners[r][c] < CORNER_MIN_SHARE * len(lit)]
+    if dark:
+        return False, f"no corner block in the crop's {', '.join(dark)}"
+    if middle > MIDDLE_MAX_SHARE * len(lit):
+        return False, f"{middle / len(lit):.0%} of the light between the corners"
+    return True, "a block in each corner of the crop"
+
+
+def check_led_setup(pi, camera, outdir, all_pis):
+    """
+    Before a Pi's LED demos: is its LED layout the one rig.json expects, and do
+    the panel's corners sit in the corners of its panel_crop? A stale crop made
+    lit demos look dark; a wrong layout drew Lights Out's grid in one corner and
+    still counted as lit. led_fill.py --corners maps the corners through the
+    layout as rq_led_utils resolves it (the demos' own lookup) and reports it.
+
+    Returns:
+        tuple: (report rows, True if this Pi's LED demos can be judged by the camera)
+    """
+    want, crop = pi.get("led_layout"), pi.get("panel_crop")
+    frame = outdir / f"{pi['name']}-setup-corners.png"
+    with PANEL_LOCK:
+        baseline, _ = (fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-setup-baseline.png")
+                       if camera and crop else (None, None))
+        seen = (None, "no camera or panel_crop")
+        try:
+            launch_holder(pi, 60, "--corners 80 80 80")
+            end = time.time() + 20
+            while baseline and time.time() < end:
+                seen = corners_in_crop(camera.grab(frame), baseline, crop)
+                if seen[0] is not None:
+                    break
+            # without the camera: wait until led_fill.py has reported the layout
+            wait_for(pi["host"], f"grep -q 'layout ' {REMOTE_DIR}/led_fill.log", 20, interval=1)
+        finally:
+            stop_holder(pi)
+        _, log = ssh(pi["host"], f"cat {REMOTE_DIR}/led_fill.log; {CLEAR_LEDS}", timeout=60)
+    m = re.search(r"layout (\S+)", log)
+    have = m.group(1) if m else f"unknown ({log.strip()[-120:] or 'led_fill.py wrote nothing'})"
+    if not want:
+        rows = [{"verdict": "WARN", "name": "led-setup: layout",
+                 "detail": f"Pi has {have}; put \"led_layout\" into rig.json to check it"}]
+    else:
+        rows = [{"verdict": "PASS" if have == want else "FAIL", "name": "led-setup: layout",
+                 "detail": have if have == want else f"Pi has {have}, rig.json expects {want}"}]
+    if baseline:
+        ok, what = seen
+        rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the crop",
+                     "detail": what if ok else f"{what} ({frame.name}): fix panel_crop in rig.json "
+                                               f"or the Pi's LED layout"})
+    judged = all(r["verdict"] != "FAIL" for r in rows)
+    if not judged:
+        rows.append({"verdict": "WARN", "name": "led-setup: camera judging",
+                     "detail": "off for this Pi's LED demos (they would give wrong results)"})
+    return rows, judged
 
 
 def holder_alive(pi):
@@ -752,6 +855,9 @@ def main():
                         d["type"] in ("jupyter", "browser", "web-static", "docker")
                         or DEMO_HINTS.get(d["id"], {}).get("web") for d in demos)
                         and browser_debug(pi, True))
+                    if any(d["leds"] for d in demos):
+                        rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"])
+                        section["rows"] += rows
                     try:
                         run_demos(pi, demos, section, args, camera, outdir, cfg)
                     finally:

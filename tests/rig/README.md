@@ -111,6 +111,21 @@ sudo /home/rasqberry/RasQberry-Two/venv/RQB2/bin/python /tmp/rigtest/led_fill.py
 Rows and columns where at least 15% of the pixels brighten by 80+ grey levels,
 plus a 0.02 margin, give the crop. Check that each Pi's fill scores 0 in the
 other Pi's crop.
+
+Before a Pi's LED demos, each run checks that this setup still holds (rows
+`led-setup: …` in the report):
+
+- **layout:** the Pi's `LED_LAYOUT` must be the `led_layout` given in rig.json
+  (`single-24x8` for the Pi 5 panel, `quad-4x12` for the Pi 4 one). A wrong
+  layout lights the panel but draws in the wrong place (Lights Out's grid in
+  one corner), which the lit score alone does not see.
+- **corners in the crop:** a 2x2 block in each corner of the logical matrix,
+  mapped through the Pi's layout, must light the four corners of `panel_crop`
+  with little in between. A crop that no longer frames the panel misses a
+  corner; a layout that doesn't match the wiring puts the blocks elsewhere.
+
+If one fails, the run says so and does not judge that Pi's LED demos by the
+camera (they would only give wrong results). Frames: `<pi>-setup-*.png`.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
 
