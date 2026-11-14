@@ -149,6 +149,7 @@ def test_a_rejected_config_keeps_the_window_closed():
 
 
 def _enable_vnc(tmp_path, updated):
+    # updated: an A/B update from a system that had VNC on
     """Run rasqberry-enable-vnc.sh with the published password still set."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -163,11 +164,11 @@ def _enable_vnc(tmp_path, updated):
         f = bin_dir / name
         f.write_text("#!/bin/bash\n" + body + "\n")
         f.chmod(0o755)
-    done = tmp_path / "carry-over.done"
+    was_on = tmp_path / "vnc-was-on"
     if updated:
-        done.write_text("from=A\n")
+        was_on.write_text("2026-11-14\n")
     env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", RQ_VNC_MARKER=str(tmp_path / "marker"),
-               RQ_SSH_WINDOW=str(bin_dir / "window"), RQ_CARRY_DONE=str(done), RQ_VNC_WAIT="0")
+               RQ_SSH_WINDOW=str(bin_dir / "window"), RQ_VNC_WAS_ON=str(was_on), RQ_VNC_WAIT="0")
     script = os.path.join(_ROOT, "RQB2-system", "usr", "local", "bin", "rasqberry-enable-vnc.sh")
     subprocess.run(["bash", script], env=env, check=True)
     return state.exists()

@@ -30,7 +30,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #     BROWSER_AUTOSTART, RQ_FIRSTLOGIN_DONE, RQ_UMAMI (usage counts off,
 #     on rig and development Pis) and the Demo Loop's choice of demos,
 #     timings and start at login (DEMO_LOOP_*) from rasqberry_environment.env,
-#     VNC switched off (Q17: the new system then does not switch it on),
+#     VNC on or off (Q17: off stays off; on stays on),
 #     the marks of what the desktop user was already asked or told
 #     (~/.local/state/rasqberry/*: the setup checklist was answered, the
 #     Imager note, password/name/keyboard answers, the firmware and slot
@@ -363,17 +363,25 @@ pull_env_keys() {
     return "$changed"
 }
 
-pull_vnc_off() {
-    # VNC is switched on once, at the first desktop login, unless this marker
+pull_vnc_state() {
+    # VNC is switched on once, at the first desktop login, unless the marker
     # exists (rasqberry-enable-vnc.sh, Q17). The old system had VNC off after
     # that first time: the user switched it off, so the new one keeps it off.
-    # VNC on there (or no marker - a release that always switched it on):
-    # nothing to do, the new system switches it on once.
-    local other="$1" marker=/var/lib/rasqberry/vnc-auto-enabled
-    [ -e "$other$marker" ] && [ ! -e "$ROOT$marker" ] || return 1
-    compgen -G "$other/etc/systemd/system/*.wants/wayvnc.service" >/dev/null && return 1
-    mkdir -p "$(dirname "$ROOT$marker")"
-    cp -p "$other$marker" "$ROOT$marker"
+    # It had VNC on: the new one switches it on, also while the published
+    # password is set (that check is for new cards). Neither (VNC held off
+    # for the password): nothing, the new system checks again.
+    local other="$1" state=/var/lib/rasqberry
+    if compgen -G "$other/etc/systemd/system/*.wants/wayvnc.service" >/dev/null; then
+        [ -e "$ROOT$state/vnc-was-on" ] && return 1
+        mkdir -p "$ROOT$state"
+        date '+%F %T' > "$ROOT$state/vnc-was-on"
+        echo "VNC on"
+        return 0
+    fi
+    [ -e "$other$state/vnc-auto-enabled" ] && [ ! -e "$ROOT$state/vnc-auto-enabled" ] || return 1
+    mkdir -p "$ROOT$state"
+    cp -p "$other$state/vnc-auto-enabled" "$ROOT$state/vnc-auto-enabled"
+    echo "VNC off"
 }
 
 pull_user_state() {
@@ -633,7 +641,9 @@ cmd_pull() {
     pull_locale "$other" && carried+=("locale")
     copy_if_different "$other" /etc/default/keyboard && carried+=("keyboard layout")
     pull_env_keys "$other" && carried+=("browser/checklist/Demo Loop choices")
-    pull_vnc_off "$other" && carried+=("VNC off")
+    if what=$(pull_vnc_state "$other"); then
+        carried+=("$what")
+    fi
     pull_user_state "$other" && carried+=("setup checklist and notices already seen")
     pull_home_connect "$other" && carried+=("Quantum Mixer's Home Connect settings")
     pull_release_cache "$other" || true
@@ -708,7 +718,7 @@ Copied from the old system when the new one starts for the first time:
   - SSH host keys and authorized_keys
   - "Browser at login", and that the setup checklist and notices
     were already shown (they do not open again)
-  - VNC switched off
+  - VNC on or off
   - Raspberry Pi Connect: its sign-in, and whether it is on
   - Quantum Mixer's Home Connect settings
 Not kept (they stay in the old system):

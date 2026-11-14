@@ -35,14 +35,13 @@ if vnc_on; then
     exit 0
 fi
 
-# On a new card, not while the account has the published password (VNC cannot
-# ask for a new one): rq_ssh_window.sh switches it on once the password is
-# changed, or now with DEFAULT_PW_WINDOW_VNC=yes in rasqberry_boot.env.
-# After an A/B update (carry-over ran) the old system had VNC on, else the
-# marker above would exist: keep it on.
+# Not while the account has the published password (VNC cannot ask for a new
+# one): rq_ssh_window.sh switches it on once the password is changed, or now
+# with DEFAULT_PW_WINDOW_VNC=yes in rasqberry_boot.env. Except after an A/B
+# update from a system that had VNC on (rq_carry_over.sh writes VNC_WAS_ON).
 WINDOW="${RQ_SSH_WINDOW:-/usr/bin/rq_ssh_window.sh}"
-UPDATED="${RQ_CARRY_DONE:-/var/lib/rasqberry/carry-over.done}"
-if [ ! -e "$UPDATED" ] && [ -x "$WINDOW" ] && ! sudo -n "$WINDOW" vnc-allowed 2>/dev/null; then
+VNC_WAS_ON="${RQ_VNC_WAS_ON:-/var/lib/rasqberry/vnc-was-on}"
+if [ ! -e "$VNC_WAS_ON" ] && [ -x "$WINDOW" ] && ! sudo -n "$WINDOW" vnc-allowed 2>/dev/null; then
     log "VNC stays off while the published password is set (on once it is changed)"
     exit 0
 fi

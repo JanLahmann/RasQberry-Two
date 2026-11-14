@@ -645,3 +645,19 @@ def test_the_clock_is_only_set_on_the_live_system():
     assert "$LIVE || return 1" in body
     assert '-gt "$now"' in body and 'date -s "@$saved"' in body
     assert "/var/lib/systemd/timesync/clock" in body
+
+
+@pytest.mark.parametrize("old_vnc, carried", [("on", "vnc-was-on"), ("off", "vnc-auto-enabled"), ("held", None)])
+def test_pull_carries_the_vnc_choice(slots, old_vnc, carried):
+    # on: wayvnc enabled; off: switched off after the first start (marker);
+    # held: never on (published password) - the new system checks again
+    old, new, data = slots
+    if old_vnc == "on":
+        wants = old / "etc/systemd/system/multi-user.target.wants"
+        wants.mkdir(parents=True)
+        (wants / "wayvnc.service").symlink_to("/usr/lib/systemd/system/wayvnc.service")
+    if old_vnc == "off":
+        (old / "var/lib/rasqberry/vnc-auto-enabled").write_text("2026-11-01\n")
+    assert _run(new, data, "pull", str(old)).returncode == 0
+    state = new / "var/lib/rasqberry"
+    assert sorted(p.name for p in state.glob("vnc-*")) == ([carried] if carried else [])
