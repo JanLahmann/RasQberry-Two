@@ -761,8 +761,10 @@ led_clear_quietly() {
 # Docker, which is root by another name). In its own mount namespace the
 # whole home is read-only (rq_led_sandbox_mounts), so it cannot change or add
 # what root or a later login runs; it writes only to its own folder and a few
-# others LED demos use. It keeps the desktop, the network and the user's
-# sound (PipeWire).
+# others LED demos use. Of the user's runtime folder (/run/user/UID) it sees
+# only the display and sound sockets (Wayland, PipeWire, Pulse), and not the
+# system bus. It keeps the network. More isolation (desktop input, separate
+# accounts) belongs with #333 classroom security.
 # It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
 # Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
 # launcher's process group) all reach it as before.
@@ -892,6 +894,31 @@ rq_led_sandbox_mounts() {
 # fails stops the demo; a writable path that is not a directory of its own
 # (missing, a symlink) is left as it is.
 _RQ_LED_MOUNTS='n=$1; shift
+# the system bus: not for LED programs (first, so nothing bound below brings it)
+if [ -S /run/dbus/system_bus_socket ]; then
+    mount --bind /dev/null /run/dbus/system_bus_socket || exit 97
+fi
+# the runtime folder: only the display and sound sockets (RQ_LED_RT_*); a
+# symlink there (the user can make one) is not followed
+rt=${RQ_LED_RT:-}
+if [ -n "$rt" ] && [ -d "$rt" ] && [ ! -L "$rt" ]; then
+    keep="${RQ_RUN_DIR:-/run/rasqberry}/led-sandbox-keep"
+    mkdir -p "$keep" || exit 97
+    mount -t tmpfs -o mode=0700 tmpfs "$keep" || exit 97
+    for f in "$RQ_LED_RT_WAYLAND" pipewire-0 pulse; do
+        [ -e "$rt/$f" ] && [ ! -L "$rt/$f" ] || continue
+        if [ -d "$rt/$f" ]; then mkdir "$keep/$f"; else : > "$keep/$f"; fi
+        mount --bind "$rt/$f" "$keep/$f" || exit 97
+    done
+    # as small as logind makes the real one
+    mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID,size=64m,nr_inodes=4096" tmpfs "$rt" || exit 97
+    for f in "$keep"/*; do
+        [ -e "$f" ] || continue
+        b=${f##*/}
+        if [ -d "$f" ]; then mkdir "$rt/$b"; else : > "$rt/$b"; fi
+        mount --bind "$f" "$rt/$b" || exit 97
+    done
+fi
 for ((i = 0; i < n; i++)); do
     mode=${1%% *}; p=${1#* }; shift
     case "$mode" in
@@ -919,7 +946,7 @@ rq_led_as_user() {
     # needs passed on
     cmd=$(command -v "$1" 2>/dev/null) || cmd="$1"
     shift
-    rt=$(rq_audio_runtime_dir) || rt=""
+    rt=$(rq_audio_runtime_dir) || rt="/run/user/$uid"
     # the device groups only: not sudo, adm or docker
     for g in gpio spi i2c audio video render input dialout plugdev; do
         id -nG "$user_name" | tr ' ' '\n' | grep -qx "$g" && groups="$groups,$g"
@@ -937,6 +964,7 @@ rq_led_as_user() {
     # (setpriv refuses an empty --groups= list)
     local grp_opt="--clear-groups"
     [ -z "$groups" ] || grp_opt="--groups=${groups#,}"
+    RQ_LED_RT="$rt" RQ_LED_RT_UID="$uid" RQ_LED_RT_GID="$gid" RQ_LED_RT_WAYLAND="${WAYLAND_DISPLAY:-wayland-0}" \
     unshare --mount --propagation private -- bash -c "$_RQ_LED_MOUNTS" _ "${#mounts[@]}" "${mounts[@]}" \
         setpriv --reuid="$uid" --regid="$gid" "$grp_opt" \
             --no-new-privs --bounding-set=-all --inh-caps=-all -- \
@@ -944,7 +972,7 @@ rq_led_as_user() {
             PATH="$(dirname "$cmd"):/usr/local/bin:/usr/bin:/bin" \
             LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}" DISPLAY="${DISPLAY:-:0}" \
             ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
-            XDG_RUNTIME_DIR="${rt:-/run/user/$uid}" \
+            XDG_RUNTIME_DIR="$rt" \
             XDG_CACHE_HOME="$cache" MPLCONFIGDIR="$cache/matplotlib" \
             LED_RENDER_MODE="${RQ_LED_USER_MODE:-direct}" \
             RQ_AUDIO_DELAY_MS="$(rq_audio_delay_ms)" \
