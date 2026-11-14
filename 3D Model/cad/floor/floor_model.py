@@ -278,15 +278,22 @@ def build(name, prm=PARAMS, with_joints=True):
 
 
 def joint_test(prm=PARAMS):
-    """Two small pieces with one joint (Tile1 tab / Tile2 socket at the seam
-    x = 130, y = 30.6), to try the fit before printing whole tiles. They
-    print plate-down like the tiles; laid out 10 mm apart."""
-    x, y = 130.0, 30.6
-    win = lambda x0, x1: Pos((x0 + x1) / 2, y, -prm["height"] / 2) * \
-        Box(x1 - x0, 30, prm["height"] + 1)  # noqa: E731
-    a = build("Tile1", prm) & win(130, 150)
-    b = build("Tile2", prm) & win(105, 130)
-    return (a + Pos(-10, 0, 0) * b).clean()
+    """Test piece for the fit: two small plates (40 x 30 mm) with the seam
+    wall and one joint, nothing else - the tab piece (blue side of a seam)
+    and the socket piece. Exported plate-down, as the tiles print, 10 mm
+    apart."""
+    H, pl, w = prm["height"], prm["plate"], prm["wall"]
+    half = 15.0
+
+    def piece(x0, x1, wall_x0):
+        body = top_chamfer(prism(sg.box(x0, -half, x1, half), -pl, 0.0), prm["top_chamfer"])
+        return body + prism(sg.box(wall_x0, -half, wall_x0 + w, half), -H, -pl + 0.01)
+
+    tab = piece(0, 40, 0) + place(joint("tab", prm), 0, 0, (-1, 0))
+    block, cut = joint("socket", prm)
+    sock = piece(-40, 0, -w) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
+    flip = lambda s: Pos(0, 0, H) * Rot(180, 0, 0) * s   # noqa: E731  plate on the bed
+    return (Pos(5, 0, 0) * flip(tab) + Pos(-5, 0, 0) * flip(sock)).clean()
 
 
 def main():
