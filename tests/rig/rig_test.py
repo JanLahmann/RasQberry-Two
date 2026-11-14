@@ -39,10 +39,12 @@ import atexit
 import contextlib
 import datetime
 import fcntl
+import hashlib
 import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -63,10 +65,11 @@ GITHUB_REPO = "JanLahmann/RasQberry-Two"
 # --update: release images are downloaded once into this cache (RIG_IMAGE_CACHE)
 # and every such download is logged in OWN_DOWNLOADS (CSV: date_utc, tag,
 # asset, bytes, purpose), so the project's download numbers can leave ours out
-IMAGE_CACHE = Path(os.environ.get("RIG_IMAGE_CACHE") or Path.home() / ".cache" / "rasqberry-rig" / "images")
+IMAGE_CACHE = Path(os.environ.get("RIG_IMAGE_CACHE") or "~/.cache/rasqberry-rig/images").expanduser()
+CACHE_KEEP = 3                             # releases kept in the cache
 OWN_DOWNLOADS = Path.home() / ".local" / "share" / "rasqberry-rig" / "own-image-downloads.csv"
-PI_IMAGE_DIR = "/var/tmp/rigtest-image"    # the copy on the Pi, served on its loopback only
-PI_IMAGE_PORT = 8799
+PI_IMAGE_DIR = "/var/tmp/rigtest-image"    # the copy on the Pi (rq_update_slot.sh --image-file)
+UPDATE_LOG = "/var/log/rasqberry-update-slot.log"
 CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
 # Rig runs stay out of the project's usage counts (rq_umami_event.py): RQ_UMAMI=0
 # in the Pi's environment file reaches demos started from the desktop icons too,
@@ -112,9 +115,9 @@ def ssh(host, command, timeout=600, check=False):
     return proc.returncode, proc.stdout
 
 
-def scp(host, sources, dest):
+def scp(host, sources, dest, timeout=120):
     """Copy local files to the Pi."""
-    subprocess.run(["scp", "-q", *map(str, sources), f"{host}:{dest}"], check=True, timeout=120)
+    subprocess.run(["scp", "-q", *map(str, sources), f"{host}:{dest}"], check=True, timeout=timeout)
 
 
 def fetch(host, remote, local):
@@ -147,13 +150,20 @@ def parse_lines(text):
     return out
 
 
-def wait_for(host, predicate_cmd, timeout, interval=10):
-    """Poll until the command succeeds on the Pi (e.g. after a reboot)."""
+def wait_for(host, predicate_cmd, timeout, interval=10, fail_cmd=None):
+    """
+    Poll until the command succeeds on the Pi (e.g. after a reboot). With
+    fail_cmd: raise RuntimeError with its output as soon as it succeeds.
+    """
     end = time.time() + timeout
     while time.time() < end:
         try:
             if ssh(host, predicate_cmd, timeout=30)[0] == 0:
                 return True
+            if fail_cmd:
+                rc, out = ssh(host, fail_cmd, timeout=30)
+                if rc == 0:
+                    raise RuntimeError(f"stopped on the Pi: {out.strip()[-300:]}")
         except subprocess.TimeoutExpired:
             pass
         time.sleep(interval)
@@ -327,42 +337,67 @@ def no_usage_counts(pi):
               "its first start was counted; mark rig cards right after writing them")
 
 
+def file_sha256(path):
+    """SHA256 of a file, as hex."""
+    with open(path, "rb") as fh:
+        return hashlib.file_digest(fh, "sha256").hexdigest()
+
+
+def log_own_download(tag, name, size):
+    """One row in OWN_DOWNLOADS: a GitHub download of ours, for the stats to subtract."""
+    new = not OWN_DOWNLOADS.exists()
+    OWN_DOWNLOADS.parent.mkdir(parents=True, exist_ok=True)
+    with OWN_DOWNLOADS.open("a") as log:
+        if new:
+            log.write("date_utc,tag,asset,bytes,purpose\n")
+        when = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        log.write(f"{when},{tag},{name},{size},rig-update\n")
+
+
 def cached_image(tag):
     """
-    The release's A/B image in this machine's cache (IMAGE_CACHE): downloaded
-    from GitHub once per release, however many Pis and runs install it, and
-    each download logged in OWN_DOWNLOADS so the project's download numbers
-    can leave ours out.
+    The release's A/B image from this machine's cache, downloaded from GitHub
+    once per release (logged, checked against GitHub's SHA256).
 
     Returns:
-        tuple: (Path of the .img.xz, its SHA256 from GitHub's asset digest)
+        tuple: (Path of the .img.xz, its SHA256, its GitHub URL)
     """
-    name, size, digest = subprocess.run(
+    assets = json.loads(subprocess.run(
         ["gh", "api", f"repos/{GITHUB_REPO}/releases/tags/{tag}", "--jq",
-         '.assets[]|select(.name|endswith("-ab.img.xz"))|.name+" "+(.size|tostring)+" "+.digest'],
-        capture_output=True, text=True, check=True).stdout.split()
-    path = IMAGE_CACHE / tag / name
-    if not (path.exists() and path.stat().st_size == int(size)):
-        print(f"  downloading {name} once into {path.parent}")
-        subprocess.run(["gh", "release", "download", tag, "--repo", GITHUB_REPO, "--pattern", name,
-                        "--dir", str(path.parent), "--clobber"], check=True)
-        new = not OWN_DOWNLOADS.exists()
-        OWN_DOWNLOADS.parent.mkdir(parents=True, exist_ok=True)
-        with OWN_DOWNLOADS.open("a") as log:
-            if new:
-                log.write("date_utc,tag,asset,bytes,purpose\n")
-            when = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            log.write(f"{when},{tag},{name},{size},rig-update\n")
-    return path, digest.split(":", 1)[1]
+         '[.assets[]|select(.name|endswith("-ab.img.xz"))|{name, size, digest, url: .browser_download_url}]'],
+        capture_output=True, text=True, check=True).stdout)
+    if len(assets) != 1 or not (assets[0].get("digest") or "").startswith("sha256:"):
+        raise RuntimeError(f"release {tag}: no single A/B image with a SHA256 on GitHub")
+    a = assets[0]
+    sha = a["digest"].split(":", 1)[1]
+    path = IMAGE_CACHE / tag / a["name"]
+    checked = path.with_name(path.name + ".sha256")    # written once the file matched
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # one harness at a time per release: two side by side make one download
+    with open(path.parent / ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not (path.exists() and path.stat().st_size == a["size"]
+                and checked.exists() and checked.read_text().strip() == sha):
+            print(f"  downloading {a['name']} once into {path.parent}")
+            log_own_download(tag, a["name"], a["size"])    # first: GitHub counts a broken-off one too
+            subprocess.run(["gh", "release", "download", tag, "--repo", GITHUB_REPO, "--pattern", a["name"],
+                            "--dir", str(path.parent), "--clobber"], check=True)
+            if file_sha256(path) != sha:
+                path.unlink()
+                raise RuntimeError(f"{a['name']}: downloaded, but its SHA256 is not GitHub's")
+            checked.write_text(sha + "\n")
+    old = sorted((d for d in IMAGE_CACHE.iterdir() if d.is_dir() and d != path.parent), key=lambda d: d.stat().st_mtime)
+    for d in old[:max(0, len(old) - (CACHE_KEEP - 1))]:
+        shutil.rmtree(d, ignore_errors=True)
+    return path, sha, a["url"]
 
 
 def update_slot(pi, tag):
     """OTA `tag` into the slot that is not running (ping-pong) with this
     repo's updater; the running slot stays as the way back. The image comes
-    from this machine's cache, copied to the Pi and served to the updater on
-    the Pi's loopback, so the rig doesn't count as GitHub downloads."""
+    from this machine's cache, copied to the Pi (--image-file)."""
     host = pi["host"]
-    image, digest = cached_image(tag)
+    image, digest, url = cached_image(tag)
     # a slot still on trial refuses updates (exit 28): wait for its health check
     if not wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600):
         raise RuntimeError("the running slot is not confirmed")
@@ -370,28 +405,29 @@ def update_slot(pi, tag):
     # (the same tag may already run here, so the version alone proves nothing)
     _, before = ssh(host, "findmnt -no SOURCE /")
     before = before.strip()
-    ssh(host, f"mkdir -p {REMOTE_DIR}/ota", check=True)
+    ssh(host, f"mkdir -p {REMOTE_DIR}/ota {PI_IMAGE_DIR}", check=True)
     scp(host, [REPO / "RQB2-bin" / f for f in ("rq_update_slot.sh", "rq_stream_image.py", "rq_slot_manager.sh",
                                                "rq_carry_ssh_identity.sh", "rq_common.sh")],
         f"{REMOTE_DIR}/ota/")
     print(f"  {pi['name']}: installing {tag} into the other slot (15-25 min)")
-    # The operator chose the release: the guard's questions (downgrade, last
-    # beta/stable slot) are answered yes, as nobody is at the Pi to type them
-    ssh(host, f"mkdir -p {PI_IMAGE_DIR}", check=True)
-    subprocess.run(["scp", "-q", str(image), f"{host}:{PI_IMAGE_DIR}/"], check=True, timeout=1800)
-    ssh(host, f"setsid nohup python3 -m http.server {PI_IMAGE_PORT} --bind 127.0.0.1 --directory {PI_IMAGE_DIR} "
-              f">/dev/null 2>&1 </dev/null & echo $! >{PI_IMAGE_DIR}.pid", check=True)
-    url = f"http://127.0.0.1:{PI_IMAGE_PORT}/{image.name}"
-    ssh(host, f"chmod +x {REMOTE_DIR}/ota/*.sh; sudo setsid nohup {REMOTE_DIR}/ota/rq_update_slot.sh "
-              f"{shlex.quote(url)} {shlex.quote(tag)} --sha256 {digest} "
-              f"--allow-downgrade --force-replace-safe-slot "
-              f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
-    # once the updater has its copy (step 2 checks it), stop serving and free the space
-    wait_for(host, f"grep -q 'Step 2 of 4' {REMOTE_DIR}/ota.log", 1800, interval=15)
-    ssh(host, f"kill $(cat {PI_IMAGE_DIR}.pid) 2>/dev/null; rm -rf {PI_IMAGE_DIR} {PI_IMAGE_DIR}.pid", timeout=60)
-    if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
-                          f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30):
-        raise RuntimeError("new slot did not come up with the release")
+    remote_image = f"{PI_IMAGE_DIR}/{image.name}"
+    try:
+        scp(host, [image], remote_image, timeout=1800)
+        # The operator chose the release: the guard's questions (downgrade, last
+        # beta/stable slot) are answered yes, as nobody is at the Pi to type them.
+        # "seen": the update log's lines so far, so only this run's failure counts.
+        _, seen = ssh(host, f"chmod +x {REMOTE_DIR}/ota/*.sh; sudo wc -l < {UPDATE_LOG} 2>/dev/null || echo 0; "
+                            f"sudo setsid nohup {REMOTE_DIR}/ota/rq_update_slot.sh "
+                            f"{shlex.quote(url)} {shlex.quote(tag)} --sha256 {digest} --image-file {remote_image} "
+                            f"--allow-downgrade --force-replace-safe-slot "
+                            f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
+        if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
+                              f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30,
+                        fail_cmd=f"sudo tail -n +{int(seen.split()[0]) + 1} {UPDATE_LOG} | grep -q 'Update stopped' "
+                                 f"&& tail -5 {REMOTE_DIR}/ota.log"):
+            raise RuntimeError("new slot did not come up with the release")
+    finally:
+        ssh(host, f"sudo rm -rf {PI_IMAGE_DIR}", timeout=60)   # left over only if the update failed
     # the health check confirms the new slot a minute or two after boot; the
     # service may not have started yet when the release first answers
     wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600)

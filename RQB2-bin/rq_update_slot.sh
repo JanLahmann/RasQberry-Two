@@ -8,7 +8,9 @@ set -euo pipefail
 # Usage: rq_update_slot.sh <download_url> <release_tag> [--slot A|B] [--sha256 SUM]
 #                          [--allow-unverified] [--allow-downgrade]
 #                          [--force-replace-safe-slot] [--force-old-release]
+#                          [--image-file PATH]
 #        rq_update_slot.sh --preflight [--slot A|B]
+# --image-file: use this local .img.xz instead of downloading (moved in, checked, removed)
 #
 # Update model (ping-pong, Jan 2026-10-04): an update always goes into the
 # slot that is NOT running, A or B alike (--slot can only name that slot).
@@ -847,6 +849,17 @@ Slot $target_slot was written but is not started (it stays marked unfinished). T
     log_only "Image installation complete"
 }
 
+stage_image() {
+    # The image at <file>: moved in from --image-file, else downloaded from <url>
+    local url="$1" file="$2"
+    if [ -n "$IMAGE_SOURCE" ]; then
+        log_only "Using $IMAGE_SOURCE instead of downloading $url"
+        mv -f "$IMAGE_SOURCE" "$file" || die "Could not move $IMAGE_SOURCE to $file"
+    else
+        download_image "$url" "$file"
+    fi
+}
+
 cleanup_download() {
     # Remove downloaded image file
     local image_file="$1"
@@ -888,6 +901,7 @@ parse_arguments() {
     ALLOW_DOWNGRADE=false
     FORCE_REPLACE_SAFE=false
     FORCE_OLD_RELEASE=false
+    IMAGE_SOURCE=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -914,6 +928,11 @@ parse_arguments() {
             --allow-unverified)
                 ALLOW_UNVERIFIED=true
                 shift
+                ;;
+            --image-file)
+                IMAGE_SOURCE="${2:-}"
+                [ -f "$IMAGE_SOURCE" ] || die "--image-file: no such file: ${IMAGE_SOURCE:-(none given)}"
+                shift 2
                 ;;
             *)
                 warn "Unknown parameter: $1"
@@ -1140,7 +1159,13 @@ main() {
     # The size of the download, for the free-space check (only the .img.xz
     # is staged: the image is unpacked straight into the slot)
     local download_bytes
-    download_bytes=$(resolve_download_size "$download_url" "$release_tag")
+    if [ -z "$IMAGE_SOURCE" ]; then
+        download_bytes=$(resolve_download_size "$download_url" "$release_tag")
+    elif [ "$(stat -c %d "$IMAGE_SOURCE")" = "$(stat -c %d "$DOWNLOAD_DIR")" ]; then
+        download_bytes=1    # moved within one file system: only the margin must be free
+    else
+        download_bytes=$(stat -c %s "$IMAGE_SOURCE")
+    fi
     log_only "Download size: ${download_bytes:-not known}"
 
     # Safety guards: never the booted slot, size and free-space prechecks
@@ -1171,8 +1196,8 @@ main() {
         rm -f "$image_file"
     fi
 
-    log_message "Step 1 of 4: downloading $(basename "$download_url")..."
-    download_image "$download_url" "$image_file"
+    log_message "Step 1 of 4: ${IMAGE_SOURCE:+taking $IMAGE_SOURCE instead of }downloading $(basename "$download_url")..."
+    stage_image "$download_url" "$image_file"
 
     # Verify the COMPRESSED .img.xz before anything is written, then check
     # that its partitions fit the slot (reads the start of the image only)
