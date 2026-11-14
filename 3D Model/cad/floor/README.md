@@ -23,26 +23,42 @@ than its own tiles).
 - a 3 mm top plate, its top edge chamfered 0.75 mm at 45 deg, so two tiles
   meet in a small V;
 - a 3 mm skirt underneath, open where the parts above need room;
-- Ø 3.2 holes through the skirt where two tiles meet, for alignment pins
-  (pieces of filament or 3 mm dowels);
+- dovetail joints under the plate where two tiles meet (where the
+  original had holes for alignment pins), see below;
 - the tile number, mirrored, 2 mm raised under the plate;
 - Tile5 / Tile6s (front row): V-grooves dividing the top into four
   squares, a hexagonal hole and half of the Ø 22 cable hole they share;
   Tile6s carries a small relief sign underneath;
 - Tile1Mag / Tile2Mag: three Ø 16 x 1 mm magnet pockets under the plate.
 
+## Joints
+
+Neighbouring tiles lock with printed dovetails: no pins, screws or other
+parts, and nothing changes on top. On each shared edge the tile laid
+first has two tabs sticking 5.5 mm out of its skirt (7 mm wide at the
+seam, 11 mm at the tip); the other tile has matching sockets in blocks
+behind its skirt and is lowered onto them. Its plate covers the tabs.
+
+- Lay the tiles in number order: Tile1, 2, 3, 4, 5, 6s (Mag tiles like
+  Tile1/2). Take them apart in reverse.
+- Print plate-down as before; the tabs' top slopes at 45 deg, so they
+  need no support.
+- Fit: `tail_clearance` (0.05 mm all round, from test prints of 0.05/0.10/0.15 on a Prusa; 0.2 was loose) in `PARAMS`. Print
+  `R2_Floor-JointTest` (three pairs, 1-3 marker holes = 0.05/0.10/0.15 mm) to try it on another printer.
+- `R2_Floor-all` is one piece and has no joints.
+
 ## How it is built
 
-The numbers (plate, chamfer, groove, pin and magnet sizes, cable hole) are
-in `PARAMS`; the grooves and the cable hole per tile in `TILES`. The
-outlines that are not simple numbers (plate with its key notches, skirt,
+The numbers (plate, chamfer, groove, dovetail and magnet sizes, cable hole) are
+in `PARAMS`; the grooves and the cable hole per tile in `TILES`, the joints in
+`SEAMS`. The outlines that are not simple numbers (plate with its key notches, skirt,
 tile numbers, the sign) were measured from the originals by
 `extract_floor.py` into `floor_profiles.json`. Coordinates within 0.05 mm
 of a tile edge are snapped onto it (SketchUp left some seam walls 0.025 mm
 off, which would make the fused floor touch only along a line).
 
 The tiles keep the original's frame (top at z = 0); `R2_Floor-all`
-stands on z = 0.
+stands on z = 0. `R2_Floor-JointTest` is already turned plate-down.
 
 ```bash
 python3 floor_model.py                 # all, ~30 s

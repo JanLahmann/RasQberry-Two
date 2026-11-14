@@ -7,8 +7,8 @@ The floor is 260 x 390 mm in six 130 x 130 tiles (2 x 3), 10 mm high:
   neighbouring tiles meet in a small V;
 - a 3 mm skirt underneath (z -10 .. -3) round the tile, open where cables
   or the server/cryostat feet need room;
-- horizontal holes (Ø 3.2) through the skirt where two tiles meet, for
-  alignment pins (filament or 3 mm dowels);
+- dovetail joints under the plate where two tiles meet (see joint());
+  no pins or screws, and nothing shows on top;
 - the tile number, mirrored, raised 2 mm under the plate;
 - Tile5 / Tile6s (the front row): a V-groove cross on top dividing the tile
   into four 65 mm squares, a hexagonal hole, and a half of a Ø 22 cable
@@ -22,10 +22,11 @@ from the originals by extract_floor.py into floor_profiles.json; the rest is
 in PARAMS / TILES below. All tiles share the original's coordinate frame
 (the whole floor: x 0..260, y 0..390, top at z = 0).
 
-Usage:  python floor_model.py [--outdir ROOT] [--only Tile1,Tile5,...]
+Usage:  python floor_model.py [--outdir ROOT] [--only Tile1,Tile5,...,all,JointTest]
 """
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -42,7 +43,14 @@ PARAMS = dict(
     plate=3.0, height=10.0,      # plate thickness, total height (z -10 .. 0)
     top_chamfer=0.75,
     groove_depth=0.75,           # V-grooves on top (90 deg)
-    pin_d=3.2, pin_z=-6.5, wall=3.0,
+    wall=3.0,
+    # dovetail joints (see joint()): neck and head width, length beyond
+    # the seam, clearance all round in the socket, gap under the plate
+    # above the tab, overhang of the tab's sloped top (deg from vertical,
+    # as printed plate-down). Separate from rqb_params.DOVETAIL/CLEARANCE
+    # (the wall keys): 0.05 comes from test prints of these joints.
+    tail_neck=7.0, tail_head=11.0, tail_len=5.5, tail_clearance=0.05,
+    tail_gap=0.3, tail_overhang=45.0, socket_wall=2.5,
     magnet_d=15.93, magnet_depth=1.0,
     cable_hole_r=11.03,
 )
@@ -56,6 +64,20 @@ TILES = {
     "Tile1Mag": {}, "Tile2Mag": {},
 }
 ALL = ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s")
+# Dovetail joints: (tab tile, socket tile, seam axis, seam at, positions
+# along the seam), at the original's alignment-pin holes (both skirts are
+# there). The tab tile is laid first: the socket tile's plate covers the
+# tab, so it goes on last - hence the tiles go down in number order.
+# Mag tiles take the joints of their base tile.
+SEAMS = [
+    ("Tile1", "Tile2", "x", 130.0, (30.6, 85.7)),
+    ("Tile1", "Tile3", "y", 130.0, (184.8, 232.9)),
+    ("Tile2", "Tile4", "y", 130.0, (27.2, 75.7)),
+    ("Tile3", "Tile4", "x", 130.0, (194.9, 236.3)),
+    ("Tile3", "Tile5", "y", 260.0, (156.5, 233.5)),
+    ("Tile4", "Tile6s", "y", 260.0, (26.5, 103.5)),
+    ("Tile5", "Tile6s", "x", 130.0, (285.8, 361.5)),
+]
 # In R2_Floor-all the corner chamfers of Tile5 and Tile6s meet in a single
 # vertical line, which makes the fused mesh non-manifold; a 0.1 mm square
 # post fills that line (invisible).
@@ -173,7 +195,72 @@ def groove(axis, v, box, prm, ends=(True, True)):
     return cut
 
 
-def build(name, prm=PARAMS):
+def joints(name):
+    """Joints of a tile from SEAMS: (x, y, direction, kind) - the point on
+    the seam, the direction (dx, dy) the tail points (from the tab tile
+    into the socket tile) and "tab" or "socket"."""
+    base = name.removesuffix("Mag")
+    for tab, sock, axis, at, positions in SEAMS:
+        if base not in (tab, sock):
+            continue
+        b = PROFILES[sock]["bounds"]
+        centre = (b[0] + b[3]) / 2 if axis == "x" else (b[1] + b[4]) / 2
+        sign = 1 if centre > at else -1
+        d = (sign, 0) if axis == "x" else (0, sign)
+        for v in positions:
+            x, y = (at, v) if axis == "x" else (v, at)
+            yield x, y, d, "tab" if base == tab else "socket"
+
+
+def joint(kind, prm):
+    """Dovetail in a local frame: seam at u = 0 (x), u > 0 under the
+    neighbour, s along the seam (y). Seen from above the tail widens from
+    `tail_neck` at the seam to `tail_head` at u = `tail_len`; the
+    neighbour is lowered onto it from above, after which the two tiles can
+    neither slide apart nor along the seam.
+
+    tab:    the tail plus its root in the tile's own skirt (u -wall..0).
+            Its top slopes down from just under the neighbour's plate at
+            `tail_overhang` deg, so it prints plate-down without support.
+    socket: a block behind the skirt, fused to the plate, and the tail's
+            shape plus `tail_clearance` cut out of it (and out of the
+            tile's skirt, hence a separate cut).
+
+    Returns (add, cut); cut is None for the tab.
+    """
+    n, h, L = prm["tail_neck"] / 2, prm["tail_head"] / 2, prm["tail_len"]
+    H, plate, w = prm["height"], prm["plate"], prm["wall"]
+
+    def outline(root):      # the tail seen from above, from u = root
+        return sg.Polygon([(root, -n), (0, -n), (L, -h), (L, h), (0, n), (root, n)])
+
+    if kind == "tab":
+        plan = outline(-w)
+        k = 1 / math.tan(math.radians(prm["tail_overhang"]))   # drop per mm
+        z0 = -plate - prm["tail_gap"]
+        if z0 - k * L <= -H:
+            raise ValueError("tail_len / tail_overhang: the tab's sloped top would reach the floor")
+        u0 = (z0 + plate - 0.01) / k                           # where the slope meets the plate
+        side = sg.Polygon([(-w, -H), (-w, -plate + 0.01), (u0, -plate + 0.01),
+                           (L, z0 - k * L), (L, -H)])
+        prof = extrude(Plane.XZ * Polygon(*side.exterior.coords[:-1], align=None), h + 1, both=True)
+        return prism(plan, -H, -plate + 0.01) & prof, None
+    c = prm["tail_clearance"]
+    cut = outline(-1).buffer(c, join_style=2)
+    block = sg.box(0, -h - c - prm["socket_wall"], L + c + prm["socket_wall"],
+                   h + c + prm["socket_wall"])
+    return prism(block, -H, -plate + 0.01), prism(cut, -H - 0.01, -plate)
+
+
+def place(solid, x, y, d):
+    """`solid` from joint()'s local frame onto the seam point (x, y), its
+    +u axis turned to the direction d."""
+    ang = math.degrees(math.atan2(d[1], d[0]))
+    return Pos(x, y, 0) * Rot(0, 0, ang) * solid
+
+
+def build_base(name, prm=PARAMS):
+    """A tile without its joints (R2_Floor-all fuses these)."""
     spec = TILES[name]
     data = PROFILES[name]
     # nominal tile square (the floor is a 130 mm grid)
@@ -184,11 +271,6 @@ def build(name, prm=PARAMS):
     tile = sg.box(*bounds)
     skirt = sg.MultiPolygon([to_shapely(p) for p in data["skirt"]]).buffer(0).intersection(tile)
     body += prism(skirt, -prm["height"], -prm["plate"] + 0.01)
-    # alignment pin holes, across the skirt wall
-    r, L = prm["pin_d"] / 2, prm["wall"] + 1.0
-    for pin in data["pins"]:
-        rot = Rot(0, 90, 0) if pin["axis"] == "x" else Rot(90, 0, 0)
-        body -= Pos(pin["x"], pin["y"], prm["pin_z"]) * rot * Cylinder(r, L)
     # tile number (and sign) under the plate
     for z0, z1, polys in data["relief"]:
         shape = sg.MultiPolygon([to_shapely(p) for p in polys]).buffer(0)
@@ -201,35 +283,97 @@ def build(name, prm=PARAMS):
     return body.clean()
 
 
+def add_joints(body, name, prm=PARAMS):
+    """The tile with its dovetail tabs and sockets."""
+    shapes = {}
+    adds, cuts = [], []
+    for x, y, d, kind in joints(name):
+        if kind not in shapes:
+            shapes[kind] = joint(kind, prm)
+        add, cut = shapes[kind]
+        adds.append(place(add, x, y, d))
+        if cut is not None:
+            cuts.append(place(cut, x, y, d))
+    if adds:
+        body = body.fuse(*adds)
+    if cuts:
+        body = body.cut(*cuts)
+    return body.clean()
+
+
+JOINT_TEST_CLEARANCES = (0.05, 0.10, 0.15)
+
+
+def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
+    """Test pieces for the fit: per clearance a pair of small plates
+    (30 x 30 mm) with the seam wall and one joint, nothing else - a tab
+    piece and a socket piece. Pair i (1, 2, 3 ...) has i small holes
+    through both plates. Exported plate-down, as the tiles print."""
+    H, pl, w = prm["height"], prm["plate"], prm["wall"]
+    half, depth = 15.0, 30.0
+
+    def piece(x0, x1, wall_x0, marks):
+        """Plate x0..x1 with the seam wall from wall_x0 and `marks` holes."""
+        body = top_chamfer(prism(sg.box(x0, -half, x1, half), -pl, 0.0), prm["top_chamfer"])
+        body += prism(sg.box(wall_x0, -half, wall_x0 + w, half), -H, -pl + 0.01)
+        xm = x1 - 5 if x1 > 0 else x0 + 5
+        for k in range(marks):
+            body -= Pos(xm, -half + 4 + 3 * k, -pl / 2) * Cylinder(0.75, pl + 1)
+        return body
+
+    def flip(solid):
+        """Turned over about x: the plate (z -3..0) lies on the bed (z 0..3)."""
+        return Rot(180, 0, 0) * solid
+    out = None
+    for i, c in enumerate(clearances):
+        q = dict(prm, tail_clearance=c)
+        tab = piece(0, depth, 0, i + 1) + place(joint("tab", q)[0], 0, 0, (-1, 0))
+        block, cut = joint("socket", q)
+        sock = piece(-depth, 0, -w, i + 1) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
+        pair = Pos(5, 40 * i, 0) * flip(tab) + Pos(-5, 40 * i, 0) * flip(sock)
+        out = pair if out is None else out + pair
+    out = out.clean()
+    if len(out.solids()) != 2 * len(clearances):
+        raise ValueError("joint test: pieces touch each other")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--outdir", help="output root (default ../../print)")
     ap.add_argument("--only", help="comma-separated tiles, e.g. Tile1,all")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
-    names = a.only.split(",") if a.only else list(TILES) + ["all"]
+    names = a.only.split(",") if a.only else list(TILES) + list(EXTRAS)
     fmts = tuple(a.formats.split(","))
-    tiles = {}
+    bases = {}
     for name in names:
-        if name == "all":
-            continue
-        tiles[name] = part = build(name)
-        vol = check_solid(part, name)
+        if name in EXTRAS:
+            part = EXTRAS[name](bases)
+        else:
+            bases[name] = build_base(name)
+            part = add_joints(bases[name], name)
+        pieces = part.solids() if name == "JointTest" else [part]   # test: several pieces
+        vol = sum(check_solid(sd, name) for sd in pieces)
         print("%s: size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (name, *bbox_size(part), vol))
         export_part(part, f"R2_Floor-{name}", root=a.outdir, formats=fmts)
-    if "all" in names:
-        whole = None
-        for name in ALL:
-            t = tiles.get(name) or build(name)
-            whole = t if whole is None else whole + t
-        for x, y in ALL_BRIDGES:
-            whole += prism(sg.box(x - 0.05, y - 0.05, x + 0.05, y + 0.05),
-                           -PARAMS["height"], -PARAMS["top_chamfer"])
-        # R2_Floor-all stands on z = 0 (the tiles have their top at z = 0)
-        whole = Pos(0, 0, PARAMS["height"]) * whole.clean()
-        vol = check_solid(whole, "all")
-        print("all: size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(whole), vol))
-        export_part(whole, "R2_Floor-all", root=a.outdir, formats=fmts)
+
+
+def build_all(bases):
+    """R2_Floor-all: the six tiles in one piece (no joints), standing on z = 0."""
+    whole = None
+    for name in ALL:
+        if name not in bases:
+            bases[name] = build_base(name)
+        whole = bases[name] if whole is None else whole + bases[name]
+    for x, y in ALL_BRIDGES:
+        whole += prism(sg.box(x - 0.05, y - 0.05, x + 0.05, y + 0.05),
+                       -PARAMS["height"], -PARAMS["top_chamfer"])
+    return Pos(0, 0, PARAMS["height"]) * whole.clean()
+
+
+# parts that are not single tiles
+EXTRAS = {"all": build_all, "JointTest": lambda bases: joint_test()}
 
 
 if __name__ == "__main__":
