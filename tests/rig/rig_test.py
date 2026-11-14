@@ -59,6 +59,14 @@ REMOTE_DIR = "/tmp/rigtest"
 VENV_PY = "$HOME/RasQberry-Two/venv/RQB2/bin/python3"
 CLEAR_LEDS = f"sudo {VENV_PY} /usr/bin/turn_off_LEDs.py >/dev/null 2>&1"
 HOLDER_PID = f"{REMOTE_DIR}/led_fill.pid"
+GITHUB_REPO = "JanLahmann/RasQberry-Two"
+# --update: release images are downloaded once into this cache (RIG_IMAGE_CACHE)
+# and every such download is logged in OWN_DOWNLOADS (CSV: date_utc, tag,
+# asset, bytes, purpose), so the project's download numbers can leave ours out
+IMAGE_CACHE = Path(os.environ.get("RIG_IMAGE_CACHE") or Path.home() / ".cache" / "rasqberry-rig" / "images")
+OWN_DOWNLOADS = Path.home() / ".local" / "share" / "rasqberry-rig" / "own-image-downloads.csv"
+PI_IMAGE_DIR = "/var/tmp/rigtest-image"    # the copy on the Pi, served on its loopback only
+PI_IMAGE_PORT = 8799
 CDP_PORT = 9222   # the desktop Chromium's debugging port during web checks (127.0.0.1)
 # Rig runs stay out of the project's usage counts (rq_umami_event.py): RQ_UMAMI=0
 # in the Pi's environment file reaches demos started from the desktop icons too,
@@ -319,14 +327,42 @@ def no_usage_counts(pi):
               "its first start was counted; mark rig cards right after writing them")
 
 
+def cached_image(tag):
+    """
+    The release's A/B image in this machine's cache (IMAGE_CACHE): downloaded
+    from GitHub once per release, however many Pis and runs install it, and
+    each download logged in OWN_DOWNLOADS so the project's download numbers
+    can leave ours out.
+
+    Returns:
+        tuple: (Path of the .img.xz, its SHA256 from GitHub's asset digest)
+    """
+    name, size, digest = subprocess.run(
+        ["gh", "api", f"repos/{GITHUB_REPO}/releases/tags/{tag}", "--jq",
+         '.assets[]|select(.name|endswith("-ab.img.xz"))|.name+" "+(.size|tostring)+" "+.digest'],
+        capture_output=True, text=True, check=True).stdout.split()
+    path = IMAGE_CACHE / tag / name
+    if not (path.exists() and path.stat().st_size == int(size)):
+        print(f"  downloading {name} once into {path.parent}")
+        subprocess.run(["gh", "release", "download", tag, "--repo", GITHUB_REPO, "--pattern", name,
+                        "--dir", str(path.parent), "--clobber"], check=True)
+        new = not OWN_DOWNLOADS.exists()
+        OWN_DOWNLOADS.parent.mkdir(parents=True, exist_ok=True)
+        with OWN_DOWNLOADS.open("a") as log:
+            if new:
+                log.write("date_utc,tag,asset,bytes,purpose\n")
+            when = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            log.write(f"{when},{tag},{name},{size},rig-update\n")
+    return path, digest.split(":", 1)[1]
+
+
 def update_slot(pi, tag):
     """OTA `tag` into the slot that is not running (ping-pong) with this
-    repo's updater; the running slot stays as the way back."""
+    repo's updater; the running slot stays as the way back. The image comes
+    from this machine's cache, copied to the Pi and served to the updater on
+    the Pi's loopback, so the rig doesn't count as GitHub downloads."""
     host = pi["host"]
-    rel = subprocess.run(["gh", "api", f"repos/JanLahmann/RasQberry-Two/releases/tags/{tag}",
-                          "--jq", '.assets[]|select(.name|endswith("-ab.img.xz"))|.browser_download_url+" "+.digest'],
-                         capture_output=True, text=True, check=True).stdout.split()
-    url, digest = rel[0], rel[1].split(":", 1)[1]
+    image, digest = cached_image(tag)
     # a slot still on trial refuses updates (exit 28): wait for its health check
     if not wait_for(host, "sudo rq_slot_manager.sh status 2>&1 | grep -q 'Slot Status: CONFIRMED'", 600):
         raise RuntimeError("the running slot is not confirmed")
@@ -341,11 +377,18 @@ def update_slot(pi, tag):
     print(f"  {pi['name']}: installing {tag} into the other slot (15-25 min)")
     # The operator chose the release: the guard's questions (downgrade, last
     # beta/stable slot) are answered yes, as nobody is at the Pi to type them
+    ssh(host, f"mkdir -p {PI_IMAGE_DIR}", check=True)
+    subprocess.run(["scp", "-q", str(image), f"{host}:{PI_IMAGE_DIR}/"], check=True, timeout=1800)
+    ssh(host, f"setsid nohup python3 -m http.server {PI_IMAGE_PORT} --bind 127.0.0.1 --directory {PI_IMAGE_DIR} "
+              f">/dev/null 2>&1 </dev/null & echo $! >{PI_IMAGE_DIR}.pid", check=True)
+    url = f"http://127.0.0.1:{PI_IMAGE_PORT}/{image.name}"
     ssh(host, f"chmod +x {REMOTE_DIR}/ota/*.sh; sudo setsid nohup {REMOTE_DIR}/ota/rq_update_slot.sh "
               f"{shlex.quote(url)} {shlex.quote(tag)} --sha256 {digest} "
               f"--allow-downgrade --force-replace-safe-slot "
               f"</dev/null >{REMOTE_DIR}/ota.log 2>&1 &", timeout=60)
-    time.sleep(120)
+    # once the updater has its copy (step 2 checks it), stop serving and free the space
+    wait_for(host, f"grep -q 'Step 2 of 4' {REMOTE_DIR}/ota.log", 1800, interval=15)
+    ssh(host, f"kill $(cat {PI_IMAGE_DIR}.pid) 2>/dev/null; rm -rf {PI_IMAGE_DIR} {PI_IMAGE_DIR}.pid", timeout=60)
     if not wait_for(host, f"grep -qx {shlex.quote(tag)} /etc/rasqberry-version && "
                           f"[ \"$(findmnt -no SOURCE /)\" != {shlex.quote(before)} ]", 3600, interval=30):
         raise RuntimeError("new slot did not come up with the release")
