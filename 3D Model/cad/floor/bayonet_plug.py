@@ -17,7 +17,7 @@ part between them and the flange. Turn back to lift the part off; the part
 still stands on a table. The Ø 20 bore keeps the cable passage. One plug
 fits all three places (both floors are 3 mm).
 
-`BayonetTest2` is the test print: three plugs (see TEST_PLUGS) that differ
+`BayonetTest3` is the test print: three plugs (see TEST_PLUGS) that differ
 in clearance and grip (the space between flange and hexagon; 6.0 = floor
 plate + part floor exactly), told apart by the marker holes in the flange.
 With plates=True it adds a floor plate with the cryostat hole (60 mm), a
@@ -51,10 +51,10 @@ PARAMS = dict(
     bore_d=20.0,
     test_plate=3.0,
 )
-# test plugs: (marker holes, clearance, grip). Round 1 (1-3 holes: 0.05 mm,
-# grip 6.0/5.9/5.8, with the plates) was too tight in the floor; round 2
-# (4-6 holes) is looser in both, plugs only.
-TEST_PLUGS = ((4, 0.15, 6.1), (5, 0.25, 6.2), (6, 0.35, 6.3))
+# test plugs: (marker holes, clearance, grip). Round 1 (1-3 holes:
+# 0.05 mm, grip 6.0/5.9/5.8) had the right clearance but too little grip
+# (Jan); round 2 (4-6 holes) was looser in both. Round 3: 0.05 mm, more grip.
+TEST_PLUGS = ((7, 0.05, 6.2), (8, 0.05, 6.4), (9, 0.05, 6.6))
 # (stl in print/, z of a section through the hole, a point inside the hole)
 HOLES = dict(
     floor_cryo=("floor/R2_Floor-all.stl", 8.5, (130.32, 140.18)),
@@ -139,9 +139,9 @@ def main():
     a = ap.parse_args()
     part = bayonet_test()
     for i, s in enumerate(part.solids()):
-        check_solid(s, f"BayonetTest2 piece {i}")
-    print("R2_Floor-BayonetTest2: size %.2f x %.2f x %.2f mm" % bbox_size(part))
-    export_part(part, "R2_Floor-BayonetTest2", root=a.outdir, formats=tuple(a.formats.split(",")))
+        check_solid(s, f"BayonetTest3 piece {i}")
+    print("R2_Floor-BayonetTest3: size %.2f x %.2f x %.2f mm" % bbox_size(part))
+    export_part(part, "R2_Floor-BayonetTest3", root=a.outdir, formats=tuple(a.formats.split(",")))
 
 
 if __name__ == "__main__":
