@@ -230,24 +230,31 @@ def joint(kind, prm):
     """
     n, h, L = prm["tail_neck"] / 2, prm["tail_head"] / 2, prm["tail_len"]
     H, plate, w = prm["height"], prm["plate"], prm["wall"]
+
+    def outline(root):      # the tail seen from above, from u = root
+        return sg.Polygon([(root, -n), (0, -n), (L, -h), (L, h), (0, n), (root, n)])
+
     if kind == "tab":
-        plan = sg.Polygon([(-w, -n), (0, -n), (L, -h), (L, h), (0, n), (-w, n)])
+        plan = outline(-w)
         k = 1 / math.tan(math.radians(prm["tail_overhang"]))   # drop per mm
         z0 = -plate - prm["tail_gap"]
+        if z0 - k * L <= -H:
+            raise ValueError("tail_len / tail_overhang: the tab's sloped top would reach the floor")
         u0 = (z0 + plate - 0.01) / k                           # where the slope meets the plate
         side = sg.Polygon([(-w, -H), (-w, -plate + 0.01), (u0, -plate + 0.01),
                            (L, z0 - k * L), (L, -H)])
         prof = extrude(Plane.XZ * Polygon(*side.exterior.coords[:-1], align=None), h + 1, both=True)
         return prism(plan, -H, -plate + 0.01) & prof, None
     c = prm["tail_clearance"]
-    cut = sg.Polygon([(-1, -n), (0, -n), (L, -h), (L, h), (0, n), (-1, n)]) \
-        .buffer(c, join_style=2)
+    cut = outline(-1).buffer(c, join_style=2)
     block = sg.box(0, -h - c - prm["socket_wall"], L + c + prm["socket_wall"],
                    h + c + prm["socket_wall"])
     return prism(block, -H, -plate + 0.01), prism(cut, -H - 0.01, -plate)
 
 
 def place(solid, x, y, d):
+    """`solid` from joint()'s local frame onto the seam point (x, y), its
+    +u axis turned to the direction d."""
     ang = math.degrees(math.atan2(d[1], d[0]))
     return Pos(x, y, 0) * Rot(0, 0, ang) * solid
 
@@ -278,9 +285,11 @@ def build_base(name, prm=PARAMS):
 
 def add_joints(body, name, prm=PARAMS):
     """The tile with its dovetail tabs and sockets."""
-    shapes = {k: joint(k, prm) for k in ("tab", "socket")}
+    shapes = {}
     adds, cuts = [], []
     for x, y, d, kind in joints(name):
+        if kind not in shapes:
+            shapes[kind] = joint(kind, prm)
         add, cut = shapes[kind]
         adds.append(place(add, x, y, d))
         if cut is not None:
@@ -304,6 +313,7 @@ def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
     half, depth = 15.0, 30.0
 
     def piece(x0, x1, wall_x0, marks):
+        """Plate x0..x1 with the seam wall from wall_x0 and `marks` holes."""
         body = top_chamfer(prism(sg.box(x0, -half, x1, half), -pl, 0.0), prm["top_chamfer"])
         body += prism(sg.box(wall_x0, -half, wall_x0 + w, half), -H, -pl + 0.01)
         xm = x1 - 5 if x1 > 0 else x0 + 5
@@ -311,7 +321,9 @@ def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
             body -= Pos(xm, -half + 4 + 3 * k, -pl / 2) * Cylinder(0.75, pl + 1)
         return body
 
-    flip = lambda s: Pos(0, 0, H) * Rot(180, 0, 0) * s   # noqa: E731  plate on the bed
+    def flip(solid):
+        """Turned over about x: the plate (z -3..0) lies on the bed (z 0..3)."""
+        return Rot(180, 0, 0) * solid
     out = None
     for i, c in enumerate(clearances):
         q = dict(prm, tail_clearance=c)
@@ -320,7 +332,10 @@ def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
         sock = piece(-depth, 0, -w, i + 1) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
         pair = Pos(5, 40 * i, 0) * flip(tab) + Pos(-5, 40 * i, 0) * flip(sock)
         out = pair if out is None else out + pair
-    return out.clean()
+    out = out.clean()
+    if len(out.solids()) != 2 * len(clearances):
+        raise ValueError("joint test: pieces touch each other")
+    return out
 
 
 def main():
@@ -348,8 +363,9 @@ def build_all(bases):
     """R2_Floor-all: the six tiles in one piece (no joints), standing on z = 0."""
     whole = None
     for name in ALL:
-        t = bases.get(name) or build_base(name)
-        whole = t if whole is None else whole + t
+        if name not in bases:
+            bases[name] = build_base(name)
+        whole = bases[name] if whole is None else whole + bases[name]
     for x, y in ALL_BRIDGES:
         whole += prism(sg.box(x - 0.05, y - 0.05, x + 0.05, y + 0.05),
                        -PARAMS["height"], -PARAMS["top_chamfer"])

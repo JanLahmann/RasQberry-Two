@@ -58,7 +58,7 @@ of a tile edge are snapped onto it (SketchUp left some seam walls 0.025 mm
 off, which would make the fused floor touch only along a line).
 
 The tiles keep the original's frame (top at z = 0); `R2_Floor-all`
-stands on z = 0.
+stands on z = 0. `R2_Floor-JointTest` is already turned plate-down.
 
 ```bash
 python3 floor_model.py                 # all, ~30 s
