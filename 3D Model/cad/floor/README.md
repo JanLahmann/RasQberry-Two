@@ -1,7 +1,10 @@
 # Floor tiles (parametric rebuild)
 
 `floor_model.py` rebuilds the six floor tiles, the two magnet versions and
-the whole floor in one piece:
+the whole floor in one piece (plus `R2_Floor-JointTest`); `plugs.py` makes
+the plugs that hold the cryostat and the wall (see below). Deviations from
+the originals, measured before the joints were added (the dovetails replace
+the originals' pin holes):
 
 | Part | Original | max deviation |
 |---|---|---|
@@ -33,7 +36,7 @@ than its own tiles).
 
 ## Joints
 
-Neighbouring tiles lock with printed dovetails: no pins, screws or other
+Neighboring tiles lock with printed dovetails: no pins, screws or other
 parts, and nothing changes on top. On each shared edge the tile laid
 first has two tabs sticking 5.5 mm out of its skirt (7 mm wide at the
 seam, 11 mm at the tip); the other tile has matching sockets in blocks

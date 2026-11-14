@@ -214,13 +214,13 @@ def joints(name):
 
 def joint(kind, prm):
     """Dovetail in a local frame: seam at u = 0 (x), u > 0 under the
-    neighbour, s along the seam (y). Seen from above the tail widens from
+    neighbor, s along the seam (y). Seen from above the tail widens from
     `tail_neck` at the seam to `tail_head` at u = `tail_len`; the
-    neighbour is lowered onto it from above, after which the two tiles can
+    neighbor is lowered onto it from above, after which the two tiles can
     neither slide apart nor along the seam.
 
     tab:    the tail plus its root in the tile's own skirt (u -wall..0).
-            Its top slopes down from just under the neighbour's plate at
+            Its top slopes down from just under the neighbor's plate at
             `tail_overhang` deg, so it prints plate-down without support.
     socket: a block behind the skirt, fused to the plate, and the tail's
             shape plus `tail_clearance` cut out of it (and out of the
@@ -351,7 +351,8 @@ def main():
         if name in EXTRAS:
             part = EXTRAS[name](bases)
         else:
-            bases[name] = build_base(name)
+            if name not in bases:
+                bases[name] = build_base(name)
             part = add_joints(bases[name], name)
         pieces = part.solids() if name == "JointTest" else [part]   # test: several pieces
         vol = sum(check_solid(sd, name) for sd in pieces)

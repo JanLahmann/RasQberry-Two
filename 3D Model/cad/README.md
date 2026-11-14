@@ -70,6 +70,7 @@ cd "3D Model/cad"
           && python3 server_standalone.py && python3 rte_lid.py)     # servers ~2 min each
 (cd cryostat && python3 cryostat_model.py && python3 new_door.py && python3 screw_octopus.py \
                && python3 narrow_y_conjoined.py)
+(cd floor && python3 plugs.py)          # measures floor, wall and cryostat: after them
 python3 build_print.py                  # copies + 3MFs, always last
 ```
 

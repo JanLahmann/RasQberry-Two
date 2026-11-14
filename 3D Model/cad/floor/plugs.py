@@ -27,7 +27,8 @@ flange; wall plug 6.2 mm between wings and hexagon (6.0-5.8 was too tight).
 
 The `...Test` prints add 3 mm plates with the holes to try the fit on
 another printer. The outlines are measured from the rebuilt parts in
-print/ (Floor-all, NarrowYCryoConjoined, Wall-Base), so build those first.
+print/ (Floor-all, NarrowYCryoConjoined, Wall-Base; under --outdir when given), so build
+those first.
 
 Usage:  python plugs.py [--outdir ROOT] [--only CryoPlug,WallPlug,...]
 """
@@ -44,6 +45,7 @@ from build123d import Cylinder, Pos
 
 CAD = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(CAD), str(CAD / "wall")]
+import rqb_params  # noqa: E402
 from rqb_cad import OUTPUT, bbox_size, check_solid, export_part  # noqa: E402
 from floor_model import prism, top_chamfer  # noqa: E402
 from screw_nut import PARAMS as SCREW  # noqa: E402
@@ -75,15 +77,18 @@ HOLES = dict(
 
 
 @functools.cache
-def load(path):
-    return trimesh.load(OUTPUT / path, force="mesh")
+def load(root, path):
+    """Mesh of a built part, back in unscaled mm (the STLs in print/ have
+    rqb_params.SCALE applied, and export_part applies it to the plugs)."""
+    m = trimesh.load(Path(root) / path, force="mesh")
+    return m.apply_scale(1 / rqb_params.SCALE)
 
 
-def hole(spec):
+def hole(spec, root=OUTPUT):
     """The hole of the part's section at z that contains point `pt`,
-    moved so that `pt` is the origin."""
+    moved so that `pt` is the origin. Parts are read from `root`."""
     path, z, pt = spec
-    for loop in load(path).section([0, 0, 1], [0, 0, z]).discrete:
+    for loop in load(root, path).section([0, 0, 1], [0, 0, z]).discrete:
         p = sg.Polygon(loop[:, :2])
         if p.contains(sg.Point(pt)) and p.area < 2000:
             return sa.translate(p.buffer(0), -pt[0], -pt[1])
@@ -154,12 +159,13 @@ def with_plates(plug, plates, prm=PARAMS):
 
 
 def main():
+    """Build the plugs named in --only from the parts under --outdir (or print/)."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--outdir", help="output root (default ../../print)")
     ap.add_argument("--only", default="CryoPlug,CryoPlugTest,WallPlug,WallPlugTest")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
-    holes = {k: hole(v) for k, v in HOLES.items()}
+    holes = {k: hole(v, a.outdir or OUTPUT) for k, v in HOLES.items()}
     cryo = functools.cache(lambda: cryo_plug(holes))
     wall = functools.cache(lambda: wall_plug(holes))
     builds = {
