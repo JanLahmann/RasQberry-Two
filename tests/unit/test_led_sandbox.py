@@ -117,9 +117,12 @@ def test_only_the_display_and_sound_sockets_of_the_runtime_folder():
     sh = open(_COMMON).read()
     mounts = sh[sh.index("_RQ_LED_MOUNTS='"):]
     mounts = mounts[:mounts.index("exec \"$@\"'")]
-    assert 'mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID" tmpfs "$rt"' in mounts
-    keep = mounts[mounts.index("for f in "):].split("\n", 1)[0]
-    assert {w.rstrip(";") for w in keep.split()[3:-1]} == {"wayland-0", "wayland-0.lock", "pipewire-0", "pipewire-0.lock", "pulse"}
-    assert "mount --bind /dev/null /run/dbus/system_bus_socket" in mounts
+    assert 'mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID,size=64m' in mounts
+    keep = mounts[mounts.index('for f in "$RQ_LED_RT_WAYLAND"'):].split("\n", 1)[0]
+    assert {w.rstrip(";") for w in keep.split()[3:-1]} == {'"$RQ_LED_RT_WAYLAND"', "pipewire-0", "pulse"}
+    assert '[ ! -L "$rt/$f" ]' in mounts                      # symlinks there are not followed
+    # the system bus goes before anything is bound
+    assert mounts.index("/run/dbus/system_bus_socket") < mounts.index('mount --bind "$rt/$f"')
     call = sh[sh.index("rq_led_as_user() {"):]
-    assert 'RQ_LED_RT="${rt:-/run/user/$uid}"' in call[:call.index("\n}\n")]
+    body = call[:call.index("\n}\n")]
+    assert 'RQ_LED_RT="$rt"' in body and 'XDG_RUNTIME_DIR="$rt"' in body
