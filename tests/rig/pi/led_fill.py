@@ -71,9 +71,9 @@ def parse(argv):
 
 def light_corners(rq_led_utils, pixels, color, expect=None):
     """
-    Light a block in each corner of the configured layout's matrix: 3x3 at the
-    origin (0, 0), 2x2 in the other corners, so a mirrored or upside-down
-    layout shows on the camera too.
+    Light a block in each corner of the configured layout's matrix: 3x3 and red
+    at the origin (0, 0), 2x2 in the color given in the other corners, so a
+    mirrored or upside-down layout shows on the camera too.
 
     Args:
         expect (str): layout name the rig expects; compared by mapping, so a
@@ -88,11 +88,12 @@ def light_corners(rq_led_utils, pixels, color, expect=None):
         raise RuntimeError("no LED layout resolved")
     w, h = rq_led_utils.matrix_size(layout)
     pixels.fill((0, 0, 0))
-    for xs, ys in (((0, 1, 2), (0, 1, 2)), ((w - 2, w - 1), (0, 1)),
-                   ((0, 1), (h - 2, h - 1)), ((w - 2, w - 1), (h - 2, h - 1))):
+    origin = (max(color), 0, 0)        # red: the camera tells it apart at any angle
+    for xs, ys, c in (((0, 1, 2), (0, 1, 2), origin), ((w - 2, w - 1), (0, 1), color),
+                      ((0, 1), (h - 2, h - 1), color), ((w - 2, w - 1), (h - 2, h - 1), color)):
         for x in xs:
             for y in ys:
-                rq_led_utils.set_xy(pixels, x, y, color, layout)
+                rq_led_utils.set_xy(pixels, x, y, c, layout)
     report = f"layout {layout['name']}"
     if expect:
         other = rq_led_utils.get_layout(expect)

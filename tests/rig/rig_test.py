@@ -291,6 +291,45 @@ def fresh_baseline(pis, camera, dest):
 
 
 LIT_DELTA = 40   # grey levels brighter than the baseline: "clearly lit"
+# The corner pattern, judged inside panel_crop (fractions of the crop): each
+# corner block must light its own quarter's outer part, the origin's block
+# (3x3, the others 2x2) top left; the band between them must stay mostly dark.
+MIDDLE_X, MIDDLE_Y = (0.3, 0.7), (0.4, 0.6)
+CORNER_MIN_SHARE = 0.05    # of the lit samples, in each corner
+ORIGIN_MIN_REDNESS = 10    # the red origin block: top left this much redder than the next corner
+MIDDLE_MAX_SHARE = 0.2     # of the lit samples, between the corners
+SAMPLES = (96, 32)         # about 4 per LED of a 24x8 panel
+SAMPLE_LIT = 0.05          # share of a sample's camera pixels that must be lit
+MIN_LIT_SAMPLES = 20       # fewer: the pattern is not out (or the panel is dark)
+FIND_GRID = (160, 90)      # samples over the whole frame when looking for the panel
+FIND_LEVEL = 0.08          # top (bottom) blocks level, left (right) blocks aligned: share of the frame
+FIND_MAX_BLOB = 0.03       # a blob bigger than this share of the frame is no LED block (light, a screen)
+CROP_MARGIN = 0.02         # around the corner blocks, as a share of the frame
+MOVED_OVERLAP = 0.8        # the found panel overlaps rig.json's crop less: the camera moved
+
+
+def overlap(a, b):
+    """Intersection over union of two [x1, y1, x2, y2] boxes."""
+    iw = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    ih = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = iw * ih
+    area = lambda r: (r[2] - r[0]) * (r[3] - r[1])
+    return inter / max(1e-9, area(a) + area(b) - inter)
+
+
+def lit_samples(frame, baseline, crop, size):
+    """
+    Which samples of the crop are lit: per camera pixel as lit_score judges,
+    then a sample counts when SAMPLE_LIT of its pixels are.
+
+    Returns:
+        PIL.Image: size, 255 = lit sample, 0 = dark
+    """
+    from PIL import Image
+    lit_px = lit_diff(frame, baseline, crop).point(lambda v: 255 if v >= LIT_DELTA else 0)
+    return lit_px.resize(size, Image.BOX).point(lambda v: 255 if v >= 255 * SAMPLE_LIT else 0)
+
+
 
 
 def lit_diff(frame, baseline, crop):
@@ -302,19 +341,39 @@ def lit_diff(frame, baseline, crop):
     return ImageChops.subtract(a.crop(box), b.crop(box))
 
 
+def redness(frame, baseline, crop, size):
+    """
+    Per sample of the crop: how much redder than the baseline it got
+    (red minus the mean of green and blue), for the red origin block.
+
+    Returns:
+        list: one value per sample, row by row
+    """
+    from PIL import Image, ImageChops
+    a, b = Image.open(frame).convert("RGB"), Image.open(baseline).convert("RGB")
+    w, h = a.size
+    box = tuple(int(v * (w if i % 2 == 0 else h)) for i, v in enumerate(crop))
+    r, g, bl = ImageChops.subtract(a.crop(box), b.crop(box)).resize(size, Image.BOX).split()
+    return [rv - (gv + bv) / 2 for rv, gv, bv in zip(r.getdata(), g.getdata(), bl.getdata())]
+
+
 def lit_score(frame, baseline, crop):
     """
-    How much brighter the panel region is than with the LEDs off.
+    How much of the panel region is lit, compared with the LEDs off: the share
+    of LED-sized samples (SAMPLES) that brightened. Per camera pixel, a dim
+    pattern of a few LEDs (Lights Out's grid) scored "dark" in daylight: a lit
+    dot covers only a few pixels, and in daylight only some of them clear
+    LIT_DELTA.
 
     Args:
         frame, baseline (Path): camera frames with the demo running / LEDs off.
         crop (list): [x1, y1, x2, y2] as fractions of the frame size.
 
     Returns:
-        float: share of pixels in the crop that got clearly brighter (0..1).
+        float: share of the samples in the crop that lit up (0..1).
     """
-    hist = lit_diff(frame, baseline, crop).histogram()
-    return sum(hist[LIT_DELTA:]) / max(1, sum(hist))
+    data = lit_samples(frame, baseline, crop, SAMPLES).getdata()
+    return sum(1 for v in data if v) / len(data)
 
 
 # ----------------------------------------------------------------------------
@@ -677,120 +736,120 @@ def launch_holder(pi, hold, pattern):
         timeout=60)
 
 
-# The corner pattern, judged inside panel_crop (fractions of the crop): each
-# corner block must light its own quarter's outer part, the origin's block
-# (3x3, the others 2x2) top left; the band between them must stay mostly dark.
-MIDDLE_X, MIDDLE_Y = (0.3, 0.7), (0.4, 0.6)
-CORNER_MIN_SHARE = 0.05    # of the lit samples, in each corner
-ORIGIN_MIN_RATIO = 1.4     # top left vs. the mean of the other corners (ideal 9/4)
-MIDDLE_MAX_SHARE = 0.2     # of the lit samples, between the corners
-SAMPLES = (96, 32)         # about 4 per LED of a 24x8 panel
-SAMPLE_LIT = 0.05          # share of a sample's camera pixels that must be lit
-MIN_LIT_SAMPLES = 20       # fewer: the pattern is not out (or the panel is dark)
-
-
 def corners_in_crop(frame, baseline, crop):
     """
     Judge the corner pattern against panel_crop.
 
     A stale crop misses a corner; a layout that doesn't match the wiring puts
-    the blocks elsewhere, or the origin's big block in another corner (mirrored
+    the blocks elsewhere, or the origin's red block in another corner (mirrored
     or upside down). Reflections on the table are outside the crop.
 
     Returns:
         tuple: (True/False, or None while nothing is lit; str: what the camera saw)
     """
-    from PIL import Image
-    # lit per camera pixel (as lit_score judges), then the share per sample
-    lit_px = lit_diff(frame, baseline, crop).point(lambda v: 255 if v >= LIT_DELTA else 0)
     w, h = SAMPLES
-    shares = lit_px.resize(SAMPLES, Image.BOX).getdata()
-    lit = [(i % w / w, i // w / h) for i, v in enumerate(shares) if v >= 255 * SAMPLE_LIT]
+    red = redness(frame, baseline, crop, SAMPLES)
+    lit = [(i % w / w, i // w / h, red[i]) for i, v in enumerate(lit_samples(frame, baseline, crop, SAMPLES).getdata()) if v]
     if len(lit) < MIN_LIT_SAMPLES:
         return None, f"panel dark inside the crop ({len(lit)} lit samples)"
-    corners = [[0, 0], [0, 0]]   # [bottom][right]
+    corners = [[[], []], [[], []]]   # [bottom][right]: the redness of each lit sample
     middle = 0
-    for fx, fy in lit:
+    for fx, fy, rv in lit:
         if MIDDLE_X[0] < fx < MIDDLE_X[1] or MIDDLE_Y[0] < fy < MIDDLE_Y[1]:
             middle += 1
         else:
-            corners[fy >= 0.5][fx >= 0.5] += 1
+            corners[fy >= 0.5][fx >= 0.5].append(rv)
     dark = [f"{('top', 'bottom')[r]}-{('left', 'right')[c]}"
-            for r in (0, 1) for c in (0, 1) if corners[r][c] < CORNER_MIN_SHARE * len(lit)]
+            for r in (0, 1) for c in (0, 1) if len(corners[r][c]) < CORNER_MIN_SHARE * len(lit)]
     if dark:
         return False, f"no corner block in the crop's {', '.join(dark)}"
     if middle > MIDDLE_MAX_SHARE * len(lit):
         return False, f"{middle / len(lit):.0%} of the light between the corners"
-    others = (corners[0][1] + corners[1][0] + corners[1][1]) / 3
-    if corners[0][0] < ORIGIN_MIN_RATIO * others:
-        return False, "the origin's big block is not top left: the layout is mirrored or upside down"
+    mean = [sum(c) / len(c) for row in corners for c in row]   # TL, TR, BL, BR
+    if mean[0] < max(mean[1:]) + ORIGIN_MIN_REDNESS:
+        return False, "the red origin block is not top left: the layout is mirrored or upside down"
     return True, "a block in each corner of the crop, the origin's top left"
+
+
+def lit_blobs(on):
+    """
+    Groups of lit samples, joined across the gaps between one LED block's dots
+    (a sample next to a lit one bridges them).
+
+    Returns:
+        list: each blob a list of (x, y) lit samples
+    """
+    from PIL import ImageFilter
+    w, h = on.size
+    near, on = on.filter(ImageFilter.MaxFilter(3)).load(), on.load()
+    seen, blobs = set(), []
+    for start in ((x, y) for y in range(h) for x in range(w)):
+        if not near[start] or start in seen:
+            continue
+        blob, todo = [], [start]
+        seen.add(start)
+        while todo:
+            cx, cy = todo.pop()
+            if on[cx, cy]:
+                blob.append((cx, cy))
+            for n in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                if 0 <= n[0] < w and 0 <= n[1] < h and n not in seen and near[n]:
+                    seen.add(n)
+                    todo.append(n)
+        if blob:
+            blobs.append(blob)
+    return blobs
 
 
 def find_panel(frame, baseline):
     """
-    Find the corner pattern anywhere in the frame (the camera moved, the crop
-    went stale): the four biggest lit blobs, two above two, give the panel.
+    The panel from the corner pattern, anywhere in the frame: the four
+    brightest blobs, two level above two level. The camera may have moved
+    since rig.json's panel_crop was set.
 
     Returns:
-        list or None: a new panel_crop [x1, y1, x2, y2] (with a small margin),
-            None if four corner blocks can't be told apart.
+        list or None: a panel_crop [x1, y1, x2, y2], None if four corner
+            blocks can't be told apart
     """
-    from PIL import Image, ImageFilter
-    w, h = 160, 90
-    diff = lit_diff(frame, baseline, [0, 0, 1, 1])
-    lit = diff.point(lambda v: 255 if v >= LIT_DELTA else 0).resize((w, h), Image.BOX)
-    level = diff.resize((w, h), Image.BOX).load()                  # how bright: LEDs beat reflections
-    near = lit.point(lambda v: 255 if v >= 255 * SAMPLE_LIT else 0).filter(ImageFilter.MaxFilter(3)).load()
-    lit = lit.load()
-    seen, blobs = set(), []
-    for y in range(h):
-        for x in range(w):
-            if not near[x, y] or (x, y) in seen:
-                continue
-            # a blob: lit cells joined across the gaps between one block's LEDs
-            blob, todo = [], [(x, y)]
-            seen.add((x, y))
-            while todo:
-                cx, cy = todo.pop()
-                if lit[cx, cy] >= 255 * SAMPLE_LIT:
-                    blob.append((cx, cy))
-                for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
-                    if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and near[nx, ny]:
-                        seen.add((nx, ny))
-                        todo.append((nx, ny))
-            if blob:
-                blobs.append(blob)
-    blobs = sorted(blobs, key=lambda b: sum(level[c] for c in b), reverse=True)[:4]
+    from PIL import Image
+    w, h = FIND_GRID
+    level = lit_diff(frame, baseline, [0, 0, 1, 1]).resize(FIND_GRID, Image.BOX).load()
+    # brightest on average first: LEDs beat reflections; big changed areas are no LED block
+    blobs = sorted((b for b in lit_blobs(lit_samples(frame, baseline, [0, 0, 1, 1], FIND_GRID))
+                    if len(b) <= FIND_MAX_BLOB * w * h),
+                   key=lambda b: sum(level[c] for c in b) / len(b), reverse=True)[:4]
     if len(blobs) < 4:
         return None
-    centre = lambda b: (sum(c[0] for c in b) / len(b), sum(c[1] for c in b) / len(b))
-    top, bottom = (sorted(pair, key=lambda b: centre(b)[0])
-                   for pair in (sorted(blobs, key=lambda b: centre(b)[1])[:2], sorted(blobs, key=lambda b: centre(b)[1])[2:]))
-    # a rectangle: the top pair level, the bottom pair level, left above left
-    if max(abs(centre(top[0])[1] - centre(top[1])[1]), abs(centre(bottom[0])[1] - centre(bottom[1])[1])) > h * 0.08:
+    centres = sorted((sum(c[0] for c in b) / len(b) / w, sum(c[1] for c in b) / len(b) / h) for b in blobs)
+    left, right = sorted(centres[:2], key=lambda c: c[1]), sorted(centres[2:], key=lambda c: c[1])
+    # a rectangle: left over left and right over right, top pair and bottom pair level
+    if (abs(left[0][0] - left[1][0]) > FIND_LEVEL or abs(right[0][0] - right[1][0]) > FIND_LEVEL
+            or abs(left[0][1] - right[0][1]) > FIND_LEVEL or abs(left[1][1] - right[1][1]) > FIND_LEVEL):
         return None
-    xs = [c[0] for b in blobs for c in b]
-    ys = [c[1] for b in blobs for c in b]
-    margin = 0.02
-    return [round(max(0.0, min(xs) / w - margin), 3), round(max(0.0, min(ys) / h - margin), 3),
-            round(min(1.0, (max(xs) + 1) / w + margin), 3), round(min(1.0, (max(ys) + 1) / h + margin), 3)]
+    cells = [c for b in blobs for c in b]
+    box = (min(c[0] for c in cells) / w - CROP_MARGIN, min(c[1] for c in cells) / h - CROP_MARGIN,
+           (max(c[0] for c in cells) + 1) / w + CROP_MARGIN, (max(c[1] for c in cells) + 1) / h + CROP_MARGIN)
+    return [round(min(1.0, max(0.0, v)), 3) for v in box]
 
 
 def corner_pattern(pi, camera, baseline, crop, want, frame):
     """
-    Light the corner pattern (led_fill.py --corners) and judge it.
+    Light the corner pattern (led_fill.py --corners), find the panel in the
+    camera frame and judge the pattern there.
 
     Returns:
-        tuple: (match of led_fill's layout line or None, corners_in_crop's result)
+        tuple: (match of led_fill's layout line or None, led_fill's log,
+                the crop it was judged in, corners_in_crop's result)
     """
     expect = f"--expect {shlex.quote(want)} " if want else ""
     seen = (None, "no camera or panel_crop")
     try:
-        launch_holder(pi, 60, f"--corners {expect}80 80 80")
+        launch_holder(pi, 60, f"--corners {expect}200 200 200")
         end = time.time() + 20
         while baseline and time.time() < end:
-            seen = corners_in_crop(camera.grab(frame), baseline, crop)
+            camera.grab(frame)
+            crop = find_panel(frame, baseline) or crop
+            seen = corners_in_crop(frame, baseline, crop)
             if seen[0] is not None:
                 break
         # without the camera: wait until led_fill.py has reported the layout
@@ -798,87 +857,101 @@ def corner_pattern(pi, camera, baseline, crop, want, frame):
     finally:
         stop_holder(pi)
     _, log = ssh(pi["host"], f"cat {REMOTE_DIR}/led_fill.log; {CLEAR_LEDS}", timeout=60)
-    return re.search(r"^led_fill: corners, layout (\S+?)(?:, matches \S+: (yes|no))?$", log, re.M) or log, seen
+    m = re.search(r"^led_fill: corners, layout (\S+?)(?:, matches \S+: (yes|no))?$", log, re.M)
+    return m, log, crop, seen
+
+
+def led_layout_setting(pi):
+    """The Pi's LED_LAYOUT line as written (None: not set), to put back exactly."""
+    rc, out = ssh(pi["host"], f"grep -m1 '^LED_LAYOUT=' {ENV_FILE}", timeout=60)
+    return out.strip() if rc == 0 and out.strip() else None
 
 
 def set_led_layout(pi, layout):
-    """Set the Pi's LED_LAYOUT (as the LED setup wizard does) and mark it verified."""
-    ssh(pi["host"], f"sudo bash -c '. /usr/bin/rq_common.sh && update_env_var LED_LAYOUT {shlex.quote(layout)} "
-                    f"&& update_env_var LED_LAYOUT_VERIFIED true'", timeout=60, check=True)
-
-
-def save_panel_crop(config, name, crop):
-    """Write a Pi's new panel_crop into rig.json (the old file kept as rig.json.bak)."""
-    path = Path(config)
-    data = json.loads(path.read_text())
-    path.with_name(path.name + ".bak").write_text(path.read_text())
-    for p in data["pis"]:
-        if p["name"] == name:
-            p["panel_crop"] = crop
-    path.write_text(json.dumps(data, indent=2) + "\n")
-
-
-def check_led_setup(pi, camera, outdir, all_pis, config):
     """
-    Before a Pi's LED demos: does its LED layout map like the one rig.json
-    expects, and do the panel's corners sit in the corners of its panel_crop,
-    the right way round? A stale crop made lit demos look dark; a wrong layout
-    drew Lights Out's grid in one corner and still counted as lit.
+    Set the Pi's LED_LAYOUT; layout None removes the line, a "LED_LAYOUT=..."
+    line is put back as it was. LED_LAYOUT_VERIFIED stays: it drives the
+    first-login check.
+    """
+    if layout is None:
+        cmd = f"sudo sed -i '/^LED_LAYOUT=/d' {ENV_FILE}"
+    elif layout.startswith("LED_LAYOUT="):
+        cmd = (f"sudo sed -i '/^LED_LAYOUT=/d' {ENV_FILE} && "
+               f"echo {shlex.quote(layout)} | sudo tee -a {ENV_FILE} >/dev/null")
+    else:
+        cmd = f"sudo bash -c '. /usr/bin/rq_common.sh && update_env_var LED_LAYOUT {shlex.quote(layout)}'"
+    ssh(pi["host"], cmd, timeout=60, check=True)
 
-    It repairs what it can: a wrong layout is set to rig.json's (and put back
-    if the panel then looks no better), a stale crop is found again from the
-    corner pattern and written to rig.json. Each repair is a WARN row.
+
+def layout_row(m, log, want):
+    """The report row for the layout led_fill.py resolved on the Pi."""
+    if not m:
+        return {"verdict": "FAIL", "name": "led-setup: layout",
+                "detail": f"led_fill.py reported no layout: {log.strip()[-160:] or 'no output'}"}
+    if not want:
+        return {"verdict": "WARN", "name": "led-setup: layout",
+                "detail": f"Pi has {m.group(1)}; put \"led_layout\" into rig.json to check it"}
+    if m.group(2) == "yes":
+        return {"verdict": "PASS", "name": "led-setup: layout",
+                "detail": m.group(1) + ("" if m.group(1) == want else f" (maps like {want})")}
+    return {"verdict": "FAIL", "name": "led-setup: layout", "detail": f"Pi has {m.group(1)}, rig.json expects {want}"}
+
+
+def check_led_setup(pi, camera, outdir, all_pis):
+    """
+    Before a Pi's LED demos: does its LED layout map like rig.json's, and do
+    the corner blocks sit in the panel's corners, the right way round? A wrong
+    layout drew Lights Out's grid in one corner and still counted as lit.
+
+    It repairs what it can, each repair a WARN row: the panel's crop is found
+    in the frame every run (a moved camera; rig.json's panel_crop is the
+    fallback), and a wrong layout is set to rig.json's, put back if the panel
+    then looks no better.
 
     Returns:
         tuple: (report rows, True if this Pi's LED demos can be judged by the camera)
     """
     want, crop = pi.get("led_layout"), pi.get("panel_crop")
     frame = outdir / f"{pi['name']}-setup-corners.png"
-    rows = []
+    repairs = []
     with PANEL_LOCK:
         baseline, _ = (fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-setup-baseline.png")
                        if camera and crop else (None, None))
-        m, seen = corner_pattern(pi, camera, baseline, crop, want, frame)
-        if isinstance(m, re.Match) and want and m.group(2) == "no":
-            old = m.group(1)
-            set_led_layout(pi, want)
-            m2, seen2 = corner_pattern(pi, camera, baseline, crop, want, frame)
-            # put the old one back only if the panel looked right with it and not now
-            looked_worse = bool(baseline) and seen[0] is True and seen2[0] is not True
-            if isinstance(m2, re.Match) and m2.group(2) == "yes" and not looked_worse:
-                rows.append({"verdict": "WARN", "name": "led-setup: layout repaired",
-                             "detail": f"LED_LAYOUT was {old}, set to {want} as rig.json says"})
-                m, seen = m2, seen2
+        m, log, found, seen = corner_pattern(pi, camera, baseline, crop, want, frame)
+        # only with the camera: it shows whether rig.json's layout draws right
+        if m and want and m.group(2) == "no" and baseline:
+            before = led_layout_setting(pi)
+            accepted = False
+            try:
+                set_led_layout(pi, want)
+                baseline, _ = fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-setup-baseline2.png")
+                m2, log2, found2, seen2 = corner_pattern(pi, camera, baseline, crop, want,
+                                                         outdir / f"{pi['name']}-setup-corners2.png")
+                # keep it unless the panel looked right before and doesn't now
+                accepted = bool(m2) and m2.group(2) == "yes" and not (seen[0] is True and seen2[0] is not True)
+            finally:
+                if not accepted:
+                    set_led_layout(pi, before)
+            if accepted:
+                repairs.append({"verdict": "WARN", "name": "led-setup: layout repaired",
+                                "detail": f"LED_LAYOUT was {m.group(1)}, set to {want} as rig.json says"})
+                m, log, found, seen = m2, log2, found2, seen2
             else:
-                set_led_layout(pi, old)
-                rows.append({"verdict": "WARN", "name": "led-setup: layout not repaired",
-                             "detail": f"{want} looked no better on the panel: {old} put back"})
-        if baseline and not seen[0]:
-            new = find_panel(frame, baseline)
-            fixed = new and corners_in_crop(frame, baseline, new)
-            if fixed and fixed[0]:
-                save_panel_crop(config, pi["name"], new)
-                rows.append({"verdict": "WARN", "name": "led-setup: crop repaired",
-                             "detail": f"panel_crop {crop} -> {new}, written to {Path(config).name}"})
-                pi["panel_crop"], seen = new, fixed
-    if not isinstance(m, re.Match):
-        rows.insert(0, {"verdict": "FAIL", "name": "led-setup: layout",
-                        "detail": f"led_fill.py reported no layout: {m.strip()[-160:] or 'no output'}"})
-    elif not want:
-        rows.insert(0, {"verdict": "WARN", "name": "led-setup: layout",
-                        "detail": f"Pi has {m.group(1)}; put \"led_layout\" into rig.json to check it"})
-    elif m.group(2) == "yes":
-        same = "" if m.group(1) == want else f" (maps like {want})"
-        rows.insert(0, {"verdict": "PASS", "name": "led-setup: layout", "detail": m.group(1) + same})
-    else:
-        rows.insert(0, {"verdict": "FAIL", "name": "led-setup: layout",
-                        "detail": f"Pi has {m.group(1)}, rig.json expects {want}"})
+                repairs.append({"verdict": "WARN", "name": "led-setup: layout not repaired",
+                                "detail": f"{want} looked worse on the panel: the Pi's setting put back"})
+    if seen[0] and found != crop:
+        # this run judges the Pi's LED demos in the crop found now; say so when it moved
+        pi["panel_crop"] = found
+    if seen[0] and crop and overlap(found, crop) < MOVED_OVERLAP:
+        repairs.append({"verdict": "WARN", "name": "led-setup: camera moved",
+                        "detail": f"panel found at {found}, rig.json has {crop}: used for this run"})
+    rows = [layout_row(m, log, want), *repairs]
     if baseline:
         ok, what = seen
         detail = what if ok else f"{what} ({frame.name}): " + (
             "the LED output, or the panel is out of the camera's view" if ok is None
-            else "could not repair it: check the camera and panel_crop")
-        rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the crop", "detail": detail})
+            else "check the camera and the Pi's LED wiring")
+        rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the panel", "detail": detail})
     # a dark panel is more likely the image's LED output than the rig: keep
     # judging, so the LED demos fail "panel dark" and point at it
     failed = [r for r in rows if r["verdict"] == "FAIL"]
@@ -1074,7 +1147,7 @@ def main():
                     try:
                         if any(d["leds"] for d in demos):
                             try:
-                                rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"], args.config)
+                                rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"])
                             except Exception as exc:   # the demos still run, unjudged
                                 rows, pi["led_setup_ok"] = [{"verdict": "FAIL", "name": "led-setup",
                                                              "detail": f"harness: {exc}"}], False

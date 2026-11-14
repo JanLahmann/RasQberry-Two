@@ -130,21 +130,24 @@ Before a Pi's LED demos, each run checks that this setup still holds (rows
   `quad-4x12` for the Pi 4 one); a differently named but identical layout
   passes. A wrong layout lights the panel but draws in the wrong place
   (Lights Out's grid in one corner), which the lit score alone does not see.
-- **corners in the crop:** a block in each corner of the logical matrix (3x3
-  at the origin, 2x2 elsewhere), mapped through the Pi's layout, must light
-  the four corners of `panel_crop`, the big one top left, with little in
+- **corners in the panel:** a block in each corner of the logical matrix
+  (3x3 and red at the origin, 2x2 white elsewhere), mapped through the Pi's
+  layout, must light the panel's four corners, the red one top left, with little in
   between. A crop that no longer frames the panel misses a corner; a layout
-  that doesn't match the wiring puts the blocks elsewhere or the big one in
+  that doesn't match the wiring puts the blocks elsewhere or the red one in
   another corner (mirrored, upside down).
 
 It repairs what it can, each repair a WARN row in the report:
 
-- a layout that doesn't map like rig.json's is set to rig.json's
-  (`LED_LAYOUT`, marked verified) and put back if the panel then looks no
-  better;
-- a crop that no longer frames the panel is found again from the corner
-  pattern anywhere in the frame (the four brightest blocks, two above two)
-  and written to rig.json (the old file kept as `rig.json.bak`).
+- the panel is found from the corner pattern anywhere in the frame (the four
+  brightest blocks, two above two) in every run, and that run's LED demos are
+  judged there: a moved camera needs no new `panel_crop`, which is only the
+  fallback;
+- with the camera, a layout that doesn't map like rig.json's is set to
+  rig.json's (`LED_LAYOUT`; `LED_LAYOUT_VERIFIED` stays as it was) and the
+  old setting put back if the panel looked right before and doesn't now.
+  A repaired layout is a WARN, not a pass: a new image that saves the wrong
+  layout shows up there.
 
 What it can't repair turns camera judging off for that Pi's LED demos (they
 would only give wrong results). A panel that stays dark and can't be found
