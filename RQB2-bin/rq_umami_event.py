@@ -118,6 +118,12 @@ DT_MODEL = "/proc/device-tree/model"
 MEMINFO = "/proc/meminfo"
 HEALTH_STATUS = "/var/lib/rasqberry-health-check.status"
 IMAGER_STATE = "/var/lib/rasqberry"
+# A card of our own (rig, tests) is marked right after writing it: an empty
+# file "rasqberry-internal" on the FAT partition a computer shows (CONFIG on
+# A/B cards, bootfs on standard ones). Such a card never counts, from its
+# very first start on; the marker survives slot updates.
+INTERNAL_MARKER = "rasqberry-internal"
+INTERNAL_DIRS = ("/boot/config", "/boot/firmware")
 
 LAST_REPLY = {}
 
@@ -141,8 +147,20 @@ def _env_file_value(key):
     return value
 
 
+def internal_card():
+    """True on a card we marked as ours (INTERNAL_MARKER): rig and test cards."""
+    dirs = os.environ.get("RQ_UMAMI_INTERNAL_DIRS")
+    return any(os.path.exists(os.path.join(d, INTERNAL_MARKER))
+               for d in (dirs.split(":") if dirs else INTERNAL_DIRS))
+
+
 def enabled():
-    """False when RQ_UMAMI is 0/false/no/off (environment, else the environment file)."""
+    """
+    False on a card marked as ours (internal_card), or when RQ_UMAMI is
+    0/false/no/off (environment, else the environment file).
+    """
+    if internal_card():
+        return False
     value = os.environ.get("RQ_UMAMI")
     if value is None:
         value = _env_file_value("RQ_UMAMI")

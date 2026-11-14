@@ -141,6 +141,7 @@ def pi(tmp_path, monkeypatch, umami):
            "RQ_IMAGER_STATE": str(tmp_path / "imager"),
            "RQ_SLOT_STATUS_FILE": str(tmp_path / "slot-status"),
            "RQ_SYSTEM_CACHE_DIR": str(tmp_path / "cache"), "RQ_SERIAL": SERIAL,
+           "RQ_UMAMI_INTERNAL_DIRS": f"{tmp_path / 'config'}:{tmp_path / 'firmware'}",
            "RQ_NOW": "2026-10-20T12:00:00Z"}
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -607,6 +608,20 @@ def test_rq_umami_0_in_the_environment_file(pi):
     assert pi.umami.requests == []
     (pi.tmp / "env").write_text('RQ_UMAMI="1"\n')
     assert pi.enabled()
+
+
+@pytest.mark.parametrize("partition", ["config", "firmware"])
+def test_a_card_marked_as_ours_never_counts(pi, monkeypatch, partition):
+    # rig and test cards: an empty file on the FAT partition, made right after
+    # writing the card, so even the first start of the card is not counted
+    (pi.tmp / partition).mkdir(exist_ok=True)
+    (pi.tmp / partition / "rasqberry-internal").write_text("")
+    monkeypatch.setenv("RQ_UMAMI", "1")
+    assert not pi.enabled()
+    _boot(pi)
+    pi.daily()
+    pi.main(["demo-start", "grok-bloch", "menu"])
+    assert pi.umami.requests == []
 
 
 def test_the_environment_variable_wins(pi, monkeypatch):
