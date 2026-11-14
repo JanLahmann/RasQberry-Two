@@ -45,7 +45,7 @@ PARTS = {
     "R2_Screw": "wall/R2_Screw",
     "R2_Hex_Nut": "wall/R2_Hex_Nut",
     **{f"R2_Floor-{t}": f"floor/R2_Floor-{t}"
-       for t in ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s", "all", "JointTest", "PlugTest")},
+       for t in ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s", "all", "JointTest", "BayonetTest")},
     **{f"R2_Floor-{t}": f"floor/Sign Magnet Indent Version/R2_Floor-{t}"
        for t in ("Tile1Mag", "Tile2Mag")},
     # Jan's modifications (originals: 3D Model - modifications - Jan/October 2025[ - no-floor])
