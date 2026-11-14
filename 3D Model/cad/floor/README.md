@@ -49,9 +49,9 @@ behind its skirt and is lowered onto them. Its plate covers the tabs.
 
 ## How it is built
 
-The numbers (plate, chamfer, groove, pin and magnet sizes, cable hole) are
-in `PARAMS`; the grooves and the cable hole per tile in `TILES`. The
-outlines that are not simple numbers (plate with its key notches, skirt,
+The numbers (plate, chamfer, groove, dovetail and magnet sizes, cable hole) are
+in `PARAMS`; the grooves and the cable hole per tile in `TILES`, the joints in
+`SEAMS`. The outlines that are not simple numbers (plate with its key notches, skirt,
 tile numbers, the sign) were measured from the originals by
 `extract_floor.py` into `floor_profiles.json`. Coordinates within 0.05 mm
 of a tile edge are snapped onto it (SketchUp left some seam walls 0.025 mm

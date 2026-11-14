@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 import shapely.geometry as sg
-from build123d import (Axis, Box, Cylinder, Face, Plane, Polygon, Pos, Rot, Wire, chamfer,
+from build123d import (Axis, Cylinder, Face, Plane, Polygon, Pos, Rot, Wire, chamfer,
                        extrude)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -47,7 +47,8 @@ PARAMS = dict(
     # dovetail joints (see joint()): neck and head width, length beyond
     # the seam, clearance all round in the socket, gap under the plate
     # above the tab, overhang of the tab's sloped top (deg from vertical,
-    # as printed plate-down)
+    # as printed plate-down). Separate from rqb_params.DOVETAIL/CLEARANCE
+    # (the wall keys): 0.05 comes from test prints of these joints.
     tail_neck=7.0, tail_head=11.0, tail_len=5.5, tail_clearance=0.05,
     tail_gap=0.3, tail_overhang=45.0, socket_wall=2.5,
     magnet_d=15.93, magnet_depth=1.0,
@@ -63,9 +64,20 @@ TILES = {
     "Tile1Mag": {}, "Tile2Mag": {},
 }
 ALL = ("Tile1", "Tile2", "Tile3", "Tile4", "Tile5", "Tile6s")
-# laying order: on every joint the earlier tile has the tab, the later one
-# the socket (its plate covers the tab, so it goes on last)
-ORDER = {t: i for i, t in enumerate(ALL)} | {"Tile1Mag": 0, "Tile2Mag": 1}
+# Dovetail joints: (tab tile, socket tile, seam axis, seam at, positions
+# along the seam), at the original's alignment-pin holes (both skirts are
+# there). The tab tile is laid first: the socket tile's plate covers the
+# tab, so it goes on last - hence the tiles go down in number order.
+# Mag tiles take the joints of their base tile.
+SEAMS = [
+    ("Tile1", "Tile2", "x", 130.0, (30.6, 85.7)),
+    ("Tile1", "Tile3", "y", 130.0, (184.8, 232.9)),
+    ("Tile2", "Tile4", "y", 130.0, (27.2, 75.7)),
+    ("Tile3", "Tile4", "x", 130.0, (194.9, 236.3)),
+    ("Tile3", "Tile5", "y", 260.0, (156.5, 233.5)),
+    ("Tile4", "Tile6s", "y", 260.0, (26.5, 103.5)),
+    ("Tile5", "Tile6s", "x", 130.0, (285.8, 361.5)),
+]
 # In R2_Floor-all the corner chamfers of Tile5 and Tile6s meet in a single
 # vertical line, which makes the fused mesh non-manifold; a 0.1 mm square
 # post fills that line (invisible).
@@ -184,26 +196,20 @@ def groove(axis, v, box, prm, ends=(True, True)):
 
 
 def joints(name):
-    """Joints of a tile: where the original had its alignment-pin holes
-    (both skirts are there). Yields (x, y, direction, kind): the point on
+    """Joints of a tile from SEAMS: (x, y, direction, kind) - the point on
     the seam, the direction (dx, dy) the tail points (from the tab tile
-    into the socket tile), and "tab" or "socket"."""
-    b = PROFILES[name]["bounds"]
-    cx, cy = (b[0] + b[3]) / 2, (b[1] + b[4]) / 2
-    for pin in PROFILES[name]["pins"]:
-        x, y = pin["x"], pin["y"]
-        if pin["axis"] == "x":            # seam x = const
-            x = round(x / 130) * 130
-            d = (1 if x > cx else -1, 0)
-        else:
-            y = round(y / 130) * 130
-            d = (0, 1 if y > cy else -1)
-        px, py = x + d[0] * 1, y + d[1] * 1
-        other = next(t for t in ALL if PROFILES[t]["bounds"][0] < px < PROFILES[t]["bounds"][3]
-                     and PROFILES[t]["bounds"][1] < py < PROFILES[t]["bounds"][4])
-        tab = ORDER[name] < ORDER[other]
-        # the tail always points from the tab tile into the socket tile
-        yield round(x, 1), round(y, 1), d if tab else (-d[0], -d[1]), "tab" if tab else "socket"
+    into the socket tile) and "tab" or "socket"."""
+    base = name.removesuffix("Mag")
+    for tab, sock, axis, at, positions in SEAMS:
+        if base not in (tab, sock):
+            continue
+        b = PROFILES[sock]["bounds"]
+        centre = (b[0] + b[3]) / 2 if axis == "x" else (b[1] + b[4]) / 2
+        sign = 1 if centre > at else -1
+        d = (sign, 0) if axis == "x" else (0, sign)
+        for v in positions:
+            x, y = (at, v) if axis == "x" else (v, at)
+            yield x, y, d, "tab" if base == tab else "socket"
 
 
 def joint(kind, prm):
@@ -216,8 +222,11 @@ def joint(kind, prm):
     tab:    the tail plus its root in the tile's own skirt (u -wall..0).
             Its top slopes down from just under the neighbour's plate at
             `tail_overhang` deg, so it prints plate-down without support.
-    socket: (block, cut) - a block behind the skirt, fused to the plate,
-            and the tail's shape plus `tail_clearance` cut out of it.
+    socket: a block behind the skirt, fused to the plate, and the tail's
+            shape plus `tail_clearance` cut out of it (and out of the
+            tile's skirt, hence a separate cut).
+
+    Returns (add, cut); cut is None for the tab.
     """
     n, h, L = prm["tail_neck"] / 2, prm["tail_head"] / 2, prm["tail_len"]
     H, plate, w = prm["height"], prm["plate"], prm["wall"]
@@ -229,7 +238,7 @@ def joint(kind, prm):
         side = sg.Polygon([(-w, -H), (-w, -plate + 0.01), (u0, -plate + 0.01),
                            (L, z0 - k * L), (L, -H)])
         prof = extrude(Plane.XZ * Polygon(*side.exterior.coords[:-1], align=None), h + 1, both=True)
-        return prism(plan, -H, -plate + 0.01) & prof
+        return prism(plan, -H, -plate + 0.01) & prof, None
     c = prm["tail_clearance"]
     cut = sg.Polygon([(-1, -n), (0, -n), (L, -h), (L, h), (0, n), (-1, n)]) \
         .buffer(c, join_style=2)
@@ -243,7 +252,8 @@ def place(solid, x, y, d):
     return Pos(x, y, 0) * Rot(0, 0, ang) * solid
 
 
-def build(name, prm=PARAMS, with_joints=True):
+def build_base(name, prm=PARAMS):
+    """A tile without its joints (R2_Floor-all fuses these)."""
     spec = TILES[name]
     data = PROFILES[name]
     # nominal tile square (the floor is a 130 mm grid)
@@ -263,17 +273,22 @@ def build(name, prm=PARAMS, with_joints=True):
         depth = prm["magnet_depth"]
         body -= Pos(mg["x"], mg["y"], -prm["plate"] + depth / 2 - 0.01) * \
             Cylinder(prm["magnet_d"] / 2, depth + 0.02)
-    if with_joints:
-        cuts = []
-        for x, y, d, kind in joints(name):
-            if kind == "tab":
-                body += place(joint("tab", prm), x, y, d)
-            else:
-                block, cut = joint("socket", prm)
-                body += place(block, x, y, d)
-                cuts.append(place(cut, x, y, d))
-        for c in cuts:
-            body -= c
+    return body.clean()
+
+
+def add_joints(body, name, prm=PARAMS):
+    """The tile with its dovetail tabs and sockets."""
+    shapes = {k: joint(k, prm) for k in ("tab", "socket")}
+    adds, cuts = [], []
+    for x, y, d, kind in joints(name):
+        add, cut = shapes[kind]
+        adds.append(place(add, x, y, d))
+        if cut is not None:
+            cuts.append(place(cut, x, y, d))
+    if adds:
+        body = body.fuse(*adds)
+    if cuts:
+        body = body.cut(*cuts)
     return body.clean()
 
 
@@ -300,7 +315,7 @@ def joint_test(prm=PARAMS, clearances=JOINT_TEST_CLEARANCES):
     out = None
     for i, c in enumerate(clearances):
         q = dict(prm, tail_clearance=c)
-        tab = piece(0, depth, 0, i + 1) + place(joint("tab", q), 0, 0, (-1, 0))
+        tab = piece(0, depth, 0, i + 1) + place(joint("tab", q)[0], 0, 0, (-1, 0))
         block, cut = joint("socket", q)
         sock = piece(-depth, 0, -w, i + 1) + place(block, 0, 0, (-1, 0)) - place(cut, 0, 0, (-1, 0))
         pair = Pos(5, 40 * i, 0) * flip(tab) + Pos(-5, 40 * i, 0) * flip(sock)
@@ -314,34 +329,35 @@ def main():
     ap.add_argument("--only", help="comma-separated tiles, e.g. Tile1,all")
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
-    names = a.only.split(",") if a.only else list(TILES) + ["all", "JointTest"]
+    names = a.only.split(",") if a.only else list(TILES) + list(EXTRAS)
     fmts = tuple(a.formats.split(","))
-    tiles = {}
+    bases = {}
     for name in names:
-        if name in ("all", "JointTest"):
-            continue
-        tiles[name] = part = build(name)
-        vol = check_solid(part, name)
+        if name in EXTRAS:
+            part = EXTRAS[name](bases)
+        else:
+            bases[name] = build_base(name)
+            part = add_joints(bases[name], name)
+        pieces = part.solids() if name == "JointTest" else [part]   # test: several pieces
+        vol = sum(check_solid(sd, name) for sd in pieces)
         print("%s: size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (name, *bbox_size(part), vol))
         export_part(part, f"R2_Floor-{name}", root=a.outdir, formats=fmts)
-    if "all" in names:
-        whole = None
-        for name in ALL:
-            t = build(name, with_joints=False)   # one piece: no joints
-            whole = t if whole is None else whole + t
-        for x, y in ALL_BRIDGES:
-            whole += prism(sg.box(x - 0.05, y - 0.05, x + 0.05, y + 0.05),
-                           -PARAMS["height"], -PARAMS["top_chamfer"])
-        # R2_Floor-all stands on z = 0 (the tiles have their top at z = 0)
-        whole = Pos(0, 0, PARAMS["height"]) * whole.clean()
-        vol = check_solid(whole, "all")
-        print("all: size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(whole), vol))
-        export_part(whole, "R2_Floor-all", root=a.outdir, formats=fmts)
-    if "JointTest" in names:
-        part = joint_test()
-        vol = sum(check_solid(sd, "JointTest") for sd in part.solids())   # two pieces
-        print("JointTest: size %.2f x %.2f x %.2f mm, volume %.0f mm3" % (*bbox_size(part), vol))
-        export_part(part, "R2_Floor-JointTest", root=a.outdir, formats=fmts)
+
+
+def build_all(bases):
+    """R2_Floor-all: the six tiles in one piece (no joints), standing on z = 0."""
+    whole = None
+    for name in ALL:
+        t = bases.get(name) or build_base(name)
+        whole = t if whole is None else whole + t
+    for x, y in ALL_BRIDGES:
+        whole += prism(sg.box(x - 0.05, y - 0.05, x + 0.05, y + 0.05),
+                       -PARAMS["height"], -PARAMS["top_chamfer"])
+    return Pos(0, 0, PARAMS["height"]) * whole.clean()
+
+
+# parts that are not single tiles
+EXTRAS = {"all": build_all, "JointTest": lambda bases: joint_test()}
 
 
 if __name__ == "__main__":
