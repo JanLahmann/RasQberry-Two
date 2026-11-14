@@ -52,18 +52,9 @@ Write quantum programs and work through tutorials and courses.
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
 | **[Grokking the Bloch Sphere](/03-quantum-computing-demos/bloch-sphere/)** | Interactive Bloch sphere visualisation for understanding qubit states | network on first start | `grok-bloch` |
-| **doQumentation (IBM Quantum Learning on this Pi)** | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
 | **IBM Quantum Tutorials** | Official IBM Quantum tutorials from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-tutorials` |
 | **IBM Quantum Courses** | Official IBM Quantum learning courses from Qiskit documentation (CC BY-SA 4.0) | network on first start, IBM Quantum account optional | `ibm-courses` |
 | **IBM Quantum Composer** | Design and simulate quantum circuits in your web browser | display, network, IBM Quantum account optional | `composer` |
-
-## Workshops & events
-
-For a class or a stand: a loop of demos.
-
-| Demo | What it is | Needs | Start it with |
-|---|---|---|---|
-| **Workshop & Qiskit Server** | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
 
 ## Contributed demos
 
@@ -80,6 +71,8 @@ New and experimental demos: some things may not work yet. Try them and tell us w
 
 | Demo | What it is | Needs | Start it with |
 |---|---|---|---|
+| **Workshop & Qiskit Server** <span className="beta-tag">beta</span> | One Pi serves the IBM Quantum tutorials, guides and courses to a group's laptops on the same network; code runs on this Pi. Built on doQumentation (Docker image, downloaded on first start) | network, a 32 GB card, IBM Quantum account optional | `doqumentation` |
+| **doQumentation (IBM Quantum Learning on this Pi)** <span className="beta-tag">beta</span> | The IBM Quantum tutorials, guides and courses as a website just for you, with live Qiskit code on this Pi. The Workshop & Qiskit Server for one person, without the network | network on first start, a 32 GB card, IBM Quantum account optional | `qiskit-tutorials` |
 | **Quantum Paradoxes** <span className="beta-tag">beta</span> | Interactive Jupyter notebooks exploring quantum paradoxes and phenomena | network on first start, IBM Quantum account optional | `quantum-paradoxes` |
 | **Entangible** <span className="beta-tag">beta</span> | Build quantum circuits with printed gate tiles on a printed board: a camera reads them and the screen shows the circuit live; phones join over the network. Needs a USB webcam or the Pi camera | network on first start | `entangible` |
 | **Qiskit Live (QuBins)** <span className="beta-tag">beta</span> | Local JupyterLab quantum environment (QuBins signed community image) preloaded with the IBM Quantum Learning course notebooks (Docker container) | network, a 32 GB card | `quantum-lab` |
