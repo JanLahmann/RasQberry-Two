@@ -241,8 +241,12 @@ stop_portal() {
 }
 
 # The setup Wi-Fi's clients get the booth hotspot's rule for SSH and VNC
-# (admin_drop_rule, HOTSPOT_ALLOW_ADMIN): its password is public too
+# (admin_drop_rule, HOTSPOT_ALLOW_ADMIN): its password is public too. It is
+# set once, when the setup Wi-Fi opens (no screen, so nobody changes the
+# password meanwhile); if nft fails, the setup Wi-Fi still opens: it is the
+# only way into a Pi without a screen.
 client_rules_on() {
+    client_rules_off    # a table left by an earlier run would merge with this one
     {
         echo "table inet $SETUP_NFT_TABLE {"
         echo "    chain input {"
@@ -258,9 +262,9 @@ client_rules_off() {
 }
 
 cleanup() {
+    client_rules_off    # first: the service's ExecStopPost removes it too
     stop_portal
     led_scroll_stop
-    client_rules_off
 }
 
 main() {

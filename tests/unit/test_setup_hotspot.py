@@ -303,11 +303,18 @@ def test_known_wifi_with_accents_or_colons_is_found_in_the_scan(tmp_path):
 # --- review: the setup Wi-Fi's clients and SSH/VNC ---------------------------
 
 def test_setup_wifi_clients_get_the_booth_hotspots_ssh_vnc_rule():
-    rule = 'iifname "wlan0" tcp dport { 22, 5900 } drop'
-    out = _bash("admin_allowed() { return 1; }; nft() { cat; }; client_rules_on wlan0").stdout
+    rule = 'iifname "wlan0" tcp dport { 22, 5900 } reject with tcp reset'
+    # nft stub: records the calls; "-f -" prints the ruleset it gets
+    nft = 'nft() { echo "nft $*"; [ "$1" = -f ] && cat; true; }; '
+    out = _bash("admin_allowed() { return 1; }; " + nft + "client_rules_on wlan0").stdout
     assert "table inet rasqberry_setup_wifi" in out and rule in out
-    out = _bash("admin_allowed() { return 0; }; nft() { cat; }; client_rules_on wlan0").stdout
+    # an old table goes first, so an allowed rule doesn't merge with an old drop
+    assert out.index("nft delete table inet rasqberry_setup_wifi") < out.index("nft -f -")
+    out = _bash("admin_allowed() { return 0; }; " + nft + "client_rules_on wlan0").stdout
     assert "table inet rasqberry_setup_wifi" in out and "dport" not in out
+    unit = open(os.path.join(_ROOT, "RQB2-system", "etc", "systemd", "system",
+                             "rasqberry-setup-hotspot.service")).read()
+    assert "ExecStopPost=-/usr/sbin/nft delete table inet rasqberry_setup_wifi" in unit
     sh = open(_SCRIPT).read()
     main = sh[sh.index("main() {"):]
     assert main.index("client_rules_on") < main.index('"$WIFI_CONNECT" --portal-interface')

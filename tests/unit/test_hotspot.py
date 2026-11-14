@@ -428,7 +428,7 @@ def _rules(tmp_path, env=None, iptables_s=""):
 
 
 def test_ssh_and_vnc_from_the_hotspot_are_blocked_by_default(tmp_path):
-    drop = 'iifname "wlan0" tcp dport { 22, 5900 } drop'
+    drop = 'iifname "wlan0" tcp dport { 22, 5900 } reject with tcp reset'
     # auto (the default) with the demo password still on the desktop user
     demo = _accounts(tmp_path, {"rasqberry": YESCRYPT_DEMO})
     ruleset, _ = _rules(tmp_path, demo)

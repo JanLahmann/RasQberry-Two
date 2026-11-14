@@ -50,7 +50,8 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 #   sync: its firewall rules, Entangible's address, the landing page and its
 #     DNS follow whether the hotspot runs (NetworkManager hook 91-rasqberry-hotspot)
 #   iface: the Wi-Fi device the hotspot uses (or would use)
-#   admin: may devices on the hotspot use SSH and VNC? on|off, then the reason
+#   admin: may devices on the hotspot (and the first-boot setup Wi-Fi) use
+#          SSH and VNC? on|off, then the reason
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/rq_common.sh"
@@ -432,7 +433,8 @@ admin_allowed() {
 # SSH (22) and VNC (5900) unless admin_allowed - nothing when allowed. Also
 # used by the first-boot setup Wi-Fi (rq_setup_hotspot.sh).
 admin_drop_rule() {
-    admin_allowed || echo "        iifname \"$1\" tcp dport { 22, 5900 } drop"
+    # reject, not drop: a refused login says so at once instead of timing out
+    admin_allowed || echo "        iifname \"$1\" tcp dport { 22, 5900 } reject with tcp reset"
 }
 
 # share_rules IFACE: the hotspot's firewall, table inet rasqberry_hotspot
