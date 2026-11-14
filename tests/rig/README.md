@@ -21,7 +21,9 @@ boot.
 - Usage counts: each run first puts `RQ_UMAMI=0` into the Pi's
   `/usr/config/rasqberry_environment.env`, so rig demo starts, health checks
   and updates do not count in the project's Umami statistics. A freshly
-  flashed rig card counts its first start once, before the first run.
+  written rig card would still count its first start: put an empty file
+  `rasqberry-internal` on its FAT partition (CONFIG on A/B cards, bootfs on
+  standard ones) right after writing it.
 
 ## Running
 

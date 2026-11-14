@@ -55,18 +55,22 @@ The health check calls boot_started() and boot_finished(). Shell scripts send
 in the background with rq_count_event (rq_common.sh).
 
 Environment: RQ_UMAMI=0 sends nothing (also read from
-  /usr/config/rasqberry_environment.env, for rig and development Pis).
-  Tests: RQ_UMAMI_URL, RQ_UMAMI_STATE, RQ_UMAMI_RUN_DIR, RQ_UMAMI_ENV_FILE, RQ_VERSION_FILE,
+  /usr/config/rasqberry_environment.env, for rig and development Pis); so does
+  an empty file rasqberry-internal(.txt) on CONFIG (A/B) or bootfs (standard),
+  from the first start on.
+  Tests: RQ_BOOT_CONFIG_DIR, RQ_FW_DIR, RQ_UMAMI_URL, RQ_UMAMI_STATE, RQ_UMAMI_RUN_DIR, RQ_UMAMI_ENV_FILE, RQ_VERSION_FILE,
   RQ_DT_MODEL, RQ_MEMINFO, RQ_HEALTH_STATUS, RQ_IMAGER_STATE, RQ_NOW and the
   variables of rq_release_notice.py (RQ_SLOT_STATUS_FILE, RQ_SYSTEM_CACHE_DIR,
   RQ_SERIAL).
 """
 
 import fcntl
+import functools
 import json
 import logging
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -118,6 +122,9 @@ DT_MODEL = "/proc/device-tree/model"
 MEMINFO = "/proc/meminfo"
 HEALTH_STATUS = "/var/lib/rasqberry-health-check.status"
 IMAGER_STATE = "/var/lib/rasqberry"
+# An empty file on CONFIG (A/B) or bootfs (standard) marks a rig/test card: it
+# never counts. Not a slot's bootfs on A/B: the next update switches it away.
+INTERNAL_MARKERS = ("rasqberry-internal", "rasqberry-internal.txt")   # .txt: as Windows saves it
 
 LAST_REPLY = {}
 
@@ -141,8 +148,20 @@ def _env_file_value(key):
     return value
 
 
+@functools.lru_cache(maxsize=None)
+def internal_card():
+    """True on a card we marked as ours (INTERNAL_MARKERS): rig and test cards."""
+    config = os.environ.get("RQ_BOOT_CONFIG_DIR") or "/boot/config"
+    dirs = [config]
+    if not os.path.exists(os.path.join(config, "autoboot.txt")):   # standard card: bootfs
+        dirs.append(os.environ.get("RQ_FW_DIR") or "/boot/firmware")
+    return any(os.path.exists(os.path.join(d, m)) for d in dirs for m in INTERNAL_MARKERS)
+
+
 def enabled():
-    """False when RQ_UMAMI is 0/false/no/off (environment, else the environment file)."""
+    """False on a marked card (internal_card) or when RQ_UMAMI is 0/false/no/off."""
+    if internal_card():
+        return False
     value = os.environ.get("RQ_UMAMI")
     if value is None:
         value = _env_file_value("RQ_UMAMI")
@@ -375,6 +394,10 @@ def flush(seconds=FLUSH_SECONDS, now=None):
     Returns:
         int: events sent
     """
+    if internal_card():
+        # queued before the card was marked: never sent, even if the mark goes
+        shutil.rmtree(_queue_dir(), ignore_errors=True)
+        return 0
     if not enabled():
         return 0
     now = now or rn.now_utc()
@@ -636,7 +659,8 @@ def main(argv=None):
             data = dict(a.split("=", 1) for a in argv[1:] if "=" in a) or {"source": "dev-test"}
             ok = send("test event", data)
             print(f"HTTP {LAST_REPLY.get('status')}: {LAST_REPLY.get('body') or LAST_REPLY.get('error')}"
-                  if enabled() else "RQ_UMAMI=0: nothing sent")
+                  if enabled() else "this card is marked as ours (rasqberry-internal): nothing sent"
+                  if internal_card() else "RQ_UMAMI=0: nothing sent")
             return 0 if ok else 1
         else:
             print(__doc__.split("Usage:", 1)[1].split("Environment", 1)[0].rstrip(), file=sys.stderr)

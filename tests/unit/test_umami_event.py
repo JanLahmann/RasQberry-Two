@@ -141,6 +141,7 @@ def pi(tmp_path, monkeypatch, umami):
            "RQ_IMAGER_STATE": str(tmp_path / "imager"),
            "RQ_SLOT_STATUS_FILE": str(tmp_path / "slot-status"),
            "RQ_SYSTEM_CACHE_DIR": str(tmp_path / "cache"), "RQ_SERIAL": SERIAL,
+           "RQ_BOOT_CONFIG_DIR": str(tmp_path / "config"), "RQ_FW_DIR": str(tmp_path / "firmware"),
            "RQ_NOW": "2026-10-20T12:00:00Z"}
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -607,6 +608,40 @@ def test_rq_umami_0_in_the_environment_file(pi):
     assert pi.umami.requests == []
     (pi.tmp / "env").write_text('RQ_UMAMI="1"\n')
     assert pi.enabled()
+
+
+@pytest.mark.parametrize("where, name, ab, counted", [
+    (None, None, False, True),                                  # control: an unmarked card counts
+    ("config", "rasqberry-internal", True, False),              # A/B: CONFIG
+    ("config", "rasqberry-internal.txt", True, False),          # as Windows saves it
+    ("firmware", "rasqberry-internal", False, False),           # standard: bootfs
+    ("firmware", "rasqberry-internal", True, True),             # A/B: a slot's bootfs doesn't last
+])
+def test_a_card_marked_as_ours_never_counts(pi, monkeypatch, where, name, ab, counted):
+    # marked right after writing, so even the first start is skipped
+    if ab:
+        _ab(pi)
+    if where:
+        (pi.tmp / where).mkdir(exist_ok=True)
+        (pi.tmp / where / name).write_text("")
+    monkeypatch.setenv("RQ_UMAMI", "1")
+    assert pi.enabled() is counted
+    _boot(pi)
+    pi.daily()
+    pi.main(["demo-start", "grok-bloch", "menu"])
+    assert bool(pi.umami.events("first start")) is counted
+    assert bool(pi.umami.requests) is counted
+
+
+def test_events_queued_before_the_mark_are_never_sent(pi, monkeypatch):
+    monkeypatch.setenv("RQ_UMAMI_URL", _closed_port_url())
+    _boot(pi)                                   # offline: "first start" waits in the queue
+    assert pi.queued()
+    (pi.tmp / "config" / "rasqberry-internal").write_text("")
+    pi.internal_card.cache_clear()
+    monkeypatch.setenv("RQ_UMAMI_URL", pi.umami.url)
+    pi.flush()
+    assert not pi.queued() and pi.umami.requests == []
 
 
 def test_the_environment_variable_wins(pi, monkeypatch):
