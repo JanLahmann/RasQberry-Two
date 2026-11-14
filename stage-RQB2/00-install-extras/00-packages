@@ -32,3 +32,6 @@ qrencode
 # colour emoji for web pages, e.g. the game cards of the offline Fun with
 # Quantum portal (without it they show empty boxes)
 fonts-noto-color-emoji
+# switch USB port power (90 KB, no service): the rig power-cycles a camera
+# powered from a Pi's USB port; an apt install would be lost at each slot update
+uhubctl
