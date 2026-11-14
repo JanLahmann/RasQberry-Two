@@ -115,17 +115,22 @@ other Pi's crop.
 Before a Pi's LED demos, each run checks that this setup still holds (rows
 `led-setup: …` in the report):
 
-- **layout:** the Pi's `LED_LAYOUT` must be the `led_layout` given in rig.json
-  (`single-24x8` for the Pi 5 panel, `quad-4x12` for the Pi 4 one). A wrong
-  layout lights the panel but draws in the wrong place (Lights Out's grid in
-  one corner), which the lit score alone does not see.
-- **corners in the crop:** a 2x2 block in each corner of the logical matrix,
-  mapped through the Pi's layout, must light the four corners of `panel_crop`
-  with little in between. A crop that no longer frames the panel misses a
-  corner; a layout that doesn't match the wiring puts the blocks elsewhere.
+- **layout:** the layout the Pi resolves (as the demos do) must map like the
+  `led_layout` given in rig.json (`single-24x8` for the Pi 5 panel,
+  `quad-4x12` for the Pi 4 one); a differently named but identical layout
+  passes. A wrong layout lights the panel but draws in the wrong place
+  (Lights Out's grid in one corner), which the lit score alone does not see.
+- **corners in the crop:** a block in each corner of the logical matrix (3x3
+  at the origin, 2x2 elsewhere), mapped through the Pi's layout, must light
+  the four corners of `panel_crop`, the big one top left, with little in
+  between. A crop that no longer frames the panel misses a corner; a layout
+  that doesn't match the wiring puts the blocks elsewhere or the big one in
+  another corner (mirrored, upside down).
 
-If one fails, the run says so and does not judge that Pi's LED demos by the
-camera (they would only give wrong results). Frames: `<pi>-setup-*.png`.
+If the layout or the crop is wrong, the run says so and does not judge that
+Pi's LED demos by the camera (they would only give wrong results). A panel
+that stays dark is reported, but judging stays on: that is more likely the
+image's LED output, and the demos then fail "panel dark". Frames: `<pi>-setup-*.png`.
 - LED Painter starts with an empty canvas: instead of the camera, the test
   checks that the LED renderer service that drives the panel is running.
 

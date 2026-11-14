@@ -496,11 +496,15 @@ def smoke_demo(pi, demo, seconds, camera, outdir, all_pis, docker):
     """
     Run one demo smoke test; for LED demos judge the panel with the camera.
 
-    A camera-judged LED demo holds PANEL_LOCK for its whole run, so no other
-    Pi (thread or harness process) lights its panel in the shared view.
+    With a camera, an LED demo holds PANEL_LOCK for its whole run, so no other
+    Pi (thread or harness process) lights its panel in the shared view while
+    one is judged. It is judged unless the Pi's LED setup check failed.
     """
-    judged = bool(camera and demo["leds"] and pi.get("panel_crop") and pi.get("led_setup_ok", True))
-    with PANEL_LOCK if judged else contextlib.nullcontext():
+    # with a camera every LED demo holds the lock (it lights the shared view),
+    # judged or not
+    lit = bool(camera and demo["leds"])
+    judged = lit and bool(pi.get("panel_crop")) and pi.get("led_setup_ok", True)
+    with PANEL_LOCK if lit else contextlib.nullcontext():
         return _smoke_demo(pi, demo, seconds, camera if judged else None, outdir, all_pis, docker)
 
 
@@ -584,12 +588,15 @@ def launch_holder(pi, hold, pattern):
 
 
 # The corner pattern, judged inside panel_crop (fractions of the crop): each
-# corner block must light its own quarter's outer part; the band between them
-# (MIDDLE_X / MIDDLE_Y) must stay mostly dark.
+# corner block must light its own quarter's outer part, the origin's block
+# (3x3, the others 2x2) top left; the band between them must stay mostly dark.
 MIDDLE_X, MIDDLE_Y = (0.3, 0.7), (0.4, 0.6)
-CORNER_MIN_SHARE = 0.05    # of the lit pixels, in each corner
-MIDDLE_MAX_SHARE = 0.2     # of the lit pixels, between the corners
-MIN_LIT_PIXELS = 20        # at the 96x32 sampling below: "the pattern is out"
+CORNER_MIN_SHARE = 0.05    # of the lit samples, in each corner
+ORIGIN_MIN_RATIO = 1.4     # top left vs. the mean of the other corners (ideal 9/4)
+MIDDLE_MAX_SHARE = 0.2     # of the lit samples, between the corners
+SAMPLES = (96, 32)         # about 4 per LED of a 24x8 panel
+SAMPLE_LIT = 0.05          # share of a sample's camera pixels that must be lit
+MIN_LIT_SAMPLES = 20       # fewer: the pattern is not out (or the panel is dark)
 
 
 def corners_in_crop(frame, baseline, crop):
@@ -597,17 +604,20 @@ def corners_in_crop(frame, baseline, crop):
     Judge the corner pattern against panel_crop.
 
     A stale crop misses a corner; a layout that doesn't match the wiring puts
-    the blocks elsewhere (Lights Out's grid sat in one corner). Reflections on
-    the table are outside the crop and don't count.
+    the blocks elsewhere, or the origin's big block in another corner (mirrored
+    or upside down). Reflections on the table are outside the crop.
 
     Returns:
-        tuple: (True/False/None for "nothing lit yet", str: what the camera saw)
+        tuple: (True/False, or None while nothing is lit; str: what the camera saw)
     """
-    w, h = 96, 32   # about 4 samples per LED of a 24x8 panel
-    diff = lit_diff(frame, baseline, crop).resize((w, h)).getdata()
-    lit = [(i % w / w, i // w / h) for i, v in enumerate(diff) if v >= LIT_DELTA]
-    if len(lit) < MIN_LIT_PIXELS:
-        return None, f"almost nothing lit inside the crop ({len(lit)} samples)"
+    from PIL import Image
+    # lit per camera pixel (as lit_score judges), then the share per sample
+    lit_px = lit_diff(frame, baseline, crop).point(lambda v: 255 if v >= LIT_DELTA else 0)
+    w, h = SAMPLES
+    shares = lit_px.resize(SAMPLES, Image.BOX).getdata()
+    lit = [(i % w / w, i // w / h) for i, v in enumerate(shares) if v >= 255 * SAMPLE_LIT]
+    if len(lit) < MIN_LIT_SAMPLES:
+        return None, f"panel dark inside the crop ({len(lit)} lit samples)"
     corners = [[0, 0], [0, 0]]   # [bottom][right]
     middle = 0
     for fx, fy in lit:
@@ -621,52 +631,65 @@ def corners_in_crop(frame, baseline, crop):
         return False, f"no corner block in the crop's {', '.join(dark)}"
     if middle > MIDDLE_MAX_SHARE * len(lit):
         return False, f"{middle / len(lit):.0%} of the light between the corners"
-    return True, "a block in each corner of the crop"
+    others = (corners[0][1] + corners[1][0] + corners[1][1]) / 3
+    if corners[0][0] < ORIGIN_MIN_RATIO * others:
+        return False, "the origin's big block is not top left: the layout is mirrored or upside down"
+    return True, "a block in each corner of the crop, the origin's top left"
 
 
 def check_led_setup(pi, camera, outdir, all_pis):
     """
-    Before a Pi's LED demos: is its LED layout the one rig.json expects, and do
-    the panel's corners sit in the corners of its panel_crop? A stale crop made
-    lit demos look dark; a wrong layout drew Lights Out's grid in one corner and
-    still counted as lit. led_fill.py --corners maps the corners through the
-    layout as rq_led_utils resolves it (the demos' own lookup) and reports it.
+    Before a Pi's LED demos: does its LED layout map like the one rig.json
+    expects, and do the panel's corners sit in the corners of its panel_crop,
+    the right way round? A stale crop made lit demos look dark; a wrong layout
+    drew Lights Out's grid in one corner and still counted as lit.
+    led_fill.py --corners maps the corners through the layout as rq_led_utils
+    resolves it (the demos' own lookup) and reports it.
 
     Returns:
         tuple: (report rows, True if this Pi's LED demos can be judged by the camera)
     """
     want, crop = pi.get("led_layout"), pi.get("panel_crop")
     frame = outdir / f"{pi['name']}-setup-corners.png"
+    expect = f"--expect {shlex.quote(want)} " if want else ""
     with PANEL_LOCK:
         baseline, _ = (fresh_baseline(all_pis, camera, outdir / f"{pi['name']}-setup-baseline.png")
                        if camera and crop else (None, None))
         seen = (None, "no camera or panel_crop")
         try:
-            launch_holder(pi, 60, "--corners 80 80 80")
+            launch_holder(pi, 60, f"--corners {expect}80 80 80")
             end = time.time() + 20
             while baseline and time.time() < end:
                 seen = corners_in_crop(camera.grab(frame), baseline, crop)
                 if seen[0] is not None:
                     break
             # without the camera: wait until led_fill.py has reported the layout
-            wait_for(pi["host"], f"grep -q 'layout ' {REMOTE_DIR}/led_fill.log", 20, interval=1)
+            wait_for(pi["host"], f"grep -q '^led_fill: corners, ' {REMOTE_DIR}/led_fill.log", 20, interval=1)
         finally:
             stop_holder(pi)
         _, log = ssh(pi["host"], f"cat {REMOTE_DIR}/led_fill.log; {CLEAR_LEDS}", timeout=60)
-    m = re.search(r"layout (\S+)", log)
-    have = m.group(1) if m else f"unknown ({log.strip()[-120:] or 'led_fill.py wrote nothing'})"
-    if not want:
+    m = re.search(r"^led_fill: corners, layout (\S+?)(?:, matches \S+: (yes|no))?$", log, re.M)
+    if not m:
+        rows = [{"verdict": "FAIL", "name": "led-setup: layout",
+                 "detail": f"led_fill.py reported no layout: {log.strip()[-160:] or 'no output'}"}]
+    elif not want:
         rows = [{"verdict": "WARN", "name": "led-setup: layout",
-                 "detail": f"Pi has {have}; put \"led_layout\" into rig.json to check it"}]
+                 "detail": f"Pi has {m.group(1)}; put \"led_layout\" into rig.json to check it"}]
+    elif m.group(2) == "yes":
+        same = "" if m.group(1) == want else f" (maps like {want})"
+        rows = [{"verdict": "PASS", "name": "led-setup: layout", "detail": m.group(1) + same}]
     else:
-        rows = [{"verdict": "PASS" if have == want else "FAIL", "name": "led-setup: layout",
-                 "detail": have if have == want else f"Pi has {have}, rig.json expects {want}"}]
+        rows = [{"verdict": "FAIL", "name": "led-setup: layout",
+                 "detail": f"Pi has {m.group(1)}, rig.json expects {want}"}]
     if baseline:
         ok, what = seen
-        rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the crop",
-                     "detail": what if ok else f"{what} ({frame.name}): fix panel_crop in rig.json "
-                                               f"or the Pi's LED layout"})
-    judged = all(r["verdict"] != "FAIL" for r in rows)
+        detail = what if ok else f"{what} ({frame.name}): " + (
+            "the LED output or panel_crop" if ok is None else "fix panel_crop in rig.json or the Pi's LED layout")
+        rows.append({"verdict": "PASS" if ok else "FAIL", "name": "led-setup: corners in the crop", "detail": detail})
+    # a dark panel is more likely the image's LED output than the rig: keep
+    # judging, so the LED demos fail "panel dark" and point at it
+    failed = [r for r in rows if r["verdict"] == "FAIL"]
+    judged = not failed or (seen[0] is None and failed == rows[-1:] and baseline is not None)
     if not judged:
         rows.append({"verdict": "WARN", "name": "led-setup: camera judging",
                      "detail": "off for this Pi's LED demos (they would give wrong results)"})
@@ -855,10 +878,14 @@ def main():
                         d["type"] in ("jupyter", "browser", "web-static", "docker")
                         or DEMO_HINTS.get(d["id"], {}).get("web") for d in demos)
                         and browser_debug(pi, True))
-                    if any(d["leds"] for d in demos):
-                        rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"])
-                        section["rows"] += rows
                     try:
+                        if any(d["leds"] for d in demos):
+                            try:
+                                rows, pi["led_setup_ok"] = check_led_setup(pi, camera, outdir, cfg["pis"])
+                            except Exception as exc:   # the demos still run, unjudged
+                                rows, pi["led_setup_ok"] = [{"verdict": "FAIL", "name": "led-setup",
+                                                             "detail": f"harness: {exc}"}], False
+                            section["rows"] += rows
                         run_demos(pi, demos, section, args, camera, outdir, cfg)
                     finally:
                         if pi["web_check"]:
