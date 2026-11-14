@@ -32,6 +32,7 @@ print/ (Floor-all, NarrowYCryoConjoined, Wall-Base), so build those first.
 Usage:  python plugs.py [--outdir ROOT] [--only CryoPlug,WallPlug,...]
 """
 import argparse
+import functools
 import math
 import sys
 from pathlib import Path
@@ -41,13 +42,15 @@ import shapely.geometry as sg
 import trimesh
 from build123d import Cylinder, Pos
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+CAD = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(CAD), str(CAD / "wall")]
 from rqb_cad import OUTPUT, bbox_size, check_solid, export_part  # noqa: E402
 from floor_model import prism, top_chamfer  # noqa: E402
+from screw_nut import PARAMS as SCREW  # noqa: E402
 
 PARAMS = dict(
     clearance=0.05,      # plug outline inside the tightest opening
-    bore_d=20.0,
+    bore_d=SCREW["bore_d"],   # the hollow screw's cable passage
     test_plate=3.0,
     # cryostat plug
     cryo_flange=2.0, cryo_rim=4.0,   # flange under the floor plate, rim beyond the hole
@@ -71,12 +74,16 @@ HOLES = dict(
 )
 
 
+@functools.cache
+def load(path):
+    return trimesh.load(OUTPUT / path, force="mesh")
+
+
 def hole(spec):
     """The hole of the part's section at z that contains point `pt`,
     moved so that `pt` is the origin."""
     path, z, pt = spec
-    m = trimesh.load(OUTPUT / path, force="mesh")
-    for loop in m.section([0, 0, 1], [0, 0, z]).discrete:
+    for loop in load(path).section([0, 0, 1], [0, 0, z]).discrete:
         p = sg.Polygon(loop[:, :2])
         if p.contains(sg.Point(pt)) and p.area < 2000:
             return sa.translate(p.buffer(0), -pt[0], -pt[1])
@@ -84,7 +91,8 @@ def hole(spec):
 
 
 def bored(body, top, prm):
-    """`body` with the cable bore all through (z 0..top)."""
+    """`body` with the cable bore all through (z 0..top; 0.5 mm beyond both
+    ends so no faces coincide)."""
     return (body - Pos(0, 0, top / 2) * Cylinder(prm["bore_d"] / 2, top + 1)).clean()
 
 
@@ -105,9 +113,7 @@ def shared_hexagon(holes, clearance):
     outline has short facets that the lead-in chamfer cannot follow. The
     tightest is the floor's cryostat hole, as in the tested plugs; the wall
     holes get about 0.13 mm."""
-    common = holes["cryo"]
-    for h in holes.values():
-        common = common.intersection(h)
+    common = functools.reduce(sg.Polygon.intersection, holes.values())
     r = (sg.Point(0, 0).distance(common.exterior) - clearance) / math.cos(math.pi / 6)
     hexagon = sg.Polygon([(r * math.cos(k * math.pi / 3), r * math.sin(k * math.pi / 3))
                           for k in range(6)])
@@ -154,13 +160,14 @@ def main():
     ap.add_argument("--formats", default="stl,step")
     a = ap.parse_args()
     holes = {k: hole(v) for k, v in HOLES.items()}
-    cryo, wall = cryo_plug(holes), wall_plug(holes)
+    cryo = functools.cache(lambda: cryo_plug(holes))
+    wall = functools.cache(lambda: wall_plug(holes))
     builds = {
-        "CryoPlug": lambda: cryo,
-        "CryoPlugTest": lambda: with_plates(cryo, [(holes["floor_cryo"], 60, (0, 60)),
+        "CryoPlug": cryo,
+        "CryoPlugTest": lambda: with_plates(cryo(), [(holes["floor_cryo"], 60, (0, 60)),
                                                    (holes["cryo"], 50, (0, -55))]),
-        "WallPlug": lambda: wall,
-        "WallPlugTest": lambda: with_plates(wall, [(holes["floor_wall"], 40, (0, 50)),
+        "WallPlug": wall,
+        "WallPlugTest": lambda: with_plates(wall(), [(holes["floor_wall"], 40, (0, 50)),
                                                    (holes["wall"], 40, (50, 50))]),
     }
     for key in a.only.split(","):
