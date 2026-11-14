@@ -527,7 +527,7 @@ def test_probe_image_refuses_without_marking_the_slot(tmp_path):
 def test_the_update_checks_and_probes_before_it_writes():
     text = open(_SCRIPT).read()
     main = text[text.index("main() {"):]
-    assert main.index("download_image ") < main.index("verify_checksum ")
+    assert main.index("stage_image ") < main.index("verify_checksum ")
     assert main.index("verify_checksum ") < main.index("probe_image ")
     assert main.index("probe_image ") < main.index("write_image_to_slot ")
     body = text[text.index("write_image_to_slot() {"):text.index("cleanup_download() {")]

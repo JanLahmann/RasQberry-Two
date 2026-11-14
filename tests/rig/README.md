@@ -44,6 +44,14 @@ slot and its health check, then tests it. The running slot is never written; it
 stays as the way back. The guard's questions are answered yes
 (`--allow-downgrade --force-replace-safe-slot`): the operator chose the release.
 
+The image is downloaded from GitHub once per release into
+`~/.cache/rasqberry-rig/images/` (or `RIG_IMAGE_CACHE`; the newest 3 releases
+are kept), checked against GitHub's SHA256 and copied to the Pi, where the
+updater uses it instead of downloading (`--image-file`), so rig updates don't
+show up as GitHub downloads. Each GitHub download the cache makes is logged in
+`~/.local/share/rasqberry-rig/own-image-downloads.csv` (date_utc, tag, asset,
+bytes, purpose), for the download statistics to subtract.
+
 The report goes to `results/<timestamp>/report.md`, with a desktop screenshot per
 demo and, for LED demos, the camera frame. Exit status 1 if anything failed.
 
