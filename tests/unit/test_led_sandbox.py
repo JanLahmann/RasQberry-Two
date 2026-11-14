@@ -110,3 +110,16 @@ def test_the_sandbox_on_linux(tmp_path):
                        ".config/sense_hat/RTIMULib.ini", ".sensehat/fb",
                        ".cache/rasqberry-led-sandbox/fontconfig/x"}, out
     assert "cache=/home/ada/.cache/rasqberry-led-sandbox" in out
+
+
+def test_only_the_display_and_sound_sockets_of_the_runtime_folder():
+    # of /run/user/UID only what LED programs use (review C3)
+    sh = open(_COMMON).read()
+    mounts = sh[sh.index("_RQ_LED_MOUNTS='"):]
+    mounts = mounts[:mounts.index("exec \"$@\"'")]
+    assert 'mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID" tmpfs "$rt"' in mounts
+    keep = mounts[mounts.index("for f in "):].split("\n", 1)[0]
+    assert {w.rstrip(";") for w in keep.split()[3:-1]} == {"wayland-0", "wayland-0.lock", "pipewire-0", "pipewire-0.lock", "pulse"}
+    assert "mount --bind /dev/null /run/dbus/system_bus_socket" in mounts
+    call = sh[sh.index("rq_led_as_user() {"):]
+    assert 'RQ_LED_RT="${rt:-/run/user/$uid}"' in call[:call.index("\n}\n")]

@@ -750,8 +750,10 @@ led_clear_quietly() {
 # Docker, which is root by another name). In its own mount namespace the
 # whole home is read-only (rq_led_sandbox_mounts), so it cannot change or add
 # what root or a later login runs; it writes only to its own folder and a few
-# others LED demos use. It keeps the desktop, the network and the user's
-# sound (PipeWire).
+# others LED demos use. Of the user's runtime folder (/run/user/UID) it sees
+# only the display and sound sockets (Wayland, PipeWire, Pulse), and not the
+# system bus. It keeps the network. More isolation (desktop input, separate
+# accounts) belongs with #333 classroom security.
 # It stays a child of the launcher (unshare + setpriv, not a systemd unit), so
 # Enter, Ctrl+C, a closed window and the menu's stop (a signal to the
 # launcher's process group) all reach it as before.
@@ -881,6 +883,29 @@ rq_led_sandbox_mounts() {
 # fails stops the demo; a writable path that is not a directory of its own
 # (missing, a symlink) is left as it is.
 _RQ_LED_MOUNTS='n=$1; shift
+# the runtime folder: only the display and sound sockets (RQ_LED_RT_*)
+rt=${RQ_LED_RT:-}
+if [ -n "$rt" ] && [ -d "$rt" ]; then
+    keep=/run/rasqberry/led-sandbox-keep
+    mkdir -p "$keep" || exit 97
+    mount -t tmpfs -o mode=0700 tmpfs "$keep" || exit 97
+    for f in wayland-0 wayland-0.lock pipewire-0 pipewire-0.lock pulse; do
+        [ -e "$rt/$f" ] || continue
+        if [ -d "$rt/$f" ]; then mkdir "$keep/$f"; else : > "$keep/$f"; fi
+        mount --bind "$rt/$f" "$keep/$f" || exit 97
+    done
+    mount -t tmpfs -o "mode=0700,uid=$RQ_LED_RT_UID,gid=$RQ_LED_RT_GID" tmpfs "$rt" || exit 97
+    for f in "$keep"/*; do
+        [ -e "$f" ] || continue
+        b=${f##*/}
+        if [ -d "$f" ]; then mkdir "$rt/$b"; else : > "$rt/$b"; fi
+        mount --bind "$f" "$rt/$b" || exit 97
+    done
+fi
+# the system bus: not for LED programs
+if [ -S /run/dbus/system_bus_socket ]; then
+    mount --bind /dev/null /run/dbus/system_bus_socket || exit 97
+fi
 for ((i = 0; i < n; i++)); do
     mode=${1%% *}; p=${1#* }; shift
     case "$mode" in
@@ -926,6 +951,7 @@ rq_led_as_user() {
     # (setpriv refuses an empty --groups= list)
     local grp_opt="--clear-groups"
     [ -z "$groups" ] || grp_opt="--groups=${groups#,}"
+    RQ_LED_RT="${rt:-/run/user/$uid}" RQ_LED_RT_UID="$uid" RQ_LED_RT_GID="$gid" \
     unshare --mount --propagation private -- bash -c "$_RQ_LED_MOUNTS" _ "${#mounts[@]}" "${mounts[@]}" \
         setpriv --reuid="$uid" --regid="$gid" "$grp_opt" \
             --no-new-privs --bounding-set=-all --inh-caps=-all -- \
